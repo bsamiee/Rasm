@@ -1,6 +1,6 @@
 # [FABRICATION_ARCHITECTURE]
 
-The domain map of `Rasm.Fabrication` — the host-neutral AEC-DOMAIN portable-fabrication owner over the `Rasm` kernel. HLR/hidden-line projection, CAM toolpath plus serial-chain kinematics, 2D true-shape nesting, and a portable cut-program emitter over a shared Clipper2 polygon floor.
+The domain map of `Rasm.Fabrication` — the host-neutral AEC-DOMAIN portable-fabrication owner over `{Rasm, Rasm.Element}` (the kernel plus the shared lowest-AEC element seam). HLR/hidden-line projection, CAM toolpath plus serial-chain kinematics, 2D true-shape nesting, and a portable cut-program emitter over a shared Clipper2 polygon floor. It depends up on the element seam as a future third `IElementProjection` (one registration row) and references no AEC peer — alignment travels through the seam contracts and the content-keyed wire, never sibling coupling.
 
 Each codemap node is the eventual source file its `.planning/` design page becomes, named in the language's own folder and file casing — PascalCase `.cs`, lowercase `.py`, lowercase `.ts`. Treat every node as realized code; the `.planning/` scaffold is the authoring substrate, never part of the map.
 
@@ -37,6 +37,7 @@ The `Process` owner and the `Polygon` substrate are read by every kernel, the `P
 ## [02]-[SEAMS]
 
 ```text seams
+*                   →  csharp:Rasm.Element/Projection            # [CONTRACT]: depends up on {Rasm, Rasm.Element}; a future FabricationProjector:IElementProjection lowers fabrication output onto the seam ElementGraph as one registration row — AEC peers align via the seam, never each other [§4A]
 Posting/projection  ←  csharp:Rasm/Geometry/Numerics             # [WIRE]: Predicate.Orient2D/Orient3D exact silhouette/winding verdict
 Posting/projection  ←  csharp:Rasm/Geometry/Meshing/arrangement  # [WIRE]: Arrangement Apply/ToMesh kept-cell watertight outline for the BooleanSolid silhouette arm
 Posting/projection  ←  csharp:Rasm/Geometry/Healing              # [WIRE]: BooleanOp union/difference/intersection the BooleanSolid carries

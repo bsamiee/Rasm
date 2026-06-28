@@ -1,385 +1,172 @@
-# [PERSISTENCE_SERVER_PROVISIONING]
+# [PERSISTENCE_STORE_PROVISIONING]
 
-Rasm.Persistence holds two disjoint deploy-time owners on the self-provisioned PostgreSQL 18.4 server tier: `Bm25Predicate`/`SearchProjection`, the `pg_search` `@@@`/`pdb.*` query-projection axis whose query values bind as `$N` parameters and whose column/operator tokens interpolate at one closed-vocabulary seam; and `ClusterConfig`, the GUC-fragment owner that verifies `postgresql.conf` settings read-only against `pg_settings` into a typed `GucVerdict`. The verification fold is the shared contract: `Version/recovery#RECOVERY_LANES` hands it the `wal_level`/`archive_mode`/`archive_command` replication triad, `Store/encryption#AT_REST` the `data_encryption` TDE fragment, `Query/transaction#TWO_PHASE` the `max_prepared_transactions` floor, and `Version/retention#AUDIT_BINDING` the bound `pgaudit.log` audit classes; the owner carries the io/memory/WAL/autovacuum/checksums/preload baseline rows and folds every consumer's fragments through one `GucKind`-dispatched comparison — a `Required` miss aborts, a `Degradable` fragment satisfied by its fallback or a `pending_restart` fix folds a degrade receipt, an `Observational` gap records evidence only. The server-tier raw-SQL provisioning fold (`SchemaDdl.Sql`, the `Hypertable`/`ContinuousAggregate`/`RetentionPolicy`/`ColumnstorePolicy`/`DiskAnn`/`Bm25` index-build cases, `ProvisionSql`, `DiskAnnOptions`) is owned whole at `Schema/ddl#EXTENSION_DDL` and consumed here as settled; the service-deploy migration gate (`SchemaGate.Admit`, `MigrationLaw.Plan`/`Vehicle`/`Script`, `DeployVehicle`, `LockLightStep`, `SchemaEpoch`, `MigrationReceipt`) is owned whole at `Schema/migration` and consumed here as settled. This page mints no migration gate and no `SchemaDdl` case — those owners arrive resolved. The spine is Npgsql, Thinktecture vocabulary, LanguageExt rails, and NodaTime.
-
-Wire posture: this page is host-local — both owners emit or verify server-side artifacts against the deploy-image PostgreSQL, crossing no browser or peer wire, so it carries no `TS_PROJECTION` cluster. The preload-gated companions verify through the `Store/profiles#PROVISIONING_ROWS` `PreloadProbe` against the `ClusterConfig` `Preload` `shared_preload_libraries` fragment before any provisioning step runs.
+Rasm.Persistence provisions the PostgreSQL 18 server tier as VERIFICATION-FIRST: the server extensions every analytical and graph lane needs (`pg_duckdb`, `timescaledb-toolkit`, `postgis_raster`, `postgis_sfcgal`, `pgvector`, `pgvectorscale`, `pg_search`, `apache-age`, `h3-pg`, `pgrouting`, `pg_cron`, `pg_partman`, `pg_net`, `pg_graphql`) are admitted through raw `CREATE EXTENSION` SQL gated by each extension's preload/type/access-method requirement, and the cluster configuration (`shared_preload_libraries`, `wal_level=logical`, the memory/parallelism knobs) is READ and VERIFIED against the required set — a Rasm process NEVER executes runtime `ALTER SYSTEM` and NEVER spawns or bundles PostgreSQL, so provisioning is a typed `ProvisionVerdict` over what the operator-provisioned cluster already carries. Each extension is a `ServerExtension` row carrying its `CREATE EXTENSION` SQL, its preload requirement, and the lane it serves; `ClusterConfig` reads the `pg_settings`/`pg_available_extensions` catalogs into the verdict. Beneath the server tier the embedded SQLite floor (`Microsoft.Data.Sqlite` over `SQLitePCLRaw.bundle_e_sqlite3`) is the same idempotent open ritual (PRAGMA ladder, WAL, capability registration) for a single-process embedded store — the one engine sweep is closed, no second relational engine is admitted. `ClockPolicy`, `ReceiptSinkPort` arrive from AppHost; `Npgsql`/`Microsoft.Data.Sqlite` from the substrate; the analytical lanes that consume the extensions arrive from `Query/columnar`/`Query/cypher`.
 
 ## [01]-[INDEX]
 
-- [01]-[BM25_PROJECTION]: the `pg_search` `@@@`/`pdb.*` query-projection axis, `$N`-parameterized so query values never interpolate as literals.
-- [02]-[CLUSTER_CONFIG]: the shared `postgresql.conf` GUC-fragment verifier — baseline server rows plus every consumer's fragments folded read-only against `pg_settings` into a degrade-or-abort `GucVerdict`.
+- [01]-[SERVER_EXTENSIONS]: the extension roster, the preload-gated `CREATE EXTENSION` provisioning, and the cluster-config verification.
+- [02]-[EMBEDDED_FLOOR]: the embedded SQLite open ritual, the WAL/pragma ladder, and the closed-engine law.
 
-## [02]-[BM25_PROJECTION]
+## [02]-[SERVER_EXTENSIONS]
 
-- Owner: `Bm25Predicate` is the `pg_search` `@@@`/`pdb.*`/bare-column-operator query-projection algebra and `SearchProjection` its relevance/highlight/facet projection surface — the C# image of `.api/api-pg-search.md` sections `[03]`/`[04]`/`[05]`, consumed at `Query/lanes#SEARCH_LANES` by `HybridRetrieve.LexicalBranch` and folded into the row store by `FromSql`/`SqlQuery`. Every query VALUE is a `$N` bound parameter, never a literal; only the column, operator, relation, and namespace tokens — a closed vocabulary — interpolate, so the `[TWO_DOOR_ROUTING]` law "holes become parameters mechanically" holds at the one place runtime text reaches the engine.
-- Cases: bare column operators (`AnyToken` `|||`, `AllToken` `&&&`, `ExactTerm` `===`, `Phrase` `###`); the `@@@` builders (`Parse`; `Match` — the analyzed builder carrying an inline tokenizer override, fuzzy `distance`/`prefix`, and `conjunction_mode` in one fragment, the column-targeted superset of the bare token operators; `RangeTerm` — range value cast to its range type, `RangeRelation` the positional `Intersects`/`Contains`/`Within` vocabulary, never a bound value; `PhrasePrefix` defaulting `max_expansions => 50`; `MoreLikeThis` over the `MoreLikeSource` `key_value`/`document` two-form carrying the full `MoreLikeTuning` term-selection surface — `min_term_frequency`/`min_doc_frequency`/`max_doc_frequency`/`max_query_terms`/`min_word_length`/`max_word_length`/`boost_factor`/`stopwords` — plus the key-form `fields` restriction array; `Regex`; `Exists` — the indexed field-presence builder; `All`); the two proximity builders (`Near` `##`, `OrderedNear` `##>` — `.api` `[03]` rows `[06]`/`[07]`); the cast-stack modifiers each over an inner predicate (`Fuzzy ::pdb.fuzzy`, `Boost ::pdb.boost`, `Const ::pdb.const`, `Slop ::pdb.slop`, `Token ::pdb.<tokenizer>` — `.api` `[04]` note); and `Boolean`, the must/should/must-not composite (`pdb.boolean(<clause> => ARRAY[…])`) keying each clause to one `ARRAY` of child predicates folded into one Tantivy boolean query. A modifier nests over any inner case and casts stack in cast order, so a new builder, operator, modifier, or tokenizer is one union case, never a sibling method. Every optional knob is `Option`-typed against its `NULL`-defaultable server arg, so only the set arguments emit and a fully-unset tuning yields the bare builder form.
-- Entry: `public Bm25Sql Sql(int from = 1)` is the total generated `Switch` projecting `Bm25Sql(string Text, Seq<string> Binds)` — the predicate fragment carries `$from…$N` placeholders threaded by the ordinal the arm advances, and `Binds` is the parallel value vector the `FromSql`/`SqlQuery` boundary parameterizes; a nested modifier or `Boolean` child re-bases its inner placeholders at `from + Binds.Count` so one tree yields one contiguous parameter run. `SearchProjection` members project the `key_field`-anchored `pdb.score`/`pdb.snippet`/`pdb.snippets`/`pdb.snippet_positions`/`pdb.agg` SQL as bare strings — they sit in `SELECT`/`ORDER BY` beside the `WHERE` predicate, carry no runtime VALUE, and interpolate their author-fixed tags/sort/agg-spec config at the same seam the column identifier uses, so they never collide with the predicate's ordinal run.
-- Auto: the BM25 index answers through `@@@` builder dispatch (`pdb.parse`/`pdb.match`/`pdb.range_term`/`pdb.phrase_prefix`/`pdb.more_like_this`/`pdb.regex`/`pdb.exists`/`pdb.all`/`pdb.boolean`), the bare `|||`/`&&&`/`===`/`###` column operators, the `##`/`##>` proximity forms, and the `pdb.score`/`pdb.snippet` projections beside the always-present native FTS baseline — a profile without `pg_search` preloaded routes `HybridRetrieve.LexicalBranch(pgSearch: false)` to the `ts_rank` projection inside the same fusion CTE. The `0.24.x` line is the v2 `pdb.*` API — the legacy `paradedb.*` namespace is removed, so only the `pdb` schema and the bare operators are ever emitted. The snippet projections default `<b>`/`</b>` tags and `150` `max_num_chars` (`.api` `[05]`); `pdb.agg` carries an Elasticsearch-shaped aggregation document for facet/metric rollups over the matched set. The `key_field` is the `UNIQUE`/primary column the index lists first and every `pdb.score`/`pdb.snippet` anchors on, so the fusion projects identities and re-queries the row store rather than re-materializing payloads.
-- Receipt: the `search.bm25.score` fact on `Query/lanes#SEARCH_LANES` reads the live `pdb.score` the index serves and the `search.vector.route` fact the planner's chosen route; this axis projects SQL and owns no provisioning step, so it folds no `StoreFact` of its own.
-- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core
-- Growth: a new `pdb.*` builder, bare operator, proximity form, cast modifier, tokenizer cast, or boolean-composite arm is one `Bm25Predicate` union case; a new term-selection knob on `more_like_this` is one `Option` field on the `MoreLikeTuning` value object the builder already threads; a new relevance/highlight/facet projection is one `SearchProjection` member; zero new surface.
-- Boundary: `pg_search` runs in-process inside the PG18 server tier, never linked into managed code, so its AGPL boundary is the DB deployment; this axis is its C# query-projection image only. The index-build DDL (`SchemaDdl.Bm25`, one `CREATE INDEX … USING bm25` per table keyed `key_field`-first) and the extension's preload-gated install are owned at `Schema/ddl#EXTENSION_DDL` and consumed as settled — this section owns the query-time predicate algebra, never the index declaration. The column-type and the embedding/full-text query shape (`FullTextQuery`, `EmbeddingArity`, `HybridRetrieve.Fuse`) are owned at `Query/lanes#SEARCH_LANES`; that lane binds `$terms` into `corpus @@@ pdb.parse($terms)`, so `Bm25Predicate.Sql()` MUST project the same `$N`-parameter shape — a literal-interpolated query value here would fork the binder and reopen the injection surface the parameter run closes. The cast-stacking law is `pg_search`'s own (`'q'::pdb.fuzzy(2)::pdb.boost(2)` applies typo tolerance then a score multiplier); the union models it by nesting, never by a combinatorial method family.
+- Owner: `ServerExtension` the `[SmartEnum<string>]` extension axis carrying its `CREATE EXTENSION` SQL, its `Preload` requirement, and the lane it serves; `ClusterSetting` the verified-setting vocabulary; `ProvisionVerdict` the closed verification verdict; `ClusterConfig` the static surface reading the catalogs and folding the required set into the verdict — never executing `ALTER SYSTEM`.
+- Cases: `ServerExtension` rows — `pg_duckdb` (preload, the in-PG DuckDB analytical bridge), `timescaledb-toolkit` (preload, hypertable/continuous-aggregate analytics), `postgis_raster`/`postgis_sfcgal` (PostGIS raster + exact 3D geometry), `pgvector`/`pgvectorscale` (the HNSW + diskann ANN tier), `pg_search` (ParadeDB BM25), `apache-age` (preload, the optional openCypher graph, `Query/cypher`), `h3-pg` (the in-PG H3 cell index matching `pocketken.H3`), `pgrouting` (the network routing, `Query/cypher#ROUTING_LANE`), `pg_cron` (preload, in-database maintenance scheduler), `pg_partman` (declarative partition maintenance), `pg_net` (async HTTP from SQL), `pg_graphql` (in-PG GraphQL reflection); `ProvisionVerdict` is `Provisioned | MissingExtension | MissingPreload | SettingDrift`.
+- Entry: `public static IO<ProvisionVerdict> Verify(NpgsqlDataSource source, Seq<ServerExtension> required)` reads `pg_available_extensions`/`pg_extension` and the `shared_preload_libraries` setting and folds the required set into one verdict; `public static IO<Fin<Unit>> Admit(IDocumentSession session, ServerExtension extension)` runs the `CREATE EXTENSION IF NOT EXISTS` SQL for an extension whose preload requirement the cluster already satisfies, never for one that needs an un-loaded library.
+- Auto: provisioning is verification-first — `Verify` reads `pg_available_extensions` (installed but not created), `pg_extension` (created), `current_setting('shared_preload_libraries')`, and the `pg_settings` rows for every `ClusterSetting` (`wal_level=logical` plus the parallelism/worker knobs) then folds the required roster into `Provisioned` or a typed gap, a setting whose live value fails its row's `Satisfied` check folding `SettingDrift(name, expected, actual)`; a preload-gated extension (`pg_duckdb`/`timescaledb-toolkit`/`apache-age`/`pg_cron`) whose library is absent from `shared_preload_libraries` is `MissingPreload` (the operator must add it to the cluster config and restart, never a runtime `ALTER SYSTEM`); a created extension is admitted through `CREATE EXTENSION IF NOT EXISTS` inside the one `IDocumentSession` so the DDL commits with the schema migration; the `h3-pg` cell id matches the managed `pocketken.H3` so the same cell indexes at ingest and in SQL.
+- Receipt: a verification rides `store.provision.verify` carrying the verdict and the missing set; an admission rides `store.provision.admit` carrying the extension.
+- Packages: Npgsql, Marten, NodaTime, LanguageExt.Core, Thinktecture.Runtime.Extensions, BCL inbox.
+- Growth: a new server extension is one `ServerExtension` row carrying its SQL and preload requirement; a new verified setting is one `ClusterSetting` row; zero new surface — a runtime `ALTER SYSTEM`, a Rasm-spawned PostgreSQL, a per-extension managed package, or a second relational engine row is the deleted form because provisioning is verification-first SQL and the engine sweep is closed.
+- Boundary: a Rasm process NEVER spawns or bundles PostgreSQL and NEVER executes runtime `ALTER SYSTEM` — provisioning is verification-only over the operator-provisioned cluster, so a `MissingPreload`/`SettingDrift` verdict is a typed signal the operator resolves at the cluster config, never a self-mutation; the server extensions carry no managed assembly and are admitted through raw `CREATE EXTENSION` SQL gated by each extension's preload/type/access-method requirement; the `pg_duckdb` extension is the in-PG DuckDB bridge distinct from the in-process `DuckDB.NET` analytical lane (`Query/columnar`), the two meeting at the columnar SQL surface; `apache-age` is the OPTIONAL self-hosted openCypher graph (`Query/cypher#CYPHER_LANE`) demoted beneath the in-process QuikGraph, so its admission is gated and the lane is disabled by default; spatial→PG GiST (`postgis_raster`/`postgis_sfcgal`) and ANN→`pgvector`/`pgvectorscale` are the transactional index owners while DuckDB `spatial`/`vss` are the columnar aggregators (`L2`), never duplicated.
 
 ```csharp signature
-public readonly record struct Bm25Sql(string Text, Seq<string> Binds) {
-    public Bm25Sql Nest(Func<string, string> wrap) => this with { Text = wrap(Text) };
+public sealed class ProvisionKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
+    public static IEqualityComparer<string> EqualityComparer => StringComparer.Ordinal;
+    public static IComparer<string> Comparer => StringComparer.Ordinal;
 }
 
-// The three `pdb.boolean` clause keys; the `Key` is the named-argument token the builder emits.
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<StoreKeyPolicy, string>]
-public sealed partial class BoolClause {
-    public static readonly BoolClause Must = new("must");
-    public static readonly BoolClause Should = new("should");
-    public static readonly BoolClause MustNot = new("must_not");
+[KeyMemberEqualityComparer<ProvisionKeyPolicy, string>]
+[KeyMemberComparer<ProvisionKeyPolicy, string>]
+public sealed partial class ServerExtension {
+    public static readonly ServerExtension PgDuckdb = new("pg_duckdb", preload: true);
+    public static readonly ServerExtension TimescaleToolkit = new("timescaledb_toolkit", preload: true);
+    public static readonly ServerExtension PostgisRaster = new("postgis_raster", preload: false);
+    public static readonly ServerExtension PostgisSfcgal = new("postgis_sfcgal", preload: false);
+    public static readonly ServerExtension Pgvector = new("vector", preload: false);
+    public static readonly ServerExtension Pgvectorscale = new("vectorscale", preload: false);
+    public static readonly ServerExtension PgSearch = new("pg_search", preload: false);
+    public static readonly ServerExtension ApacheAge = new("age", preload: true);
+    public static readonly ServerExtension H3Pg = new("h3", preload: false);
+    public static readonly ServerExtension Pgrouting = new("pgrouting", preload: false);
+    public static readonly ServerExtension PgCron = new("pg_cron", preload: true);
+    public static readonly ServerExtension PgPartman = new("pg_partman", preload: false);
+    public static readonly ServerExtension PgNet = new("pg_net", preload: false);
+    public static readonly ServerExtension PgGraphql = new("pg_graphql", preload: false);
+    public bool Preload { get; }
+    private ServerExtension(string key, bool preload) : this(key) => Preload = preload;
+    public string CreateSql => $"CREATE EXTENSION IF NOT EXISTS {Key} CASCADE;";
 }
 
-// The `pdb.range_term` relation: a closed Tantivy vocabulary, emitted as the positional PascalCase token
-// (`'Intersects'`), never a `$N` bind — a relation is grammar at the identifier seam, not a query VALUE.
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<StoreKeyPolicy, string>]
-public sealed partial class RangeRelation {
-    public static readonly RangeRelation Intersects = new("Intersects");
-    public static readonly RangeRelation Contains = new("Contains");
-    public static readonly RangeRelation Within = new("Within");
-}
-
-// The `pdb.more_like_this` probe source: the `key_field` value of an indexed document (positional
-// `$N`, with the optional `fields => ARRAY[...]` restriction) or a JSON document (positional `$N::json`).
-// The two `pg_search` overloads (`more_like_this_id`/`more_like_this_fields`) resolve on the first
-// argument's type, so the case selects the bind cast and whether the `fields` restriction emits; the
-// value always binds, never quotes in. `Fields` is honored on `Key` only (the JSON document form names
-// its own fields), so an empty `Fields` on a `Document` source is a no-op the builder drops.
-[Union<long, string>(T1Name = "Key", T2Name = "Document")]
-public readonly partial struct MoreLikeSource;
-
-// The `pdb.more_like_this` term-selection tuning (`mlt.rs` `more_like_this_id`/`more_like_this_fields`):
-// every knob is `NULL`-defaultable server-side, so `Option<int>`/`Option<double>` carries "unset" and the
-// builder emits only the bound named arguments — a fully-`None` tuning yields the bare `pdb.more_like_this($N)`
-// form. `Stopwords` binds as one `$N::text[]` array. One composed value, never eight flat record fields.
-public readonly record struct MoreLikeTuning(
-    Option<int> MinTermFrequency = default,
-    Option<int> MinDocFrequency = default,
-    Option<int> MaxDocFrequency = default,
-    Option<int> MaxQueryTerms = default,
-    Option<int> MinWordLength = default,
-    Option<int> MaxWordLength = default,
-    Option<double> BoostFactor = default,
-    Seq<string> Stopwords = default) {
-    public static readonly MoreLikeTuning None = new();
+[KeyMemberEqualityComparer<ProvisionKeyPolicy, string>]
+[KeyMemberComparer<ProvisionKeyPolicy, string>]
+public sealed partial class ClusterSetting {
+    public static readonly ClusterSetting WalLevel = new("wal_level", expected: "logical", atLeast: false);
+    public static readonly ClusterSetting MaxWorkerProcesses = new("max_worker_processes", expected: "8", atLeast: true);
+    public static readonly ClusterSetting MaxParallelWorkers = new("max_parallel_workers", expected: "8", atLeast: true);
+    public static readonly ClusterSetting MaxParallelWorkersPerGather = new("max_parallel_workers_per_gather", expected: "4", atLeast: true);
+    public string Expected { get; }
+    public bool AtLeast { get; }
+    private ClusterSetting(string key, string expected, bool atLeast) : this(key) => (Expected, AtLeast) = (expected, atLeast);
+    // A min-threshold knob is satisfied at or above its floor; an exact-match knob (wal_level) by value equality.
+    public bool Satisfied(string actual) => AtLeast
+        ? long.TryParse(actual, out var a) && long.TryParse(Expected, out var e) && a >= e
+        : string.Equals(actual, Expected, StringComparison.OrdinalIgnoreCase);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record Bm25Predicate {
-    private Bm25Predicate() { }
-
-    // Bare column operators: the value binds as `$N`, never a quoted literal. `AnyToken`/`AllToken` are
-    // the analyzed `match_disjunction`/`match_conjunction` route; `ExactTerm` the un-analyzed `===` term;
-    // `Phrase` the ordered `###`.
-    public sealed record AnyToken(string Column, string Query) : Bm25Predicate;
-    public sealed record AllToken(string Column, string Query) : Bm25Predicate;
-    public sealed record ExactTerm(string Column, string Term) : Bm25Predicate;
-    public sealed record Phrase(string Column, string PhraseText) : Bm25Predicate;
-    // The `@@@ pdb.match` analyzed builder carrying its per-match fuzzy `distance`/`prefix` and the
-    // `conjunction_mode` toggle in one fragment — the column-targeted, fuzzy-tolerant superset of the bare
-    // `AnyToken`/`AllToken` token operators. Every knob is `NULL`-defaultable, so `Option` carries "unset"
-    // and only the bound named args emit; the tokenizer override rides the `Token` cast case, never here.
-    public sealed record Match(string Column, string Query, Option<int> Distance, Option<bool> Prefix, Option<bool> ConjunctionMode) : Bm25Predicate;
-    // `@@@` builders. The range value binds as `$N::<rangeType>` (a full range literal cast to its range
-    // type), the relation is the positional bounded-vocabulary token, and the More-Like-This source is the
-    // closed two-form `key_value` (a `key_field` value, optionally field-restricted) or `document` (a JSON
-    // probe) the v2 builder admits, carrying its full term-selection tuning.
-    public sealed record Parse(string Column, string QueryString, bool Lenient, bool ConjunctionMode) : Bm25Predicate;
-    public sealed record RangeTerm(string Column, string Range, string RangeType, RangeRelation Relation) : Bm25Predicate;
-    public sealed record PhrasePrefix(string Column, Seq<string> Tokens, int MaxExpansions = 50) : Bm25Predicate;
-    public sealed record MoreLikeThis(string Column, MoreLikeSource Source, Seq<string> Fields, MoreLikeTuning Tuning) : Bm25Predicate;
-    public sealed record Regex(string Column, string Pattern) : Bm25Predicate;
-    // `@@@ pdb.exists()` — the field-presence builder: a row matches when the indexed field is non-null,
-    // the indexed companion to a SQL `IS NOT NULL` that rides the BM25 index rather than the heap.
-    public sealed record Exists(string Column) : Bm25Predicate;
-    public sealed record All(string Column) : Bm25Predicate;
-    // Proximity (`a ## n ## b`, `a ##> n ##> b`): both terms bind, the slack is a literal int.
-    public sealed record Near(string Column, string Left, string Right, int Slack) : Bm25Predicate;
-    public sealed record OrderedNear(string Column, string Left, string Right, int Slack) : Bm25Predicate;
-    // Boolean composite: each clause keys ONE `=> ARRAY[...]` of child predicates, so a clause carrying
-    // several terms emits one named-arg array (`must => ARRAY[$1, $2]`), never a repeated `must =>` arg.
-    public sealed record Boolean(string Column, Seq<(BoolClause Clause, Seq<Bm25Predicate> Terms)> Clauses) : Bm25Predicate;
-    // Cast-stack modifiers over any inner predicate; casts stack in declaration order.
-    public sealed record Fuzzy(Bm25Predicate Inner, int Distance, bool Prefix, bool TranspositionCostOne) : Bm25Predicate;
-    public sealed record Boost(Bm25Predicate Inner, double Factor) : Bm25Predicate;
-    public sealed record Const(Bm25Predicate Inner, double Score) : Bm25Predicate;
-    public sealed record Slop(Bm25Predicate Inner, int Distance) : Bm25Predicate;
-    // Tokenizer cast (`'running shoes'::pdb.whitespace`): the cast names an analyzer, the value still binds.
-    public sealed record Token(Bm25Predicate Inner, string Tokenizer) : Bm25Predicate;
-
-    // `from` threads the running ordinal so a nested modifier or boolean child re-bases onto a single
-    // contiguous `$1…$N` run; the SQL boundary binds `Binds` positionally and no value is ever quoted in.
-    public Bm25Sql Sql(int from = 1) =>
-        Switch(
-            anyToken: a => new Bm25Sql($"{a.Column} ||| ${from}", [a.Query]),
-            allToken: a => new Bm25Sql($"{a.Column} &&& ${from}", [a.Query]),
-            exactTerm: e => new Bm25Sql($"{e.Column} === ${from}", [e.Term]),
-            phrase: p => new Bm25Sql($"{p.Column} ### ${from}", [p.PhraseText]),
-            parse: p => new Bm25Sql(
-                $"{p.Column} @@@ pdb.parse(${from}, lenient => {Lit(p.Lenient)}, conjunction_mode => {Lit(p.ConjunctionMode)})", [p.QueryString]),
-            // The analyzed match: the value binds, and only the set knobs emit as named args.
-            match: m => new Bm25Sql($"{m.Column} @@@ pdb.match(${from}{Args(("distance", m.Distance.Map(Int)), ("prefix", m.Prefix.Map(Lit)), ("conjunction_mode", m.ConjunctionMode.Map(Lit)))})", [m.Query]),
-            // The range value binds once, cast to its range type at the seam; the relation is the closed
-            // PascalCase token, positional — never a parameter, so the value run carries exactly one hole.
-            rangeTerm: r => new Bm25Sql($"{r.Column} @@@ pdb.range_term(${from}::{r.RangeType}, '{r.Relation.Key}')", [r.Range]),
-            phrasePrefix: p => new Bm25Sql(
-                $"{p.Column} @@@ pdb.phrase_prefix(ARRAY[{Holes(from, p.Tokens.Count)}], max_expansions => {p.MaxExpansions})", p.Tokens),
-            // One dispatch builds the whole fragment per source: the `key_field` value binds as `$N::bigint`
-            // with the optional positional `$N::text[]` `fields` restriction, or the JSON probe binds as
-            // `$N::json`; the term-selection knobs emit only when set, so a fully-`None` tuning yields the
-            // bare builder — positional args precede the named knobs so the PG call grammar stays valid.
-            moreLikeThis: m => m.Source.Switch(
-                key: k => MoreLike(m, from, "::bigint", k.ToString(CultureInfo.InvariantCulture)),
-                document: d => MoreLike(m, from, "::json", d)),
-            regex: r => new Bm25Sql($"{r.Column} @@@ pdb.regex(${from})", [r.Pattern]),
-            exists: e => new Bm25Sql($"{e.Column} @@@ pdb.exists()", []),
-            all: a => new Bm25Sql($"{a.Column} @@@ pdb.all()", []),
-            near: n => new Bm25Sql($"{n.Column} @@@ (${from} ## {n.Slack} ## ${from + 1})", [n.Left, n.Right]),
-            orderedNear: n => new Bm25Sql($"{n.Column} @@@ (${from} ##> {n.Slack} ##> ${from + 1})", [n.Left, n.Right]),
-            // Each clause emits one `clause => ARRAY[...]` named arg whose children re-base onto the running
-            // ordinal, so the whole boolean query yields one contiguous `$1…$N` run across every term.
-            boolean: b => b.Clauses.Fold(new Bm25Sql($"{b.Column} @@@ pdb.boolean(", []), (acc, clause) => {
-                    var array = clause.Terms.Fold(new Bm25Sql("", []), (inner, term) => {
-                        var child = term.Sql(from + acc.Binds.Count + inner.Binds.Count);
-                        return new Bm25Sql(inner.Binds.IsEmpty ? child.Text : $"{inner.Text}, {child.Text}", inner.Binds + child.Binds);
-                    });
-                    var lead = acc.Binds.IsEmpty ? "" : ", ";
-                    return new Bm25Sql($"{acc.Text}{lead}{clause.Clause.Key} => ARRAY[{array.Text}]", acc.Binds + array.Binds);
-                }).Nest(static text => $"{text})"),
-            fuzzy: f => f.Inner.Sql(from).Nest(inner => $"{inner}::pdb.fuzzy({f.Distance}, {Lit(f.Prefix)}, {Lit(f.TranspositionCostOne)})"),
-            boost: b => b.Inner.Sql(from).Nest(inner => $"{inner}::pdb.boost({b.Factor.ToString(CultureInfo.InvariantCulture)})"),
-            @const: c => c.Inner.Sql(from).Nest(inner => $"{inner}::pdb.const({c.Score.ToString(CultureInfo.InvariantCulture)})"),
-            slop: s => s.Inner.Sql(from).Nest(inner => $"{inner}::pdb.slop({s.Distance})"),
-            token: t => t.Inner.Sql(from).Nest(inner => $"{inner}::pdb.{t.Tokenizer}"));
-
-    static string Lit(bool flag) => flag ? "true" : "false";
-    static string Int(int n) => n.ToString(CultureInfo.InvariantCulture);
-    static string Holes(int from, int count) => string.Join(", ", Range(from, count).Map(static i => $"${i}"));
-
-    // Render only the SET optional named arguments after a bound positional `$N`, so an all-`None` knob set
-    // emits the bare builder form `pdb.x($N)` and a partial set emits exactly its present args in order.
-    static string Args(params ReadOnlySpan<(string Name, Option<string> Value)> args) {
-        var set = toSeq(args.ToArray()).Choose(a => a.Value.Map(v => $"{a.Name} => {v}"));
-        return set.IsEmpty ? "" : $", {string.Join(", ", set)}";
-    }
-
-    // The `key_field`/`document` form: the probe binds positionally at `$from`, the `fields` restriction
-    // (key form, non-empty) binds as one `$N::text[]` array, `stopwords` (when set) as a second, and every
-    // scalar tuning knob emits only when present — so no term-selection value ever interpolates as a literal
-    // and the bind vector is the contiguous probe → fields → stopwords run the SQL boundary parameterizes.
-    static Bm25Sql MoreLike(MoreLikeThis m, int from, string cast, string probe) {
-        var keyForm = cast.Contains("bigint", StringComparison.Ordinal);
-        var fieldsBind = keyForm && !m.Fields.IsEmpty ? Some(PgArray(m.Fields)) : None;
-        var stopBind = !m.Tuning.Stopwords.IsEmpty ? Some(PgArray(m.Tuning.Stopwords)) : None;
-        var binds = Seq1(probe) + fieldsBind.ToSeq() + stopBind.ToSeq();
-        var fields = fieldsBind.Map(_ => $", ${from + 1}::text[]").IfNone("");
-        var stop = stopBind.Map(_ => $"${from + binds.Count - 1}::text[]");
-        var t = m.Tuning;
-        return new Bm25Sql(
-            $"{m.Column} @@@ pdb.more_like_this(${from}{cast}{fields}{Args(("min_term_frequency", t.MinTermFrequency.Map(Int)), ("min_doc_frequency", t.MinDocFrequency.Map(Int)), ("max_doc_frequency", t.MaxDocFrequency.Map(Int)), ("max_query_terms", t.MaxQueryTerms.Map(Int)), ("min_word_length", t.MinWordLength.Map(Int)), ("max_word_length", t.MaxWordLength.Map(Int)), ("boost_factor", t.BoostFactor.Map(d => d.ToString(CultureInfo.InvariantCulture))), ("stopwords", stop))})", binds);
-    }
-
-    // A `Seq<string>` rendered as one PostgreSQL `text[]` array literal the boundary binds as a single
-    // parameter — `{a,b,c}` with each token quoted, so the array crosses as one hole, never N spliced ones.
-    static string PgArray(Seq<string> tokens) => $"{{{string.Join(",", tokens.Map(static t => $"\"{t.Replace("\"", "\\\"", StringComparison.Ordinal)}\""))}}}";
-}
-
-// The `pdb.snippets` `sort_by` is a closed two-value server vocabulary (`snippet.rs` rejects anything
-// but `score`/`position`), so it is a `[SmartEnum]`, never an unbounded `string` the engine would reject.
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<StoreKeyPolicy, string>]
-public sealed partial class SnippetSort {
-    public static readonly SnippetSort Score = new("score");
-    public static readonly SnippetSort Position = new("position");
-}
-
-// Projections sit in SELECT/ORDER BY beside the WHERE predicate's `$N` run, so they carry NO bound
-// parameter — the column is an identifier and the tags/sort/agg-spec are author-fixed closed-vocabulary
-// config, never runtime query VALUES, so they interpolate at the same seam identifiers do and never
-// collide with the predicate's ordinal run.
-public static class SearchProjection {
-    public static string Score(string keyColumn) => $"pdb.score({keyColumn})";
-    public static string Snippet(string column, string startTag = "<b>", string endTag = "</b>", int maxChars = 150) =>
-        $"pdb.snippet({column}, start_tag => '{startTag}', end_tag => '{endTag}', max_num_chars => {maxChars})";
-    public static string Snippets(string column, int maxChars, int limit, int offset, SnippetSort? sortBy = null, string startTag = "<b>", string endTag = "</b>") =>
-        $"""pdb.snippets({column}, start_tag => '{startTag}', end_tag => '{endTag}', max_num_chars => {maxChars}, "limit" => {limit}, "offset" => {offset}, sort_by => '{(sortBy ?? SnippetSort.Score).Key}')""";
-    public static string SnippetPositions(string column) => $"pdb.snippet_positions({column})";
-    public static string Agg(string esJson) => $"pdb.agg('{esJson}') OVER ()";
-}
-```
-
-## [03]-[CLUSTER_CONFIG]
-
-- Owner: `ClusterConfig` — the PG18 server-GUC verifier whose `Verify` fold is the one read-only `pg_settings` admission contract every consumer composes. `Version/recovery#RECOVERY_LANES` hands it the `wal_level`/`archive_mode`/`archive_command` replication triad, `Store/encryption#AT_REST` the `data_encryption` TDE fragment, `Query/transaction#TWO_PHASE` the `max_prepared_transactions` floor, and `Version/retention#AUDIT_BINDING` the bound `pgaudit.log` audit classes; the owner itself carries the `Baseline` server rows — io, memory, WAL, checkpoint, autovacuum, jit, checksums, and the `Preload` `shared_preload_libraries` set. Each fragment is a `GucRow` carrying its primary value, its portable fallback, the `GucKind` comparison axis (the `pg_settings.vartype` so a numeric GUC matches as a floor, a csv GUC as a token superset, a boolean GUC by normalized truth, and an enum or string by equality with the primary or the fallback — never one brittle `==`), a `GucRank` (`Required` aborts, `Degradable` folds a degrade receipt, `Observational` records evidence), and the `GucContext` restart class so a gap names its repair-disruption rung. The verification yields one typed `GucVerdict` carrying matched settings, degrade receipts (a fallback-satisfied fragment, a soft miss, or a value bound but `pending_restart`), and the abort set, so absence surfaces at admission, never at first query.
-- Cases: `GucKind` — `Boolean` | `Integer` | `Real` | `Enumeration` | `Text` | `List`, the `pg_settings.vartype` rung that selects the comparison algebra (`Integer`/`Real` admit a server value at or above the floor over the bare `pg_settings.setting` integer in the setting's native unit, `List` admits a superset of required tokens, `Boolean` admits a normalized truth match across the `on`/`true`/`1` spellings, `Enumeration`/`Text` demand equality with the primary or the fallback). The primary/fallback pair, not a built-in ordering, encodes the only ranked enum the baseline needs (a server at the `wal_level` fallback `replica` degrades, one at the primary `logical` matches). `GucRank` — `Required` | `Degradable` | `Observational`. `GucContext` — `Internal` | `Postmaster` | `Sighup` | `Superuser` | `User`, the `pg_settings.context` repair-disruption rung. `Baseline` rows: `io_method` (`io_uring` primary, `worker` fallback, `Enumeration`, `Degradable`, `Postmaster`); `effective_io_concurrency`/`maintenance_io_concurrency` (`Integer` floor, `Observational`); `shared_buffers`/`effective_cache_size`/`work_mem`/`maintenance_work_mem` (`Integer` floor in the setting's native block/kB unit, `Observational` — a memory floor underrun is observable drift, not an abort); `wal_level` (`Enumeration` `logical` primary / `replica` fallback, `Degradable`); `wal_compression` (`Enumeration` `lz4`/`on`, `Observational`); `checkpoint_completion_target`/`max_wal_size` (`Real`/`Integer` floor, `Observational`); `autovacuum`/`autovacuum_vacuum_cost_limit` (`Boolean`/`Integer`, `Required`/`Observational` — autovacuum off is a hard provisioning fault); `jit` (`Boolean`, `Observational`); `data_checksums` (`Boolean` equality, `Required`, `Postmaster` — checksums are an initdb-time decision, so a gap demands a re-init); `pgaudit.log` (`List` superset, `Degradable`, `Sighup` — the soft `ddl,role` deploy default; the hard per-classification audit-class set is the `Required` fragment `Version/retention#AUDIT_BINDING` passes, sourced from its present `DataClassification` set, so a deployment with no classified data degrades rather than aborting); `shared_preload_libraries` (the `Preload` fragment, `List` superset, `Required`, `Postmaster`, carrying the bgworker-preload companion set).
-- Entry: `public static Fin<GucVerdict> Verify(Seq<GucRow> rows, FrozenDictionary<string, GucReading> observed)` folds each row against the observed `pg_settings` reading through the row's `GucKind` comparison into a `GucVerdict` — a reading that satisfies the primary records `Matched`, a reading satisfied only by the fallback or one bound but flagged `pending_restart` records a degrade receipt naming the restart class, and a `Required` row failing on a hard reason (`GucDegrade.Aborts`) accrues an abort; a `Degradable`/`Observational` miss, a fallback hold, or a pending-restart on any rank folds into the verdict's receipt set, never the abort. The fragments are INDEPENDENT, so the fold accumulates every hard miss and aborts ONCE at the end through `Error.Many`, surfacing the full repair set in one verdict rather than the first miss per redeploy — symmetric with the accumulating `Version/retention#AUDIT_BINDING` `Validation` fold. The entrypoint parameterizes BOTH the row ingress and the reading ingress: `Verify(Baseline, observed)` checks the owner's server rows, a consumer passes its own fragments as `(setting, value, fallback)` triples the implicit `GucRow` conversion lifts to hard `Text`-equality rows, and the reading dictionary admits two shapes — the full `SettingsProbe` `GucReading` projection, or a bare `FrozenDictionary<string, string>` whose values lift through the implicit `string -> GucReading` so a consumer holding only `Show()` reads composes without a parallel verifier. `Version/recovery` hands `[("wal_level", "logical", "logical"), ("archive_mode", "on", "on"), ("archive_command", "set", "set")]` against its `Show()`-sourced string dictionary, `.MapFail`s the aggregated result into `RecoveryFault.ReplicationUnready`, and `.Bind`s past a satisfied one, so a hard recovery GUC stays an abort naming every breached setting while a soft store GUC degrades.
-- Auto: GUC fragments are deploy-time `postgresql.conf` assets verified read-only after boot, never executed at runtime. The `GucReading` carries the observed `setting`, the `pending_restart` flag, the `pg_settings.source` rung, and the `reset_val` so a setting whose `ALTER SYSTEM`-staged value awaits a restart degrades rather than reads green — the `setting`/`pending_restart` pair makes a half-applied fragment an observable `pending-restart` receipt carrying the staged `reset_val`, not a silent pass, and `source = 'default'` is the authoritative `Unset` signal so a value an operator deliberately set equal to the compiled default grades `Below` rather than the `boot_val`-proxy false `Unset`. The `io_method` row carries `io_uring` (the Linux-guest value) with the `worker` portable fallback so a kernel lacking io_uring satisfies the verify as a fallback receipt rather than an abort, and the verdict's `search.io.method` fact records WHICH value the server bound. The `pgaudit.log` baseline row is a `Degradable` `List`-superset check against the soft `ddl,role` deploy default, so a server with no audit classes degrades with a receipt; the hard escalation is the `Required` `pgaudit.log` fragment the `Version/retention#AUDIT_BINDING` row passes carrying the exact classes its present `DataClassification` set demands, so a narrower-than-required bound class set is a provisioning miss naming the absent categories rather than an audit gap discovered at first sensitive write. The `Preload` fragment's `shared_preload_libraries` value (`timescaledb,pg_search,pg_partman_bgw,pg_squeeze,pgaudit,pg_cron,pg_net,pg_stat_statements`) is the deploy-image bgworker-preload contract checked as a superset so an operator who preloads extra libraries still satisfies it — `timescaledb`/`pg_search`/`pg_cron`/`pg_partman_bgw`/`pg_squeeze`/`pgaudit`/`pg_net`/`pg_stat_statements` each allocate startup shared memory or statically register a background worker in `_PG_init` and cannot load through `CREATE EXTENSION`, so each requires preload, while `vectorscale`/`pg_jsonschema`/`pgvector`/`pgrouting`/`age`/`pg_graphql`/`h3`/`h3_postgis` load through their index AM, type registration, or plain function install and are correctly absent. The probe binds `$names` as an array parameter so the settings read is one round-trip over any row count with a stable cached plan, reading `name`, `setting`, `source`, `reset_val`, `pending_restart`, and `context` so the verdict's restart rung, never-set distinction, and staged-value receipt all derive from the live catalog rather than the declared row.
-- Receipt: each fallback, each `pending_restart` fragment, and each `Degradable`/`Observational` miss folds a `GucReceipt` naming the setting, the observed-versus-expected pair (a `pending_restart` receipt naming the staged `live->reset_val` transition), the `GucContext` restart rung, and the degrade reason (`ViaFallback` | `PendingRestart` | `Below` | `Unset`, the last splitting a misconfigured fragment from one never set, read off `pg_settings.source = 'default'`) into the open receipt's proof rows, so a fleet-wide drift in io-method, io-concurrency, or a half-applied WAL setting is a recorded admission fact; the `Required` misses accumulate into one `Error.Many` carrying every breached `setting:reason:observed:expected:restart` tuple, so a multi-fragment provisioning gap names the whole repair set at once rather than one miss per redeploy.
-- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox (`System.Collections.Frozen`)
-- Growth: one `GucRow` on `Baseline` (or one consumer-passed triple) per new fragment carrying its kind, rank, and restart class; one `GucKind`, `GucRank`, or `GucContext` row per new comparison or disposition rung the generated `Switch` then forces every fold site to handle; zero new surface.
-- Boundary: this owner verifies, never executes — runtime `ALTER SYSTEM` is the rejected form, and the GUC fragments land as physical `postgresql.conf` assets at the first headless or web app root. The verify admits a setting at its primary or its declared fallback through the row's `GucKind`, so the portability split (io_uring on a Linux guest, worker elsewhere) is a `GucRow` field rather than a pinned literal, the floor-versus-equality split is the row's `GucKind` rather than a per-setting branch, and the degrade-versus-abort split is the row's `GucRank`, never a call-site branch. A numeric floor (`effective_io_concurrency`, `work_mem`, `max_wal_size`) admits a server tuned above the minimum, so a verify never faults a generously-provisioned host the way a `==` would. OAuth `pg_hba` posture and role grants are deploy-time `pg_hba`/grant assets verified through this same fold. `SetPostgresVersion(18, 0)` is the provider feature-gate floor owned at `Store/profiles#PROFILE_AXIS`, distinct from the PG18.4 deployment minimum these fragments target. Image composition, Docker/Compose mechanics, and native build/export stay Forge-owned; this page names the required GUC semantics and consumes Assay `ProvisionRun` observations before pinning a row, never a Dockerfile or image-build recipe.
-
-```csharp signature
-// The `pg_settings.vartype` rung selects the comparison algebra: a numeric GUC admits a server value at
-// or above the floor over the bare `setting` integer in its native unit, a `List` GUC admits a superset
-// of required tokens, `Boolean` normalizes the `on`/`true`/`1` spellings, and `Enumeration`/`Text` demand
-// equality. The `Satisfies` delegate is the row's behavior (POLICY_VALUES) so the fold never re-derives
-// the var-type from a switch; the primary/fallback pair encodes the only ranked enum the baseline needs.
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<StoreKeyPolicy, string>]
-public sealed partial class GucKind {
-    public static readonly GucKind Boolean = new("bool", static (want, have) => string.Equals(Norm(want), Norm(have), StringComparison.Ordinal));
-    public static readonly GucKind Text = new("string", static (want, have) => string.Equals(want, have, StringComparison.Ordinal));
-    public static readonly GucKind Enumeration = new("enum", static (want, have) => string.Equals(want, have, StringComparison.OrdinalIgnoreCase));
-    public static readonly GucKind Integer = new("integer", static (want, have) => long.TryParse(have, NumberStyles.Integer, CultureInfo.InvariantCulture, out var h) && long.TryParse(want, NumberStyles.Integer, CultureInfo.InvariantCulture, out var w) && h >= w);
-    public static readonly GucKind Real = new("real", static (want, have) => double.TryParse(have, NumberStyles.Float, CultureInfo.InvariantCulture, out var h) && double.TryParse(want, NumberStyles.Float, CultureInfo.InvariantCulture, out var w) && h >= w);
-    public static readonly GucKind List = new("list", static (want, have) => Tokens(want).ForAll(t => Tokens(have).Contains(t)));
-
-    [UseDelegateFromConstructor]
-    public partial bool Satisfies(string required, string observed);
-
-    static string Norm(string flag) => flag is "1" or "yes" or "true" ? "on" : flag is "0" or "no" or "false" ? "off" : flag;
-    static Seq<string> Tokens(string csv) => csv.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToSeq();
-}
-
-[SmartEnum<int>]
-public sealed partial class GucRank {
-    public static readonly GucRank Required = new(0);      // miss aborts the admission
-    public static readonly GucRank Degradable = new(1);    // fallback or miss folds a degrade receipt
-    public static readonly GucRank Observational = new(2); // miss records evidence only
-}
-
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<StoreKeyPolicy, string>]
-public sealed partial class GucContext {
-    public static readonly GucContext Internal = new("internal");
-    public static readonly GucContext Postmaster = new("postmaster"); // requires full restart / re-init
-    public static readonly GucContext Sighup = new("sighup");         // reload-on-SIGHUP
-    public static readonly GucContext Superuser = new("superuser");
-    public static readonly GucContext User = new("user");
-}
-
-// The reason a fragment failed the primary: its fallback held, the value is staged but awaits a restart,
-// the operator set it wrong (`Below`), or it was never set at all (`Unset`, read off `source = 'default'`)
-// — the last two split "misconfigured" from "forgotten" so a `Required` repair receipt is precise. The
-// `Aborts` flag is the abort-disposition POLICY_VALUE: a `Required` row failing on a hard reason (the
-// value is genuinely wrong or absent) aborts, while a soft reason (the fallback held, or a correct value
-// merely awaits a restart) degrades even on a `Required` row — so the fold never branches on the reason.
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<StoreKeyPolicy, string>]
-public sealed partial class GucDegrade {
-    public static readonly GucDegrade ViaFallback = new("via-fallback", aborts: false);
-    public static readonly GucDegrade PendingRestart = new("pending-restart", aborts: false);
-    public static readonly GucDegrade Below = new("below", aborts: true);
-    public static readonly GucDegrade Unset = new("unset", aborts: true);
-
-    public bool Aborts { get; }
-}
-
-// One `pg_settings` observation: the live `setting`, whether an `ALTER SYSTEM` change still awaits a
-// restart, the `pg_settings.source` rung (`'default'` is the authoritative never-set signal — a value set
-// equal to the default reads `'configuration file'`, so `source` splits "forgotten" from "deliberately
-// equal" where the `boot_val` proxy cannot), and the `reset_val` a reload would apply (the staged value
-// behind a pending restart). A bare value implicitly lifts so a consumer holding only the setting string composes.
-public readonly record struct GucReading(string Value, bool PendingRestart, string Source, string ResetValue) {
-    public bool NeverSet => string.Equals(Source, "default", StringComparison.Ordinal);
-
-    public static implicit operator GucReading(string value) => new(value, PendingRestart: false, Source: "session", ResetValue: value);
-}
-
-public sealed record GucRow(string Setting, string Value, string Fallback, GucKind Kind, GucRank Rank, GucContext Restart) {
-    // A consumer's `(setting, value, fallback)` triple lifts to a hard `Text`-equality row, so a
-    // `Seq<GucRow>` collection expression of bare triples composes the same fold the baseline rows do.
-    public static implicit operator GucRow((string Setting, string Value, string Fallback) triple) =>
-        new(triple.Setting, triple.Value, triple.Fallback, GucKind.Text, GucRank.Required, GucContext.Sighup);
-
-    public static GucRow Hard(string setting, string value, GucKind kind, GucContext restart) => new(setting, value, value, kind, GucRank.Required, restart);
-    public static GucRow Floor(string setting, string value, GucContext restart) => new(setting, value, value, GucKind.Integer, GucRank.Observational, restart);
-
-    // The comparison verdict for a live reading: `None` is a clean primary match, `Some(reason)` carries
-    // the typed degrade (fallback held, restart pending) or the hard miss the rank turns into an abort —
-    // `Unset` when `source` is `'default'` (operator never set it), `Below` when it was set wrong. The
-    // `source` rung is authoritative over the old `value == boot_val` proxy, which false-flags a value an
-    // operator deliberately set equal to the compiled default. A reading absent from the catalog grades `Unset`.
-    public Option<GucDegrade> Grade(GucReading reading) =>
-        Kind.Satisfies(Value, reading.Value)
-            ? reading.PendingRestart ? Some(GucDegrade.PendingRestart) : None
-            : Kind.Satisfies(Fallback, reading.Value) ? Some(GucDegrade.ViaFallback)
-                : reading.NeverSet ? Some(GucDegrade.Unset) : Some(GucDegrade.Below);
-}
-
-public readonly record struct GucReceipt(string Setting, string Observed, string Expected, GucContext Restart, GucDegrade Reason);
-
-public sealed record GucVerdict(Seq<string> Matched, Seq<GucReceipt> Degraded) {
-    public static readonly GucVerdict Empty = new([], []);
-
-    public bool Restarts => Degraded.Exists(static r => r.Reason == GucDegrade.PendingRestart);
+public abstract partial record ProvisionVerdict {
+    private ProvisionVerdict() { }
+    public sealed record Provisioned(Seq<ServerExtension> Present) : ProvisionVerdict;
+    public sealed record MissingExtension(Seq<ServerExtension> Absent) : ProvisionVerdict;
+    public sealed record MissingPreload(Seq<ServerExtension> Unloaded) : ProvisionVerdict;
+    public sealed record SettingDrift(string Setting, string Expected, string Actual) : ProvisionVerdict;
 }
 
 public static class ClusterConfig {
-    // The owner's own server-provisioning rows: io, memory, WAL, checkpoint, autovacuum, jit, checksums,
-    // and the `Preload` bgworker set. Consumers pass their fragments as `(setting, value, fallback)` triples
-    // the implicit `GucRow` conversion lifts. Numeric rows carry the bare `pg_settings.setting` integer in
-    // the setting's native unit (8kB blocks for `*_buffers`/`effective_cache_size`, kB for `*work_mem`,
-    // MB for `max_wal_size`) so the floor compares against the raw catalog read, never a suffixed literal.
-    public static readonly Seq<GucRow> Baseline = [
-        new("io_method", "io_uring", "worker", GucKind.Enumeration, GucRank.Degradable, GucContext.Postmaster),
-        GucRow.Floor("effective_io_concurrency", "16", GucContext.User),
-        GucRow.Floor("maintenance_io_concurrency", "16", GucContext.Sighup),
-        GucRow.Floor("shared_buffers", "16384", GucContext.Postmaster),
-        GucRow.Floor("effective_cache_size", "524288", GucContext.Sighup),
-        GucRow.Floor("work_mem", "4096", GucContext.User),
-        GucRow.Floor("maintenance_work_mem", "65536", GucContext.User),
-        new("wal_level", "logical", "replica", GucKind.Enumeration, GucRank.Degradable, GucContext.Postmaster),
-        new("wal_compression", "lz4", "on", GucKind.Enumeration, GucRank.Observational, GucContext.Superuser),
-        GucRow.Floor("max_wal_size", "1024", GucContext.Sighup),
-        new("checkpoint_completion_target", "0.9", "0.9", GucKind.Real, GucRank.Observational, GucContext.Sighup),
-        GucRow.Hard("autovacuum", "on", GucKind.Boolean, GucContext.Sighup),
-        GucRow.Floor("autovacuum_vacuum_cost_limit", "200", GucContext.Sighup),
-        new("jit", "on", "off", GucKind.Boolean, GucRank.Observational, GucContext.Superuser),
-        GucRow.Hard("data_checksums", "on", GucKind.Boolean, GucContext.Postmaster),
-        new("pgaudit.log", "ddl,role", "ddl", GucKind.List, GucRank.Degradable, GucContext.Sighup),
-        GucRow.Hard("shared_preload_libraries", "timescaledb,pg_search,pg_partman_bgw,pg_squeeze,pgaudit,pg_cron,pg_net,pg_stat_statements", GucKind.List, GucContext.Postmaster),
-    ];
+    public static IO<ProvisionVerdict> Verify(NpgsqlDataSource source, Seq<ServerExtension> required) =>
+        IO.liftAsync(async () => {
+            await using var connection = await source.OpenConnectionAsync().ConfigureAwait(false);
+            await using var preloadCmd = new NpgsqlCommand("SELECT current_setting('shared_preload_libraries')", connection);
+            var preloaded = (await preloadCmd.ExecuteScalarAsync().ConfigureAwait(false) as string ?? "").Split(',', StringSplitOptions.TrimEntries);
+            var created = Seq<string>();
+            await using (var availCmd = new NpgsqlCommand("SELECT extname FROM pg_extension", connection))
+            await using (var reader = await availCmd.ExecuteReaderAsync().ConfigureAwait(false)) {
+                while (await reader.ReadAsync().ConfigureAwait(false)) created = created.Add(reader.GetString(0));
+            }
+            var settings = new Dictionary<string, string>(StringComparer.Ordinal);
+            await using (var settingCmd = new NpgsqlCommand("SELECT name, setting FROM pg_settings WHERE name = ANY(@names)", connection)) {
+                settingCmd.Parameters.AddWithValue("names", toSeq(ClusterSetting.Items).Map(static s => s.Key).ToArray());
+                await using var settingReader = await settingCmd.ExecuteReaderAsync().ConfigureAwait(false);
+                while (await settingReader.ReadAsync().ConfigureAwait(false)) settings[settingReader.GetString(0)] = settingReader.GetString(1);
+            }
+            var missingPreload = required.Filter(e => e.Preload && !preloaded.Contains(e.Key));
+            var missing = required.Filter(e => !created.Contains(e.Key) && (!e.Preload || preloaded.Contains(e.Key)));
+            var drift = toSeq(ClusterSetting.Items).Find(s => !s.Satisfied(settings.GetValueOrDefault(s.Key, "")));
+            return !missingPreload.IsEmpty ? (ProvisionVerdict)new ProvisionVerdict.MissingPreload(missingPreload)
+                : !missing.IsEmpty ? new ProvisionVerdict.MissingExtension(missing)
+                : drift.Match(
+                    Some: s => (ProvisionVerdict)new ProvisionVerdict.SettingDrift(s.Key, s.Expected, settings.GetValueOrDefault(s.Key, "")),
+                    None: () => new ProvisionVerdict.Provisioned(required));
+        });
 
-    public const string SettingsProbe = "SELECT name, setting, source, reset_val, pending_restart, context FROM pg_settings WHERE name = ANY($names)";
-
-    // A consumer holding only a bare `setting`-string read (`Show('wal_level')`, never the full
-    // `SettingsProbe` projection) composes the same fold: each value lifts through the implicit
-    // `string -> GucReading` so a `pending_restart`/`source`/`reset_val`-poor reading still grades against
-    // primary-or-fallback. One semantic entrypoint, two ingress shapes — never a parallel verifier.
-    public static Fin<GucVerdict> Verify(Seq<GucRow> rows, FrozenDictionary<string, string> observed) =>
-        Verify(rows, observed.ToFrozenDictionary(static kv => kv.Key, static kv => (GucReading)kv.Value));
-
-    // Independent fragments accumulate — every `Required` miss folds into ONE aggregated `Error.Many` so a
-    // deployment with three forgotten GUCs surfaces all three in one verdict (the full repair set), never
-    // one-per-redeploy as a `.Bind` short-circuit would. Degrade receipts (fallback, pending-restart, soft
-    // miss) ride the verdict; the abort fires once at the end iff any hard miss accrued, with the staged
-    // `reset_val` named on a pending-restart receipt. A `Required` reading clean or fallback-held passes.
-    public static Fin<GucVerdict> Verify(Seq<GucRow> rows, FrozenDictionary<string, GucReading> observed) =>
-        rows.Fold((Verdict: GucVerdict.Empty, Aborts: Seq<Error>.Empty), (acc, row) =>
-            (observed.TryGetValue(row.Setting, out var reading) ? row.Grade(reading) : Some(GucDegrade.Unset))
-                .Match(
-                    None: () => (Verdict: acc.Verdict with { Matched = acc.Verdict.Matched.Add(row.Setting) }, Aborts: acc.Aborts),
-                    Some: reason => row.Rank == GucRank.Required && reason.Aborts
-                        ? (Verdict: acc.Verdict, Aborts: acc.Aborts.Add(Error.New($"<cluster-config-mismatch:{row.Setting}:{reason.Key}:{Seen(observed, row, reason)}:{row.Value}:{row.Restart.Key}>")))
-                        : (Verdict: acc.Verdict with { Degraded = acc.Verdict.Degraded.Add(new GucReceipt(row.Setting, Seen(observed, row, reason), row.Value, row.Restart, reason)) }, Aborts: acc.Aborts)))
-            is var s && s.Aborts.IsEmpty ? Fin.Succ(s.Verdict) : Fin.Fail<GucVerdict>(Error.Many(s.Aborts));
-
-    // A pending-restart receipt names the staged `reset_val` the restart will apply, never the stale live value.
-    static string Seen(FrozenDictionary<string, GucReading> observed, GucRow row, GucDegrade reason) =>
-        observed.TryGetValue(row.Setting, out var reading)
-            ? reason == GucDegrade.PendingRestart ? $"{reading.Value}->{reading.ResetValue}" : reading.Value
-            : "<absent>";
+    public static IO<Fin<Unit>> Admit(IDocumentSession session, ServerExtension extension) =>
+        IO.liftAsync(async () => {
+            session.QueueSqlCommand(extension.CreateSql);
+            await session.SaveChangesAsync().ConfigureAwait(false);
+            return Fin<Unit>.Succ(unit);
+        }) | @catch<IO, Fin<Unit>>(static _ => true, e => IO.pure(Fin<Unit>.Fail(Error.New(8380, $"<provision-admit:{e.Message}>"))));
 }
 ```
 
-## [04]-[RESEARCH]
+| [INDEX] | [POLICY]            | [VALUE]                                | [BINDING]                                                  |
+| :-----: | :------------------ | :------------------------------------- | :-------------------------------------------------------- |
+|  [01]   | provisioning stance | verification-first                     | never `ALTER SYSTEM`; never spawns PostgreSQL             |
+|  [02]   | extension admission | raw `CREATE EXTENSION IF NOT EXISTS`   | preload-gated; no managed package per extension           |
+|  [03]   | preload gap         | `MissingPreload` verdict               | operator resolves at cluster config + restart            |
+|  [04]   | setting drift       | `pg_settings` vs `ClusterSetting`      | `wal_level=logical` + knobs; mismatch folds `SettingDrift`|
+|  [05]   | h3 parity           | `h3-pg` matches `pocketken.H3`         | one cell id at ingest and in SQL                          |
 
-- [BM25_QUERY_SHAPE]: the `pg_search` `0.24.x` v2 `pdb.*` query surface this axis projects, proven against the installed extension before the predicate fences pin — the `@@@ pdb.parse($1, lenient => true, conjunction_mode => …)` bound-parameter form, the bare `|||`/`&&&`/`===`/`###` column operators, the `@@@ pdb.match($1, distance => …, prefix => …, conjunction_mode => …)` analyzed builder (the inline tokenizer override riding the `::pdb.<tokenizer>` cast, not a `match` arg), the `@@@ pdb.exists()` field-presence form, the `a ## n ## b`/`a ##> n ##> b` proximity forms, the `::pdb.fuzzy`/`::pdb.boost`/`::pdb.const`/`::pdb.slop` cast-stacking order, the `pdb.range_term($1::int4range, 'Intersects')` positional-relation form, the `pdb.more_like_this($1)` key-field form (with the optional `$2::text[]` `fields` restriction) versus `pdb.more_like_this($1::json)` document form carrying the full `min_term_frequency`/`min_doc_frequency`/`max_doc_frequency`/`max_query_terms`/`min_word_length`/`max_word_length`/`boost_factor`/`stopwords` term-selection tuning (every arg `NULL`-defaultable, so only set knobs emit), the `pdb.boolean(must => ARRAY[…], should => ARRAY[…], must_not => ARRAY[…])` array-keyed composite, and the `pdb.score`/`pdb.snippet`/`pdb.snippets`/`pdb.snippet_positions`/`pdb.agg` projections at their default tags and `max_num_chars`; the removed `paradedb.*` namespace is asserted absent and the `$N` placeholders are confirmed to bind through `FromSql`/`SqlQuery` rather than interpolate.
-- [CLUSTER_CONFIG_PORTABILITY]: the `pg_settings` round-trip the verify fold reads against the Forge-provisioned local PG18 — the `name`/`setting`/`source`/`reset_val`/`pending_restart`/`context` projection, whether `source = 'default'` is the authoritative `Unset` signal (a value an operator deliberately set equal to the compiled default reads `'configuration file'`, not `'default'`, so it grades `Below` rather than the `boot_val`-proxy false `Unset`), whether `io_method=io_uring` binds or falls back to `worker` with the `Postmaster` restart class, whether a numeric `GucKind.Integer`/`Real` floor (`effective_io_concurrency`, `work_mem`, `max_wal_size`, `checkpoint_completion_target`) compared against the bare `pg_settings.setting` integer in the setting's native unit admits an above-floor host without faulting, whether a `GucKind.List` superset check passes a `shared_preload_libraries`/`pgaudit.log` set carrying extra tokens, whether an `ALTER SYSTEM`-staged value surfaces through `pending_restart` as a `PendingRestart` degrade receipt carrying the staged `reset_val` rather than a green read, and whether each fragment's `pg_settings.context` matches the `GucContext` rung the row declares.
+## [03]-[EMBEDDED_FLOOR]
+
+- Owner: `EmbeddedRitual` the idempotent open-ritual fold (identity check, per-connection pragmas, hardening, capability registration, epoch read); `EmbeddedStore` the static surface owning the dialed connection, the WAL-and-pragma ladder, and the closed-engine law.
+- Entry: `public static SqliteConnection Dialed(string path)` opens the embedded connection with the canonical connection-string posture; `public static Fin<Seq<RitualFact>> Open(SqliteConnection store, EmbeddedRitual ritual)` folds the declared ritual sequence end-to-end idempotently, every throwing provider call (`Open`, the pragma `Execute`/`Scalar` rows, `BeginTransaction`, `gate.Commit`) staying INSIDE the `Fin` boundary so a provider fault converts to `Fin.Fail` and disposes the connection on every failure path rather than escaping the rail with a leaked live handle.
+- Auto: every connection in every process folds the same declared sequence — identity check, per-connection pragma rows (`synchronous=NORMAL`, `journal_size_limit`, `temp_store=MEMORY`, `cache_size`), defensive hardening, schema-resident capability registration, and the epoch read — idempotent so bootstrap, crash-recovery reopen, and steady-state open are one fold; any transaction that may write begins IMMEDIATE so a deferred read attempting its first write never burns the busy budget on a stale-snapshot retry; `PRAGMA data_version` is the polling-free cross-process change probe.
+- Receipt: an open rides `store.embedded.open` carrying the ritual fact count.
+- Packages: Microsoft.Data.Sqlite, SQLitePCLRaw.bundle_e_sqlite3, LanguageExt.Core, Thinktecture.Runtime.Extensions, BCL inbox.
+- Growth: a new pragma is one ritual row; a new capability is one registration row; zero new surface — a second embedded relational engine (libSQL, PGlite, LiteDB, hctree), a per-process bootstrap branch, or a nonzero `busy_timeout` is the deleted form because the engine sweep is closed and the provider already retries BUSY/LOCKED at managed quanta.
+- Boundary: the embedded SQLite floor is the single-process embedded store beneath the server tier — the one engine sweep is CLOSED (libSQL, PGlite, LiteDB, RavenDB.Embedded, Realm, hctree, embedded-pg, EF InMemory all rejected) so a new engine row is the named defect; the WAL `-wal`/`-shm` sidecar set is the unit of copy/replace/delete (a main file separated from its sidecars is silent page-level corruption); STRICT tables are the typed admission gate and `RETURNING` supersedes write-then-read identity round trips; the ritual is the one open path so a per-process bootstrap branch is the deleted form; the embedded floor and the PostgreSQL server tier are two engines on the one store-profile axis, the profile selecting one by deployment, never a third.
+
+```csharp signature
+public readonly record struct RitualFact(string Row, long Applied);
+public sealed record EmbeddedRitual(long Identity, long CompiledEpoch, Seq<(string Row, string Sql)> ConnectionRows) {
+    public static readonly EmbeddedRitual Canonical = new(Identity: 0x5241_5731, CompiledEpoch: 1,
+        ConnectionRows: [("<throughput>", "PRAGMA synchronous=NORMAL"), ("<wal-bound>", "PRAGMA journal_size_limit=8388608"), ("<spill>", "PRAGMA temp_store=MEMORY"), ("<budget>", "PRAGMA cache_size=-32768")]);
+}
+
+public static class EmbeddedStore {
+    public static SqliteConnection Dialed(string path) => new(new SqliteConnectionStringBuilder {
+        DataSource = path, Mode = SqliteOpenMode.ReadWriteCreate, Pooling = true, ForeignKeys = true,
+    }.ConnectionString);
+
+    public static Fin<Seq<RitualFact>> Open(SqliteConnection store, EmbeddedRitual ritual) {
+        ArgumentNullException.ThrowIfNull(store);
+        try {
+            store.Open();
+            var identity = Scalar(store, "PRAGMA application_id");
+            if (identity != ritual.Identity && identity != 0L) { store.Dispose(); return Fin.Fail<Seq<RitualFact>>(Error.New(7701, $"<foreign-store:{identity:x8}>")); }
+            var facts = ritual.ConnectionRows.Map(row => new RitualFact(row.Row, Execute(store, row.Sql)));
+            using var gate = store.BeginTransaction(IsolationLevel.Serializable, deferred: false);
+            var held = Scalar(store, "PRAGMA user_version");
+            if (held > ritual.CompiledEpoch) { store.Dispose(); return Fin.Fail<Seq<RitualFact>>(Error.New(7702, $"<epoch-ahead:{held}>")); }
+            if (held < ritual.CompiledEpoch) { _ = Execute(store, $"PRAGMA application_id={ritual.Identity}"); _ = Execute(store, $"PRAGMA user_version={ritual.CompiledEpoch}"); }
+            gate.Commit();
+            return Fin.Succ(facts.Add(new RitualFact("<epoch>", long.Max(held, ritual.CompiledEpoch))));
+        }
+        catch (Exception ex) {
+            store.Dispose();
+            return Fin.Fail<Seq<RitualFact>>(Error.New(7703, $"<embedded-open:{ex.Message}>"));
+        }
+    }
+
+    static long Execute(SqliteConnection store, string sql) { using var c = store.CreateCommand(); c.CommandText = sql; return c.ExecuteNonQuery(); }
+    static long Scalar(SqliteConnection store, string sql) { using var c = store.CreateCommand(); c.CommandText = sql; return Convert.ToInt64(c.ExecuteScalar(), CultureInfo.InvariantCulture); }
+}
+```
+
+| [INDEX] | [POLICY]            | [VALUE]                                | [BINDING]                                                  |
+| :-----: | :------------------ | :------------------------------------- | :-------------------------------------------------------- |
+|  [01]   | open ritual         | one idempotent fold                    | bootstrap/recovery/steady-state are one path             |
+|  [02]   | write transaction   | IMMEDIATE begin                        | a deferred-then-write burns the busy budget               |
+|  [03]   | engine sweep        | closed (PostgreSQL + SQLite only)      | a new embedded engine row is the named defect             |
+|  [04]   | sidecar unit        | `-wal`/`-shm` set                      | a main file without its sidecars is silent corruption     |

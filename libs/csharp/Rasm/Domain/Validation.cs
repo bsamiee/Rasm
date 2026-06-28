@@ -1,4 +1,5 @@
 using System.Collections.Frozen;
+using System.IO.Hashing;
 using System.Linq.Expressions;
 using Foundation.CSharp.Analyzers.Contracts;
 
@@ -218,6 +219,15 @@ public abstract partial record Fault : Expected {
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
+// The kernel's ONE content-identity entry: seed-zero XxHash128 over canonical bytes -> UInt128.
+// Every content hash in the federation composes THIS entry — the geometry GeometryHash, the
+// Rasm.Element seam NodeId/ContentAddress, the Persistence snapshot spine, and the Python/TypeScript
+// wire peers — one algorithm, one seed, no second hasher. The caller owns the canonical byte
+// projection; this owns the digest, so identity is byte-stable across packages and runtimes.
+public static class ContentHash {
+    [BoundaryAdapter] public static UInt128 Of(ReadOnlySpan<byte> canonicalBytes) => XxHash128.HashToUInt128(canonicalBytes);
+}
+
 public static partial class FaultExtensions {
     [BoundaryAdapter]
     public static string Category(this Error error) => error switch {

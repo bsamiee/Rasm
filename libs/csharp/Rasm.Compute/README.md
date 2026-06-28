@@ -1,6 +1,6 @@
 # [COMPUTE]
 
-`Rasm.Compute` is the APP-PLATFORM measured-execution package. It admits every execution request once, routes it over a substrate axis, carries it on bounded lanes, and records every outcome on one typed receipt union. The Tensor folder owns the CPU tensor vocabulary, GPU residency, staging memory, and the dense-BLAS/sparse-factor/quadrature/sampling numeric core. The Symbolic folder owns the CAS expression tree, dimensional proof, lowering cache, and units boundary. The Model folder owns `ONNX` identity, sessions, providers, inference, embedding retrieval, the generative token-streaming run, and custom-op extension. The Solver folder owns the discretization, contract, optimizer, sweep, clash, and uncertainty lanes. The Stats folder owns the classical-statistics/statistical-learning estimator axis and the DSP signal axis. The Runtime folder owns the admission rail, scheduling, monotonic progress, receipt union, wire channels, and the field/result/geometry-delta codecs with the GPU-ready residency payload. `Rasm.Compute` consumes the `Rasm` geometry kernel, AppHost ports, and Persistence stores as settled vocabulary and never reverses the dependency. The folder map and domain law live in `ARCHITECTURE.md`, the forward concept pool in `IDEAS.md`, and the work log in `TASKLOG.md`.
+`Rasm.Compute` is the APP-PLATFORM measured-execution package. It admits every execution request once, routes it over a substrate axis, carries it on bounded lanes, and records every outcome on one typed receipt union. The Tensor folder owns the CPU tensor vocabulary, GPU residency, staging memory, and the dense-BLAS/sparse-factor/quadrature/sampling numeric core. The Symbolic folder owns the CAS expression tree, dimensional proof, lowering cache, and units boundary. The Model folder owns `ONNX` identity, sessions, providers, inference, embedding retrieval, the generative token-streaming run, and custom-op extension. The Solver folder owns the discretization, contract, optimizer, sweep, clash, and uncertainty lanes. The Stats folder owns the classical-statistics/statistical-learning estimator axis and the DSP signal axis. The Runtime folder owns the admission rail, scheduling, monotonic progress, receipt union, wire channels, and the field/result/geometry-delta codecs with the GPU-ready residency payload. The Analysis folder owns the C#-first discipline-assessment rail: it reads the `Rasm.Element` `ElementGraph` directly (above the seam, no `IElementProjection`), routes one `AssessmentRequest` over the seam `Discipline` to a discipline runner (structural FE + hand-rolled design codes, closed-form thermal/acoustic/fire physics, the EnergyPlus-subprocess energy simulation, the EN 15978 / EC3 embodied-carbon and cost lifecycle), folds the relocated multi-ply `AssemblyAggregator` (ISO 6946 series-U / ISO 12354 layered-STC / rule-of-mixtures) where a layered property is needed, and writes the result back as a content-keyed `Node.Assessment` `GraphDelta`. `Rasm.Compute` consumes the `Rasm` geometry kernel, the `Rasm.Element` element seam (the shared lower stratum it reads upward, never the AEC-domain peers `Rasm.Materials`/`Rasm.Bim`), AppHost ports, and Persistence stores as settled vocabulary and never reverses the dependency. The folder map and domain law live in `ARCHITECTURE.md`, the forward concept pool in `IDEAS.md`, and the work log in `TASKLOG.md`.
 
 ## [01]-[ROUTER]
 
@@ -39,6 +39,12 @@
 - [33]-[CHANNELS](.planning/Runtime/channels.md)
 - [34]-[CODECS](.planning/Runtime/codecs.md)
 - [35]-[PAYLOAD](.planning/Runtime/payload.md)
+- [36]-[ASSESSMENT](.planning/Analysis/assessment.md)
+- [37]-[AGGREGATOR](.planning/Analysis/aggregator.md)
+- [38]-[STRUCTURAL](.planning/Analysis/structural.md)
+- [39]-[PHYSICS](.planning/Analysis/physics.md)
+- [40]-[ENERGY](.planning/Analysis/energy.md)
+- [41]-[LIFECYCLE](.planning/Analysis/lifecycle.md)
 
 ## [02]-[DOMAIN_PACKAGES]
 
@@ -59,10 +65,13 @@ Every Compute-domain library the folder uses, planned or implemented. Versions a
 - `GeneticSharp`
 
 [STRUCTURAL_SOLVERS]:
-- `FEALiTE2D` — 2D frame/beam/truss solver backend for the Solver discretization lane and structural-analysis receipts.
+- `FEALiTE2D` — 2D frame/beam/truss solver backend for the Solver discretization lane, the `Analysis/structural` planar `FrameBackend`, and structural-analysis receipts.
 - `FEALiTE2D.Plotting` — DXF export for FEALiTE2D internal-force, shear-force, bending-moment, and displacement diagrams as solver evidence artifacts.
-- `BriefFiniteElement.Net`
+- `BriefFiniteElement.Net` — the 3D `Analysis/structural` `FrameBackend`, confined to the sparse-factored `BarElement` frame path (its embedded dense `DenseLU` is binary-incompatible with the unified `CSparse 4.4.0` pin); the linear solve injects the Rasm CSparse-4.x `ISolverFactory` via `Solve(ISolverFactory)`, sharing the one `Tensor/factor` factorization owner. The `Analysis/structural` AISC 360 / EN 1993 / EN 1992 / NDS / ACI 318 / TMS 402 / AISI S100 design-code checks are HAND-ROLLED as a `DesignCode`×`LimitState` capacity table (no .NET package owns them); section properties resolve once via the `Rasm.Materials` VividOrange M7 one-hop and ride the seam graph, so Compute admits no VividOrange.
 - `BriefFiniteElementNet.CustomElements`
+
+[ENERGY_SIMULATION]:
+- `NREL.OpenStudio.macOS-arm64` — the osx-arm64 SWIG OpenStudio SDK the `Analysis/energy` runner drives in-process: it BUILDS the OSM `Model` from the `Rasm.Element` `ElementGraph`, forward-translates to an EnergyPlus IDF via `EnergyPlusForwardTranslator`, and reads the results `SqlFile`; it neither runs nor bundles the EnergyPlus solver. The EnergyPlus binary is a PARAMETERIZED subprocess resolved through `EnergyToolchain` (env-var → configured-path → bundled-fallback) and version-locked to the SWIG version (OpenStudio 3.11.0 → EnergyPlus 25.2.0; dev/CI points `OPENSTUDIO_ENERGYPLUSDIR` at the bundled 25.2.0, never the standalone 26.1.0). This is the SIMULATION concern, distinct from the `Rasm.Bim` IFC↔OSM semantic-exchange owner.
 
 [EMBODIED_CARBON]:
 - `EC3` / openEPD REST — Building Transparency embodied-carbon service consumed hand-thin over `HttpClient` (no NuGet pin; API evidence in `.api/api-ec3.md`); the EN 15978 LCA Assessment lane reads per-EPD `gwp` measurements (kgCO2e per declared unit) and category GWP statistics, then writes `Assessment.Result` nodes content-keyed on the (OMF query, LCIA method, route) tuple.

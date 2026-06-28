@@ -37,7 +37,8 @@ geometry/
 ```text seams
 *              →  csharp:Rasm.Compute          # [GRADUATION]: HandoffAxis geometry case IDS/clash/BCF
 mesh           ⇄  csharp:Rasm.Bim/Exchange     # [TESSELLATION]: GLB tessellation rail / TessellationRequest
-mesh/daemon    ⇄  csharp:Rasm.Compute/Runtime  # [CONTENT_KEY]: ContentIdentity XxHash128 + deflection/tolerance seed parity
+mesh/daemon    ⇄  csharp:Rasm.Compute/Runtime  # [CONTENT_KEY]: ContentIdentity XxHash128 source+deflection/tolerance policy-seed re-tessellation cache parity
+mesh/daemon    ⇄  csharp:Rasm.Element/Graph    # [REPRESENTATION]: imported-IFC GLB seed-zero XxHash128 == seam RepresentationContentHash entry; decode the seam key, never re-mint
 mesh/daemon    ⇄  csharp:Rasm.Compute/Runtime  # [WIRE]: ComputeService/ArtifactSync gRPC GLB tessellation
 mesh/daemon    →  csharp:Rasm.Compute/Runtime  # [TRANSPORT]: ServerHost ComputeService/ArtifactSync GLB + semantic header
 mesh/daemon    →  csharp:Rasm.Compute/Runtime  # [PROJECTION]: IFC tessellation bridge via IfcOpenShell decoded by Codecs
@@ -46,7 +47,7 @@ mesh/daemon    →  csharp:Rasm.AppUi/Render     # [SHAPE]: SharpGLTF GLB import
 mesh/daemon    ←  csharp:Rasm.Bim/Model        # [SHAPE]: IFC GLB tessellation reference for deviation
 ifc            →  csharp:Rasm.Bim/Review       # [BOUNDARY]: IDS validation evidence via ifctester
 mesh/cad       →  python:runtime/evidence      # [CONTENT_KEY]: ContentIdentity.of keyed GLB bytes
-mesh/daemon    →  python:runtime/evidence      # [CONTENT_KEY]: ContentIdentity.of keyed GLB bytes with policy seed
+mesh/daemon    →  python:runtime/evidence      # [CONTENT_KEY]: ContentIdentity.of source+policy-seed cache key; seed-zero (Some(0)) over the GLB bytes = wire representation key
 graph/algebra  ⇄  python:compute/graduation    # [GRADUATION]: HandoffAxis geometry case
 graph/features ⇄  python:compute/graduation    # [GRADUATION]: HandoffAxis geometry network-graph subject
 ifc/analysis   →  python:compute/graduation    # [GRADUATION]: geometry HandoffAxis case IDS/clash/BCF

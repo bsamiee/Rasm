@@ -7,7 +7,7 @@ Five admitted surfaces weave as one rail. `expression` mints the `IdentitySource
 ## [01]-[INDEX]
 
 - [01]-[IDENTITY]: the `gc=False` `Meta`-bounded XxHash128 content key with its `project`/`memory`/`hex` output axis, the `Tolerance`-bounded settings-folded seed, the closed four-case `IdentitySource` modality ADT (`whole`/`stream`/`merkle`/`canonical`) owning `lift`+`fold` including the `msgspec`-`Struct` canonical encode, and the one input-and-output-parameterized `of` rail aspected by `derived` under one `is_recording()`-gated `content.derive` span carrying a total `Status`.
-- [02]-[SEED_REPRODUCTION]: the typed `ParityRow` corpus-parity table whose `grade` folds into `ParityReceipt` rows the `ReceiptContributor` port contributes, asserting `ContentIdentity` reproduces the C# `XxHash128` seed bit-identically against the frozen `ONE_WIRE_FIXTURE_CORPUS`.
+- [02]-[SEED_REPRODUCTION]: the `CorpusFixture`-keyed corpus-parity binding whose `grade` folds every REAL fixture into `ParityReceipt` rows the `ReceiptContributor` port contributes (each DESIGN-PIN fixture riding a `planned`-phase obligation), asserting `ContentIdentity` reproduces the C# `XxHash128` seed bit-identically against the frozen `ONE_WIRE_FIXTURE_CORPUS` — including the float-bearing `MATERIAL_LAYER_GOLDEN` `IfcMaterialLayer` golden vector ([H7]) that exercises the IEEE-754-LE `Double`/`Measure` canon the integer-topology row cannot reach.
 
 ## [02]-[IDENTITY]
 
@@ -189,19 +189,19 @@ class ContentIdentity:
 
 ## [03]-[SEED_REPRODUCTION]
 
-- Owner: `SeedReproduction` is the Python-side binding asserting `ContentIdentity` reproduces the one C#-owned `XxHash128` seed bit-identically, read against the FROZEN `csharp:Rasm/Geometry/Spatial/reconciliation#ONE_WIRE_FIXTURE_CORPUS` row [1] `CANONICAL_BYTE_IDENTITY`. `ParityAspect` is the closed `Literal` vocabulary (`value_identity`/`memory_layout`) the corpus row's two assertions collapse into. `ParityRow` is the typed table row pairing each `ParityAspect` with the `KeyView` projector and the typed `KeyRender` expected reference, owning the `grade(key)` that derives the observed render and the verdict. `ParityReceipt` is the typed evidence row `grade` yields — the aspect, the typed expected/observed `KeyRender` renders, and the verdict — owning the `fact` projection to its `(aspect, status)` log pair. `_PARITY_TABLE` is the `Block[ParityRow]` data table. The corpus is the single mint (seed zero, two-64-bit-half order); this binding re-mints no digest and authors no fixture byte — it transcribes the producer-frozen reference verbatim and folds the assertion through the typed row rather than a method per assertion.
-- Reference: the FROZEN 52-byte int32-LE canonical-adjacency stream of the single-triangle topology (`VertexCount=3`; edges `(0,1),(0,2),(1,2)`; face cycle `[0,1,2]`) is `03 00 00 00 03 00 00 00 00 00 00 00 01 00 00 00 00 00 00 00 02 00 00 00 01 00 00 00 02 00 00 00 01 00 00 00 03 00 00 00 00 00 00 00 01 00 00 00 02 00 00 00`, and its `XxHash128.HashToUInt128` digest under seed zero is `0x9462A71A5DD13DCFA3B1D6D225FCBE70`, persisted big-endian and read C#-side as the 16-byte LE memory `70 be fc 25 d2 d6 b1 a3 cf 3d d1 5d 1a a7 62 94`. No byte is re-authored here; the literals are the producer's frozen reference.
-- Entry: `SeedReproduction.grade` derives the corpus `ContentKey` once through the whole-payload modality of `ContentIdentity.of` under the explicit `seed=Some(0)` override — the bare C# `HashToUInt128(span)` path, not a fabricated policy — and `.map`s the railed key into the `_PARITY_TABLE` fold, each `ParityRow` graded through its own `grade(key)` into a `Block[ParityReceipt]` carried on the `RuntimeRail` the owner returns. `value_identity` projects `"digest"` against `0x9462A71A5DD13DCFA3B1D6D225FCBE70` and `memory_layout` projects `"memory"` against the C# 16-byte LE memory, so the digest-value and LE-memory checks are two rows of one fold rather than two parallel boolean methods. A `SeedReproduction` instance satisfies the `observability/receipts#RECEIPT` `ReceiptContributor` Protocol through `contribute`: the one `grade().map(...).map_error(...).merge()` fold maps the `Ok` rows through `ParityReceipt.fact` into one `dict` behind an `emitted`-phase `Receipt.of`, and the `Error` arm — total though unreachable for the `bytes` corpus — through `Receipt.of` over the rail's `BoundaryFault` into the receipts owner's `rejected` case. The two `Receipt`-typed arms collapse through `Result.merge` to one receipt rather than a phantom `EncodeError` fabricated on the success path, so a parity run is structured evidence on the one receipt stream the metrics/lanes fold reads, never a bare assert and never an unhandled rail.
-- Auto: `xxhash.xxh3_128_intdigest` returns the 128-bit digest as a Python `int` whose `ContentKey.memory` (`to_bytes(16, "little")`) is the C# `UInt128` in-memory layout — the C# `XxHash128.HashToUInt128` returns a `UInt128` and `BinaryPrimitives.WriteUInt128LittleEndian` writes the same LE memory, so value-equality holds with no byte-swap when both sides read seed zero. The corpus seed is zero because the C# `NamingHashOps.Encode`/`GeometryHash` path calls `XxHash128.HashToUInt128(span)` with no seed parameter, distinct from the settings-folded `ContentIdentity.seed` the tessellation rail derives, so the `CANONICAL_BYTE_IDENTITY` parity reads the bare seed-zero path through the `seed=Some(0)` seam and the format-policy seed governs only the re-tessellation cache identity. The parity reuses the production `ContentIdentity.of` and `ContentKey.project`/`memory` rather than a re-derived digest function, so a regression in the owner's derivation or projection surfaces as a failed `ParityReceipt`, never a pass against a parallel fixture path.
-- Packages: `xxhash` (`xxh3_128_intdigest`), `expression` (`Block.of_seq`/`map`/`dict(...)` the parity-table fold, `Result.map`/`Result.map_error`/`Result.merge` the railed grade thread collapsing both arms to one `Receipt`, `Some` the seed override), `msgspec` (`Struct` the `ParityRow`/`ParityReceipt` rows); runtime (`content_identity.ContentIdentity`/`ContentKey`/`KeyView`/`KeyRender`, `faults.RuntimeRail` the railed grade carrier, `receipts.Receipt`/`ReceiptContributor`).
-- Growth: a new corpus parity aspect is one `ParityAspect` member plus one `ParityRow` in `_PARITY_TABLE` pairing it with its `KeyView` projector and typed reference, reaching the fold and the contributed receipt through the existing `grade`/`fact`; a new corpus row promoted from DESIGN-PIN is one more `_PARITY_TABLE` entry; zero new method, no parallel boolean.
-- Boundary: the corpus is read-only and the C# seed is the single mint — a Python-side re-derived fixture, a per-runtime digest function, a parallel boolean method per assertion, and a fabricated byte set for an unpinned corpus row are the named drift defects; the harness DRIVER feeding the corpus stream through `ContentIdentity.of` and grading the `ParityReceipt` rows is a future `python:testing` consumer of the same corpus, never a second fixture store here; the corpus rows [3]-[6] (`FAULT_TRIPLES`, `CRDT_OP_SET`, `GLB_BY_KEY`, `HLC_TWO_HALF`) stay DESIGN-PIN on their cross-folder producers and carry no fabricated bytes in this binding.
+- Owner: `SeedReproduction` is the Python-side binding asserting `ContentIdentity` reproduces the one C#-owned `XxHash128` seed bit-identically across the cross-runtime fixture corpus. `CorpusFixture` is the typed corpus row — a fixture `name`, its `FixtureState` (`real`/`design_pin`), the `producer` it transcribes, the `Option[bytes]` producer-frozen seed-zero canonical `stream`, and the `Block[ParityRow]` it grades — so the corpus is a FOLD over fixtures, not a single hardcoded stream: the REAL `CANONICAL_BYTE_IDENTITY` (`csharp:Rasm/Geometry` row [1]) and the float-bearing DESIGN-PIN `MATERIAL_LAYER_GOLDEN` (`csharp:Rasm.Element/Projection/address` row [7], [H7]) are two rows of one table. `ParityAspect` is the closed `Literal` vocabulary (`value_identity`/`memory_layout`) each fixture's assertions collapse into. `ParityRow` pairs each `ParityAspect` with the `KeyView` projector and the typed `KeyRender` expected reference, owning the `grade(fixture, key)` that derives the observed render and the verdict. `ParityReceipt` is the typed evidence row `grade` yields — the fixture, aspect, typed expected/observed `KeyRender` renders, and the verdict — owning the `fact` projection to its `(fixture.aspect, status)` log pair. `_CORPUS` is the `Block[CorpusFixture]` data table. The C# seed is the single mint (seed zero, two-64-bit-half order); this binding re-mints no digest and authors no fixture byte — a REAL fixture transcribes the producer-frozen reference verbatim, a DESIGN-PIN fixture carries `Nothing` and no rows until the producer freezes its byte-deriving input, and the assertion folds through the typed row rather than a method per fixture.
+- Reference: the FROZEN 52-byte int32-LE canonical-adjacency stream of the single-triangle topology (`VertexCount=3`; edges `(0,1),(0,2),(1,2)`; face cycle `[0,1,2]`) is `03 00 00 00 03 00 00 00 00 00 00 00 01 00 00 00 00 00 00 00 02 00 00 00 01 00 00 00 02 00 00 00 01 00 00 00 03 00 00 00 00 00 00 00 01 00 00 00 02 00 00 00`, and its `XxHash128.HashToUInt128` digest under seed zero is `0x9462A71A5DD13DCFA3B1D6D225FCBE70`, persisted big-endian and read C#-side as the 16-byte LE memory `70 be fc 25 d2 d6 b1 a3 cf 3d d1 5d 1a a7 62 94`. No byte is re-authored here; the literals are the producer's frozen reference. The float-bearing `MATERIAL_LAYER_GOLDEN` golden vector ([H7]) is the second corpus fixture: an `IfcMaterialLayer`-shaped `MaterialComposition.LayerSet` node whose `csharp:Rasm.Element/Projection/address#CONTENT_ADDRESS` `CanonicalWriter` bytes — case ordinal `1`, layer count, then per layer the material-id length-prefixed UTF-8, the `ThicknessMm` `Measure` (the IEEE-754 little-endian `Si` magnitude with `-0.0`→`0.0`/`NaN`→one quiet pattern, quantized to `Header.Tolerance`, plus the 7 SI `Dimension` exponent ordinals), and the layer-name UTF-8 — are hashed seed-zero, the ONLY corpus fixture that exercises the float canon the integer-topology row [1] cannot reach. It is DESIGN-PIN: the concrete layer node and its digest are frozen on that producer, so this binding carries `Nothing` and no fabricated byte set and grades the moment the producer pins them through the SAME `whole`/seed-zero path row [1] uses.
+- Entry: `SeedReproduction.grade` folds `_CORPUS` once through `Block.fold`: each REAL fixture (its `stream` a `Some`) derives its `ContentKey` through the whole-payload modality of `ContentIdentity.of` under the explicit `seed=Some(0)` override — the bare C# `HashToUInt128(span)` path, not a fabricated policy — and grades its `ParityRow`s into the accumulated `RuntimeRail[Block[ParityReceipt]]` through `Result.bind`, while a DESIGN-PIN fixture (`Nothing` stream) is skipped in `grade` (`Option.default_value(Ok(graded))`) and rides the obligation stream `contribute` emits. For row [1], `value_identity` projects `"digest"` against `0x9462A71A5DD13DCFA3B1D6D225FCBE70` and `memory_layout` projects `"memory"` against the C# 16-byte LE memory, so the digest-value and LE-memory checks are two rows of one fold rather than two parallel boolean methods. A `SeedReproduction` instance satisfies the `observability/receipts#RECEIPT` `ReceiptContributor` Protocol through `contribute`: the graded fold maps the `Ok` rows through `ParityReceipt.fact` into one `dict` behind an `emitted`-phase `Receipt.of`, and the `Error` arm — total though unreachable for the `bytes` corpus — through `Receipt.of` over the rail's `BoundaryFault` into the receipts owner's `rejected` case, the two `Receipt`-typed arms collapsing through `Result.merge` to one receipt rather than a phantom `EncodeError` fabricated on the success path; each DESIGN-PIN fixture additionally mints one `planned`-phase obligation `Receipt.of` naming its producer, so the float-bearing golden vector is a VISIBLE pending parity obligation on the one receipt stream the metrics/lanes fold reads, never a bare assert, an unhandled rail, or a silent gap.
+- Auto: `xxhash.xxh3_128_intdigest` returns the 128-bit digest as a Python `int` whose `ContentKey.memory` (`to_bytes(16, "little")`) is the C# `UInt128` in-memory layout — the C# `XxHash128.HashToUInt128` returns a `UInt128` and `BinaryPrimitives.WriteUInt128LittleEndian` writes the same LE memory, so value-equality holds with no byte-swap when both sides read seed zero. The corpus seed is zero because the C# `NamingHashOps.Encode`/`GeometryHash` path calls `XxHash128.HashToUInt128(span)` with no seed parameter, distinct from the settings-folded `ContentIdentity.seed` the tessellation rail derives, so the `CANONICAL_BYTE_IDENTITY` parity reads the bare seed-zero path through the `seed=Some(0)` seam and the format-policy seed governs only the re-tessellation cache identity. The parity reuses the production `ContentIdentity.of` and `ContentKey.project`/`memory` rather than a re-derived digest function, so a regression in the owner's derivation or projection surfaces as a failed `ParityReceipt`, never a pass against a parallel fixture path. When the producer freezes `MATERIAL_LAYER_GOLDEN`, the SAME `whole`/seed-zero path grades the layer node's float-bearing bytes, so the cross-runtime `Double`/`Measure` canon (`-0.0`→`0.0`, `NaN`→one quiet pattern, tolerance quantization, IEEE-754 little-endian) is proven by the one rail the integer fixture already uses, never a second float-specific harness.
+- Packages: `xxhash` (`xxh3_128_intdigest`), `expression` (`Block.of_seq`/`fold`/`map`/`append`/`choose`/`dict(...)` the corpus fold over `_CORPUS`, `Result.bind`/`Result.map`/`Result.map_error`/`Result.merge` the railed grade thread collapsing both arms to one `Receipt`, `Option.map`/`Option.default_value`/`Option.is_none` the `stream`-gated REAL-vs-DESIGN-PIN dispatch, `Nothing`/`Some` the seed override and the DESIGN-PIN gap, `Ok` the fold seed), `msgspec` (`Struct` the `CorpusFixture`/`ParityRow`/`ParityReceipt` rows); runtime (`content_identity.ContentIdentity`/`ContentKey`/`KeyView`/`KeyRender`, `faults.RuntimeRail` the railed grade carrier, `receipts.Receipt`/`ReceiptContributor`).
+- Growth: a new corpus parity aspect is one `ParityAspect` member plus one `ParityRow` on the owning `CorpusFixture`, reaching the fold and the contributed receipt through the existing `grade`/`fact`; a new cross-runtime fixture is one `CorpusFixture` row on `_CORPUS`; a DESIGN-PIN fixture GRADUATES to REAL when its producer freezes the byte-deriving input — one `Some(stream)` plus its `ParityRow`s flipping `state` to `real`, the `grade` fold and the `contribute` stream reaching it with zero new method and no parallel boolean.
+- Boundary: the corpus is read-only and the C# seed is the single mint — a Python-side re-derived fixture, a per-runtime digest function, a parallel boolean method per assertion, and a fabricated byte set for an unpinned corpus row are the named drift defects; the harness DRIVER feeding the corpus stream through `ContentIdentity.of` and grading the `ParityReceipt` rows is a future `python:testing` consumer of the same corpus, never a second fixture store here; the corpus rows [3]-[7] (`FAULT_TRIPLES`, `CRDT_OP_SET`, `GLB_BY_KEY`, `HLC_TWO_HALF`, `MATERIAL_LAYER_GOLDEN`) stay DESIGN-PIN on their cross-folder producers and carry no fabricated bytes — a Python-fabricated golden byte set for an unpinned fixture is the named single-mint defect. `MATERIAL_LAYER_GOLDEN` ([H7]) is now a FIRST-CLASS `_CORPUS` row, the float-bearing `IfcMaterialLayer`-shaped `MaterialComposition.LayerSet` node pinned on the `csharp:Rasm.Element/Projection/address#CONTENT_ADDRESS` producer — the regression anchor the C#/Python/TypeScript `ContentAddress` agree on byte-for-byte over the one seed-zero `XxHash128` rail so a `MeasureValue`/layer-thickness float-canon drift surfaces as a single corpus mismatch; until the producer freezes the concrete node it rides the `planned`-phase obligation, never a graded pass against fabricated bytes.
 
 ```python signature
 from collections.abc import Iterable
 from typing import Final, Literal
 
-from expression import Some
+from expression import Nothing, Ok, Option, Some
 from expression.collections import Block
 from msgspec import Struct
 
@@ -212,10 +212,18 @@ from rasm.runtime.receipts import Receipt
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type ParityAspect = Literal["value_identity", "memory_layout"]
+# REAL: the producer-frozen canonical bytes are present and the fixture grades NOW. DESIGN_PIN: the
+# producer has not yet frozen the byte-deriving input, so the single-mint law forbids a Python-fabricated
+# byte set — the fixture carries `Nothing` and rides the `planned`-phase obligation until the producer pins it.
+type FixtureState = Literal["real", "design_pin"]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 IDENTITY_FMT: Final[str] = "geometry-topology"
+GOLDEN_FMT: Final[str] = "material-layer-golden"
+# [1] CANONICAL_BYTE_IDENTITY — the sole host-derived REAL byte fixture, frozen on
+# csharp:Rasm/Geometry/Spatial/reconciliation#ONE_WIRE_FIXTURE_CORPUS[1]: the 52-byte int32-LE
+# single-triangle adjacency stream and its seed-zero XxHash128 digest. No byte is re-authored here.
 CANONICAL_STREAM: Final[bytes] = bytes.fromhex(
     "03000000030000000000000001000000000000000200000001000000020000000100000003000000000000000100000002000000"
 )
@@ -226,6 +234,7 @@ CANONICAL_LE_MEMORY: Final[bytes] = bytes.fromhex("70befc25d2d6b1a3cf3dd15d1aa76
 
 
 class ParityReceipt(Struct, frozen=True):
+    fixture: str
     aspect: ParityAspect
     expected: KeyRender
     observed: KeyRender
@@ -233,7 +242,7 @@ class ParityReceipt(Struct, frozen=True):
 
     @property
     def fact(self) -> tuple[str, str]:
-        return self.aspect, "ok" if self.verified else f"{self.observed!r}!={self.expected!r}"
+        return f"{self.fixture}.{self.aspect}", "ok" if self.verified else f"{self.observed!r}!={self.expected!r}"
 
 
 class ParityRow(Struct, frozen=True):
@@ -241,18 +250,54 @@ class ParityRow(Struct, frozen=True):
     view: KeyView
     expected: KeyRender
 
-    def grade(self, key: ContentKey) -> ParityReceipt:
+    def grade(self, fixture: str, key: ContentKey) -> ParityReceipt:
         observed = key.project(self.view)
-        return ParityReceipt(aspect=self.aspect, expected=self.expected, observed=observed, verified=observed == self.expected)
+        return ParityReceipt(fixture=fixture, aspect=self.aspect, expected=self.expected, observed=observed, verified=observed == self.expected)
+
+
+class CorpusFixture(Struct, frozen=True):
+    # one cross-runtime golden fixture the parity binding consumes. A REAL fixture carries the
+    # producer-frozen seed-zero canonical byte `stream` (`Some`) plus its expected `ParityRow` renders and
+    # grades NOW through the production `ContentIdentity.of` whole/seed-zero path; a DESIGN_PIN fixture
+    # names its `producer` and carries `Nothing` + no rows — the single-mint law forbids a Python-fabricated
+    # byte set, so it rides the `planned`-phase obligation until the producer freezes the input, then
+    # graduates to REAL by one `Some(stream)` + rows with zero new method.
+    name: str
+    state: FixtureState
+    producer: str
+    stream: Option[bytes]
+    rows: Block[ParityRow]
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-_PARITY_TABLE: Final[Block[ParityRow]] = Block.of_seq(
-    (
-        ParityRow(aspect="value_identity", view="digest", expected=CANONICAL_DIGEST),
-        ParityRow(aspect="memory_layout", view="memory", expected=CANONICAL_LE_MEMORY),
-    )
-)
+_CORPUS: Final[Block[CorpusFixture]] = Block.of_seq((
+    CorpusFixture(
+        name=IDENTITY_FMT,
+        state="real",
+        producer="csharp:Rasm/Geometry/Spatial/reconciliation#ONE_WIRE_FIXTURE_CORPUS[1]",
+        stream=Some(CANONICAL_STREAM),
+        rows=Block.of_seq((
+            ParityRow(aspect="value_identity", view="digest", expected=CANONICAL_DIGEST),
+            ParityRow(aspect="memory_layout", view="memory", expected=CANONICAL_LE_MEMORY),
+        )),
+    ),
+    # [7] MATERIAL_LAYER_GOLDEN — the float-bearing IfcMaterialLayer golden vector ([H7]). Its seed-zero
+    # canonical bytes are the C# `CanonicalWriter` projection of a `MaterialComposition.LayerSet` node:
+    # case ordinal `1`, layer count, then per layer the material-id `String`, the `ThicknessMm` `Measure`
+    # (the IEEE-754 little-endian `Si` magnitude with `-0.0`->`0.0`/`NaN`->one quiet pattern, quantized to
+    # `Header.Tolerance`, plus the 7 SI `Dimension` exponent ordinals), and the layer-name `String` — the
+    # ONLY corpus fixture exercising the float canon the integer-topology row [1] cannot reach. DESIGN-PIN:
+    # the concrete layer node and its digest are frozen on the `address#CONTENT_ADDRESS` producer, so this
+    # binding carries NO fabricated bytes and grades the moment the producer pins them through the SAME
+    # `whole`/seed-zero path row [1] uses — decode the producer reference, never re-mint a golden byte set.
+    CorpusFixture(
+        name=GOLDEN_FMT,
+        state="design_pin",
+        producer="csharp:Rasm.Element/Projection/address#CONTENT_ADDRESS",
+        stream=Nothing,
+        rows=Block.empty(),
+    ),
+))
 
 # --- [SERVICES] -------------------------------------------------------------------------
 
@@ -260,17 +305,36 @@ _PARITY_TABLE: Final[Block[ParityRow]] = Block.of_seq(
 class SeedReproduction:
     @staticmethod
     def grade() -> RuntimeRail[Block[ParityReceipt]]:
-        return ContentIdentity.of(IDENTITY_FMT, CANONICAL_STREAM, view="value", seed=Some(0)).map(
-            lambda key: _PARITY_TABLE.map(lambda row: row.grade(key))
-        )
+        # one fold over the corpus: each REAL fixture (`Some` stream) derives its `ContentKey` once through
+        # the production `ContentIdentity.of` seed-zero `whole` path and grades its rows into the accumulated
+        # rail through `Result.bind`; a DESIGN-PIN fixture (`Nothing` stream) is skipped here and rides the
+        # `planned`-phase obligation `contribute` emits, never a graded pass against a fabricated byte set.
+        def step(acc: RuntimeRail[Block[ParityReceipt]], fixture: CorpusFixture) -> RuntimeRail[Block[ParityReceipt]]:
+            return acc.bind(lambda graded: fixture.stream.map(
+                lambda stream: ContentIdentity.of(fixture.name, stream, view="value", seed=Some(0)).map(
+                    lambda key: graded.append(fixture.rows.map(lambda row: row.grade(fixture.name, key)))
+                )
+            ).default_value(Ok(graded)))
+
+        return _CORPUS.fold(step, Ok(Block.empty()))
 
     def contribute(self) -> Iterable[Receipt]:
-        return (
+        # the graded REAL fixtures collapse to one `emitted` (or `rejected`) receipt; each DESIGN-PIN fixture
+        # rides one `planned`-phase obligation naming its producer, so the float-bearing golden vector is a
+        # VISIBLE pending parity obligation on the one receipt stream the metrics/lanes fold reads, never a
+        # silent gap and never a graded pass against fabricated bytes.
+        graded = (
             self.grade()
             .map(lambda rows: Receipt.of(IDENTITY_FMT, ("emitted", IDENTITY_FMT, dict(rows.map(lambda receipt: receipt.fact)))))
             .map_error(lambda fault: Receipt.of(IDENTITY_FMT, fault))
-            .merge(),
+            .merge()
         )
+        pending = _CORPUS.choose(
+            lambda fixture: Some(Receipt.of(fixture.name, ("planned", fixture.name, {"design_pin": fixture.producer})))
+            if fixture.stream.is_none()
+            else Nothing
+        )
+        return (graded, *pending)
 ```
 
 ## [04]-[RESEARCH]

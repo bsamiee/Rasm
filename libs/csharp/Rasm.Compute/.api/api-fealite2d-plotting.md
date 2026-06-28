@@ -179,8 +179,9 @@ result-visualization leg of `Solver/contract#SOLVE_CONTRACT` for the 2D structur
 - with `BriefFiniteElement.Net` (`api-brief-finite-element`): the 3D structural twin — both 2D and 3D
   solvers ride CSparse; the 2D result renders through this DXF plotter, while the 3D `StaticLinearAnalysisResult`
   feeds the AppUi viewport/export rails directly by content key (there is no 3D DXF-diagram plotter)
-- with the Bim `Model/structural#ANALYSIS_MODEL`: the upstream idealized graph the 2D solver is assembled
-  from (planar members/supports/loads); the DXF diagram is the terminal report of that graph's solve
+- with the `Rasm.Element` `ElementGraph` (via `Analysis/structural`): the upstream idealized graph the 2D
+  solver is assembled from (the planar member Object nodes/supports/loads read directly above the seam); the
+  DXF diagram is the terminal report of that graph's solve
 - with Persistence/AppUi: the emitted `.dxf` is a content-keyed artifact the Persistence blob lane stores
   and the AppUi drawing view renders — the same content-addressing the other solver receipts use
 

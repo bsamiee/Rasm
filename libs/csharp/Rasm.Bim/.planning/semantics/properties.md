@@ -1,110 +1,36 @@
-# [BIM_PROPERTY_SETS]
+# [BIM_PROPERTY_TEMPLATES]
 
-The first-class Pset/Qto owner: one `PropertySet`/`QuantitySet` keyed vocabulary over the standard `Pset_*`/`Qto_*` definitions, occurrence- versus type-driven quantity semantics, base-quantity derivation from the kernel `Rasm` geometry the element binds by reference, and round-trip through `IfcRelDefinesByProperties`/`IfcRelDefinesByType`/`IfcElementQuantity`. This owner promotes the `Exchange/import#IMPORT_RAIL` `IfcSemanticModel.PropertyRow`/`QuantityRow` flat projections and the `Model/elements#ELEMENT_MODEL` `BimElement.PropertyBinding`/`QuantityBinding` raw bindings into one typed model the `Model/query#ELEMENT_SET` `ByProperty` predicate, the `Review/validation#IDS_FACETS` Property facet, and the `Semantics/classification#CLASSIFICATION_AXIS` bSDD binding all compose — never a second property store. The page composes the kernel `Rasm` geometry as settled vocabulary; base-quantity derivation runs from the geometry the element binds by reference, never re-tessellating. The page is HOST-LOCAL.
+The IFC Pset/Qto TEMPLATE authority over the `Rasm.Element` seam graph: the `PropertyKey` `[SmartEnum<string>]` standard `Pset_*`/`Qto_*` vocabulary, the bSDD-resolved template that supplies each property's IFC `DataType` and Pset placement, the `PropertyInheritance` classifier that stamps each seam `PropertySet`/`QuantitySet` node with its `InheritanceMode` at ingest so the seam `Bake` applies the correct type→occurrence precedence [H1], and the `QuantityDerivation` base-quantity fold deriving the standard `Qto_*BaseQuantities` from the kernel geometry the seam node references by content key. The typed VALUE half is RETIRED to the seam: `PropertyValue` (`Text`/`Measure`/`Boolean`/`Enumerated`/`Reference`/`Bounded`/`List`/`Table`), `MeasureValue` (`quantityType`/`Si`/`canonicalUnit` over the `Dimension` value-object [H2]), and the old `QuantityKind` enum now live on `Rasm.Element/Properties` — this page no longer owns the value, it owns the TEMPLATE the projector threads into the seam value and the precedence policy the seam `Bake` reads. The stringly `PropertyBinding`/`QuantityBinding` records the retired `BimElement` carried are GONE: a property is a seam `PropertyValue` keyed by `PropertyName` in a `PropertySet` bag node, never a `(SetName, Name, string Value)` triple. The page is the typed promotion the `Projection/semantic#SEMANTIC_PROJECTOR` projector composes at ingress and the `Review/validation#IDS_FACETS` Property facet reads; base-quantity derivation runs from the kernel geometry measures the node references by content key, never re-tessellating, and the bSDD template resolves from the live dictionary, never a frozen `Pset_*` table that drifts.
 
 ## [01]-[INDEX]
 
-- [01]-[PROPERTY_SETS]: `PropertySet`/`QuantitySet` keyed vocabulary, `PropertyTemplate`/`QuantityKind` axes, the type-vs-occurrence inheritance fold, and the `IfcRelDefinesByProperties` round-trip.
+- [01]-[PROPERTY_TEMPLATES]: `PropertyKey` `[SmartEnum<string>]` standard Pset/Qto vocabulary, `TemplateKind` axis, the bSDD `Resolve` template supplying each property's IFC `DataType`/Pset placement, and the `PropertyInheritance` `InheritanceMode` classifier stamped on each seam bag node at ingest [H1].
+- [02]-[BASE_QUANTITIES]: `BaseQuantityTable` the per-`IfcClass` `Qto_*BaseQuantities` derivation roster and `QuantityDerivation.Derive` the base-quantity fold over the kernel geometry measures the seam node references by content key, producing the seam `QuantitySet` node values under derived-wins precedence.
 
-## [02]-[PROPERTY_SETS]
+## [02]-[PROPERTY_TEMPLATES]
 
-- Owner: `PropertyKey` the `[SmartEnum<string>]` standard property-set vocabulary keyed on the `Pset_*`/`Qto_*` name carrying its applicable `IfcClass` domain and its template kind; `PropertySet` the typed occurrence- or type-bound named property bag; `QuantitySet` the typed quantity bag carrying the `QuantityKind` per value; `PropertyValue` the `[Union]` typed property value (text/measure/boolean/enumerated) so a property carries its IFC data type rather than a stringly-typed value.
-- Entry: `PropertySet.Resolve(BimElement element, IfcSemanticModel semantic, Seq<BsddProperty> template)` folds the element's occurrence `PropertyRow` family and its `TypeGlobalId` type-row family into one typed `PropertySet` applying the IFC `QTO_TYPEDRIVENOVERRIDE` inheritance — a type-driven quantity overrides an occurrence quantity of the same key, an occurrence property overrides a type property — reading the `BsddProperty` template rows the `Semantics/classification#BSDD_RESOLUTION` `BsddClass.Properties` mapping resolves so each value carries its dictionary-declared `DataType`/`PropertySet` placement rather than a hardcoded `Pset_*` name; `QuantitySet.Derive(BimElement element)` derives the standard base quantities from the `GeometryHandle` kernel-geometry the element binds by reference; `Fin<T>` aborts on an unknown property template (`Model/faults#FAULT_BAND` `BimFault.UnmappedClass`) lowered with `.ToError()`.
-- Auto: `Resolve` reads the element's `Properties` occurrence bindings grouped by `SetName`, reads the type object's properties through the `TypeGlobalId` row family, and folds them with occurrence-wins precedence into `PropertySet` values keyed on `PropertyKey`, the `template` `BsddProperty` rows supplying each value's `DataType` so a `PropertyValue.Measure` carries its dictionary unit rather than a stringly-typed text; `Derive` reads the `GeometryHandle` kernel-geometry measures by reference (`Volume`/`Area`/`Length`, all SI-base from the kernel) and folds the standard `Qto_*` base quantities per `element.Class` `IfcDomain` through the `BaseQuantityTable` frozen row table — a `Wall`/`Slab`/`Column`/`Beam` derives `NetVolume`/`GrossArea`/`Length` from the bound solid, the derived rows merging with the occurrence `QuantityBinding` rows under derived-wins precedence so an authoring tool's stored quantity is superseded by the geometry-true takeoff — each quantity carried as a `UnitsNet` typed value (`Length`/`Area`/`Volume`/`Mass`/`Duration`) coerced to its SI base through `ToUnit(UnitSystem.SI)`, so a takeoff reads one unit-checked `QuantitySet` rather than a free `double` and never re-tessellates; `MeasureValue.Of` collapses the IFC `KindOf` unit-abbreviation axis onto the typed quantity through `UnitParser.Default.TryParse<TUnit>` then `Quantity.From(value, unit)`, an unparseable abbreviation degrading to a dimensionless `Count` rather than faulting ingest; the `PropertyKey` row carries the bSDD `Semantics/classification#BSDD_RESOLUTION` dictionary class-to-property mapping so the standard-Pset vocabulary resolves from the live dictionary rather than a hardcoded template table.
-- Receipt: the typed `PropertySet`/`QuantitySet` is the property evidence the `Model/query#ELEMENT_SET` `ByProperty` predicate and the `Review/validation#IDS_FACETS` Property facet read; a quantity takeoff reads the `MeasureValue` already SI-base-coerced through `UnitsNet` `ToUnit(UnitSystem.SI)`, and `QuantitySet.Total(kind)` lifts each persisted SI scalar back into its typed `Length`/`Area`/`Volume`/`Mass`/`Duration` and reduces through `UnitMath.Sum(quantities, SiUnit)` so a same-quantity element-set aggregate is the dimensioned algebra's typed reducer, never a manual `double` fold — the 5D `Planning/cost#ESTIMATE` `CostItem.ValueOf` join reads the `IQuantity` magnitude rather than a raw scalar; `PropertyKey.Resolve(element, BsddClass)` unions the live `BsddClass.Properties` dictionary rows over the static anchors (dictionary-wins on a `PropertySet.Code` collision) so a bSDD-declared property with no static row still resolves its placement and `DataType`, and `PropertySet.Resolve` reads that resolved template so each value carries its dictionary unit.
-- Packages: GeometryGymIFC_Core, Thinktecture.Runtime.Extensions, LanguageExt.Core, UnitsNet, Rasm
-- Growth: a new standard Pset/Qto is one `PropertyKey` row carrying its name, domain, and template kind; a new property data type is one `PropertyValue` union arm; a new quantity kind is one `QuantityKind` enum case; the bSDD class-to-property mapping is one dictionary-URI row shared with `classification` and `validation`; never a per-Pset type and never a second property store.
-- Boundary: there is ONE property model — a per-Pset `WallProperties`/`SlabProperties` class family or a second property store is the deleted form, the `PropertyKey` SmartEnum keys the one bag; the round-trip rides the GeometryGym `IfcRelDefinesByProperties`/`IfcRelDefinesByType`/`IfcElementQuantity`/`IfcPropertySingleValue` surface (`Exchange/format#FORMAT_AXIS` packages) consumed as settled vocabulary — a hand-rolled Pset reader is the deleted form; the type-vs-occurrence precedence is the IFC `QTO_TYPEDRIVENOVERRIDE` inheritance rule applied once in `Resolve`, never a per-call-site merge; base-quantity derivation runs from the kernel `Rasm` `GeometryHandle` measures the element binds by reference and a re-tessellation in this owner is the named seam violation; unit coercion rides the `UnitsNet` `UnitParser`/`Quantity`/`ToUnit(UnitSystem.SI)`/`UnitMath` SI-base resolver and a stringly-keyed `KindOf` unit switch or an ad-hoc `double` unit-conversion arithmetic is the deleted form (`UnitsNet` is the admitted owner of dimensioned scalar quantities per `.api/api-unitsnet`, consumed at full capability — `Length`/`Area`/`Volume`/`Mass`/`Duration` typed structs, never a bare `double`); the `PropertyKey` standard-Pset template resolves from the live `Semantics/classification#BSDD_RESOLUTION` `BsddClass.Properties` dictionary mapping threaded into `Resolve`, never a frozen `Pset_*` table that drifts from the dictionary — the static `PropertyKey` rows are the well-known anchors the bSDD resolution enriches, not the authoritative source; the typed `PropertyValue` carries the IFC data type so the `Review/validation#IDS_FACETS` Property facet matches a typed value and a stringly-keyed property lookup is the named defect; the flat `IfcSemanticModel.PropertyRow`/`QuantityRow` projections stay the import rail wire shape and this owner is the typed promotion the query/IDS/bSDD/cost consumers read.
+- Owner: `PropertyKey` the `[SmartEnum<string>]` standard property-set vocabulary keyed on the `Pset_*`/`Qto_*` name carrying its applicable `IfcDomain` and its `TemplateKind`; `TemplateKind` the property-vs-quantity template axis; `PropertyInheritance` the classifier mapping a Pset/Qto name (and whether it is type-bound) onto the seam `InheritanceMode` (`OccurrenceWins`/`TypeDrivenOverride`/`TypeDrivenOnly`) the projector stamps on each seam `PropertySet`/`QuantitySet` node at ingest [H1]. The typed `PropertyValue`/`MeasureValue`/`Dimension` value family is seam-owned (`Rasm.Element/Properties`); this page supplies the TEMPLATE (the `DataType`/placement) the seam value is constructed from, never the value itself.
+- Entry: `PropertyKey.Resolve(string classCode, BsddClass dictionary)` resolves the template for an IFC class — it unions the live `Semantics/classification#BSDD_RESOLUTION` `BsddClass.Properties` dictionary rows over the static `PropertyKey` anchors (dictionary-wins on a `PropertySet.Code` collision) so each property carries its dictionary-declared `DataType`/Pset placement and a bSDD-declared property with no static anchor still resolves; `PropertyInheritance.ModeOf(string setName, bool typeDriven)` returns the seam `InheritanceMode` for a bag the projector is stamping; `Fin<T>` is not the rail here — template resolution degrades to the static anchors when the dictionary is unreachable (`Semantics/classification#BSDD_RESOLUTION` `LocalShape`), never faulting ingest.
+- Auto: `Resolve` reads the `BsddClass.Properties` rows the dictionary returns (each `BsddProperty` carrying `Code`/`DataType`/`PropertySet`/`PredefinedValue`/`IsRequired`), appends the static `TemplatesFor(domain)` anchors as `IfcText` defaults, and de-duplicates by `{PropertySet}.{Code}` so the projector threads each property's `DataType` into the seam `PropertyValue.Of(value, dataType)` — an `IfcMeasure` datatype routing through the seam `MeasureValue` UnitsNet SI coercion, every other type carrying the verbatim typed value; `ModeOf` reads the `InheritanceTable` frozen rows — a `Qto_*BaseQuantities` set is `TypeDrivenOverride` (a type-bound quantity overrides an occurrence quantity of the same key), a `Pset_*Common` set is `OccurrenceWins` (an occurrence property overrides a type property), a type-only template (`Pset_*TypeCommon`) is `TypeDrivenOnly` — so the seam `Bake` applies the correct precedence wholly within the seam, never a per-call-site merge [H1].
+- Receipt: the resolved template is the typing evidence the projector threads into the seam `PropertyValue`; the stamped `InheritanceMode` is the precedence evidence the seam `Bake` reads when folding a `DefinesByType` edge into the occurrence; the `Review/validation#IDS_FACETS` Property facet reads the seam `PropertyValue` the template typed.
+- Packages: GeometryGymIFC_Core, Rasm.Element, Thinktecture.Runtime.Extensions, LanguageExt.Core
+- Growth: a new standard Pset/Qto is one `PropertyKey` row carrying its name, domain, and template kind; a new property data type is one seam `PropertyValue` union arm (not this page); a new inheritance policy is one `InheritanceTable` row; the bSDD class-to-property mapping is one dictionary-URI row shared with `classification` and `validation`; never a per-Pset type and never a second property store.
+- Boundary: there is ONE property model and it is the seam graph — the retired `BimElement.PropertyBinding`/`QuantityBinding(string, string, string)` stringly triples are GONE, a property is a seam `PropertyValue` keyed by `PropertyName` in a `PropertySet` bag node, and a per-Pset `WallProperties`/`SlabProperties` class family is the deleted form; the typed `PropertyValue`/`MeasureValue`/`Dimension` value family is seam-owned [H2] and re-declaring it here is the named drift defect — this page owns the TEMPLATE (`DataType`/placement) and the PRECEDENCE policy, the seam owns the value; the type-vs-occurrence precedence is the IFC `QTO_TYPEDRIVENOVERRIDE` inheritance stamped as the seam `InheritanceMode` at ingest [H1] and applied once in the seam `Bake`, never a per-call-site merge and never a stored-twice type→occurrence fold; the template resolves from the live `Semantics/classification#BSDD_RESOLUTION` `BsddClass.Properties` dictionary mapping, never a frozen `Pset_*` table that drifts — the static `PropertyKey` rows are the well-known anchors the bSDD resolution enriches, not the authoritative source; the bag round-trip rides the GeometryGym `IfcRelDefinesByProperties`/`IfcRelDefinesByType`/`IfcElementQuantity` surface consumed as settled vocabulary (`Projection/semantic#RELATION_ALGEBRA` neutral `Associate` edges), and a hand-rolled Pset reader is the deleted form.
 
-```csharp contract
+```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
 using System.Collections.Frozen;
-using System.Linq;
-using GeometryGym.Ifc;
 using LanguageExt;
-using LanguageExt.Common;
+using Rasm.Element;
 using Thinktecture;
-using UnitsNet;
-using UnitsNet.Units;
 using static LanguageExt.Prelude;
 
 namespace Rasm.Bim;
 
 // --- [TYPES] ------------------------------------------------------------------------------
-public enum QuantityKind : byte { Length = 0, Area = 1, Volume = 2, Weight = 3, Count = 4, Time = 5 }
-
 public enum TemplateKind : byte { Property = 0, Quantity = 1 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
-[Union]
-public partial record PropertyValue {
-    partial record Text(string Value);
-    partial record Measure(MeasureValue Value);
-    partial record Boolean(bool Value);
-    partial record Enumerated(string Value, Seq<string> Allowed);
-
-    // bSDD-declared DataType narrows the raw IFC string into the typed arm; an IfcMeasure datatype
-    // routes through the UnitsNet coercion, every other type carries the verbatim text.
-    public static PropertyValue Of(string value, string dataType) =>
-        dataType.EndsWith("Measure", StringComparison.OrdinalIgnoreCase)
-            ? new Measure(MeasureValue.Of(value, dataType))
-            : dataType is "IfcBoolean" or "IfcLogical"
-                ? new Boolean(value.Trim() is "TRUE" or "T" or "true" or ".T.")
-                : new Text(value);
-
-    public string AsString() => this.Switch(
-        text:       static p => p.Value,
-        measure:    static p => p.Value.Si.ToString(System.Globalization.CultureInfo.InvariantCulture),
-        boolean:    static p => p.Value ? "TRUE" : "FALSE",
-        enumerated: static p => p.Value);
-}
-
-// One unit-checked quantity carrier collapsing the IFC KindOf axis onto the UnitsNet typed-struct
-// family — the persisted Si scalar is always SI-base (ToUnit(UnitSystem.SI)), the Kind selects the
-// quantity type, and a free `double` quantity field is the deleted form per .api/api-unitsnet.
-public readonly record struct MeasureValue(QuantityKind Kind, double Si, string SiUnit) {
-    public static readonly MeasureValue Zero = new(QuantityKind.Count, 0d, "");
-
-    public static MeasureValue Of(double value, string unit) => Of(value, KindOf(unit), unit);
-
-    public static MeasureValue Of(string value, string dataType) =>
-        double.TryParse(value, System.Globalization.CultureInfo.InvariantCulture, out double scalar)
-            ? Of(scalar, KindOfMeasure(dataType), "")
-            : Zero;
-
-    static MeasureValue Of(double value, QuantityKind kind, string unit) => kind switch {
-        QuantityKind.Length => Si(kind, Length.From(value, Parse<LengthUnit>(unit, LengthUnit.Meter)).ToUnit(LengthUnit.Meter)),
-        QuantityKind.Area   => Si(kind, Area.From(value, Parse<AreaUnit>(unit, AreaUnit.SquareMeter)).ToUnit(AreaUnit.SquareMeter)),
-        QuantityKind.Volume => Si(kind, Volume.From(value, Parse<VolumeUnit>(unit, VolumeUnit.CubicMeter)).ToUnit(VolumeUnit.CubicMeter)),
-        QuantityKind.Weight => Si(kind, Mass.From(value, Parse<MassUnit>(unit, MassUnit.Kilogram)).ToUnit(MassUnit.Kilogram)),
-        QuantityKind.Time   => Si(kind, Duration.From(value, Parse<DurationUnit>(unit, DurationUnit.Second)).ToUnit(DurationUnit.Second)),
-        _                   => new MeasureValue(QuantityKind.Count, value, ""),
-    };
-
-    static MeasureValue Si<TQ>(QuantityKind kind, TQ quantity) where TQ : IQuantity =>
-        new(kind, (double)quantity.Value, quantity.Unit.ToString());
-
-    static TUnit Parse<TUnit>(string unit, TUnit fallback) where TUnit : struct, Enum =>
-        UnitParser.Default.TryParse<TUnit>(unit, out var parsed) ? parsed : fallback;
-
-    static QuantityKind KindOf(string unit) =>
-        UnitParser.Default.TryParse<LengthUnit>(unit, out _) ? QuantityKind.Length
-        : UnitParser.Default.TryParse<AreaUnit>(unit, out _) ? QuantityKind.Area
-        : UnitParser.Default.TryParse<VolumeUnit>(unit, out _) ? QuantityKind.Volume
-        : UnitParser.Default.TryParse<MassUnit>(unit, out _) ? QuantityKind.Weight
-        : UnitParser.Default.TryParse<DurationUnit>(unit, out _) ? QuantityKind.Time
-        : QuantityKind.Count;
-
-    static QuantityKind KindOfMeasure(string dataType) => dataType switch {
-        "IfcLengthMeasure" or "IfcPositiveLengthMeasure" => QuantityKind.Length,
-        "IfcAreaMeasure"                                 => QuantityKind.Area,
-        "IfcVolumeMeasure"                               => QuantityKind.Volume,
-        "IfcMassMeasure"                                 => QuantityKind.Weight,
-        "IfcTimeMeasure" or "IfcDurationMeasure"         => QuantityKind.Time,
-        _                                                => QuantityKind.Count,
-    };
-}
-
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<InterchangeKeyPolicy, string>]
 [KeyMemberComparer<InterchangeKeyPolicy, string>]
@@ -129,117 +55,101 @@ public sealed partial class PropertyKey {
     public IfcDomain Domain { get; }
     public TemplateKind Kind { get; }
 
-    // The standard Pset rows are well-known anchors; the bSDD ClassProperty mapping enriches the
-    // template at resolution time so a dictionary-declared property never needs a new static row.
     public static Seq<PropertyKey> TemplatesFor(IfcDomain domain) =>
         Items.Filter(row => row.Kind == TemplateKind.Property && row.Domain == domain).ToSeq();
 
-    // Dictionary-driven template resolution: the bSDD ClassProperty rows the BsddResolution mapping
-    // returns supply each `PropertySet.Code` typed DataType, so the standard-Pset vocabulary resolves
-    // from the live dictionary rather than the frozen `Pset_*` table that drifts — a bSDD-declared
-    // property with no static anchor still resolves its placement and type. The static rows seed the
-    // well-known set; the dictionary rows union over them, dictionary-wins on a placement collision.
-    public static Seq<BsddProperty> Resolve(BimElement element, BsddClass dictionary) =>
+    // Dictionary-driven template resolution: the bSDD ClassProperty rows supply each property's DataType/Pset
+    // placement, unioned over the static anchors (dictionary-wins), so the projector threads each DataType into
+    // the seam PropertyValue.Of(value, dataType). The static rows seed the well-known set; the dictionary enriches.
+    public static Seq<BsddProperty> Resolve(IfcDomain domain, BsddClass dictionary) =>
         dictionary.Properties
             .Filter(static p => p.PropertySet.Length > 0)
-            .Append(TemplatesFor(element.Class.Domain)
+            .Append(TemplatesFor(domain)
                 .Map(static key => new BsddProperty(key.Key, key.Key, "IfcText", key.Key, "", IsRequired: false)))
             .DistinctBy(static p => $"{p.PropertySet}.{p.Code}");
 }
 
-// Per-class base-quantity derivation table: which Qto set and which kinds a class derives from the
-// bound GeometryHandle. One frozen row table, never a per-class Derive method or a switch arm soup.
-public readonly record struct BaseQuantityRow(string QtoName, Seq<QuantityKind> Kinds);
+// The InheritanceMode classifier [H1]: the projector stamps each seam PropertySet/QuantitySet node with its
+// precedence policy at ingest so the seam Bake applies type->occurrence precedence wholly within the seam. A
+// Qto_*BaseQuantities is TypeDrivenOverride, a Pset_*Common is OccurrenceWins, a *TypeCommon is TypeDrivenOnly.
+public static class PropertyInheritance {
+    static readonly FrozenDictionary<string, InheritanceMode> InheritanceTable = new Dictionary<string, InheritanceMode>(StringComparer.Ordinal) {
+        ["Qto_WallBaseQuantities"]   = InheritanceMode.TypeDrivenOverride,
+        ["Qto_SlabBaseQuantities"]   = InheritanceMode.TypeDrivenOverride,
+        ["Qto_BeamBaseQuantities"]   = InheritanceMode.TypeDrivenOverride,
+        ["Qto_ColumnBaseQuantities"] = InheritanceMode.TypeDrivenOverride,
+        ["Qto_SpaceBaseQuantities"]  = InheritanceMode.TypeDrivenOverride,
+    }.ToFrozenDictionary(StringComparer.Ordinal);
+
+    public static InheritanceMode ModeOf(string setName, bool typeDriven) =>
+        InheritanceTable.TryGetValue(setName, out var mode) ? mode
+        : setName.EndsWith("TypeCommon", StringComparison.Ordinal) ? InheritanceMode.TypeDrivenOnly
+        : typeDriven ? InheritanceMode.TypeDrivenOverride
+        : InheritanceMode.OccurrenceWins;
+}
+```
+
+## [03]-[BASE_QUANTITIES]
+
+- Owner: `BaseQuantityTable` the per-`IfcClass` derivation roster (which `Qto_*BaseQuantities` set and which dimensions a class derives from the geometry); `QuantityDerivation` the base-quantity fold deriving the standard base quantities from `GeometryMeasures` — the kernel `Rasm` value-object `GeometryMeasures(Option<double> Length, Option<double> Area, Option<double> Volume)` the kernel/Compute resolves from the geometry the seam `Object` node references by content key (`Model/elements#REPRESENTATION_KEYS` `RepresentationContentHash`) and supplies to `Derive` (Bim consumes the measure, never tessellates it) — producing the seam `QuantitySet` node values as seam `MeasureValue` under derived-wins precedence.
+- Entry: `QuantityDerivation.Derive(IfcClass cls, GeometryMeasures measures, Map<PropertyName, MeasureValue> occurrence)` derives the standard base quantities for a class from the kernel geometry measures and merges them over the occurrence-stored quantities under derived-wins precedence (the geometry-true takeoff supersedes an authoring tool's stored quantity), returning the seam `QuantitySet` node value map; a class with no `BaseQuantityTable` row returns the occurrence quantities unchanged so a non-takeoff class never blocks.
+- Auto: `Derive` reads the `BaseQuantityTable` row for the class (the `Qto_*` set name and the `Dimension` set — `LengthDim`/`AreaDim`/`VolumeDim`/`MassDim`) and folds each dimension from the kernel `GeometryMeasures` (the already-SI-base `Length`/`Area`/`Volume` the kernel computes from the geometry resolved by content key, never re-tessellated here) into a seam `MeasureValue` over its canonical `Dimension` row [H2] (the kernel scalar already SI-base, wrapped directly, never re-coerced), keyed `{QtoName}.{dimensionName}`, merged over the occurrence map with derived-wins so the 5D `Planning/cost#ESTIMATE` join reads the geometry-true measure; an element-set aggregate of the same `Dimension` reduces through the seam `Properties/quantity#MEASURE_VALUE` `MeasureValue.Sum` reducer, never a manual `double` fold.
+- Packages: Rasm.Element, GeometryGymIFC_Core, Rasm, Thinktecture.Runtime.Extensions, LanguageExt.Core
+- Growth: a new base-quantity derivation is one `BaseQuantityTable` row keyed on the `IfcClass`; a new dimension is one seam `Dimension` the row lists; the derived quantities merge over the occurrence map under one precedence rule; never a per-class `Derive` method and never a re-tessellation in this owner.
+- Boundary: base-quantity derivation runs from the kernel `GeometryMeasures` value-object (`Option<double>` `Length`/`Area`/`Volume`, the same kernel `Rasm` owner the `Dimension` value-object rides) the kernel/Compute resolves from the `RepresentationContentHash` geometry and injects into `Derive`, so a Bim-local `GeometryMeasures` re-declaration or an in-owner geometry-measure computation is the deleted form (Bim depends UP on the kernel and never owns geometry measurement); a re-tessellation in this owner is the named seam violation (geometry realization routes the `Exchange/tessellation#TESSELLATION_BRIDGE` companion rail); the derived value is a seam `MeasureValue` (the seam owns the typed quantity over `Dimension` + UnitsNet [H2]) and a Bim-local `MeasureValue` re-declaration is the deleted form; the derived-wins precedence is applied once in `Derive`, never a per-call-site merge; the `BaseQuantityTable` is a frozen data table keyed on the `IfcClass`, never enumerated `switch` arms or a per-class derive method.
+
+```csharp signature
+// --- [TYPES] ------------------------------------------------------------------------------
+// Per-class base-quantity derivation: which Qto set and which seam Dimensions a class derives from the kernel
+// geometry. One frozen row table [H2 replaces the 6-value QuantityKind with the seam Dimension value-object].
+public readonly record struct BaseQuantityRow(string QtoName, Seq<Dimension> Dimensions);
 
 public static class BaseQuantityTable {
     static readonly FrozenDictionary<string, BaseQuantityRow> Rows = new Dictionary<string, BaseQuantityRow>(StringComparer.Ordinal) {
-        ["IfcWall"]   = new("Qto_WallBaseQuantities",   Seq(QuantityKind.Length, QuantityKind.Area, QuantityKind.Volume)),
-        ["IfcSlab"]   = new("Qto_SlabBaseQuantities",   Seq(QuantityKind.Area, QuantityKind.Volume)),
-        ["IfcColumn"] = new("Qto_ColumnBaseQuantities", Seq(QuantityKind.Length, QuantityKind.Volume)),
-        ["IfcBeam"]   = new("Qto_BeamBaseQuantities",   Seq(QuantityKind.Length, QuantityKind.Volume)),
-        ["IfcSpace"]  = new("Qto_SpaceBaseQuantities",  Seq(QuantityKind.Area, QuantityKind.Volume)),
+        ["IfcWall"]   = new("Qto_WallBaseQuantities",   Seq(Dimension.LengthDim, Dimension.AreaDim, Dimension.VolumeDim)),
+        ["IfcSlab"]   = new("Qto_SlabBaseQuantities",   Seq(Dimension.AreaDim, Dimension.VolumeDim)),
+        ["IfcColumn"] = new("Qto_ColumnBaseQuantities", Seq(Dimension.LengthDim, Dimension.VolumeDim)),
+        ["IfcBeam"]   = new("Qto_BeamBaseQuantities",   Seq(Dimension.LengthDim, Dimension.VolumeDim)),
+        ["IfcSpace"]  = new("Qto_SpaceBaseQuantities",  Seq(Dimension.AreaDim, Dimension.VolumeDim)),
     }.ToFrozenDictionary(StringComparer.Ordinal);
 
     public static Option<BaseQuantityRow> For(IfcClass cls) => Rows.TryGetValue(cls.Key, out var row) ? Some(row) : None;
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
-public sealed record PropertySet(string Name, Map<string, PropertyValue> Properties) {
-    public static PropertySet Resolve(BimElement element, IfcSemanticModel semantic, Seq<BsddProperty> template) {
-        var dataTypes = template.Fold(Map<string, string>(),
-            static (acc, p) => acc.AddOrUpdate($"{p.PropertySet}.{p.Code}", p.DataType));
-        var typeProps = element.TypeGlobalId.Match(
-            Some: typeId => semantic.Properties.Filter(p => p.OwnerGlobalId == typeId),
-            None: () => Seq<IfcSemanticModel.PropertyRow>());
-        var merged = typeProps
-            .Map(static p => (p.SetName, p.PropertyName, p.Value))
-            .Append(element.Properties.Map(static b => (b.SetName, b.Name, b.Value)))
-            .Fold(Map<string, PropertyValue>(), (acc, row) => {
-                string key = $"{row.Item1}.{row.Item2}";
-                return acc.AddOrUpdate(key, PropertyValue.Of(row.Item3, dataTypes.Find(key).IfNone("IfcText")));
-            });
-        return new PropertySet(element.GlobalId, merged);
-    }
-}
+public static class QuantityDerivation {
+    // Geometry-true base quantities (derived-wins) merged over the occurrence quantities: the kernel geometry
+    // takeoff supersedes an authoring tool's stored quantity, each derived value a seam MeasureValue over the
+    // seam Dimension row [H2], the kernel measure already SI-base. GeometryMeasures(Option<double> Length, Area,
+    // Volume) is the kernel Rasm value-object the kernel/Compute resolves from the Object RepresentationContentHash
+    // geometry and injects here — Bim consumes the measure, never computes or re-tessellates it.
+    public static Map<PropertyName, MeasureValue> Derive(IfcClass cls, GeometryMeasures measures, Map<PropertyName, MeasureValue> occurrence) =>
+        BaseQuantityTable.For(cls).Match(
+            None: () => occurrence,
+            Some: row => row.Dimensions.Fold(occurrence, (acc, dimension) =>
+                Measure(measures, dimension).Match(
+                    Some: si => acc.AddOrUpdate(new PropertyName($"{row.QtoName}.{NameOf(dimension)}"), si),
+                    None: () => acc)));
 
-public sealed record QuantitySet(string Name, Map<string, MeasureValue> Quantities) {
-    // Geometry-true base quantities (derived-wins) merged over the occurrence rows: a stored quantity
-    // is superseded by the kernel-geometry takeoff so the 5D cost join reads the true measure.
-    public static QuantitySet Derive(BimElement element) {
-        var occurrence = element.Quantities.Fold(
-            Map<string, MeasureValue>(),
-            static (acc, q) => acc.AddOrUpdate($"{q.SetName}.{q.Name}", MeasureValue.Of(q.Value, q.Unit)));
-        var derived = BaseQuantityTable.For(element.Class).Match(
-            Some: row => row.Kinds.Fold(occurrence, (acc, kind) =>
-                Measure(element.Geometry, kind).Match(
-                    Some: si => acc.AddOrUpdate($"{row.QtoName}.{NameOf(kind)}", si),
-                    None: () => acc)),
-            None: () => occurrence);
-        return new QuantitySet(element.GlobalId, derived);
-    }
+    // The kernel GeometryMeasures are already SI-base, so each wraps directly into the seam MeasureValue over its
+    // canonical Dimension row — never a re-coercion through the UnitsNet registry (the seam Of path is for raw
+    // unit-bearing values, not an already-SI kernel scalar); an absent measure yields None and skips the row.
+    static Option<MeasureValue> Measure(GeometryMeasures measures, Dimension dimension) =>
+        dimension == Dimension.LengthDim ? measures.Length.Map(static m => new MeasureValue(Dimension.LengthDim, m, "m"))
+        : dimension == Dimension.AreaDim ? measures.Area.Map(static m => new MeasureValue(Dimension.AreaDim, m, "m²"))
+        : dimension == Dimension.VolumeDim ? measures.Volume.Map(static m => new MeasureValue(Dimension.VolumeDim, m, "m³"))
+        : None;
 
-    static Option<MeasureValue> Measure(GeometryHandle geometry, QuantityKind kind) => kind switch {
-        QuantityKind.Length => geometry.Length.Map(m => new MeasureValue(kind, m, "m")),
-        QuantityKind.Area   => geometry.Area.Map(m => new MeasureValue(kind, m, "m²")),
-        QuantityKind.Volume => geometry.Volume.Map(m => new MeasureValue(kind, m, "m³")),
-        _                   => None,
-    };
-
-    static string NameOf(QuantityKind kind) => kind switch {
-        QuantityKind.Length => "Length", QuantityKind.Area => "GrossArea",
-        QuantityKind.Volume => "NetVolume", QuantityKind.Weight => "Weight", _ => "Count",
-    };
-
-    // Unit-checked aggregation over an element set's same-kind quantities through the UnitsNet UnitMath.Sum
-    // typed reducer (the persisted Si scalar lifts back into the typed quantity at its SI base unit, sums in
-    // the dimensioned algebra, and reads the SI magnitude) — never a manual `double` fold per .api/api-unitsnet.
-    public Option<IQuantity> Total(QuantityKind kind) =>
-        Quantities.Values.Filter(q => q.Kind == kind).ToList() is { Count: > 0 } rows
-            ? Some(UnitMath.Sum(rows.Select(static q => Quantum(q.Kind, q.Si)), SiUnitOf(kind)))
-            : None;
-
-    public static double TotalSi(QuantitySet set, QuantityKind kind) =>
-        set.Total(kind).Map(static q => (double)q.Value).IfNone(0d);
-
-    static IQuantity Quantum(QuantityKind kind, double si) => kind switch {
-        QuantityKind.Length => Length.FromMeters(si),
-        QuantityKind.Area   => Area.FromSquareMeters(si),
-        QuantityKind.Volume => Volume.FromCubicMeters(si),
-        QuantityKind.Weight => Mass.FromKilograms(si),
-        QuantityKind.Time   => Duration.FromSeconds(si),
-        _                   => Length.FromMeters(si),
-    };
-
-    static Enum SiUnitOf(QuantityKind kind) => kind switch {
-        QuantityKind.Length => LengthUnit.Meter, QuantityKind.Area => AreaUnit.SquareMeter,
-        QuantityKind.Volume => VolumeUnit.CubicMeter, QuantityKind.Weight => MassUnit.Kilogram,
-        QuantityKind.Time => DurationUnit.Second, _ => LengthUnit.Meter,
-    };
+    static string NameOf(Dimension dimension) =>
+        dimension == Dimension.LengthDim ? "Length"
+        : dimension == Dimension.AreaDim ? "GrossArea"
+        : dimension == Dimension.VolumeDim ? "NetVolume"
+        : "Weight";
 }
 ```
 
-## [03]-[RESEARCH]
+## [04]-[RESEARCH]
 
-- [QTO_INHERITANCE]: the IFC `QTO_TYPEDRIVENOVERRIDE` / `QTO_TYPEDRIVENONLY` / `QTO_OCCURRENCEDRIVEN` property-inheritance vocabulary — the precedence a type-bound quantity holds over an occurrence quantity of the same key — grounds against the buildingSMART Pset/Qto template definitions so the `Resolve` occurrence-wins property fold and the type-driven quantity override match the standard inheritance rule; the GeometryGym `IfcRelDefinesByType.RelatingType` type-resolution and `IfcTypeObject.HasPropertySets` type-property surface confirm the type-row property extract before the `Resolve` body is final.
-- [BASE_QUANTITY_DERIVE]: the standard `Qto_*BaseQuantities` derivation — `NetVolume`/`GrossVolume`/`NetArea`/`GrossArea`/`Length`/`Width`/`Height`/`Weight` per element class — grounds against the buildingSMART base-quantity definitions and the kernel `Rasm` geometry volume/area/length surface the `GeometryHandle` binds by reference, so `Derive` computes from the bound geometry rather than re-tessellating; the GeometryGym `IfcElementQuantity`/`IfcQuantityLength`/`IfcQuantityArea`/`IfcQuantityVolume`/`IfcQuantityWeight` round-trip member spellings confirm against the catalogued `IfcPhysicalSimpleQuantity` surface so a derived quantity re-authors its `IfcElementQuantity` on export.
-- [BSDD_PROPERTY_MAP]: the bSDD class-to-property mapping that drives the standard-Pset vocabulary — the dictionary class shape feeding the `PropertyKey` template rows rather than a hardcoded property-name table — grounds against the live bSDD service contract shared with `Semantics/classification#CLASSIFICATION_AXIS` (the `[BSDD_RESOLUTION]` item) so a bSDD-referenced property definition resolves the template from the authoritative dictionary, never a drift-prone local table.
+- [TEMPLATE_RESOLUTION]: the `PropertyKey.Resolve` bSDD-over-static template fold grounds against the `Semantics/classification#BSDD_RESOLUTION` `BsddClass`/`BsddProperty` evidence (`.api/api-bsdd` `ClassPropertyContract.v1` `propertyCode`/`dataType`/`propertySet`/`predefinedValue`/`isRequired`) so the projector threads each property's `DataType` into the seam `Rasm.Element/Properties` `PropertyValue.Of(value, dataType)`; the static `PropertyKey` rows are the well-known anchors the dictionary enriches, never the authoritative source, so a new standard becomes a dictionary-URI row not a hardcoded table.
+- [INHERITANCE_STAMP]: the `PropertyInheritance.ModeOf` `InheritanceMode` classifier grounds against `ELEMENT-REBUILD-PLAN.md` §4-RT H1 (stamp each PropertySet/QuantitySet node with a structural `InheritanceMode` — `OccurrenceWins`/`TypeDrivenOverride`/`TypeDrivenOnly` — at Bim ingest so `Bake` applies correct type→occurrence precedence wholly within the seam) and the IFC `QTO_TYPEDRIVENOVERRIDE`/`QTO_TYPEDRIVENONLY`/`QTO_OCCURRENCEDRIVEN` inheritance vocabulary; the projector reads `ModeOf` and stamps the seam node, the seam `Bake` reading the stamp when folding a `DefinesByType` edge so the precedence is never re-derived per call site.
+- [BASE_QUANTITY_DERIVE]: the `QuantityDerivation.Derive` base-quantity fold grounds against the buildingSMART `Qto_*BaseQuantities` definitions (`NetVolume`/`GrossArea`/`Length`/`Weight` per element class) and the kernel `Rasm` geometry measures the seam node references by content key, deriving from the resolved geometry rather than re-tessellating; the value-half retirement grounds against `ELEMENT-REBUILD-PLAN.md` §4B (the typed VALUE family `PropertyValue`/`MeasureValue` is seam-owned, library-neutral) and §4-RT H2 (the 6-value `QuantityKind` replaced by the seam `Dimension` value-object over the 7 SI base dimensions + a UnitsNet `QuantityType` discriminator), so this page owns the TEMPLATE and the PRECEDENCE, the seam owns the value.

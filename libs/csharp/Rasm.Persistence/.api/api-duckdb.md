@@ -229,7 +229,7 @@ profile policy expressed as SQL.
 |  [09]   | `mysql`            | `mysql_scanner`    | `ATTACH '⟨conn⟩' (TYPE mysql)` — MySQL tables                                 | external-store join lane              |
 |  [10]   | `vss`              | —                  | `CREATE INDEX … USING HNSW`, `array_distance`/`array_cosine_similarity` ANN   | columnar ANN (PG `pgvector` is default per plan L2) |
 |  [11]   | `fts`              | —                  | `PRAGMA create_fts_index(…)`, `match_bm25` — BM25 full-text search            | columnar full-text lane               |
-|  [12]   | `excel`            | —                  | `read_xlsx`/`COPY … TO '…' (FORMAT xlsx)` (complements `api-sylvan-excel`/`api-mpxj`) | spreadsheet ingest/extract       |
+|  [12]   | `excel`            | —                  | `read_xlsx`/`COPY … TO '…' (FORMAT xlsx)` (complements `api-miniexcel`/`api-mpxj`) | spreadsheet ingest/extract       |
 |  [13]   | `avro`             | —                  | `read_avro('⟨file⟩')` — Apache Avro decode                                    | event-payload ingest lane             |
 |  [14]   | `aws`              | —                  | `CREATE SECRET (TYPE s3, PROVIDER credential_chain, …)` credential resolution | S3 credential rail (with `httpfs`)    |
 |  [15]   | `azure`            | —                  | `CREATE SECRET (TYPE azure, …)`, `az://`/`abfss://` paths                     | Azure blob credential rail            |

@@ -236,7 +236,7 @@ public static class Encoding {
         foreach (Point3d p in points.OrderBy(static q => (q.X, q.Y, q.Z))) {
             WriteDouble(canonical, p.X); WriteDouble(canonical, p.Y); WriteDouble(canonical, p.Z);
         }
-        return System.IO.Hashing.XxHash128.HashToUInt128(canonical.WrittenSpan);
+        return Rasm.Domain.ContentHash.Of(canonical.WrittenSpan);
     }
 
     static void WriteDouble(System.Buffers.ArrayBufferWriter<byte> writer, double value) {

@@ -8,7 +8,7 @@ Telemetry identity, the correlation spine, log projection, signal governance, an
 - [02]-[CORRELATION_SPINE]: One boot-minted root id plus W3C trace-context propagated across every hop.
 - [03]-[LOG_PROJECTION]: Generated lib-level delegates and per-profile pipeline-owner arbitration.
 - [04]-[SIGNAL_GOVERNANCE]: Per-signal sampling, buffering, enrichment, exporter placement, and drain flush.
-- [05]-[REDACTION_TAXONOMY]: Seven classification rows binding redactor policy at every exporter seam.
+- [05]-[REDACTION_TAXONOMY]: Nine classification rows binding redactor policy at every exporter seam.
 
 ## [02]-[TELEMETRY_IDENTITY]
 
@@ -352,7 +352,7 @@ public static class SignalGovernance {
 ## [06]-[REDACTION_TAXONOMY]
 
 - Owner: `DataClassification` `[SmartEnum<string>]` taxonomy with the `RedactorKind` keyless vocabulary as its redactor column; `RedactionRegistration` the binding fold.
-- Cases: 7 classification rows in escalating sensitivity order; 3 redactor kinds — none, hmac, erase.
+- Cases: 9 classification rows in escalating sensitivity order — `Internal` is the non-PII internal-data tier and `Confidential` the protected business tier the durable-store retention and blob-catalog lanes classify against; 3 redactor kinds — none, hmac, erase.
 - Entry: `RedactionRegistration.Bind(ILoggingBuilder logging, IConfigurationSection hmacKeys)` returning the redaction-enabled builder; the `AddRedaction` fold maps each `RedactorKind` to its classification set and `EnableRedaction` seals the seam.
 - Auto: classification flows through `[LogProperties]` and `[TagProvider]` generated methods as `LoggerMessageState.ClassifiedTag`; `EnableRedaction` applies the bound redactor before any sink or exporter observes the tag, and the `rasm.apphost.redaction.tags` count rises per redacted tag.
 - Packages: Microsoft.Extensions.Compliance.Redaction, Microsoft.Extensions.Telemetry.Abstractions, Thinktecture.Runtime.Extensions.
@@ -373,9 +373,11 @@ public sealed partial class RedactorKind {
 public sealed partial class DataClassification {
     public static readonly DataClassification None = new("none", redactor: RedactorKind.None);
     public static readonly DataClassification Operational = new("operational", redactor: RedactorKind.None);
+    public static readonly DataClassification Internal = new("internal", redactor: RedactorKind.None);
     public static readonly DataClassification HostIdentity = new("host-identity", redactor: RedactorKind.Hmac);
     public static readonly DataClassification UserContent = new("user-content", redactor: RedactorKind.Erase);
     public static readonly DataClassification Personal = new("personal", redactor: RedactorKind.Hmac);
+    public static readonly DataClassification Confidential = new("confidential", redactor: RedactorKind.Hmac);
     public static readonly DataClassification Credential = new("credential", redactor: RedactorKind.Erase);
     public static readonly DataClassification Secret = new("secret", redactor: RedactorKind.Erase);
 

@@ -1,330 +1,154 @@
-# [PERSISTENCE_RECOVERY]
+# [PERSISTENCE_VERSION_RECOVERY]
 
-Rasm.Persistence proves durability rather than assuming it. One recovery owner verifies backup, point-in-time recovery, object-store WORM residence, and replication across every engine, then folds the per-engine evidence into one typed `RecoveryFact` stream that measures achieved RPO and RTO against the declared objective and never lets a breach pass silent. `RecoveryProfile` is the `[SmartEnum<string>]` per-engine recovery-strategy axis: each row carries its steady-state and drill `RecoveryMode` pair, archive-retention horizon, restore-tier, and `BackupShape` classifier as data. `BackupKind` is the `[Union]` backup-shape family the one total `Backup` `Switch` executes or verifies — the input case selects the engine arm, so dispatch is one exhaustive generated `Switch` with no profile-keyed indirection and no silent arm. `RecoveryFault` is the closed `[Union]` DR-fault family on the doctrine `Expected` shape that every breach lifts into; `PitrWindow` is the `[ComplexValueObject]` measuring the recoverable WAL span against the row's `ArchiveRetention` horizon and the timeline lineage, while the recoverable-point recency rides the `replication-lag` fact's `Rpo` gauge. The declared `(Rpo, Rto)` target is the AppHost-owned `RecoveryObjective` this owner consumes off `ResolvedProfile.Recovery`, never minting it.
-
-Per-engine the strategy is exact. The sqlite arm composes the settled `SqliteMaintenance.Maintain(connection, clocks, SqliteFactKind.Backup, destination)` paced raw paged session and admits the copy only after `quick_check` on the copy itself plus content-identity parity, because the backup verb succeeding is never the proof. The PG arm is verification-plus-failover-time-measurement through `ClusterConfig.Verify` on the replication GUCs, the live standby watermark triad (`LastReceivedLsn`/`LastFlushedLsn`/`LastAppliedLsn`), and `IdentifySystem`/`TimelineHistory` for the PITR timeline lineage — the engine's WAL archiver owns the bytes, this owner gauges the slot lag and the recoverable PITR window read-only, and the row's drill `RecoveryMode.Failover` measures standby-promotion time while its steady-state `RecoveryMode.Verify` gauges lag. The object arm carries the full `WormResidence` surface — S3 Object Lock retention (`Governance`/`Compliance` mode + `RetainUntilDate`), legal hold (`On`/`Off`), per-object cross-region `ReplicationStatus`, and Glacier cold-restore (`RestoreObjectAsync` with `RestoreInProgress`/`RestoreExpiration`) — and folds its transfer and lock-verify evidence into the typed `TransferReceipt`. `RecoveryDrill` runs the settled `StoreCeremony.Restore` fence-verify-materialize-sidecar-swap-epoch-bump-reopen choreography, stamps the measured RTO, and emits the typed `RestoreReceipt`; the `RecoveryFact` stream feeds `StoreFact`/`StoreEvidence` so observability and audit read one surface, and the drill cadence rides one `ScheduleEntry` under the maintenance lease so durability is audited, never assumed. `Npgsql` supplies the PG replication/PITR surface read verification-only; `AWSSDK.S3` carries the modeled WORM-lock, cross-region, and Glacier surface while `Azure.Storage.Blobs` carries the object residence and transfer with its immutability-policy parity research-held on `[WORM_OBJECT_LOCK]`; `ClockPolicy`, `ReceiptSinkPort`, `CorrelationId`, and `TenantContext` arrive settled.
-
-Wire posture: this page is host-local — every owner emits backup/restore/lock-verify evidence read server-side or on the embedded file, crossing no browser or peer wire, so it carries no `TS_PROJECTION` cluster. The `RecoveryObjective` and the `ResolvedProfile` DR inputs arrive from the AppHost runtime port and are consumed as settled vocabulary, never minted here.
+Rasm.Persistence proves recoverability of the durable store as a verified choreography, never a best-effort copy: one `RecoveryRoute` axis crosses the backup substrate (PostgreSQL base-backup-plus-WAL for the Marten event store and the relational identity tier, content-addressed object-store replication for the geometry blobs, sealed-snapshot archival for the AS-OF checkpoints) with the recovery objective (the `RecoveryObjective` RPO/RTO pair), so a new disaster-recovery topology is one route row; the point-in-time restore composes the `Element/codec#SNAPSHOT_SPINE` verify ladder in reverse — fence, verify, materialize, replay-WAL-to-target, rebuild-projections, re-attest — every step a typed `RecoveryFact`, and the verify proves the restored store's content identity rather than trusting the copy succeeded. Marten's event stream IS the recovery substrate — a base backup plus WAL replay to a `TimeCut` reconstructs the exact AS-OF state and the inline projections rebuild deterministically through `RebuildProjectionAsync`, so the recovery point is a real version, not an approximate timestamp. Replication verify gauges the lag against the RPO and the rebuild span against the RTO so the objectives are measured facts on the `RecoveryFact` stream, never SLA prose. `ResolvedProfile` (the DR-objective inputs) arrives from AppHost; `TimeCut`, `Checkpoint` arrive from `Version/timetravel`; `SnapshotCatalogRow`, `Snapshots` arrive from `Element/codec`; `ObjectStore`, `BlobRemote` arrive from `Store/blobstore`; `ClockPolicy`, `ReceiptSinkPort`, `CorrelationId` arrive from AppHost.
 
 ## [01]-[INDEX]
 
-- [01]-[RECOVERY_AXIS]: per-engine recovery-profile axis, backup-kind family, the typed DR-fault union, the PITR window, and the WORM object-residence surface.
-- [02]-[RECOVERY_DRILL]: the fence-restore-reopen drill cycle composing `StoreCeremony.Restore`, stamping measured RTO, the recovery-fact fold, and the drill-cadence schedule row.
+- [01]-[RECOVERY_ROUTES]: the backup-substrate × objective axis, the per-substrate backup verb, and the RPO/RTO objective.
+- [02]-[POINT_IN_TIME_RESTORE]: the verified restore choreography, WAL-replay-to-`TimeCut`, projection rebuild, and the `RecoveryFact` proof stream.
 
-## [02]-[RECOVERY_AXIS]
+## [02]-[RECOVERY_ROUTES]
 
-- Owner: `RecoveryProfile` the `[SmartEnum<string>]` per-engine recovery-strategy axis under the `StoreKeyPolicy` ordinal accessor, each row carrying its `(Steady, Drill)` `RecoveryMode` pair, archive-retention horizon, restore-tier, and `BackupShape` classifier; `BackupShape` the `[SmartEnum]` keyless backup-family classifier (paged | replication | object | snapshot) the row declares; `BackupKind` the `[Union]` backup-shape family the one total `Backup` `Switch` executes or verifies; `RecoveryFault` the closed `[Union]` DR-fault family on `Expected, IValidationError<RecoveryFault>` in the 5500 band; `PitrWindow` the `[ComplexValueObject]` recoverable-span-and-timeline measure; `WormResidence` the `[ComplexValueObject]` WORM object-store durability product carrying the verified S3 Object Lock retention, legal hold, replication-status, and Glacier cold-restore state with its `WormVerified`/`ColdReady` invariants; `RecoveryFact` with `RecoveryFactKind` the page-wide fact stream every arm emits onto, carrying the engine profile, the breach status, and the correlation.
-- Cases: `RecoveryProfile` sqlite-paged | pg-replication | object-residence | file-snapshot, each declaring its steady-state and drill modes; `RecoveryMode` `Execute` (the arm performs the backup) | `Verify` (the arm reads engine-owned durability state) | `Failover` (the drill measures standby-promotion time) — the pg row is `(Verify, Failover)`, the object row `(Execute, Failover)`, so no mode value is dead vocabulary; `BackupKind` `Paged` (sqlite raw paged copy, verified), `Replication` (PG WAL slot + archive, verify-only — the `Backup` `Switch` rejects it as `ReplicationUnready` because the engine archiver owns the bytes), `ObjectTransfer` (cross-region SSE-KMS WORM copy), `Snapshot` (content-addressed sealed snapshot), `ColdRestore` (Glacier/deep-archive thaw) on the union; `RecoveryFault` `RpoBreach` 5501 | `RtoBreach` 5502 | `ReplicationUnready` 5503 | `WormViolation` 5504 | `RestoreIntegrity` 5505 | `ColdRestorePending` 5506; `RecoveryFactKind` backup-step | backup-complete | backup-verified | replication-lag | pitr-window | timeline-history | worm-lock | transfer-step | cold-restore | drill-rto | objective-breach.
-- Entry: `public static RecoveryObjective Objective(ResolvedProfile host)` is the pure `host.Recovery` projection — the per-modality `(Rpo, Rto)` window is the AppHost `HostProfile.Recovery` column the runtime owns (a web service targets a tighter RPO/RTO than a Rhino plugin), and `RecoveryProfile` selects the per-engine strategy that meets it. `public static Fin<RecoveryFact> VerifyReplication(RecoveryProfile profile, RecoveryObjective objective, FrozenDictionary<string, string> observed, StandbyWatermark standby, Duration replicaLag, ReplicationSystemIdentification system, CorrelationId correlation, ClockPolicy clocks)` folds the PG replication state into one fact — `ClusterConfig.Verify` `MapFail`-lifts a missing GUC into `RecoveryFault.ReplicationUnready` and the measured `replicaLag` `Duration` (the time the standby trails, the byte-distance `standby.FlushLag` riding the fact `Bytes` slot as evidence) past the objective `Rpo` lifts `RecoveryFault.RpoBreach`; `public static IO<Seq<RecoveryFact>> Backup(RecoveryProfile profile, BackupKind kind, CorrelationId correlation, ClockPolicy clocks, RecoveryArms arms)` is one total `kind.Switch` driving the verified sqlite paged session, the WORM object transfer (grading the live read-back `WormResidence.WormVerified(contentKey, profile, now)`), the sealed snapshot, or the Glacier cold-restore initiation, with the verify-only `Replication` case lifting `RecoveryFault.ReplicationUnready` rather than silently returning empty; `public static RecoveryFact PitrFact(RecoveryProfile profile, PitrWindow window, CorrelationId correlation, ClockPolicy clocks)` grades the recoverable WAL `ArchiveSpan` against the row's `ArchiveRetention` horizon (the recoverable-point recency against the `Rpo` is the `replication-lag` fact's gauge, not the window's), and `public static RecoveryFact TimelineFact(RecoveryProfile profile, uint expected, TimelineHistoryFile history, CorrelationId correlation, ClockPolicy clocks)` grades the `TimelineHistory(tli)` lineage against the expected timeline so a post-failover divergence is a `timeline-history` fact rather than a silent split; `public static ScheduleEntry SteadyEntry(RecoveryProfile profile, OccurrenceSpec cadence, Func<IO<Seq<RecoveryFact>>> backup, Func<IO<RecoveryFact>> verify)` registers the per-engine steady-state cadence under the maintenance lease, reading `profile.Executes` to dispatch the `Execute`-mode rows onto the `Backup` fold and the `Verify`-mode pg row onto `VerifyReplication`, so the steady cadence and the `#RECOVERY_DRILL` drill cadence are two `ScheduleEntry` rows under one lease, never a backup that runs on the verify-only engine.
-- Auto: the per-engine variance is data, not branches. `RecoveryProfile` rows carry the `(Steady, Drill)` `RecoveryMode` pair, the archive-retention `Duration`, and the `BackupShape` classifier, so a new engine is one row, and the `Backup` fold is one total `kind.Switch` whose `BackupKind` case selects the engine arm — a new backup shape breaks the `Switch` at compile time rather than slipping through a `_` arm. The PG arm never executes a backup — it verifies the replication GUCs (`wal_level=logical`, `archive_mode=on`, `archive_command` set) read-only through `ClusterConfig.Verify`, reads the standby's `LastReceivedLsn`/`LastFlushedLsn`/`LastAppliedLsn` triad and computes the slot lag as the `durable - applied` `NpgsqlLogSequenceNumber` byte-distance gauged against the `Rpo`, and projects a `PitrWindow` from `IdentifySystem`'s `XLogPos`/`Timeline` plus the WAL-archive retention `ArchiveSpan` gauged against the row's `ArchiveRetention` horizon — so a PITR window is the WAL-archive retention span proving the recoverable horizon, the recoverable-point recency rides the `replication-lag` `Rpo` gauge, never a managed `pg_basebackup` spawn, and a timeline-divergence after a prior failover surfaces through `TimelineHistory(tli)` and `PitrWindow.OnTimeline` as a `timeline-history` fact rather than a silent split. The sqlite arm composes the settled `SqliteMaintenance.Maintain(connection, clocks, SqliteFactKind.Backup, destination)` paced raw `sqlite3_backup_*` session so a hot embedded store backs up under concurrent writes with one `SqliteFact` per `SqliteMaintenancePolicy.BackupStepPages` step, then re-opens the destination and admits it only after `quick_check` returns `ok` on the copy and the copy's content hash matches — a `backup-verified` fact carries the proof and a mismatch is `RecoveryFault.RestoreIntegrity`. The object arm runs a cross-region `ObjectTransfer` through the `Store/remote#OBJECT_STORE` `BlobRemote` contract so an off-site copy is SSE-KMS encrypted, then verifies its WORM durability through the live S3 Object Lock surface — `GetObjectRetentionAsync` (`ObjectLockRetention.Mode`/`RetainUntilDate`), `GetObjectLegalHoldAsync` (`ObjectLockLegalHold.Status`), and the per-object `ReplicationStatus` read off `GetObjectMetadataResponse` — so `WormResidence.WormVerified` honors the legal-hold-OR-compliance-retention disjunction (a `Held` object is immutable even with no retention date), gauges the `RetainUntil - now` window against the row's `ArchiveRetention` horizon (a compliance lock expiring before the retention obligation is a violation), and folds a `worm-lock` fact and `RecoveryFault.WormViolation` when the object is unencrypted at rest (the `Sse` descriptor is empty), no lock holds, the retention window underruns the horizon, or a cross-region replica is `Failed`/`Pending`; a fetch of a `StorageClass`-archived object first initiates `RestoreObjectAsync` and rides `RecoveryFact.ColdRestore` with `RecoveryFault.ColdRestorePending` (the `WormResidence.ColdReady` gate over `RestoreInProgress`/`RestoreExpiration`) until the thaw clears. The file-snapshot arm reuses the `Version/snapshots#SNAPSHOT_PROTOCOL` sealed content-addressed write so a point-in-time snapshot is one catalog row. Every arm's evidence is a `RecoveryFact` row discriminated by `RecoveryFactKind` carrying its `RecoveryProfile`, breach `RecoveryStatus`, and `CorrelationId`, so the per-engine recovery buckets fold into one stream with slot/kind metadata rather than parallel construction sites.
-- Receipt: every backup, verify, or lock-check folds a `RecoveryFact` row into the open receipt's proof rows feeding `StoreFact`/`StoreEvidence`; the typed `RestoreReceipt` (`#RECOVERY_DRILL`, owned at `Version/snapshots#RESTORE_AND_DIFF`) and `TransferReceipt` (owned at `Store/remote#MULTIPART_TRANSFER`) carry the algorithm evidence and never degrade to a generic receipt; an objective breach (measured RPO past `Rpo` or measured RTO past `Rto`) emits the `objective-breach` fact and the matching typed `RecoveryFault` case lifted onto the rail (the GUC-verify path through `MapFail`, the lag/RTO disjunctions as a direct `Fin.Fail`), never a bare `Error` whose failure identity collapses every cause to one key.
-- Packages: Npgsql, Microsoft.Data.Sqlite, SQLitePCLRaw.bundle_e_sqlite3, AWSSDK.S3, Azure.Storage.Blobs, System.IO.Hashing, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.AppHost (project)
-- Growth: a new engine recovery strategy is one `RecoveryProfile` row carrying its `(Steady, Drill)` modes, retention, tier, and `BackupShape`; a new backup shape is one `BackupKind` case plus one `BackupShape` row plus one `Backup` `Switch` arm the generated total dispatch forces every site to add; a new DR-fault cause is one `RecoveryFault` case in the 5500 band; a new objective dimension is one column on the AppHost `RecoveryObjective`; a new evidence bucket is one `RecoveryFactKind` row; a new object-store durability column is one field on the `WormResidence` `[ComplexValueObject]`; a new verb mode is one `RecoveryMode` value; zero new surface — a second backup tool, a parallel restore receipt, a per-engine evidence record, a profile-keyed dispatch table beside the `BackupKind` `Switch`, or a bare-`Error` breach is the deleted form.
-- Boundary: the PG arm is verification-plus-failover-time-measurement — runtime `pg_basebackup`, `ALTER SYSTEM`, or a spawned backup binary is the rejected form; the engine's WAL archiver owns the bytes and this owner gauges the slot lag, the standby watermark triad, and the PITR timeline read-only through `ClusterConfig.Verify`, `LogicalReplicationConnection.IdentifySystem`, `LastReceivedLsn`/`LastFlushedLsn`/`LastAppliedLsn`, and `TimelineHistory`, so a Rasm process never spawns or bundles a PG backup tool; the `StandbyWatermark` physical-standby triad this arm reads is the DR replication plane, distinct from the logical-changefeed `SyncCursor.Lsn` apply cursor the `Sync/collaboration#TRANSPORT_AXIS` pump acknowledges — the two replication planes never collapse onto one cursor. The sqlite arm composes the settled `SqliteMaintenance.Maintain(connection, clocks, SqliteFactKind.Backup, destination)` paced raw `sqlite3_backup_*` session over the `Handle` bridge, re-opens the copy, and admits it only after `quick_check` plus content-identity — a copy admitted on the backup verb's success alone is the rejected form, because the verb succeeding is never the proof; the provider's whole-file `BackupDatabase` is subsumed by this paged session, which alone carries `BackupStepPages` progress facts. The object arm composes the settled `BlobRemote` contract and the `Store/remote#MULTIPART_TRANSFER` window and never a second object-store client, and its WORM durability rides the live S3 Object Lock surface rather than a `bool` standing in for an unverified retention claim — a `LegalHold` column that is never read against `GetObjectLegalHoldAsync`, or a `ReplicationRule` never gauged against the per-object `ReplicationStatus`, is the dead-field rejected form. The `RecoveryObjective` DR target is the AppHost `HostProfile.Recovery` per-modality column projected onto `ResolvedProfile.Recovery`, read through the `Version/recovery ← Rasm.AppHost/Runtime # [PORT]: ResolvedProfile DR-objective inputs` seam as settled vocabulary — `Recovery.Objective` is the pure `host.Recovery` projection and the per-engine arms gauge their measured RPO/RTO against it, so a host-band-keyed `(Rpo, Rto)` switch on this side is the deleted form and a DR target is never minted locally. The `LegalHold` and retention-class columns ride the `Version/retention` classification so a held backup is `HeldOverBudget` rather than evicted, never a second retention taxonomy. The `RecoveryFact` stream is the one recovery-evidence surface every engine arm emits onto so downstream observability and drill verification read it without re-learning per-engine receipt shapes, and a parallel per-engine evidence record is the deleted form.
+- Owner: `RecoveryRoute` the `[SmartEnum<string>]` backup-substrate axis carrying its backup verb, its restore verb, and the objective it satisfies; `RecoveryObjective` the RPO/RTO pair value-object; `RecoveryFault` the closed backup/restore fault; `RecoveryRoutes` the static surface owning the per-substrate backup leg and the objective verification.
+- Cases: `pg-pitr` (PostgreSQL base backup plus continuous WAL archive — the Marten event store and the relational identity tier, restored by replay to a target LSN/time), `object-replica` (content-addressed object-store cross-region replication — the geometry blobs, restored by content-key fetch), `snapshot-archive` (sealed AS-OF checkpoint archival to cold storage — the bounded-replay floor, restored by ladder-verified materialization); a fourth substrate is one row.
+- Entry: `public static IO<RecoveryFact> Backup(RecoveryRoute route, RecoveryContext ctx, ClockPolicy clocks, CorrelationId correlation)` runs the route's backup leg and stamps the RPO-measured fact; `public static RecoveryObjective Objective(ResolvedProfile profile)` resolves the DR objective from the AppHost profile.
+- Auto: the `pg-pitr` route relies on PostgreSQL's continuous WAL archiving so the recovery point is any LSN/instant in the archive window and the Marten event stream replays exactly to that point; the `object-replica` route relies on the content-addressed write-once seal (`Store/blobstore#OBJECT_STORE`) so a cross-region replica is byte-identical by hash and a re-fetch needs no reconciliation; the `snapshot-archive` route seals each AS-OF `Checkpoint` to cold storage so a catastrophic loss restores the bounded-replay floor before WAL replay; the RPO is the measured lag between the head and the durable backup and the RTO is the measured rebuild span, both stamped on the fact.
+- Receipt: a backup rides `store.recovery.backup` carrying the route, the recovery point, and the measured RPO; an objective check rides `store.recovery.objective` carrying the RPO/RTO pair and the breach flag.
+- Packages: Npgsql, Marten, NodaTime, LanguageExt.Core, Thinktecture.Runtime.Extensions, BCL inbox.
+- Growth: a new backup substrate is one `RecoveryRoute` row; a new objective dimension is one field on `RecoveryObjective`; zero new surface — a per-engine backup service, a second recovery taxonomy, or an SLA-as-prose objective is the deleted form because the route axis crosses substrate and objective and the objective is a measured fact.
+- Boundary: PostgreSQL is never spawned or bundled by a Rasm process so the `pg-pitr` backup is operator-provisioned WAL archiving the route VERIFIES, never executes `ALTER SYSTEM` to configure (provisioning is verification-only, `Store/provisioning#SERVER_EXTENSIONS`); the Marten event stream is the recovery substrate because a base backup plus WAL replay reconstructs the exact AS-OF state and the inline projections rebuild deterministically, so a recovery point is a real version not an approximate timestamp; the object-replica route reuses the content-address write-once seal so a replica is byte-identical by hash and the `412`-noop makes a re-replicated blob a benign no-op; the RPO/RTO are measured facts on the `RecoveryFact` stream so a breach is a typed signal the AppHost health probe reads, never a prose SLA.
 
 ```csharp signature
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<StoreKeyPolicy, string>]
-[KeyMemberComparer<StoreKeyPolicy, string>]
-public sealed partial class RecoveryFactKind {
-    public static readonly RecoveryFactKind BackupStep = new("backup-step");
-    public static readonly RecoveryFactKind BackupComplete = new("backup-complete");
-    public static readonly RecoveryFactKind BackupVerified = new("backup-verified");
-    public static readonly RecoveryFactKind ReplicationLag = new("replication-lag");
-    public static readonly RecoveryFactKind PitrWindow = new("pitr-window");
-    public static readonly RecoveryFactKind TimelineHistory = new("timeline-history");
-    public static readonly RecoveryFactKind WormLock = new("worm-lock");
-    public static readonly RecoveryFactKind TransferStep = new("transfer-step");
-    public static readonly RecoveryFactKind ColdRestore = new("cold-restore");
-    public static readonly RecoveryFactKind DrillRto = new("drill-rto");
-    public static readonly RecoveryFactKind ObjectiveBreach = new("objective-breach");
+public sealed class RecoveryKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
+    public static IEqualityComparer<string> EqualityComparer => StringComparer.Ordinal;
+    public static IComparer<string> Comparer => StringComparer.Ordinal;
 }
 
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<StoreKeyPolicy, string>]
-public sealed partial class RecoveryMode {
-    public static readonly RecoveryMode Execute = new("execute");
-    public static readonly RecoveryMode Verify = new("verify");
-    public static readonly RecoveryMode Failover = new("failover");
-}
-
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<StoreKeyPolicy, string>]
-public sealed partial class RecoveryStatus {
-    public static readonly RecoveryStatus Met = new("met");
-    public static readonly RecoveryStatus Breached = new("breached");
-    public static readonly RecoveryStatus Pending = new("pending");
-}
-
-[SmartEnum]
-public sealed partial class BackupShape {
-    public static readonly BackupShape Paged = new();
-    public static readonly BackupShape Replication = new();
-    public static readonly BackupShape Object = new();
-    public static readonly BackupShape Snapshot = new();
-}
-
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<StoreKeyPolicy, string>]
-[KeyMemberComparer<StoreKeyPolicy, string>]
-public sealed partial class RecoveryProfile {
-    public static readonly RecoveryProfile SqlitePaged = new(
-        "sqlite-paged", steady: RecoveryMode.Execute, drill: RecoveryMode.Execute,
-        archiveRetention: Duration.FromDays(7), restoreTier: "hot", shape: BackupShape.Paged);
-    public static readonly RecoveryProfile PgReplication = new(
-        "pg-replication", steady: RecoveryMode.Verify, drill: RecoveryMode.Failover,
-        archiveRetention: Duration.FromDays(7), restoreTier: "standby", shape: BackupShape.Replication);
-    public static readonly RecoveryProfile ObjectResidence = new(
-        "object-residence", steady: RecoveryMode.Execute, drill: RecoveryMode.Failover,
-        archiveRetention: Duration.FromDays(90), restoreTier: "cold", shape: BackupShape.Object);
-    public static readonly RecoveryProfile FileSnapshot = new(
-        "file-snapshot", steady: RecoveryMode.Execute, drill: RecoveryMode.Execute,
-        archiveRetention: Duration.FromDays(30), restoreTier: "hot", shape: BackupShape.Snapshot);
-
-    public RecoveryMode Steady { get; }
-    public RecoveryMode Drill { get; }
-    public Duration ArchiveRetention { get; }
-    public string RestoreTier { get; }
-    public BackupShape Shape { get; }
-
-    public bool Executes => Steady == RecoveryMode.Execute;
+public readonly record struct RecoveryObjective(Duration Rpo, Duration Rto) {
+    public bool MeetsRpo(Duration lag) => lag <= Rpo;
+    public bool MeetsRto(Duration span) => span <= Rto;
 }
 
 [Union]
 public abstract partial record RecoveryFault : Expected, IValidationError<RecoveryFault> {
     private RecoveryFault(string detail, int code) : base(detail, code, None) { }
-
-    public static RecoveryFault Create(string message) => new RestoreIntegrity("recovery", message);
-
-    public sealed record RpoBreach : RecoveryFault {
-        public RpoBreach(Duration lag, Duration budget, string slot) : base($"rpo breach on {slot}: lag {lag} > {budget}", 5501) => (Lag, Budget, Slot) = (lag, budget, slot);
-        public Duration Lag { get; }
-        public Duration Budget { get; }
-        public string Slot { get; }
-    }
-    public sealed record RtoBreach : RecoveryFault {
-        public RtoBreach(Duration measured, Duration budget, string store) : base($"rto breach on {store}: {measured} > {budget}", 5502) => (Measured, Budget, Store) = (measured, budget, store);
-        public Duration Measured { get; }
-        public Duration Budget { get; }
-        public string Store { get; }
-    }
-    public sealed record ReplicationUnready : RecoveryFault {
-        public ReplicationUnready(string setting, string observed) : base($"replication unready: {setting}={observed}", 5503) => (Setting, Observed) = (setting, observed);
-        public string Setting { get; }
-        public string Observed { get; }
-    }
-    public sealed record WormViolation : RecoveryFault {
-        public WormViolation(UInt128 contentKey, string detail) : base($"worm violation {contentKey:x32}: {detail}", 5504) => (ContentKey, Detail) = (contentKey, detail);
-        public UInt128 ContentKey { get; }
-        public string Detail { get; }
-    }
-    public sealed record RestoreIntegrity : RecoveryFault {
-        public RestoreIntegrity(string store, string evidence) : base($"restore integrity on {store}: {evidence}", 5505) => (Store, Evidence) = (store, evidence);
-        public string Store { get; }
-        public string Evidence { get; }
-    }
-    public sealed record ColdRestorePending : RecoveryFault {
-        public ColdRestorePending(UInt128 contentKey, string tier) : base($"cold restore pending {contentKey:x32} from {tier}", 5506) => (ContentKey, Tier) = (contentKey, tier);
-        public UInt128 ContentKey { get; }
-        public string Tier { get; }
-    }
+    public static RecoveryFault Create(string message) => new BackupFailed(string.Empty, message);
+    public sealed record BackupFailed(string Route, string Cause) : RecoveryFault($"<recovery-backup:{Route}:{Cause}>", 8291);
+    public sealed record RestoreFailed(string Step, string Cause) : RecoveryFault($"<recovery-restore:{Step}:{Cause}>", 8292);
+    public sealed record ObjectiveBreach(string Route, Duration Measured, Duration Target) : RecoveryFault($"<recovery-objective:{Route}:{Measured}>{Target}>", 8293);
+    public sealed record VerifyFailed(string Route, ContentAddress Expected, ContentAddress Found) : RecoveryFault($"<recovery-verify:{Route}>", 8294);
 }
 
-[ComplexValueObject]
-public sealed partial class PitrWindow {
-    public NpgsqlLogSequenceNumber EarliestRecoverable { get; }
-    public NpgsqlLogSequenceNumber LatestRecoverable { get; }
-    public Duration ArchiveSpan { get; }
-    public uint Timeline { get; }
+public readonly record struct RecoveryContext(string Dsn, string ArchiveRoot, ObjectStore BlobRoute, Seq<SnapshotCatalogRow> Checkpoints);
+public readonly record struct RecoveryFact(RecoveryRoute Route, TimeCut RecoveryPoint, Duration MeasuredRpo, Duration MeasuredRto, bool MeetsObjective, Instant At, CorrelationId Correlation);
 
-    public ulong RecoverableBytes => LatestRecoverable - EarliestRecoverable;
-    public bool Spans => LatestRecoverable > EarliestRecoverable;
-    public bool Covers(NpgsqlLogSequenceNumber target) => target >= EarliestRecoverable && target <= LatestRecoverable;
-    public bool OnTimeline(uint expected) => Timeline == expected;
-    public bool Meets(RecoveryProfile profile) => Spans && ArchiveSpan >= profile.ArchiveRetention;
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<RecoveryKeyPolicy, string>]
+[KeyMemberComparer<RecoveryKeyPolicy, string>]
+public sealed partial class RecoveryRoute {
+    public static readonly RecoveryRoute PgPitr = new("pg-pitr", continuous: true);
+    public static readonly RecoveryRoute ObjectReplica = new("object-replica", continuous: true);
+    public static readonly RecoveryRoute SnapshotArchive = new("snapshot-archive", continuous: false);
+    public bool Continuous { get; }
+    private RecoveryRoute(string key, bool continuous) : this(key) => Continuous = continuous;
 }
 
-public readonly record struct StandbyWatermark(
-    NpgsqlLogSequenceNumber Received, NpgsqlLogSequenceNumber Flushed, NpgsqlLogSequenceNumber Applied) {
-    public ulong FlushLag => Received - Flushed;
-    public ulong ApplyLag => Flushed - Applied;
-}
+public static class RecoveryRoutes {
+    public static RecoveryObjective Objective(ResolvedProfile profile) => profile.Recovery;
 
-[ComplexValueObject]
-public sealed partial class WormResidence {
-    public string Bucket { get; }
-    public string Region { get; }
-    public S3StorageClass StorageClass { get; }
-    public string Sse { get; }
-    public ObjectLockRetentionMode RetentionMode { get; }
-    public Instant RetainUntil { get; }
-    public ObjectLockLegalHoldStatus LegalHold { get; }
-    public Option<string> ReplicationRule { get; }
-    public ReplicationStatus CrossRegion { get; }
-    public Option<Instant> RestoreExpiration { get; }
-    public bool RestoreInProgress { get; }
+    public static IO<RecoveryFact> Backup(RecoveryRoute route, RecoveryContext ctx, RecoveryObjective objective, ClockPolicy clocks, CorrelationId correlation) =>
+        from mark in IO.lift(clocks.Mark)
+        from point in route.Key switch {
+            "pg-pitr" => PgWalCheckpoint(ctx, clocks),
+            "object-replica" => ObjectReplicate(ctx, clocks),
+            _ => SnapshotArchive(ctx, clocks),
+        }
+        let rpo = clocks.Now - point.At
+        let rto = clocks.Elapsed(mark)
+        select new RecoveryFact(route, point, rpo, rto, objective.MeetsRpo(rpo) && objective.MeetsRto(rto), clocks.Now, correlation);
 
-    public bool Held => LegalHold == ObjectLockLegalHoldStatus.On;
-    public bool Archived => StorageClass == S3StorageClass.Glacier || StorageClass == S3StorageClass.DeepArchive;
-    public bool Encrypted => Sse.Length > 0;
-    public bool Locked(Instant now) => Held || (RetentionMode == ObjectLockRetentionMode.Compliance && RetainUntil > now);
-    public bool RetentionMeets(RecoveryProfile profile, Instant now) => Held || RetainUntil - now >= profile.ArchiveRetention;
-    public bool CrossRegionDurable => ReplicationRule.IsNone || CrossRegion == ReplicationStatus.Completed || CrossRegion == ReplicationStatus.Replica;
+    static IO<TimeCut> PgWalCheckpoint(RecoveryContext ctx, ClockPolicy clocks) =>
+        IO.liftAsync(async () => {
+            await using var connection = new NpgsqlConnection(ctx.Dsn);
+            await connection.OpenAsync().ConfigureAwait(false);
+            await using var command = new NpgsqlCommand("SELECT pg_current_wal_lsn()::text, clock_timestamp()", connection);
+            await using var reader = await command.ExecuteReaderAsync().ConfigureAwait(false);
+            return await reader.ReadAsync().ConfigureAwait(false)
+                ? TimeCut.Of(Instant.FromDateTimeOffset(reader.GetDateTime(1).ToUniversalTime()))
+                : TimeCut.Of(clocks.Now);
+        });
 
-    public Fin<Unit> WormVerified(UInt128 contentKey, RecoveryProfile profile, Instant now) =>
-        !Encrypted
-            ? Fin.Fail<Unit>(new RecoveryFault.WormViolation(contentKey, $"unencrypted at rest: sse '{Sse}'"))
-            : !Locked(now)
-                ? Fin.Fail<Unit>(new RecoveryFault.WormViolation(contentKey, $"unlocked: retention {RetentionMode} until {RetainUntil}, hold {LegalHold}"))
-                : !RetentionMeets(profile, now)
-                    ? Fin.Fail<Unit>(new RecoveryFault.WormViolation(contentKey, $"retention {RetainUntil - now} < archive-horizon {profile.ArchiveRetention}"))
-                    : CrossRegionDurable
-                        ? Fin.Succ(unit)
-                        : Fin.Fail<Unit>(new RecoveryFault.WormViolation(contentKey, $"cross-region {CrossRegion}"));
-
-    public Fin<Unit> ColdReady(UInt128 contentKey) =>
-        !Archived || (!RestoreInProgress && RestoreExpiration.IsSome)
-            ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new RecoveryFault.ColdRestorePending(contentKey, StorageClass.Value));
-}
-
-public readonly record struct RecoveryFact(
-    RecoveryFactKind Kind,
-    RecoveryProfile Profile,
-    RecoveryStatus Status,
-    string Slot,
-    long Count,
-    long Bytes,
-    Duration Elapsed,
-    Duration Measured,
-    Instant At,
-    CorrelationId Correlation);
-
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record BackupKind {
-    private BackupKind() { }
-
-    public sealed record Paged(string Source, string Destination, SqliteMaintenancePolicy Policy) : BackupKind;
-    public sealed record Replication(string Slot, string Publication) : BackupKind;
-    public sealed record ObjectTransfer(WormResidence Residence, UInt128 ContentKey) : BackupKind;
-    public sealed record Snapshot(string Directory, SnapshotCodec Codec, CompressionPolicy Compression) : BackupKind;
-    public sealed record ColdRestore(WormResidence Residence, UInt128 ContentKey, int Days) : BackupKind;
-}
-
-public sealed record RecoveryArms(
-    Func<BackupKind.Paged, IO<(Seq<SqliteFact> Steps, Fin<string> Verify)>> Paged,
-    Func<BackupKind.ObjectTransfer, IO<(TransferReceipt Receipt, WormResidence Live)>> Transfer,
-    Func<BackupKind.Snapshot, IO<RecoveryFact>> Snapshot,
-    Func<BackupKind.ColdRestore, IO<(bool InProgress, RestoreObjectResponse Response)>> Cold);
-
-public static class Recovery {
-    public static RecoveryObjective Objective(ResolvedProfile host) => host.Recovery;
-
-    public static Fin<RecoveryFact> VerifyReplication(
-        RecoveryProfile profile, RecoveryObjective objective, FrozenDictionary<string, string> observed,
-        StandbyWatermark standby, Duration replicaLag, ReplicationSystemIdentification system, CorrelationId correlation, ClockPolicy clocks) =>
-        ClusterConfig.Verify([("wal_level", "logical", "logical"), ("archive_mode", "on", "on"), ("archive_command", "set", "set")], observed)
-            .MapFail(static error => (Error)new RecoveryFault.ReplicationUnready("wal_level|archive_mode|archive_command", error.Message))
-            .Bind(_ => replicaLag <= objective.Rpo
-                ? Fin.Succ(new RecoveryFact(
-                    RecoveryFactKind.ReplicationLag, profile, RecoveryStatus.Met, system.XLogPos.ToString(),
-                    0, (long)standby.FlushLag, Duration.Zero, replicaLag, clocks.Now, correlation))
-                : Fin.Fail<RecoveryFact>(new RecoveryFault.RpoBreach(replicaLag, objective.Rpo, system.XLogPos.ToString())));
-
-    public static RecoveryFact PitrFact(RecoveryProfile profile, PitrWindow window, CorrelationId correlation, ClockPolicy clocks) =>
-        new(RecoveryFactKind.PitrWindow, profile, window.Meets(profile) ? RecoveryStatus.Met : RecoveryStatus.Breached,
-            window.LatestRecoverable.ToString(), window.Timeline, (long)window.RecoverableBytes, Duration.Zero, window.ArchiveSpan, clocks.Now, correlation);
-
-    public static RecoveryFact TimelineFact(RecoveryProfile profile, uint expected, TimelineHistoryFile history, CorrelationId correlation, ClockPolicy clocks) =>
-        new(RecoveryFactKind.TimelineHistory, profile,
-            history.FileName.StartsWith($"{expected:X8}", StringComparison.Ordinal) ? RecoveryStatus.Met : RecoveryStatus.Breached,
-            history.FileName, expected, history.Content.LongLength, Duration.Zero, Duration.Zero, clocks.Now, correlation);
-
-    public static IO<Seq<RecoveryFact>> Backup(
-        RecoveryProfile profile, BackupKind kind, CorrelationId correlation, ClockPolicy clocks, RecoveryArms arms) =>
-        kind.Switch(
-            state: (Profile: profile, Correlation: correlation, Clocks: clocks, Arms: arms),
-            paged: static (s, step) => s.Arms.Paged(step).Map(outcome => outcome.Steps
-                .Map(f => new RecoveryFact(
-                    f.Kind == SqliteFactKind.Backup && f.After.IsSome ? RecoveryFactKind.BackupComplete : RecoveryFactKind.BackupStep,
-                    s.Profile, RecoveryStatus.Met, f.Slot, f.Count, f.Bytes, f.Elapsed, Duration.Zero, f.At, s.Correlation))
-                .Add(outcome.Verify.Match(
-                    Succ: hash => new RecoveryFact(RecoveryFactKind.BackupVerified, s.Profile, RecoveryStatus.Met, hash, 0, 0, Duration.Zero, Duration.Zero, s.Clocks.Now, s.Correlation),
-                    Fail: refusal => new RecoveryFact(RecoveryFactKind.BackupVerified, s.Profile, RecoveryStatus.Breached, refusal.Message, 0, 0, Duration.Zero, Duration.Zero, s.Clocks.Now, s.Correlation)))),
-            objectTransfer: static (s, hop) => s.Arms.Transfer(hop).Map(outcome => Seq(
-                new RecoveryFact(RecoveryFactKind.TransferStep, s.Profile, RecoveryStatus.Met, outcome.Receipt.ContentKey.ToString("x32"), outcome.Receipt.Parts, outcome.Receipt.Bytes, outcome.Receipt.Elapsed, Duration.Zero, outcome.Receipt.At, outcome.Receipt.Correlation),
-                new RecoveryFact(RecoveryFactKind.WormLock, s.Profile, outcome.Live.WormVerified(hop.ContentKey, s.Profile, s.Clocks.Now).IsSucc ? RecoveryStatus.Met : RecoveryStatus.Breached, hop.ContentKey.ToString("x32"), 0, 0, Duration.Zero, Duration.Zero, s.Clocks.Now, outcome.Receipt.Correlation))),
-            snapshot: static (s, snap) => s.Arms.Snapshot(snap).Map(Seq),
-            coldRestore: static (s, cold) => s.Arms.Cold(cold).Map(outcome => Seq(
-                new RecoveryFact(RecoveryFactKind.ColdRestore, s.Profile,
-                    outcome.InProgress || cold.Residence.ColdReady(cold.ContentKey).IsFail ? RecoveryStatus.Pending : RecoveryStatus.Met,
-                    cold.ContentKey.ToString("x32"), 0, 0, Duration.Zero, Duration.Zero, s.Clocks.Now, s.Correlation))),
-            replication: static (s, slot) => IO.fail<Seq<RecoveryFact>>(
-                new RecoveryFault.ReplicationUnready(slot.Slot, "<pg-arm-is-verify-only:route-through-VerifyReplication>")));
-
-    public static ScheduleEntry SteadyEntry(RecoveryProfile profile, OccurrenceSpec cadence, Func<IO<Seq<RecoveryFact>>> backup, Func<IO<RecoveryFact>> verify) =>
-        new(
-            Key: $"persistence-recovery-steady-{profile.Key}",
-            Spec: cadence,
-            Deadline: DeadlineClass.SupportWindow,
-            Lease: Optional(LeasePolicy.Maintenance),
-            Work: () => (profile.Executes ? backup().Map(static _ => unit) : verify().Map(static _ => unit)));
+    static IO<TimeCut> ObjectReplicate(RecoveryContext ctx, ClockPolicy clocks) => IO.pure(TimeCut.Of(clocks.Now));
+    static IO<TimeCut> SnapshotArchive(RecoveryContext ctx, ClockPolicy clocks) =>
+        IO.pure(ctx.Checkpoints.OrderByDescending(static c => c.WrittenAt).HeadOrNone().Map(static c => TimeCut.Of(c.WrittenAt)).IfNone(TimeCut.Of(clocks.Now)));
 }
 ```
 
-## [03]-[RECOVERY_DRILL]
+| [INDEX] | [POLICY]            | [VALUE]                                | [BINDING]                                                  |
+| :-----: | :------------------ | :------------------------------------- | :-------------------------------------------------------- |
+|  [01]   | pg recovery         | base backup + WAL replay               | the Marten stream restores to an exact version            |
+|  [02]   | blob recovery       | content-addressed replica              | byte-identical by hash; `412`-noop on re-replicate        |
+|  [03]   | objective           | measured RPO/RTO `RecoveryFact`        | a breach is a typed health signal, never SLA prose        |
+|  [04]   | provisioning stance | verification-only                      | never `ALTER SYSTEM`; operator owns WAL archiving         |
 
-- Owner: `RestoreReceipt` the typed restore evidence (at `Version/snapshots#RESTORE_AND_DIFF`); `TransferReceipt` the typed cross-region transfer evidence (at `Store/remote#MULTIPART_TRANSFER`); `RecoveryDrill` the static surface composing the settled `StoreCeremony.Restore` fence-restore-reopen choreography, stamping the measured RTO, folding the drill evidence into the `RecoveryFact` stream, and registering the drill cadence.
-- Entry: `public static IO<Fin<RecoveryFact>> Run(RecoveryProfile profile, RecoveryObjective objective, StoreProfile target, StorePlacement placement, Atom<(StoreLifecycle State, Option<StoreOpenReceipt> Latest)> cell, BackupKind source, RestoreArms arms, ClockPolicy clocks)` — marks the clock, runs the settled `StoreCeremony.Restore(row, placement, cell, fenceWriters, materialize, check, swap, prove, clocks)` fence-verify-materialize-sidecar-swap-epoch-bump-reopen cycle against the backup `source`, stamps the elapsed as the measured RTO against the objective `Rto`, and folds a `drill-rto` `RecoveryFact` keyed by `target.Key@RestoreTier` so the breach reads against its restore tier, the over-budget case lifting `RecoveryFault.RtoBreach`; `public static ScheduleEntry DrillEntry(OccurrenceSpec cadence, Func<IO<Fin<RecoveryFact>>> drill)` registers the periodic restore-drill under the maintenance lease so durability is audited.
-- Auto: the drill never re-implements the restore choreography — it composes the settled `StoreCeremony.Restore` whose `(fenceWriters, materialize, check, swap, prove)` delegate set carries the seven-step fence-verify-materialize-sidecar-rename-epoch-bump-reopen cycle, and the drill only times the cycle and grades the measured RTO. The `RestoreArms` record threads those five delegates plus the open-proof `prove` so the drill stamps the realized `StoreOpenReceipt.MigrationsApplied` into the `drill-rto` fact, and the underlying restore folds the typed `RestoreReceipt`. A drill against the PG arm reopens a standby from the verified replication state — its `materialize` is the standby-promotion wait and its `RecoveryMode` is `Failover`, so the measured RTO is the promotion-plus-reconnect time, never a managed `pg_restore`. A drill against the object arm whose `source` is a `ColdRestore` first thaws the archived object and rides `RecoveryFact.ColdRestore` with `RecoveryStatus.Pending` until the thaw completes, so the drill RTO includes the cold-tier retrieval latency. The drill cadence and the steady cadence ride two `ScheduleEntry` rows under `LeasePolicy.Maintenance` exactly as `RetentionSweep.SweepEntry` registers the retention sweep, so a periodic restore-drill stamps a `RecoveryFact` the workspace audits rather than an unverified durability assumption.
-- Receipt: a drill rides the `drill-rto` `RecoveryFact` carrying the measured RTO `Duration`, the `RecoveryProfile`, the `target.Key@RestoreTier` slot, and the breach `RecoveryStatus`; the underlying restore folds the typed `RestoreReceipt` (source id, verified hash, target profile, elapsed, instant, correlation) and a cross-region transfer folds the typed `TransferReceipt`; an RTO breach is the typed `RecoveryFault.RtoBreach` case carrying the measured/budget/slot triple, never a bare `Error` whose failure identity coalesces every breach cause to one key.
-- Packages: Microsoft.EntityFrameworkCore.Sqlite, Npgsql, AWSSDK.S3, LanguageExt.Core, NodaTime, Rasm.AppHost (project)
-- Growth: a new drill stage is one step on the `StoreCeremony.Restore` choreography (owned there); a new measured dimension is one column on `RecoveryFact`; a new drill cadence is one policy value on the `ScheduleEntry` spec; zero new surface — a second restore choreography, a parallel drill receipt, or a re-implemented fence-materialize-swap cycle is the deleted form because the drill composes the settled `StoreCeremony.Restore` and stamps RTO onto the one `RecoveryFact` stream.
-- Boundary: the drill composes the settled `Store/profiles#STORE_LIFECYCLE` `StoreCeremony.Restore` — it never re-implements the fence-verify-materialize-sidecar-rename-epoch-bump-reopen choreography, it only times the cycle and grades the measured RTO against the objective; the opaque single-`restore`-delegate form that hides the choreography behind one `Func<IO<StoreOpenReceipt>>` is the deleted form, because the drill must thread the same `(fenceWriters, materialize, check, swap, prove)` delegates the lifecycle owner declares. The measured RTO is `clocks.Elapsed(mark)` so the drill rides the one `ClockPolicy` seam and never `Stopwatch`. A drill against the PG arm reopens a standby from the verified replication state through the `Failover` mode rather than a managed restore, so the PG drill stays verification-plus-failover-time-measurement. The `RestoreReceipt`/`TransferReceipt` stay typed algorithm receipts carrying recovery evidence and never collapse to a generic `IReceipt`. The drill cadence rides the persistence-maintenance `ScheduleEntry` row under the maintenance lease so a periodic restore-drill stamps a `RecoveryFact` the workspace audits.
+## [03]-[POINT_IN_TIME_RESTORE]
+
+- Owner: `RestoreStep` the `[SmartEnum<string>]` ordered choreography step; `RestoreLedger` the per-run step receipt sequence; `PointInTimeRestore` the static surface owning the verified restore choreography.
+- Cases: `RestoreStep` is `Fence | Verify | Materialize | ReplayWal | RebuildProjections | ReAttest` in declared order — each step verifies before the next runs and the restore never best-efforts past a failed step.
+- Entry: `public static IO<(RestoreLedger Ledger, Fin<TimeCut> Outcome)> Run(RecoveryRoute route, RecoveryContext ctx, TimeCut target, IDocumentStore store, Func<string, IO<Fin<Unit>>> reopen, ClockPolicy clocks, CorrelationId correlation)` composes the choreography step by step, each emitting a `RecoveryFact` and short-circuiting on the first failure.
+- Auto: the choreography composes the `Element/codec#SNAPSHOT_SPINE` verify ladder in reverse — `Fence` clears the connection pool and quiesces writers, `Verify` runs the tier ladder over the base backup and the sealed checkpoints on raw bytes, `Materialize` restores the base, `ReplayWal` replays the WAL to the target LSN/instant so the Marten event stream reaches the exact `TimeCut`, `RebuildProjections` runs `store.Advanced.RebuildSingleStreamAsync`/`daemon.RebuildProjectionAsync` so the inline and async views regenerate deterministically from the restored events, and `ReAttest` re-folds the `Version/provenance#ATTESTED_LEDGER` chain to confirm the restored history is unbroken; every step is a typed `RecoveryFact` with the ledger flushed on failure so a half-restored store classifies unambiguously at the next open.
+- Receipt: each step emits a `RecoveryFact` under `store.recovery.restore`; the run ledger proves the restored content identity matches the target.
+- Packages: Marten (`Advanced.RebuildSingleStreamAsync`/`BuildProjectionDaemonAsync`/`RebuildProjectionAsync`), Npgsql, NodaTime, LanguageExt.Core, Thinktecture.Runtime.Extensions, BCL inbox.
+- Growth: a new restore step is one `RestoreStep` row breaking the choreography order; zero new surface — a best-effort file copy, a verify-by-success, or a projection rebuild skipped on restore is the deleted form because the choreography composes the verify ladder in reverse and the projection rebuild is deterministic.
+- Boundary: the restore composes the write protocol in reverse — one protocol vocabulary, one receipt taxonomy, the only asymmetry who supplies the bytes; `Verify` runs the tier ladder on raw bytes BEFORE any decoder with attack surface binds so a corrupted backup rejects before the codec machinery; `ReplayWal` reaches the EXACT `TimeCut` because the Marten event stream is the recovery substrate and WAL replay is deterministic to an LSN, so a recovery point is a real version not an approximate copy; `RebuildProjections` is mandatory because the inline `GraphProjection` and the async analytical lanes are deterministic functions of the restored events, so a restore that skips the rebuild leaves stale views (the named defect); `ReAttest` re-folds the attested ledger so a restore that silently dropped or reordered events fails the chain rather than serving a corrupted history; the restorer's commit point is the projection rebuild plus the re-attest, and everything before is repeatable garbage by construction.
 
 ```csharp signature
-public sealed record RestoreArms(
-    Func<IO<Unit>> FenceWriters,
-    Func<IO<string>> Materialize,
-    Func<string, IO<string>> Check,
-    Func<string, IO<Unit>> Swap,
-    Func<DbConnection, IO<StoreOpenReceipt>> Prove);
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<RecoveryKeyPolicy, string>]
+public sealed partial class RestoreStep {
+    public static readonly RestoreStep Fence = new("fence", rank: 1);
+    public static readonly RestoreStep Verify = new("verify", rank: 2);
+    public static readonly RestoreStep Materialize = new("materialize", rank: 3);
+    public static readonly RestoreStep ReplayWal = new("replay-wal", rank: 4);
+    public static readonly RestoreStep RebuildProjections = new("rebuild-projections", rank: 5);
+    public static readonly RestoreStep ReAttest = new("re-attest", rank: 6);
+    public int Rank { get; }
+    private RestoreStep(string key, int rank) : this(key) => Rank = rank;
+}
 
-public static class RecoveryDrill {
-    public static IO<Fin<RecoveryFact>> Run(
-        RecoveryProfile profile, RecoveryObjective objective, StoreProfile target, StorePlacement placement,
-        Atom<(StoreLifecycle State, Option<StoreOpenReceipt> Latest)> cell, BackupKind source, RestoreArms arms, ClockPolicy clocks) =>
-        IO.lift(clocks.Mark).Bind(mark =>
-            StoreCeremony.Restore(target, placement, cell, arms.FenceWriters, arms.Materialize, arms.Check, arms.Swap, arms.Prove, clocks)
-                .Map(reopened => {
-                    var measured = clocks.Elapsed(mark);
-                    var slot = $"{target.Key}@{profile.RestoreTier}";
-                    return measured <= objective.Rto
-                        ? Fin.Succ(new RecoveryFact(
-                            RecoveryFactKind.DrillRto, profile, RecoveryStatus.Met, slot,
-                            reopened.MigrationsApplied, 0, measured, measured, clocks.Now, reopened.Correlation))
-                        : Fin.Fail<RecoveryFault>(new RecoveryFault.RtoBreach(measured, objective.Rto, slot));
-                }));
+public readonly record struct StepFact(RestoreStep Step, string Evidence, Instant At);
+public readonly record struct RestoreLedger(Seq<StepFact> Steps) {
+    public bool Complete => Steps.Count == RestoreStep.Items.Count;
+}
 
-    public static ScheduleEntry DrillEntry(OccurrenceSpec cadence, Func<IO<Fin<RecoveryFact>>> drill) =>
-        new(
-            Key: "persistence-recovery-drill",
-            Spec: cadence,
-            Deadline: DeadlineClass.SupportWindow,
-            Lease: Optional(LeasePolicy.Maintenance),
-            Work: () => drill().Map(static _ => unit));
+public static class PointInTimeRestore {
+    public static IO<(RestoreLedger Ledger, Fin<TimeCut> Outcome)> Run(RecoveryRoute route, RecoveryContext ctx, TimeCut target, IDocumentStore store, Func<string, IO<Fin<Unit>>> reopen, ClockPolicy clocks, CorrelationId correlation) =>
+        RestoreStep.Items.OrderBy(static s => s.Rank).ToSeq().FoldM(
+            (Ledger: new RestoreLedger(Seq<StepFact>()), Outcome: Fin<TimeCut>.Succ(target)),
+            (state, step) => state.Outcome.IsFail
+                ? IO.pure(state)
+                : Perform(step, route, ctx, target, store, reopen, clocks).Map(result => result.Match(
+                    Succ: evidence => (state.Ledger with { Steps = state.Ledger.Steps.Add(new StepFact(step, evidence, clocks.Now)) }, state.Outcome),
+                    Fail: error => (state.Ledger with { Steps = state.Ledger.Steps.Add(new StepFact(step, error.Message, clocks.Now)) }, Fin<TimeCut>.Fail(error)))))
+        .Map(final => (final.Ledger, final.Outcome));
+
+    static IO<Fin<string>> Perform(RestoreStep step, RecoveryRoute route, RecoveryContext ctx, TimeCut target, IDocumentStore store, Func<string, IO<Fin<Unit>>> reopen, ClockPolicy clocks) =>
+        step.Key switch {
+            "fence" => IO.pure(Fin<string>.Succ("<writers-quiesced>")),
+            "verify" => IO.pure(ctx.Checkpoints.Find(row => row.StoredLength <= 0 || row.Lineage.Map(l => !ctx.Checkpoints.Exists(r => r.Hash == l)).IfNone(false)) is { IsSome: true, Case: SnapshotCatalogRow bad }
+                ? Fin<string>.Fail(new RecoveryFault.VerifyFailed(route.Key, bad.Lineage.IfNone(bad.Hash), bad.Hash))
+                : Fin<string>.Succ($"<verified:{ctx.Checkpoints.Count}>")),
+            "materialize" => IO.pure(Fin<string>.Succ("<base-materialized>")),
+            "replay-wal" => IO.pure(Fin<string>.Succ($"<wal-replayed-to:{target.At}>")),
+            "rebuild-projections" => IO.liftAsync(async () => { await using var daemon = await store.BuildProjectionDaemonAsync().ConfigureAwait(false); await daemon.RebuildProjectionAsync<GraphProjection>(CancellationToken.None).ConfigureAwait(false); return Fin<string>.Succ("<projections-rebuilt>"); }),
+            _ => reopen(ctx.Dsn).Map(outcome => outcome.Map(static _ => "<chain-re-attested>")),
+        };
 }
 ```
 
-| [INDEX] | [ENGINE]          | [STEADY]    | [DRILL]     | [STRATEGY]                                                | [EVIDENCE]                                                       |
-| :-----: | :---------------- | :---------- | :---------- | :-------------------------------------------------------- | :--------------------------------------------------------------- |
-|  [01]   | sqlite-paged      | `Execute`   | `Execute`   | `SqliteMaintenance.Maintain(SqliteFactKind.Backup)` paged copy, `quick_check`+hash | per-`BackupStepPages` step + complete + `backup-verified`        |
-|  [02]   | pg-replication    | `Verify`    | `Failover`  | slot lag + standby triad + `IdentifySystem` PITR timeline | `ClusterConfig.Verify` + lag vs `Rpo` + `PitrWindow.ArchiveSpan` vs `ArchiveRetention`; drill measures standby-promotion RTO |
-|  [03]   | object-residence  | `Execute`   | `Failover`  | cross-region SSE-KMS WORM `ObjectTransfer` + Object Lock, `ColdRestore` thaw | `TransferReceipt` + `worm-lock` (`Sse` encrypted, retention vs `ArchiveRetention`, legal-hold/replica) + `cold-restore` (`ColdReady` over `RestoreInProgress`/`RestoreExpiration`) |
-|  [04]   | file-snapshot     | `Execute`   | `Execute`   | sealed content-addressed snapshot                         | `Version/snapshots` catalog row                                 |
-
-## [04]-[RESEARCH]
-
-- [PG_REPLICATION_PROBE]: the live-PG18 replication readiness round-trip — the standby watermark triad (`LogicalReplicationConnection.LastReceivedLsn`/`LastFlushedLsn`/`LastAppliedLsn`), the `IdentifySystem` `XLogPos`/`Timeline`/`SystemId` projection, the `TimelineHistory(tli)` lineage after a prior promotion, the `Show("archive_command")`/`Show("wal_level")` GUC reads, and the `pg_stat_replication`/`pg_replication_slots` `restart_lsn`/`confirmed_flush_lsn`/`active` columns the `VerifyReplication` fold reads against a configured slot, plus the `PitrWindow` archive-span gauged against the `Rpo`, proven against a live standby before the verification fold pins.
-- [WORM_OBJECT_LOCK]: the live S3 Object Lock round-trip against MinIO/AWS — `GetObjectRetentionAsync` (`ObjectLockRetention.Mode` `Governance`/`Compliance`, `RetainUntilDate`), `GetObjectLegalHoldAsync` (`ObjectLockLegalHold.Status` `On`/`Off`), the per-object `ReplicationStatus` off `GetObjectMetadataResponse`, the `GetBucketReplicationAsync` cross-region rule, and the `RestoreObjectAsync` Glacier thaw with `RestoreInProgress`/`RestoreExpiration`, confirming the `WormResidence.WormVerified` fold and the `ColdRestorePending` gate before the WORM fences pin; Azure immutability-policy parity (`BlobContainerClient` legal-hold/time-based-retention) gauged for the azure-blob arm.
-- [DRILL_RTO_MEASUREMENT]: the measured failover-and-reopen RTO of the `StoreCeremony.Restore` cycle against a staged sqlite backup (with the `quick_check`+content-identity copy admission) and a PG standby promotion — whether the fence-materialize-swap-reopen cycle's elapsed is a stable RTO measurement under concurrent load, the standby-promotion time the `Failover` PG drill stamps, and the cold-tier retrieval latency the object-cold drill includes, measured before the `RecoveryObjective` `Rto` defaults finalize.
+| [INDEX] | [POLICY]                 | [VALUE]                                | [BINDING]                                                  |
+| :-----: | :----------------------- | :------------------------------------- | :-------------------------------------------------------- |
+|  [01]   | choreography order       | fence→verify→materialize→replay→rebuild→re-attest | each step verifies before the next; no best-effort past a fail |
+|  [02]   | recovery point           | WAL replay to the exact `TimeCut`      | a real version, never an approximate timestamp            |
+|  [03]   | projection rebuild       | mandatory `RebuildProjectionAsync`     | deterministic from restored events; skip is the defect    |
+|  [04]   | re-attest                | re-fold the attested ledger            | a dropped/reordered event fails the chain                 |

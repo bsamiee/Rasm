@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <Description>The lowest AEC-DOMAIN seam: the canonical property-graph element model both Rasm.Materials and Rasm.Bim project onto without referencing each other. Owns the ElementGraph (Header + Node [Union] + neutral Relationship edge algebra), the typed PropertyValue/MeasureValue/Dimension value vocabulary, the generic Classification/Discipline axes, the Material composition and intrinsic acoustic folds, the Assessment and Geospatial Coverage/GeoReference nodes, the content-addressed canonical codec, and the IElementProjection/IGraphConstraint contracts. References the Rasm kernel only; references no GeometryGym and carries no host geometry — geometry is held by content hash.</Description>
+        <CspScope>Domain</CspScope>
+    </PropertyGroup>
+
+    <ItemGroup Label="Project References">
+        <ProjectReference Include="../Rasm/Rasm.csproj" />
+    </ItemGroup>
+
+    <ItemGroup Label="Quantities">
+        <PackageReference Include="UnitsNet" />
+    </ItemGroup>
+
+    <ItemGroup Label="Time Identity">
+        <PackageReference Include="NodaTime" />
+    </ItemGroup>
+
+    <ItemGroup Label="Graph Algorithm">
+        <PackageReference Include="QuikGraph" />
+    </ItemGroup>
+
+    <ItemGroup Label="Content Hash">
+        <PackageReference Include="System.IO.Hashing" />
+    </ItemGroup>
+
+    <ItemGroup Label="Boundary Transcription">
+        <PackageReference Include="Generator.Equals" />
+        <PackageReference Include="Riok.Mapperly" />
+        <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
+    </ItemGroup>
+
+    <ItemGroup Label="System Usings">
+        <Using Include="System.Collections.Frozen" />
+        <Using Include="System.Collections.Immutable" />
+    </ItemGroup>
+</Project>

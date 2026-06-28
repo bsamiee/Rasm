@@ -1,100 +1,65 @@
 # [RASM_PERSISTENCE_ARCHITECTURE]
 
-The domain map of `Rasm.Persistence` — the APP-PLATFORM durable-state spine. One sub-domain owner per concern with closed cases, every durable shape riding one closed lane axis folded against the store-profile engine rows across the Store, Schema, Query, Version, and Sync folders.
+The domain map of `Rasm.Persistence` — the APP-PLATFORM durable-state spine that persists the `Rasm.Element` `ElementGraph` as its system of record. One sub-domain owner per concern with closed cases, Marten the append substrate beneath the preserved version-control engine, the read lanes split by consistency demand, and the geometry object store content-keyed.
 
-Each codemap node is the eventual source file its `.planning/` design page becomes, named in the language's own folder and file casing — PascalCase `.cs`, lowercase `.py`, lowercase `.ts`. Treat every node as realized code; the `.planning/` scaffold is the authoring substrate, never part of the map.
+Each codemap node is the eventual source file its `.planning/` design page becomes, named in PascalCase `.cs`. Treat every node as realized code; the `.planning/` scaffold is the authoring substrate, never part of the map. The package depends UP on the `Rasm.Element` seam and the `Rasm` kernel content-hash; it references no sibling AEC-domain peer (`Rasm.Materials`/`Rasm.Bim`/`Rasm.Fabrication`) — alignment travels through the seam contracts and the content-keyed wire, never sibling coupling.
 
 ## [01]-[DOMAIN_MAP]
 
 ```text codemap
 Rasm.Persistence/
-├── Store/                # Durable store tier: engine, profiles, remote, provisioning, tenancy, encryption, quality
-│   ├── Engine.cs         # Embedded-SQLite floor: PRAGMA ladder, maintenance ops, encryption gate
-│   ├── Profiles.cs       # Six-row store-profile engine axis with placement fold and cost catalog
-│   ├── Remote.cs         # Cloud object-store residence behind BlobRemote contract
-│   ├── Provisioning.cs   # Self-provisioned PostgreSQL 18.4 tier: SchemaDdl.Sql fold, ClusterConfig verify, MigrationBundle
-│   ├── Tenancy.cs        # Multi-tenancy/RLS axis with tenant lifecycle provisioning and per-tenant quota
-│   ├── Encryption.cs     # KeyEnvelope/KmsProvider envelope encryption, rotation, and per-engine keying
-│   └── Quality.cs        # QualityRule Union and the QualityPlan lowering fold to the cheapest enforcement site
-├── Schema/               # Schema and migration rails
-│   ├── Identity.cs       # Key axis with identity migration, object ACL, and signed authorship
-│   ├── Migration.cs      # Drift-fingerprint gate, expand/contract classifier, and receipted apply
-│   ├── Ddl.cs            # Generated columns, extension/index/temporal/check DDL, and the SchemaDdl.Sql provisioning fold
-│   └── Converters.cs     # Converter/naming registration and compiled mount
-├── Query/                # Query, lane, cache, federation, transaction, and pipeline rails
-│   ├── Rail.cs           # StoreOp operation algebra with keyset pagination and changefeed
-│   ├── Lanes.cs          # Seven-case DataLane axis folded against profile capability
-│   ├── Cache.cs          # HybridCache L2 contribution and result/artifact/benchmark indexes
-│   ├── Federation.cs     # Source-agnostic federated entity graph and ElementSet query algebra
-│   ├── Transaction.cs    # TxnScope isolation/lock/savepoint/2PC arm-family on StoreOp + SQLSTATE classifier
-│   └── Pipeline.cs       # PipelineStage Union and the BulkPipeline back-pressured fold over ArrowChunk
-├── Version/              # Version-control history and recovery rails
-│   ├── Commits.cs        # Content-addressed commit-DAG and op/delta-state CRDT
-│   ├── TimeTravel.cs     # AS-OF reconstruction with checkpoint, range diff, blame, and scrub
-│   ├── Diff.cs           # Tree-edit node-identity match, three-way merge, typed conflict classes
-│   ├── Provenance.cs     # W3C-PROV causal DAG and tamper-evident attested ledger
-│   ├── Snapshots.cs      # Content-addressed snapshot spine with sealed codec axis
-│   ├── Retention.cs      # Classification enforcement, receipted retention sweep, reachability GC
-│   └── Recovery.cs       # Per-engine backup/PITR/replication verify into one RecoveryFact stream proving RPO/RTO
-└── Sync/                 # Collaboration, annotation, schedule, egress, and coordination sync rails
-    ├── Collaboration.cs  # Op-log changefeed, HLC-stamped LWW merge, and three sync transports
-    ├── Annotation.cs     # Generic durable-annotation anchoring + op-log/CDE OAuth2 sync (BCF domain in Rasm.Bim)
-    ├── Schedule.cs       # Durable external-scheduler store: MPXJ.Net ~20-format ingress (P6/MS-Project/…) into one ScheduleNetwork, CPM float algebra + resident-overlay drift, export to 7 FileFormats (4D/CPM domain in Rasm.Bim)
-    ├── Egress.cs         # EgressSink axis, EgressPump op-log-drain fold, and CloudEvents envelope
-    └── Coordination.cs   # Fenced-CAS CoordCell store: per-tenant Budget ledger, workflow step-state, transactional outbox under TenantId RLS
+├── Element/              # The ElementGraph store-load roundtrip over Marten
+│   ├── Graph.cs          # ElementStore: stream-per-model, GraphDelta event bodies, inline SingleStreamProjection (read-your-writes), AggregateStreamAsync AS-OF, the GraphStoreOp rail with co-txn identity commit
+│   ├── Codec.cs          # SnapshotCodec axis, ContentAddress over the kernel seed-zero XxHash128, canonical CBOR, the sealed-header trust boundary + tier ladder, FastCDC content-defined chunker
+│   └── Identity.cs       # ElementIdentity relational tier (the one txn owner as a Marten doc), IdentityPolicy key axis, Capability/ObjectAcl/Authority, SignedAuthorship, the SchemaVerdict boot fold
+├── Version/              # The version-control engine projecting FROM Marten events
+│   ├── Ledger.cs         # OpLogEntry changefeed projection of Marten events, HLC, ColumnFamily merge-stance, Adjudicate + CRDT dispatch, the sync transports, presence/awareness
+│   ├── Commits.cs        # Content-addressed commit-DAG, the convergent op/delta-state CRDT algebra, CrdtOpWire, the ContentParityCorpus
+│   ├── TimeTravel.cs     # AS-OF reconstruct/diff/blame/scrub/bisect/branch over the changefeed prefix + Marten AggregateSnapshot checkpoints, one Crdt.Apply materializer
+│   ├── Merge.cs          # StructuralMerge: ElementGraph forest projection, Merkle-pruned base-relative three-way merge, typed conflict classes, RFC 6902 patch egress
+│   ├── Provenance.cs     # W3C-PROV causal DAG + the attested (KMS-signed, hash-chained) tamper-evidence ledger
+│   ├── Retention.cs      # Classification/retention classes, the holds-first sweep fold, the full-history reachability GC
+│   └── Recovery.cs       # RecoveryRoute backup substrates (PG-PITR/object-replica/snapshot-archive), the verified PITR choreography, the RPO/RTO RecoveryFact stream
+├── Query/               # The read lanes split by consistency demand
+│   ├── Lane.cs           # ReadRouter (synchronous authoritative vs async analytical), the StalenessWatermark, the ElementSet selection algebra, FusionRank, the HybridCache read-through
+│   ├── Topology.cs       # In-process QuikGraph view + the frozen incidence index + traversal/path/components/topological-sort (the DEFAULT synchronous topology owner)
+│   ├── Columnar.cs       # DuckDB INSTALL/LOAD analytical lane + the co-transactional Ara3D.BimOpenSchema FlatTableProjection + ParquetSharp
+│   └── Cypher.cs         # OPTIONAL self-hosted Apache AGE openCypher + pgrouting (async, demoted beneath QuikGraph)
+├── Ingest/              # Tabular ingress/egress
+│   └── Tabular.cs        # TabularSource over MiniExcel — the one spreadsheet/CSV codec into the record rail; the app composition root owns the tabular→element map
+└── Store/               # Geometry object store + the server tier
+    ├── BlobStore.cs      # Content-keyed geometry object store: write-blob-first + 412-noop seal, the four-provider ObjectClient union, content-defined multipart, the content-lineage catalog + full-history GC
+    └── Provisioning.cs   # The self-provisioned PostgreSQL 18 server-extension tier (verification-first) + the embedded-SQLite floor
 ```
 
-Implementation collapses to one owner per axis and one entrypoint family per rail: a new feature is a row or case on a budgeted owner, and a public type outside an owner region is the named defect. The rail is named in the return type — `Validation<StoreFault,T>` accumulates, `Fin<T>` aborts, `IO<T>` carries effects; receipts stamp NodaTime `Instant`/`Duration`, and `ClockPolicy` owns elapsed and semantic time. Provider variance is row data on the axes; public code selects profiles, lanes, operations, codecs, and policies, never provider packages. The `Version`, `Query/Federation`, and `Sync` rails plus the classification/cost catalog in `Store/Profiles` ride the existing op-log changefeed, content-addressed snapshots, and PostGIS lanes, and never admit a new engine.
+Implementation collapses to one owner per axis and one entrypoint family per rail: a new feature is a row or case on a budgeted owner, and a public type outside an owner region is the named defect. The rail is named in the return type — `Validation<Fault,T>` accumulates, `Fin<T>` aborts, `IO<T>` carries effects; receipts stamp NodaTime `Instant`/`Duration`, and `ClockPolicy` owns elapsed and semantic time. Marten owns the durable append and the rebuildable views; the version-control engine projects from its events; provider variance is row data on the axes; public code selects profiles, lanes, operations, codecs, and policies, never provider packages.
 
 ## [02]-[SEAMS]
 
 ```text seams
-*                   →  typescript:projection              # [WIRE]: ElementSet stable receipt algebra
-Sync/collaboration  →  typescript:interchange/codec       # [WIRE]: OpLogEntryWire / CrdtOpWire
-Sync/collaboration  ⇄  python:runtime/transport           # [WIRE]: OpLogEntry.Payload MessagePack CRDT delta
-Version/commits     ⇄  python:runtime/transport           # [WIRE]: CrdtOpWire MessagePack union
-Version/snapshots   →  typescript:interchange/codec       # [WIRE]: SnapshotHeaderWire
-Version/commits     →  typescript:interchange/refinement  # [SHAPE]: JsonPointer RFC6901 Guid brand
-*                   ←  csharp:Rasm.Compute                # [CONTENT_KEY]: content-keyed blob
-Query               ←  csharp:Rasm/Geometry/Spatial       # [CONTENT_KEY]: CanonicalTopology→GeometryHash XxHash128 canonical-byte content-identity the kernel reconciliation fence projects onto the Persistence-owned GeometryHash durable identity, over the shared System.IO.Hashing substrate
-Query/cache         ⇄  csharp:Rasm.Compute/Runtime/codecs # [CONTENT_KEY]: ContentIdentity XxHash128 seed-zero two-half
-Query/cache         →  csharp:Rasm.Bim/Model              # [CONTENT_KEY]: ArtifactIndexRow IfcSemantic content-addressed model graph
-Query/lanes         ⇄  csharp:Rasm.Compute/Runtime        # [CONTENT_KEY]: EmbeddingIdentity content x model-id x arity
-Version/commits     ⇄  csharp:Rasm.Compute/Runtime        # [GRADUATION]: HandoffAxis graduation evidence
-Query/cache         ←  csharp:Rasm.AppHost/Runtime        # [PORT]: TenantId RLS + cache L2 partition
-Sync                →  csharp:Rasm.Compute/Runtime        # [PROJECTION]: content-key delta via FastCDC
-Sync                →  csharp:Rasm.AppUi/Editing          # [PROJECTION]: NotebookOp op-log
-Sync/annotation     →  csharp:Rasm.AppUi/Editing          # [PROJECTION]: annotation collaboration op-log
-*                   ←  csharp:Rasm.Materials/Appearance   # [TRANSPORT]: MaterialLibrary content-keyed durable catalogue rows
-Query               ←  csharp:Rasm.Bim/Exchange           # [CONTENT_KEY]: TessellationOutcome ArtifactKey cache-hit lookup
-Query               ←  csharp:Rasm.Bim/Exchange           # [CONTENT_KEY]: Reimport prior-BimModel content-key delta join
-Query               ←  csharp:Rasm.Bim/Exchange           # [CONTENT_KEY]: BimWire snapshot content-key ArtifactIndexRow join
-Query/federation    ←  csharp:Rasm.Bim/Review             # [CONTENT_KEY]: AuditEntry chained ElementChange mutation log
-Version/commits     ←  csharp:Rasm.Bim/Review             # [CONTENT_KEY]: BimCommit host-neutral commit objects durably stored as CommitNode by the wire CommitKey
-Sync                ←  csharp:Rasm.Bim/Exchange           # [TRANSPORT]: OpLogWire ElementChange op-stream CRDT convergence
-Version/commits     ←  csharp:Rasm.Bim/Review             # [SHAPE]: BimCommit three-way merge resolves against CommitGraph.MergeBase common-ancestor antichain
-Sync/annotation     ⇄  csharp:Rasm.Bim/coordination       # [WIRE]: BCF/coordination domain
-Sync/schedule       ⇄  csharp:Rasm.Bim/schedule           # [WIRE]: P6/MS-Project + 4D construction domain
-Schema              ←  csharp:Rasm.Fabrication/Posting    # [WIRE]: CutProgram AST content-addressed durable-row projection
-Schema              ←  csharp:Rasm.Fabrication/Nesting    # [WIRE]: Placement / Remnant XxHash128 content-keyed durable row
-Sync/collaboration  ⇄  csharp:Rasm.AppHost/Runtime        # [PORT]: HLC two-half + TenantContext causal frame
-Version/recovery    ←  csharp:Rasm.AppHost/Runtime        # [PORT]: ResolvedProfile DR-objective inputs
-Query/transaction   ←  csharp:Rasm.AppHost/Runtime        # [PORT]: drain 2PC in-doubt set
-Store/encryption    ←  csharp:Rasm.AppHost/Runtime        # [PORT]: KMS-unwrap port
-Sync/egress         ←  csharp:Rasm.AppHost/Runtime        # [PORT]: keyed OutboundHop egress
-Schema/identity     ⇄  csharp:Rasm.AppHost/Runtime        # [PORT]: ObjectAcl identity store, TenantId RLS (ONE_IDENTITY_STORE)
-Sync/coordination   ⇄  csharp:Rasm.AppHost/Runtime        # [PORT]: fenced-CAS Budget + workflow step-state, same-tx outbox, TenantId RLS
-Query/pipeline      ⇄  csharp:Rasm.Compute/Runtime/codecs # [PORT]: parse-to-canonical-bytes (Extract)
-Store/quality       ←  csharp:Rasm.Compute                # [SHAPE]: geometry-derived anomaly rule source
-Store/quality       ←  csharp:Rasm.Bim/Model              # [SHAPE]: IFC validation rules into QualityRule rows
-Sync                ←  csharp:Rasm.AppUi/Editing          # [PROJECTION]: revertible op-log (ONE_REVERT_VOCABULARY)
-Store               ←  csharp:Rasm.AppHost/Observability  # [HEALTH_PROBE]: Npgsql/Redis/Kafka driver reachability folded into the AppHost HealthContributorRow probe
-Sync/transport      ⇄  csharp:Rasm.Bim/Exchange           # [TRANSPORT]: Speckle.Sdk SyncTransport.SpeckleLikeDiff send/receive carrying Bim's Base object-graph -> BimModel import projection
-Sync/egress         ←  csharp:Rasm.Compute                # [WIRE]: Google.Protobuf wire format composed by Confluent.SchemaRegistry.Serdes.Protobuf for registry-governed Protobuf Kafka topics
-Query/federation    ←  python:data/tabular                # [CONTENT_KEY]: C#-seed ContentKey durable reuse ledger
-Query/federation    ⇄  python:data/tabular/query          # [WIRE]: Substrait binary plan + ibis-to_sql portable SQL
-Version/provenance  ←  python:artifacts/provenance        # [CONTENT_KEY]: signed-artifact content-key binding XxHash128 seed
-Version/snapshots   ←  python:data/gridded/virtual        # [CONTENT_KEY]: icechunk as-of snapshot identity XxHash128 seed
+Element/graph        ←  csharp:Rasm.Element                # [SEAM]: ElementGraph/GraphDelta/Node/NodeId/Relationship/Header persisted as the SoR
+Element/codec        ←  csharp:Rasm                        # [CONTENT_KEY]: kernel seed-zero XxHash128 entry the ContentAddress composes, no second hasher
+Element/codec        →  typescript:interchange/codec       # [WIRE]: SnapshotHeader + canonical-CBOR content-stable bytes
+Version/commits      →  typescript:interchange/codec       # [WIRE]: CrdtOpWire MessagePack union + Hlc 16-byte cell
+Version/commits      ⇄  python:runtime/transport           # [WIRE]: CrdtOp None-companion bytes + the one XxHash128 seed parity corpus
+Version/commits      →  typescript:interchange/refinement  # [SHAPE]: commit/branch/version-vector/Merkle wire shapes
+Version/merge        →  typescript:interchange/codec       # [SHAPE]: JsonPatchDocument RFC 6902 EntityEdit egress
+Version/ledger       ⇄  python:runtime/transport           # [WIRE]: OpLogEntry Payload CRDT delta over the one wire vocabulary
+Version/ledger       ⇄  csharp:Rasm.AppHost/Runtime        # [PORT]: HLC two-half + TenantContext causal frame; the W3C TraceContext slot
+Version/timetravel   ←  python:data/gridded/virtual        # [CONTENT_KEY]: icechunk as-of snapshot identity over the shared XxHash128 seed
+Version/provenance   ←  python:artifacts/provenance        # [CONTENT_KEY]: signed-artifact content-key binding; the attested-ledger authenticity authority
+Version/retention    ←  csharp:Rasm.Compute                # [CONTENT_KEY]: content-keyed Assessment.Result blobs registered in the blob retention class
+Element/identity     ⇄  csharp:Rasm.AppHost/Runtime        # [PORT]: ObjectAcl identity store, TenantId RLS, KMS SigningKeyring (ONE_IDENTITY_STORE)
+Element/graph        ←  csharp:Rasm.AppHost/Runtime        # [PORT]: ClockPolicy/CorrelationId/TenantContext ProjectionContext ingredients
+Query/topology       ←  csharp:Rasm/Geometry/Spatial       # [CONTENT_KEY]: adjacency-derived GeometryHash the federation/diff reads, never re-mints
+Query/columnar       ←  csharp:Rasm.Bim/Model              # [PROJECTION]: BIM-typed BimOpenSchema FlatTableProjection (Bim-implemented seam)
+Query/lane           ⇄  python:data/tabular/query          # [WIRE]: ElementSet receipt currency + Substrait portable plan
+Store/blobstore      ←  csharp:Rasm.Compute                # [CONTENT_KEY]: authored GLB by the Object RepresentationContentHash body GeometryHash, content-keyed blob written write-first
+Store/blobstore      ←  csharp:Rasm.Bim/Exchange           # [CONTENT_KEY]: imported IFC/BREP by the Object RepresentationContentHash IfcRepHash; IfcConvert GLB content-keyed wire
+Ingest/tabular       →  csharp:Rasm.Element                # [WIRE]: row shape only; the per-app composition root maps tabular→ElementGraph node
+Query/columnar       ⇄  python:data/tabular               # [WIRE]: Arrow record batch over the ADBC driver manager
+Store/provisioning   ←  csharp:Rasm.AppHost/Observability  # [HEALTH_PROBE]: Npgsql driver reachability + the ProvisionVerdict folded into a HealthContributorRow
+Version/recovery     ←  csharp:Rasm.AppHost/Runtime        # [PORT]: ResolvedProfile RPO/RTO objective inputs
 ```
 
 ## [03]-[SPINE]
@@ -107,47 +72,44 @@ config:
   theme: base
 ---
 flowchart LR
-    accTitle: Persistence store flow
-    accDescr: Resolved profile flows through placement, locality admission, the open ceremony, and the query rail into invalidation, changefeed, and receipt edges; the op-log feeds the sync pump.
-    ResolvedProfile["ResolvedProfile (AppHost)"] --> StorePlacement["StorePlacement.Resolve"]
-    StorePlacement --> StoreLocality["StoreLocality.Admit"]
-    StoreLocality --> StoreCeremony["StoreCeremony.Open"]
-    StoreCeremony --> StoreRail["StoreRail.Run"]
-    StoreRail --> StoreInterceptor["StoreInterceptor"]
-    StoreInterceptor --> OpLog["OpLog changefeed"]
-    StoreInterceptor --> HybridCache["HybridCache invalidate"]
-    StoreInterceptor --> ReceiptSinkPort["ReceiptSinkPort"]
-    StoreCeremony --> ReceiptSinkPort
-    OpLog --> SyncPump["SyncPump"]
+    accTitle: ElementGraph persistence flow
+    accDescr: A GraphStoreOp commits a GraphDelta event plus the identity row in one Marten session; the inline projection materializes the authoritative graph read-your-writes; the changefeed subscription feeds the version engine and the analytical lanes; the geometry blob writes content-first.
+    GraphStoreOp["GraphStoreOp (apply GraphDelta)"] --> Session["IDocumentSession (event + identity, one txn)"]
+    Session --> Inline["inline GraphProjection (read-your-writes)"]
+    Session --> Changefeed["ChangefeedSubscription → OpLogEntry"]
+    Inline --> Topology["QuikGraph topology (synchronous)"]
+    Changefeed --> Engine["Version engine (commits/timetravel/merge/provenance)"]
+    Changefeed --> Async["async daemon: DuckDB/BimOpenSchema + AGE (watermarked)"]
+    GraphStoreOp -.write-blob-first.-> BlobStore["content-keyed geometry blob"]
+    BlobStore -.reference hash.-> Session
+    Engine --> Retention["retention + full-history GC"]
+    Retention --> BlobStore
 ```
 
-`StorePlacement.Resolve` folds the `ResolvedProfile` into a placement, `StoreLocality.Admit` gates the volume, `StoreCeremony.Open` proves the store ready and mints the open receipt, every operation dispatches through the store rail into the interceptor spine, and the spine fans out to the op-log changefeed, cache invalidation, and the receipt sink. The op-log feeds the sync pump, and the `Version/commits` commit-DAG, the `Version/provenance` ledger, and the `Query/federation` entity graph all ride that one changefeed.
+`GraphStoreOp.Run` appends the `GraphDelta` event and stores the `ElementIdentity` document in one `IDocumentSession`, so a single `SaveChangesAsync` commits identity plus event; the inline `GraphProjection` materializes the authoritative `ElementGraph` read-your-writes; the `ChangefeedSubscription` projects each committed event into an `OpLogEntry` the version engine and the analytical daemon both fold; the geometry blob writes content-first and the event references its immutable hash; the retention sweep's full-history GC governs both the snapshot spine and the geometry blobs.
 
 ## [04]-[BOUNDARIES]
 
-- Persistence is not a domain service layer, repository framework, ORM wrapper, provider wrapper, or host-boundary package; it is RhinoCommon-free, and app roots resolve host profile, paths, and dsn before any call enters.
-- Typed projection records are the only egress; entity types never cross the package boundary, and provider failure converts into `StoreFault` at exactly one site on the query rail.
-- Provider, codec, and engine types stay implementation material behind axis vocabulary; consumers select rows, never packages.
-- AppHost owns scheduling, drain conduction, hop retry, correlation, classification taxonomy, and the cache port; Persistence contributes rows to each and never reverses the dependency. The database is excluded from the AppHost hop law — `EnableRetryOnFailure` on the pg row and busy-retry on the sqlite rows are the only database retry owners.
-- The `Version` rails (commits/timetravel/diff, provenance, snapshots, retention), the `Query/federation` rail, and the `Sync` rails (collaboration, annotation, schedule) plus the in-`Store/profiles` classification/cost catalog ride the existing op-log/content-addressed-snapshot/PostGIS substrate; durability stays here, op execution stays Compute, runtime policy stays AppHost.
-- No store operation runs on a Grasshopper solve hot path.
+- Persistence is not a domain service layer, repository framework, ORM wrapper, provider wrapper, or host-boundary package; it is RhinoCommon-free, depends up on the `Rasm.Element` seam plus the `Rasm` kernel, and never references a sibling AEC-domain peer.
+- Marten owns the durable append and the rebuildable read views; the op-log/CRDT/time-travel/`StructuralMerge`/causal-DAG engine PROJECTS from its events — never a bespoke op-log store beneath Marten, never re-implementing event storage or stream folding.
+- The one transaction owner for identity plus event is the `IDocumentSession` (identity as a Marten document in the same session); the geometry blob is write-first and reference-after with no free two-ORM atomicity.
+- Authoritative topology/containment reads bind the synchronous inline projection and the in-process QuikGraph view; AGE and DuckDB are async analytical lanes with an explicit staleness watermark, and interactive-correctness reads block on `WaitForNonStaleProjectionDataAsync` and never route to an async projection.
+- Typed projection records and the seam `ElementGraph` are the only egress; entity types never cross the package boundary, and provider failure converts into a typed fault at exactly one site per rail.
+- AppHost owns scheduling, drain conduction, hop retry, correlation, classification taxonomy, and the cache port; Persistence contributes rows and never reverses the dependency. The database is excluded from the AppHost hop law — `EnableRetryOnFailure` on the pg row and busy-retry on the sqlite rows are the only database retry owners.
 
 ## [05]-[PROHIBITIONS]
 
 The closed NEVER list — the deleted patterns the owner regions foreclose.
 
 - NEVER a public type outside a sub-domain owner region; a new capability is a row, case, or policy value on a budgeted owner.
-- NEVER wrappers, rename adapters, helper or utility files, or a layer over provider functions.
-- NEVER a generic receipt or ledger abstraction; `StoreOpenReceipt`, `MigrationReceipt`, `BulkReceipt`, `SweepReceipt`, `ExportProof`, `SyncApplyReceipt`, `ConflictReceipt`, `TransferReceipt`, `TenantReceipt`, and `RestoreReceipt` stay typed.
-- NEVER propagate sentinels — `DateTime` defaults, `Deleted`/`Inserted` nulls, and empty keys project to `Option<T>` at the boundary.
-- NEVER `DateTime.UtcNow`, `Stopwatch`, or direct timers; `ClockPolicy` is the only time seam.
-- NEVER a second cache, retry, or correlation owner — AppHost owns port, stampede, tags, and hop retry; `EnableRetryOnFailure` plus busy-retry are the only database retry owners and the database stays outside the hop law.
-- NEVER repository families, per-entity services, per-lane services, provider-twin query shapes, lazy loading, or offset pagination.
-- NEVER hand-written converters, formatters, or migration code beside the generated rails — Thinktecture converters, EF-emitted migrations, and source-generated contexts own those forms.
-- NEVER a second taxonomy: classification, redactor tables, blob framing constants, lease policy shapes, and profile-keyed tables compose from their settled owners.
-- NEVER reference EF `Internal`-namespace types; migration-lock evidence reads from receipts.
-- NEVER a trigger-based second changefeed path; op-log rows commit with entity rows in one transaction.
-- NEVER admit a new engine row — the sweep is closed (libSQL, PGlite, LiteDB, RavenDB.Embedded, Realm, hctree, embedded-pg, EF InMemory rejected); PostgreSQL is never spawned or bundled by a Rasm process.
-- NEVER execute runtime `ALTER SYSTEM`; provisioning is verification-only.
-- NEVER a second CRDT, selection-shape, node-identity, or geometry-representation owner; the durable-graph rails ride the one op-log, the one `ElementSet`, the one `(GeometryHash, PropertyHash)` identity, and the canonical wire geometry.
+- NEVER a bespoke op-log/event store beneath Marten, a per-`NodeId` stream grain, or a whole-graph event body; the stream is per-model and the body is the `GraphDelta`.
+- NEVER route an interactive-correctness read (clash, void-resolution, live QTO) to an async projection without `WaitForNonStaleProjectionDataAsync`; strong-consistency reads go through the inline projection / the synchronous topology.
+- NEVER a second materializer beside `Crdt.Apply`/`GraphDelta.Apply`; the projection, the live merge, and the AS-OF reconstruction fold the one delta.
+- NEVER a second content-hash, identity, CRDT, selection-shape, or geometry-representation owner; the durable spine rides the one kernel `XxHash128` content address, the one `OpLogEntry` changefeed, the one `ElementSet`, and the one canonical wire geometry.
+- NEVER a head-only geometry GC; reachability runs over the full event history (every AS-OF cut), or geometry GC is forbidden (dedup + cold-tiering).
+- NEVER `DateTime.UtcNow`, `Stopwatch`, or direct timers; `ClockPolicy` is the only time seam, the HLC the only causal clock.
+- NEVER hand-written converters/formatters/migration code beside the generated rails; Thinktecture converters, Marten/EF migrations, and the source-generated resolvers own those forms.
+- NEVER a generic receipt abstraction; `GraphReceipt`, `SyncApplyReceipt`, `ConflictReceipt`, `TimeTravelReceipt`, `SweepReceipt`, `RecoveryFact`, `BlobTransferReceipt`, and `RetentionFact` stay typed.
+- NEVER admit a new relational engine row — the sweep is closed (PostgreSQL + embedded SQLite only); PostgreSQL is never spawned or bundled by a Rasm process, and provisioning is verification-only (never runtime `ALTER SYSTEM`).
+- NEVER reference a sibling AEC-domain peer or a host-SDK type; alignment travels through the `Rasm.Element` seam and the content-keyed wire.
 - CSP analyzer diagnostics are architecture pressure: fix the shape, refine the rule on a false positive, never suppress.

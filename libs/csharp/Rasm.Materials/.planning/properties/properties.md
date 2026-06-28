@@ -1,304 +1,88 @@
 # [MATERIALS_PROPERTIES]
 
-THE TYPED MATERIAL-PROPERTY OWNER and THE ASSEMBLY-AGGREGATION ENGINE. One `MaterialProperty` `[Union]` closes the IFC 4.3 `IfcMaterialProperties` engineering-property family plus the EN 15978 / ISO 14040 lifecycle-and-procurement discipline — `Mechanical` (density, Young's modulus, yield strength, Poisson's ratio, thermal-expansion coefficient), `Thermal` (conductivity, specific heat, U-value), `Acoustic` (the per-octave-band absorption spectrum and per-band sound-reduction-index vector over the `AcousticBand` centres), `Fire` (reaction-to-fire class, fire-resistance rating), and the sustainability cases `Environmental` (the cradle-to-gate GWP per declared unit and the EN 15978 per-module lifecycle vector), `Cost` (the supply/install/lifecycle procurement columns), `Classification` (the Uniclass2015/OmniClass/Pset federation assignment) realized on `Properties/sustainability#SUSTAINABILITY_PROPERTY` — and one `MaterialPropertySet` is the `MaterialId`-keyed bundle a `Construction/assembly#MATERIAL_ASSIGNMENT` element reads. One `AssemblyProperty` is the aggregation receipt the construction model folds from a `LayerSet`/`ConstituentSet`: a series-resistance U-value (ISO 6946), a constituent-`Fraction`-weighted rule-of-mixtures density/conductivity (the IFC `IfcMaterialConstituentSet.Fraction` mixture rule), and a mass-law/coincidence layered sound-reduction index (ISO 12354) read from the per-band SRI vectors of each ply. A property is NEVER a per-discipline material type: a wall material carries its U-value, sound-transmission spectrum, fire rating, and structural grade as `MaterialProperty` cases over one `MaterialId`, so a material is a full engineering object rather than a shade — never a `StructuralMaterial`/`ThermalMaterial`/`AcousticMaterial` surface; an assembly's U-value/STC/fire envelope is the one `AssemblyProperty` fold over its plies, never a parallel composite-material owner re-keyed per assembly. The property family grows by data — a new property is one `MaterialProperty` case (admitted only when no existing case's column set carries it), a new quantity one column on an existing case, a new acoustic band one `AcousticBand` row, and a new aggregation rule one `AssemblyProperty` fold over the same assignment. The page composes the admitted `UnitsNet` quantity/unit enums for every measured property (the `Admit` author-kernel coercing each quantity to its SI base exactly as `Appearance/photometric#PHOTOMETRIC` coerces the luminous family), `Construction/assembly#MATERIAL_ASSIGNMENT` `LayerSet`/`ConstituentSet`/`ProfileSet` for the `MaterialId` key and the aggregation plies, and the `MaterialFault` band-2450 rail (`bsdf#SHADING_FRAME`) for a non-finite or out-of-range admission; the property set and the assembly receipt serialize to IFC 4.3 `IfcMaterialProperties`/`Pset_` at the `Rasm.Bim` boundary and feed the forward `cs:AEC_SIMULATION_BRIDGE` analysis consumer by `MaterialId`, host-neutral here.
+THE TYPED-PROPERTY CATALOGUE and THE ASSESSMENT-INPUT MARSHALLER. The typed engineering-property family is SEAM-owned: the `Rasm.Element` `MaterialPropertySet` `[Union]` (`Mechanical`/`Thermal`/`Acoustic`/`Fire`/`Environmental`/`Cost`, keyed to the one `Discipline`) is the canonical material-physics carrier the `Material` node holds, the seam `MeasureValue` is the SI-coerced measure each dimensional column carries ([H2]), and the intrinsic single-material acoustic folds (`Nrc`/`Saa`/`StcWeighted`/`StcContourFit`) live on the seam `Acoustic` case (`Rasm.Element` `Composition/acoustic`) — so the prior Materials-owned `MaterialProperty` `[Union]`, its `MaterialPropertyKind` coercion enum, and its acoustic projection folds are RETIRED, ROUTED into the seam. This owner is now the Materials SOURCE: one `MaterialPropertyCatalogue` is the registered-row database of known-material engineering data (the published mechanical/thermal/acoustic/fire values per `MaterialId`) the `Admit` lowering coerces into the seam `MaterialPropertySet` cases (composing the seam `MeasureValue.Of` SI coercion, the seam `Acoustic.Of` band validation, the seam `FireRating`), and `Rasm.Compute` reads the projected `Material` node's `MaterialPropertySet` plies DIRECTLY (above the seam) to run a discipline route and write its `Assessment` `Result` node back — Materials authors no assessment-input node, the per-material property set IS the input. A material's properties are NEVER a per-discipline material type: a wall material carries its U-value, sound-transmission spectrum, fire rating, and structural grade as one `Seq<MaterialPropertySet>` over one `MaterialId`, a full engineering object the projector lowers into the seam `Material` node, never a `StructuralMaterial`/`ThermalMaterial`/`AcousticMaterial` surface; the multi-ply `AssemblyAggregator` (the series-resistance U-value, layered-STC, rule-of-mixtures, and lifecycle GWP/cost folds) is RELOCATED to `Rasm.Compute` (the seam carries the per-material INPUT, never the assembly aggregation). The page composes the seam (`MaterialPropertySet`/`MeasureValue`/`QuantityType`/`PropertyValue`/`PropertyName`/`Discipline`/`FireRating`/`AcousticBand`), the `Properties/sustainability#SUSTAINABILITY_PROPERTY` `Environmental`/`Cost`/`Classification` cases for the lifecycle disciplines, the `Rasm` kernel `UnitInterval` for the dimensionless ratios, and the `MaterialFault` band-2450 rail; it re-mints NO seam type and admits `UnitsNet` only through the seam `MeasureValue`, never a local coercion enum.
 
 ## [01]-[INDEX]
 
-- [01]-[MATERIAL_PROPERTY]: the `MaterialProperty` `[Union]` mechanical/thermal/acoustic/fire family, the `AcousticBand` octave-centre vocabulary and the banded `Acoustic` carrier, the `MaterialPropertySet` `MaterialId`-keyed bundle, the `Admit` quantity-coercion seam composing the `UnitsNet` enums, and the `MaterialPropertyLibrary` registered-row table.
-- [02]-[ASSEMBLY_PROPERTY]: the `AssemblyProperty` aggregation receipt and the `AssemblyAggregator` series-resistance U-value, rule-of-mixtures, and mass-law/coincidence layered-STC folds over a `Construction/assembly#MATERIAL_ASSIGNMENT` `LayerSet`/`ConstituentSet`, reading each ply's `MaterialPropertySet`.
+- [01]-[MATERIAL_PROPERTY_CATALOGUE]: the `MaterialPropertyRow` published-data ingress shape, the `MaterialPropertyCatalogue` registered-row database, the `Admit` lowering into the seam `MaterialPropertySet` cases (composing the seam `OfMechanical`/`OfThermal`/`OfAcoustic`/`OfFire` smart-constructors with raw doubles), and the `Lookup` resolution the projector calls.
+- [02]-[ASSESSMENT_INPUT]: why Materials authors NO assessment-input node — the material's `MaterialPropertySet` set on the projected `Material` node IS the input `Rasm.Compute` reads off the graph directly (`Analysis/aggregator`/`Analysis/assessment`), the prior `MaterialAssessmentInput` marshaller retired.
 
-## [02]-[MATERIAL_PROPERTY]
+## [02]-[MATERIAL_PROPERTY_CATALOGUE]
 
-- Owner: `MaterialProperty` `[Union]` over the IFC 4.3 `IfcMaterialProperties` family; `MaterialPropertySet` the `MaterialId`-keyed bundle; `MaterialPropertyKind`/`FireRating`/`AcousticBand` the closed coercion, reaction-to-fire, and octave-centre bands; `MaterialPropertyLibrary` the registered-row table.
-- Cases: `Mechanical` (`DensityKgM3`/`YoungsModulusMpa`/`YieldStrengthMpa`/`PoissonsRatio`/`ThermalExpansionPerK`) · `Thermal` (`ConductivityWMK`/`SpecificHeatJKgK`/`UValueWM2K`) · `Acoustic` (the six-band `ReadOnlyMemory<double>` `AbsorptionSpectrum` over the 125/250/500/1k/2k/4k Hz `AcousticBand` centres and the per-band `SoundReductionIndexDb` vector, with `Nrc`/`Saa`/`StcWeighted` derived projection folds) · `Fire` (`Reaction`/`ResistanceMinutes`) · `Environmental`/`Cost`/`Classification` (the EN 15978 / ISO 14040 lifecycle-and-procurement discipline realized on `Properties/sustainability#SUSTAINABILITY_PROPERTY`, the `Environmental` per-module `StageGwp` vector carried over the `LifecycleStage` band exactly as `Acoustic` carries its banded spectrum) — the closed `IfcMaterialProperties` Pset family plus the lifecycle discipline; a property is a `MaterialProperty` case over a `MaterialId`, never a property subtype.
-- Entry: `public static Fin<MaterialProperty> Admit(MaterialPropertyKind kind, double value, Enum unit, Op key, Guid correlation)` — the magnitude coercion routing the raw value through the kind's `UnitsNet` quantity to its SI base via the in-folder `Appearance/photometric#PHOTOMETRIC` `MaterialUnits.Coerce` boundary (`Density.KilogramPerCubicMeter` and `Pressure.Pascal` carry the mechanical columns; conductivity coerces through `ThermalConductivityUnit.WattPerMeterKelvin`, specific heat through `SpecificEntropyUnit.JoulePerKilogramKelvin`, and U-value through `HeatTransferCoefficientUnit.WattPerSquareMeterKelvin` — the dedicated thermal SI-base enums catalogued in `.api/api-unitsnet.md`; the dimensionless ratios pass through `RatioUnit.DecimalFraction`), `Fin<T>` aborting on a non-finite or out-of-range column (`MaterialFault.Parameter`); `MaterialProperty.Acoustic.Of(ReadOnlyMemory<double> absorption, ReadOnlyMemory<double> sri, Op key)` admits the two six-band vectors (each band in `[0,1]` for absorption, each SRI finite, both lengths equal to the six `AcousticBand` centres) once at construction; `MaterialPropertySet.Of(MaterialId id, Seq<MaterialProperty> properties, Op key)` bundles a set, `Resolve` projects the `UValueWM2K` thermal envelope and the `ResistanceMinutes` fire rating the BIM federation reads.
-- Packages: UnitsNet (the `Density`/`Pressure`/`ThermalConductivity`/`SpecificEntropy`/`HeatTransferCoefficient` quantity structs and the `DensityUnit.KilogramPerCubicMeter`/`PressureUnit.Megapascal`/`ThermalConductivityUnit.WattPerMeterKelvin`/`SpecificEntropyUnit.JoulePerKilogramKelvin`/`HeatTransferCoefficientUnit.WattPerSquareMeterKelvin`/`RatioUnit.DecimalFraction` unit enums the author-kernel rescales to SI base), Rasm (project), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox (`FrozenDictionary`/`ReadOnlyMemory<double>`).
-- Growth: a new engineering property shared across materials is one column on its `MaterialProperty` case (defaulted so existing rows are unaffected); a new property discipline with no fit is one `MaterialProperty` case carrying its `IfcMaterialProperties` Pset mapping — the EN 15978 / ISO 14040 lifecycle-and-procurement discipline (`Environmental`/`Cost`/`Classification`) lands exactly this way on `Properties/sustainability#SUSTAINABILITY_PROPERTY`, three cases on this Union and two folds on `AssemblyAggregator`, never a parallel Eco/Cost owner. A new fire-reaction class is one `FireRating` row, a new coercible quantity one `MaterialPropertyKind` row (`Gwp` the EN 15978 mass-of-CO2e row), a new acoustic band one `AcousticBand` row or a new lifecycle module one `LifecycleStage` row (the band carrier widens by data, the projection/aggregation folds re-read the new band index), a new acoustic/carbon rating one expression-bodied fold over the band carrier (NEVER a stored scalar column); the bands grow by data the way `masonry#PROFILE_FAMILY` `Coring` grows.
-- Boundary: `MaterialProperty` NEVER re-mints a unit owner — the measured columns admit through `UnitsNet` IN-FOLDER exactly as `Appearance/photometric#PHOTOMETRIC` admits the luminous family (the same `MaterialUnits` boundary, never a reach DOWN to the app-platform `Rasm.Compute/Symbolic/units` owner — the acyclic strata forbids the AEC->app-platform edge), the value coerced to its SI base once at `Admit` through `MaterialUnits.Coerce(value, unit, CanonicalUnit, key)` (the non-throwing `UnitConverter.TryConvert`) and interior columns carried as raw SI doubles; the `PoissonsRatio` dimensionless ratio admits as `UnitInterval` so an out-of-`[0,1]` ratio is unrepresentable, the `FireRating` reaction-to-fire class as a closed `[SmartEnum<string>]` band so a non-standard class is a row never a free string; the `Acoustic` case is a banded spectrum NOT a scalar STC — the `AbsorptionSpectrum` is a fixed-length six-band `ReadOnlyMemory<double>` over the `AcousticBand` octave centres (the same fixed-interval-array carrier shape the appearance side admits in the Unicolour `new Pigment(int start, int interval, double[])` / `Spd` SPD, never the 3-band RGB `surface#SPECTRAL_UPSAMPLE` `SpectralBand` `[SmartEnum]` whose role here is only the band-centre vocabulary precedent), the `SoundReductionIndexDb` the matching per-band SRI vector the `[3]-[ASSEMBLY_PROPERTY]` layered-STC fold reads, and `Nrc` (the four-band 250/500/1k/2k arithmetic mean, ASTM C423), `Saa` (the twelve-third-octave SAA approximated as the six-band mean), and `StcWeighted` (the single-number STC contour fit over the SRI bands, ASTM E413) are expression-bodied projection folds over the carriers, never stored ratings that could drift from the spectrum; an out-of-`[0,1]` absorption band or a non-finite SRI band rails `MaterialFault.Parameter` (band 2450) at `Acoustic.Of`, never a clamped sentinel; `MaterialPropertySet` keys on the `Construction/assembly#MATERIAL_ASSIGNMENT` `MaterialId` so a `LayerSet` layer's U-value composes the cumulative thermal envelope and a `ProfileSet` member's `YieldStrengthMpa` feeds the `Profiles/steel#STEEL_FAMILY` `SteelSection.Classify`/`Capacity` design seam — the property model crosses to `Rasm.Bim` federation by `MaterialId`, never re-deriving a BIM property surface; the set serializes to IFC 4.3 `IfcMaterialProperties`/`Pset_MaterialMechanical`/`Pset_MaterialThermal`/`Pset_MaterialAcoustic` at the BIM boundary, host-neutral here, and a non-finite or out-of-range admission rails `MaterialFault` (band 2450, parameter case), never a sentinel property.
-
-```csharp signature
-// --- [TYPES] -------------------------------------------------------------------------------
-[SmartEnum<int>]
-public sealed partial class MaterialPropertyKind {
-    public static readonly MaterialPropertyKind Density          = new(0, canonicalUnit: DensityUnit.KilogramPerCubicMeter);
-    public static readonly MaterialPropertyKind YoungsModulus    = new(1, canonicalUnit: PressureUnit.Megapascal);
-    public static readonly MaterialPropertyKind YieldStrength    = new(2, canonicalUnit: PressureUnit.Megapascal);
-    public static readonly MaterialPropertyKind PoissonsRatio    = new(3, canonicalUnit: RatioUnit.DecimalFraction, ratio: true);
-    public static readonly MaterialPropertyKind ThermalExpansion = new(4, canonicalUnit: RatioUnit.DecimalFraction);
-    public static readonly MaterialPropertyKind Conductivity     = new(5, canonicalUnit: ThermalConductivityUnit.WattPerMeterKelvin);
-    public static readonly MaterialPropertyKind SpecificHeat     = new(6, canonicalUnit: SpecificEntropyUnit.JoulePerKilogramKelvin);
-    public static readonly MaterialPropertyKind UValue           = new(7, canonicalUnit: HeatTransferCoefficientUnit.WattPerSquareMeterKelvin);
-    public static readonly MaterialPropertyKind Absorption       = new(8, canonicalUnit: RatioUnit.DecimalFraction, ratio: true);
-    public static readonly MaterialPropertyKind Gwp              = new(9, canonicalUnit: MassUnit.Kilogram);   // EN 15978 GWP per declared unit (kgCO2e)
-
-    public Enum CanonicalUnit { get; }
-    public bool Ratio { get; }
-
-    public Fin<double> Coerce(double value, Enum unit, Op key) =>
-        Ratio
-            ? value is >= 0.0 and <= 1.0 ? Fin.Succ(value) : MaterialFault.Parameter(key, $"<ratio-out-of-unit:{Key}:{value:R}>")
-            : MaterialUnits.Coerce(value, unit, CanonicalUnit, key);
-}
-
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<MaterialKeyPolicy, string>]
-public sealed partial class FireRating {
-    public static readonly FireRating A1 = new("A1", combustible: false);
-    public static readonly FireRating A2 = new("A2", combustible: false);
-    public static readonly FireRating B  = new("B", combustible: true);
-    public static readonly FireRating C  = new("C", combustible: true);
-    public static readonly FireRating D  = new("D", combustible: true);
-    public static readonly FireRating E  = new("E", combustible: true);
-    public static readonly FireRating F  = new("F", combustible: true);
-    public bool Combustible { get; }
-}
-
-[SmartEnum<int>]
-public sealed partial class AcousticBand {
-    public static readonly AcousticBand Hz125  = new(0, centerHz: 125);
-    public static readonly AcousticBand Hz250  = new(1, centerHz: 250);
-    public static readonly AcousticBand Hz500  = new(2, centerHz: 500);
-    public static readonly AcousticBand Hz1000 = new(3, centerHz: 1000);
-    public static readonly AcousticBand Hz2000 = new(4, centerHz: 2000);
-    public static readonly AcousticBand Hz4000 = new(5, centerHz: 4000);
-
-    public int CenterHz { get; }
-    public int Index => Key;
-    public static readonly int Count = Items.Count;
-    public static bool IsNrcBand(int index) => index is >= 1 and <= 4;
-}
-
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record MaterialProperty {
-    private MaterialProperty() { }
-
-    public sealed record Mechanical(double DensityKgM3, double YoungsModulusMpa, double YieldStrengthMpa, UnitInterval PoissonsRatio, double ThermalExpansionPerK) : MaterialProperty;
-    public sealed record Thermal(double ConductivityWMK, double SpecificHeatJKgK, double UValueWM2K) : MaterialProperty;
-
-    public sealed record Acoustic : MaterialProperty {
-        public ReadOnlyMemory<double> AbsorptionSpectrum { get; }
-        public ReadOnlyMemory<double> SoundReductionIndexDb { get; }
-
-        private Acoustic(ReadOnlyMemory<double> absorption, ReadOnlyMemory<double> sri) =>
-            (AbsorptionSpectrum, SoundReductionIndexDb) = (absorption, sri);
-
-        public static Fin<Acoustic> Of(ReadOnlyMemory<double> absorption, ReadOnlyMemory<double> sri, Op key) =>
-            guard(absorption.Length == AcousticBand.Count && sri.Length == AcousticBand.Count, MaterialFault.Parameter(key, $"<acoustic-band-arity:absorption={absorption.Length}:sri={sri.Length}:expected={AcousticBand.Count}>"))
-                .Bind(_ => OutOfUnit(absorption.Span) is { } badAbs
-                    ? MaterialFault.Parameter(key, $"<acoustic-absorption-out-of-unit:{badAbs:R}>")
-                    : NonFinite(sri.Span) is { } badSri
-                        ? MaterialFault.Parameter(key, $"<acoustic-sri-non-finite:{badSri:R}>")
-                        : Fin.Succ(new Acoustic(absorption, sri)));
-
-        internal static Acoustic Seed(double[] absorption, double[] sri) => new(absorption, sri);
-
-        static double? OutOfUnit(ReadOnlySpan<double> bands) {
-            foreach (double b in bands) { if (b is < 0.0 or > 1.0 || !double.IsFinite(b)) { return b; } }
-            return null;
-        }
-
-        static double? NonFinite(ReadOnlySpan<double> bands) {
-            foreach (double b in bands) { if (!double.IsFinite(b)) { return b; } }
-            return null;
-        }
-
-        public double At(AcousticBand band) => AbsorptionSpectrum.Span[band.Index];
-        public double SriAt(AcousticBand band) => SoundReductionIndexDb.Span[band.Index];
-
-        public double Nrc =>
-            Math.Round(toSeq(Enumerable.Range(0, AcousticBand.Count))
-                .Filter(AcousticBand.IsNrcBand)
-                .Map(i => AbsorptionSpectrum.Span[i])
-                .Average() * 20.0, MidpointRounding.AwayFromZero) / 20.0;
-
-        public double Saa =>
-            Math.Round(toSeq(Enumerable.Range(0, AcousticBand.Count))
-                .Map(i => AbsorptionSpectrum.Span[i])
-                .Average() * 100.0, MidpointRounding.AwayFromZero) / 100.0;
-
-        public int StcWeighted => StcContourFit(SoundReductionIndexDb);
-    }
-
-    public sealed record Fire(FireRating Reaction, double ResistanceMinutes) : MaterialProperty;
-
-    // The EN 15978 / ISO 14040 lifecycle-and-procurement cases — case bodies (Of/validation) are the
-    // Properties/sustainability#SUSTAINABILITY_PROPERTY owner block; the Union declares them as closed cases.
-    public sealed partial record Environmental : MaterialProperty;
-    public sealed partial record Cost : MaterialProperty;
-    public sealed partial record Classification : MaterialProperty;
-
-    public double Magnitude => Switch(
-        mechanical:     static m => m.YieldStrengthMpa,
-        thermal:        static t => t.UValueWM2K,
-        acoustic:       static a => a.StcWeighted,
-        fire:           static f => f.ResistanceMinutes,
-        environmental:  static e => e.GwpKgCo2ePerUnit,
-        cost:           static c => c.TotalInPlacePerUnit,
-        classification: static _ => 0.0);
-
-    internal static int StcContourFit(ReadOnlyMemory<double> sri) {
-        ReadOnlySpan<double> bands = sri.Span;
-        int best = 0;
-        for (int stc = 80; stc >= 0; stc--) {
-            double deficiencySum = 0.0;
-            bool maxOk = true;
-            for (int i = 0; i < bands.Length; i++) {
-                double contour = StcContourDb(stc, i);
-                double deficiency = Math.Max(0.0, contour - bands[i]);
-                deficiencySum += deficiency;
-                if (deficiency > 8.0) { maxOk = false; }
-            }
-            if (deficiencySum <= 32.0 && maxOk) { best = stc; break; }
-        }
-        return best;
-    }
-
-    static double StcContourDb(int stc, int bandIndex) =>
-        bandIndex switch {
-            0 => stc - 16.0,
-            1 => stc - 5.0,
-            2 => stc + 0.0,
-            3 => stc + 1.0,
-            4 => stc + 4.0,
-            _ => stc + 4.0,
-        };
-}
-
-// --- [MODELS] ------------------------------------------------------------------------------
-public sealed record MaterialPropertySet(MaterialId Material, Seq<MaterialProperty> Properties) {
-    public Option<MaterialProperty.Thermal> Thermal => Properties.Choose(static p => p is MaterialProperty.Thermal t ? Some(t) : None).HeadOrNone();
-    public Option<MaterialProperty.Mechanical> Mechanical => Properties.Choose(static p => p is MaterialProperty.Mechanical m ? Some(m) : None).HeadOrNone();
-    public Option<MaterialProperty.Acoustic> Acoustic => Properties.Choose(static p => p is MaterialProperty.Acoustic a ? Some(a) : None).HeadOrNone();
-    public Option<MaterialProperty.Environmental> Environmental => Properties.Choose(static p => p is MaterialProperty.Environmental e ? Some(e) : None).HeadOrNone();
-    public Option<MaterialProperty.Cost> Cost => Properties.Choose(static p => p is MaterialProperty.Cost c ? Some(c) : None).HeadOrNone();
-
-    public static Fin<MaterialPropertySet> Of(MaterialId material, Seq<MaterialProperty> properties, Op key) =>
-        properties.IsEmpty
-            ? MaterialFault.Parameter(key, $"<material-property-set-empty:{material.Value}>")
-            : Fin.Succ(new MaterialPropertySet(material, properties));
-}
-
-// --- [OPERATIONS] --------------------------------------------------------------------------
-public static class MaterialPropertyLibrary {
-    public static Fin<double> Admit(MaterialPropertyKind kind, double value, Enum unit, Op key, Guid correlation) =>
-        double.IsFinite(value) && value >= 0.0
-            ? kind.Coerce(value, unit, key)
-            : MaterialFault.Parameter(key, $"<material-property-non-finite:{kind.Key}:{value:R}>");
-
-    public static readonly FrozenDictionary<MaterialId, MaterialPropertySet> Rows = new (MaterialId Id, MaterialPropertySet Set)[] {
-        (MaterialId.Of("metal.iron"), new(MaterialId.Of("metal.iron"), Seq<MaterialProperty>(
-            new MaterialProperty.Mechanical(7850.0, 200_000.0, 250.0, UnitInterval.Create(0.30), 12.0e-6),
-            new MaterialProperty.Thermal(50.0, 490.0, 5.88),
-            new MaterialProperty.Fire(FireRating.A1, 30.0)))),
-        (MaterialId.Of("stone.marble"), new(MaterialId.Of("stone.marble"), Seq<MaterialProperty>(
-            new MaterialProperty.Mechanical(2700.0, 70_000.0, 15.0, UnitInterval.Create(0.25), 7.0e-6),
-            new MaterialProperty.Thermal(2.8, 880.0, 3.50),
-            new MaterialProperty.Fire(FireRating.A1, 120.0)))),
-        (MaterialId.Of("wood.oak"), new(MaterialId.Of("wood.oak"), Seq<MaterialProperty>(
-            new MaterialProperty.Mechanical(700.0, 11_000.0, 40.0, UnitInterval.Create(0.35), 5.0e-6),
-            new MaterialProperty.Thermal(0.17, 2400.0, 0.49),
-            MaterialProperty.Acoustic.Seed(
-                absorption: new[] { 0.05, 0.08, 0.10, 0.12, 0.10, 0.09 },
-                sri:        new[] { 18.0, 24.0, 31.0, 36.0, 40.0, 33.0 }),
-            new MaterialProperty.Fire(FireRating.D, 30.0)))),
-    }.ToFrozenDictionary(static r => r.Id, static r => r.Set, MaterialKeyPolicy.EqualityComparer);
-
-    public static Fin<MaterialPropertySet> Lookup(MaterialId id, Op key) =>
-        Rows.TryGetValue(id, out MaterialPropertySet? set) ? Fin.Succ(set!) : MaterialFault.Parameter(key, $"<unregistered-material-properties:{id.Value}>");
-}
-```
-
-## [03]-[ASSEMBLY_PROPERTY]
-
-- Owner: `AssemblyProperty` the aggregation receipt (the assembly U-value, the layered weighted sound-reduction index, the rule-of-mixtures effective density/conductivity, the worst-ply fire envelope); `AssemblyAggregator` the static fold kernel over a `Construction/assembly#MATERIAL_ASSIGNMENT` reading each ply's `MaterialPropertySet`; `ConstituentWeight` the `(MaterialId, Fraction)` aggregation input the IFC `IfcMaterialConstituentSet.Fraction` supplies.
-- Cases: one `AssemblyProperty` receipt over a `LayerSet` or a `ConstituentSet` — the thermal `UValueWM2K` (ISO 6946 series resistance), the acoustic `StcWeighted` (the ISO 12354 mass-law/coincidence layered SRI fold), the `EffectiveDensityKgM3`/`EffectiveConductivityWMK` (the rule-of-mixtures constituent-fraction sums), and the `FireResistanceMinutes` (the minimum ply rating); a new aggregation rule is one `AssemblyAggregator` fold over the same assignment, never a parallel composite-material owner.
-- Entry: `public static Fin<AssemblyProperty> Aggregate(MaterialAssignment assignment, Func<MaterialId, Fin<MaterialPropertySet>> resolve, Seq<ConstituentWeight> weights, Op key)` — the one aggregation entry discriminating the assignment shape: a `LayerSet` folds the series-resistance U-value `1/U = Σ(t_i/λ_i)` over the plies' `MaterialProperty.Thermal` and the mass-law/coincidence layered SRI over the plies' `MaterialProperty.Acoustic.SoundReductionIndexDb`; a `ConstituentSet` folds the constituent-`Fraction`-weighted rule-of-mixtures effective density/conductivity; each fold an immutable `Fold` over the assignment plies/constituents reading the resolver-supplied per-material `MaterialPropertySet`, `Fin<T>` aborting on an absent ply property (`MaterialFault.Parameter`, never a default) or a non-normalizing constituent fraction set.
-- Packages: no new package — composes `Construction/assembly#MATERIAL_ASSIGNMENT` `LayerSet.Layers`/`TotalThickness`/`ConstituentSet`, the `[2]-[MATERIAL_PROPERTY]` `Thermal`/`Mechanical`/`Acoustic` cases and the banded `SoundReductionIndexDb` vector, the `UnitsNet` thermal coercion already on the page (the conductivity/U-value `ThermalConductivityUnit.WattPerMeterKelvin`/`HeatTransferCoefficientUnit.WattPerSquareMeterKelvin` SI base), Rasm (project — `Dimension` layer thickness), Thinktecture.Runtime.Extensions, LanguageExt.Core.
-- Growth: a new assembly rating is one `AssemblyAggregator` fold over the same assignment reading the same `MaterialPropertySet` cases — a thermal-bridge psi-value, a vapor-resistance fold, a thermal-mass capacity sum each lands as one fold and one `AssemblyProperty` column, never a parallel composite owner and never a re-keyed per-assembly property; the `AssemblyProperty` receipt grows by column the way `MaterialPropertySet` grows by case.
-- Boundary: `AssemblyAggregator` NEVER stores a composite material — an assembly's U-value/STC/effective density is COMPUTED from its plies on demand, the `AssemblyProperty` the receipt the BIM Pset and the `cs:AEC_SIMULATION_BRIDGE` consumer read keyed by the assignment's `MaterialId` set, never a second `MaterialLibrary`-style row table; the series-resistance fold reads each `LayerSet` ply's `MaterialLayer.ThicknessMm` `Dimension` and the ply material's `MaterialProperty.Thermal.ConductivityWMK`, the surface-film resistances `Rsi`/`Rse` (0.13 / 0.04 m²K/W, ISO 6946 interior/exterior) added once at the envelope ends so the `UValueWM2K` is the reciprocal of the total resistance, NEVER re-derived per ply; the layered-STC fold reads each ply's `MaterialProperty.Acoustic.SoundReductionIndexDb` and sums the per-band sound-reduction indices in series (the ISO 12354 simplified composite where each leaf's transmission multiplies, so the per-band SRI adds in dB), the resulting per-band layered SRI vector fed once through the SAME `MaterialProperty.StcContourFit` single-number kernel the per-material `StcWeighted` uses so the assembly STC and the material STC share one contour-fit owner, never a second STC algorithm; the rule-of-mixtures fold reads the `ConstituentWeight` `Fraction` set (the IFC `IfcMaterialConstituentSet.Fraction` the assembly `MaterialConstituent` Category keys, supplied to the fold until a `Fraction` column lands on `Construction/assembly#MATERIAL_ASSIGNMENT` `MaterialConstituent`) and sums the fraction-weighted `Mechanical.DensityKgM3`/`Thermal.ConductivityWMK`, a fraction set that does not sum to one within tolerance railing `MaterialFault.Parameter`; an absent ply property (a `LayerSet` layer whose material's `MaterialPropertySet` lacks the `Thermal`/`Acoustic` case the fold reads) rails `MaterialFault.Parameter` (band 2450) rather than defaulting to a sentinel conductivity, so an under-specified buildup is a typed fault the construction model surfaces, never a silently-wrong envelope; the `AssemblyProperty` serializes to the IFC `Pset_` aggregate (`ThermalTransmittance`/`AcousticRating`) at the `Rasm.Bim` boundary, host-neutral here.
+- Owner: `MaterialPropertyRow` the published-data ingress record; `MaterialPropertyCatalogue` the registered-row database; `Admit` the row→seam-case lowering; `DisciplineOf` the case→`Discipline` map; `Lookup` the projector-facing resolution.
+- Cases: one `MaterialPropertyRow` shape across all materials — the mechanical (density/Young's/yield/Poisson/thermal-expansion), thermal (conductivity/specific-heat/U-value), optional acoustic (the six-band absorption + SRI vectors), and optional fire (reaction class + resistance) published columns; the `Admit` lowering produces a `Seq<MaterialPropertySet>` of the seam `Mechanical`/`Thermal`/`Acoustic`/`Fire` cases (the lifecycle `Environmental`/`Cost`/`Classification` cases lower from `Properties/sustainability#SUSTAINABILITY_PROPERTY`), each case a `MaterialPropertySet` over a `MaterialId`, never a property subtype.
+- Entry: `public static Fin<Seq<MaterialPropertySet>> Admit(MaterialPropertyRow row, Op key)` — the published-row lowering coercing each dimensional column through the seam `MeasureValue.Of(QuantityType, value, unit, key)` (the seam owns the UnitsNet SI coercion [H2]) and the acoustic vectors through the seam `MaterialPropertySet.Acoustic.Of` band validation (the intrinsic folds ride the seam case), `Fin<T>` aborting on a non-finite or out-of-range column (the seam admission's fault lifts unchanged); `MaterialPropertyCatalogue.Lookup(MaterialId id, Op key)` resolves a registered material to its lowered seam case set the projector reads, and `DisciplineOf(MaterialPropertySet set)` maps a case to its `Discipline` so the projector requests the matching `Assessment` input — one polymorphic resolution, never a `GetMechanical`/`GetThermal` family.
+- Packages: Rasm.Element (project — `MaterialPropertySet` cases, `MeasureValue`/`QuantityType`, `FireRating`, `AcousticBand`, `Discipline`, `MaterialId`, the SI coercion + acoustic folds), Rasm (project — `UnitInterval` for the dimensionless ratios), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox (`FrozenDictionary`/`ReadOnlyMemory<double>`).
+- Growth: a new engineering property shared across materials is one column on the matching seam `MaterialPropertySet` case (a seam growth) the `MaterialPropertyRow` gains a published column for and `Admit` lowers; a new known material is one `MaterialPropertyCatalogue.Rows` entry — a `MaterialId` key and a `MaterialPropertyRow` value; a new property discipline with no fit is one seam `MaterialPropertySet` case carrying its mapping (the lifecycle `Environmental`/`Cost`/`Classification` discipline lands exactly this way on `Properties/sustainability#SUSTAINABILITY_PROPERTY`) — never a parallel Materials union, never a per-discipline material type. The catalogue grows by row, the property vocabulary by seam case.
+- Boundary: `MaterialPropertyRow` is the published-DATA ingress (the raw engineering values an EPD/datasheet declares), NOT a parallel domain union — the seam `MaterialPropertySet` is the one typed carrier, `Admit` the `BOUNDARY_ADMISSION` that lowers the raw row into the seam cases once (the dimensional columns coerced to SI through the seam `MeasureValue`, the `PoissonsRatio` admitted as the kernel `UnitInterval` so an out-of-`[0,1]` ratio is unrepresentable, the `Acoustic` vectors validated once through the seam `Acoustic.Of` band-arity gate, the `Fire` reaction parsed to the seam `FireRating` `[SmartEnum<string>]` so a non-standard class is a row never a free string); the seam `Acoustic` case carries the `Nrc`/`Saa`/`StcWeighted`/`StcContourFit` intrinsic folds — this owner READS them (never re-authors), so a Materials consumer reading a single-number STC reads the seam contour-fit, never a second algorithm; the catalogue NEVER stores a coercion enum or a unit type — the only unit boundary is the seam `MeasureValue.Of`, so this folder admits `UnitsNet` solely through the seam ([H2]) and never a reach DOWN to the app-platform `Rasm.Compute` units owner; the lowered `Seq<MaterialPropertySet>` is what the `Projection/material#MATERIAL_PROJECTOR` writes onto the seam `Material` node (the task's "route the `MaterialProperty` unions into the seam `Material`/`MaterialPropertySet`"), and the per-material set feeds the `[3]-[MATERIAL_ASSESSMENT_INPUT]` discipline marshalling — the property catalogue crosses to `Rasm.Compute`/`Rasm.Bim` only through the seam graph, never a Materials wire carrier.
 
 ```csharp signature
-// --- [MODELS] ------------------------------------------------------------------------------
-public readonly record struct ConstituentWeight(MaterialId Material, double Fraction);
+// --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
+using LanguageExt;
+using Rasm.Domain;                   // Op, UnitInterval
+using Rasm.Element;                  // MaterialId, Discipline, MaterialPropertySet (Mechanical|Thermal|Acoustic|Fire|Environmental|Cost),
+                                     // FireRating, Acoustic (the banded carrier), MeasureValue, PropertyValue, PropertyName
+using static LanguageExt.Prelude;
 
-public sealed record AssemblyProperty(
+// --- [MODELS] ------------------------------------------------------------------------------
+// The published engineering data for one material — the ingress row Admit lowers into the seam MaterialPropertySet
+// cases. A flat DATA record (the raw datasheet/EPD values), NOT a parallel domain union: the seam owns the union.
+public sealed record MaterialPropertyRow(
+    double DensityKgM3,
+    double YoungsModulusMpa,
+    double YieldStrengthMpa,
+    double PoissonsRatio,
+    double ThermalExpansionPerK,
+    double ConductivityWMK,
+    double SpecificHeatJKgK,
     double UValueWM2K,
-    int StcWeighted,
-    double EffectiveDensityKgM3,
-    double EffectiveConductivityWMK,
-    double FireResistanceMinutes);
+    Option<(double[] Absorption, double[] Sri)> Acoustic,
+    Option<(string Reaction, double ResistanceMinutes)> Fire);
 
 // --- [OPERATIONS] --------------------------------------------------------------------------
-// The AggregateEnvironmental / AggregateCost lifecycle folds are the matching partial half on
-// Properties/sustainability#LIFECYCLE_AGGREGATION; one kernel, one entrypoint family per rail.
-public static partial class AssemblyAggregator {
-    const double RsiWM2K = 0.13;
-    const double RseWM2K = 0.04;
-    const double FractionToleranceUnit = 1e-3;
+public static class MaterialPropertyCatalogue {
+    // Lowers a published row into the seam MaterialPropertySet cases: each dimensional column coerces to SI once
+    // through the seam MeasureValue (H2), the acoustic vectors through the seam Acoustic.Of band gate (the intrinsic
+    // Nrc/Saa/StcWeighted folds ride the seam case), the fire reaction through the seam FireRating. The seam owns the
+    // coercion + the union; this lowering only validates the published row and constructs the seam values.
+    public static Fin<Seq<MaterialPropertySet>> Admit(MaterialPropertyRow row, Op key) =>
+        from mechanical in MaterialPropertySet.OfMechanical(row.DensityKgM3, row.YoungsModulusMpa, row.YieldStrengthMpa, row.PoissonsRatio, row.ThermalExpansionPerK, key)
+        from thermal in MaterialPropertySet.OfThermal(row.ConductivityWMK, row.SpecificHeatJKgK, row.UValueWM2K, key)
+        from acoustic in row.Acoustic.Match(
+            None: () => Fin.Succ(Seq<MaterialPropertySet>()),
+            Some: a => Acoustic.Of(a.Absorption.AsMemory(), a.Sri.AsMemory(), key).Map(spectrum => Seq1(MaterialPropertySet.OfAcoustic(spectrum))))
+        from fire in row.Fire.Match(
+            None: () => Fin.Succ(Seq<MaterialPropertySet>()),
+            Some: f => FireRating.Parse(f.Reaction, key).Map(rating => Seq1(MaterialPropertySet.OfFire(rating, f.ResistanceMinutes))))
+        select Seq(mechanical, thermal) + acoustic + fire;
+        // The seam OfMechanical/OfThermal coerce every dimensional column to SI through MeasureValue.Of(value, UnitsNet.Units.X, key)
+        // internally (H2 — the seam owns the UnitsNet registry), guard Poisson [0,1] inline, and own the case shapes; the row
+        // passes RAW doubles, so this folder admits UnitsNet ONLY through the seam and re-mints no coercion enum.
 
-    // The generated total Switch is the totality proof — a ProfileSet has no plies to aggregate a U-value/STC over, so
-    // its arm rails the typed fault explicitly; a fourth MaterialAssignment case (the trichotomy is closed) would break
-    // this dispatch at compile time, never fall to a runtime-silent `_` (the deleted `assignment switch { … _ => … }`).
-    public static Fin<AssemblyProperty> Aggregate(MaterialAssignment assignment, Func<MaterialId, Fin<MaterialPropertySet>> resolve, Seq<ConstituentWeight> weights, Op key) =>
-        assignment.Switch(
-            layerSet:       set => AggregateLayers(set, resolve, key),
-            constituentSet: set => AggregateConstituents(set, resolve, weights, key),
-            profileSet:     _   => MaterialFault.Parameter(key, "<assembly-aggregation-requires-layer-or-constituent-set>"));
+    public static readonly FrozenDictionary<MaterialId, MaterialPropertyRow> Rows = new (MaterialId Id, MaterialPropertyRow Row)[] {
+        (MaterialId.Of("metal.iron"),   new(7850.0, 200_000.0, 250.0, 0.30, 12.0e-6, 50.0, 490.0, 5.88, Option<(double[], double[])>.None, Some(("A1", 30.0)))),
+        (MaterialId.Of("stone.marble"), new(2700.0, 70_000.0, 15.0, 0.25, 7.0e-6, 2.8, 880.0, 3.50, Option<(double[], double[])>.None, Some(("A1", 120.0)))),
+        (MaterialId.Of("wood.oak"),     new(700.0, 11_000.0, 40.0, 0.35, 5.0e-6, 0.17, 2400.0, 0.49,
+            Some((new[] { 0.05, 0.08, 0.10, 0.12, 0.10, 0.09 }, new[] { 18.0, 24.0, 31.0, 36.0, 40.0, 33.0 })), Some(("D", 30.0)))),
+    }.ToFrozenDictionary(static r => r.Id, static r => r.Row);   // seam MaterialId generated equality (ordinal-ignore-case) keys the table
 
-    static Fin<AssemblyProperty> AggregateLayers(MaterialAssignment.LayerSet set, Func<MaterialId, Fin<MaterialPropertySet>> resolve, Op key) =>
-        set.Layers.Fold(
-            Fin.Succ((Resistance: RsiWM2K + RseWM2K, Sri: new double[AcousticBand.Count], MassKgM2: 0.0, ThicknessM: 0.0, MinFire: double.MaxValue)),
-            (acc, layer) => acc.Bind(state => resolve(layer.Material).Bind(props =>
-                from thermal in props.Thermal.ToFin(MaterialFault.Parameter(key, $"<assembly-layer-missing-thermal:{layer.Material.Value}>"))
-                from acoustic in props.Acoustic.ToFin(MaterialFault.Parameter(key, $"<assembly-layer-missing-acoustic:{layer.Material.Value}>"))
-                from mech in props.Mechanical.ToFin(MaterialFault.Parameter(key, $"<assembly-layer-missing-mechanical:{layer.Material.Value}>"))
-                let thicknessM = layer.ThicknessMm.Value / 1000.0
-                let fire = props.Properties.Choose(static p => p is MaterialProperty.Fire f ? Some(f.ResistanceMinutes) : None).HeadOrNone().IfNone(0.0)
-                select state with {
-                    Resistance = state.Resistance + thicknessM / Math.Max(thermal.ConductivityWMK, double.Epsilon),
-                    Sri = AddBands(state.Sri, acoustic.SoundReductionIndexDb),
-                    MassKgM2 = state.MassKgM2 + mech.DensityKgM3 * thicknessM,
-                    ThicknessM = state.ThicknessM + thicknessM,
-                    MinFire = Math.Min(state.MinFire, fire) })))
-            .Map(state => new AssemblyProperty(
-                UValueWM2K: 1.0 / state.Resistance,
-                StcWeighted: MaterialProperty.StcContourFit(state.Sri.AsMemory()),
-                EffectiveDensityKgM3: state.ThicknessM > 0.0 ? state.MassKgM2 / state.ThicknessM : 0.0,
-                EffectiveConductivityWMK: state.Resistance > RsiWM2K + RseWM2K ? state.ThicknessM / (state.Resistance - RsiWM2K - RseWM2K) : 0.0,
-                FireResistanceMinutes: state.MinFire is double.MaxValue ? 0.0 : state.MinFire));
-
-    static Fin<AssemblyProperty> AggregateConstituents(MaterialAssignment.ConstituentSet set, Func<MaterialId, Fin<MaterialPropertySet>> resolve, Seq<ConstituentWeight> weights, Op key) =>
-        guard(Math.Abs(weights.Sum(w => w.Fraction) - 1.0) <= FractionToleranceUnit, MaterialFault.Parameter(key, $"<constituent-fraction-not-normalized:{weights.Sum(w => w.Fraction):R}>"))
-            .Bind(_ => weights.Fold(
-                Fin.Succ((Density: 0.0, Conductivity: 0.0, MinFire: double.MaxValue)),
-                (acc, w) => acc.Bind(state => resolve(w.Material).Bind(props =>
-                    from mech in props.Mechanical.ToFin(MaterialFault.Parameter(key, $"<constituent-missing-mechanical:{w.Material.Value}>"))
-                    from thermal in props.Thermal.ToFin(MaterialFault.Parameter(key, $"<constituent-missing-thermal:{w.Material.Value}>"))
-                    let fire = props.Properties.Choose(static p => p is MaterialProperty.Fire f ? Some(f.ResistanceMinutes) : None).HeadOrNone().IfNone(0.0)
-                    select state with {
-                        Density = state.Density + w.Fraction * mech.DensityKgM3,
-                        Conductivity = state.Conductivity + w.Fraction * thermal.ConductivityWMK,
-                        MinFire = Math.Min(state.MinFire, fire) }))))
-            .Map(state => new AssemblyProperty(
-                UValueWM2K: 0.0,
-                StcWeighted: 0,
-                EffectiveDensityKgM3: state.Density,
-                EffectiveConductivityWMK: state.Conductivity,
-                FireResistanceMinutes: state.MinFire is double.MaxValue ? 0.0 : state.MinFire));
-
-    static double[] AddBands(double[] accumulated, ReadOnlyMemory<double> sri) {
-        ReadOnlySpan<double> bands = sri.Span;
-        double[] next = new double[AcousticBand.Count];
-        for (int i = 0; i < AcousticBand.Count; i++) { next[i] = accumulated[i] + bands[i]; }
-        return next;
-    }
+    public static Fin<Seq<MaterialPropertySet>> Lookup(MaterialId id, Op key) =>
+        Rows.TryGetValue(id, out MaterialPropertyRow? row)
+            ? Admit(row!, key)
+            : MaterialFault.Parameter(key, $"<unregistered-material-properties:{id.Value}>");
 }
+// The case→Discipline map is the seam's own MaterialPropertySet.Discipline accessor (one owner); a consumer reads
+// set.Discipline directly — Rasm.Compute selects its analysis route by it, this folder mints no parallel map.
 ```
+
+## [03]-[ASSESSMENT_INPUT]
+
+The Materials folder authors NO assessment-input marshaller and NO `Assessment` node: the material's own `Discipline`-keyed `MaterialPropertySet` set on the projected seam `Material` node IS the analysis input. `Rasm.Compute` reads the `Material` node plies DIRECTLY above the seam (`Analysis/aggregator` / `Analysis/assessment`: `id => graph.Material(id).Map(static m => m.Properties)`), runs the discipline route (the relocated multi-ply `AssemblyAggregator` + the ISO/EN closed-form routes + the VividOrange/FE structural solvers), and writes the seam `Assessment` `Result` node (`AssessmentPayload`, `AssessmentOutcome.Computed`) back content-keyed on `(input key, route)`. The prior `MaterialAssessmentInput` marshaller is RETIRED — a Materials-authored typed-input bag is redundant with Compute reading the typed `MaterialPropertySet` cases off the graph, so the seam carries ONE property surface (the `Material` node), not a parallel input node. The seam `Acoustic` case's intrinsic `Nrc`/`StcWeighted`/`SoundReductionIndexDb` folds (`Composition/acoustic`) are the single-material ratings Compute's ISO 12354 layered-STC fold reads through the SAME `StcContourFit` kernel; the case→`Discipline` map is the seam's own `MaterialPropertySet.Discipline` accessor (`Mechanical`→`Structural`, `Thermal`→`Thermal`, `Acoustic`→`Acoustic`, `Fire`→`Fire`, `Environmental`→`Environmental`, `Cost`→`Cost`; `Energy` carried only on an `Assessment` node), so Compute selects its route by `set.Discipline` with no parallel Materials marshaller.
 
 ## [04]-[RESEARCH]
 
-- [IFC_MATERIAL_PROPERTIES]: the IFC 4.3 `IfcMaterialProperties` extends `IfcExtendedProperties` with a `Material` reference and a `Properties` set of `IfcProperty`; the standard `Pset_MaterialMechanical`/`Pset_MaterialThermal`/`Pset_MaterialCommon` property sets carry the canonical column names (`MassDensity`/`YoungModulus`/`PoissonRatio`/`ThermalConductivity`/`SpecificHeatCapacity`). The `MaterialProperty` cases map one-to-one onto the Psets so a `MaterialPropertySet` serializes to `IfcMaterialProperties` at the `Rasm.Bim` boundary; the `AssemblyProperty` receipt maps to the element-level `Pset_` aggregate (`ThermalTransmittance` on `Pset_WallCommon`, `AcousticRating`); the probe is the per-case Pset member-name mapping, authored as portable SI data here.
-- [UNITSNET_CANONICAL_UNIT]: REALIZED — the `MaterialPropertyKind.CanonicalUnit` column names the SI-base `UnitsNet` enum the author-kernel rescales to, every thermal kind on its own dedicated quantity enum: `Conductivity` on `ThermalConductivityUnit.WattPerMeterKelvin`, `SpecificHeat` on `SpecificEntropyUnit.JoulePerKilogramKelvin` (the `SpecificEntropy` quantity carries specific-heat-capacity values), `UValue` on `HeatTransferCoefficientUnit.WattPerSquareMeterKelvin`, beside the mechanical `Density.KilogramPerCubicMeter`/`Pressure.Pascal` columns. The `ThermalConductivity`/`SpecificEntropy`/`HeatTransferCoefficient` quantity and unit enum families are catalogued in `.api/api-unitsnet.md`, and the `AssemblyAggregator` series-resistance fold composes the same SI-base working form, so the thermal rows carry no `.api` verification gap.
-- [CONSTITUENT_FRACTION]: REALIZED as the `[3]-[ASSEMBLY_PROPERTY]` `AssemblyAggregator.AggregateConstituents` rule-of-mixtures fold — a composite material's effective conductivity/density is the constituent-`Fraction`-weighted sum of its `ConstituentSet` member properties, an immutable `Fold` over the `Construction/assembly#MATERIAL_ASSIGNMENT` `ConstituentSet` reading each constituent's `MaterialPropertySet`, never a parallel composite-material owner. The `Fraction` weights ride the `ConstituentWeight` fold input until the `Fraction` column lands on `Construction/assembly#MATERIAL_ASSIGNMENT` `MaterialConstituent` (a one-column growth on the assembly owner, the only residual).
-- [LAYER_BUILDUP_GEOMETRY]: REALIZED as the `[3]-[ASSEMBLY_PROPERTY]` `AssemblyAggregator.AggregateLayers` series-resistance fold — the `LayerSet` U-value is `1/U = Rsi + Σ(t_i/λ_i) + Rse` (ISO 6946) over the plies' `MaterialLayer.ThicknessMm`/`MaterialProperty.Thermal.ConductivityWMK`, the layered SRI the per-band series sum of ply sound-reduction indices fed once through the shared `StcContourFit` (ISO 12354 / ASTM E413), and the effective density the through-thickness mass average; the cumulative-thickness placement-offset geometry stays the realized `Construction/layout#ASSEMBLY_FOLD` `LayerOffset`/`StackLayers` fold, the property aggregation the matching engineering fold on this page.
-- [THERMAL_SCALAR_PEER_EXPORT]: the `Thermal.ConductivityWMK`/`Thermal.SpecificHeatJKgK` and `Mechanical.DensityKgM3` columns are the STABLE peer-export contract the AEC-domain peer `Rasm.Fabrication/Process/physics#CUT_PARAMETER` reads to scale its thermal pierce-time and abrasive cut budgets — emitted as RAW SI doubles (W·m⁻¹·K⁻¹, J·kg⁻¹·K⁻¹, kg·m⁻³) at the Properties boundary, NEVER a `MaterialProperty` type crossing the seam. The contract decouples the Fabrication read from whichever `UnitsNet` proxy quantity Materials canonicalizes through (`ThermalConductivityUnit.WattPerMeterKelvin`, `SpecificEntropyUnit.JoulePerKilogramKelvin`, `Density.KilogramPerCubicMeter` per `UNITSNET_CANONICAL_UNIT`): the boundary emits the SI base double the value-object already carries, so a later Materials unit canonicalization does not break the Fabrication budget scaling. The acyclic AEC-domain-peer read is owned both ways — Fabrication reads a stated stable surface and Materials knows the Fabrication consumer is real design pressure on these three accessors. Ripple counterpart: `Rasm.Fabrication` `[TOOL_CUTTING_DATA_TABLE]`.
+- [SEAM_OWNS_PROPERTY_UNION]: the typed engineering-property family is the seam `MaterialPropertySet` `[Union]` (`Mechanical`/`Thermal`/`Acoustic`/`Fire`/`Environmental`/`Cost`, keyed to the seam `Discipline`), so the prior Materials `MaterialProperty` `[Union]`, its `MaterialPropertyKind` coercion enum, and the inline `StcContourFit`/`Nrc`/`Saa` projection folds are RETIRED and ROUTED into the seam — the task's "route the `MaterialProperty` unions into the seam `Material`/`MaterialPropertySet`". This owner keeps only the Materials SOURCE: the `MaterialPropertyCatalogue` published-row database and the `Admit` lowering that constructs the seam cases. SEAM CONTRACT (Rasm.Element side; this folder consumes): the `MaterialPropertySet` smart-constructors `OfMechanical(density, youngs, yield, poisson, expansion, key)`/`OfThermal(conductivity, specificHeat, uValue, key)`/`OfAcoustic(Acoustic)`/`OfFire(FireRating, minutes)` (the cases carry `MeasureValue` columns; the `Acoustic` case forwards `AbsorptionSpectrum`/`SoundReductionIndexDb` over `AcousticBand` + the intrinsic `Nrc`/`Saa`/`StcWeighted`/`StcContourFit` folds), `Acoustic.Of(absorption, sri, key)`, `FireRating.Parse`, and `MaterialPropertySet.Discipline`. The seam `MeasureValue` is `Dimension`-discriminated — `MeasureValue.Of(value, UnitsNet.Units.X, key)` coerces to SI through the UnitsNet registry ([H2]), and the seam smart-constructors do the coercion, so this folder passes RAW doubles and names no `QuantityType` (UnitsNet v5 removed that enum) and no unit string.
+- [SEAM_MEASURE_COERCION]: the engineering-property SI coercion rides the seam `MeasureValue` ([H2] — a `Dimension` 7-SI-exponent value-object discriminator plus `MeasureValue(Dimension, double Si, canonicalUnit)`, UnitsNet SI-coerced once at admission through the registry), so the prior in-folder `MaterialPropertyKind.CanonicalUnit`/`MaterialUnits.Coerce` is RETIRED — `Admit` calls the seam `MaterialPropertySet.OfMechanical`/`OfThermal` smart-constructors with RAW doubles and the seam coerces each column via `MeasureValue.Of(value, UnitsNet.Units.X, key)`, owning the `Pset_*` measure family (ThermalTransmittance/Pressure/MassDensity/…) the prior 6-value `QuantityKind` could not admit. UnitsNet v5 removed the `QuantityType` enum, so the `Dimension` 7-vector is the discriminator and this folder names no quantity-type token. The photometric/appearance luminous coercion stays in-folder on `Appearance/photometric#PHOTOMETRIC` (an appearance concern not lowered to the seam); only the engineering-property coercion moved.
+- [SEAM_OWNS_ACOUSTIC_FOLDS]: the intrinsic single-material acoustic pure folds — `Nrc` (the four-band 250/500/1k/2k arithmetic mean, ASTM C423), `Saa` (the twelve-third-octave SAA approximated as the six-band mean), `StcWeighted` (the single-number STC contour fit over the SRI bands, ASTM E413), and the `StcContourFit` kernel — live on the seam `Acoustic` case (`Rasm.Element` `Composition/acoustic`), so this owner READS them (the `MaterialAssessmentInput.AcousticInputs` reads `a.Nrc`/`a.StcWeighted`) and never re-authors them. The seam `Acoustic.Of` band-arity gate (six bands, absorption in `[0,1]`, SRI finite) is the one admission; the inline `OutOfUnit`/`NonFinite`/`StcContourDb` kernels the prior page carried are the seam's.
+- [ASSEMBLY_AGGREGATOR_RELOCATED]: the multi-ply `AssemblyAggregator` (the series-resistance U-value `1/U = Rsi + Σ(t_i/λ_i) + Rse` ISO 6946 fold, the layered-STC ISO 12354 fold, the rule-of-mixtures effective density/conductivity fold, the worst-ply fire envelope, and the lifecycle GWP/cost folds from `Properties/sustainability`) is RELOCATED to `Rasm.Compute` — the seam carries the per-material `MaterialPropertySet` cases on the `Material` node, Compute reads them directly, runs the assembly aggregation over the element's `MaterialComposition` plies, and writes the `Assessment` `Result` node back content-keyed on `(input key, route)`. The prior `AssemblyProperty`/`ConstituentWeight`/`AggregateLayers`/`AggregateConstituents` owners and the surface-film `Rsi`/`Rse` constants leave this folder entirely. Ripple counterpart: `Rasm.Compute` `Analysis/aggregator` (the multi-ply `AssemblyAggregator` folds reading the seam `MaterialComposition` + the per-ply `MaterialPropertySet`) + `Analysis/assessment` (the discipline solvers writing `Assessment` `Result` nodes).
+- [IFC_MATERIAL_PROPERTIES]: the IFC 4.3 `IfcMaterialProperties` extends `IfcExtendedProperties` with a `Material` reference and a `Properties` set; the standard `Pset_MaterialMechanical`/`Pset_MaterialThermal`/`Pset_MaterialCommon` carry the canonical column names (`MassDensity`/`YoungModulus`/`PoissonRatio`/`ThermalConductivity`/`SpecificHeatCapacity`). The seam `MaterialPropertySet` cases map one-to-one onto the Psets and the `MaterialAssessmentInput` `PropertyName` tokens use the canonical Pset member names, so `Rasm.Bim` reads the projected seam `Material` node's property set and emits `IfcMaterialProperties` from the seam graph — no Materials→IFC carrier, the Pset member-name mapping the `Rasm.Bim` side, the property computation this side, the seam the alignment.

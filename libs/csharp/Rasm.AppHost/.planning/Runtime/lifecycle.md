@@ -26,6 +26,7 @@ Rasm.AppHost runs one process lifecycle: eight string-keyed `RuntimePhase` rows 
     ConversionToKeyMemberType = ConversionOperatorsGeneration.Implicit,
     ConversionFromKeyMemberType = ConversionOperatorsGeneration.None)]
 public readonly partial struct CorrelationId : ISpanFormattable, IUtf8SpanFormattable {
+    public static readonly CorrelationId None = Create(Guid.Empty);
     public string ToString(string? format, IFormatProvider? formatProvider) => ((Guid)this).ToString(format, formatProvider);
     public bool TryFormat(Span<char> destination, out int charsWritten, ReadOnlySpan<char> format, IFormatProvider? provider) => ((Guid)this).TryFormat(destination, out charsWritten, format);
     public bool TryFormat(Span<byte> utf8Destination, out int bytesWritten, ReadOnlySpan<char> format, IFormatProvider? provider) => ((Guid)this).TryFormat(utf8Destination, out bytesWritten, format);

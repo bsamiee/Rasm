@@ -23,7 +23,7 @@ energy model.
 - native: `runtimes/osx-arm64/native/libopenstudiolib.dylib` (the SDK) + `libopenstudio_csharp.dylib` / `libopenstudio_model_csharp.dylib` / `libopenstudio_translators_csharp.dylib` (the SWIG P/Invoke shims); `build/OpenStudio.targets` copies the dylibs next to the consumer output
 - platform: this package is the macOS-arm64 RID member of a per-RID family — a Windows/Linux host admits the sibling `NREL.OpenStudio.win-x64` / `NREL.OpenStudio.linux-x64` package; the managed API is identical, only the native runtime differs
 - dependency: empty net-standard dependency group (the native runtime is fully bundled; no managed transitive deps)
-- consumer: `libs/csharp/Rasm.Bim` (the OSM/EnergyPlus energy-model exchange owner)
+- consumer: `libs/csharp/Rasm.Bim` (the IFC↔OSM/gbXML SEMANTIC exchange owner) — co-owned with `libs/csharp/Rasm.Compute` (the disjoint whole-building-energy SIMULATION owner, `Rasm.Compute/.api/api-openstudio`) on the one central pin; the two folder-scoped catalogs frame disjoint rails (Bim exchanges IFC↔OSM semantics, Compute simulates the canonical seam graph), aligned not coupled
 - rail: energy
 
 ## [02]-[PUBLIC_TYPES]

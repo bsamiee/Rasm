@@ -70,6 +70,15 @@
           "Nito.AsyncEx": "5.1.2"
         }
       },
+      "Generator.Equals": {
+        "type": "Direct",
+        "requested": "[4.0.0, )",
+        "resolved": "4.0.0",
+        "contentHash": "JrcUskhhgKaoUtRnTODx/W5itfcEQ0gwYm2J1YtsCzbejXHNa13Z/6DvkYkmrDUASOCxovGi9Q1j+Y7MhPwrug==",
+        "dependencies": {
+          "Generator.Equals.Runtime": "4.0.0"
+        }
+      },
       "geometry3Sharp": {
         "type": "Direct",
         "requested": "[1.0.324, )",
@@ -252,6 +261,12 @@
         "requested": "[2.5.0, )",
         "resolved": "2.5.0",
         "contentHash": "sG+mrPpXwxlXknRK5VqWUGiOmDACa9X+3ftlkQIMgOZUqxVOQSe0+HIU9PTjwqazy0pqSf8MPDXYFGl0GYWcKw=="
+      },
+      "Riok.Mapperly": {
+        "type": "Direct",
+        "requested": "[4.3.1, )",
+        "resolved": "4.3.1",
+        "contentHash": "oSE+OVLHyiojrws0QVbQaAT2YKsYbyHqJXPdV7EhGseR/dYgeWS2x1T5qY5I4E+RJkJqMSG+FyZOq4SljWgJWQ=="
       },
       "SharpGLTF.Core": {
         "type": "Direct",
@@ -519,6 +534,14 @@
         "resolved": "8.4.0",
         "contentHash": "QaEzDFG2vcQMPqUmoWv0vBTObtH8hffQmyDr2WkqRYF/nFSn2pkdBB4vudcd/EIv0N8M3P1fzzkPQgEWsFnUmA=="
       },
+      "Generator.Equals.Runtime": {
+        "type": "Transitive",
+        "resolved": "4.0.0",
+        "contentHash": "EGTPKjTvZPizf2gC9pfsW1k2VEqNSjD7M52Hw7i0a5cRzWP4IWvu6LKv4e0yKmTjDqBPtG9QwTtsy+6zFq41vw==",
+        "dependencies": {
+          "Microsoft.Bcl.HashCode": "6.0.0"
+        }
+      },
       "GraphQL.Client": {
         "type": "Transitive",
         "resolved": "6.1.0",
@@ -554,6 +577,11 @@
         "type": "Transitive",
         "resolved": "13.0.3.2",
         "contentHash": "40tAAnkhW/D0IkvseSZiqLZ6EY/X+8nGNBszWtkGFIQ4nvF5v0tZt2t3VFCM+//3+vCBqhYUdzeQi2HDWbRThA=="
+      },
+      "Microsoft.Bcl.HashCode": {
+        "type": "Transitive",
+        "resolved": "6.0.0",
+        "contentHash": "GI4jcoi6eC9ZhNOQylIBaWOQjyGaR8T6N3tC1u8p3EXfndLCVNNWa+Zp+ocjvvS3kNBN09Zma2HXL0ezO0dRfw=="
       },
       "Microsoft.Data.Sqlite.Core": {
         "type": "Transitive",
@@ -879,6 +907,23 @@
           "Thinktecture.Runtime.Extensions": "[10.4.0, )",
           "Triangle": "[0.0.6-Beta3, )",
           "geometry3Sharp": "[1.0.324, )"
+        }
+      },
+      "rasm.element": {
+        "type": "Project",
+        "dependencies": {
+          "Csp.Contracts": "[1.0.0, )",
+          "Generator.Equals": "[4.0.0, )",
+          "JetBrains.Annotations": "[2026.2.0, )",
+          "LanguageExt.Core": "[5.0.0-beta-77, )",
+          "NodaTime": "[3.3.2, )",
+          "QuikGraph": "[2.5.0, )",
+          "Rasm": "[1.0.0, )",
+          "Riok.Mapperly": "[4.3.1, )",
+          "System.IO.Hashing": "[10.0.9, )",
+          "Thinktecture.Runtime.Extensions": "[10.4.0, )",
+          "Thinktecture.Runtime.Extensions.Json": "[10.4.0, )",
+          "UnitsNet": "[5.75.0, )"
         }
       },
       "Apache.Arrow": {

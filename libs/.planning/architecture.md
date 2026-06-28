@@ -11,8 +11,9 @@ The repository is one tri-language AEC platform organized into strict strata. Ea
 - The RhinoCommon-aware geometry/numeric kernel, with sub-domains Vectors, Analysis, Domain, and the robust-core Geometry. The branch base: referenced by every higher stratum, references none.
 
 [AEC-DOMAIN]
-- Folder(s): `Rasm.Materials`, `Rasm.Bim`, `Rasm.Fabrication`
-- Host-neutral AEC capability: profiles/appearance/construction, the BIM object-model + IFC/glTF/STEP exchange, and portable fabrication (HLR/CAM/nesting). References the kernel and, minimally, its AEC-domain peers.
+- Folder(s): the lowest-AEC element seam `Rasm.Element`, then the AEC peers `Rasm.Materials`, `Rasm.Bim`, `Rasm.Fabrication`.
+- `Rasm.Element` is the shared lowest-AEC sub-stratum: the canonical `ElementGraph` property-graph (entity + objectified relationships + typed property/quantity/material/assessment/coverage payloads) plus the `IElementProjection`/`IGraphConstraint` contracts the peers depend up on and implement. It references the kernel only, owns no IFC stack and no host geometry (geometry is referenced by content hash), and re-mints nothing the kernel owns (one `XxHash128` seed).
+- The AEC peers carry host-neutral AEC capability: profiles/appearance/construction, the BIM object-model + IFC/glTF/STEP exchange, and portable fabrication (HLR/CAM/nesting). Each depends up on `{Rasm, Rasm.Element}` and projects its foreign source (GeometryGym in Bim, VividOrange in Materials) onto the shared `ElementGraph` through an `IElementProjection`; the peers never reference each other — alignment travels through the seam contracts and the content-keyed wire, the same shape as depending on the kernel, so each package stays fully usable in isolation.
 
 [APP-PLATFORM]
 - Folder(s): `Rasm.AppHost`, `Rasm.Compute`, `Rasm.Persistence`, `Rasm.AppUi`
@@ -31,7 +32,9 @@ The repository is one tri-language AEC platform organized into strict strata. Ea
 Dependency is strictly upward through the strata; the graph is acyclic with the kernel at the base and the app shells at the leaf.
 
 - `Rasm` references no sibling and is referenced by every C# stratum above it.
-- AEC-domain and app-platform reference the kernel; cross-references between AEC-domain and app-platform are minimal and one-directional (app-platform consumes AEC-domain capability, never the reverse).
+- `Rasm.Element` (the lowest-AEC seam) references only `Rasm`, names no IFC or provider package, and is referenced as the shared lower stratum by every AEC peer and by the app-platform stores that persist or read the `ElementGraph`.
+- The AEC peers (`Rasm.Materials`, `Rasm.Bim`, `Rasm.Fabrication`) depend up on `{Rasm, Rasm.Element}` and never reference each other — alignment is via the `IElementProjection`/`IGraphConstraint` seam contracts and the content-keyed wire. This REPLACES the prior allowance of minimal AEC-peer cross-references.
+- App-platform references the kernel and the element seam; cross-references between AEC-domain and app-platform are one-directional (app-platform consumes the element seam and the AEC-domain capability, never the reverse).
 - No host-neutral package (KERNEL, AEC-DOMAIN, APP-PLATFORM) references a HOST-BOUNDARY package. `Rasm.Rhino` and `Rasm.Grasshopper` reference only `Rasm` and are composed at the app roots.
 - `Rasm.AppUi` is the app-platform consuming leaf; it is NOT the app composition root. The product composition that binds host boundaries (Rhino/GH2) lives at the future APP stratum, never inside app-platform. A scaffold `.csproj` that references `Rasm.Rhino`/`Rasm.Grasshopper` from `Rasm.AppUi` is redrawn to the strata: AppUi references the kernel, AppHost, Compute, and Persistence, and the host boundaries enter at the app root that composes a live host.
 

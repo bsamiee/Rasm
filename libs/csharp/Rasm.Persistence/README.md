@@ -1,38 +1,26 @@
 # [PERSISTENCE]
 
-`Rasm.Persistence` is the APP-PLATFORM durable-state spine: a host-neutral C# backbone that owns every durable store, lane, and rail. It consumes AppHost ports (`clock`, `telemetry`, `receipts`, `drain`, `classification`) and Compute artifact frames as settled vocabulary. The package owns the store-profile engine axis, the lifecycle/lease/placement ceremony, cloud object-store residence, the self-provisioned PostgreSQL server tier, the schema/query rails, the embedded-SQLite floor, snapshot codecs, cache indexes, sync and collaboration transports, version control with CRDT and time-travel, the federated entity graph, provenance, annotation, catalog/cost, schedule interchange, and redaction/retention. The sub-domain map and domain law live in `ARCHITECTURE.md`, the forward concept pool in `IDEAS.md`, and the work log in `TASKLOG.md`.
+`Rasm.Persistence` is the APP-PLATFORM durable-state spine: a host-neutral C# backbone that persists the `Rasm.Element` `ElementGraph` as its system of record. It depends UP on the `Rasm.Element` seam (the `ElementGraph`/`GraphDelta`/`Node`/`NodeId`/`Relationship`/`Header`/`ContentAddress` contracts) and the `Rasm` kernel content-hash, and it consumes AppHost ports (`clock`, `telemetry`, `receipts`, `drain`, `classification`) as settled vocabulary — it never references a sibling AEC-domain peer. Marten is the APPEND SUBSTRATE: each model is one event stream whose `GraphDelta` event bodies fold into the whole `ElementGraph` through an inline projection (read-your-writes) and `AggregateStreamAsync` AS-OF, while the preserved op-log/CRDT/time-travel/`StructuralMerge`/causal-DAG engine PROJECTS from those events. The package owns the ElementGraph store-load roundtrip (`Element/`), the version-control engine over Marten — commit-DAG, convergent CRDT, AS-OF time-travel, three-way structural merge, W3C-PROV provenance, classification/retention with full-history reachability GC, and verified backup/PITR recovery (`Version/`) — the read lanes (synchronous in-process QuikGraph topology, async DuckDB/BimOpenSchema columnar, optional Apache AGE openCypher; `Query/`), the tabular ingest codec (`Ingest/`), and the content-keyed geometry object store plus the self-provisioned PostgreSQL server tier and embedded-SQLite floor (`Store/`). The sub-domain map and domain law live in `ARCHITECTURE.md`, the forward concept pool in `IDEAS.md`, and the work log in `TASKLOG.md`.
 
 ## [01]-[ROUTER]
 
-- [01]-[ENGINE](.planning/Store/engine.md)
-- [02]-[PROFILES](.planning/Store/profiles.md)
-- [03]-[REMOTE](.planning/Store/remote.md)
-- [04]-[PROVISIONING](.planning/Store/provisioning.md)
-- [05]-[TENANCY](.planning/Store/tenancy.md)
-- [06]-[ENCRYPTION](.planning/Store/encryption.md)
-- [07]-[QUALITY](.planning/Store/quality.md)
-- [08]-[IDENTITY](.planning/Schema/identity.md)
-- [09]-[MIGRATION](.planning/Schema/migration.md)
-- [10]-[DDL](.planning/Schema/ddl.md)
-- [11]-[CONVERTERS](.planning/Schema/converters.md)
-- [12]-[RAIL](.planning/Query/rail.md)
-- [13]-[LANES](.planning/Query/lanes.md)
-- [14]-[CACHE](.planning/Query/cache.md)
-- [15]-[FEDERATION](.planning/Query/federation.md)
-- [16]-[TRANSACTION](.planning/Query/transaction.md)
-- [17]-[PIPELINE](.planning/Query/pipeline.md)
-- [18]-[COMMITS](.planning/Version/commits.md)
-- [19]-[TIMETRAVEL](.planning/Version/timetravel.md)
-- [20]-[DIFF](.planning/Version/diff.md)
-- [21]-[PROVENANCE](.planning/Version/provenance.md)
-- [22]-[SNAPSHOTS](.planning/Version/snapshots.md)
-- [23]-[RETENTION](.planning/Version/retention.md)
-- [24]-[RECOVERY](.planning/Version/recovery.md)
-- [25]-[COLLABORATION](.planning/Sync/collaboration.md)
-- [26]-[ANNOTATION](.planning/Sync/annotation.md)
-- [27]-[SCHEDULE](.planning/Sync/schedule.md)
-- [28]-[EGRESS](.planning/Sync/egress.md)
-- [29]-[COORDINATION](.planning/Sync/coordination.md)
+- [01]-[ELEMENT_GRAPH](.planning/Element/graph.md)
+- [02]-[ELEMENT_CODEC](.planning/Element/codec.md)
+- [03]-[ELEMENT_IDENTITY](.planning/Element/identity.md)
+- [04]-[VERSION_LEDGER](.planning/Version/ledger.md)
+- [05]-[VERSION_COMMITS](.planning/Version/commits.md)
+- [06]-[VERSION_TIMETRAVEL](.planning/Version/timetravel.md)
+- [07]-[VERSION_MERGE](.planning/Version/merge.md)
+- [08]-[VERSION_PROVENANCE](.planning/Version/provenance.md)
+- [09]-[VERSION_RETENTION](.planning/Version/retention.md)
+- [10]-[VERSION_RECOVERY](.planning/Version/recovery.md)
+- [11]-[QUERY_LANE](.planning/Query/lane.md)
+- [12]-[QUERY_TOPOLOGY](.planning/Query/topology.md)
+- [13]-[QUERY_COLUMNAR](.planning/Query/columnar.md)
+- [14]-[QUERY_CYPHER](.planning/Query/cypher.md)
+- [15]-[INGEST_TABULAR](.planning/Ingest/tabular.md)
+- [16]-[STORE_BLOBSTORE](.planning/Store/blobstore.md)
+- [17]-[STORE_PROVISIONING](.planning/Store/provisioning.md)
 
 ## [02]-[DOMAIN_PACKAGES]
 
@@ -157,12 +145,17 @@ Full-featured production messaging-protocol clients backing the egress sink rows
 - `MessagePack`
 - `MessagePackAnalyzer`
 - `K4os.Compression.LZ4`
-- `MPXJ.Net` (binary MS-Project .mpp / Primavera P6 XER/PMXML / Asta / Phoenix schedule-file codec via IKVM Java->IL bridge — the schedule-ingress lane the row-oriented `Sep`/`Sylvan` codecs lack)
+- `MPXJ.Net` (binary MS-Project .mpp / Primavera P6 XER/PMXML / Asta / Phoenix schedule-file codec via IKVM Java->IL bridge — the schedule-ingress lane the row-oriented `Sep`/`MiniExcel` codecs lack)
 - `Sep`
 
 ## [03]-[SUBSTRATE_PACKAGES]
 
 Cross-cutting C# substrate libraries Persistence consumes; package charters live in `libs/csharp/.planning/README.md` and shared API evidence lives in `libs/csharp/.api/`.
+
+[SEAM_REFERENCES]:
+Upward ProjectReferences (alignment by contract, never a sibling peer reference). Persistence persists any `ElementGraph` and composes the kernel content-hash; it never references `Rasm.Materials`/`Rasm.Bim`/`Rasm.Fabrication`.
+- `Rasm.Element` (the AEC-DOMAIN seam — `ElementGraph`/`GraphDelta`/`Node`/`NodeId`/`Relationship`/`Header`/`ContentAddress`/`Discipline` contracts the durable spine persists)
+- `Rasm` (the KERNEL — the seed-zero `XxHash128` content-hash entry the codec and the content address compose; geometry referenceable by content-hash only)
 
 [FUNCTIONAL_CORE]:
 - `LanguageExt.Core`
@@ -170,6 +163,11 @@ Cross-cutting C# substrate libraries Persistence consumes; package charters live
 - `Thinktecture.Runtime.Extensions.Json`
 - `Thinktecture.Runtime.Extensions.MessagePack`
 - `JetBrains.Annotations`
+
+[CODE_GENERATION]:
+- `Riok.Mapperly` (compile-time graph↔DTO/proto mapper — the source-generated marshal between the seam `ElementGraph`/`Node` shapes and the wire/columnar projections, never a hand-rolled mapper; shared substrate, `libs/csharp/.api/api-mapperly.md`)
+- `Generator.Equals` (source-generated structural equality for node/edge value carriers and the content-key preimage, never a hand-rolled `Equals`/`GetHashCode`; shared substrate, `libs/csharp/.api/api-generator-equals.md`)
+- `QuikGraph` (the in-process topology graph + traversal/shortest-path/components/topological-sort algorithms the synchronous authoritative `Query/topology` lane composes; shared substrate, `libs/csharp/.api/api-quikgraph.md`)
 
 [TIME_IDENTITY]:
 - `NodaTime`

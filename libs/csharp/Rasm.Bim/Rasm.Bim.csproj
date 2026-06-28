@@ -6,6 +6,12 @@
 
     <ItemGroup Label="Project References">
         <ProjectReference Include="../Rasm/Rasm.csproj" />
+        <ProjectReference Include="../Rasm.Element/Rasm.Element.csproj" />
+    </ItemGroup>
+
+    <ItemGroup Label="Seam Generators">
+        <PackageReference Include="Generator.Equals" PrivateAssets="all" />
+        <PackageReference Include="Riok.Mapperly" PrivateAssets="all" />
     </ItemGroup>
 
     <ItemGroup Label="Interchange">

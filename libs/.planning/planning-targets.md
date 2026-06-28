@@ -10,7 +10,7 @@
 - Language-wide docs: `libs/csharp/.planning/ARCHITECTURE.md`, `libs/csharp/.planning/IDEAS.md`, `libs/csharp/.planning/TASKLOG.md`
 - Rasm (Sub-folder): `libs/csharp/Rasm/geometry/.planning`, `libs/csharp/Rasm/.api`
 - Rasm root docs: `libs/csharp/Rasm/README.md`, `libs/csharp/Rasm/ARCHITECTURE.md`, `libs/csharp/Rasm/IDEAS.md`, `libs/csharp/Rasm/TASKLOG.md`
-- Planning Folders: `libs/csharp/Rasm.AppHost`, `libs/csharp/Rasm.AppUi`, `libs/csharp/Rasm.Bim`, `libs/csharp/Rasm.Compute`, `libs/csharp/Rasm.Fabrication`, `libs/csharp/Rasm.Materials`, `libs/csharp/Rasm.Persistence`
+- Planning Folders: `libs/csharp/Rasm.AppHost`, `libs/csharp/Rasm.AppUi`, `libs/csharp/Rasm.Bim`, `libs/csharp/Rasm.Compute`, `libs/csharp/Rasm.Element`, `libs/csharp/Rasm.Fabrication`, `libs/csharp/Rasm.Materials`, `libs/csharp/Rasm.Persistence`
 
 [TYPESCRIPT]:
 - Core dir: `libs/typescript/.planning`

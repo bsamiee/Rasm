@@ -39,6 +39,9 @@ The cross-domain C# foundation every package builds on: rails, time/identity, th
 - `System.Numerics.Tensors` — Rasm, AppHost, Compute.
 - `UnitsNet` — Bim, Compute, Fabrication, Materials, AppUi.
 
+[GRAPH_ALGORITHM]:
+- `QuikGraph` — Element, Bim, Persistence (the pure-managed graph containers + `AlgorithmExtensions` facade; the seam `ElementGraph` topology view, the Persistence synchronous `Query/topology` lane, the Bim CPM/`SystemTrace`/version-DAG walks).
+
 [WIRE_CODEGEN]:
 - `Generator.Equals` — Element + consumers (source-generated structural equality + member-level diff; runtime `Generator.Equals.Runtime`).
 - `Google.Protobuf`

@@ -1,193 +1,157 @@
-# [BIM_ELEMENTS]
+# [BIM_IFC_TAXONOMY]
 
-The host-neutral BIM element vocabulary on three folded axes of one product-type concept: the `IfcClass` `[SmartEnum<string>]` entity-class breadth discriminated by a seven-case `IfcDomain` partition, the `PredefinedType` `[ValueObject<string>]` sub-class discriminant validated against each row's frozen valid-predefined set, and the `BimType` type-occurrence factoring an `IfcMappedItem` references — all carried on the one `BimElement` record, the `BimModel` element-collection owner, and the `BimModel.Project` fold from the `IfcSemanticModel` graph. The element model is HOST-NEUTRAL — the geometry handle binds the kernel `Rasm` geometry by reference and never carries a RhinoCommon type — and projects from the `Exchange/import#IMPORT_RAIL` `IfcSemanticModel` graph consumed as settled vocabulary, never re-minting the semantic-graph shape. The vocabulary is ONE owner widened on all three axes, never three parallel surfaces: a new entity class is one `IfcClass` row, a new sub-class kind is one frozen valid-predefined entry, and a 4000-window model carries one `BimType` plus 4000 occurrence references rather than 4000 inlined geometries.
+The IFC entity-class vocabulary `Rasm.Bim` owns as the SOLE GeometryGym/IFC owner: the `IfcClass` `[SmartEnum<string>]` buildingSMART entity-class breadth keyed on the IFC entity-type string, each row carrying its `IfcDomain` discipline partition, its frozen valid-predefined set, and its `IntroducedIn`/`RemovedIn` schema span; the `AdmitPredefined` egress gate validating a predefined token against the row's valid set AND the target schema; and the `IfcRepresentation` content-keyer projecting an IFC product's representations onto the seam `RepresentationContentHash` map. This page is the IFC-schema authority the `Projection/semantic#SEMANTIC_PROJECTOR` projector composes at BOTH legs — at ingress it resolves the entity-type string to the row that supplies the generic `Classification("ifc", classKey)` stamped on the seam `Object` node and admits the predefined token, and at egress it runs the `PredefinedType` validity gate against the frozen valid set and the schema span before the IFC entity is authored [C6][H8]. The retired `BimElement` element record and `BimModel` collection are GONE: the consumer-facing element is the seam `Bake(objectNode)` fold over the reachable `ElementGraph` subgraph, never a second stored record keyed by `GlobalId`, so "has it all" is one flat read on the seam graph and the typed data is never stranded off the element. The vocabulary is ONE owner widened on three folded axes — a new entity class is one `IfcClass` row, a new sub-class kind is one valid-predefined entry, a new schema availability is one span column — never three parallel surfaces and never a per-element-class type.
 
 ## [01]-[INDEX]
 
-- [01]-[ELEMENT_MODEL]: `BimElement` element record, `IfcClass`/`IfcDomain` entity-class vocabulary, `PredefinedType` discriminant, `BimModel` collection, and the `Project` fold.
-- [02]-[BIM_TYPE]: `BimType` type-object record carrying the `IfcElementType`/`IfcTypeProduct` discriminant, the type-bound property/material/predefined bindings, and the `IfcRepresentationMap` instanced-geometry library.
+- [01]-[IFC_CLASS]: `IfcClass` `[SmartEnum<string>]` entity-class vocabulary, the `IfcDomain` discipline partition, the frozen valid-predefined set, the `IntroducedIn`/`RemovedIn` schema span [H8], the `Resolve` ingress lookup, and the `AdmitPredefined` egress gate over the seam-owned `PredefinedType` token [C6].
+- [02]-[REPRESENTATION_KEYS]: `IfcRepresentation` the geometry-reference content-keyer projecting an `IfcProduct`/`IfcTypeProduct` representation set onto the seam `RepresentationContentHash` keyed map (axis/body/box/footprint → kernel `XxHash128` content hash) [M2], composing the kernel seed-zero identity, never a second hasher.
 
-## [02]-[ELEMENT_MODEL]
+## [02]-[IFC_CLASS]
 
-- Owner: `BimElement` the single host-neutral element record carrying the `IfcClass` discriminant, the `PredefinedType` sub-class discriminant, the stable `GlobalId`, the kernel-geometry handle, and the property/quantity/material/classification/type bindings; `IfcClass` `[SmartEnum<string>]` the closed buildingSMART entity-class vocabulary keyed on the IFC entity-type string, each row carrying its `IfcDomain` and its frozen valid-predefined set; `IfcDomain` the seven-case buildingSMART discipline partition; `PredefinedType` `[ValueObject<string>]` the sub-class discriminant admitted once against the class row's valid set; `BimModel` the element-collection owner wrapping the projected element graph with the schema/model-view header.
-- Entry: `BimModel.Project(IfcSemanticModel semantic, ClockPolicy clocks)` projects the in-process IFC semantic graph into the host-neutral `BimModel` element collection — `Fin<T>` aborts on an unmapped entity class (`Model/faults#FAULT_BAND` `BimFault.UnmappedClass`) or a missing spatial host (`BimFault.DanglingReference`), each lowered with `.ToError()`; the `ProductRow.PredefinedType` string admits through `IfcClass.AdmitPredefined` against the row's frozen valid set with the `USERDEFINED`/`OBJECTTYPE` fallback, the geometry handle binds the kernel `Rasm` geometry by reference, never re-tessellating, and the `BimType` resolves lazily from `TypeGlobalId` against the model's `Types` index.
-- Packages: GeometryGymIFC_Core, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm
-- Growth: a new element class is one `IfcClass` row carrying its domain and valid-predefined set; a new sub-class kind is one frozen entry in the row's valid-predefined set; a new element binding is one column on `BimElement` projected from the existing `IfcSemanticModel` row family; a new IFC4.3 infrastructure class rides the same projection on one new row; never a per-element-class type and never a `Get<Domain>` family.
-- Boundary: `BimElement` is ONE record discriminated by `IfcClass` row data on three folded axes (entity-class, predefined-type, type-occurrence) — a `WallElement`/`SlabElement`/`ColumnElement` class family, a `LoadBearingWall`/`ExteriorDoor` predefined-type subclass, and a per-window inlined geometry are the deleted forms; the entity-class breadth widens the one `IfcClass` SmartEnum row table across the architectural/MEP/structural/infrastructure/geotechnical domains rather than minting parallel surfaces, and the `IfcDomain` enum widens to the frozen seven-case buildingSMART partition so `Model/query#ELEMENT_SET` discriminates by domain without a per-element type; the `PredefinedType` is admitted once at projection against the `IfcClass` row's frozen valid set, the `USERDEFINED`/`OBJECTTYPE` fallback resolving the `ObjectType` string, and a per-call predefined regex is the named defect; the geometry handle is the kernel `Rasm` geometry consumed by reference and a RhinoCommon `Brep`/`Mesh` field on `BimElement` is the named seam violation; the `IfcSemanticModel` graph is owned at `Exchange/import#IMPORT_RAIL` and consumed as settled vocabulary; a raw entity-type string crossing a public signature is the named defect; property/quantity/material/classification/type bindings project from the existing `IfcSemanticModel.PropertyRow`/`QuantityRow`/`MaterialRow`/`ClassificationRow`/`TypeRow` families, never a second property model; the `Materials` binding carries the typed `Semantics/composition#MATERIAL_COMPOSITION` `BimMaterial` composition (layered/profiled/constituent) rather than a bare name string; the `Classifications` binding carries the typed `ClassificationRef` owned at `Semantics/classification#CLASSIFICATION_AXIS` so the `Model/query#ELEMENT_SET` `ByClassification` arm matches a typed system-and-code pair rather than a stringly-keyed property lookup; the `TypeGlobalId` resolves the `[3]-[BIM_TYPE]` `BimType` by reference so an occurrence inherits type-bound properties/material/predefined and instances the type representation map, never inlining the type geometry.
+- Owner: `IfcClass` the `[SmartEnum<string>]` closed buildingSMART entity-class vocabulary keyed on the IFC entity-type string, each row carrying its `IfcDomain` discipline, its frozen `ValidPredefined` set, and its `IfcSchemaSpan` (`IntroducedIn`/`RemovedIn` `ReleaseVersion`) so a class authored against a schema that does not carry it faults at egress; `IfcDomain` the seven-case buildingSMART discipline partition; `IfcSchemaSpan` the per-class availability window [H8]. The `PredefinedType` sub-class discriminant is the seam-carried neutral token (a `string`) on the `Object` node (`Rasm.Element/Graph/element#ELEMENT`), of which `IfcClass` is the IFC validation authority — the predefined-type semantics live HERE (the frozen valid sets + `AdmitPredefined`), the seam node carrying only the string token [C6].
+- Entry: `IfcClass.Resolve(string entityType)` is the ingress lookup the projector composes — it resolves the IFC entity-type string (the `ParserIfc.IdentifyIfcClass` class half) to the row that supplies the generic `Classification("ifc", row.Key)` stamped on the seam `Object` node, faulting `Model/faults#FAULT_BAND` `BimFault.UnmappedClass` on a class the vocabulary does not carry, lowered with `.ToError()`; `IfcClass.AdmitPredefined(string token, string objectType, ReleaseVersion schema)` is the egress gate — it admits the predefined token against the row's frozen valid set with the `USERDEFINED`/`OBJECTTYPE` fallback AND validates the class is available in the target schema span, returning the validated predefined token (the seam `Object` node's `string PredefinedType`) or faulting `BimFault.UnmappedClass`.
+- Auto: `Resolve` reads the `Items` SmartEnum table by key; the projector folds its result into the generic `Classification` value-object so the seam node carries a `(system, code)` pair (`"ifc"`, `"IfcWall"`) rather than the `IfcClass` type itself, keeping the seam IFC-schema-free; `AdmitPredefined` trims and upper-cases the token, routes `""`/`"NOTDEFINED"` to the canonical `"NOTDEFINED"` token, routes `"USERDEFINED"`/`"OBJECTTYPE"` to the object-type fallback string, accepts a token in the frozen `ValidPredefined` set (or any token when the set is empty, the schema not constraining it), and otherwise faults; the schema-span check rejects a class whose `IntroducedIn` is later than (or `RemovedIn` earlier than) the target `schema` so an IFC4.3 `IfcAlignment` authored against an IFC2x3 emit faults rather than writing an entity the schema forbids [H8]; the admitted predefined token folds into the seam node content hash [C6].
+- Packages: GeometryGymIFC_Core, Rasm.Element, Thinktecture.Runtime.Extensions, LanguageExt.Core
+- Growth: a new entity class is one `IfcClass` row carrying its domain, valid-predefined set, and schema span; a new sub-class kind is one frozen entry in the row's valid set; a new schema availability is one `IfcSchemaSpan` column; a new IFC4.4 infrastructure class rides the same ingress/egress on one new row; never a per-element-class type, never a `Get<Domain>` family, and never the retired `BimElement` record.
+- Boundary: `BimElement` and `BimModel` are RETIRED — the consumer element is the seam `Bake(objectNode)` fold over the `ElementGraph`, and any owner that re-stores a `BimElement(GlobalId, IfcClass, …)` record off the seam graph is the deleted form; `IfcClass` is the IFC-schema vocabulary the projector composes, NOT a field on a seam node — the seam `Object` node carries the generic `Classification("ifc", code)` value-object and a typed `IfcClass` on the node is the named seam violation [C6]; the `PredefinedType` token is a `string` on the seam `Object` node and `IfcClass.AdmitPredefined` is its IFC validation authority — a Bim `PredefinedType` value-object type is the deleted form (the seam carries the token as a `string`, Bim owns only the valid-set + `AdmitPredefined`), and a per-call predefined regex instead of the frozen valid set is the named defect; the predefined validity is an EGRESS gate (validated when the IFC entity is authored, against the valid set + the schema span [C6][H8]) and silent acceptance of an out-of-schema predefined is the named defect; the entity-type strings ground against the GeometryGym entity vocabulary consumed as settled (`.api/api-geometrygym-ifc`), and a raw entity-type string crossing a seam signature is the named defect.
 
 ```csharp signature
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<InterchangeKeyPolicy, string>]
-[KeyMemberComparer<InterchangeKeyPolicy, string>]
-public sealed partial class IfcClass {
-    public static readonly IfcClass Wall          = new("IfcWall", IfcDomain.Architecture, Seq("STANDARD", "POLYGONAL", "SHEAR", "ELEMENTEDWALL", "PLUMBINGWALL", "MOVABLE", "PARAPET", "PARTITIONING", "SOLIDWALL", "RETAININGWALL"));
-    public static readonly IfcClass Slab          = new("IfcSlab", IfcDomain.Architecture, Seq("FLOOR", "ROOF", "LANDING", "BASESLAB", "APPROACH_SLAB", "PAVING", "WEARING", "SIDEWALK", "TRACKSLAB"));
-    public static readonly IfcClass Column        = new("IfcColumn", IfcDomain.Architecture, Seq("COLUMN", "PILASTER", "PIERSTEM", "PIERSTEM_SEGMENT", "STANDCOLUMN"));
-    public static readonly IfcClass Beam          = new("IfcBeam", IfcDomain.Architecture, Seq("BEAM", "JOIST", "HOLLOWCORE", "LINTEL", "SPANDREL", "T_BEAM", "GIRDER_SEGMENT", "DIAPHRAGM", "PIERCAP", "HATSTONE", "CORNICE", "EDGEBEAM"));
-    public static readonly IfcClass Door          = new("IfcDoor", IfcDomain.Architecture, Seq("DOOR", "GATE", "TRAPDOOR", "BOOM_BARRIER", "TURNSTILE"));
-    public static readonly IfcClass Window        = new("IfcWindow", IfcDomain.Architecture, Seq("WINDOW", "SKYLIGHT", "LIGHTDOME"));
-    public static readonly IfcClass Covering      = new("IfcCovering", IfcDomain.Architecture, Seq("CEILING", "FLOORING", "CLADDING", "ROOFING", "INSULATION", "MEMBRANE", "SLEEVING", "WRAPPING", "MOLDING", "SKIRTINGBOARD", "TOPPING"));
-    public static readonly IfcClass CurtainWall   = new("IfcCurtainWall", IfcDomain.Architecture, Seq<string>());
-    public static readonly IfcClass Railing       = new("IfcRailing", IfcDomain.Architecture, Seq("HANDRAIL", "GUARDRAIL", "BALUSTRADE", "FENCE"));
-    public static readonly IfcClass Ramp          = new("IfcRamp", IfcDomain.Architecture, Seq("STRAIGHT_RUN_RAMP", "TWO_STRAIGHT_RUN_RAMP", "QUARTER_TURN_RAMP", "TWO_QUARTER_TURN_RAMP", "HALF_TURN_RAMP", "SPIRAL_RAMP"));
-    public static readonly IfcClass Roof          = new("IfcRoof", IfcDomain.Architecture, Seq("FLAT_ROOF", "SHED_ROOF", "GABLE_ROOF", "HIP_ROOF", "HIPPED_GABLE_ROOF", "GAMBREL_ROOF", "MANSARD_ROOF", "BARREL_ROOF", "RAINBOW_ROOF", "BUTTERFLY_ROOF", "PAVILION_ROOF", "DOME_ROOF", "FREEFORM"));
-    public static readonly IfcClass Stair         = new("IfcStair", IfcDomain.Architecture, Seq("STRAIGHT_RUN_STAIR", "TWO_STRAIGHT_RUN_STAIR", "QUARTER_WINDING_STAIR", "QUARTER_TURN_STAIR", "HALF_WINDING_STAIR", "HALF_TURN_STAIR", "TWO_QUARTER_WINDING_STAIR", "TWO_QUARTER_TURN_STAIR", "THREE_QUARTER_WINDING_STAIR", "THREE_QUARTER_TURN_STAIR", "SPIRAL_STAIR", "DOUBLE_RETURN_STAIR", "CURVED_RUN_STAIR", "TWO_CURVED_RUN_STAIR", "LADDER"));
-    public static readonly IfcClass Plate         = new("IfcPlate", IfcDomain.Architecture, Seq("CURTAIN_PANEL", "SHEET", "FLANGE_PLATE", "WEB_PLATE", "STIFFENER_PLATE", "GUSSET_PLATE", "COVER_PLATE", "BASE_PLATE", "SPLICE_PLATE"));
-    public static readonly IfcClass Member        = new("IfcMember", IfcDomain.Architecture, Seq("BRACE", "CHORD", "COLLAR", "MEMBER", "MULLION", "PLATE", "POST", "PURLIN", "RAFTER", "STRINGER", "STRUT", "STUD", "STIFFENING_RIB", "ARCH_SEGMENT", "SUSPENSION_CABLE", "SUSPENDER", "STAY_CABLE", "TIEBAR"));
-    public static readonly IfcClass Footing       = new("IfcFooting", IfcDomain.Structural, Seq("CAISSON_FOUNDATION", "FOOTING_BEAM", "PAD_FOOTING", "PILE_CAP", "STRIP_FOOTING"));
-    public static readonly IfcClass Pile          = new("IfcPile", IfcDomain.Structural, Seq("BORED", "DRIVEN", "JETGROUTING", "COHESION", "FRICTION", "SUPPORT"));
-    public static readonly IfcClass FlowSegment   = new("IfcFlowSegment", IfcDomain.HvacFire, Seq<string>());
-    public static readonly IfcClass FlowFitting   = new("IfcFlowFitting", IfcDomain.HvacFire, Seq<string>());
-    public static readonly IfcClass FlowTerminal  = new("IfcFlowTerminal", IfcDomain.HvacFire, Seq<string>());
-    public static readonly IfcClass FlowController= new("IfcFlowController", IfcDomain.HvacFire, Seq<string>());
-    public static readonly IfcClass DistributionPort = new("IfcDistributionPort", IfcDomain.Electrical, Seq("CABLE", "CABLECARRIER", "DUCT", "PIPE", "WIRELESS"));
-    public static readonly IfcClass StructuralCurveMember   = new("IfcStructuralCurveMember", IfcDomain.Structural, Seq("RIGID_JOINED_MEMBER", "PIN_JOINED_MEMBER", "CABLE", "TENSION_MEMBER", "COMPRESSION_MEMBER"));
-    public static readonly IfcClass StructuralSurfaceMember = new("IfcStructuralSurfaceMember", IfcDomain.Structural, Seq("BENDING_ELEMENT", "MEMBRANE_ELEMENT", "SHELL"));
-    public static readonly IfcClass StructuralPointConnection = new("IfcStructuralPointConnection", IfcDomain.Structural, Seq<string>());
-    public static readonly IfcClass Space         = new("IfcSpace", IfcDomain.Architecture, Seq("SPACE", "PARKING", "GFA", "INTERNAL", "EXTERNAL", "BERTH"));
-    public static readonly IfcClass Proxy         = new("IfcBuildingElementProxy", IfcDomain.Architecture, Seq("COMPLEX", "ELEMENT", "PARTIAL", "PROVISIONFORVOID", "PROVISIONFORSPACE"));
-    public static readonly IfcClass Bridge        = new("IfcBridge", IfcDomain.Infrastructure, Seq("ARCHED", "CABLE_STAYED", "CANTILEVER", "CULVERT", "FRAMEWORK", "GIRDER", "SUSPENSION", "TRUSS"));
-    public static readonly IfcClass Road          = new("IfcRoad", IfcDomain.Infrastructure, Seq<string>());
-    public static readonly IfcClass Railway       = new("IfcRailway", IfcDomain.Infrastructure, Seq<string>());
-    public static readonly IfcClass MarineFacility= new("IfcMarineFacility", IfcDomain.Infrastructure, Seq("CANAL", "WATERWAYSHIPLIFT", "REVETMENT", "LAUNCHRECOVERY", "MARINEDEFENCE", "HYDROLIFT", "SHIPYARD", "SHIPLIFT", "PORT", "QUAY", "FLOATINGDOCK", "NAVIGATIONALCHANNEL", "BREAKWATER", "DRYDOCK", "JETTY", "SLIPWAY"));
-    public static readonly IfcClass Course        = new("IfcCourse", IfcDomain.Infrastructure, Seq("ARMOUR", "FILTER", "PAVEMENT", "PROTECTION"));
-    public static readonly IfcClass Pavement      = new("IfcPavement", IfcDomain.Infrastructure, Seq("FLEXIBLE", "RIGID"));
-    public static readonly IfcClass Rail          = new("IfcRail", IfcDomain.Infrastructure, Seq("RACKRAIL", "BLADE", "GUARDRAIL", "STOCKRAIL", "CHECKRAIL", "RAIL"));
-    public static readonly IfcClass Alignment     = new("IfcAlignment", IfcDomain.Infrastructure, Seq<string>());
-    public static readonly IfcClass EarthworksFill= new("IfcEarthworksFill", IfcDomain.Geotechnical, Seq("BACKFILL", "COUNTERWEIGHT", "EMBANKMENT", "SLOPEFILL", "SUBGRADE", "SUBGRADEBED", "TRANSITIONSECTION"));
-    public static readonly IfcClass EarthworksCut = new("IfcEarthworksCut", IfcDomain.Geotechnical, Seq("BASE_EXCAVATION", "CUT", "DREDGING", "OVEREXCAVATION", "PAVEMENTMILLING", "STEPEXCAVATION", "TOPSOILREMOVAL", "TRENCH"));
-    public static readonly IfcClass GeotechnicalStratum = new("IfcGeotechnicalStratum", IfcDomain.Geotechnical, Seq("SOLID", "VOID", "WATER"));
-    public static readonly IfcClass Borehole      = new("IfcBorehole", IfcDomain.Geotechnical, Seq<string>());
+// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+using GeometryGym.Ifc;
+using LanguageExt;
+using Rasm.Element;
+using Thinktecture;
+using static LanguageExt.Prelude;
 
-    public IfcDomain Domain { get; }
-    public Seq<string> ValidPredefined { get; }
+namespace Rasm.Bim;
 
-    public Fin<PredefinedType> AdmitPredefined(string token, string objectType) =>
-        token.Trim().ToUpperInvariant() switch {
-            "" or "NOTDEFINED"            => Fin.Succ(PredefinedType.NotDefined),
-            "USERDEFINED" or "OBJECTTYPE" => PredefinedType.TryCreate(objectType.Trim()).ToFin(new BimFault.UnmappedClass($"predefined-objecttype-miss:{Key}").ToError()),
-            var value when ValidPredefined.IsEmpty || ValidPredefined.Contains(value) => Fin.Succ(PredefinedType.Create(value)),
-            var value                     => Fin.Fail<PredefinedType>(new BimFault.UnmappedClass($"predefined-reject:{Key}:{value}").ToError()),
-        };
-}
-
+// --- [TYPES] ------------------------------------------------------------------------------
 public enum IfcDomain : byte {
     Architecture = 0, Structural = 1, HvacFire = 2, Electrical = 3, Plumbing = 4, Infrastructure = 5, Geotechnical = 6,
 }
 
-[ValueObject<string>]
-public sealed partial class PredefinedType {
-    static partial void NormalizeValidate(ref string value) => value = value.Trim().ToUpperInvariant();
+// The per-class schema availability window [H8]: the schema that introduced the class and the schema (if any)
+// that withdrew it, so AdmitPredefined rejects a class authored against a schema that cannot carry it. The
+// IFC4.3 infrastructure classes (IfcAlignment/IfcRoad/IfcBridge/IfcEarthworks*) are unavailable in IFC2x3/IFC4.
+public readonly record struct IfcSchemaSpan(ReleaseVersion IntroducedIn, Option<ReleaseVersion> RemovedIn) {
+    public static readonly IfcSchemaSpan Ifc2x3 = new(ReleaseVersion.IFC2x3, None);
+    public static readonly IfcSchemaSpan Ifc4 = new(ReleaseVersion.IFC4A2, None);
+    public static readonly IfcSchemaSpan Ifc4x3 = new(ReleaseVersion.IFC4X3_ADD2, None);
 
-    public static readonly PredefinedType NotDefined = PredefinedType.Create("NOTDEFINED");
-
-    public bool IsUserDefined => Value is "USERDEFINED" or "OBJECTTYPE";
+    public bool Covers(ReleaseVersion schema) =>
+        schema >= IntroducedIn && RemovedIn.Match(Some: removed => schema < removed, None: () => true);
 }
 
-public sealed record BimElement(
-    string GlobalId,
-    IfcClass Class,
-    PredefinedType Predefined,
-    string Name,
-    string Tag,
-    GeometryHandle Geometry,
-    Seq<PropertyBinding> Properties,
-    Seq<QuantityBinding> Quantities,
-    Seq<BimMaterial> Materials,
-    Seq<ClassificationRef> Classifications,
-    Option<string> TypeGlobalId,
-    Option<string> SpatialContainerId) {
-    public sealed record PropertyBinding(string SetName, string Name, string Value);
-    public sealed record QuantityBinding(string SetName, string Name, double Value, string Unit);
-}
+// --- [MODELS] -----------------------------------------------------------------------------
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<InterchangeKeyPolicy, string>]
+[KeyMemberComparer<InterchangeKeyPolicy, string>]
+public sealed partial class IfcClass {
+    public static readonly IfcClass Wall          = new("IfcWall", IfcDomain.Architecture, IfcSchemaSpan.Ifc2x3, Seq("STANDARD", "POLYGONAL", "SHEAR", "ELEMENTEDWALL", "PLUMBINGWALL", "MOVABLE", "PARAPET", "PARTITIONING", "SOLIDWALL", "RETAININGWALL"));
+    public static readonly IfcClass Slab          = new("IfcSlab", IfcDomain.Architecture, IfcSchemaSpan.Ifc2x3, Seq("FLOOR", "ROOF", "LANDING", "BASESLAB", "APPROACH_SLAB", "PAVING", "WEARING", "SIDEWALK", "TRACKSLAB"));
+    public static readonly IfcClass Column        = new("IfcColumn", IfcDomain.Architecture, IfcSchemaSpan.Ifc2x3, Seq("COLUMN", "PILASTER", "PIERSTEM", "PIERSTEM_SEGMENT", "STANDCOLUMN"));
+    public static readonly IfcClass Beam          = new("IfcBeam", IfcDomain.Architecture, IfcSchemaSpan.Ifc2x3, Seq("BEAM", "JOIST", "HOLLOWCORE", "LINTEL", "SPANDREL", "T_BEAM", "GIRDER_SEGMENT", "DIAPHRAGM", "PIERCAP", "HATSTONE", "CORNICE", "EDGEBEAM"));
+    public static readonly IfcClass Door          = new("IfcDoor", IfcDomain.Architecture, IfcSchemaSpan.Ifc2x3, Seq("DOOR", "GATE", "TRAPDOOR", "BOOM_BARRIER", "TURNSTILE"));
+    public static readonly IfcClass Window        = new("IfcWindow", IfcDomain.Architecture, IfcSchemaSpan.Ifc2x3, Seq("WINDOW", "SKYLIGHT", "LIGHTDOME"));
+    public static readonly IfcClass Covering      = new("IfcCovering", IfcDomain.Architecture, IfcSchemaSpan.Ifc2x3, Seq("CEILING", "FLOORING", "CLADDING", "ROOFING", "INSULATION", "MEMBRANE", "SLEEVING", "WRAPPING", "MOLDING", "SKIRTINGBOARD", "TOPPING"));
+    public static readonly IfcClass CurtainWall   = new("IfcCurtainWall", IfcDomain.Architecture, IfcSchemaSpan.Ifc2x3, Seq<string>());
+    public static readonly IfcClass Railing       = new("IfcRailing", IfcDomain.Architecture, IfcSchemaSpan.Ifc2x3, Seq("HANDRAIL", "GUARDRAIL", "BALUSTRADE", "FENCE"));
+    public static readonly IfcClass Ramp          = new("IfcRamp", IfcDomain.Architecture, IfcSchemaSpan.Ifc2x3, Seq("STRAIGHT_RUN_RAMP", "TWO_STRAIGHT_RUN_RAMP", "QUARTER_TURN_RAMP", "TWO_QUARTER_TURN_RAMP", "HALF_TURN_RAMP", "SPIRAL_RAMP"));
+    public static readonly IfcClass Roof          = new("IfcRoof", IfcDomain.Architecture, IfcSchemaSpan.Ifc2x3, Seq("FLAT_ROOF", "SHED_ROOF", "GABLE_ROOF", "HIP_ROOF", "HIPPED_GABLE_ROOF", "GAMBREL_ROOF", "MANSARD_ROOF", "BARREL_ROOF", "RAINBOW_ROOF", "BUTTERFLY_ROOF", "PAVILION_ROOF", "DOME_ROOF", "FREEFORM"));
+    public static readonly IfcClass Stair         = new("IfcStair", IfcDomain.Architecture, IfcSchemaSpan.Ifc2x3, Seq("STRAIGHT_RUN_STAIR", "TWO_STRAIGHT_RUN_STAIR", "QUARTER_WINDING_STAIR", "QUARTER_TURN_STAIR", "HALF_WINDING_STAIR", "HALF_TURN_STAIR", "TWO_QUARTER_WINDING_STAIR", "TWO_QUARTER_TURN_STAIR", "THREE_QUARTER_WINDING_STAIR", "THREE_QUARTER_TURN_STAIR", "SPIRAL_STAIR", "DOUBLE_RETURN_STAIR", "CURVED_RUN_STAIR", "TWO_CURVED_RUN_STAIR", "LADDER"));
+    public static readonly IfcClass Plate         = new("IfcPlate", IfcDomain.Architecture, IfcSchemaSpan.Ifc2x3, Seq("CURTAIN_PANEL", "SHEET", "FLANGE_PLATE", "WEB_PLATE", "STIFFENER_PLATE", "GUSSET_PLATE", "COVER_PLATE", "BASE_PLATE", "SPLICE_PLATE"));
+    public static readonly IfcClass Member        = new("IfcMember", IfcDomain.Architecture, IfcSchemaSpan.Ifc2x3, Seq("BRACE", "CHORD", "COLLAR", "MEMBER", "MULLION", "PLATE", "POST", "PURLIN", "RAFTER", "STRINGER", "STRUT", "STUD", "STIFFENING_RIB", "ARCH_SEGMENT", "SUSPENSION_CABLE", "SUSPENDER", "STAY_CABLE", "TIEBAR"));
+    public static readonly IfcClass Footing       = new("IfcFooting", IfcDomain.Structural, IfcSchemaSpan.Ifc2x3, Seq("CAISSON_FOUNDATION", "FOOTING_BEAM", "PAD_FOOTING", "PILE_CAP", "STRIP_FOOTING"));
+    public static readonly IfcClass Pile          = new("IfcPile", IfcDomain.Structural, IfcSchemaSpan.Ifc2x3, Seq("BORED", "DRIVEN", "JETGROUTING", "COHESION", "FRICTION", "SUPPORT"));
+    public static readonly IfcClass FlowSegment   = new("IfcFlowSegment", IfcDomain.HvacFire, IfcSchemaSpan.Ifc2x3, Seq<string>());
+    public static readonly IfcClass FlowFitting   = new("IfcFlowFitting", IfcDomain.HvacFire, IfcSchemaSpan.Ifc2x3, Seq<string>());
+    public static readonly IfcClass FlowTerminal  = new("IfcFlowTerminal", IfcDomain.HvacFire, IfcSchemaSpan.Ifc2x3, Seq<string>());
+    public static readonly IfcClass FlowController= new("IfcFlowController", IfcDomain.HvacFire, IfcSchemaSpan.Ifc2x3, Seq<string>());
+    public static readonly IfcClass DistributionPort = new("IfcDistributionPort", IfcDomain.Electrical, IfcSchemaSpan.Ifc2x3, Seq("CABLE", "CABLECARRIER", "DUCT", "PIPE", "WIRELESS"));
+    public static readonly IfcClass StructuralCurveMember   = new("IfcStructuralCurveMember", IfcDomain.Structural, IfcSchemaSpan.Ifc2x3, Seq("RIGID_JOINED_MEMBER", "PIN_JOINED_MEMBER", "CABLE", "TENSION_MEMBER", "COMPRESSION_MEMBER"));
+    public static readonly IfcClass StructuralSurfaceMember = new("IfcStructuralSurfaceMember", IfcDomain.Structural, IfcSchemaSpan.Ifc2x3, Seq("BENDING_ELEMENT", "MEMBRANE_ELEMENT", "SHELL"));
+    public static readonly IfcClass StructuralPointConnection = new("IfcStructuralPointConnection", IfcDomain.Structural, IfcSchemaSpan.Ifc2x3, Seq<string>());
+    public static readonly IfcClass Space         = new("IfcSpace", IfcDomain.Architecture, IfcSchemaSpan.Ifc2x3, Seq("SPACE", "PARKING", "GFA", "INTERNAL", "EXTERNAL", "BERTH"));
+    public static readonly IfcClass Proxy         = new("IfcBuildingElementProxy", IfcDomain.Architecture, IfcSchemaSpan.Ifc2x3, Seq("COMPLEX", "ELEMENT", "PARTIAL", "PROVISIONFORVOID", "PROVISIONFORSPACE"));
+    public static readonly IfcClass Bridge        = new("IfcBridge", IfcDomain.Infrastructure, IfcSchemaSpan.Ifc4x3, Seq("ARCHED", "CABLE_STAYED", "CANTILEVER", "CULVERT", "FRAMEWORK", "GIRDER", "SUSPENSION", "TRUSS"));
+    public static readonly IfcClass Road          = new("IfcRoad", IfcDomain.Infrastructure, IfcSchemaSpan.Ifc4x3, Seq<string>());
+    public static readonly IfcClass Railway       = new("IfcRailway", IfcDomain.Infrastructure, IfcSchemaSpan.Ifc4x3, Seq<string>());
+    public static readonly IfcClass MarineFacility= new("IfcMarineFacility", IfcDomain.Infrastructure, IfcSchemaSpan.Ifc4x3, Seq("CANAL", "WATERWAYSHIPLIFT", "REVETMENT", "LAUNCHRECOVERY", "MARINEDEFENCE", "HYDROLIFT", "SHIPYARD", "SHIPLIFT", "PORT", "QUAY", "FLOATINGDOCK", "NAVIGATIONALCHANNEL", "BREAKWATER", "DRYDOCK", "JETTY", "SLIPWAY"));
+    public static readonly IfcClass Course        = new("IfcCourse", IfcDomain.Infrastructure, IfcSchemaSpan.Ifc4x3, Seq("ARMOUR", "FILTER", "PAVEMENT", "PROTECTION"));
+    public static readonly IfcClass Pavement      = new("IfcPavement", IfcDomain.Infrastructure, IfcSchemaSpan.Ifc4x3, Seq("FLEXIBLE", "RIGID"));
+    public static readonly IfcClass Rail          = new("IfcRail", IfcDomain.Infrastructure, IfcSchemaSpan.Ifc4x3, Seq("RACKRAIL", "BLADE", "GUARDRAIL", "STOCKRAIL", "CHECKRAIL", "RAIL"));
+    public static readonly IfcClass Alignment     = new("IfcAlignment", IfcDomain.Infrastructure, IfcSchemaSpan.Ifc4x3, Seq<string>());
+    public static readonly IfcClass EarthworksFill= new("IfcEarthworksFill", IfcDomain.Geotechnical, IfcSchemaSpan.Ifc4x3, Seq("BACKFILL", "COUNTERWEIGHT", "EMBANKMENT", "SLOPEFILL", "SUBGRADE", "SUBGRADEBED", "TRANSITIONSECTION"));
+    public static readonly IfcClass EarthworksCut = new("IfcEarthworksCut", IfcDomain.Geotechnical, IfcSchemaSpan.Ifc4x3, Seq("BASE_EXCAVATION", "CUT", "DREDGING", "OVEREXCAVATION", "PAVEMENTMILLING", "STEPEXCAVATION", "TOPSOILREMOVAL", "TRENCH"));
+    public static readonly IfcClass GeotechnicalStratum = new("IfcGeotechnicalStratum", IfcDomain.Geotechnical, IfcSchemaSpan.Ifc4x3, Seq("SOLID", "VOID", "WATER"));
+    public static readonly IfcClass Borehole      = new("IfcBorehole", IfcDomain.Geotechnical, IfcSchemaSpan.Ifc4x3, Seq<string>());
 
-public sealed record BimModel(
-    ReleaseVersion Schema,
-    ModelView View,
-    Seq<BimElement> Elements,
-    Seq<BimType> Types,
-    Map<string, Seq<string>> Zones,
-    double Tolerance,
-    Instant At) {
-    public static readonly BimModel Empty = new(
-        ReleaseVersion.IFC4X3_ADD2, ModelView.Ifc4Reference,
-        Seq<BimElement>(), Seq<BimType>(), Map<string, Seq<string>>(), 1e-6, Instant.MinValue);
+    public IfcDomain Domain { get; }
+    public IfcSchemaSpan Span { get; }
+    public Seq<string> ValidPredefined { get; }
 
-    public Option<BimType> TypeOf(BimElement element) =>
-        element.TypeGlobalId.Bind(id => Types.Find(t => t.GlobalId == id));
+    // The ingress lookup the projector composes: entity-type string -> the row supplying the generic
+    // Classification("ifc", Key) the seam Object node carries. UnmappedClass on a class the vocabulary omits.
+    public static Fin<IfcClass> Resolve(string entityType) =>
+        TryGet(entityType).ToFin(new BimFault.UnmappedClass($"element-class-miss:{entityType}").ToError());
 
-    public static Fin<BimModel> Project(IfcSemanticModel semantic, ClockPolicy clocks) =>
-        semantic.Types.TraverseM(BimType.Project).As()
-            .Bind(types => semantic.Products
-                .TraverseM(row => IfcClass.TryGet(row.EntityType)
-                    .ToFin(new BimFault.UnmappedClass($"element-class-miss:{row.EntityType}").ToError())
-                    .Bind(cls => cls.AdmitPredefined(row.PredefinedType, row.ObjectType)
-                        .Map(predefined => new BimElement(
-                            row.GlobalId, cls, predefined, row.Name, row.Tag, GeometryHandle.Pending(row.GlobalId),
-                            semantic.Properties.Filter(p => p.OwnerGlobalId == row.GlobalId)
-                                .Map(p => new BimElement.PropertyBinding(p.SetName, p.PropertyName, p.Value)),
-                            semantic.Quantities.Filter(q => q.OwnerGlobalId == row.GlobalId)
-                                .Map(q => new BimElement.QuantityBinding(q.SetName, q.QuantityName, q.Value, q.Unit)),
-                            semantic.Materials.Filter(m => m.OwnerGlobalId == row.GlobalId).Map(BimMaterial.Of),
-                            semantic.Classifications.Filter(c => c.OwnerGlobalId == row.GlobalId)
-                                .Choose(c => from system in Classification.TryGet(c.System)
-                                             from code in ClassificationCode.TryCreate(c.Code).ToOption()
-                                             select new ClassificationRef(row.GlobalId, system, code, c.DictionaryClassUri)),
-                            row.TypeGlobalId,
-                            semantic.Spatial.Find(node => node.ContainedGlobalIds.Contains(row.GlobalId)).Map(static node => node.GlobalId)))))
-                .As()
-                .Map(elements => new BimModel(semantic.Schema, semantic.View, elements, types,
-                    BimZone.IndexOf(semantic.Zones), semantic.Tolerance, clocks.Now)));
+    // The egress gate [C6][H8]: admit the predefined token against the frozen valid set (USERDEFINED/OBJECTTYPE
+    // fallback) AND validate the class is available in the target schema span, returning the validated predefined
+    // token (a string, the seam Object node's PredefinedType field) or faulting UnmappedClass. The admitted token
+    // folds into the seam node content hash; the seam carries the token as a string, Bim owns the valid-set.
+    public Fin<string> AdmitPredefined(string token, string objectType, ReleaseVersion schema) =>
+        !Span.Covers(schema)
+            ? Fin.Fail<string>(new BimFault.UnmappedClass($"class-out-of-schema:{Key}:{schema}").ToError())
+            : token.Trim().ToUpperInvariant() switch {
+                "" or "NOTDEFINED"            => Fin.Succ("NOTDEFINED"),
+                "USERDEFINED" or "OBJECTTYPE" => objectType.Trim() is { Length: > 0 } userDefined
+                                                     ? Fin.Succ(userDefined)
+                                                     : Fin.Fail<string>(new BimFault.UnmappedClass($"predefined-objecttype-miss:{Key}").ToError()),
+                var value when ValidPredefined.IsEmpty || ValidPredefined.Contains(value) => Fin.Succ(value),
+                var value                     => Fin.Fail<string>(new BimFault.UnmappedClass($"predefined-reject:{Key}:{value}").ToError()),
+            };
 }
 ```
 
-## [03]-[BIM_TYPE]
+## [03]-[REPRESENTATION_KEYS]
 
-- Owner: `BimType` the host-neutral type-object record promoting the thin `Exchange/import#IMPORT_RAIL` `TypeRow` into a first-class owner carrying the `IfcElementType`/`IfcTypeProduct` discriminant, the type-bound `PropertySet`/material/`PredefinedType` bindings the occurrence inherits, and the `IfcRepresentationMap` instanced-geometry key an `IfcMappedItem` occurrence references; `BimTypeKind` the `[SmartEnum<string>]` over the IFC type-object class string so a 4000-identical-window model carries one `BimType` plus 4000 occurrence references.
-- Entry: `BimType.Project(IfcSemanticModel.TypeRow row)` projects one type row into the typed `BimType`, admitting the type's own predefined token through the resolved `IfcClass.AdmitPredefined` and threading the representation-map content key — `Fin<T>` aborts on an unmapped type class (`Model/faults#FAULT_BAND` `BimFault.UnmappedClass`) lowered with `.ToError()`; `BimModel.TypeOf(element)` resolves an occurrence's `TypeGlobalId` against the model's `Types` index so the `Semantics/properties#PROPERTY_SETS` `QTO_TYPEDRIVENOVERRIDE` inheritance fold reads a typed source rather than a re-filtered flat row set.
-- Packages: GeometryGymIFC_Core, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm
-- Growth: a new type-object class is one `BimTypeKind` row; a new type-bound inheritance is one column on `BimType` projected from the widened `TypeRow`; the representation-map instancing is one content key the occurrence reads by reference; never a per-type-class record and never an inlined occurrence geometry.
-- Boundary: the `BimType` is the type half of the type-occurrence factoring — the occurrence reads the type by `TypeGlobalId` reference and inlining the type geometry per occurrence is the deleted form; the `IfcRepresentationMap` instanced-geometry library is keyed by a content key the `Exchange/reconstruct#RECONSTRUCTION` instanced-geometry reuse and the `Exchange/tessellation#TESSELLATION_BRIDGE` re-import both join, never a re-tessellation per occurrence; the type-bound property/material/predefined bindings flow to the occurrence through the `Semantics/properties#PROPERTY_SETS` `QTO_TYPEDRIVENOVERRIDE` fold, the occurrence overriding the type, never a second property model; the `BimType` projects from the widened `Exchange/import#IMPORT_RAIL` `Extract<IfcTypeObject>` `TypeRow` consumed as settled vocabulary.
+- Owner: `IfcRepresentation` the geometry-reference content-keyer [M2] projecting an `IfcProduct`/`IfcTypeProduct` representation set onto the seam `RepresentationContentHash` keyed map — `RepresentationIdentifier` (`Axis`/`Body`/`Box`/`FootPrint`) → the kernel seed-zero `XxHash128` content hash of the representation STEP — so the seam `Object` node references its geometry by content key per representation, never an IFC name leak and never an in-process BRep evaluation. Bim owns the IFC representation mapping and the `IfcRepresentationMap`/`IfcMappedItem` instancing per representation; the seam holds the neutral keyed map.
+- Entry: `IfcRepresentation.KeysOf(IfcProduct product, double tolerance, double angularTolerance)` folds the product's `IfcProductDefinitionShape.Representations` into the `RepresentationContentHash` map keyed by `RepresentationIdentifier`, content-keying each representation's STEP through the kernel `InterchangeIdentity.Key`; `IfcRepresentation.MapKeys(IfcTypeProduct? type, double tolerance, double angularTolerance)` folds the type's `RepresentationMaps` `IfcMappedItem` instancing onto the same map so an occurrence instancing a type representation shares the content key rather than re-keying.
+- Auto: `KeysOf` reads each `IfcShapeRepresentation.RepresentationIdentifier` (the IFC axis/body/box/footprint discriminant), serializes the representation to its STEP string, and content-keys it through `InterchangeIdentity.Key("ifc-rep", bytes, tolerance, tolerance, angularTolerance)` (the kernel seed-zero `XxHash128`, tolerance-folded) so two structurally-identical representations key identically and the geometry deduplicates; `MapKeys` keys the `IfcRepresentationMap.MappedRepresentation` once so every `IfcMappedItem` occurrence referencing it shares the content key, mirroring the `Exchange/reconstruct#RECONSTRUCTION` instanced-geometry reuse, never a per-occurrence re-key.
+- Packages: GeometryGymIFC_Core, Rasm.Element, Rasm, LanguageExt.Core
+- Growth: a new representation identifier is one `RepresentationIdentifier` key the map carries; the content-key seed is the kernel's single seed-zero `XxHash128`; never a second hasher and never a geometry blob on the seam node — only the content key.
+- Boundary: the geometry reference is the content-keyed map [M2] and an inlined geometry blob, a stored `GeometryHandle`, or an IFC representation name on the seam node is the deleted form; the content key composes the kernel seed-zero `XxHash128` through `InterchangeIdentity.Key` and a second hasher is the named defect [H7]; the representation STEP is keyed, NOT evaluated — an in-process BRep tessellation here is the named seam violation (geometry realization routes the `Exchange/tessellation#TESSELLATION_BRIDGE` companion rail); the type representation-map instancing shares one content key across occurrences and a per-occurrence re-key is the deleted form.
 
 ```csharp signature
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<InterchangeKeyPolicy, string>]
-public sealed partial class BimTypeKind {
-    public static readonly BimTypeKind WallType   = new("IfcWallType");
-    public static readonly BimTypeKind SlabType    = new("IfcSlabType");
-    public static readonly BimTypeKind ColumnType  = new("IfcColumnType");
-    public static readonly BimTypeKind BeamType    = new("IfcBeamType");
-    public static readonly BimTypeKind DoorType    = new("IfcDoorType");
-    public static readonly BimTypeKind WindowType  = new("IfcWindowType");
-    public static readonly BimTypeKind CoveringType= new("IfcCoveringType");
-    public static readonly BimTypeKind FlowSegmentType = new("IfcFlowSegmentType");
-    public static readonly BimTypeKind FlowFittingType = new("IfcFlowFittingType");
-    public static readonly BimTypeKind FlowTerminalType= new("IfcFlowTerminalType");
-    public static readonly BimTypeKind ElementType = new("IfcElementType");
-}
+// --- [OPERATIONS] -------------------------------------------------------------------------
+public static class IfcRepresentation {
+    // The keyed geometry map [M2]: each representation -> its content key (kernel seed-zero XxHash128 over the
+    // representation STEP, tolerance-folded). The seam Object node references geometry by this key only.
+    public static RepresentationContentHash KeysOf(IfcProduct product, double tolerance, double angularTolerance) =>
+        Optional(product.Representation).Match(
+            None: () => RepresentationContentHash.Empty,
+            Some: shape => shape.Representations.AsIterable()
+                .Choose(rep => Optional(rep.RepresentationIdentifier)
+                    .Map(id => (Key: id, Hash: InterchangeIdentity.Key("ifc-rep", System.Text.Encoding.UTF8.GetBytes(rep.StringSTEP()), tolerance, tolerance, angularTolerance))))
+                .Fold(RepresentationContentHash.Empty, static (map, pair) => map.With(pair.Key, pair.Hash)));
 
-public sealed record BimType(
-    string GlobalId,
-    BimTypeKind Kind,
-    string Name,
-    PredefinedType Predefined,
-    Seq<BimElement.PropertyBinding> Properties,
-    Seq<BimMaterial> Materials,
-    Option<UInt128> RepresentationMapKey) {
-    public static Fin<BimType> Project(IfcSemanticModel.TypeRow row) =>
-        BimTypeKind.TryGet(row.EntityType)
-            .ToFin(new BimFault.UnmappedClass($"type-class-miss:{row.EntityType}").ToError())
-            .Map(kind => new BimType(
-                row.GlobalId, kind, row.Name,
-                row.PredefinedType.Trim() is "" or "NOTDEFINED" or "USERDEFINED" ? PredefinedType.NotDefined : PredefinedType.Create(row.PredefinedType.Trim().ToUpperInvariant()),
-                row.Properties.Map(p => new BimElement.PropertyBinding(p.SetName, p.PropertyName, p.Value)),
-                row.Materials.Map(BimMaterial.Of),
-                row.RepresentationMapKey));
+    // The type representation-map instancing: the IfcRepresentationMap.MappedRepresentation is keyed once so
+    // every IfcMappedItem occurrence referencing it shares the content key, never a per-occurrence re-key.
+    public static RepresentationContentHash MapKeys(IfcTypeProduct? type, double tolerance, double angularTolerance) =>
+        Optional(type).Match(
+            None: () => RepresentationContentHash.Empty,
+            Some: product => product.RepresentationMaps.AsIterable()
+                .Choose(map => Optional(map.MappedRepresentation)
+                    .Bind(rep => Optional(rep.RepresentationIdentifier)
+                        .Map(id => (Key: id, Hash: InterchangeIdentity.Key("ifc-repmap", System.Text.Encoding.UTF8.GetBytes(map.StringSTEP()), tolerance, tolerance, angularTolerance)))))
+                .Fold(RepresentationContentHash.Empty, static (acc, pair) => acc.With(pair.Key, pair.Hash)));
 }
 ```
 
 ## [04]-[RESEARCH]
 
-- [ELEMENT_PROJECTION]: the `BimModel.Project` fold over the `IfcSemanticModel` product/property/quantity/material/type rows and the `IfcClass` closed-vocabulary case list ground against the GeometryGym entity-class surface (`.api/api-geometrygym-ifc` architectural built-element / MEP distribution / structural-analysis / infrastructure-geotechnics families) and the `GeometryHandle` shape at cross-folder alignment with the kernel `Rasm` geometry owner; the per-class `IfcXxxTypeEnum` valid-predefined value sets the `IfcClass` rows freeze confirm against the GeometryGym per-class predefined enum members so the `AdmitPredefined` valid-set check matches the schema before the row table is final.
-- [GEOMETRY_HANDLE]: the `GeometryHandle` the `BimElement` carries — the by-reference binding to the kernel `Rasm` geometry the tessellation bridge re-imports — confirms its shape against the kernel geometry owner so the element model never re-tessellates and never carries a host-bound geometry type.
-- [TYPE_OCCURRENCE_MAP]: the `BimType` `IfcRepresentationMap`/`IfcMappedItem` instanced-geometry projection grounds against the GeometryGym `IfcTypeProduct.RepresentationMaps`/`IfcMappedItem.MappingSource`/`MappingTarget` traversal (`.api/api-geometrygym-ifc` type-occurrence entrypoint scope) so the representation-map content key the occurrence references matches the real type library; the type-bound `IfcTypeObject.HasPropertySets` inheritance the `QTO_TYPEDRIVENOVERRIDE` fold reads confirms the type-vs-occurrence property override before the `BimType` property binding is final.
+- [CLASS_TAXONOMY]: the `IfcClass` closed-vocabulary case list and the per-class `ValidPredefined` value sets ground against the GeometryGym entity-class surface (`.api/api-geometrygym-ifc` architectural built-element / MEP distribution / structural-analysis / infrastructure-geotechnics families) and the per-class `IfcXxxTypeEnum` predefined members; the `IfcSchemaSpan` `IntroducedIn`/`RemovedIn` per class [H8] ground against the GeometryGym `VersionAddedAttribute` schema-availability reflection surface and the IFC2x3→IFC4→IFC4.3 release history (the infrastructure classes `IfcAlignment`/`IfcRoad`/`IfcRailway`/`IfcBridge`/`IfcMarineFacility`/`IfcEarthworks*`/`IfcGeotechnicalStratum`/`IfcBorehole`/`IfcCourse`/`IfcPavement`/`IfcRail` introduced in IFC4X3, the architectural/structural/MEP core available from IFC2x3) so the egress gate rejects a class the target schema cannot carry.
+- [PREDEFINED_GATE]: the `AdmitPredefined` egress gate [C6] grounds against `ELEMENT-REBUILD-PLAN.md` §4-RT C6 (carry `PredefinedType` as a first-class typed value on the seam `Object` node; validity is a Bim-owned EGRESS gate resolving the `IfcClass` row from `code` and running `AdmitPredefined` against the frozen valid set → `BimFault.UnmappedClass`; fold the predefined token into the content hash) and the seam `Rasm.Element/Graph/element#ELEMENT` `string PredefinedType` token field — Bim is the IFC validation authority for the seam-carried token (the seam carries the `string`, Bim owns the valid-set), the frozen valid sets and the `USERDEFINED`/`OBJECTTYPE` fallback the load-bearing logic the `KEEP` preserves.
+- [REPRESENTATION_KEY]: the `IfcRepresentation` content-keyer [M2] grounds against `ELEMENT-REBUILD-PLAN.md` §4-RT M2 (`GeometryRef` becomes a keyed map `RepresentationIdentifier → contentHash`, renamed neutral `RepresentationContentHash`; Bim owns the IFC representation mapping + `IfcRepresentationMap`/`IfcMappedItem` instancing per representation) and the kernel `InterchangeIdentity.Key` seed-zero `XxHash128` content-identity (`.api/api-hashing` + the kernel identity owner), composed once, never a second hasher [H7]; the `IfcShapeRepresentation.RepresentationIdentifier`/`IfcProductDefinitionShape.Representations`/`IfcRepresentationMap.MappedRepresentation`/`IfcMappedItem.MappingSource` member spellings confirm against `.api/api-geometrygym-ifc` geometry-representation + type-occurrence families.
+- [ELEMENT_RETIREMENT]: the `BimElement`/`BimModel` retirement grounds against `ELEMENT-REBUILD-PLAN.md` §2 (two parallel unaligned element owners collapsed into one property-graph IFC-native element) and §4B (the consumer-facing `Element` is a derived fold `Bake(objectNode)` over the reachable subgraph, never a second stored record) — the typed data formerly stranded on `BimElement.Properties`/`Quantities`/`Materials` now rides the seam `PropertySet`/`QuantitySet`/`Material` nodes and the `Bake` fold reads one flat Option-typed field at the wire.

@@ -6,6 +6,7 @@
 
     <ItemGroup Label="Project References">
         <ProjectReference Include="../Rasm/Rasm.csproj" />
+        <ProjectReference Include="../Rasm.Element/Rasm.Element.csproj" />
         <ProjectReference Include="../Rasm.AppHost/Rasm.AppHost.csproj" />
         <ProjectReference Include="../Rasm.Persistence/Rasm.Persistence.csproj" />
     </ItemGroup>
@@ -33,6 +34,10 @@
         <PackageReference Include="BriefFiniteElementNet.CustomElements" />
         <PackageReference Include="FEALiTE2D" />
         <PackageReference Include="FEALiTE2D.Plotting" />
+    </ItemGroup>
+
+    <ItemGroup Label="Energy Simulation">
+        <PackageReference Include="NREL.OpenStudio.macOS-arm64" />
     </ItemGroup>
 
     <ItemGroup Label="Models">

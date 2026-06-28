@@ -1,11 +1,18 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Description>Local durable-state package setup and doctrine for projection, migration, snapshots, redaction, cache, and support artifacts.</Description>
+        <Description>Durable-state spine for the Rasm.Element ElementGraph: Marten event substrate, the version-control engine (commit-DAG, CRDT, time-travel, structural merge, provenance, retention, recovery), the synchronous topology and async columnar/cypher read lanes, tabular ingest, and the content-keyed geometry object store.</Description>
         <CspScope>Boundary</CspScope>
     </PropertyGroup>
 
     <ItemGroup Label="Project References">
+        <ProjectReference Include="../Rasm.Element/Rasm.Element.csproj" />
         <ProjectReference Include="../Rasm.AppHost/Rasm.AppHost.csproj" />
+    </ItemGroup>
+
+    <ItemGroup Label="Element Seam And Graph">
+        <PackageReference Include="Generator.Equals" />
+        <PackageReference Include="QuikGraph" />
+        <PackageReference Include="Riok.Mapperly" />
     </ItemGroup>
 
     <ItemGroup Label="Store Lanes">
