@@ -40,6 +40,7 @@ The cross-domain C# foundation every package builds on: rails, time/identity, th
 - `UnitsNet` — Bim, Compute, Fabrication, Materials, AppUi.
 
 [WIRE_CODEGEN]:
+- `Generator.Equals` — Element + consumers (source-generated structural equality + member-level diff; runtime `Generator.Equals.Runtime`).
 - `Google.Protobuf`
 - `Grpc.AspNetCore`
 - `Grpc.AspNetCore.HealthChecks`
@@ -49,6 +50,7 @@ The cross-domain C# foundation every package builds on: rails, time/identity, th
 - `Grpc.Net.Client.Web`
 - `Grpc.Net.Common`
 - `Grpc.Tools`
+- `Riok.Mapperly` — Element + consumers (compile-time graph↔DTO/proto mapping; runtime `Riok.Mapperly.Abstractions`).
 
 [TEST_SUBSTRATE]:
 - `xunit.v3.*` — assert/common/extensibility.core/mtp-v2.

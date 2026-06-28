@@ -367,6 +367,19 @@
           "linq2db": "6.3.0"
         }
       },
+      "Marten": {
+        "type": "Direct",
+        "requested": "[9.11.0, )",
+        "resolved": "9.11.0",
+        "contentHash": "EwcJgIrVyn4YK9VNJnM0oiizGMwDbw7crdURj4dDMWsUwkSJyKlK3eyEiA+1ihipde2T0w5Hjkq3OenKNCwtmA==",
+        "dependencies": {
+          "JasperFx": "2.16.0",
+          "JasperFx.Events": "2.16.0",
+          "Microsoft.Extensions.Hosting.Abstractions": "10.0.0",
+          "Microsoft.IO.RecyclableMemoryStream": "3.0.1",
+          "Weasel.Postgresql": "9.3.0"
+        }
+      },
       "MessagePack": {
         "type": "Direct",
         "requested": "[3.1.7, )",
@@ -481,6 +494,12 @@
         "requested": "[18.7.23, )",
         "resolved": "18.7.23",
         "contentHash": "dyj6z8m+LFjpeH69hdnciCcRCmD0YgMlvuQEywiEshjqj/blgQ+PuWX8Vd5gkWQFoBN4e+TFxx6DvGNSv/gIKg=="
+      },
+      "MiniExcel": {
+        "type": "Direct",
+        "requested": "[1.45.0, )",
+        "resolved": "1.45.0",
+        "contentHash": "VsBtvXyhfPcbtNliuD9IMNqfBW01kRQl2/tA7JRIGjj82rcKNrz9Gfpn1FW8euXw91gkINWZuQv+n6XUURB3XA=="
       },
       "Minio": {
         "type": "Direct",
@@ -761,12 +780,6 @@
           "System.IO.Hashing": "10.0.5"
         }
       },
-      "Sylvan.Data.Excel": {
-        "type": "Direct",
-        "requested": "[0.5.6, )",
-        "resolved": "0.5.6",
-        "contentHash": "6OcGGQRT0dfg1bBEl0AIakNUfuAQCMRclq7ZJEeWejRuIypp0zxzLB52/8FTgw7wFYdLcikI8fK7oLpMA4F7Lw=="
-      },
       "System.Formats.Cbor": {
         "type": "Direct",
         "requested": "[10.0.9, )",
@@ -898,6 +911,20 @@
         "resolved": "4.1.5",
         "contentHash": "TugPHQzrbr2iruO8lshMekUXoFIyBOZQLqNCwQF6BHv4FE6mBeMa41pj5cXW6FKlk9uHypIAAy4UmTFivWFjPA=="
       },
+      "DistributedLock.Core": {
+        "type": "Transitive",
+        "resolved": "1.0.8",
+        "contentHash": "LAOsY8WxX8JU/n3lfXFz+f2pfnv0+4bHkCrOO3bwa28u9HrS3DlxSG6jf+u76SqesKs+KehZi0CndkfaUXBKvg=="
+      },
+      "DistributedLock.Postgres": {
+        "type": "Transitive",
+        "resolved": "1.3.0",
+        "contentHash": "CyjXmbhFgG30qPg4DwGnsmZO63y5DBRo+PI2xW0NwtFrsYsMVt/T1RcEUlb36JMKhDkf+euhnkanv/nU+W35qA==",
+        "dependencies": {
+          "DistributedLock.Core": "[1.0.8, 1.1.0)",
+          "Npgsql": "8.0.6"
+        }
+      },
       "DocumentFormat.OpenXml.Framework": {
         "type": "Transitive",
         "resolved": "3.5.1",
@@ -915,6 +942,11 @@
         "type": "Transitive",
         "resolved": "1.1.0",
         "contentHash": "R3BVHPs9O+RkExbZYTGT0+9HLbi8ZrNij1Yziyw6znd3J7P3uoIR07uwTLGOogtz1p6+0sna66eBoXu7tBiVQA=="
+      },
+      "FastExpressionCompiler": {
+        "type": "Transitive",
+        "resolved": "5.4.1",
+        "contentHash": "nqMykMspK5cQd35Y8ulQzAujxCcCwZVUne32pC5xNpXqrbPCuKOPMWkKHJ3LveAZPm6dsVvump0TJ1SZ9RzfTQ=="
       },
       "Google.Api.CommonProtos": {
         "type": "Transitive",
@@ -1271,6 +1303,35 @@
         "type": "Transitive",
         "resolved": "8.15.0",
         "contentHash": "650BHVjDwo+5guwNNACLxq8LAl/5zYnH80RznMIQSuu4oMiJik/ueHba6ViWWz1h6LgWGCBdT0Q2x+ZYRWpDnw=="
+      },
+      "ImTools": {
+        "type": "Transitive",
+        "resolved": "4.0.0",
+        "contentHash": "dms0JfLKC9AQbQX/EdpRjn59EjEvaCxIgv1z9YxbEQb5SiOVoo7vlIKdEySeEwUkWhN05rZnNpUpG+aw5VqPVQ=="
+      },
+      "JasperFx": {
+        "type": "Transitive",
+        "resolved": "2.16.0",
+        "contentHash": "H93hRmqUVeGJSW8Ms5j9ok9I/RwzpMvxjGH6N70bW5Ne8RoYgKBj255JN6s8bjTjXMrz8L0iKCL3YtTsr1T2sg==",
+        "dependencies": {
+          "FastExpressionCompiler": "5.4.1",
+          "ImTools": "4.0.0",
+          "Microsoft.Bcl.TimeProvider": "10.0.0",
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.0",
+          "Microsoft.Extensions.Diagnostics.HealthChecks.Abstractions": "10.0.0",
+          "Microsoft.Extensions.Hosting": "10.0.0",
+          "Microsoft.Extensions.ObjectPool": "10.0.0",
+          "Polly.Core": "8.6.5",
+          "Spectre.Console": "0.55.0"
+        }
+      },
+      "JasperFx.Events": {
+        "type": "Transitive",
+        "resolved": "2.16.0",
+        "contentHash": "cVwJpdj8z3k3xabZGCkowHW1rUrUPFX0ULWftR0KgqNxEXmNeU+CIRhvwwQWtMalRDrZUy4awv4+lZyUGBI15Q==",
+        "dependencies": {
+          "JasperFx": "2.16.0"
+        }
       },
       "K4os.Hash.xxHash": {
         "type": "Transitive",
@@ -1989,6 +2050,19 @@
         "resolved": "2026.6.0",
         "contentHash": "Nb38i5rAXRkEZlN0nkGbYe5Ph88ZBeHLqkcYCGAXolJcE7eDIPfU5hlWd2KcijFOD/E6f6CEdZJ99PinX2+Ejg=="
       },
+      "Spectre.Console": {
+        "type": "Transitive",
+        "resolved": "0.55.0",
+        "contentHash": "2TVhUHFsDux0Z+y2Hv4bFsOMuON4SuotEEKkMparFkp5Rm259naaaEQrN4Sv6C1cbsiGKPjfkJDGgUp+hZPjTw==",
+        "dependencies": {
+          "Spectre.Console.Ansi": "0.55.0"
+        }
+      },
+      "Spectre.Console.Ansi": {
+        "type": "Transitive",
+        "resolved": "0.55.0",
+        "contentHash": "GIfgOvuF8MpU52bprhwtDEtx0gmVIGOepM8bw0lH/TSMD0rg1Xp+5Y53kPG8rFVdcpbNANlhDQ5mEVVPO3/2Tg=="
+      },
       "SQLitePCLRaw.config.e_sqlite3": {
         "type": "Transitive",
         "resolved": "3.0.3",
@@ -2097,6 +2171,26 @@
         "contentHash": "ofqkO5YKV36KohAaZf8BeGCN9YcvSG9w6kIbQXhh8D8I+dIUPgUZ4LQEj6xL13WlvZR4hQef6UHMcZyiFMeCsA==",
         "dependencies": {
           "NSec.Cryptography": "25.4.0"
+        }
+      },
+      "Weasel.Core": {
+        "type": "Transitive",
+        "resolved": "9.3.0",
+        "contentHash": "Lrf6a0N8T89q2z4IaBF6413zzQsABe+LvL9D5K5ig8JjpU7C1gOcgwPEeldpdxcj3q7mSaYx9LKW72TC2wLpbw==",
+        "dependencies": {
+          "JasperFx": "2.13.1"
+        }
+      },
+      "Weasel.Postgresql": {
+        "type": "Transitive",
+        "resolved": "9.3.0",
+        "contentHash": "vbcpQFemPq88d8pM6Mcq8c/PkcNMjpMdal/AGThqsMliNnIVTiHFdPypSzBUthHTv8UV8fxF+ze9C7PHtq1Rrw==",
+        "dependencies": {
+          "DistributedLock.Postgres": "1.3.0",
+          "JasperFx.Events": "2.0.0",
+          "Npgsql": "9.0.4",
+          "Npgsql.NetTopologySuite": "9.0.4",
+          "Weasel.Core": "9.3.0"
         }
       },
       "csp.contracts": {

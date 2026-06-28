@@ -110,7 +110,7 @@ Row-oriented and self-describing ingress/egress codecs the columnar set lacked.
 - `Chr.Avro.Binary` (Avro binary serializer over the abstract schema model)
 - `Chr.Avro.Confluent` (first-class Confluent Schema Registry serdes leg of `Chr.Avro`)
 - `System.Formats.Cbor` (first-party BCL CBOR / RFC 8949 reader/writer — Strict/Canonical/Ctap2Canonical conformance modes; the IETF self-describing binary snapshot/blob codec, orthogonal to the schemaless MessagePack wire format)
-- `Sylvan.Data.Excel` (`DbDataReader`-shaped streaming xlsx/xlsb/xls ingress + xlsx/xlsb egress codec — the spreadsheet boundary the `Sep` delimited-only lane cannot stream into managed ADO.NET rows)
+- `MiniExcel` (zero-template streaming `.xlsx`/`.csv` codec — lazy `dynamic`/typed/`IDataReader`/`DataTable` ingress with cell-range windowing, attribute + runtime `DynamicExcelColumn` mapping, `IEnumerable`/`IDataReader` egress, `.xlsx` template rendering, merged-cell folding, embedded pictures, and CSV↔XLSX transcode; the spreadsheet boundary the `Sep` delimited-only lane cannot reach, retiring `Sylvan.Data.Excel`)
 - `ZstdSharp.Port` (first-class standalone Zstandard snapshot/blob compression owner — promoted from the Arrow-IPC transitive floor; pure-managed zstd v1.5.7 port with streaming + dictionary training)
 
 [OBJECT_STORE]:
@@ -130,6 +130,7 @@ Row-oriented and self-describing ingress/egress codecs the columnar set lacked.
 - `Microsoft.Extensions.Caching.Hybrid`
 
 [VERSIONING_SYNC]:
+- `Marten` (PostgreSQL event store + document database — the append substrate beneath the `Version/` engine: per-model event streams whose `GraphDelta` bodies fold into the whole `ElementGraph` via `AggregateStreamAsync` AS-OF by version/timestamp; inline `SingleStreamProjection` for read-your-writes topology, async daemon `MultiStreamProjection`/`FlatTableProjection` for the AGE/DuckDB/BimOpenSchema analytical lanes; identity row + event commit atomically in one `IDocumentSession`)
 - `Microsoft.Extensions.Compliance.Redaction`
 - `Microsoft.AspNetCore.JsonPatch.SystemTextJson`
 - `Speckle.Sdk`

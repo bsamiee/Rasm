@@ -82,6 +82,9 @@ The IFC/glTF/STEP/USD interchange, BIM-review, and geospatial domain packages th
 [PROPERTY_TEMPLATES]:
 - `Xbim.Properties`
 
+[CLASSIFICATION_DICTIONARY]:
+- bSDD `Dictionaries API` — the live buildingSMART Data Dictionary REST service (`https://api.bsdd.buildingsmart.org/`, MIT); a hand-thin read-only HTTP client over the Compute transport resolving standard classification systems and their class-to-property mappings, with no manifest pin and no managed assembly.
+
 [COBIE_EXCHANGE]:
 - `Xbim.CobieExpress`
 - `Xbim.IO.CobieExpress`

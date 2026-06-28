@@ -90,14 +90,15 @@
 
     <ItemGroup Label="Snapshots And Support">
         <PackageReference Include="K4os.Compression.LZ4" />
+        <PackageReference Include="Marten" />
         <PackageReference Include="MessagePack" />
         <PackageReference Include="MessagePackAnalyzer" PrivateAssets="all" />
         <PackageReference Include="Microsoft.AspNetCore.JsonPatch.SystemTextJson" />
         <PackageReference Include="Microsoft.Extensions.Caching.Hybrid" />
         <PackageReference Include="Microsoft.Extensions.Compliance.Redaction" />
+        <PackageReference Include="MiniExcel" />
         <PackageReference Include="MPXJ.Net" />
         <PackageReference Include="Sep" />
-        <PackageReference Include="Sylvan.Data.Excel" />
         <PackageReference Include="System.Formats.Cbor" />
         <PackageReference Include="System.IO.Hashing" />
         <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />

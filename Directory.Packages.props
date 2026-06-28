@@ -24,8 +24,10 @@
     </ItemGroup>
 
     <ItemGroup Label="Foundational Core">
+        <PackageVersion Include="Generator.Equals"                            Version="4.0.0" />
         <PackageVersion Include="JetBrains.Annotations"                       Version="2026.2.0" />
         <PackageVersion Include="LanguageExt.Core"                            Version="5.0.0-beta-77" />
+        <PackageVersion Include="Riok.Mapperly"                               Version="4.3.1" />
         <PackageVersion Include="System.IO.Hashing"                           Version="10.0.9" />
         <PackageVersion Include="Thinktecture.Runtime.Extensions"             Version="10.4.0" />
         <PackageVersion Include="Thinktecture.Runtime.Extensions.Json"        Version="10.4.0" />
@@ -278,12 +280,14 @@
         <PackageVersion Include="K4os.Compression.LZ4"                                   Version="1.3.8" />
         <PackageVersion Include="LightningDB"                                            Version="0.21.0" />
         <PackageVersion Include="linq2db.EntityFrameworkCore"                            Version="10.4.0" />
+        <PackageVersion Include="Marten"                                                 Version="9.11.0" />
         <PackageVersion Include="MessagePack"                                            Version="3.1.7" />
         <PackageVersion Include="MessagePackAnalyzer"                                    Version="3.1.7" />
         <PackageVersion Include="Microsoft.Data.Sqlite"                                  Version="10.0.9" />
         <PackageVersion Include="Microsoft.EntityFrameworkCore.Design"                   Version="10.0.9" />
         <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite"                   Version="10.0.9" />
         <PackageVersion Include="Microsoft.Extensions.Caching.StackExchangeRedis"        Version="10.0.9" />
+        <PackageVersion Include="MiniExcel"                                              Version="1.45.0" />
         <PackageVersion Include="Minio"                                                  Version="7.0.0" />
         <PackageVersion Include="NATS.Net"                                               Version="2.8.2" />
         <PackageVersion Include="Npgsql"                                                 Version="10.0.3" />
@@ -306,7 +310,6 @@
         <PackageVersion Include="Speckle.Sdk"                                            Version="2026.6.0" />
         <PackageVersion Include="SQLitePCLRaw.bundle_e_sqlite3"                          Version="3.0.3" />
         <PackageVersion Include="StackExchange.Redis"                                    Version="3.0.7" />
-        <PackageVersion Include="Sylvan.Data.Excel"                                      Version="0.5.6" />
         <PackageVersion Include="System.Formats.Cbor"                                    Version="10.0.9" />
         <PackageVersion Include="Thinktecture.Runtime.Extensions.EntityFrameworkCore10"  Version="10.4.0" />
         <PackageVersion Include="ZstdSharp.Port"                                         Version="0.8.8" />

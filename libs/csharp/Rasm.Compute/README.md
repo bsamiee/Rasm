@@ -64,6 +64,9 @@ Every Compute-domain library the folder uses, planned or implemented. Versions a
 - `BriefFiniteElement.Net`
 - `BriefFiniteElementNet.CustomElements`
 
+[EMBODIED_CARBON]:
+- `EC3` / openEPD REST — Building Transparency embodied-carbon service consumed hand-thin over `HttpClient` (no NuGet pin; API evidence in `.api/api-ec3.md`); the EN 15978 LCA Assessment lane reads per-EPD `gwp` measurements (kgCO2e per declared unit) and category GWP statistics, then writes `Assessment.Result` nodes content-keyed on the (OMF query, LCIA method, route) tuple.
+
 [CLASSICAL_ML_BLAS]:
 - `TorchSharp`
 - `libtorch-cpu`

@@ -8,6 +8,14 @@ are profile receipts, and the snapshot codecs (`api-thinktecture-serialization`,
 `api-messagepack`) project `[ValueObject]`/`[SmartEnum]` owners into the columns
 this provider writes through the typed `AppendValue`/`WriteValue` rails.
 
+The provider also carries the engine's full extension surface as a SQL load
+pattern, not a NuGet asset: `INSTALL`/`LOAD` over `DuckDBCommand.ExecuteNonQuery`
+brings the `spatial`/`httpfs`/`iceberg`/`delta`/`postgres`/`vss`/`fts`/`excel`
+capability into the in-process engine at profile-bootstrap time
+(§[05]-[EXTENSION_PATTERN]). No second engine, no extra package — DuckDB is
+fully-featured through this one centrally pinned runtime; the extension roster is
+profile policy expressed as SQL.
+
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `DuckDB.NET.Data.Full`
@@ -17,7 +25,7 @@ this provider writes through the typed `AppendValue`/`WriteValue` rails.
 - companion: `DuckDB.NET.Bindings.Full` (`1.5.3`; transitive — assembly `DuckDB.NET.Bindings`, namespace `DuckDB.NET.Native`, carries `DuckDBQueryProgress`/`DuckDBErrorType`/`IDuckDBValueReader`/`DuckDBNativeConnection`/`DuckDBType`/`DuckDBDateOnly`/`DuckDBTimeOnly` and the native `duckdb` library)
 - native runtime: `DuckDB.NET.Bindings.Full/runtimes/<rid>/native` ships `osx`, `linux-x64`, `linux-arm64`, `win-x64`, `win-arm64` (no per-RID managed split; the native `duckdb` shared library is RID-resolved at load)
 - target framework: `net10.0` asset binds on the `net10.0` workspace floor (package also ships `net8.0`)
-- xml docs: absent (no `.xml` ships; member intent is decompile-sourced, not doc-comment-sourced)
+- xml docs: absent (no `.xml` ships)
 - asset: runtime library
 - rail: store-provider
 
@@ -39,9 +47,8 @@ this provider writes through the typed `AppendValue`/`WriteValue` rails.
 |  [07]   | `DuckDBClientFactory`                   | provider factory  | creates ADO objects       |
 |  [08]   | `DuckDBConnectionStringBuilder`         | connection string | names data sources        |
 |  [09]   | `DuckDBException`                       | provider error    | carries native failure    |
-|  [10]   | `DuckDBSchema`                          | schema surface    | reads metadata tables     |
-|  [11]   | `DuckDB.NET.Native.DuckDBQueryProgress` | progress value    | reports query progress    |
-|  [12]   | `DuckDB.NET.Native.DuckDBErrorType`     | error classifier  | classifies native failure |
+|  [10]   | `DuckDB.NET.Native.DuckDBQueryProgress` | progress value    | reports query progress    |
+|  [11]   | `DuckDB.NET.Native.DuckDBErrorType`     | error classifier  | classifies native failure |
 
 [PUBLIC_TYPE_SCOPE]: bulk append surfaces
 - rail: store-provider
@@ -77,11 +84,7 @@ this provider writes through the typed `AppendValue`/`WriteValue` rails.
 | [INDEX] | [SYMBOL]                                             | [PACKAGE_ROLE]  | [CAPABILITY]                     |
 | :-----: | :--------------------------------------------------- | :-------------- | :------------------------------- |
 |  [01]   | `DuckDB.NET.Data.DataChunk.Reader.IDuckDBDataReader` | reader contract | `IsValid(offset)`, `GetValue<T>` |
-|  [02]   | `DataChunk.Reader.VectorDataReaderBase`              | reader base     | projects typed columnar reads    |
-|  [03]   | `DataChunk.Reader.VectorDataReaderFactory`           | reader factory  | creates typed vector readers     |
-|  [04]   | `DuckDB.NET.Data.DataChunk.Writer.IDuckDBDataWriter` | writer contract | `WriteValue<T>`, `WriteNull`     |
-|  [05]   | `DataChunk.Writer.VectorDataWriterBase`              | writer base     | projects typed columnar writes   |
-|  [06]   | `DataChunk.Writer.VectorDataWriterFactory`           | writer factory  | creates typed vector writers     |
+|  [02]   | `DuckDB.NET.Data.DataChunk.Writer.IDuckDBDataWriter` | writer contract | `WriteValue<T>`, `WriteNull`     |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -160,13 +163,13 @@ this provider writes through the typed `AppendValue`/`WriteValue` rails.
 - provider root: `DuckDBConnection`
 - bulk root: appenders and data-chunk writers
 - function root: scalar and table UDF registration
-- metadata root: `DuckDBSchema` collections
+- metadata root: `GetSchema` collections
 
 [LOCAL_ADMISSION]:
 - DuckDB surfaces enter behind the same store-profile vocabulary as every provider.
 - Appender and data-chunk throughput facts are profile receipts, not public service families.
 - UDF registration requires explicit profile declarations with typed readers and writers.
-- Native extension loading is profile policy and stays out of public Persistence surfaces.
+- Extension loading is profile policy expressed as `INSTALL`/`LOAD` SQL run through `DuckDBCommand` at profile-bootstrap time (§[05]-[EXTENSION_PATTERN]), never a public Persistence service family or a per-extension NuGet package; the loaded extension set is a profile receipt.
 
 [STACKING]:
 - snapshot codec: a `[ValueObject]`/`[SmartEnum]` owner crosses into a DuckDB column through one rail — the `api-thinktecture-serialization` `ThinktectureJsonConverterFactory`/`ThinktectureMessageFormatterResolver` projects the owner to its key, and the appender's typed `AppendValue` (or the data-chunk `WriteValue<T>`) writes that key; the inverse decodes the column value back through the same factory. No hand-rolled column mapping.
@@ -184,3 +187,83 @@ this provider writes through the typed `AppendValue`/`WriteValue` rails.
 - Owns: DuckDB ADO provider admission
 - Accept: DuckDB store profile with appender and UDF declarations
 - Reject: provider-branded service families
+
+## [05]-[EXTENSION_PATTERN]
+
+[DOC_PACKAGE]: `DuckDB INSTALL/LOAD pattern`
+- kind: SQL load pattern over the pinned `DuckDB.NET.Data.Full` runtime — no NuGet asset, no native package per extension
+- surface: `DuckDBCommand.ExecuteNonQuery` (also `CreateCommand().ExecuteScalar`/`ExecuteReader` for metadata/secret introspection); the SQL text is the entire API
+- engine: the bundled `DuckDB.NET.Bindings.Full` native `duckdb` library statically links the always-on extensions (`parquet`, `json`, `icu`, the autoload-eligible core set); every other extension downloads on first `INSTALL` from a signed repository and binds into the running process at `LOAD`
+- rail: store-provider (extension bootstrap is profile policy, not a service family)
+
+[EXTENSION_GRAMMAR]:
+- rail: store-provider
+- surface-root: SQL run through `DuckDBCommand.ExecuteNonQuery`
+
+| [INDEX] | [SQL]                                              | [CAPABILITY]                                                        |
+| :-----: | :------------------------------------------------- | :----------------------------------------------------------------- |
+|  [01]   | `INSTALL <name>;`                                  | download + cache the extension binary from the default repository  |
+|  [02]   | `LOAD <name>;`                                     | bind the installed extension into the current connection's process |
+|  [03]   | `INSTALL <name> FROM core;` / `FROM community;` / `FROM core_nightly;` | pin the source repository (default `core`)      |
+|  [04]   | `INSTALL <name> FROM '⟨repo_url⟩';`                | install from a custom repository URL (gzip + plain probed)         |
+|  [05]   | `FORCE INSTALL <name>;` / `FORCE INSTALL <name> FROM core_nightly;` | re-download, overwrite the cached binary, switch repository |
+|  [06]   | `UPDATE EXTENSIONS;` / `UPDATE EXTENSIONS (<name>, …);` | refresh installed extensions to the newest compatible build    |
+|  [07]   | `SET custom_extension_repository = '⟨url⟩';`       | redirect the default `INSTALL` repository for the session          |
+|  [08]   | `SET extension_directory = '⟨path⟩';`              | relocate the install cache (per-profile, off the home directory)   |
+|  [09]   | `SET autoinstall_known_extensions = true;` / `SET autoload_known_extensions = true;` | auto-`INSTALL`/`LOAD` a known extension on first reference (e.g. `read_parquet`, `ST_Read`) — default-on in the bundled build |
+|  [10]   | `SELECT * FROM duckdb_extensions();`               | metadata table: `extension_name`, `loaded`, `installed`, `install_path`, `description`, `aliases`, `extension_version`, `installed_from` |
+
+[EXTENSION_ROSTER]: core extensions admitted by the Rasm analytical lanes
+- rail: store-provider
+
+| [INDEX] | [EXTENSION]        | [ALIAS]            | [CAPABILITY / KEY SQL]                                                        | [RASM_LANE]                          |
+| :-----: | :----------------- | :----------------- | :--------------------------------------------------------------------------- | :----------------------------------- |
+|  [01]   | `spatial`          | —                  | `ST_*` geometry algebra, `ST_Read` (GDAL-backed shapefile/GeoJSON/FlatGeobuf), `ST_GeomFromWKB`/`ST_AsWKB`, GeoParquet read/write | geometry columnar; meets NTS/GDAL at WKB |
+|  [02]   | `httpfs`           | `http`/`https`/`s3` | read/write over HTTP(S) + S3 (`read_parquet('s3://…')`, `COPY … TO 's3://…'`) | remote/object-store extract           |
+|  [03]   | `parquet`          | —                  | built-in: `read_parquet`, `COPY … TO '…' (FORMAT parquet)`, Hive partition pruning | Parquet projection lane (BIM frames)  |
+|  [04]   | `json`             | —                  | built-in: `read_json_auto`, `->`/`->>` path ops, `json_*` functions          | semi-structured payload lane          |
+|  [05]   | `iceberg`          | —                  | `iceberg_scan('⟨table⟩')`, `ATTACH '⟨catalog⟩' (TYPE iceberg)` — Apache Iceberg tables | lakehouse read projection          |
+|  [06]   | `delta`            | —                  | `delta_scan('⟨path⟩')` — Delta Lake tables (complements `api-deltalake`)      | lakehouse read projection             |
+|  [07]   | `postgres`         | `postgres_scanner` | `ATTACH '⟨conn⟩' AS pg (TYPE postgres)`, `postgres_scan('⟨conn⟩','schema','table')` | live PG join lane (Marten/Npgsql DB) |
+|  [08]   | `sqlite`           | `sqlite_scanner`   | `ATTACH '⟨file.db⟩' (TYPE sqlite)` — SQLite tables                            | embedded-store join lane              |
+|  [09]   | `mysql`            | `mysql_scanner`    | `ATTACH '⟨conn⟩' (TYPE mysql)` — MySQL tables                                 | external-store join lane              |
+|  [10]   | `vss`              | —                  | `CREATE INDEX … USING HNSW`, `array_distance`/`array_cosine_similarity` ANN   | columnar ANN (PG `pgvector` is default per plan L2) |
+|  [11]   | `fts`              | —                  | `PRAGMA create_fts_index(…)`, `match_bm25` — BM25 full-text search            | columnar full-text lane               |
+|  [12]   | `excel`            | —                  | `read_xlsx`/`COPY … TO '…' (FORMAT xlsx)` (complements `api-sylvan-excel`/`api-mpxj`) | spreadsheet ingest/extract       |
+|  [13]   | `avro`             | —                  | `read_avro('⟨file⟩')` — Apache Avro decode                                    | event-payload ingest lane             |
+|  [14]   | `aws`              | —                  | `CREATE SECRET (TYPE s3, PROVIDER credential_chain, …)` credential resolution | S3 credential rail (with `httpfs`)    |
+|  [15]   | `azure`            | —                  | `CREATE SECRET (TYPE azure, …)`, `az://`/`abfss://` paths                     | Azure blob credential rail            |
+|  [16]   | `inet`             | —                  | `INET` type + CIDR/host operators                                            | network-typed columns                 |
+|  [17]   | `icu`              | —                  | time-zone + collation support (built-in)                                     | temporal/locale correctness           |
+|  [18]   | `ducklake`         | —                  | `ATTACH '⟨catalog⟩' (TYPE ducklake)` — DuckLake SQL lakehouse catalog        | catalog-managed lakehouse lane        |
+
+[SECRET_AND_ATTACH]:
+- rail: store-provider
+
+| [INDEX] | [SQL]                                                                         | [CAPABILITY]                                                  |
+| :-----: | :-------------------------------------------------------------------------- | :----------------------------------------------------------- |
+|  [01]   | `CREATE OR REPLACE SECRET ⟨name⟩ (TYPE s3, PROVIDER config, KEY_ID '…', SECRET '…', REGION '…');` | explicit S3 credential secret           |
+|  [02]   | `CREATE OR REPLACE SECRET ⟨name⟩ (TYPE s3, PROVIDER credential_chain, CHAIN 'env;sso;', PROFILE '…', REGION '…');` | chained/role S3 credentials |
+|  [03]   | `CREATE OR REPLACE SECRET ⟨name⟩ IN postgres_⟨db⟩ (TYPE s3, …);`            | persist a secret into an attached store (survives reconnect)  |
+|  [04]   | `ATTACH '⟨conn⟩' AS ⟨alias⟩ (TYPE postgres, READ_ONLY);` then `SELECT … FROM ⟨alias⟩.schema.table` | cross-engine join against live PG     |
+|  [05]   | `COPY (SELECT … FROM postgres_scan('⟨conn⟩','public','⟨t⟩')) TO '⟨file⟩.parquet' (FORMAT parquet);` | PG → Parquet extract                |
+|  [06]   | `SELECT extension_name, loaded, installed FROM duckdb_extensions() WHERE installed;` | profile receipt of the loaded extension set |
+
+[LOAD_PROTOCOL]:
+- An analytical store profile declares its required extension set once; profile bootstrap runs the ordered `INSTALL <ext>; LOAD <ext>;` pairs through `DuckDBConnection.CreateCommand().ExecuteNonQuery()` immediately after `Open`, before any analytical query. The loaded set lands as a `Store/profiles` receipt, queried back via `duckdb_extensions()`.
+- Statically-linked extensions (`parquet`, `json`, `icu`) need no `INSTALL` and resolve without network access; `INSTALL`-on-demand extensions (`spatial`, `httpfs`, `iceberg`, `delta`, `postgres`, `vss`, `fts`, `excel`, `avro`, cloud secrets) require one-time repository download — gate the profile on a deterministic `extension_directory` so a sealed/offline run pre-warms the cache rather than reaching the network at query time.
+- `autoinstall_known_extensions`/`autoload_known_extensions` (default-on) make a bare `read_parquet`/`ST_Read`/`iceberg_scan` reference self-install its extension; an explicit profile-bootstrap `INSTALL`/`LOAD` is still preferred so the required set is a declared receipt, not an implicit query-time side effect.
+- Credentials are `CREATE SECRET` objects (never inline keys in a path or `SET`); a secret persisted `IN postgres_⟨db⟩` survives reconnect, an in-memory secret is profile-scoped. `httpfs` is the prerequisite for every `s3://`/`http(s)://` path; `aws`/`azure` only resolve the credential, not the transport.
+
+[EXTENSION_STACKING]:
+- geometry: `spatial` is the WKB meeting point with the geometry lane — `ST_AsWKB`/`ST_GeomFromWKB` exchange geometry with `api-nts-io` (`WKBReader`/`WKBWriter`) and `ST_Read` reads GDAL formats already admitted via `api-npgsql-nts`/the GDAL stack; DuckDB owns columnar spatial aggregation, PG GiST owns transactional spatial indexing (plan L2 — never duplicate).
+- lakehouse: `delta` (`delta_scan`) and `iceberg` (`iceberg_scan`) read the same tables the managed `api-deltalake` writer produces; DuckDB is the read/aggregate projection, the managed writer is the system of record — they meet at the table path, never re-author each other's metadata.
+- live PG join: `postgres` (`ATTACH … TYPE postgres`) reads the same database `api-npgsql`/`api-npgsql-ef` write through; the analytical lane joins columnar DuckDB against live PG without an ETL hop, but authoritative read-your-writes topology stays on the synchronous Marten/Npgsql path (plan C2) — DuckDB ATTACH is an analytical lane with a staleness watermark, never the consistency owner.
+- object store: `httpfs` + `aws`/`azure` secrets read/write Parquet directly against the same object store `api-objectstore`/`api-minio` front — DuckDB streams `s3://` Parquet for analytical scans while the content-keyed geometry-blob store owns durable artifacts.
+- BIM frames: the `Ara3D.BimOpenSchema` `.duckdb` (§[STACKING]) is read with only the built-in `parquet`/`json` surface; `spatial`/`vss`/`fts` extend it for geometry/ANN/text analytics over the same eleven suffixed BIM tables, all on the one pinned runtime.
+
+[EXTENSION_RAIL_LAW]:
+- Package: `DuckDB INSTALL/LOAD pattern` (doc — over `DuckDB.NET.Data.Full`)
+- Owns: the SQL extension-bootstrap pattern that makes the in-process DuckDB engine fully-featured (spatial/remote/lakehouse/cross-engine/ANN/text) without a second engine or a per-extension package
+- Accept: ordered `INSTALL`/`LOAD` profile bootstrap via `DuckDBCommand`, `CREATE SECRET` credentials, `ATTACH` cross-engine joins, `duckdb_extensions()` receipts
+- Reject: a per-extension NuGet/native package; inline credentials in paths or `SET`; treating an `ATTACH`-ed analytical lane as the consistency owner; implicit autoload as the declared profile contract
