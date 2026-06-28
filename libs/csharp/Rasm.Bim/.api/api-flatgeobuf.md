@@ -70,7 +70,7 @@ asset binds under net10 and does NOT pull the `netstandard2.0`-only
 |  [03]   | `Geometry` / `GeometryT`   | geometry struct    | the encoded ordinate/part buffer the `GeometryConversions` leg decodes |
 |  [04]   | `Column` / `ColumnT`       | column struct      | one attribute-column definition |
 |  [05]   | `Crs` / `CrsT`             | CRS struct         | the coordinate reference system (`Code` → the NTS SRID `AsyncFeatureEnumerator.SRID` reads) |
-|  [06]   | `GeometryType`             | geometry-kind enum | `enum : byte` — Point/LineString/Polygon/Multi*/GeometryCollection, the `Serialize` discriminant |
+|  [06]   | `GeometryType`             | geometry-kind enum | `enum : byte` — `Unknown`(=0, the homogeneity-unresolved sentinel the `Serialize` fold's empty-set `IfNone` carries) + Point/LineString/Polygon/Multi*/GeometryCollection, the `Serialize` discriminant |
 |  [07]   | `ColumnType`               | column-type enum   | `enum : byte` — the attribute scalar type (Byte/Int/Long/Double/String/…) |
 
 ## [03]-[ENTRYPOINTS]

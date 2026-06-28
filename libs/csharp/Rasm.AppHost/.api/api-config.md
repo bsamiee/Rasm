@@ -62,6 +62,7 @@ key comparison, and reload tokens.
 |  [08]   | `AsEnumerable`          | flattening iterator | projects key values        |
 |  [09]   | `Reload`                | reload command      | refreshes configuration    |
 |  [10]   | `OnReload`              | provider signal     | triggers reload token      |
+|  [11]   | `Exists`                | section predicate   | section-presence test (`ConfigurationExtensions.Exists`, true when the section exists and has a value or children) |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

@@ -4,11 +4,11 @@
         <CspScope>Boundary</CspScope>
     </PropertyGroup>
 
-    <ItemGroup>
+    <ItemGroup Label="Project References">
         <ProjectReference Include="../Rasm/Rasm.csproj" />
     </ItemGroup>
 
-    <ItemGroup>
+    <ItemGroup Label="Host Usings">
         <Using Include="Rasm.Domain" />
         <Using Include="Rhino" />
         <Using Include="Rhino.Commands" />

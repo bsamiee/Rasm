@@ -46,8 +46,13 @@
 |  [09]   | `SKSvgDrawEventArgs`       | event args                        | `OnDraw` canvas-draw hook payload                      |
 |  [10]   | `SvgAnimationFrameChangedEventArgs` | event args               | `AnimationInvalidated` frame payload                   |
 |  [11]   | `SKSvgViewerTransformChangedEventArgs` | event args            | `ViewerTransformChanged` pan/zoom payload              |
+|  [12]   | `SKSvgSettings` (`Svg.Skia`)            | settings bag                      | `SKSvg.Settings` — `TypefaceProviders` (`IList<ITypefaceProvider>?`), color-managed working spaces |
+|  [13]   | `ITypefaceProvider` / `FontManagerTypefaceProvider` (`Svg.Skia.TypefaceProviders`) | typeface-provider contract + `SKFontManager` impl | `FromFamilyName(...)`/`CreateTypeface(...)`; `FontManager` (`SKFontManager`, settable) |
+|  [14]   | `SvgInteractionDispatcher` (`sealed`, `Svg.Skia`) | pointer/focus dispatcher | DOM pointer + focus dispatch over an `SKSvg`         |
+|  [15]   | `SvgAnimationController` (`Svg.Skia`, transitive `Svg.Animation`) | animation controller | the `SKSvg.AnimationController` handle (pause/seek/target keys) |
+|  [16]   | `SvgPointerInput` / `SvgInteractionDispatchResult` | input + result carriers | `SvgInteractionDispatcher` dispatch argument + outcome |
 
-Phantom-strip note: the prior `SvgSceneRenderer`, `SvgAnimationController`, `SvgInteractionDispatcher`, `SkiaSvgAssetLoader`, and `ISvgAssetLoader`-under-`Avalonia.Svg.Skia` rows do not exist. Asset loading is resolved through `Svg.Model.ISvgAssetLoader` (referenced by `SvgSource.s_assetLoader` and `SKSvg` statics), not an `Avalonia.Svg.Skia` loader type. The native composition layer is `internal SvgCompositionVisualScene` (a `CompositionCustomVisualHandler`), not a public scene type.
+Assembly-provenance note: the scene / animation / interaction types live in the `Svg.Skia` namespace across the transitively-restored `Svg.SceneGraph` (`SvgSceneDocument`/`SvgSceneNode`/`SvgSceneResource`/`SvgSceneRenderer`) and `Svg.Animation` (`SvgAnimationController`) assemblies, while `SvgInteractionDispatcher` and `SkiaSvgAssetLoader` ship in `Svg.Skia.dll` itself — consume them all as `Svg.Skia.*` types. Asset loading also flows through `Svg.Model.ISvgAssetLoader` (referenced by `SvgSource.s_assetLoader` and `SKSvg` statics); there is no `ISvgAssetLoader` type under `Avalonia.Svg.Skia`. The native composition layer is `internal SvgCompositionVisualScene` (a `CompositionCustomVisualHandler`), not a public scene type.
 
 ## [03]-[ENTRYPOINTS]
 
@@ -82,13 +87,14 @@ Phantom-strip note: the prior `SvgSceneRenderer`, `SvgAnimationController`, `Svg
 |  [07]   | `Clone()` / `Sync` / `Dispose()`                                               | `SKSvg`        | deep clone, render-lock object, teardown       |
 |  [08]   | `static CreateFromFile/Stream/Svg/SvgDocument/VectorDrawable/XmlReader(…)`     | `SKSvg`        | one-call factory mirrors of the load family    |
 |  [09]   | `TryGetPicturePoint(SKPoint, SKMatrix, out SKPoint)` / `TryGetPictureRect(…)`  | `SKSvg`        | canvas-to-picture coordinate mapping           |
+|  [10]   | `Settings` (`SKSvgSettings`)                                                   | `SKSvg`        | engine settings — `Settings.TypefaceProviders?.Add(ITypefaceProvider)` admits the font-chain provider, color-managed working spaces |
 
 [RETAINED_SCENE_ENTRYPOINTS]: incremental retained scene graph + mutation
 - rail: assets
 
 | [INDEX] | [SURFACE]                                                                                          | [SURFACE_ROOT] | [RAIL]                                              |
 | :-----: | :------------------------------------------------------------------------------------------------- | :------------- | :-------------------------------------------------- |
-|  [01]   | `TryEnsureRetainedSceneGraph(out SvgSceneDocument?)` / `HasRetainedSceneGraph`                      | `SKSvg`        | build / probe the retained scene document          |
+|  [01]   | `TryEnsureRetainedSceneGraph(out SvgSceneDocument?)` / `HasRetainedSceneGraph` / `RetainedSceneGraph` (`SvgSceneDocument?`) | `SKSvg` | build / probe / read the retained scene document |
 |  [02]   | `TryApplyRetainedSceneMutationAndRender(SvgElement\|addressKey, IReadOnlyCollection<string>? changedAttributes, out SvgSceneMutationResult?)` | `SKSvg` | re-render only the dirty region after an element/attribute change |
 |  [03]   | `TryApplyRetainedSceneMutationByIdAndRender(string id, …, out SvgSceneMutationResult?)`             | `SKSvg`        | mutate-and-render addressed by element id           |
 |  [04]   | `TryGetRetainedSceneNode(s)(SvgElement\|addressKey, out SvgSceneNode[?])` / `…ById(string id, …)`  | `SKSvg`        | resolve scene nodes by element/address/id           |
@@ -112,6 +118,10 @@ Phantom-strip note: the prior `SvgSceneRenderer`, `SvgAnimationController`, `Svg
 |  [09]   | `TryBeginTextSelection/TryExtendTextSelection(SvgTextBase, int charnum\|SKPoint)` / `TrySelectTextRange(…)` / `TrySelectTextSubString(…)` | `SKSvg` | text caret/range selection      |
 |  [10]   | `TryGetTextSelection(out SvgTextSelectionRange)` / `OnDraw : EventHandler<SKSvgDrawEventArgs>` | `SKSvg`     | read current selection / pre/post-draw hook        |
 |  [11]   | `TryCreateNativeCompositionFrame(out SvgNativeCompositionFrame?)` / `TryCreateNativeCompositionScene(out SvgNativeCompositionScene?)` | `SKSvg` | export a compositor-ready frame/scene |
+|  [12]   | `AnimationController` (`SvgAnimationController?`)                                           | `SKSvg`        | retained animation-controller handle (pause/seek/target keys) |
+|  [13]   | `HitTestSceneNodes(SKPoint\|SKRect[, SKMatrix])` -> `IEnumerable<SvgSceneNode>` / `HitTestTopmostSceneNode(SKPoint[, SKMatrix])` -> `SvgSceneNode?` | `SKSvg` | scene-node hit set / topmost node |
+|  [14]   | `HitTestElements(SKPoint\|SKRect[, SKMatrix])` -> `IEnumerable<SvgElement>` / `HitTestTopmostElement(SKPoint[, SKMatrix])` -> `SvgElement?` | `SKSvg` | element hit set / topmost element |
+|  [15]   | `HitTestTopmostElement(SKSvg?, SKPoint)` -> `SvgElement?` / `DispatchPointer{Moved,Pressed,Click,Released,WheelChanged,Exited}(SKSvg?, SvgPointerInput)` -> `SvgInteractionDispatchResult` / `FocusElement(SKSvg?, SvgElement?, SvgPointerInput)` / `BlurFocusedElement(SKSvg?, SvgPointerInput)` | `SvgInteractionDispatcher` | DOM pointer + focus dispatch |
 
 [SOURCE_ENTRYPOINTS]: `SvgSource` / `SvgImage` document and brush surfaces
 - rail: assets

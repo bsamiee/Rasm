@@ -23,7 +23,7 @@
 |  [01]   | `LasReader` / `ILasReader`   | streaming reader   | `IDisposable` forward point reader over a LAS stream     |
 |  [02]   | `LasWriter` / `ILasWriter`   | streaming writer   | `IDisposable` point writer authoring a LAS file          |
 |  [03]   | `LasHeader` / `ILasHeader`   | header value       | the ASPRS public header block (scale/offset/extrema)     |
-|  [04]   | `LasVariableLengthRecord` / `ILasVariableLengthRecord` | VLR record | header-resident VLR/EVLR (CRS WKT, GeoTIFF keys, classification lookup) |
+|  [04]   | `LasVariableLengthRecord` / `ILasVariableLengthRecord` | VLR record | header-resident VLR/EVLR — `RecordID` (`ushort`; `2112` = the OGC WKT CRS record) + `Data` (`byte[]` payload, UTF-8 WKT for record 2112), plus `UserID`/`Description`/`RecordLengthAfterHeader` — carrying the CRS WKT, GeoTIFF keys, classification lookup |
 |  [05]   | `Stream.IStreamHandler` / `Stream.AsyncStreamHandler`  | stream handler | buffered LAS stream the reader/writer drives            |
 |  [06]   | `Stream.IStreamBuffer` / `Stream.AsyncStreamBuffer`    | point buffer   | the bounded point staging buffer behind the handler     |
 
@@ -34,7 +34,7 @@
 | [INDEX] | [SYMBOL]            | [TYPE_FAMILY]      | [RAIL]                                                       |
 | :-----: | :------------------ | :----------------- | :---------------------------------------------------------- |
 |  [01]   | `LasPoint`          | point record       | the decoded point — implements every facet below            |
-|  [02]   | `IPosition`         | position facet     | `Vector<double> Position` + `X`/`Y`/`Z` (MathNet vector)    |
+|  [02]   | `IPosition`         | position facet     | `Vector<double> Position` — the `MathNet.Numerics.LinearAlgebra.Vector<double>` (`using MathNet.Numerics.LinearAlgebra`), collected directly into a `Vector<double>[]` / `ReadOnlyMemory<Vector<double>>` point buffer with no re-wrap — + `X`/`Y`/`Z` projections |
 |  [03]   | `ILasPointBase`     | core-field facet   | `Classification`, `Intensity`, `ScanAngle`, `FlightLine`, `UserData`, `GlobalEncoding` |
 |  [04]   | `ILasTime`          | GPS-time facet     | `double Timestamp` (GPS adjusted-standard or week seconds)  |
 |  [05]   | `ILasRgb`           | color facet        | `R`/`G`/`B` (formats 2/3/5/7/8/10)                          |

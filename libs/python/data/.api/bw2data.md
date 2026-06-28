@@ -11,9 +11,9 @@
 - rail: lca-store (EPD/LCA cluster)
 - version: `4.7`
 - license: `BSD-3-Clause` (`LICENSE` ships in `dist-info/licenses/`; Copyright Chris Mutel)
-- asset: pure Python (zero compiled extensions); SQLite via `peewee`, units via `pint`, search via `whoosh`, config via `pydantic-settings`. `Requires-Python >=3.9`
-- depends-on: `peewee>=4.0.1` (the SQLite ORM behind nodes/edges), `bw_processing>=0.9.5` (the `process()` output format), `bw2parameters` (the parameter evaluator), `pydantic-settings` (the `config` BaseSettings), `platformdirs` (project directory resolution), `pint` (unit handling), `rapidfuzz` (fuzzy search), `deepdiff~=7.0.1` (change detection), `blinker` (the `signal` lifecycle hooks), `fsspec`, `lxml`, `numpy<3`, `scipy`, `deprecated`
-- marker: COMPANION-GATED. Pinned `bw2data; python_version<'3.15'`. Pure-Python package; the gate is TRANSITIVE — `numpy<3`, `scipy`, `lxml`, `peewee`, `rapidfuzz` lack `cp315` wheels at admission, so the cluster pins `<3.15`. `assay api resolve bw2data` cannot reflect on the active `cp315` interpreter; this surface is verified against the real `bw2data 4.7` wheel on an isolated `cp313` install.
+- asset: pure Python, `py3-none-any` purelib (zero compiled extensions, ABI-agnostic); SQLite via `peewee`, units via `pint`, search via `whoosh`, config via `pydantic-settings`
+- depends-on: `peewee>=4.0.1` (the SQLite ORM behind nodes/edges), `bw_processing>=0.9.5` (the `process()` output format), `bw2parameters` (the parameter evaluator), `pydantic-settings` (the `config`/`labels` BaseSettings), `platformdirs` (project directory resolution), `pint` (unit handling), `rapidfuzz` (fuzzy search), `deepdiff~=7.0.1` (change detection), `blinker` (the `signal` lifecycle hooks), `fsspec`, `lxml`, `numpy<3`, `scipy`, `deprecated`; optional `multifunctional` self-registers an extra database backend at import when present
+- marker: none — admitted unpinned; installed and `assay`-reflectable on the active interpreter
 - entry points: library-only; no console script
 - capability: project isolation and lifecycle, a node/edge product-system graph in SQLite with dict-proxy mutation, LCIA method/weighting/normalization stores, scoped (project/database/activity) parameters with recalculation, fuzzy + full-text search, graph->datapackage serialization (`process()`), dataframe export of nodes/edges, and the typed bridge that hands functional units and datapackages to `bw2calc`
 
@@ -57,7 +57,7 @@
 - `new_project_parameters(data)`, `new_database_parameters(data, database)`, `new_activity_parameters(data, group)` — the three scopes; `add_to_group(group, activity)`, `add_exchanges_to_group(group, activity)`, `recalculate()` (re-evaluate the `bw2parameters` formula graph), `remove_from_group(...)`, `remove_exchanges_from_group(...)`, `rename_project_parameter`/`rename_database_parameter`/`rename_activity_parameter`.
 
 [BRIDGE]: the `bw2calc` seam (the only supported hand-off)
-- `prepare_lca_inputs(demand, method=None, weighting=None, normalization=None, demands=None, remapping=True, demand_database_last=True) -> (functional_unit, data_objs, remapping_dicts)` — resolves the demand keys to integer ids, collects the technosphere/biosphere/LCIA datapackages, and returns the tuple to splat into `bc.LCA(demand=fu, data_objs=data_objs, remapping_dicts=[remapping])`.
+- `prepare_lca_inputs(demand=None, method=None, weighting=None, normalization=None, demands=None, remapping=True, demand_database_last=True) -> (functional_unit, data_objs, remapping_dicts)` — resolves the demand keys to integer ids, collects the technosphere/biosphere/LCIA datapackages, and returns the tuple to splat into `bc.LCA(demand=fu, data_objs=data_objs, remapping_dicts=[remapping])`. Requires a Brightway-2.5 project — it raises `Brightway2Project` unless `projects.migrate_project_25()` has run, so migrate a legacy project before the first hand-off.
 - `get_multilca_data_objs(functional_units, method_config) -> list[DatapackageBase]` — the `MultiLCA` input builder, keyed by a `bw2calc.MethodConfig`-shaped dict.
 - `get_node(**kwargs)` / `get_activity(key=None, **kwargs)` / `get_id(key)` — resolve a node by `database`/`code`/`name`/`id` kwargs or a `(database, code)` key tuple.
 

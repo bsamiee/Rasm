@@ -93,6 +93,8 @@ MathNet iterative solvers for the numeric lane.
 |  [07]   | `CSparse.Double.Factorization.SparseQR`                      | factorization  | direct sparse QR                      |
 |  [08]   | `CSparse.ColumnOrdering`                                     | ordering enum  | fill-reducing ordering selector       |
 |  [09]   | `MathNet.Numerics.LinearAlgebra.Solvers.IIterativeSolver<T>` | solver seam    | iterative-solve seam                  |
+|  [10]   | `MathNet.Numerics.LinearAlgebra.Double.SparseMatrix`         | sparse matrix  | MathNet CSR-backed sparse matrix (derives `Matrix<double>`, so the `Multiply`/`Transpose`/`Add`/`KroneckerProduct` ops apply); distinct from the CSparse CSC `SparseMatrix` |
+|  [11]   | `CSparse.Ordering.AMD`                                       | ordering kernel | approximate-minimum-degree fill-reducing permutation generator over a CSC matrix |
 
 [PUBLIC_TYPE_SCOPE]: iterative solvers
 - rail: numeric
@@ -137,6 +139,7 @@ The `IntegralTransforms.Fourier` static surface owns the in-place DFT over `Comp
 |  [11]   | `LinearAlgebraControl.TryUse(ILinearAlgebraProvider)` | static `bool` | activates a provided handle, no-throw                    |
 |  [12]   | `LinearAlgebraControl.HintPath`                 | static `string` | the LA-provider-specific native hint path                |
 |  [13]   | `LinearAlgebraControl.FreeResources`            | static `void`   | releases native provider resources                       |
+|  [14]   | `Control.MaxDegreeOfParallelism`                | static `int`    | the managed parallelism cap (read into the `DeterminismTag`/`SolveProvenance` receipt; pairs with `UseSingleThread`/`UseMultiThreading`) |
 
 [ENTRYPOINT_SCOPE]: dense factorization
 - rail: numeric
@@ -158,6 +161,15 @@ Dense builders and tile methods keep exact overload shape outside the table; `So
 |  [11]   | `Matrix<double>.Build.Dense`                    | factory call       | builds dense matrix by shape/value |
 |  [12]   | `Matrix<T>.SubMatrix`                           | matrix call        | extracts a tile                    |
 |  [13]   | `Matrix<T>.SetSubMatrix`                        | matrix call        | writes a tile in place             |
+|  [14]   | `Matrix<T>.Build` / `Vector<T>.Build`           | builder accessor   | static `MatrixBuilder<T>` / `VectorBuilder<T>` — the factory root the `DenseOf*`/`OfStorage` family hangs off (`Matrix<Complex>`/`Vector<Complex>` instantiate the same generic) |
+|  [15]   | `Matrix<double>.Build.OfStorage`                | factory call       | wraps an existing `MatrixStorage<T>` (dense or `SparseCompressedRowMatrixStorage<double>`) into the concrete matrix without copy — the storage→matrix bridge (no `SparseMatrix.OfStorage` static exists) |
+|  [16]   | `Matrix<double>.Build.DenseOfColumnMajor`       | factory call       | dense matrix from a column-major `IEnumerable<T>` |
+|  [17]   | `Matrix<double>.Build.DenseOfColumns` / `DenseOfColumnVectors` | factory call | dense matrix from per-column sequences / `Vector<T>` columns |
+|  [18]   | `Matrix<double>.Build.DenseOfDiagonalVector` / `DiagonalOfDiagonalVector` | factory call | dense (or diagonal-storage) matrix from a diagonal `Vector<T>` |
+|  [19]   | `Vector<double>.Build.Dense` / `DenseOfArray`   | factory call       | dense vector by size/value/init or from an array |
+|  [20]   | `Matrix<T>.KroneckerProduct`                    | matrix call        | Kronecker (tensor) product `A ⊗ B` |
+|  [21]   | `Matrix<T>.Transpose`                           | matrix call        | matrix transpose (`ConjugateTranspose` is the Hermitian form) |
+|  [22]   | `Matrix<T>.Add`                                 | matrix call        | matrix/scalar addition (`Add(Matrix<T>)` / `Add(T)`) |
 
 [ENTRYPOINT_SCOPE]: sparse ingestion + solve
 - rail: numeric
@@ -176,6 +188,8 @@ Math.NET sparse imports normalize to CSR; CSparse factorization consumes CSC sto
 |  [08]   | `SparseQR.Create`                                                    | static factory     | factors a CSparse CSC matrix    |
 |  [09]   | `ISparseFactorization<T>.Solve`                                      | factorization call | solves `Ax=b` in place          |
 |  [10]   | `IIterativeSolver<T>.Solve`                                          | solver call        | iterative solve with `Iterator` |
+|  [11]   | `new SparseMatrix(SparseCompressedRowMatrixStorage<double>)`         | ctor               | wraps CSR storage into the MathNet sparse matrix without copy (the direct twin of `Matrix<double>.Build.OfStorage`) |
+|  [12]   | `CSparse.Ordering.AMD.Generate`                                      | static factory     | `int[] Generate<T>(CompressedColumnStorage<T>, ColumnOrdering)` / `Generate(SymbolicColumnStorage, ColumnOrdering)` — fill-reducing permutation before a direct factorization |
 
 [ENTRYPOINT_SCOPE]: discrete Fourier transform + window
 - rail: numeric

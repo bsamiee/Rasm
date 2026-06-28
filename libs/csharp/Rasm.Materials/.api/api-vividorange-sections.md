@@ -90,6 +90,15 @@ composable, NOT admission-gated.
 |  [04]   | `PerimeterReinforcementLayer`     | placement engine | `IPerimeterReinforcementLayer, IReinforcementLayer, …` — `{ IReinforcementLayout Layout; }`; ctors `(IRebar, int numberOfRebars)` / `(IRebar, Length maxSpacing)`; `GetPath`/`GetRebars` as above — distributes bars around the whole section perimeter |
 |  [05]   | `MinimumReinforcementSpacing`     | spacing rule     | `IMinimumReinforcementSpacing, ITaxonomySerializable` — the EC2 min clear-spacing rule (`BarDiameterFactor`/`AdditionalAggregateFactor`/`AbsoluteMinimumSpacing`/`MaximumAggregateSize`); `GetMinimumReinforcementSpacing(Length barDiameter) -> Length`; ctors `()` and `(NationalAnnex)` |
 
+[PUBLIC_TYPE_SCOPE]: `VividOrange.Geometry` concrete section-plane carriers (the `ILocalPoint2d`/`ILocalPolyline2d` impls)
+- rail: profiles / connection
+- note: the concrete `VividOrange.Geometry` `1.8.0` carriers BEHIND the `ILocalPoint2d` bar `Position` and the `ILocalPolyline2d` layer `GetPath`/`GetRebars` returns — and the section-plane geometry a parametric `IProfile` perimeter (outer + void loops) is assembled from before `new Perimeter(outer, voids)`. The section plane is `VividOrange.Geometry`'s Y-Z: a `LocalPoint2d` is `{ Length Y; Length Z; }`, NOT an X-Y pair. Interior code threads the `ILocalPoint2d`/`ILocalPolyline2d` interface; a Materials parametric-section builder constructs these concrete carriers at the edge, never a `Rhino.Geometry` type.
+
+| [INDEX] | [SYMBOL]          | [PACKAGE_ROLE]      | [CAPABILITY]                                                                                  |
+| :-----: | :---------------- | :------------------ | :-------------------------------------------------------------------------------------------- |
+|  [01]   | `LocalPoint2d`    | section-plane point | `: ILocalPoint2d, ILocalCartesian2d<Length, Length>, IGeometryBase` — `{ Length Y; Length Z; }` (the Y-Z section coordinate); ctors `(Length y, Length z)`, `(double y, double z, LengthUnit unit)`, `(ILocalPoint2d)` / `(IPoint2d)` copy |
+|  [02]   | `LocalPolyline2d` | section-plane loop   | `: ILocalPolyline2d, IGeometryBase, IPolylineBase<ILocalDomain2d, ILocalPoint2d>` — `{ IList<ILocalPoint2d> Points; bool IsClosed; }`; ctor `(IList<ILocalPoint2d> points)` (throws `ArgumentException` on fewer than 2 points); `GetArea() -> Area` / `GetBarycenter() -> LocalPoint2d` / `Offset(Length) -> ILocalPolyline2d` / `Domain() -> ILocalDomain2d` derived reads |
+
 [PUBLIC_TYPE_SCOPE]: boundary exceptions (`VividOrange.Sections.Exceptions`)
 - rail: profiles / connection
 - gate: these are public `Exception` subclasses THROWN at the section-construction boundary — they are NOT a typed
@@ -133,6 +142,15 @@ The `VividOrange.Sections.Reinforcement.Utility` static class is `internal` (the
 |  [07]   | `layer.GetPath(IProfile profile, Length offset) -> ILocalPolyline2d`                                 | method         | the bar centroid line (the face/perimeter offset inward by cover + bar radius)   |
 |  [08]   | `layer.GetRebars(ILocalPolyline2d path) -> IList<ILongitudinalReinforcement>`                        | method         | materialize the positioned `LongitudinalReinforcement` bars along the path       |
 |  [09]   | `new MinimumReinforcementSpacing(NationalAnnex na)` ; `.GetMinimumReinforcementSpacing(Length barDiameter) -> Length` | constructor + method | the EC2 min clear bar spacing for the annex + bar diameter |
+
+[ENTRYPOINT_SCOPE]: build the section-plane geometry (`VividOrange.Geometry`)
+- rail: profiles / connection
+- note: the concrete-carrier construction a parametric `IProfile` perimeter (outer + void loops) is assembled from before it reaches `new Perimeter(outer, voids)`; positions are the Y-Z section plane (`Length y, Length z`), never raw `double`.
+
+| [INDEX] | [SURFACE]                                            | [CALL_SHAPE]   | [CAPABILITY]                                                                    |
+| :-----: | :-------------------------------------------------- | :------------- | :----------------------------------------------------------------------------- |
+|  [01]   | `new LocalPoint2d(Length y, Length z)`              | constructor    | a section-plane point at a Y-Z coordinate (the `{ Length Y; Length Z; }` carrier) |
+|  [02]   | `new LocalPolyline2d(IList<ILocalPoint2d> points)`  | constructor    | a section loop from an ordered point list (a `List<ILocalPoint2d>` binds); throws `ArgumentException` on fewer than 2 points |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

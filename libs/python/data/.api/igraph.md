@@ -69,6 +69,8 @@
 |  [17]   | `Graph.TupleList`                     | `TupleList(edges, directed=False, vertex_name_attr='name', edge_attrs=None, weights=False) -> Graph` (classmethod)                                                              | build a `Graph` from an `(u, v)` edge-tuple iterable |
 |  [18]   | `Graph.to_networkx` / `Graph.get_edge_dataframe` | `to_networkx(create_using=None) -> networkx.Graph`; `get_edge_dataframe() -> pandas.DataFrame`                                                                       | round-trip to the networkx / pandas siblings |
 |  [19]   | `Graph.write_graphml`                 | `write_graphml(f) -> None`                                                                                                                                                      | write the graph as GraphML to a path/file |
+|  [20]   | `Graph.add_vertices` / `Graph.add_edges` | `add_vertices(n, attributes=None) -> None`; `add_edges(es, attributes=None) -> None`                                                                                        | append `n` vertices (per-key `attributes` columns, e.g. `attributes={'name': [...]}`) / append edges to the live graph in place — re-admits edgeless indices as `name`-carrying singletons after a `TupleList` build |
+|  [21]   | `Graph.vs` / `Graph.es`               | `vs -> VertexSeq`; `es -> EdgeSeq` (property)                                                                                                                                   | vertex / edge sequence; attribute access reads one column (`g.vs['name']` recovers the `vertex_name_attr` names a `TupleList` stored, the cross-index seam back to the source vertex id) |
 
 [ENTRYPOINT_SCOPE]: clustering result inspection
 - rail: graph

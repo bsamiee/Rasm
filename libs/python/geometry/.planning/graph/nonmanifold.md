@@ -2,7 +2,7 @@
 
 Non-manifold topological modeling. `run` is one module-level entrypoint over the `TopologyOp` `@tagged_union(frozen=True)` discriminating the stateless `topologicpy` static-method namespace — non-manifold `Topology` construction (a `Cell`/`CellComplex` handle the `_CONSTRUCT` table lifts) from B-rep/OCCT/JSON/OBJ/IFC bytes, decomposition into the topological hierarchy, the non-manifold boolean kernel (`Union`/`Difference`/`Intersect`/`Slice`), cell-to-cell adjacency, `Dictionary`-attribute attachment, `BoundingBox`/`Centroid`/`Contains` analysis, and `Graph.ByTopology` dual-graph extraction folded through the `GRAPH_ANALYTIC` table for connectivity, centrality, spanning, and path analytics the C# `IfcSemanticModel` spatial projection does not perform. Each case carries its own payload and folds through one of the `_CONSTRUCT`/`_BOOLEAN`/`_ANALYSIS`/`GRAPH_ANALYTIC` data tables rather than parallel arms; the dual-graph case graduates via the compute `HandoffAxis` `geometry` case carrying the canonical `topology-graph` `GeometrySubject`. This owner is gated against re-deriving the in-process BIM space-graph.
 
-`topologicpy` is an opt-in Forge-lane companion under a dual gate, excluded from the default server build: it is `AGPL-3.0-or-later` (network copyleft — linking it into a hosted server triggers the AGPL §13 source-disclosure obligation over the whole deployment), AND it dual-gates `requires-python<'3.15'` (no package, so it cannot ride the intended runtime). Both gates must clear before any arm is reachable: the owner and fences stay authored, the runtime admitted only on the explicit AGPL-accepting worker lane (`forge-companion-env`, cp312 floor inside the `<'3.15'` band), never linked into the shipped default server. The whole `nonmanifold` surface is a worker lane, dark in the default build, and `topologicpy` is absent from the manifest until the opt-in row lands.
+`topologicpy` is an opt-in Forge-lane companion excluded from the default server build because its `AGPL-3.0-or-later` network-copyleft terms require an explicit accepting worker lane. The owner and fences stay authored, and runtime admission waits on a manifest row plus folder `.api` catalogue for that worker lane.
 
 ## [01]-[INDEX]
 
@@ -24,7 +24,7 @@ from enum import StrEnum
 from types import MappingProxyType
 from typing import Final, Literal, assert_never
 
-# the gated-companion `topologicpy` facade is imported module-top like the `graph/algebra.md` `compas`
+# the worker-companion `topologicpy` facade is imported module-top like the `graph/algebra.md` `compas`
 # is a no-op there and a live facade only on the opt-in Forge lane.
 import anyio
 import ifcopenshell

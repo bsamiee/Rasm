@@ -83,6 +83,8 @@ Every AppHost-domain library the folder uses, planned or implemented. Versions a
 - `Pyroscope.OpenTelemetry`
 - `Serilog`
 - `Serilog.Extensions.Hosting`
+- `Serilog.Sinks.Console`
+- `Serilog.Sinks.File`
 
 [OUTBOUND]:
 - `Microsoft.Extensions.Http.Resilience`
@@ -132,7 +134,7 @@ Every AppHost-domain library the folder uses, planned or implemented. Versions a
 
 ## [03]-[SUBSTRATE_PACKAGES]
 
-Cross-cutting C# substrate libraries AppHost consumes; these are owned at the monorepo substrate layer. Package charters and API evidence live in `libs/csharp/.planning/README.md` and the adjacent `.api/` folder.
+Cross-cutting C# substrate libraries AppHost consumes; package charters live in `libs/csharp/.planning/README.md` and shared API evidence lives in `libs/csharp/.api/`.
 
 [FUNCTIONAL_CORE]:
 - `LanguageExt.Core`

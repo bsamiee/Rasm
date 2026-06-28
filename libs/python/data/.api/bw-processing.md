@@ -11,9 +11,9 @@
 - rail: lca-substrate (EPD/LCA cluster)
 - version: `1.5`
 - license: `BSD-3-Clause` (`LICENSE` ships in `dist-info/licenses/`; Copyright Chris Mutel)
-- asset: pure Python (zero compiled extensions) — `numpy` structured arrays serialized over an `fsspec` `AbstractFileSystem`; `Requires-Python >=3.9`
-- depends-on: `fsspec` (the filesystem abstraction the datapackage is written through), `jsonschema>=4.0` (datapackage/label schema validation), `morefs` (the in-memory / overlay filesystems), `numpy`, `pandas` (CSV-metadata resources)
-- marker: COMPANION-GATED. Pinned `bw-processing; python_version<'3.15'`. The package is pure-Python, so the gate is TRANSITIVE, not a source floor: its cluster siblings (`bw2data`, `bw2calc`) pull `numpy<3`, `scipy`, `pandas`, `lxml`, `peewee`, `rapidfuzz` whose `cp315` wheels are not yet published, so the whole Brightway cluster pins `<3.15`. `assay api resolve bw-processing` cannot reflect on the active `cp315` interpreter; this surface is verified against the real `bw_processing 1.5` wheel on an isolated `cp313` install and is authoritative until the scientific stack ships `cp315` wheels and the marker is removed.
+- asset: pure Python, `py3-none-any` purelib (zero compiled extensions, ABI-agnostic) — `numpy` structured arrays serialized over an `fsspec` `AbstractFileSystem`
+- depends-on: `fsspec` (the filesystem abstraction the datapackage is written through), `jsonschema>=4.0` (datapackage/label schema validation), `morefs` (the in-memory / overlay filesystems), `numpy`, `pandas` (CSV-metadata resources); `pyarrow` is optional and required only for `MatrixSerializeFormat.PARQUET`
+- marker: none — admitted unpinned; installed and `assay`-reflectable on the active interpreter
 - entry points: library-only; no console script
 - capability: build a multi-matrix `Datapackage` from persistent (static) or dynamic (interface-driven) COO vectors/arrays; serialize each matrix group as `numpy` `.npy` (default) or `parquet` arrays plus a Frictionless `datapackage.json`; persist to a directory, a single zip archive, an in-memory filesystem, or any `fsspec` backend; carry per-resource CSV/JSON metadata; filter a datapackage to a subset of resource groups without rewriting; merge two datapackages under a boolean mask; reindex/reset the integer matrix ids; and round-trip the bundle with optional `mmap` and lazy proxy loading
 
@@ -21,7 +21,7 @@
 
 [PUBLIC_TYPES]:
 - `bwp.Datapackage` — the writable bundle: a set of named *resource groups*, each group holding the arrays for one matrix (`indices`, `data`, optional `flip`, optional `distributions`) plus JSON/CSV metadata. Exposes `.resources` (the resource descriptors) and `.groups` (the grouped arrays). `DatapackageBase` is the read/filter base; `FilteredDatapackage` is the read-only projection returned by filtering.
-- `bwp.MatrixSerializeFormat` — enum `NUMPY` (`'numpy'`, the default, `.npy` arrays) | `PARQUET` (`'parquet'`); selects the on-disk array codec per datapackage or per dynamic group.
+- `bwp.MatrixSerializeFormat` — a `str` enum `NUMPY` (`'numpy'`, the default, `.npy` arrays) | `PARQUET` (`'parquet'`, requires the optional `pyarrow` dep); the `str` subclass lets a value compare directly to its string. Selects the on-disk array codec per datapackage (`create_datapackage(matrix_serialize_format_type=...)`) or per dynamic group.
 - `bwp.INDICES_DTYPE` — `[('row', int64), ('col', int64)]`; the structured dtype of every matrix index array (the COO coordinates that `matrix_utils` later maps to dense matrix positions).
 - `bwp.UNCERTAINTY_DTYPE` — `[('uncertainty_type', uint8), ('loc', f32), ('scale', f32), ('shape', f32), ('minimum', f32), ('maximum', f32), ('negative', bool)]`; the `stats_arrays` distribution row consumed by `bw2calc` Monte Carlo (`use_distributions=True`).
 - `bwp.DEFAULT_LICENSES` — the default datapackage license list (`ODC-PDDL-1.0`).
@@ -31,7 +31,8 @@
 [CONSTRUCTION]:
 - `create_datapackage(fs=None, name=None, id_=None, metadata=None, combinatorial=False, sequential=False, seed=None, sum_intra_duplicates=True, sum_inter_duplicates=False, matrix_serialize_format_type=MatrixSerializeFormat.NUMPY) -> Datapackage` — the factory; `fs` is the target `fsspec` filesystem (omit for in-memory), and the `combinatorial`/`sequential`/`seed` knobs control how multiple array columns are sampled during stochastic iteration. The duplicate flags decide whether duplicate COO entries within (`intra`) or across (`inter`) groups sum or override.
 - `load_datapackage(fs_or_obj, mmap_mode=None, proxy=False) -> Datapackage` — reload from a filesystem or an existing `DatapackageBase`; `mmap_mode` memory-maps the arrays and `proxy=True` defers array reads until accessed (large-background-database path).
-- `create_datapackage_from_entries(data, fs=None, **metadata)` / `simple_graph(data, fs=None, **metadata) -> Datapackage` — one-call builders from an entries dict / a `{matrix: [(row, col, value), ...]}` adjacency dict.
+- `create_datapackage_from_entries(data, fs=None, **metadata) -> Datapackage` — the preferred one-call builder from an iterable of typed `MatrixEntry` / `ArrayEntry` objects.
+- `simple_graph(data, fs=None, **metadata) -> Datapackage` — DEPRECATED builder from a `{matrix: [(row, col, value, flip?), ...]}` adjacency dict; raises `DeprecationWarning` and forwards to `create_datapackage_from_entries` — author entries through `MatrixEntry` instead.
 - `create_array(iterable, nrows=None, dtype=numpy.float32)` / `create_structured_array(iterable, dtype, nrows=None, sort=False, sort_fields=None)` — stream an iterable into a (structured) `numpy` array, sized lazily by `nrows`.
 - `generic_directory_filesystem(*, dirpath) -> DirFileSystem` / `generic_zipfile_filesystem(*, dirpath, filename, write=True, compression=8, compresslevel=None) -> ZipFileSystem` — the two stock `fsspec` targets (directory tree | single zip) to pass as `create_datapackage(fs=...)`.
 
@@ -49,7 +50,7 @@
 - `merge_datapackages_with_mask(first_dp, first_resource_group_label, second_dp, second_resource_group_label, mask_array, output_fs=None, metadata=None) -> DatapackageBase` — splice two datapackages selecting `first` where `mask` is true, `second` elsewhere (the scenario-overlay path `premise` and prospective workflows lean on).
 - `reindex(datapackage, metadata_name, data_iterable, fields=None, id_field_datapackage='id', id_field_destination='id')` — remap the integer matrix ids in a datapackage to a new id space using a metadata join (the `bw2data` mapping rebuild).
 - `reset_index(datapackage, metadata_name) -> Datapackage` — collapse ids to a dense `0..n` range.
-- `as_unique_attributes(data, exclude=None, include=None, raise_error=False)` / `schema_from_json_schema(...)` / `safe_filename(string, add_hash=True, full=False)` / `clean_datapackage_name(name)` / `md5(...)` — naming, hashing, and schema helpers.
+- `as_unique_attributes(data, exclude=None, include=None, raise_error=False)` / `as_unique_attributes_dataframe(df, ...)` (the `pandas`-frame twin) / `schema_from_json_schema(...)` / `safe_filename(string, add_hash=True, full=False)` / `clean_datapackage_name(name)` / `md5(...)` — naming, hashing, uniqueness, and schema helpers.
 
 [IMPLEMENTATION_LAW]:
 - A `Datapackage` is a collection of resource *groups*; one group encodes one matrix's contribution. The index array is always `INDICES_DTYPE` (`row`/`col` int64 ids in the `bw2data` mapping space, not dense positions); `matrix_utils` resolves them to dense positions at solve time. Never store dense row/col offsets — store the global integer ids.

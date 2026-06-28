@@ -47,6 +47,11 @@ const LAW = [
   'WRITE-FULLY MANDATE: every correction you identify you MUST make NOW via Edit/Write directly in the .api file — the structured fix-log is a ' +
     'REPORT of edits ALREADY MADE, never a to-do list or would/should hedge; leave nothing behind. If a catalog is already mature and correct, ' +
     'return verdict=clean — never invent edits.',
+  'STRIP VERSION-GATING META: gate/wheel/floor/companion-gating RATIONALE is BANNED in .api files and is now mostly STALE (the python infra was ' +
+    'de-gated). DELETE every such line — "COMPANION-GATED", "Manifest-pinned python_version<3.15", "no cpXXX wheel", "the cluster pins <3.15", ' +
+    '"lifts once wheels land", build-floor rationale, marker-saga prose. Keep ONLY a minimal one-clause evidence tag where the package is genuinely ' +
+    'NOT installed in the active env (e.g. "members source-verified against vX") — no reasoning about why. NEVER re-introduce any version-pinning ' +
+    'or wheel-availability commentary. This is mandatory on EVERY catalog you touch this run.',
 ].join('\n')
 
 // --- [OPERATIONS] ------------------------------------------------------------------------

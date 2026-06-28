@@ -143,6 +143,7 @@
 |  [04]   | `derivative()` / `integral()` (fmpq_poly)                 | calculus       | formal derivative/integral      |
 |  [05]   | `cyclotomic(n)` / `chebyshev_t(n)` / `swinnerton_dyer(n)` | named poly     | cyclotomic, Chebyshev, SD       |
 |  [06]   | `is_cyclotomic()` / `deflate()` / `inflate(n)`            | structure      | cyclotomic test and compression |
+|  [07]   | `degree()`                                                | access         | polynomial degree (highest-term exponent, `-1` for the zero poly); the degree the `fmpq_mat.charpoly()`/`minpoly()` result reports as the spectrum dimension |
 
 [ENTRYPOINT_SCOPE]: `arb` and `acb` ball arithmetic operations
 - rail: ball-arithmetic

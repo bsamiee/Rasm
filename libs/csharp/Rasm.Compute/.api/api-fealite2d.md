@@ -11,7 +11,7 @@
 - assembly: `FEALiTE2D`
 - namespace roots: `FEALiTE2D.Structure`, `FEALiTE2D.Elements`, `FEALiTE2D.Loads`, `FEALiTE2D.CrossSections`, `FEALiTE2D.Materials`, `FEALiTE2D.Meshing`, `FEALiTE2D.Helper`
 - asset: pure-managed AnyCPU IL, multi-target `net8.0` / `netstandard2.0` / `net45` (no native asset, no RID burden); the `net10.0` consumer binds `lib/net8.0/FEALiTE2D.dll`, XML docs shipped
-- closure: `CSparse` (the `CSparse.Double.SparseMatrix`/`DenseMatrix` carriers + `CSparse.Double.Factorization` solve — the `api-csparse` owner shared with the 3D `BriefFiniteElement.Net` twin) + `MathNet.Numerics` (`api-mathnet-providers`, the internal numeric floor — never on the public surface); both pure-managed transitive deps, the central manifest pinning `CSparse` `4.4.0` / `MathNet.Numerics` `6.0.0-beta2` above the package's own `3.5.0` / `4.15.0` nuspec floors
+- closure: `CSparse` (the `CSparse.Double.SparseMatrix`/`DenseMatrix` carriers + `CSparse.Double.Factorization` solve — the `api-csparse` owner shared with the 3D `BriefFiniteElement.Net` twin) + `MathNet.Numerics` (`api-mathnet-providers`, the internal numeric floor — never on the public surface); both pure-managed transitive deps, centrally pinned
 - rail: `Solver/contract#SOLVE_CONTRACT` (the 2D structural-frame lane — the planar twin of the 3D `BriefFiniteElement.Net`, both on the shared `api-csparse` owner)
 
 ## [02]-[PUBLIC_TYPES]
@@ -108,8 +108,8 @@
 | :-----: | :------------------------------------------------------------------ | :------------- | :----------------------------------------------------- |
 |  [01]   | `GetElementInternalForcesAt(IElement, LoadCase, double x)`          | point query    | `Force` at station `x` for a case                       |
 |  [02]   | `GetElementInternalForcesAt(IElement, LoadCombination, double x)`   | point query    | `Force` at station `x` for a factored combination       |
-|  [03]   | `GetElementInternalForces(IElement, LoadCase)`                      | diagram query  | `List<LinearMeshSegment>` full internal-force diagram   |
-|  [04]   | `GetElementDisplacementAt(IElement, LoadCase, double x)`            | point query    | `Displacement` at station `x`                            |
+|  [03]   | `GetElementInternalForces(IElement, LoadCase)` / `(…, LoadCombination)` | diagram query  | `List<LinearMeshSegment>` full internal-force diagram (per case or factored combination) |
+|  [04]   | `GetElementDisplacementAt(IElement, LoadCase, double x)` / `(…, LoadCombination, double x)` | point query    | `Displacement` at station `x` (per case or factored combination) |
 |  [05]   | `GetNodeGlobalDisplacement(Node2D, LoadCase)`                       | nodal query    | global joint displacement                               |
 |  [06]   | `GetSupportReaction(Node2D, LoadCase)` / `(…, LoadCombination)`     | reaction query | support `Force` reaction                                |
 |  [07]   | `GetElementLocalEndDisplacement` / `GetElement*FixedEndForeces`     | raw vectors    | local/global element end vectors (`double[]`)           |
@@ -134,7 +134,7 @@
 - receipt facts: `AnalysisStatus`, `nDOF`, the per-`LoadCase` `Force`/`Displacement`/reaction set, and the `LinearMeshSegment` diagram sampling are the structural-analysis receipt evidence
 
 [SOLVE_AND_FACTOR]:
-- `Structure.Solve()` assembles the global system through `Assembler`, factors `StructuralStiffnessMatrix` (a `CSparse.Double.SparseMatrix`), and back-substitutes each `LoadCase` into `DisplacementVectors`. The factorization is the `api-csparse` `SparseCholesky`/`SparseLU` rail — the FE solve and the kernel's own sparse-factor lane share ONE owner; never stage a second dense inverse.
+- `Structure.Solve()` assembles the global system through `Assembler`, factors `StructuralStiffnessMatrix` (a `CSparse.Double.SparseMatrix`) through a CSparse `ISparseFactorization<double>`, and back-substitutes each `LoadCase` into `DisplacementVectors` via `ISolver<double>.Solve`. The factorization is the `api-csparse` `SparseCholesky` rail with a `SparseQR` fallback for the rank-deficient / non-SPD case — the FE solve and the kernel's own sparse-factor lane share ONE owner; never stage a second dense inverse.
 - A singular/ill-conditioned system terminates with `AnalysisStatus.Failure` rather than throwing; the discretization lane reads the status discriminant, not an exception, and lowers `Failure` into the typed solver-receipt rail.
 - `Tolerance` governs convergence/zero-pivot detection; `nDOF` reports the active (unrestrained) degree-of-freedom count the factor operates on.
 

@@ -447,13 +447,6 @@
           "xunit.v3.common": "[3.2.2]"
         }
       }
-    },
-    "net10.0/osx-arm64": {
-      "Microsoft.Win32.Registry": {
-        "type": "Transitive",
-        "resolved": "5.0.0",
-        "contentHash": "dDoKi0PnDz31yAyETfRntsLArTlVAVzUzCIvvEDsDsucrl33Dl8pIJG06ePTJTI3tGpeyHS9Cq7Foc/s4EeKcg=="
-      }
     }
   }
 }

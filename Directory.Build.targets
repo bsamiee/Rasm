@@ -1,23 +1,41 @@
 <Project>
-    <PropertyGroup Label="Yak Packaging">
-        <YakManifestDirectory Condition="'$(YakManifestDirectory)' == '' and '$(YakPackageSlug)' != ''">$([MSBuild]::NormalizePath('$(YakPackagesRoot)', '$(YakPackageSlug)'))</YakManifestDirectory>
-        <IsYakPackageProject Condition="'$(IsYakPackageProject)' == '' and '$(YakPackageSlug)' != '' and ('$(IsRhinoPluginProject)' == 'true' or '$(IsGrasshopperPluginProject)' == 'true')">true</IsYakPackageProject>
-        <YakPackageDirectory Condition="'$(YakPackageDirectory)' == '' and '$(YakPackageSlug)' != ''">$([MSBuild]::NormalizePath('$(YakStageRoot)', '$(YakPackageSlug)', 'package'))</YakPackageDirectory>
-        <YakPackagePattern Condition="'$(YakPackagePattern)' == '' and '$(YakPackageSlug)' != ''">*-$(Version)-rh9_*-$(YakPlatform).yak</YakPackagePattern>
-    </PropertyGroup>
-
-    <!-- Make the SARIF-dir-exists invariant a property of the build graph for every caller (assay, IDE, direct dotnet build): Roslyn /errorlog ($(CspSarifDir)) fails CoreCompile when the parent directory is absent or pruned mid-build. -->
+    <!-- Create the SARIF parent before Roslyn writes ErrorLog. -->
     <Target Name="EnsureCspSarifDir" BeforeTargets="CoreCompile" Condition="'$(CspSarifDir)' != ''">
         <MakeDir Directories="$(CspSarifDir)" />
     </Target>
 
-    <!-- Grasshopper2.dll extracts embedded resources to the `dotnet build` cwd when it cannot resolve a writable ResourcesFolder; the scrub removes the root spillover after every build and .gitignore root-anchors the pattern so the real apps/grasshopper and Rasm.Grasshopper trees are unaffected. -->
-    <Target Name="ScrubGrasshopperResourceSpillover" AfterTargets="Build" Condition="'$(IsGrasshopperPluginProject)' == 'true' or '$(IsGrasshopperAwareProject)' == 'true'">
+    <!-- A missing or relocated RhinoWIP.app otherwise fails as opaque reference cascades. -->
+    <Target Name="VerifyRhinoHostBundle" BeforeTargets="ResolveAssemblyReferences" Condition="'@(_RhinoRequiredHostFile)' != ''">
         <ItemGroup>
-            <_GrasshopperSpillover Include="$(MSBuildThisFileDirectory)Grasshopper.*" />
+            <_MissingRhinoRequiredHostFile Include="@(_RhinoRequiredHostFile)" Condition="!Exists('%(Identity)')" />
+        </ItemGroup>
+        <Error Condition="'@(_MissingRhinoRequiredHostFile)' != ''"
+               Text="RhinoWIP host bundle missing required assemblies under '$(RhinoWipAppPath)': @(_MissingRhinoRequiredHostFile->'%(Filename)%(Extension)', ', ')." />
+    </Target>
+
+    <!-- Remove known root Grasshopper2 resource spillover without touching real app/library folders. -->
+    <Target Name="ScrubGrasshopperResourceSpillover" AfterTargets="Build" Condition="'$(ScrubGrasshopperResourceSpillover)' != 'false' and ('$(IsGrasshopperPluginProject)' == 'true' or '$(IsGrasshopperAwareProject)' == 'true')">
+        <ItemGroup>
+            <_GrasshopperSpillover Include="$(MSBuildThisFileDirectory)Grasshopper.*.dll;$(MSBuildThisFileDirectory)Grasshopper.*.pdb;$(MSBuildThisFileDirectory)Grasshopper.*.deps.json;$(MSBuildThisFileDirectory)Grasshopper.*.runtimeconfig.json;$(MSBuildThisFileDirectory)Grasshopper.*.resources" />
         </ItemGroup>
         <Delete Files="@(_GrasshopperSpillover)" Condition="'@(_GrasshopperSpillover)' != ''" />
         <Message Text="check-build: scrubbed @(_GrasshopperSpillover->Count()) Grasshopper2 resource spillover file(s) from repo root." Importance="normal" Condition="'@(_GrasshopperSpillover)' != ''" />
+    </Target>
+
+    <Target Name="ValidateCentralTestProjectAdmission" BeforeTargets="PrepareForBuild"
+            Condition="$([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsRoot)')) and '$(IsTestKitProject)' != 'true' and '$(IsBenchmarkProject)' != 'true' and '$(IsTestProject)' == 'false'">
+        <Error Text="tests/csharp projects cannot set IsTestProject=false; use IsTestKitProject, IsBenchmarkProject, or AssayHostBound for routing." />
+    </Target>
+
+    <Target Name="GenerateXunitRunnerJson" BeforeTargets="AssignTargetPaths" Condition="'$(IsTestProject)' == 'true'">
+        <PropertyGroup>
+            <_XunitRunnerJsonPath>$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', '$(IntermediateOutputPath)', 'xunit.runner.json'))</_XunitRunnerJsonPath>
+        </PropertyGroup>
+        <WriteLinesToFile File="$(_XunitRunnerJsonPath)" Lines="$(_XunitRunnerJsonContent)" Overwrite="true" WriteOnlyWhenDifferent="true" />
+        <ItemGroup>
+            <None Include="$(_XunitRunnerJsonPath)" Link="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" Visible="false" />
+            <FileWrites Include="$(_XunitRunnerJsonPath)" />
+        </ItemGroup>
     </Target>
 
     <Target Name="EmitBridgeClosure" AfterTargets="Build" Condition="'$(HasBridgeScenarios)' == 'true' and '$(TargetFileName)' != ''">
@@ -29,17 +47,23 @@
         </GetAssemblyIdentity>
         <ItemGroup>
             <_BridgeClosureDependency Include="@(ReferenceCopyLocalPaths->WithMetadataValue('DestinationSubDirectory','')->WithMetadataValue('Extension','.dll'))" />
-            <_BridgeClosureHostDependency Include="@(_BridgeClosureDependency)"
-                                          Condition="$([System.String]::Copy('$(RhinoHostAssemblyNameSet)').Contains('|%(_BridgeClosureDependency.Filename)|'))" />
+            <_BridgeClosureHostDependency Include="@(_BridgeClosureDependency)" Condition="$([System.String]::Copy('$(RhinoHostAssemblyNameSet)').Contains('|%(_BridgeClosureDependency.Filename)|'))" />
             <_BridgeClosureAssembly Include="$(TargetFileName)" />
             <_BridgeClosureAssembly Include="@(_BridgeClosureDependency->'%(Filename)%(Extension)')" Exclude="@(_BridgeClosureHostDependency->'%(Filename)%(Extension)')" />
             <_BridgeHostPlugin Include="8307876d-a461-4daa-bb77-eb3715925513" Condition="'@(_BridgeGh2Identity)' != ''" />
+            <_BridgeClosureAssemblyDistinct Include="@(_BridgeClosureAssembly->Distinct())" />
         </ItemGroup>
         <PropertyGroup>
-            <!-- bundleVersion proxy: the WIP bundle stamps RhinoCommon.dll with the app build version. -->
-            <_BridgeBuiltAgainst>{"bundleVersion":"@(_BridgeRhinoIdentity->'%(Version)')","rhinoCommonVersion":"@(_BridgeRhinoIdentity->'%(Version)')","grasshopper2Version":"@(_BridgeGh2Identity->'%(Version)')","runtimeVersion":"$(TargetFrameworkVersion.TrimStart('v'))"}</_BridgeBuiltAgainst>
-            <_BridgeClosureJson>{"assemblies":[@(_BridgeClosureAssembly->Distinct()->'"%(Identity)"', ',')],"hostPlugins":[@(_BridgeHostPlugin->'"%(Identity)"', ',')],"builtAgainst":$(_BridgeBuiltAgainst)}</_BridgeClosureJson>
+            <_BridgeClosurePath>$([MSBuild]::NormalizePath('$(TargetDir)', 'bridge-closure.json'))</_BridgeClosurePath>
+            <_BridgeRuntimeVersion>$([System.String]::Copy('$(TargetFrameworkVersion)').TrimStart('v'))</_BridgeRuntimeVersion>
+            <_BridgeBuiltAgainst>{"bundleVersion":"@(_BridgeRhinoIdentity->'%(Version)')","rhinoCommonVersion":"@(_BridgeRhinoIdentity->'%(Version)')","grasshopper2Version":"@(_BridgeGh2Identity->'%(Version)')","runtimeVersion":"$(_BridgeRuntimeVersion)"}</_BridgeBuiltAgainst>
+            <_BridgeClosureAssembliesJson>@(_BridgeClosureAssemblyDistinct->'&quot;%(Identity)&quot;', ',')</_BridgeClosureAssembliesJson>
+            <_BridgeHostPluginsJson>@(_BridgeHostPlugin->'&quot;%(Identity)&quot;', ',')</_BridgeHostPluginsJson>
+            <_BridgeClosureJson>{"assemblies":[$(_BridgeClosureAssembliesJson)],"hostPlugins":[$(_BridgeHostPluginsJson)],"builtAgainst":$(_BridgeBuiltAgainst)}</_BridgeClosureJson>
         </PropertyGroup>
-        <WriteLinesToFile File="$(TargetDir)bridge-closure.json" Lines="$(_BridgeClosureJson)" Overwrite="true" WriteOnlyWhenDifferent="true" />
+        <WriteLinesToFile File="$(_BridgeClosurePath)" Lines="$(_BridgeClosureJson)" Overwrite="true" WriteOnlyWhenDifferent="true" />
+        <ItemGroup>
+            <FileWrites Include="$(_BridgeClosurePath)" />
+        </ItemGroup>
     </Target>
 </Project>

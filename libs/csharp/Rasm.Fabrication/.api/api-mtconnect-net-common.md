@@ -9,7 +9,7 @@
 - version: `6.9.0.2` (centrally pinned)
 - license: `MIT` (TrakHound/MTConnect.NET)
 - assembly: `MTConnect.NET-Common`
-- namespace consumed: `MTConnect.Assets.CuttingTools`, `.CuttingTools.Measurements`, `MTConnect.Assets` (the `Asset` base) — the broader `MTConnect.Devices`/`.Observations`/`.Streams`/`.Agents`/`.Configurations` namespaces ship in this same assembly but are OUT of the fabrication scope
+- namespace consumed: `MTConnect.Assets.CuttingTools`, `.CuttingTools.Measurements`, `MTConnect.Assets` (the `Asset` base + `AssetValidationResult`), `MTConnect` (root — the `MTConnectVersions` schema-version constants the `IsValid(Version)` check reads) — the broader `MTConnect.Devices`/`.Observations`/`.Streams`/`.Agents`/`.Configurations` namespaces ship in this same assembly but are OUT of the fabrication scope
 - asset: pure-managed AnyCPU IL, multi-target (`net9.0`/`net8.0`/`net7.0`/`net6.0`/`netstandard2.0`/`net46x`/`net47x`/`net48`); the `net10.0` consumer binds `lib/net9.0/MTConnect.NET-Common.dll` (the highest applicable TFM)
 - transitive floor: `YamlDotNet` >=13.7.1 (declared floor; central row resolves 18.1.0), `System.Text.Json` 8.0.5, `System.Buffers` 4.5.1, `System.Runtime.InteropServices.RuntimeInformation` 4.3.0 — all centrally floor-pinned; pure-managed, no native asset, ALC-safe
 - scope: the cutting-tool ASSET MODEL only (data shapes + content hash + version validation); NOT the XML/JSON wire serializer (separate `MTConnect.NET-XML`/`-JSON` packages) and NOT any network transport
@@ -57,11 +57,12 @@
 | [INDEX] | [SYMBOL]               | [TYPE_FAMILY]   | [CAPABILITY]                                                              |
 | :-----: | :--------------------- | :-------------- | :----------------------------------------------------------------------- |
 |  [01]   | `Asset` / `IAsset`     | asset base      | `AssetId`, `Type`, `InstanceId`, `Timestamp`, `DeviceUuid`, `SerialNumber`, `Station`, `Model`, `Manufacturers`, `Hash`, `Removed`, `Configuration` — the MTConnect asset envelope every cutting tool inherits |
-|  [02]   | `AssetValidationResult` | validation result | the `IsValid(Version mtconnectVersion)` outcome (success + message list) |
+|  [02]   | `AssetValidationResult` | validation result | the `IsValid(Version)` outcome `struct` — `bool IsValid` (the schema-conformance verdict the `Admit` boundary reads via `asset.IsValid(version).IsValid`) + `string Message` (the failure detail); ctor `(bool isValid, string message = null)` |
 |  [03]   | `CutterStatusType`     | enum            | `NEW`/`AVAILABLE`/`USED`/`MEASURED`/`RECONDITIONED`/`EXPIRED`/`BROKEN`/`ALLOCATED`/`UNALLOCATED`/`NOT_REGISTERED`/`UNAVAILABLE`/`UNKNOWN` — the cutter lifecycle state |
 |  [04]   | `ToolLifeType`         | enum            | `MINUTES`/`PART_COUNT`/`WEAR` — the tool-life measurement basis |
 |  [05]   | `CountDirectionType`   | enum            | `UP`/`DOWN` — whether life counts up to a limit or down to zero |
 |  [06]   | `LocationType`         | enum            | the magazine-location kind (`POT`/`STATION`/`SPINDLE`/…) the `Location.Type` carries |
+|  [07]   | `MTConnectVersions`    | version constants | `static class` (root `MTConnect` namespace) of `static readonly Version Version10`…`Version25` (e.g. `Version24 = new Version(2, 4)`) plus `static Version Max` — the `System.Version` schema set `IsValid(Version)` is keyed on; the cutting-tool `Admit` validates against `MTConnectVersions.Version24` |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -87,7 +88,7 @@
 | :-----: | :----------------------------------------------------------------- | :------------- | :----------------------------------------------------- |
 |  [01]   | `cuttingToolAsset.GenerateHash(bool includeTimestamp = true)` / static `CuttingToolAsset.GenerateHash(asset, includeTimestamp)` | identity | the deterministic asset content hash |
 |  [02]   | `CuttingToolLifeCycle.GenerateHash(lifeCycle)` / `CuttingItem.GenerateHash(item)` / `ToolLife.GenerateHash(toolLife)` | identity | per-component content hashes |
-|  [03]   | `cuttingToolAsset.IsValid(Version mtconnectVersion)` → `AssetValidationResult` | validate | schema-version conformance of the authored asset |
+|  [03]   | `cuttingToolAsset.IsValid(Version mtconnectVersion)` → `AssetValidationResult` (read `.IsValid`); the `Version` from `MTConnectVersions.Version24` | validate | schema-version conformance of the authored asset against an MTConnect `MTConnectVersions.*` schema version |
 |  [04]   | `asset.Hash` / `asset.InstanceId` / `asset.Timestamp`             | read           | the asset's stamped identity/version/time fields        |
 
 ## [04]-[IMPLEMENTATION_LAW]

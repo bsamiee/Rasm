@@ -4,7 +4,7 @@
 OpenStudio SDK — the whole-building-energy-modeling engine that owns the OSM model, the
 EnergyPlus IDF/IDD object layer, and the translator matrix to and from EnergyPlus, gbXML,
 SDD, three.js/glTF, FloorspaceJS, ISO, Radiance, and CONTAM. The managed `OpenStudio.dll`
-(5088 generated types, namespace `OpenStudio`) marshals into a bundled native runtime
+(5390 generated types, namespace `OpenStudio`) marshals into a bundled native runtime
 (`libopenstudiolib.dylib` + the three `libopenstudio_*_csharp.dylib` SWIG shims); every
 wrapper owns a native handle and is `IDisposable`. It is the EnergyPlus leg of the Bim
 energy-model exchange owner — the OSM/IDF runtime sibling to the `HoneybeeSchema`
@@ -18,7 +18,7 @@ energy model.
 - version: `3.11.0`
 - license: NREL OpenStudio License (the `LICENSE.md` at `github.com/NREL/OpenStudio` — a permissive BSD-3-Clause-derived license; the nuspec carries a `licenseUrl`, no SPDX expression)
 - assembly: `OpenStudio` (`lib/netstandard2.0/OpenStudio.dll`, the managed SWIG wrapper)
-- namespace: `OpenStudio` (4179 model/translator/utility types) + ~80 `OpenStudio*PINVOKE` marshaling classes (one per SWIG module — `OpenStudioModelPINVOKE`, `OpenStudioEnergyPlusPINVOKE`, `OpenStudioOSVersionPINVOKE`, `OpenStudioGBXMLPINVOKE`, …)
+- namespace: `OpenStudio` (the full 5390-type generated surface: the model/translator/utility domain types plus the `Optional<T>` (~743) and `*Vector` (~722) SWIG marshaling families) + 38 per-SWIG-module `OpenStudio*PINVOKE` marshaling classes (`OpenStudioModelPINVOKE`, `OpenStudioEnergyPlusPINVOKE`, `OpenStudioOSVersionPINVOKE`, `OpenStudioGBXMLPINVOKE`, …)
 - asset: managed binding TFM `netstandard2.0` (binds forward under net10.0); the runtime is RID-LOCKED to `osx-arm64`
 - native: `runtimes/osx-arm64/native/libopenstudiolib.dylib` (the SDK) + `libopenstudio_csharp.dylib` / `libopenstudio_model_csharp.dylib` / `libopenstudio_translators_csharp.dylib` (the SWIG P/Invoke shims); `build/OpenStudio.targets` copies the dylibs next to the consumer output
 - platform: this package is the macOS-arm64 RID member of a per-RID family — a Windows/Linux host admits the sibling `NREL.OpenStudio.win-x64` / `NREL.OpenStudio.linux-x64` package; the managed API is identical, only the native runtime differs
@@ -57,7 +57,7 @@ Every wrapper holds a native `HandleRef` (`swigCPtr`) with a `cMemoryOwn` flag a
 |  [03]   | `IdfFile` / `OptionalIdfFile` | energy | the EnergyPlus IDF text model (`IdfFile.load(Path, IddFileType)` -> `OptionalIdfFile`); the input EnergyPlus consumes and `EnergyPlusForwardTranslator` produces |
 |  [04]   | `IddFile` / `Idd` / `IddObjectType` | energy | the EnergyPlus Input Data Dictionary (the object schema); `IddObjectType` is the typed key `Workspace.getObjectsByType` filters on |
 |  [05]   | `ModelObject`          | energy  | the base of every model object (surfaces, spaces, zones, constructions, schedules, HVAC); the `ModelObjectVector` element and the `translateModelObject` input |
-|  [06]   | `Building` / `Space` / `Surface` / `ThermalZone` / `Construction` / `Schedule` | energy | representative `ModelObject` leaves — the geometry/thermal/constructive objects a model carries (the full set is the 4000+ generated `OpenStudio.*` model types) |
+|  [06]   | `Building` / `Space` / `Surface` / `ThermalZone` / `Construction` / `Schedule` | energy | representative `ModelObject` leaves — the geometry/thermal/constructive objects a model carries (the full set is the several-thousand generated `OpenStudio.*` model types, the bulk of the 5390-type surface) |
 
 [PUBLIC_TYPE_SCOPE]: translators (the exchange matrix)
 - package: `NREL.OpenStudio.macOS-arm64`
@@ -150,7 +150,7 @@ string-classes (e.g. `IddObjectType`), not CLR enums — match on their string v
 - IFC seam: a GeometryGym IFC building (`api-geometrygym-ifc`) exports gbXML, which `GbXMLReverseTranslator` ingests into a `Model` — IFC spaces/zones become OSM spaces/thermal zones at the `Exchange/import` boundary; the energy model is derived from the BIM model, never re-authored.
 - geometry-export seam: `GltfForwardTranslator`/`ThreeJSForwardTranslator` emit a model's geometry for web preview, joining the same `Exchange/export` delivery rail as the glTF/3D-Tiles legs (`api-sharpgltf-3dtiles`) — OpenStudio is the energy source, those are the delivery encodings.
 - results seam: after an EnergyPlus run, `SqlFile` reads the results SQLite; the typed outputs land in the Bim analysis receipts and, keyed by content hash, in the `Rasm.Persistence` artifact index.
-- identity seam: a saved `.osm`/IDF string (UTF-8 bytes) feeds `System.IO.Hashing` `XxHash3` (`api-hashing`) for the model snapshot content key, the same content-identity rail as the other energy/IFC exports.
+- identity seam: a saved `.osm`/IDF string (UTF-8 bytes) feeds `System.IO.Hashing` — `XxHash3` for the fast in-process fingerprint, `XxHash128` for the collision-resistant persisted content key (`api-hashing`) — the same content-identity rail (the `Rasm.Persistence` artifact index) as the other energy/IFC exports.
 
 [LOCAL_ADMISSION]:
 - model read enters through `new VersionTranslator().loadModel(path)` (version-robust) returning an `OptionalModel` lowered to a `Fin<Model>`; model write enters through `model.save(path, overwrite)`.

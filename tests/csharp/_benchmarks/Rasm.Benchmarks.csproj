@@ -1,16 +1,18 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <OutputType>Exe</OutputType>
-        <!-- BenchmarkDotNet rejects unoptimized benchmark assemblies; holds until the assay rail
-             routes benchmarks through a Release-configuration closure. -->
+        <!-- BenchmarkDotNet rejects unoptimized benchmark assemblies; assay routes benchmarks through Release closure. -->
         <Optimize>true</Optimize>
         <NoWarn>$(NoWarn);CA1515</NoWarn>
     </PropertyGroup>
-    <ItemGroup>
+    <ItemGroup Label="Benchmark Packages">
         <PackageReference Include="BenchmarkDotNet" PrivateAssets="all" />
+    </ItemGroup>
+
+    <ItemGroup Label="Project References">
         <ProjectReference Include="../../../libs/csharp/Rasm/Rasm.csproj" />
     </ItemGroup>
-    <ItemGroup>
+    <ItemGroup Label="Assembly Metadata">
         <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
             <_Parameter1>RasmWorkspaceRoot</_Parameter1>
             <_Parameter2>$(SolutionDir)</_Parameter2>

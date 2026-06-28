@@ -1,6 +1,6 @@
 # [CSHARP_BRANCH]
 
-The C# branch router and the cross-cutting package registry. The branch aggregates eight planning-scoped packages, each carrying its own four index docs (`README.md`, `ARCHITECTURE.md`, `IDEAS.md`, `TASKLOG.md`) at its root and its design pages under one `.planning/`. This node routes to those package roots and registers only the packages shared across two or more C# folders; a folder README lists only its own additions, and versions live in the one C# manifest, never here.
+The C# branch router and the cross-cutting package registry. The branch aggregates eight planning-scoped packages, each carrying its own four index docs (`README.md`, `ARCHITECTURE.md`, `IDEAS.md`, `TASKLOG.md`) at its root and its design pages under one `.planning/`. This node routes to those package roots and registers only the packages shared across two or more C# folders; a folder README lists only its own additions, shared API catalogues live in `libs/csharp/.api/`, and versions live in the one C# manifest, never here.
 
 ## [01]-[ROUTER]
 
@@ -25,6 +25,7 @@ The cross-domain C# foundation every package builds on: rails, time/identity, th
 - `LanguageExt.Core` — every C# folder.
 - `Thinktecture.Runtime.Extensions` — every C# folder.
 - `Thinktecture.Runtime.Extensions.Json` — Bim, AppHost, Compute, Persistence, AppUi.
+- `Thinktecture.Runtime.Extensions.MessagePack` — Materials, Persistence.
 - `JetBrains.Annotations` — every C# folder.
 
 [TIME_IDENTITY]:
@@ -34,17 +35,19 @@ The cross-domain C# foundation every package builds on: rails, time/identity, th
 - `System.IO.Hashing` — Rasm, Bim, AppHost, Compute, Persistence, AppUi.
 
 [NUMERIC_SUBSTRATE]:
-- `System.Numerics.Tensors` — Rasm, Compute.
+- `CommunityToolkit.HighPerformance` — Compute, Persistence.
+- `System.Numerics.Tensors` — Rasm, AppHost, Compute.
+- `UnitsNet` — Bim, Compute, Fabrication, Materials, AppUi.
 
 [WIRE_CODEGEN]:
 - `Google.Protobuf`
+- `Grpc.AspNetCore`
+- `Grpc.AspNetCore.HealthChecks`
+- `Grpc.AspNetCore.Web`
+- `Grpc.Core.Api`
 - `Grpc.Net.Client`
 - `Grpc.Net.Client.Web`
 - `Grpc.Net.Common`
-- `Grpc.Core.Api`
-- `Grpc.AspNetCore`
-- `Grpc.AspNetCore.Web`
-- `Grpc.AspNetCore.HealthChecks`
 - `Grpc.Tools`
 
 [TEST_SUBSTRATE]:
@@ -53,7 +56,6 @@ The cross-domain C# foundation every package builds on: rails, time/identity, th
 - `coverlet.MTP`
 - `Microsoft.Testing.Platform` stack.
 - `BenchmarkDotNet` — Compute, Persistence.
-- `SharpFuzz` — Compute, Persistence.
 - `Verify.XunitV3` — Persistence, AppUi.
 - `NodaTime.Testing`
 - `Microsoft.Extensions.TimeProvider.Testing`

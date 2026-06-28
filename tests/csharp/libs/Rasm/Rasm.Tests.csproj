@@ -3,7 +3,7 @@
         <!-- Specs P/Invoke rhcommon_c at runtime (Intersect.spec.cs ray-validity rail); assay routes test lanes to the host. -->
         <AssayHostBound>true</AssayHostBound>
     </PropertyGroup>
-    <ItemGroup>
+    <ItemGroup Label="Project References">
         <ProjectReference Include="../../../../libs/csharp/Rasm/Rasm.csproj" />
     </ItemGroup>
 </Project>

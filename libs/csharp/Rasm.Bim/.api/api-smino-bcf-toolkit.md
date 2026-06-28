@@ -137,7 +137,7 @@ materializing a partial object graph by hand.
 |  [03]   | `BcfBuilder.WithDefaults`  | `()` → `BcfBuilder`                                  | seeds default extension vocabularies                               |
 |  [04]   | `BcfBuilder.Build`         | `()` → `Bcf`                                         | materializes the typed `IBcf` root for `Worker.ToBcf`              |
 |  [05]   | `BcfBuilder.BuildFromStream` | `(Stream source)` → `Task<Bcf>`                    | reads an existing `.bcfzip` stream into a builder for edit-then-`Build` |
-|  [06]   | `MarkupBuilder` / `CommentBuilder` / `ComponentBuilder` / `CameraBuilder` / `ViewPointBuilder` | `Action<TBuilder>` leaves | per-node fluent builders nested inside `AddMarkup` |
+|  [06]   | `MarkupBuilder` / `CommentBuilder` / `ComponentBuilder` / `CameraBuilder` / `ViewPointBuilder` | `Action<TBuilder>` leaves | per-node fluent builders nested inside `AddMarkup`; chainable setters — `MarkupBuilder.SetGuid`/`SetTitle`/`SetTopicType`/`SetTopicStatus`/`SetPriority`/`SetCreationAuthor`/`AddComment(Action<CommentBuilder>)`/`AddViewPoint(Action<ViewPointBuilder>)`, `CommentBuilder.SetGuid`/`SetAuthor`/`SetComment`/`SetDate`/`SetViewPointGuid`, `ViewPointBuilder.SetGuid` |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

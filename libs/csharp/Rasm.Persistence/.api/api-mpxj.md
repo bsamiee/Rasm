@@ -36,15 +36,17 @@ is the consumer's), only the parse/serialize round-trip.
 | [INDEX] | [SYMBOL]            | [TYPE_FAMILY] | [CAPABILITY]                                                              |
 | :-----: | :------------------ | :------------ | :----------------------------------------------------------------------- |
 |  [01]   | `ProjectFile`       | `class`       | the root container; `Tasks`/`Resources`/`Relations`/`Calendars`/`ResourceAssignments`/`ProjectProperties` + `ChildTasks` (hierarchy root) |
-|  [02]   | `Task`              | `class`       | one activity/WBS node; start/finish/duration/%complete/critical/slack/baselines + `Predecessors`/`Successors` (`IList<Relation>`) |
+|  [02]   | `Task`              | `class`       | one activity/WBS node; start/finish/duration/%complete/critical/baselines + `Predecessors`/`Successors` (`IList<Relation>`), `ChildTasks` (`IList<Task>`), `ResourceAssignments` (`IList<ResourceAssignment>`), `TotalSlack`/`FreeSlack`/`PlannedDuration` (`Duration`), `ConstraintType` (`ConstraintType?`) + `ConstraintDate` (`DateTime?`) |
 |  [03]   | `Relation`          | `class`       | a typed dependency edge: `PredecessorTask`/`SuccessorTask`, `Type` (`RelationType?`), `Lag` (`Duration`); a `Builder(ProjectFile)` mints one |
 |  [04]   | `RelationType`      | `enum`        | `FinishStart` / `StartStart` / `FinishFinish` / `StartFinish` — the four CPM dependency kinds |
 |  [05]   | `Resource`          | `class`       | a labour/material/cost resource; cost rates, `Availability` (`AvailabilityTable`), calendar, group |
 |  [06]   | `ResourceAssignment`| `class`       | a task↔resource allocation (units, work, cost) via `ProjectFile.ResourceAssignments` |
 |  [07]   | `ProjectCalendar`   | `class`       | working-time calendar; `WorkWeeks` (`ProjectCalendarWeek`), `CalendarExceptions` (`ProjectCalendarException`), `CalendarType` |
-|  [08]   | `Duration`          | `class`       | a magnitude + `TimeUnit?` (`Units`) — durations and lags are unit-tagged, not raw days |
-|  [09]   | `ProjectProperties` | `class`       | project-level start/finish/status dates, `ScheduleFrom`, default calendar, currency, title |
+|  [08]   | `Duration`          | `class`       | a magnitude (`DurationValue`, `double`) + `TimeUnit?` (`Units`) — durations and lags are unit-tagged, not raw days; static `GetInstance(double\|int magnitude, TimeUnit type)` mints one when synthesizing a schedule |
+|  [09]   | `ProjectProperties` | `class`       | project-level start/finish/status dates, `ScheduleFrom`, default calendar, currency, title; `FileType` (`string`, the parsed source-format name) + `FileApplication` |
 |  [10]   | `TaskContainer`/`ResourceContainer`/`RelationContainer`/`ProjectCalendarContainer` | `class : IProjectEntityContainer` | the keyed `IList`-shaped collections (`ProjectFile.Tasks` etc.) |
+|  [11]   | `TimeUnit`          | `enum`        | the duration/lag unit on `Duration.Units`: `Minutes`/`Hours`/`Days`/`Weeks`/`Months`/`Years`/`Percent` + the `Elapsed{Minutes,Hours,Days,Weeks,Months,Years,Percent}` variants |
+|  [12]   | `ConstraintType`    | `enum`        | the `Task.ConstraintType` modality: `AsSoonAsPossible`/`AsLateAsPossible`/`MustStartOn`/`MustFinishOn`/`StartNoEarlierThan`/`StartNoLaterThan`/`FinishNoEarlierThan`/`FinishNoLaterThan`/`StartOn`/`FinishOn` |
 
 `ProjectFile` is the boundary type the Persistence schedule lane maps to its canonical
 `ConstructionTask`/`CostItem` shapes: walk `ChildTasks` for the WBS hierarchy, read each `Task`'s
@@ -67,6 +69,7 @@ the Java handle into canonical code.
 |  [06]   | `IProjectWriter.Write(ProjectFile, …)`                                                 | write (typed)  | the per-format writer contract: `PrimaveraPMFileWriter`/`PrimaveraXERFileWriter`/`MSPDIWriter`/`MPXWriter`/`JsonWriter`/`PlannerWriter`/`SDEFWriter` |
 |  [07]   | `FileFormat`                                                                          | enum           | the writable target set: `JSON` / `MPX` / `MSPDI` / `PLANNER` / `PMXML` / `XER` / `SDEF` |
 |  [08]   | `Relation.Builder(ProjectFile).PredecessorTask(t).SuccessorTask(t).Type(rt).Lag(d).Build()` | mutate         | construct a dependency edge when SYNTHESIZING a schedule to write out     |
+|  [09]   | `Duration.GetInstance(double\|int magnitude, TimeUnit type)`                          | mutate         | mint a unit-tagged `Duration` (e.g. `GetInstance(lag.Days, TimeUnit.Days)`) for a lag/duration when writing a `ProjectFile` out |
 
 `UniversalProjectReader.Read` is the lane's normal ingress — it auto-detects ANY supported
 format, so the consumer never branches on file extension. The write side is asymmetric: MPXJ

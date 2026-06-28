@@ -63,6 +63,16 @@
 |  [04]   | `.plot` (matplotlib)        | `line`, `step`, `hist`, `pcolormesh`, `contour`, `contourf`, `imshow`, `surface`, `scatter`, `quiver`, `streamplot`, `facetgrid`        |
 |  [05]   | `register_*_accessor`       | `register_dataarray_accessor(name)`, `register_dataset_accessor(name)`, `register_datatree_accessor(name)` class decorators            |
 
+[PUBLIC_TYPE_SCOPE]: grouper objects (`xarray.groupers`)
+- rail: field-dataset
+- `groupby`/`resample` accept an explicit `Grouper` instance keyed by dimension (`ds.groupby(time=TimeResampler(freq="1D"))`, the `FieldSelection` resample arm constructing one) instead of a magic `freq=`/`bins=` string shorthand; bound function-local under `# noqa: PLC0415` like every other `xarray` import.
+
+| [INDEX] | [SYMBOL]                                                                                                    | [TYPE_FAMILY]    | [RAIL]                                                                                |
+| :-----: | :-------------------------------------------------------------------------------------------------------- | :--------------- | :----------------------------------------------------------------------------------- |
+|  [01]   | `groupers.TimeResampler(freq, closed=None, label=None, origin='start_day', offset=None)`                  | time resampler   | calendar/offset resample grouper passed to `groupby`/`resample` (the `FieldSelection` resample arm) |
+|  [02]   | `groupers.UniqueGrouper(labels=None)`                                                                     | category grouper | group-by-unique-value grouper (the explicit `groupby(name)` lowering)                 |
+|  [03]   | `groupers.BinGrouper(bins, right=True, labels=None, precision=3, include_lowest=False, duplicates='raise')` | bin grouper      | histogram-bin grouper (the explicit `groupby_bins` form)                             |
+
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: IO and construction

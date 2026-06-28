@@ -1,13 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <Description>Fault-injection gate for the bridge supervisor: drives HostControl and Evidence kernels against stand-in processes, with an explicit live Rhino lane.</Description>
+        <CspScope>Boundary</CspScope>
         <OutputType>Exe</OutputType>
         <AssemblyName>Rasm.Bridge.Supervisor.Gate</AssemblyName>
         <RootNamespace>Rasm.Bridge.Supervisor.Gate</RootNamespace>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
         <NoWarn>$(NoWarn);StreamJsonRpc0008;CA1303;CA1031;CA2007;MA0004;MA0051;CA1849;MA0042;CA1859;MA0003;MA0006;MA0020;MA0032;MA0078</NoWarn>
     </PropertyGroup>
-    <ItemGroup>
+    <ItemGroup Label="Project References">
         <ProjectReference Include="../Supervisor/Supervisor.csproj" />
     </ItemGroup>
 </Project>

@@ -163,7 +163,7 @@ Continuous (`norm`, `lognorm`, `gamma`, `beta`, `t`, `chi2`, `expon`, `uniform`,
 
 | [INDEX] | [SURFACE]                                                                      | [ENTRY_FAMILY]  | [RESULT]                                         |
 | :-----: | :----------------------------------------------------------------------------- | :-------------- | :----------------------------------------------- |
-|  [01]   | `norm` / `lognorm` / `gamma` / `beta` / `t` / `chi2` / `expon` / `weibull_min` | continuous dist | frozen distribution with `pdf`/`cdf`/`ppf`/`rvs` |
+|  [01]   | `norm` / `lognorm` / `gamma` / `beta` / `t` / `chi2` / `expon` / `weibull_min` / `triang(c, loc, scale)` / `truncnorm(a, b, loc, scale)` | continuous dist | frozen distribution with `pdf`/`cdf`/`ppf`/`rvs`; `triang` shape `c` in [0, 1] is the mode as a fraction of `(loc, loc+scale)`, `truncnorm` shapes `a`/`b` are the standardized (pre-`loc`/`scale`) truncation bounds, so a DOE marginal maps `ppf(c=peak, loc=start, scale=end-start)` / `ppf((lo-mean)/std, (hi-mean)/std, loc=mean, scale=std)` |
 |  [02]   | `binom` / `poisson` / `geom` / `nbinom`                                        | discrete dist   | frozen distribution with `pmf`/`cdf`/`rvs`       |
 |  [03]   | `<dist>.fit(data)` \| `fit(dist, data, bounds)` \| `make_distribution(dist)`    | MLE fit / array-API | MLE shape/loc/scale; bounded optimisation fit; modern array-API distribution object |
 |  [04]   | `ks_2samp(d1, d2)` \| `anderson(x, dist)` \| `shapiro(x)`                       | goodness-of-fit | Kolmogorov-Smirnov / Anderson-Darling / Shapiro-Wilk normality |

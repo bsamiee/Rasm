@@ -28,8 +28,9 @@ siblings under the same xBIM lineage and license posture.
 [PACKAGE_SURFACE]: `Xbim.CobieExpress` (entity model) · `Xbim.IO.CobieExpress` (store) · `Xbim.CobieExpress.Exchanger` (converter)
 - package: `Xbim.CobieExpress` + `Xbim.IO.CobieExpress` + `Xbim.CobieExpress.Exchanger` — three direct
   csproj pins under the "COBie Exchange" group
-- version: `6.0.172` (all three; aligned with the `Xbim.Common`/`Xbim.Ifc`/`Xbim.Ifc4` 6.0.587 +
-  `Xbim.IO.Table` 6.0.172 floors the deeper assemblies pull)
+- version: `6.0.172` (all three); the deeper xBIM core binds the centrally-pinned
+  `Xbim.Common`/`Xbim.Ifc`/`Xbim.Ifc4` `6.0.587` + `Xbim.IO.Table` `6.0.172` (the packages' own
+  nuspecs floor the core at `6.0.445`; the central pin lifts the consumed assemblies to `6.0.587`)
 - license: CDDL-1.0 (`license type="expression"`, xBimTeam) with `requireLicenseAcceptance=false` — the
   weak-copyleft file-level reciprocity is satisfied by referencing the unmodified NuGet binaries, never
   vendoring or modifying source (the same posture as `Xbim.Properties`/`Xbim.InformationSpecifications`)
@@ -63,17 +64,17 @@ siblings under the same xBIM lineage and license posture.
 
 | [INDEX] | [SYMBOL]                                      | [TYPE_FAMILY]      | [RAIL]                                            |
 | :-----: | :-------------------------------------------- | :----------------- | :----------------------------------------------- |
-|  [01]   | `CobieReferencedObject` (abstract)            | provenance base    | `Created` (`CobieCreatedInfo`), `ExternalObject`, `ExternalSystem`, `ExternalId` — every COBie row's externally-keyed provenance head |
+|  [01]   | `CobieReferencedObject` (abstract)            | provenance base    | `Created` (`CobieCreatedInfo`), `ExternalObject` (`CobieExternalObject`), `ExternalSystem` (`CobieExternalSystem`), `ExternalId`/`AltExternalId` — every COBie row's externally-keyed provenance head |
 |  [02]   | `CobieAsset` (abstract)                        | named-asset base   | `: CobieReferencedObject` — `Name`, `Description`, `Categories`, `Attributes`, `Documents`, `Impacts`, `Representations`, `CausingIssues`, `AffectedBy` |
 |  [03]   | `CobieFacility` / `CobieFloor` / `CobieSpace` | spatial entities | the IFC building/storey/space spatial breakdown (`SpatialDivision` select, with `CobieSite` at the site level) |
 |  [04]   | `CobieType` / `CobieComponent` (`: CobieTypeOrComponent`) | type/instance | the equipment TYPE catalogue and its installed instance COMPONENTs |
 |  [05]   | `CobieSystem` / `CobieZone`                    | grouping entities  | `: CobieAsset` logical groupings — a functional system grouping components, a zone grouping spaces (NOT `SpatialDivision`) |
 |  [06]   | `CobieSpare` / `CobieResource` / `CobieJob`    | FM-operations      | spare parts, maintenance resources, and the maintenance/operation jobs that consume them |
 |  [07]   | `CobieContact`                                 | contact entity     | a person/organisation responsible party (keyed by `Email`) |
-|  [08]   | `CobieAttribute`                               | attribute entity   | one Pset property as a COBie attribute (name + `AttributeValue` + unit), the `CobieAsset.Attributes` member |
-|  [09]   | `CobieDocument` / `CobieConnection` / `CobieCoordinate` / `CobieIssue` / `CobieImpact` | satellite entities | linked documents, component connections, geometry placement, issues, sustainability impacts |
+|  [08]   | `CobieAttribute`                               | attribute entity   | one Pset property as a COBie attribute (`Name` + `Value` (`AttributeValue` select) + `Unit` + `Stage` (`CobieStageType`) + `AllowedValues`), the `CobieAsset.Attributes` member |
+|  [09]   | `CobieDocument` / `CobieConnection` / `CobieCoordinate` / `CobieIssue` / `CobieImpact` / `CobieClassification` | satellite entities | linked documents, component connections, geometry placement, issues, sustainability impacts, classification references |
 |  [10]   | `CobieProject` / `CobieSite` / `CobiePhase` / `CobieCreatedInfo` | header entities | the COBie project/site/phase header and the created-by/created-on provenance record |
-|  [11]   | `CobiePickValue` (abstract) + `CobieCategory`/`CobieRole`/`CobieAssetType`/`CobieStageType`/`CobieConnectionType`/`CobieDocumentType`/`CobieJobType`/`CobieJobStatusType`/`CobieIssueType`/`CobieSpareType`/`CobieResourceType`/`CobieImpactType`/`CobieImpactStage` | pick-list dictionaries | the closed enumeration/classification vocabularies COBie rows reference |
+|  [11]   | `CobiePickValue` (abstract) + `CobieCategory`/`CobieRole`/`CobieAssetType`/`CobieStageType`/`CobieConnectionType`/`CobieDocumentType`/`CobieJobType`/`CobieJobStatusType`/`CobieIssueType`/`CobieSpareType`/`CobieResourceType`/`CobieImpactType`/`CobieImpactStage`/`CobieApprovalType`/`CobieIssueChance`/`CobieIssueImpact`/`CobieIssueRisk` | pick-list dictionaries | the closed enumeration/classification vocabularies COBie rows reference (the `Issue*` risk/chance/impact triad keys `CobieIssue`) |
 |  [12]   | `CobieAreaUnit`/`CobieLinearUnit`/`CobieVolumeUnit`/`CobieCurrencyUnit`/`CobieDurationUnit`/`CobieImpactUnit` | unit pick-values | the COBie unit dictionaries (the `Planning/cost` currency + `UnitsNet` measure touchpoints) |
 |  [13]   | `AttributeValue` (select) + `StringValue`/`IntegerValue`/`FloatValue`/`BooleanValue`/`DateTimeValue` | value select | the typed COBie attribute value (EXPRESS select over the five primitive value structs) |
 |  [14]   | `EntityFactoryCobieExpress` (`IEntityFactory`) | entity factory     | the schema entity factory the `CobieModel` constructs entities through |

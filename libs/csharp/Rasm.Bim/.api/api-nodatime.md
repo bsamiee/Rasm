@@ -133,6 +133,21 @@ value types to the STJ and protobuf wire seams, so a receipt timestamp authored 
 |  [19]   | `Interval.Contains`                | interval predicate | receipt-window membership   |
 |  [20]   | `Interval.Start`/`End`/`Duration`  | interval projection | receipt-window bounds + elapsed span |
 
+[ENTRYPOINT_SCOPE]: local/calendar value construction, arithmetic, and static anchors
+- rail: time
+
+| [INDEX] | [SURFACE]                                                            | [ENTRY_FAMILY]      | [RAIL]                       |
+| :-----: | :------------------------------------------------------------------ | :------------------ | :--------------------------- |
+|  [01]   | `Instant.MinValue`                                                  | sentinel anchor     | the min-instant sentinel an uninitialized capture/window carries (`BimModel` init) |
+|  [02]   | `Duration.Zero` / `Period.Zero`                                    | identity anchor     | the zero elapsed-span / zero calendar-span identity a fold seeds |
+|  [03]   | `Duration.TotalDays` (+ `TotalHours`/`TotalMinutes`/`TotalSeconds`) | elapsed projection  | the `double` whole-span projection a ratio/earned-value fold divides by |
+|  [04]   | `DateTimeZone.Utc`                                                 | fixed-zone anchor   | the UTC `DateTimeZone` a default working-time function binds |
+|  [05]   | `LocalDate.FromDateTime` / `LocalDateTime.FromDateTime` (`(DateTime[, CalendarSystem])`) | BCL intake | `DateTime` -> calendar value — the GeometryGym `IfcTaskTime`/`IfcWorkTime` `DateTime` boundary intake |
+|  [06]   | `LocalDate.PlusDays(int)` / `LocalDate.Next(IsoDayOfWeek)`          | date arithmetic     | day-step and next-weekday advance over a work-calendar walk |
+|  [07]   | `LocalDate.DayOfWeek`                                              | weekday projection  | the `IsoDayOfWeek` a work-week membership test reads |
+|  [08]   | `ZonedDateTime.ToInstant()`                                        | zone -> instant     | collapse a zoned wall-clock to the global `Instant` (the CPM/schedule fold) |
+|  [09]   | `ZonedDateTime.Date`                                               | zoned projection    | the `LocalDate` a shift-boundary advance steps off |
+
 [ENTRYPOINT_SCOPE]: `TimeProvider`/BCL interop entrypoints
 - rail: time
 

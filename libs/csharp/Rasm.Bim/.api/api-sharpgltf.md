@@ -51,13 +51,13 @@ for game-engine integration (`SharpGLTF.Runtime`) across three coordinated packa
 
 | [INDEX] | [SYMBOL]             | [RAIL]   | [CAPABILITY]                                                            |
 | :-----: | :------------------- | :------- | :---------------------------------------------------------------------- |
-|  [01]   | `ModelRoot`          | geometry | root object for a glTF asset; owns all logical collections              |
+|  [01]   | `ModelRoot`          | geometry | root object for a glTF asset; owns all logical collections — `LogicalMeshes`/`LogicalBufferViews`/`LogicalBuffers`/`LogicalAccessors`/`LogicalMaterials`/`LogicalNodes` typed read-lists |
 |  [02]   | `ReadContext`        | geometry | context for reading glTF/GLB from file, stream, or bytes                |
 |  [03]   | `ReadSettings`       | geometry | validation policy and URI-resolution options for read                   |
 |  [04]   | `WriteContext`       | geometry | context for writing glTF/GLB to file, stream, or callback               |
 |  [05]   | `WriteSettings`      | geometry | validation and buffer-merge options for write                           |
 |  [06]   | `ExtensionsFactory`  | geometry | global extension registry; `RegisterExtension<TParent,TExt>` adds types |
-|  [07]   | `LogicalChildOfRoot` | geometry | base for all logical resources (mesh, material, accessor, etc.)         |
+|  [07]   | `LogicalChildOfRoot` | geometry | base for all logical resources (mesh, material, accessor, etc.); `LogicalParent` walks each resource back to its owning `ModelRoot` |
 
 [PUBLIC_TYPE_SCOPE]: Schema2 — scene graph and logical resources
 - package: `SharpGLTF.Core`
@@ -68,10 +68,10 @@ for game-engine integration (`SharpGLTF.Runtime`) across three coordinated packa
 | :-----: | :----------------- | :------- | :--------------------------------------------------------------------------------------------------------------------- |
 |  [01]   | `Scene`            | geometry | root nodes of a scene                                                                                                  |
 |  [02]   | `Node`             | geometry | scene-graph node; carries mesh, skin, TRS, children                                                                    |
-|  [03]   | `Mesh`             | geometry | set of `MeshPrimitive` objects for rendering                                                                           |
-|  [04]   | `MeshPrimitive`    | geometry | geometry + material; carries attribute accessors                                                                       |
-|  [05]   | `Accessor`         | geometry | typed view into a buffer view; scalar/vec/matrix                                                                       |
-|  [06]   | `BufferView`       | geometry | contiguous subset of a `Buffer`                                                                                        |
+|  [03]   | `Mesh`             | geometry | set of `MeshPrimitive` objects for rendering; `Primitives` (`IReadOnlyList<MeshPrimitive>`), `LogicalParent` (owning `ModelRoot`)                  |
+|  [04]   | `MeshPrimitive`    | geometry | geometry + material; carries attribute accessors; `LogicalParent` (owning `Mesh`, so `prim.LogicalParent.LogicalParent` reaches the `ModelRoot`); `GetVertexAccessor(string)`/`GetIndexAccessor()` -> `Accessor` |
+|  [05]   | `Accessor`         | geometry | typed view into a buffer view; scalar/vec/matrix; `AsScalarArray()`/`AsVector2Array()`/`AsVector3Array()`/`AsIndicesArray()` -> `IAccessorArray<T>` typed element views |
+|  [06]   | `BufferView`       | geometry | contiguous subset of a `Buffer`; `Content` (`ArraySegment<byte>`) — the raw view bytes a compressed-buffer-view decode reads; `IsIndexBuffer`/`IsVertexBuffer` (`bool`, the `BufferMode` target discriminant) |
 |  [07]   | `Buffer`           | geometry | raw binary blob; internal or external URI                                                                              |
 |  [08]   | `Material`         | geometry | material appearance; PBR metallic-roughness and channel parameters reached through `FindChannel`                       |
 |  [09]   | `MaterialChannel`  | geometry | `readonly struct` channel projection; carries texture or parameter values                                              |
@@ -123,11 +123,11 @@ for game-engine integration (`SharpGLTF.Runtime`) across three coordinated packa
 | :-----: | :---------------- | :------- | :------------------------------------------------------ |
 |  [01]   | `ScalarArray`     | geometry | typed `Memory<byte>` view over scalar accessor data     |
 |  [02]   | `Vector2Array`    | geometry | typed `Memory<byte>` view over Vector2 accessor data    |
-|  [03]   | `Vector3Array`    | geometry | typed `Memory<byte>` view over Vector3 accessor data    |
+|  [03]   | `Vector3Array`    | geometry | typed `Memory<byte>` view over Vector3 accessor data; `Fill(IEnumerable<Vector3>, int dstStart = 0)` writes the decoded span back |
 |  [04]   | `Vector4Array`    | geometry | typed `Memory<byte>` view over Vector4 accessor data    |
 |  [05]   | `QuaternionArray` | geometry | typed `Memory<byte>` view over quaternion accessor data |
 |  [06]   | `Matrix4x4Array`  | geometry | typed `Memory<byte>` view over matrix4x4 accessor data  |
-|  [07]   | `IntegerArray`    | geometry | typed `Memory<byte>` view over index accessor data      |
+|  [07]   | `IntegerArray`    | geometry | typed `Memory<byte>` view over index accessor data; `Fill(IEnumerable<int>/<uint>, int dstStart = 0)` writes the decoded indices back |
 |  [08]   | `ColorArray`      | geometry | typed `Memory<byte>` view over color accessor data      |
 
 [PUBLIC_TYPE_SCOPE]: Schema2 — validation
@@ -206,7 +206,7 @@ for game-engine integration (`SharpGLTF.Runtime`) across three coordinated packa
 |  [06]   | `PrimitiveBuilder<TMat,TvG,TvM,TvS>` | geometry | builds point/line/triangle primitives; `AddTriangle`, `AddQuadrangle` |
 |  [07]   | `VertexBuilder<TvG,TvM,TvS>`         | geometry | typed vertex struct: geometry + material + skinning fragments         |
 |  [08]   | `VertexBufferColumns`                | geometry | column-per-attribute vertex buffer; transpose layout                  |
-|  [09]   | `SceneBuilderSchema2Settings`        | geometry | conversion options: strided buffers, merge, GPU instancing threshold  |
+|  [09]   | `SceneBuilderSchema2Settings`        | geometry | conversion options: `UseStridedBuffers` (`bool`, strided vs streamed vertex buffers), merge, GPU instancing threshold  |
 
 `PackedMeshBuilder<TMat>` is `internal`; it packs `IMeshBuilder` collections into a Schema2 mesh during `ToGltf2` and is never named by a consumer.
 
@@ -288,7 +288,7 @@ The template types (`ArmatureTemplate`, `NodeTemplate`, `DrawableTemplate` and i
 | [INDEX] | [SYMBOL]                      | [RAIL]   | [CAPABILITY]                                                             |
 | :-----: | :---------------------------- | :------- | :----------------------------------------------------------------------- |
 |  [01]   | `IMeshDecoder<TMat>`          | geometry | mesh decode interface; name, extras, logical index, primitives           |
-|  [02]   | `IMeshPrimitiveDecoder`       | geometry | primitive decode interface; positions, normals, UVs, colors, skin        |
+|  [02]   | `IMeshPrimitiveDecoder`       | geometry | primitive decode interface; positions, normals, UVs, colors, skin; instance reads `GetPosition(int)`/`GetNormal(int)` (untransformed, distinct from the `MeshDecoder` `IGeometryTransform` extensions) + `TriangleIndices` |
 |  [03]   | `IMeshPrimitiveDecoder<TMat>` | geometry | typed variant carrying material reference                                |
 |  [04]   | `MeshDecoder`                 | geometry | static utility; `Decode()` extension on `Mesh` and `IReadOnlyList<Mesh>` |
 
@@ -311,6 +311,7 @@ The template types (`ArmatureTemplate`, `NodeTemplate`, `DrawableTemplate` and i
 |  [06]   | `ReadContext.ReadBinarySchema2`       | `(Stream)`                            | forces binary GLB parse                      |
 |  [07]   | `ReadContext.IdentifyBinaryContainer` | `(Stream)`                            | returns whether stream is glTF or GLB        |
 |  [08]   | `ModelRoot.GetSatellitePaths`         | `(string)`                            | returns satellite file paths for a glTF path |
+|  [09]   | `ReadContext.ReadJson` / `ReadJsonBytes` | `(Stream)` → `string` / `ReadOnlyMemory<byte>` | extracts the JSON chunk from a GLB container — the raw-DOM read for an extension SharpGLTF drops (Draco/meshopt) |
 
 [ENTRYPOINT_SCOPE]: ModelRoot — write
 - package: `SharpGLTF.Core`
@@ -490,7 +491,7 @@ The scale/translation/rotation/morph channels each carry a second `(TangentIn, V
 - compression leg: `SharpGLTF.Core` carries NO Draco/meshopt encoder (decompile-verified absence — see `COMPRESSION_LAW`); the encode legs stack the sibling-admitted `Openize.Drako` (`KHR_draco_mesh_compression`) and `Alimer.Bindings.MeshOptimizer` (`EXT_meshopt_compression`), both catalogued separately and both Compute-side outside-Rhino. The `ModelRoot` is authored uncompressed here, then the encode adapter rewrites the buffer-views — SharpGLTF owns the schema, the sibling owns the codec.
 - structural-metadata leg: per-tile `EXT_structural_metadata`/`EXT_mesh_features` (3D Tiles 1.1) lives in `SharpGLTF.Ext.3DTiles` (`api-sharpgltf-3dtiles`, separate package + `OneOf` transitive), NOT Core — the same `ModelRoot`/`MeshPrimitive` is the shared mutation target across both packages.
 - georeference leg: an imported `ModelRoot`'s decoded vertex span (`MeshDecoder.Decode` → `IMeshPrimitiveDecoder`) feeds the `Semantics/georeference#GEODETIC_TRANSFORM` `ProjNET` batch reproject before the frame normalization, so a glTF asset lands in the shared projected frame; the decode's `IGeometryTransform` arg and the ProjNET `Span` batch are two stages of one ingest rail.
-- identity leg: a `ModelRoot.WriteGLB(WriteSettings)` byte segment (or a `MemoryAccessor` buffer region) feeds `System.IO.Hashing` `XxHash3.Append` directly for the export snapshot fingerprint — zero-copy over the produced `ArraySegment<byte>`.
+- identity leg: a `ModelRoot.WriteGLB(WriteSettings)` byte segment (or a `MemoryAccessor` buffer region) feeds `System.IO.Hashing` `XxHash3`/`XxHash128` via `Append` (`api-hashing`) zero-copy over the produced `ArraySegment<byte>` — `XxHash3` is the fast in-process export snapshot fingerprint, `XxHash128` (`GetCurrentHashAsUInt128`) the persisted, collision-resistant GLB content key the `Rasm.Persistence` artifact index is content-addressed by, so the glTF export anchors the same XxHash128-keyed content-identity rail the IFC/CityJSON/FBX siblings join.
 - decode policy: `RuntimeOptions` (`IsolateMemory`, `GpuMeshInstancing`, `ExtrasConverterCallback`) is the single decode-policy carrier threaded through `SceneTemplate.Create` and `MeshDecoder.Decode`; the normal/tangent generation runs inside that decode under the `internal` `VertexNormalsFactory`/`VertexTangentsFactory` kernels, never re-implemented.
 
 [LOCAL_ADMISSION]:

@@ -105,7 +105,7 @@
 
 [ENTRYPOINT_SCOPE]: `jax.numpy` array construction, predicates, and reductions
 - rail: accelerator
-- the array constructor surface every sibling carrier is built from; arrays are immutable, so writes go through `x.at[idx].set/add/mul(v)`. `jnp.asarray` is the canonical host->device adoption boundary; `isfinite`/`isnan` are the finiteness predicates a solver/receipt rail reads to gate divergence.
+- the array constructor surface every sibling carrier is built from; arrays are immutable, so writes go through `x.at[idx].set/add/mul(v)`. `jnp.asarray` is the canonical host->device adoption boundary; `isfinite`/`isnan` are the finiteness predicates a solver/receipt rail reads to gate divergence. `jnp.float64` is the explicit double-precision dtype handed to `asarray`/`ShapeDtypeStruct` once `config.update("jax_enable_x64", True)` is set (the x32 default truncates it).
 
 | [INDEX] | [SURFACE]                                          | [ENTRY_FAMILY]   | [CAPABILITY]                                                  |
 | :-----: | :------------------------------------------------- | :--------------- | :----------------------------------------------------------- |
@@ -115,6 +115,7 @@
 |  [04]   | `numpy.where(cond, x, y)` / `clip(a, min, max)`    | selection        | branchless select / clamp inside a traced kernel             |
 |  [05]   | `numpy.einsum(subscripts, *operands)`              | contraction      | named-index tensor contraction lowered to XLA dot-general    |
 |  [06]   | `numpy.linalg.{solve,lstsq,norm,cholesky,svd,eigh}`| dense linalg     | NumPy-API linear algebra; `lineax` owns the iterative/structured path |
+|  [07]   | `numpy.max(a, axis=None, keepdims=False)` / `sum(a, axis=None)` / `argmin(a, axis=None)` | reduction | worst-case / total / index reductions over a traced array (verdict-code fold, residual total, candidate-index select); the `jnp` reduction replaces Python `max`/`sum`/`float()` over a `Tracer`, which raise inside a transform |
 
 [ENTRYPOINT_SCOPE]: pytree operations (`jax.tree_util`)
 - rail: accelerator

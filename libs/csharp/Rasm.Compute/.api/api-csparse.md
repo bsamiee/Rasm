@@ -68,10 +68,11 @@ Dulmage-Mendelsohn / strongly-connected-component graph layer and Matrix Market 
 |  [01]   | `new CoordinateStorage<T>(rowCount, columnCount, nzmax)`                                    | constructor    | empty triplet builder                        |
 |  [02]   | `CoordinateStorage<T>.At(int i, int j, T value)`                                            | accumulate     | append/accumulate a triplet (duplicates sum) |
 |  [03]   | `Converter.ToCompressedColumnStorage<T>(CoordinateStorage<T>, cleanup=true, inplace=false)` | finalize       | COO → CCS, summing + sorting duplicates      |
-|  [04]   | `Converter.FromEnumerable<T>(IEnumerable<(int,int,T)>, rows, cols)`                         | ingest         | sparse triple stream → COO                    |
-|  [05]   | `Converter.FromDenseArray<T>(T[,])` / `FromJaggedArray<T>(T[][])`                            | ingest         | dense → COO (drops structural zeros)         |
-|  [06]   | `Converter.FromColumnMajorArray<T>` / `FromRowMajorArray<T>(T[], rows, cols)`                | ingest         | flat dense buffer → COO                       |
-|  [07]   | `CoordinateStorage<T>.Transpose(alloc=false)` / `Keep(Func<int,int,T,bool>)` / `Clear()`    | reshape        | triplet transpose / structural filter / reset |
+|  [04]   | `CompressedColumnStorage<T>.OfIndexed(CoordinateStorage<T>, inplace=false)`                  | finalize       | COO → CCS storage-side factory (wraps `Converter.ToCompressedColumnStorage` with cleanup on); inherited by `SparseMatrix` |
+|  [05]   | `Converter.FromEnumerable<T>(IEnumerable<(int,int,T)>, rows, cols)`                         | ingest         | sparse triple stream → COO                    |
+|  [06]   | `Converter.FromDenseArray<T>(T[,])` / `FromJaggedArray<T>(T[][])`                            | ingest         | dense → COO (drops structural zeros)         |
+|  [07]   | `Converter.FromColumnMajorArray<T>` / `FromRowMajorArray<T>(T[], rows, cols)`                | ingest         | flat dense buffer → COO                       |
+|  [08]   | `CoordinateStorage<T>.Transpose(alloc=false)` / `Keep(Func<int,int,T,bool>)` / `Clear()`    | reshape        | triplet transpose / structural filter / reset |
 
 [ENTRYPOINT_SCOPE]: CCS arithmetic, matvec, and norms (`SparseMatrix`)
 - rail: numeric
@@ -88,6 +89,7 @@ Dulmage-Mendelsohn / strongly-connected-component graph layer and Matrix Market 
 |  [08]   | `void Add(double alpha, double beta, other, result)`                                  | matrix add       | α·A + β·B into result             |
 |  [09]   | `int Keep(Func<int,int,double,bool>)` / `int DropZeros(tolerance=0.0)`                | filter           | structural drop by predicate / ε  |
 |  [10]   | `double L1Norm()` / `InfinityNorm()` / `FrobeniusNorm()`                              | norm             | sparse matrix norms               |
+|  [11]   | `int RowCount` / `int ColumnCount` (`Matrix<T>`) · `int NonZerosCount` · `CompressedColumnStorage<T> Clone(bool values=true)` | storage props | dimensions, structural nnz, and a pattern+value copy (`Clone(values:false)` clones the pattern only) |
 
 [ENTRYPOINT_SCOPE]: factorization create and solve
 - rail: numeric
@@ -167,7 +169,18 @@ mode for `SparseCholesky`/`SparseLDL`), `MinimumDegreeStS` (AMD on AᵀA, dense 
   `ISolver`) `Create` a CSparse factorization over a `CompressedColumnStorage<double>` (e.g.
   `CholeskySolver` → `SparseCholesky.Create(A, ColumnOrdering.MinimumDegreeAtPlusA)`), and BFE's
   `StaticLinearAnalysisResult.Solvers_New` caches them in a `Dictionary<SparseMatrix, ISolver>` keyed
-  by the CSparse matrix. BFE's `Solve(ISolverFactory)` is the injection seam — route its
+  by the CSparse matrix. BFE 2.1.2 binding seam — BFE floors `CSparse` at the nuspec minimum `>= 3.5.0`
+  (the workspace unifies it to this `4.4.0` pin) and `BriefFiniteElementNet.Common` embeds a private
+  `CSparse.Double.Factorization.DenseLU : ISolver<double>` implementing only `Solve(double[], double[])`;
+  the 4.x `ISolver<T>` adds an abstract `Solve(ReadOnlySpan<double>, Span<double>)` (no default interface
+  method), so `DenseLU` — driving BFE's dense `DenseColumnMajorStorage<double>`
+  `Determinant()`/`Inverse()`/`Solve(double[])` extensions on the isoparametric Jacobian path of its 2D/3D
+  elements — throws `TypeLoadException` under 4.4.0; only BFE's SPARSE path above is binary-clean, so BFE
+  confines to the sparse-factored frame solve and continuum problems route to the Compute `SolveLane`. The
+  `>= 3.5.0` floor alone is benign — `FEALiTE2D` carries the same floor yet binds only CSparse's own
+  `SparseCholesky`/`SparseQR`/`ISparseFactorization<double>` (no embedded CSparse interface), so it stays
+  binary-clean under 4.4.0; the break is specific to BFE's embedded `DenseLU`.
+  BFE's `Solve(ISolverFactory)` is the injection seam — route its
   `ISolverFactory` through a Rasm-owned CSparse-backed solver so the structural-frame and continuum
   lanes share ONE `ISparseFactorization<double>` owner instead of BFE standing up a parallel
   sparse-factor stack.

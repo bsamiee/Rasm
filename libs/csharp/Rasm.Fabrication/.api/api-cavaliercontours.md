@@ -44,7 +44,7 @@
 |  [07]   | `PlineOffsetOptions<T>`   | options record  | `HandleSelfIntersects`, `PosEqualEps`, `SliceJoinEps`, `OffsetDistEps`, the pre-built `AabbIndex` |
 |  [08]   | `PlineBooleanOptions<T>`  | options record  | `PosEqualEps`, `CollapsedAreaEps`, the pre-built `Pline1AabbIndex`        |
 |  [09]   | `PlineContainsOptions<T>` / `FindIntersectsOptions<T>` / `PlineSelfIntersectOptions<T>` | options record | the per-facade epsilon + index injection knobs |
-|  [10]   | `BooleanResult<O,T>` / `BooleanResultPline<O,T>` | result carrier | the Boolean output: positive (kept) and negative (subtracted) result polylines with subslice provenance |
+|  [10]   | `BooleanResult<O,T>` / `BooleanResultPline<O,T>` | result carrier | the Boolean output — `BooleanResult.PosPlines`/`NegPlines : List<BooleanResultPline<O,T>>` (the kept / subtracted result loops; the positive list is `PosPlines`, never a `Positive` accessor) plus `ResultInfo : BooleanResultInfo`; each `BooleanResultPline` carries `.Pline : O` (the result polyline the fold reads) and `.Subslices : List<BooleanPlineSlice<T>>` provenance |
 |  [11]   | `ClosestPointResult<T>`   | result struct   | `SegIndex`, `SegClosestPoint`, `Distance` — the `ClosestPoint` projection |
 
 [PUBLIC_TYPE_SCOPE]: spatial index and geometry primitives (`CavalierContours.Spatial`, `.Core`)
@@ -70,7 +70,7 @@
 |  [01]   | `Shape<T>`              | multi-loop owner | `CcwPlines`/`CwPlines : List<IndexedPolyline<T>>` + `PlinesIndex`; `FromPlines(IEnumerable<Polyline<T>>)`/`Empty()`; `ParallelOffset(T offset, ShapeOffsetOptions<T>)` → `Shape<T>` offsetting all loops together with CCW-outer/CW-hole nesting preserved |
 |  [02]   | `OffsetLoop<T>`         | loop carrier    | `{ ParentLoopIdx : int, IndexedPline : IndexedPolyline<T> }` — one offset loop tagged with its parent for the shape's hole topology |
 |  [03]   | `ShapeOffsetOptions<T>` | options record  | `PosEqualEps`/`OffsetDistEps`/`SliceJoinEps`; ctor `(posEqualEps, offsetDistEps, sliceJoinEps)` |
-|  [04]   | `IndexedPolyline<T>`    | indexed loop    | a `Polyline<T>` paired with its prebuilt `StaticAABB2DIndex<T>` (the shape's per-loop cache) |
+|  [04]   | `IndexedPolyline<T>`    | indexed loop    | a `Polyline<T>` paired with its prebuilt `StaticAABB2DIndex<T>` (the shape's per-loop cache) — `.Polyline : Polyline<T>` and `.SpatialIndex : StaticAABB2DIndex<T>`; the offset fold iterates `Shape<T>.CcwPlines`/`CwPlines` and reads each `IndexedPolyline.Polyline` back to a `Loop` |
 
 ## [03]-[ENTRYPOINTS]
 

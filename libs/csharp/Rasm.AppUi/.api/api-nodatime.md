@@ -96,9 +96,10 @@
 |  [11]   | `LocalDateTime.InZoneLeniently`  | lenient mapping    | resolves ambiguous input    |
 |  [12]   | `LocalDateTime.InZone(zone, resolver)` | resolver mapping | explicit mapping policy      |
 |  [13]   | `Duration.From{Days,Hours,Minutes,Seconds,Milliseconds,Ticks,Nanoseconds}` | duration factory | elapsed span construction   |
-|  [14]   | `Period.From*` / `Period.Between(start, end, units)` | period factory/calc | calendar span construct + diff |
-|  [15]   | `PeriodBuilder.Build`            | period builder     | mutable span finalization   |
-|  [16]   | `Interval.Contains` / `DateInterval.Contains` | interval predicate | receipt-window membership   |
+|  [14]   | `Duration.Zero` / `Duration.Total{Days,Hours,Minutes,Seconds,Milliseconds,Ticks,Nanoseconds}` | duration anchor/accessor | zero (additive identity) + `double` whole-span read |
+|  [15]   | `Period.From*` / `Period.Between(start, end, units)` | period factory/calc | calendar span construct + diff |
+|  [16]   | `PeriodBuilder.Build`            | period builder     | mutable span finalization   |
+|  [17]   | `Interval.Contains` / `DateInterval.Contains` | interval predicate | receipt-window membership   |
 
 [ENTRYPOINT_SCOPE]: zone, calendar, and resolver operations — `Resolvers.CreateMappingResolver` is the composition combinator that fuses an ambiguous + skipped resolver into a `ZoneLocalMappingResolver` — rail: time
 

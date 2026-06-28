@@ -38,9 +38,9 @@
 |  [01]   | `IfcTypeFacet`             | entity facet       | `IfcType` + `PredefinedType` (`ValueConstraint`) + `IncludeSubtypes` |
 |  [02]   | `AttributeFacet`           | attribute facet    | `AttributeName` + `AttributeValue` (`ValueConstraint`)      |
 |  [03]   | `IfcPropertyFacet`         | property facet     | `PropertySetName` + `PropertyName` + `PropertyValue` (`ValueConstraint`) + `DataType` |
-|  [04]   | `IfcClassificationFacet`   | classification facet | classification system + reference value (`ValueConstraint`) |
-|  [05]   | `MaterialFacet`            | material facet     | a material value (`ValueConstraint`)                        |
-|  [06]   | `PartOfFacet`              | part-of facet      | a containing-entity `IfcType` + an IFC `RelationType`       |
+|  [04]   | `IfcClassificationFacet`   | classification facet | `ClassificationSystem` + `Identification` (both `ValueConstraint?`) + `IncludeSubClasses` |
+|  [05]   | `MaterialFacet`            | material facet     | `Value` (`ValueConstraint?`) — the material value matcher   |
+|  [06]   | `PartOfFacet`              | part-of facet      | `EntityType` (`IfcTypeFacet?`, the containing-entity facet whose `IfcType` the part-of lowers) + `EntityRelation` (the IFC relation kind) |
 |  [07]   | `DocumentFacet`            | document facet     | a document reference value (an extended facet)              |
 |  [08]   | `IfcRelationFacet`         | relation facet     | an IFC relation kind (`IfcRelationFacet.RelationType`)      |
 
@@ -86,7 +86,7 @@
 |  [04]   | `Xids.Load(FileInfo sourceFile, ILogger? logger = null)` / `Xids.LoadFromJson(string sourceFile, …)` | static load | native JSON / format-detecting load |
 |  [05]   | `Xids.SaveAsJson(string destinationFile, ILogger? logger = null)` / `(Stream, …)`  | save           | writes the native JSON form                       |
 |  [06]   | `Xids.CanLoad(FileInfo sourceFile, ILogger? logger = null)` / `Xids.IsZipped(Stream, …)` / `Xids.HasData(Xids?)` | probe | format admissibility and content probes |
-|  [07]   | `Xids.FromStream(Stream s)` / `Xids.Purge()` / `Xids.AssemblyVersion`              | document op    | stream load, drop-empty cleanup, package version  |
+|  [07]   | `Xids.AllSpecifications()` / `Xids.FromStream(Stream s)` / `Xids.Purge()` / `Xids.AssemblyVersion` | document op | flatten every `SpecificationsGroup`'s `Specification`s (`IEnumerable<Specification>` the `Parse` fold maps), stream load, drop-empty cleanup, package version |
 
 [ENTRYPOINT_SCOPE]: specification authoring
 - rail: validation#IDS_FACETS

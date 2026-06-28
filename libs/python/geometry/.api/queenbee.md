@@ -11,8 +11,7 @@
 - rail: energy / recipe-contract
 - installed: `2.0.1`
 - license: `MIT`
-- abi: pure-Python (`py3-none-any`, purelib; no native extension); `pydantic>=2.0,<3.0` model floor with `pyyaml` + `jsonschema` runtime deps
-- companion-gated: admitted `python_version < '3.15'` alongside the Ladybug Tools cluster; absent from the cp315 frozen env (`api resolve --frozen` cannot reach it), so the members below are confirmed against the resolved companion wheel source (`2.0.1`)
+- abi: pure-Python (`py3-none-any`, purelib; no native extension; `Requires-Python >=3.10,<4.0`); `pydantic>=2.0,<3.0` model floor with `pyyaml` + `jsonschema` runtime deps
 - depends: `pydantic (>=2.0,<3.0)` (model base + discriminated unions), `pyyaml (>=6.0)` (recipe folder round-trip), `jsonschema (>=4.17.3)` (DAG input `spec` validation)
 - entry points: the `queenbee` schema graph is the admitted surface; queenbee's own click-based CLI (`[cli]` extra) is not admitted (the repo parser is `cyclopts`), and the `queenbee local run` executor is added by `queenbee-local` (runtime's concern)
 - capability: pydantic-v2 schema for `Recipe`/`BakedRecipe`/`RecipeInterface`, `Plugin`/`Function` templates with docker/local config, the nine typed DAG/Function/Step IO discriminated unions plus their alias + reference families, `Job` parametric argument submission with status models, recipe/plugin repository packaging, and YAML/JSON folder serialization

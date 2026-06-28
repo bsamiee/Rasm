@@ -20,7 +20,7 @@
 
 ## [02]-[DOMAIN_PACKAGES]
 
-Every domain library the folder uses, planned or implemented. Versions are centralized in the one Python branch manifest and never pinned here; substrate packages live in `[3]-[SUBSTRATE_PACKAGES]` below. A `(admit)` tag marks a library a forward task still draws on that no provenance yet provides, so the registry never implies a phantom dependency.
+Every domain library the folder uses, planned or implemented. Versions are centralized in the one Python branch manifest; substrate packages live in `[3]-[SUBSTRATE_PACKAGES]` below. A `(admit)` tag marks a library a forward task still draws on that no provenance yet provides, so the registry never implies a phantom dependency.
 
 [IFC_BIM]:
 - `ifcopenshell` - IFC model, geometry, and tessellation spine

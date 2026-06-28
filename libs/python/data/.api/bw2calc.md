@@ -11,10 +11,10 @@
 - rail: lca-engine (EPD/LCA cluster)
 - version: `2.5.0`
 - license: `BSD-3-Clause` (declared in package metadata)
-- asset: pure Python (zero compiled extensions); the numerics are `scipy` sparse + `numpy`, the matrix mapping is `matrix_utils`, and the uncertainty distributions are `stats_arrays`. `Requires-Python >=3.9`
+- asset: pure Python, `py3-none-any` purelib (zero compiled extensions, ABI-agnostic); the numerics are `scipy` sparse + `numpy`, the matrix mapping is `matrix_utils`, the uncertainty distributions are `stats_arrays`, and graph traversal is `bw_graph_tools`
 - depends-on: `bw_processing>=1.0` (the datapackage input format), `matrix_utils>=0.6` (the datapackage->`scipy`-sparse mapper, surfaced as `technosphere_mm`/`biosphere_mm`), `scipy` (SuperLU/`spsolve`/iterative solvers), `numpy<3`, `stats_arrays` (the `UNCERTAINTY_DTYPE` distribution samplers for Monte Carlo), `pandas` (`to_dataframe`), `xarray` (labeled multi-result arrays), `pydantic` (`MethodConfig`), `fsspec`, `bw_graph_tools>=0.8`
-- optional accel: `scikit-umfpack` swaps the sparse backend to UMFPACK (warns once on ARM at import if absent); it is a performance dependency, not required for correctness
-- marker: COMPANION-GATED. Pinned `bw2calc; python_version<'3.15'`. Pure-Python package; the gate is TRANSITIVE — `numpy<3`, `scipy`, `pandas` lack `cp315` wheels at admission, so the cluster pins `<3.15`. `assay api resolve bw2calc` cannot reflect on the active `cp315` interpreter; this surface is verified against the real `bw2calc 2.5.0` wheel on an isolated `cp313` install (`matrix_utils 0.8`, `scipy 1.18`).
+- optional accel: the import probes a fast sparse factorizer in order — `pypardiso` (Intel/AMD x64, the MKL PARDISO backend), then `scikit-umfpack` (ARM, UMFPACK) — and warns once, arch-keyed, when neither is present, falling back to the `scipy` SuperLU `factorized`/`spsolve`; `presamples` (`PackagesDataLoader`) is an optional pre-sampled-array source. All are performance/feature dependencies, never required for correctness
+- marker: none — admitted unpinned; installed and `assay`-reflectable on the active interpreter (resolves `matrix_utils 0.8`, `stats_arrays 2.0`, `bw_graph_tools 0.9`)
 - entry points: library-only; no console script
 - capability: deterministic single-demand LCA, multi-demand x multi-method batch scoring, four solver strategies for square/non-square/large-sparse/iterative systems, supply-vector caching, factorization reuse across redemands and method switches, Monte Carlo uncertainty propagation (sampling) and pre-sampled array iteration, technosphere inversion, and top-contributor dataframes
 

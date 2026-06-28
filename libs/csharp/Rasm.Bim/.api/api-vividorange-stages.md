@@ -12,7 +12,7 @@ Whitby-Wood baseline, the UK RIBA Plan of Work (2020 stages 0-7 plus the 2007 st
 German HOAI Leistungsphasen (LP1-LP9), the Italian CSLP scale (PFTE/DD/EXE/DL/Collaudo), and the
 Danish AB89 scale. The INTEGRATION VALUE is the cross-national NORMALIZATION carried by the
 category interfaces: every concrete national stage implements BOTH `IStage` AND one (or more) of
-the ten international category interfaces (`IIdea`/`IBrief`/`ICompetition`/`IPredesign`/
+the eleven international category interfaces (`IIdea`/`IBrief`/`ICompetition`/`IPredesign`/
 `IConceptualDesign`/`ISchematicDesign`/`IDetailedDesign`/`IConstruction`/`IHandover`/`IInUse`/
 `IEndOfLife`), so a UK `RIBAStage5`, a German `LP8`, and a Danish `Udfoerelse` are all `IConstruction`
 — a single international category axis unifies otherwise heterogeneous national phase scales. The
@@ -90,8 +90,8 @@ national-context sibling under the same publisher and license.
 | [INDEX] | [SYMBOL]                                              | [TYPE_FAMILY]   | [RAIL]                                            |
 | :-----: | :--------------------------------------------------- | :-------------- | :----------------------------------------------- |
 |  [01]   | `Idea`/`Brief`/`Competition`/`ConceptDesign`/`SchematicDesign`/`DetailedDesign`/`Construction`/`Handover`/`InUse`/`EndOfLife` (`Stages`) | International stages (Id 1-10) | the Whitby-Wood baseline, each `IStage` + its category interface |
-|  [02]   | `UK.RIBAStage0`…`RIBAStage7` (+ `RIBAStageF`)        | RIBA 2020 stages | Strategic-Definition(0) … In-Use(7) Plan of Work, each mapped to a category interface |
-|  [03]   | `UK.RIBA2007.RIBAStageA`…`RIBAStageL`                | RIBA 2007 stages | Appraisal(A) … Post-Practical-Completion(L) legacy scale |
+|  [02]   | `UK.RIBAStage0`…`RIBAStage7` (+ `RIBAStageF`)        | RIBA 2020 stages (+ legacy F) | Strategic-Definition(0) … In-Use(7) Plan of Work; `RIBAStageF` is the retained RIBA-2007 Stage F (`Id "F"`, "Product Information") the package keeps in the `UK` namespace beside the 2020 set |
+|  [03]   | `UK.RIBA2007.RIBAStageA`/`B`/`C`/`D`/`E`/`G`/`H`/`J`/`K`/`L` | RIBA 2007 stages | Appraisal(A) … Post-Practical-Completion(L) legacy scale — Stage F lives in the `UK` namespace (row [02]) and I is skipped per RIBA lettering, so this roster is the ten classes A–E/G–H/J–L |
 |  [04]   | `Germany.LP1`…`LP9`                                  | HOAI phases     | Grundlagenermittlung(1) … Objektbetreuung(9) Leistungsphasen |
 |  [05]   | `Italy.PFTE`/`DD`/`EXE`/`DL`/`Collaudo`             | CSLP stages (1-5) | feasibility / definitive / executive / works-direction / testing |
 |  [06]   | `Denmark.Ideoplaeg`/`Byggeprogram`/`Dispositionsforslag`/`Projektforslag`/`Myndighedsprojekt`/`Hovedprojekt`/`Projektopfoelgning`/`Udfoerelse`/`Aflevering` | AB89 stages (0-8) | idea / program / outline / proposal / permission / main-project / supervision / construction / handover |
@@ -107,7 +107,7 @@ national-context sibling under the same publisher and license.
 | [INDEX] | [SURFACE]                                                          | [ENTRY_FAMILY]  | [RAIL]                                            |
 | :-----: | :---------------------------------------------------------------- | :-------------- | :----------------------------------------------- |
 |  [01]   | `new VividOrange.Stages.UK.RIBAStage4()` (and every roster class) | construct       | the concrete national stage (constant members)    |
-|  [02]   | `stage.Name` / `stage.Description` / `stage.Id`                    | read            | the display name, human description, and scale-local id (`"4"`, `"F"`, `"LP5"`-style) |
+|  [02]   | `stage.Name` / `stage.Description` / `stage.Id`                    | read            | the display name, human description, and scale-local id — a bare per-scale token, NOT prefixed (RIBA `"4"`/`"F"`, German HOAI `"5"` not `"LP5"`, Danish `"7"`, Italian `"1"`) |
 |  [03]   | `stage.Governance` → `IGovernance`                                 | read            | the governing body (`Name`/`FullBodyName`/`Country`) |
 |  [04]   | `stage.Governance.Country` → `ICountry`                            | read            | the `VividOrange.Countries` national context the body belongs to |
 
@@ -128,9 +128,11 @@ national-context sibling under the same publisher and license.
 [STAGE_TOPOLOGY]:
 - the contract floor lives in `VividOrange.IStages` (namespace `VividOrange.Stages`): `IStage`
   (`Name`/`Description`/`Id`/`Governance`) is the project-phase head, `IGovernance`
-  (`Name`/`FullBodyName`/`Country`) is the defining body, and the ten category interfaces
+  (`Name`/`FullBodyName`/`Country`) is the defining body, and the eleven category interfaces
   (`IIdea`/`IBrief`/`ICompetition`/`IPredesign`/`IConceptualDesign`/`ISchematicDesign`/
   `IDetailedDesign`/`IConstruction`/`IHandover`/`IInUse`/`IEndOfLife`) are the international axis
+  (`IPredesign` is both a leaf category — Denmark's `Ideoplaeg` implements it directly — and the
+  super-category `IIdea`/`IBrief`/`ICompetition` refine)
 - the concrete classes live in `VividOrange.Stages` and the national namespaces; each is a constant
   value object (its members are compile-time literals) implementing `IStage` + its category interface
   + `ITaxonomySerializable`, so the roster is a fixed catalogue instantiated once, never data-driven
@@ -193,7 +195,7 @@ national-context sibling under the same publisher and license.
   `VividOrange.ISerialization`, all `0.1.0`, MIT, pure-managed `lib/net8.0` AnyCPU IL binding forward
   under net10, no native asset, no `requireLicenseAcceptance`)
 - Owns: the AEC design/construction project-LIFECYCLE stage taxonomy — the `IStage`/`IGovernance`
-  contracts, the ten international category interfaces, and the concrete national stage rosters
+  contracts, the eleven international category interfaces, and the concrete national stage rosters
   (International Whitby-Wood, UK RIBA 2020 + 2007, German HOAI, Italian CSLP, Danish AB89) with their
   governing bodies, each carrying its `VividOrange.Countries` national context
 - Accept: the canonical project-phase vocabulary the `Planning/schedule#SCHEDULE` `ProjectStage`

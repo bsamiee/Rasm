@@ -1,9 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <Description>Portable fabrication — exact hidden-line projection, CAM toolpath motion with DH/IK kinematics, and 2D true-shape nesting, composed atop the Rasm geometry kernel.</Description>
+        <CspScope>Domain</CspScope>
     </PropertyGroup>
 
-    <ItemGroup>
+    <ItemGroup Label="Project References">
         <ProjectReference Include="../Rasm/Rasm.csproj" />
     </ItemGroup>
 
@@ -23,7 +24,7 @@
         <PackageReference Include="UnitsNet" />
     </ItemGroup>
 
-    <ItemGroup>
+    <ItemGroup Label="System Usings">
         <Using Include="System.Collections.Frozen" />
     </ItemGroup>
 </Project>

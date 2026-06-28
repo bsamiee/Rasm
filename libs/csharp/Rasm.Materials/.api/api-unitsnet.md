@@ -50,6 +50,7 @@
 |  [14]   | `Torque`       | quantity       | carries torque values       |
 |  [15]   | `Ratio`        | quantity       | carries ratio values        |
 |  [16]   | `Density`      | quantity       | carries mass-density values |
+|  [17]   | `AreaMomentOfInertia` | quantity | second moment of area (mm⁴); `AreaMomentOfInertiaUnit.MeterToTheFourth` SI base — the section `MomentOfInertiaYy`/`Zz` (`Iyy`/`Izz`) carrier a `VividOrange.Sections` property exposes |
 
 [PUBLIC_TYPE_SCOPE]: admitted photometric and radiometric quantity families
 - rail: units
@@ -92,6 +93,7 @@
 |  [14]   | `TorqueUnit`       | unit enum      | `NewtonMeter` canonical and display                     |
 |  [15]   | `RatioUnit`        | unit enum      | `DecimalFraction` canonical, `Percent` display          |
 |  [16]   | `DensityUnit`      | unit enum      | `KilogramPerCubicMeter` canonical and display           |
+|  [17]   | `AreaMomentOfInertiaUnit` | unit enum | `MeterToTheFourth` canonical, `MillimeterToTheFourth` display (the `Iyy`/`Izz` section second-moment unit) |
 
 [PUBLIC_TYPE_SCOPE]: admitted photometric and radiometric unit enum families (`UnitsNet.Units`)
 - rail: units
@@ -150,6 +152,8 @@
 |  [08]   | `CompareTo`                     | comparison call | compares quantities   |
 |  [09]   | `Equals`                        | equality call   | compares quantities (with optional tolerance overload)                   |
 |  [10]   | `UnitMath.Sum<T>` / `Average<T>` / `Min<T>` / `Max<T>` / `Abs<T>` / `Clamp<T>` | math surface | typed aggregation over `IEnumerable<T : IArithmeticQuantity>` — never a raw `double` reduce |
+|  [11]   | per-unit `<Quantity>.From<Unit>(QuantityValue)` static factory family | factory call | the named-unit admit shortcut — `Length.FromMillimeters` / `Area.FromSquareMillimeters` / `Angle.FromDegrees` / `AreaMomentOfInertia.FromMillimetersToTheFourth`; the strongly-typed sibling of the generic `From(QuantityValue, Enum)` [01] the `MaterialUnits` edge constructs a quantity with |
+|  [12]   | per-unit `<quantity>.<Unit>` value-readback property family (`-> double`) | conversion call | the named-unit egress shortcut `q.<Unit> => As(<Unit>)` — `Length.Millimeters` / `Area.SquareMillimeters` / `Volume.CubicMillimeters` / `Pressure.Megapascals` / `Force.Kilonewtons` / `Torque.KilonewtonMeters` / `Ratio.DecimalFractions` / `AreaMomentOfInertia.MillimetersToTheFourth`; the strongly-typed sibling of the generic `As(Enum)` [05] the edge reads the canonical SI scalar through |
 
 [ENTRYPOINT_SCOPE]: setup and metadata
 - rail: units
@@ -187,6 +191,10 @@
 |  [14]   | `UnitConverter.TryConvert`          | converter call     | converts a scalar between units without throwing (the `MaterialUnits.Coerce` SI-base rescale) |
 |  [15]   | `UnitAbbreviationsCache.Default.GetUnitAbbreviations<TUnit>(unit, IFormatProvider?)` / `GetDefaultAbbreviation<TUnit>(unit, IFormatProvider?)` | abbreviation lookup | resolves a unit's abbreviation set under an explicit culture; absent a provider these default to `CurrentCulture` and may read a satellite, so the deterministic boundary passes `CultureInfo.InvariantCulture` |
 |  [16]   | (internal) `UnitAbbreviationsCache.FallbackCulture` | abbreviation policy | `internal` constant `== CultureInfo.InvariantCulture`; the per-unit secondary degrade a non-invariant lookup falls back to — not a public surface, so the boundary must pass `CultureInfo.InvariantCulture` explicitly rather than read it |
+|  [17]   | `IQuantity.QuantityInfo`            | metadata property  | the constructed quantity's `QuantityInfo` family descriptor (`Length.FromMeters(1).QuantityInfo`); the `Quantity.TryFrom`'d `typed.QuantityInfo.Name` the `MaterialUnits.Admit` family-membership check reads |
+|  [18]   | `QuantityInfo.Name`                 | metadata property  | the family name string (e.g. `"Illuminance"`) — the `MaterialUnits.Admit` `typed.QuantityInfo.Name == family.Name` gate + the `UnitEvidence.Family` receipt token |
+|  [19]   | `QuantityInfo.BaseUnitInfo`         | metadata property  | the `UnitInfo` of the family SI base unit (`Length.Info.BaseUnitInfo` is the `Meter` `UnitInfo`); `MaterialUnits` reads it to name the canonical rescale target |
+|  [20]   | `UnitInfo.Value`                    | unit property      | the unit `Enum` the `UnitInfo` wraps — `BaseUnitInfo.Value` is the base-unit `Enum` fed to `As`/the SI-base rescale |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

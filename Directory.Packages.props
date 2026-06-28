@@ -5,741 +5,530 @@
         <CentralPackageVersionOverrideEnabled>false</CentralPackageVersionOverrideEnabled>
     </PropertyGroup>
 
-    <ItemGroup Label="Rhino UI Compile Surface">
-        <PackageVersion Include="System.Drawing.Common" Version="10.0.9" />
-        <PackageVersion Include="System.Configuration.ConfigurationManager" Version="10.0.9" />
-        <PackageVersion Include="System.IO.Packaging" Version="10.0.9" />
+    <ItemGroup Label="Analyzer Tooling">
+        <PackageVersion Include="Meziantou.Analyzer"                         Version="3.0.115" />
+        <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers"           Version="5.3.0" />
+        <PackageVersion Include="Microsoft.CodeAnalysis.Common"              Version="5.3.0" />
+        <PackageVersion Include="Microsoft.CodeAnalysis.CSharp"              Version="5.3.0" />
+        <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.Workspaces"   Version="5.3.0" />
+        <PackageVersion Include="Microsoft.CodeAnalysis.Workspaces.Common"   Version="5.3.0" />
+        <PackageVersion Include="Microsoft.CodeAnalysis.Workspaces.MSBuild"  Version="5.3.0" />
+        <PackageVersion Include="Microsoft.VisualStudio.Threading.Analyzers" Version="18.7.23" />
+        <PackageVersion Include="PolySharp"                                  Version="1.16.0" />
     </ItemGroup>
 
-    <ItemGroup Label="Functional Core">
-        <PackageVersion Include="JetBrains.Annotations" Version="2026.2.0" />
-        <PackageVersion Include="LanguageExt.Core" Version="5.0.0-beta-77" />
-        <PackageVersion Include="Thinktecture.Runtime.Extensions" Version="10.4.0" />
-        <PackageVersion Include="Thinktecture.Runtime.Extensions.Json" Version="10.4.0" />
+    <ItemGroup Label="Host Compile Surface">
+        <PackageVersion Include="System.Configuration.ConfigurationManager" Version="10.0.9" />
+        <PackageVersion Include="System.Drawing.Common"                     Version="10.0.9" />
+        <PackageVersion Include="System.IO.Packaging"                       Version="10.0.9" />
+    </ItemGroup>
+
+    <ItemGroup Label="Foundational Core">
+        <PackageVersion Include="JetBrains.Annotations"                       Version="2026.2.0" />
+        <PackageVersion Include="LanguageExt.Core"                            Version="5.0.0-beta-77" />
+        <PackageVersion Include="System.IO.Hashing"                           Version="10.0.9" />
+        <PackageVersion Include="Thinktecture.Runtime.Extensions"             Version="10.4.0" />
+        <PackageVersion Include="Thinktecture.Runtime.Extensions.Json"        Version="10.4.0" />
         <PackageVersion Include="Thinktecture.Runtime.Extensions.MessagePack" Version="10.4.0" />
     </ItemGroup>
 
-    <ItemGroup Label="Numerics">
-        <!-- Pure-managed AnyCPU, zero deps. -->
-        <PackageVersion Include="ExtendedNumerics.BigRational" Version="3000.0.2.132" />
-        <!-- net10.0-first, zero deps. -->
-        <PackageVersion Include="TYoshimura.DoubleDouble" Version="5.0.8" />
-        <!-- CC0-1.0 public domain, pure-managed AnyCPU (netstandard1.0 binds forward), zero deps. -->
-        <PackageVersion Include="PeterO.Numbers" Version="1.8.2" />
-        <PackageVersion Include="CSparse" Version="4.4.0" />
-        <PackageVersion Include="FParsec" Version="2.0.0-beta2" />
-        <PackageVersion Include="FSharp.Core" Version="11.0.100" />
-        <PackageVersion Include="MathNet.Numerics" Version="6.0.0-beta2" />
-        <PackageVersion Include="MathNet.Numerics.FSharp" Version="6.0.0-beta2" />
-        <!-- Version-matched to the 6.0.0-beta2 MathNet core line. -->
-        <PackageVersion Include="MathNet.Numerics.Providers.MKL" Version="6.0.0-beta2" />
-        <PackageVersion Include="MathNet.Numerics.Providers.OpenBLAS" Version="6.0.0-beta2" />
-        <PackageVersion Include="MathNet.Symbolics" Version="0.25.0" />
-    </ItemGroup>
-
-    <ItemGroup Label="Geometry Kernel">
-        <!-- MIT, netstandard2.0 binds forward, zero deps. -->
-        <PackageVersion Include="GShark" Version="2.3.1" />
-        <!-- MIT, net8.0, zero deps, AnyCPU. -->
-        <PackageVersion Include="Supercluster.KDTree.Net" Version="1.0.22" />
-        <!-- MIT, netstandard2.0 binds forward, zero deps, AnyCPU. -->
-        <PackageVersion Include="LibTessDotNet" Version="1.1.15" />
-        <PackageVersion Include="Clipper2" Version="2.0.0" />
-        <PackageVersion Include="CavalierContours" Version="1.0.0" />
-        <PackageVersion Include="SharpVoronoiLib" Version="1.2.0" />
-        <PackageVersion Include="MIConvexHull" Version="1.1.19.1019" />
-        <PackageVersion Include="Triangle" Version="0.0.6-Beta3" />
-        <PackageVersion Include="geometry3Sharp" Version="1.0.324" />
-    </ItemGroup>
-
-    <ItemGroup Label="App Host">
-        <PackageVersion Include="FluentValidation" Version="12.1.1" />
-        <PackageVersion Include="FluentValidation.DependencyInjectionExtensions" Version="12.1.1" />
-        <PackageVersion Include="Microsoft.Extensions.Caching.Hybrid" Version="10.7.0" />
-        <PackageVersion Include="Microsoft.Extensions.Configuration" Version="10.0.9" />
-        <PackageVersion Include="Microsoft.Extensions.Configuration.Binder" Version="10.0.9" />
-        <PackageVersion Include="Microsoft.Extensions.Configuration.CommandLine" Version="10.0.9" />
-        <PackageVersion Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="10.0.9" />
-        <PackageVersion Include="Microsoft.Extensions.Configuration.Json" Version="10.0.9" />
-        <PackageVersion Include="Cronos" Version="0.13.0" />
-        <PackageVersion Include="Microsoft.Extensions.Configuration.UserSecrets" Version="10.0.9" />
-        <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.9" />
-        <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="10.0.9" />
-        <PackageVersion Include="Microsoft.Extensions.Diagnostics.ResourceMonitoring" Version="10.7.0" />
-        <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.9" />
-        <PackageVersion Include="Microsoft.Extensions.Hosting.Systemd" Version="10.0.9" />
-        <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.7.0" />
-        <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.9" />
-        <PackageVersion Include="Microsoft.Extensions.ObjectPool" Version="10.0.9" />
-        <PackageVersion Include="Microsoft.Extensions.Options" Version="10.0.9" />
-        <PackageVersion Include="Microsoft.Extensions.Telemetry" Version="10.7.0" />
-        <PackageVersion Include="Microsoft.Extensions.Telemetry.Abstractions" Version="10.7.0" />
-        <PackageVersion Include="OpenTelemetry" Version="1.16.0" />
-        <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.16.0" />
-        <!-- OTLP exporter placement is an app-root decision. -->
-        <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.16.0" />
-        <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.16.0" />
-        <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.15.1" />
-        <PackageVersion Include="Polly.Core" Version="8.7.0" />
-        <PackageVersion Include="Polly.Extensions" Version="8.7.0" />
-        <PackageVersion Include="Polly.RateLimiting" Version="8.7.0" />
-        <PackageVersion Include="Scrutor" Version="7.0.0" />
-        <PackageVersion Include="Serilog" Version="4.3.1" />
-        <!-- Serilog is a provider behind the MEL seam; OTLP sink rejected (one OTLP owner). -->
-        <PackageVersion Include="Serilog.Extensions.Hosting" Version="10.0.0" />
-        <PackageVersion Include="Serilog.Sinks.Console" Version="6.1.1" />
-        <PackageVersion Include="Serilog.Sinks.File" Version="7.0.0" />
-        <PackageVersion Include="System.Threading.Tasks.Dataflow" Version="10.0.9" />
-        <PackageVersion Include="Velopack" Version="1.2.0" />
-        <PackageVersion Include="NodaTime" Version="3.3.2" />
-        <!-- Adapters ride the NodaTime 3.3.2 line. -->
-        <PackageVersion Include="NodaTime.Serialization.Protobuf" Version="2.0.2" />
+    <ItemGroup Label="Shared Domain Primitives">
+        <PackageVersion Include="CommunityToolkit.HighPerformance"      Version="8.4.2" />
+        <PackageVersion Include="NodaTime"                              Version="3.3.2" />
         <PackageVersion Include="NodaTime.Serialization.SystemTextJson" Version="1.4.0" />
-        <PackageVersion Include="Pyroscope.OpenTelemetry" Version="0.5.0" />
-        <PackageVersion Include="ModelContextProtocol" Version="1.4.0" />
-        <PackageVersion Include="ModelContextProtocol.Core" Version="1.4.0" />
-        <PackageVersion Include="ModelContextProtocol.AspNetCore" Version="1.4.0" />
-        <PackageVersion Include="Wasmtime" Version="44.0.0" />
-        <PackageVersion Include="OPCFoundation.NetStandard.Opc.Ua" Version="1.5.378.152" />
-        <PackageVersion Include="OPCFoundation.NetStandard.Opc.Ua.PubSub" Version="1.5.378.152" />
-        <PackageVersion Include="MQTTnet" Version="5.1.0.1559" />
-        <!-- App-root-pinned host transports. -->
-        <PackageVersion Include="FluentModbus" Version="5.3.2" />
-        <PackageVersion Include="System.IO.Ports" Version="10.0.9" />
-        <!-- Rides the 10.7.0 line with the admitted Abstractions surface. -->
-        <PackageVersion Include="Microsoft.Extensions.AI" Version="10.7.0" />
-        <!-- Host-neutral, no ASP.NET pipeline coupling. -->
-        <PackageVersion Include="OpenIddict.Client" Version="7.5.0" />
-        <PackageVersion Include="Microsoft.AspNetCore.Authorization" Version="10.0.9" />
-        <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="10.7.0" />
-        <PackageVersion Include="OpenFeature" Version="2.14.0" />
-        <!-- Host-neutral validation leg. -->
-        <PackageVersion Include="Microsoft.IdentityModel.JsonWebTokens" Version="8.19.1" />
-        <PackageVersion Include="Microsoft.IdentityModel.Tokens" Version="8.19.1" />
-        <PackageVersion Include="Microsoft.IdentityModel.Protocols.OpenIdConnect" Version="8.19.1" />
-        <!-- Offline trust-root verification; SemVer-2.0 range grammar. -->
-        <PackageVersion Include="Sigstore" Version="0.5.0" />
-        <PackageVersion Include="NuGet.Versioning" Version="7.6.0" />
-        <!-- Vocab data embedded offline (air-gapped pricing). -->
-        <PackageVersion Include="Microsoft.ML.Tokenizers" Version="2.0.0" />
-        <PackageVersion Include="Microsoft.ML.Tokenizers.Data.O200kBase" Version="2.0.0" />
-        <PackageVersion Include="Microsoft.ML.Tokenizers.Data.Cl100kBase" Version="2.0.0" />
-        <!-- Xabaril, Apache-2.0, net8.0 binds forward under net10. -->
-        <PackageVersion Include="AspNetCore.HealthChecks.NpgSql" Version="9.0.0" />
-        <PackageVersion Include="AspNetCore.HealthChecks.Redis" Version="9.0.0" />
-        <PackageVersion Include="AspNetCore.HealthChecks.System" Version="9.0.0" />
-        <PackageVersion Include="AspNetCore.HealthChecks.Uris" Version="9.0.0" />
-        <PackageVersion Include="AspNetCore.HealthChecks.Kafka" Version="9.0.0" />
-        <!-- Matched 2.80.0 gRPC line; shared with Compute wire-plane. -->
-        <PackageVersion Include="Grpc.AspNetCore" Version="2.80.0" />
-        <PackageVersion Include="Grpc.AspNetCore.HealthChecks" Version="2.80.0" />
-        <PackageVersion Include="Grpc.AspNetCore.Web" Version="2.80.0" />
-        <PackageVersion Include="Grpc.Core.Api" Version="2.80.0" />
-        <!-- Shared RFC 6902 shape with Persistence snapshot deltas. -->
-        <PackageVersion Include="Microsoft.AspNetCore.JsonPatch.SystemTextJson" Version="10.0.9" />
-        <!-- Beta line (2.0.9). -->
-        <PackageVersion Include="System.CommandLine" Version="2.0.9" />
+        <PackageVersion Include="System.Numerics.Tensors"               Version="10.0.9" />
+        <PackageVersion Include="UnitsNet"                              Version="5.75.0" />
     </ItemGroup>
 
-    <ItemGroup Label="Persistence">
-        <!-- Arrow + Flight ride 23.0.0; ADBC on its own 0.x line. -->
-        <PackageVersion Include="Apache.Arrow" Version="23.0.0" />
-        <PackageVersion Include="Apache.Arrow.Flight" Version="23.0.0" />
-        <PackageVersion Include="Apache.Arrow.Adbc" Version="0.23.0" />
-        <!-- Rides 23.0.0 Arrow line; pure-managed (no native RID asset); transitives K4os.Compression.LZ4.Streams + ZstdSharp.Port floor-pinned. -->
-        <PackageVersion Include="Apache.Arrow.Compression" Version="23.0.0" />
-        <PackageVersion Include="FastCDC.Net" Version="1.0.1" />
-        <!-- osx-arm64 native dylib ships in-package (runtimes/osx-arm64/native); Apache-2.0; rides Apache.Arrow 23.0.0; modern net8.0 RID-asset resolution, no .targets RID gate. -->
-        <PackageVersion Include="ParquetSharp" Version="23.0.0.2" />
-        <!-- Pure-managed AnyCPU net10.0, Apache-2.0; transitive SqlParserCS floor-pinned. -->
-        <PackageVersion Include="FlowtideDotNet.Substrait" Version="0.15.0" />
-        <PackageVersion Include="DuckDB.NET.Data.Full" Version="1.5.3" />
-        <PackageVersion Include="Ara3D.BimOpenSchema" Version="1.0.1" />
-        <PackageVersion Include="Ara3D.BimOpenSchema.IO" Version="1.0.1" />
-        <PackageVersion Include="Ara3D.SDK" Version="1.4.2" />
-        <PackageVersion Include="ClosedXML" Version="0.105.0" />
-        <PackageVersion Include="Parquet.Net" Version="6.0.3" />
-        <PackageVersion Include="PollinationSDK" Version="1.10.0" />
-        <PackageVersion Include="AWSSDK.S3" Version="4.0.25.3" />
-        <PackageVersion Include="Azure.Storage.Blobs" Version="12.29.1" />
-        <PackageVersion Include="Google.Cloud.Storage.V1" Version="4.15.0" />
-        <!-- AWS v4 shares AWSSDK.Core 4.x with AWSSDK.S3 (no diamond); Azure rides Azure.Core; Google is pure-managed Grpc.Net.Client. -->
-        <PackageVersion Include="AWSSDK.KeyManagementService" Version="4.0.12.9" />
-        <PackageVersion Include="Azure.Security.KeyVault.Keys" Version="4.10.0" />
-        <PackageVersion Include="Google.Cloud.Kms.V1" Version="3.24.0" />
-        <!-- Confluent.Kafka bundles librdkafka.redist (osx-arm64 native verified); CloudEvents on 2.8.0. -->
-        <PackageVersion Include="Confluent.Kafka" Version="2.14.2" />
-        <PackageVersion Include="CloudNative.CloudEvents" Version="2.8.0" />
-        <PackageVersion Include="CloudNative.CloudEvents.Kafka" Version="2.8.0" />
-        <PackageVersion Include="CloudNative.CloudEvents.SystemTextJson" Version="2.8.0" />
-        <PackageVersion Include="StackExchange.Redis" Version="3.0.7" />
-        <PackageVersion Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="10.0.9" />
-        <!-- Pure-managed AnyCPU net6.0; transitive floors Apache.Avro / protobuf-net.* / NJsonSchema.* pinned; Confluent.SchemaRegistry co-pin drives the serde registry leg. -->
-        <PackageVersion Include="Chr.Avro" Version="10.13.1" />
-        <PackageVersion Include="Chr.Avro.Binary" Version="10.13.1" />
-        <PackageVersion Include="Chr.Avro.Confluent" Version="10.13.1" />
-        <!-- Pure-managed AnyCPU net8.0; ride the 2.14.2 Confluent line in lockstep. -->
-        <PackageVersion Include="Confluent.SchemaRegistry" Version="2.14.2" />
-        <PackageVersion Include="Confluent.SchemaRegistry.Serdes.Avro" Version="2.14.2" />
-        <PackageVersion Include="Confluent.SchemaRegistry.Serdes.Protobuf" Version="2.14.2" />
-        <PackageVersion Include="Confluent.SchemaRegistry.Serdes.Json" Version="2.14.2" />
-        <!-- Zero deps, AnyCPU. -->
-        <PackageVersion Include="System.Formats.Cbor" Version="10.0.9" />
-        <!-- Meta-package fans out to the 2.8.2 sub-clients (floor-pinned); pure-managed AnyCPU net8.0, Apache-2.0. -->
-        <PackageVersion Include="NATS.Net" Version="2.8.2" />
-        <!-- Pure-managed AnyCPU net8.0, Apache-2.0 OR MPL-2.0. -->
-        <PackageVersion Include="RabbitMQ.Client" Version="7.2.1" />
-        <!-- lib/net10.0 ships, pure-managed AnyCPU. -->
-        <PackageVersion Include="DotPulsar" Version="5.3.1" />
-        <!-- lib/net10.0, MIT. -->
-        <PackageVersion Include="ClickHouse.Driver" Version="1.2.0" />
-        <!-- netstandard2.0, Apache-2.0. -->
-        <PackageVersion Include="ScyllaDBCSharpDriver" Version="3.22.0.3" />
-        <!-- Ships runtimes/osx-arm64/native/librocksdb.dylib + lib/net10.0; BSD-2-Clause. -->
-        <PackageVersion Include="rocksdb" Version="10.10.1.1747" />
-        <!-- Ships runtimes/osx-arm64/native/lmdb.dylib + lib/net10.0, zero managed deps; OpenLDAP-2.8. -->
-        <PackageVersion Include="LightningDB" Version="0.21.0" />
-        <!-- Pure-managed net8.0, Apache-2.0. -->
-        <PackageVersion Include="Minio" Version="7.0.0" />
-        <!-- Ships osx-arm64 delta_kernel/delta_rs dylibs; MIT. -->
-        <PackageVersion Include="DeltaLake.Net" Version="0.32.0" />
-        <!-- Both lib/net8.0 AnyCPU, no native lib; Apache-2.0; on the 0.23.0 ADBC line. -->
-        <PackageVersion Include="Apache.Arrow.Adbc.Drivers.Apache" Version="0.23.0" />
-        <PackageVersion Include="Apache.Arrow.Adbc.Drivers.BigQuery" Version="0.23.0" />
-        <!-- Pure-managed AnyCPU (polygon ops via the admitted NetTopologySuite); Apache-2.0; dual-consumer central pin (Persistence + Bim). -->
-        <PackageVersion Include="pocketken.H3" Version="4.0.0" />
-        <!-- Pure-managed AnyCPU gRPC net6.0; Apache-2.0. -->
-        <PackageVersion Include="Qdrant.Client" Version="1.18.1" />
-        <!-- Pure-managed AnyCPU net6.0, zero deps; MIT. -->
-        <PackageVersion Include="Sylvan.Data.Excel" Version="0.5.6" />
-        <PackageVersion Include="EFCore.NamingConventions" Version="10.0.1" />
-        <PackageVersion Include="K4os.Compression.LZ4" Version="1.3.8" />
-        <PackageVersion Include="linq2db.EntityFrameworkCore" Version="10.4.0" />
-        <PackageVersion Include="MessagePack" Version="3.1.7" />
-        <PackageVersion Include="MessagePackAnalyzer" Version="3.1.7" />
-        <PackageVersion Include="Microsoft.Data.Sqlite" Version="10.0.9" />
-        <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.9" />
-        <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.9" />
-        <PackageVersion Include="Microsoft.Extensions.Compliance.Redaction" Version="10.7.0" />
-        <PackageVersion Include="Npgsql" Version="10.0.3" />
-        <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.2" />
-        <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite" Version="10.0.2" />
-        <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime" Version="10.0.2" />
-        <PackageVersion Include="Npgsql.NetTopologySuite" Version="10.0.3" />
-        <!-- Dual-consumer central pin (Persistence PostGIS + Bim geospatial). -->
-        <PackageVersion Include="NetTopologySuite.IO.GeoJSON4STJ" Version="4.0.0" />
-        <PackageVersion Include="NetTopologySuite.IO.GeoPackage" Version="2.0.0" />
-        <PackageVersion Include="Npgsql.OpenTelemetry" Version="10.0.3" />
-        <PackageVersion Include="Pgvector" Version="0.3.2" />
-        <PackageVersion Include="Pgvector.EntityFrameworkCore" Version="0.3.0" />
-        <PackageVersion Include="Sep" Version="0.15.0" />
-        <PackageVersion Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.3" />
-        <PackageVersion Include="System.IO.Hashing" Version="10.0.9" />
-        <!-- EF companion pairs with the 10.2.0 core generator; the whole family rides one version line. -->
-        <PackageVersion Include="Thinktecture.Runtime.Extensions.EntityFrameworkCore10" Version="10.4.0" />
-        <!-- Heavy transitive closure (Microsoft.Data.Sqlite native e_sqlite3, GraphQL.Client, STJ); never referenced by an in-Rhino plugin assembly; Speckle.Sdk ILRepacks its closure. -->
-        <PackageVersion Include="Speckle.Sdk" Version="2026.6.0" />
-        <PackageVersion Include="Speckle.Objects" Version="2026.6.0" />
+    <ItemGroup Label="Wire Transport">
+        <PackageVersion Include="Google.Protobuf"                 Version="3.35.1" />
+        <PackageVersion Include="Grpc.AspNetCore"                 Version="2.80.0" />
+        <PackageVersion Include="Grpc.AspNetCore.HealthChecks"    Version="2.80.0" />
+        <PackageVersion Include="Grpc.AspNetCore.Web"             Version="2.80.0" />
+        <PackageVersion Include="Grpc.Core.Api"                   Version="2.80.0" />
+        <PackageVersion Include="Grpc.Net.Client"                 Version="2.80.0" />
+        <PackageVersion Include="Grpc.Net.Client.Web"             Version="2.80.0" />
+        <PackageVersion Include="Grpc.Net.Common"                 Version="2.80.0" />
+        <PackageVersion Include="Grpc.Tools"                      Version="2.81.1" />
+        <PackageVersion Include="NodaTime.Serialization.Protobuf" Version="2.0.2" />
+    </ItemGroup>
+
+    <ItemGroup Label="Kernel Numerics">
+        <PackageVersion Include="CSparse"                             Version="4.4.0" />
+        <PackageVersion Include="ExtendedNumerics.BigRational"        Version="3000.0.2.132" />
+        <PackageVersion Include="MathNet.Numerics"                    Version="6.0.0-beta2" />
+        <PackageVersion Include="MathNet.Numerics.Providers.MKL"      Version="6.0.0-beta2" />
+        <PackageVersion Include="MathNet.Numerics.Providers.OpenBLAS" Version="6.0.0-beta2" />
+        <PackageVersion Include="PeterO.Numbers"                      Version="1.8.2" />
+        <PackageVersion Include="TYoshimura.DoubleDouble"             Version="5.0.8" />
+    </ItemGroup>
+
+    <ItemGroup Label="Kernel Geometry">
+        <PackageVersion Include="CavalierContours"        Version="1.0.0" />
+        <PackageVersion Include="Clipper2"                Version="2.0.0" />
+        <PackageVersion Include="geometry3Sharp"          Version="1.0.324" />
+        <PackageVersion Include="GShark"                  Version="2.3.1" />
+        <PackageVersion Include="LibTessDotNet"           Version="1.1.15" />
+        <PackageVersion Include="MIConvexHull"            Version="1.1.19.1019" />
+        <PackageVersion Include="SharpVoronoiLib"         Version="1.2.0" />
+        <PackageVersion Include="Supercluster.KDTree.Net" Version="1.0.22" />
+        <PackageVersion Include="Triangle"                Version="0.0.6-Beta3" />
+    </ItemGroup>
+
+    <ItemGroup Label="Fabrication">
+        <PackageVersion Include="DSTV.Net"             Version="1.3.0" />
+        <PackageVersion Include="MTConnect.NET-Common" Version="6.9.0.2" />
+        <PackageVersion Include="OcctNet.Wrapper"      Version="0.1.1" />
+        <PackageVersion Include="PicoGK"               Version="2.2.0" />
+        <PackageVersion Include="RectpackSharp"        Version="1.2.0" />
+        <PackageVersion Include="Robots"               Version="2.1.2" />
+    </ItemGroup>
+
+    <ItemGroup Label="Compute/BIM Interchange">
+        <PackageVersion Include="Alimer.Bindings.MeshOptimizer" Version="1.2.1" />
+        <PackageVersion Include="Openize.Drako"                 Version="26.2.0" />
+        <PackageVersion Include="SharpGLTF.Core"                Version="1.0.6" />
+        <PackageVersion Include="SharpGLTF.Ext.3DTiles"         Version="1.0.6" />
+        <PackageVersion Include="SharpGLTF.Runtime"             Version="1.0.6" />
+        <PackageVersion Include="SharpGLTF.Toolkit"             Version="1.0.6" />
     </ItemGroup>
 
     <ItemGroup Label="Compute">
-        <PackageVersion Include="CommunityToolkit.HighPerformance" Version="8.4.2" />
-        <PackageVersion Include="Google.Protobuf" Version="3.35.1" />
-        <PackageVersion Include="Grpc.Net.Client" Version="2.80.0" />
-        <PackageVersion Include="Grpc.Net.Client.Web" Version="2.80.0" />
-        <PackageVersion Include="Grpc.Net.Common" Version="2.80.0" />
-        <PackageVersion Include="Grpc.Tools" Version="2.81.1" />
-        <PackageVersion Include="Microsoft.IO.RecyclableMemoryStream" Version="3.0.1" />
-        <PackageVersion Include="Microsoft.ML.OnnxRuntime" Version="1.27.0" />
-        <PackageVersion Include="Microsoft.ML.OnnxRuntime.Extensions" Version="0.14.0" />
-        <PackageVersion Include="Microsoft.ML.OnnxRuntimeGenAI" Version="0.14.1" />
-        <!-- Core + Gpu ride 1.27.0; DirectML NuGet ceiling is 1.24.4; osx-arm64 never loads either; Extensions 0.14.0 / GenAI 0.14.1 HOLD. -->
-        <PackageVersion Include="Microsoft.ML.OnnxRuntime.Gpu" Version="1.27.0" />
-        <PackageVersion Include="Microsoft.ML.OnnxRuntime.DirectML" Version="1.24.4" />
-        <PackageVersion Include="Microsoft.Extensions.AI.Abstractions" Version="10.7.0" />
-        <PackageVersion Include="System.Numerics.Tensors" Version="10.0.9" />
-        <!-- 5.75.0; one central pin, in-folder reference per consumer (Compute, Bim, Fabrication, Materials, AppUi); never a cross-strata downward reference. -->
-        <PackageVersion Include="UnitsNet" Version="5.75.0" />
-        <!-- Meta-package only — the per-RID native runtimes (incl. osx-arm64) resolve transitively. -->
-        <PackageVersion Include="Google.OrTools" Version="9.15.6755" />
-        <!-- Pure-managed AnyCPU net6.0, zero deps, MIT. -->
-        <PackageVersion Include="GeneticSharp" Version="3.1.4" />
-        <!-- MIT, net8.0; libtorch-cpu fans out to libtorch-cpu-osx-arm64 native dylib (one logical admission); SkiaSharp/Google.Protobuf transitives ride existing rows; SharpZipLib + System.Memory floors pinned. -->
-        <PackageVersion Include="TorchSharp" Version="0.107.0" />
-        <PackageVersion Include="libtorch-cpu" Version="2.10.0" />
-        <PackageVersion Include="FEALiTE2D" Version="1.1.2" />
-        <PackageVersion Include="FEALiTE2D.Plotting" Version="1.1.2" />
-        <PackageVersion Include="netDxf.netstandard" Version="3.0.1" />
-        <PackageVersion Include="BriefFiniteElement.Net" Version="2.1.2" />
+        <PackageVersion Include="BriefFiniteElement.Net"               Version="2.1.2" />
         <PackageVersion Include="BriefFiniteElementNet.CustomElements" Version="2.1.2" />
-        <PackageVersion Include="BriefFiniteElementNet.Common" Version="2.1.2" />
+        <PackageVersion Include="FEALiTE2D"                            Version="1.1.2" />
+        <PackageVersion Include="FEALiTE2D.Plotting"                   Version="1.1.2" />
+        <PackageVersion Include="FParsec"                              Version="2.0.0-beta2" />
+        <PackageVersion Include="GeneticSharp"                         Version="3.1.4" />
+        <PackageVersion Include="Google.OrTools"                       Version="9.15.6755" />
+        <PackageVersion Include="libtorch-cpu"                         Version="2.10.0" />
+        <PackageVersion Include="MathNet.Symbolics"                    Version="0.25.0" />
+        <PackageVersion Include="Microsoft.IO.RecyclableMemoryStream"  Version="3.0.1" />
+        <PackageVersion Include="Microsoft.ML.OnnxRuntime"             Version="1.27.0" />
+        <PackageVersion Include="Microsoft.ML.OnnxRuntime.DirectML"    Version="1.24.4" />
+        <PackageVersion Include="Microsoft.ML.OnnxRuntime.Extensions"  Version="0.14.0" />
+        <PackageVersion Include="Microsoft.ML.OnnxRuntime.Gpu"         Version="1.27.0" />
+        <PackageVersion Include="Microsoft.ML.OnnxRuntimeGenAI"        Version="0.14.1" />
+        <PackageVersion Include="TorchSharp"                           Version="0.107.0" />
     </ItemGroup>
 
-    <!-- Interchange: glTF codec pins owned by Compute and co-consumed by Bim (the Bim<->Compute SharpGLTF/meshopt
-         leg-split seam). The IFC semantic graph is owned by Rasm.Bim (GeometryGymIFC_Core, in the Bim group);
-         parametric IFC->mesh runs out-of-process via an IfcOpenShell companion node (PyPI, libs/python/compute),
-         never a NuGet pin. -->
-    <ItemGroup Label="Interchange">
-        <!-- 1.0.6 line; dual-consumer central pin (Compute owner + Bim co-consumer). -->
-        <PackageVersion Include="SharpGLTF.Core" Version="1.0.6" />
-        <PackageVersion Include="SharpGLTF.Runtime" Version="1.0.6" />
-        <PackageVersion Include="SharpGLTF.Toolkit" Version="1.0.6" />
-        <!-- 1.0.6 line; OneOf transitive pinned explicitly; dual-consumer (Bim author + Compute compose). -->
-        <PackageVersion Include="SharpGLTF.Ext.3DTiles" Version="1.0.6" />
-        <PackageVersion Include="OneOf" Version="3.0.271" />
-        <!-- Openize.Drako: pure-managed; commercial Openize license accepted; Bim EXPORT_RAIL, outside-Rhino. -->
-        <PackageVersion Include="Openize.Drako" Version="26.2.0" />
-        <!-- MIT; universal osx-arm64+x64; net10-only (firebreaks it out of any net48 in-Rhino plugin ALC); Compute EXPORT_RAIL outside-Rhino; dual-consumer central pin. -->
-        <PackageVersion Include="Alimer.Bindings.MeshOptimizer" Version="1.2.1" />
-    </ItemGroup>
-
-    <!-- Bim: AEC-domain interchange + georeferencing + review pins the Rasm.Bim folder owns directly.
-         Native assets ship only for USD, OpenStudio, and GDAL via their osx-arm64 runtimes; everything else is pure-managed AnyCPU. -->
-    <ItemGroup Label="Bim">
-        <!-- Pure-managed IL-only AnyCPU, MIT. -->
-        <PackageVersion Include="GeometryGymIFC_Core" Version="25.7.30" />
-        <PackageVersion Include="StructuralAnalysisFormat" Version="1.7.3" />
-        <PackageVersion Include="BrickSchema.Net" Version="1.3.30" />
-        <PackageVersion Include="dotbim" Version="1.2.0" />
-        <PackageVersion Include="HoneybeeSchema" Version="2.102.0" />
-        <PackageVersion Include="DragonflySchema" Version="2.201.0" />
-        <PackageVersion Include="NREL.OpenStudio.macOS-arm64" Version="3.11.0" />
-        <PackageVersion Include="Xbim.CobieExpress" Version="6.0.172" />
-        <PackageVersion Include="Xbim.IO.CobieExpress" Version="6.0.172" />
-        <PackageVersion Include="Xbim.CobieExpress.Exchanger" Version="6.0.172" />
-        <PackageVersion Include="Xbim.Common" Version="6.0.587" />
-        <PackageVersion Include="Xbim.Ifc" Version="6.0.587" />
-        <PackageVersion Include="Xbim.Ifc4" Version="6.0.587" />
-        <PackageVersion Include="Xbim.IO.Table" Version="6.0.172" />
-        <PackageVersion Include="VividOrange.ILoads" Version="0.1.0" />
-        <PackageVersion Include="VividOrange.Loads" Version="0.1.0" />
-        <PackageVersion Include="VividOrange.ICases" Version="0.1.0" />
-        <PackageVersion Include="VividOrange.Cases" Version="0.1.0" />
-        <PackageVersion Include="VividOrange.IStages" Version="0.1.0" />
-        <PackageVersion Include="VividOrange.Stages" Version="0.1.0" />
-        <PackageVersion Include="VividOrange.Countries" Version="0.1.0" />
-        <!-- Ships a real osx-arm64 native runtime (libUsdCs/libusd_* + Pixar plugin tree); requireLicenseAcceptance. -->
-        <PackageVersion Include="UniversalSceneDescription" Version="7.3.4" />
-        <!-- Apache-2.0 (per-component), single BCL transitive. -->
-        <PackageVersion Include="Ply.Net" Version="5.6.2" />
-        <!-- Xids CDDL-1.0 (OSI); ids-lib MIT pure-managed net10.0 and the transitive floor of Xids (>=1.0.112). -->
-        <PackageVersion Include="Xbim.InformationSpecifications" Version="1.0.24" />
-        <PackageVersion Include="ids-lib" Version="1.0.121" />
-        <!-- Apache-2.0, pure-managed; Json.Net + RecursiveDataAnnotationsValidation floor-pinned. -->
-        <PackageVersion Include="Smino.Bcf.Toolkit" Version="3.2.0" />
-        <!-- BSD-3-Clause; Bim-owned pin transitively consumed by AppUi Mapsui. -->
-        <PackageVersion Include="NetTopologySuite" Version="2.6.0" />
-        <!-- BSD-3-Clause; transitive NetTopologySuite.Features floor pinned. -->
-        <PackageVersion Include="NetTopologySuite.IO.Esri.Shapefile" Version="1.2.0" />
-        <!-- MIT; native runtime is RID-keyed osx-arm64; admit core+runtime as one pair. -->
-        <PackageVersion Include="MaxRev.Gdal.Core" Version="3.13.1.534" />
+    <ItemGroup Label="BIM">
+        <PackageVersion Include="ACadSharp"                              Version="3.6.35" />
+        <PackageVersion Include="AssimpNetter"                           Version="6.0.5" />
+        <PackageVersion Include="bertt.CityJSON"                         Version="2.5.0" />
+        <PackageVersion Include="BrickSchema.Net"                        Version="1.3.30" />
+        <PackageVersion Include="dotbim"                                 Version="1.2.0" />
+        <PackageVersion Include="DragonflySchema"                        Version="2.201.0" />
+        <PackageVersion Include="FlatGeobuf"                             Version="3.26.0" />
+        <PackageVersion Include="GeometryGymIFC_Core"                    Version="25.7.30" />
+        <PackageVersion Include="GISBlox.IO.GeoParquet"                  Version="1.1.1" />
+        <PackageVersion Include="HoneybeeSchema"                         Version="2.102.0" />
+        <PackageVersion Include="ids-lib"                                Version="1.0.121" />
+        <PackageVersion Include="MaxRev.Gdal.Core"                       Version="3.13.1.534" />
         <PackageVersion Include="MaxRev.Gdal.MacosRuntime.Minimal.arm64" Version="3.13.1.534" />
-        <!-- Pure-managed (2.1.0). -->
-        <PackageVersion Include="ProjNET" Version="2.1.0" />
-        <!-- MIT, pure-managed; transitive floor NetTopologySuite.Features pinned. -->
-        <PackageVersion Include="bertt.CityJSON" Version="2.5.0" />
-        <!-- MIT, pure-managed; .Lean drops MemoryPack; Chronicler.Core.Lean floor pinned. -->
-        <PackageVersion Include="SwiftCollections.Lean" Version="5.1.1" />
-        <!-- MIT (GitHub LICENSE; nuspec ships no license expression), pure-managed AnyCPU net8.0; Newtonsoft.Json 13.0.4 floor pinned. -->
-        <PackageVersion Include="subtree" Version="1.7.0" />
-        <!-- Single osx-arm64 libassimp.dylib; MIT wrapper over BSD-3 native; lib/net6.0 binds forward under net10, zero net6 managed deps. -->
-        <PackageVersion Include="AssimpNetter" Version="6.0.5" />
-        <!-- MIT, pure-managed net8.0 binds forward; uncompressed LAS only (LAZ via the laszip front); MathNet.Numerics 6.0.0-beta2 floor already pinned. -->
-        <PackageVersion Include="Themis.Las" Version="2025.3.5" />
-        <!-- Pure-managed AnyCPU, MIT; central pin consumed by Bim(owner)+Fabrication+AppUi. -->
-        <PackageVersion Include="ACadSharp" Version="3.6.35" />
-        <!-- CDDL-1.0; pure-managed ns2.1; deps Microsoft.CSharp + System.Data.DataSetExtensions are net10 in-box facades and pull NO Xbim.Essentials (no parallel IFC model). -->
-        <PackageVersion Include="Xbim.Properties" Version="6.0.11" />
-        <!-- MIT, net10.0 TFM (== consumer floor); stacks on ParquetSharp 23.0.0.2 + NTS 2.6.0. -->
-        <PackageVersion Include="GISBlox.IO.GeoParquet" Version="1.1.1" />
-        <!-- BSD-2-Clause; ns2.1 asset binds under net10; floors NetTopologySuite.IO.GeoJSON + Nito.AsyncEx pinned. -->
-        <PackageVersion Include="FlatGeobuf" Version="3.26.0" />
-        <!-- MIT, zero deps, ns2.0. -->
-        <PackageVersion Include="SharpKml.Core" Version="6.1.0" />
-        <!-- Both MIT, ns2.0; the .Mapbox protobuf-net floor pinned (lifted to 3.2.56). -->
-        <PackageVersion Include="NetTopologySuite.IO.VectorTiles" Version="1.1.0" />
+        <PackageVersion Include="MPXJ.Net"                               Version="16.4.1" />
+        <PackageVersion Include="NetTopologySuite"                       Version="2.6.0" />
+        <PackageVersion Include="NetTopologySuite.IO.Esri.Shapefile"     Version="1.2.0" />
+        <PackageVersion Include="NetTopologySuite.IO.GeoJSON4STJ"        Version="4.0.0" />
+        <PackageVersion Include="NetTopologySuite.IO.GeoPackage"         Version="2.0.0" />
+        <PackageVersion Include="NetTopologySuite.IO.VectorTiles"        Version="1.1.0" />
         <PackageVersion Include="NetTopologySuite.IO.VectorTiles.Mapbox" Version="1.1.0" />
-        <!-- LGPL-2.1-only (weak copyleft, separate-assembly PackageReference), zero deps, ns2.0 binds under net10. -->
-        <PackageVersion Include="Unofficial.laszip.netstandard" Version="5.6.2" />
-        <!-- MS-PL (OSI permissive), pure-managed ns2.0, empty net10 dependency group. -->
-        <PackageVersion Include="QuikGraph" Version="2.5.0" />
-        <!-- Apache-2.0, net10.0 TFM, empty net10 dependency group. -->
-        <PackageVersion Include="NodaMoney" Version="2.7.0" />
-        <!-- LGPL-2.1-or-later (dynamic-link); net6.0 asset binds under net10; the Java MPXJ jar is IKVM-translated to IL at build over osx-arm64; Portable.System.DateTimeOnly floor pinned; IKVM.Maven.Sdk/IKVM chain resolves transitively. -->
-        <PackageVersion Include="MPXJ.Net" Version="16.4.1" />
+        <PackageVersion Include="NodaMoney"                              Version="2.7.0" />
+        <PackageVersion Include="NREL.OpenStudio.macOS-arm64"            Version="3.11.0" />
+        <PackageVersion Include="Ply.Net"                                Version="5.6.2" />
+        <PackageVersion Include="ProjNET"                                Version="2.1.0" />
+        <PackageVersion Include="QuikGraph"                              Version="2.5.0" />
+        <PackageVersion Include="SharpKml.Core"                          Version="6.1.0" />
+        <PackageVersion Include="Smino.Bcf.Toolkit"                      Version="3.2.0" />
+        <PackageVersion Include="StructuralAnalysisFormat"               Version="1.7.3" />
+        <PackageVersion Include="subtree"                                Version="1.7.0" />
+        <PackageVersion Include="SwiftCollections.Lean"                  Version="5.1.1" />
+        <PackageVersion Include="Themis.Las"                             Version="2025.3.5" />
+        <PackageVersion Include="UniversalSceneDescription"              Version="7.3.4" />
+        <PackageVersion Include="Unofficial.laszip.netstandard"          Version="5.6.2" />
+        <PackageVersion Include="VividOrange.Cases"                      Version="0.1.0" />
+        <PackageVersion Include="VividOrange.Countries"                  Version="0.1.0" />
+        <PackageVersion Include="VividOrange.Loads"                      Version="0.1.0" />
+        <PackageVersion Include="VividOrange.Stages"                     Version="0.1.0" />
+        <PackageVersion Include="Xbim.CobieExpress"                      Version="6.0.172" />
+        <PackageVersion Include="Xbim.CobieExpress.Exchanger"            Version="6.0.172" />
+        <PackageVersion Include="Xbim.InformationSpecifications"         Version="1.0.24" />
+        <PackageVersion Include="Xbim.IO.CobieExpress"                   Version="6.0.172" />
+        <PackageVersion Include="Xbim.Properties"                        Version="6.0.11" />
     </ItemGroup>
 
-    <!-- Materials: color/spectral + structural-section engine pins the Rasm.Materials folder owns directly. -->
     <ItemGroup Label="Materials">
-        <!-- Pure-managed netstandard2.0, zero deps, ALC-safe; dual-consumer central pin (Materials + AppUi). -->
-        <PackageVersion Include="Wacton.Unicolour" Version="7.0.0" />
-        <PackageVersion Include="Wacton.Unicolour.Datasets" Version="4.0.0" />
-        <!-- Pure-managed AnyCPU (net8.0 binds forward under net10.0), MIT; transitive floors VividOrange.IProfiles + VividOrange.ISerialization pinned. -->
-        <PackageVersion Include="VividOrange.Profiles.Catalogue" Version="0.1.0" />
-        <PackageVersion Include="VividOrange.IProfiles" Version="0.1.0" />
-        <PackageVersion Include="VividOrange.ISerialization" Version="0.1.0" />
-        <!-- Pure-managed AnyCPU (net9.0 binds forward); the VividOrange transitive floor set (Sections.ISectionProperties, Profiles.Perimeter, Geometry, Profiles, IGeometry, ISections, IMaterials, IStandards, ICartesianBase) pinned for deterministic central pinning. -->
+        <PackageVersion Include="RectangleBinPack.CSharp"                Version="1.0.4" />
+        <PackageVersion Include="VividOrange.InteractionDiagram"         Version="0.2.1" />
+        <PackageVersion Include="VividOrange.Materials"                  Version="0.1.0" />
+        <PackageVersion Include="VividOrange.Profiles.Catalogue"         Version="0.1.0" />
+        <PackageVersion Include="VividOrange.Sections"                   Version="0.1.0" />
         <PackageVersion Include="VividOrange.Sections.SectionProperties" Version="0.1.0" />
-        <PackageVersion Include="VividOrange.Sections.ISectionProperties" Version="0.1.0" />
-        <PackageVersion Include="VividOrange.Profiles.Perimeter" Version="0.1.0" />
-        <PackageVersion Include="VividOrange.Profiles" Version="0.1.0" />
-        <PackageVersion Include="VividOrange.Geometry" Version="1.8.0" />
-        <PackageVersion Include="VividOrange.IGeometry" Version="1.8.0" />
-        <PackageVersion Include="VividOrange.ISections" Version="0.1.0" />
-        <PackageVersion Include="VividOrange.IMaterials" Version="0.1.0" />
-        <PackageVersion Include="VividOrange.IStandards" Version="0.1.0" />
-        <PackageVersion Include="VividOrange.ICartesianBase" Version="1.8.0" />
-        <!-- Pure-managed AnyCPU, single netstandard2.0 TFM, ZERO deps, MIT. -->
-        <PackageVersion Include="RectangleBinPack.CSharp" Version="1.0.4" />
-        <!-- All transitive deps (IMaterials/IProfiles/Profiles.Perimeter/ISections/Geometry) already pinned; MIT, net8.0 binds forward, pure-managed AnyCPU. -->
-        <PackageVersion Include="VividOrange.Sections" Version="0.1.0" />
-        <!-- Deps VividOrange.IMaterials + VividOrange.Standards + UnitsNet 5.75.0 (all pinned); MIT, net8.0 binds forward. -->
-        <PackageVersion Include="VividOrange.Materials" Version="0.1.0" />
-        <!-- Sole dep VividOrange.IStandards (pinned); MIT, net8.0. -->
-        <PackageVersion Include="VividOrange.Standards" Version="0.1.0" />
-        <!-- UnitsNet.Serialization.JsonNet remains the Materials-owned serializer floor; computational geometry floors live in Geometry Kernel. -->
-        <PackageVersion Include="VividOrange.InteractionDiagram" Version="0.2.1" />
-        <PackageVersion Include="VividOrange.ForceMomentInteraction" Version="0.2.1" />
-        <PackageVersion Include="VividOrange.IForceMomentInteraction" Version="0.2.1" />
-        <PackageVersion Include="VividOrange.Serialization" Version="0.1.0" />
-        <PackageVersion Include="VividOrange.Uncertainties" Version="0.2.0" />
-        <PackageVersion Include="VividOrange.Uncertainties.Quantities" Version="0.2.0" />
-        <PackageVersion Include="VividOrange.IUncertainties" Version="0.2.0" />
-        <PackageVersion Include="UnitsNet.Serialization.JsonNet" Version="5.50.0" />
+        <PackageVersion Include="VividOrange.Standards"                  Version="0.1.0" />
+        <PackageVersion Include="VividOrange.Uncertainties"              Version="0.2.0" />
+        <PackageVersion Include="VividOrange.Uncertainties.Quantities"   Version="0.2.0" />
+        <PackageVersion Include="Wacton.Unicolour"                       Version="7.0.0" />
+        <PackageVersion Include="Wacton.Unicolour.Datasets"              Version="4.0.0" />
     </ItemGroup>
 
-    <!-- Fabrication: manufacturing-specific pins only; computational geometry substrates live in Geometry Kernel. -->
-    <ItemGroup Label="Fabrication">
-        <PackageVersion Include="RectpackSharp" Version="1.2.0" />
-        <!-- Robots (visose): host-neutral managed serial-chain robot kinematics — per-mechanism DH/Modified-DH
-             forward kinematics, closed-form ANALYTIC IK (spherical/offset-wrist) discriminated by RobotConfigurations,
-             a NumericalKinematics fallback, joint-limit/singularity/reach-envelope validation stamped into a
-             KinematicSolution, multi-mechanism groups + external-axis (track/positioner) kinematics, and the
-             ABB/KUKA/UR/Staubli/Franka/Doosan/Fanuc/Igus/Jaka cell models. MIT, net8.0 lib binds forward under
-             net10.0. Supersedes the hand-rolled DH-FK + damped-least-squares IK in Toolpath/kinematics.md.
-             Transitive floors Rhino3dm + SSH.NET (+ BouncyCastle.Cryptography) pinned in Transitive Floors. -->
-        <PackageVersion Include="Robots" Version="2.1.2" />
-        <!-- PicoGK (LEAP71): the implicit/SDF/voxel geometry kernel for additive manufacturing — IImplicit ->
-             Voxels(IImplicit,BBox3) TPMS/gyroid infill, Lattice.AddBeam/AddSphere -> Voxels(Lattice) support
-             scaffolds, GetVoxelSlice + CliIo/Vdb2Cli SLA/DLP/MSLA layer-stack rasterization, 3D SDF Boolean +
-             Offset/Fillet, OpenVdbFile I/O. COMPANION / OUTSIDE-RHINO: lib/net9.0-only + bundled
-             runtimes/osx-arm64/native/picogk.dylib firebreaks it out of any net48 in-Rhino ALC. Apache-2.0.
-             Sole dependency SkiaSharp >=3.119.0 rides the existing App UI 3.119.4 row (no new floor). -->
-        <PackageVersion Include="PicoGK" Version="2.2.0" />
-        <!-- MTConnect.NET-Common (TrakHound): the ISO-13399-aligned MTConnect cutting-tool asset model
-             (MTConnect.Assets.CuttingTools — CuttingToolAsset/CuttingToolLifeCycle/CuttingItem/Measurement +
-             ToolLife/CutterStatus) backing the tool-data MODEL half of the Magazine/ToolAssembly catalogue.
-             Lean model-only sub-package (no HTTP/MQTT/SHDR/Agent). Pure-managed AnyCPU net9.0, MIT;
-             YamlDotNet resolves through the central 18.1.0 floor. -->
-        <PackageVersion Include="MTConnect.NET-Common" Version="6.9.0.2" />
-        <!-- OcctNet.Wrapper: the first managed 3D solid-CAD / B-rep ingress in Fabrication — STEP AP203/AP214/AP242
-             and IGES read (ImportStep/ImportIges -> OcctShape, OcctFace/OcctEdge/OcctWire topology, OcctMesh
-             tessellation) + ExportStep/Iges/Stl, primitive modeling + boolean fuse/cut/common over OCCT 7.9.3.
-             Ships lib/net10.0 + a REAL runtimes/osx-arm64/native OCCT 7.9.3 build (dynamic-link, LGPL-2.1-with-
-             OCCT-exception-1.0 clean). Wrapper MIT. plan-cs boundary-maps at the OcctShape/OcctMesh seam. -->
-        <PackageVersion Include="OcctNet.Wrapper" Version="0.1.1" />
-        <PackageVersion Include="DSTV.Net" Version="1.3.0" />
+    <ItemGroup Label="App Host">
+        <PackageVersion Include="AspNetCore.HealthChecks.Kafka"                           Version="9.0.0" />
+        <PackageVersion Include="AspNetCore.HealthChecks.NpgSql"                          Version="9.0.0" />
+        <PackageVersion Include="AspNetCore.HealthChecks.Redis"                           Version="9.0.0" />
+        <PackageVersion Include="AspNetCore.HealthChecks.System"                          Version="9.0.0" />
+        <PackageVersion Include="AspNetCore.HealthChecks.Uris"                            Version="9.0.0" />
+        <PackageVersion Include="Cronos"                                                  Version="0.13.0" />
+        <PackageVersion Include="FluentModbus"                                            Version="5.3.2" />
+        <PackageVersion Include="FluentValidation"                                        Version="12.1.1" />
+        <PackageVersion Include="FluentValidation.DependencyInjectionExtensions"          Version="12.1.1" />
+        <PackageVersion Include="Microsoft.AspNetCore.Authorization"                      Version="10.0.9" />
+        <PackageVersion Include="Microsoft.AspNetCore.JsonPatch.SystemTextJson"           Version="10.0.9" />
+        <PackageVersion Include="Microsoft.Extensions.AI"                                 Version="10.7.0" />
+        <PackageVersion Include="Microsoft.Extensions.AI.Abstractions"                    Version="10.7.0" />
+        <PackageVersion Include="Microsoft.Extensions.Caching.Hybrid"                     Version="10.7.0" />
+        <PackageVersion Include="Microsoft.Extensions.Compliance.Redaction"               Version="10.7.0" />
+        <PackageVersion Include="Microsoft.Extensions.Configuration"                      Version="10.0.9" />
+        <PackageVersion Include="Microsoft.Extensions.Configuration.Binder"               Version="10.0.9" />
+        <PackageVersion Include="Microsoft.Extensions.Configuration.CommandLine"          Version="10.0.9" />
+        <PackageVersion Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="10.0.9" />
+        <PackageVersion Include="Microsoft.Extensions.Configuration.Json"                 Version="10.0.9" />
+        <PackageVersion Include="Microsoft.Extensions.Configuration.UserSecrets"          Version="10.0.9" />
+        <PackageVersion Include="Microsoft.Extensions.DependencyInjection"                Version="10.0.9" />
+        <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks"           Version="10.0.9" />
+        <PackageVersion Include="Microsoft.Extensions.Diagnostics.ResourceMonitoring"     Version="10.7.0" />
+        <PackageVersion Include="Microsoft.Extensions.Hosting"                            Version="10.0.9" />
+        <PackageVersion Include="Microsoft.Extensions.Hosting.Systemd"                    Version="10.0.9" />
+        <PackageVersion Include="Microsoft.Extensions.Http.Resilience"                    Version="10.7.0" />
+        <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions"               Version="10.0.9" />
+        <PackageVersion Include="Microsoft.Extensions.ObjectPool"                         Version="10.0.9" />
+        <PackageVersion Include="Microsoft.Extensions.Options"                            Version="10.0.9" />
+        <PackageVersion Include="Microsoft.Extensions.Options.ConfigurationExtensions"    Version="10.0.9" />
+        <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery"                   Version="10.7.0" />
+        <PackageVersion Include="Microsoft.Extensions.Telemetry"                          Version="10.7.0" />
+        <PackageVersion Include="Microsoft.Extensions.Telemetry.Abstractions"             Version="10.7.0" />
+        <PackageVersion Include="Microsoft.IdentityModel.JsonWebTokens"                   Version="8.19.1" />
+        <PackageVersion Include="Microsoft.IdentityModel.Protocols.OpenIdConnect"         Version="8.19.1" />
+        <PackageVersion Include="Microsoft.IdentityModel.Tokens"                          Version="8.19.1" />
+        <PackageVersion Include="Microsoft.ML.Tokenizers"                                 Version="2.0.0" />
+        <PackageVersion Include="Microsoft.ML.Tokenizers.Data.Cl100kBase"                 Version="2.0.0" />
+        <PackageVersion Include="Microsoft.ML.Tokenizers.Data.O200kBase"                  Version="2.0.0" />
+        <PackageVersion Include="ModelContextProtocol"                                    Version="1.4.0" />
+        <PackageVersion Include="ModelContextProtocol.AspNetCore"                         Version="1.4.0" />
+        <PackageVersion Include="ModelContextProtocol.Core"                               Version="1.4.0" />
+        <PackageVersion Include="MQTTnet"                                                 Version="5.1.0.1559" />
+        <PackageVersion Include="NuGet.Versioning"                                        Version="7.6.0" />
+        <PackageVersion Include="OPCFoundation.NetStandard.Opc.Ua"                        Version="1.5.378.152" />
+        <PackageVersion Include="OPCFoundation.NetStandard.Opc.Ua.PubSub"                 Version="1.5.378.152" />
+        <PackageVersion Include="OpenFeature"                                             Version="2.14.0" />
+        <PackageVersion Include="OpenIddict.Client"                                       Version="7.5.0" />
+        <PackageVersion Include="OpenTelemetry"                                           Version="1.16.0" />
+        <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol"            Version="1.16.0" />
+        <PackageVersion Include="OpenTelemetry.Extensions.Hosting"                        Version="1.16.0" />
+        <PackageVersion Include="OpenTelemetry.Instrumentation.Http"                      Version="1.16.0" />
+        <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime"                   Version="1.15.1" />
+        <PackageVersion Include="Polly.Core"                                              Version="8.7.0" />
+        <PackageVersion Include="Polly.Extensions"                                        Version="8.7.0" />
+        <PackageVersion Include="Polly.RateLimiting"                                      Version="8.7.0" />
+        <PackageVersion Include="Pyroscope.OpenTelemetry"                                 Version="0.5.0" />
+        <PackageVersion Include="Scrutor"                                                 Version="7.0.0" />
+        <PackageVersion Include="Serilog"                                                 Version="4.3.1" />
+        <PackageVersion Include="Serilog.Extensions.Hosting"                              Version="10.0.0" />
+        <PackageVersion Include="Serilog.Sinks.Console"                                   Version="6.1.1" />
+        <PackageVersion Include="Serilog.Sinks.File"                                      Version="7.0.0" />
+        <PackageVersion Include="Sigstore"                                                Version="0.5.0" />
+        <PackageVersion Include="System.CommandLine"                                      Version="2.0.9" />
+        <PackageVersion Include="System.IO.Ports"                                         Version="10.0.9" />
+        <PackageVersion Include="Velopack"                                                Version="1.2.0" />
+        <PackageVersion Include="Wasmtime"                                                Version="44.0.0" />
     </ItemGroup>
 
-    <!-- App UI: central pins force one restored SkiaSharp/HarfBuzz runtime family for Avalonia,
-         LiveCharts2, Svg.Skia, and retained text shaping. Avalonia.Skia 12.0.x owns the
-         SkiaSharp 3.119.4 / HarfBuzz 8.3.1.x ABI; do not lift to SkiaSharp 4.x or HarfBuzz 14.x
-         until Avalonia admits that runtime family. -->
+    <ItemGroup Label="Persistence">
+        <PackageVersion Include="Apache.Arrow"                                           Version="23.0.0" />
+        <PackageVersion Include="Apache.Arrow.Adbc"                                      Version="0.23.0" />
+        <PackageVersion Include="Apache.Arrow.Adbc.Drivers.Apache"                       Version="0.23.0" />
+        <PackageVersion Include="Apache.Arrow.Adbc.Drivers.BigQuery"                     Version="0.23.0" />
+        <PackageVersion Include="Apache.Arrow.Compression"                               Version="23.0.0" />
+        <PackageVersion Include="Apache.Arrow.Flight"                                    Version="23.0.0" />
+        <PackageVersion Include="Ara3D.BimOpenSchema"                                    Version="1.0.1" />
+        <PackageVersion Include="Ara3D.BimOpenSchema.IO"                                 Version="1.0.1" />
+        <PackageVersion Include="AWSSDK.KeyManagementService"                            Version="4.0.12.9" />
+        <PackageVersion Include="AWSSDK.S3"                                              Version="4.0.25.3" />
+        <PackageVersion Include="Azure.Security.KeyVault.Keys"                           Version="4.10.0" />
+        <PackageVersion Include="Azure.Storage.Blobs"                                    Version="12.29.1" />
+        <PackageVersion Include="Chr.Avro"                                               Version="10.13.1" />
+        <PackageVersion Include="Chr.Avro.Binary"                                        Version="10.13.1" />
+        <PackageVersion Include="Chr.Avro.Confluent"                                     Version="10.13.1" />
+        <PackageVersion Include="ClickHouse.Driver"                                      Version="1.2.0" />
+        <PackageVersion Include="CloudNative.CloudEvents"                                Version="2.8.0" />
+        <PackageVersion Include="CloudNative.CloudEvents.Kafka"                          Version="2.8.0" />
+        <PackageVersion Include="CloudNative.CloudEvents.SystemTextJson"                 Version="2.8.0" />
+        <PackageVersion Include="Confluent.Kafka"                                        Version="2.14.2" />
+        <PackageVersion Include="Confluent.SchemaRegistry"                               Version="2.14.2" />
+        <PackageVersion Include="Confluent.SchemaRegistry.Serdes.Avro"                   Version="2.14.2" />
+        <PackageVersion Include="Confluent.SchemaRegistry.Serdes.Json"                   Version="2.14.2" />
+        <PackageVersion Include="Confluent.SchemaRegistry.Serdes.Protobuf"               Version="2.14.2" />
+        <PackageVersion Include="DeltaLake.Net"                                          Version="0.32.0" />
+        <PackageVersion Include="DotPulsar"                                              Version="5.3.1" />
+        <PackageVersion Include="DuckDB.NET.Data.Full"                                   Version="1.5.3" />
+        <PackageVersion Include="EFCore.NamingConventions"                               Version="10.0.1" />
+        <PackageVersion Include="FastCDC.Net"                                            Version="1.0.1" />
+        <PackageVersion Include="FlowtideDotNet.Substrait"                               Version="0.15.0" />
+        <PackageVersion Include="Google.Cloud.Kms.V1"                                    Version="3.24.0" />
+        <PackageVersion Include="Google.Cloud.Storage.V1"                                Version="4.15.0" />
+        <PackageVersion Include="K4os.Compression.LZ4"                                   Version="1.3.8" />
+        <PackageVersion Include="LightningDB"                                            Version="0.21.0" />
+        <PackageVersion Include="linq2db.EntityFrameworkCore"                            Version="10.4.0" />
+        <PackageVersion Include="MessagePack"                                            Version="3.1.7" />
+        <PackageVersion Include="MessagePackAnalyzer"                                    Version="3.1.7" />
+        <PackageVersion Include="Microsoft.Data.Sqlite"                                  Version="10.0.9" />
+        <PackageVersion Include="Microsoft.EntityFrameworkCore.Design"                   Version="10.0.9" />
+        <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite"                   Version="10.0.9" />
+        <PackageVersion Include="Microsoft.Extensions.Caching.StackExchangeRedis"        Version="10.0.9" />
+        <PackageVersion Include="Minio"                                                  Version="7.0.0" />
+        <PackageVersion Include="NATS.Net"                                               Version="2.8.2" />
+        <PackageVersion Include="Npgsql"                                                 Version="10.0.3" />
+        <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL"                  Version="10.0.2" />
+        <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite" Version="10.0.2" />
+        <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime"         Version="10.0.2" />
+        <PackageVersion Include="Npgsql.NetTopologySuite"                                Version="10.0.3" />
+        <PackageVersion Include="Npgsql.OpenTelemetry"                                   Version="10.0.3" />
+        <PackageVersion Include="ParquetSharp"                                           Version="23.0.0.2" />
+        <PackageVersion Include="Pgvector"                                               Version="0.3.2" />
+        <PackageVersion Include="Pgvector.EntityFrameworkCore"                           Version="0.3.0" />
+        <PackageVersion Include="pocketken.H3"                                           Version="4.0.0" />
+        <PackageVersion Include="PollinationSDK"                                         Version="1.10.0" />
+        <PackageVersion Include="Qdrant.Client"                                          Version="1.18.1" />
+        <PackageVersion Include="RabbitMQ.Client"                                        Version="7.2.1" />
+        <PackageVersion Include="rocksdb"                                                Version="10.10.1.1747" />
+        <PackageVersion Include="ScyllaDBCSharpDriver"                                   Version="3.22.0.3" />
+        <PackageVersion Include="Sep"                                                    Version="0.15.0" />
+        <PackageVersion Include="Speckle.Objects"                                        Version="2026.6.0" />
+        <PackageVersion Include="Speckle.Sdk"                                            Version="2026.6.0" />
+        <PackageVersion Include="SQLitePCLRaw.bundle_e_sqlite3"                          Version="3.0.3" />
+        <PackageVersion Include="StackExchange.Redis"                                    Version="3.0.7" />
+        <PackageVersion Include="Sylvan.Data.Excel"                                      Version="0.5.6" />
+        <PackageVersion Include="System.Formats.Cbor"                                    Version="10.0.9" />
+        <PackageVersion Include="Thinktecture.Runtime.Extensions.EntityFrameworkCore10"  Version="10.4.0" />
+        <PackageVersion Include="ZstdSharp.Port"                                         Version="0.8.8" />
+    </ItemGroup>
+
     <ItemGroup Label="App UI">
-        <PackageVersion Include="AsyncImageLoader.Avalonia" Version="3.8.0" />
-        <PackageVersion Include="Avalonia" Version="12.0.5" />
-        <PackageVersion Include="Avalonia.AvaloniaEdit" Version="12.0.0" />
-        <PackageVersion Include="Avalonia.Controls.ColorPicker" Version="12.0.5" />
-        <PackageVersion Include="Avalonia.Controls.DataGrid" Version="12.0.1" />
-        <PackageVersion Include="Avalonia.Desktop" Version="12.0.5" />
-        <PackageVersion Include="Avalonia.Fonts.Inter" Version="12.0.5" />
-        <PackageVersion Include="Avalonia.Headless" Version="12.0.5" />
-        <PackageVersion Include="Avalonia.Headless.XUnit" Version="12.0.5" />
-        <PackageVersion Include="Avalonia.Skia" Version="12.0.5" />
-        <PackageVersion Include="Avalonia.Themes.Fluent" Version="12.0.5" />
-        <PackageVersion Include="AvaloniaEdit.TextMate" Version="12.0.0" />
-        <PackageVersion Include="bodong.Avalonia.PropertyGrid" Version="12.0.4.1" />
-        <!-- Floor pin: PropertyGrid declares an open >= 12.0.0 range; the floor names the
-             resolved transitive so central transitive pinning stays deterministic. -->
-        <PackageVersion Include="bodong.PropertyModels" Version="12.0.0" />
-        <PackageVersion Include="DialogHost.Avalonia" Version="0.12.2" />
-        <PackageVersion Include="Dock.Avalonia" Version="12.0.0.2" />
-        <PackageVersion Include="Dock.Model.ReactiveUI" Version="12.0.0.2" />
-        <!-- STJ layout serializer over Newtonsoft per system-apis doctrine; rides the Dock 12.0.0.2 line. -->
-        <PackageVersion Include="Dock.Serializer.SystemTextJson" Version="12.0.0.2" />
-        <PackageVersion Include="DynamicData" Version="9.4.31" />
-        <PackageVersion Include="FluentIcons.Avalonia" Version="2.1.331" />
-        <PackageVersion Include="HarfBuzzSharp.NativeAssets.Linux" Version="8.3.1.5" />
-        <PackageVersion Include="HarfBuzzSharp.NativeAssets.macOS" Version="8.3.1.5" />
-        <PackageVersion Include="HotAvalonia" Version="3.1.2" />
+        <PackageVersion Include="AsyncImageLoader.Avalonia"             Version="3.8.0" />
+        <PackageVersion Include="Avalonia"                              Version="12.0.5" />
+        <PackageVersion Include="Avalonia.AvaloniaEdit"                 Version="12.0.0" />
+        <PackageVersion Include="Avalonia.Controls.ColorPicker"         Version="12.0.5" />
+        <PackageVersion Include="Avalonia.Controls.DataGrid"            Version="12.0.1" />
+        <PackageVersion Include="Avalonia.Desktop"                      Version="12.0.5" />
+        <PackageVersion Include="Avalonia.Fonts.Inter"                  Version="12.0.5" />
+        <PackageVersion Include="Avalonia.Headless"                     Version="12.0.5" />
+        <PackageVersion Include="Avalonia.Headless.XUnit"               Version="12.0.5" />
+        <PackageVersion Include="Avalonia.Markup.Xaml.Loader"           Version="12.0.5" />
+        <PackageVersion Include="Avalonia.Skia"                         Version="12.0.5" />
+        <PackageVersion Include="Avalonia.Themes.Fluent"                Version="12.0.5" />
+        <PackageVersion Include="AvaloniaEdit.TextMate"                 Version="12.0.0" />
+        <PackageVersion Include="bodong.Avalonia.PropertyGrid"          Version="12.0.4.1" />
+        <PackageVersion Include="bodong.PropertyModels"                 Version="12.0.0" />
+        <PackageVersion Include="DialogHost.Avalonia"                   Version="0.12.2" />
+        <PackageVersion Include="Dock.Avalonia"                         Version="12.0.0.2" />
+        <PackageVersion Include="Dock.Model.ReactiveUI"                 Version="12.0.0.2" />
+        <PackageVersion Include="Dock.Serializer.SystemTextJson"        Version="12.0.0.2" />
+        <PackageVersion Include="DocumentFormat.OpenXml"                Version="3.5.1" />
+        <PackageVersion Include="DynamicData"                           Version="9.4.31" />
+        <PackageVersion Include="FluentIcons.Avalonia"                  Version="2.1.331" />
+        <PackageVersion Include="FluentIcons.Common"                    Version="2.1.331" />
+        <PackageVersion Include="HanumanInstitute.LibMpv"               Version="0.10.1" />
+        <PackageVersion Include="HanumanInstitute.LibMpv.Avalonia"      Version="0.10.1" />
+        <PackageVersion Include="HarfBuzzSharp.NativeAssets.macOS"      Version="8.3.1.5" />
+        <PackageVersion Include="HidSharp"                              Version="2.6.4" />
+        <PackageVersion Include="HotAvalonia"                           Version="3.1.2" />
+        <PackageVersion Include="Irihi.Ursa"                            Version="2.0.1" />
+        <PackageVersion Include="Irihi.Ursa.ReactiveUIExtension"        Version="2.0.0" />
+        <PackageVersion Include="Irihi.Ursa.Themes.Semi"                Version="2.0.1" />
+        <PackageVersion Include="Kiwi"                                  Version="3.0.0" />
         <PackageVersion Include="LiveChartsCore.SkiaSharpView.Avalonia" Version="2.0.5" />
-        <PackageVersion Include="Markdig" Version="1.3.2" />
-        <!-- Kiwi: incremental linear-arithmetic constraint solver (modern Cassowary descendant, Apache-2.0,
-             pure-managed AnyCPU) backing the Shell/Layout constraint-layout engine. The legacy Cassowary
-             4.0.0 (.NET Framework only) and GPL-3.0 Cassowary.CSharp are rejected. -->
-        <PackageVersion Include="Kiwi" Version="3.0.0" />
-        <!-- Media playback: HanumanInstitute.LibMpv.Avalonia is the only Avalonia-12 + net10 media surface
-             (OpenGL MpvVideoView, avoids the NativeControlHost airspace problem). LibVLCSharp.Avalonia is
-             rejected — Avalonia-11-only embedding and no osx-arm64 native VLC on NuGet. The libmpv native
-             (>= 0.40.0) is provisioned at the app-host distribution layer (brew/apt/side-load), never a NuGet pin. -->
-        <PackageVersion Include="HanumanInstitute.LibMpv" Version="0.10.1" />
-        <PackageVersion Include="HanumanInstitute.LibMpv.Avalonia" Version="0.10.1" />
-        <!-- Alternative-input device fabric (Shell/input InputFabric): SpaceMouse via raw HID (HidSharp,
-             no vendor driver), gamepad via Silk.NET.Input (SDL2 osx-arm64), haptic/rumble via Silk.NET.SDL
-             SDL_Haptic, and MIDI via Melanchall.DryWetMidi (universal dylib). Other device classes lack a
-             viable cross-platform net10 NuGet; CNC rides the existing System.IO.Ports serial. -->
-        <PackageVersion Include="HidSharp" Version="2.6.4" />
-        <PackageVersion Include="Silk.NET.Input" Version="2.23.0" />
-        <PackageVersion Include="Silk.NET.SDL" Version="2.23.0" />
-        <PackageVersion Include="Melanchall.DryWetMidi" Version="8.0.3" />
-        <PackageVersion Include="MicroCom.Runtime" Version="0.11.6" />
-        <PackageVersion Include="PanAndZoom" Version="12.0.0.1" />
-        <PackageVersion Include="ReactiveUI" Version="23.2.28" />
-        <PackageVersion Include="ReactiveUI.Avalonia" Version="12.0.3" />
-        <PackageVersion Include="ReactiveUI.Validation" Version="7.1.0" />
-        <PackageVersion Include="SkiaSharp" Version="3.119.4" />
-        <PackageVersion Include="SkiaSharp.HarfBuzz" Version="3.119.4" />
-        <!-- Linux ships the NoDependencies flavor (self-contained posture); the glibc-coupled
-             variant Avalonia.Skia drags is pinned and excluded at the AppUi reference. -->
-        <PackageVersion Include="SkiaSharp.NativeAssets.Linux" Version="3.119.4" />
-        <PackageVersion Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="3.119.4" />
-        <PackageVersion Include="SkiaSharp.NativeAssets.macOS" Version="3.119.4" />
-        <PackageVersion Include="Svg.Controls.Skia.Avalonia" Version="12.0.0.13" />
-        <!-- Direct engine pin: headless document/export processes compose SKSvg without the
-             Avalonia closure; 5.1.1 tracks the Svg.Controls.Skia.Avalonia 12.0.0.13 Avalonia-coupled line. -->
-        <PackageVersion Include="Svg.Skia" Version="5.1.1" />
-        <PackageVersion Include="System.Reactive" Version="6.1.0" />
-        <PackageVersion Include="Tmds.DBus.Protocol" Version="0.94.2" />
-        <PackageVersion Include="Xaml.Behaviors.Avalonia" Version="12.0.0.1" />
-        <PackageVersion Include="Silk.NET.WebGPU" Version="2.23.0" />
-        <PackageVersion Include="Silk.NET.WebGPU.Native.WGPU" Version="2.23.0" />
-        <!-- wgpu-native vendor surface + immersive OpenXR family ride the same 2.23.0 monorepo
-             release as the core WebGPU binding; Silk.NET publishes core-plus-extensions in lockstep. -->
-        <PackageVersion Include="Silk.NET.WebGPU.Extensions.WGPU" Version="2.23.0" />
-        <PackageVersion Include="Silk.NET.OpenXR" Version="2.23.0" />
-        <PackageVersion Include="Silk.NET.OpenXR.Extensions.KHR" Version="2.23.0" />
-        <PackageVersion Include="Silk.NET.OpenXR.Extensions.EXT" Version="2.23.0" />
-        <PackageVersion Include="Silk.NET.OpenXR.Extensions.FB" Version="2.23.0" />
-        <PackageVersion Include="FluentIcons.Common" Version="2.1.331" />
-        <PackageVersion Include="netDxf" Version="2023.11.10" />
-        <PackageVersion Include="DocumentFormat.OpenXml" Version="3.5.1" />
-        <PackageVersion Include="Avalonia.Markup.Xaml.Loader" Version="12.0.5" />
-        <!-- Collaboration CRDT: LoroCs (Eg-walker/Fugue sequence+map+text+movable-list+tree engine) backs the
-             notebook/annotation/table op-log + presence rail, retiring the bespoke NotebookCrdt LWW+fractional-index
-             algebra. Ships runtimes/osx-arm64/native/loro.dylib beside the pure-managed lib/netstandard2.0 binding; MIT. -->
-        <PackageVersion Include="LoroCs" Version="1.13.6" />
-        <!-- ICU MessageFormat engine (Jeffijoe): CLDR cardinal+ordinal plural / selectordinal / select(gender) over the
-             resx pattern vocabulary, materializing ResolvedLocale.Plural. net10.0 dependency group is empty; MIT. -->
-        <PackageVersion Include="MessageFormat" Version="8.0.0" />
-        <!-- Semi design-token theme + per-control skins (irihitech) layered over the retained Fluent base: SemiTheme
-             plus the DataGrid/ColorPicker/Dock/AvaloniaEdit skins restyle the admitted control roster to one token
-             system the Wacton.Unicolour OKLCH pipeline materializes. All MIT, pure-managed AnyCPU XAML. -->
-        <PackageVersion Include="Semi.Avalonia" Version="12.0.3" />
-        <PackageVersion Include="Semi.Avalonia.DataGrid" Version="12.0.0" />
-        <PackageVersion Include="Semi.Avalonia.ColorPicker" Version="12.0.3" />
-        <PackageVersion Include="Semi.Avalonia.Dock" Version="12.0.0.2" />
-        <PackageVersion Include="Semi.Avalonia.AvaloniaEdit" Version="12.0.0" />
-        <!-- Ursa extended-control suite (irihitech): NavMenu/Banner/Badge/Timeline/Toast/Notification/Loading/Skeleton/
-             Form/Drawer the admitted Dock/Dialog/PropertyGrid/DataGrid set does not own, plus the Semi control theme and
-             the ReactiveUI overlay bridge (its ReactiveUI.Avalonia >=11.3.0 floor rises to the admitted 12.x). All MIT. -->
-        <PackageVersion Include="Irihi.Ursa" Version="2.0.1" />
-        <PackageVersion Include="Irihi.Ursa.Themes.Semi" Version="2.0.1" />
-        <PackageVersion Include="Irihi.Ursa.ReactiveUIExtension" Version="2.0.0" />
-        <!-- Semi/Ursa closure: the shared Avalonia primitives both suites floor on; pure-managed AnyCPU, MIT. -->
-        <PackageVersion Include="Irihi.Avalonia.Shared" Version="0.4.0" />
-        <PackageVersion Include="Irihi.Avalonia.Shared.Contracts" Version="0.4.0" />
-        <!-- NodeEditorAvalonia (wieslawsoltes): the native node/pin/connector graph-editing canvas inside a PanAndZoom
-             ZoomBorder backing the Shell/Editing parametric + dependency-graph surfaces (ReactiveUI view-models against
-             the framework-agnostic INode/IConnector Model floor; the CommunityToolkit.Mvvm variant is NOT admitted). MIT.
-             It still declares the pre-rename Avalonia.Controls.PanAndZoom 11.3.0 / Avalonia.Xaml.Behaviors 11.3.0.6 ids,
-             whose Avalonia.Controls.PanAndZoom.dll is a DISTINCT assembly from the admitted PanAndZoom.dll, so both
-             restore with no assembly collision (the project compiles no consumer source). -->
-        <PackageVersion Include="NodeEditorAvalonia" Version="12.0.0" />
-        <PackageVersion Include="NodeEditorAvalonia.Model" Version="12.0.0" />
-        <!-- PDFsharp + MigraDoc (empira, MIT, no Windows/GDI coupling): the structured vector-PDF page object model
-             (XGraphics sheets, read/modify/merge, PDF/A, signing) and the auto-paginated flow-report DOM rendered onto
-             it — the vector-PDF + evidence-report deliverable the OOXML/DXF/raster export set lacked. Deps
-             Microsoft.Extensions.Logging.Abstractions / System.Security.Cryptography.Pkcs ride existing/in-box rows. -->
-        <PackageVersion Include="PDFsharp" Version="6.2.4" />
-        <PackageVersion Include="PDFsharp-MigraDoc" Version="6.2.4" />
-        <!-- Mapsui.Avalonia12 (MIT): the interactive slippy-map / basemap control (OSM/WMTS/WMS/MBTiles/vector tiles via
-             BruTile) rendering through the admitted SkiaSharp + Avalonia.Skia and binding the Bim-owned NetTopologySuite
-             2.6.0 so GDAL/OGR features draw as overlays beside the Wgpu viewport. Closure floors below; SkiaSharp /
-             Svg.Skia / NTS transitives ride existing higher rows. -->
-        <PackageVersion Include="Mapsui.Avalonia12" Version="5.1.0" />
-        <PackageVersion Include="Mapsui" Version="5.1.0" />
-        <PackageVersion Include="Mapsui.Rendering.Skia" Version="5.1.0" />
-        <PackageVersion Include="Mapsui.Tiling" Version="5.1.0" />
-        <PackageVersion Include="BruTile" Version="6.0.0" />
-        <PackageVersion Include="Topten.RichTextKit" Version="0.4.167" />
-        <!-- Align the Mapsui-pulled WebAssembly Skia asset to the admitted 3.119.4 stable line (its nuspec floor is a
-             3.119.4-preview); osx-arm64 never loads the WASM asset. -->
-        <PackageVersion Include="SkiaSharp.NativeAssets.WebAssembly" Version="3.119.4" />
+        <PackageVersion Include="LoroCs"                                Version="1.13.6" />
+        <PackageVersion Include="Mapsui.Avalonia12"                     Version="5.1.0" />
+        <PackageVersion Include="Markdig"                               Version="1.3.2" />
+        <PackageVersion Include="Melanchall.DryWetMidi"                 Version="8.0.3" />
+        <PackageVersion Include="MessageFormat"                         Version="8.0.0" />
+        <PackageVersion Include="netDxf"                                Version="2023.11.10" />
+        <PackageVersion Include="NodeEditorAvalonia"                    Version="12.0.0" />
+        <PackageVersion Include="PanAndZoom"                            Version="12.0.0.1" />
+        <PackageVersion Include="PDFsharp"                              Version="6.2.4" />
+        <PackageVersion Include="PDFsharp-MigraDoc"                     Version="6.2.4" />
+        <PackageVersion Include="ReactiveUI"                            Version="23.2.28" />
+        <PackageVersion Include="ReactiveUI.Avalonia"                   Version="12.0.3" />
+        <PackageVersion Include="ReactiveUI.Validation"                 Version="7.1.0" />
+        <PackageVersion Include="Semi.Avalonia"                         Version="12.0.3" />
+        <PackageVersion Include="Semi.Avalonia.AvaloniaEdit"            Version="12.0.0" />
+        <PackageVersion Include="Semi.Avalonia.ColorPicker"             Version="12.0.3" />
+        <PackageVersion Include="Semi.Avalonia.DataGrid"                Version="12.0.0" />
+        <PackageVersion Include="Semi.Avalonia.Dock"                    Version="12.0.0.2" />
+        <PackageVersion Include="Silk.NET.Input"                        Version="2.23.0" />
+        <PackageVersion Include="Silk.NET.OpenXR"                       Version="2.23.0" />
+        <PackageVersion Include="Silk.NET.OpenXR.Extensions.EXT"        Version="2.23.0" />
+        <PackageVersion Include="Silk.NET.OpenXR.Extensions.FB"         Version="2.23.0" />
+        <PackageVersion Include="Silk.NET.OpenXR.Extensions.KHR"        Version="2.23.0" />
+        <PackageVersion Include="Silk.NET.SDL"                          Version="2.23.0" />
+        <PackageVersion Include="Silk.NET.WebGPU"                       Version="2.23.0" />
+        <PackageVersion Include="Silk.NET.WebGPU.Extensions.WGPU"       Version="2.23.0" />
+        <PackageVersion Include="Silk.NET.WebGPU.Native.WGPU"           Version="2.23.0" />
+        <PackageVersion Include="SkiaSharp"                             Version="3.119.4" />
+        <PackageVersion Include="SkiaSharp.HarfBuzz"                    Version="3.119.4" />
+        <PackageVersion Include="SkiaSharp.NativeAssets.macOS"          Version="3.119.4" />
+        <PackageVersion Include="Svg.Controls.Skia.Avalonia"            Version="12.0.0.13" />
+        <PackageVersion Include="Svg.Skia"                              Version="5.1.1" />
+        <PackageVersion Include="System.Reactive"                       Version="6.1.0" />
+        <PackageVersion Include="Xaml.Behaviors.Avalonia"               Version="12.0.0.1" />
     </ItemGroup>
 
-    <ItemGroup Label="Bridge">
-        <!-- direct -->
-        <PackageVersion Include="StreamJsonRpc" Version="2.25.29" />
-        <!-- EventPipe lane: admitted on the 0c probe pass (diagnostics socket live on the bundled CoreCLR). -->
+    <ItemGroup Label="Bridge Runtime">
         <PackageVersion Include="Microsoft.Diagnostics.NETCore.Client" Version="0.2.661903" />
-        <!-- StreamJsonRpc closure: central-reserved, transitively pinned (MathNet-closure precedent).
-             Closure members already pinned elsewhere ride their existing central rows: MessagePack 3.1.7,
-             Microsoft.NET.StringTools 18.7.1, Newtonsoft.Json 13.0.4, System.IO.Hashing 10.0.9 — all at or
-             above the nuspec floor; the MessagePack branch never loads under SystemTextJsonFormatter. -->
-        <PackageVersion Include="Nerdbank.Streams" Version="2.13.16" />
-        <PackageVersion Include="Microsoft.VisualStudio.Threading.Only" Version="18.7.23" />
-        <PackageVersion Include="Microsoft.VisualStudio.Validation" Version="17.13.22" />
-        <PackageVersion Include="Nerdbank.MessagePack" Version="1.2.30" />
-        <PackageVersion Include="PolyType" Version="1.3.1" />
-        <PackageVersion Include="System.IO.Pipelines" Version="10.0.9" />
-    </ItemGroup>
-
-    <ItemGroup Label="Analyzers">
-        <!-- Compile-time BCL polyfills for netstandard2.0 Roslyn components (IsExternalInit et al.);
-             replaces hand-rolled marker files. -->
-        <PackageVersion Include="PolySharp" Version="1.16.0" />
-        <PackageVersion Include="Microsoft.VisualStudio.Threading.Analyzers" Version="18.7.23" />
-        <PackageVersion Include="Meziantou.Analyzer" Version="3.0.115" />
-        <PackageVersion Include="Microsoft.CodeAnalysis.Common" Version="5.3.0" />
-        <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.3.0" />
-        <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="5.3.0" />
-        <PackageVersion Include="Microsoft.CodeAnalysis.Workspaces.Common" Version="5.3.0" />
-        <PackageVersion Include="Microsoft.CodeAnalysis.Workspaces.MSBuild" Version="5.3.0" />
-        <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="5.3.0" />
+        <PackageVersion Include="Nerdbank.Streams"                     Version="2.13.16" />
+        <PackageVersion Include="StreamJsonRpc"                        Version="2.25.29" />
     </ItemGroup>
 
     <ItemGroup Label="Test Stack">
-        <!-- xunit.v3 holds at 3.2.2: Avalonia.Headless.XUnit 12.0.x floors on
-             xunit.v3.extensibility.core 3.2.2; refuse the 4.0.0-pre offer from outdated probes. -->
-        <PackageVersion Include="xunit.v3.mtp-v2" Version="3.2.2" />
-        <PackageVersion Include="xunit.v3.assert" Version="3.2.2" />
-        <PackageVersion Include="xunit.v3.common" Version="3.2.2" />
-        <PackageVersion Include="xunit.v3.extensibility.core" Version="3.2.2" />
-        <PackageVersion Include="CsCheck" Version="4.7.0" />
-        <PackageVersion Include="coverlet.MTP" Version="10.0.1" />
+        <PackageVersion Include="BenchmarkDotNet"                                Version="0.15.8" />
+        <PackageVersion Include="coverlet.MTP"                                   Version="10.0.1" />
+        <PackageVersion Include="CsCheck"                                        Version="4.7.0" />
+        <PackageVersion Include="Microsoft.AspNetCore.TestHost"                  Version="10.0.9" />
         <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.Analyzer.Testing" Version="1.1.4" />
-        <PackageVersion Include="Microsoft.Extensions.Diagnostics.Testing" Version="10.7.0" />
-        <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="10.7.0" />
-        <!-- CrashDump/HangDump version in lockstep with the Microsoft.Testing.Platform pins;
-             dormant until the assay test rail passes the dump argv. -->
-        <PackageVersion Include="Microsoft.Testing.Extensions.CrashDump" Version="2.2.3" />
-        <PackageVersion Include="Microsoft.Testing.Extensions.HangDump" Version="2.2.3" />
-        <PackageVersion Include="Microsoft.Testing.Extensions.Telemetry" Version="2.2.3" />
-        <PackageVersion Include="Microsoft.Testing.Extensions.TrxReport.Abstractions" Version="2.2.3" />
-        <PackageVersion Include="Microsoft.Testing.Platform" Version="2.2.3" />
-        <PackageVersion Include="Microsoft.Testing.Platform.MSBuild" Version="2.2.3" />
-        <PackageVersion Include="Verify.XunitV3" Version="31.20.0" />
-        <PackageVersion Include="BenchmarkDotNet" Version="0.15.8" />
-        <!-- AspNetCore.TestHost rides the Microsoft.Extensions 10.0.9 servicing line:
-             the Rasm.Compute RemoteTransport.InProcess TestServer.CreateHandler seam. -->
-        <PackageVersion Include="Microsoft.AspNetCore.TestHost" Version="10.0.9" />
-        <PackageVersion Include="NodaTime.Testing" Version="3.3.2" />
-        <PackageVersion Include="SharpFuzz" Version="2.3.0" />
+        <PackageVersion Include="Microsoft.Extensions.Diagnostics.Testing"       Version="10.7.0" />
+        <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing"      Version="10.7.0" />
+        <PackageVersion Include="Microsoft.Testing.Extensions.CrashDump"         Version="2.2.3" />
+        <PackageVersion Include="Microsoft.Testing.Extensions.HangDump"          Version="2.2.3" />
+        <PackageVersion Include="NodaTime.Testing"                               Version="3.3.2" />
+        <PackageVersion Include="Verify.XunitV3"                                 Version="31.20.0" />
+        <PackageVersion Include="xunit.v3.assert"                                Version="3.2.2" />
+        <PackageVersion Include="xunit.v3.common"                                Version="3.2.2" />
+        <PackageVersion Include="xunit.v3.extensibility.core"                    Version="3.2.2" />
+        <PackageVersion Include="xunit.v3.mtp-v2"                                Version="3.2.2" />
     </ItemGroup>
 
-    <!-- Transitive-pin conflicts get a named floor row here, never a NoWarn. -->
     <ItemGroup Label="Transitive Floors">
-        <!-- Robots closure: the Rhino3dm managed binding (visose Robots' geometry substrate — ships a real
-             runtimes/osx-arm64/native/librhino3dm_native.dylib plus osx-x64/linux/win RIDs) and the pure-managed
-             SSH.NET robot-program SFTP upload path. Both MIT. SSH.NET pulls BouncyCastle.Cryptography (pure-managed
-             AnyCPU), floor-pinned here so central transitive pinning stays deterministic; its
-             Microsoft.Extensions.Logging.Abstractions transitive resolves upward against the existing 10.0.9 row. -->
-        <PackageVersion Include="Rhino3dm" Version="8.17.0" />
-        <PackageVersion Include="SSH.NET" Version="2025.1.0" />
-        <PackageVersion Include="BouncyCastle.Cryptography" Version="2.6.2" />
-        <!-- Apache.Arrow.Compression closure: the Arrow-IPC LZ4-frame stream codec and the pure-managed
-             Zstandard port. Both pure-managed AnyCPU, no native RID asset; floor-pinned to the nuspec
-             versions so central transitive pinning stays deterministic. -->
-        <PackageVersion Include="K4os.Compression.LZ4.Streams" Version="1.3.8" />
-        <PackageVersion Include="ZstdSharp.Port" Version="0.8.8" />
-        <!-- FlowtideDotNet.Substrait closure: the SQL-text -> Substrait-plan parser (TylerBrinks/SqlParser-cs,
-             pure-managed MIT, port of sqlparser-rs); floor-pinned so central transitive pinning stays deterministic. -->
-        <PackageVersion Include="SqlParserCS" Version="0.6.5" />
-        <!-- Confluent.SchemaRegistry.Serdes closure: the Apache Avro reference codec the Avro serde rides
-             (Apache-2.0, pure-managed netstandard2.0/2.1), the protobuf-net descriptor-reflection chain the
-             Protobuf serde rides, and the NJsonSchema chain the JSON-Schema serde rides. All pure-managed
-             AnyCPU, floor-pinned so central transitive pinning stays deterministic. Newtonsoft.Json /
-             System.CodeDom transitives ride existing higher rows. -->
-        <PackageVersion Include="Apache.Avro" Version="1.12.1" />
-        <PackageVersion Include="protobuf-net.Reflection" Version="3.2.52" />
-        <PackageVersion Include="protobuf-net.Core" Version="3.2.56" />
-        <PackageVersion Include="NJsonSchema" Version="11.6.1" />
-        <PackageVersion Include="NJsonSchema.NewtonsoftJson" Version="11.6.1" />
-        <PackageVersion Include="NJsonSchema.Annotations" Version="11.6.1" />
-        <PackageVersion Include="Namotion.Reflection" Version="3.5.1" />
-        <!-- Confluent.SchemaRegistry caching leg + the columnar/wide-column store-client Microsoft.Extensions
-             floors (ClickHouse.Driver Http, ScyllaDBCSharpDriver + Minio Logging/DI/Immutable), pinned on the
-             10.0.9 servicing line so central transitive pinning lifts them above the package nuspec floors. -->
-        <PackageVersion Include="Microsoft.Extensions.Caching.Memory" Version="10.0.9" />
-        <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.9" />
-        <PackageVersion Include="Microsoft.Extensions.Logging" Version="10.0.9" />
+        <!-- Compiler, restore, and framework closure. -->
+        <PackageVersion Include="FSharp.Core"                                           Version="11.0.100" />
+        <PackageVersion Include="Humanizer.Core"                                        Version="3.0.10" />
+        <PackageVersion Include="Microsoft.Bcl.Memory"                                  Version="10.0.9" />
+        <PackageVersion Include="Microsoft.Build.Framework"                             Version="18.7.1" />
+        <PackageVersion Include="Microsoft.Extensions.Caching.Memory"                   Version="10.0.9" />
         <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.9" />
-        <PackageVersion Include="System.Collections.Immutable" Version="10.0.9" />
-        <!-- NATS.Net closure: the eight 2.8.2 sub-clients the meta-package fans out to, plus the Abstractions
-             contract, the NKeys signing primitive, and the Primitives/Hosting.Abstractions floors they pull.
-             All pure-managed AnyCPU, floor-pinned for lockfile determinism; System.Memory rides the 4.6.3 row. -->
-        <PackageVersion Include="NATS.Client.Core" Version="2.8.2" />
-        <PackageVersion Include="NATS.Client.Abstractions" Version="2.8.2" />
-        <PackageVersion Include="NATS.Client.Hosting" Version="2.8.2" />
-        <PackageVersion Include="NATS.Client.JetStream" Version="2.8.2" />
-        <PackageVersion Include="NATS.Client.KeyValueStore" Version="2.8.2" />
-        <PackageVersion Include="NATS.Client.ObjectStore" Version="2.8.2" />
-        <PackageVersion Include="NATS.Client.Serializers.Json" Version="2.8.2" />
-        <PackageVersion Include="NATS.Client.Services" Version="2.8.2" />
-        <PackageVersion Include="NATS.Client.Simplified" Version="2.8.2" />
-        <PackageVersion Include="NATS.NKeys" Version="1.0.2" />
-        <PackageVersion Include="Microsoft.Extensions.Primitives" Version="10.0.9" />
-        <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.9" />
-        <!-- Microsoft.ML.Tokenizers.Data.* closure: the 2.0.0 vocab packages pull Microsoft.Bcl.Memory 9.0.4
-             which carries the GHSA-73j8-2gch-69rq advisory; floor-pinned to the patched 10.0.9 BCL servicing
-             line (pure-managed AnyCPU) so central transitive pinning lifts the resolved version above the vuln. -->
-        <PackageVersion Include="Microsoft.Bcl.Memory" Version="10.0.9" />
-        <PackageVersion Include="Humanizer.Core" Version="3.0.10" />
-        <PackageVersion Include="Microsoft.Build.Framework" Version="18.7.1" />
-        <PackageVersion Include="Microsoft.Extensions.DependencyModel" Version="10.0.9" />
-        <!-- Directly-invoked by AppHost configuration-and-options (OptionsBuilder.Bind/BindConfiguration,
-             Configure<T>(IConfiguration), validation-on-start); explicitly pinned on the 10.0.9 servicing
-             line so the central transitive pin stays deterministic. -->
-        <PackageVersion Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="10.0.9" />
-        <PackageVersion Include="Microsoft.NET.StringTools" Version="18.7.1" />
-        <PackageVersion Include="Newtonsoft.Json" Version="13.0.4" />
-        <!-- Bim GIS closure: the NTS Feature/AttributesTable surface NetTopologySuite.IO.Esri.Shapefile and
-             bertt.CityJSON both require (separate package id from the NTS core); pure-managed AnyCPU. -->
-        <PackageVersion Include="NetTopologySuite.Features" Version="2.2.0" />
-        <!-- FlatGeobuf closure: the Newtonsoft-based GeoJSON codec (distinct package id from the admitted STJ
-             GeoJSON4STJ) and the Nito async-coordination meta-package; both pure-managed AnyCPU, their
-             NTS/NTS.Features/Newtonsoft.Json transitives ride existing higher rows. -->
-        <PackageVersion Include="NetTopologySuite.IO.GeoJSON" Version="4.0.0" />
-        <PackageVersion Include="Nito.AsyncEx" Version="5.1.2" />
-        <!-- NetTopologySuite.IO.VectorTiles.Mapbox closure: the protobuf-net meta lifted to 3.2.56 (== the
-             admitted protobuf-net.Core line) so the MVT codec never resolves the legacy protobuf-net 2.4.0 floor. -->
-        <PackageVersion Include="protobuf-net" Version="3.2.56" />
-        <!-- MPXJ.Net closure: the DateOnly/TimeOnly polyfill (net10 in-box no-op facade), lifted to the newest
-             stable line; the IKVM.Maven.Sdk + IKVM build-time Java->IL translation chain resolves transitively. -->
-        <PackageVersion Include="Portable.System.DateTimeOnly" Version="9.0.1" />
-        <!-- Smino.Bcf.Toolkit closure: the obarlik Json.Net no-dependency serializer and the recursive
-             DataAnnotations validator; both pure-managed AnyCPU, floor-pinned for lockfile determinism. -->
-        <PackageVersion Include="Json.Net" Version="1.0.33" />
+        <PackageVersion Include="Microsoft.Extensions.DependencyModel"                  Version="10.0.9" />
+        <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions"             Version="10.0.9" />
+        <PackageVersion Include="Microsoft.Extensions.Http"                             Version="10.0.9" />
+        <PackageVersion Include="Microsoft.Extensions.Logging"                          Version="10.0.9" />
+        <PackageVersion Include="Microsoft.Extensions.Primitives"                       Version="10.0.9" />
+        <PackageVersion Include="Microsoft.NET.StringTools"                             Version="18.7.1" />
+        <PackageVersion Include="Microsoft.Testing.Extensions.Telemetry"                Version="2.2.3" />
+        <PackageVersion Include="Microsoft.Testing.Extensions.TrxReport.Abstractions"   Version="2.2.3" />
+        <PackageVersion Include="Microsoft.Testing.Platform"                            Version="2.2.3" />
+        <PackageVersion Include="Microsoft.Testing.Platform.MSBuild"                    Version="2.2.3" />
+        <PackageVersion Include="Microsoft.VisualStudio.Threading.Only"                 Version="18.7.23" />
+        <PackageVersion Include="Microsoft.VisualStudio.Validation"                     Version="17.13.22" />
+        <PackageVersion Include="Namotion.Reflection"                                   Version="3.5.1" />
+        <PackageVersion Include="Nerdbank.MessagePack"                                  Version="1.2.30" />
+        <PackageVersion Include="PolyType"                                              Version="1.3.1" />
+        <PackageVersion Include="Portable.System.DateTimeOnly"                          Version="9.0.1" />
+        <PackageVersion Include="System.CodeDom"                                        Version="10.0.9" />
+        <PackageVersion Include="System.Collections.Immutable"                          Version="10.0.9" />
+        <PackageVersion Include="System.Composition"                                    Version="10.0.9" />
+        <PackageVersion Include="System.Composition.AttributedModel"                    Version="10.0.9" />
+        <PackageVersion Include="System.Composition.Convention"                         Version="10.0.9" />
+        <PackageVersion Include="System.Composition.Hosting"                            Version="10.0.9" />
+        <PackageVersion Include="System.Composition.Runtime"                            Version="10.0.9" />
+        <PackageVersion Include="System.Composition.TypedParts"                         Version="10.0.9" />
+        <PackageVersion Include="System.IO.Pipelines"                                   Version="10.0.9" />
+        <PackageVersion Include="System.Management"                                     Version="10.0.9" />
+        <PackageVersion Include="System.Memory"                                         Version="4.6.3" />
+        <PackageVersion Include="System.Threading.RateLimiting"                         Version="10.0.9" />
+        <PackageVersion Include="System.Threading.Tasks.Dataflow"                       Version="10.0.9" />
+
+        <!-- Wire, schema, and document closure. -->
+        <PackageVersion Include="Apache.Avro"                        Version="1.12.1" />
+        <PackageVersion Include="BouncyCastle.Cryptography"          Version="2.6.2" />
+        <PackageVersion Include="ClosedXML"                          Version="0.105.0" />
+        <PackageVersion Include="EPPlus"                             Version="8.6.1" />
+        <PackageVersion Include="Json.Net"                           Version="1.0.33" />
+        <PackageVersion Include="Newtonsoft.Json"                    Version="13.0.4" />
+        <PackageVersion Include="NJsonSchema"                        Version="11.6.1" />
+        <PackageVersion Include="NJsonSchema.Annotations"            Version="11.6.1" />
+        <PackageVersion Include="NJsonSchema.NewtonsoftJson"         Version="11.6.1" />
+        <PackageVersion Include="protobuf-net"                       Version="3.2.56" />
+        <PackageVersion Include="protobuf-net.Core"                  Version="3.2.56" />
+        <PackageVersion Include="protobuf-net.Reflection"            Version="3.2.52" />
         <PackageVersion Include="RecursiveDataAnnotationsValidation" Version="2.2.0" />
-        <!-- SwiftCollections.Lean closure: the zero-net8-dep Chronicler logging core; MIT, pure-managed AnyCPU. -->
-        <PackageVersion Include="Chronicler.Core.Lean" Version="0.2.1" />
-        <!-- TorchSharp closure: the model-archive deflate codec and the contiguous-memory BCL primitive it floors on.
-             Both pure-managed AnyCPU; SkiaSharp 3.119.4 + Google.Protobuf 3.35.1 transitives ride existing higher rows. -->
-        <PackageVersion Include="SharpZipLib" Version="1.4.2" />
-        <PackageVersion Include="System.Memory" Version="4.6.3" />
-        <PackageVersion Include="System.CodeDom" Version="10.0.9" />
-        <PackageVersion Include="System.Management" Version="10.0.9" />
-        <PackageVersion Include="System.Composition" Version="10.0.9" />
-        <PackageVersion Include="System.Composition.AttributedModel" Version="10.0.9" />
-        <PackageVersion Include="System.Composition.Convention" Version="10.0.9" />
-        <PackageVersion Include="System.Composition.Hosting" Version="10.0.9" />
-        <PackageVersion Include="System.Composition.Runtime" Version="10.0.9" />
-        <PackageVersion Include="System.Composition.TypedParts" Version="10.0.9" />
-        <PackageVersion Include="System.Threading.RateLimiting" Version="10.0.9" />
-        <!-- MTConnect.NET-Common closure: the single managed transitive floor (YAML asset serializer)
-             the cutting-tool model pulls on net9.0; lifted centrally for lockfile determinism. -->
-        <PackageVersion Include="YamlDotNet" Version="18.1.0" />
-        <PackageVersion Include="EPPlus" Version="8.6.1" />
-        <PackageVersion Include="Snappier" Version="1.3.1" />
+        <PackageVersion Include="SharpZipLib"                        Version="1.4.2" />
+        <PackageVersion Include="Snappier"                           Version="1.3.1" />
+        <PackageVersion Include="YamlDotNet"                         Version="18.1.0" />
+
+        <!-- Compute, interchange, and BIM closure. -->
+        <PackageVersion Include="Ara3D.SDK"                    Version="1.4.2" />
+        <PackageVersion Include="BriefFiniteElementNet.Common" Version="2.1.2" />
+        <PackageVersion Include="MathNet.Numerics.FSharp"      Version="6.0.0-beta2" />
+        <PackageVersion Include="netDxf.netstandard"           Version="3.0.1" />
+        <PackageVersion Include="OneOf"                        Version="3.0.271" />
+        <PackageVersion Include="Parquet.Net"                  Version="6.0.3" />
+        <PackageVersion Include="Rhino3dm"                     Version="8.17.0" />
+        <PackageVersion Include="VividOrange.ICases"           Version="0.1.0" />
+        <PackageVersion Include="VividOrange.ILoads"           Version="0.1.0" />
+        <PackageVersion Include="VividOrange.IStages"          Version="0.1.0" />
+        <PackageVersion Include="Xbim.Common"                  Version="6.0.587" />
+        <PackageVersion Include="Xbim.Ifc"                     Version="6.0.587" />
+        <PackageVersion Include="Xbim.Ifc4"                    Version="6.0.587" />
+        <PackageVersion Include="Xbim.IO.Table"                Version="6.0.172" />
+
+        <!-- Materials implementation and interface closure. -->
+        <PackageVersion Include="UnitsNet.Serialization.JsonNet"          Version="5.50.0" />
+        <PackageVersion Include="VividOrange.ForceMomentInteraction"      Version="0.2.1" />
+        <PackageVersion Include="VividOrange.Geometry"                    Version="1.8.0" />
+        <PackageVersion Include="VividOrange.ICartesianBase"              Version="1.8.0" />
+        <PackageVersion Include="VividOrange.IForceMomentInteraction"     Version="0.2.1" />
+        <PackageVersion Include="VividOrange.IGeometry"                   Version="1.8.0" />
+        <PackageVersion Include="VividOrange.IMaterials"                  Version="0.1.0" />
+        <PackageVersion Include="VividOrange.IProfiles"                   Version="0.1.0" />
+        <PackageVersion Include="VividOrange.ISections"                   Version="0.1.0" />
+        <PackageVersion Include="VividOrange.ISerialization"              Version="0.1.0" />
+        <PackageVersion Include="VividOrange.IStandards"                  Version="0.1.0" />
+        <PackageVersion Include="VividOrange.IUncertainties"              Version="0.2.0" />
+        <PackageVersion Include="VividOrange.Profiles"                    Version="0.1.0" />
+        <PackageVersion Include="VividOrange.Profiles.Perimeter"          Version="0.1.0" />
+        <PackageVersion Include="VividOrange.Sections.ISectionProperties" Version="0.1.0" />
+        <PackageVersion Include="VividOrange.Serialization"               Version="0.1.0" />
+
+        <!-- App UI native, map, text, and model closure. -->
+        <PackageVersion Include="BruTile"                                     Version="6.0.0" />
+        <PackageVersion Include="HarfBuzzSharp.NativeAssets.Linux"            Version="8.3.1.5" />
+        <PackageVersion Include="Irihi.Avalonia.Shared"                       Version="0.4.0" />
+        <PackageVersion Include="Irihi.Avalonia.Shared.Contracts"             Version="0.4.0" />
+        <PackageVersion Include="Mapsui"                                      Version="5.1.0" />
+        <PackageVersion Include="Mapsui.Rendering.Skia"                       Version="5.1.0" />
+        <PackageVersion Include="Mapsui.Tiling"                               Version="5.1.0" />
+        <PackageVersion Include="MicroCom.Runtime"                            Version="0.11.6" />
+        <PackageVersion Include="NodeEditorAvalonia.Model"                    Version="12.0.0" />
+        <PackageVersion Include="SkiaSharp.NativeAssets.Linux"                Version="3.119.4" />
+        <PackageVersion Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="3.119.4" />
+        <PackageVersion Include="SkiaSharp.NativeAssets.WebAssembly"          Version="3.119.4" />
+        <PackageVersion Include="Tmds.DBus.Protocol"                          Version="0.94.2" />
+        <PackageVersion Include="Topten.RichTextKit"                          Version="0.4.167" />
+
+        <!-- Messaging and store closure. -->
+        <PackageVersion Include="Chronicler.Core.Lean"         Version="0.2.1" />
+        <PackageVersion Include="K4os.Compression.LZ4.Streams" Version="1.3.8" />
+        <PackageVersion Include="NATS.Client.Abstractions"     Version="2.8.2" />
+        <PackageVersion Include="NATS.Client.Core"             Version="2.8.2" />
+        <PackageVersion Include="NATS.Client.Hosting"          Version="2.8.2" />
+        <PackageVersion Include="NATS.Client.JetStream"        Version="2.8.2" />
+        <PackageVersion Include="NATS.Client.KeyValueStore"    Version="2.8.2" />
+        <PackageVersion Include="NATS.Client.ObjectStore"      Version="2.8.2" />
+        <PackageVersion Include="NATS.Client.Serializers.Json" Version="2.8.2" />
+        <PackageVersion Include="NATS.Client.Services"         Version="2.8.2" />
+        <PackageVersion Include="NATS.Client.Simplified"       Version="2.8.2" />
+        <PackageVersion Include="NATS.NKeys"                   Version="1.0.2" />
+        <PackageVersion Include="NetTopologySuite.Features"    Version="2.2.0" />
+        <PackageVersion Include="NetTopologySuite.IO.GeoJSON"  Version="4.0.0" />
+        <PackageVersion Include="Nito.AsyncEx"                 Version="5.1.2" />
+        <PackageVersion Include="SqlParserCS"                  Version="0.6.5" />
+        <PackageVersion Include="SSH.NET"                      Version="2025.1.0" />
     </ItemGroup>
 </Project>

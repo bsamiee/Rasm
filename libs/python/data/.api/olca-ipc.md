@@ -8,11 +8,10 @@
 - package: `olca-ipc`
 - version: `2.6.3`
 - license: MPL-2.0
-- module: `olca_ipc` (client/result) + `olca_schema` (`2.6.2`, MPL-2.0 — the wire model)
+- module: `olca_ipc` (client/result) + `olca_schema` (`2.6.2`, CC0-1.0 — the wire model)
 - owner: `data`
 - rail: epd-lca (openLCA interchange + compute)
 - depends: `olca-schema>=2.6.2`, `requests>=2.33.1`
-- evidence: surface derived from package source (`olca-ipc 2.6.3`, `olca_ipc/{__init__,protocol,ipc}.py`; `olca-schema 2.6.2`, `olca_schema/__init__.py`); not cp315-reflectable — admitted under the `python_version < '3.15'` marker (`requires-python >= 3.12`), so members are source-verified, not `assay api`-reflected
 - surface-law: the current surface is `import olca_ipc as ipc` + `import olca_schema as o` (model types live in `olca_schema`). The legacy single `olca` package (`import olca`; `olca.Client`; `client.dispose(result)`) shown on `greendelta.github.io/olca-ipc.py` is the OLD 0.x API and is superseded — do not use it; the `2.x` `Result` owns `dispose()` itself
 - capability: a uniform IPC client over three transports (JSON-RPC, REST, protobuf) for model CRUD, product-system construction, calculation + simulation, and a complete result-query surface; the typed `olca_schema` graph with `new_*` factories and dict/JSON codecs; base64 source-file upload
 
@@ -24,7 +23,7 @@
 | [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [ROLE] |
 | :-----: | :------- | :------------ | :----- |
 |  [01]   | `olca_ipc.Client(endpoint: str | int = 8080)` | JSON-RPC client | the default client over JSON-RPC (a `requests.Session` to `http://localhost:<port>`); implements the full `ProtoClient` contract |
-|  [02]   | `olca_ipc.RestClient(url: str)` | REST client | same contract over the openLCA REST API |
+|  [02]   | `olca_ipc.RestClient(endpoint: str, **kwargs)` | REST client | same contract over the openLCA REST API (`**kwargs` flow to the underlying `requests.Session`) |
 |  [03]   | `olca_ipc.ProtoClient` | client ABC | the abstract transport-agnostic client contract (CRUD + calculate/simulate) every client implements; annotate against this for transport independence |
 |  [04]   | `olca_ipc.Result` / `olca_ipc.RestResult` / `olca_ipc.ProtoResult` | result handle / ABC | a handle to a server-side result; lazy queries over the transport; `ProtoResult` is the abstract result contract (state, flows, impacts, costs, upstream, sankey, dispose) |
 |  [05]   | `olca_ipc.FileData` | upload payload | base64 file payload for `put_source_file`; `FileData.from_file(path)` reads + encodes |
@@ -89,7 +88,7 @@
 |  [01]   | `o.new_unit_group(name, ref_unit)` / `o.new_unit(name, factor=1.0)` / `o.new_flow_property(name, unit_group)` | build quantities | unit group, unit, and flow property (quantity) factories |
 |  [02]   | `o.new_flow(name, flow_type, flow_property)` / `o.new_product(...)` / `o.new_waste(...)` / `o.new_elementary_flow(...)` | build flows | typed flow factories |
 |  [03]   | `o.new_process(name)` / `o.new_exchange(process, flow, amount=1.0, unit=None)` / `o.new_input(...)` / `o.new_output(...)` | build processes | process + exchange factories (auto-assign `internal_id`, append to the process) |
-|  [04]   | `o.new_parameter(name, value, scope=GLOBAL_SCOPE)` / `o.new_location(name, code=None)` / `o.new_{physical,economic,causal}_allocation_factor(...)` | build params/alloc | parameter (input vs formula), location, and allocation-factor factories |
+|  [04]   | `o.new_parameter(name, value, scope=o.ParameterScope.GLOBAL_SCOPE)` / `o.new_location(name, code=None)` / `o.new_{physical,economic,causal}_allocation_factor(...)` | build params/alloc | parameter (input vs formula), location, and allocation-factor factories (`o.ParameterScope` ∈ `GLOBAL_SCOPE`/`PROCESS_SCOPE`/`IMPACT_SCOPE`; the `new_parameter` default is `GLOBAL_SCOPE`) |
 |  [05]   | `o.new_impact_category(name)` / `o.new_impact_factor(indicator, flow, value=1.0, unit=None)` / `o.new_impact_method(name, *indicators)` | build LCIA | impact category/factor/method factories |
 |  [06]   | `o.as_ref(entity) -> o.Ref` / `entity.to_ref() -> o.Ref` / `o.Ref(ref_type=o.RefType.X, id=...)` | reference | turn an entity into a `Ref`, or construct one directly by `RefType` + id (the form a `CalculationSetup.target` uses); `olca_schema 2.6.2` has no module-level `ref()` helper (that was the legacy `olca` 0.x package) |
 |  [07]   | `entity.to_dict()` / `Type.from_dict(d)` / `entity.to_json()` / `Type.from_json(s)` | codec | the dataclass wire codecs the client uses internally and a consumer uses at the boundary |

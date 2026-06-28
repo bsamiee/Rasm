@@ -45,7 +45,6 @@
 Every Compute-domain library the folder uses, planned or implemented. Versions are centralized in the one C# manifest and never pinned here; API evidence lives in the adjacent `.api/` folder. `GeneticSharp` carries the evolutionary/genetic-algorithm tier of the Solver `OptimizerKind` rows that the exact `Google.OrTools` CP-SAT/MILP lane does not reach — the chromosome encodings, selection/crossover/mutation/termination operator catalog, and multithreaded executor behind the metaheuristic optimizer cases. `TorchSharp` (with its `libtorch-cpu` meta-backend selecting the `libtorch-cpu-osx-arm64` native dylib) is the dual-leg `[CLASSICAL_ML_BLAS]` owner: it backs the iterative `Stats/estimator` `EstimatorKind` rows (Lasso, GLM/IRLS, kernel-SVM, GMM/EM, NMF, clustering, ARMA-MLE) via `torch.linalg` + autograd + `torch.optim`, and it supplies the native osx-arm64 dense linear-algebra substrate (native ATen GEMM/factorization) for the `Tensor/blas` lane, retaining the managed MathNet terminal as the cold-start path.
 
 [TENSOR_NUMERIC]:
-- `CommunityToolkit.HighPerformance`
 - `MathNet.Numerics`
 - `MathNet.Numerics.Providers.MKL`
 - `MathNet.Numerics.Providers.OpenBLAS`
@@ -89,16 +88,13 @@ Every Compute-domain library the folder uses, planned or implemented. Versions a
 [PERF]:
 - `Microsoft.IO.RecyclableMemoryStream`
 
-[UNITS]:
-- `UnitsNet`
-
 [CACHE_AI]:
 - `Microsoft.Extensions.Caching.Hybrid`
 - `Microsoft.Extensions.AI.Abstractions`
 
 ## [03]-[SUBSTRATE_PACKAGES]
 
-Cross-cutting C# substrate libraries Compute consumes; these are owned at the monorepo substrate layer. Package charters and API evidence live in `libs/csharp/.planning/README.md` and the adjacent `.api/` folder.
+Cross-cutting C# substrate libraries Compute consumes; package charters live in `libs/csharp/.planning/README.md` and shared API evidence lives in `libs/csharp/.api/`.
 
 [FUNCTIONAL_CORE]:
 - `LanguageExt.Core`
@@ -111,7 +107,9 @@ Cross-cutting C# substrate libraries Compute consumes; these are owned at the mo
 - `System.IO.Hashing`
 
 [NUMERIC_SUBSTRATE]:
+- `CommunityToolkit.HighPerformance`
 - `System.Numerics.Tensors`
+- `UnitsNet`
 
 [WIRE_CODEGEN]:
 - `Google.Protobuf`
@@ -124,4 +122,3 @@ Cross-cutting C# substrate libraries Compute consumes; these are owned at the mo
 
 [TEST_SUBSTRATE]:
 - `BenchmarkDotNet`
-- `SharpFuzz`

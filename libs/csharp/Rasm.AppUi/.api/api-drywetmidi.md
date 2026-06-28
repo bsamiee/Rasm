@@ -152,10 +152,11 @@
 |  [01]   | `NoteOnEvent(SevenBitNumber, SevenBitNumber)` | `NoteOnEvent`     | note start build   |
 |  [02]   | `NoteOffEvent(SevenBitNumber, SevenBitNumber)` | `NoteOffEvent`   | note stop build    |
 |  [03]   | `ControlChangeEvent(SevenBitNumber, SevenBitNumber)` | `ControlChangeEvent` | controller build |
-|  [04]   | `NoteNumber` / `Velocity`                  | `NoteEvent`          | pitch/velocity byte |
-|  [05]   | `Channel` (`FourBitNumber`)                | `ChannelEvent`       | channel index      |
-|  [06]   | `EventType` / `Clone()`                    | `MidiEvent`          | kind/copy          |
-|  [07]   | `Equals(event1, event2, out string message)` | `MidiEvent`       | structural compare |
+|  [04]   | `ControlNumber` / `ControlValue` (`SevenBitNumber`) | `ControlChangeEvent` | controller index/value read |
+|  [05]   | `NoteNumber` / `Velocity`                  | `NoteEvent`          | pitch/velocity byte |
+|  [06]   | `Channel` (`FourBitNumber`)                | `ChannelEvent`       | channel index      |
+|  [07]   | `EventType` / `Clone()`                    | `MidiEvent`          | kind/copy          |
+|  [08]   | `Equals(event1, event2, out string message)` | `MidiEvent`       | structural compare |
 
 [ENTRYPOINT_SCOPE]: interaction extraction and timed model
 - rail: input

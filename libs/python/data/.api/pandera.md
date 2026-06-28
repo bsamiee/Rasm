@@ -78,7 +78,7 @@
 
 | [INDEX] | [SURFACE]                                        | [ENTRY_FAMILY] | [RAIL]                               |
 | :-----: | :----------------------------------------------- | :------------- | :----------------------------------- |
-|  [01]   | `Check.gt/ge/lt/le/eq/ne`                        | check builtin  | scalar comparison predicates         |
+|  [01]   | `Check.gt/ge/lt/le/eq/ne` (short aliases of the long forms `greater_than`/`greater_than_or_equal_to`/`less_than`/`less_than_or_equal_to`/`equal_to`/`not_equal_to` — both spellings are registered constructors) | check builtin  | scalar comparison predicates         |
 |  [02]   | `Check.in_range(min, max)` / `Check.between`     | check builtin  | numeric range predicate              |
 |  [03]   | `Check.isin(values)` / `Check.notin(values)`     | check builtin  | membership predicates                |
 |  [04]   | `Check.str_matches / str_contains / str_length`  | check builtin  | string-pattern predicates            |

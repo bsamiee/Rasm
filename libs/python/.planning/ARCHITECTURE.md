@@ -36,6 +36,6 @@ The cross-language wire — the companion gRPC contract the geometry daemon serv
 
 ## [04]-[ADMISSION_POLICY]
 
-The root manifest owns interpreter and package admission. The branch default is a `>=3.15` normal-GIL CPython core; worker lanes exist only where upstream package metadata does not yet admit that core. Package-local docs name capability, entrypoints, boundaries, and exclusions, not installation rationale.
+The root manifest owns interpreter admission, dependency groups, version bounds, and `python_version` markers. The branch default is a `>=3.15` normal-GIL CPython core; worker-lane exceptions stay in the root manifest until resolver evidence permits removal. Package-local docs name capability, entrypoints, boundaries, and exclusions, not installation rationale.
 
-`protobuf` and `grpcio` are core runtime dependencies. `grpcio-tools` is codegen-only. The narrower native-render worker owns `vtk`/`pyvista` rendering. `specklepy` is not a branch dependency, and the OCCT CAD-STEP reader (`pythonocc-core`) has no PyPI distribution and remains deferred.
+`protobuf` and `grpcio` are core runtime dependencies. `grpcio-tools` is codegen-only. Native rendering and OCCT/STEP concerns stay on their owning geometry/artifacts tasks and root-manifest admissions. `specklepy` is not a branch dependency.

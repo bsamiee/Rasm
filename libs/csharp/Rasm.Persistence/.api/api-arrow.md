@@ -162,6 +162,18 @@ and `ZstdSharp.Port`. Never conflate the two — they are separate codecs over s
 |  [13]   | `FlightRecordBatchDuplexStreamingCall` | call handle | `StartPut` write call handle (`RequestStream`)    |
 |  [14]   | `FlightRecordBatchExchangeCall`  | call handle     | bidirectional exchange call handle                 |
 
+[PUBLIC_TYPE_SCOPE]: Flight server family (`Apache.Arrow.Flight.Server`)
+- rail: analytical-egress
+
+| [INDEX] | [SYMBOL]                              | [TYPE_FAMILY]   | [CAPABILITY]                                       |
+| :-----: | :------------------------------------ | :-------------- | :------------------------------------------------- |
+|  [01]   | `FlightServer`                        | server base     | `abstract`; the served node subclasses it and overrides the verbs — nine `virtual` handlers each throw `NotImplementedException` until overridden (`GetFlightInfo`/`GetSchema`/`DoGet`/`DoPut`/`DoExchange`/`ListFlights`/`ListActions`/`DoAction`/`Handshake`) |
+|  [02]   | `FlightServerRecordBatchStreamWriter` | server writer   | `: FlightRecordBatchStreamWriter, IServerStreamWriter<RecordBatch>`; the `DoGet`/`DoExchange` response stream |
+|  [03]   | `FlightServerRecordBatchStreamReader` | server reader   | `: FlightRecordBatchStreamReader`; the `DoExchange`/`DoPut` request stream; `ValueTask<FlightDescriptor> FlightDescriptor` resolves the exchange address |
+|  [04]   | `FlightRecordBatchStreamWriter`       | writer base     | `abstract : IAsyncStreamWriter<RecordBatch>, IDisposable`; carries `WriteAsync`/`SetupStream`/`WriteOptions` the server writer inherits |
+|  [05]   | `FlightRecordBatchStreamReader`       | reader base     | `abstract : IAsyncStreamReader<RecordBatch>, IAsyncEnumerable<RecordBatch>, IDisposable`; carries `Current`/`Schema`/`MoveNextAsync`/`ApplicationMetadata` the server reader inherits |
+|  [06]   | `FlightLocation`                      | location        | `FlightLocation(string uri)`; `string Uri` — the `FlightEndpoint` serving address |
+
 [PUBLIC_TYPE_SCOPE]: IPC compression family (`Apache.Arrow.Compression`)
 - rail: analytical-egress (IPC compression)
 
@@ -247,6 +259,25 @@ and `ZstdSharp.Port`. Never conflate the two — they are separate codecs over s
 |  [09]   | `FlightClient.ListFlights(FlightCriteria?)`            | discovery      | `AsyncServerStreamingCall<FlightInfo>`                  |
 |  [10]   | `FlightClient.Handshake()`                             | auth handshake | `AsyncDuplexStreamingCall` handshake exchange           |
 
+[ENTRYPOINT_SCOPE]: Flight server operations (`Apache.Arrow.Flight.Server`)
+- rail: analytical-egress
+
+| [INDEX] | [SURFACE]                                              | [ENTRY_FAMILY] | [CAPABILITY]                                            |
+| :-----: | :----------------------------------------------------- | :------------- | :------------------------------------------------------ |
+|  [01]   | `override Task<FlightInfo> GetFlightInfo(FlightDescriptor, ServerCallContext)` | server verb | one dataset per descriptor command bytes |
+|  [02]   | `override Task<Schema> GetSchema(FlightDescriptor, ServerCallContext)` | server verb | dataset schema for a descriptor |
+|  [03]   | `override Task DoGet(FlightTicket, FlightServerRecordBatchStreamWriter, ServerCallContext)` | server verb | streams `RecordBatch` per redeemed ticket |
+|  [04]   | `override Task DoExchange(FlightServerRecordBatchStreamReader, FlightServerRecordBatchStreamWriter, ServerCallContext)` | server verb | full-duplex incremental delta channel |
+|  [05]   | `override Task DoPut(FlightServerRecordBatchStreamReader, IAsyncStreamWriter<FlightPutResult>, ServerCallContext)` | server verb | client→server batch ingest (the remaining base verbs throw until overridden) |
+|  [06]   | `FlightServerRecordBatchStreamWriter.WriteAsync(RecordBatch)` / `WriteAsync(RecordBatch, ByteString applicationMetadata)` | server write | writes one batch; auto-runs `SetupStream(batch.Schema)` on first write; the `ByteString` overload stamps per-batch app metadata |
+|  [07]   | `FlightRecordBatchStreamWriter.SetupStream(Schema)` / `WriteOptions`   | schema/opts    | emits the schema message before the first batch; IPC write options |
+|  [08]   | `await FlightServerRecordBatchStreamReader.FlightDescriptor`           | exchange address | `ValueTask<FlightDescriptor>` resolves the `DoExchange` descriptor |
+|  [09]   | `FlightServerRecordBatchStreamReader.MoveNextAsync()` / `Current` / `Schema` / `ApplicationMetadata` | request read | reads the inbound `RecordBatch` request stream |
+|  [10]   | `new FlightInfo(Schema, FlightDescriptor, IReadOnlyList<FlightEndpoint>, long totalRecords = -1, long totalBytes = -1)` | ctor | discovery payload; `Schema`/`Descriptor`/`Endpoints`/`TotalRecords`/`TotalBytes` props |
+|  [11]   | `new FlightEndpoint(FlightTicket, IReadOnlyList<FlightLocation>)`      | ctor           | `Ticket` + `Locations` for one endpoint |
+|  [12]   | `new FlightTicket(string)` / `(ByteString)` / `(byte[])`; `ByteString Ticket` | ctor/prop | the opaque `DoGet` redemption token |
+|  [13]   | `FlightDescriptor.Command` / `Paths` / `Type`                         | property       | `ByteString` command bytes, path list, `FlightDescriptorType` |
+
 ## [04]-[IMPLEMENTATION_LAW]
 
 [ARROW_TOPOLOGY]:
@@ -256,6 +287,7 @@ and `ZstdSharp.Port`. Never conflate the two — they are separate codecs over s
 - compression namespace: `Apache.Arrow.Compression` — `CompressionCodecFactory`, the admitted concrete `ICompressionCodecFactory` over LZ4-frame + Zstandard (internal `Lz4CompressionCodec`/`ZstdCompressionCodec` codecs reached only through the factory)
 - ADBC namespace: `Apache.Arrow.Adbc` — `AdbcDriver`, `AdbcDatabase`, `AdbcConnection`, `AdbcStatement`, `QueryResult`/`UpdateResult`/`PartitionedResult`
 - Flight namespace: `Apache.Arrow.Flight` — messages, tickets, `FlightClient` (the client lives in this assembly; `Apache.Arrow.Flight.Client` is the namespace not a separate package)
+- Flight server namespace: `Apache.Arrow.Flight.Server` (same assembly) — `FlightServer` (the abstract serve base whose `virtual` verbs throw until overridden), `FlightServerRecordBatchStreamWriter`/`FlightServerRecordBatchStreamReader` (the server response/request streams over the `FlightRecordBatchStreamWriter`/`FlightRecordBatchStreamReader` bases carrying `WriteAsync`/`SetupStream` and `MoveNextAsync`/`Schema`), and `FlightLocation` (the endpoint serving URI). A served node subclasses `FlightServer` and overrides `GetFlightInfo`/`GetSchema`/`DoGet`/`DoExchange`; the gRPC service binding enters at the app root that hosts the listener (`ServerCallContext` is the gRPC per-call context), never an interior dependency
 - `RecordBatch` implements both `IArrowRecord` and `IArrowArray`, and is `IDisposable`; `Slice`/`SliceShared` window a batch with zero buffer copy
 - `IArrowArrayStream` is the async-enumerable contract across IPC, ADBC, and Flight — `Schema` plus `ReadNextRecordBatchAsync`; it is the one egress boundary every analytical surface meets at
 - `IpcOptions.CompressionCodec` is `CompressionCodecType?` (`Lz4Frame` \| `Zstd`); the codec is a no-op unless `CompressionCodecFactory` (`ICompressionCodecFactory`) is also set. The concrete factory is NOT in core Arrow — it is `Apache.Arrow.Compression.CompressionCodecFactory` (admitted), which the writer/reader invokes per batch to obtain the per-codec `ICompressionCodec`

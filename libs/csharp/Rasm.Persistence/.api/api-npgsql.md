@@ -92,6 +92,8 @@ Replication detail rows preserve these members:
 - insert/update messages: `InsertMessage`, `UpdateMessage`, `FullUpdateMessage`, `IndexUpdateMessage`
 - delete/truncate messages: `KeyDeleteMessage`, `FullDeleteMessage`, `TruncateMessage`
 - relation/commit messages: `RelationMessage`, `CommitMessage`, `StreamCommitMessage`, `StreamAbortMessage`, `LogicalDecodingMessage`
+- pgoutput tuple data: `ReplicationTuple` (`IAsyncEnumerable<ReplicationValue>`, `NumColumns`) exposed by `InsertMessage.NewRow`/`UpdateMessage.NewRow`/`FullUpdateMessage.OldRow`/`KeyDeleteMessage.Key`/`FullDeleteMessage.OldRow`; `ReplicationValue` (`Kind`, `Length`, `IsDBNull`, `Get<T>(CancellationToken)`, `GetPostgresType`, `GetDataTypeName`); `TupleDataKind` (`Null`/`UnchangedToastedValue`/`TextValue`/`BinaryValue`)
+- system identity: `ReplicationSystemIdentification` (`SystemId`, `Timeline`, `XLogPos`, `DbName`) returned by `IdentifySystem`; `TimelineHistoryFile` (`readonly struct`; `FileName`, `Content` `byte[]`) returned by `TimelineHistory(uint tli, ct)`
 
 | [INDEX] | [SYMBOL]                          | [PACKAGE_ROLE]       | [CAPABILITY]                    |
 | :-----: | :-------------------------------- | :------------------- | :------------------------------ |
@@ -107,6 +109,11 @@ Replication detail rows preserve these members:
 |  [10]   | `PgOutputReplicationMessage`      | message base         | roots pgoutput message family   |
 |  [11]   | insert/update messages            | message leaves       | insert/update leaf frames       |
 |  [12]   | delete/truncate/relation messages | message leaves       | delete/truncate/relation frames |
+|  [13]   | `ReplicationTuple`                | pgoutput tuple       | async-enumerates a row's column values |
+|  [14]   | `ReplicationValue`                | pgoutput column      | one column value + `Kind`/`Get<T>`     |
+|  [15]   | `TupleDataKind`                   | tuple-cell classifier | classifies a pgoutput cell kind       |
+|  [16]   | `ReplicationSystemIdentification` | system identity      | carries WAL position + timeline        |
+|  [17]   | `TimelineHistoryFile`             | timeline history     | carries a timeline history file        |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -184,6 +191,9 @@ Replication detail rows preserve these members:
 |  [02]   | `CreatePgOutputReplicationSlot` | replication call | creates pgoutput slot                          |
 |  [03]   | `SetReplicationStatus`          | replication call | stamps applied-and-flushed LSN                 |
 |  [04]   | `SendStatusUpdate`              | replication call | sends feedback flush                           |
+|  [05]   | `IdentifySystem`                | replication call | returns `ReplicationSystemIdentification` (`XLogPos`/`Timeline`/`SystemId`) |
+|  [06]   | `TimelineHistory(uint tli, ct)` | replication call | returns the `TimelineHistoryFile` for a timeline |
+|  [07]   | `await foreach (ReplicationValue v in tuple)` / `v.Kind` / `v.Get<T>(ct)` | tuple read | streams a pgoutput row's column values discriminated by `TupleDataKind` |
 
 `PgOutputReplicationOptions` accepts publication names, protocol version, binary mode, streaming mode, messages, and two-phase policy. The binary importer commit edge is inverted: `Complete`/`CompleteAsync` commits; disposal without it cancels COPY and discards all buffered rows.
 

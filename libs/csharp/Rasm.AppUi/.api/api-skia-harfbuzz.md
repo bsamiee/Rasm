@@ -55,9 +55,10 @@
 |  [05]   | `DrawShapedText(this SKCanvas, string, float x, float y, SKTextAlign, SKFont, SKPaint)` | `CanvasExtensions` | shapes + builds `SKTextBlob` + draws; one-shot internal `SKShaper` |
 |  [06]   | `DrawShapedText(this SKCanvas, SKShaper, string, float x, float y, SKTextAlign, SKFont, SKPaint)` | `CanvasExtensions` | shaper-reuse overload — amortizes face load across draws       |
 |  [07]   | `DrawShapedText(this SKCanvas, string, SKPoint, SKTextAlign, SKFont, SKPaint)`   | `CanvasExtensions` | `SKPoint` origin variant of [05]                               |
-|  [08]   | `ToHarfBuzzBlob(this SKStreamAsset) : HarfBuzzSharp.Blob`                         | `BlobExtensions`   | wraps the typeface stream; release disposes the asset          |
-|  [09]   | `GetScale(this HarfBuzzSharp.Font) : SKSizeI`                                     | `FontExtensions`   | reads HarfBuzz integer scale as `SKSizeI`                       |
-|  [10]   | `SetScale(this HarfBuzzSharp.Font, SKSizeI)`                                      | `FontExtensions`   | writes HarfBuzz integer scale from `SKSizeI`                    |
+|  [08]   | `DrawShapedText(this SKCanvas, SKShaper, string, float x, float y, SKFont, SKPaint)` | `CanvasExtensions` | shaper-reuse, default `SKTextAlign.Left` (no align arg) — the live `SKFont` form bound when a call omits alignment |
+|  [09]   | `ToHarfBuzzBlob(this SKStreamAsset) : HarfBuzzSharp.Blob`                         | `BlobExtensions`   | wraps the typeface stream; release disposes the asset          |
+|  [10]   | `GetScale(this HarfBuzzSharp.Font) : SKSizeI`                                     | `FontExtensions`   | reads HarfBuzz integer scale as `SKSizeI`                       |
+|  [11]   | `SetScale(this HarfBuzzSharp.Font, SKSizeI)`                                      | `FontExtensions`   | writes HarfBuzz integer scale from `SKSizeI`                    |
 
 [RESULT_ENTRYPOINTS]: `SKShaper.Result` members — parallel arrays index 1:1 by glyph; advance the flow with `Width` — rail: typography
 

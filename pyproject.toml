@@ -7,7 +7,7 @@ dependencies = [
     "anyio",
     "protobuf<7.0",                                  # [RUNTIME]: transport wire codec; protobuf 7.x remains outside the current OpenTelemetry line
     "grpcio",                                        # [RUNTIME]: gRPC transport for ServerHost serve paths
-    "findiff; python_version<'3.15'",                # [COMPUTE]: finite-difference operators for solvers and sensitivity
+    "findiff",                                       # [COMPUTE]: finite-difference operators for solvers and sensitivity
     "beartype",
     "cyclopts",
     "msgspec",
@@ -42,9 +42,9 @@ dependencies = [
     # --- [SCIENTIFIC]
     "adbc-driver-manager",                           # [DATA]: ADBC driver manager for Arrow Flight SQL and DuckDB
     "arro3-core",                                    # [DATA]: Arrow core bridge
-    "arviz; python_version<'3.15'",                  # [COMPUTE]: Bayesian diagnostics
+    "arviz<1.0",                                     # [COMPUTE]: Bayesian diagnostics
     "awkward",                                       # [DATA]: ragged arrays
-    "compas; python_version<'3.15'",                 # [GEOMETRY]: algebra toolkit
+    "compas",                                        # [GEOMETRY]: algebra toolkit
     "connectorx; python_version<'3.15'",             # [DATA]: SQL-to-Arrow loader
     "cubed",                                         # [DATA]: bounded-memory distributed arrays
     "dask",
@@ -71,21 +71,21 @@ dependencies = [
     "pandas",                                        # [DATA]: dataframe substrate
     "pandas-stubs",
     "pandera",                                       # [DATA]: schema and quality-rule contracts
-    "pdal; python_version<'3.15'",                   # [GEOMETRY]: point-cloud pipeline
+    "pdal",                                          # [GEOMETRY]: point-cloud pipeline
     "pint",
     "polars",                                        # [DATA]: dataframe engine
     "pyarrow<24",                                    # [DATA]: Arrow C++ bridge
     "pye57; python_version<'3.15'",                  # [GEOMETRY]: E57 scan IO
-    "pymc; python_version<'3.15'",                   # [COMPUTE]: probabilistic programming
+    "pymc<5.27",                                     # [COMPUTE]: probabilistic programming
     "pyogrio",                                       # [GEOMETRY]: GDAL vector IO
     "pyproj",                                        # [GEOMETRY]: PROJ coordinate transforms
-    "python-flint; python_version<'3.15'",           # [COMPUTE]: Arb interval numerics
+    "python-flint",                                  # [COMPUTE]: Arb interval numerics
     "rasterio",                                      # [DATA]: raster geospatial IO
     "rhino3dm",                                      # [GEOMETRY]: Rhino mesh and 3DM IO
     "rustworkx",                                     # [COMPUTE_DATA]: graph algorithms
-    "salib; python_version<'3.15'",                  # [COMPUTE]: global sensitivity analysis
-    "clarabel; python_version<'3.15'",               # [COMPUTE]: Clarabel conic solver and cvxpy backend
-    "pywavelets; python_version<'3.15'",             # [COMPUTE]: discrete and continuous wavelet transforms
+    "salib",                                         # [COMPUTE]: global sensitivity analysis
+    "clarabel",                                      # [COMPUTE]: Clarabel conic solver and cvxpy backend
+    "pywavelets",                                    # [COMPUTE]: discrete and continuous wavelet transforms
     "lark",                                          # [GEOMETRY]: IDS and selector parsing grammar
     "pystac",                                        # [DATA]: STAC item and collection object model
     "pystac-client",                                 # [DATA]: STAC API search and discovery client
@@ -95,24 +95,24 @@ dependencies = [
     "mpmath",                                        # [COMPUTE]: arbitrary-precision real and complex math
     "pylance",                                       # [DATA]: Lance columnar/vector format
     "virtualizarr",                                  # [DATA]: archival reference aggregation into virtual Zarr
-    "compas_dr; python_version<'3.15'",              # [GEOMETRY]: COMPAS dynamic relaxation
-    "compas_tna; python_version<'3.15'",             # [GEOMETRY]: COMPAS thrust-network analysis
+    "compas_dr",                                     # [GEOMETRY]: COMPAS dynamic relaxation
+    "compas_tna",                                    # [GEOMETRY]: COMPAS thrust-network analysis
     "diffrax; python_version<'3.15'",                # [COMPUTE]: JAX differential-equation solvers
     "equinox; python_version<'3.15'",                # [COMPUTE]: JAX PyTree modules
     "lineax; python_version<'3.15'",                 # [COMPUTE]: JAX linear solvers
     "interpax; python_version<'3.15'",               # [COMPUTE]: JAX interpolation and splines
     "quadax; python_version<'3.15'",                 # [COMPUTE]: JAX adaptive quadrature
     "optax; python_version<'3.15'",                  # [COMPUTE]: first-order JAX optimizers for optimistix
-    "cvxpy; python_version<'3.15'",                  # [COMPUTE]: disciplined convex optimization
-    "manifold3d; python_version<'3.15'",             # [GEOMETRY]: robust mesh booleans
-    "sectionproperties; python_version<'3.15'",      # [GEOMETRY]: cross-section property solver enrichment
-    "nutpie; python_version<'3.15'",                 # [COMPUTE]: Rust NUTS sampler for PyMC
-    "pyiceberg; python_version<'3.15'",              # [DATA]: Apache Iceberg tables
-    "skl2onnx; python_version<'3.15'",               # [COMPUTE]: sklearn-to-ONNX converter
-    "scikit-fem; python_version<'3.15'",             # [COMPUTE]: FEM assembly
+    "cvxpy<1.9",                                     # [COMPUTE]: disciplined convex optimization
+    "manifold3d",                                    # [GEOMETRY]: robust mesh booleans
+    "sectionproperties",                             # [GEOMETRY]: cross-section property solver enrichment
+    "nutpie",                                        # [COMPUTE]: Rust NUTS sampler for PyMC
+    "pyiceberg",                                     # [DATA]: Apache Iceberg tables
+    "skl2onnx",                                      # [COMPUTE]: sklearn-to-ONNX converter
+    "scikit-fem",                                    # [COMPUTE]: FEM assembly
     "scikit-image; python_version<'3.15'",           # [ARTIFACTS]: image processing
-    "scikit-learn; python_version<'3.15'",           # [COMPUTE]: classical ML and ONNX export
-    "scipy; python_version<'3.15'",                  # [COMPUTE]: numerical algorithms
+    "scikit-learn",                                  # [COMPUTE]: classical ML and ONNX export
+    "scipy",                                         # [COMPUTE]: numerical algorithms
     "scipy-stubs",
     "shapely",                                       # [GEOMETRY]: planar operations
     "sparse; python_version<'3.15'",                 # [DATA]: sparse n-D arrays
@@ -125,27 +125,27 @@ dependencies = [
     "zarr",                                          # [DATA]: chunked n-D arrays
     "blackjax; python_version<'3.15'",               # [COMPUTE]: JAX NUTS/HMC samplers
     "cadquery-ocp; python_version<'3.15'",           # [GEOMETRY]: OpenCASCADE STEP/AP242 kernel
-    "kiss-matcher; python_version<'3.13'",           # [GEOMETRY]: global point-cloud registration
+    "kiss-matcher; python_version<'3.15'",           # [GEOMETRY]: global point-cloud registration
     "bcf-client",                                    # [GEOMETRY]: BCF 3.0 coordination XML
     "honeybee-core",                                 # [GEOMETRY]: HBJSON base object model and validation companion
     "honeybee-energy",                               # [GEOMETRY]: Honeybee energy model construction and simulation exchange
     "honeybee-openstudio",                           # [GEOMETRY]: Honeybee to OpenStudio/EnergyPlus translation companion
-    "honeybee-standards",                            # [GEOMETRY]: baseline default construction/program/schedule floor for Honeybee energy models
-    "honeybee-energy-standards; python_version<'3.15'", # [GEOMETRY]: large ASHRAE 90.1 / DOE-prototype standards-extension library (constructions/programs/schedules by identifier)
+    "honeybee-standards",                            # [GEOMETRY]: baseline default construction/program/schedule standards for Honeybee energy models
+    "honeybee-energy-standards",                     # [GEOMETRY]: large ASHRAE 90.1 / DOE-prototype standards-extension library (constructions/programs/schedules by identifier)
     "dragonfly-core",                                # [GEOMETRY]: Dragonfly district and urban model object graph
     "dragonfly-energy",                              # [GEOMETRY]: Dragonfly energy model aggregation and translation
     "ladybug-core",                                  # [GEOMETRY]: Ladybug weather, units, analysis-period, and location primitives
     "ladybug-geometry",                              # [GEOMETRY]: Ladybug planar and solid geometry primitives
     "ladybug-comfort",                               # [GEOMETRY]: comfort-model calculations
     "queenbee",                                      # [RUNTIME]: recipe and workflow schema contract models
-    "lbt-recipes; python_version<'3.15'",            # [RUNTIME]: Ladybug Tools recipe wrappers and simulation workflows
-    "pollination-handlers; python_version<'3.15'",   # [RUNTIME]: Pollination job handler and recipe execution adapters
+    "lbt-recipes",                                   # [RUNTIME]: Ladybug Tools recipe wrappers and simulation workflows
+    "pollination-handlers",                          # [RUNTIME]: Pollination job handler and recipe execution adapters
     "dataframely",                                   # [DATA]: polars-native declarative column rules with FailureInfo partition reporting
     "pointblank",                                    # [DATA]: graded data-quality observability tier above pass/fail checks
     "sqlglot",                                       # [DATA]: SQL parser, transpiler, optimizer, and lineage engine
     "daft",                                          # [DATA]: distributed and streaming out-of-core engine
     "fastexcel",                                     # [DATA]: calamine Rust Arrow Excel reader
-    "flox; python_version<'3.15'",                   # [DATA]: vectorized and parallel grouped reductions for xarray
+    "flox",                                          # [DATA]: vectorized and parallel grouped reductions for xarray
     "igraph",                                        # [DATA]: C-core Leiden/Louvain/Infomap community detection
     "rioxarray",                                     # [DATA]: rasterio accessor bridging ndarray to CF DataArray and COG raster write
     "odc-stac",                                      # [DATA]: lazy dask cube from discovered STAC items
@@ -156,15 +156,15 @@ dependencies = [
     "adbc-driver-flightsql",                         # [DATA]: Arrow Flight SQL distributed remote driver
     "xarray-spatial; python_version<'3.15'",         # [DATA]: raster terrain analytics
     "tensorstore; python_version<'3.15'",            # [DATA]: high-throughput async zarr-v3 reader
-    "geoarrow-rust-compute; python_version<'3.15'",  # [DATA]: GeoRust operations on GeoArrow memory
-    "lazrs; python_version<'3.15'",                  # [DATA]: compressed-COPC LAZ backend for laspy.copc
-    "laszip; python_version<'3.15'",                 # [DATA]: alternate compressed-COPC LAZ backend for laspy.copc
+    "geoarrow-rust-compute",                         # [DATA]: GeoRust operations on GeoArrow memory
+    "lazrs",                                         # [DATA]: compressed-COPC LAZ backend for laspy.copc
+    "laszip",                                        # [DATA]: alternate compressed-COPC LAZ backend for laspy.copc
     "openepd",                                       # [DATA]: OpenEPD declarations and PCR material-impact payloads
-    "epdx; python_version<'3.15'",                   # [DATA]: EPDx environmental product declaration interchange
-    "brightway2; python_version<'3.15'",             # [DATA]: Brightway LCA facade for material-impact calculations
-    "bw2data; python_version<'3.15'",                # [DATA]: Brightway project, database, and storage layer
-    "bw2calc; python_version<'3.15'",                # [DATA]: Brightway LCA calculation engine
-    "bw2io; python_version<'3.15'",                  # [DATA]: Brightway import/export and database ingestion
+    "epdx<1.0",                                      # [DATA]: EPDx environmental product declaration interchange
+    "brightway2",                                    # [DATA]: Brightway LCA facade for material-impact calculations
+    "bw2data",                                       # [DATA]: Brightway project, database, and storage layer
+    "bw2calc",                                       # [DATA]: Brightway LCA calculation engine
+    "bw2io",                                         # [DATA]: Brightway import/export and database ingestion
     "bw-processing",                                 # [DATA]: Brightway matrix-processing substrate
     "olca-ipc",                                      # [DATA]: openLCA IPC client for foreground/background LCA interchange
     "premise; python_version<'3.15'",                # [DATA]: prospective LCA scenario database transformer
@@ -176,18 +176,18 @@ dependencies = [
     "jinja2",                                        # [ARTIFACTS]: report templating between visual and document outputs
     "lxml",                                          # [ARTIFACTS]: XML processing
     "lz4",                                           # [ARTIFACTS]: compression
-    "matplotlib; python_version<'3.15'",             # [ARTIFACTS]: plotting
+    "matplotlib",                                    # [ARTIFACTS]: plotting
     "nbclient",                                      # [ARTIFACTS]: headless notebook execution client
     "openpyxl",
     "papermill",                                     # [ARTIFACTS]: parameterized notebook runs
     "pikepdf",
-    "pillow; python_version<'3.15'",                 # [ARTIFACTS]: image IO
+    "pillow",                                        # [ARTIFACTS]: image IO
     "py7zr",
     "pyhanko",                                       # [ARTIFACTS]: PDF digital signing and PAdES
     "pymupdf",
     "pypdf",
     "pypdfium2",
-    "pyvista; python_version<'3.13'",                # [ARTIFACTS]: 3D scientific visualization
+    "pyvista; python_version<'3.15'",                # [ARTIFACTS]: 3D scientific visualization
     "python-barcode",                                # [ARTIFACTS]: linear barcode symbologies beside the segno QR arm
     "python-docx",
     "python-magic",
@@ -198,7 +198,7 @@ dependencies = [
     "ruamel-yaml",
     "tomlkit",
     "vl-convert-python",
-    "vtk; python_version<'3.13'",                    # [ARTIFACTS]: VTK engine for pyvista
+    "vtk; python_version<'3.15'",                    # [ARTIFACTS]: VTK engine for pyvista
     "weasyprint",
     "great-tables",                                  # [ARTIFACTS]: publication-quality display tables
     "uharfbuzz",                                     # [ARTIFACTS]: HarfBuzz text-shaping bindings
@@ -222,7 +222,7 @@ dependencies = [
     "av",                                            # [ARTIFACTS]: PyAV video/audio mux and encode
     "pyvips",                                        # [ARTIFACTS]: fused decode, downscale, ICC, and smartcrop
     "lets-plot; python_version<'3.15'",              # [ARTIFACTS]: host-free grammar-of-graphics render to svg/png/pdf
-    "python-bidi; python_version<'3.15'",            # [ARTIFACTS]: UAX 9 bidi reorder pass before HarfBuzz shaping
+    "python-bidi",                                   # [ARTIFACTS]: UAX 9 bidi reorder pass before HarfBuzz shaping
     "python-calamine",                               # [ARTIFACTS]: fast xlsx/xlsb/xls/ods reader
     "usd-core; python_version<'3.15'",               # [ARTIFACTS]: USD/USDZ scene packaging
     "zxing-cpp",                                     # [ARTIFACTS]: 2D matrix codes encode and decode
@@ -258,7 +258,11 @@ mutation = ["mutmut"]
 [tool.uv]
 package =        false
 cache-dir =      ".cache/uv"
-default-groups = ["dev", "mutation"]
+default-groups = ["dev"]
+config-settings-package = {
+    python-flint = { setup-args = "-Dflint_version_check=false" },
+    scipy =        { setup-args = "-Duse-pythran=false" },
+}
 
 [tool.uv.sources]
 beartype = { git = "https://github.com/beartype/beartype.git", rev = "f370a0b1733413681e7a72bf36fbe839e60b3c85" }

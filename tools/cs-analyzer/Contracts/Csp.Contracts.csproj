@@ -1,14 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <TargetFramework>netstandard2.0</TargetFramework>
+        <Description>Shared C# analyzer contract attributes for workspace projects.</Description>
         <AssemblyName>Csp.Contracts</AssemblyName>
         <RootNamespace>Rasm.Csp</RootNamespace>
         <CspScope>Tooling</CspScope>
         <!-- Contract assembly self-skips workspace libraries and analyzer injection. -->
         <UseWorkspaceLibraries>false</UseWorkspaceLibraries>
         <SkipLocalCSharpAnalyzerReference>true</SkipLocalCSharpAnalyzerReference>
-        <!-- CA1008: CspScope has no valid None row.
-             IDE0130: BoundaryContracts.cs preserves the consumed legacy namespace. -->
+        <!-- CA1008: CspScope has no valid None row; IDE0130 preserves the consumed legacy namespace. -->
         <NoWarn>$(NoWarn);CA1008;IDE0130</NoWarn>
     </PropertyGroup>
 </Project>

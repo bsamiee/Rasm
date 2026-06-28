@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <Description>Workstation session owner for bridge verbs, session state, policy rows, and terminal envelope folding.</Description>
+        <CspScope>Boundary</CspScope>
         <OutputType>Exe</OutputType>
         <AssemblyName>Rasm.Bridge.Supervisor</AssemblyName>
         <RootNamespace>Rasm.Bridge.Supervisor</RootNamespace>
@@ -10,14 +11,17 @@
         <!-- LibraryImport marshalling for kqueue NOTE_EXIT emits unsafe blocks. -->
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     </PropertyGroup>
-    <ItemGroup>
+    <ItemGroup Label="Assembly Visibility">
         <InternalsVisibleTo Include="Rasm.Bridge.Supervisor.Gate" />
         <InternalsVisibleTo Include="Rasm.Bridge.Supervisor.Tests" />
     </ItemGroup>
-    <ItemGroup>
+    <ItemGroup Label="Supervisor Packages">
         <PackageReference Include="Microsoft.Diagnostics.NETCore.Client" />
         <PackageReference Include="StreamJsonRpc" />
         <PackageReference Include="System.IO.Hashing" />
+    </ItemGroup>
+
+    <ItemGroup Label="Project References">
         <ProjectReference Include="../Contract/Contract.csproj" />
     </ItemGroup>
 </Project>

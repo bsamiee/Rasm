@@ -1,5 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
-    <ItemGroup>
+    <ItemGroup Label="Project References">
         <ProjectReference Include="../../../../libs/csharp/Rasm.Grasshopper/Rasm.Grasshopper.csproj" />
     </ItemGroup>
 </Project>

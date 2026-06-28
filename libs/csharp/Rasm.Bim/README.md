@@ -132,15 +132,12 @@ The IFC/glTF/STEP/USD interchange, BIM-review, and geospatial domain packages th
 [GEODETIC]:
 - `ProjNET`
 
-[QUANTITY_UNIT]:
-- `UnitsNet`
-
 [COST_MONEY]:
 - `NodaMoney`
 
 ## [03]-[SUBSTRATE_PACKAGES]
 
-The C# substrate registry cards this folder consumes; full registry and version ownership live in `libs/csharp/.planning/README.md`, with decompile evidence in the folder `.api/`.
+The C# substrate registry cards this folder consumes; full registry and substrate contracts live in `libs/csharp/.planning/README.md`, with shared API evidence in `libs/csharp/.api/`.
 
 [FUNCTIONAL_CORE]:
 - `LanguageExt.Core`
@@ -152,10 +149,12 @@ The C# substrate registry cards this folder consumes; full registry and version 
 - `NodaTime`
 - `System.IO.Hashing`
 
+[NUMERIC_SUBSTRATE]:
+- `UnitsNet`
+
 [TEST_SUBSTRATE]:
 - `xunit.v3.*`
 - `CsCheck`
 - `coverlet.MTP`
 - `BenchmarkDotNet`
-- `SharpFuzz`
 - `Verify.XunitV3`

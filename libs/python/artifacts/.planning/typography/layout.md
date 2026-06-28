@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_LAYOUT]
 
-The paragraph line-layout owner over the document rail. `LineLayout` is ONE owner that takes the shaped `typography/shape#SHAPE` `PositionedGlyphRun` and a measure (column width) and folds it through a closed `LayoutOp` family into line-broken paragraph runs: uniseg resolves the UAX#14 mandatory/opportunity line-break positions over the source text, pyphen inserts the soft-hyphenation opportunities a tight measure needs, and a hand-rolled Knuth-Plass total-fit paragraph layout encodes the run as a Box/Glue/Penalty item stream and finds the globally optimal set of breakpoints by a badness/demerits dynamic program. uniseg and pyphen are admission-pending (no folder `.api` catalogue, no manifest pin yet), so their members are signature-locked and marked RESEARCH; the Knuth-Plass item algebra and the break dynamic program are this owner's own algorithm, never a library re-export. The `LineBrokenRun` is the one value object the layout arm carries — a tuple of `LayoutLine` slices over the shaped run plus its per-line advance — consumed by `document/emit#DOCUMENT` paragraph emission and `composition/compose#COMPOSE` placement. Every arm returns a `RuntimeRail[ContentKey]` keyed by the runtime content key and contributes one `ArtifactReceipt.Document`.
+The paragraph line-layout owner over the document rail. `LineLayout` is ONE owner that takes the shaped `typography/shape#SHAPE` `PositionedGlyphRun` and a measure (column width) and folds it through a closed `LayoutOp` family into line-broken paragraph runs: uniseg resolves the UAX#14 mandatory/opportunity line-break positions over the source text, pyphen inserts the soft-hyphenation opportunities a tight measure needs, and a hand-rolled Knuth-Plass total-fit paragraph layout encodes the run as a Box/Glue/Penalty item stream and finds the globally optimal set of breakpoints by a badness/demerits dynamic program. `pyphen` and `uniseg` stay signature-locked until their branch manifest rows and folder `.api` catalogues land; the Knuth-Plass item algebra and the break dynamic program are this owner's own algorithm, never a library re-export. The `LineBrokenRun` is the one value object the layout arm carries — a tuple of `LayoutLine` slices over the shaped run plus its per-line advance — consumed by `document/emit#DOCUMENT` paragraph emission and `composition/compose#COMPOSE` placement. Every arm returns a `RuntimeRail[ContentKey]` keyed by the runtime content key and contributes one `ArtifactReceipt.Document`.
 
 ## [01]-[INDEX]
 
@@ -28,9 +28,9 @@ from msgspec import Struct
 from rasm.runtime.content_identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import RuntimeRail, boundary
 
-# RESEARCH: pyphen is installed (`Pyphen(lang=, left=, right=)` / `Pyphen.positions`); uniseg is
-# admission-pending, so `uniseg.linebreak.line_break`/`line_break_units` stay signature-locked. The
-# positional soft-break offsets (never `Pyphen.inserted` string mangling) feed the Knuth-Plass `Penalty` items.
+# RESEARCH: `pyphen` and `uniseg` are manifest/catalogue candidates; keep `Pyphen.positions`,
+# `uniseg.linebreak.line_break`, and `line_break_units` signature-locked until folder `.api` rows own them.
+# The positional soft-break offsets (never `Pyphen.inserted` string mangling) feed the Knuth-Plass `Penalty` items.
 lazy from pyphen import Pyphen
 lazy from uniseg.linebreak import line_break, line_break_units
 

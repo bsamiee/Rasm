@@ -23,7 +23,7 @@ staging catalog so the content-address identity never fragments.
 
 [PUBLIC_TYPE_SCOPE]: hashing surfaces
 - rail: snapshot-identity
-- The public roster is exactly these 7 types plus the nested `XxHash128.Hash128` value struct; `XxHashShared`/`VectorHelper`/per-type `State` are package-internal and never enter Compute vocabulary.
+- The public roster is exactly these 7 types; the nested `XxHash128.Hash128` carrier is `private` (consume the digest as `UInt128` via `HashToUInt128`), and `XxHashShared`/`VectorHelper`/per-type `State` are package-internal and never enter Compute vocabulary.
 
 | [INDEX] | [SYMBOL]                        | [PACKAGE_ROLE]     | [CAPABILITY]                                                   |
 | :-----: | :------------------------------ | :----------------- | :------------------------------------------------------------ |
@@ -34,13 +34,12 @@ staging catalog so the content-address identity never fragments.
 |  [05]   | `XxHash32`                      | hash algorithm     | 32-bit digest (`HashToUInt32`); `int` seed                    |
 |  [06]   | `Crc32`                         | checksum algorithm | 32-bit frame integrity checksum (`HashToUInt32`)              |
 |  [07]   | `Crc64`                         | checksum algorithm | 64-bit frame integrity checksum (`HashToUInt64`)              |
-|  [08]   | `XxHash128.Hash128`             | value struct       | nested `(ulong Low64, ulong High64)` 128-bit carrier; consumers prefer `UInt128` via `HashToUInt128` |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: one-shot static hash (the content-address rail)
 - rail: snapshot-identity
-- Each concrete type carries the same static one-shot family; the `seed` parameter is the cross-machine identity knob the `Runtime/codecs#CONTENT_ADDRESSING` `InterchangeIdentity.Key`/`Seed` rail composes (a re-tessellation at a different deflection keys distinctly because the seed mixes the canonical policy scalars). The `ReadOnlySpan<byte>` overloads are the zero-copy path off `GetReadOnlySequence`/`MemoryOwner<byte>` slices — never a `ToArray` flatten before hashing.
+- Each concrete type carries the static one-shot family; the `seed` is an XxHash-only partition knob (`int` on `XxHash32`, `long` on `XxHash3`/`XxHash64`/`XxHash128`) while the `Crc32`/`Crc64` one-shots are seedless (unkeyed integrity, no `seed` parameter). The XxHash seed is the cross-machine identity knob the `Runtime/codecs#CONTENT_ADDRESSING` `InterchangeIdentity.Key`/`Seed` rail composes (a re-tessellation at a different deflection keys distinctly because the seed mixes the canonical policy scalars). The `ReadOnlySpan<byte>` overloads are the zero-copy path off `GetReadOnlySequence`/`MemoryOwner<byte>` slices — never a `ToArray` flatten before hashing.
 
 | [INDEX] | [SURFACE]                                                    | [CALL_SHAPE]    | [CAPABILITY]                                                       |
 | :-----: | :----------------------------------------------------------- | :-------------- | :----------------------------------------------------------------- |
@@ -48,27 +47,25 @@ staging catalog so the content-address identity never fragments.
 |  [02]   | `Hash(ReadOnlySpan<byte>, long seed = 0)`                    | static `byte[]` | allocating digest from a span; zero-copy source, seedable          |
 |  [03]   | `Hash(ReadOnlySpan<byte> source, Span<byte> dest, long seed = 0)` | static `int` | allocation-free digest into a caller buffer; returns bytes written |
 |  [04]   | `TryHash(ReadOnlySpan<byte>, Span<byte>, out int, long seed = 0)` | static `bool` | non-throwing span sink; `false` when `dest` too short              |
-|  [05]   | `HashToUInt32(ReadOnlySpan<byte>, int seed = 0)`             | static `uint`   | direct primitive (XxHash32/Crc32); no `byte[]` allocation          |
-|  [06]   | `HashToUInt64(ReadOnlySpan<byte>, long seed = 0)`            | static `ulong`  | direct primitive (XxHash3/XxHash64/Crc64); the suite value-key form |
+|  [05]   | `XxHash32.HashToUInt32(…, int seed = 0)` / `Crc32.HashToUInt32(…)` | static `uint`   | direct `uint`; XxHash32 seeded (`int`), Crc32 seedless; no `byte[]` allocation |
+|  [06]   | `XxHash3`/`XxHash64.HashToUInt64(…, long seed = 0)` / `Crc64.HashToUInt64(…)` | static `ulong`  | direct `ulong`; XxHash3/64 seeded (`long`), Crc64 seedless — the suite value-key form |
 |  [07]   | `HashToUInt128(ReadOnlySpan<byte>, long seed = 0)`           | static `UInt128`| direct 128-bit primitive (XxHash128); the content-key form         |
 
 [ENTRYPOINT_SCOPE]: incremental + streaming hash (the framed/chunked rail)
 - rail: snapshot-identity
-- The base class drives streaming and chunked accumulation; `AppendAsync` is the async mirror for IO-bound sources. `Clone` forks accumulated state (a shared prefix hashed once, then forked per branch). `GetCurrentHashAs*` reads the primitive without a `byte[]` round-trip.
+- The `NonCryptographicHashAlgorithm` base drives streaming and chunked accumulation (`Append`/`GetCurrentHash`/`GetHashAndReset`/`Reset` are base members); `AppendAsync` is the async mirror for IO-bound sources. Each concrete type adds a typed `Clone()` that returns its own type and forks accumulated state (a shared prefix hashed once, then forked per branch), plus a `GetCurrentHashAs*` primitive reader without a `byte[]` round-trip.
 
 | [INDEX] | [SURFACE]                                          | [CALL_SHAPE]   | [CAPABILITY]                                                  |
 | :-----: | :------------------------------------------------- | :------------- | :----------------------------------------------------------- |
 |  [01]   | `Append(ReadOnlySpan<byte>)` / `Append(byte[])`    | instance call  | feeds a chunk into the running computation                   |
-|  [02]   | `Append(Stream)`                                   | instance call  | drains a stream synchronously into the computation           |
-|  [03]   | `AppendAsync(Stream, CancellationToken)`           | instance async | async mirror: drains a stream into the computation           |
-|  [04]   | `GetCurrentHash()` / `GetCurrentHash(Span<byte>)`  | instance call  | reads the digest without resetting; span overload allocation-free |
-|  [05]   | `TryGetCurrentHash(Span<byte>, out int)`           | instance call  | non-throwing current-hash read into a caller buffer          |
-|  [06]   | `GetCurrentHashAsUInt32/64/128()`                  | instance call  | reads the primitive directly (per concrete type's width)     |
-|  [07]   | `GetHashAndReset()` / `GetHashAndReset(Span<byte>)`| instance call  | finalizes and resets in one call; span overload allocation-free |
-|  [08]   | `TryGetHashAndReset(Span<byte>, out int)`          | instance call  | non-throwing finalize-and-reset into a caller buffer         |
-|  [09]   | `Reset()`                                          | instance call  | clears accumulated state for reuse                           |
-|  [10]   | `Clone()`                                          | instance call  | forks the running state (shared-prefix-then-branch hashing)  |
-|  [11]   | `HashLengthInBytes`                                | instance prop  | digest width (4/8/16) for sizing a destination span          |
+|  [02]   | `Append(Stream)` / `AppendAsync(Stream, CancellationToken)` | instance | drains a stream synchronously / async into the computation   |
+|  [03]   | `GetCurrentHash()` / `GetCurrentHash(Span<byte>)`  | instance call  | reads the digest without resetting; span overload allocation-free |
+|  [04]   | `TryGetCurrentHash(Span<byte>, out int)`           | instance call  | non-throwing current-hash read into a caller buffer          |
+|  [05]   | `GetCurrentHashAsUInt32/64/128()`                  | instance call  | reads the primitive directly (per concrete type's width)     |
+|  [06]   | `GetHashAndReset()` / `GetHashAndReset(Span<byte>)`| instance call  | finalizes and resets in one call; span overload allocation-free |
+|  [07]   | `TryGetHashAndReset(Span<byte>, out int)`          | instance call  | non-throwing finalize-and-reset into a caller buffer         |
+|  [08]   | `Reset()` (base) / `Clone()` (per concrete type)   | instance call  | clears state for reuse / forks running state into a new typed instance (shared-prefix-then-branch) |
+|  [09]   | `HashLengthInBytes`                                | instance prop  | digest width (4/8/16) for sizing a destination span          |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

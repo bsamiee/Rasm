@@ -1,12 +1,16 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <AssemblyName>Rasm.Bridge.Contract.Tests</AssemblyName>
+        <RootNamespace>Rasm.Bridge.Contract.Tests</RootNamespace>
         <!-- StreamJsonRpc0008: SystemTextJsonFormatter is the only loaded wire formatter. -->
         <NoWarn>$(NoWarn);StreamJsonRpc0008</NoWarn>
     </PropertyGroup>
-    <ItemGroup>
-        <PackageReference Include="Nerdbank.Streams" />
-        <PackageReference Include="StreamJsonRpc" />
+    <ItemGroup Label="Bridge Test Harness">
+        <PackageReference Include="Nerdbank.Streams" PrivateAssets="all" />
+        <PackageReference Include="StreamJsonRpc" PrivateAssets="all" />
+    </ItemGroup>
+
+    <ItemGroup Label="Project References">
         <ProjectReference Include="../../../../../tools/rhino-bridge/Contract/Contract.csproj" />
     </ItemGroup>
 </Project>

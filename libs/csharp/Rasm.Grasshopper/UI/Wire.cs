@@ -1424,9 +1424,9 @@ internal static partial class Wire {
                 from objects in scope.NeedObjects()
                 from delta in op.Switch(
                     state: objects,
-                    selectCase: static (objs, s) => ToggleWire(op: WireSelectionOp.SelectCase.SelfOp, objects: objs, wire: s.Wire, picked: true),
-                    deselectCase: static (objs, d) => ToggleWire(op: WireSelectionOp.DeselectCase.SelfOp, objects: objs, wire: d.Wire, picked: false),
-                    deselectAllCase: static (objs, _) => DeselectAllWires(op: WireSelectionOp.DeselectAllCase.SelfOp, objects: objs))
+                    selectCase: static (objs, s) => ToggleWire(op: Op.Of(name: nameof(WireSelectionOp.SelectCase)), objects: objs, wire: s.Wire, picked: true),
+                    deselectCase: static (objs, d) => ToggleWire(op: Op.Of(name: nameof(WireSelectionOp.DeselectCase)), objects: objs, wire: d.Wire, picked: false),
+                    deselectAllCase: static (objs, _) => DeselectAllWires(op: Op.Of(name: nameof(WireSelectionOp.DeselectAllCase)), objects: objs))
                 select delta);
 
     internal static GrasshopperUiIntent<Snapshot<DocumentMutationDelta>> Split(WireSnapshot.ConnectedCase wire, PointF location) =>
@@ -1465,7 +1465,7 @@ internal static partial class Wire {
             repaint: RepaintRequest.Batch(requests: edits.Bind(static entry => Seq(RepaintRequest.Object(id: entry.Wire.Source), RepaintRequest.Object(id: entry.Wire.Target)))),
             run: scope => UiRail.RunDocumentMutation(
                 scope: scope,
-                op: WireOp.EditBatchCase.SelfOp,
+                op: Op.Of(name: nameof(WireOp.EditBatchCase)),
                 mutate: (methods, objs, actions) =>
                     edits.TraverseM(entry => ApplyEditRow(methods: methods, objs: objs, actions: actions, wire: entry.Wire, edit: entry.Kind, args: entry.Args))
                         .Map(static receipts => receipts.Fold(initialState: DocumentMutationReceipt.None, f: static (sum, r) => sum + r)).As()));
@@ -1475,13 +1475,13 @@ internal static partial class Wire {
             repaint: RepaintRequest.Canvas,
             run: scope => UiRail.RunDocumentMutation(
                 scope: scope,
-                op: WireOp.RouteCase.SelfOp,
+                op: Op.Of(name: nameof(WireOp.RouteCase)),
                 mutate: (methods, objs, actions) => ApplyRouteChain(
                     methods: methods,
                     objects: objs,
                     actions: actions,
                     chain: chain,
-                    op: WireOp.RouteCase.SelfOp)));
+                    op: Op.Of(name: nameof(WireOp.RouteCase)))));
 
     internal static Fin<DocumentMutationReceipt> ApplyRouteChain(GhDocumentMethods methods, GhObjectList objects, ActionList actions, Seq<Guid> chain, Op op) =>
         chain.Count >= 2 && !chain.Exists(static id => id == Guid.Empty)

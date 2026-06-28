@@ -60,8 +60,8 @@
 |  [09]   | `DocumentColorizingTransformer` | `abstract class : ColorizingTransformer` (`ColorizeLine`)        | line colorizer      |
 |  [10]   | `IBackgroundRenderer`           | `interface` (`Layer`, `Draw(TextView, DrawingContext)`)         | layer renderer      |
 |  [11]   | `CompletionWindow`              | `class : CompletionWindowBase` (`CompletionList`)                | completion popup    |
-|  [12]   | `ICompletionData`               | `interface` (`Text`/`Content`/`Description`/`Priority`/`Complete`) | completion item   |
-|  [13]   | `OverloadInsightWindow` / `IOverloadProvider` | `class` / `interface` (`SelectedIndex`/`Count`/`CurrentHeader`) | overload insight |
+|  [12]   | `ICompletionData`               | `interface` (`Image` (`IImage`)/`Text`/`Content`/`Description`/`Priority`/`Complete`) | completion item   |
+|  [13]   | `OverloadInsightWindow` / `IOverloadProvider` | `class` (`.ctor(TextArea)`, `Provider`) / `interface` (`SelectedIndex`/`Count`/`CurrentHeader`/`CurrentContent`) | overload insight |
 |  [14]   | `SearchPanel`                   | `class` (static `Install(TextEditor)`)                          | search overlay      |
 |  [15]   | `ISearchStrategy` / `RegexSearchStrategy` | `interface` (`FindAll`/`FindNext`) / regex impl        | search engine       |
 |  [16]   | `Snippet` / `SnippetTextElement` / `SnippetReplaceableTextElement` / `SnippetBoundElement` / `SnippetCaretElement` / `SnippetSelectionElement` | snippet tree + placeholders | snippet engine |
@@ -122,6 +122,7 @@
 |  [12]   | `Copy` / `Cut` / `Paste` / `SelectAll` | clipboard + select-all                     | clipboard         |
 |  [13]   | `ScrollTo` / `ScrollToLine` / `ScrollToEnd` | `void ScrollTo(int line, int column)` / `ScrollToLine(int)` / `ScrollToEnd()` | navigation |
 |  [14]   | `DocumentChanged` / `TextChanged` / `OptionChanged` / `PointerHover` | `event` — editor lifecycle hooks | events  |
+|  [15]   | `TextArea`           | `TextArea TextArea { get; }`                                  | editing-surface accessor — the `FoldingManager.Install(TextArea)` / `new CompletionWindow(TextArea)` / `new OverloadInsightWindow(TextArea)` mount target (`SearchPanel.Install` takes the `TextEditor`, not the `TextArea`) |
 
 Wrap multi-edit refactors in `using (editor.DeclareChangeBlock())` (or `BeginChange()`/`EndChange()`) so the `UndoStack` records one reversible step. `Load(Stream)` auto-detects encoding into `Encoding`; `IsModified` drives the dirty indicator.
 
@@ -149,6 +150,7 @@ Wrap multi-edit refactors in `using (editor.DeclareChangeBlock())` (or `BeginCha
 |  [03]   | `Complete`           | `void ICompletionData.Complete(TextArea, ISegment completionSegment, EventArgs)` | item insertion |
 |  [04]   | `CloseAutomatically` / `CloseWhenCaretAtBeginning` | `bool` window dismissal policy             | dismissal         |
 |  [05]   | `Provider`           | `IOverloadProvider OverloadInsightWindow.Provider { get; set; }`        | overload list     |
+|  [06]   | `.ctor`              | `new OverloadInsightWindow(TextArea)` — multi-signature insight popup over the editor's `TextArea`; set `Provider` then `Show()` | overload popup open |
 
 Implement `ICompletionData` per suggestion (an `Image`/`Content`/`Description`/`Priority` row whose `Complete` mutates the `TextArea` over the trigger `ISegment`), add rows to `CompletionList.CompletionData`, then `Show()`. The shell command rail (Compute-receipt-backed suggestions) feeds these rows; insertion runs through `Complete`, not direct document mutation.
 

@@ -100,6 +100,9 @@
 |  [08]   | `SKClipOperation`      | intersect/difference clip combine                      |
 |  [09]   | `SKPathOp`             | difference/intersect/union/xor/reverse-difference      |
 |  [10]   | `SKCodecResult`        | decode-step status for `SKCodec`                       |
+|  [11]   | `SKPaintStyle`         | `Fill` / `Stroke` / `StrokeAndFill` (`SKPaint.Style`)  |
+|  [12]   | `SKPathDirection`      | `Clockwise` / `CounterClockwise` add-shape winding     |
+|  [13]   | `SKPathArcSize` / `SKPathAddMode` | arc large/small + `Append`/`Extend` path-append mode |
 
 [GPU_TYPES]: GPU context and backend handles — rail: visuals
 
@@ -140,6 +143,22 @@
 |  [16]   | `Concat` / `SetMatrix`    | `SKCanvas`     | `(in SKMatrix)` or `(in SKMatrix44)` perspective                |
 |  [17]   | `Translate`/`Scale`/`RotateDegrees`/`Skew` | `SKCanvas` | matrix mutators                                |
 |  [18]   | `DrawAnnotation` / `DrawUrlAnnotation` | `SKCanvas` | PDF link/named-destination annotations            |
+|  [19]   | `DrawLine`                | `SKCanvas`     | `(SKPoint, SKPoint, SKPaint)` / `(x0, y0, x1, y1, SKPaint)` segment |
+
+[PATH_CONSTRUCTION_ENTRYPOINTS]: `SKPath` contour building, shape adds, and transform — rail: visuals
+- surface-root: `SKPath` (`new SKPath()` empty; `new SKPath(SKPath)` copy)
+
+| [INDEX] | [SURFACE]                                            | [CALL_SHAPE / NOTE]                                            |
+| :-----: | :--------------------------------------------------- | :------------------------------------------------------------ |
+|  [01]   | `MoveTo` / `LineTo`                                  | `(SKPoint)` or `(float x, float y)` — start contour / straight segment |
+|  [02]   | `QuadTo` / `ConicTo` / `CubicTo`                     | quadratic / rational-quadratic / cubic Bézier segments        |
+|  [03]   | `ArcTo`                                              | `(SKRect oval, startAngle, sweepAngle, forceMoveTo)` (+ radius / `SKPathArcSize`+`SKPathDirection` overloads) |
+|  [04]   | `Close`                                              | close the current contour                                     |
+|  [05]   | `AddRect` / `AddOval` / `AddCircle` / `AddRoundRect` | shape adds (`SKPathDirection direction = Clockwise`; `AddRoundRect(SKRoundRect, dir)` via `new SKRoundRect(SKRect, rx, ry)`, or `AddRoundRect(SKRect, rx, ry, dir)`) |
+|  [06]   | `AddPoly`                                            | `(ReadOnlySpan<SKPoint>, bool close)` polyline                 |
+|  [07]   | `AddPath`                                            | `(SKPath other, SKPathAddMode mode = Append)` (+ `(other, dx, dy, mode)` / `(other, in SKMatrix, mode)`) |
+|  [08]   | `Transform` / `Offset`                              | `(in SKMatrix[, SKPath dst])` affine / `(SKPoint)` or `(dx, dy)` translate |
+|  [09]   | `Reset` / `Rewind`                                  | clear all contours / clear keeping allocation                 |
 
 [SURFACE_IMAGE_ENTRYPOINTS]: surface allocation, snapshot, codec, and pixel transfer — rail: visuals
 
@@ -149,7 +168,7 @@
 |  [02]   | `Snapshot`              | `SKSurface`    | `()` -> immutable `SKImage` (zero-copy where possible)                  |
 |  [03]   | `BeginRecording` / `EndRecording` | `SKPictureRecorder` | `(SKRect cull)` -> `SKCanvas`; commit -> `SKPicture`           |
 |  [04]   | `FromEncodedData`       | `SKImage`      | `(ReadOnlySpan<byte>)` / `(SKData)` / `(Stream)` decode                 |
-|  [05]   | `FromPixelCopy` / `FromPixels` | `SKImage` | `(SKImageInfo, ReadOnlySpan<byte>)` copy / `(SKPixmap, releaseProc)` adopt |
+|  [05]   | `FromBitmap` / `FromPixelCopy` / `FromPixels` | `SKImage` | `(SKBitmap)` snapshot / `(SKImageInfo, ReadOnlySpan<byte>)` copy / `(SKPixmap, releaseProc)` adopt |
 |  [06]   | `ToTextureImage` / `ToRasterImage` | `SKImage` | `(GRContext, mipmapped, budgeted)` upload / download                 |
 |  [07]   | `ApplyImageFilter`      | `SKImage`      | `(GRContext?, SKImageFilter, subset, clip, out outSubset, out offset)` |
 |  [08]   | `Encode`                | `SKImage`      | `()` default PNG, or `(SKEncodedImageFormat, quality)` -> `SKData`     |
@@ -175,13 +194,16 @@
 |  [08]   | `WithColorSpace` / `WithSize` | `SKImageInfo` | retag space / resize info value                          |
 |  [09]   | `Parse` / `TryParse`     | `SKColor`      | `(string hex)` -> `SKColor`                                   |
 |  [10]   | `FromHsl` / `FromHsv` / `ToHsl` / `ToHsv` | `SKColor` | HSL/HSV round-trip                            |
+|  [11]   | `Equal`                  | `SKColorSpace`           | static `(SKColorSpace, SKColorSpace) -> bool` space-identity test |
+|  [12]   | `Srgb` / `Linear` / `Rec2020` / `TwoDotTwo` / `Pq` / `Hlg` | `SKColorSpaceTransferFn` | static named transfer curves (`CreateRgb` input) |
+|  [13]   | `Srgb` / `DisplayP3` / `Rec2020` / `AdobeRgb` | `SKColorSpaceXyz` | static named primary matrices (`CreateRgb` input) |
 
 [TEXT_AND_FONT_ENTRYPOINTS]: typeface resolution, measurement, and glyph geometry — rail: visuals
 
 | [INDEX] | [SURFACE]              | [SURFACE_ROOT]      | [CALL_SHAPE / NOTE]                                       |
 | :-----: | :--------------------- | :------------------ | :------------------------------------------------------- |
 |  [01]   | `MatchCharacter`       | `SKFontManager`     | `(familyName, weight, width, slant, bcp47[], codepoint)` system fallback |
-|  [02]   | `MatchFamily` / `CreateTypeface` | `SKFontManager` | family lookup / `(Stream, index)` embedded face      |
+|  [02]   | `Default` / `MatchFamily` / `CreateTypeface` | `SKFontManager` | static process registry / family lookup / `(Stream, index)` embedded face |
 |  [03]   | `MeasureText`          | `SKFont`            | `(string, out SKRect bounds, SKPaint)` advance + ink box  |
 |  [04]   | `BreakText`            | `SKFont`            | `(string, maxWidth, out measuredWidth)` line-break fit    |
 |  [05]   | `GetGlyphs` / `GetGlyphPositions` / `GetGlyphWidths` | `SKFont` | glyph-id and layout arrays              |

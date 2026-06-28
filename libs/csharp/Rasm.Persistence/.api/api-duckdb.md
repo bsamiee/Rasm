@@ -26,7 +26,7 @@ this provider writes through the typed `AppendValue`/`WriteValue` rails.
 [PUBLIC_TYPE_SCOPE]: ADO.NET provider surfaces
 - rail: store-provider
 
-`DuckDBQueryProgress` is a `DuckDB.NET.Native` struct carrying `double Percentage`, `ulong RowsProcessed`, and `ulong TotalRowsToProcess` (the `GetQueryProgress()` receipt); `DuckDBErrorType` is a `DuckDB.NET.Native` enum classifying `DuckDBException.ErrorType` over the full native fault vocabulary (`Invalid`, `OutOfRange`, `Conversion`, `MismatchType`, `DivideByZero`, `InvalidType`, `Serialization`, `Transaction`, `NotImplemented`, `Expression`, `Catalog`, `Parser`, plus constraint/connection/IO/interrupt/fatal members) — the boundary lifts `DuckDBException` to the store-profile fault rail discriminated on this enum. `DuckDBConnectionStringBuilder` exposes `DataSource` plus the `const string` anchors `InMemoryDataSource` (`:memory:`), `InMemoryConnectionString` (`DataSource=:memory:`), `InMemorySharedDataSource` (`:memory:?cache=shared`), and `InMemorySharedConnectionString`. `DuckDBClientFactory : DbProviderFactory` carries the `static readonly Instance` singleton and `const string ProviderInvariantName = "DuckDB.NET.Data"` for `DbProviderFactories` registration.
+`DuckDBQueryProgress` is a `DuckDB.NET.Native` struct carrying `double Percentage`, `ulong RowsProcessed`, and `ulong TotalRowsToProcess` (the `GetQueryProgress()` receipt); `DuckDBErrorType` is a `DuckDB.NET.Native` enum classifying `DuckDBException.ErrorType` over the full native fault vocabulary (`Invalid`, `OutOfRange`, `Conversion`, `MismatchType`, `DivideByZero`, `InvalidType`, `Serialization`, `Transaction`, `NotImplemented`, `Expression`, `Catalog`, `Parser`, `Binder`, plus constraint/connection/IO/interrupt/fatal members) — the boundary lifts `DuckDBException` to the store-profile fault rail discriminated on this enum. `DuckDBConnectionStringBuilder` exposes `DataSource` plus the `const string` anchors `InMemoryDataSource` (`:memory:`), `InMemoryConnectionString` (`DataSource=:memory:`), `InMemorySharedDataSource` (`:memory:?cache=shared`), and `InMemorySharedConnectionString`. `DuckDBClientFactory : DbProviderFactory` carries the `static readonly Instance` singleton and `const string ProviderInvariantName = "DuckDB.NET.Data"` for `DbProviderFactories` registration.
 
 | [INDEX] | [SYMBOL]                                | [PACKAGE_ROLE]    | [CAPABILITY]              |
 | :-----: | :-------------------------------------- | :---------------- | :------------------------ |
@@ -74,14 +74,14 @@ this provider writes through the typed `AppendValue`/`WriteValue` rails.
 [PUBLIC_TYPE_SCOPE]: data-chunk vector surfaces
 - rail: store-provider
 
-| [INDEX] | [SYMBOL]                                              | [PACKAGE_ROLE]  | [CAPABILITY]                       |
-| :-----: | :--------------------------------------------------- | :-------------- | :--------------------------------- |
-|  [01]   | `DuckDB.NET.Data.DataChunk.Reader.IDuckDBDataReader` | reader contract | `IsValid(offset)`, `GetValue<T>`   |
-|  [02]   | `DataChunk.Reader.VectorDataReaderBase`              | reader base     | projects typed columnar reads      |
-|  [03]   | `DataChunk.Reader.VectorDataReaderFactory`           | reader factory  | creates typed vector readers       |
-|  [04]   | `DuckDB.NET.Data.DataChunk.Writer.IDuckDBDataWriter` | writer contract | `WriteValue<T>`, `WriteNull`       |
-|  [05]   | `DataChunk.Writer.VectorDataWriterBase`              | writer base     | projects typed columnar writes     |
-|  [06]   | `DataChunk.Writer.VectorDataWriterFactory`           | writer factory  | creates typed vector writers       |
+| [INDEX] | [SYMBOL]                                             | [PACKAGE_ROLE]  | [CAPABILITY]                     |
+| :-----: | :--------------------------------------------------- | :-------------- | :------------------------------- |
+|  [01]   | `DuckDB.NET.Data.DataChunk.Reader.IDuckDBDataReader` | reader contract | `IsValid(offset)`, `GetValue<T>` |
+|  [02]   | `DataChunk.Reader.VectorDataReaderBase`              | reader base     | projects typed columnar reads    |
+|  [03]   | `DataChunk.Reader.VectorDataReaderFactory`           | reader factory  | creates typed vector readers     |
+|  [04]   | `DuckDB.NET.Data.DataChunk.Writer.IDuckDBDataWriter` | writer contract | `WriteValue<T>`, `WriteNull`     |
+|  [05]   | `DataChunk.Writer.VectorDataWriterBase`              | writer base     | projects typed columnar writes   |
+|  [06]   | `DataChunk.Writer.VectorDataWriterFactory`           | writer factory  | creates typed vector writers     |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -135,17 +135,17 @@ this provider writes through the typed `AppendValue`/`WriteValue` rails.
 [ENTRYPOINT_SCOPE]: functions and data chunks
 - rail: store-provider
 
-| [INDEX] | [SURFACE]                       | [CALL_SHAPE]         | [CAPABILITY]                          |
-| :-----: | :------------------------------ | :------------------- | :------------------------------------ |
-|  [01]   | `RegisterScalarFunction`        | connection low-level | registers `Action`-callback scalar UDF |
-|  [02]   | `RegisterScalarFunction`        | scalar extension     | registers `Func`-based scalar UDF      |
-|  [03]   | `RegisterTableFunction`         | connection low-level | registers callback table UDF          |
-|  [04]   | `RegisterTableFunction`         | table extension      | registers typed projecting table UDF  |
-|  [05]   | `GetValue`                      | reader call          | reads vector value                    |
-|  [06]   | `IsValid`                       | reader call          | checks vector null mask               |
-|  [07]   | `WriteValue`                    | writer call          | writes vector value                   |
-|  [08]   | `WriteNull`                     | writer call          | writes vector null                    |
-|  [09]   | `DuckDBClientFactory.Instance`  | static singleton     | `DbProviderFactories` provider object |
+| [INDEX] | [SURFACE]                      | [CALL_SHAPE]         | [CAPABILITY]                           |
+| :-----: | :----------------------------- | :------------------- | :------------------------------------- |
+|  [01]   | `RegisterScalarFunction`       | connection low-level | registers `Action`-callback scalar UDF |
+|  [02]   | `RegisterScalarFunction`       | scalar extension     | registers `Func`-based scalar UDF      |
+|  [03]   | `RegisterTableFunction`        | connection low-level | registers callback table UDF           |
+|  [04]   | `RegisterTableFunction`        | table extension      | registers typed projecting table UDF   |
+|  [05]   | `GetValue`                     | reader call          | reads vector value                     |
+|  [06]   | `IsValid`                      | reader call          | checks vector null mask                |
+|  [07]   | `WriteValue`                   | writer call          | writes vector value                    |
+|  [08]   | `WriteNull`                    | writer call          | writes vector null                     |
+|  [09]   | `DuckDBClientFactory.Instance` | static singleton     | `DbProviderFactories` provider object  |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

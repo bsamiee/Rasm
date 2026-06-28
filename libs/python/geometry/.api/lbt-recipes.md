@@ -1,6 +1,6 @@
 # [PY_GEOMETRY_API_LBT_RECIPES]
 
-`lbt-recipes` is the recipe contract and execution adapter over the Ladybug Tools simulation workflows: it packages 19 named queenbee recipe DAGs (`annual_daylight`, `annual_energy_use`, `annual_irradiance`, `daylight_factor`, `direct_sun_hours`, `point_in_time_grid`/`_view`, `sky_view`, `cumulative_radiation`, `imageless_annual_glare`, the `adaptive_comfort_map`/`pmv_comfort_map`/`utci_comfort_map` comfort maps, and the daylight-credit recipes `leed_daylight_option_one`/`_two`, `breeam_daylight_4b`, `well_daylight`, `annual_daylight_en17037`/`_enhanced`), binds their typed `RecipeInput`/`RecipeOutput` descriptors through `pollination-handlers`, validates the external simulation-engine versions (EnergyPlus, OpenStudio, Radiance), and dispatches execution to the `queenbee-local` Luigi engine. It is the RUNTIME-tier adapter: geometry/honeybee builds the model, the recipe owner here binds the recipe and coerces its inputs, and the runtime owns the actual Luigi DAG execution and the native-engine subprocess; results are read back through `ladybug-core` `SQLiteResult`/result files and `ladybug-comfort` map kernels into `DataCollection`s. The recipe owner composes `Recipe(recipe_name)`, the `handle_inputs` coercion, `RecipeSettings`, and the version gate into one recipe-binding owner; it never re-implements the queenbee workflow schema, the Luigi DAG executor, the pollination input handlers, or the native EnergyPlus/OpenStudio/Radiance engines this package already adapts.
+`lbt-recipes` is the recipe contract and execution adapter over the Ladybug Tools simulation workflows: it packages 14 named queenbee recipe DAGs (`annual_daylight`/`_enhanced`, `imageless_annual_glare`, `annual_energy_use`, `annual_irradiance`, `cumulative_radiation`, `direct_sun_hours`, `sky_view`, `daylight_factor`, `point_in_time_grid`/`_view`, and the `adaptive_comfort_map`/`pmv_comfort_map`/`utci_comfort_map` comfort maps), binds their typed `RecipeInput`/`RecipeOutput` descriptors through `pollination-handlers`, validates the external simulation-engine versions (EnergyPlus, OpenStudio, Radiance), and dispatches execution to the `queenbee-local` Luigi engine. It is the RUNTIME-tier adapter: geometry/honeybee builds the model, the recipe owner here binds the recipe and coerces its inputs, and the runtime owns the actual Luigi DAG execution and the native-engine subprocess; results are read back through `ladybug-core` `SQLiteResult`/result files and `ladybug-comfort` map kernels into `DataCollection`s. The recipe owner composes `Recipe(recipe_name)`, the `handle_inputs` coercion, `RecipeSettings`, and the version gate into one recipe-binding owner; it never re-implements the queenbee workflow schema, the Luigi DAG executor, the pollination input handlers, or the native EnergyPlus/OpenStudio/Radiance engines this package already adapts.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -9,13 +9,13 @@
 - import: `import lbt_recipes`
 - owner: `geometry` (RUNTIME-tier adapter; runtime owns Luigi execution)
 - rail: energy / recipe
-- installed: `0.28.4`
+- installed: `0.26.17`
 - license: AGPL-3.0 (strong copyleft; the recipe rail runs as the out-of-process simulation runner graduating result artifacts across the wire)
-- marker: `python_version < '3.15'` — resolves only in the cp<3.15 companion environment; absent from the default cp315 `assay api` distribution set
+- abi: pure-Python (`py2.py3-none-any`, purelib; no native extension) — the simulation engines below are external native binaries, not bundled
 - entry points: `lbt-recipes` console script; the rail composes the API
 - dependency: `queenbee-local` (Luigi DAG executor), `pollination-handlers` (input coercion), `click`; pulls the honeybee-energy/honeybee-radiance model stack transitively
-- external engines: shells out to native EnergyPlus, OpenStudio, and Radiance binaries gated at `version.EP_VERSION=(25, 1, 0)`, `OS_VERSION=(3, 10, 0)`, `RADIANCE_DATE=(2023, 11, 5)` — not self-contained; the engines must be installed and version-matched on the runtime host
-- capability: 19 packaged queenbee recipe DAGs spanning annual/point-in-time daylight and irradiance, energy use, glare, sky view, cumulative radiation, the PMV/UTCI/adaptive comfort maps, and the LEED/BREEAM/WELL/EN-17037 daylight-credit recipes; typed input/output descriptors with pollination-handler coercion; recipe execution via the queenbee-local Luigi engine; and external-engine version validation
+- external engines: shells out to native EnergyPlus, OpenStudio, and Radiance binaries gated at `version.EP_VERSION=(23, 2, 0)`, `OS_VERSION=(3, 7, 0)`, `RADIANCE_DATE=(2021, 3, 28)` — not self-contained; the engines must be installed and version-matched on the runtime host
+- capability: 14 packaged queenbee recipe DAGs spanning annual/point-in-time daylight and irradiance, energy use, glare, sky view, cumulative radiation, and the PMV/UTCI/adaptive comfort maps; typed input/output descriptors with pollination-handler coercion; recipe execution via the queenbee-local Luigi engine; and external-engine version validation
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -36,13 +36,13 @@ One `Recipe` concept loaded by name; the recipe is the `recipe_name` argument, n
 [ENTRYPOINT_SCOPE]: recipe construction, input handling, and execution (`recipe`)
 - rail: energy / recipe
 
-`Recipe(recipe_name)` loads one of the 19 packaged recipes; `input_names`/`output_names` enumerate the typed contract; `handle_inputs`/`input_value_by_name` coerce raw values through the input handlers; `run(settings, ...)` dispatches the Luigi DAG and `output_value_by_name` reads a result after.
+`Recipe(recipe_name)` loads one of the 14 packaged recipes; `input_names`/`output_names` enumerate the typed contract; `handle_inputs`/`input_value_by_name` coerce raw values through the input handlers; `run(settings, ...)` dispatches the Luigi DAG and `output_value_by_name` reads a result after.
 
 | [INDEX] | [SURFACE]                                                                       | [CALL_SHAPE]              | [CAPABILITY]                                          |
 | :-----: | :------------------------------------------------------------------------------ | :------------------------ | :--------------------------------------------------- |
 |  [01]   | `Recipe(recipe_name)`                                                            | recipe name string        | load a packaged recipe by name (e.g. `'annual_daylight'`) |
 |  [02]   | `Recipe.input_names` / `Recipe.inputs` / `Recipe.output_names` / `Recipe.outputs` | property                  | enumerate the typed input/output descriptors          |
-|  [03]   | `Recipe.input_value_by_name(name)` / `Recipe.handle_inputs(...)` / `Recipe.write_inputs_json(folder, ...)` | name / values | coerce + persist inputs through the handlers           |
+|  [03]   | `Recipe.input_value_by_name(input_name, input_value)` / `Recipe.handle_inputs()` / `Recipe.write_inputs_json(project_folder=None, indent=4, cpu_count=None)` | name+value / set | set one input by name; coerce + persist the input set through the handlers |
 |  [04]   | `Recipe.run(settings=None, radiance_check=False, openstudio_check=False, energyplus_check=False, queenbee_path=None, silent=False, debug_folder=None)` | `RecipeSettings` + engine checks | execute the Luigi DAG (returns the project folder) |
 |  [05]   | `Recipe.output_value_by_name(name, ...)` / `Recipe.error_summary` / `Recipe.failure_message` / `Recipe.luigi_execution_summary` | name | read a result; the execution diagnostics             |
 |  [06]   | `Recipe.default_project_folder` / `Recipe.simulation_id` / `Recipe.tag` / `Recipe.path` | property                  | the recipe identity and default output location       |
@@ -63,16 +63,15 @@ One `Recipe` concept loaded by name; the recipe is the `recipe_name` argument, n
 [ENTRYPOINT_SCOPE]: the packaged recipe set (`lbt_recipes/<recipe>`)
 - rail: energy / recipe
 
-The 19 named recipes the `Recipe(recipe_name)` loader binds. Each is a queenbee recipe folder with a typed input/output contract; the recipe is selected by name, never a subclass.
+The 14 named recipes the `Recipe(recipe_name)` loader binds. Each is a queenbee recipe folder with a typed input/output contract; the recipe is selected by name, never a subclass.
 
 | [INDEX] | [RECIPE GROUP]                                                                  | [RECIPE NAMES]            | [CAPABILITY]                                          |
 | :-----: | :------------------------------------------------------------------------------ | :------------------------ | :--------------------------------------------------- |
-|  [01]   | annual daylight                                                                 | `annual_daylight`, `annual_daylight_enhanced`, `annual_daylight_en17037`, `imageless_annual_glare` | annual daylight metrics (DA/cDA/UDI), glare          |
-|  [02]   | daylight credit                                                                 | `leed_daylight_option_one`, `leed_daylight_option_two`, `breeam_daylight_4b`, `well_daylight` | rating-system daylight compliance                    |
-|  [03]   | irradiance + radiation                                                          | `annual_irradiance`, `cumulative_radiation`, `direct_sun_hours`, `sky_view` | solar irradiance, sun hours, sky exposure            |
-|  [04]   | point-in-time + factor                                                          | `point_in_time_grid`, `point_in_time_view`, `daylight_factor` | single-state grid/view illuminance, daylight factor  |
-|  [05]   | energy                                                                          | `annual_energy_use`       | EnergyPlus annual energy simulation                  |
-|  [06]   | comfort map                                                                     | `pmv_comfort_map`, `utci_comfort_map`, `adaptive_comfort_map` | per-sensor spatial thermal-comfort maps              |
+|  [01]   | annual daylight + glare                                                         | `annual_daylight`, `annual_daylight_enhanced`, `imageless_annual_glare` | annual daylight metrics (DA/cDA/UDI), imageless glare |
+|  [02]   | irradiance + radiation                                                          | `annual_irradiance`, `cumulative_radiation`, `direct_sun_hours`, `sky_view` | solar irradiance, sun hours, sky exposure            |
+|  [03]   | point-in-time + factor                                                          | `point_in_time_grid`, `point_in_time_view`, `daylight_factor` | single-state grid/view illuminance, daylight factor  |
+|  [04]   | energy                                                                          | `annual_energy_use`       | EnergyPlus annual energy simulation                  |
+|  [05]   | comfort map                                                                     | `pmv_comfort_map`, `utci_comfort_map`, `adaptive_comfort_map` | per-sensor spatial thermal-comfort maps              |
 
 ## [04]-[INTEGRATION_PATTERNS]
 
@@ -89,13 +88,13 @@ The 19 named recipes the `Recipe(recipe_name)` loader binds. Each is a queenbee 
 - The recipe writes native result artifacts the band reads back: `annual_energy_use` produces an EnergyPlus `.sql` decoded by `ladybug-core` `SQLiteResult.data_collections_by_output_name` into `DataCollection`s; the daylight recipes produce illuminance matrices and `.metrics`/`.results` outputs (`annual_daylight` outputs `da`/`cda`/`udi`/`metrics`/`results`); the comfort-map recipes produce per-sensor matrices fed to `ladybug-comfort` `map.mrt`/`tcp`. `Recipe.output_value_by_name(name)` is the typed read; the band decoders own turning the artifact into labeled data.
 
 [STACK_ENGINE_VERSION_GATE]: `version` <-> the native-engine boundary
-- lbt-recipes is not self-contained: it dispatches to installed native EnergyPlus, OpenStudio, and Radiance binaries, and `version.check_energyplus_version()`/`check_openstudio_version()`/`check_radiance_date()` validate the installed engine against `EP_VERSION=(25, 1, 0)`/`OS_VERSION=(3, 10, 0)`/`RADIANCE_DATE=(2023, 11, 5)` before a run (the `*_check` flags on `Recipe.run` opt the gate in). `version.energy_folders`/`rad_folders` resolve the engine paths. The runtime/provisioning owner is responsible for installing and version-matching these engines on the host; a version mismatch is a typed precondition the owner surfaces before the Luigi DAG starts, not a mid-run subprocess failure.
+- lbt-recipes is not self-contained: it dispatches to installed native EnergyPlus, OpenStudio, and Radiance binaries, and `version.check_energyplus_version()`/`check_openstudio_version()`/`check_radiance_date()` validate the installed engine against `EP_VERSION=(23, 2, 0)`/`OS_VERSION=(3, 7, 0)`/`RADIANCE_DATE=(2021, 3, 28)` before a run (the `*_check` flags on `Recipe.run` opt the gate in). `version.energy_folders`/`rad_folders` resolve the engine paths. The runtime/provisioning owner is responsible for installing and version-matching these engines on the host; a version mismatch is a typed precondition the owner surfaces before the Luigi DAG starts, not a mid-run subprocess failure.
 
 ## [05]-[IMPLEMENTATION_LAW]
 
 [ENERGY_RECIPE]:
-- import: `import lbt_recipes` at boundary scope only; module-level import is banned by the manifest import policy, and the companion-env marker means the import resolves only under cp<3.15.
-- recipe axis: one `Recipe` concept loaded by `recipe_name` from the 19 packaged queenbee recipes; the recipe is the name argument, never a class per workflow. `input_names`/`output_names`/`inputs`/`outputs` are the typed contract; `Recipe.run(settings, ...)` dispatches the Luigi DAG and returns the project folder.
+- import: `import lbt_recipes` at boundary scope only; module-level import is banned by the manifest import policy.
+- recipe axis: one `Recipe` concept loaded by `recipe_name` from the 14 packaged queenbee recipes; the recipe is the name argument, never a class per workflow. `input_names`/`output_names`/`inputs`/`outputs` are the typed contract; `Recipe.run(settings, ...)` dispatches the Luigi DAG and returns the project folder.
 - input axis: `RecipeInput.handle_value` runs the `pollination-handlers` coercion chain that turns a honeybee `Model`/`Wea`/`EPW`/grid into the recipe-ready path; the owner threads raw band objects in and lets the handler chain own serialization. `is_path`/`is_required`/`default_value` are the contract the boundary validates; `write_inputs_json` persists the coerced set.
 - execution axis: `queenbee-local` owns the Luigi DAG scheduling and the containerized-function subprocess fan-out; `RecipeSettings(folder, workers, ...)` is the execution config; `luigi_execution_summary`/`error_summary`/`failure_message` are the diagnostics. This is the RUNTIME boundary — geometry binds, runtime executes.
 - engine axis: the native EnergyPlus/OpenStudio/Radiance binaries are external dependencies gated by `version.EP_VERSION`/`OS_VERSION`/`RADIANCE_DATE`; `check_*_version` validates the installed engine and `energy_folders`/`rad_folders` resolve their paths. A version mismatch is a typed precondition surfaced before the run.
@@ -107,10 +106,11 @@ The 19 named recipes the `Recipe(recipe_name)` loader binds. Each is a queenbee 
 
 [RAIL_LAW]:
 - Package: `lbt-recipes`
-- Owns: the 19 packaged queenbee recipe DAGs loaded by name; the `Recipe` binding with its typed `RecipeInput`/`RecipeOutput` contract; the `pollination-handlers` input-coercion dispatch; `RecipeSettings` execution config; and the EnergyPlus/OpenStudio/Radiance version gate
+- Owns: the 14 packaged queenbee recipe DAGs loaded by name; the `Recipe` binding with its typed `RecipeInput`/`RecipeOutput` contract; the `pollination-handlers` input-coercion dispatch; `RecipeSettings` execution config; and the EnergyPlus/OpenStudio/Radiance version gate
 - Accept: the recipe-binding adapter between the honeybee model band and the runtime Luigi executor; the convergence point of geometry-substrate -> climate -> model -> recipe -> simulation; the result artifacts read back by `ladybug-core`/`ladybug-comfort`
 - Reject: wrapper-renames of `Recipe`/`RecipeSettings`; a class-per-workflow ladder over the `recipe_name` loader; a hand-rolled queenbee workflow schema, Luigi executor, pollination input handler, or native-engine driver where this package already adapts them; a re-implementation of the result decode (owned by `ladybug-core`/`ladybug-comfort`); in-process recipe execution where the runtime owns the Luigi DAG; identity minting the runtime owns
 - Note: AGPL-3.0 copyleft and external native-engine dependency — the recipe rail runs out-of-process, requires version-matched EnergyPlus/OpenStudio/Radiance binaries on the host, and graduates result artifacts across the wire, never linked into a distributed host binary
 
 [CAPTURE_GAP]:
-- members: verified by live introspection against an installed `lbt-recipes==0.28.4` companion distribution (the `python_version < '3.15'` marker excludes it from the default cp315 `assay api` set; `assay api resolve --key lbt-recipes` returns `unsupported` under cp315). Every documented type, property, method, and packaged recipe resolves with the signatures shown — no phantom. Confirmed shapes: `Recipe(recipe_name)`; `Recipe.run(settings=None, radiance_check=False, openstudio_check=False, energyplus_check=False, queenbee_path=None, silent=False, debug_folder=None)`; `RecipeInput.handle_value()` (no-arg; the value is set through the `RecipeInput.value` setter before `handle_value()` runs the chain); `RecipeSettings(folder=None, workers=None, reload_old=False, report_out=False, debug_folder=None)`; the 19 packaged recipe folders enumerated (each carrying a `package.json` queenbee contract); `version.EP_VERSION=(25, 1, 0)`, `OS_VERSION=(3, 10, 0)`, `RADIANCE_DATE=(2023, 11, 5)` with `energy_folders`/`rad_folders` engine-path resolvers; `annual_daylight` confirmed inputs (`model`/`north`/`schedule`/`radiance-parameters`/`grid-filter`/...) and outputs (`da`/`cda`/`udi`/`metrics`/`results`/...). License confirmed AGPL-3.0; `queenbee-local`/`pollination-handlers` confirmed as the runtime dependencies.
+- AGPL-3.0 + external engines: copyleft is the binding admission flag and the recipe rail is not self-contained — it requires version-matched native EnergyPlus/OpenStudio/Radiance binaries on the runtime host, runs out-of-process, and graduates result artifacts across the wire, never linked into a distributed host binary. `RecipeInput.handle_value()` is no-arg; the value is set through the `RecipeInput.value` setter before the chain runs.
+- execution: the Luigi DAG scheduling and containerized-function subprocess fan-out are owned by `queenbee-local`, the input coercion by `pollination-handlers`, the workflow schema by `queenbee`, and the result decode by `ladybug-core`/`ladybug-comfort`. This catalog is the recipe-binding + version-gate surface; recipe execution is the runtime owner's concern.

@@ -23,13 +23,13 @@ geometry/
 │   ├── daemon.py             # TessellationDaemon: source bytes + tolerance → per-element GLB + semantic header, CAD arms route to cad.py
 │   ├── cad.py                # StepBridge: STEP/IGES B-rep bytes + tolerance → GLB over OCCT XCAF, companion the C# StepIso10303 codec calls
 │   ├── repair.py             # MeshRepairOp: watertight repair, winding/normal fix, manifold3d boolean; in-memory Trimesh in/out, mesh-file IO deferred to data MeshPayload
-│   ├── brep.py               # BrepOp: cadquery-ocp B-rep evaluation, manifold3d solid algebra (worker lane, both gated <3.15), mesh-brep subject
-│   ├── spatial.py            # MeshSpatial: trimesh + numpy proximity/ray/contains/AABB-tree + clearance spatial query over in-memory triangulation (runtime spine; FCL CollisionManager clearance + gated manifold3d.min_gap exact enrichment worker, offloaded by find_spec)
-│   └── quality.py            # MeshQuality: trimesh + numpy aspect-ratio/skewness/manifold-edge/genus mesh-quality metric receipts (intended runtime)
+│   ├── brep.py               # BrepOp: cadquery-ocp B-rep evaluation, manifold3d solid algebra, mesh-brep subject
+│   ├── spatial.py            # MeshSpatial: trimesh + numpy proximity/ray/contains/AABB-tree + clearance spatial query over in-memory triangulation (runtime spine; FCL CollisionManager clearance + manifold3d.min_gap enrichment worker, offloaded by find_spec)
+│   └── quality.py            # MeshQuality: trimesh + numpy aspect-ratio/skewness/manifold-edge/genus mesh-quality metric receipts
 └── graph/                    # Non-manifold topology over topologicpy and AEC computational geometry over compas, network analytics over networkx
     ├── nonmanifold.py        # TopologyAlgebra: CellComplex/Cell/Aperture construction, decomposition, adjacency, dual-graph
-    ├── algebra.py            # ComputationalGeometry: network adjacency, form-finding, numerical primitives, mesh algebra (compas gated)
-    └── features.py           # GraphFeatures: networkx centrality/community/shortest-path/connectivity analytics over the network-graph projection (intended runtime)
+    ├── algebra.py            # ComputationalGeometry: network adjacency, form-finding, numerical primitives, mesh algebra
+    └── features.py           # GraphFeatures: networkx centrality/community/shortest-path/connectivity analytics over the network-graph projection
 ```
 
 ## [02]-[SEAMS]
@@ -59,8 +59,8 @@ mesh           ⇄  python:artifacts/figures     # [BOUNDARY]: visualization-sce
 scan/ingestion ←  python:data/spatial          # [SHAPE]: COPC arm decode leaves the pdal filter-graph owner unchanged
 ```
 
-## [03]-[INTERPRETER_FLOOR]
+## [03]-[COMPANION_LANES]
 
-Every sub-domain rides the companion engine selection the branch manifest owns — the sanctioned divergence from the Python core floor, forced by the compiled geometry/IFC cores and isolating the copyleft IFC package at the process boundary. The folder consumes this floor as settled and never re-decides it; it surfaces here only because the whole map sits below it.
+Every sub-domain rides the companion engine selection the branch manifest owns, with compiled geometry/IFC cores and copyleft packages isolated at the process boundary.
 
-The intended runtime (lands when packages ship): `numpy`, `trimesh`, `rhino3dm`, `laspy`, `networkx` — the `mesh/spatial`, `mesh/quality`, and `graph/features` owners and the mesh/spatial spine (`trimesh` + `numpy`) ride this core directly. The worker worker lane (cp312 floor) carries the gated enrichment rows: `manifold3d`/`cadquery-ocp` (the `mesh/brep` and `mesh/repair` boolean band), `compas`/`compas_dr`/`compas_tna` (the `graph/algebra` band), `open3d` (cp312-max), `small-gicp`/`kiss-matcher`, `pye57`, and `sectionproperties` (the `ifc/structural` enrichment row only, never the section-integral spine — that is `numpy`). `ifcopenshell` is a worker IFC package (py313, no runtime), the source of the `ifc/authoring` and `ifc/structural` companion layers.
+The runtime lane carries `numpy`, `trimesh`, `rhino3dm`, `laspy`, and `networkx` for the `mesh/spatial`, `mesh/quality`, `graph/features`, and mesh/spatial spine owners. Worker lanes carry compiled enrichment rows such as `manifold3d`, `cadquery-ocp`, `compas`, `compas_dr`, `compas_tna`, `open3d`, `small-gicp`, `kiss-matcher`, `pye57`, and `sectionproperties`; `ifcopenshell` remains the worker IFC package behind `ifc/authoring` and `ifc/structural`.

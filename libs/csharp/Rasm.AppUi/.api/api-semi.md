@@ -17,7 +17,7 @@
 - packages: `Semi.Avalonia.{DataGrid,ColorPicker,Dock,AvaloniaEdit}`
 - license: MIT
 - floor: `net10.0` consumer per package
-- surface: per-control compiled-AXAML skin dictionaries, each added to `Application.Styles` AFTER `SemiTheme` to re-skin `Avalonia.Controls.DataGrid`, `Avalonia.Controls.ColorPicker`, `Dock.Avalonia` (`api-dock.md`), and `AvaloniaEdit` (`api-avaloniaedit.md`) onto the Semi tokens. No CODE surface
+- surface: per-control compiled-AXAML skin dictionaries, each added to `Application.Styles` AFTER `SemiTheme` to re-skin `Avalonia.Controls.DataGrid`, `Avalonia.Controls.ColorPicker`, `Dock.Avalonia` (`api-dock.md`), and `AvaloniaEdit` (`api-avaloniaedit.md`) onto the Semi tokens. Each exposes exactly one `Styles` entry type (`DataGridSemiTheme`/`ColorPickerSemiTheme`/`DockSemiTheme`/`AvaloniaEditSemiTheme`); no other CODE surface
 - rail: theme
 
 ## [02]-[PUBLIC_TYPES]
@@ -34,6 +34,16 @@
 |  [05]   | `Icons`                                             | the built-in geometry/path icon resource set                   |
 |  [06]   | `ApplicationExtension`                              | `RegisterFollowSystemTheme(this Application)` / `UnregisterFollowSystemTheme(...)` — the one code entrypoint, OS dark/light follow |
 |  [07]   | `Locale.{en_us,en_gb,zh_cn,zh_tw,ja_jp,ko_kr,de_de,fr_fr,es_es,it_it,it_ch,nl_nl,nl_be,pl_pl,ru_ru,uk_ua}` | built-in localized string resources for templated controls |
+
+[SKIN_THEME_ENTRIES]: the per-control `Semi.Avalonia.*` skin `Styles` types — each a `<semi:…/>` entry added to `Application.Styles` AFTER `SemiTheme` so the tokens resolve (the code form is `new …SemiTheme()`)
+- rail: theme
+
+| [INDEX] | [SYMBOL]                                                    | [KIND]                                                   |
+| :-----: | :---------------------------------------------------------- | :------------------------------------------------------ |
+|  [01]   | `Semi.Avalonia.DataGrid.DataGridSemiTheme : Styles`         | `Avalonia.Controls.DataGrid` skin entry                 |
+|  [02]   | `Semi.Avalonia.ColorPicker.ColorPickerSemiTheme : Styles`   | `Avalonia.Controls.ColorPicker` skin entry             |
+|  [03]   | `Semi.Avalonia.Dock.DockSemiTheme : Styles`                 | `Dock.Avalonia` (`api-dock.md`) skin entry             |
+|  [04]   | `Semi.Avalonia.AvaloniaEdit.AvaloniaEditSemiTheme : Styles` | `AvaloniaEdit` (`api-avaloniaedit.md`) skin entry      |
 
 [THEME_VARIANTS]: `SemiTheme` ships four named `ThemeVariant`s beyond Light/Dark
 - rail: theme

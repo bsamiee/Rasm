@@ -71,6 +71,7 @@
 |  [06]   | `UPath.glob(pattern)` / `UPath.rglob(pattern)`                | traverse       | pattern enumeration via `fs.glob`             |
 |  [07]   | `UPath.walk(top_down=True, on_error=None, follow_symlinks=False)` | traverse  | tree walk yielding `(Self, dirnames, filenames)` |
 |  [08]   | `UPath.full_match(pattern)` / `UPath.match(pattern)`          | traverse       | glob-style match against the path             |
+|  [09]   | `UPath.resolve(strict=False)`                                | compose        | absolutize + normalize (resolve symlinks), returns `Self` |
 
 [ENTRYPOINT_SCOPE]: byte access and mutation
 - rail: resources

@@ -9,13 +9,16 @@ the `Schema/ddl#EXTENSION_DDL` `SchemaDdl` union emits, and the `Query/lanes#DOC
 `Version/retention#AUDIT_BINDING`, and maintenance-schedule rows consume.
 
 PRELOAD SPLIT (verified against `ClusterConfig.Rows`): the `shared_preload_libraries` value is
-`timescaledb,pg_search,pg_partman_bgw,pg_squeeze,pgaudit,pg_cron` — so `pg_cron`, `pg_partman`
+`timescaledb,pg_search,pg_partman_bgw,pg_squeeze,pgaudit,pg_cron,pg_net` — so `pg_cron`, `pg_partman`
 (as its `pg_partman_bgw` background-worker library), `pg_squeeze`, and `pgaudit` ARE preload-gated
 and verify through the `Store/profiles#PROVISIONING_ROWS` `PreloadProbe`; only `pg_jsonschema` is
 NOT preloaded — it registers its `json_matches_schema`/`jsonb_matches_schema` functions via
 `CREATE EXTENSION` and carries a `Json.Schema.JsonSchema.Evaluate` (JsonSchema.Net) in-process
 fallback when the deploy image lacks the pgrx-compiled extension. The note that "pg_jsonschema and
-pgaudit register through type/preload" is wrong: pgaudit is preloaded, not function-registered.
+pgaudit register through type/preload" is wrong: pgaudit is preloaded, not function-registered. The
+rostered `pg_net` is preload-gated too — its `libcurl` worker is statically `RegisterBackgroundWorker`'d
+in `_PG_init`, so it rides the same `shared_preload_libraries` value (hard-erroring on `CREATE EXTENSION`
+without it); its full SQL surface is catalogued in `api-pg-net.md`, not here.
 
 ## [01]-[PACKAGE_SURFACE]
 

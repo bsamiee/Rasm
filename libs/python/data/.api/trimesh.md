@@ -45,6 +45,7 @@ Cached topology accessors expose the connectivity downstream owners read directl
 |  [07]   | `Trimesh.mass_properties` / `moment_inertia` / `principal_inertia_components` | dict / array | volume/COM/inertia receipt and inertia tensor |
 |  [08]   | `Trimesh.is_watertight` / `is_winding_consistent` / `is_volume` / `euler_number` | bool / int | manifold/validity flags and Euler characteristic |
 |  [09]   | `Trimesh.identifier_hash`                        | bytes           | order-invariant geometric hash for content identity    |
+|  [10]   | `Trimesh.units`                                  | `str \| None`   | model unit system (`'mm'`/`'inches'`/…) off `metadata`; `None` when undeclared — the mesh-exchange unit reader (`mesh.units or "m"`) |
 
 ## [03]-[ENTRYPOINTS]
 

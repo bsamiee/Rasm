@@ -1,5 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
-    <ItemGroup>
+    <ItemGroup Label="Project References">
         <ProjectReference Include="../../../../libs/csharp/Rasm.AppUi/Rasm.AppUi.csproj" />
     </ItemGroup>
     <ItemGroup Label="Headless UI And Render Hash">

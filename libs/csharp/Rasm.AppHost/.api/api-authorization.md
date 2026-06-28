@@ -80,6 +80,7 @@
 |  [06]   | `Context.HasSucceeded` / `HasFailed`   | context query    | aggregate evaluation state  |
 |  [07]   | `AuthorizationResult.Success()`        | result factory   | succeeded outcome           |
 |  [08]   | `AuthorizationResult.Failed(failure)`  | result factory   | failed outcome carrier      |
+|  [09]   | `AuthorizationFailure.FailedRequirements` / `FailureReasons` | failure read | `IEnumerable<IAuthorizationRequirement>` unmet set and `IEnumerable<AuthorizationFailureReason>` reasons off a failed result's `Failure` |
 
 [ENTRYPOINT_SCOPE]: policy construction and registration
 - rail: authorization
@@ -105,7 +106,7 @@
 - namespaces: evaluation core (`Microsoft.AspNetCore.Authorization`), built-in requirements (`Microsoft.AspNetCore.Authorization.Infrastructure`), DI registration (`Microsoft.Extensions.DependencyInjection`)
 - evaluation surface: `IAuthorizationService.AuthorizeAsync` accepts a `ClaimsPrincipal`, an optional `object?` resource, and either an `IEnumerable<IAuthorizationRequirement>` or a `string` policy name
 - result surface: `AuthorizationResult` carries `bool Succeeded` and a nullable `AuthorizationFailure?`; `[MemberNotNullWhen(false, "Failure")]` makes `Failure` non-null exactly when `Succeeded` is `false`
-- failure surface: `AuthorizationFailure` distinguishes `ExplicitFail()`, `Failed(reasons)`, and `Failed(failedRequirements)`; `AuthorizationFailureReason` attributes a `Message` to the originating `IAuthorizationHandler`
+- failure surface: `AuthorizationFailure` distinguishes `ExplicitFail()`, `Failed(reasons)`, and `Failed(failedRequirements)`; it exposes the `FailedRequirements` (`IEnumerable<IAuthorizationRequirement>`) and `FailureReasons` (`IEnumerable<AuthorizationFailureReason>`) read properties consumers project off a failed `AuthorizationResult.Failure`, and `AuthorizationFailureReason` attributes a `Message` to the originating `IAuthorizationHandler`
 - handler surface: `IAuthorizationHandler.HandleAsync(AuthorizationHandlerContext)` is the dispatch contract; `AuthorizationHandler<TRequirement>` and `AuthorizationHandler<TRequirement, TResource>` iterate matching requirements and dispatch to a typed `HandleRequirementAsync` override
 - context surface: `AuthorizationHandlerContext` is the evaluation ledger carrying `Requirements`, `User`, `Resource`, `PendingRequirements`, and `FailureReasons`; `Succeed(requirement)` removes from the pending set, `Fail()`/`Fail(reason)` latches failure, and `HasSucceeded` holds only when `Succeed` was called, `Fail` was not, and no requirements remain pending
 - requirement surface: `IAuthorizationRequirement` is an empty marker; built-in requirements (`ClaimsAuthorizationRequirement`, `RolesAuthorizationRequirement`, `NameAuthorizationRequirement`, `DenyAnonymousAuthorizationRequirement`, `OperationAuthorizationRequirement`, `AssertionRequirement`) are both the requirement and its self-handler

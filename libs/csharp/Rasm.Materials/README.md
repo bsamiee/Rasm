@@ -39,9 +39,6 @@ Domain packages admitted by this folder; versions are centralized in the one C# 
 - `Wacton.Unicolour`
 - `Wacton.Unicolour.Datasets`
 
-[UNITS]:
-- `UnitsNet`
-
 [NUMERICS]:
 - `MathNet.Numerics`
 
@@ -69,7 +66,7 @@ Domain packages admitted by this folder; versions are centralized in the one C# 
 
 ## [03]-[SUBSTRATE_PACKAGES]
 
-Substrate packages from the C# registry consumed by this folder; full registry and substrate contracts live in [`libs/csharp/.planning/README.md`](../csharp/.planning/README.md) and this folder's `.api/`.
+Substrate packages from the C# registry consumed by this folder; full registry and substrate contracts live in [`libs/csharp/.planning/README.md`](../.planning/README.md), with shared API evidence in `libs/csharp/.api/`.
 
 [FUNCTIONAL_CORE]:
 - `LanguageExt.Core`
@@ -77,3 +74,6 @@ Substrate packages from the C# registry consumed by this folder; full registry a
 - `Thinktecture.Runtime.Extensions.Json`
 - `Thinktecture.Runtime.Extensions.MessagePack`
 - `JetBrains.Annotations`
+
+[NUMERIC_SUBSTRATE]:
+- `UnitsNet`

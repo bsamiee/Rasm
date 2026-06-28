@@ -23,7 +23,7 @@
 
 ## [02]-[DOMAIN_PACKAGES]
 
-Every data-domain library the folder uses, planned or implemented; versions are centralized in the one branch manifest and never pinned here. API evidence lives in the adjacent `.api/` folder.
+Every data-domain library the folder uses, planned or implemented; versions are centralized in the one branch manifest. API evidence lives in the adjacent `.api/` folder.
 
 [DATAFRAME]:
 - `polars`

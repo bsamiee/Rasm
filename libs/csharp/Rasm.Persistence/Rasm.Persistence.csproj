@@ -4,7 +4,7 @@
         <CspScope>Boundary</CspScope>
     </PropertyGroup>
 
-    <ItemGroup>
+    <ItemGroup Label="Project References">
         <ProjectReference Include="../Rasm.AppHost/Rasm.AppHost.csproj" />
     </ItemGroup>
 
@@ -23,17 +23,18 @@
         <PackageReference Include="Google.Cloud.Kms.V1" />
         <PackageReference Include="linq2db.EntityFrameworkCore" />
         <PackageReference Include="Microsoft.Data.Sqlite" />
-        <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" ExcludeAssets="all" />
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
         <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
-        <PackageReference Include="Npgsql" />
         <PackageReference Include="NetTopologySuite.IO.GeoJSON4STJ" />
         <PackageReference Include="NetTopologySuite.IO.GeoPackage" />
+        <PackageReference Include="NodaTime" />
+        <PackageReference Include="NodaTime.Serialization.SystemTextJson" />
+        <PackageReference Include="Npgsql" />
         <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
         <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite" />
         <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime" />
+        <PackageReference Include="Npgsql.NetTopologySuite" />
         <PackageReference Include="Npgsql.OpenTelemetry" />
-        <PackageReference Include="NodaTime" />
-        <PackageReference Include="NodaTime.Serialization.SystemTextJson" />
         <PackageReference Include="Pgvector" />
         <PackageReference Include="Pgvector.EntityFrameworkCore" />
         <PackageReference Include="pocketken.H3" />
@@ -106,7 +107,7 @@
 
     <ItemGroup Label="Sync Outside-Rhino">
         <PackageReference Include="PollinationSDK" />
-        <PackageReference Include="Speckle.Sdk" />
         <PackageReference Include="Speckle.Objects" />
+        <PackageReference Include="Speckle.Sdk" />
     </ItemGroup>
 </Project>

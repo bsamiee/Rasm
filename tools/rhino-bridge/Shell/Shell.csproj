@@ -1,16 +1,23 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <Description>Shell-private ALC resident for pipe serving, StreamJsonRpc targeting, idle-pump UI marshaling, and collectible cargo gating.</Description>
+        <CspScope>Boundary</CspScope>
         <AssemblyName>Rasm.Bridge.Shell</AssemblyName>
         <RootNamespace>Rasm.Bridge.Shell</RootNamespace>
         <!-- The stub owns the .rhp; ShellLoadContext loads the shell and its restored deploy set. -->
         <EnableDynamicLoading>true</EnableDynamicLoading>
         <InformationalVersion>0.1.0-shell</InformationalVersion>
     </PropertyGroup>
-    <ItemGroup>
+    <ItemGroup Label="Shell Packages">
         <PackageReference Include="StreamJsonRpc" />
         <PackageReference Include="Thinktecture.Runtime.Extensions" />
+    </ItemGroup>
+
+    <ItemGroup Label="Shell Usings">
         <Using Include="Thinktecture" />
+    </ItemGroup>
+
+    <ItemGroup Label="Project References">
         <ProjectReference Include="../Contract/Contract.csproj" />
     </ItemGroup>
 </Project>

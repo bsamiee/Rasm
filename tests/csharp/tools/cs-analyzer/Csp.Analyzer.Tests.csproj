@@ -3,18 +3,18 @@
         <RootNamespace>Rasm.Csp.Tests</RootNamespace>
     </PropertyGroup>
 
-    <ItemGroup>
+    <ItemGroup Label="Project References">
         <ProjectReference Include="../../../../tools/cs-analyzer/Csp.Analyzer.csproj" />
     </ItemGroup>
 
-    <ItemGroup>
-        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
-        <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" />
-        <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Analyzer.Testing" />
-        <PackageReference Include="Verify.XunitV3" />
+    <ItemGroup Label="Roslyn Test Harness">
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" PrivateAssets="all" />
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Analyzer.Testing" PrivateAssets="all" />
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" PrivateAssets="all" />
+        <PackageReference Include="Verify.XunitV3" PrivateAssets="all" />
     </ItemGroup>
 
-    <ItemGroup>
+    <ItemGroup Label="Analyzer Metadata And Usings">
         <!-- RepoRoot fixes meta scans to workspace-owned files without runtime directory walks. -->
         <AssemblyMetadata Include="RepoRoot" Value="$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', '..', '..', '..', '..'))" />
         <Using Include="Microsoft.CodeAnalysis.CSharp.Testing.CSharpAnalyzerVerifier&lt;Rasm.Csp.Kernel.Driver, Microsoft.CodeAnalysis.Testing.DefaultVerifier&gt;" Alias="Verify" />

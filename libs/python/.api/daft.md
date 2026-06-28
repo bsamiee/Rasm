@@ -45,6 +45,16 @@
 |  [20]   | `ImageFormat`      | image vocabulary  | image encoding-format vocabulary                     |
 |  [21]   | `ImageProperty`    | image vocabulary  | image property selector vocabulary                   |
 
+[PUBLIC_TYPE_SCOPE]: exception hierarchy
+- rail: distributed dataframe — `daft.exceptions`; rooted at `DaftCoreException`, the transient branch is the retry discriminant a `stamina` rail targets
+
+| [INDEX] | [SYMBOL]             | [TYPE_FAMILY]   | [ROLE]                                                              |
+| :-----: | :------------------- | :-------------- | :----------------------------------------------------------------- |
+|  [01]   | `DaftCoreException`  | base error      | root of every daft exception (subclasses `ValueError`)             |
+|  [02]   | `DaftTransientError` | transient base  | retryable network fault (timeout/throttle); the retry discriminant |
+|  [03]   | `ConnectTimeoutError` / `ReadTimeoutError` / `SocketError` / `ThrottleError` / `ByteStreamError` / `MiscTransientError` | transient error | concrete `DaftTransientError` subclasses the Rust IO layer raises on 429/5xx/connect+read timeout |
+|  [04]   | `DaftTypeError`      | type error      | non-transient schema/dtype misuse (subclasses `DaftCoreException`) |
+
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: ingest and source constructors
@@ -201,6 +211,7 @@ Streaming sinks pull execution incrementally so an out-of-core result never full
 - dataframely / pandera: the resolved `Schema` and a `to_arrow`/`to_pandas` egress feed a dataframe contract gate; route post-read validation to dataframely (Polars) or pandera, not a hand-rolled assertion pass inside a daft UDF.
 - polars / narwhals: narrow, fully-materializable frames egress to the eager Polars owner via `to_arrow`; narwhals provides the engine-agnostic dataframe surface when a consumer must stay backend-neutral. daft owns the out-of-core/distributed plan; do not re-express a daft plan as an eager Polars chain.
 - ibis-framework: ibis is the portable logical-plan/SQL-builder front end; daft is one execution backend with a native multimodal engine. Address one engine through the `DataFrame` builder or `sql(**bindings)`, never string-interpolated SQL.
+- stamina retry classification: `daft.exceptions.DaftTransientError` (and its `ConnectTimeoutError`/`ReadTimeoutError`/`SocketError`/`ThrottleError`/`ByteStreamError`/`MiscTransientError` subclasses) is the retryable-fault discriminant a `stamina` `retry_context`/`guarded` rail targets for a daft scan/sink leg; a non-transient `DaftCoreException`/`DaftTypeError` fails fast, never a blanket `except Exception` retry.
 
 [RAIL_LAW]:
 - Package: `daft`

@@ -1,6 +1,6 @@
 # [PY_RUNTIME_API_LBT_RECIPES]
 
-`lbt-recipes` (import `lbt_recipes`) is the recipe execution wrapper and simulation-workflow owner for the runtime recipe rail: a `Recipe` class that loads one of the 19 packaged Ladybug Tools recipes (or an external recipe folder), runs each input through its `pollination_handlers` handler chain, casts it to the type the queenbee `DAGInput` declares, writes an `inputs.json`, and executes the recipe by shelling out to `queenbee local run` — the `queenbee-local` luigi DAG runner — over Radiance/OpenStudio/EnergyPlus engines, then reads the result folder back through the output handlers. It pairs with `runtime/.api/queenbee.md` (the schema the executor consumes) and `runtime/.api/pollination-handlers.md` (the IO coercion the executor binds); `geometry/.api/lbt-recipes.md` owns the complementary geometry-tier surface (model-input binding, handler coercion, and `ladybug` result readback), while this catalog owns the out-of-process execution. Because `Recipe.run` is an out-of-process subprocess, the runtime owner wraps it under the process-resource lane, a deadline scope, a `stamina` engine-precheck, and a `structlog`/OpenTelemetry span, parsing the luigi execution and error logs into a typed receipt rather than trusting the exit code. The package owner composes `Recipe(recipe_name)` + `RecipeSettings` + `Recipe.run` into the simulation-job owner; it never re-implements the luigi DAG scheduler, the handler resolution, or the engine-version checks lbt-recipes already owns.
+`lbt-recipes` (import `lbt_recipes`) is the recipe execution wrapper and simulation-workflow owner for the runtime recipe rail: a `Recipe` class that loads one of the 14 packaged Ladybug Tools recipes (or an external recipe folder), runs each input through its `pollination_handlers` handler chain, casts it to the type the queenbee `DAGInput` declares, writes a handled `<simulation_id>_inputs.json`, and executes the recipe by shelling out to `queenbee local run` — the `queenbee-local` luigi DAG runner — over Radiance/OpenStudio/EnergyPlus engines, then reads the result folder back through the output handlers. It pairs with `runtime/.api/queenbee.md` (the schema the executor consumes) and `runtime/.api/pollination-handlers.md` (the IO coercion the executor binds); `geometry/.api/lbt-recipes.md` owns the complementary geometry-tier surface (model-input binding, handler coercion, and `ladybug` result readback), while this catalog owns the out-of-process execution. Because `Recipe.run` is an out-of-process subprocess, the runtime owner wraps it under the process-resource lane, a deadline scope, a `stamina` engine-precheck, and a `structlog`/OpenTelemetry span, parsing the luigi execution and error logs into a typed receipt rather than trusting the exit code. The package owner composes `Recipe(recipe_name)` + `RecipeSettings` + `Recipe.run` into the simulation-job owner; it never re-implements the luigi DAG scheduler, the handler resolution, or the engine-version checks lbt-recipes already owns.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -9,14 +9,13 @@
 - import: `import lbt_recipes`
 - owner: `runtime`
 - rail: recipe-execution
-- installed: `0.28.4`
-- license: `AGPL-3.0` (network copyleft — the strongest reading; the binding admission flag for this distribution)
-- abi: pure-Python (`py3-none-any`, purelib; no native extension), but shells out to native simulation engines (below)
-- companion-gated: admitted `python_version < '3.15'` alongside the Ladybug Tools cluster; absent from the cp315 frozen env (`api resolve --frozen` cannot reach it), so every member below is confirmed by introspection against the installed companion distribution (`0.28.4`)
-- depends: `queenbee-local==1.0.2` (the luigi-based `queenbee local run` executor — the subprocess target), `pollination-handlers==0.10.16` (the IO handler chain), `click==8.1.7`; transitively honeybee/honeybee-radiance/ladybug for `Model`/config/engine folders
+- installed: `0.26.17`
+- license: `AGPL-3.0` (network copyleft; the binding admission flag for this distribution)
+- abi: pure-Python (`py2.py3-none-any`, purelib; no native extension), but shells out to native simulation engines (below)
+- depends: `pollination-handlers==0.10.10` (the IO handler chain), `queenbee-local==0.6.7` (the luigi-based `queenbee local run` executor — the subprocess target), `click==8.1.7`; transitively honeybee/honeybee-radiance/honeybee-energy/ladybug for `Model`/config/engine folders
 - entry points: `lbt-recipes` console script (`lbt_recipes.cli:main`)
-- external engines: Radiance, OpenStudio, and EnergyPlus binaries are required at run time and validated by `lbt_recipes.version` (`RADIANCE_DATE`, `OS_VERSION`, `EP_VERSION`)
-- capability: load/execute the 19 packaged LBT recipes (or an external recipe folder), handler-driven typed input coercion, parametric input/output management, local luigi execution via `queenbee local run`, and luigi/error-log parsing for run summaries
+- external engines: Radiance, OpenStudio, and EnergyPlus binaries are required at run time and validated by `lbt_recipes.version` against the pinned compatibility floor (`RADIANCE_DATE=(2021, 3, 28)`, `OS_VERSION=(3, 7, 0)`, `EP_VERSION=(23, 2, 0)`)
+- capability: load/execute the 14 packaged LBT recipes (or an external recipe folder), handler-driven typed input coercion, parametric input/output management, local luigi execution via `queenbee local run`, and luigi/error-log parsing for run summaries
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -36,17 +35,16 @@
 [PUBLIC_TYPE_SCOPE]: packaged recipe set
 - rail: recipe-execution
 
-Each packaged recipe is a sub-package folder (a `package.json` + `flow` + handler aliases) addressed by name through `Recipe(recipe_name)`. Names use underscores internally; hyphens are normalized.
+Each packaged recipe is a sub-package folder (a `package.json` recipe contract + `run.py` luigi entry + grasshopper handler aliases) addressed by name through `Recipe(recipe_name)`; `Recipe.__init__` joins `recipe_name.replace('-', '_')` onto the install folder, so names use underscores internally and hyphens normalize. The 14 folders carrying a `package.json`:
 
 | [INDEX] | [SYMBOL]                                              | [TYPE_FAMILY] | [CAPABILITY]                                  |
 | :-----: | :--------------------------------------------------- | :------------ | :-------------------------------------------- |
-|  [01]   | `annual_daylight` (+ `_en17037` / `_enhanced`)       | daylight recipe | annual daylight metrics (DA/UDI/sDA/ASE)      |
+|  [01]   | `annual_daylight` / `annual_daylight_enhanced`       | daylight recipe | annual daylight metrics (DA/UDI/sDA/ASE); `_enhanced` runs the higher-accuracy two-phase path |
 |  [02]   | `annual_irradiance` / `cumulative_radiation` / `direct_sun_hours` | radiance recipe | annual irradiance, cumulative radiation, sun hours |
 |  [03]   | `daylight_factor` / `point_in_time_grid` / `point_in_time_view` / `sky_view` | radiance recipe | daylight factor, point-in-time grid/view, sky view |
 |  [04]   | `imageless_annual_glare`                              | radiance recipe | annual glare autonomy without images          |
-|  [05]   | `leed_daylight_option_one` / `leed_daylight_option_two` / `breeam_daylight_4b` / `well_daylight` | credit recipe | green-rating daylight compliance |
-|  [06]   | `annual_energy_use`                                  | energy recipe | OpenStudio/EnergyPlus annual energy + EUI      |
-|  [07]   | `pmv_comfort_map` / `adaptive_comfort_map` / `utci_comfort_map` | comfort recipe | spatial thermal-comfort mapping |
+|  [05]   | `annual_energy_use`                                  | energy recipe | OpenStudio/EnergyPlus annual energy + EUI      |
+|  [06]   | `adaptive_comfort_map` / `pmv_comfort_map` / `utci_comfort_map` | comfort recipe | spatial thermal-comfort mapping (adaptive/PMV/UTCI) |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -67,11 +65,11 @@ Each packaged recipe is a sub-package folder (a `package.json` + `flow` + handle
 [ENTRYPOINT_SCOPE]: execution and result reading
 - rail: recipe-execution
 
-`run` writes the handled `inputs.json` and shells `"<queenbee>" local run "<recipe>" "<project>" -i "<inputs.json>" --workers N --env ...`; it returns the project folder. Result handlers are run by `output_value_by_name`.
+`run` writes the handled `<simulation_id>_inputs.json` and shells `"<queenbee>" local run "<recipe>" "<project>" -i "<inputs.json>" --workers N --env PATH/RAYPATH --name <simulation_id>` (plus an optional `--debug <folder>`); it returns the project folder. Result handlers are run by `output_value_by_name`.
 
 | [INDEX] | [SURFACE]                                                                                      | [ENTRY_FAMILY] | [CAPABILITY]                                  |
 | :-----: | :-------------------------------------------------------------------------------------------- | :------------- | :-------------------------------------------- |
-|  [01]   | `Recipe.write_inputs_json(project_folder=None, indent=4, cpu_count=None) -> str`              | prepare        | handle inputs + copy artifacts + write `inputs.json` |
+|  [01]   | `Recipe.write_inputs_json(project_folder=None, indent=4, cpu_count=None) -> str`              | prepare        | handle inputs + copy path artifacts into the project folder + write `<simulation_id>_inputs.json` (returns its path); `cpu_count` overrides a `cpu-count` input |
 |  [02]   | `Recipe.run(settings=None, radiance_check=False, openstudio_check=False, energyplus_check=False, queenbee_path=None, silent=False, debug_folder=None) -> str` | execute | run via `queenbee local run` subprocess; return project folder |
 |  [03]   | `Recipe.output_value_by_name(output_name, project_folder=None)`                               | read output    | resolve a result path + run its output handlers |
 |  [04]   | `Recipe.luigi_execution_summary(project_folder=None)` / `Recipe.error_summary(...)` / `Recipe.failure_message(...)` | read log | parse the luigi `logs.log`/`err.log` into a summary |
@@ -93,7 +91,7 @@ Each packaged recipe is a sub-package folder (a `package.json` + `flow` + handle
 ## [04]-[IMPLEMENTATION_LAW]
 
 [EXECUTION_TOPOLOGY]:
-- subprocess law: `Recipe.run` does not execute the DAG in-process — it shells `queenbee local run` (the `queenbee-local` luigi runner) with `--workers`, an `--env PATH/RAYPATH` for the Radiance binaries, and a cleared `PYTHONHOME`. The runtime owner runs it through the process-resource lane under a deadline scope and reads the result, never treating the exit code alone as success.
+- subprocess law: `Recipe.run` does not execute the DAG in-process — it shells `queenbee local run` (the `queenbee-local` luigi runner) with `--workers`, `--name <simulation_id>`, an `--env PATH/RAYPATH` for the Radiance binaries, and a cleared `PYTHONHOME` in the copied subprocess env. The runtime owner runs it through the process-resource lane under a deadline scope and reads the result, never treating the exit code alone as success.
 - handler-binding law: `_RecipeParameter` resolves each handler with `importlib.import_module(module)` + `getattr(module, function)` from the recipe's grasshopper alias spec, then `RecipeInput.handle_value` runs the chain and casts via `INPUT_TYPES` (the queenbee `DAGInput` type -> `str`/`int`/`float`/`bool`/`tuple`/`dict`). The handlers live in `pollination-handlers`.
 - result law: `Recipe` targets single-output recipes whose `results` output is a folder; `output_value_by_name` joins the project/simulation path and runs the `pollination_handlers.outputs.*` reader, so the run product is a ladybug `DataCollection`/dict, not a raw path.
 - engine-gate law: the recipe needs external Radiance/OpenStudio/EnergyPlus binaries; pass `radiance_check`/`openstudio_check`/`energyplus_check=True` (or call `version.check_*`) so a missing/incompatible engine fails with a clear message before the subprocess, not mid-run.
@@ -107,10 +105,10 @@ Each packaged recipe is a sub-package folder (a `package.json` + `flow` + handle
 
 [RAIL_LAW]:
 - Package: `lbt-recipes`
-- Owns: the recipe execution wrapper, the 19 packaged LBT recipes, handler-driven typed input coercion, parametric input/output management, local luigi execution via `queenbee local run`, engine-version checks, and luigi/error-log parsing
+- Owns: the recipe execution wrapper, the 14 packaged LBT recipes, handler-driven typed input coercion, parametric input/output management, local luigi execution via `queenbee local run`, engine-version checks, and luigi/error-log parsing
 - Accept: `Recipe(recipe_name)` construction, `input_value_by_name`/`handle_inputs` then `run(settings=RecipeSettings(...))`, `output_value_by_name` for typed results, `version.check_*` engine gates, the run executed through the runtime process-resource lane + deadline scope + receipt + OTel span
 - Reject: re-implementing the luigi DAG scheduler or `queenbee local run`, an in-process recipe runner, hand-rolled handler resolution or input casting, trusting the subprocess exit code without parsing the logs, running without an engine precheck
 
 [CAPTURE_GAP]:
 - AGPL-3.0: this distribution and its `queenbee-local` executor are network-copyleft; recipe execution is a process-boundary subprocess invoked by the runtime, never linked into a distributed library surface. The license is the binding admission flag.
-- `queenbee-local`: the luigi runner reached by `Recipe.run` is a transitive dependency (`queenbee-local==1.0.2`) exposed only through the `queenbee local run` CLI; it has no admitted catalog of its own — it is the subprocess target, not a directly composed library.
+- `queenbee-local`: the luigi runner reached by `Recipe.run` is a transitive dependency (`queenbee-local==0.6.7`) exposed only through the `queenbee local run` CLI; it has no admitted catalog of its own — it is the subprocess target, not a directly composed library.

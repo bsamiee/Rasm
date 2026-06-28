@@ -10,7 +10,7 @@
 - version: `1.42.0`
 - license: MIT
 - rail: columnar dataframe
-- subpackages: `polars.selectors` (declarative column-selection algebra), `polars.plugins` (native Rust expression-plugin registration), `polars.exceptions` (typed error rail), `polars.testing`, `polars.api` (custom-namespace registration), `polars.sql`
+- subpackages: `polars.selectors` (declarative column-selection algebra), `polars.plugins` (native Rust expression-plugin registration), `polars.io.plugins` (lazy IO-source plugin registration via `register_io_source`), `polars.exceptions` (typed error rail), `polars.testing`, `polars.api` (custom-namespace registration), `polars.sql`
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -78,6 +78,7 @@
 |  [12]   | `scan_pyarrow_dataset(ds, allow_pyarrow_filter, batch_size)` | lazy IO | scan a `pyarrow.dataset.Dataset` lazily with predicate pushdown |
 |  [13]   | `read_parquet_metadata` / `read_parquet_schema` / `read_ipc_schema` | metadata | inspect Parquet/IPC without full read |
 |  [14]   | `defer(fn, *, schema)` / `explain_all` / `collect_all` / `collect_all_async` | lazy plan | defer a Python-built frame into a lazy plan; batch-explain/collect many `LazyFrame`s |
+|  [15]   | `io.plugins.register_io_source(io_source, *, schema, validate_schema=False, is_pure=False) -> LazyFrame` | lazy IO plugin | lift a custom Python source into a `LazyFrame` with projection/predicate/`n_rows`/`batch_size` pushdown; the `io_source` generator `(with_columns, predicate, n_rows, batch_size) -> Iterator[DataFrame]` yields `DataFrame` windows (never `RecordBatch`) and `schema` is the full-source schema |
 
 [ENTRYPOINT_SCOPE]: DataFrame and LazyFrame operations
 - rail: columnar dataframe
@@ -107,6 +108,7 @@
 |  [21]   | `write_parquet / write_csv / write_delta / write_iceberg` | eager IO | write eager frame to storage             |
 |  [22]   | `to_arrow(compat_level=)` / `to_pandas` / `to_numpy` / `__arrow_c_stream__` | interop | export to Arrow/pandas/NumPy; expose PyCapsule C-stream for zero-copy |
 |  [23]   | `sql(query)` / `SQLContext` / `sql_expr`      | SQL            | run SQL over registered frames; parse a SQL fragment to `Expr` |
+|  [24]   | `DataFrame.slice(offset, length)` / `DataFrame.height` / `DataFrame.head(n)` / `LazyFrame.head(n)` / `Series.to_frame()` / `Series.rename(name)` | row window / size / promote | row-offset slice, row count, first-n rows; promote a `Series` to a one-column `DataFrame`, rename a `Series` |
 
 [ENTRYPOINT_SCOPE]: expression functions and namespaces
 - rail: columnar dataframe

@@ -65,6 +65,19 @@ is HOST-LOCAL and carries no TS_PROJECTION.
 |  [02]   | `new RecyclableMemoryStreamManager(Options)` | `RecyclableMemoryStreamManager(Options options)`      | manager with an explicit capacity/telemetry policy |
 |  [03]   | `Settings`                                 | `Options Settings { get; }`                             | the live `Options` reference (read policy back) |
 
+[ENTRYPOINT_SCOPE]: `RecyclableMemoryStream` direct construction
+- rail: staging#STREAM_POOL
+- note: `GetStream` is the default rent path; the public ctor family is the explicit-manager construction (it still draws from the bound manager's pools — NOT an ad hoc `MemoryStream`), mirroring the `GetStream` `Guid id` / `string? tag` / `long requestedSize` telemetry/sizing args. There is NO parameterless ctor and NO `RecyclableMemoryStreamManager.Default` static — a stream is always bound to an explicit manager instance.
+
+| [INDEX] | [MEMBER]                                                       | [SIGNATURE]                                                                              |
+| :-----: | :----------------------------------------------------------- | :-------------------------------------------------------------------------------------- |
+|  [01]   | `RecyclableMemoryStream(RecyclableMemoryStreamManager)`       | `RecyclableMemoryStream(RecyclableMemoryStreamManager memoryManager)`                    |
+|  [02]   | `RecyclableMemoryStream(RecyclableMemoryStreamManager,Guid)`  | `RecyclableMemoryStream(RecyclableMemoryStreamManager memoryManager, Guid id)`           |
+|  [03]   | `RecyclableMemoryStream(RecyclableMemoryStreamManager,string?)` | `RecyclableMemoryStream(RecyclableMemoryStreamManager memoryManager, string? tag)`     |
+|  [04]   | `RecyclableMemoryStream(RecyclableMemoryStreamManager,Guid,string?)` | `RecyclableMemoryStream(RecyclableMemoryStreamManager memoryManager, Guid id, string? tag)` |
+|  [05]   | `RecyclableMemoryStream(RecyclableMemoryStreamManager,string?,long)` | `RecyclableMemoryStream(RecyclableMemoryStreamManager memoryManager, string? tag, long requestedSize)` |
+|  [06]   | `RecyclableMemoryStream(RecyclableMemoryStreamManager,Guid,string?,long)` | `RecyclableMemoryStream(RecyclableMemoryStreamManager memoryManager, Guid id, string? tag, long requestedSize)` |
+
 [ENTRYPOINT_SCOPE]: `GetStream` overloads
 - rail: staging#STREAM_POOL
 - note: the full rent surface; `requiredSize` pre-grows the stream, `asContiguousBuffer` forces a single large buffer, and the byte-seed overloads rent a stream pre-filled from a source buffer. The `Guid id` / `string? tag` arguments are the telemetry correlation keys that flow into every lifecycle event.

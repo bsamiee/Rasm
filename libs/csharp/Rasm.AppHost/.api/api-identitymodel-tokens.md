@@ -22,7 +22,7 @@
 | [INDEX] | [SYMBOL]                          | [TYPE_FAMILY]        | [RAIL]                                       |
 | :-----: | :-------------------------------- | :------------------- | :------------------------------------------- |
 |  [01]   | `TokenValidationParameters`       | validation policy    | legacy validate-knob + delegate-slot bag     |
-|  [02]   | `TokenValidationResult`           | validation result    | legacy `IsValid`/`ClaimsIdentity`/`Exception`|
+|  [02]   | `TokenValidationResult`           | validation result    | legacy `IsValid`/`ClaimsIdentity`/`Exception`/`SecurityToken`/`Issuer`/`Claims` |
 |  [03]   | `ValidationParameters`            | validation policy    | modern delegate-driven validate policy       |
 |  [04]   | `ValidationResult<TResult,TError>`| result struct        | `readonly record struct` ROP outcome         |
 |  [05]   | `ValidationError`                 | error base           | non-throwing failure with stack trace        |
@@ -57,6 +57,19 @@
 |  [15]   | `AuthenticatedEncryptionProvider` / `AuthenticatedEncryptionResult` | AEAD | AES-GCM / AES-CBC-HMAC content encryption |
 |  [16]   | `BaseConfiguration` / `BaseConfigurationManager` | discovery slot | issuer/JWKS config refresh contract |
 
+[PUBLIC_TYPE_SCOPE]: legacy validation exceptions (throwing rail)
+- rail: tokens-core
+
+The legacy throwing `Validators.Validate*` overloads and `JsonWebTokenHandler.ValidateTokenAsync` surface these on `TokenValidationResult.Exception`; a consumer pattern-matches the concrete subtype, never a bare `Exception`.
+
+| [INDEX] | [SYMBOL]                                  | [TYPE_FAMILY]   | [RAIL]                                                          |
+| :-----: | :---------------------------------------- | :-------------- | :------------------------------------------------------------- |
+|  [01]   | `SecurityTokenException`                  | exception base  | `: Exception` — root of the throwing rail                      |
+|  [02]   | `SecurityTokenValidationException`        | exception base  | `: SecurityTokenException` — validation-failure base           |
+|  [03]   | `SecurityTokenExpiredException`           | exception       | `: SecurityTokenValidationException` — `nbf`/`exp` lifetime violation |
+|  [04]   | `SecurityTokenInvalidSignatureException`  | exception       | `: SecurityTokenValidationException` — signature rejected      |
+|  [05]   | `SecurityTokenInvalidIssuerException`     | exception       | `: SecurityTokenValidationException` — issuer not trusted      |
+
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: modern result-based validation — `Validators` + `ValidationParameters`
@@ -87,6 +100,8 @@ The modern rail is pure ROP: every validator returns `ValidationResult<T, Valida
 |  [04]   | `Validators.ValidateIssuerSecurityKey(SecurityKey, SecurityToken, TVP)`| signing key      | throws on disallowed key               |
 |  [05]   | `TokenValidationParameters.Clone()`                                  | policy clone      | per-request TVP copy                   |
 |  [06]   | `TokenValidationParameters.{IssuerValidator,AudienceValidator,LifetimeValidator,SignatureValidator,…}` | delegate override | per-facet legacy delegate slot |
+|  [07]   | `TokenValidationResult.SecurityToken` / `.IsValid` / `.ClaimsIdentity` / `.Exception` | result projection | validated `SecurityToken` (cast to `JsonWebToken`), success flag, identity, and failure exception |
+|  [08]   | `result.Exception switch { SecurityTokenExpiredException … }`         | failure classify  | pattern-match the concrete `SecurityToken*Exception` off `TokenValidationResult.Exception` |
 
 [ENTRYPOINT_SCOPE]: keys, credentials, crypto, and encoding
 - rail: tokens-core

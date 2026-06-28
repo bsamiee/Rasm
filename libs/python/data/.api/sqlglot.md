@@ -35,6 +35,7 @@
 |  [10]   | `optimizer.scope.Scope`        | scope         | resolved name scope from `build_scope`; `find_all_in_scope` walks it               |
 |  [11]   | `lineage.Node`                 | lineage node  | a column-lineage tree node (`name`/`source`/`downstream`); root from `lineage()`   |
 |  [12]   | `diff.Edit` (`Insert`/`Remove`/`Move`/`Update`/`Keep`) | diff op | one AST edit from `diff(source, target)`                              |
+|  [13]   | `exp.Where` / `exp.Having` / `exp.Qualify` / `exp.Join` / `exp.Column` | AST subtype | `exp.Expression` subtypes in the `sqlglot.expressions` namespace; the predicate/clause nodes a `parse_one(text).find_all(exp.Where, exp.Having, exp.Qualify, exp.Join)` predicate-count fold scans, and `exp.Column` the column reference |
 |  [13]   | `SqlglotError`                 | error (root)  | base exception for all rail failures                                               |
 |  [14]   | `ParseError`                   | error         | parse failure carrying an `errors` detail list                                     |
 |  [15]   | `TokenError`                   | error         | tokenization failure                                                               |

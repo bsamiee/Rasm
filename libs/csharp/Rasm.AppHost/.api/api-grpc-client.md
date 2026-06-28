@@ -134,6 +134,22 @@ Each interceptor override is virtual and generic over `<TReq,TResp>`, receives `
 |  [07]   | `WithCancellationToken` | `CallOptions WithCancellationToken(CancellationToken cancellationToken)` |
 |  [08]   | `WithCredentials`       | `CallOptions WithCredentials(CallCredentials credentials)`               |
 
+[ENTRYPOINT_SCOPE]: `Metadata` collection members
+- rail: remote-client#CALL_SPINE
+
+`Metadata` is a mutable `IList<Metadata.Entry>` header collection; it doubles as the W3C-trace-context propagation carrier (`Set`/`Get`/`GetAll`) the telemetry rail injects/extracts across the call.
+
+| [INDEX] | [MEMBER]                | [SIGNATURE]                                                    |
+| :-----: | :---------------------- | :------------------------------------------------------------- |
+|  [01]   | `Add`                   | `void Add(string key, string value)`                          |
+|  [02]   | `Add`                   | `void Add(string key, byte[] valueBytes)` (binary `-bin` key) |
+|  [03]   | `Add`                   | `void Add(Metadata.Entry entry)`                              |
+|  [04]   | `GetAll`                | `IEnumerable<Metadata.Entry> GetAll(string key)`             |
+|  [05]   | `Get`                   | `Metadata.Entry? Get(string key)`                            |
+|  [06]   | `Metadata.Entry.Key`    | `string Key { get; }`                                         |
+|  [07]   | `Metadata.Entry.Value`  | `string Value { get; }`                                       |
+|  [08]   | `Metadata.Entry.ValueBytes` | `byte[] ValueBytes { get; }` (binary entries)            |
+
 [ENTRYPOINT_SCOPE]: `RpcException` members
 - rail: remote-client#CALL_SPINE
 

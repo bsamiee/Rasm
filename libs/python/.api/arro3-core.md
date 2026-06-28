@@ -108,6 +108,7 @@ These structural `Protocol` types are the polymorphic discriminator: every `from
 |  [14]   | `RecordBatch.with_schema(schema)`             | schema mutation | replace schema metadata         |
 |  [15]   | `RecordBatch.to_struct_array()`               | export          | export as struct `Array`        |
 |  [16]   | `RecordBatch.equals(other)`                   | equality        | batch value equality            |
+|  [17]   | `RecordBatch.num_rows` / `.num_columns`        | metadata        | row count and column count      |
 
 [ENTRYPOINT_SCOPE]: Table construction and operations
 - rail: arrow-memory

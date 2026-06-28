@@ -1344,68 +1344,6 @@
           "Xbim.Common": "6.0.445"
         }
       }
-    },
-    "net10.0/osx-arm64": {
-      "Alimer.Bindings.MeshOptimizer": {
-        "type": "Direct",
-        "requested": "[1.2.1, )",
-        "resolved": "1.2.1",
-        "contentHash": "NVhA5Gloos3k63dFPxQvildbXRE2shBkwbBQhccB7G4D9ZAOHBxacPK2LEq4j1Lp/+a7u/KqieDBYLZDrW5/Pg=="
-      },
-      "AssimpNetter": {
-        "type": "Direct",
-        "requested": "[6.0.5, )",
-        "resolved": "6.0.5",
-        "contentHash": "WeX1uBN3cUA4+zYfdmdhVpuq8xiiGuW1fwXVt2+BqpstZAFV683csP/J50IUpii2CANwKWEnUKo2uvqoIN3ZpQ=="
-      },
-      "MaxRev.Gdal.Core": {
-        "type": "Direct",
-        "requested": "[3.13.1.534, )",
-        "resolved": "3.13.1.534",
-        "contentHash": "xWqp+3Gj4J+3lSUSP5n028Gwgj4pUPtb5GrCteZUCZSxjyBgWsXpYvugv4r+CdueQf1MEeYq3zaqY+J30DpOkw=="
-      },
-      "MaxRev.Gdal.MacosRuntime.Minimal.arm64": {
-        "type": "Direct",
-        "requested": "[3.13.1.534, )",
-        "resolved": "3.13.1.534",
-        "contentHash": "yM/BhH6mfNEz78+rUeHUk7XiaFNVmxidb3vhbo1JQxkuAEC8ksnBrcUIG/D7tcM4jtszrCBnw6Q7c1+CId1w2g=="
-      },
-      "NREL.OpenStudio.macOS-arm64": {
-        "type": "Direct",
-        "requested": "[3.11.0, )",
-        "resolved": "3.11.0",
-        "contentHash": "0Qb91RC0bmwwgv9MvSBh3P8y8Gaq5OWW2htFAwBqhYVOhrT6BRKRNU0RNii+KDoPYHxCeU5WvfSH5EtspGVWdA=="
-      },
-      "UniversalSceneDescription": {
-        "type": "Direct",
-        "requested": "[7.3.4, )",
-        "resolved": "7.3.4",
-        "contentHash": "XtViE2fUCWYM9CacLO3XqvX/Vnju+HflHYtVKubIw/ePXV9GsdMHO1a/xdo5YN3HZjQfwaFtlsARcoREsECLiQ=="
-      },
-      "SourceGear.sqlite3": {
-        "type": "Transitive",
-        "resolved": "3.50.4.5",
-        "contentHash": "UtnipXhJYZKQOQIfpws/msLK7IRhMplE1CZCaZLIQXRnGD474QVpO/J9nMlQQY8NZueGz1aidjoxDRnrC1NT3Q=="
-      },
-      "System.Diagnostics.EventLog": {
-        "type": "Transitive",
-        "resolved": "10.0.9",
-        "contentHash": "s2PcxHK4IYQ6gmD3VSBkym9tWGkFisKjcjWBdl7a+n4Yy66ae4beJ1ZdjDp060SSll4W3Rt4H2LW87dWckv+QQ=="
-      },
-      "System.Security.Cryptography.Pkcs": {
-        "type": "Transitive",
-        "resolved": "10.0.7",
-        "contentHash": "dbdKfF3eA5l+CXiAbDxiCxdezoxeanbue1ck8m49ih1L9uZG6ry8Ul8On6vpragyMDJJP4rQHUY/SWgk66tCYA=="
-      },
-      "ParquetSharp": {
-        "type": "CentralTransitive",
-        "requested": "[23.0.0.2, )",
-        "resolved": "23.0.0.2",
-        "contentHash": "Dx9hn/HMKJB6iJvQ43w/FYIwDQ9/eISfZiYFB2Uc1Uf1q22qNrexqY3Btj6nNPn9Oag4E/Vq+9rYvJAHJndkGA==",
-        "dependencies": {
-          "Apache.Arrow": "18.0.0"
-        }
-      }
     }
   }
 }

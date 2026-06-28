@@ -39,6 +39,7 @@ quantity, and classification owners read directly, independent of the audit path
 |  [04]   | `AuditHelper`             | ids-validation | the per-run audit state holder (`Options`, `SchemaStatus`, `ValidationReporter` XSD event sink) |
 |  [05]   | `AuditHelper.BufferedValidationIssue` | ids-validation | a captured issue: `Level` (`LogLevel`), `Message`, `Line`, `Position`, `Schema` (`Original` enum: which schema raised it) |
 |  [06]   | `LibraryInformation`      | ids-validation | `static`; `AssemblyVersion`, `Commit`/`Sha`/`CommitDate`, `Isdirty` — the exact engine build the audit ran under |
+|  [07]   | `NullLogger.Instance`     | ids-validation | `Microsoft.Extensions.Logging.Abstractions.NullLogger : ILogger` (transitive); the static no-op `ILogger` sink passed as the `Audit.Run`/`RunAsync` logger argument (and the `Xids.LoadBuildingSmartIDS`/`ValueConstraint.IsSatisfiedBy` logger) when the per-line diagnostics are discarded rather than buffered |
 
 [PUBLIC_TYPE_SCOPE]: audit options
 - package: `ids-lib`

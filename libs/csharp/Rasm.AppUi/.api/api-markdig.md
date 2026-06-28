@@ -14,6 +14,9 @@
 - namespace: `Markdig.Parsers`
 - namespace: `Markdig.Renderers`
 - namespace: `Markdig.Renderers.Normalize` (canonical-markdown renderer)
+- namespace: `Markdig.Renderers.Html` (`HtmlAttributes` attach surface + `TryGetAttributes`)
+- namespace: `Markdig.Extensions.Tables` (pipe/grid table block AST)
+- namespace: `Markdig.Extensions.TaskLists` (task-list checkbox inline)
 - asset: runtime library
 - build-floor: ships `lib/net10.0`; the `net10.0` consumer binds it directly
 - rail: markdown
@@ -54,6 +57,9 @@
 |  [13]   | `ThematicBreakBlock`      | rule            |
 |  [14]   | `HtmlBlock`               | raw HTML        |
 |  [15]   | `LinkReferenceDefinition` | link definition |
+|  [16]   | `Extensions.Tables.Table` (`: ContainerBlock`)     | pipe/grid table    |
+|  [17]   | `Extensions.Tables.TableRow` (`: ContainerBlock`)  | table row (`IsHeader`) |
+|  [18]   | `Extensions.Tables.TableCell` (`: ContainerBlock`) | table cell (`ColumnIndex`/`ColumnSpan`/`RowSpan`) |
 
 [INLINE_TYPES]: inline AST family
 - rail: markdown
@@ -70,6 +76,7 @@
 |  [08]   | `AutolinkInline`  | autolink        |
 |  [09]   | `LineBreakInline` | line break      |
 |  [10]   | `HtmlInline`      | raw HTML inline |
+|  [11]   | `Extensions.TaskLists.TaskList` (`: LeafInline`) | task-list checkbox (`Checked`) |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -126,6 +133,12 @@
 |  [09]   | `IsOrdered` / `BulletType` / `Order` | `ListBlock`              | list ordering and marker                              |
 |  [10]   | `Url` / `Title` / `IsImage`        | `LinkInline`              | link target, title, image-vs-link discriminant        |
 |  [11]   | `LineCount` / `LineStartIndexes`   | `MarkdownDocument`         | line count + per-line absolute offset mapping         |
+|  [12]   | `Lines` (`StringLineGroup`; `.ToString()`) | `LeafBlock`        | raw accumulated line text (code-fence / indented-code body) |
+|  [13]   | `Content`                          | `CodeInline` (`string`) / `LiteralInline` (`StringSlice`) | inline code / literal text run        |
+|  [14]   | `DelimiterCount` / `DelimiterChar` | `EmphasisInline`           | emphasis run depth (`1` italic, `>= 2` bold) + marker char |
+|  [15]   | `Parent` (`ContainerInline?`)      | `Inline`                   | inline doubly-linked parent for an ancestry walk (`PreviousSibling`/`NextSibling` siblings) |
+|  [16]   | `Checked`                          | `Extensions.TaskLists.TaskList` | task-list checkbox toggle state (`bool`)        |
+|  [17]   | `TryGetAttributes() -> HtmlAttributes?` | `HtmlAttributesExtensions` (ext on `IMarkdownObject`) | attached HTML attributes; `HtmlAttributes.Id`/`Classes`/`Properties` (heading-anchor slug) |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

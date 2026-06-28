@@ -65,6 +65,17 @@
 |  [09]   | `GzipCodec(level)`             | bytes->bytes compressor | DEFLATE/gzip compression                                |
 |  [10]   | `Crc32cCodec`                  | bytes->bytes checksum | CRC32C integrity checksum appended to chunk bytes        |
 
+[PUBLIC_TYPE_SCOPE]: codec-role base classes (`zarr.abc.codec`)
+- rail: array-store
+
+`zarr.abc.codec` exposes the abstract codec-role base classes the v3 pipeline slots type against — every concrete `zarr.codecs.*`/`numcodecs.zarr3.*` codec subclasses one, and a custom codec extends one. The `[transform..., serializer, compressor...]` chain is statically typed as `tuple[tuple[ArrayArrayCodec, ...], ArrayBytesCodec, tuple[BytesBytesCodec, ...]]`, the three-slot `Pipeline` shape a `create_array(filters=, serializer=, compressors=)` consumer annotates against; `BaseCodec`/`Codec` are the shared roots beneath the three roles.
+
+| [INDEX] | [SYMBOL]          | [CODEC_KIND]            | [ROLE]                                                                         |
+| :-----: | :---------------- | :---------------------- | :---------------------------------------------------------------------------- |
+|  [01]   | `ArrayArrayCodec` | array->array transform  | base for pre-serialization array transforms (`TransposeCodec`/`ScaleOffset`)   |
+|  [02]   | `ArrayBytesCodec` | array->bytes serializer | base for the single chain serializer (`BytesCodec`/`ShardingCodec`/`VLen*Codec`) |
+|  [03]   | `BytesBytesCodec` | bytes->bytes compressor | base for byte compressors and checksums (`BloscCodec`/`ZstdCodec`/`Crc32cCodec`) |
+
 [PUBLIC_TYPE_SCOPE]: numcodecs v3 codec wrappers (`numcodecs.zarr3`)
 - rail: array-store
 

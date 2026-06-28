@@ -69,6 +69,7 @@
 |  [13]   | `RemoveAllKeyed`             | descriptor removal       | keyed contract reset   |
 |  [14]   | `ServiceDescriptor.Describe` | descriptor factory       | typed descriptor shape |
 |  [15]   | `DescribeKeyed`              | keyed descriptor factory | keyed descriptor shape |
+|  [16]   | `ServiceDescriptor.Singleton` | lifetime descriptor factory | static `Singleton(Type, object)`/generic instance+factory overloads (sibling `Scoped`/`Transient`) |
 
 [ENTRYPOINT_SCOPE]: resolution and activation operations
 - rail: composition

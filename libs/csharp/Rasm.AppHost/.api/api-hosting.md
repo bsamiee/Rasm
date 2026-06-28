@@ -85,6 +85,9 @@
 |  [10]   | `IHostedLifecycleService.StoppedAsync`  | lifecycle hook      | after service stop       |
 |  [11]   | `BackgroundService.ExecuteAsync`        | hosted loop         | long-running execution   |
 |  [12]   | `StopApplication`                       | lifetime signal     | coordinated shutdown     |
+|  [13]   | `IHostApplicationLifetime.ApplicationStarted`  | lifetime token  | `CancellationToken` signalled after host start (`.Register(...)` for the running transition) |
+|  [14]   | `IHostApplicationLifetime.ApplicationStopping` | lifetime token  | `CancellationToken` signalled at graceful-shutdown start (`.Register(...)` for the draining transition) |
+|  [15]   | `IHostApplicationLifetime.ApplicationStopped`  | lifetime token  | `CancellationToken` signalled after host stop |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

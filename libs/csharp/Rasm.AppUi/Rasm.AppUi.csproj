@@ -4,7 +4,7 @@
         <CspScope>Boundary</CspScope>
     </PropertyGroup>
 
-    <ItemGroup>
+    <ItemGroup Label="Project References">
         <ProjectReference Include="../Rasm/Rasm.csproj" />
         <ProjectReference Include="../Rasm.AppHost/Rasm.AppHost.csproj" />
         <ProjectReference Include="../Rasm.Compute/Rasm.Compute.csproj" />
@@ -34,38 +34,29 @@
         <PackageReference Include="System.Reactive" />
     </ItemGroup>
 
-    <!-- Headless raster backend and platform for server/container render paths. -->
     <ItemGroup Label="Headless Backend">
-        <PackageReference Include="Avalonia.Skia" />
         <PackageReference Include="Avalonia.Headless" />
+        <PackageReference Include="Avalonia.Skia" />
     </ItemGroup>
 
-    <!-- GPU compositor backend: wgpu/Dawn render path behind the SurfaceHost render seam, presenting through Avalonia 12 ICompositionGpuInterop. -->
     <ItemGroup Label="GPU Backend">
-        <PackageReference Include="Silk.NET.WebGPU" />
-        <PackageReference Include="Silk.NET.WebGPU.Native.WGPU" />
-        <PackageReference Include="Silk.NET.WebGPU.Extensions.WGPU" />
         <PackageReference Include="Silk.NET.OpenXR" />
-        <PackageReference Include="Silk.NET.OpenXR.Extensions.KHR" />
         <PackageReference Include="Silk.NET.OpenXR.Extensions.EXT" />
         <PackageReference Include="Silk.NET.OpenXR.Extensions.FB" />
+        <PackageReference Include="Silk.NET.OpenXR.Extensions.KHR" />
+        <PackageReference Include="Silk.NET.WebGPU" />
+        <PackageReference Include="Silk.NET.WebGPU.Extensions.WGPU" />
+        <PackageReference Include="Silk.NET.WebGPU.Native.WGPU" />
     </ItemGroup>
 
-    <!-- Native posture: macOS desktop (live) plus the headless-Linux raster backend
-         (server/container/headless-CI). The glibc-coupled Linux flavor that Avalonia.Skia
-         drags is excluded in favor of the self-contained NoDependencies asset. -->
     <ItemGroup Label="Native Text And Raster Assets">
         <PackageReference Include="HarfBuzzSharp.NativeAssets.macOS" />
-        <PackageReference Include="HarfBuzzSharp.NativeAssets.Linux" />
         <PackageReference Include="SkiaSharp.NativeAssets.macOS" />
-        <PackageReference Include="SkiaSharp.NativeAssets.Linux" ExcludeAssets="all" PrivateAssets="all" />
-        <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" />
     </ItemGroup>
 
     <ItemGroup Label="Product Controls">
         <PackageReference Include="AsyncImageLoader.Avalonia" />
         <PackageReference Include="Avalonia.AvaloniaEdit" />
-        <PackageReference Include="PanAndZoom" />
         <PackageReference Include="AvaloniaEdit.TextMate" />
         <PackageReference Include="bodong.Avalonia.PropertyGrid" />
         <PackageReference Include="bodong.PropertyModels" />
@@ -76,29 +67,23 @@
         <PackageReference Include="FluentIcons.Avalonia" />
         <PackageReference Include="FluentIcons.Common" />
         <PackageReference Include="Markdig" />
+        <PackageReference Include="PanAndZoom" />
         <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
     </ItemGroup>
 
-    <!-- Constraint-layout solver (Kiwi) and the Avalonia-12 media surface (libmpv via the OpenGL render
-         path). The libmpv native (>= 0.40.0) is provisioned at the app-host distribution layer, never
-         bundled by these managed packages. -->
     <ItemGroup Label="Layout And Media">
-        <PackageReference Include="Kiwi" />
         <PackageReference Include="HanumanInstitute.LibMpv" />
         <PackageReference Include="HanumanInstitute.LibMpv.Avalonia" />
+        <PackageReference Include="Kiwi" />
     </ItemGroup>
 
-    <!-- Alternative-input device fabric (Shell/input): SpaceMouse (HID), gamepad + haptic (Silk.NET SDL2),
-         and MIDI (Melanchall.DryWetMidi). -->
     <ItemGroup Label="Input Fabric">
         <PackageReference Include="HidSharp" />
+        <PackageReference Include="Melanchall.DryWetMidi" />
         <PackageReference Include="Silk.NET.Input" />
         <PackageReference Include="Silk.NET.SDL" />
-        <PackageReference Include="Melanchall.DryWetMidi" />
     </ItemGroup>
 
-    <!-- Color/spectral, time, units, and hashing vocabulary the product-UI owners consume as
-         settled domain types; the Thinktecture/LanguageExt cores arrive by global injection. -->
     <ItemGroup Label="Domain Runtime">
         <PackageReference Include="NodaTime" />
         <PackageReference Include="System.IO.Hashing" />
@@ -106,8 +91,6 @@
         <PackageReference Include="Wacton.Unicolour" />
     </ItemGroup>
 
-    <!-- Drafting/sheet export codecs: DWG/DXF (ACadSharp, netDxf), OOXML document emit, and the
-         structured vector-PDF page model (PDFsharp) + auto-paginated flow-report DOM (MigraDoc). -->
     <ItemGroup Label="Drafting Export">
         <PackageReference Include="ACadSharp" />
         <PackageReference Include="DocumentFormat.OpenXml" />
@@ -116,41 +99,33 @@
         <PackageReference Include="PDFsharp-MigraDoc" />
     </ItemGroup>
 
-    <!-- Semi design-token theme + per-control skins layered over the retained Avalonia.Themes.Fluent base. -->
     <ItemGroup Label="Theme Suite">
         <PackageReference Include="Semi.Avalonia" />
-        <PackageReference Include="Semi.Avalonia.DataGrid" />
-        <PackageReference Include="Semi.Avalonia.ColorPicker" />
-        <PackageReference Include="Semi.Avalonia.Dock" />
         <PackageReference Include="Semi.Avalonia.AvaloniaEdit" />
+        <PackageReference Include="Semi.Avalonia.ColorPicker" />
+        <PackageReference Include="Semi.Avalonia.DataGrid" />
+        <PackageReference Include="Semi.Avalonia.Dock" />
     </ItemGroup>
 
-    <!-- Ursa extended-control suite (NavMenu/Timeline/Toast/Skeleton/Form/Drawer) + Semi control theme + ReactiveUI bridge. -->
     <ItemGroup Label="Extended Controls">
         <PackageReference Include="Irihi.Ursa" />
-        <PackageReference Include="Irihi.Ursa.Themes.Semi" />
         <PackageReference Include="Irihi.Ursa.ReactiveUIExtension" />
+        <PackageReference Include="Irihi.Ursa.Themes.Semi" />
     </ItemGroup>
 
-    <!-- Node/graph editing canvas (Shell/Editing parametric + dependency-graph surfaces) and the
-         interactive slippy-map / basemap viewport binding the Bim NetTopologySuite geometry. -->
     <ItemGroup Label="Graph And Map Surfaces">
-        <PackageReference Include="NodeEditorAvalonia" />
         <PackageReference Include="Mapsui.Avalonia12" />
+        <PackageReference Include="NodeEditorAvalonia" />
     </ItemGroup>
 
-    <!-- Collaboration CRDT op-log + presence engine (notebook/annotation/table editors) and the
-         ICU MessageFormat plural/select engine backing the locale owner. -->
     <ItemGroup Label="Collaboration And Locale">
         <PackageReference Include="LoroCs" />
         <PackageReference Include="MessageFormat" />
     </ItemGroup>
 
-    <!-- HotAvalonia self-gates to Debug via its buildTransitive props; the reference stays
-         unconditional so packages.lock.json is configuration-independent. -->
     <ItemGroup Label="Dev Loop">
-        <PackageReference Include="HotAvalonia" PrivateAssets="all" />
         <PackageReference Include="Avalonia.Markup.Xaml.Loader" PrivateAssets="all" />
+        <PackageReference Include="HotAvalonia" PrivateAssets="all" />
     </ItemGroup>
 
 </Project>

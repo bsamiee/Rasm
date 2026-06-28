@@ -1,11 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
+        <Description>Bridge wire contract shared by the supervisor, shell, cargo, and tests.</Description>
+        <CspScope>Boundary</CspScope>
         <!-- Wire assembly avoids LanguageExt in the shell ALC; Thinktecture owns generated wire vocabulary. -->
         <AssemblyName>Rasm.Bridge.Contract</AssemblyName>
+        <RootNamespace>Rasm.Bridge.Contract</RootNamespace>
         <!-- CA1819: arrays are the wire DTO shape. StreamJsonRpc0008 targets MessagePack shape rows unused by SystemTextJsonFormatter. -->
         <NoWarn>$(NoWarn);CA1819;StreamJsonRpc0008</NoWarn>
     </PropertyGroup>
-    <ItemGroup>
+    <ItemGroup Label="Wire Packages">
         <PackageReference Include="StreamJsonRpc" />
         <PackageReference Include="Thinktecture.Runtime.Extensions" />
         <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />

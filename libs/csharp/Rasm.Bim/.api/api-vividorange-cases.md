@@ -19,8 +19,7 @@ combination set per EN 6.10 / 6.10a-b. The factors come from data-table singleto
 (`ITableA1_1`/`ITableA1_2` → `TableA1_1Properties`/`TableA1_2Properties`) keyed by `NationalAnnex`,
 so a national deviation is a table row, never a code branch. The package STACKS on
 `VividOrange.Loads` (`.api/api-vividorange-loads`) for the `ILoad` payload it factors, on `UnitsNet`
-`Ratio` for every `ψ`/`γ` factor, and on `VividOrange.IStandards`' `NationalAnnex` (the
-Country↔code bridge `.api/api-vividorange-countries` describes); its combination outputs map onto
+`Ratio` for every `ψ`/`γ` factor, and on `VividOrange.IStandards`' `NationalAnnex` (`.api/api-vividorange-istandards`); its combination outputs map onto
 the SAF `ExcelStructuralLoadCombination` wire whose `ExcelLoadCaseCombinationStandard` enum
 (`EnUlsSetB`/`EnUlsSetC`/`EnAccidental*`/`EnSeismic`/`EnSls*`) is the exact image of these factories.
 
@@ -98,8 +97,8 @@ the SAF `ExcelStructuralLoadCombination` wire whose `ExcelLoadCaseCombinationSta
 
 | [INDEX] | [SURFACE]                                                          | [ENTRY_FAMILY]   | [RAIL]                                                       |
 | :-----: | :--------------------------------------------------------------- | :--------------- | :--------------------------------------------------------- |
-|  [01]   | `CreateImposed(ImposedLoadCategory, NationalAnnex)`              | imposed case     | `VariableCase` pre-loaded with category `ψ` factors        |
-|  [02]   | `CreateImposed(IList<ILoad>, ImposedLoadCategory, NationalAnnex)` | imposed case     | imposed case carrying its `ILoad` actions                  |
+|  [01]   | `CreateImposed(IList<ILoad>, ImposedLoadCategory, NationalAnnex)` | imposed case     | `VariableCase` carrying its `ILoad` actions, pre-loaded with category `ψ` factors |
+|  [02]   | _(no loadless `CreateImposed`)_                                  | imposed case     | Imposed has ONLY the loaded overload — unlike Snow/Thermal/Wind there is no `(ImposedLoadCategory, NationalAnnex)` form |
 |  [03]   | `CreateSnow(NationalAnnex, bool altitudeAbove1000m)`            | snow case        | `VariableCase` with altitude-keyed snow `ψ` factors        |
 |  [04]   | `CreateThermal(NationalAnnex)`                                   | thermal case     | `VariableCase` with thermal `ψ` factors                    |
 |  [05]   | `CreateWind(NationalAnnex)`                                      | wind case        | `VariableCase` with wind `ψ` factors                       |
@@ -137,7 +136,7 @@ the SAF `ExcelStructuralLoadCombination` wire whose `ExcelLoadCaseCombinationSta
 [CASE_TOPOLOGY]:
 - case hierarchy: `ICase` (`Name`) → `ILoadCase` (`Nickname`, `IList<ILoad> Loads`, `IsHorizontal`, `ActionClass`) → `IPermanentCase` (marker) / `IVariableCase` (`CombinationFactor`/`FrequentFactor`/`QuasiPermanentFactor` = `ψ0`/`ψ1`/`ψ2` as `Ratio`)
 - combination hierarchy: `ILoadCombination` (`Definition`, `PermanentCases`, `PermanentCaseIsFavourable`, `LeadingVariableCases`, `GetFactoredLoads()`) → `IUltimateLimitState` (+ `DesignSituation`) / `IServiceabilityLimitState` (+ accompanying cases) → the EN-clause leaf contracts
-- design situation: `IDesignSituation` carries the EN 6.10 partial factors — `Unfavourable`/`FavourablePermanentActionsPartialFactor` (`γG,sup`/`γG,inf`), `LeadingActionPartialFactor`/`MainAccompanyingVariableActionsPartialFactor` (`γQ`, nullable for the leading-action sweep), `OtherAccompanyingVariableActionsPartialFactor`, `ReductionFactor` (`ξ`); the concrete `DesignSituation` adds `PrestressPartialFactor`
+- design situation: `IDesignSituation` carries the EN 6.10 partial factors — `UnfavourablePermanentActionsPartialFactor`/`FavourablePermanentActionsPartialFactor` (`γG,sup`/`γG,inf`), `LeadingActionPartialFactor`/`MainAccompanyingVariableActionsPartialFactor` (`γQ`, nullable for the leading-action sweep), `OtherAccompanyingVariableActionsPartialFactor`, `ReductionFactor` (`ξ`); the concrete `DesignSituation` adds `PrestressPartialFactor`
 - code tables: `TableA1_1Properties` = `ψ0`/`ψ1`/`ψ2` (`Ratio`), `TableA1_2Properties` = `γG,sup`/`γG,inf`/`γQ,1`/`γQ,i`/`ξ` (`Ratio`); both constructed from `double` via the `RatioUnit.DecimalFraction` ctor; the EN table singletons (`ENTableA1_1Imposed`/`Snow`/`Thermal`/`Wind`, `ENTableA1_2A`/`B`/`C`) dispatch on `NationalAnnex`
 - factories: `ENLoadCaseFactory` (action → `VariableCase` with table `ψ`), `ENCombinationFactory` (case set → the EN 6.10/6.10a-b/6.11/6.12/6.14-6.16 combination set)
 
@@ -150,10 +149,10 @@ the SAF `ExcelStructuralLoadCombination` wire whose `ExcelLoadCaseCombinationSta
 [STACKING]:
 - with `VividOrange.Loads` (`.api/api-vividorange-loads`): `ILoadCase.Loads` is `IList<ILoad>` and `ILoadCombination.GetFactoredLoads()` returns `IList<ILoad>`; the case/combination engine is a fold OVER the load value taxonomy — `Combinations.Utility.FactorLoads` applies `ILoad.Factor(Ratio)` across a case set, so the factored output is still typed `UnitsNet`-backed loads
 - with `UnitsNet` (`.api/api-unitsnet`): every combination/partial factor is a `Ratio`, and `ILoad.Factor(γ)` multiplies by `γ.DecimalFractions`; the `ψ·γ` accompanying-action weighting is `Ratio` arithmetic, never raw-`double` factoring
-- with `VividOrange.IStandards` + `VividOrange.Countries` (`.api/api-vividorange-countries`): `NationalAnnex` (the `VividOrange.Standards.Eurocode` enum, a 37-member CEN subset) is the dispatch key for every factory and table; the project's `ICountry` selects which `NationalAnnex` parameterizes the combination set — Countries names the nation, the Standards `NationalAnnex` names its Eurocode parameter set, and the design layer bridges them by name (there is no compiled `Country`→`NationalAnnex` map)
+- with `VividOrange.IStandards` (`.api/api-vividorange-istandards`) + `VividOrange.Countries` (`.api/api-vividorange-countries`): `NationalAnnex` (`VividOrange.Standards.Eurocode.NationalAnnex`, a 37-member enum incl. `RecommendedValues`) is the dispatch key for every factory and table; the project's `ICountry` selects which `NationalAnnex` parameterizes the combination set — Countries names the nation, the Standards `NationalAnnex` names its Eurocode parameter set, and the design layer bridges them by name (there is no compiled `Country`→`NationalAnnex` map)
 - with `VividOrange.ISerialization`: `ICase`/`ILoadCombination : ITaxonomySerializable` share the one taxonomy-serialization marker with loads and countries, so the whole structural taxonomy round-trips through a single serializer
 - with `StructuralAnalysisFormat` (`.api/api-structuralanalysisformat`): the combination outputs map onto `ExcelStructuralLoadCase` (`ExcelActionType`=`ActionClass`, `ExcelLoadCaseType`) and `ExcelStructuralLoadCombination` (`ExcelLoadCaseCombinationCategory`=ULS/SLS, `ExcelLoadCaseCombinationStandard.EnUlsSetB`/`EnUlsSetC`/`EnAccidental*`/`EnSeismic`/`EnSlsCharacteristic`/`Frequent`/`QuasiPermanent` = the exact image of `CreateStrGeoSetB`/`SetC`/`CreateAccidental`/`CreateSeismic`/`CreateCharacteristic`/`CreateFrequent`/`CreateQuasiPermanent`); the `LoadFactors`/`LoadMultipliers`/`LoadCases` arrays carry the factored result to the SAF wire
-- with `LanguageExt.Core`: a combination synthesized against a `NationalAnnex` the tables do not cover throws `MissingNationalAnnexException` at the package boundary; the Bim ingest catches it and lowers onto `Model/faults#FAULT_BAND` `BimFault.CapabilityMiss`/`Fin<T>` through `.ToError()`, never propagating the exception into the fold
+- with `LanguageExt.Core`: an uncovered `NationalAnnex` faults two ways at the package boundary — the EN `ψ`/`γ` table singletons throw `NotImplementedException` (`"NA … not implemented for EN1990 Table A1.1/A1.2"`), and the standards title kernel (`NationalAnnexUtility`, via `IStandard.Title`) throws `VividOrange.Standards.Eurocode.MissingNationalAnnexException` (`.api/api-vividorange-istandards`) for an annex outside the mapped set (an unrecognised case type throws a bare `Exception`); the Bim ingest catches all three and lowers onto `Model/faults#FAULT_BAND` `BimFault.CapabilityMiss`/`Fin<T>` through `.ToError()`, never propagating the exception into the fold
 
 [RAIL_LAW]:
 - Package: `VividOrange.Cases` over `VividOrange.ICases`

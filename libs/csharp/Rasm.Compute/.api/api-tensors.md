@@ -135,7 +135,7 @@ for measured Compute execution.
 | [INDEX] | [SURFACE]              | [CALL_SHAPE]    | [CAPABILITY]                    |
 | :-----: | :--------------------- | :-------------- | :------------------------------ |
 |  [01]   | `Norm`                 | reduction call  | computes Euclidean norm         |
-|  [02]   | `MaxMagnitude`         | reduction call  | reduces by absolute extremum    |
+|  [02]   | `MaxMagnitude`         | reduction call  | reduces by absolute extremum; `MinMagnitude` mirrors it (`T MinMagnitude<T>(ReadOnlySpan<T>)` absolute-minimum reduction) |
 |  [03]   | `Average`              | statistics call | computes mean                   |
 |  [04]   | `StdDev`               | statistics call | computes standard deviation     |
 |  [05]   | `Distance`             | similarity call | computes Euclidean distance     |

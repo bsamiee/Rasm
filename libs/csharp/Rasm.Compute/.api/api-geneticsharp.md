@@ -109,6 +109,7 @@
 |  [05]   | `new IntegerChromosome(int minValue, int maxValue)`                                                | ctor           | a `[min, max]` integer genome                |
 |  [06]   | `new FuncFitness(Func<IChromosome, double> func)`                                                  | ctor           | adapts the `evaluate` oracle to `IFitness`   |
 |  [07]   | `IChromosome.GenerateGene(int)` / `ReplaceGene(int, Gene)` / `GetGenes()` / `CreateNew()` / `Clone()` | genome ops   | the gene-level genome contract a custom encoding implements |
+|  [08]   | `Population.GenerationStrategy { get; set; }` (`IPopulation.GenerationStrategy`)                       | history policy | sets the generation-retention strategy (`PerformanceGenerationStrategy`/`TrackingGenerationStrategy`); defaults to `PerformanceGenerationStrategy(10)` |
 
 [ENTRYPOINT_SCOPE]: operator instances and termination composition
 - rail: optimizer#OPERATORS
@@ -124,6 +125,7 @@
 |  [06]   | `new GenerationNumberTermination(int n)` / `new FitnessThresholdTermination(double f)` / `new FitnessStagnationTermination(int g)` / `new TimeEvolvingTermination(TimeSpan t)` | termination | the leaf convergence policies |
 |  [07]   | `new AndTermination(params ITermination[] terminations)` / `new OrTermination(params ITermination[])` | termination | composite convergence over a set       |
 |  [08]   | `IReinsertion.SelectChromosomes(IPopulation, IList<IChromosome> offspring, IList<IChromosome> parents)` / `CanCollapse` / `CanExpand` | reinsertion | next-generation merge with arity guards |
+|  [09]   | `new UniformCrossover(float mixProbability = 0.5f)` / `new TwoPointCrossover()`                         | crossover    | the crossover-operator constructors a row binds (`UniformCrossover.MixProbability` defaults `0.5`); the parameterless siblings (`OnePointCrossover`/`OrderedCrossover`/`CycleCrossover`/…) construct from the section-2 type rows |
 
 [ENTRYPOINT_SCOPE]: parallel evaluation
 - rail: optimizer#EXECUTOR
@@ -135,6 +137,7 @@
 |  [02]   | `ITaskExecutor.Add(Action task)` / `Start()` / `Stop()` / `Clear()`               | executor ops | enqueue, run, halt, and reset the batch      |
 |  [03]   | `ITaskExecutor.Timeout { get; set; }` / `IsRunning { get; }`                       | bound        | per-generation deadline and running flag     |
 |  [04]   | `RandomizationProvider.Current { get; set; }`                                      | RNG seed     | the global randomization source (seed for reproducibility) |
+|  [05]   | `ParallelTaskExecutor.MinThreads` / `MaxThreads { get; set; }`                     | thread bound | min/max worker threads on `ParallelTaskExecutor` (both default `200`); set `MaxThreads = Environment.ProcessorCount` to cap the fitness fan to the CPU lane |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

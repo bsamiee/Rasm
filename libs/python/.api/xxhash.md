@@ -1,6 +1,6 @@
-# [PY_RUNTIME_API_XXHASH]
+# [PY_BRANCH_API_XXHASH]
 
-`xxhash` (3.7.0, BSD-2-Clause) binds the xxHash C library (`XXHASH_VERSION` 0.8.2) for fast non-cryptographic hashing across four distinct algorithm families — classic `xxh32`/`xxh64` and the modern `xxh3_64`/`xxh3_128` — each exposed as a stateful seedable hasher class plus three one-shot digest functions (`_digest`/`_hexdigest`/`_intdigest`). It is the runtime owner for content-identity keys, cache keys, and integrity tokens, mirroring the C# `System.IO.Hashing` XXH digests at the wire.
+`xxhash` (3.7.1, BSD-2-Clause) binds the xxHash C library (`XXHASH_VERSION` 0.8.2) for fast non-cryptographic hashing across four distinct algorithm families — classic `xxh32`/`xxh64` and the modern `xxh3_64`/`xxh3_128` — each exposed as a stateful seedable hasher class plus three one-shot digest functions (`_digest`/`_hexdigest`/`_intdigest`). It is the runtime owner for content-identity keys, cache keys, and integrity tokens, mirroring the C# `System.IO.Hashing` XXH digests at the wire.
 
 ## [01]-[PACKAGE_SURFACE]
 

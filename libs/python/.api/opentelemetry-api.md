@@ -67,6 +67,9 @@
 |  [10]   | `DefaultGetter`     | value         | default getter; reads list-valued headers, returns first |
 |  [11]   | `DefaultSetter`     | value         | default setter for dict-like header carriers             |
 |  [12]   | `CarrierT`          | type var      | carrier type parameter for `Getter`/`Setter`             |
+|  [13]   | `TraceContextTextMapPropagator` | concrete | `TextMapPropagator` W3C `traceparent`/`tracestate` codec (`opentelemetry.trace.propagation.tracecontext`) |
+|  [14]   | `W3CBaggagePropagator`          | concrete | `TextMapPropagator` W3C `baggage` header codec (`opentelemetry.baggage.propagation`) |
+|  [15]   | `CompositePropagator`           | concrete | `TextMapPropagator` fan-out chaining trace-context + baggage over one carrier (`opentelemetry.propagators.composite`) |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -134,6 +137,9 @@
 |  [12]   | `propagate.inject(carrier, context, setter)`                       | propagation    | encode context into carrier (custom `Setter`) |
 |  [13]   | `propagate.get_global_textmap()`                                   | propagation    | global composite propagator                   |
 |  [14]   | `propagate.set_global_textmap(propagator)`                         | propagation    | install composite propagator                  |
+|  [15]   | `TraceContextTextMapPropagator()`                                  | propagator     | construct the W3C trace-context codec (`opentelemetry.trace.propagation.tracecontext`) |
+|  [16]   | `W3CBaggagePropagator()`                                           | propagator     | construct the W3C baggage codec (`opentelemetry.baggage.propagation`) |
+|  [17]   | `CompositePropagator(propagators)`                                 | propagator     | chain a `Sequence[TextMapPropagator]` into one; install via `set_global_textmap` (`opentelemetry.propagators.composite`) |
 
 [ENTRYPOINT_SCOPE]: logs API
 - rail: observability
@@ -154,7 +160,7 @@
 - attributes: values are `str | bool | int | float | Sequence[str | bool | int | float]`; keys must be non-empty strings; `set_attributes` accepts a mapping in one call
 - instruments: synchronous `Counter`/`UpDownCounter`/`Histogram`/`Gauge` are recorded imperatively (`add`/`record`/`set`); observable (`Observable*`) instruments pull via registered callbacks yielding `Observation` under a `CallbackOptions` timeout — never mix push and pull on one instrument
 - baggage vs attributes: baggage is propagated cross-process key-value context (`set_baggage` derives a new immutable `Context`), distinct from span attributes which are local to a span; baggage does not auto-copy onto spans
-- propagation: `TextMapPropagator` reads via `Getter[CarrierT]` and writes via `Setter[CarrierT]`; `DefaultGetter`/`DefaultSetter` cover dict-like HTTP header carriers, and a custom `Getter` handles multi-dict carriers such as `grpc.aio.Metadata`
+- propagation: `TextMapPropagator` reads via `Getter[CarrierT]` and writes via `Setter[CarrierT]`; `DefaultGetter`/`DefaultSetter` cover dict-like HTTP header carriers, and a custom `Getter` handles multi-dict carriers such as `grpc.aio.Metadata`. The global propagator is a `CompositePropagator([TraceContextTextMapPropagator(), W3CBaggagePropagator()])` installed once at startup via `set_global_textmap` — the two concrete W3C codecs (`traceparent`/`tracestate` and `baggage`) chained over one carrier; never a hand-rolled header parser.
 
 [STACKS_WITH]:
 - grpc trace continuity: a client interceptor injects via `propagate.inject(metadata, setter=...)` and a server interceptor extracts via `propagate.extract(invocation_metadata, getter=...)` then opens `Tracer.start_as_current_span(kind=SpanKind.SERVER)` — `opentelemetry-api` owns the W3C `traceparent`/`tracestate` encoding while `grpcio` owns the metadata carrier.
@@ -172,5 +178,5 @@
 [RAIL_LAW]:
 - Package: `opentelemetry-api`
 - Owns: OTel API contracts, context propagation, baggage, global provider resolution, no-op implementations
-- Accept: API-only imports in library code, `get_tracer`/`get_meter`/`get_logger` + attribute-bound usage, `propagate.extract`/`inject` with carrier-typed `Getter`/`Setter`, synchronous and observable instruments, cross-process `baggage`
+- Accept: API-only imports in library code, `get_tracer`/`get_meter`/`get_logger` + attribute-bound usage, `propagate.extract`/`inject` with carrier-typed `Getter`/`Setter`, a `CompositePropagator` of `TraceContextTextMapPropagator`/`W3CBaggagePropagator` installed via `set_global_textmap`, synchronous and observable instruments, cross-process `baggage`
 - Reject: SDK imports in library code, per-request instrument creation, mutating a `Context` in place, `set_*_provider` outside composition root, citing `Gauge` as a top-level import (create via `Meter.create_gauge`)

@@ -45,6 +45,7 @@
 |  [11]   | `NullProgress`              | class               | no-op `IProgress<T>` implementation                                                     |
 |  [12]   | `ProgressNotificationValue` | sealed class        | progress payload: `required float Progress`, `float? Total`, `string? Message` (`init`) |
 |  [13]   | `UriTemplate`               | class               | RFC 6570 URI template evaluation                                                        |
+|  [14]   | `Implementation`            | sealed class        | `ModelContextProtocol.Protocol` identity: `required string Name`, `required string Version`, `Title` — the `McpClientOptions.ClientInfo`/`McpServerOptions.ServerInfo` value |
 
 [PUBLIC_TYPE_SCOPE]: server primitives — `ModelContextProtocol.Server`
 - rail: mcp-protocol
@@ -157,6 +158,7 @@
 |  [08]   | `McpClient.SubscribeToResourceAsync(string uri, RequestOptions?, CT)` / `SubscribeToResourceAsync(string uri, Func<ResourceUpdatedNotificationParams,CancellationToken,ValueTask> handler, RequestOptions?, CT)` | session call   | subscribes to resource update events; the base overload returns `Task`, the per-uri handler overload registers the update handler at subscribe and returns `Task<IAsyncDisposable>` (`handler` precedes `RequestOptions?`, pass `options`/`cancellationToken` by name) |
 |  [09]   | `McpClient.ListResourceTemplatesAsync(RequestOptions?, CT)`                                                                                                                                                      | session call   | enumerates server resource templates; returns `ValueTask<IList<McpClientResourceTemplate>>` (the `McpClientResourceTemplate` type [4] carries `UriTemplate`)                                                                                                           |
 |  [10]   | `McpClientTool.InvokeAsync(args, CT)`                                                                                                                                                                            | tool call      | `AIFunction` contract invocation                                                                                                                                                                                                                                       |
+|  [11]   | `McpClientOptions.ClientInfo` (set in the `CreateAsync` options bag)                                                                                                                                             | option property | `Implementation?` client identity (`Name`/`Version`) advertised at the initialize handshake                                                                                                                                                                            |
 
 [ENTRYPOINT_SCOPE]: server options surface
 - rail: mcp-protocol

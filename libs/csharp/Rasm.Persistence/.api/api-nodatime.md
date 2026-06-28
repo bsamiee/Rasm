@@ -85,11 +85,17 @@ into a generic-constrained numeric algorithm and into `MinValue`/`MaxValue` satu
 |  [07]   | `ZonedDateTimePattern`     | zone pattern      | zoned timestamp text      |
 |  [08]   | `DurationPattern`          | duration pattern  | elapsed span text         |
 |  [09]   | `PeriodPattern`            | period pattern    | calendar span text        |
-|  [10]   | `DateTimeOffsetExtensions` | BCL bridge        | `ToInstant`/`ToOffsetDateTime`/`ToZonedDateTime` |
-|  [11]   | `TimeSpanExtensions`       | BCL bridge        | `ToDuration`/`ToOffset`   |
-|  [12]   | `DurationExtensions`       | BCL bridge        | `ToTimeSpan`              |
-|  [13]   | `ClockExtensions`          | clock bridge      | `InZone`/`InUtc`/`InTzdbSystemDefaultZone` → `ZonedClock` |
-|  [14]   | `XmlSerializationSettings` | XML policy        | `NodaTime.Xml` projection admission |
+|  [10]   | `OffsetPattern`            | offset pattern    | offset-only text (`IPattern<Offset>`) |
+|  [11]   | `AnnualDatePattern`        | annual-date pattern | recurring month-day text (`IPattern<AnnualDate>`) |
+|  [12]   | `YearMonthPattern`         | year-month pattern | calendar-month text (`IPattern<YearMonth>`) |
+|  [13]   | `LocalTimePattern`         | local-time pattern | time-only text (`IPattern<LocalTime>`) |
+|  [14]   | `OffsetDatePattern`        | offset-date pattern | date+offset text (`IPattern<OffsetDate>`) |
+|  [15]   | `OffsetTimePattern`        | offset-time pattern | time+offset text (`IPattern<OffsetTime>`) |
+|  [16]   | `DateTimeOffsetExtensions` | BCL bridge        | `ToInstant`/`ToOffsetDateTime`/`ToZonedDateTime` |
+|  [17]   | `TimeSpanExtensions`       | BCL bridge        | `ToDuration`/`ToOffset`   |
+|  [18]   | `DurationExtensions`       | BCL bridge        | `ToTimeSpan`              |
+|  [19]   | `ClockExtensions`          | clock bridge      | `InZone`/`InUtc`/`InTzdbSystemDefaultZone` → `ZonedClock` |
+|  [20]   | `XmlSerializationSettings` | XML policy        | `NodaTime.Xml` projection admission |
 
 `NodaTime.Text.TypeConverterSettings` admits a `DateTimeZoneProvider` for the `TypeConverter`
 projection. There is no `Instant64`/`Duration64` type in this package — the compact-instant surface
@@ -140,12 +146,13 @@ is the single nanosecond-resolution `Instant`/`Duration`; do not catalog phantom
 |  [01]   | `InstantPattern.{ExtendedIso,General}`                     | pattern singleton | persisted instant format   |
 |  [02]   | `OffsetDateTimePattern.{Rfc3339,GeneralIso,ExtendedIso,FullRoundtrip}` | pattern singleton | external/roundtrip timestamp format |
 |  [03]   | `PeriodPattern.{Roundtrip,NormalizingIso}` / `DurationPattern.{Roundtrip,JsonRoundtrip}` | pattern singleton | persisted span format |
-|  [04]   | `<Pattern>.CreateWithInvariantCulture(text)` / `.CreateWithCurrentCulture(text)` / `.Create(text, culture)` | pattern factory | invariant / culture-bound parsing |
-|  [05]   | `IPattern<T>.Parse(text)` → `ParseResult<T>` / `.Format(value)` / `.AppendFormat(value, builder)` | pattern op | typed parse result / text output / builder append |
-|  [06]   | `ParseResult<T>.{Success, Value, GetValueOrThrow(), TryGetValue(...)}` | parse rail | success-flag / value / throwing / try projection |
-|  [07]   | `<Pattern>.{WithCulture, WithTemplateValue, WithCalendar}` | pattern transform | culture / default-value / calendar replacement |
-|  [08]   | `ZonedDateTimePattern.WithResolver(ZoneLocalMappingResolver)` / `.WithZoneProvider(IDateTimeZoneProvider)` | zoned pattern transform | local-mapping + zone-lookup policy |
-|  [09]   | `DateTimeOffsetExtensions.{ToInstant,ToOffsetDateTime,ToZonedDateTime}` / `TimeSpanExtensions.{ToDuration,ToOffset}` / `DurationExtensions.ToTimeSpan` | BCL conversion | DateTimeOffset/TimeSpan ↔ Noda value |
+|  [04]   | `OffsetPattern.{GeneralInvariant,GeneralInvariantWithZ}` / `AnnualDatePattern.Iso` / `YearMonthPattern.Iso` / `LocalTimePattern.ExtendedIso` / `OffsetDatePattern.GeneralIso` / `OffsetTimePattern.{GeneralIso,ExtendedIso}` | pattern singleton | per-value-type pattern singletons the temporal codecs bind (offset-only `Z`-suffix / recurring month-day / calendar-month / time-only / date+offset / time+offset) |
+|  [05]   | `<Pattern>.CreateWithInvariantCulture(text)` / `.CreateWithCurrentCulture(text)` / `.Create(text, culture)` | pattern factory | invariant / culture-bound parsing |
+|  [06]   | `IPattern<T>.Parse(text)` → `ParseResult<T>` / `.Format(value)` / `.AppendFormat(value, builder)` | pattern op | typed parse result / text output / builder append |
+|  [07]   | `ParseResult<T>.{Success, Value, GetValueOrThrow(), TryGetValue(...)}` | parse rail | success-flag / value / throwing / try projection |
+|  [08]   | `<Pattern>.{WithCulture, WithTemplateValue, WithCalendar}` | pattern transform | culture / default-value / calendar replacement |
+|  [09]   | `ZonedDateTimePattern.WithResolver(ZoneLocalMappingResolver)` / `.WithZoneProvider(IDateTimeZoneProvider)` | zoned pattern transform | local-mapping + zone-lookup policy |
+|  [10]   | `DateTimeOffsetExtensions.{ToInstant,ToOffsetDateTime,ToZonedDateTime}` / `TimeSpanExtensions.{ToDuration,ToOffset}` / `DurationExtensions.ToTimeSpan` | BCL conversion | DateTimeOffset/TimeSpan ↔ Noda value |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

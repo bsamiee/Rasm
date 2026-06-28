@@ -46,7 +46,7 @@ algebra (triangulate, tangent-space, normal generation, coordinate-handedness) a
 |  [01]   | `Scene`             | scene-exchange | `sealed`; root container — `RootNode`, `SceneFlags`, and `Meshes`/`Materials`/`Lights`/`Cameras`/`Textures`/`Animations` lists with `Has*`/`*Count`; `FindBone`, `GetEmbeddedTexture`, `Metadata` |
 |  [02]   | `Node`              | scene-exchange | `Name`, `Transform` (`Matrix4x4`), `Parent`, `Children` (`NodeCollection`), `MeshIndices` (indices into `Scene.Meshes`); the recursive transform hierarchy |
 |  [03]   | `Mesh`              | scene-exchange | `Name`, `PrimitiveType`, `MaterialIndex`, `Vertices`/`Normals`/`Tangents`/`BiTangents` (`List<Vector3>`), `Faces`, `VertexColorChannels`/`TextureCoordinateChannels` (multi-channel arrays), `Bones`; `Has*`/`*Count` guards |
-|  [04]   | `Face`              | scene-exchange | one primitive's vertex-index list (`Indices`) |
+|  [04]   | `Face`              | scene-exchange | one primitive's vertex-index list — `Indices` (`List<int>`) + `IndexCount` (`= Indices.Count`, the per-face fan-triangulation bound) and `HasIndices` |
 |  [05]   | `Bone` / `VertexWeight` | scene-exchange | a skinning bone (offset matrix + `VertexWeight[]`) and per-vertex weight |
 |  [06]   | `Metadata`          | scene-exchange | `sealed` `Dictionary<string, Metadata.Entry>`; `Entry` is a `readonly record struct (MetaDataType DataType, object Data)` with typed `DataAs<T>()` — scene/node key-value metadata (units, up-axis, authoring tool) |
 |  [07]   | `BoundingBox`       | scene-exchange | per-mesh AABB populated by `PostProcessSteps.GenerateBoundingBoxes` |
@@ -80,7 +80,7 @@ algebra (triangulate, tangent-space, normal generation, coordinate-handedness) a
 |  [05]   | `ImporterDescription`        | scene-exchange | a supported importer descriptor: name, file extensions, `ImporterFeatureFlags`           |
 |  [06]   | `IOSystem` / `IOStream`      | scene-exchange | `abstract` custom virtual-filesystem seams; `SetIOSystem` routes imports through a custom byte source |
 |  [07]   | `LogStream` / `ConsoleLogStream` / `DefaultLogStream` | scene-exchange | native-log capture seams (`LoggingCallback`) for diagnostics |
-|  [08]   | `ExportDataBlob`             | scene-exchange | in-memory export result (`exportFormatId` bytes + chained satellite blobs); `BlobBinaryReader` reads it |
+|  [08]   | `ExportDataBlob`             | scene-exchange | in-memory export result — `Data` (`byte[]`, the `exportFormatId` payload) + `Name` and the `NextBlob` chained satellite blob (`HasData` guard); `BlobBinaryReader` reads it |
 |  [09]   | `AssimpException`            | scene-exchange | thrown on native import/export failure; the boundary catch that lowers to `BimFault.CodecReject` |
 
 ## [03]-[ENTRYPOINTS]
@@ -147,7 +147,7 @@ to the scene before serialization.
 - canonical-carrier leg: an imported `Assimp.Mesh` (`Vertices`/`Normals`/`Faces` as `List<Vector3>` + index `Face`s) is mapped at the boundary onto the kernel `Rasm` mesh carrier the rest of Bim uses; `AssimpNetter` types never leak past `Exchange/import` — internal code holds canonical shapes per the boundary-mapping law.
 - re-export leg: a canonical scene is rebuilt into an `Assimp.Scene` (`RootNode` + `Meshes` + `Materials`) and emitted via `ExportToBlob(scene, "fbx")` for the `Exchange/export#EXPORT_ARTIFACT` FBX/Collada legs; glTF/GLB export stays on `SharpGLTF` so the Draco/meshopt encode (`api-openize-drako`, `api-alimer-meshoptimizer`) stacks on that path, not this one.
 - material seam leg: `Material.PBRMaterialProperties` (BaseColor/Metalness/Roughness/Normal slots) projects onto the `Semantics/appearance#BIM_APPEARANCE` host-neutral PBR record, reconciled with the `Rasm.Materials` OpenPBR owner at the content-key seam — the same target `SharpGLTF` material channels also feed.
-- identity leg: an `ExportDataBlob` byte payload feeds `System.IO.Hashing` `XxHash3.Append` (substrate, `api-hashing`) for the `Exchange/export` snapshot content-key, so an FBX/Collada export participates in the same content-identity rail as the glTF export.
+- identity leg: an `ExportDataBlob` byte payload feeds `System.IO.Hashing` `XxHash3`/`XxHash128` via `Append` (substrate, `api-hashing`) for the `Exchange/export` snapshot content key — `XxHash3` is the fast in-process fingerprint, `XxHash128` (`GetCurrentHashAsUInt128`) the persisted, collision-resistant key the `Rasm.Persistence` artifact index is content-addressed by — so an FBX/Collada export participates in the same XxHash128-keyed content-identity rail as the glTF export.
 - metadata leg: `Scene.Metadata`/`Node.Metadata` (`Metadata.Entry.DataAs<T>()`) carries authoring-tool unit + up-axis facts that inform `Exchange/format#FRAME_NORMALIZATION` per-importer coercion before the canonical carrier is built.
 
 [LOCAL_ADMISSION]:

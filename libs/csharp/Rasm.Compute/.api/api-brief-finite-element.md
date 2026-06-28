@@ -46,8 +46,10 @@ the 3D twin of the 2D `FEALiTE2D` (`api-fealite2d`); both ride CSparse.
   + custom `HexahedralElement`/`QuadrilaturalElement`), `.Sections`, `.Materials`, `.Loads`, `.Solver`,
   `.MpcElements`, `.ElementHelpers`, `.Integration`, `.Geometry`, `BriefFiniteElementNet.Common`
 - transitive: `CSparse` (`api-csparse`, the sparse direct-factorization owner every BFE solver factors
-  through — `StaticLinearAnalysisResult.Solvers_New` is keyed by CSparse `SparseMatrix`); the
-  CustomElements package additionally depends on the core + Common
+  through — `StaticLinearAnalysisResult.Solvers_New` is keyed by CSparse `SparseMatrix`); the BFE 2.1.2
+  nuspecs floor `CSparse >= 3.5.0` while the workspace unifies on the central `4.4.0` pin — BFE's SPARSE
+  solve path stays binary-clean but its embedded dense `DenseLU` does not (the `[SOLVE_TOPOLOGY]` CSparse
+  binding seam); the CustomElements package additionally depends on the core + Common
 - scope: managed linear-static 3D structural FEM — model assembly, the frame/plate/shell/solid element
   library, sectioning, material, load cases/combinations, MPC, the direct/iterative solve, and result
   recovery (displacements, reactions, internal forces, stress/strain); NOT a continuum multi-physics
@@ -65,7 +67,7 @@ the 3D twin of the 2D `FEALiTE2D` (`api-fealite2d`); both ride CSparse.
 
 | [INDEX] | [SYMBOL]                       | [TYPE_FAMILY]      | [RAIL]                                            |
 | :-----: | :----------------------------- | :----------------- | :----------------------------------------------- |
-|  [01]   | `Model` (sealed)               | model root         | `Nodes`/`Elements`/`MpcElements`/`RigidElements`/`Settings`/`LastResult`; the `Solve*` entry; binary `Save`/`Load` |
+|  [01]   | `Model` (sealed)               | model root         | `Nodes`/`Elements`/`MpcElements`/`RigidElements`/`LastResult`/`Trace`/`SettlementLoadCase`; the `Solve*`/`Solve_MPC*` entry; static binary `Save(file, model)`/`Load(file)`/`ToByteArray`/`FromByteArray` |
 |  [02]   | `Node`                         | node               | `Location` (`Point`), `Constraints` (`Constraint`), `Loads`/`Settlements`; the displacement/reaction read surface |
 |  [03]   | `Element` (abstract) / `ElementCollection` | element base   | `: StructurePart` — local stiffness/mass/damping + global-equivalent nodal loads; the typed-element base |
 |  [04]   | `BarElement` (`.Elements`)     | 1D frame element   | beam/column/truss/shaft over `StartNode`/`EndNode`, `Section`/`Material`/`Behavior`, `Start`/`EndReleaseCondition` |
@@ -84,7 +86,7 @@ the 3D twin of the 2D `FEALiTE2D` (`api-fealite2d`); both ride CSparse.
 
 | [INDEX] | [SYMBOL]                       | [TYPE_FAMILY]      | [RAIL]                                            |
 | :-----: | :----------------------------- | :----------------- | :----------------------------------------------- |
-|  [01]   | `Base1DSection` / `Base2DSection` (abstract) | section base | the 1D cross-section / 2D thickness property contract (`GetCrossSectionPropertiesAt`) |
+|  [01]   | `Base1DSection` / `Base2DSection` (abstract) | section base | the 1D cross-section property contract (`GetCrossSectionPropertiesAt` → `_1DCrossSectionGeometricProperties`) / the 2D thickness contract (`GetThicknessAt`) |
 |  [02]   | `UniformParametric1DSection`   | parametric 1D section | direct mechanical properties `A`/`Ay`/`Az`/`Iy`/`Iz`/`J`/`Ky`/`Kz` (the AISC-profile-table target) |
 |  [03]   | `UniformGeometric1DSection` / `NonUniformGeometric1DSection` | geometric 1D section | a `PointYZ`/`PolygonYz` cross-section outline the props are derived from (uniform / tapered) |
 |  [04]   | `NonUniformParametric1DSection` / `UniformParametric2DSection` | tapered / 2D section | a tapered 1D section / a 2D shell thickness |
@@ -93,27 +95,27 @@ the 3D twin of the 2D `FEALiTE2D` (`api-fealite2d`); both ride CSparse.
 |  [07]   | `UniformAnisotropicMaterial`   | anisotropic material | `Ex`/`Ey`/`Ez`/`NuXy`/`NuYz`/`NuZx`/…/`Mu`/`Rho` orthotropic constants |
 |  [08]   | `ElementalLoad` (abstract) + `ConcentratedLoad` / `UniformLoad` / `PartialNonUniformLoad` | element load | a point / uniform / partial-trapezoidal load on an element (`Force`/`Vector` + `CoordinationSystem`) |
 |  [09]   | `NodalLoad`                    | nodal load         | a `Force` applied at a node under a `LoadCase` |
-|  [10]   | `LoadCase` (struct) / `LoadCombination` / `LoadType` | load discriminant | the load-case identity (`LoadType` `Dead`/`Live`/`Snow`/`Wind`/`Quake`/`Crane`/`Other`) and the factored combination map |
+|  [10]   | `LoadCase` (struct) / `LoadCombination` / `LoadType` | load discriminant | the load-case identity (`LoadType` `Default`/`Dead`/`Live`/`Snow`/`Wind`/`Quake`/`Crane`/`Other`; `LoadCase.DefaultLoadCase`/`LoadCombination.DefaultLoadCombination` back the parameterless result reads) and the factored combination map |
 
-[PUBLIC_TYPE_SCOPE]: value types, vocabulary, solvers, and results (`BriefFiniteElementNet.Common` + `.Solver`)
+[PUBLIC_TYPE_SCOPE]: value types, vocabulary, solvers, and results (`BriefFiniteElementNet.Common` + core + `.Solver`)
 - rail: solve
 - note: the Common assembly owns the shared value structs and the solver contracts; the concrete
   solvers in `.Solver` factor the assembled sparse system through CSparse.
 
 | [INDEX] | [SYMBOL]                       | [TYPE_FAMILY]      | [RAIL]                                            |
 | :-----: | :----------------------------- | :----------------- | :----------------------------------------------- |
-|  [01]   | `Constraint` (struct) + `Constraints` (static) | 6-DOF restraint | per-DOF `DofConstraint` (`Fixed`/`Released`); presets `Fixed`/`Released`/`Free`/`MovementFixed`(pinned)/`RotationFixed`/`FixedDX`…`FixedRZ` |
+|  [01]   | `Constraint` (struct) + `Constraints` (static) | 6-DOF restraint | per-DOF `DofConstraint` (`Fixed`/`Released`); presets `Fixed`(encastre)/`Released`(fully free)/`MovementFixed`(pinned)/`RotationFixed`/`FixedDX`…`FixedRZ` (no separate `Free` — `Released` is the all-released support) |
 |  [02]   | `Displacement` (struct)        | nodal displacement | `Dx`/`Dy`/`Dz`/`Rx`/`Ry`/`Rz`; `Zero`, `FromVector`/`ToVector`, `GetComponent(DoF)` |
 |  [03]   | `Force` (struct)               | force/moment       | `Fx`/`Fy`/`Fz`/`Mx`/`My`/`Mz`; `FromVector`/`ToVector`, `GetComponent(DoF)` |
-|  [04]   | `Point` / `Vector` / `IsoPoint` / `PointYZ` / `PolygonYz` (structs) | geometry value | the node location, a direction vector, an iso-parametric point, and the section-outline polygon |
+|  [04]   | `Point` / `Vector` / `IsoPoint` / `PointYZ` (structs) + `PolygonYz` (sealed class) | geometry value | the node location, a direction vector, an iso-parametric point, the section-outline point, and the section-outline polygon (`PolygonYz` is a reference type, not a value struct) |
 |  [05]   | `DoF` / `DofConstraint` / `LoadDirection` / `CoordinationSystem` / `MassFormulation` | enum vocabulary | the DOF axis (`Dx`…`Rz`), fixity, load direction (`X`/`Y`/`Z`), local/global frame, lumped/consistent mass |
 |  [06]   | `BarElementBehaviour` (`[Flags]`) + `BarElementBehaviours` (static) | bar behaviour | `Truss`/`BeamY*`/`BeamZ*`/`Shaft` flags; presets `FullFrame`/`FullBeam`/`Truss` (Euler-Bernoulli or Timoshenko) |
 |  [07]   | `PlaneElementBehaviour` (`[Flags]`) + `PlaneElementBehaviours` (static) | plate behaviour | `ThinPlate`/`Membrane`/`DrillingDof`; preset `FullThinShell` |
 |  [08]   | `BuiltInSolverType` (enum)      | solver selector    | `CholeskyDecomposition`/`ConjugateGradient`/`Lu`/`Qr` |
-|  [09]   | `ISolver` / `ISolverFactory` / `IPreconditioner<T>` (Common) + `CholeskySolver` / `LuSolver` / `QRSolver` / `PCG` / `SSOR` (`.Solver`) | solver family | the solve contract and the concrete direct/iterative solvers (each factoring through CSparse) |
+|  [09]   | `ISolver` / `ISolverFactory` (Common) + `IPreconditioner<T>` + `CholeskySolver` / `LuSolver` / `QRSolver` / iterative `PCG` (`: IterativeSolver`) + `CholeskySolverFactory` / `LuSolverFactory` / `QrSolverFactory` / `ConjugateGradientFactory` + `SSOR` / `IdentityPreconditioner<T>` (`.Solver`) | solver family | the `ISolver`/`ISolverFactory` contracts (Common), the concrete direct/iterative solvers, the `ISolverFactory` impls the `Solve(ISolverFactory)` seam consumes, and the `IPreconditioner<T>` set `PCG` rides (`SSOR` is a preconditioner, not a solver) — each factoring through CSparse |
 |  [10]   | `StaticLinearAnalysisResult`   | result carrier     | per-`LoadCase` `Displacements`/`Forces`/`SupportReactions`/`ElementForces` (`Dictionary<LoadCase, double[]>`) |
 |  [11]   | `CauchyStressTensor` / `BendingStressTensor` / `StrainTensor` / `GeneralStressTensor` (structs) | stress/strain | the element stress/strain recovery tensors |
-|  [12]   | `Matrix` (`: DenseMatrix`) / `SolverConfiguration` | numeric carrier | the dense element-matrix type and the solve configuration (`SolverType`/`LoadCases`) |
+|  [12]   | `Matrix` (`: DenseMatrix`) / `SolverConfiguration` | numeric carrier | the dense element-matrix type and the solve configuration (`SolverFactory` (`ISolverFactory`) / `LoadCases`) |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -186,6 +188,21 @@ the 3D twin of the 2D `FEALiTE2D` (`api-fealite2d`); both ride CSparse.
 - the factorization is cached per constraint-map (re-solving additional load cases reuses the factor);
   `Solve(ISolverFactory)` is the injection seam to route through a Rasm-owned CSparse factory rather than
   BFE's built-in one, sharing one factorization owner across the structural and continuum lanes
+- CSparse binding seam (version skew): the BFE 2.1.2 nuspecs (core + Common + CustomElements) floor
+  `CSparse` at `>= 3.5.0`; the workspace unifies on the central `CSparse 4.4.0` pin (NuGet floor semantics
+  + central package management resolve 4.4.0 at restore). BFE's SPARSE path is binary-clean — its
+  `CholeskySolver`/`LuSolver`/`QRSolver` wrap CSparse's OWN `SparseCholesky`/`SparseLU`/`SparseQR`
+  (`CholeskySolver` → `SparseCholesky.Create(A, ColumnOrdering.MinimumDegreeAtPlusA)`), all present in
+  4.4.0. The DENSE path is NOT: `BriefFiniteElementNet.Common` embeds a private
+  `CSparse.Double.Factorization.DenseLU : ISolver<double>` compiled against the 3.5-era one-method
+  `ISolver<T>` (`Solve(double[], double[])` only); CSparse 4.x widened `ISolver<T>` with an abstract
+  `Solve(ReadOnlySpan<double>, Span<double>)` carrying no default interface method, so loading `DenseLU`
+  fails interface mapping and the CLR throws `TypeLoadException`. The `DenseColumnMajorStorage<double>`
+  `Determinant()`/`Inverse()`/`Solve(double[])` extensions route through `DenseLU` and sit on the
+  isoparametric Jacobian-determinant integration path of the 2D/3D `TriangleElement`/`TetrahedronElement`/
+  `HexahedralElement`/`QuadrilaturalElement`, so any continuum-element solve breaks under 4.4.0 — confine
+  BFE to the sparse-factored `BarElement` frame solve (continuum problems are the `SolveLane`'s), inject a
+  Rasm CSparse-4.x `ISolverFactory` via `Solve(ISolverFactory)`, and verify the chosen path loads under 4.4.0
 - `Solve_MPC` is the master-slave path for the `MpcElement` family (rigid links, hinges, slaved DOF);
   the `StaticLinearAnalysisResult` carries per-`LoadCase` displacement/reaction/element-force vectors
 
@@ -202,10 +219,13 @@ the 3D twin of the 2D `FEALiTE2D` (`api-fealite2d`); both ride CSparse.
   `Support`+`SupportRestraint`(6-DOF)→`Node.Constraints`, `StructuralCurveMemberKind`→behaviour+releases,
   `LoadGroup`+`StructuralLoadKind`→`LoadCase`+`LoadType`; the `StaticLinearAnalysisResult` is the
   structural receipt keyed back by the same content key so a re-solve runs only on a changed graph
-- with `CSparse` (`api-csparse`/`Tensor/factor#SPARSE_SOLVE`): BFE's solvers factor the assembled stiffness
-  through CSparse — the same sparse direct-factorization owner — so the structural and continuum lanes
-  share one numeric factorization owner; routing BFE's `Solve(ISolverFactory)` through a Rasm CSparse
-  factory is the canonical sharing seam
+- with `CSparse` (`api-csparse`/`Tensor/factor#SPARSE_SOLVE`): BFE's sparse solvers factor the assembled
+  stiffness through CSparse — the same sparse direct-factorization owner — so the structural and continuum
+  lanes share one numeric factorization owner; routing BFE's `Solve(ISolverFactory)` through a Rasm CSparse
+  factory is the canonical sharing seam, and is also the version-skew mitigation: BFE 2.1.2 binds CSparse
+  only at the `>= 3.5.0` floor and its embedded dense `DenseLU` is binary-incompatible with the unified
+  `4.4.0` pin (`[SOLVE_TOPOLOGY]`), so BFE stays on the clean sparse-factored frame path and continuum
+  elements route to the `SolveLane`
 - with section/material sources: `UniformParametric1DSection(A, Iy, Iz, J)` is fed by the AISC/VividOrange
   steel-section profile tables (Materials folder), `UniformIsotropicMaterial(E, ν)` by the material library
   — the section/material values are the model's, never re-typed in the solver

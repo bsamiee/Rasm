@@ -10,10 +10,13 @@ public sealed class PackageAdmissionLaws {
             "libs/csharp/Rasm.AppHost/.api",
             "api-dataflow.md",
             "api-mcp.md",
-            "api-pyroscope.md");
+            "api-pyroscope.md",
+            "api-serilog-sinks.md");
+        PackageAdmission.CentralPackages("System.Threading.Tasks.Dataflow");
 
         ProjectAdmission app = PackageAdmission.Project("libs/csharp/Rasm.AppHost/Rasm.AppHost.csproj");
-        app.IncludesPackages("System.Threading.Tasks.Dataflow", "ModelContextProtocol", "Pyroscope.OpenTelemetry");
+        app.IncludesPackages("ModelContextProtocol", "Pyroscope.OpenTelemetry", "Serilog.Sinks.Console", "Serilog.Sinks.File");
+        app.ExcludesPackages("System.Threading.Tasks.Dataflow");
         app.ExcludesPackages("Microsoft.Extensions.Diagnostics.Testing", "Microsoft.Extensions.TimeProvider.Testing", "NodaTime.Testing");
 
         ProjectAdmission tests = PackageAdmission.Project("tests/csharp/libs/Rasm.AppHost/Rasm.AppHost.Tests.csproj");

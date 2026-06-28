@@ -28,7 +28,7 @@ analytics); it is not a geometry, IFC-authoring, or simulation owner.
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: graph manager and entity base
-- namespace: `BrickSchema.Net`
+- namespace: `BrickSchema.Net` (`BrickSchemaManager`/`BrickEntity`); `BrickClass`/`Tag` live in `.Classes`, `EntityProperty`/`PropertiesEnum` in `.EntityProperties`
 - rail: building-systems
 
 Everything is a `BrickEntity`; the four base derivations (`BrickClass`, `BrickRelationship`,
@@ -66,8 +66,8 @@ built-in analytic and lifecycle rules attached to entities.
 | [INDEX] | [SYMBOL]                                            | [RAIL]           | [CAPABILITY]                                                                          |
 | :-----: | :-------------------------------------------------- | :--------------- | :----------------------------------------------------------------------------------- |
 |  [01]   | `BrickShape`                                        | building-systems | base validation/rule shape (`Clone()`); the constraint node attached via `BrickEntity.Shapes` |
-|  [02]   | `Aggregation` / `AggregationMode`                   | building-systems | a roll-up shape over point streams; `AggregationMode` = `Min`/`Count`/`Mean`/`Sum`/`Median`/… |
-|  [03]   | `BuildingMeterRule` / `ChillerLoadCOP`              | building-systems | domain analytic shapes (building-level metering rule; chiller load/COP computation)   |
+|  [02]   | `Aggregation` / `AggregationMode`                   | building-systems | time-series roll-up shape — `Aggregation.AggregateByInterval(series, intervalMinutes, mode)` resamples then folds point streams; nested `AggregationMode` = `Min`/`Count`/`Mean`/`Sum`/`Median` (the complete set) |
+|  [03]   | `BuildingMeterRule`                                 | building-systems | domain analytic shape — building-level metering rule reconciling submetered loads against the building meter (`ChillerLoadCOP` is NOT a shape: it is a plain `Load`/`COP` value pair under `.Classes.Equipments.HVACType.Chillers`) |
 |  [04]   | `Deprecation` / `DeprecationRule` / `DeprecationRuleForInstances` | building-systems | schema-migration shapes that mark and rewrite deprecated classes/instances |
 |  [05]   | `BACnetReference`                                   | building-systems | the BACnet object-binding shape (maps a Brick `Point` to a live BACnet object/property) |
 
@@ -82,7 +82,7 @@ computation that emits an `Insight`/`Resolution` and a conformance/`Weight`.
 | :-----: | :--------------------- | :--------------- | :--------------------------------------------------------------------------------------------------------------- |
 |  [01]   | `BrickBehavior`        | building-systems | lifecycle: `ctor(behaviorMode, behaviorName, weight, ILogger?)`, `Start`/`Stop`/`Execute`/`OnTimerTick`, `IsRunning`, `SetLogger(ILogger?)`, `SetConformance(double)`, `SetBehaviorValue<T>`, `Description`/`Insight`/`Resolution`/`Info`/`Weight`/`LastExecutionStart`/`End`/`Parent` |
 |  [02]   | `BehaviorValue`        | building-systems | a behavior output cell (value + weight) the entity stores and reads back                                          |
-|  [03]   | `BehaviorReturnCodes`  | building-systems | execution result: `NotImplemented`(=-1)/`Good`(=0)/`Skip`(=1)/`HasWarning`(=10)/`HasError`(=50)                   |
+|  [03]   | `BehaviorReturnCodes`  | building-systems | execution result: `NotImplemented`(=-1)/`Good`(=0)/`Skip`(=1)/`HasWarning`(=10)/`HasError`(=50)/`HasException`(=100) |
 
 [PUBLIC_TYPE_SCOPE]: taxonomy and device classes
 - namespace: `BrickSchema.Net.Classes.*`
@@ -124,7 +124,7 @@ family discriminated by the `<T>` argument.
 | :-----: | :------------------------------ | :----------------------------------------------------------------------- | :-------------------------------------------------------------------- |
 |  [01]   | `AddOrUpdateProperty<T>` / `GetProperty<T>` | `<T>(string\|PropertiesEnum, T)` · `<T>(string\|PropertiesEnum) → T?` | typed property set/get (string-backed `EntityProperty` with conversion) |
 |  [02]   | relationship traversal          | `GetChildEntities`/`GetFedEntitites`/`GetMeterEntities`/`GetPartEntitites`/`GetPointEntities`/`GetPointEntity(tag)` · `GetFeedingParent`/`GetMeetingParent`/`GetPartOfParent`/`GetPointOfParent` | walk the typed edges in either direction without raw list access |
-|  [03]   | `GetRelationships` / `GetShapes` / `GetTags` | `() → List<BrickRelationship>` · `→ List<BrickShape>` · `→ List<Tag>` | edge / shape / tag enumeration                                          |
+|  [03]   | `AddRelationship<T>` / `AddShape<T>` / `GetRelationships` / `GetShapes` / `GetTags` | `<T>(string parentId) where T:BrickRelationship,new() → T` · `<T>() where T:BrickShape,new() → T` · `() → List<BrickRelationship>\|List<BrickShape>\|List<Tag>` | polymorphic edge/shape create (the typed `AddRelationshipFedBy`/`AddRelationshipPointOf`/… and `AddShapeAggregation`/… sugar wraps these) + edge / shape / tag enumeration |
 |  [04]   | `AddBehavior` / `RemoveBehavior` / `GetBehaviors` | `(BrickBehavior) → BrickBehavior` · `(string\|BrickBehavior)` · `(bool\|string type)` | attach/detach/read runtime analytics                            |
 |  [05]   | `SetBehaviorValue<T>` / `GetBehaviorValue<T>` / `GetBehaviorValue<T,U>` | `(behaviorId, valueName, T)` · `<T>(behaviorId, valueName) → T?` · `<T,U>(…) → (T? Value, U? Weight)` | behavior-output cells (value, value+weight) |
 |  [06]   | `Clone`                         | `() → BrickEntity` (covariant per subtype)                              | structural deep copy of a node                                         |
@@ -143,6 +143,7 @@ family discriminated by the `<T>` argument.
 
 [POLYMORPHIC_ENTITY_LAW]:
 - the create entry is `AddEntity<T>()` where `<T>` is the Brick class; the ~200 `AddEquipment*`/`AddCollection*`/`AddBACnetDevice`/… helpers are convenience overloads over it. Prefer `AddEntity<T>` (and `GetEntities<T>`) so the call discriminates by type argument, not by a hand-picked factory name.
+- the same polymorphic shape repeats on `BrickEntity`: `AddRelationship<T>(parentId)` wires a directed edge to a parent (the `AddRelationshipFedBy`/`AddRelationshipPointOf`/`AddRelationshipLocationOf`/`AddRelationshipMeterBy`/`AddRelationshipSubmeterOf`/`AddRelationshipPartOf`/`AddRelationshipAssociatedWith`/`AddRelationshipTagOf` sugar wraps it) and `AddShape<T>()` attaches a `BrickShape` (the ~120 `AddShape*` quantity/rule helpers wrap it). Discriminate by `<T>`, never by the named helper.
 - query is one entry: `SearchEntities(Func<dynamic,bool>)` for predicate queries, `GetEntities<T>` for type filters, `GetEntity(id)` for id lookup — there is no `GetByName`/`GetByType` family to reach for.
 - `byReference` selects the live graph node vs a clone: pass `true` to mutate in place, `false` (default) for a read-only copy. Mutating a `false`-fetched node does not touch the graph.
 
@@ -151,7 +152,7 @@ family discriminated by the `<T>` argument.
 - a `Point` is reached from its equipment via `GetPointEntities()` / `GetPointEntity(tagName)`; a meter hierarchy via `GetMeterEntities`/`MeterBy`/`SubmeterOf`; spatial containment via `LocationOf`.
 
 [ANALYTIC_LAW]:
-- two extensibility kinds: `BrickShape` (declarative constraint/analytic rule attached via `Entity.Shapes` — `Aggregation`/`BuildingMeterRule`/`ChillerLoadCOP`/`Deprecation*`/`BACnetReference`) and `BrickBehavior` (imperative timer-driven computation attached via `AddBehavior`, emitting `Insight`/`Resolution`/conformance through `BehaviorReturnCodes`). Behavior diagnostics route through the injected `ILogger`; behavior outputs are read back as typed `BehaviorValue` cells.
+- two extensibility kinds: `BrickShape` (declarative constraint/analytic rule attached via `AddShape<T>()`/`AddShape*` and enumerated through `Entity.Shapes` — `Aggregation`/`BuildingMeterRule`/`Deprecation*`/`BACnetReference` plus the ~120 generated quantity shapes) and `BrickBehavior` (imperative timer-driven computation attached via `AddBehavior`, emitting `Insight`/`Resolution`/conformance through `BehaviorReturnCodes`). Behavior diagnostics route through the injected `ILogger`; behavior outputs are read back as typed `BehaviorValue` cells.
 - the wire is JSON-LD: the whole graph (entities + properties + relationships + shapes + behaviors) round-trips through `LoadSchema`/`SaveSchema` (Newtonsoft); persist the manager, not individual nodes.
 
 [INTEGRATION_STACK]:

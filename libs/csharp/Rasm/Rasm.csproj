@@ -22,19 +22,19 @@
     </ItemGroup>
 
     <ItemGroup Label="Computational Geometry">
-        <PackageReference Include="MIConvexHull" />
-        <PackageReference Include="Clipper2" />
         <PackageReference Include="CavalierContours" />
+        <PackageReference Include="Clipper2" />
+        <PackageReference Include="geometry3Sharp" />
+        <PackageReference Include="MIConvexHull" />
         <PackageReference Include="SharpVoronoiLib" Aliases="Voronoi" />
         <PackageReference Include="Triangle" Aliases="TriangleNet" />
-        <PackageReference Include="geometry3Sharp" />
     </ItemGroup>
 
     <ItemGroup Label="Content Hash">
         <PackageReference Include="System.IO.Hashing" />
     </ItemGroup>
 
-    <ItemGroup>
+    <ItemGroup Label="Kernel Usings">
         <Using Include="Rasm.Domain" />
         <Using Include="Rhino" />
         <Using Include="Rhino.FileIO" />

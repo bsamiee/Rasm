@@ -45,7 +45,7 @@
 | [INDEX] | [SYMBOL]   | [TYPE_FAMILY]  | [FIELDS]                                             |
 | :-----: | :--------- | :------------- | :--------------------------------------------------- |
 |  [01]   | `Vector3d` | mutable struct | `double x`, `y`, `z`; the canonical position type    |
-|  [02]   | `Vector3f` | mutable struct | `float x`, `y`, `z`; the normal and color type       |
+|  [02]   | `Vector3f` | mutable struct | `float x`, `y`, `z`; the normal and color type; static anchors `AxisX`/`AxisY`/`AxisZ`/`Zero`/`One` (`AxisZ` the default up-normal a projection substitutes when a mesh carries no normal channel) |
 |  [03]   | `Vector2f` | mutable struct | `float x`, `y`; the UV type                          |
 |  [04]   | `Index3i`  | mutable struct | `int a`, `b`, `c`; a triangle's three vertex indices |
 

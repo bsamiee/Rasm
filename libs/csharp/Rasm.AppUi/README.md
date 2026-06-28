@@ -122,9 +122,6 @@ Domain libraries that implement UI framework, rendering, GPU backends, charts, c
 - `Silk.NET.SDL`
 - `Melanchall.DryWetMidi`
 
-[DOMAIN_RUNTIME]:
-- `UnitsNet`
-
 [DRAFTING_EXPORT]:
 - `ACadSharp`
 - `netDxf`
@@ -157,14 +154,20 @@ Domain libraries that implement UI framework, rendering, GPU backends, charts, c
 
 ## [03]-[SUBSTRATE_PACKAGES]
 
-Substrate libraries from the C# registry that this folder consumes directly. Full substrate API evidence is in `.api/` and the registry rationale is in [`libs/csharp/.planning/README.md`](../.planning/README.md).
+Substrate libraries from the C# registry that this folder consumes directly. Full registry and substrate contracts live in [`libs/csharp/.planning/README.md`](../.planning/README.md), with shared API evidence in `libs/csharp/.api/`.
 
 [FUNCTIONAL_CORE]:
+- `LanguageExt.Core`
+- `Thinktecture.Runtime.Extensions`
 - `Thinktecture.Runtime.Extensions.Json`
+- `JetBrains.Annotations`
 
 [TIME_IDENTITY]:
 - `NodaTime`
 - `System.IO.Hashing`
+
+[NUMERIC_SUBSTRATE]:
+- `UnitsNet`
 
 [TEST_SUBSTRATE]:
 - `Verify.XunitV3`

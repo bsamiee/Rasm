@@ -58,12 +58,6 @@ Domain libraries owned outside the C# substrate registry. Versions are centraliz
 [SOLID_INGRESS]:
 - `OcctNet.Wrapper` — the first managed 3D solid-CAD / B-rep manufacturing-geometry ingress in Fabrication beyond the 2D `ACadSharp` DXF/DWG path: `ImportStep` (AP203/AP214/AP242) / `ImportIges` -> an `OcctShape` B-rep (`OcctFace`/`OcctEdge`/`OcctWire`/`OuterWire` topology) tessellated through `OcctMesh`, with `ExportStep`/`ExportIges`/`ExportStl`, primitive modeling (box/cylinder/sphere/edge/face/wire), boolean fuse/cut/common, extrude/revolve, translate, and bounding-box over OCCT 7.9.3. Ships `lib/net10.0` plus a real `runtimes/osx-arm64/native` OCCT 7.9.3 build (dynamic-link, LGPL-2.1-with-OCCT-exception-1.0 clean); wrapper MIT. SCOPE: single-shape import only — it does NOT surface TKHLR hidden-line-removal (the `.dylib` ships unbound) nor TKXCAF assembly/color/PMI, so the HLR projection stays in `Posting/projection`. plan-cs boundary-maps at the `OcctShape`/`OcctMesh` seam, never passing a kernel geometry type into the OCCT ABI.
 
-[QUANTITY_INGRESS]:
-- `UnitsNet`
-
-[CONTENT_IDENTITY]:
-- `System.IO.Hashing` — the Nesting content-identity owner: the `Remnant`/`Stock` `XxHash128` content address and the `NoFitPolygon.PairKey` precompute-memo digest. No cross-kernel `NAMING_HASH` owner consumes it; the federation hash is wired wholly in-folder.
-
 [REJECTED]:
 - `netDxf` — present in the central manifest as an `Rasm.AppUi` DXF-write dependency, NOT a Fabrication rail. Rejected as a second DXF reader: DXF-only (no DWG, no AC1014-AC1032 spread), no managed `Spline`/bulge sampler parity with `ACadSharp`. No sibling kernel opens a `netDxf` reader beside `ProfileImport`.
 - `MaxRect`, `BinPack.NET` — rejected rectangle packers: AABB-only, cannot express true-shape NFP feasibility, superseded by `RectpackSharp` as the axis-aligned fast-path arm.
@@ -71,17 +65,22 @@ Domain libraries owned outside the C# substrate registry. Versions are centraliz
 
 ## [03]-[SUBSTRATE_PACKAGES]
 
-Substrate cards this folder consumes from the registry. Full substrate law and package charters live in `libs/csharp/.planning/README.md`; decompile evidence for domain packages lives in this folder's `.api/`.
+Substrate cards this folder consumes from the registry. Full substrate law and package charters live in `libs/csharp/.planning/README.md`; shared API evidence lives in `libs/csharp/.api/`.
 
 [FUNCTIONAL_CORE]:
 - `LanguageExt.Core`
 - `Thinktecture.Runtime.Extensions`
 - `JetBrains.Annotations`
 
+[TIME_IDENTITY]:
+- `System.IO.Hashing`
+
+[NUMERIC_SUBSTRATE]:
+- `UnitsNet`
+
 [TEST_SUBSTRATE]:
 - `xunit.v3.core`
 - `CsCheck`
 - `coverlet.MTP`
 - `BenchmarkDotNet`
-- `SharpFuzz`
 - `Verify.XunitV3`

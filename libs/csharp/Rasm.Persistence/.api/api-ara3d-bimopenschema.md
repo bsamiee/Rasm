@@ -10,7 +10,7 @@
 - license: MIT (`licenses.nuget.org/MIT` — Ara3D; `github.com/ara3d/bim-open-schema`)
 - assembly: `Ara3D.BimOpenSchema`
 - namespace: `Ara3D.BimOpenSchema`
-- dependency: `Ara3D.SDK` (declared `1.4.1`; centrally pinned `1.4.2`) — supplies the `Ara3D.DataTable` `IDataSet`/`IDataTable`/`DataTableExtensions` columnar abstraction the model projects to
+- dependency: `Ara3D.SDK` `1.4.2` — supplies the `Ara3D.DataTable` `IDataSet`/`IDataTable`/`DataTableExtensions` columnar abstraction the model projects to
 - target frameworks: `net8.0`
 - asset: runtime library, pure-managed AnyCPU, NO native RID asset. The `net10.0` consumer binds `lib/net8.0`.
 - rail: analytics-exchange (BIM)
@@ -22,11 +22,11 @@
 - license: MIT (`licenses.nuget.org/MIT` — Ara3D)
 - assembly: `Ara3D.BimOpenSchema.IO`
 - namespace: `Ara3D.BimOpenSchema.IO`
-- dependencies: `Ara3D.BimOpenSchema` `1.0.1`; `Ara3D.SDK` (declared `1.4.1`, pinned `1.4.2`); `ClosedXML` (declared/pinned `0.105.0`, the Excel codec); `DuckDB.NET.Data.Full` (declared `1.3.2`, centrally pinned `1.5.3`); `Parquet.Net` (declared `5.1.1`, centrally pinned `6.0.3`)
+- dependencies: `Ara3D.BimOpenSchema` `1.0.1`; `Ara3D.SDK` `1.4.2`; `ClosedXML` `0.105.0` (the Excel codec); `DuckDB.NET.Data.Full` `1.5.3` (the DuckDB codec + native dylib); `Parquet.Net` `6.0.3` (the managed Parquet codec)
 - target frameworks: `net8.0`
 - asset: runtime library, pure-managed AnyCPU at the IO layer; the native floor rides the transitives — `DuckDB.NET.Data.Full` carries the `duckdb` osx-arm64 dylib (`DuckDB.NET.Bindings.Full`), `Parquet.Net`/`ClosedXML` are pure-managed
 - rail: analytics-exchange (BIM)
-- ABI floor: also a DEBUG build (`AssemblyConfiguration("Debug")`, optimizations disabled). The central manifest LIFTS the transitives above the declared floors (`Parquet.Net` `5.1.1`->`6.0.3`, `DuckDB.NET.Data.Full` `1.3.2`->`1.5.3`, `Ara3D.SDK` `1.4.1`->`1.4.2`) under `CentralPackageTransitivePinningEnabled`. The lift is binding-safe at the load-bearing entrypoints: `ParquetReader.CreateAsync(string|Stream, ParquetOptions?, [bool,] CancellationToken)`, `ParquetWriter.CreateAsync(ParquetSchema, Stream, ParquetOptions?, bool, CancellationToken)`, `new DataField(string, Type, bool?, bool?, string?)`, `new ParquetSchema(IEnumerable<Field>)`, and `DuckDBConnection.CreateAppender(string)`/`IDuckDBAppenderRow.CreateRow()` all exist with matching signatures in `6.0.3`/`1.5.3`.
+- ABI floor: also a DEBUG build (`AssemblyConfiguration("Debug")`, `DisableOptimizations | EnableEditAndContinue`) — the same un-optimized-IL caveat as the model assembly, so a hot codec loop pays the un-JIT-optimized penalty. Its Parquet/DuckDB codec calls (`ParquetReader.CreateAsync`/`ParquetWriter.CreateAsync`, `new DataField(...)`, `new ParquetSchema(IEnumerable<Field>)`, `DuckDBConnection.CreateAppender(string)`/`IDuckDBAppenderRow.CreateRow()`) bind the centrally-pinned `Parquet.Net` `6.0.3` and `DuckDB.NET.Data.Full` `1.5.3`.
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -70,8 +70,8 @@
 |  [02]   | `builder.AddDocument`                              | `DocumentIndex AddDocument(string title, string pathName)`               | intern a source document                             |
 |  [03]   | `builder.AddDescriptor`                            | `DescriptorIndex AddDescriptor(string name, string units, string group, ParameterType pt)` | intern a parameter descriptor (name/units/group) |
 |  [04]   | `builder.AddString` / `AddPoint`                  | `StringIndex AddString(string)` / `PointIndex AddPoint(Point)`           | intern a string / a 3D point                         |
-|  [05]   | `builder.AddParameter`                             | `void AddParameter(EntityIndex e, double|int|string|EntityIndex|Point val, DescriptorIndex d)` | bind a typed parameter value to an entity (5 value overloads) |
-|  [06]   | `builder.AddParameter`                             | `void AddParameter(EntityIndex e, <T> val, string name, string units, string group)` | bind + intern descriptor inline (5 value overloads)  |
+|  [05]   | `builder.AddParameter`                             | `void AddParameter(EntityIndex e, double|int|string|EntityIndex|PointIndex|Point val, DescriptorIndex d)` | bind a typed parameter value to an entity (6 value overloads — `PointIndex` binds a pre-interned point, `Point` interns inline) |
+|  [06]   | `builder.AddParameter`                             | `void AddParameter(EntityIndex e, <T> val, string name, string units, string group)` | bind + intern descriptor inline (6 value overloads: `double`/`int`/`string`/`EntityIndex`/`PointIndex`/`Point`)  |
 |  [07]   | `builder.AddRelation`                             | `void AddRelation(EntityIndex a, EntityIndex b, RelationType rt)`         | add a typed graph edge                               |
 |  [08]   | `builder.Data`                                     | field `BimData`                                                          | the accumulated columnar model                        |
 
@@ -122,8 +122,8 @@
 - `ExpandedBIMData` is the denormalized read model: it resolves every `StringIndex` to its `string` and builds `RelationsFrom`/`RelationsTo` (the adjacency lists), `ParametersByEntity`, and `ParametersByName` so a downstream query reads `entity -> parameters` and `entity -> relations` without re-scanning the columns.
 
 [DATASET_BRIDGE]:
-- `ToDataSet()` is the single projection from the domain-specific `BimData` to the generic `Ara3D.DataTable` `IDataSet` (eleven `IDataTable`s named `Entities`/`Documents`/`Strings`/`Points`/`Descriptors`/`Relations`/`DoubleParameters`/`IntegerParameters`/`StringParameters`/`EntityParameters`/`PointParameters`). Every IO codec consumes the `IDataSet`, NOT the `BimData` directly — so JSON is the only codec that reads `BimData` structurally; Parquet/DuckDB/Excel are generic columnar codecs over the `IDataSet`.
-- The DuckDB writer suffixes each table name with its ordinal (`Points_0`, `Strings_1`, …) and round-trips by `GetTableNames` -> `ReadTable`; a consumer querying the `.duckdb` directly must reference the suffixed names.
+- `ToDataSet()` is the single projection from the domain-specific `BimData` to the generic `Ara3D.DataTable` `IDataSet`. The eleven `IDataTable`s are emitted in a FIXED order that IS the DuckDB ordinal suffix — `Points`(0)/`Strings`(1)/`Descriptors`(2)/`Documents`(3)/`Entities`(4)/`Relations`(5)/`DoubleParameters`(6)/`IntegerParameters`(7)/`StringParameters`(8)/`EntityParameters`(9)/`PointParameters`(10). Every IO codec consumes the `IDataSet`, NOT the `BimData` directly — so JSON is the only codec that reads `BimData` structurally; Parquet/DuckDB/Excel are generic columnar codecs over the `IDataSet`.
+- The DuckDB writer suffixes each table name with that projection ordinal (`Points_0`, `Strings_1`, `Descriptors_2`, …, `Entities_4`, `DoubleParameters_6`, …, `PointParameters_10`) and round-trips by `GetTableNames` -> `ReadTable`; a consumer querying the `.duckdb` directly must reference the suffixed names by this exact order.
 
 [STACK]:
 - duckdb seam: `data.WriteDuckDB(fp)` writes a DuckDB database the folder's OWN `DuckDB.NET.Data.Full` (`api-duckdb.md`) opens — a Persistence analytics query SQL-joins `Entities`/`DoubleParameters`/`Relations` in-process (`SELECT … FROM Entities_4 e JOIN DoubleParameters_6 p ON p."Entity" = …`), reusing the one centrally pinned `DuckDB.NET.Data.Full` `1.5.3` and its osx-arm64 dylib. No second DuckDB runtime.
@@ -135,7 +135,7 @@
 - Packages: `Ara3D.BimOpenSchema` + `Ara3D.BimOpenSchema.IO` `1.0.1` (MIT, pure-managed AnyCPU, `net10.0` binds `net8.0`, DEBUG-built IL)
 - Owns: the columnar SoA BIM schema (`BimData` + typed indices + EAV parameter columns + `EntityRelation` graph), the interning `BimDataBuilder`, the `ExpandedBIMData` join view, the `IDataSet` bridge, and the JSON/Parquet-zip/DuckDB/Excel codecs over `Ara3D.DataTable`
 - Accept: a BIM model authored through `BimDataBuilder` and exported via `ToDataSet()` to the analytics codecs; a `.duckdb`/`.parquet` queried by the folder's own DuckDB/ParquetSharp/Arrow rails at the file boundary
-- Reject: a hand-rolled BIM-to-tabular flattener where `BimData`/`ExpandedBIMData` + `ToDataSet()` model it; a second Parquet/DuckDB runtime where the folder pins own the engine; treating the DEBUG-built hot path as production-optimized without measuring; treating the `Parquet.Net`/`DuckDB.NET` version lift as unvalidated (the load-bearing entrypoints are signature-stable, ABI floor above)
+- Reject: a hand-rolled BIM-to-tabular flattener where `BimData`/`ExpandedBIMData` + `ToDataSet()` model it; a second Parquet/DuckDB runtime where the folder pins own the engine; treating the DEBUG-built hot path as production-optimized without measuring; referencing the written DuckDB tables by bare name where the `<Name>_<n>` projection-ordinal suffix ([DATASET_BRIDGE]) is the real identity
 
 ## [05]-[CATALOGUE_LAW]
 
@@ -143,5 +143,4 @@
 - This page carries `Ara3D.BimOpenSchema[.IO]` API facts only; the Persistence analytics-owner case algebra, the content-key projection, and the columnar query rail are owned by the design pages.
 - Parquet lane separation: BimOpenSchema.IO uses MANAGED `Parquet.Net` (`6.0.3`) for its own read/write; the folder's `ParquetSharp` (native libparquet-cpp) is a DISTINCT engine that reads the same files. The two never substitute at the API — they meet only at the `.parquet` file format.
 - Excel lane separation: BimOpenSchema.IO writes via `ClosedXML`; the folder's `Sylvan.Data.Excel` is the streaming READER. Distinct codecs, one file boundary.
-- DuckDB shared: the writer and the folder's query rail use the ONE centrally pinned `DuckDB.NET.Data.Full`; the suffixed table-name convention (`<Name>_<n>`) is a serializer fact a direct SQL consumer honors.
-- Version-lift note: the central pins (`Parquet.Net` `6.0.3`, `DuckDB.NET.Data.Full` `1.5.3`, `Ara3D.SDK` `1.4.2`) lift the declared transitive floors; the lift is verified binding-safe at the load-bearing entrypoints (`[01]-[PACKAGE_SURFACE]` ABI floor), and a manifest bump owns any re-validation, not this page.
+- DuckDB shared: the writer and the folder's query rail use the ONE centrally pinned `DuckDB.NET.Data.Full`; the suffixed table-name convention (`<Name>_<n>`, projection order in [DATASET_BRIDGE]) is a serializer fact a direct SQL consumer honors.

@@ -65,7 +65,7 @@ result-visualization leg of `Solver/contract#SOLVE_CONTRACT` for the 2D structur
 
 | [INDEX] | [SYMBOL]                       | [TYPE_FAMILY]      | [RAIL]                                            |
 | :-----: | :----------------------------- | :----------------- | :----------------------------------------------- |
-|  [01]   | `DxfDocument` (`: DxfObject`)   | drawing root       | `Entities`/`Layers`/`Blocks`/`Layouts`/`DrawingVariables`; `Load`/`Save`/`AddEntity`/`RemoveEntity` |
+|  [01]   | `DxfDocument` (`: DxfObject`)   | drawing root       | `Entities` (`DrawingEntities`)/`Layers`/`Blocks` (`BlockRecords`)/`Layouts`/`DrawingVariables`; `Load`/`Save`; netDxf 3.x routes entity add/remove through `Entities.Add`/`Entities.Remove`, not document-level `AddEntity` |
 |  [02]   | `Vector2` / `Vector3` (struct) | geometry value     | the 2D/3D coordinate the entity start/end/position carries |
 |  [03]   | `AciColor`                     | color value        | the ACI color (`Cyan`/`Yellow`/`Blue`/`Red`/`Green`/…) a layer/entity carries |
 |  [04]   | `Lineweight` (enum)            | weight value       | the line weight a layer/entity carries |
@@ -132,8 +132,8 @@ result-visualization leg of `Solver/contract#SOLVE_CONTRACT` for the 2D structur
 | [INDEX] | [SURFACE]                                                          | [ENTRY_FAMILY]  | [RAIL]                                            |
 | :-----: | :---------------------------------------------------------------- | :-------------- | :----------------------------------------------- |
 |  [01]   | `new DxfDocument(DxfVersion)` / `new DxfDocument()`               | construct       | an empty drawing at an AutoCAD release |
-|  [02]   | `doc.AddEntity(EntityObject)` / `doc.RemoveEntity(EntityObject)`  | author          | add/remove a `Line`/`MText`/`Hatch`/… entity |
-|  [03]   | `doc.Save(string file, bool isBinary = false)` / `Save(Stream, bool)` | save        | write the `.dxf` (ASCII or binary) |
+|  [02]   | `doc.Entities.Add(EntityObject)` / `doc.Entities.Remove(EntityObject)` (also `Add(IEnumerable<EntityObject>)`) | author          | add/remove a `Line`/`MText`/`Hatch`/… entity through the `DrawingEntities` collection |
+|  [03]   | `doc.Save(string file)` / `Save(string file, bool isBinary)` / `Save(Stream)` / `Save(Stream, bool isBinary)` | save        | write the `.dxf` (ASCII, or binary DXF with `isBinary`) |
 |  [04]   | `DxfDocument.Load(string file, IEnumerable<string> supportFolders)` / `Load(Stream, …)` | open | re-read a `.dxf` document |
 |  [05]   | `doc.Layers` / `doc.Blocks` / `doc.Layouts` / `doc.DrawingVariables` | document tables | the layer/block/layout/header collections |
 

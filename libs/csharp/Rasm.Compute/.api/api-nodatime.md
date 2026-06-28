@@ -106,6 +106,9 @@ packages (`.api/api-nodatime-protobuf.md`); this catalog is the core temporal ow
 |  [14]   | `Period.Between`                 | period calculation | calendar span difference    |
 |  [15]   | `PeriodBuilder.Build`            | period builder     | mutable span finalization   |
 |  [16]   | `Interval.Contains`              | interval predicate | receipt-window membership   |
+|  [17]   | `Instant.Plus` / `Instant.Minus` | instant arithmetic | `Plus(Duration)`/`Minus(Duration)` advance/retract (operator `+`/`-` twins) — hot-path deadline math interior to the receipt boundary |
+|  [18]   | `Instant.MaxValue` / `Instant.MinValue` | instant sentinel | saturating bound for an unbounded deadline / open window (`Instant.MaxValue` is the never-expire latch the idle-unload sweep reads) |
+|  [19]   | `Duration.Zero`                  | duration sentinel  | the identity elapsed span (zero delay / no-op TTL)        |
 
 [ENTRYPOINT_SCOPE]: zone calendar and resolver operations
 - rail: time
@@ -157,6 +160,7 @@ packages (`.api/api-nodatime-protobuf.md`); this catalog is the core temporal ow
 |  [15]   | `ToDateTimeOffset`              | BCL conversion          | BCL timestamp output       |
 |  [16]   | `ToDuration`                    | BCL conversion          | elapsed span intake        |
 |  [17]   | `ToTimeSpan`                    | BCL conversion          | elapsed span output        |
+|  [18]   | `ToDateTimeUtc`                 | BCL conversion          | `Instant.ToDateTimeUtc()` → `DateTime` (`Kind=Utc`) at the gRPC `CallOptions.WithDeadline` edge |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

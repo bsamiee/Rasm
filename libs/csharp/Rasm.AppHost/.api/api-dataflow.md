@@ -33,6 +33,16 @@ and ordered handoff for AppHost drain.
 |  [11]   | `IPropagatorBlock<TInput,TOutput>`   | block contract     | consumes and produces |
 |  [12]   | `IReceivableSourceBlock<T>`          | receive contract   | supports pull receive |
 
+[PUBLIC_TYPE_SCOPE]: block-options family
+- rail: work-queue
+
+| [INDEX] | [SYMBOL]                        | [PACKAGE_ROLE]     | [CAPABILITY]                                                                                        |
+| :-----: | :------------------------------ | :----------------- | :------------------------------------------------------------------------------------------------- |
+|  [01]   | `DataflowBlockOptions`          | base block options | `BoundedCapacity` (`const Unbounded = -1`), `CancellationToken`, `EnsureOrdered`, `TaskScheduler`, `MaxMessagesPerTask`, `NameFormat` |
+|  [02]   | `ExecutionDataflowBlockOptions` | execution options  | `: DataflowBlockOptions` + `MaxDegreeOfParallelism`, `SingleProducerConstrained` (action / transform blocks) |
+|  [03]   | `GroupingDataflowBlockOptions`  | grouping options   | `: DataflowBlockOptions` + `Greedy`, `MaxNumberOfGroups` (batch / join / batched-join blocks)        |
+|  [04]   | `DataflowLinkOptions`           | link options       | `PropagateCompletion`, `MaxMessages`, `Append` — passed to `LinkTo`                                  |
+
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: block operations
@@ -60,6 +70,7 @@ and ordered handoff for AppHost drain.
 - producer contracts: `ITargetBlock<T>`, `ISourceBlock<T>`, `IPropagatorBlock<TInput,TOutput>`
 - block families: buffer, action, transform, broadcast, batch, join, write-once
 - policy knobs: bounded capacity, cancellation token, scheduler, max degree, ordered output, greedy grouping
+- option types: `DataflowBlockOptions` (base) → `ExecutionDataflowBlockOptions` (`MaxDegreeOfParallelism` for action/transform) and `GroupingDataflowBlockOptions` (`Greedy`/`MaxNumberOfGroups` for batch/join); `DataflowLinkOptions.PropagateCompletion` fans completion across every `LinkTo`
 - lifecycle: accept, complete, fault, propagate completion, await completion task
 
 [MESSAGE_TOPOLOGY]:

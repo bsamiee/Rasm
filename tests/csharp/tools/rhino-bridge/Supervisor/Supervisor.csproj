@@ -5,7 +5,7 @@
         <!-- StreamJsonRpc0008: SystemTextJsonFormatter is the only loaded wire formatter. -->
         <NoWarn>$(NoWarn);StreamJsonRpc0008</NoWarn>
     </PropertyGroup>
-    <ItemGroup>
+    <ItemGroup Label="Project References">
         <ProjectReference Include="../../../../../tools/rhino-bridge/Contract/Contract.csproj" />
         <ProjectReference Include="../../../../../tools/rhino-bridge/Supervisor/Supervisor.csproj" />
     </ItemGroup>

@@ -27,7 +27,7 @@ The engine reads as eleven domains; each row is one authored design page under `
 - [RASTER_MEASURE](.planning/graphic/raster/measure.md): The `scikit-image` measured-score half producing scalars — `_measure` (contours/entropy/HOG/blobs/LBP/corners), `_register` (optical-flow/phase-correlation), and `_metrics` (the six perceptual-quality scalars) contributed as `MEASURE_TRANSFORMS`, stamping the `RasterFact.score` map, composing the `process#PROCESS` substrate.
 - [MARKS_DECODE](.planning/graphic/marks/decode.md): `_zxing_decode` machine-readable-mark decode inverse the generation arms cannot express — `zxing-cpp` `read_barcodes` recovering text/format/validity/quad-position from a raster mark, the one `MarkOp` arm crossing the gated subprocess seam (because `read_barcodes` opens its raster through gated Pillow), folding the shared `RasterFact`.
 - [COLOR_DERIVE](.planning/graphic/color/derive.md): `Colorimetry` upstream color-derivation owner over `colour-science` (CIE convert/spectral/CAM16/`delta_E`/chromatic-adaptation/CCT) + `ColorAide` (gamut-map/CVD/perceptual-palette/harmony/WCAG contrast), the one color source every visual plane pulls palettes from, folding `ColorReceipt`, feeding the `managed` ICC leg.
-- [COLOR_MANAGED](.planning/graphic/color/managed.md): `ColorManaged` ICC/LUT/CCTF color-managed raster-egress owner — the `colour-science` `cctf_encoding`/`read_LUT`/`LUTSequence.apply` tone chain on the core then `pillow` `ImageCms` ICC apply under `RenderingIntent` on the gated subprocess seam (the one async-forcing leg), contributing `ArtifactReceipt.Preview`.
+- [COLOR_MANAGED](.planning/graphic/color/managed.md): `ColorManaged` ICC/LUT/CCTF color-managed raster-egress owner — the `colour-science` `cctf_encoding`/`read_LUT`/`LUTSequence.apply` tone chain on the core then `pillow` `ImageCms` ICC apply under `RenderingIntent` on the subprocess seam (the one async-forcing leg), contributing `ArtifactReceipt.Preview`.
 
 [typography] — font binary + glyph shaping + line-layout:
 - [FONT](.planning/typography/font.md): `FontEngineering` font-binary owner over `fonttools` — `subset.Subsetter` footprint reduction, `varLib.instancer` partial-axis instancing under `AxisLimit`, `fvar`/`STAT` axis introspection into `AxisCatalog`, the `SVGPathPen` outline bridge, and embed-completeness audit; the subset->instance->embed-precondition chain consumed by `document/emit#DOCUMENT` `FONT_EMBED`.
@@ -39,8 +39,8 @@ The engine reads as eleven domains; each row is one authored design page under `
 - [IMPOSITION](.planning/composition/imposition.md): `Imposition` n-up/booklet/signature press-imposition owner over the closed-payload `ImposeOp` union — the `Scheme` `NUP`/`BOOKLET`/`SIGNATURE` `Plan`-row page-order and `Geometry`/`Imposed` value family over `pymupdf.show_pdf_page` (`pdfimpose` admission-pending RESEARCH); the dedicated multi-sheet engine distinct from the `egress#IMPOSE` finishing step.
 
 [export] — editable layered hand-off for Illustrator/InDesign:
-- [LAYERED](.planning/export/layered.md): `LayeredExport` editable-export owner over the closed `ExportOp` union — `SvgLayers` (`drawsvg` named `Group(id=)`), `PdfOcg` (`pymupdf` `add_ocg`/`oc=` optional-content groups), `PdfSurgery` (`pikepdf` `/OCProperties` object-model surgery), and `TiffLayers` (`psdtags`+`tifffile` layered TIFF) — binding placed sources as named editable layers rather than flattened path soup.
-- [INDESIGN](.planning/export/indesign.md): `Idml` IDML template-mutation hand-off over the closed `IdmlOp` union — `Compose`/`Combine`/`Import`/`Place` mutating an InDesign-exported `.idml` template through SimpleIDML, feeding content INTO the named XML structure rather than synthesizing geometry; contributes `ArtifactReceipt.Office`.
+- [LAYERED](.planning/export/layered.md): `LayeredExport` editable-export owner over SVG named layers, PDF optional-content groups, and OpenRaster `ORA` packages, binding placed sources as named editable layers rather than flattened path soup.
+- [INDESIGN](.planning/export/indesign.md): `Idml` IDML template-mutation hand-off over the closed `IdmlStep` family, mutating one InDesign-exported `.idml` template through its named XML structure and contributing `ArtifactReceipt.Office`.
 
 [exchange] — metadata / provenance / format identification at the boundary:
 - [METADATA](.planning/exchange/metadata.md): `Metadata` descriptive-metadata read/write owner over the closed `MetaStandard` axis — `EXIF` over `exif`, `XMP` over `pikepdf` `open_metadata()`, `IPTC` over `iptcinfo3` — discriminating `MetaOp` read/write by standard-and-direction; the PDF/XMP scalar path in-process on `pikepdf`, the EXIF/IPTC raster paths admission-pending and signature-locked.
@@ -150,17 +150,16 @@ Every domain rendering library this folder uses. Versions are centralized in the
 [Media]:
 - `av` (PyAV container/codec read/write for `media/video` + `media/audio` duration/codec receipts on the FFmpeg floor)
 
-[Unlocked admitted surfaces]: capabilities the new pages reach on packages ALREADY admitted above — no new pin:
+[Unlocked admitted surfaces]: capabilities the new pages reach through existing package rows:
 - `pikepdf` XMP — `Pdf.open_metadata()` scalar read/write, the in-process `exchange/metadata` PDF/XMP path beside the `/OCProperties` object-model surgery the `export/layered` `PdfSurgery` arm uses.
-- `pyvips` ICC — the fused-libvips decode/downscale/ICC/smartcrop streaming pipeline the `graphic/raster/io` high-throughput provider reaches on the Forge `libvips` floor.
+- `pyvips` ICC — the fused-libvips decode/downscale/ICC/smartcrop streaming pipeline the `graphic/raster/io` high-throughput provider reaches through the Forge `libvips` runtime.
 
-[Admission-pending]: design-intent libraries the new pages cite but that are NOT yet admitted/installed — signature-locked and marked RESEARCH until a central manifest pin and a folder `.api` catalogue land:
+[Admission candidates]: design-intent libraries whose package row and folder `.api` catalogue must land before production code imports them:
 - `grandalf` — Sugiyama hierarchical layered graph layout for the `visualization/diagram/layout` stacking/program flow kinds beside the admitted `rustworkx` force-directed/radial layouts
 - `uniseg` — UAX#14 mandatory/opportunity line-break positions for the `typography/layout` Knuth-Plass paragraph owner
 - `pyphen` — soft-hyphenation opportunities a tight measure needs, beside `uniseg` in `typography/layout`
-- `psdtags` + `tifffile` — Photoshop-compatible layered TIFF assembly for the `export/layered` `TiffLayers` arm
-- `simple_idml` (SimpleIDML) — IDML template-mutation (`Compose`/`Combine`/`Import`/`Place`) for the `export/indesign` hand-off
-- `exif` + `iptcinfo3` — EXIF (`Image`) and IPTC (`IPTCInfo`) raster descriptive-metadata read/write for the `exchange/metadata` EXIF/IPTC arms (`python-xmp-toolkit` is the companion-gated compound-RDF XMP path beside the admitted `pikepdf` scalar path)
+- `simpleidml` (SimpleIDML) — IDML template-mutation for the `export/indesign` `IdmlStep` hand-off
+- `exif` + `iptcinfo3` — EXIF (`Image`) and IPTC (`IPTCInfo`) raster descriptive-metadata read/write for the `exchange/metadata` EXIF/IPTC arms (`python-xmp-toolkit` is the compound-RDF XMP path beside the admitted `pikepdf` scalar path)
 - `pdfimpose` — native saddle-stitch/folded-signature page-order computation for the `composition/imposition` `BOOKLET`/`SIGNATURE` schemes (until it lands, the page-order is the settled half-fold integer arithmetic over `pymupdf.show_pdf_page`)
 
 ## [03]-[SUBSTRATE_PACKAGES]

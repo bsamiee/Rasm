@@ -141,6 +141,10 @@ specific AI provider.
 |  [06]   | `ChatClientExtensions.GetResponseAsync(client, text, ...)`    | extension call | text shorthand overload                        |
 |  [07]   | `ChatOptions.Clone()`                                         | copy call      | shallow clone of request options               |
 |  [08]   | `IChatReducer.ReduceAsync(messages, ct)`                      | reduce call    | shrinks `IEnumerable<ChatMessage>`             |
+|  [09]   | `ChatResponse.Usage` / `ChatResponse.Messages`               | property       | `UsageDetails?` aggregated usage; `IList<ChatMessage>` response messages |
+|  [10]   | `UsageDetails.InputTokenCount` / `OutputTokenCount` / `TotalTokenCount` | property | `long?` token counts the cost meter reads (also `CachedInputTokenCount`/`ReasoningTokenCount`) |
+|  [11]   | `ChatResponseExtensions.ToChatResponse(this IEnumerable<ChatResponseUpdate>)` | extension call | folds a streamed update list into one `ChatResponse` (async twin `ToChatResponseAsync(IAsyncEnumerable<…>, CT)`) |
+|  [12]   | `ChatToolMode.Auto` / `.None` / `.RequireAny` / `.RequireSpecific(string)`    | static accessor | `AutoChatToolMode`/`NoneChatToolMode`/`RequiredChatToolMode` singletons seated on `ChatOptions.ToolMode` |
 
 [ENTRYPOINT_SCOPE]: embedding generator operations
 - rail: capability-agent
@@ -151,6 +155,8 @@ specific AI provider.
 |  [02]   | `IEmbeddingGenerator.GetService(serviceType, serviceKey?)`          | service call   | inner service discovery    |
 |  [03]   | `EmbeddingGeneratorExtensions.GenerateAsync(gen, value, opts?, ct)` | extension call | scalar input overload      |
 |  [04]   | `EmbeddingGeneratorExtensions.GetService<TService>(gen, key?)`      | extension call | typed service discovery    |
+|  [05]   | `Embedding<TEmbedding>.Vector`                                      | property       | `ReadOnlyMemory<TEmbedding>` payload; `.Vector.Span` feeds the cosine rank |
+|  [06]   | `GeneratedEmbeddings<TEmbedding>[index]`                            | batch indexer  | per-input `Embedding<TEmbedding>` (`IList<Embedding<T>>`) from the batch result |
 
 [ENTRYPOINT_SCOPE]: tool and function operations
 - rail: capability-agent
@@ -165,6 +171,7 @@ specific AI provider.
 |  [06]   | `AIFunction.JsonSerializerOptions`                        | property        | serializer options for arguments      |
 |  [07]   | `AIFunctionDeclaration.JsonSchema`                        | property        | `JsonElement` parameter schema        |
 |  [08]   | `AIFunctionDeclaration.ReturnJsonSchema`                  | property        | `JsonElement?` return schema          |
+|  [09]   | `AIFunction.InvokeCoreAsync(AIFunctionArguments, CancellationToken)`       | override seam    | `protected abstract ValueTask<object?>` — the subclass override point `InvokeAsync` delegates to (a custom `AIFunction` overrides this, never `InvokeAsync`) |
 
 [ENTRYPOINT_SCOPE]: ChatOptions properties
 - rail: capability-agent
@@ -209,6 +216,20 @@ specific AI provider.
 |  [01]   | `AIJsonUtilities.CreateJsonSchema(type, options?)` | schema call    | generates `JsonElement` schema for a type |
 |  [02]   | `AIJsonUtilities.DefaultOptions`                   | property       | shared `JsonSerializerOptions`            |
 |  [03]   | `DataUriParser.TryParse(dataUri, out DataUri?)`    | parse call     | parses a data URI string                  |
+
+[ENTRYPOINT_SCOPE]: message and content-part members
+- rail: capability-agent
+
+| [INDEX] | [SURFACE]                                                                                          | [ENTRY_FAMILY]  | [RAIL]                                                              |
+| :-----: | :------------------------------------------------------------------------------------------------- | :-------------- | :----------------------------------------------------------------- |
+|  [01]   | `new ChatMessage(ChatRole role, string? content)` / `new ChatMessage(ChatRole, IList<AIContent>?)` | ctor            | constructs a message from text or content parts                    |
+|  [02]   | `ChatMessage.Text`                                                                                 | property        | concatenated `TextContent` text (`AIContent.ConcatText()`, reasoning parts skipped) |
+|  [03]   | `ChatResponseUpdate.Contents`                                                                      | property        | `IList<AIContent>` streamed-update parts, indexable for in-place rewrite |
+|  [04]   | `TextContent(string)` / `TextContent.Text` / `TextReasoningContent.Text`                           | ctor / property | text and chain-of-thought part construction and read              |
+|  [05]   | `AIContent.RawRepresentation`                                                                      | property        | `object?` underlying provider object on any content part          |
+|  [06]   | `FunctionCallContent.Name` / `.CallId` / `.Arguments`                                              | property        | tool-call name, pairing id, `IDictionary<string,object?>?` args; ctor `(callId, name, arguments?)` |
+|  [07]   | `FunctionResultContent.Result` / `.CallId`                                                         | property        | tool-result `object?` payload and pairing id; ctor `(string callId, object? result)` |
+|  [08]   | `DelegatingChatClient(IChatClient innerClient)` / `.InnerClient`                                   | ctor / property | protected middleware base ctor and inner-client handle a custom delegating client overrides over |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

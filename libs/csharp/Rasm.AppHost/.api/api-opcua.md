@@ -176,6 +176,24 @@ The managed client pivots by lifecycle stage; configuration, reverse-connect, en
 - `MonitoredItemNotificationEventArgs.NotificationValue` casts to `MonitoredItemNotification` whose `DataValue Value` carries `object Value`, `StatusCode StatusCode`, and `DateTime SourceTimestamp`.
 - `NodeId.Parse(string)` resolves a node-id string; `new DataValue(new Variant(double))` wraps an outbound scalar; `StatusCode.IsGood(code)` grades quality; `Attributes.Value` selects the value attribute.
 
+[ENTRYPOINT_SCOPE]: managed arming and write-request members
+- rail: opcua-client
+
+The `Subscription` and `MonitoredItem` arming columns set on the object initializer before `CreateAsync`/`AddItem`; `WriteValue` carries one node-write request in the `WriteValueCollection` passed to `Session.WriteAsync`.
+
+| [INDEX] | [MEMBER]                          | [SIGNATURE]                                  | [NOTE]                                                  |
+| :-----: | :-------------------------------- | :------------------------------------------- | :----------------------------------------------------- |
+|  [01]   | `Subscription.PublishingInterval` | `int PublishingInterval { get; set; }`       | requested publish cadence (ms); `CurrentPublishingInterval` reads back the server-negotiated `double` |
+|  [02]   | `Subscription.KeepAliveCount`     | `uint KeepAliveCount { get; set; }`          | keep-alive cycles before an empty publish              |
+|  [03]   | `Subscription.LifetimeCount`      | `uint LifetimeCount { get; set; }`           | lifetime cycles before server drops the subscription   |
+|  [04]   | `MonitoredItem.StartNodeId`       | `NodeId StartNodeId { get; set; }`           | monitored node id (`NodeId.Parse(...)`)                |
+|  [05]   | `MonitoredItem.AttributeId`       | `uint AttributeId { get; set; }`             | monitored attribute (`Attributes.Value`)               |
+|  [06]   | `MonitoredItem.SamplingInterval`  | `int SamplingInterval { get; set; }`         | server sampling cadence (ms)                           |
+|  [07]   | `MonitoredItem.MonitoringMode`    | `MonitoringMode MonitoringMode { get; set; }`| `Disabled`/`Sampling`/`Reporting`                      |
+|  [08]   | `WriteValue.NodeId`               | `NodeId NodeId { get; set; }`                | target node of the write request                       |
+|  [09]   | `WriteValue.AttributeId`          | `uint AttributeId { get; set; }`             | target attribute of the write request                  |
+|  [10]   | `WriteValue.Value`                | `DataValue Value { get; set; }`              | value payload (`new DataValue(new Variant(...))`)      |
+
 [ENTRYPOINT_SCOPE]: certificate PKI operations
 - rail: opcua-core
 
@@ -200,6 +218,7 @@ The managed client pivots by lifecycle stage; configuration, reverse-connect, en
 |  [05]   | `UaPubSubApplication.Start()`                                       | lifecycle call  | starts all configured connections        |
 |  [06]   | `UaPubSubApplication.Stop()`                                        | lifecycle call  | stops all connections                    |
 |  [07]   | `UaPubSubApplication.Dispose()`                                     | lifetime call   | releases connections and data store      |
+|  [08]   | `UaPubSubApplication.DataReceived`                                  | event           | `event EventHandler<SubscribedDataEventArgs>` — received-dataset fan (siblings `RawDataReceived`/`MetaDataReceived`); args carry `NetworkMessage` (`UaNetworkMessage`) + `Source` |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

@@ -4,7 +4,7 @@
         <CspScope>Application</CspScope>
     </PropertyGroup>
 
-    <ItemGroup>
+    <ItemGroup Label="Project References">
         <ProjectReference Include="../Rasm/Rasm.csproj" />
         <ProjectReference Include="../Rasm.AppHost/Rasm.AppHost.csproj" />
         <ProjectReference Include="../Rasm.Persistence/Rasm.Persistence.csproj" />
@@ -15,12 +15,12 @@
         <PackageReference Include="CSparse" />
         <PackageReference Include="GeneticSharp" />
         <PackageReference Include="Google.OrTools" />
+        <PackageReference Include="libtorch-cpu" />
         <PackageReference Include="MathNet.Numerics" />
         <PackageReference Include="MathNet.Numerics.Providers.MKL" />
         <PackageReference Include="MathNet.Numerics.Providers.OpenBLAS" />
         <PackageReference Include="System.Numerics.Tensors" />
         <PackageReference Include="TorchSharp" />
-        <PackageReference Include="libtorch-cpu" />
     </ItemGroup>
 
     <ItemGroup Label="Symbolic">
@@ -29,10 +29,10 @@
     </ItemGroup>
 
     <ItemGroup Label="Structural Solvers">
-        <PackageReference Include="FEALiTE2D" />
-        <PackageReference Include="FEALiTE2D.Plotting" />
         <PackageReference Include="BriefFiniteElement.Net" />
         <PackageReference Include="BriefFiniteElementNet.CustomElements" />
+        <PackageReference Include="FEALiTE2D" />
+        <PackageReference Include="FEALiTE2D.Plotting" />
     </ItemGroup>
 
     <ItemGroup Label="Models">

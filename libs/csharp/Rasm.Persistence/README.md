@@ -43,6 +43,7 @@ Every Persistence-domain library the folder uses, planned or implemented. Versio
 - `Npgsql.EntityFrameworkCore.PostgreSQL`
 - `Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite`
 - `Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime`
+- `Npgsql.NetTopologySuite`
 - `Npgsql.OpenTelemetry`
 - `EFCore.NamingConventions`
 - `linq2db.EntityFrameworkCore`
@@ -154,19 +155,19 @@ Full-featured production messaging-protocol clients backing the egress sink rows
 [WIRE_SERIALIZATION]:
 - `MessagePack`
 - `MessagePackAnalyzer`
-- `Thinktecture.Runtime.Extensions.MessagePack`
 - `K4os.Compression.LZ4`
 - `MPXJ.Net` (binary MS-Project .mpp / Primavera P6 XER/PMXML / Asta / Phoenix schedule-file codec via IKVM Java->IL bridge — the schedule-ingress lane the row-oriented `Sep`/`Sylvan` codecs lack)
 - `Sep`
 
 ## [03]-[SUBSTRATE_PACKAGES]
 
-Cross-cutting C# substrate libraries Persistence consumes; these are owned at the monorepo substrate layer. Package charters and API evidence live in `libs/csharp/.planning/README.md` and the adjacent `.api/` folder.
+Cross-cutting C# substrate libraries Persistence consumes; package charters live in `libs/csharp/.planning/README.md` and shared API evidence lives in `libs/csharp/.api/`.
 
 [FUNCTIONAL_CORE]:
 - `LanguageExt.Core`
 - `Thinktecture.Runtime.Extensions`
 - `Thinktecture.Runtime.Extensions.Json`
+- `Thinktecture.Runtime.Extensions.MessagePack`
 - `JetBrains.Annotations`
 
 [TIME_IDENTITY]:
@@ -180,5 +181,4 @@ Cross-cutting C# substrate libraries Persistence consumes; these are owned at th
 [TEST_SUBSTRATE]:
 - `Verify.XunitV3`
 - `BenchmarkDotNet`
-- `SharpFuzz`
 - `NodaTime.Testing`

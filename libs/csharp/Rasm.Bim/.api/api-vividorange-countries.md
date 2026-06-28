@@ -15,8 +15,8 @@ resolution is the one entrypoint: `Utility.GetCountry(Country)` maps an enum mem
 constructed `T Default`. Every country is `ICountry : ITaxonomySerializable`, so the national
 context round-trips through the same VividOrange taxonomy-serialization marker as loads and cases —
 one serialization seam for the whole structural taxonomy. The package STACKS with the Eurocode
-`NationalAnnex` (the `VividOrange.Standards.Eurocode` enum, a 37-member CEN subset) the `Cases`
-factories dispatch on, and maps onto the SAF `ExcelNationalCode` design-code axis
+`NationalAnnex` (`VividOrange.Standards.Eurocode.NationalAnnex`, a 37-member enum; `.api/api-vividorange-istandards`)
+the `Cases` factories dispatch on, and maps onto the SAF `ExcelNationalCode` design-code axis
 (`.api/api-structuralanalysisformat`) at the XLSX boundary; the `Country`↔`NationalAnnex` mapping
 is BY NAME at the design layer, not a compiled member (the standards-body abbreviation table that
 backs it is internal to `VividOrange.Standards`).
@@ -65,17 +65,17 @@ backs it is internal to `VividOrange.Standards`).
 [COUNTRY_TOPOLOGY]:
 - namespace: `VividOrange.Countries`
 - contract: `ICountry : ITaxonomySerializable` — `Name`, `CountryCode` (ISO 3166-1 alpha-2)
-- enum: `Country` — the full ISO 3166-1 nation set (249 members), the discriminant `Utility.GetCountry` switches on
+- enum: `Country` — the full ISO 3166-1 nation set (249 members, incl. 5 non-ASCII identifiers `Curaçao`/`CôteDivoire`/`Réunion`/`SaintBarthélemy`/`ÅlandIslands`), the discriminant `Utility.GetCountry` switches on; the 249 enum members and 249 `ICountry` singletons are 1:1, so `Utility.GetCountry` is total
 - singletons: 249 `sealed` classes (`Germany : SingletonCountryBase<Germany>, ICountry`), each a CRTP singleton whose `Default` is `Lazy<T>` over a non-public ctor
 - resolver: `Utility.GetCountry(Country)` is the one enum→`ICountry` map
 
 [LOCAL_ADMISSION]:
 - a model's national context is held as one `Country`/`ICountry`, resolved through `Utility.GetCountry`, never a free-text country string; the ISO `CountryCode` is the stable boundary key for georeference, addressing, and design-code selection
-- the Eurocode design-code regime is NOT read off `ICountry` directly — the `Cases` factories dispatch on `NationalAnnex` (the CEN subset), and the design layer maps the project nation onto a `NationalAnnex` by name, defaulting to `NationalAnnex.RecommendedValues` for a non-CEN nation
+- the Eurocode design-code regime is NOT read off `ICountry` directly — the `Cases` factories dispatch on `NationalAnnex` (the 37-member national-annex enum; `.api/api-vividorange-istandards`), and the design layer maps the project nation onto a `NationalAnnex` by name, defaulting to `NationalAnnex.RecommendedValues` for a nation with no national annex
 - the singleton classes are immutable read-only nation records; treat `Utility.GetCountry` as the canonical access path rather than `new`-ing a country per call
 
 [STACKING]:
-- with `VividOrange.Cases` + `VividOrange.IStandards` (`.api/api-vividorange-cases`): `Country` (249 ISO nations) is the broad national axis; `NationalAnnex` (37 CEN members incl. `RecommendedValues`) is the Eurocode parameter axis the `ENLoadCaseFactory`/`ENCombinationFactory` and the `ITableA1_1`/`ITableA1_2` `GetProperties` dispatch on — the two meet at the project's nation, bridged by name at the design layer (the `Country`→standards-body map is internal to `VividOrange.Standards`, not a public member)
+- with `VividOrange.Cases` (`.api/api-vividorange-cases`) + `VividOrange.IStandards` (`.api/api-vividorange-istandards`): `Country` (249 ISO nations) is the broad national axis; `NationalAnnex` (37 members incl. `RecommendedValues`) is the Eurocode parameter axis the `ENLoadCaseFactory`/`ENCombinationFactory` and the `ITableA1_1`/`ITableA1_2` `GetProperties` dispatch on — the two meet at the project's nation, bridged by name at the design layer (there is no compiled `Country`→`NationalAnnex` map; the `NationalAnnex`→standards-body abbreviation table is internal to `VividOrange.Standards`)
 - with `VividOrange.Stages` (`.api/api-vividorange-stages`): the lifecycle stage taxonomy's `IGovernance.Country` returns this `ICountry` (a compiled `VividOrange.IStages`→`VividOrange.Countries` pin), so the project-phase family reads the SAME national-context owner — the country a governing body (RIBA/HOAI/CSLP/AB89) belongs to is the same `Utility.GetCountry` value the structural standards key selects, never a parallel nation enum on the stage side; Countries is the one national-context owner across BOTH the structural (loads/cases) and lifecycle (stages) VividOrange families
 - with `VividOrange.ISerialization`: `ICountry : ITaxonomySerializable` shares the one taxonomy-serialization marker with loads, cases, AND stages — every VividOrange taxonomy carries the same marker, so the national context serializes through the one rail that covers the whole family
 - with `StructuralAnalysisFormat` (`.api/api-structuralanalysisformat`): the SAF `ExcelNationalCode` enum (`EC_DIN_EN`, `EC_NF_EN`, `EC_UNI_EN`, … plus `IBC`/`NBR`/`SIA_26x`) is the SAF design-code axis; a model's `ICountry` + selected `NationalAnnex` map onto the matching `ExcelNationalCode` at the XLSX boundary, and the `ExcelStructuralLoadCombination.NationalStandard` carries it on the wire

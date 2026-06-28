@@ -54,7 +54,7 @@ distributed caching over the same multiplexer.
 |  [20]   | `LuaScript`              | parsed script        | named-parameter Lua with `Prepare`/`Load`   |
 |  [21]   | `ChannelMessage`         | message value        | one `(Channel, Message)` queue item         |
 |  [22]   | `StreamEntry`            | stream entry         | one `(Id, NameValueEntry[])` log record     |
-|  [23]   | `StreamPosition`         | stream cursor        | `(Key, Position)` multi-stream read cursor  |
+|  [23]   | `StreamPosition`         | stream cursor        | `(Key, Position)` multi-stream read cursor; static `Beginning` (`0-0`) / `NewMessages` (`$`) sentinels seed `StreamReadGroup`/`StreamCreateConsumerGroup` |
 |  [24]   | `StreamIdempotentId`     | idempotent id        | 3.x dedup id for at-most-once `StreamAdd`   |
 |  [25]   | `StreamTrimMode`         | trim policy enum     | `KeepReferences`/`DeleteReferences`/`Acknowledged` |
 |  [26]   | `NameValueEntry`         | stream field pair    | field-value pair for stream records         |
@@ -125,6 +125,7 @@ The Redis Stream is the at-least-once durable log that COMPLEMENTS the best-effo
 |  [04]   | `StreamReadGroup(key, group, consumer, position?, count?, noAck?, claimMinIdleTime?, flags?)` | group drain | XREADGROUP cursor-replay with idle-claim takeover                      |
 |  [05]   | `StreamAcknowledge(key, group, messageIds, flags?)`                   | commit           | XACK the processed entries so the group cursor advances                |
 |  [06]   | `StreamCreateConsumerGroup(key, group, position?, …)`                | group setup      | XGROUP CREATE the replay cursor                                        |
+|  [07]   | `StreamReadGroupAsync(key, group, consumer, position?, count?, [noAck,] flags?)` / `StreamAcknowledgeAsync(key, group, messageId\|messageIds[], flags?)` / `StreamAddAsync(…)` | async twin | every `IDatabase` stream op has an `…Async` twin on `IDatabaseAsync` — the form the cache-fabric drain loop awaits |
 
 [ENTRYPOINT_SCOPE]: pub/sub and subscriber operations
 - rail: cache
@@ -186,6 +187,7 @@ The Redis Stream is the at-least-once durable log that COMPLEMENTS the best-effo
 |  [07]   | `IDatabase.Execute("FUNCTION", "LOAD", code)`            | raw command    | Redis 7 `FUNCTION LOAD` library register (no typed member; rides `Execute`) |
 |  [08]   | `IDatabase.Execute("FCALL", name, …)`                    | raw command    | invokes a loaded function (no typed member; rides `Execute`)                |
 |  [09]   | `IDatabase.Execute("FCALL_RO", name, …)`                 | raw command    | read-only function call routed to a replica (no typed member; rides `Execute`) |
+|  [10]   | `LuaScript.Evaluate(IDatabase db, object? ps = null, RedisKey? withKeyPrefix = null, CommandFlags = None)` / `EvaluateAsync(IDatabaseAsync db, object? ps = null, RedisKey? = null, CommandFlags = None)` (mirror on `LoadedLuaScript`) | script eval | `EVAL`/`EVALSHA` directly off the parsed/loaded script with `@name` params bound from an anonymous object — the single-flight lease drain form, beside `IDatabase.ScriptEvaluate` |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

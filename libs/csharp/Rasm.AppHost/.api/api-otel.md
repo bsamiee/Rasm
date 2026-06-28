@@ -60,7 +60,7 @@ sampling, context, and propagation surfaces for telemetry projection.
 |  [04]   | `SpanAttributes`             | attribute bag   | span attributes          |
 |  [05]   | `Link`                       | span link       | causal link              |
 |  [06]   | `Status`                     | span status     | trace result             |
-|  [07]   | `Sampler`                    | sampling policy | trace admission          |
+|  [07]   | `Sampler`                    | sampling policy | trace admission base; built-in `ParentBasedSampler(Sampler root[, remote/local sampled/notSampled])`, `TraceIdRatioBasedSampler(double probability)`, `AlwaysOnSampler`, `AlwaysOffSampler` |
 |  [08]   | `SamplingResult`             | sampling result | trace admission result   |
 |  [09]   | `Metric`                     | metric payload  | metric export payload    |
 |  [10]   | `MetricPoint`                | metric point    | metric timeseries point  |
@@ -106,7 +106,8 @@ sampling, context, and propagation surfaces for telemetry projection.
 |  [11]   | `AddReader`                       | reader setup          | metric reader admission |
 |  [12]   | `AddView`                         | metric view setup     | stream shaping          |
 |  [13]   | `SetExemplarFilter`               | metric exemplar setup | exemplar policy         |
-|  [14]   | `Build`                           | provider factory      | provider construction   |
+|  [14]   | `SetSampler`                      | trace sampler setup   | sets the `Sampler` on `TracerProviderBuilder` (also `SetSampler<T>()` and the `Func<IServiceProvider, Sampler>` factory overload) |
+|  [15]   | `Build`                           | provider factory      | provider construction   |
 
 [ENTRYPOINT_SCOPE]: signal operations
 - rail: telemetry
@@ -141,6 +142,7 @@ sampling, context, and propagation surfaces for telemetry projection.
 |  [08]   | `Propagators.DefaultTextMapPropagator` | default propagator | process propagation |
 |  [09]   | `Baggage.SetBaggage`                   | baggage mutation   | baggage write       |
 |  [10]   | `RuntimeContext.RegisterSlot`          | context setup      | typed context slot  |
+|  [11]   | `Baggage.Current`                      | baggage ambient    | get/set the ambient `Baggage` (with `GetBaggage`); seats inbound baggage after `Extract` |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -154,7 +156,7 @@ sampling, context, and propagation surfaces for telemetry projection.
 - exporter rail: exporter, export result, batch payload, export processor options
 - reader contract: metric readers own collection cadence and export cadence
 - propagation rail: trace context, baggage, composite propagators
-- sampling rail: always-on, always-off, parent-based, trace-id-ratio sampling
+- sampling rail: `AlwaysOnSampler`, `AlwaysOffSampler`, `ParentBasedSampler`, `TraceIdRatioBasedSampler`, set through `SetSampler` on the tracer-provider builder
 
 [LOCAL_ADMISSION]:
 - Runtime code emits signals through provider builders and processor chains.

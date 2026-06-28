@@ -20,7 +20,7 @@ the wire and the massing geometry; it never re-implements the Honeybee physics v
 - version: `2.201.0`
 - license: MIT
 - assembly: `DragonflySchema`
-- namespace: `DragonflySchema` (core geometry + parameters), `DragonflySchema.Energy`, `DragonflySchema.Radiance`, `DragonflySchema.Doe2`, `DragonflySchema.Comparison` (the extension-property sub-models)
+- namespace: `DragonflySchema` (flat — the OpenAPI generator emits no sub-namespaces; every type, including `ModelEnergyProperties`/`ModelRadianceProperties`/`ModelDoe2Properties`/`ModelComparisonProperties`, lives here. `Energy`/`Radiance`/`Doe2`/`Comparison` are the `ModelProperties` sub-object axis, not namespaces)
 - asset: `netstandard2.0` only; the `net10.0` consumer binds `lib/netstandard2.0` (single TFM, binds forward)
 - serialization: `LBT.Newtonsoft.Json` (Ladybug's Newtonsoft fork) via `OpenAPIGenBaseModel.ToJson`/`FromJson` — the DFJSON wire is Newtonsoft, NOT `System.Text.Json`
 - validation: `System.ComponentModel.Annotations` (`ValidationResult` / `[Required]`/`[Range]` attributes feed `Validate()`)
@@ -74,7 +74,7 @@ is the discriminant root.
 |  [04]   | `RoofSpecification` / `DetailedClearstory`      | energy-model | `IRoof`/`IClearstoryParameter`: `RoofSpecification(geometry: List<AnyOf<Face3D,Mesh3D>>, clearstoryParameters: List<DetailedClearstory>)` — the per-story roof geometry + clerestory glazing |
 
 [PUBLIC_TYPE_SCOPE]: extension properties and Radiance grids
-- namespace: `DragonflySchema`, `DragonflySchema.Energy`, `DragonflySchema.Radiance`
+- namespace: `DragonflySchema`
 - rail: energy-model
 
 The extension-property pattern: every geometry object carries a `*PropertiesAbridged` whose
@@ -109,9 +109,9 @@ serializer; `ToJson`/`FromJson` wrap the Newtonsoft fork with the schema's conve
 
 | [INDEX] | [SURFACE]                       | [CALL_SHAPE]                                              | [CAPABILITY]                                                                       |
 | :-----: | :------------------------------ | :------------------------------------------------------- | :-------------------------------------------------------------------------------- |
-|  [01]   | `Model.FromJson` / `<T>.FromJson` | `static (string json) → OpenAPIGenBaseModel`            | parse a DFJSON string into the typed graph (downcast to `Model`)                  |
+|  [01]   | `Model.FromJson` / `<T>.FromJson` | `static (string json) → OpenAPIGenBaseModel?`           | parse + validate a DFJSON string into the typed graph (downcast to `Model`); throws on a structurally-invalid model, returns `null` on a `"type"`-discriminator mismatch or failed parse |
 |  [02]   | `.ToJson`                       | `(bool indented = false) → string`                      | serialize any node to DFJSON (Newtonsoft fork)                                     |
-|  [03]   | `.IsValid` / `.Validate`        | `(bool throwException = false) → bool` · `() → IEnumerable<ValidationResult>` | DataAnnotations validation (range/required) — gate before handing to Honeybee/OpenStudio |
+|  [03]   | `.IsValid` / `.Validate`        | `(bool throwException = false) → bool` · `() → IEnumerable<ValidationResult>` | DataAnnotations validation (range/required) — re-gate a built or mutated model (`FromJson` already validates on parse) before handing to Honeybee/OpenStudio |
 |  [04]   | `.Duplicate`                    | `() → OpenAPIGenBaseModel`                              | deep structural copy (the immutable-edit seam)                                     |
 |  [05]   | `.Equals` / `==` / `GetHashCode` | `(OpenAPIGenBaseModel) → bool`                          | structural value equality (model diffing / `Comparison` properties)               |
 
@@ -119,7 +119,7 @@ serializer; `ToJson`/`FromJson` wrap the Newtonsoft fork with the schema's conve
 
 [OPENAPI_GEN_LAW]:
 - the schema is code-generated from the Dragonfly OpenAPI spec; do not hand-edit or subclass the generated types — round-trip is `FromJson`→edit-via-`Duplicate`→`ToJson`. The `"type"` JSON discriminator on each object is the case tag the `AnyOf<…>` resolver reads.
-- validation is opt-in: `FromJson` does not validate; call `IsValid(throwException:true)` or fold `Validate()` before a node crosses into translation, because Honeybee/OpenStudio assume a valid model.
+- `FromJson` deserializes through the `AnyOf` converter (`JsonSetting.AnyOfConvertSetting`), then enforces the `"type"` discriminator equals the runtime type name AND runs `IsValid(throwException:true)`: a structurally-invalid document throws `ArgumentException`, a type-mismatch or failed parse returns `null`. Validation is NOT opt-in at the parse boundary — call `IsValid`/`Validate` explicitly only to re-gate a model you BUILT or mutated after construction (generated subtypes do not re-validate on property set) before it crosses into Honeybee/OpenStudio translation.
 
 [ANYOF_DISCRIMINATION_LAW]:
 - a `Room2D` window/shading/skylight/boundary slot is `AnyOf<…>` (a HoneybeeSchema oneOf carrier). Read its concrete case by matching the carried `"type"` (e.g. `SingleWindow` vs `RepeatingWindowRatio`); set it by assigning a concrete instance. The union is closed by the schema — exhaustively dispatch the documented cases, never assume a default.

@@ -140,6 +140,18 @@
 |  [06]   | `BRepGProp`                | property tool  | `VolumeProperties_s`/`SurfaceProperties_s` |
 |  [07]   | `GProp_GProps`             | property accum | mass, centroid, and moments accumulator    |
 
+[PUBLIC_TYPE_SCOPE]: triangulation read-back — `OCP.BRep` / `OCP.Poly` / `OCP.TopLoc`
+- rail: cad-kernel tessellation read
+
+After `BRepMesh_IncrementalMesh` stores a shape's triangulation, the per-face mesh reads back into arrays through `BRep_Tool.Triangulation_s` for the `numpy`/`trimesh` handoff; a face carrying no stored triangulation returns `None`.
+
+| [INDEX] | [SYMBOL]             | [TYPE_FAMILY]   | [CAPABILITY]                                                                                  |
+| :-----: | :------------------- | :-------------- | :------------------------------------------------------------------------------------------- |
+|  [01]   | `BRep_Tool`          | topology tool   | static `Triangulation_s(face, loc) -> Poly_Triangulation \| None` per-face stored-mesh read   |
+|  [02]   | `Poly_Triangulation` | mesh container  | `NbNodes()`/`NbTriangles()`, `Node(i) -> gp_Pnt`, `Triangle(i) -> Poly_Triangle` (one-based)  |
+|  [03]   | `Poly_Triangle`      | triangle record | `Value(i) -> int` one-based node index for `i` in 1..3                                        |
+|  [04]   | `TopLoc_Location`    | shape placement | default `TopLoc_Location()` is the `Triangulation_s` out-location; `Transformation() -> gp_Trsf` |
+
 [PUBLIC_TYPE_SCOPE]: supporting types — `OCP.XCAFApp` / `OCP.TDF` / `OCP.TCollection` / `OCP.Message` / `OCP.TColStd`
 - rail: cad-kernel exchange and document scaffolding
 

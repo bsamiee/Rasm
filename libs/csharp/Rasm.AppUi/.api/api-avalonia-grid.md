@@ -153,6 +153,7 @@
 |  [06]   | `IsReadOnly` / `IsVisible` / `DisplayIndex`   | `DataGridColumn`       | per-column policy    |
 |  [07]   | `CanUserSort` / `CanUserResize` / `CanUserReorder` | `DataGridColumn`  | per-column gates     |
 |  [08]   | `CellStyleClasses`                            | `DataGridColumn`       | conditional styling  |
+|  [09]   | `CellTemplate` / `CellEditingTemplate` (`IDataTemplate`) | `DataGridTemplateColumn` | display + edit cell template |
 
 [COLLECTION_VIEW_ENTRYPOINTS]: view projection operations
 - rail: tables

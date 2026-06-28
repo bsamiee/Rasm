@@ -11,7 +11,7 @@
 - assembly: `Avalonia.Markup.Xaml` (XAML loader, markup extensions)
 - assembly: `Avalonia.Dialogs` (managed file dialogs)
 - bound asset: `ref/net10.0` reference assemblies (the workspace binds `net10.0` directly)
-- namespace: `Avalonia`, `Avalonia.Controls`, `Avalonia.Controls.Notifications`, `Avalonia.Data`, `Avalonia.Input`, `Avalonia.Input.Platform`, `Avalonia.Interactivity`, `Avalonia.Threading`, `Avalonia.Markup.Xaml`, `Avalonia.Styling`
+- namespace: `Avalonia`, `Avalonia.Controls`, `Avalonia.Controls.Notifications`, `Avalonia.Data`, `Avalonia.Input`, `Avalonia.Input.Platform`, `Avalonia.Interactivity`, `Avalonia.Threading`, `Avalonia.Markup.Xaml`, `Avalonia.Styling`, `Avalonia.Platform`
 - asset: runtime libraries
 - rail: retained-ui
 
@@ -197,6 +197,15 @@
 |  [03]   | `InvalidateVisual`         | `Visual`             | render refresh   |
 |  [04]   | `InvalidateMeasure`        | `Layoutable`         | layout refresh   |
 |  [05]   | `InvalidateArrange`        | `Layoutable`         | arrange refresh  |
+
+[HOST_BUILD_OPERATIONS]: application-builder option admission and native host handle
+- rail: retained-ui
+
+| [INDEX] | [SURFACE]                                   | [SURFACE_ROOT] | [RAIL]                                                       |
+| :-----: | :------------------------------------------ | :------------- | :---------------------------------------------------------- |
+|  [01]   | `With<T>(T options)` / `With<T>(Func<T>)`   | `AppBuilder`   | register a platform/options value (`UseSkia().With(SkiaOptions)`) |
+|  [02]   | `SetupWithoutStarting()`                     | `AppBuilder`   | build + configure the app without entering a run loop        |
+|  [03]   | `TryGetPlatformHandle() -> IPlatformHandle?` | `TopLevel`     | native window handle — `IPlatformHandle.Handle` (`nint`) / `HandleDescriptor` (`string?`) |
 
 [THEME_VARIANT_OPERATIONS]: variant request, resolution, and OS-probe read
 - rail: retained-ui

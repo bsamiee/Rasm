@@ -22,21 +22,21 @@
 
 | [INDEX] | [SYMBOL]     | [KIND]            | [CAPABILITY]                                                                                              |
 | :-----: | :----------- | :---------------- | :------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Point3d`    | blittable struct  | double point; `X`/`Y`/`Z`, `DistanceTo`/`DistanceToSquared`, full ordered operators, `Point3f` interop    |
+|  [01]   | `Point3d`    | blittable struct  | double point; `X`/`Y`/`Z`, `Origin` (the `(0,0,0)` anchor the offset/fit folds seed from), `DistanceTo`/`DistanceToSquared`, full ordered operators, `Point3f` interop |
 |  [02]   | `Point3f`    | blittable struct  | single point; implicit-widens to `Point3d`, mesh-vertex storage scalar                                    |
-|  [03]   | `Vector3d`   | blittable struct  | double vector; the kernel's settled direction carrier composed through `Rasm.Vectors`                    |
+|  [03]   | `Vector3d`   | blittable struct  | double vector; the kernel's settled direction carrier composed through `Rasm.Vectors`; `Length`/`SquareLength` magnitude (the unit/degeneracy guard reads `SquareLength`), `Zero`/`XAxis`/`YAxis`/`ZAxis` static axis constants |
 |  [04]   | `Vector3f`   | blittable struct  | single vector; mesh-normal storage scalar, implicit-widens to `Vector3d`                                 |
 |  [05]   | `Transform`  | 4x4 struct        | affine transform; `M00`..`M33` row-major, factory family, decomposition, `operator *` on self and points |
 |  [06]   | `Quaternion` | struct            | rotation rotor; `GetRotation` to axis-angle / `Plane` / `Transform`, `CreateFromRotationZYX`/`ZYZ`        |
 |  [07]   | `Interval`   | struct            | scalar span; `Min`/`Max`/`Mid`/`Length`, `ParameterAt`/`NormalizedParameterAt`, `FromUnion`/`FromIntersection` |
-|  [08]   | `Plane`      | struct            | oriented frame; `Origin`/`Normal`/`XAxis`/`YAxis`/`ZAxis`, `ClosestPoint`/`RemapToPlaneSpace`/`ValueAt`   |
+|  [08]   | `Plane`      | struct            | oriented frame; `Origin`/`OriginX`/`OriginY`/`OriginZ`/`Normal`/`XAxis`/`YAxis`/`ZAxis` (the scalar `OriginX`/`Y`/`Z` the flattened SoA frame store reads/writes), `ClosestPoint`/`RemapToPlaneSpace`/`ValueAt` |
 
 [PUBLIC_TYPE_SCOPE]: bounding, primitive-solid, and ray value structs
 - rail: host-rhino
 
 | [INDEX] | [SYMBOL]      | [KIND]           | [CAPABILITY]                                                                                  |
 | :-----: | :------------ | :--------------- | :-------------------------------------------------------------------------------------------- |
-|  [01]   | `BoundingBox` | struct           | axis-aligned box; `Min`/`Max`, `Union`/`Intersection`/`Contains`/`ClosestPoint`/`Inflate`, the broad-phase AABB the kernel BVH stores |
+|  [01]   | `BoundingBox` | struct           | axis-aligned box; `Min`/`Max`, `Empty` (the unset/inverted-extent seed the BVH AABB accumulation folds from), `Union`/`Intersection`/`Contains`/`ClosestPoint`/`Inflate`, the broad-phase AABB the kernel BVH stores |
 |  [02]   | `Box`         | struct           | oriented box; `Plane` + three `Interval` extents                                              |
 |  [03]   | `Sphere`      | struct           | sphere primitive; `Center`/`Radius`/`Diameter`, `ClosestPoint`/`PointAt(lon,lat)`             |
 |  [04]   | `Cylinder`    | struct           | cylinder primitive; axis circle + height                                                      |
@@ -56,7 +56,7 @@
 |  [02]   | `Curve`                | abstract reference      | curve geometry; `PointAt`/`ClosestPoint`/`FrameAt`/`PerpendicularFrameAt`, `TryGetPolyline`/`TryGetPlane`, `Extend`/`Simplify`/`Offset` |
 |  [03]   | `NurbsCurve`           | reference               | nurbs curve; control-point / knot access, the densest `Curve` realization                        |
 |  [04]   | `PolylineCurve`        | reference               | polyline-as-`Curve`; the `Intersection.MeshPolyline` and `Curve.TryGetPolyline` bridge            |
-|  [05]   | `Polyline`             | `List<Point3d>` value   | polyline geometry; `Length`/`PointAt`/`ClosestPoint`/`GetSegments`/`CenterPoint`, `ToNurbsCurve`/`ToPolylineCurve`, `ReduceSegments`/`MergeColinearSegments` — the kernel's crossing-chain re-emit carrier |
+|  [05]   | `Polyline`             | `List<Point3d>` value   | polyline geometry; `Length`/`IsClosed`/`PointAt`/`ClosestPoint`/`GetSegments`/`CenterPoint`, `ToNurbsCurve`/`ToPolylineCurve`, `ReduceSegments`/`MergeColinearSegments` — the kernel's crossing-chain re-emit carrier |
 |  [06]   | `Mesh`                 | reference               | mesh geometry; topology lists below, the booleans/repair/reduce surface, `ClosestPoint`/`Volume`/`GetNakedEdges` |
 |  [07]   | `MeshFace`             | blittable struct        | mesh face record; `A`/`B`/`C`/`D` vertex indices, `IsTriangle`/`IsQuad` — the triangle-soup index the predicate-exact narrow-phase reads |
 |  [08]   | `Brep`                 | reference               | boundary geometry; `Faces`/`Edges`, the parametric solid the `Analysis` layer intersects          |

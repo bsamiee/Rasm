@@ -73,6 +73,12 @@ int sqlite3_db_config(sqlite3 db, int op, utf8z val)
 int sqlite3_db_config(sqlite3 db, int op, nint ptr, int int0, int int1)
 int sqlite3_extended_result_codes(sqlite3 db, int onoff)
 
+// --- error detail, per-connection limit, status introspection ---
+int sqlite3_extended_errcode(sqlite3 db)                                     // the extended result code of the last failed call on db
+utf8z sqlite3_errstr(int rc)                                                 // human text for a result code (.utf8_to_string() to materialize)
+int sqlite3_limit(sqlite3 db, int id, int newVal)                           // get/set a per-connection SQLITE_LIMIT_* cap (newVal < 0 reads the prior, returns it)
+int sqlite3_db_status(sqlite3 db, int op, out int current, out int highest, int resetFlg)  // per-connection runtime metric (current + highwater)
+
 // --- WAL checkpoint ---
 int sqlite3_wal_checkpoint(sqlite3 db, string dbName)
 int sqlite3_wal_checkpoint_v2(sqlite3 db, string dbName, int eMode, out int logSize, out int framesCheckPointed)
@@ -94,6 +100,7 @@ int sqlite3_backup_finish(sqlite3_backup backup)
 // --- in-memory serialize / deserialize (whole-schema byte image) ---
 nint sqlite3_serialize(sqlite3 db, string schema, out long size, int flags)
 int sqlite3_deserialize(sqlite3 db, string schema, nint data, long deserializedDataSize, long maxDataSize, int flags)
+void sqlite3_free(nint p)                                                    // frees the sqlite3_serialize() buffer; SKIP under SQLITE_DESERIALIZE_FREEONCLOSE (ownership transfers to the engine)
 
 // --- extension loading (raw API; SQL-level load_extension() stays disabled by db_config) ---
 int sqlite3_enable_load_extension(sqlite3 db, int onoff)
@@ -120,6 +127,22 @@ int sqlite3_load_extension(sqlite3 db, utf8z file, utf8z proc, out utf8z errmsg)
 |  [13]   | `SQLITE_CHECKPOINT_FULL`                |       1 | checkpoint mode             |
 |  [14]   | `SQLITE_CHECKPOINT_RESTART`             |       2 | checkpoint mode             |
 |  [15]   | `SQLITE_CHECKPOINT_TRUNCATE`            |       3 | checkpoint mode             |
+|  [16]   | `SQLITE_ERROR`                          |       1 | generic error status        |
+|  [17]   | `SQLITE_LOCKED`                         |       6 | database-lock status (retry)|
+|  [18]   | `SQLITE_READONLY`                       |       8 | read-only status            |
+|  [19]   | `SQLITE_IOERR`                          |      10 | disk-I/O error status       |
+|  [20]   | `SQLITE_FULL`                           |      13 | database-full status        |
+|  [21]   | `SQLITE_DESERIALIZE_FREEONCLOSE`        |       1 | deserialize: engine frees the buffer on close (and on a rejected load) |
+|  [22]   | `SQLITE_DESERIALIZE_RESIZEABLE`         |       2 | deserialize: allow the in-memory image to regrow |
+|  [23]   | `SQLITE_LIMIT_LENGTH`                   |       0 | `sqlite3_limit` id — max string/blob length |
+|  [24]   | `SQLITE_LIMIT_SQL_LENGTH`               |       1 | `sqlite3_limit` id — max SQL text length |
+|  [25]   | `SQLITE_LIMIT_COLUMN`                   |       2 | `sqlite3_limit` id — max columns |
+|  [26]   | `SQLITE_LIMIT_EXPR_DEPTH`               |       3 | `sqlite3_limit` id — max expression-tree depth |
+|  [27]   | `SQLITE_LIMIT_COMPOUND_SELECT`          |       4 | `sqlite3_limit` id — max compound-SELECT terms |
+|  [28]   | `SQLITE_LIMIT_VDBE_OP`                  |       5 | `sqlite3_limit` id — max VDBE opcodes per statement |
+|  [29]   | `SQLITE_LIMIT_ATTACHED`                 |       7 | `sqlite3_limit` id — max attached databases |
+|  [30]   | `SQLITE_LIMIT_VARIABLE_NUMBER`          |       9 | `sqlite3_limit` id — max bound parameters |
+|  [31]   | `SQLITE_LIMIT_TRIGGER_DEPTH`            |      10 | `sqlite3_limit` id — max trigger recursion depth |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

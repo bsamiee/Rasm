@@ -18,7 +18,7 @@ projection) and reserves the Newtonsoft codec for the FlatGeobuf dependency.
 - version: `4.0.0`
 - license: BSD-3-Clause
 - assembly: `NetTopologySuite.IO.GeoJSON4STJ`
-- namespace: `NetTopologySuite.IO.Converters` (`GeoJsonConverterFactory`, `RingOrientationOption`, the `Stj*Converter` family)
+- namespace: `NetTopologySuite.IO.Converters` — the public surface is `GeoJsonConverterFactory`, `RingOrientationOption`, and the `[Obsolete]` `StjAttributesTableExtensions`; the `Stj*Converter` per-kind converters and `GeoJsonObjectType` are `internal` (produced by the factory)
 - namespace: `NetTopologySuite.Features` (`IPartiallyDeserializedAttributesTable`, `JsonElementAttributesTable`, `JsonObjectAttributesTable` — the lazy read-side attribute tables)
 - asset: netstandard2.0 ONLY (single TFM); the net10.0 consumer binds the `lib/netstandard2.0` asset
 - asset: IL-only AnyCPU managed assembly; no P/Invoke, no native binaries
@@ -35,8 +35,8 @@ projection) and reserves the Newtonsoft codec for the FlatGeobuf dependency.
 
 `GeoJsonObjectType` is `internal` (the codec's own type discriminant) — NOT a public surface.
 The per-kind converters (`StjGeometryConverter`, `StjFeatureConverter`,
-`StjFeatureCollectionConverter`, `StjAttributesTableConverter`) are produced BY the factory;
-the only registration entry is `GeoJsonConverterFactory`.
+`StjFeatureCollectionConverter`, `StjAttributesTableConverter`) are `internal`, produced BY the
+factory; the only registration entry is `GeoJsonConverterFactory`.
 
 | [INDEX] | [SYMBOL]                    | [RAIL]     | [CAPABILITY]                                                                                              |
 | :-----: | :-------------------------- | :--------- | :------------------------------------------------------------------------------------------------------- |
@@ -52,7 +52,7 @@ the only registration entry is `GeoJsonConverterFactory`.
 | :-----: | :-------------------------------------- | :--------- | :------------------------------------------------------------------------------------------------------- |
 |  [01]   | `IPartiallyDeserializedAttributesTable` | geospatial | `IAttributesTable` whose values stay as raw JSON until pulled typed. `TryDeserializeJsonObject<T>(JsonSerializerOptions, out T)` deserializes the whole `properties` object to `T`; `TryGetJsonObjectPropertyValue<T>(string propertyName, JsonSerializerOptions, out T)` deserializes one nested property — the form to lift a `BimElement` property bag out of a feature without an `object`-boxed intermediate |
 |  [02]   | `JsonElementAttributesTable` / `JsonObjectAttributesTable` | geospatial | the two concrete `IPartiallyDeserializedAttributesTable` instances a deserialized `Feature.Attributes` carries (`JsonElement`-backed vs `JsonObject`-backed depending on the read mode); cast `feature.Attributes` to the interface to reach the typed-pull methods |
-|  [03]   | `StjAttributesTableExtensions`          | geospatial | `[Obsolete]` static mirrors of the two interface methods on `IAttributesTable`; the live path is a direct cast to `IPartiallyDeserializedAttributesTable` + the instance call — the extensions exist only for source compatibility and must not be the documented call |
+|  [03]   | `StjAttributesTableExtensions` (declared in `NetTopologySuite.IO.Converters`, not `.Features`) | geospatial | `[Obsolete]` static `IAttributesTable` extension mirrors (`TryDeserializeJsonObject<T>`/`TryGetJsonObjectPropertyValue<T>`) of the two interface methods; the live path is a direct cast to `IPartiallyDeserializedAttributesTable` + the instance call — the extensions exist only for source compatibility and must not be the documented call |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -105,7 +105,7 @@ mandated CRS), `writeGeometryBBox = false`, `idPropertyName = DefaultIdPropertyN
 - STJ-pipeline seam: the factory composes with the rest of the `System.Text.Json` boundary — the same `JsonSerializerOptions` that carries the `Thinktecture` value-object/smart-enum converters (`api-thinktecture-json`) also carries `GeoJsonConverterFactory`, so a DTO with a `Geometry` member and a `[ValueObject]` member serializes in one pass. This is the integration the Newtonsoft GeoJSON codec cannot offer.
 - Persistence seam: the dual-consumer pin lets the Persistence owner project an `Npgsql.NetTopologySuite` PostGIS geometry column into a GeoJSON API response through the same factory the Bim owner uses for site context — one converter, both rails.
 - reprojection seam: GeoJSON is CRS84 (lon/lat) by spec; a projected-frame geometry is reprojected through the `Semantics/georeference#GEODETIC_TRANSFORM` `ProjNET` leg (`api-projnet`) to EPSG:4326 BEFORE serialization, and the parsed lon/lat is reprojected into the project frame after — the codec never transforms coordinates.
-- identity seam: a serialized GeoJSON string (UTF-8 bytes) feeds `System.IO.Hashing` `XxHash3` (`api-hashing`) for the content key, joining the same content-identity rail as the other interchange exports.
+- identity seam: a serialized GeoJSON string (UTF-8 bytes) feeds `System.IO.Hashing` — `XxHash3` for the fast in-process fingerprint, `XxHash128` for the collision-resistant persisted content key (`api-hashing`) — joining the same content-identity rail (the `Rasm.Persistence` artifact index) as the other interchange exports.
 
 [LOCAL_ADMISSION]:
 - the GeoJSON boundary enters through a composition-built `JsonSerializerOptions` carrying one `GeoJsonConverterFactory` seeded from `NtsGeometryServices.Instance`; serialize/parse is plain `JsonSerializer`.

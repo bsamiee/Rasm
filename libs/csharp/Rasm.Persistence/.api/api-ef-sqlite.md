@@ -66,6 +66,25 @@ services are `[EntityFrameworkInternal]` provider internals, never a consumer ra
 |  [13]   | `SqliteMigrationDatabaseLock`           | `Migrations.Internal`     | migration mutual exclusion       |
 |  [14]   | `SqliteDesignTimeServices`              | `Scaffolding.Internal`    | design/scaffolding service entry |
 
+[BASE_EF_TYPES]: base + relational EF surface the store/migration/query rails compose — `Microsoft.EntityFrameworkCore` / `.Relational`, NOT this provider package (the SQLite profile binds them through `UseSqlite`, like the existing `EF.CompileAsyncQuery` row)
+- rail: store-provider
+
+| [INDEX] | [SYMBOL]                          | [ASSEMBLY/NS]                                  | [CAPABILITY]                                                                 |
+| :-----: | :-------------------------------- | :--------------------------------------------- | :-------------------------------------------------------------------------- |
+|  [01]   | `PooledDbContextFactory<TContext>` | `Microsoft.EntityFrameworkCore.Infrastructure` | `IDbContextFactory<TContext>`; pooled-context lease (`Run`/`Scoped` bracket) |
+|  [02]   | `IExecutionStrategy`              | `…Storage`                                      | retry/resiliency strategy; `RetriesOnFailure`, `Execute`/`ExecuteAsync`      |
+|  [03]   | `IDbContextTransaction`           | `…Storage`                                      | ambient transaction; `SupportsSavepoints`, savepoint verbs, `CommitAsync`/`RollbackAsync` |
+|  [04]   | `ISaveChangesInterceptor` / `SaveChangesInterceptor` | `…Diagnostics` (core) | save-pipeline interceptor contract + base class (`SavingChanges(Async)`/`SavedChanges(Async)`) |
+|  [05]   | `IDbCommandInterceptor` / `DbCommandInterceptor` | `…Diagnostics` (relational) | command interceptor contract + base class (`ReaderExecuting(Async)`/`NonQueryExecuted` etc.) |
+|  [06]   | `IDbConnectionInterceptor` / `DbConnectionInterceptor` | `…Diagnostics` (relational) | connection interceptor contract + base class |
+|  [07]   | `IDbTransactionInterceptor` / `DbTransactionInterceptor` | `…Diagnostics` (relational) | transaction interceptor contract + base class (one capsule may implement all four) |
+|  [08]   | `ModelConfigurationBuilder`       | `Microsoft.EntityFrameworkCore`                | the `ConfigureConventions` surface; `Conventions`, `Properties<T>`, `DefaultTypeMapping<T>`, `IgnoreAny<T>` |
+|  [09]   | `IMigrator`                       | `…Migrations`                                   | migration driver; `GenerateScript`, `MigrateAsync` |
+|  [10]   | `MigrationBuilder`                | `…Migrations`                                   | imperative op builder; `Sql(string, suppressTransaction)`, `ActiveProvider` |
+|  [11]   | `Migration`                       | `…Migrations`                                   | materialized migration; `ActiveProvider`, `UpOperations`/`DownOperations`, `InitialDatabase` (`"0"`) |
+|  [12]   | `MigrationOperation` (+ `Operations.*`) | `…Migrations.Operations`                  | typed op; `IsDestructiveChange`; subtypes `AddColumnOperation`/`AlterColumnOperation`/`DropColumnOperation`/`DropTableOperation`/`RenameColumnOperation`/`RenameTableOperation`/`SqlOperation` |
+|  [13]   | `MigrationsSqlGenerationOptions`  | `…Migrations`                                   | `[Flags]` enum: `Default = 0`, `Idempotent = 2`, `NoTransactions = 4`        |
+
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: provider admission — `SqliteDbContextOptionsBuilderExtensions`, `SqliteServiceCollectionExtensions`
@@ -106,6 +125,42 @@ services are `[EntityFrameworkInternal]` provider internals, never a consumer ra
 
 `UseSqlite(...)`: 8 overloads total — `{connectionString | DbConnection | DbConnection+contextOwnsConnection | parameterless}` × `{DbContextOptionsBuilder | DbContextOptionsBuilder<TContext>}`. The `Action<SqliteDbContextOptionsBuilder>` callback is where the relational + model options above bind. `EF.CompileAsyncQuery<TContext,TResult>` returns `Func<TContext,IAsyncEnumerable<TResult>>` and lives in the base `Microsoft.EntityFrameworkCore` assembly — it is provider-agnostic, listed here only because the SQLite profile's hot read lanes compile against it.
 
+[ENTRYPOINT_SCOPE]: base EF execution + interception — `Microsoft.EntityFrameworkCore` (core), provider-agnostic, composed by the store/query rails
+- rail: store-provider
+
+| [INDEX] | [SURFACE]                                                                 | [CALL_SHAPE]    | [CAPABILITY]                                                            |
+| :-----: | :------------------------------------------------------------------------ | :-------------- | :--------------------------------------------------------------------- |
+|  [01]   | `PooledDbContextFactory<TContext>.CreateDbContextAsync(ct)` / `CreateDbContext()` | pooled lease | leases one pooled `DbContext` per `StoreOp` bracket; ctors `(IDbContextPool<TContext>)` / `(DbContextOptions<TContext>, int poolSize = 1024)` |
+|  [02]   | `DatabaseFacade.CreateExecutionStrategy()`                                | strategy        | builds the provider `IExecutionStrategy` (busy-retry on SQLite, `NpgsqlRetryingExecutionStrategy` on PG) |
+|  [03]   | `IExecutionStrategy.ExecuteAsync<TState,TResult>(state, Func<DbContext,TState,CancellationToken,Task<TResult>> operation, Func<…,Task<ExecutionResult<TResult>>>? verifySucceeded, ct)` | resilient run | wraps the unit of work in the retry envelope |
+|  [04]   | `ISaveChangesInterceptor.SavingChangesAsync(DbContextEventData, InterceptionResult<int>, ct)` / `SavedChangesAsync(SaveChangesCompletedEventData, int, ct)` | interceptor hook | the save-pipeline hooks a registered interceptor capsule overrides |
+|  [05]   | `DbContextOptionsBuilder.UseQueryTrackingBehavior(QueryTrackingBehavior)` | options chain   | chains off `UseSqlite`/`UseNpgsql` to set the default tracking lane     |
+|  [06]   | `DbContextOptionsBuilder.UseSeeding(Action<DbContext,bool>)` / `UseAsyncSeeding(Func<DbContext,bool,CancellationToken,Task>)` | options hook | the pooled-factory seed delegate (`StoreRows.SeedOnCreate`) |
+
+[ENTRYPOINT_SCOPE]: base relational facade, transaction, and queryable — `Microsoft.EntityFrameworkCore.Relational` (`RelationalDatabaseFacadeExtensions`) + `Microsoft.EntityFrameworkCore` (`EntityFrameworkQueryableExtensions`), composed by the query/transaction rails
+- rail: store-provider
+
+| [INDEX] | [SURFACE]                                                                 | [CALL_SHAPE]    | [CAPABILITY]                                                            |
+| :-----: | :------------------------------------------------------------------------ | :-------------- | :--------------------------------------------------------------------- |
+|  [01]   | `DatabaseFacade.BeginTransactionAsync(IsolationLevel, ct)` → `IDbContextTransaction` / `DatabaseFacade.CurrentTransaction` | transaction | opens an isolation-typed transaction; the ambient one the savepoint legs read |
+|  [02]   | `IDbContextTransaction.CreateSavepointAsync(name, ct)` / `RollbackToSavepointAsync(name, ct)` / `ReleaseSavepointAsync(name, ct)` / `SupportsSavepoints` | savepoint | nested savepoint mechanism for the composed-op `RollbackTo` continuation |
+|  [03]   | `RelationalDatabaseFacadeExtensions.SqlQuery<TResult>(FormattableString)` / `SqlQueryRaw<TResult>(string, params object[])` → `IQueryable<TResult>` | keyless read | the keyless projection read (`(key, fused)` RRF, clash-hit scalar) — never the entity-only `FromSqlRaw` |
+|  [04]   | `RelationalDatabaseFacadeExtensions.ExecuteSqlAsync(FormattableString, ct)` / `ExecuteSqlRawAsync(string, [params object[] \| IEnumerable<object>], ct)` → `Task<int>` | raw DDL/DCL | the parameterized (`ExecuteSqlAsync`) vs raw-string (`ExecuteSqlRawAsync`) statement forms; tenant id rides the parameterizing form only |
+|  [05]   | `EntityFrameworkQueryableExtensions.ToListAsync<T>(ct)` / `SingleAsync<T>(ct)` / `FirstOrDefaultAsync<T>(ct)` / `AsNoTracking<T>()` | async terminator | materializes a `SqlQuery`/LINQ projection on the read lane |
+
+[ENTRYPOINT_SCOPE]: base migration + model-config surface — `Microsoft.EntityFrameworkCore.Relational` (migrations) + `Microsoft.EntityFrameworkCore` (`ModelConfigurationBuilder`), composed by the schema/migration rails
+- rail: store-provider
+
+| [INDEX] | [SURFACE]                                                                 | [CALL_SHAPE]    | [CAPABILITY]                                                            |
+| :-----: | :------------------------------------------------------------------------ | :-------------- | :--------------------------------------------------------------------- |
+|  [01]   | `IMigrator.GenerateScript(string? fromMigration = null, string? toMigration = null, MigrationsSqlGenerationOptions = Default)` | script emit | the deploy-SQL emission the `DeployVehicle` `Script` fold drives; `MigrateAsync(targetMigration?, ct)` for runtime apply |
+|  [02]   | `MigrationBuilder.Sql(string, bool suppressTransaction = false)` → `OperationBuilder<SqlOperation>` / `MigrationBuilder.ActiveProvider` | op emit | the lock-light step SQL fold target; `ActiveProvider` keys provider-aware emission |
+|  [03]   | `Migration.ActiveProvider` / `UpOperations` / `DownOperations` / `Migration.InitialDatabase` (`"0"`) | plan input | the materialized migration the wave/disposition fold classifies |
+|  [04]   | `MigrationOperation.IsDestructiveChange` (+ `Operations.{AddColumnOperation,AlterColumnOperation,DropColumnOperation,DropTableOperation,RenameColumnOperation,RenameTableOperation,SqlOperation}`) | op classify | EF's per-op destructive stamp the disposition table refines |
+|  [05]   | `RelationalPropertyBuilderExtensions.HasComputedColumnSql(this PropertyBuilder, string? sql, bool? stored)` (+ `<TProperty>` overloads) | generated col | the stored/virtual generated-column expression the `DerivedColumn` rows emit |
+|  [06]   | `TableBuilder.HasCheckConstraint(string name, string? sql)` (via `builder.ToTable(t => …)`; mirror on `RelationalEntityTypeBuilderExtensions`) → `CheckConstraintBuilder` | check | the table-scoped `CHECK` the `SchemaDdl.Check`/quality rows emit |
+|  [07]   | `ModelConfigurationBuilder` (the `DbContext.ConfigureConventions(ModelConfigurationBuilder)` parameter) | conventions | the provider-blind convention surface the converter rail folds text converters through |
+
 ## [04]-[IMPLEMENTATION_LAW]
 
 [STORE_PROFILE]:
@@ -127,5 +182,5 @@ services are `[EntityFrameworkInternal]` provider internals, never a consumer ra
 [RAIL_LAW]:
 - Package: `Microsoft.EntityFrameworkCore.Sqlite` (admission meta) / `.Core` (type owner)
 - Owns: EF SQLite provider admission and the LINQ→SQLite translation for the `sqlite-embedded`/`sqlite-memory` profiles
-- Accept: the `UseSqlite` admission family, the relational + SQLite-scoped option knobs, `SqlitePropertyBuilderExtensions`/`SqliteEntityTypeBuilderExtensions` model config, `IsSqlite` discrimination, `SqliteEventId` diagnostics, the base-assembly `EF.CompileAsyncQuery` for hot lanes
+- Accept: the `UseSqlite` admission family, the relational + SQLite-scoped option knobs, `SqlitePropertyBuilderExtensions`/`SqliteEntityTypeBuilderExtensions` model config, `IsSqlite` discrimination, `SqliteEventId` diagnostics, the base-assembly `EF.CompileAsyncQuery` for hot lanes, and the composed base/relational EF surface the store rails bind through this provider (`PooledDbContextFactory`, the interceptor family, `IExecutionStrategy`, `IDbContextTransaction` savepoints, `RelationalDatabaseFacadeExtensions` `SqlQuery`/`ExecuteSql*`, `EntityFrameworkQueryableExtensions`, `ModelConfigurationBuilder`, the `IMigrator`/`Migration`/`MigrationBuilder`/`MigrationsSqlGenerationOptions` migration API, `HasComputedColumnSql`/`HasCheckConstraint`)
 - Reject: referencing `...Sqlite.*.Internal` provider services by type; treating the meta-package as the assembly home; a SQLite-first public service family; the raw-`SqliteConnection` open ceremony (owned by `Microsoft.Data.Sqlite`); reading the migration lock from `Internal`-namespace types

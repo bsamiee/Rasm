@@ -49,6 +49,7 @@
 |  [01]   | `FeatureProvider`          | provider base     | abstract resolution contract |
 |  [02]   | `InMemoryProvider`         | provider          | config-backed evaluation     |
 |  [03]   | `Flag<T>`                  | flag definition   | variant map plus evaluator   |
+|  [03a]  | `Flag`                     | flag interface    | non-generic base (`bool Disabled`) `Flag<T>` implements; the `InMemoryProvider` flag-map value type |
 |  [04]   | `ResolutionDetails<T>`     | provider result   | resolved value and reason    |
 |  [05]   | `FlagEvaluationDetails<T>` | client result     | client-facing detail carrier |
 |  [06]   | `Metadata`                 | provider metadata | provider name                |
@@ -118,7 +119,7 @@
 - object surface: `GetObjectValueAsync`/`GetObjectDetailsAsync` carry a `Value` whose `IsBoolean`/`IsNumber`/`IsString`/`IsStructure`/`IsList`/`IsDateTime` discriminators gate `AsBoolean`/`AsDouble`/`AsString`/`AsStructure`/`AsList`/`AsDateTime` nullable accessors
 - targeting surface: `EvaluationContext` is immutable; `EvaluationContextBuilder.SetTargetingKey` carries the sticky bucketing identity and `Set` overloads admit `string`, `int`, `double`, `long`, `bool`, `DateTime`, `Structure`, and `Value` attributes
 - provider contract: `FeatureProvider` is abstract over `ResolveBooleanValueAsync`, `ResolveStringValueAsync`, `ResolveIntegerValueAsync`, `ResolveDoubleValueAsync`, and `ResolveStructureValueAsync`, each returning `ResolutionDetails<T>`
-- in-memory surface: `InMemoryProvider` evaluates a `Flag<T>` map; `Flag<T>` carries a `Dictionary<string, T>` variant map, a default variant name, an optional `Func<EvaluationContext, string>` context evaluator that picks the variant from targeting, an `ImmutableMetadata` bag, and a `disabled` flag
+- in-memory surface: `InMemoryProvider` is constructed from an `IDictionary<string, Flag>` keyed by flag id over the non-generic `Flag` interface (`bool Disabled`) that each `Flag<T>` implements, so a mixed-type flag set rides one map; `Flag<T>` carries a `Dictionary<string, T>` variant map, a default variant name, an optional `Func<EvaluationContext, string>` context evaluator that picks the variant from targeting, an `ImmutableMetadata` bag, and a `disabled` flag
 - reason vocabulary: `Reason.TargetingMatch`, `Reason.Split`, `Reason.Disabled`, `Reason.Default`, `Reason.Static`, `Reason.Cached`, `Reason.Unknown`, and `Reason.Error` are the string reasons surfaced on results
 - error vocabulary: `ErrorType` carries `None`, `ProviderNotReady`, `FlagNotFound`, `ParseError`, `TypeMismatch`, `General`, `InvalidContext`, `TargetingKeyMissing`, and `ProviderFatal`, each tagged with a wire `[Description]`
 - failure discipline: provider failures surface as `ErrorType` plus `Reason.Error` on the result, not as thrown exceptions across the client boundary

@@ -27,29 +27,29 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Capability: the Python `runtime/transport/serve` companion serves existing C# `ComputeService` and `ArtifactSync` gRPC over the UDS/InProcess leg, reproduces `ContentIdentity`, and carries data/artifact bundles plus graduation evidence across the offline seam.
 - Shape: producer `csharp:Rasm.Compute/Runtime/channels#PROTO_VOCABULARY` feeds consumers `python:runtime/transport/serve#SERVE` and `python:runtime/evidence/identity#IDENTITY`.
 - Unlocks: the Python companion becomes a peer decoder and offline producer for the C# wire without reaching into C# interiors or minting a second vocabulary.
-- Anchors: the one C# `XxHash128` seed, the companion server-host contract, and the Python branch `TASKLOG.md` gates for companion-floor admission and `[CREDENTIAL_PEM]` `\n--SEP--\n` placeholder handling.
-- Tension: blocked on the Python sub-3.15 companion-floor admission gate and the `[CREDENTIAL_PEM]` `\n--SEP--\n` placeholder gate carried on `SERVE_HOST`.
+- Anchors: the one C# `XxHash128` seed, the companion server-host contract, the Python branch `SERVE_C_WIRE_CONSUME_GENERATED` task, and `[CREDENTIAL_PEM]` `\n--SEP--\n` placeholder handling.
+- Tension: blocked on the upstream descriptor source, the CRDT op landing on the wire, and the `[CREDENTIAL_PEM]` `\n--SEP--\n` placeholder carried on `SERVE_HOST`.
 
 [TESSELLATION_RAIL_TRILANG]-[QUEUED]: route the shared IFC and CAD tessellation rail through Python-native GLB output.
 - Capability: the Python-native two-hop `IFC → IfcOpenShell → GLB` rail and the AP242 CAD-STEP `STEP → OCCT → GLB` companion produce the one content-keyed GLB every runtime consumes.
 - Shape: producers `python:geometry/mesh/daemon#TESSELLATE` and `csharp:Rasm.Bim/exchange/interchange#TESSELLATION_REQUEST` feed consumers `csharp:Rasm.Compute/Runtime/codecs#TILE_PARTITION` and `typescript:ui/render/glb#GLB_VIEWPORT` through `typescript:interchange/Codec/frame#CONTENT_HASHING`.
 - Unlocks: C# builds and content-addresses tessellation requests, Python serves geometry evaluation, and TypeScript renders GLB by the same content key without a duplicate mesh pipeline per runtime.
 - Anchors: the one-owner-per-runtime geometry law, the `python:runtime/transport/serve#SERVE` companion contract, the per-tile `EXT_structural_metadata`/`EXT_mesh_features` schema, the `SourceFormat`-discriminated request, and the one `ContentIdentity` seed.
-- Tension: the GLB arm is queued; the AP242 STEP arm is blocked on `cadquery-ocp` companion admission, the Python companion-floor gate, and the TS mesh-shape promotion carried on the TS `ui` `TASKLOG.md`.
+- Tension: the GLB arm is queued; the AP242 STEP arm lands through the geometry companion's OpenCascade admission, and the TS mesh-shape promotion stays carried on the TS `ui` `TASKLOG.md`.
 
 [CONTENT_IDENTITY_PARITY]-[BLOCKED]: prove the C# content-address seed reproduces across all three runtimes.
 - Capability: the `XxHash128` content-address seed, seed-zero policy, and HLC two-64-bit-half order reproduce byte-identically in C#, Python, and TypeScript.
 - Shape: producer `csharp:Rasm.Compute/Runtime/codecs#CONTENT_ADDRESSING` feeds consumers `python:runtime/evidence/identity#IDENTITY` and `typescript:interchange/Codec/frame#CONTENT_HASHING`.
 - Unlocks: off-thread digest reuse, convergence presence folds, causal ordering, and cross-runtime artifact reuse can trust one key instead of reconciling per-runtime hashes.
 - Anchors: the C#-owned seed, Python `xxh3_128_intdigest`, a TS 128-bit wasm hash path, and the multi-runtime fixture proving half order.
-- Tension: blocked on TS `hash-wasm` admission replacing 128-bit-incapable `xxhash-wasm` and on an upstream `xxhash` cp315/abi3 wheel for the Python core leg; the sub-3.15 companion uses `xxh3_128_intdigest` today.
+- Tension: blocked on TS `hash-wasm` admission replacing 128-bit-incapable `xxhash-wasm`; the Python leg is a root-manifest substrate plus fixture-proof task under `python:runtime/evidence/identity`.
 
 [CRDT_OPLOG_WIRE_AMENDMENT]-[QUEUED]: op-log CRDT-op union is a breaking amendment to the one wire vocabulary.
 - Capability: the op-log CRDT-op union amends the one wire vocabulary, with LWW surviving only as the register arm and no consumer-authored op kind outside the producer vocabulary.
 - Shape: producers `csharp:Rasm.Persistence/Version/commits#CRDT_WIRE`, `#CRDT_ALGEBRA`, `#TS_PROJECTION`, and `csharp:Rasm.Persistence/Sync/collaboration#TS_PROJECTION` feed `typescript:interchange/Codec/codec#CRDT_OP_DECODE`, `typescript:projection/causality/vector#CRDT_SEMILATTICE`, `typescript:ui/overlay/presence#PRESENCE_OVERLAY`, and `python:runtime/transport/serve#CRDT_DECODE`.
 - Unlocks: TS web, TS projection, TS UI, and Python companion legs decode one CRDT payload, including the `set`/`write`/`add`/`remove`/`increment`/`insertAfter`/`delete`/`maintain`/`beat`/`leave` arms and the `EphemeralMap` presence delta.
 - Anchors: `OpLogEntryWire`, `CrdtOpWire`, `CommitNodeWire`, `VersionVectorWire`, `HlcWire`, `causality/vector#CRDT_SEMILATTICE`, `#ORIGIN_CURSOR`, the msgpack delta decode, and `TRI_LANGUAGE_WIRE_PARITY`.
-- Tension: residual producer-gated gaps are Python `Lz4BlockArray` envelope decompression (`[CRDT_OPLOG_LZ4]`) and UI `Awareness` beat `state` byte-encoding (`[BEAT_PAYLOAD]`); C# `MessagePackCompression.Lz4BlockArray` uses msgpack-csharp ext block-array framing that no cp315-clean Python library decodes natively, so the producer must choose `MessagePackCompression.None` for the companion lane or publish one envelope spec.
+- Tension: residual producer-gated gaps are Python `Lz4BlockArray` envelope decompression (`[CRDT_OPLOG_LZ4]`) and UI `Awareness` beat `state` byte-encoding (`[BEAT_PAYLOAD]`); the producer must choose `MessagePackCompression.None` for the companion lane or publish one envelope spec for the msgpack-csharp ext block-array framing.
 
 [CAPABILITY_SDK_CODEGEN]-[QUEUED]: one capability-descriptor source emits the C#/TS/Python SDKs and the MCP projection.
 - Capability: one AppHost capability-descriptor source emits C#, TypeScript, and Python SDKs plus the MCP projection, with no per-service hand-written client.
@@ -69,7 +69,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Shape: producer `csharp:Rasm.AppHost/Runtime/ports#PORT_RECORDS` feeds consumers `python:runtime/transport/serve#SERVE` and `typescript:projection/convergence#SKEW_ORDERING`.
 - Unlocks: every runtime orders and attributes work by one causal/tenant frame, with TypeScript marking concurrent-uncertain rows from the HLC band instead of inventing a render-only ordering leaf.
 - Anchors: `ReceiptEnvelope`, `hlc_physical`, `hlc_logical`, `tenant`, the same multi-runtime fixture as content-seed parity, and the C#-owns-the-wire law that makes a second causal stamp or tenant scheme a drift defect.
-- Tension: inherits the content-seed parity package gate: TS `hash-wasm` admission and upstream Python `xxhash` wheel availability.
+- Tension: inherits the content-seed parity proof: TS `hash-wasm` admission and Python `runtime/evidence/identity` fixture parity.
 
 [GRADUATION_EVIDENCE_INWARD]-[QUEUED]: python graduation rail is the single content-keyed contract every offline result crosses outward on.
 - Capability: Python graduation evidence is the single content-keyed outward contract for offline results consumed by the C# determinism closure.
@@ -83,7 +83,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Shape: producer `csharp:Rasm.Persistence/Query/federation#FEDERATED_PLAN` feeds consumer `python:runtime/transport/serve#SERVE`, with `python:runtime/transport/wire#WIRE_PROTO_CODEC` transcoding the `ReuseFrame` `(ContentKey, ContentDescriptor)` lookup and `python:runtime/evidence/identity#IDENTITY` reproducing the seed; the durable row keys on the `#ENTITY_GRAPH` `XxHash128` identity over the `Version/commits` content-addressed commit-DAG substrate.
 - Unlocks: cross-session, cross-package, and cross-runtime by-reference reuse where `compute`/`data`/`geometry`/`artifacts` outputs hit one durable ledger keyed by the same identity the in-session `Map[ContentKey, T]` keys, the in-session cache the hot path and the durable federation the cold-resolve tier.
 - Anchors: the one `XxHash128` seed, `LanePolicy.cached`/`Keyed[T]`/`Map[ContentKey, T]`, `WireProtoCodec`, `transport/serve` invoke, `FEDERATED_PLAN`/`ENTITY_GRAPH`, the `Version/commits` content-addressed commit-DAG, and the `CONTENT_IDENTITY_PARITY` digest-parity gate the key trusts.
-- Tension: the participant is by-reference resolution only — never a durable Python store — and the lookup misses correctly on a settings-drift key as the in-session cache does; this is distinct from the `csharp:Rasm.Persistence` `[REUSE_WIRE]` data-lane reuse-ledger pairing, and inherits the `CONTENT_IDENTITY_PARITY` seed gate plus the `PYTHON_COMPANION_SERVES_WIRE` companion-floor/`SERVE` leg gate.
+- Tension: the participant is by-reference resolution only — never a durable Python store — and the lookup misses correctly on a settings-drift key as the in-session cache does; this is distinct from the `csharp:Rasm.Persistence` `[REUSE_WIRE]` data-lane reuse-ledger pairing, and inherits `CONTENT_IDENTITY_PARITY` plus the `PYTHON_COMPANION_SERVES_WIRE` `SERVE` leg.
 - Ripple: `python:runtime` `[CONTENT_REUSE_FEDERATION_WIRE]` and `csharp:Rasm.Persistence` `[REUSE_WIRE]` — the runtime card owns the by-reference wire participant and disclaims durable storage; this seam binds it to the C# durable federation owner, distinct from the data-lane reuse pairing.
 
 [ONE_WIRE_FIXTURE_CORPUS]-[QUEUED]: one content-addressed golden-fixture corpus every runtime's parity harness reads.
@@ -98,7 +98,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Shape: producer `csharp:Rasm.AppUi/Render/viewport#TS_PROJECTION` feeds consumers `typescript:platform/Transport/decode#RESIDENCY_DECODE` and `typescript:ui/render/glb#GLB_VIEWPORT`, with the Python SPZ/SOG splat-decode companion bound as the payload source.
 - Unlocks: AppUi mints the manifest once, the TS worker decodes it, and `ui/glb-viewport` consumes by reference while the single-hash-mint invariant holds at `platform/worker/`.
 - Anchors: manifest mint+decode is complete for `:x32` content keys, `[x,y,z,r]` bounds tuple, grouped `ViewpointWire` camera, `uint?` color, `ContentKeyHex` `Schema.transform`, and the `interchange` `ContentKey` brand; the splat leg inherits `ONE_CONTENT_IDENTITY` parity.
-- Tension: residuals stay blocked on splat-payload decode (`[UPSTREAM-BLOCKED: Python SOG/PLY/LAZ + xxhash cp315 wheel]`) and WebGPU cluster-LOD upload (`[HOST-PROBE-DEFERRED: live WebGPU device]`).
+- Tension: residuals stay on splat-payload decode (`[PYTHON_PAYLOAD_DECODE: SOG/PLY/LAZ]`) and WebGPU cluster-LOD upload (`[HOST_PROBE_DEFERRED: live WebGPU device]`).
 
 [ONE_DISTRIBUTED_TRACE]-[QUEUED]: propagate one W3C trace-context frame through browser, C#, and Python work.
 - Capability: one W3C trace-context frame is injected and extracted across browser, C#, and Python work so one trace spans a browser interaction, C# solve, and Python tessellation.
@@ -128,12 +128,12 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Anchors: every branch and folder task that finalizes a shared owner, plus `CONTENT_IDENTITY_PARITY`, `CAUSAL_TENANT_IDENTITY_WIRE`, `CRDT_OPLOG_WIRE_AMENDMENT`, `CAPABILITY_SDK_CODEGEN`, `ONE_AGENT_TOOL_PROJECTION`, `ONE_DISTRIBUTED_TRACE`, and `ONE_HEALTH_DEGRADATION_WIRE`.
 - Tension: blocked until all branch and folder producer/consumer tasks land.
 
-[NATIVE_FLOOR_AUDIT]-[QUEUED]: cross-libs core records the per-folder native-floor growth against the one manifest band law and the Forge extension catalog.
-- Capability: the cross-libs core audits the grown native floor — the `data` corpus admits `flox` on the companion `python_version<'3.15'` band and the `substrait` DuckDB community extension as the portable-plan row, the `artifacts` corpus admits the Forge `libvips`/`leptonica`/`tesseract`/`ghostscript` system natives backing `pyvips`/`ocrmypdf` with `libheif` the pending HEIF native gating the `pi-heif` boundary opener — and confirms `pdal` stays the `geometry`-folder point-cloud filter-graph owner rather than a data admission, so `planning-targets.md` records the floor without re-minting any per-folder manifest.
-- Shape: an audit row in `planning-targets.md` records the per-folder native-floor growth and the Forge DuckDB-extensions substrait catalog row, keeping centralization absolute as the one Python manifest carries every version and `zstandard` stays the always-available tooling-band dependency of the `tools.assay` rail rather than a data-corpus admission.
+[TOOLCHAIN_EVIDENCE_AUDIT]-[QUEUED]: cross-libs core records per-folder native capability and extension evidence against the one manifest law and Forge extension catalog.
+- Capability: the cross-libs core records current per-folder native capability evidence: `data` owns `flox` and the `substrait` DuckDB community extension, `artifacts` consumes Forge-provided `libvips`/`leptonica`/`tesseract`/`ghostscript` for `pyvips`/`ocrmypdf`, and `pdal` stays the `geometry` point-cloud filter-graph owner rather than a data admission.
+- Shape: an audit row in `planning-targets.md` records per-folder native capability evidence and the Forge DuckDB-extensions `substrait` catalog row, keeping centralization absolute as the one Python manifest carries every dependency and `zstandard` stays the `tools.assay` dependency rather than a data-corpus admission.
 - Anchors: `libs/.planning/planning-targets.md`, the one Python manifest band law, the Forge DuckDB-extensions catalog substrait row, `scientific-tools.nix`, and the `pdal`-stays-geometry boundary.
-- Ripple: `data` `[SUBSTRAIT_PORTABILITY]` and `[FLOX_ADMIT]` — the data folder already admits `flox` and the duckdb-substrait extension; this core audit row mirrors those landed admissions plus the `artifacts` Forge native-floor paragraph so the cross-libs floor matches the per-folder band law.
-- Atomic: one `planning-targets.md` audit row recording the per-folder native-floor growth and the substrait extension row.
+- Ripple: `data` `[SUBSTRAIT_PORTABILITY]` and `[FLOX_ADMIT]` — the data folder already admits `flox` and the duckdb-substrait extension; this core audit row mirrors those landed admissions plus the `artifacts` Forge native-capability paragraph so cross-libs evidence matches the per-folder owner law.
+- Atomic: one `planning-targets.md` audit row recording per-folder native capability evidence and the substrait extension row.
 
 ## [02]-[CLOSED]
 

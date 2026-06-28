@@ -12,7 +12,7 @@
 - owner: `data`
 - rail: epd-lca (LCI/LCIA ingestion)
 - depends: `bw2data>=4.6.2` (project/`Database`/`config`/`databases`/`parameters`), `bw2calc>=2.0` (LCA engine, downstream consumer), `bw_processing>=1.0` (matrix datapackage substrate), `bw2parameters`, `bw_migrations`, `randonneur>=0.6` + `randonneur_data>=0.5.4` (migration verbs/registry), `pyecospold`, `stats_arrays`, `lxml`, `openpyxl`/`xlrd`/`xlsxwriter`, `voluptuous`, `SPARQLWrapper`, `numpy<3`, `scipy`, `tqdm`, `requests`; optional `ecoinvent_interface` (gates `import_ecoinvent_release`), `multifunctional`+`bw_simapro_csv` (gate multifunctional DBs + `SimaProBlockCSVImporter`)
-- evidence: surface derived from package source (`bw2io 0.9.17`, `pyproject.toml` + `bw2io/__init__.py` + `bw2io/importers/base_lci.py`); not cp315-reflectable — admitted under the `python_version < '3.15'` marker (upstream classifiers cover 3.9–3.14 only), so members are source-verified, not `assay api`-reflected
+- evidence: assay-reflected — `bw2io 0.9.17` (`api resolve bw2io`), installed in the active env; `__all__` (46 names) carries the importer/bootstrap/export surface and `bw2io.importers.base_lci.LCIImporter` carries the pipeline contract
 - capability: format extractors → strategy-pipeline linking → `bw2data.Database` write, for ecospold1/2, SimaPro CSV, Excel/CSV, ExioBase 3 (monetary/hybrid), US-EEIO + JSON-LD; LCIA-method import (Excel/CSV/ecospold1/SimaPro); biosphere/LCIA/migration bootstrap; `randonneur` migrations; GEXF export; `BW2Package` round-trip; `activity_hash` identity
 
 ## [02]-[PUBLIC_TYPES]
@@ -44,7 +44,7 @@
 | [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [ROLE] |
 | :-----: | :------- | :------------ | :----- |
 |  [01]   | `bw2io.importers.base_lci.LCIImporter` | importer base | the shared LCI pipeline contract every LCI importer inherits (`apply_strategies`, `statistics`, `match_database`, `write_database`, …); the integration spine — see [03] |
-|  [02]   | `bw2io.importers.base_lcia.LCIAImporter` | importer base | LCIA pipeline base — `apply_strategies`, `write_methods`, `match_biosphere_by_id`, `add_rationalize_method_names_strategy` |
+|  [02]   | `bw2io.importers.base_lcia.LCIAImporter` | importer base | LCIA pipeline base — `apply_strategies`, `write_methods`, `add_missing_cfs`, `drop_unlinked`, `migrate`, `statistics`/`all_linked` |
 |  [03]   | `BW2Package` | package codec | Brightway-native `.bw2package` export/import (`export_obj`/`export_objs`/`load_file`/`import_file`) for portable database/method interchange |
 |  [04]   | `Migration` / `migrations` | migration store | a named data-migration (field remaps) and the registry registered into `bw2data.config.metadata` |
 |  [05]   | `UnlinkedData` / `unlinked_data` | diagnostics store | persisted unlinked-flow records and the registry for cross-session unlinked inspection |
@@ -81,7 +81,7 @@
 |  [09]   | `imp.drop_unlinked(i_am_reckless=False)` | prune | delete every still-unlinked exchange (guarded; requires the keyword) |
 |  [10]   | `imp.write_project_parameters(...)` / `imp.write_database_parameters(...)` | parameters | persist project/database `bw2parameters` parameter sets |
 
-LCIA importers mirror the shape: `apply_strategies()` → `write_methods(overwrite=False)`, with `match_biosphere_by_id(db_name)` and `add_rationalize_method_names_strategy()`.
+LCIA importers mirror the shape: `apply_strategies()` → `write_methods(overwrite=False, verbose=True)`, with `add_missing_cfs()` to fill missing characterization factors, `drop_unlinked(verbose=True)` to prune, `migrate(migration_name)` for field remaps, and `statistics()`/`all_linked` as the linking receipt.
 
 [ENTRYPOINT_SCOPE]: one-shot full-system imports
 - rail: epd-lca

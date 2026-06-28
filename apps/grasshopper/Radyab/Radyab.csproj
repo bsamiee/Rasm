@@ -7,20 +7,18 @@
         <YakPackageSlug>radyab</YakPackageSlug>
     </PropertyGroup>
 
-    <ItemGroup>
+    <ItemGroup Label="Project References">
         <ProjectReference Include="../../../libs/csharp/Rasm/Rasm.csproj" />
         <ProjectReference Include="../../../libs/csharp/Rasm.Grasshopper/Rasm.Grasshopper.csproj" />
     </ItemGroup>
 
-    <ItemGroup>
+    <ItemGroup Label="Host Usings">
         <Using Include="GrasshopperIO" />
-        <Using Include="LanguageExt" />
-        <Using Include="LanguageExt.Prelude" Static="true" />
         <Using Include="Rasm.Grasshopper.Components" />
         <Using Include="Rhino.PlugIns" />
     </ItemGroup>
 
-    <ItemGroup>
+    <ItemGroup Label="Embedded Resources">
         <EmbeddedResource Include="Icons/*.ghicon" />
         <EmbeddedResource Include="Icons/*.ico" />
     </ItemGroup>

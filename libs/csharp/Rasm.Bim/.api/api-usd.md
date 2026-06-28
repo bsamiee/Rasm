@@ -88,7 +88,7 @@
 
 | [INDEX] | [SURFACE]                                                                       | [ENTRY_FAMILY] | [RAIL]                                            |
 | :-----: | :------------------------------------------------------------------------------ | :------------- | :----------------------------------------------- |
-|  [01]   | `UsdStage.Open(string filePath, InitialLoadSet load)` / `Open(SdfLayerHandle rootLayer, …)` | static open | reads a `.usd*` file or layer into a stage |
+|  [01]   | `UsdStage.Open(string filePath, UsdStage.InitialLoadSet load)` / `Open(SdfLayerHandle rootLayer, …)` | static open | reads a `.usd*` file or layer into a stage; `UsdStage.InitialLoadSet` is the nested payload-load enum (`LoadAll`/`LoadNone`) the open/create overloads take |
 |  [02]   | `UsdStage.OpenMasked(string filePath, UsdStagePopulationMask mask, …)`           | static open    | partial-stage open under a population mask        |
 |  [03]   | `UsdStage.CreateNew(string identifier, …)` / `CreateInMemory(…)`                 | static create  | authors a new on-disk or in-memory stage          |
 |  [04]   | `UsdStage.Save()` / `SaveSessionLayers()` / `Reload()`                           | persist        | writes dirty layers / session layers / reloads    |
@@ -135,7 +135,7 @@
 
 | [INDEX] | [SURFACE]                                                                       | [ENTRY_FAMILY] | [RAIL]                                            |
 | :-----: | :------------------------------------------------------------------------------ | :------------- | :----------------------------------------------- |
-|  [01]   | `UsdGeomMesh.Define(UsdStage stage, SdfPath path)`                               | schema define  | defines a mesh prim                               |
+|  [01]   | `UsdGeomMesh.Define(UsdStage stage, SdfPath path)`; `new UsdGeomMesh(UsdPrim prim)`            | schema define / wrap | `Define` authors a new mesh prim (export); the `new UsdGeomMesh(UsdPrim)` ctor wraps a traversed prim onto the typed mesh schema (the import read path after `Traverse`) |
 |  [02]   | `UsdGeomMesh.GetPointsAttr()` / `CreatePointsAttr(VtValue, bool writeSparsely)` / `GetNormalsAttr()` | mesh attr | points / sparse points / normals (`PointBased`) |
 |  [03]   | `UsdGeomMesh.GetFaceVertexCountsAttr()` / `GetFaceVertexIndicesAttr()` / `GetSubdivisionSchemeAttr()` | mesh attr | topology and subdivision scheme          |
 |  [04]   | `UsdGeomXformable.AddXformOp(UsdGeomXformOp.Type, UsdGeomXformOp.Precision, TfToken opSuffix, bool isInverseOp)` | xform | adds an ordered transform op |

@@ -455,33 +455,33 @@ public partial record ToolbarItem {
             return unit;
         }),
         toggleItem: static (bar, item) => item.Kind.BarProject(bar: bar, command: item.Command, checkedState: item.Checked, onChange: item.OnChange),
-        sectionToggleCase: static (bar, item) => SectionToggleCase.SelfOp.Attempt(body: () => {
+        sectionToggleCase: static (bar, item) => Op.Of(name: nameof(SectionToggleCase)).Attempt(body: () => {
             _ = bar.AddToggle(nomen: new Nomen(name: item.Name, info: item.Name), initialState: item.State, additionalAffectedSections: [.. item.Sections]);
             return unit;
         }, what: "AddToggle"),
         textInputCase: static (bar, item) =>
-            from changed in TextInputCase.SelfOp.NeedChanged(item.Changed, noun: "text")
-            from added in TextInputCase.SelfOp.Attempt(body: () => {
+            from changed in Op.Of(name: nameof(TextInputCase)).NeedChanged(item.Changed, noun: "text")
+            from added in Op.Of(name: nameof(TextInputCase)).Attempt(body: () => {
                 TextField field = bar.AddTextField(icon: StandardIcons.Parameters.Text, nomen: new Nomen(name: item.Name, info: item.Name), initial: item.Value, placeholder: item.Name);
                 field.TextChanged += (_, value) => _ = GrasshopperUi.Handler(valid: () => changed(arg: value));
                 return unit;
             }, what: "AddTextField")
             select added,
         numberCase: static (bar, item) =>
-            from changed in NumberCase.SelfOp.NeedChanged(item.Changed, noun: "number")
-            from added in NumberCase.SelfOp.Attempt(
+            from changed in Op.Of(name: nameof(NumberCase)).NeedChanged(item.Changed, noun: "number")
+            from added in Op.Of(name: nameof(NumberCase)).Attempt(
                 body: () => bar.Add(new NumberSlider(nomen: new Nomen(name: item.Name, info: item.Name), number: item.Value, callback: current => _ = GrasshopperUi.Handler(valid: () => changed(arg: current)))),
                 what: "NumberSlider")
             select added,
         swatchInputCase: static (bar, item) =>
-            from changed in SwatchInputCase.SelfOp.NeedChanged(item.Changed, noun: "colour")
-            from added in SwatchInputCase.SelfOp.Attempt(
+            from changed in Op.Of(name: nameof(SwatchInputCase)).NeedChanged(item.Changed, noun: "colour")
+            from added in Op.Of(name: nameof(SwatchInputCase)).Attempt(
                 body: () => bar.AddLifeColours(nomen: new Nomen(name: item.Name, info: item.Name), initial: item.Family, assignment: value => _ = GrasshopperUi.Handler(valid: () => changed(arg: value))),
                 what: "AddLifeColours")
             select added,
         colourBarsCase: static (bar, item) =>
-            from changed in ColourBarsCase.SelfOp.NeedChanged(item.Changed, noun: "colour")
-            from added in ColourBarsCase.SelfOp.Attempt(body: () => {
+            from changed in Op.Of(name: nameof(ColourBarsCase)).NeedChanged(item.Changed, noun: "colour")
+            from added in Op.Of(name: nameof(ColourBarsCase)).Attempt(body: () => {
                 Nomen nomen = new(name: $"{item.Name} {{family}}", info: $"{item.Name} {{family}}");
                 Bar.CreateStandardColourBars(nomen: nomen, initial: item.Family, assignment: value => _ = GrasshopperUi.Handler(valid: () => changed(arg: value)), out Bar life, out Bar cool, out Bar warm);
                 Seq<Seq<RadioToggle>> groups = Seq(life, cool, warm).Map(static toolbar => toSeq(toolbar.ActiveElements.OfType<RadioToggle>())).ToSeq();
@@ -497,13 +497,13 @@ public partial record ToolbarItem {
                 return unit;
             }, what: "Bar.CreateStandardColourBars")
             select added,
-        spacerCase: static (bar, item) => SpacerCase.SelfOp.Attempt(body: () => {
+        spacerCase: static (bar, item) => Op.Of(name: nameof(SpacerCase)).Attempt(body: () => {
             _ = bar.AddSpacer(chapterName: item.Chapter, sectionName: item.Section);
             return unit;
         }, what: "AddSpacer"),
         spectrumCase: static (bar, item) =>
-            from changed in SpectrumCase.SelfOp.NeedChanged(item.Changed, noun: "colour")
-            from added in SpectrumCase.SelfOp.Attempt(
+            from changed in Op.Of(name: nameof(SpectrumCase)).NeedChanged(item.Changed, noun: "colour")
+            from added in Op.Of(name: nameof(SpectrumCase)).Attempt(
                 body: () => bar.AddColours(nomen: new Nomen(name: item.Name, info: item.Name), spectrum: [.. item.Palette], initial: item.Initial, assignment: value => _ = GrasshopperUi.Handler(valid: () => changed(arg: value))),
                 what: "AddColours")
             select added,
@@ -515,9 +515,9 @@ public partial record ToolbarItem {
     // Context menus accept only menu-capable items; generated Switch rejects the rest exhaustively.
     private Fin<Unit> ApplyToMenu(ContextMenu menu) => Switch(
         state: menu,
-        buttonCase: static (menu, item) => ButtonCase.SelfOp.Attempt(body: () => UiCommand.BindMenu(kind: MenuCommandKind.Button, menu: menu, command: item.Command), what: "menu button"),
+        buttonCase: static (menu, item) => Op.Of(name: nameof(ButtonCase)).Attempt(body: () => UiCommand.BindMenu(kind: MenuCommandKind.Button, menu: menu, command: item.Command), what: "menu button"),
         toggleItem: static (menu, item) => item.Kind.MenuProject(menu: menu, command: item.Command, checkedState: item.Checked, onChange: item.OnChange),
-        spacerCase: static (menu, _) => SpacerCase.SelfOp.Attempt(body: menu.AddSeparator, what: "AddSeparator"),
+        spacerCase: static (menu, _) => Op.Of(name: nameof(SpacerCase)).Attempt(body: menu.AddSeparator, what: "AddSeparator"),
         submenuCase: static (menu, item) => PushSubmenu(menu: menu, name: item.Name, plan: item.Plan),
         sectionToggleCase: static (_, _) => Reject(item: nameof(SectionToggleCase), surface: "a context menu"),
         textInputCase: static (_, _) => Reject(item: nameof(TextInputCase), surface: "a context menu"),
@@ -546,20 +546,20 @@ public partial record ToolbarItem {
 
     private Fin<Unit> ApplyToPanel(InputPanel panel) => Switch(
         state: panel,
-        labelCase: static (panel, item) => LabelCase.SelfOp.Attempt(body: () => {
+        labelCase: static (panel, item) => Op.Of(name: nameof(LabelCase)).Attempt(body: () => {
             _ = panel.AddLabel(text: item.Caption);
             return unit;
         }, what: "AddLabel"),
         checkCase: static (panel, item) =>
-            from changed in CheckCase.SelfOp.NeedChanged(item.Changed, noun: "check")
-            from added in CheckCase.SelfOp.Attempt(body: () => {
+            from changed in Op.Of(name: nameof(CheckCase)).NeedChanged(item.Changed, noun: "check")
+            from added in Op.Of(name: nameof(CheckCase)).Attempt(body: () => {
                 _ = panel.AddCheck(text: item.Name, @checked: item.State, checkedChanged: value => _ = GrasshopperUi.Handler(valid: () => changed(arg: value)));
                 return unit;
             }, what: "AddCheck")
             select added,
         textCase: static (panel, item) =>
-            from changed in TextCase.SelfOp.NeedChanged(item.Changed, noun: "text")
-            from added in TextCase.SelfOp.Attempt(body: () => {
+            from changed in Op.Of(name: nameof(TextCase)).NeedChanged(item.Changed, noun: "text")
+            from added in Op.Of(name: nameof(TextCase)).Attempt(body: () => {
                 _ = panel.AddText(text: item.Value, textChanged: value => _ = GrasshopperUi.Handler(valid: () => changed(arg: value)));
                 return unit;
             }, what: "AddText")

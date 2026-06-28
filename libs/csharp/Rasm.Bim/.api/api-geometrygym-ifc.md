@@ -31,7 +31,7 @@ for the Compute geometry interchange rail.
 |  [02]   | `DatabaseSTEP<T>`     | geometry | generic STEP record store; `IEnumerable<T>`, `this[int stepId]`, `NextObjectRecord`          |
 |  [03]   | `BaseClassIfc`        | geometry | abstract root of every IFC entity; carries `Database`, `Extract<T>`, STEP/JSON serialization |
 |  [04]   | `STEPEntity`          | geometry | base STEP record carrier under `BaseClassIfc`                                                |
-|  [05]   | `FactoryIfc`          | geometry | per-database factory; canonical axes, origins, placements, application, owner history        |
+|  [05]   | `FactoryIfc`          | geometry | per-database factory; canonical axes, origins, placements (`RootPlacement` → `IfcLocalPlacement` at world origin, `XYPlanePlacement` → `IfcAxis2Placement3D` — the default element/profile placements occurrence ctors take), application, owner history |
 |  [06]   | `ParserIfc`           | geometry | static STEP/enum/GUID codec; `ParseEnum<T>`, `DecodeGlobalID`, `EncodeGuid`                  |
 |  [07]   | `ParserSTEP`          | geometry | static low-level STEP token parser                                                           |
 |  [08]   | `STEPFileInformation` | geometry | originating-file header metadata on the database                                             |
@@ -60,6 +60,8 @@ for the Compute geometry interchange rail.
 |  [13]   | `IfcStructuralCurveMemberTypeEnum` | geometry | idealized 1D member kind: `RIGID_JOINED_MEMBER`, `PIN_JOINED_MEMBER`, `CABLE`, `TENSION_MEMBER`, `COMPRESSION_MEMBER`, …                                                                                                                                                    |
 |  [14]   | `IfcLoadGroupTypeEnum`             | geometry | load-group kind: `LOAD_GROUP`, `LOAD_CASE`, `LOAD_COMBINATION`, `USERDEFINED`, `NOTDEFINED`                                                                                                                                                                                 |
 |  [15]   | `IfcCardinalPointReference`        | geometry | profile placement reference axis on `IfcMaterialProfileSetUsage.CardinalPoint`: `DEFAULT`(0)/`BOTLEFT`/`BOTMID`/`BOTRIGHT`/`MIDLEFT`/`MID`(5, default)/`MIDRIGHT`/`TOPLEFT`/`TOPMID`/`TOPRIGHT`(9 structural grid)/`CENTROID`/`BOTCENT`/`LEFTCENT`/`RIGHTCENT`/`TOPCENT`/`SHEARCENT`/`BOTSHEAR`/`LEFTSHEAR`/`RIGHTSHEAR`/`TOPSHEAR`(19) — the `CardinalPoint` smart-enum reciprocal |
+|  [16]   | `IfcLogicalEnum`                   | geometry | three-valued logical: `TRUE`, `FALSE`, `UNKNOWN` — the `IfcMaterialLayer.IsVentilated` value, compared as `== IfcLogicalEnum.TRUE`                                                                                                                                          |
+|  [17]   | `IfcWorkScheduleTypeEnum`          | geometry | work-schedule kind: `ACTUAL`, `BASELINE`, `PLANNED` — the `IfcWorkSchedule.PredefinedType`, lowered onto the `WorkScheduleKind` reciprocal                                                                                                                                  |
 
 [PUBLIC_TYPE_SCOPE]: IFC kernel root entities
 - package: `GeometryGymIFC_Core`
@@ -119,14 +121,16 @@ for the Compute geometry interchange rail.
 |  [08]   | `IfcPhysicalSimpleQuantity`  | geometry | simple quantity base; `IfcQuantityLength`/`Area`/`Volume`/`Weight`/`Count`/`Time` |
 |  [09]   | `IfcPropertySetTemplate`     | geometry | reusable property-set template                                                    |
 |  [10]   | `IfcMaterial`                | geometry | named material definition                                                         |
-|  [11]   | `IfcMaterialLayerSet`        | geometry | ordered material layer assembly                                                   |
-|  [12]   | `IfcMaterialLayerSetUsage`   | geometry | layer-set application to an element                                               |
+|  [11]   | `IfcMaterialLayerSet`        | geometry | ordered material layer assembly; `MaterialLayers` (`LIST<IfcMaterialLayer>`)      |
+|  [12]   | `IfcMaterialLayerSetUsage`   | geometry | layer-set application to an element; `ForLayerSet` (`IfcMaterialLayerSet`), `LayerSetDirection` (`IfcLayerSetDirectionEnum`), `DirectionSense` (`IfcDirectionSenseEnum`), `OffsetFromReferenceLine` (`double`) |
 |  [13]   | `IfcMaterialProfileSet`      | geometry | material-profile assembly for linear members                                      |
-|  [14]   | `IfcMaterialConstituentSet`  | geometry | named constituent material set                                                    |
+|  [14]   | `IfcMaterialConstituentSet`  | geometry | named constituent material set; `MaterialConstituents` (`Dictionary<string, IfcMaterialConstituent>`, iterate `.Values`) |
 |  [15]   | `IfcMaterialProperties`      | geometry | `IfcExtendedProperties` subtype binding a named Pset to an `IfcMaterial`; public ctor `(string name, IfcMaterialDefinition mat)`, `Material` member, columns added to the inherited `Properties` dict |
 |  [16]   | `IfcExtendedProperties`      | geometry | extended-property base; `Name`/`Description` plus `Properties` `Dictionary<string, IfcProperty>` and a `this[name]` indexer |
 |  [17]   | `IfcProperty`                | geometry | abstract property root (`IfcPropertySingleValue` etc.); the `Properties`-dict element type |
 |  [18]   | `IfcMaterialProfile`         | geometry | one profile-material row in an `IfcMaterialProfileSet.MaterialProfiles` (`LIST<IfcMaterialProfile>`); `Material` (`IfcMaterial`), `Profile` (`IfcProfileDef`, the subtype-discriminated section), `Name`/`Description`/`Category` (`string`), `Priority` (`int`) |
+|  [19]   | `IfcMaterialLayer`           | geometry | one layer in `IfcMaterialLayerSet.MaterialLayers` (`: IfcMaterialDefinition`); `Material` (`IfcMaterial`), `LayerThickness` (`double`), `Category` (`string`), `IsVentilated` (`IfcLogicalEnum`); ctor `(IfcMaterial, double thickness, string name)` |
+|  [20]   | `IfcMaterialConstituent`     | geometry | one constituent in `IfcMaterialConstituentSet.MaterialConstituents` (`: IfcMaterialDefinition`); `Material` (`IfcMaterial`), `Name` (`string`), `Fraction` (`double`); ctor `(string name, IfcMaterial)` |
 
 [PUBLIC_TYPE_SCOPE]: relationship families
 - package: `GeometryGymIFC_Core`
@@ -137,15 +141,16 @@ for the Compute geometry interchange rail.
 | :-----: | :---------------------------------- | :------- | :-------------------------------------------------------- |
 |  [01]   | `IfcRelationship`                   | geometry | objectified-relationship root                             |
 |  [02]   | `IfcRelAggregates`                  | geometry | whole-part decomposition (`IfcRelDecomposes` subtype)     |
-|  [03]   | `IfcRelNests`                       | geometry | ordered nesting decomposition                             |
+|  [03]   | `IfcRelNests`                       | geometry | ordered nesting decomposition; `RelatingObject` (`IfcObjectDefinition`, the parent reached via `IfcObjectDefinition.Nests`) |
 |  [04]   | `IfcRelContainedInSpatialStructure` | geometry | element-to-spatial containment (`IfcRelConnects` subtype) |
 |  [05]   | `IfcRelDefinesByProperties`         | geometry | binds a property/quantity set to objects                  |
 |  [06]   | `IfcRelDefinesByType`               | geometry | binds occurrences to a type object                        |
-|  [07]   | `IfcRelAssociatesMaterial`          | geometry | associates a material definition with objects             |
-|  [08]   | `IfcRelAssociatesClassification`    | geometry | associates a classification reference                     |
+|  [07]   | `IfcRelAssociatesMaterial`          | geometry | associates a material definition with objects; `RelatingMaterial` (`IfcMaterialSelect`), `RelatedObjects` (`SET<IfcDefinitionSelect>`) |
+|  [08]   | `IfcRelAssociatesClassification`    | geometry | associates a classification reference; ctor `(IfcClassificationSelect classification, IfcDefinitionSelect related)` |
 |  [09]   | `IfcRelDeclares`                    | geometry | declares definitions within a context                     |
 |  [10]   | `IfcRelVoidsElement`                | geometry | subtracts an opening from an element                      |
 |  [11]   | `IfcRelConnectsElements`            | geometry | physical element-to-element connection                    |
+|  [12]   | `IfcDefinitionSelect`               | geometry | SELECT (`interface`) of the objects a relationship relates — the `IfcRelAssociates.RelatedObjects` element type and the `(IfcDefinitionSelect)material` cast target in the classification-associate ctor |
 
 [PUBLIC_TYPE_SCOPE]: architectural built-element family
 - package: `GeometryGymIFC_Core`
@@ -171,6 +176,7 @@ for the Compute geometry interchange rail.
 |  [15]   | `IfcDoor`        | geometry | door built element; `PredefinedType` (`IfcDoorTypeEnum`) + `OperationType`                |
 |  [16]   | `IfcWindow`      | geometry | window built element; `PredefinedType` (`IfcWindowTypeEnum`) + `PartitioningType`         |
 |  [17]   | `IfcSpace`       | geometry | space spatial element; `PredefinedType` (`IfcSpaceTypeEnum`: INTERNAL/EXTERNAL/PARKING/…) |
+|  [18]   | `IfcBuildingElementProxy` | geometry | generic proxy built element (`: IfcBuiltElement`); `PredefinedType` (`IfcBuildingElementProxyTypeEnum`: COMPLEX/ELEMENT/PARTIAL/PROVISIONFORVOID/…); ctor `(IfcObjectDefinition host, IfcObjectPlacement, IfcProductDefinitionShape)` — the unclassified-product carrier the canonical→IFC export authors |
 
 [PUBLIC_TYPE_SCOPE]: MEP distribution-element family
 - package: `GeometryGymIFC_Core`
@@ -212,7 +218,7 @@ for the Compute geometry interchange rail.
 |  [13]   | `IfcBoundaryCondition`             | geometry | boundary-condition base (`IfcBoundaryNodeCondition`/`IfcBoundaryEdgeCondition`)                         |
 |  [14]   | `IfcRelConnectsStructuralMember`   | geometry | connects an idealized member to a connection; `RelatingStructuralMember`, `RelatedStructuralConnection` |
 |  [15]   | `IfcRelConnectsStructuralActivity` | geometry | binds a load/result activity to a structural item                                                       |
-|  [16]   | `IfcRelAssignsToGroup`             | geometry | assigns objects to an `IfcGroup`/`IfcSystem`/`IfcStructuralLoadGroup`                                   |
+|  [16]   | `IfcRelAssignsToGroup`             | geometry | assigns objects to an `IfcGroup`/`IfcSystem`/`IfcStructuralLoadGroup`; `RelatedObjects` (`SET<IfcObjectDefinition>`, the assigned members reached via `IfcGroup.IsGroupedBy`) |
 
 [PUBLIC_TYPE_SCOPE]: grouping, zone, and distribution-system family
 - package: `GeometryGymIFC_Core`
@@ -255,6 +261,7 @@ for the Compute geometry interchange rail.
 |  [14]   | `IfcConstructionMaterialResource`  | geometry | material resource; `PredefinedType` (`IfcConstructionMaterialResourceTypeEnum`)                        |
 |  [15]   | `IfcConstructionEquipmentResource` | geometry | equipment resource; `PredefinedType`                                                                   |
 |  [16]   | `IfcRelAssignsToControl`           | geometry | assigns objects to a control (cost item/schedule); `RelatingControl`, `RelatedObjects`                 |
+|  [17]   | `IfcWorkTime`                      | geometry | one working/exception period in `IfcWorkCalendar.WorkingTimes`/`ExceptionTimes` (`: IfcSchedulingTime`); public `StartDate`/`FinishDate` (`DateTime`) |
 
 [PUBLIC_TYPE_SCOPE]: georeferencing and map-conversion entities
 - package: `GeometryGymIFC_Core`
@@ -386,7 +393,7 @@ for the Compute geometry interchange rail.
 |  [13]   | `IfcStyledItem`                       | geometry | binds a style to a representation item                                                                                   |
 |  [14]   | `IfcStyledRepresentation`             | geometry | representation holding only styled items                                                                                 |
 |  [15]   | `IfcMaterialDefinitionRepresentation` | geometry | links an `IfcMaterial` to its `IfcStyledRepresentation` set                                                              |
-|  [16]   | `IfcColourRgb`                        | geometry | RGB colour value                                                                                                         |
+|  [16]   | `IfcColourRgb`                        | geometry | RGB colour value; `Red`/`Green`/`Blue` (`double`, normalized 0..1); ctor `(DatabaseIfc, double red, double green, double blue)` and `(DatabaseIfc, System.Drawing.Color)` |
 |  [17]   | `IfcColourRgbList`                    | geometry | packed list of RGB colour triples for indexed colour sets                                                                |
 
 [PUBLIC_TYPE_SCOPE]: units, presentation, and attributes
@@ -400,11 +407,13 @@ for the Compute geometry interchange rail.
 |  [02]   | `IfcSIUnit`                  | geometry | SI base/derived unit                                         |
 |  [03]   | `IfcConversionBasedUnit`     | geometry | unit defined by conversion factor                            |
 |  [04]   | `IfcDerivedUnit`             | geometry | compound derived unit                                        |
-|  [05]   | `IfcMonetaryUnit`            | geometry | currency unit                                                |
-|  [06]   | `IfcMeasureWithUnit`         | geometry | value bound to a unit                                        |
+|  [05]   | `IfcMonetaryUnit`            | geometry | currency unit; `Currency` (`string`, ISO 4217) — the `IfcMeasureWithUnit.UnitComponent` of a priced `IfcCostValue` |
+|  [06]   | `IfcMeasureWithUnit`         | geometry | value bound to a unit; `ValueComponent` (`IfcValue`), `UnitComponent` (`IfcUnit`) — the `IfcCostValue.UnitBasis` carrier |
 |  [07]   | `IfcClassificationReference` | geometry | reference to an external classification; `ReferencedSource`/`Identification`/`Location` |
 |  [08]   | `IfcClassification`          | geometry | the classification source `IfcClassificationReference.ReferencedSource` names (Uniclass2015/OmniClass) |
 |  [09]   | `VersionAddedAttribute`      | geometry | reflection attribute marking schema-version availability     |
+|  [10]   | `IfcMeasureValue`            | geometry | abstract measure-value base (`: IfcValue`); `Measure` (`double`) — the `IfcMeasureWithUnit.ValueComponent` narrow target (the per-basis denominator) |
+|  [11]   | `IfcMonetaryMeasure`         | geometry | monetary amount (`: IfcDerivedMeasureValue : IfcValue`); `Measure` (`double`) — the `IfcCostValue.AppliedValue` narrow target (the applied cost amount) |
 
 [PUBLIC_TYPE_SCOPE]: structural-connection realizing-element surface
 - package: `GeometryGymIFC_Core`

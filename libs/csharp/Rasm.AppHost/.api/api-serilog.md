@@ -80,6 +80,7 @@ formatters, and log context for projection.
 |  [14]   | `Destructure.With`           | destructuring policy | payload shaping          |
 |  [15]   | `Destructure.ToMaximumDepth` | destructuring limit  | depth bound              |
 |  [16]   | `CreateLogger`               | logger factory       | logger construction      |
+|  [17]   | `Fallible`                   | sink failure wrap    | `Fallible(Action<LoggerSinkConfiguration> configureSink, ILoggingFailureListener failureListener)` wraps a sink chain in a `FailureListenerSink` so the listener observes every reported failure |
 
 [ENTRYPOINT_SCOPE]: event context and formatting operations
 - rail: telemetry
@@ -112,7 +113,7 @@ formatters, and log context for projection.
 - event model: message template, properties, level, timestamp, exception
 - trace model: event trace id and span id fields
 - configuration rails: minimum level, enrichment, destructuring, sinks, audit sinks, filters
-- sink rails: sink, batched sink, sub-logger, conditional sink, fallback chain
+- sink rails: sink, batched sink, sub-logger, conditional sink, fallback chain, failure-listener wrap (`WriteTo.Fallible`)
 - level control: fixed level, source override, `LoggingLevelSwitch`
 - context rail: `LogContext` pushes scoped properties through ambient context
 - failure rail: logging failure listener, failure kind, self log

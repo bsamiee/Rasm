@@ -33,14 +33,14 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Shape: `csharp:Rasm.Compute/Runtime/codecs#CONTENT_ADDRESSING` mints seed zero with the two-64-bit-half order; `python:runtime/evidence/identity` reproduces through `xxhash`, and `typescript:interchange` reproduces through a 128-bit wasm hash.
 - Unlocks: fetch-by-content-key across runtimes, so Python-recomputed artifacts, C# sub-results, and TypeScript blobs share one byte-addressable identity.
 - Anchors: content-addressed build graph over the one seed; HLC two-half encoding rides the same parity because a logical half-order error makes a fresh op fold as stale.
-- Tension: TS admission moves to `hash-wasm` after retiring 128-bit-incapable `xxhash-wasm`; Python core parity waits on an upstream `xxhash` cp315/abi3 wheel while the sub-3.15 companion consumes `xxh3_128_intdigest`.
+- Tension: TS admission moves to `hash-wasm` after retiring 128-bit-incapable `xxhash-wasm`; Python parity stays a root-manifest substrate plus fixture-proof task under `python:runtime/evidence/identity`.
 
 [ONE_TESSELLATION_RAIL]-[QUEUED]: one Python-native IFC/STEP companion produces the GLB every runtime consumes.
 - Capability: shared tessellation rail for IFC and CAD geometry through content-keyed GLB output.
 - Shape: `python:geometry` serves the IfcOpenShell GLB tessellation daemon; `csharp:Rasm.Bim/exchange/interchange` builds the tessellation request, `csharp:Rasm.Compute/Runtime/codecs#TILE_PARTITION` content-addresses the result, and `typescript:ui` renders the GLB viewport.
 - Unlocks: one geometry-evaluation companion with no duplicate mesh pipeline; meshing keeps one owner per runtime, and IFC keeps one semantic owner per runtime while meeting only at the content-keyed GLB.
 - Anchors: one-owner-per-runtime geometry law, IfcOpenShell/OpenCascade companion two-hop, `SharpGLTF.Ext.3DTiles` builders (`FeatureIDBuilder`, `PropertyTable`, `EXTStructuralMetadataRoot`), and per-tile `EXT_structural_metadata`/`EXT_mesh_features` carrying IFC class and field bands on the same key.
-- Tension: the AP242 STEP arm rides the same OpenCascade companion shape but waits on `cadquery-ocp` companion admission.
+- Tension: the AP242 STEP arm rides the same OpenCascade companion shape and lands through the geometry companion's root-manifest admission plus `.api` catalogue.
 
 [CRDT_COLLABORATION]-[QUEUED]: op-log CRDT becomes a breaking amendment to the one wire vocabulary.
 - Capability: multi-runtime collaborative editing over a single op-log changefeed.
@@ -61,7 +61,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Shape: `csharp:Rasm.AppHost/Runtime/ports#PORT_RECORDS` mints the HLC two-half stamp on `ReceiptEnvelope` and threads `TenantContext`; `python:runtime/transport/serve#SERVE` decodes `hlc_physical`/`hlc_logical` plus `tenant` from the inbound receipt slot, and `typescript:projection` reads the HLC band for skew-aware ordering.
 - Unlocks: receipts produced in any runtime carry stamps the others order against, and tenant isolation remains a wire fact instead of a per-runtime scheme.
 - Anchors: HLC two-64-bit-half encoding, C#-owns-the-wire law, and content-seed parity fixtures that also prove HLC half order.
-- Tension: the Python `runtime/observability/receipts#RECEIPT` page is not this consumer because it owns local evidence and disclaims the AppHost envelope; causal/tenant inbound belongs to the server decode leg and inherits the `hash-wasm`/upstream-`xxhash` wheel gates.
+- Tension: the Python `runtime/observability/receipts#RECEIPT` page is not this consumer because it owns local evidence and disclaims the AppHost envelope; causal/tenant inbound belongs to the server decode leg and inherits the content-identity parity proof.
 
 [ONE_GRADUATION_EVIDENCE]-[QUEUED]: Python offline results cross inward through one content-keyed graduation rail.
 - Capability: single graduation contract for offline science results consumed by the C# determinism closure.

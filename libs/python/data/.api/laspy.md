@@ -1,6 +1,6 @@
 # [PY_DATA_API_LASPY]
 
-`laspy` supplies LAS/LAZ point-cloud file IO for the data scan-exchange rail and owns the COPC octree-subset read. `laspy.open(source, mode)` is the single polymorphic IO entry that discriminates `mode` into a `LasReader`/`LasWriter`/`LasAppender` for chunked streaming; `laspy.read` is the eager whole-file load into a `LasData`. The package reads, writes, appends, and converts LAS 1.0–1.4 / LAS 2.0 records, manages extra dimensions (`ExtraBytesParams`) and CRS (`pyproj.CRS`), reads/writes VLRs and EVLRs, selects the LAZ backend through `LazBackend`, masks decode fields through `DecompressionSelection`, and runs spatial/level-of-detail queries against Cloud-Optimized Point Cloud files through `laspy.copc.CopcReader`; it never re-implements binary LAS parsing or the LASzip range codec. runtime `laspy.copc` reads UNCOMPRESSED COPC only — compressed `.copc.laz`/LAZ rides the companion `lazrs`/`laszip` backend (`.api/lazrs.md`, `.api/laszip.md`).
+`laspy` supplies LAS/LAZ point-cloud file IO for the data scan-exchange rail and owns the COPC octree-subset read. `laspy.open(source, mode)` is the single polymorphic IO entry that discriminates `mode` into a `LasReader`/`LasWriter`/`LasAppender` for chunked streaming; `laspy.read` is the eager whole-file load into a `LasData`. The package reads, writes, appends, and converts LAS 1.0–1.4 / LAS 2.0 records, manages extra dimensions (`ExtraBytesParams`) and CRS (`pyproj.CRS`), reads/writes VLRs and EVLRs, selects the LAZ backend through `LazBackend`, masks decode fields through `DecompressionSelection`, and runs spatial/level-of-detail queries against Cloud-Optimized Point Cloud files through `laspy.copc.CopcReader`; it never re-implements binary LAS parsing or the LASzip range codec. COPC is LAZ-1.4 by construction, so `CopcReader` and every `.laz`/`.copc.laz` read decode through the companion `lazrs` (default) or `laszip` backend (`.api/lazrs.md`, `.api/laszip.md`) selected via `LazBackend` — laspy never reimplements the range codec.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -11,7 +11,9 @@
 - module: `laspy`
 - owner: `data`
 - rail: scan-exchange
+- depends: `numpy` (core); optional `lazrs`/`laszip` (LAZ backends, `.api/lazrs.md`/`.api/laszip.md`), `pyproj` (CRS round-trip), `requests` (COPC over HTTP)
 - entry points: `import laspy` plus the `laspy` console script (`laspy.cli`)
+- evidence: assay-reflected — `laspy 2.7.0` (`api resolve laspy`); `LasAppender`/`LasMMAP` resolve through `laspy.open(mode='a')`/`laspy.mmap` (returned-handle types, not top-level importable names)
 - capability: LAS/LAZ eager `read` and chunked-streaming `open` (reader/writer/appender), `create`/`convert`/`mmap`, extra-dimension (`ExtraBytesParams`) and CRS management, VLR/EVLR access, `LazBackend` selection, `DecompressionSelection` field masking, and the COPC octree-subset spatial/LOD read via `laspy.copc.CopcReader`
 
 ## [02]-[PUBLIC_TYPES]
@@ -23,16 +25,16 @@
 
 | [INDEX] | [SYMBOL]                | [TYPE_FAMILY]     | [CAPABILITY]                                                                       |
 | :-----: | :---------------------- | :---------------- | :--------------------------------------------------------------------------------- |
-|  [01]   | `LasData`               | in-memory file    | `x`/`y`/`z`/`xyz`, `header`, `points`, `vlrs`/`evlrs`, `add_extra_dim(s)`, `write`  |
+|  [01]   | `LasData`               | in-memory file    | `x`/`y`/`z`/`xyz`, `point_format`, `header`, `points`, `vlrs`/`evlrs`, `add_extra_dim(s)`, `write`  |
 |  [02]   | `LasReader`             | streaming reader  | `read_points(n)`, `chunk_iterator(n)`, `seek`, `read`, `read_evlrs`, `header`      |
 |  [03]   | `LasWriter`             | streaming writer  | `write_points(record)`, `write_evlrs`, `close`; context-manager from `open(mode='w')` |
 |  [04]   | `LasAppender`           | streaming appender| `append_points(record)`, `close`; context-manager from `open(mode='a')`            |
-|  [05]   | `LasHeader`             | header record     | version, point format, scale/offset, bounds, VLRs, `add_crs`/`parse_crs`, `grow`   |
+|  [05]   | `LasHeader`             | header record     | version, point format, `point_count`, scale/offset, bounds, VLRs, `add_crs`/`parse_crs`, `grow`   |
 |  [06]   | `PointFormat`           | format descriptor | `id`, `dimension_names`, `dtype`, standard/extra dims, `add_extra_dimension`        |
-|  [07]   | `ScaleAwarePointRecord` | scaled buffer     | scale/offset-aware record; `zeros`/`empty`/`from_buffer`/`change_scaling`/`resize`  |
+|  [07]   | `ScaleAwarePointRecord` | scaled buffer     | scale/offset-aware record; scaled `x`/`y`/`z`, `point_format` (a `PointFormat`), `[name]` dimension access, `zeros`/`empty`/`from_buffer`/`change_scaling`/`resize`  |
 |  [08]   | `VLR`                   | metadata block    | `user_id`/`record_id`/`description`/`record_data_bytes`; header VLR/EVLR payload    |
 |  [09]   | `ExtraBytesParams`      | extra-dim spec    | `name`/`type`/`description`/`offsets`/`scales`/`no_data` for `add_extra_dim`        |
-|  [10]   | `LaspyException`        | error             | base laspy failure (`laspy.errors.LazError` for absent/failed LAZ backend)          |
+|  [10]   | `LaspyException`        | error             | base laspy failure; the `laspy.errors` family refines it — `LazError` (absent/failed LAZ backend), `FileVersionNotSupported`, `PointFormatNotSupported`, `IncompatibleDataFormat`, `UnknownExtraType`          |
 
 [PUBLIC_TYPE_SCOPE]: backend and field-selection enums
 - rail: scan-exchange
@@ -54,7 +56,7 @@
 | [INDEX] | [SURFACE]                                                                                                                 | [ENTRY_FAMILY]  | [RAIL]                                       |
 | :-----: | :------------------------------------------------------------------------------------------------------------------------ | :-------------- | :------------------------------------------- |
 |  [01]   | `laspy.read(source, closefd=True, laz_backend=(), decompression_selection=DecompressionSelection.all(), encoding_errors='strict') -> LasData` | eager read      | load full LAS/LAZ into `LasData`             |
-|  [02]   | `laspy.open(source, mode='r', *, laz_backend=None, header=None, do_compress=None, read_evlrs=True, decompression_selection=..., closefd=True) -> LasReader \| LasWriter \| LasAppender` | streaming       | mode-discriminated reader/writer/appender    |
+|  [02]   | `laspy.open(source, mode='r', closefd=True, laz_backend=None, header=None, do_compress=None, encoding_errors='strict', read_evlrs=True, decompression_selection=...) -> LasReader \| LasWriter \| LasAppender` | streaming       | mode-discriminated reader/writer/appender    |
 |  [03]   | `laspy.create(*, point_format=None, file_version=None) -> LasData`                                                        | construct       | new empty `LasData` at a point format/version |
 |  [04]   | `laspy.convert(source_las, *, point_format_id=None, file_version=None) -> LasData`                                        | convert         | reformat a `LasData` to a new format/version  |
 |  [05]   | `laspy.mmap(filename) -> LasMMAP`                                                                                          | mmap            | memory-mapped point access over a LAS file    |
@@ -77,7 +79,7 @@
 | :-----: | :------------------------------------------------------------------ | :------------ | :------------------------------------------------------------------ |
 |  [01]   | `laspy.copc.CopcReader`                                             | COPC reader   | octree-indexed spatial/LOD reader over local paths and HTTP URLs    |
 |  [02]   | `laspy.copc.Bounds(mins: np.ndarray, maxs: np.ndarray)`             | bounds record | `overlaps(other)`, `ensure_3d(mins, maxs)` axis-aligned query box   |
-|  [03]   | `laspy.ScaleAwarePointRecord(array, point_format, scales, offsets)` | scaled buffer | scale/offset-aware point record; `zeros(...)`/`empty(...)` builders |
+|  [03]   | `laspy.ScaleAwarePointRecord(array, point_format, scales, offsets)` | scaled buffer | scale/offset-aware point record; scaled `x`/`y`/`z`, `point_format` (a `PointFormat`), `[name]` dimension access, `zeros(...)`/`empty(...)` builders |
 
 | [INDEX] | [SURFACE]                                                                                                | [ENTRY_FAMILY] | [RAIL]                                 |
 | :-----: | :------------------------------------------------------------------------------------------------------- | :------------- | :------------------------------------- |
@@ -102,7 +104,7 @@
 - CRS round-trips through `LasHeader.add_crs(pyproj.CRS, keep_compatibility=True)` and `parse_crs(prefer_wkt=True)`; VLR/EVLR payloads are `VLR(user_id, record_id, description, record_data_bytes)` read off `LasHeader.vlrs`/`LasData.evlrs`.
 
 [BACKEND_LAW]:
-- Compressed COPC/LAZ decoding rides the companion backend on the `<3.15` band: `lazrs` (`.api/lazrs.md`, Rust `laz-rs`) is the default and required COPC backend, with `laszip` (`.api/laszip.md`, native LASzip) the alternative; `laspy` selects between them through `LazBackend.{Lazrs, LazrsParallel, Laszip}`, gated by `LazBackend.is_available()`.
+- Compressed COPC/LAZ decoding rides the companion backend: `lazrs` (`.api/lazrs.md`, Rust `laz-rs`) is the default and required COPC backend, with `laszip` (`.api/laszip.md`, native LASzip) the alternative; `laspy` selects between them through `LazBackend.{Lazrs, LazrsParallel, Laszip}`, gated by `LazBackend.is_available()`.
 - field-skipping is one `DecompressionSelection` flag value threaded into `read`/`open`/`CopcReader.open`; `DecompressionSelection.to_laszip() -> int` is the only producer of the mask the `laszip` binding consumes (`.api/laszip.md`), and the `lazrs` backend reads the same flag set — never two parallel mask vocabularies.
 - append is backend-sensitive: `LazBackend.Laszip.supports_append` is `False`, so a `LasAppender` over compressed LAZ requires `LazBackend.Lazrs`/`LazrsParallel`; route LAZ append accordingly.
 

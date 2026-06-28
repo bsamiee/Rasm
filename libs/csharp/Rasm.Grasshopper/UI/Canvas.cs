@@ -596,7 +596,7 @@ internal static partial class UiRail {
                 from canvas in scope.NeedCanvas()
                 from _window in RequireParentWindow(canvas: canvas, op: Op.Of(name: nameof(CanvasOp.InlineEdit)))
                 from frame in Op.Of(name: nameof(CanvasOp.InlineEdit)).AcceptRect(value: edit.Frame, detail: "invalid inline editor frame", requirePositive: true)
-                from apply in Optional(edit.Apply).ToFin(Fail: UiFault.InvalidInput(op: CanvasOp.InlineEditCase.SelfOp, detail: "apply callback is required"))
+                from apply in Optional(edit.Apply).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(CanvasOp.InlineEditCase)), detail: "apply callback is required"))
                 from _ in Op.Of(name: nameof(CanvasOp.InlineEdit)).Attempt(body: () => {
                     System.Action? cancel = edit.Cancel is { IsSome: true, Case: Func<Fin<Unit>> run }
                         ? () => GrasshopperUi.Handler(valid: run).Ignore()
@@ -608,12 +608,12 @@ internal static partial class UiRail {
             valueEditorCase: static edit => GhUi.Canvas(openEditor: true, run: scope =>
                 from canvas in scope.NeedCanvas()
                 from _window in RequireParentWindow(canvas: canvas, op: Op.Of(name: nameof(CanvasOp.ValueEditor)))
-                from parameter in Optional(edit.Parameter).ToFin(Fail: UiFault.InvalidInput(op: CanvasOp.ValueEditorCase.SelfOp, detail: "parameter is required"))
+                from parameter in Optional(edit.Parameter).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(CanvasOp.ValueEditorCase)), detail: "parameter is required"))
                 from _ in ShowValueEditor(canvas: canvas, parameter: parameter, control: edit.Control)
                 select CanvasResult.Unit),
             sparkleCase: static sp => GhUi.Canvas(repaint: RepaintRequest.Scheduled, run: scope =>
                 from canvas in scope.NeedCanvas()
-                from instance in Optional(sp.Instance).ToFin(Fail: UiFault.InvalidInput(op: CanvasOp.SparkleCase.SelfOp, detail: "sparkle is required"))
+                from instance in Optional(sp.Instance).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(CanvasOp.SparkleCase)), detail: "sparkle is required"))
                 from _ in Op.Of(name: nameof(CanvasOp.Sparkle)).Attempt(body: () => { canvas.AddSparkle(sparkle: instance); return unit; }, what: "Canvas.AddSparkle")
                 select CanvasResult.Unit),
             wireShapeCase: static shape => Wire.InstallShape(
@@ -626,7 +626,7 @@ internal static partial class UiRail {
                 .Map(static sub => (CanvasResult)new CanvasResult.SubscriptionResult(Subscription: sub)),
             snapSettingsCase: static ss => GhUi.Canvas(run: scope =>
                 scope.NeedCanvas()
-                    .Bind(canvas => RequireParentWindow(canvas: canvas, op: CanvasOp.SnapSettingsCase.SelfOp))
+                    .Bind(canvas => RequireParentWindow(canvas: canvas, op: Op.Of(name: nameof(CanvasOp.SnapSettingsCase))))
                     .Bind(_ => SnapPreferencesSurface(asForm: ss.AsForm))),
             backgroundOverrideCase: static bg => Paint.Hook(
                     phase: bg.Phase,
@@ -997,7 +997,7 @@ internal static partial class UiRail {
                 what: asForm ? "SnappingSettings.SettingsForm" : "SnappingSettings.SettingsControl")
             .Bind(result => result switch {
                 CanvasResult.SnapSettingsResult { Form.IsNone: true, Control.IsNone: true } =>
-                    Fin.Fail<CanvasResult>(error: UiFault.MutationRejected(op: CanvasOp.SnapSettingsCase.SelfOp, detail: "native snap-preferences surface is null")),
+                    Fin.Fail<CanvasResult>(error: UiFault.MutationRejected(op: Op.Of(name: nameof(CanvasOp.SnapSettingsCase)), detail: "native snap-preferences surface is null")),
                 _ => Fin.Succ(value: result),
             });
 

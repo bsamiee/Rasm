@@ -56,6 +56,13 @@ accessor surface the `Symbolic/expression` and `Symbolic/lowering` pages transcr
 - asset: runtime library (parser combinators; consumed transitively through `Infix.Parse`/`Infix.TryParse`, never called directly — a registry row, not an interior call)
 - rail: symbolic
 
+[PACKAGE_SURFACE]: `FSharp.Core`
+- package: `FSharp.Core` (version `11.0.100`, centrally pinned; the F# core runtime every MathNet.Symbolics / MathNet.Numerics.FSharp surface returns through — transitive, never a direct csproj concern)
+- assembly: `FSharp.Core`
+- namespace: `Microsoft.FSharp.Core` (`FSharpOption<T>` / `OptionModule`), `Microsoft.FSharp.Collections` (`FSharpList<T>` / `ListModule`)
+- asset: runtime library — the `FSharpOption<T>` parse/compile result carrier (`Infix.TryParse`, `Compile.compileExpression*`) and the `FSharpList<T>` cons-list (`Compile.compileExpression(expr, Symbol list)`, the `Polynomial.PartialFraction` `Tuple<Expression, FSharpList<Expression>>` split) the symbolic-lane C# owner threads directly; minted/read C#-side at the seam, never re-wrapped in a local Option
+- rail: symbolic
+
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: symbolic core and the C# fluent wrapper
@@ -94,6 +101,19 @@ accessor surface the `Symbolic/expression` and `Symbolic/lowering` pages transcr
 |  [13]   | `Approximate`   | `Approximate`(approximate) · `ApproximateSubstitute`(approximateSubstitute: `(IDictionary<string,Approximation> symbols, Expression x)`) · `Real`/`Complex`                                                                                                                                                                            | float approximation of constants and partial-substitution-plus-approximation (the map carries `Approximation`, not `double`) |
 |  [14]   | `Quotations`    | `Parse`(parse: `Parse(FSharpExpr q)`)                                                                                                                                                                                                                                                                                                 | build an `Expression` from an F# code quotation                                |
 |  [15]   | `VariableSets`  | `VariableSets.Alphabet.a`…`.z`                                                                                                                                                                                                                                                                                                        | the pre-built single-letter identifier atoms                                   |
+
+[FUNCTIONAL_MODULE_SCOPE]: `FSharp.Core` option/list interop — the F# core carriers the C# owner threads at the `Infix.TryParse` / `Compile.compileExpression*` / `Polynomial.PartialFraction` seams. `OptionModule.IsSome` is the C# bind name (`[CompilationSourceName("isSome")]`, like the PascalCase modules above); `FSharpOption<T>.Some`/`None`/`Value` and the `FSharpList<T>` `Head`/`Tail` cons accessors are the type's own members the lowering fold reads. The boxed-`Delegate` compile result is re-wrapped through `FSharpOption<Delegate>.Some`/`None`; the C# owner projects `None` to a typed `Fin` fault and never unwraps a null delegate.
+- rail: symbolic
+
+| [INDEX] | [MEMBER]                  | [SIGNATURE]                                                                                          | [CAPABILITY]                                                                  |
+| :-----: | :------------------------ | :-------------------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------- |
+|  [01]   | `OptionModule.IsSome`     | `static bool IsSome<T>(FSharpOption<T> option)` (`Microsoft.FSharp.Core`)                            | the `Some?` guard `ProjectParse`/`ProjectCompile` read before `.Value` (the non-throwing parse/compile-result discriminant) |
+|  [02]   | `OptionModule.IsNone` / `GetValue` | `static bool IsNone<T>(FSharpOption<T>)` · `static T GetValue<T>(FSharpOption<T>)`         | the `None?` predicate and the throw-on-`None` unwrap mirror (`.Value` is the no-throw read after `IsSome`) |
+|  [03]   | `FSharpOption<T>.Some`    | `static FSharpOption<T> Some(T value)`                                                               | wrap a value as `Some` — the boxed-`Delegate` re-wrap `FSharpOption<Delegate>.Some(option.Value)` in `Symbolic/lowering` |
+|  [04]   | `FSharpOption<T>.None`    | `static FSharpOption<T> None { get; }`                                                               | the `None` carrier (compile/parse decline) — `FSharpOption<Delegate>.None` |
+|  [05]   | `FSharpOption<T>.Value`   | `T Value { get; }`                                                                                   | unwrap the `Some` payload after an `OptionModule.IsSome` guard (`parsed.Value`/`compiled.Value`) |
+|  [06]   | `ListModule.OfSeq`        | `static FSharpList<T> OfSeq<T>(IEnumerable<T> source)` (`Microsoft.FSharp.Collections`)              | build the `FSharpList<Symbol>` compile argument (`ListModule.OfSeq(symbolOrder.Map(Symbol.NewSymbol))`) / `FSharpList<Expression>` from a C# sequence |
+|  [07]   | `FSharpList<T>`           | `class FSharpList<T>` (`Microsoft.FSharp.Collections`); `T Head { get; }` · `FSharpList<T> Tail { get; }` · `bool IsEmpty { get; }` | the F# cons-list the `Compile.compileExpression(expr, Symbol list)` argument and `Polynomial.PartialFraction`'s `Tuple<Expression, FSharpList<Expression>>` split ride; the arity-exact `compileExpression1..3` walk `symbols.Head`/`symbols.Tail.Head` |
 
 ## [04]-[COMPILE_SURFACE]
 

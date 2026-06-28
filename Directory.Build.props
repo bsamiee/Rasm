@@ -1,5 +1,5 @@
 <Project>
-    <PropertyGroup Label="Project Classification">
+    <PropertyGroup Label="Workspace Roots">
         <SolutionDir Condition="'$(SolutionDir)' == '' or '$(SolutionDir)' == '*Undefined*'">$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)'))</SolutionDir>
         <SolutionName Condition="'$(SolutionName)' == '' or '$(SolutionName)' == '*Undefined*'">Workspace</SolutionName>
         <CSharpLibsRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', 'libs', 'csharp'))</CSharpLibsRoot>
@@ -13,10 +13,15 @@
         <TestsArchitectureRoot>$([MSBuild]::NormalizeDirectory('$(TestsRoot)', '_architecture'))</TestsArchitectureRoot>
         <TestKitRoot>$([MSBuild]::NormalizeDirectory('$(TestsRoot)', '_testkit'))</TestKitRoot>
         <TestsLibsRoot>$([MSBuild]::NormalizeDirectory('$(TestsRoot)', 'libs'))</TestsLibsRoot>
+        <TestsRasmAppUiRoot>$([MSBuild]::NormalizeDirectory('$(TestsLibsRoot)', 'Rasm.AppUi'))</TestsRasmAppUiRoot>
+        <TestsRasmComputeRoot>$([MSBuild]::NormalizeDirectory('$(TestsLibsRoot)', 'Rasm.Compute'))</TestsRasmComputeRoot>
         <TestsRasmRoot>$([MSBuild]::NormalizeDirectory('$(TestsLibsRoot)', 'Rasm'))</TestsRasmRoot>
         <TestsRasmGrasshopperRoot>$([MSBuild]::NormalizeDirectory('$(TestsLibsRoot)', 'Rasm.Grasshopper'))</TestsRasmGrasshopperRoot>
         <TestsRasmRhinoRoot>$([MSBuild]::NormalizeDirectory('$(TestsLibsRoot)', 'Rasm.Rhino'))</TestsRasmRhinoRoot>
         <TestsRhinoBridgeScenariosRoot>$([MSBuild]::NormalizeDirectory('$(TestsRoot)', 'tools', 'rhino-bridge', 'Scenarios'))</TestsRhinoBridgeScenariosRoot>
+    </PropertyGroup>
+
+    <PropertyGroup Label="Project Classifiers">
         <NormalizedProjectDirectory>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)'))</NormalizedProjectDirectory>
         <IsRhinoBridgeProject Condition="'$(IsRhinoBridgeProject)' == '' and $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(RhinoBridgeRoot)'))">true</IsRhinoBridgeProject>
         <IsRhinoBridgeCargoProject Condition="'$(IsRhinoBridgeCargoProject)' == '' and $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(RhinoBridgeRoot)Cargo/'))">true</IsRhinoBridgeCargoProject>
@@ -35,10 +40,13 @@
         <IsComputeProject Condition="'$(IsComputeProject)' == '' and $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(CSharpLibsRoot)Rasm.Compute/'))">true</IsComputeProject>
         <IsPersistenceProject Condition="'$(IsPersistenceProject)' == '' and $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(CSharpLibsRoot)Rasm.Persistence/'))">true</IsPersistenceProject>
         <IsGrasshopperAwareProject Condition="'$(IsGrasshopperAwareProject)' == '' and ($([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(RasmGrasshopperRoot)')) or '$(IsRhinoBridgeCargoProject)' == 'true' or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsRasmGrasshopperRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsArchitectureRoot)')))">true</IsGrasshopperAwareProject>
-        <!-- App-package test projects (AppHost/AppUi/Compute/Persistence.Tests) must not inherit RhinoCommon host HintPaths; gate on per-root test prefixes, never the blanket $(TestsLibsRoot). -->
-        <IsRhinoCommonAwareProject Condition="'$(IsRhinoCommonAwareProject)' == '' and ($([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(CSharpLibsRoot)Rasm/')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(RasmGrasshopperRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(RasmRhinoRoot)')) or '$(IsRhinoBridgeShellProject)' == 'true' or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestKitRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsRasmRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsRasmGrasshopperRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsRasmRhinoRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsLibsRoot)Rasm.Materials/')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsArchitectureRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsRhinoBridgeScenariosRoot)')))">true</IsRhinoCommonAwareProject>
+        <!-- App-package tests stay out of Rhino host-reference inheritance. -->
+        <IsRhinoCommonAwareProject Condition="'$(IsRhinoCommonAwareProject)' == '' and ($([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(CSharpLibsRoot)Rasm/')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(RasmGrasshopperRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(RasmRhinoRoot)')) or '$(IsRhinoBridgeShellProject)' == 'true' or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestKitRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsRasmRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsRasmGrasshopperRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsRasmRhinoRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsArchitectureRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsRhinoBridgeScenariosRoot)')))">true</IsRhinoCommonAwareProject>
         <IsRhinoUiAwareProject Condition="'$(IsRhinoUiAwareProject)' == '' and ($([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(RasmRhinoRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(RhinoAppsRoot)')) or '$(IsRhinoBridgeCargoProject)' == 'true' or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestKitRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsRasmRhinoRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsArchitectureRoot)')))">true</IsRhinoUiAwareProject>
         <NeedsRhinoHostUiSurface Condition="'$(IsRhinoUiAwareProject)' == 'true' or '$(IsGrasshopperPluginProject)' == 'true' or '$(IsGrasshopperAwareProject)' == 'true'">true</NeedsRhinoHostUiSurface>
+    </PropertyGroup>
+
+    <PropertyGroup Label="Output Routing">
         <IsCentralizedOutputProject Condition="'$(IsCentralizedOutputProject)' == '' and '$(IsRhinoBridgeProject)' != 'true' and '$(IsRhinoPluginProject)' != 'true' and '$(IsGrasshopperPluginProject)' != 'true' and '$(IsAppHostProject)' != 'true' and '$(IsAppUiProject)' != 'true'">true</IsCentralizedOutputProject>
         <CentralOutputToken Condition="'$(CentralOutputToken)' == ''">$(AssemblyName)</CentralOutputToken>
         <CentralOutputToken Condition="'$(CentralOutputToken)' == ''">$(MSBuildProjectName)</CentralOutputToken>
@@ -53,45 +61,46 @@
         <BaseIntermediateOutputPath Condition="'$(BaseIntermediateOutputPath)' == '' and '$(IsCentralizedOutputProject)' == 'true'">$(MSBuildThisFileDirectory).artifacts/build/obj/$(CentralOutputToken)/</BaseIntermediateOutputPath>
     </PropertyGroup>
 
-    <ItemGroup Label="Bridge Scenario Sources"
-               Condition="'$(IsTestProject)' == 'true' and ($([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsRasmRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsRasmGrasshopperRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsRasmRhinoRoot)')))">
-        <BridgeScenarioSource Include="$(MSBuildProjectDirectory)/**/Scenarios/**/*.cs" />
-    </ItemGroup>
-
-    <PropertyGroup Label="Bridge Scenario Runtime" Condition="'$(IsTestProject)' == 'true'">
+    <PropertyGroup Label="Library Rhino Scenario Runtime" Condition="'$(IsTestProject)' == 'true'">
         <HasBridgeScenarios Condition="'$(HasBridgeScenarios)' == '' and ($([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsRasmRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsRasmGrasshopperRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsRasmRhinoRoot)')))">true</HasBridgeScenarios>
         <HasBridgeScenarios Condition="'$(HasBridgeScenarios)' == ''">false</HasBridgeScenarios>
         <CopyLocalLockFileAssemblies Condition="'$(HasBridgeScenarios)' == 'true'">true</CopyLocalLockFileAssemblies>
     </PropertyGroup>
 
-    <PropertyGroup Label="Language and Build">
+    <ItemGroup Label="Library Rhino Scenario Sources" Condition="'$(HasBridgeScenarios)' == 'true'">
+        <BridgeScenarioSource Include="$(MSBuildProjectDirectory)/**/Scenarios/**/*.cs" />
+    </ItemGroup>
+
+    <PropertyGroup Label="SDK Defaults">
         <TargetFramework>net10.0</TargetFramework>
         <LangVersion>14.0</LangVersion>
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
         <CheckForOverflowUnderflow>true</CheckForOverflowUnderflow>
         <IsPackable Condition="'$(IsPackable)' == ''">false</IsPackable>
-        <RuntimeIdentifiers>osx-arm64</RuntimeIdentifiers>
+        <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == '' and '$(RuntimeIdentifiers)' == '' and ('$(NeedsRhinoHostUiSurface)' == 'true' or '$(IsAppUiProject)' == 'true' or '$(IsRhinoBridgeProject)' == 'true' or '$(IsRhinoPluginProject)' == 'true' or '$(IsGrasshopperPluginProject)' == 'true')">osx-arm64</RuntimeIdentifier>
         <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
-        <!-- Centralized output moves BaseIntermediateOutputPath to .artifacts/build/obj, so the SDK default
-             Compile glob no longer excludes a stray in-tree obj/bin; re-exclude them so stale generated
-             sources (AssemblyInfo/GlobalUsings/RegularUnion) can never be globbed back in as Compile items. -->
+        <!-- In-tree obj/bin generated sources stay excluded even when a project opts out of central output. -->
         <DefaultItemExcludes>$(DefaultItemExcludes);$(MSBuildProjectDirectory)/obj/**;$(MSBuildProjectDirectory)/bin/**</DefaultItemExcludes>
     </PropertyGroup>
 
-    <PropertyGroup Label="Analysis">
+    <PropertyGroup Label="Analysis Defaults">
         <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
         <AnalysisLevel>latest-all</AnalysisLevel>
         <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
         <ErrorLog Condition="'$(CspSarifDir)' != ''">$(CspSarifDir)/$(MSBuildProjectName).sarif,version=2.1</ErrorLog>
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
-        <!-- CS9236 is Roslyn binding-cost telemetry; dense typed Fin/query rails keep it non-actionable after explicit lambda/type-argument cleanup. -->
+        <!-- CS9236 is Roslyn binding-cost telemetry. -->
         <NoWarn>$(NoWarn);CS1591;CA2225;CS9236</NoWarn>
         <NoWarn Condition="'$(IsRhinoUiAwareProject)' == 'true'">$(NoWarn);CA1416</NoWarn>
-        <!-- CA1724: Microsoft.macOS ships a `Phase` namespace colliding with Rasm's canonical ComponentUi.Phase enum; suppress on projects pulling Microsoft.macOS transitively rather than rename. -->
+        <!-- CA1724: Microsoft.macOS exposes a Phase namespace colliding with the canonical ComponentUi.Phase enum. -->
         <NoWarn Condition="'$(NeedsRhinoHostUiSurface)' == 'true'">$(NoWarn);CA1724</NoWarn>
-        <!-- Microsoft.ML.OnnxRuntime.Extensions ships legacy version-specific OSX RID assets; the owning Compute/AppUi graph keeps the package admitted. -->
-        <NoWarn Condition="'$(MSBuildProjectName)' == 'Rasm.Compute' or '$(MSBuildProjectName)' == 'Rasm.AppUi' or '$(MSBuildProjectName)' == 'Rasm.Compute.Tests' or '$(MSBuildProjectName)' == 'Rasm.AppUi.Tests'">$(NoWarn);NETSDK1206</NoWarn>
+        <NeedsOnnxRuntimeLegacyRidSuppression Condition="'$(NeedsOnnxRuntimeLegacyRidSuppression)' == '' and ('$(IsComputeProject)' == 'true' or '$(IsAppUiProject)' == 'true' or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsRasmComputeRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsRasmAppUiRoot)')))">true</NeedsOnnxRuntimeLegacyRidSuppression>
+        <!-- Microsoft.ML.OnnxRuntime.Extensions ships legacy version-specific OSX RID assets. -->
+        <NoWarn Condition="'$(NeedsOnnxRuntimeLegacyRidSuppression)' == 'true'">$(NoWarn);NETSDK1206</NoWarn>
+    </PropertyGroup>
+
+    <PropertyGroup Label="Csp Analyzer Paths">
         <LocalCSharpAnalyzerRoot>tools/cs-analyzer</LocalCSharpAnalyzerRoot>
         <LocalCSharpAnalyzerProject>$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)', '$(LocalCSharpAnalyzerRoot)', 'Csp.Analyzer.csproj'))</LocalCSharpAnalyzerProject>
         <CspContractsProject>$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)', '$(LocalCSharpAnalyzerRoot)', 'Contracts', 'Csp.Contracts.csproj'))</CspContractsProject>
@@ -99,29 +108,54 @@
         <CsAnalyzerTestRoot>$([MSBuild]::NormalizeDirectory('$(TestsRoot)', 'tools', 'cs-analyzer'))</CsAnalyzerTestRoot>
         <IsAnalyzerTestProject Condition="'$(IsAnalyzerTestProject)' == '' and $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(CsAnalyzerTestRoot)'))">true</IsAnalyzerTestProject>
         <SkipLocalCSharpAnalyzerReference Condition="'$(SkipLocalCSharpAnalyzerReference)' == '' and ('$(IsLocalCSharpAnalyzerProject)' == 'true' or '$(IsAnalyzerTestProject)' == 'true')">true</SkipLocalCSharpAnalyzerReference>
-        <!-- Scope fallbacks from project classification; lib/app csproj files declare CspScope explicitly. -->
+    </PropertyGroup>
+
+    <ItemGroup Label="Workspace Analyzer Packages" Condition="'$(IsLocalCSharpAnalyzerProject)' != 'true'">
+        <PackageReference Include="Meziantou.Analyzer" PrivateAssets="all" />
+        <PackageReference Include="Microsoft.VisualStudio.Threading.Analyzers" PrivateAssets="all" />
+    </ItemGroup>
+
+    <!-- Missing local analyzer projects fail loudly; SkipLocalCSharpAnalyzerReference is the only opt-out. -->
+    <ItemGroup Label="Workspace Source Generator And Analyzer" Condition="'$(SkipLocalCSharpAnalyzerReference)' != 'true'">
+        <ProjectReference Include="$(LocalCSharpAnalyzerProject)" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+    <!-- One Csp.Contracts identity carries BoundaryAdapter/CspExempt across host, test, and bridge projects. -->
+    <ItemGroup Label="Csp Contract Reference" Condition="'$(IsRoslynComponent)' != 'true' and '$(MSBuildProjectName)' != 'Csp.Contracts'">
+        <ProjectReference Include="$(CspContractsProject)" />
+    </ItemGroup>
+
+    <PropertyGroup Label="Csp Scope Defaults">
+        <!-- Production libs/apps/tools declare CspScope; tests and benchmarks fall back centrally. -->
         <CspScope Condition="'$(CspScope)' == '' and ('$(IsTestProject)' == 'true' or '$(IsTestKitProject)' == 'true')">Test</CspScope>
         <CspScope Condition="'$(CspScope)' == '' and ('$(IsRhinoPluginProject)' == 'true' or '$(IsGrasshopperPluginProject)' == 'true' or '$(IsRhinoBridgeProject)' == 'true')">Boundary</CspScope>
         <CspScope Condition="'$(CspScope)' == '' and ('$(IsBenchmarkProject)' == 'true' or '$(IsLocalCSharpAnalyzerProject)' == 'true')">Tooling</CspScope>
+    </PropertyGroup>
+
+    <ItemGroup Label="Csp Scope Plumbing">
+        <CompilerVisibleProperty Include="CspScope" />
+    </ItemGroup>
+
+    <PropertyGroup Label="Workspace Library Policy">
         <UseWorkspaceLibraries Condition="'$(UseWorkspaceLibraries)' == '' and ('$(IsRhinoPluginProject)' == 'true' or '$(IsGrasshopperPluginProject)' == 'true' or '$(IsRhinoBridgeContractProject)' == 'true' or '$(IsRhinoBridgeShellProject)' == 'true')">false</UseWorkspaceLibraries>
         <UseWorkspaceLibraries Condition="'$(UseWorkspaceLibraries)' == ''">true</UseWorkspaceLibraries>
-        <!-- Every Thinktecture [Union]/[SmartEnum] consumer needs the shared public JetBrains.Annotations identity, including the bridge Contract/Shell projects that opt out of the LanguageExt workspace usings. -->
+        <!-- Thinktecture consumers bind to one shared public JetBrains.Annotations identity. -->
         <UsesThinktecture Condition="'$(UsesThinktecture)' == '' and '$(IsLocalCSharpAnalyzerProject)' != 'true' and ('$(UseWorkspaceLibraries)' == 'true' or '$(IsRhinoBridgeContractProject)' == 'true' or '$(IsRhinoBridgeShellProject)' == 'true')">true</UsesThinktecture>
         <NeedsSystemDrawingCompilePackage Condition="'$(NeedsSystemDrawingCompilePackage)' == '' and ('$(IsRhinoUiAwareProject)' == 'true' or '$(IsGrasshopperPluginProject)' == 'true' or '$(IsGrasshopperAwareProject)' == 'true' or '$(IsTestKitProject)' == 'true')">true</NeedsSystemDrawingCompilePackage>
     </PropertyGroup>
 
-    <PropertyGroup Label="Restore and CI">
+    <PropertyGroup Label="Restore And Audit">
         <RestorePackagesPath>$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)', '.cache', 'nuget', 'packages'))</RestorePackagesPath>
         <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
         <RestoreLockedMode Condition="'$(CI)' == 'true'">true</RestoreLockedMode>
-        <!-- net10.0 SDK defaults stated explicitly so a future SDK default change cannot weaken the audit gate; NU1903/NU1904 escalate to restore errors under TreatWarningsAsErrors across the transitive graph. -->
+        <!-- NU1903/NU1904 escalate to restore errors under TreatWarningsAsErrors. -->
         <NuGetAudit>true</NuGetAudit>
         <NuGetAuditMode>all</NuGetAuditMode>
         <NuGetAuditLevel>high</NuGetAuditLevel>
         <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
     </PropertyGroup>
 
-    <PropertyGroup Label="RhinoWIP Paths">
+    <PropertyGroup Label="RhinoWIP Host Paths">
         <RhinoWipAppPath Condition="'$(RhinoWipAppPath)' == '' and '$(RHINO_WIP_APP_PATH)' != ''">$(RHINO_WIP_APP_PATH)</RhinoWipAppPath>
         <RhinoWipAppPath Condition="'$(RhinoWipAppPath)' == ''">/Applications/RhinoWIP.app</RhinoWipAppPath>
         <RhinoWipResourcesPath>$(RhinoWipAppPath)/Contents/Frameworks/RhCore.framework/Versions/Current/Resources</RhinoWipResourcesPath>
@@ -138,7 +172,7 @@
         <RhinoHostAssemblyNameSet>|RhinoCommon|Rhino.UI|System.Drawing.Common|Grasshopper2|GrasshopperIO|Eto|Eto.macOS|Microsoft.macOS|Rhino.Runtime.Code|RhinoCodePlatform.Rhino3D|</RhinoHostAssemblyNameSet>
     </PropertyGroup>
 
-    <ItemGroup Label="RhinoWIP Required Host Files">
+    <ItemGroup Label="RhinoWIP Host Requirements">
         <_RhinoRequiredHostFile Include="$(RhinoCommonReferencePath)" Condition="'$(IsRhinoPluginProject)' == 'true' or '$(IsGrasshopperPluginProject)' == 'true' or '$(IsGrasshopperAwareProject)' == 'true' or '$(IsRhinoCommonAwareProject)' == 'true'" />
         <_RhinoRequiredHostFile Include="$(RhinoUiReferencePath)" Condition="'$(NeedsRhinoHostUiSurface)' == 'true'" />
         <_RhinoRequiredHostFile Include="$(SystemDrawingCommonReferencePath)" Condition="'$(NeedsRhinoHostUiSurface)' == 'true'" />
@@ -150,74 +184,51 @@
         <_RhinoRequiredHostFile Include="$(RhinoCodePlatformReferencePath)" Condition="'$(IsRhinoBridgeProject)' == 'true' and '$(IsRhinoPluginProject)' == 'true'" />
     </ItemGroup>
 
-    <!-- A missing or relocated RhinoWIP.app otherwise fails as opaque reference cascades. -->
-    <Target Name="VerifyRhinoHostBundle" BeforeTargets="ResolveAssemblyReferences"
-            Condition="'@(_RhinoRequiredHostFile)' != ''">
-        <ItemGroup>
-            <_MissingRhinoRequiredHostFile Include="@(_RhinoRequiredHostFile)" Condition="!Exists('%(Identity)')" />
-        </ItemGroup>
-        <Error Condition="'@(_MissingRhinoRequiredHostFile)' != ''"
-               Text="RhinoWIP host bundle missing required assemblies under '$(RhinoWipAppPath)': @(_MissingRhinoRequiredHostFile->'%(Filename)%(Extension)', ', ')." />
-    </Target>
-
-    <PropertyGroup Label="Yak Packaging">
+    <PropertyGroup Label="Plugin And Yak Packaging">
         <YakPath Condition="'$(YakPath)' == '' and '$(RHINO_YAK_PATH)' != ''">$(RHINO_YAK_PATH)</YakPath>
         <YakPath Condition="'$(YakPath)' == ''">$(RhinoWipAppPath)/Contents/Resources/bin/yak</YakPath>
         <YakPlatform Condition="'$(YakPlatform)' == ''">mac</YakPlatform>
         <YakPushSource Condition="'$(YakPushSource)' == '' and '$(YAK_SOURCE)' != ''">$(YAK_SOURCE)</YakPushSource>
+        <YakManifestDirectory Condition="'$(YakManifestDirectory)' == '' and '$(YakPackageSlug)' != ''">$([MSBuild]::NormalizePath('$(YakPackagesRoot)', '$(YakPackageSlug)'))</YakManifestDirectory>
+        <IsYakPackageProject Condition="'$(IsYakPackageProject)' == '' and '$(YakPackageSlug)' != '' and ('$(IsRhinoPluginProject)' == 'true' or '$(IsGrasshopperPluginProject)' == 'true')">true</IsYakPackageProject>
+        <YakPackageDirectory Condition="'$(YakPackageDirectory)' == '' and '$(YakPackageSlug)' != ''">$([MSBuild]::NormalizePath('$(YakStageRoot)', '$(YakPackageSlug)', 'package'))</YakPackageDirectory>
+        <YakPackagePattern Condition="'$(YakPackagePattern)' == '' and '$(YakPackageSlug)' != ''">*-$(Version)-rh9_*-$(YakPlatform).yak</YakPackagePattern>
     </PropertyGroup>
 
-    <PropertyGroup Label="RhinoWIP Boundaries" Condition="'$(IsRhinoPluginProject)' == 'true' or '$(IsGrasshopperPluginProject)' == 'true'">
-        <EnableDynamicLoading>true</EnableDynamicLoading>
+    <PropertyGroup Label="Host And Bridge Versioning" Condition="'$(IsRhinoPluginProject)' == 'true' or '$(IsGrasshopperPluginProject)' == 'true' or '$(IsRhinoBridgeProject)' == 'true'">
+        <EnableDynamicLoading Condition="'$(IsRhinoPluginProject)' == 'true' or '$(IsGrasshopperPluginProject)' == 'true'">true</EnableDynamicLoading>
         <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
-        <TargetExt>.rhp</TargetExt>
-    </PropertyGroup>
-
-    <!-- Every bridge project pins a deterministic InformationalVersion; the source-revision suffix is the one cross-cutting bridge knob, so it lives on the IsRhinoBridgeProject marker rather than the plugin-only boundary group above. -->
-    <PropertyGroup Label="Bridge Versioning" Condition="'$(IsRhinoBridgeProject)' == 'true'">
-        <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+        <TargetExt Condition="'$(IsRhinoPluginProject)' == 'true' or '$(IsGrasshopperPluginProject)' == 'true'">.rhp</TargetExt>
     </PropertyGroup>
 
     <PropertyGroup Label="Thinktecture Identity Generators" Condition="'$(UsesThinktecture)' == 'true'">
-        <!-- Thinktecture source-generates an internal JetBrains.Annotations.InstantHandleAttribute polyfill per project; across the InternalsVisibleTo closure the duplicate source-declared+imported type triggers CS0436, and a non-friend consumer of the generated union sees the internal polyfill as CS0122. Suppress the polyfill and supply one shared public JetBrains.Annotations identity that the generated [InstantHandle] usages bind to. -->
+        <!-- One public JetBrains.Annotations identity avoids Thinktecture-generated internal polyfill collisions. -->
         <ThinktectureRuntimeExtensions_SourceGenerator_GenerateJetBrainsAnnotations>false</ThinktectureRuntimeExtensions_SourceGenerator_GenerateJetBrainsAnnotations>
     </PropertyGroup>
 
-    <ItemGroup Label="Thinktecture Identity" Condition="'$(UsesThinktecture)' == 'true'">
-        <PackageReference Include="JetBrains.Annotations" />
+    <ItemGroup Label="Workspace Foundation Packages" Condition="'$(IsLocalCSharpAnalyzerProject)' != 'true'">
+        <PackageReference Include="JetBrains.Annotations" Condition="'$(UsesThinktecture)' == 'true'" />
+        <PackageReference Include="LanguageExt.Core" Condition="'$(UseWorkspaceLibraries)' == 'true'" />
+        <PackageReference Include="Thinktecture.Runtime.Extensions" Condition="'$(UseWorkspaceLibraries)' == 'true'" />
     </ItemGroup>
 
-    <ItemGroup Label="Global Libraries" Condition="'$(IsLocalCSharpAnalyzerProject)' != 'true' and '$(UseWorkspaceLibraries)' == 'true'">
-        <PackageReference Include="LanguageExt.Core" />
-        <PackageReference Include="Thinktecture.Runtime.Extensions" />
-    </ItemGroup>
-
-    <ItemGroup Label="Test Runner SDK" Condition="'$(IsTestProject)' == 'true'">
-        <PackageReference Include="coverlet.MTP" PrivateAssets="all" />
-        <PackageReference Include="Microsoft.Testing.Extensions.CrashDump" PrivateAssets="all" />
-        <PackageReference Include="Microsoft.Testing.Extensions.HangDump" PrivateAssets="all" />
-    </ItemGroup>
-
-    <ItemGroup Label="Test Framework (Runnable)" Condition="'$(IsTestProject)' == 'true'">
-        <PackageReference Include="xunit.v3.mtp-v2" PrivateAssets="all" />
-    </ItemGroup>
-
-    <ItemGroup Label="Test Framework (Library)" Condition="'$(IsTestKitProject)' == 'true'">
-        <PackageReference Include="xunit.v3.assert" PrivateAssets="all" />
-        <PackageReference Include="xunit.v3.common" PrivateAssets="all" />
-        <PackageReference Include="xunit.v3.extensibility.core" PrivateAssets="all" />
-    </ItemGroup>
-
-    <ItemGroup Label="Test Tools" Condition="'$(IsTestProject)' == 'true' or '$(IsTestKitProject)' == 'true'">
-        <PackageReference Include="CsCheck" PrivateAssets="all" />
+    <ItemGroup Label="Test Packages">
+        <PackageReference Include="coverlet.MTP" PrivateAssets="all" Condition="'$(IsTestProject)' == 'true'" />
+        <PackageReference Include="CsCheck" PrivateAssets="all" Condition="'$(IsTestProject)' == 'true' or '$(IsTestKitProject)' == 'true'" />
+        <PackageReference Include="Microsoft.Testing.Extensions.CrashDump" PrivateAssets="all" Condition="'$(IsTestProject)' == 'true'" />
+        <PackageReference Include="Microsoft.Testing.Extensions.HangDump" PrivateAssets="all" Condition="'$(IsTestProject)' == 'true'" />
+        <PackageReference Include="xunit.v3.assert" PrivateAssets="all" Condition="'$(IsTestKitProject)' == 'true'" />
+        <PackageReference Include="xunit.v3.common" PrivateAssets="all" Condition="'$(IsTestKitProject)' == 'true'" />
+        <PackageReference Include="xunit.v3.extensibility.core" PrivateAssets="all" Condition="'$(IsTestKitProject)' == 'true'" />
+        <PackageReference Include="xunit.v3.mtp-v2" PrivateAssets="all" Condition="'$(IsTestProject)' == 'true'" />
     </ItemGroup>
 
     <ItemGroup Label="Test Usings" Condition="'$(IsTestProject)' == 'true' or '$(IsTestKitProject)' == 'true'">
-        <Using Include="Xunit" />
         <Using Include="CsCheck" />
+        <Using Include="Xunit" />
     </ItemGroup>
 
-    <ItemGroup Label="Vectors Usings" Condition="('$(IsTestProject)' == 'true' or '$(IsTestKitProject)' == 'true') and '$(IsRhinoCommonAwareProject)' == 'true'">
+    <ItemGroup Label="Rhino Vector Test Usings" Condition="('$(IsTestProject)' == 'true' or '$(IsTestKitProject)' == 'true') and '$(IsRhinoCommonAwareProject)' == 'true'">
         <Using Include="Rasm.Vectors.Dimension" Alias="Dim" />
         <Using Include="Rasm.Vectors.Matrix" Alias="VectorMatrix" />
     </ItemGroup>
@@ -234,12 +245,16 @@
         </ProjectReference>
     </ItemDefinitionGroup>
 
-    <Target Name="ValidateCentralTestProjectAdmission" BeforeTargets="PrepareForBuild"
-            Condition="$([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsRoot)')) and '$(IsTestKitProject)' != 'true' and '$(IsBenchmarkProject)' != 'true' and '$(IsTestProject)' == 'false'">
-        <Error Text="tests/csharp projects cannot set IsTestProject=false; use IsTestKitProject, IsBenchmarkProject, or AssayHostBound for routing." />
-    </Target>
+    <PropertyGroup Label="TestKit Reference Policy">
+        <SkipTestKitReference Condition="'$(SkipTestKitReference)' == '' and ($([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsRoot)tools/rhino-bridge/Contract/')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsRoot)tools/rhino-bridge/Supervisor/')))">true</SkipTestKitReference>
+    </PropertyGroup>
 
-    <ItemGroup Label="Xunit Serializer Registration" Condition="'$(IsTestProject)' == 'true' and '$(IsRhinoCommonAwareProject)' == 'true'">
+    <!-- One classification-keyed TestKit reference replaces per-test project references. -->
+    <ItemGroup Label="TestKit Reference" Condition="'$(IsTestProject)' == 'true' and '$(IsAnalyzerTestProject)' != 'true' and '$(SkipTestKitReference)' != 'true'">
+        <ProjectReference Include="$(TestKitRoot)Rasm.TestKit.csproj" />
+    </ItemGroup>
+
+    <ItemGroup Label="Rhino Test Assembly Metadata" Condition="'$(IsTestProject)' == 'true' and '$(IsRhinoCommonAwareProject)' == 'true'">
         <AssemblyAttribute Include="Xunit.Sdk.RegisterXunitSerializerAttribute">
             <_Parameter1>typeof(global::Rasm.TestKit.GeometrySerializer)</_Parameter1>
             <_Parameter1_IsLiteral>true</_Parameter1_IsLiteral>
@@ -250,25 +265,11 @@
             <_Parameter4>typeof(global::Rhino.Geometry.BoundingBox)</_Parameter4>
             <_Parameter4_IsLiteral>true</_Parameter4_IsLiteral>
         </AssemblyAttribute>
-    </ItemGroup>
-
-    <ItemGroup Label="Xunit Assembly Fixture Registration" Condition="'$(IsTestProject)' == 'true' and '$(IsRhinoCommonAwareProject)' == 'true'">
         <AssemblyAttribute Include="Xunit.AssemblyFixtureAttribute">
             <_Parameter1>typeof(global::Rasm.TestKit.ContextFixture)</_Parameter1>
             <_Parameter1_IsLiteral>true</_Parameter1_IsLiteral>
         </AssemblyAttribute>
     </ItemGroup>
-
-    <Target Name="GenerateXunitRunnerJson" BeforeTargets="AssignTargetPaths" Condition="'$(IsTestProject)' == 'true'">
-        <PropertyGroup>
-            <_XunitRunnerJsonPath>$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', '$(IntermediateOutputPath)', 'xunit.runner.json'))</_XunitRunnerJsonPath>
-        </PropertyGroup>
-        <WriteLinesToFile File="$(_XunitRunnerJsonPath)" Lines="$(_XunitRunnerJsonContent)" Overwrite="true" WriteOnlyWhenDifferent="true" />
-        <ItemGroup>
-            <None Include="$(_XunitRunnerJsonPath)" Link="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" Visible="false" />
-            <FileWrites Include="$(_XunitRunnerJsonPath)" />
-        </ItemGroup>
-    </Target>
 
     <PropertyGroup Label="Coverage" Condition="'$(IsTestProject)' == 'true'">
         <CoverletOutputFormat>json,cobertura</CoverletOutputFormat>
@@ -285,25 +286,22 @@
         <CoverletIncludeTestAssembly>false</CoverletIncludeTestAssembly>
     </PropertyGroup>
 
-    <ItemGroup Label="Global Workspace Usings" Condition="'$(IsLocalCSharpAnalyzerProject)' != 'true' and '$(UseWorkspaceLibraries)' == 'true'">
+    <ItemGroup Label="Workspace Usings" Condition="'$(IsLocalCSharpAnalyzerProject)' != 'true' and '$(UseWorkspaceLibraries)' == 'true'">
         <Using Include="LanguageExt" />
         <Using Include="LanguageExt.Common" />
-        <Using Include="LanguageExt.Traits" />
         <Using Include="LanguageExt.Effects" />
-        <Using Include="LanguageExt.Pretty" />
-        <Using Include="LanguageExt.Traits.Domain" />
         <Using Include="LanguageExt.Prelude" Static="true" />
+        <Using Include="LanguageExt.Pretty" />
+        <Using Include="LanguageExt.Traits" />
+        <Using Include="LanguageExt.Traits.Domain" />
         <Using Include="Thinktecture" />
     </ItemGroup>
 
-    <ItemGroup Label="Grasshopper Thinktecture Usings" Condition="'$(IsLocalCSharpAnalyzerProject)' != 'true' and ('$(IsGrasshopperPluginProject)' == 'true' or '$(IsGrasshopperAwareProject)' == 'true')">
+    <ItemGroup Label="Grasshopper Thinktecture Usings" Condition="'$(IsLocalCSharpAnalyzerProject)' != 'true' and '$(UseWorkspaceLibraries)' != 'true' and ('$(IsGrasshopperPluginProject)' == 'true' or '$(IsGrasshopperAwareProject)' == 'true')">
         <Using Include="Thinktecture" />
     </ItemGroup>
 
-    <!-- Global-using collision law: one owner namespace per bare simple name per stratum; a colliding second
-         namespace demotes to a semantic 1-2-word alias (global using Alias = Namespace), or an extern PackageReference
-         alias for same-namespace assembly identity (Triangle/TriangleNet, Rhino3dm/R3). Host-neutral strata never
-         global-use Rhino/Eto/GH; AppUi owns Avalonia and binds hosts only at the APP root. -->
+    <!-- Colliding global namespaces demote to aliases; host namespaces stay on host-aware strata. -->
     <ItemGroup Label="Grasshopper-Aware Usings" Condition="'$(IsGrasshopperPluginProject)' == 'true' or '$(IsGrasshopperAwareProject)' == 'true'">
         <Using Include="Eto.Drawing" />
         <Using Include="Grasshopper2.Types.Numeric" />
@@ -317,16 +315,16 @@
     <ItemGroup Label="AppUi Avalonia Usings" Condition="'$(IsAppUiProject)' == 'true'">
         <Using Include="Avalonia" />
         <Using Include="Avalonia.Controls" />
-        <Using Include="Avalonia.Media" />
         <Using Include="Avalonia.Input" />
+        <Using Include="Avalonia.Media" />
     </ItemGroup>
 
-    <ItemGroup Label="Test Friend Assemblies" Condition="$([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(CSharpLibsRoot)'))">
+    <ItemGroup Label="Assembly Visibility" Condition="$([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(CSharpLibsRoot)'))">
         <InternalsVisibleTo Include="$(MSBuildProjectName).Tests" />
         <InternalsVisibleTo Include="Rasm.TestKit" />
     </ItemGroup>
 
-    <ItemGroup Label="Cross-Lib Friend Assemblies" Condition="'$(MSBuildProjectName)' == 'Rasm'">
+    <ItemGroup Label="Kernel Assembly Visibility" Condition="'$(MSBuildProjectName)' == 'Rasm'">
         <InternalsVisibleTo Include="Rasm.Grasshopper" />
         <InternalsVisibleTo Include="Rasm.Rhino" />
     </ItemGroup>
@@ -347,103 +345,53 @@
         </AssemblyAttribute>
     </ItemGroup>
 
-    <!-- TestKit exports neutral test helpers consumed by ordinary cross-platform test assemblies, so it must
-         not carry an assembly-wide macOS attribute even though it is RhinoHostUiSurface-aware. -->
+    <!-- TestKit stays platform-neutral even when it is host-surface aware. -->
     <ItemGroup Label="macOS Host Platform Metadata" Condition="'$(NeedsRhinoHostUiSurface)' == 'true' and '$(IsTestKitProject)' != 'true'">
         <AssemblyAttribute Include="System.Runtime.Versioning.SupportedOSPlatformAttribute">
             <_Parameter1>macos15.0</_Parameter1>
         </AssemblyAttribute>
     </ItemGroup>
 
-    <ItemGroup Label="RhinoWIP Libraries" Condition="'$(IsRhinoPluginProject)' == 'true' or '$(IsGrasshopperPluginProject)' == 'true' or '$(IsGrasshopperAwareProject)' == 'true' or '$(IsRhinoCommonAwareProject)' == 'true'">
+    <ItemGroup Label="RhinoWIP Host References" Condition="'$(IsRhinoPluginProject)' == 'true' or '$(IsGrasshopperPluginProject)' == 'true' or '$(IsGrasshopperAwareProject)' == 'true' or '$(IsRhinoCommonAwareProject)' == 'true' or '$(NeedsRhinoHostUiSurface)' == 'true'">
+        <Reference Include="Eto" Condition="'$(NeedsRhinoHostUiSurface)' == 'true'">
+            <HintPath>$(EtoReferencePath)</HintPath>
+            <Private>$(HostReferencePrivate)</Private>
+        </Reference>
+        <Reference Include="Grasshopper2" Condition="'$(IsGrasshopperPluginProject)' == 'true' or '$(IsGrasshopperAwareProject)' == 'true'">
+            <HintPath>$(Grasshopper2ReferencePath)</HintPath>
+            <Private>$(HostReferencePrivate)</Private>
+        </Reference>
+        <Reference Include="GrasshopperIO" Condition="'$(IsGrasshopperPluginProject)' == 'true' or '$(IsGrasshopperAwareProject)' == 'true'">
+            <HintPath>$(GrasshopperIoReferencePath)</HintPath>
+            <Private>$(HostReferencePrivate)</Private>
+        </Reference>
+        <Reference Include="Microsoft.macOS" Condition="'$(NeedsRhinoHostUiSurface)' == 'true'">
+            <HintPath>$(MicrosoftMacOSReferencePath)</HintPath>
+            <Private>$(HostReferencePrivate)</Private>
+        </Reference>
+        <Reference Include="Rhino.Runtime.Code" Condition="'$(IsRhinoBridgeProject)' == 'true' and '$(IsRhinoPluginProject)' == 'true'">
+            <HintPath>$(RhinoRuntimeCodeReferencePath)</HintPath>
+            <Private>false</Private>
+        </Reference>
+        <Reference Include="Rhino.UI" Condition="'$(NeedsRhinoHostUiSurface)' == 'true'">
+            <HintPath>$(RhinoUiReferencePath)</HintPath>
+            <Private>$(HostReferencePrivate)</Private>
+        </Reference>
         <Reference Include="RhinoCommon">
             <HintPath>$(RhinoCommonReferencePath)</HintPath>
             <Private>$(HostReferencePrivate)</Private>
         </Reference>
-    </ItemGroup>
-
-    <!-- Rhino.UI ships RhinoEtoApp.MainWindowForOwner / MainWindowForDocument used by the DialogParent
-         polymorphic fallback in Rasm.Grasshopper UI. Mac MainWindowForOwner returns null without a doc,
-         so Grasshopper-aware code must cascade through MainWindowForDocument before reaching MainWindow. -->
-    <ItemGroup Label="Rhino UI Libraries" Condition="'$(NeedsRhinoHostUiSurface)' == 'true'">
-        <Reference Include="Rhino.UI">
-            <HintPath>$(RhinoUiReferencePath)</HintPath>
-            <Private>$(HostReferencePrivate)</Private>
+        <Reference Include="RhinoCodePlatform.Rhino3D" Condition="'$(IsRhinoBridgeProject)' == 'true' and '$(IsRhinoPluginProject)' == 'true'">
+            <HintPath>$(RhinoCodePlatformReferencePath)</HintPath>
+            <Private>false</Private>
         </Reference>
-        <Reference Include="System.Drawing.Common">
+        <Reference Include="System.Drawing.Common" Condition="'$(NeedsRhinoHostUiSurface)' == 'true'">
             <HintPath>$(SystemDrawingCommonReferencePath)</HintPath>
             <Private>$(HostReferencePrivate)</Private>
         </Reference>
     </ItemGroup>
 
-    <ItemGroup Label="Rhino UI Compile Packages" Condition="'$(NeedsSystemDrawingCompilePackage)' == 'true'">
+    <ItemGroup Label="RhinoWIP Compile Packages" Condition="'$(NeedsSystemDrawingCompilePackage)' == 'true'">
         <PackageReference Include="System.Drawing.Common" ExcludeAssets="runtime" />
-    </ItemGroup>
-
-    <ItemGroup Label="Grasshopper Libraries" Condition="'$(IsGrasshopperPluginProject)' == 'true' or '$(IsGrasshopperAwareProject)' == 'true'">
-        <Reference Include="Grasshopper2">
-            <HintPath>$(Grasshopper2ReferencePath)</HintPath>
-            <Private>$(HostReferencePrivate)</Private>
-        </Reference>
-        <Reference Include="GrasshopperIO">
-            <HintPath>$(GrasshopperIoReferencePath)</HintPath>
-            <Private>$(HostReferencePrivate)</Private>
-        </Reference>
-    </ItemGroup>
-
-    <ItemGroup Label="Eto UI Libraries" Condition="'$(NeedsRhinoHostUiSurface)' == 'true'">
-        <Reference Include="Eto">
-            <HintPath>$(EtoReferencePath)</HintPath>
-            <Private>$(HostReferencePrivate)</Private>
-        </Reference>
-    </ItemGroup>
-
-    <!-- Microsoft.macOS bindings ship inside the RhinoWIP runtime alongside Eto.macOS.dll. Reference is
-         required for CADisplayLink / NSScreen / NSView / NSRunLoop access from the Motion.Pacer capsule.
-         The bundle's macOS floor is 15.0; CADisplayLink requires macOS 14.0 so the gate is satisfied. -->
-    <ItemGroup Label="Microsoft.macOS Bindings" Condition="'$(NeedsRhinoHostUiSurface)' == 'true'">
-        <Reference Include="Microsoft.macOS">
-            <HintPath>$(MicrosoftMacOSReferencePath)</HintPath>
-            <Private>$(HostReferencePrivate)</Private>
-        </Reference>
-    </ItemGroup>
-
-    <ItemGroup Label="RhinoCode Bridge Libraries" Condition="'$(IsRhinoBridgeProject)' == 'true' and '$(IsRhinoPluginProject)' == 'true'">
-        <Reference Include="Rhino.Runtime.Code">
-            <HintPath>$(RhinoRuntimeCodeReferencePath)</HintPath>
-            <Private>false</Private>
-        </Reference>
-        <Reference Include="RhinoCodePlatform.Rhino3D">
-            <HintPath>$(RhinoCodePlatformReferencePath)</HintPath>
-            <Private>false</Private>
-        </Reference>
-    </ItemGroup>
-
-    <ItemGroup Label="Analyzer Packages" Condition="'$(IsLocalCSharpAnalyzerProject)' != 'true'">
-        <PackageReference Include="Microsoft.VisualStudio.Threading.Analyzers" PrivateAssets="all" />
-        <PackageReference Include="Meziantou.Analyzer" PrivateAssets="all" />
-    </ItemGroup>
-
-    <ItemGroup Label="Csp Scope Plumbing">
-        <CompilerVisibleProperty Include="CspScope" />
-    </ItemGroup>
-
-    <!-- No Exists() gate: a missing analyzer project fails the build loudly (MSB3202) rather than silently compiling consumers without analysis or the UnionOps source generator; SkipLocalCSharpAnalyzerReference is the only legal opt-out. -->
-    <ItemGroup Label="Local Analyzer Projects" Condition="'$(SkipLocalCSharpAnalyzerReference)' != 'true'">
-        <ProjectReference Include="$(LocalCSharpAnalyzerProject)" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
-    </ItemGroup>
-
-    <!-- One assembly, one type identity: host/test/bridge projects carry [BoundaryAdapter]/[CspExempt] from a single Csp.Contracts reference. -->
-    <ItemGroup Label="Csp Contracts" Condition="'$(IsRoslynComponent)' != 'true' and '$(MSBuildProjectName)' != 'Csp.Contracts'">
-        <ProjectReference Include="$(CspContractsProject)" />
-    </ItemGroup>
-
-    <PropertyGroup Label="TestKit Reference">
-        <SkipTestKitReference Condition="'$(SkipTestKitReference)' == '' and ($([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsRoot)tools/rhino-bridge/Contract/')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsRoot)tools/rhino-bridge/Supervisor/')))">true</SkipTestKitReference>
-    </PropertyGroup>
-
-    <!-- One classification-keyed TestKit reference replaces the per-csproj ProjectReferences: bridge Contract/Supervisor tests reference only production (SkipTestKitReference), analyzer tests reference only the analyzer. -->
-    <ItemGroup Label="TestKit Reference" Condition="'$(IsTestProject)' == 'true' and '$(IsAnalyzerTestProject)' != 'true' and '$(SkipTestKitReference)' != 'true'">
-        <ProjectReference Include="$(TestKitRoot)Rasm.TestKit.csproj" />
     </ItemGroup>
 </Project>

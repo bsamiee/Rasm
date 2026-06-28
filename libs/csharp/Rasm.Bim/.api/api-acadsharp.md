@@ -84,10 +84,11 @@
 |  [03]   | `DxfReader.IsBinary(Stream stream, bool resetPos = false)`                          | binary sniff     | static ascii-vs-binary DXF detection (also `IsBinary(string)`)     |
 |  [04]   | `DxfReader.Read(Stream stream, NotificationEventHandler = null)`                    | static read      | read a DXF stream (binary auto-detected) into a `CadDocument`      |
 |  [05]   | `DxfReader.Read(string filename, DxfReaderConfiguration, NotificationEventHandler = null)` | static read | read a DXF file under a tuned config                              |
-|  [06]   | `DwgReader.Read(Stream stream, DwgReaderConfiguration, NotificationEventHandler = null)` | static read  | read a DWG stream under a tuned config (stream+config overload)    |
-|  [07]   | `DwgReader.Read(string filename, NotificationEventHandler = null)`                  | static read      | read a DWG file by path into a `CadDocument`                       |
-|  [08]   | `DwgReader.ReadSummaryInfo()` / `ReadPreview()` / `ReadHeader()`                    | partial read     | summary/preview/header without a full entity parse (instance)      |
-|  [09]   | `DxfReader.ReadEntities()` / `ReadTables()`                                          | partial read     | section-scoped DXF read — `List<Entity>` ENTITIES-only or TABLES-only, skipping the header/objects parse (instance) |
+|  [06]   | `DwgReader.Read(Stream stream, NotificationEventHandler = null)`                    | static read      | read a DWG stream into a `CadDocument` — the no-config stream overload (defaults a fresh `DwgReaderConfiguration`); the form the `BimIo.AcadGeometry` arm calls on a `MemoryStream` |
+|  [07]   | `DwgReader.Read(Stream stream, DwgReaderConfiguration, NotificationEventHandler = null)` | static read  | read a DWG stream under a tuned config (stream+config overload)    |
+|  [08]   | `DwgReader.Read(string filename, NotificationEventHandler = null)`                  | static read      | read a DWG file by path into a `CadDocument`                       |
+|  [09]   | `DwgReader.ReadSummaryInfo()` / `ReadPreview()` / `ReadHeader()`                    | partial read     | summary/preview/header without a full entity parse (instance)      |
+|  [10]   | `DxfReader.ReadEntities()` / `ReadTables()`                                          | partial read     | section-scoped DXF read — `List<Entity>` ENTITIES-only or TABLES-only, skipping the header/objects parse (instance) |
 
 [ENTRYPOINT_SCOPE]: document traversal — `CadDocument` → mesh-bearing entities
 - rail: geometry

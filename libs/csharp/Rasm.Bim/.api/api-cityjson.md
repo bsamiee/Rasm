@@ -90,11 +90,12 @@ The codec is static and file/string-shaped. Reading is via Newtonsoft deserializ
 
 | [INDEX] | [SURFACE]                        | [CALL_SHAPE]                                       | [CAPABILITY]                                |
 | :-----: | :------------------------------- | :------------------------------------------------ | :------------------------------------------ |
-|  [01]   | `CityJsonWriter.Write`           | `(CityJsonDocument)` → `string`                   | serialize a document to a CityJSON string   |
-|  [02]   | `CityJsonWriter.WriteToFile`     | `(CityJsonDocument, string filePath)`             | serialize a document to a `.city.json` file |
-|  [03]   | `CityJsonDocument.GetVerticesEnvelope` | `()` → `(Envelope, float minZ, float maxZ)`  | compute the NTS planar envelope + Z-range of the dequantized vertices |
-|  [04]   | `Transform.ScaleVector3` / `TranslateVector3` | `()` → `Vector3`                     | the quantization vectors to dequantize an index-vertex |
-|  [05]   | `Vertex.ToVector3`               | `()` → `Vector3`                                  | a single vertex as a `System.Numerics.Vector3` |
+|  [01]   | `JsonConvert.DeserializeObject<CityJsonDocument>` | `(string json)` → `CityJsonDocument`     | the read counterpart — `Newtonsoft.Json` deserialization of the CityJSON text into the document graph; the package ships NO single-document `CityJsonReader`, read IS Newtonsoft (the symmetric inverse of `CityJsonWriter.Write`) |
+|  [02]   | `CityJsonWriter.Write`           | `(CityJsonDocument)` → `string`                   | serialize a document to a CityJSON string   |
+|  [03]   | `CityJsonWriter.WriteToFile`     | `(CityJsonDocument, string filePath)`             | serialize a document to a `.city.json` file |
+|  [04]   | `CityJsonDocument.GetVerticesEnvelope` | `()` → `(Envelope, float minZ, float maxZ)`  | compute the NTS planar envelope + Z-range of the dequantized vertices |
+|  [05]   | `Transform.ScaleVector3` / `TranslateVector3` | `()` → `Vector3`                     | the quantization vectors to dequantize an index-vertex |
+|  [06]   | `Vertex.ToVector3`               | `()` → `Vector3`                                  | a single vertex as a `System.Numerics.Vector3` |
 
 [ENTRYPOINT_SCOPE]: CityJSONSeq streaming
 - package: `bertt.CityJSON`
@@ -124,7 +125,7 @@ first-line metadata "CityJSON" object followed by per-feature objects) for large
 - planar-algebra leg: `GetVerticesEnvelope()` returns a `NetTopologySuite.Geometries.Envelope` and the transitive floor pulls `NetTopologySuite.Features`, so a CityJSON dataset lands directly on the `Semantics/georeference` + geospatial NTS algebra (`api-nettopologysuite`) — the same `Geometry`/`Envelope`/STRtree surface the shapefile and GeoPackage codecs (`api-nts-esri-shapefile`) feed; CityJSON is one more NTS-Feature source row, not a parallel geometry world.
 - reprojection leg: `Metadata.ReferenceSystem` (the source CRS URN) drives the `Semantics/georeference#GEODETIC_TRANSFORM` `ProjNET` (`api-projnet`) datum/projection leg; the dequantized vertices are reprojected into the shared projected frame before the urban context is federated with the BIM model — `MaxRev.Gdal.Core` (`api-maxrev-gdal`) owns the heavier raster/vector site-context ingest, CityJSON owns the structured 3D-city encoding.
 - canonical-carrier leg: a `CityObject` (typed by `CityObjectType`) maps onto a `BimElement` row with an `ElementPredicate`-classified `IfcClass` at the `Exchange/import` boundary (`Building`→`IfcBuilding`, `Bridge`→`IfcBridge`, etc.); `CityJSON.*` types never leak past the codec boundary, internal code holds canonical Bim shapes.
-- identity leg: a `CityJsonWriter.Write(document)` string (UTF-8 bytes) feeds `System.IO.Hashing` `XxHash3` (substrate, `api-hashing`) for the urban-context snapshot content-key, joining the same content-identity rail as the IFC/glTF exports.
+- identity leg: a `CityJsonWriter.Write(document)` string (UTF-8 bytes) feeds `System.IO.Hashing` `XxHash3`/`XxHash128` (substrate, `api-hashing`) for the urban-context snapshot content key — `XxHash3` is the fast in-process fingerprint, `XxHash128` (`GetCurrentHashAsUInt128`) the persisted, collision-resistant key the `Rasm.Persistence` artifact index is content-addressed by — joining the same XxHash128-keyed content-identity rail as the IFC/glTF exports.
 - 3D-tiles seam leg: the dequantized solid/surface geometry can be tessellated into the `Exchange/export` glTF/3D-Tiles pipeline (`api-sharpgltf-3dtiles`, `api-subtree`) for web delivery — CityJSON is the SOURCE encoding, the 3D-Tiles legs are the delivery encoding; the shared frame is the projected coordinate space the georeference leg established.
 
 [LOCAL_ADMISSION]:

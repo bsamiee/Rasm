@@ -90,6 +90,15 @@
 |  [04]   | `grpc.aio.Server.stop(grace)`                   | lifecycle      | graceful drain over the grace period (awaitable) |
 |  [05]   | `grpc.aio.Server.wait_for_termination(timeout)` | lifecycle      | block until the server terminates (awaitable)    |
 
+[ENTRYPOINT_SCOPE]: async channel invocation and drain
+- rail: serve
+- defined on `grpc.aio.Channel` (PUBLIC_TYPES [02]); the outbound dial leg mints a per-method multicallable and drains the runtime-lived channel through these.
+
+| [INDEX] | [SURFACE]                                                                                                              | [ENTRY_FAMILY] | [RAIL]                                  |
+| :-----: | :------------------------------------------------------------------------------------------------------------------- | :------------- | :-------------------------------------- |
+|  [01]   | `grpc.aio.Channel.unary_unary(method, request_serializer=None, response_deserializer=None) -> UnaryUnaryMultiCallable` | invoke         | mint a per-method multicallable; both serializers `None` is the raw-`bytes` descriptor-dispatch path (`channel.unary_unary("/rasm.capability/{id}")`). The `unary_stream`/`stream_unary`/`stream_stream` siblings share the signature, returning the matching `UnaryStream`/`StreamUnary`/`StreamStreamMultiCallable` |
+|  [02]   | `grpc.aio.Channel.close(grace=None)`                                                                                  | drain          | graceful channel drain (awaitable); the optional grace window lets in-flight calls finish before cancellation — the runtime-lived channel's one deterministic teardown |
+
 [ENTRYPOINT_SCOPE]: credential admission
 - rail: transport
 

@@ -55,6 +55,8 @@ Cloud object-store SDK surfaces for the `remote-stores` cluster: `AWSSDK.S3` low
 |  [18]   | `ListObjectsV2Response`           | response           | `S3Objects` (`S3Object` `Key`/`Size`/`LastModified`) |
 |  [19]   | `DeleteObjectRequest`             | request            | removes object by content-key name   |
 |  [20]   | `S3StorageClass`                  | enum               | storage-class column                 |
+|  [21]   | `ChecksumAlgorithm`               | `ConstantClass`    | per-part/object checksum algorithm; `XXHASH128` (the content-key integrity stance), `CRC64NVME`/`SHA256`/`CRC32`/`CRC32C` |
+|  [22]   | `ChecksumType`                    | `ConstantClass`    | `FULL_OBJECT` (whole-object checksum) vs. `COMPOSITE` (per-part roll-up) |
 
 [AZURE_TYPES]: Azure.Storage.Blobs staged-block and parallel upload
 - rail: object-store
@@ -79,6 +81,8 @@ Cloud object-store SDK surfaces for the `remote-stores` cluster: `AWSSDK.S3` low
 |  [16]   | `BlobItem`                         | list element   | `Name`/`Properties` for `List`     |
 |  [17]   | `BlobRequestConditions`            | value          | `IfMatch`/`IfNoneMatch` ETag gate; `ETag.All` write-once |
 |  [18]   | `BlobDownloadStreamingResult`      | response       | range-read resumption stream (`.Content`) |
+|  [19]   | `Azure.Storage.UploadTransferValidationOptions` | value | `ChecksumAlgorithm` (`StorageChecksumAlgorithm`) + `PrecalculatedChecksum`; the `BlockBlobStageBlockOptions.TransferValidation` per-block integrity stance (`Azure.Storage.Common`) |
+|  [20]   | `Azure.Storage.StorageChecksumAlgorithm`        | enum  | `Auto`/`None`/`MD5`/`StorageCrc64` — the block-integrity algorithm (`StorageCrc64` is the Azure stance) |
 
 [GCS_TYPES]: Google.Cloud.Storage.V1 resumable upload
 - rail: object-store
@@ -111,7 +115,7 @@ Cloud object-store SDK surfaces for the `remote-stores` cluster: `AWSSDK.S3` low
 |  [05]   | `GetObjectAsync`               | request plus cancellation | range-read fetch  |
 |  [06]   | `TransferUtility.UploadAsync`  | request plus cancellation | managed multipart |
 
-Request members consumed: `InitiateMultipartUploadRequest` — `BucketName`, `Key`, `ContentType`, `StorageClass` (`S3StorageClass`); `UploadPartRequest` — `BucketName`, `Key`, `UploadId`, `PartNumber` (int, 1-10000), `InputStream`, `PartSize` (long); `UploadPartResponse` — `ETag`, `PartNumber`; `CompleteMultipartUploadRequest` — `BucketName`, `Key`, `UploadId`, `PartETags` (`List<PartETag>`); `PartETag` — `PartNumber`, `ETag`; `CompleteMultipartUploadResponse` — `Location`, `BucketName`, `Key`, `ETag`; `GetObjectRequest` — `BucketName`, `Key`, `ByteRange` (`ByteRange(long start, long end)`); `TransferUtilityUploadRequest` — `BucketName`, `Key`, `InputStream`, `PartSize` (long, min 5 MB), `AutoCloseStream`.
+Request members consumed: `InitiateMultipartUploadRequest` — `BucketName`, `Key`, `ContentType`, `StorageClass` (`S3StorageClass`); `UploadPartRequest` — `BucketName`, `Key`, `UploadId`, `PartNumber` (int, 1-10000), `InputStream`, `PartSize` (long); `UploadPartResponse` — `ETag`, `PartNumber`; `CompleteMultipartUploadRequest` — `BucketName`, `Key`, `UploadId`, `PartETags` (`List<PartETag>`); `PartETag` — `PartNumber`, `ETag`; `CompleteMultipartUploadResponse` — `Location`, `BucketName`, `Key`, `ETag`; `GetObjectRequest` — `BucketName`, `Key`, `ByteRange` (`ByteRange(long start, long end)`); `TransferUtilityUploadRequest` — `BucketName`, `Key`, `InputStream`, `PartSize` (long, min 5 MB), `AutoCloseStream`. Content-integrity is the checksum stance: `InitiateMultipartUploadRequest.ChecksumAlgorithm` (`ChecksumAlgorithm`, e.g. `XXHASH128`) + `.ChecksumType` (`ChecksumType.FULL_OBJECT`), `UploadPartRequest.ChecksumAlgorithm` per part, and `CompleteMultipartUploadRequest.ChecksumType` seal the whole-object checksum.
 
 [AZURE_BLOCKS]: staged-block over `BlockBlobClient`
 - rail: object-store
@@ -123,7 +127,7 @@ Request members consumed: `InitiateMultipartUploadRequest` — `BucketName`, `Ke
 |  [03]   | `BlobClient.UploadAsync` | stream plus upload options         | parallel chunked |
 |  [04]   | `DownloadStreamingAsync` | download options plus cancellation | range-read fetch |
 
-Type members consumed: `BlockInfo` — `ContentHash` (byte[]), `ContentCrc64` (byte[]); `BlobContentInfo` — `ETag`, `LastModified`, `ContentHash` (byte[]), `VersionId`; `BlobUploadOptions` — `HttpHeaders`, `Metadata`, `Tags`, `AccessTier?`, `TransferOptions` (`StorageTransferOptions`), `Conditions` (`BlobRequestConditions?`); `StorageTransferOptions` — `InitialTransferSize` (long?), `MaximumTransferSize` (long?), `MaximumConcurrency` (int?); `BlobRequestConditions` — `IfMatch` (`ETag?`), `IfNoneMatch` (`ETag?`).
+Type members consumed: `BlockInfo` — `ContentHash` (byte[]), `ContentCrc64` (byte[]); `BlobContentInfo` — `ETag`, `LastModified`, `ContentHash` (byte[]), `VersionId`; `BlobUploadOptions` — `HttpHeaders`, `Metadata`, `Tags`, `AccessTier?`, `TransferOptions` (`StorageTransferOptions`), `Conditions` (`BlobRequestConditions?`); `StorageTransferOptions` — `InitialTransferSize` (long?), `MaximumTransferSize` (long?), `MaximumConcurrency` (int?); `BlobRequestConditions` — `IfMatch` (`ETag?`), `IfNoneMatch` (`ETag?`); `BlockBlobStageBlockOptions` — `Conditions` (`BlobRequestConditions`), `ProgressHandler`, `TransferValidation` (`UploadTransferValidationOptions`); `UploadTransferValidationOptions` — `ChecksumAlgorithm` (`StorageChecksumAlgorithm.StorageCrc64`), `PrecalculatedChecksum` (`ReadOnlyMemory<byte>`).
 
 [GCS_RESUMABLE]: resumable chunked over `StorageClient`
 - rail: object-store

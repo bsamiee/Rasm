@@ -9,7 +9,7 @@
 - version: `1.3.0` (centrally pinned)
 - license: `Apache-2.0`
 - assembly: `DSTV.Net`
-- namespace roots: `DSTV.Net.Contracts`, `DSTV.Net.Data`, `DSTV.Net.Enums`, `DSTV.Net.Exceptions`, `DSTV.Net`
+- namespace roots: `DSTV.Net.Contracts`, `DSTV.Net.Data`, `DSTV.Net.Enums`, `DSTV.Net.Exceptions`, `DSTV.Net.Implementations`, `DSTV.Net.Extensions`, `DSTV.Net`
 - asset: pure-managed AnyCPU IL, multi-target `net9.0` / `net8.0` / `net7.0` / `net6.0` / `netstandard2.0` (no native asset, no RID burden); the `net10.0` consumer binds `lib/net9.0/DSTV.Net.dll`
 - rail: cut-program (DSTV/NC1 read leg)
 
@@ -84,10 +84,11 @@
 
 [ENTRYPOINT_SCOPE]: async parse — `DstvReader` (`IDstvReader`)
 - rail: cut-program
+- The sealed concrete reader is `DSTV.Net.Implementations.DstvReader`; the `ISplitter` strategies (`RoughSplitter`/`FineSplitter`/`DotSplitter`/`PositionNumericSplitter`) and the block sub-readers (`HeaderReader`/`BodyReader`/`ReaderContext`) live in the same `Implementations` namespace — `IDstvReader`/`IDstv`/`ISplitter` are the contracts a custom ingress composes against.
 
 | [INDEX] | [SURFACE]                                | [ENTRY_FAMILY] | [CAPABILITY]                                                  |
 | :-----: | :--------------------------------------- | :------------- | :----------------------------------------------------------- |
-|  [01]   | `new DstvReader()`                       | constructor    | the sealed default reader (`IDstvReader`)                     |
+|  [01]   | `new DstvReader()`                       | constructor    | the sealed default reader (`DSTV.Net.Implementations.DstvReader : IDstvReader`) |
 |  [02]   | `ParseAsync(string dstvData)`            | parse          | parse an in-memory `.nc1` string → `Task<IDstv>`             |
 |  [03]   | `ParseAsync(TextReader reader)`          | parse          | parse a streamed `TextReader` (file/network) → `Task<IDstv>` |
 

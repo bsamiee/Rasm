@@ -14,8 +14,6 @@
 - rail: epd-lca (OpenEPD/EC3 interchange)
 - asset: pure Python, zero compiled extensions; `pydantic>=2.11.7,<3` is the runtime model engine
 - depends: `pydantic>=2.11.7,<3`, `email-validator>=1.3.1`, `idna>=3.7`, `open-xpd-uuid>=0.2.1,<2`, `openlocationcode>=1.0.1`; `requests>=2.0` only under the `api-client` extra (models import without `requests`)
-- marker: COMPANION-GATED. Pinned `openepd; python_version<'3.15'`. openepd is pure-Python and its OWN `requires-python` is `>=3.11,<4.0` (admits cp315), so the `<3.15` gate is a conservative EPD/LCA-cluster alignment pin, liftable independently of the heavier `numpy`/`scipy` siblings once validated on cp315 — it is NOT blocked by a Rust/native wheel of its own.
-- evidence: surface source-verified against the `7.30.0` release tag (`src/openepd/model/`, `src/openepd/api/`, `src/openepd/bundle/`); not `assay api`-reflected because the active cp315 interpreter does not install it under the marker gate
 - capability: round-trip typed OpenEPD declarations (parse/validate/serialize via Pydantic), read/sum the LCIA `Impacts` matrix across methods, fetch and search live EC3 declarations through the sync client, and read/write offline declaration bundles
 - scope-law: openepd MODELS and FETCHES OpenEPD/EC3 payloads. It is not an LCA calculator, not the ILCD+EPD parser (`epdx`), and not the material-impact system of record — the data owner normalizes its `Impacts`/`ScopeSet` into the internal impact carrier
 
@@ -33,14 +31,14 @@
 |  [05]   | `GenericEstimate` / `GenericEstimateWithDeps` / `GenericEstimatePreview` | `RootDocument` (`WithLciaMixin`) | non-product generic impact estimate (typical/conservative dataset), same LCIA shape |
 |  [06]   | `BaseDeclaration` | `RootDocument`, `abc.ABC` | abstract base of every doctype — `product_image` validation, common declaration fields |
 |  [07]   | `Org` / `OrgRef`, `Plant` / `PlantRef`, `Pcr` / `PcrRef` | `BaseOpenEpdSchema` | the manufacturer org, production plant, and Product Category Rule entities + their lightweight `*Ref` forms; `PcrStatus` (StrEnum) is the PCR lifecycle |
-|  [08]   | `Specs` | `BaseOpenEpdHierarchicalSpec` | the per-material performance-spec aggregate on `Epd.specs`; concrete material specs `ConcreteV1`, `PrecastConcreteV1`, `SteelV1`, `WoodV1`, `AsphaltV1`, `AggregatesV1`, `AluminiumV1`, `CMUV1`, `AccessoriesV1`, … live under `openepd.model.specs.singular.*` with a `range/` `RangeSpec` mirror for material-range queries |
+|  [08]   | `Specs` | `BaseOpenEpdHierarchicalSpec` | the per-material performance-spec aggregate on `Epd.specs`; concrete material specs `ConcreteV1`, `PrecastConcreteV1`, `SteelV1`, `WoodV1`, `AsphaltV1`, `AggregatesV1`, `AluminiumV1`, `CMUV1`, `AccessoriesV1`, … live under `openepd.model.specs.singular.*` with an `openepd.model.specs.range.*` per-material mirror (e.g. `concrete`, `steel`, `wood`) for material-range queries |
 
-[DECLARATION_MIXIN_SCOPE]: composable declaration facets (`openepd.model.declaration`, `openepd.model.common`)
+[DECLARATION_MIXIN_SCOPE]: composable declaration facets (`openepd.model.declaration`, `openepd.model.common`, `openepd.model.lcia`)
 - rail: epd-lca
 
 | [INDEX] | [SYMBOL] | [ROLE] |
 | :-----: | :------- | :----- |
-|  [01]   | `WithLciaMixin` | adds `impacts: Impacts`, `resource_uses`, `output_flows` — the LCIA payload carrier mixed into every full doctype |
+|  [01]   | `WithLciaMixin` (`openepd.model.lcia`) | adds `impacts: Impacts`, `resource_uses`, `output_flows` — the LCIA payload carrier mixed into every full doctype |
 |  [02]   | `WithOpenXpdUUIDMixin`, `WithAltIdsMixin` | the canonical `open_xpd_uuid` identity (`OpenXpdUUID`) and external `alt_ids` cross-system keys (`set_alt_id(domain, value)`) |
 |  [03]   | `WithProgramOperatorMixin`, `WithVerifierMixin`, `WithEpdDeveloperMixin` | the program-operator, third-party verifier, and EPD-developer org refs |
 |  [04]   | `WithAttachmentsMixin` | typed `attachments: dict[str, AnyUrl]` with `set_attachment(name, url)` |
@@ -56,7 +54,7 @@
 |  [01]   | `Impacts` | `pydantic.RootModel[dict[LCIAMethod, ImpactSet]]` | the top LCIA container keyed by method; `set_impact_set(method, impact_set)`, `get_impact_set(method)`, `available_methods() -> set[LCIAMethod]`, `as_dict() -> dict[LCIAMethod, ImpactSet]`, `replace_lcia_method(old, new)` |
 |  [02]   | `LCIAMethod` | `StrEnum` | the supported impact methods — `TRACI_2_2`/`TRACI_2_1`/`TRACI_2_0`, `IPCC_AR5`/`IPCC_AR6`, `EF_3_1`/`EF_3_0`/`EF_2_0`, `CML_2016`…`CML_1992`, `RECIPE_2016`/`RECIPE_2008`, `USETOX_2_12`, `EN_15978_2011`, `GWP_GHG`, `LIME2`, `UNKNOWN`; `LCIAMethod.get_by_name(name)`, `LCIAMethod.is_method_supported(name)` resolve a wire name to the enum |
 |  [03]   | `ImpactSet` | `ScopesetByNameBase` | one method's indicators — `get_scopeset_by_name(name)`, `get_scopeset_names()`; each indicator is a typed `ScopeSet` subclass |
-|  [04]   | `ScopeSet` + per-indicator subclasses | `BaseOpenEpdSchema` | one indicator's life-cycle-stage values; subclasses fix the unit: `ScopeSetGwp`, `ScopeSetOdp`, `ScopeSetAp`, `ScopeSetEpNe`, `ScopeSetPocp`, `ScopeSetEpFresh`, `ScopeSetEpTerr`, `ScopeSetIrp`, `ScopeSetCTUh`, `ScopeSetCTUe`, `ScopeSetM3Aware`, `ScopeSetKgSbe`, `ScopeSetMJ`, `ScopeSetDiseaseIncidence`, `ScopeSetMass`, `ScopeSetVolume`, `ScopeSetMassOrVolume`, `ScopeSetEnergy`, `ScopeSetPoint` |
+|  [04]   | `ScopeSet` + per-indicator subclasses | `BaseOpenEpdSchema` | one indicator's life-cycle-stage values; subclasses fix the unit: `ScopeSetGwp`, `ScopeSetOdp`, `ScopeSetAp`, `ScopeSetEpNe`, `ScopeSetPocp`, `ScopeSetEpFresh`, `ScopeSetEpTerr`, `ScopeSetIrp`, `ScopeSetCTUh`, `ScopeSetCTUe`, `ScopeSetM3Aware`, `ScopeSetKgSbe`, `ScopeSetDiseaseIncidence`, `ScopeSetMass`, `ScopeSetVolume`, `ScopeSetMassOrVolume`, `ScopeSetEnergy` (the MJ energy carrier), `ScopeSetPoint` |
 |  [05]   | `ResourceUseSet`, `OutputFlowSet` | `ScopesetByNameBase` | the EN 15804 resource-use (`pere`, `penre`, `fw`, …) and output-flow (`hwd`, `nhwd`, `rwd`, `cru`, …) scope-set groups, name-addressed like `ImpactSet` |
 |  [06]   | `EolScenario` | `BaseOpenEpdSchema` | an end-of-life scenario weighting attached to C-stage impacts |
 |  [07]   | `Measurement`, `Amount` | `BaseOpenEpdSchema` | a value+unit measurement and a quantity+unit amount (`OpenEPDUnit` StrEnum); the scalar carriers inside a `ScopeSet` |
@@ -92,7 +90,7 @@
 
 ## [05]-[BASE_MACHINERY]
 
-[BASE_SCOPE]: the schema/extension/factory kernel (`openepd.model.base`, `openepd.model.factory`)
+[BASE_SCOPE]: the schema/extension/factory kernel (`openepd.model.base`, `openepd.model.factory`, `openepd.model.common`)
 - `BaseOpenEpdSchema` (extends `pydantic.BaseModel`) — every model's root; `to_serializable()`, `has_values()`, and the typed extension-field API: `set_ext(ext)`, `get_ext(ext_type)`, `get_ext_or_empty(ext_type)`, `set_ext_field(key, value)`, `get_typed_ext_field(key, type, default)`. Extensions (`OpenEpdExtension`) are the sanctioned way to carry vendor data without forking the schema.
 - `RootDocument` / `BaseDocumentFactory[TRootDocument]` / `RootDocumentFactory` / `DocumentFactory` — the doctype-discriminated factory: `RootDocumentFactory.from_dict(data)` reads `OpenEpdDoctypes` off the payload and routes to `EpdFactory` / `IndustryEpdFactory` / `GenericEstimateFactory`, so one entrypoint parses any declaration kind.
 - `OpenXpdUUID` (str subtype), `OpenEpdDoctypes` (StrEnum), `Location`/`LatLng`, `Ingredient`/`Constituent`, the `RangeFloat`/`RangeInt`/`RangeRatioFloat`/`RangeAmount` range carriers, and `OpenEPDUnit` (StrEnum) — the shared value vocabulary.

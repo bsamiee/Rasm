@@ -8,7 +8,7 @@ The one simulation mesh-and-field interchange and weak-form assembly owner besid
 
 Each operation folds into one `MeshReceipt` whose `Literal` `tag` IS the operation and whose per-case payload shape, `.status` read, accessor projection, and observability row are all driven by one `_SLOTS` field-name table — exactly as `solvers/field.md#FIELD` `FieldReceipt` and `solvers/receipt.md#RECEIPT` `SolverReceipt` drive their cases, each terminating in the shared `SolveStatus` verdict the `solvers/receipt.md#RECEIPT` floor adjudicates. The three `@classmethod` factories returning `Self` are the canonical constructors, and receipt emission rides the runtime `@receipted` aspect every solver route wears.
 
-`meshio` is pure-Python and core, so the `read`/`write` interchange runs unconditionally as a top-level import; `scikit-fem` carries no package, so the `assemble` fold rides the worker band behind the boundary.
+`meshio` is pure-Python and core, so the `read`/`write` interchange runs unconditionally as a top-level import; the `scikit-fem` `assemble` fold rides the worker band behind the boundary.
 
 ## [01]-[INDEX]
 
@@ -62,7 +62,7 @@ type MeshOp = Literal["assembled", "read", "written"]
 # ElementKind -> (Mesh*-constructor, Element*-constructor, meshio-cell-type) triple, the ONE
 # element-spelling table the assemble fold, the FEM solve, the field readout, and the meshio
 # round-trip all resolve through — collapsing the prior parallel _ELEMENT_CTOR/_MESH_CTOR/_CELL_TYPE
-# maps. The Mesh*/Element* names resolve through getattr(skfem, ...) behind the gated import; the
+# maps. The Mesh*/Element* names resolve through getattr(skfem, ...) behind the worker import; the
 # affine Mesh*1 geometry and the cell-type string with their P1 sibling, varying only the Element*.
 _CTOR: FrozenDict[ElementKind, tuple[str, str, str]] = FrozenDict(
     {
@@ -123,7 +123,7 @@ class MeshField(Struct, frozen=True):
 
 # `stiffness` is typed `object`: the assembled matrix is a `scipy.sparse` container (`csr_array`/
 # carrier `solvers/linear.md#LINEAR` `LinearMap.SparseMat(matrix: object, ...)` takes — sits at the band
-# boundary rather than a gated `scipy.sparse` import forced at module load. No gc=False: the `load`/
+# boundary rather than a worker `scipy.sparse` import forced at module load. No gc=False: the `load`/
 # `dirichlet_dofs` arrays are tracked containers, so the leaf-only GC opt-out does not apply, exactly
 # as `MeshField` declines it for the same reason.
 class AssembledSystem(Struct, frozen=True):

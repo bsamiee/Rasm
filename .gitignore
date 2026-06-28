@@ -122,7 +122,7 @@ lerna-debug.log*
 
 # --- [IDE_AND_EDITOR] ---------------------------------------------------------
 
-.vscode/*
+.vscode/
 .idea/
 *.swp
 *.swo

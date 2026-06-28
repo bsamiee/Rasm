@@ -40,6 +40,7 @@
 |  [05]   | `chunksize`                                                    | property | single-chunk shape        |
 |  [06]   | `npartitions`                                                  | property | total chunk count         |
 |  [07]   | `blocks[selection]`                                            | property | block-level indexing view |
+|  [08]   | `spec`                                                         | property | the array's execution `Spec` (`spec.work_dir`/`allowed_mem`/`reserved_mem`/`executor_name`) — read the budget/executor off a materialized output array rather than re-passing them |
 
 [CALLBACK_TELEMETRY]:
 - `Callback` subclasses observe `on_compute_start(ComputeStartEvent)` / `on_compute_end(ComputeEndEvent)`, `on_operation_start(OperationStartEvent)` / `on_operation_end(OperationEndEvent)`, and `on_task_end(TaskEndEvent)`.

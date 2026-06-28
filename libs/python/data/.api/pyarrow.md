@@ -111,6 +111,8 @@
 |  [10c]  | `Buffer.size` / `bytes(buffer)`                 | memory         | byte length and zero-copy `bytes` view of a `Buffer` (the IPC-serialized batch span the content key reads) |
 |  [11]   | `to_pandas()` / `to_pydict()` / `to_pylist()`   | interop        | export to pandas, dicts, rows        |
 |  [12]   | `to_struct_array()` / `flatten()`               | reshape        | struct-array view and struct flatten |
+|  [13]   | `num_rows` / `num_columns` / `schema`           | metadata       | row count, column count, and the `Schema` (the receipt-shape `(num_rows, num_columns)` read and the `ipc.new_stream(sink, table.schema)` writer schema) |
+|  [14]   | `replace_schema_metadata(metadata=None)`        | metadata       | copy of the table with its schema-level `{bytes: bytes}` key-value metadata replaced (decode evidence stamped onto a one-batch table) |
 
 [ENTRYPOINT_SCOPE]: compute, IO, and filesystem submodules
 - rail: Arrow columnar memory
@@ -127,6 +129,7 @@
 |  [08]   | `csv.read_csv` / `csv.write_csv` / `open_csv`       | CSV IO         | read, write, and stream CSV           |
 |  [09]   | `feather.read_table` / `feather.write_feather`      | Feather IO     | Arrow IPC file (Feather)              |
 |  [10]   | `ipc.open_stream` / `ipc.new_stream`                | IPC            | Arrow streaming IPC                   |
+|  [10b]  | `OSFile(path, mode='r', memory_pool=None)`          | native file    | on-disk `NativeFile` sink/source (`with pa.OSFile(target, "wb") as sink`) the `ipc.new_stream` writer streams an Arrow IPC table through |
 |  [11]   | `dataset.dataset(source, format, partitioning)`     | dataset        | multi-file lazy dataset with pushdown |
 |  [12]   | `fs.LocalFileSystem / S3FileSystem / GcsFileSystem / AzureFileSystem / HadoopFileSystem` | filesystem | local and cloud object stores |
 

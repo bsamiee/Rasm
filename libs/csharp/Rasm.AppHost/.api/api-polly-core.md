@@ -42,21 +42,23 @@ surfaces, and telemetry event contracts for non-HTTP and shared resilience rails
 [PUBLIC_TYPE_SCOPE]: strategy and registry family
 - rail: resilience
 
-| [INDEX] | [SYMBOL]                           | [TYPE_FAMILY]    | [RAIL]                     |
-| :-----: | :--------------------------------- | :--------------- | :------------------------- |
-|  [01]   | `RetryStrategyOptions<T>`          | strategy options | retry schedule             |
-|  [02]   | `TimeoutStrategyOptions`           | strategy options | execution timeout          |
-|  [03]   | `CircuitBreakerStrategyOptions<T>` | strategy options | circuit-breaker policy     |
-|  [04]   | `HedgingStrategyOptions<T>`        | strategy options | hedged execution           |
-|  [05]   | `FallbackStrategyOptions<T>`       | strategy options | fallback policy            |
-|  [06]   | `ResiliencePipelineRegistry<TKey>` | registry         | keyed pipeline lookup      |
-|  [07]   | `ResiliencePipelineProvider<TKey>` | provider         | keyed pipeline provider    |
-|  [08]   | `CircuitBreakerStateProvider`      | state provider   | breaker state observation  |
-|  [09]   | `CircuitBreakerManualControl`      | control surface  | manual breaker control     |
-|  [10]   | `ChaosLatencyStrategyOptions`      | chaos options    | Simmy latency injection    |
-|  [11]   | `ChaosFaultStrategyOptions`        | chaos options    | Simmy fault injection      |
-|  [12]   | `ChaosOutcomeStrategyOptions<T>`   | chaos options    | Simmy outcome substitution |
-|  [13]   | `ChaosBehaviorStrategyOptions`     | chaos options    | Simmy behavior injection   |
+| [INDEX] | [SYMBOL]                           | [TYPE_FAMILY]    | [RAIL]                                     |
+| :-----: | :--------------------------------- | :--------------- | :----------------------------------------- |
+|  [01]   | `RetryStrategyOptions<T>`          | strategy options | retry schedule                             |
+|  [02]   | `DelayBackoffType`                  | backoff enum     | `Constant`/`Linear`/`Exponential` growth   |
+|  [03]   | `TimeoutStrategyOptions`           | strategy options | execution timeout                          |
+|  [04]   | `CircuitBreakerStrategyOptions<T>` | strategy options | circuit-breaker policy                     |
+|  [05]   | `CircuitBreakerStrategyOptions`    | strategy options | non-generic breaker policy (`: <object>`)  |
+|  [06]   | `HedgingStrategyOptions<T>`        | strategy options | hedged execution                           |
+|  [07]   | `FallbackStrategyOptions<T>`       | strategy options | fallback policy                            |
+|  [08]   | `ResiliencePipelineRegistry<TKey>` | registry         | keyed pipeline lookup                      |
+|  [09]   | `ResiliencePipelineProvider<TKey>` | provider         | keyed pipeline provider                    |
+|  [10]   | `CircuitBreakerStateProvider`      | state provider   | breaker state observation                  |
+|  [11]   | `CircuitBreakerManualControl`      | control surface  | manual breaker control                     |
+|  [12]   | `ChaosLatencyStrategyOptions`      | chaos options    | Simmy latency injection                    |
+|  [13]   | `ChaosFaultStrategyOptions`        | chaos options    | Simmy fault injection                      |
+|  [14]   | `ChaosOutcomeStrategyOptions<T>`   | chaos options    | Simmy outcome substitution                 |
+|  [15]   | `ChaosBehaviorStrategyOptions`     | chaos options    | Simmy behavior injection                   |
 
 [PUBLIC_TYPE_SCOPE]: telemetry and rejection family
 - rail: resilience
@@ -99,8 +101,21 @@ surfaces, and telemetry event contracts for non-HTTP and shared resilience rails
 |  [01]   | `Execute`                      | pipeline run   | synchronous execution      |
 |  [02]   | `ExecuteAsync`                 | pipeline run   | asynchronous execution     |
 |  [03]   | `ExecuteOutcomeAsync`          | pipeline run   | captured outcome execution |
-|  [04]   | `ResilienceContextPool.Get`    | context lease  | pooled context checkout    |
-|  [05]   | `ResilienceContextPool.Return` | context return | pooled context return      |
+|  [04]   | `ResilienceContextPool.Shared` | pool accessor  | static default context pool |
+|  [05]   | `ResilienceContextPool.Get`    | context lease  | pooled context checkout    |
+|  [06]   | `ResilienceContextPool.Return` | context return | pooled context return      |
+
+[ENTRYPOINT_SCOPE]: provider, predicate, and outcome operations
+- rail: resilience
+
+| [INDEX] | [SURFACE]                                            | [ENTRY_FAMILY]      | [RAIL]                                          |
+| :-----: | :--------------------------------------------------- | :------------------ | :--------------------------------------------- |
+|  [01]   | `ResiliencePipelineProvider<TKey>.GetPipeline`       | keyed retrieval     | `GetPipeline(TKey)` → built `ResiliencePipeline` |
+|  [02]   | `ResiliencePipelineProvider<TKey>.GetPipeline<TResult>` | keyed retrieval  | `GetPipeline<TResult>(TKey)` → `ResiliencePipeline<TResult>` |
+|  [03]   | `ResiliencePipelineProvider<TKey>.TryGetPipeline`    | keyed probe         | non-throwing `bool TryGetPipeline(TKey, out …)` |
+|  [04]   | `PredicateBuilder<T>.Handle<TException>`             | predicate compose   | adds an exception arm to `ShouldHandle`         |
+|  [05]   | `PredicateBuilder<T>.HandleResult`                   | predicate compose   | adds a result arm (`Func<T,bool>` or value)     |
+|  [06]   | `Outcome.FromResult<TResult>`                        | outcome factory     | wraps a value as `Outcome<TResult>`             |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -108,9 +123,12 @@ surfaces, and telemetry event contracts for non-HTTP and shared resilience rails
 - namespaces: pipeline, retry, timeout, circuit breaker, hedging, fallback, registry, telemetry
 - builder surface: ordered strategy composition through pipeline builders
 - execution surface: pipeline execution over callbacks, cancellation, context, and state
-- outcome surface: result/exception values for strategy predicates and advanced callbacks
-- context surface: pooled context carrying operation key, cancellation, properties, and telemetry identity
-- registry surface: keyed pipeline construction and lookup
+- outcome surface: result/exception values for strategy predicates and advanced callbacks; the static `Outcome.FromResult<TResult>` factory wraps a value for `ExecuteOutcomeAsync` callbacks
+- predicate surface: `PredicateBuilder<T>.Handle<TException>`/`HandleResult` compose the `ShouldHandle` predicate without a hand-rolled outcome switch
+- backoff surface: `DelayBackoffType` (`Constant`/`Linear`/`Exponential`) sets the retry/hedging growth on `RetryStrategyOptions<T>.BackoffType`
+- options arity: each strategy ships a generic `…StrategyOptions<T>` and (for circuit-breaker) a non-generic `CircuitBreakerStrategyOptions : CircuitBreakerStrategyOptions<object>` for the non-generic `ResiliencePipelineBuilder`
+- context surface: pooled context carrying operation key, cancellation, properties, and telemetry identity; `ResilienceContextPool.Shared` is the static default pool
+- registry surface: keyed pipeline construction and lookup; `ResiliencePipelineProvider<TKey>.GetPipeline`/`GetPipeline<TResult>` resolve a built pipeline by key and `TryGetPipeline` is the non-throwing probe
 - telemetry surface: strategy event values, sources, severities, and listeners
 - property-key surface: `readonly struct ResiliencePropertyKey<T>` in namespace `Polly` carries a single `string key` constructor and a `string Key` accessor; it keys `ResilienceContext.Properties` for typed property set/get
 - fallback-carrier surface: `readonly struct FallbackActionArguments<T>` in namespace `Polly.Fallback` carries `ResilienceContext Context` and inbound `Outcome<T> Outcome` accessors and a `(ResilienceContext context, Outcome<T> outcome)` constructor; `FallbackStrategyOptions<T>.FallbackAction` is typed `Func<FallbackActionArguments<T>, ValueTask<Outcome<T>>>`

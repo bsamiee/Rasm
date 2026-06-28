@@ -49,12 +49,15 @@ inherits RAM caching.
 
 ## [03]-[ENTRYPOINTS]
 
-[CONTROL_ENTRYPOINTS]: `AdvancedImage` properties
+[CONTROL_ENTRYPOINTS]: `AdvancedImage` construction + properties
 - rail: images
 
-`Loader`/`Source`/`FallbackImage`/`Stretch`/`StretchDirection` are `StyledProperty`;
-`IsLoading`/`CurrentImage`/`ShouldLoaderChangeTriggerUpdate` are read-projecting
-`DirectProperty` so they bind one-way into view state.
+`AdvancedImage` has no parameterless constructor: `.ctor(Uri? baseUri)` is the direct
+construction surface (`new AdvancedImage(new Uri(source))` — `baseUri` roots the relative
+`avares:`/`Source` references the control resolves), and `.ctor(IServiceProvider)` is the
+XAML/DI form that pulls `IUriContext.BaseUri`. `Loader`/`Source`/`FallbackImage`/`Stretch`/`StretchDirection`
+are `StyledProperty`; `IsLoading`/`CurrentImage`/`ShouldLoaderChangeTriggerUpdate` are
+read-projecting `DirectProperty` so they bind one-way into view state.
 
 | [INDEX] | [SURFACE]                         | [TYPE]               | [SURFACE_ROOT]  | [RAIL]          |
 | :-----: | :-------------------------------- | :------------------- | :-------------- | :-------------- |
@@ -65,6 +68,7 @@ inherits RAM caching.
 |  [05]   | `IsLoading`                       | `bool` (Direct)      | `AdvancedImage` | load state      |
 |  [06]   | `Stretch` / `StretchDirection`    | `Stretch` / `StretchDirection` | `AdvancedImage` | layout policy   |
 |  [07]   | `ShouldLoaderChangeTriggerUpdate` | `bool` (Direct)      | `AdvancedImage` | reload-on-loader-change policy |
+|  [08]   | `.ctor(Uri? baseUri)` / `.ctor(IServiceProvider)` | construction | `AdvancedImage` | construct the control — no parameterless ctor; `baseUri` roots relative `avares:`/`Source` URIs |
 
 [ATTACHED_ENTRYPOINTS]: attached loading on plain `Image` / `ImageBrush`
 - rail: images

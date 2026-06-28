@@ -58,7 +58,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Anchors: compute `graduation`, runtime `identity`, `HandoffAxis`, `onnx`, `msgspec`, and `GRADUATION_EVIDENCE_INWARD`.
 - Tension: the rail depends on content-identity parity so the outward key matches the inward closure key.
 
-[CONTENT_IDENTITY_PARITY_GATE]-[BLOCKED]: prove the digest-endianness parity gate once `xxhash` is admitted.
+[CONTENT_IDENTITY_PARITY_GATE]-[QUEUED]: prove the digest-endianness parity gate.
 - Capability: runtime verifies digest-endianness parity for `XxHash128` and `XxHash3` before any consumer trusts a Python content key.
 - Shape: use companion-resolved `xxhash`, `xxh3_128_intdigest`, `xxh3_64_intdigest`, `ApiPackage.reflect`, and the C# golden fixture to prove little-endian child serialization against `System.IO.Hashing`.
 - Unlocks: the content-identity touchpoint, lane-admission reuse fabric, and graduation rail inherit one verified seed-parity gate.
@@ -74,13 +74,13 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Capability: data owns CF-conventioned labelled field cubes as a first-class gridded data owner.
 - Shape: seed `data/gridded` in data `ARCHITECTURE.md`, `IDEAS.md`, and `data/.planning/gridded/field.md` around one `FieldDataset` over `xarray`, `netcdf4`, HDF5/Zarr, CF-aware coordinates, label slicing, group/resample reductions, units, CRS metadata, and content-keyed `pyarrow`/Zarr egress.
 - Unlocks: environmental, CFD, sensor-grid, and geophysical field interchange becomes a branch-owned data capability rather than an incidental compute study input.
-- Tension: the owner is distinct from dense chunk-grid tensor storage, the banned-module-level `xarray` arm binds function-local under `# noqa: PLC0415`, and `netcdf4`/`h5py` import module-top as ungated Forge source builds rather than crossing a subprocess seam.
+- Tension: the owner is distinct from dense chunk-grid tensor storage; `xarray`, `netcdf4`, and `h5py` integration follows the data owner's import-boundary and root-manifest dependency policy without creating a subprocess seam.
 
 [PYE57_SCAN_INGESTION]-[QUEUED]: route the admitted `pye57` E57 reader into scan ingestion.
 - Capability: the admitted `pye57` E57 reader becomes an ingestion arm for structured terrestrial-laser-scan data.
 - Shape: fold `E57.read_scan_raw`, `scan_count`, and header pose data into the existing data mesh-exchange owner or `scan/registration.md` cloud-source admission, producing the `o3d.t.geometry.PointCloud` shape the registration owner already consumes.
 - Unlocks: E57 scan files enter the existing point-cloud registration and `RegistrationResult` transform spine without a parallel reader file.
-- Anchors: `geometry/.api/pye57.md`, `scan/registration.md`, `data/spatial/mesh.md`, `open3d`, `kiss_matcher`, `small_gicp`, `laspy`, `pdal`, and the companion native geometry floor.
+- Anchors: `geometry/.api/pye57.md`, `scan/registration.md`, `data/spatial/mesh.md`, `open3d`, `kiss_matcher`, `small_gicp`, `laspy`, `pdal`, and the companion geometry substrate.
 - Tension: this is a catalogue-present consumer gap, not an environment block; ownership lands on the data/geometry seam rather than a new package owner.
 
 ## [02]-[CLOSED]

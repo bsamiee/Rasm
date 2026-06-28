@@ -15,7 +15,7 @@
 - asset: pure Python over the scientific stack; the LCI math is `numpy`/`scipy`/`sparse` matrices and `xarray` IAM data
 - depends: `bw2data`, `bw2io` (Brightway store/IO), `wurst>=0.4` (ecoinvent-editing engine), `constructive-geometries>=1.0.0` (geographic linking), `ecoinvent_interface` (release download), `premise_gwp` (extra GWP methods), `unfold` (scenario-datapackage fold/unfold), `numpy<2.0.0`, `scipy<1.14.0`, `xarray<=2024.2.0`, `pandas<3.0.0`, `sparse>=0.14.0`, `pyarrow`, `datapackage`, `openpyxl`, `pycountry`, `schema`, `cryptography`, `platformdirs`, `prettytable`, `tqdm`, `requests`, `pyYaml`
 - bw25-extra: install as `premise[bw25]` to pull the modern Brightway 2.5 stack (`bw2calc>=2.0.1`, `bw2data>=4.3`, `bw2io>=0.9.4`) — REQUIRED to align with the admitted cluster (`bw2data 4.7` / `bw2calc 2.5.0`); the default deps leave `bw2calc` unpinned at the legacy bw2 line
-- marker: COMPANION-GATED. Pinned `premise; python_version<'3.15'`. The gate is HARD and transitive: `numpy<2.0.0`, `scipy<1.14.0`, and `xarray<=2024.2.0` have no cp315 wheels, and the whole Brightway cluster (`bw2data`/`bw2calc`/`bw2io`/`bw-processing`) inherits the same `numpy<3` cp315 gap. `assay api resolve premise` cannot reflect on the active cp315 interpreter; this surface is source-verified against the `2.4.6` master tree.
+- evidence: not installed in the active interpreter; members source-verified against `2.4.6`
 - data-license: premise TRANSFORMS a LICENSED ecoinvent database (not bundled) and its IAM scenario data files are ENCRYPTED — a consumer needs a valid ecoinvent license AND a premise decryption `key` (or a self-supplied `external_scenarios`/`additional_inventories`) before any transform runs
 - capability: build prospective ecoinvent databases for one or many (IAM model × pathway × year) scenarios, apply per-sector transformations, and export to Brightway / SimaPro / openLCA / matrices / datapackage, plus incremental and time-series (`pathways`) variants
 - scope-law: premise BUILDS prospective background databases. It is not an LCIA calculator (`bw2calc`), not an EPD parser (`openepd`/`epdx`), and not the source-of-record store (`bw2data` owns the project graph)
@@ -54,7 +54,7 @@
 ## [04]-[INTEGRATION]
 
 [SUBSTRATE_STACK]: stacking onto the universal Python rails (`libs/python/.api/`)
-- `numpy` / `xarray` — premise's IAM scenario data is `xarray`; the LCI is `numpy`/`scipy`/`sparse` matrices. The `write_db_to_matrices` output is the same sparse-matrix substrate `bw2calc` consumes. NOTE the cp315-blocking `numpy<2`/`scipy<1.14`/`xarray<=2024.2.0` pins.
+- `numpy` / `xarray` — premise's IAM scenario data is `xarray`; the LCI is `numpy`/`scipy`/`sparse` matrices. The `write_db_to_matrices` output is the same sparse-matrix substrate `bw2calc` consumes.
 - `structlog` + `opentelemetry` — wrap `update()` and each `write_db_to_*` in a span and log `(model, pathway, year, sectors)`; the transform is long (minutes) so the span carries the scenario identity, not per-dataset events.
 - `anyio` — `update()` is blocking and CPU-bound with internal multiprocessing; call it via `anyio.to_thread.run_sync` so an async owner stays responsive, but keep premise's own parallelism (do not also fan out across an `anyio` task group).
 - `pyarrow` — the `datapackage`/superstructure export rides Arrow; route it through the data owner's Arrow rail for downstream tabular consumption.

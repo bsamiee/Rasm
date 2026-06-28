@@ -250,12 +250,6 @@
           "ReactiveUI.Avalonia": "12.0.1"
         }
       },
-      "HarfBuzzSharp.NativeAssets.Linux": {
-        "type": "Direct",
-        "requested": "[8.3.1.5, )",
-        "resolved": "8.3.1.5",
-        "contentHash": "Rvm05tL7QTNEGrhcrfvN/J5j7SGjGclp8J70JTQW4498U4+4cPC5yovn5V1l6ngSGufK6Ck47JVp6alYwhkGKg=="
-      },
       "HarfBuzzSharp.NativeAssets.macOS": {
         "type": "Direct",
         "requested": "[8.3.1.5, )",
@@ -642,18 +636,6 @@
           "HarfBuzzSharp": "8.3.1.5",
           "SkiaSharp": "3.119.4"
         }
-      },
-      "SkiaSharp.NativeAssets.Linux": {
-        "type": "Direct",
-        "requested": "[3.119.4, )",
-        "resolved": "3.119.4",
-        "contentHash": "UAyVzbqNfZsZbKbzj68zXLyUyF/SbTKmzTfOO6qDu++dtIUMMTzPBe8oOuzU/DiewpfKoUUlOSsJmqWc6blxBw=="
-      },
-      "SkiaSharp.NativeAssets.Linux.NoDependencies": {
-        "type": "Direct",
-        "requested": "[3.119.4, )",
-        "resolved": "3.119.4",
-        "contentHash": "iFnpOfZoim2SwhSPy0EJNZtQAaWM7D0A6Q1YvquwOXUdQAFrSy81Tfb1I4c0IHrrQnoVjcZPcwOc1+VM2ja77w=="
       },
       "SkiaSharp.NativeAssets.macOS": {
         "type": "Direct",
@@ -2783,10 +2765,13 @@
           "Scrutor": "[7.0.0, )",
           "Serilog": "[4.3.1, )",
           "Serilog.Extensions.Hosting": "[10.0.0, )",
+          "Serilog.Sinks.Console": "[6.1.1, )",
+          "Serilog.Sinks.File": "[7.0.0, )",
           "Sigstore": "[0.5.0, )",
           "System.CommandLine": "[2.0.9, )",
           "System.IO.Hashing": "[10.0.9, )",
           "System.IO.Ports": "[10.0.9, )",
+          "System.Numerics.Tensors": "[10.0.9, )",
           "Thinktecture.Runtime.Extensions": "[10.4.0, )",
           "Thinktecture.Runtime.Extensions.Json": "[10.4.0, )",
           "Velopack": "[1.2.0, )",
@@ -2834,6 +2819,8 @@
           "SharpGLTF.Core": "[1.0.6, )",
           "SharpGLTF.Ext.3DTiles": "[1.0.6, )",
           "SharpGLTF.Toolkit": "[1.0.6, )",
+          "Silk.NET.WebGPU": "[2.23.0, )",
+          "Silk.NET.WebGPU.Extensions.WGPU": "[2.23.0, )",
           "System.IO.Hashing": "[10.0.9, )",
           "System.Numerics.Tensors": "[10.0.9, )",
           "Thinktecture.Runtime.Extensions": "[10.4.0, )",
@@ -2902,6 +2889,7 @@
           "Npgsql.EntityFrameworkCore.PostgreSQL": "[10.0.2, )",
           "Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite": "[10.0.2, )",
           "Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime": "[10.0.2, )",
+          "Npgsql.NetTopologySuite": "[10.0.3, )",
           "Npgsql.OpenTelemetry": "[10.0.3, )",
           "ParquetSharp": "[23.0.0.2, )",
           "Pgvector": "[0.3.2, )",
@@ -3577,6 +3565,12 @@
         "requested": "[2.3.1, )",
         "resolved": "2.3.1",
         "contentHash": "WdMXLzNiRy/StHGpt9MgftlFkWuGJ65Ly6ilzGfx0gmkglWfhprT8N5kDjtrBxj/9ISU+0dKJA7UvJdWJtyVsQ=="
+      },
+      "HarfBuzzSharp.NativeAssets.Linux": {
+        "type": "CentralTransitive",
+        "requested": "[8.3.1.5, )",
+        "resolved": "8.3.1.5",
+        "contentHash": "Rvm05tL7QTNEGrhcrfvN/J5j7SGjGclp8J70JTQW4498U4+4cPC5yovn5V1l6ngSGufK6Ck47JVp6alYwhkGKg=="
       },
       "Irihi.Avalonia.Shared": {
         "type": "CentralTransitive",
@@ -4939,6 +4933,24 @@
           "Serilog.Extensions.Logging": "10.0.0"
         }
       },
+      "Serilog.Sinks.Console": {
+        "type": "CentralTransitive",
+        "requested": "[6.1.1, )",
+        "resolved": "6.1.1",
+        "contentHash": "8jbqgjUyZlfCuSTaJk6lOca465OndqOz3KZP6Cryt/IqZYybyBu7GP0fE/AXBzrrQB3EBmQntBFAvMVz1COvAA==",
+        "dependencies": {
+          "Serilog": "4.0.0"
+        }
+      },
+      "Serilog.Sinks.File": {
+        "type": "CentralTransitive",
+        "requested": "[7.0.0, )",
+        "resolved": "7.0.0",
+        "contentHash": "fKL7mXv7qaiNBUC71ssvn/dU0k9t0o45+qm2XgKAlSt19xF+ijjxyA3R6HmCgfKEKwfcfkwWjayuQtRueZFkYw==",
+        "dependencies": {
+          "Serilog": "4.2.0"
+        }
+      },
       "SharpGLTF.Core": {
         "type": "CentralTransitive",
         "requested": "[1.0.6, )",
@@ -4994,6 +5006,12 @@
           "NSec.Cryptography": "25.4.0",
           "Tuf": "0.5.0"
         }
+      },
+      "SkiaSharp.NativeAssets.Linux": {
+        "type": "CentralTransitive",
+        "requested": "[3.119.4, )",
+        "resolved": "3.119.4",
+        "contentHash": "UAyVzbqNfZsZbKbzj68zXLyUyF/SbTKmzTfOO6qDu++dtIUMMTzPBe8oOuzU/DiewpfKoUUlOSsJmqWc6blxBw=="
       },
       "SkiaSharp.NativeAssets.WebAssembly": {
         "type": "CentralTransitive",
@@ -5221,12 +5239,6 @@
       }
     },
     "net10.0/osx-arm64": {
-      "HarfBuzzSharp.NativeAssets.Linux": {
-        "type": "Direct",
-        "requested": "[8.3.1.5, )",
-        "resolved": "8.3.1.5",
-        "contentHash": "Rvm05tL7QTNEGrhcrfvN/J5j7SGjGclp8J70JTQW4498U4+4cPC5yovn5V1l6ngSGufK6Ck47JVp6alYwhkGKg=="
-      },
       "HarfBuzzSharp.NativeAssets.macOS": {
         "type": "Direct",
         "requested": "[8.3.1.5, )",
@@ -5244,18 +5256,6 @@
         "requested": "[2.23.0, )",
         "resolved": "2.23.0",
         "contentHash": "4ykgWVboF23XndBKR92E7313BcbReOqaC80Vo201KrFReKV3CAdkskiX5m7EqYaidwN+Dnvl4ZKiGSdLzI1Ldw=="
-      },
-      "SkiaSharp.NativeAssets.Linux": {
-        "type": "Direct",
-        "requested": "[3.119.4, )",
-        "resolved": "3.119.4",
-        "contentHash": "UAyVzbqNfZsZbKbzj68zXLyUyF/SbTKmzTfOO6qDu++dtIUMMTzPBe8oOuzU/DiewpfKoUUlOSsJmqWc6blxBw=="
-      },
-      "SkiaSharp.NativeAssets.Linux.NoDependencies": {
-        "type": "Direct",
-        "requested": "[3.119.4, )",
-        "resolved": "3.119.4",
-        "contentHash": "iFnpOfZoim2SwhSPy0EJNZtQAaWM7D0A6Q1YvquwOXUdQAFrSy81Tfb1I4c0IHrrQnoVjcZPcwOc1+VM2ja77w=="
       },
       "SkiaSharp.NativeAssets.macOS": {
         "type": "Direct",
@@ -5527,6 +5527,12 @@
           "Microsoft.Extensions.Logging.Abstractions": "8.0.0"
         }
       },
+      "HarfBuzzSharp.NativeAssets.Linux": {
+        "type": "CentralTransitive",
+        "requested": "[8.3.1.5, )",
+        "resolved": "8.3.1.5",
+        "contentHash": "Rvm05tL7QTNEGrhcrfvN/J5j7SGjGclp8J70JTQW4498U4+4cPC5yovn5V1l6ngSGufK6Ck47JVp6alYwhkGKg=="
+      },
       "LightningDB": {
         "type": "CentralTransitive",
         "requested": "[0.21.0, )",
@@ -5585,6 +5591,12 @@
         "dependencies": {
           "ZstdSharp.Port": "0.8.7"
         }
+      },
+      "SkiaSharp.NativeAssets.Linux": {
+        "type": "CentralTransitive",
+        "requested": "[3.119.4, )",
+        "resolved": "3.119.4",
+        "contentHash": "UAyVzbqNfZsZbKbzj68zXLyUyF/SbTKmzTfOO6qDu++dtIUMMTzPBe8oOuzU/DiewpfKoUUlOSsJmqWc6blxBw=="
       },
       "System.IO.Ports": {
         "type": "CentralTransitive",

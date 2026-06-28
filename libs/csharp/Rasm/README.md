@@ -63,7 +63,7 @@ Computational-geometry leaf libraries the kernel composes for convex-hull/Delaun
 
 ## [03]-[SUBSTRATE_PACKAGES]
 
-The C# substrate registry cards this folder consumes; full registry and version ownership live in `libs/csharp/.planning/README.md`, with decompile evidence in the folder `.api/`.
+The C# substrate registry cards this folder consumes; full registry and substrate contracts live in `libs/csharp/.planning/README.md`, with shared API evidence in `libs/csharp/.api/`.
 
 [FUNCTIONAL_CORE]:
 - `LanguageExt.Core`
@@ -81,5 +81,4 @@ The C# substrate registry cards this folder consumes; full registry and version 
 - `CsCheck`
 - `coverlet.MTP`
 - `BenchmarkDotNet`
-- `SharpFuzz`
 - `Verify.XunitV3`

@@ -110,7 +110,7 @@ Every operation has two equivalent forms backed by the same Rust call: a module-
 
 | [INDEX] | [SYMBOL]                                                               | [PACKAGE_ROLE] | [CAPABILITY]                         |
 | :-----: | :--------------------------------------------------------------------- | :------------- | :----------------------------------- |
-|  [01]   | `obstore.store.from_url(url, *, config, client_options, retry_config)` | factory        | dispatch store construction from URL |
+|  [01]   | `obstore.store.from_url(url, *, config, client_options, retry_config, credential_provider)` | factory        | dispatch store construction from URL; the `credential_provider` (`S3CredentialProvider \| GCSCredentialProvider \| AzureCredentialProvider \| None`) callback forwards to the per-scheme store for token refresh |
 |  [02]   | `S3Store(bucket, *, prefix, config, client_options, retry_config, credential_provider)` | constructor | typed S3 store (mirrored `GCSStore`/`AzureStore`/`HTTPStore`/`LocalStore`/`MemoryStore`) |
 
 ## [04]-[IMPLEMENTATION_LAW]

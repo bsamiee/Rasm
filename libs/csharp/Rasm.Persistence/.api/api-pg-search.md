@@ -56,19 +56,21 @@ modifiers (`::pdb.*`) compose over any inner predicate and **stack** in cast ord
 | [INDEX] | [BUILDER]            | [SIGNATURE]                                                                | [SEMANTICS]                              |
 | :-----: | :------------------- | :------------------------------------------------------------------------- | :--------------------------------------- |
 |  [01]   | `pdb.parse`          | `pdb.parse('q', lenient => bool, conjunction_mode => bool)`                | free-text Tantivy query-string parse     |
-|  [02]   | `pdb.range_term`     | `pdb.range_term('v', relation => 'r', range_type => 't')`                  | range-membership term                    |
-|  [03]   | `pdb.phrase_prefix`  | `pdb.phrase_prefix(ARRAY['a','b'], max_expansions => n)`                   | phrase with prefix-expanded last term    |
-|  [04]   | `pdb.more_like_this` | `pdb.more_like_this('doc_id', fields => ARRAY[...], max_query_terms => n)` | similar-document retrieval (key-anchored)|
-|  [05]   | `pdb.regex`          | `pdb.regex('pattern')`                                                     | regex term match                         |
-|  [06]   | `pdb.all`            | `pdb.all()`                                                                | match-all                                |
-|  [07]   | `::pdb.fuzzy`        | `<inner>::pdb.fuzzy(distance, prefix, transposition_cost_one)`             | fuzzy edit-distance modifier (max 2; `prefix`/`transposition_cost_one` default `f`) |
-|  [08]   | `::pdb.boost`        | `<inner>::pdb.boost(factor)`                                               | relevance-weight modifier                |
-|  [09]   | `::pdb.const`        | `<inner>::pdb.const(score)`                                                | constant-score modifier                  |
-|  [10]   | `::pdb.slop`         | `<inner>::pdb.slop(distance)`                                              | phrase-proximity slack modifier          |
+|  [02]   | `pdb.match`          | `pdb.match('q', distance => n, prefix => bool, conjunction_mode => bool)`  | analyzed (tokenized) per-field match carrying its own per-match fuzzy `distance`/`prefix` — the `Bm25Predicate.Match` case (distinct from the `|||`/`&&&` bare-column operators) |
+|  [03]   | `pdb.range_term`     | `pdb.range_term('v', relation => 'r', range_type => 't')`                  | range-membership term                    |
+|  [04]   | `pdb.phrase_prefix`  | `pdb.phrase_prefix(ARRAY['a','b'], max_expansions => n)`                   | phrase with prefix-expanded last term    |
+|  [05]   | `pdb.more_like_this` | `pdb.more_like_this('doc_id', fields => ARRAY[...], max_query_terms => n)` | similar-document retrieval (key-anchored)|
+|  [06]   | `pdb.regex`          | `pdb.regex('pattern')`                                                     | regex term match                         |
+|  [07]   | `pdb.all`            | `pdb.all()`                                                                | match-all                                |
+|  [08]   | `::pdb.fuzzy`        | `<inner>::pdb.fuzzy(distance, prefix, transposition_cost_one)`             | fuzzy edit-distance modifier (max 2; `prefix`/`transposition_cost_one` default `f`) |
+|  [09]   | `::pdb.boost`        | `<inner>::pdb.boost(factor)`                                               | relevance-weight modifier                |
+|  [10]   | `::pdb.const`        | `<inner>::pdb.const(score)`                                                | constant-score modifier                  |
+|  [11]   | `::pdb.slop`         | `<inner>::pdb.slop(distance)`                                              | phrase-proximity slack modifier          |
 
-Analyzed (tokenized) matching is the `|||`/`&&&` column operators of section `[03]` (optionally with
-a tokenizer cast, e.g. `'running shoes'::pdb.whitespace`), not a separate builder; the `Bm25Predicate`
-`AnyToken`/`AllToken` cases own that route.
+Analyzed (tokenized) matching has two forms: the per-field `pdb.match` builder of row `[02]` (carrying
+its own fuzzy `distance`/`prefix`, the `Bm25Predicate.Match` case) on the right of `@@@`, and the bare
+`|||`/`&&&` column operators of section `[03]` (optionally with a tokenizer cast, e.g.
+`'running shoes'::pdb.whitespace`) the `Bm25Predicate` `AnyToken`/`AllToken` cases own.
 
 ## [05]-[SCORE_SNIPPET]
 

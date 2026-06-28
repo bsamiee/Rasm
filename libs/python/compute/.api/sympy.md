@@ -87,6 +87,7 @@
 |  [05]   | `Expr.subs` | `expr.subs({x: a, y: b})`    | simultaneous structural substitution        |
 |  [06]   | `Expr.replace` | `expr.replace(Wild('w'), f)` | `Wild`-pattern match-and-rewrite          |
 |  [07]   | `Expr.rewrite` | `expr.rewrite(exp)`        | rewrite into an equivalent functional basis |
+|  [08]   | `srepr`    | `srepr(expr, *, order=None, perm_cyclic=True)` | round-trippable executable string repr (`eval(srepr(expr)) == expr`) — the canonical serialization for content-keying a constructed `Expr` |
 
 [ENTRYPOINT_SCOPE]: calculus operations
 - rail: symbolic
@@ -159,6 +160,7 @@
 |  [04]   | `Intersection` `Union` `Complement`     | `Intersection(a, b)`                | symbolic set algebra over `solveset` results   |
 |  [05]   | `factorint` `primerange` `isprime`      | `factorint(n)`                      | integer factorization, prime generation/test   |
 |  [06]   | `gcd` `lcm`                             | `gcd(a, b)`                         | polynomial/integer gcd and lcm                 |
+|  [07]   | `resultant`                            | `resultant(f, g, *gens, includePRS=False)` | resultant of two polynomials (elimination); `resultant(p, p.diff(x))` is the squarefree-discriminant metric `|res(p, p')|` |
 
 [ENTRYPOINT_SCOPE]: numeric evaluation and code generation (C# graduation path)
 - rail: symbolic
@@ -171,6 +173,7 @@
 |  [04]   | `cse`                         | `cse(exprs, symbols=None, optimizations=None, postprocess=None, order='canonical', ignore=(), list=True)`                                                                                          | common-subexpression elimination for codegen     |
 |  [05]   | `Poly.all_coeffs` / `Poly.nroots` / `Poly.real_roots` | `Poly(expr, x).all_coeffs()` / `.nroots(n=15)` / `.real_roots()`                                                                                                          | ordered coefficient vector; numeric/real root isolation |
 |  [06]   | `Poly.factor_list` / `Poly.discriminant` / `Poly.LC` / `Poly.monic` | `Poly(expr, x).factor_list()`                                                                                                                                  | exact factorization, discriminant, lead coeff, monic form |
+|  [06b]  | `Poly.as_expr` / `Poly.diff`  | `Poly(expr, x).as_expr(*gens)` / `Poly(expr, x).diff(x, *specs)`                                                                                                                                   | recover the `Expr` from a `Poly` (`as_expr`) and the polynomial derivative as a `Poly` (`diff`), feeding `resultant(p.as_expr(), p.diff(x).as_expr(), x)` for the squarefree metric |
 |  [07]   | `ccode`                       | `ccode(expr, assign_to=None, standard='c99', **settings)`                                                                                                                                          | emit C99 source for the C# numeric owner         |
 |  [08]   | `cxxcode` / `fcode` / `rust_code` / `julia_code` / `octave_code` / `jscode` / `pycode` / `glsl_code` | `cxxcode(expr, standard='c++17')` / `fcode(expr, standard=95)`                                                                          | the per-language source-printer family (one polymorphic codegen surface, target via the printer choice) |
 |  [09]   | `utilities.codegen.codegen`   | `codegen(name_expr, language=None, prefix=None, project='project', to_files=False, header=True, empty=True, argument_sequence=None, global_vars=None, standard=None, code_gen=None, printer=None)` | emit a named, header-wrapped code module (C/Fortran/Octave/Rust) |

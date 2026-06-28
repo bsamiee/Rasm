@@ -1,26 +1,26 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <TargetFramework>netstandard2.0</TargetFramework>
+        <Description>Workspace C# analyzer and source-generator assembly.</Description>
         <AssemblyName>Csp.Analyzer</AssemblyName>
         <RootNamespace>Rasm.Csp</RootNamespace>
         <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
         <IsRoslynComponent>true</IsRoslynComponent>
         <CspScope>Tooling</CspScope>
-        <!-- CA1008: closed vocabularies have no valid None row.
-             CA1812: catalog data shapes are inactive until rule rows exist. -->
+        <!-- CA1008: closed vocabularies have no valid None row; CA1812 covers inactive rule catalog shapes. -->
         <NoWarn>$(NoWarn);CA1008;CA1812</NoWarn>
     </PropertyGroup>
 
-    <ItemGroup>
+    <ItemGroup Label="Analyzer Inputs">
         <Compile Remove="Contracts/**" />
         <AdditionalFiles Include="AnalyzerReleases.Shipped.md" />
         <AdditionalFiles Include="AnalyzerReleases.Unshipped.md" />
         <InternalsVisibleTo Include="Csp.Analyzer.Tests" />
     </ItemGroup>
 
-    <ItemGroup>
-        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" PrivateAssets="all" />
+    <ItemGroup Label="Roslyn Analyzer">
         <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" PrivateAssets="all" />
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" PrivateAssets="all" />
         <PackageReference Include="PolySharp" PrivateAssets="all" />
     </ItemGroup>
 </Project>

@@ -49,7 +49,7 @@
 |  [03]   | `trace.Tracer`            | abstract      | span factory (`start_span`, `start_as_current_span`) |
 |  [04]   | `trace.Span`              | abstract      | active span (`set_attribute`/`set_attributes`, `add_event`, `add_link`, `update_name`, `set_status`, `record_exception`, `get_span_context`, `is_recording`, `end`) |
 |  [05]   | `trace.NonRecordingSpan`  | concrete      | span wrapper carrying only a `SpanContext`; the propagation/no-op span when no SDK records |
-|  [06]   | `trace.SpanContext`       | value         | immutable `(trace_id, span_id, is_remote, trace_flags, trace_state)` identity tuple |
+|  [06]   | `trace.SpanContext`       | value         | immutable `(trace_id, span_id, is_remote, trace_flags, trace_state)` identity tuple; `is_valid` (property `-> bool`) gates the trace-context log/correlation injector before reading the ids |
 |  [07]   | `trace.SpanKind`          | enum          | `CLIENT`/`SERVER`/`INTERNAL`/`PRODUCER`/`CONSUMER` |
 |  [08]   | `trace.Link`              | value         | causal link to another `SpanContext` with attributes |
 |  [09]   | `trace.TraceFlags`        | `int` subclass | W3C sampled-bit flags (`DEFAULT`/`SAMPLED`)    |

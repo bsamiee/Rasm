@@ -1,38 +1,35 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <Description>Host-neutral BIM object model and universal exchange semantics: the IFC semantic graph, element-set algebra, classification, host-neutral assembly, and the IFC/glTF/STEP import-export codec over GeometryGym and SharpGLTF, consuming the Rasm kernel geometry and the Compute content-identity and tessellation rail at the seam.</Description>
+        <CspScope>Domain</CspScope>
     </PropertyGroup>
 
-    <ItemGroup>
-        <Using Include="System.Collections.Frozen" />
-    </ItemGroup>
-
-    <ItemGroup>
-        <ProjectReference Include="..\Rasm\Rasm.csproj" />
+    <ItemGroup Label="Project References">
+        <ProjectReference Include="../Rasm/Rasm.csproj" />
     </ItemGroup>
 
     <ItemGroup Label="Interchange">
-        <PackageReference Include="GeometryGymIFC_Core" />
-        <PackageReference Include="StructuralAnalysisFormat" />
+        <PackageReference Include="ACadSharp" />
+        <PackageReference Include="Alimer.Bindings.MeshOptimizer" />
+        <PackageReference Include="AssimpNetter" />
         <PackageReference Include="dotbim" />
+        <PackageReference Include="geometry3Sharp" />
+        <PackageReference Include="GeometryGymIFC_Core" />
+        <PackageReference Include="Openize.Drako" />
+        <PackageReference Include="Ply.Net" />
         <PackageReference Include="SharpGLTF.Core" />
+        <PackageReference Include="SharpGLTF.Ext.3DTiles" />
         <PackageReference Include="SharpGLTF.Runtime" />
         <PackageReference Include="SharpGLTF.Toolkit" />
-        <PackageReference Include="SharpGLTF.Ext.3DTiles" />
-        <PackageReference Include="Openize.Drako" />
-        <PackageReference Include="Alimer.Bindings.MeshOptimizer" />
-        <PackageReference Include="geometry3Sharp" />
-        <PackageReference Include="ACadSharp" />
-        <PackageReference Include="UniversalSceneDescription" />
-        <PackageReference Include="Ply.Net" />
-        <PackageReference Include="AssimpNetter" />
+        <PackageReference Include="StructuralAnalysisFormat" />
         <PackageReference Include="Themis.Las" />
+        <PackageReference Include="UniversalSceneDescription" />
         <PackageReference Include="Unofficial.laszip.netstandard" />
     </ItemGroup>
 
     <ItemGroup Label="Energy Model Exchange">
-        <PackageReference Include="HoneybeeSchema" />
         <PackageReference Include="DragonflySchema" />
+        <PackageReference Include="HoneybeeSchema" />
         <PackageReference Include="NREL.OpenStudio.macOS-arm64" ExcludeAssets="build" GeneratePathProperty="true" />
     </ItemGroup>
 
@@ -44,16 +41,16 @@
 
     <ItemGroup Label="COBie Exchange">
         <PackageReference Include="Xbim.CobieExpress" />
-        <PackageReference Include="Xbim.IO.CobieExpress" />
         <PackageReference Include="Xbim.CobieExpress.Exchanger" />
+        <PackageReference Include="Xbim.IO.CobieExpress" />
     </ItemGroup>
 
     <ItemGroup Label="Review">
-        <PackageReference Include="Xbim.InformationSpecifications" />
-        <PackageReference Include="Xbim.Properties" />
         <PackageReference Include="ids-lib" />
         <PackageReference Include="Smino.Bcf.Toolkit" />
         <PackageReference Include="SwiftCollections.Lean" />
+        <PackageReference Include="Xbim.InformationSpecifications" />
+        <PackageReference Include="Xbim.Properties" />
     </ItemGroup>
 
     <ItemGroup Label="Building Systems Ontology">
@@ -61,41 +58,45 @@
     </ItemGroup>
 
     <ItemGroup Label="Structural Taxonomy">
-        <PackageReference Include="VividOrange.Loads" />
         <PackageReference Include="VividOrange.Cases" />
-        <PackageReference Include="VividOrange.Stages" />
         <PackageReference Include="VividOrange.Countries" />
+        <PackageReference Include="VividOrange.Loads" />
+        <PackageReference Include="VividOrange.Stages" />
     </ItemGroup>
 
     <ItemGroup Label="Geospatial">
+        <PackageReference Include="bertt.CityJSON" />
+        <PackageReference Include="FlatGeobuf" />
+        <PackageReference Include="GISBlox.IO.GeoParquet" />
+        <PackageReference Include="MaxRev.Gdal.Core" />
+        <PackageReference Include="MaxRev.Gdal.MacosRuntime.Minimal.arm64" />
         <PackageReference Include="NetTopologySuite" />
         <PackageReference Include="NetTopologySuite.IO.Esri.Shapefile" />
-        <PackageReference Include="NetTopologySuite.IO.GeoPackage" />
         <PackageReference Include="NetTopologySuite.IO.GeoJSON4STJ" />
-        <PackageReference Include="GISBlox.IO.GeoParquet" />
-        <PackageReference Include="FlatGeobuf" />
-        <PackageReference Include="SharpKml.Core" />
+        <PackageReference Include="NetTopologySuite.IO.GeoPackage" />
         <PackageReference Include="NetTopologySuite.IO.VectorTiles" />
         <PackageReference Include="NetTopologySuite.IO.VectorTiles.Mapbox" />
         <PackageReference Include="pocketken.H3" />
-        <PackageReference Include="bertt.CityJSON" />
-        <PackageReference Include="MaxRev.Gdal.Core" />
-        <PackageReference Include="MaxRev.Gdal.MacosRuntime.Minimal.arm64" />
+        <PackageReference Include="SharpKml.Core" />
         <PackageReference Include="subtree" />
     </ItemGroup>
 
     <ItemGroup Label="Speckle Sync Seam">
-        <PackageReference Include="Speckle.Sdk" />
         <PackageReference Include="Speckle.Objects" />
+        <PackageReference Include="Speckle.Sdk" />
     </ItemGroup>
 
     <ItemGroup Label="Domain Foundation">
+        <PackageReference Include="NodaMoney" />
         <PackageReference Include="NodaTime" />
         <PackageReference Include="ProjNET" />
-        <PackageReference Include="UnitsNet" />
-        <PackageReference Include="NodaMoney" />
         <PackageReference Include="QuikGraph" />
         <PackageReference Include="System.IO.Hashing" />
         <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
+        <PackageReference Include="UnitsNet" />
+    </ItemGroup>
+
+    <ItemGroup Label="System Usings">
+        <Using Include="System.Collections.Frozen" />
     </ItemGroup>
 </Project>

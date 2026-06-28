@@ -6,28 +6,16 @@
 
 ## [02]-[NAVIGATION]
 
-Use repository-native discovery before broad scans:
-- File discovery: `fd`.
-- Exact text search: `rg`.
-- Structural search: `uv run python -m tools.assay code ...` when patterns use ast-grep metavariables, tree-sitter queries, CI artifacts, or repo structural rules.
-- Direct `ast-grep` is fallback only when the Assay code rail lacks the needed surface.
+Structural search routes through `uv run python -m tools.assay code ...` when patterns use ast-grep metavariables, tree-sitter queries, CI artifacts, or repo structural rules; direct `ast-grep` is fallback only when the Assay code rail lacks the needed surface.
 
 Read full target files before editing. Read minimal surrounding files needed to prove ownership, existing patterns, and route conflicts.
 For declaration-order passes, preserve generated semantic/key bands; split grouped entries only when grouping obscures ownership, and keep compact generated rows when they are the clearer owner-local table.
 
 ## [03]-[QUALITY_VALIDATION]
 
-Quality cadence is gated at planned milestones, not after every edit. Do not run builds, repo quality commands, formatters, analyzers, or tests after ordinary edits, markdown changes, or one-off compiler fixes. Batch implementation first, then run at most one narrow owner-scoped proof at the planned gate unless the user explicitly asks for more. If proof fails, patch related diagnostics as one batch and rerun once; ask before entering any longer loop. Memory, skills, rollout summaries, and old command notes cannot override this rule.
+Quality cadence is gated at the planned milestone, not after every edit: batch implementation, then run at most one narrow owner-scoped `uv run python -m tools.assay` proof for the changed files. Memory, skills, rollout summaries, and old command notes cannot override this gate.
 
 ## [04]-[ENGINEERING_CONTRACT]
-
-Extend the canonical owner before adding a rail, object, helper, wrapper, command, confidence path, document body, or public surface; when the owner is local, use the nearest overlay, source file, standard, or README that owns the concern.
-
-Plans, documentation, and implementation target the newest objectively stronger language, platform, library, feature, tool, and architectural standard (use Context7). Current source, manifests, pinned versions, older patterns, partial adoption, and compatibility surfaces are inputs and replacement targets, not baseline ceilings.
-
-Minimize shape count, not capability. Preserve behavior by deepening the canonical owner with cases, rows, folds, projections, typed receipts, scenarios, or boundary adapters; do not delete capability, split helper files, or add shallow sibling surfaces to make the system look simpler.
-
-Library owners internalize the full admitted capability of their platform, host APIs, generated evidence, and route-owned packages behind focused surfaces. Limited entry count never means limited capability. Future app, plugin, sidecar, service, and web consumers compose from these owners instead of re-learning raw provider APIs, host quirks, lifecycle rules, wire shapes, and failure handling.
 
 New library or package folders begin with a planning campaign before production source when the concern is broad, foundational, or consumer-facing. The campaign makes infra truth honest, captures manifests/lockfiles/tool pins, extracts API catalogs through repo-owned evidence rails, runs research/gap/adversarial/deep-read passes before authoring, enumerates isolated and in-concert capability across modalities, then collapses surviving capability into owner ledgers, row/case/policy axes, and decision-complete planning pages. Zero consumers never lowers ambition; it requires full-capability design. Package-local proof ladders, admissions tables, build orders, and file processes stay in that folder's charter, not root policy.
 
@@ -63,11 +51,9 @@ Bridge verification proof is `EvidenceCertificate` plus reviewed `ReferenceEvide
 
 Machine-level scientific and provisioning executables live in `Parametric_Forge`. Rasm campaign work enters through zero-arity Assay `provision` verbs and reads sanitized `ProvisionRun` evidence from `report.detail`; direct `forge-provision`, `forge-scientific-env`, direct database shells, cleanup, diagnostic JSON, Docker/Compose, port, and credential work are Forge-level debugging. Rasm owns the manifests, lockfiles, `.api` catalogues, and assay evidence that consume those tools.
 
-NuGet feed intelligence routes through the `nuget` MCP — `get_latest_package_version`, `update_package_version`, `upgrade_packages_to_latest`, `fix_vulnerable_packages`, `get_package_context`, and `review_supply_chain_security` answer live version, vulnerability, safe-upgrade, package-doc, and supply-chain questions; `uv run python -m tools.assay api` answers which members verifiably exist in the restored assembly, and verified-local wins on conflict. Apply a version change by hand-editing the grouped `Directory.Packages.props` (never `dotnet add`), confirm with `dotnet restore`/`dotnet nuget why`, and drive systematic folder-wide modernization through the `survey-packages`/`survey-gaps` workflows. The standalone `nuget.commandline` CLI is unused.
+NuGet feed, version, vulnerability, and supply-chain intelligence routes through the `nuget` MCP; the apply path (`Directory.Packages.props` hand-edit, `assay api` member-truth precedence, `survey-packages`/`survey-gaps` modernization) is owned by `CLAUDE.md` and not restated here.
 
-The `ifc` skill is the IFC/BIM companion: the `ifc` MCP for live model query and edit, the `ifcopenshell` CLI through the cp312 `forge-companion-env` lane for batch convert and validate. `Rasm.Bim` is the sole IFC semantic authority — C# owns the `BimModel`/`BimWire`/`IfcSemanticModel` graph; the `ifc` surfaces own only live read-only inspection, GLB tessellation (keyed by the `XxHash128` content key), and the IDS oracle (`ifctester` -> `IdsAudit.Reconcile`); they never re-author the semantic model. The `jupyter` skill owns notebook execution: headless `papermill`/`nbclient` via `uv run`, or the always-on `jupyter` MCP for a live kernel.
-
-After implementation and cleanup are complete, run CodeRabbit once on uncommitted work (`cr review --agent -t uncommitted`); wait 3-4 minutes before polling unless the tool emits actionable output; fix all valid findings as one batch. Use the initial actionable finding count as each reviewer's total-run budget for that leg: <10 findings = 1 run, 10-19 = 2 runs, 20-29 = 3 runs, 30-49 = 4 runs, 50+ = 5 runs maximum. Commit the final diff on a short-lived working branch, then run Greptile on the committed branch diff (`greptile review` or `cli-review`); wait 3-4 minutes before polling, fix valid findings as one batch, and stay within the same run budget. After Greptile is clean or the budget is exhausted, merge acceptable work back to `main` and delete the local branch.
+The `ifcopenshell` CLI runs through the cp312 `forge-companion-env` lane for batch convert and validate; the `ifc` MCP live-inspection surface and the `Rasm.Bim` sole-authority split are owned by `CLAUDE.md`. The `jupyter` skill owns notebook execution: headless `papermill`/`nbclient` via `uv run`, or the always-on `jupyter` MCP for a live kernel.
 
 ## [07]-[DOCUMENTATION]
 

@@ -32,11 +32,11 @@
 - license: MIT (`licenses.nuget.org/MIT`; `github.com/VividOrange/Taxonomy`)
 - assembly: `VividOrange.IUncertainties`
 - namespace: `VividOrange.Uncertainties` (the interface set — the package id is `I…`, the namespace is NOT)
-- dependency: `VividOrange.Taxonomy.ISerialization` `0.2.0` (the `ITaxonomySerializable` floor — TRANSITIVE-ONLY, auto-pinned via `CentralPackageTransitivePinningEnabled`; NOT explicitly in the manifest)
+- dependency: `VividOrange.Taxonomy.ISerialization` `0.2.0` (the `ITaxonomySerializable` floor; transitive-only)
 - target frameworks: `net8.0`, `net7.0`, `net6.0`, `net48`
 - asset: runtime library, pure-managed AnyCPU; `net10.0` binds `lib/net8.0`
 - rail: properties (contract floor)
-- ABI floor: a `0.2.0` PRE-1.0 contract — the `IUncertainty<T>` member set may break across a minor bump. The `VividOrange.Taxonomy.ISerialization` `0.2.0` floor is transitive-pinned, so restore stays deterministic without a manifest row.
+- ABI floor: a `0.2.0` PRE-1.0 contract — the `IUncertainty<T>` member set may break across a minor bump.
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -149,7 +149,7 @@
 - The quantity arithmetic works in the central value's unit: bounds and quadrature compute via `IQuantity.As(unit)` / `Quantity.From(value, unit)`, so a `Pressure ± Pressure` stays in the left operand's unit and a unit mismatch is caught by `QuantityInfo.BaseUnitInfo.QuantityName` before the operation.
 
 [SERIALIZATION_BOUNDARY]:
-- The uncertainty types implement `VividOrange.Taxonomy.Serialization.ITaxonomySerializable` (from the `0.2.0` `VividOrange.Taxonomy.ISerialization` assembly). This is a DISTINCT interface from `VividOrange.Serialization.ITaxonomySerializable` (the `0.1.0` `VividOrange.ISerialization` assembly) that the Sections/Materials/Profiles packages implement — different namespace, different assembly, different type identity. The `0.1.0` `VividOrange.Serialization.TaxonomyJsonSerializer` does NOT serialize the `0.2.0` uncertainty types, and the two `ITaxonomySerializable` are NOT interchangeable.
+- The uncertainty types implement `VividOrange.Taxonomy.Serialization.ITaxonomySerializable` (from the `0.2.0` `VividOrange.Taxonomy.ISerialization` assembly). This is a DISTINCT interface from `VividOrange.Serialization.ITaxonomySerializable` (the `0.1.0` `VividOrange.ISerialization` assembly) that the Sections/Materials/Profiles packages implement — different namespace, different assembly, different type identity. The 0.1.0 PUBLIC serializer entry — `VividOrange.Serialization.JsonSerializationExtensions.ToJson<T>`/`FromJson<T>`, both `where T : VividOrange.Serialization.ITaxonomySerializable` (defaulting to the internal `TaxonomyJsonSerializer.Settings`: `StringEnumConverter` + `UnitsNetIQuantityJsonConverter`, `TypeNameHandling.Objects`) — CANNOT accept a `0.2.0` uncertainty type at all: it implements the `VividOrange.Taxonomy.Serialization` `ITaxonomySerializable`, so it fails the 0.1.0 generic constraint at COMPILE time, not at round-trip. The two `ITaxonomySerializable` are NOT interchangeable.
 - Consequence: a Materials property owner reads the typed `CentralValue`/`LowerBound`/`UpperBound`/uncertainty value off the wrapper and serializes through the canonical Rasm snapshot codec (`Thinktecture.Runtime.Extensions.Json`/`MessagePack`) at the boundary — it never routes an uncertainty value through either VividOrange taxonomy serializer, and never assumes the section/material serializer covers it.
 
 [STACK]:
@@ -169,4 +169,3 @@
 - This page carries `VividOrange.Uncertainties[.Quantities]` + `VividOrange.IUncertainties` API facts only; the `MaterialProperty`/`AssemblyProperty` rows, the model-axis discriminant, and the snapshot codec binding are owned at the Materials `Properties/` design pages.
 - Units lane: the quantity carrier composes the in-folder `UnitsNet` `5.75.0` owner (`api-unitsnet.md`); this page never re-documents the `UnitsNet` quantity surface.
 - Serialization lane: the `0.2.0` `VividOrange.Taxonomy.Serialization.ITaxonomySerializable` floor is DISTINCT from the `0.1.0` `VividOrange.Serialization` floor the Sections/Materials/Profiles use; the two are not interchangeable, and the Materials owner serializes uncertainty values through the canonical Rasm codec ([04]-[SERIALIZATION_BOUNDARY]).
-- Floor pinning: `VividOrange.Taxonomy.ISerialization` `0.2.0` is transitive-only (auto-pinned); a manifest bump owns any change, not this page.

@@ -18,12 +18,16 @@ so the SAF object model is QUANTITY-ISOMORPHIC to the `VividOrange.Loads` taxono
 ↔ `PointForce`, `ExcelStructuralCurveAction` (`ForcePerLength`) ↔ `LineForce`, and the SAF
 combination/national-code enums are the image of the `VividOrange.Cases` factory set
 (`.api/api-vividorange-cases`). ABI/RUNTIME: the package is `netstandard2.0`-only (binds forward
-under `net10.0`) and transitively references `UnitsNet 4.72.0`, `EPPlus 4.5.3.3` (the last LGPL
-EPPlus before the v5 Polyform-Noncommercial relicense), and `FluentValidation 10.2.3` — but the
-workspace centrally pins `UnitsNet 5.75.0`, so SAF (compiled against UnitsNet 4.x) runs against
-UnitsNet 5.x; the UnitsNet 4→5 break makes the bound quantity surface a real verification point
-(confirm the `Length`/`Pressure`/`Force` typed-struct surface binds, or the SAF read/write of those
-properties faults at runtime).
+under `net10.0`); its nuspec declares `UnitsNet 4.72.0`, `EPPlus 4.5.3.3`, `FluentValidation 10.2.3`,
+but the workspace runs `CentralPackageTransitivePinningEnabled` and pins `UnitsNet 5.75.0` /
+`EPPlus 8.6.1` / `FluentValidation 12.1.1`, so all three transitive deps bind UP to the central
+major: SAF compiled against UnitsNet 4.x / EPPlus 4.x (LGPL) / FluentValidation 10.x binds
+UnitsNet 5.x / EPPlus 8.x (Polyform-Noncommercial) / FluentValidation 12.x. `UnitsNet` is the
+PUBLIC-surface break — its quantity structs (`Length`/`Pressure`/`Force`/`ForcePerLength`/
+`RotationalStiffness`/…) ARE the SAF object-model field types, so the 4→5 typed-struct change is the
+load-bearing verification point; `EPPlus` and `FluentValidation` are the INTERNAL-engine breaks behind
+the `SAF.DataAccess.Excel`/`.Validation` impls (runtime risk inside `Import`/`Export`/`Validate`, not
+on the consumed contract surface).
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -35,7 +39,7 @@ properties faults at runtime).
 - namespace: `SAF.DataAccess.Contracts`; `SAF.DataAccess.Models` (+ `.StructuralElements`, `.Loads`, `.Libraries`, `.Results`, `.Subtypes`, `.Enums`, `.Interfaces`, `.Infrastructure`, `.Extensions`); `SAF.DataAccess.Excel`; `SAF.DataAccess.Validation`; `SAF.Infrastructure`
 - asset: `netstandard2.0` ONLY — the `net10.0` consumer binds `lib/netstandard2.0` (no .NET-Core asset ships; single TFM, no resolution ambiguity)
 - asset: pure-managed IL-only; no native binaries; ALC-safe inside the in-Rhino plugin assembly
-- dependency: `EPPlus 4.5.3.3` (LGPL XLSX engine), `FluentValidation 10.2.3` (validation engine), `UnitsNet 4.72.0` (quantity payload) — [ABI] the workspace pins `UnitsNet 5.75.0`; the consumer binds 5.x while SAF compiled against 4.x (verify the typed-quantity surface)
+- dependency (nuspec, all transitively pinned UP by `CentralPackageTransitivePinningEnabled`): `EPPlus 4.5.3.3`→`8.6.1` (XLSX engine; LGPL→Polyform-Noncommercial), `FluentValidation 10.2.3`→`12.1.1` (validation engine), `UnitsNet 4.72.0`→`5.75.0` (quantity payload) — [ABI] the consumed binding is the central major; UnitsNet 4→5 is the public-surface verification point (its quantity structs ARE the SAF field types), EPPlus 4→8 and FluentValidation 10→12 are internal-engine risk behind the Excel/Validation impls
 - rail: saf-exchange
 
 ## [02]-[PUBLIC_TYPES]
@@ -65,7 +69,7 @@ properties faults at runtime).
 |  [05]   | `ExcelExportResult`      | export receipt (`sealed`)| `IsSuccess`, `ExcelModel Model`, `ValidationResults`        |
 |  [06]   | `ExcelValidationResult`  | validation receipt       | `Identifier`, `ValidationResults`, `Severity`, `static Format(...)` |
 |  [07]   | `ExcelModelInformation` / `ExcelProjectInformation` | header rows | model + project metadata objects                |
-|  [08]   | `IExcelHasNodeCoordinates`/`HasTranslationConstraints<T>`/`HasRotationConstraints<T>`/`HasLoadDirectionVector<T>` | capability markers | generic, quantity-parameterized object traits   |
+|  [08]   | `Interfaces.IExcelHasNodeCoordinates` / `IExcelHasTranslationConstraints<T>` / `IExcelHasRotationConstraints<T>` / `IExcelHasLoadDirectionVector<T>` (+ `…Vectors<T>`) | capability markers | quantity-parameterized object traits (`IExcelHasNodeCoordinates` non-generic); e.g. `ExcelStructuralPointAction : …, IExcelHasLoadDirectionVector<Force>` |
 
 [PUBLIC_TYPE_SCOPE]: structural-element model (`SAF.DataAccess.Models.StructuralElements`)
 - rail: saf-exchange
@@ -92,7 +96,7 @@ properties faults at runtime).
 |  [04]   | `ExcelStructuralPointAction`              | point force             | `: ExcelStructuralPointLoadBase<Force,…>` + `ExcelLoadDirectionVector<Force>`; ↔ `PointForce` |
 |  [05]   | `ExcelStructuralPointMoment`              | point moment            | point moment action; ↔ `PointMoment`                       |
 |  [06]   | `ExcelStructuralPointSupportDeformation`  | prescribed displacement | nodal imposed deformation; ↔ `PointDisplacement`           |
-|  [07]   | `ExcelStructuralCurveAction` (+ `Free`/`Thermal`/`Moment`) | line load | `ForcePerLength? Value/Value1/Value2`, `ExcelLoadDirectionVector<ForcePerLength>`; ↔ `LineForce` |
+|  [07]   | `ExcelStructuralCurveAction` (+ `…Free`/`…Thermal`, `ExcelStructuralCurveMoment`) | line load | `ExcelFlexibleEnum<ExcelActionLoadType> Type`, `ForcePerLength? Value/Value1/Value2`, `ExcelLoadDirectionVector<ForcePerLength>`; ↔ `LineForce` |
 |  [08]   | `ExcelStructuralSurfaceAction` (+ `Distribution`/`Free`/`Thermal`) | area load | surface pressure action; ↔ `AreaForce`            |
 
 [PUBLIC_TYPE_SCOPE]: libraries, results, and value subtypes
@@ -105,7 +109,7 @@ properties faults at runtime).
 |  [03]   | `Results.ExcelResultInternalForce1D` / `…2D` | result table     | solver internal-force result rows                          |
 |  [04]   | `Subtypes.ExcelFlexibleEnum<T>`     | open-enum wrapper        | `T Value`, `IsOther`, ctor `(T)`/`(string other)`, explicit `→ T`/`T?` |
 |  [05]   | `Subtypes.ExcelLoadDirectionVector<TQuantity>` | typed direction | quantity-typed load direction vector                      |
-|  [06]   | `Subtypes.ExcelMemberThickness` / `ExcelCurveShape` / `ExcelPoint2D` / `ExcelPolygonContour` / `ExcelCompositeShapeDef` | geometry subtypes | thickness, curve segment, 2D point, polygon contour, composite section |
+|  [06]   | `Subtypes.ExcelMemberThickness` / `ExcelCurveShape`; `Subtypes.CrossSectionShape.ExcelPoint2D` / `ExcelPolygonContour` / `ExcelCompositeShapeDef` | geometry subtypes | thickness, curve segment; 2D point, polygon contour, composite-section def (the `ExcelStructuralCrossSection.Definition` type) |
 |  [07]   | `Extensions.UnitsNetExtensions`     | UnitsNet helpers         | `CreateUnit<TUnit>`, `UnitsNetEquals<TUnit>`, `UnitsNetSequenceEquals<TUnit>` |
 
 [PUBLIC_TYPE_SCOPE]: SAF enum vocabulary (`SAF.DataAccess.Models.Enums`) — the boundary axes
@@ -122,6 +126,11 @@ properties faults at runtime).
 |  [07]   | `ExcelMaterialType`               | material family           | `Concrete`/`Steel`/`Timber`/`Aluminium`/`Masonry`/`Other`  |
 |  [08]   | `ExcelMember1DType` / `ExcelMember2DType` | member role       | `Beam`/`Column`/`Rafter`/… (1D), slab/wall/plate (2D)      |
 |  [09]   | `ExcelConstraintType`             | support DOF nature        | free/rigid/flexible per translational/rotational DOF       |
+|  [10]   | `ExcelValidationMessageSeverity`  | validation severity       | `Error`/`Warning`/`Info` — the `ExcelValidationResult.Severity` the fault `.ToError()` reads |
+|  [11]   | `ExcelDuration`                   | load-duration class       | `Long`/`Medium`/`Short`/`Instantaneous` — `ExcelStructuralLoadCase.Duration` (timber)        |
+|  [12]   | `ExcelLoadGroupType`              | load-group relation       | the `ExcelStructuralLoadGroup` action-relation kind        |
+|  [13]   | `ExcelCoordinateSystem` / `ExcelActionDirection` | load frame + axis | the SAF analogue of `LoadApplication` — the coordinate frame + signed axis an action resolves against |
+|  [14]   | `ExcelPointForceAction` / `ExcelCurveForceAction` / `ExcelSurfaceForceAction` | force-action discriminant | force-vs-derived-action discriminant per point/curve/surface load family |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -153,7 +162,7 @@ properties faults at runtime).
 ## [04]-[IMPLEMENTATION_LAW]
 
 [SAF_TOPOLOGY]:
-- codec services: `IExcelImportService` (XLSX → `ExcelModel`), `IExcelExportService` (`ExcelModel` → XLSX, returns `ExcelExportResult`), `IExcelValidator` (`ValidateForImport`/`ValidateForExport`; the bare `Validate` is `[Obsolete]`); the SAF SDK resolves these through its `SAF.Infrastructure.Bootstrapping.IBootstrapper` container — the `SAF.DataAccess.Implementation`/`SAF.DataAccess.Excel` impls are wiring, not the consumed surface, and `IExcelDocumentReader`/`IExcelDocumentWriter` are internal
+- codec services: `IExcelImportService` (XLSX → `ExcelModel`), `IExcelExportService` (`ExcelModel` → XLSX, returns `ExcelExportResult`), `IExcelValidator` (`ValidateForImport`/`ValidateForExport`; the bare `Validate` is `[Obsolete]`); the SAF SDK resolves these through its `SAF.Infrastructure.Bootstrapping.IBootstrapper` container — the `SAF.DataAccess.Implementation`/`SAF.DataAccess.Excel` impls are wiring, not the consumed surface, and the public `IExcelDocumentReader`/`IExcelDocumentWriter` are the low-level per-document I/O seam beneath `IExcelWorksheetReader`/`Writer`, not the consumed codec surface
 - model shape: `ExcelModel` is a FLAT `IReadOnlyList<IExcelModuleObject>` bag — every object derives `ExcelObjectBase : IExcelObject` (`Name`, `Guid Id`, `ObjectIdentifier`); a consumer discriminates by concrete type, and the wire-row metadata (`RowNumber`, `ObjectGrouping`, `ObjectName`) keys the spreadsheet position
 - quantities: every dimensioned field is a `UnitsNet` struct — `Length` (coordinates, eccentricities), `Angle` (rotations), `Force`/`ForcePerLength`/`Pressure` (loads), `Density`/`Pressure`/`CoefficientOfThermalExpansion` (materials), `Area`/`AreaMomentOfInertia`/`WarpingMomentOfInertia`/`Volume` (section properties), `RotationalStiffness`/`ForcePerLength` (support springs)
 - open enums: `ExcelFlexibleEnum<T> where T : struct, Enum` wraps a known enum value OR an arbitrary `string` (`IsOther`), so a non-standard member type or action type round-trips without data loss

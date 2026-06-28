@@ -71,6 +71,7 @@
 | :-----: | :------------------------------------------------------------------------------------------------------------- | :----- | :---------------- |
 |  [01]   | `ModbusClient.ReadHoldingRegistersAsync<T>(int unitId, int startingAddress, int count, CancellationToken)`     | read   | `Task<Memory<T>>` |
 |  [02]   | `ModbusClient.WriteMultipleRegistersAsync<T>(int unitId, int startingAddress, T[] dataset, CancellationToken)` | write  | `Task`            |
+|  [03]   | `ModbusClient.ReadInputRegistersAsync<T>(int unitId, int startingAddress, int count, CancellationToken)`       | read   | `Task<Memory<T>>` |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

@@ -59,7 +59,7 @@ async-enumerable source (`IAsyncEnumerable<Row>`); rows/cols are `ref struct` pr
 | [INDEX] | [SYMBOL]                              | [PACKAGE_ROLE]   | [CAPABILITY]                                           |
 | :-----: | :------------------------------------ | :--------------- | :---------------------------------------------------- |
 |  [01]   | `SepReader`                           | reader root      | sync + async row enumeration over one buffer          |
-|  [02]   | `SepReader.Row`                       | row ref struct   | column indexer; `Span`/`Join`/`Select`                |
+|  [02]   | `SepReader.Row`                       | row ref struct   | `ColCount` live width; column indexer; `Span`/`Join`/`Select` |
 |  [03]   | `SepReader.Col`                       | col ref struct   | `Span`/`Parse<T>`/`TryParse<T>`                        |
 |  [04]   | `SepReader.Cols`                      | cols ref struct  | column-set `Parse`/`Select`/`Join` projections        |
 |  [05]   | `SepReader.RowFunc<T>`                | projection delegate | `(Row) -> T where T : allows ref struct`           |
@@ -153,7 +153,7 @@ returns `T?`. `Cols.Parse<T>(Span<T>)` parses a whole column set into a caller b
 |  [01]   | `MoveNext` / `MoveNextAsync`                     | reader call     | advances row (sync / `ValueTask<bool>`)            |
 |  [02]   | `Current`                                        | reader property | current `Row` ref struct                           |
 |  [03]   | `Row[name]` / `Row[index]` / `Row[range]`        | row indexer     | selects `Col`/`Cols`                               |
-|  [04]   | `Row.Span` / `Row.Join(sep)` / `Row.Select<T>`   | row projection  | whole-row span / joined span / delegate project    |
+|  [04]   | `Row.ColCount` / `Row.Span` / `Row.Join(sep)` / `Row.Select<T>` | row projection | live column count (`int`) / whole-row span / joined span / delegate project |
 |  [05]   | `Col.Span`                                       | col property    | `ReadOnlySpan<char>` column chars                  |
 |  [06]   | `Col.Parse<T>()`                                 | col call        | `where T : ISpanParsable<T>`                       |
 |  [07]   | `Col.TryParse<T>()`                              | col call        | `where T : struct, ISpanParsable<T>` -> `T?`        |

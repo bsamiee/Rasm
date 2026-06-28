@@ -43,7 +43,7 @@ lazy import drawsvg
 lazy import pikepdf
 lazy import pymupdf
 lazy from pikepdf import Array, Dictionary, Name, String
-# gated ORA-arm deps; each proxy reifies on first `_ora` use in the to_process worker
+# ORA-arm deps; each proxy reifies on first `_ora` use in the to_process worker
 lazy import pyvips
 lazy import zlib
 lazy from datetime import UTC, datetime
@@ -58,12 +58,12 @@ if TYPE_CHECKING:
 class ExportTarget(StrEnum):
     SVG = "svg"  # drawsvg named-layer <g inkscape:groupmode=layer> document — Illustrator/Inkscape (core)
     PDF = "pdf"  # pymupdf OCG placement + pikepdf /Usage+/Order catalog enrichment — Acrobat (core)
-    ORA = "ora"  # OpenRaster layered container (pyvips + lxml + stream-zip) — GIMP/Krita (gated)
+    ORA = "ora"  # OpenRaster layered container (pyvips + lxml + stream-zip) — GIMP/Krita
 
 
 class Band(StrEnum):
     CORE = "core"    # in-process `to_thread` offload — drawsvg author + GIL-releasing pymupdf/pikepdf native render, off the event loop
-    GATED = "gated"  # the to_process worker — pyvips + lxml + stream_zip, off the runtime loader path
+    WORKER = "worker"  # the to_process worker — pyvips + lxml + stream_zip, off the runtime loader path
 
 
 class BlendMode(StrEnum):  # the 16 CSS `mix-blend-mode` modes; the value IS the SVG token (`svg_attrs`), `_ora_op` derives the OpenRaster `svg:` op, `_vips_blend` the libvips composite nickname
@@ -197,7 +197,7 @@ class LayerFact(Struct, frozen=True):
 class LayerEngine(Struct, frozen=True):
     arm: Callable[["LayeredExport"], LayerFact]
     preview: bool = False    # True -> `ArtifactReceipt.Preview`; False -> `ArtifactReceipt.Egress`
-    band: Band = Band.CORE   # the `_PLACE` placement lane: in-process core, or the gated `to_process` worker
+    band: Band = Band.CORE   # the `_PLACE` placement lane: in-process core, or the `to_process` worker
 
 
 # --- [BOUNDARIES] -----------------------------------------------------------------------
@@ -369,7 +369,7 @@ def _order(layers: tuple[Layer, ...], ocgs: "dict[str, pikepdf.Object]") -> "pik
 
 
 def _ora(export: LayeredExport) -> LayerFact:
-    # the OpenRaster layered container on the gated `to_process` worker: `pyvips` decodes each placed raster,
+    # the OpenRaster layered container on the `to_process` worker: `pyvips` decodes each placed raster,
     # scales its alpha by `opacity`, and stacks the visible layers through the native `composite` (ONE call,
     # per-layer `BlendMode` via `_vips_blend`) so the flattened `mergedimage.png` is FAITHFUL to the layer
     # stack the editor re-composites from — never `reduce(composite2, OVER)` discarding every blend and
@@ -418,7 +418,7 @@ def _ora(export: LayeredExport) -> LayerFact:
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
-# the gated `ORA` offload threads the module-level `_GATE` `CapacityLimiter` so N concurrent `exported` calls
+# the `ORA` offload threads the module-level `_GATE` `CapacityLimiter` so N concurrent `exported` calls
 # share a fixed worker subprocess pool instead of fanning out at the per-loop process-limiter default — the
 # bounded crossing `export/indesign#INDESIGN`'s IDML worker rides — and the runtime `async_boundary` default
 # `Exception` capture plus its `CLASSIFY` table routes a worker death to `resource` and every other engine raise
@@ -441,12 +441,12 @@ async def _offloaded(arm: Callable[["LayeredExport"], LayerFact], export: "Layer
 
 _PLACE: Final[frozendict[Band, Callable[..., Awaitable[LayerFact]]]] = frozendict({
     Band.CORE: _threaded,
-    Band.GATED: _offloaded,
+    Band.WORKER: _offloaded,
 })
 ENGINES: Final[frozendict[ExportTarget, LayerEngine]] = frozendict({
     ExportTarget.SVG: LayerEngine(_svg, preview=True),
     ExportTarget.PDF: LayerEngine(_pdf),
-    ExportTarget.ORA: LayerEngine(_ora, preview=True, band=Band.GATED),
+    ExportTarget.ORA: LayerEngine(_ora, preview=True, band=Band.WORKER),
 })
 ```
 

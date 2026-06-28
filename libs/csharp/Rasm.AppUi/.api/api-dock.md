@@ -73,6 +73,9 @@
 |  [10]   | `DockPresetThemeManagerBase`                    | theme preset manager base       |
 |  [11]   | `DockCommandBarManager` / `DefaultDockCommandBarAdapter` | command-bar merge surface |
 |  [12]   | `DockControlFactoryService`                     | control-to-factory wiring service |
+|  [13]   | `IDockThemeManager` (`Dock.Avalonia.Themes`)    | dock theme-manager contract bound at composition (the `Factory` override exposes a `Func<IDockThemeManager>`); the theme-variant subscription flips dock-owned brushes |
+|  [14]   | `IExternalDockSurface` (`DockControl? DockControl { get; set; }` / `Control SurfaceControl { get; }`) | embedded external-dock surface contract `DockControl.RegisterExternalDockSurface`/`UnregisterExternalDockSurface` attach/detach |
+|  [15]   | `DockSelectorMode` (`Dock.Avalonia.Selectors`)  | `Documents`/`Tools`/`All` selector-overlay scope enum (`DockControl.ShowSelector` argument) |
 
 [MODEL_TYPES]: `Dock.Model.ReactiveUI` graph + `Dock.Model.Core`/`Controls` contracts
 - rail: docking
@@ -127,8 +130,8 @@
 |  [07]   | `AutoCreateDataTemplates`                  | `bool`                   | auto template gen       |
 |  [08]   | `HostWindowFactory`                        | `Func<IHostWindow?>?`    | float-window kind       |
 |  [09]   | `EnableManagedWindowLayer`                 | `bool`                   | managed in-window floats |
-|  [10]   | `RegisterExternalDockSurface(...)`         | method                   | external surface attach |
-|  [11]   | `ShowSelector(...)` / `HideSelector()`     | method                   | selector overlay        |
+|  [10]   | `RegisterExternalDockSurface(IExternalDockSurface)` / `UnregisterExternalDockSurface(IExternalDockSurface) -> bool` | method | external surface attach / detach |
+|  [11]   | `ShowSelector(DockSelectorMode)` / `HideSelector()` | method          | selector overlay        |
 
 [FACTORY_CONSTRUCTION]: `Factory` (`IFactory`) layout construction — every `Create*` returns the typed `Dock.Model` contract
 - rail: docking
@@ -171,6 +174,18 @@
 |  [02]   | `VisibleDockableControls` / `PinnedDockableControls` / `TabDockableControls` | dockable-to-control maps |
 |  [03]   | `DocumentControls` / `ToolControls`                            | document/tool content maps   |
 |  [04]   | `DockableLocator : IDictionary<string, Func<IDockable?>>?`     | id-to-dockable resolver (deserialization) |
+
+[MODEL_GRAPH_PROPERTIES]: `Dock.Model.Core`/`Controls` node + leaf properties the `Factory`-built graph assigns (every property is `get; set;`)
+- rail: docking
+
+| [INDEX] | [SURFACE]                                                       | [SURFACE_ROOT]       | [RAIL]                       |
+| :-----: | :-------------------------------------------------------------- | :------------------- | :--------------------------- |
+|  [01]   | `Id` (`string`) / `Title` (`string`) / `Context` (`object?`)    | `IDockable`          | identity, header, view-model  |
+|  [02]   | `CanFloat` / `CanPin` / `CanClose` (`bool`)                     | `IDockable`          | per-dockable capability gates |
+|  [03]   | `Proportion` (`double`)                                         | `IDockable`          | proportional split size       |
+|  [04]   | `VisibleDockables` (`IList<IDockable>?`)                        | `IDock`              | child dockable list           |
+|  [05]   | `ActiveDockable` (`IDockable?`) / `FocusedDockable` (`IDockable?`) | `IDock`           | active + focused leaf         |
+|  [06]   | `Orientation` (`Orientation`)                                   | `IProportionalDock`  | split orientation             |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

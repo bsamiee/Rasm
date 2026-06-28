@@ -49,6 +49,8 @@
 |  [08]   | `timedelta64`                  | timedelta scalar | duration scalar            |
 |  [09]   | `str_`                         | Unicode string   | fixed-width Unicode scalar |
 |  [10]   | `bytes_`                       | byte string      | fixed-width bytes scalar   |
+|  [11]   | `number`/`integer`/`signedinteger`/`unsignedinteger`/`inexact`/`floating`/`complexfloating` | abstract scalar | abstract dtype-hierarchy bases between `generic` and the concrete scalars — the `issubdtype(dtype, np.integer)` test targets and the `NDArray[np.floating]` annotation bounds |
+|  [12]   | `intp`/`uintp`                 | index int        | pointer-sized signed/unsigned integer; the platform index dtype (`astype(np.intp)` on index arrays) |
 
 [PUBLIC_TYPE_SCOPE]: info and error types
 - rail: compute
@@ -85,6 +87,7 @@
 |  [04]   | `full(shape, fill_value)`                  | creation       | constant-filled array                                    |
 |  [04a]  | `zeros_like(a)`/`ones_like(a)`/`empty_like(a)`/`full_like(a, v)` | creation       | shape/dtype-matched fill of an existing array (the `out=` seed for a branchless ufunc, e.g. `divide(d, n, out=zeros_like(d), where=...)`) |
 |  [04b]  | `fromiter(iterable, dtype, count)`         | creation       | build a 1-D array from an iterable in one pass (no intermediate list), the per-row candidate gather |
+|  [04c]  | `array(object, dtype=None, *, copy=True, order='K', ndmin=0)` | creation       | construct a NEW array, copying by default (vs `asarray` no-copy intake); the explicit-copy / `ndmin`-promoting constructor |
 |  [05]   | `arange(start, stop, step)`                | range creation | evenly spaced integers/floats                            |
 |  [06]   | `linspace(start, stop, num)`               | range creation | evenly spaced floats                                     |
 |  [07]   | `logspace(start, stop, num)`               | range creation | log-spaced floats                                        |
@@ -117,6 +120,11 @@
 |  [13]   | `lib.stride_tricks.sliding_window_view(x, window_shape, axis)` | window view    | strided rolling-window view (no copy)        |
 |  [14]   | `lib.stride_tricks.as_strided(x, shape, strides)`              | strided view   | raw stride view (unsafe; bounds not checked) |
 |  [15]   | `pad(array, pad_width, mode)`                                  | pad            | bordered/edge-padded copy                    |
+|  [16]   | `atleast_1d(*arys)` / `atleast_2d(*arys)` / `atleast_3d(*arys)` | dims           | promote inputs to at-least 1/2/3-D (the 2-D conditioning before a matrix kernel) |
+|  [17]   | `column_stack(tup)`                                            | join           | stack 1-D arrays as columns of a 2-D array (1-D `hstack` joins along axis 0 instead) |
+|  [18]   | `append(arr, values, axis)`                                   | join           | concatenated copy with `values` appended (flattens both when `axis=None`) |
+|  [19]   | `delete(arr, obj, axis)`                                      | edit           | copy with the elements/subarrays at `obj` indices removed |
+|  [20]   | `roll(a, shift, axis)`                                        | shift          | cyclic shift along axis (wraps; no fill) |
 
 [ENTRYPOINT_SCOPE]: math and reduction
 - rail: compute
@@ -144,6 +152,15 @@
 |  [19]   | `abs`/`sign`/`round`/`floor`/`ceil`              | ufunc           | absolute, rounding operations                                           |
 |  [20]   | `nansum`/`nanmean`/`nanstd`/`nanmax`             | nan-aware       | reductions skipping non-finite entries                                  |
 |  [21]   | `angle(z, deg)` / `conj(x)` / `conjugate(x)`     | complex ufunc   | phase angle and complex conjugate (analytic-signal phase estimator)     |
+|  [22]   | `maximum(x1, x2)` / `minimum(x1, x2)`            | binary ufunc    | element-wise pairwise extrema (NaN-propagating; distinct from the `max`/`min` axis reductions) — the branchless clamp half |
+|  [23]   | `add`/`subtract`/`multiply`, `bitwise_or`/`bitwise_and`/`bitwise_xor` | binary ufunc | arithmetic/bitwise binary ufuncs carrying `.reduce`/`.accumulate`/`.outer`/`.at` (e.g. `subtract.outer(a, b)` outer difference, `bitwise_or.reduce(codes)` flag union) |
+|  [24]   | `median(a, axis)`                               | statistics      | median along axis (`nanmedian` skips non-finite)                       |
+|  [25]   | `count_nonzero(a, axis, keepdims)`              | reduction       | count of nonzero/`True` elements (the boolean-mask population count)   |
+|  [26]   | `interp(x, xp, fp, left, right, period)`        | interpolation   | 1-D piecewise-linear interpolation against monotonic `xp`/`fp`         |
+|  [27]   | `gradient(f, *varargs, axis, edge_order)`       | calculus        | central-difference numerical gradient (per-axis spacing via `varargs`) |
+|  [28]   | `diff(a, n, axis)`                              | calculus        | n-th discrete difference along axis                                    |
+|  [29]   | `trapezoid(y, x, dx, axis)`                     | calculus        | trapezoidal integral along axis (NumPy 2.0 name; supersedes `trapz`)   |
+|  [30]   | `issubdtype(arg1, arg2)`                        | dtype query     | dtype subclass test against an abstract scalar base (`issubdtype(a.dtype, np.integer)`) |
 
 [ENTRYPOINT_SCOPE]: top-level constants
 - rail: compute
@@ -169,6 +186,7 @@
 |  [08]   | `linalg.norm(x, ord, axis)` | norm           | vector and matrix norms      |
 |  [09]   | `linalg.lstsq(a, b)`        | least squares  | minimum-norm least-squares   |
 |  [10]   | `linalg.pinv(a)`            | pseudo-inverse | Moore-Penrose pseudo-inverse |
+|  [11]   | `linalg.eigvalsh(a, UPLO)` / `linalg.eigvals(a)` | eigenvalues | eigenvalues-only (Hermitian / general) — the cheaper path when eigenvectors are unused (SDP feasibility margin via the min eigenvalue) |
 
 [ENTRYPOINT_SCOPE]: fft submodule
 - rail: compute
@@ -224,6 +242,6 @@
 
 [RAIL_LAW]:
 - Package: `numpy`
-- Owns: N-d array construction, dtype algebra, ufunc dispatch (incl. `reduce`/`accumulate`/`at`, the complex-math `angle`/`conj`/`conjugate`), the top-level math constants (`pi`/`e`/`inf`/`nan`), `einsum` contraction, linalg, fft, finiteness predicates, and random sampling
+- Owns: N-d array construction (incl. the copying `array` constructor), dtype algebra and the abstract scalar hierarchy (`integer`/`floating`/`number` + `issubdtype`/`intp`), ufunc dispatch (incl. `reduce`/`accumulate`/`outer`/`at`, element-wise extrema `maximum`/`minimum`, the complex-math `angle`/`conj`/`conjugate`), numerical calculus (`gradient`/`diff`/`trapezoid`/`interp`) and `median`, the top-level math constants (`pi`/`e`/`inf`/`nan`), `einsum` contraction, linalg (incl. eigenvalues-only `eigvalsh`), fft, finiteness predicates, and random sampling
 - Accept: `ndarray`-first APIs, explicit `dtype`, `asarray`/`frombuffer` zero-copy intake, `einsum`/ufunc-method fused reductions, `random.default_rng`/`SeedSequence` seeding, `isfinite` finiteness gates, batched `linalg`/`fft`/`random` usage
 - Reject: hand-rolled numerical loops replaceable by ufuncs or `einsum`, indexed Python accumulation replaceable by `ufunc.at`, module-level `numpy.random` functions, `numpy.matrix` for new code, comparing floats for finiteness without `isfinite`

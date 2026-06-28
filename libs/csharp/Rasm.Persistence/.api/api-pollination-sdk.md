@@ -10,11 +10,11 @@
 - license: MIT (`licenses.nuget.org/MIT` — Pollination / Ladybug Tools)
 - assembly: `PollinationSDK`
 - namespace: `PollinationSDK` (model DTOs), `.Api` (REST clients), `.Client` (config/auth/serialization infra), `.Wrapper` (high-level orchestration), `.Interface.*` (recipe/job/io interface model)
-- dependencies (vendored-fork isolation): `LBT.RestSharp` `106.11.7.1` (RestSharp 106 fork — the SDK's HTTP transport), `LBT.Newtonsoft.Json` `13.0.3.2` (Newtonsoft fork — the SDK's JSON codec via `AnyOfJsonConverter`/`OpenAPIDateConverter`), `Microsoft.Data.Sqlite` (declared `8.0.3`, centrally pinned `10.0.9` — the `Wrapper.LocalDatabase` job/asset cache), `Pollination.Logger` `1.1.4`, `Microsoft.CSharp` `4.7.0` (dynamic), `System.ComponentModel.Annotations` `5.0.0`
+- dependencies (vendored-fork isolation): `LBT.RestSharp` `106.11.7.1` (RestSharp 106 fork — the SDK's HTTP transport), `LBT.Newtonsoft.Json` `13.0.3.2` (Newtonsoft fork — the SDK's JSON codec via `AnyOfJsonConverter`/`OpenAPIDateConverter`), `Microsoft.Data.Sqlite` `10.0.9` (the `Wrapper.LocalDatabase` job/asset cache, native `e_sqlite3`), `Pollination.Logger` `1.1.4`, `Microsoft.CSharp` `4.7.0` (dynamic), `System.ComponentModel.Annotations` `5.0.0`
 - target frameworks: `netstandard2.0`
 - asset: runtime library, pure-managed AnyCPU; the only native floor is the transitive `Microsoft.Data.Sqlite` `e_sqlite3`. The `net10.0` consumer binds `lib/netstandard2.0` (the sole TFM) — a netstandard2.0 floor, no `net8`+ surface.
 - rail: sync (cloud compute transport)
-- ABI floor: the SDK's JSON + HTTP run through the DISTINCT-package-id Ladybug forks (`LBT.RestSharp`/`LBT.Newtonsoft.Json`), so they never collide with the folder's `Newtonsoft.Json` `13.0.4` or its System.Text.Json rails; they are transitive-pinned to the declared fork versions. The `Microsoft.Data.Sqlite` `8.0.3`->`10.0.9` lift is a major-version transitive lift the `Wrapper.LocalDatabase` cache rides; the ADO.NET `SqliteConnection`/`SqliteCommand` surface it uses is forward-stable, but only the `Wrapper` layer touches it (the `*Api` REST layer does not).
+- ABI floor: the SDK's JSON + HTTP run through the DISTINCT-package-id Ladybug forks (`LBT.RestSharp`/`LBT.Newtonsoft.Json`), so they never collide with the folder's `Newtonsoft.Json` `13.0.4` or its System.Text.Json rails. `Microsoft.Data.Sqlite` `10.0.9` is touched ONLY by the `Wrapper.LocalDatabase` cache through the ADO.NET `SqliteConnection`/`SqliteCommand` surface; the `*Api` REST layer never references it.
 
 The in-sidecar assembly composes the canonical Sync case for cloud compute; the in-Rhino assembly never loads `PollinationSDK`, `LBT.RestSharp`, or the SQLite cache — the entire RestSharp-106 + Newtonsoft-fork closure stays isolated to the sidecar, mirroring the Speckle dependency isolation.
 
@@ -131,7 +131,7 @@ The in-sidecar assembly composes the canonical Sync case for cloud compute; the 
 - Package: `PollinationSDK` `1.10.0` (MIT, pure-managed netstandard2.0, `net10.0` binds `netstandard2.0`, vendored RestSharp-106 + Newtonsoft-fork closure)
 - Owns: the Pollination cloud compute transport — the `*Api` REST clients, the `Configuration`/`TokenRepo` auth, the `Wrapper` job/run/asset orchestration, and the model DTOs (`Job`/`CloudJob`/`Run`/`Project`/`S3UploadRequest`/`FileMetaList`)
 - Accept: a recipe-run job submitted to a Pollination project, watched to completion, and its result assets pulled back — projected to the canonical Sync case at the sidecar boundary; the artifact bytes transferred via the folder's object-store owner
-- Reject: loading `PollinationSDK` or its RestSharp/Newtonsoft forks in the in-Rhino assembly; a second S3 uploader where `api-objectstore.md` owns the object plane; a hand-rolled token store where `Configuration`/`TokenRepo` carry auth; treating the `Microsoft.Data.Sqlite` lift or the netstandard2.0 floor as a net8+ surface
+- Reject: loading `PollinationSDK` or its RestSharp/Newtonsoft forks in the in-Rhino assembly; a second S3 uploader where `api-objectstore.md` owns the object plane; a hand-rolled token store where `Configuration`/`TokenRepo` carry auth; treating the netstandard2.0 floor as a net8+ surface
 
 ## [05]-[CATALOGUE_LAW]
 

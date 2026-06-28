@@ -6,7 +6,7 @@ The analytics table closes five families under one `backend=` dispatch row: conn
 
 The feature graph graduates through `FeatureResult.graduates`, minting the geometry `GraduationReceipt` over `HandoffAxis(geometry="network-graph")` on the same compute admission rail the `algebra` sibling rides for the identical subject. This owner is the mesh-feature-projection producer of `network-graph`; the `algebra` sibling is the compas-adjacency producer of the same literal, never folded into one file. Raw mesh-file exchange stays at the data seam, mesh repair/boolean is the `mesh` sibling, and non-manifold cell topology is the `nonmanifold` sibling.
 
-`trimesh`, `numpy`, and `networkx` are the intended runtime, so this owner rides the core directly — no companion gate, no dark band.
+`trimesh`, `numpy`, and `networkx` ride the runtime lane directly.
 
 ## [01]-[INDEX]
 

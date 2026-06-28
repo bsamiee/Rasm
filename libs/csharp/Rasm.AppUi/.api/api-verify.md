@@ -100,7 +100,7 @@
 |  [07]   | `AddExtraSettings(Action<JsonSerializerSettings>)`                        | `SettingsTask`   | object-graph serialization tune |
 |  [08]   | `AppendValue` / `AppendValues`                                            | `SettingsTask`   | extra named context in snapshot |
 |  [09]   | `DisableDiff()`                                                           | `SettingsTask`   | suppress diff-tool launch (CI)  |
-|  [10]   | `UseDirectory` / `UseFileName` / `UseParameters` / `AddScrubber` / `ScrubLinesContaining` / `IgnoreMember` / `AutoVerify` | `VerifySettings` | placement, scrub, member, auto-accept |
+|  [10]   | `UseDirectory` / `UseFileName` / `UseParameters` / `UseTextForParameters` / `AddScrubber` / `ScrubLinesContaining` / `IgnoreMember` / `AutoVerify` | `VerifySettings` | placement, scrub, parameter-text key, member, auto-accept |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

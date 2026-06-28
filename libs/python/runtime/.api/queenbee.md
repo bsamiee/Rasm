@@ -11,8 +11,7 @@
 - rail: recipe (workflow schema contract)
 - installed: `2.0.1`
 - license: `MIT`
-- abi: pure-Python (no native extension); `pydantic>=2.0,<3.0` model floor, `pyyaml` + `jsonschema` runtime deps; the `[cli]` extra (`click` + `click-plugins`) is NOT admitted
-- companion-gated: admitted `python_version<'3.15'` alongside the Ladybug Tools cluster; resolves on the companion interpreter and is absent from the cp315 frozen env, so `api resolve --frozen` cannot reach it — every member below is confirmed by introspection against the installed companion distribution (`2.0.1`, pydantic `2.13.x`)
+- abi: pure-Python (`py3-none-any`, no native extension); `pydantic>=2.0,<3.0` model floor, `pyyaml>=6.0` + `jsonschema>=4.17.3` runtime deps; the `[cli]` extra (`click` + `click-plugins`) is NOT admitted
 - namespaces: `queenbee.base`, `queenbee.io` (`io.inputs`/`io.outputs`/`io.reference`/`io.artifact_source`/`io.common`), `queenbee.plugin`, `queenbee.recipe`, `queenbee.job`, `queenbee.repository`, `queenbee.config`, `queenbee.env`
 - capability: the Pollination workflow-language schema graph — plugin/function operation templates, recipe/baked-recipe/DAG flow with dependency resolution, the typed IO input/output algebra and `${{...}}` reference family, job submission + run/step status lifecycle, and the package-repository index — all as `type`-discriminated pydantic v2 models over one JSON/YAML serialization spine
 
@@ -82,10 +81,10 @@
 
 | [INDEX] | [SYMBOL]                                                              | [TYPE_FAMILY]   | [RAIL]                                                |
 | :-----: | :------------------------------------------------------------------- | :-------------- | :--------------------------------------------------- |
-|  [01]   | `InputReference` (+`InputFile`/`InputFolder`/`InputPathReference`)   | reference       | `${{inputs.<variable>}}` — recipe/function input ref |
-|  [02]   | `TaskReference` (+`TaskFile`/`TaskFolder`/`TaskPathReference`)       | reference       | `${{tasks.<name>.outputs.<variable>}}` — task output ref |
+|  [01]   | `InputReference` (+`InputFileReference`/`InputFolderReference`/`InputPathReference`)   | reference       | `${{inputs.<variable>}}` — recipe/function input ref |
+|  [02]   | `TaskReference` (+`TaskFileReference`/`TaskFolderReference`/`TaskPathReference`)       | reference       | `${{tasks.<name>.outputs.<variable>}}` — task output ref |
 |  [03]   | `ItemReference`                                                      | reference       | `${{item...}}` — loop-item ref                       |
-|  [04]   | `ValueReference` / `ValueListReference` / `ValueFile`/`ValueFolderReference` | reference | inline literal value / list / file-path value ref    |
+|  [04]   | `ValueReference` / `ValueListReference` / `ValueFileReference` / `ValueFolderReference` | reference | inline literal value / list / file-path value ref    |
 |  [05]   | `FileReference` / `FolderReference`                                  | reference       | `io.common` artifact path references                 |
 |  [06]   | `ProjectFolder` / `HTTP` / `S3`                                      | artifact source | discriminated `_ArtifactSource`: `path` / `url` / `key`+`endpoint`+`bucket`+`credentials_path` |
 |  [07]   | `JobArgument` / `JobPathArgument`                                    | argument        | job-level parameter (`name`/`value`) / artifact (`name`/`source`) |
@@ -96,7 +95,7 @@
 
 | [INDEX] | [SYMBOL]        | [TYPE_FAMILY]   | [RAIL]                                                                  |
 | :-----: | :-------------- | :-------------- | :--------------------------------------------------------------------- |
-|  [01]   | `Job`           | submission      | `api_version`/`source`/`arguments: List[JobArgument\|JobPathArgument]`/`name`/`description`/`labels` |
+|  [01]   | `Job`           | submission      | `api_version` (`v1beta1`)/`source`/`arguments: List[List[JobArgument\|JobPathArgument]]` (one inner list per parametric run)/`name`/`description`/`labels` |
 |  [02]   | `JobStatus`     | receipt         | `id`/`status: JobStatusEnum`/`message`/`started_at`/`finished_at`/`source`/`runs_pending`/`runs_running`/`runs_completed`/`runs_failed`/`runs_cancelled` |
 |  [03]   | `RunStatus`     | receipt (BaseStatus) | `id`/`job_id`/`entrypoint`/`status: RunStatusEnum`/`steps`/`inputs`/`outputs`/timestamps |
 |  [04]   | `StepStatus`    | receipt (BaseStatus) | `id`/`name`/`status: StepStatusEnum`/`status_type: StatusType`/`template_ref`/`command`/`boundary_id`/`children_ids`/`outbound_steps` |
@@ -118,7 +117,7 @@
 |  [04]   | `Config`             | client config   | `auth: List[BaseAuth]`/`repositories: List[RepositoryReference]`     |
 |  [05]   | `BaseAuth` / `JWTAuth` / `HeaderAuth` | client auth | `domain`/`access_token` (+`header_name` on `HeaderAuth`) — repository credentials |
 |  [06]   | `RepositoryReference`| client config   | `name`/`path` — a named repository endpoint                          |
-|  [07]   | `OS` (`queenbee.env`)| env             | operating-system enum for execution-environment selection           |
+|  [07]   | `OS` (`queenbee.env`)| env             | platform-switch helper (not an enum): `is_windows`/`is_nix` bools + `file_uri_prefix` for local-file URIs |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -133,7 +132,7 @@
 |  [03]   | `BaseModel.to_dict(*, exclude_defaults=False, by_alias=True, exclude_none=False)` | encode | model -> wire dict (the cross-rail projection)       |
 |  [04]   | `BaseModel.to_json(filepath, *, indent=None)` / `to_yaml(filepath, *, exclude_none=True)` | write | persist as JSON / YAML file |
 |  [05]   | `BaseModel.yaml(*, exclude_defaults=False, exclude_none=False)` / `model_dump_json(...)` | encode | YAML string / JSON string in memory |
-|  [06]   | `BaseModel.model_json_schema()` / `schema()`                     | schema         | emit the JSON Schema for the model (contract publication) |
+|  [06]   | `BaseModel.model_json_schema()`                                   | schema         | the pydantic v2 JSON-Schema generator for the model (contract publication) |
 
 [ENTRYPOINT_SCOPE]: recipe authoring, baking, and folder IO (`Recipe`/`BakedRecipe`/`RecipeInterface`/`Plugin`)
 - rail: recipe
