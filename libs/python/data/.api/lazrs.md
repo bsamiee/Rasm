@@ -12,7 +12,6 @@
 - version: `0.8.1`
 - license: MIT (PyO3 binding over the `laz-rs` Rust crate)
 - asset: native extension (`lazrs/lazrs.cpython-<abi>-<plat>.so`); Rayon thread-pool backed; no C++ `laszip` linkage
-- marker: companion `python_version<'3.15'`; absent from the cp315-resolved lockfile, present on the cp312/cp313 companion lane
 - entry points: extension-module only; `import lazrs` is the sole entry; no console script
 - capability: chunked LASzip decompression and compression for LAS point formats, sequential and Rayon-parallel reader/writer pairs, append-to-existing-LAZ writers, selective field decompression, chunk-table read/write, and one-shot block `decompress_points`/`compress_points` over raw record-data buffers
 
@@ -144,7 +143,7 @@ Module-level `int` flags OR-composed into the `DecompressionSelection(value)` ma
 - chunk-table axis: `read_chunk_table`/`read_chunk_table_only`/`write_chunk_table` and `decompress_points_with_chunk_table` own COPC/spatial-index chunk access; the chunk table is read once and threaded into selective block decompression, never re-walked per point.
 - COPC stack: a COPC reader composes one dense rail — `laspy` exposes the COPC octree hierarchy and the per-node chunk byte ranges, the chunk table is read once via `read_chunk_table_only`, the consumer-selected dimensions become a `DecompressionSelection` OR of `SELECTIVE_DECOMPRESS_*` flags, and `decompress_points_with_chunk_table(..., selection=)` decodes only the requested nodes' fields directly into the laspy/NumPy record buffer; the spatial-window filter, the field narrowing, and the Rayon parallelism are one pipeline, never a full decode followed by a post-filter.
 - evidence: each codec run captures point format id, extra-byte count, chunk size, item size, point count, parallel flag, and selective mask as a point-cloud receipt that the data owner folds into its `MeshPayload`/point-cloud receipt stream.
-- boundary: `lazrs` owns LAZ/COPC compressed point-record codec only; LAS container structure, header parsing, dimension typing, and CRS routing stay in `laspy`; raised `LazrsError` is mapped to the data rail's typed failure at the boundary; no NumPy buffer typing or coordinate transform leaks into this package.
+- boundary: `lazrs` owns LAZ/COPC compressed point-record codec only; LAS container structure, header parsing, dimension typing, and CRS routing stay in `laspy`; raised `LazrsError` is mapped to the data rail's typed failure at the boundary; no NumPy buffer typing or coordinate transform leaks into this admission.
 
 [RAIL_LAW]:
 - Package: `lazrs`

@@ -9,7 +9,6 @@
 - module: `cubed`; submodules `cubed.array_api.linalg` (linalg), `cubed.runtime.executors` (executor backends), `cubed.random` (chunked RNG)
 - owner: `data`
 - rail: chunked-compute
-- asset: pure Python; license Apache-2.0; no native extension, no CPython floor (rides the cp315 core)
 - entry points: library use is import-only; no console script
 - capability: lazy chunked Array-API n-dimensional arrays, Zarr-backed bounded-memory execution, pluggable local/distributed executors, out-of-core TSQR/SVD linalg, full Array-API creation/elementwise/reduction/manipulation surface, blockwise `map_blocks`/`map_overlap`/`apply_gufunc`, NaN-aware reduction family, chunked random generation, callback-driven memory telemetry, and graph visualization
 

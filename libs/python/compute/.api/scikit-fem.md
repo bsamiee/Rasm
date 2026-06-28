@@ -9,7 +9,6 @@
 - import: `skfem`; all public types and functions live at the top level (no submodule import path required)
 - owner: `compute`
 - rail: FEM assembly and solve
-- installed: marker-gated `python_version<'3.15'` (`scikit-fem>=12.0.2`; transitive scipy/Pythran lacks a cp315 wheel); license BSD-3-Clause; pure-Python with `numpy`/`scipy.sparse` core (optional `meshio` for IO, `pyamg` for algebraic-multigrid preconditioners)
 - capability: simplex/tensor mesh management, H1/Hdiv/Hcurl/DG/global element spaces, threaded bilinear/linear/trilinear/functional assembly, Dirichlet/penalty/multi-point conditioning, sparse direct/Krylov/eigen solve dispatch, L2 projection, adaptive refinement, and physical-point interpolation/probing
 
 ## [02]-[PUBLIC_TYPES]

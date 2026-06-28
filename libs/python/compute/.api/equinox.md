@@ -9,7 +9,6 @@
 - import: `equinox` (alias `eqx`); submodules `equinox.nn`, `equinox.debug`, `equinox.internal`
 - owner: `compute`
 - rail: model
-- installed: requires `jax`; marker-gated `python_version<'3.15'` (jaxlib ships no cp315 wheel); license Apache-2.0; `equinox` wheel is `py3-none-any` (pure Python) — the gate is the transitive `jaxlib` cp315 backend gap, not equinox itself. `assay api resolve equinox` is `unsupported` on the cp315 core (uninstalled, marker-gated); surface authored from the official Equinox module API
 - capability: JAX-native modules via the `Module` pytree dataclass with `field`/`static`/`AbstractVar` field discipline, filter-aware JIT/grad/vmap/pmap transforms that auto-split arrays from static leaves, stateful-layer support (`nn.State`/`make_with_state`), pytree partition/combine/`tree_at` manipulation, leaf serialization, and a full neural-network layer library under `equinox.nn`
 
 ## [02]-[PUBLIC_TYPES]

@@ -17,7 +17,7 @@ they never register or instantiate a second cache.
 - license: MIT (.NET Foundation)
 - bound asset: `lib/net10.0/Microsoft.Extensions.Caching.Hybrid.dll` (consumer-exact; XML docs shipped)
 - namespaces: `Microsoft.Extensions.Caching.Hybrid`, `Microsoft.Extensions.DependencyInjection`
-- L2 backing: any registered `IDistributedCache` (e.g. `Microsoft.Extensions.Caching.StackExchangeRedis 10.0.9` over `StackExchange.Redis 3.0.0` via `AddStackExchangeRedisCache`); absent an L2, the cache runs L1-only
+- L2 backing: any registered `IDistributedCache` (e.g. `Microsoft.Extensions.Caching.StackExchangeRedis 10.0.9` over `StackExchange.Redis 3.0.7` via `AddStackExchangeRedisCache`); absent an L2, the cache runs L1-only
 - asset: runtime library
 - rail: runtime cache
 

@@ -1,6 +1,6 @@
 # [PY_GEOMETRY_API_IFC5D]
 
-`ifc5d` supplies the IFC 5D costing surface for the geometry ifc-analysis rail: rule-driven quantity take-off (`qto.quantify`/`edit_qtos`) writing `IfcElementQuantity` base quantities, and structured cost-schedule CSV/ODS/XLSX export (`ifc5Dspreadsheet`). It rides the `ifcopenshell` companion lane (same `0.8.5` distribution band, pure-Python over the `ifcopenshell` core), so the analysis owner composes `ifc5d.qto`/`ifc5d.ifc5Dspreadsheet` directly rather than re-deriving quantity-key folds over `util.element.get_psets`; the per-`IfcCostItem` cost rollup is `ifcopenshell.api.cost.calculate_cost_item_resource_value`, not an `ifc5d` member.
+`ifc5d` supplies the IFC 5D costing surface for the geometry ifc-analysis rail: rule-driven quantity take-off (`qto.quantify`/`edit_qtos`) writing `IfcElementQuantity` base quantities, and structured cost-schedule CSV/ODS/XLSX export (`ifc5Dspreadsheet`). It rides the `ifcopenshell` worker lane (same `0.8.5` distribution band, pure-Python over the `ifcopenshell` core), so the analysis owner composes `ifc5d.qto`/`ifc5d.ifc5Dspreadsheet` directly rather than re-deriving quantity-key folds over `util.element.get_psets`; the per-`IfcCostItem` cost rollup is `ifcopenshell.api.cost.calculate_cost_item_resource_value`, not an `ifc5d` member.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -9,9 +9,8 @@
 - import: `import ifc5d.qto` / `import ifc5d.ifc5Dspreadsheet`
 - owner: `geometry`
 - rail: ifc-analysis / 5d-costing
-- installed: `0.8.5`, the IfcOpenShell-ecosystem companion-lane band (depends `ifcopenshell`; `typst` only under the `advanced` extra); `assay api resolve ifc5d` resolves no source on the cp315 (`3.15.0b2`) core — resolves only where `ifcopenshell` resolves (cp313 companion), the documented lane gap, not a catalog fault
+- installed: `0.8.5`
 - license: LGPL-3.0-or-later (the IfcOpenShell-ecosystem license)
-- wheel-floor: pure-Python `py3-none-any` wheel for `ifc5d` itself, but inert without the `ifcopenshell` cp313 core it depends on (no cp315 wheel); ABI: none for `ifc5d`, native via the `ifcopenshell` spine
 - entry points: none (library only)
 - capability: rule-driven quantity take-off across the IFC element set (`qto.quantify`/`edit_qtos` over the `qto.rules` `RULE_SET` table) and structured cost-schedule export (`ifc5Dspreadsheet` CSV/ODS/XLSX, typst PDF under the `advanced` extra); the cost-item resource rollup itself is `ifcopenshell.api.cost`, not an `ifc5d` member
 
@@ -74,5 +73,4 @@ Quantity rows consume an `ifcopenshell.file` plus an element set and a rule set;
 - Reject: a hand-rolled quantity-key fold over `get_psets(qtos_only=True)`; a per-IFC-class measurement function family where `qto.rules` carries the rule; a bespoke cost-rollup loop where `ifcopenshell.api.cost.calculate_cost_item_resource_value` owns the per-item rollup
 
 [CAPTURE_GAP]:
-- floor: companion interpreter cp313; `ifc5d==0.8.5` rides the `ifcopenshell` companion lane (pure-Python over the native IFC core), so reflection resolves where `ifcopenshell` resolves, and the `>=3.15` project venv carries no `ifcopenshell` core
 - members: the `qto.quantify`/`qto.edit_qtos`/`qto.rules` quantity surface and the `ifc5Dspreadsheet.Ifc5DCsvWriter`/`Ifc5DOdsWriter` export surface confirm by introspection against the installed companion distribution before any fence transcribes them; the `qto.rules` `RULE_SET` literal set and the `IfcCostItem.CostValues` `AppliedValue` measure shape are the live-run-confirmed members

@@ -10,8 +10,6 @@
 - module: `arro3.core`
 - asset: native extension (Rust/PyO3) over `arrow-rs`
 - license: `MIT OR Apache-2.0`
-- wheel floor: `cp311-abi3` (stable ABI, one wheel per platform serves cp311+; also ships cp310/cp39, cp313t/cp314t free-threaded, and PyPy311 builds)
-- marker: `requires-python >=3.9`; no Python runtime dependencies
 - rail: arrow-memory
 
 ## [02]-[PUBLIC_TYPES]

@@ -10,8 +10,7 @@
 - owner: `artifacts`
 - rail: fonts
 - license: MIT
-- asset: runtime library; pure Python (`py3-none-any`), no ABI gate, cp315-clean (manifest floor `fonttools>=4.63.0`, no `python_version` marker)
-- installed: `4.63.0` reflected via `assay api resolve fonttools`
+- installed: `4.63.0`
 - entry points: `fonttools`, `ttx`, `pyftsubset`, `pyftmerge` console scripts; library use is import-only
 - capability: read/write OTF/TTF/WOFF/WOFF2/TTC binary fonts; lazy table decompilation by tag; outline read/write through a pen protocol; variable-font compilation from a designspace and partial/full instancing; glyph-set/feature/name/table subsetting with WOFF re-flavoring; OpenType Layout feature compilation from `.fea`; from-scratch font synthesis; multi-font merge; cubic-quadratic outline conversion; Unicode script/block/OT-tag resolution
 

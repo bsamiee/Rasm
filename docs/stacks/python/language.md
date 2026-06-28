@@ -12,7 +12,7 @@ Python `>=3.15` is the active language surface. This page is the version-feature
 - Type gates: strict `ty` and strict `mypy`
 - Formatter and lint gate: `Ruff` preview policy
 - Encoding baseline: UTF-8 default with explicit persisted-I/O contracts
-- Import baseline: module-scope named imports; lazy imports only after tool configuration admits the syntax
+- Import baseline: module-scope named imports, with `lazy import`/`lazy from` deferring cold dependencies and a module `__getattr__` publishing the deferred package surface; never a function-local or `importlib`-scattered import
 - Export baseline: explicit end-of-file `__all__`; no wildcard imports, barrel files, facade exports, or empty `__init__.py` package markers
 - Annotation baseline: deferred annotations inspected through annotation APIs
 
@@ -100,11 +100,11 @@ Use the active Python surface directly. This chooser owns language syntax, type-
 
 [MODULE_AND_IO_FORMS]: how imports, startup hooks, and text encoding state their boundary.
 
-| [INDEX] | [CONCERN]     | [USE]                                                   | [REPLACE]                          |
-| :-----: | :------------ | :------------------------------------------------------ | :--------------------------------- |
-|  [01]   | cold import   | tool-admitted module-scope `lazy import` or `lazy from` | local-import startup hacks         |
-|  [02]   | startup hook  | `.start` entries                                        | executable `.pth` import lines     |
-|  [03]   | UTF-8 default | UTF-8 default; `encoding="locale"`                      | locale-dependent implicit text I/O |
+| [INDEX] | [CONCERN]       | [USE]                                                                   | [REPLACE]                             |
+| :-----: | :-------------- | :---------------------------------------------------------------------- | :------------------------------------ |
+|  [01]   | deferred import | module-scope `lazy import` / `lazy from`; `__getattr__` package surface | function-local imports, `lazy_loader` |
+|  [02]   | startup hook    | `.start` entries                                                        | executable `.pth` import lines        |
+|  [03]   | UTF-8 default   | UTF-8 default; `encoding="locale"`                                      | locale-dependent implicit text I/O    |
 
 ## [03]-[LANGUAGE_FORM_CONTRACTS]
 
@@ -257,16 +257,70 @@ SHAPE = admitted(key="<key-a>", span={"lo": 0, "hi": 4}, tag="<ext-a>")
 - Boundary: package topology, generated API documentation, public package contracts, source-symbol documentation, site processing, and startup ordering belong to their owning platform, architecture, or code-documentation surface.
 
 [LAZY_IMPORT_SITE]:
-- Use when: a cold dependency should remain declared at the module boundary without paying import cost until first use.
-- Accept: module-scope `lazy import` and `lazy from` statements for named modules or named imported members only when formatter, linter, type checker, and runtime configuration admit the syntax.
-- Reject: function-local import hiding, `importlib` laziness scattered through call sites, `lazy` inside functions, classes, or `try` blocks, lazy star imports, lazy future imports, and `__lazy_modules__` in target-only code where direct `lazy` imports can state the boundary.
-- Boundary: global lazy-import modes, startup policy, dependency graph costs, and tool graph truth belong to the runtime or platform owner.
+- Use when: a cold, heavy, native, or cyclically coupled dependency must stay declared at the module boundary while its import cost falls on first use, or a package `__init__` publishes a deferred public surface — mandatory re-exports kept lexically static-visible, optional install-extra-gated submodules left degradable, and a computed metadata tail — eagerly importing none of it.
+- Accept: the form keys on what defers and on whether a published name is mandatory or optional. A module deferring an absolute dependency it names itself uses module-scope `lazy import X` or `lazy from X import Y`, so a heavy or native import costs nothing until first use and deferring a coupled peer breaks the cycle. A package `__init__` re-exporting a mandatory owned symbol uses module-scope `lazy from package.submodule import Symbol`: the name stays lexically present, so a type checker resolves a downstream `from package import Symbol` while the load defers and the in-`__init__` deferral breaks the package self-cycle. Only an optional, install-extra-gated submodule and the computed `__version__` fall to the module `__getattr__` resolver, with the companion `__dir__` unioning the static and optional names. `__lazy_modules__`, a per-module collection of fully-qualified module-name strings whose opt-in is checked by `__contains__`, is the bulk per-module deferral for a name the file does not mark inline.
+- Reject: a `lazy` statement inside a function, class, or `try`, a `lazy from M import *`, and a `lazy from __future__` are each a `SyntaxError`, the soft keyword being module-scope, non-star, and non-future only; `lazy from . import a` and `lazy from .core import Y` compile but the `ban-relative-imports` gate rejects them, routing the package surface through the absolute `lazy from package.submodule import ...` form; a function-local `import`, an `importlib.import_module` scattered beyond the single resolver, a `sys.modules` mutation, and a per-call re-import each stand in for a module-scope binding; `lazy_loader.attach`/`attach_stub`/`load` (not an admitted dependency, superseded by the native keyword and the `__getattr__` surface) and `importlib.util.LazyLoader` (no `from`-import support, eager spec resolution) are dead forms; a `__lazy_modules__ = ["*"]` wildcard and a process-wide `sys.set_lazy_imports` blanket mode override the explicit per-import boundary.
+- Law: the deferred surface grows by one declaration — a new cold dependency is one more `lazy` line, a new mandatory re-export one more module-scope `lazy from` name, a new optional surface one more `EXTRAS` row — no consumer is edited, and a removed name breaks loudly at its first reference. The `__getattr__` body stays a pure idempotent resolver, its memoization riding import idempotency under the import lock; a genuinely computed value that must cache takes a `threading.Lock` double-check, never an unguarded `globals()[name] = ...` check-then-set that races under a free-threaded build.
+- Boundary: `if TYPE_CHECKING: from X import Y` is the narrower form for a name that must never load at runtime, while a `lazy from X import Y` used only in annotations already costs nothing under PEP 649/749 deferred evaluation, so the guard is reserved for the reference that must stay unimportable. A module whose import registers or runs a side effect — codec, dtype, driver, or plugin registration — is never `lazy`-deferred, since deferral moves the effect to an arbitrary first-use site and a worker thread under free-threading; force it eager through the runtime's `sys.set_lazy_imports_filter`, or populate the registry by explicit entry-point discovery owned by `boundaries.md`. The proxy reifies on a first `LOAD_GLOBAL`/`LOAD_NAME`, attribute access, `getattr`, or `types.LazyImportType.resolve()` — `globals()`, `dir()`, `__dict__`, and `frame.f_globals` reads do not, so the `__dir__` union stays cost-free — while the reification mechanism, `sys.lazy_modules` membership, the `sys.set_lazy_imports` `"normal"`/`"all"`/`"none"` modes, and the `require-lazy`/`ban-lazy` policy belong to the runtime owner and the enforcement gate.
+- Exemption: the module `__getattr__` resolver is the platform-forced statement seam — the attribute protocol calls it and reads a raised `AttributeError` as the miss signal, so it cannot ride the `Result` rail; its `find_spec` presence guard, the `raise AttributeError` miss, and the `raise ImportError` install-hint on a known-but-absent optional dependency (where `hasattr` would raise and `find_spec` probes without importing) are its only statements.
+
+```python conceptual
+import threading
+from importlib import import_module
+from importlib.metadata import version
+from importlib.util import find_spec
+
+from builtins import frozendict
+
+lazy import driver                               # CASE A: heavy native dep, proxy reified on first use
+lazy from worker import Backend                  # CASE A: cold peer, deferral breaks the import cycle
+
+lazy from package import codec, store            # CASE B: mandatory submodule re-exports, lexically static-visible
+lazy from package.core import Shape, TABLE       # CASE B: mandatory owner symbols, in-__init__ deferral breaks the self-cycle
+lazy from package.render import render
+
+
+type Extra = tuple[str, str | None, str]         # (module, attribute|None, install-extra); a None attribute publishes the module
+DISTRIBUTION = "package"
+
+EXTRAS: frozendict[str, Extra] = frozendict({
+    "accelerated": ("accel", None, "accel"),     # CASE B: optional backend gated by an install extra
+    "Probe": ("plugins", "Probe", "plugins"),    # the next optional surface lands as one row
+})
+_LOCK = threading.Lock()
+_VERSION: str | None = None
+
+
+def __getattr__(name: str, /) -> object:
+    global _VERSION
+    if name == "__version__":
+        if _VERSION is None:                     # double-checked compute cache; never a bare globals()[name] = ... race
+            with _LOCK:
+                if _VERSION is None:
+                    _VERSION = version(DISTRIBUTION)
+        return _VERSION
+    if (entry := EXTRAS.get(name)) is None:
+        raise AttributeError(name)               # CASE B: unknown name, attribute-protocol miss
+    module, attribute, extra = entry
+    if find_spec(module) is None:                # non-importing presence probe; hasattr would raise, find_spec stays silent
+        raise ImportError(f"{name!r} needs the {extra!r} extra: pip install {DISTRIBUTION}[{extra}]")
+    resolved = import_module(module)             # import idempotency memoizes; the resolver stays pure
+    return resolved if attribute is None else getattr(resolved, attribute)
+
+
+def __dir__() -> list[str]:                       # dir() never reifies (special-cased in __dir__), so the union is free
+    return sorted({*__all__, "__version__", *EXTRAS})
+
+
+__all__ = ("Backend", "Shape", "TABLE", "codec", "driver", "render", "store")
+```
 
 [TEMPLATE_STRUCTURE_SITE]:
 - Use when: dynamic text must preserve template structure for policy or AST analysis instead of collapsing to a rendered string.
 - Accept: live `string.templatelib.Template`/`Interpolation` for evaluated `value`/`expression`/`conversion`/`format_spec` fields, and `ast.TemplateStr`/`ast.Interpolation` over `ast.parse(optimize=, module=)` for the pre-evaluation source structure — `Constant.value` static segments, `Interpolation.str` expression text with the integer `conversion` ordinal, and the nested `Interpolation.format_spec` as an `ast.JoinedStr` of `ast.FormattedValue` expression nodes — proved congruent with `ast.compare`.
-- Reject: f-string pre-parsing, rendered-string reparsing, regex extraction from formatted text, hand-built interpolation tuples, `ast.dump` string comparison where `ast.compare` decides node equality, and string concatenation hiding template policy.
-- Boundary: the render-time fold of a live `Template`'s `str | Interpolation` segments and the conversion/format-spec application are `system-apis.md`'s; this site owns the structural type forms — the AST nodes and the live `Template` shape — read before any rendering, never the render itself.
+- Reject: f-string pre-parsing, rendered-string reparsing, regex extraction from formatted text, hand-built interpolation tuples, `ast.dump` string comparison where `ast.compare` decides node equality, string concatenation hiding template policy, and an f-string, `%`-format, or `str.format` splice of dynamic input into SVG, XML, HTML, or Typst markup, whose interpolation renders before the destination escaper can run.
+- Law: untrusted or dynamic input interpolated into markup — SVG, XML, HTML, or Typst — rides a `string.templatelib.Template`, never an f-string, because an f-string renders the interpolation into the surrounding markup before any escape point can intercept it; a `Template` instead exposes each `Interpolation.value` for a destination-keyed processor to escape or validate against its target grammar before render, and `xml.etree.ElementTree` builds the XML or SVG node tree so a serializer escapes rather than a string splice.
+- Boundary: the render-time fold of a live `Template`'s `str | Interpolation` segments, the conversion/format-spec application, and the destination-keyed escaping or validation of each `Interpolation.value` are `system-apis.md`'s; this site owns the structural type forms — the AST nodes and the live `Template` shape — read before any rendering, never the render itself.
 
 ```python conceptual
 import ast

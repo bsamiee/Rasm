@@ -13,7 +13,7 @@ as a typed `IValidationError<TValidationError>` projected to `JsonException` at 
 
 [PACKAGE_SURFACE]: `Thinktecture.Runtime.Extensions.Json`
 - package: `Thinktecture.Runtime.Extensions.Json`
-- version: `10.3.0`
+- version: `10.4.0`
 - license: Apache-2.0 (ships `LICENSE.md`)
 - assembly: `Thinktecture.Runtime.Extensions.Json`
 - namespace: `Thinktecture` (public `Utf8JsonReaderExtensions` number-handling codec)

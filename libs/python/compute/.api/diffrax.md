@@ -10,7 +10,6 @@
 - owner: `compute`
 - rail: differential-equation
 - license: Apache-2.0
-- installed: requires `jax`; marker-gated `python_version<'3.15'` (jaxlib ships no cp315 wheel) — companion-band alongside the sibling JAX stack (`jax`/`equinox`/`lineax`/`optimistix`/`optax`/`interpax`/`quadax`).
 - capability: JAX-native ODE/SDE/CDE integration — adaptive and fixed-step Runge-Kutta solvers, Ito/Stratonovich and high-order Levy-area SDE solvers, Brownian path generators with selectable Levy-area level, continuous and discrete event detection, four adjoint differentiation modes, and dense/sub-save output
 
 ## [02]-[PUBLIC_TYPES]

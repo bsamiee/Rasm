@@ -12,7 +12,6 @@
 - owner: `compute`
 - rail: exact-arithmetic
 - asset: pure-Python; optional `gmpy2` backend accelerates the `mp` context when present
-- floor: unconditional; installed in the project venv (cp315-clean, pure-Python)
 - capability: arbitrary-precision real, complex, and interval arithmetic with a large library covering special functions, numerical calculus, linear algebra, and number theory
 
 ## [02]-[PUBLIC_TYPES]

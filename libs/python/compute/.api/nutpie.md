@@ -9,7 +9,6 @@
 - import: `nutpie`; submodules `nutpie.compile_pymc`, `nutpie.compile_stan`, `nutpie.compiled_pyfunc`, `nutpie.zarr_store`
 - owner: `compute`
 - rail: Bayesian-study
-- installed: cp313 only (manifest pin `nutpie; python_version<'3.15'`; gated by the PyMC cp315 floor)
 - capability: Rust-native NUTS sampling of PyMC and Stan models — Numba or JAX backend for PyMC, CmdStan for Stan, diagonal/low-rank/normalizing-flow mass adaptation, an MCLMC sampler, and Zarr-backed trace streaming
 
 ## [02]-[PUBLIC_TYPES]

@@ -9,9 +9,8 @@
 - import: `pymupdf` (legacy alias `fitz`)
 - owner: `artifacts`
 - rail: pdf
-- installed: `1.27.2.3` reflected via `python -c "import pymupdf"` on cp315
+- installed: `1.27.2.3`
 - license: `AGPL-3.0-or-later OR Artifex-Commercial`; copyleft is whole-program — distributing a closed network service over an AGPL MuPDF link triggers source-disclosure obligations, so a commercial deployment routes structural editing to BSD `pypdf`/`pypdfium2` or licenses Artifex; this is the load-bearing licensing constraint of the pdf rail
-- abi: `cp310-abi3` stable-ABI wheels (Tag `cp310-abi3-*`); ABI3 floor cp310 with forward compatibility to cp315+; bundles the MuPDF C core; `Requires-Python >=3.10`; ungated in the manifest
 - entry points: none (library only)
 - capability: PDF/XPS/EPUB/CBZ/MOBI/FB2/SVG/image document open, page rasterization (`Pixmap` with matrix/dpi/colorspace/clip/alpha), per-page Tesseract OCR, text/image/table extraction (`TEXTFLAGS_*` modes, `find_tables` -> pandas/markdown), native outline and embedded-file recovery, vector drawing (`Shape`/`get_drawings`), positioned glyph authoring (`TextWriter`/`insert_htmlbox`), the full annotation-authoring family plus redaction, redaction-grade scrub/bake/font-subset/image-rewrite, lossless image embed, reflowable `Story` HTML layout, page assembly/reorder/copy, OCG layers, journalled undo/redo, AES-256/RC4 encrypted incremental save
 
@@ -96,6 +95,7 @@ Document rows carry path/stream/filetype input, save compaction, encryption, con
 |  [09]   | `Document.select`         | `select(list[int])`                | reorder/subset the document to a page-index list (in place) |
 |  [10]   | `Document.delete_pages`   | range or list of page indices      | drop pages (`delete_page` for one)      |
 |  [11]   | `Document.copy_page` / `move_page` / `fullcopy_page` | source/target index | duplicate or relocate a page within the document |
+|  [12]   | `Document.close` / context manager | `close() -> None`; `with pymupdf.open(...) as doc:` (`__enter__` returns the `Document`, `__exit__` calls `close`) | release the native MuPDF handle deterministically; the `with` bracket closes it on scope exit rather than GC-reaping the live handle |
 
 [ENTRYPOINT_SCOPE]: outline and embedded files
 - rail: pdf

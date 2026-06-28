@@ -10,8 +10,7 @@
 - owner: `runtime`
 - rail: wire
 - namespaces: `lz4`, `lz4.frame`, `lz4.block`
-- installed: `4.4.5`; license BSD-3-Clause; wheels `cp39`..`cp314`, no `cp315` wheel => GATED `; python_version<'3.15'`
-- gate: no `cp315` wheel published for `4.4.5`; the environment marker `; python_version<'3.15'` admits the package on cp314 and below, and the consuming USAGE card runtime [CRDT_OPLOG_LZ4] is [BLOCKED] until a cp315 wheel lands
+- installed: `4.4.5`
 - capability: LZ4 frame codec (one-shot, streaming, file-like) and raw LZ4 block codec for wire-payload compression and CRDT oplog decode
 
 ## [02]-[PUBLIC_TYPES]
@@ -96,11 +95,9 @@
 [LOCAL_ADMISSION]:
 - the runtime wire seam admits `lz4` as the LZ4 compress/decompress owner behind a dependency-injected decompress port; the transport composes `frame.decompress` (one-shot) or the `LZ4FrameDecompressor` cycle (streaming) for inbound payloads and `frame.compress` for outbound.
 - integration rail: the canonical wire stack lowers a `msgspec` `Encoder` output (or a `Raw` op-log envelope) through `frame.compress`, optionally tagging the payload with an `xxhash` digest (see `xxhash.md`) for cheap integrity ahead of the LZ4 `content_checksum`, and the inbound leg runs `frame.decompress` -> `msgspec.Decoder` under a `stamina` `retry_context` scoped to transport faults only (a corrupt-frame `RuntimeError`/`LZ4BlockError` is terminal, never retried). `frame.get_frame_info` sizes the decode buffer before materializing the body.
-- lz4 publishes no `cp315` wheel for `4.4.5`; admission is gated `; python_version<'3.15'` (cp315-DEFER), and the consuming USAGE card runtime [CRDT_OPLOG_LZ4] stays [BLOCKED] until a cp315 wheel lands — no source-build fallback and no companion lane is opened against the gate.
 - the C-extension internals (`lz4._version`, the compiled `_frame`/`_block` modules) are implementation detail; runtime owners compose the public `lz4.frame` / `lz4.block` surface, never the extension modules directly.
 
 [RAIL_LAW]:
 - Package: `lz4`
 - Owns: LZ4 frame and raw-block compression/decompression at the runtime wire seam and the deferred CRDT oplog decode path
 - Accept: `lz4.frame` one-shot `compress`/`decompress` with explicit `compression_level`/`block_size`/`content_checksum`, `frame.get_frame_info` header inspection, the `LZ4FrameCompressor`/`LZ4FrameDecompressor` streaming cycle with `reset`/`auto_flush`, `frame.open`/`LZ4FrameFile` file-like access, the `BLOCKSIZE_*`/`COMPRESSIONLEVEL_*` named caps, `lz4.block` raw codec (with `mode`/`acceleration`/`compression`/`store_size`/`dict`) inside an outer envelope, dependency-injected decompress-port composition
-- Reject: hand-rolled LZ4 framing, block headers, or content checksums; magic-number block sizes/levels where a `BLOCKSIZE_*`/`COMPRESSIONLEVEL_*` constant applies; raw `lz4.block` bytes on a frame channel or vice versa; an ambient/global dictionary instead of an envelope-pinned `dict`; hardwiring lz4 into a codec instead of injecting the decompress port; opening a source-build or companion lane against the `; python_version<'3.15'` gate; direct use of the compiled `_frame`/`_block` extension modules

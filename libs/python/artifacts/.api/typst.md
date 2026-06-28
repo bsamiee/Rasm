@@ -10,8 +10,7 @@
 - owner: `artifacts`
 - rail: documents
 - license: Apache-2.0 (PyO3 binding over the bundled Rust Typst compiler + `comemo` world cache; no LaTeX/Node/external process)
-- asset: runtime library (Rust extension); `cp38-abi3` wheel, `Requires-Python>=3.8`, cp315-clean (no `python_version` marker)
-- version: `0.15.0` (lockfile-resolved; imports and runs on cp315; the wheel bundles the Typst `0.13`-series compiler)
+- version: `0.15.0`
 - entry points: none (library only)
 - capability: Typst markup compilation to PDF/PNG/SVG/HTML, expression evaluation, document querying, PDF/A and PDF/UA standard selection, system-input (`sys.inputs`) injection, font-path/system-font control, deterministic-timestamp control, registry package-path/cache control, resolved-font enumeration, and a font/world-caching reusable `Compiler`
 

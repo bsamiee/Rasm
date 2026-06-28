@@ -9,7 +9,7 @@
 - import: `tensorstore`
 - owner: `data`
 - rail: array-store
-- installed: `0.1.84` docs-derived; native (C++/pybind11) wheel, manifest-markered `python_version<'3.15'`, so it resolves on the companion interpreter only — the cp315 project venv carries no native wheel and `assay api resolve` finds no source there
+- installed: `0.1.84`
 - entry points: library use is import-only; no console script
 - submodules: `tensorstore.experimental` (metrics: `experimental_collect_matching_metrics`, `experimental_collect_prometheus_format_metrics`, `experimental_push_metrics_to_prometheus`, `experimental_update_verbose_logging`, `parse_tensorstore_flags`); `tensorstore.ocdbt` (`DistributedCoordinatorServer`, `dump`, `undump_manifest`, `undump_version_tree_node`) for the optimistically-concurrent distributed B+tree kvstore
 - capability: asynchronous N-dimensional array open/read/write over the `zarr3` (and `zarr`, `n5`, `neuroglancer_precomputed`) drivers, JSON/`Spec`-driven schema/codec/chunk-layout control, `KvStore`-abstracted storage (`file`/`gcs`/`s3`/`memory`/`ocdbt`), transactional staging, virtual `stack`/`concat`/`overlay`/`downsample`/`virtual_chunked` views, NumPy-style advanced indexing, and a `Future`/`WriteFutures` async rail consumable by `await`

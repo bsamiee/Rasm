@@ -1,6 +1,6 @@
 # [PY_GEOMETRY_API_CADQUERY_OCP]
 
-`cadquery-ocp` supplies binary-wheel Python bindings to the OpenCASCADE Technology (OCCT) geometric modeling kernel: it exposes the full BREP topology hierarchy (`TopoDS`), geometry primitives (`gp`, `Geom`), shape builders (`BRepBuilderAPI`, `BRepPrimAPI`, `BRepOffsetAPI`), Boolean/feature operations (`BRepAlgoAPI`), topology traversal (`TopExp`), triangulation (`BRepMesh`), STEP/IGES exchange (`STEPControl`, `IGESControl`), and the XCAF assembly/color/name path (`STEPCAFControl`, `XCAFDoc`, `TDocStd`) as flat `OCP.*` submodules. It is the sole PyPI OCP path for the STEP/IGES B-rep hop; the package owner composes `STEPCAFControl_Reader`/`XCAFDoc_DocumentTool`, `TopExp_Explorer` traversal, and `BRepMesh_IncrementalMesh` tessellation into the `step-bridge` owner, never re-implementing the kernel.
+`cadquery-ocp` supplies Python bindings to the OpenCASCADE Technology (OCCT) geometric modeling kernel: it exposes the full BREP topology hierarchy (`TopoDS`), geometry primitives (`gp`, `Geom`), shape builders (`BRepBuilderAPI`, `BRepPrimAPI`, `BRepOffsetAPI`), Boolean/feature operations (`BRepAlgoAPI`), topology traversal (`TopExp`), triangulation (`BRepMesh`), STEP/IGES exchange (`STEPControl`, `IGESControl`), and the XCAF assembly/color/name path (`STEPCAFControl`, `XCAFDoc`, `TDocStd`) as flat `OCP.*` submodules. It is the sole PyPI OCP path for the STEP/IGES B-rep hop; the package owner composes `STEPCAFControl_Reader`/`XCAFDoc_DocumentTool`, `TopExp_Explorer` traversal, and `BRepMesh_IncrementalMesh` tessellation into the `step-bridge` owner, never re-implementing the kernel.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -9,11 +9,7 @@
 - module: `OCP`
 - owner: `geometry`
 - rail: step-bridge / cad-kernel
-- installed: `7.9.3.1.1` reflected via `import OCP` on cp313
-- license: Apache-2.0 (the OCCT LGPL-with-exception kernel is statically linked into the wheel; the published wheel classifier is Apache-2.0)
-- wheel-floor: binary wheels cp310-cp314 only (no abi3, no cp315); the single `OCP/OCP.cpython-3XX-<plat>.so` is ~148 MB and dynamically links VTK at load time, so the runtime is split across `cadquery-ocp-proxy==7.9.3.1.1` (data/stub side) and a hard `vtk==9.6.2` dependency whose `libvtkWrappingPythonCore3.XX.dylib`/`.so` must resolve or `import OCP` raises `ImportError` — ABI: pybind11 native + VTK 9.6.2 native
-- pin: `cadquery-ocp; python_version<'3.15'` (the `<3.15` requires-python gate; companion-side band alongside the COMPAS/ifcopenshell companions)
-- depends: `cadquery-ocp-proxy==7.9.3.1.1`, `vtk==9.6.2` (both exact-pinned by the wheel)
+- installed: `7.9.3.1.1`
 - entry points: none (library only)
 - capability: OCCT BREP topology, parametric `gp`/`Geom` geometry, primitive and feature shape construction, n-ary Boolean and offset operations over `TopTools_ListOfShape`, fillet/chamfer local operations, mesh triangulation, STEP/IGES exchange, and the XCAF document model carrying assembly structure, colors, names, layers, and materials
 
@@ -242,7 +238,7 @@ The Boolean operators expose the full BOPAlgo surface beyond the binary `(S1, S2
 ## [04]-[IMPLEMENTATION_LAW]
 
 [OCP_TOPOLOGY]:
-- import each module from the flat `OCP` namespace: `from OCP.TopoDS import TopoDS_Shape`, `from OCP.STEPCAFControl import STEPCAFControl_Reader`; there is no intermediate `Core` package as in the SWIG `OCC.Core.*` layout, and module-level import stays at boundary scope per the manifest import policy.
+- import each module from the flat `OCP` namespace: `from OCP.TopoDS import TopoDS_Shape`, `from OCP.STEPCAFControl import STEPCAFControl_Reader`; there is no intermediate `Core` admission as in the SWIG `OCC.Core.*` layout, and module-level import stays at boundary scope per the manifest import policy.
 - shape hierarchy: `TopoDS_Vertex` < `TopoDS_Edge` < `TopoDS_Wire` < `TopoDS_Face` < `TopoDS_Shell` < `TopoDS_Solid` < `TopoDS_CompSolid`/`TopoDS_Compound`; `TopAbs_ShapeEnum` enumerates the same kinds for `TopExp_Explorer`.
 - downcast: static `TopoDS.Edge_s`/`Face_s`/`Vertex_s`/`Wire_s` cast a `TopoDS_Shape` to the concrete type before type-specific member access; a wrong-type cast raises.
 - builder pattern: every `Make*` builder constructs, configures, calls `Build()`, checks `IsDone()`, and yields `Shape()` or a typed accessor such as `Edge()`/`Face()`/`Solid()`; results carry `Generated`/`Modified`/`IsDeleted` for downstream history queries.
@@ -263,5 +259,3 @@ The Boolean operators expose the full BOPAlgo surface beyond the binary `(S1, S2
 - Reject: a hand-rolled STEP/IGES parser, B-rep topology, Boolean kernel, fillet/offset algebra, or triangulator where OCP is admitted; wrapper-renames of `STEPCAFControl_Reader`/`BRepMesh_IncrementalMesh`; shape-only `STEPControl_Reader` where the assembly/color/name metadata is required; the retired conda-only `pythonocc-core` `OCC.Core.*` path; a bare-4-arg `MakeThickSolid(...)` ctor assumption (the operation is `MakeThickSolidByJoin`/`BySimple`)
 
 [CAPTURE_GAP]:
-- floor: `cadquery-ocp 7.9.3.1.1` requires `<3.15,>=3.10` and ships binary wheels cp310-cp314 only (no abi3, no cp315) under the Apache-2.0 wheel classifier; it is a `python_version<'3.15'` gated companion package whose ~148 MB `OCP.so` hard-links the exact-pinned `vtk==9.6.2` (plus the `cadquery-ocp-proxy==7.9.3.1.1` data side) — `import OCP` raises `ImportError` if the VTK Python-wrapping libraries are absent. Reflection ran by importing the cp313 wheel in an ephemeral `cadquery-ocp+vtk` environment; the cp315 project venv carries no wheel and `assay api resolve cadquery-ocp` resolves no source.
-- members: verified by live import against the installed cp313 pybind11 bindings; the `OCP.*` submodule set, the seven STEPCAF mode toggles, the n-ary Boolean `SetArguments`/`SetTools`/`SetFuzzyValue`/`SectionEdges` surface, the no-arg `MakeThickSolid` + `MakeThickSolidByJoin(S, TopTools_ListOfShape, Offset, Tol, ...)` signature, the fillet/chamfer `Add`/`Build`/`Shape` makers, the `IFSelect_ReturnStatus` members (`RetVoid`/`RetDone`/`RetError`/`RetFail`/`RetStop`), the `XCAFDoc_ShapeTool.GetFreeShapes(TDF_LabelSequence)`/`GetShape_s` walk, the `XCAFApp_Application.GetApplication_s()` static plus instance `InitDocument(CDM_Document)` document-init pair, the `TDF_LabelSequence.Value(i)`/`Length()` one-based accessors, the `TCollection_ExtendedString`-only `TDocStd_Document` ctor (`AsciiString`/`str` raise) split from the `TCollection_AsciiString`-or-`str` `RWGltf_CafWriter` path arg, `Message_ProgressRange`, the 5-arg `BRepMesh_IncrementalMesh(shape, deflection, isRelative, angle, parallel)` overload, the 3-arg `RWGltf_CafWriter.Perform(doc, TColStd_IndexedDataMapOfStringString, progress) -> bool` minimal write (the empty-map call returns `True`; there is NO 2-arg `Perform(doc, progress)` overload), and the `GProp_GProps.Mass`/`CentreOfMass`/`MatrixOfInertia` accessors all resolve against the live bindings — no phantom.

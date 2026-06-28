@@ -11,7 +11,6 @@
 - module: `laszip`
 - owner: `data`
 - rail: point-cloud
-- asset: pybind11 native extension (`laszip_core`); wheels span `cp310`-`cp314` on macOS arm64/x86_64, manylinux_2_28 aarch64/x86_64, musllinux_1_2, win_amd64 — no `cp315` wheel, so admitted only on the `python_version<'3.15'` companion band; live reflection pending env provisioning
 - entry points: none; library use is import-only. `import laszip` re-exports the compiled `laszip_core` extension flat (`from .laszip_core import *`)
 - capability: LASzip LAZ stream compression/decompression over a Python file object via `LasUnZipper.decompress_into`/`LasZipper.compress`, point-index `seek`, selective-field decompression through `DECOMPRESS_SELECTIVE_*` masks, per-point `LasZipDll` read/write with `LasZipHeader`/`LasZipPoint`, and `LaszipError` failure signaling — the LAZ backend `laspy` invokes as `LazBackend.Laszip`
 

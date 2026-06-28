@@ -9,7 +9,7 @@
 - import: `import virtualizarr as vz; from virtualizarr import open_virtual_dataset, open_virtual_datatree, open_virtual_mfdataset`
 - owner: `data`
 - rail: virtual-dataset
-- installed: `2.6.2` reflected on cp315 (`python3.15`), rides the xarray `2026.4.0` / zarr `3.2.1` / obstore `0.10.1` floor; pure-Python, no native ABI of its own
+- installed: `2.7.0`
 - entry points: library use is import-only; no console script
 - capability: virtual Zarr reference datasets — `ManifestStore` (zarr-v3 read store) construction from HDF5/NetCDF4/NetCDF3/Zarr-v2v3/FITS/DMRPP/kerchunk-JSON/kerchunk-Parquet/Icechunk via per-format `Parser`, registry-resolved `obstore` backends, eager `loadable_variables` materialization, multi-file concat/combine with serial/Dask/Lithops/process-pool executors, zarr-v2<->v3 codec-config bridging, and `virtualize` accessor export to Kerchunk (dict/json/parquet) and Icechunk reference stores
 

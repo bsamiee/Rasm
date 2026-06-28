@@ -7,10 +7,8 @@
 [PACKAGE_SURFACE]: `structlog`
 - package: `structlog`
 - module: `structlog`
-- version: `26.1.0` (floor `>=26.1.0`)
+- version: `26.1.0`
 - license: `MIT OR Apache-2.0` (dual; `LICENSE-MIT` + `LICENSE-APACHE` + `NOTICE`)
-- asset: pure-Python runtime library (`py3-none-any`); no compiled extension
-- abi: pure-Python, `Requires-Python >=3.10`; optional `colorama` (Windows color), `rich`/`better-exceptions` (traceback rendering), `twisted` (Twisted bridge) are soft dependencies probed at import
 - rail: observability
 - namespaces: `structlog` (core), `structlog.processors`, `structlog.stdlib`, `structlog.dev`, `structlog.contextvars`, `structlog.testing`, `structlog.tracebacks`, `structlog.typing` (= `structlog.types`), `structlog.threadlocal`, `structlog.twisted`
 

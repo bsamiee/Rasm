@@ -14,7 +14,7 @@ The `grpc.aio` serve leg's `SERVER` span emission stays `transport/serve#SERVE`-
 
 The install is profile-gated by the `execution/admission#CONTEXT` `emit_otel` policy row, read through the frozen `SIGNAL_PROFILE` table keyed by `RuntimeProfile`: a `SIDECAR`/`TOOL` profile installs the batched OTLP trio, while a `PACKAGE`/`TEST` profile leaves the `opentelemetry-api` no-op providers in place and emits nothing.
 
-The siblings read the installed providers and own no construction. `observability/metrics#METRIC` reads the installed `MeterProvider` through `metrics.get_meter`, `observability/receipts#RECEIPT` reads the installed `LoggerProvider` and the trace context the propagator seeds, and the providers all carry the one `RUNTIME_RESOURCE` so the three signals join one `service.name`. The package installs the local signal pipeline only; the product telemetry envelope, sampler floor, and health stay AppHost-owned, matching the C# `diagnostics` one-`UseOtlpExporter`, one-`Resource`, one-propagator parity bar realized on the cp315 core.
+The siblings read the installed providers and own no construction. `observability/metrics#METRIC` reads the installed `MeterProvider` through `metrics.get_meter`, `observability/receipts#RECEIPT` reads the installed `LoggerProvider` and the trace context the propagator seeds, and the providers all carry the one `RUNTIME_RESOURCE` so the three signals join one `service.name`. The package installs the local signal pipeline only; the product telemetry envelope, sampler floor, and health stay AppHost-owned, matching the C# `diagnostics` one-`UseOtlpExporter`, one-`Resource`, one-propagator parity bar realized on the runtime.
 
 ## [01]-[INDEX]
 

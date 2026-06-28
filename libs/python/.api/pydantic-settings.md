@@ -10,7 +10,7 @@
 - owner: `runtime`
 - rail: validation
 - namespaces: `pydantic_settings`, `pydantic_settings.sources`, `pydantic_settings.sources.providers`
-- installed: `2.14.1`; license MIT; py3-none-any, cp315-CLEAN (no environment marker); core deps `pydantic>=2.7.0` + `python-dotenv>=0.21.0` + `typing-inspection>=0.4.0`. Optional extras gate the heavier sources: `toml` (`tomli`), `yaml` (`pyyaml`), `aws-secrets-manager` (`boto3`), `azure-key-vault` (`azure-identity`+`azure-keyvault-secrets`), `gcp-secret-manager` (`google-cloud-secret-manager`) — the source class imports the provider dependency lazily and raises at construction if the extra is absent.
+- installed: `2.14.2`
 - capability: layered settings model, source-priority customisation, env/dotenv/file/secret/nested-secret sources, cloud secret managers, a full CLI source with argparse-grade flag/subcommand/positional annotations and a `CliApp` runner
 
 ## [02]-[PUBLIC_TYPES]

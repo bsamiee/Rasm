@@ -11,8 +11,6 @@
 - rail: iceberg
 - version: `0.11.1`
 - license: `Apache-2.0`
-- requires-python: `>=3.10,<4.0`
-- manifest pin: `python_version<'3.15'` (gated below 3.15 by the Arrow/data CPython floor; pyiceberg pulls `pyarrow` which is itself the source-build long-pole)
 - capability: catalog DDL, table reads/writes, schema/type/partition construction, expression-based scan filtering, and multi-engine tabular egress (Arrow / Pandas / Polars eager + lazy / DuckDB / Ray / Daft / Bodo)
 
 ## [02]-[PUBLIC_TYPES]

@@ -1,34 +1,40 @@
 export const meta = {
   name: 'ts-rebuild-single',
   whenToUse: 'Hostile ground-up rebuild of one TypeScript design-page folder to the Effect-TS doctrine bar.',
-  description: 'Hostile ground-up rebuild of libs/typescript design pages to TRULY ultra-advanced TypeScript (Effect-TS rails, Schema-first boundaries, branded/nominal types, exhaustive discriminated unions, zero any/throw/enum) per docs/stacks/typescript/ + coding-ts, AND justified IN-PLACE capability extension. Per design page, 1 agent per file in a 3-step ADVERSARIAL pipeline — rebuild(max) -> critique(xhigh) -> redteam(max), every stage hostile: assume the fence is naive/junior/illusory until it survives attack, never accept "mature", hunt the fake/decorative code that reads advanced but is hollow, collapse + stack both .api tiers, AND close the concept capability gaps by growing the existing owner in place. Then a cross-file reconcile. args = optional area scope (e.g. "ui"); empty/"ALL" = all of libs/typescript.',
+  description: 'Granular hostile ground-up rebuild of libs/typescript design pages to TRULY ultra-advanced TypeScript (Effect-TS rails, Schema-first boundaries, branded/nominal types, exhaustive discriminated unions, zero any/throw/enum) per docs/stacks/typescript/ + coding-ts, AND justified IN-PLACE capability extension. TARGETS are granular: an area root (libs/typescript/ui), one or more sub-folders at ANY depth, or specific files (any number) — passed as a string, an array, or {targets:[...]}. Per TARGETED design page, 1 agent per file in a 3-step ADVERSARIAL pipeline — rebuild(max) -> critique(xhigh) -> redteam(max), every stage hostile: assume the fence is naive/junior/illusory until it survives attack, never accept "mature", hunt the fake/decorative code that reads advanced but is hollow, collapse + stack both .api tiers, AND close the concept capability gaps by growing the existing owner in place. Then a FOLDER-WIDE reconcile: residual union-find fix/verify (blast radius = the owning folder, not just the targeted files) PLUS a per-area sibling-seam drift sweep so the whole folder stays coherent even where the targeted rebuild did not reach. The whole-folder collapse/unification pass is OWNED BY ts-rebuild-many (run it scoped to one area). args = a target path, an array of target paths, or {targets:[...]}; empty = no-op.',
   phases: [
-    { title: 'Discover', detail: 'list every design page under the target (recursive .planning specs)' },
-    { title: 'Rebuild', detail: 'per page (1 agent/file): rebuild(max) -> critique(xhigh) -> redteam(max), every stage ADVERSARIAL (naive/illusory-by-default) + capability extension, pooled at CAP=11' },
-    { title: 'Final-Collapse', detail: 'one series of agents over the whole scope (collapse(max) -> critique(xhigh) -> redteam(max)): collapse + unify across files into one rail/polymorphism/shape system, break illusory differentiation, reduce chaff without removing capability' },
+    { title: 'Discover', detail: 'resolve the targets (file / sub-folder / area, any number) into the targeted page set + owning areas + the folder-wide page set' },
+    { title: 'Rebuild', detail: 'per TARGETED page (1 agent/file): rebuild(max) -> critique(xhigh) -> redteam(max), every stage ADVERSARIAL (naive/illusory-by-default) + capability extension, pooled at CAP' },
+    { title: 'Reconcile', detail: 'FOLDER-WIDE: union-find cluster cross-file residuals -> fix(max) -> adversarial verify(xhigh) with the owning folder as blast radius; then a per-area sibling-seam drift sweep so the whole folder stays coherent even outside the targeted set; hard residuals hand off to resolve-residuals' },
   ],
 }
 
 // --- [CONSTANTS] -------------------------------------------------------------------------
+
 const CAP = 10
 const STAGGER_MS = 1500
 const ROOT = 'libs/typescript'
 
 // --- [INPUTS] ----------------------------------------------------------------------------
-const input = typeof args === 'string' ? (() => { try { return JSON.parse(args) } catch { return args } })() : args
-const rawScope = (typeof input === 'string') ? input.trim() : (input && typeof input === 'object' && input.target) ? String(input.target).trim() : ''
-const SCOPE = (!rawScope || rawScope === 'ALL') ? '' : rawScope
-const SWEEP = !SCOPE ? ROOT : (SCOPE === ROOT || SCOPE.indexOf(ROOT + '/') === 0) ? SCOPE : ROOT + '/' + SCOPE
+
+const normTarget = (t) => { const s = String(t).trim().replace(/\/+$/, ''); return (s === ROOT || s.indexOf(ROOT + '/') === 0) ? s : ROOT + '/' + s.replace(/^\/+/, '') }
+const rawTargets = Array.isArray(args) ? args
+  : (args && typeof args === 'object' && Array.isArray(args.targets)) ? args.targets
+  : (args && typeof args === 'object' && args.target) ? [args.target]
+  : (typeof args === 'string' && args.trim()) ? [args]
+  : []
+const TARGETS = [...new Set(rawTargets.filter(Boolean).map(normTarget))]
 
 // --- [MODELS] ----------------------------------------------------------------------------
-const DISCOVERY_SCHEMA = { type: 'object', additionalProperties: false, required: ['pages'], properties: { pages: { type: 'array', items: { type: 'string' } } } }
+
+const DISCOVERY_SCHEMA = { type: 'object', additionalProperties: false, required: ['packages', 'rebuildPages', 'folderPages'], properties: { packages: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['name', 'planning', 'api', 'root'], properties: { name: { type: 'string' }, planning: { type: 'string' }, api: { type: 'string' }, root: { type: 'string' }, note: { type: 'string' } } } }, rebuildPages: { type: 'array', items: { type: 'string' } }, folderPages: { type: 'array', items: { type: 'string' } } } }
 const FIXLOG_SCHEMA = { type: 'object', additionalProperties: false, required: ['file', 'verdict', 'summary'], properties: { file: { type: 'string' }, verdict: { type: 'string', enum: ['rebuilt', 'refined', 'clean'] }, collapsed: { type: 'string' }, extended: { type: 'string' }, residual_high: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['files', 'claim'], properties: { files: { type: 'array', items: { type: 'string' } }, claim: { type: 'string' } } } }, summary: { type: 'string' } } }
-// --- [FINAL-COLLAPSE] -- whole-scope wider-view rebuild over the SAME scope (one series of agents) ---
-const COLLAPSE_SCHEMA = { type: 'object', additionalProperties: false, required: ['verdict', 'summary'], properties: { verdict: { type: 'string', enum: ['collapsed', 'clean'] }, collapsed: { type: 'array', items: { type: 'string' } }, residual: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['files', 'claim'], properties: { files: { type: 'array', items: { type: 'string' } }, claim: { type: 'string' } } } }, summary: { type: 'string' } } }
 const RESIDUAL_FIX_SCHEMA = { type: 'object', additionalProperties: false, required: ['files', 'verdict', 'summary'], properties: { files: { type: 'array', items: { type: 'string' } }, verdict: { type: 'string', enum: ['fixed', 'clean'] }, summary: { type: 'string' } } }
 const RECONCILE_VERIFY_SCHEMA = { type: 'object', additionalProperties: false, required: ['overall', 'claims'], properties: { overall: { type: 'boolean' }, claims: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['claim', 'status'], properties: { claim: { type: 'string' }, status: { type: 'string', enum: ['fixed', 'invalid', 'open'] }, evidence: { type: 'string' } } } } } }
+const SEAM_SCHEMA = { type: 'object', additionalProperties: false, required: ['package', 'verdict', 'summary'], properties: { package: { type: 'string' }, verdict: { type: 'string', enum: ['repaired', 'clean'] }, repaired: { type: 'array', items: { type: 'string' } }, summary: { type: 'string' } } }
 
 // --- [DOCTRINE] --------------------------------------------------------------------------
+
 const LAW = [
   'Rasm monorepo, libs/typescript planning corpus (markdown specs of intended TypeScript module designs). The current TypeScript code quality is ' +
     'POOR; this is a TRUE modernization to ultra-advanced TS, not a polish pass — discard naive idioms wholesale. CLAUDE.md manifest law governs. ' +
@@ -132,32 +138,9 @@ const COMMENTS = 'COMMENT HYGIENE: code fences are agent-facing — comment for 
   'comment genuinely earns its place; 1-2 lines only for a truly subtle invariant, contract, or boundary. NO restating the code, no narration, no ' +
   'task/process/session/history/proof/review comments, no TSDoc bloat. Densify names and types so comments are rarely needed; cut every low-value ' +
   'comment.'
-const WIDE = [
-  'WHOLE-SCOPE WIDER-VIEW REBUILD — this is the FINAL pass, after every design page ran its own per-file rebuild -> critique -> redteam and the ' +
-    'cross-file residual reconcile. This is NOT alignment and NOT a polish pass: it is a WIDER-SCOPE GROUND-UP REBUILD over the SAME scope `' + SWEEP + '`. ' +
-    'The per-file passes each saw ONE page in isolation and the reconcile only patched the specific residuals they deferred; you now hold EVERY ' +
-    'in-scope design page under `' + SWEEP + '/**/.planning/**` IN VIEW AT ONCE and rebuild with the bigger picture — the cross-file unifications, ' +
-    'mis-homed logic, and duplicated owners NO single-page pass could ever see. Read every in-scope page, its sibling pages, the ' +
-    'docs/stacks/typescript standards + coding-ts, and the `.api/` catalogs of BOTH tiers (the shared `libs/typescript/.api/` universal ' +
-    'Effect/Schema/React rails AND each area `libs/typescript/<area>/.api/` set), cross-checked against the published node_modules types.',
-  'COLLAPSE OBJECTIVES (fix every one in place across the whole scope, per ROOT_REBUILD + COMPOSED_IMPLEMENTATION): (1) RIGHT-PLACE LOGIC — every ' +
-    'concern lives in its ONE rightful owner; a concern needlessly split across files, an owner whose logic belongs on another page, or a ' +
-    'differentiation that should be a single owner is a defect — move/merge it to its canonical home. (2) UNIFY EVERYTHING — across the whole ' +
-    'scope there is ONE rail family (typed `Effect`/`Either`/`Option` carriers, never parallel error styles), ONE polymorphism approach (tagged ' +
-    'discriminated unions + exhaustive `Match`/`$match`, never sibling schemas or parallel types), and ONE canonical set of shapes/owner forms ' +
-    '(`Schema.Class`/`Model.Class`/`Data.TaggedEnum` + `pick`/`omit`/`partial`/`extend` derivation); parallel or near-duplicate shapes, pipelines, ' +
-    'and logic flows living in DIFFERENT files collapse into ONE unified owner / pipeline / logic flow on the rightful page (the siblings consume ' +
-    'it via `import type`, never re-mint it). (3) HARSH ON ILLUSORY PATTERNS — apply the same adversarial stance as the per-file passes, now ' +
-    'CROSS-FILE: assume bad/illusory differentiation, decorative complexity, ceremony, and fake-advanced code (doctrine vocabulary over a hollow ' +
-    'body; a "rich" owner that is a thin slice; smuggled `any`/`as`/`!`; a phantom member) until each survives attack, and BREAK every illusory ' +
-    'differentiation that splits one concept across files. (4) REDUCE FOOTPRINT — shrink the corpus ONLY by removing chaff and illusory ' +
-    'differentiation (duplicated owners, dead surfaces, redundant pipelines, decorative ceremony), NEVER by removing functionality; every ' +
-    'capability is preserved and densified into its unified owner. (5) KEEP IMPROVING QUALITY — every touched page ends objectively stronger per ' +
-    'ALL of docs/stacks/typescript/ (the named laws, the COLLAPSE_SCAN, the Effect-TS rail/shape/AOP doctrine) and coding-ts; deepen union ' +
-    'collapse, Effect-stacking, branded types, and generic parameterization wherever the wider view admits a stronger form.',
-].join('\n')
 
 // --- [OPERATIONS] ------------------------------------------------------------------------
+
 const folderOf = (p) => { const head = p.split('/.planning/')[0].split('/'); return head[head.length - 1] || 'root' }
 const subOf = (p) => p.split('/.planning/').pop()
 const authorPrompt = (page) => [LAW, '', ADVERSARIAL, '', ULTRA, '', EXTEND, '', PATLAW, '', BOUNDARIES, '', PROSE, '', COMMENTS, '', 'TASK: ' +
@@ -228,39 +211,14 @@ const processPage = async (w, tag) => {
   }
   return { page: w.page, logs, ok: Object.keys(logs).length === STAGES.length }
 }
-const finalCollapsePrompt = () => [LAW, '', ADVERSARIAL, '', ULTRA, '', EXTEND, '', PATLAW, '', BOUNDARIES, '', PROSE, '', COMMENTS, '', WIDE, '', 'TASK: ' +
-  'WHOLE-SCOPE COLLAPSE — hold every in-scope design page across `' + SWEEP + '` in view at once and rebuild with the wider picture. Walk the ' +
-  'whole scope for mis-homed logic, concerns split across files, and parallel/near-duplicate shapes/pipelines/logic flows living in DIFFERENT ' +
-  'files; MOVE each concern to its ONE rightful owner and COLLAPSE every cross-file duplicate into a single unified owner/pipeline/rail (the ' +
-  'siblings consume it via `import type`, never re-mint it). Unify the whole scope onto ONE rail family, ONE polymorphism approach (tagged unions ' +
-  '+ exhaustive match), and ONE canonical set of shapes/owner forms; break every illusory/decorative cross-file differentiation; reduce footprint ' +
-  'by removing chaff and duplication while preserving ALL capability; and deepen every touched page to the docs/stacks/typescript + coding-ts bar. ' +
-  'Read the in-scope pages, the standards, and BOTH `.api/` tiers (verify members against node_modules; a phantom is deleted). Fix every defect in ' +
-  'place across the spanned files via Edit/Write, regressing none. Return verdict + collapsed (each cross-file collapse/move made, naming the ' +
-  'files + the unified owner) + residual (each {files, claim} for anything you could not fully resolve) + summary.'].join('\n')
-const finalCritiquePrompt = () => [LAW, '', ADVERSARIAL, '', ULTRA, '', EXTEND, '', PATLAW, '', BOUNDARIES, '', PROSE, '', COMMENTS, '', WIDE, '', 'TASK: ' +
-  'ADVERSARIAL CRITIQUE of the whole-scope collapse + FIX IN PLACE. Assume a cross-file defect remains until you prove otherwise; trust nothing ' +
-  'the collapse pass claimed. Re-walk the WHOLE scope: a concern still split across files or living on the wrong owner; two pages still carrying ' +
-  'parallel/near-duplicate shapes, pipelines, or logic flows that should be ONE unified owner; a second rail family, a second polymorphism ' +
-  'approach, or a divergent owner form anywhere in the scope; illusory/decorative cross-file differentiation still standing; chaff or duplication ' +
-  'still inflating the footprint; any page below the docs/stacks/typescript + coding-ts bar. Push the collapse HARDER — deeper union collapse, ' +
-  'more Effect-stacking, branded types, richer generic parameterization — and repair every hit in place across the spanned files, preserving all ' +
-  'capability. Return verdict + collapsed + residual + summary.'].join('\n')
-const finalRedteamPrompt = () => [LAW, '', ADVERSARIAL, '', ULTRA, '', EXTEND, '', PATLAW, '', BOUNDARIES, '', PROSE, '', COMMENTS, '', WIDE, '', 'TASK: ' +
-  'ADVERSARIAL RED-TEAM of the whole-scope collapse — the LAST and MOST aggressive whole-scope pass. Trust nothing the collapse/critique claimed; ' +
-  'assume the scope still hides mis-homed logic, illusory differentiation, and duplicated owners until proven otherwise. COUNTERFACTUALLY attack ' +
-  'the cross-file ownership: is each concern on its ONE rightful owner; is every parallel/near-duplicate shape/pipeline/logic flow across files ' +
-  'genuinely collapsed into a single unified owner; is the WHOLE scope on ONE rail family AND ONE polymorphism approach AND ONE canonical ' +
-  'owner-form system; is every illusory/decorative differentiation broken; is the footprint reduced with ZERO capability lost; will the next ' +
-  'feature land as ONE case/field/row inside an existing owner with every consumer untouched or broken loudly at compile time? Hunt the cross-file ' +
-  'illusions a single-page pass could never see — a hollow owner duplicated across pages, smuggled `any`/`as`/`!`, a phantom member, decorative ' +
-  'ceremony spanning files. Fix every defect in place across the spanned files; if the scope is genuinely unified, prove it by finding nothing — ' +
-  'never invent churn. Hold the highest bar of any stage. Return verdict + collapsed + residual + summary.'].join('\n')
-const COLLAPSE_STAGES = [
-  { key: 'collapse', build: finalCollapsePrompt, effort: 'max' },
-  { key: 'critique', build: finalCritiquePrompt, effort: 'xhigh' },
-  { key: 'redteam', build: finalRedteamPrompt, effort: 'max' },
-]
+const seamPrompt = (pkg, rebuilt) => [LAW, '', BOUNDARIES, '', 'TASK: FOLDER-WIDE SEAM CHECK of area `' + pkg.name + '` after a TARGETED per-file ' +
+  'rebuild touched ONLY these pages:\n' + JSON.stringify(rebuilt, null, 1) + '\nThe owning folder is `' + pkg.planning + '/**`. Read each rebuilt page; ' +
+  'for every shape/owner/rail/seam/Schema it changed, find the SIBLING pages in the SAME area (OUTSIDE the targeted set) that consume it (via `import ' +
+  'type`) and that the rebuild left STALE, read ONLY those affected siblings, and FIX the drift in place so the area stays coherent (a ' +
+  'renamed/reshaped owner, a changed `Schema`, a moved capability, a stale seam). Do NOT rebuild the siblings — repair ONLY the seam the targeted ' +
+  'rebuild disturbed, preserving all capability and regressing nothing; respect the dependency direction and never reach into a sibling owner ' +
+  'interior. Edit in place. Return verdict (`repaired` if you changed any sibling, else `clean`), repaired (each sibling repo-relative path you ' +
+  'fixed), and summary.'].join('\n')
 
 // --- [COMPOSITION] -----------------------------------------------------------------------
 
@@ -276,16 +234,30 @@ const pool = async (items, cap, worker) => {
 }
 
 phase('Discover')
-const inv = await agent('List every design page under ' + SWEEP + ' — markdown specs at paths matching */.planning/**/*.md. Return each as a ' +
-  'repo-relative path (e.g. ' + ROOT + '/<area>/.planning/<sub>/<page>.md). Exclude IDEAS.md/TASKLOG.md/README.md/ARCHITECTURE.md. Use find; do ' +
-  'not cd.', { label: 'discover', phase: 'Discover', schema: DISCOVERY_SCHEMA, model: 'sonnet', effort: 'low' })
-const pending = ((inv && inv.pages) || []).filter(Boolean).map((p) => ({ page: p }))
+const inv = await agent('Resolve these rebuild TARGETS into the page set + owning areas for ' + ROOT + '. Each TARGET (repo-relative) is an AREA ' +
+  'root (e.g. ' + ROOT + '/ui), a SUB-FOLDER under .planning at ANY depth (e.g. ' + ROOT + '/ui/.planning/<sub> or a deeper nested sub-folder), or a ' +
+  'specific design FILE (e.g. ' + ROOT + '/ui/.planning/<sub>/<page>.md). TARGETS:\n' + JSON.stringify(TARGETS, null, 1) + '\nThe OWNING AREA of a ' +
+  'target is the path BEFORE "/.planning/", or the target itself when it has no "/.planning/" segment (an area root). Use find; do not cd; do not ' +
+  'edit anything. Return: (1) packages — one entry per DISTINCT owning area: {name: the LAST path segment of the area root, planning: ' +
+  '"<area>/.planning", api: "<area>/.api", root: "<area>"}. (2) rebuildPages — the TARGETED page subset (repo-relative *.md): an AREA-root target ' +
+  'expands to EVERY page under "<area>/.planning/**"; a SUB-FOLDER target to EVERY page under that sub-folder at ANY depth; a FILE target to itself; ' +
+  'union all targets and dedup. (3) folderPages — EVERY design page under EVERY owning area "<area>/.planning/**" (the reconcile blast radius). ' +
+  'Exclude IDEAS.md/TASKLOG.md/README.md/ARCHITECTURE.md from BOTH.', { label: 'discover', phase: 'Discover', schema: DISCOVERY_SCHEMA, model: 'sonnet', effort: 'low' })
+const packages = ((inv && inv.packages) || []).filter((p) => p && p.name)
+const rebuildPages = [...new Set(((inv && inv.rebuildPages) || []).filter(Boolean))]
+const folderPages = [...new Set(((inv && inv.folderPages) || []).filter(Boolean))]
+const pending = rebuildPages.map((p) => ({ page: p }))
 const total = pending.length
-log('Discover under ' + SWEEP + ': ' + total + ' design pages; pooling at CAP=' + CAP)
+log('Discover: ' + total + ' targeted page(s) across ' + packages.length + ' area(s) [' + packages.map((p) => p.name).join(', ') + ']; folder-wide ' +
+  'set ' + folderPages.length + '; pooling at CAP=' + CAP)
+if (!total) { log('No targets resolved — pass a file, sub-folder, or area path as args (a string, an array, or {targets:[...]})'); return { root: ROOT, targets: TARGETS, total: 0, packages: packages.map((p) => p.name) } }
 
 // --- [REBUILD]
+
 phase('Rebuild')
 const done = (await pool(pending, CAP, (w) => processPage(w, 'Rebuild-'))).filter(Boolean)
+
+// --- [RECONCILE]
 
 const norm = (x, page) => typeof x === 'string' ? { files: [page], claim: x } : { files: x.files && x.files.length ? x.files : [page], claim: x.claim }
 const allRes = []
@@ -300,16 +272,17 @@ const clusters = (() => {
 })()
 log('Rebuild: ' + done.length + '/' + total + ' pages; reconcile ' + uniq.length + ' residuals (crit+redteam, deduped) -> ' + clusters.length + ' ' +
   'clusters')
+phase('Reconcile')
 let reconciled = []
 if (clusters.length) {
-  phase('Reconcile')
   reconciled = (await pipeline(
     clusters,
     (cl) => agent([LAW, '', ADVERSARIAL, '', ULTRA, '', EXTEND, '', PATLAW, '', BOUNDARIES, '', 'TASK: RECONCILE these cross-FILE residuals the ' +
-      'critique AND red-team passes deferred. There is NO severity — treat EVERY residual as must-address. Read EVERY listed file. For each: if it ' +
-      'is a real cross-file defect, FIX it in place (unify the shared type/seam/rail, repair the strata/boundary issue, or extend the shared owner ' +
-      'in place to close a capability gap that spans files), preserving all capability and regressing no file; if a residual is FACTUALLY ' +
-      'INCORRECT or not a real defect, leave it and say why in the summary — never silently skip a real one to avoid work. Residuals:\n' + JSON.stringify(cl, null, 1)].join('\n'), { label: 'reconcile-fix', phase: 'Reconcile', schema: RESIDUAL_FIX_SCHEMA, effort: 'max', stallMs: 300000 }),
+      'critique AND red-team passes deferred. There is NO severity — treat EVERY residual as must-address. Your blast radius is the OWNING FOLDER(S): ' +
+      'you MAY read and fix ANY sibling page under them to keep seams consistent with the rebuilt pages, not only the listed files. Read EVERY listed ' +
+      'file. For each: if it is a real cross-file defect, FIX it in place (unify the shared type/seam/rail, repair the strata/boundary issue, or ' +
+      'extend the shared owner in place to close a capability gap that spans files), preserving all capability and regressing no file; if a residual ' +
+      'is FACTUALLY INCORRECT or not a real defect, leave it and say why in the summary — never silently skip a real one to avoid work. Residuals:\n' + JSON.stringify(cl, null, 1)].join('\n'), { label: 'reconcile-fix', phase: 'Reconcile', schema: RESIDUAL_FIX_SCHEMA, effort: 'max', stallMs: 300000 }),
     (fix, cl, i) => fix ? agent([LAW, '', BOUNDARIES, '', 'TASK: ADVERSARIAL VERIFY, one verdict per claim. Read the named files from disk and ' +
       'classify each residual: status "fixed" (real defect, now genuinely resolved), "invalid" (the claim is factually wrong / not a real defect — ' +
       'cite why), or "open" (real defect still NOT resolved). Default to "open" on any doubt for a real-looking defect; mark "invalid" ONLY when ' +
@@ -320,20 +293,10 @@ const claimsAll = reconciled.flatMap((r) => (r.verify && r.verify.claims) || [])
 const openClaims = new Set(claimsAll.filter((c) => c.status === 'open').map((c) => c.claim))
 const hard_residual = uniq.filter((r) => openClaims.has(r.claim))
 const dropped = claimsAll.filter((c) => c.status === 'invalid').map((c) => c.claim)
+const seamTargets = packages.map((pkg) => { const rebuilt = rebuildPages.filter((p) => p.indexOf(pkg.root + '/') === 0); const fall = folderPages.filter((p) => p.indexOf(pkg.root + '/') === 0); return { pkg, rebuilt, hasSiblings: rebuilt.length > 0 && rebuilt.length < fall.length } }).filter((x) => x.hasSiblings)
+const seamResults = (await pool(seamTargets, CAP, (x) => agent(seamPrompt(x.pkg, x.rebuilt), { label: 'seam:' + x.pkg.name, phase: 'Reconcile', schema: SEAM_SCHEMA, effort: 'xhigh', stallMs: 300000 }))).filter(Boolean)
+const seamRepaired = seamResults.flatMap((s) => (s && s.repaired) || [])
 log('Reconcile: ' + clusters.length + ' clusters; ' + hard_residual.length + ' open (hard residual -> resolve-residuals), ' + dropped.length + ' ' +
-  'dropped as invalid')
+  'dropped as invalid; folder-seam sweep repaired ' + seamRepaired.length + ' sibling(s)')
 
-// --- [FINAL_COLLAPSE]
-phase('Final-Collapse')
-const collapseLogs = {}
-for (const st of COLLAPSE_STAGES) {
-  const r = await agent(st.build(), { label: 'collapse-' + st.key, phase: 'Final-Collapse', schema: COLLAPSE_SCHEMA, effort: st.effort, stallMs: 900000 })
-  if (r === null) break
-  collapseLogs[st.key] = r
-}
-const collapsedAll = Object.values(collapseLogs).flatMap((l) => (l && l.collapsed) || [])
-const finalResidual = Object.values(collapseLogs).flatMap((l) => (l && l.residual) || [])
-log('Final-Collapse: ' + Object.keys(collapseLogs).length + '/3 whole-scope passes; ' + collapsedAll.length + ' collapses, ' + finalResidual.length + ' ' +
-  'residual')
-
-return { root: ROOT, scope: SCOPE || 'ALL', complete: done.filter((r) => r.ok).length, incomplete: done.filter((r) => !r.ok).length, total: total, clusters: clusters.length, hard_residual: hard_residual, dropped: dropped, finalCollapsed: collapsedAll, finalResidual: finalResidual }
+return { root: ROOT, targets: TARGETS, packages: packages.map((p) => p.name), complete: done.filter((r) => r.ok).length, incomplete: done.filter((r) => !r.ok).length, total: total, clusters: clusters.length, hard_residual: hard_residual, dropped: dropped, seamRepaired: seamRepaired }

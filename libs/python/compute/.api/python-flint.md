@@ -11,8 +11,7 @@
 - asset: runtime library (Cython/C extension wrapping FLINT + Arb)
 - rail: exact-arithmetic, ball-arithmetic
 - namespace: `flint` (all types/functions imported directly from `flint`; `flint.ctx` is the precision/threading singleton)
-- installed: `0.8.0`; license LGPL-2.1-or-later (inherits FLINT/GMP/MPFR runtime copyleft — links GMP, MPFR, FLINT, Arb at the C level, so the distributed binary carries LGPL obligations); manylinux/macOS `cp3x` ABI wheels bundling the C libraries
-- gate: `[GATED]` `; python_version<'3.15'` — Cython/C extension ships no CPython 3.15 wheel; the exact-arithmetic and ball-arithmetic surface runs only on the companion interpreter band, never the cp315 core
+- installed: `0.8.0`
 - capability: GMP-backed exact integer/rational arithmetic, word/multiprecision modular and finite-field arithmetic, univariate and multivariate polynomial algebra (factorization, GCD, resultant, root isolation), exact matrix linear algebra with HNF/SNF/LLL, certified real/complex ball arithmetic with the full Arb special-function catalogue (gamma/zeta/Bessel/hypergeometric/elliptic/modular), certified eigenvalues/solve/DFT on ball matrices, rigorous power-series arithmetic, and Dirichlet character/L-function evaluation
 
 ## [02]-[PUBLIC_TYPES]
@@ -233,4 +232,3 @@
 - Owns: exact integer/rational/word-modular/multiprecision-modular/finite-field arithmetic, univariate and multivariate polynomial algebra (factorization, GCD, resultant, root isolation, Gröbner-input mpoly vectors), exact matrix linear algebra (det/rank/inv/solve/rref/nullspace/charpoly/minpoly + HNF/SNF/LLL/fflu), certified real/complex ball arithmetic with the full Arb special-function catalogue (gamma/zeta/Bessel/Airy/Coulomb/hypergeometric/orthogonal-polynomial/elliptic/modular), certified ball-matrix eigenvalues/solve/exp/DFT/DCT, rigorous truncated power series (`arb_series`/`acb_series` with reversion and root finding), adaptive-precision evaluation (`flint.good`/`showgood`), and Dirichlet character/L-function evaluation
 - Accept: `fmpz`/`fmpq` for exact integer/rational results; `nmod`/`fmpz_mod`/`fq_default` (each with its context) for modular/finite-field results; `arb`/`acb` for certified floating-point results carrying `mid`/`rad`; `flint.good` for adaptive-precision certified evaluation; the mpoly context + `*_mpoly_vec` for exact multivariate algebra
 - Reject: `float`/`complex` conversions before the boundary when exact or certified results are required; a hand-rolled precision-retry loop where `flint.good` adapts; heuristic mpmath special functions where a certified `arb`/`acb` bound is required; symbolic re-derivation of factorization/resultant/lattice reduction that the FLINT exact kernels own
-- License: LGPL-2.1-or-later runtime copyleft (links GMP/MPFR/FLINT/Arb) — the distributed binary carries LGPL obligations; gated `; python_version<'3.15'` (no cp315 wheel)

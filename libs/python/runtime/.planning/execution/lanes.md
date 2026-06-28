@@ -28,7 +28,7 @@ from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
 from contextlib import suppress
 from functools import cache, wraps
 from graphlib import TopologicalSorter
-from os import PathLike
+from os import PathLike, process_cpu_count
 from typing import Final, Literal, assert_never, get_args
 
 import anyio
@@ -79,6 +79,14 @@ class LaneSource[T]:
 DRAIN_COLUMNS: Final[tuple[DrainOutcome, ...]] = get_args(DrainOutcome.__value__)
 FIRE_MASK: Final[int] = EVENT_JOB_EXECUTED | EVENT_JOB_ERROR | EVENT_JOB_MISSED
 FIRE_BUFFER: Final[int] = 64
+
+# the one shared subprocess slot allocator the native host-package worker band contends — every
+# `to_process.run_sync` crossing in `exchange/detect`/`exchange/metadata`/`graphic/raster/io`/`measure`/
+# `process`/`graphic/color/managed`/`media` binds this single `CapacityLimiter` so concurrent
+# libvips/libmagic/FFmpeg workers never oversubscribe the host against each package's own internal thread
+# pool; distinct from the per-lane memoised `_limiter` (one allocator per `LanePolicy` identity) — this is
+# the process-wide native-worker bound, sized once to the schedulable CPU count.
+WORKER_BAND: Final[CapacityLimiter] = CapacityLimiter(process_cpu_count() or 4)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -263,7 +271,6 @@ ADMIT_TABLE: Final[Map[AdmitTag, AdmitRow[object]]] = Map.of_seq([
 
 ## [03]-[RESEARCH]
 
-- [ADMISSION_ADT]: reflection-confirmed on the cp315 core (`apscheduler` 3.11.2, `anyio.to_interpreter`, `concurrent.interpreters` per PEP 734, `expression` 5.6.0 `@tagged_union`/`Block`/`Map`). The former three parallel admission methods (`run`/`cached`/`retried`) collapse into one `LanePolicy.drain` over a `Block[Admit[T]]` whose `bare`/`keyed`/`retried` cases each fold through one `ADMIT_TABLE` `AdmitRow` — the `@tagged_union` discriminant the `.api/expression.md` PUBLIC_TYPES [01]/tagged-union [01]-[03] surfaces own, `Map.of_seq`/`map[key]` the row lookup collection-ops ENTRYPOINTS [06]/[07], the CPU-kernel `offload` staying a distinct subinterpreter primitive sharing the lane's limiter and deadline rather than a fourth admission case — so the cache short-circuit (the `probe` operation resolves each `ADMIT_TABLE[unit.tag]` row once into a `(Option[ContentKey], Option[T], Work[T])` triple folding the `cache.try_find` probe in a single pass, and one `Block.partition` (collection-ops ENTRYPOINTS [03]) splits the `Some`-hit triples into `replayed` `hit`s reproducing the cached `Ok` value via `Option.map2` from the rest going live — never a double row lookup or a double `try_find` per unit) and the resilience-`guard` binding (the `retried` row's `make` wrapping the coroutine in `guard(cls)`) are admission cases rather than method bodies, and the lossless `DrainReceipt[T]` carries `values: Block[T]` (both replayed and resolved oks) and the threaded `cache: Map[ContentKey, T]` rather than discarding the recovered `Ok` values. The receipt threads the typed `Block[BoundaryFault]` and the `Block[T]` values through `Block.of_seq`/`Block.choose`/`Block.fold` (collection-ops ENTRYPOINTS [01]/[03]/[04]) over each lane's `RuntimeRail[T]` outcome, splitting Oks via `Result.to_option` and faults via `Result.swap().to_option` exactly as `reliability/faults#traversed` accumulates, so a rejected unit's fault stays structurally addressable and a completed unit's value survives rather than collapsing to a scalar tally. `anyio.to_interpreter.run_sync` rides a runnable `concurrent.interpreters` on the cp315 core; were a given cp315 build to ship without it, the offload degrades to the confirmed `anyio.to_thread.run_sync` (ENTRYPOINTS [01]) path with a GIL caveat rather than blocking the leg.
 
 - [DEADLINE_CONTAINMENT]: reflection-confirmed against `.api/anyio.md` cancel-scope ENTRYPOINTS [01]/[02] — the bounded drain runs inside `move_on_after(delay, shield=False)` (ENTRYPOINTS [02], silently cancels on deadline, `scope.cancelled_caught` readable) rather than `fail_after` (ENTRYPOINTS [01], raises `TimeoutError`), so a deadline trip cancels the in-flight `start_soon` children inside the structured task group (the children completing-before-block-exit invariant of [ANYIO_TOPOLOGY]) and the receipt reports them as `cancelled = accepted - hit - len(resolved)` with the partial `values`/`faults` intact — a bounded lane never escapes a raw `TimeoutError`/`BaseExceptionGroup` without a `DrainReceipt`, the `Nothing` deadline mapping to `float("inf")` so an unbounded lane drains every unit. The deadline-containment shape is settled.
 

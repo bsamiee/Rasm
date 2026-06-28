@@ -7,10 +7,8 @@
 [PACKAGE_SURFACE]: `pydantic`
 - package: `pydantic`
 - module: `pydantic`
-- version: `2.13.4` (floor `>=2.13.4`)
+- version: `2.13.4`
 - license: `MIT`
-- asset: pure-Python validation layer over the `pydantic-core` Rust extension (`pydantic_core._pydantic_core`); `pydantic` itself is `py3-none-any`, but the resolved environment carries the per-interpreter `pydantic-core` binary wheel that owns the validation engine
-- abi: `pydantic` pure-Python (`py3-none-any`), `Requires-Python >=3.9`; validation speed and the compiled `SchemaValidator`/`SchemaSerializer` come from the `cp315`-tagged `pydantic-core`
 - rail: validation
 - namespaces: `pydantic` (all public API), `pydantic.dataclasses` (stdlib-dataclass integration), `pydantic.json_schema` (`GenerateJsonSchema`), `pydantic.experimental.pipeline`, `pydantic.experimental.missing_sentinel`, `pydantic.experimental.arguments_schema`
 

@@ -9,9 +9,6 @@
 - module: `pyarrow`
 - version: `23.0.1`
 - license: `Apache-2.0`
-- requires-python: `>=3.10`
-- manifest pin: `>=23.0.0,<24` (source-build via the Parametric_Forge Arrow C++ toolchain; the `<24` ceiling holds the C++ ABI to the toolchain-provided libarrow)
-- asset: C++ extension (Apache Arrow); native ABI tied to the linked libarrow/libparquet
 - rail: Arrow columnar memory
 - submodules: `compute`, `acero`, `substrait`, `dataset`, `parquet`, `csv`, `json`, `orc`, `feather`, `ipc`, `flight`, `fs`, `cuda`, `interchange`, `types`, `util`
 
@@ -166,7 +163,6 @@
 - `RecordBatch.serialize(memory_pool=None)` writes one contiguous batch to a `Buffer` as a schema-less encapsulated IPC message; `Table.combine_chunks().to_batches()[0].serialize()` is the canonical whole-table byte source for a content key (an empty table keys off `b""`), and `Buffer.size`/`bytes(buffer)` read its span — distinct from the full-stream `nanoarrow.ArrayStream(...).read_all().serialize()` IPC path that carries a `Schema`
 
 [STACKING_LAW]:
-- `Table`/`RecordBatch`/`RecordBatchReader` are the wire between every data-rail package: `polars.from_arrow`/`scan_pyarrow_dataset` consume them, `pyiceberg` `to_arrow`/`to_arrow_batch_reader`/`add_files` produce and accept them, and `arro3-core`/`nanoarrow` bridge the same C-stream PyCapsules while pyarrow's cp3.15 wheel stabilizes.
 - `parquet.write_table(..., sorting_columns=, write_page_index=, encryption_properties=)` and `dataset.write_dataset(partitioning=HivePartitioning(...), existing_data_behavior=)` are the canonical columnar writers feeding the Iceberg `add_files` path; `parquet.encryption.CryptoFactory`+`KmsConnectionConfig` own column-level modular encryption — never a hand-rolled cipher pass.
 - Register Python domain kernels with `compute.register_scalar_function`/`register_aggregate_function` so they dispatch through the same `call_function` registry as native kernels and remain usable inside `acero`/`dataset` expressions.
 - `substrait.run_query`/`serialize_expressions` carry cross-engine plans; `flight.connect` carries columnar RPC. Prefer these over bespoke serialization when a plan or batch must cross a process/engine boundary.

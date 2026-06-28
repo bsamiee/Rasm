@@ -10,7 +10,6 @@
 - owner: `compute`
 - rail: convex optimization
 - license: Apache-2.0
-- installed: manifest-pinned `cvxpy>=1.9.1; python_version<'3.15'` — companion-band (cp311-cp314 wheels only; no CPython 3.15 wheel; transitive scipy gates the band). RESEARCH-capture-pending-on-uv-sync; the member surface below is authored from official documentation and verifies on uv sync into the companion interpreter band.
 - entry points: none (library only)
 - capability: disciplined convex programming — variable/parameter expression algebra, a broad convex/affine/spectral atom library, equality/inequality/SOC/SDP/exponential/power-cone constraints, `Minimize`/`Maximize` objectives, a `Problem` compiled to conic form, multi-backend `solve` with primal/dual recovery, DPP-parametrized warm re-solves, DGP (geometric) and DQCP (quasiconvex) modes, and mixed-integer support
 

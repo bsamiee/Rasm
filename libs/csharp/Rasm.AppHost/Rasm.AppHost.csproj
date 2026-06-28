@@ -87,6 +87,7 @@
         <PackageReference Include="ModelContextProtocol.AspNetCore" />
         <PackageReference Include="ModelContextProtocol.Core" />
         <PackageReference Include="System.IO.Hashing" />
+        <PackageReference Include="System.Numerics.Tensors" />
     </ItemGroup>
 
     <ItemGroup Label="Sandbox Live Wire">

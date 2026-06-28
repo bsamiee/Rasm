@@ -10,7 +10,7 @@
 - license: `MIT`
 - assembly: `Avalonia.Controls.DataGrid`
 - consumer-tfm: `net10.0` (multi-target `net10.0`/`net8.0`; `net10.0` is the bound asset)
-- build-floor: Avalonia `12.0.x` core (peer `Avalonia` `12.0.4`)
+- build-floor: Avalonia `12.0.x` core (peer `Avalonia` `12.0.5`)
 - namespace: `Avalonia.Controls`
 - namespace: `Avalonia.Controls.Primitives`
 - namespace: `Avalonia.Collections`

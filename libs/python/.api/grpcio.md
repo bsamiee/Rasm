@@ -7,10 +7,9 @@
 [PACKAGE_SURFACE]: `grpcio`
 - package: `grpcio`
 - module: `grpc`
-- version: `1.81.1` (floor `>=1.81`)
+- version: `1.81.1`
 - license: `Apache-2.0`
 - asset: C-extension runtime library (`_cython/cygrpc` over the C-core; not pure-Python)
-- abi: per-interpreter binary wheel (`cp315`-tagged), `Requires-Python >=3.10`
 - rail: transport
 - namespaces: `grpc`, `grpc.aio`
 

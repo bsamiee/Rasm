@@ -9,10 +9,10 @@ deserialization, and number-handling-aware key codecs.
 
 [PACKAGE_SURFACE]: `Thinktecture.Runtime.Extensions.Json`
 - package: `Thinktecture.Runtime.Extensions.Json`
-- version: `10.3.0`
+- version: `10.4.0`
 - license: file LICENSE.md (Pawel Gerr)
 - assembly: `Thinktecture.Runtime.Extensions.Json`
-- core package: `Thinktecture.Runtime.Extensions` (`10.3.0`; owns the source generator that emits the `IObjectFactory<T,TKey,TValidationError>`/`IConvertible<TKey>`/`IValidationError<T>` metadata these converters bind, plus `[JsonConverter]` attribute emission on generated owners)
+- core package: `Thinktecture.Runtime.Extensions` (`10.4.0`; owns the source generator that emits the `IObjectFactory<T,TKey,TValidationError>`/`IConvertible<TKey>`/`IValidationError<T>` metadata these converters bind, plus `[JsonConverter]` attribute emission on generated owners)
 - namespace: `Thinktecture` (`Utf8JsonReaderExtensions`)
 - namespace: `Thinktecture.Text.Json.Serialization` (the converter/factory family)
 - namespace: `Thinktecture.Internal` (`Utf8JsonReaderHelper`, `IUtf8JsonFactory<T,TVE>`, `ObjectFactoryAdapter<T,TVE>`, `JsonSerializerOptionsExtensions`, the singleton numeric key converters)

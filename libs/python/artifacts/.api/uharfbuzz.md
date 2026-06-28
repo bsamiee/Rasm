@@ -10,8 +10,7 @@
 - owner: `artifacts`
 - rail: text-shaping
 - license: Apache-2.0 (Cython binding over the bundled libharfbuzz, which includes the subsetter and the GSUB/GPOS repacker)
-- asset: runtime library (Cython extension over libharfbuzz); `Requires-Python>=3.10`, cp315-clean
-- installed: `0.55.0` reflected via `import uharfbuzz` on cp315 (`uharfbuzz.version_string()` returns the linked libharfbuzz version)
+- installed: `0.55.0`
 - entry points: none (library only)
 - capability: OpenType text shaping; glyph advance/extents/origin/name queries in both axes; glyph outline extraction via draw callbacks or a fontTools pen; COLRv1 paint extraction and CPU rasterization to a BGRA32/A8 image; bitmap (CBDT/sbix PNG) and SVG colour-glyph extraction; OpenType layout/math/variation/name-table introspection; named-instance and variation-axis enumeration; font subsetting (glyph/unicode/feature/name/axis closure with retain-GID and instancing); GSUB/GPOS subtable repacking with overflow resolution
 

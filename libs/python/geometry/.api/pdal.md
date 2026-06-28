@@ -9,7 +9,7 @@
 - import: `import pdal` then `pdal.Reader`/`pdal.Filter`/`pdal.Writer`/`pdal.Pipeline`; `import` time runs `inject_pdal_drivers()` and binds module-level `dimensions`/`info`
 - owner: `geometry`
 - rail: scan-processing
-- installed: `3.5.3`; license BSD; ships the compiled `libpdalpython` extension built against a native `libpdal` C++ library — sdist-only on PyPI (no published wheels), so install needs `cmake` + `libpdal` headers/lib (conda-forge `python-pdal` provides a prebuilt binary); the sdist builds cp313 from source where `libpdal` is present. Manifest `pdal>=3.5.3; python_version<'3.15'` (companion band)
+- installed: `3.5.3`
 - entry points: none (library only)
 - capability: PDAL JSON or stage-sequence pipeline construction, driver inference from filename, execute / streaming-execute / chunked-iterate, in-memory `numpy` structured-array inputs and outputs, mesh output to `meshio`, frame output to `pandas`/`geopandas`, pickle round-trip via the pipeline JSON, and full driver/dimension/option introspection
 
@@ -125,5 +125,4 @@ Output members are `libpdalpython.Pipeline` C-extension attributes, undefined be
 - Reject: hand-rolled point-cloud format parsing; direct libpdal C++ API calls from Python; a per-format pipeline function family where the injected driver factory plus `|` composes it; raw `Filter(type=...)` where an injected `Filter.<name>` factory exists; installation without native `libpdal`
 
 [CAPTURE_GAP]:
-- floor: `pdal==3.5.3` is sdist-only (no PyPI wheels) and links a native `libpdal` C++ library; manifest pins `python_version<'3.15'` (companion band). The project-venv `assay api resolve` returns `unsupported` (no source on the current environment); install rides conda-forge `python-pdal` or a `cmake`+`libpdal` source build.
 - members: introspected against the cached sdist source (`src/pdal/__init__.py`, `pipeline.py`, `drivers.py`); every documented type, entrypoint, property, and the `inject_pdal_drivers` factory mechanism resolves — no phantom. The concrete injected driver short-names (`Reader.las`, `Filter.range`, ...) are registry-runtime values from `libpdalpython.getDrivers()`, enumerated here as representative of the live driver set, confirmed against a `pdal.info`/`getDrivers()` call on the installed companion distribution.

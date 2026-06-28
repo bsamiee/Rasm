@@ -9,8 +9,6 @@
 - version: `1.2.0`
 - license: Apache-2.0
 - import: `arviz` (alias `az`)
-- wheel: `py3-none-any` (pure Python; `arviz-stats` numerics ride `scipy`/Pythran)
-- marker: gated `arviz>=1.2.0; python_version<'3.15'` (scipy/Pythran lag the CPython 3.15 floor) — companion band beside `numpyro`/`nutpie`/`blackjax`
 - owner: `compute`
 - rail: Bayesian-study
 - capability: backend-agnostic posterior analysis — `xarray.DataTree` I/O, MCMC diagnostics (`rhat`/`ess`/`mcse`/`bfmi`/`rhat_nested`), full LOO family (`loo`/`loo_subsample`/`loo_pit`/`loo_expectations`/`loo_metrics`/`loo_r2`/`loo_moment_match`/`loo_kfold`/`reloo`), stacking/BMA `compare`, prior-likelihood sensitivity (`psense`/`psense_summary`), predictive divergences (`wasserstein`/`kl_divergence`), HDI/ETI/ROPE intervals, the chained `.azstats` xarray accessor, and 39 plot functions

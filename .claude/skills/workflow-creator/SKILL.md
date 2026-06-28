@@ -127,6 +127,18 @@ Before writing a line of code, answer these. The answers pick the topology for y
 
 Write these five answers down for the user before coding. They are the design.
 
+**Terminal stages are opt-in, not a default.** A reconcile / collapse / align stage
+exists only when the work needs it — workers deferred cross-item fixes (the deferral
+case above, pattern #13), or a later pass must hold the whole corpus to unify it. A pure
+fan-out or a pure refinement workflow legitimately ends at its last per-item stage with
+no terminal stage at all; do not bolt one on out of habit, and do not assume the
+discover → work → reconcile → collapse shape is the canonical mold. When a workflow is
+**parameterized by a target** (a file, a sub-folder at any depth, a unit root, or several
+at once), resolve the scope with the discovery-agent shape in `references/patterns.md`
+#19 — expand targets inside an agent (the orchestrator has no filesystem), keep the
+targeted subset (the cost lever) separate from the folder-wide blast radius, and read
+`args` as `string | array | {targets}` with a no-op default.
+
 ---
 
 ## Step 3 — The decision that matters most: `pipeline` vs `parallel`
@@ -410,6 +422,13 @@ These are the mistakes that actually break workflows:
   not need this.
 - **The body is JavaScript only.** TypeScript syntax — type annotations,
   interfaces, `as` casts — is a parse error.
+- **Read `args` as structured data and default the no-op.** `args` is the live value the
+  caller passed (`string` / `array` / `object`), never JSON text — `JSON.parse(args)`
+  throws on a non-string and corrupts an object. Branch on shape (`Array.isArray`,
+  `typeof`, `args?.field`) and default the no-args run to a safe no-op, never a silent
+  full-corpus sweep. A saved workflow receives `args` via `Workflow({ scriptPath, args })`;
+  if a build ever drops it for a `scriptPath` launch, relaunch with an inline `script` or
+  encode the scope in the file (patterns #19).
 - **Wrap long prompt strings with adjacent `+`, not a multi-line template.**
   Split at a space and keep the space on the left segment; the value must stay
   byte-identical — a fused word or an injected `\n` is a silent prompt change.

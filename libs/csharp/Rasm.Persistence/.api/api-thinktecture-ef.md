@@ -11,7 +11,7 @@ key column's `nvarchar(n)` is policy data, not a per-column annotation.
 
 [PACKAGE_SURFACE]: `Thinktecture.Runtime.Extensions.EntityFrameworkCore10`
 - package: `Thinktecture.Runtime.Extensions.EntityFrameworkCore10`
-- version: `10.3.0` (rides the `Thinktecture.Runtime.Extensions` 10.3.0 core generator line)
+- version: `10.4.0` (rides the `Thinktecture.Runtime.Extensions` 10.4.0 core generator line)
 - license: file LICENSE.md (Pawel Gerr; permissive, source on GitHub)
 - assembly: `Thinktecture.Runtime.Extensions.EntityFrameworkCore10`
 - core package: `Thinktecture.Runtime.Extensions` (the generator + `IObjectFactory`/`IConvertible` contracts)

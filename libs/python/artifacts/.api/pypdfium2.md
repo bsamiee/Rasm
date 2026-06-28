@@ -9,9 +9,8 @@
 - import: `pypdfium2`
 - owner: `artifacts`
 - rail: pdf
-- installed: `5.10.1` (`pypdfium2.PYPDFIUM_INFO`); bundles PDFium binary `pypdfium2.PDFIUM_INFO`
+- installed: `5.10.1`
 - license: `BSD-3-Clause` (helpers) + `Apache-2.0`/`BSD-3-Clause` (bundled PDFium binary, see vendored licenses); permissive — the render arm admissible in a closed/distributed service where AGPL `pymupdf` is not
-- abi: `py3-none-*` platform wheels (Tag `py3-none-<platform>`); PDFium ships as a prebuilt binary loaded via ctypes (`pypdfium2_raw`), so there is no Python-ABI floor; `Requires-Python >=3.6`; ungated in the manifest
 - entry points: console script `pypdfium2` (CLI: render/toc/info/…); library use is import-only
 - capability: PDFium document open/new/save, page rasterization to bitmap/PIL/NumPy (scale/rotation/crop/color-scheme/form-aware), text extraction/search/char-geometry, page-object + image inspection and editing, outline/destination walk, attachment read/write, AcroForm/XFA form environment, page-as-XObject reuse, raw ctypes escape hatch
 

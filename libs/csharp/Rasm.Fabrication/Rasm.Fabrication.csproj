@@ -11,6 +11,7 @@
         <PackageReference Include="ACadSharp" />
         <PackageReference Include="CavalierContours" />
         <PackageReference Include="Clipper2" />
+        <PackageReference Include="DSTV.Net" />
         <PackageReference Include="geometry3Sharp" />
         <PackageReference Include="MTConnect.NET-Common" />
         <PackageReference Include="OcctNet.Wrapper" />

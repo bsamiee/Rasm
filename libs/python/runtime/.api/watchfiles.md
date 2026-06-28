@@ -8,7 +8,6 @@
 - package: `watchfiles`
 - version: `1.2.0`
 - license: MIT
-- wheel: native CPython extension (`_rust_notify`, Rust `notify`); abi3 wheels run on cp315. Carries a vendored `notify` CycloneDX SBOM (`watchfiles-1.2.0.dist-info/sboms/watchfiles_rust_notify.cyclonedx.json`).
 - import: `watchfiles`
 - owner: `runtime`
 - rail: automation

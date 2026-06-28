@@ -6,11 +6,9 @@
 
 [PACKAGE_SURFACE]: `awkward`
 - package: `awkward`
-- version: `2.9.1` (native kernels via `awkward-cpp` `53`)
+- version: `2.9.1`
 - module: `awkward` (alias `ak`); submodules `ak.contents`, `ak.forms`, `ak.types`, `ak.behaviors`, `ak.numba`, `ak.jax`
-- asset: pure-Python `awkward` (`py3-none-any`) over the `awkward-cpp` native kernel extension; CUDA kernels load lazily through the `"cuda"` backend
 - license: `BSD-3-Clause`
-- marker: `requires-python >=3.10`; runtime dependencies `awkward-cpp`, `numpy`, `fsspec` (remote `from_parquet`/`from_json` paths), `packaging`; free-threaded (`3.13t`/`3.14t`) safe
 - owner: `data`
 - rail: irregular-arrays
 

@@ -9,9 +9,8 @@
 - import: `nbclient`
 - owner: `artifacts`
 - rail: notebook
-- installed: `0.11.0` reflected via isolated `uv pip` install + reflection (assay finds no source in the project venv)
+- installed: `0.11.0`
 - license: BSD-3-Clause
-- abi: pure Python; no native extension, no wheel/ABI floor; cp315-clean
 - deps: `nbformat` (notebook model), `jupyter_client` (kernel protocol), `traitlets` (config), `jupyter_core`
 - asset: runtime library; top-level surface is `NotebookClient`, `execute`, `exceptions`
 

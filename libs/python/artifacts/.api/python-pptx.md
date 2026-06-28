@@ -9,9 +9,8 @@
 - import: `pptx`
 - owner: `artifacts`
 - rail: office
-- installed: `1.0.2` (uv.lock pin); markerless in the manifest itself but transitively gated off cp315-core — it hard-requires `lxml`, which is `python_version<'3.15'`-gated (no cp315 wheel), so python-pptx resolves only on the sub-3.15 worker lane and the cp315-core owner reaches it over the runtime `anyio.to_process` (`.api/anyio.md`) subprocess seam; reflected on cp313 with matching version `1.0.2`
+- installed: `1.0.2`
 - license: MIT (Steve Canny) — permissive, no copyleft gate; aligns with the MIT/BSD sibling office owners
-- abi: pure Python over compiled runtime dependencies — `lxml` (BSD, the libxml2/libxslt ABI surface and the cp315 gate driver), `Pillow` (image-embed sizing), `XlsxWriter` (chart-data workbook embed). No cp315 wheel for the `lxml` dependency, so the whole rail runs on the sub-3.15 worker, never cp315-core
 - entry points: none (library only)
 - capability: `.pptx` construction and editing — slides from layouts, layouts/masters, textboxes, runs/paragraphs/fonts with color and hyperlinks, pictures, tables, native category/xy/bubble charts, autoshapes, connectors, group shapes, movie and OLE-object embeds, freeform vector shapes, placeholders, speaker notes, core properties, and offscreen slide-shape geometry in EMU value objects
 
@@ -117,5 +116,3 @@ A shape's `TextFrame` owns paragraphs/runs and fit; `ChartData` builders feed `a
 [RAIL_LAW]:
 - Package: `python-pptx`
 - Owns: `.pptx` construction and editing — slides from layouts, textboxes/runs/paragraphs/fonts with color and hyperlinks, pictures, tables, native category/xy/bubble charts, autoshapes, connectors, groups, movie/OLE embeds, freeform vector shapes, placeholders, notes, core properties
-- Accept: presentation authoring on the sub-3.15 worker (gated off cp315-core by the `lxml` dependency) dispatched over the runtime `anyio.to_process` subprocess seam with saved-bytes-only return, feeding the office and export-bundle owners, downstream of the `python-magic` admission gate and the `msoffcrypto-tool` confidentiality edge
-- Reject: wrapper-renames of `add_slide`/`save`; a per-shape-kind slide type where the `add_*` family suffices; hand-built path XML where `build_freeform` exists; raw-EMU integers where the `Length` value objects exist; magic shape/anchor/alignment strings where the `MSO_*`/`PP_*`/`XL_*` enums exist; a `pptx` import in the cp315-core process or a live `Presentation` returned across the worker seam; identity minting the runtime owns

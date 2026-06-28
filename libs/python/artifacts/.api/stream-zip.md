@@ -9,8 +9,7 @@
 - import: `stream_zip`
 - owner: `artifacts`
 - rail: bundle
-- asset: pure-Python runtime library (no native build; `py3-none-any` wheel); hard runtime dependency `pycryptodome>=3.10.1` (the AES-256/HMAC-SHA1/PBKDF2 WinZip-AES backend imported as `AES`/`HMAC`/`SHA1`/`PBKDF2`)
-- installed: `0.0.84` reflected via `importlib.metadata.version('stream-zip')` on cp315
+- installed: `0.0.84`
 - entry points: library use is import-only; no console script
 - capability: bounded-memory streaming ZIP construction yielding `Iterable[bytes]`, per-member ZIP32/ZIP64 format selection with automatic upgrade, raw-deflate or stored (uncompressed buffered/streamed) compression, extended Unix timestamps (`UT`/`ux`/`Info-ZIP NTFS`), WinZip AES-256 encryption keyed by `password`, streamed-content CRC32/size integrity verification, and a mirrored `async_stream_zip` over async iterables
 
@@ -84,7 +83,6 @@
 [STACKING]:
 - Each `MemberFile.data` is a lazy `Iterable[bytes]`, so a `segno` QR `save(io, kind=...)` output, a `svgelements`-composed SVG, a `tomlkit` `dumps(...)` document, or a `pymupdf`/`weasyprint` PDF stream feeds straight into a member without buffering the whole file — the bundle owner yields `(name, modified_at, mode, ZIP_AUTO(size), member_bytes_iter)` tuples lazily and `stream_zip` interleaves encode-and-emit.
 - `ZIP_AUTO(uncompressed_size, level)` reads the per-member size the artifacts producer already knows (e.g. a `msgspec.msgpack.encode` length or a `pikepdf`/`pymupdf` page count estimate) to pick ZIP32 vs ZIP64 deterministically, so the format decision is data-driven, not a post-hoc overflow catch.
-- `stream-unzip` (`python_version<'3.15'`, gated) is the streamed inverse: it consumes the same chunked `bytes` an upload or download yields and re-emits `(name, size, data_iter)`, closing the bundle round-trip without a `zipfile` whole-archive buffer.
 - `get_crypto_random` accepts a deterministic byte source for reproducible-fixture testing of the AES salt/IV path; production passes the default `secrets.token_bytes`.
 
 [RAIL_LAW]:

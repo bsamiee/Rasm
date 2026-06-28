@@ -9,9 +9,8 @@
 - import: `py7zr`
 - owner: `artifacts`
 - rail: compression
-- installed: `1.1.3` reflected via isolated install + reflection on cp313 (`License-Expression` metadata confirms the SPDX id)
+- installed: `1.1.3`
 - license: `LGPL-2.1-or-later` (weak copyleft; dynamic import imposes no source obligation on the consumer, but redistribution of a modified `py7zr` must stay LGPL)
-- abi: `py3-none-any` pure Python (codec backends `pyppmd`/`pybcj`/`brotli`/`pycryptodomex`/`inflate64` carry their own native wheels); `Requires-Python >=3.10`; ungated in the manifest
 - entry points: console script `py7zr` (CLI: list/extract/create/test/append); library use is import-only
 - capability: 7z archive read/write/test/list, multi-codec filter chains with DELTA/BCJ pre-filters, AES256 header+content encryption, password protection, streamed per-entry extraction sinks (`WriterFactory`/`Py7zIO`), bounded-size decompression-bomb defense (`max_extract_size`), `ExtractCallback`/`ArchiveCallback` progress mirrors, multiprocessing decode (`mp=True`), shutil archive-format registration
 

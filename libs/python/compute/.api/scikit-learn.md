@@ -9,7 +9,6 @@
 - import: `sklearn`; submodules `sklearn.base`, `sklearn.pipeline`, `sklearn.compose`, `sklearn.preprocessing`, `sklearn.model_selection`, `sklearn.linear_model`, `sklearn.ensemble`, `sklearn.cluster`, `sklearn.svm`, `sklearn.tree`, `sklearn.decomposition`, `sklearn.feature_selection`, `sklearn.calibration`, `sklearn.inspection`, `sklearn.metrics`; experimental gates import-time (`from sklearn.experimental import enable_halving_search_cv`)
 - owner: `compute`
 - rail: model
-- installed: marker-gated `python_version<'3.15'` (`scikit-learn>=1.9.0`; no cp315 wheel, transitive scipy/Pythran cp315 lag); license BSD-3-Clause; native build over `numpy`/`scipy`/Cython, OpenMP-threaded ensembles
 - capability: classical machine learning — estimators, transformers, pipelines, cross-validation, decomposition, feature selection, probability calibration, model inspection, metrics, and a uniform `fit`/`predict`/`transform`/`score` protocol with metadata routing and DataFrame/array output configuration; the fitted pipeline is the ONNX export source for the model-asset rail
 
 ## [02]-[PUBLIC_TYPES]

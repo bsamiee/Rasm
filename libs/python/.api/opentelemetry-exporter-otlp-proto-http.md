@@ -6,9 +6,8 @@
 
 [PACKAGE_SURFACE]: `opentelemetry-exporter-otlp-proto-http`
 - package: `opentelemetry-exporter-otlp-proto-http`
-- version: `1.42.1`
+- version: `1.43.0`
 - license: `Apache-2.0`
-- wheel: `py3-none-any` (pure-Python, `Root-Is-Purelib: true`); transitive `requests`/`protobuf`/`opentelemetry-proto` carry the only native code
 - module: `opentelemetry.exporter.otlp.proto.http`
 - asset: runtime library
 - rail: observability

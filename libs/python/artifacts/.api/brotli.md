@@ -9,8 +9,7 @@
 - import: `brotli`
 - owner: `artifacts`
 - rail: compression
-- version: `1.2.0`; license `MIT`
-- abi: version-specific `cp3X-cp3X` extension wheel (delocate-bundled native libbrotli), not abi3 — manifest pins `python_version<'3.15'` until a cp315 wheel publishes
+- version: `1.2.0`
 - entry points: none (library only)
 - capability: Brotli one-shot and incremental compression/decompression with mode (generic/text/font), quality, and window tuning, plus a bounded-output decompress probe pair (`output_buffer_limit` + `can_accept_more_data`/`is_finished`) for back-pressure-bounded streaming
 

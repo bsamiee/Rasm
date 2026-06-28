@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_API_AV]
 
-`av` (PyAV) supplies the FFmpeg-backed media surface for the artifacts MEDIA rail: `av.open(file, mode)` returns an `InputContainer` (demux/decode) or `OutputContainer` (encode/mux), `add_stream` mints typed `VideoStream`/`AudioStream` owners, and the `VideoFrame.from_ndarray` -> `stream.encode` -> `container.mux` loop drives a frame sequence into MP4/WebM/GIF — the inverse `container.demux` -> `stream.decode` -> `frame.to_ndarray` loop reads it back. The package owner composes `av.open`, `OutputContainer.add_stream`, `VideoFrame.from_ndarray`, `VideoStream.encode`, `OutputContainer.mux`, the `av.filter.Graph` filter-chain, and the `BitStreamFilterContext` remux path into the polymorphic `MediaOp` (Encode/Decode/Transcode/Remux/Filter). The wheel bundles FFmpeg (`libavcodec`/`libavformat`/`libavfilter`/`libswscale`/`libswresample` plus `libx264`/`libx265`/`libvpx`/`libSvtAv1Enc`), so it removes any `subprocess` shell-out to a system `ffmpeg` binary, and it never re-implements muxing, container packetization, the filter graph, or the codec layer FFmpeg already owns.
+`av` (PyAV) supplies the FFmpeg-backed media surface for the artifacts MEDIA rail: `av.open(file, mode)` returns an `InputContainer` (demux/decode) or `OutputContainer` (encode/mux), `add_stream` mints typed `VideoStream`/`AudioStream` owners, and the `VideoFrame.from_ndarray` -> `stream.encode` -> `container.mux` loop drives a frame sequence into MP4/WebM/GIF — the inverse `container.demux` -> `stream.decode` -> `frame.to_ndarray` loop reads it back. The package owner composes `av.open`, `OutputContainer.add_stream`, `VideoFrame.from_ndarray`, `VideoStream.encode`, `OutputContainer.mux`, the `av.filter.Graph` filter-chain, and the `BitStreamFilterContext` remux path into the polymorphic `MediaOp` (Encode/Decode/Transcode/Remux/Filter). The package bundles FFmpeg (`libavcodec`/`libavformat`/`libavfilter`/`libswscale`/`libswresample` plus `libx264`/`libx265`/`libvpx`/`libSvtAv1Enc`), so it removes any `subprocess` shell-out to a system `ffmpeg` binary, and it never re-implements muxing, container packetization, the filter graph, or the codec layer FFmpeg already owns.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -9,11 +9,9 @@
 - import: `av`
 - owner: `artifacts`
 - rail: media
-- version: `17.1.0`; license `BSD-3-Clause` (bindings); bundled FFmpeg `8.1.1` is `LGPL`/`GPL` by build config — GPL encoders (`libx264`/`libx265`) make the deployed wheel GPL-effective
-- abi: `cp311-abi3` wheel (one stable-ABI binary covers cp311 through cp315; manifest carries `av` markerless, cp315-clean); delocate-vendored native libs, no system FFmpeg
+- version: `17.1.0`
 - bundled libs: `libavutil 60`, `libavcodec 62`, `libavformat 62`, `libavdevice 62`, `libavfilter 11`, `libswscale 9`, `libswresample 6` (read at runtime via `av.library_versions` / `av.ffmpeg_version_info`)
 - entry points: console script `pyav` (`av.__main__:main`); library use is import-only
-- capability: FFmpeg container read/write, frame-sequence encode to MP4/WebM/GIF via codec streams (`h264`/`libx264`, `hevc`/`libx265`, `vp8`/`vp9`/`libvpx`, `av1`/`libsvtav1`, `gif`), demux/decode of any FFmpeg-supported input, NumPy ndarray <-> `VideoFrame`/`AudioFrame` interchange, DLPack zero-copy GPU/torch frame import, `swscale` pixel-format reformat, `swresample` audio resample, the `libavfilter` filter graph (scale/crop/overlay/fps/loudnorm), bitstream-filter remux (no re-encode), `AudioFifo` rebuffering, codec-context option control (CRF/preset/threads/hwaccel), and packet-level mux/demux with a wheel-bundled FFmpeg (no system binary)
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -176,7 +174,6 @@ The stream exposes its codec parameters directly and through `codec_context`. `w
 - remux axis: `BitStreamFilterContext` rewrites packet bitstreams (annexb, extradata) for a `demux` -> `bsf.filter` -> `mux` copy that never re-decodes; container/codec change without quality loss is a remux, never a needless re-encode.
 - encode axis: `stream.encode(frame)` -> `container.mux(packets)` is the one encode-then-mux row; the flush is `stream.encode(None)` muxed at end-of-stream, never a separate teardown surface; backpressure-sensitive consumers mux `Packet`s one at a time with `container.mux_one(packet)` (each carries `dts`/`pts`/`duration`/`is_keyframe`), never a fictional lazy-encode iterator; `AudioFifo` rebuffers to a fixed `frame_size` for encoders (AAC) that require it.
 - evidence: each op captures container format, codec name, `pix_fmt`, frame count, resolution, frame rate, target bit rate, GOP size, filter-graph node chain, bundled `libavcodec`/`ffmpeg_version_info`, and input/output byte length as a media receipt.
-- boundary: `av` owns FFmpeg container muxing/demuxing, codec encode/decode, the filter graph, and bitstream remux through the wheel-bundled FFmpeg (`8.1.1`) with no system binary; NumPy is the host frame-buffer edge and DLPack the device edge; Pillow routes through `from_image`/`to_image` only when an image owner already holds a `PIL.Image`; live playback and UI stay outside this package; failures surface as the typed `FFmpegError` hierarchy (`EncoderNotFoundError`/`DecoderNotFoundError`/`MuxerNotFoundError`/`DemuxerNotFoundError`/`FilterNotFoundError`/`BSFNotFoundError`/`InvalidDataError`), never as raw return codes.
 
 [STACK_INTEGRATION]:
 - universal `numpy` tier (`libs/python/.api/numpy.md`): the frame seam is `VideoFrame.from_ndarray(arr, format)` in / `frame.to_ndarray()` out — a canonical `numpy` `uint8`/`float32` buffer (RGB24/RGBA/GRAY) is the one host pixel surface, so a `scikit-image`/`matplotlib`/`pillow`-produced frame array encodes without a bespoke pixel struct, and `from_numpy_buffer` is the zero-copy variant for a contiguous C-order buffer. The device edge is `from_dlpack` (a `torch`/`cupy`/`jax` CUDA tensor ingests with no host round-trip); the host array and the DLPack capsule are the only two ingest shapes.
@@ -187,6 +184,4 @@ The stream exposes its codec parameters directly and through `codec_context`. `w
 
 [RAIL_LAW]:
 - Package: `av`
-- Owns: FFmpeg container open/mux/demux, frame-sequence encode and decode to/from MP4/WebM/GIF via codec streams, the libavfilter filter graph, bitstream-filter remux, NumPy/DLPack frame interchange, pixel-format reformat, and audio resample/rebuffer with a wheel-bundled FFmpeg
 - Accept: frame-sequence encode, decode, transcode, remux, and filter-graph pipelines feeding the media and document owners
-- Reject: wrapper-renames of `open`/`add_stream`/`encode`/`mux`/`demux`/`decode`; a `subprocess` shell-out to a system `ffmpeg` binary the wheel already bundles; a hand-rolled muxer, packetizer, pixel-format converter, scaler, or compositor FFmpeg/libavfilter owns; a needless full decode+re-encode where a `BitStreamFilterContext` remux preserves quality; a parallel container or stream type per output format; a parallel reader package where the same owner demuxes; identity or timeline minting the runtime owns

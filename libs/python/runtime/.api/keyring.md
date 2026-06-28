@@ -11,7 +11,6 @@
 - rail: secrets
 - version: `25.7.0`
 - license: `MIT`
-- floor: `Requires-Python>=3.9`; wheel `py3-none-any` (pure-Python, no ABI pin); ships `py.typed`; backends discovered via the `keyring.backends` entry-point group
 - namespaces: `keyring`, `keyring.core`, `keyring.backend`, `keyring.credentials`, `keyring.errors`, `keyring.backends`
 - capability: priority-ranked platform secret storage, structured credential retrieval, environment/config-file backend selection, chained-backend fallback, pluggable `KeyringBackend` extension, full failure taxonomy
 

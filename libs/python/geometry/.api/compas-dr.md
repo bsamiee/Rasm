@@ -9,10 +9,8 @@
 - import: `import compas_dr`
 - owner: `geometry`
 - rail: form-finding
-- installed: `0.3.1` reflected via `python -c "import compas_dr"` on the cp313 companion (`assay api resolve compas-dr` resolves no source on the cp315 `3.15.0b2` core — the documented companion-band gap, not a catalog fault)
+- installed: `0.3.1`
 - license: MIT
-- wheel-floor: pure-Python `py3-none-any` wheel; the `dr_numpy`/`dr_constrained_numpy`/`SelfweightCalculator` rows pull `numpy`/`scipy` from the `compas` spine, which carry no cp315 wheel — ABI: none for compas_dr itself, scipy-family native ABI for the numpy solvers
-- pin: `compas_dr; python_version<'3.15'` (gated by the `compas>=2.15.1` scipy-family CPython 3.15 lag, on the same marker as `compas`/`compas_tna`)
 - depends: `compas>=2.1` (the only runtime dependency; `numba` is an optional `hpc` extra, not admitted)
 - entry points: none (library only; `compas_dr.install` is the COMPAS plugin hook, not a console script)
 - capability: pure-Python and numpy/scipy dynamic-relaxation form-finding with selectable RK order, geometric constraint projection by registered geometry type, tributary-area selfweight loads, and COMPAS `Data` serialization of the input/constraint carriers
@@ -132,5 +130,3 @@
 - Reject: hand-rolled dynamic-relaxation loops, hand-rolled RK integration, direct scipy sparse assembly outside this package, parallel `*Constraint` selection that bypasses the `Constraint(geometry)` registry factory
 
 [CAPTURE_GAP]:
-- floor: `compas_dr 0.3.1` ships a pure-Python `py3-none-any` wheel under MIT; it rides the `compas>=2.15.1` companion band on the `python_version<'3.15'` marker because its numpy/scipy-accelerated solvers inherit the scipy-family CPython 3.15 lag. Reflection ran by importing the cp313 companion distribution; `assay api resolve compas-dr` resolves no source on the cp315 core.
-- members: verified by reading the installed cp313 distribution sources — the `compas_dr.solvers` signatures, the `compas_dr.numdata` carriers (`ResultData.__data__` empty), the `compas_dr.constraints` registry factory, and the callable `SelfweightCalculator` resolve against the live modules; the API does not live at the package root, only in the submodules — no phantom.

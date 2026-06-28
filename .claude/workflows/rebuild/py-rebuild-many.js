@@ -5,7 +5,7 @@ export const meta = {
   phases: [
     { title: 'Realize', detail: 'per folder (1 agent/folder, pooled): implement(max) -> critique(xhigh) -> redteam(max), every stage adversarial; integrate each new .api (folder + branch-substrate) into the existing owner or a new justified page; collapse + capability-extend the whole folder corpus, own-folder-only, cross-folder seams logged as residuals' },
     { title: 'Reconcile', detail: 'consume cross-folder residuals: union-find cluster by shared file -> fix(max) -> adversarial verify(xhigh); hard residuals reported for resolve-residuals' },
-    { title: 'Final-Align', detail: 'one series of agents over ALL folders at once (align(max) -> critique(xhigh) -> redteam(max)): align every cross-folder seam/wire/port/boundary, kill duplication + layering violations, ensure every folder fully leverages the shared branch-substrate tier, catch gaps no single-folder pass could see' },
+    { title: 'Final-Align', detail: 'one series of agents over ALL folders at once (align(max) -> critique(xhigh) -> redteam(max)): align every cross-folder seam/wire/port/boundary, kill duplication + layering violations, ensure every folder fully leverages the shared branch-substrate tier, catch gaps no single-folder pass could see (skipped when only one folder is targeted — nothing to align across)' },
   ],
 }
 
@@ -105,11 +105,16 @@ const ULTRA = [
     'partial, skim, grep-jump, or section-sample — STARTING AT THE README and proceeding in its `[01]-[ATLAS]` routing order: (1) ' +
     '`docs/stacks/python/README.md` (the 16 laws in 5 groups + the 12-signal COLLAPSE_SCAN + RULE_ENFORCEMENT + PAGE_CRAFT + CORPUS_LAW), then ' +
     'strictly in routing order (2) `docs/stacks/python/language.md`, (3) `docs/stacks/python/shapes.md` (the lifecycle + OWNER_CHOOSER + the ' +
-    'closed-family/absence/variant law), (4) `docs/stacks/python/surfaces-and-dispatch.md` (dispatch forms + ASPECTS), (5) ' +
-    '`docs/stacks/python/rails-and-effects.md` (rail/effect/fault/receipt law), (6) `docs/stacks/python/concurrency.md` (the anyio ' +
-    'structured-concurrency rail), (7) `docs/stacks/python/boundaries.md` (host/wire boundary law), (8) `docs/stacks/python/algorithms.md` ' +
-    '(numeric approach), (9) `docs/stacks/python/system-apis.md` (stdlib-replacement law), (10) `docs/stacks/python/runtime.md` (interpreter ' +
-    'execution + isolation). The README `[STATE]` column marks each page finalized (binding law) or partial (operative-but-unfinalized context); ' +
+    'closed-family/absence/variant law), (4) `docs/stacks/python/iteration.md` (the pure carrier-free computation algebra — seed folds, lazy ' +
+    'itertools/generator pipelines, streaming-over-eager-materialization, structural recursion at depth), (5) ' +
+    '`docs/stacks/python/surfaces-and-dispatch.md` (dispatch forms + ASPECTS), (6) `docs/stacks/python/rails-and-effects.md` (rail/effect/fault + ' +
+    'the RECEIPT single-fact law), (7) `docs/stacks/python/concurrency.md` (the anyio structured-concurrency rail + the ' +
+    'to_thread/to_interpreter/to_process CPU-offload arms under CapacityLimiter), (8) `docs/stacks/python/boundaries.md` (host/wire boundary, FFI ' +
+    'capsule lifetime + deterministic close, identity-regime law), (9) `docs/stacks/python/algorithms.md` (numeric approach), (10) ' +
+    '`docs/stacks/python/system-apis.md` (stdlib-replacement law), (11) `docs/stacks/python/runtime.md` (interpreter execution + isolation, the ' +
+    'lazy-import runtime surface). READ EVERY ROOT `*.md` THE STEP-0 `ls` RETURNS AND FULLY INTERNALIZE IT BEFORE ANY EDIT — this enumeration is the ' +
+    'floor, not the ceiling: a root page present on disk but absent from this list is STILL mandatory law, while the sub-folders `domain/` and ' +
+    '`numerics/` are OUT of this read. The README `[STATE]` column marks each page finalized (binding law) or partial (operative-but-unfinalized context); ' +
     'read EVERY page regardless of state and hold every fence to them as fact — a partial, sampled, or skipped read of this doctrine is itself a ' +
     'process defect, not an efficiency. docs/stacks/csharp/ is the density/ambition FLOOR — match its richness, never import C#-shaped idioms.',
   'LIFECYCLE SPINE (BOUNDARY_ADMISSION): every fence flows `Raw -> Payload -> Canonical owner -> Rail -> Projection -> Egress`. Raw material is ' +
@@ -188,6 +193,63 @@ const EXTEND = [
     'invent capability to look busy or pad with flat fields. Every added case/row/field/operation is load-bearing, cites a package member / domain ' +
     'attribute / consumer contract, and composes the existing rails; preserve ALL existing capability — extension only deepens, never regresses.',
 ].join('\n')
+const MECHANICS = [
+  'MECHANICAL EXECUTABILITY (the burden the collapse + capability laws do NOT carry) — a design-page fence is a SIGNATURE-AND-IMPLEMENTATION ' +
+    'CONTRACT, never a sketch: every fence MUST parse under the active py3.15 surface AND type-check against the REAL cross-page canonical owners it ' +
+    'imports, because the corpus is ONE body (CORPUS_LAW three-layer inheritance) and a fence reading a field/case/attribute a sibling owner does ' +
+    'not declare is a runtime DEFECT, not a design liberty. Mentally COMPILE and TYPE-CHECK each fence before accepting it — structural collapse that ' +
+    'does not execute is illusory density, the prime suspect this stance hunts. Find each class below BY NAME and FIX it in place by growing the ' +
+    'EXISTING owner (a case/field/operation/row), never a new file:',
+  'FENCE-PARSES (language.md CLOSED_MATCH_SITE; README snippet law) — every `match`/structural pattern, `for`-target, comprehension, and t-string ' +
+    'parses: an OR-pattern whose alternatives bind DIFFERENT names (`A(x) | B()` where the wildcard slot is a capture, not the `_` the law names), ' +
+    'an invalid iterable-unpacking or starred `for`/return target, or a malformed pattern is a NON-COMPILING fence and an automatic rebuild target.',
+  'MODEL-COHERENCE (CORPUS_LAW) — every attribute, field, case tag, method, and imported symbol a fence reads off a canonical owner declared on ' +
+    'ANOTHER page (or earlier in this one) MUST exist on the real declaration of that owner: verify each cross-owner read against the sibling owner ' +
+    'before writing it (a `run.rtl` read against a `RunNode` that declares `direction` is model drift — a runtime `AttributeError`; an import of a ' +
+    'symbol a sibling collapsed or renamed is an `ImportError`; a call passing a kwarg the owner does not accept is a `TypeError`), reconcile to the ' +
+    'ONE canonical name, never invent a field the owner does not carry, and surface an un-reconcilable cross-page name as a residual.',
+  'TOTAL-DISPATCH (language.md CLOSED_MATCH_SITE; shapes.md families) — `assert_never(unreachable)` is an exhaustiveness WITNESS, valid ONLY when ' +
+    'every member of the FULL closed family is handled before it: enumerate the complete case set of the owner and prove NO valid case routes to ' +
+    '`assert_never` (a `match` covering 5 of 8 valid cases that `assert_never`s the rest is a reachable trap, not a totality proof); a parallel ' +
+    'dispatch map keyed by a closed family must be TOTAL over it (a missing key is a runtime `KeyError`). A partial `match`/map dressed as total is a DEFECT.',
+  'SINGLE-FACT EVIDENCE (rails-and-effects.md STATE_RECEIPTS; boundaries.md BYTE_IDENTITY) — the bytes, the content key, and the receipt evidence ' +
+    'derive from ONE computed fact stored once on the stepped owner: the producer computes the fact, and the receipt/contribute path READS the ' +
+    'stored fact, never re-renders. A path that recomputes a render/placement/native-mutation a second time to mint receipt evidence is a ' +
+    'DOUBLE-RENDER defect, and a placeholder/empty-byte key for a real arm is an evidence hole — step the owner with one fact, store it, harvest it.',
+  'LOOP-OFFLOAD (concurrency.md OFFLOAD_LANE + SCOPE_CHOOSER; runtime.md) — synchronous CPU-bound or GIL-hostile provider work (rendering, parsing, ' +
+    'native FFI sweeps) NEVER runs on the event loop, NOR as an argument expression evaluated before the offload call: it crosses on exactly one arm ' +
+    '— `anyio.to_thread.run_sync` for a GIL-releasing native call or blocking I/O, `to_interpreter.run_sync` for pure-Python isolate-safe CPU work, ' +
+    '`to_process.run_sync` for a GIL-hostile or not-isolate-safe native call — each bounded by an explicit `CapacityLimiter`. A heavy synchronous ' +
+    'call inside an async body (or passed as the arg to the offload) is an event-loop-starvation DEFECT.',
+  'HANDLE-LIFETIME (boundaries.md CAPSULE_OWNER; concurrency.md RESOURCE_BRACKET) — every native/FFI handle a provider opens (a `*.open(...)` ' +
+    'returning a C-backed document, plotter, cursor, or pinned buffer) closes DETERMINISTICALLY through an `AsyncExitStack.enter_async_context`, a ' +
+    '`with` bracket, or a capsule registering release via `weakref.finalize` under a shielded teardown — never left for the GC to reap. An opened ' +
+    'handle with no deterministic close is a LEAK defect; callers receive detached values or rails, never the live handle.',
+  'BINARY-KERNEL (boundaries.md CAPSULE_OWNER; EXPRESSION_SPINE exemption) — a multi-megabyte binary mutated across N steps is ONE imperative ' +
+    'measured kernel threading ONE owned handle mutated in place, NOT a functional fold that rebinds and recopies the whole buffer per step (an ' +
+    'O(N*size) copy the platform makes prohibitive); the kernel lives inside the shielded resource bracket, returns the rail `Result`, and carries ' +
+    'one `# Exemption:` line naming the platform-forced in-place-mutation seam. The per-step buffer recopy is the rejected form.',
+  'IDENTITY-REGIME (boundaries.md MEMO_KEY; shapes.md OWNER_CHOOSER identity discriminant) — a content-addressed key indexes by CONTENT, so two ' +
+    'structurally-distinct siblings carrying identical content collide and silently overwrite in a `Map[ContentKey, _]`. Where an index/diff must ' +
+    'distinguish identical-content siblings, the key joins a STRUCTURAL discriminant (a path-vector, sibling ordinal, or owner identity) to the ' +
+    'content digest — structural identity and content identity are distinct contracts, and a content-only key under a structural index is a CORRUPTION defect.',
+  'TEMPLATE-SAFETY (language.md TEXT_AND_TEMPLATE_FORMS + TEMPLATE_STRUCTURE_SITE; system-apis.md) — structured-text and markup egress (SVG, XML, ' +
+    'Typst, HTML, query strings) built from dynamic or untrusted input uses PEP 750 t-strings / `string.templatelib.Template` processors or a ' +
+    'structured builder (`xml.etree.ElementTree`), NEVER f-string interpolation with a hand-rolled escape. An f-string splicing a value into markup ' +
+    'is an INJECTION defect; the Template/processor carries the per-destination escaping the grammar requires.',
+  'STREAM-OVER-MATERIALIZE (iteration.md LAZY_COMBINATORS + GENERATOR_FUSION) — a large or unbounded extraction (every word of a 500-page document, ' +
+    'every node of a corpus tree) is a lazy `itertools`/generator pipeline or a `yield from` fusion typed `Iterator[T]`, never an eagerly allocated ' +
+    '`tuple`/`Block` of the whole result held in RAM and materialized only at the persistence/egress edge; the eager collection minted only to be ' +
+    'iterated once is the rejected materialization.',
+  'NO-EXCEPTION-HOTLOOP (rails-and-effects.md EXPRESSION_SPINE) — a per-element `try`/`except` driving control flow inside a fold over a large ' +
+    'collection (a per-cell coerce over tens of thousands of cells) is BOTH a domain-logic violation AND a throughput defect: a total predicate or a ' +
+    'non-raising `Option`-returning parse replaces the per-element raise, and the boundary `catch` trap stays at the boundary, never in the hot fold.',
+  'DERIVED-NOT-PARALLEL + PER-MODE PAYLOADS (DERIVED_LOGIC; shapes.md OWNER_CHOOSER) — a secondary map hand-synced to a primary (a `_KEYS` ' +
+    'tuple-table parallel to a `@tagged_union` case-payload tail, drift-caught only late by `zip(strict=True)`) is a DERIVATION defect: declare ONE ' +
+    'primary correspondence and DERIVE every secondary by comprehension. A monolithic typed bag whose fields are irrelevant for most modes (one ' +
+    '`Spec` carrying the fields of every backend) is a permissive-bag DEFECT even when fully typed: collapse it into a discriminated per-mode ' +
+    '`@tagged_union` whose each case carries ONLY the fields of its own mode — WITHOUT splitting the owner into new files.',
+].join('\n')
 const PATLAW = [
   'PY-VERSION LAW: target Python 3.15 on the full modern band (3.11/3.12/3.13/3.14/3.15) — advanced patterns ONLY, zero legacy idioms, IDENTICAL ' +
     'conventions across every folder and package.',
@@ -203,10 +265,11 @@ const PATLAW = [
   'FROZENDICT (py3.15 builtin): `from builtins import frozendict` is the owner for immutable map rows, dispatch/policy TABLES (one primary ' +
     '`frozendict[K, tuple[...]]`, secondary maps derived from it), payload `extra_items` extension bands, and immutable evidence — REJECT ' +
     '`MappingProxyType`, a module-level mutable `dict` used as a table, tuple-pair pseudo-maps, and mutate-then-freeze. Prefer total ' +
-    '`match`/structural pattern matching over if-chains, walrus where it tightens, `assert_never` on closed unions, and PEP 750 t-strings / PEP ' +
-    '749 deferred annotations where relevant. Keep every choice CONSISTENT across folders so the corpus reads as one ultra-advanced codebase, and ' +
-    'apply the canonical file-organization + section-order law (TYPES -> CONSTANTS -> MODELS -> ERRORS -> SERVICES -> OPERATIONS -> COMPOSITION -> ' +
-    'EXPORTS, owner blocks kept intact).',
+    '`match`/structural pattern matching over if-chains, walrus where it tightens, and `assert_never` on closed unions ONLY where it is genuinely ' +
+    'unreachable over the FULL case set; PEP 750 t-strings / `string.templatelib.Template` are MANDATORY for all dynamic or untrusted ' +
+    'structured-text and markup egress (never f-string interpolation of dynamic input), and PEP 749 deferred annotations apply where relevant. Keep ' +
+    'every choice CONSISTENT across folders so the corpus reads as one ultra-advanced codebase, and apply the canonical file-organization + ' +
+    'section-order law (TYPES -> CONSTANTS -> MODELS -> ERRORS -> SERVICES -> OPERATIONS -> COMPOSITION -> EXPORTS, owner blocks kept intact).',
 ].join('\n')
 const BOUNDARIES = 'BOUNDARY LAW: keep every folder owner strictly in its lane and respect the dependency direction of the libs/python branch ' +
   'strata; internal code uses canonical names and shapes with mapping only at the edge; do not trample a sibling owner while densifying; never ' +
@@ -228,7 +291,7 @@ const COMMENTS = 'COMMENT HYGIENE: code fences are agent-facing — comment for 
   'comment genuinely earns its place; 1-2 lines only for a truly subtle invariant, contract, or boundary. NO restating the code, no narration, no ' +
   'task/process/session/history/proof/review comments, no docstring bloat. Densify names and types so comments are rarely needed; cut every ' +
   'low-value comment.'
-const DOCTRINE = [LAW, '', INTEGRATE, '', ADVERSARIAL, '', ULTRA, '', EXTEND, '', PATLAW, '', BOUNDARIES, '', PROSE, '', COMMENTS].join('\n')
+const DOCTRINE = [LAW, '', INTEGRATE, '', ADVERSARIAL, '', ULTRA, '', EXTEND, '', MECHANICS, '', PATLAW, '', BOUNDARIES, '', PROSE, '', COMMENTS].join('\n')
 const FINAL = [
   'WHOLE-STACK CROSS-FOLDER ALIGNMENT — this is the FINAL pass, after every folder ran its own per-folder implement -> critique -> redteam and the ' +
     'residual reconcile. Hold ALL these libs/python folders in view at once and align them as ONE coherent branch: ' + ROSTER + '. Read each ' +
@@ -411,7 +474,7 @@ let reconciled = []
 if (clusters.length) {
   phase('Reconcile')
   reconciled = (await pool(clusters, CAP, async (cl, i) => {
-    const fix = await agent([LAW, '', INTEGRATE, '', ADVERSARIAL, '', ULTRA, '', EXTEND, '', PATLAW, '', BOUNDARIES, '', 'TASK: RECONCILE these ' +
+    const fix = await agent([LAW, '', INTEGRATE, '', ADVERSARIAL, '', ULTRA, '', EXTEND, '', MECHANICS, '', PATLAW, '', BOUNDARIES, '', 'TASK: RECONCILE these ' +
       'cross-FOLDER residuals the implement/critique/redteam passes deferred. There is NO severity — treat EVERY residual as must-address. Read ' +
       'EVERY listed file. For each: if it is a real cross-folder defect, FIX it in place (unify the shared type/seam/rail, repair the ' +
       'dependency-direction/boundary issue, align a stale sibling page, or extend the shared owner in place to close a capability gap that spans ' +
@@ -434,16 +497,20 @@ const newPagesAll = done.flatMap((r) => Object.values(r.logs || {}).flatMap((l) 
 log('Reconcile: ' + clusters.length + ' clusters; ' + hard_residual.length + ' open (hard residual), ' + dropped.length + ' dropped as invalid')
 
 // --- [FINAL_ALIGN]
-phase('Final-Align')
 const alignLogs = {}
-for (const st of ALIGN_STAGES) {
-  const r = await agent(st.build(), { label: 'final-' + st.key, phase: 'Final-Align', schema: ALIGN_SCHEMA, effort: st.effort, stallMs: 900000 })
-  if (r === null) break
-  alignLogs[st.key] = r
+if (FOLDERS.length > 1) {
+  phase('Final-Align')
+  for (const st of ALIGN_STAGES) {
+    const r = await agent(st.build(), { label: 'final-' + st.key, phase: 'Final-Align', schema: ALIGN_SCHEMA, effort: st.effort, stallMs: 900000 })
+    if (r === null) break
+    alignLogs[st.key] = r
+  }
+} else {
+  log('Final-Align skipped: single-folder run (' + (FOLDERS[0] && FOLDERS[0].name) + ') — cross-folder alignment is vacuous; the per-folder reconcile already covered in-folder residuals')
 }
 const alignedAll = Object.values(alignLogs).flatMap((l) => (l && l.aligned) || [])
 const finalResidual = Object.values(alignLogs).flatMap((l) => (l && l.residual) || [])
-log('Final-Align: ' + Object.keys(alignLogs).length + '/3 whole-stack passes; ' + alignedAll.length + ' alignments, ' + finalResidual.length + ' ' +
-  'residual')
+log('Final-Align: ' + Object.keys(alignLogs).length + (FOLDERS.length > 1 ? '/3' : '/0 (skipped)') + ' whole-stack passes; ' + alignedAll.length + ' ' +
+  'alignments, ' + finalResidual.length + ' residual')
 
 return { folders: FOLDERS.map((f) => f.name), complete: done.filter((r) => r.ok).length, incomplete: done.filter((r) => !r.ok).length, integrated: [...new Set(integratedAll)], newPages: [...new Set(newPagesAll)], clusters: clusters.length, hard_residual: hard_residual, dropped: dropped, finalAligned: alignedAll, finalResidual: finalResidual }

@@ -7,7 +7,7 @@
 [PACKAGE_SURFACE]: `weasyprint`
 - package: `weasyprint`
 - module: `weasyprint`
-- installed: `69.0` resolved in `uv.lock` (`py3-none-any` pure-Python wheel)
+- installed: `69.0`
 - license: `BSD-3-Clause`
 - asset: pure-Python PDF generation via `pydyf` (0.12.1) — WeasyPrint 69 has no cairo dependency; PDF objects/streams are emitted directly. Text layout/shaping still uses native `pango`/`harfbuzz`/`fontconfig` and `pillow` for raster images, loaded via `pangocffi`/`pydyf` at render time
 - runtime deps: `pydyf`, `cssselect2`, `tinycss2`, `tinyhtml5`, `fonttools[woff]`, `pyphen`, `pillow`, `cffi`

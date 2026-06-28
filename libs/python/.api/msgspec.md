@@ -7,10 +7,9 @@
 [PACKAGE_SURFACE]: `msgspec`
 - package: `msgspec`
 - module: `msgspec`
-- version: `0.21.1` (floor `>=0.21.1`)
+- version: `0.21.1`
 - license: `BSD-3-Clause`
 - asset: C-extension runtime library (`_core` compiled module; not pure-Python)
-- abi: per-interpreter binary wheel (`cp315`-tagged), `Requires-Python >=3.10`
 - rail: serialization
 - namespaces: `msgspec`, `msgspec.json`, `msgspec.msgpack`, `msgspec.toml`, `msgspec.yaml`, `msgspec.structs`, `msgspec.inspect`
 

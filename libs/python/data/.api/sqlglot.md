@@ -6,13 +6,11 @@
 
 [PACKAGE_SURFACE]: `sqlglot`
 - package: `sqlglot`
-- version: `30.11.0`
+- version: `30.12.0`
 - license: MIT (permissive)
 - module: `import sqlglot`
 - owner: `data`
 - rail: query-ir
-- asset: pure-Python library (`py3-none-any` wheel; the optional `sqlglotrs` Rust tokenizer accelerates lexing when installed but is not required). `sqlglot` centralizes the `ibis` transitive SQL-compilation dependency
-- requires-python: `>=3.9`
 - entry points: console script `sqlglot` (CLI); library use is import-only
 - capability: dialect-aware SQL tokenization, parsing into a typed `Expr` AST, AST traversal/search/in-place rewrite (`find`/`find_all`/`walk`/`transform`/`replace`), the typed builder DSL (`select`/`column`/`func`/`condition`/`cast`/`case`/`insert`/`delete`/`merge`/`union`), schema-driven optimization across the 14-rule `RULES` pipeline, scope analysis (`build_scope`/`traverse_scope`/`find_all_in_scope`), column-level lineage (`lineage.lineage`), AST diffing into an `Edit` list (`diff`), cross-dialect transpilation, the 31-member `Dialects` registry as a parse/generate gate, JSONPath parsing, and a typed error rail rooted at `SqlglotError`
 

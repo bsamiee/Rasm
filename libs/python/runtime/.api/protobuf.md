@@ -10,7 +10,7 @@
 - owner: `runtime`
 - rail: wire
 - namespaces: `google.protobuf`, `google.protobuf.proto`, `google.protobuf.descriptor`, `google.protobuf.descriptor_pool`, `google.protobuf.message_factory`, `google.protobuf.json_format`, `google.protobuf.proto_json`, `google.protobuf.text_format`, `google.protobuf.proto_text`, `google.protobuf.symbol_database`, `google.protobuf.runtime_version`
-- installed: `6.33.6`; license Protocol-Buffers (BSD-3-style, `LICENSE`); binary wheel `cp39-abi3-macosx_10_9_universal2` (`Root-Is-Purelib: false`) shipping the `google/_upb/_message.abi3.so` upb C accelerator — ABI3-stable from cp39 so cp315-CLEAN (no environment marker), core-direct; version-pinned `<7.0` (opentelemetry-proto caps `protobuf<7`; the pin lifts when OTel admits 7.x)
+- installed: `6.33.6`
 - capability: a high-level `google.protobuf.proto` functional codec façade, message descriptor reflection, descriptor-pool registration, message-class factory, binary/length-prefixed/JSON/dict/text wire codecs, well-known wrapper types with their datetime/timedelta/pack-unpack/struct-mutation helper methods, symbol database, runtime-version guard
 
 ## [02]-[PUBLIC_TYPES]
@@ -144,9 +144,7 @@
 
 [LOCAL_ADMISSION]:
 - the runtime transport admits `protobuf` as the message reflection and wire layer behind `WireProtoCodec`; the codec composes `SerializeToString`/`ParseFromString` for the `CrdtOp*` frames and `GetMessageClass` for descriptor-driven dispatch.
-- protobuf imports on the cp315 core directly (core-direct promotion, no marker); no companion subprocess lane and no gated band apply.
 - the internal builder path (`google.protobuf.internal.builder`) is implementation detail consumed only by generated `*_pb2` modules; runtime owners compose the public `message_factory` / `descriptor_pool` surface, never the internal builder directly.
-- the upb C accelerator (`google/_upb/_message.abi3.so`) backs message ops transparently; `internal.api_implementation.Type()` reports `'upb'` here, so the codec runs at native speed without a pure-Python fallback selection.
 
 [INTEGRATION_STACK]:
 - msgspec leg: the `CrdtOp*` frame's payload bytes cross the boundary as a single `bytes` field; `.api/msgspec.md` `Struct` carriers hold the envelope (op id, actor, lamport) and the protobuf frame is the opaque `bytes` value `proto.serialize`/`proto.parse` produce/consume, so msgspec owns the envelope schema and protobuf owns the inner op wire — never two parallel message schemas for one op.

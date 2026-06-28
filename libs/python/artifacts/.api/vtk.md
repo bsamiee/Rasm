@@ -7,9 +7,7 @@
 [PACKAGE_SURFACE]: `vtk`
 - package: `vtk`
 - module: `vtk` (aggregates `vtkmodules.*`)
-- pin: `vtk>=9.6.2; python_version<'3.13'` — vtk 9.6.2 ships cp39–cp314 wheels only (incl. cp314t free-threaded; no cp38, no cp315). The `<'3.13'` marker is a conservative floor below the cp314 wheel ceiling, tied to the `pyvista>=0.48.4; python_version<'3.13'` pin so the consumer band is single. The package never resolves in the cp315-core venv
 - license: `BSD-3-Clause`
-- asset: C++ native runtime library with Python bindings (large native ABI; gated wheel)
 - consumer: `pyvista` is the in-repo high-level consumer — vtk is the engine pyvista wraps for the artifacts visuals rail; design pages compose pyvista's pythonic API and drop to raw `vtk` only for pipeline stages pyvista does not expose
 - rail: visuals
 
@@ -175,12 +173,11 @@
 [INTEGRATION]:
 - pyvista composition: `pyvista.wrap(polydata)` adopts a `vtkPolyData`/`vtkImageData` into a `pyvista.DataSet` with NumPy-array attribute access; conversely a `pyvista.PolyData` exposes its underlying `vtkPolyData` for a filter pyvista does not wrap. Stay on the pyvista surface for plotting, scalar bars, and camera; drop to raw `vtk` only for the missing filter/mapper, then re-wrap.
 - artifact export: for the artifacts visuals rail run `vtkRenderWindow.SetOffScreenRendering(1)` (or pyvista `off_screen=True`) and capture the framebuffer to a PNG via `vtkWindowToImageFilter` -> `vtkPNGWriter`, feeding the artifacts image/download owner. Never spin a `vtkRenderWindowInteractor` event loop in a headless export path.
+- scene-export surface: the official `vtk` wheel ships the `vtkIOExport` scene exporters (`vtkGLTFExporter`/`vtkOBJExporter`/`vtkVRMLExporter`/`vtkX3DExporter`, reached through pyvista `Plotter.export_gltf`/`export_obj`/`export_vrml`) but no USD exporter — there is no `vtkmodules.vtkIOUSD` module in the wheel (VTK's USD I/O requires a source build against OpenUSD), so USD/USDZ authoring is owned by `usd-core` (`pxr`), not `vtk`.
 - numpy seam: `vtkmodules.util.numpy_support.numpy_to_vtk`/`vtk_to_numpy` is the zero-copy bridge between a universal-tier `numpy` (`libs/python/.api/numpy.md`) mesh/scalar array and a `vtkDataArray`; build attribute arrays from canonical NumPy buffers through it rather than per-element `InsertNextValue` loops for large datasets — the same `numpy` buffer a geometry/compute owner produced becomes point coordinates (`numpy_to_vtk` -> `vtkPoints.SetData`) or a named scalar field in one call.
 - artifact PNG seam: the headless export is `vtkRenderWindow.SetOffScreenRendering(1)` -> `Render()` -> `vtkWindowToImageFilter.SetInput(window)` + `Update()` -> `vtkPNGWriter.SetInputConnection(w2i.GetOutputPort())` + `SetFileName`/`Write()`, or `vtk_to_numpy` on the `vtkWindowToImageFilter` output to hand the framebuffer to the `pillow`/image artifacts owner as a `numpy` RGB array — never an interactor loop in the export path.
-- band law: because vtk resolves only below cp313, a visuals design page that runs on the cp315 core dispatches the render stage over the runtime `anyio.to_process.run_sync` subprocess seam onto the gated sub-3.13 worker (the same lane `pyvista` uses — VTK owns process-global GL/render state that must not enter the core interpreter); the cp315 page composes the contract and marshals `numpy` buffers, the sub-3.13 worker imports `vtk`/`pyvista` at module scope and runs the pipeline.
 
 [RAIL_LAW]:
 - Package: `vtk`
 - Owns: 3D scientific visualization, the demand-driven dataset pipeline, geometry sources/filters, file I/O, and the rendering/interaction stack — as the native engine under pyvista
 - Accept: pipeline wiring via `SetInputConnection`/`GetOutputPort`; datasets built through `vtkPoints`/`vtkCellArray`/`vtkDataArray` or the `numpy_support` zero-copy bridge; offscreen render-to-image for artifact export; raw-vtk drop-down for filters pyvista does not wrap
-- Reject: hand-rolled mesh-processing or rendering loops where a VTK filter/mapper exists; wrapper-renames of the pipeline contract; assuming a cp315 wheel exists; an interactor event loop in a headless export path

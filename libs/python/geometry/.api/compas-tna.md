@@ -9,11 +9,8 @@
 - import: `import compas_tna`
 - owner: `geometry`
 - rail: structural-form-finding
-- installed: `0.7.0` reflected via `python -c "import compas_tna"` on the cp313 companion (`assay api resolve compas-tna` resolves no source on the cp315 `3.15.0b2` core — the documented companion-band gap, not a catalog fault)
+- installed: `0.7.0`
 - license: MIT
-- wheel-floor: pure-Python `py3-none-any` wheel; the `_numpy` equilibrium solvers, `parallelisation_numpy`, and `LoadUpdater` pull `numpy`/`scipy` from the `compas` spine (no cp315 wheel) — ABI: none for compas_tna itself, scipy-family native ABI for the numpy rails
-- pin: `compas_tna; python_version<'3.15'` (gated by the scipy-family CPython 3.15 lag, on the same marker as `compas`/`compas_dr`)
-- depends: `compas` (spine) and `compas_fd` (force-density solver behind `relax_boundary_openings`); both ride the same gated band
 - entry points: none (library only; `compas_tna.notebook.scene` is the COMPAS plugin hook, not a console script)
 - capability: reciprocal form/force diagram construction with a parametric pattern-generator family, numpy horizontal/vertical equilibrium, sparse parallelisation primitives, tributary-area selfweight, masonry envelope bounds (mesh/Brep/parametric vaults), and Rhino/notebook scene rendering
 
@@ -151,5 +148,3 @@ The `apply_*_to_formdiagram(formdiagram)` methods push the envelope's geometry o
 - Reject: hand-rolled TNA solvers or duplicate equilibrium implementations, hand-rolled reciprocal-diagram construction that bypasses `ForceDiagram.from_formdiagram`, direct sparse assembly outside `parallelisation_numpy`
 
 [CAPTURE_GAP]:
-- floor: `compas_tna 0.7.0` ships a pure-Python `py3-none-any` wheel under MIT; it rides the `compas` companion band on the `python_version<'3.15'` marker (scipy-family CPython 3.15 lag) and pulls `compas_fd` for the `relax_boundary_openings` force-density solve. Reflection ran by reading the installed cp313 companion distribution; `assay api resolve compas-tna` resolves no source on the cp315 core.
-- members: verified against the installed cp313 sources — the `create_*` factory signatures, the equilibrium solver signatures and export gating, the `parallelisation_numpy` primitives, the callable `LoadUpdater(p, xyz)` shape, the `Envelope.compute_bounds(x, y)` arity, and the `FormDiagramObject`/`ForceDiagramObject` scene-class spellings resolve against the live modules. The scene classes are `FormDiagramObject`/`ForceDiagramObject` (not `FormObject`/`ForceObject`) — no phantom.

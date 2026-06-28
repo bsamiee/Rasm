@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Avalonia`
-- package: `Avalonia` (version `12.0.4`, MIT)
+- package: `Avalonia` (version `12.0.5`, MIT)
 - assembly: `Avalonia.Base` (object model, input, data-transfer, threading, styling)
 - assembly: `Avalonia.Controls` (controls, notifications, name scope)
 - assembly: `Avalonia.Markup.Xaml` (XAML loader, markup extensions)

@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_API_GREAT_TABLES]
 
-`great_tables` supplies the publication-quality table rendering surface for the artifacts tables rail: a `GT` builder whose fluent method family owns column formatting (`fmt_number`, `fmt_integer`, `fmt_currency`, `fmt_percent`, `fmt_scientific`, `fmt_engineering`, `fmt_units`, `fmt_bytes`, `fmt_roman`, `fmt_date`, `fmt_datetime`, `fmt_time`, `fmt_tf`, `fmt_flag`, `fmt_icon`, `fmt_image`, `fmt_markdown`, `fmt_nanoplot`, `fmt`), structural layout (`tab_header`, `tab_spanner`, `tab_spanner_delim`, `tab_source_note`, `tab_stub`, `tab_stubhead`), value substitution (`sub_missing`, `sub_zero`), style injection (`tab_style`, `data_color`), column control (`cols_label`, `cols_label_with`, `cols_label_rotate`, `cols_align`, `cols_hide`, `cols_unhide`, `cols_width`, `cols_move`, `cols_move_to_start`, `cols_move_to_end`, `cols_merge`), grand-summary-row construction (`grand_summary_rows`), row-group ordering (`row_group_order`), and theme identity (`opt_stylize`, `opt_row_striping`, `opt_table_font`, `opt_align_table_header`, `opt_all_caps`, `opt_vertical_padding`, `opt_horizontal_padding`, `opt_table_outline`, `opt_footnote_marks`, `opt_css`, `tab_options`). The `loc` submodule supplies location selectors; the `style` submodule supplies `text`, `fill`, `borders`, and `css` cell-style constructors; the top-level `nanoplot_options`, `define_units`, `from_column`, `google_font`, `system_fonts`, `random_id`, `md`, `html`, `px`, `pct`, `LETTERS`, and `letters` helpers configure plots, units, column-driven arguments, fonts, ids, rich text, dimensions, and footnote-mark alphabets; `render`, `as_raw_html`, `as_latex`, `write_raw_html`, and `save` emit the final artefact.
+`great_tables` supplies the publication-quality table rendering surface for the artifacts tables rail: a `GT` builder whose fluent method family owns column formatting (`fmt_number`, `fmt_integer`, `fmt_currency`, `fmt_percent`, `fmt_scientific`, `fmt_engineering`, `fmt_partsper`, `fmt_units`, `fmt_duration`, `fmt_bytes`, `fmt_roman`, `fmt_date`, `fmt_datetime`, `fmt_time`, `fmt_tf`, `fmt_flag`, `fmt_icon`, `fmt_image`, `fmt_markdown`, `fmt_nanoplot`, `fmt`), structural layout (`tab_header`, `tab_spanner`, `tab_spanner_delim`, `tab_source_note`, `tab_footnote`, `tab_stub`, `tab_stubhead`), value substitution (`sub_missing`, `sub_zero`, `sub_small_vals`, `sub_large_vals`, `sub_values`), style injection (`tab_style`, `data_color`), column control (`cols_label`, `cols_label_with`, `cols_label_rotate`, `cols_align`, `cols_hide`, `cols_unhide`, `cols_width`, `cols_move`, `cols_move_to_start`, `cols_move_to_end`, `cols_reorder`, `cols_merge`, `cols_merge_range`, `cols_merge_uncert`, `cols_merge_n_pct`), cell-text transform (`text_transform`, `text_case_when`, `text_case_match`, `text_replace`), summary-row construction (`summary_rows`, `grand_summary_rows`), row-group ordering (`row_group_order`), and theme identity (`opt_stylize`, `opt_row_striping`, `opt_table_font`, `opt_align_table_header`, `opt_all_caps`, `opt_vertical_padding`, `opt_horizontal_padding`, `opt_table_outline`, `opt_footnote_marks`, `opt_css`, `tab_options`). The `loc` submodule supplies location selectors; the `style` submodule supplies `text`, `fill`, `borders`, and `css` cell-style constructors; the top-level `nanoplot_options`, `define_units`, `from_column`, `google_font`, `system_fonts`, `random_id`, `md`, `html`, `px`, `pct`, `LETTERS`, and `letters` helpers configure plots, units, column-driven arguments, fonts, ids, rich text, dimensions, and footnote-mark alphabets; `render`, `as_raw_html`, `as_latex`, `write_raw_html`, `save`, and `gtsave` emit the final artefact.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -10,10 +10,9 @@
 - owner: `artifacts`
 - rail: tables
 - license: MIT
-- asset: runtime library; pure Python (`py3-none-any`), no ABI gate, cp315-clean (manifest unpinned, no `python_version` marker)
-- installed: `0.21.0` (live `.venv`, cp315), reflected via `assay api resolve great-tables` and `import great_tables; great_tables.__version__`; `uv.lock` pins `0.21.0`. Every member below is reflected from this installed build — the surface is version-exact, not the 0.22.x roster (no `tab_footnote`, `summary_rows`, `cols_reorder`, `cols_merge_range`/`_uncert`/`_n_pct`, `fmt_partsper`, `fmt_duration`, `sub_small_vals`/`sub_large_vals`/`sub_values`, `text_transform`/`text_case_when`/`text_case_match`/`text_replace`, `loc.summary`/`loc.summary_stub`, or `gtsave` in 0.21.0)
+- installed: `0.22.0`
 - entry points: none (library only)
-- capability: fluent publication-table construction over a Polars/Pandas/PyArrow/dict frame; locale-aware cell formatting; missing/zero value substitution; structural layout (header/spanner/stub/source-note); cell styling and data-driven colouring; grand-summary rows; theme identity; HTML/LaTeX/PNG/PDF export; standalone `vals.fmt_*` formatting outside a `GT` chain
+- capability: fluent publication-table construction over a Polars/Pandas/PyArrow/dict frame; locale-aware cell formatting; value substitution (missing/zero/small/large/explicit); column merging (range/uncert/n-pct); cell-text transformation; footnote marking; structural layout (header/spanner/stub/source-note/footnote); cell styling and data-driven colouring; group and grand summary rows; theme identity; HTML/LaTeX/PNG/PDF export; standalone `vals.fmt_*` formatting outside a `GT` chain
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -44,6 +43,8 @@
 |  [13]   | `loc.source_notes`       | source note cells   | `()` — select source note cells                                |
 |  [14]   | `loc.grand_summary`      | grand summary rows  | `(columns, rows, mask)` — select grand summary row cells       |
 |  [15]   | `loc.grand_summary_stub` | grand summary stub  | `(rows)` — select grand summary stub cells                     |
+|  [16]   | `loc.summary`            | group summary rows  | `(groups, columns, rows)` — select group-summary row cells     |
+|  [17]   | `loc.summary_stub`       | group summary stub  | `(groups, rows)` — select group-summary stub cells             |
 
 [PUBLIC_TYPE_SCOPE]: cell style constructors (`great_tables.style`)
 - rail: tables
@@ -67,7 +68,7 @@
 |  [05]   | `md` / `html`      | rich text markers | wrap a string as Markdown (`Md`) or raw HTML (`Html`) for labels, source notes, and rich-text cells |
 |  [06]   | `px` / `pct`       | dimension helpers | pixel and percent dimension values for widths and sizes                       |
 |  [07]   | `system_fonts`     | font stack        | `system_fonts(name='system-ui') -> list[str]` — a named `FontStackName` stack for `opt_table_font(stack=...)` |
-|  [08]   | `vals`             | standalone format | `vals.fmt_*` apply format logic outside a `GT` chain; in 0.21.0 the `vals` module exposes the subset `fmt_number`, `fmt_integer`, `fmt_currency`, `fmt_percent`, `fmt_scientific`, `fmt_engineering`, `fmt_bytes`, `fmt_roman`, `fmt_date`, `fmt_time`, `fmt_image`, `fmt_markdown` — `fmt_units`/`fmt_datetime`/`fmt_tf`/`fmt_flag`/`fmt_icon`/`fmt_nanoplot` are `GT`-only |
+|  [08]   | `vals`             | standalone format | `vals.fmt_*` apply format logic outside a `GT` chain over a `pl.Series`/list, returning `list[str]`; the `vals` module exposes `fmt_number`, `fmt_integer`, `fmt_currency`, `fmt_percent`, `fmt_scientific`, `fmt_engineering`, `fmt_partsper`, `fmt_bytes`, `fmt_roman`, `fmt_date`, `fmt_time`, `fmt_duration`, `fmt_image`, `fmt_markdown` — `fmt_units`/`fmt_datetime`/`fmt_tf`/`fmt_flag`/`fmt_icon`/`fmt_nanoplot` stay `GT`-only |
 |  [09]   | `LETTERS` / `letters` | mark alphabets | nullary functions `LETTERS() -> list[str]` / `letters() -> list[str]` returning the uppercase/lowercase A–Z sequence for `opt_footnote_marks(marks=...)` |
 |  [10]   | `random_id`        | id minter         | `random_id(n=10) -> str` — a random table id for `GT(id=...)` / `with_id`     |
 |  [11]   | `quarto`           | quarto bridge     | `quarto.is_quarto_render() -> bool` — detects a Quarto render so the table can disable post-processing via `tab_options(quarto_disable_processing=...)` |
@@ -85,7 +86,8 @@
 |  [04]   | `GT.tab_stubhead(label)`                                               | stubhead       | label the stub column header                         |
 |  [05]   | `GT.tab_spanner(label, columns, spanners, level, id, gather, replace)` | column spanner | group columns under a spanning label                 |
 |  [06]   | `GT.tab_spanner_delim(delim, columns, split, limit, reverse)`          | spanner split  | derive spanners by splitting column names on a delim |
-|  [07]   | `GT.tab_source_note(source_note)`                                      | source note    | append a source note to the footer (footnotes are 0.22.x; 0.21.0 has source notes only) |
+|  [07]   | `GT.tab_source_note(source_note)`                                      | source note    | append a source note to the footer                  |
+|  [08]   | `GT.tab_footnote(footnote, locations, placement='auto')`              | footnote       | attach an auto-marked footnote at `loc.*` target(s) (`placement` ∈ `{'auto','left','right'}`) |
 
 [ENTRYPOINT_SCOPE]: column operations
 - rail: tables
@@ -100,7 +102,11 @@
 |  [06]   | `GT.cols_move_to_start(columns)` / `GT.cols_move_to_end(columns)`      | column anchor  | move columns to the start or end                          |
 |  [07]   | `GT.cols_hide(columns)` / `GT.cols_unhide(columns)`                    | column hide    | suppress or restore selected columns                      |
 |  [08]   | `GT.cols_width(cases=None, **kwargs)`                                  | column width   | set explicit pixel/percent widths (`cases` dict or kwargs) |
-|  [09]   | `GT.cols_merge(columns, hide_columns, rows, pattern)`                  | column merge   | merge multiple columns into one display cell via a `pattern` template (the only merge surface in 0.21.0; `cols_merge_range`/`_uncert`/`_n_pct` are 0.22.x) |
+|  [09]   | `GT.cols_merge(columns, hide_columns, rows, pattern)`                  | column merge   | merge multiple columns into one display cell via a `pattern` template |
+|  [10]   | `GT.cols_reorder(columns)`                                             | column reorder | reorder all columns to the given explicit order           |
+|  [11]   | `GT.cols_merge_range(col_begin, col_end, rows, sep=None, autohide=True, locale)` | range merge | merge a begin/end column pair into a dash range          |
+|  [12]   | `GT.cols_merge_uncert(col_val, col_uncert, rows, sep=' +/- ', autohide=True)` | uncertainty merge | merge a value/uncertainty column pair              |
+|  [13]   | `GT.cols_merge_n_pct(col_n, col_pct, rows, autohide=True)`             | n-pct merge    | merge a count/percent column pair                         |
 
 [ENTRYPOINT_SCOPE]: cell formatting and substitution
 - rail: tables
@@ -125,9 +131,14 @@
 |  [16]   | `GT.fmt_icon(columns, rows, height, sep, stroke_color, stroke_width, fill_color, fill_alpha, margin_left, margin_right, …)`                    | icon cells         | render Font Awesome icons                                                                                         |
 |  [17]   | `GT.fmt_image(columns, rows, height, width, sep, path, file_pattern='{}', encode=True)`                                                        | image cells        | embed image paths or base64-encoded images                                                                        |
 |  [18]   | `GT.fmt_markdown(columns, rows)`                                                                                                               | markdown cells     | render Markdown in cell content                                                                                   |
-|  [19]   | `GT.fmt_nanoplot(columns, rows, plot_type='line', plot_height='2em', missing_vals='marker', autoscale, reference_line, reference_area, expand_x, expand_y, options)` | nanoplot cells     | inline SVG sparkline/bar chart per cell (`missing_vals` default `"marker"`; `expand_x`/`expand_y` are `list[int|float]`) |
+|  [19]   | `GT.fmt_nanoplot(columns, rows, plot_type='line', plot_height='2em', missing_vals='gap', autoscale, reference_line, reference_area, expand_x, expand_y, options)` | nanoplot cells     | inline SVG sparkline/bar chart per cell (`missing_vals` default `"gap"` ∈ `{"marker","gap","zero","remove"}`; `expand_x`/`expand_y` are `list[int|float]`) |
 |  [20]   | `GT.sub_missing(columns, rows, missing_text)`                                                                                                  | missing sub        | substitute a glyph for missing values                                                                             |
-|  [21]   | `GT.sub_zero(columns, rows, zero_text='nil')`                                                                                                  | zero sub           | substitute text for zeros (`sub_missing`/`sub_zero` are the only substitution surfaces in 0.21.0; `sub_small_vals`/`sub_large_vals`/`sub_values` are 0.22.x) |
+|  [21]   | `GT.sub_zero(columns, rows, zero_text='nil')`                                                                                                  | zero sub           | substitute text for zeros                                                                                         |
+|  [22]   | `GT.sub_small_vals(columns, rows, threshold=0.01, small_pattern, sign='+')`                                                                    | small sub          | substitute a pattern for values below `threshold`                                                                |
+|  [23]   | `GT.sub_large_vals(columns, rows, threshold=1e12, large_pattern='>={x}', sign='+')`                                                            | large sub          | substitute a pattern for values above `threshold`                                                               |
+|  [24]   | `GT.sub_values(columns, rows, values, pattern, fn, replacement)`                                                                               | value sub          | substitute by explicit `values`, a predicate `fn`, or a `pattern`                                               |
+|  [25]   | `GT.fmt_partsper(columns, rows, to_units='per-mille', symbol='auto', decimals=2, scale_values, …, locale)`                                     | parts-per format   | per-mille/ppm/ppb/ppt notation (`to_units` ∈ `{'per-mille','per-myriad','pcm','ppm','ppb','ppt'}`)               |
+|  [26]   | `GT.fmt_duration(columns, rows, input_units, output_units, duration_style='narrow', trim_zero_units=True, max_output_units, …, locale)`        | duration format    | humanized time duration across unit fields                                                                       |
 
 [ENTRYPOINT_SCOPE]: cell-text transform, style, color, summary, and export
 - rail: tables
@@ -136,7 +147,7 @@
 | :-----: | :-------------------------------------------------------------------------------------------------- | :--------------- | :----------------------------------------------------------------- |
 |  [01]   | `GT.tab_style(style, locations)`                                                                    | cell style       | apply `style.*` objects to `loc.*` targets (`style`/`locations` accept a single value or a list) |
 |  [02]   | `GT.data_color(columns, rows, palette, domain, na_color, alpha, reverse, autocolor_text=True, truncate)` | colour scale     | background colouring by value with auto-text contrast              |
-|  [03]   | `GT.grand_summary_rows(*, fns, fmt, columns, side='bottom', missing_text='---')`                    | grand summary    | aggregate rows appended across all row groups (`fns` keyword-only; the only summary surface in 0.21.0 — no group-scoped `summary_rows`) |
+|  [03]   | `GT.grand_summary_rows(*, fns, fmt, columns, side='bottom', missing_text='---')`                    | grand summary    | aggregate rows appended across all row groups (`fns` keyword-only; a non-`None` `columns` raises `NotImplementedError`) |
 |  [04]   | `GT.row_group_order(groups)`                                                                        | group order      | set the explicit row-group display order                           |
 |  [05]   | `GT.opt_stylize(style=1, color='blue', add_row_striping=True)`                                      | theme preset     | apply one of six numbered style presets (`1`–`6`) with a base color |
 |  [06]   | `GT.opt_row_striping(row_striping=True)`                                                            | striping         | toggle zebra row striping                                          |
@@ -157,18 +168,24 @@
 |  [21]   | `GT.pipe(func, *args, **kwargs)`                                                                    | pipe             | thread the `GT` through a `GT -> GT` function                      |
 |  [22]   | `GT.from_data(data, rowname_col, groupname_col, auto_align=True, id, locale)`                       | builder (functional) | the function-style constructor mirroring `GT(...)` for pipeline-first authoring |
 |  [23]   | `GT.with_id(id)` / `GT.with_locale(locale)`                                                         | identity         | set the table id or locale after construction                      |
+|  [24]   | `GT.summary_rows(*, fns, fmt, columns, groups, side='bottom', missing_text='---')`                  | group summary    | aggregate rows per row-group (the `groups` axis); `fns` keyword-only, a non-`None` `columns` raises `NotImplementedError` |
+|  [25]   | `GT.text_transform(locations, fn)`                                                                  | cell transform   | apply a `str -> str` function to rendered cell text at `loc.*`      |
+|  [26]   | `GT.text_case_when(*cases, default, locations)`                                                     | cell transform   | rewrite cell text by `(predicate, replacement)` cases              |
+|  [27]   | `GT.text_case_match(*cases, default, replace='all', locations)`                                     | cell transform   | rewrite cell text by `(match, replacement)` cases (`match` is `str \| list[str]`, `replace` ∈ `{'all','partial'}`) |
+|  [28]   | `GT.text_replace(pattern, replacement, locations)`                                                  | cell transform   | substring/regex replacement over cell text                         |
+|  [29]   | `GT.gtsave(file, selector='table', expand=5, zoom=2.0, delay=0.2, vwidth=992, vheight=744) -> GT`   | static image     | the alternate static-image saver (distinct kwargs from `save`)     |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TABLES_TOPOLOGY]:
 - namespace: `great_tables`; `GT` is the single fluent builder constructed by `GT(data)` or the function-style `from_data(data)`; every transform method returns `GTSelf` (a copied `GT`) — the terminal emitters are `render` (the core HTML renderer keyed by `context`), `as_raw_html`/`as_latex` (string), `write_raw_html` (file), `save` (image/PDF/SVG via WebDriver, returns `GTSelf`), and `show` (display); the string/file emitters do not return `GTSelf` (`as_*` -> `str`, `write_raw_html` -> `None`)
-- location selectors: `loc.*` functions produce `Loc` objects passed to `tab_style`; they do not mutate the table directly. Their argument shape is per-selector — `loc.body` / `loc.grand_summary` take `(columns, rows, mask)`, `loc.column_labels` takes `(columns)` only, `loc.stub` / `loc.row_group` / `loc.row_groups` / `loc.grand_summary_stub` take `(rows)` only, `loc.spanner_labels` takes `(ids)`, and `loc.stubhead` / `loc.column_header` / `loc.header` / `loc.footer` / `loc.title` / `loc.subtitle` / `loc.source_notes` take no arguments. In 0.21.0 there is no `loc.summary`/`loc.summary_stub` (no group-summary location) and `tab_style` is the sole `Loc` consumer (no `tab_footnote`)
+- location selectors: `loc.*` functions produce `Loc` objects consumed by `tab_style`, `tab_footnote`, and the `text_*` transforms; they do not mutate the table directly. Their argument shape is per-selector — `loc.body` / `loc.grand_summary` take `(columns, rows, mask)`, `loc.summary` takes `(groups, columns, rows)`, `loc.column_labels` takes `(columns)` only, `loc.stub` / `loc.row_group` / `loc.row_groups` / `loc.grand_summary_stub` take `(rows)` only, `loc.summary_stub` takes `(groups, rows)`, `loc.spanner_labels` takes `(ids)`, and `loc.stubhead` / `loc.column_header` / `loc.header` / `loc.footer` / `loc.title` / `loc.subtitle` / `loc.source_notes` take no arguments
 - mask targeting: `loc.body(mask=<polars predicate>)` is mutually exclusive with `columns`/`rows`; a predicate-targeted location passes the `mask` alone
 - style objects: `style.text(…)` / `style.fill(color)` / `style.borders(sides, color, style, weight)` / `style.css(rule)` are value objects passed as the `style` argument to `tab_style`; `style.fill` and `style.text` accept a `FromColumn` (from `from_column`) for data-driven values
-- summary rows: only `grand_summary_rows` exists in 0.21.0 (no group-scoped `summary_rows`); `fns` is keyword-only as `dict[str, PlExpr]` (a polars expression naming its own target column) or `dict[str, Callable[[TblData], Any]]`, `side` is `'bottom'`/`'top'`, and each expression carries its own column
+- summary rows: `summary_rows` (group-scoped, carrying the `groups` axis) and `grand_summary_rows` (across all groups) share the keyword-only `fns` as `dict[str, PlExpr]` (a polars expression naming its own target column) or `dict[str, Callable[[TblData], Any]]`, `side` `'bottom'`/`'top'`, and an optional `fmt` standalone formatter; each expression carries its own column and a non-`None` `columns` raises `NotImplementedError`
 - nanoplot: `fmt_nanoplot` requires list- or string-valued cells; `nanoplot_options()` produces the `options` dict for point radius, line/bar/area fill, reference line/area color, vertical guides, and the `y_val_fmt_fn` / `y_axis_fmt_fn` / `y_ref_line_fmt_fn` / `currency` value formatting
 - `vals` module: `great_tables.vals.fmt_*` apply the same format logic standalone outside a `GT` chain
-- export: `save` requires a Chrome/Safari/Firefox/Edge `WebDrivers` or a `webdriver.Remote` and returns `GTSelf`; `render(context='html')`, `as_raw_html(inline_css=True)`, and `as_latex` are the no-driver paths for portable HTML and LaTeX (the 0.21.0 build has `save` only — no `gtsave`)
+- export: `save` requires a Chrome/Safari/Firefox/Edge `WebDrivers` or a `webdriver.Remote` and returns `GTSelf`; `gtsave(file, selector, expand, zoom, delay, vwidth, vheight)` is the alternate static-image saver; `render(context='html')`, `as_raw_html(inline_css=True)`, and `as_latex` are the no-driver paths for portable HTML and LaTeX
 
 [STACKING]:
 - the polars `DataFrame.style` accessor returns a real `GT`, so a polars pipeline ends `.style` then chains `fmt_*`/`tab_*` directly — no DataFrame-to-table marshalling
@@ -186,4 +203,4 @@
 - Package: `great-tables`
 - Owns: fluent publication-quality table construction, locale-aware cell formatting, missing/zero value substitution, structural layout, cell styling, data-driven colouring, theme identity, grand-summary rows, and HTML/LaTeX/image export
 - Accept: a Pandas/Polars DataFrame or dict-like as `GT(data)`; `loc.*` / `style.*` objects for structural and styling operations; the polars `DataFrame.style` accessor returns a real `GT`
-- Reject: hand-rolled HTML table generation; manual CSS injection where `tab_style` / `opt_*` / `opt_css` / `tab_options` provides the surface; reaching for a 0.22.x method (`tab_footnote`, `summary_rows`, `cols_merge_range`/`_uncert`/`_n_pct`, `fmt_partsper`/`fmt_duration`, `sub_small_vals`/`sub_large_vals`/`sub_values`, `text_*`) the pinned 0.21.0 build does not expose
+- Reject: hand-rolled HTML table generation; manual CSS injection where `tab_style` / `opt_*` / `opt_css` / `tab_options` provides the surface; hand-rolled value substitution, column merging, cell-text transformation, or footnote marking where `sub_*` / `cols_merge_*` / `text_*` / `tab_footnote` own the operation

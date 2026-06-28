@@ -72,7 +72,7 @@ Target: `libs/csharp/Rasm.Fabrication`. OCCT 7.9.3 (`OcctNet.Wrapper`, osx-arm64
 
 Target: `libs/csharp/Rasm.Bim`.
 
-- **IFC geometry kernel (IFC BRep → tessellated mesh): PY-COMPANION.** `Xbim.Geometry`/`Geometry.Engine.Interop` is a mixed-mode CLR assembly, **Windows-only** — non-functional on osx-arm64, and the maintainers state cross-platform needs a full rewrite. On osx-arm64 only `Xbim.Essentials` (pure-managed, CDDL) runs — schema I/O, property traversal. For tessellation: Python sidecar runs `ifcopenshell.geom.create_shape` (builds natively on osx-arm64) → serializes GLB → C# re-imports via the admitted `SharpGLTF` (MIT). This is the IFC→IfcOpenShell→GLB two-hop the architecture already mandates; do NOT seek a C# IFC geometry engine.
+- **IFC geometry kernel (IFC BRep -> tessellated mesh): GAP.** `Xbim.Geometry`/`Geometry.Engine.Interop` restores as managed metadata on macOS, but the native geometry engine payload is Windows-only (`win-x64`/`win-x86`) and does not provide an osx-arm64 runtime. Admit a C# IFC tessellation engine only when the package ships a macOS ARM64 native payload or a pure-managed geometry path.
 - **IDS validation: ALREADY-COVERED — not a gap.** `Xbim.InformationSpecifications` (MIT) wrapping `ids-lib` (MIT) is admitted to Bim and covers buildingSMART IDS audit. Do NOT admit `Xbim.IDS.Validator.Core` — it is AGPL-3.
 
 ---

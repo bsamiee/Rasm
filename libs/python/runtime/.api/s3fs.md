@@ -10,7 +10,7 @@
 - owner: `runtime`
 - rail: resources
 - namespaces: `s3fs`, `s3fs.core`, `s3fs.mapping`, `s3fs.errors`, `s3fs.utils`
-- installed: `2026.6.0`; license BSD (`LICENSE.txt`); py3-none-any, cp315-CLEAN (no environment marker); deps `aiobotocore<4.0.0,>=2.19.0` (async botocore S3 client) + `aiohttp>=3.9.0`, version-locked to `fsspec<2026.6.1,>=2026.6.0` (s3fs and fsspec ship lockstep calendar releases; bump both together).
+- installed: `2026.4.0`
 - capability: async `AsyncFileSystem` S3 backend with sync mirrors, S3 file handles with multipart upload, an `S3Map` mapping view, presigned-URL generation, object versioning, server-side-encryption params, region caching, and a retryable-error / custom-error-handler surface
 
 ## [02]-[PUBLIC_TYPES]

@@ -10,7 +10,7 @@
 - owner: `geometry`
 - rail: exchange
 - license: `MIT` (Robert McNeel & Associates; dist-info `licenses/LICENSE`, OpenNURBS MIT) — no copyleft obligation; the native extension `_rhino3dm` is a self-contained pybind11 build of the OpenNURBS C++ kernel with no transitive copyleft dependency
-- installed: `8.17.0` (module `rhino3dm.Version == '8.17.25066.07000'`), reflected against the cp315 Forge scientific env where it loaded a locally built native wheel `cp315-cp315-macosx_14_0_arm64`
+- installed: `8.17.0`
 - entry points: none (library only)
 - capability: headless `.3dm` archive read/write at any OpenNURBS version, the full typed document-table family, complete `GeometryBase` geometry (mesh, Brep, NURBS curve/surface, SubD, extrusion, point cloud, poly-curve, surfaces of revolution, hatch, annotation), transform algebra, analytic primitive intersection, Draco mesh compression, render-mesh meshing parameters, and polymorphic `CommonObject` JSON serialization
 
@@ -182,5 +182,3 @@ Every concrete geometry derives from `GeometryBase`; `ObjectType` discriminates 
 - Reject: wrapper-renames of `File3dm.Read`/`File3dmObjectTable.Add`; a hand-rolled `.3dm` archive parser, NURBS evaluator, affine-transform matrix kernel, analytic primitive-intersection solver, or Draco codec where rhino3dm is admitted; a per-type `Add<Geometry>` family treated as the canonical insert instead of polymorphic `Add(geometry, attributes)`; mesh-mesh boolean CSG re-routed here when `manifold3d` is admitted; identity minting the runtime owns
 
 [CAPTURE_GAP]:
-- floor: PyPI publishes no cp315 wheel for `rhino3dm 8.17.0` (its CMake C++ build is the source-build path); the project cp315 venv therefore resolves it only when the Forge scientific env builds the native extension locally. Reflection here ran against exactly such a build — a locally produced `cp315-cp315-macosx_14_0_arm64` wheel installed in the cp315 Forge scientific env — so cp315 is a build-from-source admission, not a no-wheel exclusion. The `assay api` resolver finds no source in the project venv site-packages because the extension is built in the companion scientific env, not the project venv.
-- members: every documented type, table accessor, static constructor, transform, intersection, codec, and evaluation entrypoint resolves against the live cp315 `_rhino3dm` pybind surface (193 top-level classes; the catalog documents the high-value exchange subset) — no phantom

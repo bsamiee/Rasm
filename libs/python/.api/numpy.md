@@ -7,10 +7,9 @@
 [PACKAGE_SURFACE]: `numpy`
 - package: `numpy`
 - module: `numpy`
-- version: `2.x` (floor `>=2.0`; manifest pins for cp315 wheel availability)
+- version: `2.x`
 - license: `BSD-3-Clause`
 - asset: C/Cython-extension runtime library (compiled `_core`; not pure-Python)
-- abi: per-interpreter binary wheel (`cp31x`-tagged), `Requires-Python >=3.11`
 - rail: compute
 - namespaces: `numpy`, `numpy.linalg`, `numpy.fft`, `numpy.random`, `numpy.ma`, `numpy.polynomial`, `numpy.lib.stride_tricks`, `numpy.testing`, `numpy.typing`
 

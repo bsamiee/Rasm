@@ -10,7 +10,7 @@
 - owner: `artifacts`
 - rail: structured documents
 - license: MIT
-- installed: `0.19.1` reflected via `python -c "import ruamel.yaml"` on cp315 (pure-Python `>=3.9`, cp315-clean; the optional `ruamel.yaml.clib` C emitter/parser ships separate per-version wheels and `YAML(pure=True)` forces the pure-Python codec when clib is absent)
+- installed: `0.19.1`
 - entry points: none (library only)
 - capability: round-trip YAML 1.1/1.2 load/dump preserving comments, key order, anchors/aliases, tags, and per-node block/flow/quote styling; safe/unsafe/base typ variants; multi-document streams; styled-scalar construction; programmatic comment/anchor attach; custom class registration (`@yaml_object`) and the low-level tag/resolver/representer hooks (`add_representer`/`add_constructor`/`add_implicit_resolver`/`add_path_resolver`); low-level compose/serialize/parse/emit event and node rails
 

@@ -9,8 +9,7 @@
 - import: `import numcodecs`
 - owner: `data`
 - rail: array (chunk-codec supplier for the chunked-array rail)
-- version: `0.16.5` (locked, `>=0.16`); license `MIT`
-- asset: Cython/C extension wheel bundling native c-blosc `1.21.7`, libzstd, liblz4, and the LZMA/BZ2/Zlib system codecs (`cp3X-cp3X` version-specific, not abi3); cp315-clean and resolved in the cp315 default venv
+- version: `0.16.5`
 - entry points: codec plugins register through the `numcodecs.codecs` entry-point group (`run_entrypoints()` ingests them into `codec_registry`); the optional `zfpy`/`pcodec` extras add the `ZFPY`/`PCodec` codecs
 - deprecation-flag: `numcodecs.zarr3` is deprecated — accessing any `numcodecs.zarr3.<Codec>` attribute emits a `DeprecationWarning` directing to `zarr.codecs.numcodecs.<Codec>` (zarr-python >= 3.1.3); the manifest pin carries this flag, so the zarr-v3 boundary composes the `zarr.codecs.numcodecs.*` path, not the soon-removed shim
 - capability: the polymorphic `Codec` ABC (`encode`/`decode`/`get_config`/`from_config`/`codec_id`), a JSON-config codec registry with `get_codec`/`register_codec`/entry-point discovery, lossless compressor codecs (`Blosc` with cname/clevel/shuffle/blocksize/typesize, `Zstd`, `LZ4`, `GZip`, `BZ2`, `LZMA`, `Zlib`), array filter/transform codecs (`Delta`, `FixedScaleOffset`, `Quantize`, `BitRound`, `Shuffle`, `PackBits`, `AsType`, `Categorize`), checksum codecs (`CRC32`, `CRC32C`, `Adler32`, `Fletcher32`, `JenkinsLookup3`), variable-length and serialization codecs (`VLenUTF8`, `VLenBytes`, `VLenArray`, `JSON`, `Pickle`), buffer-coercion helpers (`numcodecs.compat`), native thread/compressor control (`numcodecs.blosc`/`numcodecs.zstd`), and the `numcodecs.zarr3` -> `zarr.codecs.numcodecs` zarr-v3 codec adapter family

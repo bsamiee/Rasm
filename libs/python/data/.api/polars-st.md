@@ -11,7 +11,6 @@
 - rail: spatial
 - version: `0.7.0`
 - license: `LGPL-2.1` (dynamic-linkage extension; ships GEOS/GDAL-backed native code)
-- requires-python: `>=3.10`
 - runtime deps: `polars>=1.38.1`, `pyarrow>=23.0.1`, `pyogrio>=0.12.1` (OGR vector IO backend)
 - entry points: library use is import-only; the surface activates as the `.st` accessor on Polars `Expr`/`Series`/`DataFrame`/`LazyFrame`, registered as a Polars expression plugin against the WKB-encoded geometry column
 - capability: GeoArrow/WKB geometry columns, GEOS-backed predicates (`intersects`, `contains`, `contains_properly`, `within`, `dwithin`, `covers`, ...), measures (`area`, `length`, `distance`, `hausdorff_distance`, `frechet_distance`, `bounds`), overlay (`union`, `intersection`, `difference`, `symmetric_difference`, `shared_paths`, `shortest_line`), constructive ops (`buffer`, `offset_curve`, `convex_hull`, `concave_hull`, `voronoi_polygons`, `delaunay_triangles`), affine/topology transforms (`affine_transform`, `simplify`, `snap`, `make_valid`, `set_precision`, `force_2d`/`force_3d`), linear referencing (`interpolate`, `project`, `substring`), SRID projection (`set_srid`/`to_srid`), WKB/WKT/EWKT/GeoJSON/shapely serialization, OGR/GeoPandas IO, and spatial joins (`sjoin`)

@@ -10,8 +10,7 @@
 - owner: `compute`
 - rail: signal processing
 - namespace: `pywt` (all public transforms/types/helpers at top level)
-- installed: `1.9.0`; license MIT; manylinux/macOS `cp3x` ABI wheels (C/Cython extension over the FLINT-independent wavelet C kernels)
-- gate: `[GATED]` `; python_version<'3.15'` — C/Cython extension ships no CPython 3.15 wheel; the wavelet-transform surface runs only on the companion interpreter band, never the cp315 core
+- installed: `1.9.0`
 - requires: `numpy`
 - entry points: none (library only)
 - capability: 1D/2D/nD discrete wavelet transform (single and multilevel), stationary/undecimated DWT (1D/2D/nD), multiresolution analysis (additive MRA), the fully-separable wavelet transform, wavelet-packet trees (1D/2D/nD), the continuous wavelet transform, soft/hard/garrote/firm coefficient thresholding, coefficient ravel/unravel between nested lists and flat arrays, a discrete/continuous wavelet catalogue with filter banks and `wavefun`, FIR filter-bank helpers, and signal-extension-mode control
@@ -112,4 +111,3 @@
 - Owns: 1D/2D/nD discrete (decimated and stationary) wavelet transforms, additive multiresolution analysis, the fully-separable wavelet transform, wavelet-packet trees (1D/2D/nD), the continuous wavelet transform, soft/hard/garrote/greater/less/firm coefficient thresholding, coefficient ravel/unravel between nested lists and flat arrays, the wavelet catalogue with filter banks and `wavefun`, and FIR filter-bank helpers
 - Accept: `dwt`/`wavedec` family with `mode`/`level`/`axis` rows, `swt`/`swtn` for shift-invariant decomposition, `mra`/`mran` for additive analysis-of-variance bands, `fswavedecn` for per-axis-independent separable decomposition, `cwt` for continuous analysis, `Wavelet`/`ContinuousWavelet`/`wavelist`/`wavefun` for the catalogue, `threshold`/`threshold_firm` for coefficient denoising, `ravel_coeffs`/`coeffs_to_array` for the flat↔nested coefficient bijection feeding an optimizer
 - Reject: wrapper-renames of `dwt`/`wavedec`; a hand-rolled cascade filter bank where the multilevel transform applies; hardcoded wavelet coefficients where the catalogue resolves them; a hand-built coefficient index map where `ravel_coeffs`/`unravel_coeffs` own the bijection; reconstructing an additive band sum from `waverec` where `mra`/`imra` own additive analysis; a parallel transform engine per dimensionality or per decimation mode
-- License: MIT; gated `; python_version<'3.15'` (C/Cython extension, no cp315 wheel)

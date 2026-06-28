@@ -9,7 +9,6 @@
 - import: `scipy` (lint alias `sp`); submodules `scipy.fft`, `scipy.linalg`, `scipy.sparse`, `scipy.sparse.linalg`, `scipy.optimize`, `scipy.integrate`, `scipy.interpolate`, `scipy.signal`, `scipy.stats` (`scipy.stats.qmc`), `scipy.spatial` (`scipy.spatial.distance`, `scipy.spatial.transform`)
 - owner: `compute`
 - rail: solvers
-- installed: marker-gated `python_version<'3.15'` (`scipy>=1.17.1`; scipy/Pythran lacks a cp315 wheel); license BSD-3-Clause
 - capability: scientific solver suite — fast Fourier transforms, dense and sparse linear algebra, nonlinear optimization, numerical integration, interpolation, statistics (distributions, hypothesis tests, QMC sampling), signal processing, and spatial neighbour/tessellation/rotation
 
 ## [02]-[PUBLIC_TYPES]

@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_EGRESS]
 
-The security-and-navigation finishing close over an emitted PDF or Office container. `DocumentEgress` is ONE owner that takes bytes already authored by `folder:document/emit#DOCUMENT` and returns a sealed, navigable, watermarked, attachment-bearing, content-rewritten, redaction-burned, imposed, view-configured, confidentiality-scrubbed, structure-optimized, or Office-(de)sealed artifact keyed by the runtime content key — it finishes an emitted artifact and never authors one. `EgressStep` is the closed `StrEnum` over the eleven finishing operations, each a `Finisher` row in the `FINISHERS` policy table binding its single `FinishFact`-returning arm and its `office` receipt discriminant in one value; the table is the totality proof. Every arm resolves IN-PROCESS on the cp315 core — `pikepdf` (`cp314-abi3` forward-compatible to cp315), `pymupdf` (`cp310-abi3`), and the pure-Python `pypdf`/`msoffcrypto` are all ungated in the manifest — so the close is one synchronous fold over the runtime `boundary` exactly as `folder:document/tagged#ACCESS` finishes a `pikepdf` tree, never a subprocess seam, a `Band` split, or a `python_version<'3.15'` gated worker.
+The security-and-navigation finishing close over an emitted PDF or Office container. `DocumentEgress` is ONE owner that takes bytes already authored by `folder:document/emit#DOCUMENT` and returns a sealed, navigable, watermarked, attachment-bearing, content-rewritten, redaction-burned, imposed, view-configured, confidentiality-scrubbed, structure-optimized, or Office-(de)sealed artifact keyed by the runtime content key — it finishes an emitted artifact and never authors one. `EgressStep` is the closed `StrEnum` over the eleven finishing operations, each a `Finisher` row in the `FINISHERS` policy table binding its single `FinishFact`-returning arm and its `office` receipt discriminant in one value; the table is the totality proof. Every arm resolves IN-PROCESS on the runtime — `pikepdf` (`worker-native` forward-compatible to runtime), `pymupdf` (`cp310-native`), and the pure-Python `pypdf`/`msoffcrypto` are all ungated in the manifest — so the close is one synchronous finishing fold the `_emit` weave crosses onto the GIL-releasing `anyio.to_thread` seam under a bounded `CapacityLimiter`, in-process exactly as `folder:document/tagged#ACCESS` finishes a `pikepdf` tree but never inline on the event loop and never a subprocess `Band` split — the heavy native render runs off the scheduler so a concurrent serve is never stalled.
 
 Admission splits by trust. Trusted finishing policy enters as the one frozen `Finishing` value-object bundle — `Permissions`/`Encryption`/`Bookmark`/`Watermark`/`Attachment`/`Imposition`/`Viewer`/`Scrub`/`Label`/`Sanitize`/`Optimize`/`ContentEdit`/`Confidentiality`, each a behavior-carrying owner the caller constructs from its own validated source — while untrusted material (the watermark `stamp` bytes, the attachment payload bytes, the Office credentials) is admitted exactly once at `DocumentEgress.of` through the closed `EgressPayload` `TypedDict` and its module-level `TypeAdapter` into the `Extras` struct, the `extra_items=str` band folding the format-discriminated Office credential axis into one `frozendict`. `of` rejects an under-supplied step through the `_PREREQ` predicate table into `EgressFault.incomplete` before the fold runs — `ENCRYPT` without an `Encryption`, `WATERMARK` without a `stamp`, `ATTACH` without payload-or-name, `OUTLINE`/`REDACT` with neither a `DocumentNode` nor a fallback source — so the interior is total over admitted owners and never re-validates, re-coerces, or reaches a stringly-keyed bag.
 
@@ -10,22 +10,18 @@ The value objects carry every knob the steps need so no loose flag rides the sig
 
 Ownership across the wire is single-lane and in-process. `pikepdf` owns qpdf-native encryption across every strength, page composition, attachments, the `parse_content_stream`/`unparse_content_stream` token model, the object model, the `sanitize` strip family, `flatten_annotations`, `acroform.disable_digital_signatures`, `remove_unreferenced_resources`, and the recompress/linearize/deterministic-id `Pdf.save` strategy; `pypdf` owns the pure-Python writer, the `Transformation` imposition algebra, `add_outline_item` outline authoring, and the `create_viewer_preferences`/`page_layout`/`page_mode` viewer-navigation surface; `pymupdf` owns the MuPDF redaction burn-in, the `Page.search_for` content match, plus the `bake`/`scrub`/`subset_fonts` sanitize sweep that destroys content bytes irreversibly; `msoffcrypto` owns the encrypted-Office container detection, the `keyTypes` credential axis, decryption, AND OOXML re-encryption.
 
-Cross-cutting receipt emission is a definition-time aspect over the thin pure `_emit`: the runtime `@receipted(Redaction.STRUCTURAL)` weave drains `contribute` and emits through the runtime `Signals.emit_async`, harvesting the threaded `FinishFact` evidence without an inline `emit` per arm, while the `async_boundary` capsule converts a provider raise into the runtime `BoundaryFault` rail; the owner reads as the receipt weave over a pure synchronous dispatch fold, never inline-repeated concerns. The OUTLINE step folds the `folder:document/model#NODE` `SectionNode` heading tree so the bookmark hierarchy is recovered from the one semantic tree, and the REDACT step folds the `AnnotationNode` `AnnotKind.REDACTION` rects so destruction targets the one semantic tree. One polymorphic `finish` entry owns BOTH the singular step and the finishing CHAIN: an `EgressStep | tuple[EgressStep, ...]` discriminant threads the finished bytes step-to-step through one `reduce` fold, so a watermark-then-impose-then-encrypt deliverable is one fold over the input shape, never a caller-orchestrated re-entry or a `mode`/`batch` knob. Re-signing is never an egress step and routes to `folder:../exchange/conformance#CONFORM`; PDF/A authoring routes to `folder:document/emit#DOCUMENT`; named-layer AUTHORING routes to `folder:../export/layered#LAYERED`; descriptive-metadata authoring routes to `folder:../exchange/metadata#METADATA`. Every finish returns a `RuntimeRail[ContentKey]` and, through `DocumentEgress.contribute`, builds the one `folder:../core/receipt#RECEIPT` `ArtifactReceipt` case off the `Finisher.office` discriminant then yields the `Iterable[Receipt]` stream the runtime `ReceiptContributor` port declares.
+Cross-cutting receipt emission is a definition-time aspect over the thin pure `_emit`: the runtime `@receipted(_REDACTION)` weave drains `contribute` and emits through the runtime `Signals.emit_async`, harvesting the threaded `FinishFact` evidence without an inline `emit` per arm, while the `async_boundary` capsule converts a provider raise into the runtime `BoundaryFault` rail; the owner reads as the receipt weave over a pure synchronous dispatch fold, never inline-repeated concerns. The OUTLINE step folds the `folder:document/model#NODE` `SectionNode` heading tree so the bookmark hierarchy is recovered from the one semantic tree, and the REDACT step folds the `AnnotationNode` `AnnotKind.REDACTION` rects so destruction targets the one semantic tree. One polymorphic `finish` entry owns BOTH the singular step and the finishing CHAIN: an `EgressStep | tuple[EgressStep, ...]` discriminant threads the finished bytes step-to-step through one `reduce` fold, so a watermark-then-impose-then-encrypt deliverable is one fold over the input shape, never a caller-orchestrated re-entry or a `mode`/`batch` knob. Re-signing is never an egress step and routes to `folder:../exchange/conformance#CONFORM`; PDF/A authoring routes to `folder:document/emit#DOCUMENT`; named-layer AUTHORING routes to `folder:../export/layered#LAYERED`; descriptive-metadata authoring routes to `folder:../exchange/metadata#METADATA`. Every finish returns a `RuntimeRail[ContentKey]` and, through `DocumentEgress.contribute`, builds the one `folder:../core/receipt#RECEIPT` `ArtifactReceipt` case off the `Finisher.office` discriminant then yields the `Iterable[Receipt]` stream the runtime `ReceiptContributor` port declares.
 
 ## [01]-[INDEX]
 
-- [01]-[FINISH]: `DocumentEgress` + `EgressStep` (ENCRYPT/OUTLINE/WATERMARK/ATTACH/IMPOSE/NAVIGATE/REWRITE/REDACT/SANITIZE/OPTIMIZE/PROTECT) policy-table dispatch over pikepdf/pypdf/pymupdf/msoffcrypto, every arm in-process on the cp315 core; the `Finisher` row binds each step to its `(arm, office)` pair; trusted policy is the one `Finishing` value-object bundle, untrusted material is the `Extras` struct admitted once through `DocumentEgress.of` over the `EgressPayload` `TypedDict` + `TypeAdapter`, the `extra_items=str` band folding the Office credentials into a `frozendict`, and `_PREREQ` rejecting an under-supplied step into `EgressFault.incomplete`; every arm returns a `FinishFact` carrying the finished bytes beside its produced page/encryption-R/outline-depth/overlay evidence, `_emit` threads the fact onto the frozen owner through `structs.replace`, and `DocumentEgress.contribute` reads that fact and folds BOTH the PDF `ArtifactReceipt.Egress` and the Office `ArtifactReceipt.Office` case off the `Finisher.office` discriminant; `EgressFault` is the closed `@tagged_union` over the `payload`/`empty`/`incomplete` admission causes `of` produces, the arm-level provider exception families converting to the runtime `BoundaryFault` at the `async_boundary` capsule; the ENCRYPT step reads the one `Strength` row off `_STRENGTHS` into the `(r, aes)` pair driving the single `pikepdf.Encryption` leg across RC4/AES with `metadata` derived `aes and encrypt_metadata`; the OUTLINE step folds the `SectionNode` heading tree under the `Bookmark` typography axis or the `Bookmark.fallback` rows; the WATERMARK step places the `Watermark`-positioned stamp through `Page.add_overlay`/`add_underlay`; the ATTACH step embeds an `Attachment` `AttachedFileSpec` carrying mime and `/AFRelationship`; the IMPOSE step folds the `Imposition` `NUP`/`BOOKLET` order through the `pypdf.Transformation` n-up algebra; the NAVIGATE step authors the `Viewer` page-mode/layout/preferences through `pypdf`; the REWRITE step folds the qpdf object model through one immutable `ContentEdit` `Block.fold` over `parse_content_stream` plus the `/Root/OCProperties` catalog prune; the REDACT step burns the `AnnotKind.REDACTION` tree rects AND the `Label.needles` `search_for` matches under the `Label` axis, flattens through `bake`, sweeps through the `Scrub` axis, subsets through `subset_fonts`; the SANITIZE step folds `Sanitize` over the `pikepdf.sanitize` strip family; the OPTIMIZE step folds `Optimize` over the `Pdf.save` strategy; the PROTECT step gates on `is_encrypted` then folds `Confidentiality` over the `office.format`-discriminated `load_key`/`decrypt` unlock OR the `OOXMLFile.encrypt` re-seal; `finish` owns BOTH the singular step and the `EgressStep | tuple[EgressStep, ...]` finishing chain threading bytes step-to-step through one `reduce`; the runtime `@receipted(Redaction.STRUCTURAL)` weave harvests `contribute` off the stepped owner the pure `_emit` returns and `async_boundary` is the fault-converting capsule.
 
 ## [02]-[FINISH]
 
 - Owner: `DocumentEgress` the one finishing-close owner discriminating the egress step; `EgressStep` the closed `StrEnum` over the eleven finishing operations; `FINISHERS` the `frozendict[EgressStep, Finisher]` policy table binding each step to one `Finisher` row carrying its single `FinishFact`-returning arm and its `office` discriminant — the table is the totality proof, one arm per step, never an `if step == ...` cascade and never a parallel native frozenset. `Finishing` the one frozen value-object bundle carrying every trusted finishing policy, mirrored by the untrusted `Extras` material struct so the admission split is trust, not concern. `FinishFact` the bytes-plus-evidence carrier every arm returns so the receipt reads the page/encryption-R/outline-depth/overlay facts the arm produced, threaded onto the owner through `structs.replace`. `Strength` the closed `StrEnum` whose `_STRENGTHS` table projects the `(r, aes)` pair in one read. `Permissions`/`Encryption`/`Bookmark`/`Watermark`/`Attachment`/`Imposition`/`Viewer`/`Scrub`/`Label`/`Sanitize`/`Optimize`/`ContentEdit`/`Confidentiality` the row-policy value objects the `Finishing` bundle carries. pikepdf owns qpdf-native encryption across every strength, overlay/underlay composition, attachment specs, the `parse_content_stream`/`unparse_content_stream` token model, the object model, and the `Pdf.save` strategy; pypdf owns `PdfWriter.add_outline_item`, the `Transformation` imposition algebra, and the `create_viewer_preferences`/`page_layout`/`page_mode` viewer surface; pymupdf owns `Page.apply_redactions`/`search_for` plus the `Document.bake`/`scrub`/`subset_fonts` sanitize sweep; msoffcrypto owns `OfficeFile` detection, the `keyTypes` credential axis, `decrypt`, and `OOXMLFile.encrypt`.
 - Cases: `EgressStep` rows · `ENCRYPT` (the one pikepdf encrypt arm — `Pdf.save(encryption=pikepdf.Encryption(owner, user, R, aes, metadata, allow))` across `RC4-40`/`RC4-128`/`AES-128`/`AES-256`, the one `Strength` row projecting its `(r, aes)` pair off `_STRENGTHS`, `Encryption.metadata` deriving `aes and encrypt_metadata` so the qpdf "encrypt metadata only under AES" rule is a derived value never a runtime raise, the one `Permissions` policy projecting to `pikepdf.Permissions`) · `OUTLINE` (the bookmark-tree authoring arm folding the `SectionNode` heading hierarchy through `PdfWriter.add_outline_item` under the `Bookmark` `(bold, italic, color, fit, is_open)` axis into nested bookmarks, tracking the deepest authored `level` as the receipt depth, or lowering the `Bookmark.fallback` `(title, page)` rows when no `DocumentNode` tree is supplied) · `WATERMARK` (pikepdf opening the stamp into a named `Pdf` that outlives the loop, `contents_coalesce` forcing its `/Contents` indirect, then `Page.add_overlay`/`add_underlay` placing it at the `Watermark.rect` `Rectangle` across documents, the placed count one `sum` over the apply-and-count generator since `add_overlay` returns the placement `Name`) · `ATTACH` (`Pdf.attachments[name] = AttachedFileSpec(pdf, data, filename, description, mime_type, relationship)` embedding a file into the catalog with the `AFRelationship` `/AFRelationship` a PDF/A-3 source embed requires, the relationship a `pikepdf.Name` not a bare string) · `IMPOSE` (pypdf n-up/booklet imposition folding each source `PageObject` of the `Imposition.order(count)` sequence onto a target sheet through `Transformation` then `merge_page`, the `NUP` order `range(count)` batched by `slots` and the `BOOKLET` order the saddle-stitch quartet sequence with `-1` blanks the placer skips) · `NAVIGATE` (pypdf authoring the `Viewer` open-state — `PdfWriter.page_layout`/`page_mode` plus the `create_viewer_preferences()` `hide_toolbar`/`fit_window`/`center_window`/`display_doctitle` axis — so a navigable deliverable opens to its bookmark panel in the chosen layout, the navigation half OUTLINE's bookmark tree does not own) · `REWRITE` (pikepdf object-model surgery folding the qpdf `parse_content_stream` operand+operator instructions through one immutable `Block.fold` whose carried `(stack, kept)` threads the `/OC` `BDC`/`BMC`…`EMC` marked-content stack — operator drop by `str(op)`, `Name`-guarded resource rename, and OCG strip/flatten over the `LayerMode` per-region stack — writing `make_stream(unparse_content_stream(...))` into `page.obj[Name.Contents]` then pruning the stripped OCGs from the `/Root/OCProperties` `/OCGs`/`/D` catalog, reporting the catalog-removed layer count) · `REDACT` (pymupdf staging each `AnnotKind.REDACTION` tree rect AND each `Label.needles` `Page.search_for` match as a black `add_redact_annot` carrying the optional `Label.overlay_text` under the `Label` typography axis, burning through `apply_redactions` with the `PDF_REDACT_*` flag triple, flattening through `bake`, sweeping through `scrub(**Scrub.kwargs())`, subsetting through `subset_fonts(fallback=False)`, destroying the underlying bytes irreversibly) · `SANITIZE` (pikepdf folding `Sanitize` over the `pikepdf.sanitize` strip family plus `flatten_annotations` and `acroform.disable_digital_signatures`) · `OPTIMIZE` (pikepdf folding `Optimize` over `remove_unreferenced_resources` plus the `Pdf.save` linearize/recompress/object-stream/deterministic-id strategy) · `PROTECT` (the Office confidentiality arm folding `Confidentiality` over `OfficeFile.is_encrypted` gating then EITHER the format-discriminated `load_key(**credentials, **verify)`/`decrypt(outfile, **verify)` unlock — the OOXML `keyTypes` axis or the legacy-97 `("password",)` axis recovered through the `office.format == "ooxml"` factory-set discriminant — OR the `OOXMLFile.encrypt(password, outfile)` re-seal of a plaintext OOXML payload, both arms idempotent at the `is_encrypted()` gate so an already-plaintext unlock and an already-sealed re-seal each return the source unchanged) — each one `Finisher.arm` resolved off `FINISHERS`, never re-enumerated by a worker-side `match`.
-- Entry: `DocumentEgress.finish` is `async` over the runtime `async_boundary`, dispatching inside the one fault capsule. `step` is `EgressStep | tuple[EgressStep, ...]`: a singular step runs its one arm, a finishing CHAIN folds the sequence through `reduce` threading `FinishFact.data` step-to-step (each successor `structs.replace`-ing the owner's `source` with the prior finished bytes), so a watermark-then-impose-then-encrypt deliverable is one polymorphic fold over the input shape, never a name suffix or a `batch` knob. The whole fold runs in-process on the cp315 core — no `to_process`, no `Band`, no second worker `match` — exactly as `folder:document/tagged#ACCESS` finishes a `pikepdf` tree; the entry returns a `RuntimeRail[ContentKey]` whose key `finish` mints off the finished owner `_emit` returns (its `source` is the final `FinishFact.data`).
-- Auto: `_stepped` runs `FINISHERS[step].arm(staged)` synchronously in-process, then threads the returned `FinishFact` onto a successor owner through `structs.replace(self, fact=..., source=fact.data)` — the frozen seed is never mutated, the successor carries both the evidence and the reseeded bytes. `finished` is one `reduce` over `self.steps` folding `_stepped` to the final owner, and `_emit` returns that finished owner (a `ReceiptContributor`) the `@receipted` weave drains — `finish` mints the content key over its `source` (the last finished bytes) through `ContentIdentity.of`; `contribute` reads the final owner's `fact`. The ENCRYPT arm reads the one `Strength` row into `pikepdf.Encryption`, the dual RC4/AES strengths sharing one leg because qpdf authors them all in-process — `pypdf` is reserved for the structural OUTLINE/IMPOSE/NAVIGATE arms it owns, never a parallel encryptor. Every arm imports its package at boundary scope inside the arm body; no native import lands on the core owner.
-- Receipt: each finish contributes one `folder:../core/receipt#RECEIPT` case. The runtime `@receipted(Redaction.STRUCTURAL)` weave wraps `_emit` and drains `DocumentEgress.contribute` off the stepped owner `_emit` returns, emitting through `Signals.emit_async`; `contribute` reads the threaded `FinishFact` off `self.fact` (never a re-run of an arm), re-mints the content key over `fact.data`, and folds the case off `Finisher.office` in one expression — the PDF-finishing rows emit `ArtifactReceipt.Egress` carrying the content key, the post-finish byte count, and the `fact.pages`/`encryption_r`/`outline_depth`/`overlays` evidence the arm produced (each defaulting to `0` off the rows that do not produce it; the REWRITE `fact.layers_removed` OCG-strip count rides the `overlays` layer-composition slot since an OCG strip is the inverse layer operation the watermark overlay count measures), and the `PROTECT` step emits `ArtifactReceipt.Office` carrying the content key and the decrypted-or-resealed byte count — one shared receipt stream off the one `FinishFact` shape, every row contributing through the SAME projection rather than a per-row receipt delegate. The case's own `contribute` projects through the runtime `Receipt.of("artifacts", ("emitted", subject, facts))` contract, so the egress owner declares the canonical streaming port like every sibling consumer and carries no second port method.
-- Packages: `pikepdf` (`open`/`Pdf.save(linearize, encryption, recompress_flate, deterministic_id, object_stream_mode, compress_streams, stream_decode_level)`/`Encryption(owner, user, R, aes, metadata, allow)`/`Permissions`/`Pdf.pages`/`Pdf.Root`/`Page`/`Page.add_overlay`/`add_underlay`/`Page.contents_coalesce`/`Rectangle`/`Pdf.attachments`/`AttachedFileSpec(data, filename, description, mime_type, relationship)`/`parse_content_stream`/`unparse_content_stream`/`Pdf.make_stream`/`Page.obj`/`Object`/`Object.get`/`Dictionary`/`Array`/`Name`/`ObjectStreamMode`/`StreamDecodeLevel`/`sanitize`/`Pdf.flatten_annotations`/`Pdf.acroform.disable_digital_signatures`/`Pdf.remove_unreferenced_resources`, the qpdf-native `cp314-abi3` wheel resolving in-process on cp315), `pypdf` (`PdfReader`/`PdfWriter`/`PdfWriter(clone_from)`/`PdfWriter.pages`/`PdfWriter.add_outline_item(title, page_number, parent, color, bold, italic, fit, is_open)`/`PdfWriter.add_blank_page`/`PdfWriter.create_viewer_preferences`/`PdfWriter.page_layout`/`PdfWriter.page_mode`/`PageObject.add_transformation`/`merge_page`/`mediabox`/`Transformation`/`generic.Fit`, pure-Python on cp315), `pymupdf` (`open`/`Page.add_redact_annot(text, fontname, fontsize, align, fill, text_color, cross_out)`/`Page.apply_redactions`/`Page.search_for(text)`/`Document.page_count`/`Document.bake`/`Document.scrub`/`Document.subset_fonts`/`Document.save`/`Rect`/`PDF_REDACT_IMAGE_REMOVE`/`PDF_REDACT_LINE_ART_REMOVE_IF_TOUCHED`/`PDF_REDACT_TEXT_REMOVE`, native MuPDF on cp315), `msoffcrypto` (`OfficeFile`/`BaseOfficeFile.is_encrypted`/`OOXMLFile.format`/`OOXMLFile.keyTypes`/`load_key`/`decrypt`/`OOXMLFile.encrypt`/`exceptions.FileFormatError`/`InvalidKeyError`/`DecryptionError`, pure-Python on cp315); `folder:document/model#NODE` (`DocumentNode`/`SectionNode`/`AnnotationNode`/`AnnotKind`/`RunNode`/`walk`); runtime (`content_identity.ContentIdentity`/`ContentKey`, `faults.RuntimeRail`/`async_boundary`, `receipts.Receipt`/`ReceiptContributor`/`receipted`/`Redaction`).
+- Auto: `_stepped` runs `FINISHERS[step].arm(staged)` synchronously in-process, then threads the returned `FinishFact` onto a successor owner through `structs.replace(self, fact=..., source=fact.data)` — the frozen seed is never mutated, the successor carries both the evidence and the reseeded bytes. `finished` is one `reduce` over `self.steps` folding `_stepped` to the final owner, and `_emit` returns that finished owner (a `ReceiptContributor`) the `@receipted` weave drains — `finish` mints the content key over its `source` (the last finished bytes) through `ContentIdentity.of`; `contribute` reads the final owner's `fact`. The ENCRYPT arm reads the one `Strength` row into `pikepdf.Encryption`, the dual RC4/AES strengths sharing one leg because qpdf authors them all in-process — `pypdf` is reserved for the structural OUTLINE/IMPOSE/NAVIGATE arms it owns, never a parallel encryptor. Every arm's native package is a module-scope `lazy import`/`lazy from` binding reified on first arm use; no native import lands on the core owner.
+- Receipt: each finish contributes one `folder:../core/receipt#RECEIPT` case. The runtime `@receipted(_REDACTION)` weave wraps `_emit` and drains `DocumentEgress.contribute` off the stepped owner `_emit` returns, emitting through `Signals.emit_async`; `contribute` reads the threaded `FinishFact` off `self.fact` (never a re-run of an arm), re-mints the content key over `fact.data`, and folds the case off `Finisher.office` in one expression — the PDF-finishing rows emit `ArtifactReceipt.Egress` carrying the content key, the post-finish byte count, and the `fact.pages`/`encryption_r`/`outline_depth`/`overlays` evidence the arm produced (each defaulting to `0` off the rows that do not produce it; the REWRITE `fact.layers_removed` OCG-strip count rides the `overlays` layer-composition slot since an OCG strip is the inverse layer operation the watermark overlay count measures), and the `PROTECT` step emits `ArtifactReceipt.Office` carrying the content key and the decrypted-or-resealed byte count — one shared receipt stream off the one `FinishFact` shape, every row contributing through the SAME projection rather than a per-row receipt delegate. The case's own `contribute` projects through the runtime `Receipt.of("artifacts", ("emitted", subject, facts))` contract, so the egress owner declares the canonical streaming port like every sibling consumer and carries no second port method.
 - Growth: a new finishing step is one `EgressStep` row plus one `Finisher` row carrying its arm and office discriminant, plus one `_PREREQ` row when the step needs material; a new finishing-policy concern is one `Finishing` field carrying its own value object; a new receipt fact is one `FinishFact` field the arm populates, never a re-derivation off the bytes; a new permission knob is one `Permissions` field; an encryption strength is one `Strength` row plus one `_STRENGTHS` cell carrying its `(r, aes)` pair, never a parallel encrypt owner; a sanitize knob is one `Scrub` field; a bookmark-typography knob is one `Bookmark` field; a redaction-label or content-search knob is one `Label` field; an imposition layout is one `ImposeLayout` member plus one `Imposition.order` arm; a viewer-state knob is one `Viewer` field; an attachment-relationship kind is one `AFRelationship` member; a credential kind is already carried by the format-discriminated credential axis; an Office disposition (unlock vs re-seal) is one `Confidentiality` case; a content-stream edit is one `ContentEdit` field folded through `_folded_stream`'s `Block.fold`; a deeper finishing chain is one more `EgressStep` in the sequence the rail already folds; zero new surface.
-- Boundary: this owner finishes an already-emitted artifact and authors none — a PDF-from-scratch path, a per-finishing-step service class family, a stringly-typed `if step == "encrypt"` branch, scattered boolean permission knobs, a `Band`/worker subprocess split predicated on a non-existent `python_version<'3.15'` gate (every package resolves on cp315), a parallel `pypdf` encrypt leg where qpdf authors every strength in-process, a per-row receipt delegate, a re-parse of the finished bytes, an `add_overlay(...) is None` overlay count that the `Name`-returning surface makes always zero, a `TokenFilter` whose flat token stream cannot pair the `/OC` operand with its `BDC` operator, a mutable-list content-stream accumulator, a `while`-loop booklet imposition accumulating a mutable page-order list where one comprehension states the saddle-stitch fold, a loose `extras.across`/`extras.under` flag where a `Finishing` value object owns the policy, a `_emit` returning a bare `ContentKey` where the `@receipted` harvest needs the stepped `ReceiptContributor` owner, a `hasattr(office, "keyTypes")` probe where `office.format` is the factory-set OOXML discriminant, and an `Encryption` admitting the invalid RC4-with-encrypted-metadata cell are the deleted forms. PAdES cryptographic re-signing routes to `folder:../exchange/conformance#CONFORM`; PDF/A structural authoring routes to `folder:document/emit#DOCUMENT`; descriptive-metadata/XMP authoring routes to `folder:../exchange/metadata#METADATA`; the recover-TO extraction half routes to `folder:document/lens#LENS`. The REWRITE OCG edit STRIPS or FLATTENS an existing named layer but never AUTHORS one — minting a named editable layer is `folder:../export/layered#LAYERED`'s concern, so the egress close consumes an OCG-layered artifact and can subtract a layer while layer composition is the upstream export owner. Office confidentiality is the full bidirectional rail — `PROTECT` gates on `is_encrypted`, unlocks an encrypted container through the format-discriminated credential axis, OR re-seals a plaintext OOXML payload through `OOXMLFile.encrypt`, the legacy-97 formats decrypt-only so a re-seal of a 97 container is rejected at the `OOXMLFile.encrypt` type edge. Every arm imports its package at boundary scope so neither a module-top nor a lazy native import lands on the core owner. The content key is minted over the final `FinishFact.data`, never re-minted off the source key.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -36,6 +32,7 @@ from io import BytesIO
 from itertools import batched
 from typing import TYPE_CHECKING, Final, Literal, NotRequired, ReadOnly, Self, TypedDict, Unpack, assert_never
 
+from anyio import CapacityLimiter, to_thread
 from builtins import frozendict
 from expression import Error, Ok, Result, Some, case, tag, tagged_union
 from expression.collections import Block, Map
@@ -44,10 +41,17 @@ from pydantic import TypeAdapter, ValidationError
 
 from rasm.runtime.content_identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import RuntimeRail, async_boundary
-from rasm.runtime.receipts import Receipt, Redaction, receipted
+from rasm.runtime.receipts import OPEN, Receipt, receipted
 
 from artifacts.core.receipt import ArtifactReceipt
 from artifacts.document.model import AnnotKind, AnnotationNode, DocumentNode, SectionNode, walk
+
+lazy import msoffcrypto
+lazy import pikepdf
+lazy import pymupdf
+lazy from pikepdf import sanitize
+lazy from pypdf import PdfReader, PdfWriter, Transformation
+lazy from pypdf.generic import Fit
 
 if TYPE_CHECKING:
     import pikepdf
@@ -143,6 +147,10 @@ class EgressFault:
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
+# the keep-all redaction the `@receipted` weave rides; `Redaction` is a `Struct(classified, salt)` with
+# NO named instances, so `Redaction.STRUCTURAL` was a phantom — the empty `classified` map scrubs nothing.
+_REDACTION: Final[Redaction] = Redaction(classified=Map.empty())
+_OFFLOAD: Final = CapacityLimiter(8)  # the finishing fold is GIL-releasing native (pikepdf/pymupdf/msoffcrypto); never inline on the loop
 _STRENGTHS: Final[frozendict[Strength, tuple[int, bool]]] = frozendict({
     Strength.RC4_40: (2, False),
     Strength.RC4_128: (4, False),
@@ -170,8 +178,6 @@ class Permissions(Struct, frozen=True):
     assemble: bool = False
 
     def to_pikepdf(self) -> "pikepdf.Permissions":
-        import pikepdf
-
         return pikepdf.Permissions(
             accessibility=self.accessibility,
             extract=self.extract,
@@ -212,8 +218,6 @@ class Bookmark(Struct, frozen=True):
     fallback: tuple[tuple[str, int], ...] = ()  # flat `(title, page)` outline lowered when no `DocumentNode` tree is supplied
 
     def style(self, level: int, /) -> dict[str, object]:
-        from pypdf.generic import Fit
-
         return {"bold": level == 1 and self.bold_top, "italic": self.italic, "color": self.color, "fit": getattr(Fit, _FITS[self.fit])(), "is_open": level < self.open_depth}
 
 
@@ -410,9 +414,11 @@ class DocumentEgress(Struct, frozen=True):
         # owner carries the final `FinishFact`, so the frozen owner is never mutated in place.
         return reduce(lambda live, step: live._stepped(step), self.steps, self)
 
-    @receipted(Redaction.STRUCTURAL)  # the harvest weave drains `contribute` off the returned stepped owner and emits via `Signals.emit_async`
+    @receipted(_REDACTION)  # the harvest weave drains `contribute` off the returned stepped owner and emits via `Signals.emit_async`
     async def _emit(self) -> Self:
-        return self.finished()  # the finished owner (a `ReceiptContributor`) carries the final `FinishFact`; `finish` mints the key, never the pure core
+        # the finishing fold is heavy GIL-releasing native work, so it crosses the thread seam under the
+        # shared limiter rather than stalling the loop; the finished owner is the `ReceiptContributor` the weave drains.
+        return await to_thread.run_sync(self.finished, limiter=_OFFLOAD)
 
     async def finish(self) -> RuntimeRail[ContentKey]:
         # mint the content key off the finished owner the boundary returns; `_stepped` reseeds `source` to the final finished bytes
@@ -470,20 +476,16 @@ def _redaction_rects(node: DocumentNode | None, /) -> Map[int, tuple[tuple[float
 
 
 def _encrypt(egress: DocumentEgress) -> FinishFact:
-    import pikepdf
-
     enc, sink = egress.finishing.encryption, BytesIO()
-    pdf = pikepdf.open(BytesIO(egress.source))
-    pdf.save(sink, linearize=True, encryption=pikepdf.Encryption(owner=enc.owner, user=enc.user, R=enc.r, aes=enc.aes, metadata=enc.metadata, allow=egress.finishing.permissions.to_pikepdf()))
-    return FinishFact(sink.getvalue(), pages=len(pdf.pages), encryption_r=enc.r)
+    with pikepdf.open(BytesIO(egress.source)) as pdf:  # deterministic close, never GC-reaped
+        pdf.save(sink, linearize=True, encryption=pikepdf.Encryption(owner=enc.owner, user=enc.user, R=enc.r, aes=enc.aes, metadata=enc.metadata, allow=egress.finishing.permissions.to_pikepdf()))
+        return FinishFact(sink.getvalue(), pages=len(pdf.pages), encryption_r=enc.r)
 
 
 type _Outline = tuple[frozendict[int, "IndirectObject"], int]
 
 
 def _outline(egress: DocumentEgress) -> FinishFact:
-    from pypdf import PdfReader, PdfWriter
-
     bookmark = egress.finishing.bookmark
     writer = PdfWriter(clone_from=PdfReader(BytesIO(egress.source)))
 
@@ -501,37 +503,30 @@ def _outline(egress: DocumentEgress) -> FinishFact:
 
 
 def _watermark(egress: DocumentEgress) -> FinishFact:
-    import pikepdf
-
     wm = egress.finishing.watermark
-    pdf = pikepdf.open(BytesIO(egress.source))
-    stamp = pikepdf.open(BytesIO(egress.extras.stamp))
-    mark = pikepdf.Page(stamp.pages[0])
-    mark.contents_coalesce()
-    rect = pikepdf.Rectangle(*wm.rect) if wm.rect is not None else None
-    place = pikepdf.Page.add_underlay if wm.under else pikepdf.Page.add_overlay
-    overlays = sum(place(pikepdf.Page(page), mark, rect) is not None for page in pdf.pages)  # add_overlay returns the placement `Name`
-    sink = BytesIO()
-    pdf.save(sink, linearize=True)
-    return FinishFact(sink.getvalue(), pages=len(pdf.pages), overlays=overlays)
+    with pikepdf.open(BytesIO(egress.source)) as pdf, pikepdf.open(BytesIO(egress.extras.stamp)) as stamp:  # both closed deterministically
+        mark = pikepdf.Page(stamp.pages[0])
+        mark.contents_coalesce()
+        rect = pikepdf.Rectangle(*wm.rect) if wm.rect is not None else None
+        place = pikepdf.Page.add_underlay if wm.under else pikepdf.Page.add_overlay
+        overlays = sum(place(pikepdf.Page(page), mark, rect) is not None for page in pdf.pages)  # add_overlay returns the placement `Name`
+        sink = BytesIO()
+        pdf.save(sink, linearize=True)
+        return FinishFact(sink.getvalue(), pages=len(pdf.pages), overlays=overlays)
 
 
 def _attach(egress: DocumentEgress) -> FinishFact:
-    import pikepdf
-
     att = egress.finishing.attachment
-    pdf = pikepdf.open(BytesIO(egress.source))
-    pdf.attachments[att.name] = pikepdf.AttachedFileSpec(
-        pdf, egress.extras.attachment_data, filename=att.name, description=att.description, mime_type=att.mime, relationship=pikepdf.Name(att.relationship.value)
-    )
-    sink = BytesIO()
-    pdf.save(sink, linearize=True)
-    return FinishFact(sink.getvalue(), pages=len(pdf.pages))
+    with pikepdf.open(BytesIO(egress.source)) as pdf:  # deterministic close, never GC-reaped
+        pdf.attachments[att.name] = pikepdf.AttachedFileSpec(
+            pdf, egress.extras.attachment_data, filename=att.name, description=att.description, mime_type=att.mime, relationship=pikepdf.Name(att.relationship.value)
+        )
+        sink = BytesIO()
+        pdf.save(sink, linearize=True)
+        return FinishFact(sink.getvalue(), pages=len(pdf.pages))
 
 
 def _impose(egress: DocumentEgress) -> FinishFact:
-    from pypdf import PdfReader, PdfWriter, Transformation
-
     imp = egress.finishing.imposition
     reader = PdfReader(BytesIO(egress.source))
     width, height = imp.sheet
@@ -558,8 +553,6 @@ def _impose(egress: DocumentEgress) -> FinishFact:
 
 
 def _navigate(egress: DocumentEgress) -> FinishFact:
-    from pypdf import PdfReader, PdfWriter
-
     view = egress.finishing.viewer
     writer = PdfWriter(clone_from=PdfReader(BytesIO(egress.source)))
     writer.page_layout = view.page_layout.value
@@ -580,8 +573,6 @@ def _folded_stream(page: "pikepdf.Page", edit: ContentEdit) -> bytes:
     # the carried `(stack, kept)` threads the `/OC` BDC/BMC…EMC marked-content stack immutably so a
     # STRIP layer's whole span is omitted and a FLATTEN layer keeps its body without its markers,
     # while every surviving instruction drops a dropped operator and renames a `Name`-guarded operand.
-    import pikepdf
-
     rename = {pikepdf.Name(f"/{k}"): pikepdf.Name(f"/{v}") for k, v in edit.rename_resources.items()}
 
     def step(state: _Fold, instr: _Instr, /) -> _Fold:
@@ -607,8 +598,6 @@ def _folded_stream(page: "pikepdf.Page", edit: ContentEdit) -> bytes:
 
 
 def _oc_name(page: "pikepdf.Page", operands: list[object]) -> str:
-    import pikepdf
-
     marker = operands[1] if len(operands) > 1 else None
     if isinstance(marker, pikepdf.Dictionary):
         return str(marker.get(pikepdf.Name.Name, ""))
@@ -619,8 +608,6 @@ def _oc_name(page: "pikepdf.Page", operands: list[object]) -> str:
 
 
 def _strip_ocg_catalog(pdf: "pikepdf.Pdf", removed: frozenset[str]) -> int:
-    import pikepdf
-
     root = pdf.Root
     if pikepdf.Name.OCProperties not in root:
         return 0
@@ -636,84 +623,75 @@ def _strip_ocg_catalog(pdf: "pikepdf.Pdf", removed: frozenset[str]) -> int:
 
 
 def _rewrite(egress: DocumentEgress) -> FinishFact:
-    import pikepdf
-
     edit = egress.finishing.edit
-    pdf = pikepdf.open(BytesIO(egress.source))
-    for page in pdf.pages:
-        page.obj[pikepdf.Name.Contents] = pdf.make_stream(_folded_stream(page, edit))
-    layers = _strip_ocg_catalog(pdf, edit.strip_layers) if edit.touches_layers else 0
-    sink = BytesIO()
-    pdf.save(sink, linearize=True)
-    return FinishFact(sink.getvalue(), pages=len(pdf.pages), layers_removed=layers)
+    with pikepdf.open(BytesIO(egress.source)) as pdf:  # deterministic close, never GC-reaped
+        for page in pdf.pages:
+            page.obj[pikepdf.Name.Contents] = pdf.make_stream(_folded_stream(page, edit))
+        layers = _strip_ocg_catalog(pdf, edit.strip_layers) if edit.touches_layers else 0
+        sink = BytesIO()
+        pdf.save(sink, linearize=True)
+        return FinishFact(sink.getvalue(), pages=len(pdf.pages), layers_removed=layers)
 
 
 def _redact(egress: DocumentEgress) -> FinishFact:
-    import pymupdf
-
     label, scrub = egress.finishing.label, egress.finishing.scrub
-    doc = pymupdf.open(stream=egress.source, filetype="pdf")
-    marks, tree_rects = label.annot(), _redaction_rects(egress.node)
-    for index in range(doc.page_count):
-        page = doc[index]
-        hits = [*(pymupdf.Rect(rect) for rect in tree_rects.try_find(index).default_value(())), *(rect for needle in label.needles for rect in page.search_for(needle))]
-        for rect in hits:
-            page.add_redact_annot(rect, **marks)
-        if hits:
-            page.apply_redactions(images=pymupdf.PDF_REDACT_IMAGE_REMOVE, graphics=pymupdf.PDF_REDACT_LINE_ART_REMOVE_IF_TOUCHED, text=pymupdf.PDF_REDACT_TEXT_REMOVE)
-    doc.bake(annots=True, widgets=label.flatten_widgets)
-    doc.scrub(**scrub.kwargs())
-    doc.subset_fonts(fallback=False)
-    sink = BytesIO()
-    doc.save(sink, garbage=4, deflate=True, clean=True)
-    return FinishFact(sink.getvalue(), pages=doc.page_count)
+    with pymupdf.open(stream=egress.source, filetype="pdf") as doc:  # deterministic close, never GC-reaped
+        marks, tree_rects = label.annot(), _redaction_rects(egress.node)
+        for index in range(doc.page_count):
+            page = doc[index]
+            hits = [*(pymupdf.Rect(rect) for rect in tree_rects.try_find(index).default_value(())), *(rect for needle in label.needles for rect in page.search_for(needle))]
+            for rect in hits:
+                page.add_redact_annot(rect, **marks)
+            if hits:
+                page.apply_redactions(images=pymupdf.PDF_REDACT_IMAGE_REMOVE, graphics=pymupdf.PDF_REDACT_LINE_ART_REMOVE_IF_TOUCHED, text=pymupdf.PDF_REDACT_TEXT_REMOVE)
+        doc.bake(annots=True, widgets=label.flatten_widgets)
+        doc.scrub(**scrub.kwargs())
+        doc.subset_fonts(fallback=False)
+        sink = BytesIO()
+        doc.save(sink, garbage=4, deflate=True, clean=True)
+        return FinishFact(sink.getvalue(), pages=doc.page_count)
 
 
 def _sanitize(egress: DocumentEgress) -> FinishFact:
-    import pikepdf
-    from pikepdf import sanitize
-
-    pol, pdf = egress.finishing.sanitize, pikepdf.open(BytesIO(egress.source))
-    strips = (
-        (pol.javascript, sanitize.remove_javascript),
-        (pol.external_access, sanitize.remove_external_access),
-        (pol.multimedia, sanitize.remove_multimedia),
-        (pol.attachments, sanitize.remove_attachments),
-        (pol.private_app_data, sanitize.remove_private_app_data),
-    )
-    for _gate, strip in (row for row in strips if row[0]):
-        strip(pdf)
-    if pol.disable_signatures:
-        pdf.acroform.disable_digital_signatures()
-    if pol.flatten_annotations:
-        pdf.flatten_annotations(mode="all")
-    sink = BytesIO()
-    pdf.save(sink, linearize=True)
-    return FinishFact(sink.getvalue(), pages=len(pdf.pages))
+    pol = egress.finishing.sanitize
+    with pikepdf.open(BytesIO(egress.source)) as pdf:  # deterministic close, never GC-reaped
+        strips = (
+            (pol.javascript, sanitize.remove_javascript),
+            (pol.external_access, sanitize.remove_external_access),
+            (pol.multimedia, sanitize.remove_multimedia),
+            (pol.attachments, sanitize.remove_attachments),
+            (pol.private_app_data, sanitize.remove_private_app_data),
+        )
+        for _gate, strip in (row for row in strips if row[0]):
+            strip(pdf)
+        if pol.disable_signatures:
+            pdf.acroform.disable_digital_signatures()
+        if pol.flatten_annotations:
+            pdf.flatten_annotations(mode="all")
+        sink = BytesIO()
+        pdf.save(sink, linearize=True)
+        return FinishFact(sink.getvalue(), pages=len(pdf.pages))
 
 
 def _optimize(egress: DocumentEgress) -> FinishFact:
-    import pikepdf
-
-    pol, pdf = egress.finishing.optimize, pikepdf.open(BytesIO(egress.source))
-    if pol.sweep_unreferenced:
-        pdf.remove_unreferenced_resources()
-    sink = BytesIO()
-    pdf.save(
-        sink,
-        linearize=pol.linearize,
-        compress_streams=pol.compress_streams,
-        stream_decode_level=pikepdf.StreamDecodeLevel[pol.stream_decode.value],
-        recompress_flate=pol.recompress,
-        deterministic_id=pol.deterministic_id,
-        object_stream_mode=pikepdf.ObjectStreamMode.generate if pol.object_streams else pikepdf.ObjectStreamMode.preserve,
-    )
-    return FinishFact(sink.getvalue(), pages=len(pdf.pages))
+    pol = egress.finishing.optimize
+    with pikepdf.open(BytesIO(egress.source)) as pdf:  # deterministic close, never GC-reaped
+        if pol.sweep_unreferenced:
+            pdf.remove_unreferenced_resources()
+        sink = BytesIO()
+        pdf.save(
+            sink,
+            linearize=pol.linearize,
+            compress_streams=pol.compress_streams,
+            stream_decode_level=pikepdf.StreamDecodeLevel[pol.stream_decode.value],
+            recompress_flate=pol.recompress,
+            deterministic_id=pol.deterministic_id,
+            object_stream_mode=pikepdf.ObjectStreamMode.generate if pol.object_streams else pikepdf.ObjectStreamMode.preserve,
+        )
+        return FinishFact(sink.getvalue(), pages=len(pdf.pages))
 
 
 def _protect(egress: DocumentEgress) -> FinishFact:
-    import msoffcrypto
-
     office = msoffcrypto.OfficeFile(BytesIO(egress.source))
     sink = BytesIO()
     match egress.finishing.confidentiality:

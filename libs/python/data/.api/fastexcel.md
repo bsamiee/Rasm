@@ -9,8 +9,7 @@
 - import: `fastexcel`
 - owner: `data`
 - rail: ingestion
-- installed: `0.20.2` reflected from the bundled stubs (`_fastexcel.pyi`, `__init__.py`) and module introspection; MIT; abi3 wheel (`cp310-abi3`, stable ABI — one wheel covers cp310 through cp315+); locked unconditionally in `uv.lock` (no marker)
-- license/floor: MIT; `requires-python >=3.10`; the calamine engine is bundled (no separate dep); `polars` extra enables `to_polars` (zero-copy via PyCapsule, no pyarrow needed), and the `pyarrow`/`pandas` extras (both pulling `pyarrow>=8`) enable `to_arrow`/`to_arrow_with_errors`/`to_pandas` and `eager=True`
+- installed: `0.20.2`
 - entry points: no console script; library use is import-only via `read_excel`
 - capability: calamine-backed xlsx/xlsm/xlsb/xls/ods reading into Arrow; lazy PyCapsule or eager `pyarrow.RecordBatch` materialization; per-column dtype control and coercion modes; header/skip/row-count windowing with int/list/callable row-skip predicates; Excel-letter, list, and callable column selection; named-table and defined-name access; per-cell parse-error capture; whitespace-tail trimming and whitespace-as-null; zero-copy `to_polars`/`to_pandas` bridges
 

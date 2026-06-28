@@ -1,6 +1,6 @@
 # [PY_GEOMETRY_API_LARK]
 
-`lark` supplies the parsing-grammar engine the IfcOpenShell selector and IDS grammars are built on: an EBNF-defined `Lark` parser producing a `Tree`/`Token` parse forest, an Earley/LALR/CYK algorithm selector with contextual/dynamic lexing, a `Transformer`/`Visitor`/`Interpreter` family of tree folds, an `on_error` recovery hook plus `parse_interactive` for incremental parsing, grammar composition via `%import`, parser caching/serialization, and `ast_utils.create_transformer` for typed-AST construction. The geometry ifc-analysis owner authors a typed selector/filter-query grammar that turns a free-form element-selection string into a validated structured query before it reaches `util.selector.filter_elements`, rather than passing an unvalidated string straight through. Pure-Python, cp315-clean.
+`lark` supplies the parsing-grammar engine the IfcOpenShell selector and IDS grammars are built on: an EBNF-defined `Lark` parser producing a `Tree`/`Token` parse forest, an Earley/LALR/CYK algorithm selector with contextual/dynamic lexing, a `Transformer`/`Visitor`/`Interpreter` family of tree folds, an `on_error` recovery hook plus `parse_interactive` for incremental parsing, grammar composition via `%import`, parser caching/serialization, and `ast_utils.create_transformer` for typed-AST construction. The geometry ifc-analysis owner authors a typed selector/filter-query grammar that turns a free-form element-selection string into a validated structured query before it reaches `util.selector.filter_elements`, rather than passing an unvalidated string straight through. Pure-Python, core.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -9,9 +9,8 @@
 - import: `import lark`
 - owner: `geometry`
 - rail: ifc-analysis / selector-grammar
-- installed: `1.3.1`; pure-Python `py3-none-any` wheel, no native dependency, cp315-clean core; license `MIT`
+- installed: `1.3.1`
 - entry points: none (library); the standalone-generator CLI is `python -m lark.tools.standalone`
-- members: introspected against the installed cp315 distribution; the top-level `Lark`/`Tree`/`ParseTree`/`Token`/`Transformer`/`Transformer_NonRecursive`/`Visitor`/`v_args`/`Discard` exports, the `lark.exceptions` failure family, the `lark.visitors` `Interpreter`/`Visitor_Recursive`/`TransformerChain`/`CollapseAmbiguities`, and the `lark.ast_utils` typed-AST helpers resolve against live signatures — no phantom
 - capability: EBNF/context-free grammar definition, Earley/LALR(1)/CYK parsing, auto/basic/contextual/dynamic lexing, ambiguity resolution (`resolve`/`explicit`/`forest`), `Tree`/`Token` parse forest with position propagation, `Transformer`/`Visitor`/`Interpreter` tree folds, error-recovery `on_error` hook and `parse_interactive`, grammar composition (`%import`/`open_from_package`), parser save/load caching, standalone-parser generation, and typed-AST construction
 
 ## [02]-[PUBLIC_TYPES]
@@ -104,5 +103,3 @@
 - Reject: a hand-rolled regex/split query parser where the grammar owns the structure; a parser-per-algorithm function family over the `parser` knob; a parse-then-transform two-pass where the LALR `transformer=` option folds inline; an enumerated tree-walk where the `Transformer` rule-dispatch owns the fold
 
 [CAPTURE_GAP]:
-- floor: `lark==1.3.1` is pure-Python `py3-none-any`, license `MIT`, cp315-clean, so reflection resolves on the project venv directly — no companion-lane gate
-- members: verified by introspection against the installed cp315 distribution; the `Lark`/`Tree`/`ParseTree`/`Token`/`Transformer`/`Transformer_NonRecursive`/`Visitor`/`v_args`/`Discard` top-level exports, the `lark.exceptions` family, the `lark.visitors` `Interpreter`/`Visitor_Recursive`/`TransformerChain`/`CollapseAmbiguities`, the `parse(on_error=)`/`parse_interactive`/`lex`/`save`/`load`/`open_from_package` entries, and the `lark.ast_utils.create_transformer` typed-AST helper all resolve — no phantom (`Interpreter` and `create_transformer` live under `lark.visitors`/`lark.ast_utils`, not the top-level `lark` namespace)

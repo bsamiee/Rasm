@@ -7,10 +7,8 @@
 [PACKAGE_SURFACE]: `Expression`
 - package: `Expression`
 - module: `expression`
-- version: `5.6.0` (floor `>=5.6.0`)
+- version: `5.6.0`
 - license: MIT
-- wheel: pure-python (`py3-none-any`), no ABI tag; resolves clean on cp315
-- marker: none (core dependency)
 - asset: runtime library
 - rail: functional-core
 - namespaces: `expression` (re-exports `core`), `expression.core`, `expression.collections`, `expression.effect`, `expression.extra`, `expression.system`

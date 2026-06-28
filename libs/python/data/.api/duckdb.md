@@ -9,8 +9,7 @@
 - import: `import duckdb`
 - owner: `data`
 - rail: query
-- version: `1.5.4` (locked); license `MIT`
-- wheel/ABI: sdist-only at the lock (`duckdb-1.5.4.tar.gz`), so on CPython 3.15 it source-builds the C++ engine via the Parametric_Forge scientific toolchain; the `_duckdb` extension is per-version (no abi3), so the wheel/source floor tracks the interpreter exactly
+- version: `1.5.4`
 - capability: in-process SQL execution (including native `MERGE INTO`), lazy relational algebra, multi-frame ingest and egress (Arrow, Pandas, Polars, NumPy, Torch, TensorFlow), CSV/JSON/Parquet readers and writers, programmatic window functions on the relation, user-defined functions, loadable extensions (including community `substrait`), and prepared statements
 
 ## [02]-[CAPTURE]

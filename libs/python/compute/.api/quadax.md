@@ -10,8 +10,7 @@
 - owner: `compute`
 - rail: quadrature
 - namespace: `quadax` (integrators, rule classes, `STATUS`, and the `sampled` integrators re-exported at top level; `QuadratureInfo` lives in `quadax.utils` and is NOT a top-level export); submodules `quadax.adaptive`, `quadax.fixed_order`, `quadax.sampled`, `quadax.quad_weights`, `quadax.utils`
-- installed: `0.2.13`; license MIT; wheel `py3-none-any` (pure-Python source) but `jax`/`jaxlib`/`equinox`-dependent at runtime
-- gate: `[GATED]` `; python_version<'3.15'` — pure-Python itself, but `jaxlib` ships no cp315 wheel, so the JAX-traceable quadrature surface runs only on the companion interpreter band, never the cp315 core
+- installed: `0.2.13`
 - requires: `jax`, `jaxlib`, `equinox`
 - capability: globally-adaptive Gauss-Kronrod / Clenshaw-Curtis / tanh-sinh quadrature, Romberg and tanh-sinh-Romberg integration, fixed-order rule classes, sampled-data trapezoidal/Simpson integration, and JIT-compatible / forward-and-reverse-differentiable integrate pipelines over a JAX integrand
 
@@ -93,7 +92,6 @@
 
 [LOCAL_ADMISSION]:
 - quadax is admitted as the compute quadrature owner; solvers/quadrature composes the adaptive integrators directly and propagates the `QuadratureInfo` receipt rather than collapsing it to a value
-- pure-Python wheel but JAX-dependent: gated `python_version<'3.15'` because jaxlib ships no cp315 wheel; the package runs only in the marker-gated band, never on the cp315 core
 - `QuadratureInfo` is imported from `quadax.utils` when the receipt is named in a signature/annotation; it is not exposed on the top-level `quadax` namespace
 - the integrand is the differentiable surface — gradients flow through `fun` and the interval bounds under forward and reverse mode, so solvers/field passes a JAX-traceable integrand and never a NumPy/SciPy closure; `jax.vmap` over `fixed_quad*` (constant node count) is the batched-integral form
 - adaptive tolerances (`epsabs`, `epsrel`), `max_ninter` (adaptive) / `divmax` (Romberg) limits, and `order` (adaptive) / `n` (fixed) node counts are integrator keyword arguments; convergence is read from the decoded `QuadratureInfo.status` bitfield, never inferred from the value alone
@@ -103,5 +101,4 @@
 - Owns: JAX-native adaptive Gauss-Kronrod / Clenshaw-Curtis / tanh-sinh quadrature via the polymorphic `adaptive_quadrature` driver, Romberg / tanh-sinh-Romberg integration, fixed-order `fixed_quad*` integrators, the `AbstractQuadratureRule` rule hierarchy, the `QuadratureInfo` receipt and `STATUS` decode table, and the `sampled`-data trapezoidal/Simpson integrators
 - Accept: `adaptive_quadrature` as the canonical rule-parameterized adaptive entry (with `quadgk` / `quadcc` / `quadts` / `romberg` / `rombergts` and the `fixed_quad{gk,cc,ts}` family as named specializations), the `(value, QuadratureInfo)` receipt pair decoded through `STATUS`, rule classes composed by the driver, a pure JAX-traceable integrand for differentiable integration, and the `sampled` family (`trapezoid` / `cumulative_trapezoid` / `simpson` / `cumulative_simpson`) for already-discretized field samples
 - Reject: `scipy.integrate.quad` or other host-callback quadrature when a JIT-compatible, integrand-differentiable integral is required; discarding the `QuadratureInfo` receipt or inferring convergence from the value instead of the decoded `STATUS`; treating `QuadratureInfo` as a top-level `quadax` export; a parallel local quadrature kernel duplicating the admitted rule classes; a hand-rolled trapezoidal/Simpson kernel when the `sampled` family already owns sampled-data integration
-- License: MIT; gated `; python_version<'3.15'` (jaxlib has no cp315 wheel)
 - Usage: deferred consumer `[INTERPAX_QUADAX_USAGE]` ([BLOCKED]) in compute solvers/quadrature and solvers/field

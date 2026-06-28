@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Thinktecture.Runtime.Extensions.Json`
-- package: `Thinktecture.Runtime.Extensions.Json` `10.3.0`
+- package: `Thinktecture.Runtime.Extensions.Json` `10.4.0`
 - assembly: `Thinktecture.Runtime.Extensions.Json` (bound asset `lib/net9.0/...` — the package ships `net8.0`+`net9.0` only; `net9.0` is the TFM-precedence pick for the `net10.0` consumer, so no net10-specific surface exists)
 - license: MIT
 - namespace: `Thinktecture` (public `Utf8JsonReaderExtensions`)

@@ -1,6 +1,6 @@
 # [PY_DATA]
 
-`data` is the host-free data-interchange companion of the Python branch. It owns typed dataset refs, columnar lazy/streaming scan and egress, the transactional table-format lakehouse, cross-engine relational query, a data-contract gate, dataframe-agnostic interop with a pyarrow-free Arrow carrier, vector and raster geospatial, graph payloads, chunked tensor stores, and mesh-file exchange. It consumes runtime `ContentIdentity`, `ReceiptContributor`, and `TransportResource` at the boundary and never re-mints them, integrating with C# only at the wire (content-identity plus GLB) and the companion/offline seams. `ARCHITECTURE.md` carries the domain map, `IDEAS.md` the forward pool, and `TASKLOG.md` the open work.
+`data` is the host-free data-interchange companion of the Python branch. It owns typed dataset refs, columnar lazy/streaming scan and egress, the transactional table-format lakehouse, cross-engine relational query, a data-contract gate, dataframe-agnostic interop with a pyarrow-free Arrow carrier, vector and raster geospatial, graph payloads, chunked tensor stores, mesh-file exchange, and a material environmental-impact (EPD/LCA) normalizer. It consumes runtime `ContentIdentity`, `ReceiptContributor`, and `TransportResource` at the boundary and never re-mints them, integrating with C# only at the wire (content-identity plus GLB) and the companion/offline seams. `ARCHITECTURE.md` carries the domain map, `IDEAS.md` the forward pool, and `TASKLOG.md` the open work.
 
 ## [01]-[ROUTER]
 
@@ -19,6 +19,7 @@
 - [13]-[RAGGED](.planning/gridded/ragged.md): Ragged N-D store owner over `awkward` with the `from_arrow`/`to_arrow` zero-copy bridge to the interop Arrow carrier.
 - [14]-[FIELD](.planning/gridded/field.md): CF-conventioned labelled N-D field dataset over `xarray` (netcdf4/HDF5/Zarr engines), CF-aware selection, and `flox` grouped/resampled reductions.
 - [15]-[GRAPH](.planning/graph/graph.md): Graph payloads over `rustworkx` with `networkx` compat, typed algorithm receipts, and graph egress.
+- [16]-[IMPACT](.planning/impact/impact.md): Material environmental-impact owner normalizing external EPD declarations (OpenEPD/EC3, ILCD+EPD) and computed LCA results (Brightway solver, live openLCA, prospective `premise` backgrounds) into one EN 15804 indicator × life-cycle-stage carrier keyed by `ContentIdentity`.
 
 ## [02]-[DOMAIN_PACKAGES]
 
@@ -42,7 +43,7 @@ Every data-domain library the folder uses, planned or implemented; versions are 
 - `pylance`
 - `daft`
 
-DuckDB loadable extensions back plan and table-format rows without a pip dependency: `substrait` (the `duckdb-substrait` community extension wired on `query.py` producing the portable binary/JSON plan blob) is implemented; `ducklake` (core-loadable `LOAD`, the SQL-catalog lakehouse over Parquet for `lakehouse.py`) and `iceberg` (the cp315-clean DuckDB Iceberg route for `lakehouse.py`) are planned admissions, both provisioned through the Forge DuckDB-extensions catalog.
+DuckDB loadable extensions back plan and table-format rows without a pip dependency: `substrait` (the `duckdb-substrait` community extension wired on `query.py` producing the portable binary/JSON plan blob) is implemented; `ducklake` (core-loadable `LOAD`, the SQL-catalog lakehouse over Parquet for `lakehouse.py`) and `iceberg` (the core DuckDB Iceberg route for `lakehouse.py`) are planned admissions, both provisioned through the Forge DuckDB-extensions catalog.
 
 [QUERY]:
 - `duckdb`
@@ -98,13 +99,24 @@ DuckDB loadable extensions back plan and table-format rows without a pip depende
 - `meshio`
 - `trimesh`
 - `rhino3dm`
-- `laspy` — Owns the COPC octree-subset read via `laspy.copc`; uncompressed reads run on cp315 core, compressed `.copc.laz` reads bind `lazrs`/`laszip`.
 - `lazrs`
 - `laszip`
 - `pdal` — Stays the geometry-side point-cloud filter-graph owner; the data COPC arm rebinds to `laspy.copc` without removing it.
 
+[EPD_LCA]:
+- `openepd` — OpenEPD/EC3 typed declaration model, EC3 sync client, and offline bundle IO.
+- `epdx` — ILCD+EPD to EPDx common-format conversion.
+- `brightway2` — Brightway umbrella/bootstrap facade; admit for `bw2setup` plus ecoinvent/EEIO import, and compose new code against the owning packages below.
+- `bw2data` — Brightway project and node/edge graph store (system of record).
+- `bw2calc` — Brightway LCA solver (sparse matrix assembly and score).
+- `bw2io` — Brightway LCI/LCIA import/export and database ingestion.
+- `bw-processing` — Brightway matrix-datapackage substrate (COO triples).
+- `olca-ipc` — live openLCA IPC/REST client and result queries; carries `olca-schema` as its wire model.
+- `premise` — prospective ecoinvent background-database transformer over IAM scenarios.
+
 [OBJECT_STORE]:
 - `obstore`
+- `obspec-utils` — multi-store `ObjectStoreRegistry` router companion to `obstore`.
 
 ## [03]-[SUBSTRATE_PACKAGES]
 

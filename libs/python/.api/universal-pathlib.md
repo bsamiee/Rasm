@@ -8,7 +8,6 @@
 - package: `universal-pathlib`
 - version: `0.3.10`
 - license: MIT
-- wheel: pure-Python (`py3-none-any`); no native extension, resolves on cp315 with no companion gate.
 - import: `upath`
 - owner: `runtime`
 - rail: resources
@@ -20,7 +19,6 @@
 
 [PUBLIC_TYPE_SCOPE]: path family
 - rail: resources
-- `UPath` is an `ABCMeta`-derived (`_UPathMeta`) class implementing `WritablePath`+`ReadablePath` from `pathlib_abc`. `UPath(arg0)` where `arg0` is already a `UPath` returns a copy; otherwise the metaclass dispatches `__new__` to the registered subclass for the detected protocol (`_protocol_dispatch`). `UnsupportedOperation` is `pathlib.UnsupportedOperation` on cp313+, aliasing `NotImplementedError` below; unsupported per-backend operations (`chmod`, `symlink_to`, `owner`, `group`, `readlink`, `hardlink_to`, non-base `cwd`/`home`) raise it.
 
 | [INDEX] | [SYMBOL]                          | [TYPE_FAMILY] | [RAIL]                                                    |
 | :-----: | :-------------------------------- | :------------ | :-------------------------------------------------------- |

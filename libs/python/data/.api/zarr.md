@@ -1,17 +1,16 @@
 # [PY_DATA_API_ZARR]
 
-`zarr` supplies a chunked, compressed, N-dimensional array store with pluggable storage backends, a Zarr v2/v3 dual-format metadata layer, and a sync-over-async codec pipeline. `Array` and `Group` are thin synchronous wrappers over `AsyncArray`/`AsyncGroup`; every top-level factory has an `async def` mirror in `zarr.api.asynchronous`. It is the canonical `array-store` owner: the data owner mints arrays through `create_array`/`open_array`, hierarchies through `create_group`/`create_hierarchy`, declares the codec pipeline explicitly via `codecs=`, selects a backend from `zarr.storage`, and routes the array bytes through whatever `StoreLike` the campaign owns — a `LocalStore` for the work directory, an `obstore`-backed `ObjectStore` for S3/GCS/Azure, an `IcechunkStore` for the transactional/versioned path, or the same on-disk v3 format `tensorstore` reads asynchronously and `virtualizarr` references without copy. `zarr` is pure-Python (no native extension, no CPython floor), so it rides the cp315 core with no subprocess seam; native compression rides the optional `numcodecs`/`blosc`/`zstd` wheels its codec registry resolves.
+`zarr` supplies a chunked, compressed, N-dimensional array store with pluggable storage backends, a Zarr v2/v3 dual-format metadata layer, and a sync-over-async codec pipeline. `Array` and `Group` are thin synchronous wrappers over `AsyncArray`/`AsyncGroup`; every top-level factory has an `async def` mirror in `zarr.api.asynchronous`. It is the canonical `array-store` owner: the data owner mints arrays through `create_array`/`open_array`, hierarchies through `create_group`/`create_hierarchy`, declares the codec pipeline explicitly via `codecs=`, selects a backend from `zarr.storage`, and routes the array bytes through whatever `StoreLike` the campaign owns — a `LocalStore` for the work directory, an `obstore`-backed `ObjectStore` for S3/GCS/Azure, an `IcechunkStore` for the transactional/versioned path, or the same on-disk v3 format `tensorstore` reads asynchronously and `virtualizarr` references without copy. `zarr` is pure-Python (no native extension, no CPython floor), so it rides the runtime with no subprocess seam; native compression rides the optional `numcodecs`/`blosc`/`zstd` packages its codec registry resolves.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `zarr`
 - package: `zarr`
 - import: `import zarr; from zarr import Array, Group, AsyncArray, AsyncGroup, config; from zarr.storage import LocalStore, MemoryStore, ZipStore, FsspecStore, ObjectStore; from zarr.codecs import BloscCodec, BytesCodec, ShardingCodec, ZstdCodec`
-- version: `3.x` (manifest floor `>=3.2.1`)
+- version: `3.x`
 - license: MIT
 - owner: `data`
 - rail: array-store
-- asset: pure Python (Zarr v3 core); no native extension, no CPython floor (rides cp315 core); native compression resolves through optional `numcodecs`/`blosc`/`zstandard`/`crc32c` wheels via the codec registry, the only ABI-bearing surface
 - entry points: library use is import-only; no console script. `zarr.__version__` and `zarr.print_debug_info()` report the resolved environment
 - capability: chunked N-dimensional typed array store with v2/v3 dual-format metadata, an explicit serialization+compression codec pipeline (`BytesCodec` serializer plus `BloscCodec`/`ZstdCodec`/`GzipCodec` byte compressors, `TransposeCodec`/`ScaleOffset` array transforms, `ShardingCodec` sub-chunk sharding, and `numcodecs.zarr3.*` filter/checksum codecs), pluggable `zarr.storage` backends (local/memory/zip/fsspec/object-store/GPU), orthogonal/vectorized/block/coordinate/mask indexing beyond NumPy basic indexing, consolidated metadata, a global donfig `config`, and a fully async `AsyncArray`/`AsyncGroup` rail mirrored by the synchronous surface
 

@@ -9,7 +9,7 @@
 - import: `xlsxwriter`
 - owner: `artifacts`
 - rail: spreadsheet
-- installed: `3.2.9` resolved in `uv.lock` (`py3-none-any` pure-Python wheel; no native ABI, interpreter-agnostic)
+- installed: `3.2.9`
 - license: `BSD-2-Clause`
 - entry points: console script `vba_extract.py` (extracts a `vbaProject.bin` for `Workbook.add_vba_project`); library use is import-only via the single top-level `Workbook` class
 - capability: constant-memory streaming XLSX authoring — `Workbook` opens a path or file-like stream, `add_worksheet`/`add_format`/`add_chart`/`add_chartsheet` mint sheets, styles, and charts, `Worksheet.write*` plus the `add_write_handler` type-extension hook and the conditional-format/data-validation/autofilter/table/sparkline/image/in-cell-image/checkbox/page-setup family emit content row-major, and `close` packages worksheets, shared strings, styles, charts, and metadata into a zip64-capable `.xlsx` with O(1) row memory under `constant_memory`

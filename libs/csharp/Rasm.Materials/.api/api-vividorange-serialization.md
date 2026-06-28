@@ -40,7 +40,12 @@ constraint tag that admits a type to the round-trip generic. THIS package (`Vivi
 that supplies the actual `ToJson`/`FromJson` behavior over the marker. A consumer references BOTH: every VividOrange
 DATA package transitively pins `VividOrange.ISerialization` (so its types ARE `ITaxonomySerializable`), and a page
 that serializes pins `VividOrange.Serialization` (the impl). The interface-only floor is NOT a substitute for this
-impl — `ToJson`/`FromJson` live ONLY here.
+impl — `ToJson`/`FromJson` live ONLY here. This marker's FQN is `VividOrange.Serialization.ITaxonomySerializable`
+(declared in assembly `VividOrange.ISerialization` `0.1.0`) — a DISTINCT CLR type identity from the `0.2.0`
+`VividOrange.Taxonomy.Serialization.ITaxonomySerializable` (assembly `VividOrange.Taxonomy.ISerialization`) the
+`VividOrange.Uncertainties` packages ride (`api-vividorange-uncertainties.md`); `TaxonomyJsonSerializer` /
+`ToJson` / `FromJson` here serialize ONLY the `0.1.0` lane and do NOT round-trip the `0.2.0` uncertainty types, so a
+Materials design page never assumes one shared VividOrange serializer covers both taxonomy interfaces.
 
 ## [02]-[PUBLIC_TYPES]
 

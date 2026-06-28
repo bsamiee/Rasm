@@ -11,7 +11,6 @@
 - rail: geospatial
 - version: `1.5.0`
 - license: BSD-3-Clause
-- asset: GDAL-backed C/Cython extension; `Root-Is-Purelib: false`, `cp313-cp313-macosx_14_0_arm64` wheel — `Requires-Python >=3.12`. The locked wheel is built for cp313 and does NOT load on the cp315 core (`ModuleNotFoundError: rasterio._base`); resolution shows `unsupported` until a cp315 wheel lands or a source build over the Forge GDAL toolchain is synced. The pure-Python module signatures below are reflection-verified against the locked wheel source (`warp.py`/`features.py`/`mask.py`/`merge.py`/`windows.py`/`enums.py`/`transform.py`); the Cython-backed `DatasetReader` methods are verified against the shipped `_io.pyx`/`_base.pyx`. Vendored GDAL/PROJ/GEOS ride inside the wheel (`rasterio.gdal_version()`).
 - entry points: console scripts `rio` (the `rio` CLI plugin family) — library use is `import`-only
 - capability: raster read/write as NumPy arrays, affine and CRS georeferencing, windowed/tiled/boundless access, in-memory (`MemoryFile`) and VSI (`/vsicurl/`, `/vsizip/`, `/vsis3/`) datasets, GDAL/PROJ/GEOS reprojection and warping, raster/vector conversion, masking, multi-dataset merge, virtual warped datasets, and scoped GDAL config + cloud credential sessions
 
@@ -72,7 +71,6 @@
 - `features.shapes`/`features.rasterize` are the bidirectional raster/vector bridge; both honor `transform` and `MergeAlg`, emit or consume GeoJSON-like geometry mappings, and `geometry_window` localizes a rasterize/read to a geometry footprint.
 - `Env` scopes process-global GDAL state (drivers, config, credentials); enter it around dataset work and inject a `Session` (`AWSSession`/`GSSession`/`AzureSession`/...) for cloud access rather than mutating GDAL config or environment variables directly.
 - `MemoryFile`/`ZipMemoryFile` and the `/vsicurl/`, `/vsizip/`, `/vsis3/` VSI prefixes (or an `opener=` callable bridging `obstore`/fsspec) cover in-memory, archive, and remote datasets without local disk.
-- The vendored GDAL/PROJ/GEOS inside the wheel mean `CRS` and `transform_geom` are the same PROJ that `pyproj` exposes; do not duplicate CRS algebra — share the `CRS` object across the rasterio/rioxarray/pyproj owners.
 
 [STACK_LAW]:
 - `pystac` -> `rasterio`: a `pystac.Item` asset with `media_type == MediaType.COG` carries its href (often signed via `planetary_computer.sign`) straight into `rasterio.open` / `WarpedVRT`; the projection-extension transform/CRS on the item match the dataset `transform`/`crs`.

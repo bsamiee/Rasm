@@ -11,8 +11,6 @@
 - module: `import rustworkx as rx`
 - owner: `data`
 - rail: graph
-- asset: native Rust extension (`rustworkx.rustworkx` PyO3 core) shipped as an `abi3` wheel built against the CPython 3.10 stable ABI — one wheel covers cp310 through cp315, so the cp315 project core resolves the same artifact without a per-version rebuild
-- requires-python: `>=3.10`
 - entry points: import-only; no console script
 - capability: undirected/directed/DAG containers with stable integer indices and arbitrary-object payloads; Dijkstra/Bellman-Ford/A*/Floyd-Warshall/k-shortest/all-pairs/all-simple-path shortest-path family; topological sort and generations, longest-path, transitive reduction, dominators and dominance frontiers; connected/strongly/weakly-connected components, condensation, core-number, articulation points, bridges, chain/cycle-basis decomposition, Stoer-Wagner min-cut; BFS/DFS/Dijkstra event-stepped search via `visit.*` visitors; betweenness/closeness/eigenvector/Katz/PageRank/HITS/degree and group centrality; greedy/edge/Misra-Gries/bipartite vertex-and-edge coloring; max-weight matching; minimum spanning tree/edges, Steiner tree, metric closure; VF2 (sub)graph isomorphism and maximum bisimulation; spring/circular/shell/spiral/bipartite/Kamada-Kawai layouts; GraphML/DOT/node-link-JSON/Matrix-Market IO and adjacency-matrix export; NetworkX one-way conversion; `generators` synthetic-graph submodule; `TopologicalSorter` incremental graphlib-style sorter
 

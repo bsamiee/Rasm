@@ -10,8 +10,6 @@
 - owner: `data`
 - rail: aec
 - version: `8.17.0`
-- license: MIT (McNeel; `LICENSE` shipped in the wheel)
-- asset: OpenNURBS C++ binding via pybind11; `Root-Is-Purelib: false`, `cp315-cp315-macosx_14_0_arm64` wheel — the locked wheel MATCHES the cp315 core and imports cleanly (`rhino3dm.__version__ == "8.17.0"`, 195 top-level symbols reflection-verified against the locked wheel). No Python runtime dependencies; the C++ OpenNURBS toolkit is vendored. Non-wheel platforms/interpreters build from the CMake C++ source distribution.
 - entry points: none (library only); pybind11 methods carry their signature in `__doc__`
 - capability: OpenNURBS `.3dm` read/write and byte/JSON round-trip, document component tables, NURBS curve/surface/Brep/Mesh/SubD/Extrusion construction and evaluation, the `Intersection` static kernel, geometry value types and transforms, annotation/dimension/leader/hatch geometry, instance definitions and references (blocks), object attributes and user strings, render content (materials/textures/environments/PBR), meshing parameters, and Draco mesh compression
 

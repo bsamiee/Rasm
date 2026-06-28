@@ -5,12 +5,10 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `duckdb-substrait`
-- package: `duckdb-substrait` (loadable DuckDB extension `substrait`; PyPI wheel distribution `duckdb-extension-substrait`)
 - import: `import duckdb` then `con.load_extension("substrait")` (no top-level Python module; surface attaches to `DuckDBPyConnection`)
 - owner: `data`
 - rail: substrait-portability
 - license: `MIT` (community extension, tracking DuckDB core)
-- distribution: loadable DuckDB community extension `substrait`, rebuilt per DuckDB release and resolved against the locked `duckdb 1.5.4` engine; there is no PyPI module floor — the surface is a connection capability fetched from the community repository, not an importable wheel
 - entry points: connection methods `con.get_substrait` / `con.get_substrait_json` / `con.from_substrait` / `con.from_substrait_json`; SQL table functions `get_substrait` / `get_substrait_json` / `from_substrait` / `from_substrait_json`; no console script
 - capability: serialize a DuckDB SQL `SELECT` query into a binary (BLOB) or JSON Substrait plan, and execute a foreign binary or JSON Substrait plan against DuckDB returning a `DuckDBPyRelation`; optimizer participation governed by `enable_optimizer` on generation and by connection-level settings on consumption
 

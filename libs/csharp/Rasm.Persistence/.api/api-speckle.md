@@ -6,9 +6,9 @@
 
 [PACKAGE_SURFACE]: `Speckle.Sdk`
 - package: `Speckle.Sdk`
-- version: `3.21.1`
+- version: `2026.6.0`
 - assembly: `Speckle.Sdk`
-- companion: `Speckle.Sdk.Dependencies` (`3.21.1`; transitive; ILRepacks `Polly`, `Open.ChannelExtensions`, `Microsoft.Extensions.ObjectPool`, and the serialisation-V2 send/receive channel pipeline into one assembly)
+- companion: `Speckle.Sdk.Dependencies` (`2026.6.0`; transitive; ILRepacks `Polly`, `Open.ChannelExtensions`, `Microsoft.Extensions.ObjectPool`, and the serialisation-V2 send/receive channel pipeline into one assembly)
 - transitive: `GraphQL.Client`, `Microsoft.Data.Sqlite` (carries native `e_sqlite3` via `SQLitePCLRaw`), `System.Text.Json`, `Speckle.Newtonsoft.Json`, `Speckle.DoubleNumerics`
 - namespace: `Speckle.Sdk`, `Speckle.Sdk.Api`, `Speckle.Sdk.Models`, `Speckle.Sdk.Transports`, `Speckle.Sdk.Serialisation`, `Speckle.Sdk.Credentials`
 - target frameworks: `net10.0`, `net8.0`, `netstandard2.0`
@@ -17,9 +17,9 @@
 
 [PACKAGE_SURFACE]: `Speckle.Objects`
 - package: `Speckle.Objects`
-- version: `3.21.1`
+- version: `2026.6.0`
 - assembly: `Speckle.Objects`
-- companion: `Speckle.Sdk` (`3.21.1`; supplies the `Base`/`ISpeckleObject` base graph)
+- companion: `Speckle.Sdk` (`2026.6.0`; supplies the `Base`/`ISpeckleObject` base graph)
 - namespace: `Speckle.Objects`, `Speckle.Objects.Geometry`, `Speckle.Objects.Data`, `Speckle.Objects.Primitive`, `Speckle.Objects.Other`, `Speckle.Objects.Annotation`
 - target frameworks: `net10.0`, `net8.0`, `netstandard2.0`
 - asset: runtime library
@@ -106,7 +106,7 @@ The in-Rhino plugin assembly never references `Speckle.Sdk` or `Speckle.Objects`
 |  [09]   | `ArcgisObject : DataObject, IGisObject`                                           | host-object      | ArcGIS-sourced data object                           |
 |  [10]   | `NavisworksObject` / `MicrostationObject` / `TsdObject`                           | host-object      | Navisworks / MicroStation / TSD-sourced data objects |
 
-The Speckle 3.21 model replaces the v2 `Objects.BuiltElements` typed roster (`Wall`/`Beam`/`Column`/`Duct`/`Level`) with the unified `Speckle.Objects.Data` family; no `BuiltElements` namespace and no typed built-element classes exist in 3.21.1. Built-element geometry rides `DataObject.displayValue` as `List<Base>` (`IDisplayValue<IReadOnlyList<Base>>`), distinct from `Brep.displayValue` (`List<Mesh>`); `IDisplayValue<out T>` is the generic display-value contract.
+The Speckle 2026.6 model replaces the v2 `Objects.BuiltElements` typed roster (`Wall`/`Beam`/`Column`/`Duct`/`Level`) with the unified `Speckle.Objects.Data` family; no `BuiltElements` namespace and no typed built-element classes exist in 2026.6.0. Built-element geometry rides `DataObject.displayValue` as `List<Base>` (`IDisplayValue<IReadOnlyList<Base>>`), distinct from `Brep.displayValue` (`List<Mesh>`); `IDisplayValue<out T>` is the generic display-value contract.
 
 ## [03]-[ENTRYPOINTS]
 

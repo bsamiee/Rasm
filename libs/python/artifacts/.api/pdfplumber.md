@@ -9,8 +9,7 @@
 - import: `pdfplumber`
 - owner: `artifacts`
 - rail: table
-- installed: `0.11.10` reflected via reflection on cp315 (Python 3.15)
-- license: MIT; pure Python (`pdfplumber-0.11.10-py3-none-any.whl`) layered over `pdfminer.six` (MIT, the parse engine), `pypdfium2` (BSD-3/Apache-2.0, the PDFium raster bindings used by `to_image`), and `pillow` (MIT-CMU, image backing); no compiled extension of its own, installs clean on cp315; `to_image` requires the `pypdfium2` raster path, `repair` requires a system Ghostscript binary
+- installed: `0.11.10`
 - entry points: console script `pdfplumber` (CLI; `--format csv/json/text` over `to_csv`/`to_json`); library use is import-only via `pdfplumber.open`
 - capability: PDF stream parsing into a `PDF`/`Page` container hierarchy, per-object char/line/rect/curve/image/annot/hyperlink/edge geometry, ruled-line `TableFinder` cell detection (`lines`/`lines_strict`/`text`/`explicit` strategies with full snap/join/intersection tolerance fields), positioned word/char extraction with tolerance + direction clustering, layout-preserving text rendering and regex `search`, tagged-PDF logical `structure_tree`, bbox crop/within/outside/filter/dedupe views, `to_csv`/`to_json`/`to_dict` object export, `PageImage` raster render with a draw/outline debug surface, and Ghostscript-backed repair
 

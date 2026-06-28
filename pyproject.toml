@@ -4,231 +4,254 @@ version = "0.1.0"
 requires-python = ">=3.15"
 dependencies = [
     # --- [GENERAL]
-    "anyio>=4.14.0",
-    "protobuf>=6.33,<7.0",                         # runtime transport wire codec; capped <7.0 by opentelemetry-proto (no OTel release admits protobuf 7.x yet); lift the cap when it does. cp310-abi3+py3-none-any => cp315-clean
-    "grpcio>=1.81",                                # runtime: gRPC transport (server/serve ServerHost); resolves on cp315, already transitive core via google-cloud-storage
-    "findiff>=0.13.1; python_version<'3.15'",      # compute finite-difference floor for solvers/sensitivity; gated by transitive scipy CPython 3.15 wheel lag
-    "beartype>=0.22.2",
-    "cyclopts>=4.18.0",
-    "msgspec>=0.21.1",
-    "opentelemetry-api>=1.41.1",
-    "opentelemetry-exporter-otlp-proto-http>=1.41.1",
-    "opentelemetry-sdk>=1.41.1",
-    "opentelemetry-instrumentation-grpc>=0.62b0",  # runtime: gRPC server/client span instrumentation for server/serve
-    "pydantic>=2.13.4",
-    "pydantic-settings>=2.14.1",
-    "expression>=5.6.0",
-    "stamina>=26.1.0",
-    "structlog>=26.1.0",
-    "psutil>=7.2.2",
-    "fsspec>=2026.6.0",
-    "s3fs>=2026.6.0",                              # data: S3 fsspec backend for shared-pull artifact reads
-    "gcsfs>=2026.6.0",                             # data: GCS fsspec backend for shared-pull artifact reads
-    "obstore>=0.10.1",                             # data: abi3 object_store backend while cloud-storage wheels lag on CPython 3.15
-    "httpx>=0.28.1",                               # transport: approved HTTP client surface for typed adapters
-    "watchfiles>=1.2.0",
-    "apscheduler>=3.11.2",                         # runtime: cron, interval, and date triggers (sole cron owner; aiocron purged)
-    "universal-pathlib>=0.3.10",                   # data: UPath storage_options/protocol resolution for the fsspec artifact store
-    "asyncssh>=2.23.1",
-    "tree-sitter>=0.25.2",
-    "tree-sitter-python>=0.25.0",
-    "tree-sitter-typescript>=0.23.2",
-    "keyring",                                     # runtime: OS keychain credential boundary; never probe unattended
-    "zstandard>=0.23.0",                           # tooling: zstd compression for the tools.assay logging/cache rail; root-tool dependency, always available
-    "trio>=0.27.0",                                # runtime: structured-concurrency backend anyio runs on; the high-scrutiny async owner
-    "zlib-ng",                                     # data: zlib-ng/gzip-ng accelerated compression (the python-zlib-ng project) beside zstandard/lz4/brotli
-    "csvkit",                                      # data: CSV CLI suite (in2csv/csvcut/csvjoin/csvsql) for the tabular subprocess boundary
+    "anyio",
+    "protobuf<7.0",                                  # [RUNTIME]: transport wire codec; protobuf 7.x remains outside the current OpenTelemetry line
+    "grpcio",                                        # [RUNTIME]: gRPC transport for ServerHost serve paths
+    "findiff; python_version<'3.15'",                # [COMPUTE]: finite-difference operators for solvers and sensitivity
+    "beartype",
+    "cyclopts",
+    "msgspec",
+    "opentelemetry-api",
+    "opentelemetry-exporter-otlp-proto-http",
+    "opentelemetry-sdk",
+    "opentelemetry-instrumentation-grpc",            # [RUNTIME]: gRPC server/client span instrumentation for server/serve
+    "pydantic",
+    "pydantic-settings",
+    "expression",
+    "stamina",
+    "structlog",
+    "psutil",
+    "fsspec",
+    "s3fs",                                          # [DATA]: S3 fsspec backend for shared-pull artifact reads
+    "gcsfs",                                         # [DATA]: GCS fsspec backend for shared-pull artifact reads
+    "obstore",                                       # [DATA]: object-store backend
+    "obspec-utils",                                  # [DATA]: multi-store ObjectStoreRegistry companion to obstore
+    "httpx",                                         # [TRANSPORT]: approved HTTP client surface for typed adapters
+    "watchfiles",
+    "apscheduler",                                   # [RUNTIME]: cron, interval, and date triggers
+    "universal-pathlib",                             # [DATA]: UPath storage_options/protocol resolution for the fsspec artifact store
+    "asyncssh",
+    "tree-sitter",
+    "tree-sitter-python",
+    "tree-sitter-typescript",
+    "keyring",                                       # [RUNTIME]: OS keychain credential boundary
+    "zstandard",                                     # [TOOLING]: zstd compression for tools.assay logging and cache payloads
+    "trio",                                          # [RUNTIME]: structured-concurrency backend anyio runs on
+    "zlib-ng",                                       # [DATA]: zlib-ng/gzip-ng accelerated compression beside zstandard/lz4/brotli
+    "csvkit",                                        # [DATA]: CSV CLI suite for the tabular subprocess boundary
     # --- [SCIENTIFIC]
-    "adbc-driver-manager",                         # data: ADBC driver manager for Arrow Flight SQL and DuckDB; Cython source-build on CPython 3.15
-    "arro3-core>=0.8.1",                           # data: abi3 Arrow core bridge while pyarrow CPython 3.15 support stabilizes
-    "arviz>=1.2.0; python_version<'3.15'",         # compute: Bayesian diagnostics; gated by scipy/Pythran CPython 3.15 lag
-    "awkward>=2.9.1",                              # data: ragged arrays; pure Python
-    "compas>=2.15.1; python_version<'3.15'",       # geometry: algebra toolkit; gated by scipy-family CPython 3.15 lag
-    "connectorx>=0.4.5; python_version<'3.15'",    # data: SQL-to-Arrow loader; Rust/maturin lacks CPython 3.15 wheel
-    "cubed>=0.28.0",                               # data: bounded-memory distributed arrays; pure Python
+    "adbc-driver-manager",                           # [DATA]: ADBC driver manager for Arrow Flight SQL and DuckDB
+    "arro3-core",                                    # [DATA]: Arrow core bridge
+    "arviz; python_version<'3.15'",                  # [COMPUTE]: Bayesian diagnostics
+    "awkward",                                       # [DATA]: ragged arrays
+    "compas; python_version<'3.15'",                 # [GEOMETRY]: algebra toolkit
+    "connectorx; python_version<'3.15'",             # [DATA]: SQL-to-Arrow loader
+    "cubed",                                         # [DATA]: bounded-memory distributed arrays
     "dask",
-    "deltalake",                                   # data: lakehouse tables; abi3 wheel on CPython 3.15
-    "duckdb",                                      # data: analytical SQL engine; source-builds on CPython 3.15
-    "geopandas",                                   # geometry: geospatial frames; source-build via Parametric_Forge scientific toolchain
-    "h5py>=3.16.0",                                # data: HDF5 arrays; source-build via Parametric_Forge HDF5 toolchain
-    "icechunk>=2.0.6; python_version<'3.15'",      # data: versioned tensor store; Rust pyo3 lacks CPython 3.15 wheel
-    "ibis-framework>=12.0.0",                      # data: backend-agnostic SQL-expression IR
-    "jax>=0.10.1; python_version<'3.15'",          # compute: XLA accelerator; jaxlib lacks CPython 3.15 wheel
-    "laspy>=2.7.0",                                # geometry: LAS/LAZ point-cloud IO; pure Python
+    "deltalake",                                     # [DATA]: lakehouse tables
+    "duckdb",                                        # [DATA]: analytical SQL engine
+    "geopandas",                                     # [GEOMETRY]: geospatial frames
+    "h5py",                                          # [DATA]: HDF5 arrays
+    "icechunk; python_version<'3.15'",               # [DATA]: versioned tensor store
+    "ibis-framework",                                # [DATA]: backend-agnostic SQL-expression IR
+    "jax; python_version<'3.15'",                    # [COMPUTE]: XLA accelerator
+    "laspy",                                         # [GEOMETRY]: LAS/LAZ point-cloud IO
     "meshio",
-    "nanoarrow>=0.8.0",                            # data: Arrow C-data interop; meson/Cython source-build
-    "narwhals>=2.22.1",                            # data: dataframe-agnostic API; pure Python
-    "netcdf4>=1.7.4",                              # compute: CFD and field IO; source-build via Parametric_Forge netCDF toolchain
+    "nanoarrow",                                     # [DATA]: Arrow C Data Interface interop
+    "narwhals",                                      # [DATA]: dataframe-agnostic API
+    "netcdf4",                                       # [COMPUTE]: CFD and field IO
     "networkx",
-    "numcodecs>=0.16",                             # data: zarr v3 filter/extra-compressor codec registry (numcodecs.zarr3); upstream-deprecation-flagged, revisit if zarr.codecs absorbs the filter family
-    "numba>=0.65.1; python_version<'3.15'",        # compute: LLVM JIT accelerator; numba/llvmlite lacks CPython 3.15 wheel
-    "numpy>=2.0",                                  # compute: array substrate; 2.x ships CPython 3.15 wheels
-    "numpyro>=0.21.0; python_version<'3.15'",      # compute: JAX NUTS sampler; gated by jaxlib CPython 3.15 floor
-    "onnx>=1.22.0",                                # compute: model graph IR; cp312-abi3 wheel on CPython 3.15
-    "onnxruntime>=1.27.0; python_version<'3.15'",  # compute: model runtime; no CPython 3.15 wheel
-    "optimistix>=0.1.0; python_version<'3.15'",    # compute: JAX nonlinear solvers and adjoint VJP; gated by jaxlib CPython 3.15 floor
-    "pandas",                                      # data: dataframe substrate; source-builds on CPython 3.15
+    "numcodecs",                                     # [DATA]: zarr v3 filter and compressor codec registry
+    "numba; python_version<'3.15'",                  # [COMPUTE]: LLVM JIT accelerator
+    "numpy",                                         # [COMPUTE]: array substrate
+    "numpyro; python_version<'3.15'",                # [COMPUTE]: JAX NUTS sampler
+    "onnx",                                          # [COMPUTE]: model graph IR
+    "onnxruntime; python_version<'3.15'",            # [COMPUTE]: model runtime
+    "optimistix; python_version<'3.15'",             # [COMPUTE]: JAX nonlinear solvers and adjoint VJP
+    "pandas",                                        # [DATA]: dataframe substrate
     "pandas-stubs",
-    "pandera>=0.31.1",                             # data: schema and quality-rule contracts; records validation claims without enforcing
-    "pdal>=3.5.3; python_version<'3.15'",          # geometry: point-cloud pipeline; sdist-only, prefer conda; no CPython 3.15 wheel
+    "pandera",                                       # [DATA]: schema and quality-rule contracts
+    "pdal; python_version<'3.15'",                   # [GEOMETRY]: point-cloud pipeline
     "pint",
-    "polars",                                      # data: dataframe engine; CPython 3.15 wheel
-    "pyarrow>=23.0.0,<24",                         # data: Arrow C++ bridge; source-build via Parametric_Forge Arrow toolchain
-    "pye57>=0.4.19; python_version<'3.15'",        # geometry: E57 scan IO; C++ extension lacks CPython 3.15 wheel
-    "pymc>=6.0.1; python_version<'3.15'",          # compute: probabilistic programming; pytensor/numba/llvmlite gates CPython 3.15
-    "pyogrio>=0.12.1",                             # geometry: GDAL vector IO; source-build via Parametric_Forge GDAL toolchain
-    "pyproj>=3.7.2",                               # geometry: PROJ coordinate transforms; source-build via Parametric_Forge PROJ toolchain
-    "python-flint>=0.8.0; python_version<'3.15'",  # compute: Arb interval numerics; LGPL-2.1+ runtime, no CPython 3.15 wheel
-    "rasterio>=1.5.0",                             # data: raster geospatial IO; source-build via Parametric_Forge GDAL toolchain
-    "rhino3dm>=8.17.0",                            # geometry: Rhino mesh and 3DM IO; CMake C++ source-build
-    "rustworkx>=0.17.1",                           # compute/data: graph algorithms; abi3 wheel on CPython 3.15
-    "salib; python_version<'3.15'",                # compute: global sensitivity analysis; transitively pulls scipy (gast/pythran lack CPython 3.15 support), companion-band until the scientific stack ships 3.15
-    "clarabel; python_version<'3.15'",             # compute: Clarabel conic solver / cvxpy backend; transitively pulls scipy (gast/pythran lack CPython 3.15 support), companion-band until the scientific stack ships 3.15
-    "pywavelets>=1.9.0; python_version<'3.15'",    # compute: discrete/continuous wavelet transforms; C/Cython lacks CPython 3.15 wheel
-    "lark",                                        # geometry: IDS/selector parsing-grammar engine; pure Python, cp315-clean
-    "pystac",                                      # data: STAC item/collection object model; pure Python
-    "pystac-client",                               # data: STAC API search/discovery client; pure Python
-    "stac-geoparquet",                             # data: STAC item GeoParquet table interchange; pure Python
-    "array-api-compat",                            # compute: array API portability shim
-    "array-api-extra",                             # compute: supplemental array API helpers
-    "mpmath",                                      # compute: arbitrary-precision real and complex math
-    "pylance",                                     # data: Lance columnar/vector format; abi3 wheel on CPython 3.15
-    "virtualizarr",                                # data: archival reference aggregation into virtual Zarr
-    "compas_dr; python_version<'3.15'",            # geometry: COMPAS dynamic relaxation; gated by compas CPython 3.15 floor
-    "compas_tna; python_version<'3.15'",           # geometry: COMPAS thrust-network analysis; gated by compas CPython 3.15 floor
-    "diffrax; python_version<'3.15'",              # compute: JAX differential-equation solvers; gated by jaxlib CPython 3.15 floor
-    "equinox; python_version<'3.15'",              # compute: JAX PyTree modules; gated by jaxlib CPython 3.15 floor
-    "lineax; python_version<'3.15'",               # compute: JAX linear solvers; gated by jaxlib CPython 3.15 floor
-    "interpax>=0.3.14; python_version<'3.15'",     # compute: JAX interpolation/splines; gated by jaxlib CPython 3.15 floor
-    "quadax>=0.2.13; python_version<'3.15'",       # compute: JAX adaptive quadrature; gated by jaxlib CPython 3.15 floor
-    "optax; python_version<'3.15'",                # compute: first-order JAX optimizers threaded through optimistix.OptaxMinimiser; gated by jaxlib CPython 3.15 floor
-    "cvxpy>=1.9.1; python_version<'3.15'",         # compute: disciplined convex optimization; cp311-cp314 wheels only, no CPython 3.15 wheel
-    "manifold3d; python_version<'3.15'",           # geometry: robust mesh booleans; C++ pybind lacks CPython 3.15 wheel
-    "sectionproperties>=3.10; python_version<'3.15'", # geometry: cross-section property solver; pure-py (py3-none-any), own metadata >=3.11 unbounded; gated by transitive cytriangle (LGPLv3 native ext) cp314 wheel ceiling
-    "nutpie; python_version<'3.15'",               # compute: Rust NUTS sampler for PyMC; gated by PyMC CPython 3.15 floor
-    "pyiceberg; python_version<'3.15'",            # data: Apache Iceberg tables; gated by Arrow/data CPython 3.15 floor
-    "skl2onnx; python_version<'3.15'",             # compute: sklearn-to-ONNX converter; gated by scikit-learn CPython 3.15 floor
-    "scikit-fem>=12.0.2; python_version<'3.15'",   # compute: FEM assembly; gated by scipy-family CPython 3.15 lag
-    "scikit-image>=0.26.0; python_version<'3.15'", # artifacts: image processing; C/Cython lacks CPython 3.15 wheel
-    "scikit-learn>=1.9.0; python_version<'3.15'",  # compute: classical ML and ONNX export; no CPython 3.15 wheel
-    "scipy>=1.17.1; python_version<'3.15'",        # compute: numerical algorithms; scipy/Pythran lacks CPython 3.15 beta support
+    "polars",                                        # [DATA]: dataframe engine
+    "pyarrow<24",                                    # [DATA]: Arrow C++ bridge
+    "pye57; python_version<'3.15'",                  # [GEOMETRY]: E57 scan IO
+    "pymc; python_version<'3.15'",                   # [COMPUTE]: probabilistic programming
+    "pyogrio",                                       # [GEOMETRY]: GDAL vector IO
+    "pyproj",                                        # [GEOMETRY]: PROJ coordinate transforms
+    "python-flint; python_version<'3.15'",           # [COMPUTE]: Arb interval numerics
+    "rasterio",                                      # [DATA]: raster geospatial IO
+    "rhino3dm",                                      # [GEOMETRY]: Rhino mesh and 3DM IO
+    "rustworkx",                                     # [COMPUTE_DATA]: graph algorithms
+    "salib; python_version<'3.15'",                  # [COMPUTE]: global sensitivity analysis
+    "clarabel; python_version<'3.15'",               # [COMPUTE]: Clarabel conic solver and cvxpy backend
+    "pywavelets; python_version<'3.15'",             # [COMPUTE]: discrete and continuous wavelet transforms
+    "lark",                                          # [GEOMETRY]: IDS and selector parsing grammar
+    "pystac",                                        # [DATA]: STAC item and collection object model
+    "pystac-client",                                 # [DATA]: STAC API search and discovery client
+    "stac-geoparquet",                               # [DATA]: STAC item GeoParquet table interchange
+    "array-api-compat",                              # [COMPUTE]: array API portability shim
+    "array-api-extra",                               # [COMPUTE]: supplemental array API helpers
+    "mpmath",                                        # [COMPUTE]: arbitrary-precision real and complex math
+    "pylance",                                       # [DATA]: Lance columnar/vector format
+    "virtualizarr",                                  # [DATA]: archival reference aggregation into virtual Zarr
+    "compas_dr; python_version<'3.15'",              # [GEOMETRY]: COMPAS dynamic relaxation
+    "compas_tna; python_version<'3.15'",             # [GEOMETRY]: COMPAS thrust-network analysis
+    "diffrax; python_version<'3.15'",                # [COMPUTE]: JAX differential-equation solvers
+    "equinox; python_version<'3.15'",                # [COMPUTE]: JAX PyTree modules
+    "lineax; python_version<'3.15'",                 # [COMPUTE]: JAX linear solvers
+    "interpax; python_version<'3.15'",               # [COMPUTE]: JAX interpolation and splines
+    "quadax; python_version<'3.15'",                 # [COMPUTE]: JAX adaptive quadrature
+    "optax; python_version<'3.15'",                  # [COMPUTE]: first-order JAX optimizers for optimistix
+    "cvxpy; python_version<'3.15'",                  # [COMPUTE]: disciplined convex optimization
+    "manifold3d; python_version<'3.15'",             # [GEOMETRY]: robust mesh booleans
+    "sectionproperties; python_version<'3.15'",      # [GEOMETRY]: cross-section property solver enrichment
+    "nutpie; python_version<'3.15'",                 # [COMPUTE]: Rust NUTS sampler for PyMC
+    "pyiceberg; python_version<'3.15'",              # [DATA]: Apache Iceberg tables
+    "skl2onnx; python_version<'3.15'",               # [COMPUTE]: sklearn-to-ONNX converter
+    "scikit-fem; python_version<'3.15'",             # [COMPUTE]: FEM assembly
+    "scikit-image; python_version<'3.15'",           # [ARTIFACTS]: image processing
+    "scikit-learn; python_version<'3.15'",           # [COMPUTE]: classical ML and ONNX export
+    "scipy; python_version<'3.15'",                  # [COMPUTE]: numerical algorithms
     "scipy-stubs",
-    "shapely>=2.1.2",                              # geometry: planar operations; source-build via Parametric_Forge GEOS toolchain
-    "sparse>=0.18.0; python_version<'3.15'",       # data: sparse n-D arrays; numba/llvmlite gates CPython 3.15, scipy.sparse covers sparse LA
+    "shapely",                                       # [GEOMETRY]: planar operations
+    "sparse; python_version<'3.15'",                 # [DATA]: sparse n-D arrays
     "sympy",
     "trimesh",
     "uncertainties",
     "xarray",
-    "xxhash>=3.7.0",                               # runtime: content identity hashes matching C# System.IO.Hashing; cp38-cp314 per-version wheels, NO abi3/cp315 (companion <3.15)
-    "grpcio-tools; python_version<'3.15'",         # runtime: gRPC protoc codegen companion (dev/build only); protoc bundle lacks cp315 wheel
-    "zarr>=3.2.1",                                 # data: chunked n-D arrays; pure Python
-    "blackjax; python_version<'3.15'",             # compute: JAX NUTS/HMC samplers; gated by jaxlib CPython 3.15 floor
-    "cadquery-ocp; python_version<'3.15'",         # geometry: OpenCASCADE STEP/AP242 kernel; requires_python <3.15, companion-side
-    "kiss-matcher; python_version<'3.13'",         # geometry: global point-cloud registration; cp38-cp312 wheels only
-    "bcf-client; python_version<'3.15'",           # geometry: BCF 3.0 coordination XML (imports bcfxml/bcfapi); lxml-dependent, companion-side
-    "dataframely",                                 # data: polars-native declarative column rules with FailureInfo partition reporting
-    "pointblank",                                  # data: graded data-quality observability tier above pass/fail gates
-    "sqlglot",                                     # data: pure-Python SQL parser/transpiler/optimizer and lineage gate; centralizes the ibis transitive
-    "daft",                                        # data: distributed/streaming out-of-core engine with cp315-clean lakehouse reads
-    "fastexcel",                                   # data: calamine Rust Arrow Excel reader closing the spreadsheet DatasetKind gap
-    "flox; python_version<'3.15'",                 # data: vectorized/parallel grouped reductions xarray defers to; scipy-gated, companion until scipy ships cp315
-    "igraph",                                      # data: C-core Leiden/Louvain/Infomap community detection rustworkx lacks
-    "rioxarray",                                   # data: rasterio accessor bridging ndarray to CF DataArray and COG raster write
-    "odc-stac",                                    # data: lazy dask cube from discovered STAC items via odc.stac.load
-    "planetary-computer",                          # data: STAC URL signing for Client.open modifier and odc.stac patch_url
-    "datafusion",                                  # data: system-builder federation/streaming engine with Substrait plan interchange
-    "polars-st",                                   # data: spatial-typed polars frames for the DGGS/spatial-frame plane
-    "h3ronpy",                                     # data: Arrow-native H3 cell ops on polars frames for the DGGS surface
-    "adbc-driver-flightsql",                       # data: Arrow Flight SQL distributed remote driver with grpc+tls and OAuth2
-    "xarray-spatial; python_version<'3.15'",       # data: raster terrain analytics (slope/aspect/hillshade/viewshed); numba runtime gate, lazy import on companion
-    "tensorstore; python_version<'3.15'",          # data: high-throughput async zarr-v3 reader over the same on-disk format zarr writes
-    "geoarrow-rust-compute; python_version<'3.15'",# data: GeoRust on GeoArrow memory replacing the GEOARROW byte-roundtrip
-    "lazrs; python_version<'3.15'",                # data: compressed-COPC LAZ backend for laspy.copc
-    "laszip; python_version<'3.15'",               # data: alternate compressed-COPC LAZ backend for laspy.copc
+    "xxhash",                                        # [RUNTIME]: content identity hashes matching C# System.IO.Hashing
+    "grpcio-tools",                                  # [RUNTIME]: gRPC protoc codegen companion
+    "zarr",                                          # [DATA]: chunked n-D arrays
+    "blackjax; python_version<'3.15'",               # [COMPUTE]: JAX NUTS/HMC samplers
+    "cadquery-ocp; python_version<'3.15'",           # [GEOMETRY]: OpenCASCADE STEP/AP242 kernel
+    "kiss-matcher; python_version<'3.13'",           # [GEOMETRY]: global point-cloud registration
+    "bcf-client",                                    # [GEOMETRY]: BCF 3.0 coordination XML
+    "honeybee-core",                                 # [GEOMETRY]: HBJSON base object model and validation companion
+    "honeybee-energy",                               # [GEOMETRY]: Honeybee energy model construction and simulation exchange
+    "honeybee-openstudio",                           # [GEOMETRY]: Honeybee to OpenStudio/EnergyPlus translation companion
+    "honeybee-standards",                            # [GEOMETRY]: baseline default construction/program/schedule floor for Honeybee energy models
+    "honeybee-energy-standards; python_version<'3.15'", # [GEOMETRY]: large ASHRAE 90.1 / DOE-prototype standards-extension library (constructions/programs/schedules by identifier)
+    "dragonfly-core",                                # [GEOMETRY]: Dragonfly district and urban model object graph
+    "dragonfly-energy",                              # [GEOMETRY]: Dragonfly energy model aggregation and translation
+    "ladybug-core",                                  # [GEOMETRY]: Ladybug weather, units, analysis-period, and location primitives
+    "ladybug-geometry",                              # [GEOMETRY]: Ladybug planar and solid geometry primitives
+    "ladybug-comfort",                               # [GEOMETRY]: comfort-model calculations
+    "queenbee",                                      # [RUNTIME]: recipe and workflow schema contract models
+    "lbt-recipes; python_version<'3.15'",            # [RUNTIME]: Ladybug Tools recipe wrappers and simulation workflows
+    "pollination-handlers; python_version<'3.15'",   # [RUNTIME]: Pollination job handler and recipe execution adapters
+    "dataframely",                                   # [DATA]: polars-native declarative column rules with FailureInfo partition reporting
+    "pointblank",                                    # [DATA]: graded data-quality observability tier above pass/fail checks
+    "sqlglot",                                       # [DATA]: SQL parser, transpiler, optimizer, and lineage engine
+    "daft",                                          # [DATA]: distributed and streaming out-of-core engine
+    "fastexcel",                                     # [DATA]: calamine Rust Arrow Excel reader
+    "flox; python_version<'3.15'",                   # [DATA]: vectorized and parallel grouped reductions for xarray
+    "igraph",                                        # [DATA]: C-core Leiden/Louvain/Infomap community detection
+    "rioxarray",                                     # [DATA]: rasterio accessor bridging ndarray to CF DataArray and COG raster write
+    "odc-stac",                                      # [DATA]: lazy dask cube from discovered STAC items
+    "planetary-computer",                            # [DATA]: STAC URL signing for Client.open modifiers and odc.stac patch_url
+    "datafusion",                                    # [DATA]: federation and streaming engine with Substrait plan interchange
+    "polars-st",                                     # [DATA]: spatial-typed polars frames for the DGGS/spatial-frame plane
+    "h3ronpy",                                       # [DATA]: Arrow-native H3 cell ops on polars frames
+    "adbc-driver-flightsql",                         # [DATA]: Arrow Flight SQL distributed remote driver
+    "xarray-spatial; python_version<'3.15'",         # [DATA]: raster terrain analytics
+    "tensorstore; python_version<'3.15'",            # [DATA]: high-throughput async zarr-v3 reader
+    "geoarrow-rust-compute; python_version<'3.15'",  # [DATA]: GeoRust operations on GeoArrow memory
+    "lazrs; python_version<'3.15'",                  # [DATA]: compressed-COPC LAZ backend for laspy.copc
+    "laszip; python_version<'3.15'",                 # [DATA]: alternate compressed-COPC LAZ backend for laspy.copc
+    "openepd",                                       # [DATA]: OpenEPD declarations and PCR material-impact payloads
+    "epdx; python_version<'3.15'",                   # [DATA]: EPDx environmental product declaration interchange
+    "brightway2; python_version<'3.15'",             # [DATA]: Brightway LCA facade for material-impact calculations
+    "bw2data; python_version<'3.15'",                # [DATA]: Brightway project, database, and storage layer
+    "bw2calc; python_version<'3.15'",                # [DATA]: Brightway LCA calculation engine
+    "bw2io; python_version<'3.15'",                  # [DATA]: Brightway import/export and database ingestion
+    "bw-processing",                                 # [DATA]: Brightway matrix-processing substrate
+    "olca-ipc",                                      # [DATA]: openLCA IPC client for foreground/background LCA interchange
+    "premise; python_version<'3.15'",                # [DATA]: prospective LCA scenario database transformer
     # --- [ARTIFACTS]
     "altair",
-    "brotli; python_version<'3.15'",               # artifacts: compression; no CPython 3.15 wheel
-    "colour-science>=0.4.6",                       # artifacts: color science for CIE, spectral, and appearance models; pure Python
-    "fonttools>=4.63.0",                           # artifacts: font subsetting, instancing, and shaping metadata; pure Python
-    "jinja2>=3.1.6",                               # artifacts: report templating between visual and document outputs
-    "lxml; python_version<'3.15'",                 # artifacts: XML processing; no CPython 3.15 wheel
-    "lz4; python_version<'3.15'",                  # artifacts: compression; no CPython 3.15 wheel
-    "matplotlib; python_version<'3.15'",           # artifacts: plotting; contourpy/kiwisolver lack CPython 3.15 wheels
-    "nbclient>=0.11.0",                            # artifacts: headless notebook execution client; pure Python
+    "brotli",                                        # [ARTIFACTS]: compression
+    "colour-science",                                # [ARTIFACTS]: CIE, spectral, and appearance color models
+    "fonttools",                                     # [ARTIFACTS]: font subsetting, instancing, and shaping metadata
+    "jinja2",                                        # [ARTIFACTS]: report templating between visual and document outputs
+    "lxml",                                          # [ARTIFACTS]: XML processing
+    "lz4",                                           # [ARTIFACTS]: compression
+    "matplotlib; python_version<'3.15'",             # [ARTIFACTS]: plotting
+    "nbclient",                                      # [ARTIFACTS]: headless notebook execution client
     "openpyxl",
-    "papermill>=2.7.0",                            # artifacts: parameterized notebook runs; pure Python
+    "papermill",                                     # [ARTIFACTS]: parameterized notebook runs
     "pikepdf",
-    "pillow; python_version<'3.15'",               # artifacts: image IO; no CPython 3.15 wheel
+    "pillow; python_version<'3.15'",                 # [ARTIFACTS]: image IO
     "py7zr",
-    "pyhanko>=0.35.1",                             # artifacts: PDF digital signing and PAdES; pure Python
+    "pyhanko",                                       # [ARTIFACTS]: PDF digital signing and PAdES
     "pymupdf",
     "pypdf",
     "pypdfium2",
-    "pyvista>=0.48.4; python_version<'3.13'",      # artifacts: 3D scientific visualization; gated by VTK interpreter floor
-    "python-barcode",                              # artifacts: linear/2D barcode symbologies beside the segno QR arm; pure Python
+    "pyvista; python_version<'3.13'",                # [ARTIFACTS]: 3D scientific visualization
+    "python-barcode",                                # [ARTIFACTS]: linear barcode symbologies beside the segno QR arm
     "python-docx",
     "python-magic",
     "python-pptx",
-    "segno",                                       # artifacts: QR/Micro-QR vector codes; pure Python (replaces qrcode, removes Pillow leak)
-    "svgelements",                                 # artifacts: pure-Python SVG geometry/transform/parse for figure scale-to-fit/n-up/crop/bounds; cp315-clean
+    "segno",                                         # [ARTIFACTS]: QR and Micro-QR vector codes
+    "svgelements",                                   # [ARTIFACTS]: SVG geometry, transform, and parse helpers
     "reportlab",
     "ruamel-yaml",
     "tomlkit",
     "vl-convert-python",
-    "vtk>=9.6.2; python_version<'3.13'",           # artifacts: VTK engine for pyvista; no CPython 3.15 wheel
+    "vtk; python_version<'3.13'",                    # [ARTIFACTS]: VTK engine for pyvista
     "weasyprint",
-    "great-tables",                                # artifacts: publication-quality display tables
-    "uharfbuzz",                                   # artifacts: HarfBuzz text-shaping bindings
-    "typst",                                       # artifacts: Typst PDF typesetting; cp38-abi3 wheel (installs on 3.15)
-    "vegafusion; python_version<'3.15'",           # artifacts: server-side Vega transform/pre-transform export; Rust, gated
-    "ocrmypdf",                                    # artifacts: OCR-to-PDF/A with sidecar text; needs Forge native tesseract+ghostscript+leptonica (libheif for pi-heif HEIF input)
-    "pdfplumber",                                  # artifacts: ruled-table extraction over pdfminer.six, complements pymupdf bulk text
-    "docxtpl",                                     # artifacts: template-driven .docx authoring over python-docx + jinja2
-    "msoffcrypto-tool",                            # artifacts: ECMA-376 Office decrypt/encrypt confidentiality counterpart to PDF
-    "odfpy",                                       # artifacts: ODF write for OpenDocument text/spreadsheet/presentation trees
-    "xlsxwriter",                                  # artifacts: streaming write-only xlsx at near-constant memory; promoted transitive->explicit
-    "nbconvert",                                   # artifacts: host-free executed-notebook to HTML/Markdown report export
-    "jupytext",                                    # artifacts: round-trip notebooks to/from py:percent/md:myst text source
-    "coloraide",                                   # artifacts: oklch gamut mapping and CVD filters disjoint from colour-science
-    "blackrenderer",                               # artifacts: COLRv1 color-glyph SVG rasterization over fonttools + HarfBuzz
-    "c2pa-python",                                 # artifacts: cross-format C2PA content credentials distinct from PAdES
-    "stream-zip",                                  # artifacts: bounded-memory streaming zip with ZIP64/AES-256
-    "detools",                                     # artifacts: binary-delta engine (bsdiff/hdiffpatch superset) replacing bsdiff4
-    "drawsvg>=2.4.1",                              # artifacts: authors hierarchical named-layer <g id=...> SVG for Illustrator/InDesign hand-off; pure py3-none-any, cp315-clean
-    "resvg-py",                                    # artifacts: in-process SVG->PNG/PDF rasterization with no system cairo
-    "av",                                          # artifacts: PyAV video/audio/mux encode; bundles FFmpeg (abi3 cp311, cp315-clean)
-    "pyvips",                                      # artifacts: fused decode+downscale+ICC and smartcrop; needs Forge native libvips
-    "lets-plot; python_version<'3.15'",            # artifacts: host-free grammar-of-graphics self-render to svg/png/pdf bytes
-    "python-bidi>=0.6.10; python_version<'3.15'",  # artifacts: UAX#9 bidi reorder pass before HarfBuzz shaping for Arabic runs; Rust pyo3 lacks CPython 3.15 wheel (pyo3-ffi 0.27 caps at 3.14)
-    "python-calamine; python_version<'3.15'",      # artifacts: fast Rust xlsx/xlsb/xls/ods reader closing the spreadsheet/ODF read inverse
-    "usd-core; python_version<'3.15'",             # artifacts: USD/USDZ scene packaging beside the vtk USD exporter
-    "zxing-cpp",                                   # artifacts: 2D matrix codes (DataMatrix/PDF417/Aztec/MaxiCode) encode+decode; native C++ pybind11 sdist source-build via the Parametric_Forge scientific toolchain on cp315
-    "stream-unzip",                                # artifacts: bounded-memory streaming unzip inverse for stream-zip; pure-Python sdist (stream-inflate dep), builds+imports on cp315
+    "great-tables",                                  # [ARTIFACTS]: publication-quality display tables
+    "uharfbuzz",                                     # [ARTIFACTS]: HarfBuzz text-shaping bindings
+    "typst",                                         # [ARTIFACTS]: Typst PDF typesetting
+    "vegafusion",                                    # [ARTIFACTS]: server-side Vega transform and pre-transform export
+    "ocrmypdf",                                      # [ARTIFACTS]: OCR-to-PDF/A with sidecar text
+    "pdfplumber",                                    # [ARTIFACTS]: ruled-table extraction over pdfminer.six
+    "docxtpl",                                       # [ARTIFACTS]: template-driven docx authoring
+    "msoffcrypto-tool",                              # [ARTIFACTS]: ECMA-376 Office decrypt/encrypt boundary
+    "odfpy",                                         # [ARTIFACTS]: ODF write for OpenDocument text, spreadsheet, and presentation trees
+    "xlsxwriter",                                    # [ARTIFACTS]: streaming write-only xlsx
+    "nbconvert",                                     # [ARTIFACTS]: executed-notebook export to HTML and Markdown
+    "jupytext",                                      # [ARTIFACTS]: notebook round-trip text source
+    "coloraide",                                     # [ARTIFACTS]: oklch gamut mapping and CVD filters
+    "blackrenderer",                                 # [ARTIFACTS]: COLRv1 color-glyph SVG rasterization
+    "c2pa-python",                                   # [ARTIFACTS]: cross-format C2PA content credentials
+    "stream-zip",                                    # [ARTIFACTS]: bounded-memory streaming zip with ZIP64/AES-256
+    "detools",                                       # [ARTIFACTS]: binary-delta engine
+    "drawsvg",                                       # [ARTIFACTS]: hierarchical named-layer SVG authoring
+    "resvg-py",                                      # [ARTIFACTS]: in-process SVG to PNG/PDF rasterization
+    "av",                                            # [ARTIFACTS]: PyAV video/audio mux and encode
+    "pyvips",                                        # [ARTIFACTS]: fused decode, downscale, ICC, and smartcrop
+    "lets-plot; python_version<'3.15'",              # [ARTIFACTS]: host-free grammar-of-graphics render to svg/png/pdf
+    "python-bidi; python_version<'3.15'",            # [ARTIFACTS]: UAX 9 bidi reorder pass before HarfBuzz shaping
+    "python-calamine",                               # [ARTIFACTS]: fast xlsx/xlsb/xls/ods reader
+    "usd-core; python_version<'3.15'",               # [ARTIFACTS]: USD/USDZ scene packaging
+    "zxing-cpp",                                     # [ARTIFACTS]: 2D matrix codes encode and decode
+    "stream-unzip",                                  # [ARTIFACTS]: bounded-memory streaming unzip inverse for stream-zip
 ]
 
 [dependency-groups]
 dev = [
-    "coverage>=7.14.1",
+    "coverage",
     "dirty-equals",
-    "hypothesis>=6.155.3",
+    "hypothesis",
     "inline-snapshot",
-    "moto[server]>=5.2.2",
-    "mypy>=2.1.0",
-    "pytest>=9.1.0",
-    "pytest-benchmark>=5.2.3",
-    "pytest-cov>=7.1.0",
-    "pytest-deadfixtures>=3.1.0",
-    "pytest-randomly>=4.1.0",
-    "pytest-socket>=0.8.0",
-    "pytest-timeout>=2.4.0",
-    "pytest-xdist>=3.8.0",
-    "ruff>=0.15.17,<0.16",
-    "squawk-cli>=2.58.0",
-    "ty>=0.0.50",
-    "types-psutil>=7.2.2.20260518",
+    "moto[server]",
+    "mypy",
+    "pytest",
+    "pytest-benchmark",
+    "pytest-cov",
+    "pytest-deadfixtures",
+    "pytest-randomly",
+    "pytest-socket",
+    "pytest-timeout",
+    "pytest-xdist",
+    "ruff>=0.15.20,<0.16",
+    "squawk-cli",
+    "ty",
+    "types-psutil",
     "validate-pyproject[all]",
 ]
-mutation = ["mutmut>=3.6.0"]
+mutation = ["mutmut"]
 
 # --- [UV] ------------------------------------------------------------------
 
@@ -458,7 +481,7 @@ max_stack_depth = -1              # disables mutmut's strict stack walk over imp
 cache-dir =        ".cache/ruff"
 preview =          true
 line-length =      150
-required-version = ">=0.15.17,<0.16"
+required-version = ">=0.15.20,<0.16"
 target-version =   "py315"
 extend-exclude = [
     "**/.approval_tests_temp/**",
@@ -585,8 +608,7 @@ extend-ignore-names = ["_validate", "_disc", "_check", "_value_"]
 
 [tool.ruff.lint.flake8-tidy-imports]
 ban-relative-imports =        "all"
-banned-module-level-imports = ["dask", "numpy", "pandas", "polars", "scipy", "sympy", "xarray"]
-ban-lazy =                    "all"
+banned-module-level-imports = []
 
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
 "concurrent.futures.ProcessPoolExecutor".msg = "Use anyio.to_process.run_sync() — structured concurrency with cancellation support."

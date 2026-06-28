@@ -10,9 +10,8 @@
 - owner: `artifacts`
 - rail: imaging
 - license: BSD-3-Clause (with BSD-2-Clause and MIT vendored components)
-- installed: `0.26.0` reflected via `python -c "import skimage"` on the gated `python_version<'3.15'` band (cp313); C/Cython extensions lack a CPython 3.15 wheel, so the cp315-core owner never imports it and routes image work across the runtime subprocess seam
+- installed: `0.26.0`
 - entry points: none (library only); submodules are lazy-loaded (`lazy_loader`), so `import skimage` is cheap and each domain submodule materializes on first attribute access
-- floor: `scikit-image>=0.26.0`; depends on `numpy`/`scipy`/`networkx`/`pillow`/`imageio`/`tifffile`/`lazy_loader` (all transitive, centrally owned)
 
 ## [02]-[PUBLIC_TYPES]
 

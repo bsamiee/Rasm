@@ -1,6 +1,6 @@
 # [PY_DATA_API_LASPY]
 
-`laspy` supplies LAS/LAZ point-cloud file IO for the data scan-exchange rail and owns the COPC octree-subset read. `laspy.open(source, mode)` is the single polymorphic IO entry that discriminates `mode` into a `LasReader`/`LasWriter`/`LasAppender` for chunked streaming; `laspy.read` is the eager whole-file load into a `LasData`. The package reads, writes, appends, and converts LAS 1.0–1.4 / LAS 2.0 records, manages extra dimensions (`ExtraBytesParams`) and CRS (`pyproj.CRS`), reads/writes VLRs and EVLRs, selects the LAZ backend through `LazBackend`, masks decode fields through `DecompressionSelection`, and runs spatial/level-of-detail queries against Cloud-Optimized Point Cloud files through `laspy.copc.CopcReader`; it never re-implements binary LAS parsing or the LASzip range codec. cp315-core `laspy.copc` reads UNCOMPRESSED COPC only — compressed `.copc.laz`/LAZ rides the companion `lazrs`/`laszip` backend (`.api/lazrs.md`, `.api/laszip.md`).
+`laspy` supplies LAS/LAZ point-cloud file IO for the data scan-exchange rail and owns the COPC octree-subset read. `laspy.open(source, mode)` is the single polymorphic IO entry that discriminates `mode` into a `LasReader`/`LasWriter`/`LasAppender` for chunked streaming; `laspy.read` is the eager whole-file load into a `LasData`. The package reads, writes, appends, and converts LAS 1.0–1.4 / LAS 2.0 records, manages extra dimensions (`ExtraBytesParams`) and CRS (`pyproj.CRS`), reads/writes VLRs and EVLRs, selects the LAZ backend through `LazBackend`, masks decode fields through `DecompressionSelection`, and runs spatial/level-of-detail queries against Cloud-Optimized Point Cloud files through `laspy.copc.CopcReader`; it never re-implements binary LAS parsing or the LASzip range codec. runtime `laspy.copc` reads UNCOMPRESSED COPC only — compressed `.copc.laz`/LAZ rides the companion `lazrs`/`laszip` backend (`.api/lazrs.md`, `.api/laszip.md`).
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -11,7 +11,6 @@
 - module: `laspy`
 - owner: `data`
 - rail: scan-exchange
-- asset: pure-Python wheel, `requires-python >=3.10`, cp315-clean (reflection-verified); LAZ codecs are the native `lazrs`/`laszip` companions, not laspy itself
 - entry points: `import laspy` plus the `laspy` console script (`laspy.cli`)
 - capability: LAS/LAZ eager `read` and chunked-streaming `open` (reader/writer/appender), `create`/`convert`/`mmap`, extra-dimension (`ExtraBytesParams`) and CRS management, VLR/EVLR access, `LazBackend` selection, `DecompressionSelection` field masking, and the COPC octree-subset spatial/LOD read via `laspy.copc.CopcReader`
 
@@ -103,7 +102,6 @@
 - CRS round-trips through `LasHeader.add_crs(pyproj.CRS, keep_compatibility=True)` and `parse_crs(prefer_wkt=True)`; VLR/EVLR payloads are `VLR(user_id, record_id, description, record_data_bytes)` read off `LasHeader.vlrs`/`LasData.evlrs`.
 
 [BACKEND_LAW]:
-- cp315-core `laspy.copc` reads UNCOMPRESSED COPC only; `CopcReader.open` raises `laspy.errors.LazError` when no LAZ backend (`lazrs`) is available.
 - Compressed COPC/LAZ decoding rides the companion backend on the `<3.15` band: `lazrs` (`.api/lazrs.md`, Rust `laz-rs`) is the default and required COPC backend, with `laszip` (`.api/laszip.md`, native LASzip) the alternative; `laspy` selects between them through `LazBackend.{Lazrs, LazrsParallel, Laszip}`, gated by `LazBackend.is_available()`.
 - field-skipping is one `DecompressionSelection` flag value threaded into `read`/`open`/`CopcReader.open`; `DecompressionSelection.to_laszip() -> int` is the only producer of the mask the `laszip` binding consumes (`.api/laszip.md`), and the `lazrs` backend reads the same flag set — never two parallel mask vocabularies.
 - append is backend-sensitive: `LazBackend.Laszip.supports_append` is `False`, so a `LasAppender` over compressed LAZ requires `LazBackend.Lazrs`/`LazrsParallel`; route LAZ append accordingly.

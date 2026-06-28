@@ -39,6 +39,12 @@ The IFC/glTF/STEP/USD interchange, BIM-review, and geospatial domain packages th
 [IFC_SEMANTIC]:
 - `GeometryGymIFC_Core`
 
+[STRUCTURAL_ANALYSIS_EXCHANGE]:
+- `StructuralAnalysisFormat` — SAF/XLSX structural-analysis exchange for the host-neutral `AnalysisModel` graph, binding structural members, supports, load cases, combinations, and result tables without making SAF the canonical model.
+
+[LIGHTWEIGHT_BIM_EXCHANGE]:
+- `dotbim` — lightweight `.bim` mesh+metadata interchange for preview, portable issue payloads, and low-friction external model exchange beside IFC/glTF/USD.
+
 [GLTF_CODEC]:
 - `SharpGLTF.Core`
 - `SharpGLTF.Toolkit`
@@ -76,11 +82,30 @@ The IFC/glTF/STEP/USD interchange, BIM-review, and geospatial domain packages th
 [PROPERTY_TEMPLATES]:
 - `Xbim.Properties`
 
+[COBIE_EXCHANGE]:
+- `Xbim.CobieExpress`
+- `Xbim.IO.CobieExpress`
+- `Xbim.CobieExpress.Exchanger`
+
 [BCF_ISSUES]:
 - `Smino.Bcf.Toolkit`
 
 [CLASH_SPATIAL]:
 - `SwiftCollections.Lean`
+
+[BUILDING_SYSTEMS_ONTOLOGY]:
+- `BrickSchema.Net`
+
+[ENERGY_MODEL_EXCHANGE]:
+- `HoneybeeSchema`
+- `DragonflySchema`
+- `OpenStudio` via `NREL.OpenStudio.macOS-arm64`
+
+[STRUCTURAL_TAXONOMY]:
+- `VividOrange.Loads`
+- `VividOrange.Cases`
+- `VividOrange.Stages`
+- `VividOrange.Countries`
 
 [GRAPH_ALGORITHM]:
 - `QuikGraph`

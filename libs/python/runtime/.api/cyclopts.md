@@ -9,9 +9,8 @@
 - import: `cyclopts`
 - owner: `runtime`
 - rail: entry
-- version: `4.18.0`
+- version: `4.19.0`
 - license: `Apache-2.0`
-- floor: `Requires-Python>=3.10`; wheel `py3-none-any` (pure-Python, no ABI pin); hard deps `attrs>=23.1` (the `Parameter`/`Group`/`App` field machinery), `docstring-parser`, `rich`+`rich-rst` (help/version rendering); `trio` only when `run_async(backend='trio')` is used (the `trio` extra)
 - namespaces: `cyclopts`, `cyclopts.config`, `cyclopts.types`, `cyclopts.validators`
 - capability: annotation-driven CLI, command/sub-app/meta registry, `Parameter`/`Argument` with converter/validator/group/env_var/negative/count/n_tokens, constrained-type library, cross-argument validators, layered config sources, string-action + `ResultAction` return mapping with `resolve_returncode`, help/version formatting, completion, interactive shell, async dispatch over asyncio/trio
 

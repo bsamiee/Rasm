@@ -8,14 +8,11 @@
 - package: `tree-sitter`
 - version: `0.25.2`
 - license: MIT
-- wheel: native CPython extension (`_binding.cpython-315-darwin.so`), NOT `abi3` — per-version wheels (`cp315-cp315-macosx_14_0_arm64`, `Root-Is-Purelib: false`); a fresh wheel ships per CPython minor, so cp315 carries its own build. (The grammar packages, by contrast, ship forward-compatible `abi3` wheels — see `.api/tree-sitter-python.md`/`.api/tree-sitter-typescript.md`.)
-- requires-python: `>=3.10`; admitted and resolved in the cp315 default venv
 - import: `tree_sitter`
 - owner: `runtime`
 - rail: parsing
 - namespaces: `tree_sitter`
 - capability: incremental parser, grammar `Language` objects with full symbol/field/state introspection, syntax-tree traversal with cursors and field access, byte/`Point` ranges, incremental edits with `changed_ranges`, S-expression query matching with capture quantifiers + predicate/assertion introspection, and progress-callback-bounded parse/query runs
-- version-guard: `Language` objects carry an `abi_version` (the modern accessor; `version` is deprecated) and an optional `semantic_version` `(major, minor, patch)` tuple; the module constants `LANGUAGE_VERSION`/`MIN_COMPATIBLE_LANGUAGE_VERSION` bound which grammar ABI builds this runtime accepts. A grammar whose `abi_version` falls outside `MIN_COMPATIBLE_LANGUAGE_VERSION..LANGUAGE_VERSION` is rejected; grammar packages must compile within this band.
 - timeout-shift: the legacy `Parser.timeout_micros` and `QueryCursor.timeout_micros` are both `@deprecated`; the modern bound is a `progress_callback` passed to `parse()` / `matches()` / `captures()` that returns `False` to abort the run. Treat `progress_callback` as the live cancellation/timeout rail, `timeout_micros` as legacy.
 
 ## [02]-[PUBLIC_TYPES]
@@ -119,7 +116,7 @@
 
 | [INDEX] | [SURFACE]                                                | [ENTRY_FAMILY] | [RAIL]                                       |
 | :-----: | :------------------------------------------------------- | :------------- | :------------------------------------------- |
-|  [01]   | `Language.abi_version` / `semantic_version` / `name`     | introspect     | grammar ABI band, `(maj,min,patch)`, grammar name |
+|  [01]   | `Language.abi_version` / `semantic_version` / `name`     | introspect     | grammar compatibility band, `(maj,min,patch)`, grammar name |
 |  [02]   | `Language.node_kind_count` / `parse_state_count` / `field_count` | introspect | grammar size metrics                         |
 |  [03]   | `Language.node_kind_for_id(id)` / `id_for_node_kind(kind, named)` | introspect | symbol id <-> name round-trip                |
 |  [04]   | `Language.node_kind_is_named(id)` / `is_visible(id)` / `is_supertype(id)` | introspect | symbol classification flags                  |
@@ -133,7 +130,6 @@
 
 [PARSING_TOPOLOGY]:
 - parser law: a `Parser` is constructed once per grammar and reused; reparsing edited source passes `old_tree` for incremental parse, never a full re-parse where an edit is known.
-- grammar law: grammars are admitted as `Language` rows from the `tree-sitter-python`/`tree-sitter-typescript` grammar packages; a new language is one grammar row, never a new parser class. Grammar ABI (`Language.abi_version`, the modern accessor over the deprecated `version`) must sit within `MIN_COMPATIBLE_LANGUAGE_VERSION..LANGUAGE_VERSION`.
 - traversal law: structural walks use `TreeCursor` (`walk`) for hot paths or field-named access (`child_by_field_name`/`child_by_field_id`); positional `children[i]` index guessing is deleted. Symbol/field name strings are resolved to ids once via `Language.id_for_node_kind`/`field_id_for_name` and matched as integers in hot loops, not re-compared as strings per node.
 - query law: structural extraction compiles `Query(language, source)` and runs it through a `QueryCursor` with named captures and range/depth scoping; node-type string matching in a recursion is replaced by the constructor + query. `captures()` returns the flattened capture mapping; `matches()` is used only when the per-match pattern index or full per-match capture grouping is needed.
 - bound law: a long parse or query is bounded with a `progress_callback` (return `False` to abort), never the `@deprecated` `timeout_micros`; cancellation is a callback, not a wall-clock cap.
@@ -150,5 +146,4 @@
 [RAIL_LAW]:
 - Package: `tree-sitter`
 - Owns: incremental parsing (bytes or streaming read-callback), grammar `Language` introspection (symbol/field/state ids, supertype hierarchy), syntax-tree traversal with cursors and field access, incremental edits with `changed_ranges`, and structural query matching with capture quantifiers + predicate/assertion introspection
-- Accept: reused `Parser`, ABI-compatible grammar `Language` rows, `TreeCursor`/field-id traversal, compiled `Query` + `QueryCursor` captures with range/depth scoping, `progress_callback`-bounded parse/query runs, incremental `edit`+reparse, error flags over exceptions, `QueryError` on malformed query source
 - Reject: per-parse parser construction, full re-parse of edited source, positional child index guessing, node-type string matching where a query fits, recomputing positions from source, the deprecated `Language.query`/`timeout_micros`/`Language.version` accessors

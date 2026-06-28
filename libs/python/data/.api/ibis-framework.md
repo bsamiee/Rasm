@@ -7,7 +7,7 @@
 [PACKAGE_SURFACE]: `ibis-framework`
 - package: `ibis-framework`
 - module: `ibis`
-- version: `12.0.0` (locked, `>=12.0.0`); license `Apache-2.0`
+- version: `12.0.0`
 - asset: pure Python; SQL compilation via `sqlglot`; per-backend extras (`ibis-framework[duckdb]`, `[polars]`, `[postgres]`, ...) pull the driver
 - rail: query
 - capability: a backend-agnostic relational expression IR with a fluent `Table`/`Column` algebra, deferred (`_`) and selector-based column programming, scalar/array/struct/map literals, multi-branch `cases`, analytic and window functions, set operations and joins (inner/left/semi/anti/asof/cross), SQL compile/decompile/parse round-trips through sqlglot, scalar/aggregate UDFs (`ibis.udf.scalar.{builtin,pyarrow,pandas,python}`, `ibis.udf.agg.builtin`), pandas/PyArrow/Polars/NumPy schema bridges, and execution to pandas/PyArrow/Polars frames, streaming `RecordBatchReader`, or file sinks across 25 backends

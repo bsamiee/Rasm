@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Verify.XunitV3`
-- package: `Verify.XunitV3` (version `31.19.1`, MIT)
+- package: `Verify.XunitV3` (version `31.20.0`, MIT)
 - assembly: `Verify.XunitV3` (TFM `net10.0`; the package also ships `net11.0`, the `net10.0` asset binds the workspace floor)
 - transitive: `Verify` core (the `SettingsTask`/`VerifySettings`/`Target`/scrubber surface) and `xunit.v3.extensibility.core`
 - namespace: `VerifyXunit`

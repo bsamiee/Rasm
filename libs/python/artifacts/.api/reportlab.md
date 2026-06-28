@@ -9,9 +9,7 @@
 - import: `reportlab`
 - owner: `artifacts`
 - rail: pdf
-- license: BSD (ReportLab Inc.); the pure-Python core is unencumbered, the optional accelerator C extensions ship in the wheel
-- installed: `5.0.0` reflected via `python -c "import reportlab; reportlab.Version"` on cp315; `requires-python >=3.9,<4`, wheels are cp-version-specific (the `_rl_accel`/`_renderPM` C extensions follow the interpreter), so confirm the cp315 wheel resolves before relying on it on the core band
-- floor: `reportlab>=5.0` (the 4.x->5.0 major drops the legacy `pdfgen` deprecations; pin only if a cp315 wheel gap appears)
+- installed: `5.0.0`
 - entry points: none (library only); optional `pillow` enables `Image`/`drawImage` raster embedding and `renderPM` raster output
 - capability: imperative canvas drawing (text/path/image/transform/state, interactive AcroForm fields, bookmarks/outline/internal+external links, page transitions, encryption), declarative platypus flowable pagination (paragraphs/tables/lists/frames/templates, multi-pass TOC/index, doc-programming flowables), TrueType/Type1/CID font registration and metrics, and a vector graphics/charts/barcode engine that embeds as flowables or renders to PDF/PNG/SVG
 

@@ -1,6 +1,6 @@
 # [PY_GEOMETRY_API_IFC4D]
 
-`ifc4d` supplies the IFC 4D construction-scheduling surface for the geometry ifc-analysis rail: round-trip conversion between IFC `IfcWorkSchedule`/`IfcTask` task trees and the external scheduling formats (Microsoft Project XML, Oracle Primavera P6 XML/XER, Asta Powerproject), plus task-tree authoring and duration/sequence calculation over the `ifcopenshell` model. It rides the `ifcopenshell` companion lane (`0.8.5`, depends `ifcopenshell`/`typing-extensions`), so `ifc/costing.md#LIFECYCLE` composes the `<Format>2Ifc` named parsers directly as the `SCHEDULE` phase — one `ScheduleFormat`-keyed row binding the parser class, setting the `.file`/`.xml`/`.work_plan` slots, and reading the populated `IfcTask` GlobalIds back as typed `LifecycleRow.of_task` rows — rather than re-deriving a schedule-task graph or hand-rolling a P6/MS Project XML parser.
+`ifc4d` supplies the IFC 4D construction-scheduling surface for the geometry ifc-analysis rail: round-trip conversion between IFC `IfcWorkSchedule`/`IfcTask` task trees and the external scheduling formats (Microsoft Project XML, Oracle Primavera P6 XML/XER, Asta Powerproject), plus task-tree authoring and duration/sequence calculation over the `ifcopenshell` model. It rides the `ifcopenshell` worker lane (`0.8.5`, depends `ifcopenshell`/`typing-extensions`), so `ifc/costing.md#LIFECYCLE` composes the `<Format>2Ifc` named parsers directly as the `SCHEDULE` phase — one `ScheduleFormat`-keyed row binding the parser class, setting the `.file`/`.xml`/`.work_plan` slots, and reading the populated `IfcTask` GlobalIds back as typed `LifecycleRow.of_task` rows — rather than re-deriving a schedule-task graph or hand-rolling a P6/MS Project XML parser.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -9,9 +9,8 @@
 - import: `import ifc4d.msproject2ifc` / `ifc4d.p62ifc` / `ifc4d.asta2ifc` (each `<Format>2Ifc` parser lives in its own module — there is no top-level `ifc4d` re-export of the parser classes)
 - owner: `geometry`
 - rail: ifc-analysis / 4d-scheduling
-- installed: `0.8.5`, the IfcOpenShell-ecosystem companion-lane band (depends `ifcopenshell`, `typing-extensions`); `assay api resolve ifc4d` resolves no source on the cp315 (`3.15.0b2`) core — resolves only where `ifcopenshell` resolves (cp313 companion), the documented lane gap, not a catalog fault
+- installed: `0.8.5`
 - license: LGPL-3.0-or-later (the IfcOpenShell-ecosystem license)
-- wheel-floor: pure-Python `py3-none-any` wheel for `ifc4d` itself, but inert without the `ifcopenshell` cp313 core it depends on (no cp315 wheel); ABI: none for `ifc4d`, native via the `ifcopenshell` spine
 - entry points: none (library only)
 - capability: parse Microsoft Project XML / Primavera P6 XML/XER / Asta Powerproject into an `IfcWorkSchedule`/`IfcTask`/`IfcRelSequence` task tree, write an IFC schedule back to MS Project / P6 XML, and author/sequence construction tasks over the `ifcopenshell` model
 
@@ -73,5 +72,3 @@ Parser rows construct the class, set the `.file`/`.xml`/`.work_plan` slots, then
 - Reject: a hand-rolled P6/MS Project XML parser where the `<Format>2Ifc` parser owns the conversion; a parse-per-format function family where the `ScheduleFormat` row binds the named parser class
 
 [CAPTURE_GAP]:
-- floor: companion interpreter cp313; `ifc4d==0.8.5` rides the `ifcopenshell` companion lane, so reflection resolves where `ifcopenshell` resolves; the `>=3.15` project venv carries no `ifcopenshell` core and `assay api resolve ifc4d` returns no source on the cp315 core (the documented marker gap, not a catalog fault)
-- members: the per-module `<Format>2Ifc`/`Ifc2<Format>` parser/writer class names, the `.execute()` entry, and the populated-entity set (`IfcWorkSchedule`/`IfcTask`/`IfcRelSequence`) confirm by introspection against the installed cp313 companion distribution before any fence transcribes them. The narrow live-run residual is the `.xml`/`.work_plan` slot-population semantics — whether `.xml` accepts the source path string or a parsed document, and whether `.work_plan` requires a pre-existing `IfcWorkPlan` or the parser mints one — a runtime-action band step the companion `execute()` run confirms, never a fence blocker.

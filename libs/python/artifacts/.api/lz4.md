@@ -9,9 +9,8 @@
 - import: `lz4.frame` / `lz4.block`
 - owner: `artifacts`
 - rail: compression
-- installed: `4.4.5` (PyPI) — manifest-gated `python_version<'3.15'` (no CPython 3.15 wheel declared in the lock; dispatched onto the runtime subprocess lane, never the cp315 core)
+- installed: `4.4.5`
 - license: BSD-3-Clause (Python bindings); bundled native LZ4 library is BSD-2-Clause
-- ABI: C-extension over the vendored LZ4 library `1.9.4` (`lz4.library_version_string()` -> `'1.9.4'`, `lz4.library_version_number()` -> `10904`); the binding version is `lz4.__version__` / `lz4.VERSION` (`'4.4.5'`)
 - entry points: none (library only)
 - capability: LZ4 frame (self-describing, interoperable, one-shot/incremental/streaming-context/file-like) and block (raw, fastest, mode-selectable, dictionary-primable) compression and decompression with frame-header inspection and incremental decode-state introspection (`eof`/`unused_data`/`needs_input`)
 

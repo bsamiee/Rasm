@@ -11,7 +11,6 @@
 - rail: geospatial
 - version: `0.22.0`
 - license: Apache-2.0 (vendors `LICENSE_xarray` and `LICENSE_datacube`)
-- asset: pure-Python; `py3-none-any` wheel (`Root-Is-Purelib: true`), no ABI floor of its own — `Requires-Python >=3.12`. The cp315 ABI floor is inherited from its `rasterio` dependency (the locked `rasterio==1.5.0` cp313 wheel does not load on the cp315 core), so `.rio` access is gated on the rasterio sync, not on rioxarray itself. Accessor and module signatures below are reflection-verified against the locked `0.22.0` wheel source (`rioxarray.py`/`raster_array.py`/`raster_dataset.py`/`_io.py`/`exceptions.py`); runtime deps `numpy`/`pyproj`/`xarray`/`packaging`/`rasterio`.
 - entry points: xarray backend `rasterio = rioxarray.xarray_plugin:RasterioBackend` (registers `engine="rasterio"` for `xarray.open_dataset`); no console script; library use is import-only, which registers the `.rio` accessor on `DataArray`/`Dataset`
 - capability: rasterio/GDAL raster read into georeferenced `DataArray`/`Dataset` with auto pixel-center coordinates; dask chunking, masking, and `mask_and_scale`; CRS/transform/nodata read and CF/Zarr-convention write; reprojection and grid-matching warping; geometry and bounding-box clipping; spatial padding, slicing, and window selection; nodata interpolation; multi-tile array/dataset merge; GeoTIFF/driver writeback
 

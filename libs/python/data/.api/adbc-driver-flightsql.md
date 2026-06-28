@@ -10,9 +10,7 @@
 - import: `adbc_driver_flightsql`
 - owner: `data`
 - rail: partition
-- asset: pure-Python wrapper that bundles the prebuilt native `libadbc_driver_flightsql` per platform; wheels are `py3-none-{macosx,manylinux,win}` (one per OS/arch, no Python ABI floor — the Go-built driver carries the gRPC transport)
 - license: `Apache-2.0`
-- marker: `requires-python >=3.10`; runtime dependencies `adbc-driver-manager` (the shared driver-loading core) and `importlib-resources` (locates the bundled `.so`)
 - entry points: library use is import-only; `connect` returns an `AdbcDatabase`, `dbapi.connect` returns a DBAPI 2.0 `Connection`
 - capability: Flight SQL endpoint binding over gRPC, partitioned result retrieval via `execute_partitions`/`adbc_execute_partitions`, mTLS and TLS-override transport, arbitrary RPC header injection, per-call fetch/query/update timeouts, session-option get/set, OAuth 2.0 client-credentials and token-exchange (RFC 8693) authentication, Substrait plan version control, and DBAPI 2.0 cursor access yielding Arrow record batches
 

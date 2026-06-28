@@ -9,9 +9,8 @@
 - import: `magic`
 - owner: `artifacts`
 - rail: file control
-- installed: `0.4.27` (uv.lock pin, ungated — installs clean on cp315; the Python member surface is reflected from the package source, which is the whole API: a single `__init__.py` of ctypes bindings)
+- installed: `0.4.27`
 - license: MIT (Adam Hupp) — permissive, no copyleft gate; aligns with the MIT/BSD sibling artifacts owners
-- abi: pure-Python ctypes binding with no compiled extension; at import time `loader.load_lib()` resolves the system `libmagic` shared object and `ImportError('failed to find libmagic')` is raised when absent. The native `libmagic` (+ its magic database) is a Forge-provisioned host dependency, NOT a wheel — runtime detection is gated until libmagic is on the loader path; the Python surface below is independent of provisioning
 - entry points: none (library only)
 - capability: libmagic content sniffing from in-memory bytes, filesystem path, or open file descriptor; MIME-type / human-description / MIME-encoding / slash-separated extension-list outputs selected by cookie flags; compressed-container look-through; custom `.mgc` database files; libmagic tuning params (recursion, name-use, regex, byte budget) and version query
 

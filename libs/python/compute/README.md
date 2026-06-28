@@ -47,9 +47,6 @@ Every scientific and solver library this folder uses, planned or implemented. Ve
 - `optimistix`
 - `diffrax`
 - `equinox`
-- `findiff` (gated `python_version<'3.15'` — finite-difference differential operators; requires scipy/numpy)
-- `interpax` (gated `python_version<'3.15'` — JAX interpolation)
-- `quadax` (gated `python_version<'3.15'` — JAX adaptive quadrature)
 
 [INVERSE_DESIGN]:
 - `optimistix`

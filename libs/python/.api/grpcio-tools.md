@@ -7,10 +7,8 @@
 [PACKAGE_SURFACE]: `grpcio-tools`
 - package: `grpcio-tools`
 - module: `grpc_tools`
-- version: `1.81.1` (floor: tracks `grpcio>=1.81`)
+- version: `1.81.1`
 - license: Apache-2.0
-- wheel: ABI-specific — bundles `_protoc_compiler.cpython-<ver>-<plat>.so` (native protoc), so it is platform/interpreter-tagged, NOT pure-python
-- marker: `grpcio-tools; python_version<'3.15'` — no cp315 wheel is published yet (the protoc bundle lacks a cp315 build); admit only on the cp313/cp314 dev band, lift the marker when a cp315 wheel ships
 - asset: build / codegen tool (dev/build-time only)
 - rail: transport
 - namespaces: `grpc_tools.protoc`, `grpc_tools.command`
@@ -62,7 +60,6 @@
 - `msgspec`/`pydantic` (`.api/msgspec.md`, `.api/pydantic.md`): protobuf messages are the wire shape, not the domain shape — map a `*_pb2` message onto a `msgspec.Struct`/pydantic model at the servicer boundary (the `--pyi_out` stubs give the field types to map against); domain code never threads raw protobuf messages.
 
 [LOCAL_ADMISSION]:
-- Code generation runs at build/dev time on the cp313/cp314 band (no cp315 wheel); generated output is committed/tracked, never compiled in a production server.
 - Include-path order: project protos first, then the bundled `grpc_tools/_proto` well-known protos.
 - Always emit `--pyi_out` with `--python_out`; emit `--grpc_python_out` only for service-bearing protos. Check `protoc.main`'s return code (or use `strict_mode=True`).
 
@@ -70,4 +67,3 @@
 - Package: `grpcio-tools`
 - Owns: in-process `protoc` codegen (messages + `.pyi` stubs + gRPC stubs/servicers), well-known proto bundling, setuptools build integration, and the dynamic-stub meta-path hooks
 - Accept: `protoc.main` with explicit `-I` include paths and `--pyi_out`, `command.build_package_protos(..., strict_mode=True)` at build time into a tracked output directory, AOT generation for production
-- Reject: runtime proto compilation in production servers, missing well-known-proto include path, ignoring `protoc.main`'s return code, admitting the package on cp315 before a wheel exists

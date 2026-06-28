@@ -9,7 +9,6 @@
 - import: `pymc` (alias `pm`); submodules `pymc.gp`, `pymc.math`, `pymc.distributions`, `pymc.step_methods`, `pymc.variational`, `pymc.smc`
 - owner: `compute`
 - rail: Bayesian-study
-- installed: license Apache-2.0; `Requires-Python >=3.12`; backed by `pytensor` (3.0.x, the symbolic graph + C/Numba/JAX compile backend), reads/writes `arviz` 1.x `xarray.DataTree`; marker-gated `python_version<'3.15'` in the manifest because `pytensor`/`numba`/`llvmlite` ship no cp315 wheel — so `assay api resolve pymc` is `unsupported` on the cp315 core (uninstalled, marker-gated); surface confirmed against the pymc 6.0.x module API
 - capability: PyTensor-backed probabilistic programming — declarative `Model` context, ~60 distribution families across continuous/discrete/multivariate/mixture/truncation/time-series, NUTS/HMC/Metropolis/SMC step methods with pluggable `nutpie`/`numpyro`/`blackjax` NUTS backends, ADVI/FullRank/SVGD variational families, causal `do`/`observe` graph surgery, GP module, `Minibatch` stochastic-VI data, and `xarray.DataTree` posterior/prior-predictive output
 
 ## [02]-[CAPTURE]

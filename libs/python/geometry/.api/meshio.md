@@ -9,7 +9,7 @@
 - import: `import meshio`
 - owner: `geometry`
 - rail: mesh-io
-- installed: `5.3.5`; license MIT; pure-Python `py3-none-any` wheel, `Requires-Python>=3.8`, deps `numpy>=1.20.0` + `rich` (CLI table output) — no native compile, so it rides the project-venv `numpy` floor on every interpreter (manifest declares bare `meshio`, no marker); `netCDF4`/`h5py` are `[all]`-extra optionals gating the `cgns`/`exodus`/`h5m`/`med`/`xdmf-HDF` paths
+- installed: `5.3.5`
 - entry points: console script `meshio` (CLI: `convert`/`info`/`compress`/`decompress`/`ascii`/`binary`) — library use does not invoke it
 - capability: read/write of 30-plus mesh formats from path or buffer, points plus typed cell blocks, point/cell/field data arrays, named point and cell sets, set<->data projection, the `topological_dimension` cell-type-to-dim table, format auto-detection by extension, and a runtime format registry (`register_format`/`deregister_format`/`extension_to_filetypes`)
 
@@ -93,5 +93,4 @@ Each format is a submodule (`meshio.ply`, `meshio.vtk`, `meshio.xdmf`, `meshio.g
 - Reject: wrapper-renames of `read`/`write`; a hand-rolled `vtk`/`gmsh`/`xdmf` parser where meshio is admitted; positional cell arrays that drop the typed `CellBlock`; a per-format reader/writer function family where `meshio.read`/`write` dispatch through `reader_map`/`_writer_map`; identity minting the runtime owns
 
 [CAPTURE_GAP]:
-- floor: `meshio==5.3.5` is pure-Python `py3-none-any`, MIT, deps `numpy>=1.20.0` + `rich`; it rides the project-venv `numpy` floor on every interpreter (no marker), so it loads on the cp315 core directly. The `cgns`/`exodus`/`h5m`/`med` and HDF-backed `xdmf` paths additionally require the `[all]`-extra `netCDF4`/`h5py`.
 - members: introspected against the installed distribution source (`_mesh.py`, `_helpers.py`, `__init__.py`); every documented type, entrypoint, projection method, registry function, and format submodule resolves — no phantom. `register_format` arity, the `Mesh` `gmsh_periodic`/`info` constructor params, the buffer-read path, `point_data_to_sets`, and the `topological_dimension`/`num_nodes_per_cell` tables are source-confirmed.

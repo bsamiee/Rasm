@@ -9,8 +9,7 @@
 - import: `h3ronpy`
 - owner: `data`
 - rail: GRID_DGGS
-- version: `0.22.0` (locked); license `MIT`
-- asset: Rust extension (`h3ronpyrs`) wrapping the `h3o` H3 crate; ships `cp39-abi3` wheels (macOS x86_64/arm64, manylinux, win_amd64) so the stable-ABI binary is forward-compatible to cp315; runtime dep is `arro3-core` (numpy only for the raster bridge)
+- version: `0.22.0`
 - entry points: library use is import-only; no console script
 - capability: vectorized H3 cell operations over Arrow arrays — resolution change/compaction/uncompaction, grid-disk and grid-ring traversal with distances and aggregation, spherical area in km2/m2/rads2, cell/vertex/directed-edge parse-validate-stringify, local-IJ coordinate transforms, geometry-to-cells and cells-to-WKB conversion (`h3ronpy.vector`), raster-to-cells and cells-to-raster bridging (`h3ronpy.raster`), and a polars `.h3` expression/series namespace (`h3ronpy.polars`, registered on import when `polars` is present), all zero-copy over `arro3.core` Arrow buffers
 

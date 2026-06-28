@@ -9,9 +9,8 @@
 - import: `docx`
 - owner: `artifacts`
 - rail: office
-- installed: `1.2.0` (uv.lock pin, ungated — runs on cp315-core; reflected on cp313 with matching version)
+- installed: `1.2.0`
 - license: MIT (Steve Canny) — permissive, no copyleft gate; aligns with the MIT/BSD sibling office owners
-- abi: pure Python; single runtime dependency `lxml` (BSD) carries the compiled XML extension and is the only ABI surface; `typing_extensions` on older interpreters. Installs clean on cp315
 - entry points: none (library only)
 - capability: `.docx` construction and editing — paragraphs with runs and named styles, headings, tables (rows/columns/cells, nested tables, cell merge, vertical alignment), inline pictures (document- and run-level), page/line/column breaks and tabs, sections (header/footer triad gated by `different_first_page_header_footer`, margins, orientation, page geometry), the named paragraph/character/table/list style catalog with latent styles, the comment collection (`add_comment`/`comments`), document settings, core document properties, and ordered block iteration via `iter_inner_content` (with rendered-page-break detection in `Run.iter_inner_content`)
 

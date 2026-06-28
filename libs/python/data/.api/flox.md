@@ -9,8 +9,7 @@
 - import: `import flox; from flox.xarray import xarray_reduce; from flox import Aggregation, Scan, ReindexStrategy, set_options`
 - owner: `data`
 - rail: field-dataset
-- installed: `0.11.2` reflected on Python 3.13 (`flox.__version__`, `flox.__all__`, `inspect.signature`, `flox.aggregations`/`flox.scan` registry introspection); Apache-2.0; pure-Python (no native extension)
-- license/floor: Apache-2.0; `requires-python >=3.11`; mandatory deps `numpy>=1.26`, `pandas>=2.1`, `numpy_groupies>=0.9.19`, `toolz`, and `scipy>=1.12` (the scipy floor is why the manifest marker-gates `flox; python_version<'3.15'` until scipy ships cp315); `dask`/`numba`/`numbagg`/`xarray`/`cachey` are optional `[all]` extras — the `numba`/`numbagg` engines and the dask `method` strategies require their extra to be installed
+- installed: `0.11.2`
 - capability: vectorized and parallel grouped/binned/resampled reductions AND grouped scans over NumPy and dask arrays — numpy-groupies kernel reductions, the `flox`/`numpy`/`numba`/`numbagg` engine kernels, map-reduce/blockwise/cohorts dask strategies, the `ReindexStrategy` combine-reindex policy, dask rechunk helpers (`rechunk_for_blockwise`/`rechunk_for_cohorts`), the global `set_options` context, the xarray-aware `xarray_reduce` entrypoint, and custom `Aggregation`/`Scan` escapes
 
 ## [02]-[PUBLIC_TYPES]

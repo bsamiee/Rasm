@@ -10,7 +10,6 @@
 - owner: `data`
 - rail: query
 - asset: native Rust/maturin extension (`connectorx.connectorx` PyO3 core); license MIT
-- floor: marker-gated `python_full_version < '3.15'` (specifier `>=0.4.5`); the maturin build ships no CPython 3.15 wheel, so this reader is unavailable on the cp315 core and resolves only on the `<3.15` companion band
 - entry points: library use is import-only; no console script
 - capability: parallel partitioned database reads, zero-copy reconstruction into Pandas/Polars/Arrow/`RecordBatchReader`/Modin/Dask, multi-source federation through a `dict` connection, per-backend wire-protocol selection (`binary`/`cursor`/`text`/`csv`/`simple`), pre-execution session setup, server-side-pagination strategy, and result-schema probing without materializing rows
 
@@ -50,7 +49,6 @@
 - A database read composes as `read_sql(ConnectionUrl(...), query, return_type='arrow'|'polars', partition_on=..., partition_num=...)`; the egress frame type is a call row on the one read, never a per-frame wrapper.
 - `ConnectionUrl` is the only connection constructor; backends, credentials, and options are typed kwargs, never string concatenation, and federation is a `dict` of `ConnectionUrl`s, never N serial reads stitched in Python.
 - `partition_on`/`partition_num` own parallelism; a serial single-partition read where a numeric/temporal partition column exists is rejected. `get_meta` probes the schema before a heavy fetch; `pre_execution_query` carries session setup; `strategy` carries pagination.
-- connectorx reads are companion-band (`<3.15`) offline ingest evidence; the resulting Arrow/Polars frame crosses to the cp315 core through the columnar interop owner, never as a live connectorx handle.
 
 ## [04]-[RAIL_LAW]
 

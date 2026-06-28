@@ -1,6 +1,6 @@
 # [PY_COMPUTE_API_JAX]
 
-`jax` is the XLA-compiled, autodiff-capable array substrate every JAX-ecosystem sibling in this rail (`diffrax`, `lineax`, `optimistix`, `optax`, `equinox`, `interpax`, `quadax`, `numpyro`, `blackjax`) builds on: each consumes `jax.numpy` arrays, registers its carriers as `tree_util` pytrees, and is differentiated/compiled by the same `grad`/`jit`/`vmap` transforms cataloged here. The package owner compiles, differentiates, vectorizes, and parallelizes numeric-study kernels through composable function transforms; it never re-implements an autodiff or XLA pipeline jax owns. The distribution is marker-gated `python_version<'3.15'` because jaxlib ships no cp315 wheel.
+`jax` is the XLA-compiled, autodiff-capable array substrate every JAX-ecosystem sibling in this rail (`diffrax`, `lineax`, `optimistix`, `optax`, `equinox`, `interpax`, `quadax`, `numpyro`, `blackjax`) builds on: each consumes `jax.numpy` arrays, registers its carriers as `tree_util` pytrees, and is differentiated/compiled by the same `grad`/`jit`/`vmap` transforms cataloged here. The package owner compiles, differentiates, vectorizes, and parallelizes numeric-study kernels through composable function transforms; it never re-implements an autodiff or XLA pipeline jax owns. The distribution is manifest row worker because jaxlib ships no package.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -9,7 +9,6 @@
 - import: `jax`; submodules `jax.numpy`, `jax.lax`, `jax.random`, `jax.nn`, `jax.scipy`, `jax.tree_util`, `jax.sharding`, `jax.debug`, `jax.experimental`
 - owner: `compute`
 - rail: accelerator
-- installed: marker-gated `python_version<'3.15'` (`jax>=0.10.1`; jaxlib ships no cp315 wheel); license Apache-2.0; `jax` wheel is `py3-none-any` (pure Python) but the `jaxlib` backend wheel is ABI-specific (`cp3XX`, platform-tagged) and has no cp315 build — that backend wheel gap is the gate, not `jax` itself. `assay api resolve jax` is `unsupported` on the cp315 core (uninstalled, marker-gated); surface authored from the official JAX module API
 - default precision: arrays default to 32-bit; `jax.config.update("jax_enable_x64", True)` promotes the rail to float64 (required when feeding `lineax`/`optimistix` solves that assume double precision)
 - capability: XLA-compiled array computation with composable transforms — JIT compilation, forward/reverse-mode autodiff, automatic vectorization, device-parallel mapping, structured control-flow primitives, pytree registration, and a NumPy/SciPy-API mirror on XLA
 
@@ -184,4 +183,3 @@
 - Package: `jax`
 - Owns: XLA compilation, automatic differentiation, vectorization, device parallelism, structured control flow, the `jax.numpy`/`jax.scipy` array+linalg mirror, and the `tree_util` pytree protocol every sibling carrier registers against
 - Accept: pure numeric-study functions compiled through `jit`, differentiated through `grad`/`jacrev`/`custom_vjp`, batched through `vmap`, with state carried as registered pytrees and randomness threaded through split keys
-- Reject: hand-rolled autodiff or XLA lowering; Python control flow / `if`-on-`Tracer` / `bool(Tracer)` over traced values; PRNG key reuse or a reseeded global RNG; mutable in-place array writes outside `x.at[...]`; jax in a deterministic product runtime path on cp315

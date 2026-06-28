@@ -9,10 +9,8 @@
 - import: `coloraide`
 - owner: `artifacts`
 - rail: color
-- version: `8.8.1` (lockfile-resolved; imports and runs on cp315)
+- version: `8.10`
 - license: `MIT`
-- wheel: `coloraide-8.8.1-py3-none-any.whl` — pure Python, no native dependency
-- marker: `python_requires >=3.10`; no NumPy or native acceleration — all math is pure Python
 - entry points: library use is import-only; no console script
 - capability: one `Color` object owning CSS/named/coordinate parsing, conversion across the 27 base-registered color spaces (sRGB/OKLCH/OKLab/Lab/LCH/Display-P3/Rec.2020/HSL/HWB and more), gamut mapping through six registered fit methods (`raytrace` default, `oklch-chroma`, `lch-chroma`, `minde-chroma`, `scale`, `scale-luminance`), CVD simulation via the `protan`/`deutan`/`tritan` filters plus eight W3C filter effects, eight base delta-E distance metrics, WCAG21 contrast, six interpolation methods (`linear`/`continuous`/`bspline`/`natural`/`monotone`/`css-linear`), CCT/blackbody and chromaticity transforms, interpolation/mixing/harmonies/averaging, masking/layering composition, and a plugin `register`/`deregister` surface; `coloraide.everything.ColorAll` preloads all 74 spaces plus the extended fit (`hct-chroma`), delta-E (`99o`/`cam02`/`cam16`/`hct`), and CAT (`cat02`/`cat16`/`cmccat2000`/`cmccat97`/`sharp`/`von-kries`/`xyz-scaling`) plugins
 

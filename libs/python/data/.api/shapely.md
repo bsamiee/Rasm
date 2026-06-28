@@ -12,7 +12,6 @@
 - owner: `data`
 - rail: geospatial
 - asset: native C extension over the GEOS C API; built source-side against the Parametric_Forge GEOS toolchain. `shapely.geos_version` reports the linked GEOS version (`(3, 13, 1)` on the current build); GEOS-version-gated ops (`coverage_simplify`, `constrained_delaunay_triangles`, `maximum_inscribed_circle`) require a recent core
-- requires-python: `>=3.10`
 - entry points: import-only; no console script
 - capability: immutable planar geometry construction; NumPy-vectorized binary/unary predicates, set and constructive operations, and measurement as broadcasting ufuncs; linear referencing; coverage (non-overlapping union) operations; WKT/WKB/GeoJSON and zero-copy ragged-array (GeoArrow) interchange; `STRtree` packed Sorted-Tile-Recursive index with predicate-filtered bulk query and nearest-neighbor query; `prepare`/`destroy_prepared` cached predicate acceleration; the `shapely.affinity` matrix-transform family; and the legacy `shapely.ops` collection-operator module (`split`, `substring`, `nearest_points`, `polylabel`, `triangulate`, `voronoi_diagram`, `linemerge`, `unary_union`, `snap`, `clip_by_rect`)
 

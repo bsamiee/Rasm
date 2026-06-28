@@ -10,8 +10,7 @@
 - owner: `compute`
 - rail: finite-difference derivatives and PDE solve
 - namespace: `findiff` (all public symbols at top level via `__all__`)
-- installed: `0.13.1` authored from ledger ([04]-sourced; `assay api` reflection blocked on the cp315 core because the transitive `scipy`/`numpy` dependencies have no matching cp315 wheels and source build requires the Forge scientific toolchain — OpenBLAS/CMake/`pkg-config`); license MIT; wheel `findiff-0.13.1-py3-none-any.whl` (`py3-none-any`, pure-Python)
-- gate: `[GATED]` `; python_version<'3.15'` — `findiff` depends on `scipy` (structurally cp315-gated, no cp315 wheel) and `numpy`, so it carries the `; python_version<'3.15'` marker as a gated enrichment finite-difference floor for compute solvers/sensitivity, never a cp315-core dependency
+- installed: `0.13.1`
 - requires: `numpy`, `scipy`, `sympy`
 - capability: single `Diff` derivative operator with operator algebra, raw FD coefficient generation, vector-calculus operators, sparse matrix representation of linear differential operators, compact (Padé) schemes, symbolic scheme generation, boundary-value PDE solve
 
@@ -137,7 +136,6 @@
 - compact law: compact (Padé) interior/boundary schemes pass to `Diff` via the `scheme=` keyword as a `CompactScheme`; `CompactScheme.from_accuracy(...)` targets an accuracy order.
 
 [LOCAL_ADMISSION]:
-- `findiff` is pure-Python (`py3-none-any`) but is `[GATED]` `; python_version<'3.15'` because it depends on `scipy` (structurally cp315-gated, no cp315 wheel) and `numpy`; it is a gated enrichment finite-difference floor for compute solvers/sensitivity owned by the Forge scientific toolchain on the sub-3.15 band, never a cp315-core dependency.
 - the compute autodiff owner admits `findiff` as the finite-difference fallback: where automatic differentiation is unavailable it composes `Diff` and `operator.matrix(shape)` for Jacobian/sensitivity assembly, never a hand-rolled stencil loop.
 - `FinDiff`, `Coef`, `Id` (from `findiff.compatible`) are backward-compatibility shims; new owners construct `Diff`, `Coefficient`, and `Identity` directly and never introduce a parallel derivative type beside `Diff`.
 

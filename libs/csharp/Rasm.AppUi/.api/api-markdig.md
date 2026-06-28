@@ -6,7 +6,7 @@
 
 [PACKAGE_SURFACE]: `Markdig`
 - package: `Markdig`
-- version: `1.3.1`
+- version: `1.3.2`
 - assembly: `Markdig`
 - namespace: `Markdig`
 - namespace: `Markdig.Syntax`
@@ -84,7 +84,7 @@
 |  [03]   | `ToPlainText` | plain-text render to string or `TextWriter`                                     |
 |  [04]   | `Normalize`   | canonical-markdown render (`NormalizeOptions`) to string or `TextWriter`        |
 |  [05]   | `Convert`     | `Convert(string, IMarkdownRenderer, pipeline?, context?)` for a custom renderer |
-|  [06]   | `Markdown.Version` | assembly file-version string (`"1.3.1"`)                                   |
+|  [06]   | `Markdown.Version` | assembly file-version string (`"1.3.2"`)                                   |
 
 [BUILDER_ENTRYPOINTS]: pipeline configuration
 - rail: markdown

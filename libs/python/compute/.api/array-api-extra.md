@@ -9,8 +9,6 @@
 - version: `0.11.0`
 - license: MIT
 - module: `array_api_extra`
-- wheel: `py3-none-any` (pure Python, no native ABI)
-- marker: ungated (depends only on `array-api-compat`; rides cp315 core)
 - asset: runtime library
 - rail: array-api
 

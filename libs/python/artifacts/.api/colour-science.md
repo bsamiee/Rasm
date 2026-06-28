@@ -9,10 +9,8 @@
 - import: `colour`
 - owner: `artifacts`
 - rail: colour
-- version: `0.4.7` (lockfile-resolved; imports and runs on cp315)
+- version: `0.4.7`
 - license: `BSD-3-Clause`
-- wheel: `colour_science-0.4.7-py3-none-any.whl` — pure Python, no native build; runtime dep `numpy`
-- marker: `python_requires <3.15,>=3.11`; SciPy and Matplotlib are optional accelerators — interpolation/optimisation and `plot_*` surfaces warn and degrade (or are absent) when those packages are not installed
 - entry points: none (library only)
 - capability: spectral distribution representation and resampling, XYZ/RGB/Lab/LCH/CAM appearance transforms, universal `convert` model-pair gateway, direct named-RGB→RGB conversion (`RGB_to_RGB`) and primary/adaptation matrices, scene/display transfer functions (`oetf`/`eotf`/`ootf`), measured colour correction (`colour_correction`), chromatic adaptation, CCTF encode/decode, colour difference (`delta_E`), LUT IO (`.cube`/`.clf`/`.csp`), image IO, CCT and chromaticity transforms, dominant/complementary wavelength, whiteness/yellowness and colour-quality indices, and dataset registries for CMFS, illuminants, and light sources
 

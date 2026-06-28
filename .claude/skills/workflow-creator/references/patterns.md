@@ -29,6 +29,7 @@ of this file.
 - [16. Dry-run and simulate before you spend tokens](#16-dry-run-and-simulate-before-you-spend-tokens)
 - [17. Resumable runs: the journal, the ledger, and how to actually resume](#17-resumable-runs-the-journal-the-ledger-and-how-to-actually-resume)
 - [18. Fence untrusted content (prompt-injection defense)](#18-fence-untrusted-content-prompt-injection-defense)
+- [19. Parameterized scope/target resolution (file / sub-folder / unit / many)](#19-parameterized-scopetarget-resolution-file--sub-folder--unit--many)
 - [Defining schemas](#defining-schemas)
 
 ## The canonical map
@@ -676,6 +677,90 @@ neutralize fence-escape attempts in the interpolation (the `replaceAll`). The `s
 second containment layer — a forced structured answer is far harder for injected text to
 steer than free prose. The same fence wraps any untrusted slot: tool output from an
 external service, a diff from an unknown author, a filename from user input.
+
+---
+
+## 19. Parameterized scope/target resolution (file / sub-folder / unit / many)
+
+**Canonical:** orchestrator–workers, where the planner is a discovery agent that
+resolves caller targets into the worklist. **Primitive:** one discovery `agent()`
+(the orchestrator has no filesystem) emitting structured page sets, then plain-JS
+filtering. **Guards:** the fragility of letting a workflow accept only one coarse
+scope. A granular workflow takes a TARGET that may be a single file, a sub-folder at
+*any* nesting depth, a unit (package/area/folder) root, or several of these at once,
+and acts on exactly that subset — while still keeping a folder-wide terminal concern
+(a reconcile, a sibling-seam sweep) over the whole owning unit.
+
+Four things make this robust:
+
+- **Read `args` as `string | string[] | {targets}`, default the no-op.** It arrives
+  as structured data (never `JSON.parse`); an empty run is a no-op, not a full-corpus
+  sweep.
+- **Expand targets inside an agent, not in JS** — the orchestrator has no filesystem,
+  so a `find` over arbitrary nesting belongs in the discovery agent. It returns both
+  the *targeted subset* (the cost lever, pattern #14) and the *folder-wide set* (the
+  blast radius for the terminal stage), kept separate so a one-file target stays a
+  one-file rebuild.
+- **Derive the owning unit by splitting on a STRUCTURAL SENTINEL, not a fixed depth.**
+  Splitting `unit/.planning/a/b/c.md` on `'/.planning/'` homes it to the same unit as
+  `unit/.planning/x.md`; a fixed-depth `split('/')[2]` breaks the moment a sub-folder
+  nests deeper.
+- **A sub-domain whose governing root is an ANCESTOR needs an explicit homing branch.**
+  When design pages live under `Root/Sub/.planning/**` but the unit's `.api`/governing
+  docs live at `Root/` (one level up), the generic sentinel split would home to
+  `Root/Sub`; name that special case in the discovery prompt so it routes to `Root`.
+
+```js
+// --- [INPUTS] --- a target, an array of targets, or {targets:[...]}; empty = no-op
+const ROOT = 'libs/python'
+const normTarget = t => { const s = String(t).trim().replace(/\/+$/, ''); return (s === ROOT || s.indexOf(ROOT + '/') === 0) ? s : ROOT + '/' + s.replace(/^\/+/, '') }
+const rawTargets = Array.isArray(args) ? args
+  : (args && typeof args === 'object' && Array.isArray(args.targets)) ? args.targets
+  : (typeof args === 'string' && args.trim()) ? [args]
+  : []
+const TARGETS = [...new Set(rawTargets.filter(Boolean).map(normTarget))]
+
+// --- discovery agent resolves owning units + both page sets (orchestrator has no FS) ---
+const DISCOVERY = { type: 'object', additionalProperties: false, required: ['packages', 'targetPages', 'folderPages'], properties: {
+  packages:    { type: 'array', items: { type: 'object', additionalProperties: false, required: ['name', 'root'], properties: { name: { type: 'string' }, root: { type: 'string' } } } },
+  targetPages: { type: 'array', items: { type: 'string' } },   // the granular subset to act on
+  folderPages: { type: 'array', items: { type: 'string' } } } } // every page under each owning unit — the blast radius
+
+const inv = await agent('Resolve these TARGETS into owning units + page sets. A target is a UNIT root, a SUB-FOLDER at ANY depth, or a FILE; the owning '
+  + 'unit is the path BEFORE the structural sentinel "/.planning/" (or the target itself when it has none). A UNIT-root target expands to every page '
+  + 'under it; a SUB-FOLDER to every page under it at any depth; a FILE to itself. Return packages, targetPages (the union of targeted pages), and '
+  + 'folderPages (every page under each owning unit). Use find; do not cd.\n' + JSON.stringify(TARGETS),
+  { label: 'discover', schema: DISCOVERY, model: 'sonnet', effort: 'low' })
+
+const targetPages = [...new Set((inv?.targetPages ?? []).filter(Boolean))]
+const folderPages = [...new Set((inv?.folderPages ?? []).filter(Boolean))]
+if (!targetPages.length) { log('no targets — pass a file, sub-folder, or unit path'); return { targets: TARGETS, total: 0 } }
+
+const done = (await pool(targetPages, CAP, p => processPage(p))).filter(Boolean)   // cost ∝ targeted subset, pattern #14
+
+// terminal folder-wide concern over each owning unit — only where untargeted siblings exist
+const seam = (inv?.packages ?? []).map(pkg => {
+  const t = targetPages.filter(p => p.indexOf(pkg.root + '/') === 0)
+  const f = folderPages.filter(p => p.indexOf(pkg.root + '/') === 0)
+  return { pkg, hasSiblings: t.length > 0 && t.length < f.length }   // skip when the whole unit was targeted
+}).filter(x => x.hasSiblings)
+const seamed = (await pool(seam, CAP, x => agent(seamPrompt(x.pkg), { schema: SEAM_SCHEMA, effort: 'xhigh' }))).filter(Boolean)
+return { targets: TARGETS, units: (inv?.packages ?? []).map(p => p.name), done: done.length, seamed: seamed.length }
+```
+
+The `string | array | unit-root | sub-folder | file` target space collapses to one
+discovery agent plus pure-JS filtering — adding "accept many targets" is the array
+branch in `rawTargets`, never a second entrypoint. A "many"-granularity sibling
+(one agent per *whole unit* instead of per file) is the same shape with a coarser
+work unit (pattern #14) and the terminal stage promoted to a cross-unit align; size
+the unit to the coherence boundary the stages need, and scope every terminal stage
+(reconcile/align) to the *targeted* units, never the whole corpus.
+
+> **`args` over `scriptPath`.** A saved workflow receives `args` as structured data on
+> `Workflow({ scriptPath, args })`; read it directly. If a Claude Code build ever drops
+> `args` for a `scriptPath` launch, relaunch with an inline `script` string or encode the
+> scope in the file — never silently fall back to a full-corpus default that the empty-args
+> no-op above already prevents.
 
 ---
 

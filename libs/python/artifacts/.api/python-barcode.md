@@ -8,9 +8,8 @@
 - import: `barcode` (dist name `python-barcode`, import name `barcode`)
 - owner: `artifacts`
 - rail: imaging
-- license: `MIT`; pure-Python `py3-none-any` wheel, no native link
 - asset: the SVG path needs no dependency; the PNG/raster path needs Pillow (`python-barcode[images]`), resolved through the manifest, never a per-package pin
-- installed: `0.16.1` reflected via assay api on cp315
+- installed: `0.16.1`
 - entry points: console script `python-barcode` (CLI: `create`/`list`); library use is import-only
 - capability: linear (1D) barcode generation for the Code39/Code128/EAN/UPC/ITF/Codabar/ISBN/ISSN/PZN/GS1-128 symbologies, name-keyed symbology resolution, dependency-free SVG serialization, and Pillow-backed raster (PNG) serialization with configurable module geometry, quiet zone, and human-readable text
 

@@ -8,9 +8,7 @@
 - package: `adbc-driver-manager`
 - version: `1.11.0`
 - module: `adbc_driver_manager`
-- asset: C/C++ extension over the ADBC C API; ships an sdist built per-interpreter (Cython binding `_lib`, no abi3 wheel)
 - license: `Apache-2.0`
-- marker: `requires-python >=3.10`; runtime dependency `typing-extensions`; optional `dbapi` extra pulls `pyarrow` for Arrow result delivery
 - rail: query
 
 ## [02]-[PUBLIC_TYPES]

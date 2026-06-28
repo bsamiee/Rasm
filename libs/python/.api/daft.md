@@ -9,7 +9,7 @@
 - import: `daft`
 - owner: `data`
 - rail: distributed dataframe
-- installed: `0.6.14` reflected via `import daft` on cp315 (Rust extension `daft.daft.abi3.so`)
+- installed: `0.7.16`
 - entry points: console script `daft` (`daft.cli:main`); library use is import-only
 - license: Apache-2.0
 - capability: lazy logical-plan dataframes over partitioned out-of-core data; native and Ray runners; predicate/projection pushdown; typed numeric/temporal/nested/multimodal (`tensor`/`image`/`embedding`) dtypes; expression algebra with string/datetime/list/struct/map/image/url/embedding/binary/float/json/partitioning namespaces; window functions; scalar and class UDFs; Parquet/CSV/JSON/WARC/MCAP IO; Delta Lake/Iceberg/Hudi/Lance/Unity/Glue lakehouse readers and catalogs; SQL over registered frames; Arrow/pandas/Ray/Dask/PyTorch interop and streaming row/batch/partition iterators. Reflection note: 555 types across 30 namespaces, fidelity introspected

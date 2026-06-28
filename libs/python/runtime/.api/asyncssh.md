@@ -11,7 +11,6 @@
 - rail: transport
 - version: `2.23.1`
 - license: `EPL-2.0 OR GPL-2.0-or-later` (copyleft dual-license; redistribution and link-shape are constrained — a load-bearing flag, not the permissive MIT/BSD band)
-- floor: `Requires-Python>=3.10`; wheel `py3-none-any` (pure-Python, no ABI pin); hard runtime deps `cryptography>=39.0` (the crypto kernel — has a compiled C/Rust ABI) and `typing_extensions>=4.0.0`; optional extras `bcrypt` (encrypted-key passphrase), `fido2` (security-key auth), `gssapi`, `pkcs11`, `pyopenssl` (X.509), `pywin32`
 - namespaces: `asyncssh`, `asyncssh.connection`, `asyncssh.sftp`, `asyncssh.process`, `asyncssh.stream`, `asyncssh.public_key`, `asyncssh.known_hosts`, `asyncssh.auth_keys`, `asyncssh.listener`, `asyncssh.agent`
 - capability: SSHv2 client/server (forward + reverse), remote process execution (run/streamed/communicate), native async SFTP + SCP transfer, local/remote/SOCKS/UNIX forwarding, connection-options config, key/cert import-generate-export, host/authorized-keys verification, ssh-agent client
 

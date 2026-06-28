@@ -9,8 +9,7 @@
 - import: `import deltalake`
 - owner: `data`
 - rail: columnar
-- version: `1.6.0` (locked); license `Apache-2.0`
-- wheel/ABI: `cp310-abi3` wheels for macOS x86_64/arm64, manylinux 2.17/2.28, musllinux 1.2 aarch64/x86_64, win_amd64; `_internal` is a Rust core, so the cp310 abi3 wheel is forward-compatible to cp315; runtime deps are `arro3-core` (Arrow C-data bridge for `QueryBuilder`/`load_cdf`/`deletion_vectors` egress) and `deprecated`
+- version: `1.6.1`
 - capability: Delta Lake table exchange, ACID append/overwrite/merge/delete/update, time travel and version loading, change-data-feed reads, file compaction/z-order and vacuum/log-compaction, schema evolution and column-metadata mutation, OpenTelemetry tracing via `init_tracing`, and DataFusion SQL query over Arrow egress
 
 ## [02]-[CAPTURE]

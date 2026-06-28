@@ -12,7 +12,6 @@
 - owner: `compute`
 - rail: differentiable linear algebra
 - asset: pure-Python; runtime deps `equinox>=0.11.10`, `jax>=0.10.0`, `jaxtyping>=0.2.24`
-- floor: cp313 only (manifest `lineax; python_version<'3.15'`); not installed in the cp315 project venv — gated by the jaxlib cp315 wheel floor, not by lineax itself (lineax declares `requires-python ~=3.11`)
 - capability: JAX-native linear operators, direct and iterative solvers, structure-tagged auto-dispatch, operator arithmetic algebra, and autodiff-through-solve pipelines under JIT/`vmap`
 
 ## [02]-[PUBLIC_TYPES]

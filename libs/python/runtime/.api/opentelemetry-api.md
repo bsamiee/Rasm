@@ -11,7 +11,7 @@
 - rail: observability
 - asset: pure-Python runtime library
 - namespaces: `opentelemetry.metrics`, `opentelemetry.trace`, `opentelemetry.context`, `opentelemetry.propagate`, `opentelemetry.baggage`, `opentelemetry.propagators.textmap`, `opentelemetry.propagators.composite`, `opentelemetry.trace.propagation.tracecontext`, `opentelemetry.baggage.propagation`, `opentelemetry._logs`, `opentelemetry._events`, `opentelemetry.util.types`
-- installed: `1.42.1`; license Apache-2.0; py3-none-any, cp315-CLEAN (no environment marker)
+- installed: `1.43.0`
 - capability: global meter/tracer/logger/propagator resolution, synchronous + observable metric instruments, the full span lifecycle (events/links/status/exception recording), W3C trace-context + baggage propagation with composite/tracecontext propagators, span-context value types (`SpanContext`/`TraceFlags`/`TraceState`/`Link`), context scope tokens, and the experimental logs/events signal API tiers
 
 ## [02]-[PUBLIC_TYPES]

@@ -12,7 +12,6 @@
 - owner: `compute`
 - rail: mesh-exchange
 - asset: pure-Python; runtime deps `numpy>=1.20.0`, `rich`; HDF5/NetCDF formats (`med`, `xdmf`, `h5m`, CGNS) need the `all` extra (`h5py`, `netCDF4`)
-- floor: unconditional manifest dependency (no interpreter gate; pure-Python, cp315-clean) — verify on sync
 
 ## [02]-[PUBLIC_TYPES]
 

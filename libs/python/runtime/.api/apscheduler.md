@@ -11,7 +11,6 @@
 - rail: scheduling
 - version: `3.11.2`
 - license: `MIT`
-- floor: `Requires-Python>=3.8`; wheel `py3-none-any` (pure-Python, no ABI pin); hard dep `tzlocal>=3.0` (local-timezone resolution); persistent stores and pool backends are extras (`sqlalchemy`/`redis`/`mongodb`); this is the 3.x line (`BaseScheduler`-rooted), not the rewritten 4.x `AsyncScheduler`/`SchedulerEvent`-task model
 - namespaces: `apscheduler.schedulers`, `apscheduler.triggers`, `apscheduler.jobstores`, `apscheduler.executors`, `apscheduler.events`, `apscheduler.job`
 - capability: in-process scheduled execution with cron/interval/date/calendar/combining triggers, `Job` lifecycle, pluggable persistent job stores and executors, listener event bus, job import/export
 

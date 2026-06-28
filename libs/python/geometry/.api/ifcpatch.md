@@ -1,6 +1,6 @@
 # [PY_GEOMETRY_API_IFCPATCH]
 
-`ifcpatch` supplies the IFC model-transformation surface for the geometry ifc-analysis rail: a recipe registry applying named modification recipes to an `ifcopenshell.file` — schema migration, georeference/world-coordinate offset, attribute/pset purge, spatial-tree reset, element extraction by selector, project merge, unit conversion, and IFC-to-SQL/CSV conversion — through one `execute(args: ArgumentsDict)`/`write(output, filepath)` entry over a `recipe`-named `ArgumentsDict`. Each recipe is a `BasePatcher` subclass with a `patch()`/`get_output()` contract. It rides the `ifcopenshell` companion lane (`0.8.5`; depends `ifcopenshell`, `toposort`, `numpy`), so the lifecycle owner composes `ifcpatch.execute(...)` directly rather than mutating the model through ad-hoc `file.add`/`remove`/`create_entity` loops.
+`ifcpatch` supplies the IFC model-transformation surface for the geometry ifc-analysis rail: a recipe registry applying named modification recipes to an `ifcopenshell.file` — schema migration, georeference/world-coordinate offset, attribute/pset purge, spatial-tree reset, element extraction by selector, project merge, unit conversion, and IFC-to-SQL/CSV conversion — through one `execute(args: ArgumentsDict)`/`write(output, filepath)` entry over a `recipe`-named `ArgumentsDict`. Each recipe is a `BasePatcher` subclass with a `patch()`/`get_output()` contract. It rides the `ifcopenshell` worker lane (`0.8.5`; depends `ifcopenshell`, `toposort`, `numpy`), so the lifecycle owner composes `ifcpatch.execute(...)` directly rather than mutating the model through ad-hoc `file.add`/`remove`/`create_entity` loops.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -9,7 +9,7 @@
 - import: `import ifcpatch`
 - owner: `geometry`
 - rail: ifc-analysis / model-transformation
-- installed: `0.8.5`, the IfcOpenShell-ecosystem companion-lane band; depends `ifcopenshell`, `toposort`, `numpy`; license LGPL-3.0-or-later
+- installed: `0.8.5`
 - entry points: none (library only)
 - capability: named-recipe IFC model transformation — schema migration, coordinate/georeference/world-coordinate offset, attribute and pset purge, spatial-decomposition reset, sub-model extraction by selector query, project merge, unit conversion, GlobalId regeneration, mesh tessellation, and IFC-to-SQLite/CSV conversion — applied through one recipe-dispatched `execute` over an `ArgumentsDict` whose `recipe` key routes into the `recipes` namespace, each recipe a `BasePatcher` subclass; the output is recipe-determined (a patched `ifcopenshell.file` or a non-IFC string/path) and serialized through one polymorphic `write`
 
@@ -70,5 +70,4 @@ The execute entry dispatches a recipe by name over the `ArgumentsDict` payload; 
 - Reject: a hand-rolled mutation loop where a recipe owns the transformation; a per-recipe execute function family over the `recipe` name; a `Patcher` base name (the real base is `BasePatcher`); a single-dotted `extract_docs(recipe)` call (the real arity is `(submodule_name, cls_name)`); a throwaway temp-file sink where the non-IFC product defers to the data boundary
 
 [CAPTURE_GAP]:
-- floor: companion interpreter cp313; `ifcpatch==0.8.5` rides the `ifcopenshell` companion lane, so reflection resolves where `ifcopenshell` resolves; the `>=3.15` project venv carries no `ifcopenshell` core, and `assay api resolve ifcpatch` returns no source. The surface above is confirmed against the IfcOpenShell `0.8.0` `src/ifcpatch/ifcpatch/__init__.py` and `recipes/` source.
 - members: the `execute(args: ArgumentsDict)` single-arg dispatch, the `ArgumentsDict` key shape (`recipe` required; `file`/`input`/`log`/`arguments` NotRequired), the `write(output, filepath)` polymorphic sink, the `BasePatcher` `__init__(file, logger)`/`patch`/`get_output` contract, the `extract_docs(submodule_name, cls_name, method_name="__init__", boilerplate_args=None)` introspection arity, and the `recipes` namespace recipe names are source-confirmed; the exact per-recipe `arguments` element order is a per-recipe `extract_docs`/source detail the consumer reads from the recipe `__init__` signature

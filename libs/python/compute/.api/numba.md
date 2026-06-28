@@ -11,8 +11,6 @@
 - version: `0.65.1`
 - license: BSD-2-Clause
 - rail: accelerator
-- asset: native-extension wheel via `llvmlite` (LLVM binding); deps `llvmlite>=0.47,<0.48`, `numpy>=1.22,<2.5`
-- floor: cp313 only (manifest pin `numba>=0.65.1; python_version<'3.15'`); `llvmlite` ships no cp315 wheel and pins `numpy<2.5`, so the accelerator rail is unavailable in the cp315 project venv
 - capability: LLVM JIT of NumPy-typed functions in nopython and object modes, automatic parallelization, threadpool/threading-layer control, scalar-to-ufunc lifting, C-callback emission, and `jitclass`/`structref`/`overload` extension
 
 ## [02]-[PUBLIC_TYPES]
@@ -104,14 +102,12 @@
 
 | [INDEX] | [SIBLING]    | [SEAM]                                                                                                            |
 | :-----: | :----------- | :--------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `numpy`      | the type substrate: `from_dtype`/`typeof` map NumPy dtypes to numba types; `vectorize`/`guvectorize` emit real `numpy` ufuncs/gufuncs that compose with broadcasting and `np.einsum`-shaped reductions; `numpy<2.5` is the hard ABI ceiling |
+|  [01]   | `numpy`      | the type substrate: `from_dtype`/`typeof` map NumPy dtypes to numba types; `vectorize`/`guvectorize` emit real `numpy` ufuncs/gufuncs that compose with broadcasting and `np.einsum`-shaped reductions |
 |  [02]   | `scipy`      | a `cfunc`-compiled kernel's `.ctypes`/`.address` feeds `scipy.LowLevelCallable`, so a numba kernel drops directly into `scipy.integrate.quad`/`scipy.ndimage` C callbacks with zero Python-call overhead per sample |
 |  [03]   | `mpmath`     | the validation oracle for an `njit` kernel: run the compiled fast path, then `mpmath.almosteq` against a high-`dps` reference to certify the speedup did not cost accuracy |
-|  [04]   | `sparse`/data | numba's CSR/CSC kernels back the `sparse` package and `xarray-spatial` raster analytics on the cp313 lane; the same cp315 wheel gap moves both off the default build |
 |  [05]   | `extending`  | when an admitted domain type must enter nopython, register it via `as_numba_type`/`box`/`unbox`/`models` rather than copying its fields into a numba-native shape |
 
 [RAIL_LAW]:
 - Package: `numba`
 - Owns: offline LLVM-JIT acceleration of numeric-study kernels (the `NumericIntent` LLVM-JIT row), ufunc/gufunc emission, and C-callback bridging
 - Accept: a study kernel compiled through `njit`, with the compiled signature, lowered IR (`inspect_*`), and speedup class captured as a study receipt
-- Reject: numba in any product runtime import path; wrapper-renames of the JIT decorators; accelerator claims without a study receipt; numba on the cp315 lane (no `llvmlite` wheel)

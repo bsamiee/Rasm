@@ -59,9 +59,19 @@ Every Compute-domain library the folder uses, planned or implemented. Versions a
 - `Google.OrTools`
 - `GeneticSharp`
 
+[STRUCTURAL_SOLVERS]:
+- `FEALiTE2D` — 2D frame/beam/truss solver backend for the Solver discretization lane and structural-analysis receipts.
+- `FEALiTE2D.Plotting` — DXF export for FEALiTE2D internal-force, shear-force, bending-moment, and displacement diagrams as solver evidence artifacts.
+- `BriefFiniteElement.Net`
+- `BriefFiniteElementNet.CustomElements`
+
 [CLASSICAL_ML_BLAS]:
 - `TorchSharp`
 - `libtorch-cpu`
+
+[GPU_COMPUTE]:
+- `Silk.NET.WebGPU`
+- `Silk.NET.WebGPU.Extensions.WGPU`
 
 [ML_RUNTIME]:
 - `Microsoft.ML.OnnxRuntime`

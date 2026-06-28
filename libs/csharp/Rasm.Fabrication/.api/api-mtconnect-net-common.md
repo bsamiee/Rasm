@@ -11,7 +11,7 @@
 - assembly: `MTConnect.NET-Common`
 - namespace consumed: `MTConnect.Assets.CuttingTools`, `.CuttingTools.Measurements`, `MTConnect.Assets` (the `Asset` base) — the broader `MTConnect.Devices`/`.Observations`/`.Streams`/`.Agents`/`.Configurations` namespaces ship in this same assembly but are OUT of the fabrication scope
 - asset: pure-managed AnyCPU IL, multi-target (`net9.0`/`net8.0`/`net7.0`/`net6.0`/`netstandard2.0`/`net46x`/`net47x`/`net48`); the `net10.0` consumer binds `lib/net9.0/MTConnect.NET-Common.dll` (the highest applicable TFM)
-- transitive floor: `YamlDotNet` >=13.7.1 (the YAML config/asset serializer), `System.Text.Json` 8.0.5, `System.Buffers` 4.5.1, `System.Runtime.InteropServices.RuntimeInformation` 4.3.0 — all centrally floor-pinned; pure-managed, no native asset, ALC-safe
+- transitive floor: `YamlDotNet` >=13.7.1 (declared floor; central row resolves 18.1.0), `System.Text.Json` 8.0.5, `System.Buffers` 4.5.1, `System.Runtime.InteropServices.RuntimeInformation` 4.3.0 — all centrally floor-pinned; pure-managed, no native asset, ALC-safe
 - scope: the cutting-tool ASSET MODEL only (data shapes + content hash + version validation); NOT the XML/JSON wire serializer (separate `MTConnect.NET-XML`/`-JSON` packages) and NOT any network transport
 - rail: fabrication (`Process/magazine` tool-data model — the `ToolAssembly`/`Magazine` catalogue's typed cutting-tool half)
 
@@ -119,7 +119,7 @@
 - definition body: the `CuttingToolDefinition` carries a `Format`-tagged `Value` body (a vendor tool-library export — its `FormatType` naming the encoding) — the fabrication folder reads the structured `Measurements`/`CuttingItems` rather than re-parsing the raw `Value` string
 
 [RAIL_LAW]:
-- Package: `MTConnect.NET-Common` (6.9.0.2, MIT, pure-managed `lib/net9.0` AnyCPU IL; transitive floor `YamlDotNet` 13.7.1 + `System.Text.Json` 8.0.5 + `System.Buffers` + `System.Runtime.InteropServices.RuntimeInformation`)
+- Package: `MTConnect.NET-Common` (6.9.0.2, MIT, pure-managed `lib/net9.0` AnyCPU IL; transitive floor `YamlDotNet` 18.1.0 + `System.Text.Json` 8.0.5 + `System.Buffers` + `System.Runtime.InteropServices.RuntimeInformation`)
 - Owns: the ISO-13399-aligned MTConnect cutting-tool asset MODEL — `CuttingToolAsset`/`CuttingToolLifeCycle`/`CuttingItem`, the typed `Measurements.*` ISO-13399 geometry family, `ToolLife`/`ItemLife`, `Location`, `ProcessFeedRate`/`ProcessSpindleSpeed`, `ReconditionCount`, `CutterStatusType`, the `Asset` base, and the `GenerateHash` content identity + `IsValid` schema validation
 - Accept: a `CuttingToolAsset` authored through the lifecycle/items/measurements POCOs (bound by `I…` interface), the typed `Measurements.*` subtypes for cutting geometry, the `Location` for the magazine address, the `ToolLife` budget, and the `GenerateHash` content key feeding the catalogue/persistence seam
 - Reject: a stringly-typed `Measurement` where a named `Measurements.*` subtype exists; consuming the devices/observations/streams/agent machinery (out of the fabrication scope); seeking the XML/JSON wire serializer or any network transport from this package (separate companion packages, not admitted); a bare `double` cutting dimension that bypasses the `UnitsNet` coercion at the `ToolAssembly` boundary; hand-rolling a tool-data model beside `CuttingToolAsset`

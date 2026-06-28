@@ -9,7 +9,6 @@
 - version: `2.0.6`
 - license: Apache-2.0
 - module: `icechunk`
-- asset: native Rust extension (pyo3, `icechunk._icechunk_python`); upstream `requires-python >=3.12`, but no `cp315` wheel ships, so admitted only on the `python_version<'3.15'` companion band
 - owner: `data`
 - rail: versioned-store
 

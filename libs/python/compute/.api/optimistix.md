@@ -9,7 +9,6 @@
 - import: `optimistix` (alias `optx`); submodule `optimistix.compat`
 - owner: `compute`
 - rail: differentiable nonlinear optimization
-- installed: license Apache-2.0; `Requires-Python ~=3.11` (floor 3.11); `optimistix` wheel is `py3-none-any` (pure Python); marker-gated `python_version<'3.15'` in the manifest because the transitive `jaxlib` backend ships no cp315 wheel — the gate is jaxlib, not optimistix — so `assay api resolve optimistix` is `unsupported` on the cp315 core (uninstalled, marker-gated); surface confirmed against the optimistix 0.1.x module API
 - capability: JAX-native nonlinear minimization, least-squares, root-finding, and fixed-point iteration — four unified solve entry points, quasi-Newton/Gauss-Newton/Levenberg-Marquardt/trust-region/Newton/CG/Nelder-Mead/golden-section solvers, composable descent + line-search/trust-region search strategies, `BestSoFar*` solver wrappers, implicit/recursive-checkpoint adjoints, a `RESULTS` termination enum, and a scipy-compatible `minimize` shim
 
 ## [02]-[PUBLIC_TYPES]

@@ -6,10 +6,9 @@
 
 [PACKAGE_SURFACE]: `netCDF4`
 - package: `netcdf4` (import name `netCDF4`)
-- version: `1.7.4` (manifest floor `>=1.7.4`)
+- version: `1.7.4`
 - license: MIT
 - import: `import netCDF4`
-- abi: C extension over the Unidata netCDF-C + HDF5 native libraries; no abi3 wheel on cp315 — built from source via the Parametric_Forge netCDF toolchain (`__netcdf4libversion__`/`__hdf5libversion__` report the linked native versions)
 - owner: `data`
 - rail: field-dataset
 - capability: the `FieldDataset` CF reader engine — netCDF-4/HDF5 file I/O via C extension — hierarchical groups, CF-compliant time conversion, multi-file aggregation, MPI-parallel collective I/O, compression filters, and chunking controls

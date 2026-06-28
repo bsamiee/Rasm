@@ -82,9 +82,9 @@
       },
       "Meziantou.Analyzer": {
         "type": "Direct",
-        "requested": "[3.0.104, )",
-        "resolved": "3.0.104",
-        "contentHash": "lFbTJ7eJCUIAFlZhkF394BnBe4oIto0pCOH8cEZasPqWCMm1bevmaMsIsxO5SSezqGmzzSaeTeMKvBH1fQG5ew=="
+        "requested": "[3.0.115, )",
+        "resolved": "3.0.115",
+        "contentHash": "HXp8maNxVdqsZWHjZmpoDdvecmxgEkY1juAFPyKI4edN+PhLBinnCov7UkVmYFgdlGRo8BDmY6ZzE4RkJee19A=="
       },
       "MIConvexHull": {
         "type": "Direct",
@@ -94,9 +94,9 @@
       },
       "Microsoft.VisualStudio.Threading.Analyzers": {
         "type": "Direct",
-        "requested": "[17.14.15, )",
-        "resolved": "17.14.15",
-        "contentHash": "mXQPJsbuUD2ydq4/ffd8h8tSOFCXec+2xJOVNCvXjuMOq/+5EKHq3D2m2MC2+nUaXeFMSt66VS/J4HdKBixgcw=="
+        "requested": "[18.7.23, )",
+        "resolved": "18.7.23",
+        "contentHash": "dyj6z8m+LFjpeH69hdnciCcRCmD0YgMlvuQEywiEshjqj/blgQ+PuWX8Vd5gkWQFoBN4e+TFxx6DvGNSv/gIKg=="
       },
       "PeterO.Numbers": {
         "type": "Direct",
@@ -130,13 +130,13 @@
       },
       "Thinktecture.Runtime.Extensions": {
         "type": "Direct",
-        "requested": "[10.3.0, )",
-        "resolved": "10.3.0",
-        "contentHash": "8V1PjROSO+kyYjIfndPi4gmwL29qw3pkAm/MUdnyIi0lggwHALJ2IlzvIlVDJFOlYHyf6b4NjzrWp/h8GsLxQQ==",
+        "requested": "[10.4.0, )",
+        "resolved": "10.4.0",
+        "contentHash": "FYD82RNsKOmn4aZobZYXBNTKMSTu9JVu50mGREM0AJp/125L2L7XXYdcIxw0kjNQ5AUTRJoROK0g0s2/kO8f4w==",
         "dependencies": {
-          "Thinktecture.Runtime.Extensions.Analyzers": "10.3.0",
-          "Thinktecture.Runtime.Extensions.Refactorings": "10.3.0",
-          "Thinktecture.Runtime.Extensions.SourceGenerator": "10.3.0"
+          "Thinktecture.Runtime.Extensions.Analyzers": "10.4.0",
+          "Thinktecture.Runtime.Extensions.Refactorings": "10.4.0",
+          "Thinktecture.Runtime.Extensions.SourceGenerator": "10.4.0"
         }
       },
       "Triangle": {
@@ -205,18 +205,18 @@
       },
       "Thinktecture.Runtime.Extensions.Analyzers": {
         "type": "Transitive",
-        "resolved": "10.3.0",
-        "contentHash": "z3DTkauLeUYhROp9DR7j47oy7kdA6ehq7IKpQ0RSHeHKR3/7z1xQ5Jpx+8bDBNXDaTBN4WHTsE6r1+iI1S1oYQ=="
+        "resolved": "10.4.0",
+        "contentHash": "QS30Y6+zrp8RBk2aVv1QB5f9POAMWNi5w8v8c4XADLZteH3zJZJDOD94HBrfKrnu+NZS0H5uFaTVGULMZQOq7w=="
       },
       "Thinktecture.Runtime.Extensions.Refactorings": {
         "type": "Transitive",
-        "resolved": "10.3.0",
-        "contentHash": "XwUUR6OvQ6oF9Maj1u6IlEE+fXJEEJJx/2ug+iP3ePj4vwRKmNfQnWrlic4i5FixYHUUePNrZf6YCiyPCf52ew=="
+        "resolved": "10.4.0",
+        "contentHash": "X4T9nHpYH6B19FxL17Ffk2MxjU1Z7kqI4+J42ylgDdnCoCBCvAjCdAtVtbLsKcABuSV/a6clhuvdDPKLDP5bfQ=="
       },
       "Thinktecture.Runtime.Extensions.SourceGenerator": {
         "type": "Transitive",
-        "resolved": "10.3.0",
-        "contentHash": "CB2efEemm7FEAhHi7zoxT8ANLMhHQ5MpVmTBd4H+GRb2GyHEdN8Uhb5c1U9sv/EXylcmfeLdnDukQrjUrKrRvQ=="
+        "resolved": "10.4.0",
+        "contentHash": "1jNrYo/7Syow8Vu+vY3LygJ7Erc9fagkobAdANxAkyg7G+9abnxZQ+cr4QbWPErGDe1mfCDQiO9crIjdG6DQJw=="
       },
       "csp.contracts": {
         "type": "Project",

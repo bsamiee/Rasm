@@ -9,7 +9,6 @@
 - import: `numpyro`; submodules `numpyro.distributions`, `numpyro.infer`, `numpyro.handlers`, `numpyro.optim`, `numpyro.diagnostics`
 - owner: `compute`
 - rail: Bayesian-study
-- installed: cp313 only (manifest pin `numpyro>=0.21.0; python_version<'3.15'`; jaxlib ships no cp315 wheel)
 - capability: effect-handler probabilistic programming on JAX — distribution families, MCMC (NUTS/HMC/SA/ensemble), variational inference (SVI/ELBO/autoguide), posterior-predictive sampling, and convergence diagnostics
 
 ## [02]-[PUBLIC_TYPES]

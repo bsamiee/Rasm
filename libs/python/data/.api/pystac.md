@@ -10,7 +10,6 @@
 - rail: STAC catalog
 - version: `1.14.3`
 - license: Apache-2.0
-- asset: pure-Python runtime library; `py3-none-any` wheel (`Root-Is-Purelib: true`), no ABI floor — `Requires-Python >=3.10`, imports cleanly on the cp315 core (reflection-verified against the locked wheel; one runtime dependency, `python-dateutil`)
 - entry points: none (library only)
 - capability: the STAC in-memory object graph — catalog/collection/item/asset construction, `Link` graph traversal and HREF normalization, spatial/temporal extent and provider metadata, the STAC vocabularies, pluggable JSON read/write through `StacIO`, schema migration on read, JSON-Schema validation, and the full typed STAC extension namespace (EO, projection, raster, classification, datacube, file, grid, label, mgrs, mlm, pointcloud, render, sar, sat, scientific, storage, table, timestamps, version, view, xarray_assets)
 

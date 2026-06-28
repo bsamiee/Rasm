@@ -99,6 +99,10 @@ PostgreSQL 18 server-tier extensions: no managed assembly, provisioned through r
 - `FlowtideDotNet.Substrait` (Substrait portable query-plan IR — cross-backend relational-algebra plan format backing the Query federation/pipeline rail; pure-managed, SQL-text ingest via the `SqlParserCS` transitive)
 - `FastCDC.Net`
 
+[BIM_ANALYTICS_EXCHANGE]:
+- `Ara3D.BimOpenSchema`
+- `Ara3D.BimOpenSchema.IO`
+
 [INTERCHANGE_CODECS]:
 Row-oriented and self-describing ingress/egress codecs the columnar set lacked.
 - `Chr.Avro` (abstract Avro schema model + resolution/evolution + GenericRecord/POCO mapping + code generation)
@@ -129,6 +133,7 @@ Row-oriented and self-describing ingress/egress codecs the columnar set lacked.
 - `Microsoft.AspNetCore.JsonPatch.SystemTextJson`
 - `Speckle.Sdk`
 - `Speckle.Objects`
+- `PollinationSDK`
 
 [STREAMING_EGRESS]:
 - `Confluent.Kafka`

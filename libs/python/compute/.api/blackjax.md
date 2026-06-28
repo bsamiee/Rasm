@@ -9,8 +9,6 @@
 - version: `1.5`
 - license: Apache-2.0
 - import: `blackjax`; submodules `blackjax.mcmc`, `blackjax.smc`, `blackjax.sgmcmc`, `blackjax.vi`, `blackjax.adaptation`, `blackjax.diagnostics`, `blackjax.optimizers`, `blackjax.util`
-- wheel: `py3-none-any` (pure Python over jaxlib native ABI)
-- marker: gated `blackjax; python_version<'3.15'` (jaxlib ships no cp315 wheel) — companion band beside `numpyro`/`nutpie`/`arviz`
 - owner: `compute`
 - rail: Bayesian-study
 - capability: stateless JAX sampling algebra — euclidean/Riemannian HMC and NUTS, MALA/Barker/RMH random walk, (adjusted) MCLMC, SMC tempering and persistent sampling, stochastic-gradient MCMC, mean-field/full-rank/(multi)Pathfinder/SVGD variational inference, window/low-rank/MEADS/ChEES/Pathfinder adaptation, `dual_averaging`/`lbfgs` optimizers, and ESS/R-hat diagnostics

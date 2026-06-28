@@ -9,8 +9,7 @@
 - import: `dataframely`
 - owner: `data`
 - rail: contract
-- installed: `2.10.1` reflected via `python -c "import dataframely"` on cp315
-- entry points: no console script; library use is import-only (Polars-native, Rust `_native.abi3.so` validation core)
+- installed: `2.10.1`
 - license: BSD-3-Clause
 - capability: declarative `Schema`/`Column` dataframe contracts with inline column rules and cross-column `@rule` predicates, `Collection` multi-member integrity with shared primary keys and `@filter` methods, eager/lazy `validate`/`is_valid`/`filter`/`cast`, `FailureInfo` failure introspection (invalid rows, per-rule and co-occurrence counts), schema/collection `serialize`/`deserialize`, parquet/delta read/scan/write/sink with embedded-schema validation, `read_parquet_metadata_*` schema-only metadata reads, `dy.random` deterministic conformant `sample` generation, and `to_polars_schema`/`to_sqlalchemy_columns`/`to_pyarrow_schema`/`to_pydantic_model` projection
 

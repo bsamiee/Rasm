@@ -10,8 +10,6 @@
 - module: `import stac_geoparquet` (dist name `stac-geoparquet`, import name `stac_geoparquet`; the Arrow surface lives under `stac_geoparquet.arrow.*`)
 - owner: `data`
 - rail: STAC catalog
-- asset: pure-Python runtime library (`py3-none-any` wheel); imports cleanly on the cp315 core. Optional extras gate two readers: `parse_stac_ndjson_to_delta_lake` requires `deltalake`; `pgstac_reader.PgstacRowFactory` requires `psycopg` (the module raises `ModuleNotFoundError` until the extra is synced)
-- requires-python: `>=3.9`
 - entry points: console script `stac-geoparquet` (CLI); library use is import-only
 - capability: STAC item <-> Arrow/GeoParquet interchange — parse `pystac.Item`/STAC-NDJSON into a `pyarrow.RecordBatchReader`, write GeoParquet with a STAC GeoParquet schema version (`'1.0.0'`/`'1.1.0'`), rehydrate a STAC table to item dicts and NDJSON, an optional Delta Lake sink, a pgstac row reader, a two-pass `InferredSchema` builder, NDJSON readers (`json_reader.read_json`/`read_json_chunked`), and a legacy geopandas `GeoDataFrame` round-trip
 

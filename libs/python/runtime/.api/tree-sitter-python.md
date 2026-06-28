@@ -8,7 +8,6 @@
 - package: `tree-sitter-python`
 - version: `0.25.0`
 - license: MIT
-- wheel: native CPython extension (`_binding.abi3.so`) shipped as a forward-compatible `abi3` wheel (`cp310-abi3-macosx_11_0_arm64`, `Root-Is-Purelib: false`) — one build runs on cp310 through cp315+ (unlike the runtime `tree-sitter` package, which ships per-version non-abi3 wheels). Admitted and resolved in the cp315 default venv.
 - import: `tree_sitter_python`
 - owner: `runtime`
 - rail: parsing
@@ -46,7 +45,6 @@
 
 [LOCAL_ADMISSION]:
 - This package supplies a grammar capsule and bundled query sources only; all parser, tree, and query mechanics arrive settled from `.api/tree-sitter.md`.
-- The grammar is a parsing row, never a standalone owner; the `abi3` wheel runs unchanged on cp315.
 
 [RAIL_LAW]:
 - Package: `tree-sitter-python`

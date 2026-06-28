@@ -19,6 +19,7 @@
 - assembly: `NodeEditorAvalonia`
 - namespace: `NodeEditor.Controls` (`Editor`, `DrawingNode`, `Node`, `Pin`, `Connector`, `NodeZoomBorder`, `Toolbox`, ink + adorner controls), `NodeEditor.Behaviors` (drag/connect/select/resize/rotate interaction behaviors over `Xaml.Behaviors`), `NodeEditor.Converters`, `NodeEditor.Services` (`StorageService`, `ExportRenderer`), plus `OrthogonalRouter`/`RTree`/`HitTestIndex`/`SnapHelper`/`ConnectorPathHelper` graph utilities
 - depends: `NodeEditorAvalonia.Model`, `Avalonia` (12.x), `Avalonia.Controls.PanAndZoom` (the pre-rename id — a DISTINCT assembly from the admitted `PanAndZoom.dll`, no collision since this project compiles no consumer source) + `Avalonia.Xaml.Behaviors`; the consumer-facing ReactiveUI view-model layer is supplied by product code, not this package
+- health: `12.0.0` is the newest `NodeEditorAvalonia` line; its deprecated Avalonia behavior/PanAndZoom transitive ids remain upstream-owned until that package republishes on the renamed ids.
 - rail: graph-editing
 
 ## [02]-[PUBLIC_TYPES]

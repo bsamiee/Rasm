@@ -9,8 +9,7 @@
 - import: `import h5py`
 - owner: `data`
 - rail: array
-- version: `3.16.0` (locked, `>=3.16.0`); license `BSD-3-Clause`
-- asset: Cython extension over the C HDF5 library (bundled `hdf5_version == 2.0.0`); source-build via the Parametric_Forge HDF5 toolchain; optional MPI parallel IO via the `mpio` driver
+- version: `3.16.0`
 - entry points: library use is import-only; `h5py.run_tests()` runs the bundled suite
 - capability: HDF5 file IO, hierarchical group namespace, typed chunked/compressed dataset storage, NumPy-style slicing, attribute metadata, special dtypes (vlen, enum, string, complex, opaque, reference), virtual datasets, dimension scales, filter pipeline (`h5py.filters`), SWMR access, and the full low-level C API (`h5f`/`h5d`/`h5g`/`h5p`/`h5s`/`h5t`/`h5a`/`h5o`/`h5l`/`h5r`/`h5z`/`h5fd`/`h5ds`/`h5i`/`h5pl`)
 

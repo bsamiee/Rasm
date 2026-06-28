@@ -6,10 +6,10 @@
 
 [PACKAGE_SURFACE]: `HotAvalonia`
 - package: `HotAvalonia`
-- version: `3.1.1`
+- version: `3.1.2`
 - license: `MIT` (file `LICENSE.md`)
 - assembly: no managed runtime assembly (no `lib/`)
-- min-avalonia: `11.0.0` (`HotAvaloniaMinimumSupportedAvaloniaVersion`); the workspace runs Avalonia `12.0.4` and overrides the transitive `Avalonia.Markup.Xaml.Loader` `11.0.0` pin to `12.0.4`
+- min-avalonia: `11.0.0` (`HotAvaloniaMinimumSupportedAvaloniaVersion`); the workspace runs Avalonia `12.0.5` and overrides the transitive `Avalonia.Markup.Xaml.Loader` `11.0.0` pin to `12.0.5`
 - capability: `<ProjectCapability Include="HotAvalonia" />` (props)
 - asset: `build/HotAvalonia.props` (capability + version anchors)
 - asset: `build/HotAvalonia.targets` (knob defaults + tasks)
@@ -34,9 +34,9 @@
 
 | [INDEX] | [ASSET]                              | [RAIL]                               |
 | :-----: | :----------------------------------- | :----------------------------------- |
-|  [01]   | `HotAvalonia.Core` (v`3.1.1`)        | runtime lib (`HotAvalonia.Core.dll`) — stripped on Release |
-|  [02]   | `HotAvalonia.Extensions` (v`3.1.1`)  | injected source (contentFiles) — `AvaloniaHotReloadExtensions` |
-|  [03]   | `HotAvalonia.Fody` (v`3.1.1`)        | IL weaver — stripped on Release      |
+|  [01]   | `HotAvalonia.Core` (v`3.1.2`)        | runtime lib (`HotAvalonia.Core.dll`) — stripped on Release |
+|  [02]   | `HotAvalonia.Extensions` (v`3.1.2`)  | injected source (contentFiles) — `AvaloniaHotReloadExtensions` |
+|  [03]   | `HotAvalonia.Fody` (v`3.1.2`)        | IL weaver — stripped on Release      |
 |  [04]   | `Avalonia.Markup.Xaml.Loader` (v`11.0.0`) | runtime XAML compile (`api-avalonia-xaml-loader`) — kept unless excluded |
 
 [MSBUILD_TASKS]: tasks in `tasks/netstandard2.0/HotAvalonia.dll`
@@ -134,7 +134,7 @@
 
 [STACKING_LAW]:
 - Avalonia startup (`api-avalonia`, `api-avalonia-desktop`): the injected `UseHotReload` chains onto the `AppBuilder` returned by `AppBuilder.Configure<App>()` in the app entry point — it composes with the desktop lifetime, the Fluent theme, and the GPU/Skia render seam without any hand-written bootstrap. `AutoEnable` weaves the `UseHotReload` call in automatically when `HotAvaloniaAutoEnable` is set on an exe.
-- XAML loader (`api-avalonia-xaml-loader`): `Avalonia.Markup.Xaml.Loader` is the runtime XAML-compile dependency `HotAvalonia.Core` drives to re-parse changed `.axaml`; the workspace overrides its transitive pin to `12.0.4` to match the Avalonia `12.0.x` core.
+- XAML loader (`api-avalonia-xaml-loader`): `Avalonia.Markup.Xaml.Loader` is the runtime XAML-compile dependency `HotAvalonia.Core` drives to re-parse changed `.axaml`; the workspace overrides its transitive pin to `12.0.5` to match the Avalonia `12.0.x` core.
 - The reference is `PrivateAssets="all"` and unconditional so the lockfile is configuration-independent; the package's own Debug gate — not an MSBuild `Condition` on the reference — decides whether any hot-reload asset is active.
 
 [BUILD_ASSET_LAW]:

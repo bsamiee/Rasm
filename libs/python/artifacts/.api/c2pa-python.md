@@ -9,10 +9,8 @@
 - import: `c2pa`
 - owner: `artifacts`
 - rail: provenance
-- installed: `0.35.1` reflected via `import c2pa; c2pa.__version__` on cp313 (underlying `c2pa-rs` core `0.88.0` via `sdk_version()`)
+- installed: `0.36.0`
 - license: `MIT OR Apache-2.0`
-- wheel: `c2pa_python-0.35.1-py3-none-<platform>.whl` — `py3` ABI tag but NOT pure-Python; each wheel bundles the native `libc2pa_c` core per platform (`macosx_10_9_universal2`/`macosx_10_9_x86_64`/`macosx_11_0_arm64`/`manylinux_2_28_aarch64`/`manylinux_2_28_x86_64`/`win_amd64`/`win_arm64`). No `musllinux` wheel; no abi3 — the bundled core is loaded via `ctypes`, so the platform tag is load-bearing
-- marker: `python_requires >=3.10`; runtime deps `cryptography`/`requests` (callback signing and remote manifest fetch)
 - entry points: console script `download-artifacts` (native-library fetch); library use is import-only
 - capability: C2PA manifest authoring from a JSON definition, embedded/sidecar manifest signing into the native signable set (`Builder.get_supported_mime_types()` — JPEG/PNG/TIFF/GIF/WebP/AVIF/HEIF/HEIC/SVG image formats, BMFF/MP4/QuickTime/fragmented-DASH, WAV/FLAC/MP3 audio, and the C2PA container types), ingredient attachment from stream/archive, builder archive serialize/rehydrate, manifest-store extraction and parsing (`json`/`detailed_json`/`crjson`), `validation_state` and `validation_results` reporting, callback- and `C2paSignerInfo`-backed signers across ES256/ES384/ES512/PS256/PS384/PS512/ED25519, and per-instance `Settings`/`Context` configuration. PDF (`application/pdf`) and raw-camera (`arw`/`nef`) assets are READ-ONLY in this SDK — they appear in `Reader.get_supported_mime_types()` but not the Builder set, so PDF provenance-signing routes to the `pyhanko` PAdES rail, never `Builder.sign`
 

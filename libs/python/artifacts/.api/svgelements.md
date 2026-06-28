@@ -8,8 +8,7 @@
 - import: `svgelements`
 - owner: `artifacts`
 - rail: figure
-- asset: pure-Python runtime library (no native build; `py2.py3-none-any` universal wheel, interpreter-agnostic); zero install-time dependencies
-- installed: `1.9.6` reflected via `svgelements.SVGELEMENTS_VERSION` (the module exposes no `__version__`); cp315-clean
+- installed: `1.9.6`
 - entry points: none (library only)
 - capability: SVG document parse from path/stream/string, full `PathSegment` algebra (move/line/close/quadratic/cubic/arc with smooth/relative variants), spec-faithful affine transform with pre/post compose and inverse, length/color/angle/point value objects with unit resolution and color-channel/blend math, the document-tree node vocabulary (group/use/text/image/shape primitives), bounding-box query with stroke option, viewport/viewBox resolution, and `reify` transform-baking
 

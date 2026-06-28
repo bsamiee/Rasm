@@ -9,7 +9,7 @@
 - import: `matplotlib`
 - owner: `artifacts`
 - rail: visuals
-- installed: `3.11.0` (PyPI) — manifest-gated `python_version<'3.15'` (contourpy/kiwisolver lack CPython 3.15 wheels; the cp315-core owner never imports it and renders on the runtime subprocess seam)
+- installed: `3.11.0`
 - license: matplotlib license (PSF-derived, BSD-compatible); depends on `numpy`, `pillow` (raster encode), `contourpy`/`kiwisolver` (C-extensions), `pyparsing`, `cycler`, `fonttools`, `python-dateutil`
 - entry points: none (library only)
 - capability: imperative 2D plotting (line/scatter/bar/hist/image/contour/pcolormesh/pie/box/violin/quiver/stream/stem/errorbar), figure layout, colormap registry and norms, ticking/formatting, and offscreen raster/vector export via the Agg/PDF/SVG/PS/PGF backends

@@ -11,7 +11,6 @@
 - rail: catalog-signing
 - version: `1.0.0`
 - license: MIT
-- floor: requires-python `>=3.7`; pure Python; deps `pydantic`, `requests`, `click`, `pystac`, `pystac-client`, `pytz`, `python-dotenv`, `packaging`
 - entry points: console script `planetarycomputer` (`planetary_computer.scripts.cli:app`); library use is import-only
 - capability: SAS signing of Azure Blob Storage HREFs across STAC objects (`Asset`/`Item`/`ItemCollection`/`Collection`), URL/VRT strings, `ItemSearch`, and STAC/Kerchunk mappings; per-account/container token fetch from the SAS endpoint with TTL-bounded caching and HTTP retry; subscription-key injection; optional `adlfs`/`azure-storage-blob` filesystem and container-client construction
 

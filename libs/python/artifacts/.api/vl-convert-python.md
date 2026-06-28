@@ -10,8 +10,7 @@
 - owner: `artifacts`
 - rail: visuals
 - license: BSD-3-Clause (bundles Deno/V8, Vega/Vega-Lite/Vega-Embed JS, and `resvg` for SVG rasterization)
-- asset: runtime library (PyO3 extension over a Rust core embedding a Deno V8 isolate); `cp37-abi3` wheel, cp315-clean (`Requires-Python>=3.7`, no `python_version` marker)
-- installed: `1.9.0` reflected via `import vl_convert` on cp315 (wheel `vl_convert_python-1.9.0.post1`; module `__version__` is `1.9.0`, the `.post1` is a wheel-only re-tag)
+- installed: `1.9.0.post1`
 - entry points: none (library only)
 - capability: headless Vega-Lite/Vega-to-SVG/PNG/JPEG/PDF/HTML/scenegraph static rendering; standalone SVG-string rasterization to PNG/JPEG/PDF; Vega-Lite-to-Vega compilation; editor-URL minting; font-directory registration; named-theme/config application; d3-format and d3-time-format locale resolution; Vega-Lite/Vega/Vega-Embed/Vega-Themes version queries; self-contained JS bundle synthesis
 

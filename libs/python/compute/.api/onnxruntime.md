@@ -10,7 +10,6 @@
 - owner: `compute`
 - rail: model
 - license: MIT
-- installed: cp313 only (manifest pin `onnxruntime>=1.27.0; python_version<'3.15'`; no cp315 wheel — gated below `'3.15'` while its `onnx` producer/IR sibling rides cp315 unmarked, so the structural half graduates on cp315 and the runtime half stays cp313)
 - capability: ONNX inference runtime — session load, typed input/output binding, run execution, zero-copy IO binding, model metadata, execution-provider selection with per-provider option dicts, custom-op libraries, ahead-of-time EP compilation, profiling, and sparse-tensor values
 
 ## [02]-[PUBLIC_TYPES]

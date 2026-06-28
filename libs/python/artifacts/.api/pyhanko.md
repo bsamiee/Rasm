@@ -9,9 +9,8 @@
 - import: `pyhanko`
 - owner: `artifacts`
 - rail: pdf
-- version: `0.35.1`; pairs with `pyhanko-certvalidator 0.31.1` for the validation context
+- version: `0.35.1`
 - license: `MIT` (permissive; no copyleft obligation)
-- abi: `py3-none-any` pure Python (`oscrypto`/`asn1crypto`/`cryptography` carry the crypto natives); `Requires-Python >=3.10`; manifest pin `>=0.35.1`
 - entry points: none as a library dependency (the distribution also ships a `pyhanko` CLI, unused by this rail)
 - capability: PDF digital signature (CMS/CAdES/PAdES B-B/B-T/B-LT/B-LTA), document certification (DocMDP/FieldMDP), signature-field + seed-value management, CMS + detached-CMS validation, DSS embedding, RFC 3161 timestamp chaining, LTV archival refresh, pluggable diff analysis, two-phase HSM/remote signing
 

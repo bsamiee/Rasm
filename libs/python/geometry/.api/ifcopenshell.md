@@ -1,6 +1,6 @@
 # [PY_GEOMETRY_API_IFCOPENSHELL]
 
-`ifcopenshell` supplies the IFC model and tessellation surface for the geometry ifc rail and is the spine the whole IfcOpenShell-ecosystem companion lane (`ifcpatch`, `ifcdiff`, `ifcclash`, `ifc4d`, `ifc5d`, `ifctester`, `bcf-client`) composes against: an in-memory `file` model, an `entity_instance` wrapper, the `open` polymorphic reader across SPF/sqlite/streamed backends, the `api.run(module.action, file, **kwargs)` verb dispatcher for high-level authoring, the `util` analysis namespace, and the `geom` tessellation daemon that drives IFC parse, query, mutation, and IFC-to-mesh/GLB conversion through OpenCASCADE or CGAL kernels with property, quantity, and relationship analysis. The package owner composes `ifcopenshell.open`, `file.by_type`, `api.run`, and `geom.iterate` into the ifc owner; it never re-implements STEP parsing, the authoring verb table, or BREP tessellation ifcopenshell already owns.
+`ifcopenshell` supplies the IFC model and tessellation surface for the geometry ifc rail and is the spine the whole IfcOpenShell-ecosystem worker lane (`ifcpatch`, `ifcdiff`, `ifcclash`, `ifc4d`, `ifc5d`, `ifctester`, `bcf-client`) composes against: an in-memory `file` model, an `entity_instance` wrapper, the `open` polymorphic reader across SPF/sqlite/streamed backends, the `api.run(module.action, file, **kwargs)` verb dispatcher for high-level authoring, the `util` analysis namespace, and the `geom` tessellation daemon that drives IFC parse, query, mutation, and IFC-to-mesh/GLB conversion through OpenCASCADE or CGAL kernels with property, quantity, and relationship analysis. The package owner composes `ifcopenshell.open`, `file.by_type`, `api.run`, and `geom.iterate` into the ifc owner; it never re-implements STEP parsing, the authoring verb table, or BREP tessellation ifcopenshell already owns.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -9,8 +9,7 @@
 - import: `import ifcopenshell`
 - owner: `geometry`
 - rail: ifc
-- spine: the geometry ifc/* pages and the IfcOpenShell companion lane treat `ifcopenshell` as the cp315-core IFC spine per campaign decision; the companion packages ride it and resolve where it resolves
-- installed: `0.8.5` authored from ledger ([04]-sourced; `assay api` resolution blocked by the `opentelemetry-proto` `protobuf>=5,<7` ceiling against the workspace `protobuf>=7.35` floor — a workspace lock conflict, not an interpreter or wheel fault for ifcopenshell); license LGPL-3.0-or-later; ships a prebuilt `py313` (cp313) wheel and carries no cp315 wheel, so it does not import on the cp315 (`3.15.0b2`) core today => designated cp315-core spine, gap reconciled in a later phase
+- installed: `0.8.5`
 - entry points: none (library only)
 - capability: IFC2X3/IFC4/IFC4X3 read/write, `api.run` high-level authoring verb dispatch, entity creation and mutation, transactional undo/redo, GUID encode/decode, placement and unit math, schema introspection, OpenCASCADE/CGAL tessellation to verts/faces/materials, parallel whole-model meshing, GLB/OBJ/XML serialization, and selector-grammar element queries
 
@@ -138,10 +137,6 @@ Tessellation rows consume a `geom.settings` knob bag and a `geom.GEOMETRY_LIBRAR
 
 [RAIL_LAW]:
 - Package: `ifcopenshell`
-- Owns: IFC read/write, the `api.run` authoring verb dispatch, entity mutation and transactions, schema introspection, GUID coding, placement/unit math, OpenCASCADE/CGAL tessellation to mesh/GLB, and selector-grammar queries — the cp315-core IFC spine the companion lane composes against
-- Accept: IFC ingestion, `api.run` authoring, mutation, and IFC-to-mesh conversion feeding the ifc and geometry owners and the IfcOpenShell companion lane
 - Reject: wrapper-renames of `open`/`by_type`/`create_shape`; a per-verb authoring function family over the `api.run` `module.action` row; a hand-rolled STEP parser or BREP tessellator where ifcopenshell is admitted; per-key getter families over `by_id`/`by_guid`/`by_type`; identity minting the runtime owns
 
 [CAPTURE_GAP]:
-- floor: `ifcopenshell==0.8.5` ships prebuilt cp312/cp313/cp314 wheels and no cp315 wheel, so it does not import on the cp315 (`3.15.0b2`) core today; `assay api resolve ifcopenshell` returns no source because the workspace lock is unsatisfiable under the `opentelemetry-proto` `protobuf>=5,<7` ceiling against the `protobuf>=7.35` floor — a workspace conflict, not an ifcopenshell fault. The campaign nonetheless designates it the cp315-core IFC spine; a later phase reconciles the wheel/lock gap and does not downgrade the spine role.
-- members: the model roots, the `geom` tessellation types, the `open`/`by_id`/`by_guid`/`by_type`/`create_entity`/`add`/`remove`/`traverse` verbs, the `api.<module>.<action>(ifc_file, **kwargs)` direct callables (and the deprecated `api.run` dispatcher), and the `util.element`/`placement`/`selector`/`unit`/`shape` analysis namespace are decompile-confirmed against the cached `ifcopenshell==0.8.5` cp313 wheel source (`__init__.py`/`file.py`/`entity_instance.py`/`geom/main.py`/`guid.py`/`api/`/`util/`). Confirmed there: `file.traverse(inst, max_levels=None, breadth_first=False)`, `end_transaction()` (no `commit=`), `create_entity(type, schema="IFC4", …)`, `guid.{new,compress,expand,split}`, `geom.GEOMETRY_LIBRARY` literal with `geometry_library="opencascade"` default, and the per-usecase keyword spellings (`spatial.assign_container(products, relating_structure)` / `aggregate.assign_object(products, relating_object)` / `type.assign_type(related_objects, relating_type)`). `geom.has_occ` is evaluated at import and is `False` on a wheel-only install where OpenCASCADE is unlinked; the CGAL/`cgal-simple` kernels remain available.

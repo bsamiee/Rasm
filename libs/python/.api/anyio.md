@@ -7,10 +7,7 @@
 [PACKAGE_SURFACE]: `anyio`
 - package: `anyio`
 - module: `anyio`
-- version-floor: `>=4.14.0`
 - license: MIT
-- wheel: pure-python (`py3-none-any`), no ABI tag; resolves clean on cp315
-- marker: none (core dependency; already transitive via `httpx`/`grpcio` async stacks)
 - asset: runtime library
 - rail: concurrency
 - namespaces: `anyio`, `anyio.abc`, `anyio.lowlevel`, `anyio.streams.{memory,buffered,text,tls,file,stapled}`, `anyio.to_thread`, `anyio.from_thread`, `anyio.to_process`, `anyio.to_interpreter`, `anyio.pytest_plugin`

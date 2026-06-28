@@ -1,23 +1,18 @@
 # [PY_ARTIFACTS_LENS]
 
-The recover-TO half of the bidirectional `document` seam: where `document/model#NODE` `DocumentNode` is the single interior tree every backend lowers FROM, `DocumentLens` is the inverse that recovers a `DocumentNode` tree back OUT of an already-emitted PDF, a scanned raster, or an office/structured-text payload — text, image, word-geometry, region, ruled-table grid, tagged-structure tree, hyperlink, document metadata, full-text search, scanned-page OCR, native outline and embedded-file harvest, form-widget recovery, annotation recovery, and tabular spreadsheet/ODF/`.docx`/YAML/TOML/XML ingest. `DocumentLens` is ONE owner discriminating recovery operation over a `LensOp` closed `StrEnum`, routed by the one `_ROUTES` `frozendict[LensOp, tuple[RecoverArm, LensProvider]]` table whose value binds each op's acceptor to its default engine, never a `get_text`/`get_words`/`extract_images`/`find_tables` verb family and never an `if op == ...` reader ladder. Each `LensProvider` carries its own runtime `band`: the abi3 native wheels (`pymupdf` `cp310-abi3`, `pikepdf` `cp314-abi3`, both forward-compatible to cp315 and ungated in the manifest) resolve in-process on the core beside the pure-Python `pypdf`/`pdfplumber`/`odfpy`/`python-docx`/`ruamel-yaml`/`tomlkit` readers, while only the no-cp315-wheel companions (`ocrmypdf` blocked on the `pi-heif`/`libheif` build, `python-calamine` PyO3/Rust, `lxml` libxml2) cross the `anyio.to_process.run_sync` subprocess seam onto the gated band.
+The recover-TO half of the bidirectional `document` seam: where `document/model#NODE` `DocumentNode` is the single interior tree every backend lowers FROM, `DocumentLens` is the inverse that recovers a `DocumentNode` tree back OUT of an already-emitted PDF, a scanned raster, or an office/structured-text payload — text, image, word-geometry, region, ruled-table grid, tagged-structure tree, hyperlink, document metadata, full-text search, scanned-page OCR, native outline and embedded-file harvest, form-widget recovery, annotation recovery, and tabular spreadsheet/ODF/`.docx`/YAML/TOML/XML ingest. `DocumentLens` is ONE owner discriminating recovery operation over a `LensOp` closed `StrEnum`, routed by the one `_ROUTES` `frozendict[LensOp, tuple[RecoverArm, LensProvider]]` table whose value binds each op's acceptor to its default engine, never a `get_text`/`get_words`/`extract_images`/`find_tables` verb family and never an `if op == ...` reader ladder. Each `LensProvider` carries its own runtime `band`: the native native packages (`pymupdf` `cp310-native`, `pikepdf` `worker-native`, both forward-compatible to runtime and ungated in the manifest) resolve in-process on the core beside the pure-Python `pypdf`/`pdfplumber`/`odfpy`/`python-docx`/`ruamel-yaml`/`tomlkit` readers, while only the no-runtime-package companions (`ocrmypdf` blocked on the `pi-heif`/`libheif` build, `python-calamine` PyO3/Rust, `lxml` libxml2) cross the `anyio.to_process.run_sync` subprocess seam onto the worker lane.
 
-Per-op input is one frozen `LensSpec` admitted exactly once at `DocumentLens.of` through the closed `LensPayload` `TypedDict` and its module-level `TypeAdapter`, the per-op `_REQUIRED` precondition making admission total over well-formed requests — never a `dict[str, object]` bag forwarded into the interior, never re-read by `params.get(...)` per arm. Every recovery steps the frozen owner to `recovered` through `copy.replace` under the `@receipted(Redaction.STRUCTURAL)` weave (the pure `_emit` returning the stepped `Self`, a `ReceiptContributor`, exactly as `document/emit#DOCUMENT` `_emit` returns its stepped plan), and `recover` maps that stepped owner to a `RuntimeRail[ContentKey]`; `contribute` reads the stepped `recovered` and mints the one `core/receipt#RECEIPT` `ArtifactReceipt.Introspection` five-field case folded over `walk`, never an in-process re-run of a worker arm. Production and extraction are inverses over the one node algebra, so a `document/emit#DOCUMENT` emission and a `DocumentLens` recovery round-trip through `DocumentNode` with `DocumentDelta` (`document/model#DELTA`) defined once.
+Per-op input is one frozen `LensSpec` admitted exactly once at `DocumentLens.of` through the closed `LensPayload` `TypedDict` and its module-level `TypeAdapter`, the per-op `_REQUIRED` precondition making admission total over well-formed requests — never a `dict[str, object]` bag forwarded into the interior, never re-read by `params.get(...)` per arm. Every recovery steps the frozen owner to `recovered` through `copy.replace` under the `@receipted(_REDACTION)` weave (the pure `_emit` returning the stepped `Self`, a `ReceiptContributor`, exactly as `document/emit#DOCUMENT` `_emit` returns its stepped plan), and `recover` maps that stepped owner to a `RuntimeRail[ContentKey]`; `contribute` reads the stepped `recovered` and mints the one `core/receipt#RECEIPT` `ArtifactReceipt.Introspection` five-field case folded over `walk`, never an in-process re-run of a worker arm. Production and extraction are inverses over the one node algebra, so a `document/emit#DOCUMENT` emission and a `DocumentLens` recovery round-trip through `DocumentNode` with `DocumentDelta` (`document/model#DELTA`) defined once.
 
 ## [01]-[INDEX]
 
-- [01]-[LENS]: `DocumentLens` (`msgspec.Struct`, frozen) + `LensOp` the closed `StrEnum` of recover-TO operations + `LensProvider` the band-carrying engine vocabulary + `LensSpec`/`LensPayload`/`LensFault` the admitted-once typed input, closed payload, and admission-cause family (mirroring the verified `document/emit#DOCUMENT` `EmitSpec`/`EmitPayload`/`EmitFault` shape) + the one `_ROUTES` `frozendict[LensOp, tuple[RecoverArm, LensProvider]]` op→(acceptor, default-engine) table; text/image/word/table/region/outline/structure/link/metadata/search/ocr/embedded/widget/annotate/spreadsheet/ODF-text/`.docx`/YAML/TOML/XML recovery into `DocumentNode`, one `recover` entrypoint over one `async_boundary`, the gated `ocrmypdf`/`python-calamine`/`lxml` arms on the subprocess seam and every abi3-native + pure-Python arm on the cp315 core selected by the resolved `LensProvider.band`, every node minted through one polymorphic `_node` constructor total over the ten `document/model#NODE` variants.
 
 ## [02]-[LENS]
 
-- Owner: `DocumentLens` the one extraction owner discriminating recovery operation; `LensOp` the closed `StrEnum` of recover-TO operations; `LensProvider` the closed policy-as-value engine vocabulary whose `band` property keys the `_GATED_PROVIDERS` frozenset so the `TABLE`/`SEARCH`/`OCR`/`OUTLINE`/`LINK`/`STRUCTURE` ops that admit two engines dispatch a provider value rather than reconstructing the engine choice; `LensSpec` the one frozen per-op material `Struct` admitted at `.of` through the `LensPayload` `TypedDict(closed=True)` + module-level `TypeAdapter`; `LensFault` the closed `@tagged_union` over the `payload`/`unsatisfied` admission causes; the recovered `DocumentNode` (owned by `document/model#NODE`) is the single interior representation every arm folds back into, never a per-operation result type. One polymorphic `_node(NodeKind, role, page, payload, *, bounds, **slot)` constructor mints every one of the ten variants over a content-keyed `NodeMeta` honoring the real field contract — a `RunNode` carries recovered `font_key`/`size`/`weight`/`italic`/`direction`/`script`/`decorations`/`color` over the full `RunNode` field contract (never the `rtl` field the model retired for `direction`), a `TableNode` carries `spans`/`header_rows`, a `FigureNode` carries `media_type`/`intrinsic`, an `AnnotationNode` carries its `AnnotTarget` `link`, a `StructureNode` carries a full `StructRole`, a `ListNode` carries its `ListKind` — never a `_run_node`/`_figure_node`/`_annotation_node`/`_structure_node` sibling-factory family and never the non-total node match the missing `NodeKind.LIST` arm was; the per-op acceptors are values in the one `_ROUTES` table whose `(arm, default_provider)` row collapses the prior parallel `_ARMS`/`_DEFAULT_PROVIDER` pair into one correspondence, the band recovered once from `provider.band`, never a third reader dispatcher and never an `if op == ...` cascade per band.
+- Owner: `DocumentLens` the one extraction owner discriminating recovery operation; `LensOp` the closed `StrEnum` of recover-TO operations; `LensProvider` the closed policy-as-value engine vocabulary whose `band` property keys the `_GATED_PROVIDERS` frozenset so the `TABLE`/`SEARCH`/`OCR`/`OUTLINE`/`LINK`/`STRUCTURE` ops that admit two engines dispatch a provider value rather than reconstructing the engine choice; `LensSpec` the one frozen per-op material `Struct` admitted at `.of` through the `LensPayload` `TypedDict(closed=True)` + module-level `TypeAdapter`; `LensFault` the closed `@tagged_union` over the `payload`/`unsatisfied` admission causes; the recovered `DocumentNode` (owned by `document/model#NODE`) is the single interior representation every arm folds back into, never a per-operation result type. One polymorphic `_node(NodeKind, role, page, payload, *, bounds, **slot: Unpack[NodeSlot])` constructor mints every one of the ten variants over a `NodeMeta` whose content key joins the structural discriminant (positional `bounds`, else a sibling `ordinal`/position-prefixed payload) to the content so identical-content siblings never collapse onto one slot, the per-kind material admitted through the closed `NodeSlot` `TypedDict` rather than an untyped `**slot: object` bag, honoring the real field contract — a `RunNode` carries recovered `font_key`/`size`/`weight`/`italic`/`direction`/`script`/`decorations`/`color` over the full `RunNode` field contract (never the `rtl` field the model retired for `direction`), a `TableNode` carries `spans`/`header_rows`, a `FigureNode` carries `media_type`/`intrinsic`, an `AnnotationNode` carries its `AnnotTarget` `link`, a `StructureNode` carries a full `StructRole`, a `ListNode` carries its `ListKind` — never a `_run_node`/`_figure_node`/`_annotation_node`/`_structure_node` sibling-factory family and never the non-total node match the missing `NodeKind.LIST` arm was; the per-op acceptors are values in the one `_ROUTES` table whose `(arm, default_provider)` row collapses the prior parallel `_ARMS`/`_DEFAULT_PROVIDER` pair into one correspondence, the band recovered once from `provider.band`, never a third reader dispatcher and never an `if op == ...` cascade per band.
 - Cases: `LensOp` rows `EXTRACT_TEXT` (`LensProvider.PYPDF` core over `PageObject.extract_text(extraction_mode=)` → `RunNode` leaves; the `LensProvider.MUPDF` core row over `Page.get_text("dict", flags=)` whose span `flags` recover `weight`/`italic`/`script` and whose span `color` int unpacks to the `RunNode.color` `Rgb` → `BlockNode` of styled `RunNode` spans) · `EXTRACT_IMAGES` (`LensProvider.PYPDF` core over `PageObject.images` → content-keyed `FigureNode` leaves) · `TABLE` (`LensProvider.PLUMBER` core over pdfplumber `Page.find_tables(table_settings=)`/`Table.extract`/`Table.bbox`/`Table.cells`, or `LensProvider.MUPDF` core over the native `find_tables(vertical_strategy=, horizontal_strategy=, snap_tolerance=, join_tolerance=)` `TableFinder` whose `Table.extract`/`Table.bbox`/`Table.header` carry the grid shape → `TableNode` of `RunNode` cells, the pdfplumber `Table.cells` bbox set folding merged-cell `(row, col, col_span, row_span)` quads into `TableNode.spans` and the MuPDF `Table.header` presence into `TableNode.header_rows`) · `WORDS` (pdfplumber `Page.extract_words(x_tolerance=, y_tolerance=, use_text_flow=, split_at_punctuation=, extra_attrs=("fontname","size"))` lifting each word's `font_key`/`size` off the recovered char attributes → word-geometry `RunNode` leaves, core) · `REGION` (pdfplumber `Page.within_bbox(bbox)`/`CroppedPage.extract_text_lines(strip=, return_chars=)` per-line bbox-restricted recovery → `RunNode` leaves, core) · `OUTLINE` (`LensProvider.MUPDF` core over `Document.get_toc(simple=True)` level/title/page rows → level-resolved `StructureNode` outline tree over the `H1`-`H6` `_HEADING` vocabulary; the `LensProvider.PYPDF` core alternate over `PdfReader.outline` recovering the nested-list depth as the heading level through `_pypdf_outline`) · `STRUCTURE` (`LensProvider.PLUMBER` core over pdfplumber `Page.structure_tree` tagged-PDF logical subtree, or `LensProvider.PIKEPDF` core over the qpdf `Pdf.Root[/StructTreeRoot]`→`/K`→`/S` object walk → `StructureNode` tree whose `_struct_role` resolves each PDF role-name string to a `StandardRole(StructEltKind)` or the one `ForeignRole` escape — the recover-TO inverse the `document/tagged#ACCESS` audit folds over) · `LINK` (`LensProvider.MUPDF` core over `Page.get_links()` URI/GOTO links, or `LensProvider.PLUMBER` core over `Page.hyperlinks` → `AnnotationNode(annot=LINK)` leaves carrying the `AnnotTarget` `Uri(href)`/`Dest(page)` the model owns, so a recovered link round-trips through the emit `#link` lowering rather than dropping its target into `contents`) · `METADATA` (`LensProvider.PYPDF` core over `PdfReader.metadata` info dict → `FieldNode` leaves under one `StructureNode(StructEltKind.DOCUMENT)`, the `_META_KEY` row normalizing each `/Title`/`/Author`/`/Subject`/… key to its canonical field name) · `SEARCH` (`LensProvider.PLUMBER` core over `Page.search(pattern, regex=, case=)`, or `LensProvider.MUPDF` core over `Page.search_for(needle)` → hit-region `AnnotationNode(annot=HIGHLIGHT)` leaves) · `OCR` (`LensProvider.OCRMYPDF` gated over `ocr(source, target, sidecar=, mode=, output_type='pdfa', language=, deskew=, clean=, rotate_pages=, optimize=)` whose `ExitCode` return gates the sidecar text feed, the `pymupdf` single-image intake wrapping a raster losslessly through `new_page`/`Page.insert_image(rect, stream=)` when `not Document.is_pdf`; or `LensProvider.MUPDF` core over the in-process per-page `Page.get_textpage_ocr(language=, dpi=, full=)`→`get_text("words")` graft) · `EMBEDDED` (`LensProvider.MUPDF` core over `Document.embfile_names`/`embfile_get`/`embfile_info` attached-file table → `FieldNode` leaves plus `Page.get_images(full=True)`/`Pixmap(document, xref)` placed rasters → `FigureNode` leaves carrying the pixmap `intrinsic` `(width, height)` and `image/png` `media_type`) · `WIDGET` (`LensProvider.MUPDF` core over `Page.widgets()`/`Widget.field_name`/`field_value`/`field_type` → `FieldNode` leaves, the `field_type` int resolved through `_widget_field` mapping the catalogued `PDF_WIDGET_TYPE_*` symbol names via `getattr` to `FieldKind`) · `ANNOTATE` (`LensProvider.MUPDF` core over `Page.annots()`/`Annot.info`/`Annot.rect`/`Annot.type` → `AnnotationNode` leaves, the `Annot.type[1]` name string resolved through `_annot_kind` to `AnnotKind`) · `ODS_READ` (`LensProvider.ODFPY` core over odfpy `load`/`getElementsByType(Table|TableRow|TableCell)`/`teletype.extractText`/`getAttribute("numbercolumnsrepeated")` run-length cell expansion → `TableNode` of `RunNode` cells per sheet) · `ODT_READ` (`LensProvider.ODFPY` core over odfpy `load(BytesIO)` then a document-order `body.childNodes` walk dispatching each `isInstanceOf(text.H)`/`isInstanceOf(text.P)` element — a `text:h` to a `SectionNode` at its `getAttribute("outlinelevel")` level, a `text:p` to a `BlockNode` of `RunNode`, both content-flattened through `teletype.extractText` — the text-document sibling of `ODS_READ` on the same odfpy core, the recover-TO inverse of the emit `ODT` lowering) · `XLSX_READ` (`LensProvider.CALAMINE` gated over python-calamine `CalamineWorkbook.from_object(BytesIO(payload))`/`sheet_names`/`get_sheet_by_name`/`CalamineSheet.to_python(skip_empty_area=)` → `TableNode` of `RunNode` cells per sheet, `CalamineSheet.merged_cell_ranges` folding into `TableNode.spans`, the OOXML/binary-Excel formats odfpy's OASIS parser does not cover) · `DOCX_READ` (`LensProvider.DOCX` core over python-docx `Document(BytesIO)`/`Document.iter_inner_content()` document-order walk, each heading-styled `Paragraph` folding to a `SectionNode`, each `_DOCX_LIST`-styled run of consecutive paragraphs grouping through `itertools.groupby` into one `ListNode(ListKind)` — the inverse of the emit `List Bullet`/`List Number` lowering, never the deleted `BlockKind.LIST_ITEM` the model retired — each `Table` to a `TableNode`, the tree rooted in one `StructureNode(StructEltKind.DOCUMENT)` carrying the `core_properties.title`/`author`) · `YAML_READ` (`LensProvider.RUAMEL` core over ruamel-yaml `YAML(typ='rt').load_all` — the single-document case subsumed, never a `multi` knob selecting `load` — each mapping folding through `_value_node` to a `BlockNode` of keyed children, each sequence to a `ListNode(ORDERED)`, each scalar to a `RunNode`) · `TOML_READ` (`LensProvider.TOMLKIT` core over tomlkit `parse(payload).unwrap()`, the same `_value_node` recursion) · `XML_READ` (`LensProvider.LXML` gated over lxml `etree.XMLParser(recover=, resolve_entities=False, no_network=True, huge_tree=False)`/`etree.fromstring`, each element folding through `_element_node` into a nested `BlockNode`, ONLY the serialized `DocumentNode` tree crossing back across the interpreter seam) — routed by the one `_ROUTES` row, never an `if op == ...` ladder.
-- Entry: `DocumentLens.of(op, payload, *, provider=None, **raw: Unpack[LensPayload])` admits raw kwargs once through the `_PAYLOAD` `TypeAdapter`, materializes the `LensSpec`, and rejects an op whose `_REQUIRED` field is empty before the interior, returning `Result[Self, LensFault]`. `DocumentLens.recover` is `async` over the runtime `async_boundary`: it runs the `@receipted` `_emit`, which resolves `(arm, default) = _ROUTES[self.op]` and `provider = self.provider or default`, then folds through `provider.band` — a `GATED` row crosses `to_process.run_sync(_gated_recover, self)` onto the worker that re-resolves the SAME `_ROUTES` row and imports `ocrmypdf`/`python_calamine`/`lxml` at boundary scope, while a `CORE` row runs the arm in-process — and returns the stepped `Self` carrying `recovered`; `recover` maps that owner to `RuntimeRail[ContentKey]` keyed by the model `node_digest` merkle over the recovered roots through `ContentIdentity.of`, never a second `msgspec.msgpack` encoder beside the model's canonical codec.
-- Auto: every arm receives `(payload, provider, spec)` and folds the recovered material into the matching `DocumentNode` variant through the one `_node` constructor — the `_value_node` mapping/sequence/scalar recursion the YAML/TOML arms share, the `_element_node` XML recursion, the `_docx_block`/`_docx_blocks` `.docx` walk, and the `_struct_branch`/`_struct_obj` structure walks all mint through that one constructor and read the typed `spec` fields directly (`spec.x_tolerance`, `spec.vertical`, `spec.needle`, `spec.language`, `spec.bbox`) rather than a `params.get(...)` bag. The abi3-native `pymupdf`/`pikepdf` arms and the pure-Python `pypdf`/`pdfplumber`/`odfpy`/`python-docx`/`ruamel-yaml`/`tomlkit` arms resolve in-process on the cp315 core; only the `ocrmypdf`/`python-calamine`/`lxml` arms cross `_gated_recover`, lxml serializing its `_Element` tree to `DocumentNode` before the return so no live unpicklable handle crosses back. `_emit` returns `replace(self, recovered=nodes)`, the stepped owner the `@receipted` weave harvests; the content key is minted by `recover` off `stepped.recovered`, never inside the pure core.
+- Entry: `DocumentLens.of(op, payload, *, provider=None, **raw: Unpack[LensPayload])` admits raw kwargs once through the `_PAYLOAD` `TypeAdapter`, materializes the `LensSpec`, and rejects an op whose `_REQUIRED` field is empty before the interior, returning `Result[Self, LensFault]`. `DocumentLens.recover` is `async` over the runtime `async_boundary`: it runs the `@receipted` `_emit`, which resolves `(arm, default) = _ROUTES[self.op]` and `provider = self.provider or default`, then folds through `provider.band` under the shared `_OFFLOAD` limiter so no synchronous native extraction runs inline on the loop — a `GATED` row crosses `to_process.run_sync(_gated_recover, self)` onto the worker that re-resolves the SAME `_ROUTES` row and reifies the module-scope `lazy` `ocrmypdf`/`python_calamine`/`lxml` bindings, while a `CORE` row crosses `to_thread.run_sync` for the GIL-releasing native extraction — and returns the stepped `Self` carrying `recovered`; `recover` maps that owner to `RuntimeRail[ContentKey]` keyed by the model `node_digest` merkle over the recovered roots through `ContentIdentity.of`, never a second `msgspec.msgpack` encoder beside the model's canonical codec.
 - Receipt: each recovery contributes the `core/receipt#RECEIPT` `ArtifactReceipt.Introspection(key, nodes, text_len, images, hits)` five-field case projected from the stepped `self.recovered` by `walk` folding `isinstance` over the `RunNode`/`FigureNode`/`AnnotationNode` variants — a nested `TableNode`/`ListNode` of `RunNode` cells contributes its full sub-tree text and figure count, the tag riding the encoded `kind` field never a runtime `.tag` attribute. `contribute` reads the stepped `recovered` directly and never re-runs `_emit`, so a worker-gated arm is never re-imported on the core during the receipt harvest; the prior `self.recovered or self._recovered()` re-run fallback is the deleted form.
-- Packages: `pymupdf` (`open(stream=, filetype=)`/`Page.get_text("dict"|"words")`/`find_tables(vertical_strategy=, horizontal_strategy=, snap_tolerance=, join_tolerance=)`/`Table.extract`/`Table.bbox`/`Table.header`/`get_images(full=)`/`Pixmap(doc, xref).tobytes`/`search_for`/`get_textpage_ocr(language=, dpi=, full=)`/`get_links`/`get_toc(simple=)`/`embfile_names`/`embfile_get`/`embfile_info`/`widgets`/`Widget.field_name`/`field_value`/`field_type`/`annots`/`Annot.info`/`Annot.rect`/`Annot.type`/`Document.is_pdf`/`new_page`/`insert_image(rect, stream=)`/`Document.tobytes`, `cp310-abi3` ungated wheel resolving in-process on the core) · `pikepdf` (`open`/`Pdf.Root`/`Name.StructTreeRoot`/`Name.K`/`Name.S`/`Array`/`Dictionary`, `cp314-abi3` ungated wheel, the `STRUCTURE` qpdf alternate on the core) · `pdfplumber` (`open(path_or_fp, repair=)`/`find_tables(table_settings=)`/`Table.extract`/`Table.bbox`/`Table.cells`/`extract_words(...)`/`within_bbox(bbox)`/`extract_text_lines(strip=, return_chars=)`/`search(pattern, regex=, case=)`/`hyperlinks`/`structure_tree`, pure-Python core) · `pypdf` (`PdfReader.extract_text(extraction_mode=)`/`PageObject.images`/`PdfReader.outline`/`PdfReader.metadata`, pure-Python core) · `odfpy` (`opendocument.load`/`getElementsByType`/`teletype.extractText`/`getAttribute`/`Element.isInstanceOf`/`Element.childNodes`/`text.H`/`text.P` over the `OpenDocument.body` walk, pure-Python core) · `python-docx` (`Document(BytesIO)`/`iter_inner_content`/`Paragraph.style`/`Paragraph.runs`/`Run.text`/`Run.bold`/`Run.italic`/`Run.font.name`/`Run.font.size`/`Run.font.underline`/`Run.font.color.rgb`/`Table.rows`/`_Cell.text`/`core_properties`, pure-Python core) · `ruamel-yaml` (`YAML(typ=)`/`load_all`, pure-Python core) · `tomlkit` (`parse(...) -> TOMLDocument`/`unwrap()`, pure-Python core) · `ocrmypdf` (`ocr(..., sidecar=, mode=, output_type=, language=, deskew=, clean=, rotate_pages=, optimize=)` returning `ExitCode` with the `ExitCode.ok`/`ExitCodeException` rail, cp315 install blocked on `pi-heif`/`libheif` so it crosses the subprocess seam) · `python-calamine` (`CalamineWorkbook.from_object`/`sheet_names`/`get_sheet_by_name`/`CalamineSheet.to_python(skip_empty_area=)`/`merged_cell_ranges`, the `CalamineError` family mapped at the worker boundary, no-cp315-wheel PyO3/Rust crossing the subprocess seam) · `lxml` (`etree.XMLParser(recover=, resolve_entities=, no_network=, huge_tree=)`/`fromstring`/`QName`/`tostring`, libxml2 no-cp315-wheel crossing the subprocess seam, serialized-bytes-only return) · `msgspec` (`Struct`/`field` shaping the admitted spec and the frozen owner) · `pydantic` (`TypeAdapter`/`ValidationError` admitting the `LensPayload`); runtime (`content_identity.ContentIdentity`/`ContentKey`, `faults.RuntimeRail`/`async_boundary`, `receipts.Receipt`/`Redaction`/`receipted`, `anyio.to_process.run_sync` the gated subprocess lane); `document/model#NODE` (the ten `DocumentNode` variants + `NodeMeta` + `StandardRole`/`ForeignRole`/`StructRole`/`StructEltKind` + `Uri`/`Dest`/`NoTarget`/`AnnotTarget` + the `NodeKind`/`AnnotKind`/`BlockKind`/`FieldKind`/`ListKind`/`RunScript` tag enums the arms recover into + `walk` + `node_digest` the merkle content-key fold).
-- Growth: a new recovery operation is one `LensOp` row plus one `_ROUTES` `(arm, default_provider)` entry folding into the matching `DocumentNode` case through the one `_node` constructor; a new engine for an existing op is one `LensProvider` member (placed in `_GATED_PROVIDERS` only when its wheel has no cp315 ABI) plus a `provider`-keyed branch on the op's arm, never a parallel op; a new recovered field is one `LensSpec` field plus one `LensPayload` row plus one slot on the `_node` arm. The recovered-tree corpus keys into the runtime columnar lane (consumed from `data`, never re-minted) so a multi-PDF/multi-workbook corpus is one queryable value over the same `DocumentNode` tree emission lowers from; zero new surface.
-- Boundary: `DocumentLens` recovers nodes and never authors, edits, or destroys a document — document authoring (HTML reflow included, never a `pymupdf.Story` arm here) stays at `document/emit#DOCUMENT`, redaction burn-in and confidentiality scrub stay at `document/egress#FINISH`, and the `OCR` arm only grafts a Tesseract text layer over an already-emitted PDF to recover its text. A `get_text`/`get_words`/`extract_images`/`find_tables`/`search`/`get_outline` reader-verb family beside the emit axis is the deleted form; a `_run_node`/`_figure_node`/`_annotation_node`/`_structure_node` sibling-factory family beside the one `_node` constructor, an `if op == ...` per-band cascade, a `_plumber_table`/`_mupdf_table` engine-pair beside the one `TABLE` arm, a `dict[str, object]` `params` bag forwarded into every arm, a `_emit` returning a bare `ContentKey` to a `@receipted` weave that requires a `ReceiptContributor`, a `contribute` re-running a worker arm on the core, a non-total `_node` missing the `NodeKind.LIST` arm, a `BlockKind.LIST_ITEM` reference to a `BlockKind` member the model never declared, a `RunNode(rtl=...)` keyword naming the field the model retired for `direction`, a `multi: bool` YAML knob selecting `load` over the subsuming `load_all`, a `phase` parameter on `contribute` where the receipt owner fixes the constant `"emitted"`, a `Document.is_image` probe where the catalogue exposes `not Document.is_pdf` for the single-image intake gate, a `page` knob on `ANNOTATE` where the recovered annotations carry their own page index over an all-page walk, a `rasm.artifacts.*` import root where the sibling `document/emit#DOCUMENT` axis imports `artifacts.*`, and a `pymupdf`/`pikepdf` arm forced across a subprocess seam its abi3 wheel does not require are the collapsed and corrected forms; the recovered tree is `document/model#NODE` `DocumentNode`, never a re-minted text model. The `OUTLINE`/`EMBEDDED`/`WIDGET` arms read the native `get_toc`/`embfile_*`/`widgets` surface, never re-derive the outline from links or the attached-file table from `get_images`. The OCR single-image intake wraps a raster into a one-page PDF through native `new_page`/`Page.insert_image` gated on `not Document.is_pdf`, never a second raster-to-PDF library; a destructive `apply_redactions`/`Document.scrub` burn-in arm beside the `document/egress#FINISH` `REDACT` finisher and an authoring `Story`/`DocumentWriter` arm beside the emit axis are the deleted forms. The `LINK` arm populates the `AnnotTarget` `link` field rather than dropping the href into `contents` alone, so a recovered hyperlink round-trips its target through the emit `#link` lowering. The `TableNode.spans`/`header_rows` are recovered from the pdfplumber `Table.cells` bbox set and the MuPDF `Table.header`, never dropped. The engine choice on a two-engine op is a `LensProvider` value carrying its own band, never a boolean `native=` knob; the band is the catalogued ABI fact (abi3 → core, no-cp315-wheel → gated), never a blanket subprocess hop. The content key is consumed from runtime, never re-minted; the dispatch/admission shape aligns on the verified `document/emit#DOCUMENT` `EmitSpec`/`EmitPayload`/`.of`/`async_boundary`/`@receipted` idiom so emission and recovery share one admission gate, one fault capsule, and one receipt weave.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -28,9 +23,10 @@ from io import BytesIO
 from itertools import groupby
 from typing import Final, Literal, NotRequired, ReadOnly, Self, TypedDict, Unpack, assert_never
 
-from anyio import to_process
+from anyio import CapacityLimiter, to_process, to_thread
 from builtins import frozendict
 from expression import Error, Ok, Result, case, tag, tagged_union
+from expression.collections import Map
 from msgspec import Struct, field
 from pydantic import TypeAdapter, ValidationError
 
@@ -43,6 +39,7 @@ from artifacts.document.model import (
     BlockNode,
     Dest,
     DocumentNode,
+    FieldFlag,
     FieldKind,
     FieldNode,
     FigureNode,
@@ -69,7 +66,23 @@ from artifacts.document.model import (
 )
 from rasm.runtime.content_identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import RuntimeRail, async_boundary
-from rasm.runtime.receipts import Receipt, Redaction, receipted
+from rasm.runtime.receipts import OPEN, Receipt, receipted
+
+lazy import docx
+lazy import ocrmypdf
+lazy import pdfplumber
+lazy import pikepdf
+lazy import pymupdf
+lazy import pypdf
+lazy import python_calamine
+lazy import tomlkit
+lazy from lxml import etree
+lazy from odf.opendocument import load
+lazy from odf.table import Table, TableCell, TableRow
+lazy from odf.teletype import extractText
+lazy from odf.text import H, P
+lazy from ruamel.yaml import YAML
+lazy from tempfile import NamedTemporaryFile
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -128,6 +141,9 @@ class LensProvider(StrEnum):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
+# the keep-all redaction the `@receipted` weave rides; `Redaction` is a `Struct(classified, salt)` with
+# NO named instances, so `Redaction.STRUCTURAL` was a phantom — the empty `classified` map scrubs nothing.
+_REDACTION: Final[Redaction] = Redaction(classified=Map.empty())
 _ORIGIN: Final[Bounds] = (0.0, 0.0, 0.0, 0.0)
 _RECOVERED_FONT: Final[str] = "recovered"
 _HEADING_FLOOR: Final[int] = 1
@@ -135,11 +151,10 @@ _HEADING_CEIL: Final[int] = 6
 _BOLD_FLAG: Final[int] = 16   # pymupdf span flag bit 4 — bold
 _ITALIC_FLAG: Final[int] = 2  # pymupdf span flag bit 1 — italic
 _SUPER_FLAG: Final[int] = 1   # pymupdf span flag bit 0 — superscript
-# abi3 native wheels (pymupdf cp310, pikepdf cp314) are forward-compatible to cp315 and resolve in-process;
-# only the no-cp315-wheel companions cross the `to_process.run_sync` seam — the band is the catalogued ABI fact.
 _GATED_PROVIDERS: Final[frozenset[LensProvider]] = frozenset(
     {LensProvider.OCRMYPDF, LensProvider.CALAMINE, LensProvider.LXML}
 )
+_OFFLOAD: Final = CapacityLimiter(8)  # bounds the native-extraction thread/process fan-out so no arm runs inline on the loop
 _HEADING: Final[tuple[StructEltKind, ...]] = (
     StructEltKind.H1, StructEltKind.H2, StructEltKind.H3, StructEltKind.H4, StructEltKind.H5, StructEltKind.H6,
 )
@@ -207,14 +222,16 @@ class DocumentLens(Struct, frozen=True):
     provider: LensProvider | None = None
     recovered: tuple[DocumentNode, ...] = ()
 
-    @receipted(Redaction.STRUCTURAL)  # the harvest weave drains `contribute` off the stepped owner via `Signals.emit_async`
+    @receipted(_REDACTION)  # the harvest weave drains `contribute` off the stepped owner via `Signals.emit_async`
     async def _emit(self) -> Self:
+        # the synchronous native extraction NEVER runs inline on the loop: a GATED arm crosses the process seam,
+        # a CORE arm the GIL-releasing thread seam, each bounded by the shared `_OFFLOAD` limiter.
         arm, default = _ROUTES[self.op]
         provider = self.provider or default
         nodes = (
-            await to_process.run_sync(_gated_recover, self)
+            await to_process.run_sync(_gated_recover, self, limiter=_OFFLOAD)
             if provider.band is LensBand.GATED
-            else arm(self.payload, provider, self.spec)
+            else await to_thread.run_sync(arm, self.payload, provider, self.spec, limiter=_OFFLOAD)
         )
         return replace(self, recovered=nodes)
 
@@ -301,25 +318,67 @@ _REQUIRED: Final[frozendict[LensOp, tuple[str, ...]]] = frozendict({
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _node(kind: NodeKind, role: str, page: int, payload: bytes, *, bounds: Bounds | None = None, **slot: object) -> DocumentNode:
-    meta = NodeMeta(key=ContentIdentity.of(f"node-{role}", payload), role=role, page=page, bounds=bounds)
+class NodeSlot(TypedDict, total=False, closed=True):
+    # the closed per-kind construction payload `_node` admits — typed ingress replacing the `**slot: object`
+    # bag; `ordinal` is the sibling discriminant the content key folds when a node carries no positional `bounds`.
+    ordinal: int
+    text: str
+    font_key: str
+    size: float
+    weight: int
+    italic: bool
+    direction: TextDirection
+    script: RunScript
+    decorations: tuple[TextDecoration, ...]
+    color: tuple[int, int, int]
+    name: str
+    alt: str
+    media_type: str
+    intrinsic: tuple[float, float] | None
+    caption: tuple[DocumentNode, ...]
+    rows: tuple[tuple[DocumentNode, ...], ...]
+    spans: Spans
+    header_rows: int
+    field: FieldKind
+    value: str | bool | None
+    flags: tuple[FieldFlag, ...]
+    options: tuple[str, ...]
+    annot: AnnotKind
+    contents: str
+    link: AnnotTarget
+    struct_role: StructRole | None
+    elt: StructEltKind
+    children: tuple[DocumentNode, ...]
+    level: int
+    heading: tuple[DocumentNode, ...]
+    block: BlockKind
+    runs: tuple[DocumentNode, ...]
+    list_kind: ListKind
+    items: tuple[DocumentNode, ...]
+
+
+def _node(kind: NodeKind, role: str, page: int, payload: bytes, *, bounds: Bounds | None = None, **slot: Unpack[NodeSlot]) -> DocumentNode:
+    # the content key joins the STRUCTURAL discriminant (positional `bounds`, else the sibling `ordinal`) to the
+    # payload so two identical-content siblings under one parent never collapse onto one slot (`boundaries.md` MEMO_KEY).
+    seed = repr(bounds).encode() if bounds is not None else f"#{slot.get('ordinal', 0)}".encode()
+    meta = NodeMeta(key=ContentIdentity.of(f"node-{role}-{page}", seed + payload), role=role, page=page, bounds=bounds)
     match kind:
         case NodeKind.RUN:
-            return RunNode(meta=meta, text=str(slot["text"]), font_key=str(slot.get("font_key", _RECOVERED_FONT)), size=float(slot.get("size", 0.0)), weight=int(slot.get("weight", 400)), italic=bool(slot.get("italic", False)), direction=slot.get("direction", TextDirection.AUTO), script=slot.get("script", RunScript.NORMAL), decorations=slot.get("decorations", ()), color=slot.get("color", (0, 0, 0)))
+            return RunNode(meta=meta, text=slot.get("text", ""), font_key=slot.get("font_key", _RECOVERED_FONT), size=slot.get("size", 0.0), weight=slot.get("weight", 400), italic=slot.get("italic", False), direction=slot.get("direction", TextDirection.AUTO), script=slot.get("script", RunScript.NORMAL), decorations=slot.get("decorations", ()), color=slot.get("color", (0, 0, 0)))
         case NodeKind.FIGURE:
-            return FigureNode(meta=meta, asset_key=ContentIdentity.of(f"asset-{slot['name']}", payload), alt=str(slot.get("alt", "")), media_type=str(slot.get("media_type", "image/png")), intrinsic=slot.get("intrinsic"), caption=slot.get("caption", ()))
+            return FigureNode(meta=meta, asset_key=ContentIdentity.of(f"asset-{slot['name']}", payload), alt=slot.get("alt", ""), media_type=slot.get("media_type", "image/png"), intrinsic=slot.get("intrinsic"), caption=slot.get("caption", ()))
         case NodeKind.TABLE:
-            return TableNode(meta=meta, rows=slot["rows"], spans=slot.get("spans", ()), header_rows=int(slot.get("header_rows", 0)))
+            return TableNode(meta=meta, rows=slot.get("rows", ()), spans=slot.get("spans", ()), header_rows=slot.get("header_rows", 0))
         case NodeKind.FIELD:
-            return FieldNode(meta=meta, name=str(slot["name"]), field=slot.get("field", FieldKind.TEXT), value=slot.get("value"), flags=slot.get("flags", ()), options=slot.get("options", ()))
+            return FieldNode(meta=meta, name=slot["name"], field=slot.get("field", FieldKind.TEXT), value=slot.get("value"), flags=slot.get("flags", ()), options=slot.get("options", ()))
         case NodeKind.ANNOTATION:
-            return AnnotationNode(meta=meta, annot=slot["annot"], target=bounds or _ORIGIN, contents=str(slot.get("contents", "")), link=slot.get("link", NoTarget()))
+            return AnnotationNode(meta=meta, annot=slot.get("annot", AnnotKind.NOTE), target=bounds or _ORIGIN, contents=slot.get("contents", ""), link=slot.get("link", NoTarget()))
         case NodeKind.STRUCTURE:
             return StructureNode(meta=meta, role=slot.get("struct_role") or StandardRole(elt=slot.get("elt", StructEltKind.SECT)), children=slot.get("children", ()))
         case NodeKind.SECTION:
-            return SectionNode(meta=meta, level=int(slot.get("level", 1)), heading=slot.get("heading", ()), children=slot.get("children", ()))
+            return SectionNode(meta=meta, level=slot.get("level", 1), heading=slot.get("heading", ()), children=slot.get("children", ()))
         case NodeKind.BLOCK:
-            return BlockNode(meta=meta, block=slot.get("block", BlockKind.PARAGRAPH), level=int(slot.get("level", 1)), runs=slot.get("runs", ()), children=slot.get("children", ()))
+            return BlockNode(meta=meta, block=slot.get("block", BlockKind.PARAGRAPH), level=slot.get("level", 1), runs=slot.get("runs", ()), children=slot.get("children", ()))
         case NodeKind.LIST:
             return ListNode(meta=meta, list_kind=slot.get("list_kind", ListKind.UNORDERED), items=slot.get("items", ()))
         case NodeKind.PAGE:
@@ -334,15 +393,15 @@ def _rgb(color: int) -> tuple[int, int, int]:
 
 def _table_node(grid: Grid, bbox: Bounds, page: int, *, role: str = "table", spans: Spans = (), header_rows: int = 0) -> TableNode:
     rows = tuple(
-        tuple(_node(NodeKind.RUN, "cell", page, (cell or "").encode(), text=cell or "") for cell in row)
-        for row in grid
+        tuple(_node(NodeKind.RUN, "cell", page, f"{r}:{c}:{cell or ''}".encode(), text=cell or "") for c, cell in enumerate(row))
+        for r, row in enumerate(grid)  # the `r:c:` payload prefix keys identical-content cells (empty, repeated) distinctly
     )
     return _node(NodeKind.TABLE, role, page, repr(grid).encode(), bounds=bbox, rows=rows, spans=spans, header_rows=header_rows)
 
 
-def _outline_node(level: int, title: str, page: int) -> DocumentNode:
+def _outline_node(level: int, title: str, page: int, ordinal: int = 0, /) -> DocumentNode:
     elt = _HEADING[min(max(level, _HEADING_FLOOR), _HEADING_CEIL) - 1]
-    return _node(NodeKind.STRUCTURE, title, page, f"{elt.value}:{title}".encode(), elt=elt)
+    return _node(NodeKind.STRUCTURE, title, page, f"{ordinal}:{elt.value}:{title}".encode(), elt=elt)  # ordinal keys same-title siblings distinctly
 
 
 def _struct_role(name: str) -> StructRole:
@@ -361,8 +420,6 @@ def _link_target(link: Mapping[str, object]) -> AnnotTarget:
 
 def _text_arm(payload: bytes, provider: LensProvider, spec: LensSpec) -> tuple[DocumentNode, ...]:
     if provider is LensProvider.MUPDF:
-        import pymupdf
-
         with pymupdf.open(stream=payload, filetype="pdf") as document:
             return tuple(
                 _node(
@@ -386,8 +443,6 @@ def _text_arm(payload: bytes, provider: LensProvider, spec: LensSpec) -> tuple[D
                 for block in page.get_text("dict", flags=spec.flags or pymupdf.TEXTFLAGS_DICT)["blocks"]
                 if block.get("type", 1) == 0
             )
-    import pypdf
-
     reader = pypdf.PdfReader(BytesIO(payload))
     return tuple(
         _node(NodeKind.RUN, "run", index, text.encode(), text=text)
@@ -397,8 +452,6 @@ def _text_arm(payload: bytes, provider: LensProvider, spec: LensSpec) -> tuple[D
 
 
 def _images_arm(payload: bytes, _provider: LensProvider, _spec: LensSpec) -> tuple[DocumentNode, ...]:
-    import pypdf
-
     reader = pypdf.PdfReader(BytesIO(payload))
     return tuple(
         _node(NodeKind.FIGURE, "figure", index, image.data, name=image.name)
@@ -408,8 +461,6 @@ def _images_arm(payload: bytes, _provider: LensProvider, _spec: LensSpec) -> tup
 
 
 def _words_arm(payload: bytes, _provider: LensProvider, spec: LensSpec) -> tuple[DocumentNode, ...]:
-    import pdfplumber
-
     with pdfplumber.open(BytesIO(payload), repair=spec.repair) as document:
         return tuple(
             _node(
@@ -426,8 +477,6 @@ def _words_arm(payload: bytes, _provider: LensProvider, spec: LensSpec) -> tuple
 
 
 def _region_arm(payload: bytes, _provider: LensProvider, spec: LensSpec) -> tuple[DocumentNode, ...]:
-    import pdfplumber
-
     bbox = spec.bbox or _ORIGIN
     with pdfplumber.open(BytesIO(payload), repair=spec.repair) as document:
         return tuple(
@@ -444,16 +493,12 @@ def _table_arm(payload: bytes, provider: LensProvider, spec: LensSpec) -> tuple[
         "edge_min_length": spec.edge_min_length, "intersection_tolerance": spec.intersection_tolerance, "text_tolerance": spec.text_tolerance,
     }
     if provider is LensProvider.MUPDF:
-        import pymupdf
-
         with pymupdf.open(stream=payload, filetype="pdf") as document:
             return tuple(
                 _table_node(table.extract(), tuple(table.bbox), index, header_rows=1 if table.header else 0)
                 for index, page in enumerate(document)
                 for table in page.find_tables(**settings).tables
             )
-    import pdfplumber
-
     plumber = settings | {
         key: list(value)
         for key, value in (("explicit_vertical_lines", spec.explicit_vertical), ("explicit_horizontal_lines", spec.explicit_horizontal))
@@ -480,32 +525,24 @@ def _plumber_spans(table: object) -> Spans:
 
 def _outline_arm(payload: bytes, provider: LensProvider, _spec: LensSpec) -> tuple[DocumentNode, ...]:
     if provider is LensProvider.MUPDF:
-        import pymupdf
-
         with pymupdf.open(stream=payload, filetype="pdf") as document:
-            return tuple(_outline_node(level, title, page) for level, title, page in document.get_toc(simple=True))
-    import pypdf
-
+            return tuple(_outline_node(level, title, page, ordinal) for ordinal, (level, title, page) in enumerate(document.get_toc(simple=True)))
     reader = pypdf.PdfReader(BytesIO(payload))
     return tuple(_pypdf_outline(reader.outline, _HEADING_FLOOR))
 
 
 def _pypdf_outline(items: Iterable[object], level: int) -> Iterator[DocumentNode]:
-    for item in items:
+    for ordinal, item in enumerate(items):
         if isinstance(item, list):
             yield from _pypdf_outline(item, level + 1)
         else:
-            yield _outline_node(level, item.title, 0)
+            yield _outline_node(level, item.title, 0, level * 10_000 + ordinal)  # level-scoped ordinal distinguishes page-0 outline siblings
 
 
 def _structure_arm(payload: bytes, provider: LensProvider, _spec: LensSpec) -> tuple[DocumentNode, ...]:
     if provider is LensProvider.PLUMBER:
-        import pdfplumber
-
         with pdfplumber.open(BytesIO(payload)) as document:
             return tuple(_struct_branch(branch, index) for index, page in enumerate(document.pages) for branch in page.structure_tree)
-    import pikepdf
-
     with pikepdf.open(BytesIO(payload)) as pdf:
         root = pdf.Root.get(pikepdf.Name.StructTreeRoot)
         return tuple(_struct_obj(kid) for kid in root.get(pikepdf.Name.K, pikepdf.Array())) if root is not None else ()
@@ -518,8 +555,6 @@ def _struct_branch(branch: Mapping[str, object], page: int) -> DocumentNode:
 
 
 def _struct_obj(obj: object, page: int = 0) -> DocumentNode:
-    import pikepdf
-
     if not isinstance(obj, pikepdf.Dictionary):
         return _node(NodeKind.STRUCTURE, "Sect", page, str(obj).encode(), struct_role=StandardRole(elt=StructEltKind.SECT))
     name = str(obj.get(pikepdf.Name.S, "")).removeprefix("/")
@@ -529,16 +564,12 @@ def _struct_obj(obj: object, page: int = 0) -> DocumentNode:
 
 def _link_arm(payload: bytes, provider: LensProvider, spec: LensSpec) -> tuple[DocumentNode, ...]:
     if provider is LensProvider.MUPDF:
-        import pymupdf
-
         with pymupdf.open(stream=payload, filetype="pdf") as document:
             return tuple(
                 _node(NodeKind.ANNOTATION, "link", index, str(link.get("uri", link.get("page", ""))).encode(), bounds=tuple(link["from"]), annot=AnnotKind.LINK, contents=str(link.get("uri", "")), link=_link_target(link))
                 for index, page in enumerate(document)
                 for link in page.get_links()
             )
-    import pdfplumber
-
     with pdfplumber.open(BytesIO(payload), repair=spec.repair) as document:
         return tuple(
             _node(NodeKind.ANNOTATION, "link", index, str(hit.get("uri", "")).encode(), bounds=(hit["x0"], hit["top"], hit["x1"], hit["bottom"]), annot=AnnotKind.LINK, contents=str(hit.get("uri", "")), link=Uri(href=str(hit["uri"])))
@@ -548,8 +579,6 @@ def _link_arm(payload: bytes, provider: LensProvider, spec: LensSpec) -> tuple[D
 
 
 def _metadata_arm(payload: bytes, _provider: LensProvider, _spec: LensSpec) -> tuple[DocumentNode, ...]:
-    import pypdf
-
     reader = pypdf.PdfReader(BytesIO(payload))
     info = reader.metadata or {}
     fields = tuple(
@@ -564,16 +593,12 @@ def _metadata_arm(payload: bytes, _provider: LensProvider, _spec: LensSpec) -> t
 def _search_arm(payload: bytes, provider: LensProvider, spec: LensSpec) -> tuple[DocumentNode, ...]:
     needle = spec.needle
     if provider is LensProvider.MUPDF:
-        import pymupdf
-
         with pymupdf.open(stream=payload, filetype="pdf") as document:
             return tuple(
                 _node(NodeKind.ANNOTATION, "hit", index, needle.encode(), bounds=tuple(rect), annot=AnnotKind.HIGHLIGHT, contents=needle)
                 for index, page in enumerate(document)
                 for rect in page.search_for(needle)
             )
-    import pdfplumber
-
     with pdfplumber.open(BytesIO(payload), repair=spec.repair) as document:
         return tuple(
             _node(NodeKind.ANNOTATION, "hit", index, needle.encode(), bounds=(hit["x0"], hit["top"], hit["x1"], hit["bottom"]), annot=AnnotKind.HIGHLIGHT, contents=needle)
@@ -583,8 +608,6 @@ def _search_arm(payload: bytes, provider: LensProvider, spec: LensSpec) -> tuple
 
 
 def _ocr_arm(payload: bytes, provider: LensProvider, spec: LensSpec) -> tuple[DocumentNode, ...]:
-    import pymupdf
-
     if provider is LensProvider.MUPDF:
         with pymupdf.open(stream=payload, filetype=spec.filetype) as document:
             language = "+".join(spec.language)
@@ -593,16 +616,12 @@ def _ocr_arm(payload: bytes, provider: LensProvider, spec: LensSpec) -> tuple[Do
                 for index, page in enumerate(document)
                 for word in page.get_text("words", textpage=page.get_textpage_ocr(language=language, dpi=spec.dpi, full=spec.full))
             )
-    from tempfile import NamedTemporaryFile
-
-    import ocrmypdf
-
-    intake = pymupdf.open(stream=payload, filetype=spec.filetype)
-    if not intake.is_pdf:  # Exemption: native single-image intake wraps a raster into a one-page PDF for the OCR feed.
-        canvas = pymupdf.open()
-        page = canvas.new_page(width=intake[0].rect.width, height=intake[0].rect.height)
-        page.insert_image(page.rect, stream=payload)
-        payload = canvas.tobytes()
+    with pymupdf.open(stream=payload, filetype=spec.filetype) as intake:  # deterministic close, never GC-reaped
+        if not intake.is_pdf:  # Exemption: native single-image intake wraps a raster into a one-page PDF for the OCR feed
+            with pymupdf.open() as canvas:
+                page = canvas.new_page(width=intake[0].rect.width, height=intake[0].rect.height)
+                page.insert_image(page.rect, stream=payload)
+                payload = canvas.tobytes()
     with NamedTemporaryFile(suffix=".pdf") as source, NamedTemporaryFile(suffix=".pdf") as target, NamedTemporaryFile(suffix=".txt") as sidecar:
         source.write(payload)
         source.flush()
@@ -618,8 +637,6 @@ def _ocr_arm(payload: bytes, provider: LensProvider, spec: LensSpec) -> tuple[Do
 
 
 def _embedded_arm(payload: bytes, _provider: LensProvider, _spec: LensSpec) -> tuple[DocumentNode, ...]:
-    import pymupdf
-
     with pymupdf.open(stream=payload, filetype="pdf") as document:
         fields = tuple(
             _node(NodeKind.FIELD, "embedded", 0, document.embfile_get(name), field=FieldKind.TEXT, name=name, value=document.embfile_info(name)["filename"])
@@ -635,8 +652,6 @@ def _embedded_arm(payload: bytes, _provider: LensProvider, _spec: LensSpec) -> t
 
 
 def _widget_arm(payload: bytes, _provider: LensProvider, _spec: LensSpec) -> tuple[DocumentNode, ...]:
-    import pymupdf
-
     with pymupdf.open(stream=payload, filetype="pdf") as document:
         return tuple(
             _node(NodeKind.FIELD, widget.field_name, index, str(widget.field_value).encode(), field=_widget_field(pymupdf, widget.field_type), name=widget.field_name, value=widget.field_value)
@@ -646,8 +661,6 @@ def _widget_arm(payload: bytes, _provider: LensProvider, _spec: LensSpec) -> tup
 
 
 def _annotate_arm(payload: bytes, _provider: LensProvider, _spec: LensSpec) -> tuple[DocumentNode, ...]:
-    import pymupdf
-
     with pymupdf.open(stream=payload, filetype="pdf") as document:
         return tuple(
             _node(NodeKind.ANNOTATION, "annotation", index, annot.info["content"].encode(), bounds=tuple(annot.rect), annot=_annot_kind(annot.type[1]), contents=annot.info["content"])
@@ -666,10 +679,6 @@ def _annot_kind(name: str) -> AnnotKind:
 
 
 def _ods_arm(payload: bytes, _provider: LensProvider, _spec: LensSpec) -> tuple[DocumentNode, ...]:
-    from odf.opendocument import load
-    from odf.table import Table, TableCell, TableRow
-    from odf.teletype import extractText
-
     document = load(BytesIO(payload))
     return tuple(
         _table_node(
@@ -688,17 +697,12 @@ def _ods_arm(payload: bytes, _provider: LensProvider, _spec: LensSpec) -> tuple[
 
 
 def _odt_arm(payload: bytes, _provider: LensProvider, _spec: LensSpec) -> tuple[DocumentNode, ...]:
-    from odf.opendocument import load
-
     document = load(BytesIO(payload))
     blocks = tuple(_odt_blocks(document.body.childNodes))
     return (_node(NodeKind.STRUCTURE, "document", 0, b"odt", elt=StructEltKind.DOCUMENT, children=blocks),)
 
 
 def _odt_blocks(nodes: Iterable[object]) -> Iterator[DocumentNode]:
-    from odf.teletype import extractText
-    from odf.text import H, P
-
     for index, node in enumerate(nodes):
         probe = getattr(node, "isInstanceOf", None)  # `text:p`/`text:h` are Elements; a Text leaf carries no `isInstanceOf`
         if probe is None:
@@ -714,8 +718,6 @@ def _odt_blocks(nodes: Iterable[object]) -> Iterator[DocumentNode]:
 
 
 def _xlsx_arm(payload: bytes, _provider: LensProvider, spec: LensSpec) -> tuple[DocumentNode, ...]:
-    import python_calamine
-
     workbook = python_calamine.CalamineWorkbook.from_object(BytesIO(payload), load_tables=spec.load_tables)
     sheets = spec.sheets or tuple(workbook.sheet_names)
     return tuple(
@@ -737,8 +739,6 @@ def _calamine_spans(ranges: object) -> Spans:
 
 
 def _docx_arm(payload: bytes, _provider: LensProvider, _spec: LensSpec) -> tuple[DocumentNode, ...]:
-    import docx
-
     document = docx.Document(BytesIO(payload))
     blocks = tuple(_docx_blocks(enumerate(document.iter_inner_content())))
     props = document.core_properties
@@ -784,15 +784,11 @@ def _docx_runs(block: object, index: int) -> tuple[DocumentNode, ...]:
 
 
 def _yaml_arm(payload: bytes, _provider: LensProvider, spec: LensSpec) -> tuple[DocumentNode, ...]:
-    from ruamel.yaml import YAML
-
     engine = YAML(typ=spec.typ)
     return tuple(_value_node(document, "yaml", index) for index, document in enumerate(engine.load_all(BytesIO(payload))))
 
 
 def _toml_arm(payload: bytes, _provider: LensProvider, _spec: LensSpec) -> tuple[DocumentNode, ...]:
-    import tomlkit
-
     return (_value_node(tomlkit.parse(payload).unwrap(), "toml", 0),)
 
 
@@ -808,15 +804,11 @@ def _value_node(value: object, role: str, page: int, *, key: str = "") -> Docume
 
 
 def _xml_arm(payload: bytes, _provider: LensProvider, spec: LensSpec) -> tuple[DocumentNode, ...]:
-    from lxml import etree
-
     parser = etree.XMLParser(recover=spec.recover, resolve_entities=False, no_network=True, huge_tree=False)
     return (_element_node(etree.fromstring(payload, parser=parser), 0),)
 
 
 def _element_node(element: object, page: int) -> DocumentNode:
-    from lxml import etree
-
     tag = etree.QName(element).localname if isinstance(element.tag, str) else "comment"
     text = (element.text or "").strip()
     runs = (_node(NodeKind.RUN, tag, page, text.encode(), text=text),) if text else ()
@@ -878,10 +870,8 @@ _ROUTES: Final[frozendict[LensOp, tuple[RecoverArm, LensProvider]]] = frozendict
 
 ## [03]-[RESEARCH]
 
-- [BAND_IS_ABI_NOT_BLANKET]: the gated band is the catalogued ABI fact, not a blanket native-parser subprocess hop. `.api/pymupdf.md` `[01]` reflects `cp310-abi3` "stable-ABI wheels ... forward compatibility to cp315+ ... ungated in the manifest", and `.api/pikepdf.md` `[01]` reflects `cp314-abi3` ungated — both resolve `import pymupdf`/`import pikepdf` in-process on the cp315 core, exactly as `document/emit#DOCUMENT` runs its `pymupdf` render and `pikepdf` repair arms. Only three providers genuinely lack a cp315 wheel: `.api/ocrmypdf.md` `[01]` records the cp315 install "blocked only by `pi-heif` -> `libheif`"; `.api/python-calamine.md` `[01]` records "NO `cp315` wheel and NO `none-any`/`abi3` wheel exists" for the PyO3/Rust binding (`python_version<'3.15'`); `lxml` binds libxml2 with no cp315 wheel (the same gate `document/emit#DOCUMENT` applies to its lxml rows). So `_GATED_PROVIDERS` is exactly `{OCRMYPDF, CALAMINE, LXML}` and every `pymupdf`/`pikepdf`/`pypdf`/`pdfplumber`/`odfpy`/`python-docx`/`ruamel-yaml`/`tomlkit` arm runs on the core — the prior page forcing the abi3 `pymupdf` arms across a `python_version<'3.15'` subprocess was a factual error contradicting both the catalogue and the sibling emit page, the deleted form. The `OCR` op still rides one arm fronting two engines: the `LensProvider.MUPDF` `get_textpage_ocr` graft runs in-process on the core, the `LensProvider.OCRMYPDF` PDF/A pipeline crosses the seam, the band riding the provider.
 - [WIDGET_ANNOT_DISCRIMINANTS_RESOLVED]: the prior int-discriminant RESEARCH deferral is closed against the verified catalogue surface. `.api/pymupdf.md` `[02]` row `[04]` carries `Annot.type -> (int, str)` where the second element is the PDF annotation-subtype name string, and `[07]` enumerates the `PDF_ANNOT_*` member family, so `_annotate_arm` reads `annot.type[1]` and `_annot_kind` maps the verified name strings (`Highlight`/`Redact`/`Link`/`Text`/`FreeText`/`Stamp`/`Squiggly`/`Underline`/`StrikeOut`) to `AnnotKind` through `_ANNOT_NAME` — no unverified integer key. `Widget.field_type -> int` (`[02]` accessor row `[09]`) is the `PDF_WIDGET_TYPE_*` discriminant whose member NAMES (`TEXT`/`CHECKBOX`/`RADIOBUTTON`/`LISTBOX`/`COMBOBOX`/`BUTTON`/`SIGNATURE`, `[02]` row `[06]`) are catalogued, so `_widget_field` resolves each symbol name to its int via `getattr(pymupdf, name)` on the live module and maps it to `FieldKind` through `_WIDGET_SYMBOL` — the SYMBOLIC_REFERENCE form that asserts no hardcoded integer. The empty `_WIDGET_FIELD`/`_ANNOT_KIND` int dicts and the undefined `_WIDGET_SYMBOL`/`_ANNOT_SYMBOL` references the prior page carried are both the deleted form: the tables are now defined, named consistently, and keyed on the verified string/symbol surface.
 - [RECEIPT_CONTRACT_AND_LIST_OWNER]: two corrections align the page with its owners. (1) `observability/receipts#RECEIPT` types `@receipted[**P, R: ReceiptContributor]`, so the wrapped `_emit` must return a `ReceiptContributor`; the prior `_emit` returning a bare `ContentKey` violated the bound and the prior `contribute` re-ran `self._recovered()` (re-importing a worker arm on the core during the harvest). `_emit` now returns the stepped `Self` carrying `recovered` (a `ReceiptContributor` through `contribute`), `recover` maps it to the `ContentKey`, and `contribute` reads the stepped `recovered` — the exact `document/emit#DOCUMENT` `_emit -> Self` / `contribute`-off-`self.fact` pattern, never an in-process re-run. `contribute(self)` carries no `phase` parameter — the phase is the constant `"emitted"` the `core/receipt#RECEIPT` owner fixes by construction (KNOB_TEST), so the signature is exactly the `ReceiptContributor.contribute(self)` port emit composes, never a `contribute(phase)` knob the value already answers. (2) `document/model#NODE` `BlockKind` is `PARAGRAPH`/`HEADING`/`QUOTE`/`CODE`/`CAPTION`/`ARTIFACT` with NO `LIST_ITEM` member, and the list concept is the distinct `ListNode`/`ListKind` owner; the prior page's `_DOCX_BLOCK` and `_value_node` referencing `BlockKind.LIST_ITEM` named a member the model retired (a phantom), and `_node` was non-total over `NodeKind` (no `LIST` arm). `_node` now carries the `NodeKind.LIST` arm, `_docx_blocks` groups consecutive `_DOCX_LIST`-styled paragraphs through `itertools.groupby` into one `ListNode` (the inverse of the emit `List Bullet`/`List Number` lowering), and `_value_node` folds a YAML/TOML sequence into a `ListNode(ORDERED)` and a mapping into a keyed `BlockNode` — zero phantom `BlockKind` reference.
 - [TYPED_SPEC_AND_WIRED_OPS]: the per-op input is admitted once as the typed `LensSpec` through the closed `LensPayload` `TypedDict` + `_PAYLOAD` `TypeAdapter` at `.of`, mirroring `document/emit#DOCUMENT` `EmitSpec`/`EmitPayload`, so every arm reads a typed field (`spec.x_tolerance`, `spec.vertical`, `spec.needle`, `spec.language`, `spec.bbox`) — the prior `params: dict[str, object]` bag forwarded into every arm and re-read by `params.get(...)` is the deleted `Mapping[str, object]` payload the shape doctrine rejects. The `STRUCTURE`/`LINK`/`METADATA` ops the prior page declared in `LensOp` and gave arm functions but never wired into `_ARMS`/`_DEFAULT_PROVIDER` (orphans that would `KeyError` on dispatch) are now full `_ROUTES` rows: `STRUCTURE` recovers the tagged-PDF tree through pdfplumber `Page.structure_tree` (core) or pikepdf `Pdf.Root[/StructTreeRoot]` (core, `.api/pikepdf.md` object model), `LINK` recovers hyperlinks through pymupdf `Page.get_links` (`.api/pymupdf.md` `[03]` row `[11]`) or pdfplumber `Page.hyperlinks` populating the model's `AnnotTarget` `link`, and `METADATA` recovers the info dict through pypdf `PdfReader.metadata`. The two parallel `_ARMS`/`_DEFAULT_PROVIDER` op-keyed tables collapse into the one `_ROUTES` `(arm, default_provider)` correspondence per `DERIVED_LOGIC`.
 - [NODE_FIELD_COVERAGE]: every recovered node carries the full `document/model#NODE` field contract over its one polymorphic `_node` constructor, each field citing a verified member, and the constructor mints a model-legal `RunNode` — the prior `RunNode(rtl=...)` keyword named a field the model retired (`direction: TextDirection` replaced `rtl: bool`), so it would `TypeError` at construction and is the deleted form. The pymupdf `_text_arm` recovers `italic`/`script`/`color` from the span `flags`/`color` (`.api/pymupdf.md` `get_text("dict")` span dict) and `direction` from the line `dir` writing-direction unit vector (`dir[0] < 0` → `TextDirection.RTL`) where the prior arm recovered only `weight`; `decorations` defaults `()` because the MuPDF span dict exposes no underline/strike bit, asserting one would be a phantom. A `TableNode` recovers `header_rows` from `Table.header` (`.api/pymupdf.md` `[03]` row `[19]`) beside the `spans` it already folded; a `FigureNode` recovers `intrinsic` and `media_type` from the `Pixmap(document, xref)` `width`/`height` (`.api/pymupdf.md` `[03]` row `[09]`); an `AnnotationNode` of kind `LINK` recovers the `AnnotTarget` `Uri(href)`/`Dest(page)` so a hyperlink round-trips through the model's `#link` lowering rather than stranding its href in `contents`. The `_docx_runs` `RunNode` recovers `font_key` from python-docx `Run.font.name` (the read inverse of the emit `_docx_run` `font.name` write — the prior `run.style.name` read named the character-style, not the font, and did not round-trip), `size` from `Run.font.size.pt`, `weight`/`italic` from `Run.bold`/`Run.italic`, `color` from `Run.font.color.rgb`, and `decorations` from `Run.font.underline` (`.api/python-docx.md` `[03]` row `[10]` `Run.font`). `FieldNode.flags`/`options` stay at their model defaults: the catalogue exposes `Widget.field_name`/`field_value`/`field_type` but no flags/choice accessor, so asserting one would be a phantom — the field is anticipatorily present on the `_node` `FIELD` arm for the catalogue deepening that lands the accessor, never fabricated here.
-- [OFFICE_INGEST_SPLIT]: the `OFFICE_INGEST` card realizes as two `LensOp` rows fronting two readers by band. `ODS_READ` is settled fence on the cp315 core over verified `.api/odfpy.md` `[03]` spellings — `opendocument.load(BytesIO)`, `getElementsByType(Table|TableRow|TableCell)`, `teletype.extractText`, `getAttribute("numbercolumnsrepeated")` run-length cell expansion, `getAttribute("name")` sheet role — needing no subprocess hop. `ODT_READ` is the document-text sibling on the SAME odfpy core, recovering the `OpenDocument.body` block sequence through a `Element.isInstanceOf(text.H)`/`isInstanceOf(text.P)` document-order walk and `teletype.extractText` (`.api/odfpy.md` `[02]`/`[03]`) into the `SectionNode`/`BlockNode` shape, the recover-TO inverse of the emit `ODT` `_odf_emit` text lowering — so the one `ODFPY` provider fronts both the spreadsheet and the text ODF flavor without a parallel ingest owner. `XLSX_READ` is settled fence on the gated band over verified `.api/python-calamine.md` `[03]` spellings — `CalamineWorkbook.from_object(BytesIO(payload))`, `sheet_names`, `get_sheet_by_name`, `CalamineSheet.to_python(skip_empty_area=True)` whose native `int | float | str | bool | datetime` cell union decodes without formula evaluation, `CalamineSheet.merged_cell_ranges` folding into `TableNode.spans` — the OOXML/binary-Excel/`.xls`/`.xlsb` formats odfpy's OASIS parser does not cover. The `CalamineError` family (`PasswordError`/`WorksheetNotFound`/`XmlError`/`ZipError`) maps at the `_gated_recover` worker boundary into the `RuntimeRail` fault (`PasswordError` routing the workbook through `document/egress#FINISH` `PROTECT` msoffcrypto decrypt upstream, since calamine does not decrypt); the cell coercion inlines `None if value is None else str(value)` into the one `_xlsx_arm` comprehension, never a single-call `_cell` hop. The band rides the provider, so the one `LensProvider` axis fronts both runtimes without a parallel ingest owner.
-- [CORPUS_LANE_RESIDENCY]: the recovered-tree corpus keys a `(ContentKey, DocumentNode-tree)` value into the runtime columnar lane via the `data:tabular/columnar#SCAN` `Corpus` arm `[WIRE]` seam, lifting the `document/model#NODE` `to_corpus(node, CorpusView.RECORD)` flat-`dict` projection (the `msgspec.to_builtins` lowering the `Corpus` arm's `pa.Table.from_pylist` ingests) so a multi-PDF/multi-workbook corpus is one queryable value over the same `DocumentNode` tree emission lowers from. The lane is consumed from `data`, never re-minted here; the artifacts side is the content-keyed producer of the extracted-tree value, never a second store. The settled core spellings verify against `.api/pypdf.md`, `.api/pdfplumber.md` `[03]`, `.api/odfpy.md` `[03]`, `.api/python-docx.md` `[03]`, and the abi3 `pymupdf`/`pikepdf` spellings against `.api/pymupdf.md` `[03]`/`.api/pikepdf.md` `[03]`; the gated `ocrmypdf` `ocr(..., sidecar=, mode=, output_type=, language=, deskew=, clean=, rotate_pages=, optimize=)` returning `ExitCode` plus the `ExitCode.ok`/`ExitCodeException` rail verify against `.api/ocrmypdf.md` `[02]`/`[03]`, and the `python-calamine`/`lxml` gated spellings against their `[03]` rows.
+- [CORPUS_LANE_RESIDENCY]: the recovered-tree corpus keys a `(ContentKey, DocumentNode-tree)` value into the runtime columnar lane via the `data:tabular/columnar#SCAN` `Corpus` arm `[WIRE]` seam, lifting the `document/model#NODE` `to_corpus(node, CorpusView.RECORD)` flat-`dict` projection (the `msgspec.to_builtins` lowering the `Corpus` arm's `pa.Table.from_pylist` ingests) so a multi-PDF/multi-workbook corpus is one queryable value over the same `DocumentNode` tree emission lowers from. The lane is consumed from `data`, never re-minted here; the artifacts side is the content-keyed producer of the extracted-tree value, never a second store. The settled core spellings verify against `.api/pypdf.md`, `.api/pdfplumber.md` `[03]`, `.api/odfpy.md` `[03]`, `.api/python-docx.md` `[03]`, and the native `pymupdf`/`pikepdf` spellings against `.api/pymupdf.md` `[03]`/`.api/pikepdf.md` `[03]`; the gated `ocrmypdf` `ocr(..., sidecar=, mode=, output_type=, language=, deskew=, clean=, rotate_pages=, optimize=)` returning `ExitCode` plus the `ExitCode.ok`/`ExitCodeException` rail verify against `.api/ocrmypdf.md` `[02]`/`[03]`, and the `python-calamine`/`lxml` gated spellings against their `[03]` rows.

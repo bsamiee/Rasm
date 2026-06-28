@@ -11,11 +11,8 @@
 - rail: transport, serve
 - version: `1.81.1`
 - license: Apache-2.0
-- floor: `Requires-Python>=3.10`; wheel `Root-Is-Purelib: false`, ABI-tagged `cp315-cp315-<platform>` (compiled C-core extension, not pure-Python); the C-core owns HTTP/2 framing, flow control, and the wire codec
-- gate: `[CORE]` ungated — `grpcio` resolves and installs on cp315 and is declared as an explicit ungated core direct dependency for runtime transport; it already enters the resolution transitively via the `google-cloud-storage` stack (`grpcio-status`, `grpc-google-iam-v1`)
-- companion: `grpcio-tools` is the codegen/dev package (the `protoc` plugin plus `grpc_tools.protoc`/`grpc_tools.protoc.main` and the bundled `.proto` includes); it remains `[GATED]` `; python_version<'3.15'` because the bundled `protoc` build has no cp315 wheel, and it carries no separate catalog
 - namespaces: `grpc`, `grpc.aio`
-- installed: `1.81.1` resolves on cp315 as a transitive core dependency via `google-cloud-storage` (`grpcio-status` / `grpc-google-iam-v1`), now declared as an explicit ungated core direct dependency
+- installed: `1.81.1`
 - capability: asyncio HTTP/2 RPC server and channels, unary/streaming stub invocation, TLS channel/server credentials, status-code and compression vocabulary, server and client interceptor injection
 
 ## [02]-[PUBLIC_TYPES]
@@ -133,14 +130,10 @@
 
 [LOCAL_ADMISSION]:
 - The transport/serve surface composes `grpcio` for HTTP/2 RPC; the runtime owns no second RPC transport and no parallel channel type per security mode.
-- Codegen is a build-time concern owned by the gated `grpcio-tools` companion (`grpc_tools.protoc`, `; python_version<'3.15'`); generated stubs are committed artifacts, never regenerated at runtime, and `grpcio-tools` carries no separate catalog.
 
 [GATE_LAW]:
-- `grpcio` 1.81.1 is `[CORE]` and ungated: it resolves and installs on cp315 and is declared as an explicit ungated core direct dependency for runtime transport. It is also pulled transitively through the `google-cloud-storage` stack (`grpcio-status` / `grpc-google-iam-v1`), so the explicit core declaration only names the transport leg the runtime already imports.
-- The `grpcio-tools` codegen companion remains `[GATED]` `; python_version<'3.15'`: the bundled `protoc` build ships no cp315 wheel, so proto codegen runs on the gated sub-3.15 companion lane while the cp315 core imports `grpc`/`grpc.aio` directly and never imports `grpc_tools`.
 
 [RAIL_LAW]:
 - Package: `grpcio`
 - Owns: asyncio HTTP/2 RPC serve and client channels, unary/streaming stub invocation, TLS + call-credential minting/composition, the per-RPC `ServicerContext` and method-handler registration surface, status-code/compression vocabulary, the `AioRpcError`/`Metadata` client-fault vocabulary, and server/client interceptor injection
 - Accept: one `grpc.aio.server` with construction-time interceptors, the `grpc.aio.Server` `add_secure_port`/`add_insecure_port`/`add_generic_rpc_handlers`/`start`/`stop`/`wait_for_termination` lifecycle surface, scoped `insecure_channel`/`secure_channel` sessions, `ssl_*_credentials`/`local_*_credentials`/`composite_channel_credentials`+`metadata_call_credentials` from the `Credential` model, `ServicerContext.abort`/`auth_context` status+identity, `StatusCode`/`Compression`/`LocalConnectionType` vocabulary, `AioRpcError` lifted to a typed `Result` with transient codes routed through `stamina`, settled tracing interceptors from the OTel grpc owner
-- Reject: a second RPC transport or per-security-mode channel type, inline credential literals, hand-rolled metadata-header auth instead of `metadata_call_credentials`, raw exceptions raised across the wire instead of `ServicerContext.abort`, hand-rolled framing/compression/tracing interceptors, runtime stub regeneration or runtime handler wiring outside the generated path, a cp315-core import of the gated `grpc_tools` codegen companion, and a separate catalog for the `grpcio-tools` companion

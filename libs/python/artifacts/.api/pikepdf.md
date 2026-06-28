@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_API_PIKEPDF]
 
-`pikepdf` is the qpdf-backed PDF structure owner for the artifacts pdf rail. It binds libqpdf through nanobind and exposes the full PDF object model (`Object`/`Dictionary`/`Array`/`Name`/`Stream`/`Operator`), a `Pdf` document root, a `Page` unit with box/resource/overlay control, an `Encryption`/`Permissions` AES policy pair, a streaming content-stream tokenizer (`parse_content_stream`/`TokenFilter`/`unparse_content_stream`), a content-authoring surface (`pikepdf.canvas`), image extraction (`PdfImage.as_pil_image`), XMP/docinfo metadata, AcroForm, outlines, attachments, and a declarative qpdf `Job` runner. The package owner composes `Pdf`, `open`/`new`/`save`, `Encryption`, the object model, and the token-filter fold; it never re-implements the PDF parser, the affine `Matrix`, or the qpdf object model the wheel already owns.
+`pikepdf` is the qpdf-backed PDF structure owner for the artifacts pdf rail. It binds libqpdf through nanobind and exposes the full PDF object model (`Object`/`Dictionary`/`Array`/`Name`/`Stream`/`Operator`), a `Pdf` document root, a `Page` unit with box/resource/overlay control, an `Encryption`/`Permissions` AES policy pair, a streaming content-stream tokenizer (`parse_content_stream`/`TokenFilter`/`unparse_content_stream`), a content-authoring surface (`pikepdf.canvas`), image extraction (`PdfImage.as_pil_image`), XMP/docinfo metadata, AcroForm, outlines, attachments, and a declarative qpdf `Job` runner. The package owner composes `Pdf`, `open`/`new`/`save`, `Encryption`, the object model, and the token-filter fold; it never re-implements the PDF parser, the affine `Matrix`, or the qpdf object model the package already owns.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -9,9 +9,8 @@
 - import: `pikepdf`
 - owner: `artifacts`
 - rail: pdf
-- version: `10.9.1` (reflected via `assay api`); bundles libqpdf `12.3.2` (`pikepdf.__libqpdf_version__`)
+- version: `10.9.1`
 - license: `MPL-2.0` (libqpdf is Apache-2.0); copyleft is file-scoped, so static linkage of the bundled C++ does not infect the consumer
-- abi: `cp314-abi3` stable-ABI wheels; ABI3 floor cp314 with forward compatibility to cp315+; `Requires-Python >=3.10`; ungated in the manifest
 - entry points: none (library only)
 - capability: qpdf-backed open/repair, linearization, AES-R6 encryption with granular permission flags, page assembly/reorder/overlay, content-stream tokenization and streaming filter, content authoring, object-model editing, XMP/docinfo metadata, image extraction, attachments, outlines, AcroForm fields and annotation flatten, declarative qpdf jobs (raw JSON or the `JobBuilder` fluent assembler), inline-image externalization, and document sanitization
 

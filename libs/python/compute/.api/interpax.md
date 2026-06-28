@@ -9,7 +9,7 @@
 - import: `interpax`
 - owner: `compute`
 - rail: interpolation
-- installed: `0.3.14` authored from ledger ([04]-sourced; `assay api` resolution blocked by the workspace `opentelemetry-proto` `protobuf>=5,<7` ceiling against the `protobuf>=7.35` floor — a workspace dependency-graph conflict, not an interpax/interpreter/wheel fault); license MIT; pure-Python but `jax`-dependent and marker-gated `python_version<'3.15'` (jaxlib ships no cp315 wheel)
+- installed: `0.3.14`
 - capability: JAX-native differentiable interpolation on regular grids — 1D/2D/3D linear/cubic/PCHIP/monotonic methods, reusable callable interpolant objects (`vmap`/`grad`/`jit`-compatible), and FFT-based periodic resampling
 
 ## [02]-[PUBLIC_TYPES]
@@ -93,5 +93,4 @@
 - Package: `interpax`
 - Owns: JAX-native differentiable interpolation on regular grids (linear/cubic/PCHIP/monotonic/Catmull-Rom), reusable callable interpolant pytree objects, drop-in differentiable `scipy.interpolate` spline classes with analytic calculus methods, and FFT-based periodic resampling
 - Accept: regular-grid interpolation routed through `interp{1,2,3}d` (one-shot) or `Interpolator{1,2,3}D` (reusable `vmap`/`grad`/`jit`-compatible interpolant), `method` selecting the kernel, the scipy-equivalent spline classes for analytic derivative/antiderivative/integrate/roots, and `fft_interp{1,2}d` for periodic spectral resampling
-- Reject: hand-rolled cubic-spline or PCHIP kernels; a `findiff` stencil where a fitted interpax interpolant's analytic `.derivative()` is available; interpax in any product runtime path on cp315 (jaxlib ships no cp315 wheel); a non-differentiable interpolation shim where the JAX-native interpolant is available
 - Usage: `[INTERPAX_QUADAX_USAGE]` (deferred, compute solvers/quadrature and solvers/field) — [BLOCKED]

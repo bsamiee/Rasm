@@ -149,9 +149,10 @@ A comprehension owns exactly one projection and one guard; the moment a second s
 - Reject: a comprehension carrying two guards and a nested loop where a generator function reads clearer; a list comprehension built only to be consumed once where a generator expression never materializes; a recompute the walrus removes.
 
 [GENERATOR_FUSION]:
-- Law: a multi-stage per-element transform is a generator function whose stages compose through `yield from` — a sub-pipeline delegated by `yield from` fuses without an intermediate list, and the whole function stays lazy and bounded; the eager list returned only to be iterated once is the rejected materialization.
+- Law: a multi-stage per-element transform is a generator function whose stages compose through `yield from` — a sub-pipeline delegated by `yield from` fuses without an intermediate list, and the whole function stays lazy and bounded.
+- Law: a large or unbounded extraction — every element of an open source, every node of a deep structure — returns `Iterator[T]` and materializes only at the persistence or egress edge `boundaries.md` owns, never an eager `tuple`/`Block`/`list` of the whole result held in memory and walked once; a bounded eager `tuple`/`frozenset` sized in hand at admission is the deliberate contrast, not the open stream this card keeps lazy to its consumer.
 - Boundary: `yield from` over a `Result`-returning step that short-circuits is the `@effect.result` do-notation `rails-and-effects.md` owns, not this fusion; the carrier-free `yield from` here delegates a pure sub-generator, and the two never merge.
-- Reject: building and returning a `list` where a generator suffices; a stack of `map`/`filter` calls where one comprehension or one generator states the fusion; `yield from` smuggling a carrier the rail page owns.
+- Reject: a `tuple`/`Block`/`list` that materializes a whole unbounded result for one walk where `Iterator[T]` streams to the egress edge; a stack of `map`/`filter` calls where one comprehension or one generator states the fusion; `yield from` smuggling a carrier the rail page owns.
 
 ```python conceptual
 from collections.abc import Callable, Iterable, Iterator

@@ -12,7 +12,6 @@
 - owner: `compute`
 - rail: array
 - asset: pure Python with an optional `numba` JIT backend (`sparse.numba_backend`); the JIT path requires `numba`/`llvmlite`
-- floor: gated `python_version < '3.15'` and `>=0.18.0` — `numba`/`llvmlite` set the CPython 3.15 ceiling; on the cp315 core `sparse` is uninstalled and `scipy.sparse` covers 2-D sparse linear algebra. Surface confirmed against `sparse 0.18.0` under a cp313 introspection env.
 - capability: COO/GCXS/DOK sparse ndarray classes, Array-API math/reduce/linalg operations over arbitrary rank, inter-format and SciPy/NumPy conversion, `.npz` IO, and a `numba_backend` dispatch surface mirroring the same operations
 
 ## [02]-[PUBLIC_TYPES]
@@ -109,7 +108,6 @@
 - numba_backend: the `sparse.numba_backend` re-export runs the same operation set under Numba JIT for a hot CPU-bound loop; it is opt-in (requires `numba`/`llvmlite`) and shares the COO/GCXS/DOK class surface.
 
 [LOCAL_ADMISSION]:
-- import: `import sparse` at boundary scope; module-level import is banned by the manifest import policy. Below the cp315 gate the array rail selects `sparse` for >2-D sparse; on the cp315 core it falls back to `scipy.sparse` for 2-D sparse LA.
 - entry: an admitted sparse payload enters via `asarray(..., format=...)` or `from_scipy_sparse`; format is `asformat`-discriminated, never a parallel per-format entrypoint.
 - evidence: a sparse-array fold captures the format, `nnz`/`density`, and `fill_value` as the array claim; densification is gated through `maybe_densify` so a memory blow is a typed boundary, not an OOM.
 - boundary: sparse results stay sparse through the pipeline; dense materialisation (`todense`/`asnumpy`) happens only at a declared dense-consumer edge.

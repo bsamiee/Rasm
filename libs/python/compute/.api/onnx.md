@@ -10,7 +10,6 @@
 - owner: `compute`
 - rail: model
 - license: Apache-2.0
-- installed: cp315 supported (manifest pin `onnx>=1.22.0`, no version marker; resolved `1.22.0` cp312-abi3 universal wheel runs unmodified on CPython 3.15 — the one Bayesian/model-asset companion not gated below `'3.15'`)
 - capability: ONNX model IR — graph/tensor protobuf schema, model load/save with external-data handling, structural checking, static shape inference, opset version conversion, subgraph extraction, textual round-trip, and `TensorProto`↔`np.ndarray` conversion (including bf16/float8 dtypes)
 
 ## [02]-[PUBLIC_TYPES]

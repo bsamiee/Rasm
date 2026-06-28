@@ -6,9 +6,8 @@
 
 [PACKAGE_SURFACE]: `opentelemetry-sdk`
 - package: `opentelemetry-sdk`
-- version: `1.42.1`
+- version: `1.43.0`
 - license: `Apache-2.0`
-- wheel: `py3-none-any` (pure-Python, `Root-Is-Purelib: true`)
 - module: `opentelemetry.sdk`
 - asset: runtime library
 - rail: observability

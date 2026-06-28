@@ -70,6 +70,11 @@
         <PackageReference Include="ParquetSharp" />
     </ItemGroup>
 
+    <ItemGroup Label="BIM Analytics Exchange">
+        <PackageReference Include="Ara3D.BimOpenSchema" />
+        <PackageReference Include="Ara3D.BimOpenSchema.IO" />
+    </ItemGroup>
+
     <ItemGroup Label="Streaming And Messaging Protocols">
         <PackageReference Include="Chr.Avro" />
         <PackageReference Include="Chr.Avro.Binary" />
@@ -100,6 +105,7 @@
     </ItemGroup>
 
     <ItemGroup Label="Sync Outside-Rhino">
+        <PackageReference Include="PollinationSDK" />
         <PackageReference Include="Speckle.Sdk" />
         <PackageReference Include="Speckle.Objects" />
     </ItemGroup>

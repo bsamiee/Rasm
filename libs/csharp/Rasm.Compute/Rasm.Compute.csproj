@@ -28,6 +28,13 @@
         <PackageReference Include="MathNet.Symbolics" />
     </ItemGroup>
 
+    <ItemGroup Label="Structural Solvers">
+        <PackageReference Include="FEALiTE2D" />
+        <PackageReference Include="FEALiTE2D.Plotting" />
+        <PackageReference Include="BriefFiniteElement.Net" />
+        <PackageReference Include="BriefFiniteElementNet.CustomElements" />
+    </ItemGroup>
+
     <ItemGroup Label="Models">
         <PackageReference Include="Microsoft.Extensions.AI.Abstractions" />
         <PackageReference Include="Microsoft.Extensions.Caching.Hybrid" />
@@ -36,6 +43,11 @@
         <PackageReference Include="Microsoft.ML.OnnxRuntime.Extensions" />
         <PackageReference Include="Microsoft.ML.OnnxRuntime.Gpu" />
         <PackageReference Include="Microsoft.ML.OnnxRuntimeGenAI" />
+    </ItemGroup>
+
+    <ItemGroup Label="GPU Compute">
+        <PackageReference Include="Silk.NET.WebGPU" />
+        <PackageReference Include="Silk.NET.WebGPU.Extensions.WGPU" />
     </ItemGroup>
 
     <ItemGroup Label="Remote Wire">

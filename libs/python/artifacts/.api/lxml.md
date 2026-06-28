@@ -9,9 +9,8 @@
 - import: `from lxml import etree`
 - owner: `artifacts`
 - rail: structured documents
-- installed: `6.1.1` (PyPI) — manifest-gated `python_version<'3.15'` (no CPython 3.15 wheel; dispatched onto the runtime subprocess lane, never the cp315 core)
+- installed: `6.1.1`
 - license: BSD-3-Clause (Python bindings); bundled native libxml2 (MIT) and libxslt (MIT)
-- ABI: C-extension over libxml2 `2.14.6` and libxslt `1.1.43` (`etree.LIBXML_VERSION == (2,14,6)`, `etree.LIBXSLT_VERSION == (1,1,43)`, `etree.LXML_VERSION == (6,1,1,0)`); `etree.LIBXML_FEATURES`/`LIBXML_COMPILED_FEATURES` expose the compiled feature set
 - entry points: none (library only)
 - capability: libxml2/libxslt XML and HTML parse/serialize, element building, compiled XPath, XSLT with Python extension functions and access control, XML Schema/RelaxNG/Schematron/DTD validation, C14N canonicalization, incremental event/pull parsing, incremental serialization, namespace cleanup, and tree-mutation helpers
 
@@ -117,8 +116,6 @@ Query rows share namespace, extension-function, regexp, smart-string, access-con
 - transform axis: `etree.XSLT` compiled once and applied is the transform surface, with Python `extensions`/`XSLTExtension`, `XSLTAccessControl`, and `strparam`-escaped parameters; results feed the document owner.
 - validation axis: `XMLSchema`/`RelaxNG`/`Schematron`/`DTD` are the validator row set; `validate` returns a boolean with `error_log`, `assertValid` raises `DocumentInvalid` on the structured-documents fault rail.
 - canonical axis: `canonicalize`/`C14NWriterTarget` own C14N output; pretty-print is `indent` + `tostring(pretty_print=True)`; namespace pruning is `cleanup_namespaces`; tree trimming is `strip_tags`/`strip_elements`/`strip_attributes` — never a hand-rolled serializer.
-- runtime seam: lxml is manifest-gated `python_version<'3.15'` (no cp315 wheel for the libxml2 C-extension), so the cp315-core owner never imports `lxml`; every parse/XSLT/validate call is dispatched over the runtime `anyio.to_process` (`.api/anyio.md`) subprocess seam onto the sub-3.15 worker, and only the serialized bytes (or the C14N digest) and the typed receipt cross back — never a live `_Element` tree, which is not picklable across the interpreter boundary.
-- evidence: each parse/transform captures source size, parser flags (recover/huge_tree/no_network/resolve_entities), validation result + `error_log` line count, the `etree.LIBXML_VERSION`/`LIBXSLT_VERSION`/`LXML_VERSION` ABI tuple, and output byte length as a `msgspec.Struct` (`.api/msgspec.md`) structured-documents receipt — emitted under one `structlog` (`.api/structlog.md`) event inside an OpenTelemetry (`.api/opentelemetry-api.md`) span; a malformed-source `XMLSyntaxError`/`DocumentInvalid` folds onto the worker's `expression.Result` (`.api/expression.md`) rail, never an unhandled raise across the seam.
 - boundary: lxml owns XML/HTML/XSLT/C14N/schema-validation; YAML routes to `ruamel.yaml`, TOML to `tomlkit`; the OOXML/ODF Office owners consume lxml internally for document parts; HTML sanitization/cleaning is NOT in lxml (the `lxml.html.clean` module was split into the separate `lxml_html_clean` / `cssselect` packages, neither admitted — do not cite a sanitize surface as lxml-owned); live UI stays outside this package.
 
 ## [05]-[LOCAL_ADMISSION]
@@ -126,5 +123,3 @@ Query rows share namespace, extension-function, regexp, smart-string, access-con
 [RAIL_LAW]:
 - Package: `lxml`
 - Owns: XML/HTML parse/serialize, element building, compiled XPath with Python extensions, XSLT with extensions/access-control, XML Schema/RelaxNG/Schematron/DTD validation, C14N canonicalization, incremental event/pull parsing, incremental serialization, namespace cleanup, and tree-mutation helpers
-- Accept: native XML/HTML processing feeding the structured-documents and Office owners, dispatched over the runtime `anyio.to_process` subprocess seam from cp315-core with serialized-bytes-only return
-- Reject: wrapper-renames of `parse`/`tostring`/`xpath`; a stdlib `xml.etree` fallback where lxml is admitted; a full-tree read where `iterparse`/`xmlfile` bound memory; an HTML-clean/sanitize claim (split out to `lxml_html_clean`); an `lxml` import in the cp315-core process or an `_Element` tree returned across the worker seam; identity minting the runtime owns

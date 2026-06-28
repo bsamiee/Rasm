@@ -19,7 +19,7 @@ This table selects the owner for a foreign signal; when a signal matches several
 
 ## [02]-[ADMISSION]
 
-The absence taxonomy arrives settled from `shapes.md` — `None`-as-failure never crosses inward, computed non-failing absence is `Option`, a cause-bearing foreign state is a `@tagged_union` case — and the carrier-minting matrix is `rails-and-effects.md`'s. This page owns the one fact neither settles: *where* a foreign sentinel is admitted, and that every site that can mint one is a seam.
+The absence taxonomy arrives settled from `shapes.md` — `None`-as-failure never crosses inward, computed non-failing absence is `Option`, a cause-bearing foreign state is a `@tagged_union` case — and the carrier-minting matrix is `rails-and-effects.md`'s. This page owns what neither settles: *where* a foreign sentinel is admitted, *where* a plugin set is discovered without importing it, and that every site that can mint absence or activate foreign code is a seam.
 
 [SENTINEL_SITE]:
 - Law: a sentinel projects at the single read site that first sees the foreign value, and that line is the last one in the program that names the sentinel — the carrier the rail page's `of_optional`/`to_result` matrix mints crosses inward, and no interior reader re-derives absence from a value it was never handed.
@@ -36,14 +36,21 @@ The absence taxonomy arrives settled from `shapes.md` — `None`-as-failure neve
 - Law: a per-probe boundary obligation — a release, a converted provider exception, a token check — attaches at the probe that incurs it, never inside the traverse that sweeps, because a fail-fast traverse abandons the tail probes and their obligations never run; a survivor/casualty partition is admitted only when callers need both the usable values and the rejected facts, and the obligation rides each probe's own rail so an abandoned probe carries no orphaned cleanup.
 - Reject: a single rail for a sweep whose callers need every casualty; a cleanup hung off the sweep that a short-circuit skips; a later walk over the admitted set reinterpreting why each probe disappeared.
 
+[PLUGIN_DISCOVERY]:
+- Law: a plugin set is read from distribution metadata, never an import-time registry — `importlib.metadata.entry_points(group=...)` (equivalently `.select(group=, name=)` over the returned `EntryPoints`, whose `.groups` and `.names` enumerate the inventory) exposes each `EntryPoint`'s `name`, `group`, `value`, `module`, and `attr` without importing the plugin module, so the available set is recoverable from metadata and discovery runs no plugin code.
+- Law: `EntryPoint.load()` is the single eager activation seam — it imports the named module and resolves the attribute exactly once, traversed fallibly through the rail page's fold so a broken plugin lands as one casualty rather than an import-time crash, and the loaded value is handed to the interior's own admission like any other foreign value.
+- Law: explicit discovery is the structural replacement for the import-time side-effect registry — a deferred `lazy import` never runs the module body a registering decorator, metaclass, or `__init_subclass__` hook relied on, so that registry silently empties, where metadata discovery plus an explicit `.load()` is independent of whether the plugin module ever imports.
+- Reject: an import-time side-effect registry (a decorator appending to a module global, a metaclass, `__init_subclass__`) for a plugin set a `lazy import` would empty; `entry_points()` re-scanned per call where one selection serves; a plugin module imported eagerly to read metadata the `EntryPoint` already carries.
+
 ```python conceptual
 from collections.abc import Callable
 from enum import StrEnum
+from importlib.metadata import entry_points
 from typing import Literal
 
 from expression import Error, Ok, Option, Result, case, tag, tagged_union
 from expression.collections import Block
-from expression.extra.result import sequence
+from expression.extra.result import catch, sequence
 from pydantic import AnyUrl, ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict, SettingsError
 
@@ -87,17 +94,30 @@ def admitted(probe: Callable[[Endpoint], Result[None, str]], disposition: Sweep,
             return sequence(swept).map(lambda live: (live, fallback))
         case Sweep.LENIENT:
             return Ok((swept.map(lambda outcome: outcome.merge()), fallback))
+
+
+def discovered(group: str, disposition: Sweep, /) -> Result[Block[tuple[str, object]], AdmitFault]:
+    probed = Block.of_seq(entry_points(group=group)).map(
+        lambda ep: catch(exception=Exception)(ep.load)().map(lambda loaded: (ep.name, loaded))
+    )
+    match disposition:
+        case Sweep.STRICT:
+            return sequence(probed).map_error(lambda _exc: "<malformed>")
+        case Sweep.LENIENT:
+            return Ok(probed.choose(lambda outcome: outcome.to_option()))
 ```
 
 ## [03]-[LIFETIME]
 
 [CAPSULE_OWNER]:
-- Use: native handles, FFI pointers, pinned buffers, pooled values, external cursors, and any foreign object with an explicit release.
-- Law: borrowed and owned lifetimes are cases of one closed `@tagged_union` capsule — the owned case registers release through `weakref.finalize` tied to the owner's identity so disposal fires once when the capsule is collected, the borrowed case projects a detached copy and never disposes; one `use` fold projects the extent across both cases under a single or-pattern so a caller never branches on lifetime.
+- Use: native handles, FFI pointers, pinned buffers, pooled values, external cursors, memory-mapped trees, and any foreign object with an explicit release.
+- Law: borrowed, owned, and measured lifetimes are cases of one closed `@tagged_union` capsule — the owned and measured cases register release through `weakref.finalize` tied to the owner's identity so disposal fires once when the capsule is collected, the borrowed case projects a detached copy and never disposes; one `use` fold projects a read-only copy across all three dispositions under a single or-pattern so a caller never branches on lifetime to read.
+- Law: the measured disposition is the owned, mutable window — a multi-megabyte buffer or memory-mapped tree revised across many edits — and `revised` threads that one owned window through the edit `Block` as a single imperative kernel mutating it in place by slice assignment and returning a write-count `Result`; the per-edit fold that rebinds and recopies the whole buffer is the rejected `O(N*size)` form the platform makes prohibitive, so mutation is the disposition's structural property and `revised` refuses the read-only cases with the `readonly` fault rather than a runtime flag.
 - Law: a native borrow spans the full operation that observes the pointer — the view materializes inside the borrow window, the projection copies to owned `bytes` while the window is open, and the window closes before the foreign owner can free; liveness is never tested apart from the consumption it guards, because a separate liveness probe races the free the borrow window already orders against.
 - Law: callers receive values or rails, never live handles; the native crossing is the one foreign fault family this page mints — `OSError`/`ctypes.ArgumentError`/`ValueError` split through the rail page's multi-`except` form into the closed `host`/`marshal`/`extent` cases so the syscall errno, the marshalling detail, and the bad extent stay structurally addressable instead of flattening to one provider token, and the discrimination rides the same borrow window the lifetime owns so no provider exception type escapes the seam unconverted.
-- Exemption: the address-to-view materialization, the `view.release()` call, and the `weakref.finalize` registration inside the capsule kernel are the named platform-forced statement seam.
-- Reject: a public handle field; scattered manual `close()`; parallel borrowed and owned wrapper classes; a `__del__` finalizer owning release where `weakref.finalize` states it.
+- Law: deterministic close is the disposition's contract, not GC's — a synchronously released handle closes through a `with` block or the capsule's `weakref.finalize`, and a handle whose release must be awaited or fault-ordered against siblings registers on `concurrency.md`'s `AsyncExitStack.enter_async_context` under that page's shielded teardown; a foreign handle left for `__del__`/GC finalization is rejected wherever close must precede the backing buffer's free, because the deferred finalizer races that free and the late close faults on released memory.
+- Exemption: the address-to-view materialization, the `view.release()`/`window.release()` calls, the `weakref.finalize` registration, and the in-place slice assignment over the measured window inside the capsule kernel are the named platform-forced statement seam.
+- Reject: a public handle field; scattered manual `close()`; parallel borrowed, owned, and measured wrapper classes where one closed family states them; a `__del__` finalizer owning release where `weakref.finalize` states it; a foreign handle left for GC finalization where a shielded bracket must close it before the backing buffer frees; a fold rebinding the whole buffer per edit where the measured window is mutated in place; `revised` on a read-only disposition.
 
 ```python conceptual
 import ctypes
@@ -106,21 +126,24 @@ from collections.abc import Callable
 from typing import Literal, assert_never
 
 from expression import Error, Ok, Result, case, tag, tagged_union
+from expression.collections import Block
 
 
 @tagged_union(frozen=True)
 class CapsuleFault:
-    tag: Literal["host", "marshal", "extent"] = tag()
+    tag: Literal["host", "marshal", "extent", "readonly"] = tag()
     host: int = case()
     marshal: str = case()
     extent: tuple[int, int] = case()
+    readonly: None = case()
 
 
 @tagged_union(frozen=True)
 class Capsule:
-    tag: Literal["owned", "borrowed"] = tag()
+    tag: Literal["owned", "borrowed", "measured"] = tag()
     owned: tuple[int, int] = case()
     borrowed: tuple[int, int] = case()
+    measured: tuple[int, int] = case()
 
     @staticmethod
     def acquired(address: int, size: int, release: Callable[[int], None], /) -> "Capsule":
@@ -132,9 +155,15 @@ class Capsule:
     def viewing(address: int, size: int, /) -> "Capsule":
         return Capsule(borrowed=(address, size))
 
+    @staticmethod
+    def measuring(address: int, size: int, release: Callable[[int], None], /) -> "Capsule":
+        held = Capsule(measured=(address, size))
+        weakref.finalize(held, release, address)
+        return held
+
     def use[T](self, copy: Callable[[memoryview], T], /) -> Result[T, CapsuleFault]:
         match self:
-            case Capsule(tag="owned", owned=(address, size)) | Capsule(tag="borrowed", borrowed=(address, size)):
+            case Capsule(tag="owned", owned=(address, size)) | Capsule(tag="borrowed", borrowed=(address, size)) | Capsule(tag="measured", measured=(address, size)):
                 try:
                     view = ctypes.memoryview_at(address, size, readonly=True)
                     try:
@@ -147,6 +176,28 @@ class Capsule:
                     return Error(CapsuleFault(marshal=str(marshal)))
                 except ValueError:
                     return Error(CapsuleFault(extent=(address, size)))
+            case _ as unreachable:
+                assert_never(unreachable)
+
+    def revised(self, patches: Block[tuple[int, bytes]], /) -> Result[int, CapsuleFault]:
+        match self:
+            case Capsule(tag="measured", measured=(address, size)):
+                try:
+                    window = ctypes.memoryview_at(address, size, readonly=False)
+                    try:
+                        written = 0
+                        for offset, patch in patches:  # Exemption: imperative measured kernel mutates one owned window in place; the per-edit buffer rebind is the rejected O(N*size) recopy
+                            window[offset : offset + len(patch)] = patch
+                            written += len(patch)
+                        return Ok(written)
+                    finally:
+                        window.release()
+                except OSError as host:
+                    return Error(CapsuleFault(host=host.errno or 0))
+                except ValueError:
+                    return Error(CapsuleFault(extent=(address, size)))
+            case Capsule(tag="owned") | Capsule(tag="borrowed"):
+                return Error(CapsuleFault(readonly=None))
             case _ as unreachable:
                 assert_never(unreachable)
 
@@ -269,7 +320,8 @@ def subscribed(emitter: "Emitter", sink: MemoryObjectSendStream["Signal"], /) ->
 
 [MEMO_KEY]:
 - Law: a boundary memo key binds the foreign identity content alone cannot recover — a provider handle's `id()`, a session token, or a capability fingerprint joins the content and policy axes into one hashable composite, a fixed axis set riding a `tuple` and a dynamic one a `frozendict`, so two payloads identical in bytes but sourced from distinct foreign owners never collide.
-- Reject: a content-only, path-only, or type-only key dropping the foreign axis; a `dict[str, object]` key bag where a fixed `tuple` states the axes; a mutable `dict` memo store where the agent's own state or a `frozendict` snapshot owns the table.
+- Law: a structural index or tree diff binds the discriminant content alone cannot recover — a node's path-vector or sibling ordinal joins the content digest so two identical-content siblings under one parent key distinctly, the structural axis riding the same composite `tuple` the foreign-identity axis does; an order-sensitive tree keyed on content alone collapses those siblings to one entry and the diff loses the move.
+- Reject: a content-only, path-only, or type-only key dropping the foreign axis; a content-only AST or tree key dropping the structural-path axis and collapsing identical-content siblings; a `dict[str, object]` key bag where a fixed `tuple` states the axes; a mutable `dict` memo store where the agent's own state or a `frozendict` snapshot owns the table.
 
 ```python conceptual
 from collections.abc import Callable
@@ -384,8 +436,8 @@ async def commanded[T](outbox: MemoryObjectSendStream[Command], build: Callable[
     return reply.slot[0]
 
 
-def keyed(session: "Session", content: bytes, policy: frozendict[str, str], /) -> tuple[int, bytes, frozendict[str, str]]:
-    return (id(session), content, policy)
+def keyed(session: "Session", path: tuple[int, ...], content: bytes, policy: frozendict[str, str], /) -> tuple[int, tuple[int, ...], bytes, frozendict[str, str]]:
+    return (id(session), path, content, policy)
 ```
 
 ## [06]-[WIRE_CONTRACTS]

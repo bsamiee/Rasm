@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_API_RESVG_PY]
 
-`resvg-py` supplies the SVG-to-PNG raster floor for the artifacts imaging rail: a single `svg_to_bytes` entrypoint that parses SVG markup or an `.svg`/`.svgz` file and renders it to PNG-encoded `bytes` through the embedded Rust `resvg 0.47.0` engine. The package owner composes `svg_to_bytes` into the figures and compose `ANNOTATE` path; it never re-implements SVG path flattening, text shaping, or PNG encoding the resvg engine already owns, and on the cp315-clean core it removes the Cairo/`cairosvg` system-library dependency because parse, font resolution, and PNG encoding are all in-extension.
+`resvg-py` supplies the SVG-to-PNG raster floor for the artifacts imaging rail: a single `svg_to_bytes` entrypoint that parses SVG markup or an `.svg`/`.svgz` file and renders it to PNG-encoded `bytes` through the embedded Rust `resvg 0.47.0` engine. The package owner composes `svg_to_bytes` into the figures and compose `ANNOTATE` path; it never re-implements SVG path flattening, text shaping, or PNG encoding the resvg engine already owns, and on the core core it removes the Cairo/`cairosvg` system-library dependency because parse, font resolution, and PNG encoding are all in-extension.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -10,7 +10,7 @@
 - owner: `artifacts`
 - rail: imaging
 - license: MIT (PyO3/maturin extension; the embedded Rust `resvg`/`usvg`/`tiny-skia` stack is MPL-2.0 + zlib, statically linked into the `.so`)
-- installed: `0.3.3` reflected via `python -c "import resvg_py"` on cp315; the abi3 maturin wheel (`resvg_py.cpython-315-darwin.so`) installs cp315-clean with no system cairo/pango/native build
+- installed: `0.3.3`
 - entry points: library use is import-only; no console script
 - capability: in-process SVG-to-PNG rasterization over the embedded Rust `resvg 0.47.0` engine — string or file (`.svg`/`.svgz`) input, explicit `width`/`height`/`zoom`/`dpi` sizing, CSS `background`, `style_sheet` injection, system/explicit/directory font resolution with generic-family overrides, and per-axis `shape`/`text`/`image` rendering policy, returning PNG-encoded `bytes` (PNG magic `\x89PNG`; this engine emits raster PNG only — vector PDF output routes to `typst`/`weasyprint`/`reportlab`, not here)
 

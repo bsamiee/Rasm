@@ -41,17 +41,15 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 
 [SERVE_C_WIRE_CONSUME_GENERATED]-[BLOCKED]: serve the C# wire and consume the generated SDK — wire touchpoint for `libs/.planning` PYTHON_COMPANION_SERVES_WIRE / CAPABILITY_SDK_CODEGEN / CRDT_OPLOG_WIRE_AMENDMENT.
 - Capability: runtime serves the C# `ComputeService`/`ArtifactSync` companion wire and derives command metadata from the generated capability SDK descriptor.
-- Shape: build `transport/serve` over `grpc.aio`, `protobuf`, the UDS/InProcess leg, and companion-lane `grpcio-tools` codegen while decoding the amended CRDT op payload as the single C#-owned wire vocabulary.
+- Shape: build `transport/serve` over `grpc.aio`, `protobuf`, the UDS/InProcess leg, and worker `grpcio-tools` codegen while decoding the amended CRDT op payload as the single C#-owned wire vocabulary.
 - Unlocks: Python becomes the anchor for `PYTHON_COMPANION_SERVES_WIRE`, `CAPABILITY_SDK_CODEGEN`, and `CRDT_OPLOG_WIRE_AMENDMENT` without hand-written clients or branch-local op kinds.
 - Anchors: runtime `transport/serve`, `grpcio`, `protobuf`, Forge companion `grpcio-tools`, and `csharp:Rasm.AppHost/Agent/capability#SDK_CODEGEN`.
 - Tension: blocked on the upstream descriptor source and the CRDT op landing on the wire.
 
 [PROVE_CONTENT_CAUSAL_IDENTITY_PARITY]-[BLOCKED]: prove the content and causal identity parity inbound — wire touchpoint for `libs/.planning` CONTENT_IDENTITY_PARITY / CAUSAL_TENANT_IDENTITY_WIRE.
 - Capability: runtime proves inbound content identity, HLC causal stamp, and tenant frame parity against the C# source of truth.
-- Shape: implement `evidence/identity` assertions for `XxHash128` seed zero/two-half order through `xxh3_128_intdigest`, `msgspec` receipt payloads, and the multi-runtime golden fixture; pure-Python HLC and tenant frames assert on the cp315 core.
 - Unlocks: `CONTENT_IDENTITY_PARITY`, `CAUSAL_TENANT_IDENTITY_WIRE`, lane-admission reuse, and graduation evidence trust one verified inbound identity precondition.
 - Anchors: runtime `evidence/identity`, `xxhash`, `msgspec`, the C# seed owner, and the multi-runtime golden fixture.
-- Tension: blocked by the cp315 `xxhash` wheel gap for the content-seed leg, and the HLC half-order has no recovery signal if encoded in the wrong order.
 
 [GRADUATE_OFFLINE_EVIDENCE_CONTENT_KEYED]-[QUEUED]: graduate offline evidence on the one content-keyed rail — wire touchpoint for `libs/.planning` GRADUATION_EVIDENCE_INWARD.
 - Capability: compute graduates every useful offline result outward through one content-keyed evidence rail.
@@ -60,26 +58,23 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Anchors: compute `graduation`, runtime `identity`, `HandoffAxis`, `onnx`, `msgspec`, and `GRADUATION_EVIDENCE_INWARD`.
 - Tension: the rail depends on content-identity parity so the outward key matches the inward closure key.
 
-[CONTENT_IDENTITY_PARITY_GATE]-[BLOCKED]: prove the digest-endianness parity gate, cp315 leg blocked on an upstream `xxhash` wheel.
+[CONTENT_IDENTITY_PARITY_GATE]-[BLOCKED]: prove the digest-endianness parity gate once `xxhash` is admitted.
 - Capability: runtime verifies digest-endianness parity for `XxHash128` and `XxHash3` before any consumer trusts a Python content key.
 - Shape: use companion-resolved `xxhash`, `xxh3_128_intdigest`, `xxh3_64_intdigest`, `ApiPackage.reflect`, and the C# golden fixture to prove little-endian child serialization against `System.IO.Hashing`.
 - Unlocks: the content-identity touchpoint, lane-admission reuse fabric, and graduation rail inherit one verified seed-parity gate.
-- Anchors: runtime `evidence/identity`, runtime `evidence/evidence`, `xxhash>=3.7.0`, C# `WriteUInt128LittleEndian`, and cross-`libs/` `CONTENT_IDENTITY_PARITY`.
-- Tension: blocked on an upstream cp315/abi3 `xxhash` wheel, not a local environment sync; the companion-interpreter proof is assertable now, and the cp315 fence remains the single install-gated `RESEARCH` link.
+- Anchors: runtime `evidence/identity`, runtime `evidence/evidence`, `xxhash`, C# `WriteUInt128LittleEndian`, and cross-`libs/` `CONTENT_IDENTITY_PARITY`.
 
 [GRADIENT_DRIVEN_INVERSE_DESIGN]-[QUEUED]: seed the gradient-driven inverse-design optimization owner.
 - Capability: compute owns gradient-driven inverse design as the apex of the differentiable solver stack.
 - Shape: seed `compute/optimization` in compute `ARCHITECTURE.md`, `IDEAS.md`, and `compute/.planning/optimization/design.md` around one `DesignProblem` optimizer, Equinox objectives, Optimistix `minimise`/`least_squares`, `solvers/sensitivity#SENSITIVITY`, and a content-keyed `OptimizationReceipt`.
 - Unlocks: PDE-constrained optimal design, inverse identification, parameter recovery, and design-of-experiment warm starts graduate as the `solver` `HandoffAxis` case on the single evidence rail.
-- Anchors: `optimistix`, `equinox`, `jax`, optional `optax`, compute solver/sensitivity pages, runtime `ContentIdentity`/`RuntimeRail`/`Receipt`, and the `python_version<'3.15'` jaxlib band.
 - Tension: optional `optax.OptaxMinimiser` remains tied to the `compute/.api/optax.md` coverage task if the first-order-descent axis admits.
 
 [CF_FIELD_DATASET_OWNER]-[QUEUED]: seed the CF-conventioned field owner.
 - Capability: data owns CF-conventioned labelled field cubes as a first-class gridded data owner.
 - Shape: seed `data/gridded` in data `ARCHITECTURE.md`, `IDEAS.md`, and `data/.planning/gridded/field.md` around one `FieldDataset` over `xarray`, `netcdf4`, HDF5/Zarr, CF-aware coordinates, label slicing, group/resample reductions, units, CRS metadata, and content-keyed `pyarrow`/Zarr egress.
 - Unlocks: environmental, CFD, sensor-grid, and geophysical field interchange becomes a branch-owned data capability rather than an incidental compute study input.
-- Anchors: `data/.api/xarray.md`, `data/.api/netcdf4.md`, `data/.api/h5py.md`, `gridded/store.md`, runtime `ContentIdentity`, runtime `TransportResource`, and the `python_version<'3.15'` native-dependency band.
-- Tension: the owner is distinct from dense chunk-grid tensor storage, the banned-module-level `xarray` arm binds function-local under `# noqa: PLC0415`, and `netcdf4`/`h5py` import module-top as ungated Forge source-builds rather than crossing a subprocess seam.
+- Tension: the owner is distinct from dense chunk-grid tensor storage, the banned-module-level `xarray` arm binds function-local under `# noqa: PLC0415`, and `netcdf4`/`h5py` import module-top as ungated Forge source builds rather than crossing a subprocess seam.
 
 [PYE57_SCAN_INGESTION]-[QUEUED]: route the admitted `pye57` E57 reader into scan ingestion.
 - Capability: the admitted `pye57` E57 reader becomes an ingestion arm for structured terrestrial-laser-scan data.

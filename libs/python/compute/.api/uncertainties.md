@@ -11,8 +11,6 @@
 - import: `uncertainties`; submodules `uncertainties.umath`, `uncertainties.unumpy`, `uncertainties.unumpy.ulinalg`
 - owner: `compute`
 - rail: uncertainty
-- asset: pure Python; `py3-none-any` wheel (no compiled ABI), unmarked in the manifest (cp315-clean); `uncertainties.unumpy`/`ulinalg` import `numpy` lazily and stay dormant until an array path is touched
-- floor: unconditional core; the `unumpy` array/matrix surface requires `numpy` (the compute array companion band)
 - capability: linear error propagation with automatic correlation tracking — scalar `UFloat` algebra, covariance/correlation reconstruction, arbitrary-function lifting via `wrap`, a `umath` scalar-math mirror, and a `unumpy` NumPy-array/matrix surface with an `ulinalg` linear-algebra path
 
 ## [02]-[PUBLIC_TYPES]

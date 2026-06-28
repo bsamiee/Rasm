@@ -1,9 +1,9 @@
 # [RASM_APPUI_API_FLUENTICONS]
 
-`FluentIcons.Common` 2.1.330 (MIT) supplies the platform-neutral icon vocabulary —
+`FluentIcons.Common` 2.1.331 (MIT) supplies the platform-neutral icon vocabulary —
 the `Symbol` (2789 members, `int`-backed) and `Icon` enums plus the `IconVariant`
 (byte, 4 cases) and `IconSize` (byte, 9 cases) axes and their static enumeration
-helpers. `FluentIcons.Avalonia` 2.1.330 (MIT) supplies the font-backed icon
+helpers. `FluentIcons.Avalonia` 2.1.331 (MIT) supplies the font-backed icon
 controls (`SymbolIcon`/`SymbolImage`/`FluentIcon`/`FluentImage`), the `Outline`
 attached-property accessor, and four XAML markup extensions. `Common` is multi-target
 (`netstandard2.1` primary, `netstandard2.0` fallback) and binds `netstandard2.1`
@@ -13,14 +13,14 @@ render a glyph by enum member rather than by string key or bitmap path.
 
 ## [01]-[PACKAGE_SURFACE]
 
-[PACKAGE_SURFACE]: `FluentIcons.Common` 2.1.330
+[PACKAGE_SURFACE]: `FluentIcons.Common` 2.1.331
 - package / license: `FluentIcons.Common` / MIT
 - assembly: `FluentIcons.Common`
 - asset: `netstandard2.1` (consumer-bound) + `netstandard2.0` fallback
 - namespace: `FluentIcons.Common`
 - rail: icons
 
-[PACKAGE_SURFACE]: `FluentIcons.Avalonia` 2.1.330
+[PACKAGE_SURFACE]: `FluentIcons.Avalonia` 2.1.331
 - package / license: `FluentIcons.Avalonia` / MIT
 - assembly: `FluentIcons.Avalonia`
 - asset: `net10.0` (consumer-bound) + `net8.0`

@@ -1,16 +1,16 @@
 export const meta = {
   name: 'rebuild-api-focused',
-  description: 'Focused twin of rebuild-api scoped to the NEW work: it inventories every UNCOMMITTED .api catalog under libs/csharp/ (the stubs the survey-gaps runs just created plus any modified catalog), treats them all as one set, and rebuilds each to FULL first-class, integration-shaped capability with the identical rebuild-api standards and 3-lens write. Batched exactly like rebuild-api (BATCH=4) but capped at 8 concurrent agents; any order, one pass over the whole uncommitted set, then the same union-find cross-catalog reconcile. An args array of explicit paths overrides the git inventory when passed.',
-  whenToUse: 'After the survey-gaps runs admit packages and write one-line .api stubs across libs/csharp/, fill every new/uncommitted catalog to full capability in one batched pass.',
+  description: 'Focused twin of rebuild-api scoped to the NEW work: it inventories every UNTRACKED .api STUB catalog under libs/ (C# AND Python — the one-line stubs the survey-gaps/admission runs just created), treats them all as one set, and rebuilds each from the stub to FULL first-class, integration-shaped capability with the identical rebuild-api standards and single-agent 3-lens write. NO separate critique/red-team stages — instead run the whole workflow a SECOND time to harden (do not commit between the two runs, so the second run re-discovers the still-untracked catalogs). Batched exactly like rebuild-api (BATCH=4), capped at CAP=8 concurrent agents; any order, one pass over the whole untracked-stub set, then the same union-find cross-catalog reconcile. An args array of explicit paths overrides the git inventory when passed (use it to exclude a folder another agent owns).',
+  whenToUse: 'After an admission run (survey-gaps or manual) writes one-line .api stubs across libs/ (C# and Python), fill every new/untracked catalog to full capability in one batched pass; run twice to harden.',
   phases: [
-    { title: 'API-Discover', detail: 'one agent: git-inventory every uncommitted (modified or untracked) .api catalog under libs/csharp/' },
-    { title: 'API-Rebuild', detail: 'per small batch of the uncommitted set: extract-full -> refine-integration -> harden adversarially, pooled at CAP=8' },
+    { title: 'API-Discover', detail: 'one agent: git-inventory every UNTRACKED .api stub catalog under libs/ (C# and Python), or take the explicit args path list' },
+    { title: 'API-Rebuild', detail: 'per small batch of the untracked-stub set: extract-full -> refine-integration -> harden adversarially, pooled at CAP=8' },
     { title: 'Reconcile', detail: 'consume cross-catalog residuals: union-find cluster by shared file -> fix -> adversarial completeness verify' },
   ],
 }
 
 // --- [CONSTANTS] -------------------------------------------------------------------------
-const CAP = 10
+const CAP = 8
 const BATCH = 4 // .api files per agent — identical to rebuild-api
 const STAGGER_MS = 1500
 
@@ -37,10 +37,13 @@ const LAW = [
   'MANDATE — INTEGRATION-SHAPED, NOT SURFACE-LEVEL: a rebuilt .api documents (a) the package full ADVANCED surface (combinators, hooks, native ' +
     'pipelines, discriminators, async mirrors — not just the basic members), AND (b) the INTEGRATION patterns the dense design should compose — ' +
     'how this library STACKS with the other admitted libs into single rails (e.g. a decode hook feeding a discriminated model under a retry ' +
-    'context with a telemetry span). C# has NO central .api tier — its universals are Thinktecture/LanguageExt (excluded from catalogues), and the ' +
-    'libs/csharp/Rasm/.api catalogs serve the Rasm/Geometry planning effort. Stack a folder/area catalog onto the sibling-folder admitted libs and ' +
-    'those universal rails. The catalog GUIDES the rebuild toward first-class, stacked usage. Reject surface-level member lists. These targets are ' +
-    'typically ONE-LINE STUBS from a survey-gaps admission — build each from the stub to a full catalog, never leave the placeholder line.',
+    'context with a telemetry span) — INCLUDING the SHARED/UNIVERSAL catalog tier where the language has one (`libs/python/.api/` for Python: ' +
+    'expression/msgspec/pydantic/pydantic-settings/stamina/beartype/structlog/opentelemetry/anyio; `libs/typescript/.api/` for TypeScript: ' +
+    'effect/effect-platform/Schema/react), so a folder/area catalog documents stacking ONTO those universal rails, not only its sibling-folder ' +
+    'libs. C# has NO central tier — its universals are Thinktecture/LanguageExt (excluded from catalogues), and the `libs/csharp/Rasm/.api/` ' +
+    'catalogs serve the `Rasm/Geometry` planning effort; a C# folder keeps its OWN copy of any catalog it consumes (no shared tier to promote ' +
+    'into). The catalog GUIDES the rebuild toward first-class, stacked usage. Reject surface-level member lists. These targets are typically ' +
+    'ONE-LINE STUBS from an admission run — build each from the stub to a full catalog, never leave the placeholder line.',
   'WRITE-FULLY MANDATE: every correction you identify you MUST make NOW via Edit/Write directly in the .api file — the structured fix-log is a ' +
     'REPORT of edits ALREADY MADE, never a to-do list or would/should hedge; leave nothing behind. If a catalog is already mature and correct, ' +
     'return verdict=clean — never invent edits.',
@@ -80,18 +83,18 @@ const processBatch = async (w, tag) => {
 
 phase('API-Discover')
 const FILES = OVERRIDE || (await (async () => {
-  const inv = await agent('List every UNCOMMITTED .api catalog markdown file under `libs/csharp/` — both MODIFIED and UNTRACKED. Run git from the ' +
-    'repo root (do NOT cd): combine `git status --porcelain -- libs/csharp/` (untracked are the `??` rows, modified the ` M`/`MM`/`A ` rows) or ' +
-    '`git ls-files --others --exclude-standard -- "libs/csharp/**/.api/*.md"` plus `git diff --name-only -- "libs/csharp/**/.api/*.md"`. Keep ONLY ' +
-    'paths matching `libs/csharp/<...>/.api/<name>.md` (the per-folder catalog files, including the Rasm root .api). Return every match as a ' +
-    'repo-relative path, de-duplicated. If none, return an empty list.', { label: 'discover', phase: 'API-Discover', schema: DISCOVERY_SCHEMA, model: 'sonnet', effort: 'low', stallMs: 180000 })
+  const inv = await agent('List every UNTRACKED .api STUB catalog markdown file under `libs/` — both C# (`libs/csharp/<...>/.api/<name>.md`) AND ' +
+    'Python (`libs/python/<...>/.api/<name>.md`). Run git from the repo root (do NOT cd): `git ls-files --others --exclude-standard -- ' +
+    '"libs/**/.api/*.md"` lists exactly the untracked (`??`) catalog files — the freshly-created one-line stubs an admission run wrote; modified, ' +
+    'already-full catalogs are NOT in scope. Keep ONLY paths matching `libs/<...>/.api/<name>.md`. Return every match as a repo-relative path, ' +
+    'de-duplicated. If none, return an empty list.', { label: 'discover', phase: 'API-Discover', schema: DISCOVERY_SCHEMA, model: 'sonnet', effort: 'low', stallMs: 180000 })
   return ((inv && inv.files) || []).filter(Boolean)
 })())
 const pending = chunk(FILES, BATCH).map((files) => ({ files }))
 const totalFiles = FILES.length
 const totalBatches = pending.length
 log('rebuild-api-focused: ' + totalFiles + ' uncommitted catalogs in ' + totalBatches + ' batches; pooling at CAP=' + CAP)
-if (!totalFiles) return { targets: 0, note: 'no uncommitted .api catalogs found under libs/csharp/' }
+if (!totalFiles) return { targets: 0, note: 'no untracked .api stub catalogs found under libs/' }
 
 // --- [API_REBUILD]
 phase('API-Rebuild')

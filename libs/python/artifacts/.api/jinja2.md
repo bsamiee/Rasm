@@ -10,8 +10,7 @@
 - owner: `artifacts`
 - rail: report-templating
 - license: BSD-3-Clause (runtime dep `MarkupSafe>=2.0`; `Babel>=2.7` only under the `i18n` extra)
-- asset: runtime library; pure Python (`py3-none-any`, flit-built), no ABI gate, cp315-clean (manifest floor `jinja2>=3.1.6`, no `python_version` marker)
-- installed: `3.1.6` reflected via `assay api resolve jinja2`
+- installed: `3.1.6`
 - entry points: none (library only)
 - capability: text/markup template engine; lexer, parser, compiler, sandboxed execution, loader hierarchy, autoescape policy, undefined-value algebra, sync and async rendering, native-type rendering, bytecode caching, mutable filter/test/global/policy registries, and the extension-hook family (i18n, expression-statement, loop-control, debug)
 
@@ -159,7 +158,6 @@ Policy rows carry extension defaults, logging base class, object probe, cache st
 - native axis: when a template must yield a typed Python value (a computed number, a list, a dict) rather than a string, `NativeEnvironment`/`NativeTemplate.render` is the row — never `ast.literal_eval` over a string render; string reports stay on `Environment`.
 - extension and registry axis: custom report tags register through `Environment(extensions=[...])` / `add_extension` (`ext.Extension` subclass or the `"jinja2.ext.*"` identifiers); custom filters/tests/globals attach to the mutable `Environment.filters`/`.tests`/`.globals` registries and use `pass_context`/`pass_environment`/`pass_eval_context` to receive engine state — these are configuration rows on the one engine, never a second engine.
 - precompile axis: `compile_templates(target)` emits a zip/dir archive that `ModuleLoader(path)` serves with no parse cost; `FileSystemBytecodeCache`/`MemcachedBytecodeCache` is the per-template cache for the live `Environment` — choose precompiled archive for sealed report sets, bytecode cache for hot reload.
-- runtime seam: jinja2 is markerless and cp315-clean (pure Python over `MarkupSafe`, which is cp315-wheeled), so the engine runs ON the cp315 core — no subprocess seam; `render_async`/`generate_async` integrate directly with the runtime `anyio` (`.api/anyio.md`) task scope rather than crossing a process boundary.
 - evidence: each render captures the resolved template name, the loader row, the autoescape decision, the undefined policy, and the output byte length as a `msgspec.Struct` (`.api/msgspec.md`) templating receipt — emitted under one `structlog` (`.api/structlog.md`) event inside an OpenTelemetry (`.api/opentelemetry-api.md`) span; a `TemplateNotFound`/`UndefinedError`/`SecurityError` folds onto the `expression.Result` (`.api/expression.md`) rail rather than raising into the report producer.
 - boundary: jinja2 renders the report body offline; the rendered bytes feed the document/PDF owner; live UI templating and browser state stay outside this package.
 

@@ -158,6 +158,19 @@ mode for `SparseCholesky`/`SparseLDL`), `MinimumDegreeStS` (AMD on AᵀA, dense 
 - pair with `MathNet.Numerics`: CSparse owns the sparse direct factorizations MathNet lacks, while
   MathNet (+ the MKL/OpenBLAS providers) owns dense BLAS/LAPACK and iterative solvers; route a
   problem to CSparse for sparse LU/LDL/Cholesky/QR and to MathNet for dense or Krylov work.
+- downstream structural-frame FE solvers factor their assembled stiffness through THIS owner — the 3D
+  `BriefFiniteElement.Net` (`api-brief-finite-element`) and the 2D `FEALiTE2D` (`api-fealite2d`) both
+  hold the reduced global stiffness as a CSparse `SparseMatrix`/`CompressedColumnStorage<double>` and
+  solve it through these factorizations, never a second linear-algebra rail: `FEALiTE2D`'s
+  `StructuralStiffnessMatrix` is a `CSparse.Double.SparseMatrix` driven into `SparseCholesky.Create`/
+  `SparseQR.Create`; BFE's `CholeskySolver`/`LuSolver`/`QRSolver`/iterative `PCG` (each its own
+  `ISolver`) `Create` a CSparse factorization over a `CompressedColumnStorage<double>` (e.g.
+  `CholeskySolver` → `SparseCholesky.Create(A, ColumnOrdering.MinimumDegreeAtPlusA)`), and BFE's
+  `StaticLinearAnalysisResult.Solvers_New` caches them in a `Dictionary<SparseMatrix, ISolver>` keyed
+  by the CSparse matrix. BFE's `Solve(ISolverFactory)` is the injection seam — route its
+  `ISolverFactory` through a Rasm-owned CSparse-backed solver so the structural-frame and continuum
+  lanes share ONE `ISparseFactorization<double>` owner instead of BFE standing up a parallel
+  sparse-factor stack.
 - expose a matrix-free seam via `ILinearOperator<T>` when the operator is implicit (a stencil or
   Schur complement) and only the matvec is needed by a downstream iterative driver.
 - `.mtx` exchange (`MatrixMarketReader/Writer`) is the interchange format for fixtures and external

@@ -10,7 +10,7 @@
 - owner: `runtime`
 - rail: serialization
 - namespaces: `msgspec`, `msgspec.json`, `msgspec.msgpack`, `msgspec.structs`, `msgspec.inspect`, `msgspec.toml`, `msgspec.yaml`
-- installed: `0.21.1`; license MIT; cp315-CLEAN, core-direct (no environment marker)
+- installed: `0.21.1`
 - asset: `_core.cpython-315-darwin.so` C extension; `json`/`msgpack`/`structs`/`inspect`/`toml`/`yaml` are thin Python facades over the one compiled core
 - capability: `Struct` record definition, JSON/MessagePack encode-decode, `Meta` constraint validation, builtins lowering/duck-typed conversion, reusable codecs with hooks, JSON-Lines framing, struct introspection, JSON-Schema generation, runtime struct definition, TOML/YAML codecs over the same type machinery
 

@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Avalonia.Desktop`
-- package: `Avalonia.Desktop` `12.0.4`
+- package: `Avalonia.Desktop` `12.0.5`
 - assembly: `Avalonia.Desktop` (bound asset `lib/net10.0/Avalonia.Desktop.dll`; also ships `lib/net8.0`)
 - license: MIT
 - namespace: `Avalonia`

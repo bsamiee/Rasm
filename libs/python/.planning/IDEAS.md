@@ -47,10 +47,8 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 
 [CONTENT_IDENTITY_PARITY_GATE]-[QUEUED]: digest parity proves the Python content key against the C# seed.
 - Capability: content-key parity proof for the one seed every Python package trusts.
-- Shape: runtime `evidence/identity` proves `XxHash128`/`XxHash3` digest-endianness against the C# `System.IO.Hashing` seed on the companion interpreter where `xxhash` resolves; the cp315 core confirms the same parity only after an upstream cp315 or abi3 wheel exists.
 - Unlocks: the reuse fabric, graduation rail, geometry GLB key, data egress key, and artifacts document key as consumers of one verified content identity rather than package-local assumptions.
 - Anchors: `xxhash`, `xxh3_128_intdigest`, `xxh3_64_intdigest`, `to_bytes(16, "little")`, C# `BinaryPrimitives.WriteUInt128LittleEndian`, the multi-runtime golden fixture, and runtime `ContentIdentity`.
-- Tension: `xxhash>=3.7.0` ships cp38-cp314 wheels without cp315/abi3 coverage, so the cp315 leg is upstream-blocked rather than host-sync-pending.
 
 [GRADIENT_DRIVEN_INVERSE_DESIGN]-[QUEUED]: inverse design becomes the apex of the differentiable solver stack.
 - Capability: gradient-driven inverse design over the differentiable solver stack.

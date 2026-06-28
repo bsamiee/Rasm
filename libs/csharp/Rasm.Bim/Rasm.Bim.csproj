@@ -13,6 +13,8 @@
 
     <ItemGroup Label="Interchange">
         <PackageReference Include="GeometryGymIFC_Core" />
+        <PackageReference Include="StructuralAnalysisFormat" />
+        <PackageReference Include="dotbim" />
         <PackageReference Include="SharpGLTF.Core" />
         <PackageReference Include="SharpGLTF.Runtime" />
         <PackageReference Include="SharpGLTF.Toolkit" />
@@ -28,12 +30,41 @@
         <PackageReference Include="Unofficial.laszip.netstandard" />
     </ItemGroup>
 
+    <ItemGroup Label="Energy Model Exchange">
+        <PackageReference Include="HoneybeeSchema" />
+        <PackageReference Include="DragonflySchema" />
+        <PackageReference Include="NREL.OpenStudio.macOS-arm64" ExcludeAssets="build" GeneratePathProperty="true" />
+    </ItemGroup>
+
+    <ItemGroup Label="OpenStudio Native Runtime"
+               Condition="Exists('$(PkgNREL_OpenStudio_macOS-arm64)/runtimes/osx-arm64/native')">
+        <Content Include="$(PkgNREL_OpenStudio_macOS-arm64)/runtimes/osx-arm64/native/**"
+                 CopyToOutputDirectory="PreserveNewest" />
+    </ItemGroup>
+
+    <ItemGroup Label="COBie Exchange">
+        <PackageReference Include="Xbim.CobieExpress" />
+        <PackageReference Include="Xbim.IO.CobieExpress" />
+        <PackageReference Include="Xbim.CobieExpress.Exchanger" />
+    </ItemGroup>
+
     <ItemGroup Label="Review">
         <PackageReference Include="Xbim.InformationSpecifications" />
         <PackageReference Include="Xbim.Properties" />
         <PackageReference Include="ids-lib" />
         <PackageReference Include="Smino.Bcf.Toolkit" />
         <PackageReference Include="SwiftCollections.Lean" />
+    </ItemGroup>
+
+    <ItemGroup Label="Building Systems Ontology">
+        <PackageReference Include="BrickSchema.Net" />
+    </ItemGroup>
+
+    <ItemGroup Label="Structural Taxonomy">
+        <PackageReference Include="VividOrange.Loads" />
+        <PackageReference Include="VividOrange.Cases" />
+        <PackageReference Include="VividOrange.Stages" />
+        <PackageReference Include="VividOrange.Countries" />
     </ItemGroup>
 
     <ItemGroup Label="Geospatial">

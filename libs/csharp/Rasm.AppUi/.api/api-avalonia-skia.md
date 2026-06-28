@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Avalonia.Skia`
-- package: `Avalonia.Skia` (12.0.4, MIT)
+- package: `Avalonia.Skia` (12.0.5, MIT)
 - assembly: `Avalonia.Skia` (consumer-bound `lib/net8.0`; net10 binds this asset)
 - namespace: `Avalonia` (`UseSkia`, `SkiaOptions`, `SkiaPlatform`)
 - namespace: `Avalonia.Skia` (lease contracts, `SkiaSharpExtensions`, `ISkiaSurface`)

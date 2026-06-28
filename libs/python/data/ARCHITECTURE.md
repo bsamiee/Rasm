@@ -1,6 +1,6 @@
 # [PY_DATA_ARCHITECTURE]
 
-The domain map of `data` — the host-free data-interchange companion. A `tabular` interchange core (columnar scan, lakehouse, query, contract, interop, egress) plus the `spatial`, `gridded`, and `graph` planes, each a real domain concept.
+The domain map of `data` — the host-free data-interchange companion. A `tabular` interchange core (columnar scan, lakehouse, query, contract, interop, egress) plus the `spatial`, `gridded`, `graph`, and `impact` planes, each a real domain concept.
 
 Each codemap node is the eventual source file its `.planning/` design page becomes, named in the language's own folder and file casing — PascalCase `.cs`, lowercase `.py`, lowercase `.ts`. Treat every node as realized code; the `.planning/` scaffold is the authoring substrate, never part of the map.
 
@@ -25,8 +25,10 @@ data/
 │   ├── virtual.py        # Virtual-reference cube owner over virtualizarr manifest parsers and icechunk set_virtual_ref native virtual-chunk addressing
 │   ├── ragged.py         # Ragged N-D store owner over awkward, with from_arrow/to_arrow zero-copy bridge to the interop Arrow carrier
 │   └── field.py          # FieldDataset owner over netcdf4/HDF5/Zarr CF engines, flox grouped/resampled reductions, virtualizarr/h5py virtual leg
-└── graph/                # Rustworkx graph payloads with networkx compat, typed result receipts
-    └── graph.py          # Graph-payload owner, algorithm axis, typed result receipt
+├── graph/                # Rustworkx graph payloads with networkx compat, typed result receipts
+│   └── graph.py          # Graph-payload owner, algorithm axis, typed result receipt
+└── impact/               # Material environmental-impact: EPD declaration ingest + LCA compute, normalized to one EN 15804 carrier
+    └── impact.py         # MaterialImpact owner over an ImpactSource axis (OpenEPD/ILCD+EPD/Brightway/openLCA/premise) folding to one indicator × stage matrix keyed by ContentIdentity
 ```
 
 ## [02]-[SEAMS]
@@ -51,4 +53,10 @@ tabular/profile     →   python:artifacts/figures                  # [SHAPE]: Q
 gridded/virtual     →   csharp:Rasm.Persistence                   # [CONTENT_KEY]: icechunk as-of snapshot identity reproduced from the XxHash128 seed
 spatial/geospatial  →   csharp:Rasm.Compute                       # [SHAPE]: native GeoArrow buffers sharing the GLB wire layout
 spatial/mesh        →   python:geometry/scan/ingestion            # [SHAPE]: data COPC arm decode leaving the pdal filter-graph owner unchanged
+impact              ←   python:runtime                            # [PORT]: TransportResource for the EC3 + openLCA server endpoints
+impact              →   python:runtime/observability              # [RECEIPT]: ImpactReceipt contribution keyed by ContentIdentity
+impact              →   tabular/contract                          # [SHAPE]: EN 15804 indicator × stage matrix as a pydantic/pandera-gated frame
+impact              →   tabular/profile                           # [WIRE]: flattened method × indicator × stage frame for the data-quality plane
+impact              →   csharp:Rasm.Materials                     # [SHAPE]: EN 15804 indicator set keyed to a material profile
+impact              ⇄   csharp:Rasm.Persistence                   # [CONTENT_KEY]: EPD/LCA identity deduped in the durable reuse ledger
 ```

@@ -9,8 +9,7 @@
 - import: `pypdf`
 - owner: `artifacts`
 - rail: pdf
-- installed: `6.14.2` reflected via `import pypdf` (`__version__`) on cp315; markerless in the manifest (pure `py3-none-any`, cp315-clean)
-- license: `BSD-3-Clause`; pure-Python `py3-none-any` wheel, no native link — the permissive structural-editing arm of the pdf rail, admissible in a closed/distributed service where AGPL `pymupdf` is not
+- installed: `6.14.2`
 - extras: image extraction needs `pypdf[image]` (Pillow); AES needs `pypdf[crypto]` (`cryptography`, or `pycryptodome` legacy); both resolve through the manifest, never a per-package pin
 - entry points: none (library only)
 - capability: pure-Python PDF read/write, clone-then-edit and incremental write, merge/append/split/reorder, the `merge_*` page-overlay/transform family, rotate/scale, layout-aware text extraction with operator visitors, image extraction, AcroForm field read/fill/flatten, outline + named-destination + annotation + attachment authoring, `ObjectDeletionFlag` object pruning, content-stream compression, RC4/AES encryption + permission flags, viewer-preference and XMP/docinfo metadata editing

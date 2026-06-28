@@ -4,7 +4,7 @@ The Avalonia 12 compositor GPU-interop seam imports an externally-rendered GPU t
 
 ## [01]-[PACKAGE_SURFACE]
 
-[PACKAGE_SURFACE]: `Avalonia` 12.0.4 (compositor)
+[PACKAGE_SURFACE]: `Avalonia` 12.0.5 (compositor)
 - package: `Avalonia`
 - license: MIT
 - floor: `net10.0` consumer; the GPU-interop surface resolves from the `ref/net10.0` reference assembly (`Avalonia.Base.dll`)
@@ -141,7 +141,7 @@ The Avalonia 12 compositor GPU-interop seam imports an externally-rendered GPU t
 - All GPU-interop work runs on the compositor's render thread; the import calls return immediately-usable handles and the `Update*Async` calls complete on the compositor loop, so the boundary capsule awaits the `ValueTask`/`Task` rather than blocking the UI thread, and schedules tree mutations through `Compositor.RequestCompositionUpdate` when it must run after layout.
 
 [RAIL_LAW]:
-- Package: `Avalonia` 12.0.4 (`Avalonia.Base` compositor + `Avalonia.Platform` handle vocabulary)
+- Package: `Avalonia` 12.0.5 (`Avalonia.Base` compositor + `Avalonia.Platform` handle vocabulary)
 - Owns: the GPU-interop seam — compositor acquisition, external GPU image/semaphore import, adapter identity match, the surface/visual factory + `SetElementChildVisual` attach, and the synchronization-discriminated `Update*Async` refresh for an externally-rendered (`Wgpu`) viewport frame.
 - Accept: `TryGetCompositionGpuInterop` query, `DeviceLuid`/`DeviceUuid` adapter match, `ImportImage`/`ImportSemaphore` shared-handle import, `GetSynchronizationCapabilities`-driven selection of the matching `UpdateWith{KeyedMutex,Semaphores,TimelineSemaphores}Async`/`UpdateAsync`, the `Surface`-slot + `SetElementChildVisual` tree attach.
 - Reject: a second swapchain or window composited beside the Avalonia scene; an unsynchronized imported image whose update method ignores the `GetSynchronizationCapabilities` mode (e.g. `UpdateAsync` on a keyed-mutex-only image); a cross-adapter import ignoring the `DeviceLuid`/`DeviceUuid` match; a phantom single `UpdateWithExternalImageAsync` bind in place of the discriminated family; freeing a source texture before `ImportCompleted`.

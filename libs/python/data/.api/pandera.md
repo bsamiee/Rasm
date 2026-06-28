@@ -7,9 +7,7 @@
 [PACKAGE_SURFACE]: `pandera`
 - package: `pandera`
 - module: `pandera`
-- floor: `>=0.31.1`
 - license: MIT
-- asset: pure Python (`py3-none-any`)
 - rail: dataframe contract validation
 - import: `import pandera.pandas as pa` is the canonical backend-namespaced import at the `>=0.31` floor; the bare `import pandera as pa` is the legacy path and resolves the pandas backend only — author against `pandera.pandas`/`pandera.polars`/`pandera.pyspark` so the schema engine binds to the frame library without a per-call branch.
 

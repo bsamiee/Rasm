@@ -11,7 +11,7 @@
 - rail: observability
 - asset: pure-Python runtime library
 - namespaces: `opentelemetry.instrumentation.grpc`, `opentelemetry.instrumentation.grpc.filters`, `opentelemetry.instrumentation.grpc.grpcext`
-- installed: `0.63b1`; license Apache-2.0; py3-none-any, cp315-CLEAN (no environment marker); `instrumentation_dependencies()` declares `grpcio >= 1.42.0`
+- installed: `0.64b0`
 - capability: sync/async client + server gRPC span instrumentation, standalone interceptor factories, a parameterized `filters.Condition` predicate algebra for trace selection, the `grpcext` legacy-channel interceptor contracts (`UnaryClientInterceptor`/`StreamClientInterceptor`/`UnaryClientInfo`/`StreamClientInfo`), `grpcext.intercept_channel` for wrapping an existing channel, and `OTEL_PYTHON_GRPC_EXCLUDED_SERVICES` deployment-time service exclusion
 
 ## [02]-[PUBLIC_TYPES]
@@ -102,7 +102,6 @@
 
 [LOCAL_ADMISSION]:
 - the serve leg admits `aio_server_interceptor` on its `grpc.aio` server; `GrpcAioInstrumentorServer` is the global fallback when the server is constructed outside runtime control.
-- `instrumentation_dependencies()` declares `grpcio >= 1.42.0`; the runtime grpc stack already satisfies this on the cp315 core, so no companion lane is required.
 - spans, attributes, and propagation arrive settled from `.api/opentelemetry-api.md`; this page owns only the gRPC interceptor and filter surface.
 
 [RAIL_LAW]:

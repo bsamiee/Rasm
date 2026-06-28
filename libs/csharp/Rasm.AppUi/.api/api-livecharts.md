@@ -6,13 +6,13 @@
 
 [PACKAGE_SURFACE]: `LiveChartsCore.SkiaSharpView.Avalonia`
 - package: `LiveChartsCore.SkiaSharpView.Avalonia`
-- version: `2.0.4`
+- version: `2.0.5`
 - assembly: `LiveChartsCore.SkiaSharpView.Avalonia` (the single shipped assembly; `LiveChartsGeneratedCode` is a NAMESPACE inside it, not a separate assembly)
 - namespace: `LiveChartsCore.SkiaSharpView.Avalonia` — `Xaml*`, `*Collection`, `*Extension`, and the public `CartesianChart`/`PieChart`/`PolarChart`/`GeoMap`/`MotionCanvas`
 - namespace: `LiveChartsGeneratedCode` — the source-generated `SourceGen*` control bases the public charts derive from
 - asset: runtime library
 - build-floor: ships `lib/net8.0` (top TFM; no `net10.0`/`net9.0`), so the `net10.0` consumer binds `lib/net8.0` — the documented surface
-- dependency: transitively requires `LiveChartsCore.SkiaSharpView` 2.0.4 (Skia draw + series model) and `Avalonia`/`Avalonia.Skia` ≥ 11.0.0 (consumer runs Avalonia 12, forward-compatible)
+- dependency: transitively requires `LiveChartsCore.SkiaSharpView` 2.0.5 (Skia draw + series model) and `Avalonia`/`Avalonia.Skia` ≥ 11.0.0 (consumer runs Avalonia 12, forward-compatible)
 - rail: charts
 
 ## [02]-[PUBLIC_TYPES]

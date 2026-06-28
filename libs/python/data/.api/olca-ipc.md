@@ -1,0 +1,125 @@
+# [PY_DATA_API_OLCA_IPC]
+
+`olca-ipc` is the Python client for a running openLCA server: it drives CRUD over the openLCA model graph (processes, flows, flow properties, unit groups, product systems, impact methods, parameters), builds product systems, runs calculations and Monte-Carlo simulations, and queries the full result surface — technosphere requirements, intervention (elementary) flows, LCIA impacts, costs, upstream contribution trees, and Sankey graphs. The wire model is the separate `olca_schema` package: pure dataclasses with `new_*` factories and `to_dict`/`from_dict`/`to_json` codecs, decoupled from transport. It is the LIVE openLCA COMPUTE/interchange leg of the data EPD/LCA owner (it requires an openLCA IPC or REST server); it never re-implements the LCA matrix solver openLCA owns or stores the model as the system of record.
+
+## [01]-[PACKAGE_SURFACE]
+
+[PACKAGE_SURFACE]: `olca-ipc`
+- package: `olca-ipc`
+- version: `2.6.3`
+- license: MPL-2.0
+- module: `olca_ipc` (client/result) + `olca_schema` (`2.6.2`, MPL-2.0 — the wire model)
+- owner: `data`
+- rail: epd-lca (openLCA interchange + compute)
+- depends: `olca-schema>=2.6.2`, `requests>=2.33.1`
+- evidence: surface derived from package source (`olca-ipc 2.6.3`, `olca_ipc/{__init__,protocol,ipc}.py`; `olca-schema 2.6.2`, `olca_schema/__init__.py`); not cp315-reflectable — admitted under the `python_version < '3.15'` marker (`requires-python >= 3.12`), so members are source-verified, not `assay api`-reflected
+- surface-law: the current surface is `import olca_ipc as ipc` + `import olca_schema as o` (model types live in `olca_schema`). The legacy single `olca` package (`import olca`; `olca.Client`; `client.dispose(result)`) shown on `greendelta.github.io/olca-ipc.py` is the OLD 0.x API and is superseded — do not use it; the `2.x` `Result` owns `dispose()` itself
+- capability: a uniform IPC client over three transports (JSON-RPC, REST, protobuf) for model CRUD, product-system construction, calculation + simulation, and a complete result-query surface; the typed `olca_schema` graph with `new_*` factories and dict/JSON codecs; base64 source-file upload
+
+## [02]-[PUBLIC_TYPES]
+
+[PUBLIC_TYPE_SCOPE]: clients and results (`olca_ipc`)
+- rail: epd-lca
+
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [ROLE] |
+| :-----: | :------- | :------------ | :----- |
+|  [01]   | `olca_ipc.Client(endpoint: str | int = 8080)` | JSON-RPC client | the default client over JSON-RPC (a `requests.Session` to `http://localhost:<port>`); implements the full `ProtoClient` contract |
+|  [02]   | `olca_ipc.RestClient(url: str)` | REST client | same contract over the openLCA REST API |
+|  [03]   | `olca_ipc.ProtoClient` | client ABC | the abstract transport-agnostic client contract (CRUD + calculate/simulate) every client implements; annotate against this for transport independence |
+|  [04]   | `olca_ipc.Result` / `olca_ipc.RestResult` / `olca_ipc.ProtoResult` | result handle / ABC | a handle to a server-side result; lazy queries over the transport; `ProtoResult` is the abstract result contract (state, flows, impacts, costs, upstream, sankey, dispose) |
+|  [05]   | `olca_ipc.FileData` | upload payload | base64 file payload for `put_source_file`; `FileData.from_file(path)` reads + encodes |
+
+[PUBLIC_TYPE_SCOPE]: model entities (`olca_schema as o`)
+- rail: epd-lca
+
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [ROLE] |
+| :-----: | :------- | :------------ | :----- |
+|  [01]   | `o.RootEntity` / `o.Ref` | base / reference | the standalone-entity base (carries `id`/`name`); `Ref` is the typed pointer to another entity (`ref_type: o.RefType`, `id`) — every cross-entity link is a `Ref` |
+|  [02]   | `o.Process`, `o.Flow`, `o.FlowProperty`, `o.UnitGroup`, `o.Unit`, `o.Exchange` | inventory model | the LCI graph: a `Process` holds `Exchange`s referencing `Flow`s typed by `FlowProperty`/`UnitGroup`/`Unit` |
+|  [03]   | `o.ProductSystem`, `o.LinkingConfig` | system | a linked product system and the auto-linking configuration for `create_product_system` |
+|  [04]   | `o.ImpactMethod`, `o.ImpactCategory`, `o.ImpactFactor` | LCIA model | impact method → categories → characterization factors |
+|  [05]   | `o.CalculationSetup`, `o.ResultState` | calculation | the calculation request (`target: Ref`, `impact_method`, `nw_set`, `amount`, `unit`, `with_costs`, …) and the server result state (`id`, `is_ready`, `is_scheduled`, `error`) |
+|  [06]   | `o.TechFlow`, `o.EnviFlow`, `o.TechFlowValue`, `o.EnviFlowValue`, `o.ImpactValue`, `o.CostValue` | result rows | the keyed value rows results return — technosphere flow, intervention flow, and their valued forms across inventory/impact/cost |
+|  [07]   | `o.UpstreamNode`, `o.GroupValue`, `o.SankeyRequest`, `o.SankeyGraph` | contribution | upstream-tree node, grouped result value, and the Sankey request/graph |
+|  [08]   | `o.{FlowType, ProcessType, ParameterScope, AllocationType, RefType}` | enums | flow kind (product/waste/elementary), process kind, parameter scope, allocation method, reference target type |
+
+## [03]-[ENTRYPOINTS]
+
+[ENTRYPOINT_SCOPE]: model CRUD (`ProtoClient` — bound on `Client`/`RestClient`)
+- rail: epd-lca
+
+| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
+| :-----: | :-------- | :------------- | :----- |
+|  [01]   | `client.get(model_type: type[E], uid=None, name=None) -> E | None` | read one | fetch a full entity by id or name (one polymorphic getter discriminating on the type + key) |
+|  [02]   | `client.get_all(model_type) -> list[E]` | read all | every instance of a type (eager — use for small types) |
+|  [03]   | `client.get_descriptors(model_type) -> list[o.Ref]` / `get_descriptor(model_type, uid=None, name=None) -> o.Ref | None` / `find(model_type, name) -> o.Ref | None` | read refs | lightweight descriptor (`Ref`) listing/lookup without full payloads |
+|  [04]   | `client.get_providers(flow=None) -> list[o.TechFlow]` / `get_parameters(model_type, uid) -> list[o.Parameter | o.ParameterRedef]` | read graph | flow providers and an entity's parameters/redefinitions |
+|  [05]   | `client.put(model: o.RootEntity) -> o.Ref | None` / `put_all(*models)` | write | insert/update one or many entities; returns the stored `Ref` |
+|  [06]   | `client.put_source_file(source: o.Source | o.Ref, file_data: FileData) -> bool` | write file | upload a source document (base64 via `FileData`) |
+|  [07]   | `client.delete(model) -> o.Ref | None` / `delete_all(*models)` | delete | remove one or many entities |
+|  [08]   | `client.create_product_system(process, config: o.LinkingConfig | None = None) -> o.Ref | None` | build | auto-link a product system from a root process |
+
+[ENTRYPOINT_SCOPE]: calculation and result lifecycle
+- rail: epd-lca
+
+| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
+| :-----: | :-------- | :------------- | :----- |
+|  [01]   | `client.calculate(setup: o.CalculationSetup) -> Result` | calculate | schedule a calculation; returns a `Result` handle immediately (may not be ready) |
+|  [02]   | `client.simulate(setup) -> Result` | simulate | Monte-Carlo simulation handle; advance with `result.simulate_next()` |
+|  [03]   | `result.wait_until_ready() -> o.ResultState` / `result.get_state() -> o.ResultState` | poll | block (0.5 s poll) until the server result is ready; inspect scheduled/ready/error state |
+|  [04]   | `result.dispose()` | release | free the server-side result — MUST be called (memory leak otherwise); use `try/finally` or a context wrapper |
+|  [05]   | `result.get_demand() -> o.TechFlowValue | None` / `get_tech_flows()` / `get_envi_flows()` / `get_impact_categories()` | enumerate | the result's reference demand and the tech-flow / intervention-flow / impact-category axes |
+
+[ENTRYPOINT_SCOPE]: result queries (`ProtoResult` — total/direct/intensity/upstream/grouped families)
+- rail: epd-lca
+
+| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
+| :-----: | :-------- | :------------- | :----- |
+|  [01]   | `get_total_requirements() -> list[o.TechFlowValue]` / `get_total_requirements_of(tech_flow)` / `get_scaling_factors()` / `get_scaled_tech_flows_of(...)` / `get_unscaled_tech_flows_of(...)` | technosphere | scaled/unscaled requirement vectors and per-flow breakdowns |
+|  [02]   | `get_total_flows() -> list[o.EnviFlowValue]` / `get_total_flow_value_of(envi_flow)` / `get_flow_contributions_of(...)` / `get_direct_interventions_of(tech_flow)` / `get_flow_intensities_of(...)` / `get_total_interventions_of(...)` / `get_upstream_interventions_of(envi_flow, path)` / `get_grouped_flow_results_of(...)` | inventory | total/direct/intensity/upstream/grouped intervention-flow results |
+|  [03]   | `get_total_impacts() -> list[o.ImpactValue]` / `get_normalized_impacts()` / `get_weighted_impacts()` / `get_total_impact_value_of(...)` / `get_impact_contributions_of(...)` / `get_direct_impacts_of(tech_flow)` / `get_impact_intensities_of(...)` / `get_total_impacts_of(...)` / `get_impact_factors_of(...)` / `get_flow_impacts_of(...)` / `get_upstream_impacts_of(impact, path)` / `get_grouped_impact_results_of(...)` | LCIA | total/normalized/weighted impacts and the full contribution/intensity/upstream/grouped impact families |
+|  [04]   | `get_total_costs() -> o.CostValue` / `get_cost_contributions()` / `get_direct_costs_of(...)` / `get_cost_intensities_of(...)` / `get_total_costs_of(...)` / `get_upstream_costs_of(path)` / `get_grouped_cost_results()` | LCC | life-cycle-cost totals, contributions, intensities, and upstream costs |
+|  [05]   | `get_sankey_graph(config: o.SankeyRequest) -> o.SankeyGraph` | sankey | the contribution Sankey graph for visualization |
+
+[ENTRYPOINT_SCOPE]: model factories and codecs (`olca_schema as o`)
+- rail: epd-lca
+
+| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
+| :-----: | :-------- | :------------- | :----- |
+|  [01]   | `o.new_unit_group(name, ref_unit)` / `o.new_unit(name, factor=1.0)` / `o.new_flow_property(name, unit_group)` | build quantities | unit group, unit, and flow property (quantity) factories |
+|  [02]   | `o.new_flow(name, flow_type, flow_property)` / `o.new_product(...)` / `o.new_waste(...)` / `o.new_elementary_flow(...)` | build flows | typed flow factories |
+|  [03]   | `o.new_process(name)` / `o.new_exchange(process, flow, amount=1.0, unit=None)` / `o.new_input(...)` / `o.new_output(...)` | build processes | process + exchange factories (auto-assign `internal_id`, append to the process) |
+|  [04]   | `o.new_parameter(name, value, scope=GLOBAL_SCOPE)` / `o.new_location(name, code=None)` / `o.new_{physical,economic,causal}_allocation_factor(...)` | build params/alloc | parameter (input vs formula), location, and allocation-factor factories |
+|  [05]   | `o.new_impact_category(name)` / `o.new_impact_factor(indicator, flow, value=1.0, unit=None)` / `o.new_impact_method(name, *indicators)` | build LCIA | impact category/factor/method factories |
+|  [06]   | `o.as_ref(entity) -> o.Ref` / `entity.to_ref() -> o.Ref` / `o.Ref(ref_type=o.RefType.X, id=...)` | reference | turn an entity into a `Ref`, or construct one directly by `RefType` + id (the form a `CalculationSetup.target` uses); `olca_schema 2.6.2` has no module-level `ref()` helper (that was the legacy `olca` 0.x package) |
+|  [07]   | `entity.to_dict()` / `Type.from_dict(d)` / `entity.to_json()` / `Type.from_json(s)` | codec | the dataclass wire codecs the client uses internally and a consumer uses at the boundary |
+
+## [04]-[IMPLEMENTATION_LAW]
+
+[TRANSPORT_TOPOLOGY]:
+- `ProtoClient` is the abstract contract; `Client` (JSON-RPC over a `requests.Session`), `RestClient` (REST), and the proto client all satisfy it, so calculation/CRUD code is transport-agnostic — pin a parameter to `ProtoClient` and pick the transport at the boundary
+- `Result` is a HANDLE to a server-side result, not a materialized table: every `get_*` is a lazy IPC round trip against the live result id; this is why the result must be `dispose()`d and why large enumerations cost network — query only the axes needed
+- the calculation lifecycle is `setup → calculate → wait_until_ready → query → dispose`: `CalculationSetup(target=o.Ref(ref_type=RefType.ProductSystem|Process, id=...), impact_method=Ref, nw_set=Ref, amount, unit, with_costs)` → `calculate` returns immediately → `wait_until_ready()` polls `ResultState` → query totals/contributions → `dispose()` in a `finally`
+- `olca_schema` is decoupled data: the entity dataclasses carry no transport; build with `new_*` factories, link with `as_ref`/`to_ref` or a direct `o.Ref(ref_type=..., id=...)`, push with `put`/`put_all`, and the `to_dict`/`from_dict` (and `to_json`/`from_json`) codecs are the only wire contract — so a model can be authored, serialized, and diffed entirely offline
+
+[INTEGRATION]:
+- TransportResource seam: the openLCA server endpoint (host/port) is supplied by the runtime `TransportResource`; construct `Client(endpoint)`/`RestClient(url)` from it at the boundary and never re-mint the connection
+- tabular seam: the result rows (`list[o.ImpactValue]`/`list[o.EnviFlowValue]`/`list[o.TechFlowValue]`) project straight into a `pandas`/`polars` frame — the canonical pattern is `pd.DataFrame([(v.envi_flow.flow.name, v.amount, ...) for v in result.get_total_flows()])` — feeding the data tabular/contract/profile rails; `to_dict` gives the same as a record stream for `msgspec`
+- bw2io seam (cross-tool): openLCA exports JSON-LD that `bw2io`'s JSON-LD importer ingests into Brightway, and `olca-ipc` drives the openLCA side live — together they are the two-engine LCA interchange the EPD/LCA owner spans
+- bw2calc/bw2data seam (cross-engine alternative): `olca-ipc` is the REMOTE openLCA compute+store; `bw2calc` (in-process solver) over a `bw2data` project is the in-process Brightway alternative for the SAME characterized result — the EPD/LCA owner routes to `olca-ipc` when the inventory lives in an openLCA server and to the Brightway cluster when it lives in a `bw2data` project, and a `Result.get_total_impacts()` row is the openLCA-side counterpart of a `bw2calc` `score`
+- epdx/openepd seam: openLCA 2.x models EPDs as a first-class entity (`o.RefType.Epd`), so an `epdx`-parsed ILCD+EPD or an `openepd` payload maps onto a native openLCA EPD/process/flow + `o.ImpactFactor` set pushed via `put_all`; conversely a calculation's `get_total_impacts()` yields EPD-comparable indicator values
+- premise seam (prospective export): `premise.NewDatabase(...).write_db_to_olca(filepath)` exports a prospective (future-year) ecoinvent database into openLCA as processes/flows, so the forward-looking scenarios `olca-ipc` then calculates are the same ones the Brightway cluster scores in-process via `bw2calc` — `olca-ipc` is the openLCA sink of premise's `write_db_to_olca`
+- msgspec/pydantic seam: the `olca_schema` `to_dict`/`from_dict` forms decode into `msgspec.Struct`/`pydantic` models at the wire when a typed internal carrier is wanted beyond the dataclasses
+- stamina/anyio/observability seam: wrap the `requests`-backed IPC calls in a `stamina` retry for transient server failures; run the `wait_until_ready()` poll under an `anyio` deadline rather than an unbounded block; wrap `calculate`→query in a `structlog`/`opentelemetry` span keyed by `CalculationSetup.target`/`ResultState.id`; treat the `Result` as a resource released in a `finally`/`async with`
+- ContentIdentity seam: key a calculation by the runtime `ContentIdentity` over the `CalculationSetup` (target + method + amount) so identical setups reuse the persistence ledger rather than recomputing
+
+[EXCEPTIONS]:
+- transport failures (connection refused, HTTP error) surface from `requests`; the client logs and returns `None`/empty on RPC-level errors rather than raising, so a consumer checks the return and the `ResultState.error` field
+- `calculate` returns a `Result` whose state carries `error` when scheduling failed; `wait_until_ready()` returns a `ResultState(error=...)` on timeout/failure — inspect state, do not assume readiness
+- a non-`dispose()`d result leaks server memory; this is a resource-rail obligation, not an exception
+
+[RAIL_LAW]:
+- Package: `olca-ipc` (+ `olca-schema`)
+- Owns: the openLCA IPC/REST/proto client (model CRUD, product-system construction, calculate/simulate, the full result-query surface) and, via `olca_schema`, the typed model graph with `new_*` factories and dict/JSON codecs
+- Accept: `import olca_ipc as ipc` + `import olca_schema as o`; `ProtoClient`-typed transport-agnostic code; the `setup → calculate → wait_until_ready → query → dispose` lifecycle with the result disposed in a `finally`; result rows projected into the tabular rail; models authored offline via factories and pushed with `put_all`
+- Reject: the legacy single `olca` package / `import olca` 0.x surface; hand-rolled JSON-RPC against the openLCA socket when a client method exists; treating `Result` as a materialized table (it is a lazy server handle); skipping `dispose()`; re-implementing the LCA solver (openLCA owns it) or holding the model as the system of record

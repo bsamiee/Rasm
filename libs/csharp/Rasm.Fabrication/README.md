@@ -31,6 +31,9 @@ Domain libraries owned outside the C# substrate registry. Versions are centraliz
 [CAD_IMPORT]:
 - `ACadSharp` — consumes the host-neutral DWG/DXF read codec (DXF + DWG AC1014-AC1032, block traversal, the native `Spline`/`Arc`/`Circle` sampler) at the `Rasm.Bim`-owned interchange seam: `Rasm.Bim` is the AEC-DOMAIN CAD-interchange owner of the `CadDocument`/`DxfDocument` read surface, and Fabrication references the same central pin directly for 2D profile ingress (the Fabrication<-Bim ACadSharp read seam in `ARCHITECTURE [02]-[SEAMS]`). DXF/DWG WRITE is the distinct `Rasm.AppUi`/Render drafting leg over `netDxf`, not a Fabrication rail; this folder admits the read surface only.
 
+[STEEL_FABRICATION_EXCHANGE]:
+- `DSTV.Net` — DSTV/NC1 steel fabrication exchange for profile-cut programs, saw/drill/punch data, and portable shop-machine handoff beside the neutral G-code AST.
+
 [RECT_PACKING]:
 - `RectpackSharp`
 

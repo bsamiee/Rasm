@@ -9,10 +9,8 @@
 - import: `stream_unzip`
 - owner: `artifacts`
 - rail: bundle
-- asset: pure-Python runtime library (no native build in `stream-unzip` itself; sdist-only, no published wheel — install source-builds the `py3` package); hard runtime dependencies `pycryptodome>=3.10.1` (the AES-256/HMAC-SHA1/PBKDF2 WinZip-AES backend re-exported as `AES`/`HMAC`/`SHA1`/`PBKDF2`) and `stream-inflate>=0.0.12` (the streaming `stream_inflate64` Deflate64 decompressor, a Cython sdist that source-builds)
-- installed: `0.0.101` reflected via `importlib.metadata.version('stream-unzip')` on cp315; `stream-inflate==0.0.43` is the resolved companion
+- installed: `0.0.101`
 - license: `MIT` (`Classifier: License :: OSI Approved :: MIT License`)
-- ungated: `Requires-Python: >=3.7.7` carries no upper cap; the package and its `stream-inflate` dependency are pure-Python sdists that build and import on CPython 3.15 (`uv run python -c 'import stream_unzip'` succeeds), so the manifest row is un-gated — wheel-absence alone is not a gate when the sdist builds
 - entry points: library use is import-only; no console script
 - capability: bounded-memory streaming ZIP extraction yielding `(name, size, member_chunks)` triples with a lazy per-member `bytes` generator, streamed Deflate/Deflate64/Bzip2/Stored decompression, ZIP64 size/offset handling under `allow_zip64`, ZipCrypto and WinZip-AES (AE-1/AE-2, AES-128/192/256) decryption keyed by `password`, an `allowed_encryption_mechanisms` allow-list that rejects disallowed records before decryption, streamed CRC32/compressed-size/uncompressed-size/HMAC integrity verification, an `UnfinishedIterationError` guard enforcing ordered member consumption, and a mirrored `async_stream_unzip` over async iterables
 
@@ -129,4 +127,3 @@ The seven mechanism sentinels are passed (as a `Container`, e.g. a `frozenset` o
 - Package: `stream-unzip`
 - Owns: bounded-memory streaming ZIP extraction, per-member lazy `bytes` generators, Deflate/Deflate64/Bzip2/Stored streamed decompression, ZIP64 handling, ZipCrypto and WinZip-AES (AE-1/AE-2, AES-128/192/256) decryption, an encryption-mechanism accept allow-list, and streamed CRC32/size/HMAC integrity verification
 - Accept: streaming ZIP unpack/list/test that consumes ordered `bytes` chunks from a download, response, or file source and re-emits `(name, size, chunks)` triples into the bundle inverse, decoding lazily into the document/structured-text/wire consumers
-- Reject: wrapper-renames of `stream_unzip`/`async_stream_unzip`; a `zipfile.ZipFile` whole-archive seek-and-buffer path where streaming bounds memory; a hand-rolled deflate/deflate64/bzip2 decompressor where stdlib `zlib`/`bz2` and `stream-inflate` `stream_inflate64` already decode; a hand-rolled ZipCrypto keystream or WinZip-AES HMAC-SHA1/PBKDF2 record where the `pycryptodome` backend already decrypts; a `python_version<'3.15'` gate on a pure-Python sdist that builds and imports on cp315; a parallel member type or a second function per encryption mechanism the `password` row and the allow-list already own; a hand-rolled ZIP constructor where `stream-zip` owns the pack inverse

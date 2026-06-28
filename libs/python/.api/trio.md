@@ -7,11 +7,8 @@
 [PACKAGE_SURFACE]: `trio`
 - package: `trio`
 - module: `trio`
-- version: `0.33.0` (floor `>=0.27.0`)
+- version: `0.33.0`
 - license: `MIT OR Apache-2.0`
-- wheel: pure-Python (`py3-none-any`), no ABI tag; resolves clean on cp315
-- abi: none; `Requires-Python >=3.10`
-- marker: none (admitted runtime dependency; `anyio`'s `trio` backend binds it directly)
 - asset: runtime library
 - rail: concurrency
 - depends-on: `attrs`, `sortedcontainers`, `idna`, `outcome` (typed call results across the thread/loop bridge), `sniffio>=1.3.0` (the runtime-detection beacon `anyio`/`stamina` read to pick the active backend)

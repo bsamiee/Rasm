@@ -8,7 +8,6 @@
 - import: `import pystac_client` (dist name `pystac-client`, import name `pystac_client`)
 - license: Apache-2.0
 - python: `>=3.10`
-- asset: pure-Python runtime library (`py3-none-any` wheel); imports on the cp315 core
 - deps: `pystac` (in-memory model), `requests` (HTTP), `python-dateutil`
 - entry points: console script `stac-client` (CLI); library use is import-only
 - owner: `data`

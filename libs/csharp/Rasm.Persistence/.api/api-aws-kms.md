@@ -14,7 +14,7 @@ on the v4 line and pure-managed.
 
 [PACKAGE_SURFACE]: `AWSSDK.KeyManagementService`
 - package: `AWSSDK.KeyManagementService`
-- version: `4.0.12.8`
+- version: `4.0.12.9`
 - license: `Apache-2.0`
 - assembly: `AWSSDK.KeyManagementService` (`lib/net8.0` binds for the `net10.0` consumer; `netcoreapp3.1`/`netstandard2.0`/`net472` are fallback assets)
 - namespace: `Amazon.KeyManagementService`, `Amazon.KeyManagementService.Model`

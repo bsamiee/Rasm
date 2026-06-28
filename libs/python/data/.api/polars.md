@@ -7,10 +7,8 @@
 [PACKAGE_SURFACE]: `polars`
 - package: `polars`
 - module: `polars`
-- version: `1.41.2`
+- version: `1.42.0`
 - license: MIT
-- requires-python: `>=3.10`
-- asset: Rust extension; runtime split out as `polars-runtime-32` (32-bit-index build) / `polars-runtime-64` (selected by env), so the wheel ships an ABI3-style native core plus a thin Python facade
 - rail: columnar dataframe
 - subpackages: `polars.selectors` (declarative column-selection algebra), `polars.plugins` (native Rust expression-plugin registration), `polars.exceptions` (typed error rail), `polars.testing`, `polars.api` (custom-namespace registration), `polars.sql`
 

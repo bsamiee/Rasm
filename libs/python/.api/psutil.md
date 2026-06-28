@@ -8,7 +8,6 @@
 - package: `psutil`
 - version: `7.2.2`
 - license: `BSD-3-Clause`
-- wheel: `cp36-abi3-macosx_11_0_arm64` — NATIVE abi3 wheel, `Root-Is-Purelib: false`; ships `psutil/_psutil_osx.abi3.so` (per-OS C extension). ABI3 (`cp36-abi3`) covers CPython >=3.6 including cp315. Platform-specific wheels exist per OS/arch.
 - module: `psutil`
 - asset: runtime library (native extension)
 - rail: observability

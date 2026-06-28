@@ -22,15 +22,15 @@
       },
       "Meziantou.Analyzer": {
         "type": "Direct",
-        "requested": "[3.0.104, )",
-        "resolved": "3.0.104",
-        "contentHash": "lFbTJ7eJCUIAFlZhkF394BnBe4oIto0pCOH8cEZasPqWCMm1bevmaMsIsxO5SSezqGmzzSaeTeMKvBH1fQG5ew=="
+        "requested": "[3.0.115, )",
+        "resolved": "3.0.115",
+        "contentHash": "HXp8maNxVdqsZWHjZmpoDdvecmxgEkY1juAFPyKI4edN+PhLBinnCov7UkVmYFgdlGRo8BDmY6ZzE4RkJee19A=="
       },
       "Microsoft.VisualStudio.Threading.Analyzers": {
         "type": "Direct",
-        "requested": "[17.14.15, )",
-        "resolved": "17.14.15",
-        "contentHash": "mXQPJsbuUD2ydq4/ffd8h8tSOFCXec+2xJOVNCvXjuMOq/+5EKHq3D2m2MC2+nUaXeFMSt66VS/J4HdKBixgcw=="
+        "requested": "[18.7.23, )",
+        "resolved": "18.7.23",
+        "contentHash": "dyj6z8m+LFjpeH69hdnciCcRCmD0YgMlvuQEywiEshjqj/blgQ+PuWX8Vd5gkWQFoBN4e+TFxx6DvGNSv/gIKg=="
       },
       "RectangleBinPack.CSharp": {
         "type": "Direct",
@@ -40,32 +40,32 @@
       },
       "Thinktecture.Runtime.Extensions": {
         "type": "Direct",
-        "requested": "[10.3.0, )",
-        "resolved": "10.3.0",
-        "contentHash": "8V1PjROSO+kyYjIfndPi4gmwL29qw3pkAm/MUdnyIi0lggwHALJ2IlzvIlVDJFOlYHyf6b4NjzrWp/h8GsLxQQ==",
+        "requested": "[10.4.0, )",
+        "resolved": "10.4.0",
+        "contentHash": "FYD82RNsKOmn4aZobZYXBNTKMSTu9JVu50mGREM0AJp/125L2L7XXYdcIxw0kjNQ5AUTRJoROK0g0s2/kO8f4w==",
         "dependencies": {
-          "Thinktecture.Runtime.Extensions.Analyzers": "10.3.0",
-          "Thinktecture.Runtime.Extensions.Refactorings": "10.3.0",
-          "Thinktecture.Runtime.Extensions.SourceGenerator": "10.3.0"
+          "Thinktecture.Runtime.Extensions.Analyzers": "10.4.0",
+          "Thinktecture.Runtime.Extensions.Refactorings": "10.4.0",
+          "Thinktecture.Runtime.Extensions.SourceGenerator": "10.4.0"
         }
       },
       "Thinktecture.Runtime.Extensions.Json": {
         "type": "Direct",
-        "requested": "[10.3.0, )",
-        "resolved": "10.3.0",
-        "contentHash": "auTbWvDCLIA0EvwRDuNXVOJjXMsmdmPsRn0DcG29q0iziTaToAa3DnscfGeypK5E1xLsa6c/MkOzgZ1yk2tk/Q==",
+        "requested": "[10.4.0, )",
+        "resolved": "10.4.0",
+        "contentHash": "0P4ImGMK/C1B2LxVd2BHjl4DdRCCohIdQaP7tYVnYrvn07on1M6jmUMjA4VrfRaXvRUynSNWNeDolPWra+l0Ug==",
         "dependencies": {
-          "Thinktecture.Runtime.Extensions": "10.3.0"
+          "Thinktecture.Runtime.Extensions": "10.4.0"
         }
       },
       "Thinktecture.Runtime.Extensions.MessagePack": {
         "type": "Direct",
-        "requested": "[10.3.0, )",
-        "resolved": "10.3.0",
-        "contentHash": "fNRNjA2akm+uH9OO5IIFfFE3UdQ8ouyJlhXqoIpbTVnyLofKkRjtup8dEGuriv0DSi+r5CkhhPOoMR7+Cw8Bbw==",
+        "requested": "[10.4.0, )",
+        "resolved": "10.4.0",
+        "contentHash": "zrcnVlLxtNAzqmGFq7wyj0wme1UOhtHPHPg1vcsv1z7ecKcgWRUxq6On5BwZucZrbnO9bzP5v1h6G5pMmfYmZg==",
         "dependencies": {
           "MessagePack": "2.5.302",
-          "Thinktecture.Runtime.Extensions": "10.3.0"
+          "Thinktecture.Runtime.Extensions": "10.4.0"
         }
       },
       "UnitsNet": {
@@ -143,6 +143,25 @@
           "VividOrange.IStandards": "0.1.0"
         }
       },
+      "VividOrange.Uncertainties": {
+        "type": "Direct",
+        "requested": "[0.2.0, )",
+        "resolved": "0.2.0",
+        "contentHash": "5GfbhSTKA1dbsxORqrUPcbXPXKY7A48OkJDWU776BXXS+luDMiV7q6598LZgg9fSBjdDlRe4vQ19/kxybugJFw==",
+        "dependencies": {
+          "VividOrange.IUncertainties": "0.2.0"
+        }
+      },
+      "VividOrange.Uncertainties.Quantities": {
+        "type": "Direct",
+        "requested": "[0.2.0, )",
+        "resolved": "0.2.0",
+        "contentHash": "AHqSSZlEaJckYMKzL1iC+5VinfM1fDEXgiVUKGLMGREXPl7GWhb1bh50rnuwRnKZNoZbQsotUbgkE8bv93Ywgg==",
+        "dependencies": {
+          "UnitsNet": "5.75.0",
+          "VividOrange.IUncertainties": "0.2.0"
+        }
+      },
       "Wacton.Unicolour": {
         "type": "Direct",
         "requested": "[7.0.0, )",
@@ -214,18 +233,23 @@
       },
       "Thinktecture.Runtime.Extensions.Analyzers": {
         "type": "Transitive",
-        "resolved": "10.3.0",
-        "contentHash": "z3DTkauLeUYhROp9DR7j47oy7kdA6ehq7IKpQ0RSHeHKR3/7z1xQ5Jpx+8bDBNXDaTBN4WHTsE6r1+iI1S1oYQ=="
+        "resolved": "10.4.0",
+        "contentHash": "QS30Y6+zrp8RBk2aVv1QB5f9POAMWNi5w8v8c4XADLZteH3zJZJDOD94HBrfKrnu+NZS0H5uFaTVGULMZQOq7w=="
       },
       "Thinktecture.Runtime.Extensions.Refactorings": {
         "type": "Transitive",
-        "resolved": "10.3.0",
-        "contentHash": "XwUUR6OvQ6oF9Maj1u6IlEE+fXJEEJJx/2ug+iP3ePj4vwRKmNfQnWrlic4i5FixYHUUePNrZf6YCiyPCf52ew=="
+        "resolved": "10.4.0",
+        "contentHash": "X4T9nHpYH6B19FxL17Ffk2MxjU1Z7kqI4+J42ylgDdnCoCBCvAjCdAtVtbLsKcABuSV/a6clhuvdDPKLDP5bfQ=="
       },
       "Thinktecture.Runtime.Extensions.SourceGenerator": {
         "type": "Transitive",
-        "resolved": "10.3.0",
-        "contentHash": "CB2efEemm7FEAhHi7zoxT8ANLMhHQ5MpVmTBd4H+GRb2GyHEdN8Uhb5c1U9sv/EXylcmfeLdnDukQrjUrKrRvQ=="
+        "resolved": "10.4.0",
+        "contentHash": "1jNrYo/7Syow8Vu+vY3LygJ7Erc9fagkobAdANxAkyg7G+9abnxZQ+cr4QbWPErGDe1mfCDQiO9crIjdG6DQJw=="
+      },
+      "VividOrange.Taxonomy.ISerialization": {
+        "type": "Transitive",
+        "resolved": "0.2.0",
+        "contentHash": "InpgxLSt5OY8WfgfuUg0fChCqcZ5TXMWYQ8shm7C0yUQLG7/6J7PDEEo5J8v15h8ExGGapLgB3drlL/iFLTTYw=="
       },
       "csp.contracts": {
         "type": "Project",
@@ -255,7 +279,7 @@
           "System.IO.Hashing": "[10.0.9, )",
           "System.Numerics.Tensors": "[10.0.9, )",
           "TYoshimura.DoubleDouble": "[5.0.8, )",
-          "Thinktecture.Runtime.Extensions": "[10.3.0, )",
+          "Thinktecture.Runtime.Extensions": "[10.4.0, )",
           "Triangle": "[0.0.6-Beta3, )",
           "geometry3Sharp": "[1.0.324, )"
         }
@@ -503,6 +527,15 @@
         "contentHash": "dhp3Nhggv7lB2aCN9p5ejcd6dYe+0zNRPkHfzENjxWPyCNOd2cwBVVAAKOYQ2Pyj7zFdx/UmRG+RwrGHZqdKUg==",
         "dependencies": {
           "VividOrange.ISerialization": "0.1.0"
+        }
+      },
+      "VividOrange.IUncertainties": {
+        "type": "CentralTransitive",
+        "requested": "[0.2.0, )",
+        "resolved": "0.2.0",
+        "contentHash": "ABAyw/kwCSGRCktuimpTIwjzb1GCmt+Zh2NWnQreFkuRHrbcTwh8ytOKkzIVyZGbOBtMYVbJQ2lSxLwQhA+Q3A==",
+        "dependencies": {
+          "VividOrange.Taxonomy.ISerialization": "0.2.0"
         }
       },
       "VividOrange.Profiles": {

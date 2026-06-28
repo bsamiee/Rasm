@@ -6,9 +6,8 @@
 
 [PACKAGE_SURFACE]: `xxhash`
 - package: `xxhash`
-- version: `3.7.0`
+- version: `3.7.1`
 - license: BSD-2-Clause
-- wheel: native CPython extension; per-version cp38-cp314 wheels, no `abi3`, no cp315 wheel; free-threading marked unstable. Companion-gated `<3.15` — resolves only in a `<3.15` interpreter (the `cp314` band or the Forge scientific cp315 build); absent from the default cp315 project venv.
 - import: `xxhash`
 - owner: `runtime`
 - rail: hashing
@@ -95,7 +94,6 @@
 - the seed is fixed per owner identity; seeded and unseeded hashes are never mixed in one key namespace.
 - `XXH3_128` is the content-identity digest that matches the C# `System.IO.Hashing.XxHash128` boundary; the owner that crosses the .NET wire pins `xxh3_128`/`xxh128` and a fixed seed so the Python and C# digests agree byte-for-byte. `digest()` returns big-endian `bytes`, so the .NET-bound owner declares the same byte order on the C# side rather than re-ordering.
 - the one-shot `<family>_intdigest(data)` is the content key feeding the keyed-cache and content-identity owners; it composes directly with a `msgspec`-encoded payload (`.api/msgspec.md`) — hash the canonical encoded `bytes` (one `msgspec.msgpack.encode` -> one `xxh3_128_intdigest`) so the identity is a deterministic function of the wire form, never of in-memory object identity. A `UPath` artifact (`.api/universal-pathlib.md`) is keyed by hashing its read `bytes`, not its string path.
-- companion-gate: no `xxhash` wheel ships for cp315 (per-version cp38-cp314 wheels, no `abi3`); the cp315 default venv resolves it only by building the 3.7.0 sdist, which is exactly what the Forge scientific cp315 build does. A content-identity owner that must run on cp315 either rides that Forge build or is itself a `<3.15` companion. A pure-Python fallback is never hand-rolled to dodge the gate.
 
 [RAIL_LAW]:
 - Package: `xxhash`

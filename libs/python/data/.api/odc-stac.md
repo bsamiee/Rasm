@@ -6,10 +6,9 @@
 
 [PACKAGE_SURFACE]: `odc-stac`
 - package: `odc-stac`
-- version: `0.5.2` reflected via `import odc.stac` (manifest unpinned — newest stable; requires-python `>=3.10`)
+- version: `0.5.2`
 - license: Apache-2.0
 - import: `odc.stac`
-- abi: pure Python; native work defers to `odc.geo` (GeoBox math) and `odc.loader` (rasterio/GDAL raster reads) — no ABI floor of its own
 - owner: `data`
 - rail: catalog-coverage
 - entry points: none (import-only library; `odc-stac` declares no console scripts)

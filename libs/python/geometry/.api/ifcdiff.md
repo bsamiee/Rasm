@@ -1,6 +1,6 @@
 # [PY_GEOMETRY_API_IFCDIFF]
 
-`ifcdiff` supplies the IFC two-model revision-comparison surface for the geometry ifc-analysis rail: the single-file `IfcDiff` owner diffs an `old`/`new` `ifcopenshell.file` pair across a closed `RELATIONSHIP_TYPE` axis (geometry/attributes/type/property/container/aggregate/classification), folding numeric-tolerant `deepdiff.DeepDiff` over each element's attribute graph, representation shape, and property-set map, and projecting the result into a GlobalId-keyed `change_register` plus disjoint `added_elements`/`deleted_elements` GUID sets. It rides the `ifcopenshell` companion lane (`0.8.5`; depends `ifcopenshell`, `deepdiff`, `numpy`, `orderly_set`, and `ifcopenshell.geom` for the representation leg), so the lifecycle owner composes `IfcDiff(...).diff()`/`change_register` directly rather than a `by_type`/attribute-walk diff, and threads its element pre-filter through the `IfcSelector` validated gate the analysis quantity arms share.
+`ifcdiff` supplies the IFC two-model revision-comparison surface for the geometry ifc-analysis rail: the single-file `IfcDiff` owner diffs an `old`/`new` `ifcopenshell.file` pair across a closed `RELATIONSHIP_TYPE` axis (geometry/attributes/type/property/container/aggregate/classification), folding numeric-tolerant `deepdiff.DeepDiff` over each element's attribute graph, representation shape, and property-set map, and projecting the result into a GlobalId-keyed `change_register` plus disjoint `added_elements`/`deleted_elements` GUID sets. It rides the `ifcopenshell` worker lane (`0.8.5`; depends `ifcopenshell`, `deepdiff`, `numpy`, `orderly_set`, and `ifcopenshell.geom` for the representation leg), so the lifecycle owner composes `IfcDiff(...).diff()`/`change_register` directly rather than a `by_type`/attribute-walk diff, and threads its element pre-filter through the `IfcSelector` validated gate the analysis quantity arms share.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -9,7 +9,7 @@
 - import: `import ifcdiff` (single-module `ifcdiff.py`, not a package tree)
 - owner: `geometry`
 - rail: ifc-analysis / model-diff
-- installed: `0.8.5`, the IfcOpenShell-ecosystem companion-lane band; depends `ifcopenshell`, `deepdiff`, `numpy`, `orderly_set`; license LGPL-3.0-or-later
+- installed: `0.8.5`
 - entry points: none (library only; the file additionally ships an `argparse` CLI `__main__` guard not consumed here)
 - capability: two-model IFC comparison keyed by GlobalId across a closed relationship axis — added/deleted element GUID sets plus a per-element `change_register` flagging geometry, attribute, type, property-set (a nested `DeepDiff`), container, aggregate, and classification change — with a JSON export and a `filter_elements` selector pre-scope, the representation diff driven through `ifcopenshell.geom` tessellation under a numeric precision tolerance
 
@@ -70,5 +70,4 @@ The `relationships` argument is the diff-axis selector: passing a subset of `REL
 - Reject: a hand-rolled `by_type` attribute-walk diff where `IfcDiff` owns the comparison; a stringified `deepdiff` blob row where the bounded `*_changed` markers classify; a conflated single result map where `change_register`/`added_elements`/`deleted_elements` are three disjoint surfaces; a raw `filter_elements` query where the `IfcSelector` gate validates
 
 [CAPTURE_GAP]:
-- floor: companion interpreter cp313; `ifcdiff==0.8.5` rides the `ifcopenshell` companion lane and additionally requires `ifcopenshell.geom` (native tessellation) for the `"geometry"` relationship leg, so reflection resolves where the native `ifcopenshell` core resolves; the `>=3.15` project venv carries no `ifcopenshell` core, and `assay api resolve ifcdiff` returns no source. The surface above is confirmed against the IfcOpenShell `0.8.0`/`0.8.5` `src/ifcdiff/ifcdiff.py` single-module source.
 - members: the `IfcDiff(old, new, relationships=None, is_shallow=True, filter_elements=None)` ctor, the `change_register`/`added_elements`/`deleted_elements`/`precision` attributes, the `*_changed` marker-key vocabulary, the `RELATIONSHIP_TYPE` literal, and the `export(path)` JSON shape are source-confirmed; the exact `DeepDiff` result nesting under `properties_changed` is a live-run detail the `DiffChange.of_register` ATTRIBUTE catch-all absorbs without a fence change

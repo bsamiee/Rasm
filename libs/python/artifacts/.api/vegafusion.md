@@ -11,7 +11,7 @@
 - rail: charts
 - license: BSD-3-Clause (PyO3 + embedded Apache DataFusion / Arrow query engine)
 - asset: runtime library (Rust extension); depends on `arro3-core` (Arrow), `narwhals>=1.42` (dataframe interchange), `packaging`. Default extracted-table format is `arro3`, not `pyarrow`
-- installed: `2.0.3` reflected via `import vegafusion`; the cp315 wheel (and its `arro3-core` Arrow dep) does resolve and import on cp315, but the manifest gates the row `python_version<'3.15'`, so the chart owner runs the transform arm on the gated subprocess lane and imports `vegafusion` at module scope only inside that worker — the gate is a manifest decision (band pinning a single Arrow toolchain), not a wheel-availability fact
+- installed: `2.0.3`
 - entry points: none (library only)
 - capability: server-side Vega data-transform pre-evaluation, transformed-dataset extraction, spec/data splitting, interactive chart-state maintenance over inline datasets, gRPC runtime connection, multi-threaded worker pool with cache/memory limits, Arrow IPC dataset feeding via narwhals interchange, timezone configuration, and column-usage analysis
 
@@ -74,7 +74,6 @@ The module `__all__` exports exactly `runtime` (singleton `VegaFusionRuntime`), 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [CHARTS_EXPORT]:
-- import: `import vegafusion` at boundary scope only; module-level import is banned by the manifest import policy. The manifest gates the row `python_version<'3.15'` (a band decision pinning one Arrow toolchain — the cp315 wheel itself resolves and imports, so this is not a wheel-absence gate); the chart owner dispatches the transform arm onto the runtime subprocess lane, and the gated-band worker imports `vegafusion` at module scope inside that lane.
 - transform axis: `runtime.pre_transform_spec` is the single pre-evaluation surface keyed by spec; `preserve_interactivity`, `keep_signals`, and `keep_datasets` are rows on that surface, never a per-mode transform function. `keep_signals`/`keep_datasets` accept `name` or `(name, scope)` to retain selected interactive variables client-side.
 - extraction axis: `pre_transform_datasets` returns explicitly named server-computed tables (the `datasets` selector list, each `name` or `(name, scope)`); `pre_transform_extract` splits the spec from inline tables larger than `extract_threshold` and returns them as `(name, scope, table)` in `extracted_format` (default `'arro3'`). Extraction is two rows of the transform surface, not a re-minted query engine.
 - state axis: `new_chart_state` opens a `ChartState` for interactive maintenance (the return value is the only normal way to hold the type — `vegafusion.runtime.ChartState` is shadowed by the singleton instance, so type-annotate against the `runtime` module reached through `sys.modules`/`importlib`); the server/client spec split, `update` (a `list[VariableUpdate]` round-trip), and the `get_comm_plan`/`get_watch_plan` dependency graph (one `CommPlan` `{client_to_server, server_to_client}`) are the interactive rows, never a duplicated spec per frame.

@@ -9,9 +9,8 @@
 - import: `nbconvert`
 - owner: `artifacts`
 - rail: report
-- installed: `7.17.1` reflected via isolated `uv pip` install + reflection (assay finds no source in the project venv)
+- installed: `7.17.1`
 - license: BSD-3-Clause
-- abi: pure Python; no native extension, no wheel/ABI floor; cp315-clean. PDF/slides targets need external runtimes at call time, not at install: `PDFExporter` requires a TeX toolchain (xelatex), `WebPDFExporter` requires a Playwright/Chromium browser, `QtPDFExporter`/`QtPNGExporter` require `pyqtwebengine`.
 - deps: `nbformat`, `jupyter_core`, `jinja2`, `mistune` (Markdown), `bleach`/`defusedxml` (HTML sanitize), `beautifulsoup4`, `pygments`/`jupyterlab-pygments` (highlight), `pandocfilters`, `tinycss2`
 - entry points: console scripts `jupyter-nbconvert` (CLI conversion) and `jupyter-dejavu` (notebook diff); 14 `nbconvert.exporters` plugin rows (`asciidoc`, `custom`, `html`, `latex`, `markdown`, `notebook`, `pdf`, `python`, `qtpdf`, `qtpng`, `rst`, `script`, `slides`, `webpdf`)
 - capability: resolve an export target by name, instantiate the matching `Exporter`, and convert a `NotebookNode`/file/stream to PDF/HTML/LaTeX/Markdown/RST/AsciiDoc/Python/script/slides/notebook output paired with a resources dict, driving the Jinja template, preprocessor chain, filter map, and PDF-assembly pipeline in-process; persist via the `writers` family

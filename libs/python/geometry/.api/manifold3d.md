@@ -9,8 +9,7 @@
 - import: `import manifold3d`
 - owner: `geometry`
 - rail: geometry-csg / spatial-operations
-- installed: `3.5.1`; license `Apache-2.0`; `Requires-Python>='3.9'`; numpy runtime dep (`numpy>=1.26.0b1` on `python_version>='3.12'`). Compiled extension (`Root-Is-Purelib: false`, scikit-build-core + delocate), per-minor `cpXY-cpXY` wheels (cp313 confirmed in cache; macosx_11_0_arm64 / manylinux), no abi3 => `python_version<'3.15'` gated companion band per the manifest marker (`manifold3d; python_version<'3.15'`); the cp315 project venv carries no wheel, so the kernel resolves on the `<'3.15'` companion interpreter
-- members: introspected against the installed cp313 `manifold3d.pyi` nanobind stub; the `Manifold`/`CrossSection`/`Mesh`/`Mesh64`/`ExecutionContext`/`RayHit` surfaces, the `OpType`/`FillRule`/`JoinType`/`Error` enums, the overloaded constructors, and the module-level config/triangulate functions resolve against the live signatures — no phantom
+- installed: `3.5.1`
 - capability: guaranteed-manifold 3D boolean CSG, 2D polygon boolean/offset over Clipper2, lazy chained affine/warp transforms, SDF marching-tetrahedra level sets, convex hull (single + batch), Minkowski sum/difference, edge refinement and tolerance simplification, normal/curvature/arbitrary vertex-property computation, ray-segment casting, and async cancel/progress on long ops
 
 ## [02]-[PUBLIC_TYPES]
@@ -172,5 +171,3 @@ Boolean operators `__add__`/`__sub__`/`__xor__` are union/difference/intersectio
 - Reject: hand-rolled boolean mesh ops, hand-rolled Clipper2 offsetting, a manual `reduce` over `+`/`-`/`^` where `batch_boolean` owns n-ary CSG, non-manifold soup trusted without a `status()` gate, a mesh-file/GLB encode that belongs to the data codec, and the deprecated `compose` where `batch_boolean(OpType.Add)` is the union owner
 
 [CAPTURE_GAP]:
-- floor: `manifold3d 3.5.1` is a compiled per-minor-tagged extension (no abi3), wheels through cp313 in cache (macosx_11_0_arm64 / manylinux), so the manifest gates it `python_version<'3.15'`; the cp315 project venv carries no wheel and the kernel resolves on the `<'3.15'` companion interpreter. License is `Apache-2.0`; numpy is a hard runtime dep.
-- members: verified by introspection against the installed cp313 `manifold3d.pyi`; the corrected `ray_cast(origin, endpoint) -> list[RayHit]` segment semantics, the lazy transform/warp family, `slice`, `batch_hull`, `set_tolerance`/`get_tolerance`, `as_original`, `num_prop`/`num_prop_vert`/`original_id`/`reserve_ids`, the `Manifold(mesh)` ingest constructor, the boolean operators, the deprecated `compose`, the full `Mesh`/`Mesh64` channel set, and the `ExecutionContext` context-bound ops all resolve against the live nanobind signatures — no phantom

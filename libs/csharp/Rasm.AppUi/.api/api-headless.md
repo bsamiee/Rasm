@@ -6,7 +6,7 @@
 
 [PACKAGE_SURFACE]: `Avalonia.Headless`
 - package: `Avalonia.Headless`
-- version: `12.0.4`
+- version: `12.0.5`
 - license: `MIT`
 - assembly: `Avalonia.Headless` (AnyCPU IL, managed-only)
 - build-floor: `net10.0` (consumer-bound; `net8.0` fallback present, not bound)
@@ -17,14 +17,14 @@
 
 [PACKAGE_SURFACE]: `Avalonia.Headless.XUnit`
 - package: `Avalonia.Headless.XUnit`
-- version: `12.0.4`
+- version: `12.0.5`
 - license: `MIT`
 - assembly: `Avalonia.Headless.XUnit`
 - build-floor: `net10.0`
 - namespace: `Avalonia.Headless.XUnit`
 - asset: runtime library; test-scoped
 - rail: evidence
-- depends: `xunit.v3.extensibility.core` / `xunit.v3.common` — the attributes derive from xunit.v3 `FactAttribute`/`TheoryAttribute` and implement `ITestFrameworkAttribute`. This is why the central manifest floors `xunit.v3.mtp-v2` at `3.2.2`: `Avalonia.Headless.XUnit 12.0.4` binds that extensibility surface.
+- depends: `xunit.v3.extensibility.core` / `xunit.v3.common` — the attributes derive from xunit.v3 `FactAttribute`/`TheoryAttribute` and implement `ITestFrameworkAttribute`. This is why the central manifest floors `xunit.v3.mtp-v2` at `3.2.2`: `Avalonia.Headless.XUnit 12.0.5` binds that extensibility surface.
 
 ## [02]-[PUBLIC_TYPES]
 

@@ -6,7 +6,7 @@
 
 [PACKAGE_SURFACE]: `Speckle.Sdk`
 - package: `Speckle.Sdk`
-- version: `3.21.1`
+- version: `2026.6.0`
 - license: Apache-2.0
 - assembly: `Speckle.Sdk`
 - namespace: `Speckle.Sdk.Models`, `Speckle.Sdk.Models.Extensions`, `Speckle.Sdk.Models.GraphTraversal`, `Speckle.Sdk.Common`
@@ -16,7 +16,7 @@
 
 [PACKAGE_SURFACE]: `Speckle.Objects`
 - package: `Speckle.Objects`
-- version: `3.21.1`
+- version: `2026.6.0`
 - license: Apache-2.0
 - assembly: `Speckle.Objects`
 - namespace: `Speckle.Objects.Geometry`, `Speckle.Objects.Data`, `Speckle.Objects`

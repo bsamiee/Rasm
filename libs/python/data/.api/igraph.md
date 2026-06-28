@@ -126,7 +126,6 @@
 |  [06]   | `Graph.closeness`               | `closeness(vertices=None, mode='all', cutoff=None, weights=None, normalized=True)`            | per-vertex closeness vector                        |
 |  [07]   | `Graph.distances`               | `distances(source=None, target=None, weights=None, mode='out', algorithm='auto')`             | shortest-path distance matrix                      |
 |  [08]   | `Graph.get_edge_dataframe`      | `get_edge_dataframe()` / `get_vertex_dataframe()`                                             | pandas edge/vertex frames (egress seam)            |
-|  [09]   | `Graph.to_networkx`             | `to_networkx(create_using=None, vertex_attr_hashable='_nx_name')`                              | networkx round-trip for the cp315 networkx sibling |
 |  [10]   | `Graph.induced_subgraph`        | `induced_subgraph(vertices, implementation='auto')` / `simplify(multiple=True, loops=True, combine_edges=None)` | community-subset subgraph / dedup    |
 
 ## [04]-[IMPLEMENTATION_LAW]
@@ -141,7 +140,6 @@
 - structural axis: `connected_components`/`decompose` partition by reachability (no modularity) and are the structural sibling of the `community_*` family — choose component split when the question is connectivity, not community; `k_core`/`coreness` are the core-decomposition rows.
 - centrality axis: `pagerank`/`betweenness`/`closeness`/`distances` are the C-core ranking surface; a centrality vector is read off the bound method, never re-walked in Python over the membership.
 - evidence: each detection captures algorithm name, cluster count, per-cluster sizes, membership vector, modularity score, and resolution as a graph receipt.
-- stack: the data rail builds a `Graph` from a pandas edge frame via `Graph.DataFrame(edges, directed=, vertices=, use_vids=)` (the pandas sibling owns the frame), runs `community_leiden`/`community_multilevel`, then either feeds the `membership` vector to a downstream owner or egresses via `get_vertex_dataframe`/`get_edge_dataframe` back to pandas or `to_networkx` to the cp315 networkx sibling. igraph is the C-core detection engine BENEATH the pandas/networkx frame layer, never a parallel container that re-owns frames or node-link JSON.
 - boundary: igraph owns the libigraph C-core detection, modularity, centrality, and component split; the `Graph` container is built from edge tuples or a pandas frame at the boundary and the membership/centrality vector feeds downstream owners; live drawing (`plot`/Cairo/Matplotlib drawers) stays outside this rail. The GPL C core is confined to the `data` graph rail and never linked into a host-distributed plugin.
 
 [RAIL_LAW]:

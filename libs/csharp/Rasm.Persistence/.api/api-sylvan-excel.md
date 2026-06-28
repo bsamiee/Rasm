@@ -170,6 +170,7 @@ hit. Call `Write` repeatedly with distinct `worksheetName`s to author a multi-sh
 - bulk ingress: the `ExcelDataReader` is an `IDataReader` source for `LinqToDBForEFTools.BulkCopy`/`BulkCopyAsync` (`api-linq2db-ef`) — a spreadsheet streams into PostgreSQL binary COPY through the same bulk rail a CSV uses, because both arrive as a reader; `GetColumnSchema` supplies the typed column mapping.
 - columnar edge: Sylvan is the spreadsheet codec only; Arrow/DuckDB own the binary columnar path. A spreadsheet ingress reads rows, the record rail projects them, and the columnar rail materializes the Arrow batch — Sylvan never re-implements a columnar reader, and a `.xlsx` is never treated as a columnar file.
 - redaction/egress: the reader -> writer bridge re-emits a `DbDataReader` (optionally wrapped by a redacting `DbDataReader` decorator applying `Microsoft.Extensions.Compliance.Redaction` per column) into a worksheet, so a redacted spreadsheet export streams without materializing the table.
+- BIM analytics frames: `Ara3D.BimOpenSchema.IO` (`api-ara3d-bimopenschema`) is the BIM analytics-frame producer whose `ClosedXML` writer (`WriteToExcel`) emits an `.xlsx` workbook with one worksheet per BIM table; this streaming `ExcelDataReader` reads those sheets back as `DbDataReader` rows into the same record rail — distinct codec (ClosedXML writer / Sylvan reader), one `.xlsx` file boundary.
 
 [RAIL_LAW]:
 - Package: `Sylvan.Data.Excel`

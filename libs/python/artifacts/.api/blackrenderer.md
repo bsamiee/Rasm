@@ -9,7 +9,7 @@
 - import: `blackrenderer`
 - owner: `artifacts`
 - rail: rasterize
-- version: `0.8.2`; license `Apache-2.0`; pure-Python (no compiled extension), markerless in the manifest (cp315-clean)
+- version: `0.8.2`
 - deps: requires `fontTools>=4.62.1` + `uharfbuzz>=0.53.2`; the rasterizing backends are optional extras (`[skia]` -> `skia-python`+`numpy`, `[cairo]` -> `pycairo`, `[cg]` -> `pyobjc` on darwin) — the pure-Python SVG backend needs no extra
 - entry points: console script `blackrenderer` (`blackrenderer.__main__:main` CLI); library use is import-only via `blackrenderer.font`, `blackrenderer.render`, and `blackrenderer.backends`
 - capability: COLRv1 and COLRv0 color-glyph decoding and rasterization — `COLR`/`CPAL` paint-graph traversal of the full 32-format `PaintFormat` set, HarfBuzz text shaping, variable-font location instancing through `VarStoreInstancer`, palette selection, glyph bounds, the 28-mode `CompositeMode` blend set, and serialization to PNG/PDF/SVG through pluggable skia, cairo, coregraphics, and pure-Python SVG backends

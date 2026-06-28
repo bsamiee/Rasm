@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `ACadSharp`
-- package: `ACadSharp` (3.6.29, MIT)
+- package: `ACadSharp` (3.6.35, MIT)
 - assembly: `ACadSharp`
 - namespace: `ACadSharp`, `ACadSharp.Entities`, `ACadSharp.Tables`, `ACadSharp.IO`, `ACadSharp.IO.SVG`
 - asset: managed runtime library (`lib/net9.0` binds the `net10.0` consumer — highest available TFM); geometry points are `CSMath.XYZ`/`XY` (depends `CSMath`, `CSUtilities`)
@@ -214,7 +214,7 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [DRAFTING_TOPOLOGY]:
-- `ACadSharp` (3.6.29, `lib/net9.0` bound): `CadDocument` is the document root; `ACadSharp.IO` owns all read and write paths through `CadReaderBase<T>`/`CadWriterBase<T>` (settable `.Configuration`, `Read()`/`Write()`, plus static one-call `Read`/`Write` overloads); a `NotificationEventHandler` is the optional warning/error sink threaded through every reader/writer ctor and static call; `SvgWriter` (in `ACadSharp.IO.SVG`) emits SVG with `SvgConfiguration.LineWeightRatio`/`DefaultLineWeight`; `ACadSharp.Entities` covers the geometry entity roster; `ACadSharp.Tables` covers layer, linetype, style, and block-record entries
+- `ACadSharp` (3.6.35, `lib/net9.0` bound): `CadDocument` is the document root; `ACadSharp.IO` owns all read and write paths through `CadReaderBase<T>`/`CadWriterBase<T>` (settable `.Configuration`, `Read()`/`Write()`, plus static one-call `Read`/`Write` overloads); a `NotificationEventHandler` is the optional warning/error sink threaded through every reader/writer ctor and static call; `SvgWriter` (in `ACadSharp.IO.SVG`) emits SVG with `SvgConfiguration.LineWeightRatio`/`DefaultLineWeight`; `ACadSharp.Entities` covers the geometry entity roster; `ACadSharp.Tables` covers layer, linetype, style, and block-record entries
 - `netDxf`: 365 types across 10 namespaces; `DxfDocument` is the document root with static `Load` factory and instance `Save`; read/write is self-contained through `DxfDocument.Load`/`Save`; `DxfDocument(Header.DxfVersion)` selects the output version, geometry points are `netDxf.Vector2`/`Vector3`, `netDxf.Entities.Line`/`MText` are the line and text entities, and `netDxf.Tables.Layer`/`Linetype` (with the `Linetype.Continuous`/`Dashed` singletons) carry the layer structure
 - `ACadSharp` geometry points are `CSMath.XYZ`, entity layers attach through the entity `Layer` property bound to a `Layer` table entry (`LineType.Continuous`/`Dashed` linetype singletons), `MText` carries `Value`/`InsertPoint`/`Height`, and the document `Entities`/`Layers` collections take typed entities through `Add`
 - `DocumentFormat.OpenXml`: 5210 types across 140 namespaces; `Packaging` owns the three document roots; `Wordprocessing`, `Spreadsheet`, and `Presentation` namespaces supply the open content element trees

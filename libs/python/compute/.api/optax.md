@@ -9,7 +9,6 @@
 - import: `optax`; submodules `optax.losses`, `optax.schedules`, `optax.transforms`, `optax.projections`, `optax.assignment`, `optax.perturbations`, `optax.second_order`, `optax.tree_utils`, `optax.contrib`
 - owner: `compute`
 - rail: first-order gradient-descent optimization
-- installed: license Apache-2.0; `Requires-Python >=3.10`; `optax` wheel is `py3-none-any` (pure Python); marker-gated `python_version<'3.15'` in the manifest because the transitive `jaxlib` backend ships no cp315 wheel — the gate is jaxlib, not optax — so `assay api resolve optax` is `unsupported` on the cp315 core (uninstalled, marker-gated); surface confirmed against the optax 0.2.x module API
 - capability: composable JAX gradient-transformation algebra — `(init, update)` `GradientTransformation`/`GradientTransformationExtraArgs` carriers, ~30 pre-composed alias optimizers, `scale_by_*`/`clip*`/`add_*` primitive transforms, `chain`/`multi_transform`/`masked`/`partition` combinators, zoom/backtracking line searches with `value_and_grad_from_state`, `MultiSteps` accumulation, `inject_hyperparams`, learning-rate schedules, a loss library, constraint projections, and PyTree utilities
 
 ## [02]-[PUBLIC_TYPES]

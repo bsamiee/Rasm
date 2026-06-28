@@ -9,9 +9,7 @@
 - import: `import laspy`
 - owner: `geometry`
 - rail: scan-processing
-- installed: `2.7.0`; license `BSD-2-Clause`; `Requires-Python>='3.10'`; pure-Python wheel (`py3-none-any`), cp315-clean — resolves on the project venv directly with no companion-lane gate; numpy is the only hard runtime dep
-- extras: `lazrs` (`lazrs>=0.8.0,<0.9.0`, pure-Rust LAZ backend, gated `python_version<'3.15'` in the manifest), `laszip` (`laszip>=0.3.0,<0.4.0`, native LAZ backend, gated `python_version<'3.15'`), `pyproj` (CRS parse/attach), `requests` (HTTP COPC source), `cli` (`rich`/`typer`) — the geometry rail admits the LAZ/COPC extras for compressed and remote scans
-- members: introspected against the installed cp315 distribution and the `lib.pyi` stub; the IO handles, `LasData`/`LasHeader`/`PointFormat`, the `LazBackend`/`DimensionKind`/`DecompressionSelection` vocabularies, and the top-level `read`/`open`/`create`/`convert`/`mmap`/`merge` functions resolve against live signatures — no phantom
+- installed: `2.7.0`
 - capability: LAS 1.0–1.4 / LAS 2.0 read/write/append, compressed LAZ via `LazBackend`, COPC spatial+resolution+level query (local or HTTP), per-channel selective decompression, extra-dimension schema management, CRS handling via `pyproj`, and VLR/EVLR record access
 
 ## [02]-[PUBLIC_TYPES]
@@ -114,7 +112,6 @@
 [IO_TOPOLOGY]:
 - import: `import laspy` at boundary scope only; module-level import is banned by the manifest import policy.
 - read axis: small scans enter eagerly via `read(path)`; large/streamed scans iterate `open(path).chunk_iterator(points_per_iteration)` or pull `read_points(n)`. Both reader read paths return a `ScaleAwarePointRecord` (scale/offset already applied) — the writer/appender input is the raw `PackedPointRecord`. The boundary never multiplies by scale and adds offset by hand; `data.xyz` and `ScaleAwarePointRecord` own metric coordinates.
-- compression axis: a compressed LAZ source/sink requires a `LazBackend`; `Lazrs`/`LazrsParallel` are pure-Rust (`lazrs` extra), `Laszip` is the native `laszip` extra. `LazBackend.detect_available()` is the default selector. Both LAZ backends gate `python_version<'3.15'` in the manifest, so a cp315 project run reads/writes uncompressed LAS unless the companion lane supplies a backend.
 - COPC axis: `CopcReader.open(source)` accepts a local path or an HTTP URL (over `requests`, `http_num_threads`-parallel); `query(bounds, resolution, level)` is the single polymorphic spatial entry that `spatial_query`/`level_query` specialize — a spatially-bounded extraction never downloads the full file. `DecompressionSelection` (a per-channel bitfield, default `all()`) decompresses only the requested channels, skipping the rest for a cheaper scan-load.
 - schema axis: extra per-point dimensions are declared through `ExtraBytesParams` and registered via `header.add_extra_dim(s)` / `data.add_extra_dim(s)`, persisting in VLRs; `PointFormat.extra_dimension_names` and `dimension_by_name` enumerate the layout. CRS attaches/parses through `add_crs`/`parse_crs` over `pyproj`.
 
@@ -132,5 +129,3 @@
 - Reject: hand-rolled binary LAS parsing or direct byte manipulation of point records, manual scale/offset arithmetic where `xyz`/`ScaleAwarePointRecord` apply it, a full-download read where a COPC `query` extracts only the needed extent, and a sidecar channel store where extra-dimension VLRs persist derived per-point data
 
 [CAPTURE_GAP]:
-- floor: `laspy==2.7.0` is a pure-Python `py3-none-any` wheel, license `BSD-2-Clause`, `Requires-Python>='3.10'`, cp315-clean — reflection resolves on the project venv directly with no companion-lane gate. The LAZ backends (`lazrs`/`laszip`) and their `python_version<'3.15'` markers are the only gated surface; uncompressed LAS is fully available on cp315.
-- members: verified by introspection against the installed cp315 distribution; the corrected `read_points -> ScaleAwarePointRecord`, `chunk_iterator(points_per_iteration)`, `create(*, point_format=0, file_version=0)`, `merge`, `change_scaling`/`update_header`, the `add_extra_dims`/`remove_extra_dim(s)` family, `CopcReader.open(http_num_threads=, decompression_selection=)`, and the full `LasHeader` accessor/mutation surface all resolve against live signatures — no phantom (`LasAppender` is reachable only as the `open(mode='a')` return, not a top-level export)

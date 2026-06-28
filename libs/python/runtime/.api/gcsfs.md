@@ -11,7 +11,6 @@
 - rail: resources
 - version: `2026.6.0`
 - license: `BSD-3-Clause`
-- floor: `Requires-Python>=3.10`; wheel `py3-none-any` (pure-Python, no ABI pin); version-locked in step with `fsspec`/`s3fs` (calendar-versioned together)
 - namespaces: `gcsfs`, `gcsfs.core`, `gcsfs.credentials`, `gcsfs.mapping`, `gcsfs.retry`
 - capability: async GCS fsspec filesystem with sync-mirrored file ops, ranged/concurrent reads, signed URLs, object metadata (`setxattrs`/`getxattr`), `GCSMap` mapping view, Google-credential admission, requester-pays + version-aware + consistency policy, built-in retry/checksum policy over the GCS JSON API
 
@@ -83,7 +82,6 @@
 [LOCAL_ADMISSION]:
 - gcsfs is an fsspec backend row reached by protocol; the generic filesystem surface and dispatch law arrive settled from `.api/fsspec.md`. This catalog documents only the GCS-specific delta (credentials, signed URLs, requester-pays, version-aware, the GCS retry/checksum policy).
 - The runtime owns no durable store; GCS is a transport-and-read resource root, never a product store engine.
-- `gcsfs` is pure-Python; the crc32c integrity check is delegated to `google-crc32c`, whose C extension accelerates checksums when present and falls back to a slower pure-Python path otherwise — a stack-acceleration note, not a gcsfs ABI requirement.
 
 [STACK_LAW]:
 - `fsspec.url_to_fs("gs://...")` -> `GCSFileSystem` (cached instance) -> `_cat_ranges` coalesced read -> bytes handed to the codec/wire-model decoder: one rail, no per-call client, no full-object read for a partial fetch.

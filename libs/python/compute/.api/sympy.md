@@ -12,7 +12,6 @@
 - owner: `compute`
 - rail: symbolic
 - asset: pure Python; `mpmath` is the bundled numeric backend (the `evalf`/`N` precision engine); `gmpy2` accelerates the ground-domain integer arithmetic when present
-- floor: unconditional; installed in the project venv (cp315-clean, pure-Python) — `assay api resolve sympy` confirms `sympy 1.14.0`
 - capability: pure-Python computer algebra system; exact symbolic computation, calculus, solving, simplification, polynomial/matrix algebra, set/assumption logic, geometry, arbitrary-precision numeric evaluation, and multi-language code generation
 
 ## [02]-[PUBLIC_TYPES]

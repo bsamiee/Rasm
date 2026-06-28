@@ -1,17 +1,16 @@
 # [PY_DATA_API_XARRAY]
 
-`xarray` supplies `DataArray`, `Dataset`, `Variable`, `Coordinates`, and `DataTree` labelled named-axis containers with label-based selection, grouping, reduction, interpolation, polynomial/curve fitting, dask/cubed-backed chunking, the `.dt`/`.str`/`.plot` computed accessors, a custom-accessor registration hook, and netCDF/Zarr IO. It is the canonical owner surface for the `field-dataset` CF labelled-field dataset: the `FieldDataset` owner addresses CF coordinates by dimension name through `sel`/`isel`, reads and writes CF field cubes through `open_dataset(engine=)`/`open_zarr`/`to_netcdf`/`to_zarr` over the netcdf4/h5netcdf/zarr engines, opts a cube into the lazy chunked path through `chunk`, and defers grouped reductions to the installed `flox` lowering. xarray is on `banned-module-level-imports`, so every `FieldDataset` body binds it function-local under `# noqa: PLC0415`; it is pure-Python (source-build/no native extension, cp315-available) with no CPython floor and no subprocess seam — its IO/grouped/raster companions (`netcdf4`/`h5netcdf`, `flox`, `rioxarray`, `cubed`/`dask`) carry their own ABI and marker gates.
+`xarray` supplies `DataArray`, `Dataset`, `Variable`, `Coordinates`, and `DataTree` labelled named-axis containers with label-based selection, grouping, reduction, interpolation, polynomial/curve fitting, dask/cubed-backed chunking, the `.dt`/`.str`/`.plot` computed accessors, a custom-accessor registration hook, and netCDF/Zarr IO. It is the canonical owner surface for the `field-dataset` CF labelled-field dataset: the `FieldDataset` owner addresses CF coordinates by dimension name through `sel`/`isel`, reads and writes CF field cubes through `open_dataset(engine=)`/`open_zarr`/`to_netcdf`/`to_zarr` over the netcdf4/h5netcdf/zarr engines, opts a cube into the lazy chunked path through `chunk`, and defers grouped reductions to the installed `flox` lowering. xarray is on `banned-module-level-imports`, so every `FieldDataset` body binds it function-local under `# noqa: PLC0415`.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `xarray`
 - package: `xarray`
 - import: `import xarray as xr`
-- version: `2025.x` (manifest unpinned; latest stable)
+- version: `2025.x`
 - license: Apache-2.0
 - owner: `data`
 - rail: field-dataset
-- asset: pure Python; no native extension, no CPython floor (rides cp315 core); the netCDF/HDF5 engines (`netcdf4`/`h5netcdf`), grouped-reduction lowering (`flox`), raster accessor (`rioxarray`), and chunked backends (`cubed`/`dask`) are optional companions carrying their own ABI/marker gates
 - entry points: backend plugins register through the `xarray.backends` entry-point group (`netcdf4`, `h5netcdf`, `zarr`, `scipy`, `rasterio` via rioxarray); library use is import-only
 - capability: CF-conventioned labelled n-dimensional field cubes — named dimensions, coordinate indexes, CF-aware label selection, grouped/binned/resampled/rolling/coarsen/weighted reductions, interpolation and nodata fill, polynomial and non-linear curve fitting, numerical integration/differentiation, the `.dt`/`.str`/`.plot` computed accessors plus custom-accessor registration, hierarchical `DataTree` with `map_over_datasets`, netCDF/Zarr/Icechunk IO over the netcdf4/h5netcdf/zarr engines with per-variable `encoding`, and a dask/cubed-backed lazy/chunked path
 

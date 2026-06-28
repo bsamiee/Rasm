@@ -5,11 +5,12 @@ export const meta = {
   phases: [
     { title: 'Realize', detail: 'per folder (1 agent/folder, pooled): implement(max) -> critique(xhigh) -> redteam(max), every stage adversarial; integrate each new .api into the existing owner or a new justified page; collapse + capability-extend the whole folder corpus, own-folder-only, cross-folder seams logged as residuals' },
     { title: 'Reconcile', detail: 'consume cross-folder residuals: union-find cluster by shared file -> fix(max) -> adversarial verify(xhigh); hard residuals reported for resolve-residuals' },
-    { title: 'Final-Align', detail: 'one series of agents over ALL folders at once (align(max) -> critique(xhigh) -> redteam(max)): align every cross-folder seam/wire/port/boundary, kill duplication + strata violations, ensure every consumer fully leverages the Geometry kernel, catch gaps no single-folder pass could see' },
+    { title: 'Final-Align', detail: 'one series of agents over ALL folders at once (align(max) -> critique(xhigh) -> redteam(max)): align every cross-folder seam/wire/port/boundary, kill duplication + strata violations, ensure every consumer fully leverages the Geometry kernel, catch gaps no single-folder pass could see (skipped when only one folder is targeted — nothing to align across)' },
   ],
 }
 
 // --- [CONSTANTS] -------------------------------------------------------------------------
+
 const CAP = 10
 const STAGGER_MS = 1500
 const ALL_FOLDERS = [
@@ -28,6 +29,7 @@ const ALL_FOLDERS = [
 ]
 
 // --- [INPUTS] ----------------------------------------------------------------------------
+
 const norm = (t) => { const s = String(t).trim(); return s.replace(/^libs\/csharp\//, '').replace(/\/$/, '') }
 const wanted = Array.isArray(args) ? args.filter(Boolean).map(norm)
   : (typeof args === 'string' && args.trim() && args.trim().toUpperCase() !== 'ALL') ? [norm(args)]
@@ -36,13 +38,17 @@ const FOLDERS = wanted ? ALL_FOLDERS.filter((f) => wanted.some((w) => w === f.na
 const ROSTER = FOLDERS.map((f) => f.name + ' (' + f.root + (f.name === 'Geometry' ? ', design pages under ' + f.planning : '') + ')').join('; ')
 
 // --- [MODELS] ----------------------------------------------------------------------------
+
 const FIXLOG_SCHEMA = { type: 'object', additionalProperties: false, required: ['folder', 'verdict', 'summary'], properties: { folder: { type: 'string' }, verdict: { type: 'string', enum: ['rebuilt', 'refined', 'clean'] }, integrated: { type: 'array', items: { type: 'string' } }, newPages: { type: 'array', items: { type: 'string' } }, collapsed: { type: 'string' }, extended: { type: 'string' }, residual_high: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['files', 'claim'], properties: { files: { type: 'array', items: { type: 'string' } }, claim: { type: 'string' } } } }, summary: { type: 'string' } } }
 const RESIDUAL_FIX_SCHEMA = { type: 'object', additionalProperties: false, required: ['files', 'verdict', 'summary'], properties: { files: { type: 'array', items: { type: 'string' } }, verdict: { type: 'string', enum: ['fixed', 'clean'] }, summary: { type: 'string' } } }
 const RECONCILE_VERIFY_SCHEMA = { type: 'object', additionalProperties: false, required: ['overall', 'claims'], properties: { overall: { type: 'boolean' }, claims: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['claim', 'status'], properties: { claim: { type: 'string' }, status: { type: 'string', enum: ['fixed', 'invalid', 'open'] }, evidence: { type: 'string' } } } } } }
-// --- [FINAL-ALIGN] -- whole-stack cross-folder coherence prompts (one series of agents) -------
+
+// --- [FINAL-ALIGN]
+
 const ALIGN_SCHEMA = { type: 'object', additionalProperties: false, required: ['verdict', 'summary'], properties: { verdict: { type: 'string', enum: ['aligned', 'clean'] }, aligned: { type: 'array', items: { type: 'string' } }, residual: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['files', 'claim'], properties: { files: { type: 'array', items: { type: 'string' } }, claim: { type: 'string' } } } }, summary: { type: 'string' } } }
 
 // --- [DOCTRINE] --------------------------------------------------------------------------
+
 const LAW = [
   'Rasm monorepo, libs/csharp planning corpus (markdown specs of intended C# package designs). CLAUDE.md manifest + WORKSPACE_LAW strata govern ' +
     '(KERNEL -> AEC-DOMAIN -> APP-PLATFORM -> HOST-BOUNDARY -> APP; depend strictly upward; a host-neutral owner only where a non-Rhino runtime ' +
@@ -200,6 +206,7 @@ const FINAL = [
 ].join('\n')
 
 // --- [OPERATIONS] ------------------------------------------------------------------------
+
 const scopeLine = (f) => 'FOLDER: `' + f.name + '` — design pages under `' + f.planning + '/**`, capability catalogs under `' + f.api + '/`, ' +
   'governing docs at `' + f.root + '`.' + (f.note ? ' ' + f.note : '')
 const implementPrompt = (f) => [DOCTRINE, '',
@@ -346,7 +353,7 @@ const pool = async (items, cap, worker) => {
   return out
 }
 
-log('plan-cs-folders: ' + FOLDERS.length + ' folders, per-folder implement -> critique -> redteam, pooled at CAP=' + Math.min(CAP, FOLDERS.length))
+log('cs-rebuild-many: ' + FOLDERS.length + ' folders, per-folder implement -> critique -> redteam, pooled at CAP=' + Math.min(CAP, FOLDERS.length))
 phase('Realize')
 const done = (await pool(FOLDERS, CAP, (f) => processFolder(f))).filter(Boolean)
 
@@ -389,16 +396,21 @@ const newPagesAll = done.flatMap((r) => Object.values(r.logs || {}).flatMap((l) 
 log('Reconcile: ' + clusters.length + ' clusters; ' + hard_residual.length + ' open (hard residual), ' + dropped.length + ' dropped as invalid')
 
 // --- [FINAL_ALIGN]
-phase('Final-Align')
+
 const alignLogs = {}
-for (const st of ALIGN_STAGES) {
-  const r = await agent(st.build(), { label: 'final-' + st.key, phase: 'Final-Align', schema: ALIGN_SCHEMA, effort: st.effort, stallMs: 900000 })
-  if (r === null) break
-  alignLogs[st.key] = r
+if (FOLDERS.length > 1) {
+  phase('Final-Align')
+  for (const st of ALIGN_STAGES) {
+    const r = await agent(st.build(), { label: 'final-' + st.key, phase: 'Final-Align', schema: ALIGN_SCHEMA, effort: st.effort, stallMs: 900000 })
+    if (r === null) break
+    alignLogs[st.key] = r
+  }
+} else {
+  log('Final-Align skipped: single-folder run (' + (FOLDERS[0] && FOLDERS[0].name) + ') — cross-folder alignment is vacuous; the per-folder reconcile already covered in-folder residuals')
 }
 const alignedAll = Object.values(alignLogs).flatMap((l) => (l && l.aligned) || [])
 const finalResidual = Object.values(alignLogs).flatMap((l) => (l && l.residual) || [])
-log('Final-Align: ' + Object.keys(alignLogs).length + '/3 whole-stack passes; ' + alignedAll.length + ' alignments, ' + finalResidual.length + ' ' +
-  'residual')
+log('Final-Align: ' + Object.keys(alignLogs).length + (FOLDERS.length > 1 ? '/3' : '/0 (skipped)') + ' whole-stack passes; ' + alignedAll.length + ' ' +
+  'alignments, ' + finalResidual.length + ' residual')
 
 return { folders: FOLDERS.map((f) => f.name), complete: done.filter((r) => r.ok).length, incomplete: done.filter((r) => !r.ok).length, integrated: [...new Set(integratedAll)], newPages: [...new Set(newPagesAll)], clusters: clusters.length, hard_residual: hard_residual, dropped: dropped, finalAligned: alignedAll, finalResidual: finalResidual }

@@ -6,10 +6,9 @@
 
 [PACKAGE_SURFACE]: `obstore`
 - package: `obstore`
-- version: `0.10.1` (manifest floor `>=0.10.1`)
+- version: `0.11.0`
 - license: MIT
 - import: `import obstore as obs; from obstore.store import S3Store, GCSStore, AzureStore, HTTPStore, LocalStore, MemoryStore, from_url`
-- abi: `maturin` Rust extension shipping the `cp311-abi3` stable-ABI wheel (`_obstore.abi3.so`) — one wheel runs on every CPython `>=3.10` including cp315; the bundled `object_store` Rust crate version is exposed as `obstore._object_store_version`
 - owner: `data`
 - rail: object-store
 - capability: sync and async object-store I/O — get/put/delete/list/copy/rename/sign over S3, GCS, Azure, HTTP, local, and memory backends with zero-copy Bytes, Arrow list streaming, buffered file readers/writers, presigned URLs, native credential providers, and an `fsspec` `AsyncFileSystem` bridge

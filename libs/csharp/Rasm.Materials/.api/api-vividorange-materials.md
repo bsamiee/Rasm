@@ -42,7 +42,12 @@ implements `ITaxonomySerializable` and round-trips through `VividOrange.Serializ
   `IStandard`/`StandardBody`/`NationalAnnex`/`En19xxPart` types AND `MissingNationalAnnexException` come from the
   `VividOrange.IStandards` floor (`api-vividorange-standards.md`); the `IStandard` concretes (`En1992`/`En1993`)
   from `VividOrange.Standards`. `UnitsNet` `5.75.0` is the shared quantity floor; `ITaxonomySerializable` is the
-  `VividOrange.ISerialization` floor contract.
+  `VividOrange.ISerialization` floor contract. That floor marker's FQN is the `0.1.0`
+  `VividOrange.Serialization.ITaxonomySerializable` (assembly `VividOrange.ISerialization`) — a DISTINCT CLR type
+  identity from the `0.2.0` `VividOrange.Taxonomy.Serialization.ITaxonomySerializable` (assembly
+  `VividOrange.Taxonomy.ISerialization`) the `VividOrange.Uncertainties` packages ride
+  (`api-vividorange-uncertainties.md`); the `0.1.0` `TaxonomyJsonSerializer` does NOT serialize the `0.2.0` types, so
+  a Materials design page never assumes one shared VividOrange serializer covers both lanes.
 
 [FLOOR_SCOPE_GATE]: the `VividOrange.IMaterials` floor also declares `AS3600ConcreteGrade` / `ACI318ConcreteGrade`
 / `AASHTOConcreteGrade` enums, but `VividOrange.Materials` implements ONLY the EN/Eurocode standard (the

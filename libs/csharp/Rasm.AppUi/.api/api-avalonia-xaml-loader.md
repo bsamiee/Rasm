@@ -6,7 +6,7 @@
 
 [PACKAGE_SURFACE]: `Avalonia.Markup.Xaml.Loader`
 - package: `Avalonia.Markup.Xaml.Loader`
-- version: `12.0.4`
+- version: `12.0.5`
 - license: `MIT`
 - assembly: `Avalonia.Markup.Xaml.Loader`
 - namespace: `Avalonia.Markup.Xaml` (one public entry; 417 types across 21 namespaces are internal IL-compiler infrastructure)

@@ -38,11 +38,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Ripple: `data` `[DUCKDB_ICEBERG_PROMOTE]` (and `[LAKEHOUSE_DUCKLAKE_FORMAT]`) — resolve the live QUEUED iceberg `SECRET`/`ENDPOINT` and ducklake catalog DSN arms through the one `TransportResource` owner; the `[REMOTE_PARTITION_DEEPEN]` (flightsql `grpc+tls`) and `[TENSORSTORE_ADMIT]` (cloud kvstore `ResourceRef`) consumers are `[COMPLETE]`, so the DSN edge is a settled seam on them, and the `daft` `RAY`-runner address is the page-internal `query.md#DAFT_ELASTICITY` `_stream` label, not a counterpart card.
 
 [CRDT_OPLOG_LZ4]-[BLOCKED]: decode the compressed CRDT op-log envelope at the `transport/wire` decompress seam.
-- Capability: the cp315 core decodes the C# `MessagePackCompression.Lz4BlockArray` op-log envelope at `transport/wire#CRDT_DECODE`, with the settled `msgspec.msgpack.Decoder(CrdtArm)` uncompressed-delta leg remaining the canonical MessagePack union decode.
-- Shape: `CrdtOpDecode.decode(payload, decompress)` keeps the consumer-side seam as one injected `DecompressFn` callable: either identity over a producer-owned `MessagePackCompression.None` companion lane, or the published `Lz4BlockArray` reader over `lz4.block`; raw `lz4.frame`, raw block bytes, protobuf, JSON, and a second op vocabulary stay outside the owner.
-- Unlocks: collaborative CRDT op decode runs end to end on the cp315 core instead of relying on the current `python_version<'3.15'` companion band for compressed builds.
 - Anchors: `csharp:Rasm.Persistence/Version/commits#CRDT_WIRE`, `CrdtWire.Encode`, `MessagePackCompression.Lz4BlockArray`, `CRDT_OPLOG_WIRE_AMENDMENT`, `transport/wire#CRDT_DECODE` `[CRDT_DECODE_LZ4]`, `msgspec.msgpack.Decoder(CrdtArm)`, and `lz4`.
-- Tension: blocked on both a cp315/abi3 `lz4` wheel and the producer publication decision (expose a `MessagePackCompression.None` companion lane or publish the shared MessagePack-csharp `Lz4BlockArray` ext-envelope spec); the decode owner moved from `transport/serve` to `transport/wire` in the codec collapse, so the seam citation is `transport/wire#CRDT_DECODE`.
 - Atomic: fill the existing `DecompressFn` seam, no body rewrite.
 
 ## [02]-[CLOSED]
@@ -51,4 +47,4 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 [ID]-[COMPLETE|DROPPED]: <one-line disposition>; keep closed tasks collapsed unless a second retained fact changes future routing.
 -->
 
-[GRPCIO_CP315_PROMOTE]-[DROPPED]: `grpcio`/`grpcio-tools` are core in-pass manifest rows on the cp315 floor, so the serve/codegen leg carries no `python_version<'3.15'` promotion gate — the only band-gated runtime legs are the `xxhash` content-seed and `lz4` compressed-envelope wheels, owned by `CONTENT_IDENTITY_PARITY_GATE` and `CRDT_OPLOG_LZ4`.
+[GRPCIO_CODEGEN_PROMOTE]-[DROPPED]: `grpcio`, `grpcio-tools`, and `protobuf` are manifest row rows, so no separate transport-codegen promotion task remains.

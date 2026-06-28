@@ -9,8 +9,7 @@
 - import: `tomlkit`
 - owner: `artifacts`
 - rail: structured documents
-- asset: pure-Python runtime library (no native build; `py3-none-any` wheel); zero install-time dependencies
-- installed: `0.15.0` reflected via `tomlkit.__version__` on cp315
+- installed: `0.15.0`
 - entry points: none (library only)
 - capability: style-preserving TOML parse/dump (comments, whitespace, ordering, quote style retained), programmatic document building, the full styled-item factory family, scalar/trivia item builders, multiline-array control, lossy `unwrap()` projection to plain values, and custom encoder registration/deregistration
 

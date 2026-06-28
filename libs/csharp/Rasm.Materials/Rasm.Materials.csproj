@@ -52,6 +52,11 @@
         <PackageReference Include="VividOrange.InteractionDiagram" />
     </ItemGroup>
 
+    <ItemGroup Label="Property Uncertainty">
+        <PackageReference Include="VividOrange.Uncertainties" />
+        <PackageReference Include="VividOrange.Uncertainties.Quantities" />
+    </ItemGroup>
+
     <ItemGroup Label="Layout Packing">
         <!-- Construction 2D rectangle bin-packing / cutting-stock owner for sheet/stock-material
              arrangement and material-utilization: MaxRects/Skyline/Guillotine/Shelf + SingleBin mass-cut

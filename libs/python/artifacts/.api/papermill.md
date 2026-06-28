@@ -9,8 +9,7 @@
 - import: `papermill`
 - owner: `artifacts`
 - rail: notebook
-- locked: `2.7.0` (`uv.lock`); source-verified from the lock-built wheel tree (`papermill/__init__.py`, `execute.py`, `engines.py`, `iorw.py`, `translators.py`, `exceptions.py`, `parameterize.py`, `inspection.py`, `models.py`). Declared in `pyproject.toml` but not synced into the live cp315 `.venv`, so the surface is read from the lock-built module, not live reflection
-- license: BSD-3-Clause; pure Python (`papermill-2.7.0-py3-none-any.whl`); core runtime deps `click`/`nbclient`/`nbformat`/`tenacity`/`requests`/`tqdm`/`ansicolors`; cloud handlers are extras (`papermill[s3]`/`[gcs]`/`[azure]`/`[hdfs]`/`[github]`) that lazy-import `boto3`/`gcsfs`/`azure-*`/`pyarrow`/`PyGithub` and raise `PapermillOptionalDependencyException` when the extra is absent; no compiled extension, installs clean on cp315
+- version: `2.7.0`
 - entry points: `papermill` CLI (`click`-backed; executes via the `nbclient` engine, not nbconvert)
 - capability: parameterized notebook execution, parameter injection, kernel-language translation (Python/R/Julia/Scala/Bash/Matlab/.NET-C#/.NET-F#/.NET-PowerShell), pluggable notebook I/O (local/S3/GCS/ABS/ADLS/HDFS/HTTP/GitHub/stream/in-memory), execution lifecycle management with progress bar and autosave, and `tenacity`-backed retry on cloud rate limits
 

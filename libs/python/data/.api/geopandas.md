@@ -9,7 +9,7 @@
 - import: `import geopandas as gpd`
 - owner: `data`
 - rail: geospatial
-- version: `1.1.3` (locked); license `BSD-3-Clause`
+- version: `1.1.4`
 - asset: pure Python; geometry kernel is the `shapely` 2.x GEOS extension, CRS is `pyproj`, default IO engine is `pyogrio` (GDAL), Arrow interchange is `pyarrow`
 - entry points: library use is import-only; no console script
 - capability: geometry-aware DataFrame and Series, CRS assignment and reprojection, vectorized binary predicates and constructive operations, spatial/nearest joins, overlay set algebra, dissolve aggregation, sampling/coordinate extraction, geocoding, spatial indexing via shapely STRtree, and file/Parquet/Feather/PostGIS/Arrow IO

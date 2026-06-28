@@ -9,8 +9,7 @@
 - import: `datafusion`
 - owner: `data`
 - rail: engine
-- version: `53.0.0` (locked); license `Apache-2.0`
-- wheel/ABI: `cp310-abi3` wheels for macOS x86_64/arm64, manylinux_2_28 aarch64/x86_64, win_amd64; `_internal` is a Rust core (`.abi3.so`) so the cp310 abi3 wheel is forward-compatible to cp315; runtime dep is `pyarrow` only
+- version: `53.0.0`
 - entry points: library use is import-only; no console script
 - capability: SQL and DataFrame query execution over Arrow `RecordBatch` partitions, multi-format reader/writer registration (CSV/Parquet/JSON/Avro/Arrow), in-memory and foreign-catalog table providers, object-store federation, scalar/aggregate/window/table user-defined functions via `udf`/`udaf`/`udwf` factories over `Accumulator`/`WindowEvaluator` bases, the `functions` built-in expression namespace, lazy `LogicalPlan`/`ExecutionPlan` inspection, sync and async `RecordBatchStream` streaming, zero-copy export to pandas/polars/pyarrow, and Substrait `Plan` serialize/deserialize for cross-engine portability
 

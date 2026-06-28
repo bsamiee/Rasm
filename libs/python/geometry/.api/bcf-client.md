@@ -9,10 +9,8 @@
 - import: `import bcf`
 - owner: `geometry`
 - rail: ifc-companion / bcf-exchange
-- installed: `0.8.5` reflected by reading the installed distribution sources on cp313
+- installed: `0.8.5`
 - license: GPLv3 (published metadata classifier `GNU General Public License v3`; the in-tree source headers declare LGPLv3 — treat the published GPLv3 classifier as the binding admission flag, the strongest copyleft reading)
-- wheel-floor: pure-Python `py3-none-any` wheel, `Requires-Python >=3.8`; installs on any interpreter but rides the `python_version<'3.15'` marker because its `ifcopenshell` dependency carries no cp315 wheel — ABI: none for bcf itself
-- pin: `bcf-client; python_version<'3.15'` (gated by `ifcopenshell`, not by bcf itself)
 - depends: `xsdata>=24.4` (BCF-XML bind/parse), `numpy`, `ifcopenshell` (viewpoint element selection), `requests` (the v3 REST client)
 - entry points: none (library only)
 - capability: BCF v2/v3 file read/write, schema-version detection, topic/comment lifecycle, viewpoint authoring with camera/selection/visibility from IFC elements, project and extension metadata, and a v3 REST client covering projects/topics/comments/viewpoints/documents/events for the BCF API
@@ -163,6 +161,4 @@ The markup models are `xsdata` dataclasses generated from the BCF XSD. The v3 ma
 - Reject: manual BCF zip construction or BCF-XML generation outside this package; wrapper-renames of `load`/`create_new`/`save`; a hand-rolled BCF REST client where `bcf.v3.bcfapi` is admitted
 
 [CAPTURE_GAP]:
-- floor: `bcf-client 0.8.5` ships a pure-Python `py3-none-any` wheel (`Requires-Python >=3.8`) under the published GPLv3 classifier (in-tree headers say LGPLv3 — the copyleft obligation governs either way and must be honored in any distributed build); it stays in the IFC-analysis companion lane on the `python_version<'3.15'` marker because its `ifcopenshell` dependency carries no cp315 wheel, not because of bcf itself. Reflection ran by reading the installed cp313 distribution sources; `assay api resolve bcf-client` resolves no source on the cp315 core.
 - dependencies: `xsdata>=24.4` (BCF-XML bind/parse), `numpy`, `ifcopenshell` (viewpoint element selection), `requests` (v3 REST) — the manifest comment naming an "lxml" dependency is stale; the XML codec is `xsdata`.
-- members: verified against the installed cp313 distribution sources; the top-level `bcf` package, the `Union` `BcfXml` plus version-dispatch `load`, the v2/v3 `BcfXml` lifecycle, the `TopicHandler`/`VisualizationInfoHandler` handler surface (`topic.title`, `set_*_elements`, `get_elements_visibility`), and the full `bcf.v3.bcfapi` `BcfClient`/`FoundationClient`/`OAuthReceiver` surface resolve against the live modules — no phantom.

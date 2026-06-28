@@ -38,7 +38,12 @@ capacity path constructible end-to-end. The reinforcement carries `IMaterial` gr
   pinned. The `IProfile`/`IPerimeter` inputs and the `ILocalPoint2d`/`ILocalPolyline2d` geometry returns come from the
   `VividOrange.IProfiles` / `VividOrange.Profiles.Perimeter` / `VividOrange.Geometry` (`1.8.0`) floor; the `IMaterial`
   grades from `VividOrange.IMaterials` (`api-vividorange-materials.md`). `UnitsNet` `5.75.0` is the shared quantity
-  floor; `ITaxonomySerializable` is the `VividOrange.ISerialization` floor contract.
+  floor; `ITaxonomySerializable` is the `VividOrange.ISerialization` floor contract. That floor marker's FQN is the `0.1.0`
+`VividOrange.Serialization.ITaxonomySerializable` (assembly `VividOrange.ISerialization`) — a DISTINCT CLR type
+identity from the `0.2.0` `VividOrange.Taxonomy.Serialization.ITaxonomySerializable` (assembly
+`VividOrange.Taxonomy.ISerialization`) the `VividOrange.Uncertainties` packages ride
+(`api-vividorange-uncertainties.md`); the `0.1.0` `TaxonomyJsonSerializer` does NOT serialize the `0.2.0` types, so a
+Materials design page never assumes one shared VividOrange serializer covers both lanes.
 
 [RC_FLOOR_CLOSURE]: this package SHIPS the `VividOrange.Sections.Reinforcement` namespace and the `ConcreteSection`
 concrete, so the reinforced-concrete input path IS reachable from the admitted Materials set. This SUPERSEDES the

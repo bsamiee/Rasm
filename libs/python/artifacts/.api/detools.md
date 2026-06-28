@@ -9,10 +9,8 @@
 - import: `detools`
 - owner: `artifacts`
 - rail: delta
-- locked: `0.53.0` (`uv.lock`); source-verified from the lock-built sdist tree (`detools/__init__.py`, `create.py`, `apply.py`, `info.py`). Not present in the live cp315 `.venv`, so `assay api resolve detools` yields no pydist source and the surface is read from the sdist-built module, not live reflection
+- version: `0.53.0`
 - license: `BSD` (`License: BSD`, `Classifier: License :: OSI Approved :: BSD License`; `LICENSE` ships in the sdist)
-- wheel: NONE published — `detools-0.53.0.tar.gz` sdist only; install builds the C extensions `detools.create.bsdiff`, `detools.create.hdiffpatch`, and `detools.create.suffix_array` from source, so a C toolchain is required at install time and there is no abi3/manylinux wheel
-- marker: no `Requires-Python` pin (the sdist METADATA omits it); runtime deps `bitstruct` (header bit-packing), `heatshrink2` (crle/heatshrink codec), `humanfriendly` (`format_size`/`format_timespan`), `lz4`, `pyelftools` (ELF data-format segmentation), `zstandard` — all six are `Requires-Dist` rows in the sdist METADATA
 - entry points: console script `detools` (CLI); library use is import-only
 - capability: binary-delta patch creation across `sequential`/`in-place`/`bsdiff` patch types and `bsdiff`/`hdiffpatch` algorithms, `divsufsort`/`sais` suffix-array construction, `bz2`/`crle`/`lzma`/`zstd`/`lz4`/`heatshrink`/`none` compression, data-format-aware ELF/AArch64/Cortex-M4/Xtensa segmentation with `from_*`/`to_*` offset rows, patch application from file-like or named-file inputs, and patch-container inspection
 
@@ -42,7 +40,7 @@ The patch surface is function-centric; the one public type is `Error`, the commo
 [ENTRYPOINT_SCOPE]: patch application
 - rail: delta
 
-`apply_patch` peeks the patch header type and dispatches to the sequential or hdiffpatch reconstructor; `apply_patch_bsdiff` applies a raw bsdiff patch; `apply_patch_in_place` mutates the memory image in place. Each `_filenames` row opens the named files and forwards to the file-like form. `apply_patch`/`apply_patch_bsdiff` return the size of the created to-data.
+`apply_patch` peeks the patch header type and dispatches to the sequential or hdiffpatch reconstructor; `apply_patch_bsdiff` applies a raw bsdiff patch; `apply_patch_in_place` mutates the memory image in place. Each `_filenames` row opens the named files and forwards to the file-like form, propagating its return. `apply_patch`/`apply_patch_bsdiff`/`apply_patch_in_place` each return the size of the created to-data.
 
 | [INDEX] | [SURFACE]                        | [CALL_SHAPE]                                                | [CAPABILITY]                                       |
 | :-----: | :------------------------------- | :---------------------------------------------------------- | :------------------------------------------------- |
@@ -50,7 +48,7 @@ The patch surface is function-centric; the one public type is `Error`, the commo
 |  [02]   | `apply_patch_filenames`          | `apply_patch_filenames(fromfile, patchfile, tofile)`        | named-file form of `apply_patch`                   |
 |  [03]   | `apply_patch_bsdiff`             | `apply_patch_bsdiff(ffrom, fpatch, fto)` -> `int`           | apply a raw bsdiff patch                           |
 |  [04]   | `apply_patch_bsdiff_filenames`   | `apply_patch_bsdiff_filenames(fromfile, patchfile, tofile)` | named-file form of `apply_patch_bsdiff`            |
-|  [05]   | `apply_patch_in_place`           | `apply_patch_in_place(fmem, fpatch)`                        | apply an in-place patch, mutating the memory image |
+|  [05]   | `apply_patch_in_place`           | `apply_patch_in_place(fmem, fpatch)` -> `int`               | apply an in-place patch, mutating the memory image |
 |  [06]   | `apply_patch_in_place_filenames` | `apply_patch_in_place_filenames(memfile, patchfile)`        | named-file form of `apply_patch_in_place`          |
 
 [ENTRYPOINT_SCOPE]: patch inspection
@@ -73,7 +71,7 @@ The patch surface is function-centric; the one public type is `Error`, the commo
 - compression axis: `compression` selects the patch-payload codec row at create time; bz2/crle/lzma/zstd/lz4/heatshrink/none is a `compression` row, never a parallel patch container — `apply_patch` resolves the codec from the patch header. The codec backends are the admitted siblings `lz4`, `zstandard`, `heatshrink2`, and stdlib `bz2`/`lzma`; detools selects and frames them, never re-implementing the codec.
 - in-place axis: `memory_size`, `segment_size`, and `minimum_shift_size` parameterize in-place patch segmentation; they are creation rows used only when `patch_type='in-place'`, never a separate segmenting type.
 - data-format axis: `data_format` selects ELF/AArch64/Cortex-M4/Xtensa-LX106 segmentation through the confirmed `from_data_offset_begin`/`from_data_offset_end`/`from_data_begin`/`from_data_end`/`from_code_begin`/`from_code_end` and the matching `to_*` offset rows; firmware-aware diffing is a `data_format` row over those offsets, never a per-architecture patch surface; `data_format_from_files`/`add_data_format_args` resolve the offsets from an ELF input via `pyelftools`.
-- evidence: each operation captures patch type, algorithm, compression, suffix-array algorithm, created to-data size (returned `int` from `apply_patch`/`apply_patch_bsdiff`), and patch-container metadata (from `patch_info`) as a delta receipt.
+- evidence: each operation captures patch type, algorithm, compression, suffix-array algorithm, created to-data size (returned `int` from `apply_patch`/`apply_patch_bsdiff`/`apply_patch_in_place`), and patch-container metadata (from `patch_info`) as a delta receipt.
 - boundary: detools owns binary-delta create/apply, patch-container framing, and patch inspection with the native `bsdiff`/`hdiffpatch`/`suffix_array` C extensions built from the sdist; `Error` (subclass of `Exception`) is the single failure rail mapped at the boundary; compression backends route to their owning libraries (`lz4`/`zstandard`/`heatshrink2`/stdlib `bz2`/`lzma`) through detools, never re-implemented; the patch bytes feed the DELTA_BUNDLE persistence owner directly.
 
 [INTEGRATION_STACK]:

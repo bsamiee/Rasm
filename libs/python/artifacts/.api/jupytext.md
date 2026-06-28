@@ -9,7 +9,7 @@
 - import: `jupytext`
 - owner: `artifacts`
 - rail: reports
-- installed: `1.19.4` (PyPI, cp315 core; pure Python `py3-none-any`, no ABI floor; ungated in the manifest) — depends on `nbformat`, `markdown-it-py`, `mdit-py-plugins`, `pyyaml`
+- installed: `1.19.4`
 - license: MIT
 - entry points: console scripts `jupytext` (conversion CLI) and `jupytext-config` (contents-manager config); jupyter-server contents-manager plugins; library use is import-only
 - capability: bidirectional notebook<->text conversion across `.ipynb`/`md`/`markdown`/`Rmd`/`qmd`/`myst`/`mystnb` and the script extensions (`py:percent`, `py:light`, `R`, `jl`, marimo, sphinx-gallery, ...), content-based format auto-detection, per-format implementation lookup, traitlets-backed pairing configuration with metadata filtering, optional pandoc/myst markdown engines, and jupyter-server contents managers for paired editing

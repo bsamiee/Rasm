@@ -8,7 +8,6 @@
 - package: `pylance` `7.0.0`
 - import: `import lance` (module name is `lance`, not `pylance`)
 - license: Apache-2.0
-- wheel floor: `cp39-abi3` (stable-ABI; one wheel covers cp39+, including the cp315 core); platform wheels macos/manylinux/win on x86_64/aarch64
 - python: `>=3.9`
 - native: Rust `lance` core via PyO3; depends on `pyarrow` and `numpy` (and `lance-namespace` for catalog binding)
 - owner: `data`

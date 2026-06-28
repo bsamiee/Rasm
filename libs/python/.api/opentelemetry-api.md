@@ -7,10 +7,8 @@
 [PACKAGE_SURFACE]: `opentelemetry-api`
 - package: `opentelemetry-api`
 - module: `opentelemetry`
-- version: `1.42.1` (floor `>=1.41.1`)
+- version: `1.43.0`
 - license: `Apache-2.0`
-- asset: pure-Python runtime library (`Root-Is-Purelib: true`; no compiled extension)
-- abi: universal wheel (`py3-none-any`), `Requires-Python >=3.10`
 - rail: observability
 - namespaces: `opentelemetry.trace`, `opentelemetry.metrics`, `opentelemetry._logs`, `opentelemetry.context`, `opentelemetry.propagate`, `opentelemetry.propagators.textmap`, `opentelemetry.baggage`, `opentelemetry.attributes`
 

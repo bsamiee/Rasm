@@ -9,7 +9,6 @@
 - import: `pint`
 - owner: `compute`
 - rail: units
-- installed: license BSD-3-Clause; `Requires-Python >=3.11`; `pint` wheel is `py3-none-any` (pure Python, no compiled ABI), unmarked in the manifest (cp315-clean) — `assay api resolve pint` is `unsupported` only on the cp315 core where the compute companion band is uninstalled; surface confirmed against the pint 0.25.x module API
 - capability: physical-quantity arithmetic over a shared `UnitRegistry` — string parsing, dimensional analysis, base/root/compact reduction, cross-dimension `Context` transforms, `Measurement` error propagation, NumPy-array unit wrapping through the array protocol, and `wraps`/`check` decorator-driven signature unit enforcement
 
 ## [02]-[PUBLIC_TYPES]

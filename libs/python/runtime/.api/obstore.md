@@ -1,6 +1,6 @@
 # [PY_RUNTIME_API_OBSTORE]
 
-`obstore` supplies a unified object-storage interface over S3, GCS, Azure Blob, HTTP, and local/memory stores via Rust-backed store classes (`S3Store`, `GCSStore`, `AzureStore`, `HTTPStore`, `LocalStore`, `MemoryStore`) bound by the `ObjectStore` union, with module-level sync/async dispatch functions (`get`/`get_async`, `put`/`put_async`, `head`, `delete`, `list`, `copy`, `rename`, `sign`, `get_range`/`get_ranges`, `list_with_delimiter`, `open_reader`/`open_writer`), conditional-write preconditions (`PutMode`, `UpdateVersion`, `GetOptions`), typed config/retry/credential TypedDicts, an Arrow-native listing path, a zero-copy `Bytes` buffer, and a typed exception hierarchy. It is the Rust `object_store` backend the data tier composes while pure-Python cloud-storage wheels lag on CPython 3.15.
+`obstore` supplies a unified object-storage interface over S3, GCS, Azure Blob, HTTP, and local/memory stores via Rust-backed store classes (`S3Store`, `GCSStore`, `AzureStore`, `HTTPStore`, `LocalStore`, `MemoryStore`) bound by the `ObjectStore` union, with module-level sync/async dispatch functions (`get`/`get_async`, `put`/`put_async`, `head`, `delete`, `list`, `copy`, `rename`, `sign`, `get_range`/`get_ranges`, `list_with_delimiter`, `open_reader`/`open_writer`), conditional-write preconditions (`PutMode`, `UpdateVersion`, `GetOptions`), typed config/retry/credential TypedDicts, an Arrow-native listing path, a zero-copy `Bytes` buffer, and a typed exception hierarchy. It is the Rust `object_store` backend the data tier composes while pure-Python cloud-storage packages lag on CPython 3.15.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -9,9 +9,8 @@
 - import: `obstore`
 - owner: `runtime`
 - rail: object-storage
-- asset: Rust extension (`_obstore.abi3.so`, PyO3 abi3 wheel) over the Rust `object_store` crate; per-operation `_get`/`_put`/`_list`/`_copy`/`_rename`/`_head`/`_delete`/`_sign`/`_buffered`/`_attributes`/`_bytes`/`_scheme` stub modules document the typed surface
 - namespaces: `obstore`, `obstore.store`, `obstore.exceptions`, `obstore.auth`, `obstore.fsspec`
-- installed: `0.10.1`; license MIT; abi3 wheel, cp315-CLEAN (no environment marker) — admitted over the pure-Python cloud SDKs whose wheels lag on cp315
+- installed: `0.11.0`
 - capability: unified multi-cloud object storage, sync/async operation pairs, conditional writes, byte-range and multi-range reads, streaming reader/writer, Arrow listing, presigned URLs, typed config/retry/credential providers, pluggable auth providers (`boto3`/Azure/Google/Earthdata/Planetary-Computer), and an `fsspec` `AbstractFileSystem` adapter
 
 ## [02]-[PUBLIC_TYPES]

@@ -9,8 +9,7 @@
 - import: `openpyxl`
 - owner: `artifacts`
 - rail: office
-- installed: `3.1.5` reflected via reflection on cp315 (Python 3.15)
-- license: MIT; pure Python (`openpyxl-3.1.5-py2.py3-none-any.whl`), single hard dependency `et-xmlfile` (MIT, lazy-XML write); optional acceleration flags `openpyxl.LXML` (lxml-backed serialization), `openpyxl.NUMPY` (numpy date/dataframe support), `openpyxl.DEFUSEDXML` (hardened parse) are runtime-resolved booleans, not install gates; no compiled extension, installs clean on cp315
+- installed: `3.1.5`
 - entry points: none (library only)
 - capability: `.xlsx`/`.xlsm` read+write, `read_only`/`write_only` streaming modes for large workbooks, formulas/values with `data_only` cached-value read and `formula.Translator` reference shifting, named + inline (`CellRichText`) styles, number formats, conditional formatting (cell-is/color-scale/data-bar/icon-set/formula rules), charts (bar/line/scatter/pie/area/radar/bubble/surface/stock + 3D), images, worksheet `Table` objects with `TableStyleInfo`, data validation, pivot tables, defined names/named ranges, freeze panes, merge regions, auto-filter, and dataframe interchange
 

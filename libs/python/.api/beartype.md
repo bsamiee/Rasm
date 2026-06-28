@@ -7,10 +7,8 @@
 [PACKAGE_SURFACE]: `beartype`
 - package: `beartype`
 - module: `beartype`
-- version: `0.23.0` (floor `>=0.22.2`; pinned to a git rev in the manifest for the cp315-clean PEP 749 path)
+- version: `0.23.0`
 - license: MIT
-- wheel: pure-python (`py3-none-any`), no ABI tag; resolves clean on cp315
-- marker: none (core dependency)
 - asset: runtime library
 - rail: type-enforcement
 - namespaces: `beartype`, `beartype.claw`, `beartype.door`, `beartype.vale`, `beartype.roar`, `beartype.typing`

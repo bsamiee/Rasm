@@ -9,9 +9,8 @@
 - import: `fsspec`
 - owner: `runtime`
 - rail: resources
-- version: `2026.6.0` (CalVer; the package versions on a date scheme, so the floor is "newest stable", never a SemVer pin)
+- version: `2026.4.0`
 - license: `BSD-3-Clause`
-- floor: `Requires-Python>=3.10`; wheel `py3-none-any` (pure-Python, no ABI pin); the core has zero hard runtime deps — backends and features are extras (`s3` -> `s3fs`, `gcs`/`gs` -> `gcsfs`, `abfs` -> `adlfs`, `http` -> `aiohttp`, `sftp`/`ssh` -> `paramiko`, `smb` -> `smbprotocol`, `git`/`github`, `dropbox`, `arrow`/`hdfs` -> `pyarrow`, `libarchive`, `tqdm` for progress)
 - namespaces: `fsspec`, `fsspec.asyn`, `fsspec.caching`, `fsspec.registry`, `fsspec.callbacks`, `fsspec.core`, `fsspec.generic`, `fsspec.compression`, `fsspec.transaction`, `fsspec.exceptions`
 - capability: protocol-dispatched filesystems, URL resolution, mapper views, block caching, compression codecs, transactional writes, batch byte ranges, cross-protocol copy/rsync, async filesystems, instance JSON round-trip, progress callbacks
 

@@ -4,7 +4,7 @@ The semantic document algebra: the single interior representation the `document`
 
 ## [01]-[INDEX]
 
-- [01]-[NODE]: `DocumentNode` — the recursive ten-variant `msgspec` tagged-union tree + the `NodeMeta` closed tag every node carries (content key, semantic role, page, optional `bounds`/`lang`/`actual_text` accessibility evidence) + the `StructRole` closed PDF/UA structure-type family (`StandardRole(StructEltKind)` over the standard vocabulary with the `_STRUCT_CATEGORY` `frozendict` behavior table carrying `StructCategory`/`heading_level`, `ForeignRole(role)` the one open arm) + the `CorpusRow`/`CorpusRecord` columnar projections carrying the `AltStatus` alt-presence column; the content-keyed `children`/`walk`/`node_digest`/`role_of`/`role_category`/`standard_for`/`alt_of`/`to_corpus`/`to_typst_source`/`encode`/`decode` tree algebra over one polymorphic projection entrypoint.
+- [01]-[NODE]: `DocumentNode` — the recursive ten-variant `msgspec` tagged-union tree + the `NodeMeta` closed tag every node carries (content key, semantic role, page, optional `bounds`/`lang`/`actual_text` accessibility evidence) + the `StructRole` closed PDF/UA structure-type family (`StandardRole(StructEltKind)` over the standard vocabulary with the `_STRUCT_CATEGORY` `frozendict` behavior table carrying `StructCategory`/`heading_level`, `ForeignRole(role)` the one open arm) + the `CorpusRow`/`CorpusRecord` columnar projections carrying the `AltStatus` alt-presence column; the content-keyed `children`/`walk`/`node_digest`/`role_of`/`role_category`/`standard_for`/`alt_of`/`to_corpus`/`to_typst_source`/`to_html`/`to_lxml_tree`/`encode`/`decode` tree algebra over one polymorphic projection entrypoint, `walk` and `node_digest` iterative depth-safe frontiers over the recursive tree.
 - [02]-[DELTA]: `DocumentDelta` — the four-variant edit algebra (inserted/deleted/moved/reparametrized) keyed by the stable `NodeMeta.key`; `diff`/`merge`/`invert` defined once over the tree as one total `expression` `Map`/`Block` fold, never a `list.append` accumulator.
 
 ## [02]-[NODE]
@@ -15,7 +15,7 @@ The semantic document algebra: the single interior representation the `document`
 - Entry: `DocumentNode` is a `type` alias over the ten-variant `Union`; construction is direct variant instantiation, decode is `_DOCUMENT_DECODER.decode` (a reusable `msgpack.Decoder` typed on the union, the tag round-tripping under `tag_field="kind"`), and re-encode is `_ENCODER.encode` (the one reusable deterministic `msgpack.Encoder` the node digest, the corpus byte projection, and the public `encode` all share rather than three identical instances). `node_digest` folds a node's identity over its content + children into one `ContentKey` so the tree is content-addressed; `walk` yields every node in document order for the lens fold and the corpus projection.
 - Auto: `children` is one total `match` projecting each variant to its interior child sequence (leaves return `()`); `node_digest` keys a leaf over `ContentIdentity.of(node.meta.key.fmt, _ENCODER.encode(node))` and an interior node over `ContentIdentity.of(node.meta.key.fmt, (own-field digest, *child digests))` — `_own_bytes` folding the container's own non-child fields (a changed `header_rows`/`level`/`start`/`list_kind`) beside the child digests so an identical sub-tree keys identically and a re-parametrized container re-keys rather than colliding on its unchanged children; `walk` is a pre-order generator over `children`. `alt_of` derives the `(AltText, AltStatus)` pair in one `FigureNode` discrimination (`PRESENT` with the authored `alt` on a non-empty figure, `ABSENT` with `""` on an un-authored figure, `NA` with `""` on every non-figure node), so the accessibility audit queries alt presence as one `kind == FIGURE and alt_status == ABSENT` column predicate over the corpus rather than re-deriving emptiness per row. `to_corpus(node, view)` is the ONE polymorphic columnar projection discriminating on a `CorpusView` axis: `STRUCT` returns the typed `CorpusRow` `Struct` the runtime columnar lane ingests as a value — its `kind` admitted through `NodeKind(node.__struct_config__.tag)` (the variant tag `msgspec` already minted, never a parallel kind `match`), its `page` the `int` preserved, its `lang`/`actual_text` the accessibility columns the audit reads, and its `(alt, alt_status)` the `alt_of` pair; `BYTES` lowers that row through the shared `_ENCODER` so the queryable corpus is one content-keyed serialized value; `RECORD` lowers the same typed `CorpusRow` to the flat `dict[str, object]` (`msgspec.to_builtins`) the `data/tabular/columnar#SCAN` `Corpus` arm's `pa.Table.from_pylist` ingests at the `data ← python:artifacts/document [WIRE]` seam — the producer owns this one mapping projection because `from_pylist` rejects a `msgspec.Struct` directly, the field names and native scalar dtypes (`str`/`StrEnum`-value-`str`/`int`) fixing the columnar Arrow schema so producer and consumer agree on the column shape, the `CorpusRow` `Struct` staying the typed interior and the byte/flat-record forms its two egress projections behind the one `view`-keyed entrypoint, never a `to_corpus_row`/`encode_corpus_row`/`to_corpus_record` sibling triple. `role_of` is the one polymorphic role projection discriminating on input shape — a `StructRole` lowers to its `StructEltKind` value or `ForeignRole` string, a `StructureNode` lowers through its `role` field, and every non-structure `DocumentNode` lowers to `NodeMeta.role` — so the corpus `role` column, the AUDIT role read, and the standard-vs-foreign discriminant resolve through one entrypoint, never a `corpus_role`/`role_of` pair. `role_category` projects a `StructRole` to its `StructCategory`/`heading_level` pair through the `_STRUCT_CATEGORY` table, a `ForeignRole` resolving to the named `_FOREIGN_CATEGORY` open-default row, so the AUDIT's nesting and heading-level checks read one table lookup. `standard_for` projects a `StructRole` to the canonical `StructEltKind` the `folder:document/tagged#ACCESS` `/RoleMap` foreign-to-standard lowering writes — a `StandardRole` to its own `elt`, a `ForeignRole` to its category's first-declared standard role via `_STANDARD_FOR` — so the tagged owner consumes one model projection, never a parallel category dict. `to_typst_source` is the one Typst-markup lowering folding the tree to the source string the `document/emit#DOCUMENT` typst rows compile, escaping every interpolated `RunNode.text`/heading/caption through the markup-context `_typst(..., TypstScope.MARKUP)` and the `FigureNode` `asset_key`/`alt` and link `Uri` through the string-context `_typst(..., TypstScope.STRING)` so a run carrying `]`/`#`/`*` never breaks `caption: [..]`/`#strong[..]` markup, defined once here so the two Typst escaping contexts share one `str.maketrans` algebra rather than per-arm string templates; the `_image` emitter owns the inner `image(source, alt: ..)` per the `.api/typst.md` `[MARKUP_ELEMENT_SCOPE]` `none | str` `alt` law (an authored figure writes `alt: "<escaped>"`, an un-authored figure writes `alt: none` — the `AltStatus.ABSENT` fact the corpus distinguishes, never collapsed to a meaningless `alt: ""`), the enclosing `#figure(.., caption: [..])` reserves its own `alt` slot for custom-content figures; a styled `RunNode` lowers its full appearance through the `_styled` `pipe` fold (`#strong`/`#emph` for weight+italic, `#super`/`#sub` for baseline, the `_DECORATION_MARKUP`-rowed `#underline`/`#strike`/`#overline` decoration set, `#text(dir: rtl)[..]` for a `TextDirection.RTL` run, and `#text(rgb(..))[..]` for a non-black color), a `BlockKind.QUOTE` block lowers through `#quote(block: true)[..]` and a `BlockKind.CODE` block through string-escaped `#raw("..", block: true)` rather than the prior generic-paragraph collapse that ignored the kind, a decorative `BlockKind.ARTIFACT` block lowers through `pdf.artifact[..]` so it is excluded from the tagged structure tree, a list lowers through the `_LIST_MARKUP`-rowed `#list`/`#enum(start:)`/`#terms` builder (an ordered list carrying its `start` ordinal, a description list folding each item to one `terms.item([term], [body])` pair), and a `TableNode` lowers its `header_rows`/`footer_rows` through the Typst `table.header(repeat: true, ..)`/`table.footer(..)` row-band elements rather than the invalid `table.header.repeat` key the prior arm emitted; the future `document/emit#DOCUMENT TYPST_QUERY` pass reads the `image` selector back through `typst.query` to verify every figure carries the equivalent.
 - Receipt: the recovered tree contributes the `folder:core/receipt#RECEIPT` introspection case (content key, node count, text length, image count, hit count) at the lens boundary; `model.md` owns the tree type and its digest, never the receipt fold — authoring stays at `document/emit`, recovery at `document/lens`.
-- Packages: `msgspec` (`Struct(frozen=True, tag=..., tag_field=...)` variant tree, `Union` alias, one shared `msgpack.Encoder(order="deterministic")` + `msgpack.Decoder` typed round-trip over both the node tree and the corpus row, `to_builtins` the flat-record `RECORD` lowering of the typed `CorpusRow` to the `dict[str, object]` the `data/tabular/columnar#SCAN` `Corpus` arm's `from_pylist` ingests at the WIRE seam, `structs.replace` copy-with, `__struct_config__.tag` the `structs.StructConfig` runtime view of the variant tag the corpus `kind` column admits through `NodeKind(...)` with no kind `match`, `Meta` `Annotated`-constraint admission on the `ForeignRole.role`/`FigureNode.alt`/`NodeMeta.lang`/`CorpusRow.alt`/`MediaType` text fields, `UnsetType`/`UNSET` the wire-absent `NodeMeta.lang`/`actual_text` markers round-tripping under `omit_defaults`); `expression` (`pipe` the `_styled` run-markup composition on the node side; `Map.empty`/`add`/`try_find` the `diff`/`merge` structural index and `Block.of_seq`/`fold`/`choose`/`collect` the immutable edit traversal on the delta side); `functools.reduce` (the `_styled` `_DECORATION_MARKUP` decoration fold over the variable-arity `RunNode.decorations` tuple); `builtins.frozendict` (`_STRUCT_CATEGORY` the primary role behavior table, `_STANDARD_FOR` its first-wins-inverted secondary, `_TYPST_ESCAPE`/`_LIST_MARKUP`/`_DECORATION_MARKUP` the immutable markup-spelling tables); runtime (`content_identity.ContentIdentity`/`ContentKey` for the node digest and corpus key, consumed never re-minted). `TextDirection` carries the `bidi.get_base_level`/`get_display(base_dir=)` paragraph-direction vocabulary as interior data — the `folder:../typography/shape#SHAPE` shaper owns the reorder, never `model.md`.
+- Packages: `msgspec` (`Struct(frozen=True, tag=..., tag_field=...)` variant tree, `Union` alias, one shared `msgpack.Encoder(order="deterministic")` + `msgpack.Decoder` typed round-trip over both the node tree and the corpus row, `to_builtins` the flat-record `RECORD` lowering of the typed `CorpusRow` to the `dict[str, object]` the `data/tabular/columnar#SCAN` `Corpus` arm's `from_pylist` ingests at the WIRE seam, `structs.replace` copy-with, `__struct_config__.tag` the `structs.StructConfig` runtime view of the variant tag the corpus `kind` column admits through `NodeKind(...)` with no kind `match`, `Meta` `Annotated`-constraint admission on the `ForeignRole.role`/`FigureNode.alt`/`NodeMeta.lang`/`CorpusRow.alt`/`MediaType` text fields, `UnsetType`/`UNSET` the wire-absent `NodeMeta.lang`/`actual_text` markers round-tripping under `omit_defaults`); `expression` (`pipe` the `_styled` run-markup composition on the node side; `Map.empty`/`add`/`try_find` the `diff`/`merge` structural index and `Block.of_seq`/`fold`/`choose`/`collect` the immutable edit traversal on the delta side); `functools.reduce` (the `_styled` `_DECORATION_MARKUP` decoration fold over the variable-arity `RunNode.decorations` tuple); `builtins.frozendict` (`_STRUCT_CATEGORY` the primary role behavior table, `_STANDARD_FOR` its first-wins-inverted secondary, `_TYPST_ESCAPE`/`_LIST_MARKUP`/`_DECORATION_MARKUP`/`_DECORATION_CSS`/`_BLOCK_HTML`/`_LIST_HTML` the immutable markup-spelling tables); `lxml.etree` (the `to_lxml_tree`/`to_html` escape-safe `Element`/`SubElement`/`tostring(method="html")` builder, deferred under module-scope `lazy from lxml import etree` so a Typst-only or corpus-only consumer never pays the libxml2 load); `expression.collections.Block` (the `walk` pre-order and `node_digest` expand/combine depth-safe frontier work-stacks); runtime (`content_identity.ContentIdentity`/`ContentKey` for the node digest and corpus key, consumed never re-minted). `TextDirection` carries the `bidi.get_base_level`/`get_display(base_dir=)` paragraph-direction vocabulary as interior data — the `folder:../typography/shape#SHAPE` shaper owns the reorder, never `model.md`.
 - Growth: a new document concept is one `DocumentNode` variant (a frozen `Struct` carrying its payload + `NodeMeta`) plus one `children`/`to_typst_source` arm; the decoder, the diff fold, and every backend pick it up by the total `match`. A new structured value on an existing node is one field. A new standard PDF/UA role is one `StructEltKind` member plus one `_STRUCT_CATEGORY` row, never a sibling struct — the remaining East-Asian `Ruby`/`RB`/`RT`/`RP`/`Warichu`/`WT`/`WP` and the `NonStruct`/`Private` roles each land exactly that way; a foreign role rides the one `ForeignRole` arm and the `_STRUCT_CATEGORY` open default; a new structural category is one `StructCategory` member, one `_STRUCT_CATEGORY` re-keying, and the `_STANDARD_FOR` first-wins derivation absorbs it for free; a new run decoration is one `TextDecoration` member plus one `_DECORATION_MARKUP` row; a new run direction or baseline is one `TextDirection`/`RunScript` member plus one `_styled` `pipe` arm; a new link-target kind is one `AnnotTarget` case; a new list dialect one `ListKind` member plus one `_LIST_MARKUP` row; zero new surface.
 - Boundary: the opaque `dict[str, object]` payload `document/emit` formerly dispatched over is the deleted form — every backend now lowers from this tree. No durable store, no PDF parser (extraction is `document/lens`'s pymupdf/pypdf/lxml surface), no UI, no second tree type per backend. The tree is the canonical interior representation; the wire projection into the columnar corpus is the typed `CorpusRow` `Struct` lowered to its byte and flat-record egress shapes behind `to_corpus(node, view)`, never a hand-built stringly-typed `dict[str, str]` that erases the `kind`/`page` column types and never a parallel serialized model. `StructureNode.tag_role: str` is the deleted stringly-typed role; the closed `StructEltKind` vocabulary plus the one `ForeignRole(str)` arm is the audited replacement, and a per-role struct hierarchy beside the `StrEnum` is the rejected re-fragmentation. `FigureNode.alt` is the alt-text-presence fact the AUDIT verifies, owned here as one `AltText`-constrained field projected to the `CorpusRow.alt_status` column the audit reads as one predicate; a second alt-text field on a non-figure node, a free-`str` alt escaping the `AltText` bound, and a per-context alt re-derivation outside the one `_image` emission are the rejected re-fragmentations. The deleted `RoleView`/`role_contract`/`_ROLE_CONTRACT` schema-and-inspect view machinery (`json.schema_components`/`inspect.multi_type_info`/`structs.fields` blobs no consumer read) is the prime decorative surface removed: the `folder:document/tagged#ACCESS` AUDIT reads `role_of`/`role_category`/`alt_of`/`children` and nothing else, so a phantom contract view asserting an audit target that does not exist is the rejected illusory density. The `rtl: bool` field stored and round-tripped yet never read by the lowering is the deleted illusory flag — `direction: TextDirection` is the replacement the `_styled` fold honors; the `table.header.repeat: bool` dict key (invalid Typst, the `table.header` element takes `repeat:` as a named argument and the header cells as positional children) is the deleted broken spelling, replaced by the `table.header(repeat: true, ..)`/`table.footer(..)` row-band elements; the `BlockKind.QUOTE`/`CODE` cases collapsed into the generic-paragraph arm — declared vocabulary the lowering silently ignored — are the deleted hollow cases, each now its own `#quote(block: true)`/`#raw` arm; the two parallel identical `msgspec.msgpack.Encoder(order="deterministic")` instances (`_DOCUMENT_ENCODER`/`_CORPUS_ENCODER`) are the deleted duplication, one shared `_ENCODER` serving node, digest, and corpus. The `diff`/`merge` `list.append`+`dict` procedural accumulator is the deleted flat form; the `expression` `Map`/`Block` immutable fold is the rail-shaped replacement.
 
@@ -24,14 +24,20 @@ The semantic document algebra: the single interior representation the `document`
 from collections.abc import Iterator
 from enum import StrEnum
 from functools import reduce
-from typing import Annotated, Final, Literal, assert_never, overload
+from typing import TYPE_CHECKING, Annotated, Final, Literal, assert_never, overload
 
 import msgspec
 from builtins import frozendict
 from expression import pipe
+from expression.collections import Block
 from msgspec import Meta, Struct, UnsetType, UNSET
 
 from rasm.runtime.content_identity import ContentIdentity, ContentKey
+
+lazy from lxml import etree  # the tree -> HTML/`_Element` lowering builder; cold, deferred to first `to_html`/`to_lxml_tree`
+
+if TYPE_CHECKING:
+    from lxml.etree import _Element
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -336,6 +342,15 @@ _LIST_MARKUP: Final[frozendict[ListKind, str]] = frozendict(
 _DECORATION_MARKUP: Final[frozendict[TextDecoration, str]] = frozendict(
     {TextDecoration.UNDERLINE: "underline", TextDecoration.STRIKETHROUGH: "strike", TextDecoration.OVERLINE: "overline"}
 )
+_DECORATION_CSS: Final[frozendict[TextDecoration, str]] = frozendict(
+    {TextDecoration.UNDERLINE: "underline", TextDecoration.STRIKETHROUGH: "line-through", TextDecoration.OVERLINE: "overline"}
+)
+_BLOCK_HTML: Final[frozendict[BlockKind, str]] = frozendict(
+    {BlockKind.PARAGRAPH: "p", BlockKind.QUOTE: "blockquote", BlockKind.CAPTION: "figcaption", BlockKind.ARTIFACT: "div"}
+)  # `HEADING` -> `h{level}` and `CODE` -> `pre`/`code` are arm-built; this table carries the flat one-tag block kinds
+_LIST_HTML: Final[frozendict[ListKind, str]] = frozendict(
+    {ListKind.UNORDERED: "ul", ListKind.ORDERED: "ol", ListKind.DESCRIPTION: "dl"}
+)
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
@@ -413,9 +428,11 @@ def children(node: DocumentNode) -> tuple[DocumentNode, ...]:
 
 
 def walk(node: DocumentNode) -> Iterator[DocumentNode]:
-    yield node
-    for child in children(node):
-        yield from walk(child)
+    stack = Block.singleton(node)
+    while not stack.is_empty():  # Exemption: iterative pre-order frontier — native recursion overflows on an adversarial-depth tree
+        head, stack = stack.head(), stack.tail()
+        yield head
+        stack = Block.of_seq(children(head)).append(stack)  # children before siblings keeps document order
 
 
 def _own_bytes(node: DocumentNode, /) -> bytes:
@@ -423,11 +440,21 @@ def _own_bytes(node: DocumentNode, /) -> bytes:
 
 
 def node_digest(node: DocumentNode) -> ContentKey:
-    kids = children(node)
-    if not kids:
-        return ContentIdentity.of(node.meta.key.fmt, _ENCODER.encode(node))
-    own = ContentIdentity.of(node.meta.key.fmt, _own_bytes(node))  # the container's own non-child fields key beside the child digests
-    return ContentIdentity.of(node.meta.key.fmt, (own, *(node_digest(child) for child in kids)))
+    # depth-safe expand/combine frontier: a leaf keys its encoded bytes, a branch keys (own, *child keys)
+    # in document order; the two immutable stacks replace the native recursion an adversarial tree overflows.
+    frontier: Block[tuple[bool, DocumentNode]] = Block.singleton((False, node))  # (combine?, node)
+    results: Block[ContentKey] = Block.empty()
+    while not frontier.is_empty():  # Exemption: depth-safe digest frontier over the recursive node tree
+        (combine, current), frontier = frontier.head(), frontier.tail()
+        kids = children(current)
+        if not kids:
+            results = results.cons(ContentIdentity.of(current.meta.key.fmt, _ENCODER.encode(current)))
+        elif combine:  # the reversed child push above resolves the kids onto `results` head in document order
+            own = ContentIdentity.of(current.meta.key.fmt, _own_bytes(current))
+            results = results.skip(len(kids)).cons(ContentIdentity.of(current.meta.key.fmt, (own, *results.take(len(kids)))))
+        else:
+            frontier = Block.of_seq((False, kid) for kid in reversed(kids)).append(frontier.cons((True, current)))
+    return results.head()
 
 
 def role_of(value: StructRole | DocumentNode) -> str:
@@ -597,6 +624,134 @@ def _image(asset_key: ContentKey, alt: AltText) -> str:
     source = _typst(asset_key.hex, TypstScope.STRING)
     equiv = f'"{_typst(alt, TypstScope.STRING)}"' if alt else "none"
     return f'image("{source}", alt: {equiv})'
+
+
+def to_html(node: DocumentNode) -> str:
+    # the tree -> HTML lowering the `document/emit#DOCUMENT PDF_HTML` weasyprint arm consumes; serialized
+    # from the one escape-safe `_element` builder so a run carrying `<`/`&`/`"` produces valid markup,
+    # never an f-string splice the TEMPLATE-SAFETY law rejects.
+    return etree.tostring(_element(node), method="html", encoding="unicode")
+
+
+def to_lxml_tree(node: DocumentNode) -> "_Element":
+    # the tree -> lxml `_Element` lowering the `XML`/`XML_TRANSFORM`/`XML_VALIDATE`/`XML_QUERY` arms fold
+    # through `etree.tostring`/`XSLT`/`XPath`; one builder serves both HTML and the XML object tree.
+    return _element(node)
+
+
+def _wrapped(inner: "_Element", tag: str) -> "_Element":
+    outer = etree.Element(tag)  # Exemption: the `lxml.etree` element builder is the platform-forced markup seam the template-safety law mandates
+    outer.append(inner)
+    return outer
+
+
+def _run_element(run: RunNode) -> "_Element":
+    inner = etree.Element("span")
+    inner.text = run.text  # lxml escapes on serialize; never an f-string interpolation into markup
+    decoration = " ".join(_DECORATION_CSS[deco] for deco in run.decorations)
+    style = "; ".join(part for part in (
+        f"color:rgb({run.color[0]},{run.color[1]},{run.color[2]})" if run.color != (0, 0, 0) else "",
+        f"text-decoration:{decoration}" if decoration else "",
+    ) if part)
+    if style:
+        inner.set("style", style)
+    if run.direction is TextDirection.RTL:
+        inner.set("dir", "rtl")
+    layers = (
+        *(("sup",) if run.script is RunScript.SUPER else ("sub",) if run.script is RunScript.SUB else ()),
+        *(("em",) if run.italic else ()),
+        *(("strong",) if run.weight >= 700 else ()),
+    )
+    return reduce(_wrapped, layers, inner)
+
+
+def _filled(element: "_Element", runs: tuple[RunNode, ...], kids: tuple[DocumentNode, ...] = ()) -> "_Element":
+    for run in runs:  # Exemption: lxml element assembly is the platform markup builder, escape-safe by construction
+        element.append(_run_element(run))
+    for kid in kids:
+        element.append(_element(kid))
+    return element
+
+
+def _element(node: DocumentNode) -> "_Element":
+    match node:
+        case RunNode():
+            return _run_element(node)
+        case BlockNode(block=BlockKind.HEADING, level=level, runs=runs):
+            return _filled(etree.Element(f"h{min(max(level, 1), 6)}"), runs)
+        case BlockNode(block=BlockKind.CODE, runs=runs):
+            pre = etree.Element("pre")
+            etree.SubElement(pre, "code").text = "".join(run.text for run in runs)
+            return pre
+        case BlockNode(block=block, runs=runs, children=kids):
+            return _filled(etree.Element(_BLOCK_HTML[block]), runs, kids)
+        case ListNode(list_kind=ListKind.DESCRIPTION, items=items):
+            return _filled_terms(etree.Element("dl"), items)
+        case ListNode(list_kind=kind, start=start, items=items):
+            ordered = etree.Element(_LIST_HTML[kind])
+            if kind is ListKind.ORDERED and start != 1:
+                ordered.set("start", str(start))
+            for item in items:
+                etree.SubElement(ordered, "li").append(_element(item))
+            return ordered
+        case SectionNode(level=level, heading=head, children=kids):
+            section = _filled(etree.Element("section"), (), kids)
+            section.insert(0, _filled(etree.Element(f"h{min(max(level, 1), 6)}"), head))
+            return section
+        case PageNode(children=kids):
+            page = _filled(etree.Element("div"), (), kids)
+            page.set("class", "page")
+            return page
+        case StructureNode(children=kids):
+            structured = _filled(etree.Element("div"), (), kids)
+            structured.set("role", role_of(node))
+            return structured
+        case TableNode(rows=rows, header_rows=head_n, footer_rows=foot_n):
+            return _table_element(rows, head_n, foot_n)
+        case FigureNode(asset_key=asset_key, alt=alt, caption=caption):
+            figure = etree.Element("figure")
+            image = etree.SubElement(figure, "img")
+            image.set("src", asset_key.hex)
+            image.set("alt", alt)  # the `AltStatus.ABSENT` empty string stays the audited fact, never invented
+            return _filled(figure, caption) if caption else figure
+        case AnnotationNode(annot=AnnotKind.LINK, contents=text, link=Uri(href=href)):
+            return _anchor(href, text)
+        case AnnotationNode(annot=AnnotKind.LINK, contents=text, link=Dest(page=page)):
+            return _anchor(f"#page-{page + 1}", text)
+        case FieldNode() | AnnotationNode():
+            return etree.Element("span")  # a non-link annotation or form field carries no inline HTML body
+        case _ as unreachable:
+            assert_never(unreachable)
+
+
+def _anchor(href: str, text: str) -> "_Element":
+    anchor = etree.Element("a")
+    anchor.set("href", href)
+    anchor.text = text
+    return anchor
+
+
+def _filled_terms(dl: "_Element", items: tuple[DocumentNode, ...]) -> "_Element":
+    for item in items:  # one `<dt>`/`<dd>` pair per description item, the head child the term and the tail the body
+        kids = children(item)
+        etree.SubElement(dl, "dt").append(_element(kids[0]) if kids else _element(item))
+        _filled(etree.SubElement(dl, "dd"), (), kids[1:])
+    return dl
+
+
+def _table_element(rows: tuple[tuple[DocumentNode, ...], ...], head_n: int, foot_n: int) -> "_Element":
+    table = etree.Element("table")
+    body_end = len(rows) - foot_n
+    bands = (("thead", rows[:head_n], "th"), ("tbody", rows[head_n:body_end], "td"), ("tfoot", rows[body_end:], "td"))
+    for band_tag, band_rows, cell_tag in bands:
+        if not band_rows:
+            continue
+        band = etree.SubElement(table, band_tag)
+        for row in band_rows:
+            line = etree.SubElement(band, "tr")
+            for cell in row:
+                etree.SubElement(line, cell_tag).append(_element(cell))
+    return table
 ```
 
 ## [03]-[DELTA]
@@ -604,7 +759,7 @@ def _image(asset_key: ContentKey, alt: AltText) -> str:
 - Owner: `DocumentDelta` the one diff/merge edit algebra — four `msgspec.Struct` variants (`Inserted`/`Deleted`/`Moved`/`Reparametrized`) under one `tag`-discriminated `Union`, every edit keyed by the stable `NodeMeta.key` of the node it acts on. `diff` and `merge` are defined once over the tree as one total `expression` `Map`/`Block` fold; the same algebra a structural object-graph diff reuses lives here, never re-minted per consumer.
 - Cases: `Inserted` (a new node + the parent key + position) · `Deleted` (the removed node's key) · `Moved` (a node key + the new parent key + new position) · `Reparametrized` (a node key + the field-name→`Raw`-value map of changed own-content fields, the in-place edit a re-styled run or re-bounded figure produces). Each a frozen `Struct` variant keyed by `ContentKey`; the edit set is the patch a `produce → extract → re-produce` round-trip and a privacy-redaction pass both emit.
 - Entry: `diff(before, after)` folds the two trees keyed by each node's stable `NodeMeta.key` into an ordered `tuple[DocumentDelta, ...]` — a key present only in `after` (whose parent already existed) is an `Inserted`, only in `before` (whose parent survives) a `Deleted`, present in both under a different parent/index a `Moved`, present in both with a changed own-content payload a `Reparametrized`; `merge(tree, deltas)` folds the patch back over the tree returning the patched `DocumentNode`; `invert(before, deltas)` maps each edit to its inverse so a redaction patch is reversible until burned in. Every arm a total `match`; the patch round-trips through `msgspec.msgpack` so a corpus diff is a content-keyed serialized value.
-- Auto: `_index` builds one `Map[ContentKey, IndexEntry]` over the STRUCTURAL `_spine` (the `children`-field child sequence the containers own — `PageNode`/`SectionNode`/`BlockNode`/`StructureNode`/`ListNode`), keying each node by its stable `NodeMeta.key` and its parent by the parent's `NodeMeta.key` (NEVER by `node_digest`, whose Merkle fold re-keys every ancestor when a descendant changes and would spuriously `Moved` every sibling of an edit), so the diff keys by structural identity while `node_digest` keys content identity — two distinct keyings, never conflated. `diff` reads the two `Map`s through `try_find` and folds the key-set algebra into the edit `Block`: a node whose key is new and whose parent already existed is the topmost `Inserted` of its subtree (a node under an also-new parent is carried inside that subtree and emits nothing), the symmetric topmost survivor is the `Deleted`, a surviving key under a changed parent/index is `Moved`, and a surviving key whose OWN content (every field except the structural `children` — including a `BlockNode`'s `runs`, a `SectionNode`'s `heading`, a `FigureNode`'s `caption`, a `TableNode`'s `rows`) differs is `Reparametrized`; the casualty set is one `Block.choose` over the survivor `try_find`, never a `list.append` accumulator. `merge` reduces the edit `Block` over the tree through `Block.fold`, `Inserted`/`Deleted` re-splicing a parent's `children` spine, `Moved` re-parenting under the new key, `Reparametrized` overlaying the decoded own-field map through `msgspec.convert` — one immutable fold, no in-place mutation.
+- Auto: `_index` builds one `Map[Path, IndexEntry]` over the STRUCTURAL `_spine` (the `children`-field child sequence the containers own — `PageNode`/`SectionNode`/`BlockNode`/`StructureNode`/`ListNode`), keying each node by its structural PATH-vector (the child-ordinal sequence from the root, the `boundaries.md` MEMO_KEY structural uid) so two identical-content siblings stay distinct slots where a content-derived `NodeMeta.key` would silently overwrite one; `_identities` derives the `Map[ContentKey, Path]` so move/reparametrize detection keys on the position-stable `NodeMeta.key` (NEVER by `node_digest`, whose Merkle fold re-keys every ancestor when a descendant changes and would spuriously `Moved` every sibling of an edit) while the path keying keeps the structural index collision-free — two distinct keyings, never conflated. `diff` reads the two `Map`s through `try_find` and folds the key-set algebra into the edit `Block`: a node whose key is new and whose parent already existed is the topmost `Inserted` of its subtree (a node under an also-new parent is carried inside that subtree and emits nothing), the symmetric topmost survivor is the `Deleted`, a surviving key under a changed parent/index is `Moved`, and a surviving key whose OWN content (every field except the structural `children` — including a `BlockNode`'s `runs`, a `SectionNode`'s `heading`, a `FigureNode`'s `caption`, a `TableNode`'s `rows`) differs is `Reparametrized`; the casualty set is one `Block.choose` over the survivor `try_find`, never a `list.append` accumulator. `merge` reduces the edit `Block` over the tree through `Block.fold`, `Inserted`/`Deleted` re-splicing a parent's `children` spine, `Moved` re-parenting under the new key, `Reparametrized` overlaying the decoded own-field map through `msgspec.convert` — one immutable fold, no in-place mutation.
 - Receipt: the delta count and the changed-node keys ride the lens introspection receipt facts; `DocumentDelta` mints no receipt of its own.
 - Packages: `msgspec` (`Struct(frozen=True, tag=True, tag_field=...)` edit variants, `Union` alias, `Raw` the opaque own-field values, `structs.replace` for the spine re-splice, `msgpack` round-trip, `convert` the `Reparametrized` re-coerce, `to_builtins` the overlay base); `expression` (`Map.empty`/`add`/`try_find` the structural index, `Block.of_seq`/`fold`/`choose` the immutable edit traversal, `Option` the lookup rail); runtime (`content_identity.ContentKey` keying every edit, consumed never re-minted).
 - Growth: a new edit kind is one `DocumentDelta` variant plus one `diff` emit arm and one `merge` apply arm; the totality `match` forces both. A new diff granularity is a `node_digest` policy change, never a parallel delta family.
@@ -616,7 +771,7 @@ from collections.abc import Callable
 from typing import Final, assert_never
 
 import msgspec
-from expression import Nothing, Some
+from expression import Nothing, Option, Some
 from expression.collections import Block, Map
 from msgspec import Struct
 
@@ -626,6 +781,7 @@ from .model import BlockNode, DocumentNode, ListNode, PageNode, SectionNode, Str
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
+type Path = tuple[int, ...]                              # the child-ordinal vector from the root: a node's structural uid
 type IndexEntry = tuple[DocumentNode, ContentKey | None, int]
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -686,38 +842,54 @@ def _own(node: DocumentNode, /) -> tuple[tuple[str, object], ...]:
     return tuple((name, getattr(node, name)) for name in node.__struct_fields__ if name not in {"children", "items"})
 
 
-def _index(root: DocumentNode, /) -> Map[ContentKey, IndexEntry]:
-    def walk_spine(table: Map[ContentKey, IndexEntry], node: DocumentNode, parent: ContentKey | None, position: int) -> Map[ContentKey, IndexEntry]:
-        seeded = table.add(node.meta.key, (node, parent, position))
+def _index(root: DocumentNode, /) -> Map[Path, IndexEntry]:
+    # keyed by the structural path-vector so two identical-content siblings never collide on a content-derived
+    # `NodeMeta.key`; the entry carries the parent `NodeMeta.key` and ordinal the ContentKey-addressed deltas need.
+    def walk_spine(table: Map[Path, IndexEntry], node: DocumentNode, path: Path, parent: ContentKey | None, position: int) -> Map[Path, IndexEntry]:
+        seeded = table.add(path, (node, parent, position))
         return Block.of_seq(enumerate(_spine(node))).fold(
-            lambda acc, pair: walk_spine(acc, pair[1], node.meta.key, pair[0]), seeded
+            lambda acc, pair: walk_spine(acc, pair[1], (*path, pair[0]), node.meta.key, pair[0]), seeded
         )
 
-    return walk_spine(Map.empty(), root, None, 0)
+    return walk_spine(Map.empty(), root, (), None, 0)
+
+
+def _identities(index: Map[Path, IndexEntry], /) -> Map[ContentKey, Path]:
+    # `NodeMeta.key` -> structural path: move/reparametrize detection keys on the stable identity that survives
+    # a position change, while the path-keyed index keeps siblings distinct — the two keyings never conflated.
+    return Block.of_seq(index.items()).fold(lambda acc, item: acc.add(item[1][0].meta.key, item[0]), Map.empty())
+
+
+def _by_key(index: Map[Path, IndexEntry], /) -> Map[ContentKey, IndexEntry]:
+    return Block.of_seq(index.items()).fold(lambda acc, item: acc.add(item[1][0].meta.key, item[1]), Map.empty())
 
 
 def diff(before: DocumentNode, after: DocumentNode, /) -> tuple[DocumentDelta, ...]:
     old, new = _index(before), _index(after)
+    old_at, new_at = _identities(old), _identities(new)
 
-    def survived(entry: tuple[ContentKey, IndexEntry], prior: IndexEntry) -> Block[DocumentDelta]:
-        key, (node, parent, index) = entry
+    def survived(node: DocumentNode, key: ContentKey, parent: ContentKey, index: int, prior: IndexEntry) -> Block[DocumentDelta]:
         node_prior, parent_prior, index_prior = prior
-        moved = (Moved(key=key, parent=parent, index=index),) if (parent_prior, index_prior) != (parent, index) and parent is not None else ()
+        moved = (Moved(key=key, parent=parent, index=index),) if (parent_prior, index_prior) != (parent, index) else ()
         changed = (Reparametrized(key=key, fields=_field_delta(node_prior, node)),) if _own(node_prior) != _own(node) else ()
         return Block.of_seq((*moved, *changed))
 
-    def edits_for(entry: tuple[ContentKey, IndexEntry]) -> Block[DocumentDelta]:
-        key, (node, parent, index) = entry
+    def edits_for(item: tuple[Path, IndexEntry]) -> Block[DocumentDelta]:
+        _path, (node, parent, index) = item
         if parent is None:
             return Block.empty()
-        return old.try_find(key).map(lambda prior: survived(entry, prior)).default_with(
-            lambda: Block.singleton(Inserted(parent=parent, index=index, node=node)) if old.try_find(parent).is_some() else Block.empty()
+        key = node.meta.key
+        return old_at.try_find(key).bind(old.try_find).map(lambda prior: survived(node, key, parent, index, prior)).default_with(
+            lambda: Block.singleton(Inserted(parent=parent, index=index, node=node)) if old_at.try_find(parent).is_some() else Block.empty()
         )
 
+    def deletes_for(item: tuple[Path, IndexEntry]) -> Option[DocumentDelta]:
+        _path, (node, parent, _index) = item
+        gone = parent is not None and new_at.try_find(node.meta.key).is_none() and new_at.try_find(parent).is_some()
+        return Some(Deleted(key=node.meta.key)) if gone else Nothing
+
     inserts_moves = Block.of_seq(new.items()).collect(edits_for)
-    deletes = Block.of_seq(old.items()).choose(
-        lambda entry: Some(Deleted(key=entry[0])) if entry[1][1] is not None and new.try_find(entry[0]).is_none() and new.try_find(entry[1][1]).is_some() else Nothing
-    )
+    deletes = Block.of_seq(old.items()).choose(deletes_for)
     return tuple(inserts_moves) + tuple(deletes)
 
 
@@ -739,8 +911,8 @@ def merge(tree: DocumentNode, deltas: tuple[DocumentDelta, ...], /) -> DocumentN
 
 
 def invert(before: DocumentNode, deltas: tuple[DocumentDelta, ...], /) -> tuple[DocumentDelta, ...]:
-    old = _index(before)
-    return tuple(Block.of_seq(deltas).map(lambda delta: _invert(delta, old)))[::-1]
+    by_key = _by_key(_index(before))
+    return tuple(Block.of_seq(deltas).map(lambda delta: _invert(delta, by_key)))[::-1]
 
 
 def encode(deltas: tuple[DocumentDelta, ...]) -> bytes:
@@ -803,8 +975,7 @@ def _find(tree: DocumentNode, key: ContentKey, /) -> DocumentNode:
 
 ## [04]-[RESEARCH]
 
-- [OCR_DEFERRED]: a scanned page with no embedded text recovers no `RunNode` leaf — `document/lens` reads zero glyphs, so the tree has empty text runs. OCR (ocrmypdf driving Tesseract, a native binary) is the one path that would synthesize `RunNode` text from a rasterized page. It carries a native binary outside the cp315-core wheel set and the `python_version<'3.15'` band, so it is a deferred-admission concern, never a phantom fence member: the tree models the recovered structure faithfully (empty runs on a scanned page), and OCR enrichment lands as a future `document/lens` arm over an admitted OCR owner. `model.md` owns no OCR surface; the tree type is complete without it.
-- [DIGEST_VS_IDENTITY]: `node_digest` is the Merkle CONTENT fold — a leaf keys over its serialized bytes and an interior node folds its child digests through `ContentIdentity.of(tuple_of_child_keys)`, so any descendant edit re-keys every ancestor digest. That re-keying is exactly why the diff does NOT key by `node_digest`: an unstable parent reference would spuriously `Moved` every sibling of an inserted node and break `merge`. The diff keys instead by the STABLE `NodeMeta.key` minted once per node at authoring/recovery time, so an edit at one node never perturbs its ancestors' diff keys. `node_digest` serves the cache-hit-by-reference and corpus-residency identity (a content-identical sub-tree keys identically for reuse elision); the diff/merge/move detection serves structural identity through `NodeMeta.key`. Two distinct keyings, never conflated, and both reach `ContentIdentity.of` — the `merkle` arm over child `ContentKey`s for the digest, the `whole` arm over `msgpack` bytes for the corpus.
+- [DIGEST_VS_IDENTITY]: `node_digest` is the Merkle CONTENT fold — a leaf keys over its serialized bytes and an interior node folds its child digests through `ContentIdentity.of(tuple_of_child_keys)`, so any descendant edit re-keys every ancestor digest. That re-keying is exactly why the diff does NOT key by `node_digest`: an unstable parent reference would spuriously `Moved` every sibling of an inserted node and break `merge`. The diff INDEXES by the structural path-vector (the `Path` child-ordinal sequence from the root, the `boundaries.md` MEMO_KEY structural uid) so two identical-content siblings under one parent stay distinct slots where a content-derived `NodeMeta.key` would overwrite one, and `_identities` derives the `Map[ContentKey, Path]` so move/reparametrize detection matches the position-stable `NodeMeta.key` minted once per node at authoring/recovery time, an edit at one node never perturbing another's path. `node_digest` serves the cache-hit-by-reference and corpus-residency identity (a content-identical sub-tree keys identically for reuse elision) through an iterative expand/combine frontier that never overflows the frame limit on an adversarial-depth tree; the diff indexes by structural path and matches move identity by `NodeMeta.key`, two distinct keyings never conflated, both reaching `ContentIdentity.of` — the `merkle` arm over child `ContentKey`s for the digest, the `whole` arm over `msgpack` bytes for the corpus.
 - [STRUCT_ROLE_TOTALITY]: the PDF/UA structure-type vocabulary is closed except at one extension point, so `StructRole` is a two-arm tagged `Union` under `tag_field="role_kind"` — `StandardRole` wrapping the `StructEltKind` `StrEnum` of the full ISO 14289 standard-structure roles (the grouping `Art`/`Div`/`TOC`/`TOCI`/`Index` beside `Document`/`Part`/`Sect`, the block `BlockQuote`/`BibEntry` beside `P`/`Note`/`Code`/`Caption`, the inline `Span`/`Reference`/`Annot` beside `Quote`/`Link`, the `Lbl`/`LBody` list-item structure beside `L`/`LI`, the `THead`/`TBody`/`TFoot` table sections beside `TR`/`TH`/`TD`, and the `Formula`/`Form` illustration roles beside `Figure` — the seventeen-role gap the prior bounded slice left open against the spec's standard-structure-type table now closed), and `ForeignRole` carrying the one `ForeignRoleStr` escape. A standard role is a `StructEltKind` member (a `StrEnum` row, never a sibling struct), so a new standard role is one enum line plus one `_STRUCT_CATEGORY` row and `role_of`'s `StandardRole` arm plus `role_category`'s table lookup absorb it; a foreign role is the single `ForeignRole` arm `match` reaches, categorized as the named `_FOREIGN_CATEGORY` open-default row. The `StructEltKind` value strings are the literal PDF/UA standard-structure-type names, the one literal source on the page that traces to the external standard vocabulary; `ForeignRoleStr` constrains the foreign role to a non-empty `[A-Za-z][\w.\-]*` identifier through `Meta(min_length, max_length, pattern)`, validated on decode and on the `Reparametrized` re-coerce through `msgspec.convert`. The PDF/UA vocabulary is not bare: `_STRUCT_CATEGORY` is the one frozen `frozendict` behavior table carrying each role's `(StructCategory, heading_level)`, the smart-enum behavior-row collapse the bare `StrEnum` alone defeats, and `_STANDARD_FOR` is the one DERIVED secondary inverting category to its canonical standard role (the inline canonical `Span`, the foreign-default grouping `Sect`), exposed through the `standard_for` projection so the `folder:document/tagged#ACCESS` `/RoleMap` lowering reads a model projection rather than the hand-kept `_STANDARD_FOR` dict that page formerly owned — the `DERIVED_LOGIC` law applied across the model/tagged seam, one primary correspondence declared and the foreign-mapping secondary derived from it. The deleted `RoleView`/`role_contract`/`_ROLE_CONTRACT` machinery (the `json.schema_components((StructRole,), ...)` `(components, defs)` blob, the `inspect.multi_type_info((StructRole,))` node tree, the `structs.fields(FigureNode)` `FieldInfo` set) asserted three "audit views" no consumer reads — the `folder:document/tagged#ACCESS` AUDIT folds `role_of`/`role_category`/`alt_of`/`children` over the authored `pikepdf` tree and never reaches a `msgspec`-introspection blob, so the three views were decorative density (a confident-looking `RoleView`-keyed dispatch carrying no real capability) and are removed; the closed-family totality is proved by the `assert_never` over `StructRole`, not by a schema-component map nothing consumes. The nested `role_kind` discriminant is independent of the outer `kind` discriminant: `StructureNode` decodes its `kind="structure"` tag first, then `role` decodes its own `role_kind` tag, two tag fields on two `Union` levels that never collide because they name distinct fields. The `kind` tag the corpus column reads is recovered from `node.__struct_config__.tag` (the `msgspec.structs.StructConfig` runtime view), never a parallel `match` re-enumerating the ten variants to recover a literal the tag already carries.
 - [ACCESSIBILITY_DOMAIN]: the node algebra carries the full PDF/UA + reflow accessibility surface the bare id/role/page slice omitted, each addition citing a real consumer or package member. `NodeMeta.lang` is the `/Lang` BCP-47 tag the PDF/UA structure tree and the `document/report#REPORT` language seam require (the sibling `report.md`/`lens.md` `language` references), typed `LangTag | UnsetType = UNSET` so an untagged node round-trips absent under `omit_defaults` and a tagged node carries the validated tag; `NodeMeta.actual_text` is the `/ActualText` glyph-replacement the PDF/UA spec mandates for ligatures and non-textual glyphs, the same `UnsetType` tri-state. `RunNode` carries `italic`/`script`/`decorations`/`direction`/`color` so a styled run round-trips its full character appearance — the `folder:../typography/shape#SHAPE` shaping surface authors them and the `_styled` `pipe` fold reads every one through `#emph`/`#super`/`#sub`/the `_DECORATION_MARKUP`-rowed `#underline`/`#strike`/`#overline`/`#text(dir: rtl)`/`#text(rgb(..))` markup. The prior `rtl: bool` was the illusory case: stored and round-tripped yet never read by `_styled`, so a right-to-left run emitted no direction markup at all; `direction: TextDirection` (`LTR`/`RTL`/`AUTO`, the python-bidi `base_dir` `'L'`/`'R'`/auto vocabulary the `get_base_level` probe resolves to `0`/`1`) replaces the dead flag with a tri-state the lowering honors and the shaper reorders, and `decorations: tuple[TextDecoration, ...]` adds the underline/strike/overline set the bare weight/italic slice dropped — a run that was bold-italic-superscript-underlined-red lowered to plain bold before. `ListNode` is the distinct `L`/`LI`/`Lbl`/`LBody` PDF/UA list grouping the lens recovers and the `#list`/`#enum(start:)`/`#terms` `_LIST_MARKUP`-rowed Typst markup lowers — the ordered-list `start` ordinal riding `#enum(start:)`, the description list folding each item to one `terms.item([term], [body])` pair — where the prior tree forced a list through a `BlockKind.LIST_ITEM` block that carried no ordered/unordered/description distinction, no start ordinal, and no list-level grouping, a real structural concept the audit's `L → LI` nesting check needs. `TableNode.header_rows`/`footer_rows` are the leading-`THead`-row and trailing-`TFoot`-row counts the pymupdf `Table.header` member recovers (verified in `.api/pymupdf.md`) and PDF/UA distinguishes from `TD` data cells; `to_typst_source` lowers them through the Typst `table.header(repeat: true, ..)`/`table.footer(..)` row-band elements, replacing the invalid `table.header.repeat` dict key the prior arm emitted. `BlockKind.QUOTE`/`CODE` now lower to `#quote(block: true)[..]`/`#raw("..", block: true)` rather than the prior generic-paragraph collapse that declared the kinds yet honored only `HEADING`/`ARTIFACT`. `FigureNode.media_type`/`intrinsic` carry the `MediaType` MIME and intrinsic `(width, height)` the `pikepdf`/`pymupdf` image extraction surfaces (`PdfImage.mode`/`colorspace`, `Pixmap` dimensions) recover and a faithful re-emission needs. `FieldNode.flags`/`options` carry the `FieldFlag` set (required/readonly/multiline/password) and `CHOICE` candidate values the `pymupdf Page.widgets()` recovery (`field_type`/`field_value` plus flags) and the `document/emit#DOCUMENT` form authoring read. `AnnotationNode.link` is the `AnnotTarget` closed family — external `Uri`, internal `Dest` page destination, `NoTarget` — the `LINK`-kind annotation needs so a hyperlink round-trips its href or page jump rather than dropping the target (the sibling `uri` references in `emit.md`/`egress.md`/`report.md`/`lens.md`); `to_typst_source` lowers the `Uri` case through `#link("href")[text]` and the internal `Dest` case through `#link((page:, x:, y:))[text]` (the Typst location-dictionary destination carrying the `Dest.point`), so a recovered page-jump round-trips its target rather than dropping it. `BlockKind.ARTIFACT` is the decorative-content case lowering through Typst `pdf.artifact[..]` (verified `.api/typst.md` `[MARKUP_ELEMENT_SCOPE]` `pdf.artifact`), so a rule/ornament is excluded from the tagged structure tree per the PDF/UA artifact rule rather than mis-tagged as content. Every addition is one field/case on an existing owner reshaping it as if it had always carried the concept, never a parallel surface.
 - [ALT_TEXT_PRESENCE]: `FigureNode.alt: AltText` is the alt-text-presence fact the `document/tagged#ACCESS` AUDIT verifies and the `composition/compose#COMPOSE` unit authors, `AltText` an `Annotated[str, Meta(max_length=2048)]` admitting the empty string as the default (an un-authored figure carries `alt=""`, the audit's failing case) while bounding the upper length on decode. `to_corpus(node, STRUCT)` projects the `CorpusRow.alt`/`alt_status` columns from the one `alt_of` `(AltText, AltStatus)` pair so the `FigureNode` discriminant fires once per row, and the audit reads alt-text presence as the single `kind == FIGURE and alt_status == ABSENT` column predicate over the content-keyed corpus rather than re-walking the tree; `to_typst_source` folds the `FigureNode` through the `_image` emitter that owns the `alt: none | str` decision — a non-empty `alt` writes the string-context-escaped `image(source, alt: "<escaped>")`, an empty `alt` writes `image(source, alt: none)`, so the absent case stays `none` rather than collapsing to an empty-string equivalent that asserts a meaningless image, the Typst compiler emits the equivalent into the marked-content figure structure element of the PDF/UA render, and the future `document/emit#DOCUMENT TYPST_QUERY` pass reads the compiled `image` selector back through `typst.query`. The `_typst(value, scope)` escaper is one `TypstScope`-keyed `frozendict` `str.maketrans` algebra: the `STRING` context escapes `\` and `"` for the `alt`/`asset_key`/link-`href` quoted-string arguments, and the `MARKUP` context escapes the Typst content-mode active set `\[]#*_@$<>` and backtick for every interpolated `RunNode.text`, heading, caption, and link-text run, so an `alt` carrying a quote or a run carrying `]`/`#` produces valid markup. The field rides the `Reparametrized` own-field overlay with every other `FigureNode` own field, so a re-authored alt re-keys the figure's `node_digest` and emits one `Reparametrized` edit; no parallel alt-tracking surface exists.

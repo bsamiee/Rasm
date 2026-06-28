@@ -9,9 +9,8 @@
 - import: `odf`
 - owner: `artifacts`
 - rail: office
-- installed: `1.4.1` reflected via reflection on cp315 (Python 3.15)
+- installed: `1.4.1`
 - license: triple-classified Apache-2.0 / GPL / LGPL (GPLv2+ with LGPL option) — copyleft; gate any redistribution-sensitive bundling against this, distinct from the MIT/BSD sibling office owners
-- abi: pure Python, sdist-only (`odfpy-1.4.1.tar.gz`); single runtime dependency `defusedxml` (PSF-2.0) hardens the XML parse against entity-expansion attacks; no compiled extension, installs clean on cp315
 - entry points: console scripts `csv2ods`, `mailodf`, `odf2mht`, `odf2xhtml`, `odf2xml`, `odfimgimport`, `odflint`, `odfmeta`, `odfoutline`, `odfuserfield`, `xml2odf`; library use is import-only
 - capability: ODF document authoring via the `OpenDocument*` factory family (spreadsheet/text/presentation/drawing/chart/image/text-master), namespaced `Element` DOM write API (`addElement`/`addText`/`addCDATA`/`setAttribute`/`setAttrNS` plus W3C-DOM `appendChild`/`insertBefore`/`removeChild`), grammar-checked allowed-attribute validation per module, embedded-object/picture/thumbnail attachment, container serialization (`save`/`write`/`xml`/`contentxml`/`stylesxml`/`metaxml`/`settingsxml`), `load` parse of any OASIS document from a path or readable stream, DOM traversal (`getElementsByType`/`getAttribute`/`getAttrNS`/`isInstanceOf`), and whitespace-correct text extract/inject (`teletype.extractText`/`addTextToElement`)
 

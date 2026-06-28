@@ -1,35 +1,40 @@
 export const meta = {
   name: 'cs-rebuild-single',
   whenToUse: 'Hostile ground-up rebuild of one C# design-page folder to the csharp doctrine bar.',
-  description: 'Hostile ground-up rebuild of libs/csharp design pages to world-class modern C# (C#14/net10, strata-correct, the 16 named docs/stacks/csharp laws, [Union]/[SmartEnum<TKey>]/[ValueObject<T>]/[ComplexValueObject] ADT collapse, LanguageExt Fin/Validation/Option/Eff rails, two-weave AOP, source-generated owners) AND justified IN-PLACE capability extension. Per design page, 1 agent per file in a 3-step ADVERSARIAL pipeline — rebuild(max) -> critique(xhigh) -> redteam(max), every stage hostile: assume the fence is naive/junior/illusory until it survives attack, never accept "mature", hunt the fake/decorative code that reads advanced but is hollow, collapse + maximize the .api, AND close the concept capability gaps by growing the existing owner in place. Then a cross-file reconcile. Untied to any idea/task: it improves every page objectively. args = optional package scope (e.g. "Rasm.Bim"); empty/"ALL" = all of libs/csharp.',
+  description: 'Granular hostile ground-up rebuild of libs/csharp design pages to world-class modern C# (C#14/net10, strata-correct, the 16 named docs/stacks/csharp laws, [Union]/[SmartEnum<TKey>]/[ValueObject<T>]/[ComplexValueObject] ADT collapse, LanguageExt Fin/Validation/Option/Eff rails, two-weave AOP, source-generated owners) AND justified IN-PLACE capability extension. TARGETS are granular: a package root (libs/csharp/Rasm.Bim), one or more sub-folders at ANY depth, or specific files (any number) — passed as a string, an array, or {targets:[...]}; the Rasm/Geometry effort homes specially (design pages under Rasm/Geometry/.planning, governing docs + .api at the Rasm ROOT, never touching Analysis/Domain/Vectors). Per TARGETED design page, 1 agent per file in a 3-step ADVERSARIAL pipeline — rebuild(max) -> critique(xhigh) -> redteam(max), every stage hostile: assume the fence is naive/junior/illusory until it survives attack, never accept "mature", hunt the fake/decorative code that reads advanced but is hollow, collapse + maximize the .api, AND close the concept capability gaps by growing the existing owner in place. Then a FOLDER-WIDE reconcile: residual union-find fix/verify (blast radius = the owning folder, not just the targeted files) PLUS a per-package sibling-seam drift sweep so the whole folder stays coherent even where the targeted rebuild did not reach. The whole-folder collapse/unification pass is OWNED BY cs-rebuild-many (run it scoped to one folder). args = a target path, an array of target paths, or {targets:[...]}; empty = no-op.',
   phases: [
-    { title: 'Discover', detail: 'list every design page under the target (recursive .planning specs)' },
-    { title: 'Rebuild', detail: 'per page (1 agent/file): rebuild(max) -> critique(xhigh, 6-checklist + capability-completeness) -> redteam(max, counterfactual + cold re-review), every stage ADVERSARIAL (naive/illusory-by-default), pooled at CAP=11' },
-    { title: 'Reconcile', detail: 'consume cross-file residuals: union-find cluster by shared file -> fix(max) -> adversarial verify(xhigh); hard residuals hand off to resolve-residuals' },
-    { title: 'Final-Collapse', detail: 'one series of agents over the whole scope (collapse(max) -> critique(xhigh) -> redteam(max)): collapse + unify across files into one rail/polymorphism/shape system, break illusory differentiation, reduce chaff without removing capability' },
+    { title: 'Discover', detail: 'resolve the targets (file / sub-folder / package, any number) into the targeted page set + owning packages + the folder-wide page set; Rasm/Geometry homes to the Rasm root' },
+    { title: 'Rebuild', detail: 'per TARGETED page (1 agent/file): rebuild(max) -> critique(xhigh, 6-checklist + capability-completeness) -> redteam(max, counterfactual + cold re-review), every stage ADVERSARIAL (naive/illusory-by-default), pooled at CAP' },
+    { title: 'Reconcile', detail: 'FOLDER-WIDE: union-find cluster cross-file residuals -> fix(max) -> adversarial verify(xhigh) with the owning folder as blast radius; then a per-package sibling-seam drift sweep so the whole folder stays coherent even outside the targeted set; hard residuals hand off to resolve-residuals' },
   ],
 }
 
 // --- [CONSTANTS] -------------------------------------------------------------------------
+
 const CAP = 10
 const STAGGER_MS = 1500
 const ROOT = 'libs/csharp'
 
 // --- [INPUTS] ----------------------------------------------------------------------------
-const input = typeof args === 'string' ? (() => { try { return JSON.parse(args) } catch { return args } })() : args
-const rawScope = (typeof input === 'string') ? input.trim() : (input && typeof input === 'object' && input.target) ? String(input.target).trim() : ''
-const SCOPE = (!rawScope || rawScope === 'ALL') ? '' : rawScope
-const SWEEP = !SCOPE ? ROOT : (SCOPE === ROOT || SCOPE.indexOf(ROOT + '/') === 0) ? SCOPE : ROOT + '/' + SCOPE
+
+const normTarget = (t) => { const s = String(t).trim().replace(/\/+$/, ''); return (s === ROOT || s.indexOf(ROOT + '/') === 0) ? s : ROOT + '/' + s.replace(/^\/+/, '') }
+const rawTargets = Array.isArray(args) ? args
+  : (args && typeof args === 'object' && Array.isArray(args.targets)) ? args.targets
+  : (args && typeof args === 'object' && args.target) ? [args.target]
+  : (typeof args === 'string' && args.trim()) ? [args]
+  : []
+const TARGETS = [...new Set(rawTargets.filter(Boolean).map(normTarget))]
 
 // --- [MODELS] ----------------------------------------------------------------------------
-const DISCOVERY_SCHEMA = { type: 'object', additionalProperties: false, required: ['pages'], properties: { pages: { type: 'array', items: { type: 'string' } } } }
+
+const DISCOVERY_SCHEMA = { type: 'object', additionalProperties: false, required: ['packages', 'rebuildPages', 'folderPages'], properties: { packages: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['name', 'planning', 'api', 'root'], properties: { name: { type: 'string' }, planning: { type: 'string' }, api: { type: 'string' }, root: { type: 'string' }, note: { type: 'string' } } } }, rebuildPages: { type: 'array', items: { type: 'string' } }, folderPages: { type: 'array', items: { type: 'string' } } } }
 const FIXLOG_SCHEMA = { type: 'object', additionalProperties: false, required: ['file', 'verdict', 'summary'], properties: { file: { type: 'string' }, verdict: { type: 'string', enum: ['rebuilt', 'refined', 'clean'] }, collapsed: { type: 'string' }, extended: { type: 'string' }, residual_high: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['files', 'claim'], properties: { files: { type: 'array', items: { type: 'string' } }, claim: { type: 'string' } } } }, summary: { type: 'string' } } }
-// --- [FINAL-COLLAPSE] -- wider-scope rebuild over the WHOLE in-scope corpus (one series) ---
-const COLLAPSE_SCHEMA = { type: 'object', additionalProperties: false, required: ['verdict', 'summary'], properties: { verdict: { type: 'string', enum: ['collapsed', 'clean'] }, collapsed: { type: 'array', items: { type: 'string' } }, residual: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['files', 'claim'], properties: { files: { type: 'array', items: { type: 'string' } }, claim: { type: 'string' } } } }, summary: { type: 'string' } } }
 const RESIDUAL_FIX_SCHEMA = { type: 'object', additionalProperties: false, required: ['files', 'verdict', 'summary'], properties: { files: { type: 'array', items: { type: 'string' } }, verdict: { type: 'string', enum: ['fixed', 'clean'] }, summary: { type: 'string' } } }
 const RECONCILE_VERIFY_SCHEMA = { type: 'object', additionalProperties: false, required: ['overall', 'claims'], properties: { overall: { type: 'boolean' }, claims: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['claim', 'status'], properties: { claim: { type: 'string' }, status: { type: 'string', enum: ['fixed', 'invalid', 'open'] }, evidence: { type: 'string' } } } } } }
+const SEAM_SCHEMA = { type: 'object', additionalProperties: false, required: ['package', 'verdict', 'summary'], properties: { package: { type: 'string' }, verdict: { type: 'string', enum: ['repaired', 'clean'] }, repaired: { type: 'array', items: { type: 'string' } }, summary: { type: 'string' } } }
 
 // --- [DOCTRINE] --------------------------------------------------------------------------
+
 const LAW = [
   'Rasm monorepo, libs/csharp planning corpus (markdown specs of intended C# package designs). CLAUDE.md manifest + WORKSPACE_LAW strata govern ' +
     '(KERNEL -> AEC-DOMAIN -> APP-PLATFORM -> HOST-BOUNDARY -> APP; depend strictly upward; a host-neutral owner only where a non-Rhino runtime ' +
@@ -168,28 +173,9 @@ const COMMENTS = 'COMMENT HYGIENE: code fences are agent-facing — comment for 
   'comment genuinely earns its place; 1-2 lines only for a truly subtle invariant, contract, or boundary. NO restating the code, no narration, no ' +
   'task/process/session/history/proof/review comments, no XML-doc bloat. Densify names and types so comments are rarely needed; cut every ' +
   'low-value comment.'
-const WIDE = [
-  'WIDE-SCOPE REBUILD — this is the FINAL pass over the WHOLE in-scope corpus at once, AFTER every page ran its own per-page rebuild -> critique ' +
-    '-> redteam and the cross-file residual reconcile. The per-page passes each saw ONE page; the reconcile fixed cross-file residuals point by ' +
-    'point. THIS pass holds EVERY in-scope design page under `' + SWEEP + '` in view SIMULTANEOUSLY and REBUILDS with the bigger view — it is NOT ' +
-    'alignment (seam/wire/port bookkeeping is a different concern), it is a wider-scope ground-up rebuild that ONLY the whole-corpus view makes ' +
-    'possible. Same hostile, illusory-by-default stance as the per-page passes: assume the corpus is naive, fragmented, or illusory ACROSS files ' +
-    'until it survives an aggressive cross-file attack; the burden of proof is ON THE CODE.',
-  'COLLAPSE OBJECTIVES (fix every one in place across the spanned pages, PRESERVING ALL capability): (1) LOGIC-HOMING — ALL LOGIC LIVES IN THE ' +
-    'RIGHT PLACE: no concern needlessly split across files, no differentiation that should be a SINGLE owner; pull a concern scattered across ' +
-    'pages back to its ONE rightful owner per SHAPE_BUDGET + DEEP_SURFACES + ONE_HOP_RESOLUTION. (2) UNIFY EVERYTHING across files — ONE rail ' +
-    'family (`Fin`/`Validation`/`Option`/`Eff`), ONE polymorphism approach, ONE canonical set of shapes/owner forms ' +
-    '(`[Union]`/`[SmartEnum<TKey>]`/`[ValueObject<T>]`/`[ComplexValueObject]`/source-generated case families); collapse parallel / near-duplicate ' +
-    'shapes, pipelines, and logic flows that live in DIFFERENT files into ONE unified owner / pipeline / logic flow per ROOT_REBUILD + ' +
-    'COMPOSED_IMPLEMENTATION. (3) BREAK ILLUSORY PATTERNS cross-file — be HARSH on bad / illusory differentiation, decorative complexity, and ' +
-    'fake-advanced code applied ACROSS files; a dense, confident-looking fence is the PRIME suspect, now hunted across page boundaries, and ' +
-    'disbelieved until verified against the real domain + catalogued package surface. (4) REDUCE FOOTPRINT by removing chaff and illusory ' +
-    'differentiation — NEVER by removing functionality; preserve every capability, densify it INTO the unified owner. (5) KEEP IMPROVING QUALITY ' +
-    'per ALL of docs/stacks/csharp/ — the 16 named laws, COLLAPSE_SCAN, the rail/shape/AOP doctrine, and the relevant domain/ shard(s) — push the ' +
-    'whole corpus past the floor to the strongest UNIFIED form the doctrine admits.',
-].join('\n')
 
 // --- [OPERATIONS] ------------------------------------------------------------------------
+
 const folderOf = (p) => { const head = p.split('/.planning/')[0].split('/'); return head[head.length - 1] || 'root' }
 const subOf = (p) => p.split('/.planning/').pop()
 const authorPrompt = (page) => [LAW, '', ADVERSARIAL, '', ULTRA, '', EXTEND, '', PATLAW, '', BOUNDARIES, '', PROSE, '', COMMENTS, '', 'TASK: ' +
@@ -321,39 +307,13 @@ const processPage = async (w, tag) => {
   }
   return { page: w.page, logs, ok: Object.keys(logs).length === STAGES.length }
 }
-const finalCollapsePrompt = () => [LAW, '', ADVERSARIAL, '', ULTRA, '', EXTEND, '', PATLAW, '', BOUNDARIES, '', PROSE, '', COMMENTS, '', WIDE, '',
-  'TASK: WIDE-SCOPE COLLAPSE — read EVERY in-scope design page under `' + SWEEP + '` AT ONCE and REBUILD with the whole-corpus view. Hunt the ' +
-    'differentiation no per-page pass could see from inside one page: a concern needlessly split across files; parallel / near-duplicate shapes, ' +
-    'pipelines, or logic flows living in DIFFERENT files; more than one rail family, polymorphism approach, or canonical owner-shape set surviving ' +
-    'across the corpus; and any illusory cross-file differentiation dressed in the doctrine vocabulary. PULL every misplaced concern to its ONE ' +
-    'rightful owner; UNIFY the corpus onto ONE rail family, ONE polymorphism approach, ONE canonical set of owner forms; COLLAPSE the cross-file ' +
-    'duplicates into ONE unified owner / pipeline / logic flow per ROOT_REBUILD + COMPOSED_IMPLEMENTATION; REDUCE footprint by deleting chaff and ' +
-    'illusory differentiation while PRESERVING ALL capability (densify, never delete functionality); and keep PUSHING quality per ALL of ' +
-    'docs/stacks/csharp/. Read the spanned pages + the docs/stacks/csharp core + the relevant domain/ shard(s) + the package `.api/` catalogs and ' +
-    'the universal Thinktecture/LanguageExt rails; verify any cited host/NuGet member via `uv run python -m tools.assay api`. FIX EVERY defect in ' +
-    'place across the spanned pages, regressing none. Return verdict + collapsed (each cross-file collapse/unification made, naming the files + ' +
-    'the resulting owner/pipeline) + residual (each {files, claim} for anything you could not fully resolve) + summary.'].join('\n')
-const finalCritiquePrompt = () => [LAW, '', ADVERSARIAL, '', ULTRA, '', EXTEND, '', PATLAW, '', BOUNDARIES, '', PROSE, '', COMMENTS, '', WIDE, '',
-  'TASK: HARSHER ADVERSARIAL AUDIT of the wide-scope collapse + FIX IN PLACE. Assume a cross-file defect REMAINS until you prove otherwise; trust ' +
-    'NOTHING the collapse pass or the prose claimed. Re-sweep the WHOLE in-scope corpus under `' + SWEEP + '`: a concern still split across files, ' +
-    'a shape / pipeline / logic flow still duplicated across pages, more than one rail family or polymorphism approach or canonical owner form ' +
-    'still surviving, illusory cross-file differentiation still standing, decorative complexity still passing for capability, or chaff still ' +
-    'padding the footprint. REPAIR every hit in place across the spanned pages — unify onto the ONE owner / rail / polymorphism / shape system, ' +
-    'preserving ALL capability and regressing no page. Return verdict + collapsed + residual + summary.'].join('\n')
-const finalRedteamPrompt = () => [LAW, '', ADVERSARIAL, '', ULTRA, '', EXTEND, '', PATLAW, '', BOUNDARIES, '', PROSE, '', COMMENTS, '', WIDE, '',
-  'TASK: ADVERSARIAL RED-TEAM of the wide-scope collapse — the LAST and MOST AGGRESSIVE whole-corpus pass. Trust nothing the collapse / critique ' +
-    'claimed. COUNTERFACTUALLY attack the cross-file ownership: is each shared concept homed on its ONE rightful owner; is the corpus genuinely ' +
-    'unified onto ONE rail family, ONE polymorphism approach, ONE canonical shape set; does any PAIR of pages still carry parallel / ' +
-    'near-duplicate shapes, pipelines, or logic flows that should be ONE; is any cross-file differentiation illusory / decorative; is any ' +
-    'footprint still chaff a denser unified owner would erase without losing capability; will the next cross-file growth axis land as ONE ' +
-    'case/row/policy value with every page untouched or broken LOUDLY at compile time? FIX every defect in place across the spanned pages, ' +
-    'densifying and preserving ALL capability; if the corpus is genuinely unified, minimal, and capability-complete, prove it by finding nothing — ' +
-    'never invent churn. Return verdict + collapsed + residual + summary.'].join('\n')
-const COLLAPSE_STAGES = [
-  { key: 'collapse', build: finalCollapsePrompt, effort: 'max' },
-  { key: 'critique', build: finalCritiquePrompt, effort: 'xhigh' },
-  { key: 'redteam', build: finalRedteamPrompt, effort: 'max' },
-]
+const seamPrompt = (pkg, rebuilt) => [LAW, '', BOUNDARIES, '', 'TASK: FOLDER-WIDE SEAM CHECK of package `' + pkg.name + '` after a TARGETED per-file ' +
+  'rebuild touched ONLY these pages:\n' + JSON.stringify(rebuilt, null, 1) + '\nThe owning folder is `' + pkg.planning + '/**`' + (pkg.note ? ' (' + pkg.note + ')' : '') + '. ' +
+  'Read each rebuilt page; for every shape/owner/rail/seam/payload it changed, find the SIBLING pages in the SAME folder (OUTSIDE the targeted set) that ' +
+  'consume it and that the rebuild left STALE, read ONLY those affected siblings, and FIX the drift in place so the folder stays coherent (a ' +
+  'renamed/reshaped owner, a changed payload, a moved capability, a stale seam). Do NOT rebuild the siblings — repair ONLY the seam the targeted rebuild ' +
+  'disturbed, preserving all capability and regressing nothing; respect the strata/boundary law and never trample a sibling owner interior. Edit in ' +
+  'place. Return verdict (`repaired` if you changed any sibling, else `clean`), repaired (each sibling repo-relative path you fixed), and summary.'].join('\n')
 
 // --- [COMPOSITION] -----------------------------------------------------------------------
 
@@ -369,16 +329,34 @@ const pool = async (items, cap, worker) => {
 }
 
 phase('Discover')
-const inv = await agent('List every design page under ' + SWEEP + ' — markdown specs at paths matching */.planning/**/*.md. Return each as a ' +
-  'repo-relative path (e.g. ' + ROOT + '/<Package>/.planning/<sub>/<page>.md). Exclude IDEAS.md/TASKLOG.md/README.md/ARCHITECTURE.md. Use find; do ' +
-  'not cd.', { label: 'discover', phase: 'Discover', schema: DISCOVERY_SCHEMA, model: 'sonnet', effort: 'low' })
-const pending = ((inv && inv.pages) || []).filter(Boolean).map((p) => ({ page: p }))
+const inv = await agent('Resolve these rebuild TARGETS into the page set + owning packages for ' + ROOT + '. Each TARGET (repo-relative) is a PACKAGE ' +
+  'root (e.g. ' + ROOT + '/Rasm.Bim), a SUB-FOLDER under .planning at ANY depth (e.g. ' + ROOT + '/Rasm.Bim/.planning/<sub> or a deeper nested ' +
+  'sub-folder), or a specific design FILE (e.g. ' + ROOT + '/Rasm.Bim/.planning/<sub>/<page>.md). TARGETS:\n' + JSON.stringify(TARGETS, null, 1) + '\n' +
+  'The OWNING PACKAGE of a target is the path BEFORE "/.planning/", or the target itself when it has no "/.planning/" segment. C# GEOMETRY SPECIAL ' +
+  'LAYOUT: for ANY target under ' + ROOT + '/Rasm/Geometry/ (or the target ' + ROOT + '/Rasm), the owning package is the Rasm-root geometry effort — ' +
+  'return it as {name: "Geometry", planning: "' + ROOT + '/Rasm/Geometry/.planning", api: "' + ROOT + '/Rasm/.api", root: "' + ROOT + '/Rasm", note: ' +
+  '"geometry pages live under Rasm/Geometry/.planning; governing ARCHITECTURE/README/IDEAS/TASKLOG + .api live at the Rasm ROOT; NEVER touch the mature ' +
+  'siblings Analysis/Domain/Vectors"}, and draw its rebuildPages/folderPages ONLY from ' + ROOT + '/Rasm/Geometry/.planning/**, never from ' +
+  'Analysis/Domain/Vectors. For every OTHER package, {name: the LAST path segment of the package root, planning: "<package>/.planning", api: ' +
+  '"<package>/.api", root: "<package>"}. Use find; do not cd; do not edit anything. Return: (1) packages — one entry per DISTINCT owning package. ' +
+  '(2) rebuildPages — the TARGETED page subset (repo-relative *.md): a PACKAGE-root target expands to EVERY page under its planning tree; a SUB-FOLDER ' +
+  'target to EVERY page under that sub-folder at ANY depth; a FILE target to itself; union all targets and dedup. (3) folderPages — EVERY design page ' +
+  'under EVERY owning package planning tree (the reconcile blast radius). Exclude IDEAS.md/TASKLOG.md/README.md/ARCHITECTURE.md from BOTH.', { label: 'discover', phase: 'Discover', schema: DISCOVERY_SCHEMA, model: 'sonnet', effort: 'low' })
+const packages = ((inv && inv.packages) || []).filter((p) => p && p.name)
+const rebuildPages = [...new Set(((inv && inv.rebuildPages) || []).filter(Boolean))]
+const folderPages = [...new Set(((inv && inv.folderPages) || []).filter(Boolean))]
+const pending = rebuildPages.map((p) => ({ page: p }))
 const total = pending.length
-log('Discover under ' + SWEEP + ': ' + total + ' design pages; pooling at CAP=' + CAP)
+log('Discover: ' + total + ' targeted page(s) across ' + packages.length + ' package(s) [' + packages.map((p) => p.name).join(', ') + ']; folder-wide ' +
+  'set ' + folderPages.length + '; pooling at CAP=' + CAP)
+if (!total) { log('No targets resolved — pass a file, sub-folder, or package path as args (a string, an array, or {targets:[...]})'); return { root: ROOT, targets: TARGETS, total: 0, packages: packages.map((p) => p.name) } }
 
 // --- [REBUILD]
+
 phase('Rebuild')
 const done = (await pool(pending, CAP, (w) => processPage(w, 'Rebuild-'))).filter(Boolean)
+
+// --- [RECONCILE]
 
 const norm = (x, page) => typeof x === 'string' ? { files: [page], claim: x } : { files: x.files && x.files.length ? x.files : [page], claim: x.claim }
 const allRes = []
@@ -393,15 +371,17 @@ const clusters = (() => {
 })()
 log('Rebuild: ' + done.length + '/' + total + ' pages; reconcile ' + uniq.length + ' residuals (crit+redteam, deduped) -> ' + clusters.length + ' ' +
   'clusters')
+phase('Reconcile')
 let reconciled = []
 if (clusters.length) {
-  phase('Reconcile')
   reconciled = (await pool(clusters, CAP, async (cl, i) => {
     const fix = await agent([LAW, '', ADVERSARIAL, '', ULTRA, '', EXTEND, '', PATLAW, '', BOUNDARIES, '', 'TASK: RECONCILE these cross-FILE ' +
-      'residuals the critique AND red-team passes deferred. There is NO severity — treat EVERY residual as must-address. Read EVERY listed file. ' +
-      'For each: if it is a real cross-file defect, FIX it in place (unify the shared type/seam/rail, repair the strata/boundary issue, or extend ' +
-      'the shared owner in place to close a capability gap that spans files), preserving all capability and regressing no file; if a residual is ' +
-      'FACTUALLY INCORRECT or not a real defect, leave it and say why in the summary — never silently skip a real one to avoid work. Residuals:\n' + JSON.stringify(cl, null, 1)].join('\n'), { label: 'reconcile-fix', phase: 'Reconcile', schema: RESIDUAL_FIX_SCHEMA, effort: 'max', stallMs: 300000 })
+      'residuals the critique AND red-team passes deferred. There is NO severity — treat EVERY residual as must-address. Your blast radius is the ' +
+      'OWNING FOLDER(S): you MAY read and fix ANY sibling page under them to keep seams consistent with the rebuilt pages, not only the listed ' +
+      'files. Read EVERY listed file. For each: if it is a real cross-file defect, FIX it in place (unify the shared type/seam/rail, repair the ' +
+      'strata/boundary issue, or extend the shared owner in place to close a capability gap that spans files), preserving all capability and ' +
+      'regressing no file; if a residual is FACTUALLY INCORRECT or not a real defect, leave it and say why in the summary — never silently skip a ' +
+      'real one to avoid work. Residuals:\n' + JSON.stringify(cl, null, 1)].join('\n'), { label: 'reconcile-fix', phase: 'Reconcile', schema: RESIDUAL_FIX_SCHEMA, effort: 'max', stallMs: 300000 })
     if (!fix) return null
     const verify = await agent([LAW, '', BOUNDARIES, '', 'TASK: ADVERSARIAL VERIFY, one verdict per claim. Read the named files from disk and ' +
       'classify each residual: status "fixed" (real defect, now genuinely resolved), "invalid" (the claim is factually wrong / not a real defect — ' +
@@ -414,20 +394,10 @@ const claimsAll = reconciled.flatMap((r) => (r.verify && r.verify.claims) || [])
 const openClaims = new Set(claimsAll.filter((c) => c.status === 'open').map((c) => c.claim))
 const hard_residual = uniq.filter((r) => openClaims.has(r.claim))
 const dropped = claimsAll.filter((c) => c.status === 'invalid').map((c) => c.claim)
+const seamTargets = packages.map((pkg) => { const rebuilt = rebuildPages.filter((p) => p.indexOf(pkg.root + '/') === 0); const fall = folderPages.filter((p) => p.indexOf(pkg.root + '/') === 0); return { pkg, rebuilt, hasSiblings: rebuilt.length > 0 && rebuilt.length < fall.length } }).filter((x) => x.hasSiblings)
+const seamResults = (await pool(seamTargets, CAP, (x) => agent(seamPrompt(x.pkg, x.rebuilt), { label: 'seam:' + x.pkg.name, phase: 'Reconcile', schema: SEAM_SCHEMA, effort: 'xhigh', stallMs: 300000 }))).filter(Boolean)
+const seamRepaired = seamResults.flatMap((s) => (s && s.repaired) || [])
 log('Reconcile: ' + clusters.length + ' clusters; ' + hard_residual.length + ' open (hard residual -> resolve-residuals), ' + dropped.length + ' ' +
-  'dropped as invalid')
+  'dropped as invalid; folder-seam sweep repaired ' + seamRepaired.length + ' sibling(s)')
 
-// --- [FINAL_COLLAPSE]
-phase('Final-Collapse')
-const collapseLogs = {}
-for (const st of COLLAPSE_STAGES) {
-  const r = await agent(st.build(), { label: 'collapse-' + st.key, phase: 'Final-Collapse', schema: COLLAPSE_SCHEMA, effort: st.effort, stallMs: 900000 })
-  if (r === null) break
-  collapseLogs[st.key] = r
-}
-const collapsedAll = Object.values(collapseLogs).flatMap((l) => (l && l.collapsed) || [])
-const finalResidual = Object.values(collapseLogs).flatMap((l) => (l && l.residual) || [])
-log('Final-Collapse: ' + Object.keys(collapseLogs).length + '/3 whole-scope passes; ' + collapsedAll.length + ' collapses, ' + finalResidual.length + ' ' +
-  'residual')
-
-return { root: ROOT, scope: SCOPE || 'ALL', complete: done.filter((r) => r.ok).length, incomplete: done.filter((r) => !r.ok).length, total: total, clusters: clusters.length, hard_residual: hard_residual, dropped: dropped, finalCollapsed: collapsedAll, finalResidual: finalResidual }
+return { root: ROOT, targets: TARGETS, packages: packages.map((p) => p.name), complete: done.filter((r) => r.ok).length, incomplete: done.filter((r) => !r.ok).length, total: total, clusters: clusters.length, hard_residual: hard_residual, dropped: dropped, seamRepaired: seamRepaired }

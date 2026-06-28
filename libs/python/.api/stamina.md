@@ -1,6 +1,6 @@
 # [PY_RUNTIME_API_STAMINA]
 
-`stamina` (26.1.0, MIT, pure-Python wheel, no ABI floor) is the production retry layer over tenacity: a `@retry` decorator and a `retry_context` iterator that both share one keyword schema, four reusable retrying-caller objects with exception/backoff-hook binding (`.on(...)`), exponential backoff with jitter and a wait cap, a custom-backoff hook discriminator (`on=` may be a callable returning a per-error delay overriding the schedule), an `Attempt` per-iteration context exposing `num`/`next_wait`, a context-manager-capable on-retry hook surface with structlog/stdlib-logging/Prometheus emitters, and active/test toggles. It is the single resilience owner; no hand-rolled retry loops, manual `sleep` backoff, or second retry implementation survive.
+`stamina` is the production retry layer over tenacity: a `@retry` decorator and a `retry_context` iterator that both share one keyword schema, four reusable retrying-caller objects with exception/backoff-hook binding (`.on(...)`), exponential backoff with jitter and a wait cap, a custom-backoff hook discriminator (`on=` may be a callable returning a per-error delay overriding the schedule), an `Attempt` per-iteration context exposing `num`/`next_wait`, a context-manager-capable on-retry hook surface with structlog/stdlib-logging/Prometheus emitters, and active/test toggles. It is the single resilience owner; no hand-rolled retry loops, manual `sleep` backoff, or second retry implementation survive.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -8,13 +8,11 @@
 - package: `stamina`
 - version: `26.1.0`
 - license: MIT
-- wheel: pure-Python (`py3-none-any`), no native ABI floor; runs on cp315
 - import: `stamina`
 - owner: `runtime`
 - rail: resilience
 - depends-on: `tenacity` (scheduling engine; stamina owns the typed policy face over it)
 - namespaces: `stamina` (callers + `retry`/`retry_context` + active/test toggles), `stamina.instrumentation` (hook protocol/factory/data + shipped emitters + register/read entries), `stamina.typing` (type-only re-export of `RetryDetails`/`RetryHook` for annotating hooks without importing the instrumentation subpackage)
-- requires-python: `>=3.10`; admitted and resolved in the cp315 default venv
 - capability: retry decorator + inline retry-context iterator sharing one keyword schema, reusable sync/async retrying callers with exception/backoff-hook binding, exponential backoff with jitter and cap, custom per-error backoff hook, context-manager-capable on-retry instrumentation hooks (structlog/logging/Prometheus), active/test toggles
 - version-note: `stamina.__version__` resolves lazily via `importlib.metadata.version("stamina")` through module `__getattr__`; no eager attribute.
 

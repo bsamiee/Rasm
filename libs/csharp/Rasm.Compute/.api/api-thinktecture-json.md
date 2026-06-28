@@ -8,16 +8,16 @@ deserialization, and number-handling-aware key codecs.
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Thinktecture.Runtime.Extensions.Json`
-- package: `Thinktecture.Runtime.Extensions.Json` (`10.3.0`)
+- package: `Thinktecture.Runtime.Extensions.Json` (`10.4.0`)
 - assembly: `Thinktecture.Runtime.Extensions.Json`
 - license: MIT (`LICENSE.md`)
 - namespace: `Thinktecture`
 - namespace: `Thinktecture.Text.Json.Serialization`
 - namespace: `Thinktecture.Internal`
-- asset: runtime library; package ships `net8.0`/`net9.0` only — the `net10.0` consumer binds the `net9.0` asset (no `net10.0` asset in `10.3.0`)
+- asset: runtime library; package ships `net8.0`/`net9.0` only — the `net10.0` consumer binds the `net9.0` asset (no `net10.0` asset in `10.4.0`)
 - rail: serialization
 - roster: 22 types across 3 namespaces — the converter-factory pair, the three converter shapes, eleven typed numeric key-converter singletons, and the `Thinktecture.Internal` UTF-8 validation seam
-- companion: pairs with `Thinktecture.Runtime.Extensions` (`10.3.0`, the source-generated `[ValueObject]`/`[SmartEnum]`/`[Union]`/`[ComplexValueObject]` owners) and the sibling format packages `Thinktecture.Runtime.Extensions.MessagePack`/`.EntityFrameworkCore10` (`10.3.0`) — this package owns ONLY the System.Text.Json codec for those owners
+- companion: pairs with `Thinktecture.Runtime.Extensions` (`10.4.0`, the source-generated `[ValueObject]`/`[SmartEnum]`/`[Union]`/`[ComplexValueObject]` owners) and the sibling format packages `Thinktecture.Runtime.Extensions.MessagePack`/`.EntityFrameworkCore10` (`10.4.0`) — this package owns ONLY the System.Text.Json codec for those owners
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -108,7 +108,7 @@ Factory constructors optionally receive `skipObjectsWithJsonConverterAttribute` 
 - Key conversion stays inside the converter; callers never pre-convert keys or post-validate values.
 
 [RAIL_LAW]:
-- Package: `Thinktecture.Runtime.Extensions.Json` (`10.3.0`, MIT)
+- Package: `Thinktecture.Runtime.Extensions.Json` (`10.4.0`, MIT)
 - Owns: System.Text.Json conversion for Thinktecture-generated `[ValueObject]`/`[SmartEnum]`/`[Union]`/`[ComplexValueObject]` owners — the factory pair, the three converter shapes, the eleven internal numeric key-converter singletons, and the UTF-8 span-validate seam
 - Accept: validation-railed key conversion through factories; the `ThinktectureJsonConverterFactory` as a `TypeInfoResolverChain`-merged resolver behind a package `JsonSerializerContext` (the `Runtime/receipts#RECEIPT_VOCABULARY` `ComputeWireContext` merge); the `Utf8JsonReaderHelper.ValidateFromUtf8` zero-allocation UTF-8 read on the `Utf8JsonReader` edge
 - Reject: hand-rolled converters for generated owners; promoting the internal key-converter singletons to a public surface; a parallel web DTO family for the same `[Union]` (the merged `JsonSerializerContext` IS the cross-edge wire)

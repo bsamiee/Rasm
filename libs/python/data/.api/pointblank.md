@@ -10,7 +10,6 @@
 - owner: `data`
 - rail: grade
 - license: MIT
-- floor: requires-python `>=3.10`; version is `setuptools_scm`-derived (do not pin a literal release)
 - asset: pure Python; core deps `narwhals>=2`, `great-tables>=0.22`, `commonmark`, `requests`, `click`, `rich`, `pyyaml`
 - entry points: console script `pb` (`pointblank.cli:cli`); library use is import-only
 - capability: chained validation plan over Narwhals-backed frames (Polars/Pandas/Ibis/DuckDB/CSV/Parquet/database connection), per-step warning/error/critical thresholds with severity actions and `send_slack_notification`/`emit_otel` side-effects, column and row-level assertions, schema match, AI-driven `prompt`/`specially`/`conjointly`/`assistant`/`DraftValidation` steps, `great_tables.GT` tabular/step/dataframe/JSON reports, table profiling via `DataScan`/`col_summary_tbl`/`missing_vals_tbl`/`preview`, sundered pass/fail splitting, declarative `Contract`/`Pipeline` and YAML-driven validation with `import_contract`/`export_contract` adapters, `Schema`-driven synthetic dataset generation (`generate_dataset` + `*_field`/`*Field` helpers + `GeneratorConfig`), and CDISC SDTM/ADaM clinical-dataset structure validation

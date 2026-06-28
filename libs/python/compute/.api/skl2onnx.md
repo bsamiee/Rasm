@@ -9,7 +9,6 @@
 - import: `skl2onnx`; submodules `skl2onnx.algebra`, `skl2onnx.common`, `skl2onnx.common.data_types`, `skl2onnx.helpers`, `skl2onnx.operator_converters`, `skl2onnx.shape_calculators`, `skl2onnx.sklapi`
 - owner: `compute`
 - rail: model-asset
-- installed: marker-gated `python_version<'3.15'` (no cp315 wheel; follows the scikit-learn cp315 floor); license Apache-2.0; pure-Python over `onnx`/`onnxconverter-common`, declares `scikit-learn` and `onnx` as runtime peers
 - capability: scikit-learn-to-ONNX export — converts fitted estimators and `Pipeline`/`ColumnTransformer` objects to `onnx.ModelProto` with configurable target opset (int or `{domain: int}` dict), typed `initial_types`/`final_types`, `white_op`/`black_op` operator gating, custom converter/parser/shape-calculator registration, the `OnnxOperator`/`OnnxSubEstimator` operator algebra for custom nodes, and the `sklapi` cast transformers that stabilize float32-vs-float64 numeric drift at the pipeline front; latest tested ONNX opset is `22`
 
 ## [02]-[CAPTURE]

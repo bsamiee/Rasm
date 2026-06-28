@@ -9,8 +9,7 @@
 - import: `segno`
 - owner: `artifacts`
 - rail: imaging
-- asset: pure-Python runtime library (no native build; `py3-none-any` wheel); zero install-time dependencies
-- installed: `1.6.6` reflected via `segno.__version__` on cp315
+- installed: `1.6.6`
 - entry points: console script `segno` (CLI); library use is import-only
 - capability: QR (versions 1-40) and Micro-QR (M1-M4) symbol generation, error-correction L/M/Q/H, numeric/alphanumeric/byte/kanji/hanzi/ECI mode selection, boolean module matrix, structured-append sequences, structured-payload helpers, and dependency-free SVG/PNG/PDF/EPS/PAM/PBM/PPM/LaTeX/XBM/XPM/ANSI/text serialization
 

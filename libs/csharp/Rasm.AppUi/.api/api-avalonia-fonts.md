@@ -6,7 +6,7 @@
 
 [PACKAGE_SURFACE]: `Avalonia.Fonts.Inter`
 - package: `Avalonia.Fonts.Inter`
-- version: `12.0.4`
+- version: `12.0.5`
 - license: `MIT` (package); the embedded Inter faces ship under the SIL Open Font License 1.1
 - assembly: `Avalonia.Fonts.Inter` (AnyCPU IL, managed-only)
 - build-floor: `net10.0` (consumer-bound asset; `net8.0` fallback present, not bound)

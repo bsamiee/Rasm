@@ -10,8 +10,7 @@
 - owner: `artifacts`
 - rail: document
 - license: LGPL-2.1 (runtime deps `python-docx`, `jinja2`; optional `docxcompose` for `Subdoc`)
-- asset: runtime library; pure Python (`py3-none-any`), no ABI gate, cp315-clean (manifest unpinned, no `python_version` marker)
-- installed: `0.20.2` reflected via `assay api resolve docxtpl`
+- installed: `0.20.2`
 - entry points: library use is import-only; `python -m docxtpl <template> <json_context> <output>` runs the module CLI in `__main__`
 - capability: load a `.docx` as a jinja2 template, render a context dict into body/header/footer XML and (separately) footnote-part XML via `render_footnotes`, inject styled inline rich text via `RichText`, styled paragraphs via `RichTextParagraph`, newline-preserving listings via `Listing`, and inline images via `InlineImage`, compose full sub-documents via `new_subdoc`, swap embedded media/parts before render, reach the underlying `python-docx` `Document` via `.docx` for structural pre/post work, then save the rendered document or list its undeclared template variables
 

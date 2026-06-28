@@ -10,7 +10,6 @@
 - owner: `compute`
 - rail: convex optimization (conic solver backend)
 - license: Apache-2.0 (Rust-native, pyo3/maturin binding)
-- installed: marker-gated `python_version<'3.15'` — companion-band: transitively pulls `scipy` (gast/pythran lack CPython 3.15 support), so the wheel resolves only into the companion interpreter band until the scientific stack ships 3.15. The member surface below is authored from official documentation plus the cvxpy clarabel interface and reflection-verifies on uv sync into the companion band.
 - entry points: none (library only)
 - capability: primal-dual interior-point solve of quadratic programs over the zero, nonnegative, second-order, exponential, power, positive-semidefinite, and generalized-power cones; sparse CSC problem input; in-place data/settings `update` for warm re-solve; primal/dual solution recovery with infeasibility and unboundedness certificates and primal/dual residual reporting
 

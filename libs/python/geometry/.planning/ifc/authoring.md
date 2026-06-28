@@ -33,7 +33,7 @@ from msgspec.structs import replace
 from rasm.runtime.faults import BoundaryFault, RuntimeRail, boundary, railed
 from rasm.runtime.receipts import Receipt, ReceiptContributor
 
-if TYPE_CHECKING:  # companion-band: the usecase callables resolve via `importlib.import_module("ifcopenshell.api.<module>")` and every runtime `ifcopenshell` reference rides a function-local `import ifcopenshell.<sub>  # noqa: PLC0415` that binds the name, so the cp315 module loads clean and the boundary-scope import policy holds (the selector sibling shape)
+if TYPE_CHECKING:  # worker: the usecase callables resolve via `importlib.import_module("ifcopenshell.api.<module>")` and every runtime `ifcopenshell` reference rides a function-local `import ifcopenshell.<sub>  # noqa: PLC0415` that binds the name, so the runtime module loads clean and the boundary-scope import policy holds (the selector sibling shape)
     import ifcopenshell
 
 # --- [TYPES] ---------------------------------------------------------------------------

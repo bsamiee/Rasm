@@ -9,9 +9,8 @@
 - import: `msoffcrypto`
 - owner: `artifacts`
 - rail: confidentiality
-- installed: `6.0.0` reflected via isolated `uv pip` install + reflection (no dist metadata declared; assay finds no source in the project venv)
+- installed: `6.0.0`
 - license: MIT
-- abi: pure Python; no native extension, no wheel/ABI floor; cp315-clean
 - deps: `olefile` (OLE container parse) + `cryptography` (AES/SHA key schedule) are the only runtime deps; ECMA-376 agile/standard/extensible and RC4/XOR derivation are in-package
 - entry points: console script `msoffcrypto-tool` (`msoffcrypto.__main__:main`); library use is import-only
 - capability: encrypted-Office format detection (OOXML agile/standard/extensible, legacy DOC/XLS/PPT 97), password/private-key/secret-key derivation with optional verification, decrypted-stream output to a writable file, and OOXML re-encryption (`OOXMLFile.encrypt`)

@@ -38,7 +38,7 @@ from rasm.runtime.content_identity import ContentKey
 from rasm.runtime.faults import FAULT_CONF, RuntimeRail, boundary
 from rasm.runtime.receipts import Receipt, ReceiptContributor, Redaction, receipted
 
-if TYPE_CHECKING:  # companion-band: every runtime ifcopenshell use is the function-local `import ifcopenshell.<sub>  # noqa: PLC0415` that binds `ifcopenshell` in scope, so the cp315 module loads clean and the boundary-scope import policy holds (the selector sibling shape)
+if TYPE_CHECKING:  # worker: every runtime ifcopenshell use is the function-local `import ifcopenshell.<sub>  # noqa: PLC0415` that binds `ifcopenshell` in scope, so the runtime module loads clean and the boundary-scope import policy holds (the selector sibling shape)
     import ifcopenshell
 
 # --- [TYPES] ---------------------------------------------------------------------------

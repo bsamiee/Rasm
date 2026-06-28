@@ -1,6 +1,6 @@
 # [PY_GEOMETRY_API_IFCTESTER]
 
-`ifctester` supplies IDS (Information Delivery Specification) authoring, parsing, and validation against IFC models: it exposes `Ids`/`Specification` document models, a facet family (`Entity`, `Attribute`, `Classification`, `Property`, `Material`, `PartOf`) with `Restriction` value constraints, a per-facet `Result` family, and a reporter family (`Console`, `Txt`, `Json`, `Html`, `Ods`, `OdsSummary`, `Bcf`) emitting both a structured `Results` TypedDict graph and file artifacts. `Ids.validate` mutates each `Specification` in place to a tri-state `status` plus `applicable_entities`/`passed_entities`/`failed_entities` sets; the consumer reads those richer sets, not just the boolean verdict. It rides the `ifcopenshell` companion lane (`0.8.5`; depends `ifcopenshell`, `xmlschema`).
+`ifctester` supplies IDS (Information Delivery Specification) authoring, parsing, and validation against IFC models: it exposes `Ids`/`Specification` document models, a facet family (`Entity`, `Attribute`, `Classification`, `Property`, `Material`, `PartOf`) with `Restriction` value constraints, a per-facet `Result` family, and a reporter family (`Console`, `Txt`, `Json`, `Html`, `Ods`, `OdsSummary`, `Bcf`) emitting both a structured `Results` TypedDict graph and file artifacts. `Ids.validate` mutates each `Specification` in place to a tri-state `status` plus `applicable_entities`/`passed_entities`/`failed_entities` sets; the consumer reads those richer sets, not just the boolean verdict. It rides the `ifcopenshell` worker lane (`0.8.5`; depends `ifcopenshell`, `xmlschema`).
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -9,7 +9,7 @@
 - import: `import ifctester` (re-exports `open`); the document/facet/reporter families import from `ifctester.ids`, `ifctester.facet`, `ifctester.reporter`
 - owner: `geometry`
 - rail: ifc-companion / ids-validation
-- installed: `0.8.5`, the IfcOpenShell-ecosystem companion-lane band; depends `ifcopenshell`, `xmlschema`; license LGPL-3.0-or-later
+- installed: `0.8.5`
 - entry points: none (library only; ships a `__main__` CLI and a `webapp` subpackage not consumed here)
 - capability: parse/author/serialize buildingSMART IDS XML, validate every `Specification` against an `ifcopenshell.file` to a tri-state per-spec `status` plus per-spec entity sets, and report the result as a structured `Results` graph (JSON), rendered HTML, ODS/ODS-summary spreadsheets, coloured console/text, or a BCF issue archive
 
@@ -164,5 +164,4 @@ Subclass output is `report()` (no `ids` arg) then `to_string()`/`to_file(filepat
 - Reject: a custom IDS XML parser or manual entity filtering that duplicates `Facet.filter`; a `Specification.validate(..., filepath=)` call (only `Ids.validate` carries `filepath`); a `Reporter.write`/`report(ids)` output path (subclasses use `report()` then `to_string`/`to_file`); a plain-bool `status` read that conflates the `None` skipped verdict with `False`
 
 [CAPTURE_GAP]:
-- floor: companion interpreter cp313; `ifctester==0.8.5` rides the `ifcopenshell` companion lane, so reflection resolves where `ifcopenshell` resolves; the `>=3.15` project venv carries no `ifcopenshell` core. The surface above is decompile-confirmed against the installed `ifctester==0.8.5` distribution (`ids.py`/`facet.py`/`reporter.py`).
 - members: all member signatures, the tri-state `status`/entity-set attributes, the `Results`/`ResultsSpecification`/`ResultsRequirement`/`ResultsEntity` TypedDict graph, the reporter `report()`/`to_string()`/`to_file()` output contract, and the `Restriction.base`/`Cardinality` literals are confirmed against the `0.8.5` source; only the per-`Property` requirement passing-fraction shape (read off `failed_entities`/`passed_entities` set sizes) is a live-run sharpen the analysis owner unlocks

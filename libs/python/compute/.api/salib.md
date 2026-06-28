@@ -11,8 +11,7 @@
 - asset: runtime library
 - rail: sensitivity-analysis
 - namespace: `SALib` (top-level `ProblemSpec`; method functions under `SALib.sample.<method>.sample` and `SALib.analyze.<method>.analyze`)
-- installed: `1.5.2`; license MIT; wheel `py3-none-any` (pure-Python)
-- gate: `[GATED]` `; python_version<'3.15'` — pure-Python itself, but transitively pulls `scipy` (whose `gast`/`pythran` build deps lack CPython 3.15 support), so the sensitivity surface runs only on the companion interpreter band until the scientific stack ships cp315
+- installed: `1.5.2`
 - requires: `numpy`, `scipy`, `pandas`, `matplotlib` (plotting), `multiprocess` (parallel/distributed evaluation)
 - capability: global sensitivity analysis via Sobol, Morris, FAST, RBD-FAST, delta moment-independent, PAWN, DGSM, RSA, HDMR, and fractional-factorial methods; sampling designs (Saltelli, Sobol sequence, Morris trajectories, Latin hypercube, FAST frequency, finite-difference, fractional factorial); a `problem` dict plus the `ProblemSpec` fluent sample→evaluate→analyze pipeline with serial/parallel/distributed evaluation and DataFrame/plot export
 
@@ -145,4 +144,3 @@
 - Owns: global sensitivity analysis — sampling design (Saltelli/Sobol, Morris trajectories, Latin hypercube, FAST frequency, finite-difference, fractional factorial) and index computation (Sobol S1/S2/ST, Morris mu/mu*/sigma, FAST, RBD-FAST, delta moment-independent, PAWN KS, DGSM derivative-based, RSA regional, HDMR component-function, fractional-factorial), with serial/parallel/distributed model evaluation and DataFrame/plot/heatmap export
 - Accept: `ProblemSpec`-driven `.sample`→`.evaluate`→`.analyze` pipelines with structured receipts; module-level `<method>.sample(problem, N, ..., seed=)` / `<method>.analyze(problem, [X,] Y, ..., seed=)` for direct use; `seed` for deterministic reproduction; `problem['dists']` for non-uniform inputs; `evaluate_parallel`/`evaluate_distributed` for expensive models
 - Reject: hand-rolled Sobol/Morris/FAST index estimators where the admitted analyzer owns the method; `print_to_console=True` in production compute paths; caller pre-transforming input distributions where `problem['dists']` declares them; a hand-built worker pool where `evaluate_parallel` owns the fan-out
-- License: MIT; gated `; python_version<'3.15'` (transitive `scipy` build deps lack cp315 support)

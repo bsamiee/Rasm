@@ -6,7 +6,7 @@
 
 [PACKAGE_SURFACE]: `Avalonia.Themes.Fluent`
 - package: `Avalonia.Themes.Fluent`
-- version: `12.0.4`
+- version: `12.0.5`
 - license: `MIT`
 - assembly: `Avalonia.Themes.Fluent`
 - target: `net10.0` (multi-targets `net8.0`/`net10.0`; the AppUi consumer binds the `net10.0` asset)

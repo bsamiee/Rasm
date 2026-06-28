@@ -9,7 +9,7 @@
 - import: `from pye57 import E57, ScanHeader` (or `import pye57`); `E57`/`ScanHeader`/`libe57` are the only top-level re-exports — `COORDINATE_SYSTEMS`, `SUPPORTED_*_POINT_FIELDS`, and `convert_spherical_to_cartesian` live in `pye57.e57`/`pye57.utils`
 - owner: `geometry`
 - rail: scan-processing
-- installed: `0.4.19`; license MIT; bundled compiled extension `libe57.<abi>.so` plus a vendored `libxerces-c` — wheels cp310/cp311/cp312/cp313/cp314 (no abi3, per-interpreter ABI) => `python_version<'3.15'` companion band (manifest `pye57>=0.4.19; python_version<'3.15'`); pulls `numpy` + `pyquaternion`
+- installed: `0.4.19`
 - entry points: none (library only)
 - capability: multi-scan E57 read/write, single- and multi-field `numpy` buffer allocation against the libe57 prototype, Cartesian/spherical intake with inline pose-to-global transform and invalid-state masking, quaternion pose math, typed `ScanHeader` access to every libe57 metadata node, and raw scan read/write bypassing the conditioning path
 
@@ -110,5 +110,3 @@
 - Reject: wrapper-renames of `read_scan`/`write_scan_raw`; hand-rolled E57 binary or libe57 node parsing in domain code; treating `SUPPORTED_*_POINT_FIELDS` as a frozenset instead of the dtype-char map; treating `make_buffer`/`make_buffers` returns as bare dicts; identity minting the runtime owns
 
 [CAPTURE_GAP]:
-- floor: `pye57==0.4.19` ships per-interpreter ABI wheels cp310-cp314 (no abi3), so it is a `python_version<'3.15'` companion-band package; the cp315 project venv carries no wheel and the project-venv `assay api resolve` returns `unsupported` (no source on the current environment)
-- members: introspected against the installed cp313 distribution source (`pye57/e57.py`, `pye57/scan_header.py`, `pye57/utils.py`, `pye57/__init__.py`); every documented type, entrypoint, property, and field map resolves — no phantom. `make_buffer`/`make_buffers` return arity and the `SUPPORTED_*_POINT_FIELDS` dict shape are source-confirmed against prior frozenset-and-dict-return mischaracterizations.

@@ -8,7 +8,6 @@
 - package: `pandas`
 - module: `pandas`
 - license: BSD-3-Clause
-- asset: C/Cython extension (no abi3; per-version wheels — source-builds on the cp315 band, where `pandas-stubs` carries the typed surface)
 - rail: labeled tabular
 
 ## [02]-[PUBLIC_TYPES]

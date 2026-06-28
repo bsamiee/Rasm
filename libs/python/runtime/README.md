@@ -20,7 +20,7 @@
 
 ## [02]-[DOMAIN_PACKAGES]
 
-Every domain library this folder owns directly, planned or implemented. Versions are centralized in the one root manifest; this list carries no pin. `xxhash` and `lz4` ride the `python_version<'3.15'` companion band (no cp315 wheel); `lz4` gates the single install-conditional leg at `transport/serve#CRDT_DECODE`. Every other row is a cp315-clean manifest dependency.
+Every domain library this folder owns directly, planned or implemented. Versions are centralized in the one root manifest; this list carries no pin.
 
 [SETTINGS_SECRETS]:
 - `pydantic-settings`
@@ -36,6 +36,11 @@ Every domain library this folder owns directly, planned or implemented. Versions
 
 [SCHEDULING]:
 - `apscheduler`
+
+[RECIPE]:
+- `queenbee`
+- `lbt-recipes`
+- `pollination-handlers`
 
 [PARSING]:
 - `cyclopts`
@@ -76,6 +81,6 @@ Branch-wide substrate packages this folder consumes; the canonical registry and 
 - `xxhash`
 
 [WIRE_CODEGEN]:
-- `protobuf` - cp315-clean core — the C#-minted wire runtime
-- `grpcio` - Core `grpc.aio` server leg; resolves on cp315, already transitive via google-cloud-storage
-- `grpcio-tools` - Gated `python_version<'3.15'` — `protoc` codegen companion only
+- `protobuf`
+- `grpcio`
+- `grpcio-tools`

@@ -145,6 +145,9 @@ Cross-cutting C# substrate libraries AppHost consumes; these are owned at the mo
 - `NodaTime.Serialization.SystemTextJson`
 - `System.IO.Hashing`
 
+[NUMERIC_SUBSTRATE]:
+- `System.Numerics.Tensors`
+
 [WIRE_CODEGEN]:
 - `Grpc.Net.Client`
 - `Grpc.AspNetCore`
