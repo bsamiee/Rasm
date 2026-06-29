@@ -1,12 +1,13 @@
 # [PERSISTENCE_QUERY_LANE]
 
-Rasm.Persistence routes every read by its consistency demand: interactive-correctness queries (clash, void-resolution, live QTO, containment) bind the SYNCHRONOUS authoritative lane — the inline `Element/graph#GRAPH_PROJECTION` `GraphProjection` and the in-process `Query/topology#GRAPH_TOPOLOGY` QuikGraph view, never an async projection — while analytical queries (aggregation, search, columnar rollup) bind the ASYNC watermarked lanes (`Query/columnar`, `Query/cypher`) and a query that demands correctness from an async view blocks on `WaitForNonStaleProjectionDataAsync` before reading. `QueryLane` is the `[SmartEnum<string>]` lane axis carrying each lane's consistency stance and staleness ceiling; `ReadDemand` is the routing discriminant; `StalenessWatermark` is the measured projection lag the async lanes carry. The universal selection currency every clash/IDS/MVD/QTO surface consumes and produces is `ElementSet` — a content-addressed, composable selection over `NodeId` keys; `SetExpr` is the selection-tree algebra and `SetPredicate` the closed typed leaf algebra so no leaf carries a raw string predicate; `FusionRank` fuses the pgvector HNSW, PostGIS GiST, and pg_search BM25 branches into one reciprocal-rank result; the read-through `HybridCache` keys on the content-addressed `ElementSet.Receipt` so a re-run of an unchanged selection reuses the cached result. `NodeId`, `ElementGraph` arrive from `Rasm.Element`; the inline projection arrives from `Element/graph`; the columnar/cypher lanes arrive from their owners; `ClockPolicy`, `ReceiptSinkPort`, `TenantContext`, `HybridCache` arrive from AppHost.
+Rasm.Persistence routes every read by its consistency demand: interactive-correctness queries (clash, void-resolution, live QTO, containment) bind the SYNCHRONOUS authoritative lane — the inline `Element/graph#GRAPH_PROJECTION` `GraphProjection` and the in-process `Query/topology#GRAPH_TOPOLOGY` QuikGraph view, never an async projection — while analytical queries (aggregation, search, columnar rollup) bind the ASYNC watermarked lanes (`Query/columnar`, `Query/cypher`) and a query that demands correctness from an async view blocks on `WaitForNonStaleProjectionDataAsync` before reading. `QueryLane` is the `[SmartEnum<string>]` lane axis carrying each lane's consistency stance and staleness ceiling; `ReadDemand` is the routing discriminant; `StalenessWatermark` is the measured projection lag the async lanes carry. The universal selection currency every clash/IDS/MVD/QTO surface consumes and produces is `ElementSet` — a content-addressed, composable selection over `NodeId` keys; `SetExpr` is the selection-tree algebra and `SetPredicate` the closed typed leaf algebra so no leaf carries a raw string predicate; `FusionRank` fuses the pgvector HNSW, PostGIS GiST, and pg_search BM25 branches into one reciprocal-rank result; the read-through `HybridCache` keys on the content-addressed `ElementSet.Receipt` so a re-run of an unchanged selection reuses the cached result. `VectorCodebook` trains and supplies the `ProductCodebook` the `Model/embedding` Compute lane encodes against (PQ training lives HERE, never in Compute — the dependency runs `Compute → Persistence`), owns the content-key→fine-form resolve powering the honest coarse→fine rerank, and runs the amortized asymmetric-distance corpus scan whose ranked branch feeds `FusionRank`. `NodeId`, `ElementGraph` arrive from `Rasm.Element`; the inline projection arrives from `Element/graph`; the columnar/cypher lanes arrive from their owners; `ClockPolicy`, `ReceiptSinkPort`, `TenantContext`, `HybridCache` arrive from AppHost.
 
 ## [01]-[INDEX]
 
 - [01]-[READ_ROUTING]: the consistency-demand routing law, the lane axis, the staleness watermark, and the non-stale wait gate.
 - [02]-[ELEMENT_SET_ALGEBRA]: the composable content-addressed selection currency, the typed leaf algebra, and the stable receipt fold.
 - [03]-[FUSION_AND_CACHE]: the n-ary reciprocal-rank fusion over HNSW/GiST/BM25 and the content-keyed read-through cache.
+- [04]-[VECTOR_CODEBOOK]: the `ProductCodebook` Compute encodes against, the per-subspace k-means training, the coarse→fine fine-form resolve, and the amortized asymmetric-distance corpus scan.
 
 ## [02]-[READ_ROUTING]
 
@@ -20,10 +21,6 @@ Rasm.Persistence routes every read by its consistency demand: interactive-correc
 - Boundary: authoritative topology and containment stay SYNCHRONOUS / co-transactional (the inline `GraphProjection` in the write transaction, the in-process QuikGraph view) so a read-your-writes interactive query is correct by construction (`C2`); the AGE and DuckDB lanes are ANALYTICAL ONLY with an explicit `StalenessWatermark`, and interactive-correctness queries (clash, void-resolution, live QTO) block on `WaitForNonStaleProjectionDataAsync` and NEVER route to an async projection without the wait — a clash that read a daemon-lagged AGE view without waiting is the deleted form; the watermark is a measured fact (the daemon shard high-water mark against the head) so a consumer reads the real lag, never a prose freshness disclaimer; strong-consistency reads go through the inline projection / the synchronous topology, never the columnar aggregate, so the columnar lane is the rollup/search lane and the topology lane the correctness lane, two altitudes never conflated.
 
 ```csharp signature
-public sealed class QueryKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
-    public static IEqualityComparer<string> EqualityComparer => StringComparer.Ordinal;
-    public static IComparer<string> Comparer => StringComparer.Ordinal;
-}
 
 [SmartEnum]
 public sealed partial class Consistency {
@@ -47,8 +44,8 @@ public readonly record struct StalenessWatermark(long HeadSequence, long Project
 public readonly record struct QueryShape(bool Spatial, bool Vector, bool Lexical, bool Aggregate, bool Topological);
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<QueryKeyPolicy, string>]
-[KeyMemberComparer<QueryKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class QueryLane {
     public static readonly QueryLane Topology = new("topology", Consistency.Synchronous, Duration.Zero);
     public static readonly QueryLane Columnar = new("columnar", Consistency.Async, Duration.FromSeconds(5));
@@ -95,7 +92,7 @@ public static class ReadRouter {
 
 ```csharp signature
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<QueryKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class JsonComparison {
     public static readonly JsonComparison Exists = new("exists");
     public static readonly JsonComparison Equals = new("eq");
@@ -199,3 +196,143 @@ public static class FusionRank {
 |  [02]   | cache key           | content-addressed `ElementSet.Receipt` | re-run reuses; free-string tag rejects                    |
 |  [03]   | cache invalidation  | changefeed tag-cut                     | an op-log change to a contributing node invalidates       |
 |  [04]   | index ownership     | GiST spatial, pgvector ANN, BM25 lexical | DuckDB is the columnar aggregator, never the index        |
+
+## [05]-[VECTOR_CODEBOOK]
+
+- Owner: `ProductCodebook` the product-quantization codebook value-object the `Model/embedding#EMBEDDING` Compute lane encodes against (subspace count, the flat `[subspace][code][dim]` centroid grid, code width, and a content `Id`); `VectorRow` the content-keyed fine-form-plus-codes residence the rerank and the ADC scan read; `VectorCodebook` the static surface owning the per-subspace k-means TRAINING and the amortized asymmetric-distance corpus scan; `VectorIndex` the composition-supplied port carrier owning the codebook supply, the coarse-survivor fine-form resolve, and the PQ-coded corpus read — the ANN index residence read by reference, never embedded.
+- Cases: `ProductCodebook.Centroid(subspace, code)` slices the one flat buffer at `(subspace · CodesPerSubspace + code) · SubspaceDim` so a `Subspaces × CodesPerSubspace` grid lives in one allocation and `Dimension = Subspaces · SubspaceDim`; `VectorRow.Encoding` is the fine encoding TAG as a string (`float32`/`int8-scalar`) and `VectorRow.Subject` is the optional `NodeId` the vector embeds (the FusionRank vector branch), so the residence holds no Compute type; the ADC distance is the per-row sum of one precomputed query→centroid table indexed by the row's PQ codes.
+- Entry: `public static Fin<ProductCodebook> Train(Seq<ReadOnlyMemory<float>> corpus, int subspaces, int codesPerSubspace, int iterations)` runs Lloyd's k-means per subspace and content-keys the result; `public static Seq<(UInt128 ContentKey, float Distance)> AdcScan(ReadOnlyMemory<float> query, ProductCodebook codebook, Seq<VectorRow> coded, int top)` precomputes the query→centroid table once and bounded-top-K scans the coded corpus; `VectorIndex.Codebook(UInt128 id)` supplies the settled codebook to Compute, `VectorIndex.Publish(ProductCodebook)` records it content-keyed, `VectorIndex.Resolve(Seq<UInt128> survivors)` reads the coarse survivors' fine forms, `VectorIndex.Coded(UInt128 codebookId, int limit)` reads the PQ-coded corpus for the scan.
+- Auto: `Train` rejects an empty/ragged corpus or a dimension not divisible by `subspaces` to a typed `Fin.Fail`, slices each corpus vector's subspace window, seeds the centroid grid from the first distinct sub-vectors, and iterates assignment (nearest centroid by `TensorPrimitives.Distance`) and mean recompute (`TensorPrimitives.Add` accumulate, `TensorPrimitives.Divide` by the cluster count) — the SAME `TensorPrimitives.Distance` the Compute `EncodeProduct` assigns with, so train-time and encode-time partitions agree bit-for-bit — then mints the content `Id` over the layout ints plus the centroid bytes through `XxHash128`; `AdcScan` builds the `Subspaces × CodesPerSubspace` table by `TensorPrimitives.Distance` of each query sub-vector against every centroid ONCE, then folds each coded row to the sum of its per-subspace table lookups and keeps the nearest `top` through a bounded `PriorityQueue` heap keyed on ascending distance (never a full sort, never a per-row centroid-distance recompute — the table amortizes it); `Probe` projects the float32 fine bytes onto the `Pgvector.Vector` ANN column the HNSW/diskann index residence is built over.
+- Receipt: a codebook train rides `store.vector.train` carrying the subspace and code counts and the content `Id`; an ADC scan rides `store.vector.adc` carrying the corpus cardinality and the top; a fine-form resolve rides `store.vector.resolve` carrying the survivor count; the candidate recall/latency is the upstream Compute embedding owner's measured concern, never re-emitted here.
+- Packages: System.Numerics.Tensors (`TensorPrimitives.Distance`/`Add`/`Divide`), System.IO.Hashing (`XxHash128`), Pgvector (`Vector`), Rasm.Element (`NodeId`), LanguageExt.Core, BCL inbox.
+- Growth: a re-trained codebook is one `Train` call whose new content `Id` re-keys every `product-quantized` artifact that depends on it; a new fine encoding is one `VectorRow.Encoding` tag string the Compute boundary resolves to its `VectorEncoding` row; a richer ANN route is the in-PG HNSW/diskann index over the `Probe` column, never a managed scan; zero new surface — a Compute-side codebook fit, a second recency horizon, a per-encoding residence row, or an `EmbeddingVector`/`VectorEncoding` Compute type leaking into the residence is the deleted form because the codebook trains HERE, the encoding crosses as a string, and the index is read by reference.
+- Boundary: `ProductCodebook` is the ONE PQ vocabulary the seam shares — Compute imports it by its `Rasm.Persistence (project)` reference and does nearest-centroid encode and centroid-reconstruction decode over it but NEVER fits it, so defining it in Compute would force a `Persistence → Compute` cycle (the dependency runs `Compute → Persistence` only) and a Compute-side k-means is the named drift defect; training uses the SAME `TensorPrimitives.Distance` Compute assigns with so the partition a centroid grid induces at train time and at encode time is identical, and the codebook is supplied content-keyed so a re-train mints a fresh `Id` that re-keys every dependent `product-quantized` artifact (the `Model/embedding#EMBEDDING` content key folds the codebook `Id`); the two-stage retrieval is honest — the `binary-hamming` coarse gate (Compute) returns content keys, `Resolve` reads the survivors' `int8-scalar`/`float32` fine forms by content key, and the Compute `Rank` reranks over those fine forms, so the magnitude a 1-bit encoding discards is recovered from the stored fine residence and never faked from the ±1 decode; the amortized ADC scan is Persistence's because this lane owns the index traversal and the `#FUSION_AND_CACHE` recency-bounded reuse while the BOUNDED rerank over the resolved survivors is Compute's, so the query→centroid table is built once and reused across the whole corpus and a per-candidate centroid-distance recompute is the deleted form; the vector branch (the ADC or in-PG HNSW ranked rows mapped through `VectorRow.Subject` to `NodeId`s) feeds `#FUSION_AND_CACHE` `FusionRank.Fuse` as one ranked branch, and the `Probe` `vector(N)` column is the same pgvector store type the `Element/identity#ELEMENT_IDENTITY` `Embedding` per-model locator rides (the corpus-grain retrieval index here, the per-model envelope locator there — two grains, never one duplicated index); the residence holds the encoding as a string and the optional `NodeId` only, no `EmbeddingVector`/`VectorEncoding`/`VectorScore` Compute type, so the strata dependency stays one-directional exactly as the `#FUSION_AND_CACHE` and `Query/cache#MODEL_RESULT_INDEX` owners keep it.
+
+```csharp signature
+public sealed record ProductCodebook(
+    int Subspaces,
+    int SubspaceDim,
+    int CodesPerSubspace,
+    ReadOnlyMemory<float> Centroids,
+    UInt128 Id) {
+    public int Dimension => Subspaces * SubspaceDim;
+
+    public ReadOnlySpan<float> Centroid(int subspace, int code) =>
+        Centroids.Span.Slice((subspace * CodesPerSubspace + code) * SubspaceDim, SubspaceDim);
+
+    public static UInt128 KeyOf(int subspaces, int subspaceDim, int codesPerSubspace, ReadOnlySpan<float> centroids) {
+        var hash = new XxHash128();
+        Span<byte> layout = stackalloc byte[12];
+        BinaryPrimitives.WriteInt32LittleEndian(layout[..4], subspaces);
+        BinaryPrimitives.WriteInt32LittleEndian(layout[4..8], subspaceDim);
+        BinaryPrimitives.WriteInt32LittleEndian(layout[8..], codesPerSubspace);
+        hash.Append(layout);
+        hash.Append(MemoryMarshal.AsBytes(centroids));
+        return hash.GetCurrentHashAsUInt128();
+    }
+
+    public static ProductCodebook Of(int subspaces, int subspaceDim, int codesPerSubspace, ReadOnlyMemory<float> centroids) =>
+        new(subspaces, subspaceDim, codesPerSubspace, centroids, KeyOf(subspaces, subspaceDim, codesPerSubspace, centroids.Span));
+}
+
+public readonly record struct VectorRow(
+    UInt128 ContentKey,
+    string Encoding,
+    int Dimension,
+    ReadOnlyMemory<byte> Fine,
+    ReadOnlyMemory<byte> Codes,
+    UInt128 CodebookId,
+    Option<NodeId> Subject) {
+    // The float32 fine bytes projected onto the pgvector ANN column the HNSW/diskann index is built over;
+    // valid for the float32 fine row, the exact-rerank ground truth the coarse gate resolves to.
+    public Pgvector.Vector Probe() => new(MemoryMarshal.Cast<byte, float>(Fine.Span).ToArray());
+}
+
+public static class VectorCodebook {
+    public static Fin<ProductCodebook> Train(Seq<ReadOnlyMemory<float>> corpus, int subspaces, int codesPerSubspace, int iterations) {
+        if (corpus.IsEmpty) { return Fin.Fail<ProductCodebook>(Error.New(8351, "<codebook-empty-corpus>")); }
+        int dimension = corpus[0].Length;
+        if (subspaces <= 0 || dimension % subspaces != 0 || codesPerSubspace is <= 0 or > 256) {
+            return Fin.Fail<ProductCodebook>(Error.New(8352, $"<codebook-layout:{dimension}/{subspaces}@{codesPerSubspace}>"));
+        }
+        if (corpus.Exists(vector => vector.Length != dimension)) { return Fin.Fail<ProductCodebook>(Error.New(8353, "<codebook-ragged-corpus>")); }
+        int subDim = dimension / subspaces;
+        int codes = Math.Min(codesPerSubspace, corpus.Count);
+        var centroids = new float[subspaces * codesPerSubspace * subDim];
+        for (int subspace = 0; subspace < subspaces; subspace++) {
+            Lloyd(corpus, subspace, subDim, codes, Math.Max(1, iterations), centroids.AsSpan(subspace * codesPerSubspace * subDim, codesPerSubspace * subDim));
+        }
+        return Fin.Succ(ProductCodebook.Of(subspaces, subDim, codesPerSubspace, centroids));
+    }
+
+    public static Seq<(UInt128 ContentKey, float Distance)> AdcScan(ReadOnlyMemory<float> query, ProductCodebook codebook, Seq<VectorRow> coded, int top) {
+        if (top <= 0 || coded.IsEmpty) { return Seq<(UInt128 ContentKey, float Distance)>(); }
+        var table = new float[codebook.Subspaces * codebook.CodesPerSubspace];
+        for (int subspace = 0; subspace < codebook.Subspaces; subspace++) {
+            var part = query.Span.Slice(subspace * codebook.SubspaceDim, codebook.SubspaceDim);
+            for (int code = 0; code < codebook.CodesPerSubspace; code++) {
+                table[subspace * codebook.CodesPerSubspace + code] = TensorPrimitives.Distance(part, codebook.Centroid(subspace, code));
+            }
+        }
+        var heap = new PriorityQueue<(UInt128 ContentKey, float Distance), float>(top);
+        foreach (var row in coded) {
+            var codes = row.Codes.Span;
+            float distance = 0f;
+            for (int subspace = 0; subspace < codes.Length; subspace++) { distance += table[subspace * codebook.CodesPerSubspace + codes[subspace]]; }
+            if (heap.Count < top) { heap.Enqueue((row.ContentKey, distance), -distance); }
+            else if (heap.TryPeek(out _, out float worst) && -distance > worst) { heap.EnqueueDequeue((row.ContentKey, distance), -distance); }
+        }
+        int kept = heap.Count;
+        var ordered = new (UInt128 ContentKey, float Distance)[kept];
+        for (int slot = kept - 1; slot >= 0; slot--) { ordered[slot] = heap.Dequeue(); }
+        return toSeq(ordered);
+    }
+
+    // Lloyd's k-means over ONE subspace window: TensorPrimitives.Distance assigns, Add/Divide recomputes the
+    // cluster mean; the destination span is the codebook's [subspace] slab. A loop is the named span-kernel
+    // exemption (no TensorPrimitives member argmin-assigns a centroid grid), mirroring Compute's EncodeProduct.
+    static void Lloyd(Seq<ReadOnlyMemory<float>> corpus, int subspace, int subDim, int codes, int iterations, Span<float> centroids) {
+        int offset = subspace * subDim;
+        for (int code = 0; code < codes; code++) { corpus[code].Span.Slice(offset, subDim).CopyTo(centroids.Slice(code * subDim, subDim)); }
+        var sums = new float[codes * subDim];
+        var counts = new int[codes];
+        for (int iteration = 0; iteration < iterations; iteration++) {
+            Array.Clear(sums);
+            Array.Clear(counts);
+            foreach (var vector in corpus) {
+                var part = vector.Span.Slice(offset, subDim);
+                (float Nearest, int Code) best = (float.PositiveInfinity, 0);
+                for (int code = 0; code < codes; code++) {
+                    float distance = TensorPrimitives.Distance(part, centroids.Slice(code * subDim, subDim));
+                    if (distance < best.Nearest) { best = (distance, code); }
+                }
+                TensorPrimitives.Add(sums.AsSpan(best.Code * subDim, subDim), part, sums.AsSpan(best.Code * subDim, subDim));
+                counts[best.Code]++;
+            }
+            for (int code = 0; code < codes; code++) {
+                if (counts[code] > 0) { TensorPrimitives.Divide(sums.AsSpan(code * subDim, subDim), counts[code], centroids.Slice(code * subDim, subDim)); }
+            }
+        }
+    }
+}
+
+public sealed record VectorIndex(
+    Func<UInt128, IO<Option<ProductCodebook>>> ResolveCodebook,
+    Func<ProductCodebook, IO<Unit>> RecordCodebook,
+    Func<Seq<UInt128>, IO<Seq<VectorRow>>> ResolveFine,
+    Func<UInt128, int, IO<Seq<VectorRow>>> ResolveCoded) {
+    public IO<Option<ProductCodebook>> Codebook(UInt128 id) => ResolveCodebook(id);
+    public IO<Unit> Publish(ProductCodebook codebook) => RecordCodebook(codebook);
+    public IO<Seq<VectorRow>> Resolve(Seq<UInt128> survivors) => ResolveFine(survivors);
+    public IO<Seq<VectorRow>> Coded(UInt128 codebookId, int limit) => ResolveCoded(codebookId, limit);
+}
+```
+
+| [INDEX] | [POLICY]            | [VALUE]                                | [BINDING]                                                  |
+| :-----: | :------------------ | :------------------------------------- | :-------------------------------------------------------- |
+|  [01]   | codebook owner      | `Train` here; Compute encodes only     | a Compute-side fit would force a `Persistence → Compute` cycle |
+|  [02]   | partition agreement | the SAME `TensorPrimitives.Distance`   | train-time and encode-time centroids agree bit-for-bit    |
+|  [03]   | codebook supply     | content-keyed by `Id`, read by reference | a re-train re-keys every `product-quantized` artifact     |
+|  [04]   | coarse→fine rerank  | `Resolve` reads `int8`/`float32` fine  | magnitude recovered from the residence, never faked       |
+|  [05]   | ADC amortization    | one query→centroid table per scan      | reused across the corpus; never a per-row recompute       |
+|  [06]   | strata one-way      | encoding string + `NodeId` only        | no `EmbeddingVector`/`VectorEncoding` Compute type leaks down |

@@ -12,7 +12,7 @@ Rasm.AppHost runs one process lifecycle: eight string-keyed `RuntimePhase` rows 
 
 ## [02]-[PHASE_FAMILY]
 
-- Owner: `CorrelationId` `[ValueObject<Guid>]` boot-minted root identity; `RuntimePhase` `[SmartEnum<string>]` eight rows under the `PhaseKeyPolicy` ordinal accessor; `PhaseTrigger` `[Union]` trigger vocabulary; `Lifecycle` boundary capsule owning the Atom-backed receipt cell; `LifecycleFault` fault family in the 1200 code band; `PhaseSubscription` LIFO detacher composite.
+- Owner: `CorrelationId` `[ValueObject<Guid>]` boot-minted root identity; `RuntimePhase` `[SmartEnum<string>]` eight rows under the `ComparerAccessors.StringOrdinal` accessor; `PhaseTrigger` `[Union]` trigger vocabulary; `Lifecycle` boundary capsule owning the Atom-backed receipt cell; `LifecycleFault` fault family in the 1200 code band; `PhaseSubscription` LIFO detacher composite.
 - Cases: boot, ready, running, degraded, draining, unloaded, faulted, support-capture; ten trigger cases; `LifecycleFault` = Text | IllegalTransition.
 - Entry: `Fin<PhaseReceipt> Transition(PhaseTrigger trigger)` — `Fin` aborts on illegal transitions; the `RuntimePhase`-shaped overload admits evidence-free phase targets from host-attach injection through the same law.
 - Auto: every CAS commit fires the cell change event into subscription detachers and the latest receipt is the cell value itself; `Attach` projects the lifetime tokens into trigger values — never a second state machine; receipts flow to the receipt-sink envelope unchanged.
@@ -32,14 +32,9 @@ public readonly partial struct CorrelationId : ISpanFormattable, IUtf8SpanFormat
     public bool TryFormat(Span<byte> utf8Destination, out int bytesWritten, ReadOnlySpan<char> format, IFormatProvider? provider) => ((Guid)this).TryFormat(utf8Destination, out bytesWritten, format);
 }
 
-public sealed class PhaseKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
-    public static IEqualityComparer<string> EqualityComparer => StringComparer.Ordinal;
-    public static IComparer<string> Comparer => StringComparer.Ordinal;
-}
-
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<PhaseKeyPolicy, string>]
-[KeyMemberComparer<PhaseKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class RuntimePhase {
     public static readonly RuntimePhase Boot = new("boot");
     public static readonly RuntimePhase Ready = new("ready");
@@ -303,8 +298,8 @@ public sealed partial class DrainBand {
 }
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<PhaseKeyPolicy, string>]
-[KeyMemberComparer<PhaseKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class DrainOutcome {
     public static readonly DrainOutcome Flushed = new("flushed");
     public static readonly DrainOutcome Escalated = new("escalated");

@@ -21,8 +21,8 @@ One CRDT document is the merge authority for every co-edited AppUi surface: `Col
 
 ```csharp signature
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<CollabKeyPolicy, string>]
-[KeyMemberComparer<CollabKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class CollabContainer {
     public static readonly CollabContainer Text = new("text", ContainerType.Text);
     public static readonly CollabContainer Map = new("map", ContainerType.Map);
@@ -82,12 +82,6 @@ public sealed record CollabDoc(LoroDoc Doc, string Key) : IDisposable {
     public void Dispose() => Doc.Dispose();
 }
 
-public sealed class CollabKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
-    public static IEqualityComparer<string> EqualityComparer => StringComparer.Ordinal;
-
-    public static IComparer<string> Comparer => StringComparer.Ordinal;
-}
-
 public sealed record LoroVal(LoroValue Value) : LoroValueLike {
     public LoroValue AsLoroValue() => Value;
 
@@ -112,8 +106,8 @@ public sealed record LoroVal(LoroValue Value) : LoroValueLike {
 
 ```csharp signature
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<CollabKeyPolicy, string>]
-[KeyMemberComparer<CollabKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SyncMode {
     public static readonly SyncMode Snapshot = new("snapshot");
     public static readonly SyncMode Updates = new("updates");
@@ -179,8 +173,8 @@ flowchart LR
 
 ```csharp signature
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<CollabKeyPolicy, string>]
-[KeyMemberComparer<CollabKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PresenceKind {
     public static readonly PresenceKind Cursor = new("cursor");
     public static readonly PresenceKind Awareness = new("awareness");

@@ -74,7 +74,7 @@ they never register or instantiate a second cache.
 
 [ENTRYPOINT_SCOPE]: per-call entry policy values
 - rail: runtime cache
-- `HybridCacheEntryOptions` is `init`-only; per-call variation is a record-`with` over a lane default (`CacheLane.ModelResult.Entry with { Expiration = precision.NegativeTtl.ToTimeSpan() }`). `HybridCacheEntryFlags` is the per-call tier-bypass — a compiled-delegate write uses `DisableDistributedCacheWrite` because a `Delegate` is not durably serializable.
+- `HybridCacheEntryOptions` is `init`-only; per-call variation is a record-`with` over a lane default (`CacheLane.ModelResult.Entry with { Expiration = precision.NegativeTtl.ToTimeSpan() }`). `HybridCacheEntryFlags` is the per-call tier-bypass — a non-serializable value (a compiled `Delegate`) rides `DisableDistributedCache` (full L2 bypass, both read and write) and lives in L1 by reference through an `[ImmutableObject(true)]` carrier, never `DisableDistributedCacheWrite` alone (which leaves every miss probing a permanently-empty L2).
 
 | [INDEX] | [SURFACE]                                                       | [ENTRY_FAMILY]     | [RAIL]                                                  |
 | :-----: | :-------------------------------------------------------------- | :----------------- | :----------------------------------------------------- |
@@ -103,7 +103,7 @@ they never register or instantiate a second cache.
 
 [SERIALIZER_STACKING]:
 - `IHybridCacheSerializer<T>.Serialize(T, IBufferWriter<byte>)` writes the L2 payload directly into the `CommunityToolkit.HighPerformance` `ArrayPoolBufferWriter<byte>` (or any `IBufferWriter<byte>`), and `Deserialize(ReadOnlySequence<byte>) → T` reads back from the writer's `WrittenMemory` as a `ReadOnlySequence<byte>` — so a custom codec round-trips with zero intermediate array, the same convergence seam the codec lane uses.
-- a value durably serializable across a process boundary stores both tiers; a non-serializable value (a live `Delegate`) carries `HybridCacheEntryFlags.DisableDistributedCacheWrite` so L1 holds the live form and L2 holds only a re-derivation seed.
+- a value durably serializable across a process boundary stores both tiers from one representation; a non-serializable value (a live `Delegate`) is wrapped in an `[ImmutableObject(true)]` carrier so HybridCache holds it in L1 by reference with no serialize/deserialize round-trip and carries `HybridCacheEntryFlags.DisableDistributedCache` to bypass L2 entirely (both read and write) — HybridCache keeps one representation per key (no separate L2 seed projection), so cross-process reuse is deterministic re-derivation off the content-addressed key, never a serialized delegate.
 - compression is on by default unless `DisableCompression` (global or per-call) is set; `MaximumPayloadBytes` rejects an oversized serialized payload.
 
 [L2_BACKING]:

@@ -53,8 +53,8 @@ public sealed partial class SeekDirection {
 }
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<VersionKeyPolicy, string>]
-[KeyMemberComparer<VersionKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ChangeKind {
     public static readonly ChangeKind Added = new("added");
     public static readonly ChangeKind Removed = new("removed");

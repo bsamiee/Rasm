@@ -11,14 +11,14 @@ THE FASTENER CONNECTIONFAMILY. The fastener vocabulary — the `FastenerKind` me
 - Owner: the fastener vocabulary (`FastenerKind` the bolt/nut/screw/anchor member-type discriminant, `FastenerStandard` the ISO 898-1 / SAE J429 spec discriminant, `FastenerGrade` the proof/tensile strength axis, `ThreadSize` the M6..M36 / 1/4in..1-1/2in nominal-thread axis, `FastenerSection` the thread receipt); `ConnectionCatalogue.BuildFastenerRows` the registered-row seed `connection#CONNECTION_OWNER` `ConnectionCatalogue.Build` folds; the `FastenerSection.TensileStressAreaMm2` projection emitting the ISO 898-1 stress area the bolt-capacity seam reads.
 - Cases: kind {bolt (externally threaded, headed) · nut (internally threaded mate) · screw (self-driven, no nut) · anchor (cast-in or post-installed, `PredefinedType=ANCHORBOLT` at the wire)} · standard {ISO 898-1 (metric property class) · SAE J429 (inch grade) · ASTM F3125 (structural-bolt, A325/A490 lineage)} · grade {ISO 898-1 cls 4.6 / 5.8 / 8.8 / 10.9 / 12.9 · SAE J429 Gr2 / Gr5 / Gr8 · ASTM F3125 A325 / A490} · size {metric coarse M6..M36 · imperial UNC 1/4in..1-1/2in} — a fastener is a `ConnectionItem` row over one `FastenerKind`, one `FastenerGrade`, and one `ThreadSize`, never a fastener subtype.
 - Entry: `public double TensileStressAreaMm2 { get; }` on `FastenerSection` — the ISO 898-1 nominal tensile stress area `As = (π/4)·((d2+d3)/2)²` projected from the pitch/minor diameter the `ThreadSize` carries, the area the `FastenerGrade.ProofStressMpa` multiplies into `ProofLoadKn`/`TensileLoadKn` the structural-design seam reads (a derived `double` projection over the stored `PositiveMagnitude` columns, never a re-minted dimension primitive, exactly as `RebarSection.YieldForceKn` projects, `reinforcement.md` line 96); `ConnectionCatalogue.BuildFastenerRows(context)` folds the ISO/SAE `FastenerRow` table through `FastenerOf` into the registered `ConnectionItem` rows `ConnectionCatalogue.Build` concatenates — one polymorphic catalogue fold, never a `GetBoltBySize`/`GetByGrade` family.
-- Packages: Rasm (project — `PositiveMagnitude` for the thread-diameter/pitch/shank/head/stress-area length columns, never an int-backed `Dimension` that truncates a fractional millimeter pitch), Thinktecture.Runtime.Extensions (`[SmartEnum<string>]` for the kind/standard/grade/size axes with the generated total `Switch`, `[KeyMemberEqualityComparer<ConnectionKeyPolicy, string>]` for the catalogue key), LanguageExt.Core (`Fin`/`Seq`/`Choose`/`Fold` for the admission rail and the catalogue fold), BCL inbox (`FrozenDictionary`).
+- Packages: Rasm (project — `PositiveMagnitude` for the thread-diameter/pitch/shank/head/stress-area length columns, never an int-backed `Dimension` that truncates a fractional millimeter pitch), Thinktecture.Runtime.Extensions (`[SmartEnum<string>]` for the kind/standard/grade/size axes with the generated total `Switch`, `[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]` for the catalogue key), LanguageExt.Core (`Fin`/`Seq`/`Choose`/`Fold` for the admission rail and the catalogue fold), BCL inbox (`FrozenDictionary`).
 - Growth: the fastener vocabulary grows by data — a new property class is one `FastenerGrade` row carrying its proof/tensile/yield, a new thread size one `ThreadSize` row carrying its major-diameter/pitch/minor-diameter, a new member type one `FastenerKind` row, a new designation one `FastenerRow` catalogue entry — never a per-bolt type, never a per-grade `ConnectionItem` variant. `anchor` is a `FastenerKind` arm folded INSIDE this vocabulary, so the `ConnectionFamily` axis stays CLOSED at four (reinforcement/fastener/hanger/joint), never a fifth sibling family or a per-bolt type; a reinforcement/hanger/joint family lands its own vocabulary on its own page the way fastener carries `FastenerKind`/`FastenerGrade`/`FastenerSection`.
 - Boundary: the fastener vocabulary is a realized `ConnectionFamily` — a per-bolt `Bolt`/`Nut`/`Screw`/`Anchor` class is the deleted form, collapsed into the one `FastenerKind` `[SmartEnum]` arm (the 3+-parallel-item-shape collapse trigger), and the cast-in/post-installed anchor is the `FastenerKind.Anchor` row, NEVER a separate `ConnectionFamily` case; `FastenerSection` composes the `Rasm` kernel `PositiveMagnitude` (the double-backed `> 0` finite magnitude) for every column so the section never re-mints a length primitive and a fractional ISO thread (`M12` major `12.000 mm`, pitch `1.75 mm`; `3/8in` major `9.525 mm`, 16-TPI pitch `1.5875 mm`) admits without the truncation an int-backed `Dimension` count would force, the `Dimension` carrier reserved for discrete counts (thread starts, grip plies); the ISO 898-1 tensile stress area is the `FastenerSection.TensileStressAreaMm2` derived `double` projection (over the stored `PositiveMagnitude` thread columns) the `IfcMechanicalFastener` wire and the structural-bolt seam read, NOT a host computation; the appearance assignment crosses to `Appearance/graph#MATERIAL_LIBRARY` as the `MaterialId` (`metal.steel` for alloy-steel cls 8.8/10.9/12.9 and SAE Gr5/Gr8, `metal.iron` for low-carbon cls 4.6/SAE Gr2) the row's `ConnectionItem.AppearanceId` column carries, never a fastener-specific shade; the mechanical capacity crosses to `properties#MATERIAL_PROPERTY_CATALOGUE` `Mechanical` (`YieldStrengthMpa`/`YoungsModulusMpa`) read by `MaterialId` through the `MaterialPropertySet` key, never re-derived here, so the `FastenerGrade.ProofStressMpa`/`TensileStrengthMpa` axis is the spec-nominal class band and the measured capacity is the property-library receipt; `ConnectionCatalogue.BuildFastenerRows` seeds the `connection#CONNECTION_OWNER` `ConnectionCatalogue.Rows` table with the ISO 898-1 / SAE J429 rows keyed `connection.<designation>` (`connection.bolt-m12-88`, `connection.bolt-0375-gr5`, `connection.anchor-m16-88`), the dimensional columns admitting once through `key.AcceptValidated<PositiveMagnitude>(candidate:)` so a malformed row drops through `Choose` rather than seeding a degenerate `ConnectionItem`; the placement of a bolt pattern reads `Construction/layout#ASSEMBLY_FOLD` `StationStep` over the SAME realized fold, never a parallel fastener-layout owner; the fastener serializes to the IFC 4.3 `IfcMechanicalFastener`/`IfcFastener` element at the `Rasm.Bim` boundary (portable scalar data here, never an interior `IfcOpenShell` evaluation).
 
 ```csharp signature
 // --- [TYPES] -------------------------------------------------------------------------------
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<ConnectionKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class FastenerKind {
     public static readonly FastenerKind Bolt   = new("bolt",   ifcPredefinedType: "BOLT");
     public static readonly FastenerKind Nut     = new("nut",     ifcPredefinedType: "NUT");
@@ -28,7 +28,7 @@ public sealed partial class FastenerKind {
 }
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<ConnectionKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class FastenerStandard {
     public static readonly FastenerStandard Iso898   = new("iso-898-1", metric: true,  authority: "ISO 898-1");
     public static readonly FastenerStandard SaeJ429  = new("sae-j429",  metric: false, authority: "SAE J429");
@@ -38,7 +38,7 @@ public sealed partial class FastenerStandard {
 }
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<ConnectionKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class FastenerGrade {
     public static readonly FastenerGrade Cls46  = new("4.6",  proofStressMpa: 225.0,  tensileStrengthMpa: 400.0,  minimumYieldMpa: 240.0,  standard: FastenerStandard.Iso898,    appearanceId: "metal.iron");
     public static readonly FastenerGrade Cls58  = new("5.8",  proofStressMpa: 380.0,  tensileStrengthMpa: 500.0,  minimumYieldMpa: 400.0,  standard: FastenerStandard.Iso898,    appearanceId: "metal.iron");
@@ -59,7 +59,7 @@ public sealed partial class FastenerGrade {
 }
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<ConnectionKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ThreadSize {
     public static readonly ThreadSize M6   = new("m6",    majorDiameterMm: 6.000,  pitchMm: 1.000,   minorDiameterMm: 4.773,  acrossFlatsMm: 10.000);
     public static readonly ThreadSize M8   = new("m8",    majorDiameterMm: 8.000,  pitchMm: 1.250,   minorDiameterMm: 6.466,  acrossFlatsMm: 13.000);
@@ -141,7 +141,7 @@ public static class ConnectionCatalogue {
     public static FrozenDictionary<ConnectionId, ConnectionItem> BuildFastenerRows(Context context) =>
         FastenerRows
             .Choose(row => FastenerOf(row, context, default).ToOption())
-            .ToFrozenDictionary(static r => r.Id, static r => r.Item, ConnectionKeyPolicy.EqualityComparer);
+            .ToFrozenDictionary(static r => r.Id, static r => r.Item, ComparerAccessors.StringOrdinal.EqualityComparer);
 }
 ```
 

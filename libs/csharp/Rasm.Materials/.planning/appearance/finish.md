@@ -18,8 +18,8 @@ THE KUBELKA-MUNK PIGMENT/COAT-STACK FINISH ENGINE. One `Finish.Resolve` static f
 ```csharp signature
 // --- [TYPES] -------------------------------------------------------------------------------
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<MaterialKeyPolicy, string>]
-[KeyMemberComparer<MaterialKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class FinishKind {
     public static readonly FinishKind Paint    = new("paint",    new FinishHandling(BaseWeight: 1.0, Roughness: 0.45, Transmission: 0.0, ClearcoatBias: 0.0));
     public static readonly FinishKind Coating   = new("coating",  new FinishHandling(BaseWeight: 1.0, Roughness: 0.25, Transmission: 0.0, ClearcoatBias: 0.6));

@@ -1,19 +1,20 @@
 # [CSHARP_BRANCH]
 
-The C# branch router and the cross-cutting package registry. The branch aggregates eight planning-scoped packages, each carrying its own four index docs (`README.md`, `ARCHITECTURE.md`, `IDEAS.md`, `TASKLOG.md`) at its root and its design pages under one `.planning/`. This node routes to those package roots and registers only the packages shared across two or more C# folders; a folder README lists only its own additions, shared API catalogues live in `libs/csharp/.api/`, and versions live in the one C# manifest, never here.
+The C# branch router and the cross-cutting package registry. The branch aggregates nine planning-scoped packages, each carrying its own four index docs (`README.md`, `ARCHITECTURE.md`, `IDEAS.md`, `TASKLOG.md`) at its root and its design pages under one `.planning/`. This node routes to those package roots and registers only the packages shared across two or more C# folders; a folder README lists only its own additions, shared API catalogues live in `libs/csharp/.api/`, and versions live in the one C# manifest, never here.
 
 ## [01]-[ROUTER]
 
-Eight planning-scoped package roots in strata order; each root `README.md` carries the folder's page router and its own package additions, and each `ARCHITECTURE.md` carries the folder's sub-domain map.
+Nine planning-scoped package roots in strata order; each root `README.md` carries the folder's page router and its own package additions, and each `ARCHITECTURE.md` carries the folder's sub-domain map.
 
 - [01]-[KERNEL]: [Rasm](../Rasm/README.md) — Mature `Vectors`/`Analysis`/`Domain`, greenfield `Geometry/` robust-core scaffolded under `Geometry/.planning/`.
-- [02]-[AEC-DOMAIN]: [Rasm.Materials](../Rasm.Materials/README.md) — profiles, appearance, construction.
-- [03]-[AEC-DOMAIN]: [Rasm.Bim](../Rasm.Bim/README.md) — BIM object model and IFC/glTF/STEP exchange.
-- [04]-[AEC-DOMAIN]: [Rasm.Fabrication](../Rasm.Fabrication/README.md) — portable HLR/CAM/nesting.
-- [05]-[APP-PLATFORM]: [Rasm.AppHost](../Rasm.AppHost/README.md) — runtime spine.
-- [06]-[APP-PLATFORM]: [Rasm.Compute](../Rasm.Compute/README.md) — measured execution.
-- [07]-[APP-PLATFORM]: [Rasm.Persistence](../Rasm.Persistence/README.md) — durable stores.
-- [08]-[APP-PLATFORM]: [Rasm.AppUi](../Rasm.AppUi/README.md) — Avalonia product UI.
+- [02]-[AEC-DOMAIN]: [Rasm.Element](../Rasm.Element/README.md) — lowest-AEC element seam.
+- [03]-[AEC-DOMAIN]: [Rasm.Materials](../Rasm.Materials/README.md) — profiles, appearance, construction.
+- [04]-[AEC-DOMAIN]: [Rasm.Bim](../Rasm.Bim/README.md) — BIM object model and IFC/glTF/STEP exchange.
+- [05]-[AEC-DOMAIN]: [Rasm.Fabrication](../Rasm.Fabrication/README.md) — portable HLR/CAM/nesting.
+- [06]-[APP-PLATFORM]: [Rasm.AppHost](../Rasm.AppHost/README.md) — runtime spine.
+- [07]-[APP-PLATFORM]: [Rasm.Compute](../Rasm.Compute/README.md) — measured execution.
+- [08]-[APP-PLATFORM]: [Rasm.Persistence](../Rasm.Persistence/README.md) — durable stores.
+- [09]-[APP-PLATFORM]: [Rasm.AppUi](../Rasm.AppUi/README.md) — Avalonia product UI.
 
 The HOST-BOUNDARY packages `Rasm.Rhino` and `Rasm.Grasshopper` are out-of-scope-durable source with no `.planning/`.
 

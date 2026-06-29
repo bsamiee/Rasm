@@ -128,7 +128,7 @@ public static class DialogSurface {
 
 ## [04]-[NOTIFICATIONS]
 
-- Owner: `ToastRow` linger rows, `ToastOutcome` outcome rows, the `ToastGate` suppression fold, and `ToastReceipt`, under the one `NoticeKeyPolicy` ordinal accessor.
+- Owner: `ToastRow` linger rows, `ToastOutcome` outcome rows, the `ToastGate` suppression fold, and `ToastReceipt`, under the shipped `ComparerAccessors.StringOrdinal` accessor.
 - Cases: Info 4s | Success 4s | Warning 6s | Error sticky; outcomes shown | queued | dropped.
 - Entry: `public IO<ToastReceipt> Toast(ToastRow row, string title, string body, RuntimePhase phase, DegradationState degradation, Instant at, CorrelationId correlation, Option<string> intentKey = default)` — `IO` carries the presentation effect; the receipt is total over outcomes.
 - Auto: composition binds `ToastPipe` per topology row; a toast action raises its command intent by key through the one intent table; queued notes flush through one `PhaseSubscription` observing the support-capture resume and fold to dropped receipts when the phase reaches `Draining`.
@@ -138,17 +138,10 @@ public static class DialogSurface {
 - Boundary: enter/exit timing and reduced-motion pairs arrive from the motion vocabulary — linger and suppression are the only timing facts owned here; `ToastPipe` binds one `WindowNotificationManager` constructed over the surface `TopLevel`, whose `Show(object, NotificationType, TimeSpan?, ...)` overload carries the row's severity as the `NotificationType` case and the linger as the expiration; native Rhino toasts and status panes stay host-owned; `Suspended` drops every note because retained capabilities exclude presentation.
 
 ```csharp signature
-public sealed class NoticeKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
-    private static readonly StringComparer Policy = StringComparer.Ordinal;
-
-    public static IEqualityComparer<string> EqualityComparer => Policy;
-
-    public static IComparer<string> Comparer => Policy;
-}
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<NoticeKeyPolicy, string>]
-[KeyMemberComparer<NoticeKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ToastRow {
     public static readonly ToastRow Info = new("info", linger: Duration.FromSeconds(4), sticky: false);
     public static readonly ToastRow Success = new("success", linger: Duration.FromSeconds(4), sticky: false);
@@ -160,8 +153,8 @@ public sealed partial class ToastRow {
 }
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<NoticeKeyPolicy, string>]
-[KeyMemberComparer<NoticeKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ToastOutcome {
     public static readonly ToastOutcome Shown = new("shown");
     public static readonly ToastOutcome Queued = new("queued");
@@ -210,8 +203,8 @@ flowchart LR
 
 ```csharp signature
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<NoticeKeyPolicy, string>]
-[KeyMemberComparer<NoticeKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PickKind {
     public static readonly PickKind Open = new("open");
     public static readonly PickKind Save = new("save");

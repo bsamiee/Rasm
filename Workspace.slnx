@@ -18,6 +18,9 @@
   <Folder Name="/libs/csharp/Rasm.Compute/">
     <Project Path="libs/csharp/Rasm.Compute/Rasm.Compute.csproj" />
   </Folder>
+  <Folder Name="/libs/csharp/Rasm.Element/">
+    <Project Path="libs/csharp/Rasm.Element/Rasm.Element.csproj" />
+  </Folder>
   <Folder Name="/libs/csharp/Rasm.Fabrication/">
     <Project Path="libs/csharp/Rasm.Fabrication/Rasm.Fabrication.csproj" />
   </Folder>
@@ -54,8 +57,17 @@
   <Folder Name="/tests/csharp/libs/Rasm.AppUi/">
     <Project Path="tests/csharp/libs/Rasm.AppUi/Rasm.AppUi.Tests.csproj" />
   </Folder>
+  <Folder Name="/tests/csharp/libs/Rasm.Bim/">
+    <Project Path="tests/csharp/libs/Rasm.Bim/Rasm.Bim.Tests.csproj" />
+  </Folder>
   <Folder Name="/tests/csharp/libs/Rasm.Compute/">
     <Project Path="tests/csharp/libs/Rasm.Compute/Rasm.Compute.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/csharp/libs/Rasm.Element/">
+    <Project Path="tests/csharp/libs/Rasm.Element/Rasm.Element.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/csharp/libs/Rasm.Fabrication/">
+    <Project Path="tests/csharp/libs/Rasm.Fabrication/Rasm.Fabrication.Tests.csproj" />
   </Folder>
   <Folder Name="/tests/csharp/libs/Rasm.Persistence/">
     <Project Path="tests/csharp/libs/Rasm.Persistence/Rasm.Persistence.Tests.csproj" />

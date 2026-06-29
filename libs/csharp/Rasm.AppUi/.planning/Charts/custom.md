@@ -436,7 +436,7 @@ flowchart LR
 
 ## [03]-[COLOR_SPACE]
 
-- Owner: `ColorSpaceAxis` SmartEnum · `ColorSpaceKeyPolicy` comparer accessor
+- Owner: `ColorSpaceAxis` SmartEnum · `ComparerAccessors.StringOrdinal` accessor
 - Cases: srgb · display-p3 · rec2020 · scrgb-float — the baseline plus three wide-gamut rows
 - Entry: `public SKColorSpace Working()` — the working-space factory per row; the `Encode` member projects the row onto the codec encode policy
 - Auto: each row carries the `Func<SKColorSpace>` working-space factory and the `SKColorType` surface format the encode loop selects — the srgb, display-p3, and rec2020 rows tag ICC primaries through `SKColorSpace.CreateRgb(SKColorSpaceTransferFn, SKColorSpaceXyz)` on the `Rgba8888` byte surface, and the scrgb-float row carries `SKColorSpace.CreateSrgbLinear` on the `RgbaF16` float surface; the row's `Encode` member yields the matching `VisualCodec.EncodeRow` whose `ColorPolicy` reproject pins the output space, so a materialize tags its `RenderReceipt.ColorSpace` with the exact gamut and a cross-host byte swap is attributable to one of four spaces, never silent.
@@ -445,14 +445,10 @@ flowchart LR
 - Boundary: `ColorSpaceAxis` is the single suite-wide gamut vocabulary — `VisualCodec.ColorPolicy` consumes it through the `DisplayP3`/`Rec2020`/`ScrgbFloat` policy rows the encode identity carries and the `RenderReceipt.ColorSpace` field tags it, so a parallel `Gamut` enum or a per-encode color struct is the deleted form; the working space converts once at projection through `SKImageInfo.WithColorSpace` and `SKColorSpace.Equal` is the only identity test the reproject runs fail-closed against an already-matching space; the ICC-primary path uses `SKColorSpaceXyz.DisplayP3` and `SKColorSpaceXyz.Rec2020` with `SKColorSpaceTransferFn.Srgb` for the display-referred rows and `SKColorSpaceTransferFn.Linear` with `SKColorSpaceXyz.Srgb` for the scene-referred float row, so the byte `SKColor` path that assumes sRGB and quantizes before conversion is the deleted form and a wide-gamut custom visual hashes its float or ICC-tagged pixels, never a quantized sRGB shadow; the gamut row key crosses no TS wire on its own — it tags `RenderReceipt.ColorSpace` which crosses host-local only as the existing evidence wire on Render/evidence#TS_PROJECTION, so `ColorSpaceAxis` authors no `TS_PROJECTION` cluster.
 
 ```csharp signature
-public sealed class ColorSpaceKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
-    public static IEqualityComparer<string> EqualityComparer => StringComparer.Ordinal;
-    public static IComparer<string> Comparer => StringComparer.Ordinal;
-}
 
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
-[KeyMemberEqualityComparer<ColorSpaceKeyPolicy, string>]
-[KeyMemberComparer<ColorSpaceKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ColorSpaceAxis {
     public static readonly ColorSpaceAxis Srgb = new("srgb",
         working: static () => SKColorSpace.CreateSrgb(),

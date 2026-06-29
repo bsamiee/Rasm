@@ -19,14 +19,10 @@ Rasm.Persistence provisions the PostgreSQL 18 server tier as VERIFICATION-FIRST:
 - Boundary: a Rasm process NEVER spawns or bundles PostgreSQL and NEVER executes runtime `ALTER SYSTEM` — provisioning is verification-only over the operator-provisioned cluster, so a `MissingPreload`/`SettingDrift` verdict is a typed signal the operator resolves at the cluster config, never a self-mutation; the server extensions carry no managed assembly and are admitted through raw `CREATE EXTENSION` SQL gated by each extension's preload/type/access-method requirement; the `pg_duckdb` extension is the in-PG DuckDB bridge distinct from the in-process `DuckDB.NET` analytical lane (`Query/columnar`), the two meeting at the columnar SQL surface; `apache-age` is the OPTIONAL self-hosted openCypher graph (`Query/cypher#CYPHER_LANE`) demoted beneath the in-process QuikGraph, so its admission is gated and the lane is disabled by default; spatial→PG GiST (`postgis_raster`/`postgis_sfcgal`) and ANN→`pgvector`/`pgvectorscale` are the transactional index owners while DuckDB `spatial`/`vss` are the columnar aggregators (`L2`), never duplicated.
 
 ```csharp signature
-public sealed class ProvisionKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
-    public static IEqualityComparer<string> EqualityComparer => StringComparer.Ordinal;
-    public static IComparer<string> Comparer => StringComparer.Ordinal;
-}
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<ProvisionKeyPolicy, string>]
-[KeyMemberComparer<ProvisionKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ServerExtension {
     public static readonly ServerExtension PgDuckdb = new("pg_duckdb", preload: true);
     public static readonly ServerExtension TimescaleToolkit = new("timescaledb_toolkit", preload: true);
@@ -48,8 +44,8 @@ public sealed partial class ServerExtension {
 }
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<ProvisionKeyPolicy, string>]
-[KeyMemberComparer<ProvisionKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ClusterSetting {
     public static readonly ClusterSetting WalLevel = new("wal_level", expected: "logical", atLeast: false);
     public static readonly ClusterSetting MaxWorkerProcesses = new("max_worker_processes", expected: "8", atLeast: true);

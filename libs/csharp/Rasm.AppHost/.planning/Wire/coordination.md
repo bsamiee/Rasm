@@ -11,7 +11,7 @@ One cluster-coordination owner for the runtime spine: a `ServiceEndpointResolver
 
 ## [02]-[ENDPOINT_RESOLUTION]
 
-- Owner: `RoleName` `[ValueObject<string>]` the logical cluster-role identity under the `RoleNamePolicy` ordinal accessor; `ResolvedRole` the role-to-endpoints projection carrying the resolved endpoint set and the refresh change token; `RoleResolution` the static surface over the one resolved `ServiceEndpointResolver` and the round-robin selection.
+- Owner: `RoleName` `[ValueObject<string>]` the logical cluster-role identity under the shipped `ComparerAccessors.StringOrdinal` accessor; `ResolvedRole` the role-to-endpoints projection carrying the resolved endpoint set and the refresh change token; `RoleResolution` the static surface over the one resolved `ServiceEndpointResolver` and the round-robin selection.
 - Entry: `Resolve(ServiceEndpointResolver resolver, RoleName role, CancellationToken token)` returns `IO<Validation<CoordinationFault, ResolvedRole>>` — runs `resolver.GetEndpointsAsync((string)role, token)` returning a `ServiceEndpointSource`, projects its `Endpoints` (`IReadOnlyList<ServiceEndpoint>`) onto the `ResolvedRole`, and lifts an empty resolution to `CoordinationFault.NoEndpoint`; `Authority(ResolvedRole role, ulong cursor)` returns `Uri` — selects one endpoint by the round-robin cursor modulo the endpoint count and projects its `ServiceEndpoint.EndPoint` to the authority the outbound hop carries.
 - Auto: coordination rows address peers by logical role, never a host literal — `GetEndpointsAsync` resolves the role name to the live endpoint set through the registered `ConfigurationServiceEndpointProvider` (cluster rows under the `Services` config section) so a membership probe, an election peer, and a lock holder all dial a `RoleName`, and the resolved `Authority` seats the `OutboundHop.HttpApi(Uri)`/`Grpc(Uri)` the resilient hop dials so endpoint resolution feeds the existing resilience spine rather than a parallel client; the round-robin selection mirrors the package's own `RoundRobinServiceEndpointSelector` — `cursor % Endpoints.Count` advances by an interlocked counter so successive calls fan across the resolved instances without re-implementing the selector; the `ServiceEndpointSource.ChangeToken` drives refresh so a membership change is observed through the token rather than by polling endpoint values, and the resolver caches per-role watchers and evicts unused entries on its own 10-second cleanup timer so the page holds no parallel endpoint cache; scheme admission rides `ServiceDiscoveryOptions.AllowedSchemes` so a resolved authority honors the configured scheme set.
 - Receipt: a role resolution logs one `SpineLog` event in the 1000-1999 band carrying the role name and the resolved endpoint count; a change-token refresh rides the same event stream, never a parallel discovery receipt.
@@ -21,13 +21,8 @@ One cluster-coordination owner for the runtime spine: a `ServiceEndpointResolver
 
 ```csharp signature
 // --- [TYPES] ----------------------------------------------------------------------------
-public sealed class RoleNamePolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
-    public static IEqualityComparer<string> EqualityComparer => StringComparer.Ordinal;
-    public static IComparer<string> Comparer => StringComparer.Ordinal;
-}
-
 [ValueObject<string>(KeyMemberName = "Value")]
-[KeyMemberEqualityComparer<RoleNamePolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public readonly partial struct RoleName;
 
 // --- [MODELS] ---------------------------------------------------------------------------

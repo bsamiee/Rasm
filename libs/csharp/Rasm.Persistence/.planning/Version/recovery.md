@@ -19,10 +19,6 @@ Rasm.Persistence proves recoverability of the durable store as a verified choreo
 - Boundary: PostgreSQL is never spawned or bundled by a Rasm process so the `pg-pitr` backup is operator-provisioned WAL archiving the route VERIFIES, never executes `ALTER SYSTEM` to configure (provisioning is verification-only, `Store/provisioning#SERVER_EXTENSIONS`); the Marten event stream is the recovery substrate because a base backup plus WAL replay reconstructs the exact AS-OF state and the inline projections rebuild deterministically, so a recovery point is a real version not an approximate timestamp; the object-replica route reuses the content-address write-once seal so a replica is byte-identical by hash and the `412`-noop makes a re-replicated blob a benign no-op; the RPO/RTO are measured facts on the `RecoveryFact` stream so a breach is a typed signal the AppHost health probe reads, never a prose SLA.
 
 ```csharp signature
-public sealed class RecoveryKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
-    public static IEqualityComparer<string> EqualityComparer => StringComparer.Ordinal;
-    public static IComparer<string> Comparer => StringComparer.Ordinal;
-}
 
 public readonly record struct RecoveryObjective(Duration Rpo, Duration Rto) {
     public bool MeetsRpo(Duration lag) => lag <= Rpo;
@@ -43,8 +39,8 @@ public readonly record struct RecoveryContext(string Dsn, string ArchiveRoot, Ob
 public readonly record struct RecoveryFact(RecoveryRoute Route, TimeCut RecoveryPoint, Duration MeasuredRpo, Duration MeasuredRto, bool MeetsObjective, Instant At, CorrelationId Correlation);
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<RecoveryKeyPolicy, string>]
-[KeyMemberComparer<RecoveryKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class RecoveryRoute {
     public static readonly RecoveryRoute PgPitr = new("pg-pitr", continuous: true);
     public static readonly RecoveryRoute ObjectReplica = new("object-replica", continuous: true);
@@ -104,7 +100,7 @@ public static class RecoveryRoutes {
 
 ```csharp signature
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<RecoveryKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class RestoreStep {
     public static readonly RestoreStep Fence = new("fence", rank: 1);
     public static readonly RestoreStep Verify = new("verify", rank: 2);

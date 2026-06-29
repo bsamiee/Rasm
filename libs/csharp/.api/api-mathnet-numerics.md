@@ -8,7 +8,10 @@ the per-method `Brent`/`Bisection`/`NewtonRaphson`/`RobustNewtonRaphson`/`Secant
 `Interpolate` scheme family (cubic spline + variants, polynomial, Floater-Hormann
 rational, linear/log-linear/step), and a broad `SpecialFunctions` catalog (Gamma/Beta
 families, error function, general-order and modified Bessel) for the numeric lane's
-statistical, analytical, and domain computation paths. Linear algebra, provider
+statistical, analytical, and domain computation paths; the spectral lane rides
+`IntegralTransforms.Fourier` (in-place complex / split-real / packed-real FFT + inverse,
+multi-dimensional and 2D transforms, and the `FrequencyScale` bin axis) tapered by the
+`Window` factory catalog (19 symmetric / `*Periodic` analysis tapers). Linear algebra, provider
 selection, and sparse solve are `api-mathnet-providers` / `api-csparse`. ABI: MathNet
 `lib/net8.0` is the highest TFM in 6.0.0-beta2 — the net10 consumer binds net8.0; MIT.
 
@@ -17,7 +20,7 @@ selection, and sparse solve are `api-mathnet-providers` / `api-csparse`. ABI: Ma
 [PACKAGE_SURFACE]: `MathNet.Numerics`
 - package: `MathNet.Numerics` (6.0.0-beta2; license MIT)
 - assembly: `MathNet.Numerics`
-- namespace: `MathNet.Numerics`, `MathNet.Numerics.Distributions`, `MathNet.Numerics.Integration`, `MathNet.Numerics.Interpolation`, `MathNet.Numerics.RootFinding`
+- namespace: `MathNet.Numerics`, `MathNet.Numerics.Distributions`, `MathNet.Numerics.Integration`, `MathNet.Numerics.IntegralTransforms`, `MathNet.Numerics.Interpolation`, `MathNet.Numerics.RootFinding`
 - asset: runtime library (managed; native providers are a separate concern, `api-mathnet-providers`)
 - floor: net8.0 (no net10/net9 lib in 6.0.0-beta2; the net10 consumer binds `lib/net8.0`)
 - rail: numeric
@@ -151,6 +154,45 @@ Every factory returns an `IInterpolation` (`Interpolate(x)`, `Differentiate(x)`,
 |  [10]   | `SpecialFunctions.BesselJ(nu, x)` / `BesselY(nu, x)`           | static `double`| Bessel J_ν / Y_ν (general order)    |
 |  [11]   | `SpecialFunctions.BesselI0(x)` / `BesselI1(x)` / `BesselK0(x)` / `BesselK1(x)` | static `double` | modified Bessel I/K, order 0 and 1 |
 
+[ENTRYPOINT_SCOPE]: discrete Fourier transform (`Fourier` class, `MathNet.Numerics.IntegralTransforms`)
+- rail: numeric
+
+Every transform is IN-PLACE over the caller's buffer; the scaling convention is the `FourierOptions` flags enum — `Default` (0, symmetric `1/√N` + forward exponent), `AsymmetricScaling` (2, alias `Matlab`), `NoScaling` (4 — `Forward`∘`Inverse` composes to identity only here), `InverseExponent` (1), `NumericalRecipes` (5). The split `double[] real, double[] imaginary` form is preferred over `Complex[]` because a vectorized magnitude/phase reads the contiguous spans with no `Complex` marshalling; `ForwardReal`/`InverseReal` pack the conjugate-even half-spectrum into an `N+2` (even N) / `N+1` (odd N) buffer; `FrequencyScale` is the bin axis, never `1/length`.
+
+| [INDEX] | [SURFACE]                                                                       | [CALL_SHAPE]    | [CAPABILITY]                                                |
+| :-----: | :------------------------------------------------------------------------------ | :-------------- | :--------------------------------------------------------- |
+|  [01]   | `Fourier.Forward(Complex[] samples[, FourierOptions])` / `Forward(Complex32[] …)` | static `void`   | in-place complex FFT (double / single precision)           |
+|  [02]   | `Fourier.Forward(double[] real, double[] imaginary[, FourierOptions = Default])` / `Forward(float[] …)` | static `void` | in-place split real/imaginary FFT (no `Complex` marshalling) |
+|  [03]   | `Fourier.Inverse(Complex[] spectrum[, FourierOptions])` / `Inverse(double[] real, double[] imaginary[, …])` | static `void` | in-place inverse FFT (complex or split form)            |
+|  [04]   | `Fourier.ForwardReal(double[] data, int n[, FourierOptions = Default])` / `ForwardReal(float[] …)` | static `void` | packed real→half-spectrum FFT into the `N+2`/`N+1` buffer |
+|  [05]   | `Fourier.InverseReal(double[] data, int n[, FourierOptions = Default])` / `InverseReal(float[] …)` | static `void` | packed half-spectrum→real inverse FFT                     |
+|  [06]   | `Fourier.ForwardMultiDim(Complex[] samples, int[] dimensions[, FourierOptions])` / `Forward2D(Complex[] samplesRowWise, int rows, int columns[, …])` / `Forward2D(Matrix<Complex>[, …])` | static `void` | in-place multi-dimensional / 2D FFT (row-major) |
+|  [07]   | `Fourier.InverseMultiDim(...)` / `Inverse2D(...)`                                | static `void`   | in-place multi-dimensional / 2D inverse FFT                |
+|  [08]   | `Fourier.FrequencyScale(int length, double sampleRate)`                          | static `double[]` | per-bin frequency axis (positive bins then wrapped negatives; `Δf = sampleRate/length`) |
+
+[ENTRYPOINT_SCOPE]: window tapers (`Window` class)
+- rail: numeric
+
+19 taper factories, each `(int width) → double[]`. The four cosine-sum families ship a symmetric form (filter design) and a `*Periodic` form (FFT/STFT framing — these four are the only periodic pairs MathNet exposes). `Dirichlet` is the all-ones rectangular taper; `Gauss`/`Tukey` are the only parameterized factories. MathNet ships NO wavelet surface.
+
+| [INDEX] | [SURFACE]                                                | [CALL_SHAPE]      | [CAPABILITY]                                  |
+| :-----: | :------------------------------------------------------- | :---------------- | :-------------------------------------------- |
+|  [01]   | `Window.Hann(width)` / `Window.HannPeriodic(width)`      | static `double[]` | Hann (raised cosine); symmetric / FFT-periodic |
+|  [02]   | `Window.Hamming(width)` / `Window.HammingPeriodic(width)` | static `double[]` | Hamming; symmetric / periodic                 |
+|  [03]   | `Window.Cosine(width)` / `Window.CosinePeriodic(width)`  | static `double[]` | cosine / sine taper; symmetric / periodic     |
+|  [04]   | `Window.Lanczos(width)` / `Window.LanczosPeriodic(width)` | static `double[]` | Lanczos (sinc); symmetric / periodic          |
+|  [05]   | `Window.Blackman(width)`                                 | static `double[]` | Blackman three-term                           |
+|  [06]   | `Window.BlackmanHarris(width)`                           | static `double[]` | Blackman-Harris four-term                     |
+|  [07]   | `Window.BlackmanNuttall(width)`                          | static `double[]` | Blackman-Nuttall four-term                    |
+|  [08]   | `Window.Nuttall(width)`                                  | static `double[]` | Nuttall four-term                             |
+|  [09]   | `Window.FlatTop(width)`                                  | static `double[]` | flat-top five-term (amplitude-accurate)       |
+|  [10]   | `Window.Bartlett(width)`                                 | static `double[]` | Bartlett (triangular, zero endpoints)         |
+|  [11]   | `Window.BartlettHann(width)`                             | static `double[]` | Bartlett-Hann                                 |
+|  [12]   | `Window.Triangular(width)`                               | static `double[]` | triangular (non-zero endpoints)               |
+|  [13]   | `Window.Dirichlet(width)`                                | static `double[]` | rectangular (all-ones)                        |
+|  [14]   | `Window.Gauss(width, sigma)`                             | static `double[]` | Gaussian taper, std-dev `sigma`               |
+|  [15]   | `Window.Tukey(width, r = 0.5)`                           | static `double[]` | tapered-cosine, taper fraction `r`            |
+
 ## [04]-[IMPLEMENTATION_LAW]
 
 [DISTRIBUTION_TOPOLOGY]:
@@ -170,20 +212,29 @@ Every factory returns an `IInterpolation` (`Interpolate(x)`, `Differentiate(x)`,
 - selection by available information: `Brent.TryFindRoot` (bracket, no derivative) is the canonical entry; `NewtonRaphson`/`RobustNewtonRaphson` when an analytic derivative `df` is available; `Secant` for derivative-free local convergence; `Broyden` for nonlinear systems; `Cubic` for closed-form cubic roots
 - `FindRoot` throws `NonConvergenceException` on failure; `TryFindRoot(..., out double root)` is the no-throw twin that returns `false` — the no-throw form is the one a `Fin`/`Option` rail composes; `FindRootExpand` adds automatic bracket expansion to the bracketing methods
 
+[SPECTRAL_TOPOLOGY]:
+- namespace: `MathNet.Numerics.IntegralTransforms` (`Fourier`, `FourierOptions`) plus root `MathNet.Numerics` (`Window`)
+- every `Fourier` transform is IN-PLACE over the caller's buffer; the scaling convention is the `FourierOptions` flags enum (`Default` = 0 symmetric, `AsymmetricScaling` = 2 alias `Matlab`, `NoScaling` = 4, `InverseExponent` = 1, `NumericalRecipes` = 5) — a `Forward`∘`Inverse` round-trip composes to identity only under `NoScaling`, so an FFT-then-IFFT path pins that option
+- three real-signal carriers: the `Complex[]`/`Complex32[]` form; the split `double[] real, double[] imaginary` form (a vectorized magnitude/phase reads the contiguous spans with no `Complex` marshalling — the preferred form); and the packed `ForwardReal`/`InverseReal` form that stores the conjugate-even half-spectrum in an `N+2` (even N) / `N+1` (odd N) buffer; `ForwardMultiDim`/`Forward2D` (and their inverses) cover row-major multi-dimensional and 2D data
+- `FrequencyScale(length, sampleRate)` returns the per-bin frequency axis — the positive bins `0, Δf, 2Δf, …` over the first `⌊N/2⌋+1` then the wrapped negative bins, `Δf = sampleRate/length` — never the meaningless `1/length`
+- `Window` is 19 `(width) → double[]` taper factories; the four cosine-sum families (`Hann`/`Hamming`/`Cosine`/`Lanczos`) ship a symmetric form (filter design) and a `*Periodic` form (FFT/STFT framing), the only periodic pairs MathNet exposes; `Dirichlet` is the all-ones rectangular taper; `Gauss(width, sigma)` and `Tukey(width, r = 0.5)` are the only parameterized factories — MathNet ships NO wavelet surface
+
 [STACK]:
 - A root-find on a boundary rail composes the no-throw `Brent.TryFindRoot(f, lo, hi, acc, maxIter, out root)`: the `bool` maps to `Fin.Succ(root)`/`Fin.Fail(...)` (or `Option`) at the seam, so a non-convergence is a typed failure row, never a `NonConvergenceException` thrown through the receipt path
 - A distribution is an owned value (stateful through `RandomSource`), not a static singleton — under parallel sampling each worker holds its own distribution instance with its own `RandomSource`, threaded through the same anyio/Task fan the surrounding pipeline uses, so the RNG never races
 - `Interpolate.CubicSpline*` returns an `IInterpolation` whose `Interpolate(x)`/`Differentiate(x)`/`Integrate(a,b)` compose into a geometry sampling pipeline; the rational/Floater-Hormann path is the fallback for unsorted or pole-prone data — the scheme is a policy row over one `IInterpolation` seam, never a per-scheme public surface
 - `SpecialFunctions` is the closed-form anchor under distribution/statistics work: `GammaLn`/`BetaRegularized`/`Erf` back the analytic CDFs, so a hand-rolled Gamma/Beta/erf beside them is the deleted form
+- A spectral pass widens the real signal to `double[]` once, runs `Fourier.Forward(real, imaginary, FourierOptions.Default)` over the split pair, and reads magnitude/phase with a vectorized `Hypot`/`Atan2` over the contiguous spans — the split form is chosen precisely to avoid per-element `Complex` marshalling; an FFT-then-IFFT round-trip pins `FourierOptions.NoScaling` so `Forward`∘`Inverse` is identity; bin spacing reads `Fourier.FrequencyScale`, never `1/N`; the analysis window is one `Window.*` taper (`*Periodic` for FFT framing, symmetric for filter design), never a hand-rolled cosine or `Enumerable.Repeat` rectangular taper
 
 [LOCAL_ADMISSION]:
 - Distributions are stateful through `RandomSource`; treat them as owned values, not static singletons, when parallel sampling is required
 - `Integrate.OnClosedInterval` integrates a real scalar `Func<double,double>`; `GaussKronrod` is the adaptive form when an error bound is required; the two-/three-dimensional overloads are `OnRectangle`/`OnCuboid`
 - Root-finding is per-method static classes (`Brent`/`NewtonRaphson`/...), not a `FindRoots` aggregator; the no-throw `TryFindRoot` is the rail-composable form
+- Spectral transforms are `MathNet.Numerics.IntegralTransforms.Fourier` (in-place, `FourierOptions`-scaled; split `double[]` real/imaginary form preferred, packed `ForwardReal`/`InverseReal` for the Hermitian half-spectrum) and the analysis tapers are the 19-factory `MathNet.Numerics.Window` catalog; the radix-2/Bluestein kernel, the taper math, and the bin axis (`FrequencyScale`) are owned here, never re-implemented — MathNet has no wavelet surface, so a wavelet filter bank is authored against frozen scaling tables
 - Linear algebra, provider selection, and sparse solve are `api-mathnet-providers` / `api-csparse` and are not duplicated here
 
 [RAIL_LAW]:
 - Package: `MathNet.Numerics` (core assembly, non-provider namespaces)
-- Owns: probability distributions, numerical integration (incl. adaptive Gauss-Kronrod and 2D/3D), root-finding (`Brent`/`Bisection`/`Newton`/`RobustNewton`/`Secant`/`Broyden`/`Cubic`), interpolation (cubic-spline family + polynomial + rational), special functions (Gamma/Beta/erf/Bessel)
-- Accept: `Func<double, double>` integrands and root targets, `IContinuousDistribution`/`IDiscreteDistribution` seams, `IInterpolation` results, the no-throw `TryFindRoot` rail form
-- Reject: hand-rolled distribution PDF/CDF, custom quadrature when `Integrate` covers the interval shape, a phantom `FindRoots` aggregator, local reimplementations of Gamma/Beta/erf/Bessel
+- Owns: probability distributions, numerical integration (incl. adaptive Gauss-Kronrod and 2D/3D), root-finding (`Brent`/`Bisection`/`Newton`/`RobustNewton`/`Secant`/`Broyden`/`Cubic`), interpolation (cubic-spline family + polynomial + rational), special functions (Gamma/Beta/erf/Bessel), discrete Fourier transforms (in-place complex / split-real / packed-real / multi-dim + `FrequencyScale`), window tapers (19-factory `Window` catalog)
+- Accept: `Func<double, double>` integrands and root targets, `IContinuousDistribution`/`IDiscreteDistribution` seams, `IInterpolation` results, the no-throw `TryFindRoot` rail form, in-place `Complex[]`/split `double[]` spectral buffers under a `FourierOptions` scaling, `Window` tapers as `double[]`
+- Reject: hand-rolled distribution PDF/CDF, custom quadrature when `Integrate` covers the interval shape, a phantom `FindRoots` aggregator, local reimplementations of Gamma/Beta/erf/Bessel, a hand-rolled radix-2/Bluestein FFT, a hand-rolled cosine/rectangular taper, `1/N` bin spacing where `Fourier.FrequencyScale` gives the real axis

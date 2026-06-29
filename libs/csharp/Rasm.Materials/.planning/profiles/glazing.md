@@ -18,7 +18,7 @@ THE GLAZING PROFILEFAMILY. The glazing cross-section vocabulary — the insulati
 ```csharp signature
 // --- [TYPES] -------------------------------------------------------------------------------
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<ProfileKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class GlazingBuild {
     public static readonly GlazingBuild Double = new("double", panes: 2, cavities: 1);
     public static readonly GlazingBuild Triple = new("triple", panes: 3, cavities: 2);
@@ -27,7 +27,7 @@ public sealed partial class GlazingBuild {
 }
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<ProfileKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SpacerType {
     public static readonly SpacerType WarmEdge        = new("warm-edge", psiWmK: 0.04);
     public static readonly SpacerType ColdEdgeAluminum = new("cold-edge-aluminum", psiWmK: 0.11);
@@ -37,7 +37,7 @@ public sealed partial class SpacerType {
 // The cavity fill is a closed gas vocabulary, never a free string — each row carries its EN 673 thermal
 // conductivity (W/m·K) so the IGU center-of-glass U-value reads a typed cavity receipt beside SpacerType.PsiWmK.
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<ProfileKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class CavityGas {
     public static readonly CavityGas Air     = new("air",     conductivityWMK: 0.0241);
     public static readonly CavityGas Argon   = new("argon",   conductivityWMK: 0.0162);
@@ -108,7 +108,7 @@ public static class ProfileCatalogue {
             .Choose(row => GlazingOf(row, context, default).ToOption())
             .Choose(shape => shape.Section.ToUnit(context, default).ToOption()
                 .Map(unit => (shape.Id, Profile: new Profile(ProfileFamily.Glazing, unit, Coring.None, shape.Standard, MaterialId.Of("glass.crown")))))
-            .ToFrozenDictionary(static r => r.Id, static r => r.Profile, ProfileKeyPolicy.EqualityComparer);
+            .ToFrozenDictionary(static r => r.Id, static r => r.Profile, ComparerAccessors.StringOrdinal.EqualityComparer);
 }
 ```
 

@@ -209,26 +209,19 @@ public static class RasterAssets {
 - Boundary: avares content is the only Release-time asset origin; remote bytes enter through the raster loader rows and durable artifacts live in the blob lane; the key vocabulary crosses pages as values — sibling catalogs admit their icon and asset columns through `AssetKey` at composition; `Receipt` is this fence's boundary capsule — the probed stream is using-scoped inside the hash fold.
 
 ```csharp signature
-public sealed class AssetKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
-    private static readonly StringComparer Policy = StringComparer.Ordinal;
-
-    public static IEqualityComparer<string> EqualityComparer => Policy;
-
-    public static IComparer<string> Comparer => Policy;
-}
 
 [ValueObject<string>(
     ComparisonOperators = OperatorsGeneration.DefaultWithKeyTypeOverloads,
     EqualityComparisonOperators = OperatorsGeneration.DefaultWithKeyTypeOverloads)]
 [ValidationError<AssetFault>]
-[KeyMemberEqualityComparer<AssetKeyPolicy, string>]
-[KeyMemberComparer<AssetKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public readonly partial struct AssetKey;
 
 [SmartEnum<string>]
 [ValidationError<AssetFault>]
-[KeyMemberEqualityComparer<AssetKeyPolicy, string>]
-[KeyMemberComparer<AssetKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class AssetKind {
     public static readonly AssetKind Vector = new("vector");
     public static readonly AssetKind Raster = new("raster");

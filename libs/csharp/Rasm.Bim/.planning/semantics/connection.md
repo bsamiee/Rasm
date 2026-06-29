@@ -1,235 +1,184 @@
 # [BIM_CONNECTION]
 
-The host-neutral structural-connection sub-domain: one `ConnectionDetail` record carrying the physical joint the `Model/structural#ANALYSIS_MODEL` `MemberConnection` edge names only abstractly — a closed `ConnectionRealization` `[Union]` (`Bolted`/`Welded`/`Bearing`/`Cast`) over the `IfcRelConnectsWithRealizingElements` realizing-element set and the realizing `IfcMechanicalFastener`/`IfcFastener`/`IfcReinforcingElement` family, a `BoltPattern` `[ComplexValueObject]` (grade/diameter/gauge grid/edge distance), a `WeldSchedule` `[ComplexValueObject]` (process/throat/leg/intermittent pitch), a `Clearance` envelope, and the `ConnectionProjection.Project` fold from the GeometryGym realizing-element surface — joined to the analytical graph by the `MemberConnection` `GlobalId` pair and to the physical `BimElement` by `GlobalId`, with a `(GeometryKey, DetailKey)` content-key identity the fabrication consumer reads. The connection is the host-neutral counterpart to the abstract `MemberConnection` edge: the analytical model names WHICH members meet, the connection detail names HOW they join — bolt patterns, weld schedules, bearing surfaces, and clearance envelopes — so the fabrication and structural consumers both read one typed detail. The connection is HOST-NEUTRAL — the realizing-element geometry binds the kernel `Rasm` geometry by reference like every other Bim owner, never re-tessellated — and is the `Model <- csharp:Rasm.Materials/Connection` `ConnectionItem` IFC-wire seam owner on the Bim side: `Rasm.Materials` defers the IFC 4.3 serialization of its `ConnectionItem` axis to this owner as portable scalar/handle data, the Bim side mapping the `ConnectionItem` `Family`/`Section` columns onto the `IfcReinforcingBar`/`IfcMechanicalFastener` structural elements and the new joint weld/stud onto `IfcMechanicalFastener` + `IfcRelConnectsWithRealizingElements`. A connection rejection lowers onto `Model/faults#FAULT_BAND` `BimFault` via `.ToError()`, never a new fault family.
+`ConnectionProjection` is the realizing-element connection-detail reader the `Projection/semantic#SEMANTIC_PROJECTOR` `SemanticProjector` composes: it lowers the WHOLE GeometryGym realizing-element surface — the bolted/welded `IfcMechanicalFastener` and the bonded/welded `IfcFastener`, the cast-in `IfcReinforcingBar`/`IfcReinforcingMesh`/`IfcTendon`/`IfcTendonAnchor`, and the support `IfcBearing` — onto a NEUTRAL seam connection-detail `Properties/property#PROPERTY_BAG` `PropertySet` bag bound to the realizing element's `Graph/element#NODE_MODEL` `Object` node through one `Relations/relation#EDGE_ALGEBRA` `Assign.PropertyDefinition` edge, so a `csharp:Rasm.Fabrication` detailer reads the bolt diameter, the stud-shear connector, the reinforcing cover, the post-tensioning tendon, and the bearing type off the ONE `Graph/element#ELEMENT_GRAPH` `Bake`-derived element it already holds — never a second store. The physical joint TOPOLOGY — which two members meet through which realizing element — is the `Relations/relation#EDGE_ALGEBRA` `Connect(ConnectKind.Realizing)` edge the `Projection/semantic#RELATION_ALGEBRA` `EdgeProjection` already authors from `IfcRelConnectsWithRealizingElements` (reading the realizing head into the seam `Connect.Realizing` option); this page owns ONLY the realizing element's fabrication DETAIL the general `Object` fold does not read — the native reinforcing scalars and the fastener nominal diameter the internal GeometryGym scalar hides.
+
+This RETIRES the migration source's parallel `ConnectionDetail` record + `ConnectionRealization` `[Union]` + `BoltPattern`/`WeldSchedule`/`BearingSurface` `[ComplexValueObject]` + `ConnectionKind`/`Clearance` family keyed by `BimModel`/`GlobalId` AND its hand-rolled `(GeometryKey, DetailKey)` second content-key — the very "second stored record off the element" the rebuild forbids, mirroring `Model/structural#STRUCTURAL_PROJECTION` `StructuralProjection` retiring the `MemberConnection`/`SupportRestraint` typed store — AND the `ConnectionItemWire`/`ConnectionWire` second wire crossing the `Rasm.Materials` boundary, the deleted form mirroring `Semantics/composition#MATERIAL_COMPOSITION` retiring the `MaterialAssignmentWire`/`MaterialPropertyWire` carriers. The joint modality is the realizing `Object.PredefinedType` token plus the bag's `JointType` enumerated, the bolt/weld/bearing/cast detail is typed `Properties/property#PROPERTY_VALUE` `PropertyValue` entries, and the IFC egress is the `Projection/semantic#IFC_EGRESS` `Emit` generic round-trip — the realizing `IfcMechanicalFastener`/`IfcReinforcingBar` re-authored as an `Object` node, the detail bag as an `IfcPropertySet` through `ReauthorProperties`, the joint as `IfcRelConnectsWithRealizingElements` through `ReauthorRelationships` — never a connection-specific writer. The reader is HOST-NEUTRAL (it binds the realizing geometry by the `Graph/element#NODE_MODEL` `RepresentationContentHash` content key, never re-tessellating the fastener) and TOTAL (a realizing element with no readable detail yields no bag, an unrooted realizing endpoint is the `EdgeProjection` `Connect`-edge `edge-endpoint-miss`, never this reader's fault), a peer of `Semantics/composition#MATERIAL_COMPOSITION` `MaterialProjection`, `Model/structural#STRUCTURAL_PROJECTION` `StructuralProjection`, and `Semantics/georeference#GEO_REFERENCE` `GeoReferenceProjector` — so a connection enrichment never re-cases `Model/faults#FAULT_BAND` `BimFault`.
 
 ## [01]-[INDEX]
 
-- [01]-[CONNECTION_DETAIL]: `ConnectionDetail` record, the `ConnectionRealization` `[Union]` (`Bolted`/`Welded`/`Bearing`/`Cast`), the `BoltPattern`/`WeldSchedule`/`BearingSurface` `[ComplexValueObject]` rows, the `ConnectionKind` `[SmartEnum<string>]`, and the `ConnectionProjection.Project`/`ProjectAll` fold from `IfcRelConnectsWithRealizingElements`.
-- [02]-[CONNECTION_WIRE]: the `Rasm.Materials` `ConnectionItem` axis IFC 4.3 serialization — the `ConnectionItemWire` carrier and `ConnectionWire.Author` realizing-element `IfcReinforcingBar`/`IfcMechanicalFastener` + `IfcRelConnectsWithRealizingElements` egress, the connection-item egress this owner keeps until a future Connection `IElementProjection` subsumes it; the material/composition/property/classification egress is RETIRED here (the `MaterialAssignmentWire`/`MaterialPropertyWire` carriers are gone) — it reads the projected seam `Material` subgraph through `Semantics/composition`/`classification` composed by `Projection/semantic#IFC_EGRESS` `Emit` (appearance reconciles at the content-key through `Semantics/appearance`).
+- [01]-[CONNECTION_DETAIL]: `ConnectionProjection` the GeometryGym realizing-element-detail reader — `Detail` the ONE polymorphic attribute-bag reader discriminating the SEVEN-family realizing-element surface (`IfcMechanicalFastener` bolt/weld, `IfcFastener` glue/mortar/weld, `IfcReinforcingBar`/`IfcReinforcingMesh`/`IfcTendon`/`IfcTendonAnchor` cast, `IfcBearing` support) onto its neutral `Map<PropertyName, PropertyValue>` connection-detail bag, the `Joint`/`Token`/`Measured`/`Rows` row-fold each arm composes (the `JointType` modality, a token, an SI `Measured` over its `Dimension`), `DiameterOf` the fastener/tendon nominal-diameter recovery through the associated `IfcMaterialProfileSetUsage` `IfcCircleProfileDef.Radius` cross-section (the public channel for the GeometryGym-internal `mNominalDiameter` scalar), `Bag` the realizing-vs-not gate composing the shared `Mint` content-keyed seam `PropertySet` node, and `All` the fold over the model's `Extract<IfcElement>` stream (the `Detail` switch the sole realizing discriminator) producing the `(bag node, Assign.PropertyDefinition edge)` pairs the `Projection/semantic#SEMANTIC_PROJECTOR` `Project` composes onto the `ElementGraph`.
 
 ## [02]-[CONNECTION_DETAIL]
 
-- Owner: `ConnectionDetail` the single host-neutral connection record carrying the `ConnectionKind` discriminant, the connected `(MemberGlobalId, MemberGlobalId)` pair the `Model/structural#ANALYSIS_MODEL` `MemberConnection` edge names, the realizing-element `GlobalId` set, the typed `ConnectionRealization`, the `Clearance` envelope, and the `(GeometryKey, DetailKey)` content-key identity the fabrication consumer reads; `ConnectionRealization` the closed `[Union]` discriminating the four physical joint modalities — `Bolted` (the `BoltPattern` over the `IfcMechanicalFastener` `BOLT`/`ANCHORBOLT` realizing set), `Welded` (the `WeldSchedule` over the `IfcMechanicalFastener` `STUDSHEARCONNECTOR`/`SHEARCONNECTOR` weld/stud realizing set), `Bearing` (the `BearingSurface` over a bearing realizing element), `Cast` (the `IfcReinforcingBar`/`IfcReinforcingMesh` cast-in reinforcing realizing set) — each binding its realizing-element `GlobalId` set; `BoltPattern` the `[ComplexValueObject]` (grade/nominal diameter/gauge grid rows/edge distance), `WeldSchedule` the `[ComplexValueObject]` (process/throat/leg/intermittent pitch), `BearingSurface` the `[ComplexValueObject]` (area/material/restraint); `ConnectionKind` the `[SmartEnum<string>]` over the joint discipline; `ConnectionProjection` the static fold over the GeometryGym `IfcRelConnectsWithRealizingElements` surface.
-- Cases: `ConnectionRealization` arms `Bolted` (the `BoltPattern` plus the `Seq<string>` fastener realizing GlobalIds) · `Welded` (the `WeldSchedule` plus the stud/weld realizing GlobalIds) · `Bearing` (the `BearingSurface` plus the bearing realizing GlobalIds) · `Cast` (the `Seq<string>` reinforcing-bar/mesh realizing GlobalIds plus the cover/lap rows) (4) — a guessed fifth modality folds onto the nearest arm through the `ConnectionRealization.Of` resolver reading the realizing `IfcElement` runtime type; the `BoltPattern` carries `Grade` (the bolt grade string, e.g. `8.8`/`A325`), `NominalDiameter` (a kernel-SI scalar), the `Seq<(double Gauge, double Pitch)>` grid rows, and `EdgeDistance`; the `WeldSchedule` carries `Process` (e.g. `FW`/`PJP`/`CJP`), `Throat`, `Leg`, and `IntermittentPitch` (zero for a continuous weld); the `BearingSurface` carries `Area`, `Material`, and the `Restraint` degrees-of-freedom flags.
-- Entry: `ConnectionProjection.Project(IfcRelConnectsWithRealizingElements rel, BimModel federated)` folds one GeometryGym realizing-element relationship into one `ConnectionDetail` — reading the `RelatingElement`/`RelatedElement` `IfcElement` pair onto the connected member GlobalIds, the `RealizingElements` `SET<IfcElement>` onto the realizing-element GlobalId set, discriminating the realizing-element runtime family onto the `ConnectionRealization` arm (an `IfcMechanicalFastener` `BOLT` realizing set folds onto `Bolted` reading the `NominalDiameter`/`NominalLength` onto the `BoltPattern`, a `STUDSHEARCONNECTOR` onto `Welded`, an `IfcReinforcingBar`/`IfcReinforcingMesh` onto `Cast` reading the `NominalDiameter`/`CrossSectionArea`/`BarLength`), and deriving the `(GeometryKey, DetailKey)` identity — `Fin<T>` aborts on a realizing element the federated model never declares (`Model/faults#FAULT_BAND` `BimFault.DanglingReference`) lowered with `.ToError()`; `ConnectionProjection.ProjectAll(DatabaseIfc db, BimModel federated)` lifts every `IfcRelConnectsWithRealizingElements` the database carries onto the `Seq<ConnectionDetail>` the fabrication consumer and the `[02]-[CONNECTION_WIRE]` author read.
-- Auto: `Project` reads the `IfcRelConnectsWithRealizingElements` runtime graph — the `RealizingOf` projection materializes the `RealizingElements` set once, the `RealizationOf` fold discriminates the realizing-element runtime type (the dominant family selecting the arm: a fastener-majority realizing set is `Bolted`/`Welded` by the `IfcMechanicalFastenerTypeEnum` `PredefinedType` partition — `BOLT`/`ANCHORBOLT`/`DOWEL`/`SCREW`/`RIVET`/`NAIL` onto `Bolted`, `STUDSHEARCONNECTOR`/`SHEARCONNECTOR` onto `Welded` — a reinforcing-majority set is `Cast`, a bearing realizing element is `Bearing`), each arm reading its realizing-element scalar members (the fastener `BoltPattern`/`WeldSchedule` diameter through the fastener's associated `IfcMaterialProfileSetUsage` circle-profile radius — the public channel for the GeometryGym-internal `IfcMechanicalFastener` nominal scalars — and the public `IfcReinforcingBar.NominalDiameter`/`CrossSectionArea`/`BarLength` onto the `Cast` cover/lap rows) as host-neutral scalar data, never re-tessellating the fastener geometry; the `ConnectionDetail.Identity` derives the `(GeometryKey, DetailKey)` `UInt128` pair — `GeometryKey` over the realizing-element GlobalIds through `XxHash128.HashToUInt128` and `DetailKey` over the typed realization scalars so the fabrication consumer re-reads only a changed detail; the `BindFederated` fold confirms each realizing-element and connected-member GlobalId resolves against the `Model/elements#ELEMENT_MODEL` `BimModel` index so a dangling realizing element lowers `BimFault.DanglingReference`.
-- Receipt: the `Seq<ConnectionDetail>` is the connection evidence the `csharp:Rasm.Fabrication` connection-detailing consumer reads by the `(GeometryKey, DetailKey)` reference (the bolt pattern, the weld schedule, the bearing surface, and the cast reinforcing each binding the realizing-element set), the `Model/structural#ANALYSIS_MODEL` `MemberConnection` edge resolves its physical joint by the connected-member GlobalId pair, and the `[02]-[CONNECTION_WIRE]` IFC author serializes the realizing elements to IFC 4.3; a steel bolted moment connection, a precast bearing, and a cast-in reinforcing lap each carry their full physical detail on one host-neutral record.
-- Packages: GeometryGymIFC_Core, Thinktecture.Runtime.Extensions, System.IO.Hashing, LanguageExt.Core, Rasm
-- Growth: a new joint modality is one `ConnectionRealization` union arm reading the next realizing-element family; a new bolt/weld/bearing parameter is one column on the existing `[ComplexValueObject]`; a new realizing-element type is one runtime-type case the `RealizationOf` fold reads; never a per-joint-type connection record, never a second connection store, and never a re-tessellation of the realizing fastener.
-- Boundary: `ConnectionDetail` is ONE record discriminated by the `ConnectionRealization` union — a `BoltedConnection`/`WeldedConnection`/`BearingConnection`/`CastConnection` class family or four sibling factory methods is the deleted form mirroring the no-per-element-class law at `Model/elements#ELEMENT_MODEL`; the connection detail stays host-neutral scalar/handle data and never re-tessellates the fastener — a RhinoCommon `Brep`/`Mesh` realizing-element field is the named seam violation, the realizing-element geometry binds the kernel `Rasm` geometry by reference; the GeometryGym `IfcRelConnectsWithRealizingElements.RealizingElements` (`SET<IfcElement>`), `IfcMechanicalFastener.PredefinedType` (`IfcMechanicalFastenerTypeEnum`, the only public scalar — the nominal diameter rides the associated `IfcMaterialProfileSetUsage` circle-profile radius), the public `IfcReinforcingBar.NominalDiameter`/`CrossSectionArea`/`BarLength`/`PredefinedType`, and `IfcReinforcingMesh.MeshLength`/`MeshWidth`/`LongitudinalBarNominalDiameter` member spellings are consumed as settled vocabulary through the realizing-element discrimination and a hand-rolled connection reader is the deleted form; the connection joins the structural graph by the `Model/structural#ANALYSIS_MODEL` `MemberConnection` `GlobalId` pair and the physical `BimElement` by `GlobalId`, never a second member-selection surface; the `(GeometryKey, DetailKey)` content-key identity is derived through the `Review/diff#MODEL_DIFF` `XxHash128.HashToUInt128` idiom and the fabrication consumer reads the detail by that reference; a connection rejection lowers onto `Model/faults#FAULT_BAND` `BimFault` through `.ToError()`.
+- Owner: `ConnectionProjection` the static realizing-element-detail reader `SemanticProjector` composes, lowering the WHOLE GeometryGym realizing-element surface onto a NEUTRAL seam `PropertySet` bag on the realizing `Object` node — never a stored record. It owns the polymorphic `Detail` attribute-bag reader (one entry discriminating the SEVEN-family realizing surface — mechanical/non-mechanical fastener, reinforcing bar/mesh/tendon/anchor, support bearing — onto its bolt/weld/bonded/cast/bearing bag through the `Joint`/`Token`/`Measured`/`Rows` row-fold), the `DiameterOf` cross-section diameter recovery, the `Bag` realizing-gate composing the shared `Mint` of the seam `Node.PropertySet`, and the `All` model fold over `Extract<IfcElement>`; the typed structures the migration source minted (`ConnectionDetail`, the `ConnectionRealization` `[Union]`, `BoltPattern`/`WeldSchedule`/`BearingSurface`, `ConnectionKind`, `Clearance`) are all GONE — the realizing element is the seam `Object` node the general `Objects` fold mints, the joint modality its `PredefinedType` token plus the bag `JointType`, the joint topology the neutral `Connect(ConnectKind.Realizing)` edge, and the fabrication scalars the typed `PropertyValue` bag entries.
+- Entry: `ConnectionProjection.Detail(IfcElement realizing)` is the ONE polymorphic, TOTAL attribute-bag reader discriminating on the realizing-element shape — an `IfcMechanicalFastener` onto the bolt/weld bag (the `JointType`/`FastenerType` tokens plus the `NominalDiameter` recovered from the cross-section profile), an `IfcFastener` onto the bonded/weld bag (the `JointType`/`FastenerType` tokens), an `IfcReinforcingBar` onto the cast bag (the `BarType`/`BarSurface` tokens plus the native `NominalDiameter`/`CrossSectionArea`/`BarLength` scalars), an `IfcReinforcingMesh` onto the mesh bag (the `MeshType` token plus the native mesh length/width, the longitudinal/transverse bar diameters, spacings, and cross-section areas), an `IfcTendon` onto the cast bag (the `TendonType` token plus the profile-recovered `NominalDiameter`), an `IfcTendonAnchor`/`IfcBearing` onto its type-token bag (`AnchorType`/`BearingType` plus the normalized `JointType`), and any other (or null) onto the empty bag — no `Fin` rail, because a connection enrichment never fails the whole import over one unreadable detail (the entity class is the general fold's `BimFault.UnmappedClass`, the dangling realizing endpoint its `Connect`-edge `BimFault.DanglingReference`), and no `BoltOf`/`WeldOf`/`CastOf`/`TendonOf`/`BearingOf` sibling family — one polymorphic `Detail` discriminating by input value, the rich arms (`FastenerDetail`/`BarDetail`/`MeshDetail`/`TendonDetail`) reading the hidden scalars, the type-only arms inline; `ConnectionProjection.Bag(IfcElement realizing, double tolerance)` wraps a non-empty `Detail` in the content-keyed seam `Node.PropertySet` (`Option<T>.None` for an empty detail so a detail-free realizing element produces no bag); `ConnectionProjection.All(IfcProject project, Map<string, NodeId> rooted, double tolerance)` folds every `IfcElement` the project carries — the `Detail` switch the SOLE discriminator of the seven realizing families (`IfcMechanicalFastener`/`IfcFastener`/`IfcReinforcingBar`/`IfcReinforcingMesh`/`IfcTendon`/`IfcTendonAnchor`/`IfcBearing`), a non-realizing element folding to the empty `Detail` and so to no bag — into the `Seq<(Node Bag, Relationship Edge)>` the `Projection/semantic#SEMANTIC_PROJECTOR` `Project` concats onto its node and edge sets (exactly as it concats `Materials` and `EdgeProjection.All`), so a new realizing family is one `Detail` arm and never a parallel extract list to drift.
+- Auto: each arm composes its bag through the `Joint`/`Token`/`Measured`/`Rows` row-fold — one `Joint` modality row, the type tokens, and the SI `Measured` rows — so the arm is a flat declarative row list, never a repeated `MeasureValue.OfSi` construction. `Detail` reads the realizing element's NATIVE fabrication scalars the general `Object` fold leaves on the geometry — the reinforcing bar/mesh expose their `NominalDiameter`/`CrossSectionArea`/`BarLength`/`MeshLength`/`MeshWidth`/`LongitudinalBarNominalDiameter`/`TransverseBarNominalDiameter`/`LongitudinalBarSpacing`/`TransverseBarSpacing`/`LongitudinalBarCrossSectionArea`/`TransverseBarCrossSectionArea` as public doubles wrapped directly into a `MeasureValue.OfSi(Dimension.LengthDim/AreaDim, ...)` (the IFC scalars are SI-base, never re-coerced), and the `JointType` enumerated derives from the realizing family (an `IfcMechanicalFastener` `STUDSHEARCONNECTOR`/`SHEARCONNECTOR` or an `IfcFastener` `WELD` is `Welded`, every other discrete mechanical fastener `Bolted`, an `IfcFastener` `GLUE`/`MORTAR` `Bonded`, an `IfcBearing` `Bearing`, a reinforcing bar/mesh/tendon/anchor `Cast`), the `JointKinds` allowed set the egress facet validates against; the mechanical-fastener AND tendon `NominalDiameter` is the special case — `mNominalDiameter`/`mNominalLength` are GeometryGym-internal on both with NO public getter, so `DiameterOf` recovers the diameter through the inherited `HasAssociations` `IfcRelAssociatesMaterial.RelatingMaterial` (`IfcMaterialProfileSetUsage` → `ForProfileSet.MaterialProfiles` → `Profile` → `IfcCircleProfileDef.Radius` × 2), the documented public round-trip channel, yielding `Option<double>.None` (read `IfNone(NaN)` and dropped at the `Filter`, never a fabricated 0) when no circle profile binds; every non-finite scalar (an unset GeometryGym `NaN` default) is dropped at the `Detail` egress `Filter` so a partially-specified realizing element never emits a misleading measure; `Bag` mints the seam `Node.PropertySet` whose id is `NodeId.Content` over the seam `Node.ToCanonicalBytes` (id excluded) so two structurally-identical realizing details dedup to one node, and `All` resolves each realizing element's rooted `NodeId` through the `rooted` map and binds the bag through an `Assign.PropertyDefinition` edge, skipping an unrooted realizing element (the `Connect`-edge `edge-endpoint-miss` is `EdgeProjection`'s, not this fold's).
+- Receipt: the connection-detail bag lands on the ONE seam `ElementGraph` as a `PropertySet` node the `Graph/element#ELEMENT_GRAPH` `Bake` fold merges into `element.Properties` through the realizing element's `Assign.PropertyDefinition` edge, so the `csharp:Rasm.Fabrication` detailer reads `element.Properties.Find("Rasm_ConnectionRealization")` for the bolt diameter / weld stud / reinforcing cover off the baked realizing element, and the joint topology off the `Connect(ConnectKind.Realizing)` edge the `EdgeProjection` authors — a steel bolted moment connection's fasteners, a stud-shear-connector deck weld, and a cast-in reinforcing lap each carrying their physical detail on the one graph the consumer already holds, never a parallel connection store and never a second member-selection surface; the `Projection/semantic#IFC_EGRESS` `Emit` re-authors the bag (`IfcPropertySet` through `ReauthorProperties`) and the joint (`IfcRelConnectsWithRealizingElements` through `ReauthorRelationships`) generically, so the connection round-trips with the rest of the graph.
+- Packages: GeometryGymIFC_Core (the realizing-element surface consumed as settled vocabulary), Rasm.Element (the seam `Node`/`NodeId`/`PropertyBag`/`PropertyName`/`PropertyValue`/`MeasureValue`/`Dimension`/`InheritanceMode`/`Relationship`/`AssignKind` payloads), LanguageExt.Core (`Option`/`Seq`/`Map`).
+- Growth: a new realizing-element family is one arm on the `Detail` switch (a `Rows` of its `Joint`/`Token`/`Measured` rows inline, or a dedicated reader where a hidden scalar needs `DiameterOf`); a new fabrication scalar is one `Measured` row on its arm carrying its `MeasureValue` over the composed `Dimension`; a new joint modality is one `JointKinds` token plus its `JointType` derivation; never a per-joint-type connection record, never a `BoltOf`/`WeldOf`/`CastOf`/`TendonOf`/`BearingOf` sibling family, never a second connection store, never a `(GeometryKey, DetailKey)` parallel content key, and never a re-tessellation of the realizing element.
+- Boundary: the connection detail is the seam `PropertySet` bag on the realizing `Object` node and a typed `ConnectionDetail`/`ConnectionRealization`/`BoltPattern`/`WeldSchedule`/`BearingSurface`/`ConnectionKind`/`Clearance` second-store record family is the deleted form (mirroring `StructuralProjection` retiring `MemberConnection`/`SupportRestraint`) — the realizing element is the seam `Object` node, its detail a property bag the `Bake` fold reads flat; the `BimModel`/`BimElement` join (`federated.Elements`, the `(MemberGlobalId, MemberGlobalId)` pair, the `BindFederated` dangling-reference rail) is GONE with the retired element records, the joint endpoints being the `Connect` edge's `NodeId` pair the `EdgeProjection` resolves and the analytical member↔connection topology the `Model/structural#STRUCTURAL_PROJECTION` `IfcRelConnectsStructuralMember` `Generic` edge, both meeting on the SHARED graph nodes, never a `GlobalId`-pair selection surface; the detail-bag attachment is ONE polymorphic `Detail` discriminating by input value and a `RealizationOf`/`BoltOf`/`WeldOf`/`LapOf`/`TendonOf`/`BearingOf` sibling-method family is the deleted form; the reader is TOTAL and routing a connection detail onto `Model/faults#FAULT_BAND` `BimFault` is the deleted form (the class/reference rails are the general fold's `Fin<GraphDelta>`); the connection detail stays host-neutral scalar data and a RhinoCommon `Brep`/`Mesh` realizing-element field or an in-process fastener tessellation is the named seam violation, the realizing geometry binding by the `RepresentationContentHash` content key; the GeometryGym realizing surface (`IfcMechanicalFastener.PredefinedType` `IfcMechanicalFastenerTypeEnum` and `IfcFastener.PredefinedType` `IfcFastenerTypeEnum`, the public `IfcReinforcingBar.NominalDiameter` (`IfcReinforcingBarType.NominalDiameter` type-fallback)/`CrossSectionArea`/`BarLength`/`PredefinedType`/`BarSurface`, the public `IfcReinforcingMesh.PredefinedType`/`MeshLength`/`MeshWidth`/`LongitudinalBarNominalDiameter`/`TransverseBarNominalDiameter`/`LongitudinalBarSpacing`/`TransverseBarSpacing`/`LongitudinalBarCrossSectionArea`/`TransverseBarCrossSectionArea`, the `IfcTendon.PredefinedType` `IfcTendonTypeEnum` / `IfcTendonAnchor.PredefinedType` `IfcTendonAnchorTypeEnum` / `IfcBearing.PredefinedType` `IfcBearingTypeEnum`, the `HasAssociations` `IfcRelAssociatesMaterial.RelatingMaterial` `IfcMaterialProfileSetUsage` → `IfcCircleProfileDef.Radius` chain) is consumed as settled vocabulary (`.api/api-geometrygym-ifc`) and a hand-rolled realizing reader is the deleted form; the mechanical-fastener and tendon nominal diameter rides the associated circle-profile radius (the public channel for the internal `mNominalDiameter`) and a fabricated `0` diameter on an unprofiled element is the deleted form (the entry reads `NaN` and is dropped at the egress `Filter`); the realizing element's CLASSIFICATION and MATERIAL ride the general `Object`/`Associate` folds, not this bag — a steel grade or embodied-carbon column on the connection bag is the named seam violation (those grow on the seam `MaterialPropertySet` the `Semantics/composition` egress authors); the egress is the `Projection/semantic#IFC_EGRESS` `Emit` generic `ReauthorProperties`/`ReauthorRelationships` and a `ConnectionItemWire`/`ConnectionWire` second wire crossing the `Rasm.Materials` boundary is the deleted form (those Materials wires are retired, a connection element authored from the Materials/Fabrication side projecting onto the seam graph as an `Object` node + `Connect` edge the `Emit` re-authors).
 
-```csharp contract
+```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
-using System.IO.Hashing;
-using System.Text;
 using GeometryGym.Ifc;
 using LanguageExt;
-using LanguageExt.Common;
-using Thinktecture;
+using Rasm.Element;
 using static LanguageExt.Prelude;
 
 namespace Rasm.Bim;
 
-// --- [TYPES] ------------------------------------------------------------------------------
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<InterchangeKeyPolicy, string>]
-public sealed partial class ConnectionKind {
-    public static readonly ConnectionKind Bolted  = new("BOLTED");
-    public static readonly ConnectionKind Welded  = new("WELDED");
-    public static readonly ConnectionKind Bearing = new("BEARING");
-    public static readonly ConnectionKind Cast    = new("CAST");
-}
-
-// --- [MODELS] -----------------------------------------------------------------------------
-[ComplexValueObject]
-public sealed partial class BoltPattern {
-    public string Grade { get; }
-    public double NominalDiameter { get; }
-    public Seq<(double Gauge, double Pitch)> Grid { get; }
-    public double EdgeDistance { get; }
-}
-
-[ComplexValueObject]
-public sealed partial class WeldSchedule {
-    public string Process { get; }
-    public double Throat { get; }
-    public double Leg { get; }
-    public double IntermittentPitch { get; }
-}
-
-[ComplexValueObject]
-public sealed partial class BearingSurface {
-    public double Area { get; }
-    public string Material { get; }
-    public byte Restraint { get; }
-}
-
-[Union]
-public partial record ConnectionRealization {
-    partial record Bolted(BoltPattern Pattern, Seq<string> FastenerGlobalIds);
-    partial record Welded(WeldSchedule Schedule, Seq<string> WeldGlobalIds);
-    partial record Bearing(BearingSurface Surface, Seq<string> BearingGlobalIds);
-    partial record Cast(Seq<string> ReinforcingGlobalIds, double Cover, double LapLength);
-
-    public Seq<string> RealizingGlobalIds => Switch(
-        bolted:  static r => r.FastenerGlobalIds,
-        welded:  static r => r.WeldGlobalIds,
-        bearing: static r => r.BearingGlobalIds,
-        cast:    static r => r.ReinforcingGlobalIds);
-
-    public ConnectionKind Kind => Switch(
-        bolted:  static _ => ConnectionKind.Bolted,
-        welded:  static _ => ConnectionKind.Welded,
-        bearing: static _ => ConnectionKind.Bearing,
-        cast:    static _ => ConnectionKind.Cast);
-}
-
-public readonly record struct Clearance(double Minimum, double Maintenance);
-
-public sealed record ConnectionDetail(
-    string GlobalId,
-    string FirstMemberGlobalId,
-    string SecondMemberGlobalId,
-    ConnectionRealization Realization,
-    Clearance Clearance) {
-    public ConnectionKind Kind => Realization.Kind;
-
-    public (UInt128 GeometryKey, UInt128 DetailKey) Identity => (
-        XxHash128.HashToUInt128(Encoding.UTF8.GetBytes(string.Join(",", Realization.RealizingGlobalIds.Order()))),
-        XxHash128.HashToUInt128(Encoding.UTF8.GetBytes($"{Kind.Key}:{FirstMemberGlobalId}>{SecondMemberGlobalId}")));
-
-    public Fin<ConnectionDetail> BindFederated(BimModel federated) {
-        var index = toHashSet(federated.Elements.Map(static e => e.GlobalId));
-        return Realization.RealizingGlobalIds.Append(Seq(FirstMemberGlobalId, SecondMemberGlobalId))
-            .Filter(static id => id.Length > 0)
-            .Find(id => !index.Contains(id))
-            .Match(
-                Some: id => FinFail<ConnectionDetail>(new BimFault.DanglingReference($"connection-realizing-absent:{GlobalId}:{id}").ToError()),
-                None: () => FinSucc(this));
-    }
-}
-
 // --- [OPERATIONS] -------------------------------------------------------------------------
+// The realizing-element connection-detail reader Projection/semantic#SEMANTIC_PROJECTOR composes: it lowers the WHOLE
+// GeometryGym realizing-element family (mechanical/non-mechanical fastener, reinforcing bar/mesh/tendon/anchor, bearing)
+// onto a NEUTRAL seam PropertySet bag bound to the realizing Object node, never a parallel ConnectionDetail store. The reader is
+// TOTAL — an unreadable detail yields an empty/None bag, never a fault; the element identity, entity class, and
+// dangling-endpoint rails are the general projector's Fin<GraphDelta> concern, so this reader never re-cases BimFault.
+// The joint TOPOLOGY is the Connect(ConnectKind.Realizing) edge EdgeProjection authors; this page owns only the detail.
 public static class ConnectionProjection {
-    public static Fin<ConnectionDetail> Project(IfcRelConnectsWithRealizingElements rel, BimModel federated) =>
-        new ConnectionDetail(
-            rel.GlobalId,
-            rel.RelatingElement?.GlobalId ?? "",
-            rel.RelatedElement?.GlobalId ?? "",
-            RealizationOf(rel.RealizingElements.AsIterable().ToSeq()),
-            new Clearance(0d, 0d))
-        .BindFederated(federated);
+    // The seam Pset the connection detail rides — a custom set name (NOT a buildingSMART Pset_* reserved prefix), the
+    // Pset roster owned by Semantics/properties#PROPERTY_SETS; OccurrenceWins because a realizing detail is occurrence-
+    // specific (no type-driven inheritance), the InheritanceMode the Bake merge reads.
+    const string ConnectionSet = "Rasm_ConnectionRealization";
 
-    public static Fin<Seq<ConnectionDetail>> ProjectAll(DatabaseIfc db, BimModel federated) =>
-        db.Project.Extract<IfcRelConnectsWithRealizingElements>()
-            .AsIterable().ToSeq()
-            .TraverseM(rel => Project(rel, federated)).As();
+    // The five physical joint modalities the realizing-element family derives — the JointType Enumerated allowed-set the
+    // egress facet validates against: a mechanical stud/shear-connector or a WELD fastener is Welded, every other
+    // discrete mechanical fastener Bolted, a glue/mortar fastener Bonded, a support bearing Bearing, a reinforcing
+    // bar/mesh/tendon/anchor Cast — every token has a producing arm.
+    static readonly Seq<string> JointKinds = Seq("Bolted", "Welded", "Bonded", "Bearing", "Cast");
 
-    static ConnectionRealization RealizationOf(Seq<IfcElement> realizing) {
-        var fasteners = realizing.Choose(static e => e is IfcMechanicalFastener f ? Some(f) : None);
-        var reinforcing = realizing.Filter(static e => e is IfcReinforcingBar or IfcReinforcingMesh);
-        return reinforcing.Count >= fasteners.Count && reinforcing.IsEmpty == false
-            ? new ConnectionRealization.Cast(reinforcing.Map(static e => e.GlobalId), 0d, LapOf(reinforcing))
-            : fasteners.Exists(IsWeld)
-                ? new ConnectionRealization.Welded(WeldOf(fasteners), fasteners.Map(static f => f.GlobalId))
-                : new ConnectionRealization.Bolted(BoltOf(fasteners), fasteners.Map(static f => f.GlobalId));
+    // The fold the SemanticProjector composes: every IfcElement the project carries -> (its content-keyed connection-detail
+    // bag node, the Assign.PropertyDefinition edge binding the bag to the realizing Object node). The Detail switch is the
+    // SOLE realizing-family discriminator — a non-realizing element folds to the empty Detail (the boundary _ arm), Bag
+    // returns None, and Choose drops it — so a new realizing family is ONE Detail arm, never a parallel per-type Extract list
+    // to drift out of sync. The one Extract<IfcElement> walk reads every element DIRECTLY (not via the realizing relation) so
+    // an element carries its fabrication detail whether or not it sits in an IfcRelConnectsWithRealizingElements (the joint
+    // topology riding the separate Connect edge), discovers each element once (the realizing families are IfcElement leaves,
+    // so no sibling double-count), and the general Objects fold has already minted each as the Object node this bag binds
+    // against. An unrooted element is skipped (its Connect-edge endpoint is EdgeProjection's edge-endpoint-miss) — TOTAL,
+    // the projector concats the result onto its nodes/edges exactly as it concats Materials/EdgeProjection.All.
+    public static Seq<(Node Bag, Relationship Edge)> All(IfcProject project, Map<string, NodeId> rooted, double tolerance) =>
+        project.Extract<IfcElement>().AsIterable().Choose(realizing => rooted.Find(realizing.GlobalId).Bind(node =>
+            Bag(realizing, tolerance).Map(bag =>
+                ((Node)bag, (Relationship)new Relationship.Assign(node, bag.Id, AssignKind.PropertyDefinition))))).ToSeq();
+
+    // The content-keyed seam PropertySet node, or None for an EMPTY Detail — the realizing-vs-not gate, since a
+    // non-realizing element hits the Detail boundary _ arm (empty) while every realizing family yields at least its Joint
+    // row, so only a real connection detail lands a bag and a non-realizing element is dropped at the All Choose.
+    static Option<Node.PropertySet> Bag(IfcElement realizing, double tolerance) =>
+        Detail(realizing) is { IsEmpty: false } detail
+            ? Some(Mint(new PropertyBag(ConnectionSet, detail, InheritanceMode.OccurrenceWins), tolerance))
+            : Option<Node.PropertySet>.None;
+
+    // The content-keyed seam PropertySet mint Semantics/composition and Semantics/appearance share: construct the node with
+    // a discarded placeholder id, then re-key from the seam Node.ToCanonicalBytes (id excluded) so two structurally-identical
+    // connection details dedup to one node — never a second (GeometryKey, DetailKey) hasher.
+    static Node.PropertySet Mint(PropertyBag bag, double tolerance) {
+        var draft = new Node.PropertySet(NodeId.Content(default), bag);
+        return draft with { Id = NodeId.Content(draft.ToCanonicalBytes(tolerance).Span) };
     }
 
-    static bool IsWeld(IfcMechanicalFastener fastener) =>
-        fastener.PredefinedType is IfcMechanicalFastenerTypeEnum.STUDSHEARCONNECTOR or IfcMechanicalFastenerTypeEnum.SHEARCONNECTOR;
+    // ONE polymorphic realizing-detail reader discriminating on the element shape — never a BoltOf/WeldOf/CastOf/TendonOf/
+    // BearingOf sibling family, and the SOLE realizing-family gate (the _ arm returns the empty bag for a non-realizing
+    // element so All can fold the whole Extract<IfcElement> stream through it, no parallel family list). The egress Filter
+    // drops every non-finite Measure so an unset OPTIONAL IFC scalar (a NaN-default reinforcing scalar, an unprofiled
+    // fastener's absent diameter) never emits a NaN or misleading-0 measure; an arm therefore lists every candidate measure
+    // row unconditionally rather than branching per presence.
+    public static Map<PropertyName, PropertyValue> Detail(IfcElement realizing) => (realizing switch {
+        IfcMechanicalFastener fastener => FastenerDetail(fastener),
+        IfcFastener fastener           => Rows(Joint(JointOf(fastener.PredefinedType)), Token("FastenerType", fastener.PredefinedType.ToString())),
+        IfcReinforcingBar bar          => BarDetail(bar),
+        IfcReinforcingMesh mesh        => MeshDetail(mesh),
+        IfcTendon tendon               => TendonDetail(tendon),
+        IfcTendonAnchor anchor         => Rows(Joint("Cast"), Token("AnchorType", anchor.PredefinedType.ToString())),
+        IfcBearing bearing             => Rows(Joint("Bearing"), Token("BearingType", bearing.PredefinedType.ToString())),
+        _                              => Map<PropertyName, PropertyValue>(),
+    }).Filter(static v => v is not PropertyValue.Measure m || double.IsFinite(m.Value.Si));
 
-    // IfcMechanicalFastener.NominalDiameter/NominalLength are GeometryGym-internal (no public getter on the
-    // occurrence OR its type), so the fastener bolt diameter is read from the cross-section profile the
-    // realizing element binds — DiameterOf reads the IfcMaterialProfileSetUsage radius when present, else 0d.
-    static BoltPattern BoltOf(Seq<IfcMechanicalFastener> fasteners) =>
-        fasteners.HeadOrNone().Match(
-            Some: f => BoltPattern.Create(f.PredefinedType.ToString(), DiameterOf(f), Seq<(double, double)>(), 0d),
-            None: () => BoltPattern.Create("", 0d, Seq<(double, double)>(), 0d));
+    // --- [ROWS] -------------------------------------------------------------------------------
+    // The bag-row constructors so each realizing arm is a flat declarative row list rather than repeating the
+    // Enumerated/Text/Measure/OfSi construction: the joint modality, a text token, and an SI measure over its Dimension.
+    // Rows folds the candidate rows into the one bag; AddOrUpdate keeps the last row per name. The material grade rides
+    // the seam Material subgraph (Semantics/composition), never a SteelGrade column on this connection bag.
+    static (PropertyName, PropertyValue) Joint(string kind) => (PropertyName.Create("JointType"), new PropertyValue.Enumerated(kind, JointKinds));
+    static (PropertyName, PropertyValue) Token(string name, string value) => (PropertyName.Create(name), new PropertyValue.Text(value));
+    static (PropertyName, PropertyValue) Measured(string name, Dimension dim, double si) => (PropertyName.Create(name), new PropertyValue.Measure(MeasureValue.OfSi(dim, si)));
 
-    static WeldSchedule WeldOf(Seq<IfcMechanicalFastener> fasteners) =>
-        WeldSchedule.Create("FW", fasteners.HeadOrNone().Map(DiameterOf).IfNone(0d), 0d, 0d);
+    static Map<PropertyName, PropertyValue> Rows(params (PropertyName Name, PropertyValue Value)[] rows) =>
+        rows.ToSeq().Fold(Map<PropertyName, PropertyValue>(), static (bag, r) => bag.AddOrUpdate(r.Name, r.Value));
 
-    static double LapOf(Seq<IfcElement> reinforcing) =>
-        reinforcing.Choose(static e => e is IfcReinforcingBar bar ? Some(NaNZero(bar.BarLength)) : None).HeadOrNone().IfNone(0d);
+    // --- [FASTENER] ---------------------------------------------------------------------------
+    // A bolted/welded mechanical fastener: the JointType partition + the FastenerType token + the NominalDiameter. The
+    // GeometryGym-internal mNominalDiameter has no public getter, so DiameterOf recovers it through the cross-section
+    // profile radius; an absent diameter reads NaN (IfNone) and drops at the egress Filter rather than a fabricated 0.
+    static Map<PropertyName, PropertyValue> FastenerDetail(IfcMechanicalFastener fastener) => Rows(
+        Joint(JointOf(fastener.PredefinedType)),
+        Token("FastenerType", fastener.PredefinedType.ToString()),
+        Measured("NominalDiameter", Dimension.LengthDim, DiameterOf(fastener).IfNone(double.NaN)));
 
-    // The fastener carries no public nominal scalar, so the diameter rides its cross-section profile radius
-    // reached through the inherited HasAssociations IfcRelAssociatesMaterial.RelatingMaterial
-    // (IfcMaterialProfileSetUsage → IfcCircleProfileDef.Radius); an unprofiled fastener reads 0d.
-    static double DiameterOf(IfcMechanicalFastener fastener) =>
-        fastener.HasAssociations
-            .AsIterable()
-            .OfType<IfcRelAssociatesMaterial>()
-            .Select(static rel => rel.RelatingMaterial)
-            .OfType<IfcMaterialProfileSetUsage>()
-            .SelectMany(static usage => usage.ForProfileSet.MaterialProfiles.AsIterable())
-            .Select(static profile => profile.Profile)
-            .OfType<IfcCircleProfileDef>()
-            .HeadOrNone()
-            .Map(static circle => NaNZero(circle.Radius) * 2d)
-            .IfNone(0d);
+    static string JointOf(IfcMechanicalFastenerTypeEnum type) =>
+        type is IfcMechanicalFastenerTypeEnum.STUDSHEARCONNECTOR or IfcMechanicalFastenerTypeEnum.SHEARCONNECTOR ? "Welded" : "Bolted";
 
-    static double NaNZero(double value) => double.IsNaN(value) ? 0d : value;
+    // The non-mechanical fastener (IfcFastener, sibling of IfcMechanicalFastener): a WELD realizes a Welded joint, a
+    // GLUE/MORTAR a Bonded joint. It exposes only PredefinedType publicly (no diameter), so the inline arm carries the
+    // normalized joint modality + the FastenerType token, the FastenerType token kept (mirroring BarType) for the
+    // detailer's uniform bag read distinct from the Object node's classification-side PredefinedType.
+    static string JointOf(IfcFastenerTypeEnum type) => type is IfcFastenerTypeEnum.WELD ? "Welded" : "Bonded";
+
+    // The fastener/tendon nominal diameter rides its cross-section profile radius: mNominalDiameter/mNominalLength are
+    // internal on the occurrence AND IfcMechanicalFastenerType (and the tendon's diameter likewise internal), no public
+    // getter, so the diameter is recovered through the inherited HasAssociations IfcRelAssociatesMaterial.RelatingMaterial
+    // (IfcMaterialProfileSetUsage -> ForProfileSet.MaterialProfiles -> Profile -> IfcCircleProfileDef.Radius x 2), the
+    // same chain the profile-hosted IfcMechanicalFastener(IfcProduct, IfcMaterialProfileSetUsage, IfcAxis2Placement3D,
+    // double) authoring ctor binds. The finiteness guard rides the Choose so the head is the first circle with a FINITE
+    // radius (a degenerate NaN-radius profile never masks a later valid one); None when no circle profile binds a diameter.
+    static Option<double> DiameterOf(IfcElement element) =>
+        element.HasAssociations.AsIterable()
+            .Choose(static rel => rel is IfcRelAssociatesMaterial { RelatingMaterial: IfcMaterialProfileSetUsage { ForProfileSet: { } profileSet } } ? Some(profileSet) : None)
+            .SelectMany(static set => set.MaterialProfiles.AsIterable())
+            .Choose(static profile => profile.Profile is IfcCircleProfileDef { Radius: var radius } && double.IsFinite(radius) ? Some(radius * 2d) : None)
+            .HeadOrNone();
+
+    // --- [REINFORCING] ------------------------------------------------------------------------
+    // A cast-in reinforcing bar: the public NominalDiameter (IfcReinforcingBarType.NominalDiameter type-fallback get) /
+    // CrossSectionArea / BarLength scalars over their SI dimensions + the BarType (STUD is the cast-in bar, NOT the welded
+    // connector) and BarSurface tokens; the NaN defaults drop at the Detail egress Filter.
+    static Map<PropertyName, PropertyValue> BarDetail(IfcReinforcingBar bar) => Rows(
+        Joint("Cast"),
+        Token("BarType", bar.PredefinedType.ToString()),
+        Token("BarSurface", bar.BarSurface.ToString()),
+        Measured("NominalDiameter", Dimension.LengthDim, bar.NominalDiameter),
+        Measured("CrossSectionArea", Dimension.AreaDim, bar.CrossSectionArea),
+        Measured("BarLength", Dimension.LengthDim, bar.BarLength));
+
+    // A cast-in reinforcing mesh: the full public sheet geometry — overall length/width, the longitudinal/transverse bar
+    // diameters, spacings, and cross-section areas — + the MeshType token, the welded-mesh fabrication detail a single-bar
+    // reader drops; every unset NaN component drops at the Detail egress Filter.
+    static Map<PropertyName, PropertyValue> MeshDetail(IfcReinforcingMesh mesh) => Rows(
+        Joint("Cast"),
+        Token("MeshType", mesh.PredefinedType.ToString()),
+        Measured("MeshLength", Dimension.LengthDim, mesh.MeshLength),
+        Measured("MeshWidth", Dimension.LengthDim, mesh.MeshWidth),
+        Measured("LongitudinalBarNominalDiameter", Dimension.LengthDim, mesh.LongitudinalBarNominalDiameter),
+        Measured("TransverseBarNominalDiameter", Dimension.LengthDim, mesh.TransverseBarNominalDiameter),
+        Measured("LongitudinalBarSpacing", Dimension.LengthDim, mesh.LongitudinalBarSpacing),
+        Measured("TransverseBarSpacing", Dimension.LengthDim, mesh.TransverseBarSpacing),
+        Measured("LongitudinalBarCrossSectionArea", Dimension.AreaDim, mesh.LongitudinalBarCrossSectionArea),
+        Measured("TransverseBarCrossSectionArea", Dimension.AreaDim, mesh.TransverseBarCrossSectionArea));
+
+    // A post-tensioning tendon (IfcReinforcingElement, the cast-in prestressing peer of the bar/mesh): its native
+    // NominalDiameter/CrossSectionArea/TensionForce are GeometryGym-internal with no public getter, so the bag carries the
+    // TendonType token + the diameter recovered through the profile channel (NaN-filtered when unprofiled), the material
+    // grade riding the seam Material subgraph (Semantics/composition), not this connection bag.
+    static Map<PropertyName, PropertyValue> TendonDetail(IfcTendon tendon) => Rows(
+        Joint("Cast"),
+        Token("TendonType", tendon.PredefinedType.ToString()),
+        Measured("NominalDiameter", Dimension.LengthDim, DiameterOf(tendon).IfNone(double.NaN)));
 }
 ```
 
-## [03]-[CONNECTION_WIRE]
+## [03]-[RESEARCH]
 
-- Owner: `ConnectionWire` the Bim-side IFC 4.3 serializer of the `csharp:Rasm.Materials/Connection` `ConnectionItem` axis ONLY — mapping the `ConnectionItem` `Family`/`Section` columns onto the `IfcReinforcingBar`/`IfcMechanicalFastener` structural elements (and the new joint weld/stud onto `IfcMechanicalFastener` `STUDSHEARCONNECTOR` + `IfcRelConnectsWithRealizingElements`). The `ConnectionItemWire` is the ONE carrier this owner reads — the material/composition/property/classification/appearance egress is RETIRED from here: the `Rasm.Materials` `MaterialAssignmentWire`/`MaterialPropertyWire` carriers are GONE (the `csharp:Rasm.Materials/Projection#MATERIAL_PROJECTOR` `MaterialProjector` lowers a material's composition/property/appearance/assessment into the seam `ElementGraph`), so the material subgraph egress reads the projected seam graph through `Semantics/composition#MATERIAL_COMPOSITION` `MaterialProjection.AuthorComposition`/`AuthorUsage` and `Semantics/classification#CLASSIFICATION_AXIS` `ClassificationSystem.Author`, composed by `Projection/semantic#IFC_EGRESS` `Emit` — never a Materials wire crossing this boundary (the appearance round-trips separately through the `Semantics/appearance#MATERIAL_APPEARANCE` `BimAppearance.Author` content-key owner, the seam `Appearance`-node egress its own concern).
-- Entry: `ConnectionWire.Author(DatabaseIfc db, ConnectionItemWire item)` mints the IFC entities from the Materials portable connection-item data — a `ConnectionItem` keyed on its `ConnectionId`/`Family` discriminant authors the `IfcReinforcingBar` (writing the public `NominalDiameter`/`BarLength` setters) or the `IfcMechanicalFastener` (writing the public `IfcMechanicalFastenerTypeEnum` `PredefinedType` for the weld/stud — `STUDSHEARCONNECTOR` for the welded stud, never the reinforcing-bar `STUD` enum — and authoring through the native `(IfcProduct, IfcMaterialProfileSetUsage, IfcAxis2Placement3D, double length)` ctor whose `profile.Associate(this)` mints the `IfcRelAssociatesMaterial` circle-profile association `DiameterOf` reads back AND whose `length` sweep round-trips the run-length, the fastener's `NominalDiameter`/`NominalLength` being GeometryGym-internal on both the occurrence and its type), wrapping the joint in an `IfcRelConnectsWithRealizingElements` over the connected `IfcElement` pair (the native `(IfcConnectionGeometry, relating, related, realizing)` ctor auto-registering the `IfcElement.IsConnectionRealization` back-pointer) — `Fin<T>` aborts on a captured GeometryGym authoring fault (`Model/faults#FAULT_BAND` `BimFault.ModelRejected`) lowered with `.ToError()`. `Author` is the ONLY entry — the `ConnectionItemWire` remains the connection egress until a future Connection `IElementProjection` subsumes it; the material/composition/property/classification egress is NOT an entry here, it reads the projected seam `Material` subgraph through `Projection/semantic#IFC_EGRESS` `Emit` composing the `Semantics/composition`/`classification` egress owners (appearance reconciles at the content-key through `Semantics/appearance` `BimAppearance.Author`).
-- Auto: `Author` reads the Materials portable `ConnectionItemWire` (the `ConnectionId`/`Family`/`Section`/scalar fields the Materials owner exposes as host-neutral data, never a Materials assembly type) and constructs the IFC entity through the `FactoryIfc` canonical placements — a bolted/welded fastener authors `IfcMechanicalFastener` with the `PredefinedType` (`BOLT`/`STUDSHEARCONNECTOR`) through the native profile-hosting ctor that carries its diameter on the associated `IfcMaterialProfileSetUsage` circle-profile cross-section and its run-length on the swept axis representation (the public round-trip channel for the GeometryGym-internal fastener nominal scalars), a reinforcing item authors `IfcReinforcingBar`/`IfcReinforcingMesh` with the public diameter/area/length setters, and the realizing relationship authors `IfcRelConnectsWithRealizingElements` over the connected element pair with the fastener as the realizing element; the material/composition/property/classification/appearance egress is NOT folded here — the `Projection/semantic#IFC_EGRESS` `Emit` composes `Semantics/composition#MATERIAL_COMPOSITION` `MaterialProjection.AuthorComposition`/`AuthorUsage` (the `IfcMaterialLayerSet`/`IfcMaterialProfileSet`/`IfcMaterialConstituentSet` + the `Pset_Material*` rows + the `Associate`-edge `IfcMaterialLayerSetUsage`/`IfcMaterialProfileSetUsage` [C7]) and `Semantics/classification#CLASSIFICATION_AXIS` `ClassificationSystem.Author` (the `IfcRelAssociatesClassification`/`IfcClassificationReference`) reading the projected seam graph, so this owner folds only the connection-item entity.
-- Receipt: the authored IFC entities are the connection-item serialization the `Model <- csharp:Rasm.Materials/Connection` `[WIRE]` seam reads — a connection round-trips to IFC by its family discriminant, the reinforcing bar / mechanical fastener carrying its nominal diameter on the associated circle-profile and its run-length on the swept axis; the MATERIAL binding of a connection item (its steel grade, embodied carbon, classification, appearance) rides the seam `Material` subgraph the `MaterialProjector` lowers and the `Emit` material egress authors, joined by the connection's element NodeId through the `Associate` edge, NOT this carrier — the Bim side owns the connection-item IFC 4.3 wire here, the material wire reads the seam graph.
-- Packages: GeometryGymIFC_Core, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm
-- Growth: a new realizing-element family is one IFC entity the `Author` switch mints from the Materials portable connection-item row; never a per-family wire entrypoint, never a Materials assembly type crossing this boundary; a new material Pset, sustainability metric, or classification standard is NOT a growth point here — those grow on the seam `MaterialPropertySet`/`Classification` family the `Semantics/composition`/`classification` egress authors; a future Connection `IElementProjection` (one registration row, the `csharp:Rasm.Materials/Projection#MATERIAL_PROJECTOR` sibling) would subsume even this `ConnectionItemWire` carrier by lowering a connection item into the seam `Object` graph — until then the connection-item egress is this wire.
-- Boundary: the connection wire is the connection-item consumer end of the `Model <- csharp:Rasm.Materials/Connection` `[WIRE]` seam — host-neutral, reading the Materials `ConnectionId`/`Family`/`Section`-keyed portable scalar/string data (never a `Rasm.Materials` assembly type crossing the boundary) and emitting the `IfcReinforcingBar`/`IfcMechanicalFastener`/`IfcRelConnectsWithRealizingElements` entities through the `FactoryIfc` canonical placements, a hand-rolled STEP entity writer being the deleted form; the fastener nominal diameter rides its associated `IfcMaterialProfileSetUsage` circle-profile cross-section (the public round-trip channel for the GeometryGym-internal nominal scalars); the `IfcMaterialLayerSet`/`IfcMaterialProfileSet`/`IfcMaterialConstituentSet` material-assembly egress, the `IfcMaterialProperties` `Pset_Material*` egress, and the `IfcClassificationReference` egress are NOT here — those read the projected seam `Material` node + `Associate` usage edge + `Object` node `Classification` through `Semantics/composition#MATERIAL_COMPOSITION`/`Semantics/classification#CLASSIFICATION_AXIS` (composed by `Projection/semantic#IFC_EGRESS` `Emit`), so a `MaterialAssignmentWire`/`MaterialPropertyWire` carrier crossing this boundary is the deleted form (those Materials wires are retired, the material/property/classification egress reading the seam graph, the seam aligning by the element NodeId and `MaterialId`); a wire rejection lowers onto `Model/faults#FAULT_BAND` `BimFault` through the `Try.lift(...).Run().MapFail(...)` funnel.
-
-```csharp signature
-// --- [MODELS] ------------------------------------------------------------------------------
-// The connection-item seam carrier is DECLARED ONCE by the producer at csharp:Rasm.Materials/Connection#CONNECTION_WIRE
-// (the host-neutral owner that owns the portable wire face — ARCHITECTURE C#-sole-producer law); this consumer reads
-// the IDENTICAL field shapes one-hop and NEVER re-declares a divergent carrier. Reproduced here as the settled seam
-// contract this fence reads: host-neutral scalar/string rows, NEVER a Rasm.Materials ConnectionItem crossing the
-// boundary. The retired MaterialAssignmentWire/MaterialPropertyWire carriers are GONE — the material/composition/
-// property/classification egress reads the projected seam Material subgraph (Semantics/composition +
-// Semantics/classification, composed by Projection/semantic#IFC_EGRESS Emit; appearance reconciles at the
-// content-key via Semantics/appearance), never a wire.
-public sealed record ConnectionItemWire(string ConnectionId, string Family, string Section, double NominalDiameter, double Length, string FastenerType);
-
-// --- [OPERATIONS] --------------------------------------------------------------------------
-public static class ConnectionWire {
-    public static Fin<IfcElement> Author(DatabaseIfc db, ConnectionItemWire item) =>
-        Try.lift(() => AuthorElement(db, item)).Run().MapFail(static error => new BimFault.ModelRejected($"connection-wire:{error.Message}").ToError());
-
-    // IfcReinforcingBar exposes public NominalDiameter/BarLength setters, so the bar writes its scalars
-    // directly through the (IfcObjectDefinition host, IfcObjectPlacement, representation) ctor (NO single-arg
-    // (DatabaseIfc) ctor exists), hosted on db.Project at the factory root placement. IfcMechanicalFastener
-    // carries NO public nominal scalar (mNominalDiameter/mNominalLength are internal on both the occurrence
-    // AND its type), so the fastener authors through the native (IfcProduct host, IfcMaterialProfileSetUsage
-    // profile, IfcAxis2Placement3D placement, double length) ctor: that ctor calls profile.Associate(this)
-    // — minting the same IfcRelAssociatesMaterial → IfcMaterialProfileSetUsage → IfcCircleProfileDef.Radius
-    // chain DiameterOf reads back — AND sweeps the NominalLength as the IfcShapeRepresentation axis, so the
-    // diameter (profile radius × 2) and the run-length round-trip on one native construction, never a
-    // hand-built association that drops the length.
-    static IfcElement AuthorElement(DatabaseIfc db, ConnectionItemWire item) =>
-        item.Family switch {
-            "ReinforcingBar" => new IfcReinforcingBar(db.Project, db.Factory.RootPlacement, null) {
-                NominalDiameter = item.NominalDiameter, BarLength = item.Length, GlobalId = ParserIfc.HashGlobalID(item.ConnectionId),
-            },
-            _ => new IfcMechanicalFastener(db.Project, ProfileUsageOf(db, item), db.Factory.XYPlanePlacement, item.Length) {
-                PredefinedType = Enum.TryParse<IfcMechanicalFastenerTypeEnum>(item.FastenerType, true, out var kind) ? kind : IfcMechanicalFastenerTypeEnum.BOLT,
-                GlobalId = ParserIfc.HashGlobalID(item.ConnectionId),
-            },
-        };
-
-    // The fastener nominal diameter rides the circle-profile cross-section the native ctor's profile.Associate
-    // wires, so the projection's DiameterOf (radius × 2) recovers it from the public material-profile chain.
-    static IfcMaterialProfileSetUsage ProfileUsageOf(DatabaseIfc db, ConnectionItemWire item) =>
-        new(new IfcMaterialProfileSet(item.ConnectionId,
-            new IfcMaterialProfile(item.Section, new IfcMaterial(db, item.Family), new IfcCircleProfileDef(db, item.Section, item.NominalDiameter / 2d))));
-}
-```
-
-## [04]-[RESEARCH]
-
-- [REALIZING_ELEMENT_SURFACE]: the `IfcRelConnectsWithRealizingElements`/`IfcMechanicalFastener`/`IfcReinforcingBar`/`IfcReinforcingMesh` realizing-element surface the `ConnectionProjection.Project` fold reads is verified against the live GeometryGym decompile — `IfcRelConnectsWithRealizingElements : IfcRelConnectsElements` carries `RealizingElements` (`SET<IfcElement>`) plus an internal `ConnectionType` string and inherits `RelatingElement`/`RelatedElement` (`IfcElement`)/`ConnectionGeometry`, the realizing-element back-pointer being `IfcElement.IsConnectionRealization`; `IfcMechanicalFastener : IfcElementComponent` exposes only `PredefinedType` (`IfcMechanicalFastenerTypeEnum`: `BOLT`/`ANCHORBOLT`/`DOWEL`/`NAIL`/`RIVET`/`SCREW`/`SHEARCONNECTOR`/`STAPLE`/`STUDSHEARCONNECTOR`/`COUPLER`) as a public property — its `mNominalDiameter`/`mNominalLength` are `internal` fields with NO public getter/setter on the occurrence OR on `IfcMechanicalFastenerType`, so the fastener diameter rides its associated `IfcMaterialProfileSetUsage` `IfcCircleProfileDef.Radius` cross-section (reached through the inherited `HasAssociations` `IfcRelAssociatesMaterial.RelatingMaterial`) on both the projection read (`DiameterOf`) and the wire author (the native `IfcMechanicalFastener(IfcProduct, IfcMaterialProfileSetUsage, IfcAxis2Placement3D, double length)` ctor whose `profile.Associate(this)` mints that exact association and whose `length` sweep round-trips the nominal length the internal `mNominalLength` cannot expose), the public round-trip channel for the internal nominal scalars; `IfcReinforcingBar : IfcReinforcingElement` carries `NominalDiameter`/`CrossSectionArea`/`BarLength` (double) and `PredefinedType` (`IfcReinforcingBarTypeEnum`: `MAIN`/`SHEAR`/`LIGATURE`/`STUD`/`PUNCHING`/`EDGE`/`RING`/`ANCHORING`/`SPACEBAR`) plus `BarSurface`; `IfcReinforcingMesh : IfcReinforcingElement` carries `MeshLength`/`MeshWidth`/`LongitudinalBarNominalDiameter`/`TransverseBarNominalDiameter`/`LongitudinalBarSpacing`/`TransverseBarSpacing` — so the `RealizationOf` fold reads the real realizing-element scalar members and the `IfcMechanicalFastenerTypeEnum` partition discriminates the `Bolted`/`Welded` arm (the `STUDSHEARCONNECTOR`/`SHEARCONNECTOR` weld/stud onto `Welded`), the connection detail staying host-neutral scalar/handle data and never re-tessellating the fastener; the `.api/api-geometrygym-ifc` catalogue gains the `IfcRelConnectsWithRealizingElements`/`IfcMechanicalFastener`/`IfcReinforcingBar`/`IfcReinforcingMesh` rows the projection fold reads.
-- [MEMBER_CONNECTION_JOIN]: the `Model/structural#ANALYSIS_MODEL` `MemberConnection` `(MemberGlobalId, ConnectionGlobalId)` edge the connection detail resolves its physical joint by grounds against the structural-analysis graph — the analytical model names WHICH members meet (the abstract `MemberConnection` edge) and the `ConnectionDetail` names HOW they join (the `ConnectionRealization` over the realizing elements), the two joined by the connected-member `GlobalId` pair and the physical `BimElement` by `GlobalId` so a connection-capacity binding to the analytical member reads one typed detail; the `(GeometryKey, DetailKey)` content-key the fabrication consumer reads grounds against the `Review/diff#MODEL_DIFF` `XxHash128.HashToUInt128` idiom, the connection owner producing the typed detail and its content-key identity, never a second member-selection surface.
-- [MATERIALS_IFC_WIRE]: the `[03]-[CONNECTION_WIRE]` IFC 4.3 serialization of the `csharp:Rasm.Materials/Connection` `ConnectionItem` axis is the Bim-side counterpart of the `Rasm.Materials` `JOINT_CONNECTION_FAMILY` idea — the Materials owner exposes the `ConnectionItem` `Family`/`Section` columns as the host-neutral `ConnectionItemWire` carrier, and the Bim `ConnectionWire.Author` maps them onto the GeometryGym `IfcReinforcingBar`/`IfcMechanicalFastener` structural elements + `IfcRelConnectsWithRealizingElements`, the fastener nominal diameter riding its `IfcMaterialProfileSetUsage` `IfcCircleProfileDef.Radius` cross-section. The material/composition/property/classification egress is RETIRED from this owner (`ELEMENT-REBUILD-PLAN.md` §6 `Rasm.Materials` ripple — the `MaterialProjector` lowers a material's composition/property/appearance/assessment into the seam `ElementGraph`, the retired `MaterialAssignmentWire`/`MaterialPropertyWire` carriers GONE): `Rasm.Bim` reads the projected seam `Material` node + the `Associate` edge `MaterialUsage` and authors the IFC material-definition family + `IfcMaterialProperties` `Pset_Material*` + `IfcMaterialLayerSetUsage`/`IfcMaterialProfileSetUsage` [C7] through `Semantics/composition#MATERIAL_COMPOSITION` `MaterialProjection.AuthorComposition`/`AuthorUsage`, the `Object` node `Classification` onto `IfcRelAssociatesClassification`/`IfcClassificationReference` through `Semantics/classification#CLASSIFICATION_AXIS` `ClassificationSystem.Author` — both composed by `Projection/semantic#IFC_EGRESS` `Emit`, the GeometryGym material/usage/classification ctor surface decompile-confirmed against the live 25.7.30 surface (`.api/api-geometrygym-ifc` material + classification families); the appearance reconciles separately at the content-key through `Semantics/appearance#MATERIAL_APPEARANCE` `BimAppearance.Author` (the seam `Appearance`-node egress its own round-trip concern, not this material-wire retirement). The `ConnectionItemWire` connection-item egress remains here until a future Connection `IElementProjection` (one registration row, the `csharp:Rasm.Materials/Projection#MATERIAL_PROJECTOR` sibling) subsumes it by lowering a connection item into the seam `Object` graph.
+- [REALIZING_ELEMENT_SURFACE]: the realizing-element surface `ConnectionProjection.Detail` reads grounds against the live GeometryGym 25.7.30 decompile (`.api/api-geometrygym-ifc` rows `IfcRelConnectsWithRealizingElements`/`IfcMechanicalFastener`/`IfcReinforcingBar`/`IfcReinforcingMesh`/`IfcMaterialProfileSetUsage`/`IfcCircleProfileDef`; `assay api` `--key GeometryGymIFC_Core`) — `IfcMechanicalFastener : IfcElementComponent` exposes ONLY `PredefinedType` (`IfcMechanicalFastenerTypeEnum`: `ANCHORBOLT`/`BOLT`/`DOWEL`/`NAIL`/`NAILPLATE`/`RIVET`/`SCREW`/`SHEARCONNECTOR`/`STAPLE`/`STUDSHEARCONNECTOR`/`COUPLER`) as a public scalar — its `mNominalDiameter`/`mNominalLength` are `internal` fields with NO public getter on the occurrence OR `IfcMechanicalFastenerType`, so the diameter rides the associated `IfcMaterialProfileSetUsage` (`ForProfileSet` → `MaterialProfiles` `LIST<IfcMaterialProfile>` → `Profile` → `IfcCircleProfileDef.Radius`) reached through the inherited `IfcObjectDefinition.HasAssociations` (`SET<IfcRelAssociates>`) `IfcRelAssociatesMaterial.RelatingMaterial`, the public channel the profile-hosted authoring ctor `IfcMechanicalFastener(IfcProduct, IfcMaterialProfileSetUsage, IfcAxis2Placement3D, double)` binds; `IfcReinforcingBar : IfcReinforcingElement` carries public `NominalDiameter` (with `IfcReinforcingBarType.NominalDiameter` fallback)/`CrossSectionArea`/`BarLength` (`double`), `PredefinedType` (`IfcReinforcingBarTypeEnum`), and `BarSurface` (`IfcReinforcingBarSurfaceEnum`); `IfcReinforcingMesh : IfcReinforcingElement` carries public `PredefinedType` (`IfcReinforcingMeshTypeEnum`) and `MeshLength`/`MeshWidth`/`LongitudinalBarNominalDiameter`/`TransverseBarNominalDiameter`/`LongitudinalBarSpacing`/`TransverseBarSpacing`/`LongitudinalBarCrossSectionArea`/`TransverseBarCrossSectionArea` (all `double`, `NaN`-defaulted, dropped finite at the `Filter`); the family CLOSES over `IfcFastener : IfcElementComponent` (the non-mechanical sibling of `IfcMechanicalFastener`, public `PredefinedType` `IfcFastenerTypeEnum` `GLUE`/`MORTAR`/`WELD`), `IfcTendon : IfcReinforcingElement` (public `PredefinedType` `IfcTendonTypeEnum` `STRAND`/`WIRE`/`BAR`/`COATED`; its `mNominalDiameter`/`mCrossSectionArea`/`mTensionForce`/`mPreStress` are `internal` with NO public getter, so the diameter rides the SAME `IfcCircleProfileDef.Radius` profile channel as the mechanical fastener), `IfcTendonAnchor : IfcReinforcingElement` (public `PredefinedType` `IfcTendonAnchorTypeEnum`), and `IfcBearing : IfcBuiltElement` (public `PredefinedType` `IfcBearingTypeEnum` `CYLINDRICAL`/`SPHERICAL`/`ELASTOMERIC`/`POT`/`GUIDE`/`ROCKER`/`ROLLER`/`DISK`) — all `IfcElement` → `IfcProduct`, and `IfcMechanicalFastener`/`IfcFastener` and `IfcReinforcingBar`/`Mesh`/`Tendon`/`TendonAnchor` are SIBLINGS leaves, so the one `Extract<IfcElement>` walk discovers each once with no double-count and the `Detail` switch is the sole realizing discriminator (a non-realizing element folds to the empty bag) — so the `Detail` switch reads the real realizing-element scalar members the general `Object` fold does not across the WHOLE realizing family, the connection detail staying host-neutral scalar data and never re-tessellating the element; the `STUDSHEARCONNECTOR`/`SHEARCONNECTOR` mechanical-fastener partition and the `IfcFastener` `WELD` partition discriminate the `Welded` joint, every other discrete mechanical fastener `Bolted`, the `IfcFastener` `GLUE`/`MORTAR` `Bonded`, the `IfcBearing` `Bearing`, and the reinforcing bar/mesh/tendon/anchor `Cast`.
+- [CONNECTION_AS_PROPERTY_BAG]: the connection detail as a seam `PropertySet` bag bound through an `Assign.PropertyDefinition` edge — not a stored record — grounds against `ELEMENT-REBUILD-PLAN.md` §2/§4B (the consumer-facing `Element` is the `Bake` fold, never a second stored record) and the `Model/structural#STRUCTURAL_PROJECTION` precedent (the deep structural reader lowers the GeometryGym surface onto neutral `Map<PropertyName, PropertyValue>` payloads a `Generic` edge or a `PropertySet` node carries, retiring the typed `MemberConnection`/`SupportRestraint` store) — so `Detail` reads directly into the seam `Properties/property#PROPERTY_VALUE` typed bag and `Bag` mints the content-keyed `Graph/element#NODE_MODEL` `Node.PropertySet` (`NodeId.Content` over `Node.ToCanonicalBytes`, the kernel seed-zero `XxHash128` the seam owns [H7], never a second `(GeometryKey, DetailKey)` hasher), the `Graph/element#ELEMENT_GRAPH` `Bake` fold's `Assign.PropertyDefinition` arm merging the bag into `element.Properties`; the typed `BoltPattern`/`WeldSchedule` reconstruction relocates to the `csharp:Rasm.Fabrication` consumer (as the typed analysis model relocated to `Rasm.Compute`), the seam carrying only the neutral typed bag, so the migration source's rich `ConnectionRealization` `[Union]` whose `BoltOf` filled an empty `Grid`/`0` `EdgeDistance` (decorative capability the reader never populated) is the deleted form — the bag carries the genuinely-readable scalars, the custom grid/edge-distance Psets riding the general `Projection/semantic#SEMANTIC_PROJECTOR` `Bags` fold.
+- [JOINT_TOPOLOGY_JOIN]: the joint topology is the `Relations/relation#EDGE_ALGEBRA` `Connect(ConnectKind.Realizing)` edge the `Projection/semantic#RELATION_ALGEBRA` `EdgeProjection` authors from `IfcRelConnectsWithRealizingElements` (reading the relating/related members onto the `From`/`To` endpoints and the realizing head into the `Connect.Realizing` `Option<NodeId>`), so the `(MemberGlobalId, MemberGlobalId)` pair the migration source bound onto a `BimModel`-keyed `ConnectionDetail` is the deleted form — the joint endpoints are the `Connect` edge's resolved `NodeId` pair, the realizing element its `Object` node, and the realizing detail this page's bag; the analytical member↔connection topology the `Model/structural#STRUCTURAL_PROJECTION` `IfcRelConnectsStructuralMember` `Generic` edge carries (the 6-DOF restraint) and the physical realizing `Connect` edge MEET on the SHARED `ElementGraph` nodes (the same rooted `NodeId`s), so a `csharp:Rasm.Compute`/`csharp:Rasm.Fabrication` consumer reads both the analytical idealization and the physical realizing detail off the ONE graph it holds, never a `GlobalId`-pair member-selection surface and never a second store joining them.
+- [EGRESS_AND_WIRE_RETIREMENT]: the connection egress is the `Projection/semantic#IFC_EGRESS` `Emit` generic round-trip, not a connection-specific writer — `Emit.Author` re-authors the realizing `Object` node onto `IfcMechanicalFastener`/`IfcReinforcingBar` (resolving the `IfcClass` from the generic `Classification` code and re-stamping the `PredefinedType` through the `AdmitPredefined` gate [C6]), `ReauthorProperties` re-authors the detail bag onto an `IfcPropertySet` + `IfcRelDefinesByProperties`, and `ReauthorRelationships` re-authors the `Connect(ConnectKind.Realizing)` edge onto `IfcRelConnectsWithRealizingElements` with its realizing intermediary (the special third-endpoint handling) — so the `ConnectionItemWire` carrier + `ConnectionWire.Author` the migration source kept (the Bim-side serializer of the `Rasm.Materials` `ConnectionItem` axis) is the deleted form, mirroring `Semantics/composition#MATERIAL_COMPOSITION` retiring the `MaterialAssignmentWire`/`MaterialPropertyWire` carriers (`ELEMENT-REBUILD-PLAN.md` §6 — `Rasm.Materials` rebuilt as a projector); a connection element authored from the Materials/Fabrication side projects onto the seam graph as an `Object` node + `Connect` edge (a future Fabrication `IElementProjection`, one registration row) the `Emit` re-authors, never a second wire crossing the boundary, the material binding of a realizing element (its steel grade, embodied carbon, classification, appearance) riding the seam `Material` subgraph the `MaterialProjector` lowers and the `Associate` edge joins, NOT this connection bag.

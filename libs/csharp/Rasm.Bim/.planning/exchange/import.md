@@ -1,21 +1,22 @@
 # [BIM_IMPORT_RAIL]
 
-The foreign-bytes ingest rail: one `BimIo` import fold over the `format#FORMAT_AXIS` `InterchangeFormat` rows, dispatching the managed glTF/GLB mesh-and-scene decode through SharpGLTF, the STL/OBJ/OFF mesh-text arm through `geometry3Sharp`, the dedicated PLY decode through `Ply.Net` (retiring the hand-rolled BCL `PlyReader`), the FBX/Collada/3MF scene decode through `AssimpNetter` (retiring the hand-rolled BCL `ThreeMfReader`), the OpenUSD scene decode through `UniversalSceneDescription` `UsdStage`, the in-process semantic IFC/IFC5 graph ingest through GeometryGym, the in-process ISO 10303-21 Part-21 product-structure semantic ingest through the BCL-only `StepReader`, the AP242/native-companion two-hop geometry route, and the Speckle `Base` object-graph seam folding a deserialized `Speckle.Sdk.Models.Base` tree onto the same `ImportedGeometry`/`IfcSemanticModel` carriers — never tessellated BRep. The page composes the kernel `Rasm` geometry and consumes the `format#FORMAT_AXIS` codec/frame rows as settled vocabulary; an IFC/native/Speckle-non-mesh geometry request routes to `tessellation#TESSELLATION_BRIDGE`. The page is HOST-LOCAL in posture; the Speckle seam composes `Speckle.Sdk`/`Speckle.Objects` and runs only in the host-neutral exchange assembly, never inside the in-Rhino plugin ALC.
+The foreign-bytes ingest rail: one `BimIo` import fold over the `format#FORMAT_AXIS` `InterchangeFormat` rows, dispatching the managed glTF/GLB mesh-and-scene decode through SharpGLTF, the STL/OBJ/OFF mesh-text arm through `geometry3Sharp`, the dedicated PLY decode through `Ply.Net` (retiring the hand-rolled BCL `PlyReader`), the FBX/Collada/3MF scene decode through `AssimpNetter` (retiring the hand-rolled BCL `ThreeMfReader`), the OpenUSD scene decode through `UniversalSceneDescription` `UsdStage`, the in-process IFC/IFC5 graph decode through GeometryGym to the live `DatabaseIfc` the `Projection/semantic#SEMANTIC_PROJECTOR` `SemanticProjector` lowers to a seam `GraphDelta`, the in-process ISO 10303-21 Part-21 product-structure semantic ingest through the BCL-only `StepReader`, the AP242/native-companion two-hop geometry route, and the Speckle `Base` object-graph seam folding a deserialized `Speckle.Sdk.Models.Base` tree onto the `ImportedGeometry` display-mesh carrier and a seam `GraphDelta` through the `SpeckleProjector : IElementProjection` host-object projection — never tessellated BRep, never a lossy `IfcSemanticModel` flat-row re-projection. The import rail OWNS the foreign byte->carrier decode; the entity walk, the full `IfcRel*` relationship roster, the typed property/quantity projection, `OwnerHistory`, and `StepHeader` are the `Rasm.Element` seam projector's, read off the live graph. The page composes the kernel `Rasm` geometry and consumes the `format#FORMAT_AXIS` codec/frame rows as settled vocabulary; an IFC/native/Speckle-non-mesh geometry request routes to `tessellation#TESSELLATION_BRIDGE`. The page is HOST-LOCAL in posture; the Speckle seam composes `Speckle.Sdk`/`Speckle.Objects` and runs only in the host-neutral exchange assembly, never inside the in-Rhino plugin ALC.
 
 ## [01]-[INDEX]
 
-- [01]-[IMPORT_RAIL]: foreign-bytes ingest — managed mesh decode and in-process semantic IFC/IFC5/STEP graph.
-- [02]-[SPECKLE_SEAM]: Speckle `Base` object-graph fold — display-mesh decode and host-object semantic projection onto the canonical carriers.
+- [01]-[IMPORT_RAIL]: foreign-bytes ingest — managed mesh decode to `ImportedGeometry`, the in-process IFC/IFC5 decode to the live `DatabaseIfc` the seam `SemanticProjector` lowers, and the in-process STEP product-structure `StepSemanticModel`.
+- [02]-[SPECKLE_SEAM]: Speckle `Base` object-graph — the display-mesh decode to `ImportedGeometry` and the `SpeckleProjector : IElementProjection` host-object projection to a seam `GraphDelta`.
+- [03]-[REIMPORT]: projector-polymorphic incremental re-ingest — re-project a revised source, reconcile to the prior `ElementGraph` by `ExternalId`, emit the delta-cost `GraphDelta`.
 
 ## [02]-[IMPORT_RAIL]
 
-- Owner: `BimIo` — the import fold over `InterchangeFormat`, dispatching the managed glTF/GLB mesh-and-scene decode through SharpGLTF, the OBJ/STL/OFF mesh-text arm through the `geometry3Sharp` `StandardMeshReader`, the dedicated PLY decode through the `Ply.Net` `PlyParser` (the `ply-net` codec retiring the BCL `PlyReader`), the FBX/Collada/3MF scene decode through the `AssimpNetter` `AssimpContext` (the `scene-exchange` codec retiring the BCL `ThreeMfReader`), the OpenUSD scene decode through the `UniversalSceneDescription` `UsdStage` (the `usd-stage` codec), the in-process semantic IFC/IFC5 ingest through GeometryGym over `DatabaseIfc`/`Extract<T>`, the managed BCL-only `StepReader` ISO 10303-21 Part-21 entity-instance-graph semantic ingest over the `StepIso10303` codec, and the AP242/native-companion two-hop geometry route; `ImportedGeometry` the decoded mesh-scene carrier, `IfcSemanticModel` the IFC model-graph projection, `StepSemanticModel` the ISO 10303 product-structure projection.
-- Entry: `BimIo.ImportGeometry(InterchangeFormat format, ReadOnlyMemory<byte> bytes, ClockPolicy clocks)` for the managed mesh-and-scene path (dispatching by `InterchangeCodec` to SharpGLTF, the `geometry3Sharp` mesh-text arm, `Ply.Net`, `AssimpNetter`, `UsdStage`, or ACadSharp); `BimIo.ImportIfc(...)` for the in-process IFC/IFC5 semantic graph; `BimIo.ImportStep(...)` for the in-process ISO 10303-21 Part-21 product-structure semantic graph — `Fin<T>` aborts on a codec reject (`Model/faults#FAULT_BAND` `BimFault.CodecReject`) or a companion-required geometry request (`BimFault.CapabilityMiss`), each lowered with `.ToError()`, the foreign decode arity discriminating on the row's `InterchangeCodec` so a path lands one decode without a call-site type branch, projecting the package or parse exception onto `BimFault.ModelRejected` at the boundary so domain code never sees the SharpGLTF `ModelException`, the GeometryGym parse fault, or a malformed-Part-21 `InvalidDataException`.
-- Auto: binary GLB decode lands through `ModelRoot.ParseGLB(ArraySegment<byte>)` and text `.gltf` decode through `ReadContext.ReadTextSchema2(Stream)` then a `Decompress` pre-decode branch reading the parsed model's `KHR_draco_mesh_compression` primitive extension and `EXT_meshopt_compression` bufferView extension and routing the compressed payload through the package-owned `Draco.Decode(byte[])` and `Meshopt.DecodeVertexBuffer`/`DecodeIndexBuffer`/`DecodeFilterOct`/`DecodeFilterQuat`/`DecodeFilterExp`/`DecodeFilterColor` decoders before `model.LogicalMeshes.Decode()` projecting `IMeshDecoder<Material>` primitives to `ImportedGeometry` vertex and index spans with zero intermediate file; the IFC semantic path constructs a `DatabaseIfc` over the bytes through `DatabaseIfc.ParseString`/`ReadXMLDoc`/`ReadJSON` by the row's format, narrows `db.Project`, and folds `db.Project.Extract<T>()` collecting spatial hierarchy (`IfcSpatialStructureElement`), products (`IfcProduct`, splitting the predefined-type token through `ParserIfc.IdentifyIfcClass(name, out predefinedConstant)` and carrying the `IfcObject.ObjectType` user-defined fallback), property sets (`IfcPropertySet`), quantities (`IfcElementQuantity`), materials (`IfcRelAssociatesMaterial`), classification associations (`IfcRelAssociatesClassification`), type objects (`IfcTypeObject`, widened to carry the type-bound `HasPropertySets` property family, the type materials, and the `IfcTypeProduct.RepresentationMaps` instanced-geometry content key the `Model/elements#BIM_TYPE` `BimType` reads), grouping/zone overlays (`IfcGroup`/`IfcZone`/`IfcSpatialZone` with their `IsGroupedBy` `IfcRelAssignsToGroup` member sets the `Model/zones#ZONE_GRAPH` overlay folds), the map-conversion projection (`IfcGeometricRepresentationContext.HasCoordinateOperation` → `IfcMapConversion`/`IfcProjectedCRS` the `Semantics/georeference#GEO_REFERENCE` `Project` reads), and decomposition relationships (`IfcRelDecomposes`) into the `IfcSemanticModel` graph — never tessellated BRep.
-- Receipt: the `ModelLoad` receipt case carries the format key, codec key, source byte count, and elapsed for a managed mesh import; an IFC semantic ingest stamps the schema version (`db.Release`), the model-view (`db.ModelView`), and the extracted-entity counts; a STEP semantic ingest stamps the `StepProtocol`, the `FILE_SCHEMA` schema name, and the product/definition/assembly/geometry-ref counts; emission rides the sink port at the composition edge.
+- Owner: `BimIo` — the import fold over `InterchangeFormat`, dispatching the managed glTF/GLB mesh-and-scene decode through SharpGLTF, the OBJ/STL/OFF mesh-text arm through the `geometry3Sharp` `StandardMeshReader`, the dedicated PLY decode through the `Ply.Net` `PlyParser` (the `ply-net` codec retiring the BCL `PlyReader`), the FBX/Collada/3MF scene decode through the `AssimpNetter` `AssimpContext` (the `scene-exchange` codec retiring the BCL `ThreeMfReader`), the OpenUSD scene decode through the `UniversalSceneDescription` `UsdStage` (the `usd-stage` codec), the in-process IFC/IFC5 decode through GeometryGym to the live `DatabaseIfc`, the managed BCL-only `StepReader` ISO 10303-21 Part-21 entity-instance-graph semantic ingest over the `StepIso10303` codec, and the AP242/native-companion two-hop geometry route; `ImportedGeometry` the decoded mesh-scene carrier, the live `DatabaseIfc` the IFC graph the `Projection/semantic#SEMANTIC_PROJECTOR` `SemanticProjector` captures and lowers to a seam `GraphDelta`, `StepSemanticModel` the ISO 10303 product-structure projection.
+- Entry: `BimIo.ImportGeometry(InterchangeFormat format, ReadOnlyMemory<byte> bytes, ClockPolicy clocks)` for the managed mesh-and-scene path (dispatching by `InterchangeCodec` to SharpGLTF, the `geometry3Sharp` mesh-text arm, `Ply.Net`, `AssimpNetter`, `UsdStage`, or ACadSharp); `BimIo.ImportIfc(InterchangeFormat format, ReadOnlyMemory<byte> bytes)` for the in-process IFC/IFC5 decode to the live `DatabaseIfc` the seam `SemanticProjector` captures; `BimIo.ImportStep(...)` for the in-process ISO 10303-21 Part-21 product-structure semantic graph — `Fin<T>` aborts on a codec reject (`Model/faults#FAULT_BAND` `BimFault.CodecReject`) or a companion-required geometry request (`BimFault.CapabilityMiss`), each lowered with `.ToError()`, the foreign decode arity discriminating on the row's `InterchangeCodec` so a path lands one decode without a call-site type branch, projecting the package or parse exception onto `BimFault.ModelRejected` at the boundary so domain code never sees the SharpGLTF `ModelException`, the GeometryGym parse fault, or a malformed-Part-21 `InvalidDataException`.
+- Auto: binary GLB decode lands through `ModelRoot.ParseGLB(ArraySegment<byte>)` and text `.gltf` decode through `ReadContext.ReadTextSchema2(Stream)` then a `Decompress` pre-decode branch reading the parsed model's `KHR_draco_mesh_compression` primitive extension and `EXT_meshopt_compression` bufferView extension and routing the compressed payload through the package-owned `Draco.Decode(byte[])` and `Meshopt.DecodeVertexBuffer`/`DecodeIndexBuffer`/`DecodeFilterOct`/`DecodeFilterQuat`/`DecodeFilterExp`/`DecodeFilterColor` decoders before `model.LogicalMeshes.Decode()` projecting `IMeshDecoder<Material>` primitives to `ImportedGeometry` vertex and index spans with zero intermediate file; the IFC semantic path constructs the live `DatabaseIfc` over the bytes through `DatabaseIfc.ParseString`/`ReadXMLDoc`/`ReadJSON` by the row's format — the in-process IFC graph the `Projection/semantic#SEMANTIC_PROJECTOR` `SemanticProjector` captures internally and lowers to a seam `GraphDelta`; the entity walk (`db.Project.Extract<T>()` over the spatial hierarchy, products with the `ParserIfc.IdentifyIfcClass` predefined split, property/quantity sets, materials, classifications, type objects with the `IfcTypeProduct.RepresentationMaps` instanced-geometry content key, the grouping/zone overlays, the `IfcMapConversion`/`IfcProjectedCRS` georeference, and the FULL `IfcRel*` relationship roster including the eight families the retired flat rows stranded), the per-bag `InheritanceMode` stamp, the `OwnerHistory`, and the `StepHeader` are the projector's — read off this live graph, never a lossy `IfcSemanticModel` flat-row re-projection here and never tessellated BRep.
+- Receipt: the `ModelLoad` receipt case carries the format key, codec key, source byte count, and elapsed for a managed mesh import; an IFC decode stamps the schema version (`db.Release`) and the model-view (`db.ModelView`) read off the live `DatabaseIfc` (the entity-count receipt rides the `SemanticProjector`'s delta, not the import rail); a STEP semantic ingest stamps the `StepProtocol`, the `FILE_SCHEMA` schema name, and the product/definition/assembly/geometry-ref counts; emission rides the sink port at the composition edge.
 - Packages: SharpGLTF.Core, SharpGLTF.Toolkit, SharpGLTF.Runtime, GeometryGymIFC_Core, Openize.Drako, Alimer.Bindings.MeshOptimizer, geometry3Sharp, Ply.Net, AssimpNetter, UniversalSceneDescription, ACadSharp, NodaTime, LanguageExt.Core, Rasm
-- Growth: a new managed import is one codec arm on the import fold keyed by the `InterchangeFormat.Codec` row; a new extracted IFC entity family is one `Extract<T>` projection on `IfcSemanticModel`; a new extracted STEP entity family is one `Keyword`-filtered projection on `StepSemanticModel` over the resolved instance graph; a new STEP application protocol is one `InterchangeFormat` row carrying its `StepProtocol` discriminant — the single `StepReader` reads the protocol off `format.StepProtocol` and the entity-instance grammar is protocol-agnostic, so AP203/AP214/AP242 share one reader and one codec without a per-protocol reader; a new glTF compression codec is one `KhrEncoder`-keyed arm on the `Decompress` pre-decode branch symmetric to the `export#EXPORT_RAIL` `GlbBytes` compression switch, never a second importer.
-- Boundary: `BimIo` is the page boundary capsule and its codec arms carry the language-owned statement forms the foreign package decode requires; glTF mesh decode rides the `MeshDecoder.Decode` runtime contract reading `IMeshPrimitiveDecoder.GetPosition`/`GetNormal`/`TriangleIndices` (an accessor-based contract returning per-vertex `Vector3`/index-tuple values, so the decode materializes one contiguous `ImportedGeometry` vertex/normal/index triple at the boundary — the accessor contract admits no zero-copy span into SharpGLTF's internal buffers, so the one boundary materialization, not a per-primitive `float[]` proliferation, is the allocation point); the `mesh-text` decode arm reads the OBJ/STL/OFF mesh-text containers through the `geometry3Sharp` `StandardMeshReader.Read(Stream, extension, ReadOptions)` extension-dispatched reader into a `DMesh3Builder`, projecting the resulting `DMesh3` (`VertexIndices()`/`TriangleIndices()` over the refcounted sparse pools, `GetVertex(int)` `Vector3d` position, `GetVertexNormal(int)` `Vector3f` normal, `GetTriangle(int)` `Index3i`) onto the same contiguous `ImportedGeometry` vertex/normal/index triple the glTF arm materializes — one boundary allocation, the `DMesh3` sparse index space iterated through its live-id enumerators rather than a dense `0..VertexCount` loop because the refcounted pool leaves holes; the `mesh-text` arm is now geometry3Sharp ONLY (OBJ/STL/OFF) because PLY and 3MF left the codec — PLY is the dedicated `ply-net` codec composing `Ply.Net` `PlyParser.Parse(stream, maxChunkSize)` (the `Ply` arm: the `Dataset.Data` `ElementData` rows read the `Vertex` element's typed `x`/`y`/`z`/`nx`/`ny`/`nz` columns as a `System.Array` typed per `DataType` and the `Face` element's `vertex_indices` `int[][]` list column fan-triangulated, retiring the hand-rolled BCL `PlyReader` endian/ascii fork), and FBX/Collada/3MF are the `scene-exchange` codec composing `AssimpNetter` (the `Scene` arm: one disposable `AssimpContext.ImportFileFromStream(stream, PostProcessSteps.Triangulate | JoinIdenticalVertices | GenerateSmoothNormals, format.Key)` folding the `Scene.Meshes` `Vertices`/`Normals`/`Faces` graph onto the triangle-soup, retiring the hand-rolled BCL `ThreeMfReader` OPC/ZIP parse); the OpenUSD `usd-stage` codec composes `UniversalSceneDescription` (the `Usd` arm: `UsdStage.Open` over the temp-path layer stack, `Traverse` filtering each `UsdGeomMesh` prim by `GetTypeName()`, reading the points `VtVec3fArray`/`GfVec3f` and the `GetFaceVertexCountsAttr`/`GetFaceVertexIndicesAttr` `VtIntArray` topology through the typed-array mesh-bridge seam, fan-triangulating each face — USD a scene-graph peer, the BIM semantics staying the GeometryGym IFC graph's, never re-derived from USD prim type names); each arm materializes one contiguous `ImportedGeometry` boundary allocation and the leaked package types (`Ply.Net.*`, `Assimp.*`, `pxr.*`) never cross past `Exchange/import` — internal code holds the canonical carriers per the boundary-mapping law, and the `SWIGTYPE_p_*`/`*PINVOKE` USD interop types never enter the fold; the rejected reader picks stand (`lib3mf` native C++, `Aspose.3D` closed/commercial — `AssimpNetter` ships its own osx-arm64 `libassimp.dylib` admitted as the one scene-exchange owner), and `geometry3Sharp.OBJReader`/`STLReader` stay consumed through the `StandardMeshReader` dispatch, never a second hand-rolled tokenizer; the IFC semantic graph is a model-data projection only — `BaseClassIfc.Extract<T>` collects reachable entities and GeometryGym carries no tessellation kernel, so a geometry request on an IFC row routes to the `tessellation#TESSELLATION_BRIDGE` rail and never evaluates a BRep in-process; the `step-iso10303` STEP route splits two legs: the managed semantic-graph leg is now in-process through the BCL-only `StepReader`, while the B-rep/NURBS geometry leg stays companion-routed because no managed STEP solid evaluator is admitted — `StepReader` strips the Part-21 comment and string spans, splits the HEADER and DATA sections, slices each `#N = ENTITY(...);` statement at depth-zero semicolons, parses each statement into an `Instance(Id, Keyword, Args)` where the recursive-descent `ParseArg` discriminates the Part-21 token grammar into a closed `Arg` `[Union]` — reference `#N` (`Arg.Ref`), string `'...'` with the `''` escape (`Arg.Text`), typed-enum `.X.` (`Arg.Enum`), number (`Arg.Number`), nested list `(...)` (`Arg.List`), typed-constructor `KEYWORD(...)` (`Arg.Typed`), and `$`/`*`/identifier (`Arg.Untyped`) — builds the forward-reference instance graph as a `Dictionary<long, Instance>` resolved in a second pass through `Resolve`, and projects the product structure (`PRODUCT` → `ProductRow`, `PRODUCT_DEFINITION` → `DefinitionRow` walking the `PRODUCT_DEFINITION_FORMATION` reference to its `PRODUCT`, `NEXT_ASSEMBLY_USAGE_OCCURRENCE` → `AssemblyEdge` resolving both relating and related definitions to their product ids) and the AP242 PMI/semantic metadata (`DIMENSIONAL_*`/`DATUM`/`GEOMETRIC_TOLERANCE`/`ANNOTATION_OCCURRENCE` filtered through a frozen `PmiTypes` set into `PmiRow`); the geometry entities (`ADVANCED_BREP_SHAPE_REPRESENTATION`/`MANIFOLD_SOLID_BREP`/`B_SPLINE_SURFACE`/`SHAPE_REPRESENTATION` filtered through a frozen `GeometryTypes` set) are NOT evaluated in-process — `StepReader` carries only their `GeometryRef(Id, EntityType, ShapeDefinitionId)` and routes the actual B-rep/NURBS solid evaluation to the `tessellation#TESSELLATION_BRIDGE` companion rail (OpenCascade serving the STEP solid read), so `TessellationRequiresCompanion` stays `true` on the STEP rows; the rejected managed readers stand — `IxMilia.Step` and `StepFileParser` do not exist on NuGet, `STPLoader` is net35/2015/`AForge.Math`-coupled (RID-unsafe, abandoned), and `DevelApp.StepParser` is a GrammarForge regex/PCRE2 grammar engine that does not model the Part-21 entity-instance graph and pulls a prerelease `ICU4N` alpha transitive — so `StepReader` is the in-process BCL-only entity-instance graph the codec needed and a managed STEP B-rep evaluator beside the companion is the deleted form; GeometryGym is IFC-schema-bound and does not parse generic ISO-10303 AP242 product structure, so it grounds no STEP semantic leg; `DatabaseIfc.Tolerance`/`ToleranceAngleRadians`/`ScaleSI` read the model precision the content-key folds; the `Decompress` pre-decode branch is the decompress-on-import arm symmetric to the `export#EXPORT_RAIL` `GlbBytes` compression switch — `SharpGLTF.Core` ships no compression decoder (the catalogued assembly carries no Draco/meshopt type, decompile-verified absence), so a GLB whose primitive carries a `KHR_draco_mesh_compression` extension or whose bufferView carries an `EXT_meshopt_compression` extension reaches the `LogicalMeshes.Decode()` fold with its accessor data still compressed and unreadable, and `Detect` cannot distinguish a compressed GLB from a plain one because the compression rides a per-primitive/per-bufferView extension, not the row; `SharpGLTF.Core` retains no typed handle to an unrecognized extension (`KHR_draco_mesh_compression`/`EXT_meshopt_compression` have no in-box `JsonSerializable` extension class, so the `ExtraProperties.Extensions` collection never holds them and `ExtraProperties.Extras` is a free-form `JsonNode`, not an extension accessor), so the branch reparses the GLB/glTF JSON chunk the `ReadContext.ReadJson`/`IdentifyBinaryContainer` pair already extracts into a `System.Text.Json.Nodes.JsonNode` tree and reads each `meshes[].primitives[].extensions.KHR_draco_mesh_compression` and `bufferViews[].extensions.EXT_meshopt_compression` object directly out of that tree for its `bufferView`/`count`/`byteStride`/`mode`/`filter` parameters; it routes the `KHR_draco_mesh_compression` primitive payload through `Draco.Decode(byte[])` (downcasting the returned `DracoPointCloud` to `DracoMesh`, reading each `PointAttribute` through `DracoPointCloud.GetNamedAttribute(AttributeType.Position)`/`Normal` and `PointAttribute.GetValueAsVector3(PointAttribute.MappedIndex(point))` per point — the point index mapped to its deduplicated attribute-value index, since Draco shares attribute values across points and `GetValueAsVector3` indexes by value, not point — and the faces through `DracoMesh.NumFaces`/`ReadFace(id, int[3])` yielding point indices aligned with that per-point vertex order, then `Fill`-ing the `MeshPrimitive.GetVertexAccessor("POSITION")`/`"NORMAL"` `Accessor.AsVector3Array()` and the `GetIndexAccessor().AsIndicesArray()` cast to their concrete `Vector3Array`/`IntegerArray` write surface — `Fill(IEnumerable<T>)` is a member of the concrete accessor-array structs, not the `IAccessorArray<T>` interface the factory statically returns, so the decode downcasts to the runtime `Vector3Array`/`IntegerArray` before filling) and the `EXT_meshopt_compression` bufferView payload through `Meshopt.DecodeVertexBuffer`/`DecodeIndexBuffer` then the filter inverse `Meshopt.DecodeFilterOct` (octahedral-encoded normals), `DecodeFilterQuat` (quantized rotations), `DecodeFilterExp` (shared-exponent floats), and `DecodeFilterColor` (quantized vertex color) keyed on the bufferView extension's `mode`/`filter` discriminant, then writes the decompressed buffer back through `ModelRoot.UseBufferView(ArraySegment<byte>, byteStride, BufferMode?)` (the byte buffer wrapped in an `ArraySegment<byte>` so the call binds the strided `(data, byteStride, target)` overload rather than the `(byte[], byteOffset, byteLength, …)` overload, the target read from `BufferView.IsIndexBuffer`) before the `IMeshDecoder` fold so a web-compressed artifact round-trips back through import without a companion — the decode reuses the same dormant `Openize.Drako`/`Alimer.Bindings.MeshOptimizer` surface the export encode switch drives, closing the export-can-compress / import-cannot-decompress asymmetry with zero new package and zero new `InterchangeFormat` row; the SharpGLTF `ReadSettings.Validation` rides `ValidationMode.Strict` on an uncompressed asset so a malformed glTF faults at parse, and a compressed asset parses under `ValidationMode.Skip` past the unrecognized-extension and missing-bufferView-data validation errors the compression extension provokes, then re-validates the reconstructed geometry at the materialization boundary; the `fbx`/`dae` rows are now live `scene-exchange` (`AssimpNetter`) and the USD rows live `usd-stage` (`UniversalSceneDescription`), so the former `import-catalogue-pending` fault no longer fires for them; every codec admit reaching this fold is one `InterchangeCodec`-keyed arm on the existing `ImportGeometry`/`ImportIfc`/`ImportStep` dispatch — the row-promotion discipline `format#FORMAT_AXIS` owns, never a new `BimIo` entrypoint or a parallel importer family — and the companion-versus-managed geometry route is read from the row's `TessellationRequiresCompanion` column rather than a call-site `if (ifc)`/`if (step)` branch; an `IfcImporter`/`GltfImporter`/`PlyImporter`/`SceneImporter`/`UsdImporter`/`StepImporter` service family, a per-extension `DracoImporter`/`MeshoptImporter`, a per-protocol AP203/AP214/AP242 STEP reader, and a managed IFC or STEP B-rep tessellator are the deleted forms.
+- Growth: a new managed import is one codec arm on the import fold keyed by the `InterchangeFormat.Codec` row; a new extracted IFC entity family is one `Extract<T>` arm on the `Projection/semantic#SEMANTIC_PROJECTOR` `SemanticProjector`, never on the import rail (which owns only the byte->`DatabaseIfc` decode); a new extracted STEP entity family is one `Keyword`-filtered projection on `StepSemanticModel` over the resolved instance graph; a new STEP application protocol is one `InterchangeFormat` row carrying its `StepProtocol` discriminant — the single `StepReader` reads the protocol off `format.StepProtocol` and the entity-instance grammar is protocol-agnostic, so AP203/AP214/AP242 share one reader and one codec without a per-protocol reader; a new glTF compression codec is one `KhrEncoder`-keyed arm on the `Decompress` pre-decode branch symmetric to the `export#EXPORT_RAIL` `GlbBytes` compression switch, never a second importer.
+- Boundary: `BimIo` is the page boundary capsule and its codec arms carry the language-owned statement forms the foreign package decode requires; glTF mesh decode rides the `MeshDecoder.Decode` runtime contract reading `IMeshPrimitiveDecoder.GetPosition`/`GetNormal`/`TriangleIndices` (an accessor-based contract returning per-vertex `Vector3`/index-tuple values, so the decode materializes one contiguous `ImportedGeometry` vertex/normal/index triple at the boundary — the accessor contract admits no zero-copy span into SharpGLTF's internal buffers, so the one boundary materialization, not a per-primitive `float[]` proliferation, is the allocation point); the `mesh-text` decode arm reads the OBJ/STL/OFF mesh-text containers through the `geometry3Sharp` `StandardMeshReader.Read(Stream, extension, ReadOptions)` extension-dispatched reader into a `DMesh3Builder`, projecting the resulting `DMesh3` (`VertexIndices()`/`TriangleIndices()` over the refcounted sparse pools, `GetVertex(int)` `Vector3d` position, `GetVertexNormal(int)` `Vector3f` normal, `GetTriangle(int)` `Index3i`) onto the same contiguous `ImportedGeometry` vertex/normal/index triple the glTF arm materializes — one boundary allocation, the `DMesh3` sparse index space iterated through its live-id enumerators rather than a dense `0..VertexCount` loop because the refcounted pool leaves holes; the `mesh-text` arm is now geometry3Sharp ONLY (OBJ/STL/OFF) because PLY and 3MF left the codec — PLY is the dedicated `ply-net` codec composing `Ply.Net` `PlyParser.Parse(stream, maxChunkSize)` (the `Ply` arm: the `Dataset.Data` `ElementData` rows read the `Vertex` element's typed `x`/`y`/`z`/`nx`/`ny`/`nz` columns as a `System.Array` typed per `DataType` and the `Face` element's `vertex_indices` `int[][]` list column fan-triangulated, retiring the hand-rolled BCL `PlyReader` endian/ascii fork), and FBX/Collada/3MF are the `scene-exchange` codec composing `AssimpNetter` (the `Scene` arm: one disposable `AssimpContext.ImportFileFromStream(stream, PostProcessSteps.Triangulate | JoinIdenticalVertices | GenerateSmoothNormals, format.Key)` folding the `Scene.Meshes` `Vertices`/`Normals`/`Faces` graph onto the triangle-soup, retiring the hand-rolled BCL `ThreeMfReader` OPC/ZIP parse); the OpenUSD `usd-stage` codec composes `UniversalSceneDescription` (the `Usd` arm: `UsdStage.Open` over the temp-path layer stack, `Traverse` filtering each `UsdGeomMesh` prim by `GetTypeName()`, reading the points `VtVec3fArray`/`GfVec3f` and the `GetFaceVertexCountsAttr`/`GetFaceVertexIndicesAttr` `VtIntArray` topology through the typed-array mesh-bridge seam, fan-triangulating each face — USD a scene-graph peer, the BIM semantics staying the GeometryGym IFC graph's, never re-derived from USD prim type names); each arm materializes one contiguous `ImportedGeometry` boundary allocation and the leaked package types (`Ply.Net.*`, `Assimp.*`, `pxr.*`) never cross past `Exchange/import` — internal code holds the canonical carriers per the boundary-mapping law, and the `SWIGTYPE_p_*`/`*PINVOKE` USD interop types never enter the fold; the rejected reader picks stand (`lib3mf` native C++, `Aspose.3D` closed/commercial — `AssimpNetter` ships its own osx-arm64 `libassimp.dylib` admitted as the one scene-exchange owner), and `geometry3Sharp.OBJReader`/`STLReader` stay consumed through the `StandardMeshReader` dispatch, never a second hand-rolled tokenizer; the IFC arm decodes ONLY the live `DatabaseIfc` — the entity walk and the seam-node/edge projection are the `Projection/semantic#SEMANTIC_PROJECTOR` `SemanticProjector`'s (it captures the `DatabaseIfc` internally so GeometryGym never crosses the seam `IElementProjection.Project` signature), and a lossy `IfcSemanticModel` flat-row re-projection here that drops the eight stranded `IfcRel*` families, `OwnerHistory`, and `StepHeader` is the deleted form; GeometryGym carries no tessellation kernel, so a geometry request on an IFC row routes to the `tessellation#TESSELLATION_BRIDGE` rail and never evaluates a BRep in-process; the `step-iso10303` STEP route splits two legs: the managed semantic-graph leg is now in-process through the BCL-only `StepReader`, while the B-rep/NURBS geometry leg stays companion-routed because no managed STEP solid evaluator is admitted — `StepReader` strips the Part-21 comment and string spans, splits the HEADER and DATA sections, slices each `#N = ENTITY(...);` statement at depth-zero semicolons, parses each statement into an `Instance(Id, Keyword, Args)` where the recursive-descent `ParseArg` discriminates the Part-21 token grammar into a closed `Arg` `[Union]` — reference `#N` (`Arg.Ref`), string `'...'` with the `''` escape (`Arg.Text`), typed-enum `.X.` (`Arg.Enum`), number (`Arg.Number`), nested list `(...)` (`Arg.List`), typed-constructor `KEYWORD(...)` (`Arg.Typed`), and `$`/`*`/identifier (`Arg.Untyped`) — builds the forward-reference instance graph as a `Dictionary<long, Instance>` resolved in a second pass through `Resolve`, and projects the product structure (`PRODUCT` → `ProductRow`, `PRODUCT_DEFINITION` → `DefinitionRow` walking the `PRODUCT_DEFINITION_FORMATION` reference to its `PRODUCT`, `NEXT_ASSEMBLY_USAGE_OCCURRENCE` → `AssemblyEdge` resolving both relating and related definitions to their product ids) and the AP242 PMI/semantic metadata (`DIMENSIONAL_*`/`DATUM`/`GEOMETRIC_TOLERANCE`/`ANNOTATION_OCCURRENCE` filtered through a frozen `PmiTypes` set into `PmiRow`); the geometry entities (`ADVANCED_BREP_SHAPE_REPRESENTATION`/`MANIFOLD_SOLID_BREP`/`B_SPLINE_SURFACE`/`SHAPE_REPRESENTATION` filtered through a frozen `GeometryTypes` set) are NOT evaluated in-process — `StepReader` carries only their `GeometryRef(Id, EntityType, ShapeDefinitionId)` and routes the actual B-rep/NURBS solid evaluation to the `tessellation#TESSELLATION_BRIDGE` companion rail (OpenCascade serving the STEP solid read), so `TessellationRequiresCompanion` stays `true` on the STEP rows; the rejected managed readers stand — `IxMilia.Step` and `StepFileParser` do not exist on NuGet, `STPLoader` is net35/2015/`AForge.Math`-coupled (RID-unsafe, abandoned), and `DevelApp.StepParser` is a GrammarForge regex/PCRE2 grammar engine that does not model the Part-21 entity-instance graph and pulls a prerelease `ICU4N` alpha transitive — so `StepReader` is the in-process BCL-only entity-instance graph the codec needed and a managed STEP B-rep evaluator beside the companion is the deleted form; GeometryGym is IFC-schema-bound and does not parse generic ISO-10303 AP242 product structure, so it grounds no STEP semantic leg; `DatabaseIfc.Tolerance`/`ToleranceAngleRadians`/`ScaleSI` read the model precision the content-key folds; the `Decompress` pre-decode branch is the decompress-on-import arm symmetric to the `export#EXPORT_RAIL` `GlbBytes` compression switch — `SharpGLTF.Core` ships no compression decoder (the catalogued assembly carries no Draco/meshopt type, decompile-verified absence), so a GLB whose primitive carries a `KHR_draco_mesh_compression` extension or whose bufferView carries an `EXT_meshopt_compression` extension reaches the `LogicalMeshes.Decode()` fold with its accessor data still compressed and unreadable, and `Detect` cannot distinguish a compressed GLB from a plain one because the compression rides a per-primitive/per-bufferView extension, not the row; `SharpGLTF.Core` retains no typed handle to an unrecognized extension (`KHR_draco_mesh_compression`/`EXT_meshopt_compression` have no in-box `JsonSerializable` extension class, so the `ExtraProperties.Extensions` collection never holds them and `ExtraProperties.Extras` is a free-form `JsonNode`, not an extension accessor), so the branch reparses the GLB/glTF JSON chunk the `ReadContext.ReadJson`/`IdentifyBinaryContainer` pair already extracts into a `System.Text.Json.Nodes.JsonNode` tree and reads each `meshes[].primitives[].extensions.KHR_draco_mesh_compression` and `bufferViews[].extensions.EXT_meshopt_compression` object directly out of that tree for its `bufferView`/`count`/`byteStride`/`mode`/`filter` parameters; it routes the `KHR_draco_mesh_compression` primitive payload through `Draco.Decode(byte[])` (downcasting the returned `DracoPointCloud` to `DracoMesh`, reading each `PointAttribute` through `DracoPointCloud.GetNamedAttribute(AttributeType.Position)`/`Normal` and `PointAttribute.GetValueAsVector3(PointAttribute.MappedIndex(point))` per point — the point index mapped to its deduplicated attribute-value index, since Draco shares attribute values across points and `GetValueAsVector3` indexes by value, not point — and the faces through `DracoMesh.NumFaces`/`ReadFace(id, int[3])` yielding point indices aligned with that per-point vertex order, then `Fill`-ing the `MeshPrimitive.GetVertexAccessor("POSITION")`/`"NORMAL"` `Accessor.AsVector3Array()` and the `GetIndexAccessor().AsIndicesArray()` cast to their concrete `Vector3Array`/`IntegerArray` write surface — `Fill(IEnumerable<T>)` is a member of the concrete accessor-array structs, not the `IAccessorArray<T>` interface the factory statically returns, so the decode downcasts to the runtime `Vector3Array`/`IntegerArray` before filling) and the `EXT_meshopt_compression` bufferView payload through `Meshopt.DecodeVertexBuffer`/`DecodeIndexBuffer` then the filter inverse `Meshopt.DecodeFilterOct` (octahedral-encoded normals), `DecodeFilterQuat` (quantized rotations), `DecodeFilterExp` (shared-exponent floats), and `DecodeFilterColor` (quantized vertex color) keyed on the bufferView extension's `mode`/`filter` discriminant, then writes the decompressed buffer back through `ModelRoot.UseBufferView(ArraySegment<byte>, byteStride, BufferMode?)` (the byte buffer wrapped in an `ArraySegment<byte>` so the call binds the strided `(data, byteStride, target)` overload rather than the `(byte[], byteOffset, byteLength, …)` overload, the target read from `BufferView.IsIndexBuffer`) before the `IMeshDecoder` fold so a web-compressed artifact round-trips back through import without a companion — the decode reuses the same dormant `Openize.Drako`/`Alimer.Bindings.MeshOptimizer` surface the export encode switch drives, closing the export-can-compress / import-cannot-decompress asymmetry with zero new package and zero new `InterchangeFormat` row; the SharpGLTF `ReadSettings.Validation` rides `ValidationMode.Strict` on an uncompressed asset so a malformed glTF faults at parse, and a compressed asset parses under `ValidationMode.Skip` past the unrecognized-extension and missing-bufferView-data validation errors the compression extension provokes, then re-validates the reconstructed geometry at the materialization boundary; the `fbx`/`dae` rows are now live `scene-exchange` (`AssimpNetter`) and the USD rows live `usd-stage` (`UniversalSceneDescription`), so the former `import-catalogue-pending` fault no longer fires for them; every codec admit reaching this fold is one `InterchangeCodec`-keyed arm on the existing `ImportGeometry`/`ImportIfc`/`ImportStep` dispatch — the row-promotion discipline `format#FORMAT_AXIS` owns, never a new `BimIo` entrypoint or a parallel importer family — and the companion-versus-managed geometry route is read from the row's `TessellationRequiresCompanion` column rather than a call-site `if (ifc)`/`if (step)` branch; an `IfcImporter`/`GltfImporter`/`PlyImporter`/`SceneImporter`/`UsdImporter`/`StepImporter` service family, a per-extension `DracoImporter`/`MeshoptImporter`, a per-protocol AP203/AP214/AP242 STEP reader, and a managed IFC or STEP B-rep tessellator are the deleted forms.
 
 ```csharp signature
 public sealed record ImportedGeometry(
@@ -26,37 +27,6 @@ public sealed record ImportedGeometry(
     int VertexCount,
     int TriangleCount,
     Instant At);
-
-public sealed record IfcSemanticModel(
-    ReleaseVersion Schema,
-    ModelView View,
-    Seq<IfcSemanticModel.SpatialNode> Spatial,
-    Seq<IfcSemanticModel.ProductRow> Products,
-    Seq<IfcSemanticModel.PropertyRow> Properties,
-    Seq<IfcSemanticModel.QuantityRow> Quantities,
-    Seq<IfcSemanticModel.MaterialRow> Materials,
-    Seq<IfcSemanticModel.ClassificationRow> Classifications,
-    Seq<IfcSemanticModel.TypeRow> Types,
-    Seq<IfcSemanticModel.ZoneRow> Zones,
-    Seq<AssemblyRel> Decomposition,
-    Option<IfcSemanticModel.MapConversionRow> MapConversion,
-    double Tolerance,
-    Instant At) {
-    public sealed record SpatialNode(string GlobalId, string EntityType, string Name, string LongName, Seq<string> ContainedGlobalIds);
-    public sealed record ProductRow(string GlobalId, string EntityType, string Name, string Tag, string PredefinedType, string ObjectType, Option<string> TypeGlobalId);
-    public sealed record PropertyRow(string OwnerGlobalId, string SetName, string PropertyName, string Value);
-    public sealed record QuantityRow(string OwnerGlobalId, string SetName, string QuantityName, double Value, string Unit);
-    public sealed record MaterialRow(string OwnerGlobalId, string MaterialName);
-    public sealed record ClassificationRow(string OwnerGlobalId, string System, string Code, string DictionaryClassUri);
-    public sealed record TypeRow(
-        string GlobalId, string EntityType, string Name, string PredefinedType,
-        Seq<IfcSemanticModel.PropertyRow> Properties, Seq<IfcSemanticModel.MaterialRow> Materials, Option<UInt128> RepresentationMapKey);
-    public sealed record ZoneRow(string GlobalId, string EntityType, string Name, string PredefinedType, Seq<string> AssignedGlobalIds);
-    public sealed record MapConversionRow(
-        double Eastings, double Northings, double OrthogonalHeight,
-        double XAxisAbscissa, double XAxisOrdinate, double Scale,
-        string SourceCrsName, string TargetCrsName, string GeodeticDatum, string MapProjection, string MapZone);
-}
 
 public sealed record StepSemanticModel(
     StepProtocol Protocol,
@@ -76,16 +46,31 @@ public sealed record StepSemanticModel(
 }
 
 public static partial class BimIo {
+    // Capability gates first — CataloguePending BEFORE CanImport (pending ⟹ CanImport=false, so the unsupported gate
+    // would otherwise shadow the richer package-naming message) — then the TOTAL generated InterchangeCodec Switch
+    // dispatches every codec: the six managed-mesh codecs decode inline, the IFC/STEP codecs name their own
+    // entrypoint, the geospatial/point-cloud codecs name their owning page, the companion codecs route to the bridge.
+    // The Switch has NO silent fallthrough, so a new InterchangeCodec row breaks this call site at compile time — a new
+    // managed-mesh import lands as one arm and a non-mesh codec is forced to declare its route, never misrouting to a
+    // stale "needs-companion" fault the prior == ladder produced for GeometryGym/StepIso10303/geospatial.
     public static Fin<ImportedGeometry> ImportGeometry(InterchangeFormat format, ReadOnlyMemory<byte> bytes, ClockPolicy clocks) =>
-        !format.CanImport ? Fin.Fail<ImportedGeometry>(new BimFault.CodecReject($"import-unsupported:{format.Key}").ToError())
-        : format.CataloguePending ? Fin.Fail<ImportedGeometry>(new BimFault.CodecReject($"import-catalogue-pending:{format.Key}:{format.Codec.CataloguePackage.IfNone("unknown")}").ToError())
-        : format.Codec == InterchangeCodec.SharpGltf ? Boundary(() => Framed(format, Gltf(format, bytes, clocks.Now)))
-        : format.Codec == InterchangeCodec.MeshText ? MeshTextGeometry(format, bytes, clocks.Now)
-        : format.Codec == InterchangeCodec.Ply ? Boundary(() => Framed(format, Ply(format, bytes, clocks.Now)))
-        : format.Codec == InterchangeCodec.SceneExchange ? Boundary(() => Framed(format, Scene(format, bytes, clocks.Now)))
-        : format.Codec == InterchangeCodec.UsdStage ? Boundary(() => Framed(format, Usd(format, bytes, clocks.Now)))
-        : format.Codec == InterchangeCodec.AcadSharp ? Boundary(() => Framed(format, AcadGeometry(format, bytes, clocks.Now)))
-        : Fin.Fail<ImportedGeometry>(new BimFault.CapabilityMiss($"import-needs-companion:{format.Key}").ToError());
+        format.CataloguePending ? Fin.Fail<ImportedGeometry>(new BimFault.CodecReject($"import-catalogue-pending:{format.Key}:{format.Codec.CataloguePackage.IfNone("unknown")}").ToError())
+        : !format.CanImport ? Fin.Fail<ImportedGeometry>(new BimFault.CodecReject($"import-unsupported:{format.Key}").ToError())
+        : format.Codec.Switch(
+            sharpGltf:        () => Boundary(() => Framed(format, Gltf(format, bytes, clocks.Now))),
+            meshText:         () => MeshTextGeometry(format, bytes, clocks.Now),
+            ply:              () => Boundary(() => Framed(format, Ply(format, bytes, clocks.Now))),
+            sceneExchange:    () => Boundary(() => Framed(format, Scene(format, bytes, clocks.Now))),
+            usdStage:         () => Boundary(() => Framed(format, Usd(format, bytes, clocks.Now))),
+            acadSharp:        () => Boundary(() => Framed(format, AcadReader.Read(format, bytes, clocks.Now))),
+            geometryGym:      () => Fin.Fail<ImportedGeometry>(new BimFault.CodecReject($"import-ifc-route:use-ImportIfc:{format.Key}").ToError()),
+            stepIso10303:     () => Fin.Fail<ImportedGeometry>(new BimFault.CodecReject($"import-step-route:use-ImportStep:{format.Key}").ToError()),
+            geospatialVector: () => Fin.Fail<ImportedGeometry>(new BimFault.CodecReject($"import-geospatial-route:{format.Key}").ToError()),
+            geospatialRaster: () => Fin.Fail<ImportedGeometry>(new BimFault.CodecReject($"import-geospatial-route:{format.Key}").ToError()),
+            pointCloud:       () => Fin.Fail<ImportedGeometry>(new BimFault.CodecReject($"import-point-cloud-route:{format.Key}").ToError()),
+            nativeCompanion:  () => Fin.Fail<ImportedGeometry>(new BimFault.CapabilityMiss($"import-needs-companion:{format.Key}").ToError()),
+            igesAnsi:         () => Fin.Fail<ImportedGeometry>(new BimFault.CapabilityMiss($"import-needs-companion:{format.Key}").ToError()),
+            ifc5Pending:      () => Fin.Fail<ImportedGeometry>(new BimFault.CodecReject($"import-catalogue-pending:{format.Key}").ToError()));
 
     // OBJ/STL/OFF only — PLY now routes to the dedicated `ply-net` codec (the `Ply` arm) and 3MF/FBX/Collada
     // to the `scene-exchange` codec (the `Scene` arm), so the mesh-text sub-dispatch is one geometry3Sharp leg.
@@ -122,10 +107,17 @@ public static partial class BimIo {
         return new ImportedGeometry(format, vertices, normals, indices, vertexCount, indices.Length / 3, at);
     }
 
-    public static Fin<IfcSemanticModel> ImportIfc(InterchangeFormat format, ReadOnlyMemory<byte> bytes, ClockPolicy clocks) =>
+    // The IFC arm decodes foreign bytes to the LIVE GeometryGym DatabaseIfc — the in-process IFC graph the
+    // Projection/semantic#SEMANTIC_PROJECTOR SemanticProjector captures and lowers to a seam GraphDelta. The import
+    // rail OWNS the byte->graph decode; the entity walk, the full IfcRel* roster, the typed property/quantity
+    // projection, OwnerHistory, and StepHeader are the projector's (read off this live graph), NEVER a lossy
+    // flat-row re-projection here — the retired IfcSemanticModel rows that dropped the eight stranded relationship
+    // families are the deleted form. GeometryGym is captured by the projector internally, so DatabaseIfc never
+    // crosses the seam IElementProjection.Project signature.
+    public static Fin<DatabaseIfc> ImportIfc(InterchangeFormat format, ReadOnlyMemory<byte> bytes) =>
         format.Codec == InterchangeCodec.GeometryGym
-            ? Boundary(() => Semantic(Database(format, bytes), clocks.Now))
-            : Fin.Fail<IfcSemanticModel>(new BimFault.CodecReject($"ifc-codec-miss:{format.Key}").ToError());
+            ? Boundary(() => Database(format, bytes))
+            : Fin.Fail<DatabaseIfc>(new BimFault.CodecReject($"ifc-codec-miss:{format.Key}").ToError());
 
     public static Fin<StepSemanticModel> ImportStep(InterchangeFormat format, ReadOnlyMemory<byte> bytes, ClockPolicy clocks) =>
         format.Codec == InterchangeCodec.StepIso10303
@@ -163,8 +155,10 @@ public static partial class BimIo {
         var normals = new float[vertexCount * 3];
         var indices = new long[vertexCount];
         int slot = 0;
+        Span<int> corners = stackalloc int[3];
         foreach (var (prim, (a, b, c)) in triangles) {
-            foreach (int corner in stackalloc[] { a, b, c }) {
+            (corners[0], corners[1], corners[2]) = (a, b, c);
+            foreach (int corner in corners) {
                 var p = prim.GetPosition(corner);
                 var n = prim.GetNormal(corner);
                 int v = slot * 3;
@@ -277,85 +271,11 @@ public static partial class BimIo {
                 : Encoding.UTF8.GetString(glb.Span);
     }
 
-    static IfcSemanticModel Semantic(DatabaseIfc db, Instant at) {
-        var project = db.Project;
-        var properties = project.Extract<IfcPropertySet>().AsIterable()
-            .SelectMany(static ps => ps.HasProperties.Values.OfType<IfcPropertySingleValue>()
-                .Select(pv => new IfcSemanticModel.PropertyRow(ps.GlobalId, ps.Name ?? "", pv.Name ?? "", pv.NominalValue?.ValueString ?? ""))).ToSeq();
-        var materials = project.Extract<IfcRelAssociatesMaterial>().AsIterable()
-            .Map(static r => new IfcSemanticModel.MaterialRow(r.GlobalId, (r.RelatingMaterial as IfcMaterial)?.Name ?? "")).ToSeq();
-        return new IfcSemanticModel(
-            db.Release, db.ModelView,
-            project.Extract<IfcSpatialStructureElement>().AsIterable()
-                .Map(static s => new IfcSemanticModel.SpatialNode(s.GlobalId, s.GetType().Name, s.Name ?? "", s.LongName ?? "",
-                    s.Extract<IfcProduct>().AsIterable().Map(static p => p.GlobalId).ToSeq())).ToSeq(),
-            project.Extract<IfcProduct>().AsIterable()
-                .Map(static p => new IfcSemanticModel.ProductRow(
-                    p.GlobalId, ParserIfc.IdentifyIfcClass(p.GetType().Name, out var predefined), p.Name ?? "", (p as IfcElement)?.Tag ?? "",
-                    predefined ?? "", (p as IfcObject)?.ObjectType ?? "",
-                    Optional((p as IfcObject)?.IsTypedBy?.RelatingType?.GlobalId))).ToSeq(),
-            properties,
-            project.Extract<IfcElementQuantity>().AsIterable()
-                .SelectMany(static eq => eq.Quantities.Values.OfType<IfcPhysicalSimpleQuantity>()
-                    .Select(q => new IfcSemanticModel.QuantityRow(eq.GlobalId, eq.Name ?? "", q.Name ?? "", q.MeasureValue?.Measure ?? 0d, q.Unit?.ToString() ?? ""))).ToSeq(),
-            materials,
-            project.Extract<IfcRelAssociatesClassification>().AsIterable()
-                .SelectMany(static r => r.RelatedObjects.Select(o => (o.GlobalId, reference: r.RelatingClassification as IfcClassificationReference)))
-                .Where(static pair => pair.reference is not null)
-                .Select(static pair => new IfcSemanticModel.ClassificationRow(
-                    pair.GlobalId,
-                    (pair.reference!.ReferencedSource as IfcClassification)?.Name ?? "",
-                    pair.reference.Identification ?? "",
-                    pair.reference.Location ?? "")).ToSeq(),
-            project.Extract<IfcTypeObject>().AsIterable()
-                .Map(t => new IfcSemanticModel.TypeRow(
-                    t.GlobalId, ParserIfc.IdentifyIfcClass(t.GetType().Name, out var typePredefined), t.Name ?? "", typePredefined ?? "",
-                    properties.Filter(p => t.HasPropertySets.Any(ps => ps.GlobalId == p.OwnerGlobalId)),
-                    materials.Filter(m => m.OwnerGlobalId == t.GlobalId),
-                    Optional((t as IfcTypeProduct)?.RepresentationMaps?.FirstOrDefault())
-                        .Map(map => InterchangeIdentity.Key("ifc-repmap", Encoding.UTF8.GetBytes(map.StringSTEP()), db.Tolerance, db.Tolerance, db.ToleranceAngleRadians)))).ToSeq(),
-            project.Extract<IfcGroup>().AsIterable()
-                .Map(static g => new IfcSemanticModel.ZoneRow(
-                    g.GlobalId, g.GetType().Name, g.Name ?? "",
-                    g is IfcSpatialZone spatialZone ? spatialZone.PredefinedType.ToString() : "",
-                    g.IsGroupedBy.SelectMany(static rel => rel.RelatedObjects.Select(static o => o.GlobalId)).ToSeq())).ToSeq(),
-            Decomposition(project),
-            MapConversion(project),
-            db.Tolerance, at);
-    }
-
-    // Every closed AssemblyRel arm extracted — not Aggregates alone — so the Model/structure#ASSEMBLY_TREE
-    // BimAssembly.Traverse fold reads a complete decomposition graph. Each IfcRel* family lands its arm on
-    // the verified GeometryGym member spellings; the four formerly-unextracted arms join the one Seq.
-    static Seq<AssemblyRel> Decomposition(IfcProject project) =>
-        project.Extract<IfcRelAggregates>().AsIterable()
-            .Map(static r => (AssemblyRel)new AssemblyRel.Aggregates(r.RelatingObject.GlobalId, r.RelatedObjects.Select(static o => o.GlobalId).ToSeq()))
-        .Concat(project.Extract<IfcRelNests>().AsIterable()
-            .Map(static r => (AssemblyRel)new AssemblyRel.Nests(r.RelatingObject.GlobalId, r.RelatedObjects.Select(static o => o.GlobalId).ToSeq())))
-        .Concat(project.Extract<IfcRelContainedInSpatialStructure>().AsIterable()
-            .Map(static r => (AssemblyRel)new AssemblyRel.ContainedIn(r.RelatingStructure?.GlobalId ?? "", r.RelatedElements.Select(static o => o.GlobalId).ToSeq())))
-        .Concat(project.Extract<IfcRelVoidsElement>().AsIterable()
-            .Map(static r => (AssemblyRel)new AssemblyRel.Voids(r.RelatingBuildingElement?.GlobalId ?? "", r.RelatedOpeningElement?.GlobalId ?? "")))
-        .Concat(project.Extract<IfcRelConnectsElements>().AsIterable()
-            .Where(static r => r is not IfcRelConnectsWithRealizingElements)
-            .Map(static r => (AssemblyRel)new AssemblyRel.Connects(r.RelatingElement?.GlobalId ?? "", r.RelatedElement?.GlobalId ?? "")))
-        .Where(static rel => rel.Edge.Parent.Length > 0)
-        .ToSeq();
-
-    static Option<IfcSemanticModel.MapConversionRow> MapConversion(IfcProject project) =>
-        Optional(project.RepresentationContexts
-                .OfType<IfcGeometricRepresentationContext>()
-                .Select(static ctx => ctx.HasCoordinateOperation as IfcMapConversion)
-                .FirstOrDefault(static conversion => conversion is not null))
-            .Map(static conversion => new IfcSemanticModel.MapConversionRow(
-                conversion.Eastings, conversion.Northings, conversion.OrthogonalHeight,
-                conversion.XAxisAbscissa, conversion.XAxisOrdinate, conversion.Scale == 0.0 ? 1.0 : conversion.Scale,
-                (conversion.SourceCRS as IfcCoordinateReferenceSystem)?.Name ?? "",
-                (conversion.TargetCRS as IfcProjectedCRS)?.Name ?? "",
-                (conversion.TargetCRS as IfcProjectedCRS)?.GeodeticDatum ?? "",
-                (conversion.TargetCRS as IfcProjectedCRS)?.MapProjection ?? "",
-                (conversion.TargetCRS as IfcProjectedCRS)?.MapZone ?? ""));
-
+    // The IFC byte->graph decode the import rail OWNS: STEP/XML/JSON by the row's format into the live DatabaseIfc.
+    // The entity/relationship/property projection onto seam nodes+edges is Projection/semantic#SEMANTIC_PROJECTOR's
+    // (it captures this DatabaseIfc internally), so the import rail mints no IfcSemanticModel, no AssemblyRel, and no
+    // MapConversionRow — those flat rows dropped the eight stranded IfcRel* families, OwnerHistory, and StepHeader the
+    // projector preserves off the live graph, and a re-projection here would be the deleted lossy form.
     static DatabaseIfc Database(InterchangeFormat format, ReadOnlyMemory<byte> bytes) =>
         format == InterchangeFormat.IfcJson ? JsonDatabase(bytes)
         : format == InterchangeFormat.IfcXml ? XmlDatabase(bytes)
@@ -382,8 +302,11 @@ public static partial class BimIo {
     static ImportedGeometry Ply(InterchangeFormat format, ReadOnlyMemory<byte> bytes, Instant at) {
         using var stream = new MemoryStream(bytes.ToArray());
         var dataset = PlyParser.Parse(stream, maxChunkSize: 1 << 20);
-        var vertex = dataset.Data.First(static d => d.Element.Type == ElementType.Vertex);
-        var face = dataset.Data.FirstOrDefault(static d => d.Element.Type == ElementType.Face);
+        // Dataset.Data is a lazy/streamed sequence over the parse stream (api-ply-net), so it materializes ONCE before
+        // the vertex+face lookups — a second enumeration re-reads the already-advanced stream and strands the columns.
+        var elements = dataset.Data.ToList();
+        var vertex = elements.First(static d => d.Element.Type == ElementType.Vertex);
+        var face = elements.FirstOrDefault(static d => d.Element.Type == ElementType.Face);
         float[] xs = Column(vertex, "x"), ys = Column(vertex, "y"), zs = Column(vertex, "z");
         var (nx, ny, nz) = (OptionalColumn(vertex, "nx"), OptionalColumn(vertex, "ny"), OptionalColumn(vertex, "nz"));
         int vertexCount = xs.Length;
@@ -425,9 +348,16 @@ public static partial class BimIo {
         var scene = context.ImportFileFromStream(stream,
             PostProcessSteps.Triangulate | PostProcessSteps.JoinIdenticalVertices | PostProcessSteps.GenerateSmoothNormals,
             format.Key);
-        var soup = scene.Meshes.Fold(SceneSoup.Empty, static (acc, mesh) => acc.Append(mesh));
+        var soup = scene.Meshes.Fold(MeshSoup.Empty, static (acc, mesh) => acc.Append(
+            mesh.Vertices.SelectMany(static p => new[] { p.X, p.Y, p.Z }).ToSeq(),
+            Enumerable.Range(0, mesh.VertexCount)
+                .SelectMany(i => mesh.HasNormals ? new[] { mesh.Normals[i].X, mesh.Normals[i].Y, mesh.Normals[i].Z } : new[] { 0f, 0f, 1f }).ToSeq(),
+            mesh.Faces.AsIterable()
+                .SelectMany(face => Enumerable.Range(1, face.IndexCount - 2)
+                    .SelectMany(k => new long[] { face.Indices[0], face.Indices[k], face.Indices[k + 1] })).ToSeq(),
+            mesh.VertexCount));
         return new ImportedGeometry(format, soup.Vertices.ToArray(), soup.Normals.ToArray(), soup.Indices.ToArray(),
-            soup.VertexCount, soup.Indices.Count / 3, at);
+            soup.VertexCount, soup.TriangleCount, at);
     }
 
     // USD decode through UniversalSceneDescription — the `usd-stage` codec. One UsdStage opens the layer
@@ -442,9 +372,14 @@ public static partial class BimIo {
             using var stage = UsdStage.Open(path, UsdStage.InitialLoadSet.LoadAll);
             var soup = stage.Traverse().AsIterable()
                 .Filter(static prim => prim.GetTypeName().ToString() == "Mesh")
-                .Fold(SceneSoup.Empty, static (acc, prim) => acc.AppendUsd(UsdMesh(new UsdGeomMesh(prim))));
+                .Fold(MeshSoup.Empty, static (acc, prim) => {
+                    var (points, indices) = UsdMesh(new UsdGeomMesh(prim));
+                    return acc.Append(points,
+                        Enumerable.Range(0, points.Count / 3).SelectMany(static _ => new[] { 0f, 0f, 1f }).ToSeq(),
+                        indices, points.Count / 3);
+                });
             return new ImportedGeometry(format, soup.Vertices.ToArray(), soup.Normals.ToArray(), soup.Indices.ToArray(),
-                soup.VertexCount, soup.Indices.Count / 3, at);
+                soup.VertexCount, soup.TriangleCount, at);
         } finally { File.Delete(path); }
     }
 
@@ -469,82 +404,87 @@ public static partial class BimIo {
         return (verts, tris);
     }
 
-    // The shared scene-mesh soup the AssimpNetter and USD arms fold onto the contiguous ImportedGeometry triple.
-    readonly record struct SceneSoup(Seq<float> Vertices, Seq<float> Normals, Seq<long> Indices, int VertexCount) {
-        public static readonly SceneSoup Empty = new(Seq<float>(), Seq<float>(), Seq<long>(), 0);
+    // The shared triangle-soup the AssimpNetter, USD, ACadSharp, and Speckle decode arms fold onto the
+    // contiguous ImportedGeometry triple — ONE accumulator carrier, never a per-source soup struct. Each arm
+    // projects its foreign mesh into a (vertices, normals, 0-based corner indices, vertexCount) block; Append
+    // offsets the corners by the running VertexCount so the block joins the soup (the welded Assimp/USD/ACad
+    // blocks keep their source vertex sharing; the Speckle arm pre-expands its n-gon fans into an unwelded block).
+    readonly record struct MeshSoup(Seq<float> Vertices, Seq<float> Normals, Seq<long> Indices, int VertexCount) {
+        public static readonly MeshSoup Empty = new(Seq<float>(), Seq<float>(), Seq<long>(), 0);
 
-        public SceneSoup Append(Assimp.Mesh mesh) {
-            bool hasNormals = mesh.HasNormals;
-            var verts = mesh.Vertices.SelectMany(static p => new[] { p.X, p.Y, p.Z }).ToSeq();
-            var norms = Enumerable.Range(0, mesh.VertexCount)
-                .SelectMany(i => hasNormals ? new[] { mesh.Normals[i].X, mesh.Normals[i].Y, mesh.Normals[i].Z } : new[] { 0f, 0f, 1f }).ToSeq();
-            var indices = mesh.Faces.AsIterable()
-                .SelectMany(face => Enumerable.Range(1, face.IndexCount - 2)
-                    .SelectMany(k => new long[] { VertexCount + face.Indices[0], VertexCount + face.Indices[k], VertexCount + face.Indices[k + 1] }))
-                .ToSeq();
-            return new SceneSoup(Vertices + verts, Normals + norms, Indices + indices, VertexCount + mesh.VertexCount);
-        }
+        public int TriangleCount => Indices.Count / 3;
 
-        public SceneSoup AppendUsd((Seq<float> Points, Seq<long> Indices) mesh) =>
-            new(Vertices + mesh.Points,
-                Normals + Enumerable.Range(0, mesh.Points.Count / 3).SelectMany(static _ => new[] { 0f, 0f, 1f }).ToSeq(),
-                Indices + mesh.Indices.Map(i => VertexCount + i),
-                VertexCount + mesh.Points.Count / 3);
+        public MeshSoup Append(Seq<float> vertices, Seq<float> normals, Seq<long> corners, int addedVertices) =>
+            new(Vertices + vertices, Normals + normals, Indices + corners.Map(corner => VertexCount + corner), VertexCount + addedVertices);
+
+        public MeshSoup Append((Seq<float> Vertices, Seq<float> Normals, Seq<long> Corners, int Added) block) =>
+            Append(block.Vertices, block.Normals, block.Corners, block.Added);
     }
 
     // Managed in-process DWG/DXF decode through ACadSharp — the `acad-sharp` codec the format#FORMAT_AXIS
     // Dwg row carries. The DXF/CadDocument is the same decompile-verified reader Fabrication consumes for
     // 2D profiles; here the Bim arm folds the mesh-bearing entities onto the canonical triangle-soup.
-    static ImportedGeometry AcadGeometry(InterchangeFormat format, ReadOnlyMemory<byte> bytes, Instant at) =>
-        AcadReader.Read(format, bytes, at);
-
     static class AcadReader {
         public static ImportedGeometry Read(InterchangeFormat format, ReadOnlyMemory<byte> bytes, Instant at) {
             using var stream = new MemoryStream(bytes.ToArray());
             var document = IsDxf(bytes) ? DxfReader.Read(stream) : DwgReader.Read(stream);
-            var soup = document.Entities.AsIterable().Fold(MeshSoup.Empty, static (soup, entity) => entity switch {
-                Mesh mesh         => soup.Faces(mesh.Vertices, mesh.Faces),
-                Face3D face       => soup.Quad(face.FirstCorner, face.SecondCorner, face.ThirdCorner, face.FourthCorner),
-                Insert insert     => insert.Block is { } block
-                    ? block.Entities.AsIterable().OfType<Face3D>().Fold(soup, (acc, f) => acc.Quad(
-                        Place(insert, f.FirstCorner), Place(insert, f.SecondCorner), Place(insert, f.ThirdCorner), Place(insert, f.FourthCorner)))
-                    : soup,
-                _                 => soup,
-            });
+            var soup = document.Entities.AsIterable().Fold(MeshSoup.Empty, Accumulate);
             return new ImportedGeometry(format, soup.Vertices.ToArray(), soup.Normals.ToArray(), soup.Indices.ToArray(),
-                soup.VertexCount, soup.Indices.Count / 3, at);
+                soup.VertexCount, soup.TriangleCount, at);
+
+            // An Insert flattens through the package-owned Explode() — the OCS->WCS placement, Rotation, per-axis
+            // scale, OCS Normal, AND the MINSERT array replication ACadSharp owns — each placed entity folded back
+            // through the same classifier so a block-nested Insert recurses. The deleted form hand-rolled an
+            // InsertPoint/XScale matrix the api-acadsharp RAIL_LAW rejects: it dropped Rotation, the OCS Normal, every
+            // MINSERT instance, and every block-nested Mesh/PolyfaceMesh (it walked the block's Face3D entities only).
+            static MeshSoup Accumulate(MeshSoup soup, Entity entity) => entity switch {
+                Mesh mesh         => soup.Append(Faces(mesh.Vertices, mesh.Faces)),
+                Face3D face       => soup.Append(Quad(face.FirstCorner, face.SecondCorner, face.ThirdCorner, face.FourthCorner)),
+                PolyfaceMesh poly => soup.Append(Polyface(poly)),
+                Insert insert     => insert.Explode().AsIterable().Fold(soup, Accumulate),
+                _                 => soup,
+            };
         }
 
-        // DXF (ascii/binary) opens with the "0\nSECTION" / "AutoCAD Binary DXF" sentinel; DWG with "AC10xx".
+        // DXF (ascii/binary) opens with "0\nSECTION" / "AutoCAD Binary DXF"; DWG with "AC10xx" — the one sniff the
+        // package leaves to the caller (CadReaderFactory.GetFileFormat is filename-only and the shared Dwg row carries
+        // both extensions over a byte stream), so the reader pick is a boundary kernel, never a hand-rolled DXF parse.
         static bool IsDxf(ReadOnlyMemory<byte> bytes) =>
             bytes.Length >= 4 && !(bytes.Span[0] == (byte)'A' && bytes.Span[1] == (byte)'C' && char.IsDigit((char)bytes.Span[2]));
 
-        static XYZ Place(Insert insert, XYZ corner) =>
-            new(insert.InsertPoint.X + corner.X * insert.XScale,
-                insert.InsertPoint.Y + corner.Y * insert.YScale,
-                insert.InsertPoint.Z + corner.Z * insert.ZScale);
+        // A POLYLINE/AcDbPolyFaceMesh: the VertexFaceMesh vertex pool plus the 1-based signed VertexFaceRecord index
+        // records (a negative index marks a hidden edge -> abs, a zero Index4 marks a triangle), fan-triangulated to a
+        // 0-based block the shared MeshSoup.Append offsets by the running VertexCount.
+        static (Seq<float> Vertices, Seq<float> Normals, Seq<long> Corners, int Added) Polyface(PolyfaceMesh poly) {
+            var pool = poly.Vertices.Select(static v => v.Location).ToList();
+            var verts = pool.SelectMany(static p => new[] { (float)p.X, (float)p.Y, (float)p.Z }).ToSeq();
+            var normals = pool.SelectMany(static _ => new[] { 0f, 0f, 1f }).ToSeq();
+            var corners = poly.Faces.SelectMany(static f => {
+                long a = Math.Abs(f.Index1) - 1, b = Math.Abs(f.Index2) - 1, c = Math.Abs(f.Index3) - 1;
+                return f.Index4 == 0 ? new[] { a, b, c } : new[] { a, b, c, a, c, (long)Math.Abs(f.Index4) - 1 };
+            }).ToSeq();
+            return (verts, normals, corners, pool.Count);
+        }
 
-        readonly record struct MeshSoup(Seq<float> Vertices, Seq<float> Normals, Seq<long> Indices, int VertexCount) {
-            public static readonly MeshSoup Empty = new(Seq<float>(), Seq<float>(), Seq<long>(), 0);
+        // A SubDMesh: the vertex list plus the n-gon face index list (each face fan-triangulated), as a 0-based
+        // triangle-soup block the shared MeshSoup.Append offsets by the running VertexCount.
+        static (Seq<float> Vertices, Seq<float> Normals, Seq<long> Corners, int Added) Faces(
+            System.Collections.Generic.IReadOnlyList<XYZ> vertices, System.Collections.Generic.IReadOnlyList<int[]> faces) {
+            var verts = vertices.SelectMany(static p => new[] { (float)p.X, (float)p.Y, (float)p.Z }).ToSeq();
+            var corners = faces.SelectMany(face => Enumerable.Range(1, face.Length - 2)
+                .SelectMany(k => new long[] { face[0], face[k], face[k + 1] })).ToSeq();
+            var normals = Enumerable.Range(0, vertices.Count).SelectMany(static _ => new[] { 0f, 0f, 1f }).ToSeq();
+            return (verts, normals, corners, vertices.Count);
+        }
 
-            // A SubDMesh: the vertex list plus the n-gon face index list (each face fan-triangulated).
-            public MeshSoup Faces(System.Collections.Generic.IReadOnlyList<XYZ> vertices, System.Collections.Generic.IReadOnlyList<int[]> faces) {
-                var verts = vertices.SelectMany(static p => new[] { (float)p.X, (float)p.Y, (float)p.Z }).ToSeq();
-                var indices = faces.SelectMany(face => Enumerable.Range(1, face.Length - 2)
-                    .SelectMany(k => new[] { (long)(VertexCount + face[0]), VertexCount + face[k], VertexCount + face[k + 1] })).ToSeq();
-                return new MeshSoup(Vertices + verts, Normals + Enumerable.Range(0, vertices.Count).SelectMany(static _ => new[] { 0f, 0f, 1f }).ToSeq(),
-                    Indices + indices, VertexCount + vertices.Count);
-            }
-
-            // A 3DFACE quad (the fourth corner equals the third for a triangle) fan-triangulated.
-            public MeshSoup Quad(XYZ a, XYZ b, XYZ c, XYZ d) {
-                bool tri = d.Equals(c);
-                var corners = tri ? new[] { a, b, c } : new[] { a, b, c, d };
-                var verts = corners.SelectMany(static p => new[] { (float)p.X, (float)p.Y, (float)p.Z }).ToSeq();
-                var indices = (tri ? new[] { 0, 1, 2 } : new[] { 0, 1, 2, 0, 2, 3 }).Select(i => (long)(VertexCount + i)).ToSeq();
-                return new MeshSoup(Vertices + verts, Normals + corners.SelectMany(static _ => new[] { 0f, 0f, 1f }).ToSeq(),
-                    Indices + indices, VertexCount + corners.Length);
-            }
+        // A 3DFACE quad (the fourth corner equals the third for a triangle) fan-triangulated to a 0-based block.
+        static (Seq<float> Vertices, Seq<float> Normals, Seq<long> Corners, int Added) Quad(XYZ a, XYZ b, XYZ c, XYZ d) {
+            bool tri = d.Equals(c);
+            var corners = tri ? new[] { a, b, c } : new[] { a, b, c, d };
+            var verts = corners.SelectMany(static p => new[] { (float)p.X, (float)p.Y, (float)p.Z }).ToSeq();
+            var indices = (tri ? new[] { 0, 1, 2 } : new[] { 0, 1, 2, 0, 2, 3 }).Select(static i => (long)i).ToSeq();
+            var normals = corners.SelectMany(static _ => new[] { 0f, 0f, 1f }).ToSeq();
+            return (verts, normals, indices, corners.Length);
         }
     }
 
@@ -782,13 +722,13 @@ public static partial class BimIo {
 
 ## [03]-[SPECKLE_SEAM]
 
-- Owner: `BimIo.ImportSpeckle` — the Speckle object-graph arm of the import fold, folding a deserialized `Speckle.Sdk.Models.Base` tree onto the canonical `ImportedGeometry` mesh-scene carrier and the `IfcSemanticModel` graph; there is no `SpeckleImporter` type and no parallel decode family — the seam is a third entrypoint on the existing `BimIo` capsule, symmetric to `ImportGeometry`/`ImportIfc`, consuming the receive-side `Base` the Persistence `csharp:Persistence/Sync/collaboration#SPECKLE_SYNC` `IOperations.Receive` returns.
-- Entry: `BimIo.ImportSpeckle(Base root, ClockPolicy clocks)` projecting the display-mesh geometry, and `BimIo.ImportSpeckleSemantic(Base root, ClockPolicy clocks)` projecting the host-object semantic graph — `Fin<T>` aborts on a graph with no displayable geometry or a malformed display mesh, projecting the Speckle exception onto `BimFault.ModelRejected` at the boundary so domain code never sees a `Speckle.Sdk.SpeckleException`; the `Base` arrives already deserialized, so the seam mints no transport, no `IOperations` reference, and no second graph walk beyond the package-owned traversal.
-- Auto: the geometry fold runs the package-owned `BaseExtensions.Flatten(Base, BaseExtensions.BaseRecursionBreaker?)` deduplicating graph walk, projects each node's `BaseExtensions.TryGetDisplayValue(Base)` display list to its `Mesh` members, and decodes each `Mesh` — the flat `vertices`/`vertexNormals` (`List<double>`, flat `x,y,z`) and length-prefixed `faces` (`List<int>`, each face `[n, i0, … i(n-1)]`) triangulate through a fan over the n-gon, scaled onto the canonical metre frame by `Units.GetConversionFactor(mesh.units, Units.Meters)` so a millimetre or foot Speckle model lands in kernel units; a node that `IsDisplayableObject` is false yet carries non-mesh geometry (`Brep`/`Surface`/`Curve` with no `displayValue`) routes its content to `tessellation#TESSELLATION_BRIDGE` over the GLB rail rather than evaluating a BRep in-process; the semantic fold projects every `DataObject` (and its `RhinoObject`/`RevitObject`/`ArchicadObject`/`TeklaObject`/`Civil3dObject`/`AutocadObject` host-object subtypes) onto an `IfcSemanticModel.ProductRow` keyed on `Base.applicationId`, its `DataObject.properties` (`Dictionary<string, object?>`) flattened to `PropertyRow`, and the `TraversalContext.Parent` chain reconstructing the spatial `SpatialNode` containment.
-- Receipt: the `ModelLoad` receipt case carries the format key `InterchangeFormat.Glb.Key` proxy for the decoded scene, the codec key `speckle-base`, the `Base.GetTotalChildrenCount()` source object count, and elapsed; a semantic ingest stamps the host-object count and the distinct `speckle_type` discriminants extracted; emission rides the sink port at the composition edge.
-- Packages: Speckle.Sdk, Speckle.Objects, SharpGLTF.Core, NodaTime, LanguageExt.Core, Rasm
-- Growth: a new Speckle geometry leaf is one arm on the `DisplayMeshes` projection keyed on the `IDisplayValue<T>` payload type; a new host-object discriminant is one `speckle_type`-keyed row on the semantic projection; a non-mesh evaluation never grows a managed Speckle tessellator — it widens the `tessellation#TESSELLATION_BRIDGE` request, never this fold.
-- Boundary: `BimIo` is the page boundary capsule and the Speckle arm carries the language-owned statement forms the foreign graph walk requires; the `Base` graph is admitted exactly once — `Flatten` is the single package-owned deduplicating traversal (it caches on `Base.id`), so the seam never re-walks the tree or hand-rolls a `DynamicBase.GetMembers` recursion, and `TryGetDisplayValue`/`IsDisplayableObject` own the displayable-node vocabulary rather than a per-type `is Mesh`/`is Brep` ladder; the Speckle `Mesh.faces` length-prefixed n-gon encoding fans into the canonical triangle-soup `ImportedGeometry` at the boundary (one contiguous vertex/normal/index triple, the allocation point, never a per-face `double[]` proliferation), and a degenerate face (`n < 3`) faults the decode; non-mesh geometry never evaluates in-process — GeometryGym carries no Speckle BRep kernel and the managed branch owns no NURBS evaluator, so a `Brep`/`Surface`/`Curve` with no `displayValue` rides the companion GLB rail exactly as the IFC geometry request does, joining the same content-keyed artifact; `Speckle.Sdk`/`Speckle.Objects` are the OUTSIDE-RHINO concern (`Speckle.Sdk.Dependencies` repacks the SDK's Polly/channel/serialisation-V2 closure), so this arm composes them only in the host-neutral `Rasm.Bim` exchange assembly and the in-Rhino plugin assembly never loads them; a `SpeckleImporter`/`SpeckleConverter` service family, a hand-rolled `Base`-graph recursion, and a managed Speckle tessellator are the deleted forms.
+- Owner: `BimIo.ImportSpeckle` the Speckle display-mesh arm of the import fold (a deserialized `Speckle.Sdk.Models.Base` tree → `ImportedGeometry`), and `SpeckleProjector : IElementProjection` the Speckle host-object arm of the SEAM (the same `Base` tree → a seam `GraphDelta`, the peer of the IFC `Projection/semantic#SEMANTIC_PROJECTOR` `SemanticProjector`); there is no `SpeckleImporter`/`SpeckleConverter` type and no parallel decode family — the geometry arm is a third entrypoint on the existing `BimIo` capsule symmetric to `ImportGeometry`/`ImportIfc`, the projector an `IElementProjection` the app registers in its `Seq<IElementProjection>`, both consuming the receive-side `Base` the Persistence `csharp:Persistence/Sync/collaboration#SPECKLE_SYNC` `IOperations.Receive` returns.
+- Entry: `BimIo.ImportSpeckle(Base root, ClockPolicy clocks)` projecting the display-mesh geometry to `ImportedGeometry`, and `new SpeckleProjector(root).Project(ProjectionContext ctx)` lowering the host-object graph to a seam `GraphDelta` — the geometry `Fin<T>` aborts on a graph with no displayable geometry or a malformed display mesh, projecting the Speckle exception onto `BimFault.ModelRejected` at the boundary so domain code never sees a `Speckle.Sdk.SpeckleException`, while the projector's foreign fault funnels to `ElementFault.ProjectionFailed` through the caller's `Op.Catch` (`ProjectionAssembly.Assemble`/`BimIo.Reimport`); the `Base` arrives already deserialized, so the seam mints no transport, no `IOperations` reference, and no second graph walk beyond the package-owned traversal.
+- Auto: the geometry fold runs the package-owned `BaseExtensions.Flatten(Base, BaseExtensions.BaseRecursionBreaker?)` deduplicating graph walk, projects each node's `BaseExtensions.TryGetDisplayValue(Base)` display list to its `Mesh` members, and decodes each `Mesh` — the flat `vertices`/`vertexNormals` (`List<double>`, flat `x,y,z`) and length-prefixed `faces` (`List<int>`, each face `[n, i0, … i(n-1)]`) triangulate through a fan over the n-gon, scaled onto the canonical metre frame by `Units.GetConversionFactor(mesh.units, Units.Meters)` so a millimetre or foot Speckle model lands in kernel units; a node that `IsDisplayableObject` is false yet carries non-mesh geometry (`Brep`/`Surface`/`Curve` with no `displayValue`) routes its content to `tessellation#TESSELLATION_BRIDGE` over the GLB rail rather than evaluating a BRep in-process; the `SpeckleProjector` fold lowers every `DataObject` (and its `RhinoObject`/`RevitObject`/`ArchicadObject`/`TeklaObject`/`Civil3dObject`/`AutocadObject` host-object subtypes) onto a rooted seam `Node.Object` carrying the generic `Classification("speckle", speckle_type)` and the host `applicationId` as the 1:1 `ExternalId`, its `DataObject.properties` (`Dictionary<string, object?>`) into one content-keyed `PropertySet` bag node attached by an `Assign.PropertyDefinition` edge, and the `BaseExtensions.TraverseWithPath` path prefixes reconstructing the namespace containment as `Compose.Contain` edges — the containment the retired flat-row projection claimed in prose but produced empty.
+- Receipt: the `ModelLoad` receipt case carries the format key `InterchangeFormat.Glb.Key` proxy for the decoded scene, the codec key `speckle-base`, the `Base.GetTotalChildrenCount()` source object count, and elapsed; the `SpeckleProjector` contributes the host-object `GraphDelta` (its `NodeCount`/`EdgeCount` the change magnitude, the distinct `speckle_type` discriminants the seam `Classification` codes); emission rides the sink port at the composition edge.
+- Packages: Speckle.Sdk, Speckle.Objects, SharpGLTF.Core, Rasm.Element, Thinktecture.Runtime.Extensions, NodaTime, LanguageExt.Core, Rasm
+- Growth: a new Speckle geometry leaf is one arm on the `DisplayMeshes` projection keyed on the `IDisplayValue<T>` payload type; a new host-object discriminant is one `Classification("speckle", speckle_type)` code on the `SpeckleProjector`'s `Node.Object`, never a parallel row family; a non-mesh evaluation never grows a managed Speckle tessellator — it widens the `tessellation#TESSELLATION_BRIDGE` request, never this fold.
+- Boundary: `BimIo` is the page boundary capsule and the Speckle arm carries the language-owned statement forms the foreign graph walk requires; the `Base` graph is admitted exactly once — `Flatten` is the single package-owned deduplicating traversal (it caches on `Base.id`), so the seam never re-walks the tree or hand-rolls a `DynamicBase.GetMembers` recursion, and `TryGetDisplayValue`/`IsDisplayableObject` own the displayable-node vocabulary rather than a per-type `is Mesh`/`is Brep` ladder; the Speckle `Mesh.faces` length-prefixed n-gon encoding fans into the canonical triangle-soup `ImportedGeometry` at the boundary (one contiguous vertex/normal/index triple, the allocation point, never a per-face `double[]` proliferation), and a degenerate face (`n < 3`) faults the decode; non-mesh geometry never evaluates in-process — GeometryGym carries no Speckle BRep kernel and the managed branch owns no NURBS evaluator, so a `Brep`/`Surface`/`Curve` with no `displayValue` rides the companion GLB rail exactly as the IFC geometry request does, joining the same content-keyed artifact; `Speckle.Sdk`/`Speckle.Objects` are the OUTSIDE-RHINO concern (`Speckle.Sdk.Dependencies` repacks the SDK's Polly/channel/serialisation-V2 closure), so this arm composes them only in the host-neutral `Rasm.Bim` exchange assembly and the in-Rhino plugin assembly never loads them; the host-object semantic projection is the `SpeckleProjector : IElementProjection` lowering to a seam `GraphDelta` (the generic `Classification("speckle", speckle_type)`, never an IFC class), so a `SpeckleImporter`/`SpeckleConverter` service family, a hand-rolled `Base`-graph recursion, a lossy `IfcSemanticModel` host-object re-projection, and a managed Speckle tessellator are the deleted forms.
 
 ```csharp signature
 public static partial class BimIo {
@@ -798,104 +738,206 @@ public static partial class BimIo {
                 ? Fin.Succ(scene)
                 : Fin.Fail<ImportedGeometry>(new BimFault.ModelRejected($"speckle-no-display:{root.speckle_type}").ToError()));
 
-    public static Fin<IfcSemanticModel> ImportSpeckleSemantic(Base root, ClockPolicy clocks) =>
-        Boundary(() => SpeckleSemantic(root, clocks.Now));
-
     static ImportedGeometry DisplayScene(Base root, Instant at) {
         var soup = root.Flatten()
             .SelectMany(static node => node.TryGetDisplayValue()?.OfType<Mesh>() ?? Enumerable.Empty<Mesh>())
             .ToSeq()
-            .Fold(MeshSoup.Empty, static (soup, mesh) => soup.Append(mesh));
+            .Fold(MeshSoup.Empty, static (soup, mesh) => soup.Append(SpeckleBlock(mesh)));
         return new ImportedGeometry(
             InterchangeFormat.Glb, soup.Vertices.ToArray(), soup.Normals.ToArray(), soup.Indices.ToArray(),
             soup.VertexCount, soup.TriangleCount, at);
     }
 
-    readonly record struct MeshSoup(Seq<float> Vertices, Seq<float> Normals, Seq<long> Indices, int VertexCount, int TriangleCount) {
-        public static readonly MeshSoup Empty = new(Seq<float>(), Seq<float>(), Seq<long>(), 0, 0);
+    // The Speckle Mesh -> UNWELDED triangle-soup block the shared MeshSoup folds: each length-prefixed n-gon fans
+    // to triangles, each fan corner expands to its own vertex (Speckle faces index the shared vertex list, the seam
+    // unwelds), the vertexNormals sampled when present else an up-normal, scaled onto the canonical metre frame by
+    // the source unit; the 0-based corners MeshSoup.Append offsets by the running VertexCount.
+    static (Seq<float> Vertices, Seq<float> Normals, Seq<long> Corners, int Added) SpeckleBlock(Mesh mesh) {
+        double scale = Units.GetConversionFactor(mesh.units, Units.Meters);
+        var fans = Triangulate(mesh.faces).ToSeq();
+        var vertices = fans.Bind(corner => Sample(mesh.vertices, corner, scale));
+        var normals = fans.Bind(corner => mesh.vertexNormals.Count == mesh.vertices.Count
+            ? Sample(mesh.vertexNormals, corner, 1.0)
+            : Seq<float>(0f, 0f, 1f));
+        return (vertices, normals, fans.Map(static (_, ordinal) => (long)ordinal), fans.Count);
+    }
 
-        public MeshSoup Append(Mesh mesh) {
-            double scale = Units.GetConversionFactor(mesh.units, Units.Meters);
-            var fans = Triangulate(mesh.faces).ToSeq();
-            var vertices = fans.Bind(corner => Sample(mesh.vertices, corner, scale));
-            var normals = fans.Bind(corner => mesh.vertexNormals.Count == mesh.vertices.Count
-                ? Sample(mesh.vertexNormals, corner, 1.0)
-                : Seq<float>(0f, 0f, 1f));
-            var indices = fans.Map((_, ordinal) => (long)(VertexCount + ordinal));
-            return new MeshSoup(
-                Vertices + vertices, Normals + normals, Indices + indices,
-                VertexCount + fans.Count, TriangleCount + fans.Count / 3);
-        }
-
-        static IEnumerable<int> Triangulate(List<int> faces) {
-            for (int cursor = 0; cursor < faces.Count;) {
-                int span = faces[cursor];
-                if (span < 3) { throw new InvalidDataException($"<speckle-degenerate-face:{span}>"); }
-                for (int corner = 1; corner + 1 < span; corner++) {
-                    yield return faces[cursor + 1];
-                    yield return faces[cursor + 1 + corner];
-                    yield return faces[cursor + 2 + corner];
-                }
-                cursor += span + 1;
+    static IEnumerable<int> Triangulate(List<int> faces) {
+        for (int cursor = 0; cursor < faces.Count;) {
+            int span = faces[cursor];
+            if (span < 3) { throw new InvalidDataException($"<speckle-degenerate-face:{span}>"); }
+            for (int corner = 1; corner + 1 < span; corner++) {
+                yield return faces[cursor + 1];
+                yield return faces[cursor + 1 + corner];
+                yield return faces[cursor + 2 + corner];
             }
+            cursor += span + 1;
         }
-
-        static Seq<float> Sample(List<double> flat, int vertex, double scale) =>
-            Seq((float)(flat[vertex * 3] * scale), (float)(flat[vertex * 3 + 1] * scale), (float)(flat[vertex * 3 + 2] * scale));
     }
 
-    static IfcSemanticModel SpeckleSemantic(Base root, Instant at) {
-        var objects = root.Flatten().OfType<DataObject>().ToSeq();
-        return new IfcSemanticModel(
-            ReleaseVersion.IFC4X3_ADD2, ModelView.Ifc4Reference,
-            Seq<IfcSemanticModel.SpatialNode>(),
-            objects.Map(static data => new IfcSemanticModel.ProductRow(
-                data.applicationId ?? data.id ?? "", data.speckle_type, data.name, "", "", "", Option<string>.None)),
-            objects.Bind(static data => data.properties
-                .Select(pair => new IfcSemanticModel.PropertyRow(data.applicationId ?? data.id ?? "", data.speckle_type, pair.Key, pair.Value?.ToString() ?? ""))
-                .ToSeq()),
-            Seq<IfcSemanticModel.QuantityRow>(), Seq<IfcSemanticModel.MaterialRow>(),
-            Seq<IfcSemanticModel.ClassificationRow>(), Seq<IfcSemanticModel.TypeRow>(),
-            Seq<IfcSemanticModel.ZoneRow>(), Seq<AssemblyRel>(), Option<IfcSemanticModel.MapConversionRow>.None, 1e-6, at);
+    static Seq<float> Sample(List<double> flat, int vertex, double scale) =>
+        Seq((float)(flat[vertex * 3] * scale), (float)(flat[vertex * 3 + 1] * scale), (float)(flat[vertex * 3 + 2] * scale));
+
+}
+
+// The Speckle arm of the seam — the IElementProjection peer of the IFC Projection/semantic#SEMANTIC_PROJECTOR
+// SemanticProjector. It captures one already-deserialized Speckle Base graph internally and lowers the host-object
+// tree onto a seam GraphDelta: each DataObject becomes a rooted Object.Occurrence node carrying the generic
+// Classification("speckle", speckle_type) and the host applicationId as the 1:1 ExternalId, its parameter dictionary
+// becomes one content-keyed PropertySet bag node attached by an Assign.PropertyDefinition edge, and the namespace
+// nesting becomes Compose.Contain edges reconstructed from the TraverseWithPath path prefixes — the containment the
+// retired flat-row SpeckleSemantic CLAIMED in prose but produced empty. Speckle is a PRIMARY source of element
+// identity, so each object mints ctx.Rooted(); the display geometry rides the separate ImportSpeckle ImportedGeometry
+// path, so the semantic node references no IFC representation. A SpeckleConverter service family, a hand-rolled Base
+// recursion, and an IfcSemanticModel re-projection are the deleted forms; a thrown Speckle fault is funnelled to
+// ElementFault.ProjectionFailed by the caller's Op.Catch (ProjectionAssembly.Assemble / BimIo.Reimport), never here.
+public sealed class SpeckleProjector(Base root) : IElementProjection {
+    static readonly BaseRecursionBreaker Descend = static _ => false;
+
+    public Fin<GraphDelta> Project(ProjectionContext ctx) => Fin.Succ(Lower(ctx));
+
+    GraphDelta Lower(ProjectionContext ctx) {
+        // One path-carrying deduplicating walk (the package-owned TraverseWithPath, never a DynamicBase recursion):
+        // every DataObject gets a neutral rooted id, the path retained so containment is the nearest-ancestor DataObject.
+        var hosts = root.TraverseWithPath(Descend)
+            .Where(static step => step.Item2 is DataObject)
+            .Select(step => (Path: step.Item1, Data: (DataObject)step.Item2, Id: ctx.Rooted()))
+            .ToSeq();
+        var span = SchemaSpan.From(ctx.Header.Schema);
+        double tolerance = ctx.Header.Tolerance;
+        var withNodes = hosts.Fold(GraphDelta.Empty.Reheader(ctx.Header), (delta, host) => {
+            var bag = BagNode(host.Data, tolerance);
+            return delta
+                .Put(ObjectNode(host.Data, host.Id, span))
+                .Put(bag)
+                .Link(new Relationship.Assign(host.Id, bag.Id, AssignKind.PropertyDefinition));
+        });
+        return Containment(hosts).Fold(withNodes, static (delta, edge) => delta.Link(edge));
     }
+
+    // The DataObject -> seam Object.Occurrence node: neutral Classification("speckle", speckle_type), the host
+    // applicationId the 1:1 ExternalId (the re-ingest reconcile key), no IFC representation (the display mesh rides the
+    // ImportSpeckle path), NotDefined predefined (a Speckle host object carries no IFC predefined token).
+    static Node ObjectNode(DataObject data, NodeId id, SchemaSpan span) => new Node.Object(
+        Id:              id,
+        Kind:            ObjectKind.Occurrence,
+        ExternalId:      Optional(data.applicationId),
+        Classification:  Classification.Create("speckle", data.speckle_type),
+        PredefinedType:  PredefinedType.NotDefined,
+        Name:            data.name ?? "",
+        Tag:             "",
+        Representations: RepresentationContentHash.Empty,
+        BoundaryPolygon: Seq<Vector3>(),
+        Axis:            Option<AxisCurve>.None,
+        History:         Option<OwnerHistory>.None,
+        Span:            span);
+
+    // The host parameter dictionary -> one CONTENT-KEYED PropertySet bag node, so two identical parameter sets dedup
+    // to one node; the id mint excludes the bag's own id (ToCanonicalBytes drops it) by minting off a temp seed.
+    // OccurrenceWins because a Speckle host object carries no type-driven inheritance.
+    static Node.PropertySet BagNode(DataObject data, double tolerance) {
+        var values = toMap(data.properties.Select(static pair =>
+            (PropertyName.Create(pair.Key), (PropertyValue)new PropertyValue.Text(pair.Value?.ToString() ?? ""))));
+        var seed = new Node.PropertySet(NodeId.Rooted(), new PropertyBag(data.speckle_type, values, InheritanceMode.OccurrenceWins));
+        return seed with { Id = NodeId.Content(seed.ToCanonicalBytes(tolerance).Span) };
+    }
+
+    // Compose.Contain edges from the namespace nesting: a host's parent is the host with the longest path that is a
+    // strict prefix of its own (the nearest enclosing DataObject), so the Speckle containment tree the flat-row
+    // projection dropped rides the neutral Compose edge a Bake fold descends; a root host (no DataObject ancestor) adds none.
+    static Seq<Relationship> Containment(Seq<(string[] Path, DataObject Data, NodeId Id)> hosts) =>
+        hosts.Choose(child => hosts
+            .Filter(parent => parent.Id != child.Id && IsPrefix(parent.Path, child.Path))
+            .OrderByDescending(static parent => parent.Path.Length)
+            .ToSeq().HeadOrNone()
+            .Map(parent => (Relationship)new Relationship.Compose(parent.Id, child.Id, ComposeKind.Contain)));
+
+    static bool IsPrefix(string[] prefix, string[] path) =>
+        prefix.Length < path.Length && prefix.AsSpan().SequenceEqual(path.AsSpan(0, prefix.Length));
 }
 ```
 
 ## [04]-[REIMPORT]
 
-- Owner: `BimIo.Reimport` the incremental delta-reimport fold re-projecting only the changed elements against a prior `BimModel` snapshot through the `Review/diff#MODEL_DIFF` content-key, so a large model's minor revision costs the delta, not the whole graph; `ReimportResult` the receipt carrying the patched `BimModel` plus the `ModelDiff` change-set the reimport produces in one fold.
-- Entry: `BimIo.Reimport(InterchangeFormat format, ReadOnlyMemory<byte> revisedBytes, BimModel prior, ClockPolicy clocks)` ingests a revised source and, joining against `prior` by `GlobalId` plus the `Review/diff#MODEL_DIFF` `ElementFingerprint` content-key, re-projects only the added/modified/moved elements while reusing the unchanged element rows verbatim — `Fin<T>` aborts on a codec reject or a malformed revised graph (`Model/faults#FAULT_BAND` `BimFault.CodecReject`/`BimFault.ModelRejected`) lowered with `.ToError()`; the IFC semantic graph still parses fully at ingest (the GeometryGym parse is whole-file), so the incrementality is in the projection-and-fingerprint stage — a revised element whose content-key matches its prior row reuses the prior `BimElement` verbatim (preserving its kernel `GeometryHandle` by reference, no re-tessellation), and only the changed set re-projects through the `Model/elements#ELEMENT_MODEL` `BimModel.Project` fold.
-- Auto: `Reimport` runs the full `ImportIfc` semantic ingest on the revised bytes, fingerprints each revised product row through the `Review/diff#MODEL_DIFF` `ElementFingerprint` content-key, builds the prior fingerprint index by `GlobalId`, and partitions the revised set: a revised `GlobalId` whose content-key matches the prior row's content-key reuses the prior `BimElement` (the `GeometryHandle` and every binding preserved by reference), a revised `GlobalId` absent from the prior index or whose content-key diverged re-projects through `BimModel.Project` for that element alone, and a prior `GlobalId` absent from the revised set drops — so the patched model is `(reusedPriorRows ++ reprojectedChangedRows)`, and the `ModelDiff.Between(prior, patched)` falls out of the same fingerprint join for free; the reuse fold reads the prior `BimModel.Elements` index once and the re-projection fold runs only over the changed `IfcSemanticModel.ProductRow` subset, the `Map<string, ElementFingerprint>` content-key comparison driving the partition rather than a field-by-field diff.
-- Receipt: the `ReimportResult` carries the patched `BimModel` (the prior unchanged rows reused by reference plus the re-projected changed rows) and the `ModelDiff` change-set the federation cache reads — a delta-cost minor revision, the federation patch storage reading only the changed rows, and the diff falling out of the reimport rather than a second diff pass; the `csharp:Rasm.Persistence/Query#CONTENT_KEY` reimport prior-`BimModel` content-key delta join reads the patched model by the same content-key the diff carries.
-- Packages: SharpGLTF.Core, GeometryGymIFC_Core, NodaTime, System.IO.Hashing, LanguageExt.Core, Rasm
-- Growth: a new reuse dimension (a property-only delta reusing the geometry but re-projecting the property bag) is one finer content-key partition on the same fold; a new source format rides the existing `ImportIfc`/`ImportGeometry` dispatch before the fingerprint partition; the diff falls out of the same fingerprint join; never a second reimport entrypoint, never a parallel delta store, and never a re-tessellation of an unchanged element.
-- Boundary: the reimport reuses the `Review/diff#MODEL_DIFF` `ElementFingerprint` content-key as the change-detection key rather than a second identity scheme — a field-by-field element comparison or a `Guid`-keyed delta join is the deleted form; the unchanged-element reuse preserves the kernel `GeometryHandle` by reference and a re-tessellation of a content-key-matched element is the named seam violation; the IFC semantic graph parses fully at ingest (GeometryGym is whole-file), so the incrementality is in the projection-and-fingerprint stage, not the byte parse — claiming a partial byte parse is the deleted form; the `ModelDiff` falls out of the fingerprint join and a second diff pass over the patched model is the deleted form; the patched `BimModel` is the one `Model/elements#ELEMENT_MODEL` model shape, never a parallel delta-model; a reimport rejection lowers onto `Model/faults#FAULT_BAND` `BimFault` through `.ToError()`.
+- Owner: `BimIo.Reimport` the projector-polymorphic incremental re-ingest — re-projecting a revised source through ANY `IElementProjection` and reconciling it to a prior `ElementGraph` snapshot by `ExternalId`, so a large model's minor revision costs the delta, not the whole graph; `ReimportResult` the receipt carrying the patched `ElementGraph` plus the delta-cost `GraphDelta` the reconcile produces in one fold; `Reconcile` the `ExternalId`-keyed structural diff and `Remap` the node/edge id-reidentification.
+- Entry: `BimIo.Reimport(IElementProjection projector, ElementGraph prior, ProjectionContext ctx, Op key)` re-projects a revised source (the caller decodes the revised bytes once into the projector — `ImportIfc` → `new SemanticProjector(db)`, or a `Base` → `new SpeckleProjector(root)`) and reconciles the fresh graph to `prior` by `ExternalId` (the IFC `GlobalId` / Speckle `applicationId`), emitting only the added/revised/removed nodes and edges — `Fin<T>` funnels a foreign projector fault to `Projection/fault#FAULT_BAND` `ElementFault.ProjectionFailed` through `key.Catch` and rails `ElementFault.NodeAbsent` at `Graph/element#ELEMENT_GRAPH` `Apply` on a corrupt delta; the heavy display geometry is NEVER re-tessellated because an unchanged representation content-keys identically on `RepresentationContentHash`, so the incrementality is wholly in the reconcile, the whole-file re-projection notwithstanding.
+- Auto: `Reimport` runs the projector once onto a `Genesis(ctx.Header)` seed to a fresh revised `ElementGraph`, then `Reconcile` remaps each revised rooted `Object` to its prior identity by `ExternalId` (a re-projection mints FRESH neutral Guid-v7 ids, so identity is matched on the stable external id, never the node id) and rewrites every revised node and edge through that id map; the structural diff then partitions: a remapped node absent from `prior` is `AddedNodes`, present with DIFFERING `ToCanonicalBytes` is `RevisedNodes`, a prior node absent from the revised set is `RemovedNodes`, and edges diff by structural equality — a non-rooted content-keyed node (Material/PropertySet/...) needs no remap because identical content already shares its `NodeId`, so only rooted Objects with a stable remapped id and changed canonical bytes are revisions; the resulting `GraphDelta` applied to `prior` yields the reconciled `Patched`, the delta IS the change set, never a second diff pass.
+- Receipt: the `ReimportResult` carries the patched `ElementGraph` (the prior snapshot advanced by the incremental delta) and the forward `GraphDelta` the `Rasm.Persistence` event log stores — a delta-cost minor revision, the `csharp:Rasm.Persistence/Version/ledger#GRAPH_DELTA` stream appending only the changed nodes/edges, the `GraphDelta.ToCanonicalBytes` content key deduping a re-applied delta; the `Review/diff#MODEL_DIFF` `ElementChange` federation change-set is the SEPARATE review surface, not minted here.
+- Packages: Rasm.Element, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm
+- Growth: a new re-ingestable source is one more `IElementProjection` the caller hands `Reimport` (the IFC `SemanticProjector`, the `SpeckleProjector`, a future Materials/Fabrication projector) — the reconcile is projector-agnostic, keyed only on `ExternalId`, so no second reimport entrypoint; a finer change granularity is the `ToCanonicalBytes` content comparison the diff already uses; never a parallel delta store and never a re-tessellation of a content-key-matched representation.
+- Boundary: the reconcile keys on the seam `Object.ExternalId` (the IFC `GlobalId` / Speckle `applicationId`) — a re-projection mints fresh neutral Guid-v7 ids, so matching on the node id would treat every element as new; a second identity scheme or a field-by-field element comparison is the deleted form; the `GraphDelta` is the FORWARD event delta the Persistence stream stores, distinct from the `Review/diff#MODEL_DIFF` `ElementChange` review change-set — minting a `ModelDiff` here is the deleted form; reimport is ONE polymorphic owner over `IElementProjection` and a per-format `ReimportIfc`/`ReimportSpeckle` family or the retired `BimModel`/`BimModel.Project` patch is the deleted form; a content-key-matched representation is never re-tessellated (the `RepresentationContentHash` is identical) and a re-tessellation is the named seam violation; the patched value is the one `Graph/element#ELEMENT_GRAPH` `ElementGraph` snapshot, never a parallel delta-model; a corrupt reconcile delta rails `Projection/fault#FAULT_BAND` `ElementFault.NodeAbsent` at `Apply`.
 
 ```csharp signature
-public sealed record ReimportResult(BimModel Patched, ModelDiff Diff);
+public sealed record ReimportResult(ElementGraph Patched, GraphDelta Delta);
 
 public static partial class BimIo {
-    public static Fin<ReimportResult> Reimport(InterchangeFormat format, ReadOnlyMemory<byte> revisedBytes, BimModel prior, ClockPolicy clocks) =>
-        ImportIfc(format, revisedBytes, clocks)
-            .Bind(semantic => BimModel.Project(semantic, clocks))
-            .Map(revised => Patch(prior, revised));
+    // Incremental re-ingest, projector-polymorphic over ANY IElementProjection (the IFC SemanticProjector, the Speckle
+    // SpeckleProjector, a future Materials/Fabrication projector): re-project a revised source to a fresh ElementGraph,
+    // reconcile it to the prior snapshot by ExternalId, and emit the delta-cost GraphDelta the Persistence event log
+    // stores. The caller decodes the revised bytes once (ImportIfc -> new SemanticProjector(db), or a Base ->
+    // new SpeckleProjector(root)) and hands the projector, so reimport never re-decodes a format and stays ONE
+    // polymorphic owner — the retired BimModel/ModelDiff patch over GlobalId-keyed BimElement rows is the deleted form
+    // (BimModel is retired; the GraphDelta IS the forward event delta, distinct from the Review/diff#MODEL_DIFF review
+    // change-set). A thrown foreign fault funnels to ElementFault.ProjectionFailed through key.Catch; a corrupt
+    // reconcile delta naming an absent endpoint rails ElementFault.NodeAbsent at Graph/element#ELEMENT_GRAPH Apply.
+    public static Fin<ReimportResult> Reimport(IElementProjection projector, ElementGraph prior, ProjectionContext ctx, Op key) =>
+        key.Catch(() => projector.Project(ctx))
+            .Map(fresh => fresh.ReplayOnto(ElementGraph.Genesis(ctx.Header)))
+            .Map(revised => Reconcile(prior, revised))
+            .Bind(delta => prior.Apply(delta, key).Map(patched => new ReimportResult(patched, delta)));
 
-    static ReimportResult Patch(BimModel prior, BimModel revised) {
-        var priorByKey = prior.Elements.ToMap(static e => e.GlobalId, static e => ModelDiff.Fingerprint(e).ContentKey);
-        var priorRows = prior.Elements.ToMap(static e => e.GlobalId);
-        var patchedElements = revised.Elements.Map(element =>
-            priorByKey.Find(element.GlobalId).Match(
-                Some: priorKey => priorKey == ModelDiff.Fingerprint(element).ContentKey ? priorRows[element.GlobalId] : element,
-                None: () => element));
-        var patched = revised with { Elements = patchedElements };
-        return new ReimportResult(patched, ModelDiff.Between(prior, patched));
+    // The ExternalId reconcile: a re-projection mints FRESH rooted ids (neutral Guid v7), so a rooted Object is matched
+    // to its prior identity by ExternalId (the IFC GlobalId / Speckle applicationId) and the revised ids are remapped to
+    // the prior ids — an unchanged element keeps its identity and contributes no change. A non-rooted node (Material/
+    // PropertySet/...) is content-keyed, so an unchanged one already shares its NodeId and a changed one is a fresh id
+    // (add + remove); only a rooted Object with the SAME remapped id and DIFFERING canonical bytes is a RevisedNode.
+    // The heavy display geometry is NEVER re-tessellated because RepresentationContentHash content-keys an unchanged
+    // representation identically; the forward GraphDelta applied to prior yields the reconciled revised — the delta-cost
+    // minor revision, the Review/diff#MODEL_DIFF ElementChange federation surface a SEPARATE concern, not minted here.
+    static GraphDelta Reconcile(ElementGraph prior, ElementGraph revised) {
+        double tolerance = revised.Header.Tolerance;
+        var priorByExternal = prior.ObjectNodes
+            .Choose(static o => o.ExternalId.Map(x => (External: x, o.Id)))
+            .ToMap(static p => p.External, static p => p.Id);
+        var remap = revised.ObjectNodes
+            .Choose(o => o.ExternalId.Bind(x => priorByExternal.Find(x)).Map(priorId => (o.Id, Prior: priorId)))
+            .ToMap(static p => p.Id, static p => p.Prior);
+        NodeId Reidentify(NodeId id) => remap.Find(id).IfNone(id);
+        var revisedNodes = revised.Nodes.Values.Select(n => Remap(n, Reidentify)).ToSeq();
+        var revisedEdges = revised.Edges.Select(e => Remap(e, Reidentify)).ToSeq();
+        var revisedById = revisedNodes.ToMap(static n => n.Id);
+        var added = revisedNodes.Filter(n => !prior.Nodes.ContainsKey(n.Id));
+        var removed = prior.Nodes.Keys.Where(id => !revisedById.ContainsKey(id)).ToSeq();
+        var revisedPairs = revisedNodes.Choose(n => prior.Nodes.TryGetValue(n.Id, out Node? p)
+            && !p.ToCanonicalBytes(tolerance).Span.SequenceEqual(n.ToCanonicalBytes(tolerance).Span)
+                ? Some((Before: p, After: n))
+                : None);
+        var addedEdges = revisedEdges.Filter(e => !prior.Edges.Contains(e));
+        var removedEdges = prior.Edges.Where(e => !revisedEdges.Contains(e)).ToSeq();
+        return new GraphDelta(added, removed, revisedPairs, addedEdges, removedEdges, Some(revised.Header));
     }
+
+    // Remap a node's identity to its prior identity (Object only — a content-keyed node is not in the remap, so the
+    // lookup is identity for it), so an ExternalId-matched element keeps its prior NodeId across the re-projection.
+    static Node Remap(Node node, Func<NodeId, NodeId> reidentify) =>
+        node is Node.Object o ? o with { Id = reidentify(o.Id) } : node;
+
+    // Remap an edge's endpoints through the same id lookup so an edge between matched elements reconnects the prior ids.
+    static Relationship Remap(Relationship edge, Func<NodeId, NodeId> reidentify) => edge.Switch<Relationship>(
+        compose:   c => new Relationship.Compose(reidentify(c.Whole), reidentify(c.Part), c.SubKind),
+        assign:    a => new Relationship.Assign(reidentify(a.Subject), reidentify(a.Definition), a.SubKind),
+        associate: r => new Relationship.Associate(reidentify(r.Subject), reidentify(r.Resource), r.Usage),
+        connect:   n => new Relationship.Connect(reidentify(n.From), reidentify(n.To), n.SubKind, n.Realizing.Map(reidentify)),
+        @void:     v => new Relationship.Void(reidentify(v.Host), reidentify(v.Feature), v.SubKind),
+        generic:   g => new Relationship.Generic(g.WireName, reidentify(g.Relating), reidentify(g.Related), g.Attributes));
 }
 ```
 
 ## [05]-[RESEARCH]
 
-- [ACADSHARP_DWG_DECODE]: the `acad-sharp` codec the `Exchange/format#FORMAT_AXIS` `Dwg` row carries reads DWG/DXF in-process through the decompile-verified `ACadSharp` surface (catalogued folder-local at `.api/api-acadsharp`) — `DxfReader.Read(Stream)`/`DwgReader.Read(Stream)` return a `CadDocument` whose `Entities` (an alias for `ModelSpace.Entities`) carry the drawing geometry, and the Bim arm folds the mesh-bearing entities onto the canonical `ImportedGeometry` triangle-soup: `Mesh` (the `Vertices` `List<XYZ>` plus the `Faces` `List<int[]>` n-gon index list, each face fan-triangulated), `Face3D` (the `FirstCorner`..`FourthCorner` `XYZ` quad, the fourth corner equal to the third for a triangle), and the `Insert`-referenced `Face3D` set placed through `InsertPoint`/`XScale`/`YScale`/`ZScale` — the 2D profile entities (`LwPolyline`/`Polyline2D`/`Arc`/`Circle`/`Spline`) the `csharp:Rasm.Fabrication` `Polygon/import` boundary owns are skipped, the one `CadDocument` read by two folders each projecting its owned entity families; `ACadSharp` is pure-managed AnyCPU IL, osx-arm64-safe, already consumed by Fabrication and AppUi, so the DWG/DXF round-trip lands managed without crossing the Python companion, the `netDxf` (DXF-only) reader NOT admitted because `ACadSharp` supersedes it (managed DWG AND DXF), and the reader exception lowers to `BimFault.ModelRejected` through the `BimIo.Boundary` funnel.
+- [ACADSHARP_DWG_DECODE]: the `acad-sharp` codec the `Exchange/format#FORMAT_AXIS` `Dwg` row carries reads DWG/DXF in-process through the decompile-verified `ACadSharp` surface (catalogued folder-local at `.api/api-acadsharp`) — `DxfReader.Read(Stream)`/`DwgReader.Read(Stream)` return a `CadDocument` whose `Entities` (an alias for `ModelSpace.Entities`) carry the drawing geometry, and the Bim arm folds the mesh-bearing entities onto the canonical `ImportedGeometry` triangle-soup: `Mesh` (the `Vertices` `List<XYZ>` plus the `Faces` `List<int[]>` n-gon index list, each face fan-triangulated), `Face3D` (the `FirstCorner`..`FourthCorner` `XYZ` quad, the fourth corner equal to the third for a triangle), `PolyfaceMesh` (the `VertexFaceMesh` vertex pool indexed by the 1-based signed `VertexFaceRecord` `Index1`..`Index4` records, a negative index a hidden edge and a zero `Index4` a triangle, fan-triangulated), and the `Insert`-referenced geometry flattened through the package-owned `Insert.Explode()` (the OCS→WCS placement, `Rotation`, per-axis scale, OCS `Normal`, and `MINSERT` array replication `ACadSharp` owns, each placed entity folded back through the same classifier so a block-nested `Insert` recurses) rather than a hand-rolled `InsertPoint`/`XScale` matrix — the 2D profile entities (`LwPolyline`/`Polyline2D`/`Arc`/`Circle`/`Spline`) the `csharp:Rasm.Fabrication` `Polygon/import` boundary owns are skipped, the one `CadDocument` read by two folders each projecting its owned entity families; `ACadSharp` is pure-managed AnyCPU IL, osx-arm64-safe, already consumed by Fabrication and AppUi, so the DWG/DXF round-trip lands managed without crossing the Python companion, the `netDxf` (DXF-only) reader NOT admitted because `ACadSharp` supersedes it (managed DWG AND DXF), and the reader exception lowers to `BimFault.ModelRejected` through the `BimIo.Boundary` funnel.
 - [NATIVE_FORMAT_BRIDGES]: the Revit `.rvt` and Navisworks `.nwc`/`.nwd` native readers ride the `native-companion` codec through the Compute companion process (the managed C# branch has no native loader for the proprietary application formats); DWG/DXF is now managed in-process through the `acad-sharp` codec (the `[ACADSHARP_DWG_DECODE]` note above), no longer a `native-companion` two-hop; the `mesh-text` OBJ/STL/OFF decode is managed in-process through the `geometry3Sharp` `StandardMeshReader`/`OBJFormatReader`/`STLFormatReader`/`OFFFormatReader` surface decompile-verified in `.api/api-geometry3sharp`, projecting the `DMesh3` (`VertexIndices`/`TriangleIndices`/`GetVertex`/`GetVertexNormal`/`GetTriangle`) onto the canonical `ImportedGeometry` triangle-soup; PLY and 3MF have LEFT the `mesh-text` codec because `geometry3Sharp` ships no PLY and no 3MF handler — PLY is the dedicated `ply-net` codec composing `Ply.Net` `PlyParser.Parse(stream, maxChunkSize)` over the immutable `Dataset`/`ElementData` record graph (the `Vertex` element's typed `x`/`y`/`z`/`nx`/`ny`/`nz` columns read as a `System.Array` per `DataType` and the `Face` element's `vertex_indices` list column fan-triangulated, ascii/`binary_little_endian`/`binary_big_endian` off `Header.Format`), retiring the hand-rolled BCL `PlyReader`, and 3MF is the `scene-exchange` codec composing the `AssimpNetter` `AssimpContext.ImportFileFromStream` `Scene`→`Mesh` fold under the canonical `Triangulate | JoinIdenticalVertices | GenerateSmoothNormals` post-process, retiring the hand-rolled BCL `ThreeMfReader` OPC/ZIP parse — `AssimpNetter` ships its own osx-arm64 `libassimp.dylib` admitted as the one scene-exchange owner (FBX/Collada/3MF), so the former native-coupling rejection no longer holds and the rejected reader picks that DO stand are `lib3mf` (native C++) and `Aspose.3D` (closed/commercial); each codec materializes one contiguous `ImportedGeometry` boundary allocation per the boundary-mapping law, the leaked `Ply.Net.*`/`Assimp.*` package types never crossing past `Exchange/import`.
-- [SPECKLE_CATALOGUE]: the `Speckle.Sdk`/`Speckle.Objects` member spellings the `ImportSpeckle` fold composes — `Speckle.Sdk.Models.Base` (`id`/`applicationId`/`speckle_type`/`GetTotalChildrenCount`), `Speckle.Sdk.Models.Extensions.BaseExtensions.Flatten`/`Traverse`/`TryGetDisplayValue`/`IsDisplayableObject` with the `BaseRecursionBreaker` delegate, `Speckle.Sdk.Models.GraphTraversal.TraversalContext.Parent`/`PropName`/`Current`, `Speckle.Sdk.Common.Units.GetConversionFactor`/`Meters`, `Speckle.Objects.Geometry.Mesh` (`vertices`/`faces`/`vertexNormals` `List<double>`/`List<int>`, length-prefixed n-gon `faces`, `units`, `VerticesCount`), `Speckle.Objects.Geometry.Brep` (`displayValue` `List<Mesh>`), `Speckle.Objects.IDisplayValue<out T>`, and `Speckle.Objects.Data.DataObject` (`name`/`displayValue` `List<Base>`/`properties` `Dictionary<string, object?>`) and its host-object subtypes (`RevitObject`/`ArchicadObject`/`TeklaObject`/`Civil3dObject`/`AutocadObject`/`RhinoObject`, each extending `DataObject`) — are decompile-verified against the `Speckle.Sdk`/`Speckle.Objects` 3.21.1 assemblies and catalogued folder-local at `.api/api-speckle`, which records the `Mesh.vertexNormals` flat-normal member, the `DataObject.properties` `Dictionary<string, object?>` shape, and the host-object subtype roster the cross-folder `csharp:Persistence/.api/api-speckle` sync catalogue elides.
-- [IFC5_ECS]: the IFC5 ECS-JSON (`.ifcx`) component-graph parse rides the GeometryGym IFC5 surface for the semantic graph and the Compute companion for native-grade tessellation; the `ifc5` row mirrors the IFC4x3 ingest with the ECS-component projection. IFC4.3 ADD2 is the production baseline (`ReleaseVersion.IFC4X3_ADD2`); IFC5 is the componentized/granular `.ifcx` architecture in active public development, so the `ifc5` row is a forward-looking GeometryGym IFC5-surface row grounding against the GeometryGym IFC5 member surface at alignment.
+- [SPECKLE_CATALOGUE]: the `Speckle.Sdk`/`Speckle.Objects` member spellings the `ImportSpeckle` display-mesh fold and the `SpeckleProjector` host-object fold compose — `Speckle.Sdk.Models.Base` (`id`/`applicationId`/`speckle_type`/`GetTotalChildrenCount`), `Speckle.Sdk.Models.Extensions.BaseExtensions.Flatten`/`Traverse`/`TraverseWithPath`/`TryGetDisplayValue`/`IsDisplayableObject` with the `BaseRecursionBreaker` delegate (`TraverseWithPath → IEnumerable<(string[], Base)>` the path-carrying walk the `SpeckleProjector` reconstructs `Compose.Contain` containment from by nearest-ancestor path prefix), `Speckle.Sdk.Models.GraphTraversal.TraversalContext.Parent`/`PropName`/`Current`, `Speckle.Sdk.Common.Units.GetConversionFactor`/`Meters`, `Speckle.Objects.Geometry.Mesh` (`vertices`/`faces`/`vertexNormals` `List<double>`/`List<int>`, length-prefixed n-gon `faces`, `units`, `VerticesCount`), `Speckle.Objects.Geometry.Brep` (`displayValue` `List<Mesh>`), `Speckle.Objects.IDisplayValue<out T>`, and `Speckle.Objects.Data.DataObject` (`name`/`displayValue` `List<Base>`/`properties` `Dictionary<string, object?>`) and its host-object subtypes (`RevitObject`/`ArchicadObject`/`TeklaObject`/`Civil3dObject`/`AutocadObject`/`RhinoObject`, each extending `DataObject`) — are decompile-verified against the `Speckle.Sdk`/`Speckle.Objects` 3.21.1 assemblies and catalogued folder-local at `.api/api-speckle`, which records the `Mesh.vertexNormals` flat-normal member, the `DataObject.properties` `Dictionary<string, object?>` shape, and the host-object subtype roster the cross-folder `csharp:Persistence/.api/api-speckle` sync catalogue elides; the host-object semantic projection is the `SpeckleProjector : IElementProjection` lowering the `DataObject` tree onto a seam `GraphDelta` (each host object a rooted `Node.Object` carrying the generic `Classification("speckle", speckle_type)` and the `applicationId` `ExternalId`), never the retired `IfcSemanticModel` flat rows.
+- [IFC5_ECS]: the IFC5 ECS-JSON (`.ifcx`) component-graph parse rides the GeometryGym IFC5 surface for the live `DatabaseIfc` the `Projection/semantic#SEMANTIC_PROJECTOR` lowers, and the Compute companion for native-grade tessellation; the `ifc5` row mirrors the IFC4x3 decode (bytes → `DatabaseIfc`), the ECS-component projection riding the projector's seam graph. IFC4.3 ADD2 is the production baseline (`ReleaseVersion.IFC4X3_ADD2`); IFC5 is the componentized/granular `.ifcx` architecture in active public development, so the `ifc5` row is a forward-looking GeometryGym IFC5-surface row grounding against the GeometryGym IFC5 member surface at alignment.
+- [SEAM_DECODE]: the import-rail IFC arm collapse to a `DatabaseIfc`-only decode grounds against `ELEMENT-REBUILD-PLAN.md` §4-RT C5 and the `Projection/semantic#SEMANTIC_PROJECTOR` owner — the `SemanticProjector : IElementProjection` reads the LIVE `DatabaseIfc` (not lossy import-rail rows), so the FULL `IfcRel*` roster, the eight stranded families, `OwnerHistory`, `StepHeader`, and the per-bag `InheritanceMode` survive on the neutral seam edge algebra; the retired `IfcSemanticModel` flat-row projection that dropped them is the deleted form §2/§4B name, and `DatabaseIfc` is captured by the projector internally so GeometryGym never crosses the seam `IElementProjection.Project` signature (the §4A IoC inversion). `DatabaseIfc.ParseString`/`ReadJSON`/`ReadXMLDoc`/`Release`/`ModelView`/`Tolerance` confirm against `.api/api-geometrygym-ifc`.
+- [REIMPORT_RECONCILE]: the projector-polymorphic reimport grounds against `ELEMENT-REBUILD-PLAN.md` §4-RT H6 (a rooted `NodeId` is a NEUTRAL kernel-minted Guid-v7, the IFC `GlobalId` a Bim-stored `ExternalId` projection) — a re-projection mints fresh ids, so `Reconcile` matches a rooted `Object` to its prior identity by `ExternalId`, never the node id; the forward `GraphDelta` is §4-RT C1/H11's event body the `Rasm.Persistence` Marten stream appends (distinct from the §4F `Review/diff#MODEL_DIFF` `ElementChange` review change-set per `Graph/element#ELEMENT_GRAPH`'s two-change-surface law), and the §4-RT H7 `Node.ToCanonicalBytes` content comparison drives the revised-node detection. `ElementGraph.Genesis`/`Apply`/`ObjectNodes`, `GraphDelta.ReplayOnto`/`Reheader`, and `Node.Object.ExternalId` confirm against the seam `Graph/element`/`Graph/delta` owners.

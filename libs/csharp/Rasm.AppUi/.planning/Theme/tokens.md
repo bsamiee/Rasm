@@ -114,8 +114,8 @@ public static class ThemeCatalog {
 
 ```csharp signature
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<ThemeKeyPolicy, string>]
-[KeyMemberComparer<ThemeKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class Colormap {
     public static readonly Colormap Viridis = new("viridis", perceptual: true, stops: Seq(
         Color.FromUInt32(0xFF440154), Color.FromUInt32(0xFF414487), Color.FromUInt32(0xFF2A788E),
@@ -154,7 +154,7 @@ public sealed partial class Colormap {
 
 ## [03]-[VARIANT_AXIS]
 
-- Owner: `ThemeKeyPolicy` ordinal accessor; `ThemeVariantRow` `[SmartEnum<string>]` binding the page vocabulary to the host variant key column and the `Semi.Avalonia` `ThemeVariant` slots.
+- Owner: `ComparerAccessors.StringOrdinal` accessor; `ThemeVariantRow` `[SmartEnum<string>]` binding the page vocabulary to the host variant key column and the `Semi.Avalonia` `ThemeVariant` slots.
 - Cases: light, dark, high-contrast, host-matched, aquatic, desert, dusk, night-sky — high-contrast inherits the dark resource chain; host-matched is a probe fold, never a resolved row; the four brand rows carry the `Semi.Avalonia` named `ThemeVariant`s (`SemiTheme.Aquatic`/`Desert`/`Dusk`/`NightSky`), each deriving its light-or-dark base from the Semi variant so the OKLCH ramp populates its palette exactly as light/dark do.
 - Entry: `public ThemeVariantRow Concrete(Func<Option<ThemeVariantRow>> probe)` — total fold; concrete rows return themselves and the absent-probe default is `Light`.
 - Auto: host appearance flips ride the mount transaction's appearance-change facts into `Track`, so a host dark-mode change re-resolves and receipts with zero per-control handlers; each brand row's `Variant` is the `Semi.Avalonia`-shipped `ThemeVariant` so a brand swap selects the Semi palette base and the OKLCH ramp writes the brand paints over it, never a re-templated control set.
@@ -163,15 +163,10 @@ public sealed partial class Colormap {
 - Boundary: probes are host-agnostic delegate columns supplied at mount — the rhino probe lands as one registration row on the host-attach port reading `HostUtils.RunningInDarkMode` with change flips riding `Rhino.UI.ThemeSettings.ThemeChanged` host-side, gh2 rows ride the same host probe, empty-host standalone rows read `IPlatformSettings.GetColorValues()` whose `PlatformColorValues` carries `ThemeVariant` and `ContrastPreference` with re-probe on `ColorValuesChanged`, and the browser probe stays a designed-only column on the web-browser growth case with zero authored interop; the per-surface override is the `SurfaceOverride` delegate column on the swap capsule, so a panel tracks its host while a sidecar stays user-chosen.
 
 ```csharp signature
-public sealed class ThemeKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
-    public static IEqualityComparer<string> EqualityComparer => StringComparer.Ordinal;
-
-    public static IComparer<string> Comparer => StringComparer.Ordinal;
-}
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<ThemeKeyPolicy, string>]
-[KeyMemberComparer<ThemeKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ThemeVariantRow {
     public static readonly ThemeVariantRow Light = new("light", ThemeVariant.Light, dark: false);
     public static readonly ThemeVariantRow Dark = new("dark", ThemeVariant.Dark, dark: true);
@@ -230,8 +225,8 @@ public sealed partial class ThemeVariantRow {
 
 ```csharp signature
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<ThemeKeyPolicy, string>]
-[KeyMemberComparer<ThemeKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class DensityRow {
     public static readonly DensityRow Default = new("default", DensityStyle.Normal);
     public static readonly DensityRow Compact = new("compact", DensityStyle.Compact);

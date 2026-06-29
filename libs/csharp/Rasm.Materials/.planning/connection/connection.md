@@ -4,12 +4,12 @@ THE POLYMORPHIC CONNECTION OWNER and THE FAMILY GROWTH AXIS. One `ConnectionItem
 
 ## [01]-[INDEX]
 
-- [01]-[CONNECTION_OWNER]: the one `ConnectionItem` `[Union]` over the closed `ConnectionFamily` `[SmartEnum<string>]` axis (reinforcement/fastener/hanger/joint), the `ConnectionId` `[ValueObject]` key with `ConnectionKeyPolicy` ordinal accessor, the band-2360 `ConnectionFault` `[Union]`, the `ConnectionItem.Of` polymorphic admission entry, and the context-folded `ConnectionCatalogue` registered-row table over all four family builders.
+- [01]-[CONNECTION_OWNER]: the one `ConnectionItem` `[Union]` over the closed `ConnectionFamily` `[SmartEnum<string>]` axis (reinforcement/fastener/hanger/joint), the `ConnectionId` `[ValueObject]` key with `ComparerAccessors.StringOrdinal` accessor, the band-2360 `ConnectionFault` `[Union]`, the `ConnectionItem.Of` polymorphic admission entry, and the context-folded `ConnectionCatalogue` registered-row table over all four family builders.
 - [02]-[CONNECTION_WIRE]: the host-neutral `ConnectionItemWire` portable carrier this owner DECLARES (the connection-item seam contract `Rasm.Bim` reads, NEVER a `Rasm.Materials` type crossing the boundary) and the `ConnectionWire.ToWire` producer fold lowering a `ConnectionItem` onto it, the egress half of the `Connection → csharp:Rasm.Bim/Model [WIRE]` seam; the material/composition/property egress is RETIRED — the `Projection/material#MATERIAL_PROJECTOR` lowers it into the seam `ElementGraph` `Rasm.Bim` reads directly.
 
 ## [02]-[CONNECTION_OWNER]
 
-- Owner: `ConnectionItem` over the closed `ConnectionFamily` axis; `ConnectionId` key; `ConnectionFault` `[Union]` band 2360; `ConnectionKeyPolicy` ordinal accessor; `ConnectionCatalogue` the registered-row table.
+- Owner: `ConnectionItem` over the closed `ConnectionFamily` axis; `ConnectionId` key; `ConnectionFault` `[Union]` band 2360; `ComparerAccessors.StringOrdinal` accessor; `ConnectionCatalogue` the registered-row table.
 - Cases: one `ConnectionItem` shape across all families — `Family` (the discriminant), `Designation` (the `ConnectionId` key, `connection.<designation>`), `Section` (the family-projected sectional unit row as a `ConnectionSection` `[Union]` arm: `Reinforcement`/`Fastener`/`Hanger`/`Joint`), `CapacityKey` (the `MaterialId` whose `properties#MATERIAL_PROPERTY_CATALOGUE` `Mechanical` row carries the installation capacity), `AppearanceId` (the `graph#MATERIAL_LIBRARY` `MaterialId` row); family {reinforcement, fastener, hanger, joint} closed at four (`anchor` is a `FastenerKind` arm inside the fastener vocabulary, never a family; `joint` is the deliberate fourth case carrying the continuous weld/adhesive/stud at `Connection/joint#JOINT_FAMILY`); an item is a `ConnectionFamily` ROW, never a connection subtype.
 - Entry: `public static Fin<ConnectionItem> Of(ConnectionFamily family, string designation, ConnectionSection section, MaterialId capacityKey, MaterialId appearanceId, Op key)` — one polymorphic admission entry, never a `GetById`/`GetByFamily` family (the `Profile.Of` law, `profile.md` line 13); `Fin<T>` aborts on a malformed designation (`ConnectionFault.Designation`, key-correlated), a family/section discriminant mismatch (`ConnectionFault.Family`), an out-of-band grade (`ConnectionFault.Grade`), or a non-positive capacity column (`ConnectionFault.Capacity`); `ConnectionCatalogue.Build(context)` folds every family's row builder (`reinforcement#REINFORCEMENT_FAMILY` `BuildRebarRows` plus `fastener#FASTENER_FAMILY` `BuildFastenerRows` plus `hanger#HANGER_FAMILY` `BuildHangerRows` plus `joint#JOINT_FAMILY` `BuildJointRows`) into the one frozen registry, `ConnectionCatalogue.Lookup(rows, id, key)` resolves a registered `ConnectionId` to its catalogue `ConnectionItem`, and the same `Of` admits an ad-hoc item through the row validation a registered row passes — one polymorphic entry.
 - Packages: Rasm (project — `PositiveMagnitude`/`Dimension`/`UnitInterval` value-objects the family sections compose), Thinktecture.Runtime.Extensions (`[Union]`/`[SmartEnum<string>]`/`[ValueObject]` generators at their deepest surface — generated total `Switch`, `[KeyMemberEqualityComparer]`/`[KeyMemberComparer]`), LanguageExt.Core (`Fin`/`Seq`/`Fold` for the admission rail and the catalogue fold), BCL inbox (`FrozenDictionary`); no new external package — the connection owner is the structural copy of the proven `profile#PROFILE_OWNER` shape, never a re-invention.
@@ -19,8 +19,8 @@ THE POLYMORPHIC CONNECTION OWNER and THE FAMILY GROWTH AXIS. One `ConnectionItem
 ```csharp signature
 // --- [TYPES] -------------------------------------------------------------------------------
 [ValueObject<string>]
-[KeyMemberEqualityComparer<ConnectionKeyPolicy, string>]
-[KeyMemberComparer<ConnectionKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public readonly partial struct ConnectionId {
     static partial void NormalizeAndValidate(ref string value, ref ValidationError? validationError) =>
         validationError = string.IsNullOrWhiteSpace(value) || !value.StartsWith("connection.", StringComparison.Ordinal) || value.Length <= "connection.".Length
@@ -29,8 +29,8 @@ public readonly partial struct ConnectionId {
 }
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<ConnectionKeyPolicy, string>]
-[KeyMemberComparer<ConnectionKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ConnectionFamily {
     public static readonly ConnectionFamily Reinforcement = new("reinforcement");
     public static readonly ConnectionFamily Fastener = new("fastener");
@@ -51,10 +51,6 @@ public abstract partial record ConnectionFault : Expected, IValidationError<Conn
 }
 
 // --- [SERVICES] ----------------------------------------------------------------------------
-public sealed class ConnectionKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
-    public static IEqualityComparer<string> EqualityComparer => StringComparer.Ordinal;
-    public static IComparer<string> Comparer => StringComparer.Ordinal;
-}
 
 // --- [MODELS] ------------------------------------------------------------------------------
 [Union]
@@ -101,7 +97,7 @@ public static class ConnectionCatalogue {
             .Concat(Fastener.ConnectionCatalogue.BuildFastenerRows(context))
             .Concat(Hanger.ConnectionCatalogue.BuildHangerRows(context))
             .Concat(Joint.ConnectionCatalogue.BuildJointRows(context))
-            .ToFrozenDictionary(static r => r.Key, static r => r.Value, ConnectionKeyPolicy.EqualityComparer);
+            .ToFrozenDictionary(static r => r.Key, static r => r.Value, ComparerAccessors.StringOrdinal.EqualityComparer);
 
     public static Fin<ConnectionItem> Lookup(FrozenDictionary<ConnectionId, ConnectionItem> rows, ConnectionId id, Op key) =>
         rows.TryGetValue(id, out ConnectionItem? row) ? Fin.Succ(row!) : Fin.Fail<ConnectionItem>(ConnectionFault.Family(key, $"<unregistered-connection:{id.Value}>"));

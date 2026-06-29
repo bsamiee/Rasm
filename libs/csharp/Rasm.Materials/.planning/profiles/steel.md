@@ -23,7 +23,7 @@ using VividOrange.Materials.StandardMaterials.En;    // EnSteelGrade, EnSteelMat
 
 // --- [TYPES] -------------------------------------------------------------------------------
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<ProfileKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SteelClass {
     public static readonly SteelClass IShape      = new("i-shape", ifcSubtype: "IfcIShapeProfileDef");
     public static readonly SteelClass UShape      = new("u-shape", ifcSubtype: "IfcUShapeProfileDef");
@@ -70,7 +70,7 @@ public sealed partial class CompactnessClass {
 // rather than a caller-supplied raw double, so a steel member's design yield is the registered grade DATA, never hand-keyed.
 // The AISC bands (a36/a992/a572) carry None and fall back to their spec-nominal yield; the EN bands resolve EnSteelFactory.
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<ProfileKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SteelGrade {
     public static readonly SteelGrade A36   = new("a36",   nominalYieldMpa: 250.0, enGrade: None);
     public static readonly SteelGrade A992  = new("a992",  nominalYieldMpa: 345.0, enGrade: None);
@@ -304,7 +304,7 @@ public static class ProfileCatalogue {
             .Concat(CompositeColdFormedRows(default).IfFail(Seq<SteelShape>()))
             .Choose(shape => shape.Section.ToUnit(context, default).ToOption()
                 .Map(unit => (shape.Id, Profile: new Profile(ProfileFamily.Steel, unit, Coring.None, shape.Standard, MaterialId.Of("metal.iron")))))
-            .ToFrozenDictionary(static r => r.Id, static r => r.Profile, ProfileKeyPolicy.EqualityComparer);
+            .ToFrozenDictionary(static r => r.Id, static r => r.Profile, ComparerAccessors.StringOrdinal.EqualityComparer);
 }
 ```
 

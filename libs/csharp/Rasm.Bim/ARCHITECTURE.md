@@ -9,7 +9,7 @@ Each codemap node is the eventual source file its `.planning/` design page becom
 ```text codemap
 Rasm.Bim/
 ├── Model/                 # Host-neutral BIM object model and analytical model
-│   ├── Elements.cs        # IfcClass [SmartEnum<string>] entity-class taxonomy + IfcDomain/IfcSchemaSpan + AdmitPredefined egress gate + IfcRepresentation RepresentationContentHash keyer (BimElement/BimModel RETIRED — the element is the seam Bake fold)
+│   ├── Elements.cs        # IfcClass entity-class taxonomy
 │   ├── Query.cs           # Set-algebraic ElementPredicate query folded over ElementSet
 │   ├── Structure.cs       # Spatial-structure tree + closed AssemblyRel decomposition
 │   ├── Zones.cs           # BimZone many-to-many zone/program overlay
@@ -17,13 +17,13 @@ Rasm.Bim/
 │   ├── Structural.cs      # IFC structural-analysis AnalysisModel the Compute solver reads
 │   └── Faults.cs          # Band-2600 BimFault closed [Union] every entrypoint lowers onto
 ├── Semantics/             # Element-bound semantic enrichment
-│   ├── Properties.cs      # PropertyKey Pset/Qto TEMPLATE authority + bSDD DataType resolution + PropertyInheritance InheritanceMode classifier + QuantityDerivation base-quantity fold (the typed PropertyValue/MeasureValue value half RETIRED to the seam)
+│   ├── Properties.cs      # PropertyKey Pset/Qto TEMPLATE authority, bSDD DataType resolution, Property classifier, etc...
 │   ├── Classification.cs  # bSDD-bound Classification axis with BsddResolution live dictionary
 │   ├── Composition.cs     # BimMaterial construction-material composition [Union]
 │   ├── Appearance.cs      # BimAppearance PBR record reconciled with Rasm.Materials at content-key seam
 │   ├── Connection.cs      # ConnectionDetail realizing-element joint [Union] (Bolted/Welded/Bearing/Cast) over IfcRelConnectsWithRealizingElements
-│   ├── GeoReference.cs    # GeoReferenceProjector lowering IfcMapConversion/IfcProjectedCRS into the seam GeoReference (full field set, EPSG parse, fault-on-unresolvable) + GeoTransform.Reproject ProjNET leg (the GeoReference/ProjectedCrs value-objects RETIRED to the seam)
-│   └── Geospatial.cs      # GeoFeature/GeoModel NTS Simple-Features algebra + GDAL/OGR universal vector+raster ingest, shapefile/CityJSON codecs, STRtree broad-phase, GeoFeature.ToObject/GeoRaster.ToCoverage site-context projection onto seam Object/Coverage nodes through a GraphDelta
+│   ├── GeoReference.cs    # GeoReferenceProjector lowering IfcMapConversion/IfcProjectedCRS into the seam GeoReference
+│   └── Geospatial.cs      # GeoFeature/GeoModel NTS Simple-Features algebra + GDAL/OGR universal vector+raster ingest, shapefile/CityJSON codecs, etc...
 ├── Planning/              # 4D/5D delivery network
 │   ├── Schedule.cs        # ConstructionTask 4D activity schedule over IfcTaskTime intervals
 │   └── Cost.cs            # CostItem 5D cost-and-resource estimate with CostSchedule.Rollup fold
@@ -41,7 +41,7 @@ Rasm.Bim/
 │   ├── Coordination.cs    # CoordinationRule [Union] rule engine, ClashProposal fold, ImpactReport, BCF SignOff [SmartEnum]
 │   └── Versioning.cs      # Content-addressed BimCommit DAG + three-way ElementChange Merge over the diff content-key
 └── Projection/            # The IFC arm of the Rasm.Element seam
-    └── Semantic.cs        # SemanticProjector:IElementProjection (DatabaseIfc → seam GraphDelta; Bim-internal Emit IFC re-author) + IfcRelKind full IfcRel* neutral-edge roster (every name/directionality/inverse + the eight stranded families) + IfcLegality:IGraphConstraint IFC-semantic legality
+    └── Semantic.cs        # SemanticProjector:IElementProjection
 ```
 
 Every sub-domain projects onto or reads the one seam `ElementGraph` (the `Projection/Semantic` `SemanticProjector` lowers GeometryGym into it; the seam `Bake(objectNode)` fold derives the consumer element) rather than a parallel `BimModel` surface, lowers rejection onto the `Model/Faults` `BimFault` band, and consumes the `Model/Query` `ElementPredicate` algebra and the `Semantics/Classification` axis as settled vocabulary.
@@ -82,7 +82,7 @@ Model                     →  csharp:Rasm.Compute/Runtime/codecs       # [CONTE
 Model/structural          →  csharp:Rasm.AppUi/Charts                 # [RECEIPT]: CriticalPath/EarnedValue schedule-and-cost report rendered as a Charts/dashboards projection over the Bim-owned schedule network (AppUi has no Schedule page; the 4D/5D report is a Charts projection — a dedicated Schedule projection page is a plan-cs-folders decision)
 Planning/schedule         →  csharp:Rasm.AppUi/Charts                 # [RECEIPT]: ScheduleNetwork CPM/calendar/4D report rendered as a Charts/dashboards projection over the Bim-owned schedule network
 Planning/cost             →  csharp:Rasm.AppUi/Charts                 # [RECEIPT]: CostSchedule EarnedValue/ChangeOrder report rendered as a Charts/dashboards projection over the Bim-owned cost network
-Exchange/tessellation     →  csharp:Rasm.Compute/Runtime/codecs       # [TESSELLATION]: TessellationOutcome two-hop GLB, CacheHit by ArtifactKey
+Exchange/tessellation     →  csharp:Rasm.Compute/Runtime/codecs       # [TESSELLATION]: TessellationOutcome two-hop GLB, TessellationOrigin by ArtifactKey (dual SourceKey/ContentKey)
 Exchange/tessellation     →  csharp:Rasm.Persistence/Query            # [CONTENT_KEY]: TessellationOutcome ArtifactKey cache-hit lookup
 Exchange/import           →  csharp:Rasm.Persistence/Query            # [CONTENT_KEY]: Reimport prior seam ElementGraph snapshot content-key delta join
 Exchange/import           ←  csharp:Rasm.Rhino/Exchange               # [BOUNDARY]: [^1]

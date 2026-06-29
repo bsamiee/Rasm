@@ -1,8 +1,8 @@
 # [MATERIALS_SURFACE]
 
-THE COLOR-SCIENCE LOWERING and THE OPENPBR-CONSTRUCTION HALF. The surface page owns the four lowering/grounding kernels the wire and the library drive — ONE `SpectralUpsample` RGB→SPD kernel feeding Unicolour's `Spd`→XYZ and the measured-illuminant reduction every base color grounds through, ONE `ToneMap` ACES RRT/ODT + scene-referred operator table, ONE `ConductorIor` measured complex-IOR table grounding every metal F0 per band, and ONE `SlabStack` OpenPBR Surface 1.1 stack-of-slabs the `bsdf#LAYERED_COMPOSITION` `LayeredBsdf` fold lowers from. The page owns the `SpectralBand`, `ToneOperator`, `ConductorMetal`, and `SlabKind` axes and the spectral/tone/conductor/slab kernels; it COMPOSES the `bsdf#SHADING_FRAME` `MaterialFault` (band 2450) and `MaterialKeyPolicy` accessor declared once on the kernel page, the `bsdf#LOBE_FAMILY` `RgbSpectrum`/`ComplexIor` validated carriers and `BsdfLobe` closed set, and the `bsdf#LAYERED_COMPOSITION` `LayeredBsdf.Of` weighted-lobe fold — the kernel page owns frame-local shading, this page owns the OpenPBR construction the `interchange#MATERIAL_WIRE` and the `weathering#WEATHERING` aging trajectory target.
+THE COLOR-SCIENCE LOWERING and THE OPENPBR-CONSTRUCTION HALF. The surface page owns the four lowering/grounding kernels the wire and the library drive — ONE `SpectralUpsample` RGB→SPD kernel feeding Unicolour's `Spd`→XYZ and the measured-illuminant reduction every base color grounds through, ONE `ToneMap` ACES RRT/ODT + scene-referred operator table, ONE `ConductorIor` measured complex-IOR table grounding every metal F0 per band, and ONE `SlabStack` OpenPBR Surface 1.1 stack-of-slabs the `bsdf#LAYERED_COMPOSITION` `LayeredBsdf` fold lowers from. The page owns the `SpectralBand`, `ToneOperator`, `ConductorMetal`, and `SlabKind` axes and the spectral/tone/conductor/slab kernels; it COMPOSES the `bsdf#SHADING_FRAME` `MaterialFault` (band 2450) declared once on the kernel page, the `bsdf#LOBE_FAMILY` `RgbSpectrum`/`ComplexIor` validated carriers and `BsdfLobe` closed set, and the `bsdf#LAYERED_COMPOSITION` `LayeredBsdf.Of` weighted-lobe fold — the kernel page owns frame-local shading, this page owns the OpenPBR construction the `interchange#MATERIAL_WIRE` and the `weathering#WEATHERING` aging trajectory target.
 
-This page is the lowering boundary: a `graph#MATERIAL_LIBRARY` `MaterialParameters` row lowers through `SlabStack.Lower` to the formal OpenPBR Surface 1.1 stack (fuzz over coat over emission over base), the base substrate grounds its conductor lobe from `ConductorIor`, the base color upsamples to an SPD through `SpectralUpsample`, and `SlabStack.ToLayered` collapses the albedo-scaled stack to the one `LayeredBsdf` weighted fold the renderer shades — so the slab algebra is the construction the row drives through, the lobe math is single-sourced on the kernel page, and the tone-map is the display-referred egress the raster path consumes. The split is BY CONCERN, not by size: the kernel page carries the per-sample shading math the path tracer drives, this page the color-science and OpenPBR-construction the wire and library drive, the two sharing the `MaterialFault` band and `MaterialKeyPolicy` declared once on the kernel.
+This page is the lowering boundary: a `graph#MATERIAL_LIBRARY` `MaterialParameters` row lowers through `SlabStack.Lower` to the formal OpenPBR Surface 1.1 stack (fuzz over coat over emission over base), the base substrate grounds its conductor lobe from `ConductorIor`, the base color upsamples to an SPD through `SpectralUpsample`, and `SlabStack.ToLayered` collapses the albedo-scaled stack to the one `LayeredBsdf` weighted fold the renderer shades — so the slab algebra is the construction the row drives through, the lobe math is single-sourced on the kernel page, and the tone-map is the display-referred egress the raster path consumes. The split is BY CONCERN, not by size: the kernel page carries the per-sample shading math the path tracer drives, this page the color-science and OpenPBR-construction the wire and library drive, the two sharing the `MaterialFault` band declared once on the kernel.
 
 ## [01]-[INDEX]
 
@@ -22,7 +22,7 @@ This page is the lowering boundary: a `graph#MATERIAL_LIBRARY` `MaterialParamete
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
-using Rasm.Materials.Appearance.Bsdf;   // MaterialFault, MaterialKeyPolicy, RgbSpectrum, ComplexIor, BsdfLobe, LayeredBsdf, LobeWeight, Microfacet, MultiScatter, LocalVector, SpectralBand-consumers
+using Rasm.Materials.Appearance.Bsdf;   // MaterialFault, RgbSpectrum, ComplexIor, BsdfLobe, LayeredBsdf, LobeWeight, Microfacet, MultiScatter, LocalVector, SpectralBand-consumers
 using Wacton.Unicolour;
 using static LanguageExt.Prelude;
 
@@ -85,8 +85,8 @@ public static class SpectralUpsample {
 ```csharp signature
 // --- [TYPES] -------------------------------------------------------------------------------
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<MaterialKeyPolicy, string>]
-[KeyMemberComparer<MaterialKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ToneOperator {
     public static readonly ToneOperator Aces = new("aces", ToneMap.AcesFit);
     public static readonly ToneOperator Reinhard = new("reinhard", ToneMap.ReinhardExtended);
@@ -134,8 +134,8 @@ public static class ToneMap {
 ```csharp signature
 // --- [TYPES] -------------------------------------------------------------------------------
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<MaterialKeyPolicy, string>]
-[KeyMemberComparer<MaterialKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ConductorMetal {
     public static readonly ConductorMetal Gold     = new("gold");
     public static readonly ConductorMetal Copper   = new("copper");
@@ -185,8 +185,8 @@ public static class ConductorIor {
 ```csharp signature
 // --- [TYPES] -------------------------------------------------------------------------------
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<MaterialKeyPolicy, string>]
-[KeyMemberComparer<MaterialKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SlabKind {
     public static readonly SlabKind Fuzz     = new("fuzz");
     public static readonly SlabKind Coat     = new("coat");

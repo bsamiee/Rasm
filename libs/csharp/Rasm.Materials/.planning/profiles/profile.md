@@ -9,7 +9,7 @@ THE POLYMORPHIC PROFILE OWNER and THE FAMILY GROWTH AXIS. One `Profile` is the c
 
 ## [02]-[PROFILE_OWNER]
 
-- Owner: `Profile` over the closed `ProfileFamily` axis; `ProfileId` key; `ProfileFault` `[Union]` band 2300; `ProfileKeyPolicy` ordinal accessor; `ProfileCatalogue` the registered-row table.
+- Owner: `Profile` over the closed `ProfileFamily` axis; `ProfileId` key; `ProfileFault` `[Union]` band 2300; `ComparerAccessors.StringOrdinal` accessor; `ProfileCatalogue` the registered-row table.
 - Cases: one `Profile` shape across all families — `Family` (the discriminant), `Unit` (the dimensional cross-section), `Coring` (the void-class row), `Standard` (the regional source receipt), `AppearanceId` (the `MaterialId` row); family {masonry (realized), cmu, steel, timber, glazing (growth)}; a family is a `ProfileFamily` ROW, never a profile subtype.
 - Entry: `public static Fin<Profile> Of(ProfileFamily family, ProfileUnit unit, Coring coring, ProfileStandard standard, MaterialId appearanceId, Op key)` — `Fin<T>` aborts on a non-positive dimension (`ProfileFault.Dimension`, key-correlated), a void-fraction outside `[0,1)` (`ProfileFault.Coring`), or a family/unit mismatch (`ProfileFault.Family`); `ProfileCatalogue.Build(context)` folds every realized family's row builder (masonry seed plus `steel#STEEL_FAMILY` `BuildSteelRows`) into the one frozen registry, `ProfileCatalogue.Lookup(rows, id, key)` resolves a registered `ProfileId` to its catalogue `Profile`, and the same `Of` admits an ad-hoc unit through the row validation a registered row passes — one polymorphic entry, never a `GetById`/`GetByFamily` family.
 - Packages: Rasm (project — `Dimension`/`UnitInterval`/`PositiveMagnitude` value-objects), VividOrange.Sections.SectionProperties + VividOrange.Profiles.Perimeter + VividOrange.Geometry (the shared `ParametricSection` bridge — `new Perimeter(outer, voids)` over `LocalPolyline2d`/`LocalPoint2d` fed to `new SectionProperties(IProfile)`; `.api/api-vividorange-sections-sectionproperties.md`), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox (`FrozenDictionary`).
@@ -24,16 +24,16 @@ using VividOrange.Sections.SectionProperties;        // SectionProperties polygo
 
 // --- [TYPES] -------------------------------------------------------------------------------
 [ValueObject<string>]
-[KeyMemberEqualityComparer<ProfileKeyPolicy, string>]
-[KeyMemberComparer<ProfileKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public readonly partial struct ProfileId {
     static partial void NormalizeAndValidate(ref string value, ref ValidationError? validationError) =>
         validationError = string.IsNullOrWhiteSpace(value) || !value.Contains('.') ? new ValidationError("<profile-id requires 'family.name'>") : null;
 }
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<ProfileKeyPolicy, string>]
-[KeyMemberComparer<ProfileKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ProfileFamily {
     public static readonly ProfileFamily Masonry = new("masonry");
     public static readonly ProfileFamily Cmu = new("cmu");
@@ -55,10 +55,6 @@ public abstract partial record ProfileFault : Expected, IValidationError<Profile
 }
 
 // --- [SERVICES] ----------------------------------------------------------------------------
-public sealed class ProfileKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
-    public static IEqualityComparer<string> EqualityComparer => StringComparer.Ordinal;
-    public static IComparer<string> Comparer => StringComparer.Ordinal;
-}
 
 // --- [MODELS] ------------------------------------------------------------------------------
 public readonly record struct ProfileUnit(PositiveMagnitude WidthMm, PositiveMagnitude HeightMm, PositiveMagnitude LengthMm, PositiveMagnitude CourseHeightMm) {
@@ -158,7 +154,7 @@ public static class ProfileCatalogue {
             .Concat(Cmu.ProfileCatalogue.BuildCmuRows(context))
             .Concat(Timber.ProfileCatalogue.BuildTimberRows(context))
             .Concat(Glazing.ProfileCatalogue.BuildGlazingRows(context))
-            .ToFrozenDictionary(static r => r.Key, static r => r.Value, ProfileKeyPolicy.EqualityComparer);
+            .ToFrozenDictionary(static r => r.Key, static r => r.Value, ComparerAccessors.StringOrdinal.EqualityComparer);
 
     public static Fin<Profile> Lookup(FrozenDictionary<ProfileId, Profile> rows, ProfileId id, Op key) =>
         rows.TryGetValue(id, out Profile? row) ? Fin.Succ(row!) : Fin.Fail<Profile>(ProfileFault.Family(key, $"<unregistered-profile:{id.Value}>"));

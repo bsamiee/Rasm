@@ -84,6 +84,16 @@
           "Thinktecture.Runtime.Extensions.SourceGenerator": "10.4.0"
         }
       },
+      "TngTech.ArchUnitNET.xUnitV3": {
+        "type": "Direct",
+        "requested": "[0.13.3, )",
+        "resolved": "0.13.3",
+        "contentHash": "jQEyP4uwT9vGhEHQ2IHegyiQ0M+Umlmwe6aLTZP8xVuYfAdd4gpNnwx3wloZIB5060ZuZPBJN6hj6b2QoBWswA==",
+        "dependencies": {
+          "TngTech.ArchUnitNET": "0.13.3",
+          "xunit.v3.assert": "1.1.0"
+        }
+      },
       "xunit.v3.mtp-v2": {
         "type": "Direct",
         "requested": "[3.2.2, )",
@@ -94,6 +104,11 @@
           "xunit.v3.assert": "[3.2.2]",
           "xunit.v3.core.mtp-v2": "[3.2.2]"
         }
+      },
+      "CycleDetection": {
+        "type": "Transitive",
+        "resolved": "2.0.0",
+        "contentHash": "iQb2Nm9WqPseGCxPcdeU5qMbWkxtSr1bmnliC7slitx7GOG8cKO2pKZUQ2Yl+DQQZQ7c8qIXe3k+zYE0f96dIA=="
       },
       "MessagePack.Annotations": {
         "type": "Transitive",
@@ -203,6 +218,11 @@
         "resolved": "10.0.9",
         "contentHash": "dk5HKolAR9bBxlL4dl6Koaf0s/Q47QApog+/o341LSuvWGW6ig4q5fTsgYG0MrK//l2Slv6mygncMK/8lgXVDg=="
       },
+      "Mono.Cecil": {
+        "type": "Transitive",
+        "resolved": "0.11.6",
+        "contentHash": "f33RkDtZO8VlGXCtmQIviOtxgnUdym9xx/b1p9h91CRGOsJFxCFOFK1FDbVt1OCf1aWwYejUFa2MOQyFWTFjbA=="
+      },
       "NETStandard.Library": {
         "type": "Transitive",
         "resolved": "1.5.0-rc2-24027",
@@ -211,6 +231,11 @@
           "Microsoft.NETCore.Platforms": "1.0.1-rc2-24027",
           "Microsoft.NETCore.Runtime": "1.0.2-rc2-24027"
         }
+      },
+      "System.ValueTuple": {
+        "type": "Transitive",
+        "resolved": "4.6.1",
+        "contentHash": "+RJT4qaekpZ7DDLhf+LTjq+E48jieKiY9ulJ+BoxKmZblIJfIJT8Ufcaa/clQqnYvWs8jugfGSMu8ylS0caG0w=="
       },
       "Thinktecture.Runtime.Extensions.Analyzers": {
         "type": "Transitive",
@@ -226,6 +251,18 @@
         "type": "Transitive",
         "resolved": "10.4.0",
         "contentHash": "1jNrYo/7Syow8Vu+vY3LygJ7Erc9fagkobAdANxAkyg7G+9abnxZQ+cr4QbWPErGDe1mfCDQiO9crIjdG6DQJw=="
+      },
+      "TngTech.ArchUnitNET": {
+        "type": "Transitive",
+        "resolved": "0.13.3",
+        "contentHash": "4+V+rJ1DC6f2mbwpVnSKwUnN8OhbZ+YC2HoFXYj4Skb+pbabaweu5cnscyXBiMlU97b5GvoOKzpUCn0RCTmWeg==",
+        "dependencies": {
+          "CycleDetection": "2.0.0",
+          "JetBrains.Annotations": "2025.2.2",
+          "Mono.Cecil": "0.11.6",
+          "Newtonsoft.Json": "13.0.4",
+          "System.ValueTuple": "4.6.1"
+        }
       },
       "xunit.analyzers": {
         "type": "Transitive",

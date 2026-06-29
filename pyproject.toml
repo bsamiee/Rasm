@@ -218,12 +218,22 @@ dependencies = [
     "stream-zip",                                    # [ARTIFACTS]: bounded-memory streaming zip with ZIP64/AES-256
     "detools",                                       # [ARTIFACTS]: binary-delta engine
     "drawsvg",                                       # [ARTIFACTS]: hierarchical named-layer SVG authoring
+    "exif",                                          # [ARTIFACTS]: EXIF descriptive-metadata read/write
+    "grandalf",                                      # [ARTIFACTS]: Sugiyama and routed diagram layout
+    "iptcinfo3",                                     # [ARTIFACTS]: IPTC descriptive-metadata read/write
+    "pdfimpose",                                     # [ARTIFACTS]: press signatures, creep, cuts, and folds
+    "psdtags",                                       # [ARTIFACTS]: Photoshop TIFF image resources and layer source data
+    "pyphen",                                        # [ARTIFACTS]: language-aware hyphenation dictionaries
     "resvg-py",                                      # [ARTIFACTS]: in-process SVG to PNG/PDF rasterization
+    "simpleidml",                                    # [ARTIFACTS]: IDML package mutation and composition
+    "tifffile",                                      # [ARTIFACTS]: TIFF container IO and extratag authoring
     "av",                                            # [ARTIFACTS]: PyAV video/audio mux and encode
     "pyvips",                                        # [ARTIFACTS]: fused decode, downscale, ICC, and smartcrop
     "lets-plot; python_version<'3.15'",              # [ARTIFACTS]: host-free grammar-of-graphics render to svg/png/pdf
     "python-bidi",                                   # [ARTIFACTS]: UAX 9 bidi reorder pass before HarfBuzz shaping
     "python-calamine",                               # [ARTIFACTS]: fast xlsx/xlsb/xls/ods reader
+    "python-xmp-toolkit",                            # [ARTIFACTS]: XMP packet read/write for descriptive metadata
+    "uniseg",                                        # [ARTIFACTS]: Unicode line, word, and grapheme segmentation
     "usd-core; python_version<'3.15'",               # [ARTIFACTS]: USD/USDZ scene packaging
     "zxing-cpp",                                     # [ARTIFACTS]: 2D matrix codes encode and decode
     "stream-unzip",                                  # [ARTIFACTS]: bounded-memory streaming unzip inverse for stream-zip

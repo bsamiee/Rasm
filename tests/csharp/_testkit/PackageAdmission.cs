@@ -28,6 +28,11 @@ public sealed class ProjectAdmission {
         Assert.Empty(collection: names.Except(second: Packages, comparer: StringComparer.Ordinal));
     }
 
+    public void IncludesOnlyPackages(params string[] names) {
+        IncludesPackages(names: names);
+        Assert.Equal(expected: Sorted(rows: names), actual: Sorted(rows: Packages));
+    }
+
     public void ExcludesPackages(params string[] names) {
         AssertNoVersionedPackageReferences();
         Assert.Empty(collection: names.Intersect(Packages, StringComparer.Ordinal));
@@ -38,9 +43,33 @@ public sealed class ProjectAdmission {
         Assert.Empty(collection: paths.Except(second: ProjectReferences, comparer: StringComparer.Ordinal));
     }
 
+    public void IncludesOnlyProjects(params string[] paths) {
+        IncludesProjects(paths: paths);
+        Assert.Equal(expected: Sorted(rows: paths), actual: Sorted(rows: ProjectReferences));
+    }
+
     public void ExcludesProjects(params string[] paths) {
         AssertNoVersionedPackageReferences();
         Assert.Empty(collection: paths.Intersect(ProjectReferences, StringComparer.Ordinal));
+    }
+
+    public void IncludesNoPackages() {
+        AssertNoVersionedPackageReferences();
+        Assert.Empty(collection: Packages);
+    }
+
+    public void IncludesNoProjects() {
+        AssertNoVersionedPackageReferences();
+        Assert.Empty(collection: ProjectReferences);
+    }
+
+    public void PackageReferenceHasAttribute(string packageName, string attributeName, string expectedValue) {
+        ArgumentException.ThrowIfNullOrWhiteSpace(argument: packageName);
+        ArgumentException.ThrowIfNullOrWhiteSpace(argument: attributeName);
+        ArgumentException.ThrowIfNullOrWhiteSpace(argument: expectedValue);
+        XElement reference = Elements(localName: "PackageReference").Single(row =>
+            string.Equals(a: row.Attribute("Include")?.Value, b: packageName, comparisonType: StringComparison.Ordinal));
+        Assert.Equal(expected: expectedValue, actual: reference.Attribute(attributeName)?.Value);
     }
 
     private void AssertNoVersionedPackageReferences() =>
@@ -54,6 +83,9 @@ public sealed class ProjectAdmission {
 
     internal IEnumerable<string> Names(string localName) =>
         Attrs(element: localName, attr: "Include");
+
+    private static string[] Sorted(IEnumerable<string> rows) =>
+        [.. rows.Order(comparer: StringComparer.Ordinal)];
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------------
@@ -93,6 +125,18 @@ public static class PackageAdmission {
                 : [])
             .Select(path => Path.GetRelativePath(relativeTo: Root.FullName, path: path).Replace('\\', '/'))
             .ToFrozenSet(StringComparer.Ordinal);
+    }
+
+    public static FrozenSet<string> Files(string relativeRoot, string pattern) {
+        ArgumentException.ThrowIfNullOrWhiteSpace(argument: relativeRoot);
+        ArgumentException.ThrowIfNullOrWhiteSpace(argument: pattern);
+        string root = PathOf(relativePath: relativeRoot);
+        return Directory.Exists(path: root)
+            ? Directory.EnumerateFiles(path: root, searchPattern: pattern, searchOption: SearchOption.AllDirectories)
+                .Select(path => Path.GetRelativePath(relativeTo: Root.FullName, path: path).Replace('\\', '/'))
+                .Order(comparer: StringComparer.Ordinal)
+                .ToFrozenSet(StringComparer.Ordinal)
+            : Enumerable.Empty<string>().ToFrozenSet(StringComparer.Ordinal);
     }
 
     public static string ReadText(string relativePath) =>

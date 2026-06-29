@@ -1,52 +1,56 @@
 # [BIM_RECONSTRUCTION]
 
-The scan-to-BIM primitive-fitting owner: one `ReconstructionPrimitive` `[Union]` (plane/cylinder/torus/freeform) folding a kernel-registered segmented point cloud into `Model/elements#ELEMENT_MODEL` `BimElement` rows, each row classified through an `ElementClassifier` frozen primitive-shape-to-`IfcClass` projection (a data table, not enumerated `switch` arms), carrying its per-element fit confidence as a `Semantics/properties#PROPERTY_SETS` `Pset_Reconstruction` row and a `ReconstructionLineage` `[ValueObject]` source-cloud content-key joining the reconstructed element back to the capture that produced it. Reconstruction is BIM-semantics-only: the raw LAS DECODE is the `Themis.Las` codec's (the `[2]-[LAS_INGEST]` `LasIngest.Decode` front producing the `MathNet.Numerics` point set), and the registration and fit are the kernel's — the `csharp:Rasm/Vectors#ALIGN` cloud-ICP alignment and the `csharp:Rasm/Geometry/spatial#SEGMENTATION` plane/cylinder segmentation feed an already-fitted `csharp:ROBUST_ARRANGEMENT_SUBSTRATE` exact-arithmetic arrangement consumed by reference for the planar/cylindrical primitive boundaries, never a parallel scan engine re-minted here — and the splat/point payload plus the source-cloud content key are the `csharp:Compute/Runtime/codecs#CONTENT_ADDRESSING` `InterchangeIdentity` owner's, consumed as settled vocabulary. The fitted primitive is HOST-NEUTRAL: it carries the kernel `Rasm` geometry by `GeometryHandle` reference (or the `Model/elements#BIM_TYPE` `IfcRepresentationMap` instanced-geometry key when the fit reuses a type-library shape) and never a RhinoCommon `Brep`/`Mesh`. The fold composes the one `BimModel` the `Model/elements#ELEMENT_MODEL` `Project` produces and the `Model/query#ELEMENT_SET` query algebra reads — a reconstructed model is a `BimModel` like any imported model, the `Model/elements#ELEMENT_MODEL` `BimElement` vocabulary widened by no new column and the `Review/diff#MODEL_DIFF` federation diff joining a reconstructed element to its design counterpart by GlobalId plus content-key. The page is HOST-NEUTRAL.
+The scan-to-BIM PROJECTOR: one `ReconstructionProjector : IElementProjection` lowering a kernel-segmented point cloud into a `Rasm.Element/Graph/delta#GRAPH_DELTA` `GraphDelta` of seam `Rasm.Element/Graph/element#ELEMENT_GRAPH` `Node.Object` occurrence nodes, each carrying a typed `Pset_Reconstruction` `Node.PropertySet` bag bound by a neutral `Rasm.Element/Relations/relation#EDGE_ALGEBRA` `Relationship.Assign` edge, plus the `LasIngest` LAS/LAZ decode front. Reconstruction is a PRIMARY projector — the scan-source twin of the `Projection/semantic#SEMANTIC_PROJECTOR` IFC projector: it MINTS rooted element identity from scratch through `ctx.Rooted()` (the NEUTRAL kernel id, never an IFC GlobalId — §4-RT H6) and records a deterministic IFC `GlobalId` as the node's 1:1 `ExternalId` (hashed from the source-cloud `ReconstructionLineage`) so a re-run of the same capture dedups against its prior pass through the `Review/diff#MODEL_DIFF` federation diff, never a parallel `ScannedElement` record beside the seam graph. "Has it all" is the `Bake` fold over that graph — the retired `BimElement`/`BimModel` is GONE.
+
+Reconstruction is BIM-semantics-only and CONSUME-BY-REFERENCE: the LAS/LAZ DECODE is `Themis.Las`/`Unofficial.laszip.netstandard`'s, the registration and fit are the kernel's (`csharp:Rasm/Vectors#ALIGN` cloud-ICP places the capture in the canonical kernel frame, `csharp:Rasm/Geometry/spatial#SEGMENTATION` partitions it into shape-labeled `SegmentedCloud` rows whose planar/cylindrical boundaries read the `csharp:ROBUST_ARRANGEMENT_SUBSTRATE` exact-arithmetic arrangement), and the geometry CONTENT KEY is the kernel `Rasm.Domain.ContentHash` seed-zero `XxHash128` — the ONE hasher the seam `Rasm.Element/Projection/address#CONTENT_ADDRESS` `CanonicalWriter` composes, never the upper-stratum `Rasm.Compute` interchange owner a `Rasm.Bim`→`Rasm.Compute` reference would invert. The fitted primitive is HOST-NEUTRAL: the `Node.Object` references its display geometry by `RepresentationContentHash` content key only and carries the kernel-`Vector3` analytical geometry (`BoundaryPolygon` for a planar wall/slab, `AxisCurve` for a swept column/beam) a `Rasm.Compute` structural/energy runner reads BAKED — never a RhinoCommon `Brep`/`Mesh`. The page is HOST-NEUTRAL.
 
 ## [01]-[INDEX]
 
-- [01]-[RECONSTRUCTION]: `ReconstructionPrimitive` `[Union]` (Plane/Cylinder/Torus/Freeform), the `PrimitiveShape` `[SmartEnum]` discriminant, the `ElementClassifier` frozen shape-to-`IfcClass` table, the `ReconstructionLineage` `[ValueObject]` source-cloud key, and the `Reconstruct` fold from a kernel-registered `SegmentedCloud` into `BimElement` rows.
-- [02]-[LAS_INGEST]: the `LasCloud` decoded point carrier and the `LasIngest.Decode` fold over the `Themis.Las` `LasReader` ASPRS LAS decoder (with the `Unofficial.laszip.netstandard` LASzip front decompressing a `.laz` input into the same read path) — the scan-to-BIM front decoding raw `.las`/`.laz` bytes into the `MathNet.Numerics` point set the kernel registration/segmentation consumes, with the ASPRS classification seeding the `ElementClassifier` discipline hint and the CRS WKT VLR feeding the `Semantics/georeference#GEOREFERENCE` projection.
+- [01]-[RECONSTRUCTION]: `ReconstructionProjector` the `IElementProjection` scan-source projector folding `Seq<SegmentedCloud>` into a `GraphDelta`; `ReconstructionPrimitive` the closed `[Union]` over the complete analytic-primitive set (`Plane`/`Sphere`/`Cylinder`/`Cone`/`Torus`/`Freeform`); `PrimitiveShape` the `[SmartEnum<string>]` shape discriminant; `ElementClassifier` the frozen `(PrimitiveShape, IfcDomain, FitOrientation)`→`IfcClass` table; `ReconstructionLineage` the `[ValueObject<UInt128>]` source-cloud content key; `FitConfidence` the `[ValueObject<double>]` inlier band; `SegmentedCloud` the kernel-registered carrier; `ReconstructionContext` the fit/discipline policy.
+- [02]-[LAS_INGEST]: `LasCloud` the decoded point carrier; `LasCompression` the `[SmartEnum<string>]` compression discriminant; `LasIngest.Decode` the dual-engine fold dispatching the uncompressed leg onto the `Themis.Las` `LasReader` (MathNet-native) and the compressed leg onto the `Unofficial.laszip.netstandard` `laszip` arithmetic decoder (selective-channel), both producing the `MathNet.Numerics` point set the kernel registration/segmentation consume to yield the geometric segmentation the `[02]-[RECONSTRUCTION]` `SegmentedCloud` carrier rows are assembled from at the Bim boundary.
 
 ## [02]-[RECONSTRUCTION]
 
-- Owner: `ReconstructionPrimitive` the closed `[Union]` of fitted scan primitives — `Plane` (a bounded planar patch carrying its frame, in-plane extent, and inlier count), `Cylinder` (an axis/radius/height swept solid), `Torus` (a major/minor-radius revolved solid), and `Freeform` (a residual cloud no analytic primitive fit, carrying its content-keyed mesh handle) — each arm carrying its kernel `Rasm` geometry handle, its inlier/residual fit evidence, and the `SegmentId` of the segment it was fitted to; `PrimitiveShape` the `[SmartEnum<string>]` shape discriminant the `ElementClassifier` table keys on; `ReconstructionLineage` the `[ValueObject<UInt128>]` source-cloud content-key joining the reconstructed element to its capture; `FitConfidence` the `[ValueObject<double>]` normalized inlier-ratio band admitted into `[0,1]`; `SegmentedCloud` the kernel-registered segment carrier (segment id, fitted shape, inlier/total counts, the `csharp:ROBUST_ARRANGEMENT_SUBSTRATE` arrangement face index the planar/cylindrical boundary reads) the `csharp:Rasm/Geometry/spatial#SEGMENTATION` produces; `Reconstruction` the model-level fold owner producing a `BimModel` from a `Seq<SegmentedCloud>`.
-- Cases: `ReconstructionPrimitive` arms `Plane` (the inlier-bounded planar patch a wall/slab/covering fits), `Cylinder` (the axis-and-radius swept solid a column/pile/pipe fits), `Torus` (the revolved solid a pipe-elbow/fitting fits), and `Freeform` (the residual mesh handle a proxy carries when no analytic primitive admits) (4); a new primitive family is one `ReconstructionPrimitive` arm plus one `PrimitiveShape` row plus one `ElementClassifier` table entry, never a per-shape fold.
-- Entry: `Reconstruction.Reconstruct(Seq<SegmentedCloud> segments, ReconstructionContext context, ClockPolicy clocks)` folds the kernel-registered segments into a `BimModel` — each segment lifts to its `ReconstructionPrimitive` arm by its fitted `PrimitiveShape`, the arm projects to a `BimElement` through `ElementClassifier.Classify` (the frozen shape→`IfcClass` table resolving the entity class and the `PredefinedType` the `Model/elements#ELEMENT_MODEL` `IfcClass.AdmitPredefined` admits), the `FitConfidence` band lands as a `Pset_Reconstruction` `PropertyBinding`, and the `ReconstructionLineage` source-cloud key threads onto the element through the `csharp:Compute/Runtime/codecs#CONTENT_ADDRESSING` content key; `Fin<T>` aborts on a segment whose fitted shape the `ElementClassifier` table does not carry (`Model/faults#FAULT_BAND` `BimFault.UnmappedClass`) or a registration the kernel never produced (`BimFault.CapabilityMiss`), each lowered with `.ToError()` at the `Boundary` funnel.
-- Auto: `Reconstruct` reads each `SegmentedCloud` already fitted and registered by the kernel — the `csharp:Rasm/Vectors#ALIGN` cloud-ICP alignment has placed the capture in the canonical kernel frame and the `csharp:Rasm/Geometry/spatial#SEGMENTATION` has partitioned it into shape-labeled segments whose planar/cylindrical boundaries read the `csharp:ROBUST_ARRANGEMENT_SUBSTRATE` exact-arithmetic arrangement face index — so the fold never re-fits geometry in-process; the `ReconstructionPrimitive.Of(segment)` lift selects the arm by `segment.Shape`, binding the kernel geometry handle the segmentation produced by reference; `ElementClassifier.Classify(primitive, context)` resolves the `IfcClass` from the frozen `PrimitiveShape`→`IfcClass` table refined by the `ReconstructionContext` discipline hint (a horizontal plane in a building context classifies `IfcSlab`, a vertical plane `IfcWall`, a cylinder `IfcColumn`, each carrying the table's default `PredefinedType` token the class row admits), and a shape with no table row faults `BimFault.UnmappedClass` rather than silently dropping the segment; the `FitConfidence` band is the segment inlier-ratio (`inliers / total`) admitted into `[0,1]`, written as the `Pset_Reconstruction.FitConfidence` `PropertyBinding` plus the `SourceSegment` and `Residual` rows so the `Model/query#ELEMENT_SET` `ByProperty` arm selects every below-threshold element for review; the `ReconstructionLineage` content key is the `InterchangeIdentity.Key("recon-cloud", segment.CloudBytes, context.Deflection, context.Tolerance, context.AngleTolerance)` over the segment's source-cloud payload so the `Review/diff#MODEL_DIFF` federation diff joins the reconstructed element to its as-designed counterpart and the `AppUi` reality-capture playback re-fetches the exact capture by lineage key.
-- Receipt: the `ReconstructionPrimitive` arm is the typed fit evidence per element — the `Plane`/`Cylinder`/`Torus` arms carry the analytic fit parameters (frame, axis, radius) and the inlier count, the `Freeform` arm carries the residual mesh content key, and the `FitConfidence` band plus the `ReconstructionLineage` source key ride onto the `BimElement` as the `Pset_Reconstruction` rows a downstream review and the federation diff read; no generic `IFitResult`/reported-value abstraction, the union arms stay typed per primitive family.
-- Packages: `Rasm` (the kernel geometry handle, the `csharp:Rasm/Vectors#ALIGN` cloud-ICP registration, the `csharp:Rasm/Geometry/spatial#SEGMENTATION` segmentation, and the `csharp:ROBUST_ARRANGEMENT_SUBSTRATE` arrangement — all consumed by reference), GeometryGymIFC_Core (the `Model/elements#ELEMENT_MODEL` `BimElement`/`IfcClass`/`PredefinedType` projection vocabulary and the `Model/elements#BIM_TYPE` `IfcRepresentationMap` instanced-geometry key the repeated fit reuses), Thinktecture.Runtime.Extensions (`[Union]`/`[SmartEnum]`/`[ValueObject]`), LanguageExt.Core (`Fin`/`Seq`/`Map`/`Option`), System.IO.Hashing (the `XxHash128` the content key composes), NodaTime (the `ClockPolicy.Now` the `BimModel` capture instant carries).
-- Growth: a new fitted primitive is one `ReconstructionPrimitive` arm carrying its analytic parameters plus one `PrimitiveShape` `[SmartEnum]` row plus one `ElementClassifier` table entry mapping the shape and discipline to its `IfcClass`/`PredefinedType` — the fold and the classifier resolve the new shape with no new operation; a new classification rule is one `ElementClassifier` table row keyed on `(PrimitiveShape, IfcDomain, orientation)`, never an enumerated `switch` arm; a repeated identical fit (a window grid, a column array) mints one `Model/elements#BIM_TYPE` `BimType` carrying the `IfcRepresentationMap` key plus N occurrence references reading it, never N inlined geometries; a new confidence dimension is one `Pset_Reconstruction` `PropertyBinding` row, never a second receipt model; never a `FitPlane`/`FitCylinder`/`FitTorus` operation family and never a per-shape `BimElement` subtype.
-- Boundary: reconstruction is the LAST fold to a `BimElement`, never a geometry kernel — the cloud-ICP registration is `csharp:Rasm/Vectors#ALIGN`'s, the plane/cylinder segmentation is `csharp:Rasm/Geometry/spatial#SEGMENTATION`'s, the exact-arithmetic arrangement the planar/cylindrical boundaries read is `csharp:ROBUST_ARRANGEMENT_SUBSTRATE`'s, and a re-minted RANSAC/region-grow fitter or a second arrangement here is the deleted form per the consume-the-kernel-by-reference law; the splat/point payload and the source-cloud content key are `csharp:Compute/Runtime/codecs#CONTENT_ADDRESSING`'s `InterchangeIdentity.Key` and a second hashing/identity scheme is the named seam violation; the fitted primitive binds the kernel `Rasm` geometry by `GeometryHandle` reference (or the `Model/elements#BIM_TYPE` `IfcRepresentationMap` content key for an instanced fit) and a RhinoCommon `Brep`/`Mesh` field on `ReconstructionPrimitive` is the named host-bound defect; the fold produces the one `Model/elements#ELEMENT_MODEL` `BimModel` and the reconstructed element is a `BimElement` discriminated by the same `IfcClass`/`PredefinedType` vocabulary an imported element carries — a parallel `ScannedElement`/`ReconstructedElement` record beside `BimElement` is the deleted form, so the `Model/query#ELEMENT_SET` query algebra and the `Review/validation#IDS_FACETS` audit read a reconstructed model with no second selection surface; the shape→class mapping is a frozen `ElementClassifier` data table keyed on `(PrimitiveShape, IfcDomain, orientation)`, not enumerated `switch` arms, so a wall-vs-slab disambiguation is a table row refined by the `ReconstructionContext` discipline hint rather than imperative branching; the `FitConfidence` band rides the `Semantics/properties#PROPERTY_SETS` `Pset_Reconstruction` rows the typed property store already owns, not a stringly-keyed property tacked on outside the property model; a segment whose fitted shape the `ElementClassifier` table does not carry faults `Model/faults#FAULT_BAND` `BimFault.UnmappedClass` and a registration the kernel never produced faults `BimFault.CapabilityMiss`, both lowered with `.ToError()`, so an unclassifiable scan never silently produces a half-built model; the `ReconstructionLineage` source-cloud key is the join the `Review/diff#MODEL_DIFF` federation diff and the `AppUi` reality-capture playback both read, never a second lineage scheme.
+- Owner: `ReconstructionProjector` the `IElementProjection` capturing the kernel-produced `Seq<SegmentedCloud>` and the `ReconstructionContext` INTERNALLY and lowering them to a seam `GraphDelta` in `Project`; `ReconstructionPrimitive` the closed `[Union]` of fitted scan primitives — `Plane` (a bounded planar patch carrying its frame normal and its arrangement-bounded `BoundaryPolygon`), `Sphere` (a center/radius solid), `Cylinder` (an axis/radius swept solid carrying its fitted axis extent), `Cone` (an apex/axis/half-angle swept solid), `Torus` (a major/minor-radius revolved solid), and `Freeform` (a residual cloud no analytic primitive fit) — each arm carrying the kernel-computed `GeometryHash` content key, its inlier `FitConfidence`, and the `ReconstructionLineage` of the segment it was fitted to; `PrimitiveShape` the `[SmartEnum<string>]` shape discriminant the `ElementClassifier` table keys on; `ReconstructionLineage` the `[ValueObject<UInt128>]` source-cloud content key joining the reconstructed element to its capture; `FitConfidence` the `[ValueObject<double>]` normalized inlier-ratio band in `[0,1]`; `SegmentedCloud` the kernel-registered segment carrier; `ElementClassifier` the frozen shape-to-`IfcClass` projection.
+- Cases: `ReconstructionPrimitive` arms `Plane`/`Sphere`/`Cylinder`/`Cone`/`Torus`/`Freeform` (6) ARE the complete efficient-RANSAC point-cloud shape-detection family (plane, sphere, cylinder, cone, torus) plus the residual freeform — a primitive family is one arm plus one `PrimitiveShape` row plus one `ElementClassifier` table entry, never a per-shape fold and never a `FitPlane`/`FitCylinder` operation family; `ElementClassifier` rows are the `(shape, IfcDomain, orientation)`→`(IfcClass, predefined)` table, a wall-vs-slab disambiguation one row refined by orientation, never an enumerated `switch` arm.
+- Entry: `ReconstructionProjector.Project(ProjectionContext ctx)` folds the captured segments into one `GraphDelta` — it seeds `GraphDelta.Empty.Reheader(ctx.Header)` (the model-creating event establishes the release/view/georeference/tolerance Header the app supplies, the scan CRS WKT having flowed `LasCloud.CrsWkt`→app→`ctx.Header.Reference` per the wiring-is-app-owned law) and merges each segment's sub-delta; reconstruction is a PRIMARY projector so it IGNORES `ctx.ElementIds` and PUBLISHES the rooted ids it mints for an aspect projector (`Rasm.Materials/Projection/material`) to attach `Associate` edges against; `Fin<T>` aborts on an unregistered segment (`Model/faults#FAULT_BAND` `BimFault.CapabilityMiss`) or a shape the `ElementClassifier` table does not carry (`BimFault.UnmappedClass`), each `Op`-keyed case lifted BARE onto the `Fin<T>` rail (the `Expected`-derived case IS the `Error` — no `.ToError()` hop), the seam `Rasm.Element/Projection/projection#PROJECTION_CONTRACT` `Assemble` funnel capturing any thrown fault into `ElementFault.ProjectionFailed`.
+- Auto: `Project` reads each `SegmentedCloud` already fitted and registered by the kernel — the cloud-ICP alignment placed the capture in the canonical kernel frame and the segmentation partitioned it into shape-labeled segments whose planar boundaries read the exact-arithmetic arrangement — so the fold NEVER re-fits geometry in-process; a `segment.Geometry.IsPending` handle is an unregistered capture faulted `BimFault.CapabilityMiss` rather than fitted here. `ReconstructionPrimitive.Of(segment, context)` lifts the segment to its arm by `segment.Shape`, binding the kernel `GeometryHash` content key the segmentation produced. `ElementClassifier.Classify` resolves the `IfcClass` from the frozen table keyed on the EFFECTIVE `IfcDomain` (the `ReconstructionContext.DomainOf` ASPRS dominant-class bias when present, else the context discipline) and the `FitOrientation` — a planar patch's surface orientation reads `OrientationOfNormal` (a vertical normal is a horizontal slab, a horizontal normal a vertical wall) while a swept solid's reads `OrientationOfAxis` (a vertical axis is a vertical column, a horizontal axis a horizontal beam) — then runs the `Model/elements#IFC_CLASS` `IfcClass.AdmitPredefined` egress gate against `ctx.Header.Schema` to admit the row's predefined token (§4-RT C6); the `Node.Object` mints a NEUTRAL rooted `NodeId` through `ctx.Rooted()` (§4-RT H6) and records the deterministic IFC `GlobalId` `ParserIfc.HashGlobalID("recon:{lineage}")` as its 1:1 `ExternalId`; the fitted geometry rides the `RepresentationContentHash` `Body` key and the analytical `BoundaryPolygon`/`AxisCurve` bake onto the node; the typed `Pset_Reconstruction` `Node.PropertySet` carries the fit evidence as `PropertyValue.Measure`/`Boolean`/`Enumerated`/`Text` (NOT a stringly binding) and binds to the occurrence through a `Relationship.Assign(objectId, bagId, AssignKind.PropertyDefinition)` edge the seam `Bake` folds.
+- Receipt: the `GraphDelta` is the projector's whole contribution — the merge the seam `Assemble` folds with the other projectors' deltas onto a `Genesis` seed; the `ReconstructionPrimitive` arm is the typed fit evidence (analytic parameters + inlier `FitConfidence`), the `Pset_Reconstruction` bag the per-element review record (`FitConfidence`/`Residual`/`Inliers`/`Total` as dimensionless `MeasureValue`, `NeedsReview` a `Boolean` over `ConfidenceFloor`, `PrimitiveShape` an `Enumerated`, `SourceCloud` the lineage hex) a `Persistence`/`Compute` `ByProperty` read selects below-floor elements on, and the deterministic `ExternalId` the federation diff joins a re-reconstructed element to its prior pass and its as-designed counterpart on — no generic `IFitResult` abstraction, the union arms stay typed per primitive family.
+- Packages: `Rasm.Element` (the seam `Node`/`NodeId`/`GraphDelta`/`Relationship`/`Classification`/`PredefinedType`/`PropertyBag`/`PropertyValue`/`MeasureValue`/`Dimension`/`RepresentationContentHash`/`AxisCurve`/`SchemaSpan`/`CanonicalWriter` + the `IElementProjection`/`ProjectionContext` contract), `Rasm` (the kernel `Vector3`, the `GeometryHandle` registration handle, the `Domain.ContentHash` seed-zero `XxHash128` — all consumed by reference), GeometryGymIFC_Core (`ParserIfc.HashGlobalID` the deterministic GlobalId codec), Thinktecture.Runtime.Extensions (`[Union]`/`[SmartEnum]`/`[ValueObject]`), LanguageExt.Core (`Fin`/`Seq`/`Map`/`Option`).
+- Growth: a new fitted primitive is one `ReconstructionPrimitive` arm carrying its analytic parameters plus one `PrimitiveShape` row plus one `ElementClassifier` table entry — the fold and the classifier resolve it with no new operation; a new classification rule is one `ElementClassifier` row keyed on `(PrimitiveShape, IfcDomain, FitOrientation)`; a repeated identical fit (a column array, a window grid) shares ONE `GeometryHash` so the content-keyed blob store dedups the geometry with no parallel type-instance; a new confidence dimension is one `Pset_Reconstruction` row; a new discipline bias is one `DomainOf` arm PLUS the `ElementClassifier` rows that bias resolves to (a `DomainOf` arm with no matching rows steers a segment into an empty domain and faults `recon-shape-miss`); never a per-shape `Node.Object` subtype and never a second receipt model.
+- Boundary: reconstruction is the LAST fold to a seam `Node.Object`, never a geometry kernel — the cloud-ICP registration, the plane/cylinder segmentation, and the exact-arithmetic arrangement are the kernel's consumed by reference, and a re-minted RANSAC/region-grow fitter or a second arrangement here is the deleted form; the source-cloud content key composes the kernel `Rasm.Domain.ContentHash` seed-zero `XxHash128` through the seam `CanonicalWriter`, and the `Rasm.Compute` interchange owner (an upper-stratum `Rasm.Bim`→`Rasm.Compute` reference) or a second hashing scheme is the named seam violation; the fitted geometry rides the `RepresentationContentHash` content key and the kernel-`Vector3` `BoundaryPolygon`/`AxisCurve` bake, a RhinoCommon `Brep`/`Mesh` field on `ReconstructionPrimitive` or a stored `GeometryHandle` on the seam node the named host-bound defect; the rooted `NodeId` is the NEUTRAL kernel-minted id and the IFC GlobalId is the node's `ExternalId` projection (§4-RT H6), the deterministic mint from the lineage giving re-run dedup without making the GUID the node identity; the reconstructed element is a `Node.Object` discriminated by the same generic `Classification`/`PredefinedType` axes an IFC-ingested element carries, so the `Model/query` query algebra and the `Review/validation` audit read a reconstructed model with no second selection surface, and a parallel `ScannedElement`/`ReconstructedElement` record is the deleted form; the fit evidence rides the typed `Pset_Reconstruction` `PropertyValue`/`MeasureValue` bag the seam property store owns, the retired stringly `PropertyBinding(string,string,string)` triple the deleted form; a segment whose shape the table does not carry faults `BimFault.UnmappedClass` and an unregistered segment faults `BimFault.CapabilityMiss`, so an unclassifiable scan never silently produces a half-built model.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
-using System.IO.Hashing;
-using System.Text;
+using System.Globalization;
 using GeometryGym.Ifc;
 using LanguageExt;
-using NodaTime;
 using Rasm;
-using Rasm.Compute.Interchange;
+using Rasm.Domain;
+using Rasm.Element;
 using Thinktecture;
 using static LanguageExt.Prelude;
+using ReleaseVersion = Rasm.Element.ReleaseVersion;   // the seam schema currency the Header carries — disambiguated
+                                                      // from GeometryGym.Ifc.ReleaseVersion (the IFC-text codec leg),
+                                                      // which this projection never touches.
 
 namespace Rasm.Bim;
 
 // --- [TYPES] ------------------------------------------------------------------------------
+// The complete efficient-RANSAC analytic-primitive set (plane/sphere/cylinder/cone/torus) plus the residual freeform.
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<InterchangeKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 public sealed partial class PrimitiveShape {
     public static readonly PrimitiveShape Plane    = new("plane");
+    public static readonly PrimitiveShape Sphere   = new("sphere");
     public static readonly PrimitiveShape Cylinder = new("cylinder");
+    public static readonly PrimitiveShape Cone     = new("cone");
     public static readonly PrimitiveShape Torus    = new("torus");
     public static readonly PrimitiveShape Freeform = new("freeform");
 }
 
-public enum FitOrientation : byte {
-    Any = 0, Horizontal = 1, Vertical = 2, Inclined = 3,
-}
+public enum FitOrientation : byte { Any = 0, Horizontal = 1, Vertical = 2, Inclined = 3 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
 [ValueObject<double>]
 public sealed partial class FitConfidence {
     static partial void NormalizeValidate(ref double value) =>
@@ -55,222 +59,358 @@ public sealed partial class FitConfidence {
     public bool IsBelow(double threshold) => Value < threshold;
 }
 
+// The source-cloud content key — the kernel seed-zero XxHash128 over the segment bytes + fit params through the seam
+// CanonicalWriter (the ONE hasher), NOT the upper-stratum Rasm.Compute interchange owner. UInt128 keys on its own value.
 [ValueObject<UInt128>]
-[KeyMemberEqualityComparer<InterchangeKeyPolicy, UInt128>]
 public sealed partial class ReconstructionLineage {
     public static ReconstructionLineage Of(SegmentedCloud segment, ReconstructionContext context) =>
-        ReconstructionLineage.Create(
-            InterchangeIdentity.Key("recon-cloud", segment.CloudBytes.Span,
-                context.Deflection, context.Tolerance, context.AngleTolerance));
+        Create(ContentHash.Of(new CanonicalWriter(context.Tolerance)
+            .String("recon-cloud").Raw(segment.CloudBytes.Span)
+            .Double(context.Deflection).Double(context.AngleTolerance).ToBytes().Span));
 }
 
+// --- [MODELS] -----------------------------------------------------------------------------
 public readonly record struct ReconstructionContext(
-    IfcDomain Discipline,
-    double Deflection,
-    double Tolerance,
-    double AngleTolerance,
-    double ConfidenceFloor,
-    double VerticalCosineLimit) {
+    IfcDomain Discipline, double Deflection, double Tolerance, double AngleTolerance,
+    double ConfidenceFloor, double VerticalCosineLimit) {
     public static readonly ReconstructionContext Building =
         new(IfcDomain.Architecture, 1e-3, 1e-6, 1e-4, 0.6, 0.342);
 
-    public FitOrientation OrientationOf(Vector3 normal) {
+    // A planar patch's surface orientation: a vertical NORMAL is a horizontal surface (slab), a horizontal normal a
+    // vertical surface (wall). Distinct from a swept solid's axis orientation, whose vertical/horizontal mapping inverts.
+    public FitOrientation OrientationOfNormal(Vector3 normal) {
         double vertical = Math.Abs(Vector3.Dot(normal.Unit, Vector3.UnitZ));
         return vertical >= 1.0 - VerticalCosineLimit ? FitOrientation.Horizontal
             : vertical <= VerticalCosineLimit          ? FitOrientation.Vertical
             : FitOrientation.Inclined;
     }
+
+    // A swept solid's axis orientation: a vertical AXIS is a vertical member (column), a horizontal axis a horizontal
+    // member (beam) — the inverse of the surface-normal mapping, so a vertical-axis cylinder classifies Column, not Beam.
+    public FitOrientation OrientationOfAxis(Vector3 axis) {
+        double vertical = Math.Abs(Vector3.Dot(axis.Unit, Vector3.UnitZ));
+        return vertical >= 1.0 - VerticalCosineLimit ? FitOrientation.Vertical
+            : vertical <= VerticalCosineLimit          ? FitOrientation.Horizontal
+            : FitOrientation.Inclined;
+    }
+
+    // The ASPRS dominant-class -> IfcDomain bias: a segment's modal ASPRS class refines the discipline when the context
+    // pins none (Building->Architecture, Ground->Geotechnical, Road/Water/Bridge-deck->Infrastructure, Wire->Electrical);
+    // an unmapped class yields None so the classifier falls back to the context Discipline.
+    public static Option<IfcDomain> DomainOf(byte asprsClass) => asprsClass switch {
+        6             => Some(IfcDomain.Architecture),
+        2             => Some(IfcDomain.Geotechnical),
+        9 or 11 or 17 => Some(IfcDomain.Infrastructure),
+        13 or 14      => Some(IfcDomain.Electrical),
+        _             => Option<IfcDomain>.None,
+    };
 }
 
+// The Bim ingress carrier Reconstruct reads, assembled at the boundary from the kernel's geometric segmentation output —
+// the kernel fits the primitive and detects its shape; this carrier and its PrimitiveShape discriminant are Bim-side, so
+// the kernel never references a Bim type (no downward dep). A flat SoA whose fields the ReconstructionPrimitive arms
+// project into typed shape evidence; the GeometryHash is the kernel-computed content key of the fitted solid (consumed by
+// reference, never re-fit), the BoundaryPolygon the arrangement-bounded planar patch, AxisStart/AxisEnd the swept axis
+// extent, and DominantClass the segment's modal ASPRS class.
 public readonly record struct SegmentedCloud(
-    int SegmentId,
-    PrimitiveShape Shape,
-    GeometryHandle Geometry,
-    Vector3 Normal,
-    Vector3 Axis,
-    double Radius,
-    double MinorRadius,
-    int Inliers,
-    int Total,
-    Option<int> ArrangementFace,
-    ReadOnlyMemory<byte> CloudBytes) {
+    int SegmentId, PrimitiveShape Shape, GeometryHandle Geometry, UInt128 GeometryHash,
+    Vector3 Normal, Vector3 Center, Vector3 Axis, Vector3 AxisStart, Vector3 AxisEnd,
+    double Radius, double MinorRadius, double HalfAngle, Seq<Vector3> BoundaryPolygon,
+    byte DominantClass, int Inliers, int Total, ReadOnlyMemory<byte> CloudBytes) {
     public FitConfidence Confidence => FitConfidence.Create(Total > 0 ? (double)Inliers / Total : 0.0);
     public double Residual => Total > 0 ? 1.0 - (double)Inliers / Total : 1.0;
 }
 
 [Union]
-public partial record ReconstructionPrimitive {
-    partial record Plane(int SegmentId, GeometryHandle Geometry, Vector3 Normal, FitConfidence Confidence, ReconstructionLineage Lineage);
-    partial record Cylinder(int SegmentId, GeometryHandle Geometry, Vector3 Axis, double Radius, FitConfidence Confidence, ReconstructionLineage Lineage);
-    partial record Torus(int SegmentId, GeometryHandle Geometry, Vector3 Axis, double Radius, double MinorRadius, FitConfidence Confidence, ReconstructionLineage Lineage);
-    partial record Freeform(int SegmentId, GeometryHandle Geometry, FitConfidence Confidence, ReconstructionLineage Lineage);
+public abstract partial record ReconstructionPrimitive {
+    private ReconstructionPrimitive() { }
 
-    public static ReconstructionPrimitive Of(SegmentedCloud segment, ReconstructionContext context) {
-        var lineage = ReconstructionLineage.Of(segment, context);
-        return segment.Shape.Switch<ReconstructionPrimitive>(
-            plane:    () => new Plane(segment.SegmentId, segment.Geometry, segment.Normal, segment.Confidence, lineage),
-            cylinder: () => new Cylinder(segment.SegmentId, segment.Geometry, segment.Axis, segment.Radius, segment.Confidence, lineage),
-            torus:    () => new Torus(segment.SegmentId, segment.Geometry, segment.Axis, segment.Radius, segment.MinorRadius, segment.Confidence, lineage),
-            freeform: () => new Freeform(segment.SegmentId, segment.Geometry, segment.Confidence, lineage));
+    public sealed record Plane(int SegmentId, UInt128 GeometryHash, Vector3 Normal, Seq<Vector3> Boundary, FitConfidence Confidence, ReconstructionLineage Lineage) : ReconstructionPrimitive;
+    public sealed record Sphere(int SegmentId, UInt128 GeometryHash, Vector3 Center, double Radius, FitConfidence Confidence, ReconstructionLineage Lineage) : ReconstructionPrimitive;
+    public sealed record Cylinder(int SegmentId, UInt128 GeometryHash, Vector3 AxisStart, Vector3 AxisEnd, Vector3 Direction, double Radius, FitConfidence Confidence, ReconstructionLineage Lineage) : ReconstructionPrimitive;
+    public sealed record Cone(int SegmentId, UInt128 GeometryHash, Vector3 AxisStart, Vector3 AxisEnd, Vector3 Direction, double Radius, double HalfAngle, FitConfidence Confidence, ReconstructionLineage Lineage) : ReconstructionPrimitive;
+    public sealed record Torus(int SegmentId, UInt128 GeometryHash, Vector3 AxisStart, Vector3 AxisEnd, Vector3 Direction, double Radius, double MinorRadius, FitConfidence Confidence, ReconstructionLineage Lineage) : ReconstructionPrimitive;
+    public sealed record Freeform(int SegmentId, UInt128 GeometryHash, FitConfidence Confidence, ReconstructionLineage Lineage) : ReconstructionPrimitive;
+
+    public static ReconstructionPrimitive Of(SegmentedCloud s, ReconstructionContext context) {
+        ReconstructionLineage lineage = ReconstructionLineage.Of(s, context);
+        return s.Shape.Switch<ReconstructionPrimitive>(
+            plane:    () => new Plane(s.SegmentId, s.GeometryHash, s.Normal, s.BoundaryPolygon, s.Confidence, lineage),
+            sphere:   () => new Sphere(s.SegmentId, s.GeometryHash, s.Center, s.Radius, s.Confidence, lineage),
+            cylinder: () => new Cylinder(s.SegmentId, s.GeometryHash, s.AxisStart, s.AxisEnd, s.Axis, s.Radius, s.Confidence, lineage),
+            cone:     () => new Cone(s.SegmentId, s.GeometryHash, s.AxisStart, s.AxisEnd, s.Axis, s.Radius, s.HalfAngle, s.Confidence, lineage),
+            torus:    () => new Torus(s.SegmentId, s.GeometryHash, s.AxisStart, s.AxisEnd, s.Axis, s.Radius, s.MinorRadius, s.Confidence, lineage),
+            freeform: () => new Freeform(s.SegmentId, s.GeometryHash, s.Confidence, lineage));
     }
 
     public PrimitiveShape Shape => Switch(
-        plane:    static _ => PrimitiveShape.Plane,
-        cylinder: static _ => PrimitiveShape.Cylinder,
-        torus:    static _ => PrimitiveShape.Torus,
-        freeform: static _ => PrimitiveShape.Freeform);
+        plane:    static _ => PrimitiveShape.Plane,  sphere:   static _ => PrimitiveShape.Sphere,
+        cylinder: static _ => PrimitiveShape.Cylinder, cone:   static _ => PrimitiveShape.Cone,
+        torus:    static _ => PrimitiveShape.Torus,  freeform: static _ => PrimitiveShape.Freeform);
 
-    public GeometryHandle Geometry => Switch(
-        plane:    static p => p.Geometry,
-        cylinder: static c => c.Geometry,
-        torus:    static t => t.Geometry,
-        freeform: static f => f.Geometry);
+    public UInt128 GeometryHash => Switch(
+        plane:    static p => p.GeometryHash, sphere:   static s => s.GeometryHash,
+        cylinder: static c => c.GeometryHash, cone:     static c => c.GeometryHash,
+        torus:    static t => t.GeometryHash, freeform: static f => f.GeometryHash);
 
     public FitConfidence Confidence => Switch(
-        plane:    static p => p.Confidence,
-        cylinder: static c => c.Confidence,
-        torus:    static t => t.Confidence,
-        freeform: static f => f.Confidence);
+        plane:    static p => p.Confidence, sphere:   static s => s.Confidence,
+        cylinder: static c => c.Confidence, cone:     static c => c.Confidence,
+        torus:    static t => t.Confidence, freeform: static f => f.Confidence);
 
     public ReconstructionLineage Lineage => Switch(
-        plane:    static p => p.Lineage,
-        cylinder: static c => c.Lineage,
-        torus:    static t => t.Lineage,
-        freeform: static f => f.Lineage);
+        plane:    static p => p.Lineage, sphere:   static s => s.Lineage,
+        cylinder: static c => c.Lineage, cone:     static c => c.Lineage,
+        torus:    static t => t.Lineage, freeform: static f => f.Lineage);
+
+    // The analytical surface polygon a planar wall/slab bakes onto Node.Object.BoundaryPolygon; the non-planar arms carry none.
+    public Seq<Vector3> BoundaryPolygon => Switch(
+        plane:    static p => p.Boundary, sphere:   static _ => Seq<Vector3>(),
+        cylinder: static _ => Seq<Vector3>(), cone:  static _ => Seq<Vector3>(),
+        torus:    static _ => Seq<Vector3>(), freeform: static _ => Seq<Vector3>());
+
+    // The idealized structural line a swept column/beam bakes onto Node.Object.Axis; the Curve fold derives a non-degenerate
+    // local up from the axis direction once for all three swept arms.
+    public Option<AxisCurve> Axis => Switch(
+        plane:    static _ => Option<AxisCurve>.None, sphere: static _ => Option<AxisCurve>.None,
+        cylinder: static c => Some(Curve(c.AxisStart, c.AxisEnd, c.Direction)),
+        cone:     static c => Some(Curve(c.AxisStart, c.AxisEnd, c.Direction)),
+        torus:    static t => Some(Curve(t.AxisStart, t.AxisEnd, t.Direction)),
+        freeform: static _ => Option<AxisCurve>.None);
+
+    static AxisCurve Curve(Vector3 start, Vector3 end, Vector3 axis) =>
+        new(start, end, Math.Abs(Vector3.Dot(axis.Unit, Vector3.UnitZ)) > 0.9 ? Vector3.UnitX : Vector3.UnitZ);
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static class ElementClassifier {
+    // The frozen (shape, domain, orientation) -> (IfcClass, predefined) projection — a data table, not enumerated switch
+    // arms. The predefined tokens are members of the Model/elements#IFC_CLASS valid sets, admitted at the egress gate; the
+    // domain axis carries every IfcDomain the DomainOf ASPRS bias yields (Architecture/Structural/HvacFire AND the outdoor
+    // Geotechnical/Infrastructure/Electrical rows), so a ground/road/conductor segment resolves a real class rather than an
+    // empty-domain miss — a row whose Ifc4x3 infrastructure/geotechnical class the older target schema cannot carry faults
+    // class-out-of-schema at AdmitPredefined (not recon-shape-miss), the egress gate's job, never a silent half-model.
     static readonly Map<(string Shape, IfcDomain Domain, FitOrientation Orientation), (IfcClass Class, string Predefined)> Table =
         Map(
-            (("plane",    IfcDomain.Architecture,  FitOrientation.Vertical),   (IfcClass.Wall,         "STANDARD")),
-            (("plane",    IfcDomain.Architecture,  FitOrientation.Horizontal), (IfcClass.Slab,         "FLOOR")),
-            (("plane",    IfcDomain.Architecture,  FitOrientation.Inclined),   (IfcClass.Roof,         "FREEFORM")),
-            (("plane",    IfcDomain.Architecture,  FitOrientation.Any),        (IfcClass.Covering,     "CLADDING")),
-            (("cylinder", IfcDomain.Architecture,  FitOrientation.Vertical),   (IfcClass.Column,       "COLUMN")),
-            (("cylinder", IfcDomain.Architecture,  FitOrientation.Horizontal), (IfcClass.Beam,         "BEAM")),
-            (("cylinder", IfcDomain.Structural,    FitOrientation.Vertical),   (IfcClass.Pile,         "BORED")),
-            (("cylinder", IfcDomain.HvacFire,      FitOrientation.Any),        (IfcClass.FlowSegment,  "NOTDEFINED")),
-            (("torus",    IfcDomain.HvacFire,      FitOrientation.Any),        (IfcClass.FlowFitting,  "NOTDEFINED")),
-            (("freeform", IfcDomain.Architecture,  FitOrientation.Any),        (IfcClass.Proxy,        "ELEMENT")));
+            (("plane",    IfcDomain.Architecture,   FitOrientation.Vertical),   (IfcClass.Wall,                "STANDARD")),
+            (("plane",    IfcDomain.Architecture,   FitOrientation.Horizontal), (IfcClass.Slab,                "FLOOR")),
+            (("plane",    IfcDomain.Architecture,   FitOrientation.Inclined),   (IfcClass.Roof,                "FREEFORM")),
+            (("plane",    IfcDomain.Architecture,   FitOrientation.Any),        (IfcClass.Covering,            "CLADDING")),
+            (("plane",    IfcDomain.Infrastructure, FitOrientation.Any),        (IfcClass.Pavement,            "FLEXIBLE")),
+            (("plane",    IfcDomain.Geotechnical,   FitOrientation.Any),        (IfcClass.GeotechnicalStratum, "SOLID")),
+            (("sphere",   IfcDomain.Architecture,   FitOrientation.Any),        (IfcClass.Proxy,               "ELEMENT")),
+            (("sphere",   IfcDomain.HvacFire,       FitOrientation.Any),        (IfcClass.FlowTerminal,        "NOTDEFINED")),
+            (("cylinder", IfcDomain.Architecture,   FitOrientation.Vertical),   (IfcClass.Column,              "COLUMN")),
+            (("cylinder", IfcDomain.Architecture,   FitOrientation.Horizontal), (IfcClass.Beam,                "BEAM")),
+            (("cylinder", IfcDomain.Structural,     FitOrientation.Vertical),   (IfcClass.Pile,                "BORED")),
+            (("cylinder", IfcDomain.Geotechnical,   FitOrientation.Vertical),   (IfcClass.Borehole,           "NOTDEFINED")),
+            (("cylinder", IfcDomain.Electrical,     FitOrientation.Any),        (IfcClass.CableSegment,        "CONDUCTORSEGMENT")),
+            (("cylinder", IfcDomain.HvacFire,       FitOrientation.Any),        (IfcClass.FlowSegment,         "NOTDEFINED")),
+            (("cone",     IfcDomain.Architecture,   FitOrientation.Any),        (IfcClass.Roof,                "FREEFORM")),
+            (("cone",     IfcDomain.HvacFire,       FitOrientation.Any),        (IfcClass.FlowFitting,         "NOTDEFINED")),
+            (("torus",    IfcDomain.HvacFire,       FitOrientation.Any),        (IfcClass.FlowFitting,         "NOTDEFINED")),
+            (("freeform", IfcDomain.Geotechnical,   FitOrientation.Any),        (IfcClass.GeotechnicalStratum, "SOLID")),
+            (("freeform", IfcDomain.Architecture,   FitOrientation.Any),        (IfcClass.Proxy,               "ELEMENT")));
 
     public static Fin<(IfcClass Class, PredefinedType Predefined)> Classify(
-        ReconstructionPrimitive primitive, SegmentedCloud segment, ReconstructionContext context) {
-        var orientation = primitive switch {
-            ReconstructionPrimitive.Plane p    => context.OrientationOf(p.Normal),
-            ReconstructionPrimitive.Cylinder c => context.OrientationOf(c.Axis),
-            _                                  => FitOrientation.Any,
-        };
-        var key = (primitive.Shape.Key, context.Discipline, orientation);
-        return Table.Find(key)
-            .OrElse(() => Table.Find((primitive.Shape.Key, context.Discipline, FitOrientation.Any)))
-            .ToFin(new BimFault.UnmappedClass($"recon-shape-miss:{primitive.Shape.Key}:{context.Discipline}:{orientation}").ToError())
-            .Bind(row => row.Class.AdmitPredefined(row.Predefined, row.Predefined)
-                .Map(predefined => (row.Class, predefined)));
+        ReconstructionPrimitive primitive, SegmentedCloud segment, ReconstructionContext context, ReleaseVersion schema, Op key) {
+        IfcDomain domain = ReconstructionContext.DomainOf(segment.DominantClass).IfNone(context.Discipline);
+        FitOrientation orientation = primitive.Switch(
+            plane:    p => context.OrientationOfNormal(p.Normal),
+            sphere:   static _ => FitOrientation.Any,
+            cylinder: c => context.OrientationOfAxis(c.Direction),
+            cone:     c => context.OrientationOfAxis(c.Direction),
+            torus:    static _ => FitOrientation.Any,
+            freeform: static _ => FitOrientation.Any);
+        return Table.Find((primitive.Shape.Key, domain, orientation))
+            .OrElse(() => Table.Find((primitive.Shape.Key, domain, FitOrientation.Any)))
+            .ToFin(new BimFault.UnmappedClass(key, $"recon-shape-miss:{primitive.Shape.Key}:{domain}:{orientation}"))
+            .Bind(row => row.Class.AdmitPredefined(row.Predefined, "", schema)
+                .Map(token => (row.Class, PredefinedType.Create(token))));
     }
 }
 
-public static class Reconstruction {
-    public static Fin<BimModel> Reconstruct(Seq<SegmentedCloud> segments, ReconstructionContext context, ClockPolicy clocks) =>
-        segments
-            .TraverseM(segment => segment.Geometry.IsPending
-                ? Fin.Fail<BimElement>(new BimFault.CapabilityMiss($"recon-unregistered:{segment.SegmentId}").ToError())
-                : Project(segment, context))
-            .As()
-            .Map(elements => BimModel.Empty with { Elements = elements, At = clocks.Now });
+// --- [SERVICES] ---------------------------------------------------------------------------
+// The scan-source PRIMARY projector: the kernel-segmented clouds are captured internally (the IElementProjection contract
+// holds only Node/Relationship/GraphDelta), and Project mints the neutral rooted identity while recording a deterministic
+// IFC GlobalId as the node ExternalId so a re-run dedups (§4-RT H6). The seam Assemble fold composes the GraphDelta.
+public sealed class ReconstructionProjector(Seq<SegmentedCloud> segments, ReconstructionContext context) : IElementProjection {
+    public Fin<GraphDelta> Project(ProjectionContext ctx) =>
+        segments.Fold(
+            Fin.Succ(GraphDelta.Empty.Reheader(ctx.Header)),
+            (acc, segment) => acc.Bind(delta => Author(segment, ctx).Map(delta.Merge)));
 
-    static Fin<BimElement> Project(SegmentedCloud segment, ReconstructionContext context) {
-        var primitive = ReconstructionPrimitive.Of(segment, context);
-        return ElementClassifier.Classify(primitive, segment, context)
-            .Map(row => new BimElement(
-                GlobalId:          ParserIfc.HashGlobalID($"recon:{primitive.Lineage.Value:X32}"),
-                Class:             row.Class,
-                Predefined:        row.Predefined,
-                Name:              $"{row.Class.Key}-recon-{segment.SegmentId}",
-                Tag:               segment.SegmentId.ToString(),
-                Geometry:          primitive.Geometry,
-                Properties:        Pset(primitive, segment),
-                Quantities:        Seq<BimElement.QuantityBinding>(),
-                Materials:         Seq<BimMaterial>(),
-                Classifications:   Seq<ClassificationRef>(),
-                TypeGlobalId:      Option<string>.None,
-                SpatialContainerId: Option<string>.None));
+    Fin<GraphDelta> Author(SegmentedCloud segment, ProjectionContext ctx) {
+        if (segment.Geometry.IsPending) {
+            return Fin.Fail<GraphDelta>(new BimFault.CapabilityMiss(ctx.Key, $"recon-unregistered:{segment.SegmentId}"));
+        }
+        ReconstructionPrimitive primitive = ReconstructionPrimitive.Of(segment, context);
+        return ElementClassifier.Classify(primitive, segment, context, ctx.Header.Schema, ctx.Key)
+            .Map(row => Build(primitive, segment, row, ctx));
     }
 
-    static Seq<BimElement.PropertyBinding> Pset(ReconstructionPrimitive primitive, SegmentedCloud segment) =>
-        Seq(
-            new BimElement.PropertyBinding("Pset_Reconstruction", "FitConfidence", primitive.Confidence.Value.ToString("R")),
-            new BimElement.PropertyBinding("Pset_Reconstruction", "Residual", segment.Residual.ToString("R")),
-            new BimElement.PropertyBinding("Pset_Reconstruction", "PrimitiveShape", primitive.Shape.Key),
-            new BimElement.PropertyBinding("Pset_Reconstruction", "SourceSegment", segment.SegmentId.ToString()),
-            new BimElement.PropertyBinding("Pset_Reconstruction", "SourceCloud", primitive.Lineage.Value.ToString("X32")));
+    GraphDelta Build(ReconstructionPrimitive primitive, SegmentedCloud segment, (IfcClass Class, PredefinedType Predefined) row, ProjectionContext ctx) {
+        NodeId objectId = ctx.Rooted();
+        Node.PropertySet bag = ReconstructionPset(primitive, segment, ctx.Header.Tolerance);
+        Node.Object element = new(
+            Id:              objectId,
+            Kind:            ObjectKind.Occurrence,
+            ExternalId:      Some(ParserIfc.HashGlobalID($"recon:{primitive.Lineage.Value:X32}")),
+            Classification:  Classification.Create("ifc", row.Class.Key),
+            PredefinedType:  row.Predefined,
+            Name:            $"{row.Class.Key}-recon-{segment.SegmentId.ToString(CultureInfo.InvariantCulture)}",
+            Tag:             segment.SegmentId.ToString(CultureInfo.InvariantCulture),
+            Representations: RepresentationContentHash.Empty.With("Body", primitive.GeometryHash),
+            BoundaryPolygon: primitive.BoundaryPolygon,
+            Axis:            primitive.Axis,
+            History:         None,
+            Span:            SchemaSpan.From(ctx.Header.Schema));
+        return GraphDelta.Empty.Put(element).Put(bag)
+            .Link(new Relationship.Assign(objectId, bag.Id, AssignKind.PropertyDefinition));
+    }
+
+    // The typed Pset_Reconstruction bag NODE: the fit evidence as PropertyValue/MeasureValue, never the retired stringly
+    // PropertyBinding. The non-rooted id is the kernel content hash over the bag's canonical bytes (the id is EXCLUDED from
+    // ToCanonicalBytes, so the empty-probe id is overwritten by the real content id) so an identical bag dedups.
+    Node.PropertySet ReconstructionPset(ReconstructionPrimitive primitive, SegmentedCloud segment, double tolerance) {
+        PropertyBag bag = new("Pset_Reconstruction", Map<PropertyName, PropertyValue>(
+            (PropertyName.Create("FitConfidence"),  new PropertyValue.Measure(MeasureValue.OfSi(Dimension.Dimensionless, primitive.Confidence.Value))),
+            (PropertyName.Create("Residual"),       new PropertyValue.Measure(MeasureValue.OfSi(Dimension.Dimensionless, segment.Residual))),
+            (PropertyName.Create("Inliers"),        new PropertyValue.Measure(MeasureValue.OfSi(Dimension.Dimensionless, segment.Inliers))),
+            (PropertyName.Create("Total"),          new PropertyValue.Measure(MeasureValue.OfSi(Dimension.Dimensionless, segment.Total))),
+            (PropertyName.Create("NeedsReview"),    new PropertyValue.Boolean(primitive.Confidence.IsBelow(context.ConfidenceFloor))),
+            (PropertyName.Create("PrimitiveShape"), new PropertyValue.Enumerated(primitive.Shape.Key, PrimitiveShape.Items.AsIterable().Map(static s => s.Key).ToSeq())),
+            (PropertyName.Create("SourceSegment"),  new PropertyValue.Text(segment.SegmentId.ToString(CultureInfo.InvariantCulture))),
+            (PropertyName.Create("SourceCloud"),    new PropertyValue.Text(primitive.Lineage.Value.ToString("X32", CultureInfo.InvariantCulture)))),
+            InheritanceMode.OccurrenceWins);
+        Node.PropertySet probe = new(NodeId.Content([]), bag);
+        return probe with { Id = NodeId.Content(probe.ToCanonicalBytes(tolerance).Span) };
+    }
 }
 ```
 
 ## [03]-[LAS_INGEST]
 
-- Owner: `LasCloud` the decoded point carrier — the per-point position set (each `Position` already a `MathNet.Numerics.LinearAlgebra.Vector<double>` the kernel registration and the Compute substrate consume without a re-wrap), the per-point ASPRS `Classification` byte the `ElementClassifier` discipline hint reads, the source CRS WKT from the LAS VLR the `Semantics/georeference#GEOREFERENCE` projection consumes, the source-cloud `ReconstructionLineage` content key, and the capture `Instant`; `LasIngest` the static decode fold over the `Themis.Las` `LasReader` ASPRS LAS streaming reader — the scan-to-BIM FRONT decoding raw `.las` bytes into the `LasCloud` the kernel `csharp:Rasm/Vectors#ALIGN` cloud-ICP registration and the `csharp:Rasm/Geometry/spatial#SEGMENTATION` plane/cylinder segmentation consume to PRODUCE the `[2]-[RECONSTRUCTION]` `SegmentedCloud` rows. `Themis.Las` owns the LAS codec; the kernel owns the fit; this owner re-mints neither.
-- Entry: `LasIngest.Decode(InterchangeFormat format, ReadOnlyMemory<byte> lasBytes, ClockPolicy clocks)` streams every ASPRS point data record format (0-10) through one `LasReader` into the `LasCloud`, decompressing a `.laz` input through the `Unofficial.laszip.netstandard` LASzip front into the uncompressed point stream the `Themis.Las` reader consumes — `Fin<T>` aborts on a malformed header or an unreadable archive (`Model/faults#FAULT_BAND` `BimFault.CodecReject`) lowered with `.ToError()` at the `Boundary` funnel; the decoded `LasCloud` is the `csharp:Rasm/Vectors#ALIGN`/`csharp:Rasm/Geometry/spatial#SEGMENTATION` input, the produced `SegmentedCloud` rows the `[2]-[RECONSTRUCTION]` `Reconstruct` fold reads, so LAS decode and primitive fitting compose at one seam without a re-minted scan engine.
-- Auto: `Decode` opens the bytes through `LasReader` (the byte buffer staged to a temp path the reader's streaming `IStreamHandler` reads), folds the forward cursor `GetNextPoint()` until `EOF` accumulating each `LasPoint` `Position` (the `MathNet.Numerics` vector, `X`/`Y`/`Z` projecting its components) and `Classification` byte, reads the `LasReader.Header` `ILasHeader` scale/offset/extrema and the `VLRs` CRS WKT record (the `LasVariableLengthRecord` carrying the OGC WKT / GeoTIFF keys, never a re-minted CRS parser), and seals the `ReconstructionLineage` content key over the source-cloud bytes through `InterchangeIdentity.Key`; the ASPRS `Classification` (ground/building/vegetation) seeds the `[2]-[RECONSTRUCTION]` `ElementClassifier` `(PrimitiveShape, IfcDomain, orientation)` discipline-hint table biasing the fitted-primitive-to-`IfcClass` projection (never an enumerated per-class branch), and the CRS WKT VLR feeds the `Semantics/georeference#GEOREFERENCE` `ProjNET` datum leg so a georeferenced capture lands in the canonical kernel frame.
-- Receipt: the `LasCloud` is the decoded scan evidence the kernel registration consumes — the point count, the ASPRS classification histogram, and the CRS WKT presence are the receipt facts the ingest records; the `ReconstructionLineage` over the source bytes joins the reconstructed model back to its capture so the `Review/diff#MODEL_DIFF` federation diff and the `AppUi` reality-capture playback re-fetch the exact LAS by lineage key.
-- Packages: `Themis.Las` (the ASPRS LAS reader, pure-managed over `MathNet.Numerics`), `Unofficial.laszip.netstandard` (the pure-managed LASzip decompression front for `.laz` input), `Rasm` (the kernel ICP registration + segmentation consumed by reference), Thinktecture.Runtime.Extensions, LanguageExt.Core, System.IO.Hashing, NodaTime
-- Growth: a new ASPRS point data record format is one `Themis.Las` `PointTypeMap` row the single `LasReader` resolves on (formats 0-10 share one reader, never a per-format `LasReaderFormat3` family); a new per-point facet (intensity, return index, GPS time, RGB/NIR) is one column the `LasPoint` facet interface set already carries narrowed onto `LasCloud`; a new classification bias is one `ElementClassifier` table row; a compressed `.laz` input decompresses through the admitted `Unofficial.laszip.netstandard` LASzip front into the same `Themis.Las` read path, never a re-minted point-cloud decoder and never a second hashing scheme over the LAS bytes beside `InterchangeIdentity.Key`.
-- Boundary: the LAS decode is `Themis.Las`'s — `LasReader`/`LasPoint`/`ILasHeader`/`LasVariableLengthRecord` own the streaming read, the `LasPoint.Position` is the `MathNet.Numerics.LinearAlgebra.Vector<double>` the kernel registration and the `csharp:Rasm.Compute/Tensor/blas#DENSE_ALGEBRA` covariance/PCA normal estimation consume with no re-wrap, and a hand-rolled LAS byte-layout reader is the deleted form; a compressed `.laz` input decompresses through the admitted pure-managed `Unofficial.laszip.netstandard` LASzip front (LGPL-2.1, separate-assembly reference, ALC-safe) into the `Themis.Las` uncompressed read path, never a native LASzip binding; the registration is `csharp:Rasm/Vectors#ALIGN`'s and the segmentation `csharp:Rasm/Geometry/spatial#SEGMENTATION`'s consumed by reference — `LasIngest` decodes only, never fits, and a re-minted RANSAC/region-grow fitter in this owner is the deleted form per the consume-the-kernel law; the CRS WKT VLR feeds the `Semantics/georeference#GEOREFERENCE` `ProjNET` leg and a Themis-local reprojection is the named seam violation; the source-cloud content key is `csharp:Compute/Runtime/codecs#CONTENT_ADDRESSING`'s `InterchangeIdentity.Key` and a second hashing scheme is the named drift defect; the decoded `LasPoint` types never leak past this fold — internal code holds the canonical `LasCloud`/`SegmentedCloud` per the boundary-mapping law.
+- Owner: `LasCloud` the decoded point carrier — the per-point position set (each `Position` a `MathNet.Numerics.LinearAlgebra.Vector<double>` the kernel registration and the Compute dense-LA substrate consume without a re-wrap), the per-point ASPRS `Classifications` the segmentation reduces to the `[02]-[RECONSTRUCTION]` `SegmentedCloud.DominantClass` discipline hint, the source CRS WKT the app lowers onto the `Header.Reference` `GeoReference`, the source-cloud `ReconstructionLineage`, the point count, and the capture `Instant`; `LasCompression` the `[SmartEnum<string>]` discriminant (`Uncompressed`/`Compressed`); `LasIngest` the dual-engine decode fold — the scan-to-BIM FRONT decoding raw `.las`/`.laz` bytes into the `LasCloud` the kernel registration/segmentation consume. `Themis.Las` owns the uncompressed codec, `Unofficial.laszip.netstandard` the compressed codec, the kernel owns the fit; this owner re-mints none.
+- Entry: `LasIngest.Decode(ReadOnlyMemory<byte> bytes, Instant at, Op key)` dispatches on `LasCompression.Sniff` — the ASPRS public-header point-data-record-format byte (offset 104) whose high bit marks LASzip compression — routing the uncompressed leg through `ReadLas` (the `Themis.Las` `LasReader` streaming every ASPRS point data record format 0-10 into a `LasPoint` whose `Position` is already a `MathNet` vector) and the compressed leg through `ReadLaz` (the `laszip` arithmetic decoder over a `MemoryStream`, `decompress_selective` masking the decode to `CHANNEL_RETURNS_XY | Z | CLASSIFICATION` so the arithmetic decoder SKIPS the RGB/waveform/extra-bytes a fit ignores, `get_coordinates` lifting the raw XYZ into the SAME `MathNet` vector through `Vector<double>.Build.Dense`); `Fin<T>` traps a malformed header or unreadable archive into `Model/faults#FAULT_BAND` `BimFault.CodecReject` (`las-decode`) lifted BARE through the `Try.lift(...).Run().MapFail(...)` funnel — the `Op`-keyed case IS the `Error`, never a `.ToError()` hop.
+- Auto: `Sniff` reads the compression marker WITHOUT a full open so the engine is selected once; `ReadLas` writes the bytes to a temp path the `LasReader` streams, folds `GetNextPoint()` until `EOF` accumulating each `Position`/`Classification`, and reads the `VLRs` record `2112` OGC WKT CRS; `ReadLaz` opens the in-memory stream (the object-store transport read), folds `read_point()`/`get_coordinates` over `get_number_of_point` (each call's non-zero `int` status gated through `Check` onto the decode-trap funnel, since the C-API reports failure by status not exception), reads `codec.point.classification`, and reads the `header.vlrs` record `2112` CRS — both legs assemble one `LasCloud` whose lineage is the kernel seed-zero `XxHash128` over the raw bytes through the seam `CanonicalWriter`; the per-point ASPRS classes feed the kernel segmentation that reduces them to the per-segment modal `DominantClass`, and the CRS WKT feeds the app's `Header.Reference` `GeoReference` composition (the `Semantics/georeference#GEO_PROJECTION` `ProjNET` datum leg) so a georeferenced capture lands in the canonical kernel frame.
+- Receipt: the `LasCloud` is the decoded scan evidence — the point count, the ASPRS classification histogram, and the CRS WKT presence the ingest records; the `ReconstructionLineage` over the source bytes joins the reconstructed model back to its capture so the `Review/diff#MODEL_DIFF` federation diff and the reality-capture playback re-fetch the exact LAS/LAZ by lineage key.
+- Packages: `Themis.Las` (the MIT pure-managed uncompressed ASPRS LAS reader over `MathNet.Numerics`), `Unofficial.laszip.netstandard` (the LGPL-2.1 separate-assembly pure-managed LASzip codec — `.laz` arithmetic decode, selective-channel decompression, the `.lax` spatial-index bbox query), `Rasm.Element` (the seam `CanonicalWriter`), `Rasm` (the kernel `Domain.ContentHash`), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime.
+- Growth: a new ASPRS point data record format is one `Themis.Las` `PointTypeMap` row (formats 0-10 share one reader, never a per-format reader family); a compression state is one `LasCompression` row dispatched by `Sniff`; a per-point facet (intensity, return index, GPS time, RGB/NIR) is one column the `LasPoint` facet set already carries; a tiled ingest enters through the `laszip` `.lax` `inside_rectangle` windowed path when an index exists; never a re-minted point-cloud decoder and never a second hashing scheme over the LAS/LAZ bytes.
+- Boundary: the LAS/LAZ decode is the package surfaces' — `Themis.Las` `LasReader`/`LasPoint`/`ILasHeader`/`LasVariableLengthRecord` own the uncompressed stream and the `laszip` C-API codec the compressed stream, the `LasPoint.Position`/`get_coordinates` lifting into the one `MathNet.Numerics.LinearAlgebra.Vector<double>` the kernel registration consumes with no re-wrap, and a hand-rolled LAS byte-layout reader or a hand-rolled LAZ arithmetic decoder is the deleted form; the LGPL-2.1 `Unofficial.laszip.netstandard` is referenced as a SEPARATE assembly, never ILMerged, the in-Rhino plugin ALC firebreak preserved; the registration is the kernel's consumed by reference — `LasIngest` decodes only, never fits, and a re-minted RANSAC/region-grow fitter here is the deleted form; the CRS WKT VLR feeds the app's `GeoReference` composition (the `Semantics/georeference#GEO_PROJECTION` `ProjNET` leg) and a codec-local reprojection is the named seam violation; the source-cloud content key composes the kernel `Rasm.Domain.ContentHash` seed-zero `XxHash128` and a second hashing scheme or the upper-stratum `Rasm.Compute` interchange owner is the named drift defect; the decoded `LasPoint`/`laszip_point` types never leak past this fold — internal code holds the canonical `LasCloud`/`SegmentedCloud` per the boundary-mapping law.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+using System.IO;
+using System.Text;
 using LanguageExt;
+using LASzip.Net;
 using MathNet.Numerics.LinearAlgebra;
 using NodaTime;
+using Rasm.Domain;
+using Rasm.Element;
 using Themis.Las;
+using Thinktecture;
 using static LanguageExt.Prelude;
 
 namespace Rasm.Bim;
 
+// --- [TYPES] ------------------------------------------------------------------------------
+[SmartEnum<string>]
+public sealed partial class LasCompression {
+    public static readonly LasCompression Uncompressed = new("las");
+    public static readonly LasCompression Compressed   = new("laz");
+
+    // The ASPRS public-header point-data-record-format byte sits at offset 104; LASzip marks compression by setting its
+    // high bit. The sniff selects the decode engine without a full open — Themis (MIT, MathNet-native) for the uncompressed
+    // leg, the LGPL laszip arithmetic decoder for the compressed leg.
+    public static LasCompression Sniff(ReadOnlySpan<byte> bytes) =>
+        bytes.Length > 104 && (bytes[104] & 0x80) != 0 ? Compressed : Uncompressed;
+}
+
 // --- [MODELS] -----------------------------------------------------------------------------
 public sealed record LasCloud(
-    ReadOnlyMemory<Vector<double>> Positions,
-    ReadOnlyMemory<byte> Classifications,
-    Option<string> CrsWkt,
-    ReconstructionLineage Lineage,
-    ulong PointCount,
-    Instant At);
+    ReadOnlyMemory<Vector<double>> Positions, ReadOnlyMemory<byte> Classifications,
+    Option<string> CrsWkt, ReconstructionLineage Lineage, ulong PointCount, Instant At);
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static class LasIngest {
-    public static Fin<LasCloud> Decode(InterchangeFormat format, ReadOnlyMemory<byte> lasBytes, ClockPolicy clocks) =>
-        Try.lift(() => Read(lasBytes, clocks.Now)).Run()
-            .MapFail(static error => new BimFault.CodecReject($"las-decode:{error.Message}").ToError());
+    public static Fin<LasCloud> Decode(ReadOnlyMemory<byte> bytes, Instant at, Op key) =>
+        LasCompression.Sniff(bytes.Span).Switch(
+            uncompressed: () => Trap("las", key, () => ReadLas(bytes, at)),
+            compressed:   () => Trap("laz", key, () => ReadLaz(bytes, at)));
 
-    static LasCloud Read(ReadOnlyMemory<byte> lasBytes, Instant at) {
+    static Fin<LasCloud> Trap(string codec, Op key, Func<LasCloud> read) =>
+        Try.lift(read).Run().MapFail(error => new BimFault.CodecReject(key, $"{codec}-decode:{error.Message}"));
+
+    // The laszip C-API signals failure by a NON-ZERO int status (get_error carries the message), never an exception, so
+    // every status is gated here and a non-zero lifts the message into the Trap funnel that MapFails it to
+    // BimFault.CodecReject — a raw status code never branches domain logic and a malformed LAZ never reads garbage past a
+    // failed open/read. The Themis uncompressed leg needs no analog: its managed reader throws, which Try.lift catches.
+    static void Check(laszip codec, int status) {
+        if (status != 0) { throw new IOException(codec.get_error()); }
+    }
+
+    // The Themis uncompressed leg: LasPoint.Position is the MathNet vector the kernel registration consumes with no re-wrap.
+    static LasCloud ReadLas(ReadOnlyMemory<byte> bytes, Instant at) {
         string path = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.las");
-        File.WriteAllBytes(path, lasBytes.ToArray());
+        File.WriteAllBytes(path, bytes.ToArray());
         try {
-            using var reader = new LasReader(path);
-            var positions = new Vector<double>[reader.PointCount];
-            var classes = new byte[reader.PointCount];
+            using LasReader reader = new(path);
+            Vector<double>[] positions = new Vector<double>[reader.PointCount];
+            byte[] classes = new byte[reader.PointCount];
             for (ulong i = 0; !reader.EOF && i < reader.PointCount; i++) {
-                var point = reader.GetNextPoint();
+                LasPoint point = reader.GetNextPoint();
                 positions[i] = point.Position;
                 classes[i] = point.Classification;
             }
-            return new LasCloud(positions, classes, CrsOf(reader),
-                ReconstructionLineage.Create(InterchangeIdentity.Key("las-cloud", lasBytes.Span, 1e-3, 1e-6, 1e-4)),
-                reader.PointCount, at);
+            Option<string> crs = reader.VLRs.AsIterable()
+                .Filter(static vlr => vlr.RecordID == 2112).HeadOrNone()
+                .Map(static vlr => Encoding.UTF8.GetString(vlr.Data).TrimEnd('\0'));
+            return Assemble(bytes, positions, classes, crs, reader.PointCount, at);
         } finally { File.Delete(path); }
     }
 
-    // RecordID 2112 is the ASPRS OGC WKT Coordinate System VLR — the canonical CRS-WKT record.
-    static Option<string> CrsOf(LasReader reader) =>
-        reader.VLRs.AsIterable()
-            .Filter(static vlr => vlr.RecordID == 2112)
-            .HeadOrNone()
-            .Map(static vlr => System.Text.Encoding.UTF8.GetString(vlr.Data).TrimEnd('\0'));
+    // The laszip compressed leg: decompress_selective masks the decode to position+classification so the arithmetic decoder
+    // skips RGB/waveform/extra-bytes a fit ignores; get_coordinates lifts the raw XYZ into the same MathNet vector.
+    static LasCloud ReadLaz(ReadOnlyMemory<byte> bytes, Instant at) {
+        laszip codec = laszip.create();
+        using MemoryStream stream = new(bytes.ToArray(), writable: false);
+        try {
+            Check(codec, codec.decompress_selective(LASZIP_DECOMPRESS_SELECTIVE.CHANNEL_RETURNS_XY | LASZIP_DECOMPRESS_SELECTIVE.Z | LASZIP_DECOMPRESS_SELECTIVE.CLASSIFICATION));
+            Check(codec, codec.open_reader_stream(stream, out _, leaveOpen: true));
+            Check(codec, codec.get_number_of_point(out long count));
+            Vector<double>[] positions = new Vector<double>[count];
+            byte[] classes = new byte[count];
+            for (long i = 0; i < count; i++) {
+                Check(codec, codec.read_point());
+                double[] xyz = new double[3];
+                Check(codec, codec.get_coordinates(xyz));
+                positions[i] = Vector<double>.Build.Dense(xyz);
+                classes[i] = codec.point.classification;
+            }
+            Option<string> crs = codec.header.vlrs.AsIterable()
+                .Filter(static vlr => vlr.record_id == 2112).HeadOrNone()
+                .Map(static vlr => Encoding.UTF8.GetString(vlr.data).TrimEnd('\0'));
+            return Assemble(bytes, positions, classes, crs, (ulong)count, at);
+        } finally { codec.close_reader(); }
+    }
+
+    // One LasCloud assembler shared by both legs: the cloud-level content key over the raw bytes (kernel seed-zero
+    // XxHash128 through the seam CanonicalWriter — the ONE hasher, never the upper-stratum Compute interchange owner).
+    static LasCloud Assemble(ReadOnlyMemory<byte> bytes, Vector<double>[] positions, byte[] classes, Option<string> crs, ulong count, Instant at) =>
+        new(positions, classes, crs,
+            ReconstructionLineage.Create(ContentHash.Of(new CanonicalWriter(0.0).String("las-cloud").Raw(bytes.Span).ToBytes().Span)),
+            count, at);
 }
 ```
 
 ## [04]-[RESEARCH]
 
-- [KERNEL_REGISTRATION_SEAM]: the `SegmentedCloud` carrier the `Reconstruct` fold reads (segment id, fitted `PrimitiveShape`, the kernel `Rasm` `GeometryHandle`, the fit normal/axis/radius, the inlier/total counts, and the `csharp:ROBUST_ARRANGEMENT_SUBSTRATE` arrangement face index) grounds against the kernel `csharp:Rasm/Vectors#ALIGN` cloud-ICP registration owner and the `csharp:Rasm/Geometry/spatial#SEGMENTATION` plane/cylinder segmentation owner at cross-folder alignment — the segmentation produces the shape-labeled segments already aligned by ICP into the canonical kernel frame and the exact-arithmetic arrangement bounds the planar/cylindrical patches, so the `SegmentedCloud.Geometry`/`Normal`/`Axis`/`Radius`/`ArrangementFace` member spellings and the `Vector3`/`Vector3.Dot`/`Vector3.UnitZ`/`Vector3.Unit` kernel-geometry surface confirm against the kernel geometry owner before the carrier is final; the consume-by-reference law holds — Bim re-fits no geometry and re-mints no arrangement, a `GeometryHandle.IsPending` segment is an unregistered capture the fold faults `BimFault.CapabilityMiss` rather than fitting in-process.
-- [CONTENT_KEY_LINEAGE]: the `ReconstructionLineage` source-cloud key over `InterchangeIdentity.Key(string formatKey, ReadOnlySpan<byte> bytes, double deflection, double tolerance, double angleTolerance)` grounds against the `csharp:Compute/Runtime/codecs#CONTENT_ADDRESSING` content-key owner at cross-folder alignment so the reconstructed element joins its source capture by the same content key the `Review/diff#MODEL_DIFF` `ElementFingerprint.ContentKey` and the export artifact address — Bim mints no second identity scheme; the splat/point payload the `segment.CloudBytes` carries is the Compute interchange owner's, consumed as settled vocabulary, and the `XxHash128.HashToUInt128` the content key composes is BCL `System.IO.Hashing` inbox and settled.
-- [ELEMENT_PROJECTION]: the `BimElement` the `Project` body mints, the `Model/elements#ELEMENT_MODEL` `IfcClass.AdmitPredefined(token, objectType)` the `ElementClassifier` resolves the default predefined token through, the `Model/elements#BIM_TYPE` `IfcRepresentationMap` instanced-geometry key a repeated fit reuses, and the `Semantics/properties#PROPERTY_SETS` `Pset_Reconstruction` `PropertyBinding` the `FitConfidence` band rides confirm against the `Model/elements#ELEMENT_MODEL` element-vocabulary owner and the `Semantics/properties#PROPERTY_SETS` property store as settled vocabulary — a reconstructed element is a `BimElement` discriminated by the same `IfcClass`/`PredefinedType` axes an imported element carries, so the `Model/query#ELEMENT_SET` `ByClass`/`ByDomain`/`ByProperty` arms and the `Review/validation#IDS_FACETS` audit read a reconstructed model with no second selection surface; the deterministic GlobalId mint from the lineage content key rides `ParserIfc.HashGlobalID(string uniqueString)` (`.api/api-geometrygym-ifc` GlobalId codec scope: `DecodeGlobalID`/`EncodeGuid`/`HashGlobalID`) so a re-run of the same capture yields the same stable GlobalId and the `Review/diff#MODEL_DIFF` federation diff dedups the re-reconstructed element against its prior pass rather than minting a fresh identity.
+- [PROJECTOR_SEAM]: `ReconstructionProjector : IElementProjection` grounds against `Rasm.Element/Projection/projection#PROJECTION_CONTRACT` (the one polymorphic `Project(ProjectionContext) → Fin<GraphDelta>`, the seam capturing the foreign source internally and folding deltas) and §4-RT H6 — a PRIMARY projector mints the rooted element id through `ctx.Rooted()` (the neutral kernel `IObjectFactory` floor, a Guid-v7, NOT an IFC GlobalId) and records the compressed IFC `GlobalId` as the node's 1:1 `ExternalId` re-emitted at `Emit`; reconstruction is the scan-source twin of the `Projection/semantic#SEMANTIC_PROJECTOR` IFC projector, both establishing element identity and publishing it for aspect projectors, the `GraphDelta` the seam `Assemble` fold composes onto a `Genesis` seed. The deterministic `ParserIfc.HashGlobalID("recon:{lineage}")` `ExternalId` gives a re-run of the same capture the same stable join key so the `Review/diff#MODEL_DIFF` federation diff dedups it against its prior pass.
+- [TYPED_PSET_COLLAPSE]: the `Pset_Reconstruction` `Node.PropertySet` carrying `PropertyValue.Measure`/`Boolean`/`Enumerated`/`Text` over the `Rasm.Element/Properties/quantity#MEASURE_VALUE` `MeasureValue` (`Dimension.Dimensionless` for the inlier ratios/counts) bound by a `Relationship.Assign(AssignKind.PropertyDefinition)` edge grounds against `Rasm.Element/Properties/property#PROPERTY_VALUE`/`#PROPERTY_BAG` and §2/§4B — it collapses the retired stringly `BimElement.PropertyBinding(string,string,string)` triple the migration source tacked onto an off-element store, the seam `Bake` folding the bag into the element so a `ByProperty` read resolves `element.Properties.Find("FitConfidence")` as one typed `Option<PropertyValue>`.
+- [CONTENT_IDENTITY_STRATA]: the `ReconstructionLineage` and the `RepresentationContentHash` `Body` key compose the kernel `Rasm.Domain.ContentHash` seed-zero `XxHash128` (`Rasm.Element/Projection/address#CONTENT_ADDRESS` `CanonicalWriter` + §4-RT H7) — the ONE hasher shared with the geometry `GeometryHash`, the snapshot spine, and the cross-runtime Python/TypeScript peers — and NOT the `Rasm.Compute` interchange owner, because `Rasm.Compute` is an APP-PLATFORM stratum ABOVE the AEC-DOMAIN `Rasm.Bim` and a `Rasm.Bim`→`Rasm.Compute` reference inverts the dependency DAG; the migration source's `Rasm.Compute.Interchange.InterchangeIdentity` use was the strata leak this rebuild closes.
+- [PRIMITIVE_COMPLETENESS]: the six-arm `ReconstructionPrimitive` (`Plane`/`Sphere`/`Cylinder`/`Cone`/`Torus`/`Freeform`) IS the complete analytic-primitive set of efficient RANSAC point-cloud shape detection (Schnabel/Wahl/Klein — plane, sphere, cylinder, cone, torus) plus the residual freeform; the migration source's four-arm slice dropped `Sphere` (a dome/spherical-vessel fit) and `Cone` (a conical-roof/reducer fit), a naive slice of the domain. Each new arm widens the `ElementClassifier` by one `(shape, domain, orientation)` row resolving to a `Model/elements#IFC_CLASS` `IfcClass` whose `ValidPredefined` set admits the row's token at the `AdmitPredefined` egress gate (§4-RT C6) against `ctx.Header.Schema`.
+- [DUAL_ENGINE_INGEST]: `LasIngest` dispatches by `LasCompression.Sniff` onto two engines per the `api-themis-las`/`api-laszip` integration law — `Themis.Las.LasReader` (MIT, `MathNet`-native `LasPoint.Position`) for the uncompressed leg and `Unofficial.laszip.netstandard` `laszip` (LGPL-2.1, separate-assembly, `decompress_selective(CHANNEL_RETURNS_XY | Z | CLASSIFICATION)` masking the arithmetic decode, `get_coordinates` → `Vector<double>.Build.Dense`) for the compressed leg, both lifting into the one `MathNet.Numerics.LinearAlgebra.Vector<double>` the kernel registration consumes; the migration source's prose promised `.laz` support its code never wired, the hollow claim this rebuild closes by actually composing the admitted `laszip` codec AND gating its non-zero `int` status onto the `CodecReject` funnel (the C-API signals failure by status, not exception — an unchecked status reads garbage past a failed open, so `Check` lifts `get_error` through `Try.lift` per the `api-laszip` admission law).
+- [ORIENTATION_AND_BIAS]: the axis-versus-normal orientation split corrects the migration source's inverted classification — `OrientationOfNormal` maps a vertical patch normal to a horizontal `Slab` while `OrientationOfAxis` maps a vertical swept axis to a vertical `Column`, so a vertical-axis cylinder no longer mis-classifies `Beam`; the `ReconstructionContext.DomainOf` ASPRS dominant-class bias refines the `IfcDomain` from the segment's modal ASPRS class (Building→Architecture, Ground→Geotechnical, Road/Water/Bridge→Infrastructure, Wire→Electrical) when the context pins none, grounding against the ASPRS LAS classification standard and the `LasPoint.Classification`/`laszip_point.classification` channel the decode reads; the `ElementClassifier` table carries the rows those biased domains resolve to (Geotechnical→`GeotechnicalStratum`/`Borehole`, Infrastructure→`Pavement`, Electrical→`CableSegment`) so a ground/road/conductor segment yields a real `Model/elements#IFC_CLASS` `IfcClass` rather than steering into an empty domain — a bias arm without its classifier rows (the latent gap this rebuild closes) would have faulted `recon-shape-miss` for the outdoor classes the bias most steers toward.
+- [CONSUME_BY_REFERENCE]: the `SegmentedCloud` carrier grounds against the kernel `csharp:Rasm/Vectors#ALIGN` cloud-ICP registration and `csharp:Rasm/Geometry/spatial#SEGMENTATION` plane/cylinder segmentation owners — the segmentation produces the shape-labeled segments already aligned into the canonical kernel frame, the `csharp:ROBUST_ARRANGEMENT_SUBSTRATE` exact-arithmetic arrangement bounds the planar `BoundaryPolygon`, and the kernel computes the fitted-solid `GeometryHash` — so the `Vector3`/`Vector3.Dot`/`Vector3.UnitZ`/`Vector3.Unit`/`GeometryHandle.IsPending` kernel-geometry surface confirms against the kernel geometry owner before the carrier is final; the consume-by-reference law holds — Bim re-fits no geometry, re-mints no arrangement, and content-hashes through the one kernel `XxHash128`, a `GeometryHandle.IsPending` segment faulted `BimFault.CapabilityMiss` rather than fitted in-process.

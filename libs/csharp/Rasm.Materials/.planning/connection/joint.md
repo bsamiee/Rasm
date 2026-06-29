@@ -20,7 +20,7 @@ A continuous weld/bond/stud is STRUCTURALLY DISTINCT from a discrete placed item
 ```csharp signature
 // --- [TYPES] -------------------------------------------------------------------------------
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<ConnectionKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class WeldType {
     // EffectiveThroat: AWS D1.1 — fillet throat is 0.707·leg (equal-leg), groove throat is the joint depth,
     // plug/slot throat is the plate thickness, butt (CJP) throat is the thinner connected part.
@@ -34,7 +34,7 @@ public sealed partial class WeldType {
 }
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<ConnectionKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ElectrodeClass {
     // AWS A5.1 carbon-steel covered electrodes; TensileMpa is the FEXX minimum filler-metal tensile strength.
     public static readonly ElectrodeClass E60  = new("e60",  tensileMpa: 415.0, appearanceId: "metal.iron");
@@ -48,7 +48,7 @@ public sealed partial class ElectrodeClass {
 }
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<ConnectionKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class AdhesiveClass {
     // Structural-adhesive lap-shear (ASTM D1002) and T-peel (ASTM D1876) allowables.
     public static readonly AdhesiveClass Epoxy        = new("epoxy",        lapShearMpa: 30.0, peelNmm: 5.0,  serviceCelsius: 80.0);
@@ -61,7 +61,7 @@ public sealed partial class AdhesiveClass {
 }
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<ConnectionKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class StudClass {
     // AWS D1.1 Type-B headed shear connectors (composite construction); diameter / standard height / ultimate strength.
     public static readonly StudClass S13 = new("stud-1/2",  diameterMm: 12.7,  standardHeightMm: 75.0,  ultimateMpa: 450.0);
@@ -162,7 +162,7 @@ public static class ConnectionCatalogue {
     public static FrozenDictionary<ConnectionId, ConnectionItem> BuildJointRows(Context context) =>
         JointRows
             .Choose(row => JointOf(row, context, default).ToOption())
-            .ToFrozenDictionary(static r => r.Id, static r => r.Item, ConnectionKeyPolicy.EqualityComparer);
+            .ToFrozenDictionary(static r => r.Id, static r => r.Item, ComparerAccessors.StringOrdinal.EqualityComparer);
 }
 ```
 

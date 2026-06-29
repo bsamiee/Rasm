@@ -20,7 +20,7 @@ Rasm.Persistence owns the causal lineage of every durable change as a W3C-PROV g
 
 ```csharp signature
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<VersionKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ProvKind {
     public static readonly ProvKind Graph = new("graph");
     public static readonly ProvKind Delta = new("delta");
@@ -33,7 +33,7 @@ public sealed partial class ProvKind {
 }
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<VersionKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ProvRelation {
     public static readonly ProvRelation WasGeneratedBy = new("wasGeneratedBy", "prov:wasGeneratedBy");
     public static readonly ProvRelation Used = new("used", "prov:used");

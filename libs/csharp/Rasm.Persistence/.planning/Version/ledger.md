@@ -21,14 +21,10 @@ Rasm.Persistence projects the durable changefeed, the multi-writer convergence, 
 - Boundary: the changefeed is PROJECTED from Marten events — the op-log IS the audit artifact, the change feed, and the sync feed as folds over the one Marten stream, never a second store (`H11` — Marten is the append substrate beneath, the engine projects from its events); the `crdt` lane's `Payload` is the `Version/commits#CRDT_WIRE` `CrdtOp` delta, so the trace slot is a top-level envelope field beside `ContentKey`, NOT inside `Payload`, and triggers no `CrdtOpWire` schema fork; Persistence only READS `Activity.Current` and projects to the `TraceContext` value, never re-minting the propagator (the AppHost correlation spine owns it); the 16-byte `traceparent` validates once at admission so the interior never re-parses; `OpLogEntry` carries NO `CorrelationId` field — correlation rides the sync session and receipts, so the trace slot is a genuinely new envelope field; a Marten-projected entry that crossed a runtime carries `TraceContext.Empty` when the event held no traceparent (Persistence never fabricates a span the substrate did not carry), and the apply continues the parent only when one exists.
 
 ```csharp signature
-public sealed class SyncKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
-    public static IEqualityComparer<string> EqualityComparer => StringComparer.Ordinal;
-    public static IComparer<string> Comparer => StringComparer.Ordinal;
-}
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<SyncKeyPolicy, string>]
-[KeyMemberComparer<SyncKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SyncOpKind {
     public static readonly SyncOpKind Upsert = new("upsert", tombstone: false, wholeRelation: false);
     public static readonly SyncOpKind Delete = new("delete", tombstone: true, wholeRelation: false);
@@ -48,8 +44,8 @@ public sealed partial class MergeStance {
 }
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<SyncKeyPolicy, string>]
-[KeyMemberComparer<SyncKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ColumnFamily {
     public static readonly ColumnFamily Scalar = new("scalar", MergeStance.Lww, durable: true);
     public static readonly ColumnFamily Crdt = new("crdt", MergeStance.Crdt, durable: true);
@@ -146,8 +142,8 @@ public static class OpLog {
 public readonly record struct ConflictReceipt(ModelId Model, string EntityKey, ColumnFamily Family, Hlc Held, string HeldActor, Hlc Incoming, string IncomingActor, CorrelationId Correlation, Instant At);
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<SyncKeyPolicy, string>]
-[KeyMemberComparer<SyncKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ConflictVerdict {
     public static readonly ConflictVerdict LocalWin = new("LocalWin", applies: false);
     public static readonly ConflictVerdict RemoteWin = new("RemoteWin", applies: true);
@@ -308,7 +304,7 @@ public static class SyncPump {
 
 ```csharp signature
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<SyncKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class AwarenessKind {
     public static readonly AwarenessKind Cursor = new("cursor");
     public static readonly AwarenessKind Selection = new("selection");

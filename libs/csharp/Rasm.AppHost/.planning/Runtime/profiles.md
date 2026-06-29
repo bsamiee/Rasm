@@ -20,13 +20,6 @@ Rasm.AppHost boots every process through one host-variance axis: eight string-ke
 - Boundary: column values are app-root publish and composition facts — DATAS tuning knobs enter only behind a losing benchmark claim, the standalone single-instance value is probed through the discovery manifest, the web row serves the built TS bundle same-origin from its app root with cross-origin headers held as designed growth, and the test row composes FakeTimeProvider, FakeClock, in-memory configuration, instant deadline overrides, and LeakTrackingObjectPool over provider-validation proof; the `RecoveryObjective` column is the one DR-target source — `Rasm.Persistence/Version/recovery` `Recovery.Objective(ResolvedProfile)` reads `ResolvedProfile.Recovery` as settled vocabulary through the `Runtime ⇄ Rasm.Persistence/Version/recovery # [PORT]: ResolvedProfile DR-objective inputs` seam and never re-derives the per-modality `(Rpo, Rto)` from the profile key, so a host-band-keyed RPO/RTO table on the Persistence side is the deleted form and the durability objective stays a profile column the runtime owns, the engine arms gauge their measured RPO/RTO against, never a second DR taxonomy.
 
 ```csharp signature
-public sealed class HostProfileKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
-    private static readonly StringComparer Policy = StringComparer.OrdinalIgnoreCase;
-
-    public static IEqualityComparer<string> EqualityComparer => Policy;
-
-    public static IComparer<string> Comparer => Policy;
-}
 
 [SmartEnum]
 public sealed partial class ShipVehicle {
@@ -69,8 +62,8 @@ public readonly record struct RecoveryObjective(Duration Rpo, Duration Rto) {
 
 [SmartEnum<string>]
 [ValidationError<ProfileFault>]
-[KeyMemberEqualityComparer<HostProfileKeyPolicy, string>]
-[KeyMemberComparer<HostProfileKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 public sealed partial class HostProfile {
     public static readonly HostProfile RhinoPlugin = new("rhino-plugin", serverGc: false, readyToRun: false, moduleScan: true, otlpExport: false, singleInstance: false, coHostedAssets: false, vehicle: ShipVehicle.Yak, recovery: RecoveryObjective.Relaxed, createBuilder: ProfileBoot.CreateEmpty, attachLifetime: ProfileBoot.Detached);
     public static readonly HostProfile Gh2Plugin = new("gh2-plugin", serverGc: false, readyToRun: false, moduleScan: true, otlpExport: false, singleInstance: false, coHostedAssets: false, vehicle: ShipVehicle.Yak, recovery: RecoveryObjective.Relaxed, createBuilder: ProfileBoot.CreateEmpty, attachLifetime: ProfileBoot.Detached);
@@ -257,7 +250,7 @@ public static class ProfileIdentity {
 
 ## [05]-[POWER_AND_FIDELITY]
 
-- Owner: `PowerState` `[SmartEnum<string>]` the host power-source axis under the `HostProfileKeyPolicy` accessor; `ThermalPressure` `[SmartEnum<int>]` the rank-ordered thermal-budget vocabulary; `FidelityScale` the compute-fidelity policy record graded from power and thermal state; `PowerCell` the `MeterListener`-backed boundary capsule reading the live power and thermal instruments; `PowerProbe` the platform native-read surface over IOKit/SMC.
+- Owner: `PowerState` `[SmartEnum<string>]` the host power-source axis under the `ComparerAccessors.StringOrdinalIgnoreCase` accessor; `ThermalPressure` `[SmartEnum<int>]` the rank-ordered thermal-budget vocabulary; `FidelityScale` the compute-fidelity policy record graded from power and thermal state; `PowerCell` the `MeterListener`-backed boundary capsule reading the live power and thermal instruments; `PowerProbe` the platform native-read surface over IOKit/SMC.
 - Cases: 3 power rows — plugged, battery, low-battery; 4 thermal rows — nominal(0), fair(1), serious(2), critical(3) — the macOS thermal-pressure ladder; `FidelityScale` grades the cross-product into a sustained-versus-burst compute profile.
 - Entry: `PowerProbe.Read()` returns `Fin<(PowerState Power, ThermalPressure Thermal, double BatteryFraction)>` — the platform native read of the power source, thermal-pressure level, and battery charge; `FidelityScale.Grade(PowerState power, ThermalPressure thermal, double battery)` is the total projection from power and thermal state into the fidelity profile the compute scheduler reads.
 - Auto: a plugged host at nominal thermal pressure grades to the full burst profile; a low-battery or critical-thermal host grades to the sustained profile that caps parallelism and lowers the compute fidelity tier so the device stays within its energy and thermal budget; the macOS thermal-pressure level reads through `NSProcessInfo.thermalState` exposed by the IOKit/SMC native probe, and battery charge reads through the IOKit power-source service, so the fidelity grade rides the OS's own power and thermal authority, never a guessed heuristic; the power state feeds the resource-pressure health contributor as one extra grade input so a thermally-throttled host degrades through the existing degradation rail, never a parallel power alarm.
@@ -268,8 +261,8 @@ public static class ProfileIdentity {
 
 ```csharp signature
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<HostProfileKeyPolicy, string>]
-[KeyMemberComparer<HostProfileKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 public sealed partial class PowerState {
     public static readonly PowerState Plugged = new("plugged");
     public static readonly PowerState Battery = new("battery");

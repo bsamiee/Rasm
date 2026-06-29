@@ -128,10 +128,18 @@
         "resolved": "5.75.0",
         "contentHash": "CgzvfvE2FaFE+swo7SzZFjhosmh4GpiVJ7Y1N4cQ1qChaUaw3ymw4al+ZxpoBh1RFoo88d+fo2SG194P9G1X+A=="
       },
+      "Generator.Equals.Runtime": {
+        "type": "Transitive",
+        "resolved": "4.0.0",
+        "contentHash": "EGTPKjTvZPizf2gC9pfsW1k2VEqNSjD7M52Hw7i0a5cRzWP4IWvu6LKv4e0yKmTjDqBPtG9QwTtsy+6zFq41vw==",
+        "dependencies": {
+          "Microsoft.Bcl.HashCode": "6.0.0"
+        }
+      },
       "Microsoft.Bcl.HashCode": {
         "type": "Transitive",
-        "resolved": "1.1.1",
-        "contentHash": "MalY0Y/uM/LjXtHfX/26l2VtN4LDNZ2OE3aumNOHDLsT4fNYy2hiHXI4CXCqKpNUNm7iJ2brrc4J89UdaL56FA=="
+        "resolved": "6.0.0",
+        "contentHash": "GI4jcoi6eC9ZhNOQylIBaWOQjyGaR8T6N3tC1u8p3EXfndLCVNNWa+Zp+ocjvvS3kNBN09Zma2HXL0ezO0dRfw=="
       },
       "Microsoft.NETCore.Platforms": {
         "type": "Transitive",
@@ -235,6 +243,23 @@
           "geometry3Sharp": "[1.0.324, )"
         }
       },
+      "rasm.element": {
+        "type": "Project",
+        "dependencies": {
+          "Csp.Contracts": "[1.0.0, )",
+          "Generator.Equals": "[4.0.0, )",
+          "JetBrains.Annotations": "[2026.2.0, )",
+          "LanguageExt.Core": "[5.0.0-beta-77, )",
+          "NodaTime": "[3.3.2, )",
+          "QuikGraph": "[2.5.0, )",
+          "Rasm": "[1.0.0, )",
+          "Riok.Mapperly": "[4.3.1, )",
+          "System.IO.Hashing": "[10.0.9, )",
+          "Thinktecture.Runtime.Extensions": "[10.4.0, )",
+          "Thinktecture.Runtime.Extensions.Json": "[10.4.0, )",
+          "UnitsNet": "[5.75.0, )"
+        }
+      },
       "BouncyCastle.Cryptography": {
         "type": "CentralTransitive",
         "requested": "[2.6.2, )",
@@ -252,6 +277,15 @@
         "requested": "[3000.0.2.132, )",
         "resolved": "3000.0.2.132",
         "contentHash": "Hb5jQsseiLtRhk+O132hkq3ibO4/6v6WyPu714GwYtHje3HNWoItnaNy7DVhcA8wanhwku6sUk40R8/fBiX7tA=="
+      },
+      "Generator.Equals": {
+        "type": "CentralTransitive",
+        "requested": "[4.0.0, )",
+        "resolved": "4.0.0",
+        "contentHash": "JrcUskhhgKaoUtRnTODx/W5itfcEQ0gwYm2J1YtsCzbejXHNa13Z/6DvkYkmrDUASOCxovGi9Q1j+Y7MhPwrug==",
+        "dependencies": {
+          "Generator.Equals.Runtime": "4.0.0"
+        }
       },
       "GShark": {
         "type": "CentralTransitive",
@@ -310,17 +344,35 @@
           "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.9"
         }
       },
+      "NodaTime": {
+        "type": "CentralTransitive",
+        "requested": "[3.3.2, )",
+        "resolved": "3.3.2",
+        "contentHash": "8hI5b1ENTKQCaPyU6YHpYiMwj5aJKZ4Mnv0bLbhk65Dd44gQsXenUohMzyiIphANa8LdW6vcOvpY/l1urvx4dw=="
+      },
       "PeterO.Numbers": {
         "type": "CentralTransitive",
         "requested": "[1.8.2, )",
         "resolved": "1.8.2",
         "contentHash": "d+A5KLoWbwOTpvubPaGXLgCzANE00jXmsT+yneHwLe2OlobBBFLaIHyoDwmekuHM17z9hU++RF6mL+zZ2x69nA=="
       },
+      "QuikGraph": {
+        "type": "CentralTransitive",
+        "requested": "[2.5.0, )",
+        "resolved": "2.5.0",
+        "contentHash": "sG+mrPpXwxlXknRK5VqWUGiOmDACa9X+3ftlkQIMgOZUqxVOQSe0+HIU9PTjwqazy0pqSf8MPDXYFGl0GYWcKw=="
+      },
       "Rhino3dm": {
         "type": "CentralTransitive",
         "requested": "[8.17.0, )",
         "resolved": "8.17.0",
         "contentHash": "3uoZ7sNs9NIJ8Vi1b3nO0XCU9KfwH9fef6a6cZPC05aIVtsWTYLzWAIopF07Xksvi9KDj0LAE0JTHqNwQQhLxw=="
+      },
+      "Riok.Mapperly": {
+        "type": "CentralTransitive",
+        "requested": "[4.3.1, )",
+        "resolved": "4.3.1",
+        "contentHash": "oSE+OVLHyiojrws0QVbQaAT2YKsYbyHqJXPdV7EhGseR/dYgeWS2x1T5qY5I4E+RJkJqMSG+FyZOq4SljWgJWQ=="
       },
       "SkiaSharp": {
         "type": "CentralTransitive",
@@ -359,6 +411,15 @@
         "requested": "[10.0.9, )",
         "resolved": "10.0.9",
         "contentHash": "Rb71S3gggYVwEce9ugNw91vbr4vC4gThtx/imSJtLBW3AupEKujJPPQL6xF9q0DcNm6+z7hnYk7XqXaUpA4wDg=="
+      },
+      "Thinktecture.Runtime.Extensions.Json": {
+        "type": "CentralTransitive",
+        "requested": "[10.4.0, )",
+        "resolved": "10.4.0",
+        "contentHash": "0P4ImGMK/C1B2LxVd2BHjl4DdRCCohIdQaP7tYVnYrvn07on1M6jmUMjA4VrfRaXvRUynSNWNeDolPWra+l0Ug==",
+        "dependencies": {
+          "Thinktecture.Runtime.Extensions": "10.4.0"
+        }
       },
       "Triangle": {
         "type": "CentralTransitive",

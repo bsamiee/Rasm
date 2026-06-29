@@ -10,7 +10,7 @@ The transactional-outbox and dead-letter owner for the runtime spine: a `DomainE
 
 ## [02]-[OUTBOX_FABRIC]
 
-- Owner: `DispatchStatus` `[SmartEnum<string>]` the outbox-row lifecycle under the `LaneKeyPolicy` accessor; `OutboxRow` the durable transactional-outbox record; `DeadLetterRow` the poison-row record; `OutboxFault` `[Union]` fault family in the 4740 band.
+- Owner: `DispatchStatus` `[SmartEnum<string>]` the outbox-row lifecycle under the `ComparerAccessors.StringOrdinal` accessor; `OutboxRow` the durable transactional-outbox record; `DeadLetterRow` the poison-row record; `OutboxFault` `[Union]` fault family in the 4740 band.
 - Cases: dispatch statuses pending | dispatched | dead-lettered; `OutboxFault` = Text | RelayRejected | Exhausted | WatermarkStale.
 - Entry: `OutboxRow.Enqueue(DomainEvent evt, TenantContext tenant, Instant at)` materializes a pending row carrying the event payload, the topic, the dedup key, the HLC stamp, and a zero attempt count; `OutboxRow.Relayed(OutboxRow row, Instant at)` folds a successful relay onto the row as `dispatched`, and `OutboxRow.Deferred(OutboxRow row, OutboxFault cause, Instant at)` increments the attempt and routes to `dead-lettered` when the attempt budget is exhausted.
 - Auto: the outbox row writes same-transaction with the producing write so a domain event and its source state commit atomically — a crash between the state write and the event publish cannot lose the event because both ride one transaction, and the dispatch sweep relays the durable row after commit, the transactional-outbox guarantee; the dedup key is the event's idempotency key so a re-enqueued identical event within the relay window dedupes through the `DeliveryFanout` cell exactly as the bus and notification fan-out dedupe, never a second dedup map; a row exhausting its attempt budget routes to `DeadLetterRow` carrying the last fault and the attempt history so a poison message leaves the dispatch lane rather than blocking it, and a dead-letter row is replayable through an operator command; the row carries the HLC stamp so the relay advances a `(ConsumerId, Hlc)` watermark monotonically and a relayed row never re-relays.
@@ -21,8 +21,8 @@ The transactional-outbox and dead-letter owner for the runtime spine: a `DomainE
 
 ```csharp signature
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<LaneKeyPolicy, string>]
-[KeyMemberComparer<LaneKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class DispatchStatus {
     public static readonly DispatchStatus Pending = new("pending");
     public static readonly DispatchStatus Dispatched = new("dispatched");

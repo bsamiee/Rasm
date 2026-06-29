@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_METADATA]
 
-The descriptive-metadata read/write owner at the exchange boundary. `Metadata` is ONE owner binding and recovering the EXIF / IPTC / XMP / ICC descriptive-metadata standards — title, creator, copyright, keyword, rating, camera, exposure, GPS, rights, the full ICC profile header (manufacturer / model / copyright / rendering intent), the xmpMM asset identity/lineage, and the media container structure (chapters / tracks / duration) — on an already-emitted raster, PDF, or media artifact, discriminating the `Metadata` `read`/`write` verb over its `(MetaCarrier, payload)` shape — never a per-standard reader family, never a per-tag `get_author`/`set_title` accessor, never a per-format reader type, and never a carrier×direction case explosion: the carrier rides as the verb payload's first field, not a tag multiplier, so the op is two cases over three carriers, not six. The metadata CARRIER is the closed `MetaCarrier` axis (`RASTER` over `pyvips` + `pillow` + `lxml`, `PDF` over `pikepdf`, `MEDIA` over `av`), and each carrier's `(reader, writer, lane)` triple is ONE `CarrierPolicy` row in one `_CARRIER` table — never a `_CARRIER_TABLE` acceptor pair beside a parallel `_LANE` offload map. The EXIF/IPTC/XMP/ICC standards are field-namespace facets every carrier read folds into the ONE `MetaFacts` in a single pass through one `MetaFacts.from_logical` materialization keyed by the one `_FIELD_KEYS` logical→standard correspondence — never a dispatch axis that fragments one raster into three separate reads and never three parallel per-standard key tables. Each carrier rides its admitted owner at the runtime placement its package dictates: `pikepdf` (`worker-native`, ungated) and `av` (`cp311-native`, core) resolve in-process folded onto the `_THREAD_GATE` `CapacityLimiter`-bounded `anyio.to_thread.run_sync` (the explicit thread band, never the per-loop 40-token default) so the native qpdf/FFmpeg call never blocks the loop, while the raster cluster (`pyvips` over Forge-provisioned libvips, `pillow`/`lxml` pending their packages) crosses the `execution/lanes#LANE`-owned `WORKER_BAND` `CapacityLimiter`-bounded `anyio.to_process.run_sync` band onto the worker that imports all three at boundary scope and folds EXIF + IPTC + XMP + ICC in one crossing — the `RASTER` lane the `partial(to_process.run_sync, limiter=WORKER_BAND)` value the `CarrierPolicy` row carries, never the unbounded per-loop default process limiter. Every operation returns one `(ContentKey, MetaFacts, bytes)` evidence triple — the recovered (read) or bound (write) `MetaFacts`, the source or re-encoded payload, and the runtime `ContentIdentity.of` content key — that the consumer projects onto the `core/receipt#RECEIPT` `ArtifactReceipt.Metadata(key, carrier, fields, byte_len)` flat-scalar fact exactly as `exchange/credential#PROVENANCE` and `exchange/conformance#CONFORMANCE` return their `(ContentKey, evidence)` pair: a metadata READ recovers the full descriptive field set and a WRITE the re-encoded artifact, both richer than the four-scalar receipt, so the owner returns the evidence and the consumer mints the flat case — never a write-only `@receipted` weave that would discard the read's recovered fields and the write's bytes, never a re-minted identity, and never a producer value object crossing into the receipt owner.
+The descriptive-metadata read/write owner at the exchange boundary. `Metadata` is ONE owner binding and recovering the EXIF / IPTC / XMP / ICC descriptive-metadata standards — title, creator, copyright, keyword, rating, camera, exposure, GPS, rights, the full ICC profile header (manufacturer / model / copyright / rendering intent), the xmpMM asset identity/lineage, and the media container structure (chapters / tracks / duration) — on an already-emitted raster, PDF, or media artifact, discriminating the `Metadata` `read`/`write` verb over its `(MetaCarrier, payload)` shape — never a per-standard reader family, never a per-tag `get_author`/`set_title` accessor, never a per-format reader type, and never a carrier×direction case explosion: the carrier rides as the verb payload's first field, not a tag multiplier, so the op is two cases over three carriers, not six. The metadata CARRIER is the closed `MetaCarrier` axis (`RASTER` over `pyvips` + `exif` + `iptcinfo3` + `python-xmp-toolkit`/`libxmp` + `pillow` ICC header read, `PDF` over `pikepdf`, `MEDIA` over `av`), and each carrier's `(reader, writer, lane)` triple is ONE `CarrierPolicy` row in one `_CARRIER` table — never a `_CARRIER_TABLE` acceptor pair beside a parallel `_LANE` offload map. The EXIF/IPTC/XMP/ICC standards are field-namespace facets every carrier read folds into the ONE `MetaFacts` in a single pass through one `MetaFacts.from_logical` materialization keyed by the one `_FIELD_KEYS` logical→standard correspondence — never a dispatch axis that fragments one raster into three separate reads and never three parallel per-standard key tables. Each carrier rides its admitted owner at the runtime placement its package dictates: `pikepdf` (`worker-native`, ungated) and `av` (`cp311-native`, core) resolve in-process folded onto the `_THREAD_GATE` `CapacityLimiter`-bounded `anyio.to_thread.run_sync` (the explicit thread band, never the per-loop 40-token default) so the native qpdf/FFmpeg call never blocks the loop, while the raster cluster crosses the `execution/lanes#LANE`-owned `WORKER_BAND` `CapacityLimiter`-bounded `anyio.to_process.run_sync` band onto the worker that imports all raster metadata providers at boundary scope and folds EXIF + IPTC + XMP + ICC in one crossing — the `RASTER` lane the `partial(to_process.run_sync, limiter=WORKER_BAND)` value the `CarrierPolicy` row carries, never the unbounded per-loop default process limiter. Every operation returns one `(ContentKey, MetaFacts, bytes)` evidence triple — the recovered (read) or bound (write) `MetaFacts`, the source or re-encoded payload, and the runtime `ContentIdentity.of` content key — that the consumer projects onto the `core/receipt#RECEIPT` `ArtifactReceipt.Metadata(key, carrier, fields, byte_len)` flat-scalar fact exactly as `exchange/credential#PROVENANCE` and `exchange/conformance#CONFORMANCE` return their `(ContentKey, evidence)` pair: a metadata READ recovers the full descriptive field set and a WRITE the re-encoded artifact, both richer than the four-scalar receipt, so the owner returns the evidence and the consumer mints the flat case — never a write-only `@receipted` weave that would discard the read's recovered fields and the write's bytes, never a re-minted identity, and never a producer value object crossing into the receipt owner.
 
 ## [01]-[INDEX]
 
@@ -20,6 +20,8 @@ from dataclasses import dataclass
 from enum import StrEnum
 from functools import partial
 from io import BytesIO
+from pathlib import Path
+from tempfile import NamedTemporaryFile
 from typing import Final, Literal, Self, assert_never
 
 from anyio import CapacityLimiter, to_process, to_thread
@@ -31,6 +33,9 @@ from rasm.runtime.content_identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import RuntimeRail, async_boundary
 from rasm.runtime.lanes import WORKER_BAND
 
+lazy import exif               # JPEG EXIF scalar read/write, to_process worker band
+lazy from iptcinfo3 import IPTCInfo  # JPEG IPTC/IIM read/write, to_process worker band
+lazy from libxmp import XMPMeta      # python-xmp-toolkit XMP packet parse/serialize, to_process worker band
 lazy import pyvips             # libvips raster engine, to_process worker band
 lazy from PIL import ImageCms  # pillow ICC header reader, to_process worker band
 lazy from lxml import etree    # libxml2 XMP read/author, to_process worker band
@@ -79,6 +84,38 @@ _AV_TIME_BASE: Final[int] = 1_000_000  # `Container.duration` is AV_TIME_BASE mi
 _FORMAT: Final[frozendict[str, str]] = frozendict({
     "jpegload": ".jpg", "pngload": ".png", "tiffload": ".tif", "webpload": ".webp", "heifload": ".heif",
     "gifload": ".gif", "jp2kload": ".jp2", "jxlload": ".jxl",
+})
+
+_EXIF_ATTR: Final[frozendict[str, str]] = frozendict({
+    "title": "image_description",
+    "creator": "artist",
+    "copyright": "copyright",
+    "make": "make",
+    "model": "model",
+    "lens": "lens_model",
+    "software": "software",
+    "orientation": "orientation",
+    "exposure_time": "exposure_time",
+    "f_number": "f_number",
+    "iso": "photographic_sensitivity",
+    "focal_length": "focal_length",
+    "exposure_bias": "exposure_bias_value",
+    "exposure_program": "exposure_program",
+    "metering_mode": "metering_mode",
+    "flash": "flash",
+    "white_balance": "white_balance",
+    "created": "datetime_original",
+    "modified": "datetime",
+})
+_IPTC_KEY: Final[frozendict[str, str]] = frozendict({
+    "headline": "headline",
+    "caption": "caption/abstract",
+    "keywords": "keywords",
+    "creator": "by-line",
+    "credit": "credit",
+    "source": "source",
+    "copyright": "copyright notice",
+    "instructions": "special instructions",
 })
 
 
@@ -336,7 +373,7 @@ def _dms(value: str, ref: str) -> float | None:
     return -degrees if ref.strip().upper().startswith(("S", "W")) else degrees  # N/S/E/W or North/South/...
 
 
-def _xmp(blob: bytes) -> dict[str, str]:
+def _xmp_xml(blob: bytes) -> dict[str, str]:
     if not blob:
         return {}
     root = etree.fromstring(blob, parser=etree.XMLParser(resolve_entities=False, no_network=True, recover=True))
@@ -346,10 +383,35 @@ def _xmp(blob: bytes) -> dict[str, str]:
     return {logical: value for logical, keys in _FIELD_KEYS.items() if keys.xmp and (value := text(keys.xmp))}
 
 
+def _xmp(blob: bytes) -> dict[str, str]:
+    if not blob:
+        return {}
+    try:
+        meta = XMPMeta(xmp_str=blob.decode("utf-8", "replace"))
+        flat: dict[str, str] = {}
+        for logical, keys in _FIELD_KEYS.items():
+            if not keys.xmp:
+                continue
+            prefix, local = keys.xmp.split(":")
+            if value := meta.get_property(_XMP_NS[prefix], local):
+                flat[logical] = str(value)
+        return flat
+    except (OSError, ValueError, RuntimeError):
+        return _xmp_xml(blob)
+
+
 def _xmp_packet(facts: MetaFacts) -> bytes:
     fields = {keys.xmp: value for logical, value in _flat(facts).items() if (keys := _FIELD_KEYS.get(logical)) and keys.xmp}
     if not fields and not facts.descriptive.keywords:
         return b""
+    try:
+        meta = XMPMeta()
+        for qname, value in fields.items():
+            prefix, local = qname.split(":")
+            meta.set_property(_XMP_NS[prefix], local, str(value))
+        return meta.serialize_to_str(omit_packet_wrapper=True).encode("utf-8")
+    except (OSError, ValueError, RuntimeError):
+        pass
     rdf = etree.Element(f"{{{_RDF_NS}}}RDF", nsmap={"rdf": _RDF_NS, **dict(_XMP_NS)})
     description = etree.SubElement(rdf, f"{{{_RDF_NS}}}Description")
     for qname, value in fields.items():
@@ -389,14 +451,83 @@ def _icc(blob: bytes) -> dict[str, object]:
     }
 
 
+def _exif_fields(payload: bytes) -> dict[str, object]:
+    image = exif.Image(payload)
+    if not image.has_exif:
+        return {}
+    return {logical: value for logical, attr in _EXIF_ATTR.items() if (value := image.get(attr, ""))}
+
+
+def _write_exif_fields(payload: bytes, facts: MetaFacts, bind: MetaBind, /) -> bytes:
+    if bind is MetaBind.STRIP:
+        image = exif.Image(payload)
+        if image.has_exif:
+            image.delete_all()
+        return image.get_file()
+    image = exif.Image(payload)
+    if bind is MetaBind.REPLACE and image.has_exif:
+        image.delete_all()
+    for logical, value in _flat(facts).items():
+        if attr := _EXIF_ATTR.get(logical):
+            image.set(attr, value)
+    return image.get_file()
+
+
+def _iptc_fields(payload: bytes) -> dict[str, object]:
+    with NamedTemporaryFile(suffix=".jpg", delete=False) as tmp:
+        tmp.write(payload)
+        path = Path(tmp.name)
+    try:
+        info = IPTCInfo(str(path), force=True, inp_charset="utf_8")
+        flat: dict[str, object] = {}
+        for logical, key in _IPTC_KEY.items():
+            try:
+                value = info[key]
+            except KeyError:
+                continue
+            if logical == "keywords":
+                flat[logical] = tuple(str(item).strip() for item in value if str(item).strip())
+            elif value:
+                flat[logical] = value.decode("utf-8", "replace") if isinstance(value, bytes) else str(value)
+        return flat
+    finally:
+        path.unlink(missing_ok=True)
+
+
+def _write_iptc_fields(payload: bytes, facts: MetaFacts, bind: MetaBind, /) -> bytes:
+    with NamedTemporaryFile(suffix=".jpg", delete=False) as tmp:
+        tmp.write(payload)
+        path = Path(tmp.name)
+    try:
+        info = IPTCInfo(str(path), force=True, inp_charset="utf_8", out_charset="utf_8")
+        if bind in (MetaBind.REPLACE, MetaBind.STRIP):
+            for key in _IPTC_KEY.values():
+                info[key] = [] if key == "keywords" else ""
+        if bind is not MetaBind.STRIP:
+            flat = _flat(facts)
+            for logical, key in _IPTC_KEY.items():
+                if logical == "keywords" and facts.descriptive.keywords:
+                    info[key] = list(facts.descriptive.keywords)
+                elif logical in flat:
+                    info[key] = flat[logical]
+        info.save_as(str(path))
+        return path.read_bytes()
+    finally:
+        path.unlink(missing_ok=True)
+
+
 # --- [RASTER_CARRIER] -------------------------------------------------------------------
 # pyvips + pillow + lxml fold EXIF/IPTC/XMP/ICC in one gated-companion `to_process` crossing.
 def _read_raster(payload: bytes) -> MetaFacts:
     image = pyvips.Image.new_from_buffer(payload, "", access=pyvips.Access.SEQUENTIAL)
     present = frozenset(image.get_fields())
     read = lambda field: _clean(str(image.get(field))) if field in present else ""
-    exif = {logical: value for logical, keys in _FIELD_KEYS.items() if keys.exif and (value := read(keys.exif))}
-    flat: dict[str, object] = {**exif, **_xmp(bytes(image.get("xmp-data")) if "xmp-data" in present else b"")}
+    libvips_exif = {logical: value for logical, keys in _FIELD_KEYS.items() if keys.exif and (value := read(keys.exif))}
+    try:
+        companion = {**_exif_fields(payload), **_iptc_fields(payload)}
+    except (OSError, ValueError, KeyError, AssertionError):
+        companion = {}
+    flat: dict[str, object] = {**companion, **libvips_exif, **_xmp(bytes(image.get("xmp-data")) if "xmp-data" in present else b"")}
     flat.update({logical: _num(str(flat[logical])) for logical in _RATIONAL if logical in flat})
     lat = _dms(str(flat.pop("gps_lat", "")), str(flat.pop("gps_lat_ref", "")))
     lon = _dms(str(flat.pop("gps_lon", "")), str(flat.pop("gps_lon_ref", "")))
@@ -423,7 +554,13 @@ def _write_raster(payload: bytes, facts: MetaFacts, bind: MetaBind) -> bytes:
                 image.set(keys.exif, _rational(float(value)) if logical in _RATIONAL else value)
         if packet := _xmp_packet(facts):
             image.set("xmp-data", packet)
-    return image.write_to_buffer(_FORMAT.get(str(image.get("vips-loader")), ".tif"), strip=bind is MetaBind.STRIP)
+    encoded = image.write_to_buffer(_FORMAT.get(str(image.get("vips-loader")), ".tif"), strip=bind is MetaBind.STRIP)
+    for writer in (_write_exif_fields, _write_iptc_fields):
+        try:
+            encoded = writer(encoded, facts, bind)
+        except (OSError, ValueError, KeyError, AssertionError):
+            pass
+    return encoded
 
 
 # --- [PDF_CARRIER] ----------------------------------------------------------------------
@@ -578,6 +715,7 @@ _CARRIER: Final[frozendict[MetaCarrier, CarrierPolicy]] = frozendict({
 
 ## [03]-[RESEARCH]
 
+- [RASTER_METADATA_PROVIDERS] [RESOLVED]: the raster carrier now consumes the admitted provider set directly: `exif.Image(payload).get_all()` / `.get(attr)` / `.set(attr, value)` / `.get_file()` for JPEG EXIF scalar fields, `iptcinfo3.IPTCInfo(file_or_path, force=True)` plus `__getitem__`/`__setitem__`/`save_as(path)` for IPTC/IIM tags, and `libxmp.XMPMeta(xmp_str=...)` plus `get_property`/`set_property`/`serialize_to_str` for XMP packets. `pyvips` remains the raster decode/re-encode boundary and ICC profile byte carrier; `Pillow ImageCms` remains the ICC header reader only. The companion EXIF/IPTC writers are best-effort JPEG enrichers after the pyvips encode: non-JPEG or provider-specific unsupported payloads fall back to the pyvips/XMP result, while read still folds whatever each provider can recover into one `MetaFacts` materialization. Raw `Image`, `IPTCInfo`, and `XMPMeta` objects never cross the owner boundary.
 - [CARRIER_DISCRIMINANT] [RESOLVED]: the owner discriminates by the `read`/`write` VERB over the `(MetaCarrier, payload)` shape, not by standard and not by a carrier×direction case product — a single raster carries EXIF + IPTC + XMP + ICC simultaneously, so a per-standard `ReadExif`/`ReadIptc`/`ReadXmp` op family fragments one carrier into three reads where one pass over `pyvips.Image.get_fields()` + the `lxml` XMP parse recovers all four into the one `MetaFacts`, and a six-case `read_raster`/`write_raster`/`read_pdf`/… union is the carrier×direction explosion the two-case `Metadata` tagged_union collapses by riding the carrier as the verb payload's first field. The standards are field-namespace facets the carrier readers fold (`Capture`/`Place` from EXIF, `Descriptive`/`Rights` from XMP/IPTC, `Color` from ICC, `conformance` from PDF/A·PDF/X) through the one `_FIELD_KEYS` correspondence and the one `MetaFacts.from_logical` materialization, and the `MetaBind` (`MERGE`/`REPLACE`/`STRIP`) write policy carries the disposition as a behaviour-bearing value rather than a `clear: bool` knob, the `STRIP` arm the privacy-scrub (`pyvips.Image.remove` over the metadata namespace, `pikepdf` `del meta[key]`, `av` empty `OutputContainer.metadata`).
 - [FIELD_CORRESPONDENCE] [RESOLVED]: the three former per-standard tables (`_XMP_KEYS`/`_EXIF_FIELDS`/`_MEDIA_TAGS`) collapse into one primary `_FIELD_KEYS: frozendict[str, FieldKeys]` keyed by logical field name, each `FieldKeys(xmp, exif, media)` row carrying the three standard spellings of one field, per the DERIVED_LOGIC one-primary-correspondence law — `_xmp`/`_read_pdf`/`_read_media` read their own column, `_flat`/`_xmp_packet`/the writers write their own column, and the `_CARRIER` row collapses the former `_CARRIER_TABLE` acceptor pair and `_LANE` offload map into one `CarrierPolicy(reader, writer, lane)` per the algorithms.md ROUTE_UNION "one policy row carries the whole axis bundle" law. `MetaFacts.from_logical` (one `msgspec.convert(strict=False)` per facet, verified to coerce the standard string values to each facet field's type and drop foreign keys) is the one materializer all three readers fold into, and `_flat` (`structs.asdict` over the facets) is its inverse the three writers derive from — the logical name is the facet field name, so a new field needs no per-standard table edit. The IPTC Extension `Iptc4xmpExt:DigitalSourceType` content-origin field (the plain-XMP AI-provenance label over the `digitalCapture`/`algorithmicMedia`/`trainedAlgorithmicMedia`/`composite` IPTC NewsCodes IRIs) is exactly this one-row growth on `Capture` over the added `Iptc4xmpExt` `_XMP_NS` namespace, riding the existing `_xmp` lxml parse and `pikepdf` `PdfMetadata` read with NO new package member — closing the IPTC-Extension half of the page's claimed IPTC scope, and distinct from the SIGNED `exchange/credential#CREDENTIAL` C2PA `DigitalSource` assertion (this is the unsigned descriptive field a DAM consumer reads beside, not instead of, the credential manifest).
 - [META_RECEIPT_CASE] [RESOLVED]: the descriptive-metadata operation returns the rich `(ContentKey, MetaFacts, bytes)` evidence triple, and the consumer projects the ARCHITECTURE `[02]-[SEAMS]` `exchange/metadata → python:artifacts/core/receipt` edge — the carrier, the populated descriptive-field count, and the payload byte length onto the shared `core/receipt#RECEIPT` `ArtifactReceipt.Metadata` case `metadata: tuple[ContentKey, str, int, int]` mirroring the flat-scalar `Credential`/`Media` cases, so the receipt owner imports no `MetaFacts` value object. `_emit` carries NO `@receipted` weave — exactly as `exchange/credential#PROVENANCE` `_emit` carries `@stamina.retry` alone and `exchange/conformance#CONFORMANCE` `close` carries none, both returning the rich `(ContentKey, evidence)` pair the consumer mints the receipt from — because a metadata READ recovers the full `MetaFacts` (the descriptive field set the reading caller needs) and a WRITE the re-encoded artifact bytes, both exceeding the four-scalar summary. The prior `@receipted(Redaction.STRUCTURAL)` weave was the deleted form on two counts: it discarded the read's recovered fields and the write's re-encoded bytes (a write-only producer's pattern wrongly applied to a read/write owner), and it cited the phantom `Redaction.STRUCTURAL` the runtime `observability/receipts#RECEIPT` `Redaction` owner — a `Struct(classified, salt)` with no named policy instances — does not define. `_emit` keys the (source or re-encoded) payload through `ContentIdentity.of` and returns `(key, facts, payload)`; the consumer spreads the carrier value (off the `Metadata` it admitted), `facts.populated`, and `len(payload)` onto `ArtifactReceipt.Metadata` exactly as it mints `ArtifactReceipt.Credential` from the credential pair and `ArtifactReceipt.Verdict` from the conformance pair; the write arms key the re-encoded bytes so a metadata-bound artifact carries a fresh content key the `csharp:Rasm.Persistence` store re-derives, the read arms key the source bytes, and the metadata owner re-mints no canonical content key (the runtime `content_identity` owns it).

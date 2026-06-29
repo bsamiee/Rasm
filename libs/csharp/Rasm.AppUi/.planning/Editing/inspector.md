@@ -75,7 +75,7 @@ public static partial class InspectorSurface {
 
 ## [03]-[EDITOR_FACTORIES]
 
-- Owner: `EditorKeyPolicy` single ordinal-ignore-case key accessor; `EditorFactory` `[SmartEnum<string>]` eleven rows.
+- Owner: `ComparerAccessors.StringOrdinalIgnoreCase` accessor; `EditorFactory` `[SmartEnum<string>]` eleven rows.
 - Cases: quantity, value-object, optional, color, choice, path, collection, boolean, numeric, text, nested — rank equals declaration order, the match walk takes the first accepting row, and nested is the total fallback for record shapes.
 - Entry: `Match(Type shape)` — `Option<EditorFactory>` rank walk over `Items`.
 - Auto: generated `Items` ordering and key factories under `[ValidationError<EditFault>]`; the `Accepts` column rides `[UseDelegateFromConstructor]`.
@@ -84,18 +84,11 @@ public static partial class InspectorSurface {
 - Boundary: the `Bridge` column names the package factory type a stock row registers; `None` rows (quantity, value-object, optional, choice) ride the one row-driven `AbstractCellEditFactory` adapter overriding `ImportPriority` (virtual int, stock default 100), `Accept(object accessToken)`, `HandleNewProperty(PropertyCellContext)` returning `Control?`, `HandlePropertyChanged(PropertyCellContext)` returning bool, and `HandleReadOnlyStateChanged(Control, bool)`, with `SetAndRaise(PropertyCellContext, Control, object?)` driving the undo-scoped command pipeline; generated-owner detection rides `MetadataLookup.Find` over the pin-stable `Thinktecture.Internal` metadata classes — `Metadata.Keyed.SmartEnum`/`Metadata.KeylessSmartEnum` split choice rows from `Metadata.Keyed.ValueObject`/`Metadata.ComplexValueObject` value rows, deleting the interface scan and the `Items` reflection probe; the optional row re-enters `Match` on the wrapped argument and renders absence as a value, never a sentinel; color rows present `PreviewableColorPicker` with the `Palettes` families and HSV models.
 
 ```csharp signature
-public sealed class EditorKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
-    private static readonly StringComparer Policy = StringComparer.OrdinalIgnoreCase;
-
-    public static IEqualityComparer<string> EqualityComparer => Policy;
-
-    public static IComparer<string> Comparer => Policy;
-}
 
 [SmartEnum<string>]
 [ValidationError<EditFault>]
-[KeyMemberEqualityComparer<EditorKeyPolicy, string>]
-[KeyMemberComparer<EditorKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 public sealed partial class EditorFactory {
     public static readonly EditorFactory Quantity = new("quantity", rank: 10, accepts: AcceptQuantity, bridge: None);
     public static readonly EditorFactory Value = new("value-object", rank: 20, accepts: AcceptValue, bridge: None);
@@ -422,7 +415,7 @@ public sealed record CodePane(
 public sealed record CompletionRow(string Key, string Detail) {
     public static Seq<CompletionRow> FromMetadata(Seq<(string Key, string Detail)> metadata) =>
         metadata.Map(static row => new CompletionRow(row.Key, row.Detail))
-            .OrderBy(static row => row.Key, EditorKeyPolicy.Comparer)
+            .OrderBy(static row => row.Key, ComparerAccessors.StringOrdinalIgnoreCase.Comparer)
             .ToSeq();
 }
 ```

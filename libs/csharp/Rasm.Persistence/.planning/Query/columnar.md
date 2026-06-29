@@ -19,14 +19,10 @@ Rasm.Persistence runs analytical aggregation, columnar rollup, and lakehouse sca
 - Boundary: DuckDB is fully-featured through the SQL `INSTALL`/`LOAD` pattern over the one pinned `DuckDB.NET.Data.Full` runtime — no second engine, no per-extension package, the extension roster being profile policy expressed as SQL (`api-duckdb#EXTENSION_PATTERN`); the columnar lane is the `Query/lane#READ_ROUTING` ASYNC analytical lane carrying a `StalenessWatermark`, so an interactive-correctness query never reads here without `WaitForNonStaleProjectionDataAsync` and strong-consistency reads go through the synchronous topology (the DuckDB `ATTACH … TYPE postgres` lane joins the live database analytically but is never the consistency owner, `C2`); spatial→PG GiST and ANN→pgvector are the transactional index owners so DuckDB `spatial`/`vss` are the columnar aggregators only (`L2`), meeting NTS/GDAL at WKB through `ST_AsWKB`/`ST_GeomFromWKB`; credentials are `CREATE SECRET` objects never inline keys; `DuckDBException` lifts at the provider edge discriminated on `DuckDBErrorType` into `ColumnarFault`, never a raw ADO exception.
 
 ```csharp signature
-public sealed class ColumnarKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
-    public static IEqualityComparer<string> EqualityComparer => StringComparer.Ordinal;
-    public static IComparer<string> Comparer => StringComparer.Ordinal;
-}
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<ColumnarKeyPolicy, string>]
-[KeyMemberComparer<ColumnarKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ColumnarExtension {
     public static readonly ColumnarExtension Spatial = new("spatial", linked: false);
     public static readonly ColumnarExtension Vss = new("vss", linked: false);
@@ -44,8 +40,8 @@ public sealed partial class ColumnarExtension {
 }
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<ColumnarKeyPolicy, string>]
-[KeyMemberComparer<ColumnarKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ColumnarProfile {
     public static readonly ColumnarProfile Geometry = new("geometry", [ColumnarExtension.Spatial, ColumnarExtension.Parquet]);
     public static readonly ColumnarProfile Search = new("search", [ColumnarExtension.Vss, ColumnarExtension.Fts]);

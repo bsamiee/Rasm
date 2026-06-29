@@ -11,7 +11,7 @@ One feature-flag, progressive-rollout, and experimentation owner for the runtime
 
 ## [02]-[FLAG_DEFINITION]
 
-- Owner: `FlagKey` `[ValueObject<string>]` the bucketing-stable flag identity under the `FlagKeyPolicy` ordinal accessor; `Variant` `[ValueObject<string>]` the assigned-arm identity; `RolloutSegment` the `[0,100)` percentage band a bucketed subject falls into; `TargetingRule` `[Union]` the closed match-predicate family discriminating a subject onto a variant; `FlagDefinition` the per-flag row carrying the ordered rules, the segment-to-variant map, the default variant, and the disabled flag; `FlagRegistry` the frozen flag-set the provider compiles from configuration.
+- Owner: `FlagKey` `[ValueObject<string>]` the bucketing-stable flag identity under the `ComparerAccessors.StringOrdinal` accessor; `Variant` `[ValueObject<string>]` the assigned-arm identity; `RolloutSegment` the `[0,100)` percentage band a bucketed subject falls into; `TargetingRule` `[Union]` the closed match-predicate family discriminating a subject onto a variant; `FlagDefinition` the per-flag row carrying the ordered rules, the segment-to-variant map, the default variant, and the disabled flag; `FlagRegistry` the frozen flag-set the provider compiles from configuration.
 - Cases: `TargetingRule` = `All` (unconditional match seating the rollout segments) | `TenantIn` (a `FrozenSet<string>` slug allow-list) | `AttributeEquals` (a targeting-attribute key-equals-value match) | `SegmentBand` (a `RolloutSegment` percentage gate) | `ForcedOff` (the kill-switch terminal) — each rule case carries the `Variant` it seats and breaks every rule-fold arm; rules evaluate in declared order and the first match wins, so a `ForcedOff` row placed first short-circuits every downstream rule.
 - Entry: `Compile(FlagRegistry registry)` returns `IO<InMemoryProvider>` folding every `FlagDefinition` row into one `Dictionary<string, OpenFeature.Providers.Memory.Flag>` whose `Flag<Value>` carries the variant map and the `Func<EvaluationContext, string>` context evaluator the bucketing seats, then constructs the provider; `Register(FlagRegistry registry, string domain)` returns `IO<Unit>` registering the compiled provider through `Api.Instance.SetProviderAsync(domain, provider)` so awaiting it observes provider readiness.
 - Auto: each `FlagDefinition` compiles to exactly one `Flag<Value>` — the variant map is the `IDictionary<string, Value>` keyed by `Variant`, the default variant is the row's `Default`, and the `Func<EvaluationContext, string>` evaluator is the `STICKY_BUCKETING` `Assign` closure folding the ordered `TargetingRule` rows over the `EvaluationContext` so the variant pick lives in the flag's own evaluator and never in calling code; the `disabled` flag maps from `FlagDefinition.Disabled` so a disabled flag resolves to the default variant with `Reason.Disabled`; the provider is the single `InMemoryProvider` per domain registered through `SetProviderAsync` whose `InitializeAsync` completes before the registration task so the features rail is ready-gated like every other boot owner; a flag-set reload re-folds the registry and replays `InMemoryProvider.UpdateFlagsAsync(flags)` over the same provider so a targeting-rule edit lands live on the next evaluation without a second provider, fanning one `ProviderEventTypes.ProviderConfigurationChanged` the verdict consumers observe.
@@ -22,17 +22,13 @@ One feature-flag, progressive-rollout, and experimentation owner for the runtime
 
 ```csharp signature
 // --- [TYPES] ----------------------------------------------------------------------------
-public sealed class FlagKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
-    public static IEqualityComparer<string> EqualityComparer => StringComparer.Ordinal;
-    public static IComparer<string> Comparer => StringComparer.Ordinal;
-}
 
 [ValueObject<string>(KeyMemberName = "Value")]
-[KeyMemberEqualityComparer<FlagKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public readonly partial struct FlagKey;
 
 [ValueObject<string>(KeyMemberName = "Value")]
-[KeyMemberEqualityComparer<FlagKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public readonly partial struct Variant;
 
 [ValueObject<int>(

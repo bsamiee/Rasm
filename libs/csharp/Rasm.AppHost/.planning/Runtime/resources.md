@@ -10,7 +10,7 @@ Bounded runtime resource lanes for the Rasm.AppHost spine: the HybridCache read-
 
 ## [02]-[CACHE_PORT]
 
-- Owner: `CacheLane` `[SmartEnum<string>]` under the `LaneKeyPolicy` ordinal accessor; `CacheSurface` attaches the dispatch to `HybridCache` as one extension block and resolves each lane's keyed cache by its `Store` column.
+- Owner: `CacheLane` `[SmartEnum<string>]` under the `ComparerAccessors.StringOrdinal` accessor; `CacheSurface` attaches the dispatch to `HybridCache` as one extension block and resolves each lane's keyed cache by its `Store` column.
 - Cases: `ModelResult`, `Projection`, `ArtifactBlob`.
 - Entry: `ValueTask<T> Read<T, TState>(CacheLane lane, string key, TState state, Func<TState, CancellationToken, ValueTask<T>> factory, Option<Seq<string>> tags = default, CancellationToken token = default)`.
 - Auto: `GetOrCreateAsync` owns stampede single-flight; local and distributed hit, miss, and write counts, stampede joins, and tag invalidations ride the package `Microsoft-Extensions-HybridCache` event source as polling counters with zero call-site metric code; `Cache` resolves the lane's keyed `HybridCache` from the provider by the lane key so each lane reads its own L2 topology.
@@ -19,17 +19,10 @@ Bounded runtime resource lanes for the Rasm.AppHost spine: the HybridCache read-
 - Boundary: the L2 `IDistributedCache` registered under the lane's `Store` key and the `IHybridCacheSerializerFactory` arrive as the single Persistence contribution — `Register` admits that one factory through `AddSerializerFactory` on every keyed builder, never a per-type `AddSerializer<T>` scatter; `Register` composes one `AddKeyedHybridCache(lane.Key)` per lane row whose `Store` is set, binding `DistributedCacheServiceKey` to that store key and `MaximumPayloadBytes` from the lane's `MaxPayloadBytes` so each such lane reads its own keyed L2 under its own payload guard, while a lane with no `Store` resolves the default `AddHybridCache` service — one cache owner across both paths, never a second; registration composes after the DI `TimeProvider` registration so the test row's `FakeTimeProvider` drives creation stamps and tag cuts; this port deletes hand-rolled double-checked caches, `ICacheService` wrappers, and every second cache owner in the suite.
 
 ```csharp signature
-public sealed class LaneKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
-    private static readonly StringComparer Policy = StringComparer.Ordinal;
-
-    public static IEqualityComparer<string> EqualityComparer => Policy;
-
-    public static IComparer<string> Comparer => Policy;
-}
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<LaneKeyPolicy, string>]
-[KeyMemberComparer<LaneKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class CacheLane {
     public static readonly CacheLane ModelResult = new("model-result", ttl: DeadlineClass.CacheTtl, l1Ttl: DeadlineClass.CacheTtl, flags: HybridCacheEntryFlags.None, store: "durable-l2", maxPayloadBytes: 1 << 20);
     public static readonly CacheLane Projection = new("projection", ttl: DeadlineClass.CacheTtl, l1Ttl: DeadlineClass.CacheTtl, flags: HybridCacheEntryFlags.None, store: "durable-l2", maxPayloadBytes: 1 << 20);

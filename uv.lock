@@ -244,6 +244,18 @@ wheels = [
 ]
 
 [[package]]
+name = "argdispatch"
+version = "1.5.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "setuptools" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/08/1e/d948ac727362bbc67f3a57651941d355d1177b7310eada759365f98d3fbc/argdispatch-1.5.0.tar.gz", hash = "sha256:8d7adbc5156f899273e2a82e658b49c10e787b0ce5c2fe35c7c3f49d50a85aa9", size = 42805, upload-time = "2026-01-30T20:55:47.937Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/61/b1/3d50769665a8bee23e04525f8ae95831a227ce101d5028aece36fc941f55/argdispatch-1.5.0-py3-none-any.whl", hash = "sha256:15b14bc75625db50bff9e3b4f3a494345af48ef54d97287015470dcd212bfdaa", size = 22179, upload-time = "2026-01-30T20:55:43.017Z" },
+]
+
+[[package]]
 name = "array-api-compat"
 version = "1.15.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1668,6 +1680,18 @@ wheels = [
 ]
 
 [[package]]
+name = "exif"
+version = "1.6.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "plum-py" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/52/21/34c46fbda54648afdcc66f0eec0ac91675361017abcdcdd23bd88fa74cc5/exif-1.6.1.tar.gz", hash = "sha256:763599b89b9b67495713060a703f32d1874abf8f0628c9d77711c2c06a5f44c8", size = 24052, upload-time = "2024-12-10T04:38:35.812Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/67/07/a47a78be02b0a2d273358312f3e2eecc4981d4604f8a6e6b8ef27c1e9c2d/exif-1.6.1-py3-none-any.whl", hash = "sha256:2879830e2d8f0e5f1503110736bceb83a1e9c2121b32c23208c04284be5afbec", size = 30461, upload-time = "2024-12-10T04:38:33.547Z" },
+]
+
+[[package]]
 name = "expression"
 version = "5.6.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2079,6 +2103,18 @@ wheels = [
 [package.optional-dependencies]
 grpc = [
     { name = "grpcio" },
+]
+
+[[package]]
+name = "grandalf"
+version = "0.8"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pyparsing" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/95/0e/4ac934b416857969f9135dec17ac80660634327e003a870835dd1f382659/grandalf-0.8.tar.gz", hash = "sha256:2813f7aab87f0d20f334a3162ccfbcbf085977134a17a5b516940a93a77ea974", size = 38128, upload-time = "2023-01-26T07:37:06.668Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/61/30/44c7eb0a952478dbb5f2f67df806686d6a7e4b19f6204e091c4f49dc7c69/grandalf-0.8-py3-none-any.whl", hash = "sha256:793ca254442f4a79252ea9ff1ab998e852c1e071b863593e5383afee906b4185", size = 41802, upload-time = "2023-01-10T15:16:19.753Z" },
 ]
 
 [[package]]
@@ -2592,6 +2628,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/91/c3/b5c36ab59e355b8d7c59205b8903fa74458c6938c9691f7d7730404f94c9/inline_snapshot-0.34.2.tar.gz", hash = "sha256:d160cb6059e00916c2e846abc014ead6f01fb24479f13696fb8670d7a7937f67", size = 2641142, upload-time = "2026-06-19T21:17:27.338Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/bb/2a/84fe7ef052ac666e95e7cabdf0905aa3f2c90b5a117419760b39b577602a/inline_snapshot-0.34.2-py3-none-any.whl", hash = "sha256:743a514a08ffd0d2d62878b0208d4def5041585affa7db6b89f0ca2e23552361", size = 90717, upload-time = "2026-06-19T21:17:25.629Z" },
+]
+
+[[package]]
+name = "iptcinfo3"
+version = "2.3.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/b5/f6/2a24128400e61b90fb18d969a9c77db5ce1ea61e8e72fb7f5e9f10258310/iptcinfo3-2.3.0.tar.gz", hash = "sha256:aee2ee68b6b77aa6e317eed956ff36affc7dfba033c95458026815fa41b4a5e6", size = 15285, upload-time = "2025-12-02T17:24:23.203Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/bd/4d/19e46e8379a6548736095573af66b3437c9585cf5079be8bb75adcd5a254/iptcinfo3-2.3.0-py3-none-any.whl", hash = "sha256:f71c9619dfd8c697e3aa9ab8dc5cf0c12643e211326fa9c02fe218feef84bef5", size = 13595, upload-time = "2025-12-02T17:24:22.075Z" },
 ]
 
 [[package]]
@@ -4275,6 +4320,15 @@ wheels = [
 ]
 
 [[package]]
+name = "papersize"
+version = "1.7.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/9e/30/15108f061a0948f8b16bec950594941e146240267db5858d64ad742cf81a/papersize-1.7.0.tar.gz", hash = "sha256:e7e5c190f3acd9c950a1b6cf61d0be9927792ce643c7652457d2b16ead06c537", size = 78055, upload-time = "2026-01-30T21:40:54.397Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b0/78/87ac7f0481427104edf7d4bf0b62d5663fcae8abff9bc5180c14db12c622/papersize-1.7.0-py3-none-any.whl", hash = "sha256:4429c0c1e3bba1be9d90abc22678e39844c6ad08328dbdd7342004920fbde7e2", size = 28333, upload-time = "2026-01-30T21:40:53.273Z" },
+]
+
+[[package]]
 name = "parsedatetime"
 version = "2.6"
 source = { registry = "https://pypi.org/simple" }
@@ -4349,6 +4403,21 @@ dependencies = [
     { name = "numpy" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/09/0d/0bd51e890e68eb1fee2bfea9d20e983a36467d5707f420452f3cd56c1cf1/pdal-3.5.3.tar.gz", hash = "sha256:1d8fb955b91b97ff927d99295d719f8dada16b2c85f778d5c38cf04dcd44f3cc", size = 113622, upload-time = "2025-09-03T16:44:27.742Z" }
+
+[[package]]
+name = "pdfimpose"
+version = "2.9.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "argdispatch" },
+    { name = "papersize" },
+    { name = "pymupdf" },
+    { name = "pyxdg" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/ca/00/51f63aa856328fba075b9f03a90caa74b07a70068ffb68bc5b91be17a7c1/pdfimpose-2.9.0.tar.gz", hash = "sha256:950d08e596dc6852949c31d8f0f0a2429719f8435e03409cc881f3e0aaad76d3", size = 40549, upload-time = "2026-03-24T20:39:32.672Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f3/77/7e5e7912291a29e0aad271169f3486757f30945b570804b227e7731d156b/pdfimpose-2.9.0-py3-none-any.whl", hash = "sha256:4b098525036e49be93276c74fa7ed1a57aa028289fcf9b487770ad876fa5044d", size = 61334, upload-time = "2026-03-24T20:39:31.476Z" },
+]
 
 [[package]]
 name = "pdfminer-six"
@@ -4486,6 +4555,15 @@ wheels = [
 ]
 
 [[package]]
+name = "plum-py"
+version = "0.8.7"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/3a/2a/a650b0cde5a15f4a9375df43bd7eacaffb65b30c8395b6b6cd84df2bf7ae/plum-py-0.8.7.tar.gz", hash = "sha256:40a25a70f7fd213f57cdd1decc65874df2d213d19d63478a1addcca748c13c4e", size = 116231, upload-time = "2024-05-12T02:01:48.18Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/2f/da/8a9bdf5d3ea4b13d3142e0c77d6e85e4c2668aef6e4b9d5e9a6619049bdc/plum_py-0.8.7-py3-none-any.whl", hash = "sha256:d791f059ef159adbe3c3b036557b5b431fa07db226a9de106a74e5e57441741d", size = 69991, upload-time = "2023-08-14T21:56:31.953Z" },
+]
+
+[[package]]
 name = "pointblank"
 version = "0.25.0"
 source = { registry = "https://pypi.org/simple" }
@@ -4610,6 +4688,18 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/9b/ca/25afc144934014700c52e05103c2421997482d561f3101ff352e1292fb81/protobuf-6.33.6-cp39-abi3-manylinux2014_s390x.whl", hash = "sha256:c96c37eec15086b79762ed265d59ab204dabc53056e3443e702d2681f4b39ce3", size = 339381, upload-time = "2026-03-18T19:04:54.616Z" },
     { url = "https://files.pythonhosted.org/packages/16/92/d1e32e3e0d894fe00b15ce28ad4944ab692713f2e7f0a99787405e43533a/protobuf-6.33.6-cp39-abi3-manylinux2014_x86_64.whl", hash = "sha256:e9db7e292e0ab79dd108d7f1a94fe31601ce1ee3f7b79e0692043423020b0593", size = 323436, upload-time = "2026-03-18T19:04:55.768Z" },
     { url = "https://files.pythonhosted.org/packages/c4/72/02445137af02769918a93807b2b7890047c32bfb9f90371cbc12688819eb/protobuf-6.33.6-py3-none-any.whl", hash = "sha256:77179e006c476e69bf8e8ce866640091ec42e1beb80b213c3900006ecfba6901", size = 170656, upload-time = "2026-03-18T19:04:59.826Z" },
+]
+
+[[package]]
+name = "psdtags"
+version = "2026.1.29"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/04/44/05ec29e13d157ee96bfa763d4efaceeb69fe968d4bfd4754fda223bbb142/psdtags-2026.1.29.tar.gz", hash = "sha256:233117d3604809ad39d6c52b18aa4befefc1524778176b1698ef080c3ddc28fe", size = 42085, upload-time = "2026-01-29T17:13:07.87Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/85/69/0ddba19e84e751fe5052e04d12bab604fd06f05ef10e6ee4604fa368f70f/psdtags-2026.1.29-py3-none-any.whl", hash = "sha256:ded35c7c5bfe0f0003f3c7ba537ca6505493e7bc4b28cd73e8ff3fa76f8663b2", size = 31230, upload-time = "2026-01-29T17:13:06.463Z" },
 ]
 
 [[package]]
@@ -5341,6 +5431,18 @@ wheels = [
 ]
 
 [[package]]
+name = "python-xmp-toolkit"
+version = "2.1.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pytz" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/39/54/c0b3621568031346ce3306beef18c6cabbd10467cdf17fd257d1a7eb3783/python_xmp_toolkit-2.1.0.tar.gz", hash = "sha256:ca0aa2c60d418dd2558767db59953ab5954fb5b87dc0b50cecd60566b0b4e2da", size = 3570012, upload-time = "2025-11-26T20:34:32.795Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/00/12/a1e57376289c8a949e079b011c8a1272da12317825a5669fa4488af98260/python_xmp_toolkit-2.1.0-py2.py3-none-any.whl", hash = "sha256:62b51dbbf04009030cb0f0871f1ff7e1e30a2ef8d159daf62c3079290f75a0ed", size = 30257, upload-time = "2025-11-26T20:34:30.644Z" },
+]
+
+[[package]]
 name = "pytimeparse"
 version = "1.1.8"
 source = { registry = "https://pypi.org/simple" }
@@ -5393,6 +5495,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/85/9f/01a1a99704853cb63f253eea009390c88e7131c67e66a0a02099a8c917cb/pywin32-ctypes-0.2.3.tar.gz", hash = "sha256:d162dc04946d704503b2edc4d55f3dba5c1d539ead017afa00142c38b9885755", size = 29471, upload-time = "2024-08-14T10:15:34.626Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/de/3d/8161f7711c017e01ac9f008dfddd9410dff3674334c233bde66e7ba65bbf/pywin32_ctypes-0.2.3-py3-none-any.whl", hash = "sha256:8a1513379d709975552d202d942d9837758905c8d01eb82b8bcc30918929e7b8", size = 30756, upload-time = "2024-08-14T10:15:33.187Z" },
+]
+
+[[package]]
+name = "pyxdg"
+version = "0.28"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/b0/25/7998cd2dec731acbd438fbf91bc619603fc5188de0a9a17699a781840452/pyxdg-0.28.tar.gz", hash = "sha256:3267bb3074e934df202af2ee0868575484108581e6f3cb006af1da35395e88b4", size = 77776, upload-time = "2022-06-05T11:35:01Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e5/8d/cf41b66a8110670e3ad03dab9b759704eeed07fa96e90fdc0357b2ba70e2/pyxdg-0.28-py2.py3-none-any.whl", hash = "sha256:bdaf595999a0178ecea4052b7f4195569c1ff4d344567bccdc12dfdf02d545ab", size = 49520, upload-time = "2022-06-05T11:34:58.832Z" },
 ]
 
 [[package]]
@@ -5927,6 +6038,16 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/4d/bc/0989043118a27cccb4e906a46b7565ce36ca7b57f5a18b78f4f1b0f72d9d/shapely-2.1.2.tar.gz", hash = "sha256:2ed4ecb28320a433db18a5bf029986aa8afcfd740745e78847e330d5d94922a9", size = 315489, upload-time = "2025-09-24T13:51:41.432Z" }
 
 [[package]]
+name = "simpleidml"
+version = "1.3.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "lxml" },
+    { name = "suds-py3" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/51/42/2c4958e3ece130eb395144220cce3096329a8e23ab9fc8fbc1cd499e2d27/simpleidml-1.3.1.tar.gz", hash = "sha256:0493800ba374ffeea7025a55955ac6915f508903df8f228f7f46b85e4af4b764", size = 7521630, upload-time = "2025-08-15T08:51:56.834Z" }
+
+[[package]]
 name = "six"
 version = "1.17.0"
 source = { registry = "https://pypi.org/simple" }
@@ -6143,6 +6264,15 @@ wheels = [
 ]
 
 [[package]]
+name = "suds-py3"
+version = "1.4.5.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/39/d1/da8977d242d2505c575eb2cc7e282209e4d12bd570c04e7942cd19f4facd/suds-py3-1.4.5.0.tar.gz", hash = "sha256:2b0d433e569c0190ff5e7ed2dfb3287b51bbfb3e51e82361c8bd652c78807167", size = 87187, upload-time = "2021-11-15T17:29:11.548Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8a/39/aa44074c42b3ee2d2ce36c2cd891787f9ae4158416600390dd09d09233da/suds_py3-1.4.5.0-py3-none-any.whl", hash = "sha256:0915a7f825c80fa2f0593e040e046bcbc156dd24ba988bb9da6c6604d70155b9", size = 298760, upload-time = "2021-11-15T17:29:09.503Z" },
+]
+
+[[package]]
 name = "svgelements"
 version = "1.9.6"
 source = { registry = "https://pypi.org/simple" }
@@ -6223,6 +6353,18 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/b7/4d/08c89e34946fce2aec4fbb45c9016efd5f4d7f24af8e5d93296e935631d8/threadpoolctl-3.6.0.tar.gz", hash = "sha256:8ab8b4aa3491d812b623328249fab5302a68d2d71745c8a4c719a2fcaba9f44e", size = 21274, upload-time = "2025-03-13T13:49:23.031Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/32/d5/f9a850d79b0851d1d4ef6456097579a9005b31fea68726a4ae5f2d82ddd9/threadpoolctl-3.6.0-py3-none-any.whl", hash = "sha256:43a0b8fd5a2928500110039e43a5eed8480b918967083ea48dc3ab9f13c4a7fb", size = 18638, upload-time = "2025-03-13T13:49:21.846Z" },
+]
+
+[[package]]
+name = "tifffile"
+version = "2026.6.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/b7/38/5e2ecef5af2f4fd4a89bb8d6240de9458bab4d51a4cbd97aeb3a0cd618e2/tifffile-2026.6.1.tar.gz", hash = "sha256:626c892c0e899d959b9438e7c0e1491dc154a7fead1f1f37a991724a50eceba9", size = 429694, upload-time = "2026-05-31T23:57:12.165Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/81/59/208f71d70ddc6184f79b8c6d87d46eb7d7b12c19186a817dec9c9c3f3693/tifffile-2026.6.1-py3-none-any.whl", hash = "sha256:0d7382d2769b855b81ce358528e2b40c16d48aa39031746efa81215205332a8d", size = 267108, upload-time = "2026-05-31T23:57:10.597Z" },
 ]
 
 [[package]]
@@ -6553,6 +6695,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/6f/a4/691ab63b17505a26096608cc309960b5a6bdf39e4ba1a793d5f9b1a53270/unicodecsv-0.14.1.tar.gz", hash = "sha256:018c08037d48649a0412063ff4eda26eaa81eff1546dbffa51fa5293276ff7fc", size = 10267, upload-time = "2015-09-22T22:00:19.516Z" }
 
 [[package]]
+name = "uniseg"
+version = "0.10.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/fc/5e/fc5b1c370dc523a580cb214ee7753c8631a2d4be8fc51283785415b62d92/uniseg-0.10.1.tar.gz", hash = "sha256:5224267916fc01132cb2f7bf60882402dde72ab52c6977184827e4d9d6676de6", size = 8151423, upload-time = "2026-01-09T12:53:03.45Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/80/6c/9eb6d93ad8b9ac96cba13e6d2f419c316d8fdb91013e12dd478a99501699/uniseg-0.10.1-py3-none-any.whl", hash = "sha256:74fe3f7b4ee46bbd703a70ea1e5cd28e04f63eee5af9a10388d93316c554e358", size = 8179942, upload-time = "2026-01-09T12:53:00.64Z" },
+]
+
+[[package]]
 name = "universal-pathlib"
 version = "0.3.10"
 source = { registry = "https://pypi.org/simple" }
@@ -6856,6 +7007,7 @@ dependencies = [
     { name = "drawsvg" },
     { name = "duckdb" },
     { name = "epdx" },
+    { name = "exif" },
     { name = "expression" },
     { name = "fastexcel" },
     { name = "findiff" },
@@ -6865,6 +7017,7 @@ dependencies = [
     { name = "gcsfs" },
     { name = "geoarrow-rust-compute" },
     { name = "geopandas" },
+    { name = "grandalf" },
     { name = "great-tables" },
     { name = "grpcio" },
     { name = "grpcio-tools" },
@@ -6878,6 +7031,7 @@ dependencies = [
     { name = "httpx" },
     { name = "ibis-framework" },
     { name = "igraph" },
+    { name = "iptcinfo3" },
     { name = "jinja2" },
     { name = "jupytext" },
     { name = "keyring" },
@@ -6924,6 +7078,7 @@ dependencies = [
     { name = "pandera" },
     { name = "papermill" },
     { name = "pdal" },
+    { name = "pdfimpose" },
     { name = "pdfplumber" },
     { name = "pikepdf" },
     { name = "pillow" },
@@ -6934,6 +7089,7 @@ dependencies = [
     { name = "polars-st" },
     { name = "pollination-handlers" },
     { name = "protobuf" },
+    { name = "psdtags" },
     { name = "psutil" },
     { name = "py7zr" },
     { name = "pyarrow" },
@@ -6947,6 +7103,7 @@ dependencies = [
     { name = "pyogrio" },
     { name = "pypdf" },
     { name = "pypdfium2" },
+    { name = "pyphen" },
     { name = "pyproj" },
     { name = "pystac" },
     { name = "pystac-client" },
@@ -6957,6 +7114,7 @@ dependencies = [
     { name = "python-flint" },
     { name = "python-magic" },
     { name = "python-pptx" },
+    { name = "python-xmp-toolkit" },
     { name = "pyvips" },
     { name = "pywavelets" },
     { name = "queenbee" },
@@ -6976,6 +7134,7 @@ dependencies = [
     { name = "sectionproperties" },
     { name = "segno" },
     { name = "shapely" },
+    { name = "simpleidml" },
     { name = "skl2onnx" },
     { name = "sqlglot" },
     { name = "stac-geoparquet" },
@@ -6985,6 +7144,7 @@ dependencies = [
     { name = "structlog" },
     { name = "svgelements" },
     { name = "sympy" },
+    { name = "tifffile" },
     { name = "tomlkit" },
     { name = "tree-sitter" },
     { name = "tree-sitter-python" },
@@ -6994,6 +7154,7 @@ dependencies = [
     { name = "typst" },
     { name = "uharfbuzz" },
     { name = "uncertainties" },
+    { name = "uniseg" },
     { name = "universal-pathlib" },
     { name = "vegafusion" },
     { name = "virtualizarr" },
@@ -7086,6 +7247,7 @@ requires-dist = [
     { name = "duckdb" },
     { name = "epdx", specifier = "<1.0" },
     { name = "equinox", marker = "python_full_version < '3.15'" },
+    { name = "exif" },
     { name = "expression" },
     { name = "fastexcel" },
     { name = "findiff" },
@@ -7095,6 +7257,7 @@ requires-dist = [
     { name = "gcsfs" },
     { name = "geoarrow-rust-compute" },
     { name = "geopandas" },
+    { name = "grandalf" },
     { name = "great-tables" },
     { name = "grpcio" },
     { name = "grpcio-tools" },
@@ -7110,6 +7273,7 @@ requires-dist = [
     { name = "icechunk", marker = "python_full_version < '3.15'" },
     { name = "igraph" },
     { name = "interpax", marker = "python_full_version < '3.15'" },
+    { name = "iptcinfo3" },
     { name = "jax", marker = "python_full_version < '3.15'" },
     { name = "jinja2" },
     { name = "jupytext" },
@@ -7165,6 +7329,7 @@ requires-dist = [
     { name = "pandera" },
     { name = "papermill" },
     { name = "pdal" },
+    { name = "pdfimpose" },
     { name = "pdfplumber" },
     { name = "pikepdf" },
     { name = "pillow" },
@@ -7176,6 +7341,7 @@ requires-dist = [
     { name = "pollination-handlers" },
     { name = "premise", marker = "python_full_version < '3.15'" },
     { name = "protobuf", specifier = "<7.0" },
+    { name = "psdtags" },
     { name = "psutil" },
     { name = "py7zr" },
     { name = "pyarrow", specifier = "<24" },
@@ -7190,6 +7356,7 @@ requires-dist = [
     { name = "pyogrio" },
     { name = "pypdf" },
     { name = "pypdfium2" },
+    { name = "pyphen" },
     { name = "pyproj" },
     { name = "pystac" },
     { name = "pystac-client" },
@@ -7200,6 +7367,7 @@ requires-dist = [
     { name = "python-flint" },
     { name = "python-magic" },
     { name = "python-pptx" },
+    { name = "python-xmp-toolkit" },
     { name = "pyvips" },
     { name = "pyvista", marker = "python_full_version < '3.15'" },
     { name = "pywavelets" },
@@ -7222,6 +7390,7 @@ requires-dist = [
     { name = "sectionproperties" },
     { name = "segno" },
     { name = "shapely" },
+    { name = "simpleidml" },
     { name = "skl2onnx" },
     { name = "sparse", marker = "python_full_version < '3.15'" },
     { name = "sqlglot" },
@@ -7233,6 +7402,7 @@ requires-dist = [
     { name = "svgelements" },
     { name = "sympy" },
     { name = "tensorstore", marker = "python_full_version < '3.15'" },
+    { name = "tifffile" },
     { name = "tomlkit" },
     { name = "tree-sitter" },
     { name = "tree-sitter-python" },
@@ -7242,6 +7412,7 @@ requires-dist = [
     { name = "typst" },
     { name = "uharfbuzz" },
     { name = "uncertainties" },
+    { name = "uniseg" },
     { name = "universal-pathlib" },
     { name = "usd-core", marker = "python_full_version < '3.15'" },
     { name = "vegafusion" },

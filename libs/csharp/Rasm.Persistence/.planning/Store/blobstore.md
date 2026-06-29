@@ -10,7 +10,7 @@ Rasm.Persistence stores geometry and coverage raster bytes as a content-keyed ob
 
 ## [02]-[OBJECT_STORE]
 
-- Owner: `ObjectStore` the `[SmartEnum<string>]` provider axis under the `BlobKeyPolicy` ordinal accessor — each row carries the `PartSize` part floor, the `ChunkPolicy` content-defined window, the `ObjectChecksum` integrity stance, the `ConditionalWrite` write-once flag, the `StorageTier` cold-storage column, and the `ObjectEncryption` SSE policy, and builds the row's `BlobRemote` from the resolved `ObjectClient`; `ObjectClient` the resolved-SDK `[Union]` whose `Map` owns per-leg dispatch; `ObjectChecksum`/`StorageTier`/`ObjectEncryption` the closed write-policy vocabularies; `RemoteStoreFault` the closed boundary fault family.
+- Owner: `ObjectStore` the `[SmartEnum<string>]` provider axis under the `ComparerAccessors.StringOrdinal` accessor — each row carries the `PartSize` part floor, the `ChunkPolicy` content-defined window, the `ObjectChecksum` integrity stance, the `ConditionalWrite` write-once flag, the `StorageTier` cold-storage column, and the `ObjectEncryption` SSE policy, and builds the row's `BlobRemote` from the resolved `ObjectClient`; `ObjectClient` the resolved-SDK `[Union]` whose `Map` owns per-leg dispatch; `ObjectChecksum`/`StorageTier`/`ObjectEncryption` the closed write-policy vocabularies; `RemoteStoreFault` the closed boundary fault family.
 - Cases: `s3`, `azure-blob`, `gcs`, `minio` — the provider sweep closes here, PostgreSQL/SQLite/DuckDB never appearing because the object store is the durable home for geometry and coverage raster bytes behind `BlobRemote`, never a relational engine row; a fifth provider is one row.
 - Entry: `public BlobRemote Placement(ObjectClient client, ChunkMembership index)` projects the provider's `BlobRemote` from the resolved client; `public IO<BlobResidence> Put(ObjectClient client, BlobResidence residence, ChunkManifest manifest, ChunkMembership index, ReadOnlyMemory<byte> source, Func<BlobTransferFact, IO<Unit>> sink)` drains the source once, partitions it through `ContentChunker.Chunk`, and rides the placement; `public IO<Stream> Fetch(...)` and `public IO<Option<BlobResidence>> Head(...)` are the read legs.
 - Auto: the upload partitions the source into content-defined chunks and packs whole chunks into provider parts of at least `PartSize`, so the `ContentChunker.Novel` probe folds the manifest against the artifact-blob index and an EMPTY novel projection proves the whole content-keyed blob already resident (the upload short-circuits to a `Dedup` fact plus a `Head`-confirm, zero bytes transferred); the `ConditionalWrite` column seals write-once so a re-put of an existing content-key `412`s to `RemoteStoreFault.Conflict` that one `@catch` arm resolves to a benign no-op (the content is identical by hash); the `Integrity` column threads `ChecksumAlgorithm.XXHASH128` (S3/GCS/Minio) so the provider verifies each part and the sealed object against the same 128-bit digest the content key already is; the `Tier` column projects the cold-storage class and the `Encryption` column the SSE stance.
@@ -20,14 +20,10 @@ Rasm.Persistence stores geometry and coverage raster bytes as a content-keyed ob
 - Boundary: the content-key object name derives from the `Element/codec#CONTENT_ADDRESS` `XxHash128` identity the kernel mints (the GLB `GeometryHash` and IFC/BREP `IfcRepHash` the `Object` node's seam `RepresentationContentHash` carries, the `Coverage` node's `CoverageGrid.RasterKey` raster/field grid), so the object store never mints a second identity; per-leg dispatch is `ObjectClient.Map` — a per-provider service class and a mismatch guard are the deleted forms because the union case is the dispatch and a mismatch is unrepresentable; the write-once seal is the optimistic-concurrency edge each provider exposes (S3/Minio `IfNoneMatch:*`, Azure `IfNoneMatch:ETag.All`, GCS `IfGenerationMatch:0`) so a content-address store needs no read-before-write and a `412` is a benign no-op folded to `RemoteStoreFault.Conflict` and treated as success; every SDK exception lifts once into `RemoteStoreFault` at this edge and `Transport.IsTransient` is the sole `Schedule`-retry gate so a throttle/`5xx` re-drives while a `Conflict`/`NotFound`/`Locked`/`IntegrityBreach`/`Denied`/`Oversize` is deterministic and never retried; credential acquisition, endpoint, and region are host-resolved connection inputs, never fence members.
 
 ```csharp signature
-public sealed class BlobKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
-    public static IEqualityComparer<string> EqualityComparer => StringComparer.Ordinal;
-    public static IComparer<string> Comparer => StringComparer.Ordinal;
-}
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<BlobKeyPolicy, string>]
-[KeyMemberComparer<BlobKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ObjectChecksum {
     public static readonly ObjectChecksum XxHash128 = new("xxh128");
     public static readonly ObjectChecksum Crc64 = new("crc64");
@@ -40,8 +36,8 @@ public sealed partial class ObjectChecksum {
 }
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<BlobKeyPolicy, string>]
-[KeyMemberComparer<BlobKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class StorageTier {
     public static readonly StorageTier Standard = new("standard");
     public static readonly StorageTier Infrequent = new("infrequent");
@@ -90,8 +86,8 @@ public abstract partial record RemoteStoreFault : Expected, IValidationError<Rem
 }
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<BlobKeyPolicy, string>]
-[KeyMemberComparer<BlobKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ObjectStore {
     public static readonly ObjectStore S3 = new("s3", 8L * 1024 * 1024, ChunkPolicy.Artifact, true, ObjectChecksum.XxHash128, StorageTier.Standard, ObjectEncryption.ProviderManaged.Instance);
     public static readonly ObjectStore AzureBlob = new("azure-blob", 8L * 1024 * 1024, ChunkPolicy.Artifact, true, ObjectChecksum.Crc64, StorageTier.Standard, ObjectEncryption.ProviderManaged.Instance);

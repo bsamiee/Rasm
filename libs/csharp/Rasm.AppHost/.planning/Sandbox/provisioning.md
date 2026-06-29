@@ -11,7 +11,7 @@ Rasm.AppHost owns the post-fetch update concern: a `UpdateManager`-borne state m
 
 ## [02]-[UPDATE_RAIL]
 
-- Owner: `UpdatePhase` `[SmartEnum<string>]` five post-fetch phases under the `UpdateKeyPolicy` ordinal accessor; `UpdateOutcome` `[Union]` terminal disposition; `UpdateFault` `[Union]` fault family in the 1300 band; `UpdateReceipt` per-phase evidence record; `UpdateMetrics` source-gen instrument partial under the `CounterAttribute`/`HistogramAttribute` generator; `UpdateRail` boundary capsule owning the `UpdateManager` handle and the staged-pending probe.
+- Owner: `UpdatePhase` `[SmartEnum<string>]` five post-fetch phases under the `ComparerAccessors.StringOrdinal` accessor; `UpdateOutcome` `[Union]` terminal disposition; `UpdateFault` `[Union]` fault family in the 1300 band; `UpdateReceipt` per-phase evidence record; `UpdateMetrics` source-gen instrument partial under the `CounterAttribute`/`HistogramAttribute` generator; `UpdateRail` boundary capsule owning the `UpdateManager` handle and the staged-pending probe.
 - Cases: 5 phase rows — detected, downloading, staged, rolling-over, rolled-back; outcomes restarted | staged-pending | rolled-back | declined; `UpdateFault` = Text | DownloadBroken | StagePending | RolloverRejected | DowngradeBlocked.
 - Entry: `IO<UpdateReceipt> Stage(UpdateInfo found, IProgress<int> progress, CancellationToken token)` carries the download-and-stage effect and forecloses a blocked downgrade before transfer; `IO<UpdateReceipt> Rollover(VelopackAsset asset, Duration cooperative, Duration forced)` carries the drain-gated restart effect; `IO<UpdateReceipt> Resume(Duration cooperative, Duration forced)` re-enters a staged-pending release after a process bounce.
 - Auto: every phase commit mints one `UpdateReceipt` fanned to `ReceiptSinkPort.Send` under the `Rasm.AppHost` package key; the generated counter rises per staged and per rollback phase and the generated histogram records the rollover span; `IsUpdatePendingRestart` is read at boot so a staged-but-unrestarted release re-enters the rail at the staged phase without a second download.
@@ -21,14 +21,10 @@ Rasm.AppHost owns the post-fetch update concern: a `UpdateManager`-borne state m
 - Boundary: `UpdateRail` is the named boundary capsule for the statement carve-out — the `UpdateManager` ctor, the awaited download, and the terminal `ApplyUpdatesAndRestart` carry language-owned statement forms while every other member stays expression-shaped; the rail composes `UpdateManager` directly with no rename adapter — the `UpdateChannel` axis is the only added vocabulary; `VelopackApp.Build()...Run()` is the process-entry bootstrap owned at the app root, never a rail fence, so `VelopackHook` registration stays at the app root and never enters this page; `ApplyUpdatesAndRestart` takes `found.TargetFullRelease` as its `VelopackAsset`, never the `UpdateInfo`, and the call never returns because the host process is replaced — the rolled-over receipt mints and fans before the call; `found.IsDowngrade` against the channel's `AllowVersionDowngrade` column forecloses a disallowed downgrade as `DowngradeBlocked` before any byte transfers; an inline `meter.CreateCounter` call is the deleted form — every spine instrument is a generated factory whose name and tag set are declaration facts and whose generated metric type exposes the strongly-typed `Add`/`Record` over the channel-key tag; the `Target` fold reads `VelopackAsset.Version` (a `SemanticVersion`) through `ToString`, the single version-stamp seam; `UpdateReceipt` rides the suite wire law as one `AppHostWireContext` `[JsonSerializable]` row; `vpk`-side notarization and SBOM emission are build-time signing concerns and carry no rail fence, but the RUNTIME admission verify of a downloaded release — proving the artifact's Sigstore signature and SemVer-contract before it stages — is the `#SUPPLY_CHAIN_GATE` `SupplyChainGate.Admit` boundary capsule the `Stage` fold composes, never a skipped step; the page is host-local and crosses no browser or peer TS wire — `UpdateReceipt` and `FleetRollReceipt` reconstruct in TS solely through the existing `ReceiptEnvelopeWire` at Runtime/ports#TS_PROJECTION, so the page authors no `TS_PROJECTION` cluster and adds no second wire shape.
 
 ```csharp signature
-public sealed class UpdateKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
-    public static IEqualityComparer<string> EqualityComparer => StringComparer.Ordinal;
-    public static IComparer<string> Comparer => StringComparer.Ordinal;
-}
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<UpdateKeyPolicy, string>]
-[KeyMemberComparer<UpdateKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class UpdatePhase {
     public static readonly UpdatePhase Detected = new("detected");
     public static readonly UpdatePhase Downloading = new("downloading");
@@ -172,7 +168,7 @@ stateDiagram-v2
 
 ## [03]-[CHANNEL_AXIS]
 
-- Owner: `UpdateChannel` `[SmartEnum<string>]` three feed rows under the `UpdateKeyPolicy` ordinal accessor, carrying the feed URI, explicit-channel string, and downgrade-allow column.
+- Owner: `UpdateChannel` `[SmartEnum<string>]` three feed rows under the `ComparerAccessors.StringOrdinal` accessor, carrying the feed URI, explicit-channel string, and downgrade-allow column.
 - Cases: 3 channel rows — stable, beta, canary.
 - Entry: `UpdateChannel.From(ReleaseIdentity installed)` resolves the row from the detect-leg identity's channel string under the ordinal accessor.
 - Auto: the resolved row's `Feed` seats the `UpdateManager` ctor url, its `ExplicitChannel` seats `UpdateOptions.ExplicitChannel`, and its `AllowVersionDowngrade` seats `UpdateOptions.AllowVersionDowngrade` — the three columns are the only update-options surface the rail writes; `MaximumDeltasBeforeFallback` stays unset so the full-package fallback governs; canary alone admits a downgrade so a forward-rolled canary build reverts to its prior pin.
@@ -183,8 +179,8 @@ stateDiagram-v2
 
 ```csharp signature
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<UpdateKeyPolicy, string>]
-[KeyMemberComparer<UpdateKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class UpdateChannel {
     public static readonly UpdateChannel Stable = new("stable", new Uri("https://updates.rasm.app/stable"), explicitChannel: "stable", allowVersionDowngrade: false);
     public static readonly UpdateChannel Beta = new("beta", new Uri("https://updates.rasm.app/beta"), explicitChannel: "beta", allowVersionDowngrade: false);
@@ -294,8 +290,8 @@ public static class RolloverDrain {
 public sealed record RollPlan(Seq<Seq<RosterEntry>> Cohorts, Duration BakeWindow);
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<UpdateKeyPolicy, string>]
-[KeyMemberComparer<UpdateKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class RollStrategy {
     public static readonly RollStrategy Canary = new("canary", wavePercent: 0, bake: Duration.FromSeconds(120),
         plan: static nodes => nodes.IsEmpty ? [] : Seq(nodes.Take(1).ToSeq()).Add(nodes.Skip(1).ToSeq()).Filter(static c => !c.IsEmpty));

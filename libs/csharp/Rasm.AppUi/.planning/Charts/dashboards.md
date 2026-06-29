@@ -20,15 +20,10 @@ One LiveCharts rail carries every Rasm.AppUi visualization: `ChartSeriesSpec` is
 - Boundary: typed row models project through `ValuesMap` on each `XamlSeries` instance materialized per tile from the row delegate, never shared across charts; the geo row carries an absent series delegate and a `GeoAssetKey` resolved by key through the asset rank fold — chart code never opens files, the decoded asset feeds the `GeoMap` control through `SourceGenMapChart`, and the heat-land geometry projects off the canonical Compute `GeometryPayload` proto oneof through the settled wire boundary, never a second geometry minted here — the geo canvas binds the projected GeoJSON layer through the verified `SourceGenMapChart` members — `ActiveMap` (`DrawnMap`), `MapProjection` (`Default` or `Mercator`), `Series`, and `Stroke`/`Fill` resolved from token paints — and the heat-series binding carries one land set keyed by GeoJSON feature name whose heat ramp is the token-paint ramp; the heat-land series constructor, the land-record shape on the series, the layer-load entrypoint, and the find-land-by-feature-name lookup on `DrawnMap` are the unverified `LiveChartsCore.SkiaSharpView` geo-series surface the GEO_PAYLOAD research item owns, so the boundary projects through the settled `GeoLand` record and never transcribes a heat-series member as fact; a sync-fed live geometry feed updates the land set in place from the existing `ChartStream` `IChangeSet` deltas over the geo `DataSource.PersistenceQuery` lane through the one DynamicData `MergeMany`/`Connect()` spine so an overlay refresh is an incremental land swap, never a full re-render, and the spatial diff feeding the deltas is Persistence-owned; the `GeoOverlay` fold owns this binding — it consumes the `IChangeSet<GeoLand, string>` the geo `DataSource.PersistenceQuery` lane already emits, where each change-set delta carries one changed land keyed by GeoJSON feature name, and folds the change reasons onto the live land set inside the chart `SyncContext` lock through the composition-supplied `swap` delegate so an added feature appends a land, a moved or re-valued feature swaps the matching land by feature name and re-assigns its heat through the token-paint ramp, and a removed feature drops the land — the same incremental-swap law the multi-series feeds compose, never a full layer re-load per delta, with the `swap` delegate binding the unverified heat-series mutation at composition under the GEO_OVERLAY_DELTAS research item rather than a transcribed member; the change-set is the Persistence `SpatialDiff` change-detection fold projected to land records — the diff algebra (changed-region detection over two geometry versions) is Persistence-owned at `Query/lanes#GEO_LANES` and AppUi consumes the resulting `IChangeSet`, never re-computes the diff; the overlay contributes a `geo.overlay.swap` span and a `geo.overlay.lands` count through `TelemetryContributorPort` so a live overlay refresh attributes through the one meter without a second meter, and the proto-to-land projection rides the settled GEO_PAYLOAD wire boundary; the projection from the Compute `GeometryPayload` proto oneof to the land records is the cross-package wire boundary resolved under the GEO_PAYLOAD research item, and the proto-to-GeoJSON codec arity stays Persistence-side; `AdditionalVisualStates` on the materialized `XamlSeries` carries per-point annotation and hover visual states resolved from token paints, so a chart annotation is a series-state column, never a local overlay control; gauge accessory visuals `XamlNeedle` and `XamlAngularTicks` ride the gauge rows as canvas children; series paints resolve from the `ChartPolicy` paint-family ramp indexed per series instance; per-chart wrapper controls, hand-drawn chart code, and a second charting package are the deleted patterns.
 
 ```csharp signature
-public sealed class ChartKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
-    public static IEqualityComparer<string> EqualityComparer => StringComparer.Ordinal;
-
-    public static IComparer<string> Comparer => StringComparer.Ordinal;
-}
 
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
-[KeyMemberEqualityComparer<ChartKeyPolicy, string>]
-[KeyMemberComparer<ChartKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ChartCanvas {
     public static readonly ChartCanvas Cartesian = new("cartesian");
     public static readonly ChartCanvas Pie = new("pie");
@@ -37,8 +32,8 @@ public sealed partial class ChartCanvas {
 }
 
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
-[KeyMemberEqualityComparer<ChartKeyPolicy, string>]
-[KeyMemberComparer<ChartKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ChartSeriesSpec {
     public static readonly ChartSeriesSpec Line = new("line", canvas: ChartCanvas.Cartesian, series: static () => new XamlLineSeries(), geoAssetKey: null);
     public static readonly ChartSeriesSpec StepLine = new("step-line", canvas: ChartCanvas.Cartesian, series: static () => new XamlStepLineSeries(), geoAssetKey: null);
@@ -95,8 +90,8 @@ public static class GeoOverlay {
 
 ```csharp signature
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
-[KeyMemberEqualityComparer<ChartKeyPolicy, string>]
-[KeyMemberComparer<ChartKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ChartAxisKind {
     public static readonly ChartAxisKind Numeric = new("numeric", labelFormat: "{0:G6}");
     public static readonly ChartAxisKind Instant = new("instant", labelFormat: "{0:HH:mm:ss}");
@@ -120,8 +115,8 @@ public readonly record struct ChartSection(double From, double To, string PaintK
 
 ```csharp signature
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<ChartKeyPolicy, string>]
-[KeyMemberComparer<ChartKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ChartAnchor {
     public static readonly ChartAnchor Hidden = new("hidden");
     public static readonly ChartAnchor Top = new("top");

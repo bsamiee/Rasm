@@ -18,7 +18,7 @@ THE CMU PROFILEFAMILY. The concrete-masonry-unit cross-section vocabulary — th
 ```csharp signature
 // --- [TYPES] -------------------------------------------------------------------------------
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<ProfileKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class CmuGrade {
     public static readonly CmuGrade HollowLoadBearing    = new("hollow-load-bearing", loadBearing: true,  hollow: true);
     public static readonly CmuGrade HollowNonLoadBearing = new("hollow-non-load-bearing", loadBearing: false, hollow: true);
@@ -113,7 +113,7 @@ public static class ProfileCatalogue {
             .Choose(row => CmuOf(row, context, default).ToOption())
             .Choose(shape => shape.Section.ToUnit(context, default).ToOption()
                 .Map(unit => (shape.Id, Profile: new Profile(ProfileFamily.Cmu, unit, shape.Section.ToCoring(), shape.Standard, MaterialId.Of("ceramic.porcelain")))))
-            .ToFrozenDictionary(static r => r.Id, static r => r.Profile, ProfileKeyPolicy.EqualityComparer);
+            .ToFrozenDictionary(static r => r.Id, static r => r.Profile, ComparerAccessors.StringOrdinal.EqualityComparer);
 }
 ```
 

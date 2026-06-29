@@ -12,7 +12,7 @@ Rasm.Persistence anchors every persisted `ElementGraph` to one relational identi
 ## [02]-[ELEMENT_IDENTITY]
 
 - Owner: `ElementIdentity` the per-model identity row carrying the `ModelId` PK plus the `TenantId`/`Roots`/`GlobalIds`/`Cell`/`Embedding`/`Acl`/`Classification` join columns; `IdentityShape` the `IEntityTypeConfiguration<ElementIdentity>` mapping EVERY persistent member — the `Tenant` RLS column, the H3 `bigint`, the pgvector column, the jsonb ACL, the `Roots` `text[]` and `GlobalIds` jsonb (value-converted through the canonical `ElementJson` codec, never a partial subset that drops them on write), the `Classification` key, and the `At` instant; `IdentityStore` the static surface owning the co-transactional Marten-document store and the spatial/vector index projections.
-- Cases: `Roots` is the set of rooted `NodeId`s the model owns (the `IfcRoot` mirror nodes), `GlobalIds` the 1:1 map from rooted `NodeId` to the compressed IFC GlobalId string projected from each seam `Node.Object.ExternalId` (`H6` — the rooted `NodeId` is the neutral kernel-minted durable key, the IFC GlobalId is the `ExternalId` projection the `Version/merge#STRUCTURAL_DIFF` re-ingest `Reconcile` correlates on, never the key), `Cell` the Uber-H3 spatial index cell over the model envelope centroid, `Embedding` the optional pgvector reference keying the ANN lane, `Acl` the `ObjectAcl` grant, `Classification` the `DataClassification` ceiling.
+- Cases: `Roots` is the set of rooted `NodeId`s the model owns (the `IfcRoot` mirror nodes), `GlobalIds` the 1:1 map from rooted `NodeId` to the compressed IFC GlobalId string projected from each seam `Node.Object.ExternalId` (`H6` — the rooted `NodeId` is the neutral kernel-minted durable key, the IFC GlobalId is the `ExternalId` projection the `Version/merge#STRUCTURAL_DIFF` re-ingest `Reconcile` correlates on, never the key), `Cell` the Uber-H3 spatial index cell over the model envelope centroid, `Embedding` the optional pgvector reference keying the ANN lane — the per-model envelope locator, distinct in grain from the corpus-grain retrieval index and the `ProductCodebook` PQ vocabulary the `Query/lane#VECTOR_CODEBOOK` owner trains, never a duplicate index, `Acl` the `ObjectAcl` grant, `Classification` the `DataClassification` ceiling.
 - Entry: `public static IDocumentSession Stamp(IDocumentSession session, ElementIdentity identity)` stores the identity as a Marten document in the SAME session the event appends to so `SaveChangesAsync` commits both atomically; `public static H3Index Cell(Envelope bounds, int resolution)` projects the model envelope centroid to its H3 cell through `pocketken.H3` so the cell id is computed identically at ingest and in the `h3-pg` server extension; `public static IQueryable<ElementIdentity> Nearby(DbContext db, H3Index cell, int ring)` resolves the spatial neighborhood through the H3 ring.
 - Auto: the identity tier is a Marten document so it rides the one `IDocumentSession` the `Element/graph#STORE_RAIL` write op uses — `session.Store(identity)` then `SaveChangesAsync` commits the identity row, the appended `GraphEvent`, and the inline projection in one Postgres transaction (`H10` — pick ONE transaction owner for identity plus event, the Marten document in the same session, no free two-ORM atomicity); the relational columns are also EF-mapped through `IdentityShape` for the Npgsql/pgvector/H3 query lanes that Marten's LINQ does not reach (the GiST H3 neighborhood, the pgvector ANN), reading the same rows Marten wrote; the `Tenant` column is the `current_setting('rasm.tenant')::uuid` RLS partition every read filters on by construction.
 - Receipt: an identity stamp rides `store.element.identity` carrying the `Roots` count; a spatial-neighborhood read rides `store.identity.nearby` carrying the ring radius.
@@ -105,17 +105,12 @@ public static class IdentityStore {
 
 ```csharp signature
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<IdentityKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class Collision {
     public static readonly Collision Unmintable = new("unmintable");
     public static readonly Collision ContentIdempotent = new("content-idempotent");
     public static readonly Collision ForeignAuthority = new("foreign-authority");
     public static readonly Collision DerivedDeterministic = new("derived-deterministic");
-}
-
-public sealed class IdentityKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
-    public static IEqualityComparer<string> EqualityComparer => StringComparer.Ordinal;
-    public static IComparer<string> Comparer => StringComparer.Ordinal;
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -144,8 +139,8 @@ public abstract partial record StoreKey {
 }
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<IdentityKeyPolicy, string>]
-[KeyMemberComparer<IdentityKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class IdentityPolicy {
     public static readonly IdentityPolicy UuidV7Key = new("uuid-v7", typeof(Guid), Collision.Unmintable, ordered: true);
     public static readonly IdentityPolicy UuidV7Backfill = new("uuid-v7-backfill", typeof(Guid), Collision.Unmintable, ordered: true);
@@ -214,7 +209,7 @@ public static class CapabilityLaw {
 }
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<IdentityKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class AclScope {
     public static readonly AclScope Tenant = new("tenant", None);
     public static readonly AclScope Branch = new("branch", Some(Tenant));

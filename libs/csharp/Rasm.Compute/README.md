@@ -74,7 +74,7 @@ Every Compute-domain library the folder uses, planned or implemented. Versions a
 - `NREL.OpenStudio.macOS-arm64` — the osx-arm64 SWIG OpenStudio SDK the `Analysis/energy` runner drives in-process: it BUILDS the OSM `Model` from the `Rasm.Element` `ElementGraph`, forward-translates to an EnergyPlus IDF via `EnergyPlusForwardTranslator`, and reads the results `SqlFile`; it neither runs nor bundles the EnergyPlus solver. The EnergyPlus binary is a PARAMETERIZED subprocess resolved through `EnergyToolchain` (env-var → configured-path → bundled-fallback) and version-locked to the SWIG version (OpenStudio 3.11.0 → EnergyPlus 25.2.0; dev/CI points `OPENSTUDIO_ENERGYPLUSDIR` at the bundled 25.2.0, never the standalone 26.1.0). This is the SIMULATION concern, distinct from the `Rasm.Bim` IFC↔OSM semantic-exchange owner.
 
 [EMBODIED_CARBON]:
-- `EC3` / openEPD REST — Building Transparency embodied-carbon service consumed hand-thin over `HttpClient` (no NuGet pin; API evidence in `.api/api-ec3.md`); the EN 15978 LCA Assessment lane reads per-EPD `gwp` measurements (kgCO2e per declared unit) and category GWP statistics, then writes `Assessment.Result` nodes content-keyed on the (OMF query, LCIA method, route) tuple.
+- `EC3` / openEPD REST — Building Transparency embodied-carbon service consumed hand-thin over `HttpClient` (no NuGet pin; API evidence in `.api/api-ec3.md`); the EN 15978 LCA Assessment lane reads per-EPD `gwp` measurements (kgCO2e per declared unit) and category GWP statistics, then writes content-keyed `Node.Assessment` nodes on the (input subgraph, route, carbon policy) key the `Analysis/assessment` spine mints.
 
 [CLASSICAL_ML_BLAS]:
 - `TorchSharp`

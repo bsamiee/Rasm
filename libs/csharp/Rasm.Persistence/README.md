@@ -1,6 +1,6 @@
 # [PERSISTENCE]
 
-`Rasm.Persistence` is the APP-PLATFORM durable-state spine: a host-neutral C# backbone that persists the `Rasm.Element` `ElementGraph` as its system of record. It depends UP on the `Rasm.Element` seam (the `ElementGraph`/`GraphDelta`/`Node`/`NodeId`/`Relationship`/`Header`/`ContentAddress` contracts) and the `Rasm` kernel content-hash, and it consumes AppHost ports (`clock`, `telemetry`, `receipts`, `drain`, `classification`) as settled vocabulary — it never references a sibling AEC-domain peer. Marten is the APPEND SUBSTRATE: each model is one event stream whose `GraphDelta` event bodies fold into the whole `ElementGraph` through an inline projection (read-your-writes) and `AggregateStreamAsync` AS-OF, while the preserved op-log/CRDT/time-travel/`StructuralMerge`/causal-DAG engine PROJECTS from those events. The package owns the ElementGraph store-load roundtrip (`Element/`), the version-control engine over Marten — commit-DAG, convergent CRDT, AS-OF time-travel, three-way structural merge, W3C-PROV provenance, classification/retention with full-history reachability GC, and verified backup/PITR recovery (`Version/`) — the read lanes (synchronous in-process QuikGraph topology, async DuckDB/BimOpenSchema columnar, optional Apache AGE openCypher; `Query/`), the tabular ingest codec (`Ingest/`), and the content-keyed geometry object store plus the self-provisioned PostgreSQL server tier and embedded-SQLite floor (`Store/`). The sub-domain map and domain law live in `ARCHITECTURE.md`, the forward concept pool in `IDEAS.md`, and the work log in `TASKLOG.md`.
+`Rasm.Persistence` is the APP-PLATFORM durable-state spine: a host-neutral C# backbone that persists the `Rasm.Element` `ElementGraph` as its system of record. It depends UP on the `Rasm.Element` seam (the `ElementGraph`/`GraphDelta`/`Node`/`NodeId`/`Relationship`/`Header`/`ContentAddress` contracts) and the `Rasm` kernel content-hash, and it consumes AppHost ports (`clock`, `telemetry`, `receipts`, `drain`, `classification`) as settled vocabulary — it never references a sibling AEC-domain peer. Marten is the APPEND SUBSTRATE: each model is one event stream whose `GraphDelta` event bodies fold into the whole `ElementGraph` through an inline projection (read-your-writes) and `AggregateStreamAsync` AS-OF, while the preserved op-log/CRDT/time-travel/`StructuralMerge`/causal-DAG engine PROJECTS from those events. The package owns the ElementGraph store-load roundtrip (`Element/`), the version-control engine over Marten — commit-DAG, convergent CRDT, AS-OF time-travel, three-way structural merge, W3C-PROV provenance, classification/retention with full-history reachability GC, and verified backup/PITR recovery (`Version/`) — the read lanes (synchronous in-process QuikGraph topology, async DuckDB/BimOpenSchema columnar, optional Apache AGE openCypher, and the compute-result reuse index — artifact-blob index, model-result recency horizon, benchmark-claim gate; `Query/`), the tabular ingest codec (`Ingest/`), and the content-keyed geometry object store plus the self-provisioned PostgreSQL server tier and embedded-SQLite floor (`Store/`). The sub-domain map and domain law live in `ARCHITECTURE.md`, the forward concept pool in `IDEAS.md`, and the work log in `TASKLOG.md`.
 
 ## [01]-[ROUTER]
 
@@ -18,9 +18,10 @@
 - [12]-[QUERY_TOPOLOGY](.planning/Query/topology.md)
 - [13]-[QUERY_COLUMNAR](.planning/Query/columnar.md)
 - [14]-[QUERY_CYPHER](.planning/Query/cypher.md)
-- [15]-[INGEST_TABULAR](.planning/Ingest/tabular.md)
-- [16]-[STORE_BLOBSTORE](.planning/Store/blobstore.md)
-- [17]-[STORE_PROVISIONING](.planning/Store/provisioning.md)
+- [15]-[QUERY_CACHE](.planning/Query/cache.md)
+- [16]-[INGEST_TABULAR](.planning/Ingest/tabular.md)
+- [17]-[STORE_BLOBSTORE](.planning/Store/blobstore.md)
+- [18]-[STORE_PROVISIONING](.planning/Store/provisioning.md)
 
 ## [02]-[DOMAIN_PACKAGES]
 
@@ -176,6 +177,7 @@ Upward ProjectReferences (alignment by contract, never a sibling peer reference)
 
 [PERF]:
 - `CommunityToolkit.HighPerformance` (cross-cutting high-performance BCL substrate co-consumed with `Rasm.Compute`; spans/memory-pool/bit primitives behind the Cache And Object Store path)
+- `System.Numerics.Tensors` (cross-cutting SIMD numeric substrate co-consumed with `Rasm.Compute`; `TensorPrimitives.Distance`/`Add`/`Divide` back the `Query/lane#VECTOR_CODEBOOK` product-quantization k-means training and asymmetric-distance scan with the SAME reduction Compute's nearest-centroid encode assigns with; shared substrate, `libs/csharp/.api/api-tensors.md`)
 
 [TEST_SUBSTRATE]:
 - `Verify.XunitV3`

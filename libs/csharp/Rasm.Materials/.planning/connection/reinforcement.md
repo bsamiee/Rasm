@@ -23,7 +23,7 @@ using VividOrange.Materials.StandardMaterials.En;  // EnRebarGrade, EnRebarFacto
 
 // --- [TYPES] -------------------------------------------------------------------------------
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<ConnectionKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class RebarStandard {
     public static readonly RebarStandard A615 = new("astm-a615", weldable: false, authority: "ASTM A615/A615M");
     public static readonly RebarStandard A706 = new("astm-a706", weldable: true, authority: "ASTM A706/A706M");
@@ -37,7 +37,7 @@ public sealed partial class RebarStandard {
 // carry no EN equivalent), so RcSection.Of can lower the matched EN grade to its EnRebarMaterial fck/Es DATA without
 // re-keying f_yk; the RebarGrade band stays the spec-nominal yield the connection schedule reads.
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<ConnectionKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class RebarGrade {
     public static readonly RebarGrade Gr40  = new("gr40",  minimumYieldMpa: 280.0, standard: RebarStandard.A615,   appearanceId: "metal.iron",  enGrade: None);
     public static readonly RebarGrade Gr60  = new("gr60",  minimumYieldMpa: 420.0, standard: RebarStandard.A615,   appearanceId: "metal.iron",  enGrade: None);
@@ -60,7 +60,7 @@ public sealed partial class RebarGrade {
 // None for the ASTM/CSA bands the catalogue does not enumerate, so RcSection.Of feeds a catalogued BarDiameter when
 // present and a raw Length(nominalDiameterMm) otherwise; the BarSize band stays the spec-nominal section receipt.
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<ConnectionKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class BarSize {
     public static readonly BarSize No3  = new("#3",  nominalDiameterMm: 9.525,  nominalAreaMm2: 71.0,   unitWeightKgM: 0.560,  bendFactor: 6.0,  catalogue: None);
     public static readonly BarSize No4  = new("#4",  nominalDiameterMm: 12.700, nominalAreaMm2: 129.0,  unitWeightKgM: 0.994,  bendFactor: 6.0,  catalogue: None);
@@ -89,7 +89,7 @@ public sealed partial class BarSize {
 }
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<ConnectionKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class RebarHook {
     public static readonly RebarHook Ninety       = new("90", bendDegrees: 90.0,  extensionFactor: 12.0);
     public static readonly RebarHook OneThirtyFive = new("135", bendDegrees: 135.0, extensionFactor: 6.0);
@@ -152,7 +152,7 @@ public static class ConnectionCatalogue {
     public static FrozenDictionary<ConnectionId, ConnectionItem> BuildRebarRows(Context context) =>
         RebarRows
             .Choose(row => RebarOf(row, context, default).ToOption())
-            .ToFrozenDictionary(static r => r.Id, static r => r.Item, ConnectionKeyPolicy.EqualityComparer);
+            .ToFrozenDictionary(static r => r.Id, static r => r.Item, ComparerAccessors.StringOrdinal.EqualityComparer);
 }
 ```
 

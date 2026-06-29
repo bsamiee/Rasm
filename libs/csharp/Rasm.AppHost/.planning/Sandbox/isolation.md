@@ -11,7 +11,7 @@ The capability-brokered plugin sandbox for the runtime spine: a two-row isolatio
 
 ## [02]-[ISOLATION_AXIS]
 
-- Owner: `SandboxIsolation` `[SmartEnum<string>]` the two-row isolation topology under the `CapabilityKeyPolicy` accessor; `SandboxRow` per-isolation policy record; `SandboxRows` the frozen row set with the total dispatch; `PluginInstance` the loaded-plugin capsule; `SandboxFault` `[Union]` fault family in the 4660 band.
+- Owner: `SandboxIsolation` `[SmartEnum<string>]` the two-row isolation topology under the `ComparerAccessors.StringOrdinal` accessor; `SandboxRow` per-isolation policy record; `SandboxRows` the frozen row set with the total dispatch; `PluginInstance` the loaded-plugin capsule; `SandboxFault` `[Union]` fault family in the 4660 band.
 - Cases: wasm-component, process — wasm-component runs the plugin as a WebAssembly component instance with a linear-memory boundary and import-only host access, process runs the plugin as an out-of-process child reached over the local-ipc hop with OS-level isolation; `SandboxFault` = Text | LoadRejected | NoAuthority | QuotaExceeded | Quarantined.
 - Entry: `SandboxRow Row` is the extension property total state-free `Switch` from case to frozen row; `Load(SandboxRow row, PluginArtifact artifact, GrantScope scope, SandboxRuntime runtime)` returns `IO<PluginInstance>` — the supply-chain gate admits the artifact, the row materializes the isolation boundary, and the plugin loads with exactly the brokered grant scope and no ambient authority.
 - Auto: the wasm-component row hosts the plugin on the `wasmtime-dotnet` embedding and instantiates the component with only the WASI-Preview-2 component-model imports the grant scope names, so clocks, files, sockets, and http are granted explicitly through the import table and an ungranted host capability is simply absent — the no-ambient-authority law is the component model's power-by-default isolation, a structural property of the import linkage, not a runtime check; a process row spawns the child through `OutboundHop.CompanionSpawn` and reaches it over `OutboundHop.LocalIpc`, reading the child's `PeerCredential` at accept through `PeerAdmission`, so the child holds no host handle and every host call crosses the brokered control hop; the row's `QuotaShape` column seats the quota cell at load so the limits arrive with the instance, never bolted on after.
@@ -22,8 +22,8 @@ The capability-brokered plugin sandbox for the runtime spine: a two-row isolatio
 
 ```csharp signature
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<CapabilityKeyPolicy, string>]
-[KeyMemberComparer<CapabilityKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SandboxIsolation {
     public static readonly SandboxIsolation WasmComponent = new("wasm-component");
     public static readonly SandboxIsolation Process = new("process");
@@ -97,7 +97,7 @@ public static class SandboxRows {
 
 ## [03]-[GRANT_HANDLE]
 
-- Owner: `CallerModality` `[SmartEnum<string>]` the operator/agent/plugin caller axis under the `CapabilityKeyPolicy` accessor; `GrantHandle` the brokered capability handle a plugin reaches host functionality through; `BrokeredCall` the per-call mediation record discriminating caller modality; `GrantHandleSurface` the one grant-and-charge mediation surface.
+- Owner: `CallerModality` `[SmartEnum<string>]` the operator/agent/plugin caller axis under the `ComparerAccessors.StringOrdinal` accessor; `GrantHandle` the brokered capability handle a plugin reaches host functionality through; `BrokeredCall` the per-call mediation record discriminating caller modality; `GrantHandleSurface` the one grant-and-charge mediation surface.
 - Cases: three caller modalities — operator (an interactive host call), agent (an in-process reasoning or MCP tool call), plugin (a sandboxed-plugin call over the grant handle) — each routing through one `Mediate` fold where modality is a discriminant on the record, never a parallel broker per caller.
 - Entry: `Mediate(MediationRuntime runtime, CallerModality caller, GrantScope scope, string descriptorId, CommandArguments arguments, Func<string, CommandArguments, IO<ToolResult>> dispatch)` returns `IO<(BrokeredCall Call, ToolResult Result)>` — the one mediation fold the operator, agent, and plugin front doors share: it resolves the descriptor, runs the single `Scope.Covers` policy gate, debits the one `Budget` through `GrantBroker.Admit`, and dispatches through the supplied closure exactly as a command-algebra call; `Invoke(SandboxRuntime runtime, PluginInstance plugin, GrantHandle handle, string descriptorId, CommandArguments arguments)` returns `IO<ToolResult>` — the plugin front door that seats `CallerModality.Plugin` and the handle's scope+dispatch-closure onto `Mediate` under the quota window.
 - Auto: the grant handle carries no host references — it carries the plugin's `GrantScope` and a dispatch closure bound to the command algebra, so a plugin cannot reach a host capability the scope does not name even by reflection, because the handle holds no object to reflect on; `Mediate` runs ONE `Scope.Covers` policy gate and ONE `GrantBroker.Admit` charge regardless of caller modality, so an operator, an agent, and a plugin call debit the same per-tenant `Budget` (or the `DistributedBudget` fenced store when bound) against one broker and the per-call charge is metered identically — the caller modality is a `BrokeredCall` discriminant on one evidence record, not a second admission path; a call outside the scope returns `SandboxFault.NoAuthority` and never reaches the dispatch closure, and the `RuntimePolicy` ABAC verdict (when bound) gates the same `Mediate` fold before the scope check so identity, policy, and cost meet on one mediation.
@@ -109,8 +109,8 @@ public static class SandboxRows {
 ```csharp signature
 // The caller axis: operator/agent/plugin are discriminants on one mediation, never parallel brokers.
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<CapabilityKeyPolicy, string>]
-[KeyMemberComparer<CapabilityKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class CallerModality {
     public static readonly CallerModality Operator = new("operator");
     public static readonly CallerModality Agent = new("agent");

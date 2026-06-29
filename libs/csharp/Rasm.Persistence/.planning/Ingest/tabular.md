@@ -18,14 +18,10 @@ Rasm.Persistence ingests and emits spreadsheet and delimited tabular data throug
 - Boundary: `TabularSource` is the ONE tabular ingress/egress owner over MiniExcel — `Sep` (`api-sep`) is the high-throughput delimited-text sibling and the two project into the SAME downstream record rail, the profile selecting one by source format, while `Apache.Arrow`/`DuckDB`/`ParquetSharp` own the binary columnar path (a `.xlsx` is never treated as a columnar file); the codec NEVER knows the element graph — the per-app tabular→element map is the wire-composition owner (owned per-app at the host/app composition root, `§6`), so a workbook of element rows reads through `Query<T>`/`GetReader`, the app projects each row into an `ElementGraph` node, and a catalog/cost/schedule egress writes element-derived tables back through `SaveAs`, the codec seeing only the row shape at the wire; a typed `Query<T>` against a missing header surfaces `ExcelColumnNotFoundException` and a bad cell `ExcelInvalidCastException`, both folded into a typed `Validation` failure at the row boundary rather than thrown through the receipt path; a redacted export wraps the `IDataReader` in a redacting decorator applying `Microsoft.Extensions.Compliance.Redaction` per column so a redacted spreadsheet streams without materializing the table; MiniExcel retires `Sylvan.Data.Excel` as the spreadsheet codec — no `Sylvan` reference remains.
 
 ```csharp signature
-public sealed class TabularKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
-    public static IEqualityComparer<string> EqualityComparer => StringComparer.Ordinal;
-    public static IComparer<string> Comparer => StringComparer.Ordinal;
-}
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<TabularKeyPolicy, string>]
-[KeyMemberComparer<TabularKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class TabularFormat {
     public static readonly TabularFormat Xlsx = new("xlsx", ExcelType.XLSX);
     public static readonly TabularFormat Csv = new("csv", ExcelType.CSV);

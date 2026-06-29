@@ -13,7 +13,7 @@ The reactive bidirectional external-binding studio for the runtime spine: one in
 
 ## [02]-[TRANSPORT_AXIS]
 
-- Owner: `ExternalTransport` `[SmartEnum<string>]` the eight-row industrial-transport axis under the `CapabilityKeyPolicy` accessor; `TransportRow` per-transport policy record; `TransportRows` the frozen row set with the total dispatch; `WireFault` `[Union]` fault family in the 4720 band; `ExternalValue` the at-edge value carrier.
+- Owner: `ExternalTransport` `[SmartEnum<string>]` the eight-row industrial-transport axis under the `ComparerAccessors.StringOrdinal` accessor; `TransportRow` per-transport policy record; `TransportRows` the frozen row set with the total dispatch; `WireFault` `[Union]` fault family in the 4720 band; `ExternalValue` the at-edge value carrier.
 - Cases: opc-ua, modbus, mqtt, serial, rest, graphql, spreadsheet, erp-plm — each carrying its read shape (poll versus subscribe), its write capability, and the outbound hop class its bytes ride; `WireFault` = Text | ConnectRejected | ReadFailed | WriteRejected | UnitRejected | StaleSource.
 - Entry: `TransportRow Row` is the extension property total state-free `Switch` from transport to frozen row; the `Read(TransportRow row, BindingSpec spec, CancellationToken token)` returning `IO<ExternalValue>` and `Write(TransportRow row, BindingSpec spec, ExternalValue value, CancellationToken token)` returning `IO<HopReceipt>` dispatch on the row's `Transport.Switch` to the per-case binding at `Wire/livewire#TRANSPORT_BINDING`, so the axis owns the row shape and the binding cluster owns each protocol's client surface.
 - Auto: a `Subscribe`-shaped transport (OPC-UA, MQTT) opens a streaming subscription whose values arrive as a reactive sequence, while a `Poll`-shaped transport (Modbus, REST, GraphQL, spreadsheet, ERP/PLM) reads on a `SchedulePort` cadence row, so the binding engine reads both shapes through one contract differing only by the row's `ReadShape` column; the transport bytes ride the existing `OutboundHop` cases — REST and GraphQL on `HttpApi`, MQTT and OPC-UA on a keyed `LocalIpc`/`ServerStream` pipeline, serial and Modbus on the `CompanionSpawn` process-spawn adapter where the FluentModbus/`SerialPort` client owns the line inside the companion — so the resilience, retry, and breaker semantics are the existing hop policy, never a per-transport retry loop; the `Writable` column gates the write-back so a read-only source (a spreadsheet view) rejects a write at the row, never at the transaction.
@@ -24,16 +24,16 @@ The reactive bidirectional external-binding studio for the runtime spine: one in
 
 ```csharp signature
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<CapabilityKeyPolicy, string>]
-[KeyMemberComparer<CapabilityKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ReadShape {
     public static readonly ReadShape Poll = new("poll");
     public static readonly ReadShape Subscribe = new("subscribe");
 }
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<CapabilityKeyPolicy, string>]
-[KeyMemberComparer<CapabilityKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ExternalTransport {
     public static readonly ExternalTransport OpcUa = new("opc-ua");
     public static readonly ExternalTransport Modbus = new("modbus");
@@ -64,8 +64,8 @@ public readonly record struct ExternalValue(
     Instant SourceAt);
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<CapabilityKeyPolicy, string>]
-[KeyMemberComparer<CapabilityKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class WireProtocol {
     public static readonly WireProtocol None = new("none");
     public static readonly WireProtocol MqttJson = new("mqtt-json");
@@ -695,8 +695,8 @@ public static class WriteBackSurface {
 
 ```csharp signature
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<CapabilityKeyPolicy, string>]
-[KeyMemberComparer<CapabilityKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class BindingState {
     public static readonly BindingState Connecting = new("connecting");
     public static readonly BindingState Subscribed = new("subscribed");

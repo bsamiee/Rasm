@@ -24,7 +24,8 @@ Rasm.Persistence/
 │   ├── Lane.cs           # ReadRouter (synchronous authoritative vs async analytical), the StalenessWatermark, the ElementSet selection algebra, FusionRank, the HybridCache read-through
 │   ├── Topology.cs       # In-process QuikGraph view + the frozen incidence index + traversal/path/components/topological-sort (the DEFAULT synchronous topology owner)
 │   ├── Columnar.cs       # DuckDB INSTALL/LOAD analytical lane + the co-transactional Ara3D.BimOpenSchema FlatTableProjection + ParquetSharp
-│   └── Cypher.cs         # OPTIONAL self-hosted Apache AGE openCypher + pgrouting (async, demoted beneath QuikGraph)
+│   ├── Cypher.cs         # OPTIONAL self-hosted Apache AGE openCypher + pgrouting (async, demoted beneath QuikGraph)
+│   └── Cache.cs          # The compute-result reuse index: ArtifactIndexRow blob index + ModelResultIndex recency horizon + BenchmarkRow claim gate (synchronous, cache/blob retention classes)
 ├── Ingest/              # Tabular ingress/egress
 │   └── Tabular.cs        # TabularSource over MiniExcel — the one spreadsheet/CSV codec into the record rail; the app composition root owns the tabular→element map
 └── Store/               # Geometry object store + the server tier
@@ -54,6 +55,7 @@ Element/graph        ←  csharp:Rasm.AppHost/Runtime        # [PORT]: ClockPoli
 Query/topology       ←  csharp:Rasm/Geometry/Spatial       # [CONTENT_KEY]: adjacency-derived GeometryHash the federation/diff reads, never re-mints
 Query/columnar       ←  csharp:Rasm.Bim/Model              # [PROJECTION]: BIM-typed BimOpenSchema FlatTableProjection (Bim-implemented seam)
 Query/lane           ⇄  python:data/tabular/query          # [WIRE]: ElementSet receipt currency + Substrait portable plan
+Query/cache          ←  csharp:Rasm.Compute               # [INDEX]: ArtifactIndexRow blob index + ModelResultIndex recency horizon + BenchmarkRow claim gate, read by reference (no Compute type crosses down)
 Store/blobstore      ←  csharp:Rasm.Compute                # [CONTENT_KEY]: authored GLB by the Object RepresentationContentHash body GeometryHash, content-keyed blob written write-first
 Store/blobstore      ←  csharp:Rasm.Bim/Exchange           # [CONTENT_KEY]: imported IFC/BREP by the Object RepresentationContentHash IfcRepHash; IfcConvert GLB content-keyed wire
 Ingest/tabular       →  csharp:Rasm.Element                # [WIRE]: row shape only; the per-app composition root maps tabular→ElementGraph node

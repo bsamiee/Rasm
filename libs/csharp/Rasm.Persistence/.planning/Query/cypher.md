@@ -20,7 +20,7 @@ Rasm.Persistence offers an OPTIONAL self-hosted-only graph-query lane over Apach
 
 ```csharp signature
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<QueryKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class CypherEnablement {
     public static readonly CypherEnablement Disabled = new("disabled");
     public static readonly CypherEnablement SelfHosted = new("self-hosted");

@@ -157,7 +157,7 @@ signatures or the wire.
 |  [04]   | `QuantityInfo.ValueType` / `.UnitType`     | `Quantity.TryParse(culture, Info.ValueType, text, out q)`   | the CLR value/unit `Type` driving dynamic parse and unit resolution                                         |
 |  [05]   | `BaseDimensions.Multiply` / `.Divide`      | `left.Multiply(right)` / `left.Divide(right)`               | the `UnitAlgebra.Relations` compound proof composer                                                         |
 |  [06]   | `BaseDimensions.Dimensionless`             | `BaseDimensions.Dimensionless`                              | the zero vector the `Reciprocals` product and `Ratio` row assert against                                    |
-|  [07]   | `BaseDimensions.{Length…LuminousIntensity}`| `(BigRational)dims.Length`                                  | the seven `int` SI exponents `DimensionMonomial.From` lifts to exact rationals                              |
+|  [07]   | `BaseDimensions.{Length…LuminousIntensity}`| `BigRational.FromInt(dims.Length)`                          | the seven `int` SI exponents `DimensionMonomial.From` lifts to exact rationals                              |
 |  [08]   | `UnitConverter.TryConvert`                 | `UnitConverter.TryConvert(v, from, to, out converted)`     | numeric-only convert that builds no `IQuantity` — `UnitAlgebra.Numeric`                                     |
 |  [09]   | `UnitParser.Default.TryParse(…, Type, …)`  | `UnitParser.Default.TryParse(unit, Info.UnitType, culture, out e)` | abbreviation resolution; the `Resolve` accessor                                                      |
 |  [10]   | `QuantityFormatter.Format<TUnit>`          | `QuantityFormatter.Format(typed, policy.Format, culture)`  | culture-scoped rendered text                                                                                |
@@ -174,7 +174,7 @@ signatures or the wire.
 
 [STACK_LANGUAGEEXT]:
 - Every admission returns `Fin<UnitEvidence>` (LanguageExt.Core): `Quantity.TryParse`/`TryFrom`/`UnitParser.TryParse` `bool`+`out` boundary calls lift into the `Fin` rail, and a parse/family/dimension failure mints `ComputeFault` on the 2200 band rather than throwing.
-- The dimensional proof stacks onto `Validation<ComputeFault, DimensionMonomial>`: the applicative `Apply`/`Traverse` accumulates EVERY compound mismatch across a symbolic tree in one pass — the UnitsNet `BaseDimensions.Equals` is the leaf predicate, the LanguageExt applicative is the accumulation algebra.
+- The dimensional proof stacks onto `Validation<Error, DimensionMonomial>`: the applicative `Apply`/`Traverse` accumulates EVERY compound mismatch across a symbolic tree in one pass — `Error` is the monoidal failure carrier (`ComputeFault` is not its own monoid, so each typed `DimensionMismatch` lifts onto `Error` through its `Expected` base), the UnitsNet `BaseDimensions.Equals` is the leaf predicate, and the LanguageExt applicative is the accumulation algebra.
 - Sequence aggregation uses `Seq`/`Arr` carriers; `UnitMetadata.ConvertTargets` maps `info.UnitInfos.ToSeq()` to its `.Value` projection.
 
 [STACK_MATHNET_SYMBOLICS]:

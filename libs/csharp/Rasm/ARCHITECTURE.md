@@ -14,7 +14,7 @@ Rasm/
 └── Geometry/                  # [GREENFIELD]: Robust-core — Rasm.Geometry.* kernel, no external geometry library
     ├── Numerics/              # Exact-predicate floor + GeometryFault family
     │   ├── Predicates.cs      # PrecisionTier ladder (double→ddouble→Expansion→Fraction) exact predicates
-    │   └── Faults.cs          # Consolidated band-2400 GeometryFault family + ordinal GeometryKeyPolicy
+    │   └── Faults.cs          # Consolidated band-2400 GeometryFault family
     ├── Spatial/               # Broad-phase acceleration + persistent topological naming
     │   ├── Index.cs           # SAH-BVH/Morton-octree SpatialIndex over NodeStore with query/refit fold
     │   ├── Naming.cs          # TopoName lineage/NameTable/Track re-anchor

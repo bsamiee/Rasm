@@ -10,7 +10,7 @@ The extensibility contract for third-party compute extensions: one solver-kind a
 
 ## [02]-[SOLVER_KIND]
 
-- Owner: `SolverKind` `[SmartEnum<string>]` the seven extension-category axis under the `CapabilityKeyPolicy` accessor; `EncodingKind` `[SmartEnum<string>]` the representation axis whose four geometry rows project onto the `Compute/Tensor/residency#GEOMETRY_ENCODING` `GeometryEncoding` cases and whose `Field`/`Toolpath` rows ride the pending encoding-table extensions; `KindContract` per-kind contract-shape record; `KindContracts` the frozen row set with the total dispatch; `SolverFault` `[Union]` fault family in the 4700 band.
+- Owner: `SolverKind` `[SmartEnum<string>]` the seven extension-category axis under the `ComparerAccessors.StringOrdinal` accessor; `EncodingKind` `[SmartEnum<string>]` the representation axis whose four geometry rows project onto the `Compute/Tensor/residency#GEOMETRY_ENCODING` `GeometryEncoding` cases and whose `Field`/`Toolpath` rows ride the pending encoding-table extensions; `KindContract` per-kind contract-shape record; `KindContracts` the frozen row set with the total dispatch; `SolverFault` `[Union]` fault family in the 4700 band.
 - Cases: solver, mesher, optimizer, cam-postprocessor, material-model, field-codec, generative-codec — each carrying the input and output `EncodingKind` its contract speaks and the `EffectClass` its ops carry; `SolverFault` = Text | ContractRejected | RepresentationMismatch | KindUnsupported.
 - Entry: `KindContract Contract` is the extension property total state-free `Switch` from kind to frozen contract shape; the contract shape names the canonical input and output `EncodingKind` a plugin of that kind must speak.
 - Auto: a solver kind's input and output representations are `EncodingKind` rows that project onto the finalized `Compute/Tensor/residency#GEOMETRY_ENCODING` `GeometryEncoding` case axis, so a mesher declares a brep-in mesh-out contract in the same representation vocabulary the Compute tensor lane reads, never a plugin-private representation; the contract's `EffectClass` defaults to the kind's natural side-effect class — a solver and an optimizer are `pure` over their inputs, a CAM post-processor is `write` because it emits a toolpath artifact, a field codec is `pure` — so the kind axis seats the effect class the capability descriptor carries; the kind's `Streaming` column gates whether a plugin of that kind may emit progress frames, so a long optimization streams while a field codec returns once.
@@ -21,8 +21,8 @@ The extensibility contract for third-party compute extensions: one solver-kind a
 
 ```csharp signature
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<CapabilityKeyPolicy, string>]
-[KeyMemberComparer<CapabilityKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SolverKind {
     public static readonly SolverKind Solver = new("solver");
     public static readonly SolverKind Mesher = new("mesher");
@@ -44,8 +44,8 @@ public abstract partial record SolverFault : Expected, IValidationError<SolverFa
 }
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<CapabilityKeyPolicy, string>]
-[KeyMemberComparer<CapabilityKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class EncodingKind {
     public static readonly EncodingKind PointCloud = new("point-cloud");
     public static readonly EncodingKind MeshPatch = new("mesh-patch");

@@ -46,19 +46,22 @@ public readonly record struct ProfileRef(string Standard, string Designation, UI
 // The neutral section-property receipt the Rasm.Materials projector BAKES onto a ProfileSet composition (M7):
 // the full structural-design column set — area, both-axis second moment of area + torsion constant, elastic AND
 // plastic section moduli, shear area, both-axis radii of gyration, the bounding depth/width, the fire heated
-// perimeter, and the least dimension — each a dimensioned MeasureValue (constructed SI-native via MeasureValue.OfSi),
-// resolved ONCE from the VividOrange catalogue ABOVE the seam so a Rasm.Compute structural runner reads the section
-// (ElementGraph.SectionOf) without re-resolving per call OR admitting VividOrange; the seam carries the baked scalars, never a VividOrange type.
+// perimeter, the least dimension, and the EN 1992-1-2 reinforcement AxisDistance (the cover from the exposed concrete
+// face to the centroid of the main reinforcement — Zero for a steel/timber section that carries no rebar) — each a
+// dimensioned MeasureValue (constructed SI-native via MeasureValue.OfSi), resolved ONCE from the VividOrange catalogue
+// ABOVE the seam so a Rasm.Compute structural/fire runner reads the section (ElementGraph.SectionOf) without
+// re-resolving per call OR admitting VividOrange; the seam carries the baked scalars, never a VividOrange type.
 public readonly record struct SectionProperties(
  MeasureValue Area, MeasureValue Iyy, MeasureValue Izz, MeasureValue J,
  MeasureValue Wely, MeasureValue Welz, MeasureValue Wply, MeasureValue Wplz,
  MeasureValue AvY, MeasureValue RadiusOfGyrationMajor, MeasureValue RadiusOfGyrationMinor,
- MeasureValue Depth, MeasureValue Width, MeasureValue HeatedPerimeter, MeasureValue LeastDimension) {
+ MeasureValue Depth, MeasureValue Width, MeasureValue HeatedPerimeter, MeasureValue LeastDimension,
+ MeasureValue AxisDistance) {
  public static readonly SectionProperties Zero = new(
  MeasureValue.Zero, MeasureValue.Zero, MeasureValue.Zero, MeasureValue.Zero,
  MeasureValue.Zero, MeasureValue.Zero, MeasureValue.Zero, MeasureValue.Zero,
  MeasureValue.Zero, MeasureValue.Zero, MeasureValue.Zero,
- MeasureValue.Zero, MeasureValue.Zero, MeasureValue.Zero, MeasureValue.Zero);
+ MeasureValue.Zero, MeasureValue.Zero, MeasureValue.Zero, MeasureValue.Zero, MeasureValue.Zero);
 }
 
 public readonly record struct MaterialLayer(MaterialId Material, MeasureValue ThicknessMm, string LayerName);
@@ -128,13 +131,13 @@ public abstract partial record MaterialComposition {
 ## [03]-[MATERIAL_PROPERTY]
 
 - Owner: `MaterialPropertySet` the `[Union]` typed engineering-property family keyed to `Discipline`; `FireRating` the `[SmartEnum<string>]` reaction-to-fire class; the `Of` admissions coercing each measured column through `Properties/quantity#MEASURE_VALUE`.
-- Cases: `Mechanical` (density / Young's modulus / shear modulus / yield strength / ultimate strength as `MeasureValue`, Poisson's ratio + thermal-expansion as guarded dimensionless doubles — `Discipline.Structural`) · `Thermal` (conductivity / specific heat / U-value as `MeasureValue` + vapour-resistance factor μ as a guarded dimensionless double for EN 13788 Glaser condensation — `Discipline.Thermal`) · `Acoustic` (the `Composition/acoustic#ACOUSTIC_FOLDS` banded carrier — `Discipline.Acoustic`) · `Fire` (a `FireRating` reaction class + resistance minutes — `Discipline.Fire`) · `Environmental` (the cradle-to-gate GWP `MeasureValue` + the per-`LifecycleStage` `StageGwp` band vector + `RecycledContent`/`EndOfLifeRecovery` fractions + EPD provenance, with the intrinsic `WholeLifeGwp`/`StageAt` folds — `Discipline.Environmental`) · `Cost` (supply / install / lifecycle per-unit columns over a `Currency` + `MeasurementBasis` — `Discipline.Cost`); a property is a `MaterialPropertySet` case over a `MaterialId`, never a property subtype.
-- Entry: `MaterialPropertySet.OfMechanical(...)` / `OfThermal(...)` / `OfAcoustic(acoustic)` / `OfFire(rating, minutes)` / `OfEnvironmental(...)` / `OfCost(...)` — the typed smart-constructors coercing each measured column through `MeasureValue.Of` to its SI base and guarding the dimensionless ratios, `Fin<T>` railing `ElementFault.ValueRejected` on a non-finite or out-of-range column; `Discipline` reads the case-to-discipline map; the lookup accessors (`Thermal`/`Mechanical`/`Acoustic`/`Environmental`) project a typed case from a `Material` node's property set.
+- Cases: `Mechanical` (density / Young's modulus / shear modulus / yield strength / ultimate strength as `MeasureValue`, Poisson's ratio + thermal-expansion as guarded dimensionless doubles — `Discipline.Structural`) · `Thermal` (conductivity / specific heat / U-value as `MeasureValue` + vapour-resistance factor μ as a guarded dimensionless double for EN 13788 Glaser condensation — `Discipline.Thermal`) · `Acoustic` (the `Composition/acoustic#ACOUSTIC_FOLDS` banded carrier — `Discipline.Acoustic`) · `Fire` (a `FireRating` reaction class + resistance minutes — `Discipline.Fire`) · `Environmental` (a `MeasurementBasis` declared unit + the cradle-to-gate GWP `MeasureValue` + the per-`LifecycleStage` `StageGwp` band vector + `RecycledContent`/`EndOfLifeRecovery` fractions + EPD provenance, with the intrinsic `WholeLifeGwp`/`StageAt` folds — `Discipline.Environmental`) · `Cost` (supply / install / lifecycle per-unit columns over a `Currency` + `MeasurementBasis` — `Discipline.Cost`); a property is a `MaterialPropertySet` case over a `MaterialId`, never a property subtype.
+- Entry: `MaterialPropertySet.OfMechanical(...)` / `OfThermal(...)` / `OfAcoustic(acoustic)` / `OfFire(rating, minutes)` / `OfEnvironmental(...)` / `OfCost(...)` — the typed smart-constructors coercing each measured column through `MeasureValue.Of` to its SI base and guarding the dimensionless ratios, `Fin<T>` railing `ElementFault.ValueRejected` on a non-finite or out-of-range column; `Discipline` reads the case-to-discipline map; the typed lookup accessors (`Mechanical`/`Thermal`/`Acoustic`/`Fire`/`Environmental`/`Cost`) project a case from a `Material` node's property set so a consumer (the `Rasm.Compute` aggregator) composes them seam-direct rather than re-deriving an `is`-cast.
 - Auto: `Discipline` dispatches the generated `Switch` mapping each case to its row (`Mechanical`→`Structural`, `Thermal`→`Thermal`, `Acoustic`→`Acoustic`, `Fire`→`Fire`, `Environmental`→`Environmental`, `Cost`→`Cost`); the `Of` constructors route each dimensioned value through `MeasureValue.Of(value, unit, key)` so the column carries its SI base and `Dimension`, the Poisson's ratio guarded to `[0,1]` and the fractions finite; the `Acoustic` case wraps the `Composition/acoustic#ACOUSTIC_FOLDS` `Acoustic` carrier whose `Nrc`/`Saa`/`StcWeighted` are derived reads.
 - Receipt: a `Seq<MaterialPropertySet>` on a `Material` node is the full engineering profile a `Bake`-derived `Element` reads flat — `material.Thermal.Map(t => t.UValue)`, `material.Mechanical.Map(m => m.YieldStrength)`, `material.Acoustic.Map(a => a.StcWeighted)` — one node carrying every discipline keyed by `Discipline`; the `Rasm.Compute` analysis route reads the `MeasureValue` columns by `Discipline`, and the assembly aggregation (series-resistance U-value, rule-of-mixtures density, layered STC) folds the `MaterialComposition` plies in Compute, never re-keyed per assembly.
 - Packages: Thinktecture.Runtime.Extensions (`[Union]`/`[SmartEnum<string>]`), LanguageExt.Core (`Seq`/`Option`/`Fin`), UnitsNet (via `MeasureValue`), `Rasm` (the kernel `Op` op-key).
 - Growth: a new engineering property shared across materials is one column on its `MaterialPropertySet` case; a new property discipline with no fit is one `MaterialPropertySet` case carrying its `Discipline` — never a parallel `Eco`/`Cost` owner; a new fire-reaction class is one `FireRating` row, a new acoustic rating one fold on the `Acoustic` carrier; the family grows by case and column, never by a per-discipline material type.
-- Boundary: `MaterialPropertySet` is the ONE typed property family — a `StructuralMaterial`/`ThermalMaterial` per-discipline material type is the deleted form, a property being a case over a `MaterialId`; every measured column admits through `MeasureValue.Of` to its SI base (the `Density`/`YoungsModulus`/`Conductivity`/`UValue`/`Gwp` columns), never a bare double, the dimensionless `PoissonsRatio` guarded `[0,1]` so an out-of-range ratio is unrepresentable, the `FireRating` a closed reaction-class vocabulary so a non-standard class is a row never a free string; the `Acoustic` case is the banded `Composition/acoustic#ACOUSTIC_FOLDS` carrier, never a scalar STC; the per-case-to-`Discipline` map is the one correspondence the `Assessment/assessment#ASSESSMENT_NODE` and `Rasm.Compute` analysis route share, so the property family and the assessment family key on one axis; the `Cost` case carries neutral per-unit doubles over a `Currency` `[SmartEnum<string>]` + a `MeasurementBasis` declared unit (the seam references no money library — the `Rasm.Bim` `NodaMoney` cost algebra meets the per-unit double at the quantity×rate join), and the `Environmental` case carries the cradle-to-gate `Gwp` `MeasureValue` plus the per-`LifecycleStage` `StageGwp` band vector (the EN 15978 A1-A3/A4/A5/B/C/D modules, the SAME banded-carrier shape as the `Acoustic` case) the intrinsic `WholeLifeGwp` fold sums and the `Rasm.Compute` EC3 embodied-carbon route reads.
+- Boundary: `MaterialPropertySet` is the ONE typed property family — a `StructuralMaterial`/`ThermalMaterial` per-discipline material type is the deleted form, a property being a case over a `MaterialId`; every measured column admits through `MeasureValue.Of` to its SI base (the `Density`/`YoungsModulus`/`Conductivity`/`UValue`/`Gwp` columns), never a bare double, the dimensionless `PoissonsRatio` guarded `[0,1]` so an out-of-range ratio is unrepresentable, the `FireRating` a closed reaction-class vocabulary so a non-standard class is a row never a free string; the `Acoustic` case is the banded `Composition/acoustic#ACOUSTIC_FOLDS` carrier, never a scalar STC; the per-case-to-`Discipline` map is the one correspondence the `Assessment/assessment#ASSESSMENT_NODE` and `Rasm.Compute` analysis route share, so the property family and the assessment family key on one axis; the `Cost` case carries neutral per-unit doubles over a `Currency` `[SmartEnum<string>]` + a `MeasurementBasis` declared unit (the seam references no money library — the `Rasm.Bim` `NodaMoney` cost algebra meets the per-unit double at the quantity×rate join), and the `Environmental` case carries the cradle-to-gate `Gwp` `MeasureValue` plus the per-`LifecycleStage` `StageGwp` band vector (the EN 15978 A1-A3/A4/A5/B/C/D modules, the SAME banded-carrier shape as the `Acoustic` case) the intrinsic `WholeLifeGwp` fold sums and the `Rasm.Compute` EC3 embodied-carbon route reads; the `Gwp` and every `StageGwp` module are on the case's `MeasurementBasis` (per-m³/per-m²/per-kg/per-item) — the SAME basis axis the `Cost` case carries, so the `Rasm.Compute` `AggregateEnvironmental` fold scales each ply by the basis-matching element quantity through the SAME basis-aware `DeclaredQuantity` derivation the cost fold uses, never a forced per-m³ normalization that demanded a density at ingress and dropped an area/item EPD; a baked catalogue declaration is curated `PerM3`, an EC3-resolved declaration carries the EPD's native `declared_unit` basis the `Rasm.Compute` EC3 ingress tags, both folding correctly under the basis-aware scale.
 
 ```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------
@@ -204,12 +207,18 @@ public abstract partial record MaterialPropertySet {
  public int StcWeighted => Spectrum.StcWeighted;
  }
  public sealed record Fire(FireRating Reaction, double ResistanceMinutes) : MaterialPropertySet;
- public sealed record Environmental(MeasureValue GlobalWarmingPotential, ReadOnlyMemory<double> StageGwp, double RecycledContent, double EndOfLifeRecovery, string Epd, int ValidUntilYear) : MaterialPropertySet {
- public double Gwp => GlobalWarmingPotential.Si;                                          // cradle-to-gate A1-A3 (kgCO2e)
- public double StageAt(LifecycleStage stage) => stage.Index < StageGwp.Length ? StageGwp.Span[stage.Index] : 0.0;
- public double WholeLifeGwp { get { double total = 0.0; foreach (double m in StageGwp.Span) { total += m; } return total; } }  // cradle-to-grave
- // The zero-impact baseline a Rasm.Compute embodied-carbon fold seeds an element-set GWP rollup from.
- public static readonly Environmental Empty = new(MeasureValue.Zero, new double[LifecycleStage.Count], 0.0, 0.0, "", 0);
+ // BASIS-AWARE: Gwp + every StageGwp module are kgCO2e PER the Basis unit (per-m³/per-m²/per-kg/per-item) — the SAME
+ // MeasurementBasis the Cost case carries, so the Rasm.Compute AggregateEnvironmental fold scales each ply by the
+ // basis-matching element quantity through the SAME basis-aware DeclaredQuantity derivation the cost fold uses
+ // (per-m³ → volume, per-m² → face area, per-kg → volume×density, per-item → unit), NOT a forced per-m³ normalization
+ // that demanded a density at ingress and SKIPPED an area/item EPD. A baked catalogue declaration is curated PerM3; an
+ // EC3-resolved declaration carries the EPD's native declared_unit basis the EC3 ingress tags (Analysis/lifecycle Normalize).
+ public sealed record Environmental(MeasurementBasis Basis, MeasureValue GlobalWarmingPotential, ReadOnlyMemory<double> StageGwp, double RecycledContent, double EndOfLifeRecovery, string Epd, int ValidUntilYear) : MaterialPropertySet {
+ public double Gwp => GlobalWarmingPotential.Si;                                          // cradle-to-gate A1-A3 (kgCO2e per Basis unit)
+ public double StageAt(LifecycleStage stage) => stage.Index < StageGwp.Length ? StageGwp.Span[stage.Index] : 0.0;  // per-module kgCO2e per Basis unit
+ public double WholeLifeGwp { get { double total = 0.0; foreach (double m in StageGwp.Span) { total += m; } return total; } }  // cradle-to-grave kgCO2e per Basis unit
+ // The zero-impact baseline a Rasm.Compute embodied-carbon fold seeds an element-set GWP rollup from (PerM3, the curated default basis).
+ public static readonly Environmental Empty = new(MeasurementBasis.PerM3, MeasureValue.Zero, new double[LifecycleStage.Count], 0.0, 0.0, "", 0);
  }
  public sealed record Cost(MeasurementBasis Basis, Currency Currency, double SupplyPerUnit, double InstallPerUnit, double LifecyclePerUnit) : MaterialPropertySet;
 
@@ -243,12 +252,16 @@ public abstract partial record MaterialPropertySet {
 
  public static MaterialPropertySet OfFire(FireRating reaction, double resistanceMinutes) => new Fire(reaction, resistanceMinutes);
 
- public static Fin<MaterialPropertySet> OfEnvironmental(double gwpKgCo2e, ReadOnlyMemory<double> stageGwp, double recycledContent, double endOfLifeRecovery, string epd, int validUntilYear, Op key) =>
+ // gwpKgCo2e + every stageGwp module are kgCO2e PER the basis unit — the caller declares the EPD's native
+ // MeasurementBasis (the EC3 ingress tags the declared_unit basis, the Materials catalogue passes PerM3 for its curated
+ // rows), so the Compute AggregateEnvironmental scales each ply by the basis-matching quantity (the SAME basis-aware
+ // DeclaredQuantity derivation the cost fold uses); the Mass coercion carries the kgCO2e magnitude only (CO2e is a domain basis, not an SI dimension).
+ public static Fin<MaterialPropertySet> OfEnvironmental(MeasurementBasis basis, double gwpKgCo2e, ReadOnlyMemory<double> stageGwp, double recycledContent, double endOfLifeRecovery, string epd, int validUntilYear, Op key) =>
  stageGwp.Length != LifecycleStage.Count
  ? ElementFault.ValueRejected(key, $"<environmental-stage-arity:{stageGwp.Length}:expected={LifecycleStage.Count}>")
  : recycledContent is < 0.0 or > 1.0 || endOfLifeRecovery is < 0.0 or > 1.0
  ? ElementFault.ValueRejected(key, "<environmental-fraction-out-of-unit>")
- : MeasureValue.Of(gwpKgCo2e, UnitsNet.Units.MassUnit.Kilogram, key).Map(g => (MaterialPropertySet)new Environmental(g, stageGwp, recycledContent, endOfLifeRecovery, epd, validUntilYear));
+ : MeasureValue.Of(gwpKgCo2e, UnitsNet.Units.MassUnit.Kilogram, key).Map(g => (MaterialPropertySet)new Environmental(basis, g, stageGwp, recycledContent, endOfLifeRecovery, epd, validUntilYear));
 
  public static Fin<MaterialPropertySet> OfCost(Currency currency, MeasurementBasis basis, double supply, double install, double lifecycle, Op key) =>
  supply < 0.0 || install < 0.0 || lifecycle < 0.0
@@ -262,7 +275,9 @@ public static class MaterialPropertyAccess {
  public Option<MaterialPropertySet.Mechanical> Mechanical => properties.Choose(static p => p is MaterialPropertySet.Mechanical m ? Some(m) : None).HeadOrNone();
  public Option<MaterialPropertySet.Thermal> Thermal => properties.Choose(static p => p is MaterialPropertySet.Thermal t ? Some(t) : None).HeadOrNone();
  public Option<MaterialPropertySet.Acoustic> Acoustic => properties.Choose(static p => p is MaterialPropertySet.Acoustic a ? Some(a) : None).HeadOrNone();
+ public Option<MaterialPropertySet.Fire> Fire => properties.Choose(static p => p is MaterialPropertySet.Fire f ? Some(f) : None).HeadOrNone();
  public Option<MaterialPropertySet.Environmental> Environmental => properties.Choose(static p => p is MaterialPropertySet.Environmental e ? Some(e) : None).HeadOrNone();
+ public Option<MaterialPropertySet.Cost> Cost => properties.Choose(static p => p is MaterialPropertySet.Cost c ? Some(c) : None).HeadOrNone();
  public Option<MaterialPropertySet> ForDiscipline(Discipline discipline) => properties.Find(p => p.Discipline == discipline);
  }
 }

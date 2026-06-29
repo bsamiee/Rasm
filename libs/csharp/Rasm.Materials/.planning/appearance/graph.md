@@ -19,11 +19,11 @@ The node-graph appearance engine and the polymorphic library. One `AppearanceNod
 ```csharp signature
 // --- [TYPES] -------------------------------------------------------------------------------
 [ValueObject<int>]
-[KeyMemberEqualityComparer<MaterialKeyPolicy, int>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, int>]
 public readonly partial struct PortId;
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<MaterialKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class MathOp {
     public static readonly MathOp Add = new("add", static (l, r) => new PortValue.Vector(l.AsVector + r.AsVector));
     public static readonly MathOp Multiply = new("multiply", static (l, r) => new PortValue.Scalar(l.AsScalar * r.AsScalar));
@@ -39,7 +39,7 @@ public sealed partial class MathOp {
 }
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<MaterialKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class MixOp {
     public static readonly MixOp Lerp = new("lerp", static (a, b, t) => new PortValue.Color(a.AsColor.Mix(b.AsColor, ColourSpace.RgbLinear, t, premultiplyAlpha: false)));
     public static readonly MixOp Multiply = new("multiply", static (a, b, _) => new PortValue.Color(NodeEvaluator.ChannelCompose(a.AsColor, b.AsColor, static (p, q) => p * q)));
@@ -218,7 +218,7 @@ using Rasm.Element;                  // MaterialId — the SEAM material-identit
 // declares the one `[ValueObject<string>]` material key, ordinal-ignore-case). The `Material`/`MaterialComposition`/
 // `MaterialLayer`/`MaterialConstituent` seam types and every Materials catalogue key on it, so this page composes the
 // seam type rather than declaring a parallel `family.name` identity — the prior local `MaterialId` is RETIRED.
-// The seam key comparer travels with the type (the seam owns it); `MaterialKeyPolicy` (Appearance/bsdf) remains the
+// The seam key comparer travels with the type (the seam owns it); the shipped `ComparerAccessors.StringOrdinal` remains the
 // ordinal string policy the local `PortId`/`MathOp`/`MixOp` keys compose, NOT the material identity.
 
 [ComplexValueObject]

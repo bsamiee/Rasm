@@ -1,302 +1,329 @@
 # [SYSTEMS_CONNECTIVITY]
 
-The host-neutral MEP distribution-system connectivity layer: one `DistributionSystem` record carrying a closed `DistributionSystemKind` `[SmartEnum<string>]` partition over `IfcDistributionSystemEnum` (`airconditioning`/`electrical`/`domesticwater`/`drainage`/`fireprotection`/`ventilation`/…), its member distribution-element set, and the served spatial-structure set — and the `PortConnection` `[Union]` (`ConnectsPortToElement`/`ConnectsPorts`) projecting `IfcRelConnectsPortToElement`/`IfcRelConnectsPorts` as the two connection-edge modalities the flow network is built from. The connectivity layer is the network GRAPH, distinct from the `Model/elements#ELEMENT_MODEL` `IfcClass` MEP rows (`FlowSegment`/`FlowFitting`/`FlowTerminal`/`FlowController`/`DistributionPort` on the `IfcDomain.HvacFire`/`Electrical` partition) which model the element FAMILY: an air-handling system threading a hundred ducts, a domestic-water riser feeding every fixture, and an electrical distribution board powering every circuit each carry their full member set and their typed port-to-port adjacency on one record, never a per-discipline system type. The layer is HOST-NEUTRAL — it joins distribution elements and ports by stable `GlobalId` and never carries a RhinoCommon binding, the same seam violation the `Model/zones#ZONE_GRAPH` overlay and the `Model/structural#ANALYSIS_MODEL` graph also reject — and is a VIEW of the federated `Model/elements#ELEMENT_MODEL` `BimModel`: each `DistributionPort` binds its owning physical `BimElement` by `OwnerGlobalId` reference and each connection edge names its two ports by `GlobalId`, so the network is the flow-graph algebra the single-membership `Model/zones#ZONE_GRAPH` `DistributionSystem` zone row (a logical assignment of members into a group) structurally cannot express — the zone row owns WHICH elements belong to a system, the connectivity graph owns HOW they connect. The `SystemTrace` graph fold over the connection edges — every element reachable downstream of a junction port — is the reachability closure the shared `QuikGraph` `[GRAPH_ALGORITHM]` owner computes (`TreeBreadthFirstSearch` over a transient `AdjacencyGraph`/`UndirectedGraph<string, SEdge<string>>` folded from the `PortConnection` edges, the same managed graph-algorithm owner the `Planning/schedule#CRITICAL_PATH` topological order and the `Review/versioning#VERSION_GRAPH` common-ancestor walks share, never a hand-rolled visited-set BFS), the typed network evidence the `Model/zones#ZONE_GRAPH` MEP-system grouping and the `Model/structural#ANALYSIS_MODEL` thermal/flow selection read by reference, and the `Model/query#ELEMENT_SET` `ByDomain(IfcDomain.HvacFire)`/`ByDomain(IfcDomain.Electrical)`/`ByDomain(IfcDomain.Plumbing)` arms select the distribution-domain element set the projection traces over, never a second selection surface; a connectivity rejection lowers onto `Model/faults#FAULT_BAND` `BimFault` via `.ToError()`, never a new fault family.
+The host-neutral MEP distribution-system connectivity layer is a VIEW over the seam `Rasm.Element/Graph/element#ELEMENT_GRAPH` `ElementGraph`, never a second GeometryGym lowering: the `Projection/semantic#SEMANTIC_PROJECTOR` projector is the SOLE IFC owner and has already lowered every `IfcDistributionSystem`, `IfcDistributionPort`, `IfcRelConnectsPorts`, `IfcRelConnectsPortToElement`, `IfcRelAssignsToGroup`, and `IfcRelServicesBuildings` onto NEUTRAL `Rasm.Element/Relations/relation#EDGE_ALGEBRA` edges — a `Connect{Port}` flow/ownership edge, an `Assign{Group}` membership edge, and a `Generic("IfcRelServicesBuildings")` passthrough — so this layer reads the settled graph and folds it into a typed flow-network view, a `QuikGraph` reachability trace, and a `SwiftCollections.Lean` interference clash, exactly as the `Model/query#ELEMENT_SET` query surface reads the same graph. The retired `DistributionSystemProjection.Project(IfcDistributionSystem, BimModel)` GeometryGym fold and the `PortConnection` `[Union]` mirroring `IfcRelConnectsPortToElement`/`IfcRelConnectsPorts` are GONE — the typed-`IfcRel*`-case shape is the deleted form the seam's neutral edge algebra collapsed [C5], the connectivity now reading the `Connect{Port}` edges by endpoint classification (a flow edge joins two `IfcDistributionPort` objects, an ownership edge joins a port to its distribution element).
+
+The connectivity layer is the network GRAPH, orthogonal to the `Model/zones#ZONE_GRAPH` overlay that owns the LOGICAL membership (which elements belong to a system, the `Assign{Group}` edge) — the connectivity owns the typed flow ADJACENCY (how they connect, the `Connect{Port}` edge), the two coexisting and never collapsed. An air-handling system threading a hundred ducts, a domestic-water riser feeding every fixture, and an electrical distribution board powering every circuit each surface their member set, their typed port adjacency, and their served spatial structures from one `DistributionSystem` view, never a per-discipline system type. Identity is the seam `Rasm.Element/Graph/element#NODE_MODEL` `NodeId` (a rooted Guid-v7), never an IFC `GlobalId` — the compressed GlobalId is the node's `ExternalId` projection attribute the trace and interference carry only for the IFC-keyed downstream consumers. The layer is HOST-NEUTRAL: it joins nodes by `NodeId`, references geometry by the seam `RepresentationContentHash` content key, routes every solid-proximity test to the injected kernel `GeometryProximity` seam, and never carries a RhinoCommon binding or an in-process tessellation — the same seam law the `Model/zones#ZONE_GRAPH` overlay and the `Model/structural#ANALYSIS_MODEL` graph hold. The reachability fold and the system view are TOTAL over the already-validated graph (the dangling-endpoint rejection lowered at `Projection/semantic#SEMANTIC_PROJECTOR` `Project` and `Rasm.Element/Graph/element#ELEMENT_GRAPH` `Apply`); only the interference clash carries a `Fin<T>` rail, lowering `Model/faults#FAULT_BAND` `BimFault.CapabilityMiss` BARE when a member's geometry content key resolves to no kernel geometry.
 
 ## [01]-[INDEX]
 
-- [01]-[CONNECTIVITY]: `DistributionSystem` record, the `DistributionSystemKind` `[SmartEnum<string>]` over `IfcDistributionSystemEnum`, the `DistributionPort` record carrying its `FlowDirection`/`PortKind`, the `PortConnection` `[Union]` (`ConnectsPortToElement`/`ConnectsPorts`), and the `DistributionSystemProjection.Project`/`ProjectAll` fold from the GeometryGym `IfcDistributionSystem`/`IfcDistributionPort`/`IfcRelConnectsPorts` surface to the typed network.
-- [02]-[SYSTEM_TRACE]: `SystemNetwork` the port-adjacency graph the `PortConnection` edges fold into, the `SystemTrace` reachability fold over every element downstream of a junction port, and the `(GeometryKey, TopologyKey)` content-key identity the trace re-reads only on a changed network.
-- [03]-[INTERFERENCE]: the `Interference` record (clash `GlobalId` pair, `ClashKind` hard/clearance, measured deficit, the two discipline `IfcDomain`s) and the `Interferences` fold detecting hard/clearance clashes between distribution runs and across the structural set, ranked by clearance deficit, feeding `Review/coordination#COORDINATION` `ClashProposal`.
+- [01]-[CONNECTIVITY]: the `DistributionSystem` derived view (member `NodeId` set, typed `DistributionPort` set, port `FlowEdge` set, served-structure set, `(MembershipKey, TopologyKey)` identity), the `DistributionSystemKind` `[SmartEnum<string>]` over `IfcDistributionSystemEnum` with its `IfcDomain` column, the `FlowDirection` `[SmartEnum<string>]` over `IfcFlowDirectionEnum`, and the `DistributionNetwork` fold reading the seam `Assign{Group}`/`Connect{Port}`/`Generic` edges into the typed views.
+- [02]-[SYSTEM_TRACE]: the `SystemTrace` reachability fold over the seam's port-and-element flow graph — one transient `QuikGraph` `AdjacencyGraph<NodeId, SEdge<NodeId>>` built from the `Connect{Port}` edges, the `TraceMode` orientation policy (reach/downstream/upstream) reading the port `FlowDirection`, and `TreeBreadthFirstSearch` computing the reachable-element closure, the shared `[GRAPH_ALGORITHM]` owner replacing the hand-rolled visited-set walk.
+- [03]-[INTERFERENCE]: the `Interference` record (clashing `NodeId` pair, `ClashKind` hard/clearance, measured deficit, the two discipline `IfcDomain`s, cross-discipline rank), the `GeometryProximity` kernel seam, the `SwiftCollections.Lean` `SwiftBVH` broad-phase, and the `InterferenceCheck.Interferences` fold ranking clashes between distribution runs and across the structural set, feeding `Review/coordination#COORDINATION` `ClashProposal`.
 
 ## [02]-[CONNECTIVITY]
 
-- Owner: `DistributionSystem` the single host-neutral MEP distribution-system record carrying its `DistributionSystemKind` discriminant, its member distribution-element `GlobalId` set, its served spatial-structure `GlobalId` set, and the typed `PortConnection` edge set the flow network is built from; `DistributionSystemKind` the closed `[SmartEnum<string>]` keyed over the `IfcDistributionSystemEnum` member set (the airconditioning/electrical/water/drainage/fireprotection/ventilation distribution disciplines) with a `Domain` column resolving each kind onto the `Model/elements#ELEMENT_MODEL` `IfcDomain` partition; `DistributionPort` the typed connection-port record carrying its `FlowDirection` (`Source`/`Sink`/`SourceAndSink`/`NotDefined` over `IfcFlowDirectionEnum`), its `PortKind` (`Cable`/`Duct`/`Pipe`/… over the `IfcDistributionPort.PredefinedType`), and the `OwnerGlobalId` binding to the physical distribution element the port belongs to; `PortConnection` the closed `[Union]` discriminating the two IFC connection modalities — `ConnectsPortToElement` (the `IfcRelConnectsPortToElement` port-membership edge binding a port to its owning element) and `ConnectsPorts` (the `IfcRelConnectsPorts` port-to-port flow edge carrying its optional realizing element); `DistributionSystemProjection` the static fold over the GeometryGym `IfcDistributionSystem` surface.
-- Cases: `DistributionSystemKind` rows `AirConditioning`/`Ventilation`/`ChilledWater`/`CompressedAir`/`FireProtection`/`Electrical`/`Lighting`/`Telephone`/`DataCommunication`/`DomesticColdWater`/`DomesticHotWater`/`Drainage`/`Sewage` (13 disciplines, each frozen with its `IfcDomain` over the seven-case partition — the HVAC/fire disciplines on `HvacFire`, the power/telecom disciplines on `Electrical`, the water/drainage disciplines on `Plumbing`) plus the `UserDefined`/`NotDefined` fallback rows the `Of` resolver lowers an unmapped `IfcDistributionSystemEnum` member onto (15 total); `PortConnection` arms `ConnectsPortToElement` (the `IfcRelConnectsPortToElement` port-membership edge — `PortGlobalId`, `ElementGlobalId`) · `ConnectsPorts` (the `IfcRelConnectsPorts` port-to-port flow edge — `RelatingPortGlobalId`, `RelatedPortGlobalId`, and the optional `RealizingElementGlobalId` the joint/fitting that realizes the connection) (2); `DistributionPort` carries `GlobalId`, `Name`, `FlowDirection`, `PortKind`, and `OwnerGlobalId` — a duct port is a `Source`/`Sink` `DistributionPort` on a `FlowSegment` owner, a tee fitting carries three ports, and an unconnected port is a port with no incident `ConnectsPorts` edge.
-- Entry: `DistributionSystemProjection.Project(IfcDistributionSystem system, BimModel federated)` folds one GeometryGym distribution-system container into one `DistributionSystem` — materializing the system's `IsGroupedBy` `IfcRelAssignsToGroup.RelatedObjects` distribution-element member set once (the system is an `IfcSystem` grouping its flow elements), discriminating the system's `PredefinedType` onto the `DistributionSystemKind`, folding each member element's `HasPorts` `IfcRelConnectsPortToElement` set onto `DistributionPort` rows and `ConnectsPortToElement` edges, folding each port's single `ConnectedFrom`/`ConnectedTo` `IfcRelConnectsPorts` references onto the `ConnectsPorts` flow edges (deduped on the unordered port pair so a connection materialized from both incident ports rides one edge), and carrying the served spatial-structure `GlobalId` set (the forward `IfcRelServicesBuildings` inverse is absent on this GeometryGym surface — the relationship is reachable only from the spatial side `IfcSpatialElement.ServicedBySystems`, so the column is presently empty and joined from the spatial owner at a later pass) — and `DistributionSystemProjection.ProjectAll(DatabaseIfc db, BimModel federated)` lifts every `IfcDistributionSystem` the database carries onto the `Seq<DistributionSystem>` the trace folds; `Fin<T>` aborts on a system grouping a member the federated model never declares (`Model/faults#FAULT_BAND` `BimFault.DanglingReference`) or a connection edge naming a port absent from the materialized port set (`BimFault.DanglingReference`), each lowered with `.ToError()`, and a system whose `PredefinedType` carries no mapped `IfcDistributionSystemEnum` member resolves to the `UserDefined`/`NotDefined` kind row rather than faulting.
-- Auto: `Project` reads the `IfcDistributionSystem` runtime graph and folds it into the typed system — the `MembersOf` projection materializes the container's `IsGroupedBy` grouped `IfcDistributionElement` set once and the `PortsOf` fold reads each member's `HasPorts` `IfcRelConnectsPortToElement` relationship onto a `DistributionPort` (reading `FlowDirection` onto the typed direction and `PredefinedType` onto the `PortKind`) and the matching `ConnectsPortToElement` membership edge, all over the one materialized member set so the ports and the port-to-port edges read the single traversal rather than three; the `EdgesOf` fold reads each materialized port's single `ConnectedFrom`/`ConnectedTo` `IfcRelConnectsPorts` reference onto `ConnectsPorts` flow edges keyed by the unordered `(RelatingPort.GlobalId, RelatedPort.GlobalId)` pair so a connection reachable from either incident port is one edge, carrying the `RealizingElement.GlobalId` joint when the relationship names one; the `ServesOf` fold yields an empty served-structure set because the forward `IfcRelServicesBuildings` inverse is absent on the GeometryGym distribution-system surface (the serving relationship is exposed only as `IfcSpatialElement.ServicedBySystems`), so the `ServedStructureGlobalIds` column is joined from the spatial owner at a later pass rather than re-mining a non-existent member; the `DistributionSystem.BindFederated` fold confirms every member and every edge-named port resolves against the `Model/elements#ELEMENT_MODEL` `BimModel` element/port index so a dangling member or a connection naming an absent port lowers `BimFault.DanglingReference`, and the `DistributionSystem.Identity` fold derives the `(GeometryKey, TopologyKey)` `UInt128` pair the trace re-reads the network by — `GeometryKey` over the ordered member-element `GlobalId` set through `XxHash128.HashToUInt128` (the member-set fingerprint the federated geometry joins by reference) and `TopologyKey` over the sorted connection-edge unordered port pairs so the trace re-walks only a changed membership or a changed adjacency.
-- Receipt: the `Seq<DistributionSystem>` is the connectivity evidence the `[3]-[SYSTEM_TRACE]` `SystemTrace` fold walks, the `Model/zones#ZONE_GRAPH` MEP `DistributionSystem` zone row reads the member set by reference, and the `Model/structural#ANALYSIS_MODEL` flow/thermal selection reads the typed `Seq<DistributionSystem>` by reference; the air-handling system, the water riser, and the electrical board each carry their member set and their typed port-to-port adjacency on one record, the flow network the `IfcClass` MEP element rows model the family of but never the connectivity of.
-- Packages: GeometryGymIFC_Core, Thinktecture.Runtime.Extensions, System.IO.Hashing, LanguageExt.Core
-- Growth: a new distribution discipline is one `DistributionSystemKind` row reading the next `IfcDistributionSystemEnum` member with its `IfcDomain` column; a new connection modality is one `PortConnection` union arm reading the next port-relationship entity; a new port flow direction is one `FlowDirection` row; a new served-structure relationship rides the existing `ServesOf` fold on one row; never a per-discipline system record, never a second connectivity store, and never a per-relationship connection class.
-- Boundary: `DistributionSystem` is ONE record discriminated by the `DistributionSystemKind` row data and the `PortConnection` union — an `HvacSystem`/`ElectricalSystem`/`PlumbingSystem` class family or sibling per-discipline factory methods is the deleted form mirroring the no-per-element-class law at `Model/elements#ELEMENT_MODEL` and the no-per-grouping-type law at `Model/zones#ZONE_GRAPH`; the two connection relationships are the closed `PortConnection` union, never a per-relationship class and never an `Option<PortConnection>` escape; the GeometryGym `IfcDistributionSystem`/`IfcDistributionElement`/`IfcDistributionPort`/`IfcRelConnectsPortToElement`/`IfcRelConnectsPorts`/`IfcRelServicesBuildings` surface (`.api/api-geometrygym-ifc` MEP distribution-element family rows 1-10, grouping-zone-distribution-system family rows 4/8/9/10) is consumed as settled vocabulary through the `IsGroupedBy`/`HasPorts`/`ConnectedFrom`/`ConnectedTo` traversal and a hand-rolled distribution-system reader is the deleted form; the distribution-domain element selection is the `Model/query#ELEMENT_SET` `ByDomain(IfcDomain.HvacFire)`/`ByDomain(IfcDomain.Electrical)`/`ByDomain(IfcDomain.Plumbing)` predicate and a parallel system-element selection arm is the no-second-selection-surface reject; the connectivity graph is the orthogonal companion to the `Model/zones#ZONE_GRAPH` `DistributionSystem` zone row — the zone row owns the logical member assignment (which elements belong) and the connectivity graph owns the typed flow adjacency (how they connect), the two coexisting and never collapsed; the `(GeometryKey, TopologyKey)` identity is derived through the `Review/diff#MODEL_DIFF` `XxHash128.HashToUInt128` idiom and a second identity scheme is the named drift defect; a connectivity rejection lowers onto `Model/faults#FAULT_BAND` `BimFault` through `.ToError()` and a bare `Fin.Fail` without that lowering is the named seam defect.
+- Owner: `DistributionSystem` the single host-neutral derived VIEW of one MEP distribution system read from the seam `ElementGraph` — the system group `NodeId`, the `ExternalId` (the IFC `GlobalId` projection attribute), the `DistributionSystemKind` discriminant resolved off the group node's `PredefinedType`, the member `NodeId` set, the typed `DistributionPort` set, the port-to-port `FlowEdge` set the flow network is built from, and the served spatial-structure `NodeId` set, with a derived `(MembershipKey, TopologyKey)` content-key identity the trace re-reads the network by; `DistributionSystemKind` the closed `[SmartEnum<string>]` keyed over the `IfcDistributionSystemEnum` member set with a `Domain` column resolving each kind onto the `Model/elements#IFC_CLASS` `IfcDomain` partition; `FlowDirection` the `[SmartEnum<string>]` over `IfcFlowDirectionEnum` carrying the `Emits`/`Receives` orientation columns the directed trace reads; `DistributionPort` the derived port view (`NodeId`, name, `FlowDirection`, the `PredefinedType` port kind, and the owning distribution element `NodeId`); `DistributionNetwork` the static fold reading the seam graph's `Assign{Group}`/`Connect{Port}`/`Generic` edges into the typed views.
+- Cases: `DistributionSystemKind` rows span the FULL `IfcDistributionSystemEnum` distribution vocabulary partitioned across the `IfcDomain` set — air/thermal-fluid/combustion-fuel/fire-and-life-safety (`AirConditioning`/`Ventilation`/`ChilledWater`/`CompressedAir`/`Heating`/`Refrigeration`/`Fuel`/`Gas`/`Oil`/`FireProtection`/`Safety`/…) on `HvacFire`, piped water/drainage/waste/process (`DomesticColdWater`/`DomesticHotWater`/`WaterSupply`/`Drainage`/`Sewage`/`RainWater`/`StormWater`/`WasteWater`/`Chemical`/…) on `Plumbing`, power/lighting/telecom/data/signal/rail-traction (`Electrical`/`Lighting`/`Telephone`/the DISTINCT `Data` and `Communication` rows/`Security`/`CatenarySystem`/…) on `Electrical`, and `Conveying` on `Architecture` — every IFC4 discipline, the seven IFC4X3 rail-electrification/telephony additions (`CatenarySystem`/`OverheadContactLine`/`ReturnCircuit`/`FixedTransmissionNetwork`/`OperationalTelephony`/`MobileNetwork`/`MonitoringSystem`), and the IFC4X4 `Safety` draft each frozen with its `IfcDomain`, plus the `UserDefined`/`NotDefined` fallback rows the `Of` resolver lowers an unmapped token onto — the closed buildingSMART roster, never a 13-of-50 slice and never a fused `DataCommunication` phantom (the enum carries `DATA` and `COMMUNICATION` separately, no `DATACOMMUNICATION` token); `FlowDirection` rows `Source` (emits) · `Sink` (receives) · `SourceAndSink` (both) · `NotDefined` (both — an undirected port conducts either way) (the full `IfcFlowDirectionEnum`, 4); a `DistributionPort` is a `Source`/`Sink` port on a `FlowSegment` owner, a tee fitting carries three ports, and a `FlowEdge` joins two ports across elements (the `IfcRelConnectsPorts` flow connection) carrying its optional realizing fitting `NodeId`.
+- Entry: `DistributionNetwork.View(ElementGraph graph)` folds every distribution-system group node into the `Seq<DistributionSystem>` the trace and interference read, and `DistributionNetwork.View(ElementGraph graph, NodeId system)` folds one — ONE polymorphic reader discriminating on the arity of the input (the whole-model set versus one group node), never a `ViewAll`/`ViewBy` name family; both are TOTAL and carry no `Fin<T>` rail because the seam graph is already consistent (a dangling member or an absent port lowered at `Projection/semantic#SEMANTIC_PROJECTOR` `Project` and `Rasm.Element/Graph/element#ELEMENT_GRAPH` `Apply`, never re-validated here). A group node whose classification is not a distribution-system class is skipped (it is the `Model/zones#ZONE_GRAPH` overlay's logical zone, not a flow network), and a system whose `PredefinedType` carries no mapped `IfcDistributionSystemEnum` token resolves to the `UserDefined`/`NotDefined` kind rather than dropping the system.
+- Auto: `View` reads the group `Node.Object` set classified as a distribution system, and `Of` folds one — `MembersOf` reads the group's incident `Assign{Group}` edges (direction-agnostic through `Touches`, the OTHER endpoint the member, the seam projection of `IfcRelAssignsToGroup`), `PortsOf` reads each member's incident `Connect{Port}` OWNERSHIP edges (the endpoint classified `IfcDistributionPort` the member is bound to, the `IfcRelConnectsPortToElement` projection) onto `DistributionPort` rows carrying the port node's name, its `PredefinedType` kind, and its `FlowDirection` read off the port's effective `FlowDirection` property the projector lowers, `FlowEdgesOf` reads the `Connect{Port}` FLOW edges whose BOTH endpoints are in the system's port set (the `IfcRelConnectsPorts` projection, deduped on the unordered port pair so a connection materialized from either incident port rides one edge, carrying the optional realizing fitting from the `Connect.Realizing`), and `ServedOf` reads the group's incident `Generic` edges whose wire-name is `IfcRelKind.ServicesBuildings.Key` (the served spatial structures now SURVIVE via the neutral passthrough [C5], where the retired GeometryGym fold left the column empty because the forward inverse was absent); the `Identity` fold derives the `(MembershipKey, TopologyKey)` `UInt128` pair through the kernel seed-zero `Rasm.Domain.ContentHash.Of` — `MembershipKey` over the ordered member `NodeId` set and `TopologyKey` over the sorted flow-edge unordered port pairs — so a consumer re-walks only a changed membership or a changed adjacency, the single seed-zero hasher the seam `NodeId`/`ContentAddress` also compose, never a second hasher [H7].
+- Receipt: the `Seq<DistributionSystem>` is the connectivity evidence the `[02]-[SYSTEM_TRACE]` `SystemTrace` fold walks and the `[03]-[INTERFERENCE]` clash pairs the distribution members from; the `Model/zones#ZONE_GRAPH` MEP grouping reads the member set by reference and the `Model/structural#ANALYSIS_MODEL` flow/thermal selection reads the typed `Seq<DistributionSystem>` by reference; the air-handling system, the water riser, and the electrical board each carry their member set, their typed port adjacency, and their served structures on one record.
+- Packages: Rasm.Element, Rasm, Thinktecture.Runtime.Extensions, LanguageExt.Core
+- Growth: a new distribution discipline is one `DistributionSystemKind` row reading the next `IfcDistributionSystemEnum` token with its `IfcDomain` column; a new flow direction is one `FlowDirection` row with its `Emits`/`Receives` orientation; a new served-structure or membership relationship rides the existing seam edge the fold already reads; never a per-discipline system record, never a second connectivity store, and never a per-relationship connection class.
+- Boundary: `DistributionSystem` is ONE derived view discriminated by the `DistributionSystemKind` row data — an `HvacSystem`/`ElectricalSystem`/`PlumbingSystem` class family or sibling per-discipline factory methods is the deleted form mirroring the no-per-element-class law at `Model/elements#IFC_CLASS`; the retired `PortConnection` `[Union]` (`ConnectsPortToElement`/`ConnectsPorts`) is GONE — it mirrored the typed `IfcRel*` cases the seam's neutral `Connect` algebra collapsed [C5], and re-introducing a typed connection union is the named drift, the connectivity reading the neutral `Connect{Port}` edges and distinguishing flow (two port endpoints) from ownership (a port and its element) by endpoint classification; the retired `DistributionSystemProjection.Project(IfcDistributionSystem, BimModel)` GeometryGym fold is GONE and a `GeometryGym.Ifc` import crossing this owner is the named seam violation — `Projection/semantic#SEMANTIC_PROJECTOR` is the sole IFC lowering and this owner reads the resulting seam graph; identity is the seam `NodeId` and a `GlobalId`-keyed view is the deleted form (the `GlobalId` is the node `ExternalId` the IFC-keyed consumers read); the served-structure set rides the `Generic("IfcRelServicesBuildings")` passthrough and the old "inverse absent, column empty" workaround is RETIRED; the distribution-domain element selection is the `Model/query#ELEMENT_SET` `ByDomain(IfcDomain.HvacFire)`/`ByDomain(IfcDomain.Electrical)`/`ByDomain(IfcDomain.Plumbing)` predicate and a parallel system-element selection arm is the no-second-selection-surface reject; the connectivity graph is the orthogonal companion to the `Model/zones#ZONE_GRAPH` logical membership — the zone overlay owns which elements belong, the connectivity owns how they connect, the two never collapsed; the `(MembershipKey, TopologyKey)` identity is the `Rasm.Domain.ContentHash.Of` seed-zero key and a second identity scheme is the named drift defect [H7].
 
-```csharp contract
+```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
-using System.IO.Hashing;
+using System.Collections.Frozen;
 using System.Text;
-using GeometryGym.Ifc;
 using LanguageExt;
-using LanguageExt.Common;
+using Rasm.Domain;
+using Rasm.Element;
 using Thinktecture;
 using static LanguageExt.Prelude;
 
 namespace Rasm.Bim;
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [TYPES] ------------------------------------------------------------------------------
+// The port flow orientation over IfcFlowDirectionEnum: Emits/Receives drive the directed trace
+// (a Source emits flow outward, a Sink receives it, NotDefined conducts both ways so an unoriented
+// port never severs reachability). Resolved from the port node's effective FlowDirection property.
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<InterchangeKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 public sealed partial class FlowDirection {
-    public static readonly FlowDirection Source        = new("SOURCE");
-    public static readonly FlowDirection Sink          = new("SINK");
-    public static readonly FlowDirection SourceAndSink = new("SOURCEANDSINK");
-    public static readonly FlowDirection NotDefined    = new("NOTDEFINED");
+    public static readonly FlowDirection Source        = new("SOURCE",        emits: true,  receives: false);
+    public static readonly FlowDirection Sink          = new("SINK",          emits: false, receives: true);
+    public static readonly FlowDirection SourceAndSink = new("SOURCEANDSINK", emits: true,  receives: true);
+    public static readonly FlowDirection NotDefined    = new("NOTDEFINED",    emits: true,  receives: true);
 
-    public static FlowDirection Of(IfcFlowDirectionEnum direction) =>
-        TryGet(direction.ToString()).IfNone(NotDefined);
+    public bool Emits { get; }
+    public bool Receives { get; }
+
+    public static FlowDirection Of(string token) => TryGet(token.Trim().ToUpperInvariant(), out var direction) ? direction : NotDefined;
 }
 
+// The FULL IfcDistributionSystemEnum distribution vocabulary (decompile-verified against GeometryGymIFC_Core
+// 25.7.30), each row carrying its IfcDomain partition the consumer reads off `system.Kind.Domain` to select a
+// discipline's systems. The kind resolves off the system group node's PredefinedType token (the seam-carried
+// value-object); an unmapped/unknown token lowers NotDefined. Domain grouping: air/thermal-fluid/combustion-fuel/
+// fire-and-life-safety on HvacFire, piped water/drainage/waste/process on Plumbing, power/lighting/telecom/data/
+// signal/rail-traction on Electrical, conveying on Architecture — the closed buildingSMART roster, never a slice.
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<InterchangeKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 public sealed partial class DistributionSystemKind {
-    public static readonly DistributionSystemKind AirConditioning   = new("AIRCONDITIONING",   IfcDomain.HvacFire);
-    public static readonly DistributionSystemKind Ventilation       = new("VENTILATION",       IfcDomain.HvacFire);
-    public static readonly DistributionSystemKind ChilledWater      = new("CHILLEDWATER",      IfcDomain.HvacFire);
-    public static readonly DistributionSystemKind CompressedAir     = new("COMPRESSEDAIR",     IfcDomain.HvacFire);
-    public static readonly DistributionSystemKind FireProtection    = new("FIREPROTECTION",    IfcDomain.HvacFire);
-    public static readonly DistributionSystemKind Electrical        = new("ELECTRICAL",        IfcDomain.Electrical);
-    public static readonly DistributionSystemKind Lighting          = new("LIGHTING",          IfcDomain.Electrical);
-    public static readonly DistributionSystemKind Telephone         = new("TELEPHONE",         IfcDomain.Electrical);
-    public static readonly DistributionSystemKind DataCommunication = new("DATACOMMUNICATION", IfcDomain.Electrical);
-    public static readonly DistributionSystemKind DomesticColdWater = new("DOMESTICCOLDWATER", IfcDomain.Plumbing);
-    public static readonly DistributionSystemKind DomesticHotWater  = new("DOMESTICHOTWATER",  IfcDomain.Plumbing);
-    public static readonly DistributionSystemKind Drainage          = new("DRAINAGE",          IfcDomain.Plumbing);
-    public static readonly DistributionSystemKind Sewage            = new("SEWAGE",            IfcDomain.Plumbing);
-    public static readonly DistributionSystemKind UserDefined       = new("USERDEFINED",       IfcDomain.HvacFire);
-    public static readonly DistributionSystemKind NotDefined        = new("NOTDEFINED",        IfcDomain.HvacFire);
+    public static readonly DistributionSystemKind AirConditioning          = new("AIRCONDITIONING",             IfcDomain.HvacFire);
+    public static readonly DistributionSystemKind Ventilation              = new("VENTILATION",                 IfcDomain.HvacFire);
+    public static readonly DistributionSystemKind Vent                     = new("VENT",                        IfcDomain.HvacFire);
+    public static readonly DistributionSystemKind Exhaust                  = new("EXHAUST",                     IfcDomain.HvacFire);
+    public static readonly DistributionSystemKind ChilledWater             = new("CHILLEDWATER",                IfcDomain.HvacFire);
+    public static readonly DistributionSystemKind CondenserWater           = new("CONDENSERWATER",              IfcDomain.HvacFire);
+    public static readonly DistributionSystemKind CompressedAir            = new("COMPRESSEDAIR",               IfcDomain.HvacFire);
+    public static readonly DistributionSystemKind Heating                  = new("HEATING",                     IfcDomain.HvacFire);
+    public static readonly DistributionSystemKind Refrigeration            = new("REFRIGERATION",               IfcDomain.HvacFire);
+    public static readonly DistributionSystemKind FireProtection           = new("FIREPROTECTION",              IfcDomain.HvacFire);
+    public static readonly DistributionSystemKind Vacuum                   = new("VACUUM",                      IfcDomain.HvacFire);
+    public static readonly DistributionSystemKind Fuel                     = new("FUEL",                        IfcDomain.HvacFire);
+    public static readonly DistributionSystemKind Gas                      = new("GAS",                         IfcDomain.HvacFire);
+    public static readonly DistributionSystemKind Oil                      = new("OIL",                         IfcDomain.HvacFire);
+    public static readonly DistributionSystemKind Safety                   = new("SAFETY",                      IfcDomain.HvacFire);
+    public static readonly DistributionSystemKind DomesticColdWater        = new("DOMESTICCOLDWATER",           IfcDomain.Plumbing);
+    public static readonly DistributionSystemKind DomesticHotWater         = new("DOMESTICHOTWATER",            IfcDomain.Plumbing);
+    public static readonly DistributionSystemKind WaterSupply              = new("WATERSUPPLY",                 IfcDomain.Plumbing);
+    public static readonly DistributionSystemKind Drainage                 = new("DRAINAGE",                    IfcDomain.Plumbing);
+    public static readonly DistributionSystemKind Sewage                   = new("SEWAGE",                      IfcDomain.Plumbing);
+    public static readonly DistributionSystemKind RainWater                = new("RAINWATER",                   IfcDomain.Plumbing);
+    public static readonly DistributionSystemKind StormWater               = new("STORMWATER",                  IfcDomain.Plumbing);
+    public static readonly DistributionSystemKind WasteWater               = new("WASTEWATER",                  IfcDomain.Plumbing);
+    public static readonly DistributionSystemKind MunicipalSolidWaste      = new("MUNICIPALSOLIDWASTE",         IfcDomain.Plumbing);
+    public static readonly DistributionSystemKind Disposal                 = new("DISPOSAL",                    IfcDomain.Plumbing);
+    public static readonly DistributionSystemKind Chemical                 = new("CHEMICAL",                    IfcDomain.Plumbing);
+    public static readonly DistributionSystemKind Hazardous                = new("HAZARDOUS",                   IfcDomain.Plumbing);
+    public static readonly DistributionSystemKind Electrical               = new("ELECTRICAL",                  IfcDomain.Electrical);
+    public static readonly DistributionSystemKind Lighting                 = new("LIGHTING",                    IfcDomain.Electrical);
+    public static readonly DistributionSystemKind PowerGeneration          = new("POWERGENERATION",             IfcDomain.Electrical);
+    public static readonly DistributionSystemKind Earthing                 = new("EARTHING",                    IfcDomain.Electrical);
+    public static readonly DistributionSystemKind LightningProtection      = new("LIGHTNINGPROTECTION",         IfcDomain.Electrical);
+    public static readonly DistributionSystemKind Telephone                = new("TELEPHONE",                   IfcDomain.Electrical);
+    public static readonly DistributionSystemKind Data                     = new("DATA",                        IfcDomain.Electrical);
+    public static readonly DistributionSystemKind Communication            = new("COMMUNICATION",               IfcDomain.Electrical);
+    public static readonly DistributionSystemKind AudioVisual              = new("AUDIOVISUAL",                 IfcDomain.Electrical);
+    public static readonly DistributionSystemKind ElectroAcoustic          = new("ELECTROACOUSTIC",             IfcDomain.Electrical);
+    public static readonly DistributionSystemKind Television               = new("TV",                          IfcDomain.Electrical);
+    public static readonly DistributionSystemKind Signal                   = new("SIGNAL",                      IfcDomain.Electrical);
+    public static readonly DistributionSystemKind Control                  = new("CONTROL",                     IfcDomain.Electrical);
+    public static readonly DistributionSystemKind Security                 = new("SECURITY",                    IfcDomain.Electrical);
+    public static readonly DistributionSystemKind Operational              = new("OPERATIONAL",                 IfcDomain.Electrical);
+    public static readonly DistributionSystemKind OperationalTelephony     = new("OPERATIONALTELEPHONYSYSTEM",  IfcDomain.Electrical);
+    public static readonly DistributionSystemKind MobileNetwork            = new("MOBILENETWORK",               IfcDomain.Electrical);
+    public static readonly DistributionSystemKind MonitoringSystem         = new("MONITORINGSYSTEM",            IfcDomain.Electrical);
+    public static readonly DistributionSystemKind FixedTransmissionNetwork = new("FIXEDTRANSMISSIONNETWORK",    IfcDomain.Electrical);
+    public static readonly DistributionSystemKind CatenarySystem           = new("CATENARY_SYSTEM",             IfcDomain.Electrical);
+    public static readonly DistributionSystemKind OverheadContactLine      = new("OVERHEAD_CONTACTLINE_SYSTEM", IfcDomain.Electrical);
+    public static readonly DistributionSystemKind ReturnCircuit            = new("RETURN_CIRCUIT",              IfcDomain.Electrical);
+    public static readonly DistributionSystemKind Conveying                = new("CONVEYING",                   IfcDomain.Architecture);
+    public static readonly DistributionSystemKind UserDefined              = new("USERDEFINED",                 IfcDomain.HvacFire);
+    public static readonly DistributionSystemKind NotDefined               = new("NOTDEFINED",                  IfcDomain.HvacFire);
 
     public IfcDomain Domain { get; }
 
-    public static DistributionSystemKind Of(IfcDistributionSystemEnum kind) =>
-        TryGet(kind.ToString()).IfNone(NotDefined);
+    public static DistributionSystemKind Of(string token) => TryGet(token.Trim().ToUpperInvariant(), out var kind) ? kind : NotDefined;
 }
 
-public sealed record DistributionPort(
-    string GlobalId,
-    string Name,
-    FlowDirection FlowDirection,
-    PredefinedType PortKind,
-    string OwnerGlobalId);
+// --- [MODELS] -----------------------------------------------------------------------------
+// The derived port view — the seam IfcDistributionPort Object node read with its owner element and flow
+// direction folded in. Kind is the port node's PredefinedType (CABLE/CABLECARRIER/DUCT/PIPE/WIRELESS).
+public sealed record DistributionPort(NodeId Id, string Name, FlowDirection Flow, PredefinedType Kind, NodeId Owner);
 
-[Union]
-public partial record PortConnection {
-    partial record ConnectsPortToElement(string PortGlobalId, string ElementGlobalId);
-    partial record ConnectsPorts(string RelatingPortGlobalId, string RelatedPortGlobalId, Option<string> RealizingElementGlobalId);
-
-    public (string A, string B) Endpoints => Switch(
-        connectsPortToElement: static e => (e.PortGlobalId, e.ElementGlobalId),
-        connectsPorts:         static e => Pair(e.RelatingPortGlobalId, e.RelatedPortGlobalId));
-
-    static (string A, string B) Pair(string a, string b) =>
-        string.CompareOrdinal(a, b) <= 0 ? (a, b) : (b, a);
-}
+// One port-to-port flow connection (the IfcRelConnectsPorts projection) carrying the optional realizing fitting.
+public readonly record struct FlowEdge(NodeId From, NodeId To, Option<NodeId> Realizing);
 
 public sealed record DistributionSystem(
-    string GlobalId,
+    NodeId Id,
+    Option<string> ExternalId,
     string Name,
     DistributionSystemKind Kind,
-    Seq<string> MemberGlobalIds,
+    Seq<NodeId> Members,
     Seq<DistributionPort> Ports,
-    Seq<PortConnection> Connections,
-    Seq<string> ServedStructureGlobalIds) {
-    public (UInt128 GeometryKey, UInt128 TopologyKey) Identity => (
-        XxHash128.HashToUInt128(Encoding.UTF8.GetBytes(string.Join(",", MemberGlobalIds.Order()))),
-        XxHash128.HashToUInt128(Encoding.UTF8.GetBytes(string.Join(";",
-            Connections.Map(static c => c.Endpoints).Map(static e => $"{e.A}-{e.B}").Order()))));
-
-    public Fin<DistributionSystem> BindFederated(BimModel federated) {
-        var elements = toHashSet(federated.Elements.Map(static e => e.GlobalId));
-        var ports = toHashSet(Ports.Map(static p => p.GlobalId));
-        return MemberGlobalIds.Find(id => !elements.Contains(id)).Match(
-            Some: id => FinFail<DistributionSystem>(new BimFault.DanglingReference($"distribution-member-unmapped:{GlobalId}:{id}").ToError()),
-            None: () => Connections
-                .Filter(static c => c is PortConnection.ConnectsPorts)
-                .Map(static c => c.Endpoints)
-                .Find(pair => !ports.Contains(pair.A) || !ports.Contains(pair.B))
-                .Match(
-                    Some: pair => FinFail<DistributionSystem>(new BimFault.DanglingReference($"connection-port-unmapped:{GlobalId}:{pair.A}/{pair.B}").ToError()),
-                    None: () => FinSucc(this)));
-    }
+    Seq<FlowEdge> Flow,
+    Seq<NodeId> Served) {
+    // The content-key identity the trace re-reads the network by — MembershipKey over the ordered member ids,
+    // TopologyKey over the sorted unordered flow-edge port pairs, both through the kernel seed-zero ContentHash [H7].
+    public (UInt128 MembershipKey, UInt128 TopologyKey) Identity => (
+        ContentHash.Of(Encoding.UTF8.GetBytes(string.Join(",", Members.Map(static m => m.Value).Order()))),
+        ContentHash.Of(Encoding.UTF8.GetBytes(string.Join(";", Flow
+            .Map(static f => string.CompareOrdinal(f.From.Value, f.To.Value) <= 0 ? $"{f.From.Value}-{f.To.Value}" : $"{f.To.Value}-{f.From.Value}")
+            .Order()))));
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
-public static class DistributionSystemProjection {
-    public static Fin<DistributionSystem> Project(IfcDistributionSystem system, BimModel federated) {
-        var members = MembersOf(system);
-        var ports = PortsOf(members);
+public static class DistributionNetwork {
+    // The distribution-system classification codes the seam Object node carries (the projector stamps the IFC
+    // entity type as the generic Classification("ifc", code)); a group node outside this set is the zones overlay's.
+    // IfcBuiltSystem is the IFC4.3 rename of the retired IfcBuildingSystem (absent from GeometryGym 25.7.30) and
+    // IfcDistributionCircuit the sub-circuit subtype — both decompile-verified system group entity types.
+    static readonly FrozenSet<string> SystemClasses =
+        new[] { "IfcDistributionSystem", "IfcDistributionCircuit", "IfcSystem", "IfcBuiltSystem" }.ToFrozenSet(StringComparer.OrdinalIgnoreCase);
+    const string PortClass = "IfcDistributionPort";
+    static readonly PropertyName FlowKey = PropertyName.Create("FlowDirection");
+
+    // ONE polymorphic reader: the whole-model system set, or one system by its group node — the arity
+    // discriminates on the input shape, never a ViewAll/ViewBy name family. Total over the consistent graph.
+    public static Seq<DistributionSystem> View(ElementGraph graph) =>
+        graph.ObjectNodes.Filter(static o => SystemClasses.Contains(o.Classification.Code)).Map(o => Of(graph, o));
+
+    public static Option<DistributionSystem> View(ElementGraph graph, NodeId system) =>
+        graph.Find<Node.Object>(system).Filter(static o => SystemClasses.Contains(o.Classification.Code)).Map(o => Of(graph, o));
+
+    static DistributionSystem Of(ElementGraph graph, Node.Object system) {
+        var members = MembersOf(graph, system.Id);
+        var ports = members.Bind(m => PortsOf(graph, m));
+        var flow = FlowEdgesOf(graph, toHashSet(ports.Map(static p => p.Id)));
         return new DistributionSystem(
-            system.GlobalId,
-            system.Name ?? "",
-            DistributionSystemKind.Of(system.PredefinedType),
-            members.Map(static m => m.GlobalId),
-            ports,
-            EdgesOf(members),
-            ServesOf(system))
-            .BindFederated(federated);
+            system.Id, system.ExternalId, system.Name,
+            DistributionSystemKind.Of(system.PredefinedType.Token),
+            members, ports, flow, ServedOf(graph, system.Id));
     }
 
-    public static Fin<Seq<DistributionSystem>> ProjectAll(DatabaseIfc db, BimModel federated) =>
-        db.Project.Extract<IfcDistributionSystem>()
-            .AsIterable()
-            .ToSeq()
-            .TraverseM(system => Project(system, federated))
-            .As();
-
-    static Seq<IfcDistributionElement> MembersOf(IfcDistributionSystem system) =>
-        system.IsGroupedBy
-            .AsIterable()
-            .SelectMany(static rel => rel.RelatedObjects.AsIterable())
-            .OfType<IfcDistributionElement>()
+    // The grouped members: the system's incident Assign{Group} edges, the OTHER endpoint the member
+    // (direction-agnostic — the seam group direction is the projector's, read through Touches).
+    static Seq<NodeId> MembersOf(ElementGraph graph, NodeId system) =>
+        graph.EdgesAt(system)
+            .Choose(e => e is Relationship.Assign { SubKind: var k } a && k == AssignKind.Group && a.Touches(system)
+                ? Some(a.Relating == system ? a.Related : a.Relating) : None)
+            .Filter(id => id != system)
             .ToSeq();
 
-    static Seq<DistributionPort> PortsOf(Seq<IfcDistributionElement> members) =>
-        members
-            .AsIterable()
-            .SelectMany(static element => element.HasPorts
-                .AsIterable()
-                .Select(static rel => rel.RelatingPort)
-                .OfType<IfcDistributionPort>()
-                .Select(port => new DistributionPort(
-                    port.GlobalId,
-                    port.Name ?? "",
-                    FlowDirection.Of(port.FlowDirection),
-                    PredefinedType.Create(port.PredefinedType.ToString()),
-                    element.GlobalId)))
-            .DistinctBy(static p => p.GlobalId)
+    // A member's ports: each incident Connect{Port} OWNERSHIP edge (a port endpoint + this element), the
+    // IfcRelConnectsPortToElement projection. The port endpoint is the one classified IfcDistributionPort.
+    static Seq<DistributionPort> PortsOf(ElementGraph graph, NodeId member) =>
+        graph.EdgesAt(member)
+            .Choose(e => e is Relationship.Connect { SubKind: var k } c && k == ConnectKind.Port && c.Touches(member)
+                ? graph.Find<Node.Object>(c.From == member ? c.To : c.From).Filter(static o => o.Classification.Code == PortClass)
+                : Option<Node.Object>.None)
+            .Map(port => new DistributionPort(port.Id, port.Name, PortFlow(graph, port.Id), port.PredefinedType, member))
             .ToSeq();
 
-    static Seq<PortConnection> EdgesOf(Seq<IfcDistributionElement> members) {
-        var membership = members
-            .AsIterable()
-            .SelectMany(static element => element.HasPorts
-                .AsIterable()
-                .OfType<IfcRelConnectsPortToElement>()
-                .Map(rel => (PortConnection)new PortConnection.ConnectsPortToElement(
-                    rel.RelatingPort?.GlobalId ?? "",
-                    element.GlobalId)))
-            .Where(static edge => Bounded(edge.Endpoints));
-        var flow = members
-            .AsIterable()
-            .SelectMany(static element => element.HasPorts.AsIterable().Select(static rel => rel.RelatingPort))
-            .OfType<IfcDistributionPort>()
-            .SelectMany(static port => new[] { port.ConnectedFrom, port.ConnectedTo })
-            .Where(static rel => rel is not null)
-            .Map(static rel => (PortConnection)new PortConnection.ConnectsPorts(
-                rel.RelatingPort?.GlobalId ?? "",
-                rel.RelatedPort?.GlobalId ?? "",
-                Optional(rel.RealizingElement?.GlobalId).Filter(static id => id.Length > 0)))
-            .Where(static edge => Bounded(edge.Endpoints))
-            .DistinctBy(static edge => edge.Endpoints);
-        return membership.Concat(flow).ToSeq();
+    // The flow edges: Connect{Port} edges whose BOTH endpoints are ports of this system (the IfcRelConnectsPorts
+    // projection), read through each port's incidence (EdgesAt, O(port-degree)) NOT a whole-graph Edges rescan (the
+    // seam incidence-index law View/MembersOf/PortsOf/ServedOf hold), then deduped on the unordered port pair so a
+    // connection incident to both its ports (visited twice) rides one edge.
+    static Seq<FlowEdge> FlowEdgesOf(ElementGraph graph, LanguageExt.HashSet<NodeId> ports) =>
+        ports.ToSeq()
+            .Bind(port => graph.EdgesAt(port).ToSeq())
+            .Choose(e => e is Relationship.Connect { SubKind: var k } c && k == ConnectKind.Port && ports.Contains(c.From) && ports.Contains(c.To)
+                ? Some(new FlowEdge(c.From, c.To, c.Realizing)) : None)
+            .DistinctBy(static f => string.CompareOrdinal(f.From.Value, f.To.Value) <= 0 ? (f.From.Value, f.To.Value) : (f.To.Value, f.From.Value))
+            .ToSeq();
 
-        static bool Bounded((string A, string B) endpoints) =>
-            endpoints.A.Length > 0 && endpoints.B.Length > 0;
-    }
+    // The served spatial structures via the Generic passthrough (IfcRelServicesBuildings has no neutral case,
+    // so it rides Generic carrying its wire-name) — the served set SURVIVES where the retired GeometryGym fold
+    // left it empty because the forward inverse was absent on the IfcDistributionSystem surface.
+    static Seq<NodeId> ServedOf(ElementGraph graph, NodeId system) =>
+        graph.EdgesAt(system)
+            .Choose(e => e is Relationship.Generic g && string.Equals(g.WireName, IfcRelKind.ServicesBuildings.Key, StringComparison.Ordinal) && g.Relating == system
+                ? Some(g.Related) : None)
+            .ToSeq();
 
-    static Seq<string> ServesOf(IfcDistributionSystem system) =>
-        Seq<string>();
+    // The port flow direction off the port node's effective FlowDirection property the projector lowers; an
+    // absent property reads NotDefined (the port conducts both ways), so a model without flow directions traces
+    // undirected rather than faulting — the directed-trace orientation degrades to reachability, never an error.
+    static FlowDirection PortFlow(ElementGraph graph, NodeId port) =>
+        graph.EdgesAt(port)
+            .Choose(e => e is Relationship.Assign { SubKind: var k } a && k == AssignKind.PropertyDefinition && a.Subject == port
+                ? graph.Find<Node.PropertySet>(a.Definition) : Option<Node.PropertySet>.None)
+            .Choose(static ps => ps.Bag.Find(FlowKey))
+            .HeadOrNone()
+            .Match(Some: static v => FlowDirection.Of(v.Render()), None: static () => FlowDirection.NotDefined);
 }
 ```
 
 ## [03]-[SYSTEM_TRACE]
 
-- Owner: `SystemNetwork` the undirected port-adjacency graph the `PortConnection.ConnectsPorts` flow edges and the `ConnectsPortToElement` membership edges fold into — a `Map<string, Seq<string>>` adjacency from each port to the ports it connects to plus the `Map<string, string>` port-to-owner index the membership edges build — and `SystemTrace` the reachability fold over that adjacency: the set of every distribution element reachable downstream of a starting junction port through the connection graph, a breadth-first closure over the port adjacency that crosses each fitting's ports to the next segment, the network walk the per-discipline imperative traversal is the deleted form of.
-- Entry: `SystemNetwork.Of(DistributionSystem system)` folds one typed system into the adjacency-and-owner graph once, and `SystemTrace.Downstream(DistributionSystem system, string fromPortGlobalId)` folds the reachable-element closure from a junction port — materializing the `SystemNetwork`, walking the port adjacency from the seed port as an immutable visited-set fold (a port's owner element joins the trace, the port's incident ports enqueue, each visited once), and returning the `SystemTrace` carrying the reached element `GlobalId` set in encounter order and the reached-port set; `SystemTrace.DownstreamOf(DistributionSystem system, string elementGlobalId)` seeds the trace from every port the named element owns so a downstream query keys on an element rather than a port; the trace is total over the closed graph and never faults — an isolated port traces to itself, a port absent from the network traces to the empty set — so the reachability fold carries no `Fin<T>` rail, the rejection already lowered at `Project`.
-- Auto: `SystemNetwork.Of` folds the system's `Connections` into the adjacency map — each `ConnectsPorts` edge adds the unordered pair to both endpoints' adjacency sets (the flow graph is undirected at the topology layer, the `FlowDirection` carried on the `DistributionPort` orienting it only when a directed trace is asked for) and each `ConnectsPortToElement` membership edge populates the port-to-owner index — and `SystemTrace.Downstream` runs the closure as a tail-recursive fold threading the `(frontier, visited, ports, elements)` accumulator: the frontier seeds with the start port, each step pops a port, joins its owner element to the ordered element accumulator if newly seen, and pushes the port's not-yet-visited adjacency neighbours onto the frontier, terminating when the frontier empties; the trace keys on the owning `DistributionSystem.Identity` `(GeometryKey, TopologyKey)` the `Downstream` fold reads its system by, so a trace is memoizable against the network content key and re-walks only on a changed adjacency, never re-deriving the network per query.
-- Receipt: the `SystemTrace` reached-element `Seq<string>` is the downstream-network evidence the `Model/zones#ZONE_GRAPH` MEP `DistributionSystem` grouping reads to resolve a system's effective member closure and the `Model/query#ELEMENT_SET` consumers intersect against a domain set — a "every air terminal fed from this air-handling unit" / "every fixture downstream of this shutoff valve" query is one `Downstream` fold over the port graph, the connectivity the single-membership zone row cannot express; the `SystemNetwork` adjacency is the typed graph the `Model/structural#ANALYSIS_MODEL` flow/thermal idealization reads by reference, never re-projected per consumer.
-- Packages: LanguageExt.Core
-- Growth: a new trace direction (upstream, both) is one orientation column read off the `FlowDirection` the port already carries; a new reachability predicate (stop at a controller, stop at a discipline boundary) is one closure-guard argument on the existing fold; a new graph query rides the same `SystemNetwork` adjacency; never a per-direction trace record, never a second adjacency store, and never a per-discipline traversal.
-- Boundary: the `SystemTrace` is ONE reachability fold over the closed `SystemNetwork` adjacency — a `TraceHvac`/`TraceElectrical`/`TracePlumbing` operation family is the deleted form per the no-operation-family law, the discipline already carried by the `DistributionSystem.Kind` the trace folds within; the closure is an immutable visited-set fold over the port adjacency, never a mutable-accumulator imperative walk with a `HashSet<string>` mutated in place outside the fold; the adjacency is built once by `SystemNetwork.Of` from the typed `PortConnection` edges, never re-walked from the GeometryGym graph (the network is a VIEW of the settled `[2]-[CONNECTIVITY]` projection); the trace carries no `Fin<T>` rail because the rejection lowered at `Project` (a dangling member or absent port faulted there) so the closed graph is total; the trace reads the `DistributionSystem.Identity` content key for memoization and a second identity scheme is the named drift defect; the `SystemTrace` reached set is consumed by the `zoning`/`query`/`analysis` peers by reference and re-deriving the network in any consumer is the named cross-page drift.
+- Owner: `SystemTrace` the reachability fold over one `DistributionSystem` view's port-and-element flow graph — the set of every distribution element reachable from a seed port or element through the connection network, folded by the shared `QuikGraph` `[GRAPH_ALGORITHM]` owner the `Planning/schedule#CRITICAL_PATH` topological order and the `Review/versioning#VERSION_GRAPH` common-ancestor walk also compose, never a hand-rolled visited-set walk; `TraceMode` the orientation policy (`Reach` the undirected both-directions closure, `Downstream`/`Upstream` the `FlowDirection`-oriented directed closure). The flow network is a graph over BOTH ports AND elements so the closure crosses each fitting (a tee's inlet port → the tee element → the tee's outlet ports → the next segment), the bipartite-style traversal the port-only adjacency the retired walk built could not cross.
+- Entry: `SystemTrace.From(DistributionSystem system, NodeId seed[, TraceMode mode])` folds the reachable closure — the mode-less arity the undirected `Reach` closure, the explicit arity the directed `Downstream`/`Upstream` orientation, the same polymorphic-by-arity shape the `View` reader holds — building the transient `AdjacencyGraph<NodeId, SEdge<NodeId>>` from the system's ownership and flow edges ONCE, running `TreeBreadthFirstSearch(seed)` from the seed, and partitioning the reached vertices into the reached-element `NodeId` set and the reached-port `NodeId` set; the seed is a port (the trace from a junction) OR an element (the trace from any of its ports, reached through the element's ownership edges), the input node kind the discriminant, never a `FromPort`/`FromElement` name family; the trace is TOTAL over the consistent graph and never faults — an isolated seed traces to itself, a seed absent from the network traces to itself alone — so the reachability fold carries no `Fin<T>` rail, the rejection already lowered at `Projection/semantic#SEMANTIC_PROJECTOR` `Project`.
+- Auto: `From` folds the system's `Ports` into the graph as ownership edges (each port ↔ its owner element, both directions — a port belongs to its element regardless of flow) and the system's `Flow` edges oriented by `TraceMode` (`Reach` adds both directions; `Downstream` reads the source port's `FlowDirection` — an `Emits` port adds the forward leg, a `Receives` port the reverse, so a `Source`/`Sink`/`SourceAndSink` port orients correctly and a `NotDefined` port conducts both ways; `Upstream` is the mirror), the optional realizing fitting linked bidirectionally so a connection's joint joins the reached set; `TreeBreadthFirstSearch` returns the `TryFunc<NodeId, IEnumerable<SEdge<NodeId>>>` whose reachable domain IS the downstream closure (the seed plus every vertex with a recovered path), and the fold partitions the reached vertices into the non-port reached elements and the reached ports by the port-set membership — the directed `Downstream` trace from an air-handling unit reaching every air terminal it feeds, the `Reach` trace from a shutoff valve reaching every fixture on its branch, both one fold over the QuikGraph adjacency; the trace reads the `DistributionSystem` view (one hop — the view already carries the ports with their `FlowDirection` and the deduped flow edges), never re-reading the seam graph or re-resolving the port flow per query, and a consumer memoizes the trace against the owning system's `(MembershipKey, TopologyKey)` `Identity` so a re-trace re-folds only on a changed membership or adjacency.
+- Receipt: the `SystemTrace` reached-element `Seq<NodeId>` is the downstream-network evidence the `Model/zones#ZONE_GRAPH` MEP grouping reads to resolve a system's effective member closure and the `Model/query#ELEMENT_SET` consumers intersect against a domain set — a "every air terminal fed from this air-handling unit" / "every fixture downstream of this shutoff valve" query is one `From` fold over the flow graph, the connectivity the single-membership zone overlay cannot express; the reached set is consumed by the `zoning`/`query`/`analysis` peers by reference, never re-derived per consumer.
+- Packages: QuikGraph, Rasm.Element, LanguageExt.Core
+- Growth: a new trace orientation is one `TraceMode` row carrying its `Symmetric`/`Reverse` data the `Orient` fold reads off the same `FlowDirection`; a new reachability guard (stop at a controller, stop at a discipline boundary) is one filter on the edge fold; a new graph query (shortest flow path, connected components) rides the SAME `QuikGraph` `AlgorithmExtensions` facade over the same adjacency; never a per-direction trace record, never a second adjacency store, and never a per-discipline traversal.
+- Boundary: the `SystemTrace` is ONE reachability fold over the shared `QuikGraph` `AdjacencyGraph` — the retired hand-rolled `SystemNetwork`/`Closure` visited-set tail-recursion is the deleted form, the `[GRAPH_ALGORITHM]` owner the whole stack folds a transient graph into rather than re-implementing a walk (the api-quikgraph `Model/systems#SYSTEM_TRACE` `TreeBreadthFirstSearch` law), and a `Map<>`/`HashSet<>` adjacency with a mutated visited set is the named drift; a `TraceHvac`/`TraceElectrical`/`TracePlumbing` operation family is the deleted form per the no-operation-family law, the discipline already carried by the system's `Kind` the trace folds within; the trace carries no `Fin<T>` rail because the closed graph is total (the dangling-endpoint rejection lowered at `Project`); the trace reads the `DistributionSystem` view ONE HOP and a re-read of the seam graph or a re-resolution of the port `FlowDirection` per query is the named cross-page drift; the directed orientation reads the port `FlowDirection` the view carries and an `AdjacencyGraph` with no orientation policy is the no-modality reject; a consumer memoizes against the system `Identity` and a second identity scheme is the named drift defect.
 
-```csharp contract
+```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
 using LanguageExt;
+using QuikGraph;
+using QuikGraph.Algorithms;
+using Rasm.Element;
+using Thinktecture;
 using static LanguageExt.Prelude;
 
 namespace Rasm.Bim;
 
-// --- [MODELS] -----------------------------------------------------------------------------
-public sealed record SystemNetwork(
-    Map<string, Seq<string>> Adjacency,
-    Map<string, string> PortOwner) {
-    public static SystemNetwork Of(DistributionSystem system) {
-        var owner = system.Connections
-            .Filter(static c => c is PortConnection.ConnectsPortToElement)
-            .Fold(Map<string, string>(), static (map, c) =>
-                c is PortConnection.ConnectsPortToElement(var port, var element) ? map.AddOrUpdate(port, element) : map);
-        var adjacency = system.Connections
-            .Filter(static c => c is PortConnection.ConnectsPorts)
-            .Fold(Map<string, Seq<string>>(), static (map, c) => {
-                var (a, b) = c.Endpoints;
-                return map
-                    .AddOrUpdate(a, existing => existing.Add(b), () => Seq(b))
-                    .AddOrUpdate(b, existing => existing.Add(a), () => Seq(a));
-            });
-        return new SystemNetwork(adjacency, owner);
-    }
+// --- [TYPES] ------------------------------------------------------------------------------
+// The trace orientation policy: Reach is the undirected both-directions closure (the flow component);
+// Downstream/Upstream orient the flow edges by the source port's FlowDirection through the Symmetric/Reverse
+// data columns Orient reads — a NotDefined port (Emits && Receives) stays bidirectional, so an unoriented
+// network degrades to reachability rather than severing the trace. The data columns drive Orient with no
+// runtime-silent arm; a new orientation is one row carrying its Symmetric/Reverse data.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
+public sealed partial class TraceMode {
+    public static readonly TraceMode Reach      = new("reach",      symmetric: true,  reverse: false);
+    public static readonly TraceMode Downstream = new("downstream", symmetric: false, reverse: false);
+    public static readonly TraceMode Upstream   = new("upstream",   symmetric: false, reverse: true);
 
-    public Seq<string> Neighbours(string portGlobalId) =>
-        Adjacency.Find(portGlobalId).IfNone(Seq<string>());
-
-    public Option<string> OwnerOf(string portGlobalId) =>
-        PortOwner.Find(portGlobalId);
+    public bool Symmetric { get; }
+    public bool Reverse { get; }
 }
 
-public sealed record SystemTrace(string SeedPortGlobalId, Seq<string> ReachedElements, Seq<string> ReachedPorts) {
-    public static SystemTrace Downstream(DistributionSystem system, string fromPortGlobalId) =>
-        Walk(SystemNetwork.Of(system), Seq(fromPortGlobalId), fromPortGlobalId);
+// --- [MODELS] -----------------------------------------------------------------------------
+public sealed record SystemTrace(NodeId Seed, TraceMode Mode, Seq<NodeId> ReachedElements, Seq<NodeId> ReachedPorts) {
+    // ONE polymorphic reachability fold over the system's flow graph — the mode-less arity is the undirected
+    // Reach closure, the explicit arity the directed Downstream/Upstream reading the port FlowDirection.
+    public static SystemTrace From(DistributionSystem system, NodeId seed) => From(system, seed, TraceMode.Reach);
 
-    public static SystemTrace DownstreamOf(DistributionSystem system, string elementGlobalId) {
-        var network = SystemNetwork.Of(system);
-        var seeds = system.Ports.Filter(p => p.OwnerGlobalId == elementGlobalId).Map(static p => p.GlobalId);
-        return seeds.Fold(
-            new SystemTrace(elementGlobalId, Seq<string>(), Seq<string>()),
-            (trace, seed) => Merge(trace, Walk(network, Seq(seed), elementGlobalId)));
+    public static SystemTrace From(DistributionSystem system, NodeId seed, TraceMode mode) {
+        var ports = toHashSet(system.Ports.Map(static p => p.Id));
+        var flowByPort = system.Ports.Fold(Map<NodeId, FlowDirection>(), static (m, p) => m.AddOrUpdate(p.Id, p.Flow));
+        var graph = new AdjacencyGraph<NodeId, SEdge<NodeId>>(allowParallelEdges: true);
+        // Ownership: every port is part of its element both ways (the IfcRelConnectsPortToElement membership).
+        foreach (var port in system.Ports) { Link(graph, port.Id, port.Owner); Link(graph, port.Owner, port.Id); }
+        // Flow: oriented by mode + the source port's FlowDirection; the realizing fitting joins both ports.
+        foreach (var edge in system.Flow) {
+            foreach (var (a, b) in Orient(edge.From, edge.To, flowByPort.Find(edge.From).IfNone(FlowDirection.NotDefined), mode)) { Link(graph, a, b); }
+            edge.Realizing.Iter(realizing => { Link(graph, edge.From, realizing); Link(graph, realizing, edge.From); Link(graph, realizing, edge.To); Link(graph, edge.To, realizing); });
+        }
+        if (!graph.ContainsVertex(seed)) { graph.AddVertex(seed); }
+        var paths = graph.TreeBreadthFirstSearch(seed);
+        // TryGetPath returns false for the root (no predecessor edge), so the seed is admitted explicitly.
+        var reached = graph.Vertices.Filter(v => v == seed || paths(v, out _)).ToSeq();
+        return new SystemTrace(seed, mode, reached.Filter(v => !ports.Contains(v)), reached.Filter(ports.Contains));
     }
 
-    static SystemTrace Walk(SystemNetwork network, Seq<string> frontier, string seed) {
-        var (reachedPorts, reachedElements) = Closure(network, frontier, toHashSet<string>(), Seq<string>(), Seq<string>());
-        return new SystemTrace(seed, reachedElements, reachedPorts);
-    }
+    // The flow-edge orientation reads the mode's Symmetric/Reverse data: Reach is symmetric (both legs); a directed
+    // mode emits a forward leg out of an emitting port and a reverse leg into a receiving one, Reverse mirroring it —
+    // so a NotDefined port (Emits && Receives) stays bidirectional, degrading the directed trace to reachability,
+    // never severing it. No mode switch and no runtime-silent arm: the two booleans drive the orientation directly.
+    static Seq<(NodeId From, NodeId To)> Orient(NodeId from, NodeId to, FlowDirection flow, TraceMode mode) =>
+        mode.Symmetric
+            ? Seq((from, to), (to, from))
+            : (flow.Emits    ? Seq(mode.Reverse ? (to, from) : (from, to)) : Empty)
+            + (flow.Receives ? Seq(mode.Reverse ? (from, to) : (to, from)) : Empty);
 
-    static (Seq<string> Ports, Seq<string> Elements) Closure(
-        SystemNetwork network, Seq<string> frontier,
-        HashSet<string> visited, Seq<string> ports, Seq<string> elements) =>
-        frontier.HeadOrNone().Match(
-            None: () => (ports, elements),
-            Some: port => visited.Contains(port)
-                ? Closure(network, frontier.Tail, visited, ports, elements)
-                : Closure(
-                    network,
-                    frontier.Tail.Concat(network.Neighbours(port).Filter(n => !visited.Contains(n))),
-                    visited.Add(port),
-                    ports.Add(port),
-                    network.OwnerOf(port).Match(
-                        Some: element => elements.Contains(element) ? elements : elements.Add(element),
-                        None: () => elements)));
+    static readonly Seq<(NodeId From, NodeId To)> Empty = Seq<(NodeId, NodeId)>();
 
-    static SystemTrace Merge(SystemTrace into, SystemTrace from) =>
-        into with {
-            ReachedElements = into.ReachedElements.Concat(from.ReachedElements.Filter(e => !into.ReachedElements.Contains(e))),
-            ReachedPorts = into.ReachedPorts.Concat(from.ReachedPorts.Filter(p => !into.ReachedPorts.Contains(p))),
-        };
+    static void Link(AdjacencyGraph<NodeId, SEdge<NodeId>> graph, NodeId from, NodeId to) =>
+        graph.AddVerticesAndEdge(new SEdge<NodeId>(from, to));
 }
 ```
 
 ## [04]-[INTERFERENCE]
 
-- Owner: `Interference` the host-neutral clash-evidence record carrying the clashing `(GlobalId, GlobalId)` pair, the `ClashKind` (`Hard` overlapping solids, `Clearance` insufficient maintenance/insulation gap), the measured deficit (the penetration depth for a hard clash, the clearance shortfall for a clearance clash, both as a kernel-SI scalar), the two member disciplines (`IfcDomain` pair), and the priority rank a cross-discipline clash carries above an intra-discipline one; `ClashKind` the closed `[SmartEnum<string>]` clash partition; `InterferenceQuery` the proximity request the kernel `Rasm` geometry owner resolves — a `GeometryHandle` pair plus the clearance threshold, the host-neutral systems owner producing the request and reading the scalar deficit back, never evaluating the solid intersection in this lane; `Interferences` the fold pairing the distribution-member geometry against itself and the structural `Model/structural#ANALYSIS_MODEL` member set.
-- Entry: `InterferenceCheck.Interferences(Seq<DistributionSystem> systems, Seq<BimElement> structural, Func<string, GeometryHandle> geometryOf, Func<string, double> clearanceOf, GeometryProximity proximity, double clearanceThreshold)` folds the cross-system clash set — pairing each distribution member's `GeometryHandle` (resolved through the injected `geometryOf`) against every other member (across systems for a cross-discipline clash, against the `structural` set for a duct-vs-beam clash), routing each pair to the injected `proximity.Test(InterferenceQuery)` kernel proximity test, and emitting an `Interference` row for each pair whose solids overlap (`Hard`, deficit = penetration) or whose gap falls below the member's insulation/maintenance Pset clearance (`Clearance`, deficit = threshold − gap) — `Fin<T>` aborts on a member whose geometry handle is unresolved (`Model/faults#FAULT_BAND` `BimFault.CapabilityMiss`) lowered with `.ToError()`; the fold ranks the result by deficit descending and cross-discipline-first, so the worst structural penetration sorts above a minor intra-discipline clearance graze, and the ranked `Seq<Interference>` feeds the `Review/coordination#COORDINATION` `ClashProposal` substrate. The pair clearance threshold is the wider of the two members' `Semantics/properties#PROPERTY_SETS` insulation/maintenance Pset envelopes resolved through the injected `clearanceOf` (an insulated chilled-water pipe carries a larger maintenance envelope than a bare cable tray), floored by the flat `clearanceThreshold` when a member's Pset is absent so the envelope never collapses to zero.
-- Auto: `Interferences` builds the candidate member-pair set through the `SwiftCollections.Lean` `SwiftBVH<int>` broad-phase — every member's portable `GeometryHandle` AABB (`proximity.Bounds(handle)`, kernel-SI scalar data) inserts once by SAH-cost placement, then one `SwiftBVH.Query(volume, results)` per member fills a `SwiftList<int>` candidate sink and the unordered index pair dedups through a `SwiftSparseSet.Add` so only bounds-overlapping pairs reach the precise `proximity.Test`, retiring the O(N²) all-pairs enumeration; the broad-phase is host-neutral (the `GeometryHandle` AABB is portable, the `BoundVolume` a `System.Numerics.Vector3` AABB) and the precise solid-distance test the kernel's concern; each surviving pair routes to `proximity.Test(new InterferenceQuery(handleA, handleB, Math.Max(clearanceThreshold, Math.Max(clearanceOf(a.Id), clearanceOf(b.Id)))))` — the pair clearance the wider of the two members' `clearanceOf` Pset envelopes floored by the flat default — returning a `ProximityResult` (the signed gap — negative for penetration — and the closest-approach distance), the fold reading `result.Gap < 0` as a `Hard` clash with deficit `−result.Gap` and `0 ≤ result.Gap < threshold` as a `Clearance` clash with deficit `threshold − result.Gap`; the discipline pair reads each member's `DistributionSystem.Kind.Domain` (a structural member carries `IfcDomain.Structural`), the rank folding `crossDiscipline ? deficit + DisciplineWeight : deficit` so the ranking is one ordering key, and the `Interference.Identity` content key over the sorted `GlobalId` pair memoizes the clash so a re-check re-tests only a moved member's pairs (the `SwiftBVH.UpdateEntryBounds` incremental refit a `Review/diff#MODEL_DIFF` `moved` arm drives, rebuilding only the changed AABBs).
-- Receipt: the ranked `Seq<Interference>` is the MEP coordination evidence the `Review/coordination#COORDINATION` `ClashProposal` fold consumes (the clash pair, kind, and deficit anchoring a proposed resolution and a BCF topic) and the `csharp:Rasm.AppUi/Charts`-side clash report renders — a duct-vs-beam hard clash, a pipe-clearance violation, and a tray-vs-structure graze each carry their measured deficit and discipline pair on one host-neutral row, the connectivity graph's coordination check beyond flow-reachability.
-- Packages: GeometryGymIFC_Core, SwiftCollections.Lean, Thinktecture.Runtime.Extensions, System.IO.Hashing, LanguageExt.Core, Rasm
-- Growth: a new clash kind (a soft clash, a code-clearance violation) is one `ClashKind` row reading the same proximity result; a new clearance source (a code-mandated envelope, a thermal-expansion gap) is one threshold-resolution column; a new ranking dimension is one ordering key on the same fold; a broad-phase structure swap (octree, spatial hash) is the `SwiftOctree`/`SwiftSpatialHash` behind the shared `Insert`/`Query` contract; never a per-discipline clash record, never a second proximity surface in this owner, and never a re-tessellation here.
-- Boundary: the interference test is geometric proximity binding the kernel `Rasm` geometry by reference — the systems owner keeps the `Interference` row as host-neutral scalar evidence (the `GlobalId` pair plus the measured deficit) and the solid-intersection/signed-distance test routes to the injected `GeometryProximity` kernel owner through the `InterferenceQuery`, the same host-neutrality law the `[2]-[CONNECTIVITY]` connectivity graph holds — a RhinoCommon `Brep.CreateBooleanIntersection` or a `Mesh` overlap test crossing this signature is the named seam violation; the candidate broad-phase is the `SwiftCollections.Lean` `SwiftBVH<int>` over the portable `GeometryHandle` AABB and an O(N²) all-pairs scan or a hand-rolled BVH is the deleted form (the package owns the SAH-cost 3D index; the `NetTopologySuite` `STRtree` owns the 2D planar `Semantics/geospatial#GEOSPATIAL_SEAM` index — neither reimplements the other's dimension), and the precise test is the kernel's concern, never re-tessellating in this lane; the clash partition is the closed `ClashKind` `[SmartEnum]` and a `HardClash`/`ClearanceClash` class family is the deleted form; the clearance threshold reads the `Semantics/properties#PROPERTY_SETS` member Pset and a hardcoded per-discipline gap table is the deleted form; the `Interference` row is the `Review/coordination#COORDINATION` `ClashProposal` substrate so coordination consumes this clash evidence rather than re-deriving proximity — re-running the proximity test in the coordination owner is the named cross-page drift defect; the `(GlobalId, GlobalId)` content key is derived through the `Review/diff#MODEL_DIFF` `XxHash128.HashToUInt128` idiom; an interference rejection lowers onto `Model/faults#FAULT_BAND` `BimFault` through `.ToError()`.
+- Owner: `Interference` the host-neutral clash-evidence record carrying the clashing `(NodeId, NodeId)` pair, the `ClashKind` (`Hard` overlapping solids, `Clearance` insufficient maintenance/insulation gap), the measured deficit (the penetration depth for a hard clash, the clearance shortfall for a clearance clash, both kernel-SI scalars), the two member disciplines (`IfcDomain` pair), and the priority rank a cross-discipline clash carries above an intra-discipline one; `ClashKind` the closed `[SmartEnum<string>]` clash partition; `InterferenceQuery` the proximity request keyed by the two members' `RepresentationContentHash` body geometry content keys plus the clearance threshold, the host-neutral systems owner producing the request and reading the scalar deficit back, the kernel `Rasm` geometry owner resolving the content-keyed geometry and evaluating the solid intersection; `GeometryProximity` the injected kernel seam (`Bounds` the content-keyed AABB, `Test` the precise signed gap); `InterferenceCheck` the fold pairing the distribution-member geometry against itself and the structural member set.
+- Cases: `ClashKind` rows `Hard` (overlapping solids, deficit = penetration depth) · `Clearance` (gap below the maintenance/insulation envelope, deficit = threshold − gap) (2); an `Interference` carries the ordered member `NodeId` pair, the `ClashKind`, the SI deficit, and the discipline `IfcDomain` pair, a cross-discipline clash (`FirstDomain != SecondDomain`) ranking above an intra-discipline one through the `DisciplineWeight` ordering offset.
+- Entry: `InterferenceCheck.Interferences(ElementGraph graph, GeometryProximity proximity, double clearanceThreshold, Op key)` folds the cross-system clash set — selecting the clash-relevant members off the seam graph (the `HvacFire`/`Electrical`/`Plumbing` distribution elements and the `Structural` members carrying a `RepresentationContentHash` body geometry key, the discipline resolved through `Model/elements#IFC_CLASS` the `IfcClass` row's `Domain`), pairing each member's body geometry against every bounds-overlapping candidate through the `SwiftCollections.Lean` broad-phase, routing each candidate pair to the injected `proximity.Test(InterferenceQuery)` kernel test, and emitting an `Interference` row for each pair whose solids overlap (`Hard`) or whose gap falls below the pair clearance envelope (`Clearance`); `Fin<T>` propagates the kernel `GeometryProximity` rejection BARE (a member whose body content key resolves to no realized kernel geometry lowers `Model/faults#FAULT_BAND` `BimFault.CapabilityMiss`, the `Expected`-derived case lifting with no `.ToError()` hop), and the fold ranks the result by deficit descending and cross-discipline-first so the worst structural penetration sorts above a minor intra-discipline graze, the ranked `Seq<Interference>` feeding the `Review/coordination#COORDINATION` `ClashProposal` substrate. The pair clearance threshold is the wider of the two members' `Semantics/properties#PROPERTY_SETS` insulation/maintenance envelopes read off the BAKED element's effective property bags through the `ClearanceKeys` policy table, floored by the flat `clearanceThreshold` when a member carries no clearance property so the envelope never collapses to zero (an insulated chilled-water pipe carries a larger maintenance envelope than a bare cable tray).
+- Auto: `Interferences` builds the candidate member-pair set through the `SwiftCollections.Lean` `SwiftBVH<int>` broad-phase — each member's kernel-SI AABB (`proximity.Bounds(bodyKey)`, the content-keyed geometry, no host type) inserts once by SAH-cost placement, then one `SwiftBVH.Query(volume, results)` per member fills a `SwiftList<int>` candidate sink and the unordered index pair dedups through a `SwiftSparseSet.Add` so only bounds-overlapping pairs reach the precise `proximity.Test`, retiring the O(N²) all-pairs enumeration; the broad-phase is host-neutral (the `BoundVolume` a `System.Numerics.Vector3` AABB) and the precise solid-distance test the kernel's concern; each surviving pair routes to `proximity.Test(new InterferenceQuery(a.Body, b.Body, Math.Max(clearanceThreshold, Math.Max(ClearanceOf(a), ClearanceOf(b)))))` returning a `ProximityResult` (the signed gap — negative for penetration — and the closest approach), the fold reading `result.Gap < 0` as a `Hard` clash with deficit `−result.Gap` and `0 ≤ result.Gap < threshold` as a `Clearance` clash with deficit `threshold − result.Gap`; the discipline pair reads each member's `IfcDomain` (a structural member carries `IfcDomain.Structural`), the rank folding `crossDiscipline ? deficit + DisciplineWeight : deficit` so the ranking is one ordering key, and the `Interference.Identity` content key over the ordered `NodeId` pair through `Rasm.Domain.ContentHash.Of` memoizes the clash so a `Review/diff#MODEL_DIFF` re-check re-tests only a moved member's pairs (the `SwiftBVH.UpdateEntryBounds` incremental refit rebuilding only the changed AABBs).
+- Receipt: the ranked `Seq<Interference>` is the MEP coordination evidence the `Review/coordination#COORDINATION` `ClashProposal` fold consumes (the clash `NodeId` pair, kind, and deficit anchoring a proposed resolution and a BCF topic, the coordination owner resolving each member's `ExternalId` IFC `GlobalId` off the graph for the viewpoint) and the `csharp:Rasm.AppUi/Charts` clash report renders — a duct-vs-beam hard clash, a pipe-clearance violation, and a tray-vs-structure graze each carry their measured deficit and discipline pair on one host-neutral row.
+- Packages: Rasm.Element, Rasm, SwiftCollections.Lean, Thinktecture.Runtime.Extensions, LanguageExt.Core
+- Growth: a new clash kind (a soft clash, a code-clearance violation) is one `ClashKind` row reading the same proximity result; a new clearance source (a code-mandated envelope, a thermal-expansion gap) is one `PropertyName` in the `ClearanceKeys` policy table; a new ranking dimension is one ordering key on the same fold; a broad-phase structure swap (octree, spatial hash) is the `SwiftOctree`/`SwiftSpatialHash` behind the shared `Insert`/`Query` contract; never a per-discipline clash record, never a second proximity surface, and never a re-tessellation here.
+- Boundary: the interference test is geometric proximity binding the kernel `Rasm` geometry by reference — the systems owner keeps the `Interference` row as host-neutral scalar evidence (the `NodeId` pair plus the measured deficit) and the solid-intersection/signed-distance test routes to the injected `GeometryProximity` kernel owner through the `InterferenceQuery` keyed by the seam `RepresentationContentHash` body content key, the same host-neutrality law the `[01]-[CONNECTIVITY]` view holds — a RhinoCommon `Brep.CreateBooleanIntersection`, a `Mesh` overlap test, or a `GeometryGym.Ifc` import crossing this owner is the named seam violation; the candidate broad-phase is the `SwiftCollections.Lean` `SwiftBVH<int>` over the content-keyed AABB and an O(N²) all-pairs scan or a hand-rolled BVH is the deleted form (the package owns the SAH-cost 3D index; the `NetTopologySuite` `STRtree` owns the 2D planar `Semantics/geospatial#GEOSPATIAL_SEAM` index — neither reimplements the other's dimension), and the precise test is the kernel's concern, never re-tessellating in this lane; the clash partition is the closed `ClashKind` `[SmartEnum]` and a `HardClash`/`ClearanceClash` class family is the deleted form; the clearance threshold reads the BAKED element's `Semantics/properties#PROPERTY_SETS` effective property through the `ClearanceKeys` policy table and a hardcoded per-discipline gap table or an injected `Func<string,double>` is the deleted form; the `Interference` row carries the seam `NodeId` identity (the coordination/BCF consumer resolves the `ExternalId` for the viewpoint) and a `GlobalId`-keyed clash row is the deleted form; the `Interference` row is the `Review/coordination#COORDINATION` `ClashProposal` substrate so coordination consumes this evidence rather than re-deriving proximity — re-running the proximity test in the coordination owner is the named cross-page drift defect; the `(NodeId, NodeId)` content key is derived through `Rasm.Domain.ContentHash.Of` [H7] and a second hasher is the named drift; an interference rejection lowers `BimFault.CapabilityMiss` BARE (the `Expected`-derived case IS the `Error`, no `.ToError()` hop).
 
-```csharp contract
+```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
-using System.IO.Hashing;
+using System.Collections.Frozen;
+using System.Numerics;
 using System.Text;
 using LanguageExt;
-using LanguageExt.Common;
+using Rasm.Domain;
+using Rasm.Element;
 using SwiftCollections;
 using SwiftCollections.Query;
 using Thinktecture;
@@ -306,28 +333,29 @@ namespace Rasm.Bim;
 
 // --- [TYPES] ------------------------------------------------------------------------------
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<InterchangeKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 public sealed partial class ClashKind {
     public static readonly ClashKind Hard      = new("HARD");
     public static readonly ClashKind Clearance = new("CLEARANCE");
 }
 
 // --- [SERVICES] ---------------------------------------------------------------------------
-// The kernel proximity seam: the host-neutral systems owner produces the request and reads the
-// scalar result, the kernel Rasm geometry owner evaluates the solid distance/intersection.
-public readonly record struct InterferenceQuery(GeometryHandle A, GeometryHandle B, double ClearanceThreshold);
+// The kernel proximity seam: the host-neutral systems owner produces the request keyed by the seam
+// RepresentationContentHash body content key, the kernel Rasm geometry owner resolves the content-keyed
+// geometry and evaluates the solid distance/intersection — never a host geometry type crossing this signature.
+public readonly record struct InterferenceQuery(UInt128 First, UInt128 Second, double ClearanceThreshold);
 
 public readonly record struct ProximityResult(double Gap, double ClosestApproach);
 
 public interface GeometryProximity {
-    (double MinX, double MinY, double MinZ, double MaxX, double MaxY, double MaxZ) Bounds(GeometryHandle handle);
+    (double MinX, double MinY, double MinZ, double MaxX, double MaxY, double MaxZ) Bounds(UInt128 geometryKey);
     Fin<ProximityResult> Test(InterferenceQuery query);
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
 public sealed record Interference(
-    string FirstGlobalId,
-    string SecondGlobalId,
+    NodeId First,
+    NodeId Second,
     ClashKind Kind,
     double Deficit,
     IfcDomain FirstDomain,
@@ -337,33 +365,41 @@ public sealed record Interference(
     public bool CrossDiscipline => FirstDomain != SecondDomain;
     public double Rank => CrossDiscipline ? Deficit + DisciplineWeight : Deficit;
 
-    public UInt128 Identity => XxHash128.HashToUInt128(Encoding.UTF8.GetBytes(
-        string.CompareOrdinal(FirstGlobalId, SecondGlobalId) <= 0
-            ? $"{FirstGlobalId}|{SecondGlobalId}" : $"{SecondGlobalId}|{FirstGlobalId}"));
+    public UInt128 Identity => ContentHash.Of(Encoding.UTF8.GetBytes(
+        string.CompareOrdinal(First.Value, Second.Value) <= 0 ? $"{First.Value}|{Second.Value}" : $"{Second.Value}|{First.Value}"));
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static class InterferenceCheck {
-    public static Fin<Seq<Interference>> Interferences(
-        Seq<DistributionSystem> systems, Seq<BimElement> structural,
-        Func<string, GeometryHandle> geometryOf, Func<string, double> clearanceOf, GeometryProximity proximity, double clearanceThreshold) {
-        var members = systems
-            .Bind(system => system.MemberGlobalIds.Map(id => (Id: id, Domain: system.Kind.Domain)))
-            .Append(structural.Map(static e => (Id: e.GlobalId, Domain: IfcDomain.Structural)))
+    // The clash-relevant disciplines: distribution runs clash cross-discipline and against the structural set.
+    static readonly FrozenSet<IfcDomain> ClashDomains =
+        new[] { IfcDomain.HvacFire, IfcDomain.Electrical, IfcDomain.Plumbing, IfcDomain.Structural }.ToFrozenSet();
+
+    // The clearance-envelope property policy: the wider of a member's insulation/maintenance properties (a new
+    // clearance source is one row), read off the baked element's effective property bags — never a hardcoded table.
+    static readonly Seq<PropertyName> ClearanceKeys = Seq(
+        PropertyName.Create("InsulationThickness"), PropertyName.Create("Clearance"), PropertyName.Create("MaintenanceClearance"));
+
+    public static Fin<Seq<Interference>> Interferences(ElementGraph graph, GeometryProximity proximity, double clearanceThreshold, Op key) {
+        var members = graph.ObjectNodes
+            .Choose(o => (IfcClass.TryGet(o.Classification.Code, out var cls) ? Optional(cls) : Option<IfcClass>.None)
+                .Filter(c => ClashDomains.Contains(c.Domain))
+                .Bind(c => o.Representations.Body.Map(body => (Id: o.Id, Domain: c.Domain, Body: body))))
             .ToSeq();
-        return Candidates(members, geometryOf, proximity)
-            .TraverseM(pair => Clash(members[pair.A], members[pair.B], geometryOf, clearanceOf, proximity, clearanceThreshold)).As()
-            .Map(rows => rows.Somes().OrderByDescending(static c => c.Rank).ToSeq());
+        return Candidates(members, proximity)
+            .TraverseM(pair => Clash(graph, members[pair.A], members[pair.B], proximity, clearanceThreshold, key)).As()
+            .Map(static rows => rows.Somes().OrderByDescending(static c => c.Rank).ToSeq());
     }
 
-    // The SwiftCollections.Lean SwiftBVH broad-phase replaces the O(N^2) all-pairs test: each member's
-    // kernel-SI AABB inserts once (the portable GeometryHandle bounds, no host type), each Query returns
-    // only the bounds-overlapping candidate set, and the unordered index pair dedups through a SwiftSparseSet
-    // so a candidate surfaces once. The structure is a CoordinationRule tuning knob (SwiftBVH/SwiftOctree/
-    // SwiftSpatialHash share the Insert/Query surface); SwiftBVH SAH-cost insertion is the default.
-    static Seq<(int A, int B)> Candidates(
-        Seq<(string Id, IfcDomain Domain)> members, Func<string, GeometryHandle> geometryOf, GeometryProximity proximity) {
-        var volumes = members.Map(m => Volume(proximity, geometryOf(m.Id))).ToArray();
+    // The SwiftBVH broad-phase replaces the O(N^2) all-pairs test: each member's content-keyed AABB inserts once,
+    // each Query returns only the bounds-overlapping candidate set. The unordered pair stays single through the j > i
+    // guard (an unordered {i,j} is produced exactly once, at the outer index i), and the per-i SwiftSparseSet keyed on
+    // the candidate index j (cleared per query) dedups a duplicate Query hit — the sparse backing stays O(N), never the
+    // O(N^2) a global i*N+j key would force (which would re-introduce the all-pairs memory the broad-phase exists to kill,
+    // and overflow int past ~46k members). The structure is a CoordinationRule tuning knob (SwiftBVH/SwiftOctree/
+    // SwiftSpatialHash share Insert/Query); SwiftBVH SAH-cost insertion is the default.
+    static Seq<(int A, int B)> Candidates(Seq<(NodeId Id, IfcDomain Domain, UInt128 Body)> members, GeometryProximity proximity) {
+        var volumes = members.Map(m => Volume(proximity, m.Body)).ToArray();
         var bvh = new SwiftBVH<int>(Math.Max(2, volumes.Length));
         for (int i = 0; i < volumes.Length; i++) { bvh.Insert(i, volumes[i]); }
         var seen = new SwiftSparseSet();
@@ -371,45 +407,54 @@ public static class InterferenceCheck {
         var pairs = Seq<(int A, int B)>();
         for (int i = 0; i < volumes.Length; i++) {
             overlaps.Clear();
+            seen.Clear();
             bvh.Query(volumes[i], overlaps);
             foreach (int j in overlaps) {
                 if (j <= i || !volumes[i].Intersects(volumes[j])) { continue; }
-                if (seen.Add(i * volumes.Length + j)) { pairs = pairs.Add((i, j)); }
+                if (seen.Add(j)) { pairs = pairs.Add((i, j)); }
             }
         }
         return pairs;
     }
 
-    static BoundVolume Volume(GeometryProximity proximity, GeometryHandle handle) {
-        var (x0, y0, z0, x1, y1, z1) = proximity.Bounds(handle);
-        return new BoundVolume(
-            new System.Numerics.Vector3((float)x0, (float)y0, (float)z0),
-            new System.Numerics.Vector3((float)x1, (float)y1, (float)z1));
+    static BoundVolume Volume(GeometryProximity proximity, UInt128 body) {
+        var (x0, y0, z0, x1, y1, z1) = proximity.Bounds(body);
+        return new BoundVolume(new Vector3((float)x0, (float)y0, (float)z0), new Vector3((float)x1, (float)y1, (float)z1));
     }
 
-    // The pair clearance is the wider of the two members' Pset insulation/maintenance envelopes (an insulated
-    // chilled-water pipe carries a larger maintenance gap than a bare cable tray), floored by the flat
-    // clearanceThreshold so an absent Pset degrades to the default rather than collapsing the envelope to zero.
     static Fin<Option<Interference>> Clash(
-        (string Id, IfcDomain Domain) a, (string Id, IfcDomain Domain) b,
-        Func<string, GeometryHandle> geometryOf, Func<string, double> clearanceOf, GeometryProximity proximity, double clearanceThreshold) {
-        double threshold = Math.Max(clearanceThreshold, Math.Max(clearanceOf(a.Id), clearanceOf(b.Id)));
-        return proximity.Test(new InterferenceQuery(geometryOf(a.Id), geometryOf(b.Id), threshold))
-            .Map(result => Classify(a, b, result, threshold));
+        ElementGraph graph, (NodeId Id, IfcDomain Domain, UInt128 Body) a, (NodeId Id, IfcDomain Domain, UInt128 Body) b,
+        GeometryProximity proximity, double clearanceThreshold, Op key) {
+        double threshold = Math.Max(clearanceThreshold, Math.Max(ClearanceOf(graph, a.Id, key), ClearanceOf(graph, b.Id, key)));
+        return proximity.Test(new InterferenceQuery(a.Body, b.Body, threshold)).Map(result => Classify(a, b, result, threshold));
     }
 
-    static Option<Interference> Classify((string Id, IfcDomain Domain) a, (string Id, IfcDomain Domain) b, ProximityResult result, double threshold) =>
+    static Option<Interference> Classify(
+        (NodeId Id, IfcDomain Domain, UInt128 Body) a, (NodeId Id, IfcDomain Domain, UInt128 Body) b, ProximityResult result, double threshold) =>
         result.Gap < 0d
             ? Some(new Interference(a.Id, b.Id, ClashKind.Hard, -result.Gap, a.Domain, b.Domain))
         : result.Gap < threshold
             ? Some(new Interference(a.Id, b.Id, ClashKind.Clearance, threshold - result.Gap, a.Domain, b.Domain))
             : None;
+
+    // The pair clearance reads the wider of the two members' insulation/maintenance envelopes off the BAKED element's
+    // effective property bags through the ClearanceKeys policy (the seam owns the type->occurrence merge), an absent
+    // property reading 0d so the flat clearanceThreshold floors it — never a hardcoded per-discipline gap table.
+    static double ClearanceOf(ElementGraph graph, NodeId member, Op key) =>
+        graph.Bake(member, key).ToOption().Match(
+            Some: element => ClearanceKeys
+                .Choose(name => element.Properties.Choose(bag => bag.Find(name)).HeadOrNone())
+                .Choose(static v => v is PropertyValue.Measure m ? Some(m.Value.Si) : Option<double>.None)
+                .Fold(0d, static (max, si) => Math.Max(max, si)),
+            None: static () => 0d);
 }
 ```
 
 ## [05]-[RESEARCH]
 
-- [DISTRIBUTION_SYSTEM_TRAVERSAL]: the `IfcDistributionSystem` container traversal is verified against the live GeometryGym decompile — `IfcDistributionSystem : IfcSystem : IfcGroup` carries `PredefinedType` (`IfcDistributionSystemEnum`) and inherits `IsGroupedBy` (`IfcRelAssignsToGroup`), so the `MembersOf` fold materializes the grouped `IfcDistributionElement` member set (`IfcFlowSegment`/`IfcFlowFitting`/`IfcFlowTerminal`/`IfcFlowController`) through the same `IsGroupedBy` grouping path the `Model/zones#ZONE_GRAPH` overlay flattens, distinct from per-element spatial containment; the served spatial-structure set has NO forward inverse on the distribution system in GeometryGym 25.7.30 (`IfcRelServicesBuildings` is reachable only as `IfcSpatialElement.ServicedBySystems` from the spatial side), so the `ServesOf` fold yields empty and the served column is joined from the spatial owner at a later pass; the `IfcDistributionSystem.PredefinedType`/`IsGroupedBy` and `IfcDistributionElement.HasPorts` member spellings confirm against the live surface before the projection fold is final.
-- [PORT_CONNECTION_GRAPH]: the `IfcDistributionPort`/`IfcRelConnectsPortToElement`/`IfcRelConnectsPorts` connection-edge member spellings the `PortsOf`/`EdgesOf` folds read onto the `PortConnection` union — the `IfcDistributionElement.HasPorts` `IfcRelConnectsPortToElement` port-membership set (`RelatingPort` the port, the element the owner), the port's `IfcDistributionPort.FlowDirection` `IfcFlowDirectionEnum` and `PredefinedType`, the port's single `ContainedIn` (`IfcRelConnectsPortToElement`), `ConnectedFrom`, and `ConnectedTo` (each a single `IfcRelConnectsPorts`, NOT a set — the fold wraps the two non-null references into a two-element array) flow-edge references (`RelatingPort`/`RelatedPort` the two ends, the optional `RealizingElement` the joint that realizes the connection) — verified against the live GeometryGym decompile: `IfcDistributionElement.HasPorts` is a `SET<IfcRelConnectsPortToElement>`, `IfcDistributionPort : IfcPort` carries `FlowDirection` (`IfcFlowDirectionEnum`) and `PredefinedType` (`IfcDistributionPortTypeEnum`), `IfcRelConnectsPortToElement.RelatingPort`/`RelatedElement`, and `IfcRelConnectsPorts.RelatingPort`/`RelatedPort`/`RealizingElement` are the real member spellings, and the unordered-pair dedupe on the `(RelatingPort.GlobalId, RelatedPort.GlobalId)` key — a connection materialized from both incident ports — is the verified single-edge invariant before the `EdgesOf` fold is final.
-- [NETWORK_CONTENT_KEY]: the `DistributionSystem.Identity` `(GeometryKey, TopologyKey)` `UInt128` pair the `SystemTrace` re-reads the network by grounds against the `Review/diff#MODEL_DIFF` `XxHash128.HashToUInt128` content-key idiom, so a trace re-walks the network only on a changed `GeometryKey` (the ordered member-element geometry-handle keys) or `TopologyKey` (the sorted connection-edge unordered port pairs) rather than re-folding the adjacency; the trace identity is the BIM-side network key and re-minting a second identity scheme for the connectivity memoization is the named cross-folder drift defect — the connectivity owner produces the typed network and its content-key identity, the trace folds reachability over it, never a re-projection of the GeometryGym graph per query.
-- [INTERFERENCE_PROXIMITY]: the `Interference` clash fold's geometric proximity binds the kernel `Rasm` geometry by reference through the injected `GeometryProximity` seam — the host-neutral systems owner produces the `InterferenceQuery` (`GeometryHandle` pair plus clearance threshold) and reads the `ProximityResult` signed gap back, the kernel geometry owner evaluating the solid distance/intersection so a RhinoCommon `Brep`/`Mesh` overlap test never crosses this lane; the candidate pair set is generated by the `SwiftCollections.Lean` `SwiftBVH<int>` broad-phase (`.api/api-swiftcollections` `SwiftBVH`/`BoundVolume`/`SwiftSparseSet` — `new SwiftBVH<int>(capacity)`, `Insert(key, BoundVolume)`, `Query(volume, ICollection<int>)`, `SwiftSparseSet.Add` pair dedupe) over the portable `proximity.Bounds(handle)` axis-aligned bounds (`GeometryHandle` AABB is portable scalar data, `BoundVolume` a `System.Numerics.Vector3` AABB) so only bounds-overlapping pairs reach the precise `proximity.Test` — the two-phase split is broad (SwiftBVH AABB candidates) then narrow (kernel solid distance), and the clearance threshold reads the member's `Semantics/properties#PROPERTY_SETS` insulation/maintenance Pset so an insulated chilled-water pipe carries a larger maintenance envelope than a bare cable tray; the ranked `Seq<Interference>` is the `Review/coordination#COORDINATION` `ClashProposal` substrate so the coordination owner consumes this evidence rather than re-deriving proximity — the `GeometryProximity` member shape and the kernel `GeometryHandle` AABB accessor confirm against the kernel `Rasm` geometry owner at cross-folder alignment before the fold is final, and the `Model/structural#ANALYSIS_MODEL` member set the structural clash leg pairs against is read by reference.
+- [SEAM_VIEW_NOT_PROJECTION]: the connectivity layer reads the seam `Rasm.Element/Graph/element#ELEMENT_GRAPH` `ElementGraph` rather than re-projecting GeometryGym — `Projection/semantic#SEMANTIC_PROJECTOR` is the SOLE IFC owner (`ELEMENT-REBUILD-PLAN.md` §4A: GeometryGym stays sole in `Rasm.Bim`; the projector lowers `DatabaseIfc` to a seam `GraphDelta`), and its `Projection/semantic#RELATION_ALGEBRA` `EdgeProjection.All` already folds `IfcRelConnectsPorts`/`IfcRelConnectsPortToElement` (`IfcRelKind.ConnectsPorts`/`ConnectsPortToElement`, `EdgeAxis.Connect`), `IfcRelAssignsToGroup` (`EdgeAxis.Assign`), and `IfcRelServicesBuildings` (the `Generic` passthrough) onto neutral `Rasm.Element/Relations/relation#EDGE_ALGEBRA` edges; the connectivity reads them exactly as `Model/query#ELEMENT_SET` reads the same graph (`ElementGraph.ObjectNodes`/`EdgesAt`/`Find`, `Relationship.Connect`/`Assign`/`Generic`, `Node.Object.Classification`/`PredefinedType`/`ExternalId`, `Relationship.Touches`/`Relating`/`Related`), so the retired `DistributionSystemProjection.Project(IfcDistributionSystem, BimModel)` GeometryGym fold and the `BimModel`/`BimElement` binding it required are GONE (`ELEMENT-REBUILD-PLAN.md` §2 element collapse, §6 `Rasm.Bim` ripple). The FULL `IfcDistributionSystemEnum` member set the `DistributionSystemKind` `[SmartEnum]` keys over — the 42 IFC4 disciplines (`AIRCONDITIONING`…`WATERSUPPLY`, the DISTINCT `DATA` and `COMMUNICATION` rows, never a fused `DATACOMMUNICATION`), the seven IFC4X3 rail-electrification/telephony additions (`CATENARY_SYSTEM`/`OVERHEAD_CONTACTLINE_SYSTEM`/`RETURN_CIRCUIT`/`FIXEDTRANSMISSIONNETWORK`/`OPERATIONALTELEPHONYSYSTEM`/`MOBILENETWORK`/`MONITORINGSYSTEM`), and the IFC4X4 `SAFETY` draft, plus the `USERDEFINED`/`NOTDEFINED` fallback — and `IfcFlowDirectionEnum` (`SOURCE`/`SINK`/`SOURCEANDSINK`/`NOTDEFINED`) the `FlowDirection` keys over, both rosters decompile-verified against GeometryGymIFC_Core 25.7.30 (`.api/api-geometrygym-ifc`); the system-group entity types `IfcDistributionSystem`/`IfcDistributionCircuit`/`IfcSystem`/`IfcBuiltSystem` (the IFC4.3 rename of the retired `IfcBuildingSystem`, absent from 25.7.30) and the `IfcDistributionPort.FlowDirection`/`PredefinedType` (`IfcDistributionPortTypeEnum` `CABLE`/`CABLECARRIER`/`DUCT`/`PIPE`/`WIRELESS`) port vocabulary ground against the same catalog (the distribution-element/port/system rows), the kinds resolved off the seam node's `PredefinedType` token rather than the GeometryGym enum so this owner carries no `GeometryGym.Ifc` import.
+- [PORT_CONNECTION_COLLAPSE]: the retired `PortConnection` `[Union]` (`ConnectsPortToElement`/`ConnectsPorts`) mirrored two typed `IfcRel*` cases — exactly the seventeen-typed-`IfcRel*`-case design the seam's neutral edge algebra rejected (`ELEMENT-REBUILD-PLAN.md` §4-RT C5: the seam carries `Compose`/`Assign`/`Associate`/`Connect`/`Void` + `Generic`, the IFC relationship roster living in the Bim projector) — so the connectivity reads the neutral `Relationship.Connect` (`From`/`To`/`SubKind`/`Realizing`, `ConnectKind.Port`) edges and distinguishes the flow edge (both endpoints classified `IfcDistributionPort`) from the ownership edge (a port endpoint and its distribution element) by the endpoint `Node.Object.Classification.Code`, never a typed connection union; the realizing fitting rides the `Connect.Realizing` `Option<NodeId>` (the `IfcRelConnectsPorts.RealizingElement` projection), and the unordered-pair dedupe on the `(From, To)` `NodeId` pair is the verified single-edge invariant.
+- [QUIKGRAPH_TRACE]: the `SystemTrace` reachability fold is the shared `QuikGraph` `[GRAPH_ALGORITHM]` owner the `libs/csharp/.api/api-quikgraph` `Model/systems#SYSTEM_TRACE` law mandates — "the `PortConnection` edges fold into an `AdjacencyGraph`/`UndirectedGraph` over port keys; `graph.TreeBreadthFirstSearch(seedPort)` returns the `TryFunc` whose reachable domain IS the downstream closure, replacing the hand-rolled `SystemNetwork.Walk` visited-set fold" — so the retired tail-recursive `Closure` visited-set walk is the named deleted form; the fold builds a transient `AdjacencyGraph<NodeId, SEdge<NodeId>>` (`AddVerticesAndEdge`, the value `SEdge<NodeId>` allocating nothing, the dense `NodeId`-keyed network) over BOTH ports and elements (the ownership edges crossing each fitting so the closure traverses a tee's inlet→element→outlets), runs `AlgorithmExtensions.TreeBreadthFirstSearch`, and projects the reached vertex set back onto the reached-element/reached-port `NodeId` sets (the `VertexPredecessorRecorderObserver.TryGetPath` returning `false` for the root, so the seed is admitted explicitly); the `TraceMode` orientation reads the port `FlowDirection` (`Emits`/`Receives`) so the directed downstream/upstream closure walks the real flow path while a `NotDefined` port stays bidirectional, the same shared owner the `Planning/schedule#CRITICAL_PATH` `SourceFirstTopologicalSort` and the `Review/versioning#VERSION_GRAPH` `OfflineLeastCommonAncestor` compose, never N bespoke walks.
+- [INTERFERENCE_PROXIMITY]: the `Interference` clash fold binds the kernel `Rasm` geometry by reference through the injected `GeometryProximity` seam — the host-neutral systems owner produces the `InterferenceQuery` keyed by the seam `Rasm.Element/Graph/element#NODE_MODEL` `RepresentationContentHash.Body` `UInt128` body content key (no host geometry type, no GeometryGym surface) and reads the `ProximityResult` signed gap back, the kernel owner resolving the content-keyed geometry and evaluating the solid distance so a RhinoCommon `Brep`/`Mesh` overlap test never crosses this lane; the candidate pair set is generated by the `SwiftCollections.Lean` `SwiftBVH<int>` broad-phase (`.api/api-swiftcollections`: `new SwiftBVH<int>(capacity)`, `Insert(key, BoundVolume)`, `Query(BoundVolume, ICollection<int>)`, `BoundVolume(Vector3 min, Vector3 max)`/`Intersects`, `SwiftSparseSet.Add` pair dedupe, `SwiftList<int>` result sink) over the `proximity.Bounds(bodyKey)` AABB so only bounds-overlapping pairs reach the precise `proximity.Test` — broad (SwiftBVH AABB) then narrow (kernel solid distance), the `SwiftOctree`/`SwiftSpatialHash` interchangeable behind the shared `Insert`/`Query` contract and `SwiftBVH.UpdateEntryBounds` the incremental refit a `Review/diff#MODEL_DIFF` `moved` arm drives; the member set is selected off the seam graph by `Model/elements#IFC_CLASS` the `IfcClass` row's `Domain` over `{HvacFire, Electrical, Plumbing, Structural}` and the clearance reads the BAKED element's `Semantics/properties#PROPERTY_SETS` effective property bags through the `ClearanceKeys` policy (the seam `Bake` owning the type→occurrence merge), the ranked `Seq<Interference>` the `Review/coordination#COORDINATION` `ClashProposal` substrate (the coordination owner resolving each `NodeId`'s `ExternalId` for the BCF viewpoint), so the coordination owner consumes this evidence rather than re-deriving proximity.
+- [SERVED_STRUCTURES_AND_FLOW_DIRECTION]: the served spatial-structure set now SURVIVES via the `Generic("IfcRelServicesBuildings")` neutral passthrough [C5] where the retired GeometryGym fold left the column empty (the forward `IfcRelServicesBuildings` inverse is absent on the `IfcDistributionSystem` surface, reachable only as `IfcSpatialElement.ServicedBySystems`), the projector landing the relationship on a `Generic` edge carrying the `IfcRelKind.ServicesBuildings.Key` wire-name so the served set reads off the system node's incident `Generic` edges — a capability gain over the prior owner. The port `FlowDirection` the directed trace orients on is read off the port `Node.Object`'s effective `FlowDirection` property the `Projection/semantic#SEMANTIC_PROJECTOR` lowers from `IfcDistributionPort.FlowDirection` onto a port property bag; a model carrying no flow direction reads `NotDefined` (the port conducts both ways), so the directed trace degrades to undirected reachability rather than faulting — the orientation is a correct refinement over the always-total `Reach` closure, never an illusory directed walk over an unoriented graph.
+

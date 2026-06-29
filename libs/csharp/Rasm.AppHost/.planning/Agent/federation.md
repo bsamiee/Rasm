@@ -12,7 +12,7 @@ The MCP-client federation surface for the runtime spine: the official `ModelCont
 
 ## [02]-[FEDERATION_AXIS]
 
-- Owner: `TransportKind` `[SmartEnum<string>]` the closed three-row transport taxonomy under the `CapabilityKeyPolicy` accessor, each row carrying its `IClientTransport` factory delegate; `TrustScope` the per-server permission envelope the federated descriptors inherit; `FederationFault` `[Union]` fault family in the fresh 4800 band; `FederatedServer` `[ValueObject]` the admitted external-server row carrying its transport kind, its constructed `IClientTransport`, and its trust scope; `FederationCatalog` the frozen admitted-server set.
+- Owner: `TransportKind` `[SmartEnum<string>]` the closed three-row transport taxonomy under the `ComparerAccessors.StringOrdinal` accessor, each row carrying its `IClientTransport` factory delegate; `TrustScope` the per-server permission envelope the federated descriptors inherit; `FederationFault` `[Union]` fault family in the fresh 4800 band; `FederatedServer` `[ValueObject]` the admitted external-server row carrying its transport kind, its constructed `IClientTransport`, and its trust scope; `FederationCatalog` the frozen admitted-server set.
 - Cases: 3 transport rows — stdio, http, streamable — the closed `IClientTransport` selection the SDK serves; `FederationFault` = Text | TransportRejected | HandshakeFailed | PeerUnavailable | ToolCallFaulted | UntrustedScope; server identity is open at composition so `FederatedServer` is a `[ValueObject]` admitted dynamically, never a `[SmartEnum]` row.
 - Entry: `TransportKind.Transport(string endpoint, StdioClientTransportOptions? stdio)` returns `IClientTransport` — the row's factory delegate constructs the SDK transport from the endpoint and the per-kind options; `FederatedServer.Admit(string server, TransportKind kind, string endpoint, TrustScope trust, StdioClientTransportOptions? stdio)` returns `Validation<FederationFault, FederatedServer>` — the admission rail validates the server id, constructs the transport through the kind's factory, and admits the row, mirroring the `CapabilityDescriptor` admission through `DescriptorSurface.Describe`.
 - Auto: the `TransportKind` row owns the `IClientTransport` construction so `Stdio` news a `StdioClientTransport(StdioClientTransportOptions)` over the spawned peer process command, `Http` news a `HttpClientTransport(HttpClientTransportOptions)` at `HttpTransportMode.AutoDetect` (streamable-first, SSE-fallback) over the peer endpoint uri, and `Streamable` news the SAME `HttpClientTransport` pinned to `HttpTransportMode.StreamableHttp` over the resumable HTTP session — the streamable session transport is the SDK's internal `TransportBase` the `HttpClientTransport` selects by mode at connect, never a directly-constructed type, and the three public `IClientTransport` implementors are exactly `StdioClientTransport`/`HttpClientTransport`/`StreamClientTransport`; the kind is the closed vocabulary the admission reads to gate the transport, never a per-server transport reimplementation; the `TrustScope` carries the `PermissionShape` floor every federated descriptor from that server inherits so an untrusted server's tools admit only as `read`-effect descriptors and a trusted server's tools admit at their declared effect class, the trust decision made once at admission and never re-evaluated per call; the admission folds through `Validation<FederationFault, T>` so a malformed server id, an unreachable endpoint, or a scope violation accumulates rather than aborting on the first, and the frozen `FederationCatalog` is the composition-time admitted set the projection reads.
@@ -24,8 +24,8 @@ The MCP-client federation surface for the runtime spine: the official `ModelCont
 ```csharp signature
 // --- [TYPES] ----------------------------------------------------------------------------
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<CapabilityKeyPolicy, string>]
-[KeyMemberComparer<CapabilityKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class TransportKind {
     public static readonly TransportKind Stdio = new("stdio", Spawn);
     public static readonly TransportKind Http = new("http", Connect);
@@ -58,7 +58,7 @@ public sealed record TrustScope(
 }
 
 [ValueObject<string>]
-[KeyMemberEqualityComparer<CapabilityKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class FederatedServer {
     static partial void NormalizeKeyMember(ref string value) => value = value.Trim().ToLowerInvariant();
 

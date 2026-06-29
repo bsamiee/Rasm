@@ -18,7 +18,7 @@ THE FRAMING-CONNECTOR CONNECTIONFAMILY. The hanger vocabulary — the `HangerTyp
 ```csharp signature
 // --- [TYPES] -------------------------------------------------------------------------------
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<ConnectionKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class HangerType {
     public static readonly HangerType JoistHanger  = new("joist-hanger",  ifcDesignation: "joist-hanger", carriesMember: true);
     public static readonly HangerType FramingAngle = new("framing-angle", ifcDesignation: "framing-angle", carriesMember: false);
@@ -29,7 +29,7 @@ public sealed partial class HangerType {
 }
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<ConnectionKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SteelGauge {
     public static readonly SteelGauge Ga18 = new("18ga", gaugeNumber: 18, baseThicknessMm: 1.214);
     public static readonly SteelGauge Ga16 = new("16ga", gaugeNumber: 16, baseThicknessMm: 1.519);
@@ -41,7 +41,7 @@ public sealed partial class SteelGauge {
 }
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<ConnectionKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class HangerInstall {
     public static readonly HangerInstall Nailed  = new("nailed",  durationSensitive: true);
     public static readonly HangerInstall Screwed = new("screwed", durationSensitive: true);
@@ -50,7 +50,7 @@ public sealed partial class HangerInstall {
 }
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<ConnectionKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class LoadDuration {
     public static readonly LoadDuration Permanent = new("permanent", cd: 0.90);
     public static readonly LoadDuration TenYear   = new("ten-year",  cd: 1.00);
@@ -129,7 +129,7 @@ public static class ConnectionCatalogue {
     public static FrozenDictionary<ConnectionId, ConnectionItem> BuildHangerRows(Context context) =>
         HangerRows
             .Choose(row => HangerOf(row, context, default).ToOption())
-            .ToFrozenDictionary(static r => r.Id, static r => r.Item, ConnectionKeyPolicy.EqualityComparer);
+            .ToFrozenDictionary(static r => r.Id, static r => r.Item, ComparerAccessors.StringOrdinal.EqualityComparer);
 }
 ```
 

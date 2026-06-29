@@ -13,7 +13,7 @@ The crash-durable workflow and persistent-job owner for the runtime spine: a `Wo
 
 ## [02]-[WORKFLOW_FAMILY]
 
-- Owner: `WorkflowStatus` `[SmartEnum<string>]` the instance lifecycle ladder under the `TimeKeyPolicy` accessor; `StepKind` `[Union]` the five durable-step shapes; `StepStatus` `[SmartEnum<string>]` the per-step disposition; `WorkflowStep` the durable step record; `WorkflowInstance` the hash-chained instance record; `OrchestrationFault` `[Union]` fault family in the 4770 band.
+- Owner: `WorkflowStatus` `[SmartEnum<string>]` the instance lifecycle ladder under the `ComparerAccessors.StringOrdinal` accessor; `StepKind` `[Union]` the five durable-step shapes; `StepStatus` `[SmartEnum<string>]` the per-step disposition; `WorkflowStep` the durable step record; `WorkflowInstance` the hash-chained instance record; `OrchestrationFault` `[Union]` fault family in the 4770 band.
 - Cases: instance statuses running | suspended | completed | compensating | faulted; `StepKind` = `Activity(CommandIntent Intent)` | `Timer(Instant FireAt)` | `Signal(string Channel, Option<Duration> Timeout)` | `Compensation(string ForStep, CommandIntent Intent)` | `PersistentJob(ScheduleEntry Entry)`; step statuses pending | running | committed | waiting | compensated | failed; `OrchestrationFault` = Text | StepRejected | SignalTimeout | FenceStale | ResumeBroken.
 - Entry: `WorkflowInstance.Begin(string workflowId, Seq<WorkflowStep> plan, TenantContext tenant, Instant at)` materializes a running instance with its step plan and a genesis chain; `WorkflowInstance.Advance(WorkflowStep step, ContentHash hash, StepStatus status)` folds one committed step onto the instance, chaining the step's content hash to the predecessor.
 - Auto: each `WorkflowStep` carries its `StepKind`, an attempt count, and the resume cursor (the wire-stable keys plus the step index) so a step is replayable from durable state, never a live closure; the instance's `Chain` is the `EventLog.Chain` head so a committed step's `CommandReceipt` chains into the same hash-chained log a live command chains into and the instance's integrity is the chain's tamper-evidence; a `StepKind.Timer` resolves through `SchedulePort.Next` so a durable wait is one `ScheduleEntry` row, a `StepKind.Signal` suspends the instance to `waiting` until the matching channel signal arrives or the timeout fires, and a `StepKind.PersistentJob` registers its `ScheduleEntry` so a recurring job survives restart; the saga compensation is a `StepKind.Compensation` whose `CommandIntent` rolls forward the prior step's undo through `CommandAlgebra.Batch`'s reverse-fold, never a phantom undo.
@@ -23,14 +23,10 @@ The crash-durable workflow and persistent-job owner for the runtime spine: a `Wo
 - Boundary: the workflow is the only durable-orchestration owner — a bespoke saga loop, a per-workflow state machine, and a separate workflow store are the deleted forms; the executor is `CommandDispatch.Run` itself so the workflow owns the saga and step sequence while the command algebra owns the transaction, never a second dispatcher; the durable step state persists only wire-stable keys plus the resume cursor by compare-and-set, never a live closure — a `StepKind.Activity` carries a `CommandIntent` (descriptor + serialized arguments + caller modality), not a `Func`, so a step rehydrates from durable bytes; the chain is the `EventLog` on the durable `OpLog` so the workflow log and the command log are one stream, never a second event store; the compensation rolls forward through `CommandAlgebra`'s brokered, grant-metered batch so a saga undo gains no privileged execution.
 
 ```csharp signature
-public sealed class OrchestrationKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
-    public static IEqualityComparer<string> EqualityComparer => StringComparer.Ordinal;
-    public static IComparer<string> Comparer => StringComparer.Ordinal;
-}
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<OrchestrationKeyPolicy, string>]
-[KeyMemberComparer<OrchestrationKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class WorkflowStatus {
     public static readonly WorkflowStatus Running = new("running");
     public static readonly WorkflowStatus Suspended = new("suspended");
@@ -40,8 +36,8 @@ public sealed partial class WorkflowStatus {
 }
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<OrchestrationKeyPolicy, string>]
-[KeyMemberComparer<OrchestrationKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class StepStatus {
     public static readonly StepStatus Pending = new("pending");
     public static readonly StepStatus Running = new("running");

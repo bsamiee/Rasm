@@ -19,10 +19,6 @@ Rasm.Persistence owns the lifecycle of every durable artifact through one classi
 - Boundary: every stored thing belongs to exactly one class row carrying five decisions, and the identity scheme alone yields two complete behavioral families (content-keyed classes get dedup and race-loser disposal free, name-plus-epoch classes get versioned replacement free); a budget breach truncates with an embedded receipt (capture must succeed degraded) while a ceiling breach rejects outright (security never degrades), the two overflow responses never interchangeable; classification stamps arrive settled and import re-verifies stamps so an export round-trip cannot launder a ceiling; the `stream` class is append-only and never evicted because the Marten event stream is the system of record (only the AS-OF snapshot density and the blob reachability are reclaimable); the `blob` class is content-keyed and full-history-reachable so a geometry blob a historical version references is never collected (`#SWEEP_AND_GC`), and the `Store/blobstore#OBJECT_STORE` lane registers its catalog row in this class so the one GC governs both the snapshot spine and the geometry object store.
 
 ```csharp signature
-public sealed class RetentionKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
-    public static IEqualityComparer<string> EqualityComparer => StringComparer.Ordinal;
-    public static IComparer<string> Comparer => StringComparer.Ordinal;
-}
 
 [SmartEnum]
 public sealed partial class LossPolicy {
@@ -53,8 +49,8 @@ public readonly record struct RetentionSchedule(Duration Cadence, long ByteBudge
 public readonly record struct RetentionFact(RetentionClass Class, ContentAddress Key, long Bytes, Instant At);
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<RetentionKeyPolicy, string>]
-[KeyMemberComparer<RetentionKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class RetentionClass {
     public static readonly RetentionClass Snapshot = new("snapshot", LossPolicy.ReceiptedEvict, IdentityScheme.ContentKeyed, DataClassification.Internal, new RetentionSchedule(Duration.FromHours(6), 64L * 1024 * 1024 * 1024, 32, Duration.FromDays(365)));
     public static readonly RetentionClass Stream = new("stream", LossPolicy.NeverEvict, IdentityScheme.ContentKeyed, DataClassification.Confidential, new RetentionSchedule(Duration.MaxValue, long.MaxValue, int.MaxValue, Duration.MaxValue));

@@ -12,7 +12,7 @@ One authentication boundary for the runtime spine: a per-issuer OIDC trust ancho
 
 ## [02]-[ISSUER_TRUST]
 
-- Owner: `IdentityKeyPolicy` the ordinal comparer accessor; `IssuerTrust` the per-issuer anchor binding one `ConfigurationManager<OpenIdConnectConfiguration>` and one `OpenIdConnectProtocolValidator` to a `ValidationParameters` policy; `TrustRegistry` the frozen issuer-to-anchor catalog with the alternate-lookup probe; `ProtocolContext` the interactive-flow nonce/hash validation input.
+- Owner: `ComparerAccessors.StringOrdinal` the ordinal comparer accessor; `IssuerTrust` the per-issuer anchor binding one `ConfigurationManager<OpenIdConnectConfiguration>` and one `OpenIdConnectProtocolValidator` to a `ValidationParameters` policy; `TrustRegistry` the frozen issuer-to-anchor catalog with the alternate-lookup probe; `ProtocolContext` the interactive-flow nonce/hash validation input.
 - Cases: each admitted issuer is one `IssuerTrust` row keyed by its issuer URI; the anchor's `ConfigurationManager` carries the discovery `MetadataAddress`, the `AutomaticRefreshInterval`/`RefreshInterval` rotation cadence, and the `UseLastKnownGoodConfiguration` resilience toggle.
 - Entry: `Anchor(string issuer, string metadataAddress, HttpClient resilient, DeadlineClass refresh)` constructs one anchor — a `ConfigurationManager<OpenIdConnectConfiguration>(metadataAddress, new OpenIdConnectConfigurationRetriever(), new HttpDocumentRetriever(resilient), new OpenIdConnectConfigurationValidator())` wired into one `ValidationParameters` whose `ConfigurationManager` slot owns the rotating keys; `Resolve(string issuer)` returns `Option<IssuerTrust>` through the ordinal probe; `Refresh(IssuerTrust anchor)` flags the next read on a signature-key-not-found through `RequestRefresh`.
 - Auto: the anchor leaves `ValidationParameters.SigningKeys` unset and assigns the `ConfigurationManager` slot, so the validators pull `IssuerSigningKeys` from the refreshed `JsonWebKeySet` rather than a pinned key, and a JWKS rotation lands on the next validate with no host edit; `UseLastKnownGoodConfiguration` is on so a transient discovery-fetch failure falls back to the last-good document for `LastKnownGoodLifetime` rather than failing validation; the validating `ConfigurationManager<T>` ctor overload wires the `OpenIdConnectConfigurationValidator` so a discovery document without sufficient signing keys is rejected before it is trusted; the `OpenIdConnectProtocolValidator` checks the OIDC invariants bare JWT validation does not — the `nonce` round-trip, the `c_hash`/`at_hash` binding of the id-token to the authorization code and access token, and the `state` correlation — for the interactive challenge legs the `CREDENTIAL_FLOW` acquisition raises; the discovery `HttpClient` is the `Wire/outbound` resilient/service-discovery handler, never a bare client, and `RequireHttps` stays on.
@@ -23,10 +23,6 @@ One authentication boundary for the runtime spine: a per-issuer OIDC trust ancho
 
 ```csharp signature
 // --- [TYPES] ----------------------------------------------------------------------------
-public sealed class IdentityKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
-    public static IEqualityComparer<string> EqualityComparer => StringComparer.Ordinal;
-    public static IComparer<string> Comparer => StringComparer.Ordinal;
-}
 
 // --- [MODELS] ---------------------------------------------------------------------------
 public sealed record IssuerTrust(

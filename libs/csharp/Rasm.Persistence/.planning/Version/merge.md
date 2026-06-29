@@ -20,8 +20,8 @@ Rasm.Persistence structural diff/merge over the seam `ElementGraph`: the `Genera
 ```csharp signature
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<VersionKeyPolicy, string>]
-[KeyMemberComparer<VersionKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class NodeKind {
     public static readonly NodeKind Element = new("element");
     public static readonly NodeKind Space = new("space");

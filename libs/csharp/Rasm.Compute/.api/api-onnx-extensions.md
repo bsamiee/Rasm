@@ -7,8 +7,9 @@ public assembly (no `.Managed` companion at 0.14.0) — the sole managed entry i
 `SessionOptions.RegisterOrtExtensions()`, defined in `Microsoft.ML.OnnxRuntime`,
 which P/Invokes the `ortextensions` native asset this package ships. The catalog
 GUIDES the `Model/extension#EXTENSION_OPS` `CustomOps` fold: asset presence is
-guarded before registration, and the string-tensor round-trip (`Tensor<string>`
-ingress + `CreateTensorWithEmptyStrings`/`GetStringElement` egress) is how a
+guarded before registration, and the string-tensor round-trip
+(`Microsoft.ML.OnnxRuntime.Tensors.Tensor<string>` ingress + the `StringSlots`
+allocator and the polymorphic `Egress` non-tensor reader) is how a
 tokenizer/detokenizer custom-op model crosses the managed boundary.
 
 ## [01]-[PACKAGE_SURFACE]
@@ -64,11 +65,11 @@ tokenizer/detokenizer custom-op model crosses the managed boundary.
 |  [06]   | native asset copy target               | build target     | places runtime assets                     |
 
 [ENTRYPOINT_SCOPE]: string-tensor boundary (the round-trip a tokenizer/detokenizer op model needs; `OrtValue` members in `Microsoft.ML.OnnxRuntime`)
-- rail: model (consumed by `Model/extension#EXTENSION_OPS` `StringSlots`/`StringEgress` and `Model/inference#INFERENCE_MODES` `RunInput.Strings`)
+- rail: model (consumed by `Model/extension#EXTENSION_OPS` `StringSlots`/`Egress` and `Model/inference#INFERENCE_MODES` `RunInput.Strings`)
 
 | [INDEX] | [SURFACE]                              | [CALL_SHAPE]   | [CAPABILITY]                              |
 | :-----: | :------------------------------------- | :------------- | :---------------------------------------- |
-|  [01]   | `OrtValue.CreateFromStringTensor(Tensor<string>)` | ingress factory | binds a `System.Numerics.Tensors.Tensor<string>` token input (the `RunInput.Strings` admission case) |
+|  [01]   | `OrtValue.CreateFromStringTensor(Microsoft.ML.OnnxRuntime.Tensors.Tensor<string>)` | ingress factory | binds a `Microsoft.ML.OnnxRuntime.Tensors.Tensor<string>` token input — the ONNX-owned tensor type the factory requires, NOT the `System.Numerics.Tensors.Tensor<T>` the numeric `Carrier<T>` bridge rides (the two `Tensor<...>` spellings are distinct types); the `RunInput.Strings` admission case |
 |  [02]   | `OrtValue.CreateTensorWithEmptyStrings(OrtAllocator, long[])` | egress factory | allocates the empty string-output slots a tokenizer/detokenizer op fills |
 |  [03]   | `OrtValue.GetStringElement(int)` / `GetStringTensorAsArray()` | egress read | reads decoded string elements out (element-wise or bulk) |
 
@@ -100,8 +101,8 @@ tokenizer/detokenizer custom-op model crosses the managed boundary.
 - Extension packages do not create a separate preprocessing service family.
 
 [STACKING]: the package contributes ONE registration step and one boundary, folded into the existing owners —
-- `RegisterOrtExtensions()` is one arm of the `Model/extension#EXTENSION_OPS` `CustomOps.Register` fold (gated on `SessionPolicy.OrtExtensions`), sequenced beside the per-path `RegisterCustomOpLibraryV2(path, out _)` arm and the `File.Exists` asset guard that faults `ExtensionAssetMissing` before any registration runs — so a missing `ortextensions` asset is caught at the managed guard, not at the native `DllNotFoundException`
-- the string-tensor round-trip stacks the `RunInput.Strings` ingress (`CreateFromStringTensor`) with the `StringSlots`/`StringEgress` egress (`CreateTensorWithEmptyStrings` + `GetStringElement`) over the SAME `OrtValue` carrier the tensor pipeline uses; the `String` dtype is a model-boundary-only row and never enters the interior tensor vocabulary — a duplicate string-input factory or a tokenizer service is the rejected form
+- `RegisterOrtExtensions()` is one arm of the `Model/extension#EXTENSION_OPS` `CustomOps.Register` fold (gated on `SessionPolicy.OrtExtensions`), sequenced beside the per-path `RegisterCustomOpLibrary(path)` arm — the ORT-managed-lifetime spelling that tracks no caller handle (the `out`-handle `RegisterCustomOpLibraryV2(path, out _)`, whose discarded handle leaks the library, is the rejected form) — and the `File.Exists` asset guard that faults `ExtensionAssetMissing` before any registration runs, so a missing `ortextensions` asset is caught at the managed guard, not at the native `DllNotFoundException`
+- the non-tensor boundary stacks the `RunInput.Strings` ingress (`CreateFromStringTensor`, the ONNX `Microsoft.ML.OnnxRuntime.Tensors.Tensor<string>` carrier) with the `StringSlots` guarded bound-output allocator (`CreateTensorWithEmptyStrings`) and the polymorphic `Egress` reader over the SAME `OrtValue` carrier the tensor pipeline uses — `Egress` discriminates on `OnnxType` and reads a `String`-tensor output bulk through `GetStringTensorAsArray` + `GetTensorTypeAndShape().Shape` AND the `ZipMap` sequence/map classifier output through `GetValueCount`/`GetValue`; the `String` dtype is a model-boundary-only row and never enters the interior tensor vocabulary — a duplicate string-input factory, a string-only `StringEgress` reader, or a tokenizer service is the rejected form
 - there is no managed op-discovery surface to mine: the tokenizer/pre/post operators are entirely native and entered through the single registration call, so the catalog's job is the asset RID table + the boundary members, not an op roster
 
 [RAIL_LAW]:

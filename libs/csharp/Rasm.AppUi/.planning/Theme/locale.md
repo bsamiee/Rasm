@@ -11,7 +11,7 @@ One locale law serves every AppUi surface: `LocaleRow` is the culture axis — t
 
 ## [02]-[LOCALE_AXIS]
 
-- Owner: `LocaleKeyPolicy` single ordinal-ignore-case key accessor; `LocaleRow` `[SmartEnum<string>]` culture axis.
+- Owner: `ComparerAccessors.StringOrdinalIgnoreCase` accessor; `LocaleRow` `[SmartEnum<string>]` culture axis.
 - Cases: en, qps-ploc — En is the shipped default; Pseudo is the conformance row proving string expansion and mirrored layout in headless evidence.
 - Entry: `public partial string Source(string key, CultureInfo strings)` — the per-row string-table source column.
 - Auto: generated `Items` and key lookup under the single comparer; `Source` rides `[UseDelegateFromConstructor]`. The `PluralResx` column is the per-row ICU-pattern source — it folds the `.one`/`.other`/`.few`/`.many`/`.zero`/`.two` satellite keys into one `{count, plural, …}` ICU pattern string the `MessageFormatter` resolves, so the plural grammar of a locale is CLDR data the engine reads, never a row-coded suffix branch.
@@ -20,17 +20,10 @@ One locale law serves every AppUi surface: `LocaleRow` is the culture axis — t
 - Boundary: `RightToLeft` is the authoritative flow column — flow is never derived from culture data, so the pseudo row proves mirroring on every platform; per-surface culture variance enters as the `LocalePolicy` construction source, never a second axis — embedded panel surfaces fold the host language probe, an `AppearanceSettings.LanguageIdentifier` LCID read through `CultureInfo.GetCultureInfo(int)` behind a `HostAttachPort` delegate, to a row key with unmatched tags folding to `En` at the probe edge, and standalone surfaces carry the user-chosen user-settings value; script coverage for non-Latin rows arrives as ranked family values on the `FontChain` rows, so a locale row never carries font data; `qps-ploc` constructs on ICU-backed globalization as `qps-Ploc` with parent `qps`, and its satellite resolution rides the research row; the plural grammar is the ICU `PluralFormatter` over the row's `PluralResx` pattern — `PluralRoute` names the CLDR category set (`cardinal-*`/`ordinal-*`) the `MessageFormatter` selects from, so a row carries the route discriminant only and the grammatical branch is engine-resolved CLDR data, never an inline `count == 1 ?` arm.
 
 ```csharp signature
-public sealed class LocaleKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
-    private static readonly StringComparer Policy = StringComparer.OrdinalIgnoreCase;
-
-    public static IEqualityComparer<string> EqualityComparer => Policy;
-
-    public static IComparer<string> Comparer => Policy;
-}
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<LocaleKeyPolicy, string>]
-[KeyMemberComparer<LocaleKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 public sealed partial class LocaleRow {
     public static readonly LocaleRow En = new("en", rightToLeft: false, formatTag: "en-US", pluralRoute: Cardinal, source: LocaleStrings.Find, pluralResx: LocaleStrings.Pattern);
     public static readonly LocaleRow Pseudo = new("qps-ploc", rightToLeft: true, formatTag: "en-US", pluralRoute: Cardinal, source: LocaleStrings.Expand, pluralResx: LocaleStrings.Pattern);
@@ -62,8 +55,8 @@ public sealed partial class LocaleRow {
 
 ```csharp signature
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<LocaleKeyPolicy, string>]
-[KeyMemberComparer<LocaleKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 public sealed partial class PluralCategory {
     public static readonly PluralCategory Zero = new("zero");
     public static readonly PluralCategory One = new("one");
@@ -181,7 +174,7 @@ public sealed record LocaleRuntime(Atom<ResolvedLocale> Cell, IDateTimeZoneProvi
         };
 
     private static Option<LocaleRow> RowFor(string tag) =>
-        LocaleRow.Items.AsIterable().Find(item => LocaleKeyPolicy.EqualityComparer.Equals(item.Key, tag));
+        LocaleRow.Items.AsIterable().Find(item => ComparerAccessors.StringOrdinalIgnoreCase.EqualityComparer.Equals(item.Key, tag));
 }
 ```
 

@@ -13,7 +13,7 @@ One self-describing operation catalog for the whole suite: every canonical op su
 
 ## [02]-[DESCRIPTOR_AXIS]
 
-- Owner: `EffectClass` `[SmartEnum<string>]` five-row effect taxonomy under the `CapabilityKeyPolicy` ordinal accessor; `Idempotency` `[SmartEnum<string>]` four-row repeat-safety vocabulary; `CostUnit` `[SmartEnum<string>]` the metered-resource axis; `CostModel` per-descriptor cost record; `PermissionShape` the object-set × op-class scope record; `CapabilityDescriptor` the self-describing op row; `DescriptorReceipt` the per-registration projection.
+- Owner: `EffectClass` `[SmartEnum<string>]` five-row effect taxonomy under the `ComparerAccessors.StringOrdinal` accessor; `Idempotency` `[SmartEnum<string>]` four-row repeat-safety vocabulary; `CostUnit` `[SmartEnum<string>]` the metered-resource axis; `CostModel` per-descriptor cost record; `PermissionShape` the object-set × op-class scope record; `CapabilityDescriptor` the self-describing op row; `DescriptorReceipt` the per-registration projection.
 - Cases: 5 effect rows — pure, read, write, external, irreversible — in escalating side-effect severity; 4 idempotency rows — idempotent, keyed, single-shot, non-idempotent; cost units cpu-millis, wall-millis, bytes-egress, model-tokens, calls.
 - Entry: `CapabilityDescriptor.Of(string surface, string op, EffectClass effect, Idempotency idempotency, CostModel cost, PermissionShape permission, Func<CommandArguments, Fin<ComputeIntent>> compile)` materializes one row whose id is the `{surface}.{op}` join, binding the descriptor to the `ComputeIntent` it compiles to; `Describe(IServiceCollection services, params ReadOnlySpan<CapabilityDescriptor> rows)` admits descriptor rows through one `Contributors` fan-in registration.
 - Auto: each canonical op surface — `TensorOpFamily`, `ModelIdentity`, `ComputeEndpoint`, `QuantityFamily`, `SolverPluginContract` — projects its rows into descriptors at composition through one `Project` fold per surface so the catalog is generated from the op surfaces, never hand-listed, and a hand-authored op divorced from a descriptor (a free command method, a per-op MCP tool definition, a hand-written SDK client method) is the deleted form — the worked `TensorProjection.Project` fence is the one shape every surface follows, the worked `ModelProjection.Project` fence the model-draw instance whose `CostModel.Variable` closes over the composition-built `TiktokenTokenizer` and prices the prompt in `CostUnit.ModelTokens` through `CountTokens(prompt)` so a model draw is grant-priced and ceiling-gated before the provider sees a token (the per-call post-hoc `ChatResponse.Usage` charge at `#REASONING_LOOP` reconciles against this same `ModelTokens` axis the descriptor pre-prices), the sandbox `SolverPluginContract.Descriptors` projection the plugin-contract instance; the `Permission.Classification` field rides the `DataClassification` taxonomy so an op touching classified state declares it on the descriptor and the broker reads it before admission; `Cost.Estimate` projects a static pre-flight cost from the argument shape so a dry run prices the command before any byte moves — a `CpuMillis` tensor draw prices off the payload element count, a `ModelTokens` model draw off the air-gapped embedded-vocab token count, never a `chars/4` heuristic.
@@ -23,14 +23,10 @@ One self-describing operation catalog for the whole suite: every canonical op su
 - Boundary: the descriptor is the suite's only op-metadata owner — a per-op attribute scatter, a hand-kept command list, and a second cost table are the deleted forms; the descriptor never carries the op's body, only its self-description and the `compile` projection to a `ComputeIntent`, so the registry stays metadata and the execution stays on the Compute dispatch rail; `EffectClass.Irreversible` forces the command algebra onto the saga-compensation path because no rollback restores the prior state, and `EffectClass.Pure`/`Read` admit without a grant when the broker's read-floor policy permits; `Idempotency` is the same vocabulary `HopIdempotency` carries at the transport edge, re-keyed for op-level repeat safety, so a keyed command and a keyed hop share one repeat-safety semantic, never two; the estimated cost vector traces to `CostUnit` rows and the descriptor's `CostModel`, never an inline literal; descriptor ids are `nameof`-derived op symbols joined with the owning surface key, never free literals.
 
 ```csharp signature
-public sealed class CapabilityKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
-    public static IEqualityComparer<string> EqualityComparer => StringComparer.Ordinal;
-    public static IComparer<string> Comparer => StringComparer.Ordinal;
-}
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<CapabilityKeyPolicy, string>]
-[KeyMemberComparer<CapabilityKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class EffectClass {
     public static readonly EffectClass Pure = new("pure", rank: 0, reversible: true);
     public static readonly EffectClass Read = new("read", rank: 1, reversible: true);
@@ -43,8 +39,8 @@ public sealed partial class EffectClass {
 }
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<CapabilityKeyPolicy, string>]
-[KeyMemberComparer<CapabilityKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class Idempotency {
     public static readonly Idempotency Idempotent = new("idempotent");
     public static readonly Idempotency Keyed = new("keyed");
@@ -53,8 +49,8 @@ public sealed partial class Idempotency {
 }
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<CapabilityKeyPolicy, string>]
-[KeyMemberComparer<CapabilityKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class CostUnit {
     public static readonly CostUnit CpuMillis = new("cpu-millis");
     public static readonly CostUnit WallMillis = new("wall-millis");
@@ -490,8 +486,8 @@ public sealed record GrantBroker(
 
 ```csharp signature
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<CapabilityKeyPolicy, string>]
-[KeyMemberComparer<CapabilityKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SdkTarget {
     public static readonly SdkTarget CSharp = new("csharp", extension: ".cs", Csharp);
     public static readonly SdkTarget TypeScript = new("typescript", extension: ".ts", Typescript);

@@ -271,11 +271,12 @@ public sealed partial record ElementGraph {
  MaterialsOf(member).Bind(static m => m.Properties).Choose(static p => p is MaterialPropertySet.Mechanical mech ? Some(mech) : None).HeadOrNone();
 
  // M7: the neutral section the Rasm.Materials projector baked onto a member's ProfileSet composition (WithSection),
- // read once by a Rasm.Compute structural runner without re-resolving the ProfileRef or admitting VividOrange.
- public Option<SectionProperties> SectionOf(NodeId member, Op key) =>
- Bake(member, key).ToOption().Bind(static e => e.Materials
- .Choose(static b => b.Material.Composition is MaterialComposition.ProfileSet { Section: var s } ? s : Option<SectionProperties>.None)
- .HeadOrNone());
+ // read Op-FREE off the member's directly-associated material — NO Bake, NO Op key — so a Rasm.Compute structural/fire
+ // runner (which holds no Op) reads graph.SectionOf(member) DIRECTLY off the seam rather than re-deriving the ProfileSet
+ // traversal in a discipline-local accessor or admitting VividOrange; the seam owns the section read (it owns the nodes).
+ // A section is occurrence-direct (the ProfileRef is associated, not type-inherited), so no Bake-fold is needed.
+ public Option<SectionProperties> SectionOf(NodeId member) =>
+ MaterialsOf(member).Choose(static m => m.Composition is MaterialComposition.ProfileSet { Section: var s } ? s : Option<SectionProperties>.None).HeadOrNone();
 
  // --- [BAKE] ---------------------------------------------------------------------------
  // The one derived fold: an Object node plus its reachable subgraph become a flat Element. The public entry seeds an

@@ -20,14 +20,10 @@ Rasm.Persistence content-addressed history over the Marten event substrate: a co
 - Boundary: the commit content key derives from `XxHash128` over the canonical `(SortedDistinctParents, SortedOpKeys, Hlc)` tuple — `Commit` distinct-sorts parents so a duplicate-parent or reordered-parent merge converges on one node and a wall-clock or random commit id is the deleted form; the `CommitMessage` is NOT in the preimage so re-wording a commit is a fresh node; `MergeBase` is the true merge-base set (reachability rank intersect minus dominated), so a clean history yields one base, a criss-cross yields the two-or-more bases the three-way merge virtualizes, and disjoint histories yield the empty `Seq`; the `VersionVector` is the one concurrency primitive — `Order` returns `Concurrent` exactly when neither dominates; `BranchRef` grants ride the `Element/identity#AUTHORITY` `Capability` bit field narrowed to the branch lane (`Merge | Rebase | ForcePush`) through `Movable` — a two-sided gate (the ref must be `Kind.Mutable`, the actor's grant must hold `Write`, AND the branch ACL must admit `Write`) — never a parallel branch-only enum; a `LightweightTag` is an immutable `BranchRef`, an `AnnotatedTag` adds its `Annotation`/`Tagger`/`Target`, and a `RemoteTracking` ref carries its `Upstream`, all on the one ref shape; the durable commit-DAG is where the `csharp:Rasm.Bim` `BimCommit` federates and durably stores — a domain commit crosses at the wire as one `commit`-family `OpLogEntry` and lands as a generic `CommitNode` stored UNDER the wire-carried content key, never re-derived through `Commit`'s native preimage, and the Bim three-way merge bases against this owner's `MergeBase` antichain.
 
 ```csharp signature
-public sealed class VersionKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
-    public static IEqualityComparer<string> EqualityComparer => StringComparer.Ordinal;
-    public static IComparer<string> Comparer => StringComparer.Ordinal;
-}
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<VersionKeyPolicy, string>]
-[KeyMemberComparer<VersionKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class RefKind {
     public static readonly RefKind Branch = new("branch", mutable: true, annotated: false);
     public static readonly RefKind LightweightTag = new("tag", mutable: false, annotated: false);

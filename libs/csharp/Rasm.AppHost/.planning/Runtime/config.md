@@ -13,7 +13,7 @@ Configuration admission for the runtime spine: eight ranked `ConfigSource` rows 
 
 ## [02]-[SOURCE_AXIS]
 
-- Owner: `ConfigSource` `[SmartEnum<string>]` eight rows; `ReloadClass` `[SmartEnum<string>]` two rows; `ConfigSourceKeyPolicy` single ordinal-ignore-case key accessor; `ConfigLayer` boot input record.
+- Owner: `ConfigSource` `[SmartEnum<string>]` eight rows; `ReloadClass` `[SmartEnum<string>]` two rows; `ComparerAccessors.StringOrdinalIgnoreCase` accessor; `ConfigLayer` boot input record.
 - Cases: json, user-settings, host-document, secrets-store, user-secrets, in-memory, env, cli — rank order is mount order, a later mount overrides earlier keys, and the rank fold is the whole precedence law.
 - Entry: `Compose(IConfigurationManager manager, ConfigLayer layer, params ReadOnlySpan<ConfigSource> sources)` — `Fin<IConfigurationManager>` aborts on the first rejected mount.
 - Packages: Microsoft.Extensions.Configuration, Microsoft.Extensions.Configuration.Json, Microsoft.Extensions.Configuration.EnvironmentVariables, Microsoft.Extensions.Configuration.CommandLine, Microsoft.Extensions.Configuration.UserSecrets, Thinktecture.Runtime.Extensions, LanguageExt.Core
@@ -21,18 +21,11 @@ Configuration admission for the runtime spine: eight ranked `ConfigSource` rows 
 - Boundary: per-profile source selection and layering are computed from the resolved profile record at the composition root, never a second profile-keyed table here; `ConfigLayer` is the boundary capsule — `HostDocument` carries the HostAttachPort doc-user-text projection, `SecretsSource` carries the app-root-owned RID-dispatched credential-store `IConfigurationSource` gated on the SOURCE_ROUTES research row, whose file-backed fallback path resolves through `PathHelper.GetSecretsPathFromSecretsId` rather than a hand-built path, `ParentSnapshot` chains a companion onto its parent snapshot through `AddJsonStream` over the parent's serialized snapshot stream so an embedded or in-memory-stream layer mounts without a temp file, `UserSettingsPath` and `ContentRoot` arrive computed from the profile row; the inbox JSON provider parses JSONC (comments plus trailing commas) with zero added package; `ConfigurationKeyComparer` is the canonical path-segment order so a numeric array index sorts before a sibling string key; section paths travel as nameof-derived symbols, never call-site string literals; ambient `IConfiguration` reads past bootstrap are rejected.
 
 ```csharp signature
-public sealed class ConfigSourceKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
-    private static readonly StringComparer Policy = StringComparer.OrdinalIgnoreCase;
-
-    public static IEqualityComparer<string> EqualityComparer => Policy;
-
-    public static IComparer<string> Comparer => Policy;
-}
 
 [SmartEnum<string>]
 [ValidationError<ConfigError>]
-[KeyMemberEqualityComparer<ConfigSourceKeyPolicy, string>]
-[KeyMemberComparer<ConfigSourceKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 public sealed partial class ReloadClass {
     public static readonly ReloadClass Frozen = new("frozen");
     public static readonly ReloadClass Transition = new("transition");
@@ -52,8 +45,8 @@ public sealed record ConfigLayer(
 
 [SmartEnum<string>]
 [ValidationError<ConfigError>]
-[KeyMemberEqualityComparer<ConfigSourceKeyPolicy, string>]
-[KeyMemberComparer<ConfigSourceKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 public sealed partial class ConfigSource {
     public const string EnvPrefix = "RASM_";
 
@@ -416,7 +409,7 @@ public static class SecretLeaseOps {
 
 ## [07]-[CREDENTIAL_PEM]
 
-- Owner: `PemLabel` `[SmartEnum<string>]` the closed RFC-7468 textual-encoding label vocabulary under the `ConfigSourceKeyPolicy` accessor; `PemBlock` the single armored element; `CredentialBundle` the ordered multi-element bundle the canonical `\n` PEM-block delimiter joins; `CredentialPemWire` the redacted cross-language carrier; `PemFault` `[Union]` fault family in the 4790-4799 band; `CredentialPem` the static encode-decode-redact surface.
+- Owner: `PemLabel` `[SmartEnum<string>]` the closed RFC-7468 textual-encoding label vocabulary under the `ComparerAccessors.StringOrdinalIgnoreCase` accessor; `PemBlock` the single armored element; `CredentialBundle` the ordered multi-element bundle the canonical `\n` PEM-block delimiter joins; `CredentialPemWire` the redacted cross-language carrier; `PemFault` `[Union]` fault family in the 4790-4799 band; `CredentialPem` the static encode-decode-redact surface.
 - Cases: 6 label rows — certificate, public-key, private-key, ec-private-key, rsa-private-key, pkcs7 — the RFC-7468 armor labels the BCL `PemEncoding` writes between the `-----BEGIN {label}-----`/`-----END {label}-----` lines; `PemFault` = Text | LabelUnknown | ArmorMalformed | EmptyBundle.
 - Entry: `Encode(CredentialBundle bundle)` returns `string` — one fold writes each `PemBlock` through `PemEncoding.WriteString(label, der)` and joins the armored elements with the single `\n` RFC-7468 inter-block delimiter, so a certificate chain plus its private key crosses as one canonical bundle text whose element boundary is the `-----END-----`/`-----BEGIN-----` armor pair, never a hand-built `--SEP--` token; `Decode(string text)` returns `Fin<CredentialBundle>` — one fold walks `PemEncoding.TryFind` across the text, peeling each `-----BEGIN/END-----` armored element into a `PemBlock` so the decoder reads any RFC-7468 producer's bundle without a separator contract; `Carrier(CredentialBundle bundle, string keyId, Redactor redactor, ClockPolicy clocks)` returns `CredentialPemWire` — the redacted carrier the wire crosses, carrying the bundle's label set, the per-block `XxHash128` content digest, and the redacted key-id, never a private-key byte.
 - Auto: the bundle is the canonical wire shape the `SecretLease` produces and the TS verifier and Python admission consume — a credential-material wire crossing as a raw `byte[]`, a bare base64 string, or a hand-built `\n--SEP--\n`-joined envelope is the deleted form, the RFC-7468 armor IS the self-delimiting separator and the `\n` between an `-----END-----` and the next `-----BEGIN-----` is the only inter-block byte; the `CredentialBundle.Cert(X509Certificate2 certificate)` factory derives a certificate bundle from the cert's own DER (`X509Certificate2.RawData`) so the host never hand-encodes bytes it already owns through the BCL cert surface, and `CredentialPem.Decode` round-trips a `CERTIFICATE` block through `X509Certificate2.CreateFromPem(text)` so the decoder proves the armored bytes parse as a real certificate before admission; a `PrivateKey`-classed `PemBlock` carries `DataClassification.Secret` so Observability/telemetry#REDACTION_TAXONOMY erases its bytes at every egress and the `CredentialPemWire` never carries a private-key block's content, only its label and content digest; the per-block digest is the non-cryptographic `XxHash128` identity value the `System.IO.Hashing` rail law forbids security claims over, so the wire carrier proves bundle identity without exposing material and the rotation diff is a digest equality, never a constant-time pretense.
@@ -427,8 +420,8 @@ public static class SecretLeaseOps {
 
 ```csharp signature
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<ConfigSourceKeyPolicy, string>]
-[KeyMemberComparer<ConfigSourceKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 public sealed partial class PemLabel {
     public static readonly PemLabel Certificate = new("CERTIFICATE", secret: false);
     public static readonly PemLabel PublicKey = new("PUBLIC KEY", secret: false);

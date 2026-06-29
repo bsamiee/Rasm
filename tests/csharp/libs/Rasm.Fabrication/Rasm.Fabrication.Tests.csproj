@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <ItemGroup Label="Project References">
+        <ProjectReference Include="../../../../libs/csharp/Rasm.Fabrication/Rasm.Fabrication.csproj" />
+    </ItemGroup>
+</Project>

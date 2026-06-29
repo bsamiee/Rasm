@@ -1,41 +1,79 @@
 # [COMPUTE_EXTENSION_OPS]
 
-Rasm.Compute model extension-ops: one `CustomOps` registration fold over the extensions bundle and the custom-op library rows plus the string-tensor output boundary (empty-slot allocator AND egress reader). The page owns the `CustomOps` registration-and-string-boundary fold; registration extends the `Model/sessions#SESSION_CAPSULE` `ModelSessions` boundary capsule and rides `Microsoft.ML.OnnxRuntime.Extensions`/`Microsoft.ML.OnnxRuntime`, the `SessionPolicy` lifecycle record arrives settled from `Model/sessions#SESSION_CAPSULE`, the native-asset evidence rides the `Model/identity#MODEL_IDENTITY` `ModelLoad` receipt, and the string INGRESS rides `Model/inference#INFERENCE_MODES` `RunInput.Strings`. The `CustomOps.Register`/`StringSlots`/`StringEgress` fold crosses to `Model/sessions#SESSION_CAPSULE` as the one registration step the open fold composes.
+Rasm.Compute model extension-ops: one `CustomOps` owner that folds extension and custom-op registration into the `Model/sessions#SESSION_CAPSULE` admission AND reads the non-tensor model boundary the custom-op lane produces — `string`-tensor outputs and the structured `ZipMap` sequence/map outputs the numeric tensor egress cannot carry. ONNX Runtime owns the custom-op library lifetime through `RegisterCustomOpLibrary(path)` — freed when the `SessionOptions` and every session built from them are released — so the registration tracks no caller handle; the `out`-handle `RegisterCustomOpLibraryV2(path, out nint)` is the legacy caller-must-free spelling whose discarded handle leaks the library, so it is the rejected form. Registration extends the `ModelSessions` boundary capsule and rides `Microsoft.ML.OnnxRuntime.Extensions`/`Microsoft.ML.OnnxRuntime`; the `SessionPolicy` lifecycle record arrives settled from `Model/sessions#SESSION_CAPSULE`, the native-asset evidence rides the `Model/identity#MODEL_IDENTITY` `ModelLoad` receipt, and the string INGRESS rides `Model/inference#INFERENCE_MODES` `RunInput.Strings`. The non-tensor `Egress` is the catalogued completion of that ingress: `RunInput.Strings` admits a `Tensor<string>` through the `Tensor/residency` `TensorBridge.Ingress` `OrtValue.CreateFromStringTensor` factory (the sole `OrtValue` C-data factory, never re-minted here), and the `OnnxType`-discriminated `Egress` reads the model's non-tensor outputs back here — never a second string-input factory and never the interior `System.Numerics.Tensors` carrier, because a string tensor is a model-boundary `Microsoft.ML.OnnxRuntime.Tensors.Tensor<string>` only.
 
 ## [01]-[INDEX]
 
-- [01]-[EXTENSION_OPS]: extension and custom-op registration with asset evidence; bidirectional string-tensor boundary (ingress and egress).
+- [01]-[EXTENSION_OPS]: extension/custom-op registration with asset evidence and ORT-managed library lifetime; the polymorphic non-tensor `Egress` reader over `string`-tensor and `ZipMap` sequence/map outputs; the guarded bound string-output allocator.
 
 ## [02]-[EXTENSION_OPS]
 
-- Owner: `CustomOps` — one registration fold over the extensions bundle and the custom-op library rows, plus the string-tensor output boundary (empty-slot allocator AND egress reader); string INGRESS rides `RunInput.Strings` on the inference owner, never a second string-input factory here.
-- Cases: `RegisterOrtExtensions` bundle row; `RegisterCustomOpLibraryV2` per-path rows; `StringSlots` empty-output allocator, `StringEgress` element reader.
-- Entry: `public static Fin<SessionOptions> Register(SessionOptions options, SessionPolicy policy)` — `Fin` aborts with `ExtensionAssetMissing` naming every absent native asset before any registration runs.
-- Receipt: native-asset evidence rides the ModelLoad receipt; the missing-path set is the fault payload.
+- Owner: `CustomOps` — the registration fold over the extensions bundle and the custom-op library rows (ORT-managed lifetime, no caller handle), the guarded bound string-output allocator `StringSlots`, and the polymorphic non-tensor `Egress` projecting an output `OrtValue` onto the `OpOutput` `[Union]` by `OnnxValueType`; string INGRESS rides `RunInput.Strings` on the inference owner, never a second string-input factory here.
+- Cases: registration arms `RegisterOrtExtensions` (the bundle, gated on `SessionPolicy.OrtExtensions`) and `RegisterCustomOpLibrary` per `SessionPolicy.CustomOpLibraries` path; `OpOutput` egress cases `Strings` (an `ONNX_TYPE_TENSOR` of `String` → shaped `Tensor<string>`), `Mapping` (one `ONNX_TYPE_MAP` label→score), `Batched` (an `ONNX_TYPE_SEQUENCE` of maps — the `ZipMap` classifier output).
+- Entry: `public static Fin<SessionOptions> Register(SessionOptions options, SessionPolicy policy)` — `Fin` aborts with `ExtensionAssetMissing` naming every absent custom-op path before any registration runs, then converts the bundle's native `OnnxRuntimeException` to the same typed fault; `public Fin<OpOutput> Egress()` on `OrtValue` projects a non-tensor output and faults `ModelRejected` on an `OnnxType` the boundary does not model.
+- Receipt: native-asset evidence rides the `Model/identity#MODEL_IDENTITY` `ModelLoad` receipt; the missing-path set (or the native fault message) is the `ExtensionAssetMissing` payload.
 - Packages: Microsoft.ML.OnnxRuntime.Extensions, Microsoft.ML.OnnxRuntime, LanguageExt.Core, BCL inbox
-- Growth: a new custom-op library is one path row on `SessionPolicy.CustomOpLibraries`; zero new surface.
-- Boundary: registration extends the `Model/sessions#SESSION_CAPSULE` `ModelSessions` boundary capsule and this fence carries language-owned statement forms — guard admission before registration and the out-parameter custom-op handle; `RegisterOrtExtensions()` faults `OnnxRuntimeException(ErrorCode.NoSuchFile)` if the `libortextensions` native asset is absent, so the asset-presence guard precedes registration; tokenizer and pre/post operators stay session assets — a preprocessing or tokenizer service family is the rejected form; the `String` dtype is a model-boundary-only row entering through `Tensor<string>` via the `Model/inference#INFERENCE_MODES` `RunInput.Strings` admission case (`OrtValue.CreateFromStringTensor(Tensor<string>)`) on the inference owner, the empty-string output slots allocated here through `CreateTensorWithEmptyStrings`, and leaving here through the element-wise `GetStringElement(index)` reader projected over the flat element count on egress — a string-tensor model (tokenizer, postproc, detokenizer) needs the full round-trip so the string egress is the catalogued completion of the `RunInput` ingress, never a duplicate string-input factory and never the interior tensor vocabulary; `RegisterCustomOpLibrary(path)` (no handle) is the deleted spelling because `RegisterCustomOpLibraryV2(path, out nint)` carries the unload handle.
+- Growth: a new custom-op library is one path row on `SessionPolicy.CustomOpLibraries`; a new non-tensor output kind is one `OpOutput` case plus one `OnnxType` arm on `Egress`; zero new surface.
+- Boundary: `CustomOps` extends the `Model/sessions#SESSION_CAPSULE` `ModelSessions` boundary capsule and this fence carries the language-owned statement and native-disposal forms the capsule admits (per `boundaries.md` CAPSULE_OWNER) — the asset guard precedes registration, the bundle fault converts at the seam, and every child `OrtValue` a map or sequence yields is read inside a `using` so the native value releases deterministically. `RegisterCustomOpLibrary(path)` hands the custom-op library to ONNX Runtime, which frees it when the `SessionOptions` and derived sessions release; so a partial-failure `options.Dispose()` on the `Lease` rail still frees every registered library, and the `out`-handle `RegisterCustomOpLibraryV2(path, out _)` whose discarded handle leaks is the rejected spelling. `RegisterOrtExtensions()` faults `OnnxRuntimeException(ErrorCode.NoSuchFile)` when the `libortextensions` native asset is absent, so the registration brackets both arms and lifts that native fault into `ExtensionAssetMissing` rather than letting it escape untyped to `Open`; the path-supplied libraries are pre-guarded with `File.Exists` for a precise multi-path fault payload, and the bundle's absence — an OS-resolved native asset with no managed path to probe — is caught at the bracket. Tokenizer and pre/post operators stay session assets entered through this one registration call — a preprocessing or tokenizer service family is the rejected form, and there is no managed op-discovery surface to mine because those operators are wholly native. `Egress` is the non-tensor reader: a `String`-typed `ONNX_TYPE_TENSOR` reconstructs a shaped `Microsoft.ML.OnnxRuntime.Tensors.DenseTensor<string>` from `GetStringTensorAsArray()` plus the `GetTensorTypeAndShape().Shape` extents (the one bulk read, never an element-wise `GetStringElement(index)` loop, and shape-preserving rather than a flat sequence so the egress is symmetric with the `RunInput.Strings` `Tensor<string>` ingress); an `ONNX_TYPE_MAP` reads its two child values — keys (`Int64` or `String`, normalized to a label) and `Float` scores — into label→score pairs; an `ONNX_TYPE_SEQUENCE` folds one map per element into the `ZipMap` rows; a numeric tensor or an `ONNX_TYPE_OPTIONAL`/`ONNX_TYPE_SPARSETENSOR` is `ModelRejected`, because numeric egress is the inference owner's `GetTensorDataAsSpan<T>` and a non-tensor reader here never duplicates it. `StringSlots` allocates pre-bound `string`-output slots through `CreateTensorWithEmptyStrings` for the fixed-extent IO-binding case and faults `ModelRejected` on a symbolic or negative extent rather than mis-allocating an unknowable string buffer — a runtime-allocated dynamic string output never routes here, it is read straight through `Egress`; `RegisterCustomOpLibrary(path)` is therefore the canonical custom-op spelling, not a deleted one, and the legacy out-handle path is the only rejected registration form.
 
 ```csharp signature
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record OpOutput {
+    private OpOutput() { }
+
+    public sealed record Strings(Microsoft.ML.OnnxRuntime.Tensors.Tensor<string> Text) : OpOutput;
+
+    public sealed record Mapping(Seq<(string Label, float Score)> Pairs) : OpOutput;
+
+    public sealed record Batched(Seq<Seq<(string Label, float Score)>> Rows) : OpOutput;
+}
+
 public static class CustomOps {
     public static Fin<SessionOptions> Register(SessionOptions options, SessionPolicy policy) {
         var missing = policy.CustomOpLibraries.Filter(static path => !File.Exists(path));
         if (!missing.IsEmpty) {
             return Fin.Fail<SessionOptions>(new ComputeFault.ExtensionAssetMissing(string.Join(';', missing)));
         }
-        if (policy.OrtExtensions) {
-            options.RegisterOrtExtensions();
+        try {
+            if (policy.OrtExtensions) { options.RegisterOrtExtensions(); }
+            policy.CustomOpLibraries.Iter(options.RegisterCustomOpLibrary);
+            return Fin.Succ(options);
         }
-        policy.CustomOpLibraries.Iter(path => options.RegisterCustomOpLibraryV2(path, out _));
-        return Fin.Succ(options);
+        catch (OnnxRuntimeException native) {
+            return Fin.Fail<SessionOptions>(new ComputeFault.ExtensionAssetMissing(native.Message));
+        }
     }
 
-    public static OrtValue StringSlots(OrtAllocator allocator, long[] shape) =>
-        OrtValue.CreateTensorWithEmptyStrings(allocator, shape);
+    public static Fin<OrtValue> StringSlots(OrtAllocator allocator, long[] shape) =>
+        Array.Exists(shape, static extent => extent < 0)
+            ? Fin.Fail<OrtValue>(new ComputeFault.ModelRejected($"string-slots-symbolic:{string.Join('x', shape)}"))
+            : Fin.Succ(OrtValue.CreateTensorWithEmptyStrings(allocator, shape));
 
-    public static Seq<string> StringEgress(OrtValue value) {
-        var count = checked((int)value.GetTensorTypeAndShape().ElementCount);
-        return toSeq(Enumerable.Range(0, count)).Map(value.GetStringElement);
+    extension(OrtValue value) {
+        public Fin<OpOutput> Egress() =>
+            value.OnnxType switch {
+                OnnxValueType.ONNX_TYPE_TENSOR when value.GetTensorTypeAndShape().ElementDataType is TensorElementType.String =>
+                    Fin.Succ<OpOutput>(new OpOutput.Strings(new DenseTensor<string>(
+                        value.GetStringTensorAsArray(),
+                        Array.ConvertAll(value.GetTensorTypeAndShape().Shape, static extent => (int)extent)))),
+                OnnxValueType.ONNX_TYPE_MAP =>
+                    Fin.Succ<OpOutput>(new OpOutput.Mapping(Pairs(value))),
+                OnnxValueType.ONNX_TYPE_SEQUENCE =>
+                    Fin.Succ<OpOutput>(new OpOutput.Batched(toSeq(Enumerable.Range(0, value.GetValueCount())).Map(index => {
+                        using var map = value.GetValue(index, OrtAllocator.DefaultInstance);
+                        return Pairs(map);
+                    }))),
+                _ => Fin.Fail<OpOutput>(new ComputeFault.ModelRejected($"non-tensor-egress:{value.OnnxType}")),
+            };
+    }
+
+    static Seq<(string Label, float Score)> Pairs(OrtValue map) {
+        using var keys = map.GetValue(0, OrtAllocator.DefaultInstance);
+        using var values = map.GetValue(1, OrtAllocator.DefaultInstance);
+        var labels = keys.GetTensorTypeAndShape().ElementDataType is TensorElementType.String
+            ? toSeq(keys.GetStringTensorAsArray())
+            : toSeq(keys.GetTensorDataAsSpan<long>().ToArray()).Map(static key => key.ToString(CultureInfo.InvariantCulture));
+        return labels.Zip(toSeq(values.GetTensorDataAsSpan<float>().ToArray()), static (label, score) => (label, score));
     }
 }
 ```

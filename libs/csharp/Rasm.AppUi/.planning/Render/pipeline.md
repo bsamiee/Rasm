@@ -354,10 +354,10 @@ public static class ViewpointCodec {
 
 ## [05]-[TS_PROJECTION]
 
-- Owner: `ViewpointWire`, `ViewCameraWire`, `SectionBoxWire`, `VisibilityOverrideWire`, `FrameReceiptWire`, `GeometryResidencyWire`, `ResidencyTileWire`, `MeshletWire`, `MeshletClusterWire`, `SplatTileWire` — the viewpoint, frame-evidence, and content-keyed geometry-residency wire contract a WebGPU web viewer and a cross-process coordination tool consume; `ContentKey` the suite `XxHash128` content-address value object; `ResidencyManifest` the single C# mint of the `WEB_GEOMETRY_RESIDENCY_WIRE` portable scene-graph plus meshlet/splat residency manifest; `ResidencyMarshal` the projection algebra folding every desktop owner into its wire row; the GPU pass internals never cross the wire.
-- Packages: System.IO.Hashing, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
-- Growth: one wire member row per new viewpoint field, frame-receipt field, or residency-tile field; one `ResidencyMarshal` projection arm per new manifest member; zero new surface.
-- Boundary: shapes transcribe the camelCase Strict emission — the camera crosses as its `eye`/`target`/`up` three-axis tuples plus the field-of-view and ortho-scale scalars, the section box as its min/max three-axis tuples plus the enabled flag, each visibility override as its element id, visible flag, `number | null` color (the desktop `Option<uint>` projected through `ToNullable`), and transparency, the selection as an ordinal-string array, each tile/splat bounds as the `[x, y, z, radius]` four-tuple, the content key as the `:x32` 32-hex string (the desktop `UInt128` rendered through `KeyHex`, never the raw `UInt128` STJ would emit as a JSON number), instants as `InstantPattern.ExtendedIso` text, and durations as round-trip text; the frame receipt crosses for the live performance HUD so a web dashboard reads frame budget without the GPU pass internals; the viewpoint crosses as the projected `ViewpointWire`, never the desktop `Viewpoint`, so a BCF tool, a web viewer, and the desktop share one portable view-state; `ResidencyMarshal` carries every desktop-to-wire projection as one fold so a wire member never marshals at a call site, `ResidencyManifest.Encode` serializes through the source-generated `ResidencyWireContext` (camelCase, disallow-unmapped, nullable-respecting) so the emission is exactly the shape the TS `GeometryResidencyWireSchema` decodes, and `ResidencyManifest.Mint` is the single producer of the `WEB_GEOMETRY_RESIDENCY_WIRE` — the desktop `Render/meshlets` `MeshletCluster`, the `ResidencyBudget` resident set, and the reality-capture `SplatSource` content-keyed tiles project through one residency manifest the TypeScript worker consumes to drive a WebGPU viewport, so desktop and web share one geometry residency and one `Viewpoint`/`FrameReceipt` contract off the same Compute `GeometryPayload` residency keying; each tile and splat keys by the `ContentKey` fold of its geometry bytes through `XxHash128.HashToUInt128` under the suite `Runtime/codecs#CONTENT_ADDRESSING` law exactly as the Persistence residency and `Render/reality#SPLAT_SOURCE` `SplatEllipsoid.ContentKey` key it, the raw `UInt128` rendered to the `:x32` wire string at the marshal seam — a name-addressed string-key hash is the rejected content key because the worker fetches tile bytes by the content-addressed blob key, never by the scene-cell name, so `ResidencyTileWire.contentKey` folds the `MeshSource.Positions` span and `ResidencyTileWire.blobKey` carries the Persistence content-addressed blob key distinct from the scene-cell `key`; the manifest crosses the cross-language wire only and no desktop owner reverses onto the web leg, so a second residency manifest on the TS side is the rejected form (the single-mint invariant graded at the cross-`libs/` master); the meshlet/triangulated residency arm resolves now off the present `Render/meshlets` `MeshletCluster`/`ResidencyBudget`, the splat-tile arm projects a present `SplatSource` now, and only the upstream Compute splat-payload decode that feeds `SplatSource` stays honestly `[UPSTREAM-BLOCKED]` on the Python SOG/PLY/LAZ two-hop; depends on `T-BACKEND-PORT` (the `WebGpu` `GpuBackend` row the web viewport binds) and the `Render/reality#SPLAT_SOURCE` `SplatSource` residency keying so the splat tile and the meshlet tile share one content key across the wire.
+- Owner: `ViewpointWire`, `ViewCameraWire`, `SectionBoxWire`, `VisibilityOverrideWire`, `FrameReceiptWire`, `GeometryResidencyWire`, `ResidencyTileWire`, `MeshoptStreamWire`, `MeshletWire` — the viewpoint, frame-evidence, and content-keyed geometry-residency wire contract a WebGPU web viewer and a cross-process coordination tool consume; `ResidencyManifest` the single C# mint of the `WEB_GEOMETRY_RESIDENCY_WIRE` portable scene-graph + kind-discriminated residency-tile manifest, each tile a 1:1 projection of one Compute `csharp:Rasm.Compute/Runtime/payload#RESIDENCY` `ResidencyPayload`; `ResidencyMarshal` the projection algebra folding each resident payload into its EXT_meshopt_compression wire row; the GPU pass internals and the suite `XxHash128` content key (minted by Compute, never re-computed here) never cross the wire.
+- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.Compute (project), BCL inbox
+- Growth: one wire member row per new viewpoint field, frame-receipt field, or residency-tile field; a new residency kind or stream is one already-discriminated `ResidencyTileWire.kind` value or one `MeshoptStreamWire` row, never a new tile type; one `ResidencyMarshal` projection arm per new manifest member; zero new surface.
+- Boundary: shapes transcribe the camelCase Strict emission — the camera crosses as its `eye`/`target`/`up` three-axis tuples plus the field-of-view and ortho-scale scalars, the section box as its min/max three-axis tuples plus the enabled flag, each visibility override as its element id, visible flag, `number | null` color (the desktop `Option<uint>` projected through `ToNullable`), and transparency, the selection as an ordinal-string array, each tile/splat bounds as the `[x, y, z, radius]` four-tuple, the content key as the `:x32` 32-hex string (the desktop `UInt128` rendered through `KeyHex`, never the raw `UInt128` STJ would emit as a JSON number), instants as `InstantPattern.ExtendedIso` text, and durations as round-trip text; the frame receipt crosses for the live performance HUD so a web dashboard reads frame budget without the GPU pass internals; the viewpoint crosses as the projected `ViewpointWire`, never the desktop `Viewpoint`, so a BCF tool, a web viewer, and the desktop share one portable view-state; `ResidencyMarshal` carries every payload-to-wire projection as one fold so a wire member never marshals at a call site, `ResidencyManifest.Encode` serializes through the source-generated `ResidencyWireContext` (camelCase, disallow-unmapped, nullable-respecting) so the emission is exactly the shape the TS `GeometryResidencyWireSchema` decodes, and `ResidencyManifest.Mint` is the single producer of the `WEB_GEOMETRY_RESIDENCY_WIRE` — the AppUi `Render/meshlets` `ResidencyBudget` decides which content-addressed Compute `csharp:Rasm.Compute/Runtime/payload#RESIDENCY` `ResidencyPayload`s are resident at which scene cells, and `Mint` projects each resident payload 1:1 into a kind-discriminated `ResidencyTileWire` carrying the payload's EXT_meshopt_compression bufferViews (the `StreamSpan` mode/filter/count/stride per stream), its meshopt-built `ResidencyMeshlet` clusters (the vertex-table + triangle split), its tile bounding sphere, its harmonic degree, and its `ContentKey`, so the TypeScript worker decodes the meshopt-compressed blob and drives a WebGPU viewport off the same Compute payload the desktop and Persistence read; each tile keys by the Compute payload's own `ContentKey` (minted once at `csharp:Rasm.Compute/Runtime/payload#RESIDENCY` `InterchangeIdentity.Key` over the whole encoded blob under the suite `Runtime/codecs#CONTENT_ADDRESSING` law), rendered to the `:x32` wire string through `KeyHex` at the marshal seam — AppUi mints no second hash and never re-folds raw positions, so `ResidencyTileWire.contentKey` is the payload key and `ResidencyTileWire.blobKey` is its Persistence blob-lane address, both distinct from the scene-cell `key`, and the worker fetches tile bytes by the content-addressed blob key, never by the scene-cell name; the manifest crosses the cross-language wire only and no desktop owner reverses onto the web leg, so a second residency manifest on the TS side is the rejected form (the single-mint invariant graded at the cross-`libs/` master); the meshlet, quantized, and point residency arms resolve now off the present Compute `ResidencyPayload` (meshlet-cluster/quantized-vertex/point-splat kinds), the gaussian-splat tile arm projects the gaussian-splat `ResidencyPayload` now, and only the upstream Compute splat-payload decode that feeds the gaussian-splat payload stays honestly `[UPSTREAM-BLOCKED]` on the Python SOG/PLY/LAZ two-hop; depends on `T-BACKEND-PORT` (the `WebGpu` `GpuBackend` row the web viewport binds) and the Compute `csharp:Rasm.Compute/Runtime/payload#RESIDENCY` residency keying so the splat tile and the meshlet tile share one content-key scheme across the wire.
 
 ```ts contract
 interface ViewCameraWire {
@@ -403,53 +403,50 @@ interface FrameReceiptWire {
   readonly correlation: string;
 }
 
+interface MeshoptStreamWire {
+  readonly stream: string;
+  readonly mode: "ATTRIBUTES" | "TRIANGLES" | "INDICES" | "RAW";
+  readonly filter: "NONE" | "OCTAHEDRAL" | "QUATERNION" | "EXPONENTIAL";
+  readonly byteOffset: number;
+  readonly byteLength: number;
+  readonly count: number;
+  readonly byteStride: number;
+}
+
 interface MeshletWire {
   readonly vertexOffset: number;
-  readonly vertexCount: number;
   readonly triangleOffset: number;
+  readonly vertexCount: number;
   readonly triangleCount: number;
   readonly center: readonly [number, number, number];
   readonly radius: number;
+  readonly coneApex: readonly [number, number, number];
   readonly coneAxis: readonly [number, number, number];
   readonly coneCutoff: number;
-  readonly screenSpaceError: number;
-}
-
-interface MeshletClusterWire {
-  readonly backend: string;
-  readonly meshlets: readonly MeshletWire[];
-  readonly bindless: readonly string[];
-  readonly triangles: number;
 }
 
 interface ResidencyTileWire {
   readonly key: string;
+  readonly kind: "meshlet-cluster" | "quantized-vertex" | "point-splat" | "gaussian-splat";
   readonly contentKey: string;
-  readonly bytes: number;
-  readonly bounds: readonly [number, number, number, number];
   readonly blobKey: string;
-}
-
-interface SplatTileWire {
-  readonly key: string;
-  readonly contentKey: string;
-  readonly count: number;
+  readonly bytes: number;
+  readonly residentCount: number;
   readonly harmonicDegree: number;
   readonly bounds: readonly [number, number, number, number];
-  readonly blobKey: string;
+  readonly streams: readonly MeshoptStreamWire[];
+  readonly meshlets: readonly MeshletWire[];
 }
 
 interface GeometryResidencyWire {
   readonly version: number;
   readonly viewpoint: ViewpointWire;
-  readonly cluster: MeshletClusterWire;
   readonly tiles: readonly ResidencyTileWire[];
-  readonly splats: readonly SplatTileWire[];
   readonly vramBudget: number;
 }
 ```
 
-The C# `ResidencyManifest` is the single mint of the `WEB_GEOMETRY_RESIDENCY_WIRE`; the TypeScript worker consumes the manifest by content key and never re-mints it. The content key is the suite raw `UInt128` owned at `csharp:Compute/Runtime/codecs#CONTENT_ADDRESSING` and folded here through the same `XxHash128.HashToUInt128` law — AppUi mints no second content-identity value object, the `:x32` form is the shared wire spelling, and `ResidencyMarshal` carries every projection body as the law; the splat-tile arm projects a present `SplatSource`, while the upstream Compute splat-payload decode that produces a `SplatSource` stays honestly `[UPSTREAM-BLOCKED]`.
+The C# `ResidencyManifest` is the single mint of the `WEB_GEOMETRY_RESIDENCY_WIRE`; the TypeScript worker consumes the manifest by content key and never re-mints it. The content key is the suite raw `UInt128` owned at `csharp:Compute/Runtime/codecs#CONTENT_ADDRESSING` and consumed here from the Compute `csharp:Rasm.Compute/Runtime/payload#RESIDENCY` `ResidencyPayload.ContentKey` (not re-folded) — AppUi mints no second content-identity value object, the `:x32` form is the shared wire spelling, and `ResidencyMarshal` carries every payload→wire projection body as the law; the gaussian-splat tile arm projects a present Compute gaussian-splat `ResidencyPayload`, while the upstream Compute splat-payload decode that feeds it (the `Runtime/payload#RESIDENCY` `SplatScan` admission at the `Runtime/channels` `GaussianSplatScan` wire) stays honestly `[UPSTREAM-BLOCKED]`.
 
 ```csharp signature
 public readonly record struct ViewCameraWire(bool Perspective, double[] Eye, double[] Target, double[] Up, double FieldOfView, double OrthoScale);
@@ -460,25 +457,20 @@ public readonly record struct VisibilityOverrideWire(string ElementId, bool Visi
 
 public sealed record ViewpointWire(string Key, int Version, ViewCameraWire Camera, SectionBoxWire Section, Seq<VisibilityOverrideWire> Overrides, Seq<string> Selection, string At);
 
-public readonly record struct ResidencyTileRef(string Key, string ContentKey, long Bytes, double[] Bounds, string BlobKey);
-
-public readonly record struct SplatTileRef(string Key, string ContentKey, int Count, int HarmonicDegree, double[] Bounds, string BlobKey);
+public readonly record struct MeshoptStreamWire(string Stream, string Mode, string Filter, int ByteOffset, int ByteLength, int Count, int ByteStride);
 
 public sealed record MeshletWire(
-    int VertexOffset, int VertexCount, int TriangleOffset, int TriangleCount,
-    double[] Center, double Radius, double[] ConeAxis, double ConeCutoff, double ScreenSpaceError);
+    int VertexOffset, int TriangleOffset, int VertexCount, int TriangleCount,
+    double[] Center, double Radius, double[] ConeApex, double[] ConeAxis, double ConeCutoff);
 
-public sealed record MeshletClusterWire(string Backend, Seq<MeshletWire> Meshlets, Seq<string> Bindless, long Triangles);
+public sealed record ResidencyTileWire(
+    string Key, string Kind, string ContentKey, string BlobKey, long Bytes, int ResidentCount,
+    int HarmonicDegree, double[] Bounds, Seq<MeshoptStreamWire> Streams, Seq<MeshletWire> Meshlets);
 
 public static class ResidencyMarshal {
-    public static UInt128 ContentKeyOf(ReadOnlySpan<byte> content) =>
-        System.IO.Hashing.XxHash128.HashToUInt128(content);
-
     public static string KeyHex(UInt128 content) => $"{content:x32}";
 
     public static string BlobKeyOf(UInt128 content) => $"geo/{content:x32}";
-
-    private static double[] Bounds4(BoundingSphere bounds) => [bounds.X, bounds.Y, bounds.Z, bounds.Radius];
 
     public static ViewpointWire ViewpointOf(Viewpoint view) =>
         new(view.Key, view.Version,
@@ -495,53 +487,46 @@ public static class ResidencyMarshal {
             view.Selection,
             InstantPattern.ExtendedIso.Format(view.At));
 
-    public static MeshletClusterWire ClusterWire(MeshletCluster cluster) =>
-        new(cluster.Backend.Key,
-            cluster.Meshlets.Map(static m => new MeshletWire(
-                m.VertexOffset, m.VertexCount, m.TriangleOffset, m.TriangleCount,
-                [m.Bounds.X, m.Bounds.Y, m.Bounds.Z], m.Bounds.Radius,
-                [m.Cone.X, m.Cone.Y, m.Cone.Z], m.Cone.CosAngle, m.ScreenSpaceError)),
-            toSeq(cluster.Bindless.Slots.OrderBy(static slot => slot.Value).Select(static slot => slot.Key)),
-            cluster.Triangles);
+    // one EXT_meshopt_compression bufferView wire row off one Compute StreamSpan: the meshopt decode mode + inverse
+    // filter + byte window + element count/stride the web worker hands the meshopt decoder, never re-derived here.
+    public static MeshoptStreamWire StreamWire(ResidencyStream stream, StreamSpan span) =>
+        new(stream.Key, span.Mode.Key, span.Filter.Key, span.Offset, span.Length, span.Count, span.ByteStride);
 
-    public static ResidencyTileRef TileRef(ResidencyTile tile, Option<MeshSource> source) =>
-        source.Match(
-            Some: mesh => ContentKeyOf(MemoryMarshal.AsBytes(mesh.Positions.Span)) switch {
-                var key => new ResidencyTileRef(tile.Key, KeyHex(key), tile.Bytes, Bounds4(tile.Bounds), BlobKeyOf(key)),
-            },
-            None: () => ContentKeyOf(System.Text.Encoding.UTF8.GetBytes(tile.Key)) switch {
-                var key => new ResidencyTileRef(tile.Key, KeyHex(key), tile.Bytes, Bounds4(tile.Bounds), BlobKeyOf(key)),
-            });
+    public static MeshletWire MeshletWireOf(ResidencyMeshlet m) =>
+        new(m.VertexOffset, m.TriangleOffset, m.VertexCount, m.TriangleCount,
+            [m.Center.X, m.Center.Y, m.Center.Z], m.Radius,
+            [m.ConeApex.X, m.ConeApex.Y, m.ConeApex.Z], [m.ConeAxis.X, m.ConeAxis.Y, m.ConeAxis.Z], m.ConeCutoff);
 
-    public static SplatTileRef SplatRef(SplatSource splat) =>
-        ContentKeyOf(MemoryMarshal.AsBytes<SplatEllipsoid>(splat.Ellipsoids.ToArray())) switch {
-            var key => new SplatTileRef(
-                $"splat/{splat.Bounds.X:R}:{splat.Bounds.Y:R}:{splat.Bounds.Z:R}",
-                KeyHex(key), splat.Ellipsoids.Count, splat.HarmonicDegree, Bounds4(splat.Bounds), BlobKeyOf(key)),
-        };
+    // one residency tile wire row = one Compute ResidencyPayload projected 1:1 — the content/blob key is the payload's
+    // own XxHash128 (never re-hashed off raw positions), the EXT_meshopt_compression bufferViews are the payload's
+    // StreamSpan layout, the cone-cull clusters are its meshopt-built ResidencyMeshlet set (vertex-table + triangle
+    // split), the bounds is its self-described sphere, and the scene-cell placement key rides from the residency plan.
+    public static ResidencyTileWire TileOf(string sceneKey, ResidencyPayload payload) =>
+        new(sceneKey, payload.Kind.Key, KeyHex(payload.ContentKey), BlobKeyOf(payload.ContentKey),
+            payload.EncodedBytes, payload.ResidentCount, payload.HarmonicDegree,
+            [payload.Center.X, payload.Center.Y, payload.Center.Z, payload.Radius],
+            toSeq(payload.Layout.OrderBy(static slot => slot.Value.Offset).Select(static slot => StreamWire(slot.Key, slot.Value))),
+            payload.Clusters.Map(MeshletWireOf));
 }
 
 public sealed record ResidencyManifest(
     int Version,
     ViewpointWire Viewpoint,
-    MeshletClusterWire Cluster,
-    Seq<ResidencyTileRef> Tiles,
-    Seq<SplatTileRef> Splats,
+    Seq<ResidencyTileWire> Tiles,
     long VramBudget) {
     public const int Schema = 1;
 
+    // Mint joins the AppUi residency decision (which content-addressed payloads are resident, at which scene cells)
+    // with the Compute ResidencyPayload codec (the EXT_meshopt_compression streams, clusters, bounds, content key) —
+    // a pure projection of the Compute payload, never re-deriving geometry, content keys, or streams from
+    // AppUi-internal owners; a resident scene tile with no matching payload is dropped, never re-hashed.
     public static ResidencyManifest Mint(
         Viewpoint viewpoint,
-        MeshletCluster cluster,
         ResidencyPlan plan,
-        HashMap<string, MeshSource> sources,
-        Seq<ResidencyTile> tiles,
-        Seq<SplatSource> splats,
+        HashMap<string, ResidencyPayload> payloads,
         long vramBudget) =>
-        new(Schema, ResidencyMarshal.ViewpointOf(viewpoint), ResidencyMarshal.ClusterWire(cluster),
-            tiles.Filter(tile => plan.Resident.Exists(resident => resident.Key == tile.Key))
-                .Map(tile => ResidencyMarshal.TileRef(tile, sources.Find(tile.Key))),
-            splats.Map(static splat => ResidencyMarshal.SplatRef(splat)),
+        new(Schema, ResidencyMarshal.ViewpointOf(viewpoint),
+            plan.Resident.Choose(tile => payloads.Find(tile.Key).Map(payload => ResidencyMarshal.TileOf(tile.Key, payload))),
             vramBudget);
 
     public string Encode() => JsonSerializer.Serialize(this, ResidencyWireContext.Default.ResidencyManifest);
@@ -560,4 +545,4 @@ public partial class ResidencyWireContext : JsonSerializerContext;
 
 - [VIEWPORT_GPU]: the host-shared `GRContext` acquisition through `ISkiaSharpApiLease.TryLeasePlatformGraphicsApi` against the Rhino-owned Metal pipeline, the `GRMtlBackendContext`/`GRVkBackendContext` backend-context construction, the `SKSurface.Create(GRRecordingContext, GRBackendRenderTarget, ...)` GPU-target spelling the `Metal`/`Vulkan`/`OpenGl` `RenderTargetFactory` rows fold, the `SKRuntimeEffect` compute-and-mesh-shader emit path for the meshlet draw and the path-trace ray-generation, the per-backend bindless descriptor-table and acceleration-structure spellings (Metal argument buffers and ray-tracing, Vulkan descriptor indexing and ray-query), the `ResolvePass` live dispatch (the `Taa` motion-vector-reprojection compute pass and history-clamp, the `Fsr` sub-resolution spatial-upscale `Silk.NET.WebGPU` `ComputePassEncoder`/`SKRuntimeEffect` pass, the `Smaa` morphological edge pass) below the `Composite` `RenderTargetFactory`, and the WebGPU backend reach for the designed-only web viewport — the render-graph pass algebra, the `GpuBackend` `RenderTargetFactory` column, the `ResolvePass` ladder and the `ResolvePolicy` tier table and the `ResolveState` jitter-and-history Fold, the simulation render passes, and the viewpoint codec are settled as the CPU/2D-Skia fallback (the `Msaa`/`Smaa`/single-sample resolve runs on the CPU raster); the GPU dispatch, the shared-context lease, the live `Taa`/`Fsr` compute resolve, and the backend acceleration structures are the unverified surface gated on the live host-owned GPU context, de-risked standalone against a windowed `GRContext` and confirmed in-host against the embedded panel.
 - [WGPU_BACKEND]: the `Wgpu` `RenderTargetFactory` row binding the `Silk.NET.WebGPU` wgpu/Dawn surface — `WebGPU.GetApi()`, `CreateInstance`, `InstanceRequestAdapter` on the compositor adapter (LUID/UUID matched through `ICompositionGpuInterop.DeviceLuid`/`DeviceUuid`), `AdapterRequestDevice`+`DeviceGetQueue`, `SurfaceConfigure`/`SurfaceGetCurrentTexture` for the swapchain, the `CommandEncoder`/`RenderPassEncoder`/`ComputePassEncoder` recording, `QueueSubmit`, and the `CompositionDrawingSurface.UpdateWithExternalImageAsync` import of the rendered shared texture — resolve against the admitted `Silk.NET.WebGPU` 2.23 surface (`.api/api-silk-webgpu.md`) and the Avalonia 12 compositor interop (`.api/api-avalonia-gpu-interop.md`); the backend rows, the `RenderTargetFactory` column shape, and the factory-bound pass algebra are settled, the wgpu device acquisition, the shared-texture export-and-import handshake (D3D11 keyed-mutex / Vulkan external-memory / Metal `IOSurface`), and the wgpu-versus-Skia present-path divergence below the factory are the unverified surface gated on the live GPU device, with `Silk.NET.WebGPU` a stable pinnable .NET Foundation identity and the `Software` Skia Ganesh raster row the shippable floor. Skia Graphite is not yet shipped; no `SkiaGraphite` row is admitted until SkiaSharp exposes the Recorder/Context surface, at which point the row re-admits with no other change.
-- [WEB_RESIDENCY]: the `ResidencyManifest` is the single C# mint of the `WEB_GEOMETRY_RESIDENCY_WIRE` and the TypeScript `libs/typescript/ui` worker is its sole consumer — the manifest, the `ResidencyMarshal` projection algebra, the `ContentKeyOf`/`BlobKeyOf` `XxHash128.HashToUInt128` content keying over the `MeshSource.Positions` span, and the meshlet/triangulated residency arm are built and settled now, so the worker drives a WebGPU viewport off the content-keyed meshlet and splat tiles resolving the `GeometryPayload` residency on the web leg against the same Compute `Runtime/codecs#CONTENT_ADDRESSING` keying the desktop reads; the single-mint invariant (one producer, no TS-side re-mint) is graded at the cross-libs master against the `typescript:ui/render/glb#GLB_VIEWPORT` consume-only manifest row, and the `:x32` content-key spelling is the shared wire form. The splat-tile manifest arm projects a present `SplatSource` now; only the upstream Compute splat-payload decode that produces a `SplatSource` stays `[UPSTREAM-BLOCKED]` on the Python SOG/PLY/LAZ scan-decode two-hop, and the Python content-key reproduction of the `:x32` form stays `[UPSTREAM-BLOCKED]` on the `xxhash` cp315/abi3 wheel the companion lacks below 3.15. The WebGPU cluster-LOD upload on the browser device is the remaining `[HOST-PROBE-DEFERRED]` surface gated on the live WebGPU device — depends on the `WebGpu` `GpuBackend` row and the `Render/reality#SPLAT_SOURCE` residency keying.
+- [WEB_RESIDENCY]: the `ResidencyManifest` is the single C# mint of the `WEB_GEOMETRY_RESIDENCY_WIRE` and the TypeScript `libs/typescript/ui` worker is its sole consumer — the manifest, the `ResidencyMarshal` projection algebra, the `BlobKeyOf` blob-lane addressing, and the `StreamWire`/`MeshletWireOf`/`TileOf` projection off each Compute `csharp:Rasm.Compute/Runtime/payload#RESIDENCY` `ResidencyPayload` (its EXT_meshopt_compression `StreamSpan` bufferViews, `ResidencyMeshlet` clusters, bounds, and `ContentKey`) are built and settled now, so the worker decodes the meshopt-compressed blob and drives a WebGPU viewport off the content-keyed tiles against the same Compute `Runtime/codecs#CONTENT_ADDRESSING` keying the desktop and Persistence read; the single-mint invariant (one producer, no TS-side re-mint) is graded at the cross-libs master against the `typescript:ui/render/glb#GLB_VIEWPORT` consume-only manifest row, and the `:x32` content-key spelling is the shared wire form. The gaussian-splat tile manifest arm projects a present Compute gaussian-splat `ResidencyPayload` now; only the upstream Compute splat-payload decode that feeds it (the `Runtime/payload#RESIDENCY` `SplatScan` admission at the `Runtime/channels` `GaussianSplatScan` wire) stays `[UPSTREAM-BLOCKED]` on the Python SOG/PLY/LAZ scan-decode two-hop, and the Python content-key reproduction of the `:x32` form stays `[UPSTREAM-BLOCKED]` on the `xxhash` cp315/abi3 wheel the companion lacks below 3.15. The WebGPU cluster-LOD upload on the browser device is the remaining `[HOST-PROBE-DEFERRED]` surface gated on the live WebGPU device — depends on the `WebGpu` `GpuBackend` row and the Compute `csharp:Rasm.Compute/Runtime/payload#RESIDENCY` residency keying.

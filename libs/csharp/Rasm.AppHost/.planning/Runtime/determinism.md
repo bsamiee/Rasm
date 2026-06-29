@@ -25,8 +25,8 @@ The reproducibility kernel for the runtime spine: one determinism context pins t
 
 ```csharp signature
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<CapabilityKeyPolicy, string>]
-[KeyMemberComparer<CapabilityKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class FloatMode {
     public static readonly FloatMode Strict = new("strict", fmaContraction: false, vectorReassociation: false);
     public static readonly FloatMode Fast = new("fast", fmaContraction: true, vectorReassociation: true);
@@ -295,8 +295,8 @@ flowchart TD
 
 ```csharp signature
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<CapabilityKeyPolicy, string>]
-[KeyMemberComparer<CapabilityKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class FaultKind {
     public static readonly FaultKind Latency = new("latency");
     public static readonly FaultKind Fault = new("fault");

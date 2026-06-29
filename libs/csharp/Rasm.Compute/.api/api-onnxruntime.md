@@ -182,10 +182,10 @@ disposal, so the design composes capability rather than re-marshalling the C API
 |  [01]   | `OrtValue.CreateTensorValueFromMemory<T>(T[], long[])`                      | factory call | binds managed array as tensor             |
 |  [02]   | `OrtValue.CreateTensorValueFromMemory<T>(OrtMemoryInfo, Memory<T>, long[])` | factory call | binds device-pinned memory as tensor      |
 |  [03]   | `OrtValue.CreateTensorValueFromSystemNumericsTensorObject<T>(Tensor<T>)`    | factory call | binds `System.Numerics.Tensors.Tensor<T>` |
-|  [04]   | `OrtValue.CreateFromStringTensor(Tensor<string>)`                           | factory call | binds string tensor input                 |
+|  [04]   | `OrtValue.CreateFromStringTensor(Microsoft.ML.OnnxRuntime.Tensors.Tensor<string>)` | factory call | binds the ONNX-owned `Tensor<string>` — distinct from `[03]`'s `System.Numerics.Tensors.Tensor<T>` |
 |  [05]   | `NamedOnnxValue.CreateFromTensor<T>(string, Tensor<T>)`                     | factory call | creates named value from tensor (superseded path — OrtValue-only law) |
-|  [06]   | `RegisterCustomOpLibrary`                                                   | option call  | `void RegisterCustomOpLibrary(string)` loads custom operators (no handle) |
-|  [07]   | `RegisterCustomOpLibraryV2`                                                 | option call  | `void RegisterCustomOpLibraryV2(string, out nint)` loads custom operators with unload handle |
+|  [06]   | `RegisterCustomOpLibrary`                                                   | option call  | `void RegisterCustomOpLibrary(string)` loads custom operators (no handle — ORT-managed lifetime, the leak-free spelling) |
+|  [07]   | `RegisterCustomOpLibraryV2`                                                 | option call  | `void RegisterCustomOpLibraryV2(string, out nint)` — legacy caller-owns-handle path; a discarded `out _` handle leaks the library, so prefer `[06]` |
 |  [08]   | `RegisterOrtExtensions`                                                     | option call  | loads extension ops                       |
 |  [09]   | `SessionOptions.EnableMemoryPattern` / `EnableProfiling` / `EnableCpuMemArena` | option property | `bool` toggles (memory reuse / profiling / CPU arena) — assigned, not called |
 |  [10]   | `RunOptions.AddRunConfigEntry`                                              | run call     | sets run config entry                     |
@@ -310,6 +310,12 @@ Provider names include `CoreMLExecutionProvider` and `CPUExecutionProvider`; thr
 |  [24]   | `OrtMemoryInfo.DefaultInstance`                | static property | shared CPU `OrtMemoryInfo` for default-device binding                                                                                               |
 |  [25]   | `OrtMemoryInfo`                                | ctor            | `(string, OrtAllocatorType, int, OrtMemType)` builds a device descriptor                                                                            |
 |  [26]   | `OrtMemoryInfo`                                | ctor            | `(string, OrtMemoryInfoDeviceType, uint vendorId, int deviceId, OrtDeviceMemoryType, ulong alignment, OrtAllocatorType)` extended device descriptor |
+|  [27]   | `OrtMemoryInfo.Name`                           | accessor read   | `string Name { get; }` — allocator/device name; the `GetTensorMemoryInfo().Name` arena name the `ModelRun` receipt stamps as `ArenaAllocator`        |
+|  [28]   | `OrtMemoryInfo.Id`                             | accessor read   | `int Id { get; }` — device id the descriptor was created against                                                                                   |
+|  [29]   | `OrtMemoryInfo.GetAllocatorType`               | accessor read   | `OrtAllocatorType GetAllocatorType()` — arena/device allocator classifier of the descriptor                                                        |
+|  [30]   | `OrtMemoryInfo.GetMemoryType`                  | accessor read   | `OrtMemType GetMemoryType()` — the legacy CPU/output mem-type axis (distinct from the V2 device-memory class)                                       |
+|  [31]   | `OrtMemoryInfo.GetDeviceMemoryType`            | accessor read   | `OrtDeviceMemoryType GetDeviceMemoryType()` — the V2 `DEFAULT`/`HOST_ACCESSIBLE` device-memory class                                                |
+|  [32]   | `OrtMemoryInfo.GetVendorId`                    | accessor read   | `uint GetVendorId()` — device vendor id; the read-side mirror of the [26] extended ctor                                                            |
 
 ## [04]-[CONFIG_KEYS]
 
@@ -460,8 +466,8 @@ Base session / arena / quantization keys the design composes:
 |  [18]   | `OrtEnv.RegisterExecutionProviderLibrary` | `void RegisterExecutionProviderLibrary(string registrationName, string libraryPath)` — autoEP out-of-tree provider registration; `UnregisterExecutionProviderLibrary(string)` retracts               |
 
 [REGISTRATION_LAW]:
-- `RegisterCustomOpLibrary(path)` maps to `OrtRegisterCustomOpsLibrary_V2` in the C API (load and register from path, no handle returned).
-- `RegisterCustomOpLibraryV2(path, out nint)` maps to `OrtRegisterCustomOpsLibrary` (load and register, returning a native handle for explicit unloading).
+- `RegisterCustomOpLibrary(path)` maps to `OrtRegisterCustomOpsLibrary_V2` in the C API (load and register from path, no handle returned) — ONNX Runtime owns the library lifetime and frees it when the `SessionOptions` and every session built from them release, so this is the canonical leak-free registration spelling that tracks no caller handle.
+- `RegisterCustomOpLibraryV2(path, out nint)` maps to `OrtRegisterCustomOpsLibrary` (load and register, returning a native handle the CALLER then owns) — the legacy caller-must-free path: a discarded `out _` handle never unloads and leaks the library, so it is the rejected spelling.
 - `RegisterOrtExtensions()` is a convenience wrapper that loads the `libortextensions` native asset shipped by `Microsoft.ML.OnnxRuntime.Extensions`; there is no separate public `OrtExtensions` class — `OrtExtensionsNativeMethods` is internal.
 - `OrtExtensions.RegisterCustomOps` does not exist as a public API in either the ORT managed assembly or the Extensions package; the correct entry point is `SessionOptions.RegisterOrtExtensions()`.
 - `UseModel` does not exist on `SessionOptions` or `InferenceSession` in 1.27.0; it is not part of this package's public surface.

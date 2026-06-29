@@ -233,7 +233,7 @@ flowchart LR
 
 ## [04]-[SHELL_CHROME]
 
-- Owner: `ChromeKeyPolicy` comparer accessor; `ChromeSlot` `[SmartEnum<string>]` four-slot chrome vocabulary; `ChromeRow` derivation row; `ShellChrome` projection fold.
+- Owner: `ComparerAccessors.StringOrdinal` accessor; `ChromeSlot` `[SmartEnum<string>]` four-slot chrome vocabulary; `ChromeRow` derivation row; `ShellChrome` projection fold.
 - Cases: menu, toolbar, status, tray
 - Entry: `public static Seq<ChromeRow> Project(SurfaceHost host, ChromeSlot slot, Seq<ChromeRow> rows)` — pure projection; rows filter on slot and host predicate and order by rank.
 - Packages: Avalonia, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
@@ -241,15 +241,10 @@ flowchart LR
 - Boundary: rows carry intent keys only — command mechanics, gestures, and availability live on the intent table and arrive as settled vocabulary, so menu item classes and per-surface registries are the deleted patterns; the Menu slot projects to the macOS global-menu export through the `NativeMenu.MenuProperty` attached value on the `TopLevel` with `GetIsNativeMenuExported` as the export probe, and to the managed `NativeMenuBar` in-window control elsewhere; the Tray slot materializes only where the matrix admits it through the `TrayIcon.IconsProperty` attached `TrayIcons` collection with `Icon`, `ToolTipText`, `Command`, `Menu`, and `IsVisible` per icon; embedded rows suppress menu and status chrome because the host owns its own chrome, and the WebBrowser row exposes serialized keys only; window titles compose the product name with the active dockable `Title` through `Title`; the Headless floating cell stays vacuously open because no `HostWindow` materializes without a windowing platform.
 
 ```csharp signature
-public sealed class ChromeKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
-    public static IEqualityComparer<string> EqualityComparer => StringComparer.Ordinal;
-
-    public static IComparer<string> Comparer => StringComparer.Ordinal;
-}
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<ChromeKeyPolicy, string>]
-[KeyMemberComparer<ChromeKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ChromeSlot {
     public static readonly ChromeSlot Menu = new("menu");
     public static readonly ChromeSlot Toolbar = new("toolbar");

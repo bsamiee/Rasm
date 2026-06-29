@@ -11,7 +11,7 @@ Rasm.AppUi motion is one six-row `MotionToken` vocabulary: each row carries its 
 
 ## [02]-[MOTION_AXIS]
 
-- Owner: `MotionKeyPolicy` comparer accessor; `SpringValue` spring algebra; `MotionToken` six-row vocabulary.
+- Owner: `ComparerAccessors.StringOrdinal` accessor; `SpringValue` spring algebra; `MotionToken` six-row vocabulary.
 - Cases: instant, fast, standard, emphasized, spring-snappy, spring-gentle
 - Entry: `public MotionToken Reduced` — key-lookup resolution of the reduced pair, total over the row family.
 - Auto: timing rows double as throttle and debounce pacing values consumed by live-data streams, behavior intervals, and screen runtime rows; `SpringValue` derives stiffness and damping from response and damping fraction, so a spring row carries two tuning values, never four constants.
@@ -20,9 +20,6 @@ Rasm.AppUi motion is one six-row `MotionToken` vocabulary: each row carries its 
 - Boundary: a second easing or duration vocabulary anywhere in the package is the deleted pattern — charts, dialogs, toasts, behaviors, and pan-zoom canvases all read these rows; host canvas motion and host viewport overlay motion stay host-owned at the app root, and cross-surface consistency is carried as values — these spring rows are the parity source the app root's `SpringPreset` Snappy and Relaxed host rows read, a spring row's duration equals its response envelope, and the stiffness and damping derivations are the `SpringConfig` tuning math the host mirrors; color tweens interpolate in OKLab in parity with the host interpolation kernel — a channel-space sRGB lerp is the named defect.
 
 ```csharp signature
-public sealed class MotionKeyPolicy : IEqualityComparerAccessor<string> {
-    public static IEqualityComparer<string> EqualityComparer => StringComparer.Ordinal;
-}
 
 public readonly record struct SpringValue(float Response, float DampingFraction, float Mass) {
     public float Stiffness => (2f * MathF.PI / Response) * (2f * MathF.PI / Response) * Mass;
@@ -31,7 +28,7 @@ public readonly record struct SpringValue(float Response, float DampingFraction,
 }
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<MotionKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class MotionToken {
     public static readonly MotionToken Instant = new("instant", duration: Duration.Zero, curve: static t => t, spring: None, reducedTo: "instant");
     public static readonly MotionToken Fast = new("fast", duration: Duration.FromMilliseconds(100), curve: static t => 1.0 - ((1.0 - t) * (1.0 - t)), spring: None, reducedTo: "instant");

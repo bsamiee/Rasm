@@ -5,6 +5,7 @@
     </PropertyGroup>
 
     <ItemGroup Label="Project References">
+        <ProjectReference Include="../Rasm/Rasm.csproj" />
         <ProjectReference Include="../Rasm.Element/Rasm.Element.csproj" />
         <ProjectReference Include="../Rasm.AppHost/Rasm.AppHost.csproj" />
     </ItemGroup>
@@ -48,6 +49,7 @@
         <PackageReference Include="Qdrant.Client" />
         <PackageReference Include="ScyllaDBCSharpDriver" />
         <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" />
+        <PackageReference Include="System.Numerics.Tensors" />
         <PackageReference Include="Thinktecture.Runtime.Extensions.EntityFrameworkCore10" />
     </ItemGroup>
 

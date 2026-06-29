@@ -95,8 +95,8 @@ public sealed record HealthContributorRow(
 // (-> ReadOnly), Kafka/upstream HTTP to Remote (-> ReducedRemote), disk/allocation ceilings to Pressure
 // (-> Degraded). Adding a backing-service kind is one row; the degradation rules are untouched.
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<HealthKeyPolicy, string>]
-[KeyMemberComparer<HealthKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 public sealed partial class DriverProbe {
     public static readonly DriverProbe Postgres = new("npgsql", HealthContributorRow.Store, HealthStatus.Unhealthy);
     public static readonly DriverProbe Cache = new("redis", HealthContributorRow.Store, HealthStatus.Unhealthy);
@@ -203,7 +203,7 @@ public static class HealthSurface {
 
 ## [03]-[DEGRADATION_RAIL]
 
-- Owner: `Capability` and `DegradationLevel` vocabularies under one `HealthKeyPolicy` comparer accessor; `DegradationPolicy` with nested `Rule` rows is the derivation table; `DegradationState` is the fold receipt; `DegradationReading` is the coherent `(snapshot, state)` pair; `DegradationCell` is the boundary capsule owning the one atom cell and the publisher seam.
+- Owner: `Capability` and `DegradationLevel` vocabularies under the shipped `ComparerAccessors.StringOrdinalIgnoreCase` accessor; `DegradationPolicy` with nested `Rule` rows is the derivation table; `DegradationState` is the fold receipt; `DegradationReading` is the coherent `(snapshot, state)` pair; `DegradationCell` is the boundary capsule owning the one atom cell and the publisher seam.
 - Cases: `Full(0)`, `ReducedRemote(1)`, `LocalOnly(2)`, `ReadOnly(3)`, `Suspended(4)` in severity order; six `Capability` keys form the retained sets.
 - Entry: `Derive(DegradationState state, HealthSnapshot snapshot)` folds rules with escalation-immediate, recovery-hysteresis semantics; `Force(Option<DegradationLevel> forced)` is the single override entrypoint; `Cascade(Option<DegradationLevel> parent)` admits a parent-forced level as a derivation floor; `Read()` returns the one `DegradationReading` carrying the snapshot that produced the level and the derived `DegradationState` in one coherent value.
 - Auto: `DegradationCell` registers as the `IHealthCheckPublisher` and owns one `Atom<DegradationReading>` — `PublishAsync` snapshots the `HealthReport` and folds `Derive` in the SAME swap, so the published snapshot and the level it produced are one atomic transition and a reader can never observe a fresh level against a stale snapshot or the reverse; `HealthCheckPublisherOptions` binds `Delay` and `Period` from `DegradationPolicy.Canonical` and `Timeout` from `DeadlineClass.HealthProbe`; `OperatorOverride` projects onto `Force` at the composition root — forced beats derived, release re-derives; `Force` and `Cascade` swap the `State` slot of the reading while preserving the last snapshot so the override is coherent with the evidence it overrides.
@@ -213,15 +213,10 @@ public static class HealthSurface {
 - Boundary: degradation is process-local, peer-health-informed, and parent-cascade-floored — a peer level never propagates as this process's level, but a parent process's forced level enters `Derive` as a floor through `Cascade`, never as shared state; the snapshot and the derived level are one `DegradationReading` atom so the `Runtime/laneguard#LANE_GUARD` governor reads a coherent `(snapshot, level)` pressure value for its adaptive-concurrency and load-shed decisions — the prior two-surface read (a `HealthSnapshot.Snapshot` independent of a `DegradationState.Derive`) is the collapsed form, and a governor reading a stale snapshot against a fresh level is the race the single atom forecloses; `LocalOnly` is the host-absent fold: `Capability.HostDocument` gates off and document sources yield absence; the container-limit pressure signal enters the rank algebra as data, not a new rule — a `PressurePolicy.Container` row grades against `ResourceQuota` so the `Pressure`-tagged `Gauge` row escalates on the cgroup limit, and the existing `Pressure`-Degraded and `Pressure`-Unhealthy rules carry that limit-relative status into `Derive` with the same retained-set hysteresis, so a container-throttled process degrades and recovers on its own limit with zero added `Rule` row. The cross-process cascade is a seam-split the snapshot fold preserves: the READ — this process's own `DegradationReading` — stays the owner here; the WRITE — a parent fanning its level to a child over the control hop — lands at `Wire/companion#DEGRADATION_CASCADE`, which calls `Cascade` with the observed parent level mutating only the `State` slot; release passes `None` and the cell re-derives off its own snapshots, the cascade floor never escalating below local pressure, so folding the snapshot into the cell preserves the cascade-floor and hysteresis fields and never merges the parent-cascade owner.
 
 ```csharp signature
-public sealed class HealthKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
-    private static readonly StringComparer Policy = StringComparer.OrdinalIgnoreCase;
-    public static IEqualityComparer<string> EqualityComparer => Policy;
-    public static IComparer<string> Comparer => Policy;
-}
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<HealthKeyPolicy, string>]
-[KeyMemberComparer<HealthKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 public sealed partial class Capability {
     public static readonly Capability HostDocument = new("host-document");
     public static readonly Capability RemoteCompute = new("remote-compute");
@@ -234,8 +229,8 @@ public sealed partial class Capability {
 }
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<HealthKeyPolicy, string>]
-[KeyMemberComparer<HealthKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 public sealed partial class DegradationLevel {
     public static readonly DegradationLevel Full = new("full", rank: 0, retains: Capability.Set(Capability.HostDocument, Capability.RemoteCompute, Capability.LocalCompute, Capability.StoreWrite, Capability.StoreRead, Capability.TelemetryExport));
     public static readonly DegradationLevel ReducedRemote = new("reduced-remote", rank: 1, retains: Capability.Set(Capability.HostDocument, Capability.LocalCompute, Capability.StoreWrite, Capability.StoreRead, Capability.TelemetryExport));

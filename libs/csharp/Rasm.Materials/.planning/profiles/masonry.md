@@ -18,7 +18,7 @@ THE FIRST REALIZED PROFILEFAMILY and THE GENERATIVE BOND ALGEBRA. The masonry fa
 ```csharp signature
 // --- [TYPES] -------------------------------------------------------------------------------
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<ProfileKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class CoringClass {
     public static readonly CoringClass Solid = new("solid");
     public static readonly CoringClass Cored = new("cored");
@@ -27,7 +27,7 @@ public sealed partial class CoringClass {
 }
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<ProfileKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class Coring {
     public static readonly Coring None = new("none", voidFraction: 0.00, classification: CoringClass.Solid);
     public static readonly Coring Cored3Hole = new("cored-3-hole", voidFraction: 0.20, classification: CoringClass.Cored);
@@ -38,7 +38,7 @@ public sealed partial class Coring {
 }
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<ProfileKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class BondKind {
     public static readonly BondKind Template = new("template");
     public static readonly BondKind Generated = new("generated");
@@ -48,7 +48,7 @@ public sealed partial class BondKind {
 // per-course orientation cycle, the diagonal rotation, and the flemish alternating stretcher/header pattern.
 // A new decorative bond is one BondGeometry row, never a transcribed course set or a per-bond method.
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<ProfileKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class BondPattern {
     public static readonly BondPattern AllStretcher  = new("all-stretcher");   // stack/running base cycle
     public static readonly BondPattern Alternating   = new("alternating");     // flemish stretcher-header per-unit alternation
@@ -59,7 +59,7 @@ public sealed partial class BondPattern {
 }
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<ProfileKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class BondGeometry {
     public static readonly BondGeometry Stack       = new("stack",       pattern: BondPattern.AllStretcher, repeatUnits: 1, rotationDegrees: 0.0,  blockUnits: 1);
     public static readonly BondGeometry Flemish     = new("flemish",     pattern: BondPattern.Alternating,  repeatUnits: 2, rotationDegrees: 0.0,  blockUnits: 1);
@@ -87,7 +87,7 @@ public abstract partial record Orientation {
 }
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<ProfileKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class Cut {
     public static readonly Cut Whole = new("whole", lengthFraction: 1.000, bevelDegrees: 0.0);
     public static readonly Cut ThreeQuarter = new("three-quarter", lengthFraction: 0.750, bevelDegrees: 0.0);
@@ -101,7 +101,7 @@ public sealed partial class Cut {
 }
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<ProfileKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ClosureRule {
     public static readonly ClosureRule None = new("none", closer: Cut.Whole);
     public static readonly ClosureRule QueenCloser = new("queen-closer", closer: Cut.QueenCloser);
@@ -111,7 +111,7 @@ public sealed partial class ClosureRule {
 }
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<ProfileKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SpecialShape {
     public static readonly SpecialShape None = new("none");
     public static readonly SpecialShape Bullnose = new("bullnose");
@@ -126,7 +126,7 @@ public sealed partial class SpecialShape {
 // The ASTM C270 tooled-joint profile: DepthFactor scales the bed-joint width to the recess depth a raked/struck
 // joint carries (0 = flush), ShadowLine the relative shadow weight the weathering#WEATHERING raked-joint AO reads.
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<ProfileKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class MortarProfile {
     public static readonly MortarProfile Concave   = new("concave",   depthFactor: 0.10, shadowLine: 0.3, weatherTight: true);
     public static readonly MortarProfile Vee       = new("v",         depthFactor: 0.15, shadowLine: 0.5, weatherTight: true);
@@ -142,7 +142,7 @@ public sealed partial class MortarProfile {
 
 // ASTM C270 mortar types by compressive strength (M=17.2, S=12.4, N=5.2, O=2.4, K=0.5 MPa); EN 998-2 classes map by Mpa.
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<ProfileKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class MortarType {
     public static readonly MortarType M = new("M", compressiveMpa: 17.2);
     public static readonly MortarType S = new("S", compressiveMpa: 12.4);
@@ -153,7 +153,7 @@ public sealed partial class MortarType {
 }
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<ProfileKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class BondName {
     // Template bonds carry an explicit course set; generated bonds carry a BondGeometry the interpreter computes from.
     public static readonly BondName Running      = new("running",      template: Seq(StretcherAt(0.0), StretcherAt(0.5)));
@@ -261,7 +261,7 @@ public static class ProfileCatalogue {
     public static FrozenDictionary<ProfileId, Profile> BuildMasonryRows(Context context) =>
         RegionalRows
             .Choose(row => MasonryOf(row, context, default).ToOption())
-            .ToFrozenDictionary(static r => r.Id, static r => r.Profile, ProfileKeyPolicy.EqualityComparer);
+            .ToFrozenDictionary(static r => r.Id, static r => r.Profile, ComparerAccessors.StringOrdinal.EqualityComparer);
 }
 ```
 

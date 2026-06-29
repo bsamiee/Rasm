@@ -249,8 +249,8 @@ class MaterialWire:
 ```csharp signature
 // --- [TYPES] -------------------------------------------------------------------------------
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<MaterialKeyPolicy, string>]
-[KeyMemberComparer<MaterialKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class NodeCategory {
     public static readonly NodeCategory Constant      = new("constant", port: "float");
     public static readonly NodeCategory Image         = new("image", port: "color3");

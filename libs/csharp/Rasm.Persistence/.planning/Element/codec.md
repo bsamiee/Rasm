@@ -12,7 +12,7 @@ Rasm.Persistence encodes every durable `ElementGraph`, `GraphDelta`, and geometr
 
 ## [02]-[CODEC_AXIS]
 
-- Owner: `SnapshotCodec` `[SmartEnum<string>]` under the `CodecKeyPolicy` ordinal accessor; `ElementJson` the package `JsonSerializerContext` partial joining the suite STJ merge; `InstantFormatter` the one primitive-mapped NodaTime MessagePack formatter; `WireSurface` the wire-surface vocabulary each codec admits through its frozen `Membership` set so content negotiation is the codec rows a surface admits, never a parallel format enum; `GeoJsonProjection` the one `GeoJsonConverterFactory` admission; `PersistenceResolver` the AOT MessagePack resolver landmark.
+- Owner: `SnapshotCodec` `[SmartEnum<string>]` under the `ComparerAccessors.StringOrdinal` accessor; `ElementJson` the package `JsonSerializerContext` partial joining the suite STJ merge; `InstantFormatter` the one primitive-mapped NodaTime MessagePack formatter; `WireSurface` the wire-surface vocabulary each codec admits through its frozen `Membership` set so content negotiation is the codec rows a surface admits, never a parallel format enum; `GeoJsonProjection` the one `GeoJsonConverterFactory` admission; `PersistenceResolver` the AOT MessagePack resolver landmark.
 - Cases: 4 codec rows — `json-stj`, `messagepack`, `file-raw`, `cbor`; 4 wire surfaces — `snapshot`, `cache`, `sync`, `web`.
 - Entry: `public partial byte[] Serialize(Type shape, object? value)` is the pure byte transform dispatching shape-discriminated through source-generated metadata; `public static Fin<SnapshotCodec> Negotiate(WireSurface surface, Seq<string> accepted)` resolves the highest mutually-supported codec a consumer admits.
 - Auto: registering `ThinktectureJsonConverterFactory` and `ThinktectureMessageFormatterResolver.Instance` once derives every `[ValueObject]`/`[SmartEnum]`/`[Union]` converter and formatter, so a `NodeId`/`ContentAddress`/`Discipline` crosses both the Marten-event STJ wire and the MessagePack cache wire as its bare key with zero hand-written codec; `GeoJsonProjection` admits one `GeoJsonConverterFactory` deriving the GeoJSON projection of every `NetTopologySuite` geometry, feature, and attribute table the `Coverage`/`GeoReference` nodes carry; `Marten.UseSystemTextJsonForSerialization(ElementJson.Options)` binds the `json-stj` row's options as the event-store serializer so a stored `GraphEvent` and an inspector projection share one converter set.
@@ -22,14 +22,10 @@ Rasm.Persistence encodes every durable `ElementGraph`, `GraphDelta`, and geometr
 - Boundary: artifact-kind-to-codec residence is fixed at write — a second codec on one kind is a conflict, not a fallback; the `messagepack` row is the Marten cache/sync wire and pairs with the `none` compression row because `Lz4BlockArray` owns compression in-codec (double framing is the deleted pattern); the `cbor` row is the self-describing IETF blob codec whose `CborConformanceMode.Canonical` deterministic map-key order makes the bytes content-stable for the `ContentAddress` (the guarantee a schemaless MessagePack body cannot give across insertion order) and whose `Strict` bounded reader guards an untrusted egress frame against a depth/length bomb, so a structured self-describing blob routes through `Cbor` while an evolving typed record stays `messagepack`; the `json-stj` row is the inspector/web wire and the Marten event-store serializer; the `file-raw` row is the geometry-blob passthrough that never re-frames; the restore lane reads MessagePack under `MessagePackSecurity.UntrustedData` because a stored blob crossed a rest boundary, the write lane keeps the trusted default; MemoryPack and protobuf snapshot encodings stay rejected — proto owns RPC payloads only.
 
 ```csharp signature
-public sealed class CodecKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
-    public static IEqualityComparer<string> EqualityComparer => StringComparer.Ordinal;
-    public static IComparer<string> Comparer => StringComparer.Ordinal;
-}
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<CodecKeyPolicy, string>]
-[KeyMemberComparer<CodecKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class WireSurface {
     public static readonly WireSurface Snapshot = new("snapshot");
     public static readonly WireSurface Cache = new("cache");
@@ -61,8 +57,8 @@ public sealed class InstantFormatter : IMessagePackFormatter<Instant> {
 }
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<CodecKeyPolicy, string>]
-[KeyMemberComparer<CodecKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SnapshotCodec {
     public static readonly SnapshotCodec JsonStj = new("json-stj", headerId: 1, negotiationRank: 1, membership: FrozenSet.ToFrozenSet([WireSurface.Snapshot, WireSurface.Web]),
         serialize: static (shape, value) => JsonSerializer.SerializeToUtf8Bytes(value, shape, ElementJson.Options),
@@ -164,7 +160,7 @@ public static class NodeHash {
 
 ## [04]-[COMPRESSION_HASHING]
 
-- Owner: `CompressionPolicy` and `HashPolicy` `[SmartEnum<string>]` row families under the `CodecKeyPolicy` ordinal accessor.
+- Owner: `CompressionPolicy` and `HashPolicy` `[SmartEnum<string>]` row families under the `ComparerAccessors.StringOrdinal` accessor.
 - Cases: 5 compression rows — `none`, `lz4-fast`, `lz4-high`, `zstd`, `zstd-high`; 5 hash rows — `Content` (`XxHash3`), `Identity` (`XxHash128`), `Frame` (`Crc32`), `Wide` (`XxHash64`), `FrameWide` (`Crc64`).
 - Entry: `public partial byte[] Pack(ReadOnlyMemory<byte> payload)` is the pure byte transform; `public partial UInt128 Compute(ReadOnlyMemory<byte> payload)` is the row's hash.
 - Packages: K4os.Compression.LZ4, ZstdSharp.Port, System.IO.Hashing, Thinktecture.Runtime.Extensions, BCL inbox.
@@ -173,8 +169,8 @@ public static class NodeHash {
 
 ```csharp signature
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<CodecKeyPolicy, string>]
-[KeyMemberComparer<CodecKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class CompressionPolicy {
     public static readonly CompressionPolicy None = new("none", headerId: 0, pack: static p => p.ToArray(), unpack: static f => f.ToArray());
     public static readonly CompressionPolicy Lz4Fast = new("lz4-fast", headerId: 1, pack: static p => LZ4Pickler.Pickle(p.Span, LZ4Level.L00_FAST), unpack: static f => LZ4Pickler.Unpickle(f.Span));
@@ -204,8 +200,8 @@ public static class ZstdFrame {
 }
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<CodecKeyPolicy, string>]
-[KeyMemberComparer<CodecKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class HashPolicy {
     public static readonly HashPolicy Content = new("xxhash3", domainId: 1, bits: 64, hexFormat: "x16", compute: static p => XxHash3.HashToUInt64(p.Span));
     public static readonly HashPolicy Identity = new("xxhash128", domainId: 2, bits: 128, hexFormat: "x32", compute: static p => XxHash128.HashToUInt128(p.Span));
@@ -233,7 +229,7 @@ public sealed partial class HashPolicy {
 
 ```csharp signature
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<CodecKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class RejectTier {
     public static readonly RejectTier Foreign = new("foreign", rank: 1);
     public static readonly RejectTier FutureLayout = new("future-layout", rank: 2);
@@ -353,7 +349,7 @@ public static class Snapshots {
 
 ```csharp signature
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<CodecKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ChunkPolicy {
     public static readonly ChunkPolicy Artifact = new("artifact", min: 16 * 1024u, avg: 64 * 1024u, max: 256 * 1024u);
     public static readonly ChunkPolicy Small = new("small", min: 2 * 1024u, avg: 8 * 1024u, max: 32 * 1024u);

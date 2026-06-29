@@ -200,7 +200,7 @@ own `protobufjs`/`@bufbuild` decode at the `Rasm.AppUi` seam.
 
 [ENTRYPOINT_SCOPE]: `FieldCodec<T>` per-field codec
 - rail: remote-contracts
-- note: `FieldCodec.For*` builds the reusable codec a generated accessor (and the `Runtime/channels` per-payload encoding row) drives by `ref` context; `RepeatedField<T>`/`MapField<TKey,TValue>` consume a codec for bulk wire flow.
+- note: `FieldCodec.For*` builds the reusable codec a generated accessor drives by `ref` context; `RepeatedField<T>`/`MapField<TKey,TValue>` consume a codec for bulk wire flow.
 
 | [INDEX] | [SURFACE]                            | [CALL_SHAPE]                                            | [CAPABILITY]                                  |
 | :-----: | :----------------------------------- | :----------------------------------------------------- | :-------------------------------------------- |
@@ -239,7 +239,7 @@ own `protobufjs`/`@bufbuild` decode at the `Rasm.AppUi` seam.
 - write entry: `MessageExtensions.WriteTo(IBufferWriter<byte>)`, `WriteTo(Span<byte>)`, and `WriteLengthPrefixedTo(IBufferWriter<byte>)` emit into pooled or pre-sized buffers; pre-size a `Span` write through `IMessage.CalculateSize()` / the `CodedOutputStream.Compute*Size` family.
 - no-copy aliasing: `UnsafeByteOperations.UnsafeWrap(ReadOnlyMemory<byte>)` adopts caller-owned memory into a `ByteString`; the caller owns buffer lifetime past the message's read window.
 - context boundary: `ParseContext`/`WriteContext` `Initialize` factories are package-internal; generated code drives them through `IBufferMessage.InternalMergeFrom(ref ParseContext)` / `InternalWriteTo(ref WriteContext)`, and Compute reaches the fast path only through the public parser, message-extension, and field-codec surfaces — never by constructing a `ref` context.
-- field codec: `FieldCodec<T>.Read(ref ParseContext)`, `WriteTagAndValue(ref WriteContext, T)`, and `CalculateSizeWithTag(T)` are the per-field ref-context operations behind generated accessors and the `Runtime/channels` per-payload encoding row.
+- field codec: `FieldCodec<T>.Read(ref ParseContext)`, `WriteTagAndValue(ref WriteContext, T)`, and `CalculateSizeWithTag(T)` are the per-field ref-context operations behind generated accessors.
 
 [REFLECTION_CONTRACTS]:
 - namespace: `Google.Protobuf.Reflection`; the file/message/field/enum/method/service descriptor graph drives contract inspection.

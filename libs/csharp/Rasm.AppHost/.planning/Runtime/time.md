@@ -65,15 +65,10 @@ public sealed record ClockPolicy(TimeProvider Time, IClock Clock) {
 - Boundary: every duration bound in the suite traces to a row here or to a policy row on its owning page — a bare `TimeSpan` literal anywhere else is the named defect; profile variance enters `Resolve` as one override-table swap at the composition root, and consumers read the frozen table, never the raw rows; the cancellation spine, hop registry, drain conductor, and cache lanes consume these rows as values — drain-cooperative escalates to drain-forced and every other miss is forced; the cooperative allotment is the telemetry-flush budget — a ForceFlush during plugin unload runs inside drain-cooperative, and an overrun escalates through the `Escalation` arc to drain-forced, the terminal forced-flush bound past which the drain conductor abandons in-flight export, so the flush latency is one `escalatesTo` arc, never a separate timer.
 
 ```csharp signature
-public sealed class TimeKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
-    public static IEqualityComparer<string> EqualityComparer => StringComparer.Ordinal;
-
-    public static IComparer<string> Comparer => StringComparer.Ordinal;
-}
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<TimeKeyPolicy, string>]
-[KeyMemberComparer<TimeKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class DeadlineClass {
     public static readonly DeadlineClass Startup = new("startup", allotted: Duration.FromSeconds(30), escalatesTo: null);
     public static readonly DeadlineClass ReadyProbe = new("ready-probe", allotted: Duration.FromSeconds(5), escalatesTo: null);
@@ -94,8 +89,8 @@ public sealed partial class DeadlineClass {
 }
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<TimeKeyPolicy, string>]
-[KeyMemberComparer<TimeKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class DeadlineOutcome {
     public static readonly DeadlineOutcome Met = new("met");
     public static readonly DeadlineOutcome Escalated = new("escalated");
@@ -137,8 +132,8 @@ public static class DeadlineOps {
 
 ```csharp signature
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<TimeKeyPolicy, string>]
-[KeyMemberComparer<TimeKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class CronCadence {
     public static readonly CronCadence Yearly = new("@yearly", CronExpression.YearlyWithJitter);
     public static readonly CronCadence Weekly = new("@weekly", CronExpression.WeeklyWithJitter);

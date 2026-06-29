@@ -18,7 +18,7 @@ THE TIMBER PROFILEFAMILY. The timber cross-section vocabulary — the sawn/glula
 ```csharp signature
 // --- [TYPES] -------------------------------------------------------------------------------
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<ProfileKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class TimberForm {
     public static readonly TimberForm Sawn   = new("sawn", ifcSubtype: "IfcRectangleProfileDef", crossPly: false);
     public static readonly TimberForm Glulam = new("glulam", ifcSubtype: "IfcRectangleProfileDef", crossPly: false);
@@ -28,7 +28,7 @@ public sealed partial class TimberForm {
 }
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<ProfileKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class TimberGrade {
     public static readonly TimberGrade Gl24h = new("gl24h", fmkMpa: 24.0, e0MeanMpa: 11_500.0);
     public static readonly TimberGrade Gl28h = new("gl28h", fmkMpa: 28.0, e0MeanMpa: 12_500.0);
@@ -94,7 +94,7 @@ public static class ProfileCatalogue {
             .Choose(row => TimberOf(row, context, default).ToOption())
             .Choose(shape => shape.Section.ToUnit(context, default).ToOption()
                 .Map(unit => (shape.Id, Profile: new Profile(ProfileFamily.Timber, unit, Coring.None, shape.Standard, MaterialId.Of("wood.oak")))))
-            .ToFrozenDictionary(static r => r.Id, static r => r.Profile, ProfileKeyPolicy.EqualityComparer);
+            .ToFrozenDictionary(static r => r.Id, static r => r.Profile, ComparerAccessors.StringOrdinal.EqualityComparer);
 }
 ```
 

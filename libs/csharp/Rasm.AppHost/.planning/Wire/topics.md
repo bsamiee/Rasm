@@ -10,7 +10,7 @@ The in-process event-bus topology for the runtime spine: a `Topic<T>` fans a `Do
 
 ## [02]-[TOPIC_FABRIC]
 
-- Owner: `DomainEvent` the topic-agnostic event carrier; `Topic` `[SmartEnum<string>]` the topic axis under the `LaneKeyPolicy` accessor; `TopicHead` the `BroadcastBlock`-backed fan capsule; `BusFault` `[Union]` fault family in the 4730 band.
+- Owner: `DomainEvent` the topic-agnostic event carrier; `Topic` `[SmartEnum<string>]` the topic axis under the `ComparerAccessors.StringOrdinal` accessor; `TopicHead` the `BroadcastBlock`-backed fan capsule; `BusFault` `[Union]` fault family in the 4730 band.
 - Cases: topic rows are the declared event channels — `Command`, `Lifecycle`, `Health`, `Delivery` — each binding its `DrainSpec` back-pressure row; `BusFault` = Text | TopicUnknown | SubscriptionFull | JoinUnmatched.
 - Entry: `Open(Topic topic, CancellationToken token)` returns `TopicHead` — mints the topic's `BroadcastBlock` fan over the topic's `DrainSpec.ReceiptFanOut`-derived row through `DrainSurface.Broadcast`, ready to link subscriptions; `Publish(TopicHead head, DomainEvent evt)` returns `IO<Unit>` — posts the event onto the fan head under the topic's bounded back-pressure so a fast producer awaits fullness rather than dropping.
 - Auto: the topic fan is one `BroadcastBlock<DomainEvent>` minted through `DrainSurface.Broadcast` so the fan-out is the `DrainSurface` builder over the one `DrainKind` union, never a hand-rolled fan-out loop, and the clone delegate is the receipt-fan-out copy guard so a subscription mutating a received event cannot leak the mutation across subscriptions; the event carries its HLC stamp so subscriptions order events by the `(Physical, Logical)` pair the `Runtime/determinism#EVENT_LOG` chain and the `ReceiptEnvelope` carry, never a per-topic counter; `Publish` rides the topic's `DrainSpec` `BoundedCapacity` so a fast producer awaits on a `Wait` row rather than dropping — back-pressure is the bound, never unbounded accumulation; the topic row's `DrainBand` seats the fan under the conductor so a topic completes at its declared drain band on unload.
@@ -32,8 +32,8 @@ public sealed record DomainEvent(
 }
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<LaneKeyPolicy, string>]
-[KeyMemberComparer<LaneKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class Topic {
     public static readonly Topic Command = new("command", DrainSpec.ReceiptFanOut);
     public static readonly Topic Lifecycle = new("lifecycle", DrainSpec.ReceiptFanOut);
