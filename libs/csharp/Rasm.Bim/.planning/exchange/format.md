@@ -175,7 +175,7 @@ public sealed partial class InterchangeFormat {
                 .Where(pair => input.EndsWith(pair.Key, StringComparison.OrdinalIgnoreCase))
                 .OrderByDescending(static pair => pair.Key.Length)
                 .Select(static pair => pair.Value)
-                .HeadOrNone();
+                .ToSeq().Head;
 }
 
 // The basis change onto the canonical kernel frame (Z-up, right-handed) as a signed axis permutation: each

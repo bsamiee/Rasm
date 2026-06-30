@@ -402,7 +402,7 @@ public sealed class JobGraph(Func<JobRun, IO<JobSignal>> runner, CheckpointPort 
         var byId = nodes.Fold(HashMap<string, JobNode>(), static (acc, node) => acc.Add(node.Id, node));
         var queue = toSeq(indegree.Filter(static (_, degree) => degree == 0).Keys);
         var ordered = Seq<JobNode>();
-        while (queue.HeadOrNone().Case is string head) {
+        while (queue.Head.Case is string head) {
             queue = queue.Tail;
             ordered = ordered.Add(byId[head]);
             foreach (var node in nodes.Filter(n => n.DependsOn.Contains(head))) {

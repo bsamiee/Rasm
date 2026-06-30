@@ -153,7 +153,7 @@ public static class DimensionProof {
     static Validation<Error, DimensionMonomial> Transcendental(bool preservesDimension, Seq<Expression> args, DimensionContext context, string name) =>
         args.Traverse(arg => Descend(arg, context)).Bind(dims =>
             preservesDimension
-                ? Success<Error, DimensionMonomial>(dims.HeadOrNone().IfNone(DimensionMonomial.Dimensionless))
+                ? Success<Error, DimensionMonomial>(dims.Head.IfNone(DimensionMonomial.Dimensionless))
             : dims.ForAll(static d => d.IsDimensionless)
                 ? Success<Error, DimensionMonomial>(DimensionMonomial.Dimensionless)
                 : Fail<Error, DimensionMonomial>(new ComputeFault.DimensionMismatch(
@@ -162,7 +162,7 @@ public static class DimensionProof {
     static Validation<Error, DimensionMonomial> Homogeneous(Seq<Expression> addends, DimensionContext context) =>
         addends.Traverse(addend => Descend(addend, context)).Bind(static dims =>
             dims.Distinct().ToSeq() is { Count: <= 1 } distinct
-                ? Success<Error, DimensionMonomial>(distinct.HeadOrNone().IfNone(DimensionMonomial.Dimensionless))
+                ? Success<Error, DimensionMonomial>(distinct.Head.IfNone(DimensionMonomial.Dimensionless))
                 : Fail<Error, DimensionMonomial>(new ComputeFault.DimensionMismatch(
                     $"dimension: heterogeneous sum over {string.Join(" vs ", distinct.Map(static d => d.Format()))}")));
 
@@ -211,7 +211,7 @@ public sealed record DimensionContext(Map<string, DimensionMonomial> Bindings) {
 public sealed record DimensionVerdict(DimensionMonomial Dimension, Seq<QuantityFamily> Families) {
     public bool IsAmbiguous => Families.Count > 1;
 
-    public Option<QuantityFamily> Unique => Families.Count == 1 ? Families.HeadOrNone() : Option<QuantityFamily>.None;
+    public Option<QuantityFamily> Unique => Families.Count == 1 ? Families.Head : Option<QuantityFamily>.None;
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

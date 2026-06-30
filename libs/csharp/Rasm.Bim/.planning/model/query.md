@@ -233,7 +233,7 @@ public sealed record ElementSet(ElementGraph Graph, NodeSet Ids) {
     static Option<NodeId> TypeIdOf(ElementGraph graph, NodeId obj) =>
         graph.EdgesAt(obj).Choose(e =>
             e is Relationship.Assign { SubKind: var k, Subject: var subj, Definition: var def } && k == AssignKind.TypeDefinition && subj == obj
-                ? Some(def) : Option<NodeId>.None).HeadOrNone();
+                ? Some(def) : Option<NodeId>.None).Head;
 
     // One named bag resolution, two arities: the occurrence bag matching SetName merged with its type counterpart via
     // the seam Merge (the occurrence carrying the stamped InheritanceMode), or the type-only bag inherited as-is.

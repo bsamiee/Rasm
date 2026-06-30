@@ -36,10 +36,10 @@ public sealed partial class LinearProvider {
     public bool Available => probe();
 
     public static LinearProvider Select(Option<BenchmarkRow> claim) =>
-        toSeq(Items)
+        toSeq(toSeq(Items)
             .Filter(static row => row.Available)
-            .OrderByDescending(row => claim.Map(c => StringComparer.Ordinal.Equals(c.Route, row.Key) ? int.MaxValue : row.Rank).IfNone(row.Rank))
-            .HeadOrNone()
+            .OrderByDescending(row => claim.Map(c => StringComparer.Ordinal.Equals(c.Route, row.Key) ? int.MaxValue : row.Rank).IfNone(row.Rank)))
+            .Head
             .Map(static row => { row.activate(); return row; })
             .IfNone(static () => { Managed.activate(); return Managed; });
 

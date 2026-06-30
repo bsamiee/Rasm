@@ -235,7 +235,7 @@ public abstract partial record WireFault : Expected, IValidationError<WireFault>
         Optional(error.Trailers.GetValueBytes(DetailsTrailer))
             .Map(static bytes => Google.Rpc.Status.Parser.ParseFrom(bytes))
             .Bind(static rich => rich.Details.ToSeq()
-                .Filter(static any => any.Is(FaultDetail.Descriptor)).HeadOrNone()
+                .Filter(static any => any.Is(FaultDetail.Descriptor)).Head
                 .Map(static any => any.Unpack<FaultDetail>()));
 
     public static WireFault Decode(FaultDetail detail) =>
@@ -544,7 +544,7 @@ public sealed partial class CredentialPolicy {
     public static readonly CredentialPolicy InsecureLoopback = new("insecure-loopback", channel: static _ => ChannelCredentials.Insecure, mutualAuth: false);
     public static readonly CredentialPolicy Tls = new("tls", channel: static _ => ChannelCredentials.SecureSsl, mutualAuth: false);
     public static readonly CredentialPolicy Mtls = new("mtls", channel: static _ => ChannelCredentials.SecureSsl, mutualAuth: true);
-    public static readonly CredentialPolicy Bearer = new("bearer", mutualAuth: false, channel: static mints => mints.HeadOrNone().Match(
+    public static readonly CredentialPolicy Bearer = new("bearer", mutualAuth: false, channel: static mints => mints.Head.Match(
         Some: static mint => ChannelCredentials.Create(ChannelCredentials.SecureSsl, CallCredentials.FromInterceptor(mint)),
         None: static () => ChannelCredentials.SecureSsl));
     public static readonly CredentialPolicy Composed = new("composed", mutualAuth: false, channel: static mints => mints.Match(
@@ -685,7 +685,7 @@ public static class FrameEdge {
     public static Fin<T> Reassemble<T>(RecyclableMemoryStreamManager pool, MessageParser<T> parser, Seq<ArtifactFrame> frames) where T : class, IMessage<T> =>
         frames.OrderBy(static frame => frame.Offset).ToSeq() is var ordered && ordered.Find(static frame => !Valid(frame)) is { IsSome: true, Case: ArtifactFrame bad }
             ? Fin.Fail<T>(new ComputeFault.PayloadOverBounds($"<frame-crc:{bad.Offset}>"))
-            : ordered.HeadOrNone().Match(
+            : ordered.Head.Match(
                 None: static () => Fin.Fail<T>(new ComputeFault.PayloadOverBounds("<reassemble-empty>")),
                 Some: head => Drain(pool, parser, head.ArtifactId, ordered));
 

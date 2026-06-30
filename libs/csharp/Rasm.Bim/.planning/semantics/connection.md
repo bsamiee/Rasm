@@ -136,7 +136,7 @@ public static class ConnectionProjection {
             .Choose(static rel => rel is IfcRelAssociatesMaterial { RelatingMaterial: IfcMaterialProfileSetUsage { ForProfileSet: { } profileSet } } ? Some(profileSet) : None)
             .SelectMany(static set => set.MaterialProfiles.AsIterable())
             .Choose(static profile => profile.Profile is IfcCircleProfileDef { Radius: var radius } && double.IsFinite(radius) ? Some(radius * 2d) : None)
-            .HeadOrNone();
+            .Head;
 
     // --- [REINFORCING] ------------------------------------------------------------------------
     // A cast-in reinforcing bar: the public NominalDiameter (IfcReinforcingBarType.NominalDiameter type-fallback get) /

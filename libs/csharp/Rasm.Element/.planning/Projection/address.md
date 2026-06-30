@@ -11,7 +11,7 @@ The content-identity owner: the `ContentAddress` `[ValueObject<UInt128>]` that h
 
 - Owner: `ContentAddress` the `[ValueObject<UInt128>]` content key over the kernel seed-zero `XxHash128`; the raw-hash, precomputed-wrap, node, graph, and verification entries; the shared `ByteOrder` edge-bytes comparer the snapshot edge sort and the `Graph/delta#GRAPH_DELTA` `GraphDelta.ToCanonicalBytes` edge sort both compose.
 - Entry: `ContentAddress.Of(ReadOnlySpan<byte>)` is the raw hashing entry the `Graph/element#NODE_MODEL` `NodeId.Content` mint shares; `Of(UInt128)` wraps a PRECOMPUTED content hash (a `RepresentationContentHash` body key, a `Coverage.RasterKey`, an `Assessment.InputKey`) without re-hashing; `Of(Node, tolerance)` is the id-INCLUSIVE node address (the graph-dedup key distinguishing two occurrences with identical content by their ids); `OfGraph(ElementGraph)` the order-INDEPENDENT snapshot address (semantic `Header` + sorted node addresses + sorted edge bytes); `Verify(Node, tolerance, key)` the single-node re-hash gate (`Fin<Unit>`) and `Verify(ElementGraph, key)` the snapshot sweep (`Validation<Error, Unit>`).
-- Auto: `Of(Node)` writes the id then appends `node.ToCanonicalBytes(tolerance)` (the `Graph/element#NODE_MODEL` projection) so two occurrences with identical content stay distinct by id, while `OfGraph` folds the semantic `Header` (schema/view/tolerance/georeference) then sorts the node `ContentAddress`es by `UInt128` and the edge canonical bytes lexicographically through `ByteOrder`, the section counts making the node-vs-edge layout self-delimiting; `Verify` re-projects a non-rooted node through `node.ToCanonicalBytes` and the kernel `ContentHash.Of`, comparing the recomputed `X32` to the stored `NodeId.Value` (a rooted `Node.Object` carries a neutral Guid-v7, not a content hash, so it verifies vacuously), the graph overload accumulating every mismatch applicatively; every byte the address consumes is written through the `Projection/address#CANONICAL_WRITER` `CanonicalWriter`, so a node's identity, its content address, and the bytes the `Rasm.Persistence` 3-way `StructuralMerge` keys an edge or node on are ONE encoding — never three divergent serializations.
+- Auto: `Of(Node)` writes the id then appends `node.ToCanonicalBytes(tolerance)` (the `Graph/element#NODE_MODEL` projection) so two occurrences with identical content stay distinct by id, while `OfGraph` folds the semantic `Header` through the `Graph/element#ELEMENT_GRAPH` `Header.CanonicalBytes` projection (the ONE header-bytes owner the `Graph/delta#GRAPH_DELTA` delta key also composes — schema/view/tolerance/georeference, never re-spelled here) then sorts the node `ContentAddress`es by `UInt128` and the edge canonical bytes lexicographically through `ByteOrder`, the section counts making the node-vs-edge layout self-delimiting; `Verify` re-projects a non-rooted node through `node.ToCanonicalBytes` and the kernel `ContentHash.Of`, comparing the recomputed `X32` to the stored `NodeId.Value` (a rooted `Node.Object` carries a neutral Guid-v7, not a content hash, so it verifies vacuously), the graph overload accumulating every mismatch applicatively; every byte the address consumes is written through the `Projection/address#CANONICAL_WRITER` `CanonicalWriter`, so a node's identity, its content address, and the bytes the `Rasm.Persistence` 3-way `StructuralMerge` keys an edge or node on are ONE encoding — never three divergent serializations.
 - Receipt: a `ContentAddress` is the stable cross-runtime content key — a `NodeId.Content` for a non-rooted node, a node's dedup/diff key, a snapshot's identity the `Rasm.Persistence` spine and the `Rasm.Compute` assessment cache key on; the `Verify` `Fin`/`Validation` is the rehydrate integrity verdict a content-keyed store reads before trusting a persisted id; a float-bearing golden vector (an `IfcMaterialLayer`-shaped node) anchors the cross-runtime parity corpus so the C#/Python/TypeScript peers agree byte-for-byte.
 - Packages: `Rasm` (the kernel `Domain.ContentHash` seed-zero entry — composed, never a second hasher — plus the `Op` op-key), Thinktecture.Runtime.Extensions (`[ValueObject<UInt128>]` + the generated `Create`/`Value`), LanguageExt.Core (`Fin`/`Validation`/`Error`/`Unit` + the `Seq.Traverse`/`.As()` applicative accumulation the snapshot `Verify` sweep folds every node check through).
 - Growth: a new structural identity (a node, an edge, a snapshot, a verification) is one `Of`/`Verify` overload discriminating on input shape; a new precomputed content key is one `Of(UInt128)` caller; never a per-call-site hash, never a second hasher, and never a parallel content-key scheme — the `XxHash128` seed-zero entry is the one identity rail and the addressing grows by the `Projection/address#CANONICAL_WRITER` writer's vocabulary.
@@ -57,15 +57,18 @@ public sealed partial class ContentAddress {
   return Of(w.ToBytes().Span);
  }
 
- // The order-INDEPENDENT snapshot address: the semantic Header folded first, then node addresses sorted by
- // UInt128, then edge canonical bytes sorted lexicographically. The section counts make the layout
- // self-delimiting — a node-vs-edge boundary can never blur under concatenation — so two graphs with identical
- // content but different insertion order address identically, while a schema/view/georeference change forks identity.
+ // The order-INDEPENDENT snapshot address: the semantic Header folded first through its OWN Graph/element#ELEMENT_GRAPH
+ // Header.CanonicalBytes projection (the ONE header-bytes owner the Graph/delta#GRAPH_DELTA delta key also composes, so
+ // the snapshot header contribution and the delta header key never diverge — schema/view/tolerance/georeference, the
+ // StepHeader/Instant provenance excluded), then node addresses sorted by UInt128, then edge canonical bytes sorted
+ // lexicographically. The section counts make the layout self-delimiting — a node-vs-edge boundary can never blur under
+ // concatenation — so two graphs with identical content but different insertion order address identically, while a
+ // schema/view/georeference change forks identity.
  public static ContentAddress OfGraph(ElementGraph graph) {
   CanonicalWriter w = new(graph.Header.Tolerance);
-  HeaderBytes(w, graph.Header);
+  graph.Header.CanonicalBytes(w);
   w.Ordinal(graph.Nodes.Count);
-  foreach (UInt128 nodeAddress in graph.Nodes.Values.Map(n => Of(n, graph.Header.Tolerance).Value).Order()) { w.U128(nodeAddress); }
+  foreach (UInt128 nodeAddress in toSeq(graph.Nodes.Values).Map(n => Of(n, graph.Header.Tolerance).Value).Order()) { w.U128(nodeAddress); }
   // The edge's standalone canonical bytes are the SAME Relations/relation#EDGE_ALGEBRA Relationship.ToCanonicalBytes()
   // projection a content-3-way merge keys an edge on — graph address and edge merge-key never diverge. Edges carry
   // no tolerance-bearing measure, so the per-edge writer tolerance is 0 (a Generic edge's PropertyValue measures
@@ -92,24 +95,12 @@ public sealed partial class ContentAddress {
  // accumulate-all shape, independent checks licensing accumulation), the caller converting to Fin (.ToFin()) at the
  // boundary so an unstable snapshot never enters the read path as trusted.
  public static Validation<Error, Unit> Verify(ElementGraph graph, Op key) =>
-  graph.Nodes.Values.ToSeq()
+  toSeq(graph.Nodes.Values)
    .Traverse(n => Verify(n, graph.Header.Tolerance, key).Match(
     Succ: static _ => Success<Error, Unit>(unit),
     Fail: static e => Fail<Error, Unit>(e)))
    .As()
    .Map(static _ => unit);
-
- // The SEMANTIC header identity folded into the graph address — schema, model view, tolerance, and the full GeoReference
- // map-conversion tuple projected through the ONE Geospatial/reference#GEO_REFERENCE GeoReference.CanonicalBytes (Epsg the
- // CRS identity, the resolved CRS-name string EXCLUDED) — so two graphs differing in schema or resolved EPSG address
- // distinctly while two that resolve the SAME EPSG address identically whether or not the name string differs; the
- // StepHeader/Instant PROVENANCE is EXCLUDED (the node-level OwnerHistory exclusion at graph altitude), so a re-export under
- // a new timestamp/author never forks the snapshot identity. The SAME projection the Graph/delta#GRAPH_DELTA header
- // contribution composes, so the delta header key and this snapshot header contribution never diverge.
- static void HeaderBytes(CanonicalWriter w, Header h) {
-  w.String(h.Schema.Key).String(h.View.Key).Double(h.Tolerance);
-  h.Reference.CanonicalBytes(w);
- }
 }
 ```
 

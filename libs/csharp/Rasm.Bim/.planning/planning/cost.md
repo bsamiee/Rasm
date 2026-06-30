@@ -195,7 +195,7 @@ public sealed record CostSchedule(
     // cross-currency line carrying no matching ExchangeRate lifts BimFault.CodecReject onto the Fin rail rather than
     // letting a different-currency `Money + Money` THROW in domain logic, so the fold is total over one reporting currency.
     public Fin<CostRollup> Rollup(Op key, Option<ExchangeRate> fx = default) {
-        var report = Items.HeadOrNone().Map(static i => i.Value.Applied.Currency).IfNone(Currency.NoCurrency);
+        var report = Items.Head.Map(static i => i.Value.Applied.Currency).IfNone(Currency.NoCurrency);
         return Items
             .TraverseM(item => Reprice(item.ValueOf(), report, fx, key).Map(amount => (Key: item.Value.Category.Key, Amount: amount)))
             .As()
@@ -277,7 +277,7 @@ public static class CostProjection {
     // value tree folds through the IfcArithmeticOperatorEnum so a composite rate (material + labor + equipment
     // sub-rates) resolves rather than reading only the head value the migration source did.
     static Fin<CostValue> ValueOf(IfcCostItem item, Op key) =>
-        item.CostValues.AsIterable().HeadOrNone().Match(
+        item.CostValues.AsIterable().Head.Match(
             Some: value =>
                 from applied in AmountOf(value, key)
                 select new CostValue(applied, BasisOf(value), CostCategory.Of(value.Category ?? "")),
@@ -319,7 +319,7 @@ public static class CostProjection {
 
     static Fin<MeasureValue> Dominant(Seq<MeasureValue> measures, Op key) =>
         PricingRank.Choose(d => measures.Filter(m => m.Dimension == d) is { IsEmpty: false } same ? Some(same) : None)
-            .HeadOrNone()
+            .Head
             .Match(Some: same => MeasureValue.Sum(same, key), None: () => Fin.Succ(MeasureValue.OfSi(Dimension.Dimensionless, 1d)));
 
     static Seq<MeasureValue> Measures(Seq<IfcPhysicalQuantity> quantities) =>
@@ -348,7 +348,7 @@ public static class CostProjection {
                 TaskOf(resource)));
 
     static Option<Money> BaseCostOf(IfcConstructionResource resource, Op key) =>
-        resource.BaseCosts.AsIterable().HeadOrNone()
+        resource.BaseCosts.AsIterable().Head
             .Bind(value => AmountOf(value, key).ToOption());
 
     static Option<string> SkillOf(IfcConstructionResource resource) => resource switch {
@@ -359,18 +359,18 @@ public static class CostProjection {
 
     static Option<string> MaterialOf(IfcConstructionResource resource) =>
         resource is IfcConstructionMaterialResource or IfcConstructionProductResource
-            ? resource.HasAssociations
+            ? toSeq(resource.HasAssociations
                 .AsIterable()
-                .OfType<IfcRelAssociatesMaterial>()
-                .HeadOrNone()
+                .OfType<IfcRelAssociatesMaterial>())
+                .Head
                 .Bind(static rel => Optional((rel.RelatingMaterial as IfcMaterial)?.Name))
             : None;
 
     static Option<string> TaskOf(IfcConstructionResource resource) =>
-        resource.HasAssignments
+        toSeq(resource.HasAssignments
             .AsIterable()
-            .OfType<IfcRelAssignsToProcess>()
-            .HeadOrNone()
+            .OfType<IfcRelAssignsToProcess>())
+            .Head
             .Bind(static rel => Optional((rel.RelatingProcess as IfcProcess)?.GlobalId))
             .Filter(static id => id.Length > 0);
 }
@@ -476,7 +476,7 @@ public static class CostPerformance {
         Money budget = item.ValueOf();
         Money recorded = actuals.Find(item.GlobalId).IfNone(Money.AdditiveIdentity);
         bool hasActual = actuals.ContainsKey(item.GlobalId);
-        return item.PricedGlobalIds.HeadOrNone()
+        return item.PricedGlobalIds.Head
             .Bind(taskByElement.Find)
             .Bind(taskById.Find)
             .Match(

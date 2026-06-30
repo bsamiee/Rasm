@@ -365,7 +365,7 @@ public static class ClashScale {
 public static class DigitalTwin {
     public static (TwinVerdict Verdict, TwinFilter Filter) Score(Surrogate baseline, TwinSignal signal, TwinFilter filter, TwinPolicy policy, ClockPolicy clocks) {
         var (values, predictiveBound) = baseline.Predict(new DesignPoint(signal.OperatingPoint, [], []));
-        double predicted = values.HeadOrNone().IfNone(0.0);
+        double predicted = values.Head.IfNone(0.0);
         double residual = predicted - signal.Measured;
         var (next, smoothed, normalized, drift) = filter.Update(Math.Abs(residual), policy.DriftThreshold);
         bool spike = Math.Abs(normalized) > policy.SigmaBound && smoothed > predictiveBound;

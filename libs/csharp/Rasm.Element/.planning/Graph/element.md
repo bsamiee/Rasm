@@ -4,23 +4,24 @@ The authoritative thing: `ElementGraph` = `Header` + `Nodes: FrozenDictionary<No
 
 ## [01]-[INDEX]
 
-- [01]-[NODE_MODEL]: the `NodeId` `[ValueObject<string>]` (rooted Guid-v7 / non-rooted content hash), the `Node` `[Union]` seven-case property-graph vocabulary, the `ToCanonicalBytes` shared canonical projection, and the node-payload component types (`ReleaseVersion`/`ModelView`/`StepHeader`/`OwnerHistory`/`SchemaSpan`/`RepresentationContentHash`/`ObjectKind`/`PredefinedType`/`AppearanceSummary`) — the `Object` referencing its analytical `Axis`/`FootPrint` geometry BY CONTENT KEY through the `RepresentationContentHash` keyed map a `Rasm.Compute` structural/energy runner resolves from the blob store, never inline coordinate geometry on the seam node.
+- [01]-[NODE_MODEL]: the `NodeId` `[ValueObject<string>]` (rooted Guid-v7 / non-rooted content hash), the `Node` `[Union]` seven-case property-graph vocabulary, the `ToCanonicalBytes` shared canonical projection, the node-payload component types (`ReleaseVersion`/`ModelView`/`StepHeader`/`OwnerHistory`/`SchemaSpan`/`RepresentationContentHash`/`ObjectKind`/`PredefinedType`/`AppearanceSummary`), and the analytical-geometry decode vocabulary (`AxisCurve`/`FootprintPolygon` the kernel-`Vector3` shapes a content key decodes to, and the `GeometrySource` resolution port the seam owns the contract for and an app wires over the blob store) — the `Object` referencing its analytical `Axis`/`FootPrint` geometry BY CONTENT KEY through the `RepresentationContentHash` keyed map a `Rasm.Compute` structural/energy runner resolves through a `GeometrySource` from the blob store, never inline coordinate geometry on the seam node.
 - [02]-[ELEMENT_GRAPH]: the `Header`, the `ElementGraph` frozen read snapshot with the built-once incidence index and `QuikGraph` topology view, the `Element` derived-fold result, the memoized `Bake` fold applying the `InheritanceMode` type→occurrence precedence wholly within the seam, and the `SectionOf(member)` M7 accessor reading the baked neutral `SectionProperties` off a member's `ProfileSet` composition.
 
 ## [02]-[NODE_MODEL]
 
 - Owner: `NodeId` the `[ValueObject<string>]` identity owner over the `IObjectFactory` floor; `Node` the `[Union]` seven-case property-graph vocabulary carrying the shared `ToCanonicalBytes` projection; the node-payload component types the cases compose.
 - Cases: `Object` (the IfcObjectDefinition mirror — `ObjectKind` occurrence/type, optional `ExternalId` (the Bim-stored IFC GlobalId, re-emitted at `Emit`), the generic primary `Classification` (the entity-class-keying pair every query/egress/diff reads) PLUS the `Classifications` set of additional standard-system references (IFC permits MULTIPLE `IfcRelAssociatesClassification` per object — Uniclass + OmniClass simultaneously — so the secondary refs ride a `Seq<Classification>` rather than a lossy single field), first-class `PredefinedType` token value-object, name/tag, the `RepresentationContentHash` keyed map content-hashing EVERY geometry — the heavy display `Body` AND the lightweight analytical `Axis` (idealized structural line) and `FootPrint` (space-boundary surface polygon) a discipline resolves by content key, never inline coordinates — optional `OwnerHistory`, schema `SchemaSpan`; NO `GeoReference`) · `Material` (a `Composition/material#MATERIAL_COMPOSITION` `MaterialId` + composition + property sets) · `PropertySet`/`QuantitySet` (a `Properties/property#PROPERTY_BAG` named bag with its `InheritanceMode`) · `Assessment` (an `Assessment/assessment#ASSESSMENT_NODE` receipt) · `Appearance` (a content-keyed `AppearanceSummary`) · `Coverage` (a `Geospatial/coverage#COVERAGE_NODE` raster/field grid); the closed property-graph node family.
-- Entry: `NodeId.Rooted()` mints a neutral sortable rooted id (Guid v7); `NodeId.Content(canonicalBytes)` mints a non-rooted content-hash id through the kernel `ContentHash` entry, `NodeId.OfContent(contentAddress)` mints one from a precomputed `ContentAddress` without re-hashing; `node.Id` reads any case's id through the abstract override; `node.ToCanonicalBytes(tolerance)` projects the case's semantic content (NO id) into the canonical bytes the `NodeId.Content` mint and the `Projection/address#CONTENT_ADDRESS` diff SHARE.
+- Entry: `NodeId.Rooted()` mints a neutral sortable rooted id (Guid v7); `NodeId.Content(canonicalBytes)` mints a non-rooted content-hash id through the kernel `ContentHash` entry, `NodeId.OfContent(contentAddress)` mints one from a precomputed `ContentAddress` without re-hashing ONLY when that address IS the node's own content self-hash (`ContentAddress.Of(node.ToCanonicalBytes(tolerance))`), never from a foreign key like an `Assessment.InputKey` (which is a payload field the node's own `ToCanonicalBytes` folds, not the node id); `node.Id` reads any case's id through the abstract override; `node.ToCanonicalBytes(tolerance)` projects the case's semantic content (NO id) into the canonical bytes the `NodeId.Content` mint and the `Projection/address#CONTENT_ADDRESS` diff SHARE.
 - Auto: each case carries `NodeId Id` as a positional override of the union's abstract `Id`, so `node.Id` reads without a switch; `ToCanonicalBytes` dispatches the generated total `Switch` writing each case's semantic content (an `Object` its kind/classification/predefined/name/tag/representations/span; a `Material` its key/composition/properties; a bag its sorted name→value entries; a measure quantized to the tolerance) into the `Projection/address#CANONICAL_WRITER`, the id excluded so a non-rooted node's id derives from its own bytes without circularity; the rooted `Object` mints its id once at authoring (Guid v7), the IFC GlobalId staying a Bim-stored projection attribute re-emitted at `Emit`.
-- Packages: Thinktecture.Runtime.Extensions (`[Union]`/`[SmartEnum<string>]`/`[ValueObject<string>]`/`IObjectFactory`), LanguageExt.Core (`Option`/`Seq`/`Map`), NodaTime (`Instant`), `Rasm` (the kernel `Op` op-key + the `Domain.ContentHash` seed-zero content-hash entry the `NodeId.Content` mint composes).
+- Packages: Thinktecture.Runtime.Extensions (`[Union]`/`[SmartEnum<string>]`/`[ValueObject<string>]`/`IObjectFactory`), LanguageExt.Core (`Option`/`Seq`/`Map`), NodaTime (`Instant`), `Rasm` (the kernel `Op` op-key + the `Domain.ContentHash` seed-zero content-hash entry the `NodeId.Content` mint composes + the `Vector3` coordinate the `AxisCurve`/`FootprintPolygon` analytical shapes carry).
 - Growth: a new node concept is one `Node` case carrying its payload type (a `Schedule`/`Task` node lands here only if 4D becomes a real target); a new object axis is one column on the `Object` case; a new node-payload component is one type on its owning sibling page; never a parallel node family and never a second identity scheme — the `NodeId` is the one owner, `MaterialId` a node attribute, not a parallel key.
-- Boundary: `NodeId` is the ONE identity owner — a rooted node carries a neutral Guid-v7 id (NOT an IFC GlobalId, which is a Bim-stored attribute re-emitted at `Emit`), a non-rooted node a kernel `XxHash128` content hash over `ToCanonicalBytes`, and a second key scheme or a `MaterialId`-as-node-key is the deleted form; the `Object` carries the generic primary `Classification` (the entity-class-keying pair) plus the `Classifications` `Seq<Classification>` of additional standard-system references (the multiple `IfcRelAssociatesClassification` IFC admits — a single field would drop a co-applied Uniclass/OmniClass, the deleted lossy form) and the first-class `PredefinedType` token (validity is a Bim egress gate, not a seam invariant), the `RepresentationContentHash` keyed map (M2: the `Body`/`Axis`/`Box`/`FootPrint` content hashes — EVERY geometry, the heavy display body AND the lightweight analytical axis/footprint the structural/energy disciplines resolve one-hop by content key from the blob store; an inline `Vector3`/`Point3d` coordinate field, a host BRep, or a RhinoCommon handle on the node is the named seam violation, the deleted form) and the optional `OwnerHistory` + `SchemaSpan`, but NO `GeoReference` (that rides the `Header` and `Coverage`); `ToCanonicalBytes` is the ONE canonical projection the id mint and the diff share (fixed IEEE-754 LE, tolerance-quantized measures, explicit attribute order), so a node hashes identically across runtimes; the seam carries no IFC entity-class roster (the `IfcClass` vocabulary and the `PredefinedType` valid-set are the Bim projector's), the `Object` carrying the neutral classification and predefined token the projector resolves.
+- Boundary: `NodeId` is the ONE identity owner — a rooted node carries a neutral Guid-v7 id (NOT an IFC GlobalId, which is a Bim-stored attribute re-emitted at `Emit`), a non-rooted node a kernel `XxHash128` content hash over `ToCanonicalBytes`, and a second key scheme or a `MaterialId`-as-node-key is the deleted form; the `Object` carries the generic primary `Classification` (the entity-class-keying pair) plus the `Classifications` `Seq<Classification>` of additional standard-system references (the multiple `IfcRelAssociatesClassification` IFC admits — a single field would drop a co-applied Uniclass/OmniClass, the deleted lossy form) and the first-class `PredefinedType` token (validity is a Bim egress gate, not a seam invariant), the `RepresentationContentHash` keyed map (M2: the `Body`/`Axis`/`Box`/`FootPrint` content hashes — EVERY geometry, the heavy display body AND the lightweight analytical axis/footprint the structural/energy disciplines resolve one-hop by content key from the blob store THROUGH the seam `GeometrySource` port — the seam owns the decode CONTRACT (`UInt128` content key → `AxisCurve`/`FootprintPolygon` kernel-`Vector3` shape) and an app wires the IMPLEMENTATION over the object-store byte-stream, so a runner pulls `member.Representations.Axis`/`.FootPrint` through the resolver rather than reading a node coordinate field; an inline `Vector3`/`Point3d` coordinate field, a host BRep, a RhinoCommon handle, or a stored `AxisCurve`/`FootprintPolygon` on the node is the named seam violation, the deleted form) and the optional `OwnerHistory` + `SchemaSpan`, but NO `GeoReference` (that rides the `Header` and `Coverage`); `ToCanonicalBytes` is the ONE canonical projection the id mint and the diff share (fixed IEEE-754 LE, tolerance-quantized measures, explicit attribute order), so a node hashes identically across runtimes; the seam carries no IFC entity-class roster (the `IfcClass` vocabulary and the `PredefinedType` valid-set are the Bim projector's), the `Object` carrying the neutral classification and predefined token the projector resolves.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
 using LanguageExt;
 using NodaTime;
+using Rasm;
 using Rasm.Domain;
 using Thinktecture;
 using static LanguageExt.Prelude;
@@ -41,9 +42,14 @@ public sealed partial class NodeId {
  public static NodeId Content(ReadOnlySpan<byte> canonicalBytes) =>
  Create(ContentHash.Of(canonicalBytes).ToString("X32", System.Globalization.CultureInfo.InvariantCulture));
 
- // Mint a non-rooted id from a PRECOMPUTED `ContentAddress` (an Assessment InputKey, a content-keyed material/raster
- // address) — formats the UInt128 identically to Content(bytes), so OfContent(ContentAddress.Of(bytes)) == Content(bytes),
- // the entry a Rasm.Compute route mints an assessment node id through without re-hashing.
+ // Mint a non-rooted id from a PRECOMPUTED `ContentAddress` WITHOUT re-hashing — formats the UInt128 identically to
+ // Content(bytes), so OfContent(addr) == Content(bytes) holds ONLY when addr == ContentAddress.Of(node.ToCanonicalBytes(tolerance)),
+ // i.e. the address IS the node's OWN content self-hash. The valid callers carry a precomputed address THAT IS the node
+ // self-hash (a node whose canonical bytes were already hashed once and the UInt128 carried forward to avoid a second pass).
+ // It is NOT a back-door for a FOREIGN key: an `Assessment.InputKey` (the hash of the assessed INPUTS, not the assessment
+ // node's content) is a payload FIELD the node's OWN ToCanonicalBytes folds, NEVER the node id — an Assessment node is
+ // minted `NodeId.Content(node.ToCanonicalBytes(tolerance))` (the self-hash the Projection/address#CONTENT_ADDRESS Verify
+ // dual recomputes), so OfContent(InputKey) would store an id Verify can never reproduce, the deleted form.
  public static NodeId OfContent(ContentAddress address) =>
  Create(address.Value.ToString("X32", System.Globalization.CultureInfo.InvariantCulture));
 }
@@ -116,6 +122,37 @@ public readonly record struct RepresentationContentHash(Map<string, UInt128> ByI
  public RepresentationContentHash With(string identifier, UInt128 hash) => this with { ByIdentifier = ByIdentifier.AddOrUpdate(identifier, hash) };
 }
 
+// The lightweight ANALYTICAL geometry the projector content-keys into RepresentationContentHash under "Axis"/"FootPrint"
+// [M2] and an above-seam discipline (a Rasm.Compute structural/energy runner) RESOLVES one-hop by that content key from
+// the blob store — kernel Vector3 only, NEVER a host Brep/Mesh and NEVER inlined on the Object node. AxisCurve is the
+// idealized structural-member line (start/end + a non-degenerate local up); FootprintPolygon the space-boundary surface
+// ring. These are the seam-owned shapes the producer's IfcRepresentation.Keys / ReconstructionPrimitive.Keys hash and the
+// consumer's GeometrySource decode bytes back into — the ONE analytical-geometry vocabulary shared by every projector and
+// every analysis runner, so neither side re-declares a parallel MemberAxis/BoundaryPolygon (the deleted parallel shapes).
+public readonly record struct AxisCurve(Vector3 Start, Vector3 End, Vector3 Up) {
+ public double Length => Vector3.Distance(Start, End);
+}
+
+public readonly record struct FootprintPolygon(Seq<Vector3> Ring) {
+ public static readonly FootprintPolygon Empty = new(Seq<Vector3>());
+ public bool IsEmpty => Ring.IsEmpty;
+}
+
+// The geometry-resolution PORT [M2]: the seam owns the CONTRACT (content key -> decoded analytical shape), the app wires
+// the IMPLEMENTATION (a decoder over the Rasm.Persistence object-store Fetch byte-stream — the same wiring-is-app-owned law
+// the projector registration follows), and an above-seam runner that holds no host geometry threads this resolver to pull
+// the analytical axis/footprint by `member.Representations.Axis`/`.FootPrint` rather than reading a phantom node field. ONE
+// polymorphic port discriminating by the geometry it yields (Axis -> AxisCurve, FootPrint -> FootprintPolygon), never a
+// Get/GetAxis/GetFootprint sibling family and never a stored coordinate on the node — a missing/undecodable blob is None,
+// so a runner rails its own typed input-missing fault rather than defaulting a coordinate. Empty.None is the inert wiring a
+// closed-form route (which reads no geometry) threads, the dual of the Assessment ResultBlob egress sink the spine threads.
+public readonly record struct GeometrySource(
+ Func<UInt128, Option<AxisCurve>> ResolveAxis, Func<UInt128, Option<FootprintPolygon>> ResolveFootprint) {
+ public static readonly GeometrySource None = new(static _ => Option<AxisCurve>.None, static _ => Option<FootprintPolygon>.None);
+ public Option<AxisCurve> Axis(RepresentationContentHash representations) => representations.Axis.Bind(ResolveAxis);
+ public Option<FootprintPolygon> Footprint(RepresentationContentHash representations) => representations.FootPrint.Bind(ResolveFootprint);
+}
+
 // Appearance node summary: a content-keyed reference to the full BSDF (authored in Rasm.Materials) plus the
 // neutral canonical PBR scalars a consumer reads flat without the full lobe graph.
 public readonly record struct AppearanceSummary(UInt128 AppearanceKey, double BaseColorR, double BaseColorG, double BaseColorB, double Metallic, double Roughness, double Opacity);
@@ -162,7 +199,7 @@ public abstract partial record Node {
 
 ## [03]-[ELEMENT_GRAPH]
 
-- Owner: `Header` the model header (`ReleaseVersion` + `ModelView` + `Geospatial/reference#GEO_REFERENCE` `GeoReference` + `Tolerance` + `Instant` + `StepHeader`); `ElementGraph` the frozen read snapshot carrying the nodes, edges, the built-once incidence index, and the memoized `Bake`; `Element` the derived-fold "has it all" result; `MaterialBinding` the material-plus-usage pair `Bake` folds from an `Associate` edge.
+- Owner: `Header` the model header (`ReleaseVersion` + `ModelView` + `Geospatial/reference#GEO_REFERENCE` `GeoReference` + `Tolerance` + `Instant` + `StepHeader`) carrying the ONE semantic-header `CanonicalBytes` projection both the `Projection/address#CONTENT_ADDRESS` `OfGraph` snapshot key and the `Graph/delta#GRAPH_DELTA` `GraphDelta.ToCanonicalBytes` header contribution compose (the projection owned once, never re-spelled per call site); `ElementGraph` the frozen read snapshot carrying the nodes, edges, the built-once incidence index, and the memoized `Bake`; `Element` the derived-fold "has it all" result; `MaterialBinding` the material-plus-usage pair `Bake` folds from an `Associate` edge.
 - Entry: `ElementGraph.Of(header, nodes, edges)` builds the frozen snapshot — `ToFrozenDictionary` over the nodes, the incidence index grouping every edge by both endpoints, the lazy `QuikGraph` `BidirectionalGraph` topology view, and an empty `Bake` memo; `Genesis(header)` seeds the empty header-only snapshot a model-creating session or a Marten stream rehydrate builds onto, and `Apply(delta, key)` advances a snapshot by a validated `Graph/delta#GRAPH_DELTA` `GraphDelta` (the persistence rehydrate + live-apply entry) `Fin<T>` railing `ElementFault.NodeAbsent` on a corrupt delta whose added edge names an absent endpoint; `Bake(objectId, key)` folds the reachable subgraph from an `Object` node into an `Element`, memoized by `objectId` within the snapshot (a new snapshot from a `Graph/delta#GRAPH_DELTA` carries a fresh memo), `Fin<T>` railing `ElementFault.NodeAbsent` on an absent root and `ElementFault.RelationshipInvalid` on a cyclic `Compose` chain (a `Compose` ancestry set threaded through the fold); `Topology()` reads the cached `QuikGraph` view a reachability/topological-order/LCA consumer composes; the read accessors `ObjectNodes`/`Find`/`Material`/`MaterialsOf`/`CompositionOf`/`PropertiesOf`/`SectionOf` enumerate the object roots and resolve a node (raw or typed by case) and the material/composition/property/section subgraph a member binds — the polymorphic surface a `Rasm.Compute` analysis route reads the concrete graph through, the discipline reads (loads/supports/spaces/areas) composing in Compute from these primitives.
 - Auto: `Of` builds the incidence index once at the freeze boundary so `Bake` reads an object's edges in O(degree) rather than scanning every edge; `Bake` resolves the `Object`, folds its incidence edges — `Assign.PropertyDefinition` resolves a `PropertySet`/`QuantitySet` node into the occurrence bag, `Assign.TypeDefinition` resolves the type `Object` and gathers its bags for the `InheritanceMode` merge, `Assign.Assessment` collects the `Assessment` receipt, `Associate` resolves a `Material` node (with its `MaterialUsage`) into a `MaterialBinding`, an `Appearance` node into the summary, or a `Coverage` node into the grid, and `Compose.Aggregate`/`Nest`/`Contain` recurse into child `Object`s as `Parts` (the non-owning `Reference` excluded, and the host-feature `Void`/`Connect` and group/system relationships read through `EdgesAt`/`Topology` rather than baked into a flat field) — then merges each occurrence bag with its type bag via `Properties/property#PROPERTY_BAG` `PropertyBag.Merge` so the type→occurrence precedence applies once wholly within the seam; the `QuikGraph` view and the `Bake` memo are built lazily and excluded from equality so the frozen snapshot stays structurally compared by its nodes and edges, and no `with` copy can exist — `ElementGraph` is a sealed CLASS, not a record, so the compiler emits no copy that could alias those lazily-built caches across snapshots (the misuse is compile-impossible, not a runtime throw) — only `Of`/`Genesis`/`Apply` mint a fresh one.
 - Receipt: the `Element` is the one flat record a consumer reads — `element.Properties.Find(name)`, `element.Materials`, `element.Assessments`, `element.Appearance`, `element.Coverages`, `element.Parts` — "has it all" in one `Bake`, never a join across the graph; the `ElementGraph` is the immutable read snapshot Persistence persists and the projectors assemble onto, its `Generator.Equals` structural equality and `Inequalities` member diff feeding the Persistence 3-way `StructuralMerge`; the `QuikGraph` topology view answers reachability/containment/LCA for a consumer without a second graph.
@@ -176,6 +213,17 @@ public sealed record Header(
  ReleaseVersion Schema, ModelView View, GeoReference Reference, double Tolerance, Instant At, StepHeader Step) {
  public static Header Default(Instant at) =>
  new(ReleaseVersion.Ifc4X3Add2, ModelView.Ifc4Reference, GeoReference.Identity, 1e-6, at, StepHeader.Empty);
+
+ // The ONE semantic-header content projection both the Projection/address#CONTENT_ADDRESS OfGraph snapshot key and the
+ // Graph/delta#GRAPH_DELTA GraphDelta.ToCanonicalBytes header contribution compose, so a header's bytes are owned ONCE
+ // here rather than re-spelled byte-for-byte at each call site (the deleted duplicated projection). The SEMANTIC identity
+ // only — schema, model view, tolerance, and the full Geospatial/reference#GEO_REFERENCE GeoReference (Epsg the CRS
+ // identity, the resolved name excluded) — the StepHeader/Instant PROVENANCE is EXCLUDED (the graph-altitude mirror of the
+ // node-level OwnerHistory exclusion), so a re-export under a new timestamp/author never forks the snapshot identity.
+ public void CanonicalBytes(CanonicalWriter w) {
+ w.String(Schema.Key).String(View.Key).Double(Tolerance);
+ Reference.CanonicalBytes(w);
+ }
 }
 
 public readonly record struct MaterialBinding(Node.Material Material, MaterialUsage Usage);

@@ -780,7 +780,7 @@ public static class Optimizer {
                 Seq<ImmutableArray<double>> ranked = GeneticEngine.Candidates(problem, policy.Population, policy.Seed + gen)
                     .OrderByDescending(raw => {
                         var (values, bound) = gp.Predict(new DesignPoint(problem.Resolve(raw), [], []));
-                        return policy.Acquisition.Score(values.HeadOrNone().IfNone(best), bound, best);
+                        return policy.Acquisition.Score(values.Head.IfNone(best), bound, best);
                     })
                     .Take(Math.Max(1, policy.Population / 8))
                     .ToSeq();

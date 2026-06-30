@@ -18,9 +18,12 @@ THE POLYMORPHIC PROFILE OWNER and THE FAMILY GROWTH AXIS. One `Profile` is the c
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
+using Thinktecture;
 using VividOrange.Profiles;                          // Perimeter, IProfile, ILocalPolyline2d (the parametric section input)
 using VividOrange.Geometry;                          // LocalPoint2d, LocalPolyline2d (the Y-Z section-plane geometry)
 using VividOrange.Sections.SectionProperties;        // SectionProperties polygon-integral solver
+using Expected = Rasm.Domain.Expected;               // the kernel Expected (parameterless ctor + virtual Category), NOT LanguageExt.Common.Expected
+using Op = Rasm.Domain.Op;
 
 // --- [TYPES] -------------------------------------------------------------------------------
 [ValueObject<string>]
@@ -43,15 +46,37 @@ public sealed partial class ProfileFamily {
 }
 
 // --- [ERRORS] ------------------------------------------------------------------------------
+// The profile-sub-domain fault band (2300): Expected-derived over the kernel Rasm.Domain.Expected so band 2300 IS
+// the Expected Code and a typed case lifts BARE onto Fin<T>/Validation<Error,T> (no .ToError() hop). The kernel base
+// ctor is PARAMETERLESS (Code a virtual Error member, Message abstract, Category virtual) — so band 2300 is a
+// `Code => 2300` override and `Message => Detail`, and the per-case Category override drives
+// FaultExtensions.Category(error); the legacy `base(detail, 2300, None)` form targeted the OTHER
+// LanguageExt.Common.Expected (no Category to override) and was the defect. [SkipUnionOps] skips the generated
+// implicit-conversion ops (every case carries an explicit Op) and emits NO per-case factory, so the band declares its
+// own (the production UiFault / seam ElementFault shape): a nested `…Case` record carries the data and a same-name-less
+// static factory ProfileFault.Family(key, detail) returns the Expected-derived base so the case lifts BARE onto
+// Fin<T>/Validation<Error,T> with no `new` and no .ToError() hop — the `…Case` suffix frees the unsuffixed factory name
+// (a same-named nested type + method is CS0102). Create routes the unspecific case under a boundary-admission Op.
+[SkipUnionOps]
 [Union]
 public abstract partial record ProfileFault : Expected, IValidationError<ProfileFault> {
-    private ProfileFault(Op key, string detail) : base(detail, 2300, None) => Key = key;
+    private ProfileFault(Op key, string detail) { Key = key; Detail = detail; }
     public Op Key { get; }
-    public static ProfileFault Create(string message) => new Family(default, message);
-    public sealed record Dimension(Op Key, string Detail) : ProfileFault(Key, Detail) { public override string Category => "Dimension"; }
-    public sealed record Coring(Op Key, string Detail) : ProfileFault(Key, Detail) { public override string Category => "Coring"; }
-    public sealed record Family(Op Key, string Detail) : ProfileFault(Key, Detail) { public override string Category => "Family"; }
-    public sealed record Bond(Op Key, string Detail) : ProfileFault(Key, Detail) { public override string Category => "Bond"; }
+    public string Detail { get; }
+    public override int Code => 2300;
+    public override string Message => Detail;
+    private static readonly Op Admission = Op.Of(name: nameof(Admission));
+
+    public sealed record DimensionCase(Op Key, string Detail) : ProfileFault(Key, Detail) { public override string Category => "Dimension"; }
+    public sealed record CoringCase(Op Key, string Detail) : ProfileFault(Key, Detail) { public override string Category => "Coring"; }
+    public sealed record FamilyCase(Op Key, string Detail) : ProfileFault(Key, Detail) { public override string Category => "Family"; }
+    public sealed record BondCase(Op Key, string Detail) : ProfileFault(Key, Detail) { public override string Category => "Bond"; }
+
+    public static ProfileFault Dimension(Op key, string detail) => new DimensionCase(key, detail);
+    public static ProfileFault Coring(Op key, string detail) => new CoringCase(key, detail);
+    public static ProfileFault Family(Op key, string detail) => new FamilyCase(key, detail);
+    public static ProfileFault Bond(Op key, string detail) => new BondCase(key, detail);
+    public static ProfileFault Create(string message) => Family(Admission, message);
 }
 
 // --- [SERVICES] ----------------------------------------------------------------------------
@@ -86,13 +111,16 @@ public sealed record Profile(
 // inertia IxMm4=Iyy,IyMm4=Izz / elastic modulus SxMm3=Wely,SyMm3=Welz / radius of gyration) and the fire-exposed
 // HeatedPerimeterMm come from the ONE VividOrange.Sections.SectionProperties polygon integral (Area / MomentOfInertiaYy,Zz /
 // ElasticSectionModulusYy,Zz / RadiusOfGyrationYy,Zz / Perimeter), never a per-family closed-form literal; the plastic
-// moduli (ZxMm3=Wply, ZyMm3=Wplz), the St-Venant torsion constant (JMm4), and the both-axis shear areas (AvyMm2, AvzMm2)
+// moduli (ZxMm3=Wply, ZyMm3=Wplz), the St-Venant torsion constant (JMm4), the warping constant (IwMm6=Iw, the
+// EN 1993-1-1 §6.3.2 lateral-torsional-buckling input the bare J cannot supply — engineering-zero for the solid/closed
+// parametric families, positive only for an OPEN thin-walled steel shape), and the both-axis shear areas (AvyMm2, AvzMm2)
 // the polygon solver does NOT expose are COMPUTED from the section geometry (ParametricSection's rectangle/hollow closed
 // forms for the parametric families; steel#STEEL_FAMILY PlasticModulus over the catalogued shape); DepthMm/WidthMm are
 // the bounding cross-section dimensions; AxisDistanceMm is the EN 1992-1-2 cover-to-reinforcement (0 for a non-RC section,
 // the RC value from VividOrange ConcreteSectionProperties). Projection/material#MATERIAL_PROJECTOR SeamSection lifts this
-// whole set onto the neutral seam SectionProperties (mm -> SI, each a typed MeasureValue in declared order), so a
-// Rasm.Compute structural/fire runner reads graph.SectionOf(member) without re-resolving or admitting VividOrange.
+// whole set onto the SEVENTEEN-field neutral seam SectionProperties (mm -> SI, each a typed MeasureValue in the seam's
+// declared order with Iw 5th), so a Rasm.Compute structural/fire runner reads graph.SectionOf(member) without
+// re-resolving or admitting VividOrange.
 public readonly record struct ComputedSection(
     PositiveMagnitude AreaMm2,
     PositiveMagnitude IxMm4,
@@ -104,12 +132,19 @@ public readonly record struct ComputedSection(
     PositiveMagnitude ZxMm3,
     PositiveMagnitude ZyMm3,
     PositiveMagnitude JMm4,
+    double IwMm6,
     PositiveMagnitude AvyMm2,
     PositiveMagnitude AvzMm2,
     PositiveMagnitude DepthMm,
     PositiveMagnitude WidthMm,
     PositiveMagnitude HeatedPerimeterMm,
     double AxisDistanceMm);
+// IwMm6 is the EN 1993-1-1 §6.3.2 / AISC 360 Ch.F warping constant (mm^6) the seam SectionProperties carries 5th
+// (after J) — the lateral-torsional-buckling input the bare J cannot supply. It is a plain double NOT a
+// PositiveMagnitude (the SAME zero-admitting modeling as AxisDistanceMm) because a SOLID or CLOSED section's warping
+// resistance is engineering-zero — ParametricSection yields 0.0 for every rectangle/hollow parametric family, and an
+// OPEN thin-walled steel shape carries its own positive Iw from the steel-family section adapter; the seam Warping
+// map lifts it to MeasureValue.OfSi(QuantityType.Create("WarpingConstant"), Dimension.Create(6,…), mm6·1e-18).
 
 // --- [OPERATIONS] --------------------------------------------------------------------------
 // The shared parametric section-property bridge: one VividOrange.Sections.SectionProperties Green's-theorem integral
@@ -185,7 +220,10 @@ public static class ParametricSection {
         from depth in key.AcceptValidated<PositiveMagnitude>(candidate: depthMm)
         from width in key.AcceptValidated<PositiveMagnitude>(candidate: widthMm)
         from perim in key.AcceptValidated<PositiveMagnitude>(candidate: p.Perimeter.Millimeters)
-        select new ComputedSection(area, ix, iy, sx, sy, rx, ry, zx, zy, jj, avy, avz, depth, width, perim, AxisDistanceMm: 0.0);
+        // IwMm6: 0.0 — a solid/closed RECTANGLE (every parametric family) has engineering-zero warping resistance
+        // (the EN 1993-1-1 §6.3.2 warping constant is nonzero only for OPEN thin-walled shapes); the seam Warping map
+        // lifts it to a zero MeasureValue, exactly as AxisDistanceMm: 0.0 yields a zero cover for a non-RC section.
+        select new ComputedSection(area, ix, iy, sx, sy, rx, ry, zx, zy, jj, IwMm6: 0.0, avy, avz, depth, width, perim, AxisDistanceMm: 0.0);
 
     // The section plane is VividOrange.Geometry's Y-Z: a centred rectangle is four LocalPoint2d corners, each cell a
     // void polyline; Perimeter(outer, voids) closes the polygons the integral iterates.

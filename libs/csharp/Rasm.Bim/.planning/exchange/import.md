@@ -787,8 +787,9 @@ public static partial class BimIo {
 // becomes one content-keyed PropertySet bag node attached by an Assign.PropertyDefinition edge, and the namespace
 // nesting becomes Compose.Contain edges reconstructed from the TraverseWithPath path prefixes — the containment the
 // retired flat-row SpeckleSemantic CLAIMED in prose but produced empty. Speckle is a PRIMARY source of element
-// identity, so each object mints ctx.Rooted(); the display geometry rides the separate ImportSpeckle ImportedGeometry
-// path, so the semantic node references no IFC representation. A SpeckleConverter service family, a hand-rolled Base
+// identity, so each object mints the kernel static NodeId.Rooted() (ProjectionContext exposes only For/Owns, never a
+// mint pass-through); the display geometry rides the separate ImportSpeckle ImportedGeometry path, so the semantic node
+// references no IFC representation. A SpeckleConverter service family, a hand-rolled Base
 // recursion, and an IfcSemanticModel re-projection are the deleted forms; a thrown Speckle fault is funnelled to
 // ElementFault.ProjectionFailed at the caller's capture boundary (ProjectionAssembly.Assemble's Try.lift funnel, or BimIo.Reimport's key.Catch), never here.
 public sealed class SpeckleProjector(Base root) : IElementProjection {
@@ -801,7 +802,7 @@ public sealed class SpeckleProjector(Base root) : IElementProjection {
         // every DataObject gets a neutral rooted id, the path retained so containment is the nearest-ancestor DataObject.
         var hosts = root.TraverseWithPath(Descend)
             .Where(static step => step.Item2 is DataObject)
-            .Select(step => (Path: step.Item1, Data: (DataObject)step.Item2, Id: ctx.Rooted()))
+            .Select(static step => (Path: step.Item1, Data: (DataObject)step.Item2, Id: NodeId.Rooted()))
             .ToSeq();
         var span = SchemaSpan.From(ctx.Header.Schema);
         double tolerance = ctx.Header.Tolerance;
@@ -847,7 +848,7 @@ public sealed class SpeckleProjector(Base root) : IElementProjection {
         hosts.Choose(child => hosts
             .Filter(parent => parent.Id != child.Id && IsPrefix(parent.Path, child.Path))
             .OrderByDescending(static parent => parent.Path.Length)
-            .ToSeq().HeadOrNone()
+            .ToSeq().Head
             .Map(parent => (Relationship)new Relationship.Compose(parent.Id, child.Id, ComposeKind.Contain)));
 
     static bool IsPrefix(string[] prefix, string[] path) =>

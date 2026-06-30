@@ -19,6 +19,9 @@ THE HOST-NEUTRAL RUN GEOMETRY and THE SEAM MATERIAL-COMPOSITION AUTHOR. The cano
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
 using Rasm.Element;                  // MaterialId (the seam-carried material identity the ply placement tags)
+using Thinktecture;
+using Expected = Rasm.Domain.Expected;   // the kernel Expected (parameterless ctor + virtual Category), NOT LanguageExt.Common.Expected
+using Op = Rasm.Domain.Op;
 
 // --- [TYPES] -------------------------------------------------------------------------------
 [Union]
@@ -30,16 +33,40 @@ public abstract partial record RunPath {
 }
 
 // --- [ERRORS] ------------------------------------------------------------------------------
+// The construction-sub-domain fault band (2350): Expected-derived over the kernel Rasm.Domain.Expected so band
+// 2350 IS the Expected Code and a typed case lifts BARE onto Fin<T>/Validation<Error,T> (no .ToError() hop). The
+// kernel base ctor is PARAMETERLESS (Code a virtual Error member, Message abstract, Category virtual) — so band
+// 2350 is a `Code => 2350` override and `Message => Detail`, and the per-case Category override drives
+// FaultExtensions.Category(error); the legacy `base(detail, 2350, None)` form targets the OTHER
+// LanguageExt.Common.Expected (which carries no Category to override) and was the defect. [SkipUnionOps] skips the
+// generated implicit-conversion ops (every case carries an explicit Op) while the generated Switch survives, and it
+// emits NO per-case factory, so the band declares its own (the production UiFault / seam ElementFault shape): a nested
+// `…Case` record carries the data and a same-name-less static factory ConstructionFault.Path(key, detail) returns the
+// Expected-derived base so the case lifts BARE onto Fin<T>/Validation<Error,T> with no `new` and no .ToError() hop —
+// the `…Case` suffix frees the unsuffixed factory name (a same-named nested type + method is CS0102). The Create bridge
+// routes the unspecific case under a boundary-admission Op, never a default Op.
+[SkipUnionOps]
 [Union]
 public abstract partial record ConstructionFault : Expected, IValidationError<ConstructionFault> {
-    private ConstructionFault(Op key, string detail) : base(detail, 2350, None) => Key = key;
+    private ConstructionFault(Op key, string detail) { Key = key; Detail = detail; }
     public Op Key { get; }
-    public static ConstructionFault Create(string message) => new Path(default, message);
-    public sealed record Path(Op Key, string Detail) : ConstructionFault(Key, Detail) { public override string Category => "Path"; }
-    public sealed record Joint(Op Key, string Detail) : ConstructionFault(Key, Detail) { public override string Category => "Joint"; }
-    public sealed record Course(Op Key, string Detail) : ConstructionFault(Key, Detail) { public override string Category => "Course"; }
-    public sealed record Opening(Op Key, string Detail) : ConstructionFault(Key, Detail) { public override string Category => "Opening"; }
-    public sealed record Nest(Op Key, string Detail) : ConstructionFault(Key, Detail) { public override string Category => "Nest"; }
+    public string Detail { get; }
+    public override int Code => 2350;
+    public override string Message => Detail;
+    private static readonly Op Admission = Op.Of(name: nameof(Admission));
+
+    public sealed record PathCase(Op Key, string Detail) : ConstructionFault(Key, Detail) { public override string Category => "Path"; }
+    public sealed record JointCase(Op Key, string Detail) : ConstructionFault(Key, Detail) { public override string Category => "Joint"; }
+    public sealed record CourseCase(Op Key, string Detail) : ConstructionFault(Key, Detail) { public override string Category => "Course"; }
+    public sealed record OpeningCase(Op Key, string Detail) : ConstructionFault(Key, Detail) { public override string Category => "Opening"; }
+    public sealed record NestCase(Op Key, string Detail) : ConstructionFault(Key, Detail) { public override string Category => "Nest"; }
+
+    public static ConstructionFault Path(Op key, string detail) => new PathCase(key, detail);
+    public static ConstructionFault Joint(Op key, string detail) => new JointCase(key, detail);
+    public static ConstructionFault Course(Op key, string detail) => new CourseCase(key, detail);
+    public static ConstructionFault Opening(Op key, string detail) => new OpeningCase(key, detail);
+    public static ConstructionFault Nest(Op key, string detail) => new NestCase(key, detail);
+    public static ConstructionFault Create(string message) => Path(Admission, message);
 }
 
 // --- [MODELS] ------------------------------------------------------------------------------

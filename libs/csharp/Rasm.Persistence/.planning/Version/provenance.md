@@ -60,7 +60,7 @@ public static class CausalDag {
             var commit = CommitOf(entry, resolve);
             var generated = commit.Map(c => new ProvEdge(ProvRelation.WasGeneratedBy, entry.ContentKey, c, entry.Stamp));
             var attributed = commit.Map(c => new ProvEdge(ProvRelation.WasAttributedTo, c, AgentKey(entry.Actor), entry.Stamp));
-            var derived = entry.Closure.HeadOrNone().Map(prior => new ProvEdge(ProvRelation.WasDerivedFrom, entry.ContentKey, prior, entry.Stamp));
+            var derived = entry.Closure.Head.Map(prior => new ProvEdge(ProvRelation.WasDerivedFrom, entry.ContentKey, prior, entry.Stamp));
             return generated.ToSeq() + attributed.ToSeq() + derived.ToSeq();
         });
 

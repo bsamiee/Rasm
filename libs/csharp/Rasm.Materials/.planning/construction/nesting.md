@@ -144,7 +144,7 @@ public static class StockNest {
     // identical parts on one sheet — the sheet-yield count for a homogeneous cut list, the positions not just the count.
     // SingleBinPack surfaces no free-rect list, so the mass-cut arm reports a 0 remnant.
     static Seq<NestPlacement> MassCut(Seq<CutPart> parts, StockSheet sheet, int sheetW, int sheetH) =>
-        parts.HeadOrNone().Match(
+        parts.Head.Match(
             Some: part => toSeq(new SingleBinPack(sheetW, sheetH).Insert(Ceil(part.WidthMm.Value, sheet.KerfMm), Ceil(part.HeightMm.Value, sheet.KerfMm), Math.Max(1, parts.Count)))
                 .Map(r => new NestPlacement(part.Material, 0, r.X * ResolutionMm, r.Y * ResolutionMm, r.Width * ResolutionMm, r.Height * ResolutionMm, Rotated: false)),
             None: () => Seq<NestPlacement>());

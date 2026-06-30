@@ -17,6 +17,14 @@ THE POLYMORPHIC CONNECTION OWNER and THE FAMILY GROWTH AXIS. One `ConnectionItem
 - Boundary: `ConnectionItem` is the ONE structural-connection concept — a per-item class is the deleted form; the `ConnectionSection` `[Union]` (`Reinforcement`/`Fastener`/`Hanger`) carries each family's projected columns so the one item shape never branches into per-family types, and every length column composes the `Rasm` kernel `PositiveMagnitude` value-object (the double-backed `> 0` finite magnitude) exactly as `ProfileUnit` does (`profile.md` line 16) so a connection never re-mints a dimension primitive and a fractional bar diameter — an 11.3 mm #4 bar, a 9.525 mm 3/8in bolt — admits without the truncation an int-backed `Dimension` count would force, the `Dimension` carrier reserved for discrete counts (bar layers, thread starts); `ConnectionFault` is the one fault every `Fin.Fail` reads (designation/grade/capacity/family slots), an `Expected`-derived `Error` (`IValidationError<ConnectionFault>`) whose 2360 band IS the `Expected` `Code` so a bare typed case lifts directly into the `Fin<T>` rail (the `ProfileFault` law, `profile.md` lines 41-48), disjoint from `ProfileFault` 2300 / `ConstructionFault` 2350 / kernel `GeometryFault` 2400 / `MaterialFault` 2450 (the four-band statement, `bsdf.md` line 3 + `ARCHITECTURE.md` line 39), so a connection schedule never throws and never returns a sentinel; the `[ValueObject]` `ConnectionId` key and the `[ValidationError]`-derived `ConnectionFault` are the OOP capsule at the edge, the `Fin`/`Seq`/`Fold` catalogue projection is the FP-ROP internal; the capacity receipt is NOT re-derived here — `CapacityKey` is the `MaterialId` whose `properties#MATERIAL_PROPERTY_CATALOGUE` `Mechanical` row (`DensityKgM3`/`YoungsModulusMpa`/`YieldStrengthMpa`/`PoissonsRatio`/`ThermalExpansionPerK`, `properties.md` line 12) the structural-connection-design seam reads by key, so a bolt's proof load and a bar's yield are read once from the property library, never duplicated as a connection column; the appearance assignment crosses to `Appearance/graph#MATERIAL_LIBRARY` as a `MaterialId` row a `ConnectionItem.AppearanceId` column carries (the `Profile.AppearanceId` mirror, `graph.md` line 212), never a connection-specific surface; the placement that turns a `ConnectionItem` schedule into a station-stepped stream is `Construction/layout#ASSEMBLY_FOLD` `Resolve`/`StationStep` (`layout.md` line 66 / line 95), composed not re-derived here — a rebar schedule and a fastener pattern are station-stepped placements over the SAME fold, never a parallel `connection/layout` owner; the bend/hook geometry of a reinforcement bar is a scalar bend-angle/radius/hook-extension tuple the host materializes (`Connection/reinforcement#REINFORCEMENT_FAMILY`), NEVER a host curve here (the host-neutral scalar-`Placement` discipline, `layout.md` line 17); the family vocabularies (`RebarGrade`/`BarSize`/`RebarSection`, `FastenerKind`/`FastenerGrade`/`FastenerSection`, `HangerType`/`HangerSection`, `JointKind`/`WeldType`/`ElectrodeClass`/`AdhesiveClass`/`StudClass`/`JointSection`) live on their sibling pages, and the `ConnectionCatalogue.Build` registered-row table folds every family's `BuildXRows` into one frozen registry so a registered row keys the same way as each family lands its own builder; the item serializes to the IFC 4.3 `IfcReinforcingBar`/`IfcReinforcingMesh`/`IfcMechanicalFastener`/`IfcFastener` element (a weld/stud realizing a connection through `IfcRelConnectsWithRealizingElements`) at the `Rasm.Bim` boundary (portable scalar data here, never an interior `IfcOpenShell` evaluation), the per-family wire shape noted on each sibling page.
 
 ```csharp signature
+// --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
+using LanguageExt;
+using Rasm.Domain;                   // Op, PositiveMagnitude
+using Rasm.Element;                  // MaterialId (the seam-carried material identity the ConnectionItem AppearanceId/CapacityKey reference)
+using Thinktecture;
+using Expected = Rasm.Domain.Expected;   // the kernel Expected (parameterless ctor + virtual Category), NOT LanguageExt.Common.Expected
+using static LanguageExt.Prelude;
+
 // --- [TYPES] -------------------------------------------------------------------------------
 [ValueObject<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -39,15 +47,37 @@ public sealed partial class ConnectionFamily {
 }
 
 // --- [ERRORS] ------------------------------------------------------------------------------
+// The connection-sub-domain fault band (2360): Expected-derived over the kernel Rasm.Domain.Expected so band 2360 IS
+// the Expected Code and a typed case lifts BARE onto Fin<T>/Validation<Error,T> (no .ToError() hop). The kernel base
+// ctor is PARAMETERLESS (Code a virtual Error member, Message abstract, Category virtual) — so band 2360 is a
+// `Code => 2360` override and `Message => Detail`, and the per-case Category override drives
+// FaultExtensions.Category(error); the legacy `base(detail, 2360, None)` form targeted the OTHER
+// LanguageExt.Common.Expected (no Category to override) and was the defect. [SkipUnionOps] skips the generated
+// implicit-conversion ops (every case carries an explicit Op) and emits NO per-case factory, so the band declares its
+// own (the production UiFault / seam ElementFault shape): a nested `…Case` record carries the data and a same-name-less
+// static factory ConnectionFault.Grade(key, detail) returns the Expected-derived base so the case lifts BARE onto
+// Fin<T>/Validation<Error,T> with no `new` and no .ToError() hop — the `…Case` suffix frees the unsuffixed factory name
+// (a same-named nested type + method is CS0102). Create routes the unspecific case under a boundary-admission Op.
+[SkipUnionOps]
 [Union]
 public abstract partial record ConnectionFault : Expected, IValidationError<ConnectionFault> {
-    private ConnectionFault(Op key, string detail) : base(detail, 2360, None) => Key = key;
+    private ConnectionFault(Op key, string detail) { Key = key; Detail = detail; }
     public Op Key { get; }
-    public static ConnectionFault Create(string message) => new Family(default, message);
-    public sealed record Designation(Op Key, string Detail) : ConnectionFault(Key, Detail) { public override string Category => "Designation"; }
-    public sealed record Grade(Op Key, string Detail) : ConnectionFault(Key, Detail) { public override string Category => "Grade"; }
-    public sealed record Capacity(Op Key, string Detail) : ConnectionFault(Key, Detail) { public override string Category => "Capacity"; }
-    public sealed record Family(Op Key, string Detail) : ConnectionFault(Key, Detail) { public override string Category => "Family"; }
+    public string Detail { get; }
+    public override int Code => 2360;
+    public override string Message => Detail;
+    private static readonly Op Admission = Op.Of(name: nameof(Admission));
+
+    public sealed record DesignationCase(Op Key, string Detail) : ConnectionFault(Key, Detail) { public override string Category => "Designation"; }
+    public sealed record GradeCase(Op Key, string Detail) : ConnectionFault(Key, Detail) { public override string Category => "Grade"; }
+    public sealed record CapacityCase(Op Key, string Detail) : ConnectionFault(Key, Detail) { public override string Category => "Capacity"; }
+    public sealed record FamilyCase(Op Key, string Detail) : ConnectionFault(Key, Detail) { public override string Category => "Family"; }
+
+    public static ConnectionFault Designation(Op key, string detail) => new DesignationCase(key, detail);
+    public static ConnectionFault Grade(Op key, string detail) => new GradeCase(key, detail);
+    public static ConnectionFault Capacity(Op key, string detail) => new CapacityCase(key, detail);
+    public static ConnectionFault Family(Op key, string detail) => new FamilyCase(key, detail);
+    public static ConnectionFault Create(string message) => Family(Admission, message);
 }
 
 // --- [SERVICES] ----------------------------------------------------------------------------

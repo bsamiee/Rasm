@@ -23,6 +23,8 @@ THE FRAME-LOCAL SHADING KERNEL. The closed BSDF lobe family and its frame-local 
 using Rasm.Domain;
 using Rasm.Vectors;
 using Rhino.Geometry;
+using Thinktecture;
+using Expected = Rasm.Domain.Expected;   // the kernel Expected (parameterless ctor + virtual Category), NOT LanguageExt.Common.Expected
 using static LanguageExt.Prelude;
 
 namespace Rasm.Materials.Appearance.Bsdf;
@@ -59,14 +61,35 @@ public sealed partial class SpectralBand {
 }
 
 // --- [ERRORS] ------------------------------------------------------------------------------
+// The package appearance-banded fault (2450): Expected-derived over the kernel Rasm.Domain.Expected so band 2450 IS
+// the Expected Code and a typed case lifts BARE onto Fin<T>/Validation<Error,T> (no .ToError() hop). The kernel base
+// ctor is PARAMETERLESS (Code a virtual Error member, Message abstract, Category virtual) — so band 2450 is a
+// `Code => 2450` override and `Message => Detail`, and the per-case Category override drives
+// FaultExtensions.Category(error); the legacy `base(detail, 2450, None)` form targeted the OTHER
+// LanguageExt.Common.Expected (no Category to override) and was the defect. [SkipUnionOps] skips the generated
+// implicit-conversion ops (every case carries an explicit Op) and emits NO per-case factory, so the band declares its
+// own (the production UiFault / seam ElementFault shape): a nested `…Case` record carries the data and a same-name-less
+// static factory MaterialFault.Parameter(key, detail) returns the Expected-derived base so the case lifts BARE onto
+// Fin<T>/Validation<Error,T> with no `new` and no .ToError() hop — the `…Case` suffix frees the unsuffixed factory name
+// (a same-named nested type + method is CS0102). Create routes the unspecific case under a boundary-admission Op.
+[SkipUnionOps]
 [Union]
 public abstract partial record MaterialFault : Expected, IValidationError<MaterialFault> {
-    private MaterialFault(Op key, string detail) : base(detail, 2450, None) => Key = key;
+    private MaterialFault(Op key, string detail) { Key = key; Detail = detail; }
     public Op Key { get; }
-    public static MaterialFault Create(string message) => new Graph(default, message);
-    public sealed record Gamut(Op Key, string Detail) : MaterialFault(Key, Detail) { public override string Category => "Gamut"; }
-    public sealed record Parameter(Op Key, string Detail) : MaterialFault(Key, Detail) { public override string Category => "Parameter"; }
-    public sealed record Graph(Op Key, string Detail) : MaterialFault(Key, Detail) { public override string Category => "Graph"; }
+    public string Detail { get; }
+    public override int Code => 2450;
+    public override string Message => Detail;
+    private static readonly Op Admission = Op.Of(name: nameof(Admission));
+
+    public sealed record GamutCase(Op Key, string Detail) : MaterialFault(Key, Detail) { public override string Category => "Gamut"; }
+    public sealed record ParameterCase(Op Key, string Detail) : MaterialFault(Key, Detail) { public override string Category => "Parameter"; }
+    public sealed record GraphCase(Op Key, string Detail) : MaterialFault(Key, Detail) { public override string Category => "Graph"; }
+
+    public static MaterialFault Gamut(Op key, string detail) => new GamutCase(key, detail);
+    public static MaterialFault Parameter(Op key, string detail) => new ParameterCase(key, detail);
+    public static MaterialFault Graph(Op key, string detail) => new GraphCase(key, detail);
+    public static MaterialFault Create(string message) => Graph(Admission, message);
 }
 
 // --- [SERVICES] ----------------------------------------------------------------------------

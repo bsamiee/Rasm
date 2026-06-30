@@ -42,6 +42,8 @@ CodeRabbit CLI must be installed from the official docs:
 
 Prefer a package manager or a verified binary over piping a remote script to a shell.
 
+Before reviewing, run `coderabbit auth status --agent`. If browser auth is unavailable and `CODERABBIT_API_KEY` is present, run `coderabbit auth login --api-key "$CODERABBIT_API_KEY"` and then `coderabbit auth status --agent`. If neither route works, stop with the exact auth failure.
+
 ## Workflow
 
 1. **Gather Context**
@@ -51,7 +53,7 @@ Prefer a package manager or a verified binary over piping a remote script to a s
    - Check for related configuration files
 
 2. **Run CodeRabbit Review**
-   - Execute `coderabbit review --agent` to get structured review output
+   - Execute `coderabbit review --agent` to get structured review output only when the user has not disabled CodeRabbit review for the current work
    - Add `--dir <path>` when the user requests a specific review directory
    - Parse and categorize findings by severity and type
 

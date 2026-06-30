@@ -131,7 +131,7 @@ public sealed class SpatialStructure {
             .Fold(Map<NodeId, NodeId>(), static (m, p) => m.AddOrUpdate(p.Part, p.Whole));
         return graph.ObjectNodes
             .Find(static o => SpatialClass.TryGet(o.Classification.Code).Exists(static c => c.IsRoot)).Map(static o => o.Id)
-            .OrElse(() => tree.Roots().ToSeq().HeadOrNone())
+            .OrElse(() => tree.Roots().ToSeq().Head)
             .ToFin(new BimFault.DanglingReference(key, "spatial-root-miss"))
             .Map(root => new SpatialStructure(graph, tree, root, containment));
     }

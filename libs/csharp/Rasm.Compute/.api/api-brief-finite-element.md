@@ -21,7 +21,7 @@ code-checking-grade element library (exact beam shape functions, member releases
 continuum solver does not, and the structural runner DELEGATES a continuum field solve to the `SolveLane`
 rather than BFE re-deriving it. It consumes the `Rasm.Element` `ElementGraph` DIRECTLY (above the seam, no
 `IElementProjection`) via `Analysis/structural` — `StructuralAnalysis.Project` folds each member Object
-node into a `BarElement` (`graph.AxisOf`→member axis), `graph.SupportsOf`/`MemberSupport`→`Node.Constraints`,
+node into a `BarElement` (`graph.AxisOf(member, geometry)`→member axis resolved one-hop by content key through the seam `GeometrySource` port), `graph.SupportsOf`/`MemberSupport`→`Node.Constraints`,
 `graph.LoadsOf`/`MemberLoad`+`LoadCombinationSpec`→`LoadCase`/`LoadCombination`, with the M7-resolved seam
 `SectionProperties` (Area/Iyy/Izz/J read off the graph — the `Rasm.Materials` projector's `ProfileRef`→VividOrange
 one-hop baked on the graph, so Compute admits no VividOrange). It is pure-managed under LGPL-3.0-only (dynamic-linking obligation),
@@ -219,7 +219,7 @@ the 3D twin of the 2D `FEALiTE2D` (`api-fealite2d`); both ride CSparse.
   frame assembler beside BFE is the rejected form
 - with the `Rasm.Element` `ElementGraph` (via `Analysis/structural`): the concrete `ElementGraph` (read
   DIRECTLY above the seam, no `IElementProjection`) is the source graph — `StructuralAnalysis.Project` folds
-  each member Object node into a `BarElement` (`graph.AxisOf`→member axis), a bounding-surface node into a
+  each member Object node into a `BarElement` (`graph.AxisOf(member, geometry)`→member axis resolved one-hop by content key through the seam `GeometrySource` port), a bounding-surface node into a
   `TriangleElement`/`QuadrilaturalElement`, a point connection into a `Node`,
   `graph.SupportsOf`/`MemberSupport`(6-DOF)→`Node.Constraints`, the seam member end-fixity→behaviour+releases,
   `graph.LoadsOf`/`MemberLoad`+`LoadCombinationSpec`→`LoadCase`+`LoadCombination`; the `StaticLinearAnalysisResult`

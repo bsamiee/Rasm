@@ -138,7 +138,7 @@ public static class Finish {
 
     static (double Weight, double Roughness) TopcoatOf(Seq<FinishLayer> stack) =>
         stack.Choose(static l => l is FinishLayer.Topcoat t ? Some((t.Weight, t.Roughness)) : Option<(double, double)>.None)
-            .HeadOrNone().IfNone((0.0, 0.0));
+            .Head.IfNone((0.0, 0.0));
 
     static Provenance MixProvenance(FinishMix mix) => new($"kubelka-munk:{mix.Pigments.Count}-pigment", mix.Pigments.Count, mix.Weights.Sum());
 

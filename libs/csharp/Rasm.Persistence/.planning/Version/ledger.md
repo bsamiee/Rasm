@@ -279,7 +279,7 @@ public static class SyncPump {
             s.HasObjects(row.Peer, toSeq(pending.Fold(Seq<UInt128>(), static (set, entry) => set + GraphDiff(entry, static _ => false)).Distinct()))
                 .Map(held => pending.Filter(entry => !held.Contains(entry.ContentKey)))
                 .Bind(missing => s.SpeckleSend(row.Peer, missing).Bind(sent =>
-                    missing.HeadOrNone().Map(h => h.ContentKey) is { IsSome: true, Case: UInt128 root } && root != sent.RootContentKey
+                    missing.Head.Map(h => h.ContentKey) is { IsSome: true, Case: UInt128 root } && root != sent.RootContentKey
                         ? IO.fail<SyncApplyReceipt>(new SyncFault.SpeckleMarshal(row.Peer, $"root-key-drift:{root}!={sent.RootContentKey}:refs={sent.ConvertedReferences}"))
                         : IO.pure(new SyncApplyReceipt(0L, 0L, 0L, 0L, missing.Count, s.QueueDepth(), Seq<ConflictReceipt>(), s.Cursor with { Sequence = s.Cursor.Sequence + missing.Count }, s.Correlation, s.Clocks.Now)))));
 }

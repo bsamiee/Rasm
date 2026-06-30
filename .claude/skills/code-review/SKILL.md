@@ -32,7 +32,7 @@ When user asks to:
 
 ```bash
 coderabbit --version 2>/dev/null || echo "NOT_INSTALLED"
-coderabbit auth status 2>&1
+coderabbit auth status --agent 2>&1
 ```
 
 **If CLI not installed**, tell user:
@@ -46,12 +46,14 @@ If downloading a binary directly, verify the release signature or checksum
 from the GitHub releases page before running it.
 ```
 
-**If not authenticated**, tell user:
+**If browser auth is unavailable and `CODERABBIT_API_KEY` is present**, authenticate headlessly:
 
-```text
-Please authenticate first:
-coderabbit auth login
+```bash
+coderabbit auth login --api-key "$CODERABBIT_API_KEY"
+coderabbit auth status --agent
 ```
+
+If neither auth route works, stop with the exact auth failure. Do not run a manual review and call it CodeRabbit.
 
 ### 2. Run Review
 
@@ -98,7 +100,7 @@ Group findings by severity:
 When user requests implementation + review:
 
 1. Implement the requested feature
-2. Run `coderabbit review --agent` with any requested scope flags (`-t`, `--base`, `--base-commit`, `--dir`)
+2. Run `coderabbit review --agent` with any requested scope flags (`-t`, `--base`, `--base-commit`, `--dir`) only when the user has not disabled CodeRabbit review for the current work
 3. Create task list from findings
 4. Fix critical and warning issues systematically
 5. Re-run review to verify fixes

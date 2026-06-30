@@ -134,12 +134,12 @@ public static class CapacityRay {
             : (0.0, 0.0, 0.0);
         // The pierce parameter t of the origin-cast unit demand ray through each tri-face; over a closed convex hull
         // exactly one face yields a positive front-facing t — the capacity-boundary magnitude along the load direction.
-        double boundaryMag = toSeq(hull.Faces)
+        double boundaryMag = toSeq(toSeq(hull.Faces)
             .Map(f => Pierce(f, dirN, dirMy, dirMz))
             .Somes()
             .Filter(static t => t > 0.0)
-            .OrderBy(static t => t)
-            .HeadOrNone()
+            .OrderBy(static t => t))
+            .Head
             .IfNone(double.Epsilon);
         double ratio = demandMag > 0.0 && boundaryMag > double.Epsilon ? demandMag / boundaryMag : double.PositiveInfinity;
         string governing = Math.Abs(demand.AxialKn) >= Math.Max(Math.Abs(demand.MomentYKnm), Math.Abs(demand.MomentZKnm)) ? "axial" : "biaxial-moment";

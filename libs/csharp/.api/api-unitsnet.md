@@ -1,6 +1,6 @@
 # [RASM_APPUI_API_UNITSNET]
 
-`UnitsNet` supplies ~120 strongly-typed quantity structs (`Length`, `Area`, `Angle`, …) over a `double`-or-`decimal` `QuantityValue`, each implementing the .NET 7+ generic-math static-abstract operator interfaces (`IAdditionOperators`, `IMultiplyOperators`, `IComparisonOperators`, `IParsable`) plus `IArithmeticQuantity<TSelf,TUnit,TValue>`. It carries unit enums, culture-aware parse/format, dynamic (boxed `IQuantity`) resolution, the `UnitMath` LINQ aggregate rail, cacheable `ConversionFunction` delegates, SI `BaseDimensions`/`BaseUnits` metadata, and `UnitSystem` policy — the unit algebra for measured execution inputs and receipts.
+`UnitsNet` supplies ~120 strongly-typed quantity structs (`Length`, `Area`, `Density`, `HeatTransferCoefficient`, `Level`, …) over a `double`-or-`decimal` `QuantityValue`, each implementing the .NET 7+ generic-math static-abstract operator interfaces (`IAdditionOperators`, `IMultiplyOperators`, `IComparisonOperators`, `IParsable`) plus `IArithmeticQuantity<TSelf,TUnit,TValue>`. It carries unit enums, culture-aware parse/format, dynamic (boxed `IQuantity`) resolution, the `UnitMath` LINQ aggregate rail, cacheable `ConversionFunction` delegates, SI `BaseDimensions`/`BaseUnits` metadata, the `QuantityInfo.Name` string-identity registry (`Quantity.ByName`/`Infos`/`GetQuantitiesWithBaseDimensions`), and `UnitSystem` policy — the unit algebra for measured execution inputs and receipts. The full family spans the building-physics rails the AEC corpus measures: `Density`/`ThermalConductivity`/`SpecificEntropy`/`HeatTransferCoefficient`/`Temperature` for material+envelope thermal, `Level` (logarithmic dB) for acoustic, `Illuminance`/`Luminance`/`LuminousFlux`/`LuminousIntensity`/`Irradiance` for lighting+solar — every one of the ~120 quantities admits by its `QuantityInfo.Name` whether or not a convenience accessor names it.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -44,10 +44,21 @@
 |  [09]   | `Pressure`     | Pascal           | pressure; `Force / Area -> Pressure`                 |
 |  [10]   | `Energy`       | Joule            | energy; `Power * Duration -> Energy`                 |
 |  [11]   | `Power`        | Watt             | power; `Energy / Duration -> Power`                  |
-|  [12]   | `Temperature`  | Kelvin           | temperature (affine — add via `TemperatureDelta`)    |
+|  [12]   | `Temperature`  | Kelvin           | thermodynamic temperature (affine — add via `TemperatureDelta`; display `DegreeCelsius`) |
 |  [13]   | `Angle`        | Radian           | angle (display `Degree`) — bridges Rasm geometry rads |
 |  [14]   | `Torque`       | NewtonMeter      | torque; `Force * Length -> Torque` (not Energy)      |
 |  [15]   | `Ratio`        | DecimalFraction  | ratio (display `Percent`)                            |
+|  [16]   | `Density`      | KilogramPerCubicMeter | mass density `[L⁻³·M]` — `IfcMassDensityMeasure`, the material `Density` column |
+|  [17]   | `ThermalConductivity` | WattPerMeterKelvin | conductivity `[L·M·T⁻³·Θ⁻¹]` — the material `Conductivity` column (ISO 6946 λ) |
+|  [18]   | `HeatTransferCoefficient` | WattPerSquareMeterKelvin | U-value `[M·T⁻³·Θ⁻¹]` — `Pset_*ThermalTransmittance`, the ISO 6946 assembly U |
+|  [19]   | `SpecificEntropy` | JoulePerKilogramKelvin | specific heat capacity `[L²·T⁻²·Θ⁻¹]` — the material `SpecificHeat` column |
+|  [20]   | `Level`        | Decibel          | logarithmic level (dimensionless) — `IfcSoundPressureLevelMeasure`, the acoustic dB rail |
+|  [21]   | `Illuminance`  | Lux              | illuminance `[L⁻²·J]` — `Pset_*` lighting illuminance, the daylight rail |
+|  [22]   | `Irradiance`   | WattPerSquareMeter | irradiance `[M·T⁻³]` — solar/radiative flux density, the energy-balance rail |
+|  [23]   | `Luminance`    | CandelaPerSquareMeter | luminance `[L⁻²·J]` — surface brightness, the glare rail |
+|  [24]   | `LuminousFlux` | Lumen            | luminous flux `[J]` — lamp output, the lighting-fixture rail |
+|  [25]   | `LuminousIntensity` | Candela     | luminous intensity `[J]` — directional emission, the photometry rail |
+|  [26]   | `RotationalSpeed` | RadianPerSecond | rotational speed `[T⁻¹]` (display `RevolutionPerMinute`) — the rotating-equipment rail |
 
 [PUBLIC_TYPE_SCOPE]: admitted unit enum families (`UnitsNet.Units`)
 - rail: units
@@ -67,8 +78,19 @@
 |  [11]   | `PowerUnit`        | `Watt`                                          |
 |  [12]   | `TemperatureUnit`  | `Kelvin` canonical, `DegreeCelsius` display     |
 |  [13]   | `AngleUnit`        | `Radian` canonical, `Degree` display            |
-|  [14]   | `TorqueUnit`       | `NewtonMeter`                                   |
+|  [14]   | `TorqueUnit`       | `NewtonMeter` canonical, `KilonewtonMeter` display |
 |  [15]   | `RatioUnit`        | `DecimalFraction` canonical, `Percent` display  |
+|  [16]   | `DensityUnit`      | `KilogramPerCubicMeter`                         |
+|  [17]   | `ThermalConductivityUnit` | `WattPerMeterKelvin`                     |
+|  [18]   | `HeatTransferCoefficientUnit` | `WattPerSquareMeterKelvin`           |
+|  [19]   | `SpecificEntropyUnit` | `JoulePerKilogramKelvin` (the specific-heat unit) |
+|  [20]   | `LevelUnit`        | `Decibel` (logarithmic — no SI reprojection)    |
+|  [21]   | `IlluminanceUnit`  | `Lux`                                           |
+|  [22]   | `IrradianceUnit`   | `WattPerSquareMeter`                            |
+|  [23]   | `LuminanceUnit`    | `CandelaPerSquareMeter`                         |
+|  [24]   | `LuminousFluxUnit` | `Lumen`                                         |
+|  [25]   | `LuminousIntensityUnit` | `Candela`                                  |
+|  [26]   | `RotationalSpeedUnit` | `RadianPerSecond` canonical, `RevolutionPerMinute` display |
 
 [PUBLIC_TYPE_SCOPE]: parsing, conversion, metadata, and setup
 - rail: units
@@ -146,6 +168,12 @@
 - Conversion has three tiers by cost: the typed `ToUnit`/`As` on the struct (zero allocation, the default); the dynamic `UnitConverter.Convert(value, from, to)` for a runtime-chosen unit pair (no boxing of a typed struct); and `GetConversionFunction(from, to) -> ConversionFunction` for a hot loop converting many values across the same unit pair — resolve the delegate once, apply per element.
 - `UnitSystem` is the policy projection: `As(UnitSystem.SI)`/`ToUnit(UnitSystem)` reproject a quantity into whatever base units a `BaseUnits` selects, so a receipt declares its unit system once and every quantity renders consistently. `BaseDimensions` (the 7 SI exponents) is the identity for derived-quantity discovery via `Quantity.GetQuantitiesWithBaseDimensions`.
 
+[NAMED_IDENTITY]:
+- v5 REMOVED the standalone `QuantityType` enum (only `QuantityTypeConverter`, a JSON helper, retains the name): the stable quantity-type identity is now the `QuantityInfo.Name` STRING (`"Length"`, `"HeatTransferCoefficient"`, `"Level"`), keyed in the `Quantity.ByName` registry. A consumer modeling its own quantity-type discriminant binds to this name, never to a removed enum member, because the name is the only invariant identity the boxed `IQuantity` carries (`q.QuantityInfo.Name`).
+- The name is the discriminator the `BaseDimensions` 7-vector cannot be: the exponent vector is NOT injective over quantity types — `Torque` and `Energy` both reduce to `[L²·M·T⁻²]`, and `Angle`, `Ratio`, `Level` (dB), and a bare count all reduce to the zero vector — so a dimension-only discriminant reads a radian angle as a count and cannot separate a torque from an energy. The 7-vector is the physical SIGNATURE (for `Multiply`/`Divide` derived-dimension algebra and same-dimension validity); the name is the IDENTITY.
+- DERIVED-QUANTITY-NAME composition: a quantity UnitsNet does not model (a structural `SectionModulus` m³, `SecondMomentOfArea` m⁴, `TorsionConstant` m⁴, `WarpingConstant` m⁶, or any analysis-result scalar) carries a CONSUMER-MINTED name string over a `BaseDimensions` the consumer composes from the SI exponents — `SectionModulus` and a true `Volume` SHARE the m³ dimension but stay distinct under the name, and `TorsionConstant` and `SecondMomentOfArea` share m⁴ yet never collide. The dynamic façade admits a registry-named quantity by name + unit name (`Quantity.From(value, quantityName, unitName)`); a non-registry consumer name is the consumer's own discriminant minted alongside its dimension, never forced through the registry. The rejected form is a hand-mapped closed enum of quantity kinds (it cannot extend to the next `Pset_*` measure or a domain-specific result scalar) and a dimension-as-discriminant (it conflates same-dimension distinct quantities).
+- A LOGARITHMIC / inherently-DIMENSIONLESS quantity (`Level` in dB, `Angle` in rad, `Ratio`) has NO distinct SI reprojection — `ToUnit(UnitSystem.SI)` THROWS for a quantity whose base dimension is the zero vector (the documented `InvalidCastException`/`NotImplementedException` boundary). Gate on `q.Dimensions.IsDimensionless()` and keep the as-constructed unit (dB stays dB, rad stays rad); reproject ONLY a dimensional quantity. A blanket `ToUnit(UnitSystem.SI)` over every admitted quantity is the defect that strands `SoundPressureLevel`/`PlaneAngle`.
+
 [LOCAL_ADMISSION]:
 - Compute numeric inputs and receipts carry explicit quantity structs whenever units affect meaning; the unit is part of the type, never a comment or a suffixed field name.
 - Unit conversion is rail policy on the boundary; it is never hidden inside an interior numeric helper. Parse/format are boundary operations (culture-aware via `IFormatProvider`), not the internal representation.
@@ -160,6 +188,6 @@
 
 [RAIL_LAW]:
 - Package: `UnitsNet`
-- Owns: the typed quantity/unit algebra — quantity structs, native generic-math operators, the `double`/`decimal` `QuantityValue` union, culture-aware parse/format, dynamic `IQuantity` resolution, the `UnitMath` LINQ rail, cacheable `ConversionFunction` conversion, SI `BaseDimensions`/`BaseUnits` metadata, and `UnitSystem` policy.
-- Accept: measured unit-aware execution inputs and receipts; conversion as boundary rail policy; aggregation through `UnitMath`; the `{ value, unit }` wire shape via the dynamic façade.
-- Reject: raw numeric values with unit-by-comment or unit-by-field-name; hand-rolled conversion factors when a quantity operator or `UnitConverter` owns it; unwrap-sum-rewrap aggregation; the phantom non-generic `IValueQuantity`/`IArithmeticQuantity` or the removed `GenericMathExtensions` (v5 uses native operators).
+- Owns: the typed quantity/unit algebra — quantity structs, native generic-math operators, the `double`/`decimal` `QuantityValue` union, culture-aware parse/format, dynamic `IQuantity` resolution, the `QuantityInfo.Name` string-identity registry (`Quantity.ByName`/`Infos`/`GetQuantitiesWithBaseDimensions`), the `UnitMath` LINQ rail, cacheable `ConversionFunction` conversion, SI `BaseDimensions`/`BaseUnits` metadata, and `UnitSystem` policy.
+- Accept: measured unit-aware execution inputs and receipts; the `QuantityInfo.Name` string as the quantity-type discriminant; a consumer-minted derived-quantity name over a composed `BaseDimensions` for a quantity UnitsNet does not model; conversion as boundary rail policy; aggregation through `UnitMath`; the `{ value, unit }` wire shape via the dynamic façade.
+- Reject: raw numeric values with unit-by-comment or unit-by-field-name; hand-rolled conversion factors when a quantity operator or `UnitConverter` owns it; unwrap-sum-rewrap aggregation; a `BaseDimensions`-only discriminant (the 7-vector conflates same-dimension distinct quantities — `Torque`/`Energy`, `Angle`/`Level`/`Ratio`); a blanket `ToUnit(UnitSystem.SI)` over a dimensionless `Level`/`Angle`/`Ratio` (it throws — gate on `IsDimensionless()`); the removed `QuantityType` enum (v5 keys identity by `QuantityInfo.Name`); the phantom non-generic `IValueQuantity`/`IArithmeticQuantity` or the removed `GenericMathExtensions` (v5 uses native operators).

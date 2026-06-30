@@ -236,7 +236,7 @@ public sealed record SlabStack(Seq<Slab> Slabs) {
         return LayeredBsdf.Of(lobes.Filter(l => l.Weight.Value > 0.0), key);
     }
 
-    private double BaseRoughness() => Slabs.Choose(static s => s is Slab.Base b ? Some(b.Roughness) : Option<double>.None).HeadOrNone().IfNone(0.5);
+    private double BaseRoughness() => Slabs.Choose(static s => s is Slab.Base b ? Some(b.Roughness) : Option<double>.None).Head.IfNone(0.5);
 
     private static double RemainingEnergy(Seq<LobeWeight> placed) =>
         Math.Clamp(1.0 - placed.Sum(l => l.Weight.Value * MultiScatter.DirectionalAlbedo(0.5, 0.5)), 0.0, 1.0);

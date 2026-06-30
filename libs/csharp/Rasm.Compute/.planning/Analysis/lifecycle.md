@@ -222,19 +222,21 @@ public static partial class LifecycleAssessment {
     static Option<Epd> Freshest(Seq<Epd> epds, LciaMethod method, Instant now) =>
         epds.Filter(e => e.Gwp(method).IsSome && (e.ValidUntil is not { } valid || valid >= now))
             .OrderByDescending(static e => e.ValidUntil ?? Instant.MaxValue)
-            .ToSeq().HeadOrNone();
+            .ToSeq().Head;
 
     // Band the EPD's per-module ScopeSet onto the seam StageGwp vector NORMALIZED to per-ONE-unit of its NATIVE basis and
     // TAGGED with that MeasurementBasis — the AggregateEnvironmental fold then scales by the basis-matching element
     // quantity (the SAME DeclaredQuantity owner the cost fold uses), so a per-kg/per-m²/per-m³ EPD all fold correctly and
     // the migration source's ~1000× per-declared-unit-as-per-m³ error is gone. Normalize rails an unresolvable basis to
-    // None so EnrichCarbon skips the ply (RunCarbon then rails it); the A1-A3 first arg is the per-unit vector's A1A3 slot,
-    // so the Gwp scalar and the band share one basis. Density is NO LONGER read at ingress — per-kg resolves at aggregation.
+    // None so EnrichCarbon skips the ply (RunCarbon then rails it). The cradle-to-gate A1-A3 GWP is the seam's DERIVED read
+    // Gwp => StageAt(A1A3) over the StageGwp vector — NOT a headline arg (R3/R4: OfEnvironmental dropped the gwpKgCo2e param
+    // and the Environmental record dropped the GlobalWarmingPotential field; the value rides the StageGwp A1A3 slot alone).
+    // Density is NO LONGER read at ingress — per-kg resolves at aggregation.
     static Fin<MaterialPropertySet> ToEnvironmental(Epd epd, LciaMethod method, Op key) =>
         epd.Gwp(method).Match(
             Some: scope => Normalize(scope.ToStageVector(), epd.DeclaredUnit, epd.KgPerDeclaredUnit, key).Match(
                 Some: norm => MaterialPropertySet.OfEnvironmental(
-                    norm.Basis, norm.PerUnit[LifecycleStage.A1A3.Index], norm.PerUnit.AsMemory(), recycledContent: 0.0, endOfLifeRecovery: 0.0,
+                    norm.Basis, norm.PerUnit.AsMemory(), recycledContent: 0.0, endOfLifeRecovery: 0.0,
                     epd: epd.Id ?? "", validUntilYear: epd.ValidUntil?.InUtc().Year ?? 0, key),
                 None: () => Fin.Fail<MaterialPropertySet>((Error)new ComputeFault.AssessmentInputMissing($"<ec3-epd-basis-unresolved:{epd.Id}>"))),
             None: () => Fin.Fail<MaterialPropertySet>((Error)new ComputeFault.AssessmentInputMissing($"<ec3-epd-missing-gwp:{epd.Id}>")));
@@ -247,7 +249,7 @@ public static partial class LifecycleAssessment {
         double[] product = new double[LifecycleStage.Count];
         product[LifecycleStage.A1A3.Index] = stats.ConservativeEstimate;
         return Normalize(product, stats.DeclaredUnit, null, key).Match(
-            Some: norm => MaterialPropertySet.OfEnvironmental(norm.Basis, norm.PerUnit[LifecycleStage.A1A3.Index], norm.PerUnit.AsMemory(),
+            Some: norm => MaterialPropertySet.OfEnvironmental(norm.Basis, norm.PerUnit.AsMemory(),
                 recycledContent: 0.0, endOfLifeRecovery: 0.0, epd: "ec3-statistics-conservative", validUntilYear: 0, key),
             None: () => Fin.Fail<MaterialPropertySet>((Error)new ComputeFault.AssessmentInputMissing("<ec3-statistics-basis-unresolved>")));
     }
@@ -285,8 +287,11 @@ public static partial class LifecycleAssessment {
     // GWP and in-place cost are DOMAIN-BASIS scalars (kgCO2e, kgCO2e/m², a currency code), NOT UnitsNet quantities — a
     // dimensionless MeasureValue carrying the domain unit label, never the abbreviation-resolving MeasureValue.Of (which
     // would reject kgCO2e). The fact name carries the semantic; the label carries the basis the wire consumer reads flat.
+    // The seam MeasureValue is the 4-arg (QuantityType, Dimension, Si, CanonicalUnit) record: a domain scalar carries the
+    // Scalar dimension-anonymous QuantityType (the MeasureValue.Zero identity) so the kgCO2e label rides CanonicalUnit
+    // while the Type/Dimension keep it untyped-but-dimensionless — never a QTO accessor false-match, never the phantom 3-arg ctor.
     static AssessmentFact DomainMeasure(string name, double si, string unit) =>
-        AssessmentFact.Measure(name, new MeasureValue(Dimension.Dimensionless, si, unit));
+        AssessmentFact.Measure(name, new MeasureValue(QuantityType.Scalar, Dimension.Dimensionless, si, unit));
 }
 
 // The element geometric takeoff the GWP/cost folds distribute per ply — a Compute-owned ElementGraph extension reading
@@ -315,7 +320,7 @@ public static class LifecycleGraphReads {
     }
 
     static Option<double> Named(Seq<Node.QuantitySet> bags, string name) =>
-        bags.Choose(qs => qs.Bag.Quantities.Find(PropertyName.Create(name))).HeadOrNone().Map(static m => m.Si);
+        bags.Choose(qs => qs.Bag.Quantities.Find(PropertyName.Create(name))).Head.Map(static m => m.Si);
 }
 ```
 

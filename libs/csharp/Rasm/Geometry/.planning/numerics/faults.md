@@ -11,12 +11,12 @@ The consolidated geometry fault family (band 2400). The page owns `GeometryFault
 ## [02]-[FAULT_BAND]
 
 - Owner: `GeometryFault` the closed `[Union]` lowered into the LanguageExt `Error` rail through its `ToError()` member, one case per reachable domain failure carrying its typed payload and its band-2400 ordinal `Code`; the domain's string-keyed smart enums (`HealKind`, `SpatialKind`) bind the shipped `ComparerAccessors.StringOrdinal` accessor through `[KeyMemberEqualityComparer]`/`[KeyMemberComparer]`, so the ordinal comparer is named once by the library and never re-minted per enum.
-- Cases: the band-2400 family is the union of the cases the sibling clusters route — `DegenerateInput` (2401, empty/non-finite primitive set, `spatial`) · `IndexMismatch` (2402, refit primitive-count mismatch, `spatial`) · `NameCollision` (2410, non-injective re-anchor, `topology`) · `HashMismatch` (2411, dangling reconciliation reference, `topology`) · `UnrepairableMesh` (2420, a heal kernel cannot satisfy its post-condition within budget, `healing`) · `NativeAssetMissing` (2421, the boolean op invoked without its tier-3 native asset, `healing`) · `OverConstrained` (2430, redundant + inconsistent system, `constraints`) · `SingularSystem` (2431, damped normal matrix rank-deficient through the ladder, `constraints`) · `DegenerateOffset` (2440, a self-intersecting or zero-area offset input the wavefront cannot propagate, `offsetting`) · `SkeletonStalled` (2441, the straight-skeleton event queue stalls with pending events past the time budget, `offsetting`) · `DegenerateArrangement` (2450, two triangle soups whose intersection is non-manifold or whose cell classification is ambiguous, `arrangement`) · `IntersectionFault` (2460, a narrow-phase exact test on a degenerate primitive pair, `intersection`) · `FitFault` (2470, a RANSAC consensus never reaching the inlier-fraction floor within the sample budget, carrying the achieved fraction vs the floor, `fitting`) · `ParameterizationFault` (2480, a flattening solve that diverges or a non-disk-topology chart, `parameterization`) · `ProjectionFault` (2490, a BSP partition stall or a silhouette extraction over a non-manifold view, `projection`) · `DecimationFault` (2500, a QEM collapse that cannot satisfy the topology-preservation gate within the face budget, carrying the budget vs the achieved count, `simplification`) · `EncodingFault` (2510, a channel pack whose round-trip witness fails the content-hash identity, carrying the failing channel, `encoding`). The codes are sub-banded by sibling so a reader maps a code to its owning cluster: 2401–2409 spatial, 2410–2419 topology, 2420–2429 healing, 2430–2439 constraints, 2440–2449 offsetting, 2450–2459 arrangement, 2460–2469 intersection, 2470–2479 fitting, 2480–2489 parameterization, 2490–2499 projection, 2500–2509 simplification, 2510–2519 encoding.
+- Cases: the band-2400 family is the union of the cases the sibling clusters route — `DegenerateInput` (2400, empty/non-finite primitive set, `spatial`) · `IndexMismatch` (2401, refit primitive-count mismatch, `spatial`) · `NameCollision` (2404, non-injective re-anchor, `topology`) · `HashMismatch` (2405, dangling reconciliation reference, `topology`) · `UnrepairableMesh` (2408, a heal kernel cannot satisfy its post-condition within budget, `healing`) · `NativeAssetMissing` (2409, the boolean op invoked without its tier-3 native asset, `healing`) · `OverConstrained` (2412, redundant + inconsistent system, `constraints`) · `SingularSystem` (2413, damped normal matrix rank-deficient through the ladder, `constraints`) · `DegenerateOffset` (2416, a self-intersecting or zero-area offset input the wavefront cannot propagate, `offsetting`) · `SkeletonStalled` (2417, the straight-skeleton event queue stalls with pending events past the time budget, `offsetting`) · `DegenerateArrangement` (2420, two triangle soups whose intersection is non-manifold or whose cell classification is ambiguous, `arrangement`) · `IntersectionFault` (2424, a narrow-phase exact test on a degenerate primitive pair, `intersection`) · `FitFault` (2428, a RANSAC consensus never reaching the inlier-fraction floor within the sample budget, carrying the achieved fraction vs the floor, `fitting`) · `ParameterizationFault` (2432, a flattening solve that diverges or a non-disk-topology chart, `parameterization`) · `ProjectionFault` (2436, a BSP partition stall or a silhouette extraction over a non-manifold view, `projection`) · `DecimationFault` (2440, a QEM collapse that cannot satisfy the topology-preservation gate within the face budget, carrying the budget vs the achieved count, `simplification`) · `EncodingFault` (2444, a channel pack whose round-trip witness fails the content-hash identity, carrying the failing channel, `encoding`). The whole band fits inside the geometry century 2400–2449 — strictly below the AEC `MaterialFault` band 2450 so a telemetry reader banding by code never conflates a geometry fault with a Material/Element/Bim fault — and the codes are sub-banded by sibling on a 4-wide stride so a reader maps a code to its owning cluster: 2400–2403 spatial, 2404–2407 topology, 2408–2411 healing, 2412–2415 constraints, 2416–2419 offsetting, 2420–2423 arrangement, 2424–2427 intersection, 2428–2431 fitting, 2432–2435 parameterization, 2436–2439 projection, 2440–2443 simplification, 2444–2447 encoding.
 - Entry: each case is a static factory on the union (`GeometryFault.DegenerateInput(string detail)`, `GeometryFault.NameCollision(UInt128 name, int kind)`, `GeometryFault.OverConstrained(int redundantRows, double residual)`, and so on) returning the union value; `public Error ToError()` lowers the union value into the LanguageExt `Error` the `Fin<T>` failure channel carries, threading the `Code` and a rendered message, so a sibling routes a failure as `GeometryFault.<Case>(...).ToError()` and the case payload is preserved on the rail. `public int Code` reads the ordinal band-2400 code the case carries.
 - Auto: the union projects into the `Error` rail through `ToError` — it reads the case payload and builds the `Error` with the band-2400 ordinal `Code` (`Error.New(int, string)`) and the rendered detail, so no separate exception type or error-code enum sits beside the union; a rail consumer matches on the `GeometryFault` case to recover the typed payload or reads the `Code` to band the failure for telemetry.
 - Receipt: none — `GeometryFault` is the failure rail itself, the terminal value a `Fin<T>` carries on the failure side; it carries no residual receipt because a fault IS the residual.
 - Packages: Thinktecture.Runtime.Extensions (`[Union]`/`[SmartEnum]`), LanguageExt.Core (`Error`, `Fin`), BCL inbox (`UInt128`).
-- Growth: a new reachable domain failure is one `GeometryFault` case carrying its typed payload and the next ordinal code in its sibling's sub-band — never a parallel error type, never an `int` error-code constant inlined at the throw site; a new sibling sub-band claims its next free decade (the band now runs through encoding 2510–2519, so a further sibling claims 2520+). The string-key comparer is `ComparerAccessors.StringOrdinal` for every string-keyed enum and a second ordinal comparer is the deleted form.
+- Growth: a new reachable domain failure is one `GeometryFault` case carrying its typed payload and the next free ordinal in its sibling's 4-wide sub-band — never a parallel error type, never an `int` error-code constant inlined at the throw site; a new sibling sub-band claims the next free 4-wide stride above encoding (the band now runs through encoding 2444–2447, so a further sibling claims 2448–2449 — the last headroom inside the geometry century — and the band must stay below the AEC `MaterialFault` 2450 boundary, so an outright federation re-plan rather than a 13th cluster is the move once the century fills). The string-key comparer is `ComparerAccessors.StringOrdinal` for every string-keyed enum and a second ordinal comparer is the deleted form.
 - Boundary: `GeometryFault` is the ONE fault union for the geometry domain and a per-cluster `SpatialFault`/`TopologyFault`/`HealFault`/`ConstraintFault` family is the named density defect collapsed here onto one closed union lowered into the `Error` rail through `ToError()` — the cluster is the sub-band, not a parallel union; an exception thrown from domain logic is forbidden, every failure routes the `Fin`/`Validation`/`Eff` rail as `GeometryFault.<Case>(...).ToError()`, and a `try`/`catch` in domain logic (rather than at the one host-numeric boundary in `Processing/solver#CONSTRAINT_SOLVER` where MathNet may throw) is the deleted form; the union is NOT a generic `IFault`/`IError`/reported-value abstraction — each case is typed to its failure with its real payload (`NameCollision` carries the colliding name and kind, `OverConstrained` carries the redundant-row count and the residual), so a generic erasing carrier is the deleted form; `ComparerAccessors.StringOrdinal` is the one ordinal string-key comparer and a per-enum `StringComparer.Ordinal` field is the duplicated form collapsed onto the one accessor.
 
 ```csharp signature
@@ -59,23 +59,23 @@ public abstract partial record GeometryFault {
 
     public int Code =>
         Switch(
-            degenerateInput:       static _ => 2401,
-            indexMismatch:         static _ => 2402,
-            nameCollision:         static _ => 2410,
-            hashMismatch:          static _ => 2411,
-            unrepairableMesh:      static _ => 2420,
-            nativeAssetMissing:    static _ => 2421,
-            overConstrained:       static _ => 2430,
-            singularSystem:        static _ => 2431,
-            degenerateOffset:      static _ => 2440,
-            skeletonStalled:       static _ => 2441,
-            degenerateArrangement: static _ => 2450,
-            intersectionFault:     static _ => 2460,
-            fitFault:              static _ => 2470,
-            parameterizationFault: static _ => 2480,
-            projectionFault:       static _ => 2490,
-            decimationFault:       static _ => 2500,
-            encodingFault:         static _ => 2510);
+            degenerateInput:       static _ => 2400,
+            indexMismatch:         static _ => 2401,
+            nameCollision:         static _ => 2404,
+            hashMismatch:          static _ => 2405,
+            unrepairableMesh:      static _ => 2408,
+            nativeAssetMissing:    static _ => 2409,
+            overConstrained:       static _ => 2412,
+            singularSystem:        static _ => 2413,
+            degenerateOffset:      static _ => 2416,
+            skeletonStalled:       static _ => 2417,
+            degenerateArrangement: static _ => 2420,
+            intersectionFault:     static _ => 2424,
+            fitFault:              static _ => 2428,
+            parameterizationFault: static _ => 2432,
+            projectionFault:       static _ => 2436,
+            decimationFault:       static _ => 2440,
+            encodingFault:         static _ => 2444);
 
     public Error ToError() => Error.New(Code, Message);
 

@@ -51,7 +51,7 @@ Implementation collapses to one owner per axis and one entrypoint family per rai
 Projection/material        ←  csharp:Rasm.Element/Projection    # [CONTRACT]: IElementProjection / ProjectionContext / GraphDelta / NodeId / ContentAddress / Assemble
 Projection/material        →  csharp:Rasm.Element/Graph         # [PROJECTION]: MaterialProjector.Project lowers the material subgraph into one GraphDelta the seam Assemble fold merges
 Projection/material        →  csharp:Rasm.Element/Relations     # [H12]: element→material Associate edge (Subject=element, Resource=material) + C7 MaterialUsage, authored only when ctx.ElementIds vouches the element NodeId
-Properties/properties      ←  csharp:Rasm.Element/Composition   # [CONTRACT]: MaterialPropertySet cases + the intrinsic acoustic folds (Nrc/Saa/StcWeighted/StcContourFit), referenced not re-authored
+Properties/properties      ←  csharp:Rasm.Element/Composition   # [CONTRACT]: MaterialPropertySet cases + the intrinsic acoustic folds (Nrc/Saa/StcWeighted over the shared RatingContour.Stc.Fit kernel), referenced not re-authored
 Properties/properties      →  csharp:Rasm.Element/Assessment    # [PROJECTION]: Discipline-keyed Assessment INPUT payloads (MaterialAssessmentInput) on the seam Assessment node
 Properties/properties      →  csharp:Rasm.Compute              # [WIRE]: the multi-ply AssemblyAggregator + discipline solvers + Assessment.Result writeback (RELOCATED)
 Properties/sustainability  →  csharp:Rasm.Compute              # [WIRE]: the lifecycle AggregateEnvironmental / AggregateCost folds + embodied-carbon/cost rollup (RELOCATED)

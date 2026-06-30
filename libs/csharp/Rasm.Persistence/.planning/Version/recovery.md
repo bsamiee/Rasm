@@ -76,7 +76,7 @@ public static class RecoveryRoutes {
 
     static IO<TimeCut> ObjectReplicate(RecoveryContext ctx, ClockPolicy clocks) => IO.pure(TimeCut.Of(clocks.Now));
     static IO<TimeCut> SnapshotArchive(RecoveryContext ctx, ClockPolicy clocks) =>
-        IO.pure(ctx.Checkpoints.OrderByDescending(static c => c.WrittenAt).HeadOrNone().Map(static c => TimeCut.Of(c.WrittenAt)).IfNone(TimeCut.Of(clocks.Now)));
+        IO.pure(toSeq(ctx.Checkpoints.OrderByDescending(static c => c.WrittenAt)).Head.Map(static c => TimeCut.Of(c.WrittenAt)).IfNone(TimeCut.Of(clocks.Now)));
 }
 ```
 

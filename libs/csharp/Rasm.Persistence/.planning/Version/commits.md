@@ -110,7 +110,7 @@ public static class CommitGraph {
     public static MerkleRange Of(Seq<UInt128> sortedKeys) {
         var buffer = new ArrayBufferWriter<byte>();
         foreach (var key in sortedKeys) { BinaryPrimitives.WriteUInt128LittleEndian(buffer.GetSpan(16), key); buffer.Advance(16); }
-        return new MerkleRange(sortedKeys.HeadOrNone().IfNone(UInt128.Zero), sortedKeys.LastOrNone().IfNone(UInt128.Zero), XxHash128.HashToUInt128(buffer.WrittenSpan), sortedKeys.Count);
+        return new MerkleRange(sortedKeys.Head.IfNone(UInt128.Zero), sortedKeys.Last.IfNone(UInt128.Zero), XxHash128.HashToUInt128(buffer.WrittenSpan), sortedKeys.Count);
     }
 
     public static Seq<MerkleRange> Reconcile(Func<MerkleRange, Seq<MerkleRange>> children, MerkleRange local, MerkleRange remote) =>

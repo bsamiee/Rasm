@@ -297,7 +297,7 @@ let pending = dedup([
   ...residualsOf(red, (r) => r.files && r.files[0]),
   ...residualsOf(swept, (r) => r.files && r.files[0]),
 ])
-const MAX_ROUNDS = 4
+const MAX_ROUNDS = 6
 let invalid = []
 let round = 0
 if (pending.length) {
@@ -323,8 +323,19 @@ if (pending.length) {
     const invalidKeys = new Set(invalid.map((r) => r.claim))
     pending = dedup([...resolved.flatMap((r) => r.open), ...resolved.flatMap((r) => r.surfaced)]).filter((r) => !invalidKeys.has(r.claim))
   }
-  if (pending.length) log('Resolve: ' + pending.length + ' residual(s) STILL OPEN after ' + MAX_ROUNDS + ' rounds — REPORTED, never silently dropped')
-  else log('Resolve: all residuals fixed + adversarially verified across ' + round + ' round(s)')
+  if (pending.length) {
+    log('Resolve: ' + pending.length + ' residual(s) open after ' + MAX_ROUNDS + ' rounds -> FINAL FORCE-CLOSE (one lib-wide max pass over ALL remaining, no exceptions)')
+    const cl = pending
+    const fix = await agent(reconcileFix(cl), { label: 'resolve-force-close', phase: 'Resolve', schema: FIX_SCHEMA, effort: 'max', stallMs: 420000 })
+    const verify = fix ? await agent(reconcileVerify(cl, fix.files), { label: 'resolve-force-verify', phase: 'Resolve', schema: VERIFY_SCHEMA, effort: 'max', stallMs: 420000 }) : null
+    const claims = (verify && verify.claims) || []
+    const okF = new Set(claims.filter((c) => c.status === 'fixed').map((c) => c.claim))
+    const badF = new Set(claims.filter((c) => c.status === 'invalid').map((c) => c.claim))
+    invalid = dedup([...invalid, ...cl.filter((r) => badF.has(r.claim))])
+    pending = cl.filter((r) => !okF.has(r.claim) && !badF.has(r.claim))
+  }
+  if (pending.length) log('Resolve: ' + pending.length + ' residual(s) STILL OPEN after force-close — HARD BLOCKER (likely architectural), reported LOUDLY, never silently dropped')
+  else log('Resolve: ALL residuals fixed + adversarially verified (' + round + ' rounds + force-close)')
 } else { log('Resolve: no residuals surfaced — clean') }
 
 return {

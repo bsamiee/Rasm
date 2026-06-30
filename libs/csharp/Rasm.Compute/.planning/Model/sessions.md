@@ -161,7 +161,7 @@ public static class ModelSessions {
             : None;
 
     static long[] RepresentativeShape(ModelIdentity model) =>
-        model.Inputs.HeadOrNone().Map(static slot => slot.Dims.Map(static d => d <= 0 ? 1L : d).ToArray()).IfNone([1L]);
+        model.Inputs.Head.Map(static slot => slot.Dims.Map(static d => d <= 0 ? 1L : d).ToArray()).IfNone([1L]);
 
     public static string FleetContextKey(UInt128 checksum, OrtEpDevice device) {
         Span<byte> seed = stackalloc byte[64];

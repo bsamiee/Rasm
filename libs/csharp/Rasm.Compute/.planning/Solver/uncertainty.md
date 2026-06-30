@@ -344,7 +344,7 @@ public static class Uncertainty {
                 : Fin.Fail<Transform>(new ComputeFault.ModelRejected($"<uncertainty-correlation-shape:{r.RowCount}x{r.ColumnCount}!={dim}>")));
 
     static double Component(Seq<double> values, UncertaintyPolicy policy) =>
-        values.At(policy.LimitStateObjective).IfNone(() => values.HeadOrNone().IfNone(0.0));
+        values.At(policy.LimitStateObjective).IfNone(() => values.Head.IfNone(0.0));
 
     // --- [MATRIX_SAMPLING] ------------------------------------------------------------
 

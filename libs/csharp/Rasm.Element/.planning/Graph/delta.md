@@ -82,10 +82,11 @@ public sealed record GraphDelta(
   w.Ordinal(AddedEdges.Count); foreach (ReadOnlyMemory<byte> b in AddedEdges.Map(static e => e.ToCanonicalBytes()).OrderBy(static x => x, ContentAddress.ByteOrder)) { w.Raw(b.Span); }
   w.Ordinal(RemovedEdges.Count); foreach (ReadOnlyMemory<byte> b in RemovedEdges.Map(static e => e.ToCanonicalBytes()).OrderBy(static x => x, ContentAddress.ByteOrder)) { w.Raw(b.Span); }
   w.Bool(Header.IsSome);
-  Header.IfSome(h => {
-   w.String(h.Schema.Key).String(h.View.Key).Double(h.Tolerance);
-   h.Reference.CanonicalBytes(w);   // the ONE Geospatial/reference#GEO_REFERENCE projection (Epsg the CRS identity, the resolved name excluded) — the SAME bytes the Projection/address#CONTENT_ADDRESS graph header key composes, so a delta's header contribution and the snapshot address never diverge
-  });
+  // The ONE Graph/element#ELEMENT_GRAPH Header.CanonicalBytes projection (schema/view/tolerance + the full
+  // Geospatial/reference#GEO_REFERENCE GeoReference — Epsg the CRS identity, the resolved name and the StepHeader/Instant
+  // provenance excluded) — the SAME bytes the Projection/address#CONTENT_ADDRESS OfGraph snapshot header key composes, so a
+  // delta's header contribution and the snapshot address never diverge, the projection owned ONCE on Header not re-spelled here.
+  Header.IfSome(h => h.CanonicalBytes(w));
   return w.ToBytes();
  }
 

@@ -101,7 +101,7 @@ public partial record IdsFacet {
         entity:         static _ => "entity",
         attribute:      static a => $"attribute:{a.Attribute.Key}",
         property:       static p => $"property:{p.SetName}:{p.Name.Value}",
-        classification: static c => $"classification:{c.Branches.HeadOrNone().Map(static b => b.System).IfNone(string.Empty)}",
+        classification: static c => $"classification:{c.Branches.Head.Map(static b => b.System).IfNone(string.Empty)}",
         material:       static _ => "material",
         partOf:         static p => $"partOf:{p.Relation}");
 
@@ -328,7 +328,7 @@ public sealed record IdsSpecification(
         Optional(constraint).Bind(static c => Optional(c.AcceptedValues)).Map(static a => a.ToSeq()).IfNone(Seq<IValueConstraintComponent>())
             .Choose(static c => c is ExactConstraint e ? Some(e.Value) : Option<string>.None);
 
-    static Option<string> SingleValue(ValueConstraint? constraint) => ExactValues(constraint).HeadOrNone();
+    static Option<string> SingleValue(ValueConstraint? constraint) => ExactValues(constraint).Head;
 
     // The IDS-FILE audit (the spec document's own validity) is the buildingSMART-official ids-lib engine, orthogonal
     // to the MODEL audit: Audit.Run validates the .ids against the IDS v1.0 XSD + implementation agreements, the

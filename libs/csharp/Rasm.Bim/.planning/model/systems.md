@@ -221,7 +221,7 @@ public static class DistributionNetwork {
             .Choose(e => e is Relationship.Assign { SubKind: var k } a && k == AssignKind.PropertyDefinition && a.Subject == port
                 ? graph.Find<Node.PropertySet>(a.Definition) : Option<Node.PropertySet>.None)
             .Choose(static ps => ps.Bag.Find(FlowKey))
-            .HeadOrNone()
+            .Head
             .Match(Some: static v => FlowDirection.Of(v.Render()), None: static () => FlowDirection.NotDefined);
 }
 ```
@@ -443,7 +443,7 @@ public static class InterferenceCheck {
     static double ClearanceOf(ElementGraph graph, NodeId member, Op key) =>
         graph.Bake(member, key).ToOption().Match(
             Some: element => ClearanceKeys
-                .Choose(name => element.Properties.Choose(bag => bag.Find(name)).HeadOrNone())
+                .Choose(name => element.Properties.Choose(bag => bag.Find(name)).Head)
                 .Choose(static v => v is PropertyValue.Measure m ? Some(m.Value.Si) : Option<double>.None)
                 .Fold(0d, static (max, si) => Math.Max(max, si)),
             None: static () => 0d);

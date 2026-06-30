@@ -67,7 +67,7 @@ public static class MaterialProjection {
         Mint(set.Name ?? "", tolerance, MaterialComposition.OfLayerSet(LayersOf(set), key));
 
     static Fin<Node.Material> ProfileSetOf(IfcMaterialProfileSet set, double tolerance, Op key) =>
-        set.MaterialProfiles.AsIterable().HeadOrNone()
+        set.MaterialProfiles.AsIterable().Head
             .ToFin(new BimFault.ModelRejected(key, $"material-profile-set-empty:{set.Name}"))
             .Bind(profile => Mint(set.Name ?? "", tolerance,
                 Fin.Succ<MaterialComposition>(MaterialComposition.OfProfileSet(MaterialId.Of(profile.Material?.Name ?? set.Name ?? ""), ProfileRefOf(profile)))));
