@@ -20,8 +20,16 @@ const STALL = 600000
 const MAX_ROUNDS = 6
 const SANITY_CAP = 6
 const BATCH = 4
+const REBIND_BATCH = 2
 const SCOPE = 'RASM-REBUILD-SCOPE.md'
 const BIM = 'libs/csharp/Rasm.Bim'
+const API_SUB = 'libs/csharp/.api'
+const API_BIM = BIM + '/.api'
+
+// CORE — the full root docs/stacks/csharp core-page roster every implementing stage reads, every time (never a subset).
+const CORE = 'README, language, shapes, surfaces-and-dispatch, rails-and-effects, boundaries, algorithms, system-apis'
+// DOMAIN — the enumerated docs/stacks/csharp/domain/ shard roster Discover maps each page concern onto (the required subset is per-item, never all 13).
+const DOMAIN = 'runtime, concurrency, diagnostics, validation, resilience, transport, persistence, durability, postgres, data-interchange, compute, visuals, interaction'
 
 // AREAS — the disjoint Bim re-bind partition (one Discover + one Rebind agent owns each; file-disjoint so a barrier'd pool never write-collides).
 const AREAS = [
@@ -66,7 +74,9 @@ const PAGES = [
 // --- [MODELS] ----------------------------------------------------------------------------
 
 const RESIDUAL = { type: 'array', items: { type: 'object', additionalProperties: false, required: ['files', 'claim'], properties: { files: { type: 'array', items: { type: 'string' } }, claim: { type: 'string' } } } }
-const WORK = { type: 'array', items: { type: 'object', additionalProperties: false, required: ['page', 'work'], properties: { page: { type: 'string' }, work: { type: 'string' } } } }
+const UNDERUTIL = { type: 'array', items: { type: 'object', additionalProperties: false, required: ['catalog', 'capability'], properties: { catalog: { type: 'string' }, capability: { type: 'string' } } } }
+// WORK item — each carries the precise work AND the page-keyed reading map (both .api tiers + required domain shards) Discover hands every downstream stage.
+const WORK = { type: 'array', items: { type: 'object', additionalProperties: false, required: ['page', 'work', 'apiUsed', 'apiUnderutilized', 'domainShards'], properties: { page: { type: 'string' }, work: { type: 'string' }, apiUsed: { type: 'array', items: { type: 'string' } }, apiUnderutilized: UNDERUTIL, domainShards: { type: 'array', items: { type: 'string' } }, summary: { type: 'string' } } } }
 const DISCOVER_SCHEMA = { type: 'object', additionalProperties: false, required: ['area', 'worklist', 'summary'], properties: { area: { type: 'string' }, pages: { type: 'array', items: { type: 'string' } }, worklist: WORK, summary: { type: 'string' } } }
 const FOLDER_FIXLOG = { type: 'object', additionalProperties: false, required: ['folder', 'verdict', 'summary'], properties: { folder: { type: 'string' }, verdict: { type: 'string', enum: ['closed', 'hardened', 'refined', 'clean'] }, integrated: { type: 'array', items: { type: 'string' } }, extended: { type: 'string' }, residual_high: RESIDUAL, summary: { type: 'string' } } }
 const SWEEP_SCHEMA = { type: 'object', additionalProperties: false, required: ['verdict', 'summary'], properties: { verdict: { type: 'string', enum: ['aligned', 'clean'] }, aligned: { type: 'array', items: { type: 'string' } }, residual_high: RESIDUAL, summary: { type: 'string' } } }
@@ -88,9 +98,11 @@ const LAW = [
 ].join('\n')
 const STANDARDS = [
   'DUAL-AXIS MANDATE (scope [6]) — a page finalizes only when a COLD read against BOTH surfaces nothing.',
-  'CODE doctrine: docs/stacks/csharp/** every core page by name (README, language, shapes, surfaces-and-dispatch, rails-and-effects, ' +
-    'boundaries, algorithms, system-apis) + the relevant docs/stacks/csharp/domain/ shard — strategic emphasis for this rebuild: ' +
-    'data-interchange, diagnostics, interaction, transport, validation.',
+  'CODE doctrine — docs/stacks/csharp/ is the FLOOR, not the ceiling: READ ALL ' + CORE.length + ' root core pages (' + CORE + ') — the ' +
+    'FULL set, EVERY stage, NEVER a subset — AND the work-item`s REQUIRED docs/stacks/csharp/domain/ shard(s) (the `domainShards` Discover ' +
+    'mapped for this page from the roster: ' + DOMAIN + '), then PUSH PAST the floor to the strongest form the doctrine admits. READ the ' +
+    'required shard(s) and conform exactly — a hard gate the `tools/cs-analyzer` compiled-doctrine gate enforces (a true positive is ' +
+    'architecture pressure, fix the shape; a false positive is rule pressure, never a suppression).',
   'DOC-CRAFT: libs/.planning/README.md [PLANNING_STANDARD] + its [06] cold-grade REVIEW gate + the design-page grammar + the ' +
     'page#CLUSTER integration-point notation; the three docs/standards form standards (information-structure, formatting, style-guide); ' +
     'docs/standards/proof.md claim discipline.',
@@ -100,17 +112,128 @@ const STANDARDS = [
   'ZERO-PROVENANCE (scope [6]): no reader address, narration, process, source provenance, source-mining history, freshness ' +
     'disclaimers, checklist tails; on a design page no links, URLs, versions, dates, or session context.',
 ].join('\n')
-const APITIER = [
-  'TWO-TIER .api MANDATE (scope [7]): every page cites the `.api/` catalogs its concept composes — and ONLY those, never noise.',
-  'The SUBSTRATE tier libs/csharp/.api/** (the cross-cutting external sources) is treated EQUALLY with the FOLDER tier ' + BIM +
-    '/.api/** (the domain catalogues: the GeometryGym/IFC, IDS, BCF, units, geospatial CRS/vector/raster, glTF/USD/scene families). ' +
-    'Members are verified-local truth via `uv run python -m tools.assay api`; a member you cannot verify is a PHANTOM — never cite it. ' +
-    'Live NuGet feed facts route through the nuget MCP; assay api wins on conflict for member existence.',
+const STACK = [
+  'TWO-TIER .api MANDATE (scope [7]) — STACK BOTH TIERS TO EXHAUSTION at EVERY stage: (1) the SUBSTRATE tier `' + API_SUB + '/**` (the ' +
+    'universal cross-cutting catalogs + the universal Thinktecture / LanguageExt rails — generated domain shape, rails, effects, ' +
+    'schedules, immutable collections — with MathNet / CSparse owning numeric algorithms); (2) the FOLDER tier `' + API_BIM + '/**` (the ' +
+    'Bim domain catalogues: the GeometryGym/IFC, IDS, BCF, units, geospatial CRS/vector/raster, glTF/USD/scene/COBie families). The two ' +
+    'tiers are treated EQUALLY: MINE both and LAYER the universal substrate rails onto the folder domain packages, woven as ONE dense rail ' +
+    '(source-generated owners, `Fold` algebra, frozen data tables) at the DEEPEST operator/combinator/generated surface each package ' +
+    'reaches (LIBRARY_DEPTH) — NOT flat one-shot per-API uses, NOT a surface-level subset, NOT thin rename wrappers, NOT a BCL-first reflex.',
+  'PAGE-KEYED READING MAP — Discover hands each page its `apiUsed` (the catalogs it CURRENTLY composes, both tiers) and its ' +
+    '`apiUnderutilized` (admitted catalogs/members the concept ADMITS but the page IGNORES). COMPOSE the `apiUsed` at full operator depth ' +
+    'AND STACK every `apiUnderutilized` capability INTO the owning page — closing the underutilization IS new functionality woven into the ' +
+    'owner (a case/row/field/operation), not a denser spelling of the same call; a composed owner that leaves an admitted .api capability ' +
+    'the concept ADMITS unexploited is a CAPABILITY-INCOMPLETENESS defect. Members are verified-local truth via `uv run python -m ' +
+    'tools.assay api`; a member you cannot verify is a PHANTOM — never cite it. Live NuGet feed facts route through the nuget MCP; assay ' +
+    'api wins on conflict for member existence.',
 ].join('\n')
-const ADVERSARIAL = 'ADVERSARIAL STANCE — every implementing stage (rebind, critique, redteam, sweep, resolve) is HOSTILE: assume the ' +
-  'page is INCOMPLETE / NAIVE / ILLUSORY until it survives an aggressive attack; the burden of proof is ON THE PAGE. A prior clean ' +
-  'verdict and confident dense prose are REJECTED — treat dense pages with MORE suspicion. ILLUSORY/FAKE is the primary target: a name ' +
-  'promising capability the body lacks, a thin slice of a rich concept, a phantom member, a seam signature named but not actually re-bound.'
+const ADVERSARIAL = [
+  'ADVERSARIAL STANCE — EVERY implementing stage (rebind, critique, AND red-team, and the reconcile/sweep) is HOSTILE: assume the existing ' +
+    'fence is NAIVE, SHALLOW, JUNIOR, or ILLUSORY until it survives an aggressive attack; the burden of proof is ON THE CODE, never on ' +
+    'you. "Mature", "already strong", "good enough", "done", "polished", and a prior `clean` verdict are REJECTED self-assessments and ' +
+    'prior-author claims — MUCH of this corpus is naive, surface-level code dressed in the right vocabulary, and it is NOT tolerable. ' +
+    'Default to "this fence is naive and must be re-bound + rebuilt to the strongest form the doctrine admits" and MAKE that change; a ' +
+    'no-edit (`clean`/`refined`) verdict is reached ONLY after a genuinely aggressive attack on the real domain + the verified package ' +
+    'surface finds nothing — never as a first-read concession, never to avoid work. Reject "good enough" categorically.',
+  'ILLUSORY / FAKE CODE is the PRIMARY target — the MOST dangerous code is the code that PRETENDS to be advanced: it uses the doctrine ' +
+    'vocabulary (`[Union]`/`[SmartEnum<TKey>]`/`[ValueObject]`/`Fold`/the rails), cites packages, reads dense and confident — yet is ' +
+    'HOLLOW. Treat dense, confident-looking fences with MORE suspicion, not less, and DISBELIEVE every claim the page makes about itself ' +
+    'until you verify it against the real domain and the catalogued package surface. HUNT: a name/signature/prose that PROMISES capability ' +
+    'the body does not implement; a "rich" owner that is a thin slice of its concept (a 2-case union for a 20-case domain; the obvious 3 ' +
+    'fields where the concept carries fifteen); decorative density, ceremony, and vocabulary carrying no real capability; a ' +
+    'placeholder/stub/sketch/`TODO`-in-spirit dressed as a finished design; prose that ASSERTS richness or completeness the fence does not ' +
+    'contain; a structurally-correct collapse that is semantically empty; a `.api`/host member cited but never verified (a phantom); a ' +
+    'seam signature NAMED but not actually re-bound. Every such illusion is a DEFECT to rebuild, not a feature to preserve. Where you ' +
+    'genuinely cannot break the fence, say so by finding nothing — but earn it; never invent churn to look busy either.',
+].join('\n')
+const ULTRA = [
+  'OPERATIVE DOCTRINE — the named laws of docs/stacks/csharp/README.md, held as fact: [FLOW] EXPRESSION_SPINE (domain logic is ' +
+    'expression-shaped; dependent steps `Bind` monadically, independent ones accumulate applicatively; the carrier, never a flag, selects ' +
+    'the algebra; statements survive only in measured `ref struct`/span kernels that name the exemption) + BOUNDARY_ADMISSION (raw admitted ' +
+    'EXACTLY ONCE into an evidence-carrying owner; interior never re-validates or sees null/sentinel/provider shape). [SHAPE] SHAPE_BUDGET ' +
+    '(one concept owns ONE type; variants are cases in one closed family) + DEEP_SURFACES + MODAL_ARITY (one entrypoint owns every ' +
+    'modality, discriminating on input shape) + ANTICIPATORY_COLLAPSE (shape the owner for the family it will absorb). [DERIVATION] ' +
+    'POLICY_VALUES + DERIVED_LOGIC + DERIVED_TYPES + SYMBOLIC_REFERENCE + SEMANTIC_NAMING. [MATERIAL] LIBRARY_DEPTH + ' +
+    'DEFINITION_TIME_ASPECTS. [INTEGRATION] ROOT_REBUILD (weave new capability into the owner as if always present; no ' +
+    'shims/aliases/[Obsolete]/migration layers) + ONE_HOP_RESOLUTION + COMPOSED_IMPLEMENTATION.',
+  'ULTRA-ADVANCED COLLAPSE MANDATE: COLLAPSE >=3 parallel types / sibling factory methods / repeated switch arms / single-call private ' +
+    'helpers into ONE polymorphic owner IN THE SAME FILE via `[Union]` / `[Union<T1,...>]` ad-hoc / `[SmartEnum<TKey>]` / `[SmartEnum]` ' +
+    'keyless / `[ValueObject<T>]` / `[ComplexValueObject]` / source-generated case families / `Fold` algebra / frozen data tables — never ' +
+    'extract a new file to reduce LOC, never delete capability.',
+  'LIFECYCLE SPINE (BOUNDARY_ADMISSION): every fence flows raw -> admit ONCE (generated factory + validation partial admits/rejects; one ' +
+    'rail bridge lifts the generated outcome into `Fin<T>` / `Validation<Error,T>`; `Option<T>` carries absence; exceptions convert at the ' +
+    'owning boundary only) -> canonical owner -> unified rail -> projection -> egress. Interior code never re-validates, never sees ' +
+    '`null`-as-failure, sentinels, or provider shapes; parameterize BOTH ingress AND egress so the same owner sources and sinks across many ' +
+    'consumers without interior edits.',
+  'STACK CAPABILITY: FIRST mine BOTH .api tiers (the SUBSTRATE `' + API_SUB + '/**` AND the FOLDER `' + API_BIM + '/**`) AND the universal ' +
+    'Thinktecture / LanguageExt rails. There is NO fixed package count: compose EVERY relevant host API + admitted NuGet package + catalog ' +
+    'member into single dense owners woven as ONE rail (source-generated owners, `Fold` algebra, data tables), ALWAYS layering the ' +
+    'universal Thinktecture/LanguageExt rails onto the domain packages, NOT flat one-shot per-API uses. Use the DEEPEST ' +
+    'operator/combinator/generated surface each package itself reaches (LIBRARY_DEPTH); reject surface-level subsets, BCL-first reflexes, ' +
+    'and thin rename wrappers; verify novel members with `uv run python -m tools.assay api`.',
+  'PRESERVE all capability (densify, never delete functionality). Where a fence is already dense, deepen; where it is flat/naive, rebuild ' +
+    'ground-up. Never regress correctness or boundary/strata law.',
+].join('\n')
+const EXTEND = [
+  'CAPABILITY EXTENSION (justified, in-place, never flat spam) — structural collapse and `.api`-stacking are NECESSARY but NOT SUFFICIENT. ' +
+    'A page can be fully collapsed into one polymorphic owner and STILL be capability-thin: modeling a NAIVE, LIMITED slice of its domain ' +
+    'concept — a flat membership/id set where the concept owns geometry, metrics, per-kind attributes, topology, and operations; a ' +
+    '2-category vocabulary where the domain has twenty; a record with the obvious 3 fields where the concept carries fifteen. Structural ' +
+    'completeness and CAPABILITY completeness are ORTHOGONAL. A FULL rebuild ALSO closes the capability gap so the page OWNS ITS DOMAIN ' +
+    'CONCEPT COMPLETELY. Per COMPOSED_IMPLEMENTATION + the DOCTRINE growth law (capability grows sublinearly; growth lands as ' +
+    'cases/rows/policy-values INSIDE existing owners, never new surfaces beside them), every real missing concern lands as a CASE in the ' +
+    'existing closed family, a ROW or richer data on the existing smart-enum, a FIELD or a composed `[ValueObject]`/`[ComplexValueObject]` ' +
+    'on the existing record, an OPERATION on the existing surface, or a POLICY_VALUE on the existing vocabulary — reshaping the owner per ' +
+    'ROOT_REBUILD as if it had always carried it; NEVER a parallel type, a new file, a sibling shape, or flat appended code.',
+  'GAP SOURCES (every extension MUST cite exactly one — justified, never speculative): (a) PACKAGE — a member the admitted package/host ' +
+    'surface exposes (an `apiUnderutilized` catalog/member is the first place to look) that the concept ADMITS but the page IGNORES is a ' +
+    'missing case in the owner law (LIBRARY_DEPTH: e.g. an IFC schema gives a zone its quantities, space boundaries, and properties the ' +
+    'page never reads — stacking that full surface IS new functionality woven into the owner, not a denser spelling of the same call; ' +
+    'verify the member via `uv run python -m tools.assay api`). (b) DOMAIN — an attribute, metric, sub-kind, relationship, state, or ' +
+    'operation the REAL concept demands but the page omits (a BIM zone owns its boundary/area/volume, per-kind attributes — a fire ' +
+    'compartment a rating, a thermal zone a setpoint, a load group its combinations, an MEP system its medium/flow/pressure — ' +
+    'adjacency/nesting topology, and coverage/aggregation/spatial-query operations, not a flat member-id set alone; a profile owns section ' +
+    'properties, grade, fabrication + code-check inputs, not width/height; a durable store owns its constraints, indexes, partitions, RLS, ' +
+    'migration, and lifecycle, not naive columns). (c) CONSUMER — a contract a sibling or downstream owner will require that has no ' +
+    'composed spelling here yet (a need with no spelling marks a missing case: the law extends first, the feature lands second).',
+  'COVERAGE OVER SIZE: byte-count is a WEAK proxy — capability COVERAGE against the full domain + BOTH .api tiers is the real measure. A ' +
+    'SMALL page modeling a rich concept is almost always under-built (give it the DEEPEST sweep), AND a LARGE, well-collapsed page can ' +
+    'still be capability-SPARSE (an owner that indexes membership but models none of the concept geometry, metrics, per-kind attributes, ' +
+    'topology, or analytics). Assess each owner against its domain independently of size and EXTEND every owner the concept under-realizes ' +
+    'IN PLACE — integrated and unified into the one owner at full operator depth, every new field/case/operation composing the existing ' +
+    'rails — never a new flat surface beside it.',
+  'JUSTIFIED, NOT RANDOM: if after a real domain + package + consumer sweep the concept is genuinely complete, prove it by adding nothing — ' +
+    'never invent capability to look busy or pad with flat fields. Every added case/row/field/operation is load-bearing, cites a package ' +
+    'member / domain attribute / consumer contract, and composes the existing rails; preserve ALL existing capability — extension only ' +
+    'deepens, never regresses.',
+].join('\n')
+const PATLAW = [
+  'C# PATTERN LAW: model the domain precisely — NEVER weak/unbounded/erased types where the language can express the domain; NEVER ' +
+    'exception control flow in domain logic (use the LanguageExt typed rails / ROP and the route recovery patterns); NEVER imperative ' +
+    'branching where a bounded vocabulary, frozen table, generated `Switch`, match, or `Fold` owns the variation; NEVER mutable ' +
+    'accumulation for domain transforms (use immutable folds, projections, collection combinators). Total generated `Switch` with ' +
+    'compile-time exhaustiveness (a new case breaks every dispatch site — NEVER a runtime-silent `_` arm). Typed algorithm receipts (NEVER ' +
+    'a generic `IReceipt`/ledger) when fields carry route/status/sampling/solver/spectral/mesh/extraction/benchmark/host evidence. The ' +
+    'fault type is a CLOSED `[Union]` family deriving from `Expected` (a bare exception or a generic untyped `Error` for a multi-cause ' +
+    'domain is a defect).',
+  'Latest stable C# 14 on `net10.0` to the metal (`Nullable enable`, NRT enforced): primary constructors, collection expressions with ' +
+    'spread, `params` collections (incl. `params ReadOnlySpan<T>`), list/slice/relational/logical pattern matching, switch expressions, ' +
+    '`required` members, `file`-scoped types, `field` accessors, extension blocks (`extension(Receiver)`) and extension operators, generic ' +
+    'math / static abstract+virtual interface members, `with` expressions, `nameof` with unbound generics, `System.Threading.Lock`, raw ' +
+    'string + `u8` literals where they fit. Treat analyzer diagnostics as architecture pressure (fix true positives, refine false ' +
+    'positives, no ceremony suppressions). Apply the docs/stacks/csharp file-organization and section-order law (`[Union]`/`[SmartEnum]`/' +
+    '`[ValueObject]` and generated case families stay inside the declaring owner block; canonical section order TYPES -> CONSTANTS -> ' +
+    'MODELS -> ERRORS -> SERVICES -> OPERATIONS -> COMPOSITION -> EXPORTS).',
+  'Keep conventions IDENTICAL across every package; place each package on its canonical stratum and depend strictly upward; ' +
+    'geometry/mesh/IFC meet at the wire with one owner per runtime; never leak a host type into a host-neutral owner. SEMANTIC_NAMING: one ' +
+    'canonical bounded-context term per concept (one word default, three the ceiling); arity/filter/provider/modality live in request ' +
+    'shape, case, or policy row, never parallel `Get`/`GetMany`/`GetBy<Key>`/`List`/`Search` names; ONE_HOP_RESOLUTION (no alias chains, ' +
+    'forwarding helpers, or util shells).',
+].join('\n')
+const BOUNDARIES = 'BOUNDARY LAW: keep every package owner strictly in its lane and on its stratum; geometry/mesh/IFC meet at the wire with ' +
+  'one owner per runtime; internal code uses canonical names and shapes with mapping only at the edge; do not trample a sibling owner ' +
+  'while densifying; never introduce a downward dependency or leak a host type into a host-neutral owner.'
 const SEAM = [
   'RE-BIND TARGETS (scope [1]): Semantics/composition MaterialProjection now targets the NEUTRAL detail schema + the unified Type ' +
     'Object; Semantics/connection ConnectionProjection READS the seam-declared detail schema, never a hand-synced identical bag; ' +
@@ -130,11 +253,23 @@ const SEAM = [
     'ONLY ' + BIM + ' page BODIES — never Materials/Element/Compute/Persistence/python/ts, never re-author a seam-mirror row; align ' +
     'Bim`s body to the already-landed row.',
 ].join('\n')
-const PROSE = 'PROSE + FENCES: design-SPEC prose only — lead with the controlling rule, one idea per paragraph, close on the ' +
-  'consequence; cut hedges/provenance/process narration (scope [6]). REAL transcription-complete code fences, ZERO ' +
-  'placeholder/stub/TODO. BACKTICK every symbol/type/member/path/package. Keep the canonical section-divider headers; agent-facing ' +
-  'comments only where intent is not obvious.'
-const DOCTRINE = [LAW, '', STANDARDS, '', APITIER, '', ADVERSARIAL, '', SEAM, '', PROSE].join('\n')
+const PROSE = [
+  'PROSE QUALITY — apply docs/standards/style-guide.md. The page is a design SPEC: high-signal prose ONLY. Lead each section with the ' +
+    'controlling rule/contract; one idea per paragraph; close on the consequence or boundary. Cut noise: no provenance, process ' +
+    'narration, freshness disclaimers, report framing, or empty hedges (may/might/probably/generally/where possible). Trim walls of ' +
+    'explanation to the load-bearing contract, and prefer a table, a typed signature block, or a tight bullet wherever it carries the ' +
+    'design better than a paragraph. Prose that ASSERTS capability the fence does not implement is a defect, not content.',
+  'BACKTICK ALL CODE: wrap every symbol, type, field, method, operator, package ID, path, command, flag, and literal value in backticks. ' +
+    'Name the exact member/type/rail in backticks instead of paraphrasing behavior. REAL transcription-complete code fences, ZERO ' +
+    'placeholder/stub/TODO. Trimming prose MUST NOT reduce technical density or remove design content.',
+].join('\n')
+const COMMENTS = 'COMMENT HYGIENE: code fences are agent-facing — comment for the next agent, never as a tutorial. KEEP the canonical ' +
+  'section-divider headers (language-comment marker + space + `---` + bracketed `[UPPERCASE_LABEL]` + dash-fill). Beyond dividers, comment ' +
+  'ONLY where intent is not already obvious from names, types, and signatures: default to ZERO comments on self-evident code; at most 1 line ' +
+  'where a comment genuinely earns its place; 1-2 lines only for a truly subtle invariant, contract, or boundary. NO restating the code, no ' +
+  'narration, no task/process/session/history/proof/review comments, no XML-doc bloat. Densify names and types so comments are rarely ' +
+  'needed; cut every low-value comment.'
+const DOCTRINE = [LAW, '', STANDARDS, '', STACK, '', ADVERSARIAL, '', ULTRA, '', EXTEND, '', PATLAW, '', BOUNDARIES, '', SEAM, '', PROSE, '', COMMENTS].join('\n')
 
 // --- [OPERATIONS] ------------------------------------------------------------------------
 
@@ -161,33 +296,104 @@ const cluster = (residuals) => {
 const chunk = (xs, n) => xs.reduce((acc, x, i) => { (i % n === 0 ? acc.push([x]) : acc[acc.length - 1].push(x)); return acc }, [])
 const BATCHES = chunk(PAGES, BATCH)
 const SWEEP_ITEMS = BATCHES.map((pages, i) => ({ kind: 'pages', i, pages })).concat([{ kind: 'codemap', i: -1 }])
+// REBIND_BATCHES — the implement pass batches at 2 files per agent: each Bim area is chunked into 2-page sub-batches (file-disjoint within a
+// barrier'd pool), so no rebind agent ever edits more than REBIND_BATCH files; fewer agents = less burst/rate-limit than 1-per-file.
+const REBIND_BATCHES = AREAS.flatMap((a) => chunk(a.pages, REBIND_BATCH).map((pages, k) => ({ area: a.name, focus: a.focus, pages, k })))
 const residualsOf = (rows, key) => rows.flatMap((r) => (r.residual_high || []).map((x) => norm(x, key(r))))
 
+// MAP_BY_PAGE — the page-keyed reading map (apiUsed/apiUnderutilized/domainShards) Discover surfaced, indexed for the per-page/per-batch
+// downstream stages; a renamed/split target keys to the closest discovered map (its pre-rename page) so the read mandate still resolves.
+const ALIAS = { 'Model/spatial.md': 'Model/structure.md', 'Projection/relations.md': 'Projection/semantic.md', 'Projection/egress.md': 'Projection/semantic.md' }
+let MAP_BY_PAGE = new Map()
+const mapFor = (page) => MAP_BY_PAGE.get(page) || MAP_BY_PAGE.get(ALIAS[page]) || { pages: [page], apiUsed: [], apiUnderutilized: [], domainShards: [] }
+const mapsFor = (pages) => pages.map((p) => { const m = mapFor(p); return { page: p, apiUsed: m.apiUsed || [], apiUnderutilized: m.apiUnderutilized || [], domainShards: m.domainShards || [] } })
+// READ_MANDATE — the verbatim downstream-read law threaded into every implementing prompt: ALL core pages, the item`s required shards only,
+// both .api tiers (compose apiUsed + close apiUnderutilized), and the central goal.
+const READ_MANDATE = (maps) => 'READING MAP (the page-keyed grounding Discover surfaced):\n' + JSON.stringify(maps, null, 1) + '\n' +
+  'BEFORE editing, READ: (1) ALL root docs/stacks/csharp/ core pages (' + CORE + ') — the FULL set, NEVER a subset; (2) the ' +
+  '`domainShards` listed above (the REQUIRED docs/stacks/csharp/domain/ file(s) the page concern demands — those, not all ' + DOMAIN.split(', ').length +
+  '); (3) `' + SCOPE + '` in FULL (the central goal + the task framing). Then COMPOSE the `apiUsed` catalogs at full operator depth AND ' +
+  'STACK the `apiUnderutilized` capability INTO the owning page (closing the underutilization in place), across BOTH .api tiers (`' + API_SUB +
+  '/**` substrate + `' + API_BIM + '/**` folder); verify every cited member via `uv run python -m tools.assay api`.'
+
 const discoverPrompt = (a) => [DOCTRINE, '', 'TASK: READ-ONLY RE-BIND DISCOVERY for the `' + a.name + '` area of `' + BIM + '/.planning` ' +
-  '(pages: ' + a.pages.join(', ') + '). Investigate, do NOT edit. Read ' + SCOPE + ' in FULL, the listed pages, BOTH .api tiers, the ' +
-  'index docs at ' + BIM + ' (ARCHITECTURE.md/README.md), and the seam endpoints the pages cite. AREA FOCUS: ' + a.focus + ' Produce the ' +
-  'precise re-bind work-list: per page, the exact seam-signature re-thread / defect fix / rename / split to apply, grounded in ' +
-  'assay-verified members. Return area + pages + worklist (each {page, work}) + a summary of the dominant work class.'].join('\n')
-const rebindPrompt = (a, work) => [DOCTRINE, '', 'TASK: RE-BIND the `' + a.name + '` area (pages: ' + a.pages.join(', ') + ') IN PLACE. ' +
-  'AREA FOCUS: ' + a.focus + ' For each page: re-thread every seam signature to the unified paradigm + the neutral detail schema + the ' +
-  'Component Type representation (scope [1]); fix the named defects; apply the rename/split. WRITE-FULLY now — the returned log REPORTS ' +
-  'edits already made, never a to-do. A fix that REQUIRES editing a page OUTSIDE this area goes to residual_high {files, claim} ' +
-  '(especially the rename/split inbound-anchor re-threads). Edit ONLY `' + BIM + '` page bodies (WF-2 scope). DISCOVERED WORK-LIST:\n' +
-  JSON.stringify(work, null, 1) + '\nReturn folder (the area name) + verdict + integrated + extended + residual_high + summary.'].join('\n')
-const critiquePrompt = (batch, i) => [DOCTRINE, '', 'TASK: HOSTILE DUAL-AXIS CRITIQUE + FIX IN PLACE over these re-bound `' + BIM + '` ' +
-  'pages (batch ' + i + '): ' + batch.join(', ') + '. Audit BOTH axes (scope [6]): CODE doctrine (the core docs/stacks/csharp/** pages + ' +
-  'the relevant domain shard) AND DOC-CRAFT (the planning standard + the [06] cold-grade gate + the page grammar + the three form ' +
-  'standards + proof.md). Run the mechanical checklists and REPAIR every hit: COLLAPSE_SCAN (3+ parallel shapes/sibling names/repeated ' +
-  'arms -> one owner); OWNER_CHOOSER; KNOB_TEST; RAILS (closed Expected fault, total Switch, no exception control flow); two-weave ' +
-  'ASPECTS; MEMBERS (no phantom, both .api tiers stacked); banned-hedges + zero-provenance. cross-file -> residual_high {files, claim}. ' +
-  'Edit ONLY `' + BIM + '` page bodies. Return folder (batch ' + i + ') + verdict + extended + residual_high + summary.'].join('\n')
-const redteamPrompt = (batch, i, crit) => [DOCTRINE, '', 'TASK: ADVERSARIAL RED-TEAM + FIX IN PLACE over these `' + BIM + '` pages ' +
-  '(batch ' + i + '): ' + batch.join(', ') + ' — the LAST + most aggressive pass; trust nothing the critique claimed. COUNTERFACTUAL on ' +
-  'each owner (does a denser owner / a deeper admitted-package primitive collapse the fence?); ANTICIPATORY_COLLAPSE (the next ' +
-  'case/provider lands as ONE case/row/policy value, consumers broken LOUDLY at compile time); LONG-TAIL ingress AND egress; ' +
-  'STRATA/BOUNDARY (IFC stays in SemanticProjector, geospatial isolated, no host-type leak); PHANTOMS; plus a FULL COLD re-review of ' +
-  'every critique dimension on BOTH axes (scope [6]). CARRY FORWARD any unresolved cross-file residual_high from the critique result ' +
-  'below and add your own. Edit ONLY `' + BIM + '` page bodies; cross-file -> residual_high {files, claim}. CRITIQUE RESULT:\n' +
+  '(pages: ' + a.pages.join(', ') + '). Investigate, do NOT edit. Read `' + SCOPE + '` in FULL, EACH listed page, the index docs at `' + BIM +
+  '` (ARCHITECTURE.md/README.md), and the seam endpoints the pages cite. AREA FOCUS: ' + a.focus + ' ENUMERATE the FULL ' +
+  'docs/stacks/csharp/domain/ shard roster (' + DOMAIN + ') and BOTH .api tiers — the SUBSTRATE `' + API_SUB + '/**` AND the FOLDER `' + API_BIM +
+  '/**`. For EACH page produce the precise re-bind work-list entry: (a) `work` — the exact seam-signature re-thread / defect fix / rename / ' +
+  'split to apply, grounded in assay-verified members; (b) `apiUsed` — the `.api/` catalogs the page CURRENTLY composes, BOTH tiers (the ' +
+  'shared `' + API_SUB + '/**` substrate AND the folder `' + API_BIM + '/**`); (c) `apiUnderutilized` — each {catalog, capability}: an admitted ' +
+  'catalog or member the page`s concept ADMITS but the page IGNORES (a concrete suggestion the rebuild must stack to close the ' +
+  'underutilization), e.g. an IFC schema`s quantities/space-boundaries/properties a zone never reads; (d) `domainShards` — the ' +
+  'docs/stacks/csharp/domain/<shard>.md file(s) the page concern REQUIRES, mapped from the roster (IFC/glTF/STEP/dotbim/USD wire -> ' +
+  'transport + data-interchange; Pset/Qto + property/IDS validation -> validation; spatial/graph/zone persistence -> persistence + ' +
+  'durability; clash/solve/structural -> compute; BCF/issue telemetry + faults -> diagnostics; viewer/scene/appearance -> visuals; ' +
+  'coordination/review interaction -> interaction). Members are verified-local truth via `uv run python -m tools.assay api`; never list a ' +
+  'phantom. Return area + pages + worklist (each {page, work, apiUsed, apiUnderutilized, domainShards}) + a summary of the dominant work ' +
+  'class.'].join('\n')
+const rebindPrompt = (b, work) => [DOCTRINE, '', READ_MANDATE(mapsFor(b.pages)), '', 'TASK: HOSTILE RE-BIND of these ' + b.pages.length + ' `' +
+  b.area + '`-area pages IN PLACE: ' + b.pages.join(', ') + ' — assume each fence is naive/junior/illusory until it survives an aggressive ' +
+  'attack; do NOT polish, RE-BIND + rebuild to the strongest form the doctrine admits and treat dense confident code as a prime suspect for ' +
+  'hollow/decorative complexity. AREA FOCUS: ' + b.focus + ' For each page: re-thread every seam signature to the unified paradigm + the ' +
+  'neutral detail schema + the Component Type representation (scope [1]); fix the named defects; apply the rename/split; COLLAPSE >=3 ' +
+  'parallel shapes/sibling factories/repeated arms into ONE `[Union]`/`[SmartEnum<TKey>]`/`[ValueObject<T>]`/`[ComplexValueObject]`/' +
+  'source-generated case family IN THE SAME FILE; STACK every `apiUnderutilized` capability INTO the owning page and CLOSE the concept ' +
+  'capability gaps by growing the EXISTING owner in place (a case/row/field/operation, each citing a package member / domain attribute / ' +
+  'consumer contract). WRITE-FULLY now — the returned log REPORTS edits already made, never a to-do. A fix that REQUIRES editing a page ' +
+  'OUTSIDE these two goes to residual_high {files, claim} (especially the rename/split inbound-anchor re-threads). Edit ONLY these `' + BIM +
+  '` page bodies (WF-2 scope). DISCOVERED WORK-LIST for these pages (work + the page-keyed apiUsed/apiUnderutilized/domainShards reading ' +
+  'map):\n' + JSON.stringify(work, null, 1) + '\nReturn folder (`' + b.area + '` batch ' + b.k + ') + verdict + integrated + extended + ' +
+  'residual_high + summary.'].join('\n')
+const critiquePrompt = (batch, i) => [DOCTRINE, '', READ_MANDATE(mapsFor(batch)), '', 'TASK: HOSTILE COLD DUAL-AXIS DOCTRINAL-CONFORMANCE + ' +
+  'CAPABILITY-COMPLETENESS AUDIT + FIX IN PLACE over these re-bound `' + BIM + '` pages (batch ' + i + '): ' + batch.join(', ') + '. You are ' +
+  'an ULTRA-HARSH, UNAGREEABLE auditor: assume a violation exists in EVERY fence until you prove otherwise, trust NOTHING the author or the ' +
+  'prose claims, treat dense confident code as the PRIME suspect for hollowness, and "good enough"/"mature"/a prior clean verdict is ' +
+  'rejected outright. Audit BOTH axes (scope [6]): CODE doctrine (ALL core docs/stacks/csharp pages + the work-item`s required domain ' +
+  'shard) AND DOC-CRAFT (the planning standard + the [06] cold-grade gate + the page grammar + the three form standards + proof.md). Run ' +
+  'these MECHANICAL checklists line-by-line and REPAIR every hit in place (a fix, never a ledger note): (1) COLLAPSE_SCAN — any 3+ signal ' +
+  '(sibling prefix names, same-rail arity siblings, literal-only variants, a bool/mode flag selecting two bodies, a single-call hop, ' +
+  'parallel dispatch arms, a Get/GetMany/List/Search family) collapses to one `[Union]`/`[SmartEnum<TKey>]`/`[ValueObject<T>]`/' +
+  '`[ComplexValueObject]`/source-generated case family / `Fold` algebra / frozen table IN THE SAME FILE. (2) OWNER_CHOOSER — re-derive each ' +
+  'shape from the 5 discriminants (admission, identity regime, variant arity, payload timing, openness) and select the row, most-specific ' +
+  'wins; kill every parallel DTO, one-field wrapper, nullable-as-failure, enum-dictionary pair, struct-`default` ghost. (3) KNOB_TEST — ' +
+  'delete each parameter; a reconstructable value was a knob (collapse a bool/mode/strict/batch flag to a policy value or input-shape ' +
+  'discriminant; a nullable tail to one `Option<ContextRecord>`; move timeout/retry/deadline/token OFF the signature onto the carrier or ' +
+  'an aspect). (4) ASPECTS — definition-time concerns via source generation, composition-time concerns as effect transformers ' +
+  '(`Schedule`-driven retry, named catch combinators, `Bracket` lifetime); 2-4 co-occurring wrappers collapse to one aspect; an aspect ' +
+  'NEVER raises into domain flow. (5) RAILS — narrowest carrier chosen ONCE at admission; the fault type a CLOSED `[Union]` deriving from ' +
+  '`Expected`; accumulate-vs-abort disposition correct; total generated `Switch` (no `_` arm); NO exception control flow, NO mutable ' +
+  'accumulation. (6) STRATA/MEMBERS/MODERN — strata correctness, ONLY assay-verified members (no phantom), C# 14 on net10, FULL ' +
+  'docs/stacks/csharp + required-shard conformance, BOTH .api tiers maximized. (7) CAPABILITY-COMPLETENESS + ILLUSION — structural ' +
+  'collapse and capability completeness are ORTHOGONAL: verify the body implements what the names/prose promise; ANY capability the ' +
+  '`apiUnderutilized` map / the admitted-package surface / the real domain / a consumer contract admits that an owner OMITS (a flat id set ' +
+  'where the concept owns geometry/metrics/per-kind-attributes/topology/operations; a 2-case union for a 20-case domain; the obvious 3 ' +
+  'fields where the concept carries fifteen) is a DEFECT — close it in place by growing the EXISTING owner (case/row/field/operation), ' +
+  'citing its source; reject the inverse (a padded field, decorative ceremony, prose asserting capability the fence lacks). Also enforce ' +
+  'the file-organization + section-order law, cross-page convention consistency, banned-hedges + zero-provenance, and prose + comment ' +
+  'hygiene. Edit ONLY `' + BIM + '` page bodies; cross-file -> residual_high {files, claim}. Return folder (batch ' + i + ') + verdict + ' +
+  'extended + residual_high + summary.'].join('\n')
+const redteamPrompt = (batch, i, crit) => [DOCTRINE, '', READ_MANDATE(mapsFor(batch)), '', 'TASK: ADVERSARIAL ARCHITECT RED-TEAM + FIX IN ' +
+  'PLACE over these `' + BIM + '` pages (batch ' + i + '): ' + batch.join(', ') + ' — the LAST + MOST AGGRESSIVE pass; assume the author and ' +
+  'critique missed things and the chosen design is naive or illusory until PROVEN the strongest, the burden of proof ON THE DESIGN; trust ' +
+  'NOTHING the prior passes or the prose claimed. Attack from every direction and REPAIR every defect in place: (A) COUNTERFACTUAL on each ' +
+  'owner — is the owner, the algebra (`Fold`/generated `Switch`/data table), and the dispatch form categorically the strongest the doctrine ' +
+  'admits, or does a denser owner / a DEEPER admitted-package primitive (an `apiUnderutilized` member, LanguageExt/Thinktecture/MathNet) ' +
+  'collapse the whole fence? rebuild to it, never defend the incumbent. (B) ANTICIPATORY_COLLAPSE — the next case/provider lands as ONE ' +
+  'case/row/policy value with every consumer untouched or broken LOUDLY at compile time (total generated `Switch`, no silent `_`). (C) ' +
+  'LONG-TAIL + MULTI-DIMENSIONAL — every input/output/edge/failure mode (empty, singular, plural, stream, malformed, concurrent, ' +
+  'cancelled, partial-failure, version-skew); accumulate-vs-abort correct for the REAL boundary; BOTH ingress AND egress parameterized. (D) ' +
+  'STRATA/BOUNDARY — IFC stays in the SemanticProjector, geospatial isolated, no downward dependency, no host-type leak into a ' +
+  'host-neutral owner, no concern owned twice, no coupling to a sibling owner INTERIOR. (E) SURFACE-SPRAWL + PHANTOMS — an admitted package ' +
+  'whose `.api` (either tier) exposes capability the fence re-derives by hand, flat code below the operator depth the packages reach, a ' +
+  'phantom member (cited but unverifiable — delete it), a thin wrapper: collapse to package depth + verify via `assay api`. (F) ' +
+  'CAPABILITY-COMPLETENESS + ILLUSION — counterfactually attack each owner for DOMAIN-COMPLETENESS independently of how collapsed or ' +
+  'confident it looks: does the `apiUnderutilized` map / the real concept / a consumer contract admit a capability this owner still OMITS? ' +
+  'Name it with a cite and EXTEND the owner IN PLACE (a case/row/field/operation); a structurally-perfect but capability-sparse or illusory ' +
+  'owner is a DEFECT, not a finished page; conversely REJECT any extension that is flat spam, speculative, or a parallel surface. ALSO a ' +
+  'FULL COLD ADVERSARIAL RE-REVIEW of every critique dimension on BOTH axes (scope [6]) with fresh hostile eyes. The fence must end ' +
+  'objectively denser, MORE CAPABLE, more correct than the critique left it; if the strongest form is genuinely present, prove it by ' +
+  'finding nothing — never invent churn. CARRY FORWARD any unresolved cross-file residual_high from the critique result below and add your ' +
+  'own. Edit ONLY `' + BIM + '` page bodies; cross-file -> residual_high {files, claim}. CRITIQUE RESULT:\n' +
   JSON.stringify((crit && { verdict: crit.verdict, residual_high: crit.residual_high || [] }) || {}, null, 1) +
   '\nReturn folder (batch ' + i + ') + verdict + extended + residual_high + summary.'].join('\n')
 const sweepPrompt = (item) => item.kind === 'codemap'
@@ -196,12 +402,13 @@ const sweepPrompt = (item) => item.kind === 'codemap'
     'Projection/{semantic,relations,egress}.md, the re-threaded seam signatures, the page set itself. Do NOT re-author the [02]-[SEAMS] ' +
     'mirror ROWS — WF-1 landed those on both endpoints; only correct an untruthful codemap/roster entry. cross-file -> residual_high ' +
     '{files, claim}. Return verdict + aligned + residual_high + summary.'].join('\n')
-  : [DOCTRINE, '', 'TASK: SEAM-MIRROR BODY ALIGNMENT over these `' + BIM + '` pages: ' + item.pages.join(', ') + '. WF-1 ' +
-    '(element-component) already landed the seam-mirror ROWS in BOTH `ARCHITECTURE.md` [02]-[SEAMS] endpoints; do NOT re-author those ' +
-    'rows. ALIGN each page BODY to them: every seam signature, type name, and field the page references matches the landed mirror ' +
-    'EXACTLY (the unified Object/ObjectKind, the neutral detail schema, the Component Type bind, the canonical PropertyName ' +
-    'vocabulary). Edit ONLY these page bodies (`' + BIM + '`); a counterpart edit outside these pages -> residual_high {files, claim}. ' +
-    'Return verdict + aligned + residual_high + summary.'].join('\n')
+  : [DOCTRINE, '', READ_MANDATE(mapsFor(item.pages)), '', 'TASK: SEAM-MIRROR BODY ALIGNMENT over these `' + BIM + '` pages: ' +
+    item.pages.join(', ') + '. WF-1 (element-component) already landed the seam-mirror ROWS in BOTH `ARCHITECTURE.md` [02]-[SEAMS] ' +
+    'endpoints; do NOT re-author those rows. ALIGN each page BODY to them: every seam signature, type name, and field the page references ' +
+    'matches the landed mirror EXACTLY (the unified Object/ObjectKind, the neutral detail schema, the Component Type bind, the canonical ' +
+    'PropertyName vocabulary), and the page composes the `apiUsed` catalogs + closes the `apiUnderutilized` the reading map names. Edit ' +
+    'ONLY these page bodies (`' + BIM + '`); a counterpart edit outside these pages -> residual_high {files, claim}. Return verdict + ' +
+    'aligned + residual_high + summary.'].join('\n')
 const reconcileFix = (cl) => [DOCTRINE, '', 'TASK: TERMINAL RECONCILE — fix EVERY one of these cross-FILE residuals the ' +
   'rebind/critique/redteam/sweep phases surfaced; NO severity, NO leftovers, NO deferral, NO scope cap WITHIN `' + BIM + '`. Read EVERY ' +
   'listed file and FIX the real cross-file defect in place to the strongest clean/modern form (re-thread the rename/split inbound ' +
@@ -226,17 +433,20 @@ const sanityPrompt = (items) => [DOCTRINE, '', 'TASK: SINGLE SANITY RE-AUDIT ove
 
 // --- [COMPOSITION] -----------------------------------------------------------------------
 
-log('bim-rebuild: discover (' + AREAS.length + ' areas) -> rebind -> critique|redteam (pipeline, ' + BATCHES.length + ' batches) -> sweep -> resolve (reconcile + sanity); CAP=' + CAP)
+log('bim-rebuild: discover (' + AREAS.length + ' areas) -> rebind (' + REBIND_BATCHES.length + ' 2-file batches) -> critique|redteam (pipeline, ' + BATCHES.length + ' batches) -> sweep -> resolve (reconcile + sanity); CAP=' + CAP)
 
 // --- [DISCOVER]
 phase('Discover')
 const discovered = (await pool(AREAS, CAP, (a) => agent(discoverPrompt(a), { label: 'discover:' + a.name, phase: 'Discover', schema: DISCOVER_SCHEMA, effort: 'max', stallMs: STALL }))).filter(Boolean)
 const workByArea = new Map(discovered.map((d) => [d.area, d.worklist || []]))
+// Index the page-keyed reading map so every per-page/per-batch downstream stage resolves its apiUsed/apiUnderutilized/domainShards grounding.
+MAP_BY_PAGE = new Map(discovered.flatMap((d) => (d.worklist || []).filter((w) => w && w.page).map((w) => [w.page, w])))
+const workForBatch = (b) => (workByArea.get(b.area) || []).filter((w) => w && b.pages.includes(w.page))
 log('Discover: ' + discovered.reduce((n, d) => n + (d.worklist || []).length, 0) + ' work item(s) across ' + discovered.length + ' area(s)')
 
 // --- [REBIND]
 phase('Rebind')
-const rebound = (await pool(AREAS, CAP, (a) => agent(rebindPrompt(a, workByArea.get(a.name) || []), { label: 'rebind:' + a.name, phase: 'Rebind', schema: FOLDER_FIXLOG, effort: 'max', stallMs: STALL }))).filter(Boolean)
+const rebound = (await pool(REBIND_BATCHES, CAP, (b) => agent(rebindPrompt(b, workForBatch(b)), { label: 'rebind:' + b.area + ':b' + b.k, phase: 'Rebind', schema: FOLDER_FIXLOG, effort: 'max', stallMs: STALL }))).filter(Boolean)
 
 // --- [CRITIQUE]
 // --- [REDTEAM]
