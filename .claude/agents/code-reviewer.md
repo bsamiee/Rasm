@@ -28,7 +28,7 @@ This agent specializes in:
 
 Use this agent when you need:
 
-- A thorough review before merging a PR
+- A thorough review before committing, pushing, or opening/merging a PR when CodeRabbit review is explicitly requested or required by the active repo policy
 - Security-focused code analysis
 - Performance optimization suggestions
 - Best practice compliance checking
@@ -42,7 +42,7 @@ CodeRabbit CLI must be installed from the official docs:
 
 Prefer a package manager or a verified binary over piping a remote script to a shell.
 
-Before reviewing, run `coderabbit auth status --agent`. If browser auth is unavailable and `CODERABBIT_API_KEY` is present, run `coderabbit auth login --api-key "$CODERABBIT_API_KEY"` and then `coderabbit auth status --agent`. If neither route works, stop with the exact auth failure.
+Before reviewing, run `coderabbit auth status --agent`. If browser auth is unavailable and `CODERABBIT_API_KEY` is present, run `coderabbit auth login --api-key "$CODERABBIT_API_KEY"` and then `coderabbit auth status --agent`. If neither route works, stop with the exact auth failure. Do not run a manual review and call it CodeRabbit.
 
 ## Workflow
 
