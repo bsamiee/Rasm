@@ -164,8 +164,11 @@ const fixed = (await pool(BATCHES, CAP, (b) => agent(fixPrompt(b), { label: 'fix
 log('Fix: ' + fixed.filter((r) => r.verdict !== 'clean').length + '/' + BATCHES.length + ' batches reported edits')
 
 // --- [RECONCILE]
+const keyOf = (r) => r.files.slice().sort().join(',') + '|' + r.claim
 let pending = dedup(fixed.flatMap((r) => (r.residual_high || []).map(norm)))
+const seen = new Set(pending.map(keyOf))
 let invalid = []
+let noFix = []
 let round = 0
 if (pending.length) {
   phase('Reconcile')
@@ -175,16 +178,24 @@ if (pending.length) {
     log('Reconcile round ' + round + ': ' + pending.length + ' cross-folder residual(s) -> ' + clusters.length + ' cluster(s) (lib-wide, no-defer)')
     const resolved = (await pool(clusters, CAP, async (cl) => {
       const fix = await agent(reconcileFix(cl), { label: 'reconcile-fix:r' + round, phase: 'Reconcile', schema: RECONCILE_FIX_SCHEMA, effort: 'max', stallMs: STALL })
-      if (!fix) return { open: cl, invalid: [], surfaced: [] }
+      const touched = (fix && Array.isArray(fix.files) ? fix.files.filter(inLibs) : [])
+      // No file-changing progress: the fix found nothing to change -> the cluster is resolved-or-phantom; skip the mandatory verify and drop it (recorded as noFix).
+      if (!fix || touched.length === 0 || fix.verdict === 'clean') return { open: [], invalid: [], surfaced: [], dropped: cl, changed: false }
       const verify = await agent(verifyPrompt(cl, fix.files), { label: 'reconcile-verify:r' + round, phase: 'Reconcile', schema: VERIFY_SCHEMA, effort: 'max', stallMs: STALL })
       const claims = (verify && verify.claims) || []
       const ok = new Set(claims.filter((c) => c.status === 'fixed').map((c) => c.claim))
       const bad = new Set(claims.filter((c) => c.status === 'invalid').map((c) => c.claim))
-      return { open: cl.filter((r) => !ok.has(r.claim) && !bad.has(r.claim)), invalid: cl.filter((r) => bad.has(r.claim)), surfaced: (fix.residual_high || []).map(norm) }
+      return { open: cl.filter((r) => !ok.has(r.claim) && !bad.has(r.claim)), invalid: cl.filter((r) => bad.has(r.claim)), surfaced: (fix.residual_high || []).map(norm), dropped: [], changed: true }
     })).filter(Boolean)
     invalid = dedup([...invalid, ...resolved.flatMap((r) => r.invalid)])
+    noFix = dedup([...noFix, ...resolved.flatMap((r) => r.dropped)])
     const invalidKeys = new Set(invalid.map((r) => r.claim))
-    pending = dedup([...resolved.flatMap((r) => r.open), ...resolved.flatMap((r) => r.surfaced)]).filter((r) => !invalidKeys.has(r.claim))
+    // Re-enter ONLY genuinely-new residuals: a key already queued this run cannot re-enter (stops a phantom re-feeding every round).
+    const fresh = dedup([...resolved.flatMap((r) => r.open), ...resolved.flatMap((r) => r.surfaced)]).filter((r) => !invalidKeys.has(r.claim) && !seen.has(keyOf(r)))
+    fresh.forEach((r) => seen.add(keyOf(r)))
+    pending = fresh
+    // NO-PROGRESS BREAK: no cluster changed a file this round -> the remaining residuals are phantom/unfixable; stop instead of grinding to MAX_ROUNDS.
+    if (!resolved.some((r) => r.changed)) { log('Reconcile round ' + round + ': no file-changing progress — ' + noFix.length + ' residual(s) had nothing to fix (phantom/resolved); breaking'); pending = []; break }
   }
 }
 
@@ -196,19 +207,26 @@ let sanityOpen = ((sanity && sanity.items) || []).filter((i) => i.status === 'op
 let saneRound = 0
 while (sanityOpen.length && saneRound < SANITY_CAP) {
   saneRound++
+  const prevOpen = sanityOpen.length
   log('Sanity round ' + saneRound + ': ' + sanityOpen.length + ' OPEN -> FORCE-CLOSE (lib-wide max pass over every open item) + re-sanity; nothing leaves open')
   phase('Reconcile')
-  await agent(reconcileFix(sanityOpen.map((i) => ({ files: ['libs/csharp'], claim: i.claim }))), { label: 'sanity-force-close:r' + saneRound, phase: 'Reconcile', schema: RECONCILE_FIX_SCHEMA, effort: 'max', stallMs: STALL })
+  const fc = await agent(reconcileFix(sanityOpen.map((i) => ({ files: ['libs/csharp'], claim: i.claim }))), { label: 'sanity-force-close:r' + saneRound, phase: 'Reconcile', schema: RECONCILE_FIX_SCHEMA, effort: 'max', stallMs: STALL })
+  const fcTouched = (fc && Array.isArray(fc.files) ? fc.files.filter(inLibs) : [])
+  // The force-close changed nothing: the remaining items are phantom/unfixable; skip the re-sanity and stop.
+  if (fcTouched.length === 0) { log('Sanity round ' + saneRound + ': force-close changed no files — ' + sanityOpen.length + ' remaining item(s) phantom/unfixable; breaking'); break }
   phase('Sanity')
   sanity = await agent(sanityPrompt(ALL_CLAIMS), { label: 'sanity:r' + saneRound, phase: 'Sanity', schema: SANITY_SCHEMA, effort: 'max', stallMs: STALL })
   sanityOpen = ((sanity && sanity.items) || []).filter((i) => i.status === 'open')
+  // No net decrease across the force-close -> drive-to-zero has stalled; stop instead of grinding to SANITY_CAP.
+  if (sanityOpen.length >= prevOpen) { log('Sanity round ' + saneRound + ': no net progress (' + sanityOpen.length + ' open, was ' + prevOpen + ') — remaining item(s) phantom/unfixable; breaking'); break }
 }
-if (sanityOpen.length) log('Sanity: ' + sanityOpen.length + ' STILL OPEN after ' + SANITY_CAP + ' force-close rounds — HARD BLOCKER (likely an architectural decision), reported LOUDLY, never silently dropped')
+if (sanityOpen.length) log('Sanity: ' + sanityOpen.length + ' STILL OPEN after the force-close drive — HARD BLOCKER (likely an architectural decision), reported LOUDLY, never silently dropped')
 else log('Sanity: ALL ' + ALL_CLAIMS.length + ' residuals CLOSED + verified across ' + saneRound + ' force-close round(s)')
 
 return {
   workflow: 'element-residual-fix', totalResiduals: ALL_CLAIMS.length, batches: BATCHES.map((b) => b.name),
   fixVerdicts: fixed.map((r) => ({ folder: r.folder, verdict: r.verdict })),
   reconcileRounds: round, invalidClaims: invalid.map((x) => x.claim),
+  noFix: noFix.map((x) => ({ files: x.files, claim: x.claim })),
   sanityOverall: sanity && sanity.overall, sanityOpen: sanityOpen.map((i) => ({ claim: i.claim, evidence: i.evidence })),
 }

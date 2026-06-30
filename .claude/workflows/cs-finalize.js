@@ -224,7 +224,10 @@ let pending = dedup([
   ...residualsOf(red, (r) => 'libs/csharp/Rasm.' + r.folder),
   ...residualsOf(swept, () => 'libs/csharp'),
 ])
+const keyOf = (r) => r.files.slice().sort().join(',') + '|' + r.claim
+const seen = new Set(pending.map(keyOf))
 let invalid = []
+let noFix = []
 let round = 0
 if (pending.length) {
   phase('Resolve')
@@ -234,16 +237,24 @@ if (pending.length) {
     log('Resolve round ' + round + ': ' + pending.length + ' residual(s) -> ' + clusters.length + ' cluster(s) (lib-wide, no-defer)')
     const resolved = (await pool(clusters, CAP, async (cl) => {
       const fix = await agent(reconcileFix(cl), { label: 'resolve-fix:r' + round, phase: 'Resolve', schema: FIX_SCHEMA, effort: 'max', stallMs: STALL })
-      if (!fix) return { open: cl, invalid: [], surfaced: [] }
+      const touched = (fix && Array.isArray(fix.files) ? fix.files.filter(inLibs) : [])
+      // No file-changing progress: the fix found nothing to change -> the cluster is resolved-or-phantom; skip the mandatory verify and drop it (recorded as noFix).
+      if (!fix || touched.length === 0 || fix.verdict === 'clean') return { open: [], invalid: [], surfaced: [], dropped: cl, changed: false }
       const verify = await agent(reconcileVerify(cl, fix.files), { label: 'resolve-verify:r' + round, phase: 'Resolve', schema: VERIFY_SCHEMA, effort: 'max', stallMs: STALL })
       const claims = (verify && verify.claims) || []
       const ok = new Set(claims.filter((c) => c.status === 'fixed').map((c) => c.claim))
       const bad = new Set(claims.filter((c) => c.status === 'invalid').map((c) => c.claim))
-      return { open: cl.filter((r) => !ok.has(r.claim) && !bad.has(r.claim)), invalid: cl.filter((r) => bad.has(r.claim)), surfaced: (fix.residual_high || []).map((x) => norm(x, 'libs/csharp')) }
+      return { open: cl.filter((r) => !ok.has(r.claim) && !bad.has(r.claim)), invalid: cl.filter((r) => bad.has(r.claim)), surfaced: (fix.residual_high || []).map((x) => norm(x, 'libs/csharp')), dropped: [], changed: true }
     })).filter(Boolean)
     invalid = dedup([...invalid, ...resolved.flatMap((r) => r.invalid)])
+    noFix = dedup([...noFix, ...resolved.flatMap((r) => r.dropped)])
     const invalidKeys = new Set(invalid.map((r) => r.claim))
-    pending = dedup([...resolved.flatMap((r) => r.open), ...resolved.flatMap((r) => r.surfaced)]).filter((r) => !invalidKeys.has(r.claim))
+    // Re-enter ONLY genuinely-new residuals: a key already queued this run cannot re-enter (stops a phantom re-feeding every round).
+    const fresh = dedup([...resolved.flatMap((r) => r.open), ...resolved.flatMap((r) => r.surfaced)]).filter((r) => !invalidKeys.has(r.claim) && !seen.has(keyOf(r)))
+    fresh.forEach((r) => seen.add(keyOf(r)))
+    pending = fresh
+    // NO-PROGRESS BREAK: no cluster changed a file this round -> the remaining residuals are phantom/unfixable; stop instead of grinding to MAX_ROUNDS.
+    if (!resolved.some((r) => r.changed)) { log('Resolve round ' + round + ': no file-changing progress — ' + noFix.length + ' residual(s) had nothing to fix (phantom/resolved); breaking'); pending = []; break }
   }
   if (pending.length) log('Resolve: ' + pending.length + ' STILL OPEN after ' + MAX_ROUNDS + ' rounds — REPORTED, never silently dropped')
   else log('Resolve: all residuals fixed + adversarially verified across ' + round + ' round(s)')
@@ -254,5 +265,6 @@ return {
   gaps: discovered.map((d) => ({ folder: d.folder, gaps: (d.gaps || []).length })),
   pinsNeeded: allPins.length, closeVerdicts: closed.map((r) => ({ folder: r.folder, verdict: r.verdict })),
   sweepVerdict: swept[0] && swept[0].verdict, resolveRounds: round,
-  invalidClaims: invalid.map((x) => x.claim), openResidual: pending.map((x) => ({ files: x.files, claim: x.claim })),
+  invalidClaims: invalid.map((x) => x.claim), noFix: noFix.map((x) => ({ files: x.files, claim: x.claim })),
+  openResidual: pending.map((x) => ({ files: x.files, claim: x.claim })),
 }

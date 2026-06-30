@@ -272,8 +272,11 @@ const surfaced = dedup([
   ...reviewed.flatMap((r) => ((r.redteam && r.redteam.residual_high) || []).map((x) => norm(x, MAT))),
   ...swept.flatMap((r) => (r.residual_high || []).map((x) => norm(x, MAT))),
 ])
+const keyOf = (r) => r.files.slice().sort().join(',') + '|' + r.claim
+const seen = new Set(surfaced.map(keyOf))
 let pending = surfaced
 let invalid = []
+let noFix = []
 let round = 0
 while (pending.length && round < MAX_ROUNDS) {
   round++
@@ -281,16 +284,24 @@ while (pending.length && round < MAX_ROUNDS) {
   log('Resolve reconcile round ' + round + ': ' + pending.length + ' residual(s) -> ' + clusters.length + ' cluster(s) (lib-wide, no-defer)')
   const resolved = (await pool(clusters, CAP, async (cl) => {
     const fix = await agent(reconcileFix(cl), { label: 'resolve-fix:r' + round, phase: 'Resolve', schema: FIX_SCHEMA, effort: 'max', stallMs: STALL })
-    if (!fix) return { open: cl, invalid: [], surfaced: [] }
+    const touched = (fix && Array.isArray(fix.files) ? fix.files.filter(inLibs) : [])
+    // No file-changing progress: the fix found nothing to change -> the cluster is resolved-or-phantom; skip the mandatory verify and drop it (recorded as noFix).
+    if (!fix || touched.length === 0 || fix.verdict === 'clean') return { open: [], invalid: [], surfaced: [], dropped: cl, changed: false }
     const verify = await agent(reconcileVerify(cl, fix.files), { label: 'resolve-verify:r' + round, phase: 'Resolve', schema: VERIFY_SCHEMA, effort: 'max', stallMs: STALL })
     const claims = (verify && verify.claims) || []
     const ok = new Set(claims.filter((c) => c.status === 'fixed').map((c) => c.claim))
     const bad = new Set(claims.filter((c) => c.status === 'invalid').map((c) => c.claim))
-    return { open: cl.filter((r) => !ok.has(r.claim) && !bad.has(r.claim)), invalid: cl.filter((r) => bad.has(r.claim)), surfaced: (fix.residual_high || []).map((x) => norm(x, MAT)) }
+    return { open: cl.filter((r) => !ok.has(r.claim) && !bad.has(r.claim)), invalid: cl.filter((r) => bad.has(r.claim)), surfaced: (fix.residual_high || []).map((x) => norm(x, MAT)), dropped: [], changed: true }
   })).filter(Boolean)
   invalid = dedup([...invalid, ...resolved.flatMap((r) => r.invalid)])
+  noFix = dedup([...noFix, ...resolved.flatMap((r) => r.dropped)])
   const invalidKeys = new Set(invalid.map((r) => r.claim))
-  pending = dedup([...resolved.flatMap((r) => r.open), ...resolved.flatMap((r) => r.surfaced)]).filter((r) => !invalidKeys.has(r.claim))
+  // Re-enter ONLY genuinely-new residuals: a key already queued this run cannot re-enter (stops a phantom re-feeding every round).
+  const fresh = dedup([...resolved.flatMap((r) => r.open), ...resolved.flatMap((r) => r.surfaced)]).filter((r) => !invalidKeys.has(r.claim) && !seen.has(keyOf(r)))
+  fresh.forEach((r) => seen.add(keyOf(r)))
+  pending = fresh
+  // NO-PROGRESS BREAK: no cluster changed a file this round -> the remaining residuals are phantom/unfixable; stop instead of grinding to MAX_ROUNDS.
+  if (!resolved.some((r) => r.changed)) { log('Resolve reconcile round ' + round + ': no file-changing progress — ' + noFix.length + ' residual(s) had nothing to fix (phantom/resolved); breaking'); pending = []; break }
 }
 if (round && pending.length) log('Resolve reconcile: ' + pending.length + ' open after ' + MAX_ROUNDS + ' rounds — re-audited in the sanity drive-to-zero')
 
@@ -302,14 +313,20 @@ let sanityOpen = universe.filter((r) => openClaims.has(r.claim))
 let saneRound = 0
 while (sanityOpen.length && saneRound < SANITY_CAP) {
   saneRound++
+  const prevOpen = sanityOpen.length
   const clusters = cluster(sanityOpen)
   log('Resolve sanity round ' + saneRound + ': ' + sanityOpen.length + ' OPEN -> force-close per cluster (' + clusters.length + ') + re-audit; nothing leaves open')
-  await pool(clusters, CAP, (cl) => agent(reconcileFix(cl), { label: 'sanity-force-close:r' + saneRound, phase: 'Resolve', schema: FIX_SCHEMA, effort: 'max', stallMs: STALL }))
+  const forced = (await pool(clusters, CAP, (cl) => agent(reconcileFix(cl), { label: 'sanity-force-close:r' + saneRound, phase: 'Resolve', schema: FIX_SCHEMA, effort: 'max', stallMs: STALL }))).filter(Boolean)
+  const fcTouched = forced.flatMap((fc) => (fc && Array.isArray(fc.files) ? fc.files.filter(inLibs) : []))
+  // The force-close changed nothing: the remaining items are phantom/unfixable; skip the re-audit and stop.
+  if (fcTouched.length === 0) { log('Resolve sanity round ' + saneRound + ': force-close changed no files — ' + sanityOpen.length + ' remaining item(s) phantom/unfixable; breaking'); break }
   sanity = await agent(sanityPrompt(universe), { label: 'sanity:r' + saneRound, phase: 'Resolve', schema: SANITY_SCHEMA, effort: 'max', stallMs: STALL })
   openClaims = new Set(((sanity && sanity.items) || []).filter((i) => i.status === 'open').map((i) => i.claim))
   sanityOpen = universe.filter((r) => openClaims.has(r.claim))
+  // No net decrease across the force-close -> drive-to-zero has stalled; stop instead of grinding to SANITY_CAP.
+  if (sanityOpen.length >= prevOpen) { log('Resolve sanity round ' + saneRound + ': no net progress (' + sanityOpen.length + ' open, was ' + prevOpen + ') — remaining item(s) phantom/unfixable; breaking'); break }
 }
-if (sanityOpen.length) log('Resolve SANITY: ' + sanityOpen.length + ' STILL OPEN after ' + SANITY_CAP + ' force-close rounds — HARD BLOCKER, reported LOUDLY, never silently dropped')
+if (sanityOpen.length) log('Resolve SANITY: ' + sanityOpen.length + ' STILL OPEN after the force-close drive — HARD BLOCKER, reported LOUDLY, never silently dropped')
 else log('Resolve SANITY: all ' + universe.length + ' surfaced residual(s) CLOSED + verified across ' + saneRound + ' force-close round(s)')
 
 return {
@@ -323,5 +340,6 @@ return {
   resolveRounds: round,
   sanityRounds: saneRound,
   invalidClaims: invalid.map((x) => x.claim),
+  noFix: noFix.map((x) => ({ files: x.files, claim: x.claim })),
   openResidual: sanityOpen.map((x) => ({ files: x.files, claim: x.claim })),
 }

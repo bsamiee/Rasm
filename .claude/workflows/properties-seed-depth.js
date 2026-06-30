@@ -302,31 +302,42 @@ const reconcileVerify = (cl, fixFiles) => [LAW, '', BOUNDARIES, '', ADVERSARIAL,
 
 // Reusable project-wide no-defer drive-to-zero: union-find cluster -> fix(max) -> adversarial verify(xhigh),
 // `open` re-enters a fresh round, MAX_ROUNDS-bounded; surfaces never silently dropped. Called 3x.
+const keyOf = (r) => r.files.slice().sort().join(',') + '|' + r.claim
 const reconcile = async (tag, seed) => {
   let pending = dedup(seed)
+  const seen = new Set(pending.map(keyOf))
   let invalid = []
+  let noFix = []
   let round = 0
-  if (!pending.length) { log(tag + ': no residuals surfaced — clean'); return { rounds: 0, open: [], invalid: [] } }
+  if (!pending.length) { log(tag + ': no residuals surfaced — clean'); return { rounds: 0, open: [], invalid: [], noFix: [] } }
   while (pending.length && round < MAX_ROUNDS) {
     round++
     const clusters = cluster(pending)
     log(tag + ' round ' + round + ': ' + pending.length + ' residual(s) -> ' + clusters.length + ' cluster(s) (project-wide, no-defer)')
     const resolved = (await pool(clusters, CAP, async (cl, i) => {
       const fix = await agent(reconcileFix(cl), { label: 'reconcile-fix:' + tag + ':r' + round + ':' + i, phase: tag, schema: RESIDUAL_FIX_SCHEMA, effort: 'max', stallMs: STALL })
-      if (!fix) return { open: cl, invalid: [], surfaced: [] }
+      const touched = (fix && Array.isArray(fix.files) ? fix.files.filter(inProject) : [])
+      // No file-changing progress: the fix found nothing to change -> the cluster is resolved-or-phantom; skip the mandatory verify and drop it (recorded as noFix).
+      if (!fix || touched.length === 0 || fix.verdict === 'clean') return { open: [], invalid: [], surfaced: [], dropped: cl, changed: false }
       const verify = await agent(reconcileVerify(cl, fix.files), { label: 'reconcile-verify:' + tag + ':r' + round + ':' + i, phase: tag, schema: RECONCILE_VERIFY_SCHEMA, effort: 'xhigh', stallMs: STALL })
       const claims = (verify && verify.claims) || []
       const ok = new Set(claims.filter((c) => c.status === 'fixed').map((c) => c.claim))
       const bad = new Set(claims.filter((c) => c.status === 'invalid').map((c) => c.claim))
-      return { open: cl.filter((r) => !ok.has(r.claim) && !bad.has(r.claim)), invalid: cl.filter((r) => bad.has(r.claim)), surfaced: (fix.residual_high || []).map((x) => norm(x, FILES[0])) }
+      return { open: cl.filter((r) => !ok.has(r.claim) && !bad.has(r.claim)), invalid: cl.filter((r) => bad.has(r.claim)), surfaced: (fix.residual_high || []).map((x) => norm(x, FILES[0])), dropped: [], changed: true }
     })).filter(Boolean)
     invalid = dedup([...invalid, ...resolved.flatMap((r) => r.invalid)])
+    noFix = dedup([...noFix, ...resolved.flatMap((r) => r.dropped)])
     const invalidKeys = new Set(invalid.map((r) => r.claim))
-    pending = dedup([...resolved.flatMap((r) => r.open), ...resolved.flatMap((r) => r.surfaced)]).filter((r) => !invalidKeys.has(r.claim))
+    // Re-enter ONLY genuinely-new residuals: a key already queued this call cannot re-enter (stops a phantom re-feeding every round).
+    const fresh = dedup([...resolved.flatMap((r) => r.open), ...resolved.flatMap((r) => r.surfaced)]).filter((r) => !invalidKeys.has(r.claim) && !seen.has(keyOf(r)))
+    fresh.forEach((r) => seen.add(keyOf(r)))
+    pending = fresh
+    // NO-PROGRESS BREAK: no cluster changed a file this round -> the remaining residuals are phantom/unfixable; stop instead of grinding to MAX_ROUNDS.
+    if (!resolved.some((r) => r.changed)) { log(tag + ' round ' + round + ': no file-changing progress — ' + noFix.length + ' residual(s) had nothing to fix (phantom/resolved); breaking'); pending = []; break }
   }
   if (pending.length) log(tag + ': ' + pending.length + ' STILL OPEN after ' + MAX_ROUNDS + ' rounds — REPORTED LOUDLY, never silently dropped')
   else log(tag + ': all residuals fixed + adversarially verified across ' + round + ' round(s)')
-  return { rounds: round, open: pending, invalid }
+  return { rounds: round, open: pending, invalid, noFix }
 }
 
 const STAGES = { author: authorPrompt, crit: critiquePrompt, redteam: redteamPrompt }
@@ -381,5 +392,6 @@ return {
   redteam2: red2.map((r) => ({ file: r.file, verdict: r.verdict })),
   reconcileRounds: { A: recA.rounds, B: recB.rounds, C: recC.rounds },
   invalidClaims: dedup([...recA.invalid, ...recB.invalid, ...recC.invalid]).map((x) => x.claim),
+  noFix: dedup([...recA.noFix, ...recB.noFix, ...recC.noFix]).map((x) => ({ files: x.files, claim: x.claim })),
   openResidual: recC.open.map((x) => ({ files: x.files, claim: x.claim })),
 }
