@@ -172,13 +172,14 @@ public readonly record struct MeasureValue(QuantityType Type, Dimension Dimensio
  tolerance > 0.0 ? this with { Si = Math.Round(Si / tolerance, MidpointRounding.AwayFromZero) * tolerance + 0.0 } : this;
 
  // Same-quantity-type SI-scalar reduction; the Type guard is stricter than a dimension guard — a Torque and an Energy
- // share a Dimension but never sum, an Angle and a Count share the zero vector but never sum.
+ // share a Dimension but never sum, an Angle and a Count share the zero vector but never sum. LanguageExt v5 `Seq.Head`
+ // is `Option<A>`, so the head reads through `Match` — never a direct `.Type`/`with` on the Option.
  public static Fin<MeasureValue> Sum(Seq<MeasureValue> measures, Op key) =>
- measures.IsEmpty
- ? Fin.Succ(Zero)
- : measures.Tail.Exists(m => m.Type != measures.Head.Type)
+ measures.Head.Match(
+ None: () => Fin.Succ(Zero),
+ Some: head => measures.Tail.Exists(m => m.Type != head.Type)
  ? ElementFault.ValueRejected(key, "<measure-sum-type-mismatch>")
- : Fin.Succ(measures.Head with { Si = measures.Sum(static m => m.Si) });
+ : Fin.Succ(head with { Si = measures.Sum(static m => m.Si) }));
 }
 ```
 

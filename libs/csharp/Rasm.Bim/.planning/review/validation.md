@@ -144,11 +144,13 @@ public sealed record IdsSpecification(
     // IdsCardinality.Partition row (no runtime-silent switch arm), the verdict GlobalIds projected off the selected
     // ExternalId set, and the spec-level Cardinality rides onto the receipt so Conforms honors the applicable-count rule.
     public IdsAudit Audit(ElementGraph graph) {
-        ElementSet applicable = Applicability.IsEmpty
-            ? new ElementSet(graph, toHashSet(graph.ObjectNodes.Map(static o => o.Id)))
-            : ElementSet.Query(graph, Applicability.Tail.Fold(
-                ElementQuery.Of(Applicability.Head.ToPredicate(graph)),
-                (q, facet) => q.And(facet.ToPredicate(graph))));
+        // LanguageExt v5 `Seq.Head` is `Option<IdsFacet>`, so the seed predicate reads through `Match` (the empty arm is
+        // the every-object set) rather than `.ToPredicate` on the Option; the non-empty arm folds the tail with `And`.
+        ElementSet applicable = Applicability.Head.Match(
+            None: () => new ElementSet(graph, toHashSet(graph.ObjectNodes.Map(static o => o.Id))),
+            Some: head => ElementSet.Query(graph, Applicability.Tail.Fold(
+                ElementQuery.Of(head.ToPredicate(graph)),
+                (q, facet) => q.And(facet.ToPredicate(graph)))));
         Seq<IdsAudit.FacetVerdict> verdicts = Requirements.Map(req => {
             ElementSet matched = applicable.Where(req.Facet.ToPredicate(graph));
             (ElementSet pass, ElementSet fail) = req.Cardinality.Partition(matched, applicable);

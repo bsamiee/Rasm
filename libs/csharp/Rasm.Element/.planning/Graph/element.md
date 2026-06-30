@@ -154,8 +154,29 @@ public readonly record struct GeometrySource(
 }
 
 // Appearance node summary: a content-keyed reference to the full BSDF (authored in Rasm.Materials) plus the
-// neutral canonical PBR scalars a consumer reads flat without the full lobe graph.
-public readonly record struct AppearanceSummary(UInt128 AppearanceKey, double BaseColorR, double BaseColorG, double BaseColorB, double Metallic, double Roughness, double Opacity);
+// neutral canonical PBR scalars a consumer reads flat without the full lobe graph. The SEAM owns the AppearanceKey
+// derivation through Of — the kernel seed-zero XxHash128 over the canonical PBR bytes via the Projection/address
+// CanonicalWriter -> ContentAddress.Of — so the Rasm.Materials MaterialProjector and the Rasm.Bim AppearanceProjection
+// compose ONE factory and mint the SAME key for one surface (a local CanonicalWriter beside this factory in either peer
+// is the byte-order divergence defect). Transmissive is the REFRACTIVE flag DISTINCT from Opacity (alpha): an opaque-alpha
+// glass still transmits, so a GLB KHR_materials_transmission channel reads it apart from the alpha. Opacity AND Transmissive
+// are load-bearing in the KEY even though the Graph/element#NODE_MODEL Node.ToCanonicalBytes appearance arm hashes only
+// the AppearanceKey (the key already folds them) — two appearances differing only in alpha or in the refractive flag get
+// distinct AppearanceKeys and so distinct Node.Appearance ids.
+public readonly record struct AppearanceSummary(
+ UInt128 AppearanceKey, double BaseColorR, double BaseColorG, double BaseColorB,
+ double Metallic, double Roughness, double Opacity, bool Transmissive) {
+ // The ONE seam-owned appearance content-key factory both the Rasm.Materials MaterialWire.Summary lowering and the
+ // Rasm.Bim AppearanceProjection.Project lowering compose: write the neutral PBR vector (base R/G/B + metallic +
+ // roughness + opacity + transmissive) through the seam CanonicalWriter and mint the AppearanceKey via ContentAddress.Of
+ // (the kernel seed-zero XxHash128, the ONE hasher). tolerance 0.0 hashes the raw IEEE bits of the appearance scalars —
+ // they are not Header-quantized measures — and the writer canonicalizes -0.0/NaN/inf, so the key is cross-runtime stable.
+ public static AppearanceSummary Of(double r, double g, double b, double metallic, double roughness, double opacity, bool transmissive, double tolerance) {
+  CanonicalWriter w = new(tolerance);
+  w.Double(r).Double(g).Double(b).Double(metallic).Double(roughness).Double(opacity).Bool(transmissive);
+  return new AppearanceSummary(ContentAddress.Of(w.ToBytes().Span).Value, r, g, b, metallic, roughness, opacity, transmissive);
+ }
+}
 
 // --- [MODELS] -----------------------------------------------------------------------------
 [Union]

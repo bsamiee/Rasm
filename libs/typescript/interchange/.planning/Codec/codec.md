@@ -10,6 +10,7 @@ The byte-to-typed decode interior of the wire boundary: one codec-keyed dispatch
 - [04]-[CRDT_OP_DECODE]: the `CrdtOpWire` ten-arm union over the crdt column-family payload.
 - [05]-[TS_PROJECTION]: the snapshot, sync, and receipt wire shapes the rails decode.
 - [06]-[BCF_LIVE_WIRE_DECODE]: the Bim BCF topic/viewpoint and AppHost live-wire binding json-stj rows.
+- [07]-[APPEARANCE_WIRE_DECODE]: the Materials `MaterialWire` OpenPBR-vector payload and the seam `AppearanceSummary` neutral record, decoded field-for-field and never re-minting the OpenPBR algebra.
 
 
 ## [02]-[DECODE_RAIL]

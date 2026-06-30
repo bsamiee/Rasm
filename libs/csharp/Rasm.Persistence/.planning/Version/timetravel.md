@@ -159,7 +159,9 @@ public static class TimeTravel {
             .GroupBy(static row => row.Key)
             .Select(static group => {
                 var ordered = toSeq(group.Select(static r => r.entry).OrderByDescending(static e => (e.Physical, e.Logical, e.OriginStoreId)));
-                var winner = ordered.Head;
+                // A GroupBy group is non-empty, so the `A` indexer reads the highest-HLC winner directly — LanguageExt v5
+                // `Seq.Head` is `Option<A>`, never the bare entry, so `ordered[0]` (not `.Head`) reads the entry record.
+                var winner = ordered[0];
                 return new BlameRow(group.Key, winner.Actor, winner.OriginStoreId, new Hlc(winner.Physical, winner.Logical), winner.ContentKey, ordered.Count,
                     ordered.Tail.Map(static e => new BlameContributor(e.Actor, e.OriginStoreId, new Hlc(e.Physical, e.Logical), e.ContentKey)));
             })));

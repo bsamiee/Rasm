@@ -85,6 +85,22 @@ public sealed partial class IfcClass {
     public static readonly IfcClass Member        = new("IfcMember", IfcDomain.Architecture, IfcSchema.Ifc2x3, Seq("BRACE", "CHORD", "COLLAR", "MEMBER", "MULLION", "PLATE", "POST", "PURLIN", "RAFTER", "STRINGER", "STRUT", "STUD", "STIFFENING_RIB", "ARCH_SEGMENT", "SUSPENSION_CABLE", "SUSPENDER", "STAY_CABLE", "TIEBAR"));
     public static readonly IfcClass Footing       = new("IfcFooting", IfcDomain.Structural, IfcSchema.Ifc2x3, Seq("CAISSON_FOUNDATION", "FOOTING_BEAM", "PAD_FOOTING", "PILE_CAP", "STRIP_FOOTING"));
     public static readonly IfcClass Pile          = new("IfcPile", IfcDomain.Structural, IfcSchema.Ifc2x3, Seq("BORED", "DRIVEN", "JETGROUTING", "COHESION", "FRICTION", "SUPPORT"));
+    // The structural-connection realizing-element family the Projection/semantic#IFC_EGRESS Emit re-authors and the
+    // Semantics/connection#CONNECTION_DETAIL reader resolves at ingress (the .api/api-geometrygym-ifc realizing surface):
+    // the discrete IfcMechanicalFastener bolt/screw/anchor/dowel/rivet AND the welded-stud STUDSHEARCONNECTOR/SHEARCONNECTOR
+    // (a Rasm.Materials joint#JOINT_FAMILY welded stud projects this row), the non-mechanical IfcFastener weld/glue/mortar
+    // bead, the fabricated IfcDiscreteAccessory framing connector (SHOE/BRACKET/ANCHORPLATE — the hanger#HANGER_FAMILY
+    // HangerType.IfcAccessoryType token, fastened BY a related IfcMechanicalFastener), the cast-in reinforcing bar/mesh and
+    // the post-tensioning tendon/anchor, and the IFC4.3 IfcBearing support. The valid sets are the IFC4-base members the
+    // schema span carries; the IFC4.3 rail-domain accessory/fastener tail rides USERDEFINED, the gate never enumerates it.
+    public static readonly IfcClass MechanicalFastener  = new("IfcMechanicalFastener", IfcDomain.Structural, IfcSchema.Ifc2x3, Seq("ANCHORBOLT", "BOLT", "DOWEL", "NAIL", "NAILPLATE", "RIVET", "SCREW", "SHEARCONNECTOR", "STAPLE", "STUDSHEARCONNECTOR", "COUPLER"));
+    public static readonly IfcClass Fastener            = new("IfcFastener", IfcDomain.Structural, IfcSchema.Ifc2x3, Seq("GLUE", "MORTAR", "WELD"));
+    public static readonly IfcClass DiscreteAccessory   = new("IfcDiscreteAccessory", IfcDomain.Structural, IfcSchema.Ifc2x3, Seq("ANCHORPLATE", "BRACKET", "SHOE"));
+    public static readonly IfcClass ReinforcingBar      = new("IfcReinforcingBar", IfcDomain.Structural, IfcSchema.Ifc2x3, Seq("MAIN", "SHEAR", "LIGATURE", "STUD", "PUNCHING", "EDGE", "RING", "ANCHORING", "SPACEBAR"));
+    public static readonly IfcClass ReinforcingMesh     = new("IfcReinforcingMesh", IfcDomain.Structural, IfcSchema.Ifc2x3, Seq<string>());
+    public static readonly IfcClass Tendon              = new("IfcTendon", IfcDomain.Structural, IfcSchema.Ifc2x3, Seq("STRAND", "WIRE", "BAR", "COATED"));
+    public static readonly IfcClass TendonAnchor        = new("IfcTendonAnchor", IfcDomain.Structural, IfcSchema.Ifc2x3, Seq("COUPLER", "FIXED_END", "TENSIONING_END"));
+    public static readonly IfcClass Bearing             = new("IfcBearing", IfcDomain.Structural, IfcSchema.Ifc4x3, Seq("CYLINDRICAL", "SPHERICAL", "ELASTOMERIC", "POT", "GUIDE", "ROCKER", "ROLLER", "DISK"));
     public static readonly IfcClass FlowSegment   = new("IfcFlowSegment", IfcDomain.HvacFire, IfcSchema.Ifc2x3, Seq<string>());
     public static readonly IfcClass FlowFitting   = new("IfcFlowFitting", IfcDomain.HvacFire, IfcSchema.Ifc2x3, Seq<string>());
     public static readonly IfcClass FlowTerminal  = new("IfcFlowTerminal", IfcDomain.HvacFire, IfcSchema.Ifc2x3, Seq<string>());

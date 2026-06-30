@@ -290,11 +290,13 @@ public static class CostProjection {
                 ? components.TraverseM(c => AmountOf(c, key)).As().Map(parts => Aggregate(value.ArithmeticOperator, parts))
                 : Fin.Succ(new Money(0m, Currency.NoCurrency));
 
+    // LanguageExt v5 `Seq.Head` is `Option<Money>`, so the first-as-seed arms read the head through `IfNone` (the empty
+    // case is already railed by the IsEmpty ternary, so the additive-identity fallback is total-but-unreachable there).
     static Money Aggregate(IfcArithmeticOperatorEnum op, Seq<Money> parts) =>
         parts.IsEmpty ? Money.AdditiveIdentity : op switch {
-            IfcArithmeticOperatorEnum.SUBTRACT => parts.Tail.Fold(parts.Head, static (a, p) => a - p),
-            IfcArithmeticOperatorEnum.MULTIPLY => parts.Tail.Fold(parts.Head, static (a, p) => a * p.Amount),
-            IfcArithmeticOperatorEnum.DIVIDE   => parts.Tail.Fold(parts.Head, static (a, p) => p.Amount == 0m ? a : a / p.Amount),
+            IfcArithmeticOperatorEnum.SUBTRACT => parts.Tail.Fold(parts.Head.IfNone(Money.AdditiveIdentity), static (a, p) => a - p),
+            IfcArithmeticOperatorEnum.MULTIPLY => parts.Tail.Fold(parts.Head.IfNone(Money.AdditiveIdentity), static (a, p) => a * p.Amount),
+            IfcArithmeticOperatorEnum.DIVIDE   => parts.Tail.Fold(parts.Head.IfNone(Money.AdditiveIdentity), static (a, p) => p.Amount == 0m ? a : a / p.Amount),
             _                                  => parts.Fold(Money.AdditiveIdentity, static (a, p) => a + p),
         };
 

@@ -119,15 +119,17 @@ public abstract partial record PropertyValue {
 
  // A Bounded property carries at least one bound, every present bound shares one QuantityType, and a present
  // lower/upper pair is ordered (lower.Si <= upper.Si) — an empty, cross-type, or inverted interval is the value miss.
+ // LanguageExt v5 `Seq.Head` is `Option<A>`, so the head-type read threads through `Match` (the empty arm is the miss),
+ // never a direct `.Type` on the Option.
  static Fin<PropertyValue> AdmitBounded(Bounded b, Op key) {
   Seq<MeasureValue> bounds = Seq(b.Lower, b.Upper, b.SetPoint).Choose(static o => o);
-  return bounds.IsEmpty
-   ? ElementFault.ValueRejected(key, "<bounded-empty>")
-   : bounds.Tail.Exists(m => m.Type != bounds.Head.Type)
+  return bounds.Head.Match(
+   None: () => ElementFault.ValueRejected(key, "<bounded-empty>"),
+   Some: head => bounds.Tail.Exists(m => m.Type != head.Type)
     ? ElementFault.ValueRejected(key, "<bounded-cross-type>")
     : b.Lower.Match(Some: lo => b.Upper.Match(Some: hi => lo.Si > hi.Si, None: static () => false), None: static () => false)
      ? ElementFault.ValueRejected(key, "<bounded-inverted>")
-     : Fin.Succ((PropertyValue)b);
+     : Fin.Succ((PropertyValue)b));
  }
 }
 ```
