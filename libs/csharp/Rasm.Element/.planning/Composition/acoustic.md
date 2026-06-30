@@ -75,7 +75,7 @@ public sealed partial class RatingContour {
  // The impact rating (Ln,w ISO 717-2 / IIC = 110 − Ln,w ASTM E989) is the DESCENDING sibling — the contour slides
  // DOWN toward the measured normalized-impact spectrum, the unfavourable deviation is spectrum-ABOVE-contour, and
  // the row supplies a non-zero RatingOffset (110 for IIC). It LANDS as one more row (its own contour + ascending:false
- // + ratingOffset) when Rasm.Compute carries the assembly normalized-impact spectrum (§4-RT; Analysis/physics impact
+ // + ratingOffset) when Rasm.Compute carries the assembly normalized-impact spectrum (Analysis/physics impact
  // Ln,w growth note) — NOT declared here because a single MATERIAL carries no impact spectrum (impact is a floor-
  // assembly property), so the kernel admits it by DATA today while the row waits for its assembly-side input.
 

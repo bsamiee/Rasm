@@ -450,10 +450,13 @@ public static class ComponentCatalogue {
     // ComponentId -> Component rows. Masonry contributes NO section map (it is a unit course, absent from
     // ComponentCatalogue.Sections), so the [M7] ComponentResolution.Build joins a masonry ProfileRef to Option.None
     // (ProfileRef/ComputedSection stay seam-canonical — the semantic rename stops at the Materials folder boundary).
+    // ComponentId's generated [KeyMemberEqualityComparer] ordinal value-equality keys the frozen dictionary, so NO explicit
+    // comparer is threaded — ComparerAccessors.StringOrdinal.EqualityComparer is an IEqualityComparer<string>, a type mismatch
+    // on the ComponentId key (the component#COMPONENT_OWNER ComponentCatalogue.Build convention the master fold follows).
     public static FrozenDictionary<ComponentId, Component> BuildMasonryRows(Context context) =>
         RegionalRows
             .Choose(row => MasonryOf(row, context, default).ToOption())
-            .ToFrozenDictionary(static r => r.Id, static r => r.Component, ComparerAccessors.StringOrdinal.EqualityComparer);
+            .ToFrozenDictionary(static r => r.Id, static r => r.Component);
 }
 ```
 

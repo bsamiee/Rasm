@@ -380,17 +380,22 @@ public static class ComponentCatalogue {
     static readonly Seq<CmuShape> Shapes =
         AstmRows.Choose(row => CmuOf(row, default, default).ToOption());
 
-    // The ComponentId → Component rows component#COMPONENT_OWNER ComponentCatalogue.Build folds: a CMU is a
-    // ComponentClass.Minor part (IfcElementComponent — one standardized Type, many laid pieces), its cross-section the
-    // ComponentSection.Cmu arm carrying the rich CmuSection, its canonical dimensional projection the ComponentUnit the
-    // layout fold reads, its void class the relocated Coring, its appearance the concrete.cmu MaterialId row.
+    // The ComponentId → Component rows component#COMPONENT_OWNER ComponentCatalogue.Build folds through the ONE
+    // canonical Component(Family, Designation, Section, Coring, Standard, CapacityKey, AppearanceId) shape: a CMU is a
+    // ComponentFamily.Cmu row (its ComponentClass.Minor read off the family axis, IfcElementComponent — one standardized
+    // Type, many laid pieces), its cross-section the ComponentSection.Cmu arm carrying the rich CmuSection (the canonical
+    // ComponentUnit dimensional projection rides ComponentCatalogue.Sections / the M7 ToUnit, not a Component field), its
+    // void class the relocated Coring the ToCoring buckets, its CapacityKey the concrete.cmu Mechanical row and its
+    // AppearanceId the same concrete.cmu render row (the two independent MaterialId slots coincide for a plain CMU).
+    // ComponentId's generated [KeyMemberEqualityComparer] ordinal value-equality keys the frozen dictionary, so NO explicit
+    // comparer is threaded — ComparerAccessors.StringOrdinal.EqualityComparer is an IEqualityComparer<string>, a type mismatch
+    // on a ComponentId key (the component#COMPONENT_OWNER ComponentCatalogue.Build convention the master fold follows).
     public static FrozenDictionary<ComponentId, Component> BuildCmuRows(Context context) =>
         Shapes
-            .Choose(shape => shape.Section.ToUnit(context, default).ToOption()
-                .Map(unit => (shape.Id, Component: new Component(
-                    ComponentClass.Minor, ComponentFamily.Cmu, unit, shape.Section.ToCoring(), shape.Standard,
-                    new ComponentSection.Cmu(shape.Section), MaterialId.Of("concrete.cmu")))))
-            .ToFrozenDictionary(static r => r.Id, static r => r.Component, ComparerAccessors.StringOrdinal.EqualityComparer);
+            .Map(shape => (shape.Id, Component: new Component(
+                ComponentFamily.Cmu, shape.Id, new ComponentSection.Cmu(shape.Section), shape.Section.ToCoring(),
+                shape.Standard, CapacityKey: MaterialId.Of("concrete.cmu"), AppearanceId: MaterialId.Of("concrete.cmu"))))
+            .ToFrozenDictionary(static r => r.Id, static r => r.Component);
 
     // The ComponentId → ComputedSection map the component#COMPONENT_OWNER ComponentCatalogue.Sections folds and the
     // component#COMPONENT_RESOLUTION ComponentResolution.Build caches by ProfileRef (the realized sibling to
@@ -400,11 +405,14 @@ public static class ComponentCatalogue {
     // row its solid rectangle) through the shared component#COMPONENT_OWNER ParametricSection.Hollow solver; a section
     // whose integral fails drops through Choose (a build-time ComponentFault.Section surfaced in THIS page, never a
     // swallowed gap the resolver mis-reports as "unregistered").
+    // ComponentId's generated [KeyMemberEqualityComparer] ordinal value-equality keys the frozen dictionary, so NO explicit
+    // comparer is threaded — ComparerAccessors.StringOrdinal.EqualityComparer is an IEqualityComparer<string>, a type mismatch
+    // on a ComponentId key (the component#COMPONENT_OWNER ComponentCatalogue.Sections convention the master fold follows).
     public static FrozenDictionary<ComponentId, ComputedSection> CmuSections(Context context) =>
         Shapes
             .Choose(shape => shape.Section.GroutedSection(default).ToOption()
                 .Map(section => (shape.Id, Section: section)))
-            .ToFrozenDictionary(static r => r.Id, static r => r.Section, ComparerAccessors.StringOrdinal.EqualityComparer);
+            .ToFrozenDictionary(static r => r.Id, static r => r.Section);
 }
 ```
 
@@ -416,4 +424,4 @@ public static class ComponentCatalogue {
 - [CMU_DENSITY_FIRE_THERMAL_MASS]: REALIZED — the `CmuDensity` `[SmartEnum]` (ASTM C90 lightweight <1680 / medium 1680–2000 / normal ≥2000 kg/m³ oven-dry density, each carrying the concrete thermal conductivity) and the `CmuAggregate` `[SmartEnum]` (the ACI 216.1 / IBC 722.3.2 fire aggregate types over six rows in four categories, each carrying its 1-hour equivalent thickness `EqThick1HrMm`) realize the three physical receipts: `CmuSection.SelfWeightKnPerM2` is the wall dead load (the oven-dry density over the ungrouted net solid plus the per-cell grout at the ASTM C476 `GroutDensityKgPerM3` 2243 kg/m³, REPLACING the prior hardcoded 2240); `CmuSection.FireRatingHours` is the ACI 216.1 equivalent-thickness POWER LAW `R = clamp((te/cn)^1.7, 0, 4)` (the exponent 1/0.59, `te = (GrossArea − ungrouted-cell void)/Length`, `cn` the per-aggregate `EqThick1HrMm`), REPLACING the prior linear scaling so a fully-grouted normal-weight 8-inch unit reads its 4-hour rating and a hollow lightweight unit its lower rating from the curve; and `CmuSection.ThermalResistanceM2KPerW` is the NCMA TEK 6-2C isothermal-planes multi-cell R (the two face shells in series with the core's parallel web/cell paths, a grouted cell conducting through `GroutConductivityWPerMK`, an ungrouted cell through the `CellAirResistanceM2KPerW` cavity), the multi-cell steady-state R the prior page lacked. All three are realized receipts the thermal/fire/structural seam reads off the section, never a Pset string.
 - [CMU_GENERATIVE_GEOMETRY]: REALIZED — the captured generative geometry the `Construction/layout#ASSEMBLY_FOLD` host solid extrudes and the `Rasm.Bim` surface-style egress reads: the per-cell `DraftDegrees` (the demold taper), the `FaceShellFlareMm` (the flared bearing face shell), the `CmuSpecialUnit` molding axis (bond-beam knocked-down cross webs + channel/lintel troughs via `CrossWebFraction`/`TroughDepthFraction`, sash/control-joint slots via `ControlSlotFraction`, the open-end `EndWebsPresent` the cell lattice consumes), the `HeadJointMm` 3D head joint (the `RunModuleMm` run advance), and the `CmuFinish` surface axis (split-face relief depth, scored count + pitch, ribbed flute count + depth, ground polish). The structural net section reads only the cell/web/face-shell columns (the minimum-net basis); the molding/finish columns are the generative parameters the host materializes, a finish a surface-style on the element rather than a profile variant. A new special unit or finish is one `CmuSpecialUnit`/`CmuFinish` row, never a parallel section owner.
 - [IFCPROFILEDEF_CMU_ALIGNMENT]: REALIZED — the `CmuGrade.IfcSubtype` carries the wire spelling: a SOLID or fully-grouted unit maps to the `IfcRectangleProfileDef` rectangle (the outer 190×390 mm face the `XDim`/`YDim`), and a multi-cell HOLLOW unit maps to `IfcArbitraryProfileDefWithVoids` carrying the EXPLICIT per-cell voids the `CmuSection.NetSection` `CellVoids` describe — NOT the single-uniform-void `IfcRectangleHollowProfileDef`, which cannot represent two or three distinct cells. The cmu member round-trips to IFC 4.3 as an `IfcMaterialProfileSet` carrying the rectangle / voided profile plus the `Coring` receipt, the split-face/ground/ribbed finish a surface-style on the element, the grout state a `Pset_ConcreteElementGeneral`-class property the `Rasm.Bim` egress derives from the per-cell grout lattice. The probe is the per-finish surface-style mapping at the `Rasm.Bim` boundary; the rectangle / `IfcArbitraryProfileDefWithVoids` profile is the realized base case the egress resolves at the seam.
-- [CMU_SECTION_MAP]: REALIZED — the `ComponentCatalogue.CmuSections` `FrozenDictionary<ComponentId, ComputedSection>` is the M7 section-map contribution `component#COMPONENT_OWNER` `ComponentCatalogue.Sections` folds (the sibling to `steel#STEEL_FAMILY` `SteelSections` and `timber#TIMBER_FAMILY` `TimberSections`) — it caches each unit's AS-BUILT `GroutedSection` once over the one `Shapes` seed (a hollow row its exact per-cell net section, the fully-grouted row its solid rectangle), so the `component#COMPONENT_RESOLUTION` `ComponentResolution.Build` joins a CMU `ProfileRef` to `Some(section)` and the `capacity#SECTION_CAPACITY` `MasonryCompression` case reads the grouted net area/modulus off the seam without re-running the `ParametricSection.Hollow` integral per call; a section whose integral fails drops through `Choose` as a build-time `ComponentFault.Section` surfaced here, never a silent-drop a resolver mis-reports as "unregistered". The elastic columns + fire-exposed perimeter come from the one `VividOrange.Sections.SectionProperties` Green's-theorem integral over the per-cell `Perimeter`, the plastic/torsion/shear columns from the `ParametricSection.HollowPlastics` superposition, so the cmu net section fills the SAME seventeen-field `ComputedSection` receipt every family fills.
+- [CMU_SECTION_MAP]: REALIZED — the `ComponentCatalogue.CmuSections` `FrozenDictionary<ComponentId, ComputedSection>` is the M7 section-map contribution `component#COMPONENT_OWNER` `ComponentCatalogue.Sections` folds (the sibling to `steel#STEEL_FAMILY` `SteelSections` and `timber#TIMBER_FAMILY` `TimberSections`) — it caches each unit's AS-BUILT `GroutedSection` once over the one `Shapes` seed (a hollow row its exact per-cell net section, the fully-grouted row its solid rectangle), so the `component#COMPONENT_RESOLUTION` `ComponentResolution.Build` joins a CMU `ProfileRef` to `Some(section)` and the `capacity#SECTION_CAPACITY` `MasonryCompression` case reads the grouted net area/modulus off the seam without re-running the `ParametricSection.Hollow` integral per call; a section whose integral fails drops through `Choose` as a build-time `ComponentFault.Section` surfaced here, never a silent-drop a resolver mis-reports as "unregistered". The elastic columns + fire-exposed perimeter come from the one `VividOrange.Sections.SectionProperties` Green's-theorem integral over the per-cell `Perimeter`, the plastic/torsion/shear columns from the `ParametricSection.HollowPlastics` superposition (the three asymmetric-section LTB columns engineering-zero — a doubly-symmetric hollow rectangle), so the cmu net section fills the SAME twenty-field `ComputedSection` receipt every family fills.

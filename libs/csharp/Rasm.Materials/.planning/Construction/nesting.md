@@ -20,7 +20,7 @@ THE CUTTING-STOCK / SHEET-YIELD OWNER and THE ONE NESTING FOLD. One `NestRun` is
 // --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
 using LanguageExt;
 using Thinktecture;                  // [Union] (NestStrategy), [SmartEnum<string>] (NestFamily)
-using Rasm.Domain;                   // PositiveMagnitude (the kernel dimensional value-object)
+using Rasm.Vectors;                  // PositiveMagnitude (the kernel dimensional value-object, Rasm/Vectors/Atoms.cs)
 using Rasm.Element;                  // MaterialId (the seam-carried material identity a cut part is cut from)
 using RectangleBinPacking;           // MaxRectsBinPack/SkylineBinPack/GuillotineBinPack/ShelfBinPack/SingleBinPack, Rect, the heuristic enums
 using Op = Rasm.Domain.Op;           // the kernel op-key (the sibling assembly#PLACEMENT_MODEL alias convention)

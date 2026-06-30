@@ -4,7 +4,7 @@ THE CONTINUOUS-CONNECTION COMPONENT FAMILY and THE WELD/ADHESIVE/STUD GENERATIVE
 
 ## [01]-[INDEX]
 
-- [01]-[JOINT_FAMILY]: the `JointKind` weld/adhesive/stud discriminant with its `IfcPredefinedType`; the collapsed `WeldType` (fillet/groove/plug/slot/flare-bevel/flare-v) geometry axis with the `LineWeld` design-shear discriminant and the AWS flare-throat factor; the `WeldProcess`/`GrooveGeometry`/`Penetration`/`WeldFace`/`RootTreatment`/`BackingType` welding sub-axes; the `ElectrodeClass` (AWS A5.1 / A5.5) filler-metal axis; the `AdhesiveClass` (lap-shear + ASTM C1401 SSG) axis; the `StudClass` (ISO 13918 Type SD per-diameter geometry + AISC `SteelShearKn`) and `StudGrade` (SD1/SD2/SD3 + AWS Type A/B `fy`/`fu`) stud axes; the `WeldProfile`/`GroovePrep`/`PlugSlot` generative-geometry records; the `JointSection` `[Union]` continuous-connection receipt with its KEPT `NominalMm`, `EffectiveThroatMm`, the AWS D1.1 + AISC J2-5 directional `DesignShearKn`/`DirectionalShearKn`, and the `RealizedLengthMm` projection; and the `ComponentCatalogue.BuildJointRows` typed-seed weld/stud/adhesive table plus the AISC J2.4 `MinimumFilletLegMm(II)` connected-part read.
+- [02]-[JOINT_FAMILY]: the `JointKind` weld/adhesive/stud discriminant with its `IfcPredefinedType`; the collapsed `WeldType` (fillet/groove/plug/slot/flare-bevel/flare-v) geometry axis with the `LineWeld` design-shear discriminant and the AWS flare-throat factor; the `WeldProcess`/`GrooveGeometry`/`Penetration`/`WeldFace`/`RootTreatment`/`BackingType` welding sub-axes; the `ElectrodeClass` (AWS A5.1 / A5.5) filler-metal axis; the `AdhesiveClass` (lap-shear + ASTM C1401 SSG) axis; the `StudClass` (ISO 13918 Type SD per-diameter geometry + AISC `SteelShearKn`) and `StudGrade` (SD1/SD2/SD3 + AWS Type A/B `fy`/`fu`) stud axes; the `WeldProfile`/`GroovePrep`/`PlugSlot` generative-geometry records; the `JointSection` `[Union]` continuous-connection receipt with its KEPT `NominalMm`, `EffectiveThroatMm`, the AWS D1.1 + AISC J2-5 directional `DesignShearKn`/`DirectionalShearKn`, and the `RealizedLengthMm` projection; and the `ComponentCatalogue.BuildJointRows` typed-seed weld/stud/adhesive table plus the AISC J2.4 `MinimumFilletLegMm(II)` connected-part read.
 
 ## [02]-[JOINT_FAMILY]
 
@@ -22,7 +22,7 @@ using LanguageExt;
 using Rasm.Vectors;                  // PositiveMagnitude (>0 finite magnitude — throat/leg/size/length/bond-line/overlap/width/spacing) — the kernel value-object atoms live in Rasm.Vectors, NOT Rasm.Domain
 using Rasm.Domain;                   // Op (the boundary-admission key), the AcceptValidated column-admission extension, Context (the catalogue fold)
 using Rasm.Element;                  // MaterialId (the seam-carried material identity the JointSection AppearanceId/CapacityKey reference)
-using Rasm.Materials.Component;      // ComponentFamily/ComponentId/Component/ComponentSection (the parent COMPONENT_OWNER; ComponentFault rails transitively via Component.Of)
+using Rasm.Materials.Component;      // ComponentFamily/ComponentId/Component/ComponentSection/Coring/ComponentStandard/ComponentAuthority (the parent COMPONENT_OWNER; ComponentFault rails transitively via Component.Of)
 using Thinktecture;
 using UnitsNet;                      // Length (.Millimeters on the II.FlangeThickness/WebThickness reads)
 using VividOrange.Profiles;          // II (the I-section FlangeThickness/WebThickness the AISC J2.4 MinimumFilletLegMm connected-part read consumes)
@@ -377,6 +377,11 @@ public readonly record struct AdhesiveRow(string Designation, AdhesiveClass Clas
 
 // --- [TABLES] ------------------------------------------------------------------------------
 public static class ComponentCatalogue {
+    // The non-regional joint standard the registered rows cite (AWS D1.1 / AISC 360 / ISO 13918 are weld/stud specifications,
+    // not a masonry-style regional joint thickness) — StandardJointThicknessMm 0.0 (a continuous weld/bond/stud lays no mortar
+    // joint), ComponentAuthority.Astm the AWS/AISC-aligned US authority, mirroring steel.md's Aisc/En statics.
+    static readonly ComponentStandard Standard = new("us", StandardJointThicknessMm: 0.0, Authority: ComponentAuthority.Astm);
+
     // AWS D1.1 weld seed (SizeMm = fillet leg / groove depth-of-prep / flare radius / plug-hole diameter; PartMm = the
     // governing thinner connected part; LengthMm = run length). Groove rows carry the GrooveGeometry + Penetration the
     // GroovePrep reads; fillet/plug/flare rows carry Square + Pjp as the inert default the prep ignores.
@@ -421,14 +426,14 @@ public static class ComponentCatalogue {
             ? Some(new PlugSlot(size, part, r.Type == WeldType.Slot ? r.LengthMm : 0.0, Filled: true))
             : Option<PlugSlot>.None
         let section = (JointSection)new JointSection.Weld(r.Type, r.Process, r.Electrode, profile, prep, hole, size, length, part)
-        from item in Component.Of(ComponentFamily.Joint, r.Designation, new ComponentSection.Joint(section), section.CapacityKey, section.AppearanceId, key)
+        from item in Component.Of(ComponentFamily.Joint, r.Designation, new ComponentSection.Joint(section), Coring.None, Standard, section.CapacityKey, section.AppearanceId, key)
         select (ComponentId.Of(r.Designation), item);
 
     static Fin<(ComponentId Id, Component Item)> StudOf(StudRow r, Op key) =>
         from length in key.AcceptValidated<PositiveMagnitude>(candidate: r.LengthBeforeWeldMm)
         from spacing in key.AcceptValidated<PositiveMagnitude>(candidate: r.SpacingMm)
         let section = (JointSection)new JointSection.Stud(r.Class, r.Grade, length, spacing)
-        from item in Component.Of(ComponentFamily.Joint, r.Designation, new ComponentSection.Joint(section), section.CapacityKey, section.AppearanceId, key)
+        from item in Component.Of(ComponentFamily.Joint, r.Designation, new ComponentSection.Joint(section), Coring.None, Standard, section.CapacityKey, section.AppearanceId, key)
         select (ComponentId.Of(r.Designation), item);
 
     static Fin<(ComponentId Id, Component Item)> AdhesiveOf(AdhesiveRow r, Op key) =>
@@ -436,7 +441,7 @@ public static class ComponentCatalogue {
         from overlap in key.AcceptValidated<PositiveMagnitude>(candidate: r.OverlapMm)
         from width in key.AcceptValidated<PositiveMagnitude>(candidate: r.WidthMm)
         let section = (JointSection)new JointSection.Adhesive(r.Class, bond, overlap, width)
-        from item in Component.Of(ComponentFamily.Joint, r.Designation, new ComponentSection.Joint(section), section.CapacityKey, section.AppearanceId, key)
+        from item in Component.Of(ComponentFamily.Joint, r.Designation, new ComponentSection.Joint(section), Coring.None, Standard, section.CapacityKey, section.AppearanceId, key)
         select (ComponentId.Of(r.Designation), item);
 
     // The context-folded registered-row table component#COMPONENT_OWNER ComponentCatalogue.Build concatenates — one fold

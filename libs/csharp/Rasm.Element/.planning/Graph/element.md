@@ -141,7 +141,7 @@ public readonly record struct RepresentationContentHash(Map<string, UInt128> ByI
 // Bim/Compute, so it OWNS this neutral coordinate the way it owns Dimension/GeoReference — pure data, zero host dependency,
 // `double`-domain (a coordinate is the geometry's native scalar, never a unit-bearing MeasureValue). The Rasm.Bim projector
 // maps a Rhino/GeometryGym point ONTO this at the boundary, the Rasm.Compute runner reads it back — neither side re-mints a
-// parallel coordinate, and a host coordinate type crossing the analytical-shape signature is the deleted §4-RT-M2 leak. This
+// parallel coordinate, and a host coordinate type crossing the analytical-shape signature is the deleted [M2] host-geometry leak. This
 // is NOT inline coordinate geometry ON a node (the named violation): a Vector3 lives ONLY inside the AxisCurve/FootprintPolygon
 // a GeometrySource DECODES from the blob store by content key, never as an Object-node field. The seam carries the WHOLE
 // host-neutral coordinate algebra (Length/Distance/Dot/Cross/Unit + the axis constants) because the Rasm.Bim scan-to-BIM
@@ -203,7 +203,7 @@ public readonly record struct GeometrySource(
 // Appearance node summary: a content-keyed reference to the full BSDF (authored in Rasm.Materials) plus the
 // neutral canonical PBR scalars a consumer reads flat without the full lobe graph. The SEAM owns the AppearanceKey
 // derivation through Of — the kernel seed-zero XxHash128 over the canonical PBR bytes via the Projection/address
-// CanonicalWriter -> ContentAddress.Of — so the Rasm.Materials MaterialProjector and the Rasm.Bim AppearanceProjection
+// CanonicalWriter -> ContentAddress.Of — so the Rasm.Materials ComponentProjector and the Rasm.Bim AppearanceProjection
 // compose ONE factory and mint the SAME key for one surface (a local CanonicalWriter beside this factory in either peer
 // is the byte-order divergence defect). Transmissive is the REFRACTIVE flag DISTINCT from Opacity (alpha): an opaque-alpha
 // glass still transmits, so a GLB KHR_materials_transmission channel reads it apart from the alpha. Opacity AND Transmissive

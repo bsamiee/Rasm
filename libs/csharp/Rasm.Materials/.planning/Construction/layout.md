@@ -188,14 +188,20 @@ public sealed record Layout(LayoutRun Run, double LengthMm, int CourseCount, Mor
     // The keystone of each voussoir course/ring — the centre wedge a host materializes as the locking unit and a
     // structural readout treats as the crown. It is a DERIVED projection over the resolved stream (DERIVED_LOGIC,
     // GoverningRadiusMm/PrimaryMaterial shape), NOT a stored flag on the host-neutral Placement: every voussoir is a
-    // Cut.Bevel Soldier wedge (ArchCourses/DomeRings emit no other), so the bevel-soldier wedges grouped by Course are
-    // exactly one arch ring (Course 0) or one dome ring (Course k), and the keystone is the wedge at Sequence == n/2
-    // within its group (the odd voussoir count ArchCourses' `| 1` lift guarantees one exact centre; a dome ring's
-    // even count rounds toward the lower-indexed centre). A non-voussoir coursing run has no Cut.Bevel placements, so
-    // the projection is empty — the keystone is realized HERE, not asserted as an undeclared downstream grouping.
+    // Cut.Bevel Soldier wedge (ArchCourses/DomeRings emit no other), so the bevel-soldier wedges grouped by (Course,
+    // NormalOffsetMm) are exactly one arch ring (Course 0) or one dome ring (Course k) on one buildup ply, and the
+    // keystone is the wedge at Sequence == n/2 within its group (the odd voussoir count ArchCourses' `| 1` lift
+    // guarantees one exact centre; a dome ring's even count rounds toward the lower-indexed centre). The NormalOffsetMm
+    // co-key is LOAD-BEARING: StackLayers replicates the wedge stream once per LayerSet ply (re-tagging NormalOffsetMm +
+    // Material, Cut/Orientation intact), so a multi-ply masonry arch carries one keystone PER PLY — grouping by Course
+    // alone would fold every ply's wedges into one count*plies group and Skip(count/2) would miss the geometric centre.
+    // For the single-ply (offset-zero) run every wedge shares NormalOffsetMm 0, so the group collapses to one ring and
+    // the one-keystone-per-ring behaviour is exact. The per-group Sequence-ascending order survives StackLayers' in-order
+    // per-ply Map, so Skip lands on the centre. A non-voussoir coursing run has no Cut.Bevel placements, so the projection
+    // is empty — the keystone is realized HERE, not asserted as an undeclared downstream grouping.
     public Seq<Placement> Keystones =>
         Placements.Filter(static p => p.Cut == Cut.Bevel && p.Orientation == Orientation.Soldier)
-            .GroupBy(static p => p.Course)
+            .GroupBy(static p => (p.Course, p.NormalOffsetMm))
             .Select(static ring => { Seq<Placement> wedges = ring.ToSeq(); return wedges.Skip(wedges.Count / 2).Head; })
             .Somes()
             .ToSeq();
