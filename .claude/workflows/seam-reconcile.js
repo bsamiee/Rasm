@@ -20,6 +20,14 @@ const SANITY_CAP = 6
 const SCOPE = 'RASM-REBUILD-SCOPE.md'
 const PROPS = 'Directory.Packages.props'
 const SUBSTRATE = 'libs/csharp/.api'
+const CORE_CS = 'docs/stacks/csharp/{README,language,shapes,surfaces-and-dispatch,rails-and-effects,boundaries,algorithms,system-apis}.md'
+const DOMAIN_ROSTER = 'docs/stacks/csharp/domain/<shard>.md ENUMERATED ROSTER (13): runtime, concurrency, diagnostics, ' +
+  'validation, resilience, transport, persistence, durability, postgres, data-interchange, compute, visuals, ' +
+  'interaction. MAP each folder concern -> its required shard(s): IFC/glTF/STEP/wire codec/serializer -> transport + ' +
+  'data-interchange; Pset/Qto + property/admission validation -> validation; spatial/graph/catalog persistence + ' +
+  'content-key store -> persistence + durability; clash/solve/numeric/mesh -> compute; telemetry/receipts -> ' +
+  'diagnostics; retry/backoff -> resilience; free-threading/subinterpreter -> runtime + concurrency; SQL/RLS -> ' +
+  'postgres; UI/interaction/host -> interaction; appearance/render -> visuals.'
 const LIBS_SWEEP = 'EVERY libs/ folder: libs/csharp/Rasm.Element, Rasm.Materials, Rasm.Bim, Rasm.Compute, Rasm.Persistence, Rasm.Fabrication, libs/csharp/Rasm (the geometry/analysis kernel), Rasm.AppHost, ' +
   'Rasm.AppUi, Rasm.Rhino, Rasm.Grasshopper, AND the libs/python + libs/typescript wire (decode-not-remint, never re-mint the C# contract)'
 
@@ -27,9 +35,11 @@ const LIBS_SWEEP = 'EVERY libs/ folder: libs/csharp/Rasm.Element, Rasm.Materials
 
 const RESIDUAL = { type: 'array', items: { type: 'object', additionalProperties: false, required: ['files', 'claim'], properties: { files: { type: 'array', items: { type: 'string' } }, claim: { type: 'string' } } } }
 const PIN_NEED = { type: 'array', items: { type: 'object', additionalProperties: false, required: ['package'], properties: { package: { type: 'string' }, current: { type: 'string' }, note: { type: 'string' } } } }
-const SUBSTRATE_SCHEMA = { type: 'object', additionalProperties: false, required: ['files', 'verdict', 'summary'], properties: { files: { type: 'array', items: { type: 'string' } }, verdict: { type: 'string', enum: ['rebuilt', 'refined', 'clean'] }, decision: { type: 'string' }, integrated: { type: 'array', items: { type: 'string' } }, pinsNeeded: PIN_NEED, residual_high: RESIDUAL, summary: { type: 'string' } } }
+const UNDERUTIL = { type: 'array', items: { type: 'object', additionalProperties: false, required: ['catalog', 'capability'], properties: { catalog: { type: 'string' }, capability: { type: 'string' } } } }
+const FOLDER_MAP = { type: 'array', items: { type: 'object', additionalProperties: false, required: ['folder'], properties: { folder: { type: 'string' }, pages: { type: 'array', items: { type: 'string' } }, apiUsed: { type: 'array', items: { type: 'string' } }, apiUnderutilized: UNDERUTIL, domainShards: { type: 'array', items: { type: 'string' } } } } }
+const SUBSTRATE_SCHEMA = { type: 'object', additionalProperties: false, required: ['files', 'verdict', 'summary'], properties: { files: { type: 'array', items: { type: 'string' } }, verdict: { type: 'string', enum: ['rebuilt', 'refined', 'clean'] }, decision: { type: 'string' }, integrated: { type: 'array', items: { type: 'string' } }, apiUsed: { type: 'array', items: { type: 'string' } }, apiUnderutilized: UNDERUTIL, pinsNeeded: PIN_NEED, residual_high: RESIDUAL, summary: { type: 'string' } } }
 const PINS_SCHEMA = { type: 'object', additionalProperties: false, required: ['pinned', 'verdict', 'summary'], properties: { pinned: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['package', 'version'], properties: { package: { type: 'string' }, version: { type: 'string' } } } }, verdict: { type: 'string', enum: ['pinned', 'none'] }, restore: { type: 'string' }, summary: { type: 'string' } } }
-const SWEEP_SCHEMA = { type: 'object', additionalProperties: false, required: ['verdict', 'summary'], properties: { verdict: { type: 'string', enum: ['aligned', 'clean'] }, aligned: { type: 'array', items: { type: 'string' } }, residual_high: RESIDUAL, summary: { type: 'string' } } }
+const SWEEP_SCHEMA = { type: 'object', additionalProperties: false, required: ['verdict', 'summary'], properties: { verdict: { type: 'string', enum: ['aligned', 'clean'] }, aligned: { type: 'array', items: { type: 'string' } }, folderMap: FOLDER_MAP, residual_high: RESIDUAL, summary: { type: 'string' } } }
 const FIX_SCHEMA = { type: 'object', additionalProperties: false, required: ['files', 'verdict', 'summary'], properties: { files: { type: 'array', items: { type: 'string' } }, verdict: { type: 'string', enum: ['fixed', 'clean'] }, residual_high: RESIDUAL, summary: { type: 'string' } } }
 const VERIFY_SCHEMA = { type: 'object', additionalProperties: false, required: ['overall', 'claims'], properties: { overall: { type: 'boolean' }, claims: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['claim', 'status'], properties: { claim: { type: 'string' }, status: { type: 'string', enum: ['fixed', 'invalid', 'open'] }, evidence: { type: 'string' } } } } } }
 const SANITY_SCHEMA = { type: 'object', additionalProperties: false, required: ['overall', 'items'], properties: { overall: { type: 'boolean' }, items: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['claim', 'status'], properties: { claim: { type: 'string' }, status: { type: 'string', enum: ['fixed', 'open'] }, evidence: { type: 'string' } } } }, summary: { type: 'string' } } }
@@ -65,11 +75,32 @@ const APITIER = [
     'WINS on conflict with live nuget feed intelligence; the nuget MCP answers newest-stable/license/supply-chain only. READ tools/assay/README.md FIRST for its api-arm invocation + JSON output shape.',
 ].join('\n')
 const ADVERSARIAL = [
-  'ADVERSARIAL STANCE — EVERY implementing stage (substrate, sweep, resolve) is HOSTILE: assume the corpus is INCOMPLETE / NAIVE / ILLUSORY until it survives an aggressive attack; the burden of proof is ON THE PAGE. "Mature"/' +
-    '"good enough"/a prior clean verdict are REJECTED. A no-edit verdict is earned ONLY after a genuine attack + a real domain/package/consumer sweep finds nothing.',
+  'ADVERSARIAL STANCE — EVERY implementing stage (substrate, sweep, resolve) is HOSTILE: assume the corpus is INCOMPLETE / NAIVE / SHALLOW / JUNIOR / ILLUSORY until it survives an aggressive attack, REGARDLESS of how it ' +
+    'looks or what any prior pass claimed; the burden of proof is ON THE PAGE, never on you. "Mature"/"already strong"/"good enough"/"done"/a prior clean verdict are REJECTED self-assessments — default to "this is naive and ' +
+    'must be hardened to the strongest form the doctrine admits" and MAKE that hardening; a no-edit verdict is earned ONLY after a genuinely aggressive attack + a real domain/package/consumer sweep finds nothing. Aggression is ' +
+    'DEPTH and RIGOR, never churn — every edit cites a source (a package member, a domain attribute, a consumer contract); churn-for-appearance is rejected.',
   'ILLUSORY/FAKE is the PRIMARY target — a page that USES the doctrine vocabulary and reads dense yet is HOLLOW (a name/prose promising capability the body lacks; a thin slice of a rich concept; a cited but unverifiable .api/host ' +
-    'member — a phantom; a seam mirrored on ONE endpoint but not the other). Treat dense confident pages with MORE suspicion; disbelieve every self-claim until verified.',
+    'member — a phantom; a seam mirrored on ONE endpoint but not the other). Treat dense confident pages with MORE suspicion, not less; disbelieve every self-claim until verified against the real domain + the catalogued package surface.',
 ].join('\n')
+const ULTRA = [
+  'OPERATIVE DOCTRINE — the named docs/stacks/csharp laws held as fact: [FLOW] EXPRESSION_SPINE + BOUNDARY_ADMISSION (raw admitted EXACTLY ONCE into an evidence-carrying owner; interior never re-validates). [SHAPE] SHAPE_BUDGET ' +
+    '(one concept owns ONE type; variants are cases in one closed family) + DEEP_SURFACES + MODAL_ARITY + ANTICIPATORY_COLLAPSE. [DERIVATION] POLICY_VALUES + DERIVED_LOGIC + DERIVED_TYPES + SEMANTIC_NAMING. [MATERIAL] ' +
+    'LIBRARY_DEPTH + DEFINITION_TIME_ASPECTS. [INTEGRATION] ROOT_REBUILD (weave new capability into the owner as if always present; no shims/aliases/migration layers) + ONE_HOP_RESOLUTION + COMPOSED_IMPLEMENTATION.',
+  'ULTRA TWO-TIER .api STACK: MINE both tiers (substrate `' + SUBSTRATE + '/**` + the folder tier `libs/csharp/<package>/.api/**`) to EXHAUSTION and LAYER the universal Thinktecture/LanguageExt substrate rails onto the domain ' +
+    'packages, woven as ONE dense rail at the DEEPEST operator/combinator/generated surface each package reaches (LIBRARY_DEPTH) — NOT flat one-shot per-API uses, NOT a surface-level subset, NOT a thin rename wrapper, NOT a ' +
+    'BCL-first reflex. An owner that leaves an admitted .api capability the concept ADMITS unexploited is a capability-incompleteness defect; verify every cited member via `uv run python -m tools.assay api`, delete every phantom.',
+].join('\n')
+const EXTEND = [
+  'CAPABILITY EXTENSION (justified, in-place, never flat spam) — structural collapse + two-tier .api-stacking are NECESSARY but NOT SUFFICIENT: a fully-collapsed owner / a mirrored seam can still model a NAIVE slice (the obvious ' +
+    '3 fields where the concept carries fifteen; a 2-case algebra where the seam has twenty). Close the gap by GROWING the existing owner — a case in the closed family, a row/richer column on the smart-enum or frozen table, a ' +
+    'field/composed value object, an operation, a policy value — per ANTICIPATORY_COLLAPSE + ROOT_REBUILD, NEVER a parallel type, a new file, or flat appended code.',
+  'GAP SOURCES (every extension cites exactly one): (a) PACKAGE — a member the admitted .api/host surface exposes that the concept ADMITS but the page IGNORES (the `apiUnderutilized` suggestions; verify via `assay api`); (b) ' +
+    'DOMAIN — an attribute/metric/sub-kind/relationship/operation the REAL concept demands but the page omits; (c) CONSUMER — a contract a sibling or downstream owner requires that has no composed spelling here yet. JUSTIFIED, ' +
+    'NOT RANDOM: if after a real domain + package + consumer sweep the concept is genuinely complete, prove it by adding nothing; every added case/field/operation is load-bearing and cites its source; preserve ALL capability.',
+].join('\n')
+const READMANDATE = 'DOWNSTREAM READ MANDATE — BEFORE editing, READ: (1) ALL root `' + CORE_CS + '` core pages — the full set, every stage, never a subset (the python/ts wire ALSO reads its own language stack). (2) the ' +
+  'folder/work-item`s required `domainShards` — and ONLY those (focused, not all 13). (3) the work-item`s `apiUsed` catalogs at full operator depth AND the `apiUnderutilized` capability to STACK into the owner (closing the ' +
+  'underutilization) — BOTH .api tiers. (4) `' + SCOPE + '` for the central goal. ' + DOMAIN_ROSTER
 const SEAM = [
   'SEAM CONTRACT (scope [1] + [5], preserve + verify mirrored on BOTH endpoints): the unified Material(substance) / Component(placement-free TYPE owning the cross-section as a FIELD) / Element(sited Occurrence) paradigm over ONE ' +
     '`Object` node with `ObjectKind in {Type, Occurrence}` and one rooted identity regime (a Type Object`s NodeId deterministically derived from the Component`s canonical content, `Object.ToCanonicalBytes` excluding the volatile ' +
@@ -93,7 +124,7 @@ const PATLAW = [
 const PROSE = 'PROSE + FENCES: design-SPEC prose only — lead with the controlling rule, one idea per paragraph, close on the consequence; cut hedges/provenance/process narration. REAL transcription-complete code fences, ZERO ' +
   'placeholder/stub/TODO. BACKTICK every symbol/type/member/path/package. Keep the canonical section-divider headers; otherwise agent-facing comments only where intent is not obvious (default zero). ("Page craft" is a ' +
   'docs/stacks/csharp concept governing the doctrine pages, NOT these .planning design docs.)'
-const DOCTRINE = [LAW, '', DUALAXIS, '', APITIER, '', ADVERSARIAL, '', SEAM, '', PATLAW, '', PROSE].join('\n')
+const DOCTRINE = [LAW, '', DUALAXIS, '', APITIER, '', ADVERSARIAL, '', ULTRA, '', EXTEND, '', SEAM, '', PATLAW, '', READMANDATE, '', PROSE].join('\n')
 
 // --- [OPERATIONS] ------------------------------------------------------------------------
 
@@ -110,6 +141,7 @@ const pool = async (items, cap, worker) => {
 const inLibs = (p) => typeof p === 'string' && (p.startsWith('libs/') || p.indexOf('/libs/') !== -1 || p === PROPS)
 const norm = (x, fallback) => { const files = Array.isArray(x.files) ? x.files.filter(inLibs) : []; return { files: files.length ? files : [fallback], claim: x.claim } }
 const dedup = (rs) => [...new Map(rs.map((r) => [r.files.slice().sort().join(',') + '|' + r.claim, r])).values()]
+const dedup2 = (rs) => [...new Map(rs.map((r) => [(r.catalog || '') + '|' + (r.capability || ''), r])).values()]
 const cluster = (residuals) => {
   const parent = new Map(); const find = (f) => { let p = f; while (parent.get(p) !== p) p = parent.get(p); return p }; const add = (f) => { if (!parent.has(f)) parent.set(f, f) }
   for (const r of residuals) { r.files.forEach(add); for (let i = 1; i < r.files.length; i++) parent.set(find(r.files[i]), find(r.files[0])) }
@@ -124,8 +156,10 @@ const substratePrompt = () => [DOCTRINE, '', 'TASK: SUBSTRATE — harden the SHA
   'REDUNDANCY — DECIDE the ONE canonical wire-serialization owner on real evidence (member surface via `assay api` + newest-stable/license/supply-chain via the nuget MCP), RECORD the decision in the owning catalog, and ' +
   'PRUNE/REALIGN the others (drop each loser`s catalog to a one-line superseded note pointing at the owner, and flag the manifest implication). DEFERRED TOOLS — load the EXACT names via ToolSearch FIRST before any call: ' +
   '`mcp__nuget__get_latest_package_version`, `mcp__nuget__get_package_context`; `mcp__plugin_context7_context7__resolve-library-id`, `mcp__plugin_context7_context7__query-docs`. Edit ONLY under `' + SUBSTRATE + '/**`; a ' +
-  'realignment that REQUIRES a folder design page or the manifest goes to residual_high {files, claim} (the serialization decision`s consumer realignments + the manifest pin/prune belong there). Return files + verdict + ' +
-  'decision (the chosen serialization owner + why) + integrated + pinsNeeded (every package the substrate work touched or the decision changes, for the Pins phase to confirm or prune) + residual_high + summary.'].join('\n')
+  'realignment that REQUIRES a folder design page or the manifest goes to residual_high {files, claim} (the serialization decision`s consumer realignments + the manifest pin/prune belong there). ALSO emit the substrate ' +
+  'discovery map for the downstream Sweep/Resolve: `apiUsed` (every substrate catalog the campaign folders actively compose) + `apiUnderutilized` ({catalog, capability} — substrate capability the folders ADMIT but IGNORE, the ' +
+  'underutilization the sweep/resolve must close). Return files + verdict + ' +
+  'decision (the chosen serialization owner + why) + integrated + apiUsed + apiUnderutilized + pinsNeeded (every package the substrate work touched or the decision changes, for the Pins phase to confirm or prune) + residual_high + summary.'].join('\n')
 const pinsPrompt = (pins) => [LAW, '', APITIER, '', 'TASK: CONFIRM THE CENTRAL PIN GRAPH. The substrate phase touched/decided these packages (an EMPTY list means a pure graph confirmation):\n' + JSON.stringify(pins, null, 1) +
   '\nFor EACH: confirm the NEWEST stable version via the nuget MCP — ToolSearch-load `mcp__nuget__get_latest_package_version` + `mcp__nuget__get_package_context` FIRST (net10.0 TFM + commercial-safe license). HAND-EDIT `' +
   PROPS + '` ONLY if a pin must change — add/update the `<PackageVersion>` in the correct label-grouped cluster (sorted, one-line maintenance comment only), and REMOVE a pin the substrate serialization decision pruned — NEVER ' +
@@ -140,10 +174,15 @@ const sweepPrompt = () => [DOCTRINE, '', 'TASK: FULL-LIBS SWEEP — the whole-st
   'Rasm.Rhino/Rasm.Grasshopper consume the seam Element/ElementGraph at the wire, Rasm.Fabrication references Rasm.Element; FIX any that consume a retired shape. (3) NO DUPLICATION / NO STRATA VIOLATION — a concept owned twice ' +
   'collapses to its rightful stratum owner; depend strictly upward; geometry/mesh/IFC at ONE wire owner per runtime. (4) DOC TRUTH — every index doc (each folder `ARCHITECTURE.md` codemap + [02]-[SEAMS] + `README.md` roster; ' +
   'each branch index; the cross-libs `libs/.planning/architecture.md` + `libs/csharp/.planning/ARCHITECTURE.md`) is TRUTHFUL to its pages. FIX in place across folders (design doc AND code fence, in any language — C#, Python, ' +
-  'TypeScript); a counterpart edit you cannot complete goes to residual_high {files, claim}. Return verdict + aligned (each alignment, naming the folders + seam) + residual_high + summary.'].join('\n')
-const reconcileFix = (cl) => [DOCTRINE, '', 'TASK: TERMINAL RECONCILE — fix EVERY one of these cross-FILE residuals the substrate/sweep phases (and prior reconcile rounds) surfaced; NO severity, NO leftovers, NO deferral, NO ' +
+  'TypeScript); a counterpart edit you cannot complete goes to residual_high {files, claim}. ALSO, as you sweep each folder, ENUMERATE both `.api` tiers (substrate `' + SUBSTRATE + '/**` + the folder tier ' +
+  '`libs/csharp/<package>/.api/**`) and the full domain roster (' + DOMAIN_ROSTER + ') and EMIT a per-folder discovery map `folderMap` — one {folder, pages (the seam pages swept), apiUsed (catalogs the folder composes, BOTH ' +
+  'tiers), apiUnderutilized ({catalog, capability} the folder ADMITS but IGNORES), domainShards (the required shard(s) the folder concern demands)} row per swept folder — so any cross-file residual the Resolve phase fixes ' +
+  'carries the page-keyed reading map. Return verdict + aligned (each alignment, naming the folders + seam) + folderMap + residual_high + summary.'].join('\n')
+const mapFor = (cl) => { const fm = (swept[0] && swept[0].folderMap) || []; const files = [...new Set(cl.flatMap((r) => r.files || []))]; const hit = fm.filter((m) => m.folder && files.some((f) => f.indexOf(m.folder) === 0 || (m.folder.indexOf('libs/') === 0 && f.indexOf(m.folder.split('/.planning')[0]) === 0))); const sub = (substrate[0] && substrate[0].apiUnderutilized) || []; return { apiUsed: [...new Set(hit.flatMap((m) => m.apiUsed || []))], apiUnderutilized: dedup2(hit.flatMap((m) => m.apiUnderutilized || []).concat(sub)), domainShards: [...new Set(hit.flatMap((m) => m.domainShards || []))] } }
+const reconcileFix = (cl) => [DOCTRINE, '', 'READING MAP for these residuals (read ALL per the DOWNSTREAM READ MANDATE): ' + JSON.stringify(mapFor(cl)) + '. ', 'TASK: TERMINAL RECONCILE — fix EVERY one of these cross-FILE residuals the substrate/sweep phases (and prior reconcile rounds) surfaced; NO severity, NO leftovers, NO deferral, NO ' +
   'scope cap. Read EVERY listed file across libs/ (csharp + python + typescript) + `' + PROPS + '` and FIX the real cross-file defect in place to the strongest clean/modern + seam-contract form (align the seam + every consumer ' +
-  'in lockstep on BOTH endpoints, repair strata/boundary, finish a substrate decision spanning files, make an index doc truthful), preserving all capability — a token patch that leaves the seam misaligned is NOT a fix; if a ' +
+  'in lockstep on BOTH endpoints, repair strata/boundary, finish a substrate decision spanning files, make an index doc truthful), COMPOSING the apiUsed catalogs at full operator depth + STACKING the apiUnderutilized capability ' +
+  'across BOTH .api tiers, preserving all capability — a token patch that leaves the seam misaligned is NOT a fix; if a ' +
   'residual is FACTUALLY WRONG, leave it and say why. If your fix surfaces a new cross-file need, report it in residual_high. Residuals:\n' + JSON.stringify(cl, null, 1)].join('\n')
 const reconcileVerify = (cl, fixFiles) => [LAW, '', SEAM, '', ADVERSARIAL, '', 'TASK: ADVERSARIAL VERIFY, one verdict per claim — re-read the named files from disk and CONFIRM the fix is ACTUALLY made AND complete + ' +
   'high-quality + clean/modern/seam-conformant, not a token/naive patch. ATTACK it: shallow, partial, a rename that left a sibling stale, a seam mirrored on one endpoint but not the other? Classify each: "fixed" (real, ' +

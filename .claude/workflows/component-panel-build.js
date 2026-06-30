@@ -21,9 +21,17 @@ const CAP = 10
 const STAGGER_MS = 1500
 const MAX_ROUNDS = 6
 const STALL = 600000
+const IMPLEMENT_BATCH = 2
+const REVIEW_BATCH = 4
 const SCOPE = 'RASM-REBUILD-SCOPE.md'
 const DECISION = 'RASM-REBUILD-DECISION.md'
 const README = 'libs/csharp/Rasm.Materials/README.md'
+const CORE_CS = 'docs/stacks/csharp/{README,language,shapes,surfaces-and-dispatch,rails-and-effects,boundaries,algorithms,system-apis}.md'
+const DOMAIN_ROSTER = 'docs/stacks/csharp/domain/<shard>.md ENUMERATED ROSTER (13): runtime, concurrency, diagnostics, ' +
+  'validation, resilience, transport, persistence, durability, postgres, data-interchange, compute, visuals, ' +
+  'interaction. MAP each page concern -> its required shard(s): IFC/PredefinedType/wire codec -> transport + ' +
+  'data-interchange; admission/property validation -> validation; catalog/loader/layup persistence -> persistence + ' +
+  'durability; nesting/bin-pack/numeric -> compute; receipts/telemetry -> diagnostics; appearance/render -> visuals.'
 // The NEW panel/sheet ComponentFamily owner page (the tenth family). Authored from scratch to
 // the DECIDED design; the family is woven IN PLACE into the existing owners below, never parallel.
 const PANEL = 'libs/csharp/Rasm.Materials/.planning/Component/panel.md'
@@ -47,17 +55,24 @@ const SEAM = [
 
 const RESIDUAL = { type: 'array', items: { type: 'object', additionalProperties: false, required: ['files', 'claim'], properties: { files: { type: 'array', items: { type: 'string' } }, claim: { type: 'string' } } } }
 const FIXLOG_SCHEMA = { type: 'object', additionalProperties: false, required: ['file', 'verdict', 'summary'], properties: { file: { type: 'string' }, verdict: { type: 'string', enum: ['rebuilt', 'refined', 'clean'] }, collapsed: { type: 'string' }, extended: { type: 'string' }, residual_high: RESIDUAL, summary: { type: 'string' } } }
+// Batched implement/review agents handle 2 (implement) or 4 (review) files per agent and return one
+// per-file fix-log row each; the composition FLATTENS `logs` back to the per-file shape the reconcile flow expects.
+const BATCH_FIXLOG_SCHEMA = { type: 'object', additionalProperties: false, required: ['logs'], properties: { logs: { type: 'array', items: FIXLOG_SCHEMA }, summary: { type: 'string' } } }
 const RESIDUAL_FIX_SCHEMA = { type: 'object', additionalProperties: false, required: ['files', 'verdict', 'summary'], properties: { files: { type: 'array', items: { type: 'string' } }, verdict: { type: 'string', enum: ['fixed', 'clean'] }, residual_high: RESIDUAL, summary: { type: 'string' } } }
 const RECONCILE_VERIFY_SCHEMA = { type: 'object', additionalProperties: false, required: ['overall', 'claims'], properties: { overall: { type: 'boolean' }, claims: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['claim', 'status'], properties: { claim: { type: 'string' }, status: { type: 'string', enum: ['fixed', 'invalid', 'open'] }, evidence: { type: 'string' } } } } } }
 // DECIDE emits the ONE family design every per-file agent aligns to: the axis case name, the panel
 // ComponentSection [Union] arm, the per-kind generative field set + IFC mapping, the layup model, and
 // the per-file edit plan (which existing owner gains which case/arm/row). `design` is the human-shaped
 // blueprint prose; `kinds`/`editPlan` are the structured spine the reconcile checks alignment against.
+const UNDERUTIL = { type: 'array', items: { type: 'object', additionalProperties: false, required: ['catalog', 'capability'], properties: { catalog: { type: 'string' }, capability: { type: 'string' } } } }
 const DECIDE_SCHEMA = { type: 'object', additionalProperties: false, required: ['familyCase', 'design', 'kinds', 'editPlan'], properties: {
   familyCase: { type: 'string' },
   design: { type: 'string' },
   kinds: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['kind', 'standard', 'componentClass', 'ifcType', 'predefinedType', 'fields'], properties: { kind: { type: 'string' }, standard: { type: 'string' }, componentClass: { type: 'string', enum: ['primary', 'minor'] }, ifcType: { type: 'string' }, predefinedType: { type: 'string' }, fields: { type: 'string' } } } },
   editPlan: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['file', 'edit'], properties: { file: { type: 'string' }, edit: { type: 'string' } } } },
+  // Per-target reading map: for EACH FILES entry, the .api catalogs it composes now (apiUsed, BOTH tiers), the admitted
+  // capability it ignores (apiUnderutilized {catalog, capability}), and the required domain shard(s) its concern demands.
+  fileMap: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['file'], properties: { file: { type: 'string' }, apiUsed: { type: 'array', items: { type: 'string' } }, apiUnderutilized: UNDERUTIL, domainShards: { type: 'array', items: { type: 'string' } } } } },
   residual_high: RESIDUAL,
 } }
 
@@ -218,7 +233,12 @@ const COMMENTS = 'COMMENT HYGIENE: code fences are agent-facing — comment for 
   'where intent is not already obvious from names, types, and signatures: default ZERO comments on self-evident code; at most 1 line where a ' +
   'comment genuinely earns its place; 1-2 lines only for a truly subtle invariant. NO restating the code, no narration, no task/process/session/' +
   'history/proof/review comments, no XML-doc bloat.'
-const DOCTRINE = [LAW, '', ADVERSARIAL, '', ULTRA, '', STACK, '', SEEDLAW, '', REFACTOR, '', EXTEND, '', PATLAW, '', BOUNDARIES, '', PROSE, '', COMMENTS].join('\n')
+const READMANDATE = 'DOWNSTREAM READ MANDATE — BEFORE editing, READ: (1) ALL root `' + CORE_CS + '` core pages — the full set, ' +
+  'every stage, never a subset. (2) the target file`s required `domainShards` — and ONLY those (focused, not all 13). (3) ' +
+  'the target file`s `apiUsed` catalogs at full operator depth AND the `apiUnderutilized` capability to STACK into the ' +
+  'owner (closing the underutilization) — BOTH .api tiers (substrate `libs/csharp/.api/**` + folder ' +
+  '`libs/csharp/Rasm.Materials/.api/**`). (4) `' + SCOPE + '` for the central goal. ' + DOMAIN_ROSTER
+const DOCTRINE = [LAW, '', ADVERSARIAL, '', ULTRA, '', STACK, '', SEEDLAW, '', REFACTOR, '', EXTEND, '', READMANDATE, '', PATLAW, '', BOUNDARIES, '', PROSE, '', COMMENTS].join('\n')
 
 // --- [OPERATIONS] ------------------------------------------------------------------------
 
@@ -236,6 +256,7 @@ const baseOf = (p) => { const seg = p.split('/'); return seg[seg.length - 1] }
 const inProject = (p) => typeof p === 'string' && (p.startsWith('libs/') || p.indexOf('/libs/') !== -1 || p === SCOPE || p === DECISION || /\.props$/.test(p) || /(pyproject\.toml|pnpm-workspace\.yaml)$/.test(p))
 const norm = (x, fallback) => { if (typeof x === 'string') return { files: [fallback], claim: x }; const files = Array.isArray(x.files) ? x.files.filter(inProject) : []; return { files: files.length ? files : [fallback], claim: x.claim } }
 const dedup = (rs) => [...new Map(rs.map((r) => [r.files.slice().sort().join(',') + '|' + r.claim, r])).values()]
+const chunk = (xs, n) => { const out = []; for (let i = 0; i < xs.length; i += n) out.push(xs.slice(i, i + n)); return out }
 const cluster = (residuals) => {
   const parent = new Map(); const find = (f) => { let p = f; while (parent.get(p) !== p) p = parent.get(p); return p }; const add = (f) => { if (!parent.has(f)) parent.set(f, f) }
   for (const r of residuals) { r.files.forEach(add); for (let i = 1; i < r.files.length; i++) parent.set(find(r.files[i]), find(r.files[0])) }
@@ -259,12 +280,18 @@ const decidePrompt = () => [DOCTRINE, '', 'TASK: LOAD-BEARING COHERENCE STEP —
   'mapping verified against the Bim egress vocabulary + the GeometryGym surface (cite members via `assay api`); (4) `editPlan` — one `{file, edit}` ' +
   'row per target naming the EXACT existing-owner edit point (which axis case/section arm/projection fold case/layup case/index row each of `' + PANEL +
   '`, `' + COMPONENT + '`, `' + PROJECTION + '`, `' + ASSEMBLY + '`, `' + LAYOUT + '`, `' + INDEX[0] + '`, `' + INDEX[1] + '` gains; the `' + INDEX[1] +
-  '` `[02]-[SEAMS]` row ONLY if a genuinely new seam edge appears). The design MUST preserve the Component/Property split, grow the axis by ONE row + ' +
+  '` `[02]-[SEAMS]` row ONLY if a genuinely new seam edge appears); (5) `fileMap` — one {file, apiUsed, apiUnderutilized, domainShards} row per target FILE (' +
+  PANEL + ', ' + COMPONENT + ', ' + PROJECTION + ', ' + ASSEMBLY + ', ' + LAYOUT + ', ' + INDEX[0] + ', ' + INDEX[1] + '): ENUMERATE both `.api` tiers ' +
+  '(the SUBSTRATE `libs/csharp/.api/**` + the FOLDER `libs/csharp/Rasm.Materials/.api/**`) and the full domain roster (' + DOMAIN_ROSTER + '), then MAP per ' +
+  'file its composed catalogs (`apiUsed`, BOTH tiers), the catalogs/members it SHOULD compose but does not (`apiUnderutilized` as {catalog, capability} — the ' +
+  'underutilization the build must close), and the REQUIRED domain shard(s) (`domainShards`) its concern demands, members verified-local via `uv run python ' +
+  '-m tools.assay api`, so each per-file build/critique/redteam agent receives its own page-keyed reading map. The design MUST preserve the Component/Property split, grow the axis by ONE row + ' +
   'the section by ONE arm + the projection by ONE fold case (the nine existing families untouched), and align to the settled `ComponentProjector` -> ' +
   'seam Type-Object lowering without re-opening the seam. This step WRITES no page; report any cross-file precondition in residual_high {files, claim}.'].join('\n')
 
-const authorPrompt = (page, design) => [DOCTRINE, '', 'DECIDED FAMILY DESIGN (author to THIS shape — it is the coherence anchor every per-file agent ' +
-  'shares; align exactly, deviate only with a cited domain/package/consumer reason):\n' + design, '', 'TASK: BUILD the panel/sheet `ComponentFamily` ' +
+const authorPrompt = (page, design, readMap) => [DOCTRINE, '', 'DECIDED FAMILY DESIGN (author to THIS shape — it is the coherence anchor every per-file agent ' +
+  'shares; align exactly, deviate only with a cited domain/package/consumer reason):\n' + design, '', 'READING MAP for `' + page + '` (read ALL before ' +
+  'editing per the DOWNSTREAM READ MANDATE): ' + readMap + '. ', 'TASK: BUILD the panel/sheet `ComponentFamily` ' +
   'into `' + page + '` to the ULTRA-ADVANCED bar, at FULL generative depth, AND to domain-complete capability, AUTHORING TO THE DECIDED DESIGN above. ' +
   'If `' + page + '` is the NEW owner page `' + PANEL + '`, author it ground-up as the tenth-family owner; if it is an existing owner, GROW the panel ' +
   'family IN PLACE per the editPlan (the axis by ONE row, the `ComponentSection` by ONE arm, the projection by ONE fold case, the layup by ONE case, ' +
@@ -290,7 +317,8 @@ const authorPrompt = (page, design) => [DOCTRINE, '', 'DECIDED FAMILY DESIGN (au
   'ANYWHERE in the project], claim} object for any CROSS-FILE item you surface but cannot fix from this one file (NO severity; the project-wide ' +
   'reconcile fixes all).'].join('\n')
 
-const critiquePrompt = (page) => [DOCTRINE, '', 'TASK: HOSTILE COLD DOCTRINAL-CONFORMANCE + CAPABILITY-COMPLETENESS + FULL-GENERATIVE-DEPTH AUDIT + ' +
+const critiquePrompt = (page, readMap) => [DOCTRINE, '', 'READING MAP for `' + page + '` (read ALL before editing per the DOWNSTREAM READ MANDATE): ' +
+  readMap + '. ', 'TASK: HOSTILE COLD DOCTRINAL-CONFORMANCE + CAPABILITY-COMPLETENESS + FULL-GENERATIVE-DEPTH AUDIT + ' +
   'FIX IN PLACE of `' + page + '` (the panel-family build). Read the page FRESH from disk and do an INDEPENDENT COLD review — assume the page is ' +
   'naive/junior/illusory REGARDLESS of prior passes, trust NOTHING the author or the prose claims, and "good enough"/"mature" is rejected outright. ' +
   'Read the sibling Component pages, the projection + seam pages (READ-ONLY), the operative docs/stacks/csharp pages AND the data-interchange/' +
@@ -317,7 +345,8 @@ const critiquePrompt = (page) => [DOCTRINE, '', 'TASK: HOSTILE COLD DOCTRINAL-CO
   '`extended`. Return the fix-log + residual_high — each a {files: [every repo-relative path the cross-file fix spans, anywhere in the project], ' +
   'claim} object for any CROSS-FILE item you cannot fix from this one file (NO severity; the project-wide reconcile fixes all).'].join('\n')
 
-const redteamPrompt = (page) => [DOCTRINE, '', 'TASK: ADVERSARIAL ARCHITECT RED-TEAM + FIX IN PLACE of `' + page + '` (the panel-family build) — the ' +
+const redteamPrompt = (page, readMap) => [DOCTRINE, '', 'READING MAP for `' + page + '` (read ALL before editing per the DOWNSTREAM READ MANDATE): ' +
+  readMap + '. ', 'TASK: ADVERSARIAL ARCHITECT RED-TEAM + FIX IN PLACE of `' + page + '` (the panel-family build) — the ' +
   'MOST AGGRESSIVE COLD pass. Read the page FRESH from disk and do an INDEPENDENT COLD review: assume the author and critique missed things and that ' +
   'the chosen design is naive or illusory until PROVEN the strongest, the burden of proof ON THE DESIGN; trust nothing prior passes or the prose ' +
   'claimed. Open BOTH .api tiers (SUBSTRATE + FOLDER) + the universal rails, the sibling Component pages, the projection + seam pages (READ-ONLY), `' +
@@ -341,7 +370,8 @@ const redteamPrompt = (page) => [DOCTRINE, '', 'TASK: ADVERSARIAL ARCHITECT RED-
   'fix-log + residual_high — each a {files: [every repo-relative path the cross-file fix spans, anywhere in the project], claim} object for a ' +
   'CROSS-FILE item you cannot fix from one file (NO severity; the project-wide reconcile fixes all).'].join('\n')
 
-const reconcileFix = (cl) => [DOCTRINE, '', 'TASK: PROJECT-WIDE RECONCILE — fix EVERY one of these cross-FILE residuals the decide/rebuild/critique/' +
+const mapFor = (cl) => { const files = [...new Set(cl.flatMap((r) => r.files || []))]; const hit = files.map((f) => READMAP.get(f)).filter(Boolean); const dd = (xs) => [...new Map(xs.map((x) => [(x.catalog || '') + '|' + (x.capability || ''), x])).values()]; return JSON.stringify({ apiUsed: [...new Set(hit.flatMap((m) => m.apiUsed || []))], apiUnderutilized: dd(hit.flatMap((m) => m.apiUnderutilized || [])), domainShards: [...new Set(hit.flatMap((m) => m.domainShards || []))] }) }
+const reconcileFix = (cl) => [DOCTRINE, '', 'READING MAP for these residuals (read ALL per the DOWNSTREAM READ MANDATE): ' + mapFor(cl) + '. ', 'TASK: PROJECT-WIDE RECONCILE — fix EVERY one of these cross-FILE residuals the decide/rebuild/critique/' +
   'redteam passes surfaced. There is NO severity — treat EVERY residual as must-address; NO leftovers, NO deferral, NO scope cap. Your blast radius ' +
   'is the ENTIRE project: you MAY read and fix ANY file ANYWHERE (libs/csharp, libs/python, libs/typescript, the central manifests — anything a ' +
   'cross-file residual spans), not only the Materials folder. Read EVERY listed file. For each: if it is a real cross-file defect, FIX it in place ' +
@@ -402,8 +432,20 @@ const reconcile = async (tag, seed) => {
   return { rounds: round, open: pending, invalid, noFix }
 }
 
-const STAGES = { crit: critiquePrompt, redteam: redteamPrompt }
-const runStage = async (kind, effort, phaseTag) => (await pool(FILES.map((f) => ({ page: f })), CAP, (w) => agent(STAGES[kind](w.page), { label: kind + ':' + baseOf(w.page), phase: phaseTag, schema: FIXLOG_SCHEMA, effort, stallMs: STALL }))).filter(Boolean)
+// Per-file reading map (from DECIDE's fileMap) injected into each batched implement/review prompt; empty when DECIDE omits a file.
+let READMAP = new Map()
+const readMapFor = (page) => JSON.stringify(READMAP.get(page) || { apiUsed: [], apiUnderutilized: [], domainShards: [] })
+// BATCH wrapper: one agent processes EACH file in its batch (2 for implement, 4 for review) at the per-file prompt depth,
+// each file carrying its OWN reading map, returning one `logs[]` row per file. The implement batch additionally carries the DECIDED design.
+const batchAuthorPrompt = (pages, design) => ['BATCHED IMPLEMENT — process EACH of these ' + pages.length + ' target file(s) as a FULL, INDEPENDENT, ' +
+  'aggressive per-file build (no file gets less attention for being batched); return one `logs` row per file (the per-file fix-log) + a batch summary. ' +
+  'FILE PROMPTS:\n\n' + pages.map((p, i) => '=== FILE ' + (i + 1) + ': ' + p + ' ===\n' + authorPrompt(p, design, readMapFor(p))).join('\n\n')].join('\n')
+const batchReviewPrompt = (kind, pages) => ['BATCHED REVIEW — process EACH of these ' + pages.length + ' target file(s) as a FULL, INDEPENDENT, ' +
+  'aggressive per-file ' + (kind === 'crit' ? 'critique' : 'red-team') + ' (no file gets less attention for being batched); return one `logs` row per ' +
+  'file (the per-file fix-log) + a batch summary. FILE PROMPTS:\n\n' + pages.map((p, i) => '=== FILE ' + (i + 1) + ': ' + p + ' ===\n' +
+  (kind === 'crit' ? critiquePrompt(p, readMapFor(p)) : redteamPrompt(p, readMapFor(p)))).join('\n\n')].join('\n')
+const runImplement = async (design) => (await pool(chunk(FILES, IMPLEMENT_BATCH), CAP, (batch, b) => agent(batchAuthorPrompt(batch, design), { label: 'author:b' + b + ':' + batch.map(baseOf).join('+'), phase: 'Rebuild', schema: BATCH_FIXLOG_SCHEMA, effort: 'max', stallMs: STALL }))).filter(Boolean).flatMap((r) => r.logs || [])
+const runStage = async (kind, effort, phaseTag) => (await pool(chunk(FILES, REVIEW_BATCH), CAP, (batch, b) => agent(batchReviewPrompt(kind, batch), { label: kind + ':b' + b + ':' + batch.map(baseOf).join('+'), phase: phaseTag, schema: BATCH_FIXLOG_SCHEMA, effort, stallMs: STALL }))).filter(Boolean).flatMap((r) => r.logs || [])
 const residualsOf = (rows) => rows.flatMap((r) => (r.residual_high || []).map((x) => norm(x, r.file || FILES[0])))
 
 // --- [COMPOSITION] -----------------------------------------------------------------------
@@ -417,10 +459,12 @@ const decided = await agent(decidePrompt(), { label: 'decide:panel-family', phas
 const design = decided ? JSON.stringify({ familyCase: decided.familyCase, design: decided.design, kinds: decided.kinds, editPlan: decided.editPlan }, null, 1)
   : '(decide agent returned no design — author from the README panel-gap framing + the SEEDLAW roster directly)'
 const decideResiduals = decided ? (decided.residual_high || []).map((x) => norm(x, PANEL)) : []
+// Index DECIDE's per-file reading map by target file so every batched implement/review agent reads its files' apiUsed/apiUnderutilized/domainShards.
+READMAP = new Map(((decided && decided.fileMap) || []).filter((m) => m && m.file).map((m) => [m.file, { apiUsed: m.apiUsed || [], apiUnderutilized: m.apiUnderutilized || [], domainShards: m.domainShards || [] }]))
 
 // --- [REBUILD]
 phase('Rebuild')
-const rebuilt = (await pool(FILES.map((f) => ({ page: f })), CAP, (w) => agent(authorPrompt(w.page, design), { label: 'author:' + baseOf(w.page), phase: 'Rebuild', schema: FIXLOG_SCHEMA, effort: 'max', stallMs: STALL }))).filter(Boolean)
+const rebuilt = await runImplement(design)
 
 // --- [RECONCILE_A]
 phase('Reconcile-A')

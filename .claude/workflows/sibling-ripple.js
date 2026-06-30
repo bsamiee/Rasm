@@ -17,7 +17,19 @@ const STAGGER_MS = 1500
 const STALL = 600000
 const MAX_ROUNDS = 6
 const SANITY_CAP = 6
+const IMPLEMENT_BATCH = 2
 const SCOPE = 'RASM-REBUILD-SCOPE.md'
+const CORE_CS = 'docs/stacks/csharp/{README,language,shapes,surfaces-and-dispatch,rails-and-effects,boundaries,algorithms,system-apis}.md'
+const DOMAIN_ROSTER = 'docs/stacks/csharp/domain/<shard>.md ENUMERATED ROSTER (13): runtime, concurrency, diagnostics, ' +
+  'validation, resilience, transport, persistence, durability, postgres, data-interchange, compute, visuals, ' +
+  'interaction. MAP each page concern -> its required shard(s): IFC/glTF/STEP/wire codec -> transport + ' +
+  'data-interchange; Pset/Qto + property/admission validation -> validation; spatial/graph/catalog persistence -> ' +
+  'persistence + durability; clash/solve/numeric -> compute; telemetry/receipts -> diagnostics; retry/backoff -> ' +
+  'resilience; free-threading/subinterpreter -> runtime + concurrency; SQL/RLS -> postgres; UI/interaction -> ' +
+  'interaction; appearance/render -> visuals.'
+const API_TIERS = 'BOTH `.api` TIERS: the SHARED substrate tier `libs/csharp/.api/**` (universal cross-cutting catalogs + ' +
+  'the Thinktecture / LanguageExt rails) AND the package FOLDER tier `<package>/.api/**` (domain catalogs). For the ' +
+  'python/ts sites the substrate is the language-stack `.api` substrate where present plus the package folder catalogs.'
 const STACK = {
   cs: 'docs/stacks/csharp/** (README + language + shapes + surfaces-and-dispatch + ' +
     'rails-and-effects + boundaries + algorithms + system-apis + the relevant domain/ shard)',
@@ -45,9 +57,10 @@ const SITES = [
 // --- [MODELS] ----------------------------------------------------------------------------
 
 const RESIDUAL = { type: 'array', items: { type: 'object', additionalProperties: false, required: ['files', 'claim'], properties: { files: { type: 'array', items: { type: 'string' } }, claim: { type: 'string' } } } }
-const RIPPLE = { type: 'array', items: { type: 'object', additionalProperties: false, required: ['detail'], properties: { detail: { type: 'string' }, files: { type: 'array', items: { type: 'string' } } } } }
-const DISCOVER_SCHEMA = { type: 'object', additionalProperties: false, required: ['site', 'ripples', 'summary'], properties: { site: { type: 'string' }, ripples: RIPPLE, summary: { type: 'string' } } }
-const VALIDATE_SCHEMA = { type: 'object', additionalProperties: false, required: ['validated', 'summary'], properties: { validated: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['site', 'ripples'], properties: { site: { type: 'string' }, ripples: RIPPLE } } }, dropped: { type: 'array', items: { type: 'string' } }, summary: { type: 'string' } } }
+const UNDERUTIL = { type: 'array', items: { type: 'object', additionalProperties: false, required: ['catalog', 'capability'], properties: { catalog: { type: 'string' }, capability: { type: 'string' } } } }
+const RIPPLE = { type: 'array', items: { type: 'object', additionalProperties: false, required: ['detail'], properties: { detail: { type: 'string' }, files: { type: 'array', items: { type: 'string' } }, pages: { type: 'array', items: { type: 'string' } }, apiUsed: { type: 'array', items: { type: 'string' } }, apiUnderutilized: UNDERUTIL, domainShards: { type: 'array', items: { type: 'string' } } } } }
+const DISCOVER_SCHEMA = { type: 'object', additionalProperties: false, required: ['site', 'ripples', 'summary'], properties: { site: { type: 'string' }, ripples: RIPPLE, apiUsed: { type: 'array', items: { type: 'string' } }, apiUnderutilized: UNDERUTIL, domainShards: { type: 'array', items: { type: 'string' } }, summary: { type: 'string' } } }
+const VALIDATE_SCHEMA = { type: 'object', additionalProperties: false, required: ['validated', 'summary'], properties: { validated: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['site', 'ripples'], properties: { site: { type: 'string' }, ripples: RIPPLE, apiUsed: { type: 'array', items: { type: 'string' } }, apiUnderutilized: UNDERUTIL, domainShards: { type: 'array', items: { type: 'string' } } } } }, dropped: { type: 'array', items: { type: 'string' } }, summary: { type: 'string' } } }
 const FOLDER_FIXLOG = { type: 'object', additionalProperties: false, required: ['folder', 'verdict', 'summary'], properties: { folder: { type: 'string' }, verdict: { type: 'string', enum: ['closed', 'hardened', 'refined', 'clean'] }, integrated: { type: 'array', items: { type: 'string' } }, extended: { type: 'string' }, residual_high: RESIDUAL, summary: { type: 'string' } } }
 const FIX_SCHEMA = { type: 'object', additionalProperties: false, required: ['files', 'verdict', 'summary'], properties: { files: { type: 'array', items: { type: 'string' } }, verdict: { type: 'string', enum: ['fixed', 'clean'] }, residual_high: RESIDUAL, summary: { type: 'string' } } }
 const VERIFY_SCHEMA = { type: 'object', additionalProperties: false, required: ['overall', 'claims'], properties: { overall: { type: 'boolean' }, claims: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['claim', 'status'], properties: { claim: { type: 'string' }, status: { type: 'string', enum: ['fixed', 'invalid', 'open'] }, evidence: { type: 'string' } } } } } }
@@ -100,15 +113,68 @@ const DECODE = [
     'inheritance are the seam WF-1 landed, consumed here, not re-authored.',
 ].join('\n')
 const ADVERSARIAL = [
-  'ADVERSARIAL STANCE: every implementing stage is HOSTILE — assume the page is NAIVE/STALE/ILLUSORY until it ' +
-    'survives an aggressive attack; the burden of proof is ON THE PAGE. A confident edit that does not TRULY ' +
-    're-bind to the changed wire is INCOMPLETE, never done.',
+  'ADVERSARIAL STANCE — EVERY implementing stage is HOSTILE: assume the page is NAIVE, SHALLOW, JUNIOR, STALE, or ' +
+    'ILLUSORY until it survives an aggressive attack, REGARDLESS of how it looks or what any prior pass claimed; the ' +
+    'burden of proof is ON THE PAGE, never on you. "Mature", "already strong", "good enough", "done", and a prior ' +
+    'clean verdict are REJECTED self-assessments — a no-edit verdict is earned ONLY after a genuinely aggressive ' +
+    'attack on the real domain + the verified package surface finds nothing. A confident edit that does not TRULY ' +
+    're-bind to the changed wire is INCOMPLETE, never done. Aggression is DEPTH and RIGOR, never churn — every edit ' +
+    'cites a source (a package member, a domain attribute, a consumer contract); churn-for-appearance is rejected.',
+  'ILLUSORY / FAKE CODE is the PRIMARY target — the MOST dangerous code PRETENDS to be advanced: it uses the ' +
+    'doctrine vocabulary, cites packages, reads dense and confident, yet is HOLLOW. Treat dense, confident-looking ' +
+    'fences with MORE suspicion, not less, and DISBELIEVE every claim the page makes about itself until you verify ' +
+    'it against the real domain + the catalogued package surface. HUNT: a name/signature/prose promising capability ' +
+    'the body does not implement; a "rich" decoder that decodes a thin slice of the wire; a stale decode left ' +
+    'mid-flight; a `.api`/host member cited but never verified (a phantom). Every such illusion is a DEFECT to ' +
+    'rebuild — never invent churn to look busy.',
   'WRITE-FULLY: every re-bind you identify you MAKE NOW via Edit/Write; the returned log REPORTS edits already ' +
     'made, never a to-do. A re-bind spanning a FILE you do not own goes to `residual_high` as `{files:[...], ' +
     'claim}` (the resource slot is a LIST so a cross-file seam names EVERY spanned file) for the terminal RESOLVE, ' +
     'which has NO scope cap.',
 ].join('\n')
-const DOCTRINE = [LAW, '', DUAL, '', API, '', DECODE, '', ADVERSARIAL].join('\n')
+const ULTRA = [
+  'OPERATIVE DOCTRINE — the named docs/stacks laws held as fact: [FLOW] EXPRESSION_SPINE (domain logic is ' +
+    'expression-shaped; dependent steps bind monadically, independent ones accumulate applicatively; the carrier ' +
+    'selects the algebra) + BOUNDARY_ADMISSION (raw admitted EXACTLY ONCE into an evidence-carrying owner; interior ' +
+    'never re-validates). [SHAPE] SHAPE_BUDGET (one concept owns ONE type; variants are cases in one closed family) + ' +
+    'DEEP_SURFACES + MODAL_ARITY (one entrypoint owns every modality, discriminating on input shape) + ' +
+    'ANTICIPATORY_COLLAPSE. [DERIVATION] POLICY_VALUES + DERIVED_LOGIC + DERIVED_TYPES + SEMANTIC_NAMING. [MATERIAL] ' +
+    'LIBRARY_DEPTH + DEFINITION_TIME_ASPECTS. [INTEGRATION] ROOT_REBUILD (weave new capability into the owner as if ' +
+    'always present; no shims/aliases/migration layers) + ONE_HOP_RESOLUTION + COMPOSED_IMPLEMENTATION.',
+  'ULTRA-ADVANCED COLLAPSE MANDATE: COLLAPSE >=3 parallel types / sibling factory methods / repeated dispatch arms ' +
+    '/ single-call private helpers into ONE polymorphic owner IN THE SAME FILE (the language-doctrine ADT/union/' +
+    'smart-enum/value-object/source-generated case family / fold algebra / frozen data table) — never extract a new ' +
+    'file to reduce LOC, never delete capability.',
+  'STACK CAPABILITY: ' + API_TIERS + ' MINE both tiers and LAYER the universal substrate rails onto the domain ' +
+    'packages, woven as ONE dense rail at the DEEPEST operator/combinator/generated surface each package reaches ' +
+    '(LIBRARY_DEPTH) — NOT flat one-shot per-API uses, NOT a surface-level subset, NOT a thin rename wrapper, NOT a ' +
+    'BCL/stdlib-first reflex. A decoder that leaves an admitted `.api` capability the wire ADMITS unexploited is a ' +
+    'capability-incompleteness defect. PRESERVE all capability (densify, never delete functionality); regress no ' +
+    'correctness or strata law.',
+].join('\n')
+const EXTEND = [
+  'CAPABILITY EXTENSION (justified, in-place, never flat spam) — structural collapse + `.api`-stacking are NECESSARY ' +
+    'but NOT SUFFICIENT: a fully-collapsed decoder can still re-bind a NAIVE slice of the changed wire (the obvious 3 ' +
+    'fields where the wire carries fifteen; a 2-case match where the seam has twenty). Close the gap by GROWING the ' +
+    'existing owner — a case in the closed family, a row/richer column on the smart-enum or frozen table, a field, an ' +
+    'operation, a policy value — per ANTICIPATORY_COLLAPSE + ROOT_REBUILD, NEVER a parallel type, a new file, or flat ' +
+    'appended code.',
+  'GAP SOURCES (every extension cites exactly one): (a) PACKAGE — a member the admitted `.api`/host surface exposes ' +
+    'that the wire ADMITS but the page IGNORES (the `apiUnderutilized` suggestions; verify via `assay api`); (b) ' +
+    'DOMAIN — an attribute/field/sub-kind/relationship the REAL changed seam demands but the decoder omits; (c) ' +
+    'CONSUMER — a contract a downstream owner requires that has no composed spelling here yet. JUSTIFIED, NOT RANDOM: ' +
+    'if after a real domain + package sweep the re-bind is genuinely complete, prove it by adding nothing — every ' +
+    'added case/field/operation is load-bearing and cites its source; preserve ALL existing capability.',
+].join('\n')
+const READMANDATE = [
+  'DOWNSTREAM READ MANDATE — BEFORE editing, READ: (1) ALL root `' + CORE_CS + '` core pages — the full set, every ' +
+    'stage, never a subset (the C# floor governs the wire vocabulary even for the python/ts decoders; the python/ts ' +
+    'sites ALSO read their own language stack `' + STACK.py + '` / `' + STACK.ts + '`). (2) the work-item`s ' +
+    '`domainShards` — and ONLY those required shards (focused, not all 13). (3) the work-item`s `apiUsed` catalogs at ' +
+    'full operator depth AND the `apiUnderutilized` capability to STACK into the owner (closing the underutilization) ' +
+    '— BOTH `.api` tiers. (4) `' + SCOPE + '` for the central goal. ' + DOMAIN_ROSTER,
+].join('\n')
+const DOCTRINE = [LAW, '', DUAL, '', API, '', DECODE, '', ADVERSARIAL, '', ULTRA, '', EXTEND, '', READMANDATE].join('\n')
 
 // --- [OPERATIONS] ------------------------------------------------------------------------
 
@@ -125,6 +191,7 @@ const pool = async (items, cap, worker) => {
 const inLibs = (p) => typeof p === 'string' && (p.startsWith('libs/') || p.indexOf('/libs/') !== -1)
 const norm = (x, fallback) => { const files = Array.isArray(x.files) ? x.files.filter(inLibs) : []; return { files: files.length ? files : [fallback], claim: x.claim } }
 const dedup = (rs) => [...new Map(rs.map((r) => [r.files.slice().sort().join(',') + '|' + r.claim, r])).values()]
+const chunk = (xs, n) => { const out = []; for (let i = 0; i < xs.length; i += n) out.push(xs.slice(i, i + n)); return out }
 const cluster = (residuals) => {
   const parent = new Map(); const find = (f) => { let p = f; while (parent.get(p) !== p) p = parent.get(p); return p }; const add = (f) => { if (!parent.has(f)) parent.set(f, f) }
   for (const r of residuals) { r.files.forEach(add); for (let i = 1; i < r.files.length; i++) parent.set(find(r.files[i]), find(r.files[0])) }
@@ -136,18 +203,31 @@ const SITE_BY = new Map(SITES.map((s) => [s.name, s]))
 const discoverPrompt = (s) => [DOCTRINE, '', 'TASK: RIPPLE DISCOVERY for the sibling site `' + s.name + '` (folder `' + s.root + '/**`, CODE stack `' + STACK[s.lang] + '`). ' +
   'READ-ONLY — investigate, do NOT edit. Re-read `' + SCOPE + '` then EVERY page under `' + s.root + '/**` AND the CHANGED seam shape WF-1+WF-2 landed (the Element `Graph`/`Component` ' +
   'seam, the one seam-declared NEUTRAL detail schema over `PropertyBag` + `PropertyName`, the `ObjectKind.Type` ' + 'Type-node + named Bake inheritance). SITE RE-BIND CHARTER: ' + s.bind + '. ' +
+  'ENUMERATE both `.api` tiers (' + API_TIERS + ') and the full domain roster (' + DOMAIN_ROSTER + '). For EACH discovered page, MAP its composed catalogs (`apiUsed`, BOTH tiers), the ' +
+  'catalogs/members it SHOULD compose but does not (`apiUnderutilized` as {catalog, capability} — the underutilization the re-bind must close), and the REQUIRED domain shard(s) ' +
+  '(`domainShards`) its concern demands; members verified-local via `uv run python -m tools.assay api`. ' +
   'Return the PRECISE ripple work-list for this site ONLY — which seam signatures / decoders shifted and what each page MUST ' + 'change to re-bind (decode-not-remint for the python/ts ' +
-  'decoders; resolution-through-Component for the C# consumers). Each ' + 'ripple is {detail, files} carrying the spanned files. Return site + ripples + a summary of the dominant ripple class.'].join('\n')
+  'decoders; resolution-through-Component for the C# consumers). Each ' + 'ripple is {detail, files, pages (the design pages the ripple touches), apiUsed, apiUnderutilized, domainShards} ' +
+  'so the per-ripple reading map travels with it. ALSO return the site-level rollup apiUsed + apiUnderutilized + domainShards across all ripples. Return site + ripples + apiUsed + ' +
+  'apiUnderutilized + domainShards + a summary of the dominant ripple class.'].join('\n')
 const validatePrompt = (discovered) => [DOCTRINE, '', 'TASK: VALIDATE the discovered ripple across ALL sites (single barrier pass). READ-ONLY — investigate, do NOT edit. For EACH ' +
-  'discovered ripple: CONFIRM it is REAL — the seam shape WF-1+WF-2 landed ACTUALLY changed ' + 'in the direction the ripple claims, and every cited member is verified via `assay api` / ' +
-  'Context7. DROP any PHANTOM ripple (a member that does not exist, a ripple whose seam ' + 'did not actually change, or one that would re-mint the C# contract rather than decode it). Return ' +
-  'the VALIDATED re-bind list per site (site + the SURVIVING ripples) + dropped (the phantom ripples, each with the one-line reason) + summary. DISCOVERED:\n' + JSON.stringify(discovered, null, 1)].join('\n')
-const rebindPrompt = (s) => [DOCTRINE, '', 'TASK: RE-BIND the sibling site `' + s.name + '` (folder `' + s.root + '/**`, CODE stack `' + STACK[s.lang] + '`) to the changed ' +
-  'Component/detail-schema wire — IN PLACE, decode-not-remint for the python/ts decoders, ' + 'resolution-through-Component for the C# consumers. For EACH validated ripple below, MAKE the ' +
-  're-bind edit NOW to the strongest CLEAN/MODERN form the site language doctrine + ' + 'the DECODE-NOT-REMINT law admit, preserving `ProfileRef`/`ProfileSet`/`ComputedSection` seam-canonical ' +
-  'and never re-minting the C# contract; record the site`s ' + 'seam row in its `ARCHITECTURE.md` `[2]-[SEAMS]` where applicable. Do NOT re-open Element/Materials/Bim design. A re-bind ' +
-  'requiring a FILE outside this site goes to residual_high {files, claim}. VALIDATED RIPPLES (' + s.ripples.length + '):\n' + JSON.stringify(s.ripples, null, 1) + '\nReturn folder (the ' +
-  'site name) + verdict + integrated (each ripple re-bound + where) + extended + residual_high + summary.'].join('\n')
+  'discovered ripple: CONFIRM it is REAL — the seam shape WF-1+WF-2 landed ACTUALLY changed ' + 'in the direction the ripple claims, and every cited member (including the apiUsed/apiUnderutilized ' +
+  'catalogs) is verified via `assay api` / Context7. DROP any PHANTOM ripple (a member that does not exist, a ripple whose seam ' + 'did not actually change, or one that would re-mint the ' +
+  'C# contract rather than decode it), and DROP any phantom `apiUnderutilized` suggestion (a catalog/member that does not exist or the page does not actually admit). PRESERVE each surviving ' +
+  'ripple`s {detail, files, pages, apiUsed, apiUnderutilized, domainShards} map intact AND the site-level apiUsed/apiUnderutilized/domainShards rollup so the reading map reaches Rebind. Return ' +
+  'the VALIDATED re-bind list per site (site + the SURVIVING ripples + apiUsed + apiUnderutilized + domainShards) + dropped (the phantom ripples/suggestions, each with the one-line reason) + ' +
+  'summary. DISCOVERED:\n' + JSON.stringify(discovered, null, 1)].join('\n')
+const rebindPrompt = (s) => [DOCTRINE, '', 'TASK: HOSTILE RE-BIND of the sibling site `' + s.name + '` (folder `' + s.root + '/**`, CODE stack `' + STACK[s.lang] + '`) to the changed ' +
+  'Component/detail-schema wire — IN PLACE, decode-not-remint for the python/ts decoders, ' + 'resolution-through-Component for the C# consumers. DISBELIEVE every existing decoder — assume it is ' +
+  'naive/stale/illusory until proven world-class; do NOT polish, REBUILD the re-bind to the strongest CLEAN/MODERN form the site language doctrine + the DECODE-NOT-REMINT law admit, treating ' +
+  'dense confident-looking code as a prime suspect for hollow re-binding. READING MAP (read ALL before editing per the DOWNSTREAM READ MANDATE): apiUsed=' + JSON.stringify(s.apiUsed || []) +
+  '; apiUnderutilized=' + JSON.stringify(s.apiUnderutilized || []) + '; domainShards=' + JSON.stringify(s.domainShards || []) + '. For EACH validated ripple below, MAKE the re-bind edit NOW, ' +
+  'COMPOSE its apiUsed catalogs at full operator depth AND STACK the apiUnderutilized capability into the owner (closing the underutilization) across BOTH `.api` tiers, preserving ' +
+  '`ProfileRef`/`ProfileSet`/`ComputedSection` seam-canonical ' + 'and never re-minting the C# contract; record the site`s ' + 'seam row in its `ARCHITECTURE.md` `[2]-[SEAMS]` where applicable. Do ' +
+  'NOT re-open Element/Materials/Bim design. Every edit cites a source (a package member / domain attribute / consumer contract) — no churn-for-appearance. A re-bind ' +
+  'requiring a FILE outside this site goes to residual_high {files, claim}. This is a FOCUSED 2-ripple BATCH of the site`s validated ripples (the rest of the site is re-bound by sibling batch ' +
+  'agents in parallel) — re-bind THESE ripples completely + aggressively. VALIDATED RIPPLES IN THIS BATCH (' + s.ripples.length + ', each carrying its own pages/apiUsed/apiUnderutilized/domainShards):\n' +
+  JSON.stringify(s.ripples, null, 1) + '\nReturn folder (the EXACT ' + 'site name `' + s.name + '`) + verdict + integrated (each ripple re-bound + where) + extended + residual_high + summary.'].join('\n')
 const reconcileFix = (cl) => [DOCTRINE, '', 'TASK: TERMINAL RECONCILE — fix EVERY one of these cross-FILE re-bind residuals the discover/validate/rebind phases surfaced; NO severity, NO ' +
   'leftovers, NO deferral, NO scope cap. Read EVERY listed file across the sibling sites (csharp + python + ts) ' + 'and FIX the real cross-file defect in place to the strongest clean/modern + ' +
   'decode-not-remint form (align the changed wire + every consumer in lockstep, ' + 'preserve `ProfileRef`/`ProfileSet`/`ComputedSection` seam-canonical, never re-mint the C# contract), ' +
@@ -177,13 +257,25 @@ log('Discover: ' + discovered.reduce((n, d) => n + (d.ripples || []).length, 0) 
 phase('Validate')
 const validation = await agent(validatePrompt(discovered), { label: 'validate', phase: 'Validate', schema: VALIDATE_SCHEMA, effort: 'xhigh', stallMs: STALL })
 const validated = (validation && validation.validated) || []
-const validatedBySite = new Map(validated.map((v) => [v.site, v.ripples || []]))
+const validatedBySite = new Map(validated.map((v) => [v.site, v]))
+const discoveredBySite = new Map(discovered.map((d) => [d.site, d]))
 log('Validate: ' + validated.reduce((n, v) => n + (v.ripples || []).length, 0) + ' real ripple(s); ' + (((validation && validation.dropped) || []).length) + ' phantom dropped')
 
 // --- [REBIND]
+// Thread the per-site reading map (apiUsed/apiUnderutilized/domainShards) from validate into each rebind agent,
+// falling back to the discover-stage site rollup so the map survives even if validate omitted the rollup. The
+// IMPLEMENT pass batches at IMPLEMENT_BATCH ripples per agent (no implement agent handles more than 2 files at
+// once) — each site's validated ripples chunk into 2-ripple sub-batches, 1 agent per batch via the shared pool.
 phase('Rebind')
-const rebindSites = SITES.map((s) => ({ ...s, ripples: validatedBySite.get(s.name) || [] }))
-const rebound = (await pool(rebindSites, CAP, (s) => agent(rebindPrompt(s), { label: 'rebind:' + s.name, phase: 'Rebind', schema: FOLDER_FIXLOG, effort: 'max', stallMs: STALL }))).filter(Boolean)
+const rebindBatches = SITES.flatMap((s) => {
+  const v = validatedBySite.get(s.name) || {}
+  const d = discoveredBySite.get(s.name) || {}
+  const apiUsed = v.apiUsed || d.apiUsed || []
+  const apiUnderutilized = v.apiUnderutilized || d.apiUnderutilized || []
+  const domainShards = v.domainShards || d.domainShards || []
+  return chunk(v.ripples || [], IMPLEMENT_BATCH).map((ripples, b) => ({ ...s, ripples, apiUsed, apiUnderutilized, domainShards, batch: b }))
+})
+const rebound = (await pool(rebindBatches, CAP, (s) => agent(rebindPrompt(s), { label: 'rebind:' + s.name + ':b' + s.batch, phase: 'Rebind', schema: FOLDER_FIXLOG, effort: 'max', stallMs: STALL }))).filter(Boolean)
 
 // --- [RESOLVE]
 const fbOf = (r) => { const site = SITE_BY.get(r.folder); return site ? site.root : 'libs/csharp' }
