@@ -40,7 +40,17 @@ Use the route-owned standard for the file being edited:
 
 `docs/stacks/python` is the route-owned Python production standard. Python source composes `docs/stacks/python/README.md`, `language.md`, `shapes.md`, `surfaces-and-dispatch.md`, `rails-and-effects.md`, `concurrency.md`, `boundaries.md`, `algorithms.md`, `system-apis.md`, and `runtime.md`. Numerical and scientific computing routes through `docs/stacks/python/algorithms.md` plus the root Python doctrine index.
 
-## [03]-[DEPENDENCY_POLICY]
+## [03]-[NAMING_SCHEMA]
+
+Folders, namespaces, and source files follow each branch language's standard casing; `.planning` design pages are `lowercase.md`.
+
+| [INDEX] | [BRANCH]          | [FOLDER_AND_SOURCE] |
+| :-----: | :---------------- | :------------------ |
+|  [01]   | `libs/csharp`     | `PascalCase`        |
+|  [02]   | `libs/python`     | `snake_case`        |
+|  [03]   | `libs/typescript` | `camelCase`         |
+
+## [04]-[DEPENDENCY_POLICY]
 
 [IMPORTANT]: External libraries, manifests, and host APIs are implementation surfaces.
 - [ALWAYS] Treat dependencies declared in `pyproject.toml`, `pnpm-workspace.yaml`, `Directory.Packages.props`, project files, lockfiles, and equivalent manifests as first-class material.
@@ -55,7 +65,7 @@ Use the route-owned standard for the file being edited:
 - [NEVER] Create thin wrappers that rename, forward, or partially expose external APIs without adding domain value.
 - [NEVER] Encode package versions, provider caveats, or command catalogs outside the owning manifest, package charter, README, or tool owner.
 
-## [04]-[IMPLEMENTATION_CONSTRAINTS]
+## [05]-[IMPLEMENTATION_CONSTRAINTS]
 
 [CRITICAL]:
 - [NEVER] Use weak, unbounded, or erased types where the language can express the domain precisely.
@@ -77,14 +87,14 @@ Use the route-owned standard for the file being edited:
 - [ALWAYS] Keep typed algorithm receipts when fields carry route, status, sampling, solver, spectral, mesh, extraction, benchmark, or host evidence.
 - [ALWAYS] Treat analyzer diagnostics as architecture pressure: fix true positives, refine false positives, and avoid suppressions that add ceremony without improving correctness.
 
-## [05]-[BEHAVIOR]
+## [06]-[BEHAVIOR]
 
 [IMPORTANT]:
 - [ALWAYS] Tools over internal knowledge: read files, search code, verify assumptions through source, manifests, docs, and tool output.
 - [ALWAYS] Parallelize independent searches, reads, and checks.
 - [ALWAYS] Use bounded subagents for independent exploration, research, verification, and disjoint implementation.
 
-## [06]-[OWNER_ROUTING]
+## [07]-[OWNER_ROUTING]
 
 [IMPORTANT]:
 - [ALWAYS] Resolve external library, framework, SDK, or host-API usage through `Context7` before internalizing into a canonical owner: `Context7` also indexes this repo's own packages, so resolve internal API shape through it before opening source, while `uv run python -m tools.assay api` answers which members verifiably exist locally; verified-local wins on conflict. The web/docs research selection law is the user-global doctrine, not restated here.
@@ -104,7 +114,7 @@ Use the route-owned standard for the file being edited:
 - [ALWAYS] `uv run python -m tools.assay provision` owns Rasm campaign provisioning through sanitized `ProvisionRun` evidence; direct `forge-provision`, `forge-scientific-env`, Docker/Compose, direct database shells, cleanup, and diagnostic JSON calls are Forge-level debugging, not Rasm campaign surfaces.
 - [ALWAYS] Treat bridge proof as `EvidenceCertificate` plus reviewed `ReferenceEvidence`; MCP exploration can promote invariants into scenarios, but never substitutes for certificate-backed verify.
 
-## [07]-[DOCUMENTATION_AND_OUTPUT]
+## [08]-[DOCUMENTATION_AND_OUTPUT]
 
 [IMPORTANT]:
 - [ALWAYS] Use `backticks` for file paths, symbols, and CLI commands.
@@ -116,7 +126,7 @@ Use the route-owned standard for the file being edited:
 
 Plans are decision-complete blueprints. Include context, critical files, implementation approach, acceptance signals, and assumptions only when they change execution. Do not include workflow narration, alternatives considered, command catalogs, or boilerplate closure.
 
-## [08]-[FILE_ORGANIZATION]
+## [09]-[FILE_ORGANIZATION]
 
 [IMPORTANT] Section separators: language comment marker + space + `---` + bracketed UPPERCASE snake label with no internal spaces + dash fill to the established language width.
 
