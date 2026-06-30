@@ -66,7 +66,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Capability: open `Rasm.Bim/reconstruction` as the scan-to-BIM primitive-fitting owner.
 - Shape: `ReconstructionPrimitive` folds plane, cylinder, torus, and freeform fits from kernel segmented clouds into `BimElement` rows with `ElementPredicate`-classified `IfcClass` and `properties#PROPERTY_SETS` confidence bands.
 - Unlocks: captured splat/point payloads become BIM semantics through one reconstruction owner, while Persistence joins source-cloud lineage by `(GeometryHash, content-key)` and AppUi replays reality capture over the reconstructed model.
-- Anchors: `Rasm/Vectors` `Align` and cloud-ICP, `Rasm/Geometry/spatial`, `Rasm.Compute/Runtime/codecs`, `Model/query#ELEMENT_SET`, `libs/.planning` graduation `reconstructed-mesh` and `topology-graph` geometry axes, and `Rasm.AppUi/Render/reality`.
+- Anchors: `Rasm/Vectors` `Align` and cloud-ICP, `Rasm/Geometry/Spatial`, `Rasm.Compute/Runtime/codecs`, `Model/query#ELEMENT_SET`, `libs/.planning` graduation `reconstructed-mesh` and `topology-graph` geometry axes, and `Rasm.AppUi/Render/reality`.
 - Tension: C# re-imports offline RANSAC or learned-segmentation results; it does not host an in-process learned segmenter.
 
 ## [02]-[CLOSED]

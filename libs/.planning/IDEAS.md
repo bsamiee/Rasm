@@ -37,7 +37,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 
 [ONE_TESSELLATION_RAIL]-[QUEUED]: one Python-native IFC/STEP companion produces the GLB every runtime consumes.
 - Capability: shared tessellation rail for IFC and CAD geometry through content-keyed GLB output.
-- Shape: `python:geometry` serves the IfcOpenShell GLB tessellation daemon; `csharp:Rasm.Bim/exchange/interchange` builds the tessellation request, `csharp:Rasm.Compute/Runtime/codecs#TILE_PARTITION` content-addresses the result, and `typescript:ui` renders the GLB viewport.
+- Shape: `python:geometry` serves the IfcOpenShell GLB tessellation daemon; `csharp:Rasm.Bim/Exchange/interchange` builds the tessellation request, `csharp:Rasm.Compute/Runtime/codecs#TILE_PARTITION` content-addresses the result, and `typescript:ui` renders the GLB viewport.
 - Unlocks: one geometry-evaluation companion with no duplicate mesh pipeline; meshing keeps one owner per runtime, and IFC keeps one semantic owner per runtime while meeting only at the content-keyed GLB.
 - Anchors: one-owner-per-runtime geometry law, IfcOpenShell/OpenCascade companion two-hop, `SharpGLTF.Ext.3DTiles` builders (`FeatureIDBuilder`, `PropertyTable`, `EXTStructuralMetadataRoot`), and per-tile `EXT_structural_metadata`/`EXT_mesh_features` carrying IFC class and field bands on the same key.
 - Tension: the AP242 STEP arm rides the same OpenCascade companion shape and lands through the geometry companion's root-manifest admission plus `.api` catalogue.

@@ -32,7 +32,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 
 [TESSELLATION_RAIL_TRILANG]-[QUEUED]: route the shared IFC and CAD tessellation rail through Python-native GLB output.
 - Capability: the Python-native two-hop `IFC → IfcOpenShell → GLB` rail and the AP242 CAD-STEP `STEP → OCCT → GLB` companion produce the one content-keyed GLB every runtime consumes.
-- Shape: producers `python:geometry/mesh/daemon#TESSELLATE` and `csharp:Rasm.Bim/exchange/interchange#TESSELLATION_REQUEST` feed consumers `csharp:Rasm.Compute/Runtime/codecs#TILE_PARTITION` and `typescript:ui/render/glb#GLB_VIEWPORT` through `typescript:interchange/Codec/frame#CONTENT_HASHING`.
+- Shape: producers `python:geometry/mesh/daemon#TESSELLATE` and `csharp:Rasm.Bim/Exchange/interchange#TESSELLATION_REQUEST` feed consumers `csharp:Rasm.Compute/Runtime/codecs#TILE_PARTITION` and `typescript:ui/render/glb#GLB_VIEWPORT` through `typescript:interchange/Codec/frame#CONTENT_HASHING`.
 - Unlocks: C# builds and content-addresses tessellation requests, Python serves geometry evaluation, and TypeScript renders GLB by the same content key without a duplicate mesh pipeline per runtime.
 - Anchors: the one-owner-per-runtime geometry law, the `python:runtime/transport/serve#SERVE` companion contract, the per-tile `EXT_structural_metadata`/`EXT_mesh_features` schema, the `SourceFormat`-discriminated request, and the one `ContentIdentity` seed.
 - Tension: the GLB arm is queued; the AP242 STEP arm lands through the geometry companion's OpenCascade admission, and the TS mesh-shape promotion stays carried on the TS `ui` `TASKLOG.md`.

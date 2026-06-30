@@ -49,7 +49,7 @@ artifacts/
 │   ├── layered.py          # drawsvg named-layer SVG + pymupdf/pikepdf PDF OCG optional-content groups + psdtags/tifffile layered TIFF
 │   └── indesign.py         # SimpleIDML IDML template-mutation hand-off
 ├── exchange/               # metadata / provenance / format identification at the boundary
-│   ├── metadata.py         # EXIF/XMP/IPTC descriptive metadata read/write over exif/iptcinfo3/pikepdf XMP/libxmp
+│   ├── metadata.py         # EXIF/XMP/IPTC descriptive metadata read/write over pyexiftool/iptcinfo3/pikepdf XMP/libxmp
 │   ├── credential.py       # c2pa-python content-credential manifest binding keyed by the content key
 │   ├── conformance.py      # pyhanko PAdES sign/audit close folding ConformanceVerdict
 │   └── detect.py           # python-magic media-type / file-info / format identification

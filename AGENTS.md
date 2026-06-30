@@ -8,7 +8,9 @@
 
 Structural search routes through `uv run python -m tools.assay code ...` when patterns use ast-grep metavariables, tree-sitter queries, CI artifacts, or repo structural rules; direct `ast-grep` is fallback only when the Assay code rail lacks the needed surface.
 
-Read full target files before editing. Read minimal surrounding files needed to prove ownership, existing patterns, and route conflicts.
+Read every target file end-to-end before editing. For planning, catalogue, doctrine, and standards work, inventory hidden owner trees with `fd -H`; read the owner README first, then the target `.planning/`, `.api`, or `docs/stacks/<language>/` pages in routing order. Search hits, memory, screenshots, workflow summaries, partial excerpts, and report dashboards are not substitutes for current file bytes.
+
+After editing a planning, catalogue, doctrine, standards, or instruction file, reread the full changed file before final response. Catch malformed headings, broken tables, unbalanced fences, duplicated owner regions, stale route links, and skipped target sections from actual bytes.
 For declaration-order passes, preserve generated semantic/key bands; split grouped entries only when grouping obscures ownership, and keep compact generated rows when they are the clearer owner-local table.
 
 ## [03]-[QUALITY_VALIDATION]
@@ -19,7 +21,15 @@ Quality cadence is gated at the planned milestone, not after every edit: batch i
 
 New library or package folders begin with a planning campaign before production source when the concern is broad, foundational, or consumer-facing. The campaign makes infra truth honest, captures manifests/lockfiles/tool pins, extracts API catalogs through repo-owned evidence rails, runs research/gap/adversarial/deep-read passes before authoring, enumerates isolated and in-concert capability across modalities, then collapses surviving capability into owner ledgers, row/case/policy axes, and decision-complete planning pages. Zero consumers never lowers ambition; it requires full-capability design. Package-local proof ladders, admissions tables, build orders, and file processes stay in that folder's charter, not root policy.
 
+Planning and design documents are implementation surfaces. A plan/spec must be file-grouped and decision-complete: each target file names the owner section or card, replacement shape, exact types/signatures/fields/rows/fences, admitted package or API surfaces, deletion/collapse moves, and consumer consequences. Loose prose, placeholder bullets, ceremony tails, and "add docs about" items are not acceptable planning output.
+
+Code fences and prose implementation snippets in planning or stack-doctrine files are real design contracts. Fences must obey the route-owned stack doctrine, use language-valid neutral identifiers, spell current package/member/operator names exactly, and carry enough surrounding shape to show the future owner surface. Prose that names a callable, type, field, operator, generated surface, command, or package must use a code span and meet the same source-backed truth bar.
+
 All tooling, tests, docs, and libraries discover owners through manifests, configured roots, package graphs, route maps, and tool catalog rows. Current paths are inputs, never reusable doctrine.
+
+Default repair mode is owner rebuild, not accretion. When a target page, card, table, snippet, or section is stale, thin, duplicated, underspecified, or below stack doctrine, rewrite the owning surface in place, merge near-peer material, delete obsolete route/provenance/compatibility prose, and route displaced facts to their real owner. Do not append a sibling section, caveat, shim, or summary copy to avoid reshaping the existing owner.
+
+For planning, doctrine, and design-page hardening, use the phase shape `author -> critique -> redteam -> reconcile`. Critique and redteam passes reopen current disk and attach every defect to exact file/section evidence. Only cross-file defects may enter `residual_high`, and each residual is `{ files, claim }`. Reconcile dedupes by sorted files plus claim, clusters by shared files, fixes real defects in owner order, and classifies each claim from current disk as `fixed`, `invalid`, or `open`.
 
 Every repo tool must route generated storage, caches, benchmark output, mutation workdirs, coverage files, snapshots, and scratch artifacts through the owning language/tool configuration or the owning repo tool surface. Do not rely on ambient CLI defaults or gitignore-only tolerance for root litter; configure the tool in `pyproject.toml`, `Directory.Build.props`, tool manifests, test conftests, or the canonical tool engine so outputs land under `.cache`, `.artifacts`, or another owner-declared path.
 
@@ -59,8 +69,12 @@ The `ifcopenshell` CLI runs through the cp312 `forge-companion-env` lane for bat
 
 Route README, ADR, architecture, roadmap, test strategy, API, reference, code documentation, support matrix, how-to, runbook, contributing, tutorial, onboarding, and instruction-file work through `docs/standards/README.md`.
 
+Implementation-bearing documentation also composes the route-owned language doctrine. C# planning/source snippets route through `docs/stacks/csharp/README.md` plus the relevant finalized concept/domain pages; Python planning/source snippets route through `docs/stacks/python/README.md` plus the relevant finalized concept pages. C# planning pages read both the shared `libs/csharp/.api` catalogue tier and package-local `.api` catalogues; Python planning pages read root and package-local `.api` catalogues where present.
+
 Keep generated documentation, prompts, skills, standards, examples, templates, and reusable guidance project-agnostic by default. Do not mention Rasm, repository-specific paths, local commands, local package names, project functions, concrete source files, or project-only docs unless the target file explicitly exists to describe this repository's own usage, routing, or implementation. Generic examples use the neutral names, placeholder alphabet, and code-safe shapes the form standards define. Use concrete repository names, paths, functions, commands, versions, dates, IDs, or package facts only when the document's job is to describe that exact source-backed repository surface.
 
 Future-facing standards, plans, and target designs do not inherit current drift; remove stale paths, stale commands, compatibility prose, old-baseline caveats, partial-adoption apologies, and invented routes instead of preserving them.
+
+For planning-heavy design docs, preserve future-facing ambition while making implementation truth explicit. Separate real production source, planning/catalogue truth, and target design inside the owning document; do not let catalogue polish or prose confidence imply that production code exists. When a target tree is planning-only, say so in the owner surface and continue designing the full-capability future shape there.
 
 Durable docs, prompts, standards, skills, examples, and reusable templates are agent-facing declarative law, not reports, walkthroughs, origin logs, or checklist tails.

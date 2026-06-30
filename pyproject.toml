@@ -218,13 +218,15 @@ dependencies = [
     "stream-zip",                                    # [ARTIFACTS]: bounded-memory streaming zip with ZIP64/AES-256
     "detools",                                       # [ARTIFACTS]: binary-delta engine
     "drawsvg",                                       # [ARTIFACTS]: hierarchical named-layer SVG authoring
-    "exif",                                          # [ARTIFACTS]: EXIF descriptive-metadata read/write
-    "grandalf",                                      # [ARTIFACTS]: Sugiyama and routed diagram layout
+    "pyexiftool",                                    # [ARTIFACTS]: richest cross-format descriptive metadata read/write over the exiftool binary, replaces abandoned exif
+    "puremagic",                                     # [ARTIFACTS]: pure-Python format sniffer, default detect path beside libmagic
+    "pyexiv2; python_version<'3.15'",                # [ARTIFACTS]: in-process EXIF/IPTC/XMP read/write (wheels-only, no cp315 wheel yet)
+    "grandalf",                                      # [ARTIFACTS]: Sugiyama and routed diagram layout (fallback until fast-sugiyama parity lands)
     "iptcinfo3",                                     # [ARTIFACTS]: IPTC descriptive-metadata read/write
     "pdfimpose",                                     # [ARTIFACTS]: press signatures, creep, cuts, and folds
     "psdtags",                                       # [ARTIFACTS]: Photoshop TIFF image resources and layer source data
     "pyphen",                                        # [ARTIFACTS]: language-aware hyphenation dictionaries
-    "resvg-py",                                      # [ARTIFACTS]: in-process SVG to PNG/PDF rasterization
+    "resvg-py",                                      # [ARTIFACTS]: in-process SVG-to-PNG rasterization (embedded Rust resvg)
     "simpleidml",                                    # [ARTIFACTS]: IDML package mutation and composition
     "tifffile",                                      # [ARTIFACTS]: TIFF container IO and extratag authoring
     "av",                                            # [ARTIFACTS]: PyAV video/audio mux and encode
@@ -237,6 +239,24 @@ dependencies = [
     "usd-core; python_version<'3.15'",               # [ARTIFACTS]: USD/USDZ scene packaging
     "zxing-cpp",                                     # [ARTIFACTS]: 2D matrix codes encode and decode
     "stream-unzip",                                  # [ARTIFACTS]: bounded-memory streaming unzip inverse for stream-zip
+    "pdf-oxide",                                     # [ARTIFACTS]: Rust PDF extract/render/create/forms (abi3)
+    "PhotoshopAPI; python_version<'3.15'",           # [ARTIFACTS]: native PSD/PSB layered-document writer (wheels-only, no cp315 wheel/sdist; source-build is a Forge follow-up)
+    "psd-tools",                                     # [ARTIFACTS]: PSD read/inspect plus pixel author
+    "imagecodecs",                                   # [ARTIFACTS]: PackBits/ZIP channel codecs for layered raster egress
+    "skia-pathops",                                  # [ARTIFACTS]: vector boolean/offset/stroke-to-outline
+    "colour-cxf",                                    # [ARTIFACTS]: CxF3 spot/spectral color exchange
+    "opentype-feature-freezer",                      # [ARTIFACTS]: freeze OpenType features into the default glyph set
+    "vharfbuzz",                                     # [ARTIFACTS]: HarfBuzz shaping QA and buffer-diff
+    "PyICU; python_version<'3.15'",                  # [ARTIFACTS]: ICU locale line-break/bidi/collation (sdist-only, needs ICU native)
+    "pyelk",                                         # [ARTIFACTS]: ELK layered/orthogonal/ports/nesting diagram layout
+    "fast-sugiyama",                                 # [ARTIFACTS]: fast Sugiyama layered placement replacing grandalf placement
+    "kiwisolver",                                    # [ARTIFACTS]: Cassowary constraint layout solver promoted to a direct surface
+    "ziafont",                                       # [ARTIFACTS]: font glyph text-to-SVG-path
+    "ziamath",                                       # [ARTIFACTS]: math-to-SVG rendering
+    "schemdraw",                                     # [ARTIFACTS]: native-SVG schematic diagrams
+    "drawpyo",                                       # [ARTIFACTS]: draw.io / diagrams.net export
+    "ezdxf",                                         # [ARTIFACTS]: DXF read/write/render for export/dxf
+    "pysubs2",                                       # [ARTIFACTS]: subtitle parse/convert/retime/restyle model
 ]
 
 [dependency-groups]

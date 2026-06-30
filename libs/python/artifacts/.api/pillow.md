@@ -1,121 +1,201 @@
 # [PY_ARTIFACTS_API_PILLOW]
 
-`pillow` is the raster image owner for the artifacts image rail. It exposes an `Image` object plus a module-level `open`/`new`/`frombytes`/`fromarray`/`frombuffer`/`fromarrow` factory family, a drawing surface (`ImageDraw`), a FreeType font surface (`ImageFont`), an ICC color-management pipeline (`ImageCms`), a multi-frame sequence iterator (`ImageSequence`), and pure-function transform/operation modules (`ImageOps`, `ImageFilter`, `ImageEnhance`, `ImageChops`, `ImageColor`) that drive decode, encode, geometric transform, resampling, filtering, compositing, color-grade, and annotation across the registered codec plugins. The package owner composes `Image`, the factory family, the operation modules, and the Arrow zero-copy seam into the image owner; it never re-implements raster decode, the resampling kernels, or the codec plugins Pillow already owns.
+`pillow` is the in-process working-surface raster owner the `graphic/raster/io#IO` `Raster` page composes as its `RasterEngine.PILLOW` arm: a single mutable `Image` object plus a module-level `open`/`new`/`frombytes`/`frombuffer`/`fromarray`/`fromarrow` factory family, the pure-function/factory transform modules (`ImageOps`/`ImageFilter`/`ImageEnhance`/`ImageChops`/`ImageMath`/`ImageMorph`/`ImageStat`), a drawing surface (`ImageDraw`), a FreeType-shaped text surface (`ImageFont`), an `ImageCms` lcms2 surface, a multi-frame iterator (`ImageSequence`), and the `register_open`/`register_save`/`PyDecoder`/`PyEncoder` codec-plugin registry that drive decode, encode, geometric transform, resampling, filtering, band/channel algebra, compositing, soft-proofing, drawing, and text rendering across the registered plugins. The package owner composes `Image`, the factory family, the operation modules, the `ImageCms` proof/profile-read surface, and the Arrow/NumPy zero-copy seam into the `graphic/raster/io`/`graphic/color/managed`/`exchange/metadata` arms; every arm crosses the one `execution/lanes#LANE` `WORKER_BAND`-bounded `anyio.to_process.run_sync(..., limiter=WORKER_BAND)` worker seam under a `stamina.AsyncRetryingCaller(...).on(BrokenWorkerProcess)` retry, captures `UnidentifiedImageError`/`DecompressionBombError`/`PyCMSError` into the consuming owner's closed `RasterFault`/`ManagedFault`/`MetaFault` vocabulary, and folds into one `msgspec` receipt projected onto `core/receipt#RECEIPT` `ArtifactReceipt.Preview`. It never re-implements raster decode, the resampling kernels, or the codec plugins Pillow already owns; it is NOT the managed-ICC-conversion engine (pyvips `Image.icc_transform` owns the device→device managed egress) — pillow's surviving color role is the soft-proof/gamut-warning transform (`buildProofTransform`) and the ICC-profile-header read (`ImageCmsProfile` + `getProfile*`) that pyvips does not expose.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `pillow`
 - package: `pillow`
-- import: `PIL`
+- import: `PIL` (the import package; distribution is `pillow`) — in the consuming pages this is `lazy from PIL import Image, ImageOps, UnidentifiedImageError` / `lazy from PIL import ImageCms` at the worker arm only, never on the core import path, since `PIL` is a host-native worker package riding the `WORKER_BAND`
 - owner: `artifacts`
-- rail: image
+- rail: image (the `graphic/raster/io#IO` `RasterEngine.PILLOW` working surface; the `graphic/color/managed#MANAGED` soft-proof control; the `exchange/metadata#METADATA` ICC-header reader)
 - version: `12.2.0`
-- license: `License-Expression: MIT-CMU` (permissive; no copyleft obligation)
+- build-floor: `Requires-Python >=3.9`; the cp315 wheel is published and the resolver landed it on this interpreter — NOT gated; the `pillow` manifest row carries no `python_version` marker. AVIF/HEIF/WebP/JPEG/TIFF/FreeType/littlecms2/libimagequant/libraqm are compiled into the wheel; `PIL.features.check(feature)` is the runtime build-capability probe (the same native-capability-detection shape the `media/filtergraph#FILTERGRAPH` filter-registry probe uses) — `check("libjpeg_turbo")`/`check("raqm")`/`check("avif")`/`check_codec("jpg")` gate a build-dependent arm rather than assuming a codec exists
+- license: `MIT-CMU` (`License-Expression: MIT-CMU`; permissive, commercial-safe, no copyleft obligation, no Pantone/paid data)
 - entry points: none (library only)
-- capability: raster decode/encode across plugin codecs, geometric transform, resampling, filtering, enhancement, channel/band ops, compositing, 3D-LUT color grading, ICC color management, drawing, FreeType text rendering, EXIF/XMP metadata, multi-frame sequence access, NumPy/Arrow array interop
+- capability: raster decode/encode across the registry codec plugins; geometric transform (resize/thumbnail/reduce/rotate/transpose/affine-perspective-quad-mesh `transform`); resampling under the `Resampling` kernel enum; convolution/rank/multiband filtering + 3D-LUT color grading; tone/recolor enhancement; the full `ImageChops` Porter-Duff/separable blend-mode channel algebra; band split/merge/channel-extract + premultiplied `alpha_composite`; `point`/`ImageMath` per-pixel and multi-band expression LUTs; `ImageStat` masked statistics; `ImageMorph` binary L-mode morphology; ICC soft-proof + gamut-warning (`buildProofTransform`) and profile-header read; ICC-managed `buildTransform`/`applyTransform`/`profileToProfile` (lcms2 — admitted only as the proof engine, NOT the device-egress path pyvips owns); palette quantization (median-cut/octree/libimagequant) + dithering; drawing primitives + measured FreeType text with variation axes; EXIF/XMP metadata maps; multi-frame (GIF/TIFF/APNG/WebP) sequence + embedded-thumbnail access; procedural gradient/noise/Mandelbrot generators; NumPy `__array_interface__` and Arrow `__arrow_c_array__` zero-copy interop; and the `PyDecoder`/`PyEncoder`/`register_*` codec-plugin extension surface
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: image, draw, font, and color-management types
+[PUBLIC_TYPE_SCOPE]: image, draw, font, palette, and color-management types
 - rail: image
 
-| [INDEX] | [SYMBOL]                    | [PACKAGE_ROLE] | [CAPABILITY]                                       |
-| :-----: | :-------------------------- | :------------- | :------------------------------------------------- |
-|  [01]   | `Image.Image`               | image object   | pixel buffer with transform/encode/band methods    |
-|  [02]   | `ImageFile.ImageFile`       | lazy image     | open-returned image with deferred decode + `draft`  |
-|  [03]   | `ImageDraw.ImageDraw`       | draw surface   | 2D primitives, multiline text, shape paths         |
-|  [04]   | `ImageFont.FreeTypeFont`    | font handle    | TrueType/OpenType font with variation axes         |
-|  [05]   | `ImagePalette.ImagePalette` | palette        | indexed-mode color palette                         |
-|  [06]   | `Image.Exif`                | metadata map   | mutable EXIF tag mapping (`getexif`)               |
-|  [07]   | `ImageFilter.Filter`        | filter base    | convolution/rank/multiband filter base type        |
-|  [08]   | `ImageFilter.Color3DLUT`    | 3D LUT         | trilinear-interpolated color-grade lookup table    |
-|  [09]   | `ImageCms.ImageCmsProfile`  | color profile  | ICC color management profile                       |
-|  [10]   | `ImageCms.ImageCmsTransform` | cms transform | prebuilt profile-to-profile transform              |
+`Image.Image` is the ONE mutable pixel-buffer owner — there is no per-mode or per-format image subtype; the mode is a string row (`RGB`/`RGBA`/`L`/`P`/`CMYK`/`LA`/`I;16`/`F`/`1`) and the format is a registry key, never a parallel reader/writer type. `ImageFile.ImageFile` is the lazy-decode subtype `open` returns (deferred decode + the JPEG `draft` override); every operation module returns or mutates an `Image.Image`.
 
-[PUBLIC_TYPE_SCOPE]: mode enums and fault family
+| [INDEX] | [SYMBOL]                     | [PACKAGE_ROLE]   | [CAPABILITY]                                                            |
+| :-----: | :--------------------------- | :--------------- | :--------------------------------------------------------------------- |
+|  [01]   | `Image.Image`                | image object     | the one mutable pixel buffer with transform/encode/band/stat methods   |
+|  [02]   | `ImageFile.ImageFile`        | lazy image       | `open`-returned image with deferred decode + `draft` + `get_child_images` |
+|  [03]   | `ImageDraw.ImageDraw`        | draw surface     | 2D primitives, multiline/anchored text, measured text, shape paths     |
+|  [04]   | `ImageFont.FreeTypeFont`     | font handle      | FreeType TrueType/OpenType with variation axes (`set_variation_by_*`)  |
+|  [05]   | `ImageFont.TransposedFont`   | rotated font     | 90/180/270 + transverse text orientation wrapper                       |
+|  [06]   | `ImagePalette.ImagePalette`  | palette          | indexed (`P`-mode) color palette + `sepia`/`wedge`/`make_*_lut`        |
+|  [07]   | `Image.Exif`                 | metadata map     | mutable EXIF `MutableMapping` (`getexif`); `get_ifd` nested-IFD access |
+|  [08]   | `ImageStat.Stat`             | statistics       | per-band `mean`/`median`/`stddev`/`var`/`rms`/`extrema`/`sum`/`count`  |
+|  [09]   | `ImageFilter.Filter`         | filter base      | convolution/rank/multiband filter base (`MultibandFilter`/`BuiltinFilter`) |
+|  [10]   | `ImageFilter.Color3DLUT`     | 3D LUT           | trilinear color-grade table (`Color3DLUT.generate(size, callback)`)    |
+|  [11]   | `ImageMorph.MorphOp`         | morphology op    | binary L-mode hit-or-miss morphology over a `LutBuilder` pattern LUT   |
+|  [12]   | `ImageCms.ImageCmsProfile`   | color profile    | ICC profile handle (`tobytes`); the profile-header read owner          |
+|  [13]   | `ImageCms.ImageCmsTransform` | cms transform    | prebuilt profile-to-profile transform (`apply`/`apply_in_place`/`point`) |
+
+[PUBLIC_TYPE_SCOPE]: codec-plugin extension surface
 - rail: image
 
-| [INDEX] | [SYMBOL]                       | [PACKAGE_ROLE] | [CAPABILITY]                          |
-| :-----: | :----------------------------- | :------------- | :------------------------------------ |
-|  [01]   | `Image.Resampling`             | resample enum  | NEAREST/BILINEAR/BICUBIC/LANCZOS/BOX/HAMMING |
-|  [02]   | `Image.Transpose`              | transpose enum | flip/rotate-by-90 orientation cases   |
-|  [03]   | `Image.Dither`                 | dither enum    | NONE/FLOYDSTEINBERG dithering         |
-|  [04]   | `Image.Quantize`               | quantize enum  | MEDIANCUT/MAXCOVERAGE/FASTOCTREE/LIBIMAGEQUANT |
-|  [05]   | `Image.Transform`              | transform enum | AFFINE/PERSPECTIVE/QUAD/MESH/EXTENT   |
-|  [06]   | `ImageCms.Intent` / `Flags`    | cms enums      | perceptual/relative/saturation intent, BPC flags |
-|  [07]   | `Image.UnidentifiedImageError` | decode fault   | unrecognized image data               |
-|  [08]   | `Image.DecompressionBombError` | safety fault   | pixel count exceeds the bomb limit    |
+The plugin registry is the reason `open`/`save` are single polymorphic factories: format selection is a registered row keyed by header bytes, never a per-format reader type. A new codec is a `PyDecoder`/`PyEncoder` subclass plus a `register_open`/`register_save` row — the artifacts owner composes the built-in plugins and never re-implements decode, but this is the seam a bespoke codec rides.
+
+| [INDEX] | [SYMBOL]                                       | [PACKAGE_ROLE]  | [CAPABILITY]                                                  |
+| :-----: | :--------------------------------------------- | :-------------- | :----------------------------------------------------------- |
+|  [01]   | `ImageFile.PyDecoder`                          | decoder base    | pure-Python decoder (`decode`/`set_as_raw`/`pulls_fd`)       |
+|  [02]   | `ImageFile.PyEncoder`                          | encoder base    | pure-Python encoder (`encode`/`encode_to_pyfd`/`pushes_fd`)  |
+|  [03]   | `ImageFile.Parser`                             | incremental     | feed-driven progressive decode (`feed`/`image`/`finished`)  |
+|  [04]   | `Image.register_open` / `register_save` / `register_save_all` | registry rows | bind a plugin's accept/factory/save to a format key |
+|  [05]   | `Image.register_decoder` / `register_encoder` / `register_extension` / `register_mime` | registry rows | bind a codec / extension / MIME to a format |
+|  [06]   | `ImageMode.getmode` / `ImageMode.ModeDescriptor` | mode registry | resolve a mode string to its band/type/base descriptor      |
+
+[PUBLIC_TYPE_SCOPE]: mode/transform enums, profile intents, and the fault family
+- rail: image
+
+The bounded vocabularies the consuming owner keys its arms against — a resample quality selects a `Resampling` member, a quantizer selects a `Quantize` member, an orientation selects a `Transpose` member, a rendering intent selects an `Intent` member. `Dither` carries four members (not two) and `Transpose` seven (the diagonal `TRANSPOSE`/`TRANSVERSE` included).
+
+| [INDEX] | [SYMBOL]                                | [PACKAGE_ROLE]  | [MEMBERS / CAPABILITY]                                          |
+| :-----: | :-------------------------------------- | :-------------- | :------------------------------------------------------------- |
+|  [01]   | `Image.Resampling`                      | resample enum   | `NEAREST`/`BOX`/`BILINEAR`/`HAMMING`/`BICUBIC`/`LANCZOS`        |
+|  [02]   | `Image.Transpose`                       | transpose enum  | `FLIP_LEFT_RIGHT`/`FLIP_TOP_BOTTOM`/`ROTATE_90`/`ROTATE_180`/`ROTATE_270`/`TRANSPOSE`/`TRANSVERSE` |
+|  [03]   | `Image.Dither`                          | dither enum     | `NONE`/`ORDERED`/`RASTERIZE`/`FLOYDSTEINBERG`                  |
+|  [04]   | `Image.Quantize`                        | quantize enum   | `MEDIANCUT`/`MAXCOVERAGE`/`FASTOCTREE`/`LIBIMAGEQUANT`         |
+|  [05]   | `Image.Transform`                       | transform enum  | `AFFINE`/`EXTENT`/`PERSPECTIVE`/`QUAD`/`MESH`                  |
+|  [06]   | `Image.Palette`                         | palette enum    | `WEB`/`ADAPTIVE` palette-source selector for `convert`         |
+|  [07]   | `ImageCms.Intent`                       | cms intent      | `PERCEPTUAL`/`RELATIVE_COLORIMETRIC`/`SATURATION`/`ABSOLUTE_COLORIMETRIC` |
+|  [08]   | `ImageCms.Flags`                        | cms flags       | `SOFTPROOFING`/`GAMUTCHECK`/`BLACKPOINTCOMPENSATION`/`NOWHITEONWHITEFIXUP`/`HIGHRESPRECALC`/… (`IntFlag`) |
+|  [09]   | `ImageCms.Direction`                    | cms direction   | `INPUT`/`OUTPUT`/`PROOF` (the `isIntentSupported` axis)        |
+|  [10]   | `ImageFont.Layout`                      | shaping engine  | `BASIC` / `RAQM` (HarfBuzz/FriBidi complex-script layout)      |
+|  [11]   | `Image.UnidentifiedImageError`          | decode fault    | unrecognized image data → the owner's `RasterFault.decode`     |
+|  [12]   | `Image.DecompressionBombError`          | safety fault    | pixel count exceeds the bomb limit → `RasterFault.bomb`        |
+|  [13]   | `ImageCms.PyCMSError`                   | cms fault       | malformed profile / unsupported transform → folded to `""`/`ManagedFault` |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: image open, create, encode, and interop
 - rail: image
 
-Factory rows take path/stream/buffer/array/Arrow sources; the `Image` method rows return a new image or write bytes.
+`open` is the single decode factory across every plugin codec (lazy — `load`/`draft`/first pixel access forces decode); `new`/`frombytes`/`frombuffer`/`fromarray`/`fromarrow` cover blank/raw/zero-copy-buffer/NumPy/Arrow sources; `save` keys the codec by extension or explicit `format`. `fromarrow`/`SupportsArrowArrayInterface` is the zero-copy seam from the Arrow-backed data tier; `tobytes`/`frombytes` round-trip raw planes.
 
-| [INDEX] | [SURFACE]             | [CALL_SHAPE]                                            | [CAPABILITY]                            |
-| :-----: | :-------------------- | :------------------------------------------------------ | :-------------------------------------- |
-|  [01]   | `Image.open`          | `open(fp, mode='r', formats=None) -> ImageFile`         | open from path or stream (lazy decode)  |
-|  [02]   | `Image.new`           | `new(mode, size, color=0)`                              | create a blank image                    |
-|  [03]   | `Image.frombytes` / `frombuffer` | `frombytes(mode, size, data, decoder_name='raw')` | build image from raw bytes / zero-copy buffer |
-|  [04]   | `Image.fromarray` / `fromarrow` | `fromarray(obj, mode=None)` / `fromarrow(obj, mode, size)` | build from NumPy / Arrow array interface |
-|  [05]   | `Image.Image.save`    | `save(fp, format=None, **params)`                       | encode to a codec format (quality/optimize/compression kwargs) |
-|  [06]   | `Image.Image.tobytes` | `tobytes(encoder_name='raw', *args)`                    | encode to raw bytes                     |
-|  [07]   | `Image.Image.draft`   | `draft(mode, size)`                                     | JPEG-only fast lossy decode-scale hint (method on `Image.Image`; the JPEG plugin overrides it) |
-|  [08]   | `Image.merge` / `Image.composite` | `merge(mode, bands)` / `composite(im1, im2, mask)` | merge single-band images / mask-composite |
+| [INDEX] | [SURFACE]                        | [CALL_SHAPE]                                                                 | [CAPABILITY]                                            |
+| :-----: | :------------------------------- | :-------------------------------------------------------------------------- | :------------------------------------------------------ |
+|  [01]   | `Image.open`                     | `open(fp, mode='r', formats=None) -> ImageFile`                             | open from path/stream (lazy decode; `formats` restricts the plugin set) |
+|  [02]   | `Image.new`                      | `new(mode, size, color=0)`                                                  | create a blank image                                    |
+|  [03]   | `Image.frombytes` / `frombuffer` | `frombytes(mode, size, data, decoder_name='raw', *args)` / `frombuffer(...)` | build from raw bytes / zero-copy buffer view            |
+|  [04]   | `Image.fromarray` / `fromarrow`  | `fromarray(obj, mode=None)` / `fromarrow(obj, mode, size)`                  | build from a NumPy `__array_interface__` / Arrow `__arrow_c_array__` source |
+|  [05]   | `Image.Image.save`               | `save(fp, format=None, **params)`                                          | encode to a codec format (`quality`/`optimize`/`compress_level`/`progressive`/`lossless`/`icc_profile`/`exif`/`save_all` kwargs) |
+|  [06]   | `Image.Image.tobytes` / `frombytes` | `tobytes(encoder_name='raw', *args)` / `frombytes(data, decoder_name='raw', *args)` | encode/decode raw planes in place         |
+|  [07]   | `Image.Image.draft`              | `draft(mode, size) -> (mode, (w, h, xs, ys)) \| None`                       | JPEG decode-scale hint forcing fast lossy downscale-on-load (the JPEG plugin overrides the base method) |
+|  [08]   | `Image.Image.get_child_images`   | `get_child_images() -> list[ImageFile]`                                     | extract embedded thumbnails / multi-resolution sub-images |
+|  [09]   | `Image.merge` / `composite` / `blend` | `merge(mode, bands)` / `composite(im1, im2, mask)` / `blend(im1, im2, alpha)` | merge single-band images / mask-composite / constant-alpha blend |
 
-[ENTRYPOINT_SCOPE]: transform, resample, and band operations
+[ENTRYPOINT_SCOPE]: transform, resample, convert, and quantize
 - rail: image
 
-| [INDEX] | [SURFACE]                 | [CALL_SHAPE]                                  | [CAPABILITY]                            |
-| :-----: | :------------------------ | :-------------------------------------------- | :-------------------------------------- |
-|  [01]   | `Image.Image.resize`      | `resize(size, resample=Resampling.BICUBIC, box=None, reducing_gap=None)` | resample to a new size      |
-|  [02]   | `Image.Image.thumbnail`   | `thumbnail(size, resample, reducing_gap=2.0)` | shrink to fit a bounding box (in place) |
-|  [03]   | `Image.Image.reduce`      | `reduce(factor, box=None)`                    | integer-factor box downscale            |
-|  [04]   | `Image.Image.rotate`      | `rotate(angle, resample, expand=False, center=None, fillcolor=None)` | rotate by an arbitrary angle |
-|  [05]   | `Image.Image.transpose`   | `transpose(Transpose case)`                   | flip or 90-degree rotate                |
-|  [06]   | `Image.Image.crop` / `paste` | `crop(box)` / `paste(im, box=None, mask=None)` | crop to a rectangle / paste region   |
-|  [07]   | `Image.Image.transform`   | `transform(size, Transform, data, resample)`  | affine/perspective/quad/mesh transform  |
-|  [08]   | `Image.Image.convert` / `quantize` | `convert(mode, palette, dither)` / `quantize(colors, method, dither)` | mode conversion / palette quantize |
-|  [09]   | `Image.Image.alpha_composite` / `putalpha` / `getchannel` / `split` | band ops | premultiplied alpha composite, band split/merge |
-|  [10]   | `Image.Image.point` / `histogram` / `getextrema` / `entropy` | per-pixel LUT / stats | pixel transform map and image statistics |
-|  [11]   | `Image.Image.seek` / `tell` / `ImageSequence.Iterator` | frame cursor | multi-frame (GIF/TIFF/APNG/WebP) access |
+One method per geometric concern, each keyed by a `Resampling`/`Transpose`/`Transform` member — never a parallel resizer. `convert` carries a `matrix` (3×4/4×3 colorspace matrix, e.g. RGB→XYZ) and a `Dither`; `quantize` carries the `Quantize` method + `kmeans` refinement; `reducing_gap` is the two-step high-quality downscale knob shared by `resize`/`thumbnail`.
 
-[ENTRYPOINT_SCOPE]: draw, font, operation, and color-management modules
+| [INDEX] | [SURFACE]                  | [CALL_SHAPE]                                                                  | [CAPABILITY]                                  |
+| :-----: | :------------------------- | :--------------------------------------------------------------------------- | :-------------------------------------------- |
+|  [01]   | `Image.Image.resize`       | `resize(size, resample=None, box=None, reducing_gap=None)`                   | resample to a new size (`box` source-crop; `reducing_gap` two-step) |
+|  [02]   | `Image.Image.thumbnail`    | `thumbnail(size, resample=Resampling.BICUBIC, reducing_gap=2.0)`            | shrink to fit a bounding box (in place)       |
+|  [03]   | `Image.Image.reduce`       | `reduce(factor, box=None)`                                                   | integer-factor box downscale                  |
+|  [04]   | `Image.Image.rotate`       | `rotate(angle, resample=Resampling.NEAREST, expand=False, center=None, translate=None, fillcolor=None)` | rotate by an arbitrary angle |
+|  [05]   | `Image.Image.transpose`    | `transpose(Transpose member)`                                               | flip / 90°-rotate / diagonal transpose        |
+|  [06]   | `Image.Image.crop` / `paste` | `crop(box)` / `paste(im, box=None, mask=None)`                            | crop to a rectangle / paste region with optional mask |
+|  [07]   | `Image.Image.transform`    | `transform(size, method, data, resample=Resampling.NEAREST, fill=1, fillcolor=None)` | AFFINE/PERSPECTIVE/QUAD/MESH/EXTENT under one method |
+|  [08]   | `Image.Image.convert`      | `convert(mode=None, matrix=None, dither=None, palette=Palette.WEB, colors=256)` | mode conversion with optional colorspace `matrix` / `Dither` |
+|  [09]   | `Image.Image.quantize`     | `quantize(colors=256, method=None, kmeans=0, palette=None, dither=Dither.FLOYDSTEINBERG)` | palette quantize (median-cut/octree/libimagequant) |
+|  [10]   | `Image.Image.remap_palette` / `putpalette` / `getpalette` | `remap_palette(dest_map, source_palette=None)` | reindex / set / read the `P`-mode palette       |
+
+[ENTRYPOINT_SCOPE]: band, channel, per-pixel transform, and statistics
 - rail: image
 
-| [INDEX] | [SURFACE]                       | [CALL_SHAPE]                                          | [CAPABILITY]                                      |
-| :-----: | :------------------------------ | :---------------------------------------------------- | :------------------------------------------------ |
-|  [01]   | `ImageDraw.Draw`                | `Draw(im, mode=None) -> ImageDraw`                    | bind a draw surface to an image                   |
-|  [02]   | `ImageDraw.ImageDraw.text`      | `text(xy, text, font, fill, anchor, align)` / `multiline_text` / `textbbox` | render and measure text         |
-|  [03]   | `ImageDraw.ImageDraw.rounded_rectangle` | `rounded_rectangle(xy, radius, fill, outline, width)` | rounded rect (also rectangle/ellipse/line/polygon/arc/pieslice) |
-|  [04]   | `ImageFont.truetype` / `load_default` | `truetype(font, size, index, encoding, layout_engine)` / `load_default(size)` | load FreeType / built-in font |
-|  [05]   | `ImageOps.fit` / `contain` / `cover` / `pad` | `fit(image, size, method=Resampling.BICUBIC, centering)` | fit/contain/cover/pad to a target box |
-|  [06]   | `ImageOps.exif_transpose` / `autocontrast` / `equalize` / `colorize` | image | EXIF-orient, tone, and recolor ops |
-|  [07]   | `ImageEnhance.Contrast`         | `Contrast(im).enhance(factor)`                        | adjust contrast (also Color/Brightness/Sharpness) |
-|  [08]   | `ImageFilter.GaussianBlur` / `UnsharpMask` / `Kernel` / `Color3DLUT` | `Image.filter(GaussianBlur(radius))` | blur/sharpen/convolve/3D-LUT grade |
-|  [09]   | `ImageChops.multiply` / `screen` / `overlay` / `difference` / `add` | `(im1, im2)` | full blend-mode channel algebra        |
-|  [10]   | `ImageCms.buildTransform` / `applyTransform` / `profileToProfile` | `(in_profile, out_profile, in_mode, out_mode, intent)` | ICC color-managed conversion |
+The channel/stat surface the owner keys instead of a NumPy round-trip when a Pillow band op suffices. `split`/`merge`/`getchannel`/`alpha_composite`/`putalpha` own channel composition; `point` is the per-pixel LUT and `ImageMath.lambda_eval`/`unsafe_eval` the multi-band pixel-expression evaluator; `ImageStat.Stat` is the masked statistics owner (NOT an `Image` method — it wraps an image + optional mask); `histogram`/`getextrema`/`entropy`/`getcolors` are the in-image stats.
+
+| [INDEX] | [SURFACE]                                | [CALL_SHAPE]                                                       | [CAPABILITY]                                  |
+| :-----: | :--------------------------------------- | :---------------------------------------------------------------- | :-------------------------------------------- |
+|  [01]   | `Image.Image.split` / `getchannel` / `getbands` | `split() -> tuple[Image, ...]` / `getchannel(channel)`     | band split / single-band extract / band-name tuple |
+|  [02]   | `Image.Image.alpha_composite` / `putalpha` | `alpha_composite(im, dest=(0,0), source=(0,0))` / `putalpha(alpha)` | premultiplied over-composite / set the alpha band |
+|  [03]   | `Image.Image.point`                      | `point(lut, mode=None)`                                           | per-pixel LUT / callable / `ImagePointHandler` map |
+|  [04]   | `ImageMath.lambda_eval` / `unsafe_eval`  | `lambda_eval(expr_fn, **bands)` / `unsafe_eval(expr_str, **bands)` | multi-band pixel-expression evaluator (band algebra `point` cannot express) |
+|  [05]   | `Image.eval`                             | `eval(image, *fns)`                                              | apply a function over every pixel (module-level `point`) |
+|  [06]   | `ImageStat.Stat`                         | `Stat(image, mask=None)` → `.mean`/`.median`/`.stddev`/`.var`/`.rms`/`.extrema`/`.sum`/`.count` | masked per-band image statistics |
+|  [07]   | `Image.Image.histogram` / `getcolors`    | `histogram(mask=None, extrema=None)` / `getcolors(maxcolors=256)` | per-band histogram / color-count census       |
+|  [08]   | `Image.Image.getextrema` / `entropy`     | `getextrema()` / `entropy(mask=None, extrema=None)`              | min/max per band / Shannon entropy            |
+|  [09]   | `Image.Image.seek` / `tell` / `ImageSequence.Iterator` / `all_frames` | `seek(frame)` / `Iterator(im)` / `all_frames(im, func=None)` | multi-frame (GIF/TIFF/APNG/WebP) cursor + iterate |
+|  [10]   | `Image.Image.getexif` / `getxmp` / `info` | `getexif() -> Exif` / `getxmp() -> dict`                        | EXIF map / parsed-XMP dict / `info['icc_profile']` raw profile bytes |
+
+[ENTRYPOINT_SCOPE]: draw, font, operation, filter, and channel-algebra modules
+- rail: image
+
+`ImageDraw`/`ImageFont` own annotation + measured FreeType text (variation axes, complex-script `RAQM` layout, anchored/stroked text); `ImageOps` is the fit/contain/cover/pad/tone/recolor operation family; `ImageFilter` the convolution/rank/3D-LUT family; `ImageEnhance` the tone-adjust factories; `ImageChops` the full blend-mode channel algebra; `ImageMorph` the binary morphology.
+
+| [INDEX] | [SURFACE]                                                              | [CALL_SHAPE]                                                                   | [CAPABILITY]                                      |
+| :-----: | :-------------------------------------------------------------------- | :---------------------------------------------------------------------------- | :------------------------------------------------ |
+|  [01]   | `ImageDraw.Draw`                                                      | `Draw(im, mode=None) -> ImageDraw`                                            | bind a draw surface to an image                   |
+|  [02]   | `ImageDraw.ImageDraw.text` / `multiline_text`                        | `text(xy, text, fill, font, anchor, spacing, align, direction, features, language, stroke_width, stroke_fill, embedded_color)` | render anchored/stroked/shaped text |
+|  [03]   | `ImageDraw.ImageDraw.textbbox` / `textlength` / `multiline_textbbox` | `textbbox(xy, text, font, anchor, …, font_size=None)`                         | measure rendered text extent / advance width      |
+|  [04]   | `ImageDraw.ImageDraw.rounded_rectangle` / `regular_polygon` / `…`    | `rounded_rectangle(xy, radius, fill, outline, width, corners)`               | rounded rect / regular polygon (also `rectangle`/`ellipse`/`circle`/`line`/`polygon`/`arc`/`chord`/`pieslice`/`bitmap`) |
+|  [05]   | `ImageDraw.floodfill`                                                 | `floodfill(image, xy, value, border=None, thresh=0)`                         | seed-fill a connected region                      |
+|  [06]   | `ImageFont.truetype` / `load_default`                                 | `truetype(font, size=10, index=0, encoding='', layout_engine=None)` / `load_default(size=None)` | load FreeType / built-in font     |
+|  [07]   | `ImageFont.FreeTypeFont.set_variation_by_axes` / `get_variation_axes` / `getmask2` | `set_variation_by_axes([w0, w1, …])` / `getmask2(text, mode, …)` | drive variable-font axes / shape text to a coverage mask + offset |
+|  [08]   | `ImageOps.fit` / `contain` / `cover` / `pad`                         | `fit(image, size, method=Resampling.BICUBIC, bleed=0.0, centering=(0.5,0.5))` | fit/contain/cover/pad to a target box (the `FitMode` arms) |
+|  [09]   | `ImageOps.exif_transpose` / `autocontrast` / `equalize` / `colorize` / `grayscale` / `invert` / `mirror` / `flip` / `posterize` / `solarize` / `expand` / `scale` / `deform` | `exif_transpose(image, in_place=False)` | EXIF-orient + the tone/recolor/geometric op family |
+|  [10]   | `ImageEnhance.Contrast`                                               | `Contrast(im).enhance(factor)`                                               | adjust contrast (also `Color`/`Brightness`/`Sharpness`) |
+|  [11]   | `ImageFilter.GaussianBlur` / `UnsharpMask` / `Kernel` / `RankFilter` / `Color3DLUT` | `Image.filter(GaussianBlur(radius))` / `Color3DLUT.generate(size, callback)` | blur/sharpen/NxN-convolve/rank/3D-LUT grade |
+|  [12]   | `ImageChops.multiply` / `screen` / `overlay` / `soft_light` / `hard_light` / `difference` / `add` / `subtract` / `add_modulo` / `darker` / `lighter` / `logical_and` | `(im1, im2)` | full Porter-Duff/separable blend-mode + binary channel algebra |
+|  [13]   | `ImageMorph.MorphOp` / `LutBuilder`                                   | `MorphOp(op_name='dilation4').apply(image)` / `LutBuilder(op_name=…).build_lut()` | binary L-mode hit-or-miss morphology over a pattern LUT |
+
+[ENTRYPOINT_SCOPE]: ICC color management (soft-proof + profile read) and procedural generators
+- rail: image
+
+`buildTransform`/`applyTransform`/`profileToProfile` are the lcms2 managed-conversion primitives — admitted to the artifacts owner ONLY as the proof/device-link path; the standard device→device managed egress (sRGB↔CMYK with intent + black-point) is pyvips `Image.icc_transform`'s, not this. `buildProofTransform` + `Flags.SOFTPROOFING`/`Flags.GAMUTCHECK` is the soft-proof / gamut-warning transform pyvips has no member for; `ImageCmsProfile` + the `getProfile*` readers are the `exchange/metadata` profile-header read. The `effect_*`/`*_gradient` family seeds procedural rasters for the media-synthesis/test path.
+
+| [INDEX] | [SURFACE]                                                  | [CALL_SHAPE]                                                                                   | [CAPABILITY]                                          |
+| :-----: | :--------------------------------------------------------- | :-------------------------------------------------------------------------------------------- | :---------------------------------------------------- |
+|  [01]   | `ImageCms.buildProofTransform`                             | `buildProofTransform(inputProfile, outputProfile, proofProfile, inMode, outMode, renderingIntent=PERCEPTUAL, proofRenderingIntent=ABSOLUTE_COLORIMETRIC, flags=Flags.SOFTPROOFING)` | soft-proof: simulate the proof (CMYK press) profile on the display + gamut-warning |
+|  [02]   | `ImageCms.buildTransform` / `applyTransform`               | `buildTransform(in, out, inMode, outMode, renderingIntent=PERCEPTUAL, flags=Flags.NONE)` / `applyTransform(im, transform, inPlace=False)` | build/apply a profile-to-profile transform (device-link; NOT the standard managed egress) |
+|  [03]   | `ImageCms.profileToProfile`                                | `profileToProfile(im, inputProfile, outputProfile, renderingIntent=PERCEPTUAL, outputMode=None, inPlace=False, flags=Flags.NONE)` | one-shot managed conversion (proof/device-link convenience) |
+|  [04]   | `ImageCms.ImageCmsProfile` / `getOpenProfile`              | `ImageCmsProfile(BytesIO(blob))` / `getOpenProfile(profileFilename)`                          | parse an ICC profile from bytes/path (the metadata-read entry) |
+|  [05]   | `ImageCms.getProfileDescription` / `getProfileManufacturer` / `getProfileModel` / `getProfileCopyright` / `getProfileInfo` | `getProfileDescription(profile) -> str`              | read the ICC profile header fields (the `exchange/metadata` `_icc` reader) |
+|  [06]   | `ImageCms.getDefaultIntent` / `isIntentSupported`          | `getDefaultIntent(profile) -> int` / `isIntentSupported(profile, intent, Direction.PROOF) -> Literal[-1, 1]` | read default intent / probe an intent for a direction |
+|  [07]   | `ImageCms.createProfile` / `ImageCmsTransform.apply`       | `createProfile('sRGB'\|'LAB'\|'XYZ', colorTemp=0)` / `transform.apply(im, imOut=None)`        | synthesize a built-in profile / apply a prebuilt transform |
+|  [08]   | `Image.linear_gradient` / `radial_gradient` / `effect_noise` / `effect_mandelbrot` / `Image.Image.effect_spread` | `effect_noise(size, sigma)` / `radial_gradient(mode)` | procedural gradient/noise/fractal seed rasters        |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [IMAGE_RASTER]:
-- import: `from PIL import Image, ImageDraw, ImageFont, ImageOps, ImageFilter, ImageEnhance, ImageChops, ImageCms, ImageSequence` at boundary scope only; the distribution is `pillow`, the import package is `PIL`.
-- open axis: `Image.open` is the single decode factory across every plugin codec; format selection is a registry row keyed by header bytes, never a per-format reader type. `open` is lazy; `load`, `draft` (JPEG decode-scale), or first pixel access forces the decode.
-- create/interop axis: `Image.new`/`frombytes`/`frombuffer`/`fromarray`/`fromarrow` cover blank/raw/zero-copy-buffer/NumPy/Arrow sources; mode is a string row (`RGB`/`RGBA`/`L`/`P`/`CMYK`/`LA`/`I;16`/`F`), never a per-mode image type; `fromarrow`/`SupportsArrowArrayInterface` is the zero-copy seam into the Arrow-backed data tier, never a manual buffer marshal.
-- transform axis: `resize`/`thumbnail`/`reduce`/`rotate`/`transpose`/`transform` accept a `Resampling`/`Transpose`/`Transform` enum case; resampling quality and `reducing_gap` two-step downscale are enum/kwarg rows, never a parallel resizer; `transform` covers AFFINE/PERSPECTIVE/QUAD/MESH/EXTENT under one method.
-- band/stat axis: `split`/`merge`/`getchannel`/`alpha_composite`/`putalpha` own channel composition; `point`/`histogram`/`getextrema`/`entropy`/`getcolors` own per-pixel transform and statistics, never a NumPy round-trip where a Pillow band op suffices.
-- operation axis: `ImageOps` (`fit`/`contain`/`cover`/`pad`/`exif_transpose`/`autocontrast`/`equalize`/`colorize`), `ImageFilter` (`GaussianBlur`/`UnsharpMask`/`Kernel`/`Color3DLUT`/`Rank`/`Median`), `ImageEnhance`, and `ImageChops` (blend-mode algebra) are pure-function/factory surfaces returning a new image; enhancement, filtering, and 3D-LUT grading compose, never mutate the source.
-- color-management axis: `ImageCms.buildTransform`/`applyTransform`/`profileToProfile` run ICC-profile color conversion under an `Intent`/`Flags` row through littlecms2; embedded ICC bytes recovered from `info['icc_profile']` (or `pikepdf.models.PdfImage.icc`) feed a managed transform, never a naive `convert('RGB')` that drops the profile.
-- frame axis: `seek`/`tell` plus `ImageSequence.Iterator`/`all_frames` walk GIF/TIFF/APNG/WebP multi-frame containers; frame count and per-frame duration ride `info`, never a manual offset scan.
-- encode axis: `Image.save` keys the codec by the target extension or explicit `format`; quality/optimize/compress_level/progressive/lossless/icc_profile/exif ride save kwargs, never a parallel encoder.
-- evidence: each image op captures mode, size, frame count, color bands, ICC presence, and output byte length as an image receipt.
-- boundary: Pillow owns raster decode/encode/transform/grade/text; scientific filtering and morphology route to `scikit-image`; vector PDF authoring routes to the pdf owner; embedded-PDF image extraction arrives via `pikepdf.models.PdfImage.as_pil_image`; live UI stays outside this package.
+- import: `lazy from PIL import Image, ImageOps, UnidentifiedImageError` (the `graphic/raster/io#IO` worker arm) / `lazy from PIL import ImageCms` (the `exchange/metadata#METADATA` and `graphic/color/managed#MANAGED` arms) at the worker-arm body only — `PIL` is a host-native worker package, so the import lands inside the `to_process` worker function that needs it, never on the core page import path. An absent `PIL` (`ImportError`) folds to the host-readiness fault (`RasterFault.provision`), distinct from a content fault.
+- worker-seam axis: every Pillow op is synchronous native CPU work; it crosses ONE `anyio.to_process.run_sync(_worker, op, limiter=WORKER_BAND)` subprocess seam bounded by the shared `execution/lanes#LANE` `WORKER_BAND` `CapacityLimiter` the `exchange/detect`/`exchange/metadata`/`graphic/raster/*`/`graphic/color/managed` worker lane shares — never a per-owner `CapacityLimiter(slots)` knob that oversubscribes the host, never the unbounded per-loop default, never the inline event loop, and never a `to_interpreter` subinterpreter (which shares the host interpreter version and cannot host the native stack). The crossing wraps `stamina.AsyncRetryingCaller(...).on(BrokenWorkerProcess)` so a transient OOM/signal worker death recovers before the slot faults.
+- open/probe axis: `Image.open` is the single decode factory across every plugin codec — format selection is a registry row keyed by header bytes, never a per-format reader type. `open` is lazy; `Probe` reads `format`/`mode`/`n_frames`/`info["icc_profile"]` off the unloaded image with NO transcode, while `load`/`draft`/first pixel access forces the decode. The JPEG `draft(mode, size)` decode-scale hint is the fast lossy downscale-on-load; `get_child_images` extracts embedded thumbnails.
+- create/interop axis: `Image.new`/`frombytes`/`frombuffer`/`fromarray`/`fromarrow` cover blank/raw/zero-copy-buffer/NumPy/Arrow sources; mode is a string row (`RGB`/`RGBA`/`L`/`P`/`CMYK`/`LA`/`I;16`/`F`/`1`), never a per-mode image type. `fromarrow`/`SupportsArrowArrayInterface` is the zero-copy seam from the Arrow-backed data tier and `np.asarray(image)`/`fromarray` the NumPy `__array_interface__` seam — never a manual buffer marshal; a numpy hand-off into a worker uses `ascontiguousarray` for a C-contiguous plane.
+- transform axis: `resize`/`thumbnail`/`reduce`/`rotate`/`transpose`/`transform` accept a `Resampling`/`Transpose`/`Transform` member; resample quality and the `reducing_gap` two-step downscale are enum/kwarg rows, never a parallel resizer. `transform` covers AFFINE/PERSPECTIVE/QUAD/MESH/EXTENT under one method; the `FitMode` arm (`CONTAIN`/`COVER`/`STRETCH`/`PAD`) maps to `ImageOps.contain`/`fit`/`resize`/`pad`.
+- convert/quantize axis: `convert(mode, matrix=…, dither=…)` carries the colorspace `matrix` (RGB↔XYZ/Lab) and a `Dither`; `quantize(colors, method=Quantize.<M>, kmeans=…)` selects median-cut/max-coverage/octree/libimagequant; `Dither` is `NONE`/`ORDERED`/`RASTERIZE`/`FLOYDSTEINBERG` and `Transpose` carries the diagonal `TRANSPOSE`/`TRANSVERSE`, not a two-member subset. Alpha flatten for a no-alpha codec is `Image.convert("RGB")`.
+- band/stat axis: `split`/`merge`/`getchannel`/`alpha_composite`/`putalpha` own channel composition; `point` is the per-pixel LUT and `ImageMath.lambda_eval`/`unsafe_eval` the multi-band pixel-expression evaluator (band algebra `point` cannot express); `ImageStat.Stat(image, mask)` owns masked per-band statistics; `histogram`/`getextrema`/`entropy`/`getcolors` own in-image stats — never a NumPy round-trip where a Pillow band op suffices.
+- operation axis: `ImageOps` (`fit`/`contain`/`cover`/`pad`/`exif_transpose`/`autocontrast`/`equalize`/`colorize`/`grayscale`/`invert`/`mirror`/`posterize`/`solarize`/`expand`/`scale`/`deform`), `ImageFilter` (`GaussianBlur`/`UnsharpMask`/`Kernel`/`Color3DLUT`/`RankFilter`/`MedianFilter`), `ImageEnhance` (`Contrast`/`Color`/`Brightness`/`Sharpness`), `ImageChops` (full blend-mode algebra), and `ImageMorph` (binary L-mode morphology) are pure-function/factory surfaces returning a NEW image; enhancement, filtering, grading, and morphology compose, never mutate the source.
+- text axis: `ImageDraw.text`/`multiline_text` with `anchor`/`stroke_width`/`embedded_color`/`features`/`language`/`direction` render annotation; `ImageFont.truetype(..., layout_engine=Layout.RAQM)` selects HarfBuzz/FriBidi complex-script shaping; `FreeTypeFont.set_variation_by_axes`/`get_variation_axes` drive variable-font axes; `textbbox`/`textlength`/`getmask2` measure. (Pillow text serves drawing-on-raster annotation; the typography PLANE — shaping QA, font merge/STAT/freeze, text-on-path — stays `uharfbuzz`/`fonttools`/`vharfbuzz`.)
+- color-management axis: pyvips `Image.icc_transform(output_profile, *, input_profile, intent, black_point_compensation, pcs, depth)` is the standard device→device managed egress (the `graphic/color/managed#MANAGED` engine). Pillow `ImageCms` is admitted for exactly two surviving roles: (a) the soft-proof / gamut-warning transform — `buildProofTransform(in, out, proof, inMode, outMode, …, flags=Flags.SOFTPROOFING)` (optionally `| Flags.GAMUTCHECK`), which pyvips cannot express; and (b) the ICC profile-header READ — `ImageCmsProfile(BytesIO(info["icc_profile"]))` then `getProfileDescription`/`getProfileManufacturer`/`getProfileModel`/`getProfileCopyright` + `getDefaultIntent` (mapped through the metadata `_INTENT_NAME` table), each accessor's `PyCMSError` folding to `""` so one missing tag never sinks the rest. A second pillow ICC device-egress engine beside pyvips is the deleted divergence — never `applyTransform`/`profileToProfile` where the managed device conversion belongs to pyvips.
+- frame axis: `seek`/`tell` plus `ImageSequence.Iterator`/`all_frames` walk GIF/TIFF/APNG/WebP multi-frame containers; frame count (`n_frames`) and per-frame `duration`/`loop` ride `info`, never a manual offset scan.
+- encode axis: `Image.save` keys the codec by the target extension or explicit `format`; `quality`/`optimize`/`compress_level`/`progressive`/`lossless`/`icc_profile`/`exif`/`save_all`/`append_images` ride save kwargs, never a parallel encoder; native AVIF/WebP/HEIF rides the built-in `AvifImagePlugin`/`WebPImagePlugin`/`HeifImagePlugin` when `features.check` confirms the codec.
+- plugin axis: a bespoke codec is an `ImageFile.PyDecoder`/`PyEncoder` subclass plus a `register_open`/`register_save`/`register_extension`/`register_mime` row — the registry seam, not a forked decode loop; the artifacts owner composes the built-in plugins and adds none.
+- capability-detection axis: `PIL.features.check(feature)`/`check_codec(codec)`/`features.pilinfo()` is the native-build probe (`raqm`/`libjpeg_turbo`/`avif`/`webp_anim`/`freetype2`); a build-dependent arm routes on it (RAQM shaping, AVIF save) rather than assuming the feature — the same capability-detection shape `imagecodecs.<CODEC>.available` and the `media/filtergraph` filter registry use.
+- evidence: each op captures mode, size, frame count, color bands, ICC presence/description, soft-proof gamut-warning count, and output byte length as a `msgspec.Struct` field folded into the consuming owner's `RasterFact`/`ManagedFact`/`MetaFacts` and projected onto `ArtifactReceipt.Preview` — Pillow mints no receipt of its own.
+- boundary: Pillow owns in-process raster decode/encode/transform/resample/filter/grade/band-algebra/morphology/draw/measured-text + ICC soft-proof + ICC profile-header read. The libvips fused decode/downscale/ICC-managed-egress/smartcrop streaming pipeline is pyvips; scientific filtering/segmentation/registration is `scikit-image`; the typography shaping/merge/freeze plane is `uharfbuzz`/`fonttools`/`vharfbuzz`; vector boolean/offset is `skia-pathops`; layered PSD/PSB authoring is `PhotoshopAPI`/`psd-tools` (channel codecs `imagecodecs`); embedded-PDF image extraction arrives via `pikepdf.models.PdfImage.as_pil_image`; CMYK/spectral math is `colour-science`; live UI (`ImageQt`/`ImageTk`/`ImageGrab`/`ImageShow`) stays outside this package.
+
+[STACKING]:
+- The `graphic/raster/io#IO` `Raster` page admits Pillow as the `RasterEngine.PILLOW` member of the `_ENGINE` `EngineOps` bundle: `Thumbnail` runs `ImageOps.exif_transpose(Image.open(BytesIO(payload)))` then the `FitMode`-keyed `ImageOps.contain`/`fit`/`resize`/`pad`; `Convert` runs `Image.save` keyed by the typed `ConvertFormat` with the alpha `Image.convert("RGB")` flatten when the codec carries no alpha; `Crop` runs `Image.crop`; `Probe` runs the lazy `Image.open` header read; `Montage` runs the `Image.new`/`thumbnail`/`paste` grid composite — all under one `_pillow_guarded` capture (`UnidentifiedImageError` → `RasterFault.decode`, `DecompressionBombError` → `RasterFault.bomb`, `OSError`/`ValueError`/`KeyError` → `RasterFault.encode`) inside the `WORKER_BAND` `to_process` seam, never a sibling op per engine. A new pillow-side raster operation is one `RasterOp` case plus one `EngineOps` field plus one pillow arm.
+- The `exchange/metadata#METADATA` `_icc` reader composes Pillow as the ICC profile-header substrate beneath the pyvips byte carrier: `pyvips` reads the `icc-profile-data` bytes off the libvips metadata namespace, then `ImageCms.ImageCmsProfile(BytesIO(blob))` + the `getProfile*` accessors + `getDefaultIntent` fold the description/manufacturer/model/copyright/intent into the one `MetaFacts.from_logical(...)` `msgspec.convert(strict=False)` materialization — each accessor wrapped so a `PyCMSError` yields `""`, the raw `ImageCmsProfile` never crossing the owner boundary. Pillow is the ICC HEADER reader, pyvips the profile-byte carrier and re-encode boundary — one role each, no overlap.
+- The `graphic/color/managed#MANAGED` page admits Pillow ONLY as a soft-proof control on its `IccTransform` bundle: a `GAMUTCHECK`/soft-proof field selects `buildProofTransform(in, out, proof, inMode, outMode, …, flags=Flags.SOFTPROOFING | Flags.GAMUTCHECK)` + `applyTransform` to simulate the CMYK proof profile and flag out-of-gamut pixels for the PDF/X separations preflight — the device→device managed egress stays pyvips `icc_transform`; pillow's `buildTransform`/`profileToProfile` as a second managed engine is the deleted divergence (a growth row is "a new ICC control (gamut-warning flag, soft-proof profile)" on the existing bundle, never a parallel image writer).
+- Every Pillow worker arm rails its provider raise into the consuming owner's closed `@tagged_union` fault (`RasterFault`/`ManagedFault`/`MetaFault`) at the incurring arm and returns through the `expression` `Result[T, Fault]` the rail already speaks (`Ok`/`Error`, `bind`/`map`, `Block`-collected over a per-input batch as `RuntimeRail[Block[Result[ArtifactReceipt, RasterFault]]]`) so one corrupt input faults its own slot without aborting the farm — the outcome a structurally addressable typed `RasterFact`/`ManagedFact` case, never an erased `bytes` a consumer re-parses or a bare `except Exception` swallowing an unclassified Pillow raise.
+- The op evidence (mode, size, bands, `n_frames`, ICC presence + `getProfileDescription`, soft-proof out-of-gamut count, output byte length) feeds the same `msgspec.Struct` `RasterFact`/`ManagedFact` family projected onto `core/receipt#RECEIPT` `ArtifactReceipt.Preview(key, width, height, scores)` every other raster/color op contributes — one receipt family, the Pillow working-surface/soft-proof arms as cases, never seven sibling receipt shapes; `numpy.frombuffer(image.tobytes(), dtype).reshape(...)` is the zero-copy bridge when an arm hands a plane to the numeric tier and `np.asarray(image)` the intake from it.
 
 ## [05]-[LOCAL_ADMISSION]
 
 [RAIL_LAW]:
 - Package: `pillow`
-- Owns: raster decode/encode, geometric transform, resampling, filtering, enhancement, 3D-LUT grading, ICC color management, compositing, channel/band ops, drawing, FreeType text, EXIF/XMP metadata, multi-frame access, NumPy/Arrow interop
-- Accept: image decode/transform/encode feeding the visuals, document, and export-bundle owners; `pikepdf` extracted images via `as_pil_image`; Arrow/NumPy arrays via `fromarrow`/`fromarray`
-- Reject: wrapper-renames of `open`/`save`; a hand-rolled resampler where `Resampling` exists; a per-mode or per-format image type where one `Image` and a registry row suffice; a naive `convert` that discards an ICC profile where `ImageCms` exists; raster decode the codec plugins already own
+- Owns: in-process raster decode/encode, geometric transform, resampling under the `Resampling` kernel, convolution/rank/multiband filtering + 3D-LUT grading, tone/recolor enhancement, the full `ImageChops` blend-mode + binary channel algebra, band split/merge/channel-extract + premultiplied `alpha_composite`, `point`/`ImageMath` per-pixel + multi-band expression LUTs, `ImageStat` masked statistics, `ImageMorph` binary L-mode morphology, palette quantization + dithering, drawing + measured FreeType text (variation axes, `RAQM` shaping), ICC soft-proof + gamut-warning (`buildProofTransform`) and ICC profile-header read (`ImageCmsProfile` + `getProfile*`), EXIF/XMP metadata maps, multi-frame sequence + embedded-thumbnail access, procedural generators, NumPy/Arrow zero-copy interop, and the `PyDecoder`/`PyEncoder`/`register_*` codec-plugin extension surface
+- Accept: the `graphic/raster/io#IO` `RasterEngine.PILLOW` working surface (decode/thumbnail/convert/crop/probe/montage on the `WORKER_BAND`); the `exchange/metadata#METADATA` ICC profile-header read; the `graphic/color/managed#MANAGED` soft-proof / gamut-warning control; `pikepdf` extracted images via `as_pil_image`; Arrow/NumPy arrays via `fromarrow`/`fromarray`; build-dependent arms gated on `features.check`
+- Reject: a wrapper-rename of `open`/`save`; a hand-rolled resampler where `Resampling` exists; a per-mode or per-format image type where one `Image` and a registry row suffice; a NumPy round-trip where a Pillow band/stat/`ImageMath` op suffices; a second pillow ICC device-egress engine (`buildTransform`/`profileToProfile`) beside pyvips `icc_transform` (only `buildProofTransform` soft-proof + `getProfile*` read survive); a naive `convert` that discards an ICC profile where the soft-proof/header path applies; a two-member `Dither`/`Transpose` enum where four/seven members exist; the inline-event-loop or per-owner-`CapacityLimiter` crossing where the shared `WORKER_BAND` `to_process` seam owns it; a bare `except Exception` where `UnidentifiedImageError`/`DecompressionBombError`/`PyCMSError` map to a closed fault case; raster decode the codec plugins already own; the typography shaping/merge/freeze plane `uharfbuzz`/`fonttools` owns; the live-UI surfaces (`ImageQt`/`ImageTk`/`ImageGrab`/`ImageShow`)
