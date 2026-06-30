@@ -1,6 +1,6 @@
 # [RESILIENCE]
 
-Transport resilience is one topology declared at the composition root. Every outbound hop owns exactly one pipeline, held as one registry row keyed by hop identity, and the callable domain code receives is already resilient — call sites carry zero resilience vocabulary, which is what makes a second owner a visible anomaly instead of a habit. Inside a pipeline, declaration order is the policy and every strategy knob is a validated policy value derived from the hop's allotment class wherever the spans already decide it; execution is outcome-first, folding every termination once at the seam into a typed rail value carrying its rejection evidence. HTTP seams compose the standard and hedging handlers as slot-editable options records selected by the hop row's idempotency columns; operator-forced darkness is one multi-breaker control per capability group; chaos is ordered policy below the strategies it tests. Domain-internal retry stays `Schedule` policy on effect rails and store transaction retry stays the store's execution strategy — never either beside a hop pipeline on one seam. Growth lands as rows: a new hop is one row, a new posture one options edit, a new fault mix one weighted generator row, never a new code surface.
+Transport resilience is one topology declared at the composition root. Every outbound hop owns exactly one pipeline, held as one registry row keyed by hop identity, and the callable domain code receives is already resilient — call sites carry zero resilience vocabulary, which is what makes a second owner a visible anomaly instead of a habit. Inside a pipeline, declaration order is the policy and every strategy knob is a validated property derived from the hop's allotment class, never a call-site literal; execution is outcome-first, folding every termination once at the seam into a typed rail value carrying its rejection evidence. HTTP seams compose the standard and hedging handlers as slot-editable options records selected by the hop row's idempotency columns; operator-forced darkness is one multi-breaker control per capability group; chaos is ordered policy below the strategies it tests. Domain-internal retry stays `Schedule` policy on effect rails and store transaction retry stays the store's execution strategy — never either beside a hop pipeline on one seam. Growth lands as rows: a new hop is one row, a new posture one options edit, a new fault mix one weighted generator row, never a new code surface.
 
 ## [01]-[RESILIENCE_CHOOSER]
 
@@ -34,7 +34,7 @@ This table routes a resilience concern to its owning surface; the most specific 
 - Law: reload and disposal honor the declaration atomically — a reload swaps the entire composite, never one strategy, so in-flight executions finish under the old order, and composite disposal walks declaration order outermost-first, so a teardown that publishes state still observes live inner components.
 
 [POLICY_ROWS]:
-- Law: strategy knobs derive from the hop's allotment class wherever the spans already decide them — the retry bound is the attempt count the budget admits and the breaker sampling window is twice the attempt deadline — so a posture edit is one row edit and an incoherent knob pair is unconstructible.
+- Law: every strategy knob is a derived property on the allotment class, not a literal at the call site — the retry bound is the attempt count the budget admits, the breaker sampling window is twice the attempt deadline, the break duration is half the window, the backoff seed and hedge delay are attempt fractions, and the limiter permits and breaker throughput derive from one concurrency floor — so a posture edit is one row edit and an incoherent knob pair is unconstructible; a numeric literal inside `AddRetry`, `AddCircuitBreaker`, `AddConcurrencyLimiter`, or `.Hedging` is the rejected form, reconstructing what the column already carries.
 - Law: the default predicate of retry, hedging, fallback, and breaker handles every exception except `OperationCanceledException` — caller cancellation is never transient unless a predicate opts in — and one `PredicateBuilder<T>` row converts implicitly into all four `ShouldHandle` slots, so a hop's transient class is declared once.
 - Law: delay algebra is Constant = base, Linear = (n+1)·base, Exponential = 2ⁿ·base; `UseJitter` is ±25% uniform on the linear forms and switches the exponential curve to decorrelated jitter, which spreads correlated retry storms.
 - Law: `MaxDelay` caps only the computed curve — a `DelayGenerator` return bypasses the cap entirely, so server-directed delays are uncapped by design and any operator ceiling is enforced inside the generator; a null or negative generator return falls back to the curve.
@@ -47,14 +47,31 @@ This table routes a resilience concern to its owning surface; the most specific 
 - Use: `SeverityProvider` to demote expected retry churn and promote breaker opens — severity `None` suppresses recording entirely — with `ResultFormatter`, `MeteringEnrichers`, and `TelemetryListeners` as observability projections that cannot mutate the outcome.
 
 ```csharp conceptual
-public sealed record Reply(int Rank, bool Faulted);
+public sealed record Reply(bool Faulted);
 
-public sealed record AllotmentClass(string Name, TimeSpan Total, TimeSpan Attempt, double Trip) {
-    public static readonly AllotmentClass Interactive = new("<class-a>", TimeSpan.FromSeconds(8), TimeSpan.FromSeconds(2), Trip: 0.2);
-    public static readonly AllotmentClass Bulk = new("<class-b>", TimeSpan.FromSeconds(45), TimeSpan.FromSeconds(10), Trip: 0.5);
+[SmartEnum<string>]
+public sealed partial class AllotmentClass {
+    public static readonly AllotmentClass Interactive = new("<class-a>", total: TimeSpan.FromSeconds(8), attempt: TimeSpan.FromSeconds(2), trip: 0.2, floor: 100);
+    public static readonly AllotmentClass Bulk = new("<class-b>", total: TimeSpan.FromSeconds(45), attempt: TimeSpan.FromSeconds(10), trip: 0.5, floor: 32);
 
+    public TimeSpan Total { get; }
+    public TimeSpan Attempt { get; }
+    public double Trip { get; }
+    public int Floor { get; }
     public int Attempts => (int)(Total / Attempt) - 1;
     public TimeSpan Sampling => 2 * Attempt;
+    public int Permits => Floor * 2;
+    public int Throughput => Floor / 2;
+    public TimeSpan Break => Sampling / 2;
+    public TimeSpan Backoff => Attempt / 20;
+    public int Hedges => Math.Min(Attempts, 2);
+    public TimeSpan HedgeDelay => Attempt / 4;
+    public CircuitBreakerStrategyOptions<Reply> Breaker(
+        PredicateBuilder<Reply> transient, CircuitBreakerManualControl? control = null, CircuitBreakerStateProvider? evidence = null) => new() {
+        Name = "<health>", FailureRatio = Trip, MinimumThroughput = Throughput,
+        SamplingDuration = Sampling, BreakDuration = Break, ShouldHandle = transient,
+        ManualControl = control, StateProvider = evidence,
+    };
 }
 
 public static class HopPipeline {
@@ -63,18 +80,15 @@ public static class HopPipeline {
 
     public static ResiliencePipeline<Reply> Compose(AllotmentClass allotment, TimeProvider clock, ILoggerFactory telemetry) {
         ArgumentNullException.ThrowIfNull(allotment);
-        return new ResiliencePipelineBuilder<Reply> { Name = "<hop-a>", TimeProvider = clock }
+        return new ResiliencePipelineBuilder<Reply> { Name = allotment.Key, TimeProvider = clock }
             .ConfigureTelemetry(telemetry)
-            .AddConcurrencyLimiter(permitLimit: 64, queueLimit: 0)
+            .AddConcurrencyLimiter(permitLimit: allotment.Permits, queueLimit: 0)
             .AddTimeout(new TimeoutStrategyOptions { Name = "<total>", Timeout = allotment.Total })
             .AddRetry(new RetryStrategyOptions<Reply> {
                 Name = "<retry>", MaxRetryAttempts = allotment.Attempts, BackoffType = DelayBackoffType.Exponential, UseJitter = true,
-                Delay = TimeSpan.FromMilliseconds(100), MaxDelay = TimeSpan.FromSeconds(2), ShouldHandle = Transient,
+                Delay = allotment.Backoff, MaxDelay = allotment.Attempt, ShouldHandle = Transient,
             })
-            .AddCircuitBreaker(new CircuitBreakerStrategyOptions<Reply> {
-                Name = "<health>", FailureRatio = allotment.Trip, MinimumThroughput = 32,
-                SamplingDuration = allotment.Sampling, BreakDuration = TimeSpan.FromSeconds(4), ShouldHandle = Transient,
-            })
+            .AddCircuitBreaker(allotment.Breaker(Transient))
             .AddTimeout(new TimeoutStrategyOptions { Name = "<attempt>", Timeout = allotment.Attempt })
             .Build();
     }
@@ -87,14 +101,27 @@ public static class HopPipeline {
 - Law: the seam executes outcome-first — `ExecuteOutcomeAsync` with typed state keeps the hot path closure-free, strategies see outcomes and never in-flight exceptions, and the capture kernel folds everything except process-fatal faults into the outcome.
 - Law: the context lease is strict — `ResilienceContextPool.Shared.Get` at entry, `Return` on every exit, never retained — and `OperationKey` fixes at lease as the idempotency key's transport: it reaches every attempt and lands as `operation.key` on every telemetry event, so key, attempts, and evidence correlate by construction rather than by joins.
 - Law: `ContinueOnCapturedContext` rides the lease — one capture policy per execution, consumed by every strategy await — and a pre-cancelled lease short-circuits to a cancelled outcome before any strategy runs.
-- Law: the total-outcome fold happens exactly once, at the seam — every execution folds to completed, cancelled, rejected, or faulted; above the seam the outcome is a closed rail value and exception handling no longer exists there, so a second fold at a caller re-opens the vocabulary the seam retired.
-- Law: cancelled-versus-rejected is structural — a cancellation while the caller token fired is the caller's intent passing through untyped; a child deadline firing while the caller token did not converts to `TimeoutRejectedException` carrying the deadline span — so "the caller left" and "the attempt was too slow" are distinguishable by type alone.
-- Law: the rejected arm is a closed taxonomy ordered child-before-parent — `IsolatedCircuitException` before `BrokenCircuitException`, so operator-forced darkness never masquerades as dependency failure — and every rejection carries its evidence: the deadline span, the `RetryAfter` hint, the rejecting layer's `TelemetrySource`; escalation reads the typed value, never message text.
+- Law: the total-outcome fold happens exactly once, at the seam — every `Outcome<T>` folds to a success or one case of the closed `Rejection` `[Union]` deriving from `Expected`, so the seam's failure currency is the rail's own `Error` widening with no bridge, and a second fold at a caller re-opens the vocabulary the seam retired.
+- Law: the typed arms close the known rejection verbs while `Rejection.Foreign(Error)` is the open-tail passthrough lifting any unclassified fault as the rail `Error` and `Rejection.Empty` the no-exception-no-result sentinel — closed verbs plus one passthrough is the same totality shape the graph law mints, so the fold drops no fault and the wire-exception taxonomy never leaks into the neutral owner; a new typed verb is one case ahead of `Foreign`, not a wider catch.
+- Law: cancelled-versus-rejected is structural — a cancellation while the caller token fired is `Rejection.CallerLeft`, the caller's intent; a child deadline firing while the caller token did not converts to `TimeoutRejectedException` and folds to `Rejection.Deadline(slow.Timeout)` — so "the caller left" and "the attempt was too slow" are distinguishable by case, never by inspecting message text.
+- Law: the rejected arm is a closed taxonomy ordered child-before-parent — `IsolatedCircuitException` before its `BrokenCircuitException` base, so operator-forced darkness folds to `Rejection.ForcedDark` and never masquerades as the dependency `Rejection.Open` — and each case binds its evidence as a typed field: `Deadline.Span`, `Open.RetryAfter`, `Shed.RetryAfter`, `ForcedDark.Pipeline` read from `TelemetrySource.PipelineName`, so escalation pattern-matches the case and reads the field, never re-parses the detail string the `Expected` base carries only for the wire.
 - Law: `ResilienceProperties` is the typed side channel between caller and strategies — `ResiliencePropertyKey<TValue>` rows, string-keyed at the wire, typed at every access point — and the idempotency window rides it as the allotment span, fixed before the pipeline runs.
 - Law: `ResiliencePipeline<T>` execution constrains `TResult : T` — one typed pipeline serves an entire result hierarchy, with subtype executions riding the same strategy state.
 - Exemption: the outcome-capture kernel and the lease `try`/`finally` are the platform-forced statement seam.
 
 ```csharp conceptual
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record Rejection : Expected {
+    protected Rejection(string detail, int code) : base(detail, code, None) { }
+    public sealed record CallerLeft() : Rejection("<caller-left>", 7501);
+    public sealed record Deadline(TimeSpan Span) : Rejection($"<deadline:{Span}>", 7502);
+    public sealed record ForcedDark(string? Pipeline) : Rejection($"<forced-dark:{Pipeline}>", 7503);
+    public sealed record Open(TimeSpan? RetryAfter) : Rejection($"<open:{RetryAfter}>", 7504);
+    public sealed record Shed(TimeSpan? RetryAfter) : Rejection($"<shed:{RetryAfter}>", 7505);
+    public sealed record Foreign(Error Cause) : Rejection(Cause.Message, 7510);
+    public sealed record Empty() : Rejection("<empty>", 7500);
+}
+
 public static class HopSeam {
     public static readonly ResiliencePropertyKey<TimeSpan> Window = new("<window>");
 
@@ -119,13 +146,13 @@ public static class HopSeam {
 
     static Fin<Reply> Fold(Outcome<Reply> outcome, CancellationToken caller) => outcome switch {
         { Exception: null, Result: { } reply } => Fin.Succ(reply),
-        { Exception: OperationCanceledException } when caller.IsCancellationRequested => Fin.Fail<Reply>(Error.New(7501, "<caller-left>")),
-        { Exception: TimeoutRejectedException slow } => Fin.Fail<Reply>(Error.New(7502, $"<deadline:{slow.Timeout}>")),
-        { Exception: IsolatedCircuitException dark } => Fin.Fail<Reply>(Error.New(7503, $"<forced-dark:{dark.TelemetrySource?.PipelineName}>")),
-        { Exception: BrokenCircuitException open } => Fin.Fail<Reply>(Error.New(7504, $"<open:{open.RetryAfter}>")),
-        { Exception: RateLimiterRejectedException shed } => Fin.Fail<Reply>(Error.New(7505, $"<shed:{shed.RetryAfter}>")),
-        { Exception: { } foreign } => Fin.Fail<Reply>(Error.New(foreign)),
-        _ => Fin.Fail<Reply>(Error.New(7500, "<empty>")),
+        { Exception: OperationCanceledException } when caller.IsCancellationRequested => Fin.Fail<Reply>(new Rejection.CallerLeft()),
+        { Exception: TimeoutRejectedException slow } => Fin.Fail<Reply>(new Rejection.Deadline(slow.Timeout)),
+        { Exception: IsolatedCircuitException dark } => Fin.Fail<Reply>(new Rejection.ForcedDark(dark.TelemetrySource?.PipelineName)),
+        { Exception: BrokenCircuitException open } => Fin.Fail<Reply>(new Rejection.Open(open.RetryAfter)),
+        { Exception: RateLimiterRejectedException shed } => Fin.Fail<Reply>(new Rejection.Shed(shed.RetryAfter)),
+        { Exception: { } foreign } => Fin.Fail<Reply>(new Rejection.Foreign(Error.New(foreign))),
+        _ => Fin.Fail<Reply>(new Rejection.Empty()),
     };
 }
 ```
@@ -141,7 +168,7 @@ public static class HopSeam {
 - Law: generic and non-generic pipelines are disjoint namespaces per result type — a hop registered generically and resolved non-generically misses silently — so the row fixes the result type at registration and resolution shape cannot drift.
 - Law: registry disposal is the composition fence — every materialized pipeline force-disposes, stale references throw, and a rebuilt root re-derives rows from configuration; `OnPipelineDisposed` is the reclaim hook declared beside the claim at the row, and breaker statistics and limiter queues are process-local by construction, intentionally unrecoverable.
 - Law: mid-life policy change is per-row reload — `AddReloadToken` rebuilds one hop's pipeline in place, in-flight executions finish on the old generation, and the discarded component disposes in the background after a bounded drain, so an execution outliving that bound races its own component's disposal.
-- Law: a throwing reload keeps the old component and reports `ReloadFailed` — configuration errors degrade to the last good pipeline, never an unguarded seam — and reload versus root rebuild emit distinguishable succession receipts under a per-row generation counter.
+- Law: a throwing reload keeps the old component and emits a reload-failure succession receipt — a configuration error degrades to the last good pipeline, never an unguarded seam — and reload versus root rebuild are distinguishable kind cases under a per-row generation counter, conflict and succession riding one kind-discriminated topology fact stream rather than parallel receipt types.
 - Law: one registry exists per key type per container — the key type partitions the resilience namespace, so a process standardizes on one key shape or its claims fragment across invisible registries.
 - Law: `AddResiliencePipeline` registers the keyed-service projection, the registry/provider pair, and container-wired telemetry at once, and `AddResiliencePipelines` defers key enumeration to startup so a configuration-derived hop set is one callback; a container `TimeProvider` flows into every registry pipeline while a base-builder `ContextPool` does not — pool policy re-applies where the typed builder is configured.
 - Exemption: the registry configure body — reload token, dispose reclaim, builder mutation — is the platform-forced statement seam.
@@ -167,9 +194,11 @@ The retry-owner table is a decision procedure; rows overlap and first match wins
 ```csharp conceptual
 public sealed record HopKey(string Hop, string Instance);
 
+public sealed record RouteWeight(Uri Endpoint, int Weight);
+
 public sealed record HopRow(
     HopKey Key, string Owner, AllotmentClass Allotment, bool Idempotent, bool Replayable,
-    string PolicyRef, string Group, Seq<Uri> Routes);
+    string PolicyRef, string Group, Seq<RouteWeight> Routes);
 
 public readonly record struct ClaimFact(string Hop, string Incumbent, string Loser, string DiscardedPolicy);
 
@@ -195,9 +224,12 @@ public sealed class HopTopology {
                 context.OnPipelineDisposed(() => ignore(rows.Swap(held => held.Remove(row.Key))));
                 policy(builder, row);
             })
-            ? (rows.Swap(held => held.TryAdd(row.Key, row)), registry.GetPipeline<Reply>(row.Key)).Item2
+            ? (rows.Swap(held => held.TryAdd(row.Key, row)), Resolved(row.Key)).Item2
             : Conceded(row);
     }
+
+    ResiliencePipeline<Reply> Resolved(HopKey key) =>
+        registry.TryGetPipeline<Reply>(key, out var pipeline) ? pipeline : ResiliencePipeline<Reply>.Empty;
 
     ResiliencePipeline<Reply> Conceded(HopRow row) =>
         (Conflicts.Swap(facts => facts.Add(new ClaimFact(
@@ -205,7 +237,7 @@ public sealed class HopTopology {
             rows.Value.Find(row.Key).Map(static held => held.Owner).IfNone("<unrowed>"),
             row.Owner,
             row.PolicyRef))),
-         registry.GetPipeline<Reply>(row.Key)).Item2;
+         Resolved(row.Key)).Item2;
 }
 ```
 
@@ -252,14 +284,16 @@ public static class WireSeam {
 
     static IServiceCollection Hedged(IServiceCollection services, HopRow row) {
         _ = services.AddHttpClient(row.Key.Hop)
-            .AddStandardHedgingHandler(routing => routing.ConfigureOrderedGroups(groups =>
-                row.Routes.Iter(route => groups.Groups.Add(new UriEndpointGroup {
-                    Endpoints = { new WeightedUriEndpoint { Uri = route, Weight = 100 } },
-                }))))
+            .AddStandardHedgingHandler(routing => routing.ConfigureWeightedGroups(groups => {
+                groups.SelectionMode = row.Routes.Count > 1 ? WeightedGroupSelectionMode.EveryAttempt : WeightedGroupSelectionMode.InitialAttempt;
+                row.Routes.Iter(route => groups.Groups.Add(new WeightedUriEndpointGroup {
+                    Weight = route.Weight, Endpoints = { new WeightedUriEndpoint { Uri = route.Endpoint, Weight = route.Weight } },
+                }));
+            }))
             .Configure(options => {
                 options.TotalRequestTimeout.Timeout = row.Allotment.Total;
-                options.Hedging.MaxHedgedAttempts = 2;
-                options.Hedging.Delay = TimeSpan.FromMilliseconds(500);
+                options.Hedging.MaxHedgedAttempts = row.Allotment.Hedges;
+                options.Hedging.Delay = row.Allotment.HedgeDelay;
                 options.Endpoint.Timeout.Timeout = row.Allotment.Attempt;
             });
         return services;
@@ -291,18 +325,15 @@ public sealed record BreakerSeat(CircuitBreakerStateProvider Evidence) {
 }
 
 public static class GroupBinding {
+    static readonly PredicateBuilder<Reply> Transient =
+        new PredicateBuilder<Reply>().Handle<TimeoutRejectedException>().HandleResult(static reply => reply.Faulted);
+
     public static Seq<(HopKey Key, ResiliencePipeline<Reply> Pipeline, BreakerSeat Seat)> Bind(
         DarkGroup group, Seq<HopRow> members, TimeProvider clock) =>
         members.Map(static row => (Row: row, Seat: new BreakerSeat(new CircuitBreakerStateProvider())))
             .Map(slot => (slot.Row.Key,
                 new ResiliencePipelineBuilder<Reply> { Name = slot.Row.Key.Hop, TimeProvider = clock }
-                    .AddCircuitBreaker(new CircuitBreakerStrategyOptions<Reply> {
-                        Name = "<health>", FailureRatio = slot.Row.Allotment.Trip, MinimumThroughput = 16,
-                        SamplingDuration = slot.Row.Allotment.Sampling, BreakDuration = TimeSpan.FromSeconds(5),
-                        ShouldHandle = new PredicateBuilder<Reply>().HandleResult(static reply => reply.Faulted),
-                        ManualControl = group.Control,
-                        StateProvider = slot.Seat.Evidence,
-                    }).Build(),
+                    .AddCircuitBreaker(slot.Row.Allotment.Breaker(Transient, group.Control, slot.Seat.Evidence)).Build(),
                 slot.Seat))
             .Strict();
 }
@@ -340,7 +371,7 @@ public static class ChaosBlock {
                     .AddException(static () => new HttpRequestException("<injected>"), weight: 30),
             }))
             .AddChaosOutcome(Governed(new ChaosOutcomeStrategyOptions<Reply> {
-                OutcomeGenerator = new OutcomeGenerator<Reply>().AddResult(static () => new Reply(0, Faulted: true)),
+                OutcomeGenerator = new OutcomeGenerator<Reply>().AddResult(static () => new Reply(Faulted: true)),
             }))
             .AddChaosBehavior(Governed(new ChaosBehaviorStrategyOptions {
                 BehaviorGenerator = static _ => (ChaosPosture.Injected.Swap(static n => n + 1), ValueTask.CompletedTask).Item2,

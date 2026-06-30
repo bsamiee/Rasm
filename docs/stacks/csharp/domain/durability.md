@@ -106,7 +106,7 @@ public static class StoreOpen {
 [PROFILE_LAW]:
 - Law: `CompositeResolver.Create` resolves first-match-wins and caches per closed generic type — resolver order is a boot-time declaration and late registration is unrepresentable; specificity decreases monotonically down the chain: explicit formatters, generated-domain, generated-contract, standard fallback.
 - Law: options are immutable and each store profile freezes one value — a call-site `With*` forks codec policy invisibly; a profile is one row each from the codec, compression, and hash axes — the codec axis closing at three rows, text, binary, and raw pass-through, where the raw row is never re-framed because double-framing destroys the identity its content key hashed — so a new posture is row selection, never code.
-- Law: the restore lane always reads under `WithSecurity(MessagePackSecurity.UntrustedData)` plus the object-graph depth ceiling — a restored blob's provenance is unprovable even for bytes the same process wrote, because they crossed a rest boundary; the write lane keeps the trusted default, so hardening restore costs writes nothing.
+- Law: the restore lane always reads under `WithSecurity(MessagePackSecurity.UntrustedData)` plus two independent ceilings — a restored blob's provenance is unprovable even for bytes the same process wrote, because they crossed a rest boundary, and the write lane keeps the trusted default so hardening restore costs writes nothing; `WithMaximumObjectGraphDepth` catches the deep-narrow recursion a byte budget cannot see, while `WithMaximumDecompressedSize` is the decompression-bomb ceiling the depth cap is blind to — a kilobyte of `Lz4BlockArray` inflating to gigabytes — so the size ceiling is the class's own `MaxBytes` retention budget reused as the inflation bound, not a second constant, and `UntrustedData`'s 64 MB default is a ceiling to declare against the class, never a default to inherit silently.
 - Law: `Lz4BlockArray` is the binary default — independently compressed blocks, streaming-decompressible; `CompressionMinLength` makes observed encoding diverge from requested policy, so receipts read the payload and never the policy, and decompression is extension-header-driven — the compression row is write-side policy only and segment files mix compressed and plain documents freely.
 - Law: `MessagePackStreamReader.ReadAsync` yields one complete message per read with framing invariant under compression, so append streams and log segments need no custom framing; every serializer entry point threads cancellation, so artifact encode and decode participate in drain without a kill switch.
 - Exemption: the segment reader loop is the platform-forced stream statement seam.
@@ -115,9 +115,12 @@ public static class StoreOpen {
 [ValueObject<string>]
 public readonly partial struct SlotKey;
 
+[Union]
 [MessagePack.Union(0, typeof(Artifact.Full))]
 [MessagePack.Union(1, typeof(Artifact.Delta))]
-public abstract record Artifact {
+public abstract partial record Artifact {
+    private Artifact() { }
+
     [MessagePackObject]
     public sealed record Full([property: Key(0)] SlotKey Slot, [property: Key(1)] long Stamp, [property: Key(2)] ReadOnlyMemory<byte> Image) : Artifact;
 
@@ -128,29 +131,43 @@ public abstract record Artifact {
 [GeneratedMessagePackResolver]
 public sealed partial class ContractResolver;
 
-public static class CodecProfile {
-    static readonly MessagePackSerializerOptions Write = MessagePackSerializerOptions.Standard
+[SmartEnum<string>]
+public sealed partial class CodecProfile {
+    static readonly MessagePackSerializerOptions Binary = MessagePackSerializerOptions.Standard
         .WithResolver(CompositeResolver.Create(
             ThinktectureMessageFormatterResolver.Instance,
             ContractResolver.Instance,
             StandardResolver.Instance))
         .WithCompression(MessagePackCompression.Lz4BlockArray);
 
-    static readonly MessagePackSerializerOptions Restore =
-        Write.WithSecurity(MessagePackSecurity.UntrustedData.WithMaximumObjectGraphDepth(64));
+    public static readonly CodecProfile Document = new("<profile-binary>", Binary, framed: true);
+    public static readonly CodecProfile Passthrough = new("<profile-raw>", Binary, framed: false);
 
-    public static Unit Encode(IBufferWriter<byte> sink, Artifact artifact, CancellationToken token) =>
-        fun(() => MessagePackSerializer.Serialize(sink, artifact, Write, token))();
+    MessagePackSerializerOptions Write { get; }
+    bool Framed { get; }
 
-    public static Fin<Artifact> Decode(ReadOnlySequence<byte> stored, CancellationToken token) =>
-        Try.lift(() => MessagePackSerializer.Deserialize<Artifact>(stored, Restore, token))
-            .Run()
-            .MapFail(static error => Error.New(7748, $"<tier-8:contract-drift:{error.Message}>"));
+    MessagePackSerializerOptions Restore(long maxBytes) =>
+        Write.WithSecurity(MessagePackSecurity.UntrustedData
+            .WithMaximumObjectGraphDepth(64)
+            .WithMaximumDecompressedSize((int)Math.Min(maxBytes, int.MaxValue)));
 
-    public static async IAsyncEnumerable<Fin<Artifact>> Segments(Stream lane, [EnumeratorCancellation] CancellationToken token = default) {
+    public Unit Encode(IBufferWriter<byte> sink, Artifact artifact, CancellationToken token) =>
+        Framed ? fun(() => MessagePackSerializer.Serialize(sink, artifact, Write, token))()
+               : fun(() => sink.Write(artifact.Switch(
+                     full:  static f => f.Image,
+                     delta: static d => d.Patch).Span))();
+
+    public Fin<Artifact> Decode(ReadOnlySequence<byte> stored, long maxBytes, CancellationToken token) =>
+        Framed
+            ? Try.lift(() => MessagePackSerializer.Deserialize<Artifact>(stored, Restore(maxBytes), token))
+                .Run()
+                .MapFail(static error => Error.New(7748, $"<tier-8:contract-drift:{error.Message}>"))
+            : Fin.Fail<Artifact>(Error.New(7749, $"<raw-passthrough-never-reframed:{Key}>"));
+
+    public async IAsyncEnumerable<Fin<Artifact>> Segments(Stream lane, long maxBytes, [EnumeratorCancellation] CancellationToken token = default) {
         using var reader = new MessagePackStreamReader(lane, leaveOpen: true);
         while (await reader.ReadAsync(token).ConfigureAwait(false) is { } frame) {
-            yield return Decode(frame, token);
+            yield return Decode(frame, maxBytes, token);
         }
     }
 }
@@ -161,6 +178,7 @@ public static class CodecProfile {
 [SEAL_LAW]:
 - Law: the header is a fixed-width little-endian prologue outside any codec — magic, header version, codec row, observed compression, hash domain, contract stamp, plain and stored lengths, content hash, epoch, header checksum — read by offset under failure conditions; a variable-length header re-introduces a parser exactly where the design removes one, and the header's own checksum separates header corruption (terminal for the copy) from payload corruption (replica and salvage routes).
 - Law: the header records what WAS done, never what was requested — the incompressible `Encode` fallback and the minimum-length skip both split policy from outcome; the content hash covers stored bytes by default so verification strictly precedes any decoder, and the class seed partitions identity space so one flat content-addressed store serves every class with no class column — a seed change is identity migration, epoch-gated, never casual.
+- Law: the content hash is the persisted-artifact identity domain — the seeded `XxHash3.HashToUInt64` the integrity card owns reused verbatim as the one codec, the class seed its domain partition, never a second hashing path beside the in-memory cache key or the wire frame check; the header records the hash domain so a reader knows which codec verified it, and the seed is the only artifact-class discriminant the flat store carries.
 - Law: the single-pass seal — placeholder header, payload, seek to zero, final header, flush-to-disk, rename — leaves the artifact invalid (zeroed magic) at every instant before the final header lands, so partial writes self-reject with no tombstone or lock file; the temp is a same-directory sibling because cross-volume moves degrade to copy-plus-delete, and flush strength is a protocol row — flush-once-before-rename or write-through — with the same rename commit point either way.
 - Law: sealed artifacts are write-once — amendment is a new artifact plus identity change, since in-place patching invalidates the hash, the header, and every manifest citation; directory-entry durability is unreachable from managed code, the one named accepted residual, and `File.Replace` is the row retaining the displaced incumbent as its own rollback.
 - Exemption: the seal kernel — the rented-buffer lease, the stream writes, and the catch arm — is the platform-forced stream statement seam.
@@ -321,12 +339,12 @@ public static class OpLog {
         SELECT entity, kind, verb, stamp, origin, payload FROM ranked WHERE slot = 1
         ON CONFLICT(entity) DO UPDATE SET kind = excluded.kind, verb = excluded.verb,
             stamp = excluded.stamp, origin = excluded.origin, payload = excluded.payload
-        WHERE (excluded.stamp, excluded.origin) > (register.stamp, register.origin) RETURNING entity
+        WHERE (excluded.stamp, excluded.origin) > (register.stamp, register.origin) RETURNING 1
         """;
 
     const string Losses = """
-        SELECT coalesce(sum(r.verb = 'tombstone' AND l.verb = 'upsert'), 0),
-               coalesce(sum(NOT (r.verb = 'tombstone' AND l.verb = 'upsert')), 0)
+        SELECT coalesce(sum(NOT (r.verb = 'tombstone' AND l.verb = 'upsert')), 0) AS superseded,
+               coalesce(sum(r.verb = 'tombstone' AND l.verb = 'upsert'), 0) AS suppressed
         FROM op_log AS l JOIN json_each($fresh) AS e ON l.seq = e.value JOIN register AS r ON r.entity = l.entity
         WHERE (l.stamp, l.origin) < (r.stamp, r.origin)
         """;
@@ -342,30 +360,40 @@ public static class OpLog {
         ArgumentNullException.ThrowIfNull(store);
         if (storeEpoch != cursorEpoch) { return Fin.Fail<MergeReceipt>(Error.New(7721, $"<epoch-mismatch:{cursorEpoch}:{storeEpoch}>")); }
         using var apply = store.BeginTransaction(IsolationLevel.Serializable, deferred: false);
-        var fresh = Column(store, apply, Dedup, [("$batch", batch)]);
+        var fresh = Keys(store, apply, Dedup, [("$batch", batch)]);
         var freshDoc = $"[{string.Join(',', fresh)}]";
-        var applied = Column(store, apply, Adjudicate, [("$fresh", freshDoc)]).Count;
-        var loss = Column(store, apply, Losses, [("$fresh", freshDoc)], width: 2);
-        _ = Column(store, apply, Advance, [("$fresh", freshDoc), ("$peer", peer), ("$epoch", storeEpoch)]);
+        var applied = Keys(store, apply, Adjudicate, [("$fresh", freshDoc)]).Count;
+        var (superseded, suppressed) = Pair(store, apply, Losses, [("$fresh", freshDoc)]);
+        _ = NonQuery(store, apply, Advance, [("$fresh", freshDoc), ("$peer", peer), ("$epoch", storeEpoch)]);
         apply.Commit();
-        var receipt = new MergeReceipt(batchSize, applied,
-            Superseded: int.Parse(loss[1], CultureInfo.InvariantCulture),
-            Duplicate: batchSize - fresh.Count,
-            Suppressed: int.Parse(loss[0], CultureInfo.InvariantCulture));
+        var receipt = new MergeReceipt(batchSize, applied, (int)superseded, batchSize - fresh.Count, (int)suppressed);
         return receipt.Conserves ? Fin.Succ(receipt) : Fin.Fail<MergeReceipt>(Error.New(7722, $"<unconserved:{receipt}>"));
     }
 
-    static Seq<string> Column(SqliteConnection store, SqliteTransaction apply, string sql,
-        ReadOnlySpan<(string Name, object Value)> binds, int width = 1) {
-        using var command = store.CreateCommand();
+    static Seq<long> Keys(SqliteConnection store, SqliteTransaction apply, string sql, ReadOnlySpan<(string Name, object Value)> binds) {
+        using var command = Bound(store, apply, sql, binds);
+        using var rows = command.ExecuteReader();
+        var ids = new List<long>();
+        while (rows.Read()) { ids.Add(rows.GetInt64(0)); }                        // Exemption: ADO read loop fills a seam-local list frozen once by toSeq; repeated Seq.Add forcing is the rejected form
+        return toSeq(ids);
+    }
+
+    static (long Superseded, long Suppressed) Pair(SqliteConnection store, SqliteTransaction apply, string sql, ReadOnlySpan<(string Name, object Value)> binds) {
+        using var command = Bound(store, apply, sql, binds);
+        using var rows = command.ExecuteReader();
+        return rows.Read() ? (rows.GetInt64(0), rows.GetInt64(1)) : (0L, 0L);
+    }
+
+    static long NonQuery(SqliteConnection store, SqliteTransaction apply, string sql, ReadOnlySpan<(string Name, object Value)> binds) {
+        using var command = Bound(store, apply, sql, binds);
+        return command.ExecuteNonQuery();
+    }
+
+    static SqliteCommand Bound(SqliteConnection store, SqliteTransaction apply, string sql, ReadOnlySpan<(string Name, object Value)> binds) {
+        var command = store.CreateCommand();
         (command.Transaction, command.CommandText) = (apply, sql);
         foreach (var (name, value) in binds) { _ = command.Parameters.AddWithValue(name, value); }
-        using var rows = command.ExecuteReader();
-        var held = Seq<string>();
-        while (rows.Read()) {
-            for (var cell = 0; cell < width; cell++) { held = held.Add(Convert.ToString(rows.GetValue(cell), CultureInfo.InvariantCulture) ?? ""); }
-        }
-        return held;
+        return command;
     }
 }
 ```
@@ -396,3 +424,76 @@ public static class OpLog {
 - Law: eligibility predicates inject — sync fences, projection floors, export pins, the orphan age gate — so the sweep stays the single deletion executor owning zero domain-safety rules, and every refusal names the predicate that held it: the receipt stream is the system's complete deletion and non-deletion ledger at once.
 - Law: evidence windows freeze [t − Δ, t] from the trigger's stamp so capture is idempotent per incident identity, with Δ a per-trigger-kind row; contributors fan in as declared (name, order, budget, deadline) rows — over budget truncates, missed deadline lands absent, over ceiling refuses, each with receipt — the bundle always seals because incidents are precisely when processes die, and the ordered-bounded fold is one algebra shared with drain-band walks, so a bespoke gatherer is the rejected form.
 - Law: export reuses the sweep's verdict machinery read-only, so export and sweep can never disagree about one artifact at one instant; the proof manifest carries identity, content key, classification stamp, retention verdict, and policy stamp per artifact, destination clearance compares exactly like an admission ceiling, partial exports stay explicit with refused rows as load-bearing as included ones, export creates no hold, and re-import is ordinary admission.
+- Exemption: none — the sweep is total expression flow; decision is a pure fold over the inventory snapshot and the platform never forces a statement here.
+
+```csharp conceptual
+[ComplexValueObject]
+public sealed partial class Budget {
+    public TimeSpan MaxAge { get; }
+    public int MaxCount { get; }
+    public long MaxBytes { get; }
+}
+
+public readonly record struct Item(ulong Identity, long Stamp, long Bytes);
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record Hold {
+    private Hold() { }
+    public sealed record WholeClass : Hold;
+    public sealed record IdentitySet(FrozenSet<ulong> Members) : Hold;
+    public sealed record StampRange(long From, long Until) : Hold;
+
+    public bool Covers(Item item) => Switch(
+        state: item,
+        wholeClass:  static (_, _) => true,
+        identitySet: static (held, set) => set.Members.Contains(held.Identity),
+        stampRange:  static (held, range) => held.Stamp >= range.From && held.Stamp <= range.Until);
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record Verdict {
+    private Verdict() { }
+    public sealed record Kept : Verdict;
+    public sealed record Held : Verdict;
+    public sealed record HeldOverBudget : Verdict;
+    public sealed record EvictAge : Verdict;
+    public sealed record EvictCount : Verdict;
+    public sealed record EvictSize : Verdict;
+
+    public bool Frees => this is EvictAge or EvictCount or EvictSize;
+    public bool Retains => this is Held or HeldOverBudget;
+}
+
+public readonly record struct SweepReceipt(int Inventory, int Kept, int Retained, int Evicted, long FreedBytes, long PolicyStamp) {
+    public bool Conserves => Inventory == Kept + Retained + Evicted;
+}
+
+public static class Sweep {
+    public static (Seq<(Item Item, Verdict Verdict)> Ledger, Fin<SweepReceipt> Outcome) Decide(
+        Seq<Item> inventory, Budget budget, Seq<Hold> holds, long now, long policyStamp, Func<Item, bool> eligible) {
+        var scan = toSeq(inventory.OrderBy(static i => i.Stamp).ThenBy(static i => i.Identity))
+            .Fold((Ledger: Seq<(Item, Verdict)>(), Live: 0, Bytes: 0L),
+                (state, item) => Advance(state, item, Adjudicate(state, item, budget, holds, now, eligible)));
+        var ledger = scan.Ledger.Rev();
+        var receipt = ledger.Fold(new SweepReceipt(inventory.Count, 0, 0, 0, 0L, policyStamp), static (sum, row) =>
+            row.Verdict.Frees ? sum with { Evicted = sum.Evicted + 1, FreedBytes = sum.FreedBytes + row.Item.Bytes }
+            : row.Verdict.Retains ? sum with { Retained = sum.Retained + 1 }
+            : sum with { Kept = sum.Kept + 1 });
+        return (ledger, receipt.Conserves ? Fin.Succ(receipt) : Fin.Fail<SweepReceipt>(Error.New(7761, $"<unconserved:{receipt}>")));
+    }
+
+    static Verdict Adjudicate((Seq<(Item, Verdict)> Ledger, int Live, long Bytes) state, Item item, Budget budget, Seq<Hold> holds, long now, Func<Item, bool> eligible) =>
+        holds.Exists(hold => hold.Covers(item)) || !eligible(item) ? (state.Bytes + item.Bytes > budget.MaxBytes ? (Verdict)new Verdict.HeldOverBudget() : new Verdict.Held())
+        : now - item.Stamp > budget.MaxAge.Ticks ? new Verdict.EvictAge()
+        : state.Live >= budget.MaxCount ? new Verdict.EvictCount()
+        : state.Bytes + item.Bytes > budget.MaxBytes ? new Verdict.EvictSize()
+        : new Verdict.Kept();
+
+    static (Seq<(Item, Verdict)> Ledger, int Live, long Bytes) Advance((Seq<(Item, Verdict)> Ledger, int Live, long Bytes) state, Item item, Verdict verdict) =>
+        state with {
+            Ledger = (item, verdict).Cons(state.Ledger),
+            Live = state.Live + (verdict is Verdict.Kept ? 1 : 0),
+            Bytes = state.Bytes + (verdict.Frees ? 0L : item.Bytes),
+        };
+}
+```

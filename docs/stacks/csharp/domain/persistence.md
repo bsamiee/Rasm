@@ -19,12 +19,12 @@ This table routes a persistence concern to its owning surface; the most specific
 |  [09]   | store operations        | one op family + one bracket            | repository per aggregate        |
 |  [10]   | pagination              | keyset page op, `Option<Cursor>` input | offset paging                   |
 |  [11]   | write mass              | set-based, copy, and merge lanes       | tracked-graph loops             |
-|  [12]   | read-through cache      | derived tag grammar port row           | free-string invalidation        |
+|  [12]   | read-through cache      | port row + `MEMO_KEY` composite tag    | free-string invalidation        |
 
 ## [02]-[PROFILE_AXIS]
 
 [AXIS_ROWS]:
-- Law: a store is one profile row crossing three orthogonal axes — engine carries the provider-admission delegate plus capability columns, placement carries write, migrate, and read-ahead authority, codec carries naming policy and converter admission — and a new topology is one row; interior code never branches on the provider, and provider probes are test assertions only.
+- Law: a store is one profile row crossing three orthogonal axes, each a `[SmartEnum<string>]` item — engine carries the provider-admission delegate (a `[UseDelegateFromConstructor]` partial) plus capability columns, placement carries write, migrate, and read-ahead authority, codec carries the naming-and-converter framing delegate plus the tracking-posture column — so a new engine, placement, or codec is one item that lands every `Switch` arm at compile time, never a parallel record bag forfeiting totality; interior code never branches on the provider, and provider probes are test assertions only.
 - Law: capability columns are option-typed lane slots — a lane the engine lacks is an absent slot that never composes for that profile, exclusion at composition with a typed explanation, never a runtime not-supported throw.
 - Law: the relational base is the shared knob set every row inherits as data — `MaxBatchSize`, `CommandTimeout`, `MigrationsHistoryTable`, `UseQuerySplittingBehavior`, `UseParameterizedCollectionMode`, `ExecutionStrategy` — and the `ExecutionStrategy` slot is where store transaction retry lands as a profile row, the retry-owner split arriving settled.
 - Law: the model cache keys on context type plus design-time flag, never provider — one context type against two engines silently serves the first-built model to the second; the escape trilemma is legislated at composition: per-profile context types, one compiled model per profile, or `IModelCacheKeyFactory`, which forecloses compiled models entirely.
@@ -35,7 +35,7 @@ This table routes a persistence concern to its owning surface; the most specific
 [CONTEXT_LIFECYCLE]:
 - Law: the context is a unit-of-work capsule acquired from `PooledDbContextFactory<TContext>` inside one bracket, never a long-lived dependency; past the pool ceiling, acquisition silently degrades to transient construction — a cliff with no error — so the ceiling sizes to peak concurrent brackets.
 - Law: a pooled context is frozen state — `OnConfiguring` runs once for the pool's lifetime — so per-acquisition discriminants stamp through a wrapping `IDbContextFactory<TContext>` that acquires from the pooled factory and stamps before handing out; pool return resets EF-owned state only, and driver session state leaks across acquisitions unless restored before the bracket closes.
-- Law: tracking is a profile row — `UseQueryTrackingBehavior` declares the read profile's no-tracking default once, `AsNoTrackingWithIdentityResolution` is the row for projections that must alias repeated entities, and the tracked path exists only inside unit-of-work ops that end in a save.
+- Law: tracking is the codec row's column, not a free knob — the read codec carries `QueryTrackingBehavior.NoTrackingWithIdentityResolution` as its model-wide default so projections that alias repeated entities resolve identities without the tracked path, the write codec carries `TrackAll`, and the per-query `AsNoTrackingWithIdentityResolution` operator is the single-statement override above either default; the tracked path exists only inside unit-of-work ops that end in a save.
 - Law: model acquisition is a three-route fold per row — compiled (`UseModel` plus the fingerprint gate), cached-built under the shared memory governor, per-discriminant compiled instances; below hundreds of entity types the regeneration obligation costs more than the first-operation latency it buys.
 - Law: `EnsureCreated` bypasses the history mechanism and a later migration apply fails — the ephemeral test row is its only admission.
 - Exemption: the options-builder fold and the stamping body are the platform-forced statement seam.
@@ -59,12 +59,30 @@ public sealed class StoreContext(DbContextOptions<StoreContext> options) : DbCon
     }
 }
 
-public sealed record EngineRow(string Name, bool RebuildsAlters, Option<string> NativeBulk,
-    Func<DbContextOptionsBuilder<StoreContext>, string, DbContextOptionsBuilder<StoreContext>> Admit) {
-    public static readonly EngineRow Embedded = new("<engine-a>", RebuildsAlters: true, NativeBulk: None,
-        static (options, dsn) => options.UseSqlite(dsn, static sqlite => sqlite.MigrationsHistoryTable("<history-a>")));
-    public static readonly EngineRow Server = new("<engine-b>", RebuildsAlters: false, NativeBulk: Some("<lane-a>"),
-        static (options, dsn) => options.UseNpgsql(dsn, static npgsql => npgsql.EnableRetryOnFailure()));
+[SmartEnum<string>]
+public sealed partial class EngineRow {
+    public static readonly EngineRow Embedded = new("<engine-a>", rebuildsAlters: true, nativeBulk: None, Sqlite);
+    public static readonly EngineRow Server = new("<engine-b>", rebuildsAlters: false, nativeBulk: Some("<lane-a>"), Postgres);
+    public bool RebuildsAlters { get; }
+    public Option<string> NativeBulk { get; }
+
+    [UseDelegateFromConstructor]
+    public partial DbContextOptionsBuilder<StoreContext> Admit(DbContextOptionsBuilder<StoreContext> builder, string dsn);
+
+    static DbContextOptionsBuilder<StoreContext> Sqlite(DbContextOptionsBuilder<StoreContext> builder, string dsn) =>
+        builder.UseSqlite(dsn, static sqlite => sqlite.MigrationsHistoryTable("<history-a>"));
+    static DbContextOptionsBuilder<StoreContext> Postgres(DbContextOptionsBuilder<StoreContext> builder, string dsn) =>
+        builder.UseNpgsql(dsn, static npgsql => npgsql.EnableRetryOnFailure());
+}
+
+[SmartEnum<string>]
+public sealed partial class Codec {
+    public static readonly Codec WriteHead = new("<codec-a>", QueryTrackingBehavior.TrackAll);
+    public static readonly Codec ReadAhead = new("<codec-b>", QueryTrackingBehavior.NoTrackingWithIdentityResolution);
+    public QueryTrackingBehavior Tracking { get; }
+
+    public DbContextOptionsBuilder<StoreContext> Frame(DbContextOptionsBuilder<StoreContext> builder) =>
+        builder.UseSnakeCaseNamingConvention().UseThinktectureValueConverters(Configuration.Default).UseQueryTrackingBehavior(Tracking);
 }
 
 public sealed class StampedFactory(PooledDbContextFactory<StoreContext> pool, Placement placement) : IDbContextFactory<StoreContext> {
@@ -75,18 +93,12 @@ public sealed class StampedFactory(PooledDbContextFactory<StoreContext> pool, Pl
     }
 }
 
-public sealed record StoreProfile(EngineRow Engine, Placement Placement, QueryTrackingBehavior Tracking) {
+public sealed record StoreProfile(EngineRow Engine, Placement Placement, Codec Codec) {
     public IDbContextFactory<StoreContext> Pooled(string dsn, params ReadOnlySpan<IInterceptor> spine) =>
         new StampedFactory(new PooledDbContextFactory<StoreContext>(Options(dsn, spine)), Placement);
 
     public DbContextOptions<StoreContext> Options(string dsn, params ReadOnlySpan<IInterceptor> spine) =>
-        Engine.Admit(
-            new DbContextOptionsBuilder<StoreContext>()
-                .UseSnakeCaseNamingConvention()
-                .UseThinktectureValueConverters(Configuration.Default)
-                .UseQueryTrackingBehavior(Tracking)
-                .AddInterceptors([.. spine]),
-            dsn).Options;
+        Engine.Admit(Codec.Frame(new DbContextOptionsBuilder<StoreContext>()).AddInterceptors([.. spine]), dsn).Options;
 }
 ```
 
@@ -147,7 +159,9 @@ public sealed class EntryShape : IEntityTypeConfiguration<Entry> {
 [SmartEnum<string>]
 public sealed partial class Disposition {
     public static readonly Disposition Clear = new("<disposition-a>", static tracker => fun(tracker.Clear)());
-    public static readonly Disposition Hold = new("<disposition-b>", static _ => unit);
+    public static readonly Disposition Detach = new("<disposition-b>",
+        static tracker => toSeq(tracker.Entries()).Iter(static entry => entry.State = EntityState.Detached));
+    public static readonly Disposition Hold = new("<disposition-c>", static _ => unit);
 
     [UseDelegateFromConstructor]
     public partial Unit Settle(ChangeTracker tracker);
@@ -237,7 +251,7 @@ public static class SchemaGate {
 - Law: identity is one closed three-row axis — time-ordered surrogate, content-hash, natural — and every row carries four columns: generator, transcription, ordering semantics, collision law; mixing rows per aggregate is normal, mixing rows per surface of one aggregate is the defect.
 - Law: identity mints exactly once at admission — `Guid.CreateVersion7()` in the owner factory with `ValueGeneratedNever` as the transcription — so keys insert in bulk lanes, reference before save, and survive retries; `CreateVersion7(DateTimeOffset)` is the deterministic-backfill overload minting historical surrogates from original timestamps so index locality matches history.
 - Law: ordering survives transcription only when the spelling preserves it — the canonical text form is lexically time-ordered, the default byte export is not — so `ToByteArray(bigEndian: true)` is the binary transcription law; without it a binary-keyed primary index degrades to random-insert fragmentation, the pathology the row exists to delete.
-- Law: content-hash identity is encoding identity — the canonical encoding is a declared policy, digest mechanics arrive composed from their owning layer, and the collision posture is a declared column whose idempotent row is the natural partner of conflict-tolerant bulk ingestion.
+- Law: content-hash identity is encoding identity — the canonical encoding is a declared policy, the digest is the boundaries.md `BYTE_IDENTITY` codec injected as the row's `Mint` arrow, never a second hashing path, and the collision posture is a declared column whose idempotent row is the natural partner of conflict-tolerant bulk ingestion; this injected-digest factory row is why the axis is a delegate-bearing `record` of static rows rather than a `[SmartEnum]` of fixed items — the content-hash row mints from a runtime codec a fixed singleton cannot close over, the lone owner-shape exemption on this page.
 - Law: natural keys ride the generated-converter seam on immutable owners — a mutable primary key is delete-insert wearing an update's clothes.
 - Law: each aggregate declares one key selector once — `Expression<Func<TRow, TKey>>` — and every secondary surface derives mechanically: foreign keys, index orderings, changefeed keys, cache tags, pagination cursors; identity-row change is never `AlterColumn` — it is an expand-wave second key backfilled by the deterministic mint, a derivation flip, and a contract-wave drop, the only identity migration preserving foreign references, changefeed continuity, and cursor validity at once.
 
@@ -278,7 +292,7 @@ public sealed record IdentityRow(string Axis, Collision Collision, bool Ordered,
 - Law: ops return value projections, never entities — entity egress couples consumers to the model and drags the tracker across the seam — and a stream arity folds inside the bracket or hands off through a lane, because a live enumerable returned after the context pools enumerates reclaimed state.
 - Law: every op stamps provenance from its own symbol through `TagWith` and parameterizes every value — one cached plan per op; `EF.Constant` is a declared per-op row for provably low-cardinality hot filters, and proven hot ops graduate to `EF.CompileAsyncQuery` delegate rows by measurement, paying in proportion to expression depth.
 - Law: the raw seam types by shape — `FromSql` parameterizes every interpolation hole, `FromSqlRaw` admits only sanitized fragments, `ExecuteSql` carries maintenance statements inside the same bracket — and `LeftJoin`/`RightJoin` are the outer-join spelling, deleting the `GroupJoin` scaffold.
-- Law: read-through caching is one port row — tags derive mechanically from lane keys plus admitted owner keys, and a free-string tag rejects at admission because it is uninvalidatable by construction; logical tag-cut and physical delete are different lifetimes, and the near-tier TTL is a per-lane staleness ceiling — lanes that cannot tolerate it bypass the tier rather than shrinking it.
+- Law: read-through caching is one port row whose invalidation tag is the boundaries.md `MEMO_KEY` structural composite — the lane axis joined to the admitted owner key, a `(lane, key)` value the cache indexes by, so a write self-emits the exact tags its keys cut and a free-format string tag rejects at admission because it is uninvalidatable by construction; the content-key axis reuses that one canonical byte-codec verbatim, never a second hashing path, and logical tag-cut and physical delete are different lifetimes while the near-tier TTL is a per-lane staleness ceiling lanes that cannot tolerate bypass rather than shrink.
 
 [ARITY_AND_PAGE]:
 - Law: arity discriminates on the input value — a key resolves to an optional value, a key set to a batch, a predicate plus cursor to a page, a predicate alone to a stream — and pagination adds zero entrypoints because the page input is `Option<Cursor>`, absent meaning first page.
@@ -300,7 +314,7 @@ public abstract partial record StoreOp {
 public readonly record struct FactView(Guid Key, int Rank);
 
 public static class StoreRail {
-    public static readonly Func<StoreContext, int, CancellationToken, Task<int>> HotCount =
+    static readonly Func<StoreContext, int, CancellationToken, Task<int>> HotCount =
         EF.CompileAsyncQuery(static (StoreContext store, int floor, CancellationToken ct) =>
             store.Set<Fact>().Count(f => f.Rank > floor));
 
@@ -316,6 +330,15 @@ public static class StoreRail {
         }
         catch (Exception ex) when (ex is not OperationCanceledException) {
             return Fin.Fail<Seq<FactView>>(Error.New(8231, $"<store-rejected:{ex.Message}>"));
+        }
+    }
+
+    public static async Task<Fin<int>> Count(IDbContextFactory<StoreContext> factory, int floor, CancellationToken token) {
+        ArgumentNullException.ThrowIfNull(factory);
+        await using var store = await factory.CreateDbContextAsync(token).ConfigureAwait(false);
+        try { return Fin.Succ(await HotCount(store, floor, token).ConfigureAwait(false)); }
+        catch (Exception ex) when (ex is not OperationCanceledException) {
+            return Fin.Fail<int>(Error.New(8232, $"<store-rejected:{ex.Message}>"));
         }
     }
 
@@ -337,7 +360,7 @@ public static class StoreRail {
 
 [WRITE_MASS]:
 - Law: high-volume mutation is one lane with three intensities — set-based statement for predicate-shaped work, bulk copy for collection-shaped ingestion, merge for source-against-target reconciliation — all enlisted in the rail's ambient transaction and all self-emitting: the statement that mutates produces the facts and the tag-cut before commit, deleting change-data capture, polled outboxes, and triggers in one move.
-- Law: `LinqToDBForEFTools.Initialize()` once at composition activates the bridge, `ToLinqToDB()` deepens any rail queryable inside the same model and connection, the bridge connection enlists in `Database.CurrentTransaction` by default with `CreateLinqToDBConnectionDetached` as the explicit opt-out signature, and the suffixed materialization pairs (`ToListAsyncLinqToDB`/`ToListAsyncEF`) name the lane where both surfaces import; the bridge is a lane of the one rail, never a second public query surface.
+- Law: `LinqToDBForEFTools.Initialize()` once at composition activates the bridge, `ToLinqToDB()` deepens any rail queryable inside the same model and connection, the bridge connection enlists in `Database.CurrentTransaction` by default with `CreateLinqToDBConnectionDetached` as the explicit opt-out signature, and a bridged queryable materializes through the bare linq2db `ToListAsync`/`ToArrayAsync` while the unbridged EF queryable disambiguates through `ToListAsyncEF`/`ToArrayAsyncEF` — the `*EF` suffix names the EF lane where both surfaces import into one file; the bridge is a lane of the one rail, never a second public query surface.
 - Law: the setter builder is statement-bodied by contract — a plain `if` adds a setter, deleting expression-tree surgery — setters reach inside document columns, and zero-affected where the predicate proved rows is a typed concurrency signal folded, never discarded.
 - Law: merge clauses evaluate in declaration order — order is semantics, and a delete declared before an update deletes what the update would have claimed; `Using` admits client batches without staging, the by-source rows close two-sided reconciliation in one statement, and `MergeWithOutput`/`MergeWithOutputInto` land the action discriminant plus before and after images from the statement that caused them, zero roundtrips.
 - Law: `BulkCopyAsync` receipts `RowsCopied` with `Abort` as the mid-stream rollback lever; `KeepIdentity` is mandatory under the time-ordered identity row or the store re-mints and admission identity is lost, `ConflictAction.Ignore` is doubly gated — `MultipleRows` plus an engine that spells it — and pairs with a rows-versus-source reconciliation receipt or losses are invisible, and `MaxDegreeOfParallelism` consumes the suite budget, never an independent pool.
@@ -346,8 +369,9 @@ public static class StoreRail {
 
 ```csharp conceptual
 public readonly record struct ChangeRow(string Action, Guid Before, Guid After);
+public readonly record struct CutTag(string Lane, Guid Key);
 public readonly record struct MassFact(string Lane, int Touched, Seq<Guid> Keys) {
-    public Seq<string> CutTags => (Lane, Keys) is var (lane, keys) ? keys.Map(key => $"{lane}:{key:n}") : [];
+    public Seq<CutTag> CutTags => Keys.Map(key => new CutTag(Lane, key));
 }
 
 public static class WriteMass {
@@ -374,7 +398,7 @@ public static class WriteMass {
             : Fin.Fail<MassFact>(Error.New(8243, $"<lost:{rows.Count - (int)receipt.RowsCopied}>"));
     }
 
-    public static async Task<Fin<Seq<ChangeRow>>> Reconcile(StoreContext store, Seq<Fact> source, Func<Seq<string>, CancellationToken, Task> cut, CancellationToken token) {
+    public static async Task<Fin<Seq<ChangeRow>>> Reconcile(StoreContext store, Seq<Fact> source, Func<Seq<CutTag>, CancellationToken, Task> cut, CancellationToken token) {
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(cut);
         await using var tx = await store.Database.BeginTransactionAsync(token).ConfigureAwait(false);

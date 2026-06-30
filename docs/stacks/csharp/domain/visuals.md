@@ -26,7 +26,7 @@ This table routes a visual concern to its owning surface; the most specific row 
 [SCENE_AND_TARGETS]:
 - Law: a scene records once — `SKPictureRecorder.BeginRecording(cullRect, useRTree: true)` yields the immutable `SKPicture` every target replays, the R-tree making playback against a clip skip out-of-bounds ops — and `CullRect` is a contract, not a hint: content outside it may be elided, and layout reads it as the declared extent.
 - Law: target kinds are rows over one frozen policy record — pinned `SKImageInfo`, `SKSurfaceProperties`, declared `SKSamplingOptions`, op and byte ceilings — so a new output target is one row and zero pipeline code; `BytesSize64` gates dimensions because the `int` size forms overflow past ~2 GB.
-- Law: cost is computable before pixels — `ApproximateOperationCount` and `ApproximateBytesUsed` are the recording receipts gated at `EndRecording`, and `SKSurface.CreateNull` runs the full draw pipeline against no pixels — so a scene over the op ceiling fails a structural gate without rasterizing, and the unrendered probe receipt carries `Option` absence, never a sentinel hash.
+- Law: cost is computable before pixels — `ApproximateOperationCount` and `ApproximateBytesUsed` are the `SKPicture` recording receipts read after `EndRecording`, and `GetApproximateOperationCount(includeNested: true)` folds sub-pictures into the count — so a scene over the op ceiling fails a structural gate without ever allocating a surface, and the cost-probe target carries `Option` absence in the hash slot, never a sentinel string.
 - Law: `SaveLayer` is earned only by group compositing — group alpha, blend, or image filter over a subtree — and always carries computed bounds, because the unbounded overload allocates clip-sized layers and per-shape alpha rides the paint; `QuickReject` culls expensive subtrees against device clip and total matrix before any draw.
 - Reject: per-draw `new SKPaint()` — token-resolved long-lived and pooled-scratch `Reset()` are the two legal paint lifetimes; `UniqueId` as cache identity — it is process-local, never content identity; snapshot-then-keep-drawing — `Snapshot()` is copy-on-write, so the capsule orders snapshot last; and `Clear`-versus-`DrawColor` confusion — `Clear` replaces pixels including alpha while `DrawColor` composites, differing exactly on translucent fills over reused surfaces, the ghost-frame defect.
 - Exemption: the capsule's using-scoped recorder, surface, and pixmap bodies are the platform-forced statement seam.
@@ -41,7 +41,8 @@ public abstract partial record Target {
 }
 
 public sealed record RenderPolicy(SKImageInfo Pinned, SKSurfaceProperties Props, int OpCeiling, long ByteCeiling);
-public readonly record struct FrameReceipt(Option<string> Hash, SKImageInfo Info, int Ops);
+public readonly record struct NativeFormat(SKColorType ColorType, SKAlphaType Alpha);
+public readonly record struct FrameReceipt(Option<string> Hash, SKImageInfo Info, NativeFormat Native, int Ops);
 
 public static class RenderCapsule {
     public static Fin<SKPicture> Record(RenderPolicy policy, SKRect cull, Action<SKCanvas> scene) {
@@ -59,8 +60,10 @@ public static class RenderCapsule {
         return target.Switch(
             state: (Policy: policy, Scene: scene),
             evidence: static (s, _) => Raster(s.Policy.Pinned, s.Policy, s.Scene, 1f),
-            thumbnail: static (s, t) => Raster(s.Policy.Pinned.WithSize((int)(s.Policy.Pinned.Width * t.Scale), (int)(s.Policy.Pinned.Height * t.Scale)), s.Policy, s.Scene, t.Scale),
-            costProbe: static (s, _) => Fin.Succ(new FrameReceipt(None, s.Policy.Pinned, s.Scene.ApproximateOperationCount)));
+            thumbnail: static (s, t) => Raster(s.Policy.Pinned.WithSize(
+                new SKSizeI((int)(s.Policy.Pinned.Width * t.Scale), (int)(s.Policy.Pinned.Height * t.Scale))), s.Policy, s.Scene, t.Scale),
+            costProbe: static (s, _) => Fin.Succ(new FrameReceipt(None, s.Policy.Pinned,
+                new NativeFormat(s.Policy.Pinned.ColorType, s.Policy.Pinned.AlphaType), s.Scene.GetApproximateOperationCount(includeNested: true))));
     }
 
     static Fin<FrameReceipt> Raster(SKImageInfo info, RenderPolicy policy, SKPicture scene, float scale) {
@@ -72,7 +75,7 @@ public static class RenderCapsule {
         using var pixels = surface.PeekPixels();
         return new FrameReceipt(
             Some(XxHash3.HashToUInt64(pixels.GetPixelSpan()).ToString("x16", CultureInfo.InvariantCulture)),
-            info, scene.ApproximateOperationCount);
+            info, new NativeFormat(info.ColorType, info.AlphaType), scene.ApproximateOperationCount);
     }
 }
 ```
@@ -85,9 +88,10 @@ public static class RenderCapsule {
 
 [EVIDENCE_IDENTITY]:
 - Law: frame identity hashes the pinned pixel projection, never encoder output — encoded bytes couple identity to compression internals — and the evidence info declares all four fields, because `SKImageInfo.PlatformColorType` swaps byte order across hosts and premul is the native format pinned for a baseline's lifetime.
-- Law: evidence renders on raster surfaces only — GPU output varies by driver, MSAA resolve, and backend, so the GPU path is throughput, never identity — and the receipt is composite: content hash, info identity, native-payload row, making cross-platform differences attributable instead of mysterious.
+- Law: evidence renders on raster surfaces only — GPU output varies by driver, MSAA resolve, and backend, so the GPU path is throughput, never identity — and the receipt is composite: content hash, declared info, and the `(SKColorType, SKAlphaType)` native row the host resolved, so a hash divergence decomposes into a content change versus a `PlatformColorType` byte-order swap from the receipt alone instead of staying mysterious.
 - Law: baselines are content-addressed by the receipt — two proofs rendering one scene under one policy share one baseline, and a policy edit re-keys every dependent baseline at once, so churn is proportional to policy change, not proof count; a stochastic effect carries its seed in its token row or it is a per-frame hash break by design.
 - Law: deterministic encoding rides the knob-pinned `SKPixmap.Encode` rows (`SKPngEncoderOptions`), never the image convenience overloads; `SKImage.FromEncodedData` defers decode and retains `EncodedData` for pass-through re-export — correct for draw-once and forward-the-bytes lanes only, because lazy images re-decode under cache pressure with floating defaults.
+- Boundary: the frame content hash is the in-process content-key choice the system-API identity owner fixes — `XxHash3.HashToUInt64` over the pinned pixel span, reused verbatim — never a second hashing path minted here; a persisted or signed artifact key is the durable byte-identity owner's canonical codec, composed at the export seam.
 
 [DOCUMENT_EXPORT]:
 - Law: a document is a forward-only page fold — `BeginPage` returns a canvas valid only until `EndPage`, `Close()` finalizes, `Abort()` discards — and the failure arm aborts explicitly: a capsule that merely disposes has neither committed nor failed loudly, the silent-loss defect; `SKDocument.CreateXps` shares the page protocol, so format is one row whose only divergence is the metadata argument's presence.
@@ -136,7 +140,7 @@ public static class DocumentExport {
 
 [SHAPE_PIPELINE]:
 - Law: text shapes before it rasters — `SKShaper` is the typeface-bound convenience, the raw `Buffer` + `Font` + `Feature` surface the control altitude, and escalation is a row swap: the moment OpenType features, script pinning, or cluster policy matter, the pipeline drops to `Font.Shape(buffer, features)` with range-scoped feature values.
-- Law: the buffer protocol is ordered — add text, pin `Direction`, `Script`, and `Language`, shape, read `GlyphInfos` and `GlyphPositions` — and deterministic pipelines pin all axes as one run-spec row, because `GuessSegmentProperties` drifts at mixed-script margins and locales legitimately shape identical text to different glyph streams, which is why language joins the shaped-run cache key.
+- Law: the buffer protocol is ordered — add text, pin `Direction`, `Script`, and `Language`, shape, then read the zero-allocation `GetGlyphInfoSpan()`/`GetGlyphPositionSpan()` (the `GlyphInfos`/`GlyphPositions` array properties recopy per access) — and deterministic pipelines pin all axes as one run-spec row, because `GuessSegmentProperties` drifts at mixed-script margins and locales legitimately shape identical text to different glyph streams, which is why language joins the shaped-run cache key.
 - Law: windowed shaping adds the item-window overloads with `Flags` edge contracts (`BeginningOfText`, `EndOfText`); pre-slicing the string severs cross-boundary joining forms — the run-segmentation defect.
 - Law: positions project by `Size / 512f` with `YOffset` negated — shaping space is y-up, the canvas y-down — and the shaped run is the single measurement authority: advance-sum width reserves layout, ink bounds size invalidation, two queries never interchanged.
 - Law: `ClusterLevel` is a typography-role decision riding the run-spec row, because hit-testing and selection cannot be retrofitted onto a stream shaped at the wrong level; wrapping folds over cluster boundaries with `GlyphFlags.UnsafeToBreak` bounding re-shape work to flagged break sites, and truncation picks the last fitting cluster boundary, never a char index.
@@ -172,17 +176,22 @@ public static class ShapeBoundary {
         buffer.AddUtf16(text);
         (buffer.Direction, buffer.Script, buffer.Language, buffer.ClusterLevel) = (spec.Direction, spec.Script, spec.Language, spec.Level);
         font.Shape(buffer, features);
-        var (infos, positions, scale) = (buffer.GlyphInfos, buffer.GlyphPositions, raster.Size / (float)FontHandle.DesignScale);
+        ReadOnlySpan<GlyphInfo> infos = buffer.GetGlyphInfoSpan();
+        ReadOnlySpan<GlyphPosition> positions = buffer.GetGlyphPositionSpan();
+        var scale = raster.Size / (float)FontHandle.DesignScale;
         using var builder = new SKTextBlobBuilder();
         var run = builder.AllocatePositionedRun(raster, infos.Length);
-        var glyphs = run.GetGlyphSpan(); var points = run.GetPositionSpan();
+        Span<ushort> glyphs = run.Glyphs;
+        Span<SKPoint> points = run.Positions;
+        var clusters = ImmutableArray.CreateBuilder<int>(infos.Length);
         var cursor = 0f;
-        for (var i = 0; i < infos.Length; i++) {
+        for (var i = 0; i < infos.Length; i++) {                          // Exemption: zero-alloc shaped-run fill — GlyphInfos/GlyphPositions array properties recopy, the span accessors do not
             glyphs[i] = (ushort)infos[i].Codepoint;
             points[i] = new SKPoint(cursor + (positions[i].XOffset * scale), -positions[i].YOffset * scale);
+            clusters.Add((int)infos[i].Cluster);
             cursor += positions[i].XAdvance * scale;
         }
-        return new ShapedRun(builder.Build(), cursor, [.. infos.Select(static info => (int)info.Cluster)]);
+        return new ShapedRun(builder.Build(), cursor, clusters.MoveToImmutable());
     }
 }
 ```
@@ -256,7 +265,7 @@ public static class VectorAssets {
 
 [SERIES_TABLE]:
 - Law: a chart is a fold over three data inputs — series-spec table, window artifacts, resolved tokens — so chart state is diffable, snapshotable, and headless-renderable by construction, and a chart that cannot be reproduced from the three has leaked imperative state.
-- Law: the series-kind vocabulary is closed and dispatches one spec record — kind, values, projection, paint-token keys, geometry knobs — onto generated series rows; a new kind is one vocabulary row plus one dispatch arm that breaks at compile time, a new treatment is paint rows, a new data shape one values projection — no foreseeable chart requirement opens a new surface.
+- Law: the series-kind vocabulary is closed and dispatches one spec record — kind, raw values, a `Projection` value map, a paint-token key, one `Geometry` knob each arm binds to its concrete (`LineSeries.GeometrySize`/`LineSmoothness`, `ColumnSeries.Rx`/`Ry`) — onto generated series rows; the evidence posture (`DisableAnimations`, `Lineal`) applies once across arms, never re-spelled per kind, so a new kind is one vocabulary row plus one dispatch arm that breaks at compile time, a new treatment is paint rows, and a new data shape is one `Projection` — no foreseeable chart requirement opens a new surface.
 - Law: the headless family mirrors the controls one-to-one on shared generated bases — parity is generated, not maintained — and `InMemorySkiaSharpChart` rows feed chart evidence through `GetImage()` into the render-hash law; the headless rows accept a live view, the parity bridge between what a user saw and what a proof hashes.
 - Law: axis rows own scale and chrome together — `Labeler` is the one label projection resolved from locale tokens, `UnitWidth` declares one unit's domain width (the invisible-bars defect on date axes is an unset `UnitWidth`), `MinStep` with `ForceStepToMin` pins tick density, and `DrawMargin` pins plot rectangles where dashboards must align.
 - Law: interaction posture is data — `ZoomAndPanMode` flags compose per axis, and `FindingStrategy` declares pointer-to-point mapping consumed identically by tooltips and programmatic queries, so a passing point-query proof certifies interactive behavior — and global policy declares once through `LiveCharts.Configure` at the root, materialized from resolved tokens inside the catalog's publication.
@@ -268,21 +277,27 @@ public sealed partial class SeriesKind {
     public static readonly SeriesKind Band = new("<kind-b>");
 }
 
-public sealed record SeriesSpec(SeriesKind Kind, ImmutableArray<double> Values, string Paint);
+public sealed record SeriesSpec(
+    SeriesKind Kind, ImmutableArray<double> Values, Func<double, double> Projection, string Paint, double Geometry);
 
 public static class ChartEvidence {
     public static ISeries Materialize(SeriesSpec spec, HashMap<string, SolidColorPaint> paints) {
         ArgumentNullException.ThrowIfNull(spec);
+        var projected = spec.Values.Select(spec.Projection).ToArray();
         return spec.Kind.Switch(
-            state: (spec.Values, Paint: paints[spec.Paint]),
-            trend: static s => (ISeries)new LineSeries<double> {
+            state: (Values: projected, Paint: paints[spec.Paint], spec.Geometry),
+            trend: static s => Posed(new LineSeries<double> {
                 Values = s.Values, Stroke = s.Paint, Fill = null,
-                AnimationsSpeed = LiveCharts.DisableAnimations, EasingFunction = EasingFunctions.Lineal,
-            },
-            band: static s => new ColumnSeries<double> {
-                Values = s.Values, Fill = s.Paint,
-                AnimationsSpeed = LiveCharts.DisableAnimations, EasingFunction = EasingFunctions.Lineal,
-            });
+                GeometrySize = s.Geometry, LineSmoothness = 0d,
+            }),
+            band: static s => Posed(new ColumnSeries<double> {
+                Values = s.Values, Fill = s.Paint, Rx = s.Geometry, Ry = s.Geometry,
+            }));
+    }
+
+    static ISeries Posed<TSeries>(TSeries series) where TSeries : ISeries {
+        (series.AnimationsSpeed, series.EasingFunction) = (LiveCharts.DisableAnimations, EasingFunctions.Lineal);
+        return series;
     }
 
     public static SKImage Evidence(Seq<SeriesSpec> table, HashMap<string, SolidColorPaint> paints, Func<double, string> label) =>
@@ -298,16 +313,17 @@ public static class ChartEvidence {
 [STREAM_BINDING]:
 - Law: a chart binds to a fold artifact, never a producer — a fixed window or downsampled projection computed in the stream lane, with lanes, backpressure, and drop receipts arriving settled from the throughput layer — and the two mutation grains never mix on one series: in-place entity mutation inside a stable pre-allocated window for high-frequency feeds, atomic collection swap for structural change; rebuilding collections per tick is the canonical live-chart defect.
 - Law: downsampling is upstream and explicit — at most ~2 points per rendered pixel column, a min/max pair per bucket preserving the envelope extremes averaging destroys — with bucket width derived from declared `MinStep` and `UnitWidth`, never guessed from render width.
-- Law: live and evidence charts ride the disable row — `LiveCharts.DisableAnimations`, the one-millisecond sentinel, because `TimeSpan.Zero` does not disable transitions — and streaming axis limits are pinned or hysteresis-banded in the stream fold, so the frame-to-frame diff is data motion, never scale motion.
+- Law: live and evidence charts ride the motion disable row (`LiveCharts.DisableAnimations`), and streaming axis limits are pinned or hysteresis-banded in the stream fold, so the frame-to-frame diff is data motion, never scale motion.
 - Law: `SyncContext` is the chart-side declaration of the marshaled-input guarantee; window artifacts are value snapshots — a saved window plus its spec plus the catalog generation re-renders bit-identical evidence, so live-chart forensics is replay of values, never reproduction of timing.
 
 ## [06]-[TOKEN_ALGEBRA]
 
 [MASTER_SHAPE]:
 - Law: five concerns — theme paints, typography roles, motion rows, locale rows, icon rows — are one algebra differing only in row payload: a frozen total (role × variant × density) grid, one pure resolve fold to an immutable resolved-artifact record, one atomic swap publishing (generation, changed keys, causing axis); a sixth tokenized concern is one new instantiation with zero new mechanism.
-- Law: consumers mount against keys and hold resolved artifacts — the only legal constructors of paints, fonts, durations, and easings live inside the resolve fold, so the literal-at-call-site audit is grep-shaped and a key that fails to resolve is a freeze-time rejection, never a runtime path.
+- Law: consumers mount against keys and hold resolved artifacts — every pigment, type, duration, and easing payload is minted only inside the resolve fold, so the literal-at-call-site audit is grep-shaped and a key that fails to resolve is a freeze-time rejection, never a runtime path.
 - Law: the grid is total at freeze — a missing cell is a construction rejection, never a draw-time fallback chain — and density is an axis, not a scale factor: compact and comfortable rows carry distinct stroke, spacing, and type-size payloads because optical correctness does not scale linearly, and the cell count is the honest price totality makes safe to pay.
-- Law: the diff computes on resolved payloads, not axis values — a flip leaving a payload identical emits nothing for that key — and the changed-key set bounds re-mount work while the causing-axis field routes partial subscription; resolved paint payloads carry the full pigment row — float color with color-space tag, stroke metrics, effect slots — so one swap moves raw canvas and chart surfaces through one receipt.
+- Law: the resolved payload is a value-semantic record, never a live native — the paint payload is the full pigment row (float color with color-space tag, stroke metrics, effect slots) carrying generated structural equality, and the live `SolidColorPaint`/`ColorPaletteResources` mints from it at the binding edge; the `IEquatable<TPayload>` bound makes the diff genuine value equality, so two distinct cells resolving an identical pigment emit nothing and a reference-typed payload — whose default equality is per-instance — silently emitting every key on every swap is the foreclosed defect.
+- Law: the changed-key set bounds re-mount work while the causing-axis field routes partial subscription, so one swap moves raw canvas and chart surfaces through one receipt and a content-identical flip is a zero-key no-op.
 - Law: generation stamps unify staleness — shaped-run caches, vector variant matrices, ramp tables, and chart paints all key on catalog generation, so cross-cache coherence is one integer's monotonicity — and the catalog is one process-wide instance, because per-window catalogs fork the stamp and desynchronize derived caches.
 - Boundary: theme application — variant binding, density switching, template consumption — is interaction law; this algebra's deliverables end at the resolved record and the diff receipt.
 - Reject: cascade resolution as the canvas theming substrate — dictionary chains resolve per element per pass, and the fold's held output is both the determinism and the performance win.
@@ -328,7 +344,8 @@ public sealed record Catalog<TPayload>(
         toHashMap(Roles.Map(role => (role, Grid[(role, variant, density)])));
 }
 
-public sealed class TokenAlgebra<TPayload>(Catalog<TPayload> catalog, string variant, string density) {
+public sealed class TokenAlgebra<TPayload>(Catalog<TPayload> catalog, string variant, string density)
+    where TPayload : IEquatable<TPayload> {
     readonly Atom<Resolved<TPayload>> cell = Atom(new Resolved<TPayload>(0, "<boot>", catalog.Resolve(variant, density)));
 
     public Resolved<TPayload> Current => cell.Value;
@@ -337,7 +354,7 @@ public sealed class TokenAlgebra<TPayload>(Catalog<TPayload> catalog, string var
         var (next, prior) = (catalog.Resolve(nextVariant, nextDensity), Current);
         var generation = cell.Swap(held => new Resolved<TPayload>((prior = held).Generation + 1, axis, next)).Generation;
         var changed = toSeq(next.Filter((key, value) =>
-            prior.Artifacts.Find(key).Map(was => !EqualityComparer<TPayload>.Default.Equals(was, value)).IfNone(true)).Keys);
+            prior.Artifacts.Find(key).Map(was => !value.Equals(was)).IfNone(true)).Keys);
         return (generation, changed, axis);
     }
 }
@@ -352,49 +369,41 @@ public sealed class TokenAlgebra<TPayload>(Catalog<TPayload> catalog, string var
 - Law: bespoke curves are keyframe-table and parameterized-builder rows, never hand-written interpolation functions, and motion cost is auditable from declarations — the frame ceiling times per-row durations yields the worst-case redraw budget per swap before any frame renders.
 
 [PERCEPTUAL_LAW]:
-- Law: color motion and ramp generation interpolate in the cube-root LMS opponent space, never componentwise sRGB — the sRGB lerp desaturates midpoints and bends hue, the gray-dead-zone defect of any blue-to-yellow tween — and the interpolation space is itself a policy row, the cylindrical form with a declared hue path serving long-hue-distance tweens.
-- Law: achromatic endpoints carry no hue — sub-epsilon chroma clamps to neutral before interpolation, making the near-neutral hue-flicker edge unreachable at sample time — and a tween from gray adopts the chromatic endpoint's hue for the whole arc; gamut mapping after interpolation reduces chroma at constant lightness and hue, because RGB clamping shifts both and reintroduces exactly the artifacts perceptual interpolation removed.
-- Law: ramps and endpoints compute at token resolution into precomputed stop tables sized by perceptual step — motion samples the table, per-frame conversion is waste — with alpha interpolated separately and premultiplied at the boundary the render lane's alpha law declares.
-- Law: sequential ramps assert trend-signed monotonic lightness and diverging ramps pin the neutral midpoint — one ramp builder discriminating on pivot presence — so a perceptually broken palette is a construction failure rather than a chart-reading hazard, and text-bearing roles assert paired contrast at freeze.
-- Law: motion and color converge in one tween row — duration, easing, space, table — where the table is the artifact and the sampler the only code, clamped because declared-overshoot easings legally exceed the unit interval; the reduced variant's degenerate tween is a one-sample ramp that still resolves through gamut mapping.
+- Law: color motion and ramp generation are `Unicolour.Mix`/`Palette` over a `ColourSpace` row, never a hand-rolled lerp or local opponent-space transform — the package owns the cube-root LMS matrices, the desaturation-free midpoint, and the hue path, so the interpolation space is a policy row (`ColourSpace.Oklab` for perceptual distance, `ColourSpace.Oklch` plus a `HueSpan` for long-hue-distance tweens) and the componentwise-sRGB lerp that bends hue through the gray dead zone is the deleted form.
+- Law: gamut mapping is `GamutMap.OklchChromaReduction` reached through `Palette`/`Mix` and the `IsInRgbGamut` gate, never an RGB clamp — clamping shifts lightness and hue and reintroduces exactly the artifacts perceptual interpolation removed — and `premultiplyAlpha` on the mix is the alpha contract the render lane's premultiply boundary reads, so alpha never interpolates in a second hand-written pass.
+- Law: ramps and endpoints compute at token resolution into precomputed `Unicolour` stop tables sized by perceptual step — motion samples the projected `.Rgb` table and per-frame reconversion is waste — and the achromatic-endpoint and near-neutral hue-flicker edges are the package's mix concern, named once as the reason the tween carries endpoints rather than a hand-neutralized scalar.
+- Law: sequential ramps assert trend-signed monotonic `.Oklab.L` over the generated palette and diverging ramps pin a neutral pivot through one ramp builder discriminating on pivot presence, so a perceptually broken palette is a freeze-time construction failure rather than a chart-reading hazard, and text-bearing roles assert their paired `Contrast` ratio at freeze through the same model rather than a re-derived luminance.
+- Law: motion and color converge in one tween row — motion token plus the resolved stop table — where the table is the artifact and the index-clamped sampler the only code, clamped because declared-overshoot easings legally exceed the unit interval; the reduced variant's degenerate tween is a one-stop table that still resolves through the same gamut-mapped mix.
 
 ```csharp conceptual
-public readonly record struct OkLab(float L, float A, float B) {
-    public static OkLab FromLinear(float r, float g, float b) {
-        var (l, m, s) = (
-            MathF.Cbrt((0.4122214708f * r) + (0.5363325363f * g) + (0.0514459929f * b)),
-            MathF.Cbrt((0.2119034982f * r) + (0.6806995451f * g) + (0.1073969566f * b)),
-            MathF.Cbrt((0.0883024619f * r) + (0.2817188376f * g) + (0.6299787005f * b)));
-        return new(
-            (0.2104542553f * l) + (0.7936177850f * m) - (0.0040720468f * s),
-            (1.9779984951f * l) - (2.4285922050f * m) + (0.4505937099f * s),
-            (0.0259040371f * l) + (0.7827717662f * m) - (0.8086757660f * s));
-    }
-
-    public OkLab Neutralized => (A * A) + (B * B) < 1e-8f ? new(L, 0f, 0f) : this;
-
-    public static OkLab Lerp(OkLab x, OkLab y, float t) =>
-        new(x.L + ((y.L - x.L) * t), x.A + ((y.A - x.A) * t), x.B + ((y.B - x.B) * t));
-}
-
 public sealed record MotionToken(TimeSpan Duration, Func<float, float> Easing) {
     public static readonly TimeSpan Disable = TimeSpan.FromMilliseconds(1);
-    public static readonly MotionToken Reduced = new(Disable, static t => t);
+    public static readonly MotionToken Reduced = new(Disable, EasingFunctions.Lineal);
 }
 
-public sealed record TweenRow(MotionToken Motion, ImmutableArray<OkLab> Table) {
-    public OkLab Sample(float t) => Table[int.Clamp((int)(Motion.Easing(float.Clamp(t, 0f, 1f)) * (Table.Length - 1)), 0, Table.Length - 1)];
+public sealed record TweenRow(MotionToken Motion, ImmutableArray<SKColor> Table) {
+    public SKColor Sample(float t) =>
+        Table[int.Clamp((int)(Motion.Easing(float.Clamp(t, 0f, 1f)) * (Table.Length - 1)), 0, Table.Length - 1)];
 }
 
 public static class Ramps {
-    public static Fin<ImmutableArray<OkLab>> Build(OkLab from, OkLab to, int stops, Option<OkLab> pivot = default) =>
-        pivot is { IsSome: true, Case: OkLab mid }
-            ? Build(from, mid.Neutralized, (stops + 1) >> 1).Bind(rise =>
-                Build(mid.Neutralized, to, (stops + 2) >> 1).Map(fall => rise.AddRange(fall.AsSpan()[1..])))
-            : ImmutableArray.CreateRange(Enumerable.Range(0, stops).Select(i =>
-                  OkLab.Lerp(from.Neutralized, to.Neutralized, stops > 1 ? i / (stops - 1f) : 0f))) is var table
-              && Enumerable.Range(1, int.Max(stops - 1, 0)).All(i => MathF.Sign(to.L - from.L) * (table[i].L - table[i - 1].L) >= 0f)
-                ? Fin.Succ(table)
-                : Fin.Fail<ImmutableArray<OkLab>>(Error.New(7861, "<non-monotonic-lightness>"));
+    public static Fin<TweenRow> Build(
+        MotionToken motion, Unicolour from, Unicolour to, int stops, Option<Unicolour> pivot = default) =>
+        Stops(from, to, stops, pivot)
+            .Bind(seq => double.Sign(to.Oklab.L - from.Oklab.L) is var trend
+                      && seq.Zip(seq.Skip(1)).ForAll(pair => trend * (pair.Second.Oklab.L - pair.First.Oklab.L) >= 0)
+                ? Fin.Succ(seq)
+                : Fin.Fail<Seq<Unicolour>>(Error.New(7861, "<non-monotonic-lightness>")))
+            .Map(seq => new TweenRow(motion, [.. seq.Map(Quantize)]));
+
+    static SKColor Quantize(Unicolour colour) =>
+        new(red: (byte)colour.Rgb.Byte255.Clipped.R, green: (byte)colour.Rgb.Byte255.Clipped.G,
+            blue: (byte)colour.Rgb.Byte255.Clipped.B, alpha: (byte)colour.Alpha.A255);
+
+    static Fin<Seq<Unicolour>> Stops(Unicolour from, Unicolour to, int stops, Option<Unicolour> pivot) =>
+        pivot is { IsSome: true, Case: Unicolour mid }
+            ? Stops(from, mid, (stops + 1) >> 1, None).Bind(rise =>
+                Stops(mid, to, (stops + 2) >> 1, None).Map(fall => rise.Concat(fall.Tail)))
+            : Fin.Succ(toSeq(from.Palette(to, ColourSpace.Oklch, int.Max(stops, 2), HueSpan.Shorter)));
 }
 ```

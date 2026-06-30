@@ -1,6 +1,6 @@
 # [DIAGNOSTICS]
 
-Telemetry is one spine declared at process roots and joined across the suite by one identity envelope. Emission is a compile-checked contract — generated log methods, registered instruments, natively emitted spans — and every governing behavior is a declared row: level floors, sampler verdicts, view shapes, batch squares, redactor maps, baggage keys. One sampling verdict at the trace root derives log and exemplar volume; one classification taxonomy meets one redaction seam before any provider observes a record; one stamp cell per process makes cross-process order producer-stamped evidence instead of consumer inference; loss, skew, and shed facts fold into the one fact stream every operational view projects from. Growth lands as rows — a new event family is one partial method in its band, a new subsystem one source admission, a new sensitivity one taxonomy row plus one redactor row, a new transport one carrier adapter.
+Telemetry is one spine declared at process roots and joined across the suite by one identity envelope. Emission is a compile-checked contract — generated log methods, registered instruments, natively emitted spans — and every governing behavior is a declared row: level floors, sampler verdicts, view shapes, batch squares, redactor maps, baggage keys. One sampling verdict at the trace root derives log and exemplar volume; one classification taxonomy meets one redaction seam before any provider observes a record; one stamp cell per process makes cross-process order producer-stamped evidence instead of consumer inference; loss and skew are kind cases on the one receipts fact stream — never parallel cells — and the shed verdict folds in from its rate-limit owner, so every operational view is a projection over one `Atom<Seq<FactRecord>>`. Growth lands as rows — a new event family is one partial method in its band, a new subsystem one source admission, a new sensitivity one taxonomy row plus one redactor row, a new transport one carrier adapter.
 
 ## [01]-[SIGNAL_CHOOSER]
 
@@ -18,7 +18,7 @@ This table routes a telemetry concern to its owning surface; the most specific r
 |  [08]   | event ordering        | one stamp cell per process                | consumer-inferred timestamps     |
 |  [09]   | sensitive data        | classification taxonomy + redactor map    | sink scrubbing, regex masking    |
 |  [10]   | resource signals      | governed meter admission + publisher rows | counter polling loops            |
-|  [11]   | operational views     | folds over the one fact stream            | parallel hand-synced counters    |
+|  [11]   | operational views     | folds over one `FactRecord` stream        | parallel typed loss/skew cells   |
 
 ## [02]-[EMISSION]
 
@@ -26,6 +26,7 @@ This table routes a telemetry concern to its owning surface; the most specific r
 - Law: every production event family is one `[LoggerMessage]` partial co-located with the concern it evidences; `EventId` allocates from the owner's declared const band and `EventName` is the human-stable half — dashboards key on names, the wire keys on ids, and neither alone suffices.
 - Law: template text is constant — identity caches by template, so dynamic data is always a property hole; an `Exception`-typed parameter binds the exception channel, never a hole, making a `ToString`-ed exception unrepresentable through the generated path.
 - Law: severity decided by data is one verb with a `LogLevel` parameter and the `Level` row omitted, never a switch over seven named methods.
+- Law: the generated body opens with an `ILogger.IsEnabled` guard so a disabled level never formats — `SkipEnabledCheck = true` elides it for an audit-grade event a sampler-and-buffer exclusion already cleared, so the always-recorded path drops the redundant level branch; setting it on a sampleable event is the silent volume leak.
 - Law: six is the template arity ceiling — past it the payload is one `[LogProperties]` object whose expansion knobs are declaration facts, and a tag-name collision between expansion and a template hole is a build error, never wire drift.
 - Use: `[TagProvider(type, method)]` as the projection row for foreign types that cannot carry annotations; `[TagName]` renames at the declaration so a vocabulary edit breaks loudly at rebuild.
 - Reject: interpolated log calls and the boxing severity-extension family in production emission; string-named categories outside boundary material.
@@ -58,7 +59,8 @@ public static partial class StepLog {
     public static partial void Faulted(ILogger logger, string key, Exception cause,
         [TagProvider(typeof(HostTags), nameof(HostTags.Collect))] Version host);
 
-    [LoggerMessage(EventId = Band + 3, EventName = "StepDrained", Message = "step {Key} drained {Residue} residue")]
+    [LoggerMessage(EventId = Band + 3, EventName = "StepDrained", SkipEnabledCheck = true,
+        Message = "step {Key} drained {Residue} residue")]
     public static partial void Drained(ILogger logger, LogLevel level, string key, int residue);
 }
 ```
@@ -77,23 +79,29 @@ public static partial class StepLog {
 - Law: the two delivery classes are contracts — `WriteTo` swallows sink failure into the typed rail, `AuditTo` propagates it to the logging caller — and batched sinks are structurally incompatible with audit guarantees.
 - Law: the `BatchingOptions` square is one declared latency/throughput budget — `EagerlyEmitFirstEvent` and `BufferingTimeLimit` bound worst-case visibility, `BatchSizeLimit` and `QueueLimit` bound throughput cost — tuned together or not at all.
 - Law: batch implementers let exceptions propagate — the batching infrastructure owns retry and failure reporting, and a `try`/`catch` inside `EmitBatchAsync` amputates the rail silently; `OnEmptyBatchAsync` is the sanctioned heartbeat hook.
-- Law: `WriteTo.Fallible` wires the suite's listener onto its sinks; `LoggingFailureKind` plus the retry ceiling, queue overflow, and oversize bypass form the complete loss taxonomy folded to one per-sink evidence row — `WriteTo` without a listener is unobserved best-effort.
+- Law: `WriteTo.Fallible` wires the suite's listener onto its sinks; `LoggingFailureKind` plus the retry ceiling, queue overflow, and oversize bypass form the complete loss taxonomy, and the listener projects each failure into one `FactRecord` loss case on the shared receipts stream `rails-and-effects.md` owns — a private `Atom<Seq<SinkLoss>>` beside it is the parallel-cell defect, and `WriteTo` without a listener is unobserved best-effort.
 - Law: fallback is declared topology — `WriteTo.FallbackChain` reroutes to the next sink on synchronous throw or listener-reported failure, and a fire-and-forget sink that neither throws nor reports defeats the chain silently, so fallback eligibility is a per-sink failure-surface audit.
 - Law: `SelfLog` is the floor beneath the rail — a bounded never-throwing writer, never a pipeline sink, because it runs exactly when the pipeline is the casualty.
 
 ```csharp conceptual
-public readonly record struct SinkLoss(string Sink, LoggingFailureKind Kind, int Count);
+[Union]
+public abstract partial record FactRecord {
+    private FactRecord(Stamp at) => At = at;
+    public Stamp At { get; }
+    public sealed record Loss(Stamp When, string Sink, LoggingFailureKind Kind, int Dropped) : FactRecord(When);
+    public sealed record Skew(Stamp When, string Peer, TimeSpan Offset, TimeSpan Bound) : FactRecord(When);
+    public sealed record Shed(Stamp When, string Subsystem, TimeSpan RetryAfter) : FactRecord(When);
+}
 
 public sealed class WireSink : IBatchedLogEventSink {
     public Task EmitBatchAsync(IReadOnlyCollection<LogEvent> batch) => Task.CompletedTask;
     public Task OnEmptyBatchAsync() => Task.CompletedTask;
 }
 
-public sealed class LossFold : ILoggingFailureListener {
-    public static readonly Atom<Seq<SinkLoss>> Facts = Atom(Seq<SinkLoss>());
+public sealed class LossFold(Atom<Seq<FactRecord>> facts, StampCell stamps) : ILoggingFailureListener {
     public void OnLoggingFailed(object sender, LoggingFailureKind kind, string message,
         IReadOnlyCollection<LogEvent>? events, Exception? exception) =>
-        ignore(Facts.Swap(facts => facts.Add(new SinkLoss(sender.GetType().Name, kind, events?.Count ?? 0))));
+        ignore(facts.Swap(seen => seen.Add(new FactRecord.Loss(stamps.Now(), sender.GetType().Name, kind, events?.Count ?? 0))));
 }
 
 public sealed record LevelRows(LoggingLevelSwitch Floor, Seq<(string Source, LoggingLevelSwitch Override)> Overrides) {
@@ -102,7 +110,7 @@ public sealed record LevelRows(LoggingLevelSwitch Floor, Seq<(string Source, Log
 }
 
 public static class Projection {
-    public static Logger Build(LevelRows rows, WireSink wire, ILogEventSink ledger) {
+    public static Logger Build(LevelRows rows, WireSink wire, ILogEventSink ledger, Atom<Seq<FactRecord>> facts, StampCell stamps) {
         ArgumentNullException.ThrowIfNull(rows);
         return rows.Overrides
             .Fold(new LoggerConfiguration().MinimumLevel.ControlledBy(rows.Floor),
@@ -114,7 +122,7 @@ public static class Projection {
             .WriteTo.Fallible(into => into.Sink(wire, new BatchingOptions {
                 EagerlyEmitFirstEvent = true, BatchSizeLimit = 500,
                 BufferingTimeLimit = TimeSpan.FromSeconds(2), QueueLimit = 10_000,
-            }), new LossFold())
+            }), new LossFold(facts, stamps))
             .WriteTo.Conditional(Matching.FromSource("<source-hot>"),
                 static into => into.Console(formatProvider: CultureInfo.InvariantCulture))
             .AuditTo.Sink(ledger)
@@ -202,6 +210,7 @@ public static class SignalRoot {
 - Law: enrichment splits by cost class — `IStaticLogEnricher` once per provider for process constants, `ILogEnricher` per record for request-scoped dimensions, `EnableEnrichment` activating both; a constant in a per-record row is waste, a per-request value in a static row is a bug.
 - Law: an enricher is a pure projection to bounded tags sharing the record's flat namespace with generated tags — one registry owns the prefixes, and a dimension that needs I/O is a design error at the row; per-record byte cost times kept-record rate is the declared telemetry weight.
 - Law: one fact has one enrichment seat per signal kind — logs through the row system, spans through options-bound enrich delegates at the instrumented seam, metrics never per-point — so "add it everywhere" is three declared rows, never one helper that scatters.
+- Law: exception detail is one enrichment decision on `EnableEnrichment` — `CaptureStackTraces` trades the per-fault stack cost for the frame, `UseFileInfoForStackTraces` adds the leak-bearing file and line, and `IncludeExceptionMessage` admits the message body — so a captured stack is a prevention row reviewed against the taxonomy, never raw text appended outside the redaction seam.
 - Law: the latency context is the explicit in-flight ledger — vocabulary registered at composition, recorded through resolved tokens, cheaper than child spans and free of sampling coupling — joining the suite through its registered root tag; durations never derive from stamp differences.
 
 [STAMP_ALGEBRA]:
@@ -212,8 +221,6 @@ public static class SignalRoot {
 - Boundary: durability composes already-stamped versions and owns only last-writer-wins adjudication; every other ordering construct in the suite composes this one type, and a second timestamp-ordering primitive anywhere is the collapse trigger.
 
 ```csharp conceptual
-public readonly record struct SkewFact(string Peer, TimeSpan Offset, TimeSpan Bound);
-
 public readonly record struct Stamp(ulong Word) : IComparable<Stamp> {
     private const int CounterBits = 16;
     private const ulong CounterMask = (1UL << CounterBits) - 1;
@@ -241,27 +248,27 @@ public readonly record struct Stamp(ulong Word) : IComparable<Stamp> {
     }
 }
 
-public sealed record StampCell(Atom<Stamp> Cell, string Origin, TimeProvider Clock, TimeSpan Bound, Atom<Seq<SkewFact>> Skew) {
-    public static StampCell Boot(string origin, Guid epoch, TimeProvider clock, TimeSpan bound) {
+public sealed record StampCell(Atom<Stamp> Cell, string Origin, TimeProvider Clock, TimeSpan Bound, Atom<Seq<FactRecord>> Facts) {
+    public static StampCell Boot(string origin, Guid epoch, TimeProvider clock, TimeSpan bound, Atom<Seq<FactRecord>> facts) {
         ArgumentNullException.ThrowIfNull(clock);
-        return new(Atom(Stamp.Genesis(clock.GetUtcNow().ToUnixTimeMilliseconds())), $"{origin}:{epoch:N}", clock, bound, Atom(Seq<SkewFact>()));
+        return new(Atom(Stamp.Genesis(clock.GetUtcNow().ToUnixTimeMilliseconds())), $"{origin}:{epoch:N}", clock, bound, facts);
     }
 
     public Stamp Now() => Cell.Swap(held => held.Advance(held, Clock.GetUtcNow().ToUnixTimeMilliseconds()));
 
     public Stamp Receive(Stamp inbound, string peer) {
         var now = Clock.GetUtcNow().ToUnixTimeMilliseconds();
-        return (inbound.OffsetFrom(now) is var offset && offset > Bound
-                ? Skew.Swap(facts => facts.Add(new SkewFact(peer, offset, Bound)))
-                : Skew.Value,
-            Cell.Swap(held => held.Advance(inbound, now))).Item2;
+        var advanced = Cell.Swap(held => held.Advance(inbound, now));
+        return inbound.OffsetFrom(now) is var offset && offset > Bound
+            ? (ignore(Facts.Swap(seen => seen.Add(new FactRecord.Skew(advanced, peer, offset, Bound)))), advanced).Item2
+            : advanced;
     }
 }
 ```
 
 [SKEW_EVIDENCE]:
-- Law: receive consumes the inbound wall component unconditionally — causal order never depends on whether skew is acceptable; an offset past the bound becomes a typed skew fact and the stamp still advances, and rejection is a policy a consumer may layer above the envelope.
-- Law: the bound derives from the skew-fact stream itself — worst observed offset plus margin — a measured, revisable policy value; the per-peer fold, not the raw stream, is what health consumes.
+- Law: receive consumes the inbound wall component unconditionally — causal order never depends on whether skew is acceptable; an offset past the bound becomes one `FactRecord.Skew` case on the shared receipts stream and the stamp still advances, and rejection is a policy a consumer may layer above the envelope.
+- Law: the bound derives from the skew cases on that stream — worst observed offset plus margin — a measured, revisable policy value; the per-peer fold over those cases, not the raw stream, is what health consumes.
 - Law: span clocks carry duration truth and stamps carry order truth — a cross-process waterfall may show negative gaps up to the bound by design, and ordering is producer-stamped evidence, never consumer inference.
 
 ## [06]-[ENVELOPE_SEAM]
@@ -275,7 +282,7 @@ public sealed record StampCell(Atom<Stamp> Cell, string Origin, TimeProvider Clo
 
 [ADMISSION_VERDICTS]:
 - Law: the receive-advance executes once at the transport admission seam where extraction already happens, never per handler; departure stamps the post-advance value, so the wire never carries stale time forward.
-- Law: context-less arrival resolves through a closed verdict family — adopt as a countable foreign root, refuse where context is contractual, quarantine-tag and process — and a child started from the zero trace id corrupts downstream joins with a plausible-looking tree.
+- Law: arrival resolves across the `Fin<Arrival>` rail — refusal where context is contractual rides the fail side, the success side joins a present trace context or adopts a context-less frame as a countable foreign root, and quarantine is a consumer policy layered above the seam — so a child started from the zero trace id never mints, because a plausible-looking tree from a zero id corrupts every downstream join.
 - Law: the envelope version key turns mixed-fleet schema drift into a typed fault at extract, never a renamed key misread as absence; the version is numeric and compared as a number, because ordinal text comparison inverts past one digit.
 - Exemption: the propagator's carrier inject body is the platform-forced statement seam.
 

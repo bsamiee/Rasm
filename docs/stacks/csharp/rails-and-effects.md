@@ -2,6 +2,8 @@
 
 LanguageExt owns result rails, effect execution, immutable traversal, schedule policy, and boundary state cells. A carrier is chosen once at admission and never re-chosen mid-pipeline: the narrowest carrier that states the real outcome carries the value, reusable transforms keep it, and collapse to a bare value happens only at host, UI, native, command, or wire edges. Admitted domain values enter these surfaces; raw host, native, wire, and generated shapes do not.
 
+Four siblings own the shapes this algebra composes as settled material. The closed `Fault` `[Union]` over `Expected`, its `Semigroup` `Combine`, and the `Admission` bridge over the generated factory are `shapes.md`'s; the definition-time generator weave and the composition-time aspect fold that stack retry, bracket, and catch over one core, plus the continue-or-done iterative-dispatch step, are `surfaces-and-dispatch.md`'s; the native lifetime capsule, the serialized many-`Ref` state transaction, and the boundary memo key are `boundaries.md`'s; the span fold kernels a measured body names at the `EXPRESSION_SPINE` exemption are `algorithms.md`'s. This page composes each to legislate only which carrier states an outcome, how a boundary mints it, how a reusable transform threads it, how a collection sequences it, how the `Fault` family accumulates through `Validation`, where the carrier collapses, and how a cell or receipt carries evidence.
+
 ## [01]-[RAIL_CHOOSER]
 
 Choose the narrowest carrier that preserves the real outcome. A wider rail is earned only by a capability the narrower one cannot carry: accumulated faults, runtime context, resource lifetime, schedule, state, or carrier polymorphism.
@@ -19,7 +21,7 @@ Choose the narrowest carrier that preserves the real outcome. A wider rail is ea
 |  [09]   | `Atom<T>`             | boundary state cell            | domain accumulator          |
 |  [10]   | `K<F,A>`              | carrier-polymorphic arrow      | duplicate carrier pipelines |
 
-`Option<T>` carries absence with zero failure semantics; promote to `Fin<T>` when the caller must know why; promote to `Validation<E,T>` only when independent faults must accumulate before reporting. `Fin<T>` is `Either<Error,A>` with the fail side pinned to `Error` — the narrowest carrier whose failure composes with effect lifts without a bridge; `Either<L,R>` is reserved for a left that is not `Error`.
+`Option<T>` carries absence with zero failure semantics; promote to `Fin<T>` when the caller must know why; promote to `Validation<E,T>` only when independent faults must accumulate before reporting. `Fin<T>` pins its fail side to `Error` — the narrowest carrier whose failure composes with effect lifts without a bridge; `Either<L,R>` is reserved for a left that is not `Error` and demands an explicit `L → Error` bridge before entering an effect chain.
 
 [REPRESENTATION_DEFAULT]:
 - Law: `Option<T>` is a `readonly struct` — value-copied, zero-allocation, total over `default` as `None`.
@@ -27,10 +29,9 @@ Choose the narrowest carrier that preserves the real outcome. A wider rail is ea
 - Boundary: an absence-carrying slot defaults safely; a fallible field, array slot, or generic `default` is a latent null, never zero-init storage.
 
 [CARRIER_IDENTITY]:
-- Law: `Fin<T>` failure identity is a bare case test — every failure equals every other and hashes to one constant, so a set or dictionary keyed on `Fin` coalesces all failures into one key, where the accumulating carrier keeps each distinct.
-- Law: default structural equality on a payload-typed carrier routes through a reflective trait probe per `==`, not `EqualityComparer<T>.Default` — material in hot sets and dictionary probes.
-- Law: every two-case carrier orders failure strictly first — a `Min` is the first failure if any, else the least success.
-- Use: a projected scalar discriminant or the witness-form `Equals`/`CompareTo` to escape the reflective resolver.
+- Law: `Fin<T>` failure identity is a bare case test — every failure equals every other and hashes to one constant, so a set or dictionary keyed on `Fin` coalesces all failures into one bucket, where the accumulating carrier keeps each fault distinct; keying observability or dedup on a rail therefore projects a scalar discriminant first.
+- Law: a payload-typed carrier's default `==` and `GetHashCode` route through a per-call reflective trait probe, not `EqualityComparer<T>.Default` — material in a hot set or dictionary probe.
+- Use: the witness-form `CompareTo<OrdA>(other)` over an explicit `Ord<A>` or a projected scalar key to escape the reflective resolver on the hot path; the default comparer is the cold-path-only form.
 
 ## [02]-[BOUNDARY_CONVERSION]
 
@@ -121,24 +122,35 @@ Apply carrier-qualified failure transforms before collapse; a rail transform nev
 |  [09]   | `.Match(Succ:, Fail:)`  | `Fin`, `Option`, `Either`         | terminal collapse      |
 
 [VALIDATION_MONOID]:
-- Law: the failure type is itself the aggregate — `Error` is one error and a thousand at once, so a rail's failure slot never widens to `Seq<Error>`, and `Errors.None` is the monoid identity.
-- Law: `Validation<E,T>` requires an error carrier with an owned combination law — a typed fault family, `StringM`, or another monoidal `E`, never ordinary `Validation<Seq<Error>,T>` or `Validation<string,T>`.
-- Law: `&` collects both success values and combines failures; `Apply`/`*` accumulates every independent failure left-to-right via `Error.Combine`; `Bind` and query expressions stay fail-fast and never accumulate.
+- Law: the failure type is itself the aggregate — `Error` is one error and a thousand at once through `ManyErrors`, so a rail's failure slot never widens to `Seq<Error>` and `Errors.None` is the monoid identity; the closed `Fault` `[Union]` over `Expected` carrying its own `Semigroup` `Combine` is the accumulation carrier shapes.md mints, composed here, never re-declared.
+- Law: `Validation<E,T>` requires an error carrier with an owned combination law — the `Fault` family, `StringM`, or another `Monoid<E>` — never `Validation<Seq<Error>,T>` or `Validation<string,T>`; the missing monoid makes the accumulating shape unmanufacturable, so the carrier choice and the fault family are one decision.
+- Law: the closed-field product accumulates through the tuple `.Apply` surfaces.md owns; this page's region is the open extension set — independent constraints foreign code supplies fold applicatively through `.Traverse`, so the `Validation` `Apply` runs every `Check` and `Error.Combine` unions every fault before the boundary reports, where a `.TraverseM`/`Bind` fold would surface only the first.
+- Law: an `IConstraint<T>` conformance lifts its fault through the implicit `Error → Validation<Error,T>` widening — `value` on success, the bare `Fault` case on failure — so the triple-cast that spells the lift by hand is the deleted ceremony; the floor is held by the owner and minted downstream, the closed family the owner switches and the open set it folds co-existing on one owner.
 - Law: `MapFail` on `Fin` is `Error → Error` pinned; on `Validation` it changes the failure type and requires `Monoid<F1>` — the asymmetry decides which carrier survives accumulation.
-- Reject: building an independent-field product with `from`/`select` inside an accumulating carrier; it silently switches accumulation off.
+- Reject: building an independent-field product with `from`/`select` inside an accumulating carrier, which silently switches accumulation off; bridging a composite owner through `TryCreate` or a hand-built `out var` ternary where shapes.md's `Admitted` factory bridge plus the composite-refinement `guard` already admit leaf-then-composite; an interface over the closed family, which forfeits `Switch` totality; a `Switch` over the open set, which cannot admit a foreign conformance; a `Bind` fold over the open constraint set, which reports only the first violation where the applicative fold reports all.
 
 ```csharp conceptual
-public static Validation<Error, RangeValue> AdmitRange(string raw, int start, int end) =>
-    (AdmitCode(raw).ToValidation(), ValidateIndex(start).ToValidation(), ValidateIndex(end).ToValidation())
-        .Apply(static (code, s, e) => RangeValue.TryCreate(
-            code: code,
-            start: s,
-            end: e,
-            obj: out RangeValue value)
-            ? Fin.Succ(value).ToValidation()
-            : Fin.Fail<RangeValue>(new Fault.InvalidRange(Start: s, End: e)).ToValidation())
-        .Bind(static validation => validation)
-        .As();
+public interface IConstraint<T> {
+    Validation<Error, T> Check(T candidate);
+}
+
+public sealed class WithinBound(int ceiling) : IConstraint<RangeValue> {
+    public Validation<Error, RangeValue> Check(RangeValue value) =>
+        value.Span <= ceiling ? value : new Fault.Bounds($"<span {value.Span} over {ceiling}>");
+}
+
+public sealed class Ordered : IConstraint<RangeValue> {
+    public Validation<Error, RangeValue> Check(RangeValue value) =>
+        value.Start <= value.End ? value : new Fault.InvalidRange(Start: value.Start, End: value.End);
+}
+
+public static class Constrained {
+    public static Validation<Error, RangeValue> Admit(string raw, int start, int end, params ReadOnlySpan<IConstraint<RangeValue>> over) {
+        var checks = Iterable.createRange(over);
+        return RangeValue.Admitted((raw, start, end)).Bind(value =>
+            checks.Traverse(constraint => constraint.Check(value)).As().Map(_ => value));
+    }
+}
 ```
 
 [RECOVERY]:
@@ -218,8 +230,8 @@ public static K<M, Receipt> Recover<M>(K<M, Receipt> work) where M : Fallible<Er
 - Law: `recurs(n)` is `Take(n)` for exactly n attempts; `repeat(n)` cycles the whole base n times.
 - Law: union (`|`) runs to the longer operand, so unioning a finite curve onto an infinite one does not bound it; intersect (`&`) or a cumulative-delay gate does.
 - Law: `RepeatWhile`/`RepeatUntil` over a state-advancing effect is the schedule-driven iteration that retires a `for`/`while` counter — a stop predicate on the advanced state converges, the bare `recurs(n)` bound alone samples.
-- Builders: `recurs`, `spaced`, `linear`, `exponential`, `fibonacci`, `upto`, `jitter`, `maxDelay`, `maxCumulativeDelay`, and `decorrelate`.
-- Reject: ad-hoc delay loops; trusting an infinite backoff to stop itself.
+- Builders split by return type and that split is the composition law: `spaced`, `linear`, `exponential`, `fibonacci`, `upto`, `windowed`, and `Forever` mint a `Schedule` curve, while `recurs`, `jitter`, `maxDelay`, `maxCumulativeDelay`, and `decorrelate` mint a `ScheduleTransformer` that reshapes a curve. The `Schedule | ScheduleTransformer` and `Schedule & ScheduleTransformer` operator overloads plus the implicit `ScheduleTransformer`-to-`Schedule` coercion fuse the two kinds in one chain, so a transformer-headed expression collapses to a `Schedule`; transformer-to-transformer composition is `+`, never `|`.
+- Reject: ad-hoc delay loops; trusting an infinite backoff to stop itself; reading the union of a curve and a transformer as a curve-union choice when it is a reshape.
 
 ```csharp conceptual
 public static readonly Schedule Backoff =
@@ -257,10 +269,9 @@ public static IO<State> Converge(Atom<State> cell, Func<State, State> advance) =
 |  [09]   | `&`                   | `Validation`             | applicative product, fault append |
 |  [10]   | `+`                   | `Error`, monoidal `E`    | failure append                    |
 |  [11]   | `+`                   | `ScheduleTransformer`    | transformer composition           |
-|  [12]   | `\|`                  | `[Flags]` enum           | BCL bitwise OR                    |
-|  [13]   | `+`, `\|`             | domain owners            | application-defined algebra       |
 
-- Rule: use named methods when the owner is not obvious from the local type; `union` and `intersect` on `Schedule` are prelude functions, and schedule intersect is not `&`.
+- Rule: the same glyph is a different algebra per carrier, so a non-local type reaches for the named method (`union`/`intersect` on `Schedule` are Prelude functions, schedule intersect is not `&`); `|` on `Validation` is first-success choice while on `Fallible` it is catch-wrapping, so an ambiguous receiver is `.As()`-anchored before the operator.
+- Reject: a `[Flags]` enum bitwise `|` standing in for combinable capability, which shapes.md replaces with frozen-set membership and a fold; a domain owner defining `+`/`|` whose algebra is not the rail's, which collides with the carrier overloads at one call site.
 
 ## [06]-[STATE_RECEIPTS]
 
@@ -323,7 +334,7 @@ One implementation crosses carriers through `K<F,A>`; transformer stack order is
 - Use: `K<F,A>` and trait-constrained arrows when one body genuinely serves `Fin`, `Eff`, `Option`, `IO`, and transformer stacks; the constraint set is the capability contract — functor maps, applicative adds pure and apply, monad adds bind.
 - Law: failures raise through trait statics — `Fallible.fail<E,F,A>` — never a concrete `Fin.Fail` inside the body, which silently pins the carrier.
 - Law: the caller re-anchors the erased kind with the carrier's own `.As()`; omitting the pin is the most common carrier-polymorphic error — the value stays existentially kinded and refuses concrete operators.
-- Law: carrier migration is `Natural.transform<F,G,A>`; `NaturalIso` is wrong wherever one path loses failure information.
+- Law: carrier migration is direction-typed — the static entry `Natural.transform<F,G,A>` constrains `where F : Natural<F,G>` so the obligation falls on the source and delegates to the `static abstract Transform<A>` member, `CoNatural.transform<F,G,A>` constrains `where F : CoNatural<F,G>` so it falls on the target and delegates to `CoTransform<A>`, and a transformer stack's downward hop is `CoNatural.transform<Outer,Inner,A>` against the upward `Natural.transform<Inner,Outer,A>`; `NaturalMono<F,G> : Natural<F,G>, CoNatural<G,F>` derives the co-direction default from the forward `Transform` with no second body, `NaturalEpi<F,G> : CoNatural<F,G>, Natural<G,F>` derives `Transform` from `CoTransform` with the variance inverted, and `NaturalIso<F,G> : Natural<F,G>, CoNatural<F,G>` is the invariant-both-ways isomorphism rejected wherever one leg loses failure information, because a narrowing such as `FinT<M>` into `OptionT<M>` has no inverse.
 - Boundary: host arrays, lists, and trees convert at adapter edges, not as domain flow; rail policy never selects a BCL or numeric replacement.
 - Reject: duplicated `Fin`, `Validation`, `Eff`, and `IO` pipelines for one transform.
 

@@ -1,6 +1,6 @@
 # [CONCURRENCY]
 
-Throughput is one declared posture. Every producer in the process flows through a closed lane vocabulary — a channel row with declared capacity, full-mode backpressure, drop receipts, and a drain band — and every loss is receipted, so written = consumed + receipted loss + receipted residue closes from declarations alone; unreceipted loss is a rail rejection. One frozen budget record owns every degree, permit, capacity, and window and proves its own cross-axis inequalities at admission. Pacing is limiter policy rows whose verdicts carry typed evidence; identical concurrent intents collapse into one keyed flight; push streams admit only where time or combination algebra earns them and deliver through declared cadence edges; live collection state travels only as change-sets off two sources. Growth lands as rows: a new producer is a lane row, a new pacing class a limiter row, a new invalidation one resolution row, a rebalance one budget edit.
+Throughput is one declared posture. Every producer in the process flows through a closed lane vocabulary — a channel row with declared capacity, full-mode backpressure, drop receipts, and a drain band — and every loss is receipted into one kind-tagged stream, so written = consumed + receipted loss closes from declarations alone with drop eviction and drain residue as kinds on that one stream; unreceipted loss is a rail rejection. One frozen budget record owns every degree, permit, capacity, and window and proves its own cross-axis inequalities at admission. Pacing is limiter policy rows whose verdicts carry typed evidence; identical concurrent intents collapse into one keyed flight; push streams admit only where time or combination algebra earns them and deliver through declared cadence edges; live collection state travels only as change-sets off two sources. Growth lands as rows: a new producer is a lane row, a new pacing class a limiter row, a new invalidation one resolution row, a rebalance one budget edit.
 
 ## [01]-[CONCURRENCY_CHOOSER]
 
@@ -23,14 +23,15 @@ This table routes a throughput concern to its owning surface; the most specific 
 ## [02]-[CHANNEL_LANES]
 
 [LANE_ROWS]:
-- Law: a lane is one declared policy row over capacity, full-mode, reader arity, continuation inlining, comparer, drain band, and receipt sink — one frozen row table per process, producers reference rows by name, and inline `BoundedChannelOptions` at a call site makes the backpressure decision unrecoverable from declarations.
-- Law: six rows close the vocabulary; a producer fitting no row is a missing row, never a bespoke channel.
+- Law: a lane is one `[SmartEnum<string>]` row whose wire key is the lane name and whose columns carry capacity, full-mode, prioritization, reader arity, continuation inlining, and drain band — one vocabulary per process, producers dispatch the polymorphic `Open<T>` on the row, and inline `BoundedChannelOptions` at a call site makes the backpressure decision unrecoverable from declarations and forfeits the `Items` inventory the conservation audit walks.
+- Law: six rows close the vocabulary; a producer fitting no row is a missing item, never a bespoke channel, and `LaneRow.Get(name)` admits an external lane selector through the one key seam.
+- Law: the loss column is `Option<LossClass>` set by full-mode at declaration — the three drop modes carry their class, `Wait` and the rendezvous row carry `None`, so a `Wait` lane never manufactures a refused-write receipt and `Open<T>` selects the callback-bearing `CreateBounded` overload only where a loss class exists.
 - Law: every bounded-lane operation serializes on one internal monitor, so the throughput ceiling is lock hand-off rate — a hot lane shards into budget-derived key-hash lanes, and widening capacity raises burst absorption, never throughput and never latency, because an empty-buffer write hands off directly to a parked reader.
 - Law: capacity 0 is the rendezvous row — no buffer exists, a write completes only when a read consumed it, and timing-dependent hand-off assertions become sequential ones.
-- Law: `SingleReader` on an unbounded lane selects the pooled single-consumer implementation and forfeits `Count` (`CanCount` is `false`); `SingleWriter` is consumed by nothing, and the prioritized lane ignores both arity flags.
-- Law: equal priority on the prioritized lane is not FIFO — fair-within-class carries a `(priority, sequence)` comparand with the sequence minted at write time.
+- Law: `SingleReader` on an unbounded lane selects the pooled single-consumer implementation and forfeits `Count` (`CanCount` is `false`); `SingleWriter` is consumed by nothing, and the prioritized row ignores both arity flags but reports `CanCount`/`CanPeek` true because its `PriorityQueue<bool,T>` backing is internally serialized regardless.
+- Law: the prioritized backing is `PriorityQueue<bool,T>` keyed on the element itself, so `T` is the priority and `Comparer` is `IComparer<T>` over `T`; prioritization changes the element contract, so the prioritized row mints through `OpenRanked<T> where T : IRankedItem` while the value rows mint through `Open<T> where T : notnull`, the element-type contract the modality discriminant rather than a flag the body re-reads. `OpenRanked` wires `Comparer = Ranked.ByRankThenSequence<T>()` over a `[ComplexValueObject]` envelope carrying class rank plus a write-time sequence so equal-class items dequeue in arrival order; an unwired `Comparer` falls to `Comparer<T>.Default`, which throws for a non-comparable envelope, so the comparand is mandatory, never decorative, and the sequence is minted at admission, never the raw class rank alone.
 - Law: `AllowSynchronousContinuations` runs the parked side's continuation on the completing thread — admissible only on same-affinity hot paths whose consumer neither marshals, takes locks, nor re-enters the producer.
-- Law: declaring a single-reader row and materializing exactly one consumer loop makes exclusivity structural — the lane table is also an ownership table naming each row's one consumer.
+- Law: declaring a single-reader row and materializing exactly one consumer loop makes exclusivity structural — the vocabulary is also an ownership table naming each row's one consumer.
 
 | [INDEX] | [ROW]        | [SHAPE]                                   | [DELETES]                      |
 | :-----: | :----------- | :---------------------------------------- | :----------------------------- |
@@ -50,32 +51,56 @@ public sealed partial class LossClass {
     public static readonly LossClass DrainResidue = new();
 }
 
-public readonly record struct LaneLoss(string Lane, LossClass Class);
+public readonly record struct LaneLoss(LaneRow Lane, LossClass Class);
 
-public sealed record LaneRow(string Name, Option<int> Capacity, BoundedChannelFullMode Mode, bool SingleReader, bool Inline, int Band) {
-    public static readonly LaneRow Mailbox = new("<lane-a>", Some(1), BoundedChannelFullMode.DropOldest, SingleReader: true, Inline: false, Band: 2);
-    public static readonly LaneRow Handshake = new("<lane-b>", Some(0), BoundedChannelFullMode.Wait, SingleReader: true, Inline: true, Band: 0);
-    public static readonly LaneRow Shed = new("<lane-c>", Some(64), BoundedChannelFullMode.DropWrite, SingleReader: false, Inline: false, Band: 1);
-    public static readonly LaneRow Firehose = new("<lane-d>", None, BoundedChannelFullMode.Wait, SingleReader: true, Inline: false, Band: 3);
+[SmartEnum<string>]
+public sealed partial class LaneRow {
+    public static readonly LaneRow Mailbox = new("<lane-a>", Some(1), BoundedChannelFullMode.DropOldest, prioritized: false, single: true, inline: false, band: 2);
+    public static readonly LaneRow Ordered = new("<lane-b>", Some(32), BoundedChannelFullMode.Wait, prioritized: false, single: true, inline: false, band: 1);
+    public static readonly LaneRow Handshake = new("<lane-c>", Some(0), BoundedChannelFullMode.Wait, prioritized: false, single: true, inline: true, band: 0);
+    public static readonly LaneRow Shed = new("<lane-d>", Some(64), BoundedChannelFullMode.DropWrite, prioritized: false, single: false, inline: false, band: 1);
+    public static readonly LaneRow Control = new("<lane-e>", None, BoundedChannelFullMode.Wait, prioritized: true, single: false, inline: false, band: 0);
+    public static readonly LaneRow Firehose = new("<lane-f>", None, BoundedChannelFullMode.Wait, prioritized: false, single: true, inline: false, band: 3);
 
-    public LossClass Loss => Mode switch {
+    public Option<int> Capacity { get; }
+    public BoundedChannelFullMode Mode { get; }
+    public bool Prioritized { get; }
+    public bool Single { get; }
+    public bool Inline { get; }
+    public int Band { get; }
+
+    public Option<LossClass> Loss => Mode switch {
         BoundedChannelFullMode.DropOldest => LossClass.EvictedOldest,
         BoundedChannelFullMode.DropNewest => LossClass.EvictedNewest,
-        _ => LossClass.RefusedWrite,
+        BoundedChannelFullMode.DropWrite => LossClass.RefusedWrite,
+        _ => Option<LossClass>.None,
     };
 
-    public Channel<T> Open<T>(Atom<Seq<LaneLoss>> receipts) =>
-        Capacity is { IsSome: true, Case: int cap }
-            ? Channel.CreateBounded<T>(
-                new BoundedChannelOptions(cap) { FullMode = Mode, SingleReader = SingleReader, AllowSynchronousContinuations = Inline },
-                _ => ignore(receipts.Swap(facts => facts.Add(new LaneLoss(Name, Loss)))))
-            : Channel.CreateUnbounded<T>(new UnboundedChannelOptions { SingleReader = SingleReader });
+    public Channel<T> Open<T>(Atom<Seq<LaneLoss>> receipts) where T : notnull =>
+        (Prioritized, Capacity, Loss) switch {
+            (true, _, _) => throw new InvalidOperationException($"<prioritized-row-needs-OpenRanked:{Key}>"),
+            (_, { IsSome: true, Case: int cap }, { IsSome: true, Case: LossClass cls }) => Channel.CreateBounded<T>(
+                new BoundedChannelOptions(cap) { FullMode = Mode, SingleReader = Single, AllowSynchronousContinuations = Inline },
+                _ => ignore(receipts.Swap(f => f.Add(new LaneLoss(this, cls))))),
+            (_, { IsSome: true, Case: int cap }, _) => Channel.CreateBounded<T>(
+                new BoundedChannelOptions(cap) { FullMode = Mode, SingleReader = Single, AllowSynchronousContinuations = Inline }),
+            _ => Channel.CreateUnbounded<T>(new UnboundedChannelOptions { SingleReader = Single }),
+        };
 
-    public static Channel<(int Rank, long Seq, T Item)> Control<T>() =>
-        Channel.CreateUnboundedPrioritized(new UnboundedPrioritizedChannelOptions<(int Rank, long Seq, T Item)> {
-            Comparer = Comparer<(int Rank, long Seq, T Item)>.Create(
-                static (left, right) => (left.Rank, left.Seq).CompareTo((right.Rank, right.Seq))),
-        });
+    public Channel<T> OpenRanked<T>() where T : IRankedItem =>
+        Prioritized
+            ? Channel.CreateUnboundedPrioritized(new UnboundedPrioritizedChannelOptions<T> { Comparer = Ranked.ByRankThenSequence<T>() })
+            : throw new InvalidOperationException($"<non-prioritized-row-uses-Open:{Key}>");
+}
+
+public interface IRankedItem {
+    int Rank { get; }
+    long Sequence { get; }
+}
+
+public static class Ranked {
+    public static IComparer<T> ByRankThenSequence<T>() where T : IRankedItem =>
+        Comparer<T>.Create(static (l, r) => (l.Rank, l.Sequence).CompareTo((r.Rank, r.Sequence)));
 }
 ```
 
@@ -131,13 +156,14 @@ public static class Budgeted {
         return Parallel.ForEachAsync(lane.ReadAllAsync(token), budget.Io(token), step);
     }
 
-    public static double Reduce(IEnumerable<double> values, Budget budget, CancellationToken token) {
+    public static void Fold(IEnumerable<double> values, Budget budget, ChannelWriter<double> sink, CancellationToken token) {
         ArgumentNullException.ThrowIfNull(budget);
-        return values.AsParallel()
+        values.AsParallel()
             .WithDegreeOfParallelism(budget.Workers)
             .WithCancellation(token)
-            .WithMergeOptions(ParallelMergeOptions.FullyBuffered)
-            .Aggregate(0d, static (sum, value) => sum + value);
+            .GroupBy(static value => double.IsNegative(value))
+            .Select(static slot => slot.Aggregate(0d, static (sum, value) => sum + value))
+            .ForAll(partial => ignore(sink.TryWrite(partial)));
     }
 }
 ```
@@ -145,7 +171,7 @@ public static class Budgeted {
 [PARALLEL_ADMISSION]:
 - Law: `Parallel.ForEachAsync` is the default parallel iteration — the body token is the loop's internal token tripping on any sibling fault or the external token, all failures aggregate on the returned task, and the aggregate converts once at the rail boundary; per-iteration catch blocks forfeit the aggregation the primitive already performs.
 - Law: source enumeration serializes under an internal lock — a slow producer serializes the whole loop, and the decoupled spelling is producer, lane, then `ForEachAsync` over `ReadAllAsync`; `ParallelOptions` pins degree, scheduler, and token together as one policy value.
-- Law: PLINQ admits only cpu-bound, side-effect-free, associative work in the total spelling — degree, cancellation, and a declared merge row (`NotBuffered` for streaming consumers, `FullyBuffered` for terminal sinks, `ForAll` into a lane write that re-enters the receipted world); `AsOrdered` is scoped and closed by `AsUnordered`, and `AsSequential` exits before cheap projection tails buy merge cost for nothing.
+- Law: PLINQ admits only cpu-bound, side-effect-free, associative work in the total spelling — degree, cancellation, and a declared egress: `WithMergeOptions(NotBuffered)` for a streaming enumerated consumer, `FullyBuffered` for a terminal materialized sink, or `ForAll` into a lane write that re-enters the receipted world; `ForAll` runs the sink action on the partition threads with no merge back to the caller, so a `WithMergeOptions` beside a `ForAll` is dead configuration the merge never reads. `AsOrdered` is scoped and closed by `AsUnordered`, and `AsSequential` exits before cheap projection tails buy merge cost for nothing.
 - Law: `Parallel.ForAsync<T>` spans `IBinaryInteger<T>` for index kernels with no materialized range; synchronous `Parallel.For`/`ForEach` survive only inside measured kernels under the named kernel exemption.
 - Law: partitioning is a declared input shape — `Partitioner.Create(0, n, rangeSize)` sizes index ranges to cache or work granularity, range partitioning serving cache locality on uniform work and chunk partitioning serving load balance on skewed work; `EnumerablePartitionerOptions.NoBuffering` serves latency-sensitive producers whose items must not sit invisible in chunk buffers.
 - Law: the single-flight gate sits between intent and acquisition — the first entrant publishes its task handle into a keyed cell by compare-and-set and owns execution, losers await it and receive a coalesced receipt counting entrants served, so a coalesced intent consumes zero permits and zero lane capacity.
@@ -160,7 +186,7 @@ public static class Budgeted {
 ## [04]-[RATE_LIMITING]
 
 [LIMITER_ROWS]:
-- Law: four limiters are four policy rows over one acquisition contract — `ConcurrencyLimiter` gates in-flight work and returns permits on lease disposal; the token bucket prices sustained rate as `TokensPerPeriod` over `ReplenishmentPeriod` and burst as `TokenLimit`, and declaring one without deriving the other is half a policy; a fixed window admits 2x the rate across a boundary, which `SlidingWindowRateLimiter` segments amortize.
+- Law: four limiters are four `[SmartEnum<string>]` rows over one `Partition` acquisition column — `ConcurrencyLimiter` gates in-flight work and returns permits on lease disposal; the token bucket prices sustained rate as `TokensPerPeriod` over `ReplenishmentPeriod` and burst as `TokenLimit`, and declaring one without deriving the other is half a policy; a fixed window admits 2x the rate across a boundary, which the `SlidingWindowRateLimiter` `SegmentsPerWindow` count amortizes.
 - Law: the acquisition verb is itself policy — `AttemptAcquire` is shed-with-receipt at the edge where the caller owns retry cadence, `AcquireAsync` is queue-and-wait where the limiter owns ordering, and a zero `QueueLimit` degrades the awaited acquire to fail-fast, the declared no-waiting row.
 - Law: queue order is policy — `OldestFirst` reserves freed permits for the head and fails the newcomer on overflow; `NewestFirst` barges and evicts the oldest queued waiter as the staleness receipt — interactive intent takes `NewestFirst`, fairness-bound throughput takes `OldestFirst`.
 - Law: failed leases carry typed evidence — `MetadataName.RetryAfter` names the earliest useful retry instant and feeds schedule policy, so a fixed backoff beside a `RetryAfter`-bearing lease re-derives what the lease already states.
@@ -170,14 +196,21 @@ public static class Budgeted {
 - Reject: a semaphore as limiter — queue order, eviction receipts, typed metadata, and statistics deleted at once.
 
 ```csharp conceptual
-public sealed record LimitRow(string Name, Func<string, RateLimitPartition<string>> Partition) {
+[SmartEnum<string>]
+public sealed partial class LimitRow {
     public static readonly LimitRow Interactive = new("<row-a>", static key =>
         RateLimitPartition.GetConcurrencyLimiter(key, static _ => new ConcurrencyLimiterOptions {
             PermitLimit = 8, QueueLimit = 0, QueueProcessingOrder = QueueProcessingOrder.NewestFirst }));
     public static readonly LimitRow Sustained = new("<row-b>", static key =>
         RateLimitPartition.GetTokenBucketLimiter(key, static _ => new TokenBucketRateLimiterOptions {
             TokenLimit = 64, TokensPerPeriod = 16, ReplenishmentPeriod = TimeSpan.FromSeconds(1), QueueLimit = 32 }));
-    public static readonly LimitRow Exempt = new("<row-c>", static key => RateLimitPartition.GetNoLimiter(key));
+    public static readonly LimitRow Windowed = new("<row-c>", static key =>
+        RateLimitPartition.GetSlidingWindowLimiter(key, static _ => new SlidingWindowRateLimiterOptions {
+            PermitLimit = 600, SegmentsPerWindow = 6, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+    public static readonly LimitRow Exempt = new("<row-d>", static key => RateLimitPartition.GetNoLimiter<string>(key));
+
+    [UseDelegateFromConstructor]
+    public partial RateLimitPartition<string> Partition(string key);
 }
 
 public sealed record Intent(string Key, LimitRow Row);
@@ -198,7 +231,7 @@ public static class AdmissionGate {
 ```
 
 [PARTITIONED_COMPOSITION]:
-- Law: `PartitionedRateLimiter.Create` evaluates the partitioner on every acquisition and caches one limiter per key — the partitioner stays allocation-light and never touches IO; idle partitions dispose on the internal 100 ms heartbeat after 10 s, so a holder never caches the inner limiter and reads go through the partitioned surface per call.
+- Law: `PartitionedRateLimiter.Create` evaluates the partitioner on every acquisition and caches one limiter per key — the partitioner stays allocation-light and never touches IO; idle partitions auto-dispose on the internal heartbeat, so a holder never caches the inner limiter and reads go through the partitioned surface per call.
 - Law: the typed partition factories force `AutoReplenishment = false` so every partition rides the one heartbeat — a custom `RateLimitPartition.Get` leaving auto-replenishment on pays a silent timer per key, and replenishment granularity inside a partitioned limiter is the heartbeat cadence regardless of a shorter declared period.
 - Law: `GetNoLimiter` is the declared exempt row — exemption lives in the partition table, never call-site branching; exempt partitions never idle-evict, so a high-cardinality exempt key space is a permanent-resident leak by construction.
 - Law: `CreateChained` limiters acquire in declared order, coarsest first — a later failure disposes every earlier lease so partial holds cannot leak, the combined lease aggregates metadata first-wins per name, and combined statistics fold to minimum available permits.
@@ -214,7 +247,7 @@ public static class AdmissionGate {
 - Law: `Subscribe` appears only at edges — the mid-chain tap is `Do`, termination is `Finally`, subscription-scoped resources are `Using`; a mid-pipeline `Subscribe` severs the declarative chain into imperative halves.
 - Law: `FromEventPattern` converts an add/remove handler pair into a stream where subscription is the attach and disposal is the detach — the event-leak class deleted structurally, with `EventPattern<TEventArgs>` carrying sender and args as one value.
 - Law: flattening is a declared concurrency decision — `Concat` sequential, `Merge(maxConcurrent)` under the budget, `Switch` latest-wins unsubscribing superseded inners, the structural cancellation of stale work with no token plumbing.
-- Law: `CombineLatest` fires on either leg and emits nothing until every source emits once — seed quiet legs with `StartWith`; `WithLatestFrom` fires only on the driver and samples the companion — choose by which side may cause downstream effects.
+- Law: `CombineLatest` fires on either leg and emits nothing until every source emits once — seed quiet legs with `StartWith`; `WithLatestFrom` fires only on the driver and samples the companion — choose by which side drives downstream effects, since only the driver leg re-emits.
 - Law: every time-based operator names its `IScheduler` — the implicit default forecloses virtual-time substitution, and time evidence is stamped through `Timestamp(scheduler)` and `TimeInterval(scheduler)`, never read ambiently inside an operator lambda, which breaks the virtualizable clock plane.
 - Law: `EventLoopScheduler` is the dedicated serial lane — one named thread, FIFO delivery, disposed at scope end — where a consumer requires affinity without a context; the immediate scheduler executes scheduled work inline and livelocks recursive operators, so recursive and time-based work takes the trampolining current-thread scheduler or a named one.
 - Law: marshal exactly once — one `ObserveOn` per chain at the consumption edge, because it affects only downstream delivery, and at most one `SubscribeOn`, which moves only subscription side effects — its position never moves where `OnNext` runs; `ObserveOn` delivers one observer's notifications serially in order, so ordering defects after a hop indict the merge topology, never the hop.
@@ -318,24 +351,24 @@ public static class LiveSet {
 [PARTICIPATION_CONTRACT]:
 - Law: a lane's drain participation is three verbs — stop accepting via clean `TryComplete`, cooperative flush bounded by the band's soft budget, forced residue sweep receipted as one `DrainFact` — composed under the runtime band walk, which owns ordering and budget shares; abort paths complete with the coded typed fault so every drain-side observation classifies without string matching.
 - Law: the cooperative phase ends consumer loops through the read verb's own terminal grammar — `WaitToReadAsync` folding to `false` — and the token appears only in the forced phase; a batching consumer flushes its partial batch the moment the verb folds, so every batch loop's exit edge is a flush edge.
-- Law: forced-phase residue reads come out FIFO on plain lanes and in comparer order on the prioritized row; post-completion write refusals are drain residue, never drop receipts — conflating the two double-counts loss.
+- Law: forced-phase residue reads come out FIFO on plain lanes and in comparer order on the prioritized row; post-completion write refusals are drain residue, never drop receipts — conflating the two double-counts loss, so residue receipts as `LaneLoss(DrainResidue)` into the same `Atom<Seq<LaneLoss>>` the drop modes feed and the loss vocabulary stays one stream with a kind column, never a parallel `int` beside the receipts.
 - Law: limiters dispose in the forced phase after lanes complete — disposal fails all queued acquisitions, so cooperative work never observes synthetic limiter failures; stream scopes end cooperatively via `TakeUntil(softDeadline, scheduler)` and forcibly by scope disposal; a cache drains as stop-edits, release batching gates, close receipt streams, await `AsyncDisposeMany` completion.
-- Law: the conservation identity is the audit — written = consumed + receipted loss + receipted residue per lane, summing to one process identity provable from declarations; a lane that cannot close the identity from its declared evidence is misconfigured by construction.
+- Law: the conservation identity is the audit — written = consumed + receipted loss per lane, summing to one process identity provable from declarations because drop loss and drain residue share the one receipt stream; a lane that cannot close the identity from its declared evidence is misconfigured by construction.
 - Exemption: the cooperative flush loop and the forced residue sweep are the platform-forced `Task` seam.
 
 ```csharp conceptual
-public readonly record struct DrainFact(string Lane, int Consumed, int Residue, bool Forced) {
+public readonly record struct DrainFact(LaneRow Lane, int Consumed, int Residue, bool Forced) {
     public bool Closes(int written, Seq<LaneLoss> receipts) =>
-        Lane is var lane && written == Consumed + receipts.Filter(loss => loss.Lane == lane).Count + Residue;
+        written == Consumed + receipts.Count(loss => loss.Lane == Lane);
 }
 
 public static class LaneDrain {
     public static async Task<DrainFact> Participate<T>(
-        LaneRow row, Channel<T> lane, Func<T, ValueTask> step, Option<Error> abort, TimeSpan soft, CancellationToken forced) {
+        LaneRow row, Channel<T> lane, Atom<Seq<LaneLoss>> receipts, Func<T, ValueTask> step, Option<Error> abort, TimeSpan soft, CancellationToken forced) {
         ArgumentNullException.ThrowIfNull(row);
         ArgumentNullException.ThrowIfNull(lane);
         ArgumentNullException.ThrowIfNull(step);
-        _ = lane.Writer.TryComplete(abort is { IsSome: true, Case: Error fault } ? fault.ToException() : null);
+        _ = lane.Writer.TryComplete(abort.Match(Some: static fault => fault.ToException(), None: static () => null));
         using var budget = CancellationTokenSource.CreateLinkedTokenSource(forced);
         budget.CancelAfter(soft);
         var (consumed, residue) = (0, 0);
@@ -346,10 +379,11 @@ public static class LaneDrain {
             }
         }
         catch (OperationCanceledException) { }
-        while (lane.Reader.TryRead(out _)) {
+        while (lane.Reader.TryRead(out _)) { // Exemption: forced residue sweep — each undelivered item receipts DrainResidue so loss stays one stream
             residue++;
+            ignore(receipts.Swap(f => f.Add(new LaneLoss(row, LossClass.DrainResidue))));
         }
-        return new DrainFact(row.Name, consumed, residue, Forced: budget.Token.IsCancellationRequested);
+        return new DrainFact(row, consumed, residue, Forced: budget.Token.IsCancellationRequested);
     }
 }
 ```

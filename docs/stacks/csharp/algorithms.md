@@ -1,6 +1,10 @@
 # [ALGORITHMS]
 
-Numeric work is admitted once and routed by shape: raw operands cross into a finite-checked owner at one boundary, the interior is total over admitted values, and the operand's structure — definite, square, overdetermined, symmetric, sparse-pattern, periodic-grid — selects the owning factorization, never the call site and never a knob riding beside the matrix. Every solve route — dense direct, sparse direct, iterative, every conditioning fallback — is one composed lifecycle admit → route → solve → witness → receipt written once; a per-module pipeline re-deriving the chain is the rejected form. MathNet owns dense factorization, the spectral decompositions, `Fourier`, and quadrature; CSparse owns sparse direct factorization, factor reuse, and fill-reducing ordering; the owned-build lane — low-discrepancy sampling, ODE tableaux, spectral multipliers, block eigeniteration, scattered reconstruction — has no library surface and is composed from the rails. Every library refuses its own gates — no constructor checks finiteness, symmetry is tested by exact `!=`, singularity is never asserted, a zero-norm `QR` fills `NaN` while `IsFullRank` returns `true` — so admission re-imposes each refused gate as an explicit predicate. Every result leaves as a domain receipt carrying its route variant, its scale-derived tolerance policy, and the recomputed true relative residual against the original operator — the one correctness signal surviving preconditioning, breakdown substitution, cancellation, and provider divergence — never a `Matrix<T>`, `Vector<T>`, or factorization instance. A hand-rolled kernel is admitted only after a benchmark defeats both libraries. In-place numeric kernels — library in-place solve and multiply overloads writing into pre-sized scratch, and per-evaluation counters inside guarded integrands — are this page's named statement exemption.
+Numeric work is admitted once and routed by shape: raw operands cross into a finite-checked owner at one boundary, the interior is total over admitted values, and the operand's structure — definite, square, overdetermined, symmetric, sparse-pattern, periodic-grid — selects the owning factorization, never the call site and never a knob riding beside the matrix. Every solve route — dense direct, sparse direct, iterative, every conditioning fallback — is one composed lifecycle admit → route → solve → witness → receipt written once; a per-module pipeline re-deriving the chain is the rejected form.
+
+MathNet owns dense factorization, the spectral decompositions, `Fourier`, and quadrature; CSparse owns sparse direct factorization, factor reuse, and fill-reducing ordering; the owned-build lane — low-discrepancy sampling, ODE tableaux, spectral multipliers, block eigeniteration, scattered reconstruction — has no library surface and is composed from the rails. A hand-rolled kernel is admitted only after a benchmark defeats both libraries.
+
+Every library refuses its own gates — no constructor checks finiteness, symmetry is tested by exact `!=`, singularity is never asserted, a zero-norm `QR` fills `NaN` while `IsFullRank` returns `true` — so admission re-imposes each refused gate as an explicit predicate. Every result leaves as a domain receipt carrying its route variant, its scale-derived tolerance policy, and the recomputed true relative residual against the original operator — the one correctness signal surviving preconditioning, breakdown substitution, cancellation, and provider divergence — never a `Matrix<T>`, `Vector<T>`, or factorization instance. In-place numeric kernels — library in-place solve and multiply overloads writing into pre-sized scratch, and per-evaluation counters inside guarded integrands — are this page's named statement exemption.
 
 ## [01]-[ROUTE_SPINE]
 
@@ -24,34 +28,51 @@ The operand shape selects the route before any solve; the most specific shape wi
 
 Recover the fallback from the route value and record the taken path in the receipt, never a caller-named entrypoint; primary and conditioning routes rebind onto the one lifecycle and converge on the one witness gate. A fill ratio — symbolic factor nonzeros over input nonzeros, read before the numeric sweep — routes direct versus iterative, and the augmented regression case (the design matrix stacked over a `√λ`-scaled identity under thin `QR`) is the derived consequence of the conditioning budget exceeding the inverse cap. MathNet exposes no CSparse surface, so hybrid routing is integrator-authored and carries its own residual validation.
 
-[ROUTE_UNION]:
-- Law: discriminate the factorization on the operand through a `FactorRoute` `[Union]` carrying its mode, symmetricity, vector demand, and rank-tolerance convention as case data recoverable by matching the value.
-- Reject: a `bool computeVectors`, `QRMethod`, or `Symmetricity` parameter riding beside the matrix.
-- Law: seat modified Gram-Schmidt inside the `Orthonormal` case as a QR discriminant, never a sixth sibling factory.
-- Law: collapse the five built-in absolute, magnitude-squared, and scale-relative rank-tolerance thresholds into the one `Orthonormal` convention.
-- Boundary: the element carrier is monomorphic `double`; the `struct, IEquatable<T>, IFormattable` family excludes `INumber<T>`, so a generic-math route signature is decorative.
+[ROUTE_VOCABULARY]:
+- Law: the route is one `[SmartEnum]` whose items span every operand shape the table lists — dense definite, square, overdetermined, spectral, evidence; sparse Cholesky, LDL, LU, QR; iterative; spectral-grid — keyed for the receipt, so a new substrate is one `static readonly` item and every `Route`-keyed projection gains one row with the `Switch` over the items broken loudly at compile time. The operand is the spine's own admitted `Matrix<double>` argument, never an item payload, because every route carries the identical operator shape; what varies per route is carrier-invariant behavior, carried as constructor columns — the `Scale` the tolerance derives from, the `Conditioned()` fallback route, and the sparse capability columns the `[04]` grid declares — while the carrier-specific factorization builder rides the boundary table the next law fixes.
+- Law: the conditioning fallback is a `[UseDelegateFromConstructor]` `Conditioned()` column read off the item — the definite item points it at the spectral item, the square at the rank-revealing, a route with no harder fallback at itself — so primary and conditioning routes are one vocabulary the spine rebinds through one `BindFail`, dense and sparse alike, never the `DenseRoute`-only combinator that leaves the sparse rank-1-downdate-to-reconstruct fallback uncomposed; the deferred `static () => Spectral` is the forward-reference guard, since a field initializer reading a later item captures `null` before materialization.
+- Law: the factorization builder is the ONE legitimate split from the route vocabulary — a `FrozenDictionary<Route, Func<Matrix<double>, ISolver<double>>>` minted once at the compute boundary, keyed on the same route — because the dense `Cholesky()`/`LU()`/`QR(QRMethod.Thin)`/`Evd(Symmetricity)`/`Svd(true)` factory over `Matrix<double>` and the sparse factory over `CompressedColumnStorage<double>` cannot share one delegate signature, so the carrier-specific builder rides the boundary table while the carrier-invariant `Scale`, capability, and `Conditioned` columns ride the route; the `QRMethod.Thin`-over-`Full` and `Symmetricity` discriminants bake into the dense factory at declaration, never a `bool computeVectors`/`QRMethod`/`Symmetricity` parameter riding loose beside the matrix.
+- Law: collapse the built-in absolute, magnitude-squared, and scale-relative rank-tolerance thresholds into the one scale-derived `Scale` column `[03]` carries, never a fourth column re-deciding it; the element carrier is monomorphic `double`, and the `struct, IEquatable<T>, IFormattable` family excludes `INumber<T>`, so a generic-math route signature is decorative.
+- Reject: a `FactorRoute` `[Union]` whose cases each carry one identical `Matrix<double>` and whose `Operator =>` switch projects the same field from every arm — a uniform-payload tagged union the operand-as-argument plus a `Route` key is denser than; a parallel `FactorKind` `[SmartEnum]` beside it splitting the sparse capability grid from the dense route so a new route detonates in a different owner depending on density; a sixth sibling factory; a second route-keyed table per carrier-invariant behavior axis where one route column carries it.
 
 ```csharp conceptual
-[Union]
-public abstract partial record FactorRoute
-{
-    public sealed partial record DefinitePsd(Matrix<double> A) : FactorRoute;
-    public sealed partial record SquarePivoting(Matrix<double> A) : FactorRoute;
-    public sealed partial record Orthonormal(Matrix<double> A, QRMethod Mode, bool Modified) : FactorRoute;
-    public sealed partial record Spectral(Matrix<double> A, Symmetricity Sym) : FactorRoute;
-    public sealed partial record RankRevealing(Matrix<double> A, bool Vectors) : FactorRoute;
+[SmartEnum<string>]
+public sealed partial class Route {
+    public static readonly Route DefinitePsd     = new("<route-a>", Scale.OperatorRhs, rank1Edit: true,  inertia: false, reentrant: false, transposeSolve: false, static () => Spectral);
+    public static readonly Route SquarePivoting  = new("<route-b>", Scale.OperatorRhs, rank1Edit: false, inertia: false, reentrant: false, transposeSolve: true,  static () => RankRevealing);
+    public static readonly Route Overdetermined  = new("<route-c>", Scale.SingularDim, rank1Edit: false, inertia: false, reentrant: true,  transposeSolve: true,  static () => RankRevealing);
+    public static readonly Route Spectral        = new("<route-d>", Scale.OperatorRhs, rank1Edit: false, inertia: true,  reentrant: false, transposeSolve: false, static () => Spectral);
+    public static readonly Route RankRevealing   = new("<route-e>", Scale.SingularDim, rank1Edit: false, inertia: false, reentrant: false, transposeSolve: false, static () => RankRevealing);
+    public static readonly Route SparseCholesky  = new("<route-f>", Scale.OperatorRhs, rank1Edit: true,  inertia: false, reentrant: false, transposeSolve: false, static () => Spectral);
+    public static readonly Route SparseLu        = new("<route-g>", Scale.OperatorRhs, rank1Edit: false, inertia: false, reentrant: false, transposeSolve: true,  static () => SparseLu);
+
+    public Scale Scale { get; }
+    public bool Rank1Edit { get; }
+    public bool Inertia { get; }
+    public bool Reentrant { get; }
+    public bool TransposeSolve { get; }
+
+    [UseDelegateFromConstructor] public partial Route Conditioned();
 }
 
-public static class DenseRoute
-{
-    public static Fin<Vector<double>> Solve(FactorRoute route, Vector<double> b, double cap) =>
-        route.Switch(
-            definitePsd:    c => Admit(c.A).Map(a => (A: a, S: (ISolver<double>)a.Cholesky())),
-            squarePivoting: c => Admit(c.A).Map(a => (A: a, S: (ISolver<double>)a.LU())),
-            orthonormal:    c => Admit(c.A).Map(a => (A: a, S: (ISolver<double>)a.QR(c.Mode))),
-            spectral:       c => Admit(c.A).Map(a => (A: a, S: (ISolver<double>)a.Evd(c.Sym))),
-            rankRevealing:  c => Admit(c.A).Map(a => (A: a, S: (ISolver<double>)a.Svd(true))))
-        .Bind(t => Capped(t.A, t.S.Solve(b), b, cap));
+public static class DenseRoute {
+    static readonly FrozenDictionary<Route, Func<Matrix<double>, ISolver<double>>> Build =
+        new KeyValuePair<Route, Func<Matrix<double>, ISolver<double>>>[] {
+            new(Route.DefinitePsd,    static a => a.Cholesky()),
+            new(Route.SquarePivoting, static a => a.LU()),
+            new(Route.Overdetermined, static a => a.QR(QRMethod.Thin)),
+            new(Route.Spectral,       static a => a.Evd(Symmetricity.Symmetric)),
+            new(Route.RankRevealing,  static a => a.Svd(computeVectors: true)),
+        }.ToFrozenDictionary();
+
+    public static Fin<Vector<double>> Solve(Route route, Matrix<double> operand, Vector<double> b, double cap) =>
+        Admit(operand)
+            .Map(Build[route])
+            .Map(solver => solver.Solve(b))
+            .Bind(x => Witness.Gate(route.Key, Witness.Residual(operand, x, b), cap).Map(_ => x))
+            .BindFail(_ => route.Conditioned() is var next && next != route
+                ? Solve(next, operand, b, cap)
+                : Fin.Fail<Vector<double>>(Error.New(2099, $"<exhausted:{route.Key}>")));
 }
 ```
 
@@ -93,8 +114,8 @@ public static class Admission
 ## [03]-[DENSE_FACTOR_LAW]
 
 [RANK_AND_TOLERANCE]:
-- Law: derive every threshold from operator and right-hand-side scale (`σ_max`, `‖A‖_F`, `‖b‖∞`) and travel it as one named policy record on the receipt.
-- Reject: a bare per-module absolute literal in `1e-4..1e-8`; it is unreplayable and uncomparable across operators.
+- Law: every threshold is one of two scale-derivation forms closed in the `Scale` `[SmartEnum]` the `[01]` route column carries — `OperatorRhs` is `ε·‖A‖_F·max(‖b‖∞, 1)` for a square solve, `SingularDim` is `ε·σ_max·max(m, n)` for the least-squares rank floor reading `σ_max` off the held `Svd` — each a `[UseDelegateFromConstructor]` `Derive(Matrix<double>, Vector<double>) -> double` column, so the derivation is the route's own policy axis projected once at the witness terminus and travelled as the gated tolerance on the receipt, never a per-route table whose square and definite rows duplicate one body.
+- Reject: a bare per-module absolute literal in `1e-4..1e-8`; it is unreplayable and uncomparable across operators, and a fresh literal per call site is the same defect spelled inline.
 - Law: carry the `Svd<T>.Rank` (`σ_max.EpsilonOf() · max(m, n)`) as the conditioning rank; never share its slot with `Evd<T>.Rank` (`AlmostEqual` at `DefaultDoubleAccuracy`), and treat any spectral rank as a definiteness signature only.
 - Law: recompute domain rank as `n − count(|λᵢ| < ε_rank · max|λⱼ|)` with a caller-supplied spectral-radius-relative `ε_rank`; the built-in absolute `|λ| < ~3.33e-8` zero test misclassifies significant eigenvalues for `‖A‖₂ ~ 10⁶`.
 - Law: build validity predicates on `EpsilonOf(value)` and store the pre-computed residual diff beside the threshold; `value * DoublePrecision` diverges at binade boundaries (`EpsilonOf(2.5) = 2⁻⁵¹` versus `6.95e-16`), and `AlmostEqualNormRelative` hides relative, absolute-on-tiny, and absolute-on-zero behind `IsRelative: true`.
@@ -105,22 +126,35 @@ public static class Admission
 - Law: stream N right-hand sides through one held factorization as N triangular solves into the in-place overload; the allocating overload appears only where a value leaves the boundary, never a loop of fresh factorizations.
 - Use: the definite handle's in-place block-copy privilege to refactor a streaming operator; every other handle demands a fresh construction per operand, the controlling cost at small `n`.
 - Reject: `Inverse()` in a hot loop — it clones the factors plus an `n²` identity, crossing the large-object threshold at `n ≥ 104`; solve against an identity through the retained pivoting handle with reused result and right-hand-side buffers.
-- Boundary: form an iterative-refinement residual against the original operator in working precision, never against reconstructed factors — the factors carry exactly the rounding error the correction exists to cancel.
+- Law: refinement is a bounded fixpoint, not a `Schedule` — the iteration count is the budget cap, the step is idempotent past tolerance (a converged state re-emits itself), and `Range(0, cap).Fold` over the foldable `Range<int>` retires the `for` counter; `Schedule` is retry-or-repeat policy and `.Run()` yields delay `Duration`s, never a refinement loop driver.
+- Boundary: form the residual against the original operator in working precision, never against reconstructed factors — the factors carry exactly the rounding error the correction exists to cancel.
 
 ```csharp conceptual
+[SmartEnum]
+public sealed partial class Scale {
+    public static readonly Scale OperatorRhs = new(OperatorRhsForm);
+    public static readonly Scale SingularDim = new(SingularDimForm);
+
+    [UseDelegateFromConstructor] public partial double Derive(Matrix<double> a, Vector<double> b);
+
+    static readonly double Eps = Precision.DoublePrecision;
+    static double OperatorRhsForm(Matrix<double> a, Vector<double> b) => Eps * a.FrobeniusNorm() * double.Max(b.InfinityNorm(), 1.0);
+    static double SingularDimForm(Matrix<double> a, Vector<double> b) => Eps * a.Svd(computeVectors: false).S[0] * double.Max(a.RowCount, a.ColumnCount);
+}
+
 public static class HeldRefinement
 {
     public static Fin<(IterationStatus Verdict, Vector<double> X)> Refine(
         Matrix<double> a, ISolver<double> held, Vector<double> b, Vector<double> x, double tol, int cap)
     {
         var (bNorm, scratch, dx) = (b.L2Norm(), Vector<double>.Build.Dense(b.Count), Vector<double>.Build.Dense(b.Count));
-        var r = (Schedule.Forever | Schedule.recurs(cap)).Run().FoldWhile(
-            Residual(a, x, b, scratch, bNorm),
-            (_, _) => { held.Solve(scratch, dx); x.Add(dx, x); return Residual(a, x, b, scratch, bNorm); },
-            t => t.State > tol);
-        return double.IsFinite(r)
-            ? Fin.Succ((r <= tol ? IterationStatus.Converged : IterationStatus.StoppedWithoutConvergence, x))
-            : Fin.Fail<(IterationStatus, Vector<double>)>(Error.New($"refinement residual non-finite: r={r}"));
+        var settled = Range(0, cap).Fold(x, (state, _) =>
+            Residual(a, state, b, scratch, bNorm) <= tol
+                ? state
+                : (held.Solve(scratch, dx), state.Add(dx, state)).Item2);
+        return Residual(a, settled, b, scratch, bNorm) is var r && double.IsFinite(r)
+            ? Fin.Succ((r <= tol ? IterationStatus.Converged : IterationStatus.StoppedWithoutConvergence, settled))
+            : Fin.Fail<(IterationStatus, Vector<double>)>(Error.New(2110, $"refinement residual non-finite: r={r}"));
     }
 
     static double Residual(Matrix<double> a, Vector<double> x, Vector<double> b, Vector<double> scratch, double bNorm)
@@ -152,12 +186,13 @@ public static class HeldRefinement
 - Boundary: drop assembly residue with a structural tolerance near `machineEps · ‖A‖_F`; `DropZeros()` defaults to `0.0` and removes only binary zeros, while `CoordinateStorage.At` skips exact-zero contributions so the post-assembly count is the nonzero count.
 
 [KIND_CAPABILITY]:
-- Law: recover transpose-solve, rank-1 edit, inertia, and reentrancy from the factor kind alone; the shared solver interface exposes only the forward solve, so a request needing edit plus transpose closes over the concrete kind.
-- Reject: a typed-only catch at the factorization boundary; SPD pivot loss and the zero-diagonal break throw bare `Exception`, not the numerical-breakdown type, so the boundary catches broadly and converts.
+- Law: the sparse kinds are the `[01]` `Route` items keyed `SparseCholesky`, `SparseLdl`, `SparseLu`, `SparseQr` — the SAME vocabulary the dense routes inhabit, carrying the SAME capability columns the `ISolver<T>` forward-solve seam hides: rank-1 edit, inertia, reentrancy, and transpose-solve are the `Route` `bool` columns the grid below populates, so a request needing edit plus transpose reads the column off the route, never a parallel `FactorKind` `[SmartEnum]` re-declaring the 4×4 grid beside the dense route and forfeiting the single receipt discriminant.
+- Law: the transpose-solve behavior binds to the concrete `Inner` instance, so the route carries only the `TransposeSolve` capability column while the operator value resolves the instance-bound `Action<double[], double[]>` gated on it through `(route.TransposeSolve, Inner) switch`; the singleton route item is instance-free and cannot close over a factor.
+- Reject: a bare `enum FactorKind` plus an external `switch` — it scatters the capability grid across call sites and forfeits the column the vocabulary owns; a typed-only catch at the factorization boundary, since SPD pivot loss and the zero-diagonal break throw bare `Exception`, not the numerical-breakdown type, so the boundary catches broadly and converts.
 - Boundary: an asymmetric input to a symmetric kind factors as its symmetrization and returns a correct answer to the wrong system — the post-solve true residual is the only structural signal.
 - Boundary: set the `SparseLU` pivot `tol` in `[0, 1]` as a relative column threshold — `1` full partial pivoting, `0` disabled — never an absolute floor.
 
-| [FACTOR_KIND]          | [RANK1_EDIT] | [TRANSPOSE_SOLVE] | [INERTIA] | [REENTRANT] |
+| [SPARSE_ROUTE]         | [RANK1_EDIT] | [TRANSPOSE_SOLVE] | [INERTIA] | [REENTRANT] |
 | :--------------------- | :----------: | :---------------: | :-------: | :---------: |
 | `SparseCholesky` SPD   |     yes      |        no         |     —     |     no      |
 | `SparseLDL` symmetric  |      no      |        no         |  private  |     no      |
@@ -165,36 +200,31 @@ public static class HeldRefinement
 | `SparseQR` rectangular |      no      |        yes        |     —     |     yes     |
 
 [FACTOR_CACHE]:
-- Law: collapse a completed factorization to one typed operator value owning the factorization instance, cached permutation, symbolic fill counts, solution dimension, and kind discriminant.
-- Law: the solve returns a bare vector with no status, so the post-solve residual witness against the original operator belongs to the operator value, never the call site.
+- Law: collapse a completed factorization to one typed operator value owning the factorization instance, cached permutation, symbolic fill counts, solution dimension, and the `Route` discriminant — the same vocabulary the dense spine reads, so the capability columns ride the route, never a second `FactorKind` field beside it.
+- Law: the solve returns a bare vector with no status, so the post-solve residual witness against the original operator belongs to the operator value, never the call site; the sparse builder is the carrier-specific factory injected at this compute boundary because the dense `Build(Matrix<double>)` column and the sparse `CompressedColumnStorage<double>` factory cannot share one delegate signature — the one legitimate split from the `Route` vocabulary, gated off-wheel.
 - Law: key the cache on dimensions, sparsity fingerprint (hash of the pointer and index arrays), and ordering identity.
 - Law: populate the cache success-only so only residual-witnessed factorizations enter and a diverged solve never poisons reuse.
 - Boundary: serialize solves on a cached square factorization — its one constructor-allocated scratch is non-reentrant and a concurrent second solve corrupts both results with no guard — through a capsule owning the factorization or a pattern-keyed instance pool.
 - Boundary: size the rectangular kind's work buffer from the factorization's solution dimension, which exceeds the row count for structurally singular systems; sizing from the matrix shape is the off-by-augmentation fault.
 
 ```csharp conceptual
-public enum FactorKind { Spd, Ldl, Lu, Qr }
-
 public sealed record FactoredOp(
-    ISparseFactorization<double> Inner, FactorKind Kind, CompressedColumnStorage<double> A,
-    int[] Permutation, int Fill, int SolutionDim)
-{
-    public bool SharesScratch => Kind is not FactorKind.Qr;
+    ISparseFactorization<double> Inner, Route Kind, CompressedColumnStorage<double> A,
+    int[] Permutation, int Fill, int SolutionDim) {
+    public bool SharesScratch => !Kind.Reentrant;
 
-    public Option<Action<double[], double[]>> TransposeSolve => Kind switch
-    {
-        FactorKind.Lu => Some<Action<double[], double[]>>(((SparseLU)Inner).SolveTranspose),
-        FactorKind.Qr => Some<Action<double[], double[]>>(((SparseQR)Inner).SolveTranspose),
+    public Option<Action<double[], double[]>> TransposeColumn => (Kind.TransposeSolve, Inner) switch {
+        (true, SparseLU lu) => Some<Action<double[], double[]>>(lu.SolveTranspose),
+        (true, SparseQR qr) => Some<Action<double[], double[]>>(qr.SolveTranspose),
         _ => None,
     };
 
-    public Fin<double[]> Solve(double[] b, double cap)
-    {
+    public Fin<double[]> Solve(double[] b, double cap) {
         var x = new double[SolutionDim];
         Inner.Solve(b, x);
-        return Witness(A, x, b) is var r && double.IsFinite(r) && r <= cap
-            ? Fin.Succ(x) : Fin.Fail<double[]>(Error.New($"witness failed: kind={Kind} fill={Fill} r={r}"));
+        return Witness.Gate($"route={Kind.Key} fill={Fill}", Witness.Residual(A, x, b), cap).Map(_ => x);
     }
+
     public FactoredOp Revalue(double tol) => this with { Inner = SparseLU.Create(A, Permutation, tol) };
 }
 ```
@@ -219,7 +249,7 @@ public static class StructuralEdit
 {
     public static Fin<FactoredOp> Apply(FactoredOp op, Edit edit) => edit switch
     {
-        Edit.Bump b when op.Kind is FactorKind.Spd =>
+        Edit.Bump b when op.Kind.Rank1Edit =>
             op.RankOne(b.Sign, b.Column)
                 ? Fin.Succ(op)
                 : Rebuild(op, edit),
@@ -266,24 +296,26 @@ public static class Iterative
                 var x = Vector<double>.Build.Dense(b.Count);
                 return (a.TrySolveIterative(b, x, solver, Stack(b.Count, tol, symmetric), pre), x);
             }).Run()
-            .Bind(t => Residual(a, b, t.X) is var r && double.IsFinite(r) && r <= tol
-                ? Fin.Succ(t.X)
-                : Fin.Fail<Vector<double>>(Error.New($"witness failed: verdict={t.Verdict} r={r}")));
+            .Bind(t => Witness.Gate($"verdict={t.Verdict}", Witness.Residual(a, t.X, b), tol).Map(_ => t.X));
 }
 ```
 
 ```csharp conceptual
-public static class Conditioned
+public static class Witness
 {
-    public static Fin<Vector<double>> Solve(FactorRoute primary, FactorRoute secondary, Vector<double> b, double cap) =>
-        DenseRoute.Solve(primary, b, cap)
-            .Bind(x => Gate(nameof(primary), primary, x, b, cap))
-            .BindFail(_ => DenseRoute.Solve(secondary, b, cap).Bind(x => Gate(nameof(secondary), secondary, x, b, cap)));
+    public static Fin<double> Gate(string evidence, double residual, double cap) =>
+        double.IsFinite(residual) && residual <= cap
+            ? Fin.Succ(residual)
+            : Fin.Fail<double>(Error.New(2200, $"witness failed: {evidence} r={residual}"));
 
-    static Fin<Vector<double>> Gate(string path, FactorRoute route, Vector<double> x, Vector<double> b, double cap) =>
-        Witness(route, x, b) is var r && double.IsFinite(r) && r <= cap
-            ? Fin.Succ(x)
-            : Fin.Fail<Vector<double>>(Error.New($"witness failed: path={path} r={r}"));
+    public static double Residual(Matrix<double> a, Vector<double> x, Vector<double> b) =>
+        (b - a.Multiply(x)).L2Norm() / double.Max(b.L2Norm(), double.Epsilon);
+
+    public static double Residual(CompressedColumnStorage<double> a, double[] x, double[] b) {
+        var y = new double[b.Length];
+        a.Multiply(x, y);
+        return TensorPrimitives.Distance<double>(b, y) / double.Max(TensorPrimitives.Norm<double>(b), double.Epsilon);
+    }
 }
 ```
 
@@ -343,11 +375,10 @@ public static class SchurDecode
 - Law: assert singular values descending at construction and re-admission, never restoring the order, since a re-sort desyncs every index-0-derived fact.
 
 [ONLINE_STATISTICS]:
-- Law: record the accumulator as a fact — running over the whole stream versus moving over a fixed window are distinct semantics, never one knob.
-- Law: carry the Bessel-versus-population normalizer as a policy enum beside every stored deviation; unmarked mixing silently corrupts every downstream confidence computation.
-- Law: merge partitions by the pure static `Combine` as a CAS-safe reduction, asserting the identity `combined.Count == a.Count + b.Count`.
-- Boundary: parallel online moments accumulate to fourth order and serialize for distributed aggregation; the merge identity holds only to the floating-point merge envelope.
-- Boundary: guard the stream at admission — one pushed `NaN` permanently poisons extrema and every moment with no reset — through the same all-finite predicate the operands cross.
+- Law: the accumulator is `RunningStatistics` for the whole stream and `MovingStatistics` for a fixed window — distinct semantics recorded as the receipt's accumulator fact, never one knob, since the moving form re-weights as samples leave the window where the running form never forgets.
+- Law: carry the Bessel-versus-population normalizer as a policy enum beside every stored deviation, reading `RunningStatistics.Variance`/`StandardDeviation` (`n−1`) versus `PopulationVariance`/`PopulationStandardDeviation` (`n`); unmarked mixing silently corrupts every downstream confidence computation.
+- Law: merge partitions through the pure static `RunningStatistics.Combine(a, b)` (the `operator +` form) as a CAS-safe reduction, asserting the identity `combined.Count == a.Count + b.Count`; the parallel accumulation runs to fourth order, so `Skewness`/`PopulationSkewness` and `Kurtosis`/`PopulationKurtosis` survive the merge to the floating-point envelope.
+- Boundary: guard the stream at `Push`/`PushRange` admission — one pushed `NaN` permanently poisons `Minimum`/`Maximum` and every moment with no reset — through the same all-finite predicate the operands cross.
 
 [TERMINAL_PARTITION]:
 - Law: partition the terminal status as `Converged | StoppedWithoutConvergence | (Diverged | Failure | Cancelled)`; mapping budget-exhausted to `Fin.Fail` destroys the caller's relaxed-criterion or different-preconditioner retry.
@@ -405,7 +436,7 @@ public static class Quadrature
             a, b, out var error, out var l1Norm);
         return Math.Abs(value / l1Norm) is var ratio && double.IsFinite(ratio) && ratio >= floor
             ? Fin.Succ(new QuadratureEvidence(value, error, l1Norm, ratio, skipped))
-            : Fin.Fail<QuadratureEvidence>(Error.New($"cancellation breach: |value/L1|={ratio} skipped={skipped}"));
+            : Fin.Fail<QuadratureEvidence>(Error.New(2301, $"cancellation breach: |value/L1|={ratio} skipped={skipped}"));
     }
 }
 ```
@@ -444,13 +475,20 @@ public readonly record struct WaveAxis(int Length, double Extent)
     public int Nyquist => (Length & 1) == 0 ? Length >> 1 : -1;
 }
 
+public readonly record struct Symbol(Func<double, Complex> Apply, bool OddOrder)
+{
+    public static readonly Symbol Laplacian = new(static k => -(k * k), OddOrder: false);
+    public static readonly Symbol Gradient = new(static k => Complex.ImaginaryOne * k, OddOrder: true);
+    public static readonly Symbol Helmholtz = new(static k => 1.0 / (1.0 + k * k), OddOrder: false);
+}
+
 public static class SpectralOperator
 {
-    public static Complex[] Apply(Complex[] field, WaveAxis axis, Func<double, Complex> symbol, bool oddOrder)
+    public static Complex[] Apply(Complex[] field, WaveAxis axis, Symbol symbol)
     {
         var (k, n) = (axis.K(), axis.Nyquist);
         Fourier.Forward(field, FourierOptions.AsymmetricScaling);
-        var driven = field.Select((c, i) => c * (oddOrder && i == n ? Complex.Zero : symbol(k[i]))).ToArray();
+        var driven = field.Select((c, i) => c * (symbol.OddOrder && i == n ? Complex.Zero : symbol.Apply(k[i]))).ToArray();
         Fourier.Inverse(driven, FourierOptions.AsymmetricScaling);
         return driven;
     }

@@ -1,6 +1,8 @@
 # [INTERACTION]
 
-Retained interaction is catalog rows over settled law. One closed surface-row table mounts every process modality — owned window, embedded, headless — through one builder fold; one screen catalog feeds router, dock, deep link, and workspace restore; view state is an observable projection of settled rails opened and closed by view-driven activation; every interactive cause is a case of one trigger union dispatched into one frozen command-intent table whose menus, key tables, palette, receipts, and automation identity are folds over the same rows; live collections cross exactly one binding seam; everything user-facing passes one presentation gate; theme, automation, and locale derive from keys the rows already own. A new screen or command is rows — catalog rows, intent rows, gesture and placement columns — consuming runtime phases, concurrency change-sets, validation outcomes, and visuals tokens with zero new infrastructure.
+Retained interaction is catalog rows over settled law. One closed surface-row table mounts every process modality — owned window, embedded, headless — through one builder fold; one screen catalog feeds router, dock, deep link, and workspace restore; view state is an observable projection of settled rails opened and closed by view-driven activation; every interactive cause is a case of one trigger union dispatched into one frozen command-intent table whose menus, key tables, palette, receipts, and automation identity are folds over the same rows; live collections cross exactly one binding seam; everything user-facing passes one presentation gate; theme, automation, and locale derive from keys the rows already own. A new screen or command is rows — catalog rows, intent rows, gesture and placement columns — landing inside an existing owner with zero new pipeline code.
+
+This is the terminal stack surface, so it composes the finalized corpus as settled material and re-teaches none of it: every fault it mints is the closed `Fault` `[Union]` over `Expected` and its `Switch`/`Validation` accumulation is the settled rail algebra; `Atom` and `AtomHashMap` are the settled boundary state cells; live collection state arrives as `SourceCache` change-sets and cadence-coalescing delivery edges, and this surface owns only the last `SortAndBind` hop onto a bound UI collection; the resolved paint, type, density, motion, and locale payloads arrive as the token algebra's `Resolved` record and this surface owns only their application to `RequestedThemeVariant`, `DensityStyle`, and the locale dictionary at the three binding levels; shutdown folds into the banded drain over `HostOptions.ShutdownTimeout` and this surface owns only the `ShutdownRequested` veto edge and the workspace-capture band. ReactiveUI owns routing, commands, activation, and the `Interaction<TInput,TOutput>` view-model question; Avalonia owns the surface, headless, embedding, and theme host; Dock owns the layout model graph; the page weaves them into one row vocabulary.
 
 ## [01]-[INTERACTION_CHOOSER]
 
@@ -24,7 +26,7 @@ This table routes an interaction concern to its owning surface; the most specifi
 ## [02]-[SURFACE_MOUNT]
 
 [MOUNT_LAW]:
-- Law: every modality is a row of one closed surface table — backend fold fragment, shutdown policy, frame class, interactive gate — and mounting any screen is one fold over (catalog row × surface row); a per-host boot fork, a handle null-check at a call site, or a test-mode flag inside a screen is the rejected form, and a new modality is one row with zero screen edits.
+- Law: every modality is a row of one closed surface table — backend fold fragment, shutdown policy, capture-capability delegate — and mounting any screen is one fold over (catalog row × surface row); a per-host boot fork, a handle null-check at a call site, a `bool Pixel`/`bool Interactive` knob the consumer re-switches, or a test-mode flag inside a screen is the rejected form, and a new modality is one row with zero screen edits.
 - Law: backend rows are mutually exclusive per process; reactive admission is one `UseReactiveUI` builder row installing `AvaloniaScheduler.Instance` as `RxSchedulers.MainThreadScheduler` plus the activation, template, command, and property binding providers — a second scheduler source duplicates the seam the headless row substitutes by value.
 - Law: `MainWindow` assigns at the lifetime `Startup` edge — construction before it races the lifetime, and a primary-window swap is a lifetime write, never window juggling; a tray-resident shell flips `OnExplicitShutdown` or its last closing window kills the process.
 - Law: `ShutdownRequested` is the one pre-drain veto — the handler cancels and folds into the settled drain spine whose last band calls `Shutdown(exitCode)` with a code derived from drain outcome; inline teardown in the handler is rejected, and window `Closing` fires too late to coordinate a suite-wide drain.
@@ -35,33 +37,32 @@ This table routes an interaction concern to its owning surface; the most specifi
 ```csharp conceptual
 [SmartEnum<string>]
 public sealed partial class SurfaceRow {
-    public static readonly SurfaceRow Shell = new("<row-a>", pixel: false, interactive: true,
-        shutdown: ShutdownMode.OnMainWindowClose, backend: static builder => builder.UsePlatformDetect());
-    public static readonly SurfaceRow Proof = new("<row-b>", pixel: false, interactive: true,
-        shutdown: ShutdownMode.OnExplicitShutdown, backend: static builder =>
-            builder.UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = true }));
-    public static readonly SurfaceRow Export = new("<row-c>", pixel: true, interactive: false,
-        shutdown: ShutdownMode.OnExplicitShutdown, backend: static builder => builder.UseHeadless(
-            new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false, FrameBufferFormat = PixelFormat.Rgba8888 }));
+    public static readonly SurfaceRow Shell = new("<row-a>",
+        shutdown: ShutdownMode.OnMainWindowClose, backend: static builder => builder.UsePlatformDetect(),
+        capture: static _ => Fin.Fail<WriteableBitmap>(new Fault.Refused(Detail: "<no-pixel:row-a>")));
+    public static readonly SurfaceRow Proof = new("<row-b>",
+        shutdown: ShutdownMode.OnExplicitShutdown,
+        backend: static builder => builder.UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = true }),
+        capture: static _ => Fin.Fail<WriteableBitmap>(new Fault.Refused(Detail: "<stub-row:row-b>")));
+    public static readonly SurfaceRow Export = new("<row-c>",
+        shutdown: ShutdownMode.OnExplicitShutdown,
+        backend: static builder => builder.UseHeadless(
+            new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false, FrameBufferFormat = PixelFormat.Rgba8888 }),
+        capture: static surface => Optional(surface.CaptureRenderedFrame()).ToFin(new Fault.Absent(Detail: "<no-frame>")));
 
-    public bool Pixel { get; }
-    public bool Interactive { get; }
     public ShutdownMode Shutdown { get; }
 
     [UseDelegateFromConstructor]
     public partial AppBuilder Backend(AppBuilder builder);
+
+    [UseDelegateFromConstructor]
+    public partial Fin<WriteableBitmap> Capture(Window surface);
 }
 
 public static class Mount {
     public static int Run(SurfaceRow row, Func<Application> shell, string[] args) {
         ArgumentNullException.ThrowIfNull(row);
         return row.Backend(AppBuilder.Configure(shell)).StartWithClassicDesktopLifetime(args, row.Shutdown);
-    }
-
-    public static Fin<WriteableBitmap> Capture(SurfaceRow row, Window surface) {
-        ArgumentNullException.ThrowIfNull(row);
-        return row.Pixel ? Optional(surface.CaptureRenderedFrame()).ToFin(Error.New(7712, "<no-frame>"))
-                         : Fin.Fail<WriteableBitmap>(Error.New(7713, $"<stub-row:{row.Key}>"));
     }
 }
 ```
@@ -95,6 +96,8 @@ public abstract partial record Nav {
     private Nav() { }
     public sealed record Push(string Key) : Nav;
     public sealed record Reset(string Key) : Nav;
+    public sealed record Replace(string Key) : Nav;
+    public sealed record Modal(Surfaceable Prompt) : Nav;
     public sealed record Back : Nav;
 }
 
@@ -113,22 +116,25 @@ public static class Spine {
     public static IRoutableViewModel Resolved(IScreen host, string key) =>
         Catalog.Find(row => row.Key == key).IfNone(Catalog[0]).Make(host);
 
-    public static IDisposable Steer(ShellScreen shell, Nav verb) {
-        ArgumentNullException.ThrowIfNull(verb);
-        return verb.Switch(
+    public static IObservable<Fin<Unit>> Steer(ShellScreen shell, Nav verb) =>
+        verb.Switch(
             state: shell,
-            push:  static (s, p) => s.Router.Navigate.Execute(Resolved(s, p.Key)).Subscribe(),
-            reset: static (s, r) => s.Router.NavigateAndReset.Execute(Resolved(s, r.Key)).Subscribe(),
-            back:  static (s, _) => s.Router.NavigateBack.Execute().Subscribe());
-    }
+            push:    static (s, p) => s.Router.Navigate.Execute(Resolved(s, p.Key)).Select(static _ => Fin.Succ(unit)),
+            reset:   static (s, r) => s.Router.NavigateAndReset.Execute(Resolved(s, r.Key)).Select(static _ => Fin.Succ(unit)),
+            replace: static (s, r) => Observable.Return(Fin.Succ(ignore(
+                         s.Router.NavigationStack = [.. s.Router.NavigationStack.SkipLast(1), Resolved(s, r.Key)]))),
+            modal:   static (_, m) => PresentationGate.Surface.Handle(m.Prompt).Select(static answered => answered.Map(static _ => unit)),
+            back:    static (s, _) => s.Router.NavigateBack.Execute().Select(static _ => Fin.Succ(unit)));
 
     public static Seq<RestoreFact> Restore(ShellScreen shell, Seq<string> saved) {
         ArgumentNullException.ThrowIfNull(shell);
-        return (fun(shell.Router.NavigationStack.Clear)(),
-            (from key in saved
-             let hit = Catalog.Find(row => row.Key == key)
-             let mount = fun(() => shell.Router.NavigationStack.Add(hit.IfNone(Catalog[0]).Make(shell)))()
-             select new RestoreFact(key, hit.IsSome)).Strict()).Item2;
+        var resolved = saved
+            .Map(key => Catalog.Find(row => row.Key == key)
+                .Map(row => (Fact: new RestoreFact(key, true), View: row.Make(shell)))
+                .IfNone(() => (new RestoreFact(key, false), Catalog[0].Make(shell))))
+            .Strict();
+        shell.Router.NavigationStack = [.. resolved.Map(static row => row.View)];
+        return resolved.Map(static row => row.Fact);
     }
 }
 ```
@@ -140,7 +146,7 @@ public static class Spine {
 - Law: deep paths ride expression-chain subscription — an `a.B.C` chain re-resolves when intermediates are replaced where a hand-wired `PropertyChanged` chain goes silently stale — and cross-object joins are `CombineLatest` over property streams, never recomputation handlers.
 - Law: the constructor owns long-lived derivations; everything touching external streams, timers, or services opens inside `WhenActivated` or it leaks one subscription per dock-tab switch — activation is view-driven and composes hierarchically, so explicit child-activation forwarding double-activates.
 - Law: `ThrownExceptions` is the one fault rail — command and pipeline faults join one root edge delivered on the output scheduler, and recoverable outcomes are values in `TResult`, never exceptions; once observed, the observer owns the failures, so the root subscription is mandatory, not hardening.
-- Law: view-model-to-view questions ride `Interaction<TInput,TOutput>` — handlers walk in reverse registration order, the first `SetOutput` wins, an unhandled walk throws typed, and registration disposal restores the prior handler, so a headless row overrides the dialog-presenting handler without touching the asker; a small standard question vocabulary (confirm, choose, supply) beats per-screen interaction types.
+- Law: view-model-to-view questions ride `Interaction<TInput,TOutput>` — the asker calls `Handle` and never reaches the presentation rail, the handler walks in reverse registration order, the first `SetOutput` wins, an unhandled walk throws typed, and registration disposal restores the prior handler, so the headless row overrides the dialog-presenting handler without touching the asker; a screen's typed question (confirm, choose, supply) is answered by the one standard gate handler `[07]` mounts, never a per-screen dialog-presenting handler, so the small typed vocabulary stays the seam and the presentation policy stays single-owned.
 
 [SCREEN_VALIDITY]:
 - Law: settled boundary law produces the typed outcome; the screen projects it once through the state-observable `ValidationRule` — validity and message as one `ValidationState` value, re-running validation logic in a view-model is the rejected form — and `IsValid()` is a canonical availability input: submit rows gate through the availability fold, never code-behind disabling, with a pending async probe projecting invalid-with-message so the gate stays conservative without a tri-state flag.
@@ -148,10 +154,11 @@ public static class Spine {
 
 ```csharp conceptual
 public sealed class EditScreen : ReactiveValidationObject, IActivatableViewModel {
-    public static readonly Atom<Seq<Error>> Faults = Atom(Seq<Error>());
-
+    readonly Atom<Seq<Fault>> faults = Atom(Seq<Fault>());
     readonly ObservableAsPropertyHelper<int> score;
     string raw = "";
+
+    public Seq<Fault> Faults => faults.Value;
 
     public EditScreen(Func<string, Validation<Error, int>> admit, IObservable<int> live) {
         var outcome = this.WhenAnyValue(static screen => screen.Raw).Select(value => admit(value));
@@ -160,22 +167,21 @@ public sealed class EditScreen : ReactiveValidationObject, IActivatableViewModel
 
         this.ValidationRule(static screen => screen.Raw, outcome.Select(static fold =>
             new ValidationState(fold.IsSuccess, fold.Match(Succ: static _ => "", Fail: static error => error.Message))));
+        Submit = ReactiveCommand.CreateFromObservable(() => Confirm.Handle(Raw), canExecute: this.IsValid());
         this.WhenActivated(anchors => {
             live.Select(static value => value.ToString(CultureInfo.InvariantCulture)).Subscribe(value => Raw = value).DisposeWith(anchors);
-            ThrownExceptions.Subscribe(static fault => ignore(Faults.Swap(held => held.Add(Error.New(fault))))).DisposeWith(anchors);
+            ThrownExceptions.Subscribe(thrown => ignore(faults.Swap(held => held.Add(new Fault.NativeRejected(Detail: thrown.Message))))).DisposeWith(anchors);
         });
     }
 
     public ViewModelActivator Activator { get; } = new();
     public Interaction<string, bool> Confirm { get; } = new();
-    public IObservable<bool> SubmitGate => this.IsValid();
+    public ReactiveCommand<Unit, bool> Submit { get; }
     public int Score => score.Value;
     public string Raw { get => raw; set => this.RaiseAndSetIfChanged(ref raw, value); }
 
-    public IDisposable AutoAnswer() => Confirm.RegisterHandler(static context => context.SetOutput(true));
-
     protected override void Dispose(bool disposing) {
-        if (disposing) { score.Dispose(); }
+        if (disposing) { score.Dispose(); Submit.Dispose(); }
         base.Dispose(disposing);
     }
 }
@@ -201,7 +207,10 @@ public abstract partial record Trigger {
     private Trigger() { }
     public sealed record Pointer(int X, int Y) : Trigger;
     public sealed record Chord(string Gesture) : Trigger;
+    public sealed record Menu(string Placement) : Trigger;
+    public sealed record Palette(string Query) : Trigger;
     public sealed record Remote(string Caller) : Trigger;
+    public sealed record Automation(string Peer) : Trigger;
 }
 
 public readonly record struct Receipt(string Intent, string Cause);
@@ -234,16 +243,22 @@ public static class CommandTable {
         table.Filter(bound => bound.Row.Placements.Exists(tag => tag == placement));
 
     public static Validation<Error, Seq<KeyBinding>> KeyTable(Seq<BoundRow> table, string scope) =>
-        table.Choose(static bound => bound.Row.Gesture.Map(chord => (Chord: chord, bound.Command))) is var claimed
-        && toSeq(claimed.GroupBy(static claim => claim.Chord).Where(static set => set.Count() > 1)) is { IsEmpty: true }
-            ? claimed.Map(static claim => new KeyBinding { Gesture = KeyGesture.Parse(claim.Chord), Command = claim.Command }).Strict()
-            : Error.New(7721, $"<gesture-conflict:{scope}:{string.Join(',', claimed.Map(static claim => claim.Chord))}>");
+        toSeq(table.Choose(static bound => bound.Row.Gesture.Map(chord => (Chord: chord, bound.Command)))
+                .GroupBy(static claim => claim.Chord))
+            .Traverse(group => toSeq(group) is [var only]
+                ? Success<Error, KeyBinding>(new KeyBinding { Gesture = KeyGesture.Parse(only.Chord), Command = only.Command })
+                : new Fault.Bounds($"<gesture-conflict:{scope}:{group.Key}>"))
+            .As()
+            .Map(static bindings => bindings.Strict());
 
     static Func<Trigger, CancellationToken, Task<Receipt>> Evidenced(string intent) =>
         (cause, _) => Task.FromResult(new Receipt(intent, cause.Switch(
-            pointer: static p => $"<pointer:{p.X}>",
-            chord:   static c => $"<chord:{c.Gesture}>",
-            remote:  static r => $"<remote:{r.Caller}>")));
+            pointer:    static p => $"<pointer:{p.X}>",
+            chord:      static c => $"<chord:{c.Gesture}>",
+            menu:       static m => $"<menu:{m.Placement}>",
+            palette:    static p => $"<palette:{p.Query}>",
+            remote:     static r => $"<remote:{r.Caller}>",
+            automation: static a => $"<automation:{a.Peer}>")));
 }
 ```
 
@@ -273,18 +288,29 @@ public sealed class RowModel(int depth, Entry entry) : IDisposable {
 public sealed partial class ViewAs {
     public static readonly ViewAs List = new();
     public static readonly ViewAs Tree = new();
+    public static readonly ViewAs Grouped = new();
+    public static readonly ViewAs Paged = new();
+    public static readonly ViewAs Windowed = new();
 }
 
 public static class BindingEdge {
     public static IObservable<IChangeSet<RowModel, string>> Projected(
-        IObservable<IChangeSet<Entry, string>> source, ViewAs mode, IObservable<Func<Node<Entry, string>, bool>> expanded) {
+        IObservable<IChangeSet<Entry, string>> source, ViewAs mode,
+        IObservable<Func<Node<Entry, string>, bool>> expanded,
+        IObservable<IPageRequest> page, IObservable<IVirtualRequest> window) {
         ArgumentNullException.ThrowIfNull(mode);
         return mode.Switch(
-            state: (Source: source, Expanded: expanded),
-            list: static held => held.Source.Transform(static entry => new RowModel(0, entry)),
-            tree: static held => held.Source
+            state: (Source: source, Expanded: expanded, Page: page, Window: window),
+            list:    static held => held.Source.Transform(static entry => new RowModel(0, entry)),
+            tree:    static held => held.Source
                 .TransformToTree(static entry => entry.Parent, held.Expanded)
-                .Transform(static node => new RowModel(node.Depth, node.Item)));
+                .Transform(static node => new RowModel(node.Depth, node.Item)),
+            grouped: static held => held.Source.GroupWithImmutableState(static entry => entry.Rank)
+                .Transform(static group => new RowModel(group.Count, new Entry($"<group:{group.Key}>", "", "", group.Key))),
+            paged:   static held => held.Source.Sort(SortExpressionComparer<Entry>.Ascending(static e => e.Path))
+                .Page(held.Page).Transform(static entry => new RowModel(0, entry)),
+            windowed: static held => held.Source.Sort(SortExpressionComparer<Entry>.Ascending(static e => e.Path))
+                .Virtualise(held.Window).Transform(static entry => new RowModel(0, entry)));
     }
 
     public static (ReadOnlyObservableCollection<RowModel> View, IDisposable Live) Bound(
@@ -304,7 +330,7 @@ public static class BindingEdge {
 ## [07]-[PRESENTATION_GATE]
 
 [GATE_LAW]:
-- Law: dialog-versus-notice is a severity split under one law — blocking decisions are awaited sessions with typed receipts, ambient facts are non-blocking notices — and both pass one suppression fold whose posture column rides moment rows derived once from the settled phase and rank cells; a call site never inspects phase, nothing user-facing escapes the gate, and resume edges flush held items in arrival order with stale entries aged out by a declared horizon.
+- Law: dialog-versus-notice is a severity split under one law — blocking decisions are awaited sessions with typed receipts, ambient facts are non-blocking notices — and both pass one suppression fold whose posture (`Present`, `Hold`, `Drop`) is the moment row's column derived once from the settled phase; a call site never inspects phase, nothing user-facing escapes the gate, and resume edges flush held items in arrival order with stale entries aged out by a declared horizon.
 - Law: modal state is host-addressable — `DialogHost` by `Identifier`, the awaited task is the receipt, `DialogHost.Close(identifier, parameter)` supplies the result — so free-floating modal windows are rejected; markup-opened dialogs land in the same session stack, `CloseOnClickAway` is host policy rather than a per-dialog argument, and the session is one handler of an `Interaction`, because a view-model calling the dialog rail directly couples to presentation and forecloses the headless auto-answer.
 - Law: sessions are first-class — `UpdateContent` morphs a live session, so a wizard is a fold over step states inside one session with the final close parameter as the whole flow's receipt, and the closing veto guards mid-flow abandonment.
 
@@ -331,19 +357,22 @@ public abstract partial record Surfaceable {
 }
 
 public static class PresentationGate {
+    public static readonly Interaction<Surfaceable, Fin<object>> Surface = new();
     static readonly Atom<Seq<(Surfaceable Item, DateTimeOffset At)>> Queued = Atom(Seq<(Surfaceable, DateTimeOffset)>());
 
-    public static Task<Fin<object>> Admit(Surfaceable item, Moment moment, TimeProvider clock) {
-        ArgumentNullException.ThrowIfNull(moment);
-        return moment.Posture.Switch(
-            state: (Item: item, Clock: clock),
+    public static IDisposable Mount(Func<Moment> moment, TimeProvider clock) =>
+        Surface.RegisterHandler(context => moment().Posture.Switch(
+            state: (Item: context.Input, Clock: clock),
             present: static held => held.Item.Switch(
                 decision: static d => Decided(d),
                 notice:   static n => Task.FromResult(Fin.Succ<object>(n.Text))),
             hold: static held => (Queued.Swap(rows => rows.Add((held.Item, held.Clock.GetUtcNow()))),
-                Task.FromResult(Fin.Fail<object>(Error.New(7731, "<held>")))).Item2,
-            drop: static held => Task.FromResult(Fin.Fail<object>(Error.New(7732, "<dropped>"))));
-    }
+                Task.FromResult(Fin.Fail<object>(new Fault.Unavailable(Detail: "<held>")))).Item2,
+            drop: static held => Task.FromResult(Fin.Fail<object>(new Fault.Refused(Detail: "<dropped>"))))
+            .ContinueWith(answered => context.SetOutput(answered.Result), TaskScheduler.Default));
+
+    public static IDisposable Override(Func<Surfaceable, Fin<object>> answer) =>
+        Surface.RegisterHandler(context => context.SetOutput(answer(context.Input)));
 
     public static Seq<Surfaceable> Resume(TimeProvider clock, TimeSpan horizon) {
         Seq<(Surfaceable Item, DateTimeOffset At)> taken = default;
@@ -355,16 +384,17 @@ public static class PresentationGate {
         Optional(await DialogHost.Show(decision.Prompt, decision.Host,
                 (object _, DialogOpenedEventArgs opened) => decision.Morph.Iter(next => opened.Session.UpdateContent(next)),
                 (object _, DialogClosingEventArgs closing) => { if (decision.Veto(closing.Parameter)) { closing.Cancel(); } })
-            .ConfigureAwait(true)).ToFin(Error.New(7733, "<dismissed>"));
+            .ConfigureAwait(true)).ToFin(new Fault.Absent(Detail: "<dismissed>"));
 }
 ```
 
 ## [08]-[SURFACE_DERIVATION]
 
 [VARIANT_APPLICATION]:
-- Law: one application-level fold maps (platform color values × pinned override × density × contrast preference) onto `RequestedThemeVariant`, palette rows, and `DensityStyle` atomically — idempotent on `PlatformColorValues` record equality, so OS signal bursts need no debounce — and the override short-circuits the fold rather than unsubscribing the platform edge (`GetColorValues` plus `ColorValuesChanged`, one application-level subscription).
+- Law: the OS preference is an axis selector, never a palette source — the platform edge (`GetColorValues` plus `ColorValuesChanged`, one application-level subscription) projects `PlatformColorValues` into the (variant, density) axis the visuals token algebra resolves, this fold applies the resolved artifact, and the only constructor of `ColorPaletteResources` stays inside that resolve fold; a `new ColorPaletteResources` at this seam re-mints what the `Resolved` record already carries and forks the catalog generation the cross-cache coherence rides.
+- Law: the application fold is the consumer of the token diff — one `TokenAlgebra.Swap(axis, variant, density)` returns the changed-key set and this fold assigns `RequestedThemeVariant` plus `DensityStyle` and mounts only the changed resolved palettes onto `Palettes`, idempotent because a content-identical swap emits no changed keys, so OS signal bursts need no debounce and the pinned override short-circuits by selecting its own axis rather than unsubscribing the platform edge.
 - Law: variant binding is the three-level `RequestedThemeVariant` chain — `Application`, `TopLevel`, `ThemeVariantScope` — where null means inherit; floating dock windows and popups inherit from the application, not the window they detached from, so suite-wide variant rides the application fold or floats diverge silently, and per-region theming is a scope row.
-- Law: a custom variant declares `InheritVariant` or resolves nothing outside its own dictionary; brand theming is `Palettes` dictionary entries plus the variant declaration, density is one `DensityStyle` swap, and the high-contrast preference selects a pre-verified variant row through the same fold, so contrast mode is zero code; code-side token reads go through theme-aware lookup at `ActualThemeVariant` — a captured brush is the staleness defect — and `ActualThemeVariantChanged` at the application is the one subscription edge.
+- Law: a custom variant declares `InheritVariant` or resolves nothing outside its own dictionary; the high-contrast preference selects a pre-verified variant axis through the same `Swap`, so contrast mode is zero code; code-side token reads go through theme-aware lookup at `ActualThemeVariant` — a captured brush is the staleness defect — and `ActualThemeVariantChanged` at the application is the one subscription edge.
 
 [DERIVED_SURFACES]:
 - Law: automation derives from the vocabulary — `AutomationProperties.Name` from the localization key, `AcceleratorKey` from the claimed gesture, `AutomationId` from the intent or screen key — so automation invocation is a trigger arm, never a parallel naming scheme; owner-drawn surfaces override `OnCreateAutomationPeer` or stay invisible, virtualized rows declare `PositionInSet`/`SizeOfSet` from upstream totals, announcements ride `LiveSetting` instead of focus theft, and focus topology is a `TabNavigation` container-mode row.
@@ -372,29 +402,39 @@ public static class PresentationGate {
 - Law: the headless walk is the derivation audit — automation names, gestures, tab cycles, and locale-key totality diff against the table as typed receipts — and anything provable headless holds windowed because the mount law is shared; a windowed-versus-headless divergence is a row-capability fact, repaired as a row edit, never a screen patch.
 
 ```csharp conceptual
-public sealed record Edge(PlatformColorValues Values, Option<ThemeVariant> Pinned, bool Compact);
+public sealed record Edge(PlatformColorValues Values, Option<string> Pinned, bool Compact) {
+    public (string Axis, string Variant, string Density) Selected =>
+        ("<axis-theme>",
+         Pinned.IfNone(() => (Values.ThemeVariant, Values.ContrastPreference) switch {
+             (_, ColorContrastPreference.High) => "<variant-sharp>",
+             (PlatformThemeVariant.Dark, _)    => "<variant-dark>",
+             _                                 => "<variant-light>",
+         }),
+         Compact ? "<density-compact>" : "<density-comfortable>");
+}
 
 public static class VariantFold {
-    public static readonly ThemeVariant Brand = new("<variant-a>", ThemeVariant.Dark);
-    public static readonly ThemeVariant Sharp = new("<variant-b>", ThemeVariant.Dark);
+    static readonly FrozenDictionary<string, ThemeVariant> Variants = new Dictionary<string, ThemeVariant> {
+        ["<variant-sharp>"] = new("<variant-sharp>", ThemeVariant.Dark),
+        ["<variant-dark>"]  = ThemeVariant.Dark,
+        ["<variant-light>"] = ThemeVariant.Light,
+    }.ToFrozenDictionary();
 
-    static readonly Atom<Option<Edge>> Applied = Atom(Option<Edge>.None);
-
-    public static Unit OnEdge(Application app, FluentTheme theme, Edge candidate) {
+    public static Unit OnEdge(Application app, FluentTheme theme, TokenAlgebra<ColorPaletteResources> tokens, Edge edge) {
         ArgumentNullException.ThrowIfNull(app);
         ArgumentNullException.ThrowIfNull(theme);
-        ArgumentNullException.ThrowIfNull(candidate);
-        return Applied.Value is { IsSome: true, Case: Edge held } && held == candidate
+        ArgumentNullException.ThrowIfNull(tokens);
+        ArgumentNullException.ThrowIfNull(edge);
+        var (axis, variant, density) = edge.Selected;
+        return tokens.Swap(axis, variant, density).Changed.IsEmpty
             ? unit
-            : (Applied.Swap(_ => Some(candidate)), Apply(app, theme, candidate)).Item2;
+            : Apply(app, theme, tokens.Current, Variants[variant], edge.Compact);
     }
 
-    static Unit Apply(Application app, FluentTheme theme, Edge edge) {
-        app.RequestedThemeVariant = edge.Pinned.IfNone(
-            edge.Values.ContrastPreference is ColorContrastPreference.High ? Sharp : (ThemeVariant)edge.Values.ThemeVariant);
-        theme.DensityStyle = edge.Compact ? DensityStyle.Compact : DensityStyle.Normal;
-        theme.Palettes[Brand] = new ColorPaletteResources { Accent = edge.Values.AccentColor1 };
-        return unit;
+    static Unit Apply(Application app, FluentTheme theme, Resolved<ColorPaletteResources> resolved, ThemeVariant variant, bool compact) {
+        app.RequestedThemeVariant = variant;
+        theme.DensityStyle = compact ? DensityStyle.Compact : DensityStyle.Normal;
+        return ignore(resolved.Artifacts.Iter((role, palette) => theme.Palettes[Variants[role]] = palette));
     }
 }
 ```

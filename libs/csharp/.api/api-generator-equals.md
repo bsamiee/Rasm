@@ -5,10 +5,10 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Generator.Equals`
-- package: `Generator.Equals` (4.0.0, MIT, © Diego Frata)
-- composition: a meta-package = the Roslyn analyzer `Generator.Equals.dll` (asset `analyzers/dotnet/cs/`, no `lib/`) + a transitive runtime dependency `Generator.Equals.Runtime` `4.0.0` (asset `lib/netstandard2.0/Generator.Equals.Runtime.dll`, bound by the `net10.0` consumer). The analyzer is the `IIncrementalGenerator`; the runtime assembly carries every public type below.
-- assembly: `Generator.Equals.Runtime` (the referenced runtime; the analyzer ships no public surface)
-- namespace: `Generator.Equals` (all attributes, comparers, and diff types)
+- package: `Generator.Equals` `4.0.0`
+- asset: analyzer-only package at `analyzers/dotnet/cs/Generator.Equals.dll`; Assay resolves zero public runtime types for this package key
+- runtime surface: transitive `Generator.Equals.Runtime` `4.0.0`, assembly `Generator.Equals.Runtime`, namespace `Generator.Equals`
+- owners: `Rasm.Element`, `Rasm.Bim`, `Rasm.Persistence`
 - requirement: consumer `LangVersion` ≥ 9.0 (records); applies to classes, structs, records, record structs
 - rail: equality
 

@@ -38,10 +38,9 @@ This table routes a validation concern to its owning surface; the most specific 
 - Law: `DependentRules` runs nested rules only when the parent chain passed — the declaration-order spelling of no-cross-field-facts-over-broken-parts inside an accumulating validator; `RuleForEach(...).Where(predicate)` makes element applicability graph data, never an `if` inside `Must`.
 
 [RULE_VOCABULARY]:
-- Law: presence and shape are separately declared concerns — every built-in except `NotNull`/`NotEmpty` and the inverse pair passes a null value, so a shape rule on an optional field never doubles as a presence rule; a `Matches(Func<T, Regex>)` provider returning null passes the same way, so pattern-by-policy guarantees its pattern.
-- Law: `NotEmpty` rejects null, whitespace, empty collections, and `default(TProperty)` under default equality — a default-sentinel gate on value types, not a string rule.
+- Law: presence and shape are separately declared concerns — every built-in except `NotNull`/`NotEmpty` and the inverse pair passes a null value, so a shape rule on an optional field never doubles as a presence rule; the `Matches(Func<T, string>)` provider whose pattern resolves per instance guards only present values, so pattern-by-policy never doubles as presence, and `NotEmpty` rejecting `default(TProperty)` under default equality is a default-sentinel gate on value types, never a string rule.
 - Law: a recurring predicate spelled as `Must` forfeits stable code, default message, and localization in one stroke — a named `PropertyValidator<T,TProperty>` derives all three from `Name` and joins the placeholder economy through `MessageFormatter.AppendArgument`; custom argument names carry a concern prefix because the namespace is flat per failure and a collision overwrites silently.
-- Law: `Must` carries `(TProperty)`, `(T, TProperty)`, and `(T, TProperty, ValidationContext<T>)` arities, comparison rules take member expressions so cross-field ordering is declared, and `Equal` and `InclusiveBetween` accept injected comparers per rule.
+- Law: the context-arity `Must` overload reads run policy from `RootContextData`, comparison rules take member expressions so cross-field ordering is declared graph data rather than an `if`, and `Equal`/`InclusiveBetween` accept an injected comparer per rule.
 - Law: severity, custom state, and code are per-component data — `WithSeverity` providers compute classification from instance, value, and run context, so one chain mints differently classified failures and a strict-mode knob is unrepresentable.
 - Law: `Configure(rule => ...)` and static `Configurable(builder)` expose the underlying `IValidationRule<T,TProperty>` for policy the fluent surface cannot spell — the escape hatch closes every gap inside the graph, so no requirement justifies hand-rolled validation beside it.
 - Boundary: `Custom` returns the conditions surface — message, severity, and code options do not chain after it, and everything sets on the emitted failure itself.
@@ -53,30 +52,22 @@ This table routes a validation concern to its owning surface; the most specific 
 - Reject: partial-as-admission — selectors exist for per-field feedback and variant routing, and only the seam row's full declared run admits.
 
 ```csharp conceptual
-[Union]
-public abstract partial record Fault : Expected, IValidationError<Fault> {
-    private Fault(string detail, int code) : base(detail, code, None) { }
-    public static Fault Create(string message) => new Foreign("<bridge>", "", message);
-    public sealed record Absent(string Field) : Fault($"<absent:{Field}>", 4101);
-    public sealed record Bounds(string Field, int Ceiling, int Observed) : Fault($"<bounds:{Field}:{Observed}>", 4102);
-    public sealed record Arm(string Seam, string Detail) : Fault($"<arm:{Seam}>:{Detail}", 4801);
-    public sealed record Foreign(string Origin, string Path, string Detail) : Fault($"<foreign:{Origin}:{Path}>:{Detail}", 4900);
-}
-
 public sealed record RowEdit(string Key, int Rank, bool Live);
 public sealed record ShapeEdit(string? Code, int Start, int End, string? Note, string? Etag, IReadOnlyList<RowEdit> Rows);
 
 public sealed class RowLaw : AbstractValidator<RowEdit> {
+    private const int RankCeiling = 9;
+
     public RowLaw() {
         RuleFor(row => row.Key).NotEmpty();
-        RuleFor(row => row.Rank).InclusiveBetween(0, 9)
-            .WithState((row, rank) => new Fault.Bounds(nameof(RowEdit.Rank), 9, rank));
+        RuleFor(row => row.Rank).InclusiveBetween(0, RankCeiling)
+            .WithState(static (row, rank) => new Fault.Bounds(Detail: $"<{nameof(RowEdit.Rank)}:{rank}/{RankCeiling}>"));
     }
 }
 
 public sealed class KeyedPack : AbstractValidator<ShapeEdit> {
     public KeyedPack() => RuleFor(edit => edit.Code).NotEmpty().WithErrorCode("<code-key>")
-        .WithState((edit, code) => new Fault.Absent(nameof(ShapeEdit.Code)));
+        .WithState((edit, code) => new Fault.Absent(Detail: nameof(ShapeEdit.Code)));
 }
 
 public sealed class ShapeEditLaw : AbstractValidator<ShapeEdit> {
@@ -129,55 +120,54 @@ public sealed class ShapeEditLaw : AbstractValidator<ShapeEdit> {
 ## [04]-[OUTCOME_PROJECTION]
 
 [BRIDGE_FOLD]:
+- Law: the mint targets the one canonical `Fault` `[Union]` over `Expected` that `shapes.md` owns — the root, `Aggregate`, and `Semigroup` `Combine` arrive settled, the seam re-declares nothing, and its faults are canonical cases used the way every boundary uses `Fault.Absent`: the admission band keys `Arm` for a provider-exception throw and `Foreign` for a bridge-band foreign-origin mint, each an `IValidationError<TCase>` the generator targets, and `[ValidationError<Fault>]` on a generated owner routes its `Validate` into the same family with no second error type.
 - Law: one generic bridge per system — never per boundary — and its input is `IEnumerable<ValidationFailure>`, not `ValidationResult`: validator results, foreign-adapter payloads, and hand-built arm failures enter one identical fold, so transport never forks the projection.
 - Law: `IsValid` is severity-blind — `Errors.Count == 0` — so reading it in bridge code turns advisories into rejections; the `Severity` partition is the only verdict, the `Error` band gates, and the `Warning`/`Info` bands ride the success value as evidence.
 - Law: the mint is a three-tier cascade — `CustomState` holding a fault-family case is taken as-is after a pattern test, so a foreign state value falls through rather than poisoning the rail; otherwise `ErrorCode` keys a frozen code-to-case map; otherwise the string tier preserves code, path, and message inside the reserved bridge band.
 - Law: tier economics are monotone — tier 1 costs one provider per rule and zero bridge maintenance, tier 2 one frozen row plus one sweep entry, tier 3 nothing locally — so bridge-side mapping growth is the metric flagging rules that should mint their own faults, and a mature boundary converges tier-1-dominant.
 - Law: a foreign validation source enters by mapping to the seven-field failure shape under three fail-closed defaults — unknown severity gates as `Error`, a missing code mints in the bridge band, a missing path maps to the root path, never an invented field name.
-- Reject: throw-and-catch into the rail, message-text dispatch, dropping the riding bands at the bridge, and `CustomState` as a grab-bag of strings and tuples — tier 1 works only when state is a fault-family case.
+- Law: the gating partition folds through the fault family's own `Semigroup` `Combine`, never a flatten to bare `Error` — every minted case stays a typed, addressable member of one aggregate case, so the rail page's accumulation law lands at the projection seam with zero positional reconstruction; widening to `Error` happens once, at the carrier's failure slot, after the typed fold completes.
+- Reject: throw-and-catch into the rail, message-text dispatch, dropping the riding bands at the bridge, `CustomState` as a grab-bag of strings and tuples (tier 1 works only when state is a fault-family case), and folding the gating partition through `+` on `Error` where the typed `Combine` preserves every member.
 
-[EVIDENCE_AND_PATHS]:
-- Law: `ValidationFailure` is a seven-field evidence record with fixed projection roles — `ErrorCode` is identity, `PropertyName` the machine path whose process-global `PropertyChainSeparator` freezes once any path persists, `Severity` the band, `CustomState` the typed side channel, `FormattedMessagePlaceholderValues` the re-render capital, `ErrorMessage` display residue, and `AttemptedValue` raw evidence under the classification obligation before any export-facing projection.
-- Law: evidence rides forward only — a riding finding is never re-promoted into a gating fault downstream; blocking on a `Warning` is a different seam policy, and the change lands in the seam row or the severity selection.
+[EVIDENCE_RECORD]:
+- Law: `ValidationFailure` is a seven-field evidence record with fixed projection roles — `ErrorCode` identity, `PropertyName` the machine path, `Severity` the band, `CustomState` the typed side channel, `FormattedMessagePlaceholderValues` the re-render capital, `ErrorMessage` display residue, `AttemptedValue` raw evidence under the classification obligation before any export-facing projection — and the departing wire fault is the four culture-invariant fields (code, path, severity, placeholder values), so `AttemptedValue`, `CustomState`, and rendered text never cross a process and the receiver re-renders from code plus placeholders under its own culture.
+- Law: `OverridePropertyName` rewrites the projection key while `WithName` rewrites only the display name, and `{PropertyName}` renders the display name while the failure keeps the invariant path whose process-global `PropertyChainSeparator` freezes once any path persists — confusing the two surfaces is the canonical projection bug in both directions.
+- Law: evidence rides forward only — a riding finding is never re-promoted into a gating fault downstream; blocking on a `Warning` is a different seam policy landing in the seam row or the severity selection, never a re-classification after admission.
 - Law: gates are derived data — the validation-to-save verdict recomputes from the outcome value and carries its blocking faults, so explanation and enforcement cannot disagree, and multi-seam gates fold monoidally under a declared combine policy.
-- Law: `OverridePropertyName` rewrites the projection key while `WithName` rewrites only the display name, and `{PropertyName}` renders the display name while the failure keeps the invariant path — confusing the two surfaces is the canonical projection bug in both directions.
 - Law: failure order is run order — deterministic for a given graph — so projected fault order reproduces without sorting; `ToDictionary()` and `ToString()` are terminal display projections that discard code, severity, and placeholders.
 
-[CODE_VOCABULARY]:
-- Law: `ErrorCode` is one symbol with three derived surfaces — tier-2 rail dispatch, wire identity, and code-first message lookup — so one translation registered under a code re-messages every carrying rule, and any second naming axis is derived presentation.
-- Law: codes default to the failing validator's `Name` through `ValidatorOptions.Global.ErrorCodeResolver` — one process-wide mint; resolver-derived codes follow class renames silently, so any code that crosses a process or persists is pinned with `WithErrorCode` or a `Name` constant, and the row's template registers through `LanguageManager.AddTranslation(culture, code, template)` — a pinned code without its template falls back to the validator-name lookup, half a registration.
+[CODE_AND_LOCALIZATION]:
+- Law: `ErrorCode` is one symbol with three derived surfaces — tier-2 rail dispatch, wire identity, code-first message lookup — so one translation registered under a code re-messages every carrying rule, and any second naming axis is derived presentation reconstructible from code plus placeholders.
+- Law: codes default to the failing validator's `Name` through `ValidatorOptions.Global.ErrorCodeResolver` — one process-wide mint that follows class renames silently, so any code that crosses a process or persists is pinned with `WithErrorCode` or a `Name` constant, and its template registers through `LanguageManager.AddTranslation(language, code, template)` — a pinned code without its template falls back to the validator-name lookup, half a registration.
 - Law: bands allocate per bounded context and concern so band arithmetic locates the owner without lookup; one band is reserved for bridge minting so unknown-origin faults cannot masquerade as domain rejections, and an unrecognized code degrades losslessly to tier 3 with the code preserved.
-- Law: the wire fault is the four culture-invariant fields — code, path, severity, placeholder values; `AttemptedValue`, `CustomState`, and rendered text never cross a process, and the receiver re-renders from code plus placeholders under its own culture.
-- Law: persisting `ErrorMessage` freezes one culture into storage — the placeholder dictionary exists to prevent exactly that drift; placeholder format specifiers render under the ambient culture even when `LanguageManager.Culture` is pinned, so per-user rendering passes its culture to `GetString(key, culture)` at the display edge and `MessageFormatterFactory` is the system-wide repair for placeholder formatting.
+- Law: `FormattedMessagePlaceholderValues` is the durable record — persisting `ErrorMessage` freezes one culture into storage, the placeholder dictionary exists to prevent exactly that drift, and placeholder format specifiers render under the ambient culture even when `LanguageManager.Culture` is pinned, so per-user rendering passes its culture to `GetString(key, culture)` at the display edge and `MessageFormatterFactory` is the system-wide repair for placeholder formatting.
 - Law: unresolved placeholders pass through verbatim — a typo'd hole renders as literal braces instead of throwing, so template defects are invisible at run time and only rendered-output proofs catch them.
 
 ```csharp conceptual
-public sealed record Admitted<TShape>(TShape Value, Seq<ValidationFailure> Evidence);
+public sealed record Admitted<TShape>(TShape Value, Seq<WireFault> Riding);
 
-public sealed record WireFault(string Code, string Path, Severity Severity, IDictionary<string, object> Holes);
+public sealed record WireFault(string Code, string Path, Severity Severity, IReadOnlyDictionary<string, object> Holes);
 
 public static class Bridge {
+    // tier 2 maps only codes a case recovers from code-plus-path alone; a payload-bearing fault rides tier-1 WithState, and the empty map row is the metric flagging a rule that should mint its own fault.
     private static readonly FrozenDictionary<string, Func<ValidationFailure, Fault>> Cases =
         new Dictionary<string, Func<ValidationFailure, Fault>>(StringComparer.Ordinal) {
-            ["NotEmptyValidator"] = static failure => new Fault.Absent(failure.PropertyName),
-            ["<code-end>"] = static failure => new Fault.Bounds(failure.PropertyName, 0, 0),
+            ["NotEmptyValidator"] = static failure => new Fault.Absent(Detail: failure.PropertyName),
+            ["<code-start>"]      = static failure => new Fault.Absent(Detail: failure.PropertyName),
         }.ToFrozenDictionary(StringComparer.Ordinal);
 
     public static Seq<string> Codes => toSeq(Cases.Keys);
 
     public static Validation<Error, Admitted<TShape>> Project<TShape>(TShape value, IEnumerable<ValidationFailure> outcome) =>
-        toSeq(outcome) is var failures && failures.Filter(static f => f.Severity is Severity.Error) is var gating
-            && gating.IsEmpty
-            ? new Admitted<TShape>(value, failures.Filter(static f => f.Severity is not Severity.Error))
+        toSeq(outcome).Partition(static f => f.Severity is Severity.Error) is var (gating, riding) && gating.IsEmpty
+            ? new Admitted<TShape>(value, riding.Map(Departing).Strict())
             : Minted(gating);
 
     public static Error Minted(Seq<ValidationFailure> gating) =>
-        gating.Map(Mint).Fold(Errors.None, static (folded, fault) => folded + (Error)fault);
+        reduce(gating.Map(Mint), static (folded, fault) => folded.Combine(fault));
 
-    public static WireFault Departing(ValidationFailure failure) {
-        ArgumentNullException.ThrowIfNull(failure);
-        return new(failure.ErrorCode, failure.PropertyName, failure.Severity, failure.FormattedMessagePlaceholderValues);
-    }
+    public static WireFault Departing(ValidationFailure failure) =>
+        new(failure.ErrorCode ?? "<uncoded>", failure.PropertyName, failure.Severity, failure.FormattedMessagePlaceholderValues);
 
     private static Fault Mint(ValidationFailure failure) => failure switch {
         { CustomState: Fault typed } => typed,
@@ -222,8 +212,6 @@ public sealed partial class Trigger {
 
 [ValueObject<string>]
 [ValidationError<Fault>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 public readonly partial struct MarkValue;
 
 public sealed record AdmissionRecord(string Row, Seq<string> Executed, bool OverrideOpen);
@@ -260,7 +248,7 @@ public static class Seam {
 
 [CLOSURE_PROOFS]:
 - Law: every string-keyed or runtime-type-keyed registration surface at a validation seam is proven total at composition by one four-step fold — enumerate the source, enumerate the registration, assert bijection or declared exemption, reject typed — and a new proof candidate is a new instance row of the same fold.
-- Law: the per-row proofs drive off the seam matrix through the non-generic `IValidatorDescriptor` — `Rules`, `RuleSets`, `GetMembersWithValidators()` — so heterogeneous rows prove under one spelling and a new seam row buys its variant and member proofs with zero proof edits.
+- Law: the per-row proofs drive off the seam matrix through the non-generic `IValidatorDescriptor.Rules` and `GetMembersWithValidators()`, the variant axis read off each rule's `IValidationRule.RuleSets` — so heterogeneous rows prove under one spelling and a new seam row buys its variant and member proofs with zero proof edits.
 - Law: the instances close the package's fail-open paths — the polymorphic table swept against the closed family's case enumeration, each row's graph rulesets against its variant column in both directions closing the default-selector hole, each row's payload members against rule coverage plus exemptions so shape growth cannot outrun rule growth, seam rows against scan results in both directions, and the bridge's code map against the declared code vocabulary.
 - Law: proofs are deterministic folds over already-materialized metadata — one enumeration at boot, structurally incapable of scaling with traffic — and a proof failure is a typed fault in the capability band, so boot failures and message-time rejections fold into one stream.
 - Law: the swept vocabularies, exemption lists, and matrix rows are the seam documentation — drift is structurally impossible because the document is the data the proof reads, and the opt-out registry is itself swept, so a permissive row whose seam no longer exists is dead policy caught at boot.
@@ -313,32 +301,32 @@ public static class ClosureProofs {
 - Exemption: the per-name context preparation is the platform-forced mutable-context seam.
 
 ```csharp conceptual
-public sealed record FeedPolicy {
+public sealed record OptionsShape {
     public int Width { get; init; } = 4;
-    public int Burst { get; init; }
+    public int Span { get; init; }
     public string Label { get; init; } = "<value-a>";
 }
 
-public sealed class FeedPolicyLaw : AbstractValidator<FeedPolicy> {
-    public FeedPolicyLaw() {
-        RuleFor(policy => policy.Burst).LessThanOrEqualTo(policy => policy.Width * 8).WithErrorCode("<code-burst>");
-        RuleFor(policy => policy.Label).NotEmpty().Must((policy, label, context) =>
-            context.RootContextData[nameof(Options.DefaultName)] is not "<name-strict>" || label.Length <= 8);
+public sealed class OptionsLaw : AbstractValidator<OptionsShape> {
+    public OptionsLaw() {
+        RuleFor(shape => shape.Span).LessThanOrEqualTo(shape => shape.Width * 8).WithErrorCode("<code-span>");
+        RuleFor(shape => shape.Label).NotEmpty().Must(static (shape, label, context) =>
+            context.RootContextData["<name>"] is not "<name-strict>" || label.Length <= 8);
     }
 }
 
-public sealed class FeedPolicyGate(FeedPolicyLaw law) : IValidateOptions<FeedPolicy> {
-    public ValidateOptionsResult Validate(string? name, FeedPolicy options) =>
+public sealed class OptionsGate(OptionsLaw law) : IValidateOptions<OptionsShape> {
+    public ValidateOptionsResult Validate(string? name, OptionsShape options) =>
         Outcome(name, options).Filter(static failure => failure.Severity is Severity.Error) is { IsEmpty: false } gating
-            ? ValidateOptionsResult.Fail(gating.Map(static failure => $"{failure.ErrorCode}:{failure.PropertyName}:{failure.ErrorMessage}"))
+            ? ValidateOptionsResult.Fail(gating.Map(static f => $"{f.ErrorCode}:{f.PropertyName}:{f.ErrorMessage}"))
             : ValidateOptionsResult.Success;
 
-    public Validation<Error, Admitted<FeedPolicy>> Rail(FeedPolicy options) =>
-        Bridge.Project(options, Outcome(null, options));
+    public Validation<Error, Admitted<OptionsShape>> Rail(OptionsShape options) =>
+        Bridge.Project(options, Outcome(name: null, options));
 
-    private Seq<ValidationFailure> Outcome(string? name, FeedPolicy options) {
-        var context = new ValidationContext<FeedPolicy>(options);
-        context.RootContextData[nameof(Options.DefaultName)] = name ?? Options.DefaultName;
+    private Seq<ValidationFailure> Outcome(string? name, OptionsShape options) {
+        var context = new ValidationContext<OptionsShape>(options);
+        context.RootContextData["<name>"] = name ?? Options.DefaultName;
         return toSeq(law.Validate(context).Errors);
     }
 }

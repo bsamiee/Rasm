@@ -1,6 +1,6 @@
 # [SURFACES_AND_DISPATCH]
 
-A concern with many features keeps one dense surface, never a family of shallow ones: one entrypoint absorbs every verb, arity, and modality — verbs collapse into a request `[Union]` under one total dispatch so a new verb breaks every site instead of growing a sibling, arity collapses into `params ReadOnlySpan<T>`, collection expressions, and one carrier, and the discriminant is the value's shape, never a mode flag beside it. Knob sets collapse into policy values that carry their own behavior, and optional context enters as `Option<T>` or one runtime record whose default derives from the policy owner. Five dispatch forms are selected by where ownership lives — one trait core derives a whole operation family, one keyed declaration is table, vocabulary, and admission factory together — while the carrier stays orthogonal to the form and alone decides accumulate-versus-abort, one `K<F,A>` arrow dispatching `Fin`, `Eff`, `IO`, and `Validation` at once. Aspects split at one seam: definition-time weaves below the admission boundary in generator order, composition-time transformers above it in author order.
+A concern with many features keeps one dense surface, never a family of shallow ones: one entrypoint absorbs every verb, arity, and modality — verbs collapse into a request `[Union]` under one total `Switch` so a new verb breaks every dispatch site instead of growing a sibling, arity collapses into `params ReadOnlySpan<T>` and one carrier, and the discriminant is the value's shape, never a mode flag beside it. Knob sets collapse into policy values that carry their own behavior, and optional context enters as `Option<T>` or one runtime record whose default derives from the policy owner. Seven dispatch forms are selected by where ownership lives — five resolve at the value (state-threaded `Switch`, behavior-on-the-vocabulary-item, frozen table, trait-derived operation family, the keyed declaration that is table, vocabulary, and admission factory at once) and two at the type (the `IObjectFactory<TOwner,TValue,TError>` constraint open over the owner family, the instance-interface floor a foreign assembly implements) — while the carrier stays orthogonal to the form and alone decides accumulate-versus-abort, one `K<F,A>` arrow dispatching `Fin`, `Eff`, `IO`, and `Validation` together. Aspects split at one seam: definition-time weaves below the admission boundary in the generator-owned order, composition-time transformers above it in a `Schedule`-and-rank-driven order that is itself a value. The defect this page refuses is surface spam — sibling `Create`/`Update`/`CreateMany` families, per-arity overload sets, `bool`/`mode`/`batch` knobs, `RunFin`/`RunEff` per-carrier copies, member-less marker interfaces read by `is`, and hand-spelled aspect towers re-written at every call site.
 
 ## [01]-[FORM_CHOOSER]
 
@@ -13,11 +13,13 @@ When a concern matches several rows, the most specific wins; the carrier axis is
 |  [03]   | consumer owns logic, vocabulary owns coverage | state-threaded `Switch`                           | distributed `_`-armed `switch`    |
 |  [04]   | vocabulary item is the behavior               | `[UseDelegateFromConstructor]` row                | repeated full-coverage `Switch`   |
 |  [05]   | key is a value, result is static data         | `Lazy<FrozenDictionary>` index                    | dictionary restating rows         |
-|  [06]   | receiver is foreign, behavior is local        | extension block                                   | wrapper that renames receiver     |
-|  [07]   | input shape, not nominal type, discriminates  | structural pattern                                | `is`-chain over open input        |
-|  [08]   | one body serving every carrier                | `K<F,A>` trait-constrained arrow                  | `RunFin`/`RunEff` sibling family  |
-|  [09]   | admit every present and future owner          | `IObjectFactory<TOwner,TValue,TError>` constraint | per-owner converter copy          |
-|  [10]   | optional context with identity                | one `Option<ContextRecord>`                       | `T? a, T? b, bool x` flag tail    |
+|  [06]   | dependent dispatch loops to a fixpoint        | closed continue-or-done `[Union]` + `repeatWhile` | `Recur`/open recursion/`while`    |
+|  [07]   | receiver is foreign, behavior is local        | extension block                                   | wrapper that renames receiver     |
+|  [08]   | input shape, not nominal type, discriminates  | structural pattern                                | `is`-chain over open input        |
+|  [09]   | one body serving every carrier                | `K<F,A>` trait-constrained arrow                  | `RunFin`/`RunEff` sibling family  |
+|  [10]   | admit every present and future owner          | `IObjectFactory<TOwner,TValue,TError>` constraint | per-owner converter copy          |
+|  [11]   | foreign assembly implements the strategy      | instance-interface floor + minting factory        | `[Union]` foreign code extends    |
+|  [12]   | optional context with identity                | one `Option<ContextRecord>`                       | `T? a, T? b, bool x` flag tail    |
 
 ## [02]-[ENTRYPOINT_LAW]
 
@@ -50,20 +52,19 @@ public abstract partial record Request {
 
 public static class RequestSurface {
     public static Fin<Request> Admit(ReadOnlySpan<char> verb, CodeValue code, int delta) =>
-        Verb.Validate(verb, null, out var v) is { } fault
-            ? Fin.Fail<Request>(fault)
-            : Fin.Succ(v!.Switch(
-                open:  static s => (Request)new Request.Open(s.Code),
-                amend: static s => new Request.Amend(s.Code, s.Delta),
-                close: static s => new Request.Close(s.Code),
-                state: (Code: code, Delta: delta)));
+        verb switch {
+            "<verb-open>"  => Fin.Succ<Request>(new Request.Open(code)),
+            "<verb-amend>" => Fin.Succ<Request>(new Request.Amend(code, delta)),
+            "<verb-close>" => Fin.Succ<Request>(new Request.Close(code)),
+            _              => Fin.Fail<Request>(new Fault.Bounds($"<unknown-verb:{verb}>")),
+        };
 
     extension(Request request) {
         public Fin<Receipt> Dispatch(Ledger ledger) => request.Switch(
+            state: ledger,
             open:  static (l, o) => l.Open(o.Code),
             amend: static (l, a) => l.Amend(a.Code, a.Delta),
-            close: static (l, c) => l.Close(c.Code),
-            state: ledger);
+            close: static (l, c) => l.Close(c.Code));
     }
 }
 ```
@@ -78,33 +79,24 @@ public static class RequestSurface {
 - Boundary: a zero-argument-capable entrypoint owns exactly one `params` element type; a second element-typed `params` overload forecloses the empty call.
 
 [MODALITY_FOLD]:
-- Law: singular, plural-preserving, and plural-reducing are call shapes over one arm — singular is `Map`/`Bind`, plural-preserving is `Traverse`/`Sequence` with container shape intact, plural-reducing is monoid-keyed `Fold`/`FoldMap` where the `Monoid` is the policy value selecting the reduction.
-- Law: `TraverseM` threads the carrier's short-circuit reusing the singular arm verbatim; applicative `Traverse` over a `Validation`-shaped carrier is the accumulating sibling — same arm, the carrier alone switching the policy.
-- Use: `FoldWhile`/`FoldUntil` with the `(State, Value)` predicate for the bounded-batch entrypoint with no count parameter, `foldWhileM`/`foldUntilM` when each step runs in the carrier — their halt reads the element alone; `oneOf` over an `Alternative` carrier for first-success, total over an empty spread because `Empty` is supplied.
-- Reject: a batch flag, a mode flag, or a count beside a span whose `Length` already answers it; counts and modes derive from `span.Length` or the dispatched case, never the signature.
+- Law: singular, plural-preserving, and plural-reducing are call shapes over one arm — singular is `Map`/`Bind`, plural-preserving is `Traverse`/`Sequence` with container shape intact, plural-reducing is monoid-keyed `Fold`/`FoldMap` where the `Monoid` is the policy value selecting the reduction, total over the empty spread because the monoid supplies the identity.
+- Law: `.TraverseM(f).As()` threads the carrier's short-circuit reusing the singular arm verbatim, and applicative `.Traverse(f).As()` over a `Validation`-shaped carrier is the accumulating sibling — same arm, the carrier alone switching the policy, and the `.As()` re-anchor is mandatory because the trait returns the erased `K<F,A>`.
+- Use: the Prelude `foldWhile(f, predicate, seed, ta)`/`foldUntil(...)` whose predicate reads `(State, Value)` for the bounded-batch entrypoint with no count parameter, `foldWhileM`/`foldUntilM` when each step runs in the carrier and the halt predicate reads the element alone; `oneOf` over an `Alternative` carrier for first-success, total over the empty spread because `Empty` is the identity.
+- Reject: a batch flag, a mode flag, or a count beside a span whose `Length` already answers it; counts and modes derive from `span.Length` or the dispatched case, never the signature; `Aggregate` with a mutable seed where `Fold` over the monoid fuses the reduction.
 - Boundary: after traversal the container is uniformly in the carrier, never mixed admitted-and-raw, which keeps the next entrypoint's discriminant recoverable from shape alone.
 
 ```csharp conceptual
 public static class BatchSurface {
-    public static K<F, Iterable<Receipt>> Run<F>(Ledger ledger, params ReadOnlySpan<Request> requests)
-        where F : Monad<F> =>
+    public static Fin<Iterable<Receipt>> Run(Ledger ledger, params ReadOnlySpan<Request> requests) =>
         Iterable<Request>.FromSpan(requests)
-            .TraverseM(request => request.Lift<F>(ledger));
+            .TraverseM(request => request.Dispatch(ledger))
+            .As();
 
     public static Validation<Error, Tally> Reduce(Ledger ledger, params ReadOnlySpan<Request> requests) =>
         Iterable<Request>.FromSpan(requests)
-            .Traverse(request => request.Lift<Validation<Error>>(ledger).Map(static r => r.Tally))
+            .Traverse(request => request.Dispatch(ledger).ToValidation().Map(static r => r.Tally))
             .As()
-            .Map(static tallies => tallies.Fold(static (sum, next) => sum + next, Tally.Empty));
-
-    extension(Request request) {
-        public K<F, Receipt> Lift<F>(Ledger ledger) where F : Applicative<F> =>
-            request.Switch(
-                open:  static (l, o) => l.Open<F>(o.Code),
-                amend: static (l, a) => l.Amend<F>(a.Code, a.Delta),
-                close: static (l, c) => l.Close<F>(c.Code),
-                state: ledger);
-    }
+            .Map(static tallies => tallies.Fold(Tally.Empty, static (sum, next) => sum + next));
 }
 ```
 
@@ -132,14 +124,14 @@ public static class BatchSurface {
 - Reject: a timeout or deadline as an entrypoint parameter; the bound is an effect-layer aspect injected after dispatch, and the signature never grows a token tail for it.
 
 ```csharp conceptual
-public sealed record Context(int Ceiling, TimeProvider Clock);
+public sealed record Context(int Ceiling);
 
 public sealed record Policy(Context Canonical, Func<Input, Context, Fin<Receipt>> Step) {
     public static readonly Policy Strict = new(
-        new Context(Ceiling: 1, Clock: TimeProvider.System),
+        new Context(Ceiling: 1),
         static (input, context) => input.Score <= context.Ceiling
             ? Fin.Succ(Receipt.Empty)
-            : Fin.Fail<Receipt>(new Fault.Bounds($"score {input.Score} above {context.Ceiling}")));
+            : Fin.Fail<Receipt>(new Fault.Bounds($"<over:{input.Score}/{context.Ceiling}>")));
 
     public static readonly Policy Lenient = new(
         Strict.Canonical with { Ceiling = 8 },
@@ -155,7 +147,7 @@ public static class PolicySurface {
 ## [05]-[DISPATCH_FORMS]
 
 [FORM_SELECTION]:
-- Law: the five forms are selected by where ownership lives — the chooser's ownership signatures are the selection law — and when two forms both fit, the one whose owner already holds the exhaustiveness obligation wins.
+- Law: the five value-level forms are selected by where ownership lives — the chooser's ownership signatures are the selection law — and when two forms both fit, the one whose owner already holds the exhaustiveness obligation wins; the two type-level forms are `[07]`'s, selected when dispatch resolves at the type rather than the value.
 - Reject: a frozen table restating a vocabulary's own delegate rows — a duplicate-entry burden with a silent missed-new-item failure; structural dispatch over a closed family, trading compile-time totality for a silent `_`.
 - Boundary: mixing forms at one site signals an unresolved ownership boundary, except the two valid compositions — a `Switch` arm probing a frozen table is dispatch plus data retrieval; an extension block owns module-to-domain translation while its inner `Switch` owns per-case projection.
 
@@ -184,8 +176,8 @@ public static class MarkerBoundary {
         Marker.Validate(raw, null, out var marker) is { } fault
             ? Fin.Fail<int>(fault)
             : Fin.Succ(marker!.Switch(state: input,
-                markA: static value => value.Score,
-                markB: static value => value.Score * 2));
+                markA: static (value, _) => value.Score,
+                markB: static (value, _) => value.Score * 2));
 
     public static ImmutableArray<string> Advertised() => [.. Marker.Items.Select(static item => item.Key)];
     public static Option<Marker> Probe(string key) => Marker.TryGet(key, out var marker) ? Optional(marker) : None;
@@ -207,9 +199,10 @@ public static class MarkerBoundary {
 - Boundary: all slots share one `F` by construction, so failure semantics decide once; an expensive slot enters as `Memo` and a short-circuiting carrier leaves it unforced.
 
 [ITERATIVE_DISPATCH]:
-- Law: looping dependent dispatch is `Recur(seed, step)` — the step returns continue-or-done as a closed two-case family, the live case picks the successor, the stack never grows.
-- Law: because the body is pure description until the carrier is interpreted, the same arms run under a deterministic test carrier and the production effect carrier — a totality proof under the cheap carrier proves the production entrypoint.
-- Boundary: carrier changes are one structure-preserving arrow, never a match-and-rebuild bridge; mid-pipeline concretization defeats the polymorphism.
+- Law: looping dependent dispatch is a closed continue-or-done `[Union]` step driven by `repeatWhile` — the step returns `Advance` or one terminal case distinguishing the settled fixpoint from each divergence cause, the `Func<Step, bool>` predicate halts the moment the advanced state leaves the `Advance` arm, and the rail-owned driver carries the loop with no growing stack and no mutable index.
+- Law: the iterative driver is the rail page's — `repeatWhile`/`RepeatWhile` over `MonadUnliftIO<M>` repeats a state-advancing effect until the advanced result fails the predicate, the optional `Schedule` bounding attempts — so this page chooses only the continue-or-done shape the step dispatches on and threads the advance through `Stateful.modify` plus `Stateful.get`, never a hand-spelled recursion or a `count` the terminal case already answers.
+- Law: the state advance is one total `Switch` over the closed step family, so the same arms run under every `Stateful`-over-effect stack the carrier admits and a new divergence cause is one terminal case that breaks the terminal projection at compile time.
+- Boundary: carrier changes are one structure-preserving `Natural.transform` arrow, never a match-and-rebuild bridge; mid-pipeline concretization defeats the polymorphism.
 
 ```csharp conceptual
 public static class JoinSurface {
@@ -223,8 +216,38 @@ public static class JoinSurface {
             lower: static (_, _) => F.Pure(1)),
          tag.Switch(state: unit,
             declared: static (_, d) => F.Pure(d.Key),
-            derived:  static (_, d) => F.Pure(d.Key)))
+            derived:  static (_, d) => F.Pure($"{d.Source}:{d.Ordinal}")))
         .Apply(static (code, rank, key) => new Composite(code, rank, key));
+}
+
+[Union]
+public abstract partial record Step {
+    public sealed record Advance(int Seed) : Step;
+    public sealed record Settled(int Fixpoint) : Step;
+    public sealed record Diverged(int Cause) : Step;
+}
+
+public static class IterativeSurface {
+    public static K<M, Fin<int>> Driven<M>(int seed, int ceiling)
+        where M : Stateful<M, Step>, MonadUnliftIO<M> =>
+        repeatWhile(
+            Stateful.modify<M, Step>(state => state.Switch(
+                advance:  s => Advanced(s, ceiling),
+                settled:  static s => (Step)s,
+                diverged: static d => d)).Bind(static _ => Stateful.get<M, Step>()),
+            static step => step is Step.Advance)
+        .Map(static step => step.Switch(
+            advance:  static _ => Fin.Fail<int>(new Fault.Bounds("<unterminated>")),
+            settled:  static s => Fin.Succ(s.Fixpoint),
+            diverged: static d => Fin.Fail<int>(new Fault.Bounds($"<diverged:{d.Cause}>"))));
+
+    static Step Advanced(Step.Advance a, int ceiling) =>
+        a.Seed <= 1 ? new Step.Settled(a.Seed) : Next(a.Seed) switch {
+            var folded when folded >= ceiling => new Step.Diverged(folded),
+            var folded                        => new Step.Advance(folded),
+        };
+
+    static int Next(int seed) => (seed & 1) == 0 ? seed >> 1 : (3 * seed + 1) >> 1;
 }
 ```
 
@@ -241,6 +264,13 @@ public static class JoinSurface {
 - Use: the generated static-abstract metadata surface for runtime-discovered owners, folded by a generic codec over the metadata's own generated dispatch, keeping the runtime-discovered case reflection-free.
 - Boundary: choosing the static-virtual form for runtime discovery reintroduces reflection through closed-generic invocation — the exact cost the contract exists to delete.
 
+[OPEN_FLOOR_DISPATCH]:
+- Law: when a foreign assembly supplies the implementation, the seam inverts again — an instance-interface floor (`IProjection<TIn,TOut>`, one member returning the rail) is the open extension point, a minting factory selects the concrete the consumer never names, and one polymorphic operation dispatches over the floor — distinct from the closed family the owner exhaustively `Switch`es and never publishes.
+- Law: the discriminant between the two seams is direction of extension — an open point others plug into (a constraint, a projection, a store) is an instance-interface floor returning `Fin<T>` or `Validation<Error,T>`, a closed family the owner controls is a `[Union]`/`[SmartEnum]` + total `Switch`; an interface over the family the owner closes forfeits `Switch` totality, and a `[Union]` a foreign assembly must extend forfeits the seal.
+- Law: the open constraint set and the owner's closed `Switch` co-exist on one owner — the shape switches internally, an `IConstraint<T>` floor folds independent violations at the edge — so a foreign-supplied constraint is the accumulating-`Validation` floor and never a case the owner closes; the fold mechanic and its monoid are the rail page's, composed here as the floor's consequence.
+- Boundary: the floor's lifetime, minting, and the cross-stratum case — N sibling owners aligning through one floor hosted on the lowest shared stratum, each implementing it against its own shapes with zero peer references — are the boundary page's; this page owns only that the floor is the dispatch and the concrete is `internal` and swappable.
+- Reject: a member-less marker read by `is` or reflection where a generic bound `where T : IFloor` or a generated conformance carries the capability; an instance default-interface-method where `static virtual` derives the default from a minimal core.
+
 ```csharp conceptual
 public static class Boundary {
     public static Fin<TOwner> Admit<TOwner, TValue, TError>(TValue value, IFormatProvider? culture = null)
@@ -255,6 +285,24 @@ public static class Boundary {
         where TOwner : IObjectFactory<TOwner, ReadOnlySpan<char>, TError>
         where TError : Expected, IValidationError<TError> =>
         Admit<TOwner, ReadOnlySpan<char>, TError>(text);
+}
+
+public interface IProjection<in TIn, TOut> {
+    Fin<TOut> Project(TIn source);
+}
+
+file sealed record Widened(int Rank, string Tag);
+
+file sealed class WidenProjection(int span) : IProjection<int, Widened> {
+    public Fin<Widened> Project(int source) =>
+        source <= span ? Fin.Succ(new Widened(source * span, "<widened>")) : Fin.Fail<Widened>(new Fault.Bounds($"<over:{source}>"));
+}
+
+public static class FloorDispatch {
+    public static IProjection<int, Widened> Minted(int span) => new WidenProjection(span);
+
+    public static Fin<Widened> Refined(IProjection<int, Widened> floor, int seed) =>
+        floor.Project(seed).Bind(first => floor.Project(first.Rank));
 }
 ```
 
@@ -271,22 +319,44 @@ public static class Boundary {
 - Reject: rejection logic in the constructor hook or null/blank guards in the factory hook — the weave order fixes absence below both, so either placement is dead code, and a throwing hook breaks the rail bridge above the seam.
 
 [STACKING_ORDER]:
-- Law: composition-time aspects stack in author-written operator order, and the same two aspects in two orders are two policies — retry around a bracket re-runs acquire-use-release per attempt, a bracket around a retry acquires once and retries only the use.
+- Law: composition-time aspects stack in operator order, and the same two aspects in two orders are two policies — retry around a bracket re-runs acquire-use-release per attempt, a bracket around a retry acquires once and retries only the use.
 - Law: a named catch composes via `|` as handler wrapping, left-associative — inner handlers see errors first, so a broad predicate before a narrow one shadows it with no diagnostic; the finalizer is a transparent pass-through that runs on both exits, so a catch after it still fires.
 - Law: generated dispatch collapses to a value before any transformer runs, so per-case policy is unspellable by wrapping the dispatch — each arm must produce its own policy-wrapped carrier, the granularity fixed by where the carrier is introduced.
 - Reject: a constrained operator on a carrier defined anywhere but an extension block.
 - Boundary: `extension<E, F, A>(K<F, A> _) where F : Fallible<E, F>` is the sole mechanism granting a local aspect an operator surface.
 
-```csharp conceptual
-public static class Aspects {
-    public static IO<Receipt> AcquireThenRetryUse(IO<Resource> acquire, Func<Resource, IO<Receipt>> use) =>
-        acquire.Bracket(
-            Use: resource => use(resource).Retry(Backoff),
-            Fin: static resource => resource.ReleaseIO());
+[PRECEDENCE_TABLE]:
+- Law: when three or more composition-time aspects recur over one core, their order is a value — a closed `Concern` `[Union]` resolving each case to its transformer plus a `WeaveName` vocabulary whose `Rank` column is the canonical order, folded ascending so the lowest rank wraps innermost — never a fixed tower re-spelled at every owner, because the same stack written by hand at each call site is the inline-repeated-concern defect.
+- Law: one correctness constraint fixes the floor and the rank column declares the rest — recovery is rank 0 so a retry above it re-drives the already-recovered body, retry is the highest rank so a transient re-runs the whole observed core, and the relative rank of bracket and catch is the policy the column states once; a new aspect is one `[Union]` case plus one `WeaveName` row with every call site untouched.
+- Law: every transformer satisfies one shape — `Func<IO<Receipt>, IO<Receipt>>` — so the rank-ordered fold keeps the carrier and the rail intact through an arbitrary-depth stack, and the rank lives on the vocabulary item rather than a bent comparer so the order is recoverable from the declaration alone.
+- Reject: the same bracket-retry-catch tower hand-spelled as sibling methods; a caller-supplied order where the `WeaveName` rank column already fixes it; a transformer typed `Func<IO<object>, IO<object>>` that erases the result.
 
-    public static IO<Receipt> RetryThenAcquireUse(IO<Resource> acquire, Func<Resource, IO<Receipt>> use) =>
-        acquire.Bracket(
-            Use: use,
-            Fin: static resource => resource.ReleaseIO()).Retry(Backoff);
+```csharp conceptual
+[SmartEnum]
+public sealed partial class WeaveName {
+    public static readonly WeaveName Recover = new(rank: 0);
+    public static readonly WeaveName Bracket = new(rank: 1);
+    public static readonly WeaveName Retry   = new(rank: 2);
+
+    public int Rank { get; }
+}
+
+[Union]
+public abstract partial record Concern {
+    public sealed record Recovering(CatchM<Error, IO, Receipt> Handler) : Concern;
+    public sealed record Bracketing(Func<Resource, IO<Receipt>> Use, Func<Resource, IO<Unit>> Fin) : Concern;
+    public sealed record Retrying(Schedule Backoff) : Concern;
+
+    public (WeaveName At, Func<IO<Receipt>, IO<Receipt>> Weave) Ranked(IO<Resource> acquire) => Switch(
+        state: acquire,
+        recovering: static (_, r) => (WeaveName.Recover, core => (core | r.Handler).As()),
+        bracketing: static (a, b) => (WeaveName.Bracket, _ => a.Bracket(Use: b.Use, Fin: b.Fin)),
+        retrying:   static (_, r) => (WeaveName.Retry, core => core.Retry(r.Backoff)));
+}
+
+public static class AspectFold {
+    public static IO<Receipt> Woven(IO<Resource> acquire, IO<Receipt> core, params ReadOnlySpan<Concern> concerns) =>
+        toSeq(Iterable<Concern>.FromSpan(concerns).Map(concern => concern.Ranked(acquire)).OrderBy(static row => row.At.Rank))
+            .Fold(core, static (wrapped, row) => row.Weave(wrapped));
 }
 ```

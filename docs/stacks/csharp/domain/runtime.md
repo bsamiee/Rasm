@@ -22,10 +22,11 @@ This table routes a runtime concern to its owning surface; the most specific row
 - Law: boot, lifetime, signal, and drain variance is one closed modality vocabulary — each row carries its `HostApplicationBuilderSettings` identity and its signal-ownership registrations, one fold consumes the row, and a new process shape is one row, never a bootstrap file.
 - Law: `HostApplicationBuilderSettings` is the only identity admission — `ApplicationName`, `EnvironmentName`, and `ContentRootPath` freeze at builder construction and later writes throw `NotSupportedException`; a pre-populated `ConfigurationManager` seeds through `Configuration`, the one mutation the freeze permits.
 - Law: `Host.CreateApplicationBuilder` is an eager constructor fold — `Environment`, `Configuration`, and `Services` are live when it returns, so modules read real values while contributing; `Host.CreateEmptyApplicationBuilder` is the explicit-everything boot for rows that must not inherit ambient machine state.
-- Law: a hosted posture is values on the row, never a branch — the embedded row pairs the empty builder with a pass-through `IHostLifetime` because the surrounding process owns the signals, and the plugin row adds the `Microsoft.Extensions.DependencyInjection.DisableDynamicEngine` switch plus explicit-assembly intake since IL emission is hostile there and the dependency context describes the wrong application.
+- Law: a hosted posture is values on the row, never a branch — the embedded row pairs the empty builder with a pass-through `IHostLifetime` because the surrounding process owns the signals; the plugin row's `Preboot` sets the `Microsoft.Extensions.DependencyInjection.DisableDynamicEngine` `AppContext` switch, a process-global mutation the fold runs before `BuildServiceProvider` rather than a service registration, because IL emission is hostile there and a switch set after the provider builds is read too late.
 - Law: manager lifetimes register unconditionally — `AddSystemd()` and `AddWindowsService()` are probe-gated no-ops outside their manager — so at most one activates and application code never tests the modality; a manager row pins `ContentRootPath` to `AppContext.BaseDirectory` because the manager boots with a meaningless cwd.
 - Law: lifetime ownership is closed and boot abort is typed — a substitute `IHostApplicationLifetime` registration throws `ArgumentException` at build because the host downcasts to its own lifetime, so lifetime variance lives only in `IHostLifetime` rows, and `HostAbortedException` is the one intentional boot-abort signal.
-- Law: force `ValidateOnBuild` and `ValidateScopes` in every posture — both default to the development predicate, so production roots silently skip validation unless forced and singleton-over-scoped capture surfaces at traffic instead of boot.
+- Law: force `ValidateOnBuild` and `ValidateScopes` in every posture through one `ServiceProviderOptions` on the registered factory — both default to the development predicate, so production roots silently skip validation unless forced and singleton-over-scoped capture surfaces at traffic instead of boot; the fold owns the one host build, so the options are declared once here and never re-stated by a second provider construction.
+- Boundary: the fold owns modality plus the single build and yields `Fin<IHost>`; the descriptor algebra it builds over arrives as one `Action<IServiceCollection>` contribution and the seal receipt reads the build outcome, both `[03]`'s, so this section never enumerates a descriptor row nor mints the `BuildFact`.
 - Boundary: CLI rows parse before boot — the `SetAction` action is the only site that composes and runs the host, args flow into `Args`, the action's cancellation token is the run token, and boot failure maps to an exit code only here, so help, version, completion, and parse faults never construct the runtime.
 - Exemption: the boot fold's builder-mutation body is the platform-forced statement seam.
 
@@ -39,29 +40,37 @@ public sealed class HandedLifetime : IHostLifetime {
 public sealed partial class Modality {
     public static readonly Modality Service = new("<modality-a>",
         static args => new HostApplicationBuilderSettings { Args = args, ContentRootPath = AppContext.BaseDirectory },
-        static services => services.AddSystemd().AddWindowsService());
+        static services => services.AddSystemd().AddWindowsService(),
+        static () => unit);
     public static readonly Modality Embedded = new("<modality-b>",
         static args => new HostApplicationBuilderSettings { Args = args, DisableDefaults = true },
-        static services => services.AddSingleton<IHostLifetime, HandedLifetime>());
+        static services => services.AddSingleton<IHostLifetime, HandedLifetime>(),
+        static () => unit);
     public static readonly Modality Plugin = new("<modality-c>",
         static args => new HostApplicationBuilderSettings { Args = args, DisableDefaults = true, ContentRootPath = AppContext.BaseDirectory },
-        static services => (fun(() => AppContext.SetSwitch("Microsoft.Extensions.DependencyInjection.DisableDynamicEngine", true))(),
-            services.AddSingleton<IHostLifetime, HandedLifetime>()).Item2);
+        static services => services.AddSingleton<IHostLifetime, HandedLifetime>(),
+        static () => fun(() => AppContext.SetSwitch("Microsoft.Extensions.DependencyInjection.DisableDynamicEngine", true))());
 
     [UseDelegateFromConstructor]
     public partial HostApplicationBuilderSettings Identity(string[] args);
     [UseDelegateFromConstructor]
     public partial IServiceCollection Signals(IServiceCollection services);
+    [UseDelegateFromConstructor]
+    public partial Unit Preboot();
 }
 
 public static class Boot {
-    public static IHost Compose(Modality modality, string[] args, Seq<ServiceDescriptor> rows) {
+    static readonly ServiceProviderOptions Validated = new() { ValidateOnBuild = true, ValidateScopes = true };
+
+    public static Fin<IHost> Compose(Modality modality, string[] args, Action<IServiceCollection> contribute) {
         ArgumentNullException.ThrowIfNull(modality);
+        ArgumentNullException.ThrowIfNull(contribute);
+        ignore(modality.Preboot());
         var settings = modality.Identity(args);
         var builder = settings.DisableDefaults ? Host.CreateEmptyApplicationBuilder(settings) : Host.CreateApplicationBuilder(settings);
-        builder.ConfigureContainer(new DefaultServiceProviderFactory(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true }));
-        modality.Signals(builder.Services).Add(rows);
-        return builder.Build();
+        builder.ConfigureContainer(new DefaultServiceProviderFactory(Validated));
+        contribute(modality.Signals(builder.Services));
+        return Try.lift(builder.Build).Run();
     }
 }
 ```
@@ -74,12 +83,13 @@ public static class Boot {
 - Law: `TryAdd` dedupes on service type, `TryAddEnumerable` on (service, implementation) — a factory row whose delegate erases the implementation type defeats dedup and silently double-registers; hosted services are `TryAddEnumerable` singleton rows.
 - Law: scan source is a composition row: bounded selectors such as `FromAssembliesOf(...)` name the admitted inventory, and dependency-context scans use explicit `FromDependencyContext(context, predicate)`; ambient `FromApplicationDependencies()` is rejected because its fallback walks entry-assembly dependencies when `DependencyContext.Default` is unavailable, silently changing the scan set.
 - Law: the root provider owns singleton state and retains every disposable transient it materializes until process death; unit-of-work resolution rides `CreateAsyncScope`, whose `await using` disposal is chosen at creation because synchronous scope disposal throws on an async-only disposable.
-- Law: `Build()` is one-shot and `MakeReadOnly()` is the structural seal — post-seal mutation throws; `ValidateOnBuild` aggregates every defective row into one `AggregateException` inventory but skips open-generic rows, so closed-generic smoke resolutions are that family's only build-time proof.
-- Law: a scan is data folded under `RegistrationStrategy.Throw` — a collision with an explicit row is a boot failure, never shadowing; `Decorate` moves each original to a generated keyed slot, inherits its lifetime and position, stacks last-call-outermost, and throws on zero matches, and scan rows fold before any decoration pass runs.
-- Law: the contribution table folds to one composition receipt before sealing — descriptor counts per lifetime, dormant inventory, decoration depth from `IsDecorated()` — and the `ValidateOnBuild` aggregate's inner list is the rejected half, so boot emits exactly one accepted-or-rejected composition fact.
+- Law: the host `Build()` is the one provider construction — it is one-shot, applies the `[02]` `ValidateOnBuild`/`ValidateScopes` options through the registered factory, and calls `MakeReadOnly()` itself, so this section contributes descriptors and reads the outcome but never builds a second provider; `ValidateOnBuild` aggregates every defective row into one `AggregateException` inventory yet skips open-generic rows, so closed-generic smoke resolutions are that family's only build-time proof, and a standalone `BuildServiceProvider` beside the host build is the rejected duplicate the host build silently discards.
+- Law: a scan is data folded under `RegistrationStrategy.Throw` — a collision with an explicit row is a boot failure, never shadowing; `Decorate` moves each original to a generated keyed slot, inherits its lifetime and position, stacks last-call-outermost, and throws on zero matches, and scan rows fold before any decoration pass runs; decoration mutates the collection, so it rides the pre-build contribution, never a second pass after the seal.
+- Law: sealing folds the contribution table and the single build's outcome into one closed receipt family — the accepted case carries per-lifetime descriptor counts, dormant inventory, and decoration depth read off the `out DecoratedService<TService>` handle `TryDecorate` mints (the `Try` form keeps a zero-match decoration on the typed rail where the throwing `Decorate` would bypass the receipt), the rejected case carries the host build's `ValidateOnBuild` `AggregateException` inner list verbatim — so boot emits exactly one `[Union]` fact, the new failure cause lands as one case, and a record carrying only the accepted half is the rejected shape because it cannot name the build that failed.
 - Reject: `Replace`/`RemoveAll` in module code, runtime `GetService` null-probes where `IServiceProviderIsService` answers at composition, and decorating enumerable marker families — the backwards walk wraps every matching row, so only single-contract seams decorate.
 - Boundary: `Decorate` matches a descriptor only where its `ServiceKey` equals the request's, so the non-keyed pass sees only `ServiceKey == null` rows and silently skips the `KeyedService.AnyKey` factory and every keyed family — a keyed seam takes its wrapper by folding it into the factory through the key vocabulary, never `Decorate`.
-- Exemption: the root fold's collection-mutation body is the platform-forced statement seam.
+- Boundary: this section owns the descriptor algebra and the seal receipt; the modality fold and the one host build that consumes the contribution are `[02]`'s, so the contribution crosses as one `Action<IServiceCollection>` into that build and the build's `Fin<IHost>` outcome crosses back into the receipt, the decoration count carried over the callback edge on one boundary cell.
+- Exemption: the contribution's collection-mutation body is the platform-forced statement seam.
 
 ```csharp conceptual
 public interface IPort { int Probe(); }
@@ -89,7 +99,13 @@ public sealed class MeteredPort(IPort inner, TimeProvider clock) : IPort { publi
 public sealed class Pump : BackgroundService { protected override Task ExecuteAsync(CancellationToken stoppingToken) => Task.CompletedTask; }
 
 public sealed record Module(string Key, Seq<ServiceDescriptor> Rows);
-public sealed record RootReceipt(HashMap<ServiceLifetime, int> Lifetimes, Seq<string> Dormant, int Decorated);
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record BuildFact {
+    private BuildFact() { }
+    public sealed record Accepted(ServiceProvider Provider, HashMap<ServiceLifetime, int> Lifetimes, Seq<string> Dormant, int Decorated) : BuildFact;
+    public sealed record Rejected(Seq<Error> Defects) : BuildFact;
+}
 
 public static class Root {
     public static Seq<Module> Table(TimeProvider clock) => [
@@ -100,23 +116,24 @@ public static class Root {
         new("<module-dormant>", []),
     ];
 
-    public static ServiceProvider Fold(ServiceCollection services, Seq<Module> table) {
-        ArgumentNullException.ThrowIfNull(services);
+    public static Action<IServiceCollection> Contribute(Seq<Module> table, Atom<int> decorated) => services => {
         services.Add(table.Bind(static module => module.Rows));
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IHostedService, Pump>());
         services.Scan(static scan => scan.FromAssembliesOf(typeof(IStage))
             .AddClasses(static classes => classes.AssignableTo<IStage>(), publicOnly: false)
             .UsingRegistrationStrategy(RegistrationStrategy.Throw).AsImplementedInterfaces().WithSingletonLifetime());
-        services.Decorate<IPort, MeteredPort>();
-        services.MakeReadOnly();
-        return services.BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true });
-    }
+        ignore(decorated.Swap(_ => services.TryDecorate<IPort, MeteredPort>(out _) ? 1 : 0));
+    };
 
-    public static RootReceipt Receipt(Seq<Module> table, ServiceCollection services) => new(
-        table.Bind(static module => module.Rows)
-            .Fold(HashMap<ServiceLifetime, int>(), static (counts, row) => counts.AddOrUpdate(row.Lifetime, static n => n + 1, 1)),
-        table.Filter(static module => module.Rows.IsEmpty).Map(static module => module.Key),
-        services.Count(static row => row.IsDecorated()));
+    public static BuildFact Seal(Fin<IHost> built, Seq<Module> table, int decorated) => built.Match(
+        Succ: host => new BuildFact.Accepted((ServiceProvider)host.Services,
+            table.Bind(static module => module.Rows).Fold(HashMap<ServiceLifetime, int>(),
+                static (counts, row) => counts.AddOrUpdate(row.Lifetime, static n => n + 1, 1)),
+            table.Filter(static module => module.Rows.IsEmpty).Map(static module => module.Key),
+            decorated),
+        Fail: error => new BuildFact.Rejected(error.ToException() is AggregateException aggregate
+            ? toSeq(aggregate.InnerExceptions).Map(static ex => Error.New(ex))
+            : Seq1(error)));
 }
 ```
 
@@ -172,7 +189,7 @@ public static class PolicyCell {
 - Law: one closed phase family lives in one cell advanced only by lifecycle hooks, lifetime tokens, background-fault routing, the rank fold, and the band walk; every up/degraded/draining question is a cell projection, and phase-keyed behavior is a total fold whose new phase is one case plus the rows the compiler then demands.
 - Law: stop ordering is two-path — signal-initiated stop fires the stopping token before the stopping phase, programmatic stop the reverse — and every stop source collapses into one idempotent stopping edge, so admission keys off the cell's normalized edge, never either input alone.
 - Law: tokens carry edges, never work or success — lifetime callbacks run inline on the signaling thread, a never-started host still walks its stop edges, and the stopped edge fires on failed shutdowns too, so work lives in hosted phases and outcome reads the cell's ledger, not the token.
-- Law: lifetime policy is rankable configuration — `HostOptions` binds `shutdownTimeoutSeconds`, `startupTimeoutSeconds`, `servicesStartConcurrently`, `servicesStopConcurrently` under invariant parsing, and sequential start aborts at the first failure while concurrent start aggregates every failure, so concurrency is declared only over a provably order-free start set.
+- Law: lifetime policy is rankable configuration — `HostOptions` binds `ShutdownTimeout` and `StartupTimeout` as `TimeSpan` durations plus `ServicesStartConcurrently` and `ServicesStopConcurrently` under invariant parsing, and sequential start aborts at the first failure while concurrent start aggregates every failure, so concurrency is declared only over a provably order-free start set.
 - Law: pre/post hooks are phase barriers across all lifecycle services, never per-service wrappers — start runs in registration order, stop in reverse, so declaring participations in dependency order yields the drain order with zero extra mechanism.
 - Law: `BackgroundService.StartAsync` queues the loop and returns complete — fail-fast checks live in the validation sweep or `StartingAsync`, never `ExecuteAsync` — and a faulted loop folds through `BackgroundServiceExceptionBehavior` without rethrowing on the run path, so exit evidence requires its own fold into the faulted phase.
 - Law: one cancellation spine, two segments — start is caller, stopping edge, and a startup timeout spanning lifetime wait, validation sweep, and all three start phases, so per-service budgets are fractions of it; stop is caller and shutdown timeout — no component creates a root source, and a private deadline is a linked child so the spine always wins.
@@ -181,7 +198,8 @@ public static class PolicyCell {
 [BANDED_DRAIN]:
 - Law: drain is ordered bands — fence admission, settle in-flight, flush durable effects, emit receipts — each a cooperative await under a `Share` of `HostOptions.ShutdownTimeout` with a forced linked token at the band edge; stop never aborts early, so a hung band cancels its stragglers and the next band still runs, and the receipt flush pins to the last band by construction.
 - Law: the forced edge of level k is the cooperative signal of level k+1 — operation, band, process, supervisor — and the host timeout sits strictly inside the manager's kill window, verified at boot as environment, never assumed.
-- Boundary: admission fencing composes the serialisable drain permit; permit and cell mechanics are settled law, composed and never re-derived here.
+- Law: the band walk is an async fold threading the ledger, never a mutable loop — `Task<Seq<BandFact>>` chains through `Task.Bind` so each band reduces the prior accumulation, and the terminal `Phase.Stopped` swap publishes the whole ledger in one transition; a `ledger.Add` re-assignment inside a `foreach` is the rejected imperative shape.
+- Boundary: `band.Settle` is one lane's cooperative-then-forced drain owned whole by the concurrency surface's participation contract — the band walk composes it as an opaque callback and owns only the phase-cell advance, the `Share` budget split, and the last-band receipt pin; the per-lane token mechanics and the serialisable drain permit are settled law, never re-derived here.
 
 ```csharp conceptual
 public readonly record struct BandFact(string Name, TimeSpan Budget, TimeSpan Elapsed, bool Forced);
@@ -212,17 +230,20 @@ public sealed class LifecycleSpine(IHostApplicationLifetime lifetime, IOptions<H
         return Task.CompletedTask;
     }
     public async Task StoppingAsync(CancellationToken cancellationToken) {
-        var ledger = Seq<BandFact>();
-        foreach (var band in bands) {
-            ignore(Cell.Swap(_ => new Phase.Draining(band.Name)));
-            var budget = options.Value.ShutdownTimeout * band.Share;
-            using var forced = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            forced.CancelAfter(budget);
-            var mark = clock.GetTimestamp();
-            try { await band.Settle(forced.Token).ConfigureAwait(false); ledger = ledger.Add(new BandFact(band.Name, budget, clock.GetElapsedTime(mark), Forced: false)); }
-            catch (OperationCanceledException) { ledger = ledger.Add(new BandFact(band.Name, budget, clock.GetElapsedTime(mark), Forced: true)); }
-        }
+        var ledger = await bands.Fold(
+            Task.FromResult(Seq<BandFact>()),
+            (acc, band) => acc.Bind(carried => Walk(carried, band, cancellationToken))).ConfigureAwait(false);
         ignore(Cell.Swap(_ => new Phase.Stopped(ledger)));
+    }
+
+    async Task<Seq<BandFact>> Walk(Seq<BandFact> ledger, Band band, CancellationToken cancellationToken) {
+        ignore(Cell.Swap(_ => new Phase.Draining(band.Name)));
+        var budget = options.Value.ShutdownTimeout * band.Share;
+        using var forced = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        forced.CancelAfter(budget);
+        var mark = clock.GetTimestamp();
+        try { await band.Settle(forced.Token).ConfigureAwait(false); return ledger.Add(new BandFact(band.Name, budget, clock.GetElapsedTime(mark), Forced: false)); }
+        catch (OperationCanceledException) { return ledger.Add(new BandFact(band.Name, budget, clock.GetElapsedTime(mark), Forced: true)); }
     }
 }
 ```
@@ -233,7 +254,7 @@ public sealed class LifecycleSpine(IHostApplicationLifetime lifetime, IOptions<H
 - Law: severity is registration policy, never contributor code — `FailureStatus` grades one probe unhealthy or degraded, and registering one dependency twice under short and long timeouts turns latency bands into rank pressure with no contributor measuring time; per-row `Delay`/`Period` overrides group into one timer per cadence class.
 - Law: evaluation is concurrent and total — every check runs in its own scope, contributor exceptions and per-registration timeouts become entries at the registration's `FailureStatus`, and report latency is the slowest check; aggregate status is worst-of and short-circuits, so partial-capability semantics live in the rank fold, never the report.
 - Law: probes project capability and the runtime owns the consuming machine — a closed ordered rank family carries retained capability sets as data, and consumers ask whether a capability is retained, never which rank holds; diagnostics owns the signals and resource monitors feeding the report.
-- Law: transitions are asymmetric by design — escalation is immediate, recovery lowers one rank only after the current rank's window of consecutive calm evaluations, the window a rank-row column rather than a contributor constant — so flapping dependencies cannot oscillate the system, and each transition is one typed receipt: from, to, trigger, window.
+- Law: transitions are asymmetric by design — escalation jumps straight to the worst probed rank, recovery steps to `Recovered` (the next-less-severe rank read from a memoized predecessor index `Zip`-derived once over the `Items` key order, never a per-call `OrderByDescending` nor `Get(Key - 1)` arithmetic that a key gap would break) only after the current rank's window of consecutive calm evaluations, the window a rank-row column rather than a contributor constant — so a probe escalates past intermediate ranks but recovery walks the ladder one rung per window, making a mid-ladder rank a recovery waypoint rather than a reachable candidate, and flapping cannot oscillate the system.
 - Law: provisioning is verification-only — a boot environment check is a contributor whose failure folds to an initial reduced rank with a receipt, and the same contributor at cadence recovers the rank through ordinary hysteresis, so no second re-provisioning path exists.
 
 ```csharp conceptual
@@ -245,6 +266,14 @@ public sealed partial class Rank {
     public static readonly Rank DrainOnly = new(3, window: 4, retained: []);
     public int Window { get; }
     public Seq<string> Retained { get; }
+
+    static readonly Lazy<FrozenDictionary<int, Rank>> Predecessor = new(static () =>
+        Items.OrderBy(static rank => rank.Key)
+            .Zip(Items.OrderBy(static rank => rank.Key).Skip(1), static (less, more) => KeyValuePair.Create(more.Key, less))
+            .ToFrozenDictionary());
+
+    public Rank Recovered => Predecessor.Value.TryGetValue(Key, out var milder) ? milder : this;
+    public static Rank Worst(Rank left, Rank right) => left.Key >= right.Key ? left : right;
 }
 
 public sealed record RankState(Rank Current, int Calm);
@@ -266,13 +295,12 @@ public sealed class DegradationFold : IHealthCheckPublisher {
     public Task PublishAsync(HealthReport report, CancellationToken cancellationToken) =>
         Task.FromResult(Cell.Swap(state => Advance(state, Candidate(report))));
     static Rank Candidate(HealthReport report) =>
-        report.Entries.Values.Aggregate(Rank.Full, static (worst, entry) =>
-            (entry.Status switch { HealthStatus.Unhealthy => Rank.DrainOnly, HealthStatus.Degraded => Rank.Reduced, _ => Rank.Full })
-                is var hit && hit.Key > worst.Key ? hit : worst);
+        report.Entries.Values.Aggregate(Rank.Full, static (worst, entry) => Rank.Worst(worst,
+            entry.Status switch { HealthStatus.Unhealthy => Rank.DrainOnly, HealthStatus.Degraded => Rank.Reduced, _ => Rank.Full }));
     static RankState Advance(RankState state, Rank candidate) =>
         (Delta: candidate.Key.CompareTo(state.Current.Key), state.Calm) switch {
             ( > 0, _) => new RankState(candidate, Calm: 0),
-            ( < 0, var calm) when calm + 1 >= state.Current.Window => new RankState(Rank.Get(state.Current.Key - 1), Calm: 0),
+            ( < 0, var calm) when calm + 1 >= state.Current.Window => new RankState(state.Current.Recovered, Calm: 0),
             ( < 0, var calm) => state with { Calm = calm + 1 },
             _ => state with { Calm = 0 },
         };
@@ -337,6 +365,7 @@ public static class Lanes {
 
 [CADENCE_FOLD]:
 - Law: a schedule entry is data — expression text parsed non-throwing at composition, jitter seed, zone id, misfire policy, drain band — and the catalog is a frozen-publish surface; one driver folds N rows by minimum next occurrence on one seam timer, so zone-rule changes and catalog swaps land at the next boundary with no per-job timers and no stale-timer cancellation choreography.
+- Boundary: the zone admits once through the tzdb provider into the row's `DateTimeZone`, and the BCL `TimeZoneInfo` the occurrence engine consumes is a derived value off the admitted zone's `Id` at that one foreign-engine boundary, never a second zone vocabulary the catalog stores unadmitted.
 - Law: the only durable state is the last-fire stamp — the occurrence window between stamp and now is the misfire inventory, one policy row absorbs suspension, clock jumps, and drain alike, and firing receipts carry planned-versus-actual skew as evidence, never error.
 - Law: hash-jitter `H` fields parse only with an explicit `jitterSeed` — derive it from the schedule key for fleet-identical fires or from a node key for deliberate spread, and the `DailyWithJitter`-style seeded templates cover every macro cadence without literal expressions.
 - Law: the DST contract follows expression shape — interval forms fire in both repeated hours, point forms once, and gap occurrences shift to the first valid post-transition moment — so choosing the form is choosing the contract.
@@ -348,7 +377,7 @@ public sealed record ClockSeam(TimeProvider Timer, IClock Calendar, DateTimeZone
     public ZonedClock Zoned => Calendar.InZone(Home);
     public string Stamp() => InstantPattern.ExtendedIso.Format(Calendar.GetCurrentInstant());
     public Option<Instant> Unique(LocalDateTime at) =>
-        Home.MapLocal(at) is { Count: 1 } mapping ? Some(mapping.First().ToInstant()) : None;
+        Home.MapLocal(at) is { Count: 1 } mapping ? Some(mapping.Single().ToInstant()) : None;
 }
 
 [SmartEnum]
@@ -358,21 +387,25 @@ public sealed partial class Misfire {
     public static readonly Misfire FireAll = new();
 }
 
-public sealed record ScheduleRow(string Key, CronExpression Cron, TimeZoneInfo Zone, Misfire Policy, int Band) {
+public sealed record ScheduleRow(string Key, CronExpression Cron, DateTimeZone Zone, Misfire Policy, int Band) {
+    public TimeZoneInfo Bcl => TimeZoneInfo.FindSystemTimeZoneById(Zone.Id);
     public Seq<DateTimeOffset> Owed(DateTimeOffset lastFire, DateTimeOffset now) =>
         Policy.Switch(
-            state: toSeq(Cron.GetOccurrences(lastFire, now, Zone, fromInclusive: false)),
+            state: toSeq(Cron.GetOccurrences(lastFire, now, Bcl, fromInclusive: false)),
             skipToNext: static _ => Seq<DateTimeOffset>(),
             catchUpOnce: static owed => owed.IsEmpty ? owed : Seq(owed[owed.Count - 1]),
             fireAll: static owed => owed);
 }
 
 public static class Cadence {
-    public static Option<ScheduleRow> Row(string key, string expression, int jitterSeed, TimeZoneInfo zone, Misfire policy, int band) =>
-        CronExpression.TryParse(expression, CronFormat.IncludeSeconds, jitterSeed, out var cron)
-            ? Some(new ScheduleRow(key, cron, zone, policy, band)) : None;
+    public static Option<ScheduleRow> Row(string key, string expression, int jitterSeed, string zoneId, Misfire policy, int band) =>
+        (DateTimeZoneProviders.Tzdb.GetZoneOrNull(zoneId),
+         CronExpression.TryParse(expression, CronFormat.IncludeSeconds, jitterSeed, out var cron) ? Optional(cron) : None) switch {
+            ({ } zone, { IsSome: true, Case: CronExpression parsed }) => new ScheduleRow(key, parsed, zone, policy, band),
+            _ => None,
+        };
     public static Option<(ScheduleRow Row, DateTimeOffset At)> Next(Seq<ScheduleRow> catalog, ClockSeam seam) =>
-        catalog.Choose(row => Optional(row.Cron.GetNextOccurrence(seam.Timer.GetUtcNow(), row.Zone)).Map(at => (Row: row, At: at)))
+        catalog.Choose(row => Optional(row.Cron.GetNextOccurrence(seam.Timer.GetUtcNow(), row.Bcl)).Map(at => (Row: row, At: at)))
             .Fold(Option<(ScheduleRow Row, DateTimeOffset At)>.None, static (best, hit) => Some(best.Filter(held => held.At <= hit.At).IfNone(hit)));
 }
 ```

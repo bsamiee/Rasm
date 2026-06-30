@@ -94,23 +94,49 @@ public static class ContractAxis {
 
 [CALL_LAW]:
 - Law: `CallOptions(headers, deadline, cancellationToken)` is the per-call policy triple, minted inside the port delegate from the hop row — the deadline is one absolute UTC instant computed from the row's budget at the outermost site, transmitted as the wire timeout header so the server observes remaining budget, and inner hops only shrink it; a deadline already in the past fails locally with `DeadlineExceeded`, zero latency, and no trailers — the signature separating budget exhaustion from server slowness.
-- Law: the status taxonomy folds once at the boundary into the rail — `DeadlineExceeded` budget spent, `Cancelled` caller token, `Unavailable` connect refusal or drain, `ResourceExhausted` cap breach, `Unimplemented` contract drift — and interior dispatch on status strings is the rejected form; `RpcException.Trailers` carries the structured fault decoded at the same fold, and `ThrowOperationCanceledOnCancellation = true` re-rails termination onto the cancellation rail only where a surrounding pipeline owns cancellation unification — where the port fold is the seam it stays false so one typed fold serves every termination.
+- Law: the foreign `StatusCode` enum folds once at the boundary into the closed `TransportFault` `[Union]` deriving from `Expected` — `DeadlineExceeded` to `Deadline`, `Cancelled` to `Cancelled`, `Unavailable` to `Unreachable`, `ResourceExhausted` to `Exhausted`, `Unimplemented` to `Drift`, every other code to `Wire(StatusCode, Detail)` — so recovery dispatches on the typed case through `HasCode`/`IsType`, never a bare coded `Error.New` and never interior dispatch on status strings; `RpcException.Trailers` carries the structured fault decoded at the same fold, and `ThrowOperationCanceledOnCancellation = true` re-rails termination onto the cancellation rail only where a surrounding pipeline owns cancellation unification — where the port fold is the seam it stays false so one typed fold serves every termination.
 - Law: exactly one stamping interceptor per channel, installed at invoker creation — `Intercept(Func<Metadata,Metadata>)` covers all five call shapes from one delegate, a full `Interceptor` subclass is earned only by response-side inspection, and `Intercept(params Interceptor[])` applies first-element-outermost while chained `Intercept` calls make the last outermost, so a second stamper is a merge conflict, never a layer; the stamped envelope content arrives settled from the correlation spine.
 - Law: binary metadata requires the `-bin` suffix (`Metadata.BinaryHeaderSuffix`) — the entry constructor enforces the byte/string split and lowercases keys, `GetValueBytes` is the read verb, and `Metadata.Empty` is frozen, so stamping always allocates.
 - Law: transport retry is data — `MethodConfig` rows pair `MethodName` selectors with exactly one of `RetryPolicy` or `HedgingPolicy`; a present row makes the channel the hop's one retry owner and a seam pipeline beside it the second-owner conflict, so the choice is a per-row owner column auditable without reading code; hedging duplicates the call in flight after each `HedgingDelay`, admissible for idempotent methods only, and its receipt records attempt cardinality or the diagnostics fold under-counts wire traffic.
 - Law: retry commitment is structural — observed response data or buffered request bytes past `MaxRetryBufferPerCallSize` commit the in-flight attempt, so large payloads silently exit retry protection at the 1_048_576 default; `RetryThrottlingPolicy` is the channel-wide brake converting downstream brownout into reduced retry pressure, and `MaxRetryAttempts` caps whatever the config requests.
 - Law: per-call identity is `CallCredentials.FromInterceptor` with token refresh inside the delegate and `CallCredentials.Compose` stacking identities — composed call credentials transmit only over TLS unless the unsafe channel row names the perimeter.
 - Law: request compression is a per-call metadata opt-in — the `grpc-internal-encoding-request` entry names a registered `CompressionProviders` row, response decompression is automatic from the registry, and `WriteOptions` with `WriteFlags.NoCompress` exempts individual messages inside a compressed stream — the mixed-entropy row.
-- Exemption: the awaited capture kernel — the `RpcException` catch arm — is the platform-forced statement seam.
+- Exemption: the awaited capture kernel — the `RpcException` catch arm — and the `Metadata` stamping sweep over the mutable host collection the interceptor contract returns are the platform-forced statement seam.
 
 ```csharp conceptual
+[Union]
+public abstract partial record TransportFault : Expected {
+    private TransportFault(string detail, int code) : base(detail, code, None) { }
+    // --- [CALL_SEAM] 761x
+    public sealed record Wire(StatusCode Status, string Detail) : TransportFault($"<status:{Status}:{Detail}>", 7610);
+    public sealed record Deadline : TransportFault { public Deadline() : base("<budget-spent>", 7611) { } }
+    public sealed record Cancelled : TransportFault { public Cancelled() : base("<caller-left>", 7612) { } }
+    public sealed record Unreachable : TransportFault { public Unreachable() : base("<unreachable-or-draining>", 7613) { } }
+    public sealed record Exhausted : TransportFault { public Exhausted() : base("<cap-breach>", 7614) { } }
+    public sealed record Drift(string Detail) : TransportFault($"<contract-drift:{Detail}>", 7615);
+    // --- [SUITE_CONTRACTS] 762x
+    public sealed record Fork(string Detail) : TransportFault($"<contract-fork:{Detail}>", 7620);
+    // --- [ENDPOINT_LIFECYCLE] 763x
+    public sealed record Publish(string Detail) : TransportFault($"<publish:{Detail}>", 7630);
+    public sealed record Unpublished(string Detail) : TransportFault($"<unpublished:{Detail}>", 7631);
+    public sealed record Stale(long Epoch) : TransportFault($"<stale-listener:{Epoch}>", 7632);
+    // --- [CORRIDOR] 764x
+    public sealed record Oversize(int Size, int Cap) : TransportFault($"<oversize:{Size}:{Cap}>", 7640);
+    public sealed record Truncated(string At) : TransportFault($"<truncated:{At}>", 7641);
+    public sealed record Corrupt : TransportFault { public Corrupt() : base("<corrupt-frame>", 7642) { } }
+    public sealed record Misframed(string Detail) : TransportFault($"<misframed:{Detail}>", 7643);
+}
+
 public static class CallSeam {
     private const string FaultKey = "fault-detail-bin";
 
     public static CallInvoker Stamped(GrpcChannel channel, Func<Seq<(string Key, string Value)>> departure) {
         ArgumentNullException.ThrowIfNull(channel);
-        return channel.CreateCallInvoker().Intercept(headers =>
-            departure().Fold(headers ?? [], static (held, pair) => (fun(() => held.Add(pair.Key, pair.Value))(), held).Item2));
+        return channel.CreateCallInvoker().Intercept(headers => {
+            var stamped = headers ?? [];                                   // Exemption: Metadata is the mutable host collection the Func<Metadata,Metadata> seam returns; the pair sweep is the platform-forced statement seam, never a fold-costume over in-place mutation
+            departure().Iter(pair => stamped.Add(pair.Key, pair.Value));
+            return stamped;
+        });
     }
     public static async Task<Fin<TRes>> Ask<TReq, TRes>(CallInvoker invoker, Method<TReq, TRes> contract, TReq request,
         TimeSpan budget, TimeProvider clock, CancellationToken caller, Func<byte[], Error> decode) where TReq : class where TRes : class {
@@ -122,12 +148,12 @@ public static class CallSeam {
     }
 
     private static Error Fold(RpcException wire, Func<byte[], Error> decode) => wire.StatusCode switch {
-        StatusCode.DeadlineExceeded => Error.New(7611, "<budget-spent>"),
-        StatusCode.Cancelled => Error.New(7612, "<caller-left>"),
-        StatusCode.Unavailable => Error.New(7613, "<unreachable-or-draining>"),
-        StatusCode.ResourceExhausted => Error.New(7614, "<cap-breach>"),
-        StatusCode.Unimplemented => Error.New(7615, $"<contract-drift:{wire.Status.Detail}>"),
-        _ => Optional(wire.Trailers.GetValueBytes(FaultKey)).Map(decode).IfNone(Error.New(7610, $"<status:{wire.StatusCode}:{wire.Status.Detail}>")),
+        StatusCode.DeadlineExceeded => new TransportFault.Deadline(),
+        StatusCode.Cancelled => new TransportFault.Cancelled(),
+        StatusCode.Unavailable => new TransportFault.Unreachable(),
+        StatusCode.ResourceExhausted => new TransportFault.Exhausted(),
+        StatusCode.Unimplemented => new TransportFault.Drift(wire.Status.Detail),
+        _ => Optional(wire.Trailers.GetValueBytes(FaultKey)).Map(decode).IfNone(new TransportFault.Wire(wire.StatusCode, wire.Status.Detail)),
     };
 }
 ```
@@ -145,7 +171,7 @@ public static class CallSeam {
 - Law: every generated contract self-describes — `FileDescriptor.SerializedData` and `ToProto()` — so the running process publishes descriptors per contract file and the gate rebuilds both generations and diffs structurally; runtime descriptors are exactly what the binary carries, and no build-step plumbing exists or is wanted.
 - Law: the diff algebra is closed — additive: new message, new field on an unused number, new enum value, new method; breaking: number reuse, `FieldType` change, singular-repeated flip, packed flip, oneof membership change, and field rename on a live number wherever a JSON projection exists, because `JsonName` is contract; removal demands ceremony — the number enters `ReservedRange` or the removal classifies as breaking, since the number is re-claimable.
 - Law: one classifier verdict gates three seams — peer attach, store open, replay decode — so evolution is legislated once and consumed as a verdict value; enum renames are binary-additive but JSON-breaking, and reflection tooling reads descriptor names, never CLR names.
-- Law: the canonical checksum hashes the diff-relevant projection in `InDeclarationOrder()` — descriptor bytes are not canonical across generator versions, so hashing raw `SerializedData` is the rejected form.
+- Law: the gate owns the diff-relevant projection — field number, type, cardinality, packing, oneof membership, `JsonName`, reserved ranges, and method set in `InDeclarationOrder()` — and feeds it to the one canonical byte-identity codec, never a second hashing path: the projection is the transport-owned region, the digest is `boundaries.md` `BYTE_IDENTITY` and `system-apis.md` `INTEGRITY` composed (`XxHash3.HashToUInt64`), and the suite-JSON schema hash reuses that same codec over its own schema-node projection. Hashing raw `SerializedData` is the rejected form because descriptor bytes are not canonical across generator versions, and re-spelling the hash recipe per surface is the rejected duplication the shared codec deletes.
 
 ```csharp conceptual
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -195,8 +221,32 @@ public static class DescriptorGate {
 ```
 
 [TEMPORAL_BRIDGE]:
-- Law: domain time crosses wire contracts as well-known and common-proto types, never as serialized temporal text — outward projection happens inside the wire-contract constructor (`ToTimestamp`, `ToProtobufDuration`, `ToDate`, `ToTimeOfDay`, `ToProtobufDayOfWeek`), inward inside the admission bridge (`ToInstant`, `ToNodaDuration`, `ToLocalDate`, `ToLocalTime`, `ToIsoDayOfWeek`), and no temporal value exists between seams in wire shape; the range contracts throw and project onto one coded fault band at the seam — pre-common-era instants, durations outside ±315_576_000_000 s, leap-second and 24:00 payloads all reject, the unspecified day-of-week wire value maps to the none case as the family's one sentinel-to-vocabulary projection, and a range rejection reads identically at binary and JSON edges.
-- Law: the STJ bridge is one options mutation at suite-contract composition — `ConfigureForNodaTime` over `NodaJsonSettings` whose sixteen converter slots make per-suite overrides slot writes, with `WithIsoIntervalConverter` swapping the interval representation — interval JSON couples to the naming policy and the instant slot, so the shape pins in golden bytes; zone-bearing types require the explicit provider, non-ISO calendars reject at write, and the per-property attribute route serves isolated DTOs only.
+- Law: domain time crosses wire contracts as well-known types, never as serialized temporal text — both directions are `NodaTime.Serialization.Protobuf` extension projections at the bridge, never a hand-rolled BCL round-trip through `DateTime`: inward is `ProtobufExtensions` on the wire type (`Timestamp.ToInstant`, `Duration.ToNodaDuration`, `Date.ToLocalDate`, `TimeOfDay.ToLocalTime`, `DayOfWeek.ToIsoDayOfWeek`), outward is `NodaExtensions` on the domain type (`Instant.ToTimestamp`, `NodaTime.Duration.ToProtobufDuration`, `LocalDate.ToDate`, `LocalTime.ToTimeOfDay`, `IsoDayOfWeek.ToProtobufDayOfWeek`), and no temporal value exists between seams in wire shape; the `Timestamp.FromDateTime`-over-`Instant.ToDateTimeUtc()` detour is the rejected re-spelling of `ToTimestamp` the package already owns. The calendar `Date`, `TimeOfDay`, and `DayOfWeek` projections need the `google.type` common-proto contracts admitted, so a suite carrying calendar wire values declares that package before the law reaches them.
+- Law: the range contracts throw and project onto one coded fault band at the seam — `Timestamp.ToInstant` rejects pre-`0001-01-01T00:00:00Z` instants, `Duration.ToNodaDuration` and `ToProtobufDuration` reject spans outside the protobuf ±315_576_000_000 s window, leap-second and 24:00 time-of-day payloads reject, the unspecified day-of-week wire value maps to the none case as the family's one sentinel-to-vocabulary projection, and a range rejection reads identically at binary and JSON edges because both codecs feed one fault family.
+- Law: the STJ bridge is one options mutation at suite-contract composition — `ConfigureForNodaTime(options, IDateTimeZoneProvider)` or `ConfigureForNodaTime(options, NodaJsonSettings)` whose sixteen converter slots make per-suite overrides slot writes, with `WithIsoIntervalConverter`/`WithIsoDateIntervalConverter` swapping the interval representation — the default interval converter's `Start`/`End` names pass through the naming policy and its instants delegate to the registered instant slot, so interval JSON shape pins in golden bytes; zone-bearing types require the explicit provider, non-ISO calendars reject at write, and the `NodaTimeDefaultJsonConverterAttribute` per-property route hard-pins defaults and serves isolated DTOs only.
+
+```csharp conceptual
+using ProtoDuration = Google.Protobuf.WellKnownTypes.Duration;
+using NodaDuration = NodaTime.Duration;
+
+public readonly record struct WireWindow(Timestamp Start, ProtoDuration Span);
+
+public readonly record struct Window(Instant Start, NodaDuration Span, IsoDayOfWeek Anchor) {
+    public WireWindow ToWire() => new(Start.ToTimestamp(), Span.ToProtobufDuration());
+}
+
+public static class TemporalBridge {
+    public static Validation<Error, Window> Admit(WireWindow wire, DayOfWeek anchor) =>
+        (Ranged(7621, () => wire.Start.ToInstant()), Ranged(7622, () => wire.Span.ToNodaDuration()), Day(anchor))
+            .Apply(static (instant, length, day) => new Window(instant, length, day)).As();
+
+    private static Validation<Error, IsoDayOfWeek> Day(DayOfWeek wire) =>
+        wire is DayOfWeek.Unspecified ? new Fault.Absent(Detail: nameof(DayOfWeek)) : wire.ToIsoDayOfWeek();
+
+    private static Validation<Error, T> Ranged<T>(int code, Func<T> read) =>
+        Try.lift(read).Run().MapFail(error => (Error)new Fault.Bounds(Detail: $"<temporal-range:{code}:{error.Message}>")).ToValidation();
+}
+```
 
 ## [05]-[SERVER_EXPOSURE]
 
@@ -209,7 +259,7 @@ public static class DescriptorGate {
 - Exemption: the exposure fold's builder-mutation body is the platform-forced statement seam.
 
 [FAULT_HEALTH_WEB]:
-- Law: the fault contract is structured detail in trailers, never code-plus-string — one fault-detail message family per suite evolving under descriptor law, serialized into a `-bin` trailer entry, raised as `RpcException(new Status(code, brief), trailers)` in one expression; `Status.Detail` is human summary only, and machine discriminants in detail text are the named defect.
+- Law: the fault contract is two-tier — the wire tier is a generated fault-detail message family per suite evolving under descriptor law, serialized into a `-bin` trailer and raised as `RpcException(new Status(code, brief), trailers)` in one expression; the local tier is the closed `TransportFault` `[Union]` deriving from `Expected` that the boundary fold mints, so `Status.Detail` is human summary only, machine discriminants in detail text are the named defect, and the decode arrow bridges the wire message into a `TransportFault` case rather than a bare coded `Error.New`.
 - Law: health is two rows — `AddGrpcHealthChecks` plus `MapGrpcHealthChecksService` — with the empty-string service pre-mapped to all checks and per-service rows as name-keyed predicate maps; the wire fold is fixed — any unhealthy entry folds NOT_SERVING, degraded still SERVES because degradation visibility is a diagnostics signal, zero matches fold UNKNOWN — and the surfaces disagree on an unmapped name by design: Check fails not-found while Watch reports SERVICE_UNKNOWN, so probes tolerate both spellings.
 - Law: `UseHealthChecksCache` false executes mapped checks inline per Check; the Watch stream's first write is freshly computed with later writes on the runtime-owned publisher cadence, and stopping completes watchers with a final NOT_SERVING — the drain edge attach choreography consumes — while polling Check races listener teardown.
 - Law: browser translation is one middleware plus per-endpoint consent — `UseGrpcWeb(new GrpcWebOptions { DefaultEnabled })` with `EnableGrpcWeb`/`DisableGrpcWeb` conventions — and a grpc-web request without consent falls through as a non-gRPC request, the signature of a missing enable row; detection is structural, the response mode negotiates independently from the Accept header, the middleware spoofs the protocol so no service code can detect translation, and browser callers additionally need a CORS policy exposing `Grpc-Status`, `Grpc-Message`, and the encoding headers.
@@ -275,13 +325,13 @@ public static class Endpoint {
             File.WriteAllBytes(staged, JsonSerializer.SerializeToUtf8Bytes(manifest, ManifestContext.Default.Manifest));
             File.Move(staged, Path.Join(directory, Name), overwrite: true);
             return unit;
-        }).Run().MapFail(static error => Error.New(7661, $"<publish:{error.Message}>"));
+        }).Run().MapFail(static error => (Error)new TransportFault.Publish(error.Message));
 
     public static Fin<Manifest> Attach(string directory) =>
         Try.lift(() => JsonSerializer.Deserialize(File.ReadAllBytes(Path.Join(directory, Name)), ManifestContext.Default.Manifest))
-            .Run().MapFail(static error => Error.New(7662, $"<unpublished:{error.Message}>")).Bind(static held => Optional(held).ToFin(Error.New(7663, "<null-manifest>")))
+            .Run().MapFail(static error => (Error)new TransportFault.Unpublished(error.Message)).Bind(static held => Optional(held).ToFin(new Fault.Absent(Detail: nameof(Manifest))))
             .Bind(static manifest => AdvisoryDead(manifest) && ConnectRefused(manifest.SocketPath)
-                ? Fin.Fail<Manifest>(Error.New(7664, $"<stale-listener:{manifest.Epoch}>"))
+                ? Fin.Fail<Manifest>(new TransportFault.Stale(manifest.Epoch))
                 : Fin.Succ(manifest));
 
     private static bool AdvisoryDead(Manifest manifest) =>
@@ -297,10 +347,11 @@ public static class Endpoint {
 ```
 
 [CORRIDOR]:
-- Law: a raw-stream lane frames as version byte, frame-kind byte, 32-bit little-endian length, 64-bit checksum, then body — the checksum is the body hash seeded on the declared length, so truncation and length corruption both detect; `XxHash3` is the default row, CRC reserved for foreign-interop framing, and binary field access rides the little-endian primitives, never manual shifts.
-- Law: receive order is the memory-amplification guard — read the fixed header exactly, reject version or frame-kind drift, validate the declared length against the kind's manifest cap BEFORE any body allocation, read the body exactly, verify the checksum BEFORE parsing — so a malicious length costs a header read and a comparison, never an allocation.
+- Law: a raw-stream lane frames as version byte, frame-kind byte, 32-bit little-endian length, 32-bit `Crc32` of the body, then body — frame integrity is the recomputed transmission check `system-apis.md` `INTEGRITY` legislates (`Crc32.HashToUInt32`, recomputed by the receiver), never `XxHash3`, which that owner reserves for the in-process content key; binary field access rides `BinaryPrimitives` little-endian readers, never manual shifts.
+- Law: receive order is the memory-amplification guard — read the fixed header exactly, reject version or frame-kind drift, validate the declared length against the kind's manifest cap BEFORE any body allocation, read the body exactly, recompute the `Crc32` BEFORE parsing — so a malicious length costs a header read and a comparison, the exact-read plus cap gate catches the length lie, and a corrupt body never reaches the parser.
 - Law: the producer pre-checks — exact `CalculateSize` against the cap before serializing, because post-serialization detection has already paid allocation and encoding for an unsendable payload; the cap pair is negotiated manifest data consumed through one frame-kind row column — control frames cap small, artifact frames at the corridor budget — making asymmetric caps unrepresentable.
-- Law: the four failures are disjoint by construction and each maps to exactly one remediation — oversize re-chunks, truncated re-reads, corrupt redials, drifted re-gates — and a corridor implementing any subset re-discovers the missing class in production as the ambiguous one.
+- Law: the content key over the framed body is the `boundaries.md` `BYTE_IDENTITY` codec reused verbatim — the same `XxHash3.HashToUInt64` content key the artifact index addresses by — so a corridor body and its persisted artifact share one identity and the frame check and the content key never collapse into one hash serving two contracts.
+- Law: the four failures are disjoint by construction and each maps to exactly one remediation — oversize re-chunks, truncated re-reads, corrupt redials, misframed re-gates — and a corridor implementing any subset re-discovers the missing class in production as the ambiguous one.
 - Exemption: the receive-order kernel — exact reads, the rented-buffer lease, and the catch arms — is the platform-forced stream statement seam.
 
 ```csharp conceptual
@@ -312,40 +363,43 @@ public sealed partial class FrameKind {
     public partial int Cap(Manifest manifest);
 }
 
+public readonly record struct Admitted<T>(T Payload, ulong ContentKey);
+
 public static class Corridor {
     private const byte Version = 1;
-    private const int HeaderSize = 14;
+    private const int HeaderSize = 10;
 
     public static Fin<byte[]> Stage(IMessage payload, FrameKind kind, Manifest manifest) {
         ArgumentNullException.ThrowIfNull(payload);
         ArgumentNullException.ThrowIfNull(kind);
         var (cap, size) = (kind.Cap(manifest), payload.CalculateSize());
-        if (size > cap) { return Fin.Fail<byte[]>(Error.New(7681, $"<oversize:{size}:{cap}>")); }
+        if (size > cap) { return Fin.Fail<byte[]>(new TransportFault.Oversize(size, cap)); }
         var frame = new byte[HeaderSize + size];
         payload.WriteTo(frame.AsSpan(HeaderSize));
         (frame[0], frame[1]) = (Version, kind.Key);
         BinaryPrimitives.WriteInt32LittleEndian(frame.AsSpan(2), size);
-        BinaryPrimitives.WriteUInt64LittleEndian(frame.AsSpan(6), XxHash3.HashToUInt64(frame.AsSpan(HeaderSize), seed: size));
+        BinaryPrimitives.WriteUInt32LittleEndian(frame.AsSpan(6), Crc32.HashToUInt32(frame.AsSpan(HeaderSize)));
         return frame;
     }
 
-    public static async Task<Fin<T>> Admit<T>(Stream lane, MessageParser<T> contract, Manifest manifest, CancellationToken token) where T : class, IMessage<T> {
+    public static async Task<Fin<Admitted<T>>> Admit<T>(Stream lane, MessageParser<T> contract, Manifest manifest, CancellationToken token) where T : class, IMessage<T> {
         ArgumentNullException.ThrowIfNull(lane);
         var header = new byte[HeaderSize];
         try { await lane.ReadExactlyAsync(header, token).ConfigureAwait(false); }
-        catch (EndOfStreamException) { return Fin.Fail<T>(Error.New(7682, "<truncated-header>")); }
-        if (header[0] != Version || FrameKind.Validate(header[1], null, out var kind) is not null) { return Fin.Fail<T>(Error.New(7684, $"<drifted-frame:{header[0]}:{header[1]}>")); }
+        catch (EndOfStreamException) { return Fin.Fail<Admitted<T>>(new TransportFault.Truncated("header")); }
+        if (header[0] != Version || FrameKind.Validate(header[1], null, out var kind) is not null) { return Fin.Fail<Admitted<T>>(new TransportFault.Misframed($"frame:{header[0]}:{header[1]}")); }
         var (cap, length) = (kind!.Cap(manifest), BinaryPrimitives.ReadInt32LittleEndian(header.AsSpan(2)));
-        if (length > cap || length < 0) { return Fin.Fail<T>(Error.New(7681, $"<oversize:{length}:{cap}>")); }
+        if (length > cap || length < 0) { return Fin.Fail<Admitted<T>>(new TransportFault.Oversize(length, cap)); }
         var body = ArrayPool<byte>.Shared.Rent(length);
         try {
             await lane.ReadExactlyAsync(body.AsMemory(0, length), token).ConfigureAwait(false);
-            return XxHash3.HashToUInt64(body.AsSpan(0, length), seed: length) != BinaryPrimitives.ReadUInt64LittleEndian(header.AsSpan(6))
-                ? Fin.Fail<T>(Error.New(7683, "<corrupt-frame>"))
+            return Crc32.HashToUInt32(body.AsSpan(0, length)) != BinaryPrimitives.ReadUInt32LittleEndian(header.AsSpan(6))
+                ? Fin.Fail<Admitted<T>>(new TransportFault.Corrupt())
                 : Try.lift(() => contract.ParseFrom(new ReadOnlySequence<byte>(body, 0, length))).Run()
-                    .MapFail(static error => Error.New(7684, $"<drifted-payload:{error.Message}>"));
+                    .Map(payload => new Admitted<T>(payload, XxHash3.HashToUInt64(body.AsSpan(0, length))))
+                    .MapFail(static error => (Error)new TransportFault.Misframed($"payload:{error.Message}"));
         }
-        catch (EndOfStreamException) { return Fin.Fail<T>(Error.New(7682, "<truncated-body>")); }
+        catch (EndOfStreamException) { return Fin.Fail<Admitted<T>>(new TransportFault.Truncated("body")); }
         finally { ArrayPool<byte>.Shared.Return(body); }
     }
 }
@@ -374,7 +428,7 @@ public static class SuiteContracts {
         packages.Filter(other => other.Package != package.Package)
             .Bind(other => package.Advertised.Filter(advertised => other.Context.GetTypeInfo(advertised, JsonSerializerOptions.Default) is not null)
                 .Map(advertised => $"{advertised.Name}:{package.Package}+{other.Package}")) is { IsEmpty: false } forks
-            ? Fin.Fail<Unit>(Error.New(7651, $"<contract-fork:{string.Join(',', forks)}>"))
+            ? Fin.Fail<Unit>(new TransportFault.Fork(string.Join(',', forks)))
             : Fin.Succ(unit);
 
     private static JsonSerializerOptions Frozen(Seq<PackageContract> packages) {
@@ -396,4 +450,4 @@ public static class SuiteContracts {
 [PATCH_LAW]:
 - Law: a patch is recorded intent — operations constructed by the typed expression builders (`Add`/`Remove`/`Replace`/`Move`/`Copy`/`Test`) at the moment the mutation is decided, so a renamed property breaks construction at compile time; delta generation is structurally absent from the surface, and the state-diff endpoint is the rejected form — it loses `Move`/`Copy`/`Test` semantics, explodes list reorders into per-index replaces, and re-derives at the consumer what the producer already knew.
 - Law: `JsonPatchDocument<TModel>` self-binds as a minimal-API parameter — the type carries its converter and emits accepts metadata for `application/json-patch+json` from the declaration alone — relayed foreign patches ride the untyped string-path document through the same accumulating overload, and `SerializerOptions` is the codec coupling point: assign the frozen suite options or patch value conversion diverges from the suite codec on every converter-bearing type, the trap that applies cleanly in tests and corrupts temporal properties in production.
-- Law: apply is a boundary act — the error-accumulating `ApplyTo(target, Action<JsonPatchError>)` overload converts per-operation failures into typed rows folded onto the accumulating carrier instead of an exception ladder, `Test` carries optimistic concurrency inside the document so replayed patches self-guard, and the mutated wire projection re-enters domain admission as a whole value; applying patches to admitted owners bypasses admission and is the rejected form.
+- Law: apply is a boundary act — the `ApplyTo(target, Action<JsonPatchError>)` overload projects the first failed operation into one `JsonPatchError` row routed to the rail and then halts (the overload catches one `JsonPatchException` and breaks), so application is fail-fast by construction, never accumulating, because a patch is an ordered sequence where a later operation observes earlier mutations and replaying past a failed precondition corrupts the target; `Test` carries optimistic concurrency inside the document so a stale-precondition replay aborts the whole patch at its first `Test`, and the mutated wire projection re-enters domain admission as a whole value; the accumulating spelling — letting every operation run and collecting all faults — is the rejected form here, since it is the inverse of the open-constraint fold, and applying patches to admitted owners bypasses admission and is the rejected form.

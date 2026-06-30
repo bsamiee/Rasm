@@ -60,7 +60,7 @@
 |  [06]   | `MapperIgnoreTargetAttribute`       | `(string target)`, `AllowMultiple`         | excludes a target member from mapping/diagnostics                        |
 |  [07]   | `MapperRequiredMappingAttribute`    | `(RequiredMappingStrategy)`                | per-method override of the unmapped-member diagnostic strictness         |
 |  [08]   | `MapperIgnoreObsoleteMembersAttribute` | `(IgnoreObsoleteMembersStrategy = Both)` | per-method override of `[Obsolete]` handling                            |
-|  [09]   | `MapDerivedTypeAttribute`           | `(Type sourceType, Type targetType)`, `AllowMultiple`; generic `MapDerivedTypeAttribute<TSource,TTarget>` (C# ≥ 11) | emits a polymorphic type-switch over the source object for an abstract/base-typed mapping method — the `[Union]`→wire-case rail |
+|  [09]   | `MapDerivedTypeAttribute(Type sourceType, Type targetType)` | method, `AllowMultiple`; generic `MapDerivedTypeAttribute<TSource,TTarget>` (C# ≥ 11) | emits a polymorphic type-switch over the source object for an abstract/base-typed mapping method — the `[Union]`→wire-case rail |
 |  [10]   | `IncludeMappingConfigurationAttribute` | `(string name)`                         | reuses the `[MapProperty]`/etc. configuration of another named mapping method |
 |  [11]   | `NamedMappingAttribute`             | `(string name)`                            | names a mapping so `Use = "..."`/`IncludeMappingConfiguration` can reference it |
 |  [12]   | `UserMappingAttribute`              | method; `Default`/`Ignore`                 | declares a hand-written method as a (default or ignorable) user mapping when `AutoUserMappings = false` |
@@ -97,7 +97,7 @@
 
 | [INDEX] | [SYMBOL]                       | [SHAPE]            | [CAPABILITY]                                                                 |
 | :-----: | :----------------------------- | :----------------- | :-------------------------------------------------------------------------- |
-|  [01]   | `IReferenceHandler`            | interface          | `bool TryGetReference<TSource,TTarget>(TSource, out TTarget?)` + `void SetReference<TSource,TTarget>(TSource, TTarget)` (both `where TSource:notnull where TTarget:notnull`) — resolve/store already-mapped targets to break cycles |
+|  [01]   | `IReferenceHandler`            | interface          | `TryGetReference<TSource,TTarget>(TSource source, out TTarget? target)` + `SetReference<TSource,TTarget>(TSource source, TTarget target)` (both `where TSource:notnull where TTarget:notnull`) — resolve/store already-mapped targets to break cycles |
 |  [02]   | `PreserveReferenceHandler`     | sealed class       | the built-in `IReferenceHandler` returning the same target for the same source identity (reference-equality keyed); generator-internal — not a hand-authored seam type |
 |  [03]   | `ReferenceHandlerAttribute`    | parameter marker   | (re-listed) marks the `IReferenceHandler` parameter the mapper threads      |
 
@@ -147,7 +147,7 @@
 [STACKING]:
 - `Generator.Equals` (`api-generator-equals.md`): the same DTO/wire records Mapperly produces carry `[Equatable]` structural equality, so a mapped target compares by content for the diff/dedup lane — Mapperly transcribes the shape, `Generator.Equals` decides identity, neither reimplements the other.
 - `Google.Protobuf` (`api-protobuf.md`): the protobuf-generated message classes are the wire DTOs Mapperly maps to/from; `[MapDerivedType]` lowers a `Node`/`Relationship` `[Union]` to its `oneof`-backed message case and back. Mapperly owns the field-by-field transcription the protobuf runtime does not.
-- Thinktecture (`api-thinktecture-json.md`): a `[ValueObject<string>]` `NodeId` or `[SmartEnum]` `Discipline` maps through its generated key — `[UseStaticMapper]` over the Thinktecture factory/key accessor, or `MappingConversionType.Constructor`/`StaticConvertMethods` resolving `IObjectFactory.Create`. Mapperly never re-parses a value object by hand.
+- Thinktecture (`api-thinktecture-runtime-extensions.md`): a `[ValueObject<string>]` `NodeId` or `[SmartEnum]` `Discipline` maps through its generated key — `[UseStaticMapper]` over the Thinktecture factory/key accessor, or `MappingConversionType.Constructor`/`StaticConvertMethods` resolving `IObjectFactory.Create`. Mapperly never re-parses a value object by hand.
 - LanguageExt (`api-languageext.md`): a mapper method returns the bare target; the seam wraps the call in `Fin`/`Validation` at the call site (`Try`/`Eff`), because Mapperly throws (or returns default) per its null policy rather than returning a typed result. Keep the rail outside the generated method.
 - Marten / DuckDB (`api-marten.md`, `api-duckdb.md`): a `static partial IQueryable<TDto> ProjectTo(this IQueryable<T>)` projection inlines an EF/LINQ-translatable expression tree for the columnar read lane, so the projection executes in-store (SQL) rather than materializing the graph; pair it with `IReferenceHandler` only on the in-memory object path, never on the `IQueryable` path (reference handling and projection are mutually exclusive by design).
 

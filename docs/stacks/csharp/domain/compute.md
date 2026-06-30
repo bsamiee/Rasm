@@ -71,21 +71,30 @@ public static class TensorGate {
 - Law: equivalence proofs sweep length classes straddling the vector width — empty, one, sub-width, exact multiple, multiple-plus-remainder — because the remainder tail executes scalar code; the empty edge is decided by its own arm before the finite gate, since `IsFiniteAll` on an empty span returns false, and integer rows skip the gate entirely.
 - Law: a named kernel row is a policy value — method-group identity under `nameof` keys the proof row, the speed claim, and the receipt at once — and multi-statistic requests batch power sums: `Sum` plus `SumOfSquares` derive mean and variance in two passes, never N sweeps.
 - Boundary: tensor-rank `Tensor` ops are the shape-checked composition route; a measured kernel flattens dense operands through the probe and calls the span kernel directly.
+- Boundary: the `TensorPrimitives` element-kernel and `Vector<T>` mechanics are the numeric pages' substrate; this card owns the layer above them — the tolerance class, the acceleration class, and the named kernel as a claim-keying policy value — so a kernel-row table here certifies and routes element kernels it never re-derives.
 
 ```csharp conceptual
-public sealed record ToleranceClass(string Name, Func<int, double, double> Bound) {
+[SmartEnum<string>]
+public sealed partial class ToleranceClass {
     public static readonly ToleranceClass Exact = new("<class-a>", static (_, _) => 0.0);
     public static readonly ToleranceClass UlpBanded = new("<class-b>", static (_, mass) => Math.ScaleB(4.0, -52) * mass);
     public static readonly ToleranceClass AccumulationScaled = new("<class-c>", static (length, mass) => length * Math.ScaleB(1.0, -52) * mass);
     public static readonly ToleranceClass PlatformVariant = new("<class-d>", static (_, _) => double.PositiveInfinity);
     public static readonly ToleranceClass CrossPlatformVariant = new("<class-e>", static (_, mass) => Math.ScaleB(16.0, -52) * mass);
+
+    [UseDelegateFromConstructor] public partial double Bound(int length, double mass);
 }
 
-public sealed record KernelRow(string Symbol, ToleranceClass Tolerance, Func<ReadOnlySpan<double>, double> Kernel) {
+[SmartEnum<string>]
+public sealed partial class KernelRow {
     public static readonly KernelRow Mass = new(nameof(TensorPrimitives.Sum), ToleranceClass.AccumulationScaled, TensorPrimitives.Sum);
     public static readonly KernelRow Floor = new(nameof(TensorPrimitives.Min), ToleranceClass.Exact, TensorPrimitives.Min);
     public static readonly KernelRow DirtyFloor = new(nameof(TensorPrimitives.MinNumber), ToleranceClass.Exact, TensorPrimitives.MinNumber);
     public static readonly KernelRow Spread = new(nameof(TensorPrimitives.StdDev), ToleranceClass.AccumulationScaled, TensorPrimitives.StdDev);
+
+    public ToleranceClass Tolerance { get; }
+
+    [UseDelegateFromConstructor] public partial double Reduce(ReadOnlySpan<double> payload);
 
     public (double Bound, double CancellationRatio) Envelope(ReadOnlySpan<double> payload) =>
         TensorPrimitives.SumOfMagnitudes(payload) switch {
@@ -107,8 +116,8 @@ public sealed record KernelRow(string Symbol, ToleranceClass Tolerance, Func<Rea
 - Law: `MemoryOwner<T>.Slice` is a consuming transfer — it nulls the source and exactly one owner ever returns the array; `AsStream()` transfers disposal identically, and holding both handles is the double-return defect.
 - Law: the writer-then-owner handoff is the one legal two-stage lifetime — produce through `IBufferWriter<T>`, consume `WrittenMemory`, dispose after the consumer completes; `Clear()` resets the written window for reuse, and owners never reset — the pool is the reuse mechanism, so owner reuse is a new rent.
 - Law: planes are projections, never reallocations — `AsMemory2D` carries (height, width) onto rented buffers, `Span2D<T>.TryGetSpan` probes contiguity routing dense planes into the tensor gate while pitched planes row-iterate `GetRowSpan`, and `Memory2D<T>.Pin()` keeps pin scope congruent with use; `AsBytes` reinterpretation demands a named codec owner at the calling rail.
-- Law: `ParallelHelper.For` runs struct `IAction` rows — the action is the policy value, captured state explicit fields — with `minimumActionsPerThread` flooring fan-out; degree and floor derive from the budget record, parallel rows never nest (the inner cap derives as zero), the partition pins to the pitch axis because column partitions false-share, and the parallel row stands behind the dispatch claim gate.
-- Use: `HashCode<T>.Combine` for content keys over flattened spans, `ArrayPool<T>.Shared.Resize` as the one rent-copy-return verb, `DangerousGetArray()` as the one zero-copy bridge to array-demanding APIs (dead with its owner), and `StringPool.GetOrAdd` for staging labels — domain text still admits through owners.
+- Law: `ParallelHelper.For` runs struct `IAction` rows — the action is the policy value, captured state explicit fields passed through the `in TAction` seeded overload — with `minimumActionsPerThread` flooring per-thread work off the budget record while the library clamps degree to `Environment.ProcessorCount`; parallel rows never nest (the inner floor derives as the whole length, collapsing the partition to one inline invocation), the partition pins to the pitch axis because column partitions false-share, and the parallel row stands behind the dispatch claim gate.
+- Use: `ArrayPool<T>.Shared.Resize` as the one rent-copy-return verb, `DangerousGetArray()` as the one zero-copy bridge to array-demanding APIs (dead with its owner), and `StringPool.GetOrAdd` for staging labels — domain text still admits through owners; a content key over a flattened span is the `BYTE_IDENTITY` `XxHash3.HashToUInt64` codec, never a `HashCode<T>.Combine` second hash path that fragments the identity domain.
 - Exemption: the rent-and-frame bodies are the platform-forced stack-discipline statement seam.
 
 ```csharp conceptual
@@ -191,7 +200,7 @@ public static class StreamPool {
 - Law: egress is projection — `GetTensorDataAsSpan<T>`/`GetTensorMutableDataAsSpan<T>` view native buffers in place, the mutable view post-processes outputs under the same-start aliasing law before any copy, and destinations size from `GetTensorTypeAndShape().ElementCount`, never re-multiplied dimensions; result collections are deterministic-dispose native material invisible to GC heap heuristics — one dispose releases every element, and a leaked collection is a native leak no allocation profiler attributes.
 
 [SESSION_AND_PROVIDERS]:
-- Law: one session per model identity, cached process-wide; identity is the fingerprint — model-bytes hash combined with every behavior-bearing option column: provider rows, optimization level, pinned free dimensions, registered assets, initializer overrides, config entries — adapter variation is run-policy data (`OrtLoraAdapter` plus `RunOptions.AddActiveLoraAdapter` over one base session) whose active set joins the fingerprint and every cache key, `PrePackedWeightsContainer` shares packed weights so option-variant sessions pay weight memory once, and a cache keyed on model path alone aliases behaviorally different sessions.
+- Law: one session per model identity, cached process-wide; the fingerprint is the `MEMO_KEY` composite key over the `BYTE_IDENTITY` codec — the model-bytes content digest is the content axis and every behavior-bearing option column the policy axis: provider rows, optimization level, pinned free dimensions, registered assets, initializer overrides, config entries — so the model digest and the option projection ride the one canonical `XxHash3.HashToUInt64` the identity domain owns, never a second hashing path minted here; adapter variation is run-policy data (`OrtLoraAdapter` plus `RunOptions.AddActiveLoraAdapter` over one base session) whose active set joins the policy axis and every cache key, `PrePackedWeightsContainer` shares packed weights so option-variant sessions pay weight memory once, and a cache keyed on model path alone aliases behaviorally different sessions.
 - Law: provider selection is policy rows in priority order through the uniform `AppendExecutionProvider(name, options)` shape; capability is probed via `OrtEnv.Instance().GetAvailableProviders()` and never assumed, a vetoed row degrades to the next with its reason in the receipt, and the CPU row is the implicit terminal.
 - Law: symbolic dimensions bind at build — `AddFreeDimensionOverrideByName` plus `EnableMemoryPattern` is the fixed-shape posture, and genuinely varying shapes disable pattern reuse as a declared session column, never an accident.
 - Law: warmup is admission — the golden run pays allocation and pattern cost, proves liveness, and mints the equivalence receipt; an equivalence breach refuses the session even on the terminal row, because correctness gates admission while capability only gates routing — a fast wrong model is the worst admitted object.
@@ -203,7 +212,7 @@ public static class StreamPool {
 public sealed record ProviderRow(string Name, Dictionary<string, string> Knobs);
 
 public sealed record SessionPlan(ReadOnlyMemory<byte> Model, Seq<ProviderRow> Providers, Seq<(string Dim, long Extent)> Pinned, GraphOptimizationLevel Level) {
-    public string Fingerprint(Seq<string> applied) =>
+    public string Fingerprint(Seq<string> applied) =>                          // MEMO_KEY composite: model digest is the content axis seeding the policy-axis projection through the one BYTE_IDENTITY codec
         XxHash3.HashToUInt64(
             Encoding.UTF8.GetBytes(string.Join(';', applied + Pinned.Map(static pin => $"{pin.Dim}={pin.Extent}") + Seq($"level:{Level}"))),
             seed: (long)XxHash3.HashToUInt64(Model.Span))
@@ -309,8 +318,9 @@ public sealed record Intent(string Kernel, ReadOnlyMemory<double> Payload, TimeS
     public int LengthClass => Edges.Count(edge => Payload.Length >= edge);
 }
 
-public sealed record LaneDerivation(int BudgetVersion, double LaneShare, ImmutableArray<double> ClassWeight) {
-    public static readonly LaneDerivation Solve = new(BudgetVersion: 7, LaneShare: 0.25, ClassWeight: [1, 8, 64]);
+public readonly record struct LaneDerivation(int BudgetVersion, double LaneShare, ImmutableArray<double> ClassWeight) {
+    public static LaneDerivation From(BudgetRecord budget) =>                  // projection off concurrency.md's one frozen budget owner; no local budget literal lives in compute
+        new(budget.Version, budget.LaneShare(Lane.Solve), budget.ClassWeights);
     public TimeSpan Cap(int lengthClass) => TimeSpan.FromTicks((long)(LaneShare * ClassWeight[lengthClass] * TimeSpan.TicksPerMillisecond));
     public string Stamp(string isa) => $"{isa}|v{BudgetVersion}|w{Vector<double>.Count}";
 }
@@ -319,17 +329,24 @@ public sealed record ClaimKey(string Kernel, string Dtype, string Substrate, int
 public sealed record Claim(string Fingerprint, double Ratio);
 public readonly record struct RouteReceipt(string Kernel, string Taken, Seq<(string Row, string Veto)> Trail, double Value);
 
-public sealed record SubstrateRow(string Name, bool Terminal, Func<Intent, Option<string>> Veto, Func<Intent, TimeSpan> Cost, Func<ReadOnlyMemory<double>, double> Arrow) {
-    public static readonly SubstrateRow Vector = new("<row-vector>", Terminal: false,
+[SmartEnum<string>]
+public sealed partial class SubstrateRow {
+    public static readonly SubstrateRow Vector = new("<row-vector>", terminal: false,
         static intent => intent.Payload.Length < Intent.Edges[0] ? Some("<below-floor>") : None,
         static intent => TimeSpan.FromTicks(intent.Payload.Length / 8),
         static payload => TensorPrimitives.Sum(payload.Span));
-    public static readonly SubstrateRow Reference = new("<row-reference>", Terminal: true,
+    public static readonly SubstrateRow Reference = new("<row-reference>", terminal: true,
         static _ => None, static intent => TimeSpan.FromTicks(intent.Payload.Length), ScalarFold);
+
+    public bool Terminal { get; }
+
+    [UseDelegateFromConstructor] public partial Option<string> Veto(Intent intent);
+    [UseDelegateFromConstructor] public partial TimeSpan Cost(Intent intent);
+    [UseDelegateFromConstructor] public partial double Arrow(ReadOnlyMemory<double> payload);
 
     static double ScalarFold(ReadOnlyMemory<double> payload) {
         var total = 0d;
-        foreach (var value in payload.Span) { total += value; }
+        foreach (var value in payload.Span) { total += value; }     // Exemption: the scalar reference fold is the named kernel statement seam
         return total;
     }
 }
@@ -339,15 +356,14 @@ public static class MassEngine {
 
     public static RouteReceipt Route(Intent intent, Seq<SubstrateRow> rows, HashMap<ClaimKey, Claim> claims, LaneDerivation lane, string isa) {
         ArgumentNullException.ThrowIfNull(intent);
-        ArgumentNullException.ThrowIfNull(lane);
         var live = lane.Stamp(isa);
         var routed = rows.Map(row => (Row: row, Veto: Vetoes(intent, row, claims, lane, live)))
             .Fold((Taken: Option<SubstrateRow>.None, Trail: Seq<(string, string)>()),
                 static (state, slot) => state.Taken.IsSome ? state
-                    : slot.Veto is { IsSome: true, Case: string reason } ? (state.Taken, state.Trail.Add((slot.Row.Name, reason)))
+                    : slot.Veto is { IsSome: true, Case: string reason } ? (state.Taken, state.Trail.Add((slot.Row.Key, reason)))
                     : (Some(slot.Row), state.Trail));
         var taken = routed.Taken.IfNone(SubstrateRow.Reference);
-        return new RouteReceipt(intent.Kernel, taken.Name, routed.Trail, taken.Arrow(intent.Payload));
+        return new RouteReceipt(intent.Kernel, taken.Key, routed.Trail, taken.Arrow(intent.Payload));
     }
 
     static Option<string> Vetoes(Intent intent, SubstrateRow row, HashMap<ClaimKey, Claim> claims, LaneDerivation lane, string live) =>
@@ -355,7 +371,7 @@ public static class MassEngine {
             : row.Veto(intent)
             | (row.Cost(intent) > intent.Remaining ? Some("<over-deadline>") : None)
             | (row.Cost(intent) > lane.Cap(intent.LengthClass) ? Some("<over-cap>") : None)
-            | (claims.Find(new ClaimKey(intent.Kernel, intent.Dtype, row.Name, intent.LengthClass)) switch {
+            | (claims.Find(new ClaimKey(intent.Kernel, intent.Dtype, row.Key, intent.LengthClass)) switch {
                 { IsSome: true, Case: Claim claim } => claim.Fingerprint != live ? Some($"<stale:{claim.Fingerprint}>")
                     : claim.Ratio < Margin ? Some($"<inside-margin:{claim.Ratio}>")
                     : None,
@@ -383,8 +399,8 @@ public readonly record struct AdmittedSpan(double CanonicalMeters, double Origin
 
 public static class UnitSeam {
     public static Fin<AdmittedSpan> Admit(string text) =>
-        Quantity.TryParse(CultureInfo.InvariantCulture, typeof(Length), text, out var parsed) && parsed is Length raw
-            ? Fin.Succ(new AdmittedSpan(raw.As(LengthUnit.Meter), raw.Value, raw.Unit.ToString()))
+        Quantity.TryParse(typeof(Length), text, out var parsed) && parsed is Length raw
+            ? Fin.Succ(new AdmittedSpan(raw.As(LengthUnit.Meter), (double)raw.Value, raw.Unit.ToString()))
             : Fin.Fail<AdmittedSpan>(Error.New(8501, $"<unparsed:{text}>"));
 
     public static Length Folded(IEnumerable<Length> parts) => UnitMath.Sum(parts, LengthUnit.Meter);

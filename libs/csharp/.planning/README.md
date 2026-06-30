@@ -25,13 +25,13 @@ The cross-domain C# foundation every package builds on: rails, time/identity, th
 [FUNCTIONAL_CORE]:
 - `LanguageExt.Core` — every C# folder.
 - `Thinktecture.Runtime.Extensions` — every C# folder.
-- `Thinktecture.Runtime.Extensions.Json` — Bim, AppHost, Compute, Persistence, AppUi.
+- `Thinktecture.Runtime.Extensions.Json` — Element, Materials, Bim, AppHost, Compute, Persistence, AppUi.
 - `Thinktecture.Runtime.Extensions.MessagePack` — Materials, Persistence.
 - `JetBrains.Annotations` — every C# folder.
 
 [TIME_IDENTITY]:
 - `NodaTime` — Bim, AppHost, Compute, Persistence, AppUi.
-- `NodaTime.Serialization.SystemTextJson` — Bim, AppHost, Compute, Persistence, AppUi.
+- `NodaTime.Serialization.SystemTextJson` — AppHost, Persistence.
 - `NodaTime.Serialization.Protobuf` — AppHost, Compute.
 - `System.IO.Hashing` — Rasm, Bim, AppHost, Compute, Persistence, AppUi.
 
@@ -44,7 +44,7 @@ The cross-domain C# foundation every package builds on: rails, time/identity, th
 - `QuikGraph` — Element, Bim, Persistence (the pure-managed graph containers + `AlgorithmExtensions` facade; the seam `ElementGraph` topology view, the Persistence synchronous `Query/topology` lane, the Bim CPM/`SystemTrace`/version-DAG walks).
 
 [WIRE_CODEGEN]:
-- `Generator.Equals` — Element + consumers (source-generated structural equality + member-level diff; runtime `Generator.Equals.Runtime`).
+- `Generator.Equals` — Element, Bim, Persistence (source-generated structural equality + member-level diff; runtime `Generator.Equals.Runtime`).
 - `Google.Protobuf`
 - `Grpc.AspNetCore`
 - `Grpc.AspNetCore.HealthChecks`
@@ -54,7 +54,7 @@ The cross-domain C# foundation every package builds on: rails, time/identity, th
 - `Grpc.Net.Client.Web`
 - `Grpc.Net.Common`
 - `Grpc.Tools`
-- `Riok.Mapperly` — Element + consumers (compile-time graph↔DTO/proto mapping; runtime `Riok.Mapperly.Abstractions`).
+- `Riok.Mapperly` — Element, Bim, Persistence (compile-time graph↔DTO/proto mapping; runtime `Riok.Mapperly.Abstractions`).
 
 [TEST_SUBSTRATE]:
 - `xunit.v3.*` — assert/common/extensibility.core/mtp-v2.

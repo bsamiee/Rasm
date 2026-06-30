@@ -1,6 +1,6 @@
 # [POSTGRES]
 
-PostgreSQL is one declared store surface per database. One `NpgsqlDataSourceBuilder` fold owns every per-database concern — type mapping, JSON policy, credentials, session state, pool and prepare budgets, tracing shape — and yields the one process-lifetime `NpgsqlDataSource` every later surface hangs off. SQL capability is consumed through a two-door routing law — provider-translated LINQ or interpolated typed SQL feeding one composable rail, no third lane — and every statement failure folds once over SQLSTATE class into a closed typed fault family. Extension capability is declared rows whose presence one verification-only admission fold proves: the process never alters its environment. Vector, geo, full-text, temporal, and relational predicates compose in one typed query rail gated by those rows; bulk admission is binary COPY into staging reconciled by one receipted MERGE; the change contract is ephemeral NOTIFY wake over a durable replication slot whose decode folds into the settled op-log shape. Growth lands as rows: a new wire type is a mapping row, a new extension a capability row, a new retrieval axis a lane row, a new maintenance duty one scheduler row.
+PostgreSQL is one declared store surface per database. One `NpgsqlDataSourceBuilder` fold owns every per-database concern — type mapping, JSON policy, credentials, session state, pool and prepare budgets, tracing shape — and `Build()` yields the one process-lifetime `NpgsqlDataSource` that both the ADO depth and the mapped `DbContext` share through one pool, so this page owns the driver-level surface the persistence page's EF profile composes beneath it, never the EF context lifecycle, identity mint, migration verdict, or set-based write lane that page legislates. SQL capability is consumed through a two-door routing law — provider-translated LINQ or interpolated typed SQL feeding one composable rail, no third lane — and every statement failure folds once over SQLSTATE class into a closed typed fault family. The extension axis is one wire-keyed lane vocabulary whose generation floor a verification-only admission fold proves and whose held set every query lane dispatches on, so vector, geo, full-text, temporal, and relational predicates compose in one typed query rail gated by the same vocabulary the verifier yields and the process never alters its environment. Bulk admission is binary COPY into staging reconciled by one receipted MERGE; the change contract is ephemeral NOTIFY wake over a durable logical-replication slot whose `pgoutput` decode folds into the settled op-log shape durability owns. Growth lands as rows: a new wire type is a mapping row, a new extension a lane vocabulary item, a new retrieval axis a lane transform, a new maintenance duty one scheduler row.
 
 ## [01]-[POSTGRES_CHOOSER]
 
@@ -66,9 +66,9 @@ public static class StoreProfile {
 
 ## [03]-[SQL_LAW]
 
-[ENGINE_GATE_AND_IDENTITY]:
-- Law: `SetPostgresVersion` is mandatory store-profile policy — undeclared, the provider assumes a trailing default and silently withholds newer translations; a feature is admitted only when the engine floor carries it, the declared gate exposes it, and a typed spelling exists, and a feature failing the third test routes to typed SQL, never to absence.
-- Law: `Guid.CreateVersion7()` translating to `uuidv7()` makes one timestamp-ordered key species serve client- and server-generated sites — generation site is a policy value, never two key shapes — and bulk lanes are client-keyed by construction because COPY carries no RETURNING channel; `uuid_extract_timestamp` makes a v7 key a free coarse creation-time axis, and composite `(low-cardinality discriminant, v7 key)` indexes stay append-local while skip scan serves their key-only lookups, so the bare-key second index is deletable redundancy and a query newly using a composite index is the feature working, not a plan regression.
+[ENGINE_GATE]:
+- Law: `SetPostgresVersion` is mandatory store-profile policy — undeclared, the provider assumes a trailing default and silently withholds newer translations; a feature is admitted only when the engine floor carries it, the declared gate exposes it, and a typed spelling exists, and a feature failing the third test routes to typed SQL, never to absence, so the gated engine integer is the same floor the verification fold reads and the translation set is a derived consequence of one declaration.
+- Law: `NpgsqlGuidTranslator` provider-translates `Guid.CreateVersion7()` to server `uuidv7()` under the version gate — the one identity construct the LINQ door owns — while the v7 key's embedded creation timestamp projects through `uuid_extract_timestamp` on the typed-SQL door because no member translator carries it, so a composite `(low-cardinality discriminant, v7 key)` index stays append-local while skip scan serves its key-only lookups; the key-species choice, the `ValueGeneratedNever` client mint, and the binary-ordering transcription are the persistence page's identity axis, named here only as the surfaces the gate admits.
 
 [SCHEMA_DERIVATION]:
 - Law: generated columns are virtual by default and `stored: true` is forced exactly by indexed-or-replicated — that implication is the whole decision table; a hot predicate on a virtual column is the promotion signal to stored-plus-index, and absent `stored:` in a migration diff is semantics, not noise.
@@ -101,7 +101,8 @@ public static class StoreProfile {
 
 [SQLSTATE_FOLD]:
 - Law: fault handling is one total dispatch over SQLSTATE class for every statement shape — per-statement catch arms are the rejected form — spelled as patterns over `PostgresErrorCodes` constants and the class prefix: conflicts (unique, exclusion) mint domain faults carrying constraint identity and are never retried; admission defects (foreign-key, check, not-null) carry column and constraint evidence retry cannot fix; serialization failure and deadlock are the only classes a store-level strategy may absorb silently; the 22-prefixed data-exception class is an admission defect that escaped the boundary, its production appearance evidence the validation seam has a hole.
-- Law: the two-tier exception law splits transport from server — `NpgsqlException` carries `IsTransient`, `PostgresException` carries the structured error (`SqlState`, `ConstraintName`, `ColumnName`, `TableName`, `Detail`, `Hint`) — so conversion is lossless with zero message parsing, and `Detail`/`Hint` can carry row data: classification-gated evidence populated only under `IncludeErrorDetail`; escalation reads the typed fault, never message text.
+- Law: the two-tier exception law splits transport from server — `NpgsqlException` carries `IsTransient`, `PostgresException` carries the structured error (`SqlState`, `ConstraintName`, `ColumnName`, `TableName`, `Detail`, `Hint`) — and both tiers fold into one closed `StoreFault` family deriving from `Expected`, so conversion is lossless with zero message parsing and zero bare `Error.New` escape; `Detail`/`Hint` can carry row data: classification-gated evidence populated only under `IncludeErrorDetail`, and escalation reads the typed case, never message text.
+- Law: retry eligibility is case identity, never a code `==` — the family's `Retriable` predicate admits exactly the contention and transient-transport cases, so the store strategy and the outbound-hop owner read the same closed vocabulary and a conflict or admission defect is structurally unretriable.
 - Exemption: the capture seam's catch arms are the platform-forced statement seam.
 
 ```csharp conceptual
@@ -112,6 +113,10 @@ public abstract partial record StoreFault : Expected {
     public sealed record Defect(string Constraint, string Column, string Detail) : StoreFault($"<defect:{Constraint}:{Column}>:{Detail}", 7712);
     public sealed record Contention(string SqlState) : StoreFault($"<contention:{SqlState}>", 7713);
     public sealed record Escaped(string SqlState, string Detail) : StoreFault($"<escaped:{SqlState}>:{Detail}", 7714);
+    public sealed record Transport(string Detail, bool Transient) : StoreFault($"<transport:{Detail}>", Transient ? 7715 : 7716);
+    public sealed record Unmapped(string SqlState, string Detail) : StoreFault($"<sqlstate:{SqlState}>:{Detail}", 7710);
+
+    public bool Retriable => this is Contention or Transport { Transient: true };
 }
 
 public static class StoreSeam {
@@ -119,10 +124,10 @@ public static class StoreSeam {
         ArgumentNullException.ThrowIfNull(statement);
         try { return Fin.Succ(await statement(store, token).ConfigureAwait(false)); }
         catch (PostgresException server) { return Fin.Fail<T>(Fold(server)); }
-        catch (NpgsqlException driver) { return Fin.Fail<T>(Error.New(driver.IsTransient ? 7715 : 7716, $"<transport:{driver.Message}>")); }
+        catch (NpgsqlException driver) { return Fin.Fail<T>(new StoreFault.Transport(driver.Message, driver.IsTransient)); }
     }
 
-    public static Error Fold(PostgresException server) {
+    public static StoreFault Fold(PostgresException server) {
         ArgumentNullException.ThrowIfNull(server);
         return server.SqlState switch {
             PostgresErrorCodes.UniqueViolation or PostgresErrorCodes.ExclusionViolation => new StoreFault.Conflict(server.ConstraintName ?? "<unnamed>", server.MessageText),
@@ -130,7 +135,7 @@ public static class StoreSeam {
             PostgresErrorCodes.ForeignKeyViolation or PostgresErrorCodes.CheckViolation or PostgresErrorCodes.NotNullViolation =>
                 new StoreFault.Defect(server.ConstraintName ?? "<unnamed>", server.ColumnName ?? "<unnamed>", server.MessageText),
             ['2', '2', ..] => new StoreFault.Escaped(server.SqlState, server.MessageText),
-            _ => Error.New(7710, $"<sqlstate:{server.SqlState}>:{server.MessageText}"),
+            _ => new StoreFault.Unmapped(server.SqlState, server.MessageText),
         };
     }
 }
@@ -139,9 +144,10 @@ public static class StoreSeam {
 ## [05]-[QUERY_RAIL]
 
 [LANE_GRAMMAR]:
-- Law: an extension lane is at most three declarations — a model `HasPostgresExtension` row, a wire admission, a translated vocabulary — and a new lane is three rows, zero architecture; codec-bearing lanes admit dually (`UseVector`, `UseNetTopologySuite` beside the wire admission), neither half standing alone — model-only fails at materialization, wire-only fails at translation — and lane sub-capability floors are row data: presence below the extension generation that carries a setting is absence for that sub-capability, so queries dispatch on the folded set, never probe.
+- Law: the lane vocabulary is one `[SmartEnum<string>]` keyed by the wire extension name, each item carrying its generation floor and a `FailureRank` row as columns and its narrowing `IQueryable` arrow as a `[UseDelegateFromConstructor]` transform — and the rank owns its own absence policy as an `Absorb` delegate, refusal versus receipted fold-out being a rank-row column the verifier dispatches through, never a `Switch` re-enumerated at the fold; so the capability symbol, the floor the verifier checks, the absence policy, and the query transform are one item against one rank, never a string compared with `==` against a parallel row, and a held lane is `FrozenSet<Lane>` identity membership, never a string probe.
+- Law: an extension lane is at most three declarations — a model `HasPostgresExtension` row, a wire admission, a translated vocabulary item — and a new lane is one vocabulary item plus those rows, zero architecture; codec-bearing lanes admit dually (`UseVector`, `UseNetTopologySuite` beside the wire admission), neither half standing alone — model-only fails at materialization, wire-only fails at translation — and lane sub-capability floors are item columns: a generation below the floor that carries a setting is absence for that sub-capability, so queries dispatch on the folded set, never probe.
 - Law: one column family takes one predicate vocabulary — ordered scalars array, documents jsonb, paths ltree, string fuzz trigram — and minority predicates ride expression indexes on the same column, never a second column in a second vocabulary; read-dominant hierarchies take ltree's GiST ancestry, write-heavy graphs keep recursive CTEs over adjacency.
-- Law: a query lane is a declared transform row — capability symbol plus an `IQueryable` arrow — and the rail folds admitted lanes over one root from either door, LINQ base or typed-SQL hinge, so a new retrieval axis is one row, the typed capability verdict decides composition, and zero call-site branches exist.
+- Law: the rail folds the held lane subset over one root from either door, LINQ base or typed-SQL hinge — `Lane.Items` filtered by the verdict's `FrozenSet<Lane>.Contains`, then `Fold` each survivor's narrowing arrow — so a new retrieval axis is one vocabulary item, the typed capability verdict decides composition, and zero call-site branches exist.
 
 [VECTOR_LAW]:
 - Law: storage is always full-precision `vector`; every cheaper representation is an expression index — `binary_quantize(col)::bit(d)` Hamming prefilter re-ranked by the true operator, half-precision casts — so index species, representation, and scan policy are three orthogonal rows, and the recall-cost frontier is walked by changing rows, never schema.
@@ -155,7 +161,7 @@ public static class StoreSeam {
 
 ```csharp conceptual
 public sealed class Fact {
-    public Guid Key { get; init; } = Guid.CreateVersion7();
+    public Guid Key { get; init; }
     public string Title { get; init; } = "";
     public string Body { get; init; } = "";
     public int Grade { get; init; }
@@ -165,20 +171,46 @@ public sealed class Fact {
     public NpgsqlTsVector Lexemes { get; init; } = null!;
 }
 
+public sealed record ProbeShape(Vector Embedding, Point Anchor, double Meters, string Terms, Instant At);
+
+[SmartEnum]
+public sealed partial class FailureRank {
+    public static readonly FailureRank Required = new(static (_, key) => Fin.Fail<Seq<Error>>(Error.New(7722, $"<required-absent:{key}>")));
+    public static readonly FailureRank Degradable = new(static (receipts, key) => Fin.Succ(receipts.Add(Error.New(7723, $"<lane-folded:{key}>"))));
+    public static readonly FailureRank Observational = new(static (receipts, key) => Fin.Succ(receipts.Add(Error.New(7724, $"<setting-gap:{key}>"))));
+
+    [UseDelegateFromConstructor]
+    public partial Fin<Seq<Error>> Absorb(Seq<Error> receipts, string laneKey);
+}
+
+[SmartEnum<string>]
+public sealed partial class Lane {
+    public static readonly Lane Lexical = new("<lane-core-a>", floor: None, FailureRank.Required, static (facts, probe) =>
+        facts.Where(fact => fact.Lexemes.Matches(EF.Functions.WebSearchToTsQuery("english", probe.Terms))));
+    public static readonly Lane Temporal = new("<lane-core-b>", floor: None, FailureRank.Required, static (facts, probe) =>
+        facts.Where(fact => fact.Window.Contains(probe.At)));
+    public static readonly Lane Semantic = new("vector", floor: Some(0), FailureRank.Degradable, static (facts, probe) =>
+        facts.OrderBy(fact => fact.Embedding.CosineDistance(probe.Embedding)));
+    public static readonly Lane Near = new("postgis", floor: Some(3), FailureRank.Degradable, static (facts, probe) =>
+        facts.Where(fact => fact.Site.IsWithinDistance(probe.Anchor, probe.Meters)));
+
+    public Option<int> Floor { get; }
+    public FailureRank Rank { get; }
+
+    [UseDelegateFromConstructor]
+    public partial IQueryable<Fact> Narrow(IQueryable<Fact> facts, ProbeShape probe);
+}
+
 public sealed class FactStore(DbContextOptions<FactStore> options) : DbContext(options) {
-    public static FactStore Open(NpgsqlDataSource store) => new(
-        new DbContextOptionsBuilder<FactStore>()
-            .UseNpgsql(store, static npgsql => npgsql.SetPostgresVersion(18, 0).UseNodaTime().UseNetTopologySuite().UseVector()
-                .EnableRetryOnFailure(maxRetryCount: 4, maxRetryDelay: TimeSpan.FromSeconds(2), errorCodesToAdd: null))
-            .UseSnakeCaseNamingConvention()
-            .Options);
+    public static DbContextOptionsBuilder<FactStore> Lanes(DbContextOptionsBuilder<FactStore> root, NpgsqlDataSource store) =>
+        root.UseNpgsql(store, static npgsql => npgsql.SetPostgresVersion(18, 0).UseNodaTime().UseNetTopologySuite().UseVector());
 
     public IQueryable<Fact> PeakPerGrade(Instant floor) =>
         Set<Fact>().FromSql($"""SELECT DISTINCT ON (grade) * FROM fact WHERE lower("window") >= {floor} ORDER BY grade, key DESC""");
 
     protected override void OnModelCreating(ModelBuilder model) {
         ArgumentNullException.ThrowIfNull(model);
-        _ = model.HasPostgresExtension("vector").HasPostgresExtension("postgis");
+        _ = model.HasPostgresExtension(Lane.Semantic.Key).HasPostgresExtension(Lane.Near.Key);
         _ = model.Entity<Fact>(static fact => {
             _ = fact.Property(static f => f.Embedding).HasColumnType("vector(768)");
             _ = fact.Property(static f => f.Site).HasColumnType("geography (point, 4326)");
@@ -190,25 +222,11 @@ public sealed class FactStore(DbContextOptions<FactStore> options) : DbContext(o
     }
 }
 
-public sealed record ProbeShape(Vector Embedding, Point Anchor, double Meters, string Terms, Instant At);
-public sealed record QueryLane(string Capability, Func<IQueryable<Fact>, ProbeShape, IQueryable<Fact>> Narrow) {
-    public static readonly QueryLane Lexical = new("<lane-core>", static (facts, probe) =>
-        facts.Where(fact => fact.Lexemes.Matches(EF.Functions.WebSearchToTsQuery("english", probe.Terms))));
-    public static readonly QueryLane Near = new("postgis", static (facts, probe) =>
-        facts.Where(fact => fact.Site.IsWithinDistance(probe.Anchor, probe.Meters)));
-    public static readonly QueryLane Temporal = new("<lane-core>", static (facts, probe) =>
-        facts.Where(fact => fact.Window.Contains(probe.At)));
-    public static readonly QueryLane Semantic = new("vector", static (facts, probe) =>
-        facts.OrderBy(fact => fact.Embedding.CosineDistance(probe.Embedding)));
-}
-
 public static class QueryRail {
-    public static IQueryable<Fact> Compose(IQueryable<Fact> root, ProbeShape probe, CapabilityVerdict verdict, Seq<QueryLane> lanes) {
-        ArgumentNullException.ThrowIfNull(verdict);
-        return lanes.Filter(lane => verdict.Lanes.Exists(held => held == lane.Capability))
+    public static IQueryable<Fact> Compose(IQueryable<Fact> root, ProbeShape probe, CapabilityVerdict verdict) =>
+        toSeq(Lane.Items).Filter(verdict.Held.Contains)
             .Fold(root, (facts, lane) => lane.Narrow(facts, probe))
             .Take(32);
-    }
 }
 ```
 
@@ -216,7 +234,7 @@ public static class QueryRail {
 
 [COPY_LAW]:
 - Law: the importer's commit edge is inverted — `Complete()` commits, disposal without it cancels the COPY and discards every buffered row — so the success branch ends in `Complete`, exception safety means data is discarded rather than half-written, and the retry unit is always the whole COPY, which is what makes the lane composable with idempotent staging.
-- Law: binary COPY has no server-side coercion — every ambiguous CLR mapping writes the discriminated overload (`NpgsqlDbType` or data-type name), and a wire-type mismatch surfaces mid-stream, never at `Complete`; registered codecs serve query, batch, and COPY identically, so rich domain rows bulk-admit with zero flattening and a staging-table-of-strings is a rejected form born of text-COPY habits.
+- Law: binary COPY has no server-side coercion — every ambiguous CLR mapping writes the discriminated overload (`NpgsqlDbType` or data-type name), and a wire-type mismatch surfaces mid-stream as a `PostgresException` folding through the same SQLSTATE-class owner every statement shares — never a bulk-local catch arm minting a bare error — while caller cancellation passes through untyped; registered codecs serve query, batch, and COPY identically, so rich domain rows bulk-admit with zero flattening and a staging-table-of-strings is a rejected form born of text-COPY habits.
 - Law: any write set large enough to batch twice is large enough to COPY — the bound connector out-throughputs batched INSERT by an order of magnitude — and the importer carries its own `Timeout`; server-side filters live in the COPY SQL, defect budgets in the bulk-admission options (`ON_ERROR ignore`, `REJECT_LIMIT n`), and `BeginRawBinaryCopy` is the zero-materialization table-to-table pipe.
 - Law: staging-then-MERGE is the highest-throughput receipted upsert the engine offers — COPY into unlogged staging on a bound connector, then one MERGE reconciles into the target with per-row verdicts — rows staged, rows inserted, rows updated, all receipted with zero application-side row iteration, and the receipt proves conservation: staged equals inserted plus updated, breach failing typed.
 - Exemption: the COPY kernel — row loop, discard arm, verdict drain — is the platform-forced statement seam.
@@ -240,9 +258,9 @@ public static class BulkLane {
             }
             staged = await importer.CompleteAsync(token).ConfigureAwait(false);
         }
-        catch (Exception discarded) when (discarded is not OutOfMemoryException) {
+        catch (Exception discarded) when (discarded is not OutOfMemoryException and not OperationCanceledException) {
             await importer.DisposeAsync().ConfigureAwait(false);
-            return Fin.Fail<ReconcileReceipt>(Error.New(7731, $"<copy-discarded:{discarded.Message}>"));
+            return Fin.Fail<ReconcileReceipt>(discarded is PostgresException wire ? StoreSeam.Fold(wire) : new StoreFault.Transport($"<copy-discarded:{discarded.Message}>", Transient: false));
         }
         await importer.DisposeAsync().ConfigureAwait(false);
         await using var reconcile = connection.CreateCommand();
@@ -358,23 +376,15 @@ public static class ChangeDecode {
 
 [VERIFICATION_FOLD]:
 - Law: provisioning is verification-only — one read-only admission fold over catalog and settings reads (engine floor as the `server_version_num` integer, extension presence and generation floors, replication readiness and slot lag, invalid indexes, notification-queue headroom, privilege probes, audit binding, schedule-row preconditions) producing one typed capability verdict the process dispatches on; downstream code never re-probes, and no row touches user relations, so admission cost is data-volume-independent.
-- Law: failure rank is row data — required refuses the profile and stays deliberately minimal (engine floor, core schema, epoch), degradable folds the lane out with a receipt so absence surfaces at admission instead of first query, observational records evidence — and settings rows carry their restart class, so a gap names its repair's disruption class.
+- Law: failure rank is behavior-carrying row data — each `FailureRank` row holds its absence policy as one `Absorb` delegate the floor-miss branch threads receipts through, so required refuses the profile and stays deliberately minimal (engine floor, core schema, epoch), degradable folds the lane out with a receipt so absence surfaces at admission instead of first query, and observational records evidence, with the fold carrying zero rank arms and a new rank landing as one row; settings rows carry their restart class, so a gap names its repair's disruption class.
 - Law: the four provisioning rungs own creation — migrations rung one, idempotent seeds rung two, operator runbooks rung three, the environment rung four — and the fold reads all four; the process may emit repair artifacts (reconciliation grants, settings diffs) as typed verification outputs but never executes them, and a periodic re-verify stamps a verification epoch so environment drift becomes an observable event in the fact stream.
 - Exemption: the verification read kernel is the platform-forced statement seam.
 
 ```csharp conceptual
-[SmartEnum<int>]
-public sealed partial class FailureRank {
-    public static readonly FailureRank Required = new(0);
-    public static readonly FailureRank Degradable = new(1);
-    public static readonly FailureRank Observational = new(2);
-}
-
-public sealed record CapabilityRow(string Lane, string Extension, int Floor, FailureRank Rank);
-public sealed record CapabilityVerdict(int Engine, Seq<string> Lanes, Seq<Error> Receipts);
+public sealed record CapabilityVerdict(int Engine, FrozenSet<Lane> Held, Seq<Error> Receipts);
 
 public static class Verification {
-    public static async Task<Fin<CapabilityVerdict>> Admit(NpgsqlDataSource store, Seq<CapabilityRow> rows, int engineFloor, CancellationToken token) {
+    public static async Task<Fin<CapabilityVerdict>> Admit(NpgsqlDataSource store, int engineFloor, CancellationToken token) {
         ArgumentNullException.ThrowIfNull(store);
         await using var batch = store.CreateBatch();
         batch.BatchCommands.Add(new NpgsqlBatchCommand("SELECT current_setting('server_version_num')::int"));
@@ -385,16 +395,14 @@ public static class Verification {
         while (await evidence.ReadAsync(token).ConfigureAwait(false)) { installed = installed.AddOrUpdate(evidence.GetString(0), evidence.GetInt32(1)); }
         return engine < engineFloor
             ? Fin.Fail<CapabilityVerdict>(Error.New(7721, $"<engine-floor:{engine}:{engineFloor}>"))
-            : rows.Fold(Fin.Succ(new CapabilityVerdict(engine, [], [])), (verdict, row) => verdict.Bind(held => Folded(held, row, installed)));
+            : toSeq(Lane.Items)
+                .Fold(Fin.Succ((Held: Seq<Lane>(), Receipts: Seq<Error>())), (state, lane) => state.Bind(folded => Folded(folded, lane, installed)))
+                .Map(folded => new CapabilityVerdict(engine, folded.Held.ToFrozenSet(), folded.Receipts));
     }
 
-    static Fin<CapabilityVerdict> Folded(CapabilityVerdict held, CapabilityRow row, HashMap<string, int> installed) =>
-        installed.Find(row.Extension).Map(generation => generation >= row.Floor).IfNone(false)
-            ? Fin.Succ(held with { Lanes = held.Lanes.Add(row.Lane) })
-            : row.Rank.Switch(
-                state: (Held: held, Row: row),
-                required: static s => Fin.Fail<CapabilityVerdict>(Error.New(7722, $"<required-absent:{s.Row.Lane}>")),
-                degradable: static s => Fin.Succ(s.Held with { Receipts = s.Held.Receipts.Add(Error.New(7723, $"<lane-folded:{s.Row.Lane}>")) }),
-                observational: static s => Fin.Succ(s.Held with { Receipts = s.Held.Receipts.Add(Error.New(7724, $"<setting-gap:{s.Row.Lane}>")) }));
+    static Fin<(Seq<Lane> Held, Seq<Error> Receipts)> Folded((Seq<Lane> Held, Seq<Error> Receipts) folded, Lane lane, HashMap<string, int> installed) =>
+        lane.Floor.Match(None: true, Some: floor => installed.Find(lane.Key).Map(generation => generation >= floor).IfNone(false))
+            ? Fin.Succ((folded.Held.Add(lane), folded.Receipts))
+            : lane.Rank.Absorb(folded.Receipts, lane.Key).Map(receipts => (folded.Held, receipts));
 }
 ```

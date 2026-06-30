@@ -1,6 +1,6 @@
 # [DATA_INTERCHANGE]
 
-Interchange is one projection rail. Any store's rows leave as typed tabular, columnar, or geo artifacts carrying a schema stamp and a content hash, and re-enter only through admission — never as live state shared across processes. The analytical engine is a projection surface, not a system of record: one anchor session under a declared posture, operational stores mounted read-only, bulk movement in vector chunks with named commit points, egress as one `COPY` statement assembled from artifact-class policy rows. Delimited exchange derives reader, writer, and descriptor from one profile record so round-trip symmetry is structural; artifact identity is a descriptor stamp plus a hash, and schema evolution is one name-keyed lattice diff whose verdict gates every consumer. Geo data holds one interior vocabulary — NetTopologySuite geometry — with exactly two wire projections, text and blob, each a policy-frozen profile value. Growth lands as rows: a new artifact class is one declaration deriving emission, stamp, and gate; a new egress format, partition key, or codec is a policy row; a new delivery target is a union case that breaks dispatch at compile time.
+Interchange is one projection rail. Any store's rows leave as typed tabular, columnar, or geo artifacts carrying a schema stamp and a content hash, and re-enter only through admission — never as live state shared across processes. The analytical engine is a projection surface, not a system of record: one anchor session under a declared posture, operational stores mounted read-only, bulk movement in vector chunks with named commit points, engine-mediated egress as one `COPY` statement assembled from artifact-class policy rows while a zero-copy or direct-codec lane stays a sibling row. Delimited exchange derives reader, writer, and descriptor from one profile record so round-trip symmetry is structural; artifact identity is a descriptor stamp plus a hash, and schema evolution is one name-keyed lattice diff whose verdict gates every consumer. Geo data holds one interior vocabulary — NetTopologySuite geometry — with exactly two wire projections, text and blob, each a policy-frozen profile value. Growth lands as rows: a new artifact class is one declaration deriving emission, stamp, and gate; a new egress format, partition key, or codec is a policy row; a new delivery target is a union case that breaks dispatch at compile time.
 
 ## [01]-[INTERCHANGE_CHOOSER]
 
@@ -14,7 +14,7 @@ This table routes an interchange concern to its owning surface; the most specifi
 |  [04]   | bulk ingest                    | mapped appender + explicit `Close()` | row-at-a-time `INSERT` loop     |
 |  [05]   | large result reads             | streaming-mode reader                | `DataTable` materialization     |
 |  [06]   | in-process sequence in a query | registered table function            | single-query staging table      |
-|  [07]   | columnar egress                | one `COPY` rail + policy rows        | per-format export paths         |
+|  [07]   | engine columnar egress         | one `COPY` rail + policy rows        | per-format export paths         |
 |  [08]   | artifact generations           | name-keyed union reads               | in-place rewrites               |
 |  [09]   | delimited exchange             | one profile record, derived triple   | per-site option drift           |
 |  [10]   | artifact identity              | descriptor stamp + content hash      | filename-convention trust       |
@@ -74,7 +74,7 @@ public sealed class Session(EnginePosture posture) : IDisposable {
 [CHUNK_ALGEBRA]:
 - Law: ingress and egress are one symmetric chunk algebra at the engine's vector quantum — the appender flushes per vector-size chunk as rows accumulate, the streaming reader holds one chunk at a time — so peak managed memory is one chunk wide regardless of batch size, budgets count chunks never rows, and backpressure is pull-shaped on both lanes.
 - Law: error-late is the lane's failure mode — appender constraint violations defer to chunk boundaries and `Close()`, streaming plan failures surface at mid-drain `Read()` — so every bulk movement names its commit point and converts there; `Dispose()` calls `Close()` when unclosed, so an appender lifetime not wholly inside the capture lets construction refusals escape the rail and lets disposal flush a partial batch.
-- Law: the mapped appender validates at construction — zero mappings, a count mismatch, or a per-column CLR-to-logical type mismatch throws before any row moves, making record-table drift a construction failure caught on the rail; `Clear()` on the raw appender is the abort lane, discarding pending rows with the lane still usable, and `AppendDefault()` is the only way to exercise column defaults through the bulk lane.
+- Law: the mapped appender validates at construction — zero mappings, a count mismatch, or a per-column CLR-to-logical type mismatch throws before any row moves, making record-table drift a construction failure caught on the rail; `Clear()` on the raw appender is the abort lane, discarding pending rows with the lane still usable, and a `DefaultValue()` row in the `DuckDBAppenderMap<T>` is the only way to exercise a column default through the bulk lane — the default is a declared map row, never a per-record call.
 - Law: streaming defaults off — an unconfigured command materializes the whole result in the native handle — so the streaming flag is profile policy, never a per-query choice, and concurrent work during a long drain rides a `Duplicate()` lane.
 - Law: `DuckDBParameter` is one binding surface indexed by position and name; an explicit `DbType` pins the logical type wherever CLR inference would widen, mandatory for object-typed pipeline values; `RecordsAffected` is always −1 on the reader — mutation counts come from `ExecuteNonQuery`; `IsDBNull` is the validity-mask read that precedes every nullable column value, and `Prepare()` amortizes repeated parameterized reads through the prepared lane, never SQL-string caching.
 - Law: UDFs are vector kernels invoked with a row count, never per-row delegates — scalar registration declares `IsPureFunction` and `HandlesNulls` as facts, a table function exposes a managed `IEnumerable` as a relation with `CardinalityHint` feeding the join planner, and a UDF exception resurfaces as a query error on the executing statement.
@@ -108,12 +108,12 @@ public static class BulkLane {
             using var command = lane.CreateCommand();
             (command.CommandText, command.UseStreamingMode) = (projection, true);
             using var stream = command.ExecuteReader();
-            var drained = Seq<Sample>();
-            while (stream.Read()) {
-                drained = drained.Add(new Sample(
+            var drained = new List<Sample>();
+            while (stream.Read()) {                                                // Exemption: the chunk drain fills a seam-local list frozen once by toSeq; per-row Seq.Add forcing is the rejected O(n²) form
+                drained.Add(new Sample(
                     stream.GetFieldValue<string>(0), stream.GetFieldValue<double>(1), stream.GetFieldValue<DateOnly>(2)));
             }
-            return drained;
+            return toSeq(drained);
         }).Run().MapFail(static error => Error.New(8103, $"<drain-faulted:{error.Message}>"));
 }
 ```
@@ -121,21 +121,46 @@ public static class BulkLane {
 ## [03]-[ARTIFACT_PROJECTION]
 
 [EGRESS_ROWS]:
-- Law: one `COPY (SELECT) TO` statement owns every egress, and `FORMAT` is one axis of it — parquet, delimited, and JSON share the destination, collision, and compression vocabulary, JSON adding one `ARRAY` row selecting array-of-records versus newline-delimited — so a second export path per format is the rejected form and a new flow is one instance of attach/read, project, copy.
+- Law: one `COPY (SELECT) TO` statement owns engine-mediated egress, and format, destination collision, and compression are closed `[SmartEnum<string>]` vocabularies whose `.Key` IS the COPY token — `Format.Parquet`/`Csv`/`Json`, `Collision.Overwrite`/`OverwriteOrIgnore`/`Append`, `Codec.Zstd`/`Snappy` interpolate beside the shared destination, the JSON case carrying its one `ARRAY` row selecting array-of-records versus newline-delimited — so a mistyped `OVERWRITE_OR_INGORE` is unrepresentable rather than a runtime SQL parse error, a second export path per format is the rejected form, a new format or posture is one static row, and a new flow is one instance of attach, read, project, copy.
+- Law: the engine COPY rail is the SQL-mediated lane, not the egress monopoly — a zero-copy in-process columnar handoff and a direct managed file-codec are distinct lanes a COPY `FORMAT` token cannot express, so the lane is the artifact class's outer discriminant and a non-SQL egress lands as a sibling lane beside the COPY family, never as a `FORMAT` row; the rejected form is a `FORMAT` value stretched to name a transport the engine never performs.
 - Law: row-group geometry is the unit of scan parallelism and zonemap pruning — `ROW_GROUP_SIZE` composes with `ROW_GROUP_SIZE_BYTES`, `ROW_GROUPS_PER_FILE`, and `FILE_SIZE_BYTES` as one geometry axis — groups near the default row count prune well, and tiny groups are the signature of append-per-batch exporters: batch through a staging table and export once.
-- Law: destination collision is a closed row — `OVERWRITE`, `OVERWRITE_OR_IGNORE`, `APPEND` — where append writes new files beside existing generations; `PARTITION_BY` moves keys into hive directories with `FILENAME_PATTERN` naming the leaves and prunes at cardinality in the tens to low thousands — partitioning is a pruning instrument, never a uniqueness scheme.
+- Law: partitioning is a pruning instrument, never a uniqueness scheme — `Append` writes new files beside existing generations, `PARTITION_BY` moves keys into hive directories with `FILENAME_PATTERN` naming the leaves, and the instrument prunes at cardinality in the tens to low thousands; partition columns are bare names, never expressions, so a derived partition key materializes as a projected column first.
 - Law: `COPY ... TO` is a filesystem effect outside transaction rollback — publication composes the atomic-write protocol, never transactional cleanup.
 - Law: the footer answers declared shape, per-row-group statistics, and caller stamps without decoding data — `parquet_schema`, `parquet_metadata`, `parquet_kv_metadata` — so artifact admission is a metadata-cost gate run on every delivery.
 
 ```csharp conceptual
-public sealed record ArtifactClass(string Name, string Codec, int RowGroup, Option<string> PartitionKey, string Collision) {
-    public static readonly ArtifactClass Ledger = new("<class-a>", "zstd", 122_880, None, "OVERWRITE");
-    public static readonly ArtifactClass Feed = new("<class-b>", "snappy", 122_880, Some("<key-a>"), "APPEND");
+[SmartEnum<string>]
+public sealed partial class Codec {
+    public static readonly Codec Zstd = new("zstd");
+    public static readonly Codec Snappy = new("snappy");
+}
+
+[SmartEnum<string>]
+public sealed partial class Collision {
+    public static readonly Collision Overwrite = new("OVERWRITE");
+    public static readonly Collision OverwriteOrIgnore = new("OVERWRITE_OR_IGNORE");
+    public static readonly Collision Append = new("APPEND");
+}
+
+[SmartEnum<string>]
+public sealed partial class Format {
+    public static readonly Format Parquet = new("parquet", None, grouped: true);
+    public static readonly Format Csv = new("csv", None, grouped: false);
+    public static readonly Format Json = new("json", Some("ARRAY true"), grouped: false);
+
+    public Option<string> ArrayRow { get; }
+    public bool Grouped { get; }
+}
+
+public sealed record ArtifactClass(string Name, Format Format, Codec Codec, int RowGroup, Option<string> PartitionKey, Collision Collision) {
+    public static readonly ArtifactClass Ledger = new("<class-a>", Format.Parquet, Codec.Zstd, 122_880, None, Collision.Overwrite);
+    public static readonly ArtifactClass Feed = new("<class-b>", Format.Json, Codec.Snappy, 122_880, Some("<key-a>"), Collision.Append);
 
     public string Egress(string projection, string destination, string stamp) =>
         $"COPY ({projection}) TO '{destination}' ({string.Join(", ",
-            Seq(Some("FORMAT parquet"), Some($"COMPRESSION {Codec}"), Some($"ROW_GROUP_SIZE {RowGroup}"),
-                PartitionKey.Map(static key => $"PARTITION_BY ({key})"), Some(Collision),
+            Seq(Some($"FORMAT {Format.Key}"), Some($"COMPRESSION {Codec.Key}"),
+                Format.Grouped ? Some($"ROW_GROUP_SIZE {RowGroup}") : Option<string>.None, Format.ArrayRow,
+                PartitionKey.Map(static key => $"PARTITION_BY ({key})"), Some(Collision.Key),
                 Some($"KV_METADATA {{ stamp: '{stamp}' }}")).Somes())})";
 }
 
@@ -233,14 +258,14 @@ public static class ExchangeSeam {
 - Law: strings are the pipeline's only allocation, routed once through `SepCreateToString` — low-cardinality columns approach zero steady-state allocation, `maximumStringLength` bounds pool eligibility as a memory cap, and parallel enumeration requires the thread-safe pool variants, a mismatch that surfaces only under parallel load.
 - Law: `ParallelEnumerate` batches pooled row state into an ordered parallel projection — output order matches input by construction, parsing stays single-threaded so gains cap at the projection's share, and the degree overload consumes a budget row; the try-shape fuses parse-validate-filter in one pass — rejected rows do not emit, and receipts ride the row's own evidence identically in sequential and parallel runs.
 - Law: one row-projection function per exchange profile serves all four modalities — sequential, async (`GetAsyncEnumerator` threads cancellation into row advance), parallel, try-filtered; modality-specific row handlers are the sprawl the profile deletes.
-- Law: the reader-to-writer fusion is one copy expression — `writer.NewRow(readerRow)` and `readerRow.CopyTo(writerRow)` re-separate, re-escape, and reorder under the writer's own policy — so parse-materialize-rebuild flows are the rejected spelling; `SepWriterHeader`'s explicit `Write` is the zero-row arm, producing the empty-but-valid artifact a delivery gate distinguishes from a missing one.
+- Law: the reader-to-writer fusion threads the live reader row straight into the writer — `writerRow.Set(readerRow[range])` and `writerRow.Set(readerRow[colNames])` re-separate, re-escape, and reorder the source columns under the writer's own `Sep`, `Escape`, and culture policy through the `Set(SepReader.Cols)` overload, so the `Range`/name-indexer that views the source columns is the whole copy and parse-materialize-rebuild flows are the rejected spelling; `SepWriterHeader.Write` is the zero-row arm, producing the empty-but-valid artifact a delivery gate distinguishes from a missing one.
 
 ## [05]-[ARTIFACT_IDENTITY]
 
 [STAMP_AND_DIFF]:
-- Law: an artifact is payload plus identity — a descriptor stamp and a content hash; identity placement follows the format's own metadata channel — columnar in the footer, delimited beside the file as a sidecar bound by content hash, never fake header rows — so a renamed artifact keeps its identity and a sidecar whose bytes no longer hash to its claim is corruption, not drift.
-- Law: the descriptor is the one contract value — emission, stamping, and the admission gate all derive from one artifact-class declaration, so a column added to the projection updates writer, stamp, and gate in one diff.
-- Law: hash identity is byte-level and equality is descriptor-level, never conflated — a newline convention or column reorder changes the hash without changing the data, so re-keying by semantic equality requires canonical emission, never hash comparison of foreign bytes.
+- Law: an artifact is payload plus two distinct identities — the byte-level content hash that the canonical octet codec mints once over stored bytes, and the descriptor-level `SchemaKey` that fingerprints column shape alone; identity placement follows the format's own metadata channel — columnar in the footer, delimited beside the file as a sidecar bound by content hash, never fake header rows — so a renamed artifact keeps its identity and a sidecar whose bytes no longer hash to its claim is corruption, not drift.
+- Law: the descriptor is the one contract value — emission, stamping, and the admission gate all derive from one artifact-class declaration, so a column added to the projection updates writer, `SchemaKey`, and gate in one diff.
+- Law: byte identity and descriptor equality are different contracts, never conflated — the supplied `ContentHash` is the one canonical octet codec the whole identity domain asserts once over stored bytes (never re-derived per call site, never recomputed from parsed-then-reserialized bytes), while `SchemaKey` fingerprints column shape so a newline convention or column reorder leaves it untouched as the content hash moves; the `SchemaKey` digest reuses that same `XxHash3` codec rather than opening a second hashing path, and re-keying by semantic equality requires canonical emission, never hash comparison of foreign bytes.
 - Law: the diff is name-keyed set algebra under a declared compatibility lattice — additive columns are compatible by construction because consumers read by name and tolerate extras, a widening retype is a reviewed policy row, a narrowing retype never is, and removal or rename is a new artifact class; duplicate header names reject at the gate before any row is read.
 - Law: revisions only increase — a consumer seeing an older revision than its compiled expectation distinguishes a stale producer from a corrupt artifact, two operational responses from one comparison.
 - Law: delivery is a closed destination union whose every arm carries its own provenance — locator, stamp, hash — and a bundle member carries two identity levels, the container hash and its own; a string-typed destination parameter erases the per-arm obligation and reopens dispatch at runtime.
@@ -248,10 +273,9 @@ public static class ExchangeSeam {
 
 ```csharp conceptual
 public sealed record Descriptor(string ArtifactClass, int Revision, Seq<ColumnRow> Columns) {
-    public string Hash =>
+    public ulong SchemaKey =>
         XxHash3.HashToUInt64(Encoding.UTF8.GetBytes(string.Join(';',
-            Columns.Map(static row => $"{row.Name}:{row.Type}:{(row.Nullable ? "N" : "R")}"))))
-            .ToString("x16", CultureInfo.InvariantCulture);
+            Columns.Map(static row => $"{row.Name}:{row.Type}:{(row.Nullable ? "N" : "R")}"))));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -265,23 +289,14 @@ public abstract partial record Verdict {
 public sealed record Lattice(Seq<(string From, string To)> Retype, bool NullWiden) {
     public static readonly Lattice Canonical = new([("INTEGER", "BIGINT"), ("FLOAT", "DOUBLE")], NullWiden: true);
 
-    public bool Admits(ColumnRow held, ColumnRow observed) =>
-        (observed.Type == held.Type || Retype.Exists(step => step == (held.Type, observed.Type)))
-        && (observed.Nullable == held.Nullable || (NullWiden && observed.Nullable && !held.Nullable));
-}
-
-public static class ShapeGate {
-    public static Verdict Diff(Lattice lattice, Descriptor held, Descriptor observed) {
-        ArgumentNullException.ThrowIfNull(lattice);
-        ArgumentNullException.ThrowIfNull(held);
-        ArgumentNullException.ThrowIfNull(observed);
-        return observed.Revision < held.Revision
+    public Verdict Diff(Descriptor held, Descriptor observed) =>
+        observed.Revision < held.Revision
             ? new Verdict.StaleProducer(held.Revision, observed.Revision)
             : observed.Columns.Map(static row => row.Name).Distinct().Count != observed.Columns.Count
                 ? new Verdict.ContractBreak(["<duplicate-header>"])
                 : held.Columns.Choose(row =>
                     observed.Columns.Find(peer => peer.Name == row.Name) switch {
-                        { IsSome: true, Case: ColumnRow peer } => lattice.Admits(row, peer)
+                        { IsSome: true, Case: ColumnRow peer } => Admits(row, peer)
                             ? None
                             : Some($"<retyped:{row.Name}:{row.Type}->{peer.Type}>"),
                         _ => Some($"<removed:{row.Name}>"),
@@ -290,7 +305,10 @@ public static class ShapeGate {
                     : new Verdict.Compatible(
                         observed.Columns.Filter(peer => !held.Columns.Exists(row => row.Name == peer.Name))
                             .Map(static peer => peer.Name));
-    }
+
+    bool Admits(ColumnRow held, ColumnRow observed) =>
+        (observed.Type == held.Type || Retype.Exists(step => step == (held.Type, observed.Type)))
+        && (observed.Nullable == held.Nullable || (NullWiden && observed.Nullable && !held.Nullable));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -304,13 +322,11 @@ public abstract partial record Delivery {
         fileArtifact:   static arm => (arm.Path, arm.Stamp, arm.ContentHash),
         objectArtifact: static arm => ($"{arm.Bucket}/{arm.Key}", arm.Stamp, arm.ContentHash),
         bundleMember:   static arm => ($"{arm.Bundle}#{arm.Member}", arm.Stamp, $"{arm.BundleHash}:{arm.ContentHash}"));
-}
 
-public static class DeliveryGate {
-    public static Fin<(string Locator, string Identity, Seq<string> Added)> Admit(Lattice lattice, Descriptor held, Delivery delivery) {
-        ArgumentNullException.ThrowIfNull(delivery);
-        var (locator, stamp, identity) = delivery.Provenance;
-        return ShapeGate.Diff(lattice, held, stamp).Switch(
+    public Fin<(string Locator, string Identity, Seq<string> Added)> Admit(Lattice lattice, Descriptor held) {
+        ArgumentNullException.ThrowIfNull(lattice);
+        var (locator, stamp, identity) = Provenance;
+        return lattice.Diff(held, stamp).Switch(
             compatible:    static (s, arm) => Fin.Succ((s.Locator, s.Identity, arm.Added)),
             staleProducer: static (s, arm) => Fin.Fail<(string, string, Seq<string>)>(Error.New(8401, $"<stale-producer:{s.Identity}:{arm.Observed}<{arm.Held}>")),
             contractBreak: static (s, arm) => Fin.Fail<(string, string, Seq<string>)>(Error.New(8402, $"<contract-break:{s.Identity}:{string.Join(',', arm.Violations)}>")),
@@ -328,7 +344,7 @@ public static class DeliveryGate {
 - Law: ring orientation enforcement is write-only — `EnforceRfc9746` reverses mis-oriented rings at emission while reads admit any orientation — so a kernel deriving sign from ring direction normalizes at admission, because the wire law will not have done it.
 - Law: the rejection taxonomy rides `JsonException` with one escape — an unrecognized `type` literal throws an unpositioned argument fault — so the boundary capture admits both classes or malformed literals bypass the wire-fault rail; JSON null is null geometry, the rail's one null, projected to absence immediately, and unknown members and comments skip structurally.
 - Law: CRS posture is fixed by the format — WGS84 longitude/latitude, no CRS member — so reprojection happens in the interior, and emitting projected coordinates is silent corruption no reader can detect.
-- Law: feature properties stay element-backed until projected — `IPartiallyDeserializedAttributesTable.TryDeserializeJsonObject<T>` composes the document's own serializer policy and fails as absence — and walking the loose table in domain code is the rejected form; element-backed `Count` re-enumerates the object per call.
+- Law: feature properties stay element-backed until projected — `IPartiallyDeserializedAttributesTable.TryDeserializeJsonObject<T>(options, out var typed)` re-runs the passed `JsonSerializerOptions` over the deferred property object and a false return is absence — and walking the loose `IAttributesTable` in domain code is the rejected form; element-backed `Count` re-enumerates the object per call.
 
 ```csharp conceptual
 public sealed record GeoProfile(double Precision, bool WriteBBox, string IdProperty) {
