@@ -118,7 +118,7 @@ public sealed partial class SemanticProjector(DatabaseIfc db) : IElementProjecti
             Id:             rooted[definition.GlobalId],
             Kind:           kind,
             ExternalId:     Some(definition.GlobalId),
-            Classification: Classification.Create("ifc", cls.Key, None),
+            Classification: Classification.Create("ifc", cls.Key, "", "", None, None),
             PredefinedType: Predefined(definition),
             Name:           definition.Name ?? "",
             Tag:            (definition as IfcElement)?.Tag ?? "",
@@ -603,8 +603,11 @@ public static class EdgeProjection {
         MaterialProjection.Project(select as BaseClassIfc, tolerance, key).Map(static m => m.Id);
 
     // The IFC occurrence material usage -> the seam's typed MaterialUsage [C7]: an IfcMaterialLayerSetUsage lowers to
-    // MaterialUsage.LayerSet (direction/sense/offset), an IfcMaterialProfileSetUsage to MaterialUsage.ProfileSet through
-    // the seam Of cardinal-point gate, a type-level set with no occurrence usage to MaterialUsage.None.
+    // MaterialUsage.LayerSet (direction/sense/offset/extent — all four IFC occurrence parameters), an
+    // IfcMaterialProfileSetUsage to MaterialUsage.ProfileSet through the seam Of cardinal-point gate, a type-level set
+    // with no occurrence usage to MaterialUsage.None. The ReferenceExtent (the layer-set size perpendicular to the layers,
+    // IfcMaterialLayerSetUsage.ReferenceExtent decompile-confirmed .api/api-geometrygym-ifc row 12) is the 4th seam ctor
+    // arg — without it an asymmetric wall finish (a reference line that does not bisect the buildup) is dropped at ingest.
     static Fin<MaterialUsage> UsageOf(IfcMaterialSelect select, Op key) => select switch {
         IfcMaterialLayerSetUsage u => Fin.Succ<MaterialUsage>(new MaterialUsage.LayerSet(
             u.LayerSetDirection switch {
@@ -613,7 +616,8 @@ public static class EdgeProjection {
                 _                              => LayerSetDirection.Axis3,
             },
             u.DirectionSense == IfcDirectionSenseEnum.POSITIVE ? DirectionSense.Positive : DirectionSense.Negative,
-            u.OffsetFromReferenceLine)),
+            u.OffsetFromReferenceLine,
+            u.ReferenceExtent)),
         IfcMaterialProfileSetUsage u => MaterialUsage.ProfileSet.Of((int)u.CardinalPoint, u.ReferenceExtent, key),
         _ => Fin.Succ<MaterialUsage>(new MaterialUsage.None()),
     };
@@ -780,10 +784,10 @@ public sealed partial class SemanticProjector {
     // boundary — an empty Pset/Qto carries no IFC data, so it is skipped (its DefinesByProperties edge then resolves no
     // bag and re-authors nothing), lossless and exception-free, never a crashing `.First()` on the empty enumerable.
     static Option<IfcPropertySetDefinition> AuthorBag(DatabaseIfc target, Node node) => node switch {
-        Node.PropertySet ps when !ps.Bag.Properties.IsEmpty => Some((IfcPropertySetDefinition)new IfcPropertySet(ps.Bag.SetName,
-            ps.Bag.Properties.AsIterable().Map(kv => RaiseProperty(target, kv.Key, kv.Value)))),
-        Node.QuantitySet qs when !qs.Bag.Quantities.IsEmpty => Some((IfcPropertySetDefinition)new IfcElementQuantity(qs.Bag.SetName,
-            qs.Bag.Quantities.AsIterable().Map(kv => RaiseQuantity(target, kv.Key, kv.Value)))),
+        Node.PropertySet ps when !ps.Bag.Values.IsEmpty => Some((IfcPropertySetDefinition)new IfcPropertySet(ps.Bag.SetName,
+            ps.Bag.Values.AsIterable().Map(kv => RaiseProperty(target, kv.Key, kv.Value)))),
+        Node.QuantitySet qs when !qs.Bag.Values.IsEmpty => Some((IfcPropertySetDefinition)new IfcElementQuantity(qs.Bag.SetName,
+            qs.Bag.Values.AsIterable().Map(kv => RaiseQuantity(target, kv.Key, kv.Value)))),
         _ => Option<IfcPropertySetDefinition>.None,
     };
 

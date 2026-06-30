@@ -32,7 +32,11 @@ using static LanguageExt.Prelude;
 namespace Rasm.Element;
 
 // --- [TYPES] ------------------------------------------------------------------------------
-[ValueObject<UInt128>]
+// KeyMemberName/KeyMemberAccessModifier are EXPLICIT — the established kernel TopoName/TopoSignature
+// [ValueObject<UInt128>] form: the UInt128 Value is read publicly across the seam (this OfGraph node sort reads
+// `Of(n, _).Value`, the Graph/element#NODE_MODEL `NodeId.OfContent(address)` formats `address.Value` X32), so the
+// public-key spelling is pinned at declaration rather than left to a generated default the consumers cannot rely on.
+[ValueObject<UInt128>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 public sealed partial class ContentAddress {
  // The lexicographic byte-sequence ordering for the order-independent edge canon — a cached singleton (zero
  // per-call allocation) over the BCL span comparison, the one byte ordering BOTH this OfGraph edge sort AND the
@@ -68,13 +72,21 @@ public sealed partial class ContentAddress {
   CanonicalWriter w = new(graph.Header.Tolerance);
   graph.Header.CanonicalBytes(w);
   w.Ordinal(graph.Nodes.Count);
-  foreach (UInt128 nodeAddress in toSeq(graph.Nodes.Values).Map(n => Of(n, graph.Header.Tolerance).Value).Order()) { w.U128(nodeAddress); }
-  // The edge's standalone canonical bytes are the SAME Relations/relation#EDGE_ALGEBRA Relationship.ToCanonicalBytes()
-  // projection a content-3-way merge keys an edge on — graph address and edge merge-key never diverge. Edges carry
-  // no tolerance-bearing measure, so the per-edge writer tolerance is 0 (a Generic edge's PropertyValue measures
-  // quantize against their OWN node's tolerance at mint, not the edge's).
+  // Sort the node ContentAddresses ascending by their UInt128 — the explicit OrderBy keyed on the value reads grammatically
+  // parallel to the edge OrderBy below (the comparer-driven byte sort), so node and edge sorts are ONE ordering discipline;
+  // the default UInt128 ascending comparer is the canonical node order a cross-runtime peer reproduces byte-for-byte.
+  foreach (UInt128 nodeAddress in toSeq(graph.Nodes.Values).Map(n => Of(n, graph.Header.Tolerance).Value).OrderBy(static a => a)) { w.U128(nodeAddress); }
+  // The edge's standalone canonical bytes are the SAME Relations/relation#EDGE_ALGEBRA Relationship.ToCanonicalBytes(tolerance)
+  // projection a content-3-way merge keys an edge on — graph address and edge merge-key never diverge. The edge key threads
+  // the model Header.Tolerance (the SAME grid the node addresses and the Graph/delta#GRAPH_DELTA delta key quantize on): the
+  // five typed cases (Compose/Assign/Associate/Connect/Void) carry NO Measure-bearing scalar (the Associate ReferenceExtent
+  // is a bare coordinate the writer canonicalizes, not a tolerance-grid Measure), so they are tolerance-INSENSITIVE and the
+  // value passed leaves them unchanged; but the Generic passthrough's PropertyValue.Measure attributes quantize to
+  // Header.Tolerance through w.Measure, so two Generic edges whose measure attributes differ below tolerance address
+  // IDENTICALLY rather than forking the key — the tolerance-0 hardcode the typed cases did not need but the Generic arm
+  // silently broke is the deleted form, the model-tolerance edge key the cross-runtime-stable form.
   w.Ordinal(graph.Edges.Length);
-  foreach (ReadOnlyMemory<byte> edge in graph.Edges.Map(static e => e.ToCanonicalBytes()).OrderBy(static b => b, ByteOrder)) { w.Raw(edge.Span); }
+  foreach (ReadOnlyMemory<byte> edge in graph.Edges.Map(e => e.ToCanonicalBytes(graph.Header.Tolerance)).OrderBy(static b => b, ByteOrder)) { w.Raw(edge.Span); }
   return Of(w.ToBytes().Span);
  }
 
@@ -82,23 +94,26 @@ public sealed partial class ContentAddress {
  // equals its stored NodeId — the tamper/corruption gate a Rasm.Persistence rehydrate and the cross-runtime parity
  // corpus run before trusting a persisted id. A rooted Node.Object carries a neutral Guid-v7 (NOT content-derived,
  // H6), so it verifies vacuously; the tolerance MUST be the graph's mint-time Header.Tolerance, or the quantized
- // re-projection drifts. The recompute matches the NodeId.Content mint EXACTLY (kernel ContentHash.Of, X32 invariant).
+ // re-projection drifts. The recompute routes through THIS owner's own Of(ReadOnlySpan<byte>) hashing entry (NOT a
+ // direct kernel ContentHash.Of bypass — the "ContentAddress is the ONE content-key owner" discipline holds even in
+ // Verify), formatting the recomputed UInt128 X32 exactly as the Graph/element#NODE_MODEL NodeId.Content mint does.
  public static Fin<Unit> Verify(Node node, double tolerance, Op key) =>
   node is Node.Object
    ? Fin.Succ(unit)
-   : ContentHash.Of(node.ToCanonicalBytes(tolerance).Span).ToString("X32", CultureInfo.InvariantCulture) == node.Id.Value
+   : Of(node.ToCanonicalBytes(tolerance).Span).Value.ToString("X32", CultureInfo.InvariantCulture) == node.Id.Value
     ? Fin.Succ(unit)
     : ElementFault.AddressUnstable(key, $"<content-id-mismatch:{node.Id.Value}>");
 
  // The snapshot rehydrate gate: every non-rooted node's stored id re-verified, the Validation ACCUMULATING all
  // mismatches (a corrupt snapshot reports every drifted node at once — the Projection/projection#GRAPH_CONSTRAINT
  // accumulate-all shape, independent checks licensing accumulation), the caller converting to Fin (.ToFin()) at the
- // boundary so an unstable snapshot never enters the read path as trusted.
+ // boundary so an unstable snapshot never enters the read path as trusted. The single-node check is `Fin<Unit>`
+ // (fail-fast); the carrier-owned `.ToValidation()` re-anchors each into the accumulating algebra — the LanguageExt
+ // cross-rail projection, never a hand-rolled `Match(Succ: Success, Fail: Fail)` re-deriving what the carrier owns —
+ // so applicative `.Traverse` runs every node and `Error.Combine` unions every mismatch before the boundary reports.
  public static Validation<Error, Unit> Verify(ElementGraph graph, Op key) =>
   toSeq(graph.Nodes.Values)
-   .Traverse(n => Verify(n, graph.Header.Tolerance, key).Match(
-    Succ: static _ => Success<Error, Unit>(unit),
-    Fail: static e => Fail<Error, Unit>(e)))
+   .Traverse(n => Verify(n, graph.Header.Tolerance, key).ToValidation())
    .As()
    .Map(static _ => unit);
 }

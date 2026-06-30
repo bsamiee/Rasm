@@ -12,7 +12,7 @@ THE MULTI-PLY ASSEMBLY-AGGREGATION ENGINE — relocated from `Rasm.Materials` to
 - Owner: `AssemblyProperty` the thermal/mass/vapour/acoustic/mixture/fire aggregation receipt; `AssemblyLifecycle`/`AssemblyCost` the EN 15978 embodied-carbon and in-place-cost receipts; `WindowU` the EN ISO 10077-1 whole-window-transmittance receipt (the area-weighted `Uw` plus the glazed/frame breakdown the façade designer reads), with `WindowField` the resolved glazed-or-frame field (`Ug`/`Uf`, area, and the glazed field's edge length + spacer `Ψg`) the thermal runner assembles from the window's parts and feeds the fold; `ElementQuantity` the element geometric takeoff (`AreaM2` + `VolumeM3`) the GWP/cost folds distribute per ply; `PlyQuantity` the optional per-`MaterialId` exact declared-quantity override an IFC `Qto_*BaseQuantities` takeoff supplies in place of the idealized geometry.
 - Cases: one `AssemblyProperty` over a `LayerSet` — the `UValueWM2K` (ISO 6946 series resistance with the `Rsi`/`Rse` films), the `ArealHeatCapacityKJM2K` (ISO 13786 `Σ ρ·c·t` dynamic thermal mass), the `VapourResistanceSdM` (EN ISO 13788 `Σ μ·t` equivalent-air-layer diffusion resistance), the `StcWeighted` (the field-incidence mass-law SRI over the accumulated areal mass, contour-fit through the seam `RatingContour.Stc.Fit`), the `EffectiveDensityKgM3`/`EffectiveConductivityWMK`/`EffectiveYoungsModulusPa` (the effective bulk density/conductivity/in-plane modulus — series-and-mass over a `LayerSet`, `Fraction`-weighted Voigt rule-of-mixtures over a `ConstituentSet`), the `FireResistanceMinutes` (the minimum ply rating); one `AssemblyLifecycle` (the `WholeLifeGwpKgCo2e`, the per-module `StageGwp` breakdown, the `EmbodiedCarbonIntensityKgCo2eM2`, the mass-weighted `RecycledContentFraction`); one `AssemblyCost` (the supply/install/lifecycle totals over a single `Currency`); one `WindowU` over a `Seq<WindowField>` — the EN ISO 10077-1 whole-window `UwWM2K = (Σ Ag·Ug + Σ Af·Uf + Σ lg·Ψg)/(Σ Ag + Σ Af)`, the area-weighted glazed `UgWM2K` and frame `UfWM2K` sub-transmittances, the `EdgeBridgeW_K = Σ lg·Ψg` perimeter-bridge term, and the `GlazedFraction = Σ Ag / (Σ Ag + Σ Af)` the daylight/solar-gain consumer reads — a new aggregation rating is one fold over the same composition (or window fields) + one receipt column, never a parallel composite-material owner.
 - Entry: the receipts are minted by the `[03]-[AGGREGATION_FOLD]` `AssemblyAggregator` folds; the per-ply property reads COMPOSE the seam `MaterialPropertyAccess` accessors (`props.Thermal`/`props.Mechanical`/`props.Fire`/`props.Environmental`/`props.Cost`) directly — the aggregator re-derives no `is`-cast accessor the seam owns (ONE_HOP), the seam now exposing the FULL typed accessor family so `Fire`/`Cost` read seam-direct like every other discipline, an `Option<T>` carrying an absent case the fold rails.
-- Packages: LanguageExt.Core (`Fin`/`Seq`/`Option`), Thinktecture.Runtime.Extensions (the generated `MaterialComposition.Switch` + `MeasurementBasis.Switch` the kernel dispatches), Rasm.Element (project — `MaterialComposition`, `MaterialLayer`, `MaterialConstituent`, `MaterialPropertySet`, `MaterialPropertyAccess`, `MaterialId`, `AcousticBand`, `LifecycleStage`, `Currency`, `MeasurementBasis`, `RatingContour.Stc.Fit`), BCL inbox (`ReadOnlyMemory<double>`/`ReadOnlySpan<double>`).
+- Packages: LanguageExt.Core (`Fin`/`Seq`/`Option`), Thinktecture.Runtime.Extensions (the generated `MaterialComposition.Switch` + `MeasurementBasis.Switch` the kernel dispatches), Rasm.Element (project — `MaterialComposition`, `MaterialLayer`, `MaterialConstituent`, `MaterialPropertySet`, `MaterialPropertyAccess`, `MaterialId`, `AcousticBand`, `LifecycleStage`, `Currency`, `MeasurementBasis`, `RatingContour.Stc.Fit`), BCL inbox (`ImmutableArray<double>` the seam-aligned `StageGwp` receipt carrier, `ReadOnlySpan<double>` the fold transient).
 - Growth: a new assembly rating is one `AssemblyAggregator` fold reading the same seam `MaterialPropertySet` cases — a thermal-bridge psi-value, a dynamic decrement factor, a flanking sound-reduction term each lands as one fold and one receipt column, never a parallel composite owner; a new band is one seam `AcousticBand`/`LifecycleStage` row (the seam vector widens by data, the fold re-reads the new index).
 - Boundary: the receipts carry RAW SI scalars (`W·m⁻²·K⁻¹`, `W·m⁻¹·K⁻¹`, `kJ·m⁻²·K⁻¹`, m, m², dB, `kg·m⁻³`, `Pa`, kgCO2e, monetary), NOT a seam `MeasureValue` or a `MaterialPropertySet` type — the receipt is the analysis input the discipline runners read and the write-back lowers onto `AssessmentFact` typed values, so the aggregator never re-mints the seam value family; the ply reads lift each `MaterialPropertySet` member's `MeasureValue.Si` SI scalar (`Thermal.Conductivity.Si`/`Mechanical.Density.Si`) so a later seam unit canonicalization never breaks the fold; an `AssemblyProperty` is never stored as a material — an assembly's U-value/STC/effective density is computed from its plies on demand, the receipt the analysis input, never a second `MaterialLibrary`-style row table; `AssemblyCost` carries NO `MeasurementBasis` (the per-unit basis is consumed at the fold, the total is absolute currency), the migration source's basis-on-the-total field being the deleted form; the `WindowField` likewise carries RAW SI scalars (`UWM2K`/`AreaM2`/`EdgeLengthM`/`PsiWM_K`) the thermal runner LIFTS from the seam — the glazed/frame `U` off each part material's `Thermal.UValue.Si` (the IGU `Ug` `GlazingSection.Performance` lowered, the frame `Uf`), the areas off the window's baked `Qto_*BaseQuantities` (`GlazingArea`/`Area`), the spacer `Ψg` off the window's `Pset` thermal-bridge property (`GlazingSection`'s `SpacerType.PsiWmK` lowered there, NOT onto `MaterialPropertySet.Thermal` which carries no perimeter-bridge column) — so the kernel folds already-resolved fields and never reads `Rasm.Materials` (the AEC-domain peer Compute never references), the seam material + the baked bags the ONLY ingress; `WindowU` is never stored as a material — a window's `Uw` is computed from its glazed/frame fields on demand.
 
@@ -42,7 +42,7 @@ public sealed record AssemblyProperty(
 
 public sealed record AssemblyLifecycle(
     double WholeLifeGwpKgCo2e,
-    ReadOnlyMemory<double> StageGwp,
+    ImmutableArray<double> StageGwp,
     double EmbodiedCarbonIntensityKgCo2eM2,
     double RecycledContentFraction);
 
@@ -119,7 +119,7 @@ public static class AssemblyAggregator {
                     TotalMass = state.TotalMass + plyMass.IfNone(0.0) })))
             .Map(state => new AssemblyLifecycle(
                 WholeLifeGwpKgCo2e: state.WholeLife,
-                StageGwp: state.Stage.AsMemory(),
+                StageGwp: [.. state.Stage],
                 EmbodiedCarbonIntensityKgCo2eM2: geometry.AreaM2 > 0.0 ? state.WholeLife / geometry.AreaM2 : 0.0,
                 RecycledContentFraction: state.TotalMass > 0.0 ? state.RecycledMass / state.TotalMass : 0.0));
 
@@ -215,16 +215,19 @@ public static class AssemblyAggregator {
     // evaluated at each seam AcousticBand one-third-octave centre into the per-band SRI vector the seam RatingContour.Stc.Fit
     // contour-fits — so the assembly STC and the single-material STC share ONE ASTM-E413 owner, and a bonded buildup's rating is
     // its combined-mass estimate, never the unphysical per-leaf dB sum that over-predicts a rigidly-connected layer set.
-    static ReadOnlyMemory<double> MassLawBands(double massKgM2) {
+    static double[] MassLawBands(double massKgM2) {
         double[] sri = new double[AcousticBand.Count];
         foreach (AcousticBand band in AcousticBand.Items) { sri[band.Index] = Math.Max(0.0, 20.0 * Math.Log10(massKgM2 * band.CenterHz) - MassLawConstantDb); }
         return sri;
     }
 
     // The per-module Stage accumulation: a FRESH array each ply (never mutated in place) so the carbon fold stays
-    // immutable, the seam StageGwp arity (LifecycleStage.Count) guaranteed at MaterialPropertySet.OfEnvironmental admission.
-    static double[] AddScaled(double[] accumulated, ReadOnlyMemory<double> stage, double scale) {
-        ReadOnlySpan<double> bands = stage.Span;
+    // immutable. The seam StageGwp is the DERIVED GwpTotal-per-stage row off the Environmental (ImpactCategory ×
+    // LifecycleStage) matrix (Environmental.StageGwp = IndicatorAt(GwpTotal, stage) over the stage band, an
+    // ImmutableArray<double> of arity LifecycleStage.Count the seam guarantees at OfEnvironmental admission), so the
+    // carbon receipt folds the GwpTotal indicator row the seam projects rather than re-slicing the matrix here.
+    static double[] AddScaled(double[] accumulated, ImmutableArray<double> stage, double scale) {
+        ReadOnlySpan<double> bands = stage.AsSpan();
         double[] next = new double[LifecycleStage.Count];
         for (int i = 0; i < LifecycleStage.Count; i++) { next[i] = accumulated[i] + bands[i] * scale; }
         return next;

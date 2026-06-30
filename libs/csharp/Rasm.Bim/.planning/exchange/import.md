@@ -823,7 +823,7 @@ public sealed class SpeckleProjector(Base root) : IElementProjection {
         Id:              id,
         Kind:            ObjectKind.Occurrence,
         ExternalId:      Optional(data.applicationId),
-        Classification:  Classification.Create("speckle", data.speckle_type, None),
+        Classification:  Classification.Create("speckle", data.speckle_type, "", "", None, None),
         PredefinedType:  PredefinedType.NotDefined,
         Name:            data.name ?? "",
         Tag:             "",

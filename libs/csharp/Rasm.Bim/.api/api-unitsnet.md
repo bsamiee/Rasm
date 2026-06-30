@@ -1,18 +1,18 @@
 # [RASM_BIM_API_UNITSNET]
 
 `UnitsNet` supplies dimensioned scalar quantities, their SI-base coercion, and the
-abbreviation parser the BIM `PropertySet`/`QuantitySet` rail uses to collapse the IFC
-`KindOf` axis (`IfcLengthMeasure`/`IfcAreaMeasure`/`IfcVolumeMeasure`/`IfcMassMeasure`/
-`IfcTimeMeasure`) into one canonical, unit-checked quantity value. Each typed quantity is a
+abbreviation parser the Bim ingest rail uses to collapse a foreign IFC measure unit
+(`IfcLengthMeasure`/`IfcAreaMeasure`/`IfcVolumeMeasure`/`IfcMassMeasure`/
+`IfcTimeMeasure`) into one canonical, unit-checked SI scalar the seam `MeasureValue` carries. Each typed quantity is a
 `readonly struct` implementing `IArithmeticQuantity<TSelf, TUnit, double>`, `IValueQuantity<double>`,
 and the full generic-math operator set (`IAdditionOperators`/`ISubtractionOperators`/
 `IMultiplyOperators<TSelf, double, TSelf>`/`IDivisionOperators<TSelf, double, TSelf>`/
-`IComparisonOperators`/`IEqualityOperators`/`IParsable<TSelf>`), so `QuantitySet` coercion
+`IComparisonOperators`/`IEqualityOperators`/`IParsable<TSelf>`), so the coercion
 stays an expression over typed values rather than a free `double`. Cross-dimensional operators
 close the algebra (`Length * Length → Area`, `Length * Area → Volume`, `Length / Length → double`),
-so a base-quantity derivation never hand-multiplies raw scalars. The `Bim/semantics/properties#PROPERTY_SETS`
-`MeasureValue` value-carrier wraps exactly this surface: a `[Union]`/`[ValueObject]` collapse of the
-`KindOf` axis onto the typed-struct family that persists the SI-base scalar.
+so a base-quantity derivation never hand-multiplies raw scalars. The seam-owned `Rasm.Element/Properties/quantity#MEASURE_VALUE`
+`MeasureValue` value-carrier wraps exactly this surface: a `[ComplexValueObject]` over the `Dimension` exponent vector + the
+`QuantityType` `[ValueObject<string>]` name discriminator that persists the SI-base scalar (the retired six-case `QuantityKind` enum replaced [H2]); `Rasm.Bim` derives the magnitude from the kernel geometry and SI-coerces it, the seam owning the typed quantity.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -148,20 +148,20 @@ so a base-quantity derivation never hand-multiplies raw scalars. The `Bim/semant
 - aggregation: `UnitMath.Sum`/`Min`/`Max`/`Average`/`Abs`
 
 [LOCAL_ADMISSION]:
-- `QuantitySet` stores the typed quantity, never a bare `double`; the IFC `KindOf` axis selects the quantity type, and the carrier holds `Value` plus `Unit`.
+- the seam `Rasm.Element/Properties/quantity#MEASURE_VALUE` `MeasureValue` stores the typed quantity, never a bare `double`; the IFC measure unit selects the seam `Dimension` (the retired stringly-keyed `KindOf` axis replaced [H2]), and the carrier holds the SI scalar plus its `Dimension`/`QuantityType`.
 - Coercion to the canonical persisted form is `ToUnit(UnitSystem.SI)` (or the typed `FromMeters`/`FromSquareMeters`/`FromCubicMeters`/`FromKilograms`/`FromSeconds` factory), so the persisted scalar is always SI-base.
 - Foreign-unit ingest from an IFC `IfcSIUnit`/`IfcConversionBasedUnit` abbreviation routes through `UnitParser.TryParse<TUnit>` then `Quantity.From(value, unit)`; an unparseable unit lowers onto `BimFault.CapabilityMiss`, never an exception.
 - Quantity equality and ordering use the struct's `IEqualityOperators`/`IComparisonOperators`; aggregation over an element set uses `UnitMath.Sum`/`Min`/`Max`/`Average` with the explicit SI base unit, never a manual `double` fold.
-- The dynamic `Quantity`/`IQuantity` seam is the boundary-only erased path for unit-keyed IFC ingest; internal `QuantitySet` code holds the strongly-typed `Length`/`Area`/`Volume`/`Mass`/`Duration` value.
+- The dynamic `Quantity`/`IQuantity` seam is the boundary-only erased path for unit-keyed IFC ingest; the persisted seam `MeasureValue` holds the SI scalar the strongly-typed `Length`/`Area`/`Volume`/`Mass`/`Duration` struct coerced.
 
 [STACKING]:
-- with `GeometryGymIFC_Core` (`.api/api-geometrygym-ifc`): the IFC ingest rail surfaces a `KindOf` axis as a raw `(double measure, string unit)` pair off `IfcPhysicalSimpleQuantity.MeasureValue`/`.Unit` and `IfcPropertySingleValue.NominalValue`; `UnitParser.Default.TryParse<TUnit>(unit)` resolves the abbreviation and `Quantity.From(measure, parsedUnit)` constructs the typed quantity — one rail from foreign string to typed struct, no stringly-keyed unit switch.
-- with `Thinktecture.Runtime.Extensions` (`.api/api-thinktecture-json`): the `PROPERTY_SETS` `MeasureValue` value-carrier and the `QuantityKind`/`PropertyValue.Measure` `[Union]` arm own the discriminant; the UnitsNet typed struct is the payload the union case carries, and the persisted scalar is always `ToUnit(UnitSystem.SI)`-coerced before it enters the carrier — the `[Union]`/`[ValueObject]` owns shape, UnitsNet owns dimension.
-- with `LanguageExt.Core`: an unparseable `IfcSIUnit`/`IfcConversionBasedUnit` abbreviation degrades through `UnitParser.Default.TryParse` to a dimensionless `QuantityKind.Count` (ingest-tolerant) or lowers onto `BimFault.CapabilityMiss`/`Fin<T>` at a hard boundary — never a thrown `UnitNotFoundException`; same-kind element-set reduction is `UnitMath.Sum(carriers, SiUnit)` lifted from the persisted SI scalar through `Length.FromMeters`/`Area.FromSquareMeters`/… , never a `Seq.Fold` over raw `double`.
-- with the kernel `Rasm` geometry: `QuantitySet.Derive` reads `GeometryHandle.Volume`/`.Area`/`.Length` (already SI-base from the kernel) and wraps each through the matching `From*` factory so the takeoff is a typed quantity, and the cross-dimensional operators close a derivation (e.g. a sectional `Area * Length → Volume`) without leaving the dimensioned algebra.
+- with `GeometryGymIFC_Core` (`.api/api-geometrygym-ifc`): the IFC ingest rail surfaces a foreign measure as a raw `(double measure, string unit)` pair off `IfcPhysicalSimpleQuantity.MeasureValue`/`.Unit` and `IfcPropertySingleValue.NominalValue`; `UnitParser.Default.TryParse<TUnit>(unit)` resolves the abbreviation and `Quantity.From(measure, parsedUnit)` constructs the typed quantity, SI-coerced into the seam `MeasureValue` — one rail from foreign string to typed seam value, no stringly-keyed unit switch.
+- with `Thinktecture.Runtime.Extensions` (`.api/api-thinktecture-json`): the seam `Rasm.Element/Properties/quantity#MEASURE_VALUE` `MeasureValue` `[ComplexValueObject]` value-carrier (over the `Dimension` exponent vector + the `QuantityType` `[ValueObject<string>]` discriminator) and the seam `Rasm.Element/Properties/property#PROPERTY_VALUE` `PropertyValue.Measure` `[Union]` arm own the discriminant; the UnitsNet typed struct is the payload, and the persisted scalar is always `ToUnit(UnitSystem.SI)`-coerced before it enters the carrier — the `[ComplexValueObject]`/`[Union]` owns shape, UnitsNet owns dimension.
+- with `LanguageExt.Core`: an unparseable `IfcSIUnit`/`IfcConversionBasedUnit` abbreviation degrades through `UnitParser.Default.TryParse` to a dimensionless seam `MeasureValue` over `Dimension.Dimensionless` (ingest-tolerant) or lowers onto `BimFault.CapabilityMiss`/`Fin<T>` at a hard boundary — never a thrown `UnitNotFoundException`; same-`Dimension` element-set reduction is the seam `MeasureValue.Sum` reducer lifted from the persisted SI scalar through `Length.FromMeters`/`Area.FromSquareMeters`/… , never a `Seq.Fold` over raw `double`.
+- with the kernel `Rasm` geometry: the `Semantics/properties#BASE_QUANTITIES` `QuantityDerivation.Derive` reads the kernel `GeometryMeasures` value-object (`Option<double>` `Length`/`Area`/`Volume`, already SI-base from the kernel/Compute resolved by content key) and wraps each through the matching `From*` factory so the takeoff is a typed quantity SI-coerced into a seam `MeasureValue`, the cross-dimensional operators closing a derivation (e.g. a sectional `Area * Length → Volume`, `NetVolume × density → NetWeight`) without leaving the dimensioned algebra — Bim consumes the measure, never tessellating.
 
 [RAIL_LAW]:
 - Package: `UnitsNet`
 - Owns: dimensioned scalar quantities and SI-base unit coercion
-- Accept: `QuantitySet` quantities carry a typed value and unit, persisted SI-base
-- Reject: bare `double` quantity fields, ad-hoc unit-conversion arithmetic, exception-driven unit parse, a stringly-keyed `KindOf` unit switch, a manual `double` aggregation fold
+- Accept: the seam `MeasureValue` carries a typed value coerced SI-base, its `Dimension`/`QuantityType` the discriminant
+- Reject: bare `double` quantity fields, ad-hoc unit-conversion arithmetic, exception-driven unit parse, a stringly-keyed `KindOf`/`QuantityKind` unit switch (the seam `Dimension` replaced it [H2]), a manual `double` aggregation fold

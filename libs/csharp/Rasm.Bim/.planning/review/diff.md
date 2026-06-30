@@ -161,7 +161,7 @@ public sealed record ModelDiff(Seq<ElementChange> Changes, int UnchangedCount) {
 
     static UInt128 BoundContribution(ElementGraph graph, NodeId self, Relationship edge, double tolerance) {
         CanonicalWriter writer = new(tolerance);
-        writer.Raw(edge.ToCanonicalBytes().Span);
+        writer.Raw(edge.ToCanonicalBytes(tolerance).Span);
         NodeId far = edge.Relating == self ? edge.Related : edge.Relating;
         graph.Find(far).IfSome(node => { if (node is not Node.Object) { writer.U128(ContentAddress.Of(node, tolerance).Value); } });
         return ContentAddress.Of(writer.ToBytes().Span).Value;

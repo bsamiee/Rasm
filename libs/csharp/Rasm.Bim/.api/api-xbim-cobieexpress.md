@@ -179,10 +179,10 @@ siblings under the same xBIM lineage and license posture.
   with `Xbim.Ifc4.Interfaces.IIfcBuilding`/`IIfcSpace`/`IIfcTypeObject` entities — this is the xBIM IFC
   toolkit (`Xbim.Ifc`/`Xbim.Ifc4` 6.0.587), a SEPARATE IFC implementation from Rasm's GeometryGym
   semantic authority (`api-geometrygym-ifc`); the two never share an in-memory graph
-- canonical Rasm path: AUTHOR the `CobieModel` directly from the `Model/elements#ELEMENT_MODEL`
-  `BimModel`/`ElementSet` + the `Semantics/properties#PROPERTY_SETS` properties through the store API —
-  no xBIM IFC reader is stood up, GeometryGym stays the sole authority, and the COBie register is a
-  projection of the canonical model
+- canonical Rasm path: AUTHOR the `CobieModel` directly from the seam `Rasm.Element/Graph/element#ELEMENT_GRAPH`
+  `ElementGraph` baked `Element`s + their `Semantics/properties#PROPERTY_TEMPLATES`-typed property/quantity bags
+  through the store API — no xBIM IFC reader is stood up, GeometryGym stays the sole authority, and the COBie
+  register is a projection of the seam graph (the retired `BimModel`/`ElementSet` is gone)
 - terminal-handover path (guarded): the turnkey `CobieExpressConverter.Run` reading the persisted `.ifc`
   through `Xbim.Ifc.IfcStore.Open` is admissible ONLY as a one-way file→file transform at the export
   edge — the xBIM model is opened, converted, and disposed inside the call, never retained as a second
@@ -195,7 +195,7 @@ siblings under the same xBIM lineage and license posture.
   rows (COBie XLSX via `ExportToTable`, COBie STEP21 via `SaveAsStep21`, COBie JSON), the `ExportArtifact`
   bytes content-keyed by the same `Rasm.Compute/Runtime/codecs#CONTENT_ADDRESSING` `InterchangeIdentity`
   the GLB/IFC export seals; COBie carries the FM ASSET-INFORMATION the geometry/IFC arms do not
-- with `Semantics/properties#PROPERTY_SETS` (`api-xbim-properties`): the `CobieAttribute` rows are the
+- with `Semantics/properties#PROPERTY_TEMPLATES` (`api-xbim-properties`): the `CobieAttribute` rows are the
   COBie projection of the Pset properties — the same Pset vocabulary the `Xbim.Properties` template
   defines and the GeometryGym model carries, mapped onto `CobieAttribute` (name + `AttributeValue` +
   unit), never a re-typed property model
@@ -230,8 +230,8 @@ siblings under the same xBIM lineage and license posture.
   type/component, system, spare/resource/job, document/contact/attribute/issue/impact/connection/
   coordinate + the pick-value dictionaries), the `CobieModel` store (STEP21/Esent/spreadsheet IO,
   transactions, `ExportToTable`/`ImportFromTable`), and the turnkey IFC→COBie converter
-- Accept: the canonical `CobieModel` authored DIRECTLY from the `Model/elements#ELEMENT_MODEL` `BimModel`
-  + `Semantics/properties#PROPERTY_SETS` Pset attributes + `VividOrange.Stages` phases +
+- Accept: the canonical `CobieModel` authored DIRECTLY from the seam `Rasm.Element/Graph/element#ELEMENT_GRAPH` `ElementGraph` baked `Element`s
+  + `Semantics/properties#PROPERTY_TEMPLATES` Pset attributes + `VividOrange.Stages` phases +
   `NodaMoney`/`UnitsNet` units + `NodaTime` provenance, serialized as the COBie spreadsheet/STEP21 export
   leg of `Exchange/export#EXPORT_RAIL` content-keyed by the shared `InterchangeIdentity`
 - Reject: standing up the xBIM `Xbim.Ifc`/`Xbim.Ifc4` reader as a second in-memory IFC authority beside

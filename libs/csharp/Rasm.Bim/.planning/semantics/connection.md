@@ -36,7 +36,7 @@ namespace Rasm.Bim;
 // The joint TOPOLOGY is the Connect(ConnectKind.Realizing) edge EdgeProjection authors; this page owns only the detail.
 public static class ConnectionProjection {
     // The seam Pset the connection detail rides — a custom set name (NOT a buildingSMART Pset_* reserved prefix), the
-    // Pset roster owned by Semantics/properties#PROPERTY_SETS; OccurrenceWins because a realizing detail is occurrence-
+    // Pset roster owned by Semantics/properties#PROPERTY_TEMPLATES; OccurrenceWins because a realizing detail is occurrence-
     // specific (no type-driven inheritance), the InheritanceMode the Bake merge reads.
     const string ConnectionSet = "Rasm_ConnectionRealization";
 

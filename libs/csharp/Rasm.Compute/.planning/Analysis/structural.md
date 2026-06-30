@@ -13,7 +13,7 @@ Rasm.Compute structural-analysis runner: the `Discipline.Structural` arm of the 
 - Owner: `FrameModel` the analysis idealization (members, combinations, policy); `SolverBackend` the 3-row backend axis (`Analysis/assessment` content-keys its `Key`); `MemberLoad` the per-member applied-action `[Union]` (`Point`/`Uniform`/`Trapezoid`); `StructuralCase` the load-case `[SmartEnum<string>]`; `MemberSupport` the 6-DOF restraint at a member end; `LoadCombinationSpec` the factored case map; `StructuralPolicy` the backend/deflection/station policy; `StructuralMember` the resolved member (axis, section, strength, family, loads, supports). `SolverBackend`/`StructuralCase`/`MemberSupport`/`LoadCombinationSpec`/`StructuralPolicy` are the seam contract `AssessmentRequest.Structural` carries and `Analysis/assessment` `CanonicalBytes` folds — their field shape is load-bearing across the spine.
 - Entry: `static Fin<FrameModel> Project(ElementGraph graph, AssessmentRequest.Structural request, GeometrySource geometry)` — folds the request `Targets` member `Node.Object`s into the idealization, reading each member's `StructuralReads.AxisOf` (the analytical line resolved one-hop by content key through the seam `GeometrySource` port off `member.Representations.Axis`), `graph.MechanicalOf` (the seam strength), `graph.SectionOf` (the seam Op-free M7 accessor reading the baked `ProfileSet` section directly — the seam owns the section read, so the runner never re-derives a discipline-local section accessor), `StructuralReads.SupportsOf`, and `StructuralReads.LoadsOf`, `Fin<T>` aborting onto `ComputeFault.AssessmentInputMissing` when a member lacks a section, a strength, or an axis.
 - Auto: self-weight derives per member from `Section.Area.Si × Mechanical.Density.Si × StandardGravity` as a global-down `Uniform` force-per-length in the `Dead` case; the request's projected `MemberLoad`s supply the live/wind/snow/seismic actions; `LoadCombinationSpec` factors the cases per code (ASCE 7 / EN 1990) so a combination is data the backend reads, never a re-modelled load set; the member's `MaterialFamily` is `Classify`-derived from the strength for the FE material model and validated against the route's `DesignCode.Family` at `Check`.
-- Packages: LanguageExt.Core (`Fin`/`Seq`/`Option`/`Map`), Thinktecture.Runtime.Extensions (`[Union]`/`[SmartEnum]`), Rasm.Element (project — `ElementGraph`, `Node`, `NodeId`, `AxisCurve`, `GeometrySource` the analytical-line resolution port, `RepresentationContentHash`, `SectionProperties`, `MaterialPropertySet`, `Relationship`, `PropertyName`, `PropertyValue`, `MeasureValue`), Rasm (project — `Vector3`), BCL inbox (`FrozenDictionary`).
+- Packages: LanguageExt.Core (`Fin`/`Seq`/`Option`/`Map`), Thinktecture.Runtime.Extensions (`[Union]`/`[SmartEnum]`), Rasm.Element (project — `ElementGraph`, `Node`, `NodeId`, the seam-owned host-neutral `Vector3` coordinate the `AxisCurve` carries and the load vectors reuse, `AxisCurve`, `GeometrySource` the analytical-line resolution port, `RepresentationContentHash`, `SectionProperties`, `MaterialPropertySet`, `Relationship`, `PropertyName`, `PropertyValue`, `MeasureValue`), BCL inbox (`FrozenDictionary`).
 - Growth: a new applied-action kind is one `MemberLoad` case (both backends widen their total load `Switch`); a new restraint is data on `MemberSupport`; a new combination basis is one `LoadCombinationSpec` row — the idealization widens by data, the backends and checks re-read it.
 - Boundary: the section is the M7-resolved seam `SectionProperties` read once off the `ProfileSet` composition — the `VividOrange` `ProfileRef`→section resolution happens ONCE in the `Rasm.Materials` projector, so this runner reads `Area`/`Iyy`/`Izz`/`J`/`Wply`/`Wplz`/`Wely`/`Welz`/`AvY`/`AvZ`/`RadiusOfGyrationMinor`/`Depth`/`Width`/`LeastDimension` (`SectionProperties` carries the both-axis shear areas `AvY`/`AvZ` and both-axis radii, so the per-axis shear check reads its own area) and never re-resolves a profile, and Compute admits no VividOrange; the strength is the seam `Mechanical.YieldStrength`/`UltimateStrength`/`YoungsModulus`/`ShearModulus`/`Density`/`PoissonsRatio` (the seam field is `PoissonsRatio`, never `PoissonRatio`) read off the member's associated material; the analytical line is the seam `AxisCurve` (`Start`/`End`/`Up`) the Bim projector content-keyed under `member.Representations.Axis` (NEVER inlined on the node — the deleted §4-RT-M2 phantom `Node.Object.Axis`), the runner resolving it ONE-HOP by that content key through the seam `GeometrySource` port the spine threads (the app wires the resolver over the Persistence object-store byte-stream) — `MemberAxis` is NOT re-declared (it mirrored `AxisCurve` field-for-field, the deleted parallel shape), coplanarity riding a `StructuralReads` `AxisCurve` fold and length the member's own `Vector3.Distance` derivation; supports and loads traverse the projected `IfcRelConnectsStructuralMember`/`IfcRelConnectsStructuralActivity` neutral `Generic` edges by wire-name (the C5 stranded structural families ride the `Generic` passthrough, the Bim projector stamping the 6-DOF restraint, the applied components, the end discriminant, and the load kind), so the runner reads the idealization fully baked, never re-reading IFC; a member with no section/strength/axis rails the typed input fault, never a defaulted section.
 
@@ -114,7 +114,7 @@ public static partial class StructuralAnalysis {
                 let directional = graph.PropertiesOf(id).Orthotropic
                 let family     = MaterialFamily.Classify(strength)
                 let selfWeight = new MemberLoad.Uniform(StructuralCase.Dead,
-                    new Vector3(0f, 0f, -(float)(section.Area.Si * strength.Density.Si * StandardGravity)))
+                    new Vector3(0d, 0d, -(section.Area.Si * strength.Density.Si * StandardGravity)))
                 select members.Add(new StructuralMember(
                     id, axis, section, strength, directional, family, graph.LoadsOf(id).Add(selfWeight), graph.SupportsOf(id)))))
             .Map(members => new FrameModel(members, request.Combinations, request.Policy));
@@ -184,7 +184,7 @@ public static class StructuralReads {
         g.Attributes.Find(key).Map(static v => v is PropertyValue.Boolean b && b.Value).IfNone(false);
 
     static Vector3 Vec(Relationship.Generic g, string component) =>
-        new((float)Si(g, $"{component}X"), (float)Si(g, $"{component}Y"), (float)Si(g, $"{component}Z"));
+        new(Si(g, $"{component}X"), Si(g, $"{component}Y"), Si(g, $"{component}Z"));
 
     static double Si(Relationship.Generic g, string key) =>
         g.Attributes.Find(PropertyName.Create(key)).Map(static v => v is PropertyValue.Measure m ? m.Value.Si : 0.0).IfNone(0.0);
@@ -312,7 +312,7 @@ public static partial class StructuralAnalysis {
         trapezoid: t => BfeTrapezoid(t.Case, t.Start, t.End));
 
     static BriefFiniteElementNet.ElementalLoad BfeUniform(StructuralCase kase, Vector3 w) {
-        double magnitude = w.Length();
+        double magnitude = Vector3.Distance(w, default);   // |w| via the seam-declared static Distance (no System.Numerics .Length())
         BriefFiniteElementNet.Vector direction = magnitude > Eps
             ? new BriefFiniteElementNet.Vector(w.X / magnitude, w.Y / magnitude, w.Z / magnitude)
             : new BriefFiniteElementNet.Vector(0, 0, -1);
@@ -320,7 +320,7 @@ public static partial class StructuralAnalysis {
     }
 
     static BriefFiniteElementNet.ElementalLoad BfeTrapezoid(StructuralCase kase, Vector3 startW, Vector3 endW) {
-        double s = startW.Length(), e = endW.Length();
+        double s = Vector3.Distance(startW, default), e = Vector3.Distance(endW, default);
         Vector3 axis = s >= e ? startW : endW;
         double mag = Math.Max(s, e);
         BriefFiniteElementNet.Vector direction = mag > Eps

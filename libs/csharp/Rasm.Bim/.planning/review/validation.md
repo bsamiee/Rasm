@@ -251,7 +251,7 @@ public sealed record IdsSpecification(
     // exact-only match over a parent code awaits a query-algebra exact arm. A facet with no system or no code yields no branch.
     static Seq<SeamClassification> ClassificationBranches(IfcClassificationFacet f) =>
         SingleValue(f.ClassificationSystem).Filter(static s => !string.IsNullOrWhiteSpace(s)).Map(ResolveSystem).Match(
-            Some: system => ExactValues(f.Identification).Filter(static c => !string.IsNullOrWhiteSpace(c)).Map(code => SeamClassification.Create(system, code, None)),
+            Some: system => ExactValues(f.Identification).Filter(static c => !string.IsNullOrWhiteSpace(c)).Map(code => SeamClassification.Create(system, code, "", "", None, None)),
             None: static () => Seq<SeamClassification>());
 
     static string ResolveSystem(string name) =>

@@ -191,13 +191,17 @@ public static class TimeTravel {
             + EdgeDeltas(query, a, b);
 
     // The EDGE axis of the AS-OF diff — the topology delta the node-keyed Inequalities cannot recover. Each edge is keyed
-    // by its standalone `ToCanonicalBytes()` content key (the SAME edge content key Version/merge#STRUCTURAL_DIFF and the
-    // graph content address compose), so an edge in `b` not in `a` is Added, in `a` not `b` Removed (a rewired endpoint
-    // is one Removed + one Added — the content key changed). Each changed edge attributes to BOTH endpoint NodeIds (the
-    // SAME both-endpoint attribution Blame uses), the from/to address the edge's own content key, honoring NodeKeyPrefix.
+    // by its standalone `ToCanonicalBytes(tolerance)` content key under its OWN graph's `Header.Tolerance` (the SAME edge
+    // content key Version/merge#STRUCTURAL_DIFF and the graph content address compose, the SAME grid the node-side
+    // `ContentAddress.Of(n, a.Header.Tolerance)` keying above uses), so an edge in `b` not in `a` is Added, in `a` not `b`
+    // Removed (a rewired endpoint is one Removed + one Added — the content key changed). Threading the model tolerance
+    // keeps a `Generic` edge's `PropertyValue.Measure` attributes quantized on the same grid (the five typed edge cases
+    // carry no Measure and are tolerance-insensitive), so a sub-tolerance measure jitter never reads as a phantom edge
+    // Added+Removed. Each changed edge attributes to BOTH endpoint NodeIds (the SAME both-endpoint attribution Blame uses),
+    // the from/to address the edge's own content key, honoring NodeKeyPrefix.
     static Seq<KeyDelta> EdgeDeltas(AsOfQuery query, ElementGraph a, ElementGraph b) {
-        HashMap<UInt128, Relationship> fromEdges = toHashMap(a.Edges.Select(e => (XxHash128.HashToUInt128(e.ToCanonicalBytes().Span), e)));
-        HashMap<UInt128, Relationship> toEdges = toHashMap(b.Edges.Select(e => (XxHash128.HashToUInt128(e.ToCanonicalBytes().Span), e)));
+        HashMap<UInt128, Relationship> fromEdges = toHashMap(a.Edges.Select(e => (XxHash128.HashToUInt128(e.ToCanonicalBytes(a.Header.Tolerance).Span), e)));
+        HashMap<UInt128, Relationship> toEdges = toHashMap(b.Edges.Select(e => (XxHash128.HashToUInt128(e.ToCanonicalBytes(b.Header.Tolerance).Span), e)));
         Seq<(Relationship Edge, ChangeKind Kind, Option<UInt128> Key)> changed =
             toSeq(toEdges.Filter((key, _) => !fromEdges.ContainsKey(key)).Map(static (key, e) => (e, ChangeKind.Added, Some(key))).Values)
             + toSeq(fromEdges.Filter((key, _) => !toEdges.ContainsKey(key)).Map(static (key, e) => (e, ChangeKind.Removed, Some(key))).Values);

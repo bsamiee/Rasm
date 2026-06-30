@@ -14,7 +14,7 @@ export const meta = {
 
 // --- [CONSTANTS] -------------------------------------------------------------------------
 
-const CAP = 9
+const CAP = 8
 const BATCH = 4
 const STAGGER_MS = 1500
 const PLAN = 'ELEMENT-REBUILD-PLAN.md'

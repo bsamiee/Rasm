@@ -198,8 +198,9 @@ public readonly record struct GlazingSection(Seq<Pane> Panes, Seq<Cavity> Caviti
 
     // The EN 673 center-of-glass U-value + the EN 410 solar/light projection + the mass-law Acoustic spectrum, COMPUTED
     // through the GlazingThermal kernel — the IGU's defining performance the seam material carries (never a stored
-    // scalar). Fin because the Acoustic spectrum admits through the seam's PUBLIC Acoustic.Of band gate (Acoustic.Seed
-    // is internal to Rasm.Element, never cross-assembly — the properties.md sibling lowers acoustic the same way).
+    // scalar). Fin because the Acoustic spectrum admits through the seam's PUBLIC Acoustic.Of band gate — its only
+    // admission, with no re-hydration bypass — so the band arity/unit rail surfaces here (the properties.md sibling
+    // lowers acoustic the same way).
     public Fin<GlazingPerformance> Performance(Op key) => GlazingThermal.Evaluate(this, key);
 
     // The seam MaterialPropertySet set the IGU material carries (Composition/material#MATERIAL_PROPERTY) — the Projection
@@ -216,7 +217,7 @@ public readonly record struct GlazingSection(Seq<Pane> Panes, Seq<Cavity> Caviti
             vapourResistanceFactor: 1.0e6,                        // glass is a vapour barrier (EN ISO 13788 μ → vapour-tight)
             key)
         from environmental in MaterialPropertySet.OfEnvironmental(
-            MeasurementBasis.PerM2, GlazingGwp.StagesPerM2(this), recycledContent: 0.25, endOfLifeRecovery: 0.90, epd: "EN 15804 generic float glass", validUntilYear: 0, key)
+            MeasurementBasis.PerM2, MaterialPropertySet.Environmental.CarbonMatrix(GlazingGwp.StagesPerM2(this)), recycledContent: 0.25, endOfLifeRecovery: 0.90, epd: "EN 15804 generic float glass", validUntilYear: 0, key)
         let acoustic = MaterialPropertySet.OfAcoustic(perf.Acoustic)
         let core = Seq(thermal, acoustic, environmental)
         select Panes.Exists(static p => p.Glass == GlassType.FireRated)
@@ -357,7 +358,7 @@ public static class GlazingThermal {
     // panes shift the coincidence dips apart, +2 dB) — the honest closed form the seam carries no decoupling cavity to
     // refine. The absorption spectrum is glass's near-zero (0.03 flat); the Rw is the seam RatingContour.Rw.Fit read.
     // Admits through the seam's PUBLIC Acoustic.Of band gate (the curated vectors are valid by construction — absorption
-    // 0.03 ∈ [0,1], every sound-reduction band finite — so Of succeeds, never the Rasm.Element-internal Seed).
+    // 0.03 ∈ [0,1], every sound-reduction band finite — so Of succeeds).
     static Fin<Acoustic> MassLawSpectrum(GlazingSection section, Op key) {
         const double GlassDensityKgM3 = 2500.0;
         double areal = section.Panes.Sum(static p => GlassDensityKgM3 * p.ThicknessMm.Value / 1000.0);
@@ -388,9 +389,11 @@ public static class GlazingThermal {
         MeasureValue.Of(value, UnitsNet.Units.RatioUnit.DecimalFraction, key).IfFail(MeasureValue.Zero);
 }
 
-// The per-m² embodied-carbon stage vector the Environmental case reads — the EN 15804 generic float-glass GWP scaled
-// by the IGU glass mass per m² (the cradle-to-gate A1-A3 dominant, A4-D the transport/install/end-of-life tail), the
-// SAME EN 15978 lifecycle-stage banding the seam MaterialPropertySet.Environmental carries (kgCO2e per the PerM2 basis).
+// The per-m² embodied-carbon CARBON-only per-module GwpTotal stage vector ToProperties embeds into the seam Environmental
+// case's FULL (ImpactCategory × LifecycleStage) matrix through MaterialPropertySet.Environmental.CarbonMatrix — the EN
+// 15804 generic float-glass GWP scaled by the IGU glass mass per m² (the cradle-to-gate A1-A3 dominant, A4-D the
+// transport/install/end-of-life tail), over the SAME EN 15978 LifecycleStage banding the seam matrix's GwpTotal row lays
+// out (kgCO2e per the PerM2 basis); the un-declared EN 15804+A2 indicator rows zero (the seam's partial-EPD invariant).
 public static class GlazingGwp {
     const double GlassDensityKgM3 = 2500.0;
     const double GlassGwpPerKg = 1.20;   // EN 15804 generic float glass cradle-to-gate kgCO2e/kg
