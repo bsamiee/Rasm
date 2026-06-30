@@ -46,6 +46,9 @@ const done = (await pool(FILES, 10, (f) => agent(
   { label: 'edit:' + f, phase: 'Edit', schema: EDIT }))).filter(Boolean)
 
 // --- Reconcile: BARRIER (dedup + cluster by shared file via union-find), then PIPELINE fix -> verify. ---
+// Single-pass: each cluster fixes + verifies ONCE. To ITERATE this to drive-to-zero, progress-gate every
+// round — skip the verify on a no-change fix, re-queue only NEW residuals via a seen-set, break the round
+// nothing changed a file (the round cap is a backstop, not the exit). Worked law: references/patterns.md section 13.
 const all = done.flatMap((d) => d.residual || [])
 const uniq = [...new Map(all.map((r) => [r.files.join(',') + '|' + r.claim, r])).values()]
 const clusters = (() => {

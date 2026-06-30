@@ -409,6 +409,17 @@ These are the mistakes that actually break workflows:
   budget guard (`while (budget.total && budget.remaining() > 50_000)`). With no
   budget set, `budget.remaining()` is `Infinity`; an unguarded loop sprints into
   the 1000-agent lifetime cap and throws.
+- **A fix→verify drive-to-zero loop gates on PROGRESS, not just the round cap.** When a
+  loop re-queues the residuals a verify left open and re-verifies them round after round,
+  the cap alone lets it burn every round confirming nothing. Three guards, all required:
+  (1) skip the verify when the fix changed no file (or returned a `clean`/no-op verdict) —
+  a fix that touched nothing has nothing to verify, so resolve-or-drop its residuals
+  without spending one; (2) re-queue only genuinely-NEW residuals via a cumulative `seen`
+  set keyed `sorted-files|claim`, so a fixer that re-surfaces the same item cannot re-feed
+  the loop forever; (3) break the moment a round changes no file — the remainder is
+  unfixable, so log + return it and stop. The cap is a runaway backstop, never the exit;
+  the no-defer guarantee survives because a genuinely-open residual is still surfaced. The
+  worked law is `references/patterns.md` §13.
 - **`isolation: 'worktree'` is expensive** (~200–500 ms + disk per agent). Use it
   only when parallel agents mutate files and would otherwise collide.
 - **Grant permissions before a long parallel run.** Subagents run in `acceptEdits`

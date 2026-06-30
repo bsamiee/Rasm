@@ -473,6 +473,34 @@ validate. Distinct from #2 (synthesize into one report) and #8 (skeptic vote on 
 claim): this is cluster-by-shared-resource, then fix-and-verify each cluster. The
 full worked file is `assets/examples/rebuild-and-reconcile.js`.
 
+**Iterating to drive-to-zero — the progress gate.** The shape above fixes each cluster
+ONCE. When the reconcile instead ITERATES — re-queue the residuals a verify left `open`,
+re-cluster, fix again, round after round until none remain — every round MUST gate on
+file-changing PROGRESS, or it spends rounds verifying fixes that changed nothing:
+
+```js
+const seen = new Set(); let pending = uniq; let round = 0
+while (pending.length && round++ < MAX_ROUNDS) {
+  let changed = false; const next = []
+  for (const cl of unionFindBySharedFile(pending)) {
+    const fix = await agent(fixPrompt(cl), { schema: FIXED })
+    if (!(fix?.files ?? []).filter(inRepo).length || fix?.verdict === 'clean') continue   // (1) no change -> NO verify
+    changed = true
+    const v = await agent(verifyPrompt(cl, fix.files), { schema: VERIFY })
+    for (const c of v?.claims ?? []) if (!c.resolved && !seen.has(key(c))) { seen.add(key(c)); next.push(c) }  // (2) only NEW
+  }
+  if (!changed) break                                  // (3) a round that changed no file never will -> stop
+  pending = next
+}
+return { hard: pending }                               // still-open: log LOUDLY + return, never drop
+```
+
+(1) a fix that touched no file (or returned `clean`) has nothing to verify — skip the verify
+and drop the cluster; (2) the cumulative `seen` set (key `sorted-files|claim`) stops a fixer
+that re-surfaces the same residual from feeding the loop forever; (3) a round that changes no
+file will never make progress, so break — `MAX_ROUNDS` is a runaway backstop, never the exit.
+The no-defer guarantee holds: a genuinely-open residual is still surfaced, never dropped.
+
 ---
 
 ## 14. Steady worker pool for a large list of long chains

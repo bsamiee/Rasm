@@ -38,6 +38,13 @@ const collected = []
 //        while (dry < 2 && round < MAX_ROUNDS) { ...; if (empty) dry++; else dry = 0 }
 //        do { round++; ...; if (passed) break } while (round < MAX_ROUNDS)
 //
+// (d) Fix->verify drive-to-zero — re-queue the residuals a verify left open, round
+//     after round. Beyond the MAX_ROUNDS backstop, gate on file-changing PROGRESS or it
+//     burns rounds verifying nothing: skip the verify when the fix changed no file (or
+//     returned verdict 'clean'); re-queue only NEW residuals via a cumulative seen-set;
+//     break the round nothing changed a file. Still log + return any genuinely-open
+//     residual, never drop it. Worked law: references/patterns.md section 13.
+//
 // effort: 'low' suits a mechanical collect/discovery round; raise it if each
 // round demands real reasoning (effort guidance: references/api-reference.md).
 while (budget.total && budget.remaining() > 50_000 && collected.length < 200) {
