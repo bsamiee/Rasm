@@ -18,6 +18,7 @@ The repository is one tri-language AEC platform organized into strict strata. Ea
 [APP-PLATFORM]
 - Folder(s): `Rasm.AppHost`, `Rasm.Compute`, `Rasm.Persistence`, `Rasm.AppUi`
 - Generic application capability: runtime spine, measured execution, durable stores, product UI. Composes the kernel and AEC-domain and owns no geometry, BIM semantics, or fabrication algorithms — it consumes them.
+- Planned: `Rasm.Generation` — the layout/generation/assembly orchestration lib. It owns the generation orchestration that turns a sited occurrence + its inherited `Component` generative data + Construction primitives + bond/layout into host-neutral kernel geometry, composing the kernel's geometry operations rather than owning geometry primitives. Depends up on `{Rasm, Rasm.Element, Rasm.Materials, Rasm.Bim, Rasm.Fabrication}` — composing several AEC-domain owners is the defining app-platform shape — and leaves the live-document bake to the host boundary. Folder not yet stood up.
 
 [HOST-BOUNDARY]
 - Folder(s): `Rasm.Rhino`, `Rasm.Grasshopper`
@@ -34,7 +35,7 @@ Dependency is strictly upward through the strata; the graph is acyclic with the 
 - `Rasm` references no sibling and is referenced by every C# stratum above it.
 - `Rasm.Element` (the lowest-AEC seam) references only `Rasm`, names no IFC or provider package, and is referenced as the shared lower stratum by every AEC peer and by the app-platform stores that persist or read the `ElementGraph`.
 - The AEC peers (`Rasm.Materials`, `Rasm.Bim`, `Rasm.Fabrication`) depend up on `{Rasm, Rasm.Element}` and never reference each other — alignment is via the `IElementProjection`/`IGraphConstraint` seam contracts and the content-keyed wire. This REPLACES the prior allowance of minimal AEC-peer cross-references.
-- App-platform references the kernel and the element seam; cross-references between AEC-domain and app-platform are one-directional (app-platform consumes the element seam and the AEC-domain capability, never the reverse).
+- App-platform references the kernel and the element seam; cross-references between AEC-domain and app-platform are one-directional (app-platform consumes the element seam and the AEC-domain capability, never the reverse). The planned `Rasm.Generation` follows this direction: it consumes the element seam (occurrences + `Bake`/`TypeId`) and the AEC-domain capability (`Component` generative data, Construction primitives), and nothing references it downward.
 - No host-neutral package (KERNEL, AEC-DOMAIN, APP-PLATFORM) references a HOST-BOUNDARY package. `Rasm.Rhino` and `Rasm.Grasshopper` reference only `Rasm` and are composed at the app roots.
 - `Rasm.AppUi` is the app-platform consuming leaf; it is NOT the app composition root. The product composition that binds host boundaries (Rhino/GH2) lives at the future APP stratum, never inside app-platform. A scaffold `.csproj` that references `Rasm.Rhino`/`Rasm.Grasshopper` from `Rasm.AppUi` is redrawn to the strata: AppUi references the kernel, AppHost, Compute, and Persistence, and the host boundaries enter at the app root that composes a live host.
 
