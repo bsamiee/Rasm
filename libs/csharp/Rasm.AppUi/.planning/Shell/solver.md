@@ -48,7 +48,7 @@ public readonly record struct LayoutVar(string Owner, LayoutEdge Edge) {
 public readonly record struct LayoutTerm(LayoutVar Variable, double Coefficient);
 
 public readonly record struct LayoutExpr(Seq<LayoutTerm> Terms, double Constant) {
-    public static LayoutExpr Of(LayoutVar variable) => new(Seq1(new LayoutTerm(variable, 1d)), 0d);
+    public static LayoutExpr Of(LayoutVar variable) => new(Seq(new LayoutTerm(variable, 1d)), 0d);
     public LayoutExpr Plus(double metric) => this with { Constant = Constant + metric };
     public LayoutExpr Minus(LayoutVar other) => this with { Terms = Terms.Add(new LayoutTerm(other, -1d)) };
 }

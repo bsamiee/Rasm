@@ -389,7 +389,7 @@ public static class SyncPump {
             // `Pushed` accounting; the blob fetch itself is the `Store/blobstore` content-addressed transfer the peer
             // dedups by content key, never an `Apply` of a blob as an op-log entry.
             subtreeCheckout: static (s, row) => s.Fetch(row.Root).Bind(entry =>
-                SyncMerge.Apply(s, Seq1(entry)).Map(receipt => receipt with { Pushed = GraphDiff(entry, s.Holds).Count })));
+                SyncMerge.Apply(s, Seq(entry)).Map(receipt => receipt with { Pushed = GraphDiff(entry, s.Holds).Count })));
 
     // The BLOB-transfer manifest a subtree checkout / Speckle offer dials: the descendant geometry content-key set
     // (the `Closure`) plus the root entry's own payload key, minus what the peer holds — the keys the content-addressed
@@ -401,7 +401,7 @@ public static class SyncPump {
     // transfer through the content-addressed blob store, never re-fetched as op-log entries through `source.Fetch`.
     public static IO<SyncApplyReceipt> SubtreeFetch(SyncSession source, SyncSession target, UInt128 root) =>
         source.Fetch(root).Bind(entry =>
-            SyncMerge.Apply(target, Seq1(entry)).Map(receipt => receipt with { Pushed = GraphDiff(entry, target.Holds).Count }));
+            SyncMerge.Apply(target, Seq(entry)).Map(receipt => receipt with { Pushed = GraphDiff(entry, target.Holds).Count }));
 
     static IO<SyncApplyReceipt> Exchange(SyncSession s, SyncTransport.HttpDelta row) =>
         (row.Flow.Pulls

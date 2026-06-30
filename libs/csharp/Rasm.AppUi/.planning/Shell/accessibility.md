@@ -28,7 +28,7 @@ public sealed record SceneAccessNode(
     string Role,
     (double X, double Y, double Z) Center,
     Seq<SceneAccessNode> Children) {
-    public Seq<SceneAccessNode> Flatten() => Seq1(this) + Children.Bind(static child => child.Flatten());
+    public Seq<SceneAccessNode> Flatten() => Seq(this) + Children.Bind(static child => child.Flatten());
 
     public Option<SceneAccessNode> Nearest((double X, double Y, double Z) from) =>
         Flatten().OrderBy(node => Distance(node.Center, from)).HeadOrNone();

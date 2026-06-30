@@ -93,7 +93,7 @@ public sealed partial class DoeDesign {
             boxBehnken: static s => 2L * s.Axes.Count * Math.Max(0, s.Axes.Count - 1) + Math.Max(1, s.Policy.CenterPoints));
 
     static Seq<ImmutableArray<double>> Factorial(Seq<SweepAxis> axes) =>
-        axes.Fold(Seq1(ImmutableArray<double>.Empty), static (acc, axis) => acc.Bind(prefix => axis.Levels.Map(prefix.Add)));
+        axes.Fold(Seq(ImmutableArray<double>.Empty), static (acc, axis) => acc.Bind(prefix => axis.Levels.Map(prefix.Add)));
 
     // 2^(k-p): the first (k-p) factors are a full two-level basis, each added factor aliased to a DISTINCT
     // high-resolution interaction generator (highest-popcount columns first) so the fraction stays high-res.

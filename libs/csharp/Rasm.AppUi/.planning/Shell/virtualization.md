@@ -157,7 +157,7 @@ public static class StickyProjection {
 
         private static Seq<PinnedRow<TItem>> Headers(Seq<RealizedItem<TItem>> rows, RealizedItem<TItem> top, Func<TItem, Option<string>> groupOf, Func<TItem, int> depthOf) =>
             groupOf(top.Item).Match(
-                Some: _ => Seq1(new PinnedRow<TItem>(top.Item, PinRole.GroupHeader, depthOf(top.Item), top.Offset)),
+                Some: _ => Seq(new PinnedRow<TItem>(top.Item, PinRole.GroupHeader, depthOf(top.Item), top.Offset)),
                 None: () => Seq<PinnedRow<TItem>>());
     }
 }

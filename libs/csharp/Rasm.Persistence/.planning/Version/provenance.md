@@ -183,7 +183,7 @@ public static class CausalDag {
             // its activity. No attribution is ever sourced off an activity (that is association).
             Seq<ProvEdge> generated = commit.ToSeq().Map(c => ProvEdge.Of(ProvRelation.WasGeneratedBy, entry.ContentKey, c, entry.Stamp));
             Seq<ProvEdge> associated = commit.ToSeq().Map(c => ProvEdge.Of(ProvRelation.WasAssociatedWith, c, agent, entry.Stamp).Qualified(activity.AssociationRole, commit));
-            Seq<ProvEdge> attributed = Seq1(ProvEdge.Of(ProvRelation.WasAttributedTo, entry.ContentKey, agent, entry.Stamp));
+            Seq<ProvEdge> attributed = Seq(ProvEdge.Of(ProvRelation.WasAttributedTo, entry.ContentKey, agent, entry.Stamp));
             Seq<ProvEdge> informed = node.ToSeq().Bind(c => commit.ToSeq().Bind(activityKey => c.Parents.Map(parent => ProvEdge.Of(ProvRelation.WasInformedBy, activityKey, parent, entry.Stamp))));
             // Lineage rides the COMMIT-DAG, NEVER the `OpLogEntry.Closure` (which is the DESCENDANT GEOMETRY content-key
             // manifest — a blob set, not a predecessor). PROV-O endpoint typing is exact: a RETIRED entity `WasInvalidatedBy`
@@ -216,7 +216,7 @@ public static class CausalDag {
                         : acc);
             return Expand(level.Next, level.Seen, level.Reached, depth - 1);
         }
-        return Expand(Seq1(walk.Root), HashSet(walk.Root.Value), Seq<ProvNode>(), walk.Depth);
+        return Expand(Seq(walk.Root), HashSet(walk.Root.Value), Seq<ProvNode>(), walk.Depth);
     }
 
     // Derivation-only ancestry — the transitive wasDerivedFrom/Revision/Quotation/PrimarySource closure
@@ -381,10 +381,10 @@ public static class AttestedLedger {
 
     public static MerkleAudit Seal(Seq<AttestedEntry> chain) {
         Seq<UInt128> leaves = chain.Map(static e => e.Chain);
-        Seq<Seq<UInt128>> levels = Seq1(leaves);
+        Seq<Seq<UInt128>> levels = Seq(leaves);
         for (var level = leaves; level.Count > 1; level = levels.Last.IfNone(level))
             levels = levels.Add(toSeq(level.AsEnumerable().Chunk(2).Select(static pair => pair.Length == 2 ? Pair(pair[0], pair[1]) : pair[0])));
-        return new MerkleAudit(leaves.IsEmpty ? Seq1(Seq<UInt128>()) : levels, chain.Count);
+        return new MerkleAudit(leaves.IsEmpty ? Seq(Seq<UInt128>()) : levels, chain.Count);
     }
 
     public static Option<InclusionProof> Prove(MerkleAudit audit, int leaf) =>

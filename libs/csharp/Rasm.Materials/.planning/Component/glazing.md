@@ -358,7 +358,7 @@ public readonly record struct GlazingSection(
         toSeq(Enumerable.Range(0, Panes.Count + Cavities.Count))
             .Bind(slot => (slot & 1) == 0
                 ? PaneLayers(Panes[slot / 2], slot / 2)
-                : Seq1((MaterialId.Of("gas.cavity"), Cavities[slot / 2].WidthMm.Value, CavityLayerName(Cavities[slot / 2], slot / 2))));
+                : Seq((MaterialId.Of("gas.cavity"), Cavities[slot / 2].WidthMm.Value, CavityLayerName(Cavities[slot / 2], slot / 2))));
 
     // A monolithic pane is one glass layer; a laminated pane is glass / interlayer / glass — the interlayer split out of the
     // pane thickness so the IGU's IfcMaterialLayerSet carries the laminate sub-stack. The interlayer shades as the clear
@@ -370,7 +370,7 @@ public readonly record struct GlazingSection(
                 (pane.Glass.Appearance, pane.GlassThicknessMm / 2.0, $"pane-{index}-{pane.Glass.Key}-{pane.Coating.Key}-outer"),
                 (MaterialId.Of("glass.crown"), pane.InterlayerThicknessMm, $"pane-{index}-{pane.Interlayer.Key}-interlayer"),
                 (pane.Glass.Appearance, pane.GlassThicknessMm / 2.0, $"pane-{index}-{pane.Glass.Key}-inner"))
-            : Seq1((pane.Glass.Appearance, pane.ThicknessMm.Value, $"pane-{index}-{pane.Glass.Key}-{pane.Coating.Key}"));
+            : Seq((pane.Glass.Appearance, pane.ThicknessMm.Value, $"pane-{index}-{pane.Glass.Key}-{pane.Coating.Key}"));
 
     static string CavityLayerName(Cavity c, int index) => c.Fill.Switch(
         gasFill: gas => $"cavity-{gas.Gas.Key}-{gas.FillFraction:P0}-{index}",

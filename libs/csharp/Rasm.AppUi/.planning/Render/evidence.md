@@ -298,7 +298,7 @@ public sealed record FlameNode(string Frame, Duration Self, Seq<FlameNode> Child
     public Duration Total => Self + Children.Fold(Duration.Zero, static (acc, child) => acc + child.Total);
 
     public Seq<(string Frame, Duration Total, int Depth)> Flatten(int depth = 0) =>
-        Seq1((Frame, Total, depth)) + Children.Bind(child => child.Flatten(depth + 1));
+        Seq((Frame, Total, depth)) + Children.Bind(child => child.Flatten(depth + 1));
 }
 
 public sealed record SolveFrame(int Ordinal, string NodeId, JsonElement State, Instant At);

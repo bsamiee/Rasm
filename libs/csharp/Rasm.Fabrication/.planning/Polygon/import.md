@@ -115,9 +115,9 @@ public static class ProfileImport {
 
     static Seq<Point3d> Span(LwPolyline poly, int i, ChordTolerance chord) {
         LwPolyline.Vertex v = poly.Vertices[i];
-        if (Math.Abs(v.Bulge) < 1e-12) return Seq1(Pt(v.Location));
+        if (Math.Abs(v.Bulge) < 1e-12) return Seq(Pt(v.Location));
         int next = (i + 1) % poly.Vertices.Count;
-        if (next == 0 && !poly.IsClosed) return Seq1(Pt(v.Location));
+        if (next == 0 && !poly.IsClosed) return Seq(Pt(v.Location));
         List<XYZ> sampled = Arc.CreateFromBulge(v.Location, poly.Vertices[next].Location, v.Bulge)
             .PolygonalVertexes(chord.Segments);
         return Sampled(sampled).Take(sampled.Count - 1);

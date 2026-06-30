@@ -307,7 +307,7 @@ public static class GraphLane {
             await using var reader = await command.ExecuteReaderAsync().ConfigureAwait(false);
             var paths = new List<AgtypePath>();   // Exemption: the chunk drain fills a seam-local list frozen once by toSeq; per-row Seq.Add forcing is the rejected O(n²) form (data-interchange#CHUNK_ALGEBRA)
             while (await reader.ReadAsync().ConfigureAwait(false)) {
-                var step = GraphSession.Decode(await reader.IsDBNullAsync(0).ConfigureAwait(false) ? null : reader.GetString(0)).Map(static id => new AgtypePath(Seq1(id), 0.0));
+                var step = GraphSession.Decode(await reader.IsDBNullAsync(0).ConfigureAwait(false) ? null : reader.GetString(0)).Map(static id => new AgtypePath(Seq(id), 0.0));
                 if (step.IsFail) { return step.Map(static _ => Seq<AgtypePath>()); }
                 step.Iter(paths.Add);
             }

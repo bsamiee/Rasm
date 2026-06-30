@@ -162,7 +162,7 @@ public static class Intersection {
         Sign d3 = Predicate.Orient2D(b.From, b.To, a.From), d4 = Predicate.Orient2D(b.From, b.To, a.To);
         bool crosses = d1 != d2 && d3 != d4 && d1 != Sign.Zero && d2 != Sign.Zero && d3 != Sign.Zero && d4 != Sign.Zero;
         return crosses
-            ? Fin.Succ(Seq1(LineLine(a, b, faceA: -1, faceB: -1)))
+            ? Fin.Succ(Seq(LineLine(a, b, faceA: -1, faceB: -1)))
             : Fin.Succ(Seq<Crossing>());
     }
 
@@ -173,7 +173,7 @@ public static class Intersection {
         Crossing hit = PlanePoint(edge, ta, tb, tc, faceA: -1, faceB: -1);
         Point3d q = hit.Round();
         return InTriangle(Project(q, axis), Project(ta, axis), Project(tb, axis), Project(tc, axis))
-            ? Fin.Succ(Seq1(hit))
+            ? Fin.Succ(Seq(hit))
             : Fin.Succ(Seq<Crossing>());
     }
 
@@ -190,8 +190,8 @@ public static class Intersection {
         Crossing k = PlanePoint(new Line(a0, a2), qa, qb, qc, faceA: 0, faceB: 1);
         Crossing l = PlanePoint(new Line(b0, b2), pa, pb, pc, faceA: 1, faceB: 0);
         return Predicate.Orient3D(a0, a1, b0, b1) == Sign.Zero
-            ? Fin.Succ(Seq1((Order(i, j), Order(k, l))))
-            : Fin.Succ(Seq1((Order(i, k), Order(j, l))));
+            ? Fin.Succ(Seq((Order(i, j), Order(k, l))))
+            : Fin.Succ(Seq((Order(i, k), Order(j, l))));
     }
 
     static bool SameSide(Sign a, Sign b, Sign c) =>

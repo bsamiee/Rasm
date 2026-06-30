@@ -168,9 +168,9 @@ public abstract partial class MaterialComposition {
  }
 
  public Seq<MaterialId> Materials => Switch(
-  single: static s => Seq1(s.Material),
+  single: static s => Seq(s.Material),
   layerSet: static s => s.Layers.Map(static l => l.Material),
-  profileSet: static s => Seq1(s.Material),
+  profileSet: static s => Seq(s.Material),
   constituentSet: static s => s.Constituents.Map(static c => c.Material));
 
  // The principal material an occurrence keys appearance/structural defaults on: the single/profile material,

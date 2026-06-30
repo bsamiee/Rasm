@@ -276,8 +276,8 @@ public sealed record SlabStack(Seq<Slab> Slabs) {
     // The coat lowers to a ThinFilm lobe (the Belcour-Barla spectral interference term) when a film thickness is carried,
     // else a plain Clearcoat dielectric layer; the fuzz to a Sheen lobe; both attenuated by the energy the base leaves.
     private static Seq<LobeWeight> LowerSlab(Slab slab, double pass) => slab.Switch(
-        fuzz:     f => f.Weight > 0.0 ? Seq1(new LobeWeight(new BsdfLobe.Sheen(f.Color, f.Roughness), Weight(f.Weight, pass))) : Seq<LobeWeight>(),
-        coat:     c => c.Weight > 0.0 ? Seq1(new LobeWeight(CoatLobe(c), Weight(c.Weight, pass))) : Seq<LobeWeight>(),
+        fuzz:     f => f.Weight > 0.0 ? Seq(new LobeWeight(new BsdfLobe.Sheen(f.Color, f.Roughness), Weight(f.Weight, pass))) : Seq<LobeWeight>(),
+        coat:     c => c.Weight > 0.0 ? Seq(new LobeWeight(CoatLobe(c), Weight(c.Weight, pass))) : Seq<LobeWeight>(),
         emission: static _ => Seq<LobeWeight>(),
         @base:    b => LowerBase(b, pass));
 

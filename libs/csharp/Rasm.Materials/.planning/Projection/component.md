@@ -430,7 +430,7 @@ public static class ComponentSubgraph {
                 let composition = CompositionAuthor.Single(id)                                       // a homogeneous library material; layered/profiled compositions ride a Type spec's family lowering
                 let appearance = MaterialLibrary.Lookup(id, key).Map(MaterialWire.Summary).ToOption()  // Appearance/graph#MATERIAL_LIBRARY → Appearance/interchange#MATERIAL_WIRE content-keyed AppearanceSummary
                 from bindings in elementOf(id).Match(
-                    Some: element => CompositionAuthor.UsageOf(composition, key).Map(usage => Seq1(new MaterialBinding(element, usage, classification))),  // C7: thread the seam MaterialUsage Fin AND the Object-node Classification onto the binding
+                    Some: element => CompositionAuthor.UsageOf(composition, key).Map(usage => Seq(new MaterialBinding(element, usage, classification))),  // C7: thread the seam MaterialUsage Fin AND the Object-node Classification onto the binding
                     None: () => Fin.Succ(Seq<MaterialBinding>()))                                     // no bound element → a pure-Materials subgraph run, the resolved classification simply has no Object node to land on
                 select source.With(new MaterialSpec(id, composition, properties, appearance, bindings))));
 

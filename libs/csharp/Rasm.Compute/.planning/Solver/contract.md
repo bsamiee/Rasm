@@ -939,7 +939,7 @@ public static class CoupledLane {
 
     static Seq<double> Delta(Seq<SolveResult> previous, Seq<SolveResult> current) =>
         previous.Count != current.Count
-            ? Seq1(double.MaxValue)
+            ? Seq(double.MaxValue)
             : toSeq(Enumerable.Range(0, current.Count)).Bind(field => {
                 ReadOnlySpan<double> a = previous[field].Field.Span, b = current[field].Field.Span;
                 var diffs = new List<double>(b.Length);

@@ -82,7 +82,7 @@ public partial record IdsFacet {
     public ElementPredicate ToPredicate(ElementGraph graph) => Switch(
         state:          graph,
         entity:         static (_, f) => AnyOf(f.Classes.Bind(cls => f.Predefined.IsEmpty
-                            ? Seq1<ElementPredicate>(new ElementPredicate.ByClass(cls))
+                            ? Seq<ElementPredicate>(new ElementPredicate.ByClass(cls))
                             : f.Predefined.Map(pt => (ElementPredicate)new ElementPredicate.ByPredefinedType(cls, pt)))),
         attribute:      static (_, f) => AnyOf(f.Value.Map(vm => (ElementPredicate)new ElementPredicate.ByAttribute(f.Attribute, vm))),
         property:       static (_, f) => AnyOf(f.Value.Map(vm => (ElementPredicate)new ElementPredicate.ByProperty(f.SetName, f.Name, vm))),
@@ -237,7 +237,7 @@ public sealed record IdsSpecification(
     // roster does not carry (the projector stamps only rostered keys, so an unrostered facet selects nothing anyway).
     static Seq<IfcClass> ResolveClasses(ValueConstraint? type, bool includeSubtypes) =>
         ExactValues(type)
-            .Bind(name => includeSubtypes ? IdsSchema.ConcreteClasses(name).Add(name) : Seq1(name))
+            .Bind(name => includeSubtypes ? IdsSchema.ConcreteClasses(name).Add(name) : Seq(name))
             .Distinct()
             .Choose(IfcClass.TryGet);
 
@@ -293,16 +293,16 @@ public sealed record IdsSpecification(
         Seq<IValueConstraintComponent> components =
             Optional(constraint).Bind(static c => Optional(c.AcceptedValues)).Map(static a => a.ToSeq()).IfNone(Seq<IValueConstraintComponent>());
         if (components.IsEmpty) {
-            return Seq1(ValueMatch.Any);
+            return Seq(ValueMatch.Any);
         }
         Seq<string> exacts = components.Choose(static c => c is ExactConstraint e ? Some(e.Value) : Option<string>.None);
         return exacts.Count == components.Count
-            ? Seq1<ValueMatch>(new ValueMatch.OneOf(exacts))
+            ? Seq<ValueMatch>(new ValueMatch.OneOf(exacts))
             : components.Map(c => Lower(c, dataType));
     }
 
     static ValueMatch Lower(IValueConstraintComponent component, Option<string> dataType) => component switch {
-        ExactConstraint e     => new ValueMatch.OneOf(Seq1(e.Value)),
+        ExactConstraint e     => new ValueMatch.OneOf(Seq(e.Value)),
         PatternConstraint p   => new ValueMatch.Pattern(p.Pattern),
         RangeConstraint r     => new ValueMatch.Range(Bound(r.MinValue, dataType), Bound(r.MaxValue, dataType), r.MinInclusive, r.MaxInclusive),
         StructureConstraint s => new ValueMatch.Length(

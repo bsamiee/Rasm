@@ -24,7 +24,7 @@ using Rasm.Domain;                              // Context, Op, AcceptValidated 
 using Rasm.Element;                             // MaterialId (the seam appearance/capacity handle each masonry row carries)
 using Thinktecture;                             // [SmartEnum]/[UseDelegateFromConstructor]/[KeyMemberEqualityComparer], ComparerAccessors
 using Rasm.Materials.Component;                 // Component/ComponentUnit/ComponentStandard/ComponentAuthority/ComponentId/ComponentFault/ComponentFamily/ComponentSection/Coring (the parent COMPONENT_OWNER)
-using static LanguageExt.Prelude;               // Seq, Seq1, toSeq, Some, None
+using static LanguageExt.Prelude;               // Seq, toSeq, Some, None
 
 // This page DEFINES the masonry vocabulary (BondName/Orientation/MortarType/MortarJoint/CourseTemplate/SpecialShape) the
 // cmu#CMU_FAMILY + Construction siblings import as Rasm.Materials.Component.Masonry; the parent owner types (Component,
@@ -236,7 +236,7 @@ public sealed partial class BondGeometry {
     // Stack: a single stretcher per course, vertically aligned (RepeatUnits 1, so OffsetFraction stays 0) — the base
     // stacked cell with no offset and no per-unit rotation.
     static CourseTemplate Stacked(int course) =>
-        new(Seq1(new UnitPlacement(Orientation.Stretcher, 0.0, 0.0, 0.0)), Stack.OffsetFraction(course));
+        new(Seq(new UnitPlacement(Orientation.Stretcher, 0.0, 0.0, 0.0)), Stack.OffsetFraction(course));
 
     // Flemish: each course alternates stretcher-header per unit, every other course shifted a quarter unit so a header
     // centres over the stretcher below; the two units pack consecutively (along/lateral 0), the course offset the cell key.
@@ -268,7 +268,7 @@ public sealed partial class BondGeometry {
     // Diaper: a diamond lattice — one stretcher per course rotated plus/minus 45 degrees by course parity on a four-course
     // diagonal repeat, the offset stepping each course so the diamonds interlock.
     static CourseTemplate Lattice(int course) =>
-        new(Seq1(new UnitPlacement(Orientation.Stretcher, 0.0, 0.0, (course % 2 == 0 ? 1 : -1) * Diaper.RotationDegrees)), Diaper.OffsetFraction(course));
+        new(Seq(new UnitPlacement(Orientation.Stretcher, 0.0, 0.0, (course % 2 == 0 ? 1 : -1) * Diaper.RotationDegrees)), Diaper.OffsetFraction(course));
 }
 
 // The bond catalogue: template bonds carry an explicit per-unit course set; generated bonds reference a BondGeometry
@@ -311,8 +311,8 @@ public sealed partial class BondName {
             .ToFin(ComponentFault.Bond(key, $"<generated-bond-missing-geometry:{Key}>"))
             .Map(geometry => geometry.Course(index)));
 
-    static CourseTemplate StretcherCourse(double courseOffset) => new(Seq1(new UnitPlacement(Orientation.Stretcher, 0.0, 0.0, 0.0)), courseOffset);
-    static CourseTemplate HeaderCourse(double courseOffset) => new(Seq1(new UnitPlacement(Orientation.Header, 0.0, 0.0, 0.0)), courseOffset);
+    static CourseTemplate StretcherCourse(double courseOffset) => new(Seq(new UnitPlacement(Orientation.Stretcher, 0.0, 0.0, 0.0)), courseOffset);
+    static CourseTemplate HeaderCourse(double courseOffset) => new(Seq(new UnitPlacement(Orientation.Header, 0.0, 0.0, 0.0)), courseOffset);
 }
 
 // --- [MODELS] ------------------------------------------------------------------------------

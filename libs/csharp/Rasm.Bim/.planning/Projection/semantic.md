@@ -102,7 +102,7 @@ public sealed partial class SemanticProjector(DatabaseIfc db) : IElementProjecti
                     .Match(
                         Some: c => rel.RelatedObjects.OfType<IfcRoot>().Aggregate(map, (acc, related) =>
                             rooted.Find(related.GlobalId).Match(
-                                Some: id => acc.AddOrUpdate(id, existing => existing.Add(c), () => Seq1(c)),
+                                Some: id => acc.AddOrUpdate(id, existing => existing.Add(c), () => Seq(c)),
                                 None: () => acc)),
                         None: () => map));
         return byNode.IsEmpty
@@ -203,8 +203,8 @@ public sealed partial class SemanticProjector(DatabaseIfc db) : IElementProjecti
                 Organizations: info.Organization.ToSeq(),
                 Preprocessor:  info.PreProcessorVersion ?? "",
                 OriginatingSystem: info.OriginatingSystem ?? "",
-                Schema:        Seq1(database.Release.ToString()))
-            : StepHeader.Empty with { Schema = Seq1(database.Release.ToString()) };
+                Schema:        Seq(database.Release.ToString()))
+            : StepHeader.Empty with { Schema = Seq(database.Release.ToString()) };
 
     // The two currency leaks meet here and nowhere else: the GeometryGym ReleaseVersion/ModelView lower onto the seam
     // SmartEnum by key match (the seam keys "IFC2X3"/"IFC4X3_ADD2" match the GeometryGym enum ToString case-insensitively),
@@ -758,7 +758,7 @@ public sealed partial class SemanticProjector {
                 graph.EdgesAt(material.Id)
                     .Choose(e => e is Relationship.Associate a && a.Resource == material.Id ? Some(a) : None)
                     .Iter(edge => products.Find(edge.Subject).IfSome(product => {
-                        _ = new IfcRelAssociatesMaterial(MaterialProjection.AuthorUsage(definition, edge.Usage), Seq1((IfcDefinitionSelect)product));
+                        _ = new IfcRelAssociatesMaterial(MaterialProjection.AuthorUsage(definition, edge.Usage), Seq((IfcDefinitionSelect)product));
                     }));
                 return unit;
             }))
@@ -869,7 +869,7 @@ public sealed partial class SemanticProjector {
             var (ifcRelating, ifcRelated) = kind.Inverted ? (edge.Related, edge.Relating) : (edge.Relating, edge.Related);
             products.Find(ifcRelating).IfSome(relating =>
                 products.Find(ifcRelated).IfSome(related =>
-                    kind.Author(target, (IfcProduct)relating, Seq1((IfcProduct)related)).IfSome(rel => {
+                    kind.Author(target, (IfcProduct)relating, Seq((IfcProduct)related)).IfSome(rel => {
                         // A realizing Connect re-authors its third endpoint onto IfcRelConnectsWithRealizingElements so the
                         // realizing intermediary round-trips, not just the From/To pair the row-driven Author binds.
                         if (edge is Relationship.Connect { Realizing: var realizing } && rel is IfcRelConnectsWithRealizingElements realized) {

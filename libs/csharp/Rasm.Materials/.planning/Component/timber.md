@@ -159,7 +159,7 @@ public readonly record struct PlyLayup(PositiveMagnitude PlyThicknessMm, Seq<int
     // The longitudinal plies (0°) carry the in-plane axial/bending action; the transverse (90°) carry rolling shear.
     public Seq<int> LongitudinalIndices => toSeq(Enumerable.Range(0, PlyCount)).Filter(i => PlyAngles[i] == 0);
     public double LongitudinalThicknessMm => LongitudinalIndices.Count * PlyThicknessMm.Value;
-    public static PlyLayup Homogeneous(PositiveMagnitude depthMm) => new(depthMm, Seq1(0));
+    public static PlyLayup Homogeneous(PositiveMagnitude depthMm) => new(depthMm, Seq(0));
     // A balanced symmetric CLT layup: outer plies longitudinal, alternating 0/90 toward the core (3/5/7-ply).
     public static PlyLayup CrossLaminated(PositiveMagnitude plyMm, int plies) =>
         new(plyMm, toSeq(Enumerable.Range(0, Math.Max(1, plies))).Map(static i => (i & 1) == 0 ? 0 : 90));
@@ -262,7 +262,7 @@ public readonly record struct TimberSection(
     // the structural stiffness the grade data uniquely sources, never the catalogue's physical rows.
     public Fin<Seq<MaterialPropertySet>> ToProperties(Op key) =>
         MaterialPropertySet.OfOrthotropic(Grade.DensityK, Grade.E0Mean, Grade.E90Mean, Grade.GMean, Grade.Fc0k, Grade.Fc90k, 5.0e-6, key)
-            .Map(static orthotropic => Seq1(orthotropic));
+            .Map(static orthotropic => Seq(orthotropic));
 
     // The unit-segment projection a profiled member flows through the Resolve fold on — WidthMm the section breadth,
     // DepthMm the section depth, LengthMm a unit-segment placeholder the RunPath length overrides (the SAME shape

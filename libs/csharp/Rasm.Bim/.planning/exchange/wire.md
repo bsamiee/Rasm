@@ -73,8 +73,8 @@ public sealed record IfcWire(
     // ExternalId for re-ingest correlation [H6]; the projector's own delta Header overrides the Genesis seed.
     public Fin<ElementGraph> Admit(ProjectionContext ctx) =>
         Database(Format, Bytes, ctx.Key).Bind(db => ProjectionAssembly.Assemble(
-            Seq1<IElementProjection>(new SemanticProjector(db)),
-            Seq1<IGraphConstraint>(new IfcLegality()),
+            Seq<IElementProjection>(new SemanticProjector(db)),
+            Seq<IGraphConstraint>(new IfcLegality()),
             ElementGraph.Genesis(ctx.Header), ctx).Map(static r => r.Graph));
 
     // Content negotiation across the IFC serializations a peer admits (STEP > ifcXML > ifcJSON by interop breadth) —

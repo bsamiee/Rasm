@@ -135,9 +135,9 @@ public abstract partial record AppearanceNode(PortId Id) {
         Switch(
             input: static _ => Seq<PortId>(),
             texture: static _ => Seq<PortId>(),
-            math: static m => m.Rhs.Match(Some: r => Seq(m.Lhs, r), None: () => Seq1(m.Lhs)),
+            math: static m => m.Rhs.Match(Some: r => Seq(m.Lhs, r), None: () => Seq(m.Lhs)),
             mix: static x => Seq(x.A, x.B, x.Factor),
-            normal: static n => Seq1(n.Source),
+            normal: static n => Seq(n.Source),
             bsdfOutput: static o => Seq(o.BaseColor, o.Metalness, o.Roughness, o.NormalFrame, o.Emission));
 }
 

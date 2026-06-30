@@ -103,8 +103,8 @@ public static class TensorLayout {
                     : TensorFault.Fail<Seq<Tensor<T>>>("squeeze-nonunit", $"{ax}:{source.Lengths[ax]}")),
                 None: () => One(Tensor.Squeeze(source))),
             unsqueeze: u => Axis(u.Dimension, source.Rank + 1).Bind(d => One(Tensor.Unsqueeze(source, d))),
-            reshape: r => Reshaped(source, r.Lengths).Map(Seq1),
-            flatten: f => FlatLengths(source, f.Start, f.Count).Bind(lengths => Reshaped(source, lengths)).Map(Seq1),
+            reshape: r => Reshaped(source, r.Lengths).Map(Seq),
+            flatten: f => FlatLengths(source, f.Start, f.Count).Bind(lengths => Reshaped(source, lengths)).Map(Seq),
             densify: _ => One(source.ToDenseTensor()),
             broadcast: b => Broadcastable(source, b.Lengths).Bind(_ => One(Tensor.Broadcast(source, b.Lengths))),
             concatenate: c => JoinCompatible(source, c.Others, c.Dimension, stack: false).Bind(_ => One(Tensor.ConcatenateOnDimension(c.Dimension, [source, .. c.Others]))),
@@ -118,7 +118,7 @@ public static class TensorLayout {
                 ? One(source.Slice(l.Ranges))
                 : TensorFault.Fail<Seq<Tensor<T>>>("slice-rank", $"{l.Ranges.Length}!={source.Rank}"));
 
-    private static Fin<Seq<Tensor<T>>> One<T>(Tensor<T> tensor) where T : unmanaged => Fin.Succ(Seq1(tensor));
+    private static Fin<Seq<Tensor<T>>> One<T>(Tensor<T> tensor) where T : unmanaged => Fin.Succ(Seq(tensor));
 
     private static Fin<int> Axis(int dimension, int upperExclusive) =>
         dimension >= 0 && dimension < upperExclusive ? Fin.Succ(dimension) : TensorFault.Fail<int>("axis-range", $"{dimension}/{upperExclusive}");

@@ -342,7 +342,7 @@ public sealed record DesignProblem(
     static Seq<GeometryTape> Lower(Seq<DesignVariable> variables, Option<MeshAdjointSnapshot> designMesh) =>
         designMesh.Case is MeshAdjointSnapshot mesh
             ? variables.Filter(static v => v.Free)
-                .Bind(v => v.AdjointOperator.Match(Some: op => Seq1(new GeometryTape(op, mesh)), None: () => Seq<GeometryTape>()))
+                .Bind(v => v.AdjointOperator.Match(Some: op => Seq(new GeometryTape(op, mesh)), None: () => Seq<GeometryTape>()))
             : Seq<GeometryTape>();
 
     public ImmutableArray<double> Senses => [.. Objectives.Map(static o => o.Sign)];
@@ -536,9 +536,9 @@ public sealed record Surrogate(
             ({ IsSome: true, Case: NeuralFieldModel field }, { IsSome: true, Case: var (session, options, scope) }, _, _) =>
                 field.Predict(session, options, scope, point.Coordinates.AsSpan()),
             (_, _, { IsSome: true, Case: GpModel gp }, _) =>
-                gp.Posterior(point.Coordinates.AsSpan()) is var (mean, variance) ? (Seq1(mean), Math.Sqrt(variance)) : (Seq1(0.0), double.MaxValue),
+                gp.Posterior(point.Coordinates.AsSpan()) is var (mean, variance) ? (Seq(mean), Math.Sqrt(variance)) : (Seq(0.0), double.MaxValue),
             (_, _, _, { IsSome: true, Case: RbfModel rbf }) =>
-                rbf.Posterior(point.Coordinates.AsSpan()) is var (mean, bound) ? (Seq1(mean), bound) : (Seq1(0.0), double.MaxValue),
+                rbf.Posterior(point.Coordinates.AsSpan()) is var (mean, bound) ? (Seq(mean), bound) : (Seq(0.0), double.MaxValue),
             _ => LinearPredict(point),
         };
 
@@ -551,7 +551,7 @@ public sealed record Surrogate(
             leverage += delta * delta;
         }
         double bound = ResidualRms * (1.0 + Math.Sqrt(leverage) / Math.Max(1e-9, SpreadScale));
-        return (Seq1(mean), bound);
+        return (Seq(mean), bound);
     }
 
     public Surrogate Reduce(Orthogonalization scheme, Matrix<double> snapshots, int rank) {
@@ -686,7 +686,7 @@ public sealed record NeuralFieldModel(
                 results => {
                     ReadOnlySpan<float> field = results.First().GetTensorDataAsSpan<float>();
                     return Fin.Succ((toSeq(field[..Math.Min(field.Length, FieldComponents)].ToArray().Select(static v => (double)v)), bound));
-                })).Match(Succ: static pair => pair, Fail: static _ => (Seq1(0.0), double.MaxValue));
+                })).Match(Succ: static pair => pair, Fail: static _ => (Seq(0.0), double.MaxValue));
     }
 }
 public static class Optimizer {
@@ -915,7 +915,7 @@ public static class Optimizer {
             None: () => Fin.Fail<KernelRun>(ComputeFault.Create("<exact-needs-linear-model:milp>")));
 
     static Fin<KernelRun> Harvest(DesignProblem problem, OptimizerPolicy policy, Func<DesignPoint, Fin<Seq<double>>> oracle, ParetoFront seed, ImmutableArray<double> coordinates) =>
-        Probe(problem, oracle, coordinates).Map(point => new KernelRun(seed.Insert(point), 1, policy.TrustRadius, Seq1(point.Violation)));
+        Probe(problem, oracle, coordinates).Map(point => new KernelRun(seed.Insert(point), 1, policy.TrustRadius, Seq(point.Violation)));
 
     static double DiscreteValue(DesignVariable variable, long raw, double step) =>
         variable is DesignVariable.Continuous ? raw * step : variable.Clamp(raw);
@@ -969,7 +969,7 @@ public static class Optimizer {
         int m = problem.Objectives.Count, k = problem.Constraints;
         double[] worstObj = [.. Enumerable.Range(0, m).Select(i => problem.Senses[i] > 0 ? double.MinValue : double.MaxValue)];
         double[] worstCon = [.. Enumerable.Repeat(double.MinValue, k)];
-        Seq<ImmutableArray<double>> probes = scenarios.IsEmpty ? Seq1(ImmutableArray<double>.Empty) : scenarios;
+        Seq<ImmutableArray<double>> probes = scenarios.IsEmpty ? Seq(ImmutableArray<double>.Empty) : scenarios;
         return probes.Fold(Fin.Succ((Fail: 0, Total: 0)), (acc, scenario) => acc.Bind(carry => {
                 ImmutableArray<double> shifted = [.. point.Coordinates.Select((c, axis) => c + (axis < scenario.Length ? scenario[axis] : 0.0))];
                 return Probe(problem, oracle, shifted).Map(p => {
@@ -1200,7 +1200,7 @@ public static class GeneticEngine {
             TaskExecutor = new ParallelTaskExecutor { MaxThreads = Environment.ProcessorCount, Timeout = TimeSpan.FromSeconds(policy.SolveSeconds) },
         };
         algorithm.Start();
-        return Fin.Succ(new KernelRun(harvest.Value, algorithm.GenerationsNumber, policy.TrustRadius, Seq1(Optimizer.Worst(harvest.Value))));
+        return Fin.Succ(new KernelRun(harvest.Value, algorithm.GenerationsNumber, policy.TrustRadius, Seq(Optimizer.Worst(harvest.Value))));
     }
 
     // The space-filling candidate pool the Bayesian acquisition ranks: a seed-keyed LowDiscrepancy.Sobol net

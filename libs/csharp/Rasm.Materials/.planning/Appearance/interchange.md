@@ -415,10 +415,10 @@ public static class Mtlx {
 
     static Seq<MtlxInput> InputsOf(AppearanceNode node) => node.Switch(
         input:      static _ => Seq<MtlxInput>(),
-        texture:    static _ => Seq1(new MtlxInput("file", MtlxPort.Color3, string.Empty, Option<string>.None)),
-        math:       static m => m.Rhs.Match(Some: r => Seq(Edge("in1", MtlxPort.Color3, m.Lhs), Edge("in2", MtlxPort.Color3, r)), None: () => Seq1(Edge("in1", MtlxPort.Color3, m.Lhs))),
+        texture:    static _ => Seq(new MtlxInput("file", MtlxPort.Color3, string.Empty, Option<string>.None)),
+        math:       static m => m.Rhs.Match(Some: r => Seq(Edge("in1", MtlxPort.Color3, m.Lhs), Edge("in2", MtlxPort.Color3, r)), None: () => Seq(Edge("in1", MtlxPort.Color3, m.Lhs))),
         mix:        static x => Seq(Edge("fg", MtlxPort.Color3, x.A), Edge("bg", MtlxPort.Color3, x.B), Edge("mix", MtlxPort.Float, x.Factor)),
-        normal:     static n => Seq1(Edge("in", MtlxPort.Vector3, n.Source)),
+        normal:     static n => Seq(Edge("in", MtlxPort.Vector3, n.Source)),
         // Each BsdfOutput edge carries the REAL OpenPBR port polarity: base_color/emission_color are color3, the
         // metalness/roughness scalars are float, the geometry normal is vector3 — never a blanket color3.
         bsdfOutput: static o => Seq(
@@ -433,7 +433,7 @@ public static class Mtlx {
     public static Fin<MtlxDocument> ToOpenPbr(MaterialWire wire, Op key) =>
         string.IsNullOrWhiteSpace(wire.Id)
             ? Fin.Fail<MtlxDocument>(MaterialFault.Graph(key, "<mtlx-empty-material-id>"))
-            : Fin.Succ(new MtlxDocument(MtlxDocument.Schema, Seq1(SurfaceNode(wire)), "node0", wire.Id.Replace('.', '_')));
+            : Fin.Succ(new MtlxDocument(MtlxDocument.Schema, Seq(SurfaceNode(wire)), "node0", wire.Id.Replace('.', '_')));
 
     // The full open_pbr_surface node — every OpenPBR Surface 1.1 input the wire carries (the slab-stack columns
     // surface#OPENPBR_SLAB defines), each port typed by its real polarity, so the .mtlx round-trips the complete

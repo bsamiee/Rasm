@@ -333,7 +333,7 @@ public static class StructuralMerge {
         acc.Append(MemoryMarshal.AsBytes(node.Role.Key.AsSpan()));
         Span<byte> rollup = stackalloc byte[16];
         foreach (Seq<GraphNode> subtree in children) { BinaryPrimitives.WriteUInt128LittleEndian(rollup, subtree.Head.Map(static r => r.SubtreeHash).IfNone(UInt128.Zero)); acc.Append(rollup); }
-        return Seq1(node with { SubtreeHash = acc.GetCurrentHashAsUInt128() }) + children.Bind(static subtree => subtree);
+        return Seq(node with { SubtreeHash = acc.GetCurrentHashAsUInt128() }) + children.Bind(static subtree => subtree);
     }
 
     static Seq<EditOp> Walk(Seq<GraphNode> frontier, HashMap<NodeId, GraphNode> fromByKey, HashMap<NodeId, GraphNode> toByKey) =>

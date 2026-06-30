@@ -433,7 +433,7 @@ public static class OfficeExport {
             OfficeSheet.Table table => table.Rows.Map(cells =>
                 new Paragraph(new Run(new Text(string.Join('\t', cells))))),
             OfficeSheet.RichText rich => rich.Blocks.Bind(block => block switch {
-                FlowBlock.Text => Seq1(new Paragraph(new Run(new Text(string.Empty) { Space = SpaceProcessingModeValues.Preserve }))),
+                FlowBlock.Text => Seq(new Paragraph(new Run(new Text(string.Empty) { Space = SpaceProcessingModeValues.Preserve }))),
                 _ => Seq<Paragraph>(),
             }),
             _ => Seq<Paragraph>(),

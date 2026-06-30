@@ -87,7 +87,7 @@ public static class ThemeCatalog {
     }
 
     static Seq<(string Key, Color Value)> Ramp(string key, Color anchor, Color toward, Func<Color, Color, double, Color> mix) =>
-        Seq1((key, anchor)) + toSeq(Enumerable.Range(1, RampSteps)).Map(rank => ($"{key}+{rank}", mix(anchor, toward, RampSpan * rank / RampSteps)));
+        Seq((key, anchor)) + toSeq(Enumerable.Range(1, RampSteps)).Map(rank => ($"{key}+{rank}", mix(anchor, toward, RampSpan * rank / RampSteps)));
 
     static ColorPaletteResources Palette(FrozenDictionary<string, Color> paints) => new() {
         Accent = paints["accent"],
@@ -144,7 +144,7 @@ public sealed partial class Colormap {
 
     public Seq<Color> Ramp(int steps, Func<Color, Color, double, Color> mix) =>
         steps <= 1
-            ? Seq1(Sample(0d, mix))
+            ? Seq(Sample(0d, mix))
             : toSeq(Enumerable.Range(0, steps)).Map(step => Sample((double)step / (steps - 1), mix));
 
     public T[] HeatMap<T>(int steps, Func<Color, Color, double, Color> mix, Func<Color, T> project) =>

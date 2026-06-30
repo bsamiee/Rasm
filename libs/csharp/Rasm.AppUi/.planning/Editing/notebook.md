@@ -73,7 +73,7 @@ public abstract partial record NotebookCell {
         chart: static (ctx, c) => ctx.Runtime.Verify(c.Pin) ? ctx.Runtime.Chart(c.Spec, c.Policy, ctx.Upstream) : IO.fail<CellOutput>(new NotebookFault.CapabilityDrift(c.Id)),
         render: static (ctx, r) => ctx.Runtime.Verify(r.Pin) ? ctx.Runtime.Render(r.Kind, ctx.Upstream) : IO.fail<CellOutput>(new NotebookFault.CapabilityDrift(r.Id)),
         viewpoint: static (_, _) => IO.pure<CellOutput>(new CellOutput.Empty()),
-        parameter: static (_, p) => IO.pure<CellOutput>(new CellOutput.Rows(Seq1(p.Value))));
+        parameter: static (_, p) => IO.pure<CellOutput>(new CellOutput.Rows(Seq(p.Value))));
 }
 
 public sealed record NotebookRuntime(

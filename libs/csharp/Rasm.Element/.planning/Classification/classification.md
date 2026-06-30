@@ -102,7 +102,7 @@ public readonly partial struct Classification {
     // The full parent chain nearest-first ([Ss_25_10, Ss_25, Ss] for Ss_25_10_30) a classification-tree
     // quantity/cost rollup folds over — a pure unfold of Parent, never a stored ancestry.
     public Seq<Classification> Ancestors =>
-        Parent.Match(Some: static p => Seq1(p) + p.Ancestors, None: static () => Seq<Classification>());
+        Parent.Match(Some: static p => Seq(p) + p.Ancestors, None: static () => Seq<Classification>());
 
     // The top-level branch (self for a flat code) a system-root grouping keys on.
     public Classification Root => Parent.Match(Some: static p => p.Root, None: () => this);

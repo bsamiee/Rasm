@@ -250,7 +250,7 @@ public abstract partial record DeviceOutput {
 public static class InputFabric {
     public static Seq<CommandIntent> Map(InputDevice device, Seq<DeviceAxis> sample, CommandDeck deck) =>
         Keys(device, sample, deck)
-            .Bind(key => deck.Rows.TryGetValue(key, out var row) ? Seq1(row) : Seq<CommandIntent>());
+            .Bind(key => deck.Rows.TryGetValue(key, out var row) ? Seq(row) : Seq<CommandIntent>());
 
     static Seq<string> Keys(InputDevice device, Seq<DeviceAxis> sample, CommandDeck deck) =>
         device.Switch(

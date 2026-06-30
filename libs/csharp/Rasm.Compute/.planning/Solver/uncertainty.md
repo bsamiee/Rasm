@@ -485,7 +485,7 @@ public static class Uncertainty {
     static Seq<double> SobolBinned(Seq<RandomVariable> inputs, Seq<ImmutableArray<double>> design, double[] qoi) {
         var grid = new SweepGrid(
             inputs.Map(static v => (SweepAxis)new SweepAxis.Enumerated(v.VariableName, Seq<double>())),
-            Seq1(ObjectiveSense.Minimize),
+            Seq(ObjectiveSense.Minimize),
             SensitivityMethod.SobolVariance);
         Seq<DesignPoint> points = toSeq(Enumerable.Range(0, Math.Min(design.Count, qoi.Length)))
             .Map(i => new DesignPoint(design[i], [qoi[i]], []));

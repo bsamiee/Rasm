@@ -133,14 +133,14 @@ public abstract partial record Constraint {
 
     public Seq<ResidualRow> Residual(ReadOnlySpan<double> p) =>
         this switch {
-            Distance d   => Seq1(DistanceRow(d.A, d.B, d.Target, p)),
-            Angle a      => Seq1(AngleRow(a.A, a.B, a.Radians, p)),
+            Distance d   => Seq(DistanceRow(d.A, d.B, d.Target, p)),
+            Angle a      => Seq(AngleRow(a.A, a.B, a.Radians, p)),
             Coincident c => CoincidentRows(c.A, c.B, p),
-            Parallel pl  => Seq1(CrossRow(pl.A, pl.B, p)),
-            Perpendicular pp => Seq1(DotRow(pp.A, pp.B, p)),
-            Tangent t    => Seq1(TangentRow(t.Line, t.Circle, p)),
-            Axis ax      => Seq1(AxisRow(ax.Line, ax.Horizontal, p)),
-            Equal eq     => Seq1(EqualRow(eq.A, eq.B, p)),
+            Parallel pl  => Seq(CrossRow(pl.A, pl.B, p)),
+            Perpendicular pp => Seq(DotRow(pp.A, pp.B, p)),
+            Tangent t    => Seq(TangentRow(t.Line, t.Circle, p)),
+            Axis ax      => Seq(AxisRow(ax.Line, ax.Horizontal, p)),
+            Equal eq     => Seq(EqualRow(eq.A, eq.B, p)),
             Symmetric s  => SymmetricRows(s.A, s.B, s.Axis, p),
             _            => Seq<ResidualRow>(),
         };

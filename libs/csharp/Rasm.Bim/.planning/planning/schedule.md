@@ -195,7 +195,7 @@ public static class ScheduleProjection {
     // The summary→detail work-breakdown: a task plus the transitive closure of its IfcRelNests sub-tasks, so a
     // P6/MS-Project WBS imported as nested IfcTasks orders as flat activities alongside its top-level rows.
     static Seq<IfcTask> NestedTasks(IfcTask task) =>
-        Seq1(task) + task.IsNestedBy
+        Seq(task) + task.IsNestedBy
             .AsIterable()
             .SelectMany(static rel => rel.RelatedObjects.AsIterable())
             .OfType<IfcTask>()
