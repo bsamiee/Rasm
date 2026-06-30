@@ -1,12 +1,13 @@
 export const meta = {
   name: 'stack-cs',
   whenToUse: 'Harden the docs/stacks/csharp code doctrine in place to the dense per-file bar.',
-  description: 'Focused full HARDENING of the docs/stacks/csharp code doctrine — every core page AND every domain/ shard, improved in place to the same 13/10, ultra-dense, page-craft-conformant bar the python doctrine now holds. The csharp set is the historical FLOOR/reference; this pass pulls it UP to the rigor the python rebuild established: page-craft grammar (narrow index table -> deep family cards -> one agnostic snippet per region, zero duplicated demonstrations), the ~450 soft LOC density signal, extreme ADT collapse ([Union]/[SmartEnum<TKey>]/[ValueObject<T>]/[ComplexValueObject] + source-generated case families), two-weave AOP (definition-time source-gen aspects + composition-time effect transformers), LanguageExt Fin/Validation/Option/Eff rails, full parameterization/polymorphism, C# 14 on net10 to the metal. NOT a restructure (the csharp file set is settled) — a hostile per-file harden. Phases: Inventory (atlas order: 7 core + the domain/ router + shards) -> Harden (1 agent/file, 3-step ADVERSARIAL rebuild(max) -> critique(xhigh) -> redteam(max), CAP=12) -> Sweep (sequential atlas-order pass, implicit upward stacking, no duplicated snippets) -> Reconcile (union-find cross-file residuals -> fix(max) -> adversarial verify(xhigh)). Snippets agnostic (neutral names, no project anchor); every host/NuGet member verified via assay api; every edit scoped to docs/stacks/csharp (NEVER edit a python/typescript file). Takes no args.',
+  description: 'Focused full HARDENING of the docs/stacks/csharp code doctrine — every core page AND every domain/ shard, improved in place to the same 13/10, ultra-dense, page-craft-conformant bar the python doctrine now holds. The csharp set is the historical FLOOR/reference; this pass pulls it UP to the rigor the python rebuild established: page-craft grammar (narrow index table -> deep family cards -> one agnostic snippet per region, zero duplicated demonstrations), the ~450 soft LOC density signal, extreme ADT collapse ([Union]/[SmartEnum<TKey>]/[ValueObject<T>]/[ComplexValueObject] + source-generated case families), two-weave AOP (definition-time source-gen aspects + composition-time effect transformers), LanguageExt Fin/Validation/Option/Eff rails, full parameterization/polymorphism, C# 14 on net10 to the metal. Now also a bounded interface/graph/mapping LAW extension (cross-stratum seam, graph-as-closed-family, generated mapping/equality aspects, plus QuikGraph/Riok.Mapperly/Generator.Equals elevated to admitted core substrate) hardened into existing owners, plus an optional default-off gated new-core-page valve; still restructure-free at heart — a hostile per-file harden. Phases: Inventory (atlas order: 7 core + the domain/ router + shards) -> Gate (default-off justified-new-page valve) -> Harden (1 agent/file, 3-step ADVERSARIAL rebuild(max) -> critique(xhigh) -> redteam(max), CAP=12) -> Sweep (sequential atlas-order pass, implicit upward stacking, no duplicated snippets) -> Reconcile (union-find cross-file residuals -> fix(max) -> adversarial verify(xhigh)). Snippets agnostic (neutral names, no project anchor); every host/NuGet member verified via assay api; every edit scoped to docs/stacks/csharp (NEVER edit a python/typescript file). Takes no args.',
   phases: [
     { title: 'Inventory', detail: 'parse the README atlas + the domain/ router for the ordered core + domain file set + per-file state, emit the region ledger seed' },
+    { title: 'Gate', detail: 'justification gate (default harden-in-place): only on an explicit cited justification + target atlas position author ONE new core page, edit the README atlas/STATE, seed the region ledger, and splice it into the ordered set so Harden and Sweep treat it as a corpus member' },
     { title: 'Harden', detail: 'per file (1 agent/file): rebuild(max) -> critique(xhigh) -> redteam(max), every stage ADVERSARIAL (naive/illusory-by-default), pooled at CAP=12' },
     { title: 'Sweep', detail: 'sequential atlas-order pass: each file reads finalized priors via the region ledger, routes altitude (no re-teach), removes duplicated snippet demonstrations' },
-    { title: 'Reconcile', detail: 'union-find cluster cross-file residuals by shared file -> fix(max) -> adversarial verify(xhigh); hard residuals hand off to resolve-residuals' },
+    { title: 'Reconcile', detail: 'TERMINAL no-defer loop: union-find cluster every cross-file residual -> fix(max) -> ADVERSARIAL verify(max, confirms the fix is real+complete+non-naive) -> re-cluster still-open + newly-surfaced, until dry (bounded). Nothing handed off or dropped.' },
   ],
 }
 
@@ -20,14 +21,16 @@ const ROOT = 'docs/stacks/csharp'
 const INVENTORY_SCHEMA = { type: 'object', additionalProperties: false, required: ['files'], properties: { files: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['path', 'order'], properties: { path: { type: 'string' }, order: { type: 'integer' }, folder: { type: 'string' }, regions: { type: 'array', items: { type: 'string' } } } } } } }
 const FIXLOG_SCHEMA = { type: 'object', additionalProperties: false, required: ['file', 'verdict', 'summary'], properties: { file: { type: 'string' }, verdict: { type: 'string', enum: ['rebuilt', 'refined', 'clean'] }, collapsed: { type: 'string' }, extended: { type: 'string' }, regions: { type: 'array', items: { type: 'string' } }, residual_high: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['files', 'claim'], properties: { files: { type: 'array', items: { type: 'string' } }, claim: { type: 'string' } } } }, summary: { type: 'string' } } }
 const SWEEP_SCHEMA = { type: 'object', additionalProperties: false, required: ['file', 'verdict', 'owned_regions'], properties: { file: { type: 'string' }, verdict: { type: 'string', enum: ['routed', 'clean'] }, rerouted: { type: 'array', items: { type: 'string' } }, owned_regions: { type: 'array', items: { type: 'string' } }, residual_high: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['files', 'claim'], properties: { files: { type: 'array', items: { type: 'string' } }, claim: { type: 'string' } } } } } }
-const RECONCILE_FIX_SCHEMA = { type: 'object', additionalProperties: false, required: ['files', 'verdict', 'summary'], properties: { files: { type: 'array', items: { type: 'string' } }, verdict: { type: 'string', enum: ['fixed', 'clean'] }, summary: { type: 'string' } } }
+const RECONCILE_FIX_SCHEMA = { type: 'object', additionalProperties: false, required: ['files', 'verdict', 'summary'], properties: { files: { type: 'array', items: { type: 'string' } }, verdict: { type: 'string', enum: ['fixed', 'clean'] }, residual_high: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['files', 'claim'], properties: { files: { type: 'array', items: { type: 'string' } }, claim: { type: 'string' } } } }, summary: { type: 'string' } } }
 const RECONCILE_VERIFY_SCHEMA = { type: 'object', additionalProperties: false, required: ['overall', 'claims'], properties: { overall: { type: 'boolean' }, claims: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['claim', 'status'], properties: { claim: { type: 'string' }, status: { type: 'string', enum: ['fixed', 'invalid', 'open'] }, evidence: { type: 'string' } } } } } }
+const GATE_SCHEMA = { type: 'object', additionalProperties: false, required: ['verdict', 'reason'], properties: { verdict: { type: 'string', enum: ['harden_in_place', 'new_page'] }, reason: { type: 'string' }, page: { type: 'object', additionalProperties: false, required: ['path', 'atlas_index', 'decision', 'justification'], properties: { path: { type: 'string' }, atlas_index: { type: 'integer' }, decision: { type: 'string' }, folder: { type: 'string' }, justification: { type: 'string' }, seed_regions: { type: 'array', items: { type: 'string' } } } } } }
+const SEED_SCHEMA = { type: 'object', additionalProperties: false, required: ['path', 'verdict'], properties: { path: { type: 'string' }, atlas_index: { type: 'integer' }, regions: { type: 'array', items: { type: 'string' } }, verdict: { type: 'string', enum: ['seeded', 'aborted'] } } }
 
 // --- [DOCTRINE] --------------------------------------------------------------------------
 const LAW = [
   'TARGET: docs/stacks/csharp/ is the route-owned C# CODE DOCTRINE — a doc set of AGNOSTIC teaching pages (core + a domain/ shard set) that ' +
     'legislate how all project C# is written. A page teaches a coding LAW with one exemplary agnostic snippet, never a concrete module. The README ' +
-    'owns routing + the 16 named laws + the COLLAPSE_SCAN + page-craft; the domain/ README is a one-table router whose shards compose the core ' +
+    'owns routing + the 17 named laws + the COLLAPSE_SCAN + page-craft; the domain/ README is a one-table router whose shards compose the core ' +
     'laws and never re-open them; each concept page owns ONE disjoint layer and states doctrine as fact. READ docs/stacks/csharp/README.md (its ' +
     '[DOCTRINE]/[COLLAPSE_SCAN]/[PAGE_CRAFT]/[CORPUS_LAW] sections) and the domain/README.md router and hold them as law.',
   'PARITY BAR: the PYTHON doctrine docs/stacks/python/ is the peer-rigor reference — this csharp set is pulled UP to match its page-craft, ~450 ' +
@@ -81,6 +84,19 @@ const CS_INTERFACE = [
     'concretes share state/template or a foreign base/native-handle/self-typed `new()` recursion -> abstract class at the seam; foreign/downstream ' +
     'code must implement a strategy OR a generated/catalogued family publishes across an assembly/wire boundary -> an interface FLOOR + minting ' +
     'factory + ONE polymorphic operation over the floor (consumers hold the floor; the concrete is `internal` + swappable).',
+  'CROSS-STRATUM SEAM ALIGNMENT: when N sibling owners on the SAME stratum must align WITHOUT referencing one another, the floor is hosted by ONE ' +
+    'type on the LOWEST shared stratum (the seam owner every sibling already depends upon), exposing a single INSTANCE-interface FLOOR (an ' +
+    '`IProjection<TIn,TOut>`-shaped strategy each sibling family IMPLEMENTS, never a marker) plus the minting/dispatch operation over the floor. ' +
+    'Siblings align by CONTRACT — each implements the floor against its own shapes — so the seam type is the ONLY shared symbol and peers stay ' +
+    'swappable with zero peer references. This is the INTERFACE_SEAM publishes-across-a-boundary vehicle turned HORIZONTAL: the floor lives below, ' +
+    'the conformances live in each sibling, alignment is structural, never coupling.',
+  'FOREIGN CONSTRAINT INTERFACE vs INTERNAL SWITCH (distinct seams on ONE owner): a constraint/validation contract FOREIGN or downstream code ' +
+    'supplies — an `IConstraint`-shaped interface with one `Check`/`Validate` member returning `Validation<Error,T>` so independent violations ' +
+    'ACCUMULATE applicatively — is a legitimate instance-interface floor, NOT the owner`s internal total generated `Switch`, which the owner CLOSES ' +
+    'and never publishes. Discriminant: an OPEN extension point others plug into (constraints, projections, strategies) is an interface floor ' +
+    'returning a rail; a CLOSED family the owner exhaustively dispatches is a `[Union]`/`[SmartEnum]` + `Switch`. They CO-EXIST (closed shape ' +
+    'switched internally, open constraint set folded over `Validation` at the boundary); conflating them — an interface over the closed family, or a ' +
+    '`Switch` over the open extension set — is the rejected form.',
   'REJECT: a member-less marker read by `is`/reflection (admissible ONLY as a generic bound `where T : IMarker`; a capability switch is an attribute ' +
     'or a generated-owner conformance); an interface over a family WE close (forfeits `Switch` totality); a `[Union]` foreign code must extend; an ' +
     'INSTANCE default-interface-method (defaults derive via `static virtual` from a minimal core — zero admitted package ships an instance DIM); a ' +
@@ -88,7 +104,7 @@ const CS_INTERFACE = [
     'heap delegate on a measured hot path where a `ref struct` visitor (`allows ref struct`, caller-owned stack) fits; an invariant generic where ' +
     '`out`/`in` removes a cast; parallel `IFooForBar` names where the type parameter or keyed service carries the modality. This law lands in README ' +
     '[SHAPE] INTERFACE_SEAM, shapes.md OWNER_CHOOSER, surfaces-and-dispatch.md (static-abstract + visitor dispatch forms), and boundaries.md ' +
-    '(hold-the-floor + lifetime contracts).',
+    '(hold-the-floor + lifetime + the cross-stratum seam floor), and rails-and-effects.md (the accumulating-Validation constraint fold).',
 ].join('\n')
 const CS_AOP = [
   'TWO-WEAVE AOP: definition-time concerns (admission, identity, dispatch, serialization, grammar, logging) attach via attribute-directed SOURCE ' +
@@ -96,6 +112,13 @@ const CS_AOP = [
     '`Schedule`-driven `IO<T>.Retry`/`Prelude.retry`, recovery as named catch combinators (`@catch`/`catchOf`/`CatchM` composed via `|`), resource ' +
     'lifetime as `Bracket`/`BracketIO`/`Finally`; the two weaves meet at EXACTLY ONE seam, the admission rail bridge. 2-4 co-occurring wrappers ' +
     'collapse into ONE aspect; an aspect NEVER raises into domain flow; inline-repeated concerns and sibling helper methods are defects.',
+  'MAPPING + EQUALITY are DEFINITION-TIME generated aspects, never hand-written: an owner<->DTO/proto/wire projection is emitted by Riok.Mapperly ' +
+    '(a `[Mapper]` partial-producing source-generator; members verified via assay), and structural equality + the content-key ride EITHER the ' +
+    'Thinktecture generated owner`s value semantics (`[ValueObject]`/`[ComplexValueObject]`) OR Generator.Equals (`[Equatable]`) for shapes ' +
+    'Thinktecture does not own — a class-root `[Union]` node/edge type that otherwise SURRENDERS generated equality is the canonical case. A ' +
+    'hand-rolled `Equals`/`GetHashCode`, a field-by-field hand mapper, or a runtime-reflection projector is the rejected form. These join ' +
+    'admission/identity/dispatch/serialization in the fixed generator-owned order; the content-key aspect is the SAME canonical byte-codec the ' +
+    'graph law addresses content by, never a second hashing path.',
 ].join('\n')
 const CS_RAILS = [
   'RAILS (RAIL_CHOOSER, narrowest carrier chosen ONCE at admission): `Option<T>` absence, `Fin<T>` synchronous fallibility, `Validation<Error,T>` ' +
@@ -114,6 +137,24 @@ const CS_CORE_LOGIC = [
     'EXPRESSION_SPINE exemption (vectorized via `TensorPrimitives`/`Vector<T>` where the shape admits); collection expressions + spread, ' +
     'list/slice/relational/logical patterns, and switch-expression dispatch over a closed family replace imperative branching. NO mutable ' +
     'accumulation in domain flow, NO intermediate sequence a fold would fuse, NO LINQ over a measured hot loop where a span kernel is the faster owner.',
+].join('\n')
+const CS_GRAPH = [
+  'GRAPH-AS-CLOSED-FAMILY (the domain-graph law, DISTRIBUTED across shapes.md / algorithms.md / boundaries.md, never a standalone page, never ' +
+    're-taught): a domain graph is a PROPERTY GRAPH whose every edge kind is ONE neutral edge-algebra `[Union]` over a small closed verb set ' +
+    '(compose / assign / associate / connect / void-shaped, each carrying a typed payload) PLUS ONE `Generic(wireName, relating, related, attrs)` ' +
+    'passthrough case for the open tail, so no foreign relation is dropped and the foreign relationship TAXONOMY never leaks into the neutral ' +
+    'owner; the node is ONE `[Union]` over the entity family keyed in a map, and the consumer-facing aggregate is a DERIVED FOLD over the reachable ' +
+    'subgraph, NEVER a second stored record. N typed per-relation classes mirroring a foreign schema is the rejected form (a `[03]-[COLLAPSE_SCAN]` ' +
+    'trigger: cases mirror a foreign taxonomy -> neutral algebra + `Generic` passthrough). shapes.md OWNS the node/edge union via OWNER_CHOOSER.',
+  'PHASE SPLIT + INCIDENCE (algorithms.md / system-apis.md COLLECTIONS_AND_IDENTITY): the graph has TWO phases behind one surface — a persistent ' +
+    '`HashMap`/`ImmutableDictionary` WORKING graph for O(log n) structural-sharing mutation, baked ONCE via `ToFrozenDictionary()` into a `Frozen*` ' +
+    'READ SNAPSHOT carrying a memoized INCIDENCE INDEX (node -> incident edges) so traversal is O(degree) not O(E); QuikGraph owns the graph view + ' +
+    'traversal/topology algorithms over the snapshot. The bake is the one-way working->snapshot transition; mutating a snapshot or rebuilding the ' +
+    'index per query is the rejected form, and the two collection cards JOIN as two PHASES of one structure rather than spawning a parallel card. ' +
+    'CONTENT ADDRESSING is ALREADY OWNED: graph identity + structural diff COMPOSE boundaries.md BYTE_IDENTITY (one canonical byte-codec per ' +
+    'identity domain, the memo key in MEMO_KEY) and system-apis.md INTEGRITY/IDENTITY_POLICY — reuse that ONE codec VERBATIM for both key-mint and ' +
+    'diff; a second hashing/serialization path or a fresh content-addressing card is the rejected form. The rooted graph id is a NEUTRAL kernel ' +
+    'value; any foreign/wire id is a boundary attribute, never the kernel key.',
 ].join('\n')
 const PARAM_POLY = [
   'HEAVY PARAMETERIZATION, ZERO HARDCODING/FRAGILE LOGIC, FULL POLYMORPHISM. ONE entrypoint owns every modality, discriminating on input SHAPE ' +
@@ -134,9 +175,14 @@ const CS14 = [
 ].join('\n')
 const CS_SUBSTRATE = [
   'STACK CAPABILITY: C# has NO central .api tier — the universals are Thinktecture.Runtime.Extensions (generated domain shape) + LanguageExt.Core ' +
-    '(rails, effects, schedules, immutable collections), layered onto the BCL and (for a domain shard) the host/NuGet surface its concern ' +
+    '(rails, effects, schedules, immutable collections), with QuikGraph (graph traversal/topology + graph algorithms), Riok.Mapperly (generated ' +
+    'owner<->DTO/proto/wire mapping), and Generator.Equals (generated structural equality + content-key for shapes Thinktecture does not own, e.g. ' +
+    'class-root `[Union]` node/edge types) as ADMITTED CORE substrate integrated ground-up the SAME way and NAMED in the README [02] LIBRARY_DEPTH ' +
+    'law beside MathNet/CSparse (hand-rolled graph traversal, field-by-field mapping, or `Equals`/`GetHashCode` is the rejected form), layered ' +
+    'onto the BCL and (for a domain shard) the host/NuGet surface its concern ' +
     'composes; MathNet/CSparse own numeric algorithms where relevant. Compose EVERY relevant member into single dense owners woven as ONE rail ' +
-    '(source-generated owners, `Fold` algebra, data tables), ALWAYS layering Thinktecture/LanguageExt onto the domain surface, NOT flat one-shot ' +
+    '(source-generated owners, `Fold` algebra, data tables), ALWAYS layering ' +
+    'Thinktecture/LanguageExt/QuikGraph/Riok.Mapperly/Generator.Equals onto the domain surface, NOT flat one-shot ' +
     'per-API uses. Use the DEEPEST operator/combinator/generated surface each library reaches (LIBRARY_DEPTH); reject surface-level subsets, ' +
     'BCL-first reflexes, and thin rename wrappers. Cite ONLY host/NuGet members confirmed via `uv run python -m tools.assay api` — a member you ' +
     'cannot verify is a phantom to delete.',
@@ -167,6 +213,21 @@ const OPINIONATED = [
     'card and every snippet world-class, zero filler. NEVER strip snippet whitespace, remove design content, or fragment a coherent concept to hit ' +
     'a number; a coherent dense concept (e.g. the algorithms monolith) may exceed 450 when every card and snippet earns its place. A split is ' +
     'justified ONLY by concept disjointness, never by line count.',
+  'ANTI-PROLIFERATION (default = harden what exists): this pass DENSIFIES and CORRECTS existing cards/snippets in place; it does NOT grow the card ' +
+    'count to look thorough. A NEW card is added ONLY to close a genuinely-OMITTED opinionated capability NO existing card owns, and every addition ' +
+    'cites its ONE source (a verified package member, a doctrine law, or a consumer contract). A card that restates a neighbor, splits one decision ' +
+    'across two cards, or projects a speculative future case with no cite is FILLER to delete, not author. A new core PAGE is a RARE gated ' +
+    'exception, never a default move: a law delta lands as in-place hardening of its owning page unless the justification gate returned an explicit ' +
+    'new-page verdict with a target atlas position. Rising card/snippet/page COUNT is a defect signal absent a cited omitted capability — the bar is ' +
+    'density per card, not cards per page.',
+  'ALREADY-OWNED, DO NOT RE-AUTHOR (the top spam traps): CONTENT-ADDRESSING / byte-identity is TRIPLE-OWNED by boundaries.md BYTE_IDENTITY + ' +
+    'system-apis.md INTEGRITY + system-apis.md IDENTITY_POLICY (plus the durability/data-interchange domain shards for persisted artifacts) — the ' +
+    'graph/content-key law COMPOSES these owners and ROUTES to them, NEVER re-teaches a canonical-byte/hash/quantization card. The INTERFACE-SEAM ' +
+    'form is fully owned by README INTERFACE_SEAM + shapes.md OWNER_CHOOSER + surfaces-and-dispatch.md type-level dispatch + boundaries.md the ' +
+    'floor; the cross-stratum delta is at most ONE appended consequence clause, not a restated seam card. The accumulating-`Validation` constraint ' +
+    'rail is owned by rails-and-effects.md VALIDATION_MONOID + domain/validation.md. The mutate->freeze collection owners exist in system-apis.md ' +
+    'COLLECTIONS_AND_IDENTITY and the memo key in boundaries.md MEMO_KEY — the phase-split harden JOINS the existing cards. Re-authoring any of ' +
+    'these as fresh cards is the defect this pass most often commits — route to the owner instead.',
 ].join('\n')
 const STYLE_PROSE = [
   'PROSE QUALITY — apply docs/standards/style-guide.md: lead each section with the controlling rule/contract; one idea per paragraph; close on the ' +
@@ -179,7 +240,7 @@ const COMMENTS = 'COMMENT HYGIENE: code fences are agent-facing. KEEP the canoni
   'dash-fill). Beyond dividers, comment ONLY where intent is not already obvious from names, types, and signatures: default ZERO comments; at most ' +
   '1 line where a comment genuinely earns its place; 1-2 lines only for a truly subtle invariant or boundary. No narration, no restating the code, ' +
   'no XML-doc bloat, no task/process/review comments.'
-const DOCTRINE = [LAW, '', ADVERSARIAL, '', CSDOCTRINE, '', CS_SHAPE, '', CS_INTERFACE, '', CS_AOP, '', CS_RAILS, '', CS_CORE_LOGIC, '', PARAM_POLY, '', CS14, '', CS_SUBSTRATE, '', PAGECRAFT, '', AGNOSTIC_SNIPPETS, '', OPINIONATED, '', STYLE_PROSE, '', COMMENTS].join('\n')
+const DOCTRINE = [LAW, '', ADVERSARIAL, '', CSDOCTRINE, '', CS_SHAPE, '', CS_INTERFACE, '', CS_AOP, '', CS_RAILS, '', CS_CORE_LOGIC, '', CS_GRAPH, '', PARAM_POLY, '', CS14, '', CS_SUBSTRATE, '', PAGECRAFT, '', AGNOSTIC_SNIPPETS, '', OPINIONATED, '', STYLE_PROSE, '', COMMENTS].join('\n')
 
 // --- [OPERATIONS] ------------------------------------------------------------------------
 const sleep = (ms) => new Promise((res) => setTimeout(res, ms))
@@ -241,6 +302,34 @@ const sweepPrompt = (page, ledger) => [DOCTRINE, '',
     '(never split a coherent concept or strip snippet whitespace).',
   'REGION LEDGER (finalized priors):\n' + JSON.stringify(ledger, null, 1) + '\nEDIT this page to fix every hit. Return UPDATED `owned_regions`, ' +
     '`rerouted`, verdict, and residual_high {files:[...], claim}.'].join('\n')
+const gatePrompt = (ordered) => [DOCTRINE, '',
+  'TASK: JUSTIFICATION GATE (default-off new-page valve). Three law deltas are now doctrine — (1) the CROSS-STRATUM interface seam + ' +
+    'foreign-constraint-vs-internal-switch forms in the interface law, (2) GRAPH-AS-CLOSED-FAMILY (node/edge neutral-algebra union + derived-fold ' +
+    'aggregate + phase split + ALREADY-OWNED content addressing), (3) the mapping/equality generated-aspect clause in the two-weave AOP law (plus ' +
+    'QuikGraph/Riok.Mapperly/Generator.Equals elevated to admitted core substrate). For EACH delta decide its owner. DEFAULT and TIE go to ' +
+    'harden_in_place: a delta lands as IN-PLACE hardening of an EXISTING owner page — the interface + graph facets DISTRIBUTE across shapes.md ' +
+    '(node/edge union, OWNER_CHOOSER), surfaces-and-dispatch.md (dispatch over the seam), boundaries.md (the floor + content key), algorithms.md ' +
+    '(the phase split + QuikGraph traversal); the mapping/equality facet folds into the definition-time weave those pages instantiate; ' +
+    'content-addressing is ALREADY triple-owned and MUST route, never spawn a page. Return verdict=new_page for AT MOST ONE delta and ONLY if you ' +
+    'can prove ALL of: (a) it is a DISJOINT coding-law layer NO atlas decision [01]-[07] already owns — cite EACH [01]-[07] decision and show why ' +
+    'none fits; (b) it cannot be carried as cards inside an existing page without re-teaching that page`s disjoint layer; (c) you can name a precise ' +
+    'target atlas_index + reader-DECISION label + folder. A new page is a structural commitment (it renumbers the whole downstream atlas and ' +
+    're-finalizes every later page), not a thoroughness gesture: if ANY of (a)-(c) is weak, return harden_in_place. The ONLY plausible candidate on ' +
+    'current evidence is a combinatorial GRAPH-ALGORITHM layer (topology/connectivity/traversal) that algorithms.md`s numeric charter provably ' +
+    'cannot absorb — and even that is likely a package/domain concern, not agnostic doctrine. Read ' + ROOT + '/README.md ([01]-[ATLAS], ' +
+    '[02]-[DOCTRINE], [05]-[PAGE_CRAFT], [06]-[CORPUS_LAW]) and the candidate owner pages. Current ordered atlas file set:\n' +
+    JSON.stringify(ordered, null, 1) + '\nReturn verdict, reason, and (only for new_page) page {path, atlas_index, decision, folder, ' +
+    'justification, seed_regions}.'].join('\n')
+const seedPrompt = (page) => [DOCTRINE, '',
+  'TASK: SEED a JUSTIFIED new core doctrine page at ' + page.path + ' (reader-decision "' + (page.decision || '') + '", target atlas index ' +
+    page.atlas_index + '). The justification gate cleared it: ' + (page.justification || '') + '. (1) AUTHOR a page-craft-conformant skeleton + ' +
+    'initial REAL content at ' + page.path + ' — narrow index table, then deep family cards, then ONE agnostic snippet per region; the page ends ' +
+    'at its last card; states doctrine as fact, ZERO meta. (2) EDIT ' + ROOT + '/README.md [01]-[ATLAS]: insert the row at index ' + page.atlas_index +
+    ', RENUMBER every downstream [INDEX] label, add the [READ] link (the README is the ONLY file that links), set this row [STATE] to `partial` (it ' +
+    'gains authority only when the cold-grade gate later flips it to finalized). (3) PRE-SEED the region-ledger row for its claimed regions (' +
+    JSON.stringify(page.seed_regions || []) + ') per CORPUS_LAW (snippet rows are written before code exists). Edit ONLY under ' + ROOT + '/. Return ' +
+    '{path, atlas_index, regions, verdict:`seeded`}; return verdict:`aborted` and leave the corpus UNTOUCHED if on closer read the page is NOT a ' +
+    'disjoint layer after all.'].join('\n')
 const STAGES = [
   { key: 'rebuild', build: authorPrompt, effort: 'max' },
   { key: 'crit', build: critiquePrompt, effort: 'xhigh' },
@@ -268,6 +357,18 @@ const inv = await agent('Read ' + ROOT + '/README.md and parse the [01]-[ATLAS] 
 const ordered = ((inv && inv.files) || []).filter((f) => f && f.path && f.path.indexOf('/.reports/') < 0).sort((a, b) => a.order - b.order).map((f) => f.path)
 log('Inventory: ' + ordered.length + ' csharp doctrine pages (core + domain) to harden')
 
+// --- [GATE]
+phase('Gate')
+const gate = await agent(gatePrompt(ordered), { label: 'gate', phase: 'Gate', schema: GATE_SCHEMA, effort: 'max', stallMs: STALL })
+if (gate && gate.verdict === 'new_page' && gate.page && gate.page.path) {
+  const seed = await agent(seedPrompt(gate.page), { label: 'seed:' + nameOf(gate.page.path), phase: 'Gate', schema: SEED_SCHEMA, effort: 'max', stallMs: STALL })
+  if (seed && seed.path && seed.verdict === 'seeded') {
+    const at = Math.max(0, Math.min(ordered.length, (gate.page.atlas_index || ordered.length + 1) - 1))
+    ordered.splice(at, 0, seed.path)
+    log('Gate: new core page seeded -> ' + seed.path + ' at atlas index ' + gate.page.atlas_index)
+  } else { log('Gate: seed aborted -> harden-in-place') }
+} else { log('Gate: harden-in-place (no new core page justified)') }
+
 // --- [HARDEN]
 phase('Harden')
 const done = (await pool(ordered, CAP, (page) => processPage(page))).filter(Boolean)
@@ -291,31 +392,50 @@ const allRes = []
 for (const r of done) for (const st of ['rebuild', 'crit', 'redteam']) { const l = r.logs && r.logs[st]; if (l && l.residual_high) for (const x of l.residual_high) allRes.push(norm(x, r.page)) }
 for (const r of sweepLogs) if (r.residual_high) for (const x of r.residual_high) allRes.push(norm(x, r.file))
 const uniq = [...new Map(allRes.map((r) => [r.files.slice().sort().join(',') + '|' + r.claim, r])).values()]
-const clusters = (() => {
+const clusterOf = (rs) => {
   const parent = new Map(); const find = (f) => { let p = f; while (parent.get(p) !== p) p = parent.get(p); return p }; const add = (f) => { if (!parent.has(f)) parent.set(f, f) }
-  for (const r of uniq) { r.files.forEach(add); for (let i = 1; i < r.files.length; i++) parent.set(find(r.files[i]), find(r.files[0])) }
+  for (const r of rs) { r.files.forEach(add); for (let i = 1; i < r.files.length; i++) parent.set(find(r.files[i]), find(r.files[0])) }
   const by = new Map()
-  for (const r of uniq) { const root = r.files.length ? find(r.files[0]) : '__none__'; (by.get(root) || by.set(root, []).get(root)).push(r) }
+  for (const r of rs) { const root = r.files.length ? find(r.files[0]) : '__none__'; (by.get(root) || by.set(root, []).get(root)).push(r) }
   return [...by.values()]
-})()
-log('Harden+Sweep done; reconcile ' + uniq.length + ' residuals -> ' + clusters.length + ' clusters')
-let reconciled = []
-if (clusters.length) {
-  phase('Reconcile')
-  reconciled = (await pool(clusters, CAP, async (cl, i) => {
-    const fix = await agent([DOCTRINE, '', 'TASK: RECONCILE these cross-FILE residuals the harden + sweep passes deferred. NO severity — treat ' +
-      'EVERY residual as must-address. Read EVERY listed file. For each real cross-file defect, FIX it in place (unify the shared generated ' +
-      'owner/rail/region, repair the altitude/duplication/strata issue, or extend the shared owner to close a gap that spans files), preserving ' +
-      'all capability; if a residual is FACTUALLY INCORRECT, leave it and say why. Edit ONLY under ' + ROOT + '/. Residuals:\n' + JSON.stringify(cl, null, 1)].join('\n'), { label: 'reconcile-fix', phase: 'Reconcile', schema: RECONCILE_FIX_SCHEMA, effort: 'max', stallMs: STALL })
-    if (!fix) return null
-    const verify = await agent([LAW, '', 'TASK: ADVERSARIAL VERIFY, one verdict per claim. Read the named files from disk and classify each ' +
-      'residual: "fixed", "invalid" (cite why), or "open". Default to "open" on any doubt. Claims:\n' + JSON.stringify(cl, null, 1) + '\nFiles the ' +
-      'fixer touched: ' + JSON.stringify(fix.files)].join('\n'), { label: 'reconcile-verify:' + i, phase: 'Reconcile', schema: RECONCILE_VERIFY_SCHEMA, effort: 'xhigh', stallMs: STALL })
-    return { cluster: cl, fix, verify }
-  })).filter(Boolean)
 }
-const claimsAll = reconciled.flatMap((r) => (r.verify && r.verify.claims) || [])
-const openClaims = new Set(claimsAll.filter((c) => c.status === 'open').map((c) => c.claim))
-const hard_residual = uniq.filter((r) => openClaims.has(r.claim))
-log('Reconcile: ' + clusters.length + ' clusters; ' + hard_residual.length + ' open hard residual(s) -> resolve-residuals')
-return { workflow: 'stack-cs', root: ROOT, ordered: ordered, hardened: done.filter((r) => r.ok).length, incomplete: done.filter((r) => !r.ok).length, total: ordered.length, region_seed: ledger, clusters: clusters.length, hard_residual: hard_residual }
+const dedupRes = (rs) => [...new Map(rs.map((r) => [r.files.slice().sort().join(',') + '|' + r.claim, r])).values()]
+log('Harden+Sweep done; TERMINAL reconcile ' + uniq.length + ' residual(s) (no-defer, adversarial verify, loop until dry)')
+const MAX_ROUNDS = 4
+let pending = uniq
+let invalid = []
+let round = 0
+if (pending.length) {
+  phase('Reconcile')
+  while (pending.length && round < MAX_ROUNDS) {
+    round++
+    const clusters = clusterOf(pending)
+    log('Reconcile round ' + round + ': ' + pending.length + ' residual(s) -> ' + clusters.length + ' cluster(s)')
+    const resolved = (await pool(clusters, CAP, async (cl, i) => {
+      const fix = await agent([DOCTRINE, '', 'TASK: TERMINAL RECONCILE — fix EVERY one of these cross-FILE residuals the harden + sweep passes ' +
+        'surfaced; NO severity, NO leftovers, NO deferral (nothing leaves unfixed). Read EVERY listed file. For each real cross-file defect FIX it in ' +
+        'place to the STRONGEST doctrine form (unify the shared generated owner/rail/region, repair the altitude/duplication/strata issue, GROW the ' +
+        'shared owner to close a gap that spans files), preserving all capability — a token patch that leaves the defect is NOT a fix; if a residual ' +
+        'is FACTUALLY INCORRECT, leave it and say why (verify will mark it invalid). If your fix SURFACES a new cross-file need, report it in ' +
+        'residual_high {files,claim} so the next round resolves it. Edit ONLY under ' + ROOT + '/. Residuals:\n' + JSON.stringify(cl, null, 1)].join('\n'),
+        { label: 'reconcile-fix:r' + round, phase: 'Reconcile', schema: RECONCILE_FIX_SCHEMA, effort: 'max', stallMs: STALL })
+      if (!fix) return { open: cl, invalid: [], surfaced: [] }
+      const verify = await agent([LAW, '', ADVERSARIAL, '', 'TASK: ADVERSARIAL VERIFY, one verdict per claim — re-read the named files from disk and ' +
+        'CONFIRM the fix was ACTUALLY made AND is COMPLETE + HIGH-QUALITY + doctrine-conformant, not a token/naive patch. ATTACK the fix: is it ' +
+        'shallow, partial, or does it leave the cross-file defect (duplicated region, altitude leak, un-unified owner)? Classify each: "fixed" ' +
+        '(confirmed real, complete, non-naive), "invalid" (claim factually wrong — cite why), or "open" (NOT fixed, OR fixed naively/incompletely — ' +
+        'must be redone). Default "open" on ANY doubt. Claims:\n' + JSON.stringify(cl, null, 1) + '\nFiles the fixer touched: ' + JSON.stringify(fix.files)].join('\n'),
+        { label: 'reconcile-verify:r' + round + ':' + i, phase: 'Reconcile', schema: RECONCILE_VERIFY_SCHEMA, effort: 'max', stallMs: STALL })
+      const claims = (verify && verify.claims) || []
+      const ok = new Set(claims.filter((c) => c.status === 'fixed').map((c) => c.claim))
+      const bad = new Set(claims.filter((c) => c.status === 'invalid').map((c) => c.claim))
+      return { open: cl.filter((r) => !ok.has(r.claim) && !bad.has(r.claim)), invalid: cl.filter((r) => bad.has(r.claim)), surfaced: (fix.residual_high || []).map((x) => norm(x, ROOT)) }
+    })).filter(Boolean)
+    invalid = dedupRes([...invalid, ...resolved.flatMap((r) => r.invalid)])
+    const invalidKeys = new Set(invalid.map((r) => r.claim))
+    pending = dedupRes([...resolved.flatMap((r) => r.open), ...resolved.flatMap((r) => r.surfaced)]).filter((r) => !invalidKeys.has(r.claim))
+  }
+  if (pending.length) log('Reconcile: ' + pending.length + ' residual(s) STILL OPEN after ' + MAX_ROUNDS + ' rounds — REPORTED, never dropped')
+  else log('Reconcile: all residuals fixed + adversarially verified across ' + round + ' round(s)')
+} else { log('Reconcile: no residuals — clean') }
+return { workflow: 'stack-cs', root: ROOT, ordered: ordered, hardened: done.filter((r) => r.ok).length, incomplete: done.filter((r) => !r.ok).length, total: ordered.length, region_seed: ledger, reconcileRounds: round, invalidClaims: invalid.map((x) => ({ files: x.files, claim: x.claim })), hard_residual: pending.map((x) => ({ files: x.files, claim: x.claim })) }

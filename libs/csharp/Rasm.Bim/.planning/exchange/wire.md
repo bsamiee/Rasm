@@ -75,7 +75,7 @@ public sealed record IfcWire(
         Database(Format, Bytes, ctx.Key).Bind(db => ProjectionAssembly.Assemble(
             Seq1<IElementProjection>(new SemanticProjector(db)),
             Seq1<IGraphConstraint>(new IfcLegality()),
-            ElementGraph.Genesis(ctx.Header), ctx, ctx.Key));
+            ElementGraph.Genesis(ctx.Header), ctx).Map(static r => r.Graph));
 
     // Content negotiation across the IFC serializations a peer admits (STEP > ifcXML > ifcJSON by interop breadth) —
     // the data-interchange "fidelity routes the format" law, the IFC analog of the Persistence SnapshotCodec.Negotiate;

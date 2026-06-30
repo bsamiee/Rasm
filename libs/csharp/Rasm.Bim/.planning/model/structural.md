@@ -94,7 +94,7 @@ public static class StructuralProjection {
         IfcStructuralConnection c    => RestraintOf(c),
         IfcStructuralActivity a      => LoadOf(a),
         IfcStructuralLoadGroup g     => Map(
-            (PropertyName.Create("LoadGroupType"), (PropertyValue)new PropertyValue.Enumerated(g.PredefinedType.ToString(), LoadGroupKinds)),
+            (PropertyName.Create("LoadGroupType"), (PropertyValue)new PropertyValue.Enumerated(Seq(g.PredefinedType.ToString()), LoadGroupKinds)),
             (PropertyName.Create("ActionType"),    new PropertyValue.Text(g.ActionType.ToString())),
             (PropertyName.Create("ActionSource"),  new PropertyValue.Text(g.ActionSource.ToString())),
             (PropertyName.Create("Coefficient"),   new PropertyValue.Measure(MeasureValue.OfSi(Dimension.Dimensionless, g.Coefficient))),
@@ -174,7 +174,7 @@ public static class StructuralProjection {
         Optional(activity.AppliedLoad).Match(
             Some: load => Vectors(load).Fold(
                 Map(
-                    (PropertyName.Create("LoadType"),      (PropertyValue)new PropertyValue.Enumerated(load.GetType().Name, LoadKinds)),
+                    (PropertyName.Create("LoadType"),      (PropertyValue)new PropertyValue.Enumerated(Seq(load.GetType().Name), LoadKinds)),
                     (PropertyName.Create("LoadKind"),      new PropertyValue.Text(KindOf(load))),
                     (PropertyName.Create("Case"),          new PropertyValue.Text(CaseOf(activity))),
                     (PropertyName.Create("GlobalOrLocal"), new PropertyValue.Text(activity.GlobalOrLocal.ToString())),

@@ -19,7 +19,7 @@ THE AGING OPERATOR. One `Weathering` static fold over the closed `WeatheringEffe
 // --- [TYPES] -------------------------------------------------------------------------------
 [ValueObject<double>]
 public readonly partial struct AgeParameter {
-    static partial void NormalizeAndValidate(ref double value, ref ValidationError? validationError) =>
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) =>
         validationError = double.IsFinite(value) && value is >= 0.0 and <= 1.0 ? null : new ValidationError("<age requires [0,1]>");
 }
 

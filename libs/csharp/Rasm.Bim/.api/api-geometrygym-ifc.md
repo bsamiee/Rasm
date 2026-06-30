@@ -409,7 +409,7 @@ for the Compute geometry interchange rail.
 |  [04]   | `IfcDerivedUnit`             | geometry | compound derived unit                                        |
 |  [05]   | `IfcMonetaryUnit`            | geometry | currency unit; `Currency` (`string`, ISO 4217) — the `IfcMeasureWithUnit.UnitComponent` of a priced `IfcCostValue` |
 |  [06]   | `IfcMeasureWithUnit`         | geometry | value bound to a unit; `ValueComponent` (`IfcValue`), `UnitComponent` (`IfcUnit`) — the `IfcCostValue.UnitBasis` carrier |
-|  [07]   | `IfcClassificationReference` | geometry | reference to an external classification; `ReferencedSource`/`Identification`/`Location` |
+|  [07]   | `IfcClassificationReference` | geometry | reference to an external classification; `ReferencedSource`/`Identification`/`Location`/`Name` (the `IfcExternalReference.Name` label — the resolved concept title `Ingest` lowers onto seam `Classification.Title`) |
 |  [08]   | `IfcClassification`          | geometry | the classification source `IfcClassificationReference.ReferencedSource` names (Uniclass2015/OmniClass) |
 |  [09]   | `VersionAddedAttribute`      | geometry | reflection attribute marking schema-version availability     |
 |  [10]   | `IfcMeasureValue`            | geometry | abstract measure-value base (`: IfcValue`); `Measure` (`double`) — the `IfcMeasureWithUnit.ValueComponent` narrow target (the per-basis denominator) |

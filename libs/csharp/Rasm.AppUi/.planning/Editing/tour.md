@@ -40,7 +40,7 @@ public sealed partial class TourStop {
     public MotionToken Transition { get; }
     public NarrationTrack Narration { get; }
 
-    static partial void NormalizeDwell(ref Duration dwell) =>
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Viewpoint view, ref Duration dwell, ref MotionToken transition, ref NarrationTrack narration) =>
         dwell = dwell < Duration.Zero ? Duration.Zero : dwell;
 
     public Duration Span => Transition.Duration + Dwell;

@@ -99,7 +99,7 @@ public static class ConnectionProjection {
     // Enumerated/Text/Measure/OfSi construction: the joint modality, a text token, and an SI measure over its Dimension.
     // Rows folds the candidate rows into the one bag; AddOrUpdate keeps the last row per name. The material grade rides
     // the seam Material subgraph (Semantics/composition), never a SteelGrade column on this connection bag.
-    static (PropertyName, PropertyValue) Joint(string kind) => (PropertyName.Create("JointType"), new PropertyValue.Enumerated(kind, JointKinds));
+    static (PropertyName, PropertyValue) Joint(string kind) => (PropertyName.Create("JointType"), new PropertyValue.Enumerated(Seq(kind), JointKinds));
     static (PropertyName, PropertyValue) Token(string name, string value) => (PropertyName.Create(name), new PropertyValue.Text(value));
     static (PropertyName, PropertyValue) Measured(string name, Dimension dim, double si) => (PropertyName.Create(name), new PropertyValue.Measure(MeasureValue.OfSi(dim, si)));
 

@@ -222,9 +222,9 @@ public static partial class EnergySimulation {
                     .Map(thermal => {
                         // The 6-arg ctor is the ONLY StandardOpaqueMaterial admission (no (Model)-only ctor exists): the
                         // IFC-neutral MediumRough roughness drives the exterior convection coefficient, then the seam thermal
-                        // columns SI-native — ThicknessMm.Si m, Conductivity.Si W/mK, the Mechanical.Density.Si kg/m3 fallback, SpecificHeat.Si J/kgK.
+                        // columns SI-native — Thickness.Si m, Conductivity.Si W/mK, the Mechanical.Density.Si kg/m3 fallback, SpecificHeat.Si J/kgK.
                         OpenStudio.StandardOpaqueMaterial mat = new(model, "MediumRough",
-                            layer.ThicknessMm.Si, thermal.Conductivity.Si,
+                            layer.Thickness.Si, thermal.Conductivity.Si,
                             props.Mechanical.Map(static m => m.Density.Si).IfNone(1000.0), thermal.SpecificHeat.Si);   // owned by the Model
                         mats.Add(mat);
                         return mats;

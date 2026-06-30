@@ -4,24 +4,23 @@ The authoritative thing: `ElementGraph` = `Header` + `Nodes: FrozenDictionary<No
 
 ## [01]-[INDEX]
 
-- [01]-[NODE_MODEL]: the `NodeId` `[ValueObject<string>]` (rooted Guid-v7 / non-rooted content hash), the `Node` `[Union]` seven-case property-graph vocabulary, the `ToCanonicalBytes` shared canonical projection, and the node-payload component types (`ReleaseVersion`/`ModelView`/`StepHeader`/`OwnerHistory`/`SchemaSpan`/`RepresentationContentHash`/`AxisCurve`/`ObjectKind`/`PredefinedType`/`AppearanceSummary`) — the `Object` carrying the neutral analytical coordinate geometry (`BoundaryPolygon` + `Axis`) a `Rasm.Compute` structural/energy runner reads baked off the node.
+- [01]-[NODE_MODEL]: the `NodeId` `[ValueObject<string>]` (rooted Guid-v7 / non-rooted content hash), the `Node` `[Union]` seven-case property-graph vocabulary, the `ToCanonicalBytes` shared canonical projection, and the node-payload component types (`ReleaseVersion`/`ModelView`/`StepHeader`/`OwnerHistory`/`SchemaSpan`/`RepresentationContentHash`/`ObjectKind`/`PredefinedType`/`AppearanceSummary`) — the `Object` referencing its analytical `Axis`/`FootPrint` geometry BY CONTENT KEY through the `RepresentationContentHash` keyed map a `Rasm.Compute` structural/energy runner resolves from the blob store, never inline coordinate geometry on the seam node.
 - [02]-[ELEMENT_GRAPH]: the `Header`, the `ElementGraph` frozen read snapshot with the built-once incidence index and `QuikGraph` topology view, the `Element` derived-fold result, the memoized `Bake` fold applying the `InheritanceMode` type→occurrence precedence wholly within the seam, and the `SectionOf(member)` M7 accessor reading the baked neutral `SectionProperties` off a member's `ProfileSet` composition.
 
 ## [02]-[NODE_MODEL]
 
 - Owner: `NodeId` the `[ValueObject<string>]` identity owner over the `IObjectFactory` floor; `Node` the `[Union]` seven-case property-graph vocabulary carrying the shared `ToCanonicalBytes` projection; the node-payload component types the cases compose.
-- Cases: `Object` (the IfcObjectDefinition mirror — `ObjectKind` occurrence/type, optional `ExternalId` (the Bim-stored IFC GlobalId, re-emitted at `Emit`), generic `Classification`, first-class `PredefinedType` token value-object, name/tag, the `RepresentationContentHash` keyed map for the heavy content-hashed display geometry, the neutral analytical coordinate geometry (`BoundaryPolygon` the space-boundary surface polygon + `Axis` the idealized structural line) a discipline reads baked, optional `OwnerHistory`, schema `SchemaSpan`; NO `GeoReference`) · `Material` (a `Composition/material#MATERIAL_NODE` `MaterialId` + composition + property sets) · `PropertySet`/`QuantitySet` (a `Properties/property#PROPERTY_BAG` named bag with its `InheritanceMode`) · `Assessment` (an `Assessment/assessment#ASSESSMENT_NODE` receipt) · `Appearance` (a content-keyed `AppearanceSummary`) · `Coverage` (a `Geospatial/coverage#COVERAGE_NODE` raster/field grid); the closed property-graph node family.
+- Cases: `Object` (the IfcObjectDefinition mirror — `ObjectKind` occurrence/type, optional `ExternalId` (the Bim-stored IFC GlobalId, re-emitted at `Emit`), the generic primary `Classification` (the entity-class-keying pair every query/egress/diff reads) PLUS the `Classifications` set of additional standard-system references (IFC permits MULTIPLE `IfcRelAssociatesClassification` per object — Uniclass + OmniClass simultaneously — so the secondary refs ride a `Seq<Classification>` rather than a lossy single field), first-class `PredefinedType` token value-object, name/tag, the `RepresentationContentHash` keyed map content-hashing EVERY geometry — the heavy display `Body` AND the lightweight analytical `Axis` (idealized structural line) and `FootPrint` (space-boundary surface polygon) a discipline resolves by content key, never inline coordinates — optional `OwnerHistory`, schema `SchemaSpan`; NO `GeoReference`) · `Material` (a `Composition/material#MATERIAL_COMPOSITION` `MaterialId` + composition + property sets) · `PropertySet`/`QuantitySet` (a `Properties/property#PROPERTY_BAG` named bag with its `InheritanceMode`) · `Assessment` (an `Assessment/assessment#ASSESSMENT_NODE` receipt) · `Appearance` (a content-keyed `AppearanceSummary`) · `Coverage` (a `Geospatial/coverage#COVERAGE_NODE` raster/field grid); the closed property-graph node family.
 - Entry: `NodeId.Rooted()` mints a neutral sortable rooted id (Guid v7); `NodeId.Content(canonicalBytes)` mints a non-rooted content-hash id through the kernel `ContentHash` entry, `NodeId.OfContent(contentAddress)` mints one from a precomputed `ContentAddress` without re-hashing; `node.Id` reads any case's id through the abstract override; `node.ToCanonicalBytes(tolerance)` projects the case's semantic content (NO id) into the canonical bytes the `NodeId.Content` mint and the `Projection/address#CONTENT_ADDRESS` diff SHARE.
 - Auto: each case carries `NodeId Id` as a positional override of the union's abstract `Id`, so `node.Id` reads without a switch; `ToCanonicalBytes` dispatches the generated total `Switch` writing each case's semantic content (an `Object` its kind/classification/predefined/name/tag/representations/span; a `Material` its key/composition/properties; a bag its sorted name→value entries; a measure quantized to the tolerance) into the `Projection/address#CANONICAL_WRITER`, the id excluded so a non-rooted node's id derives from its own bytes without circularity; the rooted `Object` mints its id once at authoring (Guid v7), the IFC GlobalId staying a Bim-stored projection attribute re-emitted at `Emit`.
 - Packages: Thinktecture.Runtime.Extensions (`[Union]`/`[SmartEnum<string>]`/`[ValueObject<string>]`/`IObjectFactory`), LanguageExt.Core (`Option`/`Seq`/`Map`), NodaTime (`Instant`), `Rasm` (the kernel `Op` op-key + the `Domain.ContentHash` seed-zero content-hash entry the `NodeId.Content` mint composes).
 - Growth: a new node concept is one `Node` case carrying its payload type (a `Schedule`/`Task` node lands here only if 4D becomes a real target); a new object axis is one column on the `Object` case; a new node-payload component is one type on its owning sibling page; never a parallel node family and never a second identity scheme — the `NodeId` is the one owner, `MaterialId` a node attribute, not a parallel key.
-- Boundary: `NodeId` is the ONE identity owner — a rooted node carries a neutral Guid-v7 id (NOT an IFC GlobalId, which is a Bim-stored attribute re-emitted at `Emit`), a non-rooted node a kernel `XxHash128` content hash over `ToCanonicalBytes`, and a second key scheme or a `MaterialId`-as-node-key is the deleted form; the `Object` carries the generic `Classification` and the first-class `PredefinedType` token (validity is a Bim egress gate, not a seam invariant), the `RepresentationContentHash` keyed map (heavy display geometry by content hash, never a host geometry type) PLUS the neutral analytical coordinate geometry — the kernel-`Vector3` `BoundaryPolygon` (a space-boundary surface polygon) and the idealized `Axis` (a structural member line) the structural/energy disciplines read baked, both kernel-neutral coordinate data and NOT a host geometry type, an inline host BRep or RhinoCommon handle remaining the named seam violation — and the optional `OwnerHistory` + `SchemaSpan`, but NO `GeoReference` (that rides the `Header` and `Coverage`); `ToCanonicalBytes` is the ONE canonical projection the id mint and the diff share (fixed IEEE-754 LE, tolerance-quantized measures, explicit attribute order), so a node hashes identically across runtimes; the seam carries no IFC entity-class roster (the `IfcClass` vocabulary and the `PredefinedType` valid-set are the Bim projector's), the `Object` carrying the neutral classification and predefined token the projector resolves.
+- Boundary: `NodeId` is the ONE identity owner — a rooted node carries a neutral Guid-v7 id (NOT an IFC GlobalId, which is a Bim-stored attribute re-emitted at `Emit`), a non-rooted node a kernel `XxHash128` content hash over `ToCanonicalBytes`, and a second key scheme or a `MaterialId`-as-node-key is the deleted form; the `Object` carries the generic primary `Classification` (the entity-class-keying pair) plus the `Classifications` `Seq<Classification>` of additional standard-system references (the multiple `IfcRelAssociatesClassification` IFC admits — a single field would drop a co-applied Uniclass/OmniClass, the deleted lossy form) and the first-class `PredefinedType` token (validity is a Bim egress gate, not a seam invariant), the `RepresentationContentHash` keyed map (M2: the `Body`/`Axis`/`Box`/`FootPrint` content hashes — EVERY geometry, the heavy display body AND the lightweight analytical axis/footprint the structural/energy disciplines resolve one-hop by content key from the blob store; an inline `Vector3`/`Point3d` coordinate field, a host BRep, or a RhinoCommon handle on the node is the named seam violation, the deleted form) and the optional `OwnerHistory` + `SchemaSpan`, but NO `GeoReference` (that rides the `Header` and `Coverage`); `ToCanonicalBytes` is the ONE canonical projection the id mint and the diff share (fixed IEEE-754 LE, tolerance-quantized measures, explicit attribute order), so a node hashes identically across runtimes; the seam carries no IFC entity-class roster (the `IfcClass` vocabulary and the `PredefinedType` valid-set are the Bim projector's), the `Object` carrying the neutral classification and predefined token the projector resolves.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
 using LanguageExt;
 using NodaTime;
-using Rasm;
 using Rasm.Domain;
 using Thinktecture;
 using static LanguageExt.Prelude;
@@ -32,7 +31,7 @@ namespace Rasm.Element;
 [ValueObject<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class NodeId {
- static partial void NormalizeValidate(ref string value) => value = value.Trim();
+ static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) => value = value.Trim();
 
  // A rooted node carries a neutral sortable identity (Guid v7), NOT an IFC GlobalId.
  public static NodeId Rooted() => Create(Guid.CreateVersion7().ToString("N"));
@@ -54,8 +53,8 @@ public sealed partial class ReleaseVersion {
  public static readonly ReleaseVersion Ifc2X3 = new("IFC2X3");
  public static readonly ReleaseVersion Ifc4 = new("IFC4");
  public static readonly ReleaseVersion Ifc4X1 = new("IFC4X1");
- public static readonly ReleaseVersion Ifc4X3Add2 = new("IFC4X3_ADD2");
  public static readonly ReleaseVersion Ifc4X3 = new("IFC4X3");
+ public static readonly ReleaseVersion Ifc4X3Add2 = new("IFC4X3_ADD2");
  public static readonly ReleaseVersion Ifc5 = new("IFC5");
 }
 
@@ -79,7 +78,7 @@ public sealed partial class ObjectKind {
 [ValueObject<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 public sealed partial class PredefinedType {
- static partial void NormalizeValidate(ref string value) => value = value.Trim().ToUpperInvariant();
+ static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) => value = value.Trim().ToUpperInvariant();
  public static readonly PredefinedType NotDefined = Create("NOTDEFINED");
  public string Token => Value;
 }
@@ -102,18 +101,20 @@ public readonly record struct SchemaSpan(ReleaseVersion IntroducedIn, Option<Rel
  public static SchemaSpan From(ReleaseVersion introduced) => new(introduced, None);
 }
 
-// The geometry reference is a keyed map RepresentationIdentifier → content hash (axis/body/box/footprint),
-// neutral-named (no IFC leak), the heavy geometry held by content hash in the blob store.
+// The geometry reference is a keyed map RepresentationIdentifier → content hash (M2: axis/body/box/footprint),
+// neutral-named (no IFC leak), EVERY geometry — heavy display body AND the lightweight analytical Axis (the idealized
+// structural-member line) and FootPrint (the space-boundary surface polygon) the structural/energy disciplines read —
+// held by content hash in the blob store and resolved one-hop by content key, NEVER inline coordinate geometry on the
+// node (the seam carries no host geometry type and no raw Vector3/Point3d coordinate field). Body/Axis/Box/FootPrint
+// are the standard IFC RepresentationIdentifier reads a consumer resolves; an absent identifier is None.
 public readonly record struct RepresentationContentHash(Map<string, UInt128> ByIdentifier) {
  public static readonly RepresentationContentHash Empty = new(Map<string, UInt128>());
  public Option<UInt128> Body => ByIdentifier.Find("Body");
+ public Option<UInt128> Axis => ByIdentifier.Find("Axis");
+ public Option<UInt128> Box => ByIdentifier.Find("Box");
+ public Option<UInt128> FootPrint => ByIdentifier.Find("FootPrint");
  public RepresentationContentHash With(string identifier, UInt128 hash) => this with { ByIdentifier = ByIdentifier.AddOrUpdate(identifier, hash) };
 }
-
-// The idealized structural line a discipline reads BAKED off the Object node (the start/end + local up the Bim
-// projector lowers from an IfcStructuralCurveMember analytical curve) — kernel Vector3 only, the analytical-geometry
-// twin of the surface BoundaryPolygon, NOT the content-hashed heavy display geometry the RepresentationContentHash keys.
-public readonly record struct AxisCurve(Vector3 Start, Vector3 End, Vector3 Up);
 
 // Appearance node summary: a content-keyed reference to the full BSDF (authored in Rasm.Materials) plus the
 // neutral canonical PBR scalars a consumer reads flat without the full lobe graph.
@@ -124,13 +125,12 @@ public readonly record struct AppearanceSummary(UInt128 AppearanceKey, double Ba
 public abstract partial record Node {
  private Node() { }
 
- public abstract NodeId Id { get; }
+ public abstract NodeId Id { get; init; }
 
  public sealed record Object(
  NodeId Id, ObjectKind Kind, Option<string> ExternalId, Classification Classification, PredefinedType PredefinedType,
  string Name, string Tag, RepresentationContentHash Representations,
- Seq<Vector3> BoundaryPolygon, Option<AxisCurve> Axis,
- Option<OwnerHistory> History, SchemaSpan Span) : Node;
+ Option<OwnerHistory> History, SchemaSpan Span, Seq<Classification> Classifications = default) : Node;
  public sealed record Material(NodeId Id, MaterialId MaterialKey, MaterialComposition Composition, Seq<MaterialPropertySet> Properties) : Node;
  public sealed record PropertySet(NodeId Id, PropertyBag Bag) : Node;
  public sealed record QuantitySet(NodeId Id, QuantityBag Bag) : Node;
@@ -138,18 +138,23 @@ public abstract partial record Node {
  public sealed record Appearance(NodeId Id, AppearanceSummary Summary) : Node;
  public sealed record Coverage(NodeId Id, CoverageGrid Grid) : Node;
 
- // The ONE canonical value codec — the id is EXCLUDED (a non-rooted id derives from these bytes),
- // measures quantize to the tolerance, attribute order is explicit, and the diff + the id mint share it.
+ // The ONE canonical value codec — the id is EXCLUDED (a non-rooted id derives from these bytes), measures quantize
+ // to the tolerance, attribute order is explicit, and the diff + the id mint share it. Each complex payload delegates
+ // to its OWNER's CanonicalBytes (Composition/material MaterialComposition + MaterialPropertySet, Properties/property
+ // PropertyValue, Geospatial/coverage CoverageGrid) so the projection is never re-derived per case; geometry rides the
+ // content-hashed Representations map (its content keys ARE the geometry identity), never inline coordinates. PROVENANCE
+ // is excluded — OwnerHistory (who/when, H9) is a separate additive axis, not content, so a re-stamp never forks the id;
+ // the lazy caches (incidence/QuikGraph/Bake memo) are likewise outside the byte projection.
  public ReadOnlyMemory<byte> ToCanonicalBytes(double tolerance) {
  CanonicalWriter w = new(tolerance);
  Switch(
- @object: o => { w.Ordinal(0); w.String(o.Kind.Key); w.Bool(o.ExternalId.IsSome); o.ExternalId.IfSome(e => w.String(e)); w.String(o.Classification.System); w.String(o.Classification.Code); w.String(o.PredefinedType.Token); w.String(o.Name); w.String(o.Tag); foreach (var (k, h) in o.Representations.ByIdentifier.OrderBy(static p => p.Key, StringComparer.Ordinal)) { w.String(k); w.U128(h); } w.Ordinal(o.BoundaryPolygon.Count); foreach (Vector3 p in o.BoundaryPolygon) { w.Double(p.X); w.Double(p.Y); w.Double(p.Z); } w.Bool(o.Axis.IsSome); o.Axis.IfSome(a => { w.Double(a.Start.X); w.Double(a.Start.Y); w.Double(a.Start.Z); w.Double(a.End.X); w.Double(a.End.Y); w.Double(a.End.Z); w.Double(a.Up.X); w.Double(a.Up.Y); w.Double(a.Up.Z); }); w.String(o.Span.IntroducedIn.Key); },
- material: m => { w.Ordinal(1); w.String(m.MaterialKey.Value); m.Composition.CanonicalBytes(w); foreach (var p in m.Properties.OrderBy(static p => p.Discipline.Key, StringComparer.Ordinal)) { w.String(p.Discipline.Key); } },
+ @object: o => { w.Ordinal(0); w.String(o.Kind.Key); w.Bool(o.ExternalId.IsSome); o.ExternalId.IfSome(e => w.String(e)); w.String(o.Classification.System); w.String(o.Classification.Code); w.Ordinal(o.Classifications.Count); foreach (var c in o.Classifications.OrderBy(static x => x.System, StringComparer.Ordinal).ThenBy(static x => x.Code, StringComparer.Ordinal)) { w.String(c.System); w.String(c.Code); } w.String(o.PredefinedType.Token); w.String(o.Name); w.String(o.Tag); w.Ordinal(o.Representations.ByIdentifier.Count); foreach (var (k, h) in o.Representations.ByIdentifier.OrderBy(static p => p.Key, StringComparer.Ordinal)) { w.String(k); w.U128(h); } w.String(o.Span.IntroducedIn.Key); w.Bool(o.Span.RemovedIn.IsSome); o.Span.RemovedIn.IfSome(r => w.String(r.Key)); },
+ material: m => { w.Ordinal(1); w.String(m.MaterialKey.Value); m.Composition.CanonicalBytes(w); w.Ordinal(m.Properties.Count); foreach (var p in m.Properties.OrderBy(static p => p.Discipline.Key, StringComparer.Ordinal)) { p.CanonicalBytes(w); } },
  propertySet: p => { w.Ordinal(2); w.String(p.Bag.SetName); w.String(p.Bag.Inheritance.Key); foreach (var (n, v) in p.Bag.Properties.OrderBy(static e => e.Key.Value, StringComparer.Ordinal)) { w.String(n.Value); v.CanonicalBytes(w); } },
  quantitySet: q => { w.Ordinal(3); w.String(q.Bag.SetName); w.String(q.Bag.Inheritance.Key); foreach (var (n, m) in q.Bag.Quantities.OrderBy(static e => e.Key.Value, StringComparer.Ordinal)) { w.String(n.Value); w.Measure(m); } },
- assessment: a => { w.Ordinal(4); w.String(a.Payload.Discipline.Key); w.String(a.Payload.Route); w.U128(a.Payload.InputKey); },
- appearance: a => { w.Ordinal(5); w.U128(a.Summary.AppearanceKey); w.Double(a.Summary.BaseColorR); w.Double(a.Summary.BaseColorG); w.Double(a.Summary.BaseColorB); w.Double(a.Summary.Metallic); w.Double(a.Summary.Roughness); },
- coverage: c => { w.Ordinal(6); w.String(c.Grid.Kind.Key); w.U128(c.Grid.RasterKey); w.Double(c.Grid.Grid.CellSizeX); w.Double(c.Grid.Grid.CellSizeY); c.Grid.Crs.Epsg.IfSome(e => w.Ordinal(e)); });
+ assessment: a => { w.Ordinal(4); w.String(a.Payload.Discipline.Key); w.String(a.Payload.Route.Value); w.U128(a.Payload.InputKey); },
+ appearance: a => { w.Ordinal(5); w.U128(a.Summary.AppearanceKey); },
+ coverage: c => { w.Ordinal(6); c.Grid.CanonicalBytes(w); });
  return w.ToBytes();
  }
 }
@@ -158,8 +163,8 @@ public abstract partial record Node {
 ## [03]-[ELEMENT_GRAPH]
 
 - Owner: `Header` the model header (`ReleaseVersion` + `ModelView` + `Geospatial/reference#GEO_REFERENCE` `GeoReference` + `Tolerance` + `Instant` + `StepHeader`); `ElementGraph` the frozen read snapshot carrying the nodes, edges, the built-once incidence index, and the memoized `Bake`; `Element` the derived-fold "has it all" result; `MaterialBinding` the material-plus-usage pair `Bake` folds from an `Associate` edge.
-- Entry: `ElementGraph.Of(header, nodes, edges)` builds the frozen snapshot — `ToFrozenDictionary` over the nodes, the incidence index grouping every edge by both endpoints, the lazy `QuikGraph` `BidirectionalGraph` topology view, and an empty `Bake` memo; `Genesis(header)` seeds the empty header-only snapshot a model-creating session or a Marten stream rehydrate builds onto, and `Apply(delta, key)` advances a snapshot by a validated `Graph/delta#GRAPH_DELTA` `GraphDelta` (the persistence rehydrate + live-apply entry) `Fin<T>` railing `ElementFault.NodeAbsent` on a corrupt delta whose added edge names an absent endpoint; `Bake(objectId, key)` folds the reachable subgraph from an `Object` node into an `Element`, memoized by `objectId` within the snapshot (a new snapshot from a `Graph/delta#GRAPH_DELTA` carries a fresh memo), `Fin<T>` railing `ElementFault.NodeAbsent` on an absent root and `ElementFault.RelationshipInvalid` on a cyclic `Compose` chain (a `Compose` ancestry set threaded through the fold); `Topology()` reads the cached `QuikGraph` view a reachability/topological-order/LCA consumer composes; the read accessors `ObjectNodes`/`Find`/`Material`/`MaterialsOf`/`CompositionOf`/`MechanicalOf`/`SectionOf` enumerate the object roots and resolve a node (raw or typed by case) and the material/composition/mechanical/section subgraph a member binds — the polymorphic surface a `Rasm.Compute` analysis route reads the concrete graph through, the discipline reads (loads/supports/spaces/areas) composing in Compute from these primitives.
-- Auto: `Of` builds the incidence index once at the freeze boundary so `Bake` reads an object's edges in O(degree) rather than scanning every edge; `Bake` resolves the `Object`, folds its incidence edges — `Assign.PropertyDefinition` resolves a `PropertySet`/`QuantitySet` node into the occurrence bag, `Assign.TypeDefinition` resolves the type `Object` and gathers its bags for the `InheritanceMode` merge, `Assign.Assessment` collects the `Assessment` receipt, `Associate` resolves a `Material` node (with its `MaterialUsage`) into a `MaterialBinding` or an `Appearance` node into the summary, `Compose.Aggregate`/`Nest`/`Contain` recurse into child `Object`s as `Parts`, `Void` records the openings — then merges each occurrence bag with its type bag via `Properties/property#PROPERTY_BAG` `PropertyBag.Merge` so the type→occurrence precedence applies once wholly within the seam; the `QuikGraph` view and the `Bake` memo are built lazily and excluded from equality so the frozen snapshot stays structurally compared by its nodes and edges, and a `with` copy is forbidden (a protected copy constructor throws) so those lazily-built caches are never aliased across snapshots — only `Of`/`Genesis`/`Apply` mint a fresh one.
+- Entry: `ElementGraph.Of(header, nodes, edges)` builds the frozen snapshot — `ToFrozenDictionary` over the nodes, the incidence index grouping every edge by both endpoints, the lazy `QuikGraph` `BidirectionalGraph` topology view, and an empty `Bake` memo; `Genesis(header)` seeds the empty header-only snapshot a model-creating session or a Marten stream rehydrate builds onto, and `Apply(delta, key)` advances a snapshot by a validated `Graph/delta#GRAPH_DELTA` `GraphDelta` (the persistence rehydrate + live-apply entry) `Fin<T>` railing `ElementFault.NodeAbsent` on a corrupt delta whose added edge names an absent endpoint; `Bake(objectId, key)` folds the reachable subgraph from an `Object` node into an `Element`, memoized by `objectId` within the snapshot (a new snapshot from a `Graph/delta#GRAPH_DELTA` carries a fresh memo), `Fin<T>` railing `ElementFault.NodeAbsent` on an absent root and `ElementFault.RelationshipInvalid` on a cyclic `Compose` chain (a `Compose` ancestry set threaded through the fold); `Topology()` reads the cached `QuikGraph` view a reachability/topological-order/LCA consumer composes; the read accessors `ObjectNodes`/`Find`/`Material`/`MaterialsOf`/`CompositionOf`/`PropertiesOf`/`SectionOf` enumerate the object roots and resolve a node (raw or typed by case) and the material/composition/property/section subgraph a member binds — the polymorphic surface a `Rasm.Compute` analysis route reads the concrete graph through, the discipline reads (loads/supports/spaces/areas) composing in Compute from these primitives.
+- Auto: `Of` builds the incidence index once at the freeze boundary so `Bake` reads an object's edges in O(degree) rather than scanning every edge; `Bake` resolves the `Object`, folds its incidence edges — `Assign.PropertyDefinition` resolves a `PropertySet`/`QuantitySet` node into the occurrence bag, `Assign.TypeDefinition` resolves the type `Object` and gathers its bags for the `InheritanceMode` merge, `Assign.Assessment` collects the `Assessment` receipt, `Associate` resolves a `Material` node (with its `MaterialUsage`) into a `MaterialBinding`, an `Appearance` node into the summary, or a `Coverage` node into the grid, and `Compose.Aggregate`/`Nest`/`Contain` recurse into child `Object`s as `Parts` (the non-owning `Reference` excluded, and the host-feature `Void`/`Connect` and group/system relationships read through `EdgesAt`/`Topology` rather than baked into a flat field) — then merges each occurrence bag with its type bag via `Properties/property#PROPERTY_BAG` `PropertyBag.Merge` so the type→occurrence precedence applies once wholly within the seam; the `QuikGraph` view and the `Bake` memo are built lazily and excluded from equality so the frozen snapshot stays structurally compared by its nodes and edges, and no `with` copy can exist — `ElementGraph` is a sealed CLASS, not a record, so the compiler emits no copy that could alias those lazily-built caches across snapshots (the misuse is compile-impossible, not a runtime throw) — only `Of`/`Genesis`/`Apply` mint a fresh one.
 - Receipt: the `Element` is the one flat record a consumer reads — `element.Properties.Find(name)`, `element.Materials`, `element.Assessments`, `element.Appearance`, `element.Coverages`, `element.Parts` — "has it all" in one `Bake`, never a join across the graph; the `ElementGraph` is the immutable read snapshot Persistence persists and the projectors assemble onto, its `Generator.Equals` structural equality and `Inequalities` member diff feeding the Persistence 3-way `StructuralMerge`; the `QuikGraph` topology view answers reachability/containment/LCA for a consumer without a second graph.
 - Packages: `Generator.Equals` (`[Equatable]` snapshot equality + `Inequalities` diff), QuikGraph (`BidirectionalGraph`/`SEdge` topology view + `AlgorithmExtensions`), LanguageExt.Core (`Seq`/`Map`/`Option`/`Fin`), System.Collections.Frozen/Immutable, NodaTime (`Instant`), `Rasm` (the kernel `Op` op-key).
 - Growth: a new derived element field is one column on `Element` the `Bake` fold populates from an existing edge kind; a new edge semantic the fold reads is one arm in `Bake`; the working/frozen split keeps the live delta path in the HAMT (`Graph/delta`) and the read path in the frozen snapshot, so neither grows the other; never a second stored `Element` record beside the graph.
@@ -186,10 +191,17 @@ public sealed partial record Element(
  Option<AppearanceSummary> Appearance,
  [property: UnorderedEquality] Seq<CoverageGrid> Coverages,
  [property: OrderedEquality] Seq<Element> Parts,
- Option<OwnerHistory> History);
+ Option<OwnerHistory> History,
+ [property: UnorderedEquality] Seq<Classification> Classifications = default);
 
+// A sealed CLASS, not a record: equality is owned by Generator.Equals `[Equatable]` (the `[UnorderedEquality]` node map
+// + `[OrderedEquality]` edge array), and a class has NO compiler-generated `with` — so the misuse a record would admit
+// (a `with` aliasing the lazily-built incidence index, QuikGraph view, and bake memo BY REFERENCE, surfacing a stale
+// baked Element from the wrong snapshot) is COMPILE-IMPOSSIBLE rather than a runtime throw. Only Of/Genesis/Apply mint a
+// fresh snapshot (each rebuilding the caches with an empty memo); the live mutation path is the `Graph/delta#GRAPH_DELTA`
+// WorkingGraph HAMT, never a copy of the frozen snapshot.
 [Equatable]
-public sealed partial record ElementGraph {
+public sealed partial class ElementGraph {
  [property: UnorderedEquality] public FrozenDictionary<NodeId, Node> Nodes { get; }
  [property: OrderedEquality] public ImmutableArray<Relationship> Edges { get; }
  public Header Header { get; }
@@ -200,23 +212,22 @@ public sealed partial record ElementGraph {
 
  ElementGraph(Header header, FrozenDictionary<NodeId, Node> nodes, ImmutableArray<Relationship> edges) {
  (Header, Nodes, Edges) = (header, nodes, edges);
+ // Index every NODE an edge touches (Relationship.Members), not just the binary endpoints, so a Connect's realizing
+ // intermediary resolves through EdgesAt — EdgesAt(n) == "every edge touching n", aligned with Touches and the
+ // DropNode cascade; an endpoints-only index would strand a realizing reference the cascade still sweeps.
  incidence = edges
- .SelectMany(e => new[] { (e.Endpoints.Relating, e), (e.Endpoints.Related, e) })
- .GroupBy(static p => p.Item1, static p => p.Item2)
+ .SelectMany(e => e.Members.Map(m => (Node: m, Edge: e)))
+ .GroupBy(static p => p.Node, static p => p.Edge)
  .ToFrozenDictionary(static g => g.Key, static g => g.ToImmutableArray());
+ // Build the view from the directed adjacency each edge contributes (Relationship.DirectedPairs) — a binary edge is
+ // one leg, a Connect carrying a realizing intermediary is the two legs From->Realizing->To — so reachability/LCA
+ // traverse THROUGH the realizing node, never an endpoints-only From->To shortcut that hides it.
  topology = new(() => {
  var g = new QuikGraph.BidirectionalGraph<NodeId, QuikGraph.SEdge<NodeId>>(allowParallelEdges: true);
- foreach (var edge in edges) { g.AddVerticesAndEdge(new QuikGraph.SEdge<NodeId>(edge.Endpoints.Relating, edge.Endpoints.Related)); }
+ foreach (var edge in edges) { foreach (var (from, to) in edge.DirectedPairs) { g.AddVerticesAndEdge(new QuikGraph.SEdge<NodeId>(from, to)); } }
  return g;
  });
  }
-
- // Guard: a compiler-generated `with` copy would alias the lazily-built incidence index, QuikGraph view, and
- // bakeMemo BY REFERENCE, surfacing stale baked elements from the wrong snapshot — so a `with` copy is forbidden;
- // only Of/Genesis/Apply mint a fresh snapshot (each rebuilding the caches with an empty memo), the live mutation
- // path being the `Graph/delta#GRAPH_DELTA` WorkingGraph HAMT, never a `with` on the frozen snapshot.
- protected ElementGraph(ElementGraph original) =>
- throw new InvalidOperationException("ElementGraph is a frozen snapshot and must not be copied via `with`; advance it through Apply or build one through ElementGraph.Of/Genesis.");
 
  public static ElementGraph Of(Header header, FrozenDictionary<NodeId, Node> nodes, ImmutableArray<Relationship> edges) => new(header, nodes, edges);
 
@@ -240,7 +251,7 @@ public sealed partial record ElementGraph {
 
  // The object (element-root) nodes a consumer iterates to bake or index every element — the typed projection over
  // the node map a Rasm.Persistence Query/index pass folds, never a per-element re-scan of the whole node set.
- public Seq<Node.Object> ObjectNodes => Nodes.Values.Choose(static n => n is Node.Object o ? Some(o) : None).ToSeq();
+ public Seq<Node.Object> ObjectNodes => toSeq(Nodes.Values).Choose(static n => n is Node.Object o ? Some(o) : None).ToSeq();
 
  public ImmutableArray<Relationship> EdgesAt(NodeId node) => incidence.GetValueOrDefault(node, []);
 
@@ -248,11 +259,12 @@ public sealed partial record ElementGraph {
 
  // --- [READ_ACCESSORS] -----------------------------------------------------------------
  // The polymorphic read surface a Rasm.Compute analysis route reads the concrete graph through — resolve a node
- // (raw or typed by case), and the material/composition/mechanical subgraph a member binds. Compute composes its
+ // (raw or typed by case), and the material/composition/property/section subgraph a member binds. Compute composes its
  // discipline reads (loads/supports off the structural Connect/Generic edges, spaces/bounding-surfaces off the
- // space-boundary Generic edges, axis/polygon off the baked Object.Axis/Object.BoundaryPolygon, areas off the quantity
- // bags) from these primitives + EdgesAt/Topology/Bake — the Bim projector bakes that structural/energy subgraph at
- // ingest; the seam owns the material+section reads (it owns those nodes), the discipline physics lives in Compute, never here.
+ // space-boundary Generic edges, the analytical axis/footprint geometry resolved BY CONTENT KEY from member.Representations
+ // .Axis/.FootPrint, areas off the quantity bags) from these primitives + EdgesAt/Topology/Bake — the Bim projector bakes
+ // that structural/energy subgraph at ingest; the seam owns the material+section reads (it owns those nodes), the
+ // discipline physics lives in Compute, never here.
  public Option<Node> Find(NodeId id) => Nodes.TryGetValue(id, out Node? n) ? Some(n) : None;
 
  public Option<T> Find<T>(NodeId id) where T : Node => Find(id).Bind(static n => n is T t ? Some(t) : None);
@@ -260,15 +272,19 @@ public sealed partial record ElementGraph {
  public Option<Node.Material> Material(NodeId id) => Find<Node.Material>(id);
 
  public Option<Node.Material> Material(MaterialId key) =>
- Nodes.Values.Choose(n => n is Node.Material m && m.MaterialKey == key ? Some(m) : None).HeadOrNone();
+ toSeq(Nodes.Values).Choose(n => n is Node.Material m && m.MaterialKey == key ? Some(m) : None).Head;
 
  public Seq<Node.Material> MaterialsOf(NodeId member) =>
- EdgesAt(member).Choose(e => e is Relationship.Associate r && r.Subject == member && Nodes.TryGetValue(r.Resource, out var res) && res is Node.Material m ? Some(m) : None);
+ toSeq(EdgesAt(member)).Choose(e => e is Relationship.Associate r && r.Subject == member && Nodes.TryGetValue(r.Resource, out var res) && res is Node.Material m ? Some(m) : None);
 
- public Option<MaterialComposition> CompositionOf(NodeId member) => MaterialsOf(member).HeadOrNone().Map(static m => m.Composition);
+ public Option<MaterialComposition> CompositionOf(NodeId member) => MaterialsOf(member).Head.Map(static m => m.Composition);
 
- public Option<MaterialPropertySet.Mechanical> MechanicalOf(NodeId member) =>
- MaterialsOf(member).Bind(static m => m.Properties).Choose(static p => p is MaterialPropertySet.Mechanical mech ? Some(mech) : None).HeadOrNone();
+ // The FULL typed engineering-property profile a member's associated materials carry — the polymorphic property read a
+ // Rasm.Compute discipline route composes the Composition/material#MATERIAL_PROPERTY MaterialPropertyAccess accessors over
+ // (graph.PropertiesOf(member).Mechanical / .Thermal / .ForDiscipline(Discipline.Fire)); a per-discipline MechanicalOf/
+ // ThermalOf/AcousticOf accessor family — a naive 1-of-6 slice re-deriving the owner's `is`-cast — is the deleted form.
+ public Seq<MaterialPropertySet> PropertiesOf(NodeId member) =>
+ MaterialsOf(member).Bind(static m => m.Properties);
 
  // M7: the neutral section the Rasm.Materials projector baked onto a member's ProfileSet composition (WithSection),
  // read Op-FREE off the member's directly-associated material — NO Bake, NO Op key — so a Rasm.Compute structural/fire
@@ -276,7 +292,7 @@ public sealed partial record ElementGraph {
  // traversal in a discipline-local accessor or admitting VividOrange; the seam owns the section read (it owns the nodes).
  // A section is occurrence-direct (the ProfileRef is associated, not type-inherited), so no Bake-fold is needed.
  public Option<SectionProperties> SectionOf(NodeId member) =>
- MaterialsOf(member).Choose(static m => m.Composition is MaterialComposition.ProfileSet { Section: var s } ? s : Option<SectionProperties>.None).HeadOrNone();
+ MaterialsOf(member).Choose(static m => m.Composition is MaterialComposition.ProfileSet { Section: var s } ? s : Option<SectionProperties>.None).Head;
 
  // --- [BAKE] ---------------------------------------------------------------------------
  // The one derived fold: an Object node plus its reachable subgraph become a flat Element. The public entry seeds an
@@ -296,7 +312,7 @@ public sealed partial record ElementGraph {
 
  Fin<Element> BakeObject(Node.Object root, Op key, ImmutableHashSet<NodeId> ancestry) {
  var (occProps, occQty, materials, assessments, appearance) =
- EdgesAt(root.Id).Fold(
+ toSeq(EdgesAt(root.Id)).Fold(
  (Props: Seq<PropertyBag>(), Qty: Seq<QuantityBag>(), Mat: Seq<MaterialBinding>(), Asm: Seq<AssessmentPayload>(), App: Option<AppearanceSummary>.None),
  (acc, edge) => edge switch {
  Relationship.Assign a when a.Subject == root.Id && a.SubKind == AssignKind.PropertyDefinition && Nodes.TryGetValue(a.Definition, out var d) && d is Node.PropertySet ps => acc with { Props = acc.Props.Add(ps.Bag) },
@@ -312,15 +328,15 @@ public sealed partial record ElementGraph {
  return BakeParts(root.Id, key, ancestry).Map(parts => new Element(
  root.Id, root.Kind, root.ExternalId, root.Classification, root.PredefinedType, root.Name, root.Tag, root.Representations,
  materials, properties, quantities, assessments, appearance,
- CoveragesOf(root.Id), parts, root.History));
+ CoveragesOf(root.Id), parts, root.History, root.Classifications));
  }
 
  // Gather the type object's bags (via the TypeDefinition edge) so the occurrence merge applies precedence.
  (Seq<PropertyBag> Props, Seq<QuantityBag> Qty) TypeBagsOf(NodeId occurrence) =>
- EdgesAt(occurrence).Choose(e => e is Relationship.Assign { SubKind: var k } a && k == AssignKind.TypeDefinition && a.Subject == occurrence ? Some(a.Definition) : None)
- .HeadOrNone()
+ toSeq(EdgesAt(occurrence)).Choose(e => e is Relationship.Assign { SubKind: var k } a && k == AssignKind.TypeDefinition && a.Subject == occurrence ? Some(a.Definition) : None)
+ .Head
  .Match(
- Some: typeId => EdgesAt(typeId).Fold(
+ Some: typeId => toSeq(EdgesAt(typeId)).Fold(
  (Props: Seq<PropertyBag>(), Qty: Seq<QuantityBag>()),
  (acc, e) => e is Relationship.Assign { SubKind: var k } a && k == AssignKind.PropertyDefinition && a.Subject == typeId && Nodes.TryGetValue(a.Definition, out var d)
  ? d switch { Node.PropertySet ps => acc with { Props = acc.Props.Add(ps.Bag) }, Node.QuantitySet qs => acc with { Qty = acc.Qty.Add(qs.Bag) }, _ => acc }
@@ -338,18 +354,23 @@ public sealed partial record ElementGraph {
  + type.Filter(t => !occurrence.Exists(o => o.SetName == t.SetName));
 
  Seq<CoverageGrid> CoveragesOf(NodeId objectId) =>
- EdgesAt(objectId).Choose(e => e is Relationship.Associate r && r.Subject == objectId && Nodes.TryGetValue(r.Resource, out var res) && res is Node.Coverage c ? Some(c.Grid) : None);
+ toSeq(EdgesAt(objectId)).Choose(e => e is Relationship.Associate r && r.Subject == objectId && Nodes.TryGetValue(r.Resource, out var res) && res is Node.Coverage c ? Some(c.Grid) : None);
 
+ // The OWNING Compose children only — Aggregate (decomposition), Nest (ordered child sequence), and Contain (spatial
+ // containment) recurse into Parts; the non-owning Reference flavor (IfcRelReferencedInSpatialStructure — an element
+ // referenced in an additional spatial structure it is NOT contained by) is EXCLUDED, so a column contained in storey A
+ // and referenced in storey B bakes as a Part of A alone, never duplicated onto B. Baking every Compose flavor is the
+ // deleted form, contradicting the Bake prose (Aggregate/Nest/Contain are the parts) and double-counting referenced elements.
  Fin<Seq<Element>> BakeParts(NodeId whole, Op key, ImmutableHashSet<NodeId> ancestry) =>
- EdgesAt(whole)
- .Choose(e => e is Relationship.Compose c && c.Whole == whole && Nodes.ContainsKey(c.Part) ? Some(c.Part) : None)
+ toSeq(EdgesAt(whole))
+ .Choose(e => e is Relationship.Compose c && c.Whole == whole && c.SubKind != ComposeKind.Reference && Nodes.ContainsKey(c.Part) ? Some(c.Part) : None)
  .TraverseM(part => Bake(part, key, ancestry)).As().Map(static parts => parts.ToSeq());
 }
 ```
 
 ## [04]-[RESEARCH]
 
-- [DERIVED_ELEMENT]: the consumer-facing `Element` is a `Bake` fold over the reachable subgraph, never a second stored record — this cures the migration source's stranded-data defect (the `Rasm.Bim` `BimElement` and `Rasm.Materials` `Element` were parallel records ID-referencing their property/material data, never joined); the fold reads the incidence edges, resolves the typed node payloads, applies the type→occurrence inheritance once, and recurses the `Compose` children, so "has it all" is one flat read and a graph edit re-bakes in O(1) against the per-snapshot memo.
-- [GRAPH_PHASE_SPLIT]: the graph splits by phase — the live authoring/delta path is an `ImmutableDictionary` HAMT (`Graph/delta#GRAPH_DELTA` owns it for O(log n) structural sharing across edits) and `ElementGraph` is the FROZEN read snapshot (`ToFrozenDictionary` + the incidence index + the `QuikGraph` view + the `Bake` memo, all built once at the freeze boundary) — so the working graph is never confused with the read snapshot, and the freeze boundary is where the analytical structures materialize; the incidence index gives `Bake` O(degree) edge access, the `QuikGraph` `BidirectionalGraph` answers global reachability/topological-order/LCA a consumer composes through `AlgorithmExtensions`, and both are built once per snapshot.
+- [DERIVED_ELEMENT]: the consumer-facing `Element` is a `Bake` fold over the reachable subgraph, never a second stored record — this cures the migration source's stranded-data defect (the `Rasm.Bim` `BimElement` and `Rasm.Materials` `Element` were parallel records ID-referencing their property/material data, never joined); the fold reads the incidence edges, resolves the typed node payloads, applies the type→occurrence inheritance once, and recurses the OWNING `Compose` children (`Aggregate`/`Nest`/`Contain`, never the non-owning `Reference`), so "has it all" is one flat read and a graph edit re-bakes in O(1) against the per-snapshot memo.
+- [GRAPH_PHASE_SPLIT]: the graph splits by phase — the live authoring/delta path is an `ImmutableDictionary` HAMT (`Graph/delta#GRAPH_DELTA` owns it for O(log n) structural sharing across edits) and `ElementGraph` is the FROZEN read snapshot (`ToFrozenDictionary` + the incidence index + the `QuikGraph` view + the `Bake` memo, all built once at the freeze boundary) — so the working graph is never confused with the read snapshot, and the freeze boundary is where the analytical structures materialize; the incidence index (keyed by every node an edge's `Members` touches — so a `Connect`'s realizing intermediary resolves through `EdgesAt`, consistent with `Touches` and the `DropNode` cascade) gives `Bake` O(degree) edge access, the `QuikGraph` `BidirectionalGraph` (built from each edge's `DirectedPairs`, so reachability traverses THROUGH a realizing intermediary rather than an endpoints-only shortcut) answers global reachability/topological-order/LCA a consumer composes through `AlgorithmExtensions`, and both are built once per snapshot.
 - [IDENTITY_AND_HASH]: the rooted `NodeId` is a neutral Guid-v7 (sortable, kernel-minted) and the non-rooted `NodeId` a kernel `XxHash128` content hash over `ToCanonicalBytes`, the compressed IFC GlobalId a Bim-stored projection attribute re-emitted at `Emit`; `ToCanonicalBytes` is the ONE canonical projection the id mint and the `Projection/address#CONTENT_ADDRESS` diff share (fixed IEEE-754 LE bits, measures quantized to `Header.Tolerance`, explicit attribute order, id excluded), so a node's content identity is stable across the C#/Python/TypeScript runtimes that share the one `XxHash128` seed — a float-bearing golden vector (an `IfcMaterialLayer`-shaped node) anchors the cross-runtime parity corpus.
-- [STRUCTURAL_EQUALITY]: `Generator.Equals` `[Equatable]` gives `ElementGraph` deep structural equality over its `Nodes`/`Edges` (the `[UnorderedEquality]` node map, the `[OrderedEquality]` edge array) and the `Inequalities(before, after)` member-level diff feeds the `Rasm.Persistence` `StructuralMerge` 3-way reconcile — the `MemberPath` localizing a change to `Nodes[id].Properties[name]` so the merge operates at member granularity, never whole-node replacement; the `Bake` memo, the incidence index, and the `QuikGraph` view are `[IgnoreEquality]` so two snapshots compare by their nodes and edges, not their lazily-built analytical caches.
+- [STRUCTURAL_EQUALITY]: `Generator.Equals` `[Equatable]` gives `ElementGraph` deep structural equality over its `Nodes`/`Edges` (the `[UnorderedEquality]` node map, the `[OrderedEquality]` edge array) and the `Inequalities(before, after)` member-level diff feeds the `Rasm.Persistence` `StructuralMerge` 3-way reconcile — the `MemberPath` localizing a change to `Nodes[id].Properties[name]` so the merge operates at member granularity, never whole-node replacement; `ElementGraph` is a sealed CLASS (its equality is `[Equatable]`-owned, NOT record-derived), so it has no compiler-generated `with` to alias the lazily-built caches — the snapshot is frozen by construction, and the `Bake` memo, the incidence index, and the `QuikGraph` view are `[IgnoreEquality]` so two snapshots compare by their nodes and edges, not their lazily-built analytical caches.

@@ -1,14 +1,14 @@
 export const meta = {
   name: 'element-harden',
   whenToUse: 'After element-architect-build; adversarial hardening of newly-built Rasm.Element design pages, one folder (or explicit page set) at a time.',
-  description: 'Rebuild ALL target pages per-file FIRST, then a lib-wide union-find reconcile, then BATCHED critique -> redteam -> sweep (4 pages/agent) with a full-libs/ seam ripple in the sweep. Stacks BOTH the shared libs/csharp/.api tier AND each folder .api, preserves the section-4-RT architecture invariants. Per ELEMENT-REBUILD-PLAN.md. args = a folder name (Bim), an array of folders, or explicit .planning page paths; empty = all five element folders.',
+  description: 'Rebuild ALL target pages per-file FIRST, then BATCHED critique -> redteam -> sweep (4 pages/agent; sweep adversarially CONFIRMS the prior passes were 100% done and runs the full-libs/ seam ripple), then a TERMINAL lib-wide RESOLVE that fixes EVERY residual any phase surfaced via an adversarial fix->verify loop until dry — no leftovers, no deferral, no scope cap. Stacks BOTH the shared libs/csharp/.api tier AND each folder .api, preserves the section-4-RT architecture invariants. Per ELEMENT-REBUILD-PLAN.md. args = a folder name (Bim), an array of folders, or explicit .planning page paths; empty = all five element folders.',
   phases: [
     { title: 'Discover' },
     { title: 'Rebuild' },
-    { title: 'Reconcile' },
     { title: 'Critique' },
     { title: 'Redteam' },
     { title: 'Sweep' },
+    { title: 'Resolve' },
   ],
 }
 
@@ -42,7 +42,7 @@ const FILE_FIXLOG = { type: 'object', additionalProperties: false, required: ['f
   properties: { file: { type: 'string' }, verdict: { type: 'string', enum: ['rebuilt', 'refined', 'clean'] }, collapsed: { type: 'string' }, extended: { type: 'string' }, residual_high: RESIDUAL, summary: { type: 'string' } } }
 const BATCH_FIXLOG = { type: 'object', additionalProperties: false, required: ['files', 'verdict', 'summary'],
   properties: { files: { type: 'array', items: { type: 'string' } }, verdict: { type: 'string', enum: ['hardened', 'refined', 'clean'] }, extended: { type: 'string' }, aligned: { type: 'array', items: { type: 'string' } }, residual_high: RESIDUAL, summary: { type: 'string' } } }
-const FIX_SCHEMA = { type: 'object', additionalProperties: false, required: ['files', 'verdict', 'summary'], properties: { files: { type: 'array', items: { type: 'string' } }, verdict: { type: 'string', enum: ['fixed', 'clean'] }, summary: { type: 'string' } } }
+const FIX_SCHEMA = { type: 'object', additionalProperties: false, required: ['files', 'verdict', 'summary'], properties: { files: { type: 'array', items: { type: 'string' } }, verdict: { type: 'string', enum: ['fixed', 'clean'] }, residual_high: RESIDUAL, summary: { type: 'string' } } }
 const VERIFY_SCHEMA = { type: 'object', additionalProperties: false, required: ['overall', 'claims'], properties: { overall: { type: 'boolean' }, claims: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['claim', 'status'], properties: { claim: { type: 'string' }, status: { type: 'string', enum: ['fixed', 'invalid', 'open'] }, evidence: { type: 'string' } } } } } }
 
 // --- [DOCTRINE] --------------------------------------------------------------------------
@@ -83,6 +83,14 @@ const EXTEND = [
     'can still model a NAIVE slice of its concept. Close the gap by GROWING the existing owner (a case in the closed family, a row/richer data on the smart-enum, a ' +
     'field/composed value-object, an operation, a policy value) per ROOT_REBUILD + COMPOSED_IMPLEMENTATION — never a parallel surface or a new file. Every extension ' +
     'cites exactly one source: a PACKAGE member, a DOMAIN attribute, or a CONSUMER contract. If the concept is genuinely complete, prove it by adding nothing.',
+  'COVERAGE OVER SIZE: byte-count is a WEAK proxy — capability COVERAGE against the full domain + .api surface is the real measure, and structural completeness ' +
+    'and CAPABILITY completeness are ORTHOGONAL. A SMALL page modeling a rich concept is almost always UNDER-built (give it the deepest sweep); a LARGE, ' +
+    'well-collapsed, confident-LOOKING page is the PRIME suspect for a thin slice. Assess each owner against its concept INDEPENDENTLY of size. Concrete gap shapes ' +
+    'the corpus repeatedly hides: an element/zone owning a flat id-set where the concept owns geometry, quantities, space boundaries, per-kind attributes (a fire ' +
+    'compartment a rating, a thermal zone a setpoint, an MEP system its medium/flow/pressure), adjacency/nesting topology, and coverage/aggregation operations; a ' +
+    'profile owning width/height where the concept owns section properties, grade, fabrication + code-check inputs; a durable store owning naive columns where the ' +
+    'concept owns constraints, indexes, partitions, RLS, migration, lifecycle. Close each IN PLACE by growing the owner; a "looks finished" verdict without this ' +
+    'domain+package+consumer sweep is the rejected concession.',
 ].join('\n')
 const SEAM = [
   'SECTION-4-RT INVARIANTS (the new architecture — preserve, never regress): Relationship is a NEUTRAL edge algebra (Compose|Assign|Associate|Connect|Void + typed ' +
@@ -144,38 +152,103 @@ const rebuildPrompt = (page) => [DOCTRINE, '', 'TASK: HOSTILE GROUND-UP REBUILD 
   '`uv run python -m tools.assay api`. Collapse parallel shapes into one owner IN THE SAME FILE; close the concept capability gaps in place (each addition citing a ' +
   'package/domain/consumer source); modern C#14/net10, all-backticked high-signal prose, real full code fences. Fix THIS page in place. Report collapsed (before->after) + ' +
   'extended (additions + cited sources); residual_high = each {files,claim} for a CROSS-FILE item only.'].join('\n')
-const critiquePrompt = (files) => [DOCTRINE, '', 'TASK: ULTRA-HARSH DOCTRINAL + CAPABILITY-COMPLETENESS AUDIT + FIX IN PLACE of these ' + files.length + ' already-rebuilt pages:\n' +
-  files.map((f) => '- ' + f).join('\n') + '\nProcess EACH page independently; assume a violation exists in every fence until proven otherwise; trust nothing the prose claims. ' +
-  'Run the mechanical checklists per page and REPAIR every hit IN THAT PAGE: COLLAPSE_SCAN (3+ parallel shapes/sibling names/repeated arms -> one owner); OWNER_CHOOSER (re-derive ' +
-  'each shape`s owner from the 5 discriminants); KNOB_TEST (delete each param; collapse flags to policy values/input-shape); ASPECTS (definition-time via source-gen, ' +
-  'composition-time via effect transformers); RAILS (narrowest carrier; closed Expected fault; total Switch; no exception control flow); STRATA/MEMBERS/MODERN (depend upward; ' +
-  'no phantom member; C#14/net10; full docs/stacks/csharp + domain shard; BOTH .api tiers maximized); CAPABILITY-COMPLETENESS + ILLUSION (a collapsed owner can still be a naive ' +
-  'slice — grow it; delete decorative/speculative padding); and the SECTION-4-RT INVARIANTS (a page contradicting one is a defect). Read each page + ' + PLAN + ' + docs/stacks/csharp ' +
-  '+ both .api tiers. EDIT each page in place to fix every hit; edit ONLY these ' + files.length + ' pages — anything spanning a file OUTSIDE this set goes to residual_high {files,claim}.'].join('\n')
-const redteamPrompt = (files) => [DOCTRINE, '', 'TASK: ADVERSARIAL ARCHITECT RED-TEAM + FIX IN PLACE of these ' + files.length + ' pages — the LAST + most aggressive per-page pass; ' +
-  'trust nothing the author/critique claimed:\n' + files.map((f) => '- ' + f).join('\n') + '\nFor EACH page: (A) COUNTERFACTUAL on the core choice — is the owner/algebra/dispatch ' +
-  'categorically the strongest the doctrine admits, or does a denser owner / a deeper admitted-package primitive collapse the whole fence? Rebuild to it. (B) ANTICIPATORY_COLLAPSE — ' +
-  'does the next case/dimension land as ONE case/row/policy value with every consumer broken LOUDLY at compile time (total Switch, no silent _)? (C) LONG-TAIL — attack every ' +
-  'input/output/edge/failure mode; both ingress AND egress parameterized. (D) STRATA/BOUNDARY — no downward dep, no host-type leak, no concern owned twice, geometry/mesh/IFC meet ' +
-  'at one wire owner. (E) PHANTOMS/SURFACE-SPRAWL — collapse hand-rolled code the .api tiers already own; delete unverifiable members. (F) CAPABILITY-COMPLETENESS + ILLUSION — ' +
-  'attack the owner for domain-completeness independent of how collapsed it looks; grow it in place. (G) SECTION-4-RT FIDELITY — verify the page upholds every 4-RT invariant ' +
-  'relevant to it. Repair every defect in place; edit ONLY these ' + files.length + ' pages — cross-file items go to residual_high {files,claim}. If a page`s strongest form is ' +
-  'already present, prove it by finding nothing.'].join('\n')
-const sweepPrompt = (files, residuals) => [DOCTRINE, '', 'TASK: FINAL SWEEP + FULL-LIBS RIPPLE/SEAM of these ' + files.length + ' pages:\n' + files.map((f) => '- ' + f).join('\n') +
-  '\n(1) DEFERRED RESIDUALS — resolve the cross-file residuals below that touch THESE pages, fixing the part that lives in these pages in place (read every listed file for context):\n' +
-  (residuals.length ? JSON.stringify(residuals, null, 1) : '(none for this batch)') +
-  '\n(2) DRIFT SWEEP — re-read each page; fix any incoherence/drift the rebuild/critique/redteam left (dangling refs, a renamed owner a sibling still cites, a half-applied collapse). ' +
+const critiquePrompt = (files) => [DOCTRINE, '', 'TASK: HOSTILE DOCTRINAL-CONFORMANCE AUDIT + CAPABILITY-COMPLETENESS + FIX IN PLACE of these ' + files.length + ' already-rebuilt pages:\n' +
+  files.map((f) => '- ' + f).join('\n') + '\nYou are an ULTRA-HARSH, UNAGREEABLE auditor AND an IMPLEMENTER — you do NOT merely verify, you REPAIR / COLLAPSE / EXTEND / REBUILD ' +
+  'in place exactly as the rebuild pass does. Process EACH page INDEPENDENTLY at FULL per-page depth (batching is for dispersal, never a license to skim — every page gets the ' +
+  'complete attack). Assume a violation exists in EVERY fence until you prove otherwise; trust NOTHING the prose or a prior pass claims; "good enough"/"mature"/a prior clean ' +
+  'verdict are REJECTED. For each page read it, its sibling pages, the operative docs/stacks/csharp pages + the relevant domain/ shard, ' + PLAN + ' (sections 4/4-RT), and BOTH the ' +
+  'SHARED libs/csharp/.api/ tier AND the folder .api/ catalogs + the universal Thinktecture/LanguageExt rails. Run these MECHANICAL checklists line-by-line on EACH page and REPAIR ' +
+  'every hit in place (a fix, never a ledger note):',
+  '(1) COLLAPSE_SCAN — apply the move for any signal (3+ makes it mandatory): sibling prefix/suffix names -> one modality-polymorphic entrypoint; same return rail differing only by ' +
+    'arity -> input-shape discrimination; functions differing only by a literal -> a POLICY_VALUE; a bool/mode/batch param selecting two bodies -> one derived body or policy value; a ' +
+    'method calling exactly one other -> delete the hop (ONE_HOP_RESOLUTION); parallel dispatch arms repeating structure -> a Fold algebra or frozen table; several types sharing ' +
+    'fields for one concept -> one closed family; a Get/GetMany/GetBy/List/Search family -> one input-keyed polymorphic operation; a wrapper renaming a package API -> the package ' +
+    'surface directly; 3+ parallel types / sibling factories / repeated switch arms / single-call helpers -> ONE [Union]/[SmartEnum<TKey>]/[ValueObject<T>]/[ComplexValueObject]/' +
+    'source-generated case family IN THE SAME page.',
+  '(2) OWNER_CHOOSER — re-derive EVERY shape from the 5 discriminants (admission, identity regime, variant arity, payload timing, openness), most-specific wins: invariant-bearing ' +
+    'scalar -> [ValueObject<TKey>]; N-field one-concept product, no discriminator -> [ComplexValueObject]; wire-keyed vocabulary -> [SmartEnum<TKey>]; process-local-behavior ' +
+    'vocabulary -> [SmartEnum] keyless; closed alternatives w/ per-occurrence payload -> [Union]; one value over 2-5 unrelated types -> [Union<T1,...>] ad-hoc; interior product, no ' +
+    'invariant -> record/readonly record struct; combinable capability set -> a frozen set; cross-product/external policy key -> a frozen table; foreign wire enum/ABI bits/kernel ' +
+    'ordinal -> a language enum AT THE SEAM ONLY. Kill every parallel DTO, one-field wrapper, field-rename shape, nullable-as-failure, struct-default ghost.',
+  '(3) KNOB_TEST — delete each parameter; if the value reconstructs what it carried it was a knob -> collapse a bool/mode/strict/batch flag into a policy value or input-shape ' +
+    'discriminant; a nullable flag tail -> one Option<ContextRecord>; the single optional form is Option<T> x = default consumed via IfNone(canonical); move every ' +
+    'timeout/retry/deadline/CancellationToken OFF the signature onto the carrier or a composition-time effect aspect.',
+  '(4) ASPECTS — two-weave: definition-time concerns (admission, identity, dispatch, serialization, grammar, logging) attach via attribute-directed SOURCE GENERATION in the fixed ' +
+    'generator-owned order; composition-time concerns attach as effect transformers — retry as Schedule-driven IO.Retry/Prelude.retry, recovery as named catch combinators ' +
+    '(@catch/catchOf/CatchM via |), resource lifetime as Bracket/BracketIO/Finally; the two weaves meet at EXACTLY ONE seam, the admission rail bridge. 2-4 co-occurring wrappers ' +
+    'collapse into one aspect; an aspect NEVER raises into domain flow; inline-repeated concerns + sibling helper methods are defects.',
+  '(5) RAILS — RAIL_CHOOSER, narrowest carrier chosen ONCE at admission (Option absence, Fin sync fallibility, Validation independent accumulated faults, Eff runtime capability, IO ' +
+    'deferred boundary work, Schedule retry, Seq/Arr/HashMap immutable traversal); the fault type is a CLOSED [Union] deriving from Expected (a bare exception or generic untyped ' +
+    'Error is a defect; recovery via Is/HasCode/IsType<E>, never ==); accumulate-vs-abort correct (Apply/&/.Traverse for independents, Bind/.TraverseM/query for dependents); total ' +
+    'generated Switch with compile-time exhaustiveness (NO silent _ arm); .Fold/.Traverse/.Choose with the mandatory .As() re-anchor; NO exception control flow in domain logic, NO ' +
+    'mutable accumulation.',
+  '(6) STRATA/MEMBERS/MODERN — depend strictly upward (NO downward dependency, NO host-type leak into a host-neutral owner; geometry/mesh/IFC meet at one wire owner per runtime); ' +
+    'cite ONLY host/NuGet members verified via `uv run python -m tools.assay api` (a member you cannot verify is a phantom — delete it); latest modern C# 14 on net10; FULL ' +
+    'docs/stacks/csharp + the relevant domain/ shard conformance; BOTH the SHARED libs/csharp/.api/ tier AND the folder .api/ maximized to full depth, never a surface-level subset.',
+  '(7) CAPABILITY-COMPLETENESS + ILLUSION — structural collapse and capability completeness are ORTHOGONAL: a fully-collapsed owner can STILL model a NAIVE, thin slice (a 2-case ' +
+    'union for a 20-case domain; the obvious 3 fields where the concept carries fifteen; a flat id-set where the concept owns geometry/metrics/per-kind-attributes/topology/' +
+    'operations). DISBELIEVE the page about its own richness — verify the body actually implements what the names/prose promise. Any capability the .api surface / the real domain ' +
+    'concept / a consumer contract admits that the owner OMITS is a DEFECT — close it NOW by GROWING the existing owner (a case/row/field/operation/policy-value, citing its one ' +
+    'source), never a parallel surface or a new file. Conversely delete speculative/padding fields, decorative ceremony, and prose asserting capability the fence lacks.',
+  '(8) SECTION-4-RT INVARIANTS — every page upholds every 4-RT invariant relevant to it (NEUTRAL edge algebra, not 17 IfcRel cases; PredefinedType typed field + Bim egress gate; ' +
+    'MeasureValue = Dimension value-object + UnitsNet QuantityType; incidence index + memoized Bake + HAMT working / Frozen read split; neutral kernel NodeId, IFC GlobalId a Bim ' +
+    'attribute; ONE ToCanonicalBytes codec shared by NodeId-hash + diff; TWO seam interfaces IElementProjection + IGraphConstraint; Marten as the append substrate BENEATH the ' +
+    'preserved CRDT/time-travel engine; synchronous topology vs async AGE/DuckDB analytical lanes). A page contradicting a 4-RT invariant is a DEFECT to fix toward 4-RT.',
+  'Also enforce the file-organization + section-order law, cross-page convention consistency, and prose + comment hygiene. EDIT each page to fix every hit; a no-edit verdict on a ' +
+  'page is EARNED only after running ALL 8 checklists + the real domain/package sweep finds nothing — never a first-read concession, never to avoid work. Edit ONLY these ' +
+  files.length + ' pages — a fix spanning a file OUTSIDE this set goes to residual_high {files,claim} for the terminal Resolve. Report extended + verdict + aligned + residual_high.'].join('\n')
+const redteamPrompt = (files) => [DOCTRINE, '', 'TASK: ADVERSARIAL ARCHITECT RED-TEAM + FIX IN PLACE of these ' + files.length + ' pages — the LAST and MOST AGGRESSIVE pass; an ' +
+  'IMPLEMENTER, not a verifier (you REBUILD / COLLAPSE / EXTEND in place):\n' + files.map((f) => '- ' + f).join('\n') + '\nProcess EACH page INDEPENDENTLY at FULL depth (batching ' +
+  'never licenses a skim). Assume the author AND critique missed things and the chosen design is naive or illusory until PROVEN the strongest, the burden of proof ON THE DESIGN, ' +
+  'never on you; trust nothing the prior passes or the prose claimed. For each page open BOTH the SHARED libs/csharp/.api/ tier AND the folder .api/ + the universal ' +
+  'Thinktecture/LanguageExt rails, the sibling pages, docs/stacks/csharp + the relevant domain/ shard, and ' + PLAN + ' (4/4-RT). Attack from every direction and REPAIR every defect ' +
+  'in place — no soft-pedalling, no could/should, a fix never a ledger:',
+  'PRIMARY LENS: (A) COUNTERFACTUAL on the core choice — is the owner, the algebra (Fold/generated Switch/data table), and the dispatch form categorically the strongest the ' +
+    'doctrine admits, or does a denser owner ([Union]/[SmartEnum<TKey>]/[ValueObject<T>]/[ComplexValueObject]/source-generated case family), a data table, or a DEEPER ' +
+    'admitted-package primitive (LanguageExt/Thinktecture/MathNet/the .api surface) collapse the whole fence? If a fundamentally stronger design exists, REBUILD to it — never defend ' +
+    'the incumbent. (B) ANTICIPATORY_COLLAPSE — compute the DIFF OF THE NEXT FEATURE: when the next case/dimension/knob/modality/provider arrives, does it land as ONE ' +
+    'case/row/policy value with every consumer untouched or broken LOUDLY at compile time (total generated Switch, no silent _)? If it would touch multiple sites, reshape so the ' +
+    'growth axis is a case/row/policy value/carrier swap. (C) LONG-TAIL + MULTI-DIMENSIONAL — attack every input/output/edge/failure mode (empty, singular, plural, stream, ' +
+    'malformed, concurrent, cancelled, partial-failure, version-skew); is accumulate-vs-abort correct for the REAL boundary; are BOTH ingress AND egress parameterized so the owner ' +
+    'sources and sinks across hundreds of consumers without interior edits? (D) STRATA + BOUNDARY-INTEGRITY — a downward dependency, a host-type leak into a host-neutral owner, a ' +
+    'concern owned twice in a runtime, geometry/mesh/IFC not meeting at ONE wire owner per runtime, or any coupling to a sibling owner INTERIOR (vs its seam/wire) is a defect: fix ' +
+    'it, or record it as a cross-file residual. (E) SURFACE-SPRAWL-IN-TIME + PHANTOMS — an admitted package whose .api or the universal rails expose capability the fence re-derives ' +
+    'by hand, flat code below the operator depth the packages reach, a phantom .api/host member (cited but unverifiable — delete it), or a thin wrapper: collapse to package depth ' +
+    'and verify the member exists (via assay api). (F) CAPABILITY-COMPLETENESS + ILLUSION — counterfactually attack the owner for DOMAIN-COMPLETENESS independently of how collapsed ' +
+    'or confident it looks: does the .api surface, the real-world concept, or a consumer contract admit a capability this owner still OMITS (a flat membership/id set where the ' +
+    'concept owns geometry/metrics/per-kind-attributes/topology/operations; a 2-category vocabulary where the domain has twenty; a name/prose promising capability the body lacks)? ' +
+    'Name it with a cite and EXTEND THE OWNER IN PLACE (a case/row/field/operation) — a structurally-perfect but capability-sparse or illusory owner is a DEFECT, not a finished ' +
+    'page; conversely REJECT any extension that is flat spam, speculative, or a parallel surface. (G) SECTION-4-RT FIDELITY — verify the page upholds every 4-RT invariant relevant ' +
+    'to it (neutral edge algebra; PredefinedType + Bim egress gate; MeasureValue Dimension/UnitsNet; incidence index + Bake memo + HAMT/Frozen split; neutral kernel NodeId; one ' +
+    'ToCanonicalBytes codec; IElementProjection + IGraphConstraint; Marten beneath the CRDT engine; sync topology vs async lanes); fix toward 4-RT.',
+  'ALSO — FULL COLD ADVERSARIAL RE-REVIEW (run this EVERY time, NOT only when an architectural restructure is warranted): re-attack EVERY conformance dimension with fresh hostile ' +
+    'eyes, trusting nothing the prior passes claimed — the COLLAPSE_SCAN signals, OWNER_CHOOSER per shape, the KNOB_TEST per param, the two-weave ASPECT taxonomy, rail + ' +
+    'closed-Expected-fault discipline, capability-completeness + illusion per owner, strata correctness, modern C# 14 typing, docs/stacks/csharp + domain-shard conformance, BOTH ' +
+    '.api tiers + Thinktecture/LanguageExt maximization, the 4-RT invariants, and prose/comment hygiene — and fix every defect. Even absent a structural rebuild, each page MUST end ' +
+    'objectively DENSER, MORE CAPABLE, more correct, and more powerful than the critique left it; if the strongest form is genuinely already present, prove it by finding nothing — ' +
+    'but EARN it through the full attack, never invent churn to look busy. Edit ONLY these ' + files.length + ' pages — cross-file items go to residual_high {files,claim} for the ' +
+    'terminal Resolve. Report extended + verdict + aligned + residual_high.'].join('\n')
+const sweepPrompt = (files) => [DOCTRINE, '', 'TASK: ADVERSARIAL SWEEP + CONFIRM + FULL-LIBS RIPPLE of these ' + files.length + ' pages:\n' + files.map((f) => '- ' + f).join('\n') +
+  '\n(1) ADVERSARIAL CONFIRM (this is the LAST per-page gate — a hostile critique that the rebuild/critique/redteam work is 100% DONE): re-read EACH page and attack every fence as if ' +
+  'NAIVE/SHALLOW/ILLUSORY, burden of proof ON THE PAGE; FIX in place any hollow/partial/low-quality content, any half-applied collapse, any naive slice of a rich concept (a 2-case ' +
+  'union for a 20-case domain), any unverified phantom member, any 4-RT invariant regression. A page is NOT done until it survives this attack — never a first-read concession. ' +
+  '(2) DRIFT SWEEP — fix any cross-page incoherence the prior passes left (dangling refs, a renamed owner a sibling still cites, a half-applied rename/collapse). ' +
   '(3) FULL-LIBS RIPPLE — for EVERY cross-folder/cross-stack seam these pages expose, align THIS side of the seam in these pages against the shared shape the ENTIRE libs/ stack ' +
   'uses (the other C# folders: libs/csharp/Rasm kernel, Rasm.AppHost, Rasm.AppUi, Rasm.Fabrication, Rasm.Rhino, Rasm.Grasshopper, the AEC peers; AND the libs/python wire — ' +
   'decode-not-remint): IElementProjection/IGraphConstraint <-> projectors; the GeometryRef/RepresentationContentHash/ContentAddress content-key <-> Persistence <-> Rasm kernel; the ' +
   'typed Material/Property/Assessment/Classification wire vocabulary <-> libs/python decoders. READ the counterpart endpoints to learn the correct shared shape, then fix THESE ' +
   'pages` side + mirror the seam in THESE pages` ARCHITECTURE [02]-[SEAMS]. EDIT ONLY these ' + files.length + ' pages (+ their folder ARCHITECTURE/README) — every counterpart-side ' +
-  'edit in another folder goes to residual_high {files,claim} so the counterpart folder`s run (or the reconcile) applies it. Return files + verdict + aligned + residual_high.'].join('\n')
-const reconcileFix = (cl) => [LAW, '', ADVERSARIAL, '', ULTRA, '', EXTEND, '', SEAM, '', PATLAW, '', 'TASK: RECONCILE these cross-FILE residuals (no severity; every one is ' +
-  'must-address). Blast radius is LIB-WIDE — read EVERY listed file across libs/ (csharp + py) and fix the real cross-file defect in place (unify the shared type/seam/contract, ' +
-  'repair strata/boundary, extend a shared owner spanning files), preserving all capability; if a residual is factually wrong, leave it and say why. Residuals:\n' + JSON.stringify(cl, null, 1)].join('\n')
-const reconcileVerify = (cl, fixFiles) => [LAW, '', SEAM, '', 'TASK: ADVERSARIAL VERIFY, one verdict per claim — read the named files from disk, classify fixed/invalid/open (default ' +
-  'open on doubt). Claims:\n' + JSON.stringify(cl, null, 1) + '\nFiles touched: ' + JSON.stringify(fixFiles)].join('\n')
+  'edit in another folder goes to residual_high {files,claim} for the TERMINAL RESOLVE to apply lib-wide (a handoff, NEVER a leftover). Return files + verdict + aligned + residual_high.'].join('\n')
+const reconcileFix = (cl) => [LAW, '', ADVERSARIAL, '', ULTRA, '', EXTEND, '', SEAM, '', PATLAW, '', 'TASK: TERMINAL RECONCILE — fix EVERY one of these cross-FILE residuals; NO ' +
+  'severity, NO leftovers, NO deferral, NO scope cap (this is the last no-defer pass — nothing leaves unfixed). Blast radius is LIB-WIDE: read EVERY listed file across libs/ (csharp ' +
+  '+ py) and FIX the real cross-file defect in place to the STRONGEST doctrine + 4-RT form (unify the shared type/seam/contract, repair strata/boundary, GROW a shared owner spanning ' +
+  'files), preserving all capability — a token/rename patch that leaves the seam misaligned is NOT a fix. If a residual is FACTUALLY WRONG, leave it and say why (verify will mark it ' +
+  'invalid). If your fix SURFACES a new cross-file need, report it in residual_high {files,claim} so the next round resolves it. Residuals:\n' + JSON.stringify(cl, null, 1)].join('\n')
+const reconcileVerify = (cl, fixFiles) => [LAW, '', ADVERSARIAL, '', SEAM, '', 'TASK: ADVERSARIAL VERIFY, one verdict per claim — re-read the named files from disk and, for EACH ' +
+  'claim, CONFIRM the fix was ACTUALLY made AND is COMPLETE + HIGH-QUALITY + doctrine/4-RT-conformant, NOT a token or naive patch. ATTACK the fix: is it shallow, partial, a rename ' +
+  'that left the defect, or does it leave the cross-file seam still misaligned? Classify each: "fixed" (confirmed real, complete, non-naive), "invalid" (the claim is factually wrong ' +
+  '— cite why), or "open" (NOT fixed, OR fixed naively/incompletely/low-quality — must be redone). Default to "open" on ANY doubt; a confident-looking edit that does not truly ' +
+  'resolve the cross-file defect is "open", never "fixed". Claims:\n' + JSON.stringify(cl, null, 1) + '\nFiles the fixer touched: ' + JSON.stringify(fixFiles)].join('\n')
 
 // --- [COMPOSITION] -----------------------------------------------------------------------
 
@@ -196,22 +269,6 @@ phase('Rebuild')
 const built = (await pool(pages, CAP, (p) => agent(rebuildPrompt(p), { label: 'rebuild:' + folderOf(p) + ':' + base(p), phase: 'Rebuild', schema: FILE_FIXLOG, effort: 'max', stallMs: 300000 }))).filter(Boolean)
 log('Rebuild: ' + built.length + '/' + pages.length + ' pages rebuilt')
 
-// --- [RECONCILE]
-
-const norm = (x, page) => { const files = Array.isArray(x.files) ? x.files.filter(inLibs) : []; return { files: files.length ? files : [page], claim: x.claim } }
-const dedup = (rs) => [...new Map(rs.map((r) => [r.files.slice().sort().join(',') + '|' + r.claim, r])).values()]
-const r1 = dedup(built.flatMap((r) => (r.residual_high || []).map((x) => norm(x, r.file))))
-const clusters = cluster(r1)
-log('Reconcile: ' + r1.length + ' rebuild residuals -> ' + clusters.length + ' clusters (serialized, lib-wide)')
-phase('Reconcile')
-const reconciled = clusters.length ? (await pool(clusters, CAP, async (cl) => {
-  const fix = await agent(reconcileFix(cl), { label: 'reconcile-fix', phase: 'Reconcile', schema: FIX_SCHEMA, effort: 'max', stallMs: 300000 })
-  if (!fix) return null
-  const verify = await agent(reconcileVerify(cl, fix.files), { label: 'reconcile-verify', phase: 'Reconcile', schema: VERIFY_SCHEMA, effort: 'xhigh', stallMs: 300000 })
-  return { fix, verify }
-})).filter(Boolean) : []
-const reconcileOpen = reconciled.flatMap((r) => (r.verify && r.verify.claims || []).filter((c) => c.status === 'open').map((c) => c.claim))
-
 // --- [CRITIQUE]
 
 phase('Critique')
@@ -225,21 +282,55 @@ const red = (await pool(batches, CAP, (b) => agent(redteamPrompt(b), { label: ba
 
 // --- [SWEEP]
 
-const critRed = dedup([...crit, ...red].flatMap((r) => (r.residual_high || []).map((x) => norm(x, (r.files && r.files[0]) || pages[0]))))
-log('Sweep: ' + batches.length + ' batches; ' + critRed.length + ' critique/redteam residuals threaded to their touching batch')
 phase('Sweep')
-const swept = (await pool(batches, CAP, (b) => {
-  const mine = critRed.filter((x) => x.files.some((f) => b.includes(f)))
-  return agent(sweepPrompt(b, mine), { label: batchLabel('sweep', b), phase: 'Sweep', schema: BATCH_FIXLOG, effort: 'max', stallMs: 420000 })
-})).filter(Boolean)
+const swept = (await pool(batches, CAP, (b) => agent(sweepPrompt(b), { label: batchLabel('sweep', b), phase: 'Sweep', schema: BATCH_FIXLOG, effort: 'max', stallMs: 420000 }))).filter(Boolean)
 
-// counterpart-side + untouched-batch residuals reach the human / the next folder run / a later reconcile
-const sweepResidual = dedup(swept.flatMap((r) => (r.residual_high || []).map((x) => norm(x, (r.files && r.files[0]) || pages[0]))))
-const unaddressed = critRed.filter((x) => !x.files.some((f) => batches.some((b) => b.includes(f))))
+// --- [RESOLVE]
+// Terminal lib-wide no-defer reconcile: EVERY residual any phase surfaced is fixed + ADVERSARIALLY verified, looped until dry. Nothing dropped.
+
+const norm = (x, page) => { const files = Array.isArray(x.files) ? x.files.filter(inLibs) : []; return { files: files.length ? files : [page], claim: x.claim } }
+const dedup = (rs) => [...new Map(rs.map((r) => [r.files.slice().sort().join(',') + '|' + r.claim, r])).values()]
+const residualsOf = (rows, keyOf) => rows.flatMap((r) => (r.residual_high || []).map((x) => norm(x, keyOf(r) || pages[0])))
+let pending = dedup([
+  ...residualsOf(built, (r) => r.file),
+  ...residualsOf(crit, (r) => r.files && r.files[0]),
+  ...residualsOf(red, (r) => r.files && r.files[0]),
+  ...residualsOf(swept, (r) => r.files && r.files[0]),
+])
+const MAX_ROUNDS = 4
+let invalid = []
+let round = 0
+if (pending.length) {
+  phase('Resolve')
+  while (pending.length && round < MAX_ROUNDS) {
+    round++
+    const clusters = cluster(pending)
+    log('Resolve round ' + round + ': ' + pending.length + ' residual(s) -> ' + clusters.length + ' cluster(s) (lib-wide, no-defer, adversarial verify)')
+    const resolved = (await pool(clusters, CAP, async (cl) => {
+      const fix = await agent(reconcileFix(cl), { label: 'resolve-fix:r' + round, phase: 'Resolve', schema: FIX_SCHEMA, effort: 'max', stallMs: 420000 })
+      if (!fix) return { open: cl, invalid: [], surfaced: [] }
+      const verify = await agent(reconcileVerify(cl, fix.files), { label: 'resolve-verify:r' + round, phase: 'Resolve', schema: VERIFY_SCHEMA, effort: 'max', stallMs: 420000 })
+      const claims = (verify && verify.claims) || []
+      const ok = new Set(claims.filter((c) => c.status === 'fixed').map((c) => c.claim))
+      const bad = new Set(claims.filter((c) => c.status === 'invalid').map((c) => c.claim))
+      return {
+        open: cl.filter((r) => !ok.has(r.claim) && !bad.has(r.claim)),
+        invalid: cl.filter((r) => bad.has(r.claim)),
+        surfaced: (fix.residual_high || []).map((x) => norm(x, (fix.files && fix.files[0]) || pages[0])),
+      }
+    })).filter(Boolean)
+    invalid = dedup([...invalid, ...resolved.flatMap((r) => r.invalid)])
+    const invalidKeys = new Set(invalid.map((r) => r.claim))
+    pending = dedup([...resolved.flatMap((r) => r.open), ...resolved.flatMap((r) => r.surfaced)]).filter((r) => !invalidKeys.has(r.claim))
+  }
+  if (pending.length) log('Resolve: ' + pending.length + ' residual(s) STILL OPEN after ' + MAX_ROUNDS + ' rounds — REPORTED, never silently dropped')
+  else log('Resolve: all residuals fixed + adversarially verified across ' + round + ' round(s)')
+} else { log('Resolve: no residuals surfaced — clean') }
 
 return {
   folders: FOLDERS, pages: pages.length, rebuilt: built.length,
-  reconcileClusters: clusters.length, reconcileOpen,
   critiqueBatches: crit.length, redteamBatches: red.length, sweepBatches: swept.length,
-  openResidual: dedup([...sweepResidual, ...unaddressed]).map((x) => ({ files: x.files, claim: x.claim })),
+  resolveRounds: round,
+  invalidClaims: invalid.map((x) => ({ files: x.files, claim: x.claim })),
+  openResidual: pending.map((x) => ({ files: x.files, claim: x.claim })),
 }

@@ -171,7 +171,8 @@ public sealed record ElementSet(ElementGraph Graph, NodeSet Ids) {
 
     // The total predicate fold: the Thinktecture generated Switch carries the (graph, obj) state into every arm,
     // so a missing arm is a build error at every Match site. The classification arms read the Object node's
-    // generic Classification; the incidence arms read the neutral edges through the O(degree) EdgesAt index.
+    // primary Classification (the entity-class pair) — byClassification ALSO searching the Classifications set of co-applied
+    // standard references (Uniclass + OmniClass); the incidence arms read the neutral edges through the O(degree) EdgesAt index.
     static bool Match(ElementGraph graph, Node.Object obj, ElementPredicate predicate) => predicate.Switch(
         state: (graph, obj),
         byClass:            static (s, p) => s.obj.Classification.System == IfcSystem
@@ -181,7 +182,7 @@ public sealed record ElementSet(ElementGraph Graph, NodeSet Ids) {
         byPredefinedType:   static (s, p) => s.obj.Classification.System == IfcSystem
                                              && string.Equals(s.obj.Classification.Code, p.Class.Key, StringComparison.OrdinalIgnoreCase)
                                              && s.obj.PredefinedType == p.Type,
-        byClassification:   static (s, p) => s.obj.Classification.Within(p.Branch),
+        byClassification:   static (s, p) => s.obj.Classification.Within(p.Branch) || s.obj.Classifications.Exists(c => c.Within(p.Branch)),
         byKind:             static (s, p) => s.obj.Kind == p.Kind,
         byAttribute:        static (s, p) => p.Attribute.Read(s.obj).Exists(v => p.Restriction.Matches(v)),
         byProperty:         static (s, p) => EffectiveValue(s.graph, s.obj.Id, p.SetName, p.Name).Exists(v => p.Restriction.Matches(v)),

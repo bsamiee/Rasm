@@ -7,7 +7,7 @@ The two `ReleaseVersion`/`ModelView` worlds meet HERE and nowhere else: the seam
 ## [01]-[INDEX]
 
 - [01]-[SEMANTIC_PROJECTOR]: `SemanticProjector : IElementProjection`, the `Project` fold lowering `DatabaseIfc` into a `GraphDelta` — rooted `NodeId` mint with the 1:1 IFC `GlobalId` projection attribute [H6], the `Object` occurrence/type nodes carrying the generic `Classification`/`PredefinedType`/`RepresentationContentHash`, the `PropertySet`/`QuantitySet` bag nodes whose typed `PropertyValue`/`MeasureValue` the `PropertyLowering` narrowing fills and whose `InheritanceMode` is stamped at ingest [H1], the `OwnerHistory`/`StepHeader` projection [H9], and the schema span [H8].
-- [02]-[RELATION_ALGEBRA]: `IfcRelKind` the full `IfcRel*` roster `[SmartEnum<string>]` (the neutral `EdgeAxis`+`SubKind` it lowers onto, plus the relating/related IFC inverse-attribute names directionality round-trips on), and the `EdgeProjection` fold lowering every relationship onto a neutral `Relationship` edge — the FanOut/Pair generic families, the inverted `Assign` arms (`DefinesByType`/`AssignsToGroup`), the realizing `Connect`, the `DefinesProperties` property/quantity attachment, the `Structural` member↔connection/member↔activity `Generic` edges (the `StructuralProjection.Attrs` 6-DOF restraint + full load family + `LoadKind`/`Case` payload and the `AtStart` discriminant, the axis baked by the `Enrich` pass), the `SpatialBoundaries` space↔surface `Generic` edges, and the `MaterialEdges` `Associate` material edge carrying the occurrence-usage payload [C7].
+- [02]-[RELATION_ALGEBRA]: `IfcRelKind` the full `IfcRel*` roster `[SmartEnum<string>]` (the neutral `EdgeAxis`+`SubKind` it lowers onto, plus the relating/related IFC inverse-attribute names directionality round-trips on), and the `EdgeProjection` fold lowering every relationship onto a neutral `Relationship` edge — the FanOut/Pair generic families, the inverted `Assign` arms (`DefinesByType`/`AssignsToGroup`), the realizing `Connect`, the `DefinesProperties` property/quantity attachment, the `Structural` member↔connection/member↔activity `Generic` edges (the `StructuralProjection.Attrs` 6-DOF restraint + full load family + `LoadKind`/`Case` payload and the `AtStart` discriminant off `StructuralProjection.AxisOf` topology; the analytical axis content-keyed in `Representations` by `IfcRepresentation.Keys`, never baked onto the node), the `SpatialBoundaries` space↔surface `Generic` edges, and the `MaterialEdges` `Associate` material edge carrying the occurrence-usage payload [C7].
 - [03]-[IFC_EGRESS]: `SemanticProjector.Emit` the Bim-internal `ElementGraph` → IFC bytes re-author — the `ReleaseRaise` schema target, the `PredefinedType` egress gate over the frozen valid set and schema span → `BimFault.UnmappedClass` [C6], the `GlobalId` round-trip [H6], the diff-derived `OwnerHistory` `ChangeAction` re-stamp [H9], `ReauthorMaterials` (`MaterialProjection.AuthorComposition`/`AuthorUsage` per node + `Associate` usage [C7]), `ReauthorProperties` (the `IfcPropertySet`/`IfcElementQuantity` + `IfcRelDefinesByProperties` round-trip), `ReauthorClassifications` (`ClassificationSystem.Author` per `Object` node), and `ReauthorRelationships` (the neutral edge → `IfcRel*` row-driven re-author) — the seam-graph egress that REPLACES the retired `Rasm.Materials` material wires, plus the `FILE_SCHEMA`/`schema_identifier` `Sniff` [H8].
 - [04]-[GRAPH_LEGALITY]: `IfcLegality : IGraphConstraint` the IFC-semantic legality validator — containment-relating-must-be-spatial, `Void` element→opening, type-may-not-aggregate-occurrence — accumulating onto `Validation<Error,Unit>` over the seam's structural invariants [M3].
 
@@ -15,16 +15,17 @@ The two `ReleaseVersion`/`ModelView` worlds meet HERE and nowhere else: the seam
 
 - Owner: `SemanticProjector` the `IElementProjection` capturing one live GeometryGym `DatabaseIfc` internally and lowering it to a seam `GraphDelta` in `Project`; `PropertyLowering` the Bim-internal value-narrowing the seam delegates to it (the seam forbids an IFC `IfcValue`/dataType crossing its signature, so the `IfcProperty`→`PropertyValue` and `IfcPhysicalSimpleQuantity`→`MeasureValue` narrowing is Bim's); `OwnerStamp` the `IfcOwnerHistory`→seam `OwnerHistory` projection; `StepHeaderOf` the `STEPFileInformation`→seam `StepHeader` projection; `ReleaseLower`/`ViewLower` the GeometryGym→seam currency lowering.
 - Entry: `SemanticProjector.Project(ProjectionContext ctx)` folds the captured `DatabaseIfc` into one `GraphDelta` over `ctx.Key` — it mints a NEUTRAL rooted `NodeId` per `IfcRoot` through `ctx.Rooted()` (the kernel `IObjectFactory` floor), records the compressed IFC `GlobalId` as the node's 1:1 `ExternalId` projection attribute [H6], and content-keys every non-rooted material node through `MaterialProjection.Project`'s kernel seed-zero `XxHash128` over `Node.ToCanonicalBytes`; `Fin<T>` aborts on a missing `IfcProject` root or a dangling spatial host (`Model/faults#FAULT_BAND` `BimFault.DanglingReference`), the ingress class lookup PERMISSIVE — an unrostered/IFC4-new leaf lands the `Model/elements#IFC_CLASS` `IfcClass.Proxy` row through `TryGet().IfNone(Proxy)` so one unknown entity never aborts the import, class validity deferred to the `Emit` egress gate [C6][H8] — the fault lifting BARE (the band IS the `Expected` `Code`, no `.ToError()` hop). The element identity is established HERE (the IFC is the source of element identity), so the projector ignores `ctx.ElementIds` (the aspect-projector NodeId set) and PUBLISHES the minted ids in the delta for `Rasm.Materials/Projection/material#MATERIAL_PROJECTOR` to attach `Associate` edges against.
-- Auto: `Project` walks the captured `db.Project` once — `ObjectNode` lands every `IfcProduct`→`Object.Occurrence` and `IfcTypeObject`→`Object.Type` node carrying the generic `Classification("ifc", classKey)` (the IFC entity type as a classification, never `IfcClass` on the node) resolved through the permissive `IfcClass.TryGet().IfNone(Proxy)` ingress, the `PredefinedType` token read off the entity's per-class predefined property, the keyed `RepresentationContentHash` map (`Model/elements#REPRESENTATION_KEYS` `IfcRepresentation.Keys`, ONE polymorphic content-keyer over `IfcObjectDefinition`) [M2], the `OwnerStamp` `OwnerHistory` [H9], and the `IfcClass.Span` schema window [H8]; `Bags` lands `IfcPropertySet`/`IfcElementQuantity`→`PropertySet`/`QuantitySet` bag nodes whose typed values the `PropertyLowering` narrowing fills and whose `Semantics/properties#PROPERTY_TEMPLATES` `PropertyInheritance.ModeOf` `InheritanceMode` is stamped at ingest [H1] so the seam `Bake` applies type→occurrence precedence wholly within the seam; `Materials` lands `Material` nodes through `Semantics/composition#MATERIAL_COMPOSITION` `MaterialProjection.Project`; the `Enrich` pass bakes the idealized `AxisCurve` onto each structural curve member's `Object.Axis` off `Model/structural#STRUCTURAL_PROJECTION` `StructuralProjection.AxisOf`; `GeoReferenceProjector.Project` lands the `Header.GeoReference` [M1]; `EdgeProjection.All` lands every `IfcRel*` neutral edge [C5] — the decomposition/connection/assignment/void families, the property/quantity attachment, the structural member↔connection/member↔activity `Generic` edges (the `StructuralProjection.Attrs` 6-DOF restraint + full load family + `LoadKind`/`Case` and the `AtStart` discriminant riding the payload), the space↔surface `Generic` edges, and the material `Associate` edges with the occurrence-usage payload [C7].
+- Auto: `Project` walks the captured `db.Project` once — `ObjectNode` lands every `IfcProduct`→`Object.Occurrence` and `IfcTypeObject`→`Object.Type` node carrying the generic `Classification("ifc", classKey)` (the IFC entity type as a classification, never `IfcClass` on the node) resolved through the permissive `IfcClass.TryGet().IfNone(Proxy)` ingress, the `PredefinedType` token read off the entity's per-class predefined property, the keyed `RepresentationContentHash` map (`Model/elements#REPRESENTATION_KEYS` `IfcRepresentation.Keys`, ONE polymorphic content-keyer over `IfcObjectDefinition`) [M2], the `OwnerStamp` `OwnerHistory` [H9], and the `IfcClass.Span` schema window [H8]; `Bags` lands `IfcPropertySet`/`IfcElementQuantity`→`PropertySet`/`QuantitySet` bag nodes whose typed values the `PropertyLowering` narrowing fills and whose `Semantics/properties#PROPERTY_TEMPLATES` `PropertyInheritance.ModeOf` `InheritanceMode` is stamped at ingest [H1] so the seam `Bake` applies type→occurrence precedence wholly within the seam; `Materials` lands `Material` nodes through `Semantics/composition#MATERIAL_COMPOSITION` `MaterialProjection.Project`; the analytical Axis/FootPrint geometry is content-keyed in `Representations` by `IfcRepresentation.Keys` (never inlined on the node), `Rasm.Compute` resolving it one-hop by content key from the blob store; `GeoReferenceProjector.Project` lands the `Header.GeoReference` [M1]; `EdgeProjection.All` lands every `IfcRel*` neutral edge [C5] — the decomposition/connection/assignment/void families, the property/quantity attachment, the structural member↔connection/member↔activity `Generic` edges (the `StructuralProjection.Attrs` 6-DOF restraint + full load family + `LoadKind`/`Case` and the `AtStart` discriminant riding the payload), the space↔surface `Generic` edges, and the material `Associate` edges with the occurrence-usage payload [C7].
 - Receipt: the `GraphDelta` is the projector's whole contribution — a merge over the canonical `ElementGraph` that `Rasm.Element/Projection/projection#PROJECTION_CONTRACT` `Assemble` folds with the other projectors' deltas; the minted rooted-`NodeId` set keyed by `GlobalId` is the identity table aspect projectors attach against and `Emit` reverses.
 - Packages: GeometryGymIFC_Core, Rasm.Element, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm
 - Growth: a new extracted IFC entity family is one `Extract<T>` arm on the `Project` fold landing its seam node; a new IFC value kind is one `PropertyLowering` arm; a new relationship is one `IfcRelKind` row the `EdgeProjection` reads (`[03]-[RELATION_ALGEBRA]`); a new schema version is one `ReleaseVersion` the `ReleaseLower` resolves and the `Model/elements#IFC_CLASS` span validates; never a second element record beside the seam graph and never a per-entity projector type.
-- Boundary: the projector is the ONE GeometryGym→seam lowering — the retired `BimModel.Project` produced a second stored `BimElement` keyed by `GlobalId`, and any owner that re-stores the element off the seam graph is the deleted form; GeometryGym is captured INTERNALLY (the `DatabaseIfc` field) and an `IfcProduct`/`IfcRel*`/`DatabaseIfc` type crossing the `IElementProjection.Project` signature is the named seam violation — the seam holds only `Node`/`Relationship`/`GraphDelta`; the rooted `NodeId` is a neutral kernel-minted id and the compressed IFC `GlobalId` is the node's `ExternalId` projection attribute (1:1) [H6], so the IFC GUID never becomes the node identity and the from-scratch authoring path mints its own neutral id; the value-narrowing is Bim's (`PropertyLowering`) because an `IfcValue`/dataType string crossing a seam signature is the deleted form — the seam carries only the typed `PropertyValue`/`MeasureValue` cases; geometry is referenced by `RepresentationContentHash` only [M2] and an in-process BRep evaluation or a RhinoCommon handle is the named seam violation — the analytical coordinate geometry the `Object` node CAN carry (`Axis`/`BoundaryPolygon`) is NOT baked here (extracting it is a geometry evaluation the no-in-process-geometry rule forbids; `Rasm.Compute` reads the content-keyed geometry and populates it), so a Bim geometry-read is the deleted form and the seam carries the structural/spatial CONNECTIVITY on the neutral `Relationship.Generic` edges instead; `Emit` is a Bim-INTERNAL method on the projector, NOT an `IElementProjection` member, because IFC egress is one runtime's wire concern and the seam owns only ingress projection.
+- Boundary: the projector is the ONE GeometryGym→seam lowering — the retired `BimModel.Project` produced a second stored `BimElement` keyed by `GlobalId`, and any owner that re-stores the element off the seam graph is the deleted form; GeometryGym is captured INTERNALLY (the `DatabaseIfc` field) and an `IfcProduct`/`IfcRel*`/`DatabaseIfc` type crossing the `IElementProjection.Project` signature is the named seam violation — the seam holds only `Node`/`Relationship`/`GraphDelta`; the rooted `NodeId` is a neutral kernel-minted id and the compressed IFC `GlobalId` is the node's `ExternalId` projection attribute (1:1) [H6], so the IFC GUID never becomes the node identity and the from-scratch authoring path mints its own neutral id; the value-narrowing is Bim's (`PropertyLowering`) because an `IfcValue`/dataType string crossing a seam signature is the deleted form — the seam carries only the typed `PropertyValue`/`MeasureValue` cases; geometry is referenced by `RepresentationContentHash` only [M2] and an in-process BRep evaluation or a RhinoCommon handle is the named seam violation — the analytical Axis/FootPrint geometry is content-keyed in `Representations` by `IfcRepresentation.Keys` [M2] and NEVER inlined as a coordinate field on the `Object` node (an inline `Vector3`/`BoundaryPolygon`/`Axis` member is the deleted §4-RT-M2 violation), `Rasm.Compute` resolving the analytical axis/footprint one-hop by content key from the blob store; a Bim in-process BRep evaluation is the named seam violation and the seam carries the structural/spatial CONNECTIVITY on the neutral `Relationship.Generic` edges instead; `Emit` is a Bim-INTERNAL method on the projector, NOT an `IElementProjection` member, because IFC egress is one runtime's wire concern and the seam owns only ingress projection.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Linq;
+using System.Text;
 using System.Text.Json.Nodes;
 using GeometryGym.Ifc;
 using GeometryGym.STEP;
@@ -62,8 +63,7 @@ public sealed partial class SemanticProjector(DatabaseIfc db) : IElementProjecti
             .Fold(Map<string, NodeId>(), (map, root) => map.AddOrUpdate(root.GlobalId, ctx.Rooted()));
         return GeoReferenceProjector.Project(project).Bind(geo => {
             var header = new Header(ReleaseLower(db.Release), ViewLower(db.ModelView), geo, db.Tolerance, ctx.At, StepHeaderOf(db));
-            Seq<Node> nodes = Enrich(project, rooted,
-                Objects(project, rooted).Concat(Bags(project, rooted)).Concat(Materials(project, db.Tolerance, key)).ToSeq());
+            Seq<Node> nodes = Classify(project, rooted, Objects(project, rooted).Concat(Bags(project, rooted)).Concat(Materials(project, db.Tolerance, key)).ToSeq());
             return EdgeProjection.All(project, rooted, db.Tolerance, key)
                 .Map(edges => {
                     GraphDelta seeded = nodes.Fold(GraphDelta.Empty.Reheader(header), static (delta, node) => delta.Put(node));
@@ -78,14 +78,39 @@ public sealed partial class SemanticProjector(DatabaseIfc db) : IElementProjecti
     // [M2]; OwnerHistory rides optionally [H9]; ExternalId is the 1:1 GlobalId [H6]; Span is the class schema window [H8].
     // Ingress is PERMISSIVE: an unrostered/IFC4-new leaf lands the IfcClass.Proxy row through TryGet().IfNone(Proxy) so one
     // unknown entity never aborts the whole import — class validity is the Emit egress gate (AdmitPredefined), never here.
-    // The analytical coordinate geometry (Axis/BoundaryPolygon) is NOT read in this generic builder (a generic Object lands
-    // Axis None / BoundaryPolygon empty) — the structural curve member's idealized AxisCurve is baked by the separate Enrich
-    // pass (below) off Model/structural#STRUCTURAL_PROJECTION AxisOf, the heavy display geometry staying content-hashed on
-    // RepresentationContentHash; Rasm.Compute READS the baked Object.Axis off the seam, never re-deriving it from geometry.
+    // The analytical Axis/FootPrint geometry is content-keyed in Representations by IfcRepresentation.Keys (the ONE polymorphic
+    // representation content-keyer maps every RepresentationIdentifier — Axis/Body/Box/FootPrint — to its content hash [M2]),
+    // NEVER inlined as a coordinate field on the seam Object node (no Vector3/AxisCurve member exists — the deleted §4-RT-M2
+    // violation); Rasm.Compute RESOLVES the analytical axis/footprint one-hop BY CONTENT KEY from the blob store.
     static Seq<Node> Objects(IfcProject project, Map<string, NodeId> rooted) =>
         project.Extract<IfcProduct>().AsIterable().Map(p => ObjectNode(p, ObjectKind.Occurrence, rooted))
             .Concat(project.Extract<IfcTypeObject>().AsIterable().Map(t => ObjectNode(t, ObjectKind.Type, rooted)))
             .ToSeq();
+
+    // The standard-system classification set [4-RT cardinality]: IFC permits MULTIPLE IfcRelAssociatesClassification per
+    // object (Uniclass + OmniClass co-applied), so each relation's IfcClassificationReference resolves through
+    // Semantics/classification#CLASSIFICATION_AXIS ClassificationSystem.Ingest (lowering the IfcClassificationReference.Name
+    // concept title onto seam Classification.Title) and accumulates onto every related rooted Object node's Classifications
+    // set — the ("ifc", classKey) entity-class pair stays the node's PRIMARY Classification, the standard refs ride the set;
+    // an unrostered source resolves None and is dropped here (it rides the relation-edge Generic passthrough), never a wrong
+    // lowering. RelatingClassification (IfcClassificationSelect) + RelatedObjects (SET<IfcDefinitionSelect>) decompile-verified.
+    static Seq<Node> Classify(IfcProject project, Map<string, NodeId> rooted, Seq<Node> nodes) {
+        Map<NodeId, Seq<Classification>> byNode = project.Extract<IfcRelAssociatesClassification>().AsIterable()
+            .Fold(Map<NodeId, Seq<Classification>>(), (map, rel) =>
+                Optional(rel.RelatingClassification as IfcClassificationReference)
+                    .Bind(ClassificationSystem.Ingest)
+                    .Match(
+                        Some: c => rel.RelatedObjects.OfType<IfcRoot>().Aggregate(map, (acc, related) =>
+                            rooted.Find(related.GlobalId).Match(
+                                Some: id => acc.AddOrUpdate(id, existing => existing.Add(c), () => Seq1(c)),
+                                None: () => acc)),
+                        None: () => map));
+        return byNode.IsEmpty
+            ? nodes
+            : nodes.Map(node => node is Node.Object o
+                ? (Node)(o with { Classifications = byNode.Find(o.Id).IfNone(o.Classifications) })
+                : node);
+    }
 
     static Node ObjectNode(IfcObjectDefinition definition, ObjectKind kind, Map<string, NodeId> rooted) {
         IfcClass cls = IfcClass.TryGet(ParserIfc.IdentifyIfcClass(definition.GetType().Name, out _)).IfNone(IfcClass.Proxy);
@@ -93,13 +118,11 @@ public sealed partial class SemanticProjector(DatabaseIfc db) : IElementProjecti
             Id:             rooted[definition.GlobalId],
             Kind:           kind,
             ExternalId:     Some(definition.GlobalId),
-            Classification: Classification.Create("ifc", cls.Key),
+            Classification: Classification.Create("ifc", cls.Key, None),
             PredefinedType: Predefined(definition),
             Name:           definition.Name ?? "",
             Tag:            (definition as IfcElement)?.Tag ?? "",
             Representations: IfcRepresentation.Keys(definition),
-            BoundaryPolygon: Seq<Vector3>(),
-            Axis:           Option<AxisCurve>.None,
             History:        OwnerStamp(definition.OwnerHistory),
             Span:           cls.Span);
     }
@@ -115,22 +138,6 @@ public sealed partial class SemanticProjector(DatabaseIfc db) : IElementProjecti
             : PredefinedType.Create(token);
     }
 
-    // The structural analytical-line Enrich [Model/structural#STRUCTURAL_PROJECTION]: the generic Objects fold lands every
-    // IfcStructuralItem as a generic Object node (Axis None — analytical geometry is not the general builder's concern); this
-    // post-pass bakes the idealized AxisCurve onto each structural curve member's node off StructuralProjection.AxisOf, so a
-    // Rasm.Compute frame solve reads graph.AxisOf off the node and never rails <member-axis-absent>. The lightweight line
-    // only — the heavy display geometry stays content-hashed on RepresentationContentHash [M2]; a member with no analytical
-    // edge keeps Axis None, and a non-structural node passes through untouched.
-    static Seq<Node> Enrich(IfcProject project, Map<string, NodeId> rooted, Seq<Node> nodes) {
-        Map<NodeId, AxisCurve> axes = toMap(project.Extract<IfcStructuralCurveMember>().AsIterable()
-            .Choose(m => from id in rooted.Find(m.GlobalId)
-                         from axis in StructuralProjection.AxisOf(m)
-                         select (id, axis)));
-        return nodes.Map(node => node is Node.Object o
-            ? axes.Find(o.Id).Match(Some: axis => (Node)(o with { Axis = Some(axis) }), None: () => node)
-            : node);
-    }
-
     // PropertySet/QuantitySet bag nodes whose seam PropertyBag/QuantityBag carries the typed value the PropertyLowering
     // narrowing fills and the InheritanceMode the projector stamps at ingest [H1] so the seam Bake resolves type->occurrence
     // precedence without re-reading IFC; a Pset whose DefinesType inverse is non-empty is type-bound (the IFC type-driven
@@ -142,7 +149,7 @@ public sealed partial class SemanticProjector(DatabaseIfc db) : IElementProjecti
             new PropertyBag(
                 ps.Name ?? "",
                 ps.HasProperties.Values.Aggregate(Map<PropertyName, PropertyValue>(),
-                    static (bag, p) => bag.AddOrUpdate(PropertyName.Create(p.Name ?? ""), PropertyLowering.Lower(p))),
+                    (bag, p) => bag.AddOrUpdate(PropertyName.Create(p.Name ?? ""), PropertyLowering.Lower(p, rooted))),
                 PropertyInheritance.ModeOf(ps.Name ?? "", IsTypeBound(ps)))));
         var quantities = project.Extract<IfcElementQuantity>().AsIterable().Map(eq => (Node)new Node.QuantitySet(
             rooted[eq.GlobalId],
@@ -221,7 +228,7 @@ public sealed partial class SemanticProjector(DatabaseIfc db) : IElementProjecti
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 // The Bim-internal IFC value narrowing the seam delegates to the projector: an IfcProperty narrows onto the seam's
-// eight-case PropertyValue and an IfcPhysicalSimpleQuantity onto a MeasureValue over the seam Dimension. The seam forbids
+// nine-case PropertyValue and an IfcPhysicalSimpleQuantity onto a MeasureValue over the seam Dimension. The seam forbids
 // an IfcValue or a dataType string crossing its signature, so this narrowing is Bim's (the seam carries only the typed
 // cases). A measured value's dimension reads off the IFC measure-type name through the frozen MeasureDimensions table
 // (the H2 dimension support); an unmapped measure preserves its value as Text rather than claiming a wrong dimension.
@@ -233,27 +240,38 @@ internal static class PropertyLowering {
         ["IfcMassDensityMeasure"] = Dimension.DensityDim, ["IfcThermalTransmittanceMeasure"] = Dimension.ThermalTransmittance,
     }.ToFrozenDictionary(StringComparer.Ordinal);
 
-    // The IfcSimpleProperty family -> the seam PropertyValue eight-case union: a single value narrows by its IfcValue
-    // shape, an enumerated value carries its chosen value plus its allowed set, a bounded value its lower/upper/setpoint
-    // measures, a list/table the recursive arms; IfcPropertyReferenceValue and IfcComplexProperty fall to Text (the seam
-    // Reference arm needs a resolved NodeId the bag fold does not carry), so no IFC property is dropped.
-    public static PropertyValue Lower(IfcProperty property) => property switch {
+    // The IfcSimpleProperty family -> the seam PropertyValue nine-case union: a single value narrows by its IfcValue shape
+    // (the three-valued IfcLogical to the seam Logical, never coerced to a two-valued Boolean), an enumerated value carries
+    // its SELECTED value LIST (EnumerationValues, the [1:?] cardinality) plus its allowed set (the optional
+    // EnumerationReference), a reference value its target NodeId plus its UsageName, a bounded value its lower/upper/setpoint
+    // measures, a table value its rows plus the IfcCurveInterpolationEnum curve rule, a list/table the recursive arms; only
+    // IfcComplexProperty falls to Text. The rooted map resolves a reference whose target is a rooted node; a non-rooted
+    // reference target content-keys a NEUTRAL NodeId (never the IFC GlobalId AS node identity [H6]), the UsageName always
+    // carried so the import->export round-trip never drops the three-valued logical, the curve rule, or the usage name.
+    public static PropertyValue Lower(IfcProperty property, Map<string, NodeId> rooted) => property switch {
         IfcPropertySingleValue sv     => LowerValue(sv.NominalValue),
         IfcPropertyEnumeratedValue ev => new PropertyValue.Enumerated(
-            ev.EnumerationValues.AsIterable().HeadOrNone().Map(static v => v.ValueString).IfNone(""),
-            ev.EnumerationValues.AsIterable().Map(static v => v.ValueString).ToSeq()),
+            ev.EnumerationValues.AsIterable().Map(static v => v.ValueString).ToSeq(),
+            Optional(ev.EnumerationReference).Map(static r => r.EnumerationValues.AsIterable().Map(static v => v.ValueString).ToSeq()).IfNone(Seq<string>())),
+        IfcPropertyReferenceValue rv  => new PropertyValue.Reference(
+            Optional(rv.PropertyReference as IfcRoot).Bind(root => rooted.Find(root.GlobalId)).IfNone(() =>
+                NodeId.Content(Encoding.UTF8.GetBytes(rv.PropertyReference is IfcRoot r ? $"ifcroot:{r.GlobalId}" : $"{rv.PropertyReference?.GetType().Name}:{rv.UsageName}"))),
+            string.IsNullOrEmpty(rv.UsageName) ? Option<string>.None : Some(rv.UsageName)),
         IfcPropertyBoundedValue bv    => new PropertyValue.Bounded(MeasureOpt(bv.LowerBoundValue), MeasureOpt(bv.UpperBoundValue), MeasureOpt(bv.SetPointValue)),
         IfcPropertyListValue lv       => new PropertyValue.List(lv.ListValues.AsIterable().Map(LowerValue).ToSeq()),
         IfcPropertyTableValue tv      => new PropertyValue.Table(tv.DefiningValues.Zip(tv.DefinedValues,
-            static (def, val) => ((PropertyValue)new PropertyValue.Text(def.ValueString), (PropertyValue)new PropertyValue.Text(val.ValueString))).ToSeq()),
+            static (def, val) => ((PropertyValue)new PropertyValue.Text(def.ValueString), (PropertyValue)new PropertyValue.Text(val.ValueString))).ToSeq(),
+            InterpolationOf(tv.CurveInterpolation)),
         _                             => new PropertyValue.Text(property.Name ?? ""),
     };
 
-    // An IfcValue -> the seam PropertyValue scalar arm: a boolean-typed value (ValueType == bool) is Boolean, a measure
-    // value whose type the dimension table carries is a typed Measure over its SI base, every other value its verbatim
-    // string — the IfcValue.ValueType/Value/ValueString abstract members the narrowing reads off any IfcValue.
+    // An IfcValue -> the seam PropertyValue scalar arm: a three-valued IfcLogical is the seam Logical (UNKNOWN -> None, never
+    // coerced to a two-valued Boolean), a boolean-typed value (ValueType == bool) is Boolean, a measure value whose type the
+    // dimension table carries is a typed Measure over its SI base, every other value its verbatim string — the
+    // IfcValue.ValueType/Value/ValueString abstract members the narrowing reads off any IfcValue.
     static PropertyValue LowerValue(IfcValue? value) =>
         value is null                                                                                  ? new PropertyValue.Text("")
+        : value is IfcLogical lg                                                                       ? new PropertyValue.Logical(LogicalOpt(lg.Logical))
         : value.ValueType == typeof(bool)                                                              ? new PropertyValue.Boolean(value.Value is bool b && b)
         : value is IfcMeasureValue m && MeasureDimensions.TryGetValue(m.GetType().Name, out var dim)   ? new PropertyValue.Measure(new MeasureValue(dim, AsDouble(m.Value), dim.SiSymbol))
         : new PropertyValue.Text(value.ValueString);
@@ -262,6 +280,23 @@ internal static class PropertyLowering {
         value is IfcMeasureValue m && MeasureDimensions.TryGetValue(m.GetType().Name, out var dim)
             ? Some(new MeasureValue(dim, AsDouble(m.Value), dim.SiSymbol))
             : None;
+
+    // The three-valued IfcLogical -> the seam Logical's Option<bool>: TRUE/FALSE map to Some, UNKNOWN to None so the seam
+    // models the third state a bool cannot; the egress RaiseLogical reverses it.
+    static Option<bool> LogicalOpt(IfcLogicalEnum logical) => logical switch {
+        IfcLogicalEnum.TRUE  => Some(true),
+        IfcLogicalEnum.FALSE => Some(false),
+        _                    => None,
+    };
+
+    // The IfcCurveInterpolationEnum -> the seam Interpolation token a Table value carries so a lookup-table consumer reads
+    // the curve rule rather than re-inferring it; the egress RaiseInterp reverses it.
+    static Interpolation InterpolationOf(IfcCurveInterpolationEnum curve) => curve switch {
+        IfcCurveInterpolationEnum.LINEAR     => Interpolation.Linear,
+        IfcCurveInterpolationEnum.LOG_LINEAR => Interpolation.LogLinear,
+        IfcCurveInterpolationEnum.LOG_LOG    => Interpolation.LogLog,
+        _                                    => Interpolation.NotDefined,
+    };
 
     // An IfcPhysicalSimpleQuantity -> the seam MeasureValue over its canonical Dimension row [H2]: the IFC quantity value
     // is already SI-base, wrapped directly (never re-coerced through the UnitsNet registry, which is for raw unit-bearing
@@ -505,8 +540,8 @@ public static class EdgeProjection {
     // 6-DOF restraint (fixity + SI spring) and the full IfcStructuralLoad family are lowered through the DEDICATED
     // Model/structural#STRUCTURAL_PROJECTION StructuralProjection.Attrs owner (never a local boolean-only/single-force-only
     // reader), the restraint edge additionally carrying the StructuralProjection.AtStart start/end discriminant. So a
-    // Rasm.Compute frame solve reads graph.SupportsOf/graph.LoadsOf off these edges and graph.AxisOf off the Enrich-baked
-    // Object.Axis (Enrich, below) — never re-reading IFC, never a defaulted support joint or load case.
+    // Rasm.Compute frame solve reads graph.SupportsOf/graph.LoadsOf off these edges and resolves the analytical axis BY
+    // CONTENT KEY from Representations (content-keyed by IfcRepresentation.Keys, never an Enrich bake) — never re-reading IFC, never a defaulted support joint or load case.
     static Seq<Fin<Seq<Relationship>>> Structural(IfcProject project, Map<string, NodeId> rooted, Op key) => Seq(
         project.Extract<IfcRelConnectsStructuralMember>().AsIterable().Select(rel =>
             from m in Resolve(rooted, rel.RelatingStructuralMember?.GlobalId ?? "", key)
@@ -735,14 +770,47 @@ public sealed partial class SemanticProjector {
         _ => Option<IfcPropertySetDefinition>.None,
     };
 
-    // The seam PropertyValue -> the IFC property: a Boolean/Measure authors its typed IfcPropertySingleValue ctor, every
-    // other case its canonical Render string (the IfcPropertyEnumeratedValue/BoundedValue composites round-trip as text,
-    // never dropped), so the typed value the PropertyLowering narrowed re-emits.
+    // The seam PropertyValue -> the IFC property re-author: each typed case rebuilds its IFC counterpart so the round-trip
+    // preserves the data type the PropertyLowering narrowed — Boolean/Measure their scalar IfcPropertySingleValue ctor, the
+    // three-valued Logical a typed IfcLogical (the UNKNOWN state survives), Enumerated the IfcPropertyEnumeratedValue SELECTED
+    // list, Reference an IfcPropertyReferenceValue carrying its UsageName, Table an IfcPropertyTableValue carrying the
+    // CurveInterpolation curve rule; the Bounded/List composites round-trip as their canonical Render string, never dropped.
     static IfcProperty RaiseProperty(DatabaseIfc target, PropertyName name, PropertyValue value) => value switch {
-        PropertyValue.Boolean b => new IfcPropertySingleValue(target, name.Value, b.Value),
-        PropertyValue.Measure m => new IfcPropertySingleValue(target, name.Value, m.Value.Si),
-        _                       => new IfcPropertySingleValue(target, name.Value, value.Render()),
+        PropertyValue.Boolean b    => new IfcPropertySingleValue(target, name.Value, b.Value),
+        PropertyValue.Measure m    => new IfcPropertySingleValue(target, name.Value, m.Value.Si),
+        PropertyValue.Logical l    => new IfcPropertySingleValue(target, name.Value, new IfcLogical(RaiseLogical(l.Value))),
+        PropertyValue.Enumerated e => new IfcPropertyEnumeratedValue(target, name.Value, e.Selected.Map(static s => (IfcValue)new IfcLabel(s))),
+        PropertyValue.Reference r  => new IfcPropertyReferenceValue(target, name.Value) { UsageName = r.UsageName.IfNone("") },
+        PropertyValue.Table t      => RaiseTable(target, name, t),
+        _                          => new IfcPropertySingleValue(target, name.Value, value.Render()),
     };
+
+    // The seam Logical's Option<bool> -> the IFC three-valued IfcLogicalEnum (None is UNKNOWN); the inverse of LogicalOpt.
+    static IfcLogicalEnum RaiseLogical(Option<bool> logical) =>
+        logical.Match(Some: static b => b ? IfcLogicalEnum.TRUE : IfcLogicalEnum.FALSE, None: static () => IfcLogicalEnum.UNKNOWN);
+
+    // The seam Interpolation -> the IFC IfcCurveInterpolationEnum; the inverse of InterpolationOf.
+    static IfcCurveInterpolationEnum RaiseInterp(Interpolation interp) =>
+        interp == Interpolation.Linear      ? IfcCurveInterpolationEnum.LINEAR
+        : interp == Interpolation.LogLinear ? IfcCurveInterpolationEnum.LOG_LINEAR
+        : interp == Interpolation.LogLog    ? IfcCurveInterpolationEnum.LOG_LOG
+        : IfcCurveInterpolationEnum.NOTDEFINED;
+
+    // A seam table cell -> an IFC value: a Measure authors a typed IfcReal over its SI magnitude, every other case its
+    // canonical Render string, so a defining->defined row re-emits its numeric or token cell.
+    static IfcValue RaiseValue(PropertyValue value) => value switch {
+        PropertyValue.Measure m => new IfcReal(m.Value.Si),
+        _                       => new IfcLabel(value.Render()),
+    };
+
+    // The seam Table -> the IFC IfcPropertyTableValue: the defining/defined cells fill the value lists and the seam
+    // Interpolation re-authors the CurveInterpolation curve rule, so the lookup-table semantics survive the round-trip.
+    static IfcPropertyTableValue RaiseTable(DatabaseIfc target, PropertyName name, PropertyValue.Table table) {
+        IfcPropertyTableValue raised = new(target, name.Value) { CurveInterpolation = RaiseInterp(table.Interp) };
+        raised.DefiningValues.AddRange(table.Rows.Map(static r => RaiseValue(r.Defining)));
+        raised.DefinedValues.AddRange(table.Rows.Map(static r => RaiseValue(r.Defined)));
+        return raised;
+    }
 
     // The seam MeasureValue -> the IFC physical quantity by its Dimension row: the SI magnitude authors the matching
     // IfcQuantity* (Area/Volume/Weight/Time/Count, defaulting to Length), so a base-quantity takeoff re-emits its Qto.
@@ -754,14 +822,16 @@ public sealed partial class SemanticProjector {
         : measure.Dimension == Dimension.Dimensionless ? new IfcQuantityCount(target, name.Value, measure.Si)
         : new IfcQuantityLength(target, name.Value, measure.Si);
 
-    // The element standard classification -> IFC: each Object node authors its standard Classification through
-    // ClassificationSystem.Author (which returns None for the "ifc" entity-type code the Author above already resolved as
-    // the IfcClass, so the entity type never re-authors as a classification reference). This is the element-classification
-    // egress subsuming the retired material-wire classification half.
+    // The element classification set -> IFC: each Object node authors its primary Classification AND every standard-system
+    // reference in its Classifications set through ClassificationSystem.Author (which returns None for the "ifc" entity-type
+    // code the Author above already resolved as the IfcClass, so the entity type never re-authors as a classification
+    // reference) — a Uniclass + OmniClass co-applied object thus re-emits BOTH IfcRelAssociatesClassification references it
+    // was imported with. This is the element-classification egress subsuming the retired material-wire classification half.
     static void ReauthorClassifications(DatabaseIfc target, ElementGraph graph, Map<NodeId, IfcProduct> products) =>
         graph.Nodes.Values.Choose(static n => n is Node.Object o ? Some(o) : None)
             .Iter(obj => products.Find(obj.Id).IfSome(product =>
-                ClassificationSystem.Author(target, (IfcDefinitionSelect)product, obj.Classification).IfSome(static _ => { })));
+                obj.Classifications.Add(obj.Classification).Iter(classification =>
+                    ClassificationSystem.Author(target, (IfcDefinitionSelect)product, classification).IfSome(static _ => { }))));
 
     // The neutral edge algebra -> IfcRel*: each typed Compose/Connect/Void edge and the Assign.TypeDefinition/Group edge
     // re-author their IFC relationship by the reverse-indexed IfcRelKind row, the Generic long-tail by its wire-name [C5];
@@ -876,8 +946,8 @@ public sealed class IfcLegality : IGraphConstraint {
 
 - [PROJECTION_INVERSION]: the `SemanticProjector : IElementProjection` GeometryGym-internal capture and the IoC inversion (GeometryGym stays SOLE in Bim; Bim implements the seam interface so no GeometryGym edge points down into the seam) ground against `ELEMENT-REBUILD-PLAN.md` §4A/§4C and the `Rasm.Element/Projection/projection#PROJECTION_CONTRACT` `IElementProjection.Project(ProjectionContext) → Fin<GraphDelta>` contract + `Assemble` fold; the `Project` reads the live `db.Project.Extract<T>()` graph (not the lossy import-rail rows) so the full relationship roster + `OwnerHistory` + `StepHeader` survive, the member spellings (`IfcRoot.GlobalId`/`OwnerHistory`, `IfcProduct`, `IfcTypeObject`, `ParserIfc.IdentifyIfcClass(string, out string)`, `DatabaseIfc.Project`/`Release`/`ModelView`/`Tolerance`/`OriginatingFileInformation`, `FactoryIfc.Construct`(the db-binding entity mint the egress invokes, over the static `BaseClassIfc.Construct`)/`FactoryIfc.OwnerHistoryAdded`, `BaseClassIfc.Extract<T>`) decompile-verified against the live GeometryGym 25.7.30 surface (`.api/api-geometrygym-ifc`); the predefined token reads off the entity's reflected per-class `PredefinedType` enum property (the api notes it is a strongly-typed per-class member, never on the class-name split for a live occurrence), and `IfcRepresentation.Keys` is the ONE polymorphic content-keyer over `IfcObjectDefinition` (`Model/elements#REPRESENTATION_KEYS`), there being no `KeysOf`/`MapKeys` family.
 - [RELATION_NEUTRALITY]: the neutral five-axis `Relationship` algebra (`Compose`/`Assign`/`Associate`/`Connect`/`Void`) plus `Generic` passthrough grounds against `ELEMENT-REBUILD-PLAN.md` §4-RT C5 — the seam carries NO typed `IfcRel*` case, so the `IfcRelKind` row carries the neutral `EdgeAxis`+`SubKind` it lowers onto, the typed case taking only its `SubKind` (`ComposeKind`/`AssignKind`/`ConnectKind`/`VoidKind` per `Rasm.Element/Relations/relation#EDGE_ALGEBRA`) and the IFC wire-name reconstructing at egress through the `ByNeutral` reverse index, while the long-tail families ride `Generic(wireName, …)`; the `Assign` family is INVERTED at ingest (the seam `Assign(Subject, Definition)` is the inverse of the IFC relating→related), the realizing `Connect` reads `IfcRelConnectsWithRealizingElements.RealizingElements` (`SET<IfcElement>`) into the seam `Connect.Realizing` option, and the material occurrence-usage `LayerSetUsage`/`ProfileSetUsage` rides the `Associate` edge `MaterialUsage` payload [C7] (the `ProfileSet` usage through the seam `MaterialUsage.ProfileSet.Of` cardinal-point gate), the `MaterialUsage.ProfileSet` private ctor forcing every admission through `Of`.
-- [STRUCTURAL_ENERGY_LOWERING]: the `DefinesProperties`/`Structural`/`SpatialBoundaries` `EdgeProjection` folds lower the structural idealization and the energy/spatial CONNECTIVITY onto the seam graph so `Rasm.Compute` reads it off the neutral `Generic` edges (`ELEMENT-REBUILD-PLAN.md` §4E). The member surface is decompile-verified against the live GeometryGym 25.7.30 (`.api/api-geometrygym-ifc`): `IfcRelDefinesByProperties.RelatedObjects` (`SET<IfcObjectDefinition>`) + `RelatingPropertyDefinition` (a `SET<IfcPropertySetDefinition>`, fanned out per pair); `IfcRelConnectsStructuralMember.RelatingStructuralMember`/`RelatedStructuralConnection` and `IfcRelConnectsStructuralActivity.RelatingElement` (`IfcStructuralActivityAssignmentSelect`, read through the `IfcRoot` cast)/`RelatedStructuralActivity` are the edge endpoints the `Structural` fold resolves, the restraint/load PAYLOAD (the 6-DOF fixity + SI spring per DOF, the full `IfcStructuralLoad` family, and the neutral `LoadKind`/`Case` tokens) delegated to the dedicated `Model/structural#STRUCTURAL_PROJECTION` `StructuralProjection.Attrs` owner and the `AtStart` start/end discriminant to `StructuralProjection.AtStart` — never a local boolean-only/single-force reader; `IfcRelSpaceBoundary.RelatingSpace` (`IfcSpaceBoundarySelect`, read through the `IfcRoot` cast)/`RelatedBuildingElement` + the `IfcRelSpaceBoundary2ndLevel` discriminant (the `PhysicalOrVirtualBoundary`/`InternalOrExternalBoundary` enums are GeometryGym internal fields with no public getter, so the seam lowers only the publicly-readable boundary level, never an internal-field reflection read). The structural curve member's idealized `Object.Axis` IS baked by the `Enrich` pass off `StructuralProjection.AxisOf` (the lightweight topology-edge line); only the `Object.BoundaryPolygon` stays unextracted — materializing the heavy display polygon is the in-process geometry evaluation the projector boundary (and `Model/elements#REPRESENTATION_KEYS`) forbids, the display geometry staying content-hashed on `RepresentationContentHash` — so `Rasm.Compute` READS the baked axis off the seam rather than re-deriving it.
-- [VALUE_NARROWING]: the `PropertyLowering` `IfcProperty`→`PropertyValue` and `IfcPhysicalSimpleQuantity`→`MeasureValue` narrowing grounds against `Rasm.Element/Properties/property#PROPERTY_VALUE` (the eight-case `Text`/`Measure`/`Boolean`/`Enumerated`/`Reference`/`Bounded`/`List`/`Table` union) and `#PROPERTY_BAG` (the `PropertyBag`/`QuantityBag` the `Node.PropertySet`/`Node.QuantitySet` wrap) plus `Properties/quantity#MEASURE_VALUE` (the `Dimension` `[ComplexValueObject]` discriminator [H2]) — the seam forbids an `IfcValue`/dataType string crossing its signature, so the narrowing is Bim's; the decompile-verified members are `IfcPropertySingleValue.NominalValue` (`IfcValue`) + `IfcValue.Value`/`ValueType`/`ValueString` (abstract), `IfcPropertyEnumeratedValue.EnumerationValues` (`LIST<IfcValue>`), `IfcPropertyBoundedValue.UpperBoundValue`/`LowerBoundValue`/`SetPointValue`, `IfcPropertyListValue.ListValues`, `IfcPropertyTableValue.DefiningValues`/`DefinedValues`, and the `IfcQuantityLength.LengthValue`/`IfcQuantityArea.AreaValue`/`IfcQuantityVolume.VolumeValue`/`IfcQuantityWeight.WeightValue`/`IfcQuantityCount.CountValue`/`IfcQuantityTime.TimeValue` subtype values + `IfcPhysicalSimpleQuantity.Unit`; an IFC measure type the frozen `MeasureDimensions` table does not carry preserves its value as `Text` rather than claiming a wrong dimension, and the egress raises the typed value back through `RaiseProperty`/`RaiseQuantity` (the `IfcPropertySingleValue(db, name, bool|double|string)` and `IfcQuantity*(db, name, double)` ctors decompile-confirmed).
+- [STRUCTURAL_ENERGY_LOWERING]: the `DefinesProperties`/`Structural`/`SpatialBoundaries` `EdgeProjection` folds lower the structural idealization and the energy/spatial CONNECTIVITY onto the seam graph so `Rasm.Compute` reads it off the neutral `Generic` edges (`ELEMENT-REBUILD-PLAN.md` §4E). The member surface is decompile-verified against the live GeometryGym 25.7.30 (`.api/api-geometrygym-ifc`): `IfcRelDefinesByProperties.RelatedObjects` (`SET<IfcObjectDefinition>`) + `RelatingPropertyDefinition` (a `SET<IfcPropertySetDefinition>`, fanned out per pair); `IfcRelConnectsStructuralMember.RelatingStructuralMember`/`RelatedStructuralConnection` and `IfcRelConnectsStructuralActivity.RelatingElement` (`IfcStructuralActivityAssignmentSelect`, read through the `IfcRoot` cast)/`RelatedStructuralActivity` are the edge endpoints the `Structural` fold resolves, the restraint/load PAYLOAD (the 6-DOF fixity + SI spring per DOF, the full `IfcStructuralLoad` family, and the neutral `LoadKind`/`Case` tokens) delegated to the dedicated `Model/structural#STRUCTURAL_PROJECTION` `StructuralProjection.Attrs` owner and the `AtStart` start/end discriminant to `StructuralProjection.AtStart` — never a local boolean-only/single-force reader; `IfcRelSpaceBoundary.RelatingSpace` (`IfcSpaceBoundarySelect`, read through the `IfcRoot` cast)/`RelatedBuildingElement` + the `IfcRelSpaceBoundary2ndLevel` discriminant (the `PhysicalOrVirtualBoundary`/`InternalOrExternalBoundary` enums are GeometryGym internal fields with no public getter, so the seam lowers only the publicly-readable boundary level, never an internal-field reflection read). The structural curve member's idealized analytical axis is content-keyed in `Representations` by `IfcRepresentation.Keys` (the polymorphic representation content-keyer), NEVER inlined as a coordinate field on the `Object` node (an inline `Axis`/`BoundaryPolygon` member is the deleted §4-RT-M2 violation) — the heavy display geometry likewise content-hashed on `RepresentationContentHash`, materializing it in-process being the geometry evaluation the projector boundary (and `Model/elements#REPRESENTATION_KEYS`) forbids — so `Rasm.Compute` RESOLVES the analytical axis/footprint one-hop BY CONTENT KEY from the blob store rather than re-deriving it.
+- [VALUE_NARROWING]: the `PropertyLowering` `IfcProperty`→`PropertyValue` and `IfcPhysicalSimpleQuantity`→`MeasureValue` narrowing grounds against `Rasm.Element/Properties/property#PROPERTY_VALUE` (the nine-case `Text`/`Measure`/`Boolean`/`Logical`/`Enumerated`/`Reference`/`Bounded`/`List`/`Table` union) and `#PROPERTY_BAG` (the `PropertyBag`/`QuantityBag` the `Node.PropertySet`/`Node.QuantitySet` wrap) plus `Properties/quantity#MEASURE_VALUE` (the `Dimension` `[ComplexValueObject]` discriminator [H2]) — the seam forbids an `IfcValue`/dataType string crossing its signature, so the narrowing is Bim's; the decompile-verified members are `IfcPropertySingleValue.NominalValue` (`IfcValue`) + `IfcValue.Value`/`ValueType`/`ValueString` (abstract), `IfcLogical.Logical` (`IfcLogicalEnum` `TRUE`/`FALSE`/`UNKNOWN`), `IfcPropertyEnumeratedValue.EnumerationValues` (`LIST<IfcValue>`) + `EnumerationReference` (`IfcPropertyEnumeration.EnumerationValues`), `IfcPropertyReferenceValue.UsageName`/`PropertyReference` (`IfcObjectReferenceSelect`), `IfcPropertyBoundedValue.UpperBoundValue`/`LowerBoundValue`/`SetPointValue`, `IfcPropertyListValue.ListValues`, `IfcPropertyTableValue.DefiningValues`/`DefinedValues`/`CurveInterpolation` (`IfcCurveInterpolationEnum`), and the `IfcQuantityLength.LengthValue`/`IfcQuantityArea.AreaValue`/`IfcQuantityVolume.VolumeValue`/`IfcQuantityWeight.WeightValue`/`IfcQuantityCount.CountValue`/`IfcQuantityTime.TimeValue` subtype values + `IfcPhysicalSimpleQuantity.Unit`; an IFC measure type the frozen `MeasureDimensions` table does not carry preserves its value as `Text` rather than claiming a wrong dimension, and the egress raises the typed value back through `RaiseProperty`/`RaiseQuantity` — a three-valued `Logical` re-emits a typed `IfcLogical`, an `Enumerated` its `IfcPropertyEnumeratedValue` selected list, a `Reference` an `IfcPropertyReferenceValue` carrying its `UsageName`, a `Table` an `IfcPropertyTableValue` carrying its `CurveInterpolation` — so the three-valued logical, the curve-interpolation rule, and the reference usage name survive the round-trip (the `IfcPropertySingleValue(db, name, IfcValue|bool|double|string)`, `IfcPropertyEnumeratedValue(db, name, IEnumerable<IfcValue>)`, `IfcPropertyReferenceValue(db, name)` + `UsageName`, `IfcPropertyTableValue(db, name)` + `CurveInterpolation`, `IfcLogical(IfcLogicalEnum)`, `IfcLabel(string)`/`IfcReal(double)`, and `IfcQuantity*(db, name, double)` ctors decompile-confirmed).
 - [EGRESS_GATE]: the `PredefinedType` egress gate (resolve the `IfcClass` row from `code`, run `AdmitPredefined(token, objectType, schema, key)` against the frozen valid set + the `IntroducedIn`/`RemovedIn` schema span → `BimFault.UnmappedClass`) grounds against `ELEMENT-REBUILD-PLAN.md` §4-RT C6/H8 and the `Model/elements#IFC_CLASS` `IfcClass.Resolve(string, Op)`/`AdmitPredefined(string, string, ReleaseVersion, Op)` owner (both `Op`-keyed); the schema gate ranks the SEAM `ReleaseVersion` chronologically (the `[SmartEnum]` has no ordinal), and the GeometryGym `ReleaseVersion` enum stays on the codec leg through `ReleaseRaise`/`Sniff` + `ParserIfc.EncodeGuid` for the 1:1 `GlobalId` round-trip [H6]; the diff-derived `ChangeAction` grounds against the seam `Node` record equality over the prior snapshot (a rooted node matched on the stable 1:1 GlobalId `ExternalId` since the `NodeId` is freshly minted each ingest) and `IfcOwnerHistory.CreationDate`/`LastModifiedDate` (`DateTime`, lowered through `Instant.FromDateTimeUtc`, never `FromUnixTimeSeconds`) [H9].
 - [MATERIAL_PROPERTY_CLASSIFICATION_EGRESS]: the `ReauthorMaterials`/`ReauthorProperties`/`ReauthorClassifications` egress grounds against `ELEMENT-REBUILD-PLAN.md` §6 (the `Rasm.Materials` ripple — the `MaterialProjector` lowers the material subgraph, `Rasm.Bim` reads it) and §4-RT C7 (the `Associate` material edge carries the typed `MaterialUsage`; the type-level `MaterialComposition` set stays). `ReauthorMaterials` composes the `Semantics/composition#MATERIAL_COMPOSITION` `MaterialProjection.AuthorComposition(DatabaseIfc, Node.Material, Func<ProfileRef, Option<IfcProfileDef>>)`/`AuthorUsage(IfcMaterialDefinition, MaterialUsage)` (returning `Fin<IfcMaterialDefinition>`/`IfcMaterialSelect`); `ReauthorProperties` rebuilds the `IfcPropertySet(name, IEnumerable<IfcProperty>)`/`IfcElementQuantity(name, IEnumerable<IfcPhysicalQuantity>)` + `IfcRelDefinesByProperties(IfcObjectDefinition, IfcPropertySetDefinition)` (ctors decompile-confirmed) — the round-trip the retired stringly `BimElement.PropertyBinding`/`QuantityBinding` never had; `ReauthorClassifications` composes the `Semantics/classification#CLASSIFICATION_AXIS` `ClassificationSystem.Author(DatabaseIfc, IfcDefinitionSelect, Classification)` (returning `None` for the `"ifc"` entity-type code), authoring `IfcRelAssociatesClassification`/`IfcClassificationReference`; the `IfcRelAssociatesMaterial(IfcMaterialSelect, IEnumerable<IfcDefinitionSelect>)` egress is decompile-confirmed, the material reading off the projected seam `Material` node, never a retired Materials wire.
 - [LEGALITY_SPLIT]: the `IfcLegality : IGraphConstraint` IFC-semantic legality (containment-relating-must-be-spatial / `Void` element→opening / type-may-not-aggregate-occurrence / `DefinesByType` definition-must-be-type) grounds against `ELEMENT-REBUILD-PLAN.md` §4-RT M3 — net-new Rasm interfaces = 2 (`IElementProjection` + `IGraphConstraint`); the seam's structural `GraphDelta` switch enforces only endpoint-resolution and endpoint-kind legality, the IFC legality depended up on through the constraint contract and accumulated applicatively over `Validation<Error,Unit>`, the `BimFault.ModelRejected` lifting BARE (band 2600 IS the `Expected` `Code` per `Model/faults#FAULT_BAND`) so the arm survives the `Error.Combine`.

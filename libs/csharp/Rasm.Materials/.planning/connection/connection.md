@@ -22,7 +22,7 @@ THE POLYMORPHIC CONNECTION OWNER and THE FAMILY GROWTH AXIS. One `ConnectionItem
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public readonly partial struct ConnectionId {
-    static partial void NormalizeAndValidate(ref string value, ref ValidationError? validationError) =>
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) =>
         validationError = string.IsNullOrWhiteSpace(value) || !value.StartsWith("connection.", StringComparison.Ordinal) || value.Length <= "connection.".Length
             ? new ValidationError("<connection-id requires 'connection.<designation>'>")
             : null;

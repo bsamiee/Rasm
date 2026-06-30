@@ -11,7 +11,7 @@ The georeferenced-BIM site-context PROJECTOR over the `Rasm.Element` seam: one `
 ## [02]-[GEOSPATIAL_SEAM]
 
 - Owner: `GeoFeature` the one host-neutral geospatial row carrying its `NetTopologySuite.Geometries.Geometry` planar geometry, its `IAttributesTable` keyed property bag, and its `Option<ProjectedCrs>` seam source CRS, plus the `Attr` optional-read and the `Ring` analytical-polygon projection; `GeoModel` the feature set under one `GeometryFactory` resolved from `NtsGeometryServices.Instance`, carrying the lazily-built `STRtree<GeoFeature>` broad-phase 2D index and the `GeoFeature.ToObject`-folding `Project`; `GeoServices` the process-wide `NtsGeometryServices` configuration root set once with the robust `GeometryOverlay.NG` engine and the dense `PackedCoordinateSequenceFactory`; `GeoClassifier` the frozen `(OgcGeometryType, tag)`→`(IFC class, predefined)` table the site-context projection keys on, carrying the true IFC4.3 class string the seam `Classification` takes (never an `IfcClass` row — the Bim `Emit` gate validates against the roster).
-- Entry: `GeoModel.Of(Seq<GeoFeature> features)` indexes the features into the `STRtree` once; `GeoModel.SpatialJoin(Geometry probe)` runs the canonical broad-then-narrow rail (`STRtree.Query` candidates, then `PreparedGeometryFactory.Prepare(probe).Intersects` per candidate); `GeoFeature.ToObject(GeoReference reference, ProjectionContext ctx)` projects one feature onto a seam `Object` occurrence node with a `GeoClassifier`-resolved `Classification.Create("ifc", classKey)` and a bare `PredefinedType` token, reprojecting the geometry into the project CRS through the `Semantics/georeference#GEODETIC_TRANSFORM` `GeoTransform.Reproject` leg, content-keying the footprint into the `Representations` map AND projecting it onto the analytical `BoundaryPolygon`, and threading the `AttributesTable` onto a seam `Pset_SiteContext` `PropertySet` node linked by a neutral `Assign(PropertyDefinition)` edge — `Fin<GraphDelta>` aborts only on an EMPTY geometry (no footprint, `Model/faults#FAULT_BAND` `BimFault.UnmappedClass` lifted BARE off `ctx.Key`, never a `.ToError()` hop), every recognized feature classifying to the `IfcGeographicElement` catch-all rather than aborting the import; `GeoModel.Project(GeoReference, ProjectionContext)` folds the whole feature set into one header-less `GraphDelta` the seam `Projection/projection#PROJECTION_CONTRACT` `Assemble` fold composes onto the model graph (the geospatial source registered as its own projector, never the IFC `SemanticProjector`'s concern).
+- Entry: `GeoModel.Of(Seq<GeoFeature> features)` indexes the features into the `STRtree` once; `GeoModel.SpatialJoin(Geometry probe)` runs the canonical broad-then-narrow rail (`STRtree.Query` candidates, then `PreparedGeometryFactory.Prepare(probe).Intersects` per candidate); `GeoFeature.ToObject(GeoReference reference, ProjectionContext ctx)` projects one feature onto a seam `Object` occurrence node with a `GeoClassifier`-resolved `Classification.Create("ifc", classKey, None)` and a bare `PredefinedType` token, reprojecting the geometry into the project CRS through the `Semantics/georeference#GEODETIC_TRANSFORM` `GeoTransform.Reproject` leg, content-keying the footprint into the `Representations` map AND projecting it onto the analytical `BoundaryPolygon`, and threading the `AttributesTable` onto a seam `Pset_SiteContext` `PropertySet` node linked by a neutral `Assign(PropertyDefinition)` edge — `Fin<GraphDelta>` aborts only on an EMPTY geometry (no footprint, `Model/faults#FAULT_BAND` `BimFault.UnmappedClass` lifted BARE off `ctx.Key`, never a `.ToError()` hop), every recognized feature classifying to the `IfcGeographicElement` catch-all rather than aborting the import; `GeoModel.Project(GeoReference, ProjectionContext)` folds the whole feature set into one header-less `GraphDelta` the seam `Projection/projection#PROJECTION_CONTRACT` `Assemble` fold composes onto the model graph (the geospatial source registered as its own projector, never the IFC `SemanticProjector`'s concern).
 - Auto: `GeoServices.Configure` sets `NtsGeometryServices.Instance` once at module init behind an idempotency guard with `GeometryOverlay.NG` and a `PackedCoordinateSequenceFactory` so every reader resolves cached factories carrying the one canonical `PrecisionModel`/`SRID`; `GeoModel.Of` bulk-inserts each feature envelope into the `STRtree` (read-only after the first `Query`, lazily built); `GeoModel.Dissolve` folds a footprint set through `OverlayNGRobust.Union` after a `GeometryFixer.Fix` validity gate; `GeoFeature.ToObject` reads the `GeoClassifier` table for the IFC class string, reprojects the geometry double-precision `CoordinateSequence` through the `Semantics/georeference#GEODETIC_TRANSFORM` `GeoTransform.Reproject` leg into the project CRS, content-keys the reprojected footprint WKB through the kernel seed-zero `ContentHash.Of` for the `Object` node `Representations` map, and folds the `IAttributesTable` `GetNames` onto a seam `Pset_SiteContext` `PropertySet` node (the GeoJSON footprint riding one `PropertyValue.Text` so the cross-runtime `shapely`/`turf` peers decode it), linking the two by a neutral `Assign(PropertyDefinition)` edge (`Subject`=object, `Definition`=pset).
 - Receipt: the `GeoFeature` is the typed planar-geometry evidence a site clash or a parcel-boundary setback reads; the `GeoModel.STRtree` index is the broad-phase candidate generator; the projected seam `Object` node is discriminated by the same generic `Classification` an imported element carries, so the seam `Bake` and the `Review/validation#IDS_FACETS` audit read a site-context model with no second selection surface; the raster `Coverage` node carries the field by-ref + bands + CRS the terrain consumer reads.
 - Packages: `NetTopologySuite`, `NetTopologySuite.IO.GeoJSON4STJ`, `NetTopologySuite.IO.GeoPackage`, `ProjNET`, `Rasm.Element`, `Rasm`, `Thinktecture.Runtime.Extensions`, `LanguageExt.Core`
@@ -113,7 +113,7 @@ public sealed record GeoFeature(
                 Id:              objectId,
                 Kind:            ObjectKind.Occurrence,
                 ExternalId:      footprint.Attr("id").Bind(static v => v.ToString() is { Length: > 0 } id ? Some(id) : Option<string>.None),
-                Classification:  Classification.Create("ifc", row.Class),
+                Classification:  Classification.Create("ifc", row.Class, None),
                 PredefinedType:  PredefinedType.Create(row.Predefined),
                 Name:            footprint.Attr("name").Map(static v => v.ToString() ?? "").Filter(static n => n.Length > 0).IfNone(row.Class),
                 Tag:             footprint.Attr("id").Map(static v => v.ToString() ?? "").IfNone(""),
@@ -366,7 +366,7 @@ public static class GeoVector {
 
     static Seq<GeoFeature> CityJson(ReadOnlyMemory<byte> bytes) {
         var document = Newtonsoft.Json.JsonConvert.DeserializeObject<CityJSON.CityJsonDocument>(Encoding.UTF8.GetString(bytes.Span))!;
-        var crs = ProjectedCrs.TryCreate(document.Metadata?.ReferenceSystem ?? "").ToOption();
+        var crs = ProjectedCrs.TryCreate(document.Metadata?.ReferenceSystem ?? "", out ProjectedCrs? projected) ? Some(projected) : Option<ProjectedCrs>.None;
         return document.CityObjects.ToSeq()
             .Map(pair => new GeoFeature(Boundary(document, pair.Value), Attributes(pair.Key, pair.Value), crs));
     }
@@ -540,9 +540,9 @@ public static class GeoVector {
 
 ## [04]-[RASTER_INGEST]
 
-- Owner: `GeoRaster` the GDAL raster ingest owner over `MaxRev.Gdal.Core` — a windowed multi-band `Dataset.ReadRaster<T>` band-stack read placed in georeferenced space by the 6-coefficient `GetGeoTransform` affine and the `GetSpatialRef`/`GetExtent` CRS extent (terrain elevation, an ortho basemap, a slope/aspect surface); `GeoRaster.Contour`/`DemProcess` the DEM-to-vector and hillshade/slope/aspect legs; `RasterTile` the windowed pixel carrier (the polymorphic `RasterBand` `[Union]` typed by the source `Band.DataType`, the band count, the geo-transform, and the NTS `Envelope` extent); `GeoRaster.ToCoverage` the seam `Coverage`-node projection [M1] lowering a placed raster onto the seam graph by content-key reference (the field by-ref + band descriptors + the seam `GeoReference`), never a stored pixel blob on the node.
-- Entry: `GeoRaster.Read(ReadOnlyMemory<byte> bytes, Option<Envelope> window, int targetWidth, int targetHeight, Op key)` opens the raster through `Gdal.Open` over a `/vsimem/` buffer and reads the windowed band STACK into a `RasterTile` — the `window` mapping to a pixel sub-window through the inverse geo-transform, every band read in one `Dataset.ReadRaster<T>` call typed by the source `Band.DataType`, the target size triggering GDAL on-read resampling — `Fin<T>` aborts on an open/read fault (`BimFault.CodecReject` lifted BARE off `key`); `GeoRaster.ToCoverage(RasterTile tile, GeoReference reference, UInt128 field, ProjectionContext ctx)` wraps the placed raster into a `Geospatial/coverage#COVERAGE_NODE` `CoverageGrid` (the affine `GridDescriptor` off the geo-transform, the per-band `CoverageBand` schema, the `RasterKey` content key, the seam `GeoReference`) and lands a `Node.Coverage`, `Fin<Node.Coverage>` railing `ElementFault.ValueRejected` on a degenerate grid; `GeoRaster.Contour(...)` vectorizes the DEM, `GeoRaster.Cog(...)` transcodes to a Cloud-Optimized GeoTIFF, and `GeoRaster.DemProcess(..., DemMode mode, ...)` derives hillshade/slope/aspect, each carrying its `Op key`.
-- Auto: `GeoRaster.Read` runs `GeoGdal.Bootstrap` once, opens the bytes, reads the `GetGeoTransform` affine and the `GetExtent` NTS `Envelope` directly in the target CRS, and reads the windowed pixels through `Dataset.ReadRaster<T>` into a managed `T[]` matching the `Band.DataType`; `ToCoverage` lowers the placed raster through `CoverageGrid.Of` — the `GridDescriptor` origin/cell-size off the 6-coefficient geo-transform (the GDAL north-up pixel-height carried as its magnitude), one `CoverageBand` per band typed by the `DataType`, the caller-supplied `RasterKey` `UInt128` referencing the pixel buffer in the object store, and the seam `GeoReference` so the coverage carries its CRS [M1] — the pixel buffer never inlines onto the node and a degenerate grid rails `ElementFault.ValueRejected`; `GeoRaster.Contour` runs `wrapper_GDALContourDestName` over the DEM band producing contour `GeoFeature` lines tagged `"contour"`, `Cog` runs `wrapper_GDALTranslate` (the COG driver), `DemProcess` runs `wrapper_GDALDEMProcessing` (the `DemMode` lowered to the gdal_dem mode), each reading its derived raster back from a real temp file; the raster placement composes the `Semantics/georeference#GEODETIC_TRANSFORM` `ProjNET` leg and escalates to OSR only for the exotic datum-grid transforms `ProjNET` cannot express.
+- Owner: `GeoRaster` the GDAL raster ingest owner over `MaxRev.Gdal.Core` — a windowed multi-band `Dataset.ReadRaster<T>` band-stack read placed in georeferenced space by the 6-coefficient `GetGeoTransform` affine and the `GetSpatialRef`/`GetExtent` CRS extent (terrain elevation, an ortho basemap, a slope/aspect surface); `GeoRaster.Contour`/`DemProcess` the DEM-to-vector and hillshade/slope/aspect legs; `RasterTile` the windowed pixel carrier (the polymorphic `RasterBand` `[Union]` pixel buffer typed by the source `Band.DataType`, the FULL six-coefficient geo-transform with its rotation terms, the NTS `Envelope` extent, and the per-band `RasterBandInfo` schema — `DataType`/`ColorInterp`/optional `NoData`/`Units`/`Offset`/`Scale`); `GeoRaster.ToCoverage` the seam `Coverage`-node projection [M1] lowering a placed raster onto the seam graph by content-key reference (the field by-ref + band descriptors + the seam `GeoReference`), never a stored pixel blob on the node.
+- Entry: `GeoRaster.Read(ReadOnlyMemory<byte> bytes, Option<Envelope> window, int targetWidth, int targetHeight, Op key)` opens the raster through `Gdal.Open` over a `/vsimem/` buffer and reads the windowed band STACK into a `RasterTile` — the `window` mapping to a pixel sub-window through the inverse geo-transform, every band read in one `Dataset.ReadRaster<T>` call typed by the source `Band.DataType`, the target size triggering GDAL on-read resampling — `Fin<T>` aborts on an open/read fault (`BimFault.CodecReject` lifted BARE off `key`); `GeoRaster.ToCoverage(RasterTile tile, GeoReference reference, UInt128 field, ProjectionContext ctx)` wraps the placed raster into a `Geospatial/coverage#COVERAGE_NODE` `CoverageGrid` (the full six-coefficient affine `GridDescriptor` mapped POSITIONALLY off the geo-transform with its rotation terms preserved, the per-band TYPED `CoverageBand` schema, the `RasterKey` content key, the seam `GeoReference`) and lands a CONTENT-hashed `Node.Coverage`, `Fin<Node.Coverage>` railing `ElementFault.ValueRejected` on a degenerate grid, an empty band set, a duplicate band index, or an unknown pixel token; `GeoRaster.Contour(...)` vectorizes the DEM, `GeoRaster.Cog(...)` transcodes to a Cloud-Optimized GeoTIFF, and `GeoRaster.DemProcess(..., DemMode mode, ...)` derives hillshade/slope/aspect, each carrying its `Op key`.
+- Auto: `GeoRaster.Read` runs `GeoGdal.Bootstrap` once, opens the bytes, reads the `GetGeoTransform` affine and the `GetExtent` NTS `Envelope` directly in the target CRS, and reads the windowed pixels through `Dataset.ReadRaster<T>` into a managed `T[]` matching the `Band.DataType`; `ToCoverage` lowers the placed raster through `CoverageGrid.Of` — the `GridDescriptor` mapped POSITIONALLY off the full six-coefficient geo-transform (the two rotation terms first-class and the SIGNED pixel-height preserved, so a north-up raster's negative `CellSizeY` is valid and degeneracy is the zero-determinant test, never a sign check on a cell size), one TYPED `CoverageBand` per band (`RasterSampleType.Parse` over the `DataType` token, `BandRole` over the `ColorInterp` via the generated `TryGet`+`Undefined` fallback, the optional GDAL `NoData`, the `Units`, the `Offset`/`Scale` decode), the caller-supplied `RasterKey` `UInt128` referencing the pixel buffer in the object store, and the seam `GeoReference` so the coverage carries its CRS [M1]; the resulting `Node.Coverage` is NON-ROOTED, so its `NodeId` is CONTENT-hashed over the node's own canonical bytes (the diff/dedup projection), never a rooted mint, the pixel buffer never inlines onto the node, and a degenerate grid, an empty band set, a duplicate band index, or an unknown pixel token rails `ElementFault.ValueRejected`; `GeoRaster.Contour` runs `wrapper_GDALContourDestName` over the DEM band producing contour `GeoFeature` lines tagged `"contour"`, `Cog` runs `wrapper_GDALTranslate` (the COG driver), `DemProcess` runs `wrapper_GDALDEMProcessing` (the `DemMode` lowered to the gdal_dem mode), each reading its derived raster back from a real temp file; the raster placement composes the `Semantics/georeference#GEODETIC_TRANSFORM` `ProjNET` leg and escalates to OSR only for the exotic datum-grid transforms `ProjNET` cannot express.
 - Receipt: the `RasterTile` is the placed pixel evidence a terrain-mesh tessellation reads; the seam `Coverage` node is the by-reference field the terrain consumer and the `Exchange/export` 3D-Tiles terrain leg read; the contour `GeoFeature` lines are the vectorized terrain the site model indexes.
 - Packages: `MaxRev.Gdal.Core`, `MaxRev.Gdal.MacosRuntime.Minimal.arm64`, `NetTopologySuite`, `ProjNET`, `Rasm.Element`, `Rasm`, `LanguageExt.Core`
 - Growth: a new raster format is enumerable through the one `Gdal.Open` universal driver path with zero new code; a new DEM derivation is one `wrapper_GDALDEMProcessing` mode; a new resample kernel is one `RasterIOExtraArg`; the seam projection is one `ToCoverage` op; never a per-format raster reader and never an inlined pixel blob on the node.
@@ -591,10 +591,23 @@ public sealed record RasterTile(
     RasterBand Band,
     int Width,
     int Height,
-    int BandCount,
     double[] GeoTransform,
     Envelope Extent,
-    OSGeo.GDAL.DataType DataType);
+    Seq<RasterBandInfo> Bands);
+
+// The per-band GDAL schema read once at ingest so ToCoverage lowers a TYPED CoverageBand without re-opening the
+// dataset: the pixel DataType (-> the RasterSampleType token), the ColorInterp (-> the BandRole token), the OPTIONAL
+// NoData sentinel (the GDAL hasval flag lowered to Option<double>, never a NaN sentinel), the unit string, and the
+// Offset/Scale linear decode (GDAL GetOffset/GetScale, identity 0.0/1.0 when unset). The OSGeo.GDAL.* types stay
+// confined to this carrier the GeoRaster owner reads and ToCoverage lowers — they never cross to the seam node.
+public sealed record RasterBandInfo(
+    int Index,
+    OSGeo.GDAL.DataType DataType,
+    OSGeo.GDAL.ColorInterp ColorInterp,
+    Option<double> NoData,
+    string Units,
+    double Offset,
+    double Scale);
 
 // The bounded DEM-derivation vocabulary the GeoRaster.DemProcess leg lowers to the gdal_dem mode token (ToString
 // lowercased: "hillshade"/"slope"/"aspect") — a bounded enum, never a free mode string, so a new derivation is one row.
@@ -619,25 +632,62 @@ public static class GeoRaster {
                 var bandMap = Enumerable.Range(1, bands).ToArray();
                 var dataType = dataset.GetRasterBand(1).DataType;
                 var band = Materialize(dataset, dataType, xOff, yOff, xSize, ySize, targetWidth, targetHeight, bands, bandMap);
-                return new RasterTile(band, targetWidth, targetHeight, bands, transform, extent, dataType);
+                Seq<RasterBandInfo> schema = Enumerable.Range(1, bands).AsIterable().Map(b => BandInfo(dataset.GetRasterBand(b), b - 1)).ToSeq();
+                return new RasterTile(band, targetWidth, targetHeight, transform, extent, schema);
             } finally { OSGeo.GDAL.Gdal.Unlink(path); }
         }).Run().MapFail(error => new BimFault.CodecReject(key, $"geo-raster:{error.Message}"));
 
     // The seam Coverage projection [M1]: the placed raster lands a Node.Coverage wrapping a CoverageGrid that holds the
     // field BY REFERENCE (the RasterKey content key to the pixel buffer in the object store, NEVER inlined pixels), the
-    // affine GridDescriptor read off the 6-coefficient GDAL geo-transform, the per-band CoverageBand schema, and the
-    // seam GeoReference CRS. CoverageGrid.Of rails ElementFault.ValueRejected on a degenerate grid or an empty band
-    // set; the field UInt128 is the content key of the persisted pixel buffer (the object-store writer's), one
-    // XxHash128 seed. The GDAL north-up pixel-height is negative, so the cell size is carried as its magnitude.
+    // FULL six-coefficient affine GridDescriptor mapped POSITIONALLY off the GDAL geo-transform [originX, pxW, rowRot,
+    // originY, colRot, pxH] (the two rotation terms first-class, the SIGNED pxH preserved — a north-up raster's negative
+    // CellSizeY is valid; degeneracy is the zero-determinant test CoverageGrid.Of enforces, never a sign check), and one
+    // TYPED CoverageBand per band (RasterSampleType.Parse over the DataType token, BandRole over the ColorInterp, the
+    // optional GDAL NoData, the unit string, the Offset/Scale decode). CoverageGrid.Of rails ElementFault.ValueRejected
+    // on a degenerate grid, an empty band set, or a duplicate band index, and an unknown pixel token rails it through
+    // Parse; the field UInt128 is the content key of the persisted pixel buffer (one XxHash128 seed). The Coverage is a
+    // NON-ROOTED resource node, so its NodeId is CONTENT-hashed over the node's OWN canonical bytes (the H7 projection
+    // the diff/dedup shares, the id excluded), never a rooted mint — two models sharing the same raster+affine+CRS dedup
+    // to one node, the element.md non-rooted-resource policy this folder owns no second hasher for.
     public static Fin<Node.Coverage> ToCoverage(RasterTile tile, GeoReference reference, UInt128 field, ProjectionContext ctx) =>
-        CoverageGrid.Of(
-            kind:      CoverageKind.Raster,
-            rasterKey: field,
-            grid:      new GridDescriptor(tile.GeoTransform[0], tile.GeoTransform[3], Math.Abs(tile.GeoTransform[1]), Math.Abs(tile.GeoTransform[5]), tile.Width, tile.Height),
-            bands:     Enumerable.Range(0, tile.BandCount).AsIterable().Map(b => new CoverageBand(b, $"band{b}", tile.DataType.ToString(), double.NaN, "")).ToSeq(),
-            crs:       reference,
-            key:       ctx.Key)
-        .Map(grid => new Node.Coverage(ctx.Rooted(), grid));
+        tile.Bands
+            .Map(info => RasterSampleType.Parse(SampleToken(info.DataType), ctx.Key).Map(sample =>
+                new CoverageBand(info.Index, $"band{info.Index}", sample, Role(info.ColorInterp), info.NoData, info.Units, info.Offset, info.Scale)))
+            .Sequence()
+            .Bind(bands => CoverageGrid.Of(
+                kind:      CoverageKind.Raster,
+                rasterKey: field,
+                grid:      new GridDescriptor(
+                               tile.GeoTransform[0], tile.GeoTransform[1], tile.GeoTransform[2],
+                               tile.GeoTransform[3], tile.GeoTransform[4], tile.GeoTransform[5],
+                               tile.Width, tile.Height),
+                bands:     bands,
+                crs:       reference,
+                key:       ctx.Key))
+            .Map(grid => {
+                Node.Coverage draft = new(NodeId.Content(default), grid);
+                return draft with { Id = NodeId.Content(draft.ToCanonicalBytes(ctx.Header.Tolerance).Span) };
+            });
+
+    // The GDAL pixel-type and color-interpretation lowering the typed CoverageBand schema rides: the DataType token
+    // strips the GDT_ prefix to the RasterSampleType key (an unknown pixel type rails ValueRejected through Parse), and
+    // the ColorInterp resolves a BandRole through the generated TryGet over the frozen role table, defaulting Undefined
+    // for the HSL/CMYK/YCbCr channels a coverage consumer does not read — never a stringly DataType on the seam.
+    static string SampleToken(OSGeo.GDAL.DataType dataType) =>
+        dataType.ToString().Replace("GDT_", "").ToLowerInvariant();
+
+    static readonly Map<OSGeo.GDAL.ColorInterp, string> RoleToken = Map(
+        (OSGeo.GDAL.ColorInterp.GCI_GrayIndex,    BandRole.Gray.Key),
+        (OSGeo.GDAL.ColorInterp.GCI_PaletteIndex, BandRole.Palette.Key),
+        (OSGeo.GDAL.ColorInterp.GCI_RedBand,      BandRole.Red.Key),
+        (OSGeo.GDAL.ColorInterp.GCI_GreenBand,    BandRole.Green.Key),
+        (OSGeo.GDAL.ColorInterp.GCI_BlueBand,     BandRole.Blue.Key),
+        (OSGeo.GDAL.ColorInterp.GCI_AlphaBand,    BandRole.Alpha.Key));
+
+    static BandRole Role(OSGeo.GDAL.ColorInterp colorInterp) =>
+        BandRole.TryGet(RoleToken.Find(colorInterp).IfNone(BandRole.Undefined.Key), out BandRole? role) && role is { } resolved
+            ? resolved
+            : BandRole.Undefined;
 
     static (int XOff, int YOff, int XSize, int YSize) Pixels(Option<Envelope> window, double[] gt, int rasterX, int rasterY) =>
         window.Match(
@@ -669,6 +719,24 @@ public static class GeoRaster {
         var buffer = new T[width * height * bands];
         dataset.ReadRaster(xOff, yOff, xSize, ySize, buffer, width, height, bands, bandMap, 0, 0, 0);
         return buffer;
+    }
+
+    // The full per-band GDAL schema lowered to a RasterBandInfo at read time (index 0-based): the pixel DataType and
+    // the ColorInterp host enums, the optional NoData (the GDAL out-int hasval flag lowered to Option<double>, never a
+    // NaN sentinel), the unit string, and the Offset/Scale linear decode (GetOffset/GetScale return the 0.0/1.0
+    // identity when unset). ToCoverage lowers each row to a typed seam CoverageBand, so the GDAL surface stops here.
+    static RasterBandInfo BandInfo(OSGeo.GDAL.Band band, int index) {
+        band.GetNoDataValue(out double noData, out int hasNoData);
+        band.GetOffset(out double offset, out int _);
+        band.GetScale(out double scale, out int _);
+        return new RasterBandInfo(
+            Index:       index,
+            DataType:    band.DataType,
+            ColorInterp: band.GetColorInterpretation(),
+            NoData:      hasNoData != 0 ? Some(noData) : Option<double>.None,
+            Units:       band.GetUnitType() ?? "",
+            Offset:      offset,
+            Scale:       scale);
     }
 
     public static Fin<Seq<GeoFeature>> Contour(ReadOnlyMemory<byte> demBytes, double interval, Op key) =>
@@ -737,5 +805,5 @@ public static class GeoRaster {
 
 - [NTS_PLANAR_ALGEBRA]: the `NetTopologySuite` member spellings the `GEOSPATIAL_SEAM` composes are decompile-verified — `NtsGeometryServices.Instance`, `GeometryOverlay.NG`, `PackedCoordinateSequenceFactory.DoubleFactory`, `STRtree<T>.Insert`/`Query`, `PreparedGeometryFactory.Prepare` + `IPreparedGeometry.Intersects`, `GeometryFixer.Fix`, `OverlayNGRobust.Union`, and `WKBReader.Read`/`WKBWriter.Write` — confirmed against `.api/api-nettopologysuite`; the canonical broad-then-narrow spatial-join rail stacks `STRtree.Query` then `PreparedGeometry.Intersects`.
 - [GDAL_UNIVERSAL_INGEST]: the `MaxRev.Gdal.Core` member spellings the `VECTOR_INGEST` universal arm and the `RASTER_INGEST` owner compose are decompile-verified at `.api/api-maxrev-gdal` — `GdalBase.ConfigureAll()`/`IsConfigured`, `Gdal.FileFromMemBuffer`/`Unlink`, `Ogr.Open`/`Ogr.GetDriverByName`/`Layer.SetSpatialFilterRect`/`GetNextFeature`/`Feature.GetGeometryRef`/`Geometry.CreateFromWkb`, `Gdal.Open`/`Dataset.ReadRaster<T>`/`GetGeoTransform`/`GetSpatialRef`/`GetExtent`/`Band.DataType`, `wrapper_GDALContourDestName`/`GDALContourOptions`, `wrapper_GDALTranslate`/`GDALTranslateOptions` (the COG transcode), `wrapper_GDALDEMProcessing`/`GDALDEMProcessingOptions` (the hillshade/slope/aspect leg), and the OSR `SpatialReference`/`SetFromUserInput`/`SetAxisMappingStrategy`/`CoordinateTransformation` escalation; the universal EGRESS reads its driver output back from a REAL temp file (this SWIG build exposes `VSIFWriteL(string, …)` but NO `byte[]` `VSIFReadL`, so a `/vsimem` byte read-back has no handle-level primitive, the catalog's named phantom); the RID runtime pin `MaxRev.Gdal.MacosRuntime.Minimal.arm64` stages the `gdal-data`/PROJ resources, the hard platform constraint the boundary names.
-- [SEAM_PROJECTION]: the `GeoFeature.ToObject`/`GeoModel.Project` vector→seam-`Object` and `GeoRaster.ToCoverage` raster→seam-`Coverage` projections ground against `ELEMENT-REBUILD-PLAN.md` §4B (vector features ride `Object`, no parallel Feature family), §4-RT M1/M2 (the `Coverage` node a `Geospatial/coverage#COVERAGE_NODE` `CoverageGrid` by-ref+bands+CRS; the `Object` geometry a `RepresentationContentHash` keyed map), and §6 (the geospatial projector → Object/Coverage nodes); a vector feature lands an `Object` occurrence carrying the generic `Classification.Create("ifc", classKey)` whose `classKey` is the TRUE IFC4.3 entity-type string the `GeoClassifier` table holds (the seam `Classification` is a library-neutral `(system, code)` pair, NOT a `Model/elements#IFC_CLASS` `IfcClass` row — the Bim `Emit` egress gate resolves the `IfcClass` row from the code and runs `AdmitPredefined`, so an IfcGeographicElement/IfcSite/IfcBuilding the roster has not yet rostered round-trips to IFC only once it is added), its bare `PredefinedType` token validated at `Emit` not ingest [C6], its attributes a `Pset_SiteContext` `PropertySet` node linked by a neutral `Properties/property#PROPERTY_BAG`-bound `Assign(PropertyDefinition)` edge (`Subject`=object, `Definition`=pset — `Associate` is the seam's material/appearance/coverage binding, never a property attachment), its footprint content-keyed into the `Representations` map through the kernel seed-zero `ContentHash.Of` [M2] and projected onto the analytical `BoundaryPolygon` the IFC leg leaves empty; a raster lands a `Coverage` node wrapping a `CoverageGrid` whose `RasterKey` `UInt128` references the field in the object store and which carries the seam `GeoReference` [M1], the pixel buffer never inlined — so a site-context model is a seam graph like any imported model and the seam `Bake` reads it with no second selection surface.
+- [SEAM_PROJECTION]: the `GeoFeature.ToObject`/`GeoModel.Project` vector→seam-`Object` and `GeoRaster.ToCoverage` raster→seam-`Coverage` projections ground against `ELEMENT-REBUILD-PLAN.md` §4B (vector features ride `Object`, no parallel Feature family), §4-RT M1/M2 (the `Coverage` node a `Geospatial/coverage#COVERAGE_NODE` `CoverageGrid` by-ref+bands+CRS; the `Object` geometry a `RepresentationContentHash` keyed map), and §6 (the geospatial projector → Object/Coverage nodes); a vector feature lands an `Object` occurrence carrying the generic `Classification.Create("ifc", classKey, None)` whose `classKey` is the TRUE IFC4.3 entity-type string the `GeoClassifier` table holds (the seam `Classification` is a library-neutral `(system, code)` pair, NOT a `Model/elements#IFC_CLASS` `IfcClass` row — the Bim `Emit` egress gate resolves the `IfcClass` row from the code and runs `AdmitPredefined`, so an IfcGeographicElement/IfcSite/IfcBuilding the roster has not yet rostered round-trips to IFC only once it is added), its bare `PredefinedType` token validated at `Emit` not ingest [C6], its attributes a `Pset_SiteContext` `PropertySet` node linked by a neutral `Properties/property#PROPERTY_BAG`-bound `Assign(PropertyDefinition)` edge (`Subject`=object, `Definition`=pset — `Associate` is the seam's material/appearance/coverage binding, never a property attachment), its footprint content-keyed into the `Representations` map through the kernel seed-zero `ContentHash.Of` [M2] and projected onto the analytical `BoundaryPolygon` the IFC leg leaves empty; a raster lands a `Coverage` node wrapping a `CoverageGrid` whose `RasterKey` `UInt128` references the field in the object store and which carries the seam `GeoReference` [M1], the pixel buffer never inlined — so a site-context model is a seam graph like any imported model and the seam `Bake` reads it with no second selection surface.
 - [REPROJECTION_SEAM]: the geodetic reprojection composes the `Semantics/georeference#GEODETIC_TRANSFORM` `GeoTransform.Reproject` `ProjNET` leg over the seam `GeoReference` — the ONE datum owner reprojecting a DOUBLE-precision ordinate `Span<double>` IN PLACE, so a migration-source `ICoordinateSequenceFilter` that COMPUTES the datum shift is the deleted NTS-side form; the projector flattens the geometry's `CoordinateSequence` into the double buffer, hands it to the owner, and writes the reprojected ordinates back through `Geometry.Apply` (the `.api/api-nettopologysuite` reprojection seam — `Geometry.Coordinates` is a detached copy, so the write-back rides the in-place ordinate visitor that COMPUTES nothing, never the array), never narrowing survey coordinates to `float`; the `GeoFeature.SourceCrs` is the from-frame and the project `GeoReference` the to-frame, the two EPSG codes driving the SRID lookup, an absent source/target EPSG or a matching EPSG leaving the geometry unchanged (the additive owner contract) so a single-datum site never blocks ingest, with `MaxRev.Gdal.Core` OSR the escalation for the exotic datum-grid/dynamic-datum transforms `ProjNET` cannot express, the owner faulting `BimFault.CapabilityMiss` bare only when both engines defeat a present, differing pair.

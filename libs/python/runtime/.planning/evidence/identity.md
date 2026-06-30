@@ -284,8 +284,10 @@ _CORPUS: Final[Block[CorpusFixture]] = Block.of_seq((
     # [7] MATERIAL_LAYER_GOLDEN — the float-bearing IfcMaterialLayer golden vector ([H7]). Its seed-zero
     # canonical bytes are the C# `CanonicalWriter` projection of a `MaterialComposition.LayerSet` node:
     # case ordinal `1`, layer count, then per layer the material-id `String`, the `ThicknessMm` `Measure`
-    # (the IEEE-754 little-endian `Si` magnitude with `-0.0`->`0.0`/`NaN`->one quiet pattern, quantized to
-    # `Header.Tolerance`, plus the 7 SI `Dimension` exponent ordinals), and the layer-name `String` — the
+    # (the length-prefixed `QuantityType` discriminator token, then the IEEE-754 little-endian `Si` magnitude with
+    # `-0.0`->`0.0`/`NaN`->one quiet pattern quantized to `Header.Tolerance`, then the 7 SI `Dimension` exponent
+    # ordinals — the type token separates same-dimension quantities, so the frozen stream the peer reproduces carries
+    # it), and the layer-name `String` — the
     # ONLY corpus fixture exercising the float canon the integer-topology row [1] cannot reach. DESIGN-PIN:
     # the concrete layer node and its digest are frozen on the `address#CONTENT_ADDRESS` producer, so this
     # binding carries NO fabricated bytes and grades the moment the producer pins them through the SAME

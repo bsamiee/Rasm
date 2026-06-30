@@ -96,7 +96,7 @@
 [STACK]:
 - acquisition seam: `acquisition#ACQUISITION` `SolveGgx` runs the thin-QR Gauss-Newton step `Δp = Matrix.Build.Dense(m, 2, Jacobian).QR(QRMethod.Thin).Solve(−r)` over the log-residual `Vector.Build.Dense(m, …)`, switches to `Svd(true).Solve` on a non-finite step, and witnesses `‖r‖/‖logMeasured‖` via `Vector.L2Norm` — the `bsdf#MICROFACET_KERNEL` GGX/Smith/Fresnel `D·G·F/(4·cosθi·cosθo)` is the forward model, MathNet owns only the dense solve.
 - receipt seam: the numeric rail and the `Wacton.Unicolour` colour rail MEET at the row — the fitted `FitResidual` (this package) and the spectral-grounded scene-linear base colour (the colour package) pair on ONE `Provenance` receipt the `bsdf#WHITE_FURNACE_HARNESS` gates and the `interchange#MATERIAL_WIRE` `WireProvenance` carries; there is no fused colour-plus-numeric kernel.
-- strata seam: MathNet is a DIRECT Materials NuGet pin (the AEC-domain folder's own dependency), never a `Rasm.Compute` project reference — the acyclic strata forbids the AEC→app-platform edge, and the `csharp:Rasm.Compute/blas#ROUTE_SPINE` thin-QR is a DOCTRINE shape the fit follows, not a realized project edge.
+- strata seam: MathNet is a DIRECT Materials NuGet pin (the AEC-domain folder's own dependency), never a `Rasm.Compute` project reference — the acyclic strata forbids the AEC→app-platform edge, and the `csharp:Rasm.Compute/blas#DENSE_ALGEBRA` thin-QR is a DOCTRINE shape the fit follows, not a realized project edge.
 
 [RAIL_LAW]:
 - Package: `MathNet.Numerics` (dense linear-algebra subset; the distribution/integration/root-finding surface is not consumed by this folder)

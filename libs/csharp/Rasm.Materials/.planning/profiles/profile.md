@@ -27,7 +27,7 @@ using VividOrange.Sections.SectionProperties;        // SectionProperties polygo
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public readonly partial struct ProfileId {
-    static partial void NormalizeAndValidate(ref string value, ref ValidationError? validationError) =>
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) =>
         validationError = string.IsNullOrWhiteSpace(value) || !value.Contains('.') ? new ValidationError("<profile-id requires 'family.name'>") : null;
 }
 
@@ -81,11 +81,18 @@ public sealed record Profile(
         select new Profile(family, unit, coring, standard, appearanceId);
 }
 
-// The computed section-property receipt every Profiles family shares — Area/strong-AND-weak-axis inertia/elastic
-// modulus/radius of gyration in SI millimetres, sourced from the ONE VividOrange.Sections.SectionProperties polygon
-// integral, never a per-family rectangular closed-form literal. steel#STEEL_FAMILY seeds it from a catalogued
-// IProfile; the parametric cmu (hollow net section) and timber (rectangle) families seed it through ParametricSection
-// over a built Perimeter, and any further parametric family (a built-up composite) feeds the SAME solver.
+// The computed section-property receipt every Profiles family shares — the FULL structural-design column set the
+// Rasm.Compute design-code checks read off the seam, in SI millimetres. The elastic columns (Area / strong-AND-weak-axis
+// inertia IxMm4=Iyy,IyMm4=Izz / elastic modulus SxMm3=Wely,SyMm3=Welz / radius of gyration) and the fire-exposed
+// HeatedPerimeterMm come from the ONE VividOrange.Sections.SectionProperties polygon integral (Area / MomentOfInertiaYy,Zz /
+// ElasticSectionModulusYy,Zz / RadiusOfGyrationYy,Zz / Perimeter), never a per-family closed-form literal; the plastic
+// moduli (ZxMm3=Wply, ZyMm3=Wplz), the St-Venant torsion constant (JMm4), and the both-axis shear areas (AvyMm2, AvzMm2)
+// the polygon solver does NOT expose are COMPUTED from the section geometry (ParametricSection's rectangle/hollow closed
+// forms for the parametric families; steel#STEEL_FAMILY PlasticModulus over the catalogued shape); DepthMm/WidthMm are
+// the bounding cross-section dimensions; AxisDistanceMm is the EN 1992-1-2 cover-to-reinforcement (0 for a non-RC section,
+// the RC value from VividOrange ConcreteSectionProperties). Projection/material#MATERIAL_PROJECTOR SeamSection lifts this
+// whole set onto the neutral seam SectionProperties (mm -> SI, each a typed MeasureValue in declared order), so a
+// Rasm.Compute structural/fire runner reads graph.SectionOf(member) without re-resolving or admitting VividOrange.
 public readonly record struct ComputedSection(
     PositiveMagnitude AreaMm2,
     PositiveMagnitude IxMm4,
@@ -93,7 +100,16 @@ public readonly record struct ComputedSection(
     PositiveMagnitude SxMm3,
     PositiveMagnitude SyMm3,
     PositiveMagnitude RxMm,
-    PositiveMagnitude RyMm);
+    PositiveMagnitude RyMm,
+    PositiveMagnitude ZxMm3,
+    PositiveMagnitude ZyMm3,
+    PositiveMagnitude JMm4,
+    PositiveMagnitude AvyMm2,
+    PositiveMagnitude AvzMm2,
+    PositiveMagnitude DepthMm,
+    PositiveMagnitude WidthMm,
+    PositiveMagnitude HeatedPerimeterMm,
+    double AxisDistanceMm);
 
 // --- [OPERATIONS] --------------------------------------------------------------------------
 // The shared parametric section-property bridge: one VividOrange.Sections.SectionProperties Green's-theorem integral
@@ -102,12 +118,39 @@ public readonly record struct ComputedSection(
 // integrate EXACTLY through the SAME solver steel#STEEL_FAMILY runs over a catalogued IProfile — no per-family literal.
 public static class ParametricSection {
     public static Fin<ComputedSection> Rectangle(double widthMm, double depthMm, Op key) =>
-        Solve(RectanglePerimeter(widthMm, depthMm, Seq<(double, double, double, double)>()), key);
+        Solve(RectanglePerimeter(widthMm, depthMm, Seq<(double, double, double, double)>()), depthMm, widthMm,
+            RectanglePlastics(widthMm, depthMm), key);
 
     // The hollow net section: the outer rectangle minus the inset cell voids — the exact net Area AND net inertia
     // (cells subtracted from the second moment), not an approximate gross-minus-cell-area scalar.
     public static Fin<ComputedSection> Hollow(double widthMm, double depthMm, Seq<(double X, double Y, double W, double H)> voids, Op key) =>
-        Solve(RectanglePerimeter(widthMm, depthMm, voids), key);
+        Solve(RectanglePerimeter(widthMm, depthMm, voids), depthMm, widthMm, HollowPlastics(widthMm, depthMm, voids), key);
+
+    // The plastic/torsion/shear columns the VividOrange ELASTIC polygon integral does not expose, COMPUTED from the
+    // rectangle geometry (closed-form, EXACT for a solid rectangle): the plastic moduli Z = b·h²/4 (shape factor 1.5 over
+    // the elastic W = b·h²/6), the St-Venant rectangle torsion constant J = a·b³·(1/3 − 0.21·(b/a)·(1 − (b/a)⁴/12)) with
+    // a/b the long/short side (Roark Table 10.1, a/b ≥ 1), and the plastic shear area Av = A (EN 1993-1-1 §6.2.6(3): a
+    // solid section's shear area is its gross area). The parametric families (timber/masonry rectangle, cmu hollow) are
+    // rectangles, so these are the section's true mechanics; a catalogued thin-walled steel shape carries its OWN
+    // steel#STEEL_FAMILY PlasticModulus / web-flange shear areas, not this rectangle bound.
+    static (double Zx, double Zy, double J, double Avy, double Avz) RectanglePlastics(double w, double d) {
+        double area = w * d, lng = Math.Max(w, d), sht = Math.Min(w, d);
+        double j = lng * sht * sht * sht * (1.0 / 3.0 - 0.21 * (sht / lng) * (1.0 - Math.Pow(sht / lng, 4) / 12.0));
+        return (w * d * d / 4.0, d * w * w / 4.0, j, area, area);
+    }
+
+    // The hollow net columns via gross-minus-void superposition (the doubly-symmetric centred cells the cmu#CMU_FAMILY
+    // generates straddle both centroidal bending axes, so the net plastic modulus is the gross minus each void's own
+    // plastic modulus and the net torsion the gross minus each void's St-Venant constant; the net shear area is the
+    // gross minus the void material) — a documented engineering net-section approximation for the perforated rectangle.
+    static (double Zx, double Zy, double J, double Avy, double Avz) HollowPlastics(double w, double d, Seq<(double X, double Y, double W, double H)> voids) {
+        static double Torsion(double a, double b) { double l = Math.Max(a, b), s = Math.Min(a, b); return l * s * s * s * (1.0 / 3.0 - 0.21 * (s / l) * (1.0 - Math.Pow(s / l, 4) / 12.0)); }
+        double zx = w * d * d / 4.0 - voids.Sum(static v => v.W * v.H * v.H / 4.0);
+        double zy = d * w * w / 4.0 - voids.Sum(static v => v.H * v.W * v.W / 4.0);
+        double j = Torsion(w, d) - voids.Sum(v => Torsion(v.W, v.H));
+        double netArea = w * d - voids.Sum(static v => v.W * v.H);
+        return (zx, zy, j, netArea, netArea);
+    }
 
     // The IProfile perimeter for a Profile's gross cross-section — the rectangle the Profile.Unit width/height bounds —
     // the Connection/reinforcement#RC_SECTION RcSection.Of feeds to a VividOrange.Sections ConcreteSection as the
@@ -118,10 +161,15 @@ public static class ParametricSection {
             ? Fin.Succ((IProfile)RectanglePerimeter(profile.Unit.WidthMm.Value, profile.Unit.HeightMm.Value, Seq<(double, double, double, double)>()))
             : Fin.Fail<IProfile>(ProfileFault.Dimension(key, $"<profile-perimeter-degenerate:{profile.Family.Key}>"));
 
-    static Fin<ComputedSection> Solve(Perimeter perimeter, Op key) =>
-        Admit(new SectionProperties((IProfile)perimeter), key);
+    static Fin<ComputedSection> Solve(Perimeter perimeter, double depthMm, double widthMm, (double Zx, double Zy, double J, double Avy, double Avz) plastics, Op key) =>
+        Admit(new SectionProperties((IProfile)perimeter), depthMm, widthMm, plastics, key);
 
-    static Fin<ComputedSection> Admit(SectionProperties p, Op key) =>
+    // The elastic columns + the fire-exposed Perimeter come from the VividOrange polygon integral; the plastic moduli /
+    // torsion / shear areas the solver cannot yield arrive precomputed from the rectangle/hollow geometry; Depth/Width
+    // are the bounding dimensions and AxisDistance is zero (a non-RC parametric section — the RC cover rides the
+    // Connection/reinforcement#RC_SECTION path). Every column admits once through the kernel PositiveMagnitude rail, so a
+    // degenerate (non-positive net) section drops to ProfileFault rather than seeding a corrupt stiffness on the seam.
+    static Fin<ComputedSection> Admit(SectionProperties p, double depthMm, double widthMm, (double Zx, double Zy, double J, double Avy, double Avz) plastics, Op key) =>
         from area in key.AcceptValidated<PositiveMagnitude>(candidate: p.Area.SquareMillimeters)
         from ix in key.AcceptValidated<PositiveMagnitude>(candidate: p.MomentOfInertiaYy.MillimetersToTheFourth)
         from iy in key.AcceptValidated<PositiveMagnitude>(candidate: p.MomentOfInertiaZz.MillimetersToTheFourth)
@@ -129,7 +177,15 @@ public static class ParametricSection {
         from sy in key.AcceptValidated<PositiveMagnitude>(candidate: p.ElasticSectionModulusZz.CubicMillimeters)
         from rx in key.AcceptValidated<PositiveMagnitude>(candidate: p.RadiusOfGyrationYy.Millimeters)
         from ry in key.AcceptValidated<PositiveMagnitude>(candidate: p.RadiusOfGyrationZz.Millimeters)
-        select new ComputedSection(area, ix, iy, sx, sy, rx, ry);
+        from zx in key.AcceptValidated<PositiveMagnitude>(candidate: plastics.Zx)
+        from zy in key.AcceptValidated<PositiveMagnitude>(candidate: plastics.Zy)
+        from jj in key.AcceptValidated<PositiveMagnitude>(candidate: plastics.J)
+        from avy in key.AcceptValidated<PositiveMagnitude>(candidate: plastics.Avy)
+        from avz in key.AcceptValidated<PositiveMagnitude>(candidate: plastics.Avz)
+        from depth in key.AcceptValidated<PositiveMagnitude>(candidate: depthMm)
+        from width in key.AcceptValidated<PositiveMagnitude>(candidate: widthMm)
+        from perim in key.AcceptValidated<PositiveMagnitude>(candidate: p.Perimeter.Millimeters)
+        select new ComputedSection(area, ix, iy, sx, sy, rx, ry, zx, zy, jj, avy, avz, depth, width, perim, AxisDistanceMm: 0.0);
 
     // The section plane is VividOrange.Geometry's Y-Z: a centred rectangle is four LocalPoint2d corners, each cell a
     // void polyline; Perimeter(outer, voids) closes the polygons the integral iterates.

@@ -60,12 +60,12 @@ public sealed record TrustScope(
 [ValueObject<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class FederatedServer {
-    static partial void NormalizeKeyMember(ref string value) => value = value.Trim().ToLowerInvariant();
-
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) =>
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
+        value = value.Trim().ToLowerInvariant();
         validationError = string.IsNullOrWhiteSpace(value) || value.Contains('.', StringComparison.Ordinal)
             ? new ValidationError("federated server id must be non-empty and dot-free")
             : null;
+    }
 
     public TransportKind Kind { get; private init; } = TransportKind.Stdio;
     public IClientTransport Transport { get; private init; } = default!;

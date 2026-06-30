@@ -53,7 +53,7 @@ public enum FitOrientation : byte { Any = 0, Horizontal = 1, Vertical = 2, Incli
 
 [ValueObject<double>]
 public sealed partial class FitConfidence {
-    static partial void NormalizeValidate(ref double value) =>
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) =>
         value = double.IsFinite(value) ? Math.Clamp(value, 0.0, 1.0) : 0.0;
 
     public bool IsBelow(double threshold) => Value < threshold;
@@ -256,7 +256,7 @@ public sealed class ReconstructionProjector(Seq<SegmentedCloud> segments, Recons
             Id:              objectId,
             Kind:            ObjectKind.Occurrence,
             ExternalId:      Some(ParserIfc.HashGlobalID($"recon:{primitive.Lineage.Value:X32}")),
-            Classification:  Classification.Create("ifc", row.Class.Key),
+            Classification:  Classification.Create("ifc", row.Class.Key, None),
             PredefinedType:  row.Predefined,
             Name:            $"{row.Class.Key}-recon-{segment.SegmentId.ToString(CultureInfo.InvariantCulture)}",
             Tag:             segment.SegmentId.ToString(CultureInfo.InvariantCulture),
@@ -279,7 +279,7 @@ public sealed class ReconstructionProjector(Seq<SegmentedCloud> segments, Recons
             (PropertyName.Create("Inliers"),        new PropertyValue.Measure(MeasureValue.OfSi(Dimension.Dimensionless, segment.Inliers))),
             (PropertyName.Create("Total"),          new PropertyValue.Measure(MeasureValue.OfSi(Dimension.Dimensionless, segment.Total))),
             (PropertyName.Create("NeedsReview"),    new PropertyValue.Boolean(primitive.Confidence.IsBelow(context.ConfidenceFloor))),
-            (PropertyName.Create("PrimitiveShape"), new PropertyValue.Enumerated(primitive.Shape.Key, PrimitiveShape.Items.AsIterable().Map(static s => s.Key).ToSeq())),
+            (PropertyName.Create("PrimitiveShape"), new PropertyValue.Enumerated(Seq(primitive.Shape.Key), PrimitiveShape.Items.AsIterable().Map(static s => s.Key).ToSeq())),
             (PropertyName.Create("SourceSegment"),  new PropertyValue.Text(segment.SegmentId.ToString(CultureInfo.InvariantCulture))),
             (PropertyName.Create("SourceCloud"),    new PropertyValue.Text(primitive.Lineage.Value.ToString("X32", CultureInfo.InvariantCulture)))),
             InheritanceMode.OccurrenceWins);

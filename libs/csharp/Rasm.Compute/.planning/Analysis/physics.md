@@ -106,8 +106,8 @@ public static partial class BuildingPhysics {
             (acc, layer) => acc.Bind(steps => resolve(layer.Material)
                 .Bind(props => props.Thermal.ToFin(Missing($"<glaser-layer-missing-thermal:{layer.Material.Value}>")))
                 .Map(thermal => steps.Add(new LayerResistance(
-                    R: layer.ThicknessMm.Si / Math.Max(thermal.Conductivity.Si, double.Epsilon),
-                    Z: thermal.VapourResistanceFactor * layer.ThicknessMm.Si / VapourPermeabilityAir,
+                    R: layer.Thickness.Si / Math.Max(thermal.Conductivity.Si, double.Epsilon),
+                    Z: thermal.VapourResistanceFactor * layer.Thickness.Si / VapourPermeabilityAir,
                     Name: layer.LayerName)))))
             .Map(steps => Condensation(steps, climate));
 
