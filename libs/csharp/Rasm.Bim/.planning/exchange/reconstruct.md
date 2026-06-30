@@ -232,7 +232,7 @@ public static class ElementClassifier {
             (("cylinder", IfcDomain.Architecture,   FitOrientation.Vertical),   (IfcClass.Column,              "COLUMN")),
             (("cylinder", IfcDomain.Architecture,   FitOrientation.Horizontal), (IfcClass.Beam,                "BEAM")),
             (("cylinder", IfcDomain.Structural,     FitOrientation.Vertical),   (IfcClass.Pile,                "BORED")),
-            (("cylinder", IfcDomain.Geotechnical,   FitOrientation.Vertical),   (IfcClass.Borehole,           "NOTDEFINED")),
+            (("cylinder", IfcDomain.Geotechnical,   FitOrientation.Vertical),   (IfcClass.Borehole,            "NOTDEFINED")),
             (("cylinder", IfcDomain.Electrical,     FitOrientation.Any),        (IfcClass.CableSegment,        "CONDUCTORSEGMENT")),
             (("cylinder", IfcDomain.HvacFire,       FitOrientation.Any),        (IfcClass.FlowSegment,         "NOTDEFINED")),
             (("cone",     IfcDomain.Architecture,   FitOrientation.Any),        (IfcClass.Roof,                "FREEFORM")),

@@ -107,6 +107,16 @@ assembly adds the Postgres binding, document store, and JSON-passthrough extras.
 |  [11]   | `EventStoreStatistics`            | class              | `FetchEventStoreStatistics` result (event/stream counts, sequence + projection high-water marks) |
 |  [12]   | `IEventUpcaster` / `JsonTransformation` | interface     | schema-evolution upcast of old event JSON to a new event type     |
 
+[PUBLIC_TYPE_SCOPE]: event subscriptions (the daemon changefeed lift)
+- rail: event-store
+
+| [INDEX] | [SYMBOL]                          | [SHAPE]            | [CAPABILITY]                                                       |
+| :-----: | :-------------------------------- | :----------------- | :---------------------------------------------------------------- |
+|  [01]   | `Marten.Subscriptions.SubscriptionBase` | abstract base | the subscription base (`: JasperFxSubscriptionBase<IDocumentOperations,IQuerySession,ISubscription>, ISubscription`): override `public abstract Task<IChangeListener> ProcessEventsAsync(EventRange page, ISubscriptionController controller, IDocumentOperations operations, CancellationToken)` to lift each daemon-delivered event batch |
+|  [02]   | `JasperFx.Events.Projections.EventRange` | class           | the delivered batch: `List<IEvent> Events`, `ShardName`, `SequenceFloor`/`SequenceCeiling`, `Size` — iterate `range.Events.OfType<IEvent<T>>()` for the typed bodies |
+|  [03]   | `JasperFx.Events.Daemon.ISubscriptionController` | interface | the shard control handed to the batch: `Mode`, `Name` (`ShardName`), `Options` (`AsyncOptions`), `MarkSuccessAsync(long)`, `ReportCriticalFailureAsync(Exception[, long])`, dead-letter recording |
+|  [04]   | `IChangeListener` / `NullChangeListener` | interface / class | the post-batch commit hook (`BeforeCommitAsync`/`AfterCommitAsync(IDocumentSession, IChangeSet, CancellationToken)`); a no-side-effect subscription returns the singleton `NullChangeListener.Instance` |
+
 [PUBLIC_TYPE_SCOPE]: event configuration and tenancy/identity vocabulary
 - rail: event-store
 
@@ -186,7 +196,7 @@ assembly adds the Postgres binding, document store, and JSON-passthrough extras.
 | :-----: | :----------------------------------------------------------------- | :-------------------------------------------- |
 |  [01]   | `opts.Projections.Add<TProjection>(ProjectionLifecycle lifecycle, Action<AsyncOptions>? = null)` / `Add(TProjection projection, lifecycle, ...)` | register a projection by type / instance |
 |  [02]   | `opts.Projections.Snapshot<T>(SnapshotLifecycle lifecycle, [Action<AsyncOptions>?])` / `LiveStreamAggregation<T>([Action<AsyncOptions>?])` | self-aggregate snapshot / live-only aggregation |
-|  [03]   | `opts.Projections.AddGlobalProjection<TDoc,TId>(SingleStreamProjection<TDoc,TId>, ProjectionLifecycle)` / `Subscribe(ISubscription, ...)` | global single-stream registration / event subscription |
+|  [03]   | `opts.Projections.AddGlobalProjection<TDoc,TId>(SingleStreamProjection<TDoc,TId>, ProjectionLifecycle)` / `Subscribe(ISubscription, [Action<AsyncOptions>?])` | global single-stream registration / register a `SubscriptionBase`-derived subscription on the daemon |
 |  [04]   | `MultiStreamProjection<TDoc,TId>.Identity<TEvent>(Func<TEvent,TId>)` / `Identities<TEvent>(...)` / `CustomGrouping(...)` / `FanOut<TEvent,TChild>(...)` | configure cross-stream slicing |
 |  [05]   | `FlatTableProjection.Project<T>(Action<StatementMap<T>>, [Expression<Func<T,object>>? pk])` / `Delete<T>([pk])` | events → relational table upsert / delete rows |
 |  [06]   | `await store.BuildProjectionDaemonAsync([tenantIdOrDatabase], [ILogger])`            | construct the async-projection daemon         |

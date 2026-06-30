@@ -4,11 +4,11 @@
 `http_delete` enqueue a request and return a `bigint` request-id immediately, a `libcurl` background
 worker drives the I/O off the calling backend, and the response lands in `net._http_response` keyed by
 that id. It carries no managed assembly: every surface is server-side SQL the
-`Schema/ddl#EXTENSION_DDL` `SchemaDdl.Extension("pg_net")` row installs and a server-local
+`Store/provisioning#SERVER_EXTENSIONS` `ServerExtension("pg_net")` row installs and a server-local
 webhook/HTTP egress consumer drives through raw `Npgsql`/`FromSql`/`SqlQuery`, so an in-DB outbound
 call beside the process-side `Sync/egress#EGRESS_SINK` sinks fires without blocking the transaction.
 The extension IS preload-gated — its worker is registered statically in `_PG_init`, so it REQUIRES
-`pg_net` on the `Store/provisioning#CLUSTER_CONFIG` `shared_preload_libraries` row and hard-errors on
+`pg_net` on the `Store/provisioning#SERVER_EXTENSIONS` `shared_preload_libraries` row and hard-errors on
 `CREATE EXTENSION` otherwise.
 
 ## [01]-[PACKAGE_SURFACE]
@@ -17,7 +17,7 @@ The extension IS preload-gated — its worker is registered statically in `_PG_i
 - package: server-side PostgreSQL extension (C/`libcurl`, not a NuGet package); repo `supabase/pg_net`, version line `0.20.x`
 - namespace: SQL `net` schema (the request functions, the `_http_response` table, the response composite types, the worker-control functions)
 - license: Apache-2.0 — the in-DB deployment is the license boundary, no managed linkage
-- registration: preload-gated — the worker is `RegisterBackgroundWorker`'d in `_PG_init` at postmaster start, so `pg_net` MUST be on the `Store/provisioning#CLUSTER_CONFIG` `shared_preload_libraries` row; the `SchemaDdl.Extension("pg_net", PreloadGated: true)` row emits its `CreateSql` through `Migrate` (preload prereq cannot ride `HasPostgresExtension`)
+- registration: preload-gated — the worker is `RegisterBackgroundWorker`'d in `_PG_init` at postmaster start, so `pg_net` MUST be on the `Store/provisioning#SERVER_EXTENSIONS` `shared_preload_libraries` row; the `ServerExtension("pg_net", PreloadGated: true)` row emits its `CreateSql` through `Migrate` (preload prereq cannot ride `HasPostgresExtension`)
 - consumed by: a server-local webhook/HTTP egress beside `Sync/egress#EGRESS_SINK`/`#EGRESS_PUMP`, driven through raw `Npgsql`
 - dependency: `libcurl >= 7.83.0`; one worker per cluster, bound to one database via `pg_net.database_name`
 - rail: http-provisioning, http-egress
@@ -98,12 +98,12 @@ discriminates retriability from `net._http_response` directly, never the depreca
 ## [06]-[IMPLEMENTATION_LAW]
 
 [PG_NET_TOPOLOGY]:
-- Preload-gated, statically-registered worker: `pg_net`'s background worker is `RegisterBackgroundWorker`'d from `_PG_init` at postmaster start, so it MUST appear on the `Store/provisioning#CLUSTER_CONFIG` `shared_preload_libraries` row — `_PG_init` hard-errors (`pg_net is not in shared_preload_libraries`) otherwise. It is therefore NOT dynamically registered on `CREATE EXTENSION`; install is `SchemaDdl.Extension("pg_net", PreloadGated: true)` whose `CreateSql` rides `Schema/ddl#EXTENSION_DDL` `Migrate` (the preload prerequisite cannot ride `HasPostgresExtension`), exactly like the `pg_search` preload-gated row, and the `ClusterConfig` probe verifies `pg_net` read-only against `pg_settings` after boot.
+- Preload-gated, statically-registered worker: `pg_net`'s background worker is `RegisterBackgroundWorker`'d from `_PG_init` at postmaster start, so it MUST appear on the `Store/provisioning#SERVER_EXTENSIONS` `shared_preload_libraries` row — `_PG_init` hard-errors (`pg_net is not in shared_preload_libraries`) otherwise. It is therefore NOT dynamically registered on `CREATE EXTENSION`; install is `ServerExtension("pg_net", PreloadGated: true)` whose `CreateSql` rides `Store/provisioning#SERVER_EXTENSIONS` `Migrate` (the preload prerequisite cannot ride `HasPostgresExtension`), exactly like the `pg_search` preload-gated row, and the `ClusterConfig` probe verifies `pg_net` read-only against `pg_settings` after boot.
 - Commit-scoped, fire-and-collect: a request function returns a `bigint` request-id synchronously but the I/O does not start until the transaction COMMITs (the commit-time wake callback), so a rolled-back transaction never sends; the response is read later from `net._http_response` by id, never awaited inline on the calling backend. The deprecated `net.http_collect_response` wrapper is the rejected spelling — read `net._http_response` directly or call `net._http_collect_response`.
 - No managed assembly, no EF translator: the request enqueue and the response read both ride raw `Npgsql`/`FromSql`/`SqlQuery`; the URL, `params`, `headers`, `body`, and `timeout_milliseconds` arrive as `Npgsql` parameters from the egress consumer, never a runtime-concatenated SQL string. `net.http_post` always carries `Content-Type: application/json` (auto-injected or rejected-if-mismatched), and a PUT/HEAD method is unrepresentable in the `net.http_method` domain. The worker is one-per-cluster bound to `pg_net.database_name`, so a second per-database HTTP pump is the rejected form.
 
 [RAIL_LAW]:
 - Package: `pg_net` (server-side, in the deploy-image PG18, on `shared_preload_libraries`)
 - Owns: in-DB asynchronous non-blocking HTTP/HTTPS — the `net.http_get`/`http_post`/`http_delete` enqueue functions, the `libcurl` background worker, and the `net._http_response` response store
-- Accept: `CREATE EXTENSION pg_net` via the preload-gated `SchemaDdl.Extension("pg_net", PreloadGated: true)` with `pg_net` on the `ClusterConfig` `shared_preload_libraries` row, the request functions returning a `bigint` id with parameters bound through `Npgsql`, the commit-scoped fire-and-collect pattern reading `net._http_response` by id, the `pg_net.ttl`/`batch_size` GUCs verified read-only, `net.worker_restart`/`wait_until_running` worker control
+- Accept: `CREATE EXTENSION pg_net` via the preload-gated `ServerExtension("pg_net", PreloadGated: true)` with `pg_net` on the `ClusterConfig` `shared_preload_libraries` row, the request functions returning a `bigint` id with parameters bound through `Npgsql`, the commit-scoped fire-and-collect pattern reading `net._http_response` by id, the `pg_net.ttl`/`batch_size` GUCs verified read-only, `net.worker_restart`/`wait_until_running` worker control
 - Reject: linking the extension into managed code, installing without `pg_net` on `shared_preload_libraries` (hard-errors), an inline-awaited synchronous HTTP call on the calling backend, the deprecated `net.http_collect_response` wrapper, a `net.http_put`/`net.http_head` spelling (unrepresentable), a runtime-concatenated request string, a direct `net.http_request_queue` INSERT expecting the worker to wake (only the request functions wake it)

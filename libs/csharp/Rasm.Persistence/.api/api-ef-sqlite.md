@@ -18,7 +18,7 @@ services are `[EntityFrameworkInternal]` provider internals, never a consumer ra
 - assembly: `Microsoft.EntityFrameworkCore.Sqlite.dll` (ships in `.Core`; the meta-package's `lib/net10.0/_._` is empty)
 - public namespaces: `Microsoft.EntityFrameworkCore` (extensions + builders), `Microsoft.Extensions.DependencyInjection` (service registration), `Microsoft.EntityFrameworkCore.Metadata` (`SqliteValueGenerationStrategy`), `Microsoft.EntityFrameworkCore.Migrations` (`SqliteMigrationsSqlGenerator`), `Microsoft.EntityFrameworkCore.Diagnostics` (`SqliteEventId`)
 - internal namespaces (provider services, `[EntityFrameworkInternal]`): `...Sqlite.Storage.Internal`, `...Sqlite.Query.Internal`, `...Sqlite.Migrations.Internal`, `...Sqlite.Update.Internal`, `...Sqlite.Infrastructure.Internal`, `...Sqlite.Scaffolding.Internal`, `...Sqlite.Diagnostics.Internal`
-- native floor: bundled `SQLitePCLRaw.bundle_e_sqlite3` (transitive `2.1.11`), but Persistence pins `3.0.3` centrally; the SQLCipher profile swaps it for `SQLite3Provider_sqlcipher` (`Store/encryption#SQLITE_KEYING`)
+- native floor: bundled `SQLitePCLRaw.bundle_e_sqlite3` (transitive `2.1.11`), but Persistence pins `3.0.3` centrally; the SQLCipher profile swaps it for `SQLite3Provider_sqlcipher`, keyed by the DEK the `Element/identity#KEY_ENVELOPE` `EnvelopeKeyring.Unwrap` recovers (the `PRAGMA key` rehydration)
 - depends: `Microsoft.EntityFrameworkCore.Relational` (relational base), `Microsoft.Data.Sqlite.Core` (ADO surface — `SqliteConnection`/`SqliteConnectionStringBuilder`/`SqliteOpenMode`/`SqliteCacheMode` live there, not here)
 - asset: provider admission and runtime library
 - rail: store-provider
@@ -158,7 +158,7 @@ services are `[EntityFrameworkInternal]` provider internals, never a consumer ra
 |  [03]   | `Migration.ActiveProvider` / `UpOperations` / `DownOperations` / `Migration.InitialDatabase` (`"0"`) | plan input | the materialized migration the wave/disposition fold classifies |
 |  [04]   | `MigrationOperation.IsDestructiveChange` (+ `Operations.{AddColumnOperation,AlterColumnOperation,DropColumnOperation,DropTableOperation,RenameColumnOperation,RenameTableOperation,SqlOperation}`) | op classify | EF's per-op destructive stamp the disposition table refines |
 |  [05]   | `RelationalPropertyBuilderExtensions.HasComputedColumnSql(this PropertyBuilder, string? sql, bool? stored)` (+ `<TProperty>` overloads) | generated col | the stored/virtual generated-column expression the `DerivedColumn` rows emit |
-|  [06]   | `TableBuilder.HasCheckConstraint(string name, string? sql)` (via `builder.ToTable(t => …)`; mirror on `RelationalEntityTypeBuilderExtensions`) → `CheckConstraintBuilder` | check | the table-scoped `CHECK` the `SchemaDdl.Check`/quality rows emit |
+|  [06]   | `TableBuilder.HasCheckConstraint(string name, string? sql)` (via `builder.ToTable(t => …)`; mirror on `RelationalEntityTypeBuilderExtensions`) → `CheckConstraintBuilder` | check | the table-scoped `CHECK` the `ServerExtension` `CreateSql`/quality rows emit |
 |  [07]   | `ModelConfigurationBuilder` (the `DbContext.ConfigureConventions(ModelConfigurationBuilder)` parameter) | conventions | the provider-blind convention surface the converter rail folds text converters through |
 
 ## [04]-[IMPLEMENTATION_LAW]
@@ -169,7 +169,7 @@ services are `[EntityFrameworkInternal]` provider internals, never a consumer ra
 - connection shape: `SqliteConnectionStringBuilder` (in `Microsoft.Data.Sqlite.Core`) sets `Pooling=true`, `Mode = SqliteOpenMode.{ReadWriteCreate | ReadOnly | Memory}`, `Cache = SqliteCacheMode.Shared` for the memory profile
 - model root: EF relational model plus SQLite annotations (`UseAutoincrement`, `HasSrid`, `UseSqlReturningClause`)
 - migration root: `SqliteMigrationsSqlGenerator` (provider-internal) emits the table-rebuild dance for unsupported `ALTER`; the migration lock outcome reads from migration receipts, never from `Internal`-namespace types
-- query root: SQLite method/member/aggregate translation including `SqliteRegexMethodTranslator` so `Regex.IsMatch` projects to the `REGEXP` operator instead of client evaluation (`Query/lanes#SEARCH_LANES`)
+- query root: SQLite method/member/aggregate translation including `SqliteRegexMethodTranslator` so `Regex.IsMatch` projects to the `REGEXP` operator instead of client evaluation (`Query/lane#FUSION_AND_CACHE`)
 
 [LOCAL_ADMISSION]:
 - SQLite enters through the unified store-profile algebra — `UseSqlite` is called once inside `StoreRows.SqliteOptions`, never scattered, and the provider-specific knobs stay `StoreProfile` row data and never become public service families.

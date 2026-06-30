@@ -44,7 +44,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 
 [LAND_DETERMINISTIC_REPLAY_OBSERVATORY_SPINE]-[QUEUED]: land the deterministic replay observatory across the spine, the op-log, and the notebook.
 - Capability: build the deterministic replay observatory across AppHost, Persistence, Compute, AppUi, and the Python graduation seam.
-- Shape: `AppHost/Runtime/determinism` owns pinned RNG, float mode, environment fingerprint, and the hash-chained event log over `Persistence/Sync/collaboration`; replay-verify checks per-step content hashes; `AppUi/Editing/notebook` pins capabilities and exports replay bundles.
+- Shape: `AppHost/Runtime/determinism` owns pinned RNG, float mode, environment fingerprint, and the hash-chained event log over `Persistence/Version/ledger#CHANGEFEED`; replay-verify checks per-step content hashes; `AppUi/Editing/notebook` pins capabilities and exports replay bundles.
 - Unlocks: notebook cell edits project onto the op-log CRDT delta, detached signatures bind command history, cross-runtime seed reproduction stays in `libs/.planning`, and Python `HandoffAxis` graduation evidence re-imports by content key.
 - Anchors: `System.IO.Hashing`, BCL cryptography, the Compute provider-determinism fingerprint, the content-address seam, and the graduation-evidence seam.
 - Tension: cross-machine replay-verify remains unsound until the Compute provider-determinism fingerprint lands.

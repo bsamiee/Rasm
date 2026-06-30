@@ -14,18 +14,20 @@
 
 [TYPESCRIPT]:
 - Core dir: `libs/typescript/.planning`
+- Branch API catalogues: `libs/typescript/.api`
 - Routing: `libs/typescript/.planning/README.md`
 - Language-wide docs: `libs/typescript/.planning/ARCHITECTURE.md`, `libs/typescript/.planning/IDEAS.md`, `libs/typescript/.planning/TASKLOG.md`
 - Planning Folders: `libs/typescript/interchange`, `libs/typescript/platform`, `libs/typescript/projection`, `libs/typescript/services`, `libs/typescript/ui`
 
 [PYTHON]:
 - Core dir: `libs/python/.planning`
+- Branch API catalogues: `libs/python/.api`
 - Routing: `libs/python/.planning/README.md`
 - Language-wide docs: `libs/python/.planning/ARCHITECTURE.md`, `libs/python/.planning/IDEAS.md`, `libs/python/.planning/TASKLOG.md`
 - Planning Folders: `libs/python/artifacts`, `libs/python/compute`, `libs/python/data`, `libs/python/geometry`, `libs/python/runtime`
 
 [CROSS_CUTTING_SURFACES]:
-- Central manifests: `Directory.Packages.props`, `Directory.Build.props`, `Directory.Build.targets`, `global.json`, `NuGet.config`, `pyproject.toml`, `pnpm-workspace.yaml`, `.config`
+- Central manifests: `Directory.Packages.props`, `Directory.Build.props`, `Directory.Build.targets`, `global.json`, `NuGet.config`, `pyproject.toml`, `pnpm-workspace.yaml`, `.config/`
 - Per-folder catalogues: every `<pkg>/.api/` catalogue set
 - Toolchain evidence: Assay provision reports and per-folder `.api` catalogues verify Forge-provided server services, native capabilities, and extension availability.
 - Pass-prompts: `.claude/prompts/1-ideate-pass.md`, `.claude/prompts/2-refine-pass.md`, `.claude/prompts/3-implement-pass.md`

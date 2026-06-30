@@ -2,13 +2,18 @@
 
 `AWSSDK.KeyManagementService` is the AWS SDK for .NET v4 client for AWS KMS: the
 `IAmazonKeyManagementService` async operation contract, its concrete `AmazonKeyManagementServiceClient`
-root, and the `GenerateDataKey`/`Encrypt`/`Decrypt`/`ReEncrypt`/`GenerateRandom` request and
-response shapes for the store envelope-encryption rail. KMS exposes no native key-wrap verb, so
-the Persistence `Store/encryption` `EnvelopeKeyring` derives a wrapped DEK via `GenerateDataKey`
-and round-trips the wrap through `Encrypt`/`Decrypt`, keyed by the customer master key ARN under
-`SYMMETRIC_DEFAULT`, with `EncryptionContext` as binding AAD; `ReEncrypt` rotates the wrapping key
-entirely inside KMS without the plaintext DEK crossing the wire. The whole surface is async-only
-on the v4 line and pure-managed.
+root, the `GenerateDataKey`/`Encrypt`/`Decrypt`/`ReEncrypt`/`GenerateRandom` request and
+response shapes for the DEK envelope rail, AND the DISJOINT asymmetric signing surface
+(`Sign`/`Verify`/`GetPublicKey` + `SigningAlgorithmSpec`/`MessageType`) the `Element/identity#AUTHORITY`
+`SigningKeyring` binds. The package serves TWO orthogonal Persistence concerns: the ENVELOPE arm
+(DEK wrap/unwrap, the SSE key material `Store/blobstore#BLOB_GC` `ObjectEncryption` carries) and the
+SIGNING arm (the `SignedAuthorship` blame attestation `Element/identity#AUTHORITY` owns). KMS exposes
+no native key-wrap verb, so the envelope arm derives a wrapped DEK via `GenerateDataKey` and round-trips
+the wrap through `Encrypt`/`Decrypt`, keyed by the customer master key ARN under `SYMMETRIC_DEFAULT`,
+with `EncryptionContext` as binding AAD; `ReEncrypt` rotates the wrapping key entirely inside KMS
+without the plaintext DEK crossing the wire. The signing arm signs an `OpDigest` over an asymmetric
+key (`MessageType.DIGEST`) and verifies it, the `KmsProvider.Aws` arm of the `SigningKeyring` `Sign`/`Verify`
+delegate pair. The whole surface is async-only on the v4 line and pure-managed.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -19,7 +24,7 @@ on the v4 line and pure-managed.
 - assembly: `AWSSDK.KeyManagementService` (`lib/net8.0` binds for the `net10.0` consumer; `netcoreapp3.1`/`netstandard2.0`/`net472` are fallback assets)
 - namespace: `Amazon.KeyManagementService`, `Amazon.KeyManagementService.Model`
 - asset: pure-managed library (depends on `AWSSDK.Core`; no native asset)
-- rail: encryption
+- rail: encryption (the DEK envelope arm), signing (the `Element/identity#AUTHORITY` `SigningKeyring` arm)
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -61,6 +66,19 @@ on the v4 line and pure-managed.
 |  [01]   | `DataKeySpec`             | constant class | data-key length: `AES_256`, `AES_128`                |
 |  [02]   | `EncryptionAlgorithmSpec` | constant class | wrap algorithm: `SYMMETRIC_DEFAULT`, `RSAES_OAEP_SHA_1`, `RSAES_OAEP_SHA_256`, `SM2PKE` |
 |  [03]   | `KeySpec`                 | constant class | KMS key-material spec                                 |
+
+[PUBLIC_TYPE_SCOPE]: signing request, response, and algorithm vocabulary (the `Element/identity#AUTHORITY` `SigningKeyring` arm)
+- rail: signing
+
+| [INDEX] | [SYMBOL]                  | [TYPE_FAMILY]  | [RAIL]                                                |
+| :-----: | :------------------------ | :------------- | :--------------------------------------------------- |
+|  [01]   | `SignRequest`             | request shape  | `KeyId`, `Message` (`MemoryStream`), `MessageType`, `SigningAlgorithm`, `GrantTokens`, `DryRun` |
+|  [02]   | `SignResponse`            | response shape | `KeyId`, `Signature` (`MemoryStream`), echoed `SigningAlgorithm` |
+|  [03]   | `VerifyRequest`           | request shape  | `KeyId`, `Message`, `MessageType`, `Signature`, `SigningAlgorithm`, `GrantTokens`, `DryRun` |
+|  [04]   | `VerifyResponse`          | response shape | `KeyId`, `SignatureValid` (`bool?`), echoed `SigningAlgorithm` |
+|  [05]   | `SigningAlgorithmSpec`    | constant class | sign algorithm: `ECDSA_SHA_256`/`ECDSA_SHA_384`/`ECDSA_SHA_512`, `RSASSA_PSS_SHA_256/384/512`, `RSASSA_PKCS1_V1_5_SHA_256/384/512`, `ED25519_SHA_512`/`ED25519_PH_SHA_512`, `ML_DSA_SHAKE_256` |
+|  [06]   | `MessageType`             | constant class | `DIGEST` (the pre-hashed `OpDigest` path), `RAW`, `EXTERNAL_MU` |
+|  [07]   | `GetPublicKeyRequest` / `GetPublicKeyResponse` | key-export shape | downloads the public key for outside-KMS verification |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -128,6 +146,17 @@ on the v4 line and pure-managed.
 |  [07]   | `ReEncryptResponse.KeyId` / `.KeyMaterialId`    | response field | destination key ARN + destination material id |
 |  [08]   | `ReEncryptResponse.SourceKeyId`                 | response field | source key ARN that unwrapped the input       |
 
+[ENTRYPOINT_SCOPE]: signing operations (all `…Async(request, CancellationToken)`; the `SigningKeyring` `Sign`/`Verify` arm)
+- rail: signing
+
+| [INDEX] | [SURFACE]                                       | [ENTRY_FAMILY] | [RAIL]                                              |
+| :-----: | :---------------------------------------------- | :------------- | :-------------------------------------------------- |
+|  [01]   | `SignAsync(SignRequest, ct)`                    | sign           | signs `Message` (`MessageType.DIGEST` = the precomputed `OpDigest`) under `KeyId` returning the `Signature` blob |
+|  [02]   | `VerifyAsync(VerifyRequest, ct)`                | verify         | verifies `Signature` against `Message` under `KeyId`, `SignatureValid` the boolean verdict |
+|  [03]   | `GetPublicKeyAsync(string keyId, ct)`           | key export     | downloads the asymmetric public key for an outside-KMS verify path |
+|  [04]   | `SignRequest.MessageType`                       | request field  | `DIGEST` for the seam `OpDigest` (KMS skips its own hash), `RAW` for an un-hashed message |
+|  [05]   | `SignResponse.Signature` / `VerifyResponse.SignatureValid` | response field | the `MemoryStream` signature blob / the `bool?` verify verdict the keyring lifts |
+
 ## [04]-[IMPLEMENTATION_LAW]
 
 [KMS_TOPOLOGY]:
@@ -147,9 +176,16 @@ on the v4 line and pure-managed.
 - `ReEncrypt` rotates the wrapping key entirely inside KMS — the DEK plaintext never crosses the wire — so key rotation rewraps stored blobs without a managed `Decrypt`-then-`Encrypt` round trip.
 - `GenerateRandom` returns FIPS/HSM-grade random bytes; it is the off-board source when a DEK is generated outside `GenerateDataKey` (e.g. a locally-encrypted-then-`Encrypt`-wrapped DEK) and parallels Cloud KMS `GenerateRandomBytes`.
 
+[SIGNING_LAW]:
+- the signing surface is DISJOINT from the envelope surface — `Sign`/`Verify` operate over an ASYMMETRIC KMS key (ECDSA/RSA-PSS/RSA-PKCS1/Ed25519/ML-DSA), never the symmetric envelope CMK, so the `Element/identity#AUTHORITY` `SigningKeyring` and the envelope `EnvelopeKeyring` bind two different keys behind the one `KmsProvider` axis.
+- `Sign(SignRequest{ KeyId, Message, MessageType=DIGEST, SigningAlgorithm })` signs the PRECOMPUTED `OpDigest` (the seam already hashed the op bytes through `SigningAlgorithm.Hash`), so `MessageType.DIGEST` is the required path — KMS skips its own message hash and signs the supplied digest directly; `MessageType.RAW` (KMS hashes) is the rejected path for an already-hashed digest.
+- the `SigningAlgorithmSpec` the request carries maps from the seam `Element/identity#AUTHORITY` `SigningAlgorithm.WireName` (`ECDSA_SHA_256` ↔ `es256`, `RSASSA_PSS_SHA_256` ↔ `ps256`, `RSASSA_PKCS1_V1_5_SHA_256` ↔ `rs256`, and the 384/512 widths), so the keyring delegate edge is the only place the provider algorithm-spec dialect lives.
+- `Verify(VerifyRequest)` returns `SignatureValid` (`bool?`); a forged signature is `false` (the keyring lifts it to `AuthDecision.Forged`), and `GetPublicKey` is the outside-KMS verification path (download the public key, verify without a KMS round-trip) the keyring does not require for the in-KMS verify.
+- the local/Personal tier (`KmsProvider.None`, `Signs: false`) never reaches this surface — `Authority.Attest`/`Verify` short to `AuthDecision.Unsigned` so a store with no KMS still records the delta→actor binding (`Element/identity#AUTHORITY`), never a fabricated signature.
+
 [STACK_INTEGRATION]:
-- this client is the AWS arm of the polymorphic `Store/encryption` `KmsProvider` `[SmartEnum<string>]` axis (AWS/Azure/GCP/none): the page projects one provider-neutral `EnvelopeKeyring(Mint, Unwrap, Rotate)` delegate triple, and the AWS arm binds `Mint`→`GenerateDataKeyAsync(KeyId, KeySpec=AES_256)`, `Unwrap`→`DecryptAsync(CiphertextBlob, EncryptionContext)`, `Rotate`→`ReEncryptAsync(DestinationKeyId)`. Azure KeyVault and Google Cloud KMS bind the same three delegates against their own wrap/unwrap members (`api-azure-keyvault`, `api-google-kms`), so the keyring is the single dense surface and a per-provider keying class is the deleted form.
-- the concrete client is constructed once per configured KMS key at composition (never per operation) and consumes the per-open CMK access handle delivered by the AppHost `Runtime/config#SECRET_LEASE` lease through the `Store/encryption ⇄ Rasm.AppHost/Runtime # [PORT]: KMS-unwrap port` seam; this owner holds the `EncryptionContext` AAD binding and the `KmsProvider` client, while the credential lifecycle is the runtime lease's concern.
+- the `KmsProvider` `[SmartEnum<string>]` provider axis (AWS/Azure/GCP/none) is owned by `Element/identity#AUTHORITY` (the Persistence-side declaring owner — NOT a `Store/encryption` page, which does not exist); this client is the AWS arm of two delegate surfaces that axis selects: the ENVELOPE `EnvelopeKeyring(Mint, Unwrap, Rewrap, Probe)` DEK quartet (`Mint`→`GenerateDataKeyAsync(KeyId, KeySpec=AES_256)`, `Unwrap`→`DecryptAsync(CiphertextBlob, EncryptionContext)`, `Rewrap`→`ReEncryptAsync(DestinationKeyId)`, `Probe`→`DescribeKeyAsync` `KeyState`) and the SIGNING `Element/identity#AUTHORITY` `SigningKeyring` `Sign`/`Verify` pair (`Sign`→`SignAsync(SignRequest{MessageType.DIGEST})`, `Verify`→`VerifyAsync(VerifyRequest)`). Azure KeyVault and Google Cloud KMS bind the same delegate surfaces against their own members (`api-azure-keyvault`, `api-google-kms`), so each keyring is one dense surface and a per-provider keying class is the deleted form.
+- the concrete client is constructed once per configured KMS key at composition (never per operation) and consumes the per-open CMK access handle delivered by the AppHost `Runtime/config#KMS_UNWRAP_PORT` `SecretLease` lease (`KmsProvider` resolves the concrete provider Persistence-side, AppHost surfacing only the `SecretLease`-class handle — `Element/identity#AUTHORITY`); this owner holds the `EncryptionContext` AAD binding and the `KmsProvider` client, while the credential lifecycle is the runtime lease's concern.
 - the recovered `Plaintext` DEK rehydrates the local cipher (the SQLCipher `PRAGMA key`/`rekey` ceremony, or the SSE-KMS object key) and is zeroed immediately after the local bind, so a persisted plaintext DEK is the deleted form; the `EncryptionContext` carries the store partition identity (and tenant id under RLS) on every wrap and unwrap, so a blob cannot be unwrapped under a foreign partition.
 
 [LOCAL_ADMISSION]:
@@ -158,9 +194,10 @@ on the v4 line and pure-managed.
 - the unwrap path is `Decrypt(CiphertextBlob, EncryptionContext)`; the recovered `Plaintext` rehydrates the DEK and is zeroed immediately after the local decrypt.
 - `EncryptionContext` carries the store partition identity as AAD on both wrap and unwrap, so a blob cannot be unwrapped under a foreign partition.
 - key rotation rewraps persisted blobs through `ReEncrypt(DestinationKeyId)`; the plaintext DEK never re-enters managed memory.
+- the signing arm binds the `Element/identity#AUTHORITY` `SigningKeyring`: `Sign(SignRequest{ KeyId, Message=opDigest, MessageType=DIGEST, SigningAlgorithm })` over the asymmetric signing key returns the `Signature` the `SignedAuthorship` carries, and `Verify(VerifyRequest)` returns `SignatureValid` the keyring lifts to `Authentic`/`Forged`; the asymmetric signing key is distinct from the symmetric envelope CMK, both leased through the same per-open `SecretLease` handle.
 
 [RAIL_LAW]:
 - Package: `AWSSDK.KeyManagementService`
-- Owns: envelope wrap and unwrap of the data-encryption key through AWS KMS
-- Accept: one `IAmazonKeyManagementService` per key, `GenerateDataKey` for mint, `Encrypt`/`Decrypt` for the wrap round trip, `ReEncrypt` for rotation, `EncryptionContext` AAD on every call
-- Reject: a native KMS wrap verb, per-operation client construction, plaintext DEK persistence, or unwrap without the binding `EncryptionContext`
+- Owns: envelope wrap/unwrap of the data-encryption key AND asymmetric Sign/Verify of the seam `OpDigest` through AWS KMS — two disjoint surfaces behind the one `Element/identity#AUTHORITY` `KmsProvider.Aws` arm
+- Accept: one `IAmazonKeyManagementService` per key, `GenerateDataKey` for the DEK mint + `Encrypt`/`Decrypt` for the wrap round trip + `ReEncrypt` for rotation (the envelope arm) with `EncryptionContext` AAD on every call, and `SignAsync(MessageType.DIGEST)`/`VerifyAsync` over an asymmetric key (the signing arm) feeding the `SigningKeyring`
+- Reject: a native KMS wrap verb, per-operation client construction, plaintext DEK persistence, unwrap without the binding `EncryptionContext`, `MessageType.RAW` for an already-hashed `OpDigest`, or signing over the symmetric envelope CMK

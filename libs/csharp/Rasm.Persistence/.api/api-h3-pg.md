@@ -4,11 +4,11 @@
 `h3index` 64-bit cell type and the `h3_*` function surface (indexing, inspection, hierarchy, traversal,
 region), plus the `h3_postgis` bridge extension projecting cells to and from PostGIS `geometry`/
 `geography`. It carries no managed assembly: every surface is server-side SQL the
-`Schema/ddl#EXTENSION_DDL` `SchemaDdl.Extension("h3")` / `SchemaDdl.Extension("h3_postgis", Cascade: true)`
+`Store/provisioning#SERVER_EXTENSIONS` `ServerExtension("h3")` / `ServerExtension("h3_postgis", Cascade: true)`
 rows install and the `Query/lanes#GEO_LANES` spatial consumer drives through raw `Npgsql`/`FromSql`/
 `SqlQuery`. The extension pair is preload-free — no `shared_preload_libraries` row and no custom index
 access method (it ships operator classes for the built-in btree/hash/brin/spgist AMs) — so it is
-correctly absent from the `Store/provisioning#CLUSTER_CONFIG` preload value. The cell id is the SAME
+correctly absent from the `Store/provisioning#SERVER_EXTENSIONS` preload value. The cell id is the SAME
 64-bit value the managed `pocketken.H3` pin (`api-h3.md`) computes at ingest, so a row's `h3_cell`
 generated column and the managed `H3Index.FromPoint(point, res)` agree bit-for-bit — the dual admission
 makes in-process and in-database indexing one cell vocabulary, never a second cell id.
@@ -18,7 +18,7 @@ makes in-process and in-database indexing one cell vocabulary, never a second ce
 [PACKAGE_SURFACE]: `h3-pg` / extensions `h3` + `h3_postgis`
 - package: server-side PostgreSQL extension (C, not a NuGet package); repo `zachasme/h3-pg` (canonical home `postgis/h3-pg`), version `4.2.3` (binds H3 core v4.2.0)
 - namespace: SQL `public` (the `h3index` type, the `h3_*` functions, the `h3_postgis` geometry/geography bridge, the operator/cast set)
-- registration: preload-free — `CREATE EXTENSION h3` (core, zero extension deps) and `CREATE EXTENSION h3_postgis CASCADE` (`requires = h3, postgis, postgis_raster`); both `RELOCATABLE`, no `shared_preload_libraries` row, no custom access method; the `SchemaDdl.Extension("h3", PreloadGated: false)` + `SchemaDdl.Extension("h3_postgis", Cascade: true, PreloadGated: false)` rows carry the install
+- registration: preload-free — `CREATE EXTENSION h3` (core, zero extension deps) and `CREATE EXTENSION h3_postgis CASCADE` (`requires = h3, postgis, postgis_raster`); both `RELOCATABLE`, no `shared_preload_libraries` row, no custom access method; the `ServerExtension("h3", PreloadGated: false)` + `ServerExtension("h3_postgis", Cascade: true, PreloadGated: false)` rows carry the install
 - license: Apache-2.0 — the in-DB deployment is the license boundary, no managed linkage
 - consumed by: `Query/lanes#GEO_LANES` `H3Cell` axis (the `h3_cell` generated column + `h3_cell = ANY(@cells)` membership prefilter), driven through raw `Npgsql`; the in-process counterpart is `pocketken.H3` (`api-h3.md`)
 - rail: geospatial-index, geo-provisioning
@@ -116,12 +116,12 @@ hierarchy, not the index sort.
 ## [07]-[IMPLEMENTATION_LAW]
 
 [H3PG_TOPOLOGY]:
-- Two preload-free extensions: `h3` (core, zero extension deps) installs via `SchemaDdl.Extension("h3", PreloadGated: false)`, and `h3_postgis` installs via `SchemaDdl.Extension("h3_postgis", Cascade: true)` emitting `CREATE EXTENSION IF NOT EXISTS h3_postgis CASCADE` (`requires = h3, postgis, postgis_raster`), pulling all three prerequisites in one DDL step. Neither registers a background worker, planner hook, or custom access method (only built-in-AM operator classes), so both are correctly absent from the `Store/provisioning#CLUSTER_CONFIG` `shared_preload_libraries` row.
+- Two preload-free extensions: `h3` (core, zero extension deps) installs via `ServerExtension("h3", PreloadGated: false)`, and `h3_postgis` installs via `ServerExtension("h3_postgis", Cascade: true)` emitting `CREATE EXTENSION IF NOT EXISTS h3_postgis CASCADE` (`requires = h3, postgis, postgis_raster`), pulling all three prerequisites in one DDL step. Neither registers a background worker, planner hook, or custom access method (only built-in-AM operator classes), so both are correctly absent from the `Store/provisioning#SERVER_EXTENSIONS` `shared_preload_libraries` row.
 - v4 naming: `h3_latlng_to_cell`/`h3_cell_to_latlng` are the canonical 4.2.3 spellings; `h3_lat_lng_to_cell`/`h3_cell_to_lat_lng` are the deprecated pre-4.2.3 aliases the cross-referencing design pages may still name. Pin the `latlng` spelling at new call sites. The native `point` overload is `(lat, lng)`; the `h3_postgis` `geometry`/`geography` overloads are SRID-4326 `(lng, lat)` and cast internally — both yield the same cell.
 - No managed assembly, no EF translator: every cell function rides raw `Npgsql`/`FromSql`/`SqlQuery`; the `h3index` column stores as the bigint-backed cell id, and a `SETOF record` function (`h3_grid_disk_distances`, `h3_cells_to_multi_polygon`) requires the column-definition list. PostGIS inputs must be SRID 4326 — a non-4326 geometry is the rejected form.
 
 [GEO_LANE_STACK]:
-- Ingest parity with `pocketken.H3`: the managed `H3Index.FromPoint(point, res)` (`api-h3.md`) computes the identical 64-bit cell `h3_latlng_to_cell` computes server-side over the same NTS `Point` the `Npgsql.NetTopologySuite` plugin binds, so the `h3_cell` generated column (DDL on `Schema/ddl#EXTENSION_DDL`) and the managed cell agree bit-for-bit — the dual admission exists to make in-process and in-database indexing one vocabulary, never a second cell id.
+- Ingest parity with `pocketken.H3`: the managed `H3Index.FromPoint(point, res)` (`api-h3.md`) computes the identical 64-bit cell `h3_latlng_to_cell` computes server-side over the same NTS `Point` the `Npgsql.NetTopologySuite` plugin binds, so the `h3_cell` generated column (DDL on `Store/provisioning#SERVER_EXTENSIONS`) and the managed cell agree bit-for-bit — the dual admission exists to make in-process and in-database indexing one vocabulary, never a second cell id.
 - Spatial prefilter: a radius/region query lowers through the managed `H3CellOps.Cover`/`Disk` (`Query/lanes#GEO_LANES`) — or in-database `h3_grid_disk`/`h3_polygon_to_cells` — to a cell set the `h3_cell = ANY(@cells)` btree/brin membership test answers, with `h3_compact_cells` collapsing the cover to the densest mixed-resolution key, ahead of the managed `Geometry` refine rather than a per-row `ST_DWithin` scan.
 
 [RAIL_LAW]:

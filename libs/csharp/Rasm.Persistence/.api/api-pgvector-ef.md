@@ -8,8 +8,8 @@ configuration, and design-time scaffolding services. The CLR value types
 to register the wire resolver on the data source. The vector store types (`vector`, `halfvec`,
 `sparsevec`) plus the `bit` quantization target are server-side pgvector SQL — the package owns no
 index DDL, so the HNSW/ivfflat opclass, build-parameter, and query-GUC vocabulary the EF index
-builder projects is catalogued here as the server-side surface the `Schema/ddl#SCHEMA_DDL_FOLD`
-`Index` rows and `Query/lanes#SEARCH_LANES` planner compose against.
+builder projects is catalogued here as the server-side surface the `Store/provisioning#SERVER_EXTENSIONS`
+`Index` rows and `Query/lane#FUSION_AND_CACHE` planner compose against.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -37,7 +37,7 @@ builder projects is catalogued here as the server-side surface the `Schema/ddl#S
 `bit(N)` is the fourth pgvector store type but has no `Pgvector` CLR type — it maps from BCL
 `System.Collections.BitArray` and carries only the `<~>`/`<%>` bit-distance operators (no managed
 codec in this package; `Npgsql` owns the `bit` wire mapping). The `EmbeddingArity.Bit` row at
-`Query/lanes#SEARCH_LANES` materializes it through `binary_quantize(emb)::bit(N)`.
+`Query/lane#FUSION_AND_CACHE` materializes it through `binary_quantize(emb)::bit(N)`.
 
 [VECTOR_MEMBERS]: `Pgvector.Vector` — `IEquatable<Vector>`
 
@@ -169,7 +169,7 @@ the return type's default mapping. Client-side invocation throws
 `InvalidOperationException(CoreStrings.FunctionOnClient(...))`, so the methods are LINQ-translation
 markers only. The applicable-store-type column is a pgvector server constraint, not a translator gate
 — the translator emits the operator for any operand pair, and the server rejects an unsupported
-type/operator pair. The `Query/lanes#SEARCH_LANES` `VectorMetric` rows bind each method by
+type/operator pair. The `Query/lane#FUSION_AND_CACHE` `VectorMetric` rows bind each method by
 `nameof(VectorDbFunctionsExtensions.L2Distance)` and build the `ORDER BY` projection with
 `Expression.Call(typeof(VectorDbFunctionsExtensions), Fn, Type.EmptyTypes, columnExpr, Expression.Constant(new Vector(probe)))`.
 
@@ -186,8 +186,8 @@ The vector AM/opclass/build-parameter literals these rows carry are server-side 
 ## [04]-[SERVER_SURFACE]
 
 The pgvector extension carries no managed assembly; these are the server SQL the EF index builder
-(`HasMethod`/`HasOperators`/`HasStorageParameter`) and the `Schema/ddl#SCHEMA_DDL_FOLD` `Index`/`Extension`
-rows project, and the `Query/lanes#SEARCH_LANES` planner reads. `CREATE EXTENSION vector` is declared
+(`HasMethod`/`HasOperators`/`HasStorageParameter`) and the `Store/provisioning#SERVER_EXTENSIONS` `Index`/`Extension`
+rows project, and the `Query/lane#FUSION_AND_CACHE` planner reads. `CREATE EXTENSION vector` is declared
 through `HasPostgresExtension("vector")` (`.api/api-npgsql-ef.md`); `vectorscale` pulls it as a CASCADE
 dependency (`.api/api-pgvectorscale.md`).
 
@@ -227,10 +227,10 @@ dependency (`.api/api-pgvectorscale.md`).
 - query root: distance-function translation (`VectorDbFunctionsExtensions` → `PgUnknownBinaryExpression`) inside profile queries
 
 [INTEGRATION_RAIL]: how the plugin stacks into the one Persistence search rail
-- The `Query/lanes#SEARCH_LANES` `EmbeddingArity` `[SmartEnum]` is the single CLR-to-store axis: `Dense→Vector→vector(N)`, `Half→HalfVector→halfvec(N)`, `Sparse→SparseVector→sparsevec(N)`, `Bit→BitArray→bit(N)`. The first three CLR types and their wire codecs come from this catalog; `Bit` rides `binary_quantize(emb)::bit(N)` from `[UTILITY_FUNCTIONS]`.
+- The `Query/lane#FUSION_AND_CACHE` `EmbeddingArity` `[SmartEnum]` is the single CLR-to-store axis: `Dense→Vector→vector(N)`, `Half→HalfVector→halfvec(N)`, `Sparse→SparseVector→sparsevec(N)`, `Bit→BitArray→bit(N)`. The first three CLR types and their wire codecs come from this catalog; `Bit` rides `binary_quantize(emb)::bit(N)` from `[UTILITY_FUNCTIONS]`.
 - `VectorMetric` binds each distance method by `nameof(VectorDbFunctionsExtensions.X)` and projects `ORDER BY` through `Expression.Call` over a `Pgvector.Vector` probe constant; the six metrics are one closed axis whose `Op` column carries the `<->`/`<#>`/`<=>`/`<+>`/`<~>`/`<%>` operator literal for the raw-CTE fusion leg and whose `Fn` column carries the translator member for the typed `Order` leg. A `Bit` row routes through `HammingDistance`/`JaccardDistance` over a `bit` column; a non-`Bit` row routes through the four dense methods.
-- The index path is server SQL, not a managed call: `HasMethod("hnsw")`/`HasOperators("vector_cosine_ops")`/`HasStorageParameter("m", 16)` declare an HNSW or ivfflat index via the Npgsql index builder against the `[INDEX_OPCLASSES]` matrix; `vectorscale`'s `diskann` AM and `pg_search`'s `bm25` AM carry no EF translator, so their index DDL lands on `Schema/ddl#SCHEMA_DDL_FOLD` as raw migration SQL while queries reuse these catalogued distance functions. The exact brute-force scan stays the always-present correctness baseline; HNSW/ivfflat/diskann are approximate routes the `search.vector.route` fact discriminates.
-- `HybridRetrieve.Fuse` composes the `VectorMetric`-ordered vector branch and the `pg_search` BM25 branch into one reciprocal-rank-fusion CTE; the vector branch's `ORDER BY embedding <op> $probe` uses the `VectorMetric.Op` literal from this catalog, and the dense embedding it probes is generated upstream at `Compute/models#INFERENCE_MODES` `Embed`.
+- The index path is server SQL, not a managed call: `HasMethod("hnsw")`/`HasOperators("vector_cosine_ops")`/`HasStorageParameter("m", 16)` declare an HNSW or ivfflat index via the Npgsql index builder against the `[INDEX_OPCLASSES]` matrix; `vectorscale`'s `diskann` AM and `pg_search`'s `bm25` AM carry no EF translator, so their index DDL lands on `Store/provisioning#SERVER_EXTENSIONS` as raw migration SQL while queries reuse these catalogued distance functions. The exact brute-force scan stays the always-present correctness baseline; HNSW/ivfflat/diskann are approximate routes the `search.vector.route` fact discriminates.
+- `FusionRank.Fuse` composes the `VectorMetric`-ordered vector branch and the `pg_search` BM25 branch into one reciprocal-rank-fusion CTE; the vector branch's `ORDER BY embedding <op> $probe` uses the `VectorMetric.Op` literal from this catalog, and the dense embedding it probes is generated upstream at `Compute/models#INFERENCE_MODES` `Embed`.
 - Wire round-trips ride `VectorTypeInfoResolverFactory` (scalar + array forms) registered by `UseVector`; a `Vector[]` column needs no hand-written reader. The codecs override the full `PgStreamingConverter<T>` async-mirror quartet, so the binary protocol streams without a sync-over-async bridge.
 
 [LOCAL_ADMISSION]:
@@ -238,7 +238,7 @@ dependency (`.api/api-pgvectorscale.md`).
 - The `vector` extension is a profile-declared PostgreSQL extension via `HasPostgresExtension("vector")`; `vectorscale CASCADE` is the dependency-pulling form.
 - Distance projections are query facts inside profile queries, never a client-side method call.
 - Vector dimensions are column metadata: `HasColumnType("vector(N)")` or the `int? size` ctor; `HalfVector→halfvec(N)`, `SparseVector→sparsevec(N)` follow the same `StoreTypePostfix.Size` rule.
-- Index AM/opclass/build-parameter/GUC literals are the `Schema/ddl#SCHEMA_DDL_FOLD` `Index` row and search-lane GUC concern; this catalog states the vocabulary, not a parallel index emitter.
+- Index AM/opclass/build-parameter/GUC literals are the `Store/provisioning#SERVER_EXTENSIONS` `Index` row and search-lane GUC concern; this catalog states the vocabulary, not a parallel index emitter.
 
 [RAIL_LAW]:
 - Package: `Pgvector.EntityFrameworkCore` (+ transitive `Pgvector`, server-side pgvector SQL)

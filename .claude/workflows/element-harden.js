@@ -14,7 +14,7 @@ export const meta = {
 
 // --- [CONSTANTS] -------------------------------------------------------------------------
 
-const CAP = 10
+const CAP = 9
 const BATCH = 4
 const STAGGER_MS = 1500
 const PLAN = 'ELEMENT-REBUILD-PLAN.md'
@@ -54,7 +54,11 @@ const LAW = [
     'regress it. CLAUDE.md WORKSPACE_LAW strata govern (KERNEL -> AEC-DOMAIN -> APP-PLATFORM -> HOST-BOUNDARY -> APP; depend strictly upward; the amended strata ' +
     'adds Rasm.Element as the lowest-AEC sub-stratum).',
   'MANDATORY STANDARDS: docs/stacks/csharp/** is the FLOOR (README, language, shapes, surfaces-and-dispatch, rails-and-effects, boundaries, algorithms, ' +
-    'system-apis + the relevant domain/ shard) — meet it then PUSH PAST to the strongest form. Cite only members verified via `uv run python -m tools.assay api`.',
+    'system-apis + the relevant domain/ shard) — meet it then PUSH PAST to the strongest form. EVERY stage (rebuild, critique, redteam, sweep) ACTUALLY READS the ' +
+    'core docs/stacks/csharp pages + the relevant domain/ shard(s) for each page it touches and conforms UNIVERSALLY: this is a GENERAL doctrinal harden to the ' +
+    'strongest form the doctrine admits (EXPRESSION_SPINE / BOUNDARY_ADMISSION / SHAPE_BUDGET / MODAL_ARITY / OWNER_CHOOSER / RAILS / two-weave ASPECTS / ' +
+    'COLLAPSE_SCAN / DERIVED_LOGIC), NOT merely a seam-alignment pass — seam + 4-RT fidelity is necessary but NOT sufficient, the page must independently satisfy ' +
+    'the whole doctrine. Cite only members verified via `uv run python -m tools.assay api`.',
   'WRITE-FULLY MANDATE: every fix you identify you MUST make NOW via Edit/Write; the returned fix-log REPORTS edits already made, never a to-do. Leave nothing ' +
     'behind except genuine cross-FILE items (report those in residual_high).',
 ].join('\n')
@@ -76,7 +80,12 @@ const ULTRA = [
   'STACK CAPABILITY (CORRECTED — there IS a central tier now): FIRST mine BOTH the SHARED tier `libs/csharp/.api/**` AND the target folder`s own `.api/**` to full ' +
     'depth, layered with the universal Thinktecture/LanguageExt rails. Compose EVERY relevant host API + admitted NuGet member into single dense owners (generated ' +
     'owners, Fold algebra, data tables), not flat per-API uses; use the DEEPEST surface each package reaches; reject thin wrappers + BCL-first reflexes; verify ' +
-    'novel members via `uv run python -m tools.assay api`. (The legacy cs-rebuild workflows wrongly said C# has no central .api tier — it does: libs/csharp/.api/.)',
+    'novel members via `uv run python -m tools.assay api`. MAX-STACK BOTH TIERS TO EXHAUSTION: mine the ENTIRE folder `.api/` catalog set — for a large `.api` folder ' +
+    '(e.g. Rasm.Persistence carries ~80 catalogs: the event/store/columnar/index/wire/codec/compression/vector/geo/messaging/kms families — Marten, Npgsql/EF, ' +
+    'DuckDB, Apache AGE, Arrow/Parquet, DeltaLake, the object-store/MinIO, NodaTime, MessagePack/CBOR/Avro, zstd/lz4/FastCDC, pgvector/Qdrant, H3/pgRouting, ' +
+    'TimescaleDB, the schema-registry/messaging set, the KMS set, etc.) READ EVERY relevant catalog, NEVER a token Marten/DuckDB subset — AND the full shared ' +
+    '`libs/csharp/.api/` tier. A composed owner that leaves an admitted `.api` capability the page concern ADMITS unexploited is a CAPABILITY-INCOMPLETENESS defect ' +
+    'to close in place. (The legacy cs-rebuild workflows wrongly said C# has no central .api tier — it does: libs/csharp/.api/.)',
 ].join('\n')
 const EXTEND = [
   'CAPABILITY EXTENSION (justified, in-place, never flat spam): structural collapse and .api-stacking are NECESSARY but NOT SUFFICIENT — a fully-collapsed owner ' +

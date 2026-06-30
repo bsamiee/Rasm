@@ -69,7 +69,7 @@ Runtime                     →  csharp:Rasm.AppUi/Editing/notebook         # [P
 Runtime                     →  csharp:Rasm.Persistence/Query/cache        # [PORT]: TenantId RLS + cache L2 partition
 Runtime                     →  csharp:Rasm.Persistence/Version/recovery   # [PORT]: ResolvedProfile DR-objective inputs
 Runtime                     →  csharp:Rasm.Persistence/Query/transaction  # [PORT]: drain 2PC in-doubt set
-Runtime                     →  csharp:Rasm.Persistence/Store/encryption   # [PORT]: KMS-unwrap port
+Runtime                     →  csharp:Rasm.Persistence/Element/identity    # [PORT]: KMS-unwrap port (#KEY_ENVELOPE EnvelopeKeyring)
 Runtime                     →  csharp:Rasm.Persistence/Sync/egress        # [PORT]: keyed OutboundHop egress
 Runtime/Ports.cs            ⇄  csharp:Rasm.Persistence                    # [PORT]: HLC two-half + TenantContext causal frame
 Agent/identity              ⇄  csharp:Rasm.Persistence                    # [PORT]: identity store (TenantId RLS)

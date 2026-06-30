@@ -39,7 +39,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Ripple: `csharp:Rasm.Materials` `[ELEMENT_SEAM_PROJECTOR]`.
 
 [PERSISTENCE_GRAPH_REBUILD]-[QUEUED]: full `Rasm.Persistence` rebuild over the `ElementGraph` + `GraphDelta` event body.
-- Capability: `Element/` graph store-load roundtrip; `Version/` the Marten event SoR (the `GraphDelta` is the event body; inline `SingleStreamProjection` folds `GraphDelta`→`ElementGraph`; `AggregateSnapshot` bounds replay) beneath the bespoke op-log/CRDT/time-travel/`StructuralMerge`/causal-DAG engine; `Query/` the in-process `QuikGraph` topology + DuckDB columnar (AGE optional); the content-keyed object store for geometry/coverage blobs (write-blob-first).
+- Capability: `Element/` graph store-load roundtrip; `Version/` the Marten event SoR (the `GraphDelta` is the event body; inline `SingleStreamProjection` folds `GraphDelta`→`ElementGraph`; the periodic Marten snapshot `Snapshot<T>(SnapshotLifecycle.Inline)` bounds replay) beneath the bespoke op-log/CRDT/time-travel/`StructuralMerge`/causal-DAG engine; `Query/` the in-process `QuikGraph` topology + DuckDB columnar (AGE optional); the content-keyed object store for geometry/coverage blobs (write-blob-first).
 - Anchors: the `Graph/delta#GRAPH_DELTA` `ReplayOnto` fold, the `Projection/address#CONTENT_ADDRESS` content key, the `Generator.Equals` `Inequalities` 3-way merge feed, Marten 9.11.
 - Ripple: `csharp:Rasm.Persistence` `[ELEMENT_GRAPH_PERSISTENCE]`.
 

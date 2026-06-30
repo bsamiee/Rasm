@@ -57,8 +57,14 @@ Embedded high-throughput KV/log engines beyond the SQLite relational B-tree floo
 - `LightningDB` (LMDB — embedded memory-mapped B+tree read-optimized MVCC engine: ACID, zero-copy reads, named DBs, cursors, dupsort multi-value keys)
 
 [SERVER_EXTENSIONS]:
-PostgreSQL 18 server-tier extensions: no managed assembly, provisioned through raw SQL, preload-gated or type/index-registered per the `Store/server#CLUSTER_CONFIG` row. Each carries a folder `.api/` catalogue of its SQL surface.
+PostgreSQL 18 server-tier extensions: no managed assembly, provisioned through raw SQL, preload-gated or type/index/standalone-registered per the `Store/provisioning#SERVER_EXTENSIONS` `ServerExtension` row — the AUTHORITATIVE provisioning roster supersets this consumer-facing list with the base-type rows a dependency chain gates on, and the two MUST agree. Each carries a folder `.api/` catalogue of its SQL surface.
 - `timescaledb` (hypertable, continuous-aggregate, retention, columnstore; bgworker scheduler)
+- `timescaledb_toolkit` (hyperfunction / time-weighted-aggregate layer over the `timescaledb` base)
+- `pg_duckdb` (in-PG DuckDB analytical bridge — distinct from the in-process `DuckDB.NET` columnar lane, the two meeting at the columnar SQL surface)
+- `postgis` (operator classes over the built-in GiST AM — the geospatial base the raster/3D/routing rows extend)
+- `postgis_raster` (PostGIS raster over the `postgis` base)
+- `postgis_sfcgal` (PostGIS exact 3D geometry over the `postgis` base)
+- `pgvector` (the `hnsw` access-method ANN tier — the `vector` base `pgvectorscale` gates on)
 - `pgvectorscale` (diskann access method over a pgvector column)
 - `pg_search` (ParadeDB bm25 access method; pdb query-builder schema)
 - `pg_cron` (database-local cron for SQL maintenance jobs)
@@ -66,9 +72,9 @@ PostgreSQL 18 server-tier extensions: no managed assembly, provisioned through r
 - `pg_squeeze` (lock-light table-bloat reclamation)
 - `pg_jsonschema` (server-side JSON Schema CHECK validation)
 - `pgaudit` (session/object audit logging)
-- `h3-pg` (Uber-H3 hex indexing inside PostgreSQL + the `h3_postgis` bridge; cell ids match the managed `pocketken.H3` pin)
-- `apache-age` (openCypher graph database inside PostgreSQL — path queries over the federated entity graph; driven through raw Npgsql against the `agtype` result type)
-- `pgrouting` (network/graph routing over PostGIS — `pgr_dijkstra`/`pgr_aStar`/`pgr_drivingDistance`; the GEO_LANES routing capability via raw SQL)
+- `h3-pg` (Uber-H3 hex indexing inside PostgreSQL + the `h3_postgis` bridge over the `h3` base; cell ids match the managed `pocketken.H3` pin)
+- `apache-age` (openCypher graph database inside PostgreSQL — path queries over the federated entity graph; driven through raw Npgsql against the `agtype` result type; demoted beneath the in-process QuikGraph, disabled by default)
+- `pgrouting` (network/graph routing over the `postgis` base — `pgr_dijkstra`/`pgr_aStar`/`pgr_drivingDistance`; the GEO_LANES routing capability via raw SQL)
 - `pg_graphql` (in-Postgres GraphQL schema/resolver reflection via `graphql.resolve`)
 - `pg_net` (asynchronous non-blocking HTTP/HTTPS from SQL — `net.http_get`/`net.http_post`)
 

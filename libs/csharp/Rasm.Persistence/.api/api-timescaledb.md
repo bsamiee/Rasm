@@ -4,11 +4,11 @@
 provisioning surface over the `OpLogEntry`-rollup table, plus its native bgworker policy scheduler so
 the AppHost schedule port never schedules a refresh/retention/compression job. It carries no managed
 assembly and no first-party EF translator: every surface is server-side SQL the
-`Schema/ddl#EXTENSION_DDL` `SchemaDdl` `[Union]` folds — as the `Hypertable`/`ContinuousAggregate`/
+`Store/provisioning#SERVER_EXTENSIONS` `ServerExtension` rows fold — as the `Hypertable`/`ContinuousAggregate`/
 `RetentionPolicy`/`ColumnstorePolicy` cases whose `ProvisionSql` `Fin<string>` projection rides
-`MigrationBuilder.Sql` through the one `SchemaDdl.Sql` traverse (`Store/provisioning#SCHEMA_DDL_FOLD`) —
+`MigrationBuilder.Sql` through the one `ServerExtension` `CreateSql` install (`Store/provisioning#SERVER_EXTENSIONS`) —
 and the rollups feed `Query/lanes#ANALYTICAL_LANE` and the dashboard tiles. The extension is
-preload-gated (it rides the `Store/provisioning#CLUSTER_CONFIG` `Preload` `shared_preload_libraries`
+preload-gated (it rides the `Store/provisioning#SERVER_EXTENSIONS` `Preload` `shared_preload_libraries`
 row), never a self-provisioned `CREATE EXTENSION` annotation.
 
 ## [01]-[PACKAGE_SURFACE]
@@ -18,7 +18,7 @@ row), never a self-provisioned `CREATE EXTENSION` annotation.
 - namespace: SQL (`public` function/procedure set; `timescaledb_information.*` views; `timescaledb.*` storage parameters)
 - license: Apache-2.0 edition (Community-licensed continuous-aggregate/columnstore/retention policies run under the TSL boundary at the DB deployment, never linked into managed code)
 - asset: server extension, preload-gated (`shared_preload_libraries`), bgworker policy scheduler
-- emission split: SELECT-functions vs CALL-procedures (the `SchemaDdl.Sql` `ProvisionSql` projection must emit the correct verb in its `Fin<string>` — see `[06]`)
+- emission split: SELECT-functions vs CALL-procedures (the `ServerExtension` `CreateSql` projection must emit the correct verb in its `Fin<string>` — see `[06]`)
 - rail: timescale-provisioning, analytical-lane
 
 The time column is the HLC `Physical` instant on the rollup table; the rollup mirrors the `OpLogEntry`
@@ -92,7 +92,7 @@ scheduled policy without dropping it.
 - The columnstore enable (`ALTER TABLE ... SET (timescaledb.enable_columnstore=true, segmentby, orderby)`) precedes `add_columnstore_policy` — the policy schedules compression of already-columnstore-enabled chunks; `segmentby` is the equality-filter column family of the analytical lane and `orderby` is the `Physical` time column.
 
 [PROVISIONING_LAW]:
-- preload: `timescaledb` leads the `Store/provisioning#CLUSTER_CONFIG` `Preload` row's `shared_preload_libraries` value (`timescaledb,pg_search,pg_partman_bgw,pg_squeeze,pgaudit,pg_cron,pg_net`); the bgworker scheduler launcher requires it, so the extension is NOT index-AM-registered like `pgvectorscale` and is correctly absent from a self-provisioned `CREATE EXTENSION` annotation — the server tier preloads it before the migration runs, and the `ClusterConfig` probe verifies the value read-only against `pg_settings` after boot.
+- preload: `timescaledb` leads the `Store/provisioning#SERVER_EXTENSIONS` `Preload` row's `shared_preload_libraries` value (`timescaledb,pg_search,pg_partman_bgw,pg_squeeze,pgaudit,pg_cron,pg_net`); the bgworker scheduler launcher requires it, so the extension is NOT index-AM-registered like `pgvectorscale` and is correctly absent from a self-provisioned `CREATE EXTENSION` annotation — the server tier preloads it before the migration runs, and the `ClusterConfig` probe verifies the value read-only against `pg_settings` after boot.
 - bgworker ownership: refresh, retention, and columnstore jobs run on TimescaleDB's own bgworker scheduler, so the AppHost schedule port (`ScheduleEntry`) never schedules a database-internal maintenance job — the `timescaledb_information.job_stats` view is the receipt the provisioning verification fold reads for refresh-lag/drop-count/compression-ratio proof rows, and a non-firing job surfaces as a stale `last_successful_finish` the receipt flags.
 - analytical residence: the rollup hypertable feeds `Query/lanes#ANALYTICAL_LANE` where DuckDB reads the columnstore-compressed chunks; the continuous aggregate is the pre-bucketed tile source the dashboard reads without re-scanning raw chunks.
 

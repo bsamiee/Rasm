@@ -37,15 +37,16 @@ The package is a SUBSTRATE row, not a domain owner: it carries no Persistence vo
 
 | [INDEX] | [SYMBOL]                  | [TYPE_FAMILY]   | [CAPABILITY]                                                                                  |
 | :-----: | :------------------------ | :-------------- | :------------------------------------------------------------------------------------------- |
-|  [01]   | `StreamExtensions`        | static (root)   | `AsStream`/`Read`/`Write`/`ReadAsync`/`WriteAsync` over `Memory<byte>`-backed streams         |
+|  [01]   | `StreamExtensions`        | static (root)   | `Read`/`Write`/`ReadAsync`/`WriteAsync` span/`Memory<byte>` IO over an existing `Stream` (NO `AsStream` — that family lives on the buffer/memory/sequence extensions below) |
 |  [02]   | `IBufferWriterExtensions` | static (root)   | `AsStream(this IBufferWriter<byte>)` + `Write<T>` struct/span sink into a writer               |
-|  [03]   | `IMemoryOwnerExtensions`  | static (root)   | `AsStream(this IMemoryOwner<byte>)`                                                            |
-|  [04]   | `MemoryExtensions` / `ReadOnlyMemoryExtensions` | static (root) | `AsStream`, `AsBytes<T>`, `Cast<TFrom,TTo>`, `AsMemory2D<T>` over `Memory<T>`/`ReadOnlyMemory<T>` |
-|  [05]   | `ReadOnlySequenceExtensions` | static (root) | `AsStream(this ReadOnlySequence<byte>)` — the multi-segment GET-body bridge                    |
-|  [06]   | `Span2D<T>` / `ReadOnlySpan2D<T>` | ref struct | strided 2D view over contiguous memory (row/col/pitch); `GetRow`/`GetColumn`/`Slice`/`Fill`   |
-|  [07]   | `Memory2D<T>` / `ReadOnlyMemory2D<T>` | readonly struct | heap-storable 2D view; `Span`/`Slice`/`TryGetMemory`                                       |
-|  [08]   | `Ref<T>` / `ReadOnlyRef<T>` / `NullableRef<T>` / `NullableReadOnlyRef<T>` | ref struct | byref carriers for a single `T` (the `ref` field a method cannot return) |
-|  [09]   | `Box<T>`                  | class           | typed view over a boxed value type; unbox-free mutation via `GetReference`                     |
+|  [03]   | `ArrayPoolBufferWriterExtensions` | static (root) | `AsStream(this ArrayPoolBufferWriter<byte>)` — the most-specific overload C# resolves for the concrete pooled drain writer (write-only, non-seekable; distinct member from the `IBufferWriter<byte>` row above) |
+|  [04]   | `IMemoryOwnerExtensions`  | static (root)   | `AsStream(this IMemoryOwner<byte>)`                                                            |
+|  [05]   | `MemoryExtensions` / `ReadOnlyMemoryExtensions` | static (root) | `AsStream`, `AsBytes<T>`, `Cast<TFrom,TTo>`, `AsMemory2D<T>` over `Memory<T>`/`ReadOnlyMemory<T>` |
+|  [06]   | `ReadOnlySequenceExtensions` | static (root) | `AsStream(this ReadOnlySequence<byte>)` — the multi-segment GET-body bridge                    |
+|  [07]   | `Span2D<T>` / `ReadOnlySpan2D<T>` | ref struct | strided 2D view over contiguous memory (row/col/pitch); `GetRow`/`GetColumn`/`Slice`/`Fill`   |
+|  [08]   | `Memory2D<T>` / `ReadOnlyMemory2D<T>` | readonly struct | heap-storable 2D view; `Span`/`Slice`/`TryGetMemory`                                       |
+|  [09]   | `Ref<T>` / `ReadOnlyRef<T>` / `NullableRef<T>` / `NullableReadOnlyRef<T>` | ref struct | byref carriers for a single `T` (the `ref` field a method cannot return) |
+|  [10]   | `Box<T>`                  | class           | typed view over a boxed value type; unbox-free mutation via `GetReference`                     |
 
 [PUBLIC_TYPE_SCOPE]: span algebra and parallel kernels (root + `.Enumerables` + `.Helpers`)
 - rail: compute-frames
@@ -75,7 +76,7 @@ The package is a SUBSTRATE row, not a domain owner: it carries no Persistence vo
 |  [03]   | `ReadOnlySequenceExtensions.AsStream`              | `Stream AsStream(this ReadOnlySequence<byte> sequence)` | a multi-segment GET response as one read `Stream` with no flatten |
 |  [04]   | `MemoryExtensions.AsStream`                        | `Stream AsStream(this Memory<byte> memory)`           | a writable rented buffer as a read/write `Stream`                  |
 |  [05]   | `IMemoryOwnerExtensions.AsStream`                  | `Stream AsStream(this IMemoryOwner<byte> owner)`      | a `MemoryOwner<byte>` rental as a `Stream` (disposes the owner with the stream) |
-|  [06]   | `StreamExtensions.AsStream`                        | `Stream AsStream(this ArrayPoolBufferWriter<byte>)`   | the pooled writer's written bytes as a read `Stream`               |
+|  [06]   | `ArrayPoolBufferWriterExtensions.AsStream`         | `Stream AsStream(this ArrayPoolBufferWriter<byte> writer)` | the DEDICATED overload C# resolves for the concrete pooled drain writer (write-only, non-seekable) — `#OBJECT_IO` `Drain` writes `source.CopyToAsync(writer.AsStream())` then reads `writer.WrittenMemory`. The interface row `[01]` also binds (`ArrayPoolBufferWriter<byte> : IBufferWriter<byte>`), but the concrete-typed receiver picks this member; there is NO `StreamExtensions.AsStream` member at all |
 
 [ENTRYPOINT_SCOPE]: pooled drain buffers — the zero-alloc upgrade
 - rail: store-remote

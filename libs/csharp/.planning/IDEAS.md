@@ -30,13 +30,13 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 
 [INCREMENTAL_COMPUTE_PIPELINE]-[QUEUED]: a content-keyed reactive recompute engine spans the execution lane, durable store, and UI.
 - Capability: Demand-driven recomputation limits a parametric edit to the transitive dirty closure and replays every clean node from the deterministic result cache.
-- Shape: `Compute/Runtime/scheduling` keys each job-graph node on input content digests, `Compute/Model/inference` supplies result-cache replay, `Compute/Solver/sweep` bounds the dirty closure per frame, `Persistence/Sync/collaboration` records moved nodes through the op-log changefeed, and `AppUi` receives only genuine deltas.
+- Shape: `Compute/Runtime/scheduling` keys each job-graph node on input content digests, `Compute/Model/inference` supplies result-cache replay, `Compute/Solver/sweep` bounds the dirty closure per frame, `Persistence/Version/ledger#CHANGEFEED` records moved nodes through the op-log changefeed, and `AppUi` receives only genuine deltas.
 - Unlocks: Interactive AEC edits rerun only affected tessellate, solve, encode, and field chains while unchanged branches return from cache and coupled geometry/field iterations transmit true deltas without a second versioning scheme.
 - Anchors: Demand-driven incremental computation composes the content identity, receipt, result-cache, and scheduler owners already adjacent to the lanes instead of minting a memoization or dependency tracker.
 
 [DETERMINISTIC_REPLAY_OBSERVATORY]-[QUEUED]: a reproducibility kernel binds the runtime spine, durable op-log, and notebook surface.
 - Capability: Deterministic execution records, proves, exports, and replays capability work as a hash-chained, content-addressed event log with signed authorization context.
-- Shape: `AppHost/Runtime/determinism` pins RNG, float mode, and environment fingerprint; the event log rides `Persistence/Sync/collaboration`; replay-verify proves each step by content hash; the macro engine records and replays units; `AppUi/Editing/notebook` pins capabilities and exports replay bundles with cell-edit ops projected onto the op-log CRDT delta.
+- Shape: `AppHost/Runtime/determinism` pins RNG, float mode, and environment fingerprint; the event log rides `Persistence/Version/ledger#CHANGEFEED`; replay-verify proves each step by content hash; the macro engine records and replays units; `AppUi/Editing/notebook` pins capabilities and exports replay bundles with cell-edit ops projected onto the op-log CRDT delta.
 - Unlocks: A notebook reruns to an identical result, a grant decision derives from the chain alone, and a reviewer reconstructs who computed what and when from durable receipts instead of process-local state.
 - Anchors: Chained-event-log and verifiable-credential techniques ride the one content-address seed; cross-machine replay-verify consumes the Compute provider-determinism fingerprint, and signed grant attestation closes the in-process-only authorization gap.
 
@@ -73,7 +73,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 
 [CROSS_PACKAGE_TRANSPORT_CONCERT]-[QUEUED]: one gRPC tuning algebra spans three disjoint transport axes that meet only at proto vocabulary and content identity.
 - Capability: Intra-suite channels, external live-wire transports, durable CRDT/object-graph sync, agent integration, compression, retry, and content identity stay on their owning axes.
-- Shape: `Compute/Runtime/channels#GrpcChannelPolicy` centralizes channel tuning; `AppHost/live-wire#ExternalTransport` owns OPC-UA and MQTT policy rows; `Persistence/Sync/collaboration#SyncTransport` owns durable peer sync, CRDT sync, and the Speckle-like diff case; all three align only at `#PROTO_VOCABULARY` and `ContentIdentity`.
+- Shape: `Compute/Runtime/channels#GrpcChannelPolicy` centralizes channel tuning; `AppHost/live-wire#ExternalTransport` owns OPC-UA and MQTT policy rows; `Persistence/Version/ledger#SYNC_TRANSPORTS` owns durable peer sync, CRDT sync, and the Speckle-like diff case; all three align only at `#PROTO_VOCABULARY` and `ContentIdentity`.
 - Unlocks: A new transport is one `[SmartEnum]` row on the correct axis, a new external system is one case on its axis, and a new agent integration is one `CapabilityDescriptor` row that projects to MCP and C#/TypeScript/Python SDKs.
 - Anchors: `DisableResolverServiceConfig=true` leaves hop retry to the AppHost keyed Polly pipeline; inbox-only `Gzip`/`Deflate` compression keeps zstd or brotli as a `CompressionProviders` row; the C#-terminates-external law makes a TypeScript Speckle or MQTT client the drift defect.
 

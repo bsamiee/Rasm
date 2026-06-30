@@ -4,8 +4,8 @@ The PG18 server-tier maintenance companions consumed as server-side SQL across t
 PostgreSQL profile — `pg_cron` (database-local cron), `pg_partman` (declarative range/list partition
 maintenance), `pg_squeeze` (lock-light bloat reclamation), `pg_jsonschema` (server-side JSON Schema
 CHECK validation), and `pgaudit` (session/object audit logging). They carry no managed assembly:
-every surface is server-side SQL the `Store/provisioning#CLUSTER_CONFIG` `ClusterConfig` verifies,
-the `Schema/ddl#EXTENSION_DDL` `SchemaDdl` union emits, and the `Query/lanes#DOCUMENT_LANE`,
+every surface is server-side SQL the `Store/provisioning#SERVER_EXTENSIONS` `ClusterConfig` verifies,
+the `Store/provisioning#SERVER_EXTENSIONS` `ServerExtension` `CreateSql` install SQL provides, and the `Query/lanes#DOCUMENT_LANE`,
 `Version/retention#AUDIT_BINDING`, and maintenance-schedule rows consume.
 
 PRELOAD SPLIT (verified against `ClusterConfig.Rows`): the `shared_preload_libraries` value is
@@ -26,9 +26,9 @@ without it); its full SQL surface is catalogued in `api-pg-net.md`, not here.
 - package: server-side PostgreSQL extensions (not NuGet packages); installed in the deploy-image PG18, never linked into managed code
 - namespace: SQL (`cron.*`, `partman.*`, `squeeze.*`, `json_matches_schema`/`jsonb_matches_schema`, `pgaudit.*` GUCs)
 - preload (in `shared_preload_libraries`): `pg_cron`, `pg_partman_bgw`, `pg_squeeze`, `pgaudit` — verified read-only via `ClusterConfig.Verify` after boot
-- type/function-registered (NOT preloaded): `pg_jsonschema` — `CREATE EXTENSION`, `Fallback: "Json.Schema.JsonSchema.Evaluate"` on `SchemaDdl.Extension`
+- type/function-registered (NOT preloaded): `pg_jsonschema` — `CREATE EXTENSION`, `Fallback: "Json.Schema.JsonSchema.Evaluate"` on its `ServerExtension` row
 - license: `pg_cron`/`pg_partman`/`pgaudit` PostgreSQL/MIT-class; `pg_squeeze` BSD; `pg_jsonschema` Apache-2.0 — the in-DB deployment is the license boundary, no managed linkage
-- consumed by: `ExtensionRequirement.OperatorProvisioned` rows (`Store/profiles`), `SchemaDdl.JsonSchemaCheck`/`Extension` (`Schema/ddl`), `Version/retention#AUDIT_BINDING`, the AppHost persistence-maintenance schedule
+- consumed by: `ExtensionRequirement.OperatorProvisioned` rows (`Store/profiles`), `ServerExtension` `CreateSql`/`Extension` (`Store/provisioning#SERVER_EXTENSIONS`), `Version/retention#AUDIT_BINDING`, the AppHost persistence-maintenance schedule
 - rail: cluster-config, document-lane, audit-binding, schedule
 
 ## [02]-[PG_CRON]
@@ -99,11 +99,11 @@ Server-side JSON Schema validation. NOT preloaded — `CREATE EXTENSION pg_jsons
 |  [02]   | `json_matches_schema`     | `json_matches_schema('<schema>'::json, doc)`  | validate a `json` document; → `bool` for `CHECK`  |
 |  [03]   | `jsonschema_is_valid`     | `jsonschema_is_valid('<schema>'::json)`       | validate that the schema itself is well-formed |
 
-Consumer + fallback stack: the document lane declares one `SchemaDdl.JsonSchemaCheck(Table, Column,
-Constraint, Schema)` (`Schema/ddl#EXTENSION_DDL`) whose `Sql` emits `ALTER TABLE … ADD CONSTRAINT …
+Consumer + fallback stack: the document lane declares one `ServerExtension` `CreateSql` over (Table, Column,
+Constraint, Schema)` (`Store/provisioning#SERVER_EXTENSIONS`) whose `Sql` emits `ALTER TABLE … ADD CONSTRAINT …
 CHECK (jsonb_matches_schema('<schema>', <column>))`, so a declared-shape document is rejected at
 WRITE (`Query/lanes#DOCUMENT_LANE`). Because this is the one non-preloaded companion, the
-`SchemaDdl.Extension("pg_jsonschema", Fallback: "Json.Schema.JsonSchema.Evaluate")` row degrades the
+`ServerExtension("pg_jsonschema", Fallback: "Json.Schema.JsonSchema.Evaluate")` row degrades the
 SAME validation to in-process `JsonSchema.Net` evaluation when the deploy image lacks the
 pgrx-compiled extension — the `Validate` fold moves the check application-side rather than silently
 dropping it. The schema string arrives pre-frozen from the document-lane shape, never raw runtime
@@ -116,7 +116,7 @@ In-process fallback surface (`JsonSchema.Net`, Apache-2.0): the canonical entry 
 `jsonb_matches_schema` returns; `EvaluationOptions.OutputFormat = OutputFormat.List` plus
 `EvaluationResults.Details` yields the per-keyword failure rail for a richer `Validate` receipt than
 the server-side `bool`. ADMISSION GAP: `JsonSchema.Net` is design-page-specified on
-`Schema/ddl#EXTENSION_DDL` `Packages:` yet absent from `Directory.Packages.props` and every
+`Store/provisioning#SERVER_EXTENSIONS` `Packages:` yet absent from `Directory.Packages.props` and every
 csproj/lockfile, so these members resolve UNVERIFIED against the manifest — the fallback path cannot
 compile until the central package owner admits `JsonSchema.Net`. The member signatures are the
 package's real public surface, not the resolved-artifact reflection this catalog otherwise pins.
@@ -148,11 +148,11 @@ runtime only verifies the GUC.
 
 [BGWORKER_TOPOLOGY]:
 - Five extensions, two registration modes: four preload-gated (`pg_cron`, `pg_partman_bgw`, `pg_squeeze`, `pgaudit` — verified via `ClusterConfig`/`PreloadProbe`) and one function-registered (`pg_jsonschema` — `CREATE EXTENSION`, with the JsonSchema.Net in-process fallback).
-- None carries a managed assembly or a first-party EF translator: every surface lands through `MigrationBuilder.Sql` (the `SchemaDdl.Sql`/`Migrate` folds for DDL, raw GUC SET for pgaudit) or a `cron`/`squeeze` registry `INSERT`. `CreatePostgresExtensionOperation` is the deleted phantom spelling; preload-gated `CREATE EXTENSION` rides `SchemaDdl.Migrate` because `HasPostgresExtension` cannot encode the `shared_preload_libraries` prerequisite.
+- None carries a managed assembly or a first-party EF translator: every surface lands through `MigrationBuilder.Sql` (the `ServerExtension` `CreateSql` install SQL (committed through the EF `MigrationBuilder.Sql` rail), raw GUC SET for pgaudit) or a `cron`/`squeeze` registry `INSERT`. `CreatePostgresExtensionOperation` is the deleted phantom spelling; preload-gated `CREATE EXTENSION` rides the EF `MigrationBuilder.Sql` rail because `HasPostgresExtension` cannot encode the `shared_preload_libraries` prerequisite.
 - Cadence ownership is partitioned and non-overlapping: TimescaleDB native `add_*_policy` bgworkers own continuous-aggregate/retention/columnstore cadence; `pg_partman_bgw` owns partition rotation; `pg_squeeze` owns bloat-reclaim cadence via its `squeeze.tables.schedule` column; `pg_cron` owns only server-local jobs the AppHost schedule port must not own. The process-side `persistence-maintenance` schedule owns `ANALYZE`/`REINDEX`. No two own the same job.
 
 [RAIL_LAW]:
 - Packages: `pg_cron` / `pg_partman` / `pg_squeeze` / `pg_jsonschema` / `pgaudit` (server-side, in the deploy-image PG18)
 - Owns: server-tier scheduled maintenance, declarative partitioning, online bloat reclaim, server-side document validation, and audit logging — all as server-side SQL the managed code verifies/emits, never links
-- Accept: `cron.schedule_in_database` for server-local cadence, `partman.create_parent`/`part_config` for partition lifecycle, `squeeze.tables` registry rows for scheduled reclaim, `jsonb_matches_schema` inside a `SchemaDdl.JsonSchemaCheck` (with JsonSchema.Net fallback), `pgaudit.log` GUC bound per the audit-binding classification table
+- Accept: `cron.schedule_in_database` for server-local cadence, `partman.create_parent`/`part_config` for partition lifecycle, `squeeze.tables` registry rows for scheduled reclaim, `jsonb_matches_schema` inside a `ServerExtension` `CreateSql` (with JsonSchema.Net fallback), `pgaudit.log` GUC bound per the audit-binding classification table
 - Reject: a hand-rolled partition-rotation or bloat-reclaim job, an out-of-DB `pg_repack`/audit-pipeline client, a runtime `ALTER SYSTEM` to set a preload (preloads are deploy-time `postgresql.conf`, verified not executed), the wrong claim that pgaudit is function-registered (it is preloaded), a second document validator beside `pg_jsonschema`+JsonSchema.Net

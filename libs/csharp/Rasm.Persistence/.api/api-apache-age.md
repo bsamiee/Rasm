@@ -4,7 +4,7 @@
 engine inside PostgreSQL — labelled vertices and edges stored in per-graph backing relations under the
 `ag_catalog` schema, queried through the one `cypher(graph, $$ ... $$)` set-returning function whose
 rows are the `agtype` graph value type. It carries no managed assembly: every surface is server-side
-SQL the `Schema/ddl#EXTENSION_DDL` `SchemaDdl.Extension("age")` row installs and the `Query/federation`
+SQL the `Store/provisioning#SERVER_EXTENSIONS` `ServerExtension("age")` row installs and the `Query/federation`
 graph-traversal consumer drives through raw `Npgsql`/`FromSql`/`SqlQuery` against the `agtype` result,
 so an in-PG openCypher path query over the `#CROSS_DOC_LINKS` adjacency and the `#ENTITY_GRAPH` keys is
 an alternative to the managed `LinkStore.Impact` BFS fold without leaving the one `PostgresServer`
@@ -17,7 +17,7 @@ a per-session `LOAD 'age'` plus a `search_path` set, never a `shared_preload_lib
 - package: server-side PostgreSQL extension (C, not a NuGet package); repo `apache/age`, installed name `age`, `default_version = '1.7.0'`
 - namespace: SQL `ag_catalog` schema (functions, catalog tables, the `agtype` type and its operator/cast set)
 - license: Apache-2.0 — the in-DB deployment is the license boundary, no managed linkage
-- registration: `CREATE EXTENSION age`, preload-free — absent from the `Store/provisioning#CLUSTER_CONFIG` `shared_preload_libraries` row by design; the `SchemaDdl.Extension("age", PreloadGated: false)` row carries its install, the per-session `LOAD 'age'`/`search_path` is a connection-init concern (`[06]`)
+- registration: `CREATE EXTENSION age`, preload-free — absent from the `Store/provisioning#SERVER_EXTENSIONS` `shared_preload_libraries` row by design; the `ServerExtension("age", PreloadGated: false)` row carries its install, the per-session `LOAD 'age'`/`search_path` is a connection-init concern (`[06]`)
 - consumed by: `Query/federation#CROSS_DOC_LINKS` / `#FEDERATED_PLAN` graph traversal over the `#ENTITY_GRAPH` keys, driven through raw `Npgsql` against the `agtype` result type
 - rail: graph-provisioning, federation-traversal
 
@@ -30,7 +30,7 @@ one-shot migration, and is NOT encoded by the `Extension` row's `CreateSql`.
 
 | [INDEX] | [STATEMENT]                                       | [SCOPE]            | [SEMANTICS]                                              |
 | :-----: | :------------------------------------------------ | :----------------- | :------------------------------------------------------ |
-|  [01]   | `CREATE EXTENSION IF NOT EXISTS age`              | once per database  | install the SQL objects into `ag_catalog` (the `SchemaDdl.Extension` `CreateSql`) |
+|  [01]   | `CREATE EXTENSION IF NOT EXISTS age`              | once per database  | install the SQL objects into `ag_catalog` (the `ServerExtension` `CreateSql`) |
 |  [02]   | `LOAD 'age'`                                       | once per session   | load the shared library into the backend (required before any Cypher) |
 |  [03]   | `SET search_path = ag_catalog, "$user", public`   | per session/txn    | resolve unqualified `cypher`/`agtype` (also valid as `SET LOCAL` per transaction) |
 
@@ -131,7 +131,7 @@ never a dedicated SQL routine — for weighted/large-fan path work the managed `
 ## [08]-[IMPLEMENTATION_LAW]
 
 [AGE_TOPOLOGY]:
-- Preload-free, session-loaded: `age` registers no `shared_preload_libraries` row, so it is correctly absent from the `Store/provisioning#CLUSTER_CONFIG` preload value; install is `SchemaDdl.Extension("age", PreloadGated: false)` whose `CreateSql` emits `CREATE EXTENSION IF NOT EXISTS age` through `Schema/ddl#EXTENSION_DDL` `Declare`/`Migrate`. The per-session `LOAD 'age'` + `SET search_path = ag_catalog, "$user", public` is a connection-init obligation an `Npgsql` open-hook (or per-connection `SET`) issues — the one-shot `Extension` `CreateSql` cannot encode it, so a profile that runs Cypher must carry the session-load step, and a PL/pgSQL Cypher wrapper repeats `LOAD`/`search_path` in its own body.
+- Preload-free, session-loaded: `age` registers no `shared_preload_libraries` row, so it is correctly absent from the `Store/provisioning#SERVER_EXTENSIONS` preload value; install is `ServerExtension("age", PreloadGated: false)` whose `CreateSql` emits `CREATE EXTENSION IF NOT EXISTS age` through `Store/provisioning#SERVER_EXTENSIONS` `Declare`/`Migrate`. The per-session `LOAD 'age'` + `SET search_path = ag_catalog, "$user", public` is a connection-init obligation an `Npgsql` open-hook (or per-connection `SET`) issues — the one-shot `Extension` `CreateSql` cannot encode it, so a profile that runs Cypher must carry the session-load step, and a PL/pgSQL Cypher wrapper repeats `LOAD`/`search_path` in its own body.
 - Install ownership guard (`age` 1.7.0): `CREATE EXTENSION age` refuses to install into a pre-existing `ag_catalog` schema owned by a different role (ownership is compared directly, exact even for a superuser) — a provisioning profile that re-creates the extension must own `ag_catalog` or drop it first, so the install row is idempotent only against an `ag_catalog` the installing role owns.
 - VLE cache coherence: `age` installs the `age_invalidate_graph_cache()` trigger on each label's backing relation, so an SQL-level `INSERT`/`UPDATE`/`DELETE`/`TRUNCATE` against a label table (bypassing Cypher, e.g. a bulk loader) bumps the graph version and invalidates the `age_vle` caches — direct backing-relation writes stay coherent with subsequent `*`-range traversals.
 - No managed assembly, no EF translator: every Cypher statement rides raw `Npgsql`/`FromSql`/`SqlQuery` mapping `agtype` columns, and the mandatory `AS (col agtype, ...)` column-definition list is required by PostgreSQL's `RETURNS SETOF record` contract, never optional — an anonymous-record call without the list is the faulted spelling. The `agtype` columns are extracted to typed scalars through the registered SQL-level casts (`::int`/`::text`/`::jsonb`), never a hand-parsed text decode.
@@ -140,5 +140,5 @@ never a dedicated SQL routine — for weighted/large-fan path work the managed `
 [RAIL_LAW]:
 - Package: `apache-age` / extension `age` (server-side, in the deploy-image PG18)
 - Owns: the in-PG openCypher graph store — labelled vertex/edge relations under `ag_catalog`, the `cypher(graph, $$..$$, params)` query function, and the `agtype` value type with its operator/cast set
-- Accept: `CREATE EXTENSION age` install via `SchemaDdl.Extension("age")`, the per-session `LOAD 'age'`/`search_path` connection-init, `create_graph`/`create_vlabel`/`create_elabel` lifecycle, parameterized `cypher(...)` with the mandatory `agtype` column-definition list, `agtype` operator/cast extraction through `FromSql`/`SqlQuery`
+- Accept: `CREATE EXTENSION age` install via `ServerExtension("age")`, the per-session `LOAD 'age'`/`search_path` connection-init, `create_graph`/`create_vlabel`/`create_elabel` lifecycle, parameterized `cypher(...)` with the mandatory `agtype` column-definition list, `agtype` operator/cast extraction through `FromSql`/`SqlQuery`
 - Reject: linking the extension into managed code, an anonymous-record `cypher(...)` call without the column-definition list, a runtime-concatenated Cypher body, placing `age` on the `shared_preload_libraries` row (it is preload-free), omitting the per-session `LOAD 'age'`, treating `apache-age` as the installed extension name (it is `age`)

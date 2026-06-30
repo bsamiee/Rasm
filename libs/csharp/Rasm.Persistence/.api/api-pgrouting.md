@@ -3,13 +3,13 @@
 `pgrouting` supplies network/graph routing over PostGIS — the `pgr_*` SELECT functions (Dijkstra, A*,
 bidirectional, driving-distance, K-shortest-path, TSP, max-flow, component/topology analysis) over the
 one Edges-SQL inner-query contract (`id`/`source`/`target`/`cost`/`reverse_cost`). It carries no managed
-assembly: every surface is server-side SQL the `Schema/ddl#EXTENSION_DDL`
-`SchemaDdl.Extension("pgrouting", Cascade: true)` row installs and the `Query/lanes#GEO_LANES` routing
+assembly: every surface is server-side SQL the `Store/provisioning#SERVER_EXTENSIONS`
+`ServerExtension("pgrouting", Cascade: true)` row installs and the `Query/lanes#GEO_LANES` routing
 consumer drives through raw `Npgsql`/`FromSql`/`SqlQuery` against the `SETOF record` result, so an
 in-database shortest-path/driving-distance/clash-graph query runs beside the PostGIS spatial lane
 without a managed graph engine. The extension is preload-free — it is a pure FUNCTION extension (Boost
 Graph C functions loaded lazily per call, no background worker, no planner hook, no index access
-method), so it is correctly absent from the `Store/provisioning#CLUSTER_CONFIG` `shared_preload_libraries`
+method), so it is correctly absent from the `Store/provisioning#SERVER_EXTENSIONS` `shared_preload_libraries`
 row — and installs `CASCADE` (`CREATE EXTENSION IF NOT EXISTS pgrouting CASCADE`) to pull its `postgis`
 (and `plpgsql`) dependency in one step.
 
@@ -20,7 +20,7 @@ row — and installs `CASCADE` (`CREATE EXTENSION IF NOT EXISTS pgrouting CASCAD
 - namespace: SQL `public` (`pgr_*` set-returning functions; the Edges/Combinations/Matrix/Coordinates/Points inner-query contracts)
 - depends: `requires = 'plpgsql,postgis'` (runtime PostGIS >= 3.0) — pulled by `CREATE EXTENSION pgrouting CASCADE`
 - license: GPL-2.0-or-later — the in-DB deployment is the license boundary, no managed linkage
-- registration: function extension, preload-free — no index access method, no `shared_preload_libraries` row; the `SchemaDdl.Extension("pgrouting", Cascade: true, PreloadGated: false)` row emits `CREATE EXTENSION IF NOT EXISTS pgrouting CASCADE` through `Schema/ddl#EXTENSION_DDL` `Migrate`
+- registration: function extension, preload-free — no index access method, no `shared_preload_libraries` row; the `ServerExtension("pgrouting", Cascade: true, PreloadGated: false)` row emits `CREATE EXTENSION IF NOT EXISTS pgrouting CASCADE` through `Store/provisioning#SERVER_EXTENSIONS` `Migrate`
 - consumed by: `Query/lanes#GEO_LANES` routing over the federated entity graph (`Query/federation#ENTITY_GRAPH`), driven through raw `Npgsql` against the `SETOF record` result with the mandatory column-definition list
 - rail: routing-provisioning, geo-lanes
 
@@ -118,7 +118,7 @@ phantom spelling (deleted in 4.0.0); `pgr_extractVertices` is the replacement.
 ## [06]-[IMPLEMENTATION_LAW]
 
 [PGROUTING_TOPOLOGY]:
-- Function extension, preload-free, CASCADE install: `pgrouting` registers no background worker, no planner hook, and no index access method (`relocatable = true`, C functions loaded lazily per call), so it is correctly absent from the `Store/provisioning#CLUSTER_CONFIG` `shared_preload_libraries` row — install is `SchemaDdl.Extension("pgrouting", Cascade: true, PreloadGated: false)` whose `CreateSql` emits `CREATE EXTENSION IF NOT EXISTS pgrouting CASCADE` through `Schema/ddl#EXTENSION_DDL` `Migrate`, pulling its `postgis` (and `plpgsql`) dependency (`requires = 'plpgsql,postgis'`) in one DDL step exactly like the `vectorscale` CASCADE row.
+- Function extension, preload-free, CASCADE install: `pgrouting` registers no background worker, no planner hook, and no index access method (`relocatable = true`, C functions loaded lazily per call), so it is correctly absent from the `Store/provisioning#SERVER_EXTENSIONS` `shared_preload_libraries` row — install is `ServerExtension("pgrouting", Cascade: true, PreloadGated: false)` whose `CreateSql` emits `CREATE EXTENSION IF NOT EXISTS pgrouting CASCADE` through `Store/provisioning#SERVER_EXTENSIONS` `Migrate`, pulling its `postgis` (and `plpgsql`) dependency (`requires = 'plpgsql,postgis'`) in one DDL step exactly like the `vectorscale` CASCADE row.
 - No managed assembly, no EF translator: every `pgr_*` call rides raw `Npgsql`/`FromSql`/`SqlQuery`, and because each function is declared `RETURNS SETOF record`, PostgreSQL requires the caller to supply a column-definition list (`AS (seq integer, path_seq integer, …)`) matching the function's `OUT` params — an anonymous-record call without the list is the faulted spelling. The Edges/Combinations/Matrix/Points SQL strings and the vid/vids arrive as `Npgsql` parameters, never a runtime-concatenated routing query.
 - Edge contract is the one graph definition: a one-way edge is a positive `cost` with a negative `reverse_cost` (a negative weight means the directed edge is ABSENT, never a zero/negative-weight traversable edge), and `directed BOOLEAN DEFAULT true` selects directed vs undirected interpretation of the same Edges SQL — a parallel reversed-edge table or a per-direction Edges SQL is the rejected form.
 
@@ -129,5 +129,5 @@ phantom spelling (deleted in 4.0.0); `pgr_extractVertices` is the replacement.
 [RAIL_LAW]:
 - Package: `pgrouting` (server-side, in the deploy-image PG18)
 - Owns: in-PG network/graph routing over PostGIS — the `pgr_*` shortest-path/cost/driving-distance/KSP/TSP/flow/component functions over the Edges-SQL contract
-- Accept: `CREATE EXTENSION pgrouting CASCADE` via `SchemaDdl.Extension("pgrouting", Cascade: true)`, the `id`/`source`/`target`/`cost`/`reverse_cost` Edges-SQL contract with negative-means-absent edges, the five-overload path functions and their `*Cost`/`*CostMatrix` siblings driven through `FromSql`/`SqlQuery` with the mandatory column-definition list, `pgr_extractVertices` for vertices-table derivation, `pgr_TSP` over a `*CostMatrix`-built Matrix SQL
+- Accept: `CREATE EXTENSION pgrouting CASCADE` via `ServerExtension("pgrouting", Cascade: true)`, the `id`/`source`/`target`/`cost`/`reverse_cost` Edges-SQL contract with negative-means-absent edges, the five-overload path functions and their `*Cost`/`*CostMatrix` siblings driven through `FromSql`/`SqlQuery` with the mandatory column-definition list, `pgr_extractVertices` for vertices-table derivation, `pgr_TSP` over a `*CostMatrix`-built Matrix SQL
 - Reject: linking the extension into managed code, an EF-translated `pgr_*` member, an anonymous-record routing call without the column-definition list, placing `pgrouting` on the `shared_preload_libraries` row (it is preload-free), the removed `pgr_createTopology`/`pgr_createVerticesTable`/`pgr_analyzeGraph`/`pgr_nodeNetwork` family (use `pgr_extractVertices`), a positive `reverse_cost` on a non-existent reverse edge (use a negative), a runtime-concatenated Edges SQL string, a parallel managed graph engine beside the in-PG router

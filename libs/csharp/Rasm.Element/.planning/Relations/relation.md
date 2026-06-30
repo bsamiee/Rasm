@@ -19,6 +19,7 @@ The neutral objectified-edge algebra: one `Relationship` `[Union]` over FIVE lib
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+using Generator.Equals;
 using LanguageExt;
 using Rasm.Domain;
 using Thinktecture;
@@ -106,19 +107,27 @@ public sealed partial class CardinalPoint {
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
-// The occurrence material usage the Associate edge carries: the per-occurrence geometric
-// binding the type-level MaterialComposition set does not carry.
+// The occurrence material usage the Associate edge carries: the per-occurrence geometric binding the type-level
+// MaterialComposition set does not carry. A CLASS-root [Union] + [Equatable] (the [GRAPH_FAMILY] form), so the
+// Associate.Usage member is itself Generator.Equals-drillable: a changed LayerSet.OffsetFromReferenceLine or a
+// ProfileSet.CardinalPoint surfaces as an Edges[i].Usage.<member> path in the Rasm.Persistence 3-way merge, not a
+// whole-edge replacement — never the record-generated equality (which a class-root union forfeits) stacked with [Equatable].
 [Union]
-public abstract partial record MaterialUsage {
+[Equatable]
+public abstract partial class MaterialUsage {
  private MaterialUsage() { }
 
- public sealed record None : MaterialUsage;
- public sealed record LayerSet(LayerSetDirection Direction, DirectionSense Sense, double OffsetFromReferenceLine) : MaterialUsage;
+ public sealed partial class None : MaterialUsage;
+ public sealed partial class LayerSet(LayerSetDirection direction, DirectionSense sense, double offsetFromReferenceLine) : MaterialUsage {
+  public LayerSetDirection Direction { get; } = direction;
+  public DirectionSense Sense { get; } = sense;
+  public double OffsetFromReferenceLine { get; } = offsetFromReferenceLine;
+ }
 
  // The profile occurrence usage. The private ctor forces every admission through Of so the CardinalPoint is always
  // a resolved grid position; ReferenceExtent is bare coordinate-space placement data (NaN when unset, canonicalized
  // at hashing) — a raw coordinate scalar, not a dimensioned MeasureValue.
- public sealed record ProfileSet : MaterialUsage {
+ public sealed partial class ProfileSet : MaterialUsage {
   public CardinalPoint CardinalPoint { get; }
   public double ReferenceExtent { get; }
 
@@ -142,16 +151,26 @@ public abstract partial record MaterialUsage {
   profileSet: u => w.Ordinal(2).Ordinal(u.CardinalPoint.Key).Double(u.ReferenceExtent));
 }
 
+// A CLASS-root [Union] (the [GRAPH_FAMILY] form), NOT a record-root: a class-root union surrenders
+// Thinktecture's record-generated equality, so structural equality AND the member-level structured diff ride
+// Generator.Equals [Equatable] (never stacked on a record-root union). [Equatable] is LOAD-BEARING: the
+// ElementGraph [Equatable] edge array ([OrderedEquality]) walks its Relationship values, and Generator.Equals
+// drills into a changed edge's members only when the edge type is itself [Equatable] — so the Rasm.Persistence
+// 3-way StructuralMerge's edge member diff (a changed Associate.Usage, a Generic.Attributes delta) localizes to
+// Edges[i].<member>, not whole-edge replacement. The Generic case's Map attributes carry [UnorderedEquality] so
+// a key-set delta nests into the graph diff; the rich MaterialUsage payload is itself [Equatable] so the
+// Associate.Usage drill reaches its members.
 [Union]
-public abstract partial record Relationship {
+[Equatable]
+public abstract partial class Relationship {
  private Relationship() { }
 
- public sealed record Compose(NodeId Whole, NodeId Part, ComposeKind SubKind) : Relationship;
- public sealed record Assign(NodeId Subject, NodeId Definition, AssignKind SubKind) : Relationship;
- public sealed record Associate(NodeId Subject, NodeId Resource, MaterialUsage Usage) : Relationship;
- public sealed record Connect(NodeId From, NodeId To, ConnectKind SubKind, Option<NodeId> Realizing) : Relationship;
- public sealed record Void(NodeId Host, NodeId Feature, VoidKind SubKind) : Relationship;
- public sealed record Generic(string WireName, NodeId Relating, NodeId Related, Map<PropertyName, PropertyValue> Attributes) : Relationship;
+ public sealed partial class Compose(NodeId whole, NodeId part, ComposeKind subKind) : Relationship { public NodeId Whole { get; } = whole; public NodeId Part { get; } = part; public ComposeKind SubKind { get; } = subKind; }
+ public sealed partial class Assign(NodeId subject, NodeId definition, AssignKind subKind) : Relationship { public NodeId Subject { get; } = subject; public NodeId Definition { get; } = definition; public AssignKind SubKind { get; } = subKind; }
+ public sealed partial class Associate(NodeId subject, NodeId resource, MaterialUsage usage) : Relationship { public NodeId Subject { get; } = subject; public NodeId Resource { get; } = resource; public MaterialUsage Usage { get; } = usage; }
+ public sealed partial class Connect(NodeId from, NodeId to, ConnectKind subKind, Option<NodeId> realizing) : Relationship { public NodeId From { get; } = from; public NodeId To { get; } = to; public ConnectKind SubKind { get; } = subKind; public Option<NodeId> Realizing { get; } = realizing; }
+ public sealed partial class Void(NodeId host, NodeId feature, VoidKind subKind) : Relationship { public NodeId Host { get; } = host; public NodeId Feature { get; } = feature; public VoidKind SubKind { get; } = subKind; }
+ public sealed partial class Generic(string wireName, NodeId relating, NodeId related, Map<PropertyName, PropertyValue> attributes) : Relationship { public string WireName { get; } = wireName; public NodeId Relating { get; } = relating; public NodeId Related { get; } = related; [property: UnorderedEquality] public Map<PropertyName, PropertyValue> Attributes { get; } = attributes; }
 
  public (NodeId Relating, NodeId Related) Endpoints => Switch(
  compose: static r => (r.Whole, r.Part),
@@ -214,6 +233,19 @@ public abstract partial record Relationship {
  connect: r => { w.Ordinal(3).String(r.From.Value).String(r.To.Value).String(r.SubKind.Key).Bool(r.Realizing.IsSome); r.Realizing.IfSome(n => w.String(n.Value)); return w; },
  @void: r => w.Ordinal(4).String(r.Host.Value).String(r.Feature.Value).String(r.SubKind.Key),
  generic: r => { w.Ordinal(5).String(r.WireName).String(r.Relating.Value).String(r.Related.Value).Ordinal(r.Attributes.Count); foreach (var (n, v) in r.Attributes.OrderBy(static p => p.Key.Value, StringComparer.Ordinal)) { w.String(n.Value); v.CanonicalBytes(w); } return w; });
+
+ // Re-map every endpoint through the supplied node-id map (an unmapped id passes through unchanged), the sub-kind
+ // and typed payload intact — the seam-owned edge-endpoint rewrite a Rasm.Persistence Reconcile composes when it
+ // rewrites a re-ingested graph onto durable node ids. A Connect also re-maps its optional realizing intermediary.
+ // A class-root [Union] case has NO `with`, so each arm RECONSTRUCTS its case through the generated total Map —
+ // exhaustive over the closed six-case algebra (a new edge kind breaks the build here, never a silent pass-through).
+ public Relationship Remap(Func<NodeId, NodeId> map) => Map<Relationship>(
+  compose: r => new Compose(map(r.Whole), map(r.Part), r.SubKind),
+  assign: r => new Assign(map(r.Subject), map(r.Definition), r.SubKind),
+  associate: r => new Associate(map(r.Subject), map(r.Resource), r.Usage),
+  connect: r => new Connect(map(r.From), map(r.To), r.SubKind, r.Realizing.Map(map)),
+  @void: r => new Void(map(r.Host), map(r.Feature), r.SubKind),
+  generic: r => new Generic(r.WireName, map(r.Relating), map(r.Related), r.Attributes));
 }
 ```
 

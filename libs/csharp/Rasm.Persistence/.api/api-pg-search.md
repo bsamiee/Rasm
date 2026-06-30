@@ -4,7 +4,7 @@
 a Tantivy-backed BM25 full-text engine providing high-power lexical relevance over a PostgreSQL
 table beside the always-present native `tsvector`/`ts_rank` baseline. It carries no managed assembly:
 every surface is server-side SQL the `Store/server#SEARCH_PROVISIONING` `Bm25Predicate`/`IndexSpec.Bm25`
-fold emits and the `Query/lanes#SEARCH_LANES` `HybridRetrieve.Fuse` BM25 branch matches through. The
+fold emits and the `Query/lane#FUSION_AND_CACHE` `FusionRank.Fuse` BM25 branch matches through. The
 0.24.0 line is the v2 `pdb.*` API: it removed the legacy `paradedb.*` namespace — only `pdb.*` builders
 and the bare column operators are emitted, and `paradedb.*` is asserted absent. The extension is
 preload-gated (it rides the `ClusterConfig` `shared_preload_libraries` row), runs in-process inside the
@@ -88,20 +88,20 @@ tags and `150` `max_num_chars`.
 
 ## [06]-[STACKING]
 
-- The `Store/provisioning#SCHEMA_DDL_FOLD` `Bm25Predicate` `[Union]` is the C# projection of section
+- The `Query/lane#FUSION_AND_CACHE` `Bm25Predicate` `[Union]` is the C# projection of section
   `[04]` — one union case per builder/operator/cast, `Bm25Predicate.Sql()` switching to the exact SQL
   string; the `SearchProjection` static surface is the C# projection of section `[05]`
   (`Score`/`Snippet`/`Snippets`/`SnippetPositions`/`Agg`). A new builder, operator, or cast is one
   union case, never a sibling method, so the catalog's member set is the union's case roster.
-- The `Query/lanes#SEARCH_LANES` `HybridRetrieve.Fuse` composes the BM25 route ONTO the pgvector dense
+- The `Query/lane#FUSION_AND_CACHE` `FusionRank.Fuse` composes the BM25 route ONTO the pgvector dense
   route inside one reciprocal-rank-fusion CTE: the BM25 branch matches `corpus @@@ pdb.parse($terms)`
   and orders by `pdb.score(<key_col>)` (the index's declared `key_field` anchor), the vector branch
   orders by the `EmbeddingArity` distance operator, and `1.0 / (rrfConstant + rank)` is summed across
   branches — so BM25 lexical relevance and pgvector semantic similarity fuse into one top-k without a
   learned reranker, and a profile without `pg_search` preloaded degrades the BM25 branch to the native
   `ts_rank` baseline inside the same CTE (the fused result stays correct at reduced lexical power).
-- BM25 carries no EF translator, so the index DDL lands via raw `MigrationBuilder.Sql` on
-  `SCHEMA_DDL_FOLD` and every query projection rides `FromSql`/`SqlQuery` on the same boundary as the
+- BM25 carries no EF translator, so the index DDL lands via raw `MigrationBuilder.Sql` on the EF
+  migration rail (`Element/identity#SCHEMA_VERDICT`) and every query projection rides `FromSql`/`SqlQuery` on the same boundary as the
   native `websearch_to_tsquery`/`ts_rank`/`ts_headline` baseline; the `key_field` join anchor is the
   content key the fusion re-queries the row store by, so the fusion projects identities rather than
   re-materializing both candidate payloads.

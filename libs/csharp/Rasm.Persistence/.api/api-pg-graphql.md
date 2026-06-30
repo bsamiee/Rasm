@@ -4,7 +4,7 @@
 foreign keys, comments) into a Relay-conformant GraphQL schema at runtime and resolves a GraphQL query
 document to `jsonb` through the one `graphql.resolve(...)` function, with no out-of-process GraphQL
 gateway. It carries no managed assembly: every surface is server-side SQL the
-`Schema/ddl#EXTENSION_DDL` `SchemaDdl.Extension("pg_graphql")` row installs and a read-API egress
+`Store/provisioning#SERVER_EXTENSIONS` `ServerExtension("pg_graphql")` row installs and a read-API egress
 consumer drives through raw `Npgsql`/`FromSql`/`SqlQuery` against the `jsonb` result, so the
 `Query/federation#ENTITY_GRAPH` tables a GraphQL client reads are reflected once from the live schema
 rather than hand-mapped. The extension is NOT preload-gated — it is a `pgrx` (Rust) extension exposing
@@ -17,7 +17,7 @@ SQL functions plus DDL event triggers, installed through `CREATE EXTENSION pg_gr
 - package: server-side PostgreSQL extension (Rust/`pgrx`, not a NuGet package); repo `supabase/pg_graphql`, version `1.6.1` (built against `pgrx 0.16.x`, default target `pg18`)
 - namespace: SQL `graphql` schema (the `resolve` resolver plus private reflection/config objects); `relocatable = false` — the `graphql` schema name is fixed, never relocated
 - license: Apache-2.0 — the in-DB deployment is the license boundary, no managed linkage
-- registration: `CREATE EXTENSION pg_graphql`, preload-free — absent from the `Store/provisioning#CLUSTER_CONFIG` `shared_preload_libraries` row by design; the `SchemaDdl.Extension("pg_graphql", PreloadGated: false)` row carries its install. The control file declares `superuser = true`, so the `CREATE EXTENSION` step runs under a superuser/owner role at provision time (a non-superuser session still resolves queries through `graphql.resolve` once installed)
+- registration: `CREATE EXTENSION pg_graphql`, preload-free — absent from the `Store/provisioning#SERVER_EXTENSIONS` `shared_preload_libraries` row by design; the `ServerExtension("pg_graphql", PreloadGated: false)` row carries its install. The control file declares `superuser = true`, so the `CREATE EXTENSION` step runs under a superuser/owner role at provision time (a non-superuser session still resolves queries through `graphql.resolve` once installed)
 - consumed by: a read-API egress over the `Query/federation#ENTITY_GRAPH` reflected tables, driven through raw `Npgsql` against the `jsonb` resolver result
 - reflection: tables → object types, columns → fields, foreign keys → relationship/connection fields, comments → `@graphql` directives — recomputed lazily and auto-invalidated by DDL event triggers
 - rail: graphql-provisioning, read-api-egress
@@ -102,12 +102,12 @@ the schema version on any DDL, so the next `resolve` sees the new shape — ther
 ## [06]-[IMPLEMENTATION_LAW]
 
 [GRAPHQL_TOPOLOGY]:
-- Preload-free, function + event-trigger registered: `pg_graphql` registers no `shared_preload_libraries` row (it is a pgrx extension exposing SQL functions plus DDL event triggers, no background worker, no planner hook), so it is correctly absent from the `Store/provisioning#CLUSTER_CONFIG` preload value; install is `SchemaDdl.Extension("pg_graphql", PreloadGated: false)` whose `CreateSql` emits `CREATE EXTENSION IF NOT EXISTS pg_graphql` through `Schema/ddl#EXTENSION_DDL` `Declare`.
+- Preload-free, function + event-trigger registered: `pg_graphql` registers no `shared_preload_libraries` row (it is a pgrx extension exposing SQL functions plus DDL event triggers, no background worker, no planner hook), so it is correctly absent from the `Store/provisioning#SERVER_EXTENSIONS` preload value; install is `ServerExtension("pg_graphql", PreloadGated: false)` whose `CreateSql` emits `CREATE EXTENSION IF NOT EXISTS pg_graphql` through `Store/provisioning#SERVER_EXTENSIONS` `Declare`.
 - No managed assembly, no EF translator: the whole GraphQL operation resolves through one `graphql.resolve(query, variables, operationName, extensions)` returning `jsonb`, ridden by raw `Npgsql`/`FromSql`/`SqlQuery`; the query document and `variables` arrive as `Npgsql` parameters, never a runtime-concatenated GraphQL string. The resolver never raises — it returns `{ "data": ..., "errors": [...] }` — so the egress consumer reads the `errors` array from the `jsonb` rather than catching an exception.
 - Reflection is data, not hand-mapped schema: tables/columns/FKs/comments reflect into the GraphQL schema automatically — a table needs a primary key (or a `primary_key_columns`/`foreign_keys` directive for a view/matview/foreign table) to be exposed, type/field/relationship names tune through `@graphql` comment directives, and the schema version invalidates on DDL through the two event triggers, so a parallel hand-written GraphQL schema beside the reflected one is the rejected form. A platform `graphql_public.graphql(...)` wrapper is a deployment-host artifact, not part of this extension.
 
 [RAIL_LAW]:
 - Package: `pg_graphql` (server-side, in the deploy-image PG18)
 - Owns: the in-PG GraphQL resolver — live schema reflection (tables/columns/FKs/comments → Relay GraphQL types) and the `graphql.resolve(...)` → `jsonb` query resolution
-- Accept: `CREATE EXTENSION pg_graphql` install via `SchemaDdl.Extension("pg_graphql")`, `graphql.resolve(query, variables, operationName, extensions)` driven through `FromSql`/`SqlQuery` with bound parameters, `@graphql` comment directives for schema tuning, the Relay connection/filter/order args, the GraphQL `{data,errors}` envelope read from the `jsonb` result
+- Accept: `CREATE EXTENSION pg_graphql` install via `ServerExtension("pg_graphql")`, `graphql.resolve(query, variables, operationName, extensions)` driven through `FromSql`/`SqlQuery` with bound parameters, `@graphql` comment directives for schema tuning, the Relay connection/filter/order args, the GraphQL `{data,errors}` envelope read from the `jsonb` result
 - Reject: linking the extension into managed code, a runtime-concatenated GraphQL document, a hand-written GraphQL schema beside the reflected one, placing `pg_graphql` on the `shared_preload_libraries` row (it is preload-free), expecting `resolve` to raise on a query error (it returns an `errors` envelope), exposing a primary-key-less table without a surrogate-PK directive

@@ -3,7 +3,7 @@
 `Microsoft.AspNetCore.JsonPatch.SystemTextJson` supplies RFC 6902 JSON Patch document
 construction, `System.Text.Json` serialisation through a registered converter factory, and
 break-on-first-error application to object graphs — the document-granular partial-update fallback
-the `Sync/collaboration#TRANSPORT_AXIS` op-log changefeed falls back to (RFC 7386 merge-patch is the
+the `Version/ledger#SYNC_TRANSPORTS` op-log changefeed (the `HttpDelta` `OutboundHop` leg) falls back to (RFC 7386 merge-patch is the
 rejected form). It is the STJ-native variant: the patch document is serialised by STJ
 (`Utf8JsonReader`/`Utf8JsonWriter`), never Newtonsoft, and it carries a public minimal-API binding
 seam (`IEndpointParameterMetadataProvider`).
@@ -118,7 +118,7 @@ all-or-nothing apply is therefore a caller obligation (apply to a clone, swap on
 
 [LOCAL_ADMISSION]:
 - Patch documents persist as `List<Operation>` on the wire; deserialisation reconstructs them through the registered STJ converter under the same `JsonSerializerOptions` the snapshot rail's `PersistenceWireContext` carries.
-- Error handling uses the `Action<JsonPatchError>` callback form, not exception propagation: the `Sync/collaboration` document-granular fallback applies a patch to a snapshot clone with a callback that lifts each `JsonPatchError`/`JsonPatchException` once at the seam into an `Error.New(...)` on the sync receipt, mirroring the Speckle marshal-fault lift — never a raw STJ fault crossing into the merge law.
+- Error handling uses the `Action<JsonPatchError>` callback form, not exception propagation: the `Version/ledger#SYNC_TRANSPORTS` document-granular fallback applies a patch to a snapshot clone with a callback that lifts each `JsonPatchError`/`JsonPatchException` once at the seam into an `Error.New(...)` on the sync receipt, mirroring the Speckle marshal-fault lift — never a raw STJ fault crossing into the merge law.
 - A non-POCO snapshot target (`JsonNode`/`JsonObject`) injects a consumer `IObjectAdapterWithTest` through the `ApplyTo(obj, adapter, logErrorAction)` overload — there is no public factory to register, so the adapter is the extension point.
 - The typed `JsonPatchDocument<TSnapshot>` is the canonical authoring shape so patch paths track the snapshot record's member names through `Expression`, leaving string-path `JsonPatchDocument` for wire-decoded inbound patches only.
 

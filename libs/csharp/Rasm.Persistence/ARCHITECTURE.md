@@ -11,11 +11,11 @@ Rasm.Persistence/
 ├── Element/              # The ElementGraph store-load roundtrip over Marten
 │   ├── Graph.cs          # ElementStore: stream-per-model, GraphDelta event bodies, inline SingleStreamProjection (read-your-writes), AggregateStreamAsync AS-OF, the GraphStoreOp rail with co-txn identity commit
 │   ├── Codec.cs          # SnapshotCodec axis, ContentAddress over the kernel seed-zero XxHash128, canonical CBOR, the sealed-header trust boundary + tier ladder, FastCDC content-defined chunker
-│   └── Identity.cs       # ElementIdentity relational tier (the one txn owner as a Marten doc), IdentityPolicy key axis, Capability/ObjectAcl/Authority, SignedAuthorship, the SchemaVerdict boot fold
+│   └── Identity.cs       # ElementIdentity relational tier (the one txn owner as a Marten doc), IdentityPolicy key axis, Grant/GrantSet/ObjectAcl/Authority object-ACL, KmsProvider/SigningKeyring/SignedAuthorship signing + EnvelopeKeyring DEK envelope (#KEY_ENVELOPE), the SchemaVerdict boot fold
 ├── Version/              # The version-control engine projecting FROM Marten events
 │   ├── Ledger.cs         # OpLogEntry changefeed projection of Marten events, HLC, ColumnFamily merge-stance, Adjudicate + CRDT dispatch, the sync transports, presence/awareness
 │   ├── Commits.cs        # Content-addressed commit-DAG, the convergent op/delta-state CRDT algebra, CrdtOpWire, the ContentParityCorpus
-│   ├── TimeTravel.cs     # AS-OF reconstruct/diff/blame/scrub/bisect/branch over the changefeed prefix + Marten AggregateSnapshot checkpoints, one Crdt.Apply materializer
+│   ├── TimeTravel.cs     # AS-OF reconstruct/diff/blame/scrub/bisect/branch over the changefeed prefix + the periodic Marten snapshot (Snapshot<T>(SnapshotLifecycle.Inline)) checkpoints, one Crdt.Apply materializer
 │   ├── Merge.cs          # StructuralMerge: ElementGraph forest projection, Merkle-pruned base-relative three-way merge, typed conflict classes, RFC 6902 patch egress
 │   ├── Provenance.cs     # W3C-PROV causal DAG + the attested (KMS-signed, hash-chained) tamper-evidence ledger
 │   ├── Retention.cs      # Classification/retention classes, the holds-first sweep fold, the full-history reachability GC
@@ -46,20 +46,20 @@ Version/commits      ⇄  python:runtime/transport           # [WIRE]: CrdtOp No
 Version/commits      →  typescript:interchange/refinement  # [SHAPE]: commit/branch/version-vector/Merkle wire shapes
 Version/merge        →  typescript:interchange/codec       # [SHAPE]: JsonPatchDocument RFC 6902 EntityEdit egress
 Version/ledger       ⇄  python:runtime/transport           # [WIRE]: OpLogEntry Payload CRDT delta over the one wire vocabulary
-Version/ledger       ⇄  csharp:Rasm.AppHost/Runtime        # [PORT]: HLC two-half + TenantContext causal frame; the W3C TraceContext slot
+Version/ledger       ⇄  csharp:Rasm.AppHost/Runtime        # [PORT]: HLC two-half + TenantContext causal frame; the W3C TraceSlot trace-id slot
 Version/timetravel   ←  python:data/gridded/virtual        # [CONTENT_KEY]: icechunk as-of snapshot identity over the shared XxHash128 seed
 Version/provenance   ←  python:artifacts/provenance        # [CONTENT_KEY]: signed-artifact content-key binding; the attested-ledger authenticity authority
 Version/retention    ←  csharp:Rasm.Compute                # [CONTENT_KEY]: content-keyed Assessment.Result blobs registered in the blob retention class
-Element/identity     ⇄  csharp:Rasm.AppHost/Runtime        # [PORT]: ObjectAcl identity store, TenantId RLS, KMS SigningKeyring (ONE_IDENTITY_STORE)
+Element/identity     ⇄  csharp:Rasm.AppHost/Runtime        # [PORT]: ObjectAcl identity store, TenantId RLS, KMS SigningKeyring + EnvelopeKeyring KMS-unwrap handle (#KEY_ENVELOPE, ONE_IDENTITY_STORE)
 Element/graph        ←  csharp:Rasm.AppHost/Runtime        # [PORT]: ClockPolicy/CorrelationId/TenantContext ProjectionContext ingredients
 Query/topology       ←  csharp:Rasm/Geometry/Spatial       # [CONTENT_KEY]: adjacency-derived GeometryHash the federation/diff reads, never re-mints
 Query/columnar       ←  csharp:Rasm.Bim/Model              # [PROJECTION]: BIM-typed BimOpenSchema FlatTableProjection (Bim-implemented seam)
 Query/lane           ⇄  python:data/tabular/query          # [WIRE]: ElementSet receipt currency + Substrait portable plan
-Query/cache          ←  csharp:Rasm.Compute               # [INDEX]: ArtifactIndexRow blob index + ModelResultIndex recency horizon + BenchmarkRow claim gate, read by reference (no Compute type crosses down)
+Query/cache          ←  csharp:Rasm.Compute                # [INDEX]: ArtifactIndexRow blob index + ModelResultIndex recency horizon + BenchmarkRow claim gate, read by reference (no Compute type crosses down)
 Store/blobstore      ←  csharp:Rasm.Compute                # [CONTENT_KEY]: authored GLB by the Object RepresentationContentHash body GeometryHash, content-keyed blob written write-first
 Store/blobstore      ←  csharp:Rasm.Bim/Exchange           # [CONTENT_KEY]: imported IFC/BREP by the Object RepresentationContentHash IfcRepHash; IfcConvert GLB content-keyed wire
 Ingest/tabular       →  csharp:Rasm.Element                # [WIRE]: row shape only; the per-app composition root maps tabular→ElementGraph node
-Query/columnar       ⇄  python:data/tabular               # [WIRE]: Arrow record batch over the ADBC driver manager
+Query/columnar       ⇄  python:data/tabular                # [WIRE]: Arrow record batch over the ADBC driver manager
 Store/provisioning   ←  csharp:Rasm.AppHost/Observability  # [HEALTH_PROBE]: Npgsql driver reachability + the ProvisionVerdict folded into a HealthContributorRow
 Version/recovery     ←  csharp:Rasm.AppHost/Runtime        # [PORT]: ResolvedProfile RPO/RTO objective inputs
 ```

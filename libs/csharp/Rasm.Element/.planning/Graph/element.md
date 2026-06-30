@@ -19,6 +19,7 @@ The authoritative thing: `ElementGraph` = `Header` + `Nodes: FrozenDictionary<No
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+using Generator.Equals;
 using LanguageExt;
 using NodaTime;
 using Rasm;
@@ -179,22 +180,59 @@ public readonly record struct AppearanceSummary(
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
+// A CLASS-root [Union] (the [GRAPH_FAMILY] form), NOT a record-root: a class-root union surrenders
+// Thinktecture's record-generated equality, so structural equality AND the member-level structured diff
+// ride Generator.Equals [Equatable] (the ONE generated equality aspect for the shapes Thinktecture does not
+// own — never stacked on a record-root union). [Equatable] is LOAD-BEARING here, not decorative: the
+// ElementGraph [Equatable] map walks its node values, and Generator.Equals DRILLS into a nested value only
+// when that value is itself [Equatable] — so a changed Node member surfaces as a Nodes[id].<member> path in
+// ElementGraph.EqualityComparer.Default.Inequalities (the member granularity the Rasm.Persistence 3-way
+// StructuralMerge keys its RFC 6902 patch egress on) rather than a whole-node delta. A record-root Node would
+// be an opaque equality leaf to Generator.Equals — ElementGraph.Inequalities would report Nodes[id] whole-node,
+// collapsing the member-granular merge to whole-node replacement, the deleted form. The collection-valued
+// members carry [UnorderedEquality]/[OrderedEquality] so the bag/set/sequence semantics nest into the graph
+// diff. The drill descends ONE [Equatable] link at a time, so the deepest paths the merge keys on
+// (Nodes[id].Properties[2].Thickness inside a MaterialComposition.LayerSet, Nodes[id].Bag.Properties[name]
+// inside a PropertyBag) require each nested payload owner — MaterialComposition/MaterialLayer (Composition/
+// material), PropertyValue/PropertyBag (Properties/property), MeasureValue (Properties/quantity), CoverageGrid
+// (Geospatial/coverage) — to ALSO carry [Equatable] (a class-root union or an [Equatable] record-struct); an
+// un-[Equatable] payload is the boundary where the drill stops at Nodes[id].<that-member> and the merge falls
+// back to the two content-signature pointers. Each case is a sealed CLASS exposing NodeId Id as a positional
+// override of the union's abstract Id, equality fully [Equatable]-owned.
 [Union]
-public abstract partial record Node {
+[Equatable]
+public abstract partial class Node {
  private Node() { }
 
  public abstract NodeId Id { get; init; }
 
- public sealed record Object(
- NodeId Id, ObjectKind Kind, Option<string> ExternalId, Classification Classification, PredefinedType PredefinedType,
- string Name, string Tag, RepresentationContentHash Representations,
- Option<OwnerHistory> History, SchemaSpan Span, Seq<Classification> Classifications = default) : Node;
- public sealed record Material(NodeId Id, MaterialId MaterialKey, MaterialComposition Composition, Seq<MaterialPropertySet> Properties) : Node;
- public sealed record PropertySet(NodeId Id, PropertyBag Bag) : Node;
- public sealed record QuantitySet(NodeId Id, QuantityBag Bag) : Node;
- public sealed record Assessment(NodeId Id, AssessmentPayload Payload) : Node;
- public sealed record Appearance(NodeId Id, AppearanceSummary Summary) : Node;
- public sealed record Coverage(NodeId Id, CoverageGrid Grid) : Node;
+ public sealed partial class Object(
+ NodeId id, ObjectKind kind, Option<string> externalId, Classification classification, PredefinedType predefinedType,
+ string name, string tag, RepresentationContentHash representations,
+ Option<OwnerHistory> history, SchemaSpan span, Seq<Classification> classifications = default) : Node {
+  public override NodeId Id { get; init; } = id;
+  public ObjectKind Kind { get; } = kind;
+  public Option<string> ExternalId { get; } = externalId;
+  public Classification Classification { get; } = classification;
+  public PredefinedType PredefinedType { get; } = predefinedType;
+  public string Name { get; } = name;
+  public string Tag { get; } = tag;
+  public RepresentationContentHash Representations { get; } = representations;
+  public Option<OwnerHistory> History { get; } = history;
+  public SchemaSpan Span { get; } = span;
+  [property: UnorderedEquality] public Seq<Classification> Classifications { get; } = classifications;
+ }
+ public sealed partial class Material(NodeId id, MaterialId materialKey, MaterialComposition composition, Seq<MaterialPropertySet> properties) : Node {
+  public override NodeId Id { get; init; } = id;
+  public MaterialId MaterialKey { get; } = materialKey;
+  public MaterialComposition Composition { get; } = composition;
+  [property: UnorderedEquality] public Seq<MaterialPropertySet> Properties { get; } = properties;
+ }
+ public sealed partial class PropertySet(NodeId id, PropertyBag bag) : Node { public override NodeId Id { get; init; } = id; public PropertyBag Bag { get; } = bag; }
+ public sealed partial class QuantitySet(NodeId id, QuantityBag bag) : Node { public override NodeId Id { get; init; } = id; public QuantityBag Bag { get; } = bag; }
+ public sealed partial class Assessment(NodeId id, AssessmentPayload payload) : Node { public override NodeId Id { get; init; } = id; public AssessmentPayload Payload { get; } = payload; }
+ public sealed partial class Appearance(NodeId id, AppearanceSummary summary) : Node { public override NodeId Id { get; init; } = id; public AppearanceSummary Summary { get; } = summary; }
+ public sealed partial class Coverage(NodeId id, CoverageGrid grid) : Node { public override NodeId Id { get; init; } = id; public CoverageGrid Grid { get; } = grid; }
 
  // The ONE canonical value codec — the id is EXCLUDED (a non-rooted id derives from these bytes), measures quantize
  // to the tolerance, attribute order is explicit, and the diff + the id mint share it. Each complex payload delegates
@@ -215,6 +253,22 @@ public abstract partial record Node {
  coverage: c => { w.Ordinal(6); c.Grid.CanonicalBytes(w); });
  return w.ToBytes();
  }
+
+ // Re-stamp the node's identity, the rest of the payload intact — the seam-owned id rewrite a Rasm.Persistence
+ // Reconcile (aligning a re-ingest's freshly-minted ids onto durable ids) and a Bim re-identify compose, so no
+ // consumer hand-rolls a per-case copy. A class-root [Union] case has NO compiler-generated `with`, so each arm
+ // RECONSTRUCTS its case through the generated total Map — exhaustive over the closed seven-case family (an eighth
+ // case breaks the build here), the payload carried positionally so a case gaining a field breaks loudly rather
+ // than silently dropping it. The id is the ONLY field that changes; for a non-rooted node the caller is
+ // responsible for re-minting from the new content (Relabel is the rooted-node/endpoint-alignment rewrite).
+ public Node Relabel(NodeId id) => Map<Node>(
+  @object: o => new Object(id, o.Kind, o.ExternalId, o.Classification, o.PredefinedType, o.Name, o.Tag, o.Representations, o.History, o.Span, o.Classifications),
+  material: m => new Material(id, m.MaterialKey, m.Composition, m.Properties),
+  propertySet: p => new PropertySet(id, p.Bag),
+  quantitySet: q => new QuantitySet(id, q.Bag),
+  assessment: a => new Assessment(id, a.Payload),
+  appearance: a => new Appearance(id, a.Summary),
+  coverage: c => new Coverage(id, c.Grid));
 }
 ```
 
@@ -442,4 +496,4 @@ public sealed partial class ElementGraph {
 - [DERIVED_ELEMENT]: the consumer-facing `Element` is a `Bake` fold over the reachable subgraph, never a second stored record — this cures the migration source's stranded-data defect (the `Rasm.Bim` `BimElement` and `Rasm.Materials` `Element` were parallel records ID-referencing their property/material data, never joined); the fold reads the incidence edges, resolves the typed node payloads, applies the type→occurrence inheritance once, and recurses the OWNING `Compose` children (`Aggregate`/`Nest`/`Contain`, never the non-owning `Reference`), so "has it all" is one flat read and a graph edit re-bakes in O(1) against the per-snapshot memo.
 - [GRAPH_PHASE_SPLIT]: the graph splits by phase — the live authoring/delta path is an `ImmutableDictionary` HAMT (`Graph/delta#GRAPH_DELTA` owns it for O(log n) structural sharing across edits) and `ElementGraph` is the FROZEN read snapshot (`ToFrozenDictionary` + the incidence index + the `QuikGraph` view + the `Bake` memo, all built once at the freeze boundary) — so the working graph is never confused with the read snapshot, and the freeze boundary is where the analytical structures materialize; the incidence index (keyed by every node an edge's `Members` touches — so a `Connect`'s realizing intermediary resolves through `EdgesAt`, consistent with `Touches` and the `DropNode` cascade) gives `Bake` O(degree) edge access, the `QuikGraph` `BidirectionalGraph` (built from each edge's `DirectedPairs`, so reachability traverses THROUGH a realizing intermediary rather than an endpoints-only shortcut) answers global reachability/topological-order/LCA a consumer composes through `AlgorithmExtensions`, and both are built once per snapshot.
 - [IDENTITY_AND_HASH]: the rooted `NodeId` is a neutral Guid-v7 (sortable, kernel-minted) and the non-rooted `NodeId` a kernel `XxHash128` content hash over `ToCanonicalBytes`, the compressed IFC GlobalId a Bim-stored projection attribute re-emitted at `Emit`; `ToCanonicalBytes` is the ONE canonical projection the id mint and the `Projection/address#CONTENT_ADDRESS` diff share (fixed IEEE-754 LE bits, measures quantized to `Header.Tolerance`, explicit attribute order, id excluded), so a node's content identity is stable across the C#/Python/TypeScript runtimes that share the one `XxHash128` seed — a float-bearing golden vector (an `IfcMaterialLayer`-shaped node) anchors the cross-runtime parity corpus.
-- [STRUCTURAL_EQUALITY]: `Generator.Equals` `[Equatable]` gives `ElementGraph` deep structural equality over its `Nodes`/`Edges` (the `[UnorderedEquality]` node map, the `[OrderedEquality]` edge array) and the `Inequalities(before, after)` member-level diff feeds the `Rasm.Persistence` `StructuralMerge` 3-way reconcile — the `MemberPath` localizing a change to `Nodes[id].Properties[name]` so the merge operates at member granularity, never whole-node replacement; `ElementGraph` is a sealed CLASS (its equality is `[Equatable]`-owned, NOT record-derived), so it has no compiler-generated `with` to alias the lazily-built caches — the snapshot is frozen by construction, and the `Bake` memo, the incidence index, and the `QuikGraph` view are `[IgnoreEquality]` so two snapshots compare by their nodes and edges, not their lazily-built analytical caches.
+- [STRUCTURAL_EQUALITY]: `Generator.Equals` `[Equatable]` gives `ElementGraph`, the `Node` `[Union]`, and the `Relationship` `[Union]` deep structural equality (the `[UnorderedEquality]` node map, the `[OrderedEquality]` edge array, the per-case collection attributes) — all three are class-root `[Union]`/record owners so equality is `[Equatable]`-generated, never the record-root equality Thinktecture would otherwise own (the `[GRAPH_FAMILY]` law), and never stacked on a record-root union. The `Inequalities(before, after)` member-level diff feeds the `Rasm.Persistence` `StructuralMerge` 3-way reconcile: because `Node` and `Relationship` are `[Equatable]`, the diff drills PAST the node map into each changed node's members, localizing a change to `Nodes[id].<member>` so the merge operates at member granularity, never whole-node replacement. The drill descends one `[Equatable]` link per hop, so the deepest paths (`Nodes[id].Properties[2].Thickness` through a `MaterialComposition.LayerSet`, `Nodes[id].Bag.Properties[name]` through a `PropertyBag`) require the nested payload owners — `MaterialComposition`/`MaterialLayer`, `PropertyValue`/`PropertyBag`, `MeasureValue`, `CoverageGrid` — to ALSO carry `[Equatable]`; an un-`[Equatable]` payload is the boundary where the drill stops at `Nodes[id].<that-member>` and the merge's `Append` falls back to the two content-signature pointers. `ElementGraph` is a sealed CLASS (its equality is `[Equatable]`-owned, NOT record-derived), so it has no compiler-generated `with` to alias the lazily-built caches — the snapshot is frozen by construction, and the `Bake` memo, the incidence index, and the `QuikGraph` view are unattributed fields excluded from `[Equatable]` so two snapshots compare by their nodes and edges, not their lazily-built analytical caches.
