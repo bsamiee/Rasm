@@ -2,20 +2,20 @@
 
 This folder is the TypeScript stack router. It routes language, shape, surface, rail, boundary, and system-API decisions to the concept page that owns the coding choice. The router builds one admission-first paradigm: raw input is decoded once through one Schema, decoded values travel typed Effect rails, behavior lives on tagged-union dispatch surfaces, and projections leave through encode at explicit Layer boundaries.
 
-Pages carry no outside-source blocks, release narration, provenance, process state, project anchors, tool context, source-footnote blocks, or meta commentary. Pages name exact code, package, operator, combinator, and command spellings in code spans; verification happens before authoring, and the page states doctrine as fact.
+[IMPORTANT]: Pages carry no outside-source blocks, release narration, provenance, process state, project anchors, tool context, source-footnote blocks, or meta commentary. Pages name exact code, package, operator, combinator, and command spellings in code spans; verification happens before authoring, and the page states doctrine as fact.
 
 ## [01]-[ATLAS]
 
 This table is the lookup by reader decision.
 
-| [INDEX] | [DECISION]             | [READ]                                            | [STATE]   |
-| :-----: | :--------------------- | :------------------------------------------------ | :-------- |
-|  [01]   | language shape         | [language](language.md)                           | finalized |
-|  [02]   | domain shape           | [shapes](shapes.md)                               | finalized |
-|  [03]   | surface and dispatch   | [surfaces and dispatch](surfaces-and-dispatch.md) | finalized |
-|  [04]   | result and effect flow | [rails and effects](rails-and-effects.md)         | finalized |
-|  [05]   | host and wire boundary | [boundaries](boundaries.md)                       | finalized |
-|  [06]   | system API replacement | [system APIs](system-apis.md)                     | finalized |
+| [INDEX] | [DECISION]             | [READ]                                            |
+| :-----: | :--------------------- | :------------------------------------------------ |
+|  [01]   | language shape         | [language](language.md)                           |
+|  [02]   | domain shape           | [shapes](shapes.md)                               |
+|  [03]   | surface and dispatch   | [surfaces and dispatch](surfaces-and-dispatch.md) |
+|  [04]   | result and effect flow | [rails and effects](rails-and-effects.md)         |
+|  [05]   | host and wire boundary | [boundaries](boundaries.md)                       |
+|  [06]   | system API replacement | [system APIs](system-apis.md)                     |
 
 ## [02]-[DOCTRINE]
 

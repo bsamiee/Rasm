@@ -90,7 +90,7 @@ Publish only documents that answer a real reader need. If no quadrant fits clean
 - Agent-usable docs: [information-structure](information-structure.md) chooses the carrier; [style guide](style-guide.md) makes the rule direct.
 - Process narration, research-history prose, and non-load-bearing hedges: [style guide](style-guide.md) removes them.
 - Confidence fields, gaps, generated artifacts, and preservation: [proof](proof.md) owns the shape.
-- External-library implementation policy: route cross-stack precedence through [usage](../usage/README.md), and language-specific decisions through `docs/stacks/<language>/`.
+- External-library implementation policy: route language-specific decisions through `docs/stacks/<language>/`.
 
 ## [07]-[PLACEMENT]
 

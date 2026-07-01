@@ -1,44 +1,42 @@
 export const meta = {
   name: 'tmp-artifacts-rebuild',
   whenToUse: 'The comprehensive capstone deep pass over the whole libs/python/artifacts corpus after the three build-outs land.',
-  description: 'General capstone: a full 7-phase hostile deep pass over the entire libs/python/artifacts/.planning corpus after the three build-outs complete it. Discover (regional, 4 opus agents decide the final page set + which pages are still weak) -> Rebuild (1 agent/file, max, only weak pages) -> Reconcile (union-find cross-folder residuals -> fix -> verify) -> Critique (batched 4, xhigh: docs/stacks/python conformance + both-tier .api ultra-stacking + no phantoms) -> Redteam (batched 4, max: folder-scope collapse/counterfactual + package rationalization) -> Full-Sweep (batched, max: line-by-line, no naive vocabularies, deepen cross-file stacking, resolve prior residuals) -> Resolve (terminal no-defer fix->verify loop until dry; hard residuals hand off to resolve-residuals). Reads the campaign brief libs/python/artifacts/.planning/_REBUILD_BRIEF.md. Temporary campaign workflow; takes no args.',
+  description: 'General capstone: a full hostile deep pass over the entire libs/python/artifacts/.planning corpus after the three build-outs complete it. Plan (1 thin agent) lists every folder design page. Discover (1 agent per 4 pages) deep-reads each page + the folder + BOTH .api tiers and emits a per-page reading map (apiUsed / apiUnderutilized / context / stacking-guidance) plus a weak/strong verdict. Rebuild (1 agent per 2 weak pages, max) hostile-rebuilds only the still-weak pages, composing the reading map as an INITIAL POINTER it must ultra-deep-read and confirm. Critique (1 agent per 4 pages, xhigh) then Redteam (1 agent per 4 pages, max) then Full-Sweep (1 agent per 4 pages, max) — ultra-harsh, fix in place. Reconcile is ONE terminal encompassing pass — every surfaced residual consolidated into at most 6 buckets, 6 fix + 6 critique-grade verify+repair, NO re-entry loop (hard residuals hand off to resolve-residuals). Reads the campaign brief libs/python/artifacts/.planning/_REBUILD_BRIEF.md. Every phase is pooled at CAP=8 (max 8 concurrent agents; reconcile is 6). Temporary campaign workflow; takes no args.',
   phases: [
-    { title: 'Discover', detail: 'regional (4 opus agents): list + classify every page weak/strong, decide the final page set' },
-    { title: 'Rebuild', detail: 'per WEAK page (1 agent/file, max): hostile ground-up rebuild only where still weak' },
-    { title: 'Reconcile', detail: 'union-find cluster cross-file residuals -> fix(max) -> adversarial verify(xhigh), cross-folder blast radius' },
-    { title: 'Critique', detail: 'batched (4 pages/agent, xhigh): docs/stacks/python conformance + both-tier .api ultra-stacking + no phantoms, fix in place' },
-    { title: 'Redteam', detail: 'batched (4 pages/agent, max): folder-scope collapse/counterfactual + package rationalization, fix in place' },
-    { title: 'Full-Sweep', detail: 'batched (max): line-by-line, no naive vocabularies, deepen cross-file stacking, resolve prior residuals' },
-    { title: 'Resolve', detail: 'terminal no-defer fix->verify loop until dry; hard residuals -> resolve-residuals' },
+    { title: 'Plan', detail: 'one thin agent lists every folder design page' },
+    { title: 'Discover', detail: '1 agent per 4 pages: deep-read each page + folder + BOTH .api tiers; emit per-page reading map + weak/strong verdict' },
+    { title: 'Rebuild', detail: '1 agent per 2 weak pages, max: hostile ground-up rebuild only where still weak, composing the reading map' },
+    { title: 'Critique', detail: '1 agent per 4 pages, xhigh: docs/stacks/python conformance + both-tier .api ultra-stacking + no phantoms, fix in place' },
+    { title: 'Redteam', detail: '1 agent per 4 pages, max: folder-scope collapse/counterfactual + package rationalization, fix in place' },
+    { title: 'Full-Sweep', detail: '1 agent per 4 pages, max: line-by-line, no naive vocabularies, deepen cross-file stacking, resolve prior residuals' },
+    { title: 'Reconcile', detail: 'terminal ONE encompassing pass — residuals consolidated into <=6 buckets, 6 fix + 6 critique-grade verify+repair, NO re-entry loop; hard residuals -> resolve-residuals' },
   ],
 }
 
 // --- [CONSTANTS] -------------------------------------------------------------------------
 
-const CAP = 10
+const CAP = 8
 const STAGGER_MS = 1500
-const CRIT_BATCH = 4
-const SWEEP_BATCH = 7
-const RESOLVE_ROUNDS = 3
+const STALL = 300000
+const DISCOVER_BATCH = 4
+const REBUILD_BATCH = 2
+const REVIEW_BATCH = 4
+const RECON_CAP = 6 // reconcile is ONE encompassing pass: residuals consolidate into <=6 buckets -> 6 fix + 6 critique-grade verify, never a re-entry loop
 const ROOT = 'libs/python/artifacts/.planning'
 const BRIEF = ROOT + '/_REBUILD_BRIEF.md'
-const REGIONS = [
-  { name: 'doc-core-exchange', prefixes: ['document/', 'core/', 'exchange/', 'specification/', 'delivery/'] },
-  { name: 'visual-graphic-type', prefixes: ['visualization/', 'graphic/', 'typography/', 'drawing/'] },
-  { name: 'compose-export-package', prefixes: ['composition/', 'export/', 'package/'] },
-  { name: 'media-scene', prefixes: ['media/', 'scene/'] },
-]
-
-// --- [INPUTS] ----------------------------------------------------------------------------
-
-// whole-folder capstone; args are ignored (campaign-locked target)
+const API_SHARED = 'libs/python/.api'
+const API_FOLDER = 'libs/python/artifacts/.api'
 
 // --- [MODELS] ----------------------------------------------------------------------------
 
-const REGION_SCHEMA = { type: 'object', additionalProperties: false, required: ['pages'], properties: { pages: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['page', 'weak'], properties: { page: { type: 'string' }, weak: { type: 'boolean' }, why: { type: 'string' } } } }, note: { type: 'string' } } }
-const FIXLOG_SCHEMA = { type: 'object', additionalProperties: false, required: ['file', 'verdict', 'summary'], properties: { file: { type: 'string' }, verdict: { type: 'string', enum: ['rebuilt', 'refined', 'clean'] }, collapsed: { type: 'string' }, extended: { type: 'string' }, residual_high: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['files', 'claim'], properties: { files: { type: 'array', items: { type: 'string' } }, claim: { type: 'string' } } } }, summary: { type: 'string' } } }
-const REVIEW_SCHEMA = { type: 'object', additionalProperties: false, required: ['files', 'verdict', 'summary'], properties: { files: { type: 'array', items: { type: 'string' } }, verdict: { type: 'string', enum: ['fixed', 'clean'] }, extended: { type: 'string' }, residual_high: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['files', 'claim'], properties: { files: { type: 'array', items: { type: 'string' } }, claim: { type: 'string' } } } }, summary: { type: 'string' } } }
-const RESIDUAL_FIX_SCHEMA = { type: 'object', additionalProperties: false, required: ['files', 'verdict', 'summary'], properties: { files: { type: 'array', items: { type: 'string' } }, verdict: { type: 'string', enum: ['fixed', 'clean'] }, summary: { type: 'string' } } }
+const RESIDUAL = { type: 'array', items: { type: 'object', additionalProperties: false, required: ['files', 'claim'], properties: { files: { type: 'array', items: { type: 'string' } }, claim: { type: 'string' } } } }
+const UNDERUTIL = { type: 'array', items: { type: 'object', additionalProperties: false, required: ['catalog', 'capability'], properties: { catalog: { type: 'string' }, capability: { type: 'string' } } } }
+const PLAN_SCHEMA = { type: 'object', additionalProperties: false, required: ['pages'], properties: { pages: { type: 'array', items: { type: 'string' } } } }
+const WORK = { type: 'array', items: { type: 'object', additionalProperties: false, required: ['page', 'weak', 'apiUsed', 'apiUnderutilized', 'contextNote', 'stackingGuidance'], properties: { page: { type: 'string' }, weak: { type: 'boolean' }, why: { type: 'string' }, apiUsed: { type: 'array', items: { type: 'string' } }, apiUnderutilized: UNDERUTIL, contextNote: { type: 'string' }, stackingGuidance: { type: 'string' } } } }
+const DISCOVER_SCHEMA = { type: 'object', additionalProperties: false, required: ['worklist'], properties: { worklist: WORK, summary: { type: 'string' } } }
+const FIXLOG_SCHEMA = { type: 'object', additionalProperties: false, required: ['files', 'verdict', 'summary'], properties: { files: { type: 'array', items: { type: 'string' } }, verdict: { type: 'string', enum: ['rebuilt', 'refined', 'clean'] }, collapsed: { type: 'string' }, extended: { type: 'string' }, residual_high: RESIDUAL, summary: { type: 'string' } } }
+const REVIEW_SCHEMA = { type: 'object', additionalProperties: false, required: ['files', 'verdict', 'summary'], properties: { files: { type: 'array', items: { type: 'string' } }, verdict: { type: 'string', enum: ['fixed', 'clean'] }, extended: { type: 'string' }, residual_high: RESIDUAL, summary: { type: 'string' } } }
+const RESIDUAL_FIX_SCHEMA = { type: 'object', additionalProperties: false, required: ['files', 'verdict', 'summary'], properties: { files: { type: 'array', items: { type: 'string' } }, verdict: { type: 'string', enum: ['fixed', 'clean'] }, residual_high: RESIDUAL, summary: { type: 'string' } } }
 const RECONCILE_VERIFY_SCHEMA = { type: 'object', additionalProperties: false, required: ['overall', 'claims'], properties: { overall: { type: 'boolean' }, claims: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['claim', 'status'], properties: { claim: { type: 'string' }, status: { type: 'string', enum: ['fixed', 'invalid', 'open'] }, evidence: { type: 'string' } } } } } }
 
 // --- [DOCTRINE] --------------------------------------------------------------------------
@@ -119,8 +117,8 @@ const EXTEND = [
     'in the existing closed family, a ROW on the existing `frozendict` table, a FIELD on the existing model, an OPERATION on the existing surface, or a POLICY_VALUE on the ' +
     'existing vocabulary — NEVER a parallel type, a new file, a sibling shape, or flat appended code.',
   'GAP SOURCES (every extension MUST cite exactly one): (a) PACKAGE — a member the admitted package surface exposes that the concept ADMITS but the page IGNORES (BOTH ' +
-    'tiers; verify the member exists). (b) DOMAIN — an attribute, metric, sub-kind, relationship, state, or operation the REAL concept demands but the page omits. (c) ' +
-    'CONSUMER — a contract a sibling or downstream owner will require that has no composed spelling here yet.',
+    'tiers; the reading-map `apiUnderutilized` is the first place to look; verify the member exists). (b) DOMAIN — an attribute, metric, sub-kind, relationship, state, or ' +
+    'operation the REAL concept demands but the page omits. (c) CONSUMER — a contract a sibling or downstream owner will require that has no composed spelling here yet.',
   'COVERAGE OVER SIZE: byte-count is a WEAK proxy — capability COVERAGE against the full domain + both-tier package surface is the real measure. A SMALL page modeling a ' +
     'rich concept is almost always under-built; a LARGE well-collapsed page can still be capability-SPARSE. Assess each owner against its domain independently of size and ' +
     'EXTEND every owner the concept under-realizes IN PLACE — integrated and unified into the one owner at full operator depth.',
@@ -185,6 +183,7 @@ const COMMENTS = 'COMMENT HYGIENE: code fences are agent-facing — comment for 
   'marker + space + `---` + bracketed `[UPPERCASE_LABEL]` + dash-fill). Beyond dividers, comment ONLY where intent is not already obvious from names, types, and ' +
   'signatures: default to ZERO comments on self-evident code; at most 1 line where a comment genuinely earns its place. NO restating the code, no narration, no ' +
   'task/process/session/history/proof/review comments, no docstring bloat.'
+const PRE = [LAW, '', CAMPAIGN, '', ADVERSARIAL, '', ULTRA, '', EXTEND, '', MECHANICS, '', PATLAW, '', BOUNDARIES, '', PROSE, '', COMMENTS, ''].join('\n')
 
 // --- [OPERATIONS] ------------------------------------------------------------------------
 
@@ -199,145 +198,173 @@ const pool = async (items, cap, worker) => {
   return out
 }
 const chunk = (arr, n) => { const o = []; for (let i = 0; i < arr.length; i += n) o.push(arr.slice(i, i + n)); return o }
-const clustersOf = (residuals) => {
-  const uniq = [...new Map(residuals.map((r) => [r.files.slice().sort().join(',') + '|' + r.claim, r])).values()]
-  const parent = new Map(); const find = (f) => { let p = f; while (parent.get(p) !== p) p = parent.get(p); return p }; const add = (f) => { if (!parent.has(f)) parent.set(f, f) }
-  for (const r of uniq) { r.files.forEach(add); for (let i = 1; i < r.files.length; i++) parent.set(find(r.files[i]), find(r.files[0])) }
-  const by = new Map()
-  for (const r of uniq) { const root = r.files.length ? find(r.files[0]) : '__none__'; (by.get(root) || by.set(root, []).get(root)).push(r) }
-  return { uniq, clusters: [...by.values()] }
-}
 const folderOf = (p) => { const head = p.split('/.planning/')[0].split('/'); return head[head.length - 1] || 'root' }
-const subOf = (p) => p.split('/.planning/').pop()
-const PRE = [LAW, '', CAMPAIGN, '', ADVERSARIAL, '', ULTRA, '', EXTEND, '', MECHANICS, '', PATLAW, '', BOUNDARIES, '', PROSE, '', COMMENTS, ''].join('\n')
-const regionPrompt = (rg) => [LAW, '', CAMPAIGN, '', ADVERSARIAL, '', 'TASK: REGIONAL DISCOVERY over the artifacts region `' + rg.name + '` (the sub-folders ' + JSON.stringify(rg.prefixes) +
-  ' under ' + ROOT + '/). Read ' + BRIEF + ' for the intended structure. List EVERY design page under those sub-folders (repo-relative *.md, EXCLUDING IDEAS.md/TASKLOG.md/' +
-  'README.md/ARCHITECTURE.md and the _REBUILD_BRIEF.md). For EACH page, READ it and classify `weak` true|false under the HOSTILE stance: weak = naive/illusory/hollow, ' +
-  'under-collapsed, capability-thin against its domain, mis-stacked on the .api tiers, or carrying any mechanical/model-coherence defect — DEFAULT to weak unless the page ' +
-  'genuinely survives an aggressive read; strong = only a page that is already world-class. Also decide the FINAL page set for this region (flag a page that should merge ' +
-  'into a sibling or split, in `why`). Use find/ls + read; do NOT cd; do NOT edit anything. Return pages (each {page, weak, why}) + an optional region note.'].join('\n')
-const rebuildPrompt = (page) => [PRE, 'TASK: HOSTILE GROUND-UP REBUILD of ' + page + ' to the doctrine AND to domain-complete capability — this page was flagged STILL WEAK ' +
-  'after the build-outs. DISBELIEVE the page; assume every fence is naive, junior, or illusory until proven world-class; do NOT polish, REBUILD to the strongest form the ' +
-  'doctrine admits. Read the page, its sibling pages, the operative docs/stacks/python/ pages, and BOTH .api tiers; MINE the full advanced surface, ADD any shared/' +
-  'universal rail the page under-uses, STACK both tiers; VERIFY every cited member (a phantom is deleted). Construct in LIFECYCLE order, collapse parallel shapes into one ' +
-  'closed family/ADT, drive cases with a derived `frozendict` table or fold, one polymorphic entrypoint per modality, weave cross-cutting concerns as STACKED aspects over ' +
-  'a thin pure core, parameterize BOTH ingress and egress. CLOSE THE CONCEPT CAPABILITY GAPS by extending the EXISTING owner in place (case/row/field/operation/' +
-  'policy-value), each addition citing a package member / domain attribute / consumer contract. Wire into core/plan + core/receipt as a CASE. py3.15-modern only; ' +
-  'high-signal all-backticked prose. Report `collapsed` + `extended`; verdict `rebuilt` unless the fence genuinely survived untouched. Return the fix-log + residual_high ' +
-  '— each a {files:[...], claim} object for CROSS-FILE items only.'].join('\n')
-const critiquePrompt = (pages) => [PRE, 'TASK: BATCHED HOSTILE DOCTRINAL-CONFORMANCE AUDIT + FIX IN PLACE over these pages (audit EACH independently, fix EACH in ' +
-  'place):\n' + JSON.stringify(pages, null, 1) + '\nYou are ULTRA-HARSH: assume a violation exists in EVERY fence until proven otherwise, trust NOTHING the prose claims. ' +
-  'For EACH page run the mechanical checklists line-by-line: (1) COLLAPSE_SCAN (12 signals, 3+ instances mandatory), (2) OWNER_CHOOSER (5 discriminants, replace any ' +
-  'non-correct owner, kill parallel DTOs/one-field wrappers/None-as-failure), (3) KNOB_TEST (delete encoded params, move timeout/retry/deadline to aspects), (4) ASPECTS ' +
-  '(signature+rail-preserving stacked decorators that never raise into domain flow), (5) RAILS (narrowest carrier once, CLOSED fault vocabulary, accumulate-vs-abort ' +
-  'correct, NO asyncio/hand-rolled retry/None-failure/exception-control-flow), (6) PAYLOADS/FROZENDICT/PEP (`closed=`/`extra_items=` `TypedDict` via `TypeAdapter` + ' +
-  '`Unpack`, `frozendict` builtin tables, PEP 585/604/695, total `match` + `assert_never`). CRITICAL FOR THIS CAPSTONE: (a) docs/stacks/python conformance to the LETTER, ' +
-  '(b) BOTH-TIER .api ULTRA-STACKING — diff the FULL shared `libs/python/.api` + folder `libs/python/artifacts/.api` inventory against what each page cites and adopt every ' +
-  'relevant unadopted catalog to depth, (c) NO PHANTOMS — every cited member verified against the .api tiers, unverifiable members deleted, (d) CAPABILITY-COMPLETENESS + ' +
-  'ILLUSION — close any omitted domain/package/consumer capability by growing the EXISTING owner, delete speculative/decorative padding. REPAIR every hit in place. Return ' +
-  'the batched fix-log (files = pages touched) + residual_high — each a {files:[...], claim} object for CROSS-FILE items only.'].join('\n')
-const redteamPrompt = (pages) => [PRE, 'TASK: BATCHED ADVERSARIAL ARCHITECT RED-TEAM + FIX IN PLACE over these pages (red-team EACH independently, fix EACH in ' +
-  'place):\n' + JSON.stringify(pages, null, 1) + '\nYou are the MOST AGGRESSIVE pass: assume the design is naive or illusory until PROVEN the strongest, burden of proof on ' +
-  'the design. For EACH page: (A) COUNTERFACTUAL on the core owner/algebra/dispatch — rebuild to a fundamentally stronger form (denser owner / fold-derived-table / DEEPER ' +
-  'admitted-package primitive) if one exists; (B) ANTICIPATORY_COLLAPSE — the next case/dimension/modality lands as ONE declaration; (C) LONG-TAIL multi-dimensional attack ' +
-  '(empty/singular/plural/stream/malformed/concurrent/cancelled/partial-failure/version-skew), accumulate-vs-abort correct, BOTH ingress AND egress parameterized; (D) ' +
-  'BOUNDARY-INTEGRITY at FOLDER SCOPE — a concern owned twice across the folder, a folder mixing concerns, a concern scattered across folders, or coupling to a sibling ' +
-  'INTERIOR (vs its wire/seam) is a defect; the C# Rasm.Bim IFC boundary is law; (E) SURFACE-SPRAWL + PHANTOMS — collapse hand-rolled code to package depth, delete ' +
-  'unverifiable members; (F) PACKAGE RATIONALIZATION — enforce the brief categorical-best / no-overlap roster: where two packages own one concern, route through the ' +
-  'categorical-best owner and FLAG the superseded package for the final pyproject reconciliation (in residual_high); (G) CAPABILITY-COMPLETENESS + ILLUSION — extend the ' +
-  'owner in place for any omitted capability, reject flat spam. Hold the highest bar; every defect you raise you REPAIR. Return the batched fix-log + residual_high — each ' +
-  'a {files:[...], claim} object for CROSS-FILE items only.'].join('\n')
-const sweepPrompt = (pages) => [PRE, 'TASK: BATCHED FULL-SWEEP (max) over these pages — the terminal line-by-line densification pass before resolve (sweep EACH, fix EACH ' +
-  'in place):\n' + JSON.stringify(pages, null, 1) + '\nThis is the deepest pass: read EACH page line-by-line and (1) PURGE NAIVE VOCABULARIES — no flat `str`/`int` where a ' +
-  'closed `StrEnum`/`Literal`/`@tagged_union` owns the axis, no `dict[str, Any]` bag, no naive id/member set where the concept owns geometry/metrics/topology/operations; ' +
-  '(2) DEEPEN CROSS-FILE STACKING — verify every seam to a sibling owner reads a real declared field/case, and stack the both-tier .api capability the page still under-' +
-  'uses; (3) RESOLVE PRIOR RESIDUALS that fall within these pages; (4) re-run the full conformance lens (COLLAPSE_SCAN, OWNER_CHOOSER, KNOB_TEST, ASPECTS, RAILS, ' +
-  'PAYLOADS/FROZENDICT/PEP, capability-completeness, illusion-hunt, prose + comment hygiene) with fresh hostile eyes. Even absent a structural rebuild each fence must end ' +
-  'objectively denser, MORE CAPABLE, and more correct. REPAIR every hit in place. Return the batched fix-log (files = pages touched) + residual_high — each a {files:[...], ' +
-  'claim} object for CROSS-FILE items only.'].join('\n')
-const reconcileFixPrompt = (cl) => [PRE, 'TASK: RECONCILE these cross-FILE residuals. There is NO severity — treat EVERY residual as must-address. Your blast radius is ' +
-  'WIDE: the whole libs/python/artifacts/.planning folder, the cross-folder libs/python siblings the seams touch (data/tabular, runtime, compute, geometry), the index ' +
-  'docs (libs/python/artifacts/ARCHITECTURE.md [01]-[DOMAIN_MAP] + [02]-[SEAMS], README.md [01]-[ROUTER] + [02]-[DOMAIN_PACKAGES]), and the core/plan + core/receipt seam ' +
+const inLibs = (p) => typeof p === 'string' && (p.startsWith('libs/') || p.indexOf('/libs/') !== -1)
+const norm = (x, fallback) => { const files = Array.isArray(x.files) ? x.files.filter(inLibs) : []; return { files: files.length ? files : [fallback], claim: x.claim } }
+const dedup = (rs) => [...new Map(rs.map((r) => [r.files.slice().sort().join(',') + '|' + r.claim, r])).values()]
+const keyOf = (r) => r.files.slice().sort().join(',') + '|' + r.claim
+const cluster = (residuals) => {
+  const parent = new Map(); const find = (f) => { let p = f; while (parent.get(p) !== p) p = parent.get(p); return p }; const add = (f) => { if (!parent.has(f)) parent.set(f, f) }
+  for (const r of residuals) { r.files.forEach(add); for (let i = 1; i < r.files.length; i++) parent.set(find(r.files[i]), find(r.files[0])) }
+  const by = new Map()
+  for (const r of residuals) { const root = r.files.length ? find(r.files[0]) : '__none__'; (by.get(root) || by.set(root, []).get(root)).push(r) }
+  return [...by.values()]
+}
+// packClusters — consolidate the union-find clusters into AT MOST n encompassing buckets (greedy smallest-bucket by residual count),
+// so reconcile is a single bounded pass (<=n fix + <=n verify), never one agent per cluster and never a re-entry loop.
+const packClusters = (clusters, n) => {
+  if (clusters.length <= n) return clusters
+  const buckets = Array.from({ length: n }, () => [])
+  const sorted = clusters.slice().sort((a, b) => b.length - a.length || ((a[0] && a[0].claim) || '').localeCompare((b[0] && b[0].claim) || ''))
+  for (const c of sorted) { let mi = 0; for (let i = 1; i < n; i++) if (buckets[i].length < buckets[mi].length) mi = i; buckets[mi].push(...c) }
+  return buckets.filter((b) => b.length)
+}
+
+// MAP_BY_PAGE — the per-page reading map (apiUsed/apiUnderutilized/contextNote/stackingGuidance/weak) Discover surfaced, indexed for every downstream stage.
+let MAP_BY_PAGE = new Map()
+const mapFor = (page) => MAP_BY_PAGE.get(page) || { page, weak: true, apiUsed: [], apiUnderutilized: [], contextNote: '', stackingGuidance: '' }
+const mapsFor = (pages) => pages.map((p) => mapFor(p))
+const READ_MANDATE = (maps) => 'READING MAP (the per-page grounding Discover surfaced — an INITIAL POINTER, never the ceiling):\n' + JSON.stringify(maps, null, 1) + '\n' +
+  'BEFORE editing, ULTRA-DEEP-READ: (1) ALL docs/stacks/python/ root pages in README atlas order (the FULL set, NEVER a subset); (2) the campaign brief ' + BRIEF + ' in ' +
+  'FULL; (3) BOTH .api tiers — list `' + API_SHARED + '/` AND `' + API_FOLDER + '/` in full and read every catalog relevant to these pages. The map POINTS; you VERIFY and ' +
+  'EXCEED it: COMPOSE every `apiUsed` catalog at full operator depth, STACK every `apiUnderutilized` {catalog, capability} INTO the owning page (closing the ' +
+  'underutilization is new functionality woven into the owner — a case/row/field/operation), AND independently CONFIRM no other relevant admitted catalog (either tier) is ' +
+  'missing or unconsidered — the discovery agent only pointed, you do the exhaustive read. Verify every cited member exists (`uv run --frozen python -m tools.assay api ' +
+  'resolve <pkg>`); a member you cannot verify is a phantom to delete.'
+
+const planPrompt = () => ['Rasm monorepo, libs/python/artifacts/.planning. TASK: thin enumerate (read-only, do NOT edit). Use find/ls; do NOT cd. List EVERY design page ' +
+  'under ' + ROOT + '/** (repo-relative *.md), EXCLUDING IDEAS.md/TASKLOG.md/README.md/ARCHITECTURE.md and the campaign brief _REBUILD_BRIEF.md. Return pages (the full ' +
+  'repo-relative *.md list). The owning package is artifacts.'].join('\n')
+const discoverPrompt = (batch) => [LAW, '', CAMPAIGN, '', ADVERSARIAL, '', 'TASK: READ-ONLY CAPSTONE DISCOVERY for these ' + batch.length + ' pages (investigate, do NOT ' +
+  'edit): ' + batch.join(', ') + '. Read ' + BRIEF + ' for the per-page concern + owned vocabulary/roster, READ EACH listed page IN FULL, and read the folder at large (the ' +
+  'sibling pages each composes, the index docs ' + ROOT.replace('/.planning', '') + '/ARCHITECTURE.md + README.md, core/plan + core/receipt). Then ENUMERATE BOTH .api tiers IN ' +
+  'FULL with a real `ls`: the SHARED `' + API_SHARED + '/` AND the FOLDER `' + API_FOLDER + '/`. For EACH page produce: (a) `weak` true|false under the HOSTILE stance — weak = ' +
+  'naive/illusory/hollow, under-collapsed, capability-thin against its domain, mis-stacked on the .api tiers, or carrying any mechanical/model-coherence defect; DEFAULT to ' +
+  'weak unless the page genuinely survives an aggressive read (strong = already world-class), with a one-line `why`; (b) `apiUsed` — the .api catalogs the page CURRENTLY ' +
+  'composes, BOTH tiers; (c) `apiUnderutilized` — each {catalog, capability}: an admitted catalog/member (either tier) the page concept ADMITS but IGNORES — REAL analysis ' +
+  'against the verified .api inventory + the brief roster, never a guess; a concrete capability the rebuild/review MUST stack to close; (d) `contextNote` — the page ' +
+  'contextual relation: which sibling owners/seams it composes, where it sits, which core/plan + core/receipt case it contributes; (e) `stackingGuidance` — the INITIAL ' +
+  'pointer on what api stacking + capability extension to add. Members are verified-local truth via `uv run --frozen python -m tools.assay api resolve`; never a phantom. ' +
+  'Return worklist (each {page, weak, why, apiUsed, apiUnderutilized, contextNote, stackingGuidance}).'].join('\n')
+const rebuildPrompt = (batch) => [PRE, READ_MANDATE(mapsFor(batch)), '', 'TASK: HOSTILE GROUND-UP REBUILD of these ' + batch.length + ' pages IN PLACE — each flagged STILL ' +
+  'WEAK after the build-outs: ' + batch.join(', ') + '. DISBELIEVE each page; assume every fence is naive, junior, or illusory until proven world-class; do NOT polish, ' +
+  'REBUILD to the strongest form the doctrine admits, treat dense confident code as a prime suspect for hollowness. Construct in LIFECYCLE order, collapse parallel shapes ' +
+  'into one closed family/ADT, drive cases with a derived `frozendict` table or fold, one polymorphic entrypoint per modality, weave cross-cutting concerns as STACKED ' +
+  'aspects over a thin pure core, parameterize BOTH ingress and egress. COMPOSE the reading-map `apiUsed` at full operator depth + STACK every `apiUnderutilized` into the ' +
+  'owner + CONFIRM no other admitted catalog is missing (the map is the initial pointer; you ultra-deep-read both .api tiers yourself). CLOSE the concept capability gaps by ' +
+  'growing the EXISTING owner in place (case/row/field/operation/policy-value, each citing a package member / domain attribute / consumer contract). Wire into core/plan + ' +
+  'core/receipt as a CASE. py3.15-modern only; high-signal all-backticked prose. WRITE-FULLY now. Return the fix-log (files = pages touched) + collapsed + extended + ' +
+  'residual_high — each a {files:[...], claim} object for CROSS-FILE items only.'].join('\n')
+const critiquePrompt = (batch, i) => [PRE, READ_MANDATE(mapsFor(batch)), '', 'TASK: BATCHED HOSTILE DOCTRINAL-CONFORMANCE AUDIT + FIX IN PLACE over these ' + batch.length +
+  ' pages (batch ' + i + ', audit EACH independently, fix EACH in place): ' + batch.join(', ') + '. You are ULTRA-HARSH: assume a violation exists in EVERY fence until proven ' +
+  'otherwise, trust NOTHING the prose claims, treat dense confident code as the PRIME suspect for hollowness. For EACH page run the mechanical checklists line-by-line: (1) ' +
+  'COLLAPSE_SCAN (12 signals, 3+ instances mandatory), (2) OWNER_CHOOSER (5 discriminants, replace any non-correct owner, kill parallel DTOs/one-field wrappers/None-as-' +
+  'failure), (3) KNOB_TEST (delete encoded params, move timeout/retry/deadline to aspects), (4) ASPECTS (signature+rail-preserving stacked decorators that never raise into ' +
+  'domain flow), (5) RAILS (narrowest carrier once, CLOSED fault vocabulary, accumulate-vs-abort correct, NO asyncio/hand-rolled retry/None-failure/exception-control-' +
+  'flow), (6) PAYLOADS/FROZENDICT/PEP (`closed=`/`extra_items=` `TypedDict` via `TypeAdapter` + `Unpack`, `frozendict` builtin tables, PEP 585/604/695, total `match` + ' +
+  '`assert_never`). CRITICAL FOR THIS CAPSTONE: (a) docs/stacks/python conformance to the LETTER, (b) BOTH-TIER .api ULTRA-STACKING — diff the FULL shared + folder .api ' +
+  'inventory against what each page cites and adopt every relevant unadopted catalog to depth (the reading-map `apiUnderutilized` is the starting list, not the ceiling), ' +
+  '(c) NO PHANTOMS — every cited member verified against the .api tiers, unverifiable members deleted, (d) CAPABILITY-COMPLETENESS + ILLUSION — close any omitted ' +
+  'domain/package/consumer capability by growing the EXISTING owner, delete speculative/decorative padding. REPAIR every hit in place. Return the batched fix-log (files = ' +
+  'pages touched) + extended + residual_high — each a {files:[...], claim} object for CROSS-FILE items only.'].join('\n')
+const redteamPrompt = (batch, i, crit) => [PRE, READ_MANDATE(mapsFor(batch)), '', 'TASK: BATCHED ADVERSARIAL ARCHITECT RED-TEAM + FIX IN PLACE over these ' + batch.length +
+  ' pages (batch ' + i + ', red-team EACH independently, fix EACH in place): ' + batch.join(', ') + '. You are the MOST AGGRESSIVE pass: assume the design is naive or ' +
+  'illusory until PROVEN the strongest, burden of proof on the design. For EACH page: (A) COUNTERFACTUAL on the core owner/algebra/dispatch — rebuild to a fundamentally ' +
+  'stronger form (denser owner / fold-derived-table / DEEPER admitted-package primitive — an `apiUnderutilized` member is the first place to look) if one exists; (B) ' +
+  'ANTICIPATORY_COLLAPSE — the next case/dimension/modality lands as ONE declaration; (C) LONG-TAIL multi-dimensional attack (empty/singular/plural/stream/malformed/' +
+  'concurrent/cancelled/partial-failure/version-skew), accumulate-vs-abort correct, BOTH ingress AND egress parameterized; (D) BOUNDARY-INTEGRITY at FOLDER SCOPE — a ' +
+  'concern owned twice across the folder, a folder mixing concerns, a concern scattered across folders, or coupling to a sibling INTERIOR (vs its wire/seam) is a defect; ' +
+  'the C# Rasm.Bim IFC boundary is law; (E) SURFACE-SPRAWL + PHANTOMS — collapse hand-rolled code to package depth, delete unverifiable members; (F) PACKAGE ' +
+  'RATIONALIZATION — enforce the brief categorical-best / no-overlap roster: where two packages own one concern, route through the categorical-best owner and FLAG the ' +
+  'superseded package for the final pyproject reconciliation (in residual_high); (G) CAPABILITY-COMPLETENESS + ILLUSION — extend the owner in place for any omitted ' +
+  'capability, reject flat spam. CARRY FORWARD any unresolved cross-file residual from the critique result below and add your own. CRITIQUE RESULT:\n' +
+  JSON.stringify((crit && { verdict: crit.verdict, residual_high: crit.residual_high || [] }) || {}, null, 1) +
+  '\nReturn the batched fix-log + residual_high — each a {files:[...], claim} object for CROSS-FILE items only.'].join('\n')
+const sweepPrompt = (batch, i) => [PRE, READ_MANDATE(mapsFor(batch)), '', 'TASK: BATCHED FULL-SWEEP (max) over these ' + batch.length + ' pages — the terminal line-by-line ' +
+  'densification pass before resolve (sweep EACH, fix EACH in place), batch ' + i + ': ' + batch.join(', ') + '. This is the deepest pass: read EACH page line-by-line and (1) ' +
+  'PURGE NAIVE VOCABULARIES — no flat `str`/`int` where a closed `StrEnum`/`Literal`/`@tagged_union` owns the axis, no `dict[str, Any]` bag, no naive id/member set where ' +
+  'the concept owns geometry/metrics/topology/operations; (2) DEEPEN CROSS-FILE STACKING — verify every seam to a sibling owner reads a real declared field/case, and stack ' +
+  'the both-tier .api capability the page still under-uses (the reading-map `apiUnderutilized` is the starting list); (3) RESOLVE PRIOR RESIDUALS that fall within these ' +
+  'pages; (4) re-run the full conformance lens (COLLAPSE_SCAN, OWNER_CHOOSER, KNOB_TEST, ASPECTS, RAILS, PAYLOADS/FROZENDICT/PEP, capability-completeness, illusion-hunt, ' +
+  'prose + comment hygiene) with fresh hostile eyes. Even absent a structural rebuild each fence must end objectively denser, MORE CAPABLE, and more correct. REPAIR every ' +
+  'hit in place. Return the batched fix-log (files = pages touched) + residual_high — each a {files:[...], claim} object for CROSS-FILE items only.'].join('\n')
+const reconcileFix = (cl) => [PRE, 'TASK: RECONCILE these cross-FILE residuals. There is NO severity — treat EVERY residual as must-address. Your blast radius is WIDE: the ' +
+  'whole libs/python/artifacts/.planning folder, the cross-folder libs/python siblings the seams touch (data/tabular, runtime, compute, geometry), the index docs ' +
+  '(libs/python/artifacts/ARCHITECTURE.md [01]-[DOMAIN_MAP] + [02]-[SEAMS], README.md [01]-[ROUTER] + [02]-[DOMAIN_PACKAGES]), and the core/plan + core/receipt seam ' +
   'owners. The C# wire seams (csharp:Rasm.Bim, csharp:Rasm.Persistence) are recorded as ALIGNED seams, never coupled to a C# interior — fix the Python-side seam and record ' +
   'the wire contract, never edit C#. Read EVERY listed file. For each: if a real cross-file defect, FIX it in place (unify the shared type/seam/rail, add the depended-on ' +
-  'case/field, update the index-doc maps, flag a package overlap for the final pyproject reconciliation); if FACTUALLY INCORRECT, leave it and say why. Preserve all ' +
-  'capability. Residuals:\n' + JSON.stringify(cl, null, 1)].join('\n')
-const verifyPrompt = (cl, fix, tag) => [PRE, 'TASK: ADVERSARIAL VERIFY (' + tag + '), one verdict per claim. Read the named files from disk and classify each residual: ' +
-  'status "fixed" (real defect, now genuinely resolved), "invalid" (the claim is factually wrong — cite why), or "open" (real defect still NOT resolved). Default "open" on ' +
-  'any doubt; "invalid" only when provably wrong. Claims:\n' + JSON.stringify(cl, null, 1) + '\nFiles the fixer touched: ' + JSON.stringify(fix.files)].join('\n')
-const reviewResiduals = (results, acc) => { for (const r of results) if (r && r.residual_high) for (const x of r.residual_high) acc.push(typeof x === 'string' ? { files: [ROOT], claim: x } : { files: x.files && x.files.length ? x.files : [ROOT], claim: x.claim }) }
+  'case/field, update the index-doc maps, flag a package overlap for the final pyproject reconciliation); if FACTUALLY INCORRECT, leave it and say why. If your fix surfaces ' +
+  'a new cross-file need, report it in residual_high. Preserve all capability. Residuals:\n' + JSON.stringify(cl, null, 1)].join('\n')
+const verifyPrompt = (cl, fixFiles, tag) => [PRE, 'TASK: RECONCILE VERIFY — CRITIQUE-GRADE + FIX IN PLACE, TERMINAL (' + tag + '; no further spawning, no new rounds). A ' +
+  'reconcile-fix agent claims to have resolved the cross-file residuals below. Re-read EVERY named file from disk and hold each claim to the CRITIQUE bar: is the fix the ' +
+  'OBJECTIVELY BEST cross-file reconciliation — complete, dense, doctrine-conformant, BOTH seam endpoints aligned, index-doc maps truthful, all capability preserved — or ' +
+  'is it LOOSE/WEAK/token/partial, and did it MISS a stronger reconciliation of these SAME files? Where the fix is loose/weak or a better reconciliation of these files ' +
+  'exists, REPAIR it IN PLACE NOW to the objectively-best form — this is the LAST pass on these files, you FIX rather than defer. Then classify each claim: "fixed" (real, ' +
+  'complete, objectively-best after your repair), "invalid" (the claim is provably wrong — cite why), or "open" (a GENUINE external blocker needing an architecture ' +
+  'decision outside these files; describe it). Mark "open" ONLY for a true external blocker; a fix you could strengthen you STRENGTHEN, never mark open to punt. Do NOT ' +
+  'surface new unrelated cross-file work and do NOT request another round — this pass is bounded to these files and terminal. Claims:\n' + JSON.stringify(cl, null, 1) +
+  '\nFiles the fixer touched: ' + JSON.stringify(fixFiles)].join('\n')
+const reviewResiduals = (results, acc, key) => { for (const r of results) if (r && r.residual_high) for (const x of r.residual_high) acc.push(norm(x, (r.files && r.files[0]) || key)) }
 
 // --- [COMPOSITION] -----------------------------------------------------------------------
 
-phase('Discover')
-const regionResults = (await pool(REGIONS, CAP, (rg) => agent(regionPrompt(rg), { label: 'discover:' + rg.name, phase: 'Discover', model: 'opus', effort: 'high', schema: REGION_SCHEMA, stallMs: 300000 }))).filter(Boolean)
-const allPageRows = regionResults.flatMap((r) => (r && r.pages) || []).filter((p) => p && p.page)
-const ALL_PAGES = [...new Set(allPageRows.map((p) => p.page))]
-const WEAK = [...new Set(allPageRows.filter((p) => p.weak).map((p) => p.page))]
-log('Discover: ' + ALL_PAGES.length + ' pages across ' + regionResults.length + ' regions; ' + WEAK.length + ' weak -> rebuild; CAP=' + CAP)
+phase('Plan')
+const plan = await agent(planPrompt(), { label: 'plan', phase: 'Plan', model: 'sonnet', effort: 'low', schema: PLAN_SCHEMA, stallMs: STALL })
+const ALL_PAGES = [...new Set(((plan && plan.pages) || []).filter((p) => p && p !== BRIEF))]
+log('Plan: ' + ALL_PAGES.length + ' folder pages; CAP=' + CAP)
 if (!ALL_PAGES.length) { log('No pages discovered under ' + ROOT); return { root: ROOT, total: 0 } }
+
+// --- [DISCOVER]
+phase('Discover')
+const discovered = (await pool(chunk(ALL_PAGES, DISCOVER_BATCH), CAP, (batch, i) => agent(discoverPrompt(batch), { label: 'discover:b' + i, phase: 'Discover', model: 'opus', effort: 'max', schema: DISCOVER_SCHEMA, stallMs: STALL }))).filter(Boolean)
+MAP_BY_PAGE = new Map(discovered.flatMap((d) => (d.worklist || []).filter((w) => w && w.page).map((w) => [w.page, w])))
+const WEAK = [...new Set([...MAP_BY_PAGE.values()].filter((w) => w.weak).map((w) => w.page))]
+log('Discover: reading map for ' + MAP_BY_PAGE.size + '/' + ALL_PAGES.length + ' pages; ' + WEAK.length + ' weak -> rebuild')
 
 // --- [REBUILD]
 phase('Rebuild')
-const rebuilt = WEAK.length ? (await pool(WEAK, CAP, (p) => agent(rebuildPrompt(p), { label: 'rebuild:' + folderOf(p) + ':' + subOf(p), phase: 'Rebuild', schema: FIXLOG_SCHEMA, effort: 'max', stallMs: 300000 }))).filter(Boolean) : []
+const rebuilt = WEAK.length ? (await pool(chunk(WEAK, REBUILD_BATCH), CAP, (batch, i) => agent(rebuildPrompt(batch), { label: 'rebuild:b' + i + ':' + folderOf(batch[0]), phase: 'Rebuild', schema: FIXLOG_SCHEMA, effort: 'max', stallMs: STALL }))).filter(Boolean) : []
 
-// --- [RECONCILE]
-const recResiduals = []
-for (const r of rebuilt) if (r && r.residual_high) for (const x of r.residual_high) recResiduals.push(typeof x === 'string' ? { files: [ROOT], claim: x } : { files: x.files && x.files.length ? x.files : [ROOT], claim: x.claim })
-const recC = clustersOf(recResiduals)
-let recOpen = []
-if (recC.clusters.length) {
-  phase('Reconcile')
-  const reconciled = (await pool(recC.clusters, CAP, async (cl, i) => {
-    const fix = await agent(reconcileFixPrompt(cl), { label: 'reconcile-fix:' + i, phase: 'Reconcile', schema: RESIDUAL_FIX_SCHEMA, effort: 'max', stallMs: 300000 })
-    if (!fix) return null
-    const verify = await agent(verifyPrompt(cl, fix, 'reconcile'), { label: 'reconcile-verify:' + i, phase: 'Reconcile', schema: RECONCILE_VERIFY_SCHEMA, effort: 'xhigh', stallMs: 300000 })
-    return { cluster: cl, fix, verify }
-  })).filter(Boolean)
-  const open = new Set(reconciled.flatMap((r) => (r.verify && r.verify.claims) || []).filter((c) => c.status === 'open').map((c) => c.claim))
-  recOpen = recC.uniq.filter((r) => open.has(r.claim))
-}
-log('Rebuild: ' + rebuilt.length + '/' + WEAK.length + ' weak rebuilt; reconcile ' + recC.clusters.length + ' clusters -> ' + recOpen.length + ' open')
+log('Rebuild: ' + rebuilt.length + ' weak batch(es) rebuilt')
 
 // --- [CRITIQUE]
 phase('Critique')
 const critResiduals = []
-const critRes = (await pool(chunk(ALL_PAGES, CRIT_BATCH), CAP, (b) => agent(critiquePrompt(b), { label: 'critique', phase: 'Critique', schema: REVIEW_SCHEMA, effort: 'xhigh', stallMs: 300000 }))).filter(Boolean)
-reviewResiduals(critRes, critResiduals)
+// NOT filtered: critRes stays indexed by batch so redteam's critRes[i] pairs with batch i; reviewResiduals guards nulls.
+const critRes = await pool(chunk(ALL_PAGES, REVIEW_BATCH), CAP, (b, i) => agent(critiquePrompt(b, i), { label: 'critique:b' + i, phase: 'Critique', schema: REVIEW_SCHEMA, effort: 'xhigh', stallMs: STALL }))
+reviewResiduals(critRes, critResiduals, ROOT)
 
 // --- [REDTEAM]
 phase('Redteam')
 const redteamResiduals = []
-const redteamRes = (await pool(chunk(ALL_PAGES, CRIT_BATCH), CAP, (b) => agent(redteamPrompt(b), { label: 'redteam', phase: 'Redteam', schema: REVIEW_SCHEMA, effort: 'max', stallMs: 300000 }))).filter(Boolean)
-reviewResiduals(redteamRes, redteamResiduals)
+const redteamRes = (await pool(chunk(ALL_PAGES, REVIEW_BATCH), CAP, (b, i) => agent(redteamPrompt(b, i, critRes[i]), { label: 'redteam:b' + i, phase: 'Redteam', schema: REVIEW_SCHEMA, effort: 'max', stallMs: STALL }))).filter(Boolean)
+reviewResiduals(redteamRes, redteamResiduals, ROOT)
 
 // --- [FULL_SWEEP]
 phase('Full-Sweep')
 const sweepResiduals = []
-const sweepRes = (await pool(chunk(ALL_PAGES, SWEEP_BATCH), CAP, (b) => agent(sweepPrompt(b), { label: 'sweep', phase: 'Full-Sweep', schema: REVIEW_SCHEMA, effort: 'max', stallMs: 300000 }))).filter(Boolean)
-reviewResiduals(sweepRes, sweepResiduals)
+const sweepRes = (await pool(chunk(ALL_PAGES, REVIEW_BATCH), CAP, (b, i) => agent(sweepPrompt(b, i), { label: 'sweep:b' + i, phase: 'Full-Sweep', schema: REVIEW_SCHEMA, effort: 'max', stallMs: STALL }))).filter(Boolean)
+reviewResiduals(sweepRes, sweepResiduals, ROOT)
 
-// --- [RESOLVE]
-phase('Resolve')
-let pending = [...recOpen, ...critResiduals, ...redteamResiduals, ...sweepResiduals]
-let round = 0
-let hard_residual = []
-let prevOpen = Infinity
-while (pending.length && round < RESOLVE_ROUNDS) {
-  round++
-  const { uniq, clusters } = clustersOf(pending)
-  const resolved = (await pool(clusters, CAP, async (cl, i) => {
-    const fix = await agent(reconcileFixPrompt(cl), { label: 'resolve-fix:r' + round + ':' + i, phase: 'Resolve', schema: RESIDUAL_FIX_SCHEMA, effort: 'max', stallMs: 300000 })
+// --- [RECONCILE] — terminal, ONE encompassing pass: <=6 buckets (6 fix + 6 critique-grade verify), NO re-entry loop.
+const rebuildResiduals = []
+reviewResiduals(rebuilt, rebuildResiduals, ROOT)
+const allResiduals = dedup([...rebuildResiduals, ...critResiduals, ...redteamResiduals, ...sweepResiduals])
+const buckets = packClusters(cluster(allResiduals), RECON_CAP)
+let reconciled = []
+if (buckets.length) {
+  phase('Reconcile')
+  reconciled = (await pool(buckets, RECON_CAP, async (bucket, i) => {
+    const fix = await agent(reconcileFix(bucket), { label: 'reconcile-fix:' + i, phase: 'Reconcile', schema: RESIDUAL_FIX_SCHEMA, effort: 'max', stallMs: STALL })
     if (!fix) return null
-    const verify = await agent(verifyPrompt(cl, fix, 'resolve r' + round), { label: 'resolve-verify:r' + round + ':' + i, phase: 'Resolve', schema: RECONCILE_VERIFY_SCHEMA, effort: 'xhigh', stallMs: 300000 })
-    return { cluster: cl, fix, verify }
+    const verify = await agent(verifyPrompt(bucket, fix.files, 'reconcile'), { label: 'reconcile-verify:' + i, phase: 'Reconcile', schema: RECONCILE_VERIFY_SCHEMA, effort: 'xhigh', stallMs: STALL })
+    return { fix, verify }
   })).filter(Boolean)
-  const open = new Set(resolved.flatMap((r) => (r.verify && r.verify.claims) || []).filter((c) => c.status === 'open').map((c) => c.claim))
-  hard_residual = uniq.filter((r) => open.has(r.claim))
-  log('Resolve round ' + round + ': ' + clusters.length + ' clusters -> ' + hard_residual.length + ' still open')
-  if (hard_residual.length >= prevOpen) { log('Resolve made no progress this round; handing ' + hard_residual.length + ' residual(s) to resolve-residuals'); break }
-  prevOpen = hard_residual.length
-  pending = hard_residual
 }
-log('Capstone complete: ' + ALL_PAGES.length + ' pages, ' + WEAK.length + ' rebuilt; ' + hard_residual.length + ' hard residual after ' + round + ' resolve round(s) -> resolve-residuals')
-return { root: ROOT, pages: ALL_PAGES.length, weak: WEAK.length, rebuilt: rebuilt.length, resolveRounds: round, hard_residual: hard_residual }
+const claimsAll = reconciled.flatMap((r) => (r.verify && r.verify.claims) || [])
+const openClaims = new Set(claimsAll.filter((c) => c.status === 'open').map((c) => c.claim))
+const surfaced = reconciled.flatMap((r) => (r.fix && r.fix.residual_high) || []).map((x) => norm(x, ROOT))
+const dropped = claimsAll.filter((c) => c.status === 'invalid').map((c) => c.claim)
+const hard_residual = dedup([...allResiduals.filter((r) => openClaims.has(r.claim)), ...surfaced])
+log('Capstone complete: ' + ALL_PAGES.length + ' pages, ' + WEAK.length + ' rebuilt; ' + allResiduals.length + ' surfaced -> ' + buckets.length + ' bucket(s) (<=6 fix + <=6 verify, no re-entry); ' + hard_residual.length + ' hard residual -> resolve-residuals, ' + dropped.length + ' dropped')
+return { root: ROOT, pages: ALL_PAGES.length, weak: WEAK.length, surfacedResidual: allResiduals.length, buckets: buckets.length, dropped: dropped, hard_residual: hard_residual.map((x) => ({ files: x.files, claim: x.claim })) }
