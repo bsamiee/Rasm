@@ -21,7 +21,7 @@ using Foundation.CSharp.Analyzers.Contracts;   // [BoundaryAdapter] (the boundar
 using LanguageExt;                              // Fin, Option, Seq
 using Rasm.Vectors;                             // PositiveMagnitude, UnitInterval — the kernel value-object atoms live in Rasm.Vectors, NOT Rasm.Domain
 using Rasm.Domain;                              // Context, Op, AcceptValidated (the boundary-admission key + the validated-accept extension)
-using Rasm.Element;                             // MaterialId (the seam appearance/capacity handle each masonry row carries)
+using Rasm.Element;                             // MaterialId (the seam appearance/substance handle each masonry row carries)
 using Thinktecture;                             // [SmartEnum]/[UseDelegateFromConstructor]/[KeyMemberEqualityComparer], ComparerAccessors
 using Rasm.Materials.Component;                 // Component/ComponentUnit/ComponentStandard/ComponentAuthority/ComponentId/ComponentFault/ComponentFamily/ComponentSection/Coring (the parent COMPONENT_OWNER)
 using static LanguageExt.Prelude;               // Seq, toSeq, Some, None

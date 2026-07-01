@@ -77,6 +77,26 @@
 |  [03]   | `BasePdfFileWriter`        | writer base        | root/info/obj graph; stream xref control                     |
 |  [04]   | `ValidationContext`        | trust context      | trust roots, OCSP/CRL fetch, `revocation_mode`, `moment`     |
 
+[PUBLIC_TYPE_SCOPE]: visible appearance / stamp family
+- rail: pdf — `pyhanko.stamp`
+
+| [INDEX] | [SYMBOL]          | [TYPE_FAMILY]       | [CAPABILITY]                                                                                              |
+| :-----: | :---------------- | :------------------ | :------------------------------------------------------------------------------------------------------- |
+|  [01]   | `BaseStampStyle`  | appearance base     | the abstract visible-seal style the `PdfSigner(stamp_style=)` renders onto the signature field           |
+|  [02]   | `TextStampStyle`  | text seal           | `stamp_text` (`%(...)s`-interpolated), `border_width`, `background_opacity` — the positioned drawing-sheet seal |
+|  [03]   | `QRStampStyle`    | scan-to-verify seal | `TextStampStyle` plus a rendered QR encoding the `%(url)s` link, positioned by `qr_position`             |
+|  [04]   | `QRPosition`      | QR placement enum   | `LEFT_OF_TEXT` / `RIGHT_OF_TEXT` / `ABOVE_TEXT` / `BELOW_TEXT`                                            |
+
+[PUBLIC_TYPE_SCOPE]: CAdES signed-attribute and DSS placement family
+- rail: pdf — `pyhanko.sign.ades.api`, `pyhanko.sign.signers.pdf_signer`
+
+| [INDEX] | [SYMBOL]                    | [TYPE_FAMILY]        | [CAPABILITY]                                                                                 |
+| :-----: | :-------------------------- | :------------------- | :------------------------------------------------------------------------------------------- |
+|  [01]   | `CAdESSignedAttrSpec`       | signed-attr spec     | `commitment_type`, signature-policy, and signer-attribute CAdES signed attributes            |
+|  [02]   | `GenericCommitment`         | commitment-type enum | `PROOF_OF_ORIGIN` / `_RECEIPT` / `_DELIVERY` / `_SENDER` / `_APPROVAL` / `_CREATION`; each `.asn1` is the ASN.1 object |
+|  [03]   | `DSSContentSettings`        | DSS write policy     | `include_vri`, `placement` controlling the DSS/VRI revision write                            |
+|  [04]   | `SigDSSPlacementPreference` | DSS placement enum   | `SEPARATE_REVISION` / `TOGETHER_WITH_NEXT_TS` / `TOGETHER_WITH_SIGNATURE`                    |
+
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: credential loading and signers
@@ -136,6 +156,17 @@
 |  [02]   | `SigFieldSpec(sig_field_name, on_page=0, box=None, seed_value_dict=None, field_mdp_spec=None, doc_mdp_update_value=None, combine_annotation=True, empty_field_appearance=False, invis_sig_settings=InvisSigSettings(...), readable_field_name=None, visible_sig_settings=VisibleSigSettings(...))` | field descriptor | declare a field placement + seed value; both `invis_sig_settings` and `visible_sig_settings` carry the appearance flags, `doc_mdp_update_value` sets the per-field DocMDP level |
 |  [03]   | `enumerate_sig_fields(handler, filled_status=None, with_name=None)`                                   | field enumerator | iterate signature fields with fill state |
 |  [04]   | `prepare_sig_field(sig_field_name, root, update_writer, ...)`                                         | field preparer   | locate or create a field for signing     |
+
+[ENTRYPOINT_SCOPE]: visible appearance, CAdES attributes, and DSS placement
+- rail: pdf — `pyhanko.stamp`, `pyhanko.sign.ades.api`, `pyhanko.sign.signers.pdf_signer`
+
+| [INDEX] | [SURFACE]                                                                                    | [ENTRY_FAMILY]   | [CAPABILITY]                                                                 |
+| :-----: | :------------------------------------------------------------------------------------------- | :--------------- | :--------------------------------------------------------------------------- |
+|  [01]   | `TextStampStyle(stamp_text=, border_width=, background_opacity=, ...)`                        | text seal ctor   | positioned visible drawing-sheet seal fed to `PdfSigner(stamp_style=)`        |
+|  [02]   | `QRStampStyle(stamp_text=, border_width=, background_opacity=, qr_position=, ...)`            | QR seal ctor     | scan-to-verify seal; `appearance_text_params` carries the `%(url)s` link      |
+|  [03]   | `CAdESSignedAttrSpec(commitment_type=, signature_policy_identifier=, signer_attributes=)`     | signed-attr ctor | attach a CAdES commitment-type + policy signed attribute to the signature     |
+|  [04]   | `GenericCommitment.<PROOF_OF_*>.asn1`                                                         | commitment value | the ASN.1 commitment-type object fed to `CAdESSignedAttrSpec(commitment_type=)` |
+|  [05]   | `DSSContentSettings(include_vri=, placement=SigDSSPlacementPreference.<...>)`                 | DSS policy ctor  | control the DSS/VRI revision placement at sign time                           |
 
 [ENTRYPOINT_SCOPE]: validation, DSS, and raw CMS
 - rail: pdf — `pyhanko.sign.validation`

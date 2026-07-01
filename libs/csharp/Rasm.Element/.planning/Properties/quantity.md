@@ -107,19 +107,47 @@ public sealed partial class QuantityType {
 
 ## [03]-[MEASURE_VALUE]
 
-- Owner: `MeasureValue` the SI-coerced measured-scalar carrier (`QuantityType Type` + `Dimension Dimension` + `double Si` + `string CanonicalUnit`) the `Properties/property#PROPERTY_VALUE` `Measure` arm, the `Composition/material#MATERIAL_PROPERTY` measured columns, and the `Assessment/assessment#ASSESSMENT_NODE` result scalars read; the one polymorphic `As(QuantityType)` QTO read (the named `Length`/`Area`/`Volume`/`Weight`/`Time`/`Count` reads deriving from it) replaces the former `QuantityKind` switch, and the `Multiply`/`Divide`/`Scale`/`Sum` algebra owns the dimensioned reductions a takeoff composes.
-- Entry: `MeasureValue.Of(double value, Enum unit, Op key)` admits a value-plus-`UnitsNet`-unit, coercing to SI base once through the `UnitsNet` registry (`Quantity.TryFrom` → `IQuantity` → `ToUnit(UnitSystem.SI)` for a dimensional quantity, the as-constructed unit for a dimensionless one), reading the `QuantityInfo.Name` into `Type` and the `Dimensions` 7-vector into `Dimension`, `Fin<T>` railing `ElementFault.ValueRejected` on a non-finite value, an unresolvable unit, or an SI reprojection the `UnitsNet` boundary throws; `MeasureValue.Of(double value, string unit, Op key)` resolves a unit abbreviation off the wire; `MeasureValue.OfSi(QuantityType type, Dimension dimension, double si)` admits an already-SI-base value with its named type (the `Rasm.Compute` result + the `SectionProperties` bake entry — a section modulus stamps `OfSi(QuantityType.Create("SectionModulus"), Dimension.VolumeDim, z)` so it never reads as a `Volume`); `MeasureValue.OfSi(Dimension dimension, double si)` the dimension-only convenience (dimensioned-but-untyped, read through `Si`); `MeasureValue.OfCount(double value, Op key)` admits a dimensionless count; `MeasureValue.Zero` the dimensionless additive identity. The reads and reductions: `As(QuantityType type)` the ONE quantity-type-checked SI read (`Some(Si)` iff the stored `Type` matches), `In(Enum unit)` the unit-aware DISPLAY egress (the stored SI scalar reprojected to a caller-chosen `UnitsNet` unit through the reconstructed `IQuantity`, `Some` for a registry quantity and `None` for a dimension-anonymous consumer-minted one the registry cannot rebuild), `Multiply`/`Divide` the dimensioned cross-quantity product/quotient over the composed `Dimension`, `Scale(factor)` the type-and-dimension-preserving scalar multiple, `Sum(measures, key)` the same-type reduction, `Quantize(tolerance)` the content-hash grid round.
-- Auto: `Of` routes the raw value through `Quantity.TryFrom(value, unit)` to a boxed `IQuantity`, then `Coerce` reprojects a DIMENSIONAL quantity to SI base through `ToUnit(UnitSystem.SI)` and keeps a DIMENSIONLESS quantity (`Angle`/`Ratio`/`Level`/dB — no distinct SI unit) in its as-constructed unit, so `Admit` reads `(double)Value` plus `QuantityInfo.Name` plus `Dimension.Of(Dimensions)` and the persisted scalar is SI-base while the type is the registry's, never a hand-mapped kind; the one `As(QuantityType)` read tests the stored `Type` against the asked row and returns the `Si` as an `Option<double>` so a takeoff reads `measure.Area` (the named read deriving `As(QuantityType.Area)`) rather than a `Kind == QuantityKind.Area` branch, and a radian `Angle` or a dB `Level` never false-reads as a `Count`; `Multiply`/`Divide` compose `Dimension.Multiply`/`Divide` and mint the dimension-anonymous `QuantityType.OfDimension` over the SI-scalar product/quotient (a `Volume × Density` reads `MassDim` without the seam false-naming it `Mass`), so a geometry-true derived quantity composes ON the carrier; `Scale` preserves `Type` and `Dimension` (a basis-multiple of a measure is the same quantity); `Quantize(tolerance)` rounds `Si` to the `Header.Tolerance` grid (normalizing `-0.0`) for the `Projection/address#CONTENT_ADDRESS` canonical-byte projection so two measures within tolerance share a content key; `Sum(measures, key)` reduces a same-`Type` sequence by summing the SI scalars (already SI-base, so the dimensioned sum is the scalar sum), railing on a type mismatch.
-- Receipt: a `MeasureValue` is the unit-checked evidence a takeoff, a property facet, and a cost join read — `measure.Si` is the SI magnitude, `measure.CanonicalUnit` the SI unit string, `measure.Type` the quantity-type identity, `measure.Dimension` the physical signature; a same-type element-set aggregate folds through `MeasureValue.Sum` and a derived quantity composes through `MeasureValue.Multiply`/`Divide`/`Scale` so the dimensioned reduction and the cross-quantity product are ONE typed algebra on the carrier, never a manual `double` accumulation or a hand-reconstructed result dimension, and the named QTO reads (`Length`/`Area`/`Volume`/`Weight`/`Time`/`Count`) are the one-hop convenience over `As(QuantityType)` the cost and quantity consumers compose.
+- Owner: `MeasureValue` the SI-coerced measured-scalar carrier (`QuantityType Type` + `Dimension Dimension` + `double Si` + `string CanonicalUnit` + `Option<MeasureBand> Uncertainty`) the `Properties/property#PROPERTY_VALUE` `Measure` arm, the `Composition/material#MATERIAL_PROPERTY` measured columns, and the `Assessment/assessment#ASSESSMENT_NODE` result scalars read; `MeasureBand` the neutral uncertainty interval/band carrier plus optional distribution metadata; `UncertaintyKind` the closed uncertainty-model token a package-specific uncertainty library lowers onto.
+- Entry: `MeasureValue.Of(double value, Enum unit, Op key)` admits a value-plus-`UnitsNet`-unit, coercing to SI base once through the `UnitsNet` registry (`Quantity.TryFrom` → `IQuantity` → `ToUnit(UnitSystem.SI)` for a dimensional quantity, the as-constructed unit for a dimensionless one), reading the `QuantityInfo.Name` into `Type` and the `Dimensions` 7-vector into `Dimension`, `Fin<T>` railing `ElementFault.ValueRejected` on a non-finite value, an unresolvable unit, or an SI reprojection the `UnitsNet` boundary throws; `MeasureValue.WithUncertainty(band)` stamps optional neutral uncertainty bounds after an owning package has admitted the uncertainty model.
+- Auto: `Of` routes the raw value through `Quantity.TryFrom(value, unit)` to a boxed `IQuantity`, then `Coerce` reprojects a DIMENSIONAL quantity to SI base through `ToUnit(UnitSystem.SI)` and keeps a DIMENSIONLESS quantity (`Angle`/`Ratio`/`Level`/dB — no distinct SI unit) in its as-constructed unit, so `Admit` reads `(double)Value` plus `QuantityInfo.Name` plus `Dimension.Of(Dimensions)` and the persisted scalar is SI-base while the type is the registry's, never a hand-mapped kind; uncertainty rides the optional `MeasureBand`, not a second deterministic value.
+- Receipt: a `MeasureValue` is the unit-checked evidence a takeoff, a property facet, and a cost join read — `measure.Si` is the SI magnitude, `measure.CanonicalUnit` the SI unit string, `measure.Type` the quantity-type identity, `measure.Dimension` the physical signature, and `measure.Uncertainty` the optional neutral bounds plus distribution metadata; the source package that computed uncertainty stays above the seam.
 - Packages: UnitsNet (`Quantity.TryFrom(double, Enum, out)` + `Quantity.TryFromUnitAbbreviation(culture, value, abbr, out)` the dynamic ingress, `Quantity.TryFrom(double, quantityName, unitName, out)` the SI-stored egress reconstruction `In` reads `IQuantity.As(Enum)` off, `IQuantity.ToUnit(UnitSystem.SI)`/`.Dimensions`/`.QuantityInfo.Name`/`.Value`/`.Unit` the coercion + identity surface, `BaseDimensions` the 7-vector + `IsDimensionless()`, the cross-quantity-operator algebra `MeasureValue.Multiply`/`Divide` mirrors onto the one carrier), Thinktecture.Runtime.Extensions, LanguageExt.Core (`Fin`/`Option`/`Seq` + `Bind`/`MapFail`), `Rasm` (the kernel `Op` op-key + `Op.Catch` exception funnel).
 - Growth: a new measured quantity needs NO seam edit — its `UnitsNet` `QuantityInfo` resolves type and dimension at `Of` admission; a new display unit a consumer renders in needs NO seam edit — it is a `UnitsNet` unit-enum member `In(unit)` already reprojects to; a new derived takeoff composes through the existing `Multiply`/`Divide`/`Scale`/`Sum` algebra (a `Force = Pressure × Area` is one `pressure.Multiply(area)`, never a new operation); a new named convenience read is one derived line over `As(QuantityType)`; never a per-quantity dimension type, a closed `QuantityKind` enum, or a parallel cross-quantity operation family.
 - Boundary: `MeasureValue` NEVER carries a bare `double` quantity — the value coerces to SI base once at `Of` through the `UnitsNet` registry and the interior carries the SI scalar plus the typed `QuantityType`/`Dimension`, a free `double` measure field being the named defect per the `UnitsNet` ownership of dimensioned scalars; the discriminator is the `QuantityType` (the `QuantityInfo.Name`) so a `Torque` and an `Energy` that share a `Dimension` stay distinct and a dimensionless `Angle`/`Level`/`Ratio` never collapses onto `Count` — the dimension-as-discriminator form is the deleted form, and the `QuantityKind` six-case enum that degraded an out-of-family measure to `Count` is doubly deleted; the SI coercion rides the `UnitsNet` `Quantity.TryFrom`/`ToUnit(UnitSystem.SI)` registry and a stringly-keyed unit switch or an ad-hoc conversion factor is the deleted form; `ToUnit(UnitSystem.SI)` is the platform-forced boundary throw (`InvalidCastException`/`NotImplementedException` when a quantity has no SI unit), so the reprojection rides the kernel `Op.Catch` funnel and a residual throw rails `ElementFault.ValueRejected` — a foreign `Exception` never crosses the seam signature; a DIMENSIONLESS quantity has no SI reprojection and admits in its own unit (dB stays dB, rad stays rad), so `SoundPressureLevel`/`PlaneAngle` admit rather than throw; aggregation flows through `MeasureValue.Sum` (an SI-base scalar sum guarded by `Type` equality, stricter than a dimension guard) and a derived quantity through `MeasureValue.Multiply`/`Divide` (the SI product/quotient over the composed `Dimension`, the result dimension-anonymous so the seam never false-names a `Volume × Density` as `Mass` — the consumer that KNOWS the identity re-stamps through `OfSi(QuantityType.Mass, …)`), never an unwrap-compute-rewrap or a hand-reconstructed result dimension, and a cross-type sum rails `ElementFault.ValueRejected`; the type-and-dimension-preserving `Scale(factor)` is the basis-aware multiple a cost/environmental ply scaling composes, never a `this with { Si = Si * factor }` mutation at the call site; the dimension-only `OfSi(Dimension, double)` carries the dimension-anonymous `QuantityType` so a bare SI-native scalar is dimensioned-but-untyped and a QTO read fires ONLY for a measure admitted with an explicit quantity-type; the named QTO reads (`Length`/`Area`/`Volume`/`Weight`/`Time`/`Count`) DERIVE from the one `As(QuantityType)` body (DERIVED_LOGIC — a six-member parallel checked family is the deleted form, the convenience names one-hop over the polymorphic read); the interior carries SI ALONE while EGRESS is unit-parameterized — `In(Enum unit)` reconstructs the `UnitsNet` `IQuantity` from the stored `(Type.Value, Si, CanonicalUnit)` through the `Quantity.TryFrom(value, quantityName, unitName, out)` registry and reads `IQuantity.As(unit)` so a UI/wire consumer renders a stored U-value in `WattPerSquareMeterKelvin`, a length in `Millimeter`/`Foot`, or a temperature in `DegreeCelsius` WITHOUT the call site re-deriving a conversion factor (the deleted `si.Si * 1000.0` form) — `None` for a dimension-anonymous `OfSi(Dimension,_)` measure (a section modulus, an analysis-result scalar) the registry cannot rebuild, so the egress is total over the ~120 registry quantities and honestly absent for a consumer-minted one; `Quantize` is the ONLY rounding, applied at the content-hash boundary against `Header.Tolerance`, so the interior `Si` stays full-precision and the canonical key is tolerance-stable.
 
 ```csharp signature
 // --- [MODELS] -----------------------------------------------------------------------------
-public readonly record struct MeasureValue(QuantityType Type, Dimension Dimension, double Si, string CanonicalUnit) {
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class UncertaintyKind {
+ public static readonly UncertaintyKind Exact = new("exact");
+ public static readonly UncertaintyKind Absolute = new("absolute");
+ public static readonly UncertaintyKind Relative = new("relative");
+ public static readonly UncertaintyKind Interval = new("interval");
+ public static readonly UncertaintyKind Normal = new("normal");
+}
+
+public readonly record struct MeasureBand(
+ UncertaintyKind Kind,
+ double LowerSi,
+ double UpperSi,
+ Option<double> StandardDeviationSi,
+ Option<double> CoverageFactor) {
+ public static readonly MeasureBand Exact = new(UncertaintyKind.Exact, 0.0, 0.0, Option<double>.None, Option<double>.None);
+
+ public static MeasureBand Interval(UncertaintyKind kind, double lowerSi, double upperSi) =>
+  new(kind, lowerSi, upperSi, Option<double>.None, Option<double>.None);
+
+ public static MeasureBand Normal(double lowerSi, double upperSi, double standardDeviationSi, double coverageFactor) =>
+  new(UncertaintyKind.Normal, lowerSi, upperSi, Some(standardDeviationSi), Some(coverageFactor));
+}
+
+public readonly record struct MeasureValue(QuantityType Type, Dimension Dimension, double Si, string CanonicalUnit, Option<MeasureBand> Uncertainty) {
  // The dimensionless additive identity — Scalar-typed (a dimensionless untyped scalar), distinct from an explicit Count.
- public static readonly MeasureValue Zero = new(QuantityType.Scalar, Dimension.Dimensionless, 0.0, "");
+ public static readonly MeasureValue Zero = new(QuantityType.Scalar, Dimension.Dimensionless, 0.0, "", Option<MeasureBand>.None);
+
+ public MeasureValue WithUncertainty(MeasureBand band) =>
+  this with { Uncertainty = Some(band) };
 
  public static Fin<MeasureValue> Of(double value, Enum unit, Op key) =>
  !double.IsFinite(value)
@@ -146,7 +174,8 @@ public readonly record struct MeasureValue(QuantityType Type, Dimension Dimensio
  // The SI-native factory: an already-coerced SI magnitude plus its named QuantityType and Dimension (no UnitsNet unit
  // needed) — the entry a Rasm.Compute analysis writes a computed result (an assembly U-value, a section modulus) through,
  // and the entry a SectionProperties bake stamps its m^2/m^3/m^4 columns through. Identity is Type + Dimension; unit is display-only.
- public static MeasureValue OfSi(QuantityType type, Dimension dimension, double si) => new(type, dimension, si, dimension.SiSymbol);
+ public static MeasureValue OfSi(QuantityType type, Dimension dimension, double si) =>
+  new(type, dimension, si, dimension.SiSymbol, Option<MeasureBand>.None);
 
  // The dimension-only convenience: a bare SI magnitude whose physical Dimension is known but whose semantic type is not —
  // it carries the dimension-anonymous QuantityType (never a QTO row), so it is dimensioned-but-untyped and reads through Si.
@@ -154,7 +183,7 @@ public readonly record struct MeasureValue(QuantityType Type, Dimension Dimensio
 
  public static Fin<MeasureValue> OfCount(double value, Op key) =>
  double.IsFinite(value)
- ? Fin.Succ(new MeasureValue(QuantityType.Count, Dimension.Dimensionless, value, ""))
+ ? Fin.Succ(new MeasureValue(QuantityType.Count, Dimension.Dimensionless, value, "", Option<MeasureBand>.None))
  : ElementFault.ValueRejected(key, $"<count-non-finite:{value:R}>");
 
  // The UnitsNet admission seam: a dimensionless quantity (Angle/Ratio/Level/dB) has NO distinct SI reprojection — the
@@ -172,7 +201,7 @@ public readonly record struct MeasureValue(QuantityType Type, Dimension Dimensio
  // a Dimension), the Dimension the physical 7-vector, the Si the SI-base magnitude, the unit the SI unit token.
  static Fin<MeasureValue> Admit(IQuantity si, Op key) =>
  double.IsFinite((double)si.Value)
- ? Fin.Succ(new MeasureValue(QuantityType.Create(si.QuantityInfo.Name), Dimension.Of(si.Dimensions), (double)si.Value, si.Unit.ToString()))
+ ? Fin.Succ(new MeasureValue(QuantityType.Create(si.QuantityInfo.Name), Dimension.Of(si.Dimensions), (double)si.Value, si.Unit.ToString(), Option<MeasureBand>.None))
  : ElementFault.ValueRejected(key, $"<measure-si-non-finite:{si.Unit}>");
 
  // The ONE polymorphic QTO read: the SI magnitude WHEN the stored Type matches the asked quantity-type, else None — so
@@ -237,19 +266,48 @@ public readonly record struct MeasureValue(QuantityType Type, Dimension Dimensio
  // so no re-coercion; identity is the composed Dimension, the display unit dropped (it has no coherent symbol).
  public MeasureValue Multiply(MeasureValue other) {
   Dimension product = this.Dimension.Multiply(other.Dimension);
-  return new MeasureValue(QuantityType.OfDimension(product), product, Si * other.Si, product.SiSymbol);
+  return new MeasureValue(QuantityType.OfDimension(product), product, Si * other.Si, product.SiSymbol, CombineBand(this, other, static (left, right) => left * right));
  }
 
  public MeasureValue Divide(MeasureValue other) {
   Dimension quotient = this.Dimension.Divide(other.Dimension);
-  return new MeasureValue(QuantityType.OfDimension(quotient), quotient, Si / other.Si, quotient.SiSymbol);
+  return new MeasureValue(QuantityType.OfDimension(quotient), quotient, Si / other.Si, quotient.SiSymbol, CombineBand(this, other, static (left, right) => left / right));
  }
 
  // Scalar scaling preserves the QuantityType AND the Dimension — a basis-matching multiple of a measure is the SAME
  // quantity (10 × one m³ is m³), the operation the `Composition/material#MATERIAL_PROPERTY` `AggregateEnvironmental`/cost
  // folds compose to scale a per-unit EPD/cost column by the basis-matching element quantity, never a `this with { Si =
  // Si * factor }` mutation-by-hand that re-spells the carrier at the call site.
- public MeasureValue Scale(double factor) => this with { Si = Si * factor };
+ public MeasureValue Scale(double factor) =>
+  this with { Si = Si * factor, Uncertainty = Uncertainty.Map(band => ScaleBand(band, factor)) };
+
+ static Option<MeasureBand> CombineBand(MeasureValue left, MeasureValue right, Func<double, double, double> op) {
+  bool uncertain = left.Uncertainty.Match(Some: static _ => true, None: static () => false)
+   || right.Uncertainty.Match(Some: static _ => true, None: static () => false);
+  if (!uncertain) { return Option<MeasureBand>.None; }
+
+  MeasureBand l = EffectiveBand(left);
+  MeasureBand r = EffectiveBand(right);
+  double[] values = [op(l.LowerSi, r.LowerSi), op(l.LowerSi, r.UpperSi), op(l.UpperSi, r.LowerSi), op(l.UpperSi, r.UpperSi)];
+  double lower = Math.Min(Math.Min(values[0], values[1]), Math.Min(values[2], values[3]));
+  double upper = Math.Max(Math.Max(values[0], values[1]), Math.Max(values[2], values[3]));
+  return Some(MeasureBand.Interval(UncertaintyKind.Interval, lower, upper));
+ }
+
+ static MeasureBand EffectiveBand(MeasureValue value) =>
+  value.Uncertainty.Match(Some: static band => band, None: () => MeasureBand.Interval(UncertaintyKind.Exact, value.Si, value.Si));
+
+ static MeasureBand ScaleBand(MeasureBand band, double factor) {
+  double a = band.LowerSi * factor;
+  double b = band.UpperSi * factor;
+  return new(
+   band.Kind,
+   Math.Min(a, b),
+   Math.Max(a, b),
+   band.StandardDeviationSi.Map(sd => Math.Abs(sd * factor)),
+   band.CoverageFactor);
+ }
+
 }
 ```
 

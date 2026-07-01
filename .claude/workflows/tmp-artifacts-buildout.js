@@ -1,25 +1,25 @@
 export const meta = {
   name: 'tmp-artifacts-buildout',
   whenToUse: 'Run 3x (args aec | media | visual) to build out one big new artifacts capability plane granularly while cold-improving the whole folder.',
-  description: 'Parameterized specific build-out over libs/python/artifacts/.planning, run 3x (topic = aec | media | visual). Plan (1 thin agent) classifies every folder page by per-page kind (new | rebuild | improve) from the in-script FOCUS_SETS seed. Discover (1 agent per 4 pages) deep-reads each page + the folder + BOTH .api tiers (the shared libs/python/.api + the folder libs/python/artifacts/.api) and emits a per-page reading map: the catalogs the page CURRENTLY composes (apiUsed), the admitted catalogs/members the concept ADMITS but ignores (apiUnderutilized, real analysis), the contextual relation, and initial api-stacking guidance. Implement (1 agent per 2 pages, kind-aware) authors new pages ground-up / hostile-rebuilds existing / cold-improves the rest, threading the reading map as an INITIAL POINTER it must ultra-deep-read and confirm. Critique then Redteam (1 agent per 4 pages each, ultra-harsh, fix in place). Reconcile (pool-capped union-find). The three focus sets are encoded in-script (FOCUS_SETS) so the run survives args-drop on scriptPath re-runs; args selects the topic (a string or {topic}). Reads the campaign brief libs/python/artifacts/.planning/_REBUILD_BRIEF.md. Every phase is pooled at CAP=8 (max 8 concurrent agents; reconcile is 6). Temporary campaign workflow.',
+  description: 'Parameterized specific build-out over libs/python/artifacts/.planning, run 3x (topic = aec | media | visual). Plan (1 thin agent) classifies every folder page by per-page kind (new | rebuild | improve) from the in-script FOCUS_SETS seed. Discover (1 agent per 4 pages) deep-reads each page + the folder + BOTH .api tiers (the shared libs/python/.api + the folder libs/python/artifacts/.api) and emits a per-page reading map: the catalogs the page CURRENTLY composes (apiUsed), the admitted catalogs/members the concept ADMITS but ignores (apiUnderutilized, real analysis), the contextual relation, and initial api-stacking guidance. Implement (1 agent per 3 pages, kind-aware) authors new pages ground-up / hostile-rebuilds existing / cold-improves the rest, threading the reading map as an INITIAL POINTER it must ultra-deep-read and confirm. Critique then Redteam (1 agent per 5 pages each, ultra-harsh, fix in place). Reconcile (pool-capped union-find). The three focus sets are encoded in-script (FOCUS_SETS) so the run survives args-drop on scriptPath re-runs; args selects the topic (a string or {topic}). Reads the campaign brief libs/python/artifacts/.planning/_REBUILD_BRIEF.md. Every phase is pooled at CAP=8 (max 8 concurrent agents; reconcile is 6). Temporary campaign workflow.',
   phases: [
     { title: 'Plan', detail: 'one thin agent classifies every folder page by kind (new | rebuild | improve) from FOCUS_SETS[topic] + the folder listing' },
     { title: 'Discover', detail: '1 agent per 4 pages: deep-read each page + folder + BOTH .api tiers; emit per-page apiUsed / apiUnderutilized / context / stacking-guidance reading map' },
-    { title: 'Implement', detail: '1 agent per 2 pages, kind-aware: author new ground-up / hostile-rebuild / cold-improve, composing the reading map as initial pointer' },
-    { title: 'Critique', detail: '1 agent per 4 pages, xhigh: ultra-harsh doctrinal-conformance + capability-completeness audit, fix in place' },
-    { title: 'Redteam', detail: '1 agent per 4 pages, max: adversarial architect red-team, fix in place' },
+    { title: 'Implement', detail: '1 agent per 3 pages, kind-aware: author new ground-up / hostile-rebuild / cold-improve, composing the reading map as initial pointer' },
+    { title: 'Critique', detail: '1 agent per 5 pages, xhigh: ultra-harsh doctrinal-conformance + capability-completeness audit, fix in place' },
+    { title: 'Redteam', detail: '1 agent per 5 pages, max: adversarial architect red-team, fix in place' },
     { title: 'Reconcile', detail: 'ONE encompassing pass — residuals consolidated into <=6 buckets, 6 fix + 6 critique-grade verify+repair, NO re-entry loop; blast radius = artifacts folder + cross-folder libs/python + C# wire seams + index docs' },
   ],
 }
 
 // --- [CONSTANTS] -------------------------------------------------------------------------
 
-const CAP = 8
+const CAP = 6
 const STAGGER_MS = 1500
 const STALL = 300000
 const DISCOVER_BATCH = 4
-const IMPL_BATCH = 2
-const REVIEW_BATCH = 4
+const IMPL_BATCH = 3
+const REVIEW_BATCH = 5
 const RECON_CAP = 6 // reconcile is ONE encompassing pass: residuals consolidate into <=6 buckets -> 6 fix + 6 verify, never a re-entry loop
 const ROOT = 'libs/python/artifacts/.planning'
 const BRIEF = ROOT + '/_REBUILD_BRIEF.md'

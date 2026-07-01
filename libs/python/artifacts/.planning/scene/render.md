@@ -1,18 +1,18 @@
 # [PY_ARTIFACTS_SCENE_RENDER]
 
-The 3D scientific-visualization render owner. `Scene3d` renders pyvista datasets on the VTK engine — `UnstructuredGrid`/`PolyData`/`MultiBlock`, scalar fields, the `clip`/`clip_box`/`clip_scalar`/`slice`/`slice_orthogonal`/`threshold`/`contour`/`warp`/`glyph`/`streamlines`/`decimate`/`surface` filter family, the surface/volume/point-cloud render styles, PBR material, the publication-quality render-control family (SSAO, depth-peeling, eye-dome lighting, shadows, anti-aliasing, parallel projection), scalar-bar/axes overlays, and a `CameraPose` viewpoint — to a host-free offscreen image, and emits the orbit/turntable rgb24 frame sequence the cross-folder `media/video#MEDIA` encoder consumes. `SceneOp` is ONE closed-payload `expression.tagged_union` over the `Image`/`Export`/`Frames` modalities, each case carrying its typed payload, dispatched by one total `match` returning `RuntimeRail[tuple[ContentKey, ArtifactReceipt]]` so every render mints its content key AND its evidence receipt in one carrier, exactly as the `media/video#MEDIA` encode sibling does. `RenderSpec` is the one frozen render-policy value — window, scalar field, colormap, clim, opacity, the `RenderStyle` surface/volume/points discriminant, the PBR `pbr`/`metallic`/`roughness`/`show_edges` material band, the `RenderFeature` overlay/quality `frozenset`, the `anti_aliasing` mode, the `CameraPose` viewpoint, the background, transparency, and the `FieldFilter` pre-render filter chain — folded into every arm through its bound `staged`/`added`/`viewed` projections, never loose constructor fields the implementer re-derives per call. `FieldFilter` is the one closed-payload `tagged_union` over the catalogued pyvista filter family, each case carrying its typed geometry/range/factor payload and folding to a new `DataSet` through one total `apply` `match`, so a slice-then-threshold-then-glyph visualization is a `RenderSpec.filters` tuple, never a parallel filtered-mesh type. The raw mesh is admitted EXACTLY ONCE through `pyvista.wrap` (the catalogued zero-copy entry) on the worker, so the interior never re-validates a provider shape and the filter fold runs over an admitted `DataSet`, never the raw cross-seam payload. The render path is offscreen software GL (osmesa/EGL) so a scene rasterizes with zero display, browser, or GPU. The owner rides the native-VTK worker lane: the runtime process imports neither `pyvista` nor `vtk`, and the whole render crosses the runtime subprocess lane. The `Frames` arm returns the `tuple[NDArray[np.uint8], ...]` keyed rgb24 raster `media/video#MEDIA` ingests directly through `VideoFrame.from_ndarray`, never a lossy PNG-bytes intermediary. The `Export` file-target arms (`scene/export#EXPORT`) compose this owner's offscreen plotter for the `GLTF`/`VRML`/`OBJ`/`HTML` exporters, while the USD/USDZ arm authors the admitted dataset's extracted surface through `scene/stage#STAGE` (`usd-core`) with no render pass — both ride this owner's worker, never re-owning the dataset/filter/render policy. This page closes the `SCENE_TIMESERIES_FRAMES` and `SCENE_FILTER_PIPELINE` ideas.
+The 3D scientific-visualization render owner. `Scene3d` renders pyvista datasets on the VTK engine — `UnstructuredGrid`/`PolyData`/`MultiBlock`/`ImageData`, scalar fields, the full `DataObjectFilters`/`DataSetFilters` family (`clip`/`clip_box`/`clip_scalar`/`slice`/`slice_orthogonal`/`threshold`/`contour`/`warp_by_scalar`/`warp_by_vector`/`glyph`/`streamlines`/`decimate`/`extract_surface` PLUS the mesh-repair `smooth`/`subdivide`/`fill_holes`/`clean` and the `cell_data_to_point_data`/`point_data_to_cell_data` field-transfer siblings), the surface/volume/point-cloud/vector-arrow/point-label render styles, the PBR `metallic`/`roughness` and the classic-lighting `ambient`/`diffuse`/`specular`/`smooth_shading` material bands, the `add_volume` opacity-transfer-function/blending/mapper volumetric band, the publication-quality render-control family (SSAO, depth-peeling, eye-dome lighting, shadows, anti-aliasing, parallel projection), scalar-bar/axes overlays, and a `CameraPose` viewpoint — to a host-free offscreen image, and emits the orbit/turntable rgb24 frame sequence the cross-folder `media/video#MEDIA` encoder consumes. `SceneOp` is ONE closed-payload `expression.tagged_union` over the `Image`/`Export`/`Frames`/`Ingest` modalities (the `Ingest` case the `import_gltf`/`import_obj`/`import_vrml` render-tune-re-export round-trip inverse over an existing scene file), each case carrying its typed payload, dispatched by one total `match` returning `RuntimeRail[tuple[ContentKey, ArtifactReceipt]]` so every render mints its content key AND its evidence receipt in one carrier, exactly as the `media/video#MEDIA` encode sibling does. `RenderSpec` is the one frozen render-policy value — window, scalar field, colormap, clim, opacity, the `RenderStyle` surface/volume/points/arrows/labels discriminant, the PBR + classic-lighting material band, the `add_volume` transfer-function/blending/mapper band, the `RenderFeature` overlay/quality `frozenset`, the `anti_aliasing` mode, the `CameraPose` viewpoint, the background, transparency, and the `FieldFilter` pre-render filter chain — folded into every arm through its bound `staged`/`added`/`viewed` projections, never loose constructor fields the implementer re-derives per call. `FieldFilter` is the one closed-payload `tagged_union` over the full catalogued pyvista filter family (20 cases: clip/slice/threshold/contour, warp-scalar/warp-vector, glyph/streamlines/decimate/surface, the mesh-repair smooth/subdivide/fill-holes/clean, the cell↔point field-transfer siblings, and the MultiBlock-combine block-merge), each case carrying its typed geometry/range/factor payload and folding to a new `DataSet` through one total `apply` `match`, so a repair-then-slice-then-threshold-then-glyph visualization is a `RenderSpec.filters` tuple, never a parallel filtered-mesh type. The raw mesh is admitted EXACTLY ONCE through `pyvista.wrap` (the catalogued zero-copy entry) on the worker, so the interior never re-validates a provider shape and the filter fold runs over an admitted `DataSet`, never the raw cross-seam payload. The render path is offscreen software GL (osmesa/EGL) so a scene rasterizes with zero display, browser, or GPU. The owner rides the native-VTK worker lane: the runtime process imports neither `pyvista` nor `vtk`, and the whole render crosses the runtime subprocess lane. The `Frames` arm returns the `tuple[NDArray[np.uint8], ...]` keyed rgb24 raster `media/video#MEDIA` ingests directly through `VideoFrame.from_ndarray`, never a lossy PNG-bytes intermediary. The `Export` file-target arms (`scene/export#EXPORT`) compose this owner's offscreen plotter for the `GLTF`/`VRML`/`OBJ`/`HTML` exporters, while the USD/USDZ arm authors the admitted dataset's extracted surface through `scene/stage#STAGE` (`usd-core`) with no render pass — both ride this owner's worker, never re-owning the dataset/filter/render policy. This page closes the `SCENE_TIMESERIES_FRAMES` and `SCENE_FILTER_PIPELINE` ideas.
 
 ## [01]-[INDEX]
 
-- [02]-[SCENE]: the one `Scene3d` owner over the closed-payload `SceneOp` family — `Image`/`Frames` (plus the `Export` arm delegated to `scene/export#EXPORT` and the USD/USDZ arm to `scene/stage#STAGE`) folding into one `RuntimeRail[tuple[ContentKey, ArtifactReceipt]]`, the `RenderSpec` render-policy value with its bound `staged`/`added`/`viewed` projections, the twelve-case `FieldFilter` closed-payload filter family folded by `RenderSpec.staged` before render, the `RenderStyle` surface/volume/points style discriminant and PBR material band the `added` projection reads, the `RenderFeature` overlay/quality `frozenset` the `_FEATURE` table folds in `viewed`, the `CameraPose` viewpoint the `viewed` projection writes onto `camera_position`, the `OrbitPath` `(factor, elevation)`-column vocabulary keyed inside the `Frames` payload, the `tuple[NDArray[np.uint8], ...]` rgb24 frame seam to `media/video#MEDIA`, and the `ArtifactReceipt.Scene(key, target, bytes)` evidence each arm mints; `pyvista` `wrap`/`Plotter(off_screen=True)`/`add_mesh`/`add_volume`/`add_points`/`screenshot`/`set_background`/`add_axes`/`add_scalar_bar`/`camera_position`/`enable_ssao`/`enable_depth_peeling`/`enable_eye_dome_lighting`/`enable_shadows`/`enable_anti_aliasing`/`enable_parallel_projection`/`extract_surface`/`triangulate`/`clip`/`slice`/`threshold`/`contour`/`warp_by_scalar`/`decimate` plus the `.points`/`.regular_faces`/`.point_normals` numpy accessors the `surface_arrays` USD seam reads settled against the folder `.api`, with the `glyph`/`streamlines`/`slice_orthogonal`/`clip_box`/`clip_scalar` kwarg spellings the lone [03]-[RESEARCH] catalogue-deepen seam, and the orbit `camera_position` walk computed through `numpy` `linspace`/`cos`/`sin`/`linalg.norm`.
+- [02]-[SCENE]: the one `Scene3d` owner over the closed-payload `SceneOp` family — `Image`/`Frames`/`Ingest` (plus the `Export` arm delegated to `scene/export#EXPORT` and the USD/USDZ arm to `scene/stage#STAGE`) folding into one `RuntimeRail[tuple[ContentKey, ArtifactReceipt]]`, the `RenderSpec` render-policy value with its bound `staged`/`added`/`viewed` projections, the twenty-case `FieldFilter` closed-payload filter family (clip/slice/threshold/contour, warp-scalar/warp-vector, glyph/streamlines/decimate/surface, mesh-repair smooth/subdivide/fill-holes/clean, cell↔point transfer, MultiBlock-combine) folded by `RenderSpec.staged` before render, the `RenderStyle` surface/volume/points/arrows/labels style discriminant with the PBR + classic-lighting material band and the `add_volume` transfer-function/blending/mapper band the `added` projection reads, the `RenderFeature` overlay/quality `frozenset` the `_FEATURE` table folds in `viewed`, the `CameraPose` viewpoint the `viewed` projection writes onto `camera_position`, the `OrbitPath` `(factor, elevation)`-column vocabulary keyed inside the `Frames` payload, the `SceneSource` glTF/OBJ/VRML import vocabulary keyed inside the `Ingest` payload, the `tuple[NDArray[np.uint8], ...]` rgb24 frame seam to `media/video#MEDIA`, and the `ArtifactReceipt.Scene(key, target, bytes, facts)` evidence each arm mints (the `facts` `frozendict` band carrying the render window/frame counts and the `scene/stage#STAGE` USD prim/layer/up-axis/meters-per-unit stats); `pyvista` `wrap`/`Plotter(off_screen=True)`/`add_mesh`(with `ambient`/`diffuse`/`specular`/`smooth_shading`)/`add_volume`(with `opacity`/`blending`/`mapper`)/`add_points`/`add_arrows`/`add_point_labels`/`import_gltf`/`import_obj`/`import_vrml`/`screenshot`/`set_background`/`add_axes`/`add_scalar_bar`/`camera_position`/`enable_ssao`/`enable_depth_peeling`/`enable_eye_dome_lighting`/`enable_shadows`/`enable_anti_aliasing`/`enable_parallel_projection`/`extract_surface`/`triangulate`/`clip`/`slice`/`threshold`/`contour`/`warp_by_scalar`/`warp_by_vector`/`decimate`/`smooth`/`subdivide`/`fill_holes`/`clean`/`cell_data_to_point_data`/`point_data_to_cell_data`/`MultiBlock.combine` plus the `.points`/`.regular_faces`/`.point_normals` numpy accessors the `surface_arrays` USD seam reads settled against the folder `.api`, with the `glyph`/`streamlines`/`slice_orthogonal`/`clip_box`/`clip_scalar` kwarg spellings the lone [03]-[RESEARCH] catalogue-deepen seam, and the orbit `camera_position` walk computed through `numpy` `linspace`/`cos`/`sin`/`linalg.norm`.
 
 ## [02]-[SCENE]
 
-- Owner: `Scene3d` the one 3D-scene render owner discriminating modality over the closed `SceneOp` family; `SceneOp` an `expression.tagged_union` whose every case carries its own typed payload, never a shared erased `params` bag nor a per-modality `Scene3d` subclass; `RenderSpec` the one frozen render-policy value carrying its own `staged` filter-fold, `added` mesh-add, and `viewed` camera/overlay/quality projections so a new render knob is one `RenderSpec` field bound into an existing projection, never a constructor-parameter tail nor a re-derived add-mesh/camera call; `RenderStyle` the closed `StrEnum` (`SURFACE`/`VOLUME`/`POINTS`) the `added` `match` reads to dispatch `add_mesh`/`add_volume`/`add_points`, collapsing the prior two-body `volume: bool` flag into one style vocabulary that admits the point-cloud modality the flag could not name; `RenderFeature` the closed overlay/quality `StrEnum` (`AXES`/`SCALAR_BAR`/`SSAO`/`DEPTH_PEEL`/`EYE_DOME`/`SHADOWS`/`PARALLEL`) whose membership `frozenset` the `_FEATURE` `frozendict` folds onto `add_axes`/`add_scalar_bar`/`enable_ssao`/`enable_depth_peeling`/`enable_eye_dome_lighting`/`enable_shadows`/`enable_parallel_projection`, collapsing eight parallel bool fields into one behavior-carrying set so a new render-quality toggle is one member plus one row; `CameraPose` the closed `NamedTuple` viewpoint value (`position`/`focal_point`/`view_up`) the `viewed` projection writes onto the catalogued `Plotter.camera_position` property as the `[position, focal_point, view_up]` triple, so a static viewpoint and the orbit trajectory share one camera-policy value, never loose camera kwargs nor a phantom settable-azimuth accessor; `FieldFilter` the closed-payload `tagged_union` over the catalogued pyvista filter family — `Clip`/`ClipBox`/`ClipScalar`/`Slice`/`SliceOrthogonal`/`Threshold`/`Contour`/`Warp`/`Glyph`/`Streamlines`/`Decimate`/`Surface` — each case carrying its typed geometry/range/factor payload and folding to a new `DataSet` through one total `apply` `match`, so a slice-then-threshold-then-glyph visualization is a `RenderSpec.filters` tuple, never a per-filter mesh wrapper nor an erased filter-name bag; `OrbitPath` the closed orbit-trajectory `Enum` carrying its `(factor, elevation)` columns (`AZIMUTH`/`WIDE`/`TIGHT`) so the orbit radius multiplier and height fraction are member-bound values the numpy `camera_position` walk reads directly, never a `StrEnum` whose string value is mis-passed as a float; `RuntimeRail[tuple[ContentKey, ArtifactReceipt]]` the one carrier every arm returns, the `media/video#MEDIA` `tuple[NDArray[np.uint8], ...]` rgb24 frame payload keyed through `ContentIdentity.of` so the producer hands MEDIA the raw `screenshot(return_img=True)` raster array `VideoFrame.from_ndarray(array, format="rgb24")` ingests directly, never a lossy PNG-bytes round-trip; the offscreen `Plotter(off_screen=True)` is the one render capsule per modality, never retained across arms, and the `Export`/USD arms re-enter the same `render_plotter` capsule through `scene/export#EXPORT`/`scene/stage#STAGE`.
-- Cases: `SceneOp` cases — `Image(grid, spec)` (offscreen `Plotter.screenshot(path, window_size=)` PNG raster to a temp-file sink, the `RenderSpec.window` carried onto the catalogued `screenshot` keyword, the `RenderSpec.staged` filter chain applied over the `pyvista.wrap`-admitted dataset before the `RenderSpec.added` style/scalar/material mesh-add and the `RenderSpec.viewed` background/overlay/quality/camera fold) · `Export(grid, target, spec)` (one file-target axis whose `SceneTarget` row keys the exporter arm owned by `scene/export#EXPORT` for `GLTF`/`VRML`/`OBJ`/`HTML` and by `scene/stage#STAGE` for `USD`/`USDZ`, the format discriminated by the typed `SceneTarget` value crossing the seam as its `.value` and re-admitted once at the worker dispatch — never a parallel per-format export surface) · `Frames(grid, orbit, steps, spec)` (one orbit/turntable frame-sequence axis whose `OrbitPath` `(factor, elevation)` columns key the numpy `camera_position` orbit walk computed from the auto-framed viewpoint, the per-step loop placing the camera through the catalogued `camera_position` property and emitting one offscreen `screenshot(return_img=True)` rgb24 raster array per camera step folded into the `tuple[NDArray[np.uint8], ...]` sequence `media/video#MEDIA` ingests through `VideoFrame.from_ndarray` with zero file round-trip — never a parallel rotating-scene producer, the rotating-scene and chart-over-time frame sources sharing this one arm) — matched by one total `match`/`case`, the `Image`/`Export`/`Frames` modality recovered from the `SceneOp` discriminant, never a name suffix.
-- Auto: `render_plotter` folds the cross-seam payload into a `DataSet` through one `pyvista.wrap` (the catalogued zero-copy entry over a numpy buffer / VTK object / `trimesh`/`meshio` mesh), so the interior is total over an admitted dataset; `RenderSpec.staged` folds the `FieldFilter` tuple over it through `functools.reduce`, each case's `apply` `match` routing to the catalogued `clip`/`clip_box`/`clip_scalar`/`slice`/`slice_orthogonal`/`threshold`/`contour`/`warp_by_scalar`/`glyph`/`streamlines`/`decimate`/`extract_surface` filter and returning a new `DataSet`; `RenderSpec.added` `match`es the `RenderStyle` to `add_mesh`/`add_volume`/`add_points`, binding the `scalars` active name, the `colormap` from `graphic/color/derive#DERIVE` (the `ColorReceipt.coords` palette the derivation owner resolves), the `clim` window and `opacity` through one filtered kwarg dict that drops `None`, and for `SURFACE` the `pbr`/`metallic`/`roughness`/`show_edges` material band; `RenderSpec.viewed` folds `background` onto `set_background`, the `RenderFeature` `frozenset` onto the `_FEATURE` enable-table (`add_axes`/`add_scalar_bar`/`enable_ssao`/`enable_depth_peeling`/`enable_eye_dome_lighting`/`enable_shadows`/`enable_parallel_projection`), the `anti_aliasing` mode onto `enable_anti_aliasing`, and a non-empty `CameraPose` onto the `camera_position` triple; the `RenderSpec.window`/`RenderSpec.transparent` fold onto the catalogued `screenshot(window_size=, transparent_background=)` keywords; the `Frames` arm reads the auto-framed `camera_position` for the orbit center and radius, scales the radius by `OrbitPath.factor` and the height by `OrbitPath.elevation`, walks the `numpy.linspace` azimuth sweep placing `camera_position` per step, and reads each step's offscreen `shoot` raster array into the sequence.
-- Receipt: every arm returns `(key, ArtifactReceipt.Scene(key, target, bytes))` so the receipt is minted inside `_emit` over the produced payload, exactly as the `media/video#MEDIA` sibling mints `ArtifactReceipt.Media` in its `_emit`. The `Image` arm contributes the `"png"` target plus `len(data)`, the `Export` arm the `SceneTarget` value (`scene/export#EXPORT`/`scene/stage#STAGE`) plus the serialized scene-file byte count, and the `Frames` arm the `_FRAME_FORMAT` `"rgb24"` target plus the frame-sequence byte total `sum(frame.nbytes for ...)` — the raw frame-sequence artifact's own evidence, a distinct content-addressed unit from the encoded video `media/video#MEDIA` separately keys and mints `ArtifactReceipt.Media` over, so the two artifacts carry two keys and two receipts, never a double-counted single rail. The point/cell/window render evidence the `pyvista` `.api` evidence row names lands when the `core/receipt#RECEIPT` `scene` case widens beyond `(target, bytes)`.
-- Growth: a new render knob is one `RenderSpec` field bound into the existing `staged`/`added`/`viewed` projection; a new render-quality toggle (legend, bounding box, orientation widget, SSAA tier) is one `RenderFeature` member plus one `_FEATURE` row, or one `RenderSpec` field plus one `viewed` line; a new material knob is one `RenderSpec` field bound into the `added` `SURFACE` arm; a new render style is one `RenderStyle` member plus one `added` `match` arm; a new field-visualization filter is one `FieldFilter` case plus one `apply` `match` arm over the catalogued dataset-filter family, dispatched by the same `RenderSpec.staged` reduce — never a parallel filtered-mesh type; a new camera control is one `CameraPose` field the `viewed` projection reads; a new orbit trajectory is one `OrbitPath` member carrying its own `(factor, elevation)` columns; a new scene file-export is one `SceneTarget` row plus one exporter arm in `scene/export#EXPORT` or `scene/stage#STAGE`; a new render-evidence fact is one slot on the `core/receipt#RECEIPT` `scene` case; zero new surface — the modality space stays three cases (`Image`/`Export`/`Frames`) on one owner, every addition a row, field, case, member, or arm.
+- Owner: `Scene3d` the one 3D-scene render owner discriminating modality over the closed `SceneOp` family; `SceneOp` an `expression.tagged_union` whose every case carries its own typed payload, never a shared erased `params` bag nor a per-modality `Scene3d` subclass; `RenderSpec` the one frozen render-policy value carrying its own `staged` filter-fold, `added` mesh-add, and `viewed` camera/overlay/quality projections so a new render knob is one `RenderSpec` field bound into an existing projection, never a constructor-parameter tail nor a re-derived add-mesh/camera call; `RenderStyle` the closed `StrEnum` (`SURFACE`/`VOLUME`/`POINTS`/`ARROWS`/`LABELS`) the `added` `match` reads to dispatch `add_mesh`/`add_volume`/`add_points`/`add_arrows`/`add_point_labels`, collapsing the prior two-body `volume: bool` flag into one style vocabulary that admits the point-cloud, vector-arrow, and point-label modalities the flag could not name — the `SURFACE` arm carrying BOTH the `pbr`/`metallic`/`roughness` PBR band AND the classic-lighting `ambient`/`diffuse`/`specular`/`smooth_shading` band, and the `VOLUME` arm carrying the `add_volume` opacity-transfer-function/`blending`/`mapper` band that a raw scalar `opacity` float cannot name; `RenderFeature` the closed overlay/quality `StrEnum` (`AXES`/`SCALAR_BAR`/`SSAO`/`DEPTH_PEEL`/`EYE_DOME`/`SHADOWS`/`PARALLEL`) whose membership `frozenset` the `_FEATURE` `frozendict` folds onto `add_axes`/`add_scalar_bar`/`enable_ssao`/`enable_depth_peeling`/`enable_eye_dome_lighting`/`enable_shadows`/`enable_parallel_projection`, collapsing eight parallel bool fields into one behavior-carrying set so a new render-quality toggle is one member plus one row; `CameraPose` the closed `NamedTuple` viewpoint value (`position`/`focal_point`/`view_up`) the `viewed` projection writes onto the catalogued `Plotter.camera_position` property as the `[position, focal_point, view_up]` triple, so a static viewpoint and the orbit trajectory share one camera-policy value, never loose camera kwargs nor a phantom settable-azimuth accessor; `FieldFilter` the closed-payload `tagged_union` over the full catalogued pyvista `DataObjectFilters`/`DataSetFilters` family — `Clip`/`ClipBox`/`ClipScalar`/`Slice`/`SliceOrthogonal`/`Threshold`/`Contour`/`Warp`/`WarpVector`/`Glyph`/`Streamlines`/`Decimate`/`Surface` plus the mesh-repair `Smooth`/`Subdivide`/`FillHoles`/`Clean`, the `CellToPoint`/`PointToCell` field-transfer siblings, and the `Combine` MultiBlock-merge (the `slice_orthogonal`→`combine` block-merge the catalog names) — each case carrying its typed geometry/range/factor payload (the marker cases carrying a `bool`) and folding to a new `DataSet` through one total `apply` `match`, so a clean-then-fill-holes-then-slice-then-threshold-then-glyph repair-and-visualize chain is a `RenderSpec.filters` tuple folded by `functools.reduce`, never a per-filter mesh wrapper nor an erased filter-name bag; the binary CSG `boolean_union`/`boolean_difference`/`boolean_intersection` and the `sample(target)` field-transfer are NOT filter cases — they need a second fielded mesh operand `FieldFilter.apply` (which runs pyvista-free over `object` at the OWNER fence) cannot construct, so a boolean-composite visualization rides the worker directly, never a half-built filter case; `OrbitPath` the closed orbit-trajectory `Enum` carrying its `(factor, elevation)` columns (`AZIMUTH`/`WIDE`/`TIGHT`) so the orbit radius multiplier and height fraction are member-bound values the numpy `camera_position` walk reads directly, never a `StrEnum` whose string value is mis-passed as a float; `RuntimeRail[tuple[ContentKey, ArtifactReceipt]]` the one carrier every arm returns, the `media/video#MEDIA` `tuple[NDArray[np.uint8], ...]` rgb24 frame payload keyed through the synchronous bare `ContentIdentity.key` so the producer hands MEDIA the raw `screenshot(return_img=True)` raster array `VideoFrame.from_ndarray(array, format="rgb24")` ingests directly, never a lossy PNG-bytes round-trip; the offscreen `Plotter(off_screen=True)` is the one render capsule per modality, never retained across arms — the `Export` render-sink arms (`GLTF`/`VRML`/`OBJ`/`HTML`) re-enter the same `render_plotter` capsule through `scene/export#EXPORT`, while the USD/USDZ arm authors plotter-free through `scene/stage#STAGE` from the `surface_arrays` buffers, paying no offscreen-GL render at all.
+- Cases: `SceneOp` cases — `Image(grid, spec)` (offscreen `Plotter.screenshot(path, window_size=)` PNG raster to a temp-file sink, the `RenderSpec.window` carried onto the catalogued `screenshot` keyword, the `RenderSpec.staged` filter chain applied over the `pyvista.wrap`-admitted dataset before the `RenderSpec.added` style/scalar/material mesh-add and the `RenderSpec.viewed` background/overlay/quality/camera fold) · `Export(grid, target, spec)` (one file-target axis whose `SceneTarget` row keys the exporter arm owned by `scene/export#EXPORT` for `GLTF`/`VRML`/`OBJ`/`HTML` and by `scene/stage#STAGE` for `USD`/`USDZ`, the format discriminated by the typed `SceneTarget` value crossing the seam as its `.value` and re-admitted once at the worker dispatch — never a parallel per-format export surface) · `Frames(grid, orbit, steps, spec)` (one orbit/turntable frame-sequence axis whose `OrbitPath` `(factor, elevation)` columns key the numpy `camera_position` orbit walk computed from the auto-framed viewpoint, the per-step loop placing the camera through the catalogued `camera_position` property and emitting one offscreen `screenshot(return_img=True)` rgb24 raster array per camera step folded into the `tuple[NDArray[np.uint8], ...]` sequence `media/video#MEDIA` ingests through `VideoFrame.from_ndarray` with zero file round-trip — never a parallel rotating-scene producer, the rotating-scene and chart-over-time frame sources sharing this one arm) · `Ingest(scene, source, target, spec)` (the render-tune-re-export round-trip inverse — an existing glTF/OBJ/VRML scene file's `bytes` re-admitted through the pyvista `import_gltf`/`import_obj`/`import_vrml` importer keyed by the `SceneSource` discriminant, re-tuned by the `RenderSpec.viewed` camera/feature/quality fold, then re-serialized to the `SceneTarget` through the `scene/export#EXPORT` `render_ingest` worker — the asset-conditioning inverse the catalogued in-process scene importer admits, keyed to `target` exactly as `Export`) — matched by one total `match`/`case`, the `Image`/`Export`/`Frames`/`Ingest` modality recovered from the `SceneOp` discriminant, never a name suffix.
+- Auto: `render_plotter` folds the cross-seam payload into a `DataSet` through one `pyvista.wrap` (the catalogued zero-copy entry over a numpy buffer / VTK object / `trimesh`/`meshio` mesh), so the interior is total over an admitted dataset; `RenderSpec.staged` folds the `FieldFilter` tuple over it through `functools.reduce`, each case's `apply` `match` routing to the catalogued `clip`/`clip_box`/`clip_scalar`/`slice`/`slice_orthogonal`/`threshold`/`contour`/`warp_by_scalar`/`warp_by_vector`/`glyph`/`streamlines`/`decimate`/`extract_surface`/`smooth`/`subdivide`/`fill_holes`/`clean`/`cell_data_to_point_data`/`point_data_to_cell_data`/`combine` filter and returning a new `DataSet`, so a mesh-repair pre-pass (`clean`→`fill_holes`→`smooth`) or a `slice_orthogonal`→`combine` block-merge composes into the same tuple as a `slice`→`threshold`→`glyph` visualization; `RenderSpec.added` `match`es the `RenderStyle` to `add_mesh`/`add_volume`/`add_points`/`add_arrows`/`add_point_labels`, binding the `scalars` active name, the `colormap` from `graphic/color/derive#DERIVE` (the `ColorReceipt.coords` palette the derivation owner resolves), the `clim` window and `opacity` through one shared `drop`-`None` kwarg dict, and for `SURFACE` the `pbr`/`metallic`/`roughness`/`show_edges` PBR band PLUS the classic-lighting `ambient`/`diffuse`/`specular`/`smooth_shading` band, for `VOLUME` the `add_volume` `opacity` transfer-function name (winning over the scalar float) with `blending` and `mapper`, and for `ARROWS`/`LABELS` the `mesh.points` centers with the `mesh[scalars]` vector/label field; `RenderSpec.viewed` folds `background` onto `set_background`, the `RenderFeature` `frozenset` onto the `_FEATURE` enable-table (`add_axes`/`add_scalar_bar`/`enable_ssao`/`enable_depth_peeling`/`enable_eye_dome_lighting`/`enable_shadows`/`enable_parallel_projection`), the `anti_aliasing` mode onto `enable_anti_aliasing`, and a non-empty `CameraPose` onto the `camera_position` triple; the `RenderSpec.window`/`RenderSpec.transparent` fold onto the catalogued `screenshot(window_size=, transparent_background=)` keywords; the `Frames` arm reads the auto-framed `camera_position` for the orbit center and radius, scales the radius by `OrbitPath.factor` and the height by `OrbitPath.elevation`, walks the `numpy.linspace` azimuth sweep placing `camera_position` per step, and reads each step's offscreen `shoot` raster array into the sequence.
+- Receipt: every arm returns `(key, ArtifactReceipt.Scene(key, target, bytes, facts))` so the receipt is minted inside `_emit` over the produced payload, exactly as the `media/video#MEDIA` sibling mints `ArtifactReceipt.Media` in its `_emit`. The `Image` arm contributes the `"png"` target plus `len(data)`, the `Export` arm the `SceneTarget` value (`scene/export#EXPORT`/`scene/stage#STAGE`) plus the serialized scene-file byte count, and the `Frames` arm the `_FRAME_FORMAT` `"rgb24"` target plus the frame-sequence byte total `sum(frame.nbytes for ...)` — the raw frame-sequence artifact's own evidence, a distinct content-addressed unit from the encoded video `media/video#MEDIA` separately keys and mints `ArtifactReceipt.Media` over, so the two artifacts carry two keys and two receipts, never a double-counted single rail. The window render evidence lands on the widened `core/receipt#RECEIPT` `ArtifactReceipt.Scene(key, target, bytes, facts)` `frozendict` band the `_emit` `Image`/`Frames` arms fill from `spec.window` (plus the frame count), and the `scene/stage#STAGE` `ComputeUsdStageStats` prim/layer/up-axis/meters-per-unit stats thread back through the `render_export` `(bytes, facts)` return into the same band on the `Export` arm; the `pyvista` point/cell counts the `.api` evidence row names land as one more band key once the render worker returns them, never a new receipt case.
+- Growth: a new render knob is one `RenderSpec` field bound into the existing `staged`/`added`/`viewed` projection; a new render-quality toggle (legend, bounding box, orientation widget, SSAA tier) is one `RenderFeature` member plus one `_FEATURE` row, or one `RenderSpec` field plus one `viewed` line; a new material knob is one `RenderSpec` field bound into the `added` `SURFACE` arm; a new render style is one `RenderStyle` member plus one `added` `match` arm; a new field-visualization filter is one `FieldFilter` case plus one `apply` `match` arm over the catalogued dataset-filter family, dispatched by the same `RenderSpec.staged` reduce — never a parallel filtered-mesh type; a new camera control is one `CameraPose` field the `viewed` projection reads; a new orbit trajectory is one `OrbitPath` member carrying its own `(factor, elevation)` columns; a new scene file-export is one `SceneTarget` row plus one exporter arm in `scene/export#EXPORT` or `scene/stage#STAGE`; a new render-evidence fact is one key on the `core/receipt#RECEIPT` `ArtifactReceipt.Scene` `facts` `frozendict` band (the window + frame facts and the `scene/stage#STAGE` USD prim/layer/up-axis/meters-per-unit stats already fill it; the pyvista point/cell counts land when the render worker returns them), never a new receipt case nor a widened positional tuple; a new importable scene format is one `SceneSource` member plus one `import_*` arm in the `render_ingest` worker; zero new surface — the modality space stays four cases (`Image`/`Export`/`Frames`/`Ingest`) on one owner, every addition a row, field, case, member, or arm.
 
 ```python signature
 import os
@@ -31,7 +31,7 @@ from rasm.runtime.faults import RuntimeRail, async_boundary
 
 from artifacts.core.receipt import ArtifactReceipt
 
-lazy from artifacts.scene.export import SceneTarget, render_export        # cyclically coupled peer (export imports render) — deferred to break the cycle
+lazy from artifacts.scene.export import SceneTarget, render_export, render_ingest        # cyclically coupled peer (export imports render) — deferred to break the cycle
 lazy from artifacts.scene.render_worker import render_frames, render_image
 
 type Vec3 = tuple[float, float, float]
@@ -40,9 +40,10 @@ type Bounds = tuple[float, float, float, float, float, float]
 type ScalarRange = tuple[float, float]
 type FieldFilterTag = Literal[
     "clip", "clip_box", "clip_scalar", "slice", "slice_orthogonal", "threshold",
-    "contour", "warp", "glyph", "streamlines", "decimate", "surface",
+    "contour", "warp", "warp_vector", "glyph", "streamlines", "decimate", "surface",
+    "smooth", "subdivide", "fill_holes", "clean", "cell_to_point", "point_to_cell", "combine",
 ]
-type SceneOpTag = Literal["image", "export", "frames"]
+type SceneOpTag = Literal["image", "export", "frames", "ingest"]
 
 _FRAME_FORMAT = "rgb24"
 _ORIGIN: Vec3 = (0.0, 0.0, 0.0)
@@ -57,6 +58,16 @@ class RenderStyle(StrEnum):
     SURFACE = "surface"
     VOLUME = "volume"
     POINTS = "points"
+    ARROWS = "arrows"   # add_arrows vector-field glyphs over the active vector field
+    LABELS = "labels"   # add_point_labels text annotation at each point
+
+
+class SceneSource(StrEnum):
+    # the closed set of scene formats the pyvista importer round-trips (import_gltf/import_obj/import_vrml);
+    # a subset of SceneTarget — PNG/USD/USDZ are export-only, never an import inverse.
+    GLTF = "gltf"
+    OBJ = "obj"
+    VRML = "vrml"
 
 
 class AntiAlias(StrEnum):
@@ -119,6 +130,14 @@ class FieldFilter:
     streamlines: Vec3 = case()
     decimate: float = case()
     surface: bool = case()
+    warp_vector: float = case()      # warp_by_vector displacement over the active vector field
+    smooth: int = case()             # n_iter Laplacian surface smoothing (mesh repair)
+    subdivide: int = case()          # nsub recursive triangle subdivision (mesh refinement)
+    fill_holes: float = case()       # hole_size boundary-hole fill (mesh repair)
+    clean: bool = case()             # merge duplicate/degenerate points (mesh repair)
+    cell_to_point: bool = case()     # cell_data_to_point_data field transfer
+    point_to_cell: bool = case()     # point_data_to_cell_data field transfer
+    combine: bool = case()           # MultiBlock.combine merge (merge_points), e.g. after slice_orthogonal
 
     @staticmethod
     def Clip(normal: Vec3, origin: Vec3) -> "FieldFilter":
@@ -168,6 +187,38 @@ class FieldFilter:
     def Surface() -> "FieldFilter":
         return FieldFilter(surface=True)
 
+    @staticmethod
+    def WarpVector(factor: float = 1.0) -> "FieldFilter":
+        return FieldFilter(warp_vector=factor)
+
+    @staticmethod
+    def Smooth(n_iter: int = 20) -> "FieldFilter":
+        return FieldFilter(smooth=n_iter)
+
+    @staticmethod
+    def Subdivide(nsub: int = 1) -> "FieldFilter":
+        return FieldFilter(subdivide=nsub)
+
+    @staticmethod
+    def FillHoles(hole_size: float) -> "FieldFilter":
+        return FieldFilter(fill_holes=hole_size)
+
+    @staticmethod
+    def Clean() -> "FieldFilter":
+        return FieldFilter(clean=True)
+
+    @staticmethod
+    def CellToPoint() -> "FieldFilter":
+        return FieldFilter(cell_to_point=True)
+
+    @staticmethod
+    def PointToCell() -> "FieldFilter":
+        return FieldFilter(point_to_cell=True)
+
+    @staticmethod
+    def Combine(merge_points: bool = False) -> "FieldFilter":
+        return FieldFilter(combine=merge_points)
+
     def apply(self, dataset: object, scalars: str) -> object:
         match self:
             case FieldFilter(tag="clip", clip=(normal, origin)):
@@ -194,6 +245,22 @@ class FieldFilter:
                 return dataset.decimate(target_reduction=reduction)
             case FieldFilter(tag="surface", surface=_):
                 return dataset.extract_surface()
+            case FieldFilter(tag="warp_vector", warp_vector=factor):
+                return dataset.warp_by_vector(vectors=scalars, factor=factor)
+            case FieldFilter(tag="smooth", smooth=n_iter):
+                return dataset.smooth(n_iter=n_iter)
+            case FieldFilter(tag="subdivide", subdivide=nsub):
+                return dataset.subdivide(nsub)
+            case FieldFilter(tag="fill_holes", fill_holes=hole_size):
+                return dataset.fill_holes(hole_size)
+            case FieldFilter(tag="clean", clean=_):
+                return dataset.clean()
+            case FieldFilter(tag="cell_to_point", cell_to_point=_):
+                return dataset.cell_data_to_point_data()
+            case FieldFilter(tag="point_to_cell", point_to_cell=_):
+                return dataset.point_data_to_cell_data()
+            case FieldFilter(tag="combine", combine=merge_points):
+                return dataset.combine(merge_points=merge_points)
             case _:
                 assert_never(self)
 
@@ -212,6 +279,13 @@ class RenderSpec(Struct, frozen=True):
     metallic: float | None = None
     roughness: float | None = None
     show_edges: bool = False
+    ambient: float | None = None        # add_mesh classic-lighting Phong band, orthogonal to the pbr metallic/roughness pair
+    diffuse: float | None = None
+    specular: float | None = None
+    smooth_shading: bool = False        # per-vertex Gouraud shading (vs the default per-face flat)
+    volume_opacity: str | None = None   # add_volume opacity transfer-function name ('linear'/'sigmoid'/'sigmoid_6'), overriding the scalar float
+    blending: str | None = None         # add_volume ray blending ('composite'/'maximum'/'minimum'/'average'/'additive')
+    volume_mapper: str | None = None    # add_volume mapper ('smart'/'gpu'/'fixed_point'/'ugrid')
     features: frozenset[RenderFeature] = frozenset()
     anti_aliasing: AntiAlias | None = None
     camera: CameraPose = CameraPose()
@@ -221,14 +295,21 @@ class RenderSpec(Struct, frozen=True):
 
     def added(self, plotter: object, mesh: object) -> None:
         shared = {"scalars": self.scalars, "cmap": self.colormap, "clim": self.clim, "opacity": self.opacity}
+        drop = lambda row: {key: value for key, value in row.items() if value is not None}  # every provider kwarg dropped when unset, never a None passed through
         match self.style:
             case RenderStyle.SURFACE:
-                material = {"pbr": self.pbr or None, "metallic": self.metallic, "roughness": self.roughness, "show_edges": self.show_edges or None}
-                plotter.add_mesh(mesh, **{key: value for key, value in (shared | material).items() if value is not None})
+                material = {"pbr": self.pbr or None, "metallic": self.metallic, "roughness": self.roughness, "show_edges": self.show_edges or None,
+                            "ambient": self.ambient, "diffuse": self.diffuse, "specular": self.specular, "smooth_shading": self.smooth_shading or None}
+                plotter.add_mesh(mesh, **drop(shared | material))
             case RenderStyle.VOLUME:
-                plotter.add_volume(mesh, **{key: value for key, value in shared.items() if value is not None})
+                volume = {**shared, "opacity": self.volume_opacity or self.opacity, "blending": self.blending, "mapper": self.volume_mapper}
+                plotter.add_volume(mesh, **drop(volume))   # opacity is the transfer-function NAME when set, else the scalar float
             case RenderStyle.POINTS:
-                plotter.add_points(mesh, **{key: value for key, value in shared.items() if value is not None})
+                plotter.add_points(mesh, **drop(shared))
+            case RenderStyle.ARROWS:
+                plotter.add_arrows(mesh.points, mesh[self.scalars])   # centers = points, directions = the active vector field
+            case RenderStyle.LABELS:
+                plotter.add_point_labels(mesh.points, mesh[self.scalars])   # text labels rendered from the active scalar field
             case _:
                 assert_never(self.style)
 
@@ -248,6 +329,7 @@ class SceneOp:
     image: tuple[object, RenderSpec] = case()
     export: tuple[object, SceneTarget, RenderSpec] = case()
     frames: tuple[object, OrbitPath, int, RenderSpec] = case()
+    ingest: tuple[bytes, SceneSource, SceneTarget, RenderSpec] = case()
 
     @staticmethod
     def Image(grid: object, spec: RenderSpec) -> "SceneOp":
@@ -261,6 +343,10 @@ class SceneOp:
     def Frames(grid: object, orbit: OrbitPath, steps: int, spec: RenderSpec) -> "SceneOp":
         return SceneOp(frames=(grid, orbit, steps, spec))
 
+    @staticmethod
+    def Ingest(scene: bytes, source: SceneSource, target: SceneTarget, spec: RenderSpec) -> "SceneOp":
+        return SceneOp(ingest=(scene, source, target, spec))
+
 
 class Scene3d(Struct, frozen=True):
     op: SceneOp
@@ -272,23 +358,27 @@ class Scene3d(Struct, frozen=True):
         match self.op:
             case SceneOp(tag="image", image=(grid, spec)):
                 data = await to_process.run_sync(render_image, grid, spec, limiter=_SCENE_LIMITER)
-                key = ContentIdentity.of(SceneTarget.PNG.value, data)
-                return key, ArtifactReceipt.Scene(key, SceneTarget.PNG.value, len(data))
+                key = ContentIdentity.key(SceneTarget.PNG.value, data)  # bare synchronous accessor: the rendered PNG bytes are an infallible whole-byte source, so `_emit` mints off a bare `ContentKey`, never the railed `of`
+                return key, ArtifactReceipt.Scene(key, SceneTarget.PNG.value, len(data), frozendict({"width": spec.window[0], "height": spec.window[1]}))
             case SceneOp(tag="export", export=(grid, target, spec)):
-                data = await to_process.run_sync(render_export, grid, target.value, spec, limiter=_SCENE_LIMITER)
-                key = ContentIdentity.of(target.value, data)
-                return key, ArtifactReceipt.Scene(key, target.value, len(data))
+                data, facts = await to_process.run_sync(render_export, grid, target.value, spec, limiter=_SCENE_LIMITER)
+                key = ContentIdentity.key(target.value, data)
+                return key, ArtifactReceipt.Scene(key, target.value, len(data), facts)  # `facts` carries the `scene/stage#STAGE` `ComputeUsdStageStats` prim/layer/up-axis/meters-per-unit band on the USD arms, empty on the render-sink arms
             case SceneOp(tag="frames", frames=(grid, orbit, steps, spec)):
                 sequence = await to_process.run_sync(render_frames, grid, orbit, steps, spec, limiter=_SCENE_LIMITER)
-                key = ContentIdentity.of(
-                    _FRAME_FORMAT, tuple(ContentIdentity.of(_FRAME_FORMAT, frame.tobytes()) for frame in sequence)
-                )
-                return key, ArtifactReceipt.Scene(key, _FRAME_FORMAT, sum(frame.nbytes for frame in sequence))
+                key = ContentIdentity.key(
+                    _FRAME_FORMAT, tuple(ContentIdentity.key(_FRAME_FORMAT, frame.tobytes()) for frame in sequence)
+                )  # merkle over the per-frame bare keys: each infallible whole-byte frame keys through the synchronous `key`, then the parent joins them, never the railed `of`
+                return key, ArtifactReceipt.Scene(key, _FRAME_FORMAT, sum(frame.nbytes for frame in sequence), frozendict({"frames": len(sequence), "width": spec.window[0], "height": spec.window[1]}))
+            case SceneOp(tag="ingest", ingest=(scene, source, target, spec)):
+                data, facts = await to_process.run_sync(render_ingest, scene, source.value, target.value, spec, limiter=_SCENE_LIMITER)
+                key = ContentIdentity.key(target.value, data)
+                return key, ArtifactReceipt.Scene(key, target.value, len(data), facts)
             case _:
                 assert_never(self.op)
 ```
 
-The worker bodies (`render_plotter`/`surface_arrays`/`shoot`/`png`/`render_image`/`_orbit`/`render_frames`) are module-level functions dispatched by qualified name across the `anyio.to_process.run_sync` subprocess seam (the seam cannot target a bound method or closure) under the shared `_SCENE_LIMITER` `CapacityLimiter` that bounds render fan-out at the boundary, so they import `pyvista`/`numpy` at module scope inside the gated sub-3.13 worker only, never on the runtime owner; `surface_arrays` is the pyvista mesh-extraction seam the `scene/export#EXPORT` USD/USDZ arm hands to `scene/stage#STAGE` (`usd-core`) to author a USD layer from the dataset's triangulated surface (`.points`/`.regular_faces`/`.point_normals`) with no render pass; each render arm brackets its `Plotter` in a `try`/`finally` `plotter.close()` so the native VTK render window closes deterministically and the GL context is never left for GC. `render_plotter` admits the raw mesh ONCE through `pyvista.wrap` (the catalogued zero-copy entry over a numpy buffer / VTK object / `trimesh`/`meshio` mesh), applies `RenderSpec.staged`, binds through `RenderSpec.added`, folds `RenderSpec.viewed`, and is the shared render window the `Image`/`Frames` sinks and the `scene/export#EXPORT`/`scene/stage#STAGE` arms all read; `_orbit` computes the azimuthal `camera_position` walk from the auto-framed viewpoint through `numpy` `linspace`/`cos`/`sin`/`linalg.norm`, and `render_frames` walks it placing the camera per step through the catalogued `camera_position` property.
+The worker bodies (`render_plotter`/`import_plotter`/`surface_arrays`/`shoot`/`png`/`render_image`/`_orbit`/`render_frames`) are module-level functions dispatched by qualified name across the `anyio.to_process.run_sync` subprocess seam (the seam cannot target a bound method or closure) under the shared `_SCENE_LIMITER` `CapacityLimiter` that bounds render fan-out at the boundary, so they import `pyvista`/`numpy` at module scope inside the gated sub-3.13 worker only, never on the runtime owner; `import_plotter` is the `scene/export#EXPORT` `render_ingest` round-trip's plotter, building an offscreen plotter from an imported glTF/OBJ/VRML scene file (`import_gltf`/`import_obj`/`import_vrml`) that the export re-tunes and re-serializes; `surface_arrays` is the pyvista mesh-extraction seam the `scene/export#EXPORT` USD/USDZ arm hands to `scene/stage#STAGE` (`usd-core`) to author a USD layer from the dataset's triangulated surface (`.points`/`.regular_faces`/`.point_normals`) with no render pass; each render arm brackets its `Plotter` in a `try`/`finally` `plotter.close()` so the native VTK render window closes deterministically and the GL context is never left for GC. `render_plotter` admits the raw mesh ONCE through `pyvista.wrap` (the catalogued zero-copy entry over a numpy buffer / VTK object / `trimesh`/`meshio` mesh), applies `RenderSpec.staged`, binds through `RenderSpec.added`, folds `RenderSpec.viewed`, and is the shared render window the `Image`/`Frames` sinks and the `scene/export#EXPORT`/`scene/stage#STAGE` arms all read; `_orbit` computes the azimuthal `camera_position` walk from the auto-framed viewpoint through `numpy` `linspace`/`cos`/`sin`/`linalg.norm`, and `render_frames` walks it placing the camera per step through the catalogued `camera_position` property.
 
 ```python signature
 from pathlib import Path
@@ -304,6 +394,26 @@ from artifacts.scene.render import OrbitPath, RenderSpec, Vec3
 def render_plotter(grid: object, spec: RenderSpec) -> "pv.Plotter":
     plotter = pv.Plotter(off_screen=True)
     spec.added(plotter, spec.staged(pv.wrap(grid)))
+    spec.viewed(plotter)
+    return plotter
+
+
+def import_plotter(scene: bytes, source: str, spec: RenderSpec) -> "pv.Plotter":
+    # the `scene/export#EXPORT` `render_ingest` round-trip's plotter: import an existing glTF/OBJ/VRML scene file into
+    # an offscreen plotter, then re-tune it through `RenderSpec.viewed` (the imported scene's camera overridden only
+    # when the spec carries a `CameraPose`). The import loads the whole scene into the render window, so the temp file
+    # is free to drop before `viewed` runs; `source` is the `SceneSource` token crossed as its `.value`.
+    plotter = pv.Plotter(off_screen=True)
+    with TemporaryDirectory() as work:
+        path = Path(work) / f"scene.{source}"
+        path.write_bytes(scene)
+        match source:
+            case "gltf":
+                plotter.import_gltf(str(path))
+            case "obj":
+                plotter.import_obj(str(path))
+            case _:  # "vrml"
+                plotter.import_vrml(str(path))
     spec.viewed(plotter)
     return plotter
 

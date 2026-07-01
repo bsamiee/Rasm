@@ -381,11 +381,11 @@ public static class ComponentCatalogue {
         AstmRows.Choose(row => CmuOf(row, default, default).ToOption());
 
     // The ComponentId → Component rows component#COMPONENT_OWNER ComponentCatalogue.Build folds through the ONE
-    // canonical Component(Family, Designation, Section, Coring, Standard, CapacityKey, AppearanceId) shape: a CMU is a
+    // canonical Component(Family, Designation, Section, Coring, Standard, SubstanceId, AppearanceId) shape: a CMU is a
     // ComponentFamily.Cmu row (its ComponentClass.Minor read off the family axis, IfcElementComponent — one standardized
     // Type, many laid pieces), its cross-section the ComponentSection.Cmu arm carrying the rich CmuSection (the canonical
     // ComponentUnit dimensional projection rides ComponentCatalogue.Sections / the M7 ToUnit, not a Component field), its
-    // void class the relocated Coring the ToCoring buckets, its CapacityKey the concrete.cmu Mechanical row and its
+    // void class the relocated Coring the ToCoring buckets, its SubstanceId the concrete.cmu Mechanical row and its
     // AppearanceId the same concrete.cmu render row (the two independent MaterialId slots coincide for a plain CMU).
     // ComponentId's generated [KeyMemberEqualityComparer] ordinal value-equality keys the frozen dictionary, so NO explicit
     // comparer is threaded — ComparerAccessors.StringOrdinal.EqualityComparer is an IEqualityComparer<string>, a type mismatch
@@ -394,7 +394,7 @@ public static class ComponentCatalogue {
         Shapes
             .Map(shape => (shape.Id, Component: new Component(
                 ComponentFamily.Cmu, shape.Id, new ComponentSection.Cmu(shape.Section), shape.Section.ToCoring(),
-                shape.Standard, CapacityKey: MaterialId.Of("concrete.cmu"), AppearanceId: MaterialId.Of("concrete.cmu"))))
+                shape.Standard, SubstanceId: MaterialId.Of("concrete.cmu"), AppearanceId: MaterialId.Of("concrete.cmu"))))
             .ToFrozenDictionary(static r => r.Id, static r => r.Component);
 
     // The ComponentId → ComputedSection map the component#COMPONENT_OWNER ComponentCatalogue.Sections folds and the

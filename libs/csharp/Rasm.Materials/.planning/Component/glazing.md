@@ -677,10 +677,10 @@ public static class ComponentCatalogue {
         select new GlazingShape(ComponentId.Of(r.Designation), section, IguStandard);
 
     // The registered ComponentId -> Component rows the parent ComponentCatalogue.Build folds through the ONE canonical
-    // Component(Family, Designation, Section, Coring, Standard, CapacityKey, AppearanceId) shape. A glazing Component carries
+    // Component(Family, Designation, Section, Coring, Standard, SubstanceId, AppearanceId) shape. A glazing Component carries
     // the ComponentSection.Glazing arm (the cross-section FIELD) and no ComputedSection (the IGU is an IfcMaterialLayerSet),
     // so glazing contributes NO ComponentCatalogue.Sections entry and the M7 ProfileResolution dereferences a glazing
-    // ComponentId to (Component, None). Coring is None (an IGU is no void-class unit); the CapacityKey and AppearanceId both
+    // ComponentId to (Component, None). Coring is None (an IGU is no void-class unit); the SubstanceId and AppearanceId both
     // resolve to the outboard pane's glass row (glazing carries its engineering receipt on the material's own
     // ToProperties set, so the capacity slot coincides with the appearance row rather than a separate Mechanical key).
     // ComponentId's generated [KeyMemberEqualityComparer] ordinal value-equality keys the frozen dictionary, so NO explicit
@@ -693,7 +693,7 @@ public static class ComponentCatalogue {
                 static shape => shape.Id,
                 static shape => new Component(
                     ComponentFamily.Glazing, shape.Id, new ComponentSection.Glazing(shape.Section), Coring.None,
-                    shape.Standard, CapacityKey: shape.Section.Panes[0].Glass.Appearance, AppearanceId: shape.Section.Panes[0].Glass.Appearance));
+                    shape.Standard, SubstanceId: shape.Section.Panes[0].Glass.Appearance, AppearanceId: shape.Section.Panes[0].Glass.Appearance));
 }
 
 public readonly record struct PaneRow(string Glass, double ThicknessMm, string Coating, int CoatedSurface, string Interlayer, double InterlayerThicknessMm);

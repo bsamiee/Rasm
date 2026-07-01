@@ -105,7 +105,7 @@ public sealed record GeoFeature(
                 .Fold(Map<PropertyName, PropertyValue>(), (bag, name) =>
                     bag.AddOrUpdate(PropertyName.Create(name), new PropertyValue.Text(footprint.Attributes[name]?.ToString() ?? "")))
                 .AddOrUpdate(PropertyName.Create("Footprint"), new PropertyValue.Text(GeoWire.ToGeoJson(footprint)));
-            var pset = new Node.PropertySet(NodeId.Rooted(), new PropertyBag("Pset_SiteContext", values, InheritanceMode.OccurrenceWins));
+            var pset = new Node.PropertySet(NodeId.Rooted(), new PropertyBag("Pset_SiteContext", values, InheritanceMode.OccurrenceWins, PropertySource.Import));
             var obj = new Node.Object(
                 Id:              objectId,
                 Kind:            ObjectKind.Occurrence,

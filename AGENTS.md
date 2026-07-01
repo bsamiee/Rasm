@@ -1,36 +1,40 @@
 # [ROOT_AGENTS]
 
+[COMMENT_DISCIPLINE]: Never tolerate comment spam, maintain section organizational style, per our standards in `CLAUDE.MD` with proper sub-section styling (lack of trailing dashes), and canonical section labels. Whenever we work on any file, creating a new file, or editing an existing, we aggressively refactor/prune/refine prose and comments as well (including in code fences). Comments should RARELY be larger than 1-2 lines, and always be framed for agent first purposes, comments only justify themselves when it's critical signal for maintaining/understanding code, never boilerplate/self-explanatory. ALL prose, including comments MUST follow `docs/standards/style-guide.md`, be concise, declarative, acive voice and assertive, NEVER hedging, never qualifying, always ensuring concrete decisions/action, never ambiguity. REMOVE COMMENTS THAT ARE NOISE, ENFORCE STRICT COMMENT DISCIPLINE ALL PROSE IN COMMENTS ADHERE TO  Comments earn their keep only if they are relevant to agents working on a file, not for humans. THE SAME STANDARD APPLIES TO PROSE IN ALL `.md` files within `libs/`.
+
 ## [01]-[LOAD_ORDER]
 
 [REQUIRED]:
 - Read and follow `CLAUDE.md` before this file
-- Read and follow `README.md`
-- Read and follow `docs/standards/style-guide.md` for all prose in any capacity, including comments, and prompts
+- Use `loc <path>` to identify true LOC of files, as well their complexity score, which helps in identifying heavy areas that need more attention/consideration
+- Use `tree <path>` to get a full map of all folders/files in a dir to get a high level view of the folder topology
 
-## [02]-[NAVIGATION]
+## [02]-[ENGINEERING_CONTRACT]
 
-- Read every target file end-to-end before editing. For planning, catalogue, doctrine, and standards work, inventory owner trees with `fd`; read the owner README first, then the target `.planning/`, `.api`, or `docs/stacks/<language>/` pages in routing order. Use `tree` and `loc` to display the folder/file structure of an `<ARG>` and the line count and complexity of each file, and summaries of each folder, `<ARG>` takes a path as value.
-- When extracting/investigating the API of a source, use `tools/assay/` read the `tools/assay/README.md`, if a c#/net package, use the nuget MCP server, and always use Context7 mcp server when needed for any implementation details for external packages.
-
-## [03]-[ENGINEERING_CONTRACT]
-
-- All libraries and package folders begin with a planning campaign, we never make code files from files within `.planning/` folders unless explicitly stated, always assume refinement/rebuilding/refactoring of the `.md` within them, with a focus on code fences. All planning guidance is found in `libs/.planning`, read all of `libs/.planning/planning-targets.md` for existing targets, and `libs/.planning/architecture.md` for the strata/topology.
+- We are in a long term planning state of our project, working exclusively on `.md` design/spec sheet files within planning folders, NOT implementing code, instead, aggressively, iteratively refining, rebuilding, refactoring, and pushing existing design docs to be the pinnacle of possiblity, NOT by spamming code, but the opposite, continually going through cycles of adding functionality/features, then aggressively rebuilding/collapsing, and identifying ways to reduce LOC, surface, object/shape/type/constant count whilst maintaining functionality, and also ULTRA stacking all external libs/packages we have per planning folder/feature, using them also as sources of inspiration for new functionality and capabilities.
 - All planned folders have a `.api/` folder that MUST be FULLY read whenever working in such a folder, all languages also have a `.api/` that MUST be fully read when working within that languages library planning folders: `libs/csharp/.api`, `libs/python/.api`, `libs/typescript/.api`, example of a planning folder api relative location: `libs/csharp/Rasm.Bim/.api`.
 - Design docs are implementation surfaces. A design/spec MUST be file-grouped and decision-complete: each target file names the owner section or card, replacement shape, exact types/signatures/fields/rows/fences, admitted package or API surfaces, deletion/collapse moves, and consumer consequences. Loose prose, placeholder bullets, ceremony tails, and "add docs about" items are not acceptable planning output.
+- ALWAYS pay attention to prose quality and expetations, follow `docs/standards/formatting.md`, `docs/standards/information-structure.md`, and `docs/standards/style-guide.md`, maintain consistency with other like files.
+- ALWAYS reconcile/align planning folders as we make changes in one, it has a ripple to others, sometimes even beyond the language.
+- We NEVER couple packages, all packages must be able to fully stand on their own and be usable in isolation, but be FULLY aligned at the same time, we never scope/couple the capability/prospects of a package to another, they are all pushed past the absolute bleeding-edge limit, but are aligned and at the same time.
+- NEVER tolerate prose/comment spam, and ensure that all prose, regardless of file type are concise, succinct, and high signal, designed for agents, not humans.
+- Whenever updating planning folders, we also want to update `ARCHITECTURE.md` + `README.md` files to ensure they do not drift.
 - Whenever adding a new external package/lib to `Directory.Packages.props`, `pyproject.toml`, or `pnpm-workspace.yaml`, MUST update the relevant `README.md` of the planning folder to account for the new package, all `README.md` within planning directories contain a package manifest, and substrate, substrate is shared/universal packages all folders use from the `libs/<language>/.api/` location. IF the external package added is for c#/`Directory.Packages.props`, we MUST also update the `.csproj` of the relevant planning folder so that it and the readme are aligned.
 - Whenever adding a new external package, regardless of langauge, make a SIMPLE stub file in the relevant `.api/` folder with a single line value of: `(placeholder)`. A seperate session will finalize/flesh out the file, however, if the package is relevant to current scope of work, you must still do the deep investigation to extract all relevant information to implement in the relevant design docs.
 - Code fences and prose implementation snippets in design docs MUST be fully realized, not abstract signatures or conceptual implementations, treat them as real code implementation, that MUST adhere to the `docs/stacks/<language>/` file standards, treat the stacks docs as a FLOOR not the ceiling, this is non-negotiable.
 - Every repo tool must route generated storage, caches, benchmark output, mutation workdirs, coverage files, snapshots, and scratch artifacts through the owning language/tool configuration or the owning repo tool surface. Do not rely on ambient CLI defaults or gitignore-only tolerance for root litter; configure the tool in `pyproject.toml`, `Directory.Build.props`, tool manifests, test conftests, or the canonical tool engine so outputs land under `.cache`, `.artifacts`, or another owner-declared path.
 
-## [04]-[MONOREPO_TOPOLOGY]
+## [03]-[MONOREPO_TOPOLOGY]
 
 - Rasm is a RhinoWIP, GH2, and product-neutral AEC/design-geometry workspace. Interpret library, tool, app, service, web, Python, TypeScript, and C# work through that domain frame before choosing shape: reusable capability lands in the deepest owner that can absorb it, while product shells bind intent, host edges, and output.
 - AEC pressure informs geometry, topology, units, tolerances, host documents, object graphs, exchange, visualization, compute, persistence, and evidence; it never collapses runtime, UI, compute, persistence, Python, TypeScript, Assay, or Bridge into generic app/plugin code.
 - "Universal" never means host-free C#: the whole C# branch is RhinoCommon-aware. A host-neutral owner exists only where a non-Rhino runtime (Python, TypeScript) consumes the contract; otherwise the Rhino-native surface is captured as a host-specific feature. The universal-vs-capture rule and the one-owner-per-runtime geometry/mesh/IFC flow are owned in full by `architecture.md`.
 - Host lifecycle remains outside libraries. Rhino launch, endpoint discovery, package staging, bridge doctor/check/verify/quit/redeploy, cargo, spool, scenario evidence, and host-bound runtime facts belong to `tools/rhino-bridge` and the Assay bridge/package rails that consume it.
 
-## [05]-[TOOL_OWNERS]
+## [04]-[TOOL_OWNERS]
 
+- ANY PROVISONING/SUBSTRATE PROVIDED BY `Parametric_Forge` IS ONLY FOR LOCAL DEVELOPMENT, NOT A PART OF OUR FINAL PACKAGING/DELIVERABLES, WE MUST ENSURE THE PROJECT IS ABLE TO STAND ON IT'S OWN.
+- AGGRESSIVELY LIVE PROBE ON LOCAL MACHINE, NEVER HESTITATE, RHINO WIP + GH2 EXIST LOCALLY, AND WE HAVE ALL THE TOOLING FROM VARIOUS SOURCES TO CREATE PROVISONED CONTAINERS, CLI TOOLING, SUBSTRATE PACKAGES, ETC AND WE CAN ADD/UPDATE `Parametric_Forge` if needed; ensure no coupling to `Rasm` if we do touch that project, agnostic alignment, not coupled.
 - Assay command truth lives in `tools/assay/composition/registry.py` and `tools/assay/README.md`.
 - Normal Assay invocations emit one stdout `Envelope`; automation emits NDJSON. Parse `report.detail`, `report.results`, `report.artifacts`, `error`, and `error_context` as the result channel. Stderr is transport noise unless the envelope says otherwise.
 - Monorepo routing comes from manifests, project graph closure, trigger files, explicit `AssayHostBound`, package slugs, route maps, and catalog rows. Avoid path-name heuristics and single-project assumptions.
@@ -41,7 +45,7 @@
 - NuGet feed, version, vulnerability, and supply-chain intelligence routes through the `nuget` MCP; the apply path (`Directory.Packages.props` hand-edit, `assay api` member-truth precedence, `survey-packages`/`survey-gaps` modernization) is owned by `CLAUDE.md` and not restated here.
 - The `ifcopenshell` CLI runs through the cp312 `forge-companion-env` lane for batch convert and validate; the `ifc` MCP live-inspection surface and the `Rasm.Bim` sole-authority split are owned by `CLAUDE.md`. The `jupyter` skill owns notebook execution: headless `papermill`/`nbclient` via `uv run`, or the always-on `jupyter` MCP for a live kernel.
 
-## [06]-[DOCUMENTATION]
+## [05]-[DOCUMENTATION]
 
 - Whenever working on any PROSE in any `.md` file, MUST follow and adhere to `docs/standards/style-guide.md`, `docs/standards/formatting.md`, and `docs/standards/information-structure.md`, NEVER use meta commentary, unusual coupling or agentic instructions/guidance, all prose are declarative and NON-HEDGING.
 - Durable docs, prompts, standards, skills, examples, and reusable templates are agent-facing declarative law, not reports, walkthroughs, origin logs, or checklist tails. ALL DOCUMENTATION AND PROSE, INCLUDING COMMENTS ARE PURELY FOR AGENTS, NOT HUMANS, NEVER CREATE UNNECESSARY EXPLANATORY PROSE/COMMENTS, AND ENSURE ALL PROSE IN ANY CAPACITY EARN THEIR KEEP, THEY MUST BE RELEVANT/USEFUL TO AGENTS WORKING WITHIN A FILE; OTHERWISE REMOVE THE PROSE.

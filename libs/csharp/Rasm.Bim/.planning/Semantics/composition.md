@@ -9,7 +9,7 @@ The IFC material PROJECTOR lowering the live GeometryGym `IfcMaterialSelect` sur
 ## [02]-[MATERIAL_COMPOSITION]
 
 - Owner: `MaterialProjection` the static BIDIRECTIONAL GeometryGym↔seam material projector — the `Project` ingress folding one `IfcMaterialSelect` runtime entity into one seam `Node.Material` (discriminating the entity, building the seam `MaterialComposition` through the seam smart-constructors, minting the content-keyed node id), and the `AuthorComposition`/`AuthorUsage` egress re-authoring a seam `Material` node back onto the GeometryGym material-definition family the `Projection/egress#IFC_EGRESS` `Emit` composes. The seam owns the `MaterialComposition` `[Union]`, the `MaterialLayer`/`MaterialConstituent` rows, the `ProfileRef`, the `Relations/relation#EDGE_ALGEBRA` `MaterialUsage`, and the `MaterialPropertySet` engineering-property family; this page declares NONE of them — it composes the seam vocabulary, mapping the GeometryGym material-assembly entities onto it and back.
-- Entry: `MaterialProjection.Project(BaseClassIfc relatingMaterial, double tolerance, Op key)` is the live-entity promotion the `Projection/semantic#SEMANTIC_PROJECTOR` projector composes when folding an `IfcRelAssociatesMaterial.RelatingMaterial` — discriminating the runtime entity (`IfcMaterialLayerSetUsage` unwraps its `ForLayerSet` and `IfcMaterialProfileSetUsage` its `ForProfileSet`, the usage payload riding the `Associate` edge not this node; `IfcMaterialLayerSet` folds its `MaterialLayers`, `IfcMaterialProfileSet` its primary `MaterialProfile`, `IfcMaterialConstituentSet` its `MaterialConstituents.Values`, a bare `IfcMaterial` folds to `Single`) — and returns one content-keyed seam `Node.Material`; `Fin<T>` aborts on an unresolvable material-select entity (`Model/faults#FAULT_BAND` `BimFault.ModelRejected`) and the seam `MaterialComposition` admission aborts a degenerate set (`ElementFault.ValueRejected`), each lifting BARE (the band IS the `Expected` `Code`; no `.ToError()` hop). `MaterialProjection.AuthorComposition(DatabaseIfc db, Node.Material material, Func<ProfileRef, Option<IfcProfileDef>> profiles)` is the egress entry the `Emit` composes — it authors the type-level `MaterialComposition` ONCE (`Single`→`IfcMaterial`, `LayerSet`→`IfcMaterialLayerSet`, `ProfileSet`→`IfcMaterialProfileSet`, `ConstituentSet`→`IfcMaterialConstituentSet`), folds the seam `MaterialPropertySet` set onto the `IfcMaterialProperties` named Psets as TYPED columns (each case field a `MeasureValue`/label/boolean, never a lossy double), and reconstitutes a `ProfileSet`'s `IfcProfileDef` from the content-addressed STEP store the injected `profiles` resolver reads (`Fin<T>` aborting `BimFault.DanglingReference` keyed on the page `Egress` gate on an unresolved profile); `MaterialProjection.AuthorUsage(IfcMaterialDefinition definition, MaterialUsage usage)` wraps that shared definition in the per-occurrence `IfcMaterialLayerSetUsage`/`IfcMaterialProfileSetUsage` the `Associate` edge carries [C7], returning the bare definition for `MaterialUsage.None`.
+- Entry: `MaterialProjection.Project(BaseClassIfc relatingMaterial, double tolerance, Op key)` is the live-entity promotion the `Projection/semantic#SEMANTIC_PROJECTOR` projector composes when folding an `IfcRelAssociatesMaterial.RelatingMaterial` — discriminating the runtime entity (`IfcMaterialLayerSetUsage` unwraps its `ForLayerSet` and `IfcMaterialProfileSetUsage` its `ForProfileSet`, the usage payload riding the `Associate` edge not this node; `IfcMaterialLayerSet` folds its `MaterialLayers`, `IfcMaterialProfileSet` its primary `MaterialProfile`, `IfcMaterialConstituentSet` its `MaterialConstituents.Values`, a bare `IfcMaterial` folds to `Single`) — and returns one content-keyed seam `Node.Material`; `Fin<T>` aborts on an unresolvable material-select entity (`Model/faults#FAULT_BAND` `BimFault.ModelRejected`) and the seam `MaterialComposition` admission aborts a degenerate set (`ElementFault.ValueRejected`), each lifting BARE (the band IS the `Expected` `Code`; no `.ToError()` hop). `MaterialProjection.AuthorComposition(DatabaseIfc db, Node.Material material, IIfcProfileStore profiles)` is the egress entry the `Emit` composes — it authors the type-level `MaterialComposition` ONCE (`Single`→`IfcMaterial`, `LayerSet`→`IfcMaterialLayerSet`, `ProfileSet`→`IfcMaterialProfileSet`, `ConstituentSet`→`IfcMaterialConstituentSet`), folds the seam `MaterialPropertySet` set onto the `IfcMaterialProperties` named Psets as TYPED columns (each case field a `MeasureValue`/label/boolean plus row evidence where available, never a lossy double), and reconstitutes a `ProfileSet`'s `IfcProfileDef` from the injected `profiles` store (`Fin<T>` aborting `BimFault.DanglingReference` keyed on the page `Egress` gate on an unresolved profile); `MaterialProjection.AuthorUsage(IfcMaterialDefinition definition, MaterialUsage usage)` wraps that shared definition in the per-occurrence `IfcMaterialLayerSetUsage`/`IfcMaterialProfileSetUsage` the `Associate` edge carries [C7], returning the bare definition for `MaterialUsage.None`.
 - Auto: `Project` reads the `IfcMaterialSelect` runtime type and builds the seam `MaterialComposition` through the seam `Of`-prefixed smart-constructors (the `Fin`-railing `MaterialComposition.OfLayerSet`/`OfConstituentSet` owning the empty-set / non-positive-thickness / unnormalized-fraction admission, the total `OfSingle`/`OfProfileSet` lifted into `Fin` for the `Mint` fold), then mints the seam `Node.Material` whose id is the kernel seed-zero `XxHash128` over the seam `Node.ToCanonicalBytes` (id excluded) so two structurally-identical materials dedup to one node; `LayersOf` folds each `IfcMaterialLayer` onto a seam `MaterialLayer` carrying its `MaterialId`, a `MeasureValue` thickness over `Dimension.LengthDim` coerced to SI metres by the model's `IfcUnitAssignment.ScaleSI(LENGTHUNIT)` factor (the native `LayerThickness` is mm in most Revit/ArchiCAD exports, never pre-SI) and admitted through `MeasureValue.OfSi` so the seam carries the SI scalar `MeasureValue.Of` otherwise mandates, and its layer name; `ConstituentsOf` folds each `IfcMaterialConstituent` (read through the `Dictionary.Values`) onto a seam `MaterialConstituent` carrying its `MaterialId`, category, and `Fraction`; `ProfileRefOf` projects the primary `IfcMaterialProfile.Profile` onto a neutral `ProfileRef` whose `ContentKey` is the kernel seed-zero `XxHash128` `ContentHash.Of` over the tag-namespaced `IfcProfileDef` STEP (the full parametric section preserved in the content-addressed store; the ONE kernel hasher the `Model/elements#REPRESENTATION_KEYS` keyer also composes, never the up-stratum `Rasm.Compute` `InterchangeIdentity` [H7]), the `Designation` the profile name, the `Standard` left to the one-hop catalog resolution; the engineering property sets arrive via the `Rasm.Materials` projector and the `Semantics/properties#PROPERTY_TEMPLATES` Pset round-trip, so the IFC-ingest `Node.Material` carries an empty `Seq<MaterialPropertySet>`.
 - Receipt: the seam `Node.Material` is the material evidence the `Projection/semantic#SEMANTIC_PROJECTOR` projector lands and the `Graph/element#ELEMENT_GRAPH` `Bake` fold reads through the `Associate` edge into `element.Materials` (a `BakedMaterial` carrying the node plus its occurrence `MaterialUsage` — the seam Bake-folded accessor, DISTINCT from the `Rasm.Materials` projection-input `MaterialBinding` and the type→occurrence `TypeBinding`), the `Model/query#ELEMENT_SET` material predicate matches by `MaterialId` or composition modality, the `Review/validation#IDS_FACETS` Material facet matches against, and the `Semantics/properties#BASE_QUANTITIES` layered-volume takeoff reads from the `LayerSet` thicknesses; the layer build-up, the section material, and the constituent mix each carry their real composition on one seam node, never a parallel layer/profile/constituent record family.
 - Packages: GeometryGymIFC_Core, Rasm.Element, Rasm, Thinktecture.Runtime.Extensions, LanguageExt.Core
@@ -131,17 +131,17 @@ public static class MaterialProjection {
     // MaterialAssignmentWire/MaterialPropertyWire egress — the material subgraph reads off the seam graph directly.
     // A ProfileSet's parametric IfcProfileDef reconstitutes one-hop from the content-addressed STEP store the
     // ProfileRef.ContentKey keys (the seam holds only the neutral ProfileRef), an unresolved profile railing.
-    public static Fin<IfcMaterialDefinition> AuthorComposition(DatabaseIfc db, Node.Material material, Func<ProfileRef, Option<IfcProfileDef>> profiles) =>
+    public static Fin<IfcMaterialDefinition> AuthorComposition(DatabaseIfc db, Node.Material material, IIfcProfileStore profiles) =>
         Definition(db, material.Composition, material.MaterialKey, profiles)
             .Map(definition => { material.Properties.Iter(set => AuthorPropertySet(db, definition, set)); return definition; });
 
-    static Fin<IfcMaterialDefinition> Definition(DatabaseIfc db, MaterialComposition composition, MaterialId key, Func<ProfileRef, Option<IfcProfileDef>> profiles) {
+    static Fin<IfcMaterialDefinition> Definition(DatabaseIfc db, MaterialComposition composition, MaterialId key, IIfcProfileStore profiles) {
         double lengthScale = LengthScale(db);   // SI metre -> target-model unit on egress (the inverse of the ingress coercion)
         return composition.Switch(
             single:        s => Fin.Succ<IfcMaterialDefinition>(new IfcMaterial(db, s.Material.Value)),
             layerSet:      s => Fin.Succ<IfcMaterialDefinition>(new IfcMaterialLayerSet(
                                     s.Layers.Map(l => new IfcMaterialLayer(new IfcMaterial(db, l.Material.Value), l.Thickness.Si / lengthScale, l.LayerName)), key.Value)),
-            profileSet:    s => profiles(s.Profile).Match(
+            profileSet:    s => profiles.Find(s.Profile).Match(
                                     Some: profile => Fin.Succ<IfcMaterialDefinition>(new IfcMaterialProfileSet(key.Value,
                                                         new IfcMaterialProfile(s.Profile.Designation, new IfcMaterial(db, s.Material.Value), profile))),
                                     None: () => Fin.Fail<IfcMaterialDefinition>(new BimFault.DanglingReference(Egress, $"material-profile-step-unresolved:{s.Profile.Designation}"))),
@@ -176,24 +176,49 @@ public static class MaterialProjection {
     // emits the FULL EN 15978 per-LifecycleStage GWP vector (A1-A3..D), one column per module, never a single aggregate
     // sum that strands the per-stage breakdown the seam StageGwp carries — the rich life-cycle vector round-trips intact.
     static void AuthorPropertySet(DatabaseIfc db, IfcMaterialDefinition material, MaterialPropertySet set) => set.Switch(
-        mechanical:    m => Pset(material, "Pset_MaterialMechanical",
+        mechanical:    m => Pset(material, "Pset_MaterialMechanical", WithEvidence(db, set,
                                 new IfcPropertySingleValue(db, "MassDensity", m.Density.Si), new IfcPropertySingleValue(db, "YoungModulus", m.YoungsModulus.Si), new IfcPropertySingleValue(db, "ShearModulus", m.ShearModulus.Si),
                                 new IfcPropertySingleValue(db, "YieldStress", m.YieldStrength.Si), new IfcPropertySingleValue(db, "UltimateStress", m.UltimateStrength.Si),
-                                new IfcPropertySingleValue(db, "PoissonRatio", m.PoissonsRatio), new IfcPropertySingleValue(db, "ThermalExpansionCoefficient", m.ThermalExpansionPerK)),
-        thermal:       t => Pset(material, "Pset_MaterialThermal",
+                                new IfcPropertySingleValue(db, "PoissonRatio", m.PoissonsRatio), new IfcPropertySingleValue(db, "ThermalExpansionCoefficient", m.ThermalExpansionPerK))),
+        orthotropic:   o => Pset(material, "Rasm_MaterialOrthotropic", WithEvidence(db, set,
+                                new IfcPropertySingleValue(db, "MassDensity", o.Density.Si), new IfcPropertySingleValue(db, "E1Parallel", o.E1Parallel.Si),
+                                new IfcPropertySingleValue(db, "E2Perpendicular", o.E2Perpendicular.Si), new IfcPropertySingleValue(db, "ShearModulus", o.ShearModulus.Si),
+                                new IfcPropertySingleValue(db, "Strength1Parallel", o.Strength1Parallel.Si), new IfcPropertySingleValue(db, "Strength2Perpendicular", o.Strength2Perpendicular.Si),
+                                new IfcPropertySingleValue(db, "ThermalExpansionCoefficient", o.ThermalExpansionPerK))),
+        thermal:       t => Pset(material, "Pset_MaterialThermal", WithEvidence(db, set,
                                 new IfcPropertySingleValue(db, "ThermalConductivity", t.Conductivity.Si), new IfcPropertySingleValue(db, "SpecificHeatCapacity", t.SpecificHeat.Si),
-                                new IfcPropertySingleValue(db, "ThermalTransmittance", t.UValue.Si), new IfcPropertySingleValue(db, "VapourDiffusionResistance", t.VapourResistanceFactor)),
-        acoustic:      a => Pset(material, "Pset_MaterialAcoustic",
-                                new IfcPropertySingleValue(db, "NoiseReductionCoefficient", a.Nrc), new IfcPropertySingleValue(db, "SoundAbsorptionAverage", a.Saa), new IfcPropertySingleValue(db, "SoundTransmissionClass", a.StcWeighted)),
-        fire:          f => Pset(material, "Pset_MaterialFire",
-                                new IfcPropertySingleValue(db, "ReactionToFireClass", f.Reaction.Key), new IfcPropertySingleValue(db, "Combustible", f.Reaction.Combustible), new IfcPropertySingleValue(db, "FireResistanceRating", f.ResistanceMinutes)),
-        environmental: e => Pset(material, "Pset_EnvironmentalImpactValues",
-                                [.. LifecycleStage.Items.AsIterable().Map(s => (IfcProperty)new IfcPropertySingleValue(db, $"GlobalWarmingPotential_{s.Module}", e.StageAt(s))),
-                                 new IfcPropertySingleValue(db, "RecycledContent", e.RecycledContent), new IfcPropertySingleValue(db, "EndOfLifeRecovery", e.EndOfLifeRecovery),
-                                 new IfcPropertySingleValue(db, "DataValidUntilYear", e.ValidUntilYear), new IfcPropertySingleValue(db, "EnvironmentalProductDeclaration", e.Epd)]),
-        cost:          c => Pset(material, "Pset_ConstructionCosts",
-                                new IfcPropertySingleValue(db, "Currency", c.Currency.Key), new IfcPropertySingleValue(db, "MeasurementBasis", c.Basis.Key),
-                                new IfcPropertySingleValue(db, "SupplyCost", c.SupplyPerUnit), new IfcPropertySingleValue(db, "InstallationCost", c.InstallPerUnit), new IfcPropertySingleValue(db, "LifeCycleCost", c.LifecyclePerUnit)));
+                                new IfcPropertySingleValue(db, "ThermalTransmittance", t.UValue.Si), new IfcPropertySingleValue(db, "VapourDiffusionResistance", t.VapourResistanceFactor))),
+        acoustic:      a => Pset(material, "Pset_MaterialAcoustic", WithEvidence(db, set,
+                                new IfcPropertySingleValue(db, "NoiseReductionCoefficient", a.Nrc), new IfcPropertySingleValue(db, "SoundAbsorptionAverage", a.Saa), new IfcPropertySingleValue(db, "SoundTransmissionClass", a.StcWeighted))),
+        fire:          f => Pset(material, "Pset_MaterialFire", WithEvidence(db, set,
+                                new IfcPropertySingleValue(db, "ReactionToFireClass", f.Reaction.Key), new IfcPropertySingleValue(db, "SmokeProduction", f.Smoke.Key),
+                                new IfcPropertySingleValue(db, "FlamingDroplets", f.Droplets.Key), new IfcPropertySingleValue(db, "FireResistanceR", f.Resistance.LoadBearingMinutes),
+                                new IfcPropertySingleValue(db, "FireResistanceE", f.Resistance.IntegrityMinutes), new IfcPropertySingleValue(db, "FireResistanceI", f.Resistance.InsulationMinutes))),
+        environmental: e => Pset(material, "Pset_EnvironmentalImpactValues", WithEvidence(db, set, false, EnvironmentalColumns(db, e))),
+        cost:          c => Pset(material, "Pset_ConstructionCosts", WithEvidence(db, set,
+                                new IfcPropertySingleValue(db, "Currency", c.Currency.Value), new IfcPropertySingleValue(db, "MeasurementBasis", c.Basis.Key),
+                                new IfcPropertySingleValue(db, "SupplyCost", c.SupplyPerUnit), new IfcPropertySingleValue(db, "InstallationCost", c.InstallPerUnit), new IfcPropertySingleValue(db, "LifeCycleCost", c.LifecyclePerUnit))));
+
+    static IfcProperty[] WithEvidence(DatabaseIfc db, MaterialPropertySet set, params IfcProperty[] columns) =>
+        WithEvidence(db, set, includeValidUntilYear: true, columns);
+
+    static IfcProperty[] WithEvidence(DatabaseIfc db, MaterialPropertySet set, bool includeValidUntilYear, params IfcProperty[] columns) =>
+        [.. columns, .. EvidenceColumns(db, set, includeValidUntilYear)];
+
+    static IfcProperty[] EnvironmentalColumns(DatabaseIfc db, MaterialPropertySet.Environmental e) =>
+        [.. LifecycleStage.Items.AsIterable().Map(s => (IfcProperty)new IfcPropertySingleValue(db, $"GlobalWarmingPotential_{s.Module}", e.StageAt(s))),
+         new IfcPropertySingleValue(db, "RecycledContent", e.RecycledContent),
+         new IfcPropertySingleValue(db, "EndOfLifeRecovery", e.EndOfLifeRecovery),
+         new IfcPropertySingleValue(db, "DataValidUntilYear", e.ValidUntilYear),
+         new IfcPropertySingleValue(db, "EnvironmentalProductDeclaration", e.Epd)];
+
+    static Seq<IfcProperty> EvidenceColumns(DatabaseIfc db, MaterialPropertySet set, bool includeValidUntilYear) =>
+        Seq(
+            (IfcProperty)new IfcPropertySingleValue(db, "DataSource", set.Evidence.Source),
+            new IfcPropertySingleValue(db, "DataReference", set.Evidence.Reference))
+        + (includeValidUntilYear ? set.Evidence.ValidUntilYear : Option<int>.None).Match(
+            Some: y => Seq((IfcProperty)new IfcPropertySingleValue(db, "DataValidUntilYear", y)),
+            None: () => Seq<IfcProperty>());
 
     // IfcMaterialProperties(string name, IfcMaterialDefinition mat) named Pset (the material already carries its db, so
     // none is threaded here); each typed column is an IfcPropertySingleValue keyed by its own Name on the inherited

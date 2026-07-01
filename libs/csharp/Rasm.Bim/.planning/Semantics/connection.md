@@ -228,8 +228,8 @@ public static class ConnectionProjection {
 
     // --- [READER_ROWS] ------------------------------------------------------------------------
     // The realizing-detail row names the IMPORT reader recovers BEYOND the canonical DetailSchema vocabulary (the author
-    // writes the canonical schema statics — the twelve discrete-part diameter/throat/lap rows this connection reader composes,
-    // the six panel board rows the Rasm.Materials panel arm authors; PropertyName stays an OPEN key per
+    // writes the canonical schema statics — the twelve discrete-part diameter/throat/lap rows this connection reader composes;
+    // panel/deck/membrane product rows are owned by DetailSchema.Product and the general property fold. PropertyName stays an OPEN key per
     // Properties/property#DETAIL_SCHEMA, so an
     // ingest-only scalar the Materials author never mints — a mesh sheet's geometry, a tendon/anchor/bearing type token, a
     // bar's surface + overall length — is one static the reader writes and a downstream Fabrication consumer reads by name).

@@ -12,7 +12,7 @@
 - installed: `1.27.2.3`
 - license: `AGPL-3.0-or-later OR Artifex-Commercial`; copyleft is whole-program — distributing a closed network service over an AGPL MuPDF link triggers source-disclosure obligations, so a commercial deployment routes structural editing to BSD `pypdf`/`pypdfium2` or licenses Artifex; this is the load-bearing licensing constraint of the pdf rail
 - entry points: none (library only)
-- capability: PDF/XPS/EPUB/CBZ/MOBI/FB2/SVG/image document open, page rasterization (`Pixmap` with matrix/dpi/colorspace/clip/alpha), per-page Tesseract OCR, text/image/table extraction (`TEXTFLAGS_*` modes, `find_tables` -> pandas/markdown), native outline and embedded-file recovery, vector drawing (`Shape`/`get_drawings`), positioned glyph authoring (`TextWriter`/`insert_htmlbox`), the full annotation-authoring family plus redaction, redaction-grade scrub/bake/font-subset/image-rewrite, lossless image embed, reflowable `Story` HTML layout, page assembly/reorder/copy, OCG layers, journalled undo/redo, AES-256/RC4 encrypted incremental save
+- capability: PDF/XPS/EPUB/CBZ/MOBI/FB2/SVG/image document open, page rasterization (`Pixmap` with matrix/dpi/colorspace/clip/alpha), per-page Tesseract OCR, text/image/table extraction (`TEXTFLAGS_*` modes, `find_tables` -> pandas/markdown), native outline and embedded-file recovery, vector drawing (`Shape`/`get_drawings`), PDF-page vector placement (`show_pdf_page`), positioned glyph authoring (`TextWriter`/`insert_htmlbox`), the full annotation-authoring family plus redaction, redaction-grade scrub/bake/font-subset/image-rewrite, lossless image embed, reflowable `Story` HTML layout, page assembly/reorder/copy, OCG/OCMD layers (`add_ocg`/`set_ocmd`), info-dict + XMP metadata authoring (`set_metadata`/`set_xml_metadata`), journalled undo/redo, AES-256/RC4 encrypted incremental save
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -96,6 +96,8 @@ Document rows carry path/stream/filetype input, save compaction, encryption, con
 |  [10]   | `Document.delete_pages`   | range or list of page indices      | drop pages (`delete_page` for one)      |
 |  [11]   | `Document.copy_page` / `move_page` / `fullcopy_page` | source/target index | duplicate or relocate a page within the document |
 |  [12]   | `Document.close` / context manager | `close() -> None`; `with pymupdf.open(...) as doc:` (`__enter__` returns the `Document`, `__exit__` calls `close`) | release the native MuPDF handle deterministically; the `with` bracket closes it on scope exit rather than GC-reaping the live handle |
+|  [13]   | `Document.set_metadata`   | `set_metadata(m: dict) -> None`                                                | write the document info dict (title/author/subject/keywords/creator/producer); `{}` clears it |
+|  [14]   | `Document.set_xml_metadata` | `set_xml_metadata(metadata: str) -> None`                                    | write the document-level XMP metadata packet (the archival PDF/A XMP stream)             |
 
 [ENTRYPOINT_SCOPE]: outline and embedded files
 - rail: pdf
@@ -192,6 +194,7 @@ Render and extraction rows share matrix/dpi, color, clip, text mode, textpage, s
 |  [09]   | `Page.find_tables`       | `find_tables(clip=None, vertical_strategy="lines", horizontal_strategy="lines", snap_tolerance=3, join_tolerance=3, edge_min_length=3, intersection_tolerance=3, text_tolerance=3, strategy=None, add_lines=None) -> table.TableFinder` | resolve ruled/text tables natively into a `TableFinder`     |
 |  [10]   | `Page.widgets` / `add_widget` | `widgets(types=None) -> Iterator[Annot]` / `add_widget(widget: Widget) -> Annot`              | iterate / author interactive form-field widgets             |
 |  [11]   | `Page.get_links` / `insert_link` / `delete_link` | `get_links() -> list[dict]` / `insert_link(dict)` / `delete_link(dict)`             | recover/author `LINK_*` link objects on the page            |
+|  [12]   | `Page.show_pdf_page`     | `show_pdf_page(rect, docsrc, pno=0, keep_proportion=True, overlay=True, oc=0, rotate=0, clip=None) -> int` | vector-copy a source PDF page (region `clip`) into `rect` on this page, optionally bound to an OCG/OCMD xref via `oc=` — the native figure-placement/imposition primitive, never a rasterize-and-embed |
 
 [ENTRYPOINT_SCOPE]: OCG layers and journalled editing
 - rail: pdf
@@ -201,11 +204,12 @@ Optional-content groups gate visibility; the journal is the native undo/redo + s
 | [INDEX] | [SURFACE]                  | [CALL_SHAPE]                                                              | [CAPABILITY]                                          |
 | :-----: | :------------------------- | :----------------------------------------------------------------------- | :---------------------------------------------------- |
 |  [01]   | `Document.add_ocg`         | `add_ocg(name, config=-1, on=True, intent="View", usage="Artwork") -> int` | create an optional-content group, return its xref     |
-|  [02]   | `Document.set_oc` / `get_oc` | xref + ocg-xref                                                        | bind/read an object's optional-content membership     |
-|  [03]   | `Document.layer_ui_configs` / `set_layer` | config selectors                                          | enumerate/toggle layer UI configurations              |
-|  [04]   | `Document.journal_enable`  | `journal_enable()` then `journal_start_op(name)` / `journal_stop_op()`   | open the undo/redo journal and bracket an operation   |
-|  [05]   | `Document.journal_undo` / `journal_redo` | no-arg                                                     | step the journal backward/forward                     |
-|  [06]   | `Document.save_snapshot`   | `save_snapshot(filename)`                                                | write an incremental snapshot tied to the journal     |
+|  [02]   | `Document.set_ocmd`        | `set_ocmd(xref=0, ocgs=None, policy=None, ve=None) -> int`               | mint an optional-content membership dictionary (OCMD) over member OCG xrefs — `policy` one of `AnyOn`/`AllOn`/`AnyOff`/`AllOff` (or a `ve` visibility expression) — the nested-layer/radio-group hierarchy `add_ocg` alone cannot express |
+|  [03]   | `Document.set_oc` / `get_oc` / `get_ocmd` | xref + ocg-xref                                            | bind/read an object's optional-content membership; `get_ocmd(xref)` recovers a minted OCMD |
+|  [04]   | `Document.layer_ui_configs` / `set_layer` | config selectors                                          | enumerate/toggle layer UI configurations              |
+|  [05]   | `Document.journal_enable`  | `journal_enable()` then `journal_start_op(name)` / `journal_stop_op()`   | open the undo/redo journal and bracket an operation   |
+|  [06]   | `Document.journal_undo` / `journal_redo` | no-arg                                                     | step the journal backward/forward                     |
+|  [07]   | `Document.save_snapshot`   | `save_snapshot(filename)`                                                | write an incremental snapshot tied to the journal     |
 
 [ENTRYPOINT_SCOPE]: reflowable story layout
 - rail: pdf
@@ -250,6 +254,6 @@ Optional-content groups gate visibility; the journal is the native undo/redo + s
 
 [RAIL_LAW]:
 - Package: `pymupdf`
-- Owns: native document open, page rasterization, per-page OCR, text/image/table extraction (`TEXTFLAGS_*`, `to_pandas`/`to_markdown`), native outline (`get_toc`/`set_toc`/`Outline`) and embedded-file recovery, vector drawing (`Shape`/`get_drawings`), positioned-glyph + HTML authoring (`TextWriter`/`insert_htmlbox`), the annotation-authoring family + redaction, redaction-grade `scrub`/`bake`/`subset_fonts`/`rewrite_images`, lossless `insert_image` raster embed, reflowable `Story` layout (`Story.write`), page assembly/reorder, OCG layers, journalled undo/redo, AES-256/RC4 encrypted incremental save
+- Owns: native document open, page rasterization, per-page OCR, text/image/table extraction (`TEXTFLAGS_*`, `to_pandas`/`to_markdown`), native outline (`get_toc`/`set_toc`/`Outline`) and embedded-file recovery, vector drawing (`Shape`/`get_drawings`), PDF-page vector placement (`show_pdf_page`), positioned-glyph + HTML authoring (`TextWriter`/`insert_htmlbox`), the annotation-authoring family + redaction, redaction-grade `scrub`/`bake`/`subset_fonts`/`rewrite_images`, lossless `insert_image` raster embed, reflowable `Story` layout (`Story.write`), page assembly/reorder, OCG/OCMD layers (`add_ocg`/`set_ocmd`), info-dict + XMP metadata authoring (`set_metadata`/`set_xml_metadata`), journalled undo/redo, AES-256/RC4 encrypted incremental save
 - Accept: render, OCR, table (`to_pandas`), outline, drawing, and embedded-file recovery feeding the document/PDF, table/dataframe, and image owners; `pil_tobytes` feeding Pillow encoders; lossless raster embed feeding the image-to-PDF intake
 - Reject: wrapper-renames of `get_pixmap`/`get_text`/`find_tables`/`get_toc`/`embfile_get`; a second rasterizer where `pypdfium2` already covers a BSD render path; an embedded-file recovery re-derived from `get_images`; a hand-clustered table grid where `to_pandas` shapes it; a whole-document OCR-to-PDF/A pipeline where `ocrmypdf` owns it; AES-256-R6 where `pikepdf` owns it; a separate raster-to-PDF library where `insert_image` embeds losslessly; the AGPL render path inside a distributed closed service (route to BSD siblings); identity minting the runtime owns

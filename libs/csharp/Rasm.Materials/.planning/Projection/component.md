@@ -10,7 +10,7 @@ THE COMPONENT PROJECTOR and THE COMPONENT-SUBGRAPH AUTHOR. `Rasm.Materials` lowe
 ## [02]-[COMPONENT_PROJECTOR]
 
 - Owner: `ComponentProjector` the sealed `IElementProjection` merging the prior `MaterialProjector` and `ConnectionProjector`; `ComponentProjectionSource` the captured-source aggregate (the `Seq<ComponentProjectionSpec>` + the M7 `ProfileRef`→`ResolvedComponent` table); `ComponentProjectionSpec` the `[Union]` discriminating `Substance(MaterialSpec)` from `Type(ComponentSpec)`; `MaterialSpec` the pure-substance projection unit (KEPT); `ComponentSpec` the Type-minting unit; `MaterialBinding` the element-occurrence material binding (seam `MaterialUsage` + the Object-node `Classification` egress, the trio name RESERVED for the Materials projection); `ProjectionFault` `[Union]` band 2470; the `Mint` content-id and `MintType` deterministic-Type-id helpers composing the seam `NodeId`.
-- Cases: one `ComponentProjector` over a `Seq<ComponentProjectionSpec>` — a `Substance` arm carrying a `MaterialSpec` (a `MaterialId` + a `MATERIAL_COMPOSITION` seam `MaterialComposition` + the `Discipline`-keyed `MaterialPropertySet` set + an optional `AppearanceSummary` + a `Seq<MaterialBinding>` element-occurrence set), a `Type` arm carrying a `ComponentSpec` (a `Component` + its structural `MaterialComposition` + the `Component.CapacityKey` `MaterialPropertySet` set + an optional `AppearanceSummary` + a `Seq<NodeId>` vouched-occurrence set bound through `Assign.TypeDefinition`); the projector is NEVER a per-family or per-discipline projector type, never a `SteelProjector`/`ConnectionProjector` sibling — one projector folds the whole subgraph, the substance and the Type discriminated by the spec union rather than two projector surfaces.
+- Cases: one `ComponentProjector` over a `Seq<ComponentProjectionSpec>` — a `Substance` arm carrying a `MaterialSpec` (a `MaterialId` + a `MATERIAL_COMPOSITION` seam `MaterialComposition` + the `Discipline`-keyed `MaterialPropertySet` set + an optional `AppearanceSummary` + a `Seq<MaterialBinding>` element-occurrence set), a `Type` arm carrying a `ComponentSpec` (a `Component` + its structural `MaterialComposition` + the `Component.SubstanceId` `MaterialPropertySet` set + an optional `AppearanceSummary` + a `Seq<NodeId>` vouched-occurrence set bound through `Assign.TypeDefinition`); the projector is NEVER a per-family or per-discipline projector type, never a `SteelProjector`/`ConnectionProjector` sibling — one projector folds the whole subgraph, the substance and the Type discriminated by the spec union rather than two projector surfaces.
 - Entry: `public Fin<GraphDelta> Project(ProjectionContext ctx)` — the ONE seam contract op, `source.Specs.TraverseM(spec => ProjectSpec(spec, ctx))` accumulating each spec's OWN delta then folding through the cancellation-correct `Graph/delta#GRAPH_DELTA` `GraphDelta.Merge` MONOID (the EXACT `Projection/projection#PROJECTION_CONTRACT` `Assemble` shape — `TraverseM`→`Merge`-fold, not a hand-threaded accumulator), `Fin<T>` aborting on an occurrence/binding the context does not vouch (`ProjectionFault.Unvouched`) or a malformed Type `Classification` (lifting the seam `ElementFault` through `Classification.Of`) — never a content-key collision, the mint TOTAL and idempotent (the same `Component`/material projected twice mints one id and the duplicate add collapses at the seam `WorkingGraph.Set` upsert when `AdmitOnto` folds the merged delta); `ProjectSpec` discriminates the union via the generated `Switch` — `Substance`→`ProjectSubstance` (content-keyed `Material`/`Appearance` nodes + the vouched `Associate` edges), `Type`→`ProjectType` (the minted Type `Object` + the baked-section structural `Material` + the optional `Appearance` + the optional neutral detail bag + the vouched `Assign.TypeDefinition` occurrence edges); `ComponentProjector.Of(ComponentProjectionSource source)` captures the source once (the source-capture inversion), and the seam `Assemble(projectors, constraints, seed, ctx)` re-merges this projector's delta with `Rasm.Bim`'s `SemanticProjector` (and any sibling) into one `ElementGraph` — adding a projector is one registration row at the app composition root, never a seam edit.
 - Packages: Rasm.Element (project — the seam: `IElementProjection`/`ProjectionContext`/`GraphDelta`/`Node`/`NodeId`/`ObjectKind`/`Classification`/`PredefinedType`/`RepresentationContentHash`/`SchemaSpan`/`OwnerHistory`/`Relationship`/`AssignKind`/`MaterialUsage`/`MaterialComposition`/`MaterialPropertySet`/`SectionProperties`/`ProfileRef`/`AppearanceSummary`/`PropertyBag`/`PropertyName`/`PropertyValue`/`MeasureValue`/`Dimension`/`QuantityType`/`DetailSchema`/`MaterialId`, the seam this folder projects onto), Rasm.Materials.Component (project — `Component`/`ComponentSection`/`ComputedSection`/`ResolvedComponent`, the standardized-type owner whose egress projections the Type mint reads), Rasm.Domain (project — `Op` the fault-correlation key; the seed-zero `XxHash128` content seed is the seam `ContentAddress` composition, not re-reached here), Thinktecture.Runtime.Extensions (`[Union]` for `ProjectionFault`/`ComponentProjectionSpec` + the `ComponentSection`/`JointSection` generated total `Switch` the `Detail` fold reads), LanguageExt.Core (`Fin`/`Seq`/`TraverseM`/`Fold`/`Bind`/`Map`/`Option` for the projection rail); cite `libs/csharp/.api` (the `thinktecture-runtime-extensions` substrate catalogue the union generators verify) — the `Rasm.Materials/.api` VividOrange family catalogues are the `component#COMPONENT_OWNER`'s, not composed here (the projector reads an already-resolved `ComputedSection`, never the section solver).
 - Growth: a new projected node kind is one seam `Node` case the matching project arm authors (the seam owns the `Node` union; a kind the seam does not carry is a seam growth, never a Materials parallel node); a new spec modality is one `ComponentProjectionSpec` case the `Project` `Switch` dispatches; a new occurrence-usage shape is one seam `MaterialUsage` case the `[C7]` `MATERIAL_COMPOSITION` author produces, passed through unread; a new realization-detail row is one `DetailSchema` `PropertyName` the `Detail` fold reads; a new projection fault is one `ProjectionFault` case — never a second projector surface, never a per-family projector, never a Materials→IFC carrier beside the graph.
@@ -26,7 +26,10 @@ using Rasm.Element;                  // the seam: IElementProjection, Projection
                                      // Relationship, AssignKind, MaterialUsage, MaterialComposition, MaterialPropertySet,
                                      // SectionProperties, ProfileRef, AppearanceSummary, PropertyBag, PropertyName,
                                      // PropertyValue, MeasureValue, Dimension, QuantityType, DetailSchema, MaterialId
+using Rasm.Materials.Appearance.Graph;
+using Rasm.Materials.Appearance.Interchange;
 using Rasm.Materials.Component;      // Component, ComponentSection, ComputedSection, ResolvedComponent (the standardized-type owner)
+using Rasm.Materials.Properties;     // MaterialPropertyCatalogue, SustainabilityCatalogue
 using Thinktecture;
 using Expected = Rasm.Domain.Expected;   // the kernel Expected (parameterless ctor + virtual Category), NOT LanguageExt.Common.Expected
 using static LanguageExt.Prelude;
@@ -76,6 +79,18 @@ public abstract partial record ProjectionFault : Expected, IValidationError<Proj
 // which folds it into the bound element's Classifications set the Bim Semantics/classification re-emits.
 public readonly record struct MaterialBinding(NodeId Element, MaterialUsage Usage, Option<Classification> Classification);
 
+public sealed record MaterialFacts(
+    Seq<MaterialPropertySet> Properties,
+    Option<Classification> Classification);
+
+public static class MaterialFactsCatalogue {
+    public static Fin<MaterialFacts> Lookup(MaterialId id, Op key) =>
+        from engineering in MaterialPropertyCatalogue.Lookup(id, key)
+        from lifecycle in SustainabilityCatalogue.Lookup(id, key)
+        from classification in SustainabilityCatalogue.Classification(id, key)
+        select new MaterialFacts(engineering + lifecycle, classification);
+}
+
 // One material to project on the PURE-SUBSTANCE path (the prior MaterialProjector unit, UNCHANGED): the seam MaterialId,
 // the MATERIAL_COMPOSITION the assembly author built (a ProfileSet carrying the M7 ProfileRef the projector resolves and
 // bakes the SectionProperties onto), the Discipline-keyed MaterialPropertySet set the catalogue lowered, the optional
@@ -92,10 +107,10 @@ public sealed record MaterialSpec(
 }
 
 // One Component to mint as a Type Object on the TYPE path: the component#COMPONENT_OWNER Component (carrying the
-// ComponentSection egress IfcEntity/PredefinedToken the Type Object stamps, the CapacityKey structural-material id, the
+// ComponentSection egress IfcEntity/PredefinedToken the Type Object stamps, the SubstanceId structural-material id, the
 // AppearanceId render-row id), the structural material's TYPE-LEVEL MaterialComposition the family lowering selected (a
 // ProfileSet for steel/timber/cmu the SeamSection bakes the section onto, a LayerSet for a glazing IGU, a Single for a
-// discrete part), the CapacityKey MaterialPropertySet set the structural Material node carries, the optional content-keyed
+// discrete part), the SubstanceId MaterialPropertySet set the structural Material node carries, the optional content-keyed
 // AppearanceSummary the AppearanceId resolved to, and the vouched sited-piece NodeIds bound to the minted Type via
 // Assign.TypeDefinition. A pure type-authoring run carries an EMPTY Occurrences set (a Type subgraph usable in isolation).
 public sealed record ComponentSpec(
@@ -167,7 +182,7 @@ public sealed class ComponentProjector : IElementProjection {
 
     // --- [TYPE_FOLD]
     // The standardized-Component subgraph: MINT the deterministic-rooted Type Object, lower the structural Material node
-    // (the CapacityKey material with the M7 section baked onto its composition), the optional content-keyed Appearance, and
+    // (the SubstanceId material with the M7 section baked onto its composition), the optional content-keyed Appearance, and
     // the optional neutral DetailSchema realization bag, wire the Type→resource Associate/Assign.PropertyDefinition edges
     // (both endpoints owned — the Type minted here, the resources content-keyed — so no vouch), then bind every VOUCHED
     // occurrence to the Type via Assign.TypeDefinition. Classification.Of is the seam Fin admission (the IFC entity-class
@@ -179,7 +194,7 @@ public sealed class ComponentProjector : IElementProjection {
             from classification in Classification.Of("ifc", c.IfcEntity, ctx.Key)
             from baked in BakeSection(spec.Composition, ctx.Key)
             let type = MintType(c, classification, ctx)
-            let material = Mint(new Node.Material(NodeId.Content(ReadOnlySpan<byte>.Empty), c.CapacityKey, baked, spec.Properties), tolerance)
+            let material = Mint(new Node.Material(NodeId.Content(ReadOnlySpan<byte>.Empty), c.SubstanceId, baked, spec.Properties), tolerance)
             let appearance = spec.Appearance.Map(summary => Mint(new Node.Appearance(NodeId.Content(ReadOnlySpan<byte>.Empty), summary), tolerance))
             let detail = Detail(c).Map(bag => Mint(new Node.PropertySet(NodeId.Content(ReadOnlySpan<byte>.Empty), bag), tolerance))
             let seeded = SeedType(type, material, appearance, detail)
@@ -321,91 +336,91 @@ public sealed class ComponentProjector : IElementProjection {
     // Semantics/connection#CONNECTION_DETAIL realizing-element reader, while the PANEL (an IfcBuiltElement covering/plate/slab
     // the connection reader's realizing-only Detail switch folds to its empty _ arm) round-trips through the GENERAL Bim
     // Object/property fold (Projection/egress#IFC_EGRESS ReauthorProperties on egress, Projection/semantic#SEMANTIC_PROJECTOR
-    // Bags on ingest) — the SAME DetailSchema.Realization shape either way, differing only in which Bim reader recovers it.
+    // Bags on ingest) through DetailSchema.Product. Discrete realizing parts use DetailSchema.Realization; panels use
+    // DetailSchema.Product.
     // The primary token
     // (BarType/FastenerType/AccessoryType) is the Component's PredefinedToken; the connector's SECOND FastenerType row is the
     // SEPARATE attaching IfcMechanicalFastenerTypeEnum (ConnectorType.IfcFastenerType) the Bim egress relates, distinct from
     // the IfcDiscreteAccessory the connector IS. The section's PositiveMagnitude columns coerce mm->SI-base through the
     // dimension-only MeasureValue.OfSi (the IFC scalars are SI-base, so an authored bag and an imported one content-key
-    // identically). The JointType modality matches the DetailSchema.Realization closed allowed-set (the panel arm's "Fastened"
-    // the screwed/nailed-board modality the seam allowed-set carries beside Bolted/Welded/Bonded/Bearing/Cast); the material
-    // grade rides the substance Material subgraph (the Associate edge), never a row here.
+    // identically). The material grade rides the substance Material subgraph (the Associate edge), never a row here.
     static Option<PropertyBag> Detail(Component item) => item.Section.Switch(
         masonry:       static _ => Option<PropertyBag>.None,
         cmu:           static _ => Option<PropertyBag>.None,
         steel:         static _ => Option<PropertyBag>.None,
         timber:        static _ => Option<PropertyBag>.None,
         glazing:       static _ => Option<PropertyBag>.None,
-        reinforcement: r => Some(Rows(
+        reinforcement: r => Some(RealizationRows(
             Joint("Cast"),
             Token(DetailSchema.BarType, item.PredefinedToken),
             Measured(DetailSchema.NominalDiameter, Dimension.LengthDim, r.Bar.DiameterMm.Value * 1e-3),
             Measured(DetailSchema.CrossSectionArea, Dimension.AreaDim, r.Bar.NominalAreaMm2.Value * 1e-6))),
-        fastener: f => Some(Rows(
+        fastener: f => Some(RealizationRows(
             Joint("Bolted"),
             Token(DetailSchema.FastenerType, item.PredefinedToken),
             Measured(DetailSchema.NominalDiameter, Dimension.LengthDim, f.Bolt.ThreadDiameterMm.Value * 1e-3),
             Measured(DetailSchema.NominalLength, Dimension.LengthDim, f.Bolt.LengthMm.Value * 1e-3))),
-        connector: c => Some(Rows(
+        connector: c => Some(RealizationRows(
             Joint("Bolted"),
             Token(DetailSchema.AccessoryType, item.PredefinedToken),                        // the IfcDiscreteAccessoryTypeEnum the connector IS (= ConnectorType.IfcAccessoryType)
             Token(DetailSchema.FastenerType, c.Hardware.Type.IfcFastenerType),              // the SEPARATE attaching IfcMechanicalFastenerTypeEnum the Bim egress relates
             Measured(DetailSchema.CarriedMemberWidth, Dimension.LengthDim, c.Hardware.CarriedMemberWidthMm.Value * 1e-3),
             Measured(DetailSchema.CarriedMemberDepth, Dimension.LengthDim, c.Hardware.CarriedMemberDepthMm.Value * 1e-3))),
         joint: j => Some(j.Continuous.Switch(
-            weld: w => Rows(
+            weld: w => RealizationRows(
                 Joint("Welded"),
                 Token(DetailSchema.FastenerType, item.PredefinedToken),
                 Measured(DetailSchema.EffectiveThroat, Dimension.LengthDim, j.Continuous.EffectiveThroatMm * 1e-3),  // the DERIVED structural throat (0.707·leg fillet / CJP-PJP groove / flare-factor·radius), NOT the nominal SizeMm
                 Measured(DetailSchema.NominalLength, Dimension.LengthDim, w.LengthMm.Value * 1e-3)),
-            adhesive: a => Rows(
+            adhesive: a => RealizationRows(
                 Joint("Bonded"),
                 Token(DetailSchema.FastenerType, item.PredefinedToken),
                 Measured(DetailSchema.BondLine, Dimension.LengthDim, j.Continuous.NominalMm.Value * 1e-3),
                 Measured(DetailSchema.Overlap, Dimension.LengthDim, a.OverlapMm.Value * 1e-3)),
-            stud: s => Rows(
+            stud: s => RealizationRows(
                 Joint("Welded"),
                 Token(DetailSchema.FastenerType, item.PredefinedToken),
                 Measured(DetailSchema.NominalDiameter, Dimension.LengthDim, j.Continuous.NominalMm.Value * 1e-3),
                 Measured(DetailSchema.NominalLength, Dimension.LengthDim, s.LengthBeforeWeldMm.Value * 1e-3)))),
-        // The PANEL board's neutral generative-realization detail a sheathing generator round-trips off the seam: the
+        // The PANEL board's neutral product detail a sheathing generator round-trips off the seam: the
         // EdgeProfile token + the board thickness, the FastenPattern field/edge fastener stations, and (steel deck only)
-        // the DeckRib depth/pitch the ComputedSection cannot carry. Joint("Fastened") is the panel realization modality
-        // (the DetailSchema.Realization allowed-set token panel boards key on, distinct from the four discrete-part
-        // Bolted/Welded/Bonded modalities). The Rib rows ride p.Board.Rib's Some only — a non-deck board (gypsum/sheathing/
-        // ply/OSB/cement/rigid-board) carries Rib None, so a flat board's bag omits the rib rows entirely and content-keys
+        // the DeckRib depth/pitch the ComputedSection cannot carry. The Rib rows ride p.Board.Rib's Some only — a non-deck
+        // board (gypsum/sheathing/ply/OSB/cement/rigid-board/membrane) carries Rib None, so a flat board's bag omits the rib rows entirely and content-keys
         // distinctly from a deck's; EdgeSpacing/FieldSpacing read p.Board.Fastening (the FastenPattern the SheetCoursing
         // layout reads), EdgeProfile the p.Board.Edge token, PanelThickness the p.Board.ThicknessMm board build.
         panel: p => Some(p.Board.Rib.Match(
-            Some: rib => Rows(
-                Joint("Fastened"),
+            Some: rib => ProductRows(
                 Token(DetailSchema.EdgeProfile, p.Board.Edge.Key),
+                Token(DetailSchema.MembraneSeam, p.Board.Fastening.Fastener.Key),
                 Measured(DetailSchema.PanelThickness, Dimension.LengthDim, p.Board.ThicknessMm.Value * 1e-3),
                 Measured(DetailSchema.FieldSpacing, Dimension.LengthDim, p.Board.Fastening.FieldSpacingMm.Value * 1e-3),
                 Measured(DetailSchema.EdgeSpacing, Dimension.LengthDim, p.Board.Fastening.EdgeSpacingMm.Value * 1e-3),
                 Measured(DetailSchema.RibDepth, Dimension.LengthDim, rib.DepthMm.Value * 1e-3),
                 Measured(DetailSchema.RibPitch, Dimension.LengthDim, rib.PitchMm.Value * 1e-3)),
-            None: () => Rows(
-                Joint("Fastened"),
+            None: () => ProductRows(
                 Token(DetailSchema.EdgeProfile, p.Board.Edge.Key),
+                Token(DetailSchema.MembraneSeam, p.Board.Fastening.Fastener.Key),
                 Measured(DetailSchema.PanelThickness, Dimension.LengthDim, p.Board.ThicknessMm.Value * 1e-3),
                 Measured(DetailSchema.FieldSpacing, Dimension.LengthDim, p.Board.Fastening.FieldSpacingMm.Value * 1e-3),
                 Measured(DetailSchema.EdgeSpacing, Dimension.LengthDim, p.Board.Fastening.EdgeSpacingMm.Value * 1e-3)))));
 
     // --- [ROWS]
-    // The bag-row constructors composing the seam DetailSchema.Realization conforming bag (the neutral SetName + the
-    // OccurrenceWins precedence pinned by the schema, neither hand-spelled) so each arm is a flat declarative list, never a
+    // The bag-row constructors composing the seam DetailSchema conforming bags (neutral SetName + precedence pinned by the
+    // schema, neither hand-spelled) so each arm is a flat declarative list, never a
     // repeated MeasureValue.OfSi construction. Joint is the JointType row VALUE through DetailSchema.Realization.Joint(kind)
     // (the PropertyValue.Enumerated over the schema's CLOSED allowed-set the Bim egress facet validates against — never a
     // local Enumerated re-spelling the allowed set). The Measured SI value carries the DIMENSION-only QuantityType (the
     // dimension-only OfSi overload Bim uses) so an authored and an imported NominalDiameter content-key identically; Rows
-    // folds the rows into DetailSchema.Realization.Bag() through ValueBag.With (last-write-wins).
+    // folds the rows into the selected schema's Bag() through ValueBag.With (last-write-wins).
     static (PropertyName, PropertyValue) Joint(string kind) => (DetailSchema.JointType, DetailSchema.Realization.Joint(kind));
     static (PropertyName, PropertyValue) Token(PropertyName name, string value) => (name, new PropertyValue.Text(value));
     static (PropertyName, PropertyValue) Measured(PropertyName name, Dimension dim, double si) => (name, new PropertyValue.Measure(MeasureValue.OfSi(dim, si)));
 
-    static PropertyBag Rows(params (PropertyName Name, PropertyValue Value)[] rows) =>
+    static PropertyBag RealizationRows(params (PropertyName Name, PropertyValue Value)[] rows) =>
         rows.ToSeq().Fold(DetailSchema.Realization.Bag(), static (bag, r) => bag.With(r.Name, r.Value));
+
+    static PropertyBag ProductRows(params (PropertyName Name, PropertyValue Value)[] rows) =>
+        rows.ToSeq().Fold(DetailSchema.Product.Bag(), static (bag, r) => bag.With(r.Name, r.Value));
 }
 ```
 
@@ -413,7 +428,7 @@ public sealed class ComponentProjector : IElementProjection {
 
 - Owner: the `ComponentSubgraph` capture composition root — `Capture` (the homogeneous-substance fold building `Substance` specs, the prior `MaterialSubgraph.Capture` UNCHANGED) and `CaptureComponent` (the catalogue-`Component` fold building a `Type` spec) — plus the projector's `ProjectType` node authoring (the minted Type `Object`, the M7 `SeamSection` bake onto the twenty-field seam `SectionProperties`, the neutral `DetailSchema` realization bag) and the `ProjectSubstance` node authoring (the `Material`/`Appearance` content-keyed nodes + the `[H12]`/`[C7]` `Associate` edge), the family-specific composition selection delegated to the re-homed `Component/timber#TIMBER_FAMILY` and `Component/glazing#GLAZING_FAMILY` lowerings.
 - Cases: two projected node families over one fold — the SUBSTANCE family (`Material`: the `MaterialId` + the M7-baked `MaterialComposition` + the `Discipline`-keyed `MaterialPropertySet` set, content-keyed · `Appearance`: the `Appearance/interchange#MATERIAL_WIRE` content-keyed `AppearanceSummary`) and the TYPE family (the rooted-deterministic Type `Object` + its structural `Material` with the baked section + its optional `Appearance` + its optional neutral `PropertySet` detail bag); the projector authors NO `Assessment` node (`Rasm.Compute` reads the `Material` plies directly and writes the `Assessment` `Result`). The capture entries: `Capture` folds a `Seq<MaterialId>` of library materials into `Substance` specs (the REQUIRED engineering set + the OPTIONAL lifecycle set + the OPTIONAL Object-node `Classification` riding the binding + the `[C7]` usage), `CaptureComponent` lowers a catalogue `Component` + its family-selected composition + its occurrences into a `Type` spec.
-- Entry: `ComponentSubgraph.Capture(materials, elementOf, sections, key)` builds the source's `Substance` specs (each spec the seam `MaterialId` + the `Construction/assembly#MATERIAL_COMPOSITION` `CompositionAuthor.Single` composition + the `Properties/properties#MATERIAL_PROPERTY_CATALOGUE` REQUIRED engineering set + the `Properties/sustainability#SUSTAINABILITY_PROPERTY` OPTIONAL lifecycle set + the Object-node `Classification` egress + the `Appearance/graph#MATERIAL_LIBRARY`→`MATERIAL_WIRE` content-keyed `AppearanceSummary` + the `[C7]` `CompositionAuthor.UsageOf` binding), the entire fold on the ONE `Fin` rail so a from-scratch capture short-circuits on the first unregistered material; `ComponentSubgraph.CaptureComponent(source, component, composition, occurrences, key)` adds a `Type` spec — the `component.CapacityKey` engineering rows (REQUIRED) + the `component.AppearanceId` library appearance — the family lowering (`Component/timber#TIMBER_FAMILY` `ToLayerSet` for a CLT panel, `Component/glazing#GLAZING_FAMILY` `ToLayerSet` for an IGU, the seam `MaterialComposition.OfProfileSet` for a profiled steel/timber/cmu member) having selected the structural `MaterialComposition` (a `ProfileSet` for steel/timber/cmu the `ProjectType` `BakeSection` resolves the section onto, a `LayerSet` for a glazing IGU, a `Single` for a discrete part); the projector's `ProjectType` mints the Type subgraph + the `SeamSection` bake + the neutral `DetailSchema` bag from there.
+- Entry: `ComponentSubgraph.Capture(materials, elementOf, sections, key)` builds the source's `Substance` specs (each spec the seam `MaterialId` + the `Construction/assembly#MATERIAL_COMPOSITION` `CompositionAuthor.Single` composition + the `Properties/properties#MATERIAL_PROPERTY_CATALOGUE` REQUIRED engineering set + the `Properties/sustainability#SUSTAINABILITY_PROPERTY` OPTIONAL lifecycle set + the Object-node `Classification` egress + the `Appearance/graph#MATERIAL_LIBRARY`→`MATERIAL_WIRE` content-keyed `AppearanceSummary` + the `[C7]` `CompositionAuthor.UsageOf` binding), the entire fold on the ONE `Fin` rail so a from-scratch capture short-circuits on the first unregistered material; `ComponentSubgraph.CaptureComponent(source, component, composition, occurrences, key)` adds a `Type` spec — the `component.SubstanceId` engineering rows (REQUIRED) + the `component.AppearanceId` library appearance — the family lowering (`Component/timber#TIMBER_FAMILY` `ToLayerSet` for a CLT panel, `Component/glazing#GLAZING_FAMILY` `ToLayerSet` for an IGU, the seam `MaterialComposition.OfProfileSet` for a profiled steel/timber/cmu member) having selected the structural `MaterialComposition` (a `ProfileSet` for steel/timber/cmu the `ProjectType` `BakeSection` resolves the section onto, a `LayerSet` for a glazing IGU, a `Single` for a discrete part); the projector's `ProjectType` mints the Type subgraph + the `SeamSection` bake + the neutral `DetailSchema` bag from there.
 - Packages: Rasm.Element (project — `Node` cases, `MaterialComposition`, `MaterialPropertySet`, `Relationship.Associate`/`Assign`, `MaterialUsage`, `Classification`, `AppearanceSummary`, `ProfileRef`, `ResolvedComponent` consumed via the section table), Rasm.Materials.Component (project — `Component`/`ComponentResolution`/`ResolvedComponent` the M7 table, `Component/timber`/`glazing` the re-homed family lowerings), Rasm.Materials.Properties (project — `MaterialPropertyCatalogue`/`SustainabilityCatalogue` the engineering/lifecycle/classification rows), Rasm.Materials.Construction (project — `CompositionAuthor` the `Single`/`UsageOf` composition author), Rasm.Materials.Appearance.Graph + Rasm.Materials.Appearance.Interchange (project — `MaterialLibrary`/`MaterialWire` the appearance lowering), LanguageExt.Core (`Fin`/`Seq`/`Fold`/`Option` for the capture folds).
 - Growth: a new engineering discipline routed to a material is one `Discipline` row the seam `MaterialPropertySet` carries (Compute's route dispatch reads it off the `Material` node) — no capture arm; a new family's Type capture is one `CaptureComponent` call over the family's catalogue `Component` + its lowering-selected composition (the family page owns the composition selection, never the projector); a new realization-detail row is one `DetailSchema` `PropertyName` the projector `Detail` reads; the subgraph grows by seam case, catalogue row, and family lowering, never a new node author.
 - Boundary: the family lowerings own the COMPOSITION SELECTION (`ProfileSet` for a steel/timber/cmu profiled member the `SeamSection` bakes the section onto, `LayerSet` for a glazing IGU / a CLT panel, `Single` for a discrete part / a homogeneous unit) — `CaptureComponent` threads the family-selected `MaterialComposition`, never forcing one shape, and the `ProfileSet` carries the M7 `ProfileRef` the `ProjectType` `BakeSection` path resolves from `source.Sections` so the structural runner reads `graph.SectionOf(member)` without re-resolving; the REQUIRED-vs-OPTIONAL `Lookup` asymmetry holds (`MaterialPropertyCatalogue.Lookup` rails the seam `ElementFault.ValueRejected` on an unregistered material — engineering properties REQUIRED; `SustainabilityCatalogue.Lookup` returns `Fin.Succ(empty)` for a material with no declared EPD — lifecycle OPTIONAL; `SustainabilityCatalogue.Classification` returns `None` when row or material absent); the resolved standard `Classification` rides the `MaterialBinding` to the bound element's `Object` node (an Object-node VALUE — NOT a `Node.Material` field, NOT an `Associate` edge payload — the `Relations/relation#EDGE_ALGEBRA` law), the Object-node owner (`Rasm.Bim` at IFC ingest, or the from-scratch app) folding it into the element's `Classifications` set the Bim `Semantics/classification` re-emits; the `Material` node carries its OWN `MaterialPropertySet` (the material physics keyed by `Discipline`) and NEVER an element-level `PropertySet`/`QuantitySet` bag (those are `Rasm.Bim`'s at IFC ingress); the neutral `DetailSchema` realization bag is authored for the four standardized-part families AND the panel family (the panel bag carrying the board `EdgeProfile`/`PanelThickness`, the `FieldSpacing`/`EdgeSpacing` fastener stations, and the steel-deck `RibDepth`/`RibPitch` a generator lays boards from; the OTHER five profiled families carry NONE — their data rides the baked `ComputedSection` + the Type Object geometry), the connection's MATERIAL binding (its steel grade, capacity, embodied carbon, appearance) riding the structural `Material` subgraph, NEVER a row on the detail bag — a `SteelGrade`/`EmbodiedCarbon` detail row is the named seam violation; the whole subgraph is one additive `GraphDelta` the seam `IGraphConstraint.Validate` gates for IFC-semantic legality before the seam folds it, the projector enforcing only the structural invariants (content-key idempotence, the Type-Object dedup, the context-vouched binding/occurrence endpoints).
@@ -457,29 +472,26 @@ public static class ComponentSubgraph {
         materials.Fold(
             Fin.Succ(ComponentProjectionSource.Empty with { Sections = sections }),
             (acc, id) => acc.Bind(source =>
-                from engineering in MaterialPropertyCatalogue.Lookup(id, key)                        // Properties/properties#MATERIAL_PROPERTY_CATALOGUE → seam Mechanical/Thermal/Acoustic/Fire (REQUIRED)
-                from lifecycle in SustainabilityCatalogue.Lookup(id, key)                            // Properties/sustainability#SUSTAINABILITY_PROPERTY → seam Environmental/Cost (OPTIONAL, empty when absent)
-                from classification in SustainabilityCatalogue.Classification(id, key)               // the material's Object-node Classification (the (system, code) egress, OPTIONAL — None when row or material absent)
-                let properties = engineering + lifecycle                                             // the full Seq<MaterialPropertySet> the Material node carries (classification rides the Object node, never a property case)
+                from facts in MaterialFactsCatalogue.Lookup(id, key)
                 let composition = CompositionAuthor.Single(id)                                       // a homogeneous library material; layered/profiled compositions ride a Type spec's family lowering
-                let appearance = MaterialLibrary.Lookup(id, key).Map(MaterialWire.Summary).ToOption()  // Appearance/graph#MATERIAL_LIBRARY → Appearance/interchange#MATERIAL_WIRE content-keyed AppearanceSummary
                 from bindings in elementOf(id).Match(
-                    Some: element => CompositionAuthor.UsageOf(composition, key).Map(usage => Seq(new MaterialBinding(element, usage, classification))),  // C7: thread the seam MaterialUsage Fin AND the Object-node Classification onto the binding
+                    Some: element => CompositionAuthor.UsageOf(composition, key).Map(usage => Seq(new MaterialBinding(element, usage, facts.Classification))),  // C7: thread the seam MaterialUsage Fin AND the Object-node Classification onto the binding
                     None: () => Fin.Succ(Seq<MaterialBinding>()))                                     // no bound element → a pure-Materials subgraph run, the resolved classification simply has no Object node to land on
-                select source.With(new MaterialSpec(id, composition, properties, appearance, bindings))));
+                let appearance = MaterialLibrary.Lookup(id, key).Map(MaterialWire.Summary).ToOption()
+                select source.With(new MaterialSpec(id, composition, facts.Properties, appearance, bindings))));
 
     // The TYPE capture: a catalogue Component + its family-selected MaterialComposition + its vouched occurrences → a
     // ComponentSpec the ProjectType fold mints into a Type Object. The structural-material engineering rows are the
-    // Component.CapacityKey Mechanical row (REQUIRED), the appearance the Component.AppearanceId library row (OPTIONAL). The
+    // Component.SubstanceId Mechanical row (REQUIRED), the appearance the Component.AppearanceId library row (OPTIONAL). The
     // composition arrives ALREADY SELECTED by the caller (the Component/timber#TIMBER_FAMILY ToLayerSet for a CLT panel and
     // Component/glazing#GLAZING_FAMILY ToLayerSet for an IGU, the seam MaterialComposition.OfProfileSet for a profiled
     // steel/timber/cmu member the ProjectType BakeSection resolves the section onto, a Single for a discrete part) — so the
     // projector never re-selects the shape.
     public static Fin<ComponentProjectionSource> CaptureComponent(
         ComponentProjectionSource source, Component component, MaterialComposition composition, Seq<NodeId> occurrences, Op key) =>
-        from properties in MaterialPropertyCatalogue.Lookup(component.CapacityKey, key)              // the structural-material Mechanical row (REQUIRED — a Type's capacity material must register)
-        let appearance = MaterialLibrary.Lookup(component.AppearanceId, key).Map(MaterialWire.Summary).ToOption()  // the AppearanceId render-row appearance (OPTIONAL)
-        select source.With(new ComponentSpec(component, composition, properties, appearance, occurrences));
+        from facts in MaterialFactsCatalogue.Lookup(component.SubstanceId, key)
+        let appearance = MaterialLibrary.Lookup(component.AppearanceId, key).Map(MaterialWire.Summary).ToOption()
+        select source.With(new ComponentSpec(component, composition, facts.Properties, appearance, occurrences));
 }
 ```
 
@@ -488,7 +500,7 @@ public static class ComponentSubgraph {
 - [PROJECTOR_MERGE]: REALIZED — the prior `MaterialProjector` and `ConnectionProjector` collapse into ONE `ComponentProjector` whose single `Project` fold discriminates a `Substance(MaterialSpec)` arm from a `Type(ComponentSpec)` arm over the `ComponentProjectionSpec` `[Union]`. The dual-projector paradigm, the `ConnectionSpec`/`ConnectionSchedule` source pair (folded into `ComponentSpec` + `ComponentProjectionSource`), and the `ConnectionProjector` "authors NO `Object` node, mints NO element identity" stance are the deleted forms. One projector folds the whole subgraph; adding a future `Rasm.Fabrication` projector is one registration row the seam `Assemble` merges.
 - [OWNER_MINTS_TYPE_IDENTITY]: the `[1].2` owner-mints-its-identity inversion — `Rasm.Materials` owns Component TYPES, so `ProjectType` MINTS the deterministic-rooted Type `Object` (REUSING the `Graph/element#NODE_MODEL` `ObjectKind.Type` static, deriving its rooted id from the seam `NodeId.RootedType` over `Node.Object.ToTypeSeedBytes` which EXCLUDES the volatile `Representations` so a later geometry attach never re-keys the type and identical `Component`s dedup to one Type), stamps `Classification("ifc", IfcEntity)` + `PredefinedType.Create(PredefinedToken)` off the `ComponentSection` egress projections, and binds vouched occurrences via `Assign.TypeDefinition` (REUSED, never an IFC `DefinesByType` spelling — the seam carries the neutral `AssignKind`). The Type `Object` minted here is NOT a context-vouched id; only the substance bindings' elements and the Type's occurrences are vouched, the resources content-keyed and owned by the minting projector. The Type mint composes the seam members `Graph/element#NODE_MODEL` `NodeId.RootedType(ReadOnlySpan<byte>)` (the deterministic-rooted Type derivation, stable under geometry attach) and `Node.Object.ToTypeSeedBytes(double)` (the canonical projection EXCLUDING `Representations` for the Type seed).
 - [SECTION_BAKE_TWENTY_FIELD]: the M7 `SeamSection` bake (UNCHANGED in shape) lifts the TWENTY-field `component#COMPONENT_OWNER` `ComputedSection` onto the TWENTY-field seam `Composition/material#MATERIAL_COMPOSITION` `SectionProperties` column-for-column — the seam and the source receipt grew `ShearCentreY`/`ShearCentreZ`/`MonosymmetryFactor` in lockstep so the symmetric-only column set no longer leaves a channel/tee/angle un-flexural-torsional-buckling-checkable. `SeamSection` lifts the three asymmetry columns from the matching `ComputedSection.ShearCentreYMm`/`ShearCentreZMm`/`MonosymmetryFactor` (engineering-zero for every doubly-symmetric/parametric family, the seam `IsDoublySymmetric` reading zero-as-symmetric; non-zero for an open thin-walled channel/tee/angle the `steel#STEEL_FAMILY` `SteelStiffness` fills), and the `Iyy`/`Izz`/`J`/`Iw`/`Wely`/`Welz`/`Wply`/`Wplz`/`AvY`/`AvZ` lifts preserve the seam quantity-type tagging (a `SectionModulus` never colliding with a `Volume`). The cross-file widening LANDED: the `component#COMPONENT_OWNER` `ComputedSection` carries the three columns (zero-filled in the `ParametricSection` rectangle/hollow path), the `steel#STEEL_FAMILY` `SteelStiffness.Derive` computes the shear-centre offsets + SN030 β_y for the singly-symmetric open shapes, and `SeamSection` lifts them — so a PFC/tee/angle's EN 1993-1-1 §6.3.2 general-route inputs cross the seam faithfully, and the `component.md`/`steel.md` prose reads twenty-field throughout.
-- [NEUTRAL_DETAIL_SCHEMA]: the `Rasm_ConnectionRealization` Bim round-trip SHAPE is PRESERVED (the neutral set-name analogue, the row vocabulary `JointType`/`FastenerType`/`AccessoryType`/`BarType`/`NominalDiameter`/`NominalLength`/`CrossSectionArea`/`CarriedMemberWidth`/`CarriedMemberDepth`/`EffectiveThroat`/`BondLine`/`Overlap`, the `OccurrenceWins` `InheritanceMode`, the dimension-only `MeasureValue.OfSi` columns, the closed `JointTypes` allowed set), but the literal IFC `Rasm_ConnectionRealization` Pset name + the IFC predefined enums move `Rasm.Bim`-only per `[1].5`; the seam `Properties/property#DETAIL_SCHEMA` `DetailSchema.Realization` carries the NEUTRAL realization-detail `SetName` + the `OccurrenceWins` `InheritanceMode` + the canonical `PropertyName` row vocabulary + the `JointTypes` allowed set, the `ComponentProjector` (author) composing `DetailSchema.Realization.Bag()`/`.Joint(kind)` (neither hand-spelling the set name nor re-stamping the precedence). The detail bag is the TYPE-level realization detail bound via `Assign.PropertyDefinition` (occurrences inherit it through the `Bake` type-bag merge), authored for the four standardized-PART families AND the panel family (the panel arm reading `EdgeProfile`/`PanelThickness`/`FieldSpacing`/`EdgeSpacing` always and `RibDepth`/`RibPitch` for a steel-deck board whose `Rib` is `Some`; the OTHER five profiled families carry NONE). The IMPORT reader differs by element genus over the ONE shared schema: the four realizing-element families round-trip through the `Rasm.Bim` `Semantics/connection#CONNECTION_DETAIL` realizing-element reader (targeting the same `DetailSchema.Realization`), while the panel — a `ComponentClass.Panel` `IfcBuiltElement` the realizing-only `Detail` switch folds to its empty arm — round-trips through the GENERAL Bim `Object`/property fold (`Projection/egress#IFC_EGRESS` `ReauthorProperties` on egress, `Projection/semantic#SEMANTIC_PROJECTOR` `Bags` on ingest). The seam `DetailSchema` is the `Properties/property#DETAIL_SCHEMA` owner this projection composes; the panel rows the arm reads — the six new `static readonly PropertyName` statics `EdgeProfile`/`PanelThickness`/`FieldSpacing`/`EdgeSpacing`/`RibDepth`/`RibPitch` AND the new `Fastened` token on `DetailSchema.Realization.JointTypes` (the screwed/nailed-board modality beside `Bolted`/`Welded`/`Bonded`/`Bearing`/`Cast`) — are a `Properties/property#DETAIL_SCHEMA` seam growth the WF-2 reconcile lands at the seam owner, exactly as the connector's `CarriedMemberWidth`/`CarriedMemberDepth` rows landed; the egress that maps the neutral `SetName` onto the IFC `Rasm_ConnectionRealization` Pset name is the `Rasm.Bim` `Projection/egress#IFC_EGRESS` `ReauthorProperties` for every detail-bag family (realizing or panel).
+- [NEUTRAL_DETAIL_SCHEMA]: the `Rasm_ConnectionRealization` Bim round-trip SHAPE is PRESERVED for discrete realizing elements (the neutral set-name analogue, the row vocabulary `JointType`/`FastenerType`/`AccessoryType`/`BarType`/`NominalDiameter`/`NominalLength`/`CrossSectionArea`/`CarriedMemberWidth`/`CarriedMemberDepth`/`EffectiveThroat`/`BondLine`/`Overlap`, the `OccurrenceWins` `InheritanceMode`, the dimension-only `MeasureValue.OfSi` columns, the closed `JointTypes` allowed set), but the literal IFC `Rasm_ConnectionRealization` Pset name + the IFC predefined enums move `Rasm.Bim`-only per `[1].5`; the seam `Properties/property#DETAIL_SCHEMA` `DetailSchema.Realization` carries the NEUTRAL realization-detail `SetName` + the `OccurrenceWins` `InheritanceMode` + the canonical discrete-part row vocabulary + the `JointTypes` allowed set, while `DetailSchema.Product` carries the panel/deck/membrane product rows (`EdgeProfile`/`PanelThickness`/`FieldSpacing`/`EdgeSpacing`/`RibDepth`/`RibPitch`/`MembraneSeam`) under `TypeDrivenOverride`. The `ComponentProjector` composes `DetailSchema.Realization.Bag()`/`.Joint(kind)` for discrete part families and `DetailSchema.Product.Bag()` for panels. The detail bag is the TYPE-level detail bound via `Assign.PropertyDefinition` (occurrences inherit it through the `Bake` type-bag merge). The IMPORT reader differs by element genus: the four realizing-element families round-trip through the `Rasm.Bim` `Semantics/connection#CONNECTION_DETAIL` reader targeting `DetailSchema.Realization`, while panel product detail round-trips through the general Bim object/property fold (`Projection/egress#IFC_EGRESS` `ReauthorProperties` on egress, `Projection/semantic#SEMANTIC_PROJECTOR` `Bags` on ingest).
 - [CLASS_ROOT_MINT]: `Mint` composes the seam `Node.Relabel` re-stamp — a class-root `[Union]` `Node` case has NO compiler-generated `with`, so the prior `draft with { Id = … }` (the form the old `MaterialProjector`/`ConnectionProjector` `Mint` carried) is the deleted form a class case cannot honour; the rebuild re-stamps the content-derived id through `Relabel(NodeId.Content(draft.ToCanonicalBytes(tolerance).Span))`.
 - [H12_OCCURRENCE_VOUCH]: the `ProjectionContext.Owns` vouch is per-binding (substance) and per-occurrence (Type) — the substance arm short-circuits on `spec.Bindings.IsEmpty`, the Type arm on `spec.Occurrences.IsEmpty` (genuinely nothing to bind — the pure-isolation subgraph), NEVER on `ctx.ElementIds.IsEmpty`: a spec that DOES carry bindings/occurrences rails `ProjectionFault.Unvouched` for every element an empty context cannot vouch (the [H12] gate), never a silently-dropped edge.
 - [CONTENT_ADDRESSING]: every authored non-rooted node is minted via the seam `NodeId.Content` over its own `ToCanonicalBytes(tolerance)` (the `Projection/address#CANONICAL_WRITER` codec + the kernel seed-zero `XxHash128` the `Projection/address#CONTENT_ADDRESS` `ContentAddress` composes — the ONE hasher, NO second in this folder), so a `Material`/`Appearance`/detail node projected twice collapses to one node and the delta is idempotent under re-projection; the Type `Object`'s rooted `NodeId.RootedType` derives from its representation-excluded seed so identical Components dedup. The cross-runtime C#/Python/TypeScript parity corpus pins byte-for-byte agreement on the canonical bytes.

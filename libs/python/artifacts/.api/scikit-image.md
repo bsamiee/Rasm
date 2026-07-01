@@ -186,12 +186,13 @@
 | :-----: | :--------------------------------------------------------------------------------------- | :------------- | :---------------------------------------------------- |
 |  [01]   | `label(label_image, background, return_num, connectivity)`                               | label          | connected-component labeling                          |
 |  [02]   | `regionprops(label_image, intensity_image, cache, *, extra_properties, spacing, offset)` | region props   | region property list per label                        |
-|  [03]   | `regionprops_table(label_image, intensity_image, properties, *, separator, ...)`         | region table   | region properties as dict of arrays (DataFrame-ready) |
+|  [03]   | `regionprops_table(label_image, intensity_image, properties, *, separator, ...)`         | region table   | region properties as dict of arrays; the scalar morphometry + 7-invariant `moments_hu` property set (see [04] region morphometry) |
 |  [04]   | `find_contours(image, level, fully_connected, positive_orientation, *, mask)`            | contour        | marching-squares iso-contours                         |
 |  [05]   | `marching_cubes(volume, level, *, spacing, gradient_direction, ...)`                     | surface mesh   | 3D isosurface mesh extraction                         |
 |  [06]   | `ransac(data, model_class, min_samples, residual_threshold, ...)`                        | RANSAC         | robust fitting via RANSAC                             |
 |  [07]   | `mesh_surface_area(verts, faces)`                                                        | mesh metric    | surface area of a triangulated mesh                   |
 |  [08]   | `shannon_entropy(image, base)`                                                           | entropy        | Shannon entropy of image histogram                    |
+|  [09]   | `blur_effect(image, h_size=11, channel_axis=None, reduce_func=<amax>)`                   | no-ref quality | no-reference perceptual blur metric (0=sharp … 1=blurred), the sole reference-free `measure` scalar |
 
 [ENTRYPOINT_SCOPE]: feature detection and description
 - rail: imaging — `skimage.feature`
@@ -335,6 +336,8 @@ Classical (non-deep) trainable pixel segmentation: extract a multiscale feature 
 - RANSAC: `ransac(data, ModelClass, min_samples, residual_threshold, *, max_trials=100, rng=None, ...)` wraps any model exposing `estimate`/`residuals`; the seed kwarg is `rng` (a `numpy.random.Generator`/int), not `random_state`. `CircleModel`/`EllipseModel`/`LineModelND` are the built-in models; a custom model is any object with the two methods.
 - feature pipeline: `detector = SIFT()/ORB()/BRIEF()/CENSURE(); detector.detect_and_extract(image)` -> `detector.keypoints`, `detector.descriptors` -> `match_descriptors(d1, d2, cross_check=True)`; descriptor classes carry no array on construction.
 - segmentation pipeline: `label = segmenter(...)` -> `regionprops_table(label, intensity_image, properties=(...))` -> table; RAG refinement is `rag_mean_color(image, label) -> merge_hierarchical/cut_threshold` for region merging.
+- region morphometry: `regionprops`/`regionprops_table` scalar properties are `area`/`eccentricity`/`solidity`/`orientation`/`perimeter`/`euler_number`/`extent`/`axis_major_length`/`axis_minor_length`/`equivalent_diameter_area`; the array property `moments_hu` is the 7 rotation/scale-invariant Hu moments and `regionprops_table` expands it to `moments_hu-0`…`moments_hu-6` columns (fold by a `key.startswith("moments_hu")` prefix match, never assuming the `-` separator).
+- no-reference quality: `measure.blur_effect(image, h_size=11, channel_axis=None, reduce_func=<amax>)` is the only reference-free perceptual metric (re-blur strength -> 0=sharp … 1=blurred), a one-image `measure` scalar distinct from the `metrics` operand-pair quality family.
 - metrics: all metric functions expect same-dtype, same-shape arrays; provide `data_range` explicitly for float images (it is no longer inferred).
 
 [LOCAL_ADMISSION]:

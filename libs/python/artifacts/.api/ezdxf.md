@@ -133,15 +133,28 @@ The single construction surface for every drawable, all living on the layout (`m
 |  [04]   | `add_spline(fit_points=None, degree=3, dxfattribs=None)` / `add_open_spline` / `add_rational_spline` / `add_cad_spline_control_frame` | curve | a NURBS `Spline` from fit points or a control frame |
 |  [05]   | `add_lwpolyline(points, format='xyseb', close=False, dxfattribs=None)`         | polyline  | a 2D `LWPolyline` (`(x,y,start_w,end_w,bulge)` rows)        |
 |  [06]   | `add_polyline2d` / `add_polyline3d` / `add_polymesh` / `add_polyface`          | polyline  | heavy 2D/3D polyline, polygon mesh, polyface mesh           |
-|  [07]   | `add_hatch(color=7, dxfattribs=None)` / `add_mpolygon(…)`                       | fill      | a `Hatch` (solid/gradient/pattern) / filled `MPolygon`      |
+|  [07]   | `add_hatch(color=7, dxfattribs=None)` / `add_mpolygon(…)`                       | fill      | a `Hatch` (`set_solid_fill`/`set_gradient`/`set_pattern_fill`) / filled `MPolygon` |
 |  [08]   | `add_text(text, height=…, dxfattribs=None)` / `add_mtext(text, dxfattribs=None)` | text    | single-line `Text` / multi-line `MText`                     |
 |  [09]   | `add_blockref(name, insert, dxfattribs=None)` / `add_auto_blockref` / `add_attdef` | reference | an `Insert` block reference / auto-attrib insert / attribute def |
-|  [10]   | `add_leader(vertices, …)` / `add_multileader_mtext(style)` / `add_multileader_block(style)` | annot | a `Leader` / a `MultiLeader` with mtext or block content |
-|  [11]   | `add_linear_dim` / `add_aligned_dim` / `add_angular_dim_*` / `add_radius_dim` / `add_diameter_dim` / `add_ordinate_dim` / `add_arc_dim_*` / `add_multi_point_linear_dim` | dimension | the full ISO 129-1 dimension family (each returns a `DimStyleOverride`; call `.render()` to generate geometry) |
+|  [10]   | `add_leader(vertices, …)` / `add_multileader_mtext(style)` / `add_multileader_block(style)` | annot | a `Leader` / a `MultiLeader` — the mtext/block calls return a `MultiLeaderMTextBuilder`/`MultiLeaderBlockBuilder` (the multileader-builder table below) |
+|  [11]   | `add_linear_dim` / `add_aligned_dim` / `add_angular_dim_2l` / `add_angular_dim_3p` / `add_angular_dim_cra` / `add_radius_dim` / `add_diameter_dim` / `add_ordinate_dim` / `add_ordinate_x_dim` / `add_ordinate_y_dim` / `add_arc_dim_3p` / `add_arc_dim_cra` / `add_multi_point_linear_dim` | dimension | the full ISO 129-1 dimension family (linear/aligned; angular 2-line/3-point/center-radius-angle; radius/diameter; ordinate + x/y-feature; arc 3-point/center-radius-angle; chained multi-point) — each returns a `DimStyleOverride`, `.render()` generates geometry |
 |  [12]   | `add_mesh` / `add_3dface` / `add_body` / `add_3dsolid` / `add_surface` / `add_extruded_surface` / `add_revolved_surface` / `add_swept_surface` | 3d | mesh + ACIS solid/surface builders |
 |  [13]   | `add_image(image_def, insert, size_in_pixels, …)` / `add_wipeout(vertices)` / `add_underlay(…)` | raster | raster-image reference / masking wipeout / PDF/DWF/DGN underlay |
 |  [14]   | `add_point` / `add_ray` / `add_xline` / `add_solid` / `add_trace` / `add_shape` | primitive | point, infinite/ray line, 2D filled solid/trace, shape ref |
 |  [15]   | `add_foreign_entity(entity, copy=True)` / `add_entity(entity)`                 | adopt     | adopt an entity created elsewhere / add a constructed entity |
+
+[ENTRYPOINT_SCOPE]: multileader builders, hatch pattern fill, and arrow blocks
+- rail: cad-export
+
+`add_multileader_mtext(style)` / `add_multileader_block(style)` return a fluent builder — `render.MultiLeaderMTextBuilder` (mtext content) / `render.MultiLeaderBlockBuilder` (block content) — whose `set_content` / `add_leader_line(ConnectionSide, vertices)` / `set_connection_types` / `build(insert)` compose the leader before it lands on the layout, `render.mleader.ConnectionSide` (`left`/`right`/`top`/`bottom`) selecting the dogleg attachment side the `drawing/annotate` keynote/leader owner drives. `Hatch.set_pattern_fill` applies an ISO 128-50 pattern the `ezdxf.tools.pattern` module supplies (`load()` the full pattern-definition dict, `scale_pattern(pattern, factor, angle)` the ISO-scale transform, `ISO_PATTERN` the 172-entry ISO hatch-name table the `drawing/standard` hatch table selects from), and `ezdxf.ARROWS` carries the arrow-block name constants the `drawing/dimension`/`drawing/annotate` terminators reference.
+
+| [INDEX] | MEMBER                                                                          | KIND      | ROLE                                                          |
+| :-----: | ------------------------------------------------------------------------------- | --------- | ------------------------------------------------------------ |
+|  [01]   | `render.MultiLeaderMTextBuilder` / `render.MultiLeaderBlockBuilder`             | builder   | fluent multileader builder returned by `add_multileader_mtext`/`add_multileader_block` (`set_content`/`add_leader_line`/`set_connection_types`/`build(insert)`) |
+|  [02]   | `render.mleader.ConnectionSide` (`left`/`right`/`top`/`bottom`)                 | enum      | leader dogleg attachment side passed to `add_leader_line`    |
+|  [03]   | `Hatch.set_pattern_fill(name, color=7, angle=0.0, scale=1.0, …)` / `set_solid_fill` / `set_gradient` | fill | pattern/solid/gradient hatch fill (ISO 128-50 pattern from the `drawing/standard` hatch table) |
+|  [04]   | `tools.pattern.load(measurement=1, factor=None)` / `scale_pattern(pattern, factor=1, angle=0)` / `ISO_PATTERN` | pattern | the ISO/imperial hatch-pattern definition table + ISO-scale transform |
+|  [05]   | `ezdxf.ARROWS` (`closed_filled`/`architectural_tick`/`dot`/`box_filled`/`closed`/`datum_triangle_filled`/…) | constants | arrow-block name constants the dimension/leader terminators reference |
 
 [ENTRYPOINT_SCOPE]: the `Path` geometry bridge (`ezdxf.path`)
 - rail: cad-export

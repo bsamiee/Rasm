@@ -1,31 +1,39 @@
 # [PY_ARTIFACTS_TABLE]
 
-The publication-quality tabular-artifact owner. `TablePlan` is ONE owner over great-tables (Bring-Your-Own-DataFrame: polars first-class through the `DataFrame.style` seam, pandas optional) producing journal-quality tables — spanners, scientific value formatting, uncertainty merges, missing-value substitution, configured inline nanoplots, data-driven coloring, and `opt_*` theme identity — exported to HTML, LaTeX, and PDF. It is the missing third artifact pillar beside documents and charts, so measured study results render as formatted tables rather than raw dumps, feeding `document/report#REPORT` and `document/emit#DOCUMENT` and handing its flat HTML/SVG egress to the regrouped `composition/compose#COMPOSE` placement owner for layout beside its sibling graphics. great-tables is admitted in the manifest (core, pure-Python); this page closes the `PUBLICATION_TABLE_OWNER` idea.
+The publication-and-schedule tabular-artifact owner — graded at once as a journal-grade publication primitive AND an ISO-drafting schedule/QTO primitive, its bar the union of both planes. `TablePlan` is ONE owner over great-tables (Bring-Your-Own-DataFrame: polars first-class through the `DataFrame.style` seam) that admits a settled frame OR the C# `Rasm.Bim` QTO/schedule wire over `data/tabular`, SHAPES it to its exact display cross-tab through the closed `Reshape` polars pre-pass, then styles it into journal-quality output — spanners, scientific value formatting, uncertainty merges, missing-value substitution, configured inline nanoplots, data-driven coloring, lettered/symbol footnote marks, and `opt_*` theme identity — exported host-free to HTML/LaTeX and (gated) PDF. The frame arrives settled; `TablePlan` reshapes-to-display, styles, and content-keys it, never authoring the data, re-opening the lazy engine, or re-implementing a transform the `data` owner owns. It is the missing third artifact pillar beside documents and charts, so measured results AND BIM quantity takeoffs render as formatted tables rather than raw dumps, feeding `document/report#REPORT` and `document/emit#DOCUMENT`, lowering the `drawing/schedule#SCHEDULE` AEC templates INTO this owner, and handing its flat HTML/SVG egress to `composition/compose#COMPOSE` for placement beside its sibling graphics.
 
 ## [01]-[INDEX]
 
-- [01]-[TABLE]: great-tables styled-table export owner over HTML/LaTeX/PDF, carrying the full publication surface as one closed `TableOp` tagged-union family — every `fmt_*` scientific format, `cols_*` column control, `cols_merge_*` uncertainty merge, `sub_*` substitution, `text_*` transform, `opt_*` theme, `tab_*` structure, `fmt_nanoplot` configured-sparkline, and `data_color(autocolor_text)` row folded by one total `match` over an ordered op sequence in the one `reduce`-over-spec pipeline; `loc.*` targeting collapses into one `Loc` data row whose arg-arity is policy, never a parallel selector catalogue or a branch on location kind.
+- [01]-[TABLE]: great-tables styled-table export owner over HTML/LaTeX/PDF carrying the full publication surface as one closed `TableOp` tagged-union family — every `fmt_*` scientific format, `cols_*` column control, `cols_merge_*` uncertainty merge, `sub_*` substitution, `text_*` transform, `opt_*` theme, `tab_*` structure, `fmt_nanoplot` configured-sparkline, and `data_color(autocolor_text)` row folded by one total `match` over an ordered op sequence — PRECEDED by the closed `Reshape` polars frame-shaping pre-pass (`pivot`/`unpivot`/`group_agg`/`top_k`/`select`/`sort`/`derive`) that lands a QTO/schedule display cross-tab before the `.style` seam, admitted from a settled frame OR an Arrow-C-stream interchange object, rendered under a `pl.Config` deterministic scope keyed by a content-stable id so the one bytes fact never drifts, offloaded off the event loop, and contributing the `core/receipt#RECEIPT` `ArtifactReceipt.Table` case. `loc.*` targeting collapses into one `Loc` data row whose arg-arity is policy, never a parallel selector catalogue or a branch on location kind; `Cols` admits a `polars.selectors` class so a format/align/color op addresses a dtype class without a hardcoded name list.
 
 ## [02]-[TABLE]
 
-- Owner: `TablePlan` the one table owner discriminating export format over the closed `TableFormat` `StrEnum` (`HTML`/`LATEX`/`PDF`); `TableOp` an `expression.tagged_union` whose every case carries its own typed payload — never a parallel `dict[str, Callable]` format/style/location catalogue and never a per-feature `reduce` pass — dispatched by one total `match`/`case` folding each op onto the great-tables `GT` builder; the dataframe is the BYODF input the `GT(frame)` builder styles, the polars `DataFrame.style` accessor the in-process `GT`-construction seam returning a real `GT`. `Theme` is the closed `opt_*`-row stylize vocabulary carried as the table's named publication identity, never a per-call `tab_options` keyword scatter.
+- Owner: `TablePlan` the one table owner discriminating export format over the closed `TableFormat` `StrEnum` (`HTML`/`LATEX`/`PDF`); `Reshape` an `expression.tagged_union` whose every case carries one polars frame-shaping transform folded `pl.DataFrame -> pl.DataFrame` BEFORE `.style`; `TableOp` an `expression.tagged_union` whose every case carries its own typed payload — never a parallel `dict[str, Callable]` catalogue and never a per-feature `reduce` pass — dispatched by one total `match`/`case` folding each op onto the great-tables `GT` builder. The dataframe is the BYODF input `GT(frame)`/`frame.style` styles; the polars `DataFrame.style` accessor is the in-process `GT`-construction seam returning a real `GT`. `Theme` is the closed `opt_*`-row stylize vocabulary carried as the table's named publication identity, never a per-call `tab_options` keyword scatter, its `FootnoteMarks` axis selecting numeric, `letters()`/`LETTERS()` alphabetic, or `standard`/`extended` symbol mark sequences.
+- Ingress: `TablePlan.of` admits raw material EXACTLY ONCE — a settled `pl.DataFrame` passes through, and an Arrow-C-stream / interchange object (the `__arrow_c_stream__`-exporting capsule the C# `Rasm.Bim` QTO/schedule egress crosses over `data/tabular`, or any `data` producer) normalizes through `pl.from_dataframe(source)` into the canonical `pl.DataFrame` owner (zero-copy where the Arrow layout permits). The interior sees only a settled frame; the `data/tabular` `[WIRE]` edge is parameterized so the same owner sources across many providers without touching its interior, and the frame field is never re-validated inward.
+- Shape: `Reshape` rows land the display cross-tab the raw QTO/schedule frame is not yet in — `Select`/`Filter`/`Sort`/`Rename`/`Cast`/`Head`/`Slice`/`With` (re-project, gate, order, re-type, bound), `GroupAgg` (`group_by(*keys, maintain_order=True).agg(*exprs)` quantity rollup), `Pivot` (`pivot(on, index, values, aggregate_function, maintain_order=True, sort_columns=True)` the door/window/room-finish cross-tab), `Unpivot` (wide→long), `TopK` (`top_k(k, by)`), and `Derive` (a `pl.when`/`format`/`concat_str`/`coalesce` display column the frame did not carry) — each a `pl.Expr`/name-carrying case folded by the one total `_shape` `match` over the `shape` sequence, so a schedule rollup is one `Reshape` row and never a Python loop over rows, never a per-cell callable, and never a re-opened lazy engine. `maintain_order=True`/`sort_columns=True` on the `group_agg`/`pivot` rows fix row/column order (modern polars per-column `Categories` make a categorical sort/group deterministic by content, so no global string-cache scope is needed), and the fold runs inside the `pl.Config` render scope so a float→display-string `Derive` renders at fixed precision — the display frame byte-reproducible for the content key.
 - Cases: `TableOp` rows fold the full publication surface — `Header`/`Stub`/`Stubhead`/`SourceNote`/`Footnote` structure · `Label`/`LabelWith`/`LabelRotate`/`Align`/`Width`/`Hide`/`Unhide`/`Reorder`/`Move`/`MoveEnds` column control · `Spanner`/`SpannerDelim` column-group nesting · `Fmt` value format dispatched over the `FmtKind` data table (`Number`/`Integer`/`Currency`/`Percent`/`Scientific`/`Engineering`/`PartsPer`/`Units`/`Duration`/`Bytes`/`Roman`/`Date`/`Datetime`/`Time`/`Tf`/`Flag`/`Icon`/`Image`/`Markdown`/`Custom`) · `Nanoplot` configured-sparkline · `MergeRange`/`MergeUncert`/`MergeNPct`/`Merge` column merge · `SubMissing`/`SubZero`/`SubSmall`/`SubLarge`/`SubValues` substitution · `TextTransform`/`TextCaseWhen`/`TextCaseMatch`/`TextReplace` cell transform · `Summary`/`GrandSummary`/`RowGroupOrder` aggregation · `Style`/`Color`/`Css` cell-style, data-driven fill, and raw-CSS injection — matched by one total `match`/`case`, each arm composing the verified `GT` member directly. The one `Fmt` case carrying a `FmtKind` discriminant collapses the twenty format verbs — the nineteen `fmt_*` members plus the arbitrary `fmt(fns, is_substitution)` custom-function verb at the `Custom` row — onto one fold over the `FMT_TABLE` row catalogue, since every member shares the `(columns, rows, **opts)` shape; the `FmtCustom` factory threads `fns` and `is_substitution` through `opts` so an arbitrary value-to-string callable lands as one row, not a parallel surface.
-- Entry: `TablePlan.render` seeds the `GT` from the frame and the `Theme` publication identity, folds the `ops` sequence through the one `reduce`-over-`TableOp` pipeline, dispatches the `TableFormat`, and returns a `RuntimeRail[ArtifactReceipt]` contributing the `ArtifactReceipt.Table(key, format, bytes)` fact off the one `_build()` render; the styling is one ordered closed-family fold, never a per-column imperative loop, a per-feature `gt.tab_header(...).fmt_number(...)` method chain, or a parallel-catalogue scatter.
-- Auto: the build is one ordered fold over `Theme` then `ops` — `Theme.apply` seeds the `opt_stylize`/`opt_row_striping`/`opt_table_font`/`opt_align_table_header`/`opt_all_caps`/`opt_vertical_padding`/`opt_horizontal_padding`/`opt_table_outline`/`opt_footnote_marks` identity, and `_font` discriminates the `FontFace` over the closed `("google", "system", "family")` axis so `google_font(name)` rides `opt_table_font(font=...)`, the named `system_fonts(name)` stack rides `opt_table_font(stack=..., font=...)`, and a raw family string rides `font=` — never a bare `font_stack` string. Each `TableOp` case folds its one verified `GT` member; the `Fmt` arm indexes the `FMT_TABLE` row by `FmtKind` and applies it with the case `opts`; the `Color` arm folds the domain-to-palette map (from `graphic/color/derive#DERIVE`) through `data_color(na_color, alpha, reverse, autocolor_text=True, truncate)` so the text color derives from the background luminance, the `reverse` axis flips the scale, `na_color` paints the missing band, and `truncate` bounds the palette interpolation range; the `Style` arm folds `tab_style(style.*, loc.*)` where the `Loc` row carries the polars-predicate `mask` for value-targeted cells and a `from_column(column)` bound threads a per-row data-driven value into `style.fill`/`style.text`, never a constant color scatter; `Nanoplot` folds the `NanoSpec` value object's `NanoSpec.fold` over `fmt_nanoplot` carrying the full `plot_type`/`plot_height`/`missing_vals`/`autoscale` plot grammar and the `reference_line`/`reference_area`/`expand_x`/`expand_y` axis-framing args with the `nanoplot_options(...)` configured dict, never the flat default sparkline; `Summary`/`GrandSummary` carry the optional `fmt` standalone formatter so each aggregate band formats with the same `vals.fmt_*` member the cells use, and the `side`/`missing_text` placement so each band names its empty-cell glyph; `Pipe` threads an escape-hatch `GT -> GT` through `GT.pipe` so an unrowed package call lands as one case, never a method-chain break-out. `_place` is one `LOC_TABLE` data-row projection from `StubLoc` to the verified per-selector arg-arity through the `LocArity` discriminant — the `IDS` arity binds the `spanner_labels` `ids=` selector and the `GROUPED`/`GROUP_ROWS` arities thread the `groups` axis into `summary`/`summary_stub` — never a branch on which location admits `columns`, `rows`, `ids`, or `groups`. `TablePlan.Series` indexes the `VALS_TABLE` row by `FmtKind` over the standalone `vals.fmt_*` Series formatters and `TablePlan.Units` pre-parses a units string through `define_units` for out-of-table rich-text rendering, both `staticmethod` projections on the owner off the `GT`-chain seam, never module-level rename wrappers.
-- Receipt: each render contributes the shared `core/receipt#RECEIPT` `ArtifactReceipt.Table(key, format, bytes)` case — the content key, the `TableFormat` value, and the rendered byte count read off the one `_build()` render — composing the frozen receipt spine exactly as the sibling `visualization/chart/export#EXPORT` `ArtifactReceipt.Chart` contribution does, never a bare `ContentKey` return.
-- Packages: `great-tables` (`GT`; `tab_header`/`tab_stub`/`tab_stubhead`/`tab_source_note`/`tab_footnote`/`tab_spanner`/`tab_spanner_delim`/`tab_style`/`tab_options`; `cols_label`/`cols_label_with`/`cols_label_rotate`/`cols_align`/`cols_width`/`cols_hide`/`cols_unhide`/`cols_reorder`/`cols_move`/`cols_move_to_start`/`cols_move_to_end`/`cols_merge`/`cols_merge_range`/`cols_merge_uncert`/`cols_merge_n_pct`; `fmt`/`fmt_number`/`fmt_integer`/`fmt_currency`/`fmt_percent`/`fmt_scientific`/`fmt_engineering`/`fmt_partsper`/`fmt_units`/`fmt_duration`/`fmt_bytes`/`fmt_roman`/`fmt_date`/`fmt_datetime`/`fmt_time`/`fmt_tf`/`fmt_flag`/`fmt_icon`/`fmt_image`/`fmt_markdown`/`fmt_nanoplot`; `sub_missing`/`sub_zero`/`sub_small_vals`/`sub_large_vals`/`sub_values`; `text_transform`/`text_case_when`/`text_case_match`/`text_replace`; `summary_rows`/`grand_summary_rows`/`row_group_order`; `data_color`; `opt_stylize`/`opt_row_striping`/`opt_table_font`/`opt_align_table_header`/`opt_all_caps`/`opt_vertical_padding`/`opt_horizontal_padding`/`opt_table_outline`/`opt_footnote_marks`/`opt_css`; the `loc.body`/`loc.column_labels`/`loc.column_header`/`loc.spanner_labels`/`loc.stub`/`loc.stubhead`/`loc.row_group`/`loc.row_groups`/`loc.header`/`loc.footer`/`loc.title`/`loc.subtitle`/`loc.source_notes`/`loc.summary`/`loc.summary_stub`/`loc.grand_summary`/`loc.grand_summary_stub` selectors with `loc.body(mask=...)`; the `style.text`/`style.fill`/`style.borders`/`style.css` constructors; the `nanoplot_options`/`define_units`/`from_column`/`google_font`/`system_fonts`/`md`/`html`/`pct`/`px` helpers; the standalone `vals.fmt_number`/`vals.fmt_integer`/`vals.fmt_currency`/`vals.fmt_percent`/`vals.fmt_scientific`/`vals.fmt_engineering`/`vals.fmt_bytes`/`vals.fmt_roman`/`vals.fmt_date`/`vals.fmt_time`/`vals.fmt_markdown` Series formatters; `GT(auto_align, id)` construction knobs and `pipe`; `as_raw_html(inline_css, make_page, all_important)`/`as_latex(use_longtable, tbl_pos)`/`save(scale)`), `polars` (`DataFrame.style` → `GT` seam, `pl.Series` into `vals.fmt_*`), runtime (`content_identity.ContentIdentity`/`ContentKey`, `faults.RuntimeRail`/`boundary`), `core/receipt#RECEIPT` (`ArtifactReceipt.Table`).
-- Growth: a new export format is one `TableFormat` row; a new format verb is one `FmtKind` row in `FMT_TABLE` (and one `VALS_TABLE` row when the standalone Series formatter exists); a new structural, merge, substitution, transform, or aggregation feature is one `TableOp` case with its typed payload and one `match` arm; a new column-op knob (`nest`/`spanner_id`/`gather`/`replace` on `Spanner`, `limit`/`reverse` on `SpannerDelim`, `align`/`padding` on `LabelRotate`, `rows`/`autohide` on a merge, `fmt` on a summary, `truncate` on `Color`) is one widened case-tuple slot and one factory parameter, never a parallel case; a new emit knob is one `TablePlan` policy field folded in `_build`; a new location target is one `StubLoc` row in `LOC_TABLE`; a new theme axis is one `Theme` field folded in `Theme.apply`; a new font source is one `FontFace` row in `_font`; a new nanoplot knob is one `NanoSpec` field folded in `NanoSpec.fold`; an unrowed package call is one `Pipe` `GT -> GT`; zero new catalogue, zero new `reduce` pass, zero parallel surface.
-- Boundary: no raw data interchange (that stays at `data`); the dataframe arrives as a settled polars/pandas input or the polars `DataFrame.style` `GT` seam, and `_seam` keeps that accessor as the default-construction path, falling to the explicit `GT(...)` constructor only when `rowname_col`/`groupname_col`/`locale`/`table_id`/`auto_align` diverges from default so the in-process `[WIRE]` edge survives. The HTML and LaTeX emit knobs ride `TablePlan` policy fields — `inline_css`/`make_page`/`all_important` on `as_raw_html` and `use_longtable`/`tbl_pos` on `as_latex` — so every emit literal traces to a field default, not a hardcoded call argument; both are the no-driver host-free byte paths, and the emitted HTML/SVG is the flat handoff the regrouped `composition/compose#COMPOSE` placement owner reads to lay the table out beside its sibling graphics, re-rendering nothing on this axis. The PDF `save` path rides a host-coupled Chrome/Selenium WebDriver scaled by the `pdf_scale` field, writes a suffix-typed file (`save` infers format from the extension and rejects a file-like object), so `_build` rounds it through a `NamedTemporaryFile(suffix=".pdf", delete_on_close=False)` so the by-name `save` write survives until the read-back, then reads the bytes — gated optional and never the default, the one remaining gated host path the package admits. A per-feature method chain (`gt.tab_header(...).tab_source_note(...).fmt_number(...)`), a per-cell imperative loop, a parallel format/style/location catalogue, and a branch on location kind are the deleted forms — every feature folds through the one `reduce`-over-`TableOp` pipeline; the `Theme` `opt_*` rows are the table's one named publication identity, never a per-call style scatter.
+- Entry: `TablePlan.render` is `async` over the runtime `async_boundary` and returns a `RuntimeRail[ArtifactReceipt]`, offloading the whole synchronous shape-style-emit fold onto one `CapacityLimiter`-bounded `to_thread.run_sync(self._emit, ...)` — the shared-address-space thread lane the `polars`/`great-tables` GIL-releasing native render forces, exactly as the sibling leaf producers `visualization/chart/export#EXPORT` and `drawing/schedule#SCHEDULE` take — so no heavy render evaluates on the event loop, the boundary `catch=_FAULTS` narrowed to the real `(PolarsError, ValueError, KeyError, NotImplementedError, OSError)` engine raise tuple (`PolarsError` the base every `_shape` frame op throws, great-tables' render `ValueError`/`KeyError`/`NotImplementedError`, the gated PDF `OSError`) so a non-engine raise and cancellation cross as a defect rather than railing through the `Exception` catch-all `boundaries.md` rejects. `_emit` renders the ONE bytes fact through `build`, content-keys it through the synchronous bare `ContentIdentity.key`, and mints the `ArtifactReceipt.Table(key, format, bytes)` fact off that single render; the public `build()` is the synchronous bytes seam a composing AEC owner (`drawing/schedule#SCHEDULE`) renders through directly to mint its own `ArtifactReceipt.Schedule` case (SINGLE-FACT — one render, one content key, no private-method reach). The styling is one ordered closed-family fold, never a per-column imperative loop, a per-feature method chain, or a parallel-catalogue scatter.
+- Auto: `build` is one `pl.Config` scope over an ordered fold — `_shape` reshapes the frame to its display cross-tab, `Theme.apply` seeds the `opt_stylize`/`opt_row_striping`/`opt_table_font`/`opt_align_table_header`/`opt_all_caps`/`opt_vertical_padding`/`opt_horizontal_padding`/`opt_table_outline`/`opt_footnote_marks` identity (`_marks` projecting the `FootnoteMarks` member to its `opt_footnote_marks` keyword great-tables expands to `letters()`/`LETTERS()`/symbol sequences, or an explicit `tuple[str, ...]` custom mark list), and each `TableOp` case folds its one verified `GT` member. The content-stable `table_id` is `_stable_id(shaped, fmt, ops)` — the frame row-hash (`hash_rows(seed=0)`) plus the format plus the op-tag digest through `blake2b`, set through `frame.style.with_id(...)` on the seam path or `GT(id=...)` on the explicit path — because great-tables mints `random_id()` when `id` is `None`, drifting the rendered bytes and the ContentKey every render, so the deterministic id is the byte-reproducibility gate the content-addressing contract needs. `_font` discriminates the `FontFace` over the closed `("google", "system", "family")` axis so `google_font(name)` rides `opt_table_font(font=...)`, the named `system_fonts(name)` stack rides `opt_table_font(stack=..., font=...)`, and a raw family string rides `font=`. The `Fmt` arm indexes `FMT_TABLE` by `FmtKind`; the `Color` arm folds the domain-to-palette map (the hex list `graphic/color/derive#DERIVE` projects through the `visualization/chart/spec#CHART` `hex_ramp` seam) through `data_color(na_color, alpha, reverse, autocolor_text=True, truncate)` so text color derives from background luminance; the `Style` arm folds `tab_style(style.*, loc.*)` where the `Loc` row carries the polars-predicate `mask` and a `from_column(column)` bound threads a per-row data-driven value into `style.fill`/`style.text`; `Nanoplot` folds the `NanoSpec` value object over `fmt_nanoplot` with the full `plot_type`/`plot_height`/`missing_vals`/`autoscale` grammar and the `reference_line`/`reference_area`/`expand_x`/`expand_y` axis-framing args plus the `nanoplot_options(...)` configured dict; `Summary`/`GrandSummary` carry the optional `fmt` standalone formatter and the `side`/`missing_text` placement; `Pipe` threads an escape-hatch `GT -> GT` through `GT.pipe`. `_place` is one `LOC_TABLE` data-row projection from `StubLoc` to the verified per-selector arg-arity through the `LocArity` discriminant — the `IDS` arity binds the `spanner_labels` `ids=` selector and the `GROUPED`/`GROUP_ROWS` arities thread the `groups` axis — never a branch on which location admits `columns`, `rows`, `ids`, or `groups`. `TablePlan.Series` indexes `VALS_TABLE` by `FmtKind` over the standalone `vals.fmt_*` Series formatters and `TablePlan.Units` pre-parses a units string through `define_units`, both `staticmethod` projections off the `GT`-chain seam.
+- Receipt: each render contributes the shared `core/receipt#RECEIPT` `ArtifactReceipt.Table(key, format, bytes)` case — the content key, the `TableFormat` value, and the rendered byte count read off the one `build()` render — through the runtime `ReceiptContributor` port exactly as the sibling `visualization/chart/export#EXPORT` `ArtifactReceipt.Chart` contribution does (the LEAF-producer pattern: `render -> RuntimeRail[ArtifactReceipt]`, the receipt IS the return, mirroring `graphic/raster#RASTER` `Raster.of`), never the `composition/compose#COMPOSE` placement-owner `of() -> RuntimeRail[ContentKey]` + separate `contribute()` pattern. The public `build()` is the bytes seam a composing AEC owner renders through: `render` composes `build` for the `Table` receipt, while `drawing/schedule#SCHEDULE` composes the same `build` bytes fact to mint its own `ArtifactReceipt.Schedule` case (SINGLE-FACT), so a schedule lowers into this owner without a private-method reach.
+- Packages: `great-tables` (`GT(data, rowname_col, groupname_col, auto_align, id, locale)`/`with_id`; `tab_header`/`tab_stub`/`tab_stubhead`/`tab_source_note`/`tab_footnote`/`tab_spanner`/`tab_spanner_delim`/`tab_style`; `cols_label`/`cols_label_with`/`cols_label_rotate`/`cols_align`/`cols_width`/`cols_hide`/`cols_unhide`/`cols_reorder`/`cols_move`/`cols_move_to_start`/`cols_move_to_end`/`cols_merge`/`cols_merge_range`/`cols_merge_uncert`/`cols_merge_n_pct`; `fmt`/`fmt_number`/`fmt_integer`/`fmt_currency`/`fmt_percent`/`fmt_scientific`/`fmt_engineering`/`fmt_partsper`/`fmt_units`/`fmt_duration`/`fmt_bytes`/`fmt_roman`/`fmt_date`/`fmt_datetime`/`fmt_time`/`fmt_tf`/`fmt_flag`/`fmt_icon`/`fmt_image`/`fmt_markdown`/`fmt_nanoplot`; `sub_missing`/`sub_zero`/`sub_small_vals`/`sub_large_vals`/`sub_values`; `text_transform`/`text_case_when`/`text_case_match`/`text_replace`; `summary_rows`/`grand_summary_rows`/`row_group_order`; `data_color`; `opt_stylize`/`opt_row_striping`/`opt_table_font`/`opt_align_table_header`/`opt_all_caps`/`opt_vertical_padding`/`opt_horizontal_padding`/`opt_table_outline`/`opt_footnote_marks`/`opt_css`; the `loc.*` selectors with `loc.body(mask=...)`; the `style.text`/`style.fill`/`style.borders`/`style.css` constructors; the `nanoplot_options`/`define_units`/`from_column`/`google_font`/`system_fonts`/`md`/`html`/`pct`/`px` helpers; the standalone `vals.fmt_*` Series formatters; `pipe`; `as_raw_html(inline_css, make_page, all_important)`/`as_latex(use_longtable, tbl_pos)`/`save(scale)`), `polars` (`DataFrame.style -> GT` seam; the `Reshape` frame-shaping surface `select`/`filter`/`sort`/`rename`/`cast`/`head`/`slice`/`with_columns`/`group_by().agg()`/`pivot`/`unpivot`/`top_k`; `pl.from_dataframe` the interchange ingress; `polars.selectors` `cs.numeric`/`cs.by_dtype`/`cs.matches`/`cs.exclude` the `Cols` selector; `pl.Config` the deterministic display/precision render scope; `DataFrame.hash_rows` the id seed; `pl.Series` into the standalone `vals.fmt_*` formatters; `polars.exceptions.PolarsError` the `_FAULTS` frame-op base), `anyio` (`CapacityLimiter`/`to_thread.run_sync` the offload), `hashlib` (`blake2b` the content-stable id digest), runtime (`content_identity.ContentIdentity`/`ContentKey`, `faults.RuntimeRail`/`async_boundary(catch=_FAULTS)`), `core/receipt#RECEIPT` (`ArtifactReceipt.Table`).
+- Growth: a new frame-shaping transform is one `Reshape` case with its typed payload and one `_shape` arm; a new export format is one `TableFormat` row; a new format verb is one `FmtKind` row in `FMT_TABLE` (and one `VALS_TABLE` row when the standalone Series formatter exists); a new structural, merge, substitution, transform, or aggregation feature is one `TableOp` case with its typed payload and one `match` arm; a new column-op knob is one widened case-tuple slot and one factory parameter, never a parallel case; a new emit knob is one `TablePlan` policy field; a new location target is one `StubLoc` row in `LOC_TABLE`; a new theme axis is one `Theme` field folded in `Theme.apply`; a new footnote-mark family is one `FootnoteMarks` member; a new font source is one `FontFace` row; a new nanoplot knob is one `NanoSpec` field; a new provider ingress is one `FrameSource` arm in `of`; an unrowed package call is one `Pipe` `GT -> GT`; zero new catalogue, zero new `reduce` pass, zero parallel surface.
+- Boundary: no raw data interchange authoring (that stays at `data`) — the frame arrives settled over the `data/tabular` wire (a `pl.DataFrame` or an Arrow-C-stream capsule `of` admits once), `_shape` only re-projects/rolls-up/cross-tabs it to display, and `_seam` keeps the `DataFrame.style` accessor as the default-construction path, falling to the explicit `GT(...)` constructor only when `rowname_col`/`groupname_col`/`locale`/`auto_align` diverges from default so the in-process `[WIRE]` edge survives. The HTML and LaTeX emit knobs ride `TablePlan` policy fields — `inline_css`/`make_page`/`all_important` on `as_raw_html` and `use_longtable`/`tbl_pos` on `as_latex` — so every emit literal traces to a field default, not a hardcoded call argument; both are the host-free no-driver byte paths, and the emitted HTML/SVG is the flat handoff `composition/compose#COMPOSE` reads to lay the table out beside its sibling graphics, re-rendering nothing. The PDF `save` path rides a host-coupled Chrome/Selenium WebDriver scaled by `pdf_scale`, writes a suffix-typed file (`save` infers format from the extension and rejects a file-like object), so `build` rounds it through a `NamedTemporaryFile(suffix=".pdf", delete_on_close=False)` — gated optional and never the default, the one remaining gated host path the package admits, a host-free PDF instead routing this owner's HTML through the `document/emit#DOCUMENT` weasyprint printer rather than re-owning it here. `great-tables`' `random_id()` id-is-`None` default (rendered-byte nondeterminism), a per-feature method chain, a per-cell imperative loop, a Python row loop where a `Reshape` `pl.Expr` shapes the frame, a re-opened lazy engine or a source `read_*`/`scan_*` where the settled frame arrives over the wire, a parallel format/style/location catalogue, and a branch on location kind are the deleted forms — every feature folds through the one `reduce`-over-`TableOp` pipeline over the one `reduce`-over-`Reshape` display frame; the `Theme` `opt_*` rows are the table's one named publication identity, never a per-call style scatter.
 
 ```python signature
-from collections.abc import Callable
+# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+import os
+from collections.abc import Callable, Iterable
 from enum import Enum, StrEnum, auto
 from functools import reduce
+from hashlib import blake2b
 from pathlib import Path
 from tempfile import NamedTemporaryFile
-from typing import Any, Literal, assert_never
+from typing import Any, Literal, Protocol, Self, assert_never, runtime_checkable
 
 import polars as pl
+import polars.selectors as cs
+from polars.exceptions import PolarsError
+from anyio import CapacityLimiter, to_thread
 from builtins import frozendict
 from expression import case, tag, tagged_union
 from great_tables import GT, define_units, from_column, google_font, loc, md, nanoplot_options, style, system_fonts, vals
@@ -34,11 +42,14 @@ from great_tables._styles import CellStyle, ColumnExpr
 from msgspec import Struct
 
 from rasm.runtime.content_identity import ContentIdentity
-from rasm.runtime.faults import RuntimeRail, boundary
+from rasm.runtime.faults import RuntimeRail, async_boundary
 
 from artifacts.core.receipt import ArtifactReceipt
 
-type Cols = str | list[str] | None
+# --- [TYPES] ----------------------------------------------------------------------------
+# `Cols` admits a `polars.selectors` class (`cs.numeric()` IS a `pl.Expr`) so a Fmt/Align/Color/Style op
+# addresses a dtype/name class without a hardcoded name list; great-tables' `SelectExpr` accepts it.
+type Cols = str | list[str] | cs.Selector | None
 type Rows = int | list[int] | None
 type Mask = pl.Expr | None
 type Groups = list[str] | str | None
@@ -49,6 +60,17 @@ type StyleSpec = tuple[Literal["text", "fill", "borders", "css"], dict[str, Boun
 type Place = tuple["StubLoc", Cols, Rows, Mask, Groups]
 type FmtMember = Callable[[GT, Cols, Rows, dict[str, Any]], GT]
 type FontFace = tuple[Literal["google", "system", "family"], str]
+type Aggregate = str | pl.Expr | None
+
+
+# the C# `Rasm.Bim` QTO/schedule egress (or any `data` producer) crosses as an Arrow-C-stream capsule
+# `pl.from_dataframe` admits zero-copy-where-possible; the settled `pl.DataFrame` is the other ingress arm.
+@runtime_checkable
+class ArrowStream(Protocol):
+    def __arrow_c_stream__(self, requested_schema: object = None, /) -> object: ...
+
+
+type FrameSource = pl.DataFrame | ArrowStream
 
 
 class TableFormat(StrEnum):
@@ -111,116 +133,30 @@ class StubLoc(StrEnum):
     GRAND_SUMMARY_STUB = "grand_summary_stub"
 
 
-FMT_TABLE: frozendict[FmtKind, FmtMember] = frozendict({
-    FmtKind.NUMBER: lambda g, c, r, k: g.fmt_number(columns=c, rows=r, **k),
-    FmtKind.INTEGER: lambda g, c, r, k: g.fmt_integer(columns=c, rows=r, **k),
-    FmtKind.CURRENCY: lambda g, c, r, k: g.fmt_currency(columns=c, rows=r, **k),
-    FmtKind.PERCENT: lambda g, c, r, k: g.fmt_percent(columns=c, rows=r, **k),
-    FmtKind.SCIENTIFIC: lambda g, c, r, k: g.fmt_scientific(columns=c, rows=r, **k),
-    FmtKind.ENGINEERING: lambda g, c, r, k: g.fmt_engineering(columns=c, rows=r, **k),
-    FmtKind.PARTSPER: lambda g, c, r, k: g.fmt_partsper(columns=c, rows=r, **k),
-    FmtKind.UNITS: lambda g, c, r, k: g.fmt_units(columns=c, rows=r, **k),
-    FmtKind.DURATION: lambda g, c, r, k: g.fmt_duration(columns=c, rows=r, **k),
-    FmtKind.BYTES: lambda g, c, r, k: g.fmt_bytes(columns=c, rows=r, **k),
-    FmtKind.ROMAN: lambda g, c, r, k: g.fmt_roman(columns=c, rows=r, **k),
-    FmtKind.DATE: lambda g, c, r, k: g.fmt_date(columns=c, rows=r, **k),
-    FmtKind.DATETIME: lambda g, c, r, k: g.fmt_datetime(columns=c, rows=r, **k),
-    FmtKind.TIME: lambda g, c, r, k: g.fmt_time(columns=c, rows=r, **k),
-    FmtKind.TF: lambda g, c, r, k: g.fmt_tf(columns=c, rows=r, **k),
-    FmtKind.FLAG: lambda g, c, r, k: g.fmt_flag(columns=c, rows=r, **k),
-    FmtKind.ICON: lambda g, c, r, k: g.fmt_icon(columns=c, rows=r, **k),
-    FmtKind.IMAGE: lambda g, c, r, k: g.fmt_image(columns=c, rows=r, **k),
-    FmtKind.MARKDOWN: lambda g, c, r, k: g.fmt_markdown(columns=c, rows=r),
-    FmtKind.CUSTOM: lambda g, c, r, k: g.fmt(columns=c, rows=r, **k),
-})
-
-LOC_TABLE: frozendict[StubLoc, tuple[Callable[..., Loc], LocArity]] = frozendict({
-    StubLoc.BODY: (loc.body, LocArity.MASKED),
-    StubLoc.GRAND_SUMMARY: (loc.grand_summary, LocArity.MASKED),
-    StubLoc.SUMMARY: (loc.summary, LocArity.GROUPED),
-    StubLoc.COLUMN_LABELS: (loc.column_labels, LocArity.COLUMNS),
-    StubLoc.SPANNER_LABELS: (loc.spanner_labels, LocArity.IDS),
-    StubLoc.STUB: (loc.stub, LocArity.ROWS),
-    StubLoc.ROW_GROUP: (loc.row_group, LocArity.ROWS),
-    StubLoc.ROW_GROUPS: (loc.row_groups, LocArity.ROWS),
-    StubLoc.SUMMARY_STUB: (loc.summary_stub, LocArity.GROUP_ROWS),
-    StubLoc.GRAND_SUMMARY_STUB: (loc.grand_summary_stub, LocArity.ROWS),
-    StubLoc.COLUMN_HEADER: (loc.column_header, LocArity.NONE),
-    StubLoc.STUBHEAD: (loc.stubhead, LocArity.NONE),
-    StubLoc.HEADER: (loc.header, LocArity.NONE),
-    StubLoc.FOOTER: (loc.footer, LocArity.NONE),
-    StubLoc.TITLE: (loc.title, LocArity.NONE),
-    StubLoc.SUBTITLE: (loc.subtitle, LocArity.NONE),
-    StubLoc.SOURCE_NOTES: (loc.source_notes, LocArity.NONE),
-})
+# the footnote-mark vocabulary — each member projects to the `opt_footnote_marks(marks=...)` keyword
+# great-tables expands: `LETTERS`/`UPPER_LETTERS` to `letters()`/`LETTERS()`, `STANDARD`/`EXTENDED` to the
+# 4-/6-symbol sets; a custom `tuple[str, ...]` rides the explicit `list[str]` form (Unicode marks).
+class FootnoteMarks(StrEnum):
+    NUMBERS = "numbers"
+    LETTERS = "letters"
+    UPPER_LETTERS = "LETTERS"
+    STANDARD = "standard"
+    EXTENDED = "extended"
 
 
-def _place(at: StubLoc, columns: Cols = None, rows: Rows = None, mask: Mask = None, groups: Groups = None) -> Loc:
-    selector, arity = LOC_TABLE[at]
-    match arity:
-        case LocArity.MASKED if mask is not None:
-            return selector(mask=mask)
-        case LocArity.MASKED | LocArity.CELLS:
-            return selector(columns=columns, rows=rows)
-        case LocArity.GROUPED:
-            return selector(groups=groups, columns=columns, rows=rows)
-        case LocArity.GROUP_ROWS:
-            return selector(groups=groups, rows=rows)
-        case LocArity.COLUMNS:
-            return selector(columns=columns)
-        case LocArity.IDS:
-            return selector(ids=columns)
-        case LocArity.ROWS:
-            return selector(rows=rows)
-        case LocArity.NONE:
-            return selector()
-        case _:
-            assert_never(arity)
+# --- [CONSTANTS] ------------------------------------------------------------------------
+# the shared-address-space render lane the polars/great-tables GIL-releasing native fold offloads onto.
+_LANES: CapacityLimiter = CapacityLimiter(os.process_cpu_count() or 4)
+
+# the real engine raise tuple the leaf boundary narrows `catch` to: `PolarsError` the base every `_shape`
+# frame op throws (`ColumnNotFoundError`/`ComputeError`/`SchemaError`/`InvalidOperationError` all subclass it),
+# the great-tables render `ValueError`/`KeyError`/`NotImplementedError` (a non-`None` summary `columns`), and the
+# gated PDF `NamedTemporaryFile` `OSError` — so a non-engine raise and cancellation propagate as a defect rather
+# than railing through the `Exception` catch-all `boundaries.md` rejects, exactly as the sibling leaf producers narrow.
+_FAULTS: tuple[type[Exception], ...] = (PolarsError, ValueError, KeyError, NotImplementedError, OSError)
 
 
-def _cell(spec: StyleSpec) -> CellStyle:
-    kind, opts = spec
-    match kind:
-        case "text":
-            return style.text(**opts)
-        case "fill":
-            return style.fill(**opts)
-        case "borders":
-            return style.borders(**opts)
-        case "css":
-            return style.css(**opts)
-        case _:
-            assert_never(kind)
-
-
-VALS_TABLE: frozendict[FmtKind, Callable[[pl.Series, dict[str, Any]], list[str]]] = frozendict({
-    FmtKind.NUMBER: lambda v, k: vals.fmt_number(v, **k),
-    FmtKind.INTEGER: lambda v, k: vals.fmt_integer(v, **k),
-    FmtKind.CURRENCY: lambda v, k: vals.fmt_currency(v, **k),
-    FmtKind.PERCENT: lambda v, k: vals.fmt_percent(v, **k),
-    FmtKind.SCIENTIFIC: lambda v, k: vals.fmt_scientific(v, **k),
-    FmtKind.ENGINEERING: lambda v, k: vals.fmt_engineering(v, **k),
-    FmtKind.BYTES: lambda v, k: vals.fmt_bytes(v, **k),
-    FmtKind.ROMAN: lambda v, k: vals.fmt_roman(v, **k),
-    FmtKind.DATE: lambda v, k: vals.fmt_date(v, **k),
-    FmtKind.TIME: lambda v, k: vals.fmt_time(v, **k),
-    FmtKind.MARKDOWN: lambda v, k: vals.fmt_markdown(v, **k),
-})
-
-
-def _font(gt: GT, face: FontFace) -> GT:
-    kind, name = face
-    match kind:
-        case "google":
-            return gt.opt_table_font(font=google_font(name=name))
-        case "system":
-            return gt.opt_table_font(stack=name, font=system_fonts(name=name))
-        case "family":
-            return gt.opt_table_font(font=name)
-        case _:
-            assert_never(kind)
-
-
+# --- [MODELS] ---------------------------------------------------------------------------
 class Theme(Struct, frozen=True):
     style: int = 1
     color: str = "blue"
@@ -231,7 +167,7 @@ class Theme(Struct, frozen=True):
     vertical_scale: float = 1.0
     horizontal_scale: float = 1.0
     outline: tuple[str, str, str] | None = None
-    footnote_marks: str = "numbers"
+    footnote_marks: FootnoteMarks | tuple[str, ...] = FootnoteMarks.NUMBERS
     css: str | None = None
 
     @staticmethod
@@ -246,6 +182,9 @@ class Theme(Struct, frozen=True):
     def family(name: str) -> FontFace:
         return ("family", name)
 
+    def _marks(self) -> str | list[str]:
+        return list(self.footnote_marks) if isinstance(self.footnote_marks, tuple) else self.footnote_marks.value
+
     def apply(self, gt: GT) -> GT:
         themed = gt.opt_stylize(style=self.style, color=self.color, add_row_striping=self.striping)
         fonted = _font(themed, self.font) if self.font else themed
@@ -257,7 +196,7 @@ class Theme(Struct, frozen=True):
             .opt_all_caps(all_caps=self.all_caps)
             .opt_vertical_padding(scale=self.vertical_scale)
             .opt_horizontal_padding(scale=self.horizontal_scale)
-            .opt_footnote_marks(marks=self.footnote_marks)
+            .opt_footnote_marks(marks=self._marks())
         )
 
 
@@ -279,6 +218,82 @@ class NanoSpec(Struct, frozen=True):
             reference_area=self.reference_area, expand_x=self.expand_x, expand_y=self.expand_y,
             options=nanoplot_options(**self.options) if self.options else None,
         )
+
+
+# the closed frame-shaping pre-pass — one polars transform per case, folded `pl.DataFrame -> pl.DataFrame`
+# BEFORE `.style` so a raw QTO/schedule frame lands its display cross-tab (rollup/pivot/top-k) columnar,
+# never a Python row loop; the frame arrives settled from `data/tabular`, this only re-shapes for display.
+@tagged_union(frozen=True)
+class Reshape:
+    tag: Literal[
+        "select", "filter", "sort", "rename", "cast", "head", "slice",
+        "with_columns", "derive", "group_agg", "pivot", "unpivot", "top_k",
+    ] = tag()
+    select: tuple[pl.Expr | str, ...] = case()
+    filter: tuple[pl.Expr, ...] = case()
+    sort: tuple[str | list[str], bool] = case()
+    rename: frozendict[str, str] = case()
+    cast: frozendict[str, pl.DataType] = case()
+    head: int = case()
+    slice: tuple[int, int] = case()
+    with_columns: tuple[pl.Expr, ...] = case()
+    derive: tuple[pl.Expr, ...] = case()
+    group_agg: tuple[tuple[str, ...], tuple[pl.Expr, ...]] = case()
+    pivot: tuple[str | list[str], str | list[str] | None, str | list[str], Aggregate] = case()
+    unpivot: tuple[str | list[str], str | list[str] | None, str, str] = case()
+    top_k: tuple[int, str | list[str]] = case()
+
+    @staticmethod
+    def Select(*columns: pl.Expr | str) -> "Reshape":
+        return Reshape(select=columns)
+
+    @staticmethod
+    def Filter(*predicates: pl.Expr) -> "Reshape":
+        return Reshape(filter=predicates)
+
+    @staticmethod
+    def Sort(by: str | list[str], descending: bool = False) -> "Reshape":
+        return Reshape(sort=(by, descending))
+
+    @staticmethod
+    def Rename(mapping: frozendict[str, str]) -> "Reshape":
+        return Reshape(rename=mapping)
+
+    @staticmethod
+    def Cast(dtypes: frozendict[str, pl.DataType]) -> "Reshape":
+        return Reshape(cast=dtypes)
+
+    @staticmethod
+    def Head(n: int) -> "Reshape":
+        return Reshape(head=n)
+
+    @staticmethod
+    def Slice(offset: int, length: int) -> "Reshape":
+        return Reshape(slice=(offset, length))
+
+    @staticmethod
+    def With(*exprs: pl.Expr) -> "Reshape":
+        return Reshape(with_columns=exprs)
+
+    @staticmethod
+    def Derive(*exprs: pl.Expr) -> "Reshape":
+        return Reshape(derive=exprs)
+
+    @staticmethod
+    def GroupAgg(keys: tuple[str, ...], aggs: tuple[pl.Expr, ...]) -> "Reshape":
+        return Reshape(group_agg=(keys, aggs))
+
+    @staticmethod
+    def Pivot(on: str | list[str], values: str | list[str], index: str | list[str] | None = None, aggregate: Aggregate = "first") -> "Reshape":
+        return Reshape(pivot=(on, index, values, aggregate))
+
+    @staticmethod
+    def Unpivot(on: str | list[str], index: str | list[str] | None = None, variable: str = "variable", value: str = "value") -> "Reshape":
+        return Reshape(unpivot=(on, index, variable, value))
+
+    @staticmethod
+    def TopK(k: int, by: str | list[str]) -> "Reshape":
+        return Reshape(top_k=(k, by))
 
 
 @tagged_union(frozen=True)
@@ -331,7 +346,7 @@ class TableOp:
     grand_summary: tuple[dict[str, pl.Expr], FmtFn | None, Literal["bottom", "top"], str] = case()
     row_group_order: list[str] = case()
     style: tuple[Place, tuple[StyleSpec, ...]] = case()
-    color: tuple[Cols, Rows, str | list[str], list[float] | None, str | None, float, bool, bool] = case()
+    color: tuple[Cols, Rows, str | list[str], list[float] | list[str] | None, str | None, float, bool, bool] = case()
     css: str = case()
     pipe: Callable[[GT], GT] = case()
 
@@ -484,7 +499,7 @@ class TableOp:
         return TableOp(style=((at, columns, rows, mask, groups), specs))
 
     @staticmethod
-    def Color(columns: Cols = None, palette: str | list[str] = "viridis", domain: list[float] | None = None, rows: Rows = None, na_color: str | None = None, alpha: float = 1.0, reverse: bool = False, truncate: bool = True) -> "TableOp":
+    def Color(columns: Cols = None, palette: str | list[str] = "viridis", domain: list[float] | list[str] | None = None, rows: Rows = None, na_color: str | None = None, alpha: float = 1.0, reverse: bool = False, truncate: bool = True) -> "TableOp":
         return TableOp(color=(columns, rows, palette, domain, na_color, alpha, reverse, truncate))
 
     @staticmethod
@@ -500,18 +515,27 @@ class TablePlan(Struct, frozen=True):
     frame: pl.DataFrame
     ops: tuple[TableOp, ...]
     fmt: TableFormat
+    shape: tuple[Reshape, ...] = ()
     theme: Theme = Theme()
     rowname_col: str | None = None
     groupname_col: str | None = None
     locale: str | None = None
     auto_align: bool = True
     table_id: str | None = None
+    config: frozendict[str, object] = frozendict()
     inline_css: bool = True
     make_page: bool = False
     all_important: bool = False
     use_longtable: bool = True
     tbl_pos: str | None = None
     pdf_scale: float = 2.0
+
+    @classmethod
+    def of(cls, source: FrameSource, ops: Iterable[TableOp], fmt: TableFormat, *, shape: Iterable[Reshape] = (), theme: Theme = Theme(), rowname_col: str | None = None, groupname_col: str | None = None, locale: str | None = None, config: frozendict[str, object] = frozendict()) -> Self:
+        # admit raw material ONCE: a settled frame passes through, an Arrow-C-stream interchange capsule
+        # (the C# `Rasm.Bim` QTO/schedule wire) normalizes into the canonical frame (zero-copy where the layout permits).
+        frame = source if isinstance(source, pl.DataFrame) else pl.from_dataframe(source)
+        return cls(frame=frame, ops=tuple(ops), fmt=fmt, shape=tuple(shape), theme=theme, rowname_col=rowname_col, groupname_col=groupname_col, locale=locale, config=config)
 
     @staticmethod
     def Series(values: pl.Series, kind: FmtKind = FmtKind.NUMBER, **opts: Any) -> list[str]:
@@ -521,31 +545,193 @@ class TablePlan(Struct, frozen=True):
     def Units(notation: str) -> Any:
         return define_units(units_notation=notation)
 
-    def render(self) -> RuntimeRail[ArtifactReceipt]:
-        return boundary(f"table.{self.fmt}", self._emit)
+    async def render(self) -> RuntimeRail[ArtifactReceipt]:
+        # the whole shape-style-emit fold is synchronous polars/great-tables CPU work, so it crosses one
+        # `to_thread` seam off the event loop in the shared address space (the leaf-producer lane), never inline;
+        # `catch=_FAULTS` narrows the boundary to the real engine raise tuple, never the `Exception` catch-all.
+        return await async_boundary(f"table.{self.fmt}", lambda: to_thread.run_sync(self._emit, limiter=_LANES), catch=_FAULTS)
 
     def _emit(self) -> ArtifactReceipt:
-        data = self._build()
-        return ArtifactReceipt.Table(ContentIdentity.of(f"table-{self.fmt}", data), self.fmt.value, len(data))
+        data = self.build()
+        return ArtifactReceipt.Table(ContentIdentity.key(f"table-{self.fmt}", data), self.fmt.value, len(data))  # `key` is the synchronous bare accessor: the rendered bytes are an infallible whole-byte source, so `_emit` mints the receipt off a bare `ContentKey`, never the railed `of`
 
     @property
     def _seam(self) -> bool:
-        return self.rowname_col is None and self.groupname_col is None and self.locale is None and self.table_id is None and self.auto_align
+        # the id is always set (via `with_id`/`id=`), so the fast `DataFrame.style` seam survives whenever the
+        # non-default GT knobs stay default; a diverging rowname/group/locale/auto_align forces the constructor.
+        return self.rowname_col is None and self.groupname_col is None and self.locale is None and self.auto_align
 
-    def _build(self) -> bytes:
-        base = self.frame.style if self._seam else GT(self.frame, rowname_col=self.rowname_col, groupname_col=self.groupname_col, auto_align=self.auto_align, id=self.table_id, locale=self.locale)
-        built = reduce(_fold, self.ops, self.theme.apply(base))
-        match self.fmt:
-            case TableFormat.HTML:
-                return built.as_raw_html(inline_css=self.inline_css, make_page=self.make_page, all_important=self.all_important).encode()
-            case TableFormat.LATEX:
-                return built.as_latex(use_longtable=self.use_longtable, tbl_pos=self.tbl_pos).encode()
-            case TableFormat.PDF:
-                with NamedTemporaryFile(suffix=".pdf", delete_on_close=False) as sink:
-                    built.save(file=sink.name, scale=self.pdf_scale)
-                    return Path(sink.name).read_bytes()
-            case _:
-                assert_never(self.fmt)
+    def build(self) -> bytes:
+        with pl.Config(**self.config):
+            shaped = reduce(_shape, self.shape, self.frame)
+            ident = self.table_id if self.table_id is not None else _stable_id(shaped, self.fmt, self.ops)
+            base = shaped.style.with_id(ident) if self._seam else GT(shaped, rowname_col=self.rowname_col, groupname_col=self.groupname_col, auto_align=self.auto_align, id=ident, locale=self.locale)
+            built = reduce(_fold, self.ops, self.theme.apply(base))
+            match self.fmt:
+                case TableFormat.HTML:
+                    return built.as_raw_html(inline_css=self.inline_css, make_page=self.make_page, all_important=self.all_important).encode()
+                case TableFormat.LATEX:
+                    return built.as_latex(use_longtable=self.use_longtable, tbl_pos=self.tbl_pos).encode()
+                case TableFormat.PDF:
+                    with NamedTemporaryFile(suffix=".pdf", delete_on_close=False) as sink:
+                        built.save(file=sink.name, scale=self.pdf_scale)
+                        return Path(sink.name).read_bytes()
+                case _:
+                    assert_never(self.fmt)
+
+
+# --- [TABLES] ---------------------------------------------------------------------------
+FMT_TABLE: frozendict[FmtKind, FmtMember] = frozendict({
+    FmtKind.NUMBER: lambda g, c, r, k: g.fmt_number(columns=c, rows=r, **k),
+    FmtKind.INTEGER: lambda g, c, r, k: g.fmt_integer(columns=c, rows=r, **k),
+    FmtKind.CURRENCY: lambda g, c, r, k: g.fmt_currency(columns=c, rows=r, **k),
+    FmtKind.PERCENT: lambda g, c, r, k: g.fmt_percent(columns=c, rows=r, **k),
+    FmtKind.SCIENTIFIC: lambda g, c, r, k: g.fmt_scientific(columns=c, rows=r, **k),
+    FmtKind.ENGINEERING: lambda g, c, r, k: g.fmt_engineering(columns=c, rows=r, **k),
+    FmtKind.PARTSPER: lambda g, c, r, k: g.fmt_partsper(columns=c, rows=r, **k),
+    FmtKind.UNITS: lambda g, c, r, k: g.fmt_units(columns=c, rows=r, **k),
+    FmtKind.DURATION: lambda g, c, r, k: g.fmt_duration(columns=c, rows=r, **k),
+    FmtKind.BYTES: lambda g, c, r, k: g.fmt_bytes(columns=c, rows=r, **k),
+    FmtKind.ROMAN: lambda g, c, r, k: g.fmt_roman(columns=c, rows=r, **k),
+    FmtKind.DATE: lambda g, c, r, k: g.fmt_date(columns=c, rows=r, **k),
+    FmtKind.DATETIME: lambda g, c, r, k: g.fmt_datetime(columns=c, rows=r, **k),
+    FmtKind.TIME: lambda g, c, r, k: g.fmt_time(columns=c, rows=r, **k),
+    FmtKind.TF: lambda g, c, r, k: g.fmt_tf(columns=c, rows=r, **k),
+    FmtKind.FLAG: lambda g, c, r, k: g.fmt_flag(columns=c, rows=r, **k),
+    FmtKind.ICON: lambda g, c, r, k: g.fmt_icon(columns=c, rows=r, **k),
+    FmtKind.IMAGE: lambda g, c, r, k: g.fmt_image(columns=c, rows=r, **k),
+    FmtKind.MARKDOWN: lambda g, c, r, k: g.fmt_markdown(columns=c, rows=r),
+    FmtKind.CUSTOM: lambda g, c, r, k: g.fmt(columns=c, rows=r, **k),
+})
+
+LOC_TABLE: frozendict[StubLoc, tuple[Callable[..., Loc], LocArity]] = frozendict({
+    StubLoc.BODY: (loc.body, LocArity.MASKED),
+    StubLoc.GRAND_SUMMARY: (loc.grand_summary, LocArity.MASKED),
+    StubLoc.SUMMARY: (loc.summary, LocArity.GROUPED),
+    StubLoc.COLUMN_LABELS: (loc.column_labels, LocArity.COLUMNS),
+    StubLoc.SPANNER_LABELS: (loc.spanner_labels, LocArity.IDS),
+    StubLoc.STUB: (loc.stub, LocArity.ROWS),
+    StubLoc.ROW_GROUP: (loc.row_group, LocArity.ROWS),
+    StubLoc.ROW_GROUPS: (loc.row_groups, LocArity.ROWS),
+    StubLoc.SUMMARY_STUB: (loc.summary_stub, LocArity.GROUP_ROWS),
+    StubLoc.GRAND_SUMMARY_STUB: (loc.grand_summary_stub, LocArity.ROWS),
+    StubLoc.COLUMN_HEADER: (loc.column_header, LocArity.NONE),
+    StubLoc.STUBHEAD: (loc.stubhead, LocArity.NONE),
+    StubLoc.HEADER: (loc.header, LocArity.NONE),
+    StubLoc.FOOTER: (loc.footer, LocArity.NONE),
+    StubLoc.TITLE: (loc.title, LocArity.NONE),
+    StubLoc.SUBTITLE: (loc.subtitle, LocArity.NONE),
+    StubLoc.SOURCE_NOTES: (loc.source_notes, LocArity.NONE),
+})
+
+VALS_TABLE: frozendict[FmtKind, Callable[[pl.Series, dict[str, Any]], list[str]]] = frozendict({
+    FmtKind.NUMBER: lambda v, k: vals.fmt_number(v, **k),
+    FmtKind.INTEGER: lambda v, k: vals.fmt_integer(v, **k),
+    FmtKind.CURRENCY: lambda v, k: vals.fmt_currency(v, **k),
+    FmtKind.PERCENT: lambda v, k: vals.fmt_percent(v, **k),
+    FmtKind.SCIENTIFIC: lambda v, k: vals.fmt_scientific(v, **k),
+    FmtKind.ENGINEERING: lambda v, k: vals.fmt_engineering(v, **k),
+    FmtKind.PARTSPER: lambda v, k: vals.fmt_partsper(v, **k),
+    FmtKind.DURATION: lambda v, k: vals.fmt_duration(v, **k),
+    FmtKind.BYTES: lambda v, k: vals.fmt_bytes(v, **k),
+    FmtKind.ROMAN: lambda v, k: vals.fmt_roman(v, **k),
+    FmtKind.DATE: lambda v, k: vals.fmt_date(v, **k),
+    FmtKind.TIME: lambda v, k: vals.fmt_time(v, **k),
+    FmtKind.IMAGE: lambda v, k: vals.fmt_image(v, **k),
+    FmtKind.MARKDOWN: lambda v, k: vals.fmt_markdown(v, **k),
+})
+
+
+# --- [OPERATIONS] -----------------------------------------------------------------------
+def _font(gt: GT, face: FontFace) -> GT:
+    kind, name = face
+    match kind:
+        case "google":
+            return gt.opt_table_font(font=google_font(name=name))
+        case "system":
+            return gt.opt_table_font(stack=name, font=system_fonts(name=name))
+        case "family":
+            return gt.opt_table_font(font=name)
+        case _:
+            assert_never(kind)
+
+
+def _place(at: StubLoc, columns: Cols = None, rows: Rows = None, mask: Mask = None, groups: Groups = None) -> Loc:
+    selector, arity = LOC_TABLE[at]
+    match arity:
+        case LocArity.MASKED if mask is not None:
+            return selector(mask=mask)
+        case LocArity.MASKED | LocArity.CELLS:
+            return selector(columns=columns, rows=rows)
+        case LocArity.GROUPED:
+            return selector(groups=groups, columns=columns, rows=rows)
+        case LocArity.GROUP_ROWS:
+            return selector(groups=groups, rows=rows)
+        case LocArity.COLUMNS:
+            return selector(columns=columns)
+        case LocArity.IDS:
+            return selector(ids=columns)
+        case LocArity.ROWS:
+            return selector(rows=rows)
+        case LocArity.NONE:
+            return selector()
+        case _:
+            assert_never(arity)
+
+
+def _cell(spec: StyleSpec) -> CellStyle:
+    kind, opts = spec
+    match kind:
+        case "text":
+            return style.text(**opts)
+        case "fill":
+            return style.fill(**opts)
+        case "borders":
+            return style.borders(**opts)
+        case "css":
+            return style.css(**opts)
+        case _:
+            assert_never(kind)
+
+
+def _shape(frame: pl.DataFrame, op: Reshape) -> pl.DataFrame:
+    # `maintain_order=True`/`sort_columns=True` on group/pivot fix row/column order so the display cross-tab
+    # renders byte-reproducibly (modern per-column `Categories`, no global cache); total by `assert_never`.
+    match op:
+        case Reshape(tag="select", select=columns):
+            return frame.select(*columns)
+        case Reshape(tag="filter", filter=predicates):
+            return frame.filter(*predicates)
+        case Reshape(tag="sort", sort=(by, descending)):
+            return frame.sort(by, descending=descending)
+        case Reshape(tag="rename", rename=mapping):
+            return frame.rename(dict(mapping))
+        case Reshape(tag="cast", cast=dtypes):
+            return frame.cast(dict(dtypes))
+        case Reshape(tag="head", head=n):
+            return frame.head(n)
+        case Reshape(tag="slice", slice=(offset, length)):
+            return frame.slice(offset, length)
+        case Reshape(tag="with_columns", with_columns=exprs) | Reshape(tag="derive", derive=exprs):
+            return frame.with_columns(*exprs)
+        case Reshape(tag="group_agg", group_agg=(keys, aggs)):
+            return frame.group_by(*keys, maintain_order=True).agg(*aggs)
+        case Reshape(tag="pivot", pivot=(on, index, values, aggregate)):
+            return frame.pivot(on, index=index, values=values, aggregate_function=aggregate, maintain_order=True, sort_columns=True)
+        case Reshape(tag="unpivot", unpivot=(on, index, variable, value)):
+            return frame.unpivot(on, index=index, variable_name=variable, value_name=value)
+        case Reshape(tag="top_k", top_k=(k, by)):
+            return frame.top_k(k, by=by)
+        case _ as unreachable:
+            assert_never(unreachable)
+
+
+def _stable_id(frame: pl.DataFrame, fmt: TableFormat, ops: tuple[TableOp, ...]) -> str:
+    # a content-stable CSS-scope id: great-tables mints `random_id()` when `id` is None, so the rendered
+    # bytes and the ContentKey drift every render — the frame row-hash + format + op-tag digest keys the
+    # render deterministically so the one bytes fact is reproducible (the id must lead with a letter).
+    seed = frame.hash_rows(seed=0).to_numpy().tobytes() + fmt.value.encode() + b"".join(op.tag.encode() for op in ops)
+    return f"gt{blake2b(seed, digest_size=8).hexdigest()}"
 
 
 def _fold(gt: GT, op: TableOp) -> GT:
@@ -630,22 +816,23 @@ def _fold(gt: GT, op: TableOp) -> GT:
             return gt.pipe(fn)
         case _:
             assert_never(op)
+
+
+# --- [EXPORTS] --------------------------------------------------------------------------
+__all__ = [
+    "FmtKind", "FootnoteMarks", "NanoSpec", "Reshape", "StubLoc", "TableFormat", "TableOp", "TablePlan", "Theme",
+]
 ```
 
 ## [03]-[RESEARCH]
 
-No open items. Every `great_tables` member below verifies against the folder `.api` catalogue for `great-tables` (core, pure-Python). Two type imports resolve only at the private module path the package exposes: `CellStyle` and the `ColumnExpr` alias (`FromColumn | PlExpr | FromValues`) live at `great_tables._styles`, not `great_tables.style`, so the `_cell` return annotation and the data-driven `Bound = str | ColumnExpr` import from `great_tables._styles`; `Loc` lives at `great_tables._locations`. The public `style`/`loc`/`vals` submodules and the top-level `GT`/`define_units`/`from_column`/`google_font`/`system_fonts`/`nanoplot_options`/`md`/`html` helpers resolve from the package root. The `loc.spanner_labels(ids)` selector binds the `ids=` keyword (never `columns=`), `loc.summary(groups, columns, rows)` and `loc.summary_stub(groups, rows)` carry the `groups` axis, `text_case_match` admits `replace ∈ {"all","partial"}` over `(str | list[str], str)` match cases, and `summary_rows`/`grand_summary_rows` reject a non-`None` `columns` with `NotImplementedError` so each `pl.Expr` carries its own column.
+Every `great_tables`/`polars` member below verifies against the installed `great-tables 0.22.0` / `polars 1.42.0` surfaces and the folder `.api` catalogues.
 
-- `GT(data, rowname_col, groupname_col, auto_align, id, locale)` builder, the terminal emitters `as_raw_html(inline_css, make_page, all_important)` / `as_latex(use_longtable, tbl_pos)` / `write_raw_html(filename, encoding, inline_css, ...)` / `save(file, selector, scale, expand, web_driver, window_size, ...)`; `with_id(id)` / `with_locale(locale)` / `pipe(func, *args, **kwargs)` post-construction.
-- structure: `tab_header(title, subtitle, preheader)` (`title` accepts `str | Text`) · `tab_stub(rowname_col, groupname_col)` · `tab_stubhead(label)` · `tab_source_note(source_note)` · `tab_footnote(footnote, locations, placement)` · `tab_spanner(label, columns, spanners, level, id, gather, replace)` · `tab_spanner_delim(delim, columns, split, limit, reverse)` (`split` ∈ `{"first","last"}`).
-- column control: `cols_label(cases, **kwargs)` · `cols_label_with(columns, fn)` · `cols_label_rotate(columns, dir, align, padding)` (`dir` ∈ `{"sideways-lr","sideways-rl","vertical-lr"}`) · `cols_align(align, columns)` · `cols_width(cases, **kwargs)` · `cols_hide(columns)` · `cols_unhide(columns)` · `cols_reorder(columns)` · `cols_move(columns, after)` · `cols_move_to_start(columns)` · `cols_move_to_end(columns)`.
-- merge: `cols_merge(columns, hide_columns, rows, pattern)` · `cols_merge_range(col_begin, col_end, rows, sep, autohide, locale)` (`sep` defaults to `None`) · `cols_merge_uncert(col_val, col_uncert, rows, sep, autohide)` (`sep` defaults to `" +/- "`) · `cols_merge_n_pct(col_n, col_pct, rows, autohide)`.
-- value format: `fmt_number` · `fmt_integer(..., use_seps, compact)` · `fmt_currency(..., currency, use_subunits, placement)` · `fmt_percent(..., scale_values, placement)` · `fmt_scientific(..., exp_style, locale)` · `fmt_engineering(..., n_sigfig, scale_by, exp_style)` · `fmt_partsper(columns, rows, to_units, symbol, decimals, scale_values, ...)` (`to_units` ∈ `{"per-mille","per-myriad","pcm","ppm","ppb","ppt"}`) · `fmt_units(columns, rows, pattern)` · `fmt_duration(columns, rows, input_units, output_units, duration_style, trim_zero_units, max_output_units, ...)` · `fmt_bytes(..., standard, decimals, incl_space)` · `fmt_roman(columns, rows, case, pattern)` · `fmt_date` · `fmt_datetime` · `fmt_time` · `fmt_tf(..., tf_style, true_val, false_val, na_val, colors)` · `fmt_flag(columns, rows, height, sep, use_title)` · `fmt_icon(..., stroke_color, fill_color)` · `fmt_image(columns, rows, height, width, sep, path, file_pattern, encode)` · `fmt_markdown(columns, rows)` · `fmt(fns, columns, rows, is_substitution)` (the arbitrary value-to-string callable, `is_substitution` defaults to `False`) — all twenty share the `(columns, rows, **opts)` shape that `FMT_TABLE` rows fold, `fmt_markdown` taking no extra `opts` and the `Custom` row threading `fns`/`is_substitution` through `opts`.
-- nanoplot: `fmt_nanoplot(columns, rows, plot_type, plot_height, missing_vals, autoscale, reference_line, reference_area, expand_x, expand_y, options)` carries the full plot grammar on the `NanoSpec` value object — `plot_type ∈ {"line","bar"}` (default `"line"`), `plot_height` (default `"2em"`), `missing_vals ∈ {"marker","gap","zero","remove"}` (default `"gap"`), `autoscale` (default `False`), `reference_line`, `reference_area` (`list[Any] | None`), `expand_x`/`expand_y` (`list[float] | None`) — configured by the top-level `nanoplot_options(...)` callable returning the `options` dict (`data_point_radius`/`data_point_stroke_color`/`data_point_fill_color`/`data_line_type`/`data_line_stroke_color`/`data_bar_fill_color`/`data_area_fill_color`/`reference_line_color`/`reference_area_fill_color`/`show_data_points`/`show_data_line`/`show_data_area`/`show_reference_line`/`y_val_fmt_fn`/`y_axis_fmt_fn`/`y_ref_line_fmt_fn`/`currency` and the full plot-styling keyword surface), never the flat default sparkline. The `NanoSpec.missing_vals` default tracks the `.api` catalogue `"gap"`.
-- substitution: `sub_missing(columns, rows, missing_text)` · `sub_zero(columns, rows, zero_text)` (`zero_text` defaults to `"nil"`) · `sub_small_vals(columns, rows, threshold, small_pattern, sign)` (`threshold` defaults to `0.01`, `sign` to `"+"`) · `sub_large_vals(columns, rows, threshold, large_pattern, sign)` (`threshold` defaults to `1e12`, `large_pattern` to `">={x}"`, `sign` to `"+"`) · `sub_values(columns, rows, values, pattern, fn, replacement)`.
-- cell transform: `text_transform(locations, fn)` · `text_case_when(*cases, default, locations)` (`cases` are `(predicate, replacement)` tuples) · `text_case_match(*cases, default, replace, locations)` (`cases` are `(match, replacement)` tuples where `match` is `str | list[str]`, `replace` ∈ `{"all","partial"}`) · `text_replace(pattern, replacement, locations)`.
-- aggregation: `summary_rows(*, fns, fmt, columns, groups, side, missing_text)` and `grand_summary_rows(*, fns, fmt, columns, side, missing_text)` take `fns` keyword-only as `dict[str, PlExpr]` whose polars expression names its own target column; a non-`None` `columns` raises `NotImplementedError`, so the `Summary`/`GrandSummary` cases omit the `columns` slot, let each `pl.Expr` carry its own column, and thread the optional `fmt` standalone formatter (`vals.fmt_*`) instead · `row_group_order(groups)` (`groups` is `RowGroups`).
-- style and color: `tab_style(style, locations)` over the `style.text(color, font, size, align, v_align, style, weight, stretch, decorate, transform, whitespace)` / `style.fill(color)` / `style.borders(sides, color, style, weight)` / `style.css(rule)` constructors (`style.text` and `style.fill` accept a `ColumnExpr` from `from_column` for data-driven values). The `loc.*` selectors carry a per-selector argument arity that `LOC_TABLE` encodes as `LocArity`: `loc.body(columns, rows, mask)` and `loc.grand_summary(columns, rows, mask)` are `MASKED`, `loc.summary(groups, columns, rows)` is `GROUPED`, `loc.summary_stub(groups, rows)` is `GROUP_ROWS`, `loc.column_labels(columns)` is `COLUMNS`, `loc.spanner_labels(ids)` is `IDS` (the `ids=` keyword binds the `columns` slot, never `columns=`), `loc.stub(rows)` / `loc.row_group(rows)` / `loc.row_groups(rows)` / `loc.grand_summary_stub(rows)` are `ROWS`, and `loc.column_header()` / `loc.stubhead()` / `loc.header()` / `loc.footer()` / `loc.title()` / `loc.subtitle()` / `loc.source_notes()` are `NONE`. `loc.body(mask=<polars predicate>)` is mutually exclusive with `columns`/`rows`, so a masked `Place` passes the polars `mask` alone · `data_color(columns, rows, palette, domain, na_color, alpha, reverse, autocolor_text, truncate)` accepts `palette` as a matplotlib palette-name `str` or an explicit hex `list[str]` (the `graphic/color/derive#DERIVE` `ColorReceipt.coords` palette projected to a hex list) and `domain` as `list[str] | list[int] | list[float]`, deriving cell text color from background luminance when `autocolor_text=True`.
-- theme identity: `opt_stylize(style, color, add_row_striping)` · `opt_row_striping(row_striping)` · `opt_table_font(font, stack, weight, style, add)` (`stack` is a named `FontStackName`) · `opt_align_table_header(align)` · `opt_all_caps(all_caps, locations)` · `opt_vertical_padding(scale)` · `opt_horizontal_padding(scale)` · `opt_table_outline(style, width, color)` · `opt_footnote_marks(marks)` · `opt_css(css, add, allow_duplicates)` — the `Theme` value object's `opt_*` rows are the table's one named publication identity, replacing the per-call `tab_options(**kwargs)` keyword scatter (`tab_options` remains the low-level theme surface but is not the authoring path).
-- helpers: the top-level `md`/`html` rich-text markers, `from_column(column, na_value, fn)` returning the data-driven `ColumnExpr` that `style.fill`/`style.text` accept (composed directly at the `Style`/`Color` call sites, never a rename wrapper), `define_units(units_notation)` returning the standalone `UnitDefinitionList` for rich-text rendering (the `TablePlan.Units` owner projection; `fmt_units(columns, rows, pattern)` itself takes only `pattern`, never a units object), `google_font(name)` returning a `GoogleFont` for `opt_table_font(font=...)`, `system_fonts(name="system-ui")` returning the `list[str]` font list for `opt_table_font(font=...)` over the named `FontStackName` `stack=`, the `pct`/`px` dimension helpers, and the standalone `vals.fmt_number`/`vals.fmt_integer`/`vals.fmt_currency`/`vals.fmt_percent`/`vals.fmt_scientific`/`vals.fmt_engineering`/`vals.fmt_bytes`/`vals.fmt_roman`/`vals.fmt_date`/`vals.fmt_time`/`vals.fmt_markdown` formatters, each taking a `pl.Series` and returning `list[str]` (the `TablePlan.Series`/`VALS_TABLE` owner projection; `vals` carries no `fmt_units`/`fmt_duration`/`fmt_partsper`/`fmt_tf`/`fmt_flag`/`fmt_icon`, so those `FmtKind` rows stay `GT`-chain only).
-- seam: the polars `DataFrame.style` accessor returns a real `GT` (`polars.DataFrame.style -> GT`, verified at the polars `frame.py` source and `isinstance(df.style, GT)`), so the `visualization/table` ← `data/tabular` `[WIRE]` edge constructs the styled table in-process from a polars frame with no intermediate interchange. HTML (`as_raw_html(inline_css=True)`) and LaTeX (`as_latex`) are the host-free no-driver paths; PDF (`save`) rides a host-coupled Chrome/Selenium WebDriver, gated optional and never the default. The emitted HTML/SVG bytes are the flat egress the regrouped `composition/compose#COMPOSE` owner places beside its sibling graphics, the same outbound handoff `visualization/chart/spec#CHART` makes, so the table is a content-keyed source of the composition plane and never composites or re-renders downstream.
+- [DISPLAY_SHAPE_PREPASS] [RESOLVED]: the primary AEC-schedule-plane gap is closed — a QTO/schedule cross-tab (door/window/room-finish schedule, quantity rollup pivot) cannot be landed when `TablePlan` holds only a settled `frame` and folds only `TableOp` (all `GT -> GT`, post-`.style`). The closed `Reshape` `expression.tagged_union` folds `pl.DataFrame -> pl.DataFrame` BEFORE the `.style` seam through the one total `_shape` `match`, composing `DataFrame.select`/`filter`/`sort`/`rename`/`cast`/`head`/`slice`/`with_columns`/`group_by().agg()`/`pivot(on, index, values, aggregate_function)`/`unpivot(on, index)`/`top_k(k, by)` — the polars-overlay catalogue's explicitly in-scope "last-mile shaping to roll up the QTO/schedule frame to the exact display shape". `maintain_order=True`/`sort_columns=True` on `group_agg`/`pivot` fix the row/column order for byte reproducibility. Justified on PACKAGE (`.api/polars.md` [03] entry [06]) and CONSUMER (`drawing/schedule#SCHEDULE` lowers its NCS/AIA templates into this owner and needs the cross-tab landing).
+- [COLS_SELECTOR] [RESOLVED]: `type Cols` widens to `str | list[str] | cs.Selector | None` — `polars.selectors.Selector` is a real public class and `isinstance(cs.numeric(), pl.Expr)` holds, so a selector is admitted wherever great-tables takes a `SelectExpr`, letting `Fmt(FmtKind.NUMBER, columns=cs.numeric())` / `Color(columns=cs.by_dtype(...))` address a dtype class without a hardcoded name list. Justified on PACKAGE (`.api/polars.md` [03] entry [05]).
+- [DETERMINISTIC_RENDER] [RESOLVED]: the content key drifted on display/id state — great-tables' `GT._build_data` mints `random_id()` whenever `id` is `None` (`gt.py`), so the current `table_id=None` default injected a random id into every HTML/PDF render, drifting the bytes and the ContentKey. `_stable_id(shaped, fmt, ops)` derives a content-stable id from `frame.hash_rows(seed=0)` + the format + the op-tag digest through `hashlib.blake2b`, set through `frame.style.with_id(...)` (seam path) or `GT(id=...)` (explicit path), and the shape-style-emit fold runs inside a `pl.Config(**config)` scope fixing a float→display-string `Derive`'s precision while `maintain_order=True`/`sort_columns=True` on the `_shape` group/pivot rows fix row/column order. `random_id()` is the rejected nondeterministic form; the `.api/polars.md` [02] type [05] `StringCache` "runtime context" is superseded and unused because the installed `polars 1.42` deprecates `pl.StringCache` (per-column `Categories` make a categorical group/sort deterministic by content with no global scope). Justified on PACKAGE (`.api/polars.md` [03] entry [05]) and CONSUMER (the content-addressing / reuse-fabric elision the `core/plan#PLAN` planner keys on).
+- [INTERCHANGE_INGRESS] [RESOLVED]: `TablePlan.of` names the `data/tabular` wire the C# `Rasm.Bim` QTO/schedule egress crosses — a settled `pl.DataFrame` passes through and an Arrow-C-stream capsule (an `__arrow_c_stream__`-exporting object, the `ArrowStream` `Protocol`) normalizes through `pl.from_dataframe(source)` into the canonical frame ONCE at admission (BOUNDARY_ADMISSION), so the interior sees only a settled frame and the wire is parameterized across providers. Justified on PACKAGE (`.api/polars.md` [03] entry [04]) and the brief `[09]` C# boundary.
+- [FOOTNOTE_MARKS] [RESOLVED]: `Theme.footnote_marks` widens from `str = "numbers"` to `FootnoteMarks | tuple[str, ...]`, `_marks` projecting the member to the `opt_footnote_marks(marks=...)` keyword great-tables expands (`"letters"`/`"LETTERS"` to `gt.letters()`/`gt.LETTERS()`, `"standard"`/`"extended"` to the 4-/6-symbol sets) and a custom `tuple[str, ...]` to the explicit `list[str]` Unicode-mark form — the valid keyword set `["numbers","letters","LETTERS","standard","extended"]` verified at `great_tables/_options.py`. `random_id` was considered for a `GT(id=)` and rejected: it is random, so adopting it would defeat the content-key contract [DETERMINISTIC_RENDER] fixes. Justified on PACKAGE (`.api/great-tables.md` [02] helper [09]).
+- [LEAF_OFFLOAD_SEAM] [RESOLVED]: `render` is `async` over `async_boundary` and offloads the whole synchronous shape-style-emit fold onto one `CapacityLimiter`-bounded `to_thread.run_sync(self._emit, ...)` — the LOOP-OFFLOAD fix (the prior synchronous `boundary(...)` ran the great-tables/WebDriver render inline on the event loop) and the seam reconciliation: the LEAF visual producers (`visualization/chart/export#EXPORT`, `graphic/raster#RASTER`, `drawing/schedule#SCHEDULE`) hold the `render -> RuntimeRail[ArtifactReceipt]` pattern where the receipt IS the return, distinct from the `composition/compose#COMPOSE` placement-owner `of() -> RuntimeRail[ContentKey]` + separate `contribute()` pattern; `TablePlan` holds the leaf pattern, and the public synchronous `build()` stays the bytes seam `drawing/schedule#SCHEDULE` renders through inside its own worker. Justified on the `concurrency.md#OFFLOAD_LANE` law and the sibling leaf-producer precedent.
+- [BOUNDARY_NARROWING] [RESOLVED]: `render` now passes `catch=_FAULTS` to `async_boundary` rather than resting on the owner's `catch=Exception` default — the prior fence railed EVERY `Exception` (a caller `TypeError`, an unrelated host raise) into a `BoundaryFault`, the catch-all `boundaries.md`/`rails-and-effects.md` reject and every sibling leaf producer (`composition/compose#COMPOSE`, `composition/imposition#IMPOSE`, `visualization/chart/export#EXPORT`) narrows. `_FAULTS = (PolarsError, ValueError, KeyError, NotImplementedError, OSError)` is the real engine raise tuple: `polars.exceptions.PolarsError` is the verified base every `_shape` frame op throws (`ColumnNotFoundError`/`ComputeError`/`SchemaError`/`InvalidOperationError` all `issubclass` it), great-tables' render raises `ValueError`/`KeyError` on a bad selector and `NotImplementedError` on a non-`None` summary `columns`, and the gated PDF `NamedTemporaryFile` path raises `OSError` — so a non-engine raise (a programming `TypeError`) and structured cancellation cross past the boundary as a defect rather than being converted. Justified on the `boundaries.md`/`faults#FAULTS` narrowing law (`async_boundary[T](subject, thunk, *, catch=...)` admits the class-tuple natively) and the sibling leaf-producer `catch=_FAULTS` precedent.
+- [SERIES_FORMATTERS] [RESOLVED]: `VALS_TABLE` completes to the full standalone `great_tables.vals` surface — the prior fence bound eleven `vals.fmt_*` rows and silently dropped `fmt_partsper`/`fmt_duration`/`fmt_image`, each a verified standalone Series formatter (`great_tables.vals` exposes `fmt_partsper`/`fmt_duration`/`fmt_image` alongside the eleven; only `fmt_units`/`fmt_datetime`/`fmt_tf`/`fmt_flag`/`fmt_icon`/`fmt_nanoplot` stay `GT`-only, correctly absent). The three new `FmtKind.PARTSPER`/`DURATION`/`IMAGE` rows land the `TablePlan.Series` out-of-table path (a per-mille QTO ratio column, a humanized schedule-duration column, an embedded thumbnail column formatted to `list[str]` outside a `GT` chain), so the Growth-law "a new format verb is one `VALS_TABLE` row when the standalone Series formatter exists" holds over the complete surface rather than an arbitrary eleven-of-fourteen slice. Justified on PACKAGE (`.api/great-tables.md` helper [08], verified against the installed `great-tables 0.22.0` `vals` module).

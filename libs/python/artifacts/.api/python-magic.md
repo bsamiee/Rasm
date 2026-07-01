@@ -83,6 +83,7 @@ The constructor booleans set the underlying `MAGIC_*` bitmask; the `MAGIC_PARAM_
 |  [01]   | `magic.loader.load_lib` | `load_lib() -> ctypes.CDLL`                       | resolve and load the host `libmagic`; `ImportError` when no candidate loads — the import-time provisioning gate |
 |  [02]   | `errorcheck_null` / `errorcheck_negative_one` | `(result, func, args) -> result` | the `ctypes` errcheck hooks synthesizing `MagicException(magic_error(...))` on a NULL/`-1` C return |
 |  [03]   | `maybe_decode`       | `maybe_decode(s: bytes \| str) -> str`               | decode a libmagic C-string return as `utf-8`/`backslashreplace` (file-charset metadata never aborts the cook) |
+|  [04]   | `magic.magic_setflags` | `magic_setflags(cookie: magic_t, flags: c_int) -> c_int` | the module-level `ctypes` binding (`magic/__init__.py`: `restype=c_int`, `argtypes=[magic_t, c_int]`) applying a recomputed `MAGIC_*` bitmask onto a LIVE `Magic.cookie` after construction — the mechanism the `MAGIC_NO_CHECK_*` check-set narrowing (flag row `[08]`) rides, since those bits have no constructor boolean; `detect#DETECT`'s `_cookie` calls it to narrow the check set on an untrusted ingest, targeting the cookie's own `Magic.cookie`/`Magic.flags` attributes |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

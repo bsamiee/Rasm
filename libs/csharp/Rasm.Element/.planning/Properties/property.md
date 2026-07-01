@@ -29,7 +29,7 @@ using static LanguageExt.Prelude;
 
 // The two named bags are GLOBAL `using` aliases of the ONE generic ValueBag<V> owner (declared package-wide so the
 // `Node.PropertySet`/`Node.QuantitySet` cases, the `Bake` merge, and the Rasm.Bim projector all resolve the alias
-// without a per-file restatement) — `new PropertyBag(setName, map, mode)` constructs the closed generic, `PropertyBag.Merge`
+// without a per-file restatement) — `new PropertyBag(setName, map, mode, source)` constructs the closed generic, `PropertyBag.Merge`
 // resolves the static, so a named bag names a domain concept while the value-bag owner carries Find/With/Merge once.
 global using PropertyBag = Rasm.Element.ValueBag<Rasm.Element.PropertyValue>;
 global using QuantityBag = Rasm.Element.ValueBag<Rasm.Element.MeasureValue>;
@@ -190,12 +190,12 @@ public abstract partial record PropertyValue {
 
 ## [03]-[PROPERTY_BAG]
 
-- Owner: `ValueBag<V>` the ONE named inheritance-stamped value bag (`SetName` + `Map<PropertyName, V>` + `InheritanceMode`) — `PropertyBag` (`ValueBag<PropertyValue>`) the `Graph/element#NODE_MODEL` `Node.PropertySet` case wraps and `QuantityBag` (`ValueBag<MeasureValue>`) the `Node.QuantitySet` case wraps are its two GLOBAL `using` aliases, the value type the only axis that varies so it rides a type parameter rather than a parallel `PropertyBag`/`QuantityBag` pair sharing every field and member (the SHAPE_BUDGET + DERIVED_TYPES collapse); `InheritanceMode` the `[SmartEnum<string>]` (`OccurrenceWins`/`TypeDrivenOverride`/`TypeDrivenOnly`) that both stamps the bag's type→occurrence precedence at ingest AND OWNS the generic `Resolve<V>` fold applying it, so the `Bake` runs the IFC `QTO_*` inheritance wholly within the seam across both value kinds.
-- Entry: `ValueBag<V>.Merge(type, occurrence)` (called through the `PropertyBag.Merge`/`QuantityBag.Merge` aliases) folds a type-bound bag and an occurrence bag into one by delegating to `occurrence.Inheritance.Resolve(type.Values, occurrence.Values)` — the ONE generic precedence fold the mode owns — so the `Graph/element#ELEMENT_GRAPH` `Bake` applies the inheritance once per bag rather than a per-call-site or per-bag-type merge; `InheritanceMode.Resolve<V>(type, occurrence)` is the precedence algebra (`OccurrenceWins` fills only the occurrence's gaps, `TypeDrivenOverride` lets the type overwrite, `TypeDrivenOnly` takes the type map); `ValueBag<V>.With(name, value)`/`Find(name)` are the immutable add and the keyed read both alias kinds share.
+- Owner: `ValueBag<V>` the ONE named inheritance-and-source-stamped value bag (`SetName` + `Map<PropertyName, V>` + `InheritanceMode` + `PropertySource`) — `PropertyBag` (`ValueBag<PropertyValue>`) the `Graph/element#NODE_MODEL` `Node.PropertySet` case wraps and `QuantityBag` (`ValueBag<MeasureValue>`) the `Node.QuantitySet` case wraps are its two GLOBAL `using` aliases, the value type the only axis that varies so it rides a type parameter rather than a parallel `PropertyBag`/`QuantityBag` pair sharing every field and member (the SHAPE_BUDGET + DERIVED_TYPES collapse); `InheritanceMode` owns the type→occurrence precedence fold, and `PropertySource` owns catalogue/import/derived/user source rank.
+- Entry: `ValueBag<V>.Merge(type, occurrence)` (called through the `PropertyBag.Merge`/`QuantityBag.Merge` aliases) folds a type-bound bag and an occurrence bag into one by delegating to `occurrence.Inheritance.Resolve(type.Values, occurrence.Values)` — the ONE generic precedence fold the mode owns — and preserves the higher `PropertySource` rank, so the `Graph/element#ELEMENT_GRAPH` `Bake` applies inheritance once per bag and source precedence once per merged bag. `ValueBag<V>.Empty(setName, inheritance, source)` mints an empty source-stamped bag; `ValueBag<V>.With(name, value)`/`Find(name)` are the immutable add and keyed read both alias kinds share.
 - Auto: `Resolve<V>` reads the mode and dispatches the generated total `Switch` over the LanguageExt `Map` three-argument `Fold` (`(acc, key, value)`) — the `OccurrenceWins` arm folds the type entries onto the occurrence map adding only absent keys (`ContainsKey(k) ? acc : acc.Add(k, v)`, occurrence-wins), the `TypeDrivenOverride` arm folds with `AddOrUpdate(k, v)` (type-wins), the `TypeDrivenOnly` arm returns the type map — so one generic fold serves the `PropertyBag` and `QuantityBag` merges identically (one `ValueBag<V>.Merge` body over both value kinds) and the mode, not the bag, owns the precedence; the `[SmartEnum<string>]` round-trips the mode token at the wire so a persisted bag re-admits its precedence; the mode is stamped at Bim ingress, the seam never inferring it.
-- Receipt: the merged `ValueBag<V>` is the typed property evidence the `Bake`-derived `Element` carries flat in its `Seq<PropertyBag>`/`Seq<QuantityBag>` fields, so a consumer reads `element.Properties.Find(b => b.SetName == set).Bind(b => b.Find(name))` as one `Option<PropertyValue>` and `element.Quantities` the `Option<MeasureValue>` counterpart; the same-name quantity aggregate across an element set folds through `Properties/quantity#MEASURE_VALUE` `MeasureValue.Sum`, never a manual `double` accumulation.
+- Receipt: the merged `ValueBag<V>` is the typed property evidence the `Bake`-derived `Element` carries flat in its `Seq<PropertyBag>`/`Seq<QuantityBag>` fields, so a consumer reads `element.Properties.Find(b => b.SetName == set).Bind(b => b.Find(name))` as one `Option<PropertyValue>` and `element.Quantities` the `Option<MeasureValue>` counterpart; `Source` records whether the winning bag came from Materials catalogue data, IFC import, Bim-derived quantities, or Rhino/user override. Compute assessments and Persistence provenance stay typed nodes/events, not bag sources.
 - Packages: Thinktecture.Runtime.Extensions (`[SmartEnum<string>]`), LanguageExt.Core (`Map`/`Option`/`Seq`), Generator.Equals (`[Equatable]`/`[UnorderedEquality]` so the `ValueBag<V>` is the drillable equality leaf the `Graph/element#ELEMENT_GRAPH` `StructuralMerge` descends through to `Bag.Values[name]`).
-- Growth: a new bag attribute shared by all bags is one column on `ValueBag<V>` (both aliases gain it); a new value kind a bag carries is one `using` alias over `ValueBag<TNew>` (never a hand-written parallel bag type); a new inheritance precedence is one `InheritanceMode` row carrying its `Resolve` arm; never a per-Pset bag type and never a per-call-site precedence branch.
+- Growth: a new bag attribute shared by all bags is one column on `ValueBag<V>` (both aliases gain it); a new value kind a bag carries is one `using` alias over `ValueBag<TNew>` (never a hand-written parallel bag type); a new inheritance precedence is one `InheritanceMode` row carrying its `Resolve` arm; a new source tier is one `PropertySource` row with its rank; never a per-Pset bag type and never a per-call-site precedence branch.
 - Boundary: `ValueBag<V>` is the ONE property store — a per-`Pset_*` `WallProperties`/`SlabProperties` class family, a second property model, OR a hand-written `PropertyBag`-beside-`QuantityBag` pair duplicating every field and member (the SHAPE_BUDGET parallel-type defect the generic owner closes) is the deleted form, the `PropertyName` keying the one bag; the type→occurrence precedence is the IFC `QTO_TYPEDRIVENOVERRIDE`/`QTO_TYPEDRIVENONLY`/`QTO_OCCURRENCEDRIVEN` inheritance owned by `InheritanceMode.Resolve` and applied once in `Merge` by the stamped mode, never a per-call-site merge, a per-bag-type re-expression, or an inference the seam performs; `InheritanceMode` is the `PropertyBag`/`QuantityBag` merge precedence ALONE — the named type→occurrence `Bake` inheritance the `Graph/element#ELEMENT_GRAPH` `Bake` applies to a baked element's materials, section, and classifications is a SEPARATE `Bake` dimension, never a fourth `InheritanceMode` row; the bag content is typed (`PropertyValue`/`MeasureValue`) so a stringly-keyed property lookup is the named defect; the `Pset_*` template roster, the bSDD resolution, and the geometry-true base-quantity derivation stay the `Rasm.Bim` `Semantics/properties` projector's — the seam carries the typed bag and the inheritance algebra, never the IFC template vocabulary.
 
 ```csharp signature
@@ -216,6 +216,21 @@ public sealed partial class InheritanceMode {
   typeDrivenOnly: () => type);
 }
 
+[SmartEnum<int>]
+[KeyMemberComparer<ComparerAccessors.Int32, int>]
+public sealed partial class PropertySource {
+ public static readonly PropertySource Catalogue = new(10, "catalogue");
+ public static readonly PropertySource Import = new(20, "import");
+ public static readonly PropertySource Derived = new(30, "derived");
+ public static readonly PropertySource User = new(40, "user");
+
+ public string Token { get; }
+
+ private PropertySource(int key, string token) : this(key) {
+  Token = token;
+ }
+}
+
 // --- [MODELS] -----------------------------------------------------------------------------
 // The ONE named inheritance-stamped value bag — ONE concept (a `SetName` + a `PropertyName`-keyed value map + the
 // type→occurrence `InheritanceMode`), the value type the ONLY axis that varies, so it rides a TYPE PARAMETER, never a
@@ -223,7 +238,7 @@ public sealed partial class InheritanceMode {
 // several-types-one-concept + [02] signatures-differ-only-by-type trigger, collapsed per SHAPE_BUDGET + DERIVED_TYPES:
 // one declaration yields the family). `PropertyBag`/`QuantityBag` are the two `using` aliases the seam carries (the
 // `Node.PropertySet`/`Node.QuantitySet` cases, the `Bake` merge, and the `Rasm.Bim` projector author each through the
-// alias, `new PropertyBag(setName, map, mode)` constructing the closed generic), so the named bag names a domain concept
+// alias, `new PropertyBag(setName, map, mode, source)` constructing the closed generic), so the named bag names a domain concept
 // while the one owner carries `Find`/`With`/`Merge` once. `Find`/`With` are the immutable read/add; `Merge(type,
 // occurrence)` delegates to `occurrence.Inheritance.Resolve(type, occurrence)` — the ONE generic precedence fold the
 // mode owns (`Resolve<V>` already generic over the value), so the `Bake` applies the IFC type→occurrence inheritance
@@ -242,25 +257,31 @@ public sealed partial class InheritanceMode {
 // by-value WITHOUT [Equatable] (adding it redundantly re-derives the same field compare), so the drill bottoms at
 // Nodes[id].Bag.Values[name] (the whole value, a Pset entry the merge replaces wholesale), the leaf the merge keys on.
 [Equatable]
-public sealed partial record ValueBag<V>(string SetName, [property: UnorderedEquality] Map<PropertyName, V> Values, InheritanceMode Inheritance) {
+public sealed partial record ValueBag<V>(string SetName, [property: UnorderedEquality] Map<PropertyName, V> Values, InheritanceMode Inheritance, PropertySource Source) {
+ public static ValueBag<V> Empty(string setName, InheritanceMode inheritance, PropertySource source) =>
+  new(setName, Map<PropertyName, V>(), inheritance, source);
+
  public Option<V> Find(PropertyName name) => Values.Find(name);
 
  public ValueBag<V> With(PropertyName name, V value) =>
   this with { Values = Values.AddOrUpdate(name, value) };
 
- public static ValueBag<V> Merge(ValueBag<V> type, ValueBag<V> occurrence) =>
-  occurrence with { Values = occurrence.Inheritance.Resolve(type.Values, occurrence.Values) };
+ public static ValueBag<V> Merge(ValueBag<V> type, ValueBag<V> occurrence) {
+  Map<PropertyName, V> inherited = occurrence.Inheritance.Resolve(type.Values, occurrence.Values);
+  PropertySource source = occurrence.Source.Key >= type.Source.Key ? occurrence.Source : type.Source;
+  return occurrence with { Values = inherited, Source = source };
+ }
 }
 ```
 
 ## [04]-[DETAIL_SCHEMA]
 
-- Owner: `DetailSchema` the ONE neutral realizing-detail schema over `PropertyBag` — a neutral `SetName`, the `OccurrenceWins` `InheritanceMode`, and the `JointType` allowed-set — plus the canonical realizing-detail `PropertyName` vocabulary (the eighteen row-name statics: the twelve discrete-part diameter/throat/lap rows plus the six panel board-realization rows). `DetailSchema.Realization` is the canonical realizing-detail instance both the `Rasm.Materials` `Component` projection authors and the `Rasm.Bim` `Semantics/connection` reader round-trips, so an authored realizing element and a re-imported IFC one are one `Node.PropertySet` family on the one graph.
-- Entry: `DetailSchema.Realization` the canonical schema; `schema.Bag()` mints the empty conforming `PropertyBag` (the `SetName` + `OccurrenceWins` pinned, the author filling rows through `ValueBag<V>.With`); `schema.Joint(selected)` the `JointType` row VALUE as a `PropertyValue.Enumerated` over the schema's closed allowed-set (`Bolted`/`Welded`/`Bonded`/`Bearing`/`Cast`/`Fastened`); the eighteen `static readonly PropertyName` row names (`DetailSchema.JointType`/`NominalDiameter`/`EffectiveThroat`/… plus the panel `EdgeProfile`/`PanelThickness`/`FieldSpacing`/`EdgeSpacing`/`RibDepth`/`RibPitch`) the keys both author and reader compose; a dimensional row rides a `PropertyValue.Measure` over a dimension-only `Properties/quantity#MEASURE_VALUE` `MeasureValue.OfSi(Dimension, double)`, a modality row the `Joint` enumerated value or a `PropertyValue.Text` token.
-- Auto: `Bag()` constructs `new PropertyBag(SetName, Map<PropertyName, PropertyValue>(), Inheritance)` so neither author nor reader hand-spells the set-name string or re-stamps the precedence; `Joint(selected)` constructs `new PropertyValue.Enumerated(Seq(selected), JointTypes)` so the `JointType` row carries the schema's closed allowed-set and the `Properties/property#PROPERTY_VALUE` `Of` admission (a `Selected` subset of a non-empty `Allowed`) holds, a token outside `JointTypes` railing `ElementFault.ValueRejected` at `Of`; each row-name static admits once through `PropertyName.Create` so a row key is a value-object, never a raw `string`.
+- Owner: `DetailSchema` the ONE neutral detail-schema mechanism over `PropertyBag` — a neutral `SetName`, an `InheritanceMode`, and an optional `JointType` allowed-set — plus the canonical detail `PropertyName` vocabulary. `DetailSchema.Realization` owns realizing fastener/rebar/connector/joint detail; `DetailSchema.Product` owns panel board/deck/membrane product geometry.
+- Entry: `DetailSchema.Realization` the canonical realizing schema; `DetailSchema.Product` the canonical product-detail schema; `schema.Bag(source)` mints the empty conforming source-stamped `PropertyBag`; `schema.Joint(selected)` the `JointType` row VALUE as a `PropertyValue.Enumerated` over the schema's closed allowed-set (`Bolted`/`Welded`/`Bonded`/`Bearing`/`Cast`). Panel product rows use `Product`, not `Realization`.
+- Auto: `Bag()` constructs a catalogue-sourced conforming bag and `Bag(source)` constructs an explicitly source-stamped bag, so neither author nor reader hand-spells the set-name string, re-stamps precedence, or drops source rank; `Joint(selected)` constructs `new PropertyValue.Enumerated(Seq(selected), JointTypes)` so the `JointType` row carries the schema's closed allowed-set and the `Properties/property#PROPERTY_VALUE` `Of` admission holds.
 - Receipt: the conforming `PropertyBag` lands on the seam `ElementGraph` as a `Graph/element#NODE_MODEL` `Node.PropertySet` bound by a `Relations/relation#EDGE_ALGEBRA` `Assign.PropertyDefinition` edge onto the realizing element, the `Graph/element#ELEMENT_GRAPH` `Bake` fold merging it into `element.Properties` so a consumer reads `element.Properties.Find(b => b.SetName == DetailSchema.Realization.SetName).Bind(b => b.Find(DetailSchema.NominalDiameter))` for the realizing detail; the bag mints through `Graph/element#NODE_MODEL` `NodeId.Content` over `Node.ToCanonicalBytes` (id excluded) so two structurally-identical detail bags dedup to one node, never a second `(GeometryKey, DetailKey)` hasher.
 - Packages: LanguageExt.Core (`Seq`/`Map` + the `Seq`/`Map<,>()` `Prelude` constructors), Thinktecture.Runtime.Extensions (the `PropertyName` `[ValueObject<string>]` `Create` factory + the `InheritanceMode` `[SmartEnum<string>]` `OccurrenceWins` static), `Properties/quantity#MEASURE_VALUE` (the dimension-only `MeasureValue.OfSi`), and the seam `PropertyBag`/`PropertyValue`/`PropertyName`/`InheritanceMode` owners this cluster composes.
-- Growth: a new realizing-detail row is one `static readonly PropertyName` the author writes and the reader reads by name; a new joint modality is one token on `Realization.JointTypes`; a material-property→`Pset` bag is ANOTHER `DetailSchema` instance (its own neutral `SetName` + `OccurrenceWins`, `JointTypes` empty) the `Rasm.Materials` property projection authors — ONE schema mechanism over `PropertyBag`, never a parallel schema type, a per-row bag class, or a per-call-site allowed-set literal.
+- Growth: a new realizing-detail row is one `static readonly PropertyName` the author writes and the reader reads by name; a new panel product row is one `static readonly PropertyName` under `Product`; a new joint modality is one token on `Realization.JointTypes`; a material-property→`Pset` bag is ANOTHER `DetailSchema` instance — ONE schema mechanism over `PropertyBag`, never a parallel schema type, a per-row bag class, or a per-call-site allowed-set literal.
 - Boundary: `DetailSchema` is the ONE seam-declared realizing-detail contract and the seam carries NO IFC name — the neutral `SetName` is what both the in-graph bag and the schema carry, and the IFC Pset name (`Rasm_ConnectionRealization`), the `Pset_*` roster, the bSDD resolution, the egress mapping, and the `GlobalId` assignment stay in the `Rasm.Bim` `SemanticProjector` (a `Pset_*`/`Rasm_ConnectionRealization` literal on the seam is the deleted form); a cross-peer realizing invariant (a fastener diameter against its member, a weld throat against its leg) is a `Rasm.Bim`-implemented `Projection/projection#GRAPH_CONSTRAINT` `IGraphConstraint`, never an IFC column on this bag; the realizing element's MATERIAL binding (grade, capacity, embodied carbon, classification, appearance) rides the `Rasm.Materials` projector's `Relations/relation#EDGE_ALGEBRA` `Associate` edge onto the element `NodeId`, never a `SteelGrade`/`EmbodiedCarbon` row on this bag (the named seam violation); the joint TOPOLOGY (which members a weld/stud realizes) is a `Relations/relation#EDGE_ALGEBRA` `Connect` edge carrying its realizing element on the `Connect.Realizing` `Option<NodeId>` field (over the `Path`/`Port` medium the `ConnectKind` closes at — realizing-ness is the field, never a `ConnectKind.Realizing` row the edge algebra rejects), never a detail row; an authored bag carrying a subset of rows is a faithfully different node, never a forced byte-match; the dimensional rows carry the dimension-only `MeasureValue.OfSi(Dimension, double)` (SI-base, the `QuantityType` dimension-anonymous) so a re-imported bag content-keys identically, never a unit-bearing or typed-`QuantityType` measure that forks the key; `InheritanceMode` stays the bag-merge precedence the schema stamps, never the named `Bake` type→occurrence inheritance over materials/section/classifications the `Graph/element#ELEMENT_GRAPH` `Bake` owns as a separate dimension.
 
 ```csharp signature
@@ -293,7 +314,7 @@ public sealed record DetailSchema(string SetName, InheritanceMode Inheritance, S
  public static readonly PropertyName EffectiveThroat = PropertyName.Create("EffectiveThroat");
  public static readonly PropertyName BondLine = PropertyName.Create("BondLine");
  public static readonly PropertyName Overlap = PropertyName.Create("Overlap");
- // The PANEL board-realization rows the Rasm.Materials Component panel arm authors and a sheathing generator round-trips
+ // The PANEL product-detail rows the Rasm.Materials Component panel arm authors and a sheathing generator round-trips
  // (the board layup + fastening + steel-deck rib a laid board carries, distinct from the discrete-part diameter/throat
  // rows above): EdgeProfile the board-edge token, PanelThickness the board build, FieldSpacing/EdgeSpacing the fastener
  // station pitches, RibDepth/RibPitch the steel-deck corrugation. Neutral names — the IFC Pset mapping stays Rasm.Bim's.
@@ -303,24 +324,28 @@ public sealed record DetailSchema(string SetName, InheritanceMode Inheritance, S
  public static readonly PropertyName EdgeSpacing = PropertyName.Create("EdgeSpacing");
  public static readonly PropertyName RibDepth = PropertyName.Create("RibDepth");
  public static readonly PropertyName RibPitch = PropertyName.Create("RibPitch");
+ public static readonly PropertyName MembraneSeam = PropertyName.Create("MembraneSeam");
 
- // The ONE realizing-detail schema instance — the neutral SetName, the OccurrenceWins precedence, and the JointType
- // allowed-set (the six neutral modalities a JointType row's Enumerated Allowed set carries, the Bim egress facet
- // validates against). Bolted/Welded/Bonded/Bearing/Cast close the discrete-realization modalities a fastener/weld/
- // adhesive/stud/cast realizing element selects; Fastened is the screwed/nailed-board modality the Rasm.Materials panel
- // arm's Joint("Fastened") keys on (a laid sheathing board is fastened, not bolted/welded). The Component projection
- // authors THIS schema's Bag and the Bim reader round-trips it.
+ // The discrete realizing-detail schema instance — the neutral SetName, the OccurrenceWins precedence, and the JointType
+ // allowed-set a JointType row's Enumerated Allowed set carries. Bolted/Welded/Bonded/Bearing/Cast close the
+ // fastener/weld/adhesive/stud/cast realizing-element modalities; panel/deck/membrane product rows use Product.
  public static readonly DetailSchema Realization =
-  new("Realization", InheritanceMode.OccurrenceWins, Seq("Bolted", "Welded", "Bonded", "Bearing", "Cast", "Fastened"));
+  new("Realization", InheritanceMode.OccurrenceWins, Seq("Bolted", "Welded", "Bonded", "Bearing", "Cast"));
+
+ public static readonly DetailSchema Product =
+  new("Product", InheritanceMode.TypeDrivenOverride, Seq<string>());
 
  // The empty conforming PropertyBag the author fills through ValueBag<V>.With(name, value) and the reader reads through
- // Find(name) — the SetName and the OccurrenceWins InheritanceMode pinned by the schema so neither side hand-spells a
+ // Find(name) — the SetName and InheritanceMode pinned by the schema so neither side hand-spells a
  // set-name string or re-stamps the precedence (the deleted drift form). A dimensional row the author adds rides a
  // PropertyValue.Measure over a dimension-only MeasureValue.OfSi(Dimension, double); a modality row the Joint value or a token.
- public PropertyBag Bag() => new PropertyBag(SetName, Map<PropertyName, PropertyValue>(), Inheritance);
+ public PropertyBag Bag() => Bag(PropertySource.Catalogue);
+
+ public PropertyBag Bag(PropertySource source) =>
+  new(SetName, Map<PropertyName, PropertyValue>(), Inheritance, source);
 
  // The JointType row VALUE as a PropertyValue.Enumerated over THIS schema's closed JointType allowed-set — the schema owns
- // the Allowed set so the author never hand-spells the six modalities and the PROPERTY_VALUE Of admission (Selected a
+ // the Allowed set so the author never hand-spells the five modalities and the PROPERTY_VALUE Of admission (Selected a
  // subset of a non-empty Allowed) holds; a selected token outside JointTypes rails ElementFault.ValueRejected at Of.
  public PropertyValue Joint(string selected) => new PropertyValue.Enumerated(Seq(selected), JointTypes);
 }
@@ -330,4 +355,4 @@ public sealed record DetailSchema(string SetName, InheritanceMode Inheritance, S
 
 - [IFC_VALUE_FAMILY]: the `PropertyValue` ten-case union mirrors the IFC `IfcSimpleProperty` hierarchy in full (the nine simple-property cases) plus the `IfcComplexProperty` aggregate — `IfcPropertySingleValue` (the typed scalar over the `IfcValue` select: `Text` for `IfcText`/`IfcLabel`/`IfcIdentifier`, `Measure` for `IfcMeasureValue`/`IfcDerivedMeasureValue`, `Boolean` for the two-valued `IfcBoolean`, and `Logical` for the three-valued `IfcLogical` whose `IfcLogicalEnum` carries `TRUE`/`FALSE`/`UNKNOWN`), `IfcPropertyEnumeratedValue` (`Enumerated`, whose `EnumerationValues` LIST cardinality is the `Seq<string> Selected` multi-select), `IfcPropertyReferenceValue` (`Reference` with its `UsageName`), `IfcPropertyBoundedValue` (`Bounded`), `IfcPropertyListValue` (`List`), and `IfcPropertyTableValue` (`Table` carrying the `IfcCurveInterpolationEnum` rule as the neutral `Interpolation`), with `IfcComplexProperty` (the named nested set whose `HasProperties` keep their own `PropertyName`s) riding the recursive `Complex` arm — distinct from the order-only `List` and the defining→defined `Table`, neither of which carries per-sub-property names — so the seam carries the full value family the `Rasm.Bim` projector narrows from `IfcValue`/`IfcMeasureValue` at ingest without losing the three-valued logical, the multi-value enumeration, the table-curve semantics, or the named nested sub-properties; the seam never names a `Pset_*` template or an `IfcValue` data-type string, the typed arm being the only crossing, and the canonical bytes count-prefix every collection so the content key is injective across the C#/Python/TypeScript runtimes that share the one `XxHash128` seed.
 - [INHERITANCE_PRECEDENCE]: the `InheritanceMode` three-row vocabulary is the IFC `QTO_TYPEDRIVENOVERRIDE`/`QTO_TYPEDRIVENONLY`/`QTO_OCCURRENCEDRIVEN` (and the `PSET_*` siblings) property-inheritance rule the migration source applied per-call-site in `Rasm.Bim`'s `PropertySet.Resolve`; the precedence DECISION is relocated to a stamp the Bim ingress writes on the bag node AND the merge ALGEBRA is relocated onto the mode itself as the generic `InheritanceMode.Resolve<V>` fold the ONE `ValueBag<V>.Merge` (both bag aliases) delegates to — so the `Bake` fold applies the correct type→occurrence merge once wholly within the seam (the type bag resolved through the `Assign.TypeDefinition` edge `Relations/relation#EDGE_ALGEBRA`, the occurrence bag on the element's own `PropertySet` node, the two merged by the stamped mode), the precedence owned in one place rather than re-expressed per value kind; the IFC `PSET_PERFORMANCEDRIVEN` template type is a performance-history association rather than a merge-precedence rule, so the Bim projector resolves it to `OccurrenceWins` at ingress — the seam's three modes being the complete merge-precedence closure, never a per-template inheritance variant.
-- [REALIZING_DETAIL_SCHEMA]: the `DetailSchema` neutral realizing-detail bag unifies the migration source's two parallel shapes — the `Rasm_ConnectionRealization` `PropertySet` bag (the bolt diameter / weld throat / reinforcing cover the `Rasm.Bim` `Semantics/connection` reader lowers from the GeometryGym realizing surface `IfcMechanicalFastener`/`IfcFastener`/`IfcDiscreteAccessory`/`IfcReinforcingBar`/`IfcReinforcingMesh`/`IfcTendon`/`IfcBearing`) and the material-property→`Pset_*` column shape — into ONE seam-declared schema over `PropertyBag` both the `Rasm.Materials` `Component` projection (author) and the `Rasm.Bim` reader (egress) target, so an authored realizing element (a bolt, a weld, a cast bar) and a re-imported IFC one are one content-keyed `Node.PropertySet` on the one graph. The seam carries the NEUTRAL contract only — the neutral `SetName`, the `OccurrenceWins` precedence, the closed `JointType` allowed-set (`Bolted`/`Welded`/`Bonded`/`Bearing`/`Cast`/`Fastened`, the six modalities the Bim egress facet validates against — `Fastened` the screwed/nailed-board modality the `Rasm.Materials` panel arm keys on, distinct from the five discrete-realization modalities), and the realizing-detail `PropertyName` vocabulary (`JointType`/`FastenerType`/`AccessoryType`/`BarType`/`NominalDiameter`/`NominalLength`/`CrossSectionArea`/`CarriedMemberWidth`/`CarriedMemberDepth`/`EffectiveThroat`/`BondLine`/`Overlap` plus the panel board-realization rows `EdgeProfile`/`PanelThickness`/`FieldSpacing`/`EdgeSpacing`/`RibDepth`/`RibPitch`) — the IFC Pset name (`Rasm_ConnectionRealization`), the `Pset_*` roster, the bSDD resolution, the egress mapping, and the `GlobalId` assignment staying in the `Rasm.Bim` `SemanticProjector`, and any cross-peer realizing invariant a `Rasm.Bim`-implemented `Projection/projection#GRAPH_CONSTRAINT` `IGraphConstraint` rather than an IFC column on the bag; the dimensional rows ride the dimension-only `Properties/quantity#MEASURE_VALUE` `MeasureValue.OfSi(Dimension, double)` (SI-base, `QuantityType` dimension-anonymous) so an authored and a re-imported `NominalDiameter` content-key byte-identically, and the bag mints through `Graph/element#NODE_MODEL` `NodeId.Content` over `Node.ToCanonicalBytes` so two structurally-identical detail bags dedup to one node — an authored bag carrying a subset of rows a faithfully different node, never a forced byte-match.
+- [REALIZING_DETAIL_SCHEMA]: the `DetailSchema` neutral detail bags split realization from product form. `DetailSchema.Realization` owns the `Rasm_ConnectionRealization` analogue for fastener/weld/adhesive/stud/cast/rebar/connector details (`JointType` plus `FastenerType`/`AccessoryType`/`BarType`/`NominalDiameter`/`NominalLength`/`CrossSectionArea`/`CarriedMemberWidth`/`CarriedMemberDepth`/`EffectiveThroat`/`BondLine`/`Overlap`) with `OccurrenceWins` inheritance and the closed `JointType` allowed-set `Bolted`/`Welded`/`Bonded`/`Bearing`/`Cast`. `DetailSchema.Product` owns panel/deck/membrane product-form rows (`EdgeProfile`/`PanelThickness`/`FieldSpacing`/`EdgeSpacing`/`RibDepth`/`RibPitch`/`MembraneSeam`) with `TypeDrivenOverride` inheritance and no joint allowed-set. IFC Pset names, bSDD resolution, egress mapping, and GlobalId assignment stay in `Rasm.Bim`.

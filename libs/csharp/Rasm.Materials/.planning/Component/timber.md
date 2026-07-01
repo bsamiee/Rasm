@@ -320,7 +320,7 @@ public static class ComponentCatalogue {
 
     // The ComponentFamily.Timber rows folded into the parent component#COMPONENT_OWNER ComponentCatalogue.Build. The
     // cross-section is the ComponentSection.Timber arm carrying the TimberSection (the FIELD, never a peer); the two
-    // independent MaterialId slots (CapacityKey the Mechanical/grade property row, AppearanceId the graph#MATERIAL_LIBRARY
+    // independent MaterialId slots (SubstanceId the Mechanical/grade property row, AppearanceId the graph#MATERIAL_LIBRARY
     // render row) both resolve to the grade-keyed wood row here, distinct columns a coated/treated grade keeps apart.
     // ComponentId's generated [KeyMemberEqualityComparer] ordinal value-equality keys the frozen dictionary, so NO explicit
     // comparer is threaded — ComparerAccessors.StringOrdinal.EqualityComparer is an IEqualityComparer<string>, a type mismatch
@@ -333,7 +333,7 @@ public static class ComponentCatalogue {
                 ComponentSection.Timber(shape.Section),
                 Coring.None,
                 shape.Standard,
-                CapacityKey: MaterialId.Of($"wood.{shape.Section.Grade.Key}"),
+                SubstanceId: MaterialId.Of($"wood.{shape.Section.Grade.Key}"),
                 AppearanceId: MaterialId.Of($"wood.{shape.Section.Grade.Key}"))))
             .ToFrozenDictionary(static r => r.Id, static r => r.Component);
 

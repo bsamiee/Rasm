@@ -21,7 +21,7 @@ THE FASTENER COMPONENTFAMILY and THE BOLT-CAPACITY-AND-ASSEMBLY OWNER. The faste
 using LanguageExt;
 using Rasm.Vectors;                  // PositiveMagnitude (>0 finite magnitude — thread/length/head columns), Dimension (>=1 discrete count — the FastenerAssembly grip-ply/shear-plane carrier) — the kernel value-object atoms live in Rasm.Vectors, NOT Rasm.Domain
 using Rasm.Domain;                   // Op (the boundary-admission key), the AcceptValidated admission extension, Context
-using Rasm.Element;                  // MaterialId (the seam-carried material identity the Component AppearanceId/CapacityKey reference)
+using Rasm.Element;                  // MaterialId (the seam-carried material identity the Component AppearanceId/SubstanceId reference)
 using Rasm.Materials.Component;      // ComponentFamily/ComponentId/Component/ComponentSection/ComponentFault/Coring/ComponentStandard/ComponentAuthority (the parent COMPONENT_OWNER)
 using Thinktecture;
 using static LanguageExt.Prelude;
@@ -72,28 +72,30 @@ public sealed partial class FastenerStandard {
 // does NOT apply to the shank), applied directly in FastenerSection.ShearCapacityKn — and the Preloadable flag (only 8.8 /
 // 10.9 / A325 / A490 admit a slip-critical joint, EN 1993-1-8 §3.9 / RCSC) the FastenerAssembly slip-resistance and the
 // ISO 7090 300 HV washer selection read. The band is the spec-nominal grade the schedule reads; the measured base-metal
-// strength is the properties#MATERIAL_PROPERTY_CATALOGUE Mechanical receipt read by CapacityKey.
+// strength is the properties#MATERIAL_PROPERTY_CATALOGUE Mechanical receipt read by SubstanceId.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class FastenerGrade {
-    public static readonly FastenerGrade Cls46  = new("4.6",  proofStressMpa: 225.0,  tensileStrengthMpa: 400.0,  minimumYieldMpa: 240.0,  shearStrengthFactor: 0.60, standard: FastenerStandard.Iso898,    appearanceId: "metal.iron",  preloadable: false);
-    public static readonly FastenerGrade Cls48  = new("4.8",  proofStressMpa: 310.0,  tensileStrengthMpa: 420.0,  minimumYieldMpa: 340.0,  shearStrengthFactor: 0.50, standard: FastenerStandard.Iso898,    appearanceId: "metal.iron",  preloadable: false);
-    public static readonly FastenerGrade Cls56  = new("5.6",  proofStressMpa: 280.0,  tensileStrengthMpa: 500.0,  minimumYieldMpa: 300.0,  shearStrengthFactor: 0.60, standard: FastenerStandard.Iso898,    appearanceId: "metal.iron",  preloadable: false);
-    public static readonly FastenerGrade Cls58  = new("5.8",  proofStressMpa: 380.0,  tensileStrengthMpa: 500.0,  minimumYieldMpa: 400.0,  shearStrengthFactor: 0.50, standard: FastenerStandard.Iso898,    appearanceId: "metal.iron",  preloadable: false);
-    public static readonly FastenerGrade Cls68  = new("6.8",  proofStressMpa: 440.0,  tensileStrengthMpa: 600.0,  minimumYieldMpa: 480.0,  shearStrengthFactor: 0.50, standard: FastenerStandard.Iso898,    appearanceId: "metal.iron",  preloadable: false);
-    public static readonly FastenerGrade Cls88  = new("8.8",  proofStressMpa: 600.0,  tensileStrengthMpa: 800.0,  minimumYieldMpa: 640.0,  shearStrengthFactor: 0.60, standard: FastenerStandard.Iso898,    appearanceId: "metal.steel", preloadable: true);
-    public static readonly FastenerGrade Cls109 = new("10.9", proofStressMpa: 830.0,  tensileStrengthMpa: 1040.0, minimumYieldMpa: 940.0,  shearStrengthFactor: 0.50, standard: FastenerStandard.Iso898,    appearanceId: "metal.steel", preloadable: true);
-    public static readonly FastenerGrade Cls129 = new("12.9", proofStressMpa: 970.0,  tensileStrengthMpa: 1220.0, minimumYieldMpa: 1100.0, shearStrengthFactor: 0.50, standard: FastenerStandard.Iso898,    appearanceId: "metal.steel", preloadable: false);
-    public static readonly FastenerGrade Gr2    = new("gr2",  proofStressMpa: 379.0,  tensileStrengthMpa: 510.0,  minimumYieldMpa: 393.0,  shearStrengthFactor: 0.60, standard: FastenerStandard.SaeJ429,   appearanceId: "metal.iron",  preloadable: false);
-    public static readonly FastenerGrade Gr5    = new("gr5",  proofStressMpa: 585.0,  tensileStrengthMpa: 827.0,  minimumYieldMpa: 634.0,  shearStrengthFactor: 0.60, standard: FastenerStandard.SaeJ429,   appearanceId: "metal.steel", preloadable: false);
-    public static readonly FastenerGrade Gr8    = new("gr8",  proofStressMpa: 830.0,  tensileStrengthMpa: 1034.0, minimumYieldMpa: 896.0,  shearStrengthFactor: 0.50, standard: FastenerStandard.SaeJ429,   appearanceId: "metal.steel", preloadable: false);
-    public static readonly FastenerGrade A325   = new("a325", proofStressMpa: 585.0,  tensileStrengthMpa: 827.0,  minimumYieldMpa: 634.0,  shearStrengthFactor: 0.60, standard: FastenerStandard.AstmF3125, appearanceId: "metal.steel", preloadable: true);
-    public static readonly FastenerGrade A490   = new("a490", proofStressMpa: 830.0,  tensileStrengthMpa: 1040.0, minimumYieldMpa: 940.0,  shearStrengthFactor: 0.50, standard: FastenerStandard.AstmF3125, appearanceId: "metal.steel", preloadable: true);
+    public static readonly FastenerGrade Cls46  = new("4.6",  proofStressMpa: 225.0,  tensileStrengthMpa: 400.0,  minimumYieldMpa: 240.0,  shearStrengthFactor: 0.60, standard: FastenerStandard.Iso898,    substanceId: "steel.fastener-4_6",  appearanceId: "metal.iron",  preloadable: false);
+    public static readonly FastenerGrade Cls48  = new("4.8",  proofStressMpa: 310.0,  tensileStrengthMpa: 420.0,  minimumYieldMpa: 340.0,  shearStrengthFactor: 0.50, standard: FastenerStandard.Iso898,    substanceId: "steel.fastener-4_8",  appearanceId: "metal.iron",  preloadable: false);
+    public static readonly FastenerGrade Cls56  = new("5.6",  proofStressMpa: 280.0,  tensileStrengthMpa: 500.0,  minimumYieldMpa: 300.0,  shearStrengthFactor: 0.60, standard: FastenerStandard.Iso898,    substanceId: "steel.fastener-5_6",  appearanceId: "metal.iron",  preloadable: false);
+    public static readonly FastenerGrade Cls58  = new("5.8",  proofStressMpa: 380.0,  tensileStrengthMpa: 500.0,  minimumYieldMpa: 400.0,  shearStrengthFactor: 0.50, standard: FastenerStandard.Iso898,    substanceId: "steel.fastener-5_8",  appearanceId: "metal.iron",  preloadable: false);
+    public static readonly FastenerGrade Cls68  = new("6.8",  proofStressMpa: 440.0,  tensileStrengthMpa: 600.0,  minimumYieldMpa: 480.0,  shearStrengthFactor: 0.50, standard: FastenerStandard.Iso898,    substanceId: "steel.fastener-6_8",  appearanceId: "metal.iron",  preloadable: false);
+    public static readonly FastenerGrade Cls88  = new("8.8",  proofStressMpa: 600.0,  tensileStrengthMpa: 800.0,  minimumYieldMpa: 640.0,  shearStrengthFactor: 0.60, standard: FastenerStandard.Iso898,    substanceId: "steel.fastener-8_8",  appearanceId: "metal.steel", preloadable: true);
+    public static readonly FastenerGrade Cls109 = new("10.9", proofStressMpa: 830.0,  tensileStrengthMpa: 1040.0, minimumYieldMpa: 940.0,  shearStrengthFactor: 0.50, standard: FastenerStandard.Iso898,    substanceId: "steel.fastener-10_9", appearanceId: "metal.steel", preloadable: true);
+    public static readonly FastenerGrade Cls129 = new("12.9", proofStressMpa: 970.0,  tensileStrengthMpa: 1220.0, minimumYieldMpa: 1100.0, shearStrengthFactor: 0.50, standard: FastenerStandard.Iso898,    substanceId: "steel.fastener-12_9", appearanceId: "metal.steel", preloadable: false);
+    public static readonly FastenerGrade Gr2    = new("gr2",  proofStressMpa: 379.0,  tensileStrengthMpa: 510.0,  minimumYieldMpa: 393.0,  shearStrengthFactor: 0.60, standard: FastenerStandard.SaeJ429,   substanceId: "steel.fastener-gr2",  appearanceId: "metal.iron",  preloadable: false);
+    public static readonly FastenerGrade Gr5    = new("gr5",  proofStressMpa: 585.0,  tensileStrengthMpa: 827.0,  minimumYieldMpa: 634.0,  shearStrengthFactor: 0.60, standard: FastenerStandard.SaeJ429,   substanceId: "steel.fastener-gr5",  appearanceId: "metal.steel", preloadable: false);
+    public static readonly FastenerGrade Gr8    = new("gr8",  proofStressMpa: 830.0,  tensileStrengthMpa: 1034.0, minimumYieldMpa: 896.0,  shearStrengthFactor: 0.50, standard: FastenerStandard.SaeJ429,   substanceId: "steel.fastener-gr8",  appearanceId: "metal.steel", preloadable: false);
+    public static readonly FastenerGrade A325   = new("a325", proofStressMpa: 585.0,  tensileStrengthMpa: 827.0,  minimumYieldMpa: 634.0,  shearStrengthFactor: 0.60, standard: FastenerStandard.AstmF3125, substanceId: "steel.fastener-a325", appearanceId: "metal.steel", preloadable: true);
+    public static readonly FastenerGrade A490   = new("a490", proofStressMpa: 830.0,  tensileStrengthMpa: 1040.0, minimumYieldMpa: 940.0,  shearStrengthFactor: 0.50, standard: FastenerStandard.AstmF3125, substanceId: "steel.fastener-a490", appearanceId: "metal.steel", preloadable: true);
     public double ProofStressMpa { get; }
     public double TensileStrengthMpa { get; }
     public double MinimumYieldMpa { get; }
     public double ShearStrengthFactor { get; }   // EN 1993-1-8 Table 3.4 αv — the threaded-plane bolt-tensile-to-shear coefficient
     public FastenerStandard Standard { get; }
+    public string SubstanceId { get; }
+    public MaterialId Substance => MaterialId.Of(SubstanceId);
     public string AppearanceId { get; }
     public bool Preloadable { get; }              // only these classes admit a slip-critical (category B/C/E) joint + an ISO 7090 300 HV washer
     public bool Metric => Standard.Metric;
@@ -219,14 +221,13 @@ public readonly record struct FastenerSection(
     PositiveMagnitude AcrossFlatsMm) {
 
     // The FINISH the appearance projection reads (metal.iron for low-carbon cls 4.6/4.8/5.6/SAE Gr2, metal.steel for alloy
-    // cls 8.8/10.9/12.9 and A325/A490), INDEPENDENT from CapacityKey: a galvanized bolt keeps the steel CapacityKey while
-    // its AppearanceId names a zinc-coat finish row, the component#COMPONENT_OWNER two-slot independence.
+    // cls 8.8/10.9/12.9 and A325/A490), INDEPENDENT from SubstanceId: a galvanized bolt keeps the steel SubstanceId while
+    // its AppearanceId stays the base-metal appearance row unless a finish system overrides it above the component.
     public MaterialId AppearanceId => MaterialId.Of(Grade.AppearanceId);
 
-    // The CAPACITY material whose properties#MATERIAL_PROPERTY_CATALOGUE Mechanical row the design seam reads — the bolt's
-    // structural STEEL (metal.steel), sourced INDEPENDENTLY from the AppearanceId finish (a galvanized/coated bolt's
-    // capacity steel and its finish are distinct MaterialIds, neither derived from the other).
-    public MaterialId CapacityKey => MaterialId.Of("metal.steel");
+    // The substance whose properties#MATERIAL_PROPERTY_CATALOGUE Mechanical row the design seam reads — the bolt's
+    // grade-specific structural steel, sourced independently from the AppearanceId finish.
+    public MaterialId SubstanceId => Grade.Substance;
 
     // The generative head/nut/washer envelope (Some for ISO metric coarse, None for inch UNC) the host reads the hex head
     // height + washer-face + nut + washer solids from; the thread form rides Size's derivations, the per-instance length
@@ -317,7 +318,7 @@ public static class ComponentCatalogue {
         from length in key.AcceptValidated<PositiveMagnitude>(candidate: r.LengthMm)
         from flats in key.AcceptValidated<PositiveMagnitude>(candidate: size.AcrossFlatsMm)
         let section = new FastenerSection(kind, grade, size, category, diameter, pitch, length, flats)
-        from item in Component.Of(ComponentFamily.Fastener, r.Designation, new ComponentSection.Fastener(section), Coring.None, Standard, section.CapacityKey, section.AppearanceId, key)
+        from item in Component.Of(ComponentFamily.Fastener, r.Designation, new ComponentSection.Fastener(section), Coring.None, Standard, section.SubstanceId, section.AppearanceId, key)
         select (ComponentId.Of(r.Designation), item);
 
     // ComponentId's generated [KeyMemberEqualityComparer] ordinal value-equality keys the frozen dictionary, so NO explicit

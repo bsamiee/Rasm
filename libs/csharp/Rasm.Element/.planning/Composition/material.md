@@ -118,6 +118,23 @@ public readonly partial record struct MaterialLayer(MaterialId Material, Measure
 public readonly partial record struct MaterialConstituent(MaterialId Material, string Category, double Fraction);
 
 // --- [MODELS] -----------------------------------------------------------------------------
+public readonly record struct PropertyEvidence(string Source, string Reference, Option<int> ValidUntilYear);
+
+public static class PropertyEvidenceDefaults {
+ public static readonly PropertyEvidence Catalogue = new("catalogue", "", Option<int>.None);
+
+ public static PropertyEvidence Declaration(string source, string reference, int validUntilYear) =>
+  new(source, reference, Some(validUntilYear));
+
+ public static PropertyEvidence Normalize(PropertyEvidence evidence) {
+  string source = (evidence.Source ?? "").Trim();
+  string reference = (evidence.Reference ?? "").Trim();
+  return string.IsNullOrWhiteSpace(source)
+   ? Catalogue
+   : new(source.ToLowerInvariant(), reference, evidence.ValidUntilYear);
+ }
+}
+
 // A CLASS-root [Union] + [Equatable] (the [GRAPH_FAMILY] form), NOT a record-root: a class-root union surrenders
 // Thinktecture's record-generated equality, so structural equality AND the member-level structured diff ride Generator.Equals
 // [Equatable] (never stacked on a record-root union). [Equatable] is LOAD-BEARING, not decorative: the Graph/element#NODE_MODEL
@@ -294,7 +311,7 @@ public sealed partial class LifecycleStage {
  public static readonly int Count = Items.Count;
 }
 
-// The procurement currency the Cost case carries — an OPAQUE ISO 4217 alpha-3 token (the SAME neutrality the
+// The unit-cost currency the Cost case carries — an OPAQUE ISO 4217 alpha-3 token (the SAME neutrality the
 // Assessment/assessment#ASSESSMENT_NODE AnalysisRoute and Classification/classification#CLASSIFICATION_AXIS
 // Classification.System tokens hold), NOT a closed seam roster: the currency roster (180+ active codes plus the
 // historic/crypto long tail) is owned by the Rasm.Bim NodaMoney cost algebra, so the seam admits ANY well-formed
@@ -387,9 +404,13 @@ public sealed partial class ImpactCategory {
 [Union]
 [Equatable]
 public abstract partial class MaterialPropertySet {
- private MaterialPropertySet() { }
+ private MaterialPropertySet(PropertyEvidence evidence) {
+  Evidence = PropertyEvidenceDefaults.Normalize(evidence);
+ }
 
- public sealed partial class Mechanical(MeasureValue density, MeasureValue youngsModulus, MeasureValue yieldStrength, MeasureValue ultimateStrength, double poissonsRatio, double thermalExpansionPerK) : MaterialPropertySet {
+ public PropertyEvidence Evidence { get; }
+
+ public sealed partial class Mechanical(MeasureValue density, MeasureValue youngsModulus, MeasureValue yieldStrength, MeasureValue ultimateStrength, double poissonsRatio, double thermalExpansionPerK, PropertyEvidence evidence) : MaterialPropertySet(evidence) {
   public MeasureValue Density { get; } = density;
   public MeasureValue YoungsModulus { get; } = youngsModulus;
   public MeasureValue YieldStrength { get; } = yieldStrength;
@@ -416,7 +437,7 @@ public abstract partial class MaterialPropertySet {
  // the independent in-plane shear, Strength1Parallel/Strength2Perpendicular the two principal compression/bearing
  // strengths (timber's fc0k/fc90k); a third out-of-plane axis is one further column when a genuinely-3D orthotropic
  // consumer admits it, never a parallel case.
- public sealed partial class Orthotropic(MeasureValue density, MeasureValue e1Parallel, MeasureValue e2Perpendicular, MeasureValue shearModulus, MeasureValue strength1Parallel, MeasureValue strength2Perpendicular, double thermalExpansionPerK) : MaterialPropertySet {
+ public sealed partial class Orthotropic(MeasureValue density, MeasureValue e1Parallel, MeasureValue e2Perpendicular, MeasureValue shearModulus, MeasureValue strength1Parallel, MeasureValue strength2Perpendicular, double thermalExpansionPerK, PropertyEvidence evidence) : MaterialPropertySet(evidence) {
   public MeasureValue Density { get; } = density;
   public MeasureValue E1Parallel { get; } = e1Parallel;
   public MeasureValue E2Perpendicular { get; } = e2Perpendicular;
@@ -425,13 +446,13 @@ public abstract partial class MaterialPropertySet {
   public MeasureValue Strength2Perpendicular { get; } = strength2Perpendicular;
   public double ThermalExpansionPerK { get; } = thermalExpansionPerK;
  }
- public sealed partial class Thermal(MeasureValue conductivity, MeasureValue specificHeat, MeasureValue uValue, double vapourResistanceFactor) : MaterialPropertySet {
+ public sealed partial class Thermal(MeasureValue conductivity, MeasureValue specificHeat, MeasureValue uValue, double vapourResistanceFactor, PropertyEvidence evidence) : MaterialPropertySet(evidence) {
   public MeasureValue Conductivity { get; } = conductivity;
   public MeasureValue SpecificHeat { get; } = specificHeat;
   public MeasureValue UValue { get; } = uValue;
   public double VapourResistanceFactor { get; } = vapourResistanceFactor;
  }
- public sealed partial class Acoustic(global::Rasm.Element.Acoustic spectrum) : MaterialPropertySet {
+ public sealed partial class Acoustic(global::Rasm.Element.Acoustic spectrum, PropertyEvidence evidence) : MaterialPropertySet(evidence) {
   public global::Rasm.Element.Acoustic Spectrum { get; } = spectrum;
   // Forwarding reads so the Rasm.Materials marshaller and the Rasm.Compute layered-STC fold read the
   // single-material ratings off the case directly (a.SoundReductionIndexDb / a.StcWeighted), never .Spectrum.x.
@@ -446,7 +467,7 @@ public abstract partial class MaterialPropertySet {
   public int StcWeighted => Spectrum.StcWeighted;
   public int Rw => Spectrum.Rw;
  }
- public sealed partial class Fire(FireRating reaction, SmokeClass smoke, DropletClass droplets, FireResistance resistance) : MaterialPropertySet {
+ public sealed partial class Fire(FireRating reaction, SmokeClass smoke, DropletClass droplets, FireResistance resistance, PropertyEvidence evidence) : MaterialPropertySet(evidence) {
   public FireRating Reaction { get; } = reaction;
   public SmokeClass Smoke { get; } = smoke;
   public DropletClass Droplets { get; } = droplets;
@@ -465,7 +486,7 @@ public abstract partial class MaterialPropertySet {
  // is the immutable owner: it forbids the post-admission mutable-aliasing a ReadOnlyMemory<double> over a double[] admits, and
  // it IS IEnumerable<double> so [OrderedEquality] gives content equality and the StructuralMerge drills a changed cell to
  // Properties[i].Impacts[k]. RecycledContent/EndOfLifeRecovery are EN 15804 resource fractions; Epd/ValidUntilYear the provenance.
- public sealed partial class Environmental(MeasurementBasis basis, ImmutableArray<double> impacts, double recycledContent, double endOfLifeRecovery, string epd, int validUntilYear) : MaterialPropertySet {
+ public sealed partial class Environmental(MeasurementBasis basis, ImmutableArray<double> impacts, double recycledContent, double endOfLifeRecovery, string epd, int validUntilYear, PropertyEvidence evidence) : MaterialPropertySet(evidence) {
   public MeasurementBasis Basis { get; } = basis;
   [property: OrderedEquality] public ImmutableArray<double> Impacts { get; } = impacts;
   public double RecycledContent { get; } = recycledContent;
@@ -533,9 +554,9 @@ public abstract partial class MaterialPropertySet {
   // The matrix row arity OfEnvironmental admits against (every indicator × every stage).
   public static readonly int MatrixArity = ImpactCategory.Count * LifecycleStage.Count;
   // The zero-impact baseline a Rasm.Compute embodied-carbon fold seeds an element-set rollup from (PerM3, the curated default basis).
-  public static readonly Environmental Empty = new(MeasurementBasis.PerM3, [.. new double[MatrixArity]], 0.0, 0.0, "", 0);
+  public static readonly Environmental Empty = new(MeasurementBasis.PerM3, [.. new double[MatrixArity]], 0.0, 0.0, "", 0, PropertyEvidenceDefaults.Catalogue);
  }
- public sealed partial class Cost(MeasurementBasis basis, Currency currency, double supplyPerUnit, double installPerUnit, double lifecyclePerUnit) : MaterialPropertySet {
+ public sealed partial class Cost(MeasurementBasis basis, Currency currency, double supplyPerUnit, double installPerUnit, double lifecyclePerUnit, PropertyEvidence evidence) : MaterialPropertySet(evidence) {
   public MeasurementBasis Basis { get; } = basis;
   public Currency Currency { get; } = currency;
   public double SupplyPerUnit { get; } = supplyPerUnit;
@@ -565,13 +586,19 @@ public abstract partial class MaterialPropertySet {
  // the cross-runtime golden vectors do not shift. The environmental arm count-prefixes the flat impact matrix (Impacts.Length)
  // before its cells so the layout is self-delimiting, the SAME count-then-Double discipline the acoustic banded arm uses.
  public void CanonicalBytes(CanonicalWriter w) => Switch(
-  mechanical:    m => w.Ordinal(0).Measure(m.Density).Measure(m.YoungsModulus).Measure(m.YieldStrength).Measure(m.UltimateStrength).Double(m.PoissonsRatio).Double(m.ThermalExpansionPerK),
-  thermal:       t => w.Ordinal(1).Measure(t.Conductivity).Measure(t.SpecificHeat).Measure(t.UValue).Double(t.VapourResistanceFactor),
-  acoustic:      a => { w.Ordinal(2); return a.Spectrum.CanonicalBytes(w); },
-  fire:          f => w.Ordinal(3).String(f.Reaction.Key).String(f.Smoke.Key).String(f.Droplets.Key).Ordinal(f.Resistance.LoadBearingMinutes).Ordinal(f.Resistance.IntegrityMinutes).Ordinal(f.Resistance.InsulationMinutes),
-  environmental: e => { w.Ordinal(4).String(e.Basis.Key).Ordinal(e.Impacts.Length); foreach (double v in e.Impacts.AsSpan()) { w.Double(v); } return w.Double(e.RecycledContent).Double(e.EndOfLifeRecovery).String(e.Epd).Ordinal(e.ValidUntilYear); },
-  cost:          c => w.Ordinal(5).String(c.Basis.Key).String(c.Currency.Value).Double(c.SupplyPerUnit).Double(c.InstallPerUnit).Double(c.LifecyclePerUnit),
-  orthotropic:   o => w.Ordinal(6).Measure(o.Density).Measure(o.E1Parallel).Measure(o.E2Perpendicular).Measure(o.ShearModulus).Measure(o.Strength1Parallel).Measure(o.Strength2Perpendicular).Double(o.ThermalExpansionPerK));
+  mechanical:    m => CaseBytes(w, 0).Measure(m.Density).Measure(m.YoungsModulus).Measure(m.YieldStrength).Measure(m.UltimateStrength).Double(m.PoissonsRatio).Double(m.ThermalExpansionPerK),
+  thermal:       t => CaseBytes(w, 1).Measure(t.Conductivity).Measure(t.SpecificHeat).Measure(t.UValue).Double(t.VapourResistanceFactor),
+  acoustic:      a => { CaseBytes(w, 2); return a.Spectrum.CanonicalBytes(w); },
+  fire:          f => CaseBytes(w, 3).String(f.Reaction.Key).String(f.Smoke.Key).String(f.Droplets.Key).Ordinal(f.Resistance.LoadBearingMinutes).Ordinal(f.Resistance.IntegrityMinutes).Ordinal(f.Resistance.InsulationMinutes),
+  environmental: e => { CaseBytes(w, 4).String(e.Basis.Key).Ordinal(e.Impacts.Length); foreach (double v in e.Impacts.AsSpan()) { w.Double(v); } return w.Double(e.RecycledContent).Double(e.EndOfLifeRecovery).String(e.Epd).Ordinal(e.ValidUntilYear); },
+  cost:          c => CaseBytes(w, 5).String(c.Basis.Key).String(c.Currency.Value).Double(c.SupplyPerUnit).Double(c.InstallPerUnit).Double(c.LifecyclePerUnit),
+  orthotropic:   o => CaseBytes(w, 6).Measure(o.Density).Measure(o.E1Parallel).Measure(o.E2Perpendicular).Measure(o.ShearModulus).Measure(o.Strength1Parallel).Measure(o.Strength2Perpendicular).Double(o.ThermalExpansionPerK));
+
+ CanonicalWriter CaseBytes(CanonicalWriter w, int ordinal) {
+  w.Ordinal(ordinal).String(Evidence.Source).String(Evidence.Reference).Bool(Evidence.ValidUntilYear.IsSome);
+  Evidence.ValidUntilYear.IfSome(y => w.Ordinal(y));
+  return w;
+ }
 
  // A negative or zero density / stiffness / strength is a physically-impossible material the MeasureValue.Of
  // finiteness gate alone does NOT catch (a negative MPa is finite), so the derived ShearModulus E/(2(1+ν)) and every
@@ -579,7 +606,7 @@ public abstract partial class MaterialPropertySet {
  // the shared Positive guard (finite AND strictly positive). ThermalExpansionPerK is EXCLUDED — a negative coefficient
  // is physical (a negative-thermal-expansion material), so it is finiteness-guarded only (the MeasureValue path does
  // not carry it; the raw double is the carrier), the Poisson ratio its own [0,0.5] isotropic-range guard.
- public static Fin<MaterialPropertySet> OfMechanical(double density, double youngsModulus, double yieldStrength, double ultimateStrength, double poissons, double thermalExpansion, Op key) =>
+ public static Fin<MaterialPropertySet> OfMechanical(double density, double youngsModulus, double yieldStrength, double ultimateStrength, double poissons, double thermalExpansion, Op key, PropertyEvidence evidence = default) =>
   poissons is not (>= 0.0 and <= 0.5)
    ? ElementFault.ValueRejected(key, $"<poisson-out-of-isotropic-range:{poissons:R}>")
    : !double.IsFinite(thermalExpansion)
@@ -590,7 +617,17 @@ public abstract partial class MaterialPropertySet {
        from e in MeasureValue.Of(youngsModulus, UnitsNet.Units.PressureUnit.Megapascal, key)
        from y in MeasureValue.Of(yieldStrength, UnitsNet.Units.PressureUnit.Megapascal, key)
        from u in MeasureValue.Of(ultimateStrength, UnitsNet.Units.PressureUnit.Megapascal, key)
-       select (MaterialPropertySet)new Mechanical(d, e, y, u, poissons, thermalExpansion);
+       from measured in OfMechanical(d, e, y, u, poissons, thermalExpansion, key, evidence)
+       select measured;
+
+ public static Fin<MaterialPropertySet> OfMechanical(MeasureValue density, MeasureValue youngsModulus, MeasureValue yieldStrength, MeasureValue ultimateStrength, double poissons, double thermalExpansion, Op key, PropertyEvidence evidence = default) =>
+  poissons is not (>= 0.0 and <= 0.5)
+   ? ElementFault.ValueRejected(key, $"<poisson-out-of-isotropic-range:{poissons:R}>")
+   : !double.IsFinite(thermalExpansion)
+    ? ElementFault.ValueRejected(key, $"<thermal-expansion-non-finite:{thermalExpansion:R}>")
+    : !Positive(density.Si, youngsModulus.Si, yieldStrength.Si, ultimateStrength.Si)
+     ? ElementFault.ValueRejected(key, "<mechanical-non-positive-column>")
+     : Fin.Succ<MaterialPropertySet>(new Mechanical(density, youngsModulus, yieldStrength, ultimateStrength, poissons, thermalExpansion, evidence));
 
  // The orthotropic structural admission — the two principal moduli (E1∥/E2⊥), the INDEPENDENT shear modulus G, and the
  // two principal strengths as RAW MPa doubles coerced to SI Pressure through the SAME UnitsNet registry OfMechanical
@@ -599,7 +636,7 @@ public abstract partial class MaterialPropertySet {
  // is each column's SI-coercion finiteness the seam smart-constructor already rails ElementFault.ValueRejected on. A
  // material lowers EITHER an isotropic Mechanical OR a directional Orthotropic, never both — the case TYPE is the
  // discriminant the structural runner reads.
- public static Fin<MaterialPropertySet> OfOrthotropic(double density, double e1Parallel, double e2Perpendicular, double shearModulus, double strength1Parallel, double strength2Perpendicular, double thermalExpansion, Op key) =>
+ public static Fin<MaterialPropertySet> OfOrthotropic(double density, double e1Parallel, double e2Perpendicular, double shearModulus, double strength1Parallel, double strength2Perpendicular, double thermalExpansion, Op key, PropertyEvidence evidence = default) =>
   !double.IsFinite(thermalExpansion)
    ? ElementFault.ValueRejected(key, $"<thermal-expansion-non-finite:{thermalExpansion:R}>")
    : !Positive(density, e1Parallel, e2Perpendicular, shearModulus, strength1Parallel, strength2Perpendicular)
@@ -610,13 +647,21 @@ public abstract partial class MaterialPropertySet {
       from g in MeasureValue.Of(shearModulus, UnitsNet.Units.PressureUnit.Megapascal, key)
       from s1 in MeasureValue.Of(strength1Parallel, UnitsNet.Units.PressureUnit.Megapascal, key)
       from s2 in MeasureValue.Of(strength2Perpendicular, UnitsNet.Units.PressureUnit.Megapascal, key)
-      select (MaterialPropertySet)new Orthotropic(rho, e1, e2, g, s1, s2, thermalExpansion);
+      from measured in OfOrthotropic(rho, e1, e2, g, s1, s2, thermalExpansion, key, evidence)
+      select measured;
+
+ public static Fin<MaterialPropertySet> OfOrthotropic(MeasureValue density, MeasureValue e1Parallel, MeasureValue e2Perpendicular, MeasureValue shearModulus, MeasureValue strength1Parallel, MeasureValue strength2Perpendicular, double thermalExpansion, Op key, PropertyEvidence evidence = default) =>
+  !double.IsFinite(thermalExpansion)
+   ? ElementFault.ValueRejected(key, $"<thermal-expansion-non-finite:{thermalExpansion:R}>")
+   : !Positive(density.Si, e1Parallel.Si, e2Perpendicular.Si, shearModulus.Si, strength1Parallel.Si, strength2Perpendicular.Si)
+    ? ElementFault.ValueRejected(key, "<orthotropic-non-positive-column>")
+    : Fin.Succ<MaterialPropertySet>(new Orthotropic(density, e1Parallel, e2Perpendicular, shearModulus, strength1Parallel, strength2Perpendicular, thermalExpansion, evidence));
 
  // The vapour-resistance factor μ is dimensionless and >= 1 by definition (μ = 1 is still air, no material resists
  // vapour LESS than air), so the relational pattern `not (>= 1.0)` rejects below-unity AND NaN (NaN fails `>= 1.0`)
  // in one test — a bare `< 1.0` admits NaN. Conductivity / specific-heat / U-value are strictly positive physical
  // quantities the shared Positive guard rejects a non-positive or non-finite value of before the SI coercion.
- public static Fin<MaterialPropertySet> OfThermal(double conductivity, double specificHeat, double uValue, double vapourResistanceFactor, Op key) =>
+ public static Fin<MaterialPropertySet> OfThermal(double conductivity, double specificHeat, double uValue, double vapourResistanceFactor, Op key, PropertyEvidence evidence = default) =>
   vapourResistanceFactor is not (>= 1.0)
    ? ElementFault.ValueRejected(key, $"<vapour-resistance-factor-below-unity:{vapourResistanceFactor:R}>")
    : !Positive(conductivity, specificHeat, uValue)
@@ -624,17 +669,26 @@ public abstract partial class MaterialPropertySet {
     : from c in MeasureValue.Of(conductivity, UnitsNet.Units.ThermalConductivityUnit.WattPerMeterKelvin, key)
       from s in MeasureValue.Of(specificHeat, UnitsNet.Units.SpecificEntropyUnit.JoulePerKilogramKelvin, key)
       from u in MeasureValue.Of(uValue, UnitsNet.Units.HeatTransferCoefficientUnit.WattPerSquareMeterKelvin, key)
-      select (MaterialPropertySet)new Thermal(c, s, u, vapourResistanceFactor);
+      from measured in OfThermal(c, s, u, vapourResistanceFactor, key, evidence)
+      select measured;
 
- public static MaterialPropertySet OfAcoustic(global::Rasm.Element.Acoustic spectrum) => new Acoustic(spectrum);
+ public static Fin<MaterialPropertySet> OfThermal(MeasureValue conductivity, MeasureValue specificHeat, MeasureValue uValue, double vapourResistanceFactor, Op key, PropertyEvidence evidence = default) =>
+  vapourResistanceFactor is not (>= 1.0)
+   ? ElementFault.ValueRejected(key, $"<vapour-resistance-factor-below-unity:{vapourResistanceFactor:R}>")
+   : !Positive(conductivity.Si, specificHeat.Si, uValue.Si)
+    ? ElementFault.ValueRejected(key, "<thermal-non-positive-column>")
+    : Fin.Succ<MaterialPropertySet>(new Thermal(conductivity, specificHeat, uValue, vapourResistanceFactor, evidence));
+
+ public static MaterialPropertySet OfAcoustic(global::Rasm.Element.Acoustic spectrum, PropertyEvidence evidence = default) =>
+  new Acoustic(spectrum, evidence);
 
  // The 2-arg form defaults the smoke/droplet sub-class (NotSpecified) for a reaction-class-only datasheet; the full
  // form admits the complete EN 13501-1 "B-s1,d0" classification. Both total — a FireRating/FireResistance carry their own admission.
- public static MaterialPropertySet OfFire(FireRating reaction, FireResistance resistance) =>
-  new Fire(reaction, SmokeClass.NotSpecified, DropletClass.NotSpecified, resistance);
+ public static MaterialPropertySet OfFire(FireRating reaction, FireResistance resistance, PropertyEvidence evidence = default) =>
+  new Fire(reaction, SmokeClass.NotSpecified, DropletClass.NotSpecified, resistance, evidence);
 
- public static MaterialPropertySet OfFire(FireRating reaction, SmokeClass smoke, DropletClass droplets, FireResistance resistance) =>
-  new Fire(reaction, smoke, droplets, resistance);
+ public static MaterialPropertySet OfFire(FireRating reaction, SmokeClass smoke, DropletClass droplets, FireResistance resistance, PropertyEvidence evidence = default) =>
+  new Fire(reaction, smoke, droplets, resistance, evidence);
 
  // Every Impacts cell is its ImpactCategory's characterization quantity PER the basis unit — the caller declares the EPD's
  // native MeasurementBasis (the EC3 ingress tags the declared_unit basis, the Materials catalogue passes PerM3 for its
@@ -645,14 +699,14 @@ public abstract partial class MaterialPropertySet {
  // declaring fewer indicators (the carbon-only EC3 ingress) zeroes the un-declared rows so the matrix arity is invariant. The
  // characterization units are domain bases not SI dimensions, so the cells carry raw magnitudes guarded FINITE here (the
  // admission the derived IndicatorAt/Gwp/WholeLife reads then trust — a NaN cell is rejected once, never surfaced through a read).
- public static Fin<MaterialPropertySet> OfEnvironmental(MeasurementBasis basis, ImmutableArray<double> impacts, double recycledContent, double endOfLifeRecovery, string epd, int validUntilYear, Op key) =>
+ public static Fin<MaterialPropertySet> OfEnvironmental(MeasurementBasis basis, ImmutableArray<double> impacts, double recycledContent, double endOfLifeRecovery, string epd, int validUntilYear, Op key, PropertyEvidence evidence = default) =>
   impacts.IsDefaultOrEmpty || impacts.Length != Environmental.MatrixArity
    ? ElementFault.ValueRejected(key, $"<environmental-impact-arity:{(impacts.IsDefault ? -1 : impacts.Length)}:expected={Environmental.MatrixArity}>")
    : !AllFinite(impacts.AsSpan())
     ? ElementFault.ValueRejected(key, "<environmental-impact-non-finite>")
     : recycledContent is not (>= 0.0 and <= 1.0) || endOfLifeRecovery is not (>= 0.0 and <= 1.0)
      ? ElementFault.ValueRejected(key, "<environmental-fraction-out-of-unit>")
-     : Fin.Succ<MaterialPropertySet>(new Environmental(basis, impacts, recycledContent, endOfLifeRecovery, epd, validUntilYear));
+     : Fin.Succ<MaterialPropertySet>(new Environmental(basis, impacts, recycledContent, endOfLifeRecovery, epd, validUntilYear, evidence));
 
  // The cell finiteness guard the Environmental admission folds the impact matrix through — a span scan (the value primitive
  // the matrix admission shares) so the derived IndicatorAt/Gwp/WholeLife reads never surface a NaN the content hash would also
@@ -666,10 +720,10 @@ public abstract partial class MaterialPropertySet {
  // (NaN fails `>= 0.0`) in one test where a bare `< 0.0` admits NaN, and the explicit IsFinite rejects +∞ (which
  // passes `>= 0.0`): a NaN or infinite per-unit cost would otherwise enter the content hash through the raw-double
  // columns the MeasureValue finiteness gate never sees, so the seam guards the cost columns the way it guards a measure.
- public static Fin<MaterialPropertySet> OfCost(Currency currency, MeasurementBasis basis, double supply, double install, double lifecycle, Op key) =>
+ public static Fin<MaterialPropertySet> OfCost(Currency currency, MeasurementBasis basis, double supply, double install, double lifecycle, Op key, PropertyEvidence evidence = default) =>
   !double.IsFinite(supply) || !double.IsFinite(install) || !double.IsFinite(lifecycle) || supply is not (>= 0.0) || install is not (>= 0.0) || lifecycle is not (>= 0.0)
    ? ElementFault.ValueRejected(key, "<cost-non-finite-or-negative-column>")
-   : Fin.Succ<MaterialPropertySet>(new Cost(basis, currency, supply, install, lifecycle));
+   : Fin.Succ<MaterialPropertySet>(new Cost(basis, currency, supply, install, lifecycle, evidence));
 
  // The shared positivity guard the structural/thermal admissions fold their physical-quantity columns through —
  // finite AND strictly positive (a span scan over the raw doubles, the AllFinite idiom, never a per-column ternary

@@ -190,7 +190,7 @@ dependencies = [
     "pyvista; python_version<'3.15'",                # [ARTIFACTS]: 3D scientific visualization
     "python-barcode",                                # [ARTIFACTS]: linear barcode symbologies beside the segno QR arm
     "python-docx",
-    "python-magic",
+    "python-magic",                                  # [ARTIFACTS]: libmagic broad-database fallback behind the puremagic in-process default detect sniffer (retained for niche leaf signatures magic_data.json lacks, never the default path)
     "python-pptx",
     "segno",                                         # [ARTIFACTS]: QR and Micro-QR vector codes
     "svgelements",                                   # [ARTIFACTS]: SVG geometry, transform, and parse helpers
@@ -222,7 +222,7 @@ dependencies = [
     "puremagic",                                     # [ARTIFACTS]: pure-Python format sniffer, default detect path beside libmagic
     "pyexiv2; python_version<'3.15'",                # [ARTIFACTS]: in-process EXIF/IPTC/XMP read/write (wheels-only, no cp315 wheel yet)
     "grandalf",                                      # [ARTIFACTS]: Sugiyama and routed diagram layout (fallback until fast-sugiyama parity lands)
-    "iptcinfo3",                                     # [ARTIFACTS]: IPTC descriptive-metadata read/write
+    "iptcinfo3",                                     # [ARTIFACTS]: IPTC raster metadata; superseded on the raster carrier by the pyexiftool/pyexiv2 cross-format pass, retained per roster lock — final-reconciliation removal candidate
     "pdfimpose",                                     # [ARTIFACTS]: press signatures, creep, cuts, and folds
     "psdtags",                                       # [ARTIFACTS]: Photoshop TIFF image resources and layer source data
     "pyphen",                                        # [ARTIFACTS]: language-aware hyphenation dictionaries
@@ -234,7 +234,7 @@ dependencies = [
     "lets-plot; python_version<'3.15'",              # [ARTIFACTS]: host-free grammar-of-graphics render to svg/png/pdf
     "python-bidi",                                   # [ARTIFACTS]: UAX 9 bidi reorder pass before HarfBuzz shaping
     "python-calamine",                               # [ARTIFACTS]: fast xlsx/xlsb/xls/ods reader
-    "python-xmp-toolkit",                            # [ARTIFACTS]: XMP packet read/write for descriptive metadata
+    "python-xmp-toolkit",                            # [ARTIFACTS]: XMP packet read/write; superseded on the raster carrier by the pyexiftool/pyexiv2 cross-format pass (pikepdf owns PDF/XMP), retained per roster lock — final-reconciliation removal candidate
     "uniseg",                                        # [ARTIFACTS]: Unicode line, word, and grapheme segmentation
     "usd-core; python_version<'3.15'",               # [ARTIFACTS]: USD/USDZ scene packaging
     "zxing-cpp",                                     # [ARTIFACTS]: 2D matrix codes encode and decode

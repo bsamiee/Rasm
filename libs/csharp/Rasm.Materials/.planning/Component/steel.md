@@ -121,16 +121,18 @@ public sealed partial class CompactnessClass {
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SteelGrade {
-    public static readonly SteelGrade A36  = new("a36",  nominalYieldMpa: 250.0, enGrade: None, delivery: EnSteelDeliveryCondition.AR);
-    public static readonly SteelGrade A992 = new("a992", nominalYieldMpa: 345.0, enGrade: None, delivery: EnSteelDeliveryCondition.AR);
-    public static readonly SteelGrade A572 = new("a572", nominalYieldMpa: 345.0, enGrade: None, delivery: EnSteelDeliveryCondition.AR);
-    public static readonly SteelGrade S235 = new("s235", nominalYieldMpa: 235.0, enGrade: Some(EnSteelGrade.S235), delivery: EnSteelDeliveryCondition.AR);
-    public static readonly SteelGrade S275 = new("s275", nominalYieldMpa: 275.0, enGrade: Some(EnSteelGrade.S275), delivery: EnSteelDeliveryCondition.AR);
-    public static readonly SteelGrade S355 = new("s355", nominalYieldMpa: 355.0, enGrade: Some(EnSteelGrade.S355), delivery: EnSteelDeliveryCondition.AR);
-    public static readonly SteelGrade S420 = new("s420", nominalYieldMpa: 420.0, enGrade: Some(EnSteelGrade.S420), delivery: EnSteelDeliveryCondition.N);
-    public static readonly SteelGrade S450 = new("s450", nominalYieldMpa: 440.0, enGrade: Some(EnSteelGrade.S450), delivery: EnSteelDeliveryCondition.AR);
-    public static readonly SteelGrade S460 = new("s460", nominalYieldMpa: 460.0, enGrade: Some(EnSteelGrade.S460), delivery: EnSteelDeliveryCondition.N);
+    public static readonly SteelGrade A36  = new("a36",  nominalYieldMpa: 250.0, substanceId: "steel.a36",  enGrade: None, delivery: EnSteelDeliveryCondition.AR);
+    public static readonly SteelGrade A992 = new("a992", nominalYieldMpa: 345.0, substanceId: "steel.a992", enGrade: None, delivery: EnSteelDeliveryCondition.AR);
+    public static readonly SteelGrade A572 = new("a572", nominalYieldMpa: 345.0, substanceId: "steel.a572", enGrade: None, delivery: EnSteelDeliveryCondition.AR);
+    public static readonly SteelGrade S235 = new("s235", nominalYieldMpa: 235.0, substanceId: "steel.s235", enGrade: Some(EnSteelGrade.S235), delivery: EnSteelDeliveryCondition.AR);
+    public static readonly SteelGrade S275 = new("s275", nominalYieldMpa: 275.0, substanceId: "steel.s275", enGrade: Some(EnSteelGrade.S275), delivery: EnSteelDeliveryCondition.AR);
+    public static readonly SteelGrade S355 = new("s355", nominalYieldMpa: 355.0, substanceId: "steel.s355", enGrade: Some(EnSteelGrade.S355), delivery: EnSteelDeliveryCondition.AR);
+    public static readonly SteelGrade S420 = new("s420", nominalYieldMpa: 420.0, substanceId: "steel.s420", enGrade: Some(EnSteelGrade.S420), delivery: EnSteelDeliveryCondition.N);
+    public static readonly SteelGrade S450 = new("s450", nominalYieldMpa: 440.0, substanceId: "steel.s450", enGrade: Some(EnSteelGrade.S450), delivery: EnSteelDeliveryCondition.AR);
+    public static readonly SteelGrade S460 = new("s460", nominalYieldMpa: 460.0, substanceId: "steel.s460", enGrade: Some(EnSteelGrade.S460), delivery: EnSteelDeliveryCondition.N);
     public double NominalYieldMpa { get; }
+    public string SubstanceId { get; }
+    public MaterialId Substance => MaterialId.Of(SubstanceId);
     public Option<EnSteelGrade> EnGrade { get; }
     public EnSteelDeliveryCondition Delivery { get; }
 
@@ -167,6 +169,7 @@ public sealed record SteelShape(
     SteelClass Class,
     ComputedSection Section,
     SectionDims Dims,
+    SteelGrade Grade,
     ComponentStandard Standard,
     Option<CompositeDetail> Composite = default,
     Option<ColdFormedDetail> ColdFormed = default);
@@ -488,13 +491,13 @@ public static class ComponentCatalogue {
 
     // CreateAmerican/CreateEuropean mint the catalogue ONCE; ClassOf resolves the class (hollow by geometry, open by the
     // family fold), and SectionReader.Read returns the ComputedSection AND its dims in one pass (no duplicate family-cast).
-    static Fin<SteelShape> AmericanShapeOf(American id, Op key) => ShapeOf(CatalogueFactory.CreateAmerican(id), $"steel.{id.ToString().ToLowerInvariant()}", Aisc, key);
-    static Fin<SteelShape> EuropeanShapeOf(European id, Op key) => ShapeOf(CatalogueFactory.CreateEuropean(id), $"steel.{id.ToString().ToLowerInvariant()}", En, key);
+    static Fin<SteelShape> AmericanShapeOf(American id, Op key) => ShapeOf(CatalogueFactory.CreateAmerican(id), $"steel.{id.ToString().ToLowerInvariant()}", SteelGrade.A992, Aisc, key);
+    static Fin<SteelShape> EuropeanShapeOf(European id, Op key) => ShapeOf(CatalogueFactory.CreateEuropean(id), $"steel.{id.ToString().ToLowerInvariant()}", SteelGrade.S355, En, key);
 
-    static Fin<SteelShape> ShapeOf(ICatalogue cat, string designation, ComponentStandard standard, Op key) =>
+    static Fin<SteelShape> ShapeOf(ICatalogue cat, string designation, SteelGrade grade, ComponentStandard standard, Op key) =>
         from cls in ClassOf(cat, key)
         from read in SectionReader.Read(cat, cls, key)
-        select new SteelShape(ComponentId.Of(designation), cls, read.Section, read.Dims, standard);
+        select new SteelShape(ComponentId.Of(designation), cls, read.Section, read.Dims, grade, standard);
 
     // The ONE catalogue→class resolution: the round-vs-rectangular hollow split is the ICircularHollow/IRectangularHollow
     // GEOMETRY interface — a round HSS and a rectangular HSS carry the SAME AmericanShape.HSS family value (verified:
@@ -552,7 +555,7 @@ public static class ComponentCatalogue {
     // ComponentSection.Steel(shape) — the SteelShape carries the canonical ComputedSection + dims + class, so the Component
     // holds no separate steel ComponentUnit (the cross-section IS the field). Steel is ComponentClass.Primary (the
     // IfcBuiltElement stratum ComponentFamily.Steel derives), Coring.None (no void class), the two INDEPENDENT MaterialId
-    // slots the structural metal.steel Mechanical-property row (CapacityKey) and the stable metal.iron render row
+    // slots the grade-specific structural-steel Mechanical-property row (SubstanceId) and the stable metal.iron render row
     // (AppearanceId). The Id is the pre-validated ComponentId from Shapes, so the row takes the direct Component ctor (the
     // total form, no Fin) over the Context-uniform builder signature component#COMPONENT_OWNER ComponentCatalogue.Build folds
     // — the section integral ran once at Shapes build, never per row (the SAME shape timber#TIMBER_FAMILY BuildTimberRows uses).
@@ -567,7 +570,7 @@ public static class ComponentCatalogue {
                 ComponentSection.Steel(shape),
                 Coring.None,
                 shape.Standard,
-                CapacityKey: MaterialId.Of("metal.steel"),
+                SubstanceId: shape.Grade.Substance,
                 AppearanceId: MaterialId.Of("metal.iron"))))
             .ToFrozenDictionary(static r => r.Id, static r => r.Component);
 }
@@ -576,7 +579,7 @@ public static class ComponentCatalogue {
 ## [03]-[RESEARCH]
 
 - [CANONICAL_COMPUTEDSECTION]: REALIZED — the steel family produces the ONE canonical `component#COMPONENT_OWNER` `ComputedSection` (the twenty-field strong-AND-weak-axis receipt `Area`/`IxMm4`/`IyMm4`/`SxMm3`/`SyMm3`/`RxMm`/`RyMm`/`ZxMm3`/`ZyMm3`/`JMm4`/`IwMm6`/`AvyMm2`/`AvzMm2`/`DepthMm`/`WidthMm`/`HeatedPerimeterMm`/`AxisDistanceMm`/`ShearCentreYMm`/`ShearCentreZMm`/`MonosymmetryFactor`) that `ParametricSection` produces for the rectangle families, NOT a parallel narrow `SteelSection` receipt (the deleted form). `SectionReader.Read` runs `new SectionProperties((IProfile)catalogue)` for the elastic columns and `SteelStiffness.Derive` for the plastic/torsion/warping/shear AND asymmetric-section LTB columns the elastic integral cannot yield, so a steel W-shape and a glulam rectangle resolve their section through the SAME `[03]` `component#COMPONENT_RESOLUTION` cache the structural-design seam reads via `graph.SectionOf(member)`. The steel family is the one that FILLS the `IwMm6` warping column `component#COMPONENT_OWNER` `ComputedSection` reserves for the OPEN thin-walled shape (the EN 1993-1-1 §6.3.2 / AISC 360 Ch F lateral-torsional-buckling input the rectangle families leave engineering-zero), the distinct `AvyMm2`/`AvzMm2` web-vs-flange shear areas, AND the `ShearCentreYMm`/`ShearCentreZMm` shear-centre offsets + `MonosymmetryFactor` β_y the EN 1993-1-1 §6.3.2 GENERAL LTB route needs for a singly-symmetric channel/tee/angle (engineering-zero for a doubly-symmetric I/HSS/solid, the seam `IsDoublySymmetric` reading them symmetric). Ripple counterpart: `Component/component` `[COMPONENT_OWNER]`/`[COMPONENT_RESOLUTION]` (the `ComputedSection` shape this family fills and the one-hop cache the `SteelSections` map feeds).
-- [CROSS_SECTION_AS_COMPONENT_FIELD]: REALIZED — the steel cross-section is a `ComponentSection.Steel(SteelShape)` FIELD of the `Component`, never a peer object — the unified Material/Component/Element paradigm makes the cross-section a column on the standardized TYPE. `ComponentCatalogue.BuildSteelRows` projects each realized `SteelShape` to a steel `Component` through the direct `Component` ctor (the total form, the `Id` a pre-validated `ComponentId` from `Shapes`, the SAME shape `timber#TIMBER_FAMILY` `BuildTimberRows` uses): `ComponentFamily.Steel`, `ComponentSection.Steel(shape)` (the `SteelShape` carrying the canonical `ComputedSection` + dims + class), `Coring.None`, the AISC/EN `ComponentStandard`, and the two INDEPENDENT `MaterialId` slots — the structural `metal.steel` `Mechanical`-property `CapacityKey` and the stable `metal.iron` render `AppearanceId` (the FROZEN appearance column preserved). Steel carries no separate `ComponentUnit` because the catalogued geometry IS the field, and is a `ComponentClass.Primary` member (the space-bounding `IfcBuiltElement` stratum `ComponentFamily.Steel` derives). Ripple counterpart: `Component/component` `[COMPONENT_OWNER]` (the `Component` record + the `ComponentSection` `[Union]` whose `Steel` arm carries this page's `SteelShape`).
+- [CROSS_SECTION_AS_COMPONENT_FIELD]: REALIZED — the steel cross-section is a `ComponentSection.Steel(SteelShape)` FIELD of the `Component`, never a peer object — the unified Material/Component/Element paradigm makes the cross-section a column on the standardized TYPE. `ComponentCatalogue.BuildSteelRows` projects each realized `SteelShape` to a steel `Component` through the direct `Component` ctor (the total form, the `Id` a pre-validated `ComponentId` from `Shapes`, the SAME shape `timber#TIMBER_FAMILY` `BuildTimberRows` uses): `ComponentFamily.Steel`, `ComponentSection.Steel(shape)` (the `SteelShape` carrying the canonical `ComputedSection` + dims + class), `Coring.None`, the AISC/EN `ComponentStandard`, and the two INDEPENDENT `MaterialId` slots — the structural `metal.steel` `Mechanical`-property `SubstanceId` and the stable `metal.iron` render `AppearanceId` (the FROZEN appearance column preserved). Steel carries no separate `ComponentUnit` because the catalogued geometry IS the field, and is a `ComponentClass.Primary` member (the space-bounding `IfcBuiltElement` stratum `ComponentFamily.Steel` derives). Ripple counterpart: `Component/component` `[COMPONENT_OWNER]` (the `Component` record + the `ComponentSection` `[Union]` whose `Steel` arm carries this page's `SteelShape`).
 - [CATALOGUE_GROUNDED_SEED]: REALIZED — the hand-keyed `SteelRow` literal table is the deleted form; `BuildSteelRows` seeds from the `VividOrange.Profiles.Catalogue` registered database (`CatalogueFactory.CreateAmerican(American)` / `CreateEuropean(European)` minting the sealed-singleton `IProfile` carrying published `UnitsNet.Length` geometry), and every elastic section property is COMPUTED by the `VividOrange.Sections.SectionProperties` Green's-theorem polygon integral over that `IProfile` rather than transcribed. The `AmericanSeed`/`EuropeanSeed` enum lists select the realized subset of the 2299 American + 558 European sections — spanning every published family (W/S/HP i-shape, C/MC channel, L + DoubleL angle, HSS-rect, the round HSS, Pipe, WT/ST/MT tee on the American side; IPE/HEA/HEB/HEM/IPN/UC i-shape + UPN channel on the European side) — a new section is one `American`/`European` enum value added to a seed, its full geometry already registered behind the `CatalogueFactory` singleton, never a `SteelRow` of literal doubles. The European heavy series names `HE<size>M` (`European.HE300M`), never `HEM300` (the catalogue identity is the section name; `HEM` is the `EuropeanShape` family value). The catalogue's `IIParallelFlange.FilletRadius` and the HSS corner radii integrate EXACTLY through the solver's typed quarter-ellipse decomposition, so the computed `Ix`/`Sx` carry the fillet without the polygonized loss a straight-shoelace integration incurs (`api-vividorange-sections-sectionproperties.md` `[POLYGON_INTEGRAL_CONTRACT]`).
 - [TOTAL_FAMILY_FOLD]: REALIZED — `SteelClass.OfShape(AmericanShape, key)` and `OfShape(EuropeanShape, key)` are TOTAL `Fin`-returning folds over the published 13 American / 25 European families: the H/I families (`UB`/`UC`/`HEA`/`HEB`/`HEM`/`HEC`/`HE`/`HL`/`HLZ`/`HD`/`HP`/`UBP`/`IPN`/`IPEAA`/`IPEA`/`IPE`/`IPEO`/`IPEV`/`J`) → `IShape`, the channel families (`UPE`/`PFC`/`UPN`/`U`/`CH`) → `UShape`, with the American `L`/`DoubleL`/`WT`/`MT`/`ST` mapping to `LShape`/`DoubleAngle`/`Tee`; an unrecognized family rails `ComponentFault.Family`. The EN families are exclusively i-shape and channel — EN 10365 publishes NO European angle/hollow/tee family — so the two `OfShape(EuropeanShape)` arms exhaust all 25 members (the `_` arm is the defensive unrecognized-family rail). The prior `_ => IShape` silent default — which mis-classified a family as an I-shape and seeded a wrong slenderness — is the deleted runtime-silent default arm. The `SteelTopology` (open/closed/solid) carried on each `SteelClass` is the ONE discriminant the `SteelStiffness` closed forms and the `CompactnessClass` slenderness model branch on, never a per-class duplicate.
 - [HOLLOW_TOPOLOGY_BY_GEOMETRY]: REALIZED — AISC assigns BOTH a round HSS and a rectangular HSS the SAME `AmericanShape.HSS` family value (verified: `HSS13_375x_625` is `ICircularHollow`, `HSS8x8x_500` is `IRoundedRectangularHollow`, both `Shape => AmericanShape.HSS`), so the family enum CANNOT distinguish round from rectangular — the round/rect split is the `ComponentCatalogue.ClassOf` `ICircularHollow`/`IRectangularHollow` GEOMETRY discriminant tested BEFORE the `OfShape` family fold. A round HSS therefore resolves `SteelClass.HssRound` (the round-tube polar `J`, the `D/t` Table B4.1 classification, `IfcCircleHollowProfileDef`) rather than the rectangular closed-form a family-only dispatch (`OfShape(HSS) => HssRect`) mis-applies; a rectangular HSS resolves `HssRect`, a `Pipe` resolves `HssRound`. `OfShape(AmericanShape.HSS)` stays the rectangular family default for completeness, but `ClassOf`'s geometry pre-empt is authoritative for the catalogue path. Ripple counterpart: `Component/component` `[COMPONENT_OWNER]` (the `ComputedSection` the round-tube closed form fills correctly under the geometry split).

@@ -4,14 +4,18 @@ Rasm is a RhinoWIP and Grasshopper2 monorepo for product-neutral AEC libraries, 
 
 Rasm is a polyglot AEC platform organized into strict strata: the C# branch is the Rhino9(WIP)/GH2-aware producer (the geometry kernel, the host-neutral AEC-domain, the app-platform, and the host boundaries); Python is the host-free science/compute/data/geometry/IFC companion; TypeScript is the host-free web/edge platform. The three branches couple only at the wire. The canonical hierarchy — the strata, the dependency direction, the universal-vs-Rhino-capture rule, and the geometry/mesh/IFC flow — is owned by `libs/.planning/architecture.md`.
 
+All content within `libs/` is meant to power hundreds, if not thousands of future apps of various kinds, in-host on Rhino 9/WIP, gh2, or totally standalone, remote, web, etc. The `libs/` folder is meant to provide all of the core logic, functionality, and features in such a way that it works in Rhino/gh2 as well as agnostic standalone instances. The functionality provided should also allow for the creation of complex, advanced, and extremely feature/capability rich apps with minimal code, no boilerplate, ceremony, or agent overhead. All functionality must be made with agent first considerations, such that an agent should not need to know hundreds of custom API's/function calls, but instead, the `libs/` code internalized/integrated it, fully capturing the rhino/gh2 + external packaging API/capabilities, and created higher order abstractions, allowing for flexible/powerful app creation through parameterization, and polymorphism.
+
+NOTE: It is crucial that EACH folder within `libs/` is made with immense focus on entry points, and usage pattern, envisioning downstream/future apps and how they will use the functionality, we do NOT want knob/ceremony spam, instead, internalizing, automating/integrating features and capabilities with intelligence to be multi-modal, faceted and automatic so agents have far less opportunity to handroll or incorrectly use capabilities we made within `libs/`.
+
 ## [01]-[TARGET]
 
-- RhinoWIP on macOS.
+- [CRITICAL]: Rhino 9/WIP on macOS (WIP will eventually be Rhino 9)
 - `net10.0` for hosted plugins and shared C# projects.
 - Grasshopper product surfaces through `Grasshopper2`.
 - Yak package output for Mac package roots.
 - Polyglot workspace roots: C# libraries and plugins, Python tooling, TypeScript/web surfaces and generated wire consumers.
-- Out of scope: GH1 `.gha`, Rhino 8 target, Windows package target, RhinoCode publishing path, speculative Rhino command shells, and app-side reinvention of shared library capability.
+- Out of scope: NO GH1 `.gha` OR Rhino 8 target, Windows package target, RhinoCode publishing path, speculative Rhino command shells, and app-side reinvention of shared library capability.
 
 ## [02]-[TOPOLOGY]
 

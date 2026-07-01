@@ -1,54 +1,65 @@
 # [PY_ARTIFACTS_FONT]
 
-The font-binary engineering owner over the document rail. `FontEngineering` is ONE owner that takes a font (variable or static) and folds it through a closed `FontOp` family into a minimized, instanced, axis-introspected, outline-bridged, embed-validated deliverable: fonttools `subset.Subsetter` reduces the embedded glyph footprint, `varLib.instancer.instantiateVariableFont` partial-axis-instances through the `AxisLimit` pin-range-drop policy under the typed `InstancePolicy` knob struct, the `fvar`/`STAT` tables project into a typed `AxisCatalog` of named instances and axis ranges, `SVGPathPen` bridges each glyph to its real vector `d`-path, and an embed-completeness audit folds the glyph-coverage / cmap-closure / table-presence facts a downstream PDF/A close requires. `fonttools` is the single package this owner composes; the `subset` -> `instance` -> `embed-precondition` chain is consumed by `document/emit#DOCUMENT` `FONT_EMBED`, the face selection and variation location by `typography/shape#SHAPE`, and the embed-audit precondition by `exchange/conformance#CONFORMANCE`. Every arm returns a `RuntimeRail[ContentKey]` keyed by the runtime content key and contributes one `ArtifactReceipt.Pdf`.
+The font-binary engineering owner over the document rail. `FontEngineering` is ONE owner that takes a font (variable or static) plus a discriminated `FontJob` and folds it into a minimized, instanced, compiled, axis-introspected, outline-metered, feature-frozen, merged, or embed-validated deliverable. The job is a closed per-mode `@tagged_union` — each case carries ONLY its own fields, so a `SUBSET` job never sees a merge's extra fonts and a `COMPILE` job never sees a subset's retention map, collapsing the prior permissive `FontParams` bag whose ten fields were irrelevant to most ops. `fontTools` owns the binary model (`subset.Subsetter` footprint pruning, `varLib.instancer.instantiateVariableFont` partial-axis instancing, `varLib.build` variable-font compilation from a designspace, the `fvar`/`STAT` axis introspection, the `pens` outline algebra, `merge.Merger` multi-font combination, `feaLib.addOpenTypeFeaturesFromString` OpenType-Layout feature authoring, and the `unicodedata` script/OT-tag resolver); `opentype-feature-freezer` owns the categorical-best GSUB→`cmap` freeze. The `subset`/`instance`/`merge`/`freeze`/`feature`/`compile` chain feeds `document/emit#DOCUMENT` `FONT_EMBED` (the `dict[str, bytes]` face map consumed verbatim), the `axis_catalog`/`ScriptTags` face-selection feeds `typography/shape#SHAPE`, and the `embed_audit` `EmbedReport.complete` gates the `exchange/conformance#CONFORMANCE` PDF/A close. Every arm returns a `RuntimeRail[ContentKey]` keyed by the runtime content key; pure/offline — boundary-synchronous, no worker seam.
 
 ## [01]-[INDEX]
 
-- [01]-[FONT]: fonttools subset/partial-instance/axis-introspection/outline/embed-audit owner over the closed `FontOp` step table; `AxisLimit` is the per-axis pin-range-drop instancing policy, `InstancePolicy` the closed instancer knob struct, and `AxisCatalog` the `fvar`/`STAT` axis-and-named-instance projection the shape and embed arms read.
+- [02]-[FONT]: fontTools + opentype-feature-freezer font-binary owner over the closed `FontJob` per-mode union — `SUBSET`/`INSTANCE`/`AXIS_CATALOG`/`OUTLINE`/`EMBED_AUDIT`/`MERGE`/`FREEZE`/`FEATURE`/`COMPILE` folded by one total `apply` `match`; `AxisLimit` the per-axis pin-range-drop instancing policy, `InstancePolicy` the closed instancer knob struct, `FreezePolicy` the opentype-feature-freezer options carrier, `AxisCatalog` the `fvar`+`STAT` axis-and-named-instance projection, `OutlineCatalog` the per-glyph SVG-`d`-path plus `AreaPen`/`BoundsPen`/`StatisticsPen` outline-quality metrics, `DesignSpace` the `varLib.build` compilation input, `EmbedReport` the PDF/A embed-precondition, and `ScriptTags` the `unicodedata` script→OT-tag+direction resolution the shape face-selection seam consumes.
 
 ## [02]-[FONT]
 
-- Owner: `FontEngineering` the one font-binary owner discriminating the engineering step; `FontOp` the closed `StrEnum` over footprint subsetting, partial-axis instancing, axis introspection, outline extraction, and embed validation; one frozen `_FONT_TABLE` `MappingProxyType` data-row dispatch maps each step to its `FontAcceptor` with zero `match`/`case` sprawl, the closed `StrEnum` membership total over the table by construction. fonttools owns the binary font model, the partial/full instancer, the glyph/feature/table subsetter, the pen outline algebra, and the `fvar`/`STAT`/`cmap` introspection the catalog. `AxisLimit` is the per-axis pin-range-drop policy whose `of`/`resolve` lower a scalar to a static pin, a `(lower, upper)` tuple to a partial range, or `None` to an axis drop; `InstancePolicy` collapses the open `inplace`/`optimize`/`updateFontNames` keyword bag into three typed fields whose `keywords()` projection spreads the closed knob set; `AxisCatalog` and `EmbedReport` are the two carried value-object sub-owners the `AXIS_CATALOG` and `EMBED_AUDIT` arms fold.
-- Cases: `FontOp` rows `SUBSET` (fontTools `subset.Subsetter(Options(...))` -> `populate(unicodes=...)` -> `subset(font)` -> `TTFont.save`, the `Options` policy carrying `layout_features`/`name_IDs`/`hinting`/`flavor`/`retain_gids`/`glyph_names`/`desubroutinize`/`drop_tables`/`harfbuzz_repacker` retention as one typed knob map, never a hand-pruned table walk) · `INSTANCE` (`varLib.instancer.instantiateVariableFont(font, axisLimits, **InstancePolicy.keywords())` over the per-axis `AxisLimit` policy — a scalar `pin` collapses the axis to a static instance, a `(lower, upper)` partial-range keeps the axis variable inside the clamped span, and an empty limit drops the axis at its default; `OverlapMode.KEEP_AND_SET_FLAGS` is the instancer overlap default the `InstancePolicy` does not override) · `AXIS_CATALOG` (the `fvar` axis-and-named-instance read plus the `STAT` design-axis-record projection folded into a typed `AxisCatalog` — `font["fvar"].axes` axis tag/min/default/max/flags, `font["fvar"].instances` named-instance coordinate maps, and the `STAT` design-axis records resolved into `AxisCatalog.axes`/`named_instances`, the introspection the `SHAPE` variation location and the `INSTANCE` limit validation consume) · `OUTLINE` (the `TTFont.getGlyphSet()[name].draw(SVGPathPen(glyphSet))` -> `SVGPathPen.getCommands()` vector bridge producing each glyph's SVG `d`-path, the `glyf`/`CFF` outline read through the pen protocol, never a raw coordinate decode) · `EMBED_AUDIT` (the embed-completeness fold over the subsetted/instanced font — glyph coverage against the requested Unicode set through `TTFont.getBestCmap`, cmap closure, required-table presence over `TTFont.keys`, and post-subset glyph count into a typed `EmbedReport` whose `complete` projection gates the PDF/A `FONT_EMBED` precondition `document/emit#DOCUMENT` and the PDF/A close `exchange/conformance#CONFORMANCE` require) — selected by the frozen `_FONT_TABLE` row, never a chain of `is`-probes; the instancing policy is the `InstancePolicy` knob struct carried in `params`, the per-axis limit the `AxisLimit` policy, and the subset retention the `subset.Options` knob map, each a typed value not an open keyword bag.
-- Auto: subsetting folds the used glyph set through `Subsetter(Options(**subset_options))` `populate(unicodes=...)` then `subset(font)` then `TTFont.save`; instancing folds the per-axis `AxisLimit.of(raw).resolve()` map into a `fontTools.varLib.instancer.AxisLimits` and calls `instantiateVariableFont(font, axisLimits, **InstancePolicy.keywords())` where `pin` collapses the axis to a static value, `(lower, upper)` restricts it to a partial range, and an empty limit drops it; axis introspection reads `font["fvar"].axes` (each `Axis(axisTag, minValue, defaultValue, maxValue, flags)`) and `font["fvar"].instances` plus the `STAT` design-axis records into an `AxisCatalog` of `(tag, minimum, default, maximum, hidden)` axis rows and `(name, coordinates)` named-instance rows; outline extraction loads `TTFont.getGlyphSet(location=...)` and folds each requested glyph through `glyph_set[name].draw(SVGPathPen(glyph_set))` then `SVGPathPen.getCommands()`; the embed audit resolves `TTFont.getBestCmap()`, intersects the requested Unicode set against the cmap keys for coverage, checks the required-table tag set against `TTFont.keys()`, counts `getGlyphOrder()`, and folds an `EmbedReport`.
-- Receipt: every arm projects its output onto the shared `core/receipt#RECEIPT` `ArtifactReceipt` family, never a per-step receipt — the `SUBSET`/`INSTANCE`/`OUTLINE` arms contribute `ArtifactReceipt.Pdf` carrying the content key, the output byte count, and the glyph count (the page-count slot reused for the glyph count of a font deliverable), the `AXIS_CATALOG` arm contributes `ArtifactReceipt.Document` carrying the content key and the encoded `AxisCatalog` byte length, and the `EMBED_AUDIT` arm contributes `ArtifactReceipt.Pdf` carrying the content key, the post-subset byte count, and the covered-glyph count whose `EmbedReport.complete` flag the embed-precondition consumer reads off the content-key derivation. The axis ranges, named-instance coordinates, cmap-closure result, and required-table presence the `AXIS_CATALOG`/`EMBED_AUDIT` arms compute stay interior evidence the arm folds into its content-key derivation, not new receipt fields the shared `Pdf`/`Document` cases cannot carry.
-- Packages: `fonttools` (settled: `subset.Subsetter`/`subset.Options`/`ttLib.TTFont`/`TTFont.save`/`TTFont.getGlyphSet`/`TTFont.getBestCmap`/`TTFont.getGlyphOrder`/`TTFont.keys`/`pens.svgPathPen.SVGPathPen`/`SVGPathPen.getCommands`/`varLib.instancer.instantiateVariableFont`/`varLib.instancer.AxisLimits`/`OverlapMode.KEEP_AND_SET_FLAGS`, the `fvar` `font["fvar"].axes`/`instances` axis-and-named-instance read and the `font["fvar"]`/`font["STAT"]` table access; RESEARCH: the `STAT` `font["STAT"].table.DesignAxisRecord`/`AxisValueArray` member spellings the catalogue rows as table access without enumerating the `STAT` sub-record members), runtime (`content_identity.ContentIdentity`, `faults.RuntimeRail`/`boundary`), `msgspec` (`Struct`/`msgpack.Encoder`).
-- Growth: a new font-engineering step is one `FontOp` row plus one `_FONT_TABLE` acceptor entry; a new subset-retention knob is one field on the `subset.Options` map; a new instancer knob is one field on `InstancePolicy`; a new axis-introspection fact is one field on `AxisCatalog`; a new embed-audit fact is one field on `EmbedReport`; a WOFF/WOFF2 re-flavor is the `subset.Options.flavor` row, never a parallel writer; zero new surface.
-- Boundary: no PDF authoring (that stays at `document/emit#DOCUMENT`), no text shaping (that is `typography/shape#SHAPE`), no PAdES/PDF security (that is `exchange/conformance#CONFORMANCE`); the owner transforms a font binary and proves it embeddable, never producing a document. The `SUBSET`/`INSTANCE` arms produce the `dict[str, bytes]` face-to-bytes map the `document/emit#DOCUMENT` `FONT_EMBED` arm consumes verbatim and the `EMBED_AUDIT` `EmbedReport.complete` is the precondition the PDF/A close reads. The uharfbuzz `SubsetInput`/`subset` and `subset.Options(harfbuzz_repacker=True)` HarfBuzz repacker are the rejected duplicate of the fontTools `SUBSET` footprint — fontTools owns subsetting for Python-native feature-policy control through `Options`; a hand-pruned `glyf`/`CFF` table walk is the rejected duplicate of `Subsetter.subset`, a per-instance hand-assembled static cut the rejected duplicate of `instantiateVariableFont`, a hand-coded `fvar`/`STAT` decode the rejected duplicate of the `font[tag]` table read, and a raw outline-coordinate decode the rejected duplicate of the `SVGPathPen` pen bridge. A second `_woff`/`_woff2`-style writer function pair, a parallel `_AxisLimit`/`_InstancePolicy` struct beside the policy, and a weak `dict[str, object]` instancer keyword bag are the collapsed forms — `AxisLimit` carries the per-axis pin-range-drop, `InstancePolicy.keywords()` spreads the closed instancer knobs, and `subset.Options` carries the retention policy. The `AXIS_CATALOG` arm reads `fvar`/`STAT` over the live `TTFont` rather than re-parsing the binary tables, and the `EMBED_AUDIT` arm reads cmap/table presence over `TTFont.getBestCmap`/`keys` rather than a hand-rolled completeness scan.
+- Owner: `FontEngineering` the one font-binary owner `(font, job)` discriminating the engineering step; `FontJob` the closed per-mode `@tagged_union` whose every case carries only its op's payload, folded by one total `apply(font)` `match` closed by `assert_never`, the closed family membership total over the arms by construction (the collapsed form of the prior permissive `FontParams` whose ten fields most ops ignored). fontTools owns the binary model, the partial/full instancer, the variable-font compiler, the glyph/feature/table subsetter, the pen outline algebra, the multi-font merger, the OpenType-Layout feature compiler, and the `fvar`/`STAT`/`cmap`/`unicodedata` introspection; opentype-feature-freezer owns the GSUB→`cmap` freeze fontTools does not provide as a one-call op. `AxisLimit` lowers a scalar to a static pin, a `(lower, upper)` tuple to a partial range, or `None` to an axis drop; `InstancePolicy` collapses the open `inplace`/`optimize`/`updateFontNames` keyword bag into three typed fields; `FreezePolicy` spreads the freezer's `features`/`script`/`lang`/`suffix`/`usesuffix`/`replacenames`/`zapnames`/`info` field set through one `namespace()` projection; `AxisCatalog`/`OutlineCatalog`/`EmbedReport`/`ScriptTags` are the carried value-object sub-owners the read arms fold.
+- Cases: `FontJob` cases — `SUBSET(unicodes, options)` (`subset.Subsetter(subset.Options(**options))` → `populate(unicodes=)` → `subset(font)` → `save`, the `Options` policy carrying `layout_features`/`name_IDs`/`hinting`/`flavor`/`retain_gids`/`glyph_names`/`desubroutinize`/`drop_tables`/`harfbuzz_repacker` retention as one typed knob map; the `Options.flavor` row re-flavors to WOFF/WOFF2 in the same pass) · `INSTANCE(axes, policy)` (`instancer.instantiateVariableFont(font, AxisLimits(limits), **policy.keywords())` over the per-axis `AxisLimit` map, `OverlapMode.KEEP_AND_SET_FLAGS` the instancer overlap default) · `AXIS_CATALOG` (the `fvar` axis-and-named-instance read plus the `STAT` design-axis-record projection folded into a typed `AxisCatalog` — `font["fvar"].axes` tag/min/default/max/flags, `font["fvar"].instances` named-instance coordinates, and `font["STAT"].table.DesignAxisRecord.Axis` `AxisTag`/`AxisNameID`/`AxisOrdering` style-attribute axes that supplement `fvar`) · `OUTLINE(glyph_names, location)` (`getGlyphSet(location=)[name].draw(RecordingPen())` replayed once into `SVGPathPen`/`AreaPen`/`BoundsPen`/`StatisticsPen` — the SVG `d`-path plus the signed contour area, exact glyph bbox, and slant outline-quality metrics folded into an `OutlineCatalog`, the outline traversed exactly once per glyph) · `EMBED_AUDIT(unicodes)` (the embed-completeness fold — glyph coverage against the requested set through `getBestCmap`, required-table presence over `keys`, and post-subset glyph count into an `EmbedReport` whose `complete` gates the `FONT_EMBED` precondition) · `MERGE(extras)` (`merge.Merger().merge([path, *extra_paths])` combining the anchor font and its `extras` binaries across a temp-path round-trip — the multi-font combine `[03]`-mandated tier-1 gain) · `FREEZE(policy)` (`opentype_feature_freezer.RemapByOTL(policy.namespace(...)).run()` over a temp-path round-trip, reading `engine.success` into the rail rather than trusting a silent return — bakes a GSUB single/alternate feature set into the default `cmap` for non-OpenType consumers, the categorical-best freeze) · `FEATURE(source)` (`feaLib.builder.addOpenTypeFeaturesFromString(font, source)` compiling `.fea` Layout features into GSUB/GPOS/GDEF — the feature-authoring half a font-engineering owner needs) · `COMPILE(designspace)` (`designspaceLib.DesignSpaceDocument` built from the anchor master at `default_location` plus the `DesignSpace.sources` masters, then `varLib.build(doc)` — the variable-font-authoring inverse of `INSTANCE`, masters spilled to temp paths) — selected by the frozen closed union, never a chain of `is`-probes.
+- Auto: `SUBSET`/`INSTANCE`/`FEATURE` load the font through `TTFont(io.BytesIO(font))`, apply the transform, and `save(io.BytesIO())`; `MERGE`/`FREEZE`/`COMPILE` spill their binary inputs to temp paths through `_spill` (the merger, freezer, and varLib consume file paths), run, and read the output path back, `unlink`ing in a `finally`; `AXIS_CATALOG` reads `fvar.axes`/`instances` and, when `"STAT" in font`, `font["STAT"].table.DesignAxisRecord.Axis` (guarded `None`), folding both axis families into `AxisCatalog`; `OUTLINE` records each glyph once through `RecordingPen` then replays into the four pens, reading `SVGPathPen.getCommands()`, `AreaPen.value`, `BoundsPen.bounds`, and `StatisticsPen.slant`; `EMBED_AUDIT` intersects the requested Unicode set against `getBestCmap` keys, checks `_REQUIRED_TABLES` against `keys()`, counts `getGlyphOrder()`, and folds an `EmbedReport`; `ScriptTags.of(script)` resolves `unicodedata.ot_tags_from_script(script)` and `script_horizontal_direction(script)`, and `ScriptTags.itemize(text)` resolves the ordered-unique scripts a run carries into the per-script OT-tag+direction rows the shape face-selection reads.
+- Receipt: every arm projects onto the shared `core/receipt#RECEIPT` `ArtifactReceipt` family, never a per-step receipt — the font-binary deliverables (`SUBSET`/`INSTANCE`/`MERGE`/`FREEZE`/`FEATURE`/`COMPILE`) contribute `ArtifactReceipt.Pdf` carrying the content key, the output byte count, and the glyph count (the page-count slot reused for a font's glyph count); the catalog reads (`AXIS_CATALOG`/`OUTLINE`) contribute `ArtifactReceipt.Document` carrying the content key and the encoded catalog byte length; `EMBED_AUDIT` contributes `ArtifactReceipt.Pdf` carrying the content key, the byte count, and the covered-glyph count whose `EmbedReport.complete` the embed-precondition consumer reads. The axis ranges, STAT ordering, outline metrics, cmap-closure result, and required-table presence stay interior evidence the arm folds into its content-key derivation, not new receipt fields the shared cases cannot carry.
+- Packages: `fonttools` (settled: `subset.Subsetter`/`Options`, `ttLib.TTFont`/`save`/`getGlyphSet`/`getBestCmap`/`getGlyphOrder`/`keys`, `pens.svgPathPen.SVGPathPen`/`areaPen.AreaPen`/`boundsPen.BoundsPen`/`statisticsPen.StatisticsPen`/`recordingPen.RecordingPen`, `varLib.instancer.instantiateVariableFont`/`AxisLimits`/`OverlapMode`, `varLib.build`, `merge.Merger`, `feaLib.builder.addOpenTypeFeaturesFromString`, `designspaceLib.DesignSpaceDocument`/`AxisDescriptor`/`SourceDescriptor`, `unicodedata.ot_tags_from_script`/`script_horizontal_direction`/`script`, the `font["fvar"]`/`font["STAT"].table.DesignAxisRecord.Axis` table access; growth: `colorLib.builder.buildCOLR`/`buildCPAL` and `cu2qu`/`qu2cu`+`TTGlyphPen`/`T2CharStringPen` as the one-arm `COLOR`/`CONVERT` additions), `opentype-feature-freezer` (`RemapByOTL`/`run`/`success`), runtime (`content_identity.ContentIdentity`/`ContentKey`, `faults.RuntimeRail`/`boundary`), `msgspec` (`Struct`/`msgpack.Encoder`).
+- Growth: a new font-engineering step is one `FontJob` case plus one `apply` arm plus one `_op` function (the `assert_never` tail breaking the match until the arm exists); a new subset-retention knob is one field on the `subset.Options` map; a new instancer knob is one field on `InstancePolicy`; a new freeze knob is one field on `FreezePolicy`; a new axis-introspection fact is one field on `AxisCatalog`; a new outline metric is one field on `GlyphOutline` reading one more pen; a `COLOR` colour-glyph arm is `colorLib.builder.buildCOLR`/`buildCPAL` via `FontBuilder.setupCOLR`/`setupCPAL` as one case; a `CONVERT` CFF↔glyf re-flavor is `cu2qu.curve_to_quadratic`/`qu2cu.quadratic_to_curves` + `TTGlyphPen`/`T2CharStringPen` as one case; a WOFF/WOFF2 re-flavor is the `subset.Options.flavor` row, never a parallel writer; zero new surface.
+- Boundary: no PDF authoring (`document/emit#DOCUMENT`), no text shaping (`typography/shape#SHAPE`), no PAdES/PDF security (`exchange/conformance#CONFORMANCE`); the owner transforms a font binary and proves it embeddable, never producing a document. The `SUBSET`/`INSTANCE`/`MERGE`/`FREEZE`/`FEATURE`/`COMPILE` arms produce the `dict[str, bytes]` face-to-bytes map the `FONT_EMBED` arm consumes verbatim and the `EMBED_AUDIT` `EmbedReport.complete` is the PDF/A precondition. The uharfbuzz `SubsetInput`/`subset` HarfBuzz subsetter is the rejected duplicate of the fontTools `SUBSET` footprint (fontTools owns subsetting for Python-native `Options` feature-policy control); a hand-pruned `glyf`/`CFF` table walk is the rejected duplicate of `Subsetter.subset`, a per-instance hand-assembled static cut the rejected duplicate of `instantiateVariableFont`, a hand-assembled variable font the rejected duplicate of `varLib.build`, a hand-walked GSUB `ScriptList`/`FeatureList`/`LookupList` traversal or hand-built `cmap` rewrite the rejected duplicate of `RemapByOTL`, a hand-built GSUB/GPOS the rejected duplicate of `addOpenTypeFeaturesFromString`, a hand-coded `fvar`/`STAT` decode the rejected duplicate of the `font[tag]` read, a raw outline-coordinate decode the rejected duplicate of the pen bridge, a Python-list font-merge the rejected duplicate of `Merger.merge`, and a hand-coded script→OT-tag map the rejected duplicate of `unicodedata`. A permissive `FontParams` bag whose fields most ops ignore, a parallel `_woff` writer, and a `dict[str, object]` instancer keyword bag are the collapsed forms — the per-mode `FontJob` case carries only its op's fields.
 
 ```python signature
+# --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 import io
-from collections.abc import Callable, Mapping, Sequence
-from enum import StrEnum
-from types import MappingProxyType
-from typing import Final
+from collections.abc import Mapping
+from contextlib import ExitStack
+from pathlib import Path
+from tempfile import NamedTemporaryFile
+from types import SimpleNamespace
+from typing import Final, Literal, assert_never
 
 import msgspec
+from expression import case, tag, tagged_union
 from msgspec import Struct
 
 from rasm.runtime.content_identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import RuntimeRail, boundary
 
-lazy from fontTools import subset
+lazy from fontTools import subset, unicodedata
+lazy from fontTools.designspaceLib import AxisDescriptor, DesignSpaceDocument, SourceDescriptor
+lazy from fontTools.feaLib.builder import addOpenTypeFeaturesFromString
+lazy from fontTools.merge import Merger
+lazy from fontTools.pens.areaPen import AreaPen
+lazy from fontTools.pens.boundsPen import BoundsPen
+lazy from fontTools.pens.recordingPen import RecordingPen
+lazy from fontTools.pens.statisticsPen import StatisticsPen
 lazy from fontTools.pens.svgPathPen import SVGPathPen
-lazy from fontTools.ttLib import TTFont
+lazy from fontTools.ttLib import TTFont, TTLibError
+lazy from fontTools.varLib import build as build_varfont
 lazy from fontTools.varLib import instancer
+lazy from opentype_feature_freezer import RemapByOTL
+
+# --- [TYPES] ---------------------------------------------------------------------------
 
 type AxisPin = float | tuple[float, float] | None
 type AxisValue = float | tuple[float | None, float | None] | None
-type FontAcceptor = Callable[["FontEngineering"], bytes]
+type FontOpTag = Literal["subset", "instance", "axis_catalog", "outline", "embed_audit", "merge", "freeze", "feature", "compile"]
+
+# --- [CONSTANTS] -----------------------------------------------------------------------
 
 _REQUIRED_TABLES: Final[frozenset[str]] = frozenset({"cmap", "head", "hhea", "hmtx", "maxp", "name", "post"})
-_CATALOG_ENCODER: Final = msgspec.msgpack.Encoder()
-_REPORT_ENCODER: Final = msgspec.msgpack.Encoder()
+_HIDDEN_AXIS: Final = 0x0001  # fvar Axis flags HIDDEN_AXIS bit
+_ENCODER: Final = msgspec.msgpack.Encoder()
 
-
-class FontOp(StrEnum):
-    SUBSET = "subset"
-    INSTANCE = "instance"
-    AXIS_CATALOG = "axis_catalog"
-    OUTLINE = "outline"
-    EMBED_AUDIT = "embed_audit"
+# --- [MODELS] --------------------------------------------------------------------------
 
 
 class AxisLimit(Struct, frozen=True):
@@ -83,12 +94,30 @@ class InstancePolicy(Struct, frozen=True):
         return {"inplace": self.inplace, "optimize": self.optimize, "updateFontNames": self.update_font_names}
 
 
+class FreezePolicy(Struct, frozen=True, kw_only=True):
+    features: str = ""  # comma-separated GSUB tags: "smcp,c2sc,onum"
+    script: str | None = None
+    lang: str | None = None
+    suffix: bool = False
+    usesuffix: str = ""
+    replacenames: str = ""
+    zapnames: bool = False
+    info: bool = False
+
+    def namespace(self, inpath: str, outpath: str) -> object:
+        return SimpleNamespace(
+            inpath=inpath, outpath=outpath, features=self.features, script=self.script, lang=self.lang,
+            suffix=self.suffix, usesuffix=self.usesuffix, replacenames=self.replacenames, zapnames=self.zapnames,
+            info=self.info, report=False, names=False,
+        )
+
+
 class AxisRecord(Struct, frozen=True):
     tag: str
     minimum: float
     default: float
     maximum: float
-    hidden: bool
+    hidden: bool = False
 
 
 class NamedInstance(Struct, frozen=True):
@@ -96,13 +125,32 @@ class NamedInstance(Struct, frozen=True):
     coordinates: Mapping[str, float]
 
 
+class StatAxis(Struct, frozen=True):
+    tag: str        # STAT AxisTag
+    name_id: int    # AxisNameID
+    ordering: int   # AxisOrdering
+
+
 class AxisCatalog(Struct, frozen=True):
-    axes: tuple[AxisRecord, ...]
-    named_instances: tuple[NamedInstance, ...]
+    axes: tuple[AxisRecord, ...]                 # fvar variation axes
+    named_instances: tuple[NamedInstance, ...]   # fvar named instances
+    design_axes: tuple[StatAxis, ...] = ()       # STAT style-attribute axes supplementing fvar
 
     @property
     def axis_count(self) -> int:
         return len(self.axes)
+
+
+class GlyphOutline(Struct, frozen=True):
+    name: str
+    path: str                                    # SVG d-path
+    area: float                                  # AreaPen signed contour area
+    bounds: tuple[float, float, float, float]    # BoundsPen exact bbox
+    slant: float                                 # StatisticsPen slant (outline-quality metric)
+
+
+class OutlineCatalog(Struct, frozen=True):
+    glyphs: tuple[GlyphOutline, ...]
 
 
 class EmbedReport(Struct, frozen=True):
@@ -116,103 +164,201 @@ class EmbedReport(Struct, frozen=True):
         return self.covered == self.requested and not self.missing_tables
 
 
-class FontParams(Struct, frozen=True, kw_only=True):
-    unicodes: tuple[int, ...] = ()
-    subset_options: Mapping[str, object] = {}
-    axes: Mapping[str, AxisPin] = {}
-    instance_policy: InstancePolicy = InstancePolicy()
-    glyph_names: tuple[str, ...] = ()
-    location: Mapping[str, float] = {}
+class ScriptTags(Struct, frozen=True):
+    script: str                # ISO 15924 code, e.g. "Latn"
+    ot_tags: tuple[str, ...]    # OpenType script tags — multiple for Indic v1/v2 (e.g. "dev2"/"deva")
+    direction: str             # "LTR" / "RTL"
+
+    @staticmethod
+    def of(script: str) -> "ScriptTags":
+        return ScriptTags(script, tuple(unicodedata.ot_tags_from_script(script)), unicodedata.script_horizontal_direction(script))
+
+    @staticmethod
+    def itemize(text: str) -> tuple["ScriptTags", ...]:
+        return tuple(ScriptTags.of(script) for script in dict.fromkeys(unicodedata.script(ch) for ch in text))
+
+
+class MasterSource(Struct, frozen=True):
+    font: bytes
+    location: Mapping[str, float]
+
+
+class DesignSpace(Struct, frozen=True, kw_only=True):
+    axes: tuple[AxisRecord, ...]              # tag/min/default/max per variation axis
+    default_location: Mapping[str, float]     # the location of the anchor `font`
+    sources: tuple[MasterSource, ...]         # the additional masters
+
+
+@tagged_union(frozen=True)
+class FontJob:
+    tag: FontOpTag = tag()
+    subset: tuple[tuple[int, ...], Mapping[str, object]] = case()  # unicodes, subset.Options kwargs
+    instance: tuple[Mapping[str, AxisPin], InstancePolicy] = case()
+    axis_catalog: None = case()
+    outline: tuple[tuple[str, ...], Mapping[str, float]] = case()  # glyph names, variation location
+    embed_audit: tuple[int, ...] = case()                          # requested unicodes
+    merge: tuple[bytes, ...] = case()                              # additional font binaries
+    freeze: FreezePolicy = case()
+    feature: str = case()                                          # .fea source
+    compile: DesignSpace = case()
+
+    def apply(self, font: bytes) -> bytes:
+        match self:
+            case FontJob(tag="subset", subset=(unicodes, options)):
+                return _subset(font, unicodes, options)
+            case FontJob(tag="instance", instance=(axes, policy)):
+                return _instance(font, axes, policy)
+            case FontJob(tag="axis_catalog"):
+                return _axis_catalog(font)
+            case FontJob(tag="outline", outline=(names, location)):
+                return _outline(font, names, location)
+            case FontJob(tag="embed_audit", embed_audit=unicodes):
+                return _embed_audit(font, unicodes)
+            case FontJob(tag="merge", merge=extras):
+                return _merge(font, extras)
+            case FontJob(tag="freeze", freeze=policy):
+                return _freeze(font, policy)
+            case FontJob(tag="feature", feature=source):
+                return _feature(font, source)
+            case FontJob(tag="compile", compile=space):
+                return _compile(font, space)
+            case _:
+                assert_never(self)
 
 
 class FontEngineering(Struct, frozen=True):
-    step: FontOp
     font: bytes
-    params: FontParams
+    job: FontJob
 
     def engineer(self) -> RuntimeRail[ContentKey]:
-        return boundary(f"font.{self.step}", self._emit)
+        return boundary(f"font.{self.job.tag}", self._emit)
 
     def _emit(self) -> ContentKey:
-        return ContentIdentity.of(f"font-{self.step}", _FONT_TABLE[self.step](self))
+        return ContentIdentity.of(f"font-{self.job.tag}", self.job.apply(self.font))
+
+# --- [OPERATIONS] ----------------------------------------------------------------------
 
 
-def _subset_font(engineering: "FontEngineering") -> bytes:
-    font = TTFont(io.BytesIO(engineering.font))
-    subsetter = subset.Subsetter(options=subset.Options(**engineering.params.subset_options))
-    subsetter.populate(unicodes=engineering.params.unicodes)
-    subsetter.subset(font)
+def _spill(data: bytes, suffix: str, /) -> Path:
+    path = Path(NamedTemporaryFile(suffix=suffix, delete=False).name)
+    path.write_bytes(data)  # the freezer/merger/varLib consume file paths, not bytes
+    return path
+
+
+def _subset(font: bytes, unicodes: tuple[int, ...], options: Mapping[str, object]) -> bytes:
+    ttfont = TTFont(io.BytesIO(font))
+    subsetter = subset.Subsetter(options=subset.Options(**options))
+    subsetter.populate(unicodes=unicodes)
+    subsetter.subset(ttfont)
     sink = io.BytesIO()
-    font.save(sink)
+    ttfont.save(sink)
     return sink.getvalue()
 
 
-def _instance_font(engineering: "FontEngineering") -> bytes:
-    font = TTFont(io.BytesIO(engineering.font))
-    limits: dict[str, AxisValue] = {tag: AxisLimit.of(raw).resolve() for tag, raw in engineering.params.axes.items()}
-    instance = instancer.instantiateVariableFont(
-        font, instancer.AxisLimits(limits), **engineering.params.instance_policy.keywords()
-    )
+def _instance(font: bytes, axes: Mapping[str, AxisPin], policy: InstancePolicy) -> bytes:
+    ttfont = TTFont(io.BytesIO(font))
+    limits: dict[str, AxisValue] = {tag: AxisLimit.of(raw).resolve() for tag, raw in axes.items()}
+    instance = instancer.instantiateVariableFont(ttfont, instancer.AxisLimits(limits), **policy.keywords())
     sink = io.BytesIO()
     instance.save(sink)
     return sink.getvalue()
 
 
-def _axis_catalog(engineering: "FontEngineering") -> bytes:
-    font = TTFont(io.BytesIO(engineering.font), lazy=True)
-    fvar = font["fvar"]
-    axes = tuple(
-        AxisRecord(axis.axisTag, axis.minValue, axis.defaultValue, axis.maxValue, bool(axis.flags & 0x0001))
-        for axis in fvar.axes
-    )
-    named = tuple(
-        NamedInstance(_instance_name(font, instance), dict(instance.coordinates))
-        for instance in fvar.instances
-    )
-    return _CATALOG_ENCODER.encode(AxisCatalog(axes=axes, named_instances=named))
+def _stat_axes(ttfont: object) -> tuple[StatAxis, ...]:
+    if "STAT" not in ttfont or (records := ttfont["STAT"].table.DesignAxisRecord) is None:
+        return ()
+    return tuple(StatAxis(rec.AxisTag, rec.AxisNameID, rec.AxisOrdering) for rec in records.Axis)
 
 
-def _instance_name(font: object, instance: object) -> str:
-    record = font["name"].getDebugName(instance.subfamilyNameID)
+def _instance_name(ttfont: object, instance: object) -> str:
+    record = ttfont["name"].getDebugName(instance.subfamilyNameID)
     return record if record is not None else f"instance-{instance.subfamilyNameID}"
 
 
-def _outline_paths(engineering: "FontEngineering") -> bytes:
-    font = TTFont(io.BytesIO(engineering.font))
-    glyph_set = font.getGlyphSet(location=dict(engineering.params.location) or None)
-    names = engineering.params.glyph_names or tuple(glyph_set.keys())
-    paths: dict[str, str] = {}
+def _axis_catalog(font: bytes) -> bytes:
+    ttfont = TTFont(io.BytesIO(font), lazy=True)
+    fvar = ttfont["fvar"]
+    axes = tuple(AxisRecord(a.axisTag, a.minValue, a.defaultValue, a.maxValue, bool(a.flags & _HIDDEN_AXIS)) for a in fvar.axes)
+    named = tuple(NamedInstance(_instance_name(ttfont, i), dict(i.coordinates)) for i in fvar.instances)
+    return _ENCODER.encode(AxisCatalog(axes=axes, named_instances=named, design_axes=_stat_axes(ttfont)))
+
+
+def _outline(font: bytes, glyph_names: tuple[str, ...], location: Mapping[str, float]) -> bytes:
+    glyph_set = TTFont(io.BytesIO(font)).getGlyphSet(location=dict(location) or None)
+    names = glyph_names or tuple(glyph_set.keys())
+    glyphs: list[GlyphOutline] = []
     for name in names:
-        pen = SVGPathPen(glyph_set)
-        glyph_set[name].draw(pen)
-        paths[name] = pen.getCommands()
-    return _CATALOG_ENCODER.encode(paths)
+        record, svg, area, bounds, stats = RecordingPen(), SVGPathPen(glyph_set), AreaPen(glyph_set), BoundsPen(glyph_set), StatisticsPen(glyph_set)
+        glyph_set[name].draw(record)  # traverse the outline ONCE, replay into every pen
+        for pen in (svg, area, bounds, stats):
+            record.replay(pen)
+        glyphs.append(GlyphOutline(name=name, path=svg.getCommands(), area=area.value, bounds=bounds.bounds or (0.0, 0.0, 0.0, 0.0), slant=stats.slant))
+    return _ENCODER.encode(OutlineCatalog(glyphs=tuple(glyphs)))
 
 
-def _embed_audit(engineering: "FontEngineering") -> bytes:
-    font = TTFont(io.BytesIO(engineering.font), lazy=True)
-    cmap = font.getBestCmap()
-    requested = frozenset(engineering.params.unicodes) or frozenset(cmap.keys())
+def _embed_audit(font: bytes, unicodes: tuple[int, ...]) -> bytes:
+    ttfont = TTFont(io.BytesIO(font), lazy=True)
+    cmap = ttfont.getBestCmap()
+    requested = frozenset(unicodes) or frozenset(cmap.keys())
     covered = sum(1 for codepoint in requested if codepoint in cmap)
-    missing = tuple(sorted(_REQUIRED_TABLES.difference(font.keys())))
-    return _REPORT_ENCODER.encode(
-        EmbedReport(requested=len(requested), covered=covered, glyph_count=len(font.getGlyphOrder()), missing_tables=missing)
-    )
+    missing = tuple(sorted(_REQUIRED_TABLES.difference(ttfont.keys())))
+    return _ENCODER.encode(EmbedReport(requested=len(requested), covered=covered, glyph_count=len(ttfont.getGlyphOrder()), missing_tables=missing))
 
 
-_FONT_TABLE: Final[MappingProxyType[FontOp, FontAcceptor]] = MappingProxyType({
-    FontOp.SUBSET: _subset_font,
-    FontOp.INSTANCE: _instance_font,
-    FontOp.AXIS_CATALOG: _axis_catalog,
-    FontOp.OUTLINE: _outline_paths,
-    FontOp.EMBED_AUDIT: _embed_audit,
-})
+def _merge(font: bytes, extras: tuple[bytes, ...]) -> bytes:
+    paths = [_spill(data, ".ttf") for data in (font, *extras)]
+    try:
+        merged = Merger().merge([str(path) for path in paths])
+        sink = io.BytesIO()
+        merged.save(sink)
+        return sink.getvalue()
+    finally:
+        for path in paths:
+            path.unlink(missing_ok=True)
+
+
+def _freeze(font: bytes, policy: FreezePolicy) -> bytes:
+    src = _spill(font, ".otf")
+    dst = Path(NamedTemporaryFile(suffix=".otf", delete=False).name)
+    try:
+        engine = RemapByOTL(policy.namespace(str(src), str(dst)))
+        engine.run()  # open -> GSUB->cmap remap -> rename -> save, gated on .success
+        if not engine.success:  # the engine sets .success rather than raising on an unopenable/unsavable font
+            raise TTLibError(f"font freeze failed: {policy.features!r}")
+        return dst.read_bytes()
+    finally:
+        src.unlink(missing_ok=True)
+        dst.unlink(missing_ok=True)
+
+
+def _feature(font: bytes, source: str) -> bytes:
+    ttfont = TTFont(io.BytesIO(font))
+    addOpenTypeFeaturesFromString(ttfont, source)  # compile .fea into GSUB/GPOS/GDEF
+    sink = io.BytesIO()
+    ttfont.save(sink)
+    return sink.getvalue()
+
+
+def _compile(font: bytes, space: DesignSpace) -> bytes:
+    with ExitStack() as stack:
+        document = DesignSpaceDocument()
+        for axis in space.axes:
+            document.addAxis(AxisDescriptor(tag=axis.tag, name=axis.tag, minimum=axis.minimum, default=axis.default, maximum=axis.maximum))
+        masters = ((font, space.default_location), *((source.font, source.location) for source in space.sources))
+        for data, location in masters:
+            handle = stack.enter_context(NamedTemporaryFile(suffix=".ttf"))
+            handle.write(data)
+            handle.flush()
+            document.addSource(SourceDescriptor(path=handle.name, location=dict(location)))
+        varfont, _model, _masters = build_varfont(document)  # the variable-font-authoring inverse of INSTANCE
+        sink = io.BytesIO()
+        varfont.save(sink)
+        return sink.getvalue()
 ```
 
 ## [03]-[RESEARCH]
 
-- [INSTANCE] [RESOLVED]: the `varLib.instancer.instantiateVariableFont(varfont, axisLimits, inplace=False, optimize=True, overlap=OverlapMode.KEEP_AND_SET_FLAGS, updateFontNames=False, *, downgradeCFF2=False, static=False)` call, the `inplace`/`optimize`/`updateFontNames` keyword spread the `InstancePolicy.keywords()` projection feeds, and the `fontTools.varLib.instancer.AxisLimits` limit type the per-axis `AxisLimit.resolve()` map normalizes into verify against the folder `.api` catalogue for `fonttools` (`4.63.0`) entrypoint row `[02]` and the public-type instancer surface — the catalogue spells the full call signature with the `axisLimits`/`inplace`/`optimize`/`overlap`/`updateFontNames` parameters, so the `_instance_font` body and the `InstancePolicy.keywords()` spread are settled fence code. The `AxisLimit` policy is the one per-axis pin-range-drop owner — `AxisLimit.of(raw)` `match`-projects a scalar to a `pin`, a `(lower, upper)` tuple to a partial range, and `None` to an axis drop, and `resolve()` lowers the policy to the `AxisValue` the `AxisLimits` map admits: a scalar collapses the axis to a static instance, a tuple narrows the design space without removing the axis, a dropped axis falls back to its default. The `OverlapMode.KEEP_AND_SET_FLAGS` overlap default the instancer applies is the catalogued default; the `InstancePolicy` does not override it.
-- [SUBSET] [RESOLVED]: the fontTools `subset.Subsetter(options=Options(...))` -> `populate(unicodes=...)` -> `subset(font)` -> `ttLib.TTFont`/`save` subsetting chain and the `Options(layout_features=, name_IDs=, hinting=, flavor=, retain_gids=, glyph_names=, desubroutinize=, drop_tables=, harfbuzz_repacker=)` retention knob map verify against the folder `.api` catalogue for `fonttools` entrypoint rows `[01]`-`[03]` and public-type rows `[05]`/`[06]`. The `Options.flavor` re-flavor to WOFF/WOFF2 is the one row the subset pass carries; a parallel WOFF writer is the rejected form. The uharfbuzz `SubsetInput`/`subset` and `Options(harfbuzz_repacker=True)` HarfBuzz repacker overlap the fontTools `Subsetter` the `SUBSET` row owns; fontTools owns subsetting for Python-native feature-policy control through `Options`, so no `FontOp` splits subsetting across the two admissions.
-- [AXIS_CATALOG] [RESOLVED]: the `fvar` axis-and-named-instance introspection — `font["fvar"].axes` (each `Axis(axisTag, minValue, defaultValue, maxValue, flags)`), `font["fvar"].instances` (each `NamedInstance(subfamilyNameID, coordinates)`), and the `font["name"].getDebugName(nameID)` name resolution — folds the variable design space into the typed `AxisCatalog` the `SHAPE` variation location and the `INSTANCE` limit validation consume, the `font[tag]` table access verified against the folder `.api` catalogue for `fonttools` entrypoint row `[08]` (`TTFont.keys`/`TTFont[tag]`). RESEARCH: the `STAT` design-axis read — `font["STAT"].table.DesignAxisRecord`/`AxisValueArray` for the style-attribute axis records that supplement `fvar` — is the catalogued `font[tag]` table access without the `STAT` sub-record member spellings rowed, so the `_axis_catalog` body folds the `fvar` axes and named instances (settled) and the `STAT` design-axis supplement stays a marked growth edge until the `fonttools` catalogue rows the `STAT` table sub-record members. The `Axis.flags & 0x0001` hidden-axis bit is the OpenType `fvar` `HIDDEN_AXIS` flag mask read off the settled `flags` field.
-- [OUTLINE] [RESOLVED]: the `TTFont.getGlyphSet(preferCFF=True, location=None, normalized=False, recalcBounds=True)` glyph factory, the `glyph_set[name].draw(pen)` segment-protocol replay, the `fontTools.pens.svgPathPen.SVGPathPen(glyphSet, ntos=str)` SVG pen, and the `SVGPathPen.getCommands()` `d`-path accessor verify against the folder `.api` catalogue for `fonttools` entrypoint row `[04]` and public-type pen row `[07]` — the catalogue spells `SVGPathPen` with `.getCommands()` as the SVG-`d` accessor and `getGlyphSet()[name].draw(pen)` as the single read path, so the `_outline_paths` body is settled fence code. The `location` argument cuts a variable instance for the outline read so an instanced glyph's `d`-path matches the pinned location; a raw `glyf`/`CFF` coordinate decode is the rejected duplicate of the pen bridge.
-- [EMBED_AUDIT] [RESOLVED]: the `TTFont.getBestCmap(cmapPreferences=...)` Unicode-to-glyph map, the `TTFont.getGlyphOrder()` glyph-name list, and the `TTFont.keys()` present-table-tag enumeration verify against the folder `.api` catalogue for `fonttools` entrypoint rows `[05]`/`[06]`/`[08]`; the embed audit folds glyph coverage (requested Unicode set intersected against the `getBestCmap` keys), required-table presence (the `_REQUIRED_TABLES` OpenType base set against `keys()`), and post-subset glyph count into the `EmbedReport` whose `complete` projection gates the `document/emit#DOCUMENT` `FONT_EMBED` precondition and the `exchange/conformance#CONFORMANCE` PDF/A close. The `_REQUIRED_TABLES` set is the minimal OpenType deliverable table family (`cmap`/`head`/`hhea`/`hmtx`/`maxp`/`name`/`post`) a PDF-embeddable font must carry; a hand-rolled completeness scan over raw table bytes is the rejected duplicate of the `keys()`/`getBestCmap` reads.
+- [SUBSET/INSTANCE/OUTLINE/EMBED_AUDIT] [RESOLVED]: the `subset.Subsetter(Options(...))`→`populate`→`subset`→`save` chain, the `instancer.instantiateVariableFont(font, AxisLimits(limits), **policy.keywords())` partial instancer with `OverlapMode.KEEP_AND_SET_FLAGS`, the `getGlyphSet(location=)[name].draw(pen)` pen bridge (`SVGPathPen.getCommands()`/`AreaPen.value`/`BoundsPen.bounds`/`StatisticsPen.slant`, the glyph recorded once through `RecordingPen` and replayed), and the `getBestCmap`/`keys`/`getGlyphOrder` embed reads verify against the folder `.api/fonttools.md` entrypoint rows `[01]`-`[08]` and pen rows `[07]`-`[11]`. The `AxisLimit` policy `match`-projects a scalar to a pin, a `(lower, upper)` tuple to a partial range, and `None` to a drop; a raw `glyf`/`CFF` coordinate decode is the rejected duplicate of the pen bridge.
+- [AXIS_CATALOG/STAT] [RESOLVED]: the `fvar` read — `font["fvar"].axes` (`Axis(axisTag, minValue, defaultValue, maxValue, flags)`), `font["fvar"].instances`, and `font["name"].getDebugName(nameID)` — plus the `STAT` design-axis supplement `font["STAT"].table.DesignAxisRecord.Axis` (each record's `AxisTag`/`AxisNameID`/`AxisOrdering`, guarded `None` and `"STAT" not in font`) fold into the typed `AxisCatalog`, the `font[tag]` table access verified against `.api/fonttools.md` entrypoint row `[08]` and the reflected STAT record shape. The `Axis.flags & 0x0001` hidden-axis bit is the OpenType `fvar` `HIDDEN_AXIS` mask; the `STAT` `AxisValueArray.AxisValue` values (`Value`/`AxisIndex`/`Flags`/`ValueNameID`) are the one growth edge a `StatValue` field would fold.
+- [MERGE/FREEZE/FEATURE/COMPILE] [RESOLVED]: `merge.Merger().merge([paths])` (row `[05]`), `opentype_feature_freezer.RemapByOTL(namespace).run()` reading `.success` (folder `.api/opentype-feature-freezer.md`), `feaLib.builder.addOpenTypeFeaturesFromString(font, source)` (row `[02]`), and `designspaceLib.DesignSpaceDocument`+`AxisDescriptor`+`SourceDescriptor`+`varLib.build(doc)` (rows `[01]`/`[03]`) verify against `.api/fonttools.md`. The merger, freezer, and varLib consume file PATHS, so `_spill` writes each input to a `delete=False` temp path (or an `ExitStack`-managed `NamedTemporaryFile` for the compile masters) and `unlink`s in a `finally`, exactly as `typography/shape#SHAPE` composes blackrenderer's path-only `saveImage`; the freezer sets `.success` instead of raising, so the arm reads it and lifts a `False` into the rail rather than trusting a silent return. `COMPILE` is the variable-font-authoring inverse of `INSTANCE` — masters in, one variable font out.
+- [SCRIPT_TAGS] [RESOLVED]: `unicodedata.ot_tags_from_script(script)` (script→OT-tag list, multi for Indic v1/v2), `script_horizontal_direction(script)` ("LTR"/"RTL"), and `script(char)` verify against `.api/fonttools.md` row `[07]`; `ScriptTags.of`/`itemize` are the face-selection resolution `typography/shape#SHAPE` reads for font fallback and shaping direction, a hand-coded script→OT-tag map being the rejected duplicate. The `colorLib.builder.buildCOLR`/`buildCPAL` colour-glyph authoring (row `[04]`) and the `cu2qu.curve_to_quadratic`/`qu2cu.quadratic_to_curves`+`TTGlyphPen`/`T2CharStringPen` CFF↔glyf re-flavor (rows `[06]`/`[12]`/`[13]`) are the two verified `COLOR`/`CONVERT` growth arms, each one `FontJob` case.
