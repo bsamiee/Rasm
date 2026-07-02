@@ -6,7 +6,7 @@ SimpleIDML is pure-Python over `zipfile`+`lxml`, so the mutation fold crosses th
 
 ## [01]-[INDEX]
 
-- [01]-[INDESIGN]: the one IDML template-mutation owner — a frozen `Idml` `msgspec.Struct` binding `base: IdmlSource` opened ONCE and `steps: tuple[IdmlStep, ...]` folded over the one threaded `IDMLPackage`, the closed fourteen-case `IdmlStep` `expression.tagged_union` over SimpleIDML's VERIFIED sixteen-method `@use_working_copy` algebra (the two non-step members `prefix` + the singular `add_page_from_idml`), each case dispatched by one total `match`+`assert_never` and projecting its `StepFacts` (`sources`/`anchors`/`identifiers`) to the `of` admission gate; the untrusted `.idml` template admitted ONCE through the closed `IndesignPayload` `TypedDict` (its `prefix` band refined at the `_PAYLOAD` `TypeAdapter` to the `\A\w+\Z` `IDMLPackage.prefix` pattern) + module-level `TypeAdapter`; the `is_prefixed` idempotence guard short-circuiting a re-prefix of an already-namespaced base; the eight-member `PdfCrop` Adobe enumeration whose `.value` is the `import_pdf(crop=)` token; the `IdmlFact` structural-inventory carrier the worker drains off the final instance; the per-instance `emit -> RuntimeRail[ArtifactReceipt]` production entry over the `to_process` worker `_emit` returning the existing `core/receipt#RECEIPT` `ArtifactReceipt.Office` case (the IDML package IS an Office-class structured-document Zip). The `export_xml`/`export_as_tree` tagged-content EGRESS is scoped to `document/lens#LENS` (the recovered-tree read), not re-authored here. `Idml.emit` IS the `core/plan#PLAN` `ArtifactWork.work` coroutine the ONE `ArtifactPipeline` schedules — the `export/layered#LAYERED` `LayeredExport.emit` counterpart, both recorded in ARCHITECTURE `[02]-[SEAMS]` as the `ArtifactPipeline` single-production-entry seam, never a parallel module-level batch entry.
+- [01]-[INDESIGN]: the one IDML template-mutation owner — a frozen `Idml` `msgspec.Struct` binding `base: IdmlSource` opened ONCE and `steps: tuple[IdmlStep, ...]` folded over the one threaded `IDMLPackage`, the closed fourteen-case `IdmlStep` `expression.tagged_union` over SimpleIDML's VERIFIED sixteen-method `@use_working_copy` algebra (the two non-step members `prefix` + the singular `add_page_from_idml`), each case dispatched by one total `match`+`assert_never` and projecting its `StepFacts` (`sources`/`anchors`/`identifiers`) to the `of` admission gate, every `IdmlStep` factory carrying the shared `@beartype(conf=FAULT_CONF)` construction contract the sibling `exchange/metadata`/`exchange/credential` factories carry; the untrusted `.idml` template admitted ONCE through the closed `IndesignPayload` `TypedDict` (its `prefix` band refined at the `_PAYLOAD` `TypeAdapter` to the `\A\w+\Z` `IDMLPackage.prefix` pattern) + module-level `TypeAdapter`; the `is_prefixed` idempotence guard short-circuiting a re-prefix of an already-namespaced base; the eight-member `PdfCrop` Adobe enumeration whose `.value` is the `import_pdf(crop=)` token; the `IdmlFact` structural-inventory carrier the worker drains off the final instance; the per-instance `emit -> RuntimeRail[ArtifactReceipt]` production entry over the `to_process` worker `_emit` returning the existing `core/receipt#RECEIPT` `ArtifactReceipt.Office` case (the IDML package IS an Office-class structured-document Zip). The `export_xml`/`export_as_tree` tagged-content EGRESS is scoped to `document/lens#LENS` (the recovered-tree read), not re-authored here. `Idml.emit` IS the `core/plan#PLAN` `ArtifactWork.work` coroutine the ONE `ArtifactPipeline` schedules — the `export/layered#LAYERED` `LayeredExport.emit` counterpart, both recorded in ARCHITECTURE `[02]-[SEAMS]` as the `ArtifactPipeline` single-production-entry seam, never a parallel module-level batch entry.
 
 ## [02]-[INDESIGN]
 
@@ -26,13 +26,14 @@ from tempfile import NamedTemporaryFile
 from typing import TYPE_CHECKING, Annotated, Final, Literal, NotRequired, ReadOnly, Required, Self, TypedDict, Unpack, assert_never
 
 from anyio import CapacityLimiter, to_process
+from beartype import beartype
 from builtins import frozendict
 from expression import Error, Ok, Result, case, tag, tagged_union
 from msgspec import Struct
 from pydantic import StringConstraints, TypeAdapter, ValidationError
 
 from rasm.runtime.content_identity import ContentIdentity
-from rasm.runtime.faults import RuntimeRail, async_boundary
+from rasm.runtime.faults import FAULT_CONF, RuntimeRail, async_boundary
 
 from artifacts.core.receipt import ArtifactReceipt
 
@@ -107,58 +108,72 @@ class IdmlStep:
     leaf_to_node: tuple[str, str] = case()    # (destination xpath anchor, xml content ref) — Rectangle leaf promoted to a TextFrame node
 
     @classmethod
+    @beartype(conf=FAULT_CONF)
     def Insert(cls, module: IdmlSource, /) -> Self:
         return cls(insert=module)
 
     @classmethod
+    @beartype(conf=FAULT_CONF)
     def AddPages(cls, pages: tuple[tuple[IdmlSource, int], ...], /) -> Self:
         return cls(add_pages=pages)
 
     @classmethod
+    @beartype(conf=FAULT_CONF)
     def ImportXml(cls, xml: bytes, at: str = _ROOT, /) -> Self:
         return cls(import_xml=(xml, at))
 
     @classmethod
+    @beartype(conf=FAULT_CONF)
     def PlacePdf(cls, pdf: bytes, at: str, crop: PdfCrop = PdfCrop.CONTENT_VISIBLE, page: int = 1, /) -> Self:
         return cls(place_pdf=(pdf, at, crop, page))
 
     @classmethod
+    @beartype(conf=FAULT_CONF)
     def SetAttributes(cls, at: str, attrs: frozendict[str, str], /) -> Self:
         return cls(set_attributes=(at, attrs))
 
     @classmethod
+    @beartype(conf=FAULT_CONF)
     def AddNote(cls, at: str, note: str, author: str, /) -> Self:
         return cls(add_note=(at, note, author))
 
     @classmethod
+    @beartype(conf=FAULT_CONF)
     def MergeLayers(cls, name: str = "", /) -> Self:
         return cls(merge_layers=name)
 
     @classmethod
+    @beartype(conf=FAULT_CONF)
     def RemoveContent(cls, under: str, /) -> Self:
         return cls(remove_content=under)
 
     @classmethod
+    @beartype(conf=FAULT_CONF)
     def SuffixLayers(cls, suffix: str, /) -> Self:
         return cls(suffix_layers=suffix)
 
     @classmethod
+    @beartype(conf=FAULT_CONF)
     def RemoveLayer(cls, layer_id: str, /) -> Self:
         return cls(remove_layer=layer_id)
 
     @classmethod
+    @beartype(conf=FAULT_CONF)
     def RemoveOrphanLayers(cls) -> Self:
         return cls(remove_orphan_layers=None)
 
     @classmethod
+    @beartype(conf=FAULT_CONF)
     def RemoveGuides(cls, layer_id: str, /) -> Self:
         return cls(remove_guides=layer_id)
 
     @classmethod
+    @beartype(conf=FAULT_CONF)
     def AddStory(cls, story_id: str, element_id: str, element_tag: str, /) -> Self:
         return cls(add_story=(story_id, element_id, element_tag))
 
     @classmethod
+    @beartype(conf=FAULT_CONF)
     def LeafToNode(cls, at: str, content_ref: str, /) -> Self:
         return cls(leaf_to_node=(at, content_ref))
 
@@ -374,4 +389,5 @@ _GATE: Final[CapacityLimiter] = CapacityLimiter(4)
 - [STRUCTURAL_FACT] [RESOLVED]: `IdmlFact` carries the FULL introspection inventory SimpleIDML exposes, not the prior four-field slice — `fonts` (`len(font_families)`), `styles` (`len(style_groups)`), `layers` (`len(referenced_layers)`), and `tags` (`len(tags)`) join `spreads`/`stories`/`pages`/`nodes`/`steps`, all read off the verified introspection properties on the final instance, so a consumer reading the worker `IdmlFact` sees the template's real structural shape rather than a vertex-array-thin slice. The rich evidence rides the carrier; `_emit` returns only the `Office` byte-count arity, a structure-bearing receipt being a `core/receipt#RECEIPT` growth concern.
 - [SIMPLEIDML_MEMBER_SURFACE] [RESOLVED]: the SimpleIDML member chain is admitted through the root manifest and `libs/python/artifacts/.api/simpleidml.md`, and is verified against `Starou/SimpleIDML` `src/simple_idml/idml.py` (the `IDMLPackage(zipfile.ZipFile)` class), `src/simple_idml/decorators.py` (the `@use_working_copy` extract-mutate-repackage contract), and `src/simple_idml/__init__.py` (`SETCONTENT_TAG`/`IGNORECONTENT_TAG`/`FORCECONTENT_TAG` the content-control attribute names, `VERSION = "1.3.1"`) — every mutation and introspection member this owner names exists with the spelled signature, and the full sixteen-method `@use_working_copy` surface was enumerated so the fourteen step-eligible verbs are modeled rather than a slice (`prefix` and the singular `add_page_from_idml` the two non-step members). `_spill`/backing-file-drain temp-file plumbing is the owner-local boundary around that admitted provider; raw `IDMLPackage` and lxml nodes never cross out of the worker.
 - [SERVER_CONVERSION_OUT_OF_SCOPE] [RESOLVED]: the SimpleIDML InDesign-Server SOAP conversion path (`simple_idml.indesign.indesign.save_as(path, [{"fmt": "indd"|"pdf"|"jpeg"|"idml"|"zip"}], server_url, client_workdir, server_workdir)`) converts an `.idml` to `.indd`/`.pdf`/`.jpeg` through a LIVE InDesign Server and a shared working directory — OUT OF SCOPE for the host-free durable-output engine, which owns neither a network InDesign Server seat nor a co-mounted filesystem. The deliverable this owner produces is the editable `.idml` the designer opens in InDesign directly; the `.indd`/`.pdf` server render is the rejected arm.
+- [FACTORY_CONTRACT] [RESOLVED]: every `IdmlStep` factory classmethod (`Insert`/`AddPages`/`ImportXml`/`PlacePdf`/`SetAttributes`/`AddNote`/`MergeLayers`/`RemoveContent`/`SuffixLayers`/`RemoveLayer`/`RemoveOrphanLayers`/`RemoveGuides`/`AddStory`/`LeafToNode`) carries the `@classmethod`+`@beartype(conf=FAULT_CONF)` construction contract (verified: `@beartype` deep-checks a `@classmethod` returning `Self` over positional-only params and raises `BeartypeCallHintParamViolation` on a mistyped payload), the DEFINITION_TIME_ASPECTS boundary contract the sibling `exchange/metadata#METADATA` `Metadata.Read`/`Write` and `exchange/credential#CREDENTIAL` `SignerSpec.cose` factories carry — so a downstream producer passing a `str` where a case wants `bytes`/`frozendict[str, str]`/`PdfCrop`/`IdmlSource` faults at construction with the shared `FAULT_CONF` violation the runtime boundary converts, rather than deep inside the `to_process` worker fold. The `Idml.of` admission gate keeps its `TypeAdapter` untrusted-payload validation and stays un-`@beartype`d (its `**raw: Unpack[IndesignPayload]` is `TypeAdapter`-admitted, the trusted-producer `steps` tuple built from the now-contracted factories), so the two admission tiers stay distinct: contract on the trusted-producer construction, `TypeAdapter` on the untrusted ingress.
 - [LAYERED_SIBLING_BOUNDARY] [RESOLVED]: IDML is the InDesign template-mutation hand-off; `export/layered#LAYERED` is the Illustrator/Acrobat/Photoshop named-layer hand-off (SVG `<g id=>` Groups, PDF OCG optional-content groups, layered TIFF). The two share the editable-export domain but own disjoint editor families and disjoint formats — IDML mutates a designer's `.idml` template through its XML structure, layered authors named layers into SVG/PDF/TIFF from the placed sources — so a layered arm grafted onto `IdmlStep` or an IDML arm grafted onto `ExportTarget` is the rejected form. Both consume the same `composition/compose#COMPOSE` placed layout keyed by the same `ContentKey`, both admit untrusted external bytes through a closed `TypedDict`+`TypeAdapter` at `of`, and both mint their content key over the mutated bytes and return their `ArtifactReceipt` case directly off `_emit` (the SEAM_UNIFICATION `emit -> RuntimeRail[ArtifactReceipt]` shape both now share) — the IDML owner's `IdmlSource(data, prefix, at, only)` template-binding row is the layered owner's `Layer(name, source, bbox, …)` named-layer counterpart, each export owner binding the placed layout into its native editor format through its own typed source row, never a shared erased source bag.

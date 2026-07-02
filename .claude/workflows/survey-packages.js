@@ -24,6 +24,8 @@ const lang = norm.startsWith('libs/csharp') ? 'csharp' : norm.startsWith('libs/p
 const isGeometry = norm === 'libs/csharp/Rasm/Geometry' || norm.startsWith('libs/csharp/Rasm/Geometry/')
 const docHome = isGeometry ? 'libs/csharp/Rasm' : norm
 const planningHome = isGeometry ? 'libs/csharp/Rasm/Geometry/.planning' : norm + '/.planning'
+const langRoot = lang === 'unknown' ? norm : 'libs/' + lang
+const apiTiers = docHome + '/.api (folder tier) + ' + langRoot + '/.api (language substrate tier)'
 const manifests = lang === 'csharp' ? 'Directory.Packages.props (central pins) + Directory.Build.props (TargetFramework / build floor)' : lang === 'python' ? 'pyproject.toml ' +
   '(dependencies / dependency-groups)' : lang === 'typescript' ? 'pnpm-workspace.yaml (catalog)' : '(unknown manifest)'
 
@@ -33,7 +35,7 @@ const SURVEY_SCHEMA = { type: 'object', additionalProperties: false, required: [
 const DECISION_SCHEMA = { type: 'object', additionalProperties: false, required: ['changes'], properties: { changes: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['id', 'kind', 'package'], properties: { id: { type: 'string' }, kind: { type: 'string', enum: ['replace', 'remove', 'add'] }, package: { type: 'string' }, target: { type: 'string' }, rationale: { type: 'string' } } } }, rejected: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['package', 'why'], properties: { package: { type: 'string' }, why: { type: 'string' } } } } } }
 const VERDICT_SCHEMA = { type: 'object', additionalProperties: false, required: ['id', 'approved'], properties: { id: { type: 'string' }, approved: { type: 'boolean' }, severity: { type: 'string' }, findings: { type: 'string' } } }
 const EXEC_SCHEMA = { type: 'object', additionalProperties: false, required: ['id', 'verdict'], properties: { id: { type: 'string' }, verdict: { type: 'string', enum: ['applied', 'skipped'] }, files: { type: 'array', items: { type: 'string' } }, projects: { type: 'array', items: { type: 'string' } }, summary: { type: 'string' } } }
-const BUILD_SCHEMA = { type: 'object', additionalProperties: false, required: ['green'], properties: { green: { type: 'boolean' }, diagnostics: { type: 'string' }, projects: { type: 'array', items: { type: 'string' } } } }
+const BUILD_SCHEMA = { type: 'object', additionalProperties: false, required: ['green'], properties: { green: { type: 'boolean' }, diagnostics: { type: 'string' }, projects: { type: 'array', items: { type: 'string' } }, repairedFiles: { type: 'array', items: { type: 'string' } } } }
 const HEAL_SCHEMA = { type: 'object', additionalProperties: false, required: ['fixed'], properties: { fixed: { type: 'boolean' }, summary: { type: 'string' } } }
 
 // --- [DOCTRINE] --------------------------------------------------------------------------
@@ -50,6 +52,10 @@ const LAW = [
     'consumer actually binds (highest compatible lib folder), explicitly, and diff against assay default before trusting any member claim — set ' +
     'DOTNET_ROOT (DOTNET_ROOT=$(dirname "$(readlink -f "$(command -v dotnet)")")) and run ilspycmd <pkg>/lib/<consumer-tfm>/<asm>.dll -t <FQN>. ' +
     'For Python/TS, verify against the actually-installed distribution / declared .d.ts. Never document or compare a phantom from a non-bound TFM.',
+  'ULTRA-STACKING BOTH .api TIERS: ' + apiTiers + ' are enumerated with a real ls/fd listing and read at operator depth — a member claim comes ' +
+    'from a catalog line or a fresh consumer-TFM-correct decompile, never memory. An admitted capability the folder concern admits but no owner ' +
+    'exploits is a named defect feeding the keep/replace/remove/integration analysis, never a shrug; a cited member that cannot be re-verified on ' +
+    'the consumer-bound surface is a PHANTOM — reject any change that leans on it, and a writing stage deletes it from every catalog it touches.',
   'LICENSE GATE: a package is admissible only if it is OSS (any OSI-approved license) OR carries a commercial license that is NOT fee-based and ' +
     'NOT tiered/seat/usage-gated (a free, unrestricted commercial grant). Any fee, subscription, seat cap, eval-only, or usage-tiered license is ' +
     'REJECTED. State the exact license (SPDX or the grant) and the OK/REJECT verdict for every add/replace target.',
@@ -83,8 +89,17 @@ const LAW = [
   'HOUSE .api FORMAT: header (package / version / license / build-floor or target / marker), then member sections grouped by concern with ' +
     'backticked symbols + signatures + a consumer/boundary note. NO provenance, NO process narration, NO freshness tails. Cite REAL members only, ' +
     'consumer-TFM-correct. Code obeys the route-owned standard for the file (docs/stacks/csharp for .cs, coding-python for .py, coding-ts for .ts).',
-  'WRITE-FULLY MANDATE (execute stage only): every edit is made NOW via Edit/Write across all touch points; the fix-log REPORTS edits already ' +
-    'made, never a to-do list. The survey / decide / verify stages are READ-ONLY analysis and WRITE NOTHING.',
+  'ADVERSARIAL REVIEW LAW: every map, proposal, and applied change is naive, shallow, or illusory until it survives an aggressive attack; dense ' +
+    'confident-looking work is the prime suspect, and a clean verdict is EARNED by an attack that finds nothing, never conceded on first read. ' +
+    'NAIVETY is a defect on two orthogonal axes: COVERAGE — the work models a thin slice of its concern (the obvious three call sites where the ' +
+    'repo carries fifteen, one README row where several folders list the package); APPROACH — an enumerated hardcoded roster (of touch points, ' +
+    'call sites, variants, members) stands where a parameterized repo-wide search or generator should derive the space: a roster is seed DATA ' +
+    'feeding one derivation, never the mechanism. Every enumerated check or attack list in a task prompt is a FLOOR, never the complete set — ' +
+    'hunt defects beyond it.',
+  'WRITE-FULLY MANDATE: the execute, heal, and post-execution verify stages make every edit NOW via Edit/Write across all touch points; a fix-log ' +
+    'REPORTS edits already made — never a to-do list, a ledger, or a would/should hedge. The inventory / survey / decide / verify-proposal stages ' +
+    'run BEFORE any change is applied and are read-only — read-only is their ONLY concession: analysis runs at full adversarial depth against ' +
+    'real disk state, and a pre-write verdict is earned by an attack that finds nothing, never conceded.',
 ].join('\n')
 
 // --- [OPERATIONS] ------------------------------------------------------------------------
@@ -100,23 +115,30 @@ const pool = async (items, cap, worker) => {
 }
 const invPrompt = [
   LAW, '',
-  'TASK (READ-ONLY INVENTORY): map the complete package surface of the target folder ' + norm + '. Read its README at ' + docHome + ', its project ' +
-    'file (the .csproj under ' + docHome + ' if C#), every catalog under ' + docHome + '/.api/, and the central manifest ' + manifests + '. ' +
-    'Enumerate EVERY package the folder uses (name + current pinned version + its role in this folder + the matching .api filename if one exists). ' +
-    'Then read the design pages under ' + planningHome + ' and the folder code to surface HAND-ROLL SUSPICIONS: capabilities the folder implements ' +
-    'by hand that an ecosystem package likely owns (each with a short evidence pointer). Summarize the folder DOMAIN in one or two sentences. ' +
-    'Return the structured inventory. Write nothing.',
+  'TASK (DISCOVERY INVENTORY — read-only is the ONLY concession this stage gets, and it never licenses a skim): map the complete package surface ' +
+    'of ' + norm + ' against real disk state, never memory. (1) ENUMERATE with a real ls/fd listing: both .api tiers (' + apiTiers + '), the ' +
+    'central manifest ' + manifests + ', and the folder tree. (2) FULL-FILE reads: the README at ' + docHome + ', the project file (the .csproj ' +
+    'under ' + docHome + ' if C#), every catalog in both .api tiers the folder touches, and every design page under ' + planningHome + '. (3) Emit ' +
+    'the package MAP: EVERY package the folder uses — name + current pinned version + a role line carrying its composed capability here, its ' +
+    'concrete underutilized members (verified spellings only, never a phantom), and a hostile weak/strong call — plus the matching .api filename ' +
+    'when one exists. (4) HAND-ROLL SUSPICIONS from the design pages and folder code: each capability the folder implements by hand that an ' +
+    'ecosystem package likely owns, with a concrete evidence pointer (page + section). (5) The folder DOMAIN in one or two sentences. The map ' +
+    'grounds every downstream stage as an initial pointer, never a ceiling — downstream agents re-read and exceed it. Return the structured ' +
+    'inventory. Write nothing.',
 ].join('\n')
 const surveyPrompt = (w) => [
   LAW, '',
   w.kind === 'gap'
     ? 'TASK (READ-ONLY SURVEY of a HAND-ROLL SUSPICION): the target folder may be hand-rolling: ' + w.capability + ' (evidence: ' + (w.evidence || 'n/a') + '). ' +
-      'Research whether a modern, well-maintained, license-admissible ecosystem package owns this concern and is not already covered by an ' +
-      'admitted package. Use web research (latest stable version, maintenance signal, license) and, when an existing admitted package is the real ' +
-      'owner, prove it via assay (consumer-TFM-correct). Return verdict=add with the target package ONLY if it closes a real gap and passes the ' +
-      'license gate and is not redundant; else verdict=keep with the reason it stays hand-rolled or is already covered.'
+      'First enumerate both .api tiers (' + apiTiers + ') with a real listing and check whether an ALREADY-ADMITTED package owns this concern — ' +
+      'when one does, prove the exact members via assay (consumer-TFM-correct) and return verdict=keep naming that owner and members: unexploited ' +
+      'admitted capability is the strongest finding this survey can make. Otherwise research the ecosystem (latest stable version, maintenance ' +
+      'signal, license) for a modern owner. Return verdict=add with the target package ONLY if it closes a real gap, passes the license gate, and ' +
+      'is not redundant; else verdict=keep with the reason it stays hand-rolled or is already covered.'
     : 'TASK (READ-ONLY SURVEY of one package): assess ' + w.name + ' (role: ' + (w.role || 'n/a') + ', current: ' + (w.version || 'n/a') + ') for ' +
-      'the target folder. Determine: is there a newer / more capable / better-maintained replacement (license-admissible)? Is it stale or poorly ' +
+      'the target folder. Read its catalogs in both .api tiers (' + apiTiers + ') first and mine them at operator depth: underutilized admitted ' +
+      'capability strengthens keep and sharpens the redundancy graph, and any catalog member you cannot re-verify is a phantom to name in ' +
+      'evidence. Determine: is there a newer / more capable / better-maintained replacement (license-admissible)? Is it stale or poorly ' +
       'maintained? Is it REDUNDANT because another admitted package already covers every call site (cite them)? Use web research (latest stable, ' +
       'release recency, maintenance, license) AND assay decompile (CONSUMER-TFM-CORRECT — for C# decompile the net10-bound lib/<tfm>, not assay ' +
       'default; diff a multi-target package explicitly) to ground every member claim. Return one verdict: keep | replace (with target + why ' +
@@ -137,21 +159,32 @@ const decidePrompt = (verdicts) => [
 ].join('\n')
 const critiquePrompt = (c) => [
   LAW, '',
-  'TASK (CONSTRUCTIVE CRITIQUE of one proposed change — READ-ONLY GATE, no writes): the change is ' + JSON.stringify(c) + '. Independently verify ' +
-    'it is correct and complete BEFORE any destructive write. Confirm: the replacement/new target is real, license-admissible, and strictly better ' +
-    '(or, for remove, the subsuming admitted package genuinely covers every call site); the member surface is consumer-TFM-correct (re-verify via ' +
-    'assay / ilspycmd on the net10-bound TFM for C#); and the whole-repo blast radius is fully mapped (every manifest row, README, .api, and code ' +
-    'call site across ALL folders). Set approved=true only if the change is sound and the touch-point map is complete; otherwise approved=false ' +
-    'with the gap. Default to approved=false on any doubt.',
+  'TASK (CRITIQUE GATE of one proposed change — a pre-write gate over a not-yet-applied proposal, so it reads and attacks): the change is ' +
+    JSON.stringify(c) + '. Hold it naive and illusory until it survives a mechanical line-by-line audit. (1) NECESSITY re-derived: establish from ' +
+    'the repo itself, never the rationale string, that the change closes a real gap, is a strict upgrade, or is a true subsumption. (2) TARGET ' +
+    'truth: the replacement/new target is real, license-admissible, and strictly better (for remove: the subsuming admitted package covers EVERY ' +
+    'call site — re-find them yourself). (3) MEMBER truth: every cited member re-verified consumer-TFM-correct (assay / ilspycmd on the ' +
+    'net10-bound TFM for C#); one phantom sinks the change. (4) BLAST RADIUS re-derived, never trusted: run your own repo-wide rg/fd search across ' +
+    'the central manifest, every README, both .api tiers, and all code; the proposal touch-point roster is seed data — your search is the ' +
+    'generator that derives the true set, and a single missed touch point is a COVERAGE defect. These checks are a FLOOR — hunt past them. Set ' +
+    'approved=true only if the change survives everything you can construct AND the re-derived touch-point map is complete; else approved=false ' +
+    'with findings naming each concrete defect (file + claim) — the red-team re-derives them, and a change failing either gate is dropped, so the ' +
+    'findings are its only record. Default approved=false on unresolved doubt. Return id = the change id.',
 ].join('\n')
 const redteamPrompt = (c, crit) => [
   LAW, '',
-  'TASK (HOSTILE RED-TEAM of one proposed change — READ-ONLY GATE, no writes): assume the change is WRONG until proven. Change: ' + JSON.stringify(c) + '. ' +
-    'Prior critique: ' + JSON.stringify(crit) + '. Attack it: is the replacement actually a downgrade or a lateral move? Is the license secretly ' +
-    'fee-based or tiered? Does the "redundant" package actually lose a capability at some call site (find the call site that breaks)? Is any cited ' +
-    'member a phantom from a non-bound TFM (re-decompile the consumer TFM explicitly and diff)? Is the blast-radius map missing a touch point that ' +
-    'would leave a dangling reference? Set approved=true ONLY if the change survives every attack; default approved=false on any unresolved doubt. ' +
-    'This is the last gate before destructive execution.',
+  'TASK (HOSTILE RED-TEAM of one proposed change — the terminal, most aggressive pre-write gate; assume the change is WRONG until it survives): ' +
+    'Change: ' + JSON.stringify(c) + '. Prior critique: ' + JSON.stringify(crit) + ' — re-derive it COLD; a prior approved=true is a rejected ' +
+    'self-assessment, never evidence. Attack: (a) COUNTERFACTUAL — is a strictly stronger resolution available (a better target, a deeper removal, ' +
+    'the reverse verdict)? A token move shipped where a root-level modernization is available is a defect. (b) DOWNGRADE — is the replacement ' +
+    'weaker on any axis (capability, maintenance, license, build-floor or runtime compatibility)? (c) LICENSE — secretly fee-based, tiered, ' +
+    'seat-capped, or eval-only? (d) LONG-TAIL — find the call site only the "redundant" package can serve, the transitive dependency that snaps, ' +
+    'the cp315/net10 gate the target fails. (e) PHANTOMS — re-decompile the consumer-bound TFM explicitly and diff; a cited member absent there ' +
+    'sinks the change. (f) BLAST RADIUS — re-run the repo-wide search yourself; a roster the critique blessed is still seed data, and one dangling ' +
+    'reference is a fail. (g) NEXT-DIFF — when the next package or consumer lands on this axis, does the change hold as one row, or does it bake ' +
+    'in an enumerated shape a parameterized owner should carry? This attack list is a FLOOR — invent attacks beyond it. Set approved=true ONLY if ' +
+    'the change survives every attack you can construct; default approved=false with findings naming the killing defect. Return id = the change ' +
+    'id. This is the last gate before destructive execution.',
 ].join('\n')
 const executePrompt = (c) => [
   LAW, '',
@@ -166,24 +199,36 @@ const executePrompt = (c) => [
 ].join('\n')
 const verifyPrompt = (c, ex, attempt) => [
   LAW, '',
-  'TASK (BUILD/STATIC GATE — verify one applied change): change ' + c.id + ' touched these projects/areas: ' + JSON.stringify((ex && ex.projects) || []) + '. ' +
-    'Run the assay build/static gate over them via `uv run --frozen python -m tools.assay static` (for C# pass --project <csproj> or --folder; for ' +
-    'Python/TS pass --folder <path>), parse the one JSON Envelope on stdout, and report green=true only if the gate is clean (no FAILED ' +
-    'diagnostics). On red, return green=false with the concrete diagnostics (file + rule + message) so the heal step can act. Attempt index: ' + attempt + '.',
+  'TASK (WRITING VERIFY of one applied change — adversarial, never a friendly confirmation): change ' + c.id + ' claims applied. Files touched: ' +
+    JSON.stringify((ex && ex.files) || []) + '; projects/areas: ' + JSON.stringify((ex && ex.projects) || []) + '. (1) NECESSITY: re-derive from ' +
+    'the repo that the applied resolution is complete and right — an under-applied change (a half-migrated call site, a skipped repo area) fails ' +
+    'here. (2) PROVE ON DISK: re-run the repo-wide search for the old and new package yourself; every touch point (manifest row, every README, ' +
+    'both .api tiers, every code call site) must hold the end-state. A dangling reference, stale row, phantom member in a catalog, or a ' +
+    'loose/weak/token fix is a defect YOU repair NOW via Edit/Write to the root-level form of the same files, obeying the route-owned standard — ' +
+    'a single-point patch where the dense root form is available is itself a defect to repair. (3) GATE: run `uv run --frozen python -m ' +
+    'tools.assay static` over the affected projects/areas (for C# pass --project <csproj> or --folder; for Python/TS pass --folder <path>), parse ' +
+    'the one JSON Envelope on stdout. Report green=true only if the gate is clean AFTER your repairs (no FAILED diagnostics); on red return ' +
+    'green=false with the concrete residual diagnostics (file + rule + message) so the heal step can act. List every file you edited in ' +
+    'repairedFiles. Attempt index: ' + attempt + '.',
 ].join('\n')
 const healPrompt = (c, ex, v) => [
   LAW, '',
   'TASK (SELF-HEAL — fix the build the last applied change broke, WRITE-FULLY): change ' + c.id + ' left the build red. Diagnostics: ' + ((v && v.diagnostics) || 'see ' +
     'prior gate') + '. Files touched: ' + JSON.stringify((ex && ex.files) || []) + '. Fix the real defects in place (a missed call-site refactor, ' +
     'a wrong member from a non-bound TFM, a stale README/.api reference, a manifest floor) so the gate goes green, obeying the route-owned coding ' +
-    'standard and never re-introducing the removed package. Return fixed=true with a one-line summary of what you corrected.',
+    'standard and never re-introducing the removed package. Return fixed=true with a one-line summary of what you corrected; on a defect ' +
+    'genuinely unfixable from the files at hand return fixed=false naming the blocker.',
 ].join('\n')
 const finalVerifyPrompt = (applied) => [
   LAW, '',
-  'TASK (FINAL WHOLE-TARGET BUILD GATE): every approved change for ' + norm + ' is applied. Applied summary: ' + JSON.stringify(applied) + '. Run ' +
-    'the assay build/static gate over the union of affected projects/areas (for C# the affected .csproj set; for Python/TS the affected folders) ' +
-    'via `uv run --frozen python -m tools.assay static ...`, parse the JSON Envelope, and report green=true only if the whole affected set is ' +
-    'clean. On red, return the residual diagnostics.',
+  'TASK (FINAL WHOLE-TARGET WRITING VERIFY): the approved change-set for ' + norm + ' is executed; outcomes: ' + JSON.stringify(applied) + '. ' +
+    'A change execute skipped as unsafe stays skipped — out of scope, never force-applied here. This is an adversarial verify, never a ' +
+    'confirmation: re-derive the union blast radius of the APPLIED changes yourself (repo-wide rg/fd for every changed package), hunt dangling ' +
+    'references, stale README rows, orphaned or missing .api catalogs in both tiers, phantom members, and loose/token fixes left by ' +
+    'earlier steps — REPAIR every defect in place NOW via Edit/Write to the root-level form, never a note, and list the files in repairedFiles. ' +
+    'Then run the assay build/static gate over the union of affected projects/areas (for C# the affected .csproj set; for Python/TS the affected ' +
+    'folders) via `uv run --frozen python -m tools.assay static ...`, parse the JSON Envelope, and report green=true only if the whole affected ' +
+    'set is clean after your repairs. On red, return the residual diagnostics.',
 ].join('\n')
 
 // --- [COMPOSITION] -----------------------------------------------------------------------

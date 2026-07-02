@@ -18,7 +18,7 @@ const raw = (typeof args === 'string') ? args.trim() : (args && typeof args === 
 const SCOPE = raw || 'libs'
 
 // --- [MODELS] ----------------------------------------------------------------------------
-const DISCOVER_SCHEMA = { type: 'object', additionalProperties: false, required: ['units'], properties: { units: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['folder', 'planning', 'context_root'], properties: { folder: { type: 'string' }, planning: { type: 'string' }, context_root: { type: 'string' } } } } } }
+const DISCOVER_SCHEMA = { type: 'object', additionalProperties: false, required: ['units'], properties: { units: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['folder', 'planning', 'context_root'], properties: { folder: { type: 'string' }, planning: { type: 'string' }, context_root: { type: 'string' }, pages: { type: 'integer' } } } } } }
 const HYGIENE_LOG_SCHEMA = { type: 'object', additionalProperties: false, required: ['folder', 'verdict', 'summary'], properties: { folder: { type: 'string' }, verdict: { type: 'string', enum: ['trimmed', 'refined', 'clean'] }, pages: { type: 'integer' }, comments_cut: { type: 'integer' }, reduction_pct: { type: 'number' }, summary: { type: 'string' } } }
 
 // --- [DOCTRINE] --------------------------------------------------------------------------
@@ -27,10 +27,13 @@ const LAW = [
     'and NOT a design pass: do NOT change any code fence`s design, signatures, types, members, cases, fields, bodies, structure, ordering, or the ' +
     'design decisions a page makes; do NOT add, remove, or reorder design content, cards, signature fences, or tables. EDIT ONLY the markdown ' +
     'design pages under this folder`s .planning/ tree.',
-  'READ (never edit) the folder`s governing docs for CONTEXT — `ARCHITECTURE.md`, `README.md`, `IDEAS.md`, `TASKLOG.md`, and the `.api/` catalogs ' +
-    'at the folder`s context root — so every trim is informed by what the folder owns and where it integrates. For the `libs/csharp/Rasm` package ' +
-    'the governing docs + `.api/` live at the `libs/csharp/Rasm/` ROOT while its only planning lives at `libs/csharp/Rasm/Geometry/.planning` (the ' +
-    'Geometry sub-domain); read the Rasm-root docs as context for the Geometry pages.',
+  'READ (never edit) the folder`s governing docs for CONTEXT — `ARCHITECTURE.md`, `README.md`, `IDEAS.md`, `TASKLOG.md` — so every trim is ' +
+    'informed by what the folder owns and where it integrates. Enumerate BOTH `.api` tiers with a REAL disk listing, never from memory: the ' +
+    '`.api/` catalogs at the folder`s context root AND the language-root catalogs at `libs/<lang>/.api/`. The code fences plus both tiers are ' +
+    'the VERIFICATION GROUND for every prose/comment claim about a member, type, package, or capability: a claim neither ground verifies is a ' +
+    'PHANTOM the pass corrects from the catalogs or deletes, never leaves standing, and never verifies from memory. For the `libs/csharp/Rasm` ' +
+    'package the governing docs + `.api/` live at the `libs/csharp/Rasm/` ROOT while its only planning lives at ' +
+    '`libs/csharp/Rasm/Geometry/.planning` (the Geometry sub-domain); read the Rasm-root docs as context for the Geometry pages.',
   'READ `docs/standards/style-guide.md` IN FULL and apply it to all prose. READ `CLAUDE.md` section [08]-[FILE_ORGANIZATION] for the OFFICIAL ' +
     'canonical section-divider labels and the divider grammar. Every edit is scoped to files under the folder`s `.planning/`; editing anything ' +
     'outside it is forbidden.',
@@ -71,10 +74,20 @@ const PRESERVE = [
     'WORSE than leaving slight bloat. The pass adds signal and removes noise; it never strips the folder of the framing that makes a future ' +
     'rebuild possible.',
 ].join('\n')
-const ADVERSARIAL = 'ADVERSARIAL STANCE (critique + red-team): be HOSTILE and assume the prior pass BOTH under-trimmed (left noise/stale/bloat) ' +
-  'AND over-trimmed (cut a load-bearing comment, explanation, invariant, or integration point — restore it, refined). "good enough" is rejected; ' +
-  'every surviving comment and every prose line must earn its place as high-signal agent-facing framing, and NO code-fence design may have been ' +
-  'altered.'
+const ADVERSARIAL = [
+  'ADVERSARIAL STANCE (every stage): the corpus is naive until it survives attack, and dense confident-looking prose is the prime suspect. ' +
+    'Assume the state handed to you BOTH under-trimmed (noise/stale/bloat survives) AND over-trimmed (a load-bearing comment, explanation, ' +
+    'invariant, or integration point was cut — restore it, refined, from the context-root docs). "good enough" and a prior clean verdict are ' +
+    'rejected self-assessments; a no-edit verdict is EARNED by an attack that finds nothing, never conceded on first read. Every surviving ' +
+    'comment and prose line must earn its place as high-signal agent-facing framing, and NO code-fence design may have been altered.',
+  'NAIVETY is a defect on two axes, both intolerable. COVERAGE: the pass worked a thin slice — short obvious pages, page tops, the first screen ' +
+    'of long fences — while deep sections, long pages, bottom-half fences, and table cells kept their noise. APPROACH: enumerated spot-fixes ' +
+    'where one rule owns the space — a recurring hedge, restatement, framing, or divider defect is a FAMILY swept corpus-wide with one rule; ' +
+    'found instances are pointers to the family, never the whole fix.',
+  'Every enumerated defect list in this prompt is a FLOOR, never the complete set: hunt past it — any repeated framing, parallel spelling, or ' +
+    'recurring noise family that one tighter rule can own is a target you find yourself. Every stage WRITES: repair each hit in place the ' +
+    'moment it is found; output is a fix-log of edits ALREADY MADE, never a ledger, a to-do list, or a would/should hedge.',
+].join('\n')
 const STYLE = 'PROSE QUALITY — apply docs/standards/style-guide.md: lead each section with the controlling rule; one idea per paragraph; close on ' +
   'the consequence or boundary. Cut hedges (may/might/probably/generally/where possible/if needed) and report framing; preserve contract scope ' +
   'qualifiers (optional/if present/when configured). Backtick every code symbol, type, member, path, command, and literal value.'
@@ -84,28 +97,38 @@ const DOCTRINE = [LAW, '', DIVIDERS, '', COMMENTS, '', PROSE, '', PRESERVE, '', 
 const ctx = (u) => '\nFOLDER: ' + u.folder + '\nPLANNING TREE (edit only design pages under here): ' + u.planning + '\nCONTEXT ROOT (read-only ' +
   'governing docs + .api): ' + u.context_root
 const tidyPrompt = (u) => [DOCTRINE, '', ADVERSARIAL, '', 'TASK: SURGICAL HYGIENE PASS over EVERY design page under this folder`s .planning tree. ' +
-  'First read the context-root governing docs + the style-guide + CLAUDE.md [08] divider grammar, then process EVERY markdown design page under ' +
-  'the planning tree: apply the COMMENT hygiene (trim/refine/delete per the mandate), the PROSE hygiene (remove stale/wrong/noise, tighten, ' +
-  '~20-25% reduction where possible), and the DIVIDER grammar, preserving ALL design/code and ALL load-bearing context for future rebuild agents. ' +
-  'Touch comments + prose ONLY — never a code fence`s design, signatures, structure, or content. Report the folder, pages touched, comments cut, ' +
-  'an approximate prose reduction_pct, and a one-line summary. verdict `trimmed` unless the corpus was already maximally tight (then ' +
-  '`refined`/`clean`).' + ctx(u)].join('\n')
+  'First read the context-root governing docs + BOTH .api tiers + the style-guide + CLAUDE.md [08] divider grammar, then process EVERY ' +
+  'markdown design page under the planning tree: apply the COMMENT hygiene (trim/refine/delete per the mandate), the PROSE hygiene (remove ' +
+  'stale/wrong/noise, tighten, ~20-25% reduction where possible), and the DIVIDER grammar, preserving ALL design/code and ALL load-bearing ' +
+  'context for future rebuild agents. Touch comments + prose ONLY — never a code fence`s design, signatures, structure, or content. Report ' +
+  'the folder, pages touched, comments cut, an approximate prose reduction_pct, and a one-line summary. verdict `trimmed` unless the corpus ' +
+  'was already maximally tight (then `refined`/`clean`).' + ctx(u)].join('\n')
 const critiquePrompt = (u) => [DOCTRINE, '', ADVERSARIAL, '', 'TASK: HOSTILE HYGIENE AUDIT + FIX IN PLACE over EVERY page under this folder`s ' +
-  '.planning tree. Trust NOTHING the tidy pass claims; audit every page line by line and REPAIR every hit in place: (1) any noise / stale / wrong ' +
-  '/ restating / process comment the pass MISSED -> delete it; (2) any OVER-trim — a load-bearing comment, explanation, invariant, boundary, ' +
-  'rationale, integration point, or RESEARCH marker the pass wrongly cut -> RESTORE it (refined, from the context-root docs if needed); (3) any ' +
-  'comment still over 1-2 lines without a genuinely subtle multi-part reason -> reduce it (max 3); (4) any malformed/invented/mis-converted ' +
-  'divider -> fix to the correct canonical-vs-loose form; (5) any prose still bloated, hedged, or report-framed -> tighten per the style-guide; ' +
-  '(6) ANY code fence whose design/signatures/types/structure/content was altered by the tidy pass -> REVERT that change (hygiene is comments + ' +
-  'prose ONLY). Fix every hit; report the folder, pages, reduction_pct, and summary.' + ctx(u)].join('\n')
+  '.planning tree. Trust NOTHING the tidy pass claims; audit every page line by line and REPAIR every hit in place — the numbered checks are a ' +
+  'FLOOR hunted past, never the whole audit: (1) any noise / stale / wrong / restating / process comment the pass MISSED -> delete it; (2) any ' +
+  'OVER-trim — a load-bearing comment, explanation, invariant, boundary, rationale, integration point, or RESEARCH marker the pass wrongly cut ' +
+  '-> RESTORE it (refined, from the context-root docs if needed); (3) any comment still over 1-2 lines without a genuinely subtle multi-part ' +
+  'reason -> reduce it (max 3); (4) any malformed/invented/mis-converted divider -> fix to the correct canonical-vs-loose form; (5) any prose ' +
+  'still bloated, hedged, or report-framed -> tighten per the style-guide; (6) any prose/comment claim about a member, type, package, or ' +
+  'capability that neither the fence nor either .api tier verifies -> correct it from the catalogs or delete it (PHANTOM); (7) ANY code fence ' +
+  'whose design/signatures/types/structure/content was altered by the tidy pass -> REVERT that change (hygiene is comments + prose ONLY). Every ' +
+  'hit is a FAMILY: when a check lands, sweep the same defect pattern across the whole corpus — both naivety axes attacked. The report is the ' +
+  'fix-log of edits made: folder, pages, reduction_pct, summary; verdict `trimmed` when this attack cut or restored material, `refined` for ' +
+  'quality-only edits, `clean` ONLY when a full attack found nothing.' + ctx(u)].join('\n')
 const redteamPrompt = (u) => [DOCTRINE, '', ADVERSARIAL, '', 'TASK: ADVERSARIAL RED-TEAM + FIX IN PLACE over this folder`s .planning tree — the ' +
-  'LAST and MOST AGGRESSIVE pass; red-team is the critique AND MORE. Re-attack every page COLD, trusting nothing the prior passes claimed: hunt ' +
-  'the subtle surviving noise, the still-bloated line item, the stale or contradicted fact, the comment that does not earn its place, AND the ' +
-  'over-trim that silently lost context a future rebuild agent needs (restore it). Confirm: every comment is high-signal agent-facing framing at ' +
-  '1-2 (max 3) lines; every divider is correct; the prose reduction held (~20-25%, or correctly less for an already-tight folder) WITHOUT losing ' +
-  'signal; and NO code fence design/signature/structure was touched anywhere. The folder must end objectively higher-signal, leaner, and fully ' +
-  'load-bearing. Fix every defect in place; if a page is genuinely already at the bar, prove it by changing nothing — never invent churn. Report ' +
-  'the folder, pages, reduction_pct, and summary.' + ctx(u)].join('\n')
+  'LAST and MOST AGGRESSIVE pass; red-team is the critique AND MORE. Re-attack every page COLD, trusting nothing the prior passes claimed — ' +
+  'every critique dimension re-run in full — plus these lenses, each a floor: (COUNTERFACTUAL) read each page as the cold rebuild agent that ' +
+  'must work from it alone; where the surviving prose + comments no longer carry the why/invariant/integration the fences cannot, the trim went ' +
+  'too deep — restore it, refined, from the context-root docs; (LONG-TAIL) attack where prior passes fade — deep sections, long pages, ' +
+  'bottom-half fences, table cells, the last pages of the tree: the subtle surviving noise, the still-bloated line item, the stale or ' +
+  'contradicted fact, the comment that does not earn its place; (PHANTOMS) any prose/comment claim or cross-reference that the fence, both .api ' +
+  'tiers, and the sibling pages do not verify -> correct or delete it; (FAMILY) every defect found is a family swept corpus-wide, never a ' +
+  'spot-fix — both naivety axes attacked; (COMPLETENESS) every page under the tree is attacked, none skipped. Confirm: every comment is ' +
+  'high-signal agent-facing framing at 1-2 (max 3) lines; every divider is correct; the prose reduction held (~20-25%, or correctly less for an ' +
+  'already-tight folder) WITHOUT losing signal; and NO code fence design/signature/structure was touched anywhere. The folder must end ' +
+  'objectively higher-signal, leaner, and fully load-bearing. Fix every defect in place; a page already at the bar is proven by an attack that ' +
+  'finds nothing, never conceded — never invent churn. The report is the fix-log of edits made: folder, pages, reduction_pct, summary; verdict ' +
+  '`clean` ONLY when the full cold attack found nothing.' + ctx(u)].join('\n')
 const STAGES = [
   { key: 'tidy', build: tidyPrompt, effort: 'max' },
   { key: 'crit', build: critiquePrompt, effort: 'xhigh' },
@@ -142,7 +165,11 @@ const inv = await agent('List every PACKAGE FOLDER under ' + SCOPE + ' that owns
   'planning ONLY at libs/csharp/Rasm/Geometry/.planning (the Geometry sub-domain), while its governing docs + .api live at the libs/csharp/Rasm/ ' +
   'ROOT — emit ONE unit for it with folder=libs/csharp/Rasm, planning=libs/csharp/Rasm/Geometry/.planning, context_root=libs/csharp/Rasm. Also ' +
   'emit a unit for any language-wide or branch-level .planning under the scope (e.g. libs/<lang>/.planning) with context_root the same dir. ' +
-  'EXCLUDE folders with no .planning (mature host-bound packages such as Rasm.Rhino/Rasm.Grasshopper). Use find; do not cd; do not edit anything.', { label: 'discover', phase: 'Discover', schema: DISCOVER_SCHEMA, model: 'sonnet', effort: 'low', stallMs: STALL })
+  'EXCLUDE folders with no .planning (mature host-bound packages such as Rasm.Rhino/Rasm.Grasshopper). This is DISCOVERY and read-only is its ' +
+  'ONLY concession: enumerate with a REAL find/fd listing from disk, NEVER from memory of the repo layout, and VERIFY every unit against disk ' +
+  'state — the planning tree exists and holds at least one .md design page (return that count as pages), and the context_root actually holds ' +
+  'the governing docs + .api/. The unit list is scope resolution, an initial pointer: downstream agents full-read every page under each ' +
+  'planning tree themselves, so the list never caps what they process. Do not cd; do not edit anything.', { label: 'discover', phase: 'Discover', schema: DISCOVER_SCHEMA, model: 'sonnet', effort: 'low', stallMs: STALL })
 const units = ((inv && inv.units) || []).filter((u) => u && u.folder && u.planning)
 log('Discover under ' + SCOPE + ': ' + units.length + ' planning folders; pooling at CAP=' + CAP)
 

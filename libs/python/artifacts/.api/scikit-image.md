@@ -37,9 +37,9 @@
 
 | [INDEX] | [SYMBOL]       | [CAPABILITY]                               |
 | :-----: | :------------- | :----------------------------------------- |
-|  [01]   | `CircleModel`  | circle fitting from point correspondences  |
-|  [02]   | `EllipseModel` | ellipse fitting from point correspondences |
-|  [03]   | `LineModelND`  | N-dimensional line fitting                 |
+|  [01]   | `CircleModel`  | circle fit; `params=(xc, yc, r)`, `residuals(data)` per-point radial distance, `predict_xy(t)`, 0.26 `from_estimate(data)` classmethod |
+|  [02]   | `EllipseModel` | ellipse fit; `params=(xc, yc, a, b, theta)`, `residuals(data)`, `predict_xy(t)`, `from_estimate(data)`  |
+|  [03]   | `LineModelND`  | N-D line fit; `params=(origin, direction)`, `residuals(data)`, `predict_x`/`predict_y`, `from_estimate(data)` |
 
 [PUBLIC_TYPE_SCOPE]: feature descriptor family
 - rail: imaging — `skimage.feature`
@@ -193,6 +193,7 @@
 |  [07]   | `mesh_surface_area(verts, faces)`                                                        | mesh metric    | surface area of a triangulated mesh                   |
 |  [08]   | `shannon_entropy(image, base)`                                                           | entropy        | Shannon entropy of image histogram                    |
 |  [09]   | `blur_effect(image, h_size=11, channel_axis=None, reduce_func=<amax>)`                   | no-ref quality | no-reference perceptual blur metric (0=sharp … 1=blurred), the sole reference-free `measure` scalar |
+|  [10]   | `profile_line(image, src, dst, linewidth=1, order, mode, cval, *, reduce_func=<mean>)`    | scan line      | intensity profile sampled along the `src`->`dst` segment; returns the 1-D profile array (the section-cut / line-profile measurement) |
 
 [ENTRYPOINT_SCOPE]: feature detection and description
 - rail: imaging — `skimage.feature`
@@ -200,8 +201,8 @@
 | [INDEX] | [SURFACE]                                                                       | [ENTRY_FAMILY]   | [CAPABILITY]                                   |
 | :-----: | :------------------------------------------------------------------------------ | :--------------- | :--------------------------------------------- |
 |  [01]   | `canny(image, sigma, low_threshold, high_threshold, mask, use_quantiles, ...)`  | edge detect      | Canny multi-stage edge detector                |
-|  [02]   | `hog(image, orientations, pixels_per_cell, cells_per_block, ..., channel_axis)` | descriptor       | histogram of oriented gradients feature vector |
-|  [03]   | `SIFT(upsampling, n_octaves, n_scales, sigma_min, ...)`                         | descriptor class | SIFT keypoint and descriptor extraction        |
+|  [02]   | `hog(image, orientations=9, pixels_per_cell=(8,8), cells_per_block=(3,3), block_norm='L2-Hys', visualize=False, transform_sqrt=False, feature_vector=True, *, channel_axis=None)` | descriptor | HOG feature vector; `visualize=True` returns the `(descriptor, hog_image)` two-tuple (the render is the second element) |
+|  [03]   | `SIFT(upsampling=2, n_octaves=8, n_scales=3, sigma_min=1.6, sigma_in=0.5, c_dog=0.0133, c_edge=10, n_bins=36, lambda_ori=1.5, c_max=0.8, lambda_descr=6, n_hist=4, n_ori=8)` | descriptor class | SIFT keypoint and descriptor extraction (no keypoint cap; construction carries no array) |
 |  [04]   | `match_descriptors(descriptors1, descriptors2, metric=None, p=2, max_distance=inf, cross_check=True, max_ratio=1.0)` | matching | nearest-neighbor descriptor matching (Lowe-ratio + cross-check) |
 |  [05]   | `blob_dog(image, min_sigma, max_sigma, sigma_ratio, threshold, overlap, ...)`   | blob detect      | Difference-of-Gaussian blob detection          |
 |  [06]   | `blob_log(image, min_sigma, max_sigma, num_sigma, threshold, overlap, ...)`     | blob detect      | Laplacian-of-Gaussian blob detection           |
@@ -209,10 +210,10 @@
 |  [08]   | `corner_peaks(image, min_distance, threshold_abs, threshold_rel, ...)`          | corner peaks     | peaks in corner response map                   |
 |  [09]   | `peak_local_max(image, min_distance, threshold_abs, threshold_rel, ...)`        | local max        | local maxima coordinates in image              |
 |  [10]   | `local_binary_pattern(image, P, R, method)`                                     | texture          | LBP texture descriptor                         |
-|  [11]   | `graycomatrix(image, distances, angles, levels, ...)` / `graycoprops(P, prop)` | texture          | gray-level co-occurrence matrix and Haralick props (the British `greycomatrix`/`greycoprops` aliases were removed in 0.26) |
+|  [11]   | `graycomatrix(image, distances, angles, levels=None, symmetric=False, normed=False)` / `graycoprops(P, prop='contrast')` | texture | GLCM + Haralick props; `prop` ∈ `contrast`/`dissimilarity`/`homogeneity`/`ASM`/`energy`/`correlation`/`mean`/`variance`/`std`/`entropy` (the last four added 0.25); British `greycomatrix`/`greycoprops` aliases removed 0.26 |
 |  [12]   | `structure_tensor(image, sigma, mode, cval, *, axis, order)`                    | tensor           | structure tensor elements                      |
 |  [13]   | `blob_doh(image, min_sigma, max_sigma, num_sigma, threshold, ...)`              | blob detect      | Determinant-of-Hessian blob detection          |
-|  [14]   | `ORB(...)` / `BRIEF(...)` / `CENSURE(...)`                                       | descriptor class | detector/descriptor classes (`detect_and_extract` -> `.keypoints`/`.descriptors`) |
+|  [14]   | `ORB(downscale=1.2, n_scales=8, n_keypoints=500, fast_n=9, fast_threshold=0.08, harris_k=0.04)` / `BRIEF(descriptor_size=256, patch_size=49, mode='normal', sigma=1, ...)` / `CENSURE(min_scale=1, max_scale=7, mode='DoB', non_max_threshold=0.15, line_threshold=10)` | descriptor class | `ORB`/`SIFT` drive `detect_and_extract` -> `.keypoints`/`.descriptors`; `CENSURE.detect(image)` detects keypoints (no descriptors), `BRIEF.extract(image, keypoints)` describes given keypoints — the detect-then-describe pair |
 |  [15]   | `corner_subpix` / `corner_fast` / `corner_shi_tomasi` / `corner_kitchen_rosenfeld` / `corner_moravec` | corner detect | the full corner-response family beside Harris |
 |  [16]   | `hessian_matrix(image, sigma, mode, ...)` / `hessian_matrix_eigvals(H_elems)` / `shape_index(image, sigma, ...)` | tensor | Hessian elements/eigenvalues and local shape index |
 |  [17]   | `daisy(image, step, radius, rings, ...)` / `multiscale_basic_features(...)`     | descriptor       | DAISY dense descriptor; multiscale feature stack for trainable segmentation |
@@ -333,8 +334,10 @@ Classical (non-deep) trainable pixel segmentation: extract a multiscale feature 
 - channel axis: multichannel functions take `channel_axis` (integer or `-1`, default `None` = grayscale); never infer from shape. The legacy `multichannel=` keyword is removed in 0.26.
 - structuring elements: the `skimage.morphology` footprint factory (`disk`/`diamond`/`ball`/`ellipse`/`octagon`/`star` plus the unified `footprint_rectangle` that supersedes `square`/`cube`/`rectangle` — the predecessors remain callable but emit a `FutureWarning` since 0.25, so new code uses `footprint_rectangle`) and the `decomposition='sequence'` argument own structuring-element construction; never hand-roll footprint arrays.
 - transform model: `estimate_transform(ttype, src, dst)` or `Model().estimate(src, dst)` fits from correspondences; `warp(image, model.inverse)` applies the inverse map. Transform objects compose via `+` (matrix product) and invert via `.inverse`.
-- RANSAC: `ransac(data, ModelClass, min_samples, residual_threshold, *, max_trials=100, rng=None, ...)` wraps any model exposing `estimate`/`residuals`; the seed kwarg is `rng` (a `numpy.random.Generator`/int), not `random_state`. `CircleModel`/`EllipseModel`/`LineModelND` are the built-in models; a custom model is any object with the two methods.
-- feature pipeline: `detector = SIFT()/ORB()/BRIEF()/CENSURE(); detector.detect_and_extract(image)` -> `detector.keypoints`, `detector.descriptors` -> `match_descriptors(d1, d2, cross_check=True)`; descriptor classes carry no array on construction.
+- RANSAC: `ransac(data, ModelClass, min_samples, residual_threshold, *, max_trials=100, rng=None, ...)` wraps any model exposing `residuals` and (0.26) `from_estimate`/`estimate`; the seed kwarg is `rng` (a `numpy.random.Generator`/int), not `random_state`. It returns `(model, inliers)` where the fitted `model` exposes `params` (`CircleModel`=`(xc, yc, r)`, `EllipseModel`=`(xc, yc, a, b, theta)`, `LineModelND`=`(origin, direction)`) and `residuals(data)`. 0.26 replaces the deprecated `estimate` method with the `from_estimate(data)` classmethod and deprecates no-arg construction — but `ransac` still accepts the model class and instantiates it internally, so `ransac(points, CircleModel, ...)` is the current form; a custom model is any object with `residuals` + `from_estimate`.
+- feature pipeline: `SIFT`/`ORB` are detect-and-describe — `detector = SIFT()/ORB(...); detector.detect_and_extract(image)` -> `detector.keypoints`/`detector.descriptors` -> `match_descriptors(d1, d2, cross_check=True)`; `CENSURE`/`BRIEF` split it — `CENSURE().detect(image)` -> `.keypoints` (no descriptors), then `BRIEF().extract(image, keypoints)` -> `.descriptors` — so a CENSURE+BRIEF pipeline is a detect-then-describe two-stage seam, not the uniform `detect_and_extract`. Descriptor classes carry no array on construction.
+- GLCM texture: `graycoprops(P, prop)` reads a Haralick scalar from the `graycomatrix` — the valid `prop` literals are `contrast`/`dissimilarity`/`homogeneity`/`ASM`/`energy`/`correlation` plus (0.25+) `mean`/`variance`/`std`/`entropy`; `graycomatrix(image, distances, angles, levels=None, symmetric=False, normed=False)` requires an integer image (`img_as_ubyte`) and rejects floats, `symmetric=True`+`normed=True` yielding the symmetric normalized histogram.
+- scan-line: `measure.profile_line(image, src, dst, linewidth=1, *, reduce_func=<mean>)` samples the intensity profile along the `src`->`dst` segment (`src`/`dst` are `(row, col)` pairs), returning the 1-D profile array — the section-cut / line-profile measurement, a one-image `measure` reduction distinct from the `metrics` operand pair.
 - segmentation pipeline: `label = segmenter(...)` -> `regionprops_table(label, intensity_image, properties=(...))` -> table; RAG refinement is `rag_mean_color(image, label) -> merge_hierarchical/cut_threshold` for region merging.
 - region morphometry: `regionprops`/`regionprops_table` scalar properties are `area`/`eccentricity`/`solidity`/`orientation`/`perimeter`/`euler_number`/`extent`/`axis_major_length`/`axis_minor_length`/`equivalent_diameter_area`; the array property `moments_hu` is the 7 rotation/scale-invariant Hu moments and `regionprops_table` expands it to `moments_hu-0`…`moments_hu-6` columns (fold by a `key.startswith("moments_hu")` prefix match, never assuming the `-` separator).
 - no-reference quality: `measure.blur_effect(image, h_size=11, channel_axis=None, reduce_func=<amax>)` is the only reference-free perceptual metric (re-blur strength -> 0=sharp … 1=blurred), a one-image `measure` scalar distinct from the `metrics` operand-pair quality family.

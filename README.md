@@ -23,13 +23,15 @@ NOTE: It is crucial that EACH folder within `libs/` is made with immense focus o
 | :-----: | :------------------------ | :------------------------ | :------------------------------------------------------------------------------------ |
 |  [01]   | `apps/grasshopper/Radyab` | Test/throw-away app       | Thin test app, not binding to any patterns                                            |
 |  [02]   | `libs/csharp`             | C# library suite          | Geometry, host, runtime, UI, compute, and persistence foundations.                    |
-|  [03]   | `tests/csharp`            | Managed C# proof surface  | Contract, law, and scenario-adjacent tests for shared libraries.                      |
-|  [04]   | `tests/python`            | Python tool proof surface | Assay and repo-tool behavior tests.                                                   |
-|  [05]   | `tools/assay`             | Typed operator            | Static, test, bridge, package, code, docs, provision, and API evidence rails.         |
-|  [06]   | `tools/rhino-bridge`      | Live Rhino owner          | Host lifecycle, scenario execution, cargo, spool, protocol, and evidence.             |
-|  [07]   | `tools/cs-analyzer`       | C# architecture pressure  | Local Roslyn diagnostics for repeated source-shape laws.                              |
-|  [08]   | `tools/yak`               | Package metadata          | Tracked Yak manifests and icons for package roots.                                    |
-|  [09]   | `docs`                    | Durable doctrine          | Agent-facing standards, host notes, stack doctrine, source-backed reference material. |
+|  [03]   | `libs/python`             | Python library suite      | Host-free science, compute, data, geometry/IFC, and artifact companion packages.      |
+|  [04]   | `libs/typescript`         | TypeScript library suite  | Host-free web/edge platform: wire interchange, projection, UI, platform, services.    |
+|  [05]   | `tests/csharp`            | Managed C# proof surface  | Contract, law, and scenario-adjacent tests for shared libraries.                      |
+|  [06]   | `tests/python`            | Python tool proof surface | Assay and repo-tool behavior tests.                                                   |
+|  [07]   | `tools/assay`             | Typed operator            | Static, test, bridge, package, code, docs, provision, and API evidence rails.         |
+|  [08]   | `tools/rhino-bridge`      | Live Rhino owner          | Host lifecycle, scenario execution, cargo, spool, protocol, and evidence.             |
+|  [09]   | `tools/cs-analyzer`       | C# architecture pressure  | Local Roslyn diagnostics for repeated source-shape laws.                              |
+|  [10]   | `tools/yak`               | Package metadata          | Tracked Yak manifests and icons for package roots.                                    |
+|  [11]   | `docs`                    | Durable doctrine          | Agent-facing standards, host notes, stack doctrine, source-backed reference material. |
 
 ## [03]-[LIBRARY_OWNERS]
 
@@ -56,7 +58,7 @@ Every root, tool, and library routes generated output through an owned store: `.
 
 ## [06]-[PLANNING_AND_EVIDENCE]
 
-New foundational libraries use planning campaigns before production source when scope is broad or future-consumer-facing. A campaign makes infra truth honest, captures manifests and lockfiles, extracts API catalogs through repo evidence rails, runs research and adversarial passes before authoring, enumerates isolated and in-concert capability across modalities, then collapses surviving capability into owner ledgers, row/case/policy axes, and decision-complete pages.
+New foundational libraries use planning campaigns before production source when scope is broad or future-consumer-facing. The planning law lives in `libs/.planning/` — `architecture.md` (the topology), `campaign-method.md` (the loop, the bar, the agent-role law), `README.md` (the authoring standard), `planning-targets.md` (every planning surface) — and campaigns execute through the durable `.claude/workflows/` engine. A campaign makes infra truth honest, captures manifests and lockfiles, extracts API catalogs through repo evidence rails, runs research and adversarial passes before authoring, enumerates isolated and in-concert capability across modalities, then collapses surviving capability into owner ledgers, row/case/policy axes, and decision-complete pages.
 
 ## [07]-[DEVELOPMENT_MODEL]
 

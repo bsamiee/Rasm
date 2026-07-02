@@ -4,7 +4,7 @@ export const meta = {
   description: 'Rebuild every .api catalog under a target root to FULL first-class, integration-shaped capability — document each package full advanced surface AND how packages STACK into single dense rails, verified against real members. Language-agnostic: members verified via assay api over host DLLs / NuGet / Python distributions / node_modules. args = optional scope (e.g. "libs/python" or "libs/csharp/Rasm.Bim"); empty = all of libs.',
   phases: [
     { title: 'API-Discover', detail: 'list every .api catalog file under the target' },
-    { title: 'API-Rebuild', detail: 'per small batch: extract-full -> refine-integration -> harden adversarially, pooled at CAP=14' },
+    { title: 'API-Rebuild', detail: 'per small batch: extract-full -> refine-integration -> harden adversarially, pooled at CAP=10' },
   ],
 }
 
@@ -22,7 +22,7 @@ const SWEEP = (!rawScope || rawScope === 'ALL') ? 'libs' : rawScope
 const DISCOVERY_SCHEMA = { type: 'object', additionalProperties: false, required: ['files'], properties: { files: { type: 'array', items: { type: 'string' } } } }
 const FIXLOG_SCHEMA = { type: 'object', additionalProperties: false, required: ['files', 'verdict', 'summary'], properties: { files: { type: 'array', items: { type: 'string' } }, verdict: { type: 'string', enum: ['rebuilt', 'refined', 'clean'] }, residual: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['files', 'claim'], properties: { files: { type: 'array', items: { type: 'string' } }, claim: { type: 'string' } } } }, summary: { type: 'string' } } }
 const RESIDUAL_FIX_SCHEMA = { type: 'object', additionalProperties: false, required: ['files', 'verdict', 'summary'], properties: { files: { type: 'array', items: { type: 'string' } }, verdict: { type: 'string', enum: ['fixed', 'clean'] }, summary: { type: 'string' } } }
-const RECONCILE_VERIFY_SCHEMA = { type: 'object', additionalProperties: false, required: ['overall', 'claims'], properties: { overall: { type: 'boolean' }, claims: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['claim', 'status'], properties: { claim: { type: 'string' }, status: { type: 'string', enum: ['fixed', 'invalid', 'open'] }, evidence: { type: 'string' } } } } } }
+const RECONCILE_VERIFY_SCHEMA = { type: 'object', additionalProperties: false, required: ['overall', 'claims'], properties: { overall: { type: 'boolean' }, claims: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['claim', 'status'], properties: { claim: { type: 'string' }, status: { type: 'string', enum: ['fixed', 'invalid', 'open'] }, evidence: { type: 'string' } } } }, repaired_files: { type: 'array', items: { type: 'string' } } } }
 
 // --- [DOCTRINE] --------------------------------------------------------------------------
 const LAW = [
@@ -43,9 +43,18 @@ const LAW = [
     'effect/effect-platform/Schema/react), so a folder/area catalog documents stacking ONTO those universal rails, not only its sibling-folder ' +
     'libs. C# has NO central tier — its universals are Thinktecture/LanguageExt, and the `libs/csharp/Rasm/.api/` catalogs serve the ' +
     '`Rasm/Geometry` planning effort. The catalog GUIDES the rebuild toward first-class, stacked usage. Reject surface-level member lists.',
+  'ADVERSARIAL LAW: every catalog is naive, shallow, or illusory until it survives attack — dense confident-looking catalogs are the prime ' +
+    'suspect. Naivety is a defect on two orthogonal axes, both intolerable: COVERAGE — the catalog documents a thin slice of its package, the ' +
+    'obvious members where the real surface carries far more; APPROACH — enumerated hardcoded instances where one parameterized pattern should ' +
+    'own the space (a fixed roster of recipes, variants, or styles is seed DATA feeding one documented parameterized pattern, never the ' +
+    'mechanism itself). Every defect list and capability-kind list in this prompt is a FLOOR, never the complete set — hunt past it: any ' +
+    'repeated structure, parallel spelling, or enumerable family that one pattern, table, or parameterized rail can own is a collapse target ' +
+    'you find yourself. ULTRA-STACKING: enumerate BOTH .api tiers in full from disk and mine each package to operator depth; an admitted ' +
+    'capability the package carries but its catalog omits is a defect you close NOW; a cited member that cannot be verified is a phantom you ' +
+    'delete NOW.',
   'WRITE-FULLY MANDATE: every correction you identify you MUST make NOW via Edit/Write directly in the .api file — the structured fix-log is a ' +
-    'REPORT of edits ALREADY MADE, never a to-do list or would/should hedge; leave nothing behind. If a catalog is already mature and correct, ' +
-    'return verdict=clean — never invent edits.',
+    'REPORT of edits ALREADY MADE, never a to-do list or would/should hedge; leave nothing behind. Verdict=clean is EARNED by an attack that ' +
+    'finds nothing, never conceded on first read — and never invent edits to force a verdict.',
 ].join('\n')
 
 // --- [OPERATIONS] ------------------------------------------------------------------------
@@ -62,13 +71,16 @@ const pool = async (items, cap, worker) => {
 const chunk = (arr, n) => { const o = []; for (let i = 0; i < arr.length; i += n) o.push(arr.slice(i, i + n)); return o }
 const rebuildPrompt = (files) => [
   LAW, '',
-  'TASK: REBUILD these .api catalogs to FULL first-class, integration-shaped capability (fix-in-place, read-then-extend; never shrink real content): ' + files.join(', ' +
-    ''),
+  'TASK: REBUILD these .api catalogs to FULL first-class, integration-shaped capability (fix-in-place, read-then-extend; never shrink real ' +
+    'content): ' + files.join(', '),
   'For EACH file run the same 3-lens write: (1) EXTRACT-FULL — confirm the package and document its full useful ADVANCED surface ' +
-    '(combinators/hooks/async mirrors/discriminators/native pipelines), not the basic subset; (2) REFINE/REFACTOR — restructure to ' +
-    'integration-shaped, documenting how this lib STACKS with sibling admitted libs into single dense rails; (3) HARDEN — as a HOSTILE reviewer ' +
-    'who assumes the catalog is naive until proven otherwise, adversarially remove every phantom member, wrong floor/marker/target, ' +
-    'surface-level/naive framing, missing license/ABI/runtime flag, and un-stacked single-feature framing. Verify members via `uv run --frozen ' +
+    '(combinators/hooks/async mirrors/discriminators/native pipelines — a floor, not the set), not the basic subset; (2) REFINE/REFACTOR — ' +
+    'restructure to integration-shaped, documenting how this lib STACKS with the universal-tier rails AND sibling admitted libs into single ' +
+    'dense rails — enumerate the scope shared .api tier from disk and read the catalogs your stacking notes compose against; a stacking claim ' +
+    'written from memory is a phantom; (3) HARDEN — the terminal, most aggressive review: attack BOTH naivety axes (COVERAGE thin-slice, ' +
+    'APPROACH enumerated-instances-where-one-parameterized-pattern-owns-the-space), then remove every phantom member, wrong floor/marker/target, ' +
+    'surface-level framing, missing license/ABI/runtime flag, and un-stacked single-feature framing — a defect list you hunt past — and end ' +
+    'with a full cold re-read of each finished catalog. Verify members via `uv run --frozen ' +
     'python -m tools.assay api resolve`. Also close any gap a consuming design page genuinely needs (a specific member/signature the design ' +
     'composes). Return the fix-log (files + verdict + residual — each residual a {files: [the catalog paths a cross-CATALOG fix must also touch], ' +
     'claim} object; everything within these catalogs you fix yourself).',
@@ -81,8 +93,10 @@ const processBatch = async (w, tag) => {
 // --- [COMPOSITION] -----------------------------------------------------------------------
 
 phase('API-Discover')
-const inv = await agent('List every .api catalog file under ' + SWEEP + ' — markdown files at paths matching */.api/*.md (and any nested .api ' +
-  'subdirs). Return each as a repo-relative path. If none exist, return an empty list. Use find; do not cd.', { label: 'discover', phase: 'API-Discover', schema: DISCOVERY_SCHEMA, model: 'sonnet', effort: 'low' })
+const inv = await agent('Enumerate every .api catalog file under ' + SWEEP + ' from REAL disk state — one find listing over */.api/*.md (and any ' +
+  'nested .api subdirs), never a memory-recall inventory: BOTH tiers the scope contains, the shared/universal tier (libs/<lang>/.api/) AND every ' +
+  'folder tier (libs/<lang>/<folder>/.api/). Return each as a repo-relative path — this listing is the ground truth downstream batches resolve ' +
+  'against, an initial pointer never a ceiling. If none exist, return an empty list. Use find; do not cd.', { label: 'discover', phase: 'API-Discover', schema: DISCOVERY_SCHEMA, model: 'sonnet', effort: 'low' })
 const FILES = ((inv && inv.files) || []).filter(Boolean)
 const pending = chunk(FILES, BATCH).map((files) => ({ files }))
 const totalFiles = FILES.length
@@ -104,20 +118,26 @@ const clusters = (() => {
   for (const r of uniq) { const root = r.files.length ? find(r.files[0]) : '__none__'; (by.get(root) || by.set(root, []).get(root)).push(r) }
   return [...by.values()]
 })()
-log('API rebuild: ' + done.length + '/' + totalBatches + ' batches (' + totalFiles + ' catalogs); reconcile ' + uniq.length + ' residuals -> ' + clusters.length + ' ' +
-  'clusters')
+log('API rebuild: ' + done.length + '/' + totalBatches + ' batches (' + totalFiles + ' catalogs); reconcile ' + uniq.length + ' residuals -> ' +
+  clusters.length + ' clusters')
 let reconciled = []
 if (clusters.length) {
   phase('Reconcile')
   reconciled = (await pipeline(
     clusters,
     (cl) => agent([LAW, '', 'TASK: RECONCILE these cross-CATALOG residuals the per-batch pass deferred. There is NO severity — address EVERY ' +
-      'residual. Read EVERY listed .api catalog, make the cross-catalog fix in place (add the depended-on member/signature, align the stacking ' +
-      'note across catalogs), verify members via `uv run --frozen python -m tools.assay api resolve`, never shrink real content. Residuals:\n' + JSON.stringify(cl, null, 1)].join('\n'), { label: 'reconcile-fix', phase: 'Reconcile', schema: RESIDUAL_FIX_SCHEMA, effort: 'max', stallMs: 300000 }),
-    (fix, cl, i) => fix ? agent([LAW, '', 'TASK: ADVERSARIAL COMPLETENESS VERIFY. A reconcile agent claims to have fixed the cross-catalog ' +
-      'residuals below. Read the named catalogs from disk and prove, per claim, each: status "fixed" (real defect, now resolved), "invalid" (the ' +
-      'claim is factually wrong — cite why), or "open" (real defect still NOT resolved). Default "open" on any doubt; "invalid" only when provably ' +
-      'wrong. One verdict per claim plus overall. Claims:\n' + JSON.stringify(cl, null, 1) + '\nCatalogs touched: ' + JSON.stringify(fix.files)].join('\n'), { label: 'reconcile-verify:' + i, phase: 'Reconcile', schema: RECONCILE_VERIFY_SCHEMA, effort: 'xhigh', stallMs: 300000 }).then((v) => ({ cluster: cl, fix, verify: v })) : null,
+      'residual. Read EVERY listed .api catalog IN FULL, make the cross-catalog fix in place at its ROOT — the objectively-best form of the same ' +
+      'catalogs, never a token alignment (add the depended-on member/signature, align the stacking note across catalogs), verify members via ' +
+      '`uv run --frozen python -m tools.assay api resolve`, never shrink real content. Residuals:\n' + JSON.stringify(cl, null, 1)].join('\n'), { label: 'reconcile-fix', phase: 'Reconcile', schema: RESIDUAL_FIX_SCHEMA, effort: 'max', stallMs: 300000 }),
+    (fix, cl, i) => fix ? agent([LAW, '', 'TASK: ADVERSARIAL WRITING VERIFY — never a friendly confirmation, never read-only. A reconcile agent ' +
+      'claims to have fixed the cross-catalog residuals below. Per claim: (a) re-derive from the catalogs whether the claimed fix was necessary ' +
+      'at all; (b) read every named catalog from disk and PROVE the fix landed properly, re-verifying every cited member via `uv run --frozen ' +
+      'python -m tools.assay api resolve`; (c) REPAIR every loose, weak, or token fix in place NOW via Edit/Write to the objectively-best ' +
+      'root-level form of the same catalogs — a single-point patch where a root-level denser reconstruction is available is itself a defect you ' +
+      'repair; (d) only then classify: status "fixed" (real defect, resolved on disk — your own repair counts), "invalid" (the claim is ' +
+      'factually wrong — cite why, only when provably wrong), or "open" (RESERVED for claims genuinely unreachable from the catalogs at hand — ' +
+      'never a punt on a strengthenable fix you could make yourself). Prove against disk, never trust the fixer summary. One verdict per claim ' +
+      'plus overall; list every catalog you edited in repaired_files. Claims:\n' + JSON.stringify(cl, null, 1) + '\nCatalogs touched by the fixer: ' + JSON.stringify(fix.files)].join('\n'), { label: 'reconcile-verify:' + i, phase: 'Reconcile', schema: RECONCILE_VERIFY_SCHEMA, effort: 'xhigh', stallMs: 300000 }).then((v) => ({ cluster: cl, fix, verify: v })) : null,
   )).filter(Boolean)
 }
 const claimsAll = reconciled.flatMap((r) => (r.verify && r.verify.claims) || [])

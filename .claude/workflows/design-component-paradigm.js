@@ -1,13 +1,14 @@
 export const meta = {
   name: 'design-component-paradigm',
   whenToUse: 'One-shot campaign design pass: decide the C# Component/Section/IfcClass paradigm and rewrite the Generation blueprint before any build leg runs.',
-  description: 'Disposable design workflow for the Component-Paradigm campaign. Survey (4 opus agents: Materials corpus, Element seam + Bim, doctrine + substrate .api, external research) -> Draft (4 fable agents, distinct paradigm angles, all answering the fixed question set a-j) -> Judge (3 fable lenses: doctrine, 5x capability, blast-radius/cost) -> Synthesize (1 fable merge of winner + grafts) -> Decide (1 fable red-team gate that attacks the synthesis then WRITES RASM-COMPONENT-PARADIGM-DECISION.md and the rewritten RASM-GENERATION-SPEC.md). About 13 agents, peak concurrency 4. Takes no args.',
+  description: 'Disposable design workflow for the Component-Paradigm campaign. Survey (4 opus agents: Materials corpus, Element seam + Bim, doctrine + substrate .api, external research) -> Draft (4 fable agents, distinct paradigm angles, all answering the fixed question set a-j) -> Judge (3 fable lenses: doctrine, 5x capability, blast-radius/cost) -> Synthesize (1 fable merge of winner + grafts) -> Decide (1 fable red-team gate that attacks the synthesis then WRITES RASM-COMPONENT-PARADIGM-DECISION.md and the rewritten RASM-GENERATION-SPEC.md) -> Salvage (4 draft miners + 1 overturn auditor against the WRITTEN outputs, then 1 writing integrator that applies every accepted finding in place — a decide gate drops value silently, so the salvage pass is structural, never optional). About 19 agents, peak concurrency 5. Takes no args.',
   phases: [
     { title: 'Survey', detail: '4 parallel dossiers: S1 Materials corpus (verify/extend W1-W9), S2 Element seam + Bim + archived scope (frozen invariants, assay-verify GeometryGym reflection), S3 doctrine + substrate + folder .api (assay-verify VividOrange), S4 external research (IFC 4.3 parameterized profiles, Revit family model, graph grammars, parametric layout)' },
     { title: 'Draft', detail: '4 parallel complete paradigm proposals: D1 parametric-descriptor, D2 schema-reflected IFC-first, D3 graph-generative, D4 conservative collapse; every draft answers the fixed question set a-j' },
     { title: 'Judge', detail: '3 parallel judges scoring all drafts: doctrine conformance; capability under 5x future demand; blast-radius/cost' },
     { title: 'Synthesize', detail: '1 agent merges the winning draft with the strongest grafts from the runners-up into one full paradigm' },
     { title: 'Decide', detail: '1 red-team gate attacks the synthesis (counterfactual, diff-of-next-thing, frozen-invariant audit, both-endpoint seam mirroring, strata), then writes the DECISION record (shared-law head + one section per leg) and the rewritten generation spec' },
+    { title: 'Salvage', detail: '5 parallel miners (one per draft vs the written outputs + one overturn auditor over the gate record and synthesis, spot-verifying factual premises), then 1 writing integrator applying every evidence-surviving finding in place as an extension of the existing owner' },
   ],
 }
 
@@ -38,6 +39,9 @@ const JUDGE = { type: 'object', additionalProperties: false, required: ['ranking
 const DECIDE = { type: 'object', additionalProperties: false, required: ['files', 'verdict', 'summary'], properties: {
   files: { type: 'array', items: { type: 'string' } }, verdict: { type: 'string', enum: ['written'] },
   overturned: { type: 'string' }, research: { type: 'array', items: { type: 'string' } }, summary: { type: 'string' } } }
+const INTEGRATE = { type: 'object', additionalProperties: false, required: ['files', 'applied', 'rejected', 'summary'], properties: {
+  files: { type: 'array', items: { type: 'string' } }, applied: { type: 'array', items: { type: 'string' } },
+  rejected: { type: 'array', items: { type: 'string' } }, research: { type: 'array', items: { type: 'string' } }, summary: { type: 'string' } } }
 
 // --- [DOCTRINE] --------------------------------------------------------------------------
 
@@ -204,6 +208,29 @@ const decidePrompt = (synthesis, verdicts) => [LAW, '', QUESTIONS, '', 'THE SYNT
   'style-guide-conformant (docs/standards/style-guide.md), every symbol backticked. Return files (both paths), verdict written, overturned (what ' +
   'you overturned from the synthesis and why, one line each), research (the carried RESEARCH items), summary.'].join('\n')
 
+const SALVAGE_LAW = 'SALVAGE LAW — a decide gate DROPS value: zero-overzealous is not zero-loss, and SILENT drops are the larger risk. Classify ' +
+  'every finding SALVAGE (complementary/extending — the exact adjusted landing: which section, which owner, as what row/column/arm/law clause; ' +
+  'never a parallel type or rail) / SKIP (dropped for a stated reason — name it, agree or disagree) / CONTRADICTS (one line). Mark every member ' +
+  'claim VERIFIED (decompile/assay evidence) or RESEARCH (never asserted). Your final text is the report; no process narration.'
+const draftMinerPrompt = (angleHead, text) => [LAW, '', 'TASK: SALVAGE MINING of one losing/merged draft against the WRITTEN outputs ' + DECISION +
+  ' + ' + SPEC + ' — read BOTH from disk in full FIRST. THE DRAFT (' + angleHead + '):\n' + (text || '(draft skipped)') + '\n\nHunt exhaustively ' +
+  'for content ABSENT from or THINNER in the outputs: owner/vocabulary completeness, family and dimension extensions, fault modeling, IFC/thing ' +
+  'vocabulary depth, and strong mechanisms dropped because the DRAFT lost on other grounds. ' + SALVAGE_LAW].join('\n')
+const overturnAuditPrompt = (d, synth) => [LAW, '', 'TASK: OVERTURN AUDIT of the decide gate against the WRITTEN outputs ' + DECISION + ' + ' +
+  SPEC + ' — read BOTH from disk in full FIRST. THE GATE RECORD:\n' + JSON.stringify({ overturned: (d && d.overturned) || '', research: (d && d.research) || [] }, null, 1) +
+  '\nTHE PRE-GATE SYNTHESIS:\n' + (synth || '(missing)') + '\n\nFor EACH overturn verdict JUSTIFIED (state the evidence; spot-verify factual ' +
+  'premises via uv run python -m tools.assay api where cheap — an unverifiable factual premise is FLAGGED, never trusted) / OVERZEALOUS (what was ' +
+  'lost + the corrected add-back) / PARTIAL (the salvageable remainder). THEN sweep the synthesis for SILENT drops (high-value content that ' +
+  'vanished with no overturn entry) and audit the frozen-invariant handling both ways (wrongly frozen, wrongly amended, wrongly dropped rows). ' +
+  SALVAGE_LAW].join('\n')
+const integratePrompt = (reports) => [LAW, '', 'TASK: SALVAGE INTEGRATION — the final WRITING pass on ' + DECISION + ' + ' + SPEC + '. THE ' +
+  'MINING REPORTS:\n' + reports.join('\n\n=== NEXT REPORT ===\n\n') + '\n\nRe-read BOTH files from disk. Judge every SALVAGE/PARTIAL/add-back ' +
+  'finding on its evidence — a finding falsified by the outputs own content is REJECTED with the falsifying line named; convergent findings land ' +
+  'once. APPLY every accepted item IN PLACE via Edit as an extension of the existing owner (a row, a column, an arm, a lane value, a law clause) ' +
+  '— never a parallel type, file, or rail. Frozen invariants stay byte-identical; every unverifiable member lands as a RESEARCH row, never ' +
+  'asserted; hedged or duplicative findings die. Return files (both paths), applied (one line per landed item), rejected (one line + reason ' +
+  'each), research (carried rows), summary.'].join('\n')
+
 // --- [COMPOSITION] -----------------------------------------------------------------------
 
 phase('Survey')
@@ -237,5 +264,17 @@ const decided = await agent(decidePrompt(synthesis || '(synthesis skipped — sy
   { label: 'decide', phase: 'Decide', model: 'fable', effort: 'max', schema: DECIDE, stallMs: STALL })
 log('Decide: ' + ((decided && decided.verdict) || 'skipped') + ' -> ' + (((decided && decided.files) || []).join(', ') || 'no files'))
 
+phase('Salvage')
+const reports = (await parallel([
+  ...ANGLES.map((a, i) => () => agent(draftMinerPrompt(a.key + ' ' + a.angle.split(':')[0], drafts[i]),
+    { label: 'mine:' + a.key, phase: 'Salvage', model: 'fable', effort: 'max', stallMs: STALL })),
+  () => agent(overturnAuditPrompt(decided, synthesis), { label: 'mine:overturns', phase: 'Salvage', model: 'fable', effort: 'max', stallMs: STALL }),
+])).filter(Boolean)
+const integrated = await agent(integratePrompt(reports), { label: 'integrate', phase: 'Salvage', model: 'fable', effort: 'max', schema: INTEGRATE, stallMs: STALL })
+log('Salvage: ' + reports.length + '/5 reports; applied ' + (((integrated && integrated.applied) || []).length) + ', rejected ' +
+  (((integrated && integrated.rejected) || []).length))
+
 return { decision: DECISION, spec: SPEC, files: (decided && decided.files) || [], overturned: (decided && decided.overturned) || '',
-  research: [...new Set([...researchItems, ...((decided && decided.research) || [])])], summary: (decided && decided.summary) || '' }
+  salvageApplied: (integrated && integrated.applied) || [], salvageRejected: (integrated && integrated.rejected) || [],
+  research: [...new Set([...researchItems, ...((decided && decided.research) || []), ...((integrated && integrated.research) || [])])],
+  summary: (decided && decided.summary) || '' }

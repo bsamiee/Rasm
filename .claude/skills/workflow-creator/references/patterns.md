@@ -653,8 +653,11 @@ So resuming is one specific call — and three mistakes silently turn it into a 
 - **Pass `resumeFromRunId`.** `Workflow({ scriptPath, resumeFromRunId: 'wf_<id>' })` is the
   ONLY form that reads a prior journal. A bare `Workflow({ scriptPath })` or
   `Workflow({ name })` is a brand-new run with an empty journal — no cache, full restart.
-- **Same session only.** The journal lives under the launching session's directory; a run from
-  another session (or after exiting Claude Code) cannot be resumed and starts fresh.
+- **Same session only — transplant to cross.** The journal lives under the launching session's
+  directory; a plain resume from another session finds an empty journal and re-runs from zero.
+  The journal is content-addressed and portable: stop any adopted relaunch, concatenate the old
+  session's `journal.jsonl` into the new session's `wf_<id>` run directory, resume with
+  `resumeFromRunId`, and verify only unfinished calls start live (`api-reference.md` §11).
 - **Same script and `args`.** The prompt is hashed into the key, so editing the script or
   changing the `args` that feed the first agent misses the cache from that point and re-runs
   onward.

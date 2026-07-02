@@ -46,7 +46,9 @@ const LAW = [
   'BAR: the folder must be able to build world-class, bleeding-edge, production-ready, professional-standard apps RIGHT NOW — ' +
     'ultra-dense/complex/rich, minimal-to-no hardcoding, maximal parameterization, easily extended, NO fake or illusory capability. Treat ' +
     'Persistence/Materials/Bim as likely SHORT-SIGHTED in scope: assume valuable modern packages are missing and hunt them. Where a folder ' +
-    'hand-rolls a concern a real package owns, that is a gap. Do not hold back: many additions are fine IF each is best-in-class and non-overlapping.',
+    'hand-rolls a concern a real package owns, that is a gap. Do not hold back: many additions are fine IF each is best-in-class and non-overlapping. ' +
+    'Every stage holds the folder picture and every upstream payload naive, thin, or illusory until it survives attack — dense, confident-looking ' +
+    'coverage is the prime suspect for hollowness.',
   'AGGRESSIVE ADDITION, ZERO HEDGING (future-looking justification): admit a package whenever it provides unique, modern capability appropriate to ' +
     'the folder domain/scope. DECLINE ONLY for a real reason — (a) it is old / unmaintained / low-quality, (b) a strictly stronger alternative is ' +
     'already admitted or recommended, or (c) it is out of the folder scope/domain. NEVER decline because there is no CURRENT consumer: planned ' +
@@ -58,7 +60,10 @@ const LAW = [
     'is named, never an old or arbitrary version, and the project is actively maintained. (4) LICENSE — OSS (any OSI license) OR a commercial ' +
     'license that is free with full access (no paid tier, seat cap, usage gate, or eval-only); reject fee/tiered. (5) NO LEGACY PACKAGING — modern ' +
     'packaging only (current TFM/abi, SourceLink-era); reject abandoned/legacy-framework-only artifacts. (6) NO DUP/OVERLAP — it must not ' +
-    'duplicate an already-admitted package or another recommended one; when two candidates overlap, keep the single best and set dupOf on the loser.',
+    'duplicate an already-admitted package or another recommended one; when two candidates overlap, keep the single best and set dupOf on the loser. ' +
+    'The six conditions are a FLOOR, never the complete attack: hunt real disqualifiers beyond them — dead or vulnerable transitive dependencies, ' +
+    'native supply-chain rot, eval-gated features behind an OSS shell, an upstream rewrite orphaning the package — and any found disqualifier is ' +
+    'evidence for ok=false.',
   'MANDATED DEEP AREAS (when the active folder owns the concern, the survey MUST raise them as facets and the research MUST sweep them ' +
     'exhaustively, not sample): for Persistence — PostgreSQL 18.4+ SQL/extension surface (EVERY first-party/contrib extension truthfully ' +
     'considered AND the top 25 community/third-party extensions fully surveyed: PostGIS, pgvector/pgvectorscale, TimescaleDB, pg_search/ParadeDB, ' +
@@ -67,12 +72,15 @@ const LAW = [
     'store/backend types (columnar, time-series, graph, vector, search, object, embedded, lakehouse) and ingress/egress codecs; for Bim — IFC ' +
     '(model graph, geometry/tessellation, validation, BCF, IDS), scheduling (CPM/resource-leveling/4D), cost (estimating/QTO/cost models), ' +
     'GIS/geospatial; for Materials — appearance/spectral/measured-BSDF/datasets; for Compute — solvers/optimization/ML/numerics; for Geometry — ' +
-    'host-neutral geometry/mesh/spatial capability. Rhino/GH2/AEC-adjacent capability is in scope where it is host-neutral.',
+    'host-neutral geometry/mesh/spatial capability. Rhino/GH2/AEC-adjacent capability is in scope where it is host-neutral. Every named exemplar ' +
+    'list here is SEED DATA marking the floor of a sweep, never its extent — the sweep covers the full space the parameters name.',
   'ASSAY + TFM TRUTH: verify a candidate that is in the cache via `uv run --frozen python -m tools.assay api`; for a multi-target NuGet package ' +
     'the consumer floor is net10.0 — confirm the lib/<tfm> a net10 consumer actually binds rather than trusting assay default resolution. Confirm ' +
     'versions/license/Mac/packaging against the registry (NuGet flat-container index + nuspec) truthfully; web research for the domain landscape, ' +
-    'newest stable version, and maintenance signals.',
-  'WRITE DISCIPLINE — strict phase ownership: the SURVEY and RESEARCH stages are READ-ONLY analysis and write NOTHING. ONLY the EXECUTE stage ' +
+    'newest stable version, and maintenance signals. A package, version, extension, or member that cannot be verified against registry, repo, or ' +
+    'assay evidence is a PHANTOM: never survey it, never return it, never admit it.',
+  'WRITE DISCIPLINE — strict phase ownership: SURVEY and RESEARCH are the DISCOVERY reconnaissance — read-only is that role ONLY concession, ' +
+    'never its depth — and they write NOTHING. ONLY the EXECUTE stage ' +
     'admits packages, and it writes EXACTLY four things and NO more: (a) the central pin in Directory.Packages.props (the matching ItemGroup, ' +
     'newest stable version, plus any pure-managed transitive floor pins the new package needs), (b) the PackageReference in the OWNING folder ' +
     'csproj, (c) the OWNING folder README central-manifest/domain-packages section + prose, and (d) the restore/verify of the owning project so ' +
@@ -86,41 +94,56 @@ const LAW = [
 // --- [OPERATIONS] ------------------------------------------------------------------------
 const surveyPrompt = (f) => [
   LAW, '',
-  'TASK (SURVEY + SYNTHESIZE for folder ' + f.name + (f.primary ? ' — THE PRIMARY FOCUS, go deepest' : '') + ' — READ-ONLY, write nothing): build ' +
-    'the full capability picture of this folder AND emit exactly SIX research facets. Read its README + project file' + (f.csproj ? ' (' + f.csproj + ')' : '') + ', ' +
-    'every catalog under ' + f.api + '/, the design pages under ' + f.planning + '/, and the central manifest ' + MANIFEST + ' for this folder rows.' + (f.note ? ' ' +
-    '' + f.note : ''),
-  'Return: (1) a 1-2 sentence DOMAIN summary; (2) the admitted PACKAGES this folder uses; (3) HAND-ROLLS — capabilities the folder implements by ' +
-    'hand that a real ecosystem package likely owns (each with an evidence pointer); (4) GAPS — the capabilities a WORLD-CLASS, production-ready ' +
-    'version of this domain must have but the folder lacks or under-serves, judged against the bleeding-edge state of the art; (5) FACETS — ' +
-    'EXACTLY SIX non-overlapping research directions that together cover the folder highest-value gaps. Each facet is one focused capability gap a ' +
-    'single research agent will hunt the best modern package for (id, direction, the gap it closes, an optional mandate note). Be skeptical and ' +
-    'ambitious — assume the folder is short-sighted. For a folder that owns a MANDATED DEEP AREA, those deep areas MUST be among the six facets ' +
-    '(e.g. Persistence MUST spend facets on the PostgreSQL first-party+top-25 extension sweep and the DuckDB first-party+top-25 extension sweep). ' +
-    'If the folder has fewer than six obvious gaps, split a broad area into sub-facets or cover adjacent in-domain capability so exactly six ' +
-    'load-bearing facets are returned. Write nothing.',
+  'TASK (SURVEY + SYNTHESIZE for folder ' + f.name + (f.primary ? ' — THE PRIMARY FOCUS, go deepest' : '') + ' — DISCOVERY, write nothing): ' +
+    'build the full capability MAP of this folder AND emit exactly SIX research facets. Enumerate the ' +
+    'real disk state first, never memory: `ls`/`fd` the folder tree and BOTH .api tiers — the folder tier ' + f.api + '/ AND the substrate tier ' +
+    'libs/csharp/.api/. Then FULL-read, never skim: the README, the project file' + (f.csproj ? ' (' + f.csproj + ')' : '') + ', every catalog ' +
+    'under ' + f.api + '/, every design page under ' + f.planning + '/, the substrate-tier catalogs for packages this folder references, and this ' +
+    'folder rows in ' + MANIFEST + '.' + (f.note ? ' ' + f.note : ''),
+  'Return the MAP, never a bare verdict: (1) a 1-2 sentence DOMAIN summary; (2) the admitted PACKAGES this folder uses, each carrying a hostile ' +
+    'weak/strong call on how fully the design pages exploit it — an admitted capability no page exploits is a GAP row naming the concrete ' +
+    'unexploited members, never a footnote; (3) HAND-ROLLS — capabilities the folder implements by hand that a real ecosystem package owns, each ' +
+    'with a VERIFIED evidence pointer (design-page section or assay-verified member; an unverifiable pointer is a phantom, never listed); (4) ' +
+    'GAPS — the capabilities a WORLD-CLASS, production-ready version of this domain must have but the folder lacks or under-serves, judged against ' +
+    'the bleeding-edge state of the art on BOTH naivety axes: COVERAGE — the folder models a thin slice of its concept, the obvious three concerns ' +
+    'where the domain carries fifteen; APPROACH — enumerated hand-rolled instances where an admitted package or one parameterized owner should ' +
+    'generate the space, a fixed roster of variants being seed data for a generator, never the mechanism; (5) FACETS — EXACTLY SIX non-overlapping ' +
+    'research directions that together cover the folder highest-value gaps. Each facet is one focused capability gap a single research agent will ' +
+    'hunt the best modern package for (id, direction, the gap it closes, a mandate note). The facet is ALL that researcher receives — pack the map ' +
+    'into it: the mandate names the admitted-adjacent packages and substrate-tier capability the candidate must NOT duplicate plus the seams it ' +
+    'must integrate with, and the facet is that researcher initial pointer, never a ceiling. For a folder that owns a MANDATED DEEP AREA, those ' +
+    'deep areas MUST be among the six facets (e.g. Persistence MUST spend facets on the PostgreSQL first-party+top-25 extension sweep and the ' +
+    'DuckDB first-party+top-25 extension sweep). If the folder has fewer than six obvious gaps, split a broad area into sub-facets or cover ' +
+    'adjacent in-domain capability so exactly six load-bearing facets are returned. Write nothing.',
 ].join('\n')
 const researchPrompt = (f, survey, facet) => [
   LAW, '',
-  'TASK (RESEARCH one facet for folder ' + f.name + ' — READ-ONLY, write nothing, then SELF-VALIDATE): facet=' + facet.id + ' · direction=' + facet.direction + ' ' +
+  'TASK (RESEARCH one facet for folder ' + f.name + ' — DISCOVERY reconnaissance, write nothing, then SELF-VALIDATE): ' +
+    'facet=' + facet.id + ' · direction=' + facet.direction + ' ' +
     '· gap=' + facet.gap + (facet.mandate ? ' · mandate=' + facet.mandate : '') + '. Find the best-in-class MODERN package(s) that fill this gap ' +
-    'for a net10/osx-arm64 C# AEC stack. Compare the real alternatives (do not stop at the first hit) and name the strongest. For a PostgreSQL or ' +
+    'for a net10/osx-arm64 C# AEC stack. The facet is your initial pointer, never a ceiling: re-derive the landscape yourself and sweep the full ' +
+    'space its parameters name — the first-found candidate is the presumed-naive pick until the real alternatives are attacked and the strongest ' +
+    'named. Judge candidates on BOTH naivety axes: reject a thin-slice package covering one corner of the gap when a full-space owner exists ' +
+    '(COVERAGE), and prefer ONE parameterized, generator-grade owner over a roster of narrow point solutions (APPROACH). For a PostgreSQL or ' +
     'DuckDB extension facet, survey the FULL first-party/contrib extension set AND the top 25 community extensions and return every valuable one ' +
     '(not a sample). Use web research for the landscape, newest stable version, maintenance, license, and Mac/osx-arm64 fit; confirm ' +
     'versions/license from the registry where possible and members via `uv run --frozen python -m tools.assay api` when resolvable.',
   'Then SELF-VALIDATE each candidate against the six-condition gate and set ok=true ONLY when ALL pass: bestOf, macOk (osx-arm64), newest (name ' +
     'the current stable release + active maintenance), licenseOk (OSS or free-full commercial), noLegacy (modern packaging/TFM), notDup (not a ' +
-    'duplicate of an admitted package or a sibling candidate — set dupOf when it is, and keep only the single best of an overlapping pair). ' +
-    'Default ok=false on any unproven condition — do not let nonsense through. Exclude anything already admitted in the central manifest unless it ' +
-    'is a strictly stronger replacement (then set fills to name what it replaces). Return candidate(s) each with the gate fields, what gap it ' +
-    'fills, newest version, license, the alternatives you compared, and the evidence. Write nothing.',
+    'duplicate of an admitted package or a sibling candidate — set dupOf when it is, and keep only the single best of an overlapping pair). The ' +
+    'gate is a FLOOR: hunt disqualifiers beyond the six and fail a candidate on any found. Default ok=false on any unproven condition — an ' +
+    'unverified version, license, or member is a phantom that never reaches the payload. Exclude anything already admitted in the central manifest ' +
+    'unless it is a strictly stronger replacement (then set fills to name what it replaces). Return candidate(s) each with the gate fields, what ' +
+    'gap it fills, newest version, license, the alternatives you compared, and the evidence. Write nothing.',
 ].join('\n')
 const executePrompt = (f, survey, research) => [
   LAW, '',
   'TASK (EXECUTE for folder ' + f.name + ' — WRITE the four owned artifacts only): the six research+self-validation outputs for THIS folder are ' +
     'INLINED at the END of this prompt — consolidate from THAT payload, never run your own package research and never invent candidates beyond it. ' +
-    'FIRST consolidate: keep only candidates with ok=true, resolve every remaining dup/overlap across the six facets to the single best, and drop ' +
-    'anything out of the folder scope — this is the per-folder plan, done here so nothing is dropped. THEN apply each surviving package NOW. ' +
+    'FIRST consolidate ADVERSARIALLY — an inlined ok=true is a claim to re-derive, never a fact: keep only ok=true candidates whose admission ' +
+    'survives re-checking against the central manifest truth (a dup with an admitted row, a phantom version, or scope drift kills the claim), ' +
+    'resolve every remaining dup/overlap across the six facets to the single best, and drop anything out of the folder scope — this is the ' +
+    'per-folder plan, done here so nothing is dropped. THEN apply each surviving package NOW. ' +
     'Homing map (Geometry has the special layout — its .api + README + csproj live at the libs/csharp/Rasm root): ' + HOMING + '. The owning ' +
     'folder is ' + f.name + ' (csproj ' + f.csproj + ', .api root ' + f.api + ', central manifest ' + MANIFEST + ').' + (f.note ? ' ' + f.note : ''),
   'For EACH surviving package: (a) add the central pin to Directory.Packages.props in the matching ItemGroup at the newest stable version, with a ' +

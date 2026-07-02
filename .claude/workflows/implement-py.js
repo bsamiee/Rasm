@@ -3,9 +3,9 @@ export const meta = {
   whenToUse: 'Realize open IDEAS and TASKLOG cards into design-page code fences across the Python target folders.',
   description: 'Realize every open IDEAS/TASKLOG card across the Python target set (libs/python/artifacts, compute, data, geometry, runtime) into deep design-page code FENCES at the docs/stacks/python bar (with docs/stacks/csharp as the ambition floor), resolve all ripples, and truthfully close the cards. Per FOLDER, not per page: one discovery agent maps cards + ripple classes + blockers; each target folder is realized as ONE implement -> critique -> redteam cycle (all WRITE, both reviews adversarial, fix-in-place; BLOCKED probe + folder-local package admission inline, no prep phase); a bounded reconcile aligns in-scope seams, realizes 1-hop same-language counterparts, and applies the single central pyproject.toml pin serially; a final per-folder closeout verify-remediate-and-closes complete cards. Card-driven (it implements ideas/tasks), NOT the in-isolation api-stacking of rebuild-python. Disposable, Python-only. args = a target path string, an array of paths, or empty for the five defaults. The language-wide libs/python/.planning is out of scope.',
   phases: [
-    { title: 'Discover', detail: 'one agent: read each target IDEAS/TASKLOG only; extract open cards (all tasks incl atomic + 1-3 ideas), sequence each folder, classify every ripple (in_scope / oos_samelang / cross_lang), record in-scope gates and malformed ripples' },
+    { title: 'Discover', detail: 'one agent: enumerate folders + both .api tiers + doctrine from disk, full-read each target IDEAS/TASKLOG and anchored pages; extract open cards (all tasks incl atomic + 1-3 ideas) as map rows, sequence each folder, classify every ripple (in_scope / oos_samelang / cross_lang), record in-scope gates and malformed ripples' },
     { title: 'Realize', detail: 'per target folder, pooled at CAP: implement(max) -> critique(max, adversarial + charter-completeness) -> redteam(max, adversarial + staleness lens); all WRITE, fix-in-place, own-pages-only, cross-folder seams logged as residuals' },
-    { title: 'Reconcile', detail: 'bounded single pass: cluster cross-folder residuals by shared file -> fix(max: align in-scope seam / realize 1-hop same-language counterpart / apply central pyproject.toml pin / defer cross-lang) -> adversarial verify(xhigh)' },
+    { title: 'Reconcile', detail: 'bounded single pass: cluster cross-folder residuals by shared file -> fix(max: align in-scope seam / realize 1-hop same-language counterpart / apply central pyproject.toml pin / defer cross-lang) -> writing verify(xhigh: re-derive necessity, prove on disk, repair weak fixes to root, then classify)' },
     { title: 'Closeout', detail: 'per folder: verify each card vs full charter, FINAL-remediate weak cards in place, close genuinely-complete (move to [02]-[CLOSED], collapse, update ARCHITECTURE [02]-[SEAMS]), honestly re-open the rest; strength-demotion makes closed mechanically truthful' },
   ],
 }
@@ -55,7 +55,7 @@ const RECONCILE_FIX_SCHEMA = { type: 'object', additionalProperties: false, requ
   deferred_legs: { type: 'array', items: { type: 'string' } },
   summary: { type: 'string' },
 } }
-const RECONCILE_VERIFY_SCHEMA = { type: 'object', additionalProperties: false, required: ['overall', 'claims'], properties: { overall: { type: 'boolean' }, claims: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['claim', 'status'], properties: { claim: { type: 'string' }, status: { type: 'string', enum: ['fixed', 'invalid', 'open'] }, evidence: { type: 'string' } } } } } }
+const RECONCILE_VERIFY_SCHEMA = { type: 'object', additionalProperties: false, required: ['overall', 'claims'], properties: { overall: { type: 'boolean' }, repaired_files: { type: 'array', items: { type: 'string' } }, claims: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['claim', 'status'], properties: { claim: { type: 'string' }, status: { type: 'string', enum: ['fixed', 'invalid', 'open'] }, evidence: { type: 'string' } } } } } }
 const CLOSEOUT_SCHEMA = { type: 'object', additionalProperties: false, required: ['folder', 'summary'], properties: {
   folder: { type: 'string' },
   closed: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['slug', 'disposition', 'strength'], properties: { slug: { type: 'string' }, disposition: { type: 'string', enum: ['complete', 'dropped'] }, strength: { type: 'string', enum: ['strong', 'partial', 'weak'] } } } },
@@ -132,6 +132,13 @@ const BARHUNT = [
     'functionality removed. RAIL UNIFICATION — one entrypoint family per rail, one closed fault vocabulary per domain, total `match` + ' +
     '`assert_never`. OPTIMIZATION — correctness first, then allocation/vectorization (numpy)/dispatch shape/algorithmic complexity, not only ' +
     'line-count. NEW WORK SURFACED — api gaps and tasks the implementation exposes are realized or recorded the same turn.',
+  'NAIVETY — a defect on two orthogonal axes, both intolerable at every stage: COVERAGE — the owner models a thin slice of its concept (the ' +
+    'obvious three fields where the domain carries fifteen; a two-case family for a twenty-case domain); APPROACH — enumerated hardcoded ' +
+    'instances where a parameterized algorithmic owner should generate the space (a fixed roster of styles/patterns/variants is seed DATA ' +
+    'feeding ONE generator over named parameters, never the mechanism itself). Rebuild the owner to the generative form on either hit. COLLAPSE ' +
+    'FREEDOM: every enumerated collapse-signal list in this prompt is a FLOOR, never the complete set — any repeated structure, parallel ' +
+    'spelling, or enumerable family an algebra, table, fold, or generator can own is a collapse target you find yourself. Dense, ' +
+    'confident-looking work is the prime suspect for hollowness: hold every fence naive until it survives attack.',
 ].join('\n')
 const ULTRA = [
   'OPERATIVE DOCTRINE: docs/stacks/python/ is the route-owned law — READ `README.md` (the 16 laws + the 12-signal COLLAPSE_SCAN), `shapes.md` ' +
@@ -168,14 +175,15 @@ const ULTRA = [
     'correctness decision fixed at the boundary: `map2`/accumulating-fold for independent operands (a `bind` chain over independents reports only ' +
     'the first failure), `bind` short-circuit for dependent steps. Cancellation is not failure; resource cleanup is `AsyncExitStack` + a shielded ' +
     'scope.',
-  'STACK .api CAPABILITY: mine BOTH catalog tiers — the shared/universal `libs/python/.api/*.md` AND the folder-specific `<folder>/.api/*.md` — ' +
-    'for the capability the CARD needs, and compose it into single dense operations woven as ONE rail, layering the shared rails (expression ' +
-    '`Result`/`Option`, msgspec/pydantic discriminated models, beartype validation, stamina retry, structlog + opentelemetry spans, anyio ' +
-    'structured concurrency) ON TOP OF the folder-specific domain packages — e.g. `msgspec dec_hook` -> pydantic discriminated union -> stamina ' +
-    '`retry_context` -> opentelemetry span around the domain op — NOT flat one-shot per-library uses. Use the DEEPEST primitive each package ' +
-    'itself reaches (LIBRARY_DEPTH); a relevant shared catalog ignored in favor of a thin folder-only subset, or capability the card needs ' +
-    're-derived by hand below the operator depth the packages reach, is a defect. (Implement uses the capability the card needs; it does not ' +
-    'max-stack every catalog for its own sake — that is rebuild.)',
+  'STACK .api CAPABILITY: ENUMERATE BOTH catalog tiers IN FULL with a real listing (`ls`/`fd` of the shared `libs/python/.api/*.md` AND the ' +
+    'folder-specific `<folder>/.api/*.md`, from disk, never memory), then mine every catalog the card touches to OPERATOR DEPTH and compose the ' +
+    'capability into single dense operations woven as ONE rail, layering the shared rails (expression `Result`/`Option`, msgspec/pydantic ' +
+    'discriminated models, beartype validation, stamina retry, structlog + opentelemetry spans, anyio structured concurrency) ON TOP OF the ' +
+    'folder-specific domain packages — e.g. `msgspec dec_hook` -> pydantic discriminated union -> stamina `retry_context` -> opentelemetry span ' +
+    'around the domain op — NOT flat one-shot per-library uses. Use the DEEPEST primitive each package itself reaches (LIBRARY_DEPTH). An ' +
+    'admitted capability the card charter needs that no owner exploits is a DEFECT the pass closes by deepening a fence; a cited member that ' +
+    'cannot be verified in the catalogs or via `uv run python -m tools.assay api` is a PHANTOM the pass deletes or corrects on sight. (Implement ' +
+    'composes the capability the card needs; it does not max-stack every catalog for its own sake — that is rebuild.)',
   'PRESERVE all capability (densify, never delete functionality). Where a fence is already dense, deepen; where it is flat/naive, rebuild ' +
     'ground-up. Never regress correctness or boundary law.',
 ].join('\n')
@@ -222,8 +230,15 @@ const DOCTRINE = [LAW, '', CARD, '', BARHUNT, '', ULTRA, '', PATLAW, '', BOUNDAR
 const folderName = (p) => p.split('/').filter(Boolean).pop() || p
 const pkgPath = (toPkg) => { const k = String(toPkg || '').trim().replace(/^python:/, ''); return k.indexOf('libs/') === 0 ? k : ROOT + '/' + k }
 const discoverPrompt = (targets) => [LAW, '', CARD, '',
-  'TASK: DISCOVER + SEQUENCE the open work across these Python session targets: ' + JSON.stringify(targets) + '. Read ONLY each target ' +
-    'package-root `IDEAS.md` + `TASKLOG.md` (NOT the design pages). For EACH target return: (1) folder — echo the target folder path exactly; (2) ' +
+  'TASK: DISCOVER + SEQUENCE the open work across these Python session targets: ' + JSON.stringify(targets) + '. You are the read-only ' +
+    'reconnaissance that grounds every downstream stage, and read-only is your ONLY concession: every row you return is grounded in REAL DISK ' +
+    'STATE, never memory. FIRST enumerate with a real listing (`ls`/`fd`, from the source of truth): each target folder at large, its ' +
+    '`.planning/**` pages, its `.api/*.md` catalogs, the shared `' + SHARED_API + '/*.md` tier, and the `docs/stacks/python/` doctrine inventory — ' +
+    'resolve the target set against what actually exists (a missing folder, card file, or section is a finding to report, never a gap to paper ' +
+    'over). THEN read each target package-root `IDEAS.md` + `TASKLOG.md` IN FULL — every open card body, every bullet — open the counterpart card ' +
+    'file of every `Ripple:` to locate the mirror slug ON DISK, and FULL-READ the design pages each open card\'s `Anchors:` name — ground order, ' +
+    'gates, and every klass call in real page state, never card text alone. For EACH target return: (1) folder — echo the target folder path ' +
+    'exactly; (2) ' +
     'tasks — EVERY open card in `TASKLOG.md` (status ACTIVE/QUEUED/BLOCKED; carry the Atomic flag); (3) ideas — the 1-3 MOST actionable open cards ' +
     'in `IDEAS.md` (tasks-first doctrine: at most 3, the ones whose Anchors are most settled and whose ripples land on in-scope targets), HARD CAP ' +
     '3; (4) order — ONE sequenced slug list, ALL tasks first in dependency order then the chosen ideas; (5) ripples — for EVERY card carrying a ' +
@@ -231,7 +246,11 @@ const discoverPrompt = (targets) => [LAW, '', CARD, '',
     'another libs/python folder, `cross_lang` if it points at `libs/csharp` / `libs/typescript` / `libs/python/.planning` / `libs/.planning`; (6) ' +
     'gates — for any [BLOCKED] card, {blocked_slug, gated_by_slug, in_scope} where in_scope is true iff the gating work is itself an open card in ' +
     'one of these targets. Also return malformed_ripples for any `Ripple:` line you cannot parse into a pkg+slug, or whose counterpart slug you ' +
-    'cannot locate. Read the FULL card to classify — never guess from the thesis. Return the structured map ONLY; edit nothing.'].join('\n')
+    'cannot locate on disk. Classify from the FULL card body against the real files — never from the thesis, never from memory; list only slugs, ' +
+    'files, and gates you verified on disk, never a phantom. Carry each task/idea row `thesis` as a one-line MAP hook: the charter\'s composed ' +
+    'capability, the concrete verified `.api` members it stacks, and a hostile weak/strong call on the current fence state. Your product is a ' +
+    'MAP, not a verdict, and it is an initial pointer, never a ceiling: downstream agents re-read everything and it licenses no skim. Return ' +
+    'the structured map ONLY; edit nothing.'].join('\n')
 const implementPrompt = (folder, seq) => [DOCTRINE, '',
   'TASK: IMPLEMENT — realize the open cards of `' + folder + '` into deep design-page FENCES at the doctrine bar. The sequenced worklist (slugs + ' +
     'ripple map; read each FULL card body from `' + folder + '/IDEAS.md` + `' + folder + '/TASKLOG.md`, never the thesis alone):\n' + seq + '\nREAD: ' +
@@ -260,14 +279,16 @@ const critiquePrompt = (folder, seq) => [DOCTRINE, '',
     'assume a violation exists in every fence until you prove otherwise, and "good enough" is rejected. The cards realized this turn (read each ' +
     'FULL body from `' + folder + '/IDEAS.md` + `' + folder + '/TASKLOG.md`):\n' + seq + '\nREAD the realized pages under `' + folder + '/.planning/**`, ' +
     'the sibling pages, the operative docs/stacks/python/ pages, and BOTH .api tiers (shared `' + SHARED_API + '` + folder `' + folder + '/.api`). ' +
-    'Run these MECHANICAL checklists line-by-line and REPAIR every hit in place (a fix, never a ledger note):',
+    'Run these MECHANICAL checklists line-by-line and REPAIR every hit in place (a fix, never a ledger note); the checklists are a FLOOR you ' +
+    'hunt past, never the complete audit:',
   '(1) COLLAPSE_SCAN — apply the move for any of the 12 signals (3+ instances makes it mandatory): sibling prefix/suffix names -> one ' +
     'modality-polymorphic entrypoint; same return rail differing only by arity -> input-shape discrimination; a `get`/`get_many`/`get_by_id` ' +
     'family -> one input-keyed entrypoint; functions differing only by a literal -> parameterize the literal as policy; a bool parameter selecting ' +
     'two bodies -> one derived body or policy value; a function calling exactly one other -> delete the hop; a class exposing one public method -> ' +
     'module function or fold-on-owner; parallel dispatch arms repeating structure -> a `frozendict` table or fold algebra; several types sharing ' +
     'fields for one concept -> one closed family; 3+ sibling module constants for one concept -> one `frozendict`/`StrEnum`; a wrapper renaming a ' +
-    'package API -> use the package surface directly; the same 2-4 wrappers recurring -> one parameterized aspect factory.',
+    'package API -> use the package surface directly; the same 2-4 wrappers recurring -> one parameterized aspect factory. The 12 signals are a ' +
+    'FLOOR — hunt collapse targets past them.',
   '(2) OWNER_CHOOSER — for EVERY shape re-derive the owner from the 5 discriminants (admission, identity regime, variant arity, payload timing, ' +
     'openness); if it is not the discriminant-correct owner (`TypedDict`/Pydantic/`msgspec.Struct`/frozen dataclass/rich ' +
     'class/`StrEnum`/`Literal`/`sentinel`/`Option`/`Result`/`frozendict`/`Map`/`tuple`/`Protocol`), replace it. Kill every parallel DTO, one-field ' +
@@ -286,7 +307,9 @@ const critiquePrompt = (folder, seq) => [DOCTRINE, '',
     '__future__ import annotations`, no legacy typing; total `match` + `assert_never`.',
   '(7) CHARTER-COMPLETENESS — for EVERY card in the worklist, verify the realized fences GENUINELY fulfill its `Capability`/`Shape`/`Unlocks` ' +
     '(read the full card from disk): a missing modality, an unrealized `Shape` clause, a stubbed/placeholder fence, or a capability the card ' +
-    'promises but the fences do not deliver is a DEFECT — realize it NOW. A card whose fences are thin against its charter is not done.',
+    'promises but the fences do not deliver is a DEFECT — realize it NOW. A card whose fences are thin against its charter is not done. Hunt ' +
+    'BOTH naivety axes per card: COVERAGE (a thin slice of the charter concept) and APPROACH (a hardcoded roster where ONE parameterized ' +
+    'generator should own the space); rebuild to the generative form on either hit.',
   'Also enforce both-tier `.api` use (a thin folder-only subset ignoring the shared rails the card needs is a defect), cross-folder convention ' +
     'consistency, and prose + comment hygiene. EDIT the `' + folder + '` pages to fix every hit; realize ONLY `' + folder + '` pages and OVERRIDE ' +
     'any earlier residual you can now resolve; log any genuine cross-FOLDER item as a residual_ripple {files, pkg, slug, mirror_slug, claim}. ' +
@@ -313,7 +336,8 @@ const redteamPrompt = (folder, seq) => [DOCTRINE, '',
     '(via `assay api`).',
   'ALSO — FULL COLD ADVERSARIAL RE-REVIEW (every time, NOT only on a structural restructure): re-attack every conformance dimension with fresh ' +
     'hostile eyes, trusting nothing the prior passes claimed — the COLLAPSE_SCAN signals, OWNER_CHOOSER per shape, the KNOB_TEST per param, the ' +
-    'ASPECT taxonomy, rail + closed-fault-vocabulary discipline, charter-completeness per card, payload/`frozendict`/PEP conformance, both-tier ' +
+    'ASPECT taxonomy, rail + closed-fault-vocabulary discipline, charter-completeness per card, BOTH naivety axes (COVERAGE thin-slice; ' +
+    'APPROACH roster-where-a-generator-should-own-the-space), payload/`frozendict`/PEP conformance, both-tier ' +
     '`.api` use, py3.15-modern typing, and prose/comment hygiene — and fix every defect. Even absent a structural rebuild, the fences must end ' +
     'objectively denser, more correct, and more powerful than the critique left them; if the strongest form is genuinely already present, prove it ' +
     'by finding nothing — never invent churn. Realize ONLY `' + folder + '` pages; log cross-FOLDER items as residual_ripples. Return verdict + ' +
@@ -323,24 +347,31 @@ const reconcileFixPrompt = (cl) => [LAW, '', CARD, '', BARHUNT, '', ULTRA, '', P
     'must-address. Read EVERY listed file. Handle each residual by KIND: (a) IN-SCOPE SEAM (both halves already realized by their own target ' +
     'folders) — read both pages, ALIGN them to ONE shared contract, fix any mismatch, set `seam_landed` true; (b) OUT-OF-SCOPE SAME-LANGUAGE ' +
     'COUNTERPART (the counterpart card lives in a non-target libs/python folder) — realize that ONE counterpart card fence (its half only, NEVER ' +
-    'the folder other cards) at the same bar and align the seam; (c) CENTRAL PIN — apply every `pyproject.toml` version pin + band marker in this ' +
+    'the folder\'s other cards) at the same bar and align the seam; (c) CENTRAL PIN — apply every `pyproject.toml` version pin + band marker in this ' +
     'cluster (you are the ONLY agent that edits that shared file; apply them all serially, keeping the existing group/marker order) and list them ' +
     'in `admitted`; (d) CROSS-LANGUAGE / LIB-WIDE LEG — record it in `deferred_legs` and do NOT realize it (its counterpart is the other-language ' +
     'workflow concern). Preserve all capability, regress no file, never trample a sibling owner interior. For every ripple counterpart you touch, ' +
     'emit a `pairs` row {pkg, slug, mirror_slug, seam_landed}. If a residual is FACTUALLY INCORRECT or not a real defect, leave it and say why in ' +
     'the summary — never silently skip a real one. Residuals:\n' + JSON.stringify(cl, null, 1)].join('\n')
-const reconcileVerifyPrompt = (cl, fix) => [LAW, '', BOUNDARIES, '',
-  'TASK: ADVERSARIAL VERIFY, one verdict per claim. Read the named files from disk and classify each residual: status "fixed" (real defect now ' +
-    'genuinely resolved — seam aligned on both pages / counterpart fence realized / central pin applied), "invalid" (the claim is factually wrong ' +
-    '/ not a real defect — cite why), or "open" (real defect still NOT resolved). Default to "open" on any doubt for a real-looking defect; mark ' +
-    '"invalid" ONLY when you can show the claim is wrong. Claims:\n' + JSON.stringify(cl, null, 1) + '\nFiles the fixer touched: ' + JSON.stringify(fix.files) + '\nPairs ' +
-    'the fixer reported: ' + JSON.stringify(fix.pairs || [])].join('\n')
+const reconcileVerifyPrompt = (cl, fix) => [LAW, '', CARD, '', BARHUNT, '', ULTRA, '', PATLAW, '', BOUNDARIES, '',
+  'TASK: ADVERSARIAL WRITING VERIFY over this reconcile cluster — never a friendly confirmation: hold every claimed fix loose, weak, or token ' +
+    'until it survives your attack, one verdict per claim. Per claim: (1) RE-DERIVE necessity from the named files on disk — was the defect real, ' +
+    'was the fix required at all; (2) PROVE on disk the fix was done properly (seam aligned on BOTH pages to ONE contract, counterpart fence ' +
+    'realized at the doctrine bar, central `pyproject.toml` pin + band marker actually present); (3) REPAIR every loose, weak, or token fix IN ' +
+    'PLACE via Edit/Write to the objectively best root-level form of the SAME files — a single-point patch where a root-level dense ' +
+    'reconstruction of those files is available is itself a defect you repair NOW; confine repairs to the files the claims name, and list every ' +
+    'file you touch in `repaired_files`; (4) only THEN classify: "fixed" (real defect genuinely resolved — by the fixer or by your own repair, ' +
+    'cite the on-disk evidence), "invalid" (the claim is factually wrong / not a real defect — cite why), "open" (real defect whose resolution is ' +
+    'genuinely unreachable from the files at hand — a cross-language or out-of-run leg — NEVER a strengthenable fix you punted). Mark "invalid" ' +
+    'ONLY when you can show the claim is wrong. Set `overall` true only when zero claims remain "open". Claims:\n' + JSON.stringify(cl, null, 1) +
+    '\nFiles the fixer touched: ' + JSON.stringify(fix.files) + '\nPairs the fixer reported: ' + JSON.stringify(fix.pairs || [])].join('\n')
 const closeoutPrompt = (folder, seamJson) => [LAW, '', CARD, '', BARHUNT, '', ULTRA, '', PATLAW, '', BOUNDARIES, '', PROSE, '', COMMENTS, '',
   'TASK: TRUTHFUL CLOSEOUT + FINAL REMEDIATION of `' + folder + '`. This is the SOLE owner of card status. For EVERY card that was in scope this ' +
     'run, read its FULL body from `' + folder + '/IDEAS.md` + `' + folder + '/TASKLOG.md` and the realized fences under `' + folder + '/.planning/**`, ' +
     'then SANITY-VERIFY the fences genuinely fulfill the card `Capability`/`Shape`/`Unlocks` against the cited `.api` (verify novel members via ' +
     '`uv run python -m tools.assay api`). If a card is WEAK or PARTIAL, make a FINAL in-place REMEDIATION NOW (it already passed ' +
-    'implement->critique->redteam this turn; deepen the fences under `' + folder + '` to genuinely complete the charter), then re-verify. Assign ' +
+    'implement->critique->redteam this turn; deepen the fences under `' + folder + '` to genuinely complete the charter — a token single-point ' +
+    'patch where a root-level deepening of the same fences is available is itself a defect, repair to the root form), then re-verify. Assign ' +
     'each card a strength: `strong` (every charter clause delivered, fences transcription-complete against the verified `.api`), `partial` (most ' +
     'delivered, a clause still thin), `weak` (charter not met). CLOSE only genuinely-complete cards: move them to the `[02]-[CLOSED]` section of ' +
     'their owning file (`' + folder + '/IDEAS.md` or `' + folder + '/TASKLOG.md`) as a collapsed one-liner `[ID]-[COMPLETE]: <disposition>; ' +

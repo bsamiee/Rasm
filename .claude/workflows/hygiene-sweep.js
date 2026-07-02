@@ -39,7 +39,15 @@ const LAW = [
   'WRITE-FULLY MANDATE: every fix/correction you identify you MUST make NOW via Edit/Write directly in the file — the structured fix-log is a ' +
     'REPORT of edits ALREADY MADE, never a to-do list, ledger, or would/should hedge; leave nothing behind except genuine cross-FILE items ' +
     '(residual_high). If a file is already correct, return verdict=clean — never invent edits. The cold-verify stage must itself FIX any residual ' +
-    'high it finds, not just report it.',
+    'it finds, not just report it.',
+  'ADVERSARIAL STANCE: presume every audited surface drifted, stale, or illusory until an aggressive attack finds nothing; a prior clean verdict ' +
+    'is a rejected self-assessment, and verdict=clean is EARNED by an attack that comes back empty, never conceded on first read. Every ' +
+    'enumerated checklist in this prompt is a FLOOR, never the complete set — hunt defects past it: any repeated structure, parallel spelling, ' +
+    'duplicated or contradictory statement, or drifted family in scope is a target you find yourself. Naivety is a defect on two axes, both ' +
+    'intolerable: COVERAGE — the audit or fix covers a thin slice of the concern where the domain carries the full set; APPROACH — enumerated ' +
+    'one-off instance fixes where one parameterized, family-wide correction should own the space (an instance roster is seed DATA feeding that ' +
+    'one systematic pass, never the mechanism). A token or single-point patch where a root-level correction of the same files is available is ' +
+    'itself a defect — repair to the root form.',
 ].join('\n')
 const BLOCKER = [
   'BLOCKER PROTOCOL: for each [BLOCKED] card, classify. GENUINE-EXTERNAL (a dependency build/wheel/target absent for the runtime, upstream issue ' +
@@ -64,9 +72,12 @@ const pool = async (items, cap, worker) => {
 // --- [COMPOSITION] -----------------------------------------------------------------------
 
 phase('Hygiene-Discover')
-const inv = await agent('List the package/area folders under ' + SWEEP + ' — the immediate child directories that own a design corpus (those ' +
-  'containing a .planning directory and/or a README.md + ARCHITECTURE.md). Include the branch-level .planning tier if present. Return each as a ' +
-  'repo-relative path. Use find/ls; do not cd.', { label: 'discover', phase: 'Hygiene-Discover', schema: DISCOVERY_SCHEMA, model: 'sonnet', effort: 'low' })
+const inv = await agent('SCOPE DISCOVERY under ' + SWEEP + ', resolved against REAL disk state: run find/ls NOW and enumerate the package/area ' +
+  'folders that own a design corpus — the immediate child directories containing a .planning directory and/or a README.md + ARCHITECTURE.md — ' +
+  'plus the branch-level .planning tier if present. Never memory, never a prior run: confirm every candidate by its on-disk markers before ' +
+  'listing it. Completeness is the contract — a missed real corpus folder starves every downstream stage; an invented one wastes a whole agent. ' +
+  'Return each as a repo-relative path; do not cd. The list is scope ground truth, an initial pointer never a ceiling — downstream agents ' +
+  'full-read their folders themselves; it never licenses a skim.', { label: 'discover', phase: 'Hygiene-Discover', schema: DISCOVERY_SCHEMA, model: 'sonnet', effort: 'low' })
 const FOLDERS = ((inv && inv.folders) || []).filter(Boolean)
 log('Hygiene discover under ' + SWEEP + ': ' + FOLDERS.length + ' folders')
 
@@ -74,14 +85,19 @@ log('Hygiene discover under ' + SWEEP + ': ' + FOLDERS.length + ' folders')
 phase('H1-Folder')
 const h1 = (await pool(FOLDERS, CAP, (f) => agent([
   LAW, '', BLOCKER, '',
-  'TASK (folder hygiene, edit only within ' + f + '): (1) CONSISTENCY — every dependency in ' + f + '/README.md exists in the central dependency ' +
-    'manifest with the correct version/marker/floor; every dependency a card claims/wants is admitted or correctly deferred-carded; every admitted ' +
-    'dependency the folder consumes has its API/evidence catalog entry (flag+create a missing one; flag a stale entry for a removed dependency); ' +
-    'README fresh vs the current manifest. (2) SEAMS — read all of ' + f + '/.planning/ + cards, then audit ' + f + '/ARCHITECTURE.md LINE BY ' +
-    'LINE: every seam truthful (matches a real page/owner/cross-package contract), no missing real cross-folder seam, no stale/wrong info, codemap ' +
-    '== the on-disk page set, correct glyphs, concise comment lines (de-bloat). (3) DONE-TASK — find COMPLETE/implied-done cards; VERIFY the ' +
-    'deliverable exists on disk; mark/remove only verified-done; flag false-complete. (4) BLOCKERS — apply the blocker protocol to every [BLOCKED] ' +
-    'card in this folder. Fix-in-place. Return the fix-log.',
+  'TASK (folder hygiene, edit only within ' + f + '): full-read the folder at large FIRST — README, ARCHITECTURE, cards, .api entries, every ' +
+    '.planning page — full files, never skims. (1) CONSISTENCY — every dependency in ' + f + '/README.md exists in the central dependency ' +
+    'manifest with the correct version/marker/floor; every dependency a card claims/wants is admitted or correctly deferred-carded; enumerate ' +
+    'BOTH .api tiers IN FULL with a real ls/find (the language-root .api/ and the folder-local .api/ where present, never memory) and read ' +
+    'entries at operator depth (members, not titles): every admitted dependency the folder consumes has its catalog entry (CREATE a missing one ' +
+    'NOW); an entry for a removed dependency, or a cited member that fails the toolchain resolve/metadata check, is a phantom — DELETE it NOW; ' +
+    'an admitted capability no page or card exploits is a named gap — record it on the owning card surface. README fresh vs the current ' +
+    'manifest. (2) SEAMS — audit ' + f + '/ARCHITECTURE.md LINE BY LINE: every seam truthful (matches a real page/owner/cross-package ' +
+    'contract), no missing real cross-folder seam, no stale/wrong info, codemap == the on-disk page set, correct glyphs, concise comment lines ' +
+    '(de-bloat). (3) DONE-TASK — find COMPLETE/implied-done cards; VERIFY the named deliverable exists on disk (the fence/page/manifest line ' +
+    'itself, never the card claim); remove only verified-done; REVERT a false-complete card to its truthful open status and correct its body ' +
+    'NOW. (4) BLOCKERS — apply the blocker protocol to every [BLOCKED] card in this folder. Fix-in-place. Return the fix-log of edits already ' +
+    'made.',
 ].join('\n'), { label: 'H1:' + f.split('/').pop(), phase: 'H1-Folder', schema: FIXLOG_SCHEMA, effort: 'xhigh', stallMs: 300000 }))).filter(Boolean)
 log('H1 folder hygiene done across ' + h1.length + ' folders')
 
@@ -90,23 +106,27 @@ phase('H2-Global')
 const h2 = await agent([
   LAW, '', BLOCKER, '',
   'TASK (global, scope ' + SWEEP + ', edit the central manifest comments / READMEs / branch + lib .planning as needed): (1) GLOBAL MANIFEST ' +
-    'CONSISTENCY — confirm the central dependency manifest and ALL folder README dependency sections agree (no dependency in a README absent from ' +
-    'the manifest; no admitted-and-consumed dependency missing from a README; versions/markers/floors consistent); correct drift surgically. (2) ' +
-    'BRANCH/LIB REFINEMENT — refine/correct/de-stale the cross-cutting content in the branch and lib .planning tiers (README/ARCHITECTURE ' +
-    'freshness, truthful cross-package seams, correct anchors) to the current state; no new design pages. (3) TOOLING — verify any tooling ' +
-    'reference (toolchain invocation, command catalogs, owner routing) is correct and current. Fix-in-place. Return the fix-log.',
+    'CONSISTENCY — diff the central dependency manifest against ALL folder README dependency sections from real full reads, never memory (no ' +
+    'dependency in a README absent from the manifest; no admitted-and-consumed dependency missing from a README; versions/markers/floors ' +
+    'consistent); correct drift surgically NOW. (2) BRANCH/LIB REFINEMENT — refine/correct/de-stale the cross-cutting content in the branch and ' +
+    'lib .planning tiers (README/ARCHITECTURE freshness, truthful cross-package seams, correct anchors) to the current state; no new design ' +
+    'pages. (3) TOOLING — prove every tooling reference (toolchain invocation, command catalogs, owner routing) against the live owner by ' +
+    'resolving/invoking it, and correct drift NOW. Fix-in-place. Return the fix-log of edits already made.',
 ].join('\n'), { label: 'H2:global', phase: 'H2-Global', schema: FIXLOG_SCHEMA, effort: 'high', stallMs: 300000 })
 log('H2 global consistency + branch/lib refinement done')
 
 // --- [H3_COLDVERIFY]
 phase('H3-ColdVerify')
 const h3 = (await pool(FOLDERS, CAP, (f) => agent([
-  LAW, '',
-  'TASK (COLD VERIFY of ' + f + ', no prior verdicts): independently confirm — README <-> central manifest <-> per-dependency API/evidence ' +
-    'catalogs fully consistent (no missing/stale catalog entry, no manifest drift); ARCHITECTURE seams all truthful and codemap == on-disk page ' +
-    'set; no false-complete card; every [BLOCKED] card correctly classified (genuine vs resolved/flipped); cards fresh and bidirectional. If ANY ' +
-    'residual high-severity inconsistency remains, FIX IT IN PLACE now (you own this folder). Gate: verdict=clean only if zero residual high; ' +
-    'otherwise verdict=fail. Return the fix-log.',
+  LAW, '', BLOCKER, '',
+  'TASK (COLD VERIFY of ' + f + ' — adversarial and WRITING, no prior verdicts exist for you): re-derive the folder hygiene state from fresh ' +
+    'full-file reads and attack it — README <-> central manifest <-> BOTH .api tiers fully consistent (no missing/orphan catalog entry, no ' +
+    'phantom cited member, no manifest drift); ARCHITECTURE seams all truthful and codemap == the on-disk page set; no false-complete card; ' +
+    'every [BLOCKED] card correctly classified per the protocol (genuine vs resolvable); cards fresh and bidirectional. Where the sweep already ' +
+    'edited, PROVE each edit on disk, re-derive its necessity and form, and REPAIR any loose, weak, or token fix to its root form NOW. FIX any ' +
+    'residual inconsistency in place whatever its severity (you own this folder). Gate: verdict=fixed when you repaired anything; verdict=clean ' +
+    'ONLY when your attack found nothing; verdict=fail only for a defect genuinely unreachable from this folder, named in residual_high. ' +
+    'Return the fix-log of edits already made.',
 ].join('\n'), { label: 'H3:' + f.split('/').pop(), phase: 'H3-ColdVerify', schema: FIXLOG_SCHEMA, effort: 'high', stallMs: 300000 }))).filter(Boolean)
 const failing = h3.filter((v) => v && v.verdict === 'fail')
 log('H3 cold verify: ' + (h3.length - failing.length) + '/' + h3.length + ' clean; ' + failing.length + ' failing')
@@ -119,8 +139,12 @@ if (crossResiduals.length) {
     'folders must agree on, a cross-package contract, a manifest/README mismatch across packages) — per-folder H3 cannot own them. There is NO ' +
     'severity — address EVERY residual. Read every implicated file across folders and FIX each in place, consistently, regressing nothing. ' +
     'Residuals:\n' + JSON.stringify(crossResiduals, null, 1)].join('\n'), { label: 'cross-fix', phase: 'Reconcile', schema: FIXLOG_SCHEMA, effort: 'xhigh', stallMs: 300000 })
-  crossVerify = await agent([LAW, '', 'TASK: ADVERSARIAL VERIFY the cross-folder residuals below are ACTUALLY resolved — read the implicated files ' +
-    'from disk, default to fail on any doubt, and FIX any still-open in place. Residuals:\n' + JSON.stringify(crossResiduals, null, 1)].join('\n'), { label: 'cross-verify', phase: 'Reconcile', schema: FIXLOG_SCHEMA, effort: 'xhigh', stallMs: 300000 })
+  crossVerify = await agent([LAW, '', BLOCKER, '', 'TASK: ADVERSARIAL WRITING VERIFY of the cross-folder residuals below — for each, re-derive ' +
+    'from the spanned files whether the residual was real and what its ROOT resolution is, then PROVE on disk the fix landed properly and ' +
+    'consistently in EVERY spanned file; REPAIR any loose, weak, or token fix to its root form NOW, and FIX any still-open residual in place. ' +
+    'Verdict: fixed when you repaired; clean ONLY when the attack finds every residual truly resolved; fail on any doubt you cannot repair ' +
+    'from the spanned files. ' +
+    'Residuals:\n' + JSON.stringify(crossResiduals, null, 1)].join('\n'), { label: 'cross-verify', phase: 'Reconcile', schema: FIXLOG_SCHEMA, effort: 'xhigh', stallMs: 300000 })
 }
 
 return {

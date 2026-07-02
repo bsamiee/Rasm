@@ -23,11 +23,26 @@
     "**/.artifacts/**/CLAUDE.md"
   ],
   "permissions": {
+    "allow": [
+      "Bash(git *)",
+      "Bash(node *)",
+      "Bash(uv *)",
+      "Bash(rg *)",
+      "Bash(fd *)",
+      "Bash(ls *)",
+      "Bash(tree *)",
+      "Bash(loc *)",
+      "Bash(cat *)",
+      "Bash(mkdir *)",
+      "Bash(mv *)"
+    ],
     "deny": [
       "Bash(git push --force:*)",
       "Bash(git push -f:*)",
       "Bash(git reset --hard:*)"
-    ]
+    ],
+    "defaultMode": "bypassPermissions"
   },
+  "skipDangerousModePermissionPrompt": true,
   "enabledPlugins": {}
 }

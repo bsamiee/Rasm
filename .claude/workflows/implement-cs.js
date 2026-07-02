@@ -3,9 +3,9 @@ export const meta = {
   whenToUse: 'Realize open cards into design-page code fences for the first C# target set (AppHost, Compute, AppUi, Persistence).',
   description: 'Realize every open IDEAS/TASKLOG card across the four C# session targets (Rasm.AppHost, Rasm.Compute, Rasm.AppUi, Rasm.Persistence) into deep design-page code FENCES at the docs/stacks/csharp 11/10 bar, resolve all ripples, and truthfully close the cards. One discovery agent maps cards + ripple classes + blockers; each target folder is realized as ONE implement -> critique -> redteam cycle (per folder, all WRITE, both reviews adversarial, fix-in-place; BLOCKED probe + folder-local package admission inline, no prep phase); a bounded reconcile aligns in-scope seams, realizes 1-hop out-of-scope C# ripple counterparts, and applies the single central package-pin serially; a final per-folder closeout verify-remediate-and-closes complete cards. Disposable, C#-only. args = a target path string, an array of target paths, or empty for the four defaults.',
   phases: [
-    { title: 'Discover', detail: 'one agent: read the targets IDEAS/TASKLOG only; extract open cards (all tasks incl atomic + 1-3 ideas), sequence each folder, classify every ripple (in_scope / oos_csharp / cross_lang), record in-scope gates and malformed ripples' },
+    { title: 'Discover', detail: 'one agent: real-listing enumeration of both .api tiers + the doctrine inventory, full reads of the card files, every page the open cards name, and the folder at large; extract open cards (all tasks incl atomic + 1-3 ideas), sequence each folder, classify every ripple (in_scope / oos_csharp / cross_lang), record in-scope gates, malformed ripples, and a per-page capability map downstream stages treat as a pointer never a ceiling' },
     { title: 'Realize', detail: 'per target folder, pooled at CAP: implement(max) -> critique(max, adversarial + charter-completeness) -> redteam(max, adversarial + staleness lens); all WRITE, fix-in-place, own-pages-only, cross-folder seams logged as residuals' },
-    { title: 'Reconcile', detail: 'bounded single pass: cluster cross-folder residuals by shared file -> fix(max: align in-scope seam / realize 1-hop oos counterpart / apply central pin / defer cross-lang) -> adversarial verify(xhigh)' },
+    { title: 'Reconcile', detail: 'bounded single pass: cluster cross-folder residuals by shared file -> fix(max: align in-scope seam / realize 1-hop oos counterpart / apply central pin / defer cross-lang) -> WRITING verify(xhigh): re-derive necessity, prove on disk, repair weak fixes to the root, then classify' },
     { title: 'Closeout', detail: 'per folder: verify each card vs full charter, FINAL-remediate weak cards in place, close genuinely-complete (move to [02]-[CLOSED], collapse, update ARCHITECTURE [02]-[SEAMS]), honestly re-open the rest; strength-demotion makes closed mechanically truthful' },
   ],
 }
@@ -36,6 +36,7 @@ const DISCOVERY_SCHEMA = { type: 'object', additionalProperties: false, required
     ideas: { type: 'array', maxItems: 3, items: { type: 'object', additionalProperties: false, required: ['slug', 'status'], properties: { slug: { type: 'string' }, status: { type: 'string' }, thesis: { type: 'string' } } } },
     ripples: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['from_slug', 'klass', 'to_pkg', 'to_slug'], properties: { from_slug: { type: 'string' }, klass: { type: 'string', enum: ['in_scope', 'oos_csharp', 'cross_lang'] }, to_pkg: { type: 'string' }, to_slug: { type: 'string' } } } },
     gates: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['blocked_slug', 'gated_by_slug', 'in_scope'], properties: { blocked_slug: { type: 'string' }, gated_by_slug: { type: 'string' }, in_scope: { type: 'boolean' } } } },
+    map: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['page', 'composed', 'underutilized', 'seams', 'stacking', 'call'], properties: { page: { type: 'string' }, composed: { type: 'string' }, underutilized: { type: 'string' }, seams: { type: 'string' }, stacking: { type: 'string' }, call: { type: 'string', enum: ['weak', 'strong'] } } } },
   } } },
   malformed_ripples: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['from_slug', 'raw'], properties: { from_slug: { type: 'string' }, raw: { type: 'string' } } } },
 } }
@@ -56,7 +57,7 @@ const RECONCILE_FIX_SCHEMA = { type: 'object', additionalProperties: false, requ
   deferred_legs: { type: 'array', items: { type: 'string' } },
   summary: { type: 'string' },
 } }
-const RECONCILE_VERIFY_SCHEMA = { type: 'object', additionalProperties: false, required: ['overall', 'claims'], properties: { overall: { type: 'boolean' }, claims: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['claim', 'status'], properties: { claim: { type: 'string' }, status: { type: 'string', enum: ['fixed', 'invalid', 'open'] }, evidence: { type: 'string' } } } } } }
+const RECONCILE_VERIFY_SCHEMA = { type: 'object', additionalProperties: false, required: ['overall', 'claims'], properties: { overall: { type: 'boolean' }, claims: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['claim', 'status'], properties: { claim: { type: 'string' }, status: { type: 'string', enum: ['fixed', 'invalid', 'open'] }, evidence: { type: 'string' } } } }, repaired_files: { type: 'array', items: { type: 'string' } } } }
 const CLOSEOUT_SCHEMA = { type: 'object', additionalProperties: false, required: ['folder', 'summary'], properties: {
   folder: { type: 'string' },
   closed: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['slug', 'disposition', 'strength'], properties: { slug: { type: 'string' }, disposition: { type: 'string', enum: ['complete', 'dropped'] }, strength: { type: 'string', enum: ['strong', 'partial', 'weak'] } } } },
@@ -128,6 +129,12 @@ const BARHUNT = [
     '`Switch`. OPTIMIZATION — correctness first, then allocation/span/SoA layout/dispatch shape/algorithmic complexity, not only line-count. NEW ' +
     'WORK SURFACED — api gaps, stronger packages, and tasks the implementation exposes are realized or recorded the same turn (extend the ' +
     'canonical owner first, never a parallel surface).',
+  'NAIVETY (two axes, both intolerable): COVERAGE — the owner models a thin slice of its concept (the obvious three fields where the domain ' +
+    'carries fifteen; a two-case family for a twenty-case domain); APPROACH — enumerated hardcoded instances where a parameterized, algorithmic ' +
+    'owner should generate the space (a fixed roster of styles/patterns/variants is seed DATA feeding one generator over named parameters, NEVER ' +
+    'the mechanism itself). Every enumerated collapse-signal list in this prompt is a FLOOR, never the complete set: any repeated structure, ' +
+    'parallel spelling, or enumerable family an algebra, table, fold, or generator can own is a collapse target you find yourself. A discovery ' +
+    '`map` row in the worklist is an initial pointer, never a ceiling — re-read the pages in full and exceed it; a map never licenses a skim.',
 ].join('\n')
 const ULTRA = [
   'OPERATIVE DOCTRINE — the 16 named laws of docs/stacks/csharp/README.md, held as fact: [FLOW] EXPRESSION_SPINE (domain logic is ' +
@@ -148,14 +155,16 @@ const ULTRA = [
     'boundary only) -> canonical owner -> unified rail -> projection -> egress. Interior code never re-validates, never sees `null`-as-failure, ' +
     'sentinels, or provider shapes; parameterize BOTH ingress AND egress so the same owner sources and sinks across many consumers without ' +
     'interior edits.',
-  'STACK CAPABILITY: FIRST mine the package `.api/*.md` catalogs (the curated, integration-shaped capability surface at ' +
-    '`libs/csharp/<Package>/.api/`) AND the universal Thinktecture / LanguageExt rails — C# has NO central `.api/` tier, so the universals are ' +
-    'Thinktecture (generated domain shape) / LanguageExt (rails, effects, schedules, immutable collections) plus full docs/stacks/csharp doctrine, ' +
-    'with MathNet / CSparse owning numeric algorithms. There is NO fixed package count: compose EVERY relevant host API + admitted NuGet package + ' +
-    'catalog member into single dense owners woven as ONE rail (source-generated owners, `Fold` algebra, data tables), ALWAYS layering the ' +
-    'universal Thinktecture/LanguageExt rails onto the domain packages, NOT flat one-shot per-API uses. Use the DEEPEST ' +
-    'operator/combinator/generated surface each package itself reaches (LIBRARY_DEPTH); reject surface-level subsets, BCL-first reflexes, and thin ' +
-    'rename wrappers; verify novel members with `uv run python -m tools.assay api`.',
+  'ULTRA-STACK CAPABILITY: BOTH `.api` tiers are enumerated IN FULL with a real listing from disk (`ls`/`fd`, never memory) and mined to operator ' +
+    'depth — the shared substrate tier `libs/csharp/.api/` (Thinktecture, MathNet, CSparse, QuikGraph, Mapperly, and the other cross-package ' +
+    'catalogs) AND the folder tier `libs/csharp/<Package>/.api/` (the curated, integration-shaped domain surface) — plus the universal ' +
+    'Thinktecture (generated domain shape) / LanguageExt (rails, effects, schedules, immutable collections) rails and full docs/stacks/csharp ' +
+    'doctrine, with MathNet / CSparse owning numeric algorithms. There is NO fixed package count: compose EVERY relevant host API + admitted NuGet ' +
+    'package + catalog member into single dense owners woven as ONE rail (source-generated owners, `Fold` algebra, data tables), ALWAYS layering ' +
+    'the universal Thinktecture/LanguageExt rails onto the domain packages, NOT flat one-shot per-API uses. Use the DEEPEST ' +
+    'operator/combinator/generated surface each package itself reaches (LIBRARY_DEPTH); an admitted capability the concept admits but no owner ' +
+    'exploits is a DEFECT you close, and a cited member you cannot verify via `uv run python -m tools.assay api` is a PHANTOM you delete or ' +
+    'correct, never leave standing; reject surface-level subsets, BCL-first reflexes, and thin rename wrappers.',
   'PRESERVE all capability (densify, never delete functionality). Where a fence is already dense, deepen; where it is flat/naive, rebuild ' +
     'ground-up. Never regress correctness or boundary/strata law.',
 ].join('\n')
@@ -205,23 +214,37 @@ const DOCTRINE = [LAW, '', CARD, '', BARHUNT, '', ULTRA, '', PATLAW, '', BOUNDAR
 const folderName = (p) => p.split('/').filter(Boolean).pop() || p
 const pkgPath = (toPkg) => { let p = String(toPkg || '').trim().replace(/^csharp:/, ''); return p.indexOf('libs/') === 0 ? p : 'libs/csharp/' + p }
 const discoverPrompt = (targets) => [LAW, '', CARD, '',
-  'TASK: DISCOVER + SEQUENCE the open work across these C# session targets: ' + JSON.stringify(targets) + '. Read ONLY each target package-root ' +
-    '`IDEAS.md` + `TASKLOG.md` (NOT the design pages). For EACH target return: (1) tasks — EVERY open card in `TASKLOG.md` (status ' +
+  'TASK: DISCOVER + SEQUENCE + MAP the open work across these C# session targets: ' + JSON.stringify(targets) + '. DISCOVERY is the reconnaissance ' +
+    'every downstream stage stands on, and read-only is its ONLY concession — full reads, never skims, never memory. FIRST enumerate from the ' +
+    'source of truth with a REAL listing (`ls`/`fd`, never recall): BOTH `.api` tiers (`libs/csharp/.api/` and each target `<pkg>/.api/`), the ' +
+    'doctrine inventory (`docs/stacks/csharp/` core + `domain/` shards), and each target folder at large (`.planning/**` pages, `ARCHITECTURE.md`, ' +
+    '`README.md`, `<pkg>.csproj`). THEN read IN FULL: each target `IDEAS.md` + `TASKLOG.md` (every card body, every bullet — the thesis alone is ' +
+    'never enough), every design page an open card names, and the folder at large (the remaining `.planning/**` pages plus `ARCHITECTURE.md` + ' +
+    '`README.md`) — seams, staleness, and unexploited capability hide in pages no card names. Resolve scope against real disk state: a named ' +
+    'page, pkg, or slug you cannot find on disk is recorded (map row or malformed_ripples), never assumed. For EACH target return: (1) tasks — ' +
+    'EVERY open card in `TASKLOG.md` (status ' +
     'ACTIVE/QUEUED/BLOCKED; carry the Atomic flag); (2) ideas — the 1-3 MOST actionable open cards in `IDEAS.md` (tasks-first doctrine: pick at ' +
     'most 3, the ones whose Anchors are most settled and whose ripples land on in-scope targets), HARD CAP 3; (3) order — ONE sequenced slug list, ' +
     'ALL tasks first in dependency order (a card whose Anchors reference another card output comes after it), then the chosen ideas; (4) ripples — ' +
     'for EVERY card carrying a `Ripple:` field, one row {from_slug, klass, to_pkg, to_slug}: klass=`in_scope` if to_pkg is one of these targets, ' +
     '`oos_csharp` if it is another libs/csharp package, `cross_lang` if it points at `libs/.planning` / `libs/typescript` / `libs/python`; (5) ' +
     'gates — for any [BLOCKED] card, {blocked_slug, gated_by_slug, in_scope} where in_scope is true iff the gating work is itself an open card in ' +
-    'one of these targets (that card becomes actionable this run once its gate lands). Also return malformed_ripples for any `Ripple:` line you ' +
-    'cannot parse into a pkg+slug, or whose counterpart slug you cannot locate in the named pkg. Read the FULL card to classify — never guess from ' +
-    'the thesis. Return the structured map ONLY; edit nothing.'].join('\n')
+    'one of these targets (that card becomes actionable this run once its gate lands); (6) map — one row per design page the open cards target: ' +
+    '{page, composed: the capability the page already composes, underutilized: admitted capability the page leaves unexploited with CONCRETE ' +
+    'members you verified in a `.api` catalog (verified members ONLY — a member you cannot verify is a phantom and is NEVER listed), seams: the ' +
+    'contextual cross-page/cross-folder seams the page meets, stacking: how the catalog capability stacks into the realization, call: a hostile ' +
+    'weak/strong verdict — `strong` is earned by an attack that finds nothing, never conceded on first read}. The map is real analysis against the ' +
+    'verified inventory, never a guess; downstream agents treat it as an initial pointer, never a ceiling. Also return malformed_ripples for any ' +
+    '`Ripple:` line you cannot parse into a pkg+slug, or whose counterpart slug you cannot locate in the named pkg. Return the structured map ' +
+    'ONLY; edit nothing — read-only is DISCOVERY\'s sole concession.'].join('\n')
 const implementPrompt = (folder, seq) => [DOCTRINE, '',
   'TASK: IMPLEMENT — realize the open cards of `' + folder + '` into deep design-page FENCES at the ULTRA bar. The sequenced worklist (slugs + ' +
-    'ripple map; read each FULL card body from `' + folder + '/IDEAS.md` + `' + folder + '/TASKLOG.md`, never the thesis alone):\n' + seq + '\nREAD: ' +
+    'ripple map + discovery capability map; read each FULL card body from `' + folder + '/IDEAS.md` + ' +
+    '`' + folder + '/TASKLOG.md`, never the thesis alone):\n' + seq + '\nREAD: ' +
     'each card full body; every design page the card names under `' + folder + '/.planning/**`; the sibling pages it seams to; the package-root ' +
-    '`ARCHITECTURE.md` + `README.md`; docs/stacks/csharp/ core + the relevant domain/ shard(s) for the card concern; `' + folder + '/.api/api-*.md` ' +
-    '+ the admitted packages; and verify any novel host/NuGet member via `uv run python -m tools.assay api`. Realize EVERY card in `order` (all ' +
+    '`ARCHITECTURE.md` + `README.md`; docs/stacks/csharp/ core + the relevant domain/ shard(s) for the card concern; BOTH `.api` tiers in full — ' +
+    '`libs/csharp/.api/` + `' + folder + '/.api/api-*.md`, enumerated by real listing, never memory — plus the admitted packages; and verify any ' +
+    'novel host/NuGet member via `uv run python -m tools.assay api`. Realize EVERY card in `order` (all ' +
     'tasks incl. Atomic, then the ideas) into deep fences IN `' + folder + '` PAGES ONLY, in LIFECYCLE order (admit raw ONCE through a generated ' +
     'factory + validation partial -> lift into the canonical owner the OWNER_CHOOSER discriminants select -> weave every cross-cutting concern as ' +
     'a definition-time source-generated aspect or composition-time effect transformer over a thin pure core -> compose through ONE unified ' +
@@ -241,8 +264,9 @@ const critiquePrompt = (folder, seq) => [DOCTRINE, '',
   'TASK: DOCTRINAL-CONFORMANCE AUDIT + CHARTER-COMPLETENESS + FIX IN PLACE across `' + folder + '`. You are an ULTRA-HARSH, UNAGREEABLE auditor: ' +
     'assume a violation exists in every fence until you prove otherwise, and "good enough" is rejected. The cards realized this turn (read each ' +
     'FULL body from `' + folder + '/IDEAS.md` + `' + folder + '/TASKLOG.md`):\n' + seq + '\nREAD the realized pages, the sibling pages, ' +
-    'docs/stacks/csharp/ core + the relevant domain/ shard(s), and `' + folder + '/.api` + the universal Thinktecture/LanguageExt rails. Run these ' +
-    'MECHANICAL checklists line-by-line and REPAIR every hit in place (a fix, never a ledger note):',
+    'docs/stacks/csharp/ core + the relevant domain/ shard(s), and BOTH `.api` tiers by real listing — `libs/csharp/.api/` substrate + ' +
+    '`' + folder + '/.api/` — plus the universal Thinktecture/LanguageExt rails. Run these MECHANICAL checklists line-by-line as a FLOOR you hunt ' +
+    'past, never the complete audit, and REPAIR every hit in place (a fix, never a ledger note):',
   '(1) COLLAPSE_SCAN — apply the move for any signal (3+ instances makes it mandatory): sibling prefix/suffix names -> one modality-polymorphic ' +
     'entrypoint; same return rail differing only by arity -> input-shape discrimination; functions differing only by a literal -> parameterize the ' +
     'literal as a POLICY_VALUE; a `bool`/`mode`/`batch` parameter selecting two bodies -> one derived body or policy value; a method calling ' +
@@ -250,7 +274,7 @@ const critiquePrompt = (folder, seq) => [DOCTRINE, '',
     '(DERIVED_LOGIC); several types sharing fields for one concept -> one closed family; a `Get`/`GetMany`/`GetBy<Key>`/`List`/`Search` family -> ' +
     'one input-keyed polymorphic operation; a wrapper renaming a package API -> use the package surface directly (LIBRARY_DEPTH); 3+ parallel ' +
     'types / sibling factories / repeated switch arms / single-call helpers -> ONE `[Union]` / `[SmartEnum<TKey>]` / `[ValueObject<T>]` / ' +
-    '`[ComplexValueObject]` / source-generated case family IN THE SAME FILE.',
+    '`[ComplexValueObject]` / source-generated case family IN THE SAME FILE. These signals are a FLOOR, never the complete set — hunt past them.',
   '(2) OWNER_CHOOSER — for EVERY shape re-derive the owner from the 5 discriminants (admission, identity regime, variant arity, payload timing, ' +
     'openness), most-specific wins: invariant-bearing scalar -> `[ValueObject<TKey>]`; N-field one-concept product no discriminator -> ' +
     '`[ComplexValueObject]`; bounded vocabulary wire-keyed identity -> `[SmartEnum<TKey>]`; bounded vocabulary process-local behavior -> ' +
@@ -276,14 +300,18 @@ const critiquePrompt = (folder, seq) => [DOCTRINE, '',
     'generated `Switch` (NO `_` arm hiding a case); `.Fold`/`.Traverse`/`.Choose` with the mandatory `.As()` re-anchor; NO exception control flow ' +
     'in domain logic, NO mutable accumulation.',
   '(6) STRATA/MEMBERS/MODERN — strata correctness (depend strictly upward; NO downward dependency, NO host-type leak into a host-neutral owner; ' +
-    'geometry/mesh/IFC meet at the wire with one owner per runtime); cite ONLY host/NuGet members confirmed in the package `.api/` catalog (verify ' +
-    'novel members via `uv run python -m tools.assay api`); latest modern C# 14 on net10 (primary ctors, collection expressions, `params` ' +
-    'collections, list/relational/logical patterns, switch expressions, `required` members, `file` types, `field` accessors, extension blocks, ' +
-    'generic math, static abstract members); FULL docs/stacks/csharp + the relevant domain/ shard conformance; BOTH the package `.api/` catalogs ' +
-    'AND the universal Thinktecture/LanguageExt rails maximized; the `tools/cs-analyzer` doctrine-gate clean.',
+    'geometry/mesh/IFC meet at the wire with one owner per runtime); cite ONLY host/NuGet members confirmed in a `.api` catalog (verify novel ' +
+    'members via `uv run python -m tools.assay api`; an unverifiable cited member is a PHANTOM — delete or correct it); latest modern C# 14 on ' +
+    'net10 (primary ctors, collection expressions, `params` collections, list/relational/logical patterns, switch expressions, `required` ' +
+    'members, `file` types, `field` accessors, extension blocks, generic math, static abstract members); FULL docs/stacks/csharp + the relevant ' +
+    'domain/ shard conformance; BOTH `.api` tiers (`libs/csharp/.api/` substrate + the folder catalogs) AND the universal Thinktecture/LanguageExt ' +
+    'rails maximized to operator depth; the `tools/cs-analyzer` doctrine-gate clean.',
   '(7) CHARTER-COMPLETENESS — for EVERY card in the worklist, verify the realized fences GENUINELY fulfill its `Capability`/`Shape`/`Unlocks` ' +
     '(read the full card from disk): a missing modality, an unrealized `Shape` clause, a stubbed/placeholder fence, or a capability the card ' +
-    'promises but the fences do not deliver is a DEFECT — realize it NOW. A card whose fences are thin against its charter is not done.',
+    'promises but the fences do not deliver is a DEFECT — realize it NOW. A card whose fences are thin against its charter is not done. Attack ' +
+    'BOTH naivety axes per card: COVERAGE — fences modeling a thin slice of the domain the charter names — widen to the full concept; APPROACH — ' +
+    'an enumerated roster of hardcoded instances where ONE parameterized generator should own the space — demote the roster to seed data feeding ' +
+    'that generator.',
   'Also enforce the docs/stacks/csharp file-organization + section-order law, cross-package convention consistency, and prose + comment hygiene. ' +
     'EDIT the `' + folder + '` pages to fix every hit; realize ONLY `' + folder + '` pages and OVERRIDE any earlier residual you can now resolve; ' +
     'log any genuine cross-FOLDER item as a residual_ripple {files, pkg, slug, mirror_slug, claim}. Return verdict + realized + deferred + ' +
@@ -291,25 +319,27 @@ const critiquePrompt = (folder, seq) => [DOCTRINE, '',
 const redteamPrompt = (folder, seq) => [DOCTRINE, '',
   'TASK: ADVERSARIAL ARCHITECT RED-TEAM + FIX IN PLACE across `' + folder + '`. You are the LAST and MOST AGGRESSIVE pass: assume the author and ' +
     'critique missed things and that the chosen design is not the strongest until proven, with the burden of proof ON THE DESIGN. The cards ' +
-    'realized this turn (read each FULL body):\n' + seq + '\nOpen `' + folder + '/.api` + the universal Thinktecture/LanguageExt rails, the ' +
-    'sibling pages, docs/stacks/csharp/ + the relevant domain/ shard. Attack from every direction and REPAIR every defect in place — no ' +
-    'soft-pedalling, no could/should, a fix never a ledger.',
+    'realized this turn (read each FULL body):\n' + seq + '\nREAD BOTH `.api` tiers by real listing — `libs/csharp/.api/` substrate + ' +
+    '`' + folder + '/.api/` — plus the universal Thinktecture/LanguageExt rails, the sibling pages, docs/stacks/csharp/ + the relevant domain/ ' +
+    'shard. Attack from every direction and REPAIR every defect in place — no soft-pedalling, no could/should, a fix never a ledger.',
   'PRIMARY LENS — fundamental design, multi-faceted: (A) COUNTERFACTUAL on the core choice — is the owner, the algebra (`Fold`/generated ' +
     '`Switch`/data table), and the dispatch form categorically the strongest the doctrine admits, or does a denser owner ' +
     '(`[Union]`/`[SmartEnum<TKey>]`/`[ValueObject<T>]`/`[ComplexValueObject]`/source-generated family), a data table, or a DEEPER admitted-package ' +
     'primitive (LanguageExt/Thinktecture/MathNet/CSparse) collapse the whole fence? If a fundamentally stronger design exists, rebuild to it — ' +
-    'never defend the incumbent. (B) ANTICIPATORY_COLLAPSE — compute the DIFF OF THE NEXT FEATURE: when the next ' +
+    'never defend the incumbent; an enumerated roster of hardcoded variants where a parameterized generator should own the space is an APPROACH ' +
+    'defect — demote the roster to seed data feeding ONE generator. (B) ANTICIPATORY_COLLAPSE — compute the DIFF OF THE NEXT FEATURE: when the next ' +
     'case/dimension/knob/modality/provider arrives, does it land as ONE case/row/policy value with every consumer untouched or broken LOUDLY at ' +
     'compile time (total generated `Switch`, no silent `_`)? If it would touch multiple sites, reshape so the growth axis is a case, row, policy ' +
-    'value, or carrier swap. (C) LONG-TAIL + MULTI-DIMENSIONAL — attack every input/output/edge/failure mode (empty, singular, plural, stream, ' +
-    'malformed, concurrent, cancelled, partial-failure, version-skew); is the accumulate-vs-abort disposition correct for the REAL boundary; are ' +
-    'BOTH ingress AND egress parameterized so this owner sources and sinks across hundreds of consumers without interior edits? (D) STRATA + ' +
+    'value, or carrier swap. (C) LONG-TAIL + DOMAIN COMPLETENESS — attack every input/output/edge/failure mode (empty, singular, plural, stream, ' +
+    'malformed, concurrent, cancelled, partial-failure, version-skew); COVERAGE naivety — an owner modeling the obvious thin slice of its concept ' +
+    'where the domain carries far more — is a defect: widen to the full concept; is the accumulate-vs-abort disposition correct for the REAL boundary; ' +
+    'are BOTH ingress AND egress parameterized so this owner sources and sinks across hundreds of consumers without interior edits? (D) STRATA + ' +
     'BOUNDARY-INTEGRITY — a downward dependency, a host-type leak into a host-neutral owner, a concern owned twice in a runtime, a folder mixing ' +
     'concerns, geometry/mesh/IFC not meeting at ONE wire owner per runtime, coupling to a sibling owner INTERIOR (vs its seam/wire), OR a sibling ' +
     'planning page left STALE by this folder change even when no ripple card names it (ports/boundaries/wires/seams drift) is a defect: fix it ' +
     'within `' + folder + '`, or record it as a residual_ripple. (E) SURFACE-SPRAWL-IN-TIME — an admitted package whose `.api` or the universal ' +
     'rails expose capability the fence re-derives by hand, flat code below the operator depth the packages reach, a phantom `.api`/host member, or ' +
-    'a thin wrapper: collapse to package depth and verify the member exists (via `assay api`).',
+    'a thin wrapper: collapse to package depth, verify every cited member (via `assay api`), and DELETE or correct every phantom.',
   'ALSO — FULL COLD ADVERSARIAL RE-REVIEW (every time, NOT only on a structural restructure): re-attack every conformance dimension with fresh ' +
     'hostile eyes, trusting nothing the prior passes claimed — the COLLAPSE_SCAN signals, OWNER_CHOOSER per shape, the KNOB_TEST per param, the ' +
     'two-weave ASPECT taxonomy, rail + closed-`Expected`-fault discipline, charter-completeness per card, strata correctness, modern-C# 14 typing, ' +
@@ -318,7 +348,7 @@ const redteamPrompt = (folder, seq) => [DOCTRINE, '',
     'more powerful than the critique left them; if the strongest form is genuinely already present, prove it by finding nothing — never invent ' +
     'churn. Realize ONLY `' + folder + '` pages; log cross-FOLDER items as residual_ripples. Return verdict + realized + deferred + collapsed + ' +
     'residual_ripples + summary.'].join('\n')
-const reconcileFixPrompt = (cl) => [LAW, '', CARD, '', BARHUNT, '', ULTRA, '', PATLAW, '', BOUNDARIES, '',
+const reconcileFixPrompt = (cl) => [DOCTRINE, '',
   'TASK: RECONCILE this cluster of cross-FOLDER residuals the per-folder passes deferred. There is NO severity — treat EVERY residual as ' +
     'must-address. Read EVERY listed file. Handle each residual by KIND: (a) IN-SCOPE SEAM (both halves already realized by their own target ' +
     'folders) — read both pages, ALIGN them to ONE shared contract, fix any mismatch, set `seam_landed` true; (b) OUT-OF-SCOPE C# COUNTERPART (the ' +
@@ -329,16 +359,24 @@ const reconcileFixPrompt = (cl) => [LAW, '', CARD, '', BARHUNT, '', ULTRA, '', P
     'regress no file, never trample a sibling owner interior. For every ripple counterpart you touch, emit a `pairs` row {pkg, slug, mirror_slug, ' +
     'seam_landed}. If a residual is FACTUALLY INCORRECT or not a real defect, leave it and say why in the summary — never silently skip a real ' +
     'one. Residuals:\n' + JSON.stringify(cl, null, 1)].join('\n')
-const reconcileVerifyPrompt = (cl, fix) => [LAW, '', BOUNDARIES, '',
-  'TASK: ADVERSARIAL VERIFY, one verdict per claim. Read the named files from disk and classify each residual: status "fixed" (real defect now ' +
-    'genuinely resolved — seam aligned on both pages / counterpart fence realized / central pin applied), "invalid" (the claim is factually wrong ' +
-    '/ not a real defect — cite why), or "open" (real defect still NOT resolved). Default to "open" on any doubt for a real-looking defect; mark ' +
-    '"invalid" ONLY when you can show the claim is wrong. Claims:\n' + JSON.stringify(cl, null, 1) + '\nFiles the fixer touched: ' + JSON.stringify(fix.files) + '\nPairs ' +
-    'the fixer reported: ' + JSON.stringify(fix.pairs || [])].join('\n')
-const closeoutPrompt = (folder, seamJson) => [LAW, '', CARD, '', BARHUNT, '', ULTRA, '', PATLAW, '', BOUNDARIES, '', PROSE, '', COMMENTS, '',
+const reconcileVerifyPrompt = (cl, fix) => [DOCTRINE, '',
+  'TASK: ADVERSARIAL WRITING VERIFY of the reconcile fixes — never a friendly confirmation, never read-only. Hold every fixer claim naive or ' +
+    'illusory until it survives your attack. For EVERY claim: (1) RE-DERIVE necessity — was the claimed fix needed at all, and is the claim itself ' +
+    'factually right? (2) PROVE ON DISK — read every named file IN FULL and prove the fix genuinely landed (seam aligned on BOTH pages to ONE ' +
+    'shared contract / counterpart fence realized at the ULTRA bar / central pin applied), never trusting the fixer report. (3) REPAIR TO THE ROOT ' +
+    '— a loose, weak, or token fix is a defect YOU repair NOW via Edit/Write in the same files: a single-point patch where a root-level dense ' +
+    'reconstruction of the same files is available is itself a defect this verify fixes; leave the files objectively stronger, never merely ' +
+    'confirmed (a `Directory.Packages.props` repair is in scope ONLY when this cluster\'s claims name that file). THEN classify each claim: status ' +
+    '"fixed" (genuinely resolved on disk — including because YOU repaired it; cite the evidence), "invalid" (the claim is factually wrong / not a ' +
+    'real defect — cite the disproof), "open" (a real defect genuinely unreachable from the files at hand — an out-of-run dependency — NEVER a ' +
+    'punt on a fix you could strengthen yourself). Default a real-looking defect you cannot repair to "open"; mark "invalid" ONLY when you can ' +
+    'show the claim is wrong. List every file you edited in repaired_files. Claims:\n' + JSON.stringify(cl, null, 1) +
+    '\nFiles the fixer touched: ' + JSON.stringify(fix.files) + '\nPairs the fixer reported: ' + JSON.stringify(fix.pairs || [])].join('\n')
+const closeoutPrompt = (folder, seamJson) => [DOCTRINE, '',
   'TASK: TRUTHFUL CLOSEOUT + FINAL REMEDIATION of `' + folder + '`. This is the SOLE owner of card status. For EVERY card that was in scope this ' +
     'run, read its FULL body from `' + folder + '/IDEAS.md` + `' + folder + '/TASKLOG.md` and the realized fences under `' + folder + '/.planning/**`, ' +
-    'then SANITY-VERIFY the fences genuinely fulfill the card `Capability`/`Shape`/`Unlocks` against the cited `.api` (verify novel members via ' +
+    'then ADVERSARIALLY VERIFY — the fences are naive until they survive your attack, a prior pass verdict a rejected self-assessment — that the ' +
+    'fences genuinely fulfill the card `Capability`/`Shape`/`Unlocks` against the cited `.api` (verify novel members via ' +
     '`uv run python -m tools.assay api`). If a card is WEAK or PARTIAL, make a FINAL in-place REMEDIATION NOW (it already passed ' +
     'implement->critique->redteam this turn; deepen the fences to genuinely complete the charter), then re-verify. Assign each card a strength: ' +
     '`strong` (every charter clause delivered, fences transcription-complete against the verified `.api`), `partial` (most delivered, a clause ' +
@@ -372,7 +410,7 @@ log('Discover: ' + TARGETS.length + ' targets; ' + withCards.length + ' with ope
 // --- [REALIZE]
 phase('Realize')
 const realizeFolder = async (t) => {
-  const seq = JSON.stringify({ order: t.order, tasks: t.tasks, ideas: t.ideas, ripples: t.ripples, gates: t.gates || [] }, null, 1)
+  const seq = JSON.stringify({ order: t.order, tasks: t.tasks, ideas: t.ideas, ripples: t.ripples, gates: t.gates || [], map: t.map || [] }, null, 1)
   const tag = folderName(t.folder)
   const impl = await agent(implementPrompt(t.folder, seq), { label: 'implement:' + tag, phase: 'Realize', schema: FIXLOG_SCHEMA, effort: 'max', stallMs: 300000 })
   if (!impl) return { folder: t.folder, failed: true, logs: [] }

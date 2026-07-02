@@ -13,10 +13,10 @@ The ISO 128-2 annotation producer of the drawing-production plane: `Annotate` is
 - Owner: `Annotate` the one drawing-annotation owner holding `marks: tuple[AnnotateOp, ...]`, the `visualization/chart/spec#CHART` `Palette`, and the `SymbolTarget` egress policy value, discriminating operation over the closed `AnnotateOp` `expression.tagged_union` whose three cases each carry their own typed geometry-and-`SymbolStyle` payload — `Leader` the ISO 128-2 reference-line-plus-content mark (its content the `LeaderContent` sub-union), `TextNote` the standalone note block (its body the `NoteBody` sub-union), `RevisionCloud` the scalloped enclosure — never a per-marker `KeynoteMark`/`FlagMark`/`GeneralNote` class family and never a `StrEnum` keyed against an erased `dict[str, object]`. `LeaderContent` (`Note`/`Keynote`/`Flag`) is the closed landing-content sub-family that collapses the leader-geometry sharing: a plain note-leader, a keynote, and a flag-note carry identical `targets`/`landing`/`LeaderPath` and the same `SymbolStyle.terminator`, differing ONLY in the `LeaderContent` at the landing, so the leader geometry is declared once and the content varies — the exact `ezdxf` mtext-versus-block multileader split, never three parallel leader payloads. `NoteBody` (`Prose`/`Math`) is the closed body sub-family: a total-fit-wrapped prose note carries the plain source, the shaped `PositionedGlyphRun` bytes, and its Knuth-Plass `LineBrokenRun`, a formula note carries the `ziamath` source string, each mode carrying ONLY its own fields rather than one permissive bag. `drawing/symbol#SYMBOL` owns the shared drawing-plane `SymbolStyle` (the palette-indexed mark style `annotate` composes, never a parallel `AnnotateStyle`), which itself composes `drawing/standard#STANDARD`'s owned `LayerName`/`LineWeight`/`TextHeight`/`Terminator` ISO vocabulary; `drawsvg` owns the named-layer `Group` container, the leader `Path` command builder, the reusable `Marker(orient='auto')` terminator defs, and the `Path.arc`/`Path.A` revision-cloud scallop fold; `ziafont` owns the ISO 3098 text-to-`<path>` outline; `ziamath` owns the mixed text-and-math typeset; `ezdxf` owns the DXF `MultiLeader`/`MText`/`Wipeout`/`LWPolyline` model and the `MTextEditor` formatted-content builder; `typography/layout#LAYOUT`/`typography/shape#SHAPE` own the line-break and shaping; `kiwisolver` owns the keynote/flag-column constraint solve; `graphic/vector#VECTOR` owns the landed `skia-pathops` `outline`/`boolean` a filled-band revision-cloud variant composes (the base stroked scallop is self-contained `drawsvg`/`ezdxf`, the correct default). No sheet-set, dimension, or symbol logic crosses this owner — those are `composition/sheet#SHEET`, `drawing/dimension#DIMENSION`, and `drawing/symbol#SYMBOL`.
 - Cases: `AnnotateOp` cases — `Leader(targets, landing, path, content, style)` (the ISO 128-2 leader: one or many `targets` the terminator points at, a `landing` where the horizontal shoulder ends, a `LeaderPath` straight/spline reference line, the `style.terminator` line-end, and a `LeaderContent` at the landing — `Note(text)` an `MTextEditor`-formatted mtext note, `Keynote(code, bubble, sheet_ref, mask)` a code carried in a `BubbleShape` bubble over an optional sheet/legend reference with an optional wipeout mask, `Flag(number, shape, mask)` a note-number in a flag shape — an empty `targets` the leader-less landing bubble) · `TextNote(insert, body, style)` (the standalone note block at `insert`, its `NoteBody` either `Prose(source, run, broken)` — the plain source, its shaped `PositionedGlyphRun` bytes, and its Knuth-Plass `LineBrokenRun` outlined line-by-line through `ziafont` — or `Math(source)` — a mixed text-and-`$math$` engineering note typeset through `ziamath.Text`) · `RevisionCloud(region, radius, mark, style)` (the revision enclosure: a closed `region` polyline whose every edge folds into a chain of convex `radius`-scallop bumps, carrying an optional `mark` revision-number delta tag at the first vertex) — matched by one total `match`/`case` over `tag`, the nested `LeaderContent`/`NoteBody` each matched by their own total `match`, never a per-content special case. `SymbolStyle` (the `fill`/`stroke` `visualization/chart/spec#CHART` index, the ISO 128 `weight` `LineWeight`, the ISO 3098 `text_height` `TextHeight`, the `layer` `LayerName`, the `terminator` `Terminator`) rides as each case's last slot; the `style.terminator` (`FILLED_ARROW`/`OPEN_ARROW`/`OBLIQUE_STROKE`/`DOT`/`NONE`) keys the shared `drawsvg.Marker` def; `LeaderPath` (`STRAIGHT`/`SPLINE`) and `BubbleShape` (`CIRCLE`/`HEXAGON`/`TRIANGLE`/`DIAMOND`/`RECTANGLE`) are the closed leader-and-bubble axes.
 - Entry: `Annotate.over(marks, palette, target=SymbolTarget.SVG)` is the one modal-arity entrypoint normalizing `AnnotateOp | Iterable[AnnotateOp]` into the `marks` tuple by a structural `match` at the head (a lone mark the singleton case, a mixed sheet the multi-element case), never a `batch` knob or a per-marker sibling; `render` is `async` over the runtime `async_boundary`, returns `RuntimeRail[tuple[tuple[Layer, ...], ArtifactReceipt]]`, and offloads the whole synchronous fold onto `to_thread.run_sync(_ENGINES[self.target].arm, self, limiter=_LANES)` — the shared-address-space thread arm (the `ezdxf`/`drawsvg`/`ziafont`/`ziamath`/`kiwisolver`/`pathops` render touches the `numpy` palette and returns the `msgspec`-backed `Layer`/`ArtifactReceipt` owners a `to_interpreter` isolate cannot load, the same lane `drawing/symbol#SYMBOL` and `visualization/diagram/draw#DRAW` take). The `_svg_engine` folds each mark through `_svg_mark` into its `SymbolStyle.layer.compose()` `drawsvg.Group` (the leader `Path` with its auto-oriented `Marker` terminator, the `ziafont`-outlined content, the `ziamath` formula, the scallop `Path`), serializes each named `Group` under one `drawsvg.Drawing` carrying the shared reusable `Terminator` `Marker` defs into a per-layer `Layer(name, source, bbox)` row, and derives the content key over the joined layer bytes; the `_dxf_engine` lowers each mark through `_dxf_mark` (the `add_multileader_mtext`/`add_multileader_block` builder with `MTextEditor` content and `ConnectionSide` leader lines, the `add_attdef` bubble block placed once and referenced, the `add_wipeout` mask, the `add_mtext` note, the bulged `add_lwpolyline` cloud) and writes the DXF as one `Layer("dxf", data, bbox)` row.
-- Auto: `SymbolStyle.fill`/`stroke` are integer indices into the `visualization/chart/spec#CHART` palette the `hex_ramp` projection resolves to hex once per render, so a recolor is a palette swap never a per-mark hex literal, exactly as `drawing/symbol#SYMBOL` and `visualization/diagram/glyphset#GLYPHSET` index their marks; `SymbolStyle.layer.compose()` buckets each mark into its named `drawsvg.Group` the `export/layered#LAYERED` owner binds and pens the `ezdxf` `GfxAttribs`, `SymbolStyle.weight` resolves through `_mm`/`_lw` to the SVG drawn width and the DXF 1/100 mm lineweight, and `SymbolStyle.text_height.mm` the ISO 3098 lettering size. The leader geometry is `drawsvg` — one `Path` per pointed target from the terminator end through the elbow to the horizontal `_SHOULDER` landing shoulder, its `marker_start` referencing the shared `Terminator` `Marker(orient='auto')` def keyed by `style.terminator` so the ISO 128-2 line-end auto-orients along the leader, the `LeaderPath.SPLINE` case routing a quadratic through the elbow where `STRAIGHT` routes a polyline. The leader content lowers over `LeaderContent`: `Note` outlines its text to a font-independent `ziafont` `Font.text(...).svg()` `<path>` (never a `drawsvg.Text` that renders wrong without the font); `Keynote`/`Flag` draw a `_bubble_outline` `BubbleShape` shape (a `drawsvg.Circle`/`Rectangle`/`Lines` polygon) with an optional white paper-fill backing (the SVG twin of the `add_wipeout` mask) and the code/number `ziafont`-outlined at the centre over the sheet reference. `TextNote.Prose` decodes the `PositionedGlyphRun`, slices its `source` per `LineBrokenRun` line through the run's glyph clusters, and outlines each Knuth-Plass line at its own baseline through `ziafont`; `TextNote.Math` typesets the mixed source through `ziamath.Text(...).svg()` wrapped as a positioned `drawsvg.Raw`. `RevisionCloud` folds `_scallop_path` — for each closed-region edge a chain of `max(1, round(length / (2·radius)))` convex `radius`-arc bumps appended to one `drawsvg.Path` (SVG) or one bulged `add_lwpolyline` (DXF), a filled scalloped-band variant composing the landed `graphic/vector#VECTOR` `outline`/`boolean` `skia-pathops` surface — and draws the `mark` revision-delta tag at the first vertex. A keynote/flag column threads one `kiwisolver.Solver`: each landing's `y` is a `Variable`, a `required` collinear-`x` constraint pins every landing on the column and a `weak` equal-gap plus a `medium` `_MIN_SEP` minimum-separation space them, `updateVariables()` writing each solved `value()` into the `_route` landing override the engine passes to each mark — the same Cassowary system `drawing/symbol#SYMBOL` reaches for grid-bubble alignment, actually re-keying the landing here rather than leaving the solve unread.
+- Auto: `SymbolStyle.fill`/`stroke` are integer indices into the `visualization/chart/spec#CHART` palette the `hex_ramp` projection resolves to hex once per render, so a recolor is a palette swap never a per-mark hex literal, exactly as `drawing/symbol#SYMBOL` and `visualization/diagram/glyphset#GLYPHSET` index their marks; `SymbolStyle.layer.compose()` buckets each mark into its named `drawsvg.Group` the `export/layered#LAYERED` owner binds and pens the `ezdxf` `GfxAttribs`, `SymbolStyle.weight` resolves through `_mm`/`_lw` to the SVG drawn width and the DXF 1/100 mm lineweight, and `SymbolStyle.text_height.mm` the ISO 3098 lettering size. The leader geometry is `drawsvg` — one `Path` per pointed target from the terminator end through the elbow to the horizontal `_SHOULDER` landing shoulder, its `marker_start` referencing the shared `Terminator` `Marker(orient='auto')` def keyed by `style.terminator` so the ISO 128-2 line-end auto-orients along the leader, the `LeaderPath.SPLINE` case routing a quadratic through the elbow where `STRAIGHT` routes a polyline. The leader content lowers over `LeaderContent`: `Note` outlines its text to a font-independent `ziafont` `Font.text(...)` run that `_outlined` MEASURES via `getyofst()` and baseline-seats on the landing shoulder (never a `drawsvg.Text` that renders wrong without the font, and never the blind translate that hangs the outline below the landing); `Keynote`/`Flag` draw a `_bubble_outline` `BubbleShape` shape (a `drawsvg.Circle`/`Rectangle`/`Lines` polygon) with an optional white paper-fill backing (the SVG twin of the `add_wipeout` mask) and the code/number `ziafont`-outlined at the centre over the sheet reference. `TextNote.Prose` decodes the `PositionedGlyphRun`, slices its `source` per `LineBrokenRun` line through the run's glyph clusters, and outlines each Knuth-Plass line at its own baseline through `ziafont`; `TextNote.Math` typesets the mixed source through `ziamath.Text(...)` measured via `getyofst()`/`getsize()` and baseline-seated (not a blind translate), both wrapped as a positioned `drawsvg.Raw`. `_text_span` reads the Prose line advances and the Math `getsize()` so `_bbox` extent-checks the note against the canvas, and `_svg_engine` pins `ziafont.config.precision`/`ziamath.config.precision` once inside the offload lane so the emitted `d`-floats — and the content key over them — are deterministic. `RevisionCloud` folds `_scallop_path` — for each closed-region edge a chain of `max(1, round(length / (2·radius)))` convex `radius`-arc bumps appended to one `drawsvg.Path` (SVG) or one bulged `add_lwpolyline` (DXF), a filled scalloped-band variant composing the landed `graphic/vector#VECTOR` `outline`/`boolean` `skia-pathops` surface — and draws the `mark` revision-delta tag at the first vertex. A keynote/flag column threads one `kiwisolver.Solver`: each landing's `y` is a `Variable` sharing the one column `x` (the collinear axis is the constant `x0`, never a constraint), a `required` anchor pins the first landing, a `required` `_MIN_SEP` minimum-separation enforces HARD no-overlap between adjacent landings (the finalized `drawing/dimension#DIMENSION` `_stack` stance, never a soft `medium` band an overlap survives), and a `weak` equal-gap distributes the remainder, `updateVariables()` writing each solved `value()` into the `_route` landing override the engine passes to each mark — the same Cassowary system `drawing/symbol#SYMBOL` reaches for grid-bubble alignment, actually re-keying the landing here rather than leaving the solve unread.
 - Growth: a new leader landing content (a datum tag, a section-cut reference) is one `LeaderContent` case plus one `_content_group` arm and one `_dxf_leader` arm — the leader geometry, terminator, and routing are untouched; a new note body (a table-cell note, a callout balloon) is one `NoteBody` case plus one arm; a new mark grammar (a match-line note, a north-annotation) is one `AnnotateOp` case; a new terminator is one `drawing/standard#STANDARD` `Terminator` member plus one `_marker` arm; a new bubble is one `BubbleShape` member plus one `_SIDES` row (its polygon derived); a new leader-reference-line kind is one `LeaderPath` member plus one `Path` arm; a new mark visual axis (a background hatch, a text mask) is one `SymbolStyle` field on `drawing/symbol#SYMBOL` threaded into the consuming arm; a new column-distribution rule (radial keynotes, mirrored flags) is one `kiwisolver` constraint at its `strength` band; a filled scalloped revision-cloud band composes the landed `graphic/vector#VECTOR` `outline`/`boolean` `skia-pathops` surface (a composable variant, not a load-bearing dependency for the base, since `drawsvg.Path` already draws the stroked scallop and `ezdxf` the bulged polyline as the correct default); a new receipt fact is one scalar the `ArtifactReceipt.Drawing` case already carries; zero new surface for a new annotation kind or a new layer.
 - Boundary: the deleted forms are a per-marker `KeynoteMark`/`FlagNote`/`GeneralNote` class family where one closed `AnnotateOp` union with nested `LeaderContent`/`NoteBody` states them; three parallel leader payloads repeating the `targets`/`landing`/`LeaderPath` fields where one `Leader` case with a `LeaderContent` content discriminant carries the shared geometry once; a permissive `TextNote` bag carrying both a shaped run and a math source where the `NoteBody` sub-union carries only each mode's own fields; a parallel `AnnotateStyle` or a bare-float pen where `drawing/symbol#SYMBOL` `SymbolStyle` composing `drawing/standard#STANDARD`'s `LineWeight`/`TextHeight`/`LayerName`/`Terminator` owns the ISO codes; a hand-drawn leader line-and-text pair where `ezdxf` `add_multileader_mtext`/`add_multileader_block` owns the landing/dogleg/content and `drawsvg.Path` + `Marker` owns the SVG leader; a font-dependent `drawsvg.Text` where `ziafont` outlines the note to a font-independent `<path>` and `ziamath` typesets the formula; a per-placement bubble geometry copy where `doc.blocks.new` + `add_blockref` place one keynote/flag block definition; a hand-emitted revision-cloud arc string where `drawsvg.Path` scallop bumps and the `ezdxf` bulged `add_lwpolyline` author it and `graphic/vector#VECTOR` `skia-pathops` owns the filled-band offset; an f-string SVG splice of dynamic note text where the `drawsvg` structured builders and the `ziafont`/`ziamath` `ElementTree` egress escape it; a per-mark color literal where the `SymbolStyle` palette index binds through `visualization/chart/spec#CHART`; a `batch`/`mode` knob where `SymbolTarget` and the modal `over` head discriminate; a `Variable`-keyed dict where the stable mark index keys the `kiwisolver` column solve; a synchronous render on the event loop where `to_thread.run_sync` offloads it; a re-shape or re-break of the note where `typography/shape#SHAPE` `PositionedGlyphRun` and `typography/layout#LAYOUT` `LineBrokenRun` are consumed; a parallel drawing receipt where the shared `ArtifactReceipt.Drawing` case carries the mark/entity/byte facts. `drawing/symbol#SYMBOL` owns the `SymbolStyle` mark style, `drawing/standard#STANDARD` the owned ISO `Terminator`/`LineWeight`/`TextHeight`/`LayerName` vocabulary, `drawsvg` the named-layer SVG container and leader/scallop path builders, `ziafont` text-to-outline, `ziamath` math typeset, `ezdxf` the DXF multileader/mtext/wipeout/lwpolyline model, `graphic/vector#VECTOR` the boolean/offset, `kiwisolver` the constraint solve, `typography/layout#LAYOUT`/`typography/shape#SHAPE` the line-break and shaping, `export/layered#LAYERED` the layer binding, `composition/sheet#SHEET` the placement, and `csharp:Rasm.Bim` the IFC semantics; identity minting is the runtime's.
-- Packages: `drawsvg` (`Drawing`/`Group`/`Path`/`Path.A`/`Path.arc`/`Circle`/`Rectangle`/`Lines`/`Line`/`Marker`/`Raw`/`append_def`/`as_svg` the named-layer container, the leader/scallop path builder, and the reusable auto-oriented terminator defs); `ziafont` (`Font`/`Font.text`/`Text.svg` the ISO 3098 text-to-`<path>` outline); `ziamath` (`Text`/`Latex`/`Math.svg` the mixed text-and-math typeset for engineering notes); `ezdxf` (`new`/`add_multileader_mtext`/`add_multileader_block`/`MultiLeaderMTextBuilder.set_content`/`add_leader_line`/`build`/`MultiLeaderBlockBuilder.set_content`/`set_attribute`/`render.mleader.ConnectionSide`/`tools.text.MTextEditor`/`add_mtext`/`MText.set_location`/`enums.MTextEntityAlignment`/`add_wipeout`/`add_lwpolyline`/`doc.blocks.new`/`add_attdef`/`math.Vec2`/`gfxattribs.GfxAttribs` the DXF annotation model); `kiwisolver` (`Solver`/`Variable`/`strength` the keynote/flag-column collinear-and-distribution solve); `typography/layout#LAYOUT` (`LineBrokenRun` the Knuth-Plass line break the prose note consumes); `typography/shape#SHAPE` (`PositionedGlyphRun` the shaped run the prose note decodes for its glyph clusters); `drawing/standard#STANDARD` (`Terminator`/`LineWeight`/`TextHeight`/`LayerName` the owned ISO line-end/pen/lettering/layer vocabulary `SymbolStyle` composes); `expression` (`tagged_union`/`tag`/`case` the vocabulary); `msgspec` (`Struct`/`msgpack.decode` the value objects and run decode); `builtins.frozendict` (the `_ENGINES`/`_SIDES` tables); `anyio` (`CapacityLimiter`/`to_thread` the offload); runtime (`content_identity.ContentIdentity`, `faults.RuntimeRail`/`async_boundary`); `core/receipt#RECEIPT` (`ArtifactReceipt.Drawing`); `export/layered#LAYERED` (`Layer`); `visualization/chart/spec#CHART` (`Palette`/`hex_ramp`).
+- Packages: `drawsvg` (`Drawing`/`Group`/`Path`/`Path.A`/`Path.arc`/`Circle`/`Rectangle`/`Lines`/`Line`/`Marker`/`Raw`/`append_def`/`as_svg` the named-layer container, the leader/scallop path builder, and the reusable auto-oriented terminator defs); `ziafont` (`Font`/`Font.text`/`Text.svg`/`Text.getyofst`/`Text.getsize`/`config.precision` the ISO 3098 text-to-`<path>` outline, MEASURED, baseline-seated, content-key-deterministic); `ziamath` (`Text`/`Text.svg`/`Text.getyofst`/`Text.getsize`/`config.precision` the mixed text-and-math typeset for engineering notes, measured and seated); `ezdxf` (`new`/`add_multileader_mtext`/`add_multileader_block`/`MultiLeaderMTextBuilder.set_content`/`add_leader_line`/`build`/`MultiLeaderBlockBuilder.set_content`/`set_attribute`/`render.mleader.ConnectionSide`/`tools.text.MTextEditor.font`/`.height`/`.append`/`.bullet_list`/`.underline`/`add_mtext`/`MText.set_location`/`enums.MTextEntityAlignment`/`add_wipeout`/`add_lwpolyline`/`doc.blocks.new`/`add_attdef`/`bbox.extents`/`math.Vec2`/`gfxattribs.GfxAttribs` the DXF annotation model + true rendered extents); `kiwisolver` (`Solver`/`Variable`/`strength` the keynote/flag-column required-anchor + hard-no-overlap + weak-distribution solve); `beartype` (`@beartype` the `over` construction contract, matching the finalized `drawing/dimension#DIMENSION`); `typography/layout#LAYOUT` (`LineBrokenRun` the Knuth-Plass line break the prose note consumes); `typography/shape#SHAPE` (`PositionedGlyphRun` the shaped run the prose note decodes for its glyph clusters); `drawing/standard#STANDARD` (`Terminator`/`LineWeight`/`TextHeight`/`LayerName` the owned ISO line-end/pen/lettering/layer vocabulary `SymbolStyle` composes); `expression` (`tagged_union`/`tag`/`case` the vocabulary); `msgspec` (`Struct`/`msgpack.decode` the value objects and run decode); `builtins.frozendict` (the `_ENGINES`/`_SIDES` tables); `anyio` (`CapacityLimiter`/`to_thread` the offload); runtime (`content_identity.ContentIdentity`, `faults.RuntimeRail`/`async_boundary`); `core/receipt#RECEIPT` (`ArtifactReceipt.Drawing`); `export/layered#LAYERED` (`Layer`); `visualization/chart/spec#CHART` (`Palette`/`hex_ramp`).
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -31,6 +31,7 @@ from typing import Literal, Self, assert_never
 
 import msgspec
 from anyio import CapacityLimiter, to_thread
+from beartype import beartype
 from builtins import frozendict
 from expression import case, tag, tagged_union
 from expression.collections import Block
@@ -53,6 +54,7 @@ lazy import ezdxf
 lazy import kiwisolver
 lazy import ziafont
 lazy import ziamath
+lazy from ezdxf import bbox
 lazy from ezdxf.enums import MTextEntityAlignment
 lazy from ezdxf.gfxattribs import GfxAttribs
 lazy from ezdxf.math import Vec2
@@ -69,6 +71,7 @@ _SHOULDER: float = 2.0            # landing-shoulder length, in text-height mult
 _BUBBLE: float = 1.4             # keynote/flag bubble radius, in text-height multiples
 _MIN_SEP: float = 8.0            # keynote/flag-column minimum vertical separation (drawing units)
 _LEADER_STYLE: str = "ISO-128-2"  # the annotation convention the `ArtifactReceipt.Drawing` style slot carries
+_PRECISION: int = 3              # ziafont/ziamath emitted-d-float places — the content-key determinism lever set once per offloaded arm
 
 
 class LeaderPath(StrEnum):  # ISO 128-2 leader reference-line geometry (ezdxf `render.mleader.LeaderType` twin)
@@ -151,6 +154,7 @@ class Annotate(Struct, frozen=True):
     target: SymbolTarget = SymbolTarget.SVG
 
     @classmethod
+    @beartype
     def over(cls, marks: AnnotateOp | Iterable[AnnotateOp], palette: Palette, /, *, target: SymbolTarget = SymbolTarget.SVG) -> Self:
         match marks:  # the one modal-arity head — a lone mark is the singleton, an iterable the multi-mark sheet
             case AnnotateOp():
@@ -205,10 +209,29 @@ def _points(mark: AnnotateOp, /) -> tuple[Point, ...]:
             assert_never(unreachable)
 
 
+def _text_span(mark: AnnotateOp, /) -> Box | None:
+    # the MEASURED extent of a standalone note so the SVG canvas sizes against the real run, never clipping a long
+    # note the point-hull misses: a Prose note reads its line advances straight off the Knuth-Plass `LineBrokenRun`
+    # (no re-measure — the layout owner already carries them), a Math note reads `ziamath.Text(...).getsize()`.
+    match mark:
+        case AnnotateOp(tag="textnote", textnote=(insert, NoteBody(tag="prose", prose=(_source, _run, broken)), style)):
+            width = max((line.advance for line in broken.lines), default=0.0)
+            return (insert[0], insert[1], insert[0] + width, insert[1] + len(broken.lines) * style.text_height.mm * 1.4)
+        case AnnotateOp(tag="textnote", textnote=(insert, NoteBody(tag="math", math=source), style)):
+            width, height = ziamath.Text(source, size=style.text_height.mm).getsize()
+            return (insert[0], insert[1], insert[0] + width, insert[1] + height)
+        case _:
+            return None
+
+
 def _bbox(marks: tuple[AnnotateOp, ...], /) -> Box:
     pts = tuple(point for mark in marks for point in _points(mark)) or ((0.0, 0.0),)
-    xs, ys = tuple(p[0] for p in pts), tuple(p[1] for p in pts)
-    return (min(xs), min(ys), max(xs) + 1.0, max(ys) + 1.0)
+    spans = tuple(span for mark in marks if (span := _text_span(mark)) is not None)
+    xs = tuple(p[0] for p in pts) + tuple(span[0] for span in spans)
+    ys = tuple(p[1] for p in pts) + tuple(span[1] for span in spans)
+    hi_x = max((*(x + 1.0 for x in (p[0] for p in pts)), *(span[2] for span in spans)))
+    hi_y = max((*(y + 1.0 for y in (p[1] for p in pts)), *(span[3] for span in spans)))
+    return (min(xs), min(ys), hi_x, hi_y)
 
 
 @lru_cache(maxsize=1)
@@ -219,9 +242,12 @@ def _drawing_font() -> "ziafont.Font":
 
 
 def _route(marks: Block[AnnotateOp], /) -> frozendict[int, Point]:
-    # a keynote/flag column threads one `kiwisolver.Solver`: each landing's y is a `Variable`, a `required`
-    # collinear-x pins the column, a `weak` equal-gap and a `medium` `_MIN_SEP` minimum-separation space them,
-    # and `updateVariables()` writes each solved `value()` into the routed landing override the engines pass.
+    # a keynote/flag column threads one `kiwisolver.Solver`: each landing's y is a `Variable` sharing the one
+    # column x (the collinear axis is the constant `x0`, no constraint needed), a `required` anchor pins the
+    # first landing and a `required` `_MIN_SEP` min-separation keeps adjacent landings from overlapping — the
+    # hard no-overlap the finalized `drawing/dimension#DIMENSION` `_stack` takes, never a soft band an overlap
+    # survives — and a `weak` equal-gap distributes the remainder; `updateVariables()` writes each solved
+    # `value()` into the routed landing override the engines pass.
     column = tuple(
         (index, mark.leader[1])
         for index, mark in enumerate(marks)
@@ -232,11 +258,10 @@ def _route(marks: Block[AnnotateOp], /) -> frozendict[int, Point]:
     solver = kiwisolver.Solver()
     ys = tuple(kiwisolver.Variable(f"y{index}") for index, _ in column)
     x0 = sum(landing[0] for _, landing in column) / len(column)
+    solver.addConstraint(ys[0] == column[0][1][1])  # required: anchor the first landing at its own y
     for lo, hi in pairwise(ys):  # Exemption: kiwisolver Solver is the stateful native sink; constraints add in place
-        solver.addConstraint((hi - lo >= _MIN_SEP) | kiwisolver.strength.medium)
-        solver.addConstraint((hi - lo == ys[1] - ys[0]) | kiwisolver.strength.weak)
-    for var, (_, landing) in zip(ys, column, strict=True):
-        solver.addConstraint((var == landing[1]) | kiwisolver.strength.weak)
+        solver.addConstraint(hi - lo >= _MIN_SEP)  # required: hard no-overlap between adjacent landings
+        solver.addConstraint((hi - lo == ys[1] - ys[0]) | kiwisolver.strength.weak)  # weak: even distribution
     solver.updateVariables()
     return frozendict({index: (x0, var.value()) for (index, _), var in zip(column, ys, strict=True)})
 
@@ -284,9 +309,12 @@ def _bubble_outline(shape: BubbleShape, radius: float, *, fill: str, stroke: str
 
 def _outlined(text: str, at: Point, style: SymbolStyle, ramp: list[str], *, anchor: str = "left") -> "drawsvg.Group":
     # ISO 3098 note text as a font-independent ziafont `<path>` — never a `drawsvg.Text` font-dependent `<text>`;
-    # the machine-generated SVG rides a `drawsvg.Raw` (no f-string splice of the dynamic text into markup).
-    body = _drawing_font().text(text, size=style.text_height.mm, halign=anchor, color=ramp[style.stroke % len(ramp)]).svg()
-    return drawsvg.Group(drawsvg.Raw(body), transform=f"translate({at[0]},{at[1]})")
+    # the machine-generated SVG rides a `drawsvg.Raw` (no f-string splice of the dynamic text into markup). The run
+    # is MEASURED and baseline-seated: `getyofst()` is the baseline-to-top offset, so the outline's baseline lands
+    # ON `at` (the leader shoulder / bubble centre) rather than its bounding-box top — the blind translate the
+    # finalized `drawing/dimension#DIMENSION` `_annotation_layer` already avoids; `getsize()` feeds `_text_span`.
+    run = _drawing_font().text(text, size=style.text_height.mm, halign=anchor, color=ramp[style.stroke % len(ramp)])
+    return drawsvg.Group(drawsvg.Raw(run.svg()), transform=f"translate({at[0]},{at[1] - run.getyofst()})")
 
 
 def _bubble_group(label: str, shape: BubbleShape, at: Point, style: SymbolStyle, ramp: list[str], sheet_ref: str, *, mask: bool) -> "drawsvg.Group":
@@ -343,8 +371,11 @@ def _note_group(insert: Point, body: NoteBody, style: SymbolStyle, ramp: list[st
         case NoteBody(tag="prose", prose=(source, run_bytes, broken)):
             return _prose_group(source, run_bytes, broken, insert, style, ramp)
         case NoteBody(tag="math", math=source):
-            svg = ziamath.Text(source, size=style.text_height.mm, color=ramp[style.stroke % len(ramp)]).svg()
-            return drawsvg.Group(drawsvg.Raw(svg), transform=f"translate({insert[0]},{insert[1]})")
+            # the mixed text-and-`$math$` engineering note MEASURED and baseline-seated through `ziamath.Text`
+            # (the mixed-content owner, not the bare `Math`): `getyofst()` seats the run baseline on `insert` and
+            # `getsize()` (read in `_text_span`) sizes the canvas, never the blind top-left translate.
+            run = ziamath.Text(source, size=style.text_height.mm, color=ramp[style.stroke % len(ramp)])
+            return drawsvg.Group(drawsvg.Raw(run.svg()), transform=f"translate({insert[0]},{insert[1] - run.getyofst()})")
         case _ as unreachable:
             assert_never(unreachable)
 
@@ -416,7 +447,9 @@ def _dxf_leader(doc: "ezdxf.document.Drawing", msp: object, targets: tuple[Point
     match content:
         case LeaderContent(tag="note", note=text):
             builder = msp.add_multileader_mtext("Standard")  # Exemption: the mleader builder is the stateful sink; leader lines add in place
-            builder.set_content(str(MTextEditor().append(text)), char_height=style.text_height.mm)
+            # the fuller `MTextEditor` surface the flat `.append` discards — the ISO 3098 lettering face inline (the
+            # height rides the builder `char_height`); a multi-item keynote legend deepens to `.bullet_list` here.
+            builder.set_content(str(MTextEditor().font("isocp").append(text)), char_height=style.text_height.mm)
             for target in targets:
                 builder.add_leader_line(_side(target, landing), [Vec2(target), Vec2(landing)])
             builder.build(insert=Vec2(landing))
@@ -444,7 +477,8 @@ def _dxf_note(msp: object, insert: Point, body: NoteBody, style: SymbolStyle) ->
     attribs = GfxAttribs(layer=style.layer.compose(), lineweight=_lw(style.weight)).asdict()
     match body:  # Exemption: ezdxf MText is the stateful entity; the location/width set in place
         case NoteBody(tag="prose", prose=(source, _run, broken)):
-            note = msp.add_mtext(source, dxfattribs=attribs)
+            content = str(MTextEditor().font("isocp").height(style.text_height.mm).append(source))  # ISO 3098 face + height the raw source lacks
+            note = msp.add_mtext(content, dxfattribs=attribs)
             note.dxf.width = max((line.advance for line in broken.lines), default=style.text_height.mm)
             note.set_location(Vec2(insert), attachment_point=MTextEntityAlignment.TOP_LEFT)
         case NoteBody(tag="math", math=source):
@@ -509,6 +543,7 @@ _SIDES: frozendict[BubbleShape, int] = frozendict({BubbleShape.TRIANGLE: 3, Bubb
 
 
 def _svg_engine(annotate: Annotate) -> tuple[tuple[Layer, ...], ArtifactReceipt]:
+    ziafont.config.precision = ziamath.config.precision = _PRECISION  # set once inside the serialized offload lane — same d-float bytes -> same content key
     ramp = hex_ramp(annotate.palette)
     routed = _route(Block.of_seq(annotate.marks))
     box = _bbox(annotate.marks)
@@ -520,6 +555,13 @@ def _svg_engine(annotate: Annotate) -> tuple[tuple[Layer, ...], ArtifactReceipt]
     return layers, ArtifactReceipt.Drawing(key, "drawing-annotate", len(annotate.marks), _LEADER_STYLE, int(box[2] - box[0]), int(box[3] - box[1]), sum(len(layer.source) for layer in layers))
 
 
+def _dxf_extent(msp: object, fallback: Box, /) -> tuple[int, int]:
+    # the TRUE rendered extent over the authored multileader/mtext/wipeout/lwpolyline entities — the finalized
+    # `drawing/dimension#DIMENSION` reads `ezdxf.bbox.extents`, never a point-hull the placed blocks and masks miss.
+    box = bbox.extents(msp, fast=True)
+    return (round(box.size.x), round(box.size.y)) if box.has_data else (int(fallback[2] - fallback[0]), int(fallback[3] - fallback[1]))
+
+
 def _dxf_engine(annotate: Annotate) -> tuple[tuple[Layer, ...], ArtifactReceipt]:
     doc = ezdxf.new("R2018", setup=True)
     msp = doc.modelspace()
@@ -527,11 +569,12 @@ def _dxf_engine(annotate: Annotate) -> tuple[tuple[Layer, ...], ArtifactReceipt]
     box = _bbox(annotate.marks)
     for index, mark in enumerate(annotate.marks):  # Exemption: ezdxf Modelspace is the GraphicsFactory sink; add_* mutate the layout in place
         _dxf_mark(doc, msp, mark, routed.get(index))
+    width, height = _dxf_extent(msp, box)
     stream = io.StringIO()
     doc.write(stream)
     data = stream.getvalue().encode()
     key = ContentIdentity.of("drawing-annotate-dxf", data)
-    return (Layer(name="dxf", source=data, bbox=box),), ArtifactReceipt.Drawing(key, "drawing-annotate", len(annotate.marks), _LEADER_STYLE, int(box[2] - box[0]), int(box[3] - box[1]), len(data))
+    return (Layer(name="dxf", source=data, bbox=box),), ArtifactReceipt.Drawing(key, "drawing-annotate", len(annotate.marks), _LEADER_STYLE, width, height, len(data))
 
 
 _ENGINES: frozendict[SymbolTarget, AnnotateEngine] = frozendict({
@@ -558,3 +601,6 @@ __all__ = ["Annotate", "AnnotateOp", "BubbleShape", "LeaderContent", "LeaderPath
 - [LAYOUT_PROJECTION] [RESOLVED]: `TextNote.Prose` consumes `typography/layout#LAYOUT` `LineBrokenRun` and `typography/shape#SHAPE` `PositionedGlyphRun` as VALUE OBJECTS — the shaped run and its Knuth-Plass break admitted onto the payload — the `LineBrokenRun` on the `NoteBody.Prose` payload is now PRODUCED by a shaped run rather than kept internal to `lay()`: `typography/layout#LAYOUT` `LineLayout` exposes the public synchronous `broken() -> LineBrokenRun` projection beside `lay()`, so the `broken` slot is minted by `LineLayout(step=PARAGRAPH, run=<PositionedGlyphRun bytes>, params=<LayoutParams>).broken()` driven from the shaped run at authoring time and admitted onto the payload (the value object `_prose_group`/`_dxf_note` then read), with `document/emit#DOCUMENT` and `composition/compose#COMPOSE` the sibling `LineBrokenRun` consumers the same projection serves (`lay()` stays the content-keyed rail, `broken()` the value projection over the shared `_broken` core). The cross-file close landed on `typography/layout.md`.
 - [RECEIPT_AND_PLAN] [RESOLVED]: the owner contributes one `ArtifactReceipt.Drawing(key, kind, entities, dimstyle, width, height, bytes)` case on the shared `core/receipt#RECEIPT` family — the `"drawing-annotate"` kind, the mark tally, the `_LEADER_STYLE` ISO-128-2 convention on the `dimstyle` style slot, the rendered extents, and the byte count — and one `core/plan#PLAN` `ArtifactWork` node (the `render` coroutine as the `Work[ArtifactReceipt]` thunk keyed by the content identity). The `Drawing` case is the shared AEC-drawing-plane receipt (already declared on `core/receipt.md` and contributed by `drawing/symbol#SYMBOL`/`drawing/detail#DETAIL`), so `annotate` mints no new case and `core/plan` grows by zero (a new producer is one `ArtifactWork` node). The single content-key derivation reads the joined layer bytes once (no double render). Justified on CONSUMER (the shared `Drawing` case + the `ArtifactWork` node contract).
 - [TEMPLATE_SAFETY] [RESOLVED]: every SVG fragment is authored through the `drawsvg` structured element builders (`Group`/`Path`/`Circle`/`Rectangle`/`Lines`/`Marker`) and the `ziafont`/`ziamath` `ElementTree` egress wrapped as a `drawsvg.Raw` (machine-generated SVG, never an f-string splice of dynamic note text into markup) — the note text and keynote code enter `ziafont.Font.text(...)`/`ziamath.Text(...)` which outline them to `<path>` geometry, so no dynamic value reaches a markup string un-escaped (`TEMPLATE_STRUCTURE_SITE`). Justified on DOMAIN (annotation text is untrusted-ish drawing content) and the doctrine markup-injection law.
+- [MEASURE_AND_SEAT] [RESOLVED]: the prior `_outlined`/`_prose_group`/`_note_group` wrapped `Font.text(...).svg()`/`ziamath.Text(...).svg()` in a BLIND `drawsvg.Raw` translate — the run was never measured, so an ISO 3098 note hung below its landing (top-seated, not baseline-seated) and a long note clipped the canvas. `_outlined` now builds the run once and baseline-seats it via `run.getyofst()` (verified `Text.getyofst() -> float`), the Math arm does the same over `ziamath.Text` (verified `getyofst`/`getsize`), and the new `_text_span` reads the Prose line advances off the `LineBrokenRun` (no re-measure) and the Math `getsize()` (verified `getsize() -> tuple[float, float]`) so `_bbox` extent-checks each note. `_svg_engine` pins `ziafont.config.precision = ziamath.config.precision = _PRECISION` once inside the serialized offload lane (verified both `config.precision` attrs exist, ziamath delegating to ziafont) — the deterministic-`d`-float lever the SVG content key depends on, previously unset so the same note could hash differently. Justified on PACKAGE (the verified `getyofst`/`getsize`/`config.precision` surface both catalogs flag) and DOMAIN (ISO 128-2 leader notes seat on the landing) and CONSUMER (a stable content key).
+- [DXF_EXTENTS_AND_MTEXT] [RESOLVED]: the DXF `_bbox` hand-rolled the receipt extent from raw leader/target/region points, missing the authored `add_multileader_*`/`add_wipeout`/`add_lwpolyline` geometry the modelspace actually holds; `_dxf_extent` now reads the TRUE rendered extent via `ezdxf.bbox.extents(msp, fast=True)` (verified `extents(entities, *, fast=False, cache=None) -> BoundingBox`), exactly as the finalized `drawing/dimension#DIMENSION` `_extent`, the point-hull the SVG `Layer.bbox` seam keeps. The Note leader and the standalone Prose note deepen from the flat `MTextEditor().append(text)` to the fuller `MTextEditor().font("isocp")…` surface (verified `.font`/`.height`/`.append`/`.bullet_list`/`.underline`/`.color`/`.stack` all present) so the ISO 3098 lettering face rides the inline codes an ISO 128-2 general/keynote note admits, never discarded by a flat append. Justified on PACKAGE (the verified `bbox.extents` + `MTextEditor` surface) and DOMAIN (a general note carries formatting; a receipt extent measures the placed entities).
+- [CONSTRUCTION_CONTRACT] [RESOLVED]: `Annotate.over` gains the `@beartype` boundary contract the finalized `drawing/dimension#DIMENSION`/`drawing/standard#STANDARD` apply, so a wrong-shaped `AnnotateOp | Iterable[AnnotateOp]` payload is refused at construction rather than failing deep in a render arm. The `_route` keynote/flag column hardens from a SOFT `medium` min-separation an overlap could survive to a `required` min-separation (hard no-overlap) plus a `required` first-landing anchor and a `weak` equal-gap — the finalized `_stack` shape — reconciling the illusory "required collinear-x constraint" prose (the collinear axis is the shared constant `x0`, never a constraint). The kiwisolver `Constraint.violated()` soft-constraint QA (whether a dense column sacrificed even spacing) is verified present but has no landing on the seven-slot `ArtifactReceipt.Drawing` case; carrying it is a cross-file `core/receipt#RECEIPT` extension (shared with `drawing/dimension#DIMENSION`), surfaced as a residual. Justified on CONSUMER (the construction contract + the finalized offset-solve shape).

@@ -17,11 +17,11 @@ const STALL = 300000
 const ROOT = 'docs/stacks/python'
 
 // --- [MODELS] ----------------------------------------------------------------------------
-const INVENTORY_SCHEMA = { type: 'object', additionalProperties: false, required: ['files'], properties: { files: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['path', 'order'], properties: { path: { type: 'string' }, order: { type: 'integer' }, folder: { type: 'string' }, regions: { type: 'array', items: { type: 'string' } } } } } } }
+const INVENTORY_SCHEMA = { type: 'object', additionalProperties: false, required: ['files'], properties: { files: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['path', 'order'], properties: { path: { type: 'string' }, order: { type: 'integer' }, folder: { type: 'string' }, regions: { type: 'array', items: { type: 'string' } }, map: { type: 'string' } } } } } }
 const FIXLOG_SCHEMA = { type: 'object', additionalProperties: false, required: ['file', 'verdict', 'summary'], properties: { file: { type: 'string' }, verdict: { type: 'string', enum: ['rebuilt', 'refined', 'clean'] }, collapsed: { type: 'string' }, extended: { type: 'string' }, regions: { type: 'array', items: { type: 'string' } }, residual_high: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['files', 'claim'], properties: { files: { type: 'array', items: { type: 'string' } }, claim: { type: 'string' } } } }, summary: { type: 'string' } } }
 const SWEEP_SCHEMA = { type: 'object', additionalProperties: false, required: ['file', 'verdict', 'owned_regions'], properties: { file: { type: 'string' }, verdict: { type: 'string', enum: ['routed', 'clean'] }, rerouted: { type: 'array', items: { type: 'string' } }, owned_regions: { type: 'array', items: { type: 'string' } }, residual_high: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['files', 'claim'], properties: { files: { type: 'array', items: { type: 'string' } }, claim: { type: 'string' } } } } } }
 const RECONCILE_FIX_SCHEMA = { type: 'object', additionalProperties: false, required: ['files', 'verdict', 'summary'], properties: { files: { type: 'array', items: { type: 'string' } }, verdict: { type: 'string', enum: ['fixed', 'clean'] }, summary: { type: 'string' } } }
-const RECONCILE_VERIFY_SCHEMA = { type: 'object', additionalProperties: false, required: ['overall', 'claims'], properties: { overall: { type: 'boolean' }, claims: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['claim', 'status'], properties: { claim: { type: 'string' }, status: { type: 'string', enum: ['fixed', 'invalid', 'open'] }, evidence: { type: 'string' } } } } } }
+const RECONCILE_VERIFY_SCHEMA = { type: 'object', additionalProperties: false, required: ['overall', 'claims'], properties: { overall: { type: 'boolean' }, claims: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['claim', 'status'], properties: { claim: { type: 'string' }, status: { type: 'string', enum: ['fixed', 'invalid', 'open'] }, evidence: { type: 'string' } } } }, repaired: { type: 'array', items: { type: 'string' } } } }
 
 // --- [DOCTRINE] --------------------------------------------------------------------------
 const LAW = [
@@ -51,6 +51,10 @@ const ADVERSARIAL = [
     'does not contain; a card field (`Use`/`Accept`/`Reject`/`Law`/`Boundary`) that decides nothing; a structurally-correct collapse that is ' +
     'semantically empty; a `.api` member cited but unverifiable (a PHANTOM — delete it). Treat dense, confident-looking fences with MORE ' +
     'suspicion, not less, and DISBELIEVE every claim the page makes about itself until verified.',
+  'NAIVETY is a defect on TWO orthogonal axes, both intolerable: COVERAGE — the owner models a THIN SLICE of its concept (the obvious three ' +
+    'fields where the domain carries fifteen; a two-case family for a twenty-case space); APPROACH — enumerated hardcoded instances where a ' +
+    'parameterized, algorithmic owner should GENERATE the space (a fixed roster of styles, patterns, or variants is seed DATA feeding ONE ' +
+    'generator over named parameters, never the mechanism itself). Attack both axes in every fence and repair on sight.',
   'CRITIQUE vs RED-TEAM (hold the distinction): CRITIQUE is the MECHANICAL, line-by-line doctrinal-conformance audit — run every checklist signal ' +
     'across every fence and FIX each hit in place. RED-TEAM is critique AND MORE — the LAST, MOST AGGRESSIVE pass that re-runs the entire critique ' +
     'with fresh hostile eyes AND adds the architect lenses (counterfactual on the core shape, anticipatory-collapse of the next case, corpus-wide ' +
@@ -64,8 +68,10 @@ const PYDOCTRINE16 = [
     'owner; interior never re-validates or sees `None`-as-failure/sentinel/provider shape). [SHAPE] SHAPE_BUDGET + DEEP_SURFACES + MODAL_ARITY + ' +
     'ANTICIPATORY_COLLAPSE. [DERIVATION] POLICY_VALUES + DERIVED_LOGIC + DERIVED_TYPES + SYMBOLIC_REFERENCE + SEMANTIC_NAMING. [MATERIAL] ' +
     'LIBRARY_DEPTH + DEFINITION_TIME_ASPECTS. [INTEGRATION] ROOT_REBUILD + ONE_HOP_RESOLUTION + COMPOSED_IMPLEMENTATION.',
-  'RUN the README [03]-[COLLAPSE_SCAN] 12-signal table on every fence: any signal triggers the collapse move, 3+ instances make it mandatory. A ' +
-    'page that demonstrates a coding law must itself obey every law it can reach.',
+  'RUN the README [03]-[COLLAPSE_SCAN] 12-signal table on every fence: any signal triggers the collapse move, 3+ instances make it mandatory. ' +
+    'Every enumerated collapse/kill list in this doctrine is a FLOOR, never the complete set: any repeated structure, parallel spelling, or ' +
+    'enumerable family an algebra, table, fold, or generator can own is a collapse target you hunt down yourself, listed or not. A page that ' +
+    'demonstrates a coding law must itself obey every law it can reach.',
 ].join('\n')
 const SHAPE_ADT = [
   'EXTREME SHAPE/TYPE DENSITY (the central mandate): one concept owns exactly ONE type as a dense CLOSED-FAMILY ADT — `@tagged_union` / `Literal` ' +
@@ -144,15 +150,18 @@ const PY315 = [
     'and homogeneous `**kwargs`.',
 ].join('\n')
 const APISTACK_SUBSTRATE = [
-  'CITATION TIER (load-bearing, doctrine-specific): the SHARED substrate catalogs at docs/stacks/python/.api/*.md — `expression`, `pydantic`, ' +
-    '`pydantic-settings`, `beartype`, `msgspec`, `anyio`, `structlog`, `stamina`, `numpy`, `psutil`, `opentelemetry-*`, `protobuf`, `grpcio` — are ' +
-    'cited by EVERY page. A CORE page cites ONLY this shared substrate. A DOMAIN or NUMERICS shard cites the shared substrate PLUS the package ' +
-    '`.api/` catalogs (wherever they live under docs/stacks/python/.api/) for the packages its concept composes — a numerics shard additionally ' +
-    'STACKS its scientific cluster at the deepest dense/sparse/iterative/structured primitives its concern reaches — and NOTHING outside its ' +
-    'declared cluster. Mine each to its FULL advanced surface and STACK them as ONE dense rail — `expression` rails + `msgspec`/`pydantic` models ' +
-    '+ `beartype` contracts + `stamina` retry + `structlog`+OTel spans + `anyio` concurrency layered together, never flat one-shot per-library uses.',
+  'CITATION TIER (load-bearing, doctrine-specific): the SHARED substrate catalogs — `expression`, `pydantic`, `pydantic-settings`, `beartype`, ' +
+    '`msgspec`, `anyio`, `structlog`, `stamina`, `numpy`, `psutil`, `opentelemetry-*`, `protobuf`, `grpcio` — are cited by EVERY page. ENUMERATE ' +
+    'the catalog set IN FULL with a real `ls`/`fd` listing at every stage — the catalog root is docs/stacks/python/.api/ when present, else the ' +
+    'language-wide libs/python/.api/ — never a memory-recalled roster. A CORE page cites ONLY this shared substrate. A DOMAIN or NUMERICS shard ' +
+    'cites the shared substrate PLUS the package-cluster tier (the `.api/` catalogs for the packages its concept composes) — a numerics shard ' +
+    'additionally STACKS its scientific cluster at the deepest dense/sparse/iterative/structured primitives its concern reaches — and NOTHING ' +
+    'outside its declared cluster. Mine BOTH tiers to their FULL advanced surface and STACK them as ONE dense rail — `expression` rails + ' +
+    '`msgspec`/`pydantic` models + `beartype` contracts + `stamina` retry + `structlog`+OTel spans + `anyio` concurrency layered together, never ' +
+    'flat one-shot per-library uses.',
   'Cite ONLY members confirmed in the actual .api catalog file; a member you cannot verify is a PHANTOM to delete (verify novel members via `uv ' +
-    'run python -m tools.assay api`). A domain/numerics shard composes the FINALIZED core laws as settled material (it never re-opens ' +
+    'run python -m tools.assay api`). An admitted capability the concept admits but NO owner exploits is a DEFECT the pass closes in place, ' +
+    'citing the exact member. A domain/numerics shard composes the FINALIZED core laws as settled material (it never re-opens ' +
     'admission/shape/rail/dispatch/boundary decisions the core owns) and owns ONE closed vocabulary for its axis. Use the DEEPEST primitive each ' +
     'package reaches (LIBRARY_DEPTH); flat code below that operator depth is surface sprawl.',
 ].join('\n')
@@ -222,8 +231,8 @@ const nameOf = (p) => p.indexOf(ROOT + '/') === 0 ? p.slice(ROOT.length + 1) : p
 const authorPrompt = (page) => [DOCTRINE, '', 'TASK: HOSTILE HARDEN of ' + page + ' to the ULTRA-DENSE Python doctrine bar. DISBELIEVE the page — ' +
   'assume every fence is naive, junior, or illusory until proven 13/10, and treat dense confident-looking content as a prime suspect for ' +
   'hollow/decorative complexity. Read the page, the README atlas + doctrine sections + the domain/ and numerics/ routers, its sibling pages ' +
-  '(cross-page unification), the csharp density FLOOR (READ-ONLY), the style-guide, and the .api catalogs it composes under ' +
-  'docs/stacks/python/.api (a core page mines the SHARED substrate; a domain/numerics shard mines the substrate PLUS its declared package cluster ' +
+  '(cross-page unification), the csharp density FLOOR (READ-ONLY), the style-guide, and the .api catalogs it composes — enumerate BOTH tiers per ' +
+  'the CITATION TIER law (a core page mines the SHARED substrate; a domain/numerics shard mines the substrate PLUS its declared package cluster ' +
   '— STACK them; VERIFY every cited member, delete phantoms). Construct in BOUNDARY_ADMISSION lifecycle order; collapse parallel shapes into ONE ' +
   'dense closed-family ADT chosen by OWNER_CHOOSER; express every cross-cutting concern as a stacked signature+rail-preserving decorator over a ' +
   'thin pure core (FULL AOP); parameterize fully, one polymorphic entrypoint per modality; py3.15-modern only. Make the exemplary snippet AGNOSTIC ' +
@@ -238,13 +247,15 @@ const critiquePrompt = (page) => [DOCTRINE, '',
   'TASK: HOSTILE DOCTRINAL-CONFORMANCE AUDIT + FIX IN PLACE of ' + page + '. You are an ULTRA-HARSH, UNAGREEABLE auditor: assume a violation ' +
     'exists in EVERY fence until you prove otherwise, trust NOTHING the author or the prose claims, and "good enough"/"mature" is rejected ' +
     'outright. Read the page, the README doctrine sections, its sibling pages, the csharp reference, the style-guide, and the .api catalogs it ' +
-    'composes. Run these MECHANICAL checklists line-by-line and REPAIR every hit in place (a fix, never a ledger note):',
+    'composes. Run these MECHANICAL checklists line-by-line and REPAIR every hit in place (a fix, never a ledger note); the checklists are a ' +
+    'FLOOR you hunt past, never the boundary of the audit:',
   '(1) COLLAPSE_SCAN — apply the move for any of the README [03] 12 signals (3+ instances mandatory): sibling prefix/suffix -> one ' +
     'modality-polymorphic entrypoint; same rail differing by arity -> input-shape discrimination; a get/get_many/get_by family -> one input-keyed ' +
     'entrypoint; functions differing only by a literal -> parameterize as a POLICY_VALUE; a bool selecting two bodies -> one derived body/policy ' +
     'value; a function calling exactly one other -> delete the hop; a class exposing one public method -> module function/fold; parallel dispatch ' +
     'arms -> a `frozendict` table/fold; several types sharing fields -> one closed family; 3+ sibling constants -> one `frozendict`/`StrEnum`; a ' +
-    'package-rename wrapper -> use the surface directly; 2-4 recurring wrappers -> one aspect factory.',
+    'package-rename wrapper -> use the surface directly; 2-4 recurring wrappers -> one aspect factory. These 12 signals are a FLOOR — hunt ' +
+    'collapse targets past them.',
   '(2) OWNER_CHOOSER — re-derive EVERY shape from the 5 discriminants and replace any non-discriminant-correct owner; KILL every parallel DTO, ' +
     'one-field wrapper, field-rename class, tag-only shape, and `None`-as-failure. (3) KNOB_TEST — delete each parameter; collapse any ' +
     '`strict`/`mode`/`batch` flag into a policy value or input-shape discriminant; move every `timeout`/`retry`/`deadline` off the signature into ' +
@@ -287,8 +298,9 @@ const redteamPrompt = (page) => [DOCTRINE, '',
     'attack how much MORE functionality could be expressed as stacked decorators over a thinner pure core, and whether any loose type/constant ' +
     'cluster could collapse into one closed family; push PAST the critique`s bar. (E) ALTITUDE + SUBSTRATE-DEPTH + PHANTOMS + CITATION-TIER — a ' +
     'mechanic owned by a finalized prior or a core law (route it); flat code below substrate/cluster operator depth (collapse to package depth); a ' +
-    'phantom .api member (delete it); a page reaching the wrong .api tier (route out). (F) CAPABILITY-COMPLETENESS + ILLUSION + TABLE-STAKES — ' +
-    'name an omitted capability with a cite and extend the owner in place; delete any table-stakes/decorative/speculative card or snippet.',
+    'phantom .api member (delete it); a page reaching the wrong .api tier (route out). (F) CAPABILITY-COMPLETENESS + LONG-TAIL + ILLUSION + ' +
+    'TABLE-STAKES — name an omitted capability, edge case, or failure-mode row with a cite and extend the owner in place; delete any ' +
+    'table-stakes/decorative/speculative card or snippet.',
   'ALSO — FULL COLD ADVERSARIAL RE-REVIEW (every time): re-attack every critique dimension (1-12) with fresh hostile eyes, trusting nothing the ' +
     'prior passes claimed. Even absent a structural rebuild the page must end objectively denser, MORE capable, more agnostic-compliant, and more ' +
     'opinionated than the critique left it; if the strongest form is genuinely already present, prove it by finding nothing — never invent churn. ' +
@@ -327,12 +339,19 @@ const regionsOf = (logs) => { for (const st of ['redteam', 'crit', 'rebuild']) {
 // --- [COMPOSITION] -----------------------------------------------------------------------
 
 phase('Inventory')
-const inv = await agent('Read ' + ROOT + '/README.md and parse the [01]-[ATLAS] table, THEN recurse into every sub-folder README router it ' +
-  'references (e.g. ' + ROOT + '/domain/README.md, ' + ROOT + '/numerics/README.md if present). Return the full ordered file set: every CONCEPT ' +
-  'page that exists on disk under ' + ROOT + ' (the core pages first in atlas order, then each sub-folder`s pages in its router order), EXCLUDING ' +
-  'every README.md AND algorithms.md (slated for numerics/ retirement — skip it). Each row {path (repo-relative, e.g. ' + ROOT + '/shapes.md), ' +
-  'order (global integer), folder (the sub-folder name or empty for ' +
-  'core), regions (its current snippet-demonstration region tags, one short tag per major snippet)}. Use find/read; do not cd; do not edit anything.', { label: 'inventory', phase: 'Inventory', schema: INVENTORY_SCHEMA, model: 'sonnet', effort: 'low', stallMs: STALL })
+const inv = await agent('DISCOVERY — read-only is the ONLY concession of this stage; depth is not. Read ' + ROOT + '/README.md IN FULL and parse ' +
+  'the [01]-[ATLAS] table, THEN recurse into every sub-folder README router it references (e.g. ' + ROOT + '/domain/README.md, ' + ROOT +
+  '/numerics/README.md if present). Resolve scope against REAL disk state, never memory: run a real fd/find listing of every .md under ' + ROOT +
+  ' AND a real ls of BOTH .api catalog tiers (shared substrate + package clusters; root ' + ROOT + '/.api/ when present, else libs/python/.api/); ' +
+  'routers own ORDER, disk owns EXISTENCE. Read EVERY concept page IN FULL — no skimming, no memory-recalled inventory — plus the folder at ' +
+  'large. Return the full ordered file set: every CONCEPT page that exists on disk under ' + ROOT + ' (the core pages first in atlas order, then ' +
+  'each sub-folder`s pages in its router order), EXCLUDING every README.md AND algorithms.md (slated for numerics/ retirement — skip it). Each ' +
+  'row {path (repo-relative, e.g. ' + ROOT + '/shapes.md), order (global integer), folder (the sub-folder name or empty for core), regions (its ' +
+  'current snippet-demonstration region tags, one short tag per major snippet), map (a per-page reading MAP, never a bare verdict: composed ' +
+  'capability; underutilized admitted capability with CONCRETE members read from the actual catalog files — verified members ONLY, a member you ' +
+  'cannot find there is a phantom and is NEVER listed; contextual seams to sibling pages; stacking guidance; a hostile weak/strong call)}. The ' +
+  'map is an INITIAL POINTER for downstream stages, never a ceiling — it licenses NO downstream skim. Use fd/ls/read; do not cd; do not edit ' +
+  'anything.', { label: 'inventory', phase: 'Inventory', schema: INVENTORY_SCHEMA, model: 'sonnet', effort: 'low', stallMs: STALL })
 const ordered = ((inv && inv.files) || []).filter((f) => f && f.path).sort((a, b) => a.order - b.order).map((f) => f.path)
 log('Inventory: ' + ordered.length + ' python doctrine pages (core + domain + numerics) to harden')
 
@@ -368,7 +387,7 @@ const clusters = (() => {
 })()
 log('Harden+Sweep done; reconcile ' + uniq.length + ' residuals -> ' + clusters.length + ' clusters')
 let reconciled = []
-if (false) {  // reconcile phase dropped — residuals surfaced raw, no fix/verify pass
+if (clusters.length) {
   phase('Reconcile')
   reconciled = (await pool(clusters, CAP, async (cl, i) => {
     const fix = await agent([DOCTRINE, '', 'TASK: RECONCILE these cross-FILE residuals the per-page + sweep passes deferred. There is NO severity ' +
@@ -376,15 +395,22 @@ if (false) {  // reconcile phase dropped — residuals surfaced raw, no fix/veri
       'shared owner/rail/region, repair the altitude/duplication issue, or extend the shared owner to close a gap that spans files), preserving ' +
       'all capability and regressing no file; if a residual is FACTUALLY INCORRECT, leave it and say why. Edit ONLY under ' + ROOT + '/. Residuals:\n' + JSON.stringify(cl, null, 1)].join('\n'), { label: 'reconcile-fix', phase: 'Reconcile', schema: RECONCILE_FIX_SCHEMA, effort: 'max', stallMs: STALL })
     if (!fix) return null
-    const verify = await agent([LAW, '', 'TASK: ADVERSARIAL VERIFY, one verdict per claim. Read the named files from disk and classify each ' +
-      'residual: "fixed" (real defect, now genuinely resolved), "invalid" (the claim is factually wrong — cite why), or "open" (real defect still ' +
-      'NOT resolved). Default to "open" on any doubt for a real-looking defect. Claims:\n' + JSON.stringify(cl, null, 1) + '\nFiles the fixer ' +
+    const verify = await agent([LAW, '', ADVERSARIAL, '', 'TASK: ADVERSARIAL WRITING VERIFY of the reconcile fixes — never a friendly ' +
+      'confirmation, never read-only. For EVERY claim: (a) RE-DERIVE necessity — decide from the files themselves whether the claimed defect was ' +
+      'real and a fix warranted at all, trusting nothing the fixer reported; (b) PROVE ON DISK the fix was done properly — read every named file ' +
+      'in full and check the landed edit against the doctrine, never against the fixer summary; (c) where the landed fix is loose, weak, or a ' +
+      'token single-point patch and a root-level dense reconstruction of the same files is available, REPAIR it NOW to that objectively strongest ' +
+      'form (a point patch where a root rebuild is available is itself a defect you fix) and record every file you edited in `repaired`; (d) only ' +
+      'THEN classify each claim: "fixed" (real defect, now genuinely resolved — by the fixer or by your own repair), "invalid" (the claim is ' +
+      'factually wrong — cite why), or "open" (real defect genuinely unreachable from the files at hand — NEVER a punt on a strengthenable fix; ' +
+      'put the blocking reason in `evidence`). Edit ONLY under ' + ROOT + '/. Claims:\n' + JSON.stringify(cl, null, 1) + '\nFiles the fixer ' +
       'touched: ' + JSON.stringify(fix.files)].join('\n'), { label: 'reconcile-verify:' + i, phase: 'Reconcile', schema: RECONCILE_VERIFY_SCHEMA, effort: 'xhigh', stallMs: STALL })
     return { cluster: cl, fix, verify }
   })).filter(Boolean)
 }
+const settled = new Set(reconciled.filter((r) => r.verify).flatMap((r) => r.cluster.map((c) => c.claim)))  // fix or verify died -> claims stay live
 const claimsAll = reconciled.flatMap((r) => (r.verify && r.verify.claims) || [])
 const openClaims = new Set(claimsAll.filter((c) => c.status === 'open').map((c) => c.claim))
-const hard_residual = uniq
-log('Reconcile DROPPED; ' + hard_residual.length + ' cross-file residual(s) surfaced raw -> resolve-residuals')
+const hard_residual = uniq.filter((r) => openClaims.has(r.claim) || !settled.has(r.claim))
+log('Reconcile: ' + clusters.length + ' cluster(s); ' + hard_residual.length + ' open hard residual(s) -> resolve-residuals')
 return { workflow: 'stack-py', root: ROOT, ordered: ordered, hardened: done.filter((r) => r.ok).length, incomplete: done.filter((r) => !r.ok).length, total: ordered.length, region_seed: ledger, clusters: clusters.length, hard_residual: hard_residual }

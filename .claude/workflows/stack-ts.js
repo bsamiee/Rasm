@@ -18,13 +18,13 @@ const STALL = 300000
 const ROOT = 'docs/stacks/typescript'
 
 // --- [MODELS] ----------------------------------------------------------------------------
-const INVENTORY_SCHEMA = { type: 'object', additionalProperties: false, required: ['files'], properties: { files: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['path', 'order'], properties: { path: { type: 'string' }, order: { type: 'integer' }, salvage: { type: 'string' }, regions: { type: 'array', items: { type: 'string' } } } } } } }
+const INVENTORY_SCHEMA = { type: 'object', additionalProperties: false, required: ['files'], properties: { files: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['path', 'order'], properties: { path: { type: 'string' }, order: { type: 'integer' }, salvage: { type: 'string' }, map: { type: 'string' }, regions: { type: 'array', items: { type: 'string' } } } } } } }
 const ARCH_DRAFT_SCHEMA = { type: 'object', additionalProperties: false, required: ['angle', 'files', 'rationale'], properties: { angle: { type: 'string' }, files: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['path', 'charter'], properties: { path: { type: 'string' }, charter: { type: 'string' }, salvage: { type: 'string' }, isNew: { type: 'boolean' } } } }, renames: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['from', 'to'], properties: { from: { type: 'string' }, to: { type: 'string' } } } }, rationale: { type: 'string' } } }
 const ARCH_DECISION_SCHEMA = { type: 'object', additionalProperties: false, required: ['files', 'rationale'], properties: { files: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['path', 'order', 'charter'], properties: { path: { type: 'string' }, order: { type: 'integer' }, charter: { type: 'string' }, salvage: { type: 'string' }, isNew: { type: 'boolean' } } } }, renames: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['from', 'to'], properties: { from: { type: 'string' }, to: { type: 'string' } } } }, rationale: { type: 'string' } } }
 const FIXLOG_SCHEMA = { type: 'object', additionalProperties: false, required: ['file', 'verdict', 'summary'], properties: { file: { type: 'string' }, verdict: { type: 'string', enum: ['rebuilt', 'refined', 'clean'] }, collapsed: { type: 'string' }, extended: { type: 'string' }, regions: { type: 'array', items: { type: 'string' } }, residual_high: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['files', 'claim'], properties: { files: { type: 'array', items: { type: 'string' } }, claim: { type: 'string' } } } }, summary: { type: 'string' } } }
 const SWEEP_SCHEMA = { type: 'object', additionalProperties: false, required: ['file', 'verdict', 'owned_regions'], properties: { file: { type: 'string' }, verdict: { type: 'string', enum: ['routed', 'clean'] }, rerouted: { type: 'array', items: { type: 'string' } }, owned_regions: { type: 'array', items: { type: 'string' } }, residual_high: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['files', 'claim'], properties: { files: { type: 'array', items: { type: 'string' } }, claim: { type: 'string' } } } } } }
 const RECONCILE_FIX_SCHEMA = { type: 'object', additionalProperties: false, required: ['files', 'verdict', 'summary'], properties: { files: { type: 'array', items: { type: 'string' } }, verdict: { type: 'string', enum: ['fixed', 'clean'] }, summary: { type: 'string' } } }
-const RECONCILE_VERIFY_SCHEMA = { type: 'object', additionalProperties: false, required: ['overall', 'claims'], properties: { overall: { type: 'boolean' }, claims: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['claim', 'status'], properties: { claim: { type: 'string' }, status: { type: 'string', enum: ['fixed', 'invalid', 'open'] }, evidence: { type: 'string' } } } } } }
+const RECONCILE_VERIFY_SCHEMA = { type: 'object', additionalProperties: false, required: ['overall', 'claims'], properties: { overall: { type: 'boolean' }, claims: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['claim', 'status'], properties: { claim: { type: 'string' }, status: { type: 'string', enum: ['fixed', 'invalid', 'open'] }, evidence: { type: 'string' } } } }, repaired_files: { type: 'array', items: { type: 'string' } } } }
 
 // --- [DOCTRINE] --------------------------------------------------------------------------
 const LAW = [
@@ -54,12 +54,17 @@ const ADVERSARIAL = [
   'ILLUSORY / FAKE content is the PRIMARY target: a snippet that READS dense yet demonstrates a THIN slice; prose that ASSERTS richness the fence ' +
     'lacks; a card field that decides nothing; a structurally-correct collapse that is semantically empty; a member cited but unverifiable (a ' +
     'PHANTOM — delete it). Treat confident-looking fences with MORE suspicion, and DISBELIEVE every claim the page makes about itself until verified.',
+  'NAIVETY is a defect on TWO orthogonal axes, both intolerable: COVERAGE — the owner models a THIN SLICE of its concept (the obvious three ' +
+    'fields where the domain carries fifteen; a two-case family for a twenty-case space); APPROACH — enumerated hardcoded instances where a ' +
+    'parameterized, algorithmic owner should GENERATE the space (a fixed roster of styles, patterns, or variants is seed DATA feeding ONE ' +
+    'generator over named parameters, never the mechanism itself).',
 ].join('\n')
 const TS_DOCTRINE = [
   'HOLD the docs/stacks/typescript/README [02]-[DOCTRINE] laws + the [03]-[COLLAPSE_SCAN] signals as fact, never restated on a concept page; ' +
     'mirror the csharp density laws in TS idiom. BOUNDARY_ADMISSION: raw is admitted EXACTLY ONCE through a Schema parse at the edge into an ' +
     'evidence-carrying owner; the interior never re-validates, never sees `unknown`/`null`-as-failure/provider shape. Run the COLLAPSE_SCAN on ' +
-    'every fence: any signal triggers the move, 3+ instances make it mandatory.',
+    'every fence: any signal triggers the move, 3+ instances make it mandatory — and the signal list is a FLOOR, never the complete set: hunt ' +
+    'collapse targets beyond it, in any repeated structure, parallel spelling, or enumerable family an algebra, table, fold, or generator can own.',
   'A page that demonstrates a coding law must itself obey every law it can reach — the doctrine pages are the reference implementation of the ' +
     'doctrine.',
 ].join('\n')
@@ -117,9 +122,11 @@ const TS_CITATION = [
     'packages) plus the route-owned coding-ts law — mine each to its FULL advanced surface (the deep combinator/Schema/Layer/Stream/Schedule ' +
     'operators) and STACK them as ONE dense rail, never a flat one-shot per-API use or a `Promise`/BCL-first reflex. Layer the Schema/branded ' +
     'boundary + the Effect rail + the service `Layer`s together.',
-  'Cite ONLY members that exist — verify novel members against the installed packages via `uv run python -m tools.assay api` over node_modules ' +
-    '(and the libs/typescript/.api catalogs where present); a member you cannot verify is a PHANTOM to delete. Use the DEEPEST primitive each ' +
-    'package reaches (LIBRARY_DEPTH); flat code below that operator depth is surface sprawl.',
+  'ULTRA-STACKING: enumerate BOTH .api tiers IN FULL with a real listing — libs/typescript/.api/ (the substrate catalogs) and every ' +
+    'libs/typescript/<folder>/.api/ — and mine them to OPERATOR DEPTH; an admitted capability the concept admits but no owner exploits is a ' +
+    'DEFECT to close. Cite ONLY members that exist — verify novel members against the installed packages via `uv run python -m tools.assay api` ' +
+    'over node_modules; a member you cannot verify is a PHANTOM to delete. Use the DEEPEST primitive each package reaches (LIBRARY_DEPTH); flat ' +
+    'code below that operator depth is surface sprawl.',
 ].join('\n')
 const PAGECRAFT = [
   'PAGE-CRAFT LAW (README [05]-[PAGE_CRAFT]): page grammar is a NARROW index table, then deep FAMILY CARDS, then ONE agnostic snippet beside the ' +
@@ -176,7 +183,8 @@ const pool = async (items, cap, worker) => {
   return out
 }
 const nameOf = (p) => p.indexOf(ROOT + '/') === 0 ? p.slice(ROOT.length + 1) : p
-const archLine = (arch) => arch ? '\nSETTLED FILE-SET DECISION (honor its charter + what each page SALVAGES vs rebuilds ground-up):\n' + JSON.stringify(arch, null, 1) : ''
+const archLine = (arch) => arch ? '\nSETTLED FILE-SET DECISION (honor its charter + what each page SALVAGES vs rebuilds ground-up; an initial ' +
+  'pointer, never a ceiling — re-read everything from disk, it never licenses a skim):\n' + JSON.stringify(arch, null, 1) : ''
 const authorPrompt = (page, arch) => [DOCTRINE, '', 'TASK: GROUND-UP REBUILD of ' + page + ' to the ULTRA-DENSE TypeScript doctrine bar. The ' +
   'existing content is junior-level TRASH — DISCARD it, salvaging ONLY a fragment that survives hostile scrutiny, and rebuild the page from zero ' +
   'to 13/10. Read the existing page (as trash), the README atlas + doctrine, the sibling pages (cross-page unification), the PYTHON doctrine (the ' +
@@ -191,11 +199,12 @@ const authorPrompt = (page, arch) => [DOCTRINE, '', 'TASK: GROUND-UP REBUILD of 
 const critiquePrompt = (page, arch) => [DOCTRINE, '',
   'TASK: HOSTILE DOCTRINAL-CONFORMANCE AUDIT + FIX IN PLACE of ' + page + '. ULTRA-HARSH, UNAGREEABLE: assume a violation exists in EVERY fence; ' +
     'trust NOTHING the prose claims; "good enough" rejected. Read the page, the README doctrine, the sibling pages, the python doctrine (higher ' +
-    'reference) + csharp (floor) + coding-ts, the style-guide, and verify members via assay api. Run the MECHANICAL checklist and REPAIR every hit ' +
-    'in place:',
+    'reference) + csharp (floor) + coding-ts, the style-guide, and verify members via assay api. Run the MECHANICAL checklist LINE-BY-LINE and ' +
+    'REPAIR every hit in place — every hit a fix, never a note; the checklist is a FLOOR, never the complete audit: hunt doctrinal defects past it:',
   '(1) COLLAPSE_SCAN signals (3+ mandatory): sibling names -> one polymorphic entrypoint; arity variants -> input-shape discrimination; ' +
     'literal-only differences -> a POLICY_VALUE; boolean selecting bodies -> derived/policy; one-hop function -> delete; parallel dispatch arms -> ' +
-    'a record/table or fold; types sharing fields -> one closed family; recurring wrappers -> one combinator/Layer. (2) OWNER_CHOOSER + ' +
+    'a record/table or fold; types sharing fields -> one closed family; recurring wrappers -> one combinator/Layer — a FLOOR, never the complete ' +
+    'set: hunt collapse targets beyond it. (2) OWNER_CHOOSER + ' +
     'ONE-CANONICAL-FORM -> replace any non-canonical owner; ELIMINATE every const+type+typeof triple (derive the type from the Schema), loose ' +
     'interface/type-alias proliferation, tag-only wrapper, and structural duplicate. (3) KNOB_TEST -> collapse boolean/mode/strict knobs to policy ' +
     'values or input-shape; move `timeout`/`retry`/`deadline` to an Effect aspect/`Schedule`.',
@@ -208,9 +217,11 @@ const critiquePrompt = (page, arch) => [DOCTRINE, '',
   '(7) AGNOSTIC snippet law -> compiles, neutral names, no business noun, large-system scale. (8) PAGE GRAMMAR + card economy + load-bearing ' +
     'reject columns (each `Use` names the junior reflex it deletes). (9) ALTITUDE / NO RE-TEACH -> route any mechanic a finalized prior page owns. ' +
     '(10) ZERO META + style + comments. (11) UNIFIED SHAPE SYSTEM -> this page`s shapes are CONSISTENT with the sibling pages (one corpus-wide ' +
-    'shape vocabulary, not a patchwork). (12) CAPABILITY-COMPLETENESS + ILLUSION + TABLE-STAKES -> close any capability the Effect/Schema surface ' +
-    'or the real concept admits that the owner OMITS (case/row/field/operation) with a cite; delete any table-stakes/decorative/speculative card ' +
-    'or snippet. EDIT to fix every hit. Report `extended` and `regions`. Return residual_high {files:[...], claim}.' + archLine(arch)].join('\n')
+    'shape vocabulary, not a patchwork). (12) CAPABILITY-COMPLETENESS + NAIVETY + ILLUSION + TABLE-STAKES -> close any capability the ' +
+    'Effect/Schema surface or the real concept admits that the owner OMITS (case/row/field/operation) with a cite — COVERAGE naivety; rebuild any ' +
+    'enumerated roster of hardcoded instances into ONE generator over named parameters with the roster as seed data — APPROACH naivety; delete ' +
+    'any table-stakes/decorative/speculative card or snippet. EDIT to fix every hit. Report `extended` and `regions`. Return residual_high ' +
+    '{files:[...], claim}.' + archLine(arch)].join('\n')
 const redteamPrompt = (page, arch) => [DOCTRINE, '',
   'TASK: ADVERSARIAL ARCHITECT RED-TEAM + FIX IN PLACE of ' + page + ' — the LAST and MOST AGGRESSIVE pass, and DELIBERATELY HARSHER than any ' +
     'prior stage because this corpus started as junior trash. Red-team is critique AND MORE; the burden of proof is ON THE PAGE; trust NOTHING the ' +
@@ -224,8 +235,10 @@ const redteamPrompt = (page, arch) => [DOCTRINE, '',
     'every const+type+typeof triple, every `any`/`enum`/`throw`/raw `Promise`, every non-Schema boundary, every inline cross-cutting concern, and ' +
     'rebuild it to the canonical owner / Effect rail / Schema boundary; push more functionality into combinators/Layers over a thinner pure core. ' +
     '(E) DEPTH + PHANTOMS -> flat code below the Effect/Schema operator depth (collapse to package depth); a phantom member (delete it). (F) ' +
-    'CAPABILITY-COMPLETENESS + ILLUSION + TABLE-STAKES -> name an omitted capability with a cite and extend the owner in place; delete ' +
-    'table-stakes/decorative/speculative content.',
+    'CAPABILITY-COMPLETENESS + NAIVETY + LONG-TAIL + ILLUSION + TABLE-STAKES -> attack the long tail of the concept: the edge cases, failure ' +
+    'modes, and family members a thin slice ignores; name an omitted capability with a cite and extend the owner in place (COVERAGE naivety); ' +
+    'rebuild any enumerated roster of hardcoded instances into ONE generator over named parameters, roster as seed data (APPROACH naivety); ' +
+    'delete table-stakes/decorative/speculative content.',
   'ALSO — FULL COLD ADVERSARIAL RE-REVIEW: re-attack every critique dimension with fresh hostile eyes. The page must end objectively denser, MORE ' +
     'capable, more agnostic-compliant, more bleeding-edge, and PART OF ONE UNIFIED SHAPE SYSTEM more than the critique left it; if the strongest ' +
     'form is genuinely present, prove it by finding nothing — never invent churn. Report `extended` and `regions`. Return residual_high ' +
@@ -260,11 +273,16 @@ const regionsOf = (logs) => { for (const st of ['redteam', 'crit', 'rebuild']) {
 // --- [COMPOSITION] -----------------------------------------------------------------------
 
 phase('Inventory')
-const inv = await agent('Read ' + ROOT + '/README.md and parse the [01]-[ATLAS] table. Return every CONCEPT page under ' + ROOT + ' as a row {path ' +
-  '(repo-relative, e.g. ' + ROOT + '/shapes.md), order (atlas position, integer)}, EXCLUDING README.md and any `planned` page that does not exist ' +
-  'on disk. For each existing page add `salvage` (a one-line note on any fragment genuinely worth reconstituting, or "none — rebuild ground-up") ' +
-  'and `regions` (its current snippet-demonstration region tags). The content is known junior-level trash; be skeptical of what you mark ' +
-  'salvageable. Use find/read; do not cd; do not edit.', { label: 'inventory', phase: 'Inventory', schema: INVENTORY_SCHEMA, model: 'sonnet', effort: 'low', stallMs: STALL })
+const inv = await agent('TASK: DISCOVERY — the read-only reconnaissance grounding every downstream stage; read-only is its ONLY concession. ' +
+  'Enumerate from the SOURCE OF TRUTH, never memory: fd/ls the real page set under ' + ROOT + ' and BOTH .api tiers (libs/typescript/.api/ and ' +
+  'every libs/typescript/<folder>/.api/), and parse ' + ROOT + '/README.md [01]-[ATLAS]. Read every existing page IN FULL plus the README at ' +
+  'large; resolve scope against real disk state. Return every CONCEPT page as a row {path (repo-relative, e.g. ' + ROOT + '/shapes.md), order ' +
+  '(atlas position, integer)}, EXCLUDING README.md and any `planned` page that does not exist on disk. Per existing page the product is a MAP, ' +
+  'not a verdict: `map` = composed capability + underutilized capability with CONCRETE members (verified against the .api catalogs/node_modules ' +
+  'only — never list a phantom) + contextual seams to sibling pages + stacking guidance; `salvage` = the hostile weak/strong call (the one ' +
+  'fragment genuinely worth reconstituting, or "none — rebuild ground-up"); `regions` = its current snippet-demonstration region tags. The ' +
+  'corpus is known junior-level trash; be skeptical of what you mark salvageable. The map is an initial pointer, never a ceiling — downstream ' +
+  'stages re-read and exceed it; it never licenses a skim. Use fd/find/read; do not cd; do not edit.', { label: 'inventory', phase: 'Inventory', schema: INVENTORY_SCHEMA, model: 'sonnet', effort: 'low', stallMs: STALL })
 const invFiles = ((inv && inv.files) || []).filter((f) => f && f.path).sort((a, b) => a.order - b.order)
 log('Inventory: ' + invFiles.length + ' current (trash) TS doc pages under ' + ROOT)
 
@@ -278,7 +296,8 @@ const ANGLES = ['ground-up-from-doctrine: design the settled TS file set purely 
   'only where a concept is genuinely disjoint']
 const draftBase = (angle) => [DOCTRINE, '', 'TASK: TS FILE-SET RECONSIDER DRAFT (no content edits — DECISION only) from this angle: ' + angle + '. ' +
   'The existing docs/stacks/typescript pages are junior-level TRASH; treat them as a blank slate and decide the SETTLED file set a world-class, ' +
-  'bleeding-edge, Effect-TS-first code doctrine must own. Read the existing files (only to judge what — if anything — is salvageable), the README ' +
+  'bleeding-edge, Effect-TS-first code doctrine must own. Ground the decision in real disk state, never memory: fd/ls the actual page set, and ' +
+  'read every existing file IN FULL (only to judge what — if anything — is salvageable), the README ' +
   'atlas + doctrine, the coding-ts law, the docs/stacks/python doctrine (the HIGHER density + structure reference) and docs/stacks/csharp (the ' +
   'FLOOR), both READ-ONLY, and research bleeding-edge TypeScript + Effect/Schema practice. Decide the final ordered file set: each page {path, ' +
   'charter (the ONE disjoint layer it owns), salvage (the fragment worth reconstituting, or "none"), isNew}. A split/add/rename is justified ONLY ' +
@@ -338,12 +357,20 @@ if (clusters.length) {
   phase('Reconcile')
   reconciled = (await pool(clusters, CAP, async (cl, i) => {
     const fix = await agent([DOCTRINE, '', 'TASK: RECONCILE these cross-FILE residuals the per-page + sweep passes deferred. NO severity — treat ' +
-      'EVERY residual as must-address. Read EVERY listed file. For each real cross-file defect, FIX it in place (unify the shared canonical ' +
-      'owner/Schema/Effect rail/region across files, or repair the altitude/duplication issue), preserving all capability and keeping ONE unified ' +
+      'EVERY residual as must-address. Read EVERY listed file. For each real cross-file defect, FIX it in place to the ROOT (unify the shared ' +
+      'canonical owner/Schema/Effect rail/region across files, or repair the altitude/duplication issue; a token single-point patch where a ' +
+      'root-level dense reconstruction of the same files is available is itself a defect), preserving all capability and keeping ONE unified ' +
       'shape system; if a residual is FACTUALLY INCORRECT, leave it and say why. Edit ONLY under ' + ROOT + '/. Residuals:\n' + JSON.stringify(cl, null, 1)].join('\n'), { label: 'reconcile-fix', phase: 'Reconcile', schema: RECONCILE_FIX_SCHEMA, effort: 'max', stallMs: STALL })
     if (!fix) return null
-    const verify = await agent([LAW, '', 'TASK: ADVERSARIAL VERIFY, one verdict per claim. Read the named files from disk and classify each ' +
-      'residual: "fixed", "invalid" (cite why), or "open". Default to "open" on any doubt. Claims:\n' + JSON.stringify(cl, null, 1) + '\nFiles the ' +
+    const verify = await agent([DOCTRINE, '', 'TASK: ADVERSARIAL CRITIQUE-GRADE WRITING VERIFY — never a friendly confirmation. Per residual: ' +
+      '(1) RE-DERIVE necessity — was the claimed fix needed at all, and is the claim itself sound? (2) PROVE ON DISK the fix landed properly — ' +
+      'read every named file cold and attack the fix as naive, token, or illusory until what is actually on disk survives. (3) REPAIR loose, ' +
+      'weak, or token fixes IN PLACE to the objectively-best root-level form of the same files at the FULL doctrine bar above — a single-point ' +
+      'patch where a root-level dense reconstruction is available is itself a defect YOU repair now, preserving all capability and ONE unified ' +
+      'shape system. THEN classify EVERY claim, echoing each claim string VERBATIM (a dropped or paraphrased claim cannot validate): "fixed" ' +
+      '(proven on disk, your own repair included), "invalid" (cite why the claim is factually wrong), or "open" — ONLY for a claim genuinely ' +
+      'unreachable from the files at hand, never to punt a strengthenable fix. List every file you edited in `repaired_files`. ' +
+      'Claims:\n' + JSON.stringify(cl, null, 1) + '\nFiles the ' +
       'fixer touched: ' + JSON.stringify(fix.files)].join('\n'), { label: 'reconcile-verify:' + i, phase: 'Reconcile', schema: RECONCILE_VERIFY_SCHEMA, effort: 'xhigh', stallMs: STALL })
     return { cluster: cl, fix, verify }
   })).filter(Boolean)

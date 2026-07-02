@@ -138,7 +138,9 @@ const LANG = {
     boundaries: 'BOUNDARY LAW: keep every package owner strictly in its lane and on its stratum; geometry/mesh/IFC meet at the wire with one ' +
       'owner per runtime; internal code uses canonical names and shapes with mapping only at the edge; do not trample a sibling owner while ' +
       'densifying; never introduce a downward dependency or leak a host type into a host-neutral owner. Cross-language wire seams are recorded ' +
-      'as ALIGNED seams at the wire contract — fix the local side and record the wire, never edit the counterpart language from this run.',
+      'as ALIGNED seams at the wire contract — a page pass fixes the local side and records the wire; a counterpart mirror (same-language ' +
+      'sibling or cross-language decode side) is repaired only by the reconcile stage under the brief consumer-ripple rules, never ad hoc ' +
+      'from a page pass.',
     docBloat: 'XML-doc',
     collapseInto: 'ONE `[Union]` / `[SmartEnum<TKey>]` / `[ValueObject<T>]` / `[ComplexValueObject]` / source-generated case family IN THE SAME FILE',
     gapPkg: 'LIBRARY_DEPTH: e.g. an IFC schema gives a zone its quantities, space boundaries, and properties the page never reads — stacking ' +
@@ -320,7 +322,8 @@ const LANG = {
     boundaries: 'BOUNDARY LAW: keep every package/folder owner strictly in its lane; internal code uses canonical names and shapes with mapping ' +
       'only at the edge; do not trample a sibling owner while densifying; respect the dependency direction of the workspace strata. ' +
       'Cross-language wire seams are recorded as ALIGNED seams at the wire contract (the C# boundary is law: Rasm.Bim owns IFC semantics) — ' +
-      'fix the local side and record the wire, never edit the counterpart language from this run.',
+      'a page pass fixes the local side and records the wire; a counterpart mirror (same-language sibling or cross-language decode side) is ' +
+      'repaired only by the reconcile stage under the brief consumer-ripple rules, never ad hoc from a page pass.',
     docBloat: 'docstring',
     collapseInto: 'one closed `@tagged_union`/`Literal`/`StrEnum` family, a derived `frozendict` table, or a fold IN THE SAME FILE',
     gapPkg: 'BOTH tiers; stacking that full surface IS new functionality woven into the owner, not a denser spelling of the same call',
@@ -444,11 +447,17 @@ const ADVERSARIAL = [
     L.slur + ', and it is NOT tolerable. Default to "this fence is naive and must be rebuilt to the strongest form the doctrine admits" and ' +
     'MAKE that rebuild; a no-edit verdict is reached ONLY after a genuinely aggressive attack on the real domain + the verified package ' +
     'surface finds nothing — never a first-read concession, never to avoid work. Reject "good enough" categorically.',
+  'NAIVETY is a defect on TWO orthogonal axes, both intolerable: COVERAGE — the owner models a thin slice of its concept; APPROACH — ' +
+    'enumerated hardcoded instances where a parameterized, algorithmic owner should GENERATE the space: a fixed roster of ' +
+    'styles/patterns/variants/arms is seed DATA feeding ONE generator over named parameters, NEVER the mechanism itself. COLLAPSE FREEDOM: ' +
+    'every enumerated collapse-signal list in these prompts is a FLOOR, never the complete set — any repeated structure, parallel spelling, ' +
+    'or enumerable family an algebra, table, fold, or generator can own is a collapse target you find yourself.',
   'ILLUSORY / FAKE CODE is the PRIMARY target — the MOST dangerous code is the code that PRETENDS to be advanced: it uses the doctrine ' +
     'vocabulary ' + L.vocab + ', cites packages, reads dense and confident — yet is HOLLOW. Treat dense, confident-looking fences with MORE ' +
     'suspicion, not less, and DISBELIEVE every claim the page makes about itself until you verify it against the real domain and the ' +
-    'catalogued package surface. HUNT: a name/signature/prose that PROMISES capability the body does not implement; a "rich" owner that is a ' +
-    'thin slice of its concept (a 2-case union for a 20-case domain; the obvious 3 fields where the concept carries fifteen); decorative ' +
+    'catalogued package surface. HUNT: a name/signature/prose that PROMISES capability the body does not implement; an owner naive on ' +
+    'EITHER axis (a COVERAGE thin slice — a 2-case union for a 20-case domain, the obvious 3 fields where the concept carries fifteen; an ' +
+    'APPROACH roster of enumerated instances where a generator belongs); decorative ' +
     'density, ceremony, and vocabulary carrying no real capability; a placeholder/stub/sketch dressed as a finished design; prose that ' +
     'ASSERTS richness the fence does not contain; a structurally-correct collapse that is semantically empty; ' + L.illusion + '. Every such ' +
     'illusion is a DEFECT to rebuild, not a feature to preserve; where you genuinely cannot break the fence, say so by finding nothing — but ' +
@@ -539,8 +548,9 @@ const READ_MANDATE = (maps) => 'READING MAP (the per-page grounding Discover sur
   '(' + (BRIEF ? '3' : '2') + ') BOTH .api tiers — ' + L.apiTiers + ' — list both tier directories in full and read every catalog relevant to ' +
   'these pages. The map POINTS; you VERIFY and EXCEED it: COMPOSE every `apiUsed` catalog at full operator depth, STACK every ' +
   '`apiUnderutilized` {catalog, capability} INTO the owning page (closing the underutilization is new functionality woven into the owner — a ' +
-  'case/row/field/operation), AND independently CONFIRM no other relevant admitted catalog (either tier) is missing or unconsidered — the ' +
-  'discovery agent only pointed, you do the exhaustive read. Verify every cited member via ' + L.verify + '; a member you cannot verify is a ' +
+  'case/row/field/operation), AND independently CONFIRM no other relevant admitted catalog (either tier) is missing or unconsidered — an ' +
+  'admitted capability the concept admits that NO owner exploits is a DEFECT to close, and the map never licenses a skim: the discovery ' +
+  'agent only pointed, you do the exhaustive read. Verify every cited member via ' + L.verify + '; a member you cannot verify is a ' +
   'phantom to delete.'
 
 const planPrompt = (pkgHint) => ['Rasm monorepo. TASK: thin enumerate + classify (read-only, do NOT edit). TARGETS (repo-relative): ' +
@@ -566,17 +576,20 @@ const discoverPrompt = (batch) => [LAW, '', ADVERSARIAL, '', 'TASK: READ-ONLY DI
   'NOT edit): ' + batch.map((p) => p.page + ' [' + p.kind + ']').join(', ') + '. ' +
   (BRIEF ? 'Read ' + BRIEF + ' (head + the sections covering these folders) for the per-page concern. ' : '') +
   'For a kind=`improve`/`rebuild` page READ the page IN FULL; for a kind=`new` page (it does not exist yet) read its concept ' +
-  (BRIEF ? 'in the brief' : 'from the folder charter') + ' + its nearest SIBLING pages. ALSO read the folder at large: the sibling pages each ' +
-  'composes and the owning-folder index docs (ARCHITECTURE.md + README.md). Then ENUMERATE BOTH .api tiers IN FULL with a real `ls` — ' +
-  L.apiTiers + ' — and hold the language doctrine (' + L.readLaw + ') as the bar. For EACH page produce its reading map: (a) `apiUsed` — the ' +
+  (BRIEF ? 'in the brief' : 'from the folder charter') + ' + its nearest SIBLING pages. ALSO read the folder at large — the sibling pages ' +
+  'each composes and the owning-folder index docs (ARCHITECTURE.md + README.md) — as FULL-FILE reads, never a skim, a section-sample, or a ' +
+  'memory-recall inventory. Then ENUMERATE BOTH .api tiers IN FULL with a real `ls` — ' + L.apiTiers + ' — AND the doctrine inventory IN ' +
+  'FULL with a real ls/find from the source of truth (never memory), holding the language doctrine (' + L.readLaw + ') as the bar. For EACH ' +
+  'page produce its reading map: (a) `apiUsed` — the ' +
   '.api catalogs the page CURRENTLY composes, BOTH tiers (for a new page, the catalogs its concept WILL compose); (b) `apiUnderutilized` — ' +
   'each {catalog, capability}: an admitted catalog or member (either tier) the page concept ADMITS but the page IGNORES — REAL analysis ' +
   'against the verified .api inventory, never a guess, naming the concrete capability the implement MUST stack; (c) `contextNote` — the page ' +
   'contextual relation: which sibling owners/seams it composes, where it sits in the folder, which folder entry/receipt seam it contributes ' +
   'to; (d) `stackingGuidance` — the INITIAL pointer on what api stacking + capability extension the implement should add (the implement ' +
   'confirms + deepens it); (e) `weak` — true when the page is naive/thin/illusory relative to the doctrine bar (a hostility verdict, never a ' +
-  'courtesy). Members are verified via ' + L.verify + '; never list a phantom. Return worklist (each {page, kind, absorb?, apiUsed, ' +
-  'apiUnderutilized, contextNote, stackingGuidance, weak}).'].join('\n')
+  'courtesy). Your product is a MAP, never a bare verdict — the initial pointer every downstream stage verifies and EXCEEDS, never a ' +
+  'ceiling, never a license for a downstream skim. Members are verified via ' + L.verify + '; never list a phantom. Return worklist (each ' +
+  '{page, kind, absorb?, apiUsed, apiUnderutilized, contextNote, stackingGuidance, weak}).'].join('\n')
 const implementPrompt = (batch) => [PRE, READ_MANDATE(mapsFor(batch)), '', 'TASK: HOSTILE IMPLEMENT of these ' + batch.length + ' pages IN ' +
   'PLACE, each per its kind: ' + batch.map((p) => p.page + ' [' + mapFor(p).kind + ']').join(', ') + '. kind=`new`: GROUND-UP AUTHOR the page ' +
   '(it does not exist; it may open a NEW sub-folder) to the full doctrine + domain-complete capability bar, in the code-fence-first ' +
@@ -603,8 +616,9 @@ const critiquePrompt = (batch, i) => [PRE, READ_MANDATE(mapsFor(batch)), '', 'TA
   'AUDIT + FIX IN PLACE over these ' + batch.length + ' pages (batch ' + i + ', audit EACH independently, fix EACH in place): ' +
   batch.map((p) => p.page).join(', ') + '. You are an ULTRA-HARSH, UNAGREEABLE auditor: assume a violation exists in EVERY fence until you ' +
   'prove otherwise, trust NOTHING the author or prose claims, treat dense confident code as the PRIME suspect for hollowness, and "good ' +
-  'enough"/"mature"/a prior clean verdict is rejected outright. For EACH page run the MECHANICAL checklists line-by-line and REPAIR every hit ' +
-  'in place (a fix, never a ledger note): (1) COLLAPSE_SCAN (12 signals, 3+ instances mandatory): sibling prefix/suffix names -> one ' +
+  'enough"/"mature"/a prior clean verdict is rejected outright. For EACH page run the MECHANICAL checklists line-by-line — each checklist is ' +
+  'a FLOOR you hunt past, never the complete audit — and REPAIR every hit in place (a fix, never a ledger note): (1) COLLAPSE_SCAN (12 ' +
+  'signals, 3+ instances mandatory; the 12 are a FLOOR — hunt collapse targets beyond them): sibling prefix/suffix names -> one ' +
   'modality-polymorphic entrypoint; same return rail differing only by arity -> input-shape discrimination; a get/get-many/get-by family -> ' +
   'one input-keyed entrypoint; functions differing only by a literal -> parameterize as policy; a bool selecting two bodies -> one derived ' +
   'body; a one-call hop -> delete it; a one-public-method class -> module function or fold-on-owner; parallel dispatch arms -> a derived ' +
@@ -613,7 +627,9 @@ const critiquePrompt = (batch, i) => [PRE, READ_MANDATE(mapsFor(batch)), '', 'TA
   L.ownerChooser + ' ' + L.knob + ' ' + L.aspects + ' ' + L.rails + ' ' + L.modernity + ' (7) CAPABILITY-COMPLETENESS + ILLUSION — structural ' +
   'collapse and capability completeness are ORTHOGONAL: verify the body implements what the names/prose promise; ANY capability the ' +
   'reading-map `apiUnderutilized` / the both-tier admitted-package surface / the real domain / a consumer contract admits that the owner ' +
-  'OMITS is a DEFECT — close it in place by growing the EXISTING owner, citing its source; delete speculative/padding/decorative additions. ' +
+  'OMITS is a DEFECT — close it in place by growing the EXISTING owner, citing its source; attack BOTH naivety axes — COVERAGE (a thin ' +
+  'slice of the concept) AND APPROACH (a roster of parallel arms/rows/values where ONE parameterized generator belongs — demote the roster ' +
+  'to seed DATA feeding that generator); delete speculative/padding/decorative additions. ' +
   'Also enforce the ' + L.stack + ' file-organization + section-order law, cross-package convention consistency, and prose + comment ' +
   'hygiene. EDIT to fix every hit; OVERRIDE any earlier residual you can now resolve. Return the batched fix-log (files = pages touched) + ' +
   'extended + residual_high — each a {files:[...], claim} object for CROSS-FILE items only.'].join('\n')
@@ -622,8 +638,9 @@ const redteamPrompt = (batch, i, crit) => [PRE, READ_MANDATE(mapsFor(batch)), ''
   '. You are the LAST and MOST AGGRESSIVE pass: assume the author and critique missed things and the chosen design is naive or illusory ' +
   'until PROVEN the strongest, burden of proof ON THE DESIGN; trust nothing the prior passes or the prose claimed. For EACH page: (A) ' +
   'COUNTERFACTUAL on the core owner/algebra/dispatch — is it categorically the strongest form the doctrine admits, or does a denser owner ' +
-  '(' + L.collapseInto + '), a derived data table, or a DEEPER admitted-package primitive (' + L.deepPkgs + '; an `apiUnderutilized` member ' +
-  'is the first place to look) collapse the whole fence? If a fundamentally stronger design exists, rebuild to it — never defend the ' +
+  '(' + L.collapseInto + '), a derived data table, a parameterized GENERATOR owning an enumerated space (the roster demoted to seed DATA ' +
+  'over named parameters), or a DEEPER admitted-package primitive (' + L.deepPkgs + '; an `apiUnderutilized` member is the first place to ' +
+  'look) collapse the whole fence? If a fundamentally stronger design exists, rebuild to it — never defend the ' +
   'incumbent. (B) ANTICIPATORY_COLLAPSE — compute the DIFF OF THE NEXT FEATURE: the next case/dimension/knob/modality/provider lands as ONE ' +
   'case/row/policy value with every consumer untouched or broken LOUDLY at type-check (' + L.exhaust + '); if it would touch multiple sites, ' +
   'reshape so the growth axis is a case, row, policy value, or carrier swap. (C) LONG-TAIL multi-dimensional attack ' +
@@ -636,8 +653,9 @@ const redteamPrompt = (batch, i, crit) => [PRE, READ_MANDATE(mapsFor(batch)), ''
   'and verify the member exists. (F) CAPABILITY-COMPLETENESS + ILLUSION — counterfactually attack the owner for DOMAIN-COMPLETENESS ' +
   'independently of how collapsed or confident it looks; name any omitted capability (reading-map / domain / consumer) with a cite and ' +
   'EXTEND THE OWNER IN PLACE; conversely REJECT any flat-spam/speculative/parallel-surface extension. ALSO run a FULL COLD ADVERSARIAL ' +
-  'RE-REVIEW of every conformance dimension with fresh hostile eyes — the COLLAPSE_SCAN signals, OWNER_CHOOSER correctness per shape, the ' +
-  'KNOB_TEST per param, the aspect taxonomy, rail + closed-fault discipline, capability-completeness + illusion per owner, ' + L.modern + ' ' +
+  'RE-REVIEW of every conformance dimension with fresh hostile eyes — the COLLAPSE_SCAN signals (a FLOOR — hunt collapse targets beyond ' +
+  'them), OWNER_CHOOSER correctness per shape, the KNOB_TEST per param, the aspect taxonomy, rail + closed-fault discipline, ' +
+  'capability-completeness + illusion + BOTH naivety axes (COVERAGE + APPROACH) per owner, ' + L.modern + ' ' +
   'typing, full ' + L.stack + ' conformance, both-tier .api maximization, and prose/comment hygiene — and fix every defect. Even absent a ' +
   'structural rebuild the fence must end objectively denser, MORE CAPABLE, more correct than the critique left it; if the strongest form is ' +
   'genuinely present, prove it by finding nothing — never invent churn. CARRY FORWARD any unresolved cross-file residual from the critique ' +
@@ -645,24 +663,31 @@ const redteamPrompt = (batch, i, crit) => [PRE, READ_MANDATE(mapsFor(batch)), ''
   '\nReturn the batched fix-log (files = pages touched) + extended + residual_high — each a {files:[...], claim} object for CROSS-FILE ' +
   'items only.'].join('\n')
 const reconcilePrompt = (bucket, pkgs) => [PRE, 'TASK: RECONCILE these cross-FILE residuals the build pass deferred. There is NO severity — ' +
-  'treat EVERY residual as must-address. Your blast radius is the OWNING FOLDER(S) of this run (' + pkgs + '): any sibling page under them, ' +
-  'the owning-folder index docs (ARCHITECTURE.md + README.md), and the folder entry/receipt seam owners — read and fix ANY of them to keep ' +
-  'seams consistent with the built pages. Cross-language wire seams: fix the local side and record the wire contract, never edit the ' +
-  'counterpart language. ' + (BRIEF ? 'The brief (' + BRIEF + ') consumer-ripple rules govern every seam-name decision. ' : '') + 'Read ' +
+  'treat EVERY residual as must-address. Your blast radius is the OWNING FOLDER(S) of this run (' + pkgs + ') PLUS every file a residual ' +
+  'names, wherever it lives under libs/: any sibling page under the owning folders, the owning-folder index docs (ARCHITECTURE.md + ' +
+  'README.md), the folder entry/receipt seam owners, AND the out-of-target seam counterparts — a sibling folder in the SAME language whose ' +
+  'seam rows, consumer sites, or index docs the built pages disturbed, and the cross-LANGUAGE seam mirrors (the counterpart ARCHITECTURE ' +
+  'seam records and decode-side vocabulary) — read and fix ANY of them so BOTH endpoints of every touched seam stay mirrored. Out-of-target ' +
+  'edits are SEAM-SCOPED: repair only the seam/consumer drift the build caused (rename mirrors, seam-row records, decoded vocabulary, index ' +
+  'routing), never rebuild a foreign folder interior; seam-canonical wire names stay frozen unless the brief explicitly amends them. ' +
+  (BRIEF ? 'The brief (' + BRIEF + ') consumer-ripple rules govern every seam-name decision and every counterpart edit. ' : '') + 'Read ' +
   'EVERY listed file. For each residual: if it is a real cross-file defect, FIX it in place (unify the shared type/seam/rail, add the ' +
   'depended-on case/field, repair the strata/boundary issue, update the index-doc maps); if it is FACTUALLY INCORRECT, leave it and say why ' +
   'in the summary — never silently skip a real one to avoid work. Preserve all capability, regress nothing. Residuals:\n' +
   JSON.stringify(bucket, null, 1)].join('\n')
-const verifyPrompt = (work) => [PRE, 'TASK: TERMINAL RECONCILE VERIFY — CRITIQUE-GRADE + FIX IN PLACE, the LAST pass (no further spawning, no ' +
-  'new rounds). Fix agents claim to have resolved the residual buckets below. Work BUCKET-BY-BUCKET — never skim a bucket: re-read EVERY ' +
-  'named file from disk and hold each claim to the CRITIQUE bar — is the fix the OBJECTIVELY BEST cross-file reconciliation (complete, ' +
-  'dense, doctrine-conformant, BOTH seam endpoints aligned, index-doc maps truthful, all capability preserved) or is it LOOSE/WEAK/token/' +
-  'partial? Where the fix is loose/weak or a better reconciliation of these SAME files exists, REPAIR it IN PLACE NOW to the ' +
-  'objectively-best form — you FIX rather than defer. Then classify EVERY claim (ONE verdict per claim; a dropped claim cannot validate): ' +
-  '"fixed" (real, complete, objectively-best after your repair), "invalid" (provably wrong — cite why), or "open" (a claim you genuinely ' +
-  'CANNOT reach from these files — an external blocker needing an out-of-scope decision; describe it; NEVER mark open to punt a fix you ' +
-  'could strengthen). Do NOT surface new unrelated cross-file work and do NOT request another round. Report every file you repaired in ' +
-  '`repaired`. BUCKETS (each with its residual claims and the files its fixer touched):\n' + JSON.stringify(work, null, 1)].join('\n')
+const verifyPrompt = (work) => [PRE, 'TASK: TERMINAL RECONCILE VERIFY — ADVERSARIAL, CRITIQUE-GRADE, WRITING (never a friendly ' +
+  'confirmation) + FIX IN PLACE, the LAST pass (no further spawning, no new rounds). Fix agents claim to have resolved the residual buckets ' +
+  'below. Work BUCKET-BY-BUCKET — never skim a bucket: re-read EVERY named file from disk, RE-DERIVE from the residual + the files whether ' +
+  'the claimed work was NECESSARY, PROVE on disk it was done properly, and hold each claim to the CRITIQUE bar — is the fix the OBJECTIVELY ' +
+  'BEST cross-file reconciliation (complete, dense, doctrine-conformant, BOTH seam endpoints aligned, index-doc maps truthful, all ' +
+  'capability preserved) or is it LOOSE/WEAK/token/partial? Where the fix is loose/weak or a better reconciliation of these SAME files ' +
+  'exists, REPAIR it IN PLACE NOW to the objectively-best ROOT-LEVEL form — a single-point patch where a root-level dense reconstruction of ' +
+  'the same files is available is ITSELF a defect you repair; you FIX rather than defer. Then classify EVERY claim (ONE verdict per claim; ' +
+  'a dropped claim cannot validate): "fixed" (real, complete, objectively-best after your repair), "invalid" (provably wrong or genuinely ' +
+  'unnecessary — cite why), or "open" (a claim you genuinely CANNOT reach from these files — an external blocker needing an out-of-scope ' +
+  'decision; describe it; NEVER mark open to punt a fix you could strengthen). Do NOT surface new unrelated cross-file work and do NOT ' +
+  'request another round. Report every file you repaired in `repaired`. BUCKETS (each with its residual claims and the files its fixer ' +
+  'touched):\n' + JSON.stringify(work, null, 1)].join('\n')
 
 // --- [COMPOSITION] -----------------------------------------------------------------------
 

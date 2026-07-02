@@ -3,9 +3,9 @@ export const meta = {
   whenToUse: 'Realize open cards into design-page code fences across the TypeScript target folders.',
   description: 'Realize every open IDEAS/TASKLOG card across the TypeScript target set (libs/typescript/interchange, platform, projection, services, ui) into deep design-page code FENCES at the docs/stacks/typescript + coding-ts bar (Effect-TS rails, Schema-first boundaries, branded types, exhaustive discriminated unions, zero any/throw/enum), resolve all ripples, and truthfully close the cards. Per FOLDER, not per page: one discovery agent maps cards + ripple classes + blockers; each target folder is realized as ONE implement -> critique -> redteam cycle (all WRITE, both reviews adversarial, fix-in-place; BLOCKED probe + folder-local package admission inline, no prep phase); a bounded reconcile aligns in-scope seams, realizes 1-hop same-language counterparts, and applies the single central package.json pin serially; a final per-folder closeout verify-remediate-and-closes complete cards. Card-driven (it implements ideas/tasks), NOT the in-isolation api-stacking of rebuild-typescript. TS is the weakest lib: discard naive idioms wholesale. Disposable, TypeScript-only. args = a target path string, an array of paths, or empty for the five defaults. The language-wide libs/typescript/.planning is out of scope.',
   phases: [
-    { title: 'Discover', detail: 'one agent: read each target IDEAS/TASKLOG only; extract open cards (all tasks incl atomic + 1-3 ideas), sequence each folder, classify every ripple (in_scope / oos_samelang / cross_lang), record in-scope gates and malformed ripples' },
+    { title: 'Discover', detail: 'one agent: resolve scope against a real disk listing, full-read each target IDEAS/TASKLOG (cards only; design pages are downstream scope); extract open cards (all tasks incl atomic + 1-3 ideas), sequence each folder, classify every ripple (in_scope / oos_samelang / cross_lang) with every counterpart confirmed on disk, record in-scope gates and malformed ripples' },
     { title: 'Realize', detail: 'per target folder, pooled at CAP: implement(max) -> critique(max, adversarial + charter-completeness) -> redteam(max, adversarial + staleness lens); all WRITE, fix-in-place, own-pages-only, cross-folder seams logged as residuals' },
-    { title: 'Reconcile', detail: 'bounded single pass: cluster cross-folder residuals by shared file -> fix(max: align in-scope seam / realize 1-hop same-language counterpart / apply central package.json pin / defer cross-lang) -> adversarial verify(xhigh)' },
+    { title: 'Reconcile', detail: 'bounded single pass: cluster cross-folder residuals by shared file -> fix(max: align in-scope seam / realize 1-hop same-language counterpart / apply central package.json pin / defer cross-lang) -> adversarial WRITING verify(xhigh: proves fixes on disk, repairs weak fixes to root, then classifies)' },
     { title: 'Closeout', detail: 'per folder: verify each card vs full charter, FINAL-remediate weak cards in place, close genuinely-complete (move to [02]-[CLOSED], collapse, update ARCHITECTURE [02]-[SEAMS]), honestly re-open the rest; strength-demotion makes closed mechanically truthful' },
   ],
 }
@@ -55,7 +55,11 @@ const RECONCILE_FIX_SCHEMA = { type: 'object', additionalProperties: false, requ
   deferred_legs: { type: 'array', items: { type: 'string' } },
   summary: { type: 'string' },
 } }
-const RECONCILE_VERIFY_SCHEMA = { type: 'object', additionalProperties: false, required: ['overall', 'claims'], properties: { overall: { type: 'boolean' }, claims: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['claim', 'status'], properties: { claim: { type: 'string' }, status: { type: 'string', enum: ['fixed', 'invalid', 'open'] }, evidence: { type: 'string' } } } } } }
+const RECONCILE_VERIFY_SCHEMA = { type: 'object', additionalProperties: false, required: ['overall', 'claims'], properties: {
+  overall: { type: 'boolean' },
+  repaired_files: { type: 'array', items: { type: 'string' } },
+  claims: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['claim', 'status'], properties: { claim: { type: 'string' }, status: { type: 'string', enum: ['fixed', 'invalid', 'open'] }, evidence: { type: 'string' } } } },
+} }
 const CLOSEOUT_SCHEMA = { type: 'object', additionalProperties: false, required: ['folder', 'summary'], properties: {
   folder: { type: 'string' },
   closed: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['slug', 'disposition', 'strength'], properties: { slug: { type: 'string' }, disposition: { type: 'string', enum: ['complete', 'dropped'] }, strength: { type: 'string', enum: ['strong', 'partial', 'weak'] } } } },
@@ -129,6 +133,12 @@ const BARHUNT = [
     'RAIL UNIFICATION — one entrypoint family per rail, one typed-error channel per domain (`Effect`/`Either`), total exhaustive handling. ' +
     'OPTIMIZATION — correctness first, then type-precision (branded/nominal, template-literal, conditional/mapped types) and runtime shape, not ' +
     'only line-count. NEW WORK SURFACED — api gaps and tasks the implementation exposes are realized or recorded the same turn.',
+  'NAIVETY (two orthogonal axes, both intolerable at every stage): COVERAGE — the owner models a thin slice of its concept (the obvious three ' +
+    'fields where the domain carries fifteen; a two-case family for a twenty-case domain) — deepen to the full concept NOW. APPROACH — enumerated ' +
+    'hardcoded instances (a fixed roster of styles/patterns/variants spelled one-by-one) where a parameterized algorithmic owner should GENERATE ' +
+    'the space — the roster is seed DATA feeding ONE generator over named parameters, never the mechanism itself; rebuild it so. COLLAPSE FLOOR — ' +
+    'every enumerated hunt/collapse-signal list in this prompt is a FLOOR, never the complete set: any repeated structure, parallel spelling, or ' +
+    'enumerable family an algebra, table, fold, or generator can own is a collapse target you find beyond the list.',
 ].join('\n')
 const ULTRA = [
   'OPERATIVE DOCTRINE: docs/stacks/typescript/ + coding-ts is the route-owned law — hold every fence to it as fact; docs/stacks/csharp/ is the ' +
@@ -139,12 +149,14 @@ const ULTRA = [
   'LIFECYCLE SPINE (BOUNDARY_ADMISSION): every fence flows raw -> admit ONCE through a `Schema` parse at the boundary (parse, never trust input) ' +
     '-> canonical owner -> unified `Effect`/`Either`/`Option` rail -> projection -> egress, BOTH ingress and egress parameterized so the same ' +
     'owner sources and sinks across consumers without interior edits. Interior code never re-validates, never sees raw/untyped/provider shapes.',
-  'STACK CAPABILITY: mine BOTH catalog tiers — the shared/universal `libs/typescript/.api/*.md` AND the area-specific `<area>/.api/*.md` — for the ' +
-    'capability the CARD needs, and compose the admitted libraries into single dense rails, layering the shared Effect ecosystem ' +
-    '(`Effect`/`Layer`/`Context`/`Schema`/`Stream`) end-to-end ON TOP OF the area-specific packages, NOT naive `Promise`/`try`-`catch` glue. Use ' +
-    'the MOST powerful combinators each package reaches; a relevant shared rail ignored in favor of a thin area-only subset, or capability the ' +
-    'card needs re-derived by hand, is a defect. (Implement uses the capability the card needs; it does not max-stack every catalog for its own ' +
-    'sake — that is rebuild.)',
+  'STACK CAPABILITY (ultra-stacking): ENUMERATE both catalog tiers IN FULL from a real listing — `ls` the shared `libs/typescript/.api/` AND ' +
+    'the area `<area>/.api/`, never a memory-recall inventory — read every catalog the card touches, and mine each to OPERATOR DEPTH: the MOST ' +
+    'powerful combinators each package reaches, composed into single dense rails, the shared Effect ecosystem ' +
+    '(`Effect`/`Layer`/`Context`/`Schema`/`Stream`) layered end-to-end ON TOP OF the area-specific packages, NOT naive `Promise`/`try`-`catch` ' +
+    'glue. An admitted capability the card needs that NO owner exploits is a defect closed by deepening a fence; capability the card needs ' +
+    're-derived by hand is a defect; a cited member that cannot be verified against the published types is a PHANTOM — delete it and rebuild ' +
+    'the fence on verified spellings. (Implement uses the capability the card needs; it does not max-stack every catalog for its own sake — ' +
+    'that is rebuild.)',
   'PRESERVE all intended capability (densify, never delete functionality). Where a fence is already strong, deepen; where it is flat/naive, ' +
     'rebuild ground-up. Never regress correctness or boundary law.',
 ].join('\n')
@@ -185,16 +197,22 @@ const DOCTRINE = [LAW, '', CARD, '', BARHUNT, '', ULTRA, '', PATLAW, '', BOUNDAR
 const folderName = (p) => p.split('/').filter(Boolean).pop() || p
 const pkgPath = (toPkg) => { const k = String(toPkg || '').trim().replace(/^typescript:/, ''); return k.indexOf('libs/') === 0 ? k : ROOT + '/' + k }
 const discoverPrompt = (targets) => [LAW, '', CARD, '',
-  'TASK: DISCOVER + SEQUENCE the open work across these TypeScript session targets: ' + JSON.stringify(targets) + '. Read ONLY each target ' +
-    'area-root `IDEAS.md` + `TASKLOG.md` (NOT the design pages). For EACH target return: (1) folder — echo the target folder path exactly; (2) ' +
-    'tasks — EVERY open card in `TASKLOG.md` (status ACTIVE/QUEUED/BLOCKED; carry the Atomic flag); (3) ideas — the 1-3 MOST actionable open cards ' +
-    'in `IDEAS.md` (tasks-first doctrine: at most 3, the ones whose Anchors are most settled and whose ripples land on in-scope targets), HARD CAP ' +
-    '3; (4) order — ONE sequenced slug list, ALL tasks first in dependency order then the chosen ideas; (5) ripples — for EVERY card carrying a ' +
-    '`Ripple:` field, one row {from_slug, klass, to_pkg, to_slug}: klass=`in_scope` if to_pkg is one of these targets, `oos_samelang` if it is ' +
-    'another libs/typescript area, `cross_lang` if it points at `libs/csharp` / `libs/python` / `libs/typescript/.planning` / `libs/.planning`; ' +
-    '(6) gates — for any [BLOCKED] card, {blocked_slug, gated_by_slug, in_scope} where in_scope is true iff the gating work is itself an open card ' +
-    'in one of these targets. Also return malformed_ripples for any `Ripple:` line you cannot parse into a pkg+slug, or whose counterpart slug you ' +
-    'cannot locate. Read the FULL card to classify — never guess from the thesis. Return the structured map ONLY; edit nothing.'].join('\n')
+  'TASK: DISCOVER + SEQUENCE the open work across these TypeScript session targets: ' + JSON.stringify(targets) + '. This is the read-only ' +
+    'reconnaissance grounding every downstream stage, and read-only is its ONLY concession: resolve scope against real disk state (a real ' +
+    'listing of each target folder, never memory), then read each target area-root `IDEAS.md` + `TASKLOG.md` IN FULL from disk — full-file ' +
+    'reads, never a grep/skim; the design pages are downstream scope. For EACH target return: (1) folder — echo the target folder path exactly; ' +
+    '(2) tasks — EVERY open card in `TASKLOG.md` (status ACTIVE/QUEUED/BLOCKED; carry the Atomic flag); (3) ideas — the 1-3 MOST actionable open ' +
+    'cards in `IDEAS.md` (tasks-first doctrine: at most 3, the ones whose Anchors are most settled and whose ripples land on in-scope targets), ' +
+    'HARD CAP 3; (4) order — ONE sequenced slug list, ALL tasks first in dependency order then the chosen ideas; (5) ripples — for EVERY card ' +
+    'carrying a `Ripple:` field, one row {from_slug, klass, to_pkg, to_slug}: klass=`in_scope` if to_pkg is one of these targets, `oos_samelang` ' +
+    'if it is another libs/typescript area, `cross_lang` if it points at `libs/csharp` / `libs/python` / `libs/typescript/.planning` / ' +
+    '`libs/.planning`; confirm every counterpart ON DISK — open the named pkg card file and locate the mirror slug, never assert it from memory; ' +
+    '(6) gates — for any [BLOCKED] card, {blocked_slug, gated_by_slug, in_scope} where in_scope is true iff the gating work is itself an open ' +
+    'card in one of these targets. Return malformed_ripples for any `Ripple:` line you cannot parse into a pkg+slug, or whose counterpart slug ' +
+    'you cannot locate on disk — an unverified ripple row is a phantom that belongs in malformed_ripples, never in ripples. Read the FULL card ' +
+    'body (every bullet) to classify — never guess from the thesis. Your map is an initial pointer, never a ceiling: downstream agents re-read ' +
+    'every full card and page, and the map never licenses a downstream skim. Return the structured map ONLY; edit nothing (discovery is the ' +
+    'sole read-only stage).'].join('\n')
 const implementPrompt = (folder, seq) => [DOCTRINE, '',
   'TASK: IMPLEMENT — realize the open cards of `' + folder + '` into deep design-page FENCES at the ULTRA-ADVANCED bar. The sequenced worklist ' +
     '(slugs + ripple map; read each FULL card body from `' + folder + '/IDEAS.md` + `' + folder + '/TASKLOG.md`, never the thesis alone):\n' + seq + '\nREAD: ' +
@@ -222,12 +240,14 @@ const critiquePrompt = (folder, seq) => [DOCTRINE, '',
     'is this TRULY ultra-advanced TS, or naive code in disguise? Assume a violation exists in every fence until you prove otherwise; "good enough" ' +
     'is rejected. The cards realized this turn (read each FULL body from `' + folder + '/IDEAS.md` + `' + folder + '/TASKLOG.md`):\n' + seq + '\nREAD ' +
     'the realized pages under `' + folder + '/.planning/**`, the sibling pages, docs/stacks/typescript/ + coding-ts, and BOTH .api tiers (shared `' + SHARED_API + '` ' +
-    '+ area `' + folder + '/.api`). Run these MECHANICAL checklists line-by-line and REPAIR every hit in place (a fix, never a ledger note):',
+    '+ area `' + folder + '/.api`). Run these MECHANICAL checklists line-by-line as a FLOOR you hunt PAST, and REPAIR every hit in place (a fix, ' +
+    'never a ledger note):',
   '(1) COLLAPSE_SCAN — sibling prefix/suffix names -> one input-shape-discriminating entrypoint; >=3 parallel interfaces/types/classes for one ' +
     'concept -> ONE tagged discriminated union with exhaustive `match`; a `get`/`getMany`/`getById` family -> one input-keyed entrypoint; ' +
     'functions differing only by a literal -> parameterize as policy; a bool selecting two bodies -> one derived body/policy value; a function ' +
     'calling exactly one other -> delete the hop; parallel dispatch arms repeating structure -> a table or fold; the same 2-4 wrappers recurring ' +
-    '-> one Effect combinator/layer aspect.',
+    '-> one Effect combinator/layer aspect. These signals are a FLOOR, never the complete set — hunt collapse targets beyond them per the ' +
+    'COLLAPSE FLOOR law.',
   '(2) SHAPE/BRANDING — model each concept as ONE polymorphic surface; brand/nominal types where a primitive is overloaded (ids, units, tokens); ' +
     'exact discriminated unions with a discriminant tag; `readonly`/`as const`/`satisfies`; template-literal/conditional/mapped types where they ' +
     'tighten. Kill every parallel interface, one-field wrapper, field-rename type, and stringly-typed shape.',
@@ -246,8 +266,12 @@ const critiquePrompt = (folder, seq) => [DOCTRINE, '',
   '(7) CHARTER-COMPLETENESS — for EVERY card in the worklist, verify the realized fences GENUINELY fulfill its `Capability`/`Shape`/`Unlocks` ' +
     '(read the full card from disk): a missing modality, an unrealized `Shape` clause, a stubbed/placeholder fence, or a capability the card ' +
     'promises but the fences do not deliver is a DEFECT — realize it NOW. A card whose fences are thin against its charter is not done.',
-  'Also enforce both-tier `.api` use (a thin area-only subset ignoring the shared Effect/Schema rails the card needs is a defect), cross-area ' +
-    'convention consistency per coding-ts, and prose + comment hygiene. EDIT the `' + folder + '` pages to fix every hit; realize ONLY `' + folder + '` ' +
+  '(8) NAIVETY — both axes per fence: a COVERAGE thin-slice owner (a fraction of the concept modeled where the domain carries far more) is ' +
+    'deepened to the full concept NOW; an APPROACH enumerated roster (fixed instances spelled one-by-one where ONE parameterized generator ' +
+    'should own the space) is rebuilt as seed data feeding one generator.',
+  'Also enforce the ultra-stacking law (both `.api` tiers enumerated in full; a thin area-only subset ignoring the shared Effect/Schema rails ' +
+    'the card needs is a defect; a cited member you cannot verify against the published types is a phantom — delete it), cross-area convention ' +
+    'consistency per coding-ts, and prose + comment hygiene. EDIT the `' + folder + '` pages to fix every hit; realize ONLY `' + folder + '` ' +
     'pages and OVERRIDE any earlier residual you can now resolve; log any genuine cross-FOLDER item as a residual_ripple {files, pkg, slug, ' +
     'mirror_slug, claim}. Return verdict + realized + deferred + collapsed + residual_ripples + summary.'].join('\n')
 const redteamPrompt = (folder, seq) => [DOCTRINE, '',
@@ -270,11 +294,14 @@ const redteamPrompt = (folder, seq) => [DOCTRINE, '',
     'of `Effect`/`Either`; non-exhaustive union handling; runtime `enum`; missing branded types; loose `import` where `import type` is required; ' +
     'naive `Promise`/`async` glue where `Effect`/`Layer` belongs; a thin area-only `.api` subset ignoring the shared Effect/Schema rails the card ' +
     'needs; an unvalidated boundary (no `Schema` parse); a phantom member: for EACH, state the concrete failure (what breaks, under which ' +
-    'input/edge) and repair it in place.',
+    'input/edge) and repair it in place. (F) NAIVETY-AXES — attack COVERAGE (the owner models a thin slice of its concept where the domain ' +
+    'carries far more — deepen to the full concept) and APPROACH (a fixed enumerated roster of instances where ONE parameterized generator ' +
+    'should own the space — demote the roster to seed DATA feeding one generator; the roster is never the mechanism).',
   'ALSO — FULL COLD ADVERSARIAL RE-REVIEW (every time): re-attack every conformance dimension with fresh hostile eyes, trusting nothing the prior ' +
     'passes claimed — COLLAPSE_SCAN, shape/branding, the KNOB_TEST per param, the Effect-aspect taxonomy, rail + Schema-boundary discipline, ' +
-    'charter-completeness per card, the zero-any/throw/enum typing law, both-tier `.api` use, the file-organization overlay, and prose/comment ' +
-    'hygiene — and fix every defect. Even absent a structural rebuild, the fences must end objectively denser, more type-safe, and more powerful ' +
+    'charter-completeness per card, the two NAIVETY axes, the zero-any/throw/enum typing law, both-tier `.api` use at operator depth (phantom ' +
+    'members deleted), the file-organization overlay, and prose/comment hygiene — a FLOOR list you hunt past — and fix every defect. Even ' +
+    'absent a structural rebuild, the fences must end objectively denser, more type-safe, and more powerful ' +
     'than the critique left them; if the strongest form is genuinely already present, prove it by finding nothing — never invent churn. Realize ' +
     'ONLY `' + folder + '` pages; log cross-FOLDER items as residual_ripples. Return verdict + realized + deferred + collapsed + residual_ripples ' +
     '+ summary.'].join('\n')
@@ -289,12 +316,20 @@ const reconcileFixPrompt = (cl) => [LAW, '', CARD, '', BARHUNT, '', ULTRA, '', P
     'do NOT realize it (its counterpart is the other-language workflow concern). Preserve all capability, regress no file, never trample a sibling ' +
     'owner interior. For every ripple counterpart you touch, emit a `pairs` row {pkg, slug, mirror_slug, seam_landed}. If a residual is FACTUALLY ' +
     'INCORRECT or not a real defect, leave it and say why in the summary — never silently skip a real one. Residuals:\n' + JSON.stringify(cl, null, 1)].join('\n')
-const reconcileVerifyPrompt = (cl, fix) => [LAW, '', BOUNDARIES, '',
-  'TASK: ADVERSARIAL VERIFY, one verdict per claim. Read the named files from disk and classify each residual: status "fixed" (real defect now ' +
-    'genuinely resolved — seam aligned on both pages / counterpart fence realized / central pin applied), "invalid" (the claim is factually wrong ' +
-    '/ not a real defect — cite why), or "open" (real defect still NOT resolved). Default to "open" on any doubt for a real-looking defect; mark ' +
-    '"invalid" ONLY when you can show the claim is wrong. Claims:\n' + JSON.stringify(cl, null, 1) + '\nFiles the fixer touched: ' + JSON.stringify(fix.files) + '\nPairs ' +
-    'the fixer reported: ' + JSON.stringify(fix.pairs || [])].join('\n')
+const reconcileVerifyPrompt = (cl, fix) => [LAW, '', CARD, '', BARHUNT, '', ULTRA, '', PATLAW, '', BOUNDARIES, '',
+  'TASK: ADVERSARIAL WRITING VERIFY of the reconcile fixes — never a friendly confirmation; the fixer\'s claims are illusory until proven on ' +
+    'disk, and a verdict issued without a disk proof is itself a defect. For EACH residual: (1) RE-DERIVE necessity — read every named file ' +
+    'from disk and re-derive whether the claimed defect was real and whether the applied resolution is the RIGHT one, trusting nothing the ' +
+    'fixer reported; (2) PROVE on disk the work was done properly — the seam genuinely aligned on BOTH pages to ONE shared `Schema`/type ' +
+    'contract, the counterpart fence genuinely realized at the bar, the central pin genuinely applied; (3) REPAIR TO ROOT — a loose, weak, or ' +
+    'token fix (a single-point patch where a root-level dense reconstruction of the SAME files is available; a seam aligned in prose but not in ' +
+    'types; a thin counterpart fence) is itself a defect YOU repair NOW by editing those same files to the objectively-best form, then count ' +
+    'the claim fixed; (4) only then classify each claim: status "fixed" (real defect now genuinely resolved — by the fixer or by YOUR repair), ' +
+    '"invalid" (the claim is factually wrong / not a real defect — cite why), or "open" (real defect genuinely unreachable from the files at ' +
+    'hand — never to punt a strengthenable fix). Default to "open" over a hollow "fixed"; mark "invalid" ONLY when you can show the claim is ' +
+    'wrong; set overall true only when NO claim remains open. List every file you edited in repaired_files. Claims:\n' +
+    JSON.stringify(cl, null, 1) + '\nFiles the fixer touched: ' + JSON.stringify(fix.files) +
+    '\nPairs the fixer reported: ' + JSON.stringify(fix.pairs || [])].join('\n')
 const closeoutPrompt = (folder, seamJson) => [LAW, '', CARD, '', BARHUNT, '', ULTRA, '', PATLAW, '', BOUNDARIES, '', PROSE, '', COMMENTS, '',
   'TASK: TRUTHFUL CLOSEOUT + FINAL REMEDIATION of `' + folder + '`. This is the SOLE owner of card status. For EVERY card that was in scope this ' +
     'run, read its FULL body from `' + folder + '/IDEAS.md` + `' + folder + '/TASKLOG.md` and the realized fences under `' + folder + '/.planning/**`, ' +

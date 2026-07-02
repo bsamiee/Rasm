@@ -67,11 +67,16 @@ artifacts/
 │   ├── credential.py       # c2pa-python content-credential Sign/Read/ReadFragment/Embed binding keyed by the content key
 │   ├── conformance.py      # pyhanko PAdES sign/stamp/augment/reserve/audit close (signer-free /DocTimeStamp stamp, LTV augment, seed-value reserve, visible drawing-sheet seal) folding ConformanceVerdict
 │   └── detect.py           # dual-engine format identification: puremagic in-process default + python-magic worker-band libmagic fallback
-├── media/                  # temporal media
-│   ├── video.py            # av container/codec video encode/mux consuming the scene rgb24 frame sequence
-│   └── audio.py            # av audio stream encode/mux
+├── media/                  # temporal media: the 7-page container/codec/filter/timeline/subtitle/analysis/synthesis plane
+│   ├── container.py        # av container spine: mux/demux capsule, video encode/mux, transcode/remux, HDR/color, HLS/DASH via io_open (absorbs the former video.py)
+│   ├── filtergraph.py      # closed FilterNode owner + capability-detection native-vs-substitute routing over av.filter.filters_available
+│   ├── audio.py            # av audio stream encode/mux/resample/master composing container + filtergraph
+│   ├── timeline.py         # Trim/Concat/Segment/xfade non-linear editing over the container/filtergraph spine
+│   ├── subtitle.py         # pysubs2 parse/convert/retime/restyle + passthrough-mux + typography/shape RGBA burn-in
+│   ├── analysis.py         # waveform/spectrogram/loudness(ebur128)/silence/scene-detect/thumbnail, capability-routed native-vs-numpy/measure
+│   └── synthesis.py        # numpy oscillator/noise/FM/AM/sweep/ADSR generation -> media/audio encode
 ├── scene/                  # 3D / spatial visualization
-│   ├── render.py           # pyvista/vtk offscreen render + FieldFilter clip/slice/threshold/contour/warp pipeline on the scene worker lane
+│   ├── render.py           # pyvista/vtk offscreen render + FieldFilter clip/slice/threshold/contour/warp pipeline + two-operand boolean CSG on the scene worker lane
 │   ├── export.py           # glTF/VRML/OBJ/HTML scene-file export + orbit rgb24 frame seam
 │   └── stage.py            # usd-core USD/USDZ stage authoring and composition
 ├── core/                   # production spine
@@ -175,9 +180,30 @@ document/tagged              →  python:artifacts/exchange               # [SIG
 document/tagged              →  python:artifacts/core/receipt           # [RECEIPT]: ArtifactReceipt.Egress/Pdf structural evidence
 scene/render                 →  python:artifacts/media                  # [MEDIA]: rgb24 frame sequence via VideoFrame.from_ndarray, ContentKey-keyed
 scene/export                 ⇄  python:geometry/mesh                    # [BOUNDARY]: visualization-scene export vs mesh-file codec, no shared owner
-media/video                  ←  python:artifacts/scene                  # [SCENE]: rgb24 frame sequence ingested via VideoFrame.from_ndarray
-media/video                  →  python:artifacts/core/receipt           # [RECEIPT]: ArtifactReceipt.Media container/codec encode facts + per-page av/pysubs2 evidence band
+media/container              ←  python:artifacts/scene                  # [SCENE]: rgb24 frame sequence ingested via VideoFrame.from_ndarray (the renamed video owner)
+media/container              →  python:artifacts/core/receipt           # [RECEIPT]: ArtifactReceipt.Media container/codec encode facts + per-page av/pysubs2 evidence band
+media/container              ←  python:artifacts/media/filtergraph      # [FILTER]: Transcode composes build_graph — native/substitute-routed av.filter.Graph + numpy composite passes
+media/filtergraph            →  python:artifacts/core/receipt           # [RECEIPT]: filter-node count in the composing producer's ArtifactReceipt.Media band (mints no receipt itself)
 media/audio                  →  python:artifacts/core/receipt           # [RECEIPT]: ArtifactReceipt.Media audio encode facts (EBU R128 LUFS/true-peak/LRA in the band)
+media/timeline               ←  python:artifacts/media/container        # [CONTAINER]: _seek/_decode_window/_decode_video/_encode_video/_open_sink capsule composed, opens no container
+media/timeline               ←  python:artifacts/media/filtergraph      # [FILTER]: cross_dissolve xfade substitute + link_clips concat/amix
+media/timeline               ←  python:artifacts/media/audio            # [DECODE]: _decode_audio for the xfade acrossfade audio leg
+media/timeline               →  python:artifacts/core/receipt           # [RECEIPT]: ArtifactReceipt.Media clip/segment counts + lossless-vs-reencode strategy facts
+media/subtitle               ←  python:artifacts/media/container        # [CONTAINER]: MediaProfile/MediaFault/_encode_video for passthrough-mux + burn-in encode
+media/subtitle               ←  python:artifacts/media/filtergraph      # [FILTER]: filters_available probe selects overlay/soft-sub native vs numpy alpha-composite/burn-in
+media/subtitle               ←  python:artifacts/typography/shape       # [SHAPE]: styled-fragment -> RGBA raster (uharfbuzz+python-bidi RTL, not un-bundled Pillow RAQM)
+media/subtitle               →  python:artifacts/core/receipt           # [RECEIPT]: ArtifactReceipt.Media subtitle event/style counts in the facts band
+media/analysis               ←  python:artifacts/media/container        # [CONTAINER]: av.open read capsule + MediaFault/_media_fault/_deployment
+media/analysis               ←  python:artifacts/media/audio            # [DECODE]: _decode_audio Pcm-block ingest
+media/analysis               ←  python:artifacts/media/filtergraph      # [FILTER]: filters_available probe selects native filter vs numpy/measure substitute
+media/analysis               ←  python:artifacts/graphic/raster/measure # [MEASURE]: structural_similarity frame-to-frame scene-detection substitute
+media/analysis               →  python:artifacts/graphic/raster/io      # [THUMBNAIL]: render_png + montage waveform/spectrogram/contact-sheet
+media/analysis               →  python:compute/analysis/signal          # [SPECTRAL]: SignalOp.Spectral scipy spectrogram substitute (cross-branch)
+media/analysis               →  python:compute/analysis/transform       # [ENVELOPE]: analytic-signal centroid/envelope (cross-branch)
+media/analysis               →  python:artifacts/core/receipt           # [RECEIPT]: ArtifactReceipt.Media scene-cut/silence-span/LUFS facts band
+media/synthesis              →  python:artifacts/media/audio            # [ENCODE]: _encode_audio numpy buffer -> container/mux (Pcm/_INGEST/Master reuse)
+media/synthesis              →  python:compute/analysis/signal          # [SHAPE]: SignalOp.Filter/Resample band-limit + transform spectral QA (cross-branch)
+media/synthesis              →  python:artifacts/core/receipt           # [RECEIPT]: ArtifactReceipt.Media synthesis fundamental_hz/waveform/duration facts band
 delivery/register            ←  python:artifacts/composition/sheet      # [SHEET]: SheetSet.registered TitleBlock/suitability/revision tuples the register builds into its SheetEntry via from_title_block (+ externally-supplied naming context) then of_sheets aggregates
 delivery/register            →  python:artifacts/visualization/table    # [TABLE]: RegisterOp.Index lowers Register.frame into the great-tables sheet-index publication table
 delivery/register            →  python:artifacts/core/receipt           # [RECEIPT]: ArtifactReceipt.Register kind/container/suitability/revision/classification/byte facts

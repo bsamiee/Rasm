@@ -6,6 +6,8 @@
 
 [REQUIRED]:
 - Read and follow `CLAUDE.md` before this file
+- List all files in: `docs/stacks/csharp` + `docs/stacks/python` understand what exists, and sub-folders that may exist and files, this is not a reading pass, just an acknowledgement requirement to be aware of what sandards files we have.
+- Read ALL of: `docs/stacks/csharp/README.md` + `docs/stacks/python/README.md` as foundational grounding, whenever working on files (code or code fence in a .md) fo either language, refer back to the FULL `docs/stacks/<language>/` to follow/read ALL standards in the root of the folder, `domain/` in csharp is conditional on reading, only when relevant.
 - Use `loc <path>` to identify true LOC of files, as well their complexity score, which helps in identifying heavy areas that need more attention/consideration
 - Use `tree <path>` to get a full map of all folders/files in a dir to get a high level view of the folder topology
 

@@ -61,9 +61,12 @@ only ever discards agents still in flight, which re-run on resume.
   completed agents return cached results, the rest run live. **A bare `Workflow({ scriptPath })`
   or `Workflow({ name })` is NOT a resume** — with no `resumeFromRunId` it is a brand-new run from
   zero. Stop a still-running prior run before relaunching.
-- **Same session only.** Resume works solely in the session that launched the run; a new session
-  (or one started after quitting Claude Code) starts fresh. Even if the run ID has left your
-  context, recover it in-session from `/workflows` or the `wf_<id>` run-directory name.
+- **Same session only — with one escape hatch.** A plain resume works solely in the session that
+  launched the run; from a new session it finds an empty journal and re-runs from zero. The
+  journal itself is content-addressed and portable: transplant it into the new session's run
+  directory and resume (`references/api-reference.md` §11, cross-session journal transplant).
+  Even if the run ID has left your context, recover it in-session from `/workflows` or the
+  `wf_<id>` run-directory name.
 
 Capture the run ID the moment the run starts (Step 7), and do not edit the launched script while
 it is resumable. The journal mechanism and the precise restart causes are

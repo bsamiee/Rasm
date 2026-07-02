@@ -1,13 +1,13 @@
 export const meta = {
   name: 'stack-cs',
   whenToUse: 'Harden the docs/stacks/csharp code doctrine in place to the dense per-file bar.',
-  description: 'Focused full HARDENING of the docs/stacks/csharp code doctrine — every core page AND every domain/ shard, improved in place to the same 13/10, ultra-dense, page-craft-conformant bar the python doctrine now holds. The csharp set is the historical FLOOR/reference; this pass pulls it UP to the rigor the python rebuild established: page-craft grammar (narrow index table -> deep family cards -> one agnostic snippet per region, zero duplicated demonstrations), the ~450 soft LOC density signal, extreme ADT collapse ([Union]/[SmartEnum<TKey>]/[ValueObject<T>]/[ComplexValueObject] + source-generated case families), two-weave AOP (definition-time source-gen aspects + composition-time effect transformers), LanguageExt Fin/Validation/Option/Eff rails, full parameterization/polymorphism, C# 14 on net10 to the metal. Now also a bounded interface/graph/mapping LAW extension (cross-stratum seam, graph-as-closed-family, generated mapping/equality aspects, plus QuikGraph/Riok.Mapperly/Generator.Equals elevated to admitted core substrate) hardened into existing owners, plus an optional default-off gated new-core-page valve; still restructure-free at heart — a hostile per-file harden. Phases: Inventory (atlas order: 7 core + the domain/ router + shards) -> Gate (default-off justified-new-page valve) -> Harden (1 agent/file, 3-step ADVERSARIAL rebuild(max) -> critique(xhigh) -> redteam(max), CAP=10) -> Sweep (sequential atlas-order pass, implicit upward stacking, no duplicated snippets) -> Reconcile (union-find cross-file residuals -> fix(max) -> adversarial verify(xhigh)). Snippets agnostic (neutral names, no project anchor); every host/NuGet member verified via assay api; every edit scoped to docs/stacks/csharp (NEVER edit a python/typescript file). Takes no args.',
+  description: 'Focused full HARDENING of the docs/stacks/csharp code doctrine — every core page AND every domain/ shard, improved in place to the same 13/10, ultra-dense, page-craft-conformant bar the python doctrine now holds. The csharp set is the historical FLOOR/reference; this pass pulls it UP to the rigor the python rebuild established: page-craft grammar (narrow index table -> deep family cards -> one agnostic snippet per region, zero duplicated demonstrations), the ~450 soft LOC density signal, extreme ADT collapse ([Union]/[SmartEnum<TKey>]/[ValueObject<T>]/[ComplexValueObject] + source-generated case families), two-weave AOP (definition-time source-gen aspects + composition-time effect transformers), LanguageExt Fin/Validation/Option/Eff rails, full parameterization/polymorphism, C# 14 on net10 to the metal. Now also a bounded interface/graph/mapping LAW extension (cross-stratum seam, graph-as-closed-family, generated mapping/equality aspects, plus QuikGraph/Riok.Mapperly/Generator.Equals elevated to admitted core substrate) hardened into existing owners, plus an optional default-off gated new-core-page valve; still restructure-free at heart — a hostile per-file harden. Phases: Inventory (atlas order: 7 core + the domain/ router + shards) -> Gate (default-off justified-new-page valve) -> Harden (1 agent/file, 3-step ADVERSARIAL rebuild(max) -> critique(xhigh) -> redteam(max), CAP=10) -> Sweep (sequential atlas-order pass, implicit upward stacking, no duplicated snippets) -> Reconcile (union-find cross-file residuals -> fix(max) -> adversarial WRITING verify(max)). Snippets agnostic (neutral names, no project anchor); every host/NuGet member verified via assay api; every edit scoped to docs/stacks/csharp (NEVER edit a python/typescript file). Takes no args.',
   phases: [
     { title: 'Inventory', detail: 'parse the README atlas + the domain/ router for the ordered core + domain file set + per-file state, emit the region ledger seed' },
     { title: 'Gate', detail: 'justification gate (default harden-in-place): only on an explicit cited justification + target atlas position author ONE new core page, edit the README atlas/STATE, seed the region ledger, and splice it into the ordered set so Harden and Sweep treat it as a corpus member' },
     { title: 'Harden', detail: 'per file (1 agent/file): rebuild(max) -> critique(xhigh) -> redteam(max), every stage ADVERSARIAL (naive/illusory-by-default), pooled at CAP=10' },
     { title: 'Sweep', detail: 'sequential atlas-order pass: each file reads finalized priors via the region ledger, routes altitude (no re-teach), removes duplicated snippet demonstrations' },
-    { title: 'Reconcile', detail: 'TERMINAL no-defer loop: union-find cluster every cross-file residual -> fix(max) -> ADVERSARIAL verify(max, confirms the fix is real+complete+non-naive) -> re-cluster still-open + newly-surfaced, until dry (bounded). Nothing handed off or dropped.' },
+    { title: 'Reconcile', detail: 'TERMINAL no-defer loop: union-find cluster every cross-file residual -> fix(max) -> ADVERSARIAL WRITING verify(max: re-derives necessity, proves the fix on disk, repairs weak or token fixes to the root form itself, then classifies) -> re-cluster still-open + newly-surfaced, until dry (bounded). Nothing handed off or dropped.' },
   ],
 }
 
@@ -18,11 +18,11 @@ const STALL = 300000
 const ROOT = 'docs/stacks/csharp'
 
 // --- [MODELS] ----------------------------------------------------------------------------
-const INVENTORY_SCHEMA = { type: 'object', additionalProperties: false, required: ['files'], properties: { files: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['path', 'order'], properties: { path: { type: 'string' }, order: { type: 'integer' }, folder: { type: 'string' }, regions: { type: 'array', items: { type: 'string' } } } } } } }
+const INVENTORY_SCHEMA = { type: 'object', additionalProperties: false, required: ['files'], properties: { files: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['path', 'order'], properties: { path: { type: 'string' }, order: { type: 'integer' }, folder: { type: 'string' }, regions: { type: 'array', items: { type: 'string' } }, call: { type: 'string' } } } } } }
 const FIXLOG_SCHEMA = { type: 'object', additionalProperties: false, required: ['file', 'verdict', 'summary'], properties: { file: { type: 'string' }, verdict: { type: 'string', enum: ['rebuilt', 'refined', 'clean'] }, collapsed: { type: 'string' }, extended: { type: 'string' }, regions: { type: 'array', items: { type: 'string' } }, residual_high: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['files', 'claim'], properties: { files: { type: 'array', items: { type: 'string' } }, claim: { type: 'string' } } } }, summary: { type: 'string' } } }
 const SWEEP_SCHEMA = { type: 'object', additionalProperties: false, required: ['file', 'verdict', 'owned_regions'], properties: { file: { type: 'string' }, verdict: { type: 'string', enum: ['routed', 'clean'] }, rerouted: { type: 'array', items: { type: 'string' } }, owned_regions: { type: 'array', items: { type: 'string' } }, residual_high: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['files', 'claim'], properties: { files: { type: 'array', items: { type: 'string' } }, claim: { type: 'string' } } } } } }
 const RECONCILE_FIX_SCHEMA = { type: 'object', additionalProperties: false, required: ['files', 'verdict', 'summary'], properties: { files: { type: 'array', items: { type: 'string' } }, verdict: { type: 'string', enum: ['fixed', 'clean'] }, residual_high: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['files', 'claim'], properties: { files: { type: 'array', items: { type: 'string' } }, claim: { type: 'string' } } } }, summary: { type: 'string' } } }
-const RECONCILE_VERIFY_SCHEMA = { type: 'object', additionalProperties: false, required: ['overall', 'claims'], properties: { overall: { type: 'boolean' }, claims: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['claim', 'status'], properties: { claim: { type: 'string' }, status: { type: 'string', enum: ['fixed', 'invalid', 'open'] }, evidence: { type: 'string' } } } } } }
+const RECONCILE_VERIFY_SCHEMA = { type: 'object', additionalProperties: false, required: ['overall', 'claims'], properties: { overall: { type: 'boolean' }, claims: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['claim', 'status'], properties: { claim: { type: 'string' }, status: { type: 'string', enum: ['fixed', 'invalid', 'open'] }, evidence: { type: 'string' } } } }, repaired_files: { type: 'array', items: { type: 'string' } } } }
 const GATE_SCHEMA = { type: 'object', additionalProperties: false, required: ['verdict', 'reason'], properties: { verdict: { type: 'string', enum: ['harden_in_place', 'new_page'] }, reason: { type: 'string' }, page: { type: 'object', additionalProperties: false, required: ['path', 'atlas_index', 'decision', 'justification'], properties: { path: { type: 'string' }, atlas_index: { type: 'integer' }, decision: { type: 'string' }, folder: { type: 'string' }, justification: { type: 'string' }, seed_regions: { type: 'array', items: { type: 'string' } } } } } }
 const SEED_SCHEMA = { type: 'object', additionalProperties: false, required: ['path', 'verdict'], properties: { path: { type: 'string' }, atlas_index: { type: 'integer' }, regions: { type: 'array', items: { type: 'string' } }, verdict: { type: 'string', enum: ['seeded', 'aborted'] } } }
 
@@ -51,6 +51,10 @@ const ADVERSARIAL = [
     'demonstrates a THIN slice; prose that ASSERTS richness the fence lacks; a card field that decides nothing; a structurally-correct collapse ' +
     'that is semantically empty; a host/NuGet member cited but unverifiable (a PHANTOM — delete it). Treat dense, confident-looking fences with ' +
     'MORE suspicion, and DISBELIEVE every claim the page makes about itself until verified.',
+  'NAIVETY is a defect on TWO orthogonal axes, both intolerable: COVERAGE — the owner models a THIN SLICE of its concept (the obvious three ' +
+    'fields where the domain carries fifteen; a two-case family for a twenty-case space); APPROACH — enumerated hardcoded instances where a ' +
+    'parameterized, algorithmic owner should GENERATE the space (a fixed roster of styles, patterns, or variants is seed DATA feeding ONE ' +
+    'generator over named parameters, never the mechanism itself). Attack both axes in every fence and repair on sight.',
 ].join('\n')
 const CSDOCTRINE = [
   'HOLD the README [DOCTRINE] 17 laws as fact, never restated on a concept page: [FLOW] EXPRESSION_SPINE (domain logic expression-shaped; ' +
@@ -60,7 +64,8 @@ const CSDOCTRINE = [
     'INTERFACE_SEAM. ' +
     '[DERIVATION] POLICY_VALUES + DERIVED_LOGIC + DERIVED_TYPES + SYMBOLIC_REFERENCE + SEMANTIC_NAMING. [MATERIAL] LIBRARY_DEPTH + ' +
     'DEFINITION_TIME_ASPECTS. [INTEGRATION] ROOT_REBUILD + ONE_HOP_RESOLUTION + COMPOSED_IMPLEMENTATION. Run the COLLAPSE_SCAN on every fence: any ' +
-    'signal triggers the move, 3+ make it mandatory.',
+    'signal triggers the move, 3+ make it mandatory; the scan list is a FLOOR, never the complete set — any repeated structure, parallel spelling, ' +
+    'or enumerable family an algebra, table, fold, or generator can own is a collapse target you find yourself.',
   'A page that demonstrates a coding law must itself obey every law it can reach; a domain shard COMPOSES the finalized core laws as settled ' +
     'material and never re-opens admission/shape/rail/dispatch/boundary decisions.',
 ].join('\n')
@@ -70,7 +75,7 @@ const CS_SHAPE = [
     '(process-local behavior), `[Union]` (closed alternatives with per-occurrence payload) / `[Union<T1,...>]` ad-hoc, `record`/`readonly record ' +
     'struct` (interior product), a frozen set/table, or a language `enum` at the seam only. KILL parallel DTOs, one-field wrappers, field-rename ' +
     'shapes, nullable-as-failure, struct-`default` ghosts, and 3+ sibling types/factories/switch-arms for one concept (collapse to ONE generated ' +
-    'owner or a `Fold` algebra / frozen data table).',
+    'owner or a `Fold` algebra / frozen data table); this kill list is a floor, never the full set — hunt collapse targets beyond it.',
   'ANTICIPATORY_COLLAPSE: shape the owner for the family it WILL absorb so the next case/dimension/modality lands as ONE generated case/row/policy ' +
     'value with every consumer untouched or broken LOUDLY at compile time (total generated `Switch`, NO runtime-silent `_` arm). The exemplary ' +
     'snippet shows one owner ready to replace 10+ loose things with the growth axis visible.',
@@ -103,8 +108,8 @@ const CS_INTERFACE = [
     'generic-math constraint over a carrier stopping at `IComparable`/`IEquatable`/`IFormattable` (decorative — widen to the concrete carrier); a ' +
     'heap delegate on a measured hot path where a `ref struct` visitor (`allows ref struct`, caller-owned stack) fits; an invariant generic where ' +
     '`out`/`in` removes a cast; parallel `IFooForBar` names where the type parameter or keyed service carries the modality. This law lands in README ' +
-    '[SHAPE] INTERFACE_SEAM, shapes.md OWNER_CHOOSER, surfaces-and-dispatch.md (static-abstract + visitor dispatch forms), and boundaries.md ' +
-    '(hold-the-floor + lifetime + the cross-stratum seam floor), and rails-and-effects.md (the accumulating-Validation constraint fold).',
+    '[SHAPE] INTERFACE_SEAM, shapes.md OWNER_CHOOSER, surfaces-and-dispatch.md (static-abstract + visitor dispatch forms), boundaries.md ' +
+    '(hold-the-floor + lifetime + the cross-stratum seam floor), and rails-and-effects.md (the accumulating-`Validation` constraint fold).',
 ].join('\n')
 const CS_AOP = [
   'TWO-WEAVE AOP: definition-time concerns (admission, identity, dispatch, serialization, grammar, logging) attach via attribute-directed SOURCE ' +
@@ -174,17 +179,22 @@ const CS14 = [
     'static entry per physical line; preserve generated-case + smart-enum semantic order.',
 ].join('\n')
 const CS_SUBSTRATE = [
-  'STACK CAPABILITY: C# has NO central .api tier — the universals are Thinktecture.Runtime.Extensions (generated domain shape) + LanguageExt.Core ' +
-    '(rails, effects, schedules, immutable collections), with QuikGraph (graph traversal/topology + graph algorithms), Riok.Mapperly (generated ' +
+  'STACK CAPABILITY, ULTRA-STACKED: enumerate BOTH `.api` tiers with a REAL ls/fd listing from disk, never memory — the central `libs/csharp/.api/` ' +
+    'substrate catalogs (api-thinktecture-runtime-extensions, api-quikgraph, api-mapperly, api-generator-equals, api-mathnet-numerics, api-csparse, ' +
+    'plus every sibling catalog the page concern touches) and, for a domain shard, the per-folder `libs/csharp/<Package>/.api/` host/NuGet catalogs ' +
+    'its concern composes — and MINE them to OPERATOR DEPTH (read-only material; edits stay scoped to docs/stacks/csharp). The universals are ' +
+    'Thinktecture.Runtime.Extensions (generated domain shape) + LanguageExt.Core ' +
+    '(rails, effects, schedules, immutable collections; catalog-less — assay api is its evidence), with QuikGraph (graph traversal/topology + ' +
+    'graph algorithms), Riok.Mapperly (generated ' +
     'owner<->DTO/proto/wire mapping), and Generator.Equals (generated structural equality + content-key for shapes Thinktecture does not own, e.g. ' +
     'class-root `[Union]` node/edge types) as ADMITTED CORE substrate integrated ground-up the SAME way and NAMED in the README [02] LIBRARY_DEPTH ' +
     'law beside MathNet/CSparse (hand-rolled graph traversal, field-by-field mapping, or `Equals`/`GetHashCode` is the rejected form), layered ' +
-    'onto the BCL and (for a domain shard) the host/NuGet surface its concern ' +
-    'composes; MathNet/CSparse own numeric algorithms where relevant. Compose EVERY relevant member into single dense owners woven as ONE rail ' +
+    'onto the BCL; MathNet/CSparse own numeric algorithms where relevant. Compose EVERY relevant member into single dense owners woven as ONE rail ' +
     '(source-generated owners, `Fold` algebra, data tables), ALWAYS layering ' +
     'Thinktecture/LanguageExt/QuikGraph/Riok.Mapperly/Generator.Equals onto the domain surface, NOT flat one-shot ' +
-    'per-API uses. Use the DEEPEST operator/combinator/generated surface each library reaches (LIBRARY_DEPTH); reject surface-level subsets, ' +
-    'BCL-first reflexes, and thin rename wrappers. Cite ONLY host/NuGet members confirmed via `uv run python -m tools.assay api` — a member you ' +
+    'per-API uses. Use the DEEPEST operator/combinator/generated surface each library reaches (LIBRARY_DEPTH); an admitted capability the concept ' +
+    'admits but NO owner exploits is a DEFECT this pass closes; reject surface-level subsets, BCL-first reflexes, and thin rename wrappers. Cite ' +
+    'ONLY host/NuGet members confirmed via `uv run python -m tools.assay api` (verified-local beats any catalog line on conflict) — a member you ' +
     'cannot verify is a phantom to delete.',
 ].join('\n')
 const PAGECRAFT = [
@@ -273,22 +283,27 @@ const critiquePrompt = (page) => [DOCTRINE, '',
     'shapes/nullable-as-failure/`default`-ghosts; (3) KNOB_TEST — collapse flags to policy values/input-shape, move ' +
     '`timeout`/`retry`/`CancellationToken` to the carrier/aspect; (4) TWO-WEAVE AOP — definition-time source-gen vs composition-time effect ' +
     'transformers, one seam, no inline-repeated concerns; (5) RAILS — narrowest carrier, closed `Expected` `[Union]` fault, accumulate-vs-abort ' +
-    'correct, total generated `Switch` (no silent `_`), no exception control flow; (6) C# 14/net10 + file-organization section-order; (7) ' +
-    'Thinktecture/LanguageExt stacked to depth + every member verified (delete phantoms); (8) AGNOSTIC snippet law; (9) PAGE GRAMMAR + card ' +
+    'correct, total generated `Switch` (no silent `_`), no exception control flow; (6) C# 14/net10 + file-organization section-order; (7) the ' +
+    'admitted substrate (Thinktecture/LanguageExt/QuikGraph/Mapperly/Generator.Equals) stacked to operator depth + every member verified (delete ' +
+    'phantoms); (8) AGNOSTIC snippet law; (9) PAGE GRAMMAR + card ' +
     'economy + load-bearing reject columns; (10) ALTITUDE / no re-teach (a domain shard composes the core, never re-opens it); (11) ZERO META + ' +
-    'style + comments; (12) CAPABILITY-COMPLETENESS + illusion + TABLE-STAKES — close an omitted capability in place with a cite, delete any ' +
-    'table-stakes/decorative/speculative card. EDIT to fix every hit. Report `extended` and `regions`. Return residual_high {files:[...], claim}.'].join('\n')
+    'style + comments; (12) CAPABILITY-COMPLETENESS + illusion + TABLE-STAKES + BOTH NAIVETY AXES — close an omitted capability in place with a ' +
+    'cite; rebuild a COVERAGE thin-slice to the real breadth of its concept; collapse an APPROACH roster into ONE generator over seed rows; delete ' +
+    'any table-stakes/decorative/speculative card. The 12 checks are a FLOOR, never the complete audit — hunt past them and repair every defect ' +
+    'the list does not name. EDIT to fix every hit. Report `extended` and `regions`. Return residual_high {files:[...], claim}.'].join('\n')
 const redteamPrompt = (page) => [DOCTRINE, '',
   'TASK: ADVERSARIAL ARCHITECT RED-TEAM + FIX IN PLACE of ' + page + ' — the LAST and MOST AGGRESSIVE pass; red-team is critique AND MORE; the ' +
-    'burden of proof is ON THE PAGE; trust nothing the prior passes claimed. Open Thinktecture/LanguageExt + the host/NuGet surface, the sibling ' +
-    'pages, the README doctrine, the python rigor benchmark, the style-guide. Attack and REPAIR in place: (A) COUNTERFACTUAL on the core shape — ' +
-    'does a denser generated owner / `Fold` algebra / data table / DEEPER LanguageExt-Thinktecture-MathNet primitive collapse the whole fence? ' +
+    'burden of proof is ON THE PAGE; trust nothing the prior passes claimed. Open the admitted substrate catalogs + the host/NuGet surface, the ' +
+    'sibling pages, the README doctrine, the python rigor benchmark, the style-guide. Attack and REPAIR in place: (A) COUNTERFACTUAL on the core ' +
+    'shape — does a denser generated owner / `Fold` algebra / data table / DEEPER admitted-substrate primitive collapse the whole fence? ' +
     'rebuild to it. (B) ANTICIPATORY_COLLAPSE — does the next case/provider land as ONE generated case/row with consumers broken LOUDLY at compile ' +
     'time? reshape so the growth axis is a case/row/policy value. (C) CORPUS-WIDE DUPLICATION — route any snippet re-demonstrating a region a ' +
     'core/sibling/domain page owns. (D) AOP + SHAPE-BUDGET MAXIMIZATION — push more into source-gen aspects + effect transformers over a thinner ' +
     'pure core; collapse any loose cluster into one generated family. (E) STRATA + SUBSTRATE-DEPTH + PHANTOMS — flat code below the operator depth ' +
-    'Thinktecture/LanguageExt reach (collapse to depth); a phantom member (delete it); a domain shard re-opening a core law (route it). (F) ' +
-    'CAPABILITY-COMPLETENESS + ILLUSION + TABLE-STAKES — name an omitted capability with a cite and extend the owner in place; delete ' +
+    'the admitted substrate reaches (collapse to depth); a phantom member (delete it); a domain shard re-opening a core law (route it). (F) ' +
+    'CAPABILITY-COMPLETENESS + ILLUSION + LONG-TAIL + BOTH NAIVETY AXES — name an omitted capability with a cite and extend the owner in place; ' +
+    'attack the long tail (the fault rail, the empty/degenerate case, the boundary value the taught law must survive); rebuild a COVERAGE ' +
+    'thin-slice to the real breadth of its concept; collapse an APPROACH roster into ONE generator over seed rows; delete ' +
     'table-stakes/decorative/speculative content. ALSO a FULL COLD ADVERSARIAL RE-REVIEW of every critique dimension. The page must end ' +
     'objectively denser, more capable, more agnostic-compliant; if the strongest form is genuinely present, find nothing — never invent churn. ' +
     'Report `extended` and `regions`. Return residual_high {files:[...], claim}.'].join('\n')
@@ -349,11 +364,16 @@ const regionsOf = (logs) => { for (const st of ['redteam', 'crit', 'rebuild']) {
 // --- [COMPOSITION] -----------------------------------------------------------------------
 
 phase('Inventory')
-const inv = await agent('Read ' + ROOT + '/README.md and parse the [01]-[ATLAS] table, THEN the ' + ROOT + '/domain/README.md router. Return the ' +
-  'full ordered file set: every CONCEPT page that exists on disk under ' + ROOT + ' (the core pages first in atlas order, then the domain/ shards ' +
-  'in the domain router order), EXCLUDING every README.md and the entire .reports/ workspace. Each row {path (repo-relative), order (global ' +
-  'integer), folder (`domain` or empty for core), regions (its current snippet-demonstration region tags)}. Use find/read; do not cd; do not edit ' +
-  'anything.', { label: 'inventory', phase: 'Inventory', schema: INVENTORY_SCHEMA, model: 'sonnet', effort: 'low', stallMs: STALL })
+const inv = await agent('DISCOVERY — the read-only reconnaissance grounding every downstream stage; read-only is its ONLY concession. Enumerate ' +
+  'from the SOURCE OF TRUTH, never memory: run a REAL find/ls listing of every page under ' + ROOT + ', read ' + ROOT + '/README.md [01]-[ATLAS] ' +
+  'and the ' + ROOT + '/domain/README.md router IN FULL, and resolve the ordered set against the disk listing (a page on disk absent from the ' +
+  'atlas/router, or a row with no file, is noted in that row`s `call`, never silently dropped). Return the full ordered file set: every CONCEPT ' +
+  'page that exists on disk under ' + ROOT + ' (the core pages first in atlas order, then the domain/ shards in the domain router order), ' +
+  'EXCLUDING every README.md and the entire .reports/ workspace. Each row {path (repo-relative), order (global integer), folder (`domain` or ' +
+  'empty for core), regions (its snippet-demonstration region tags read from the corpus region ledger where one exists on disk, else from the ' +
+  'page body`s actual snippet demonstrations — verified by a real read, never guessed), call (ONE hostile weak/strong line on the page grounded ' +
+  'in what you read)}. This map is an initial pointer, never a ceiling: every downstream stage re-reads the full pages from disk. Use find/read; ' +
+  'do not cd; do not edit anything.', { label: 'inventory', phase: 'Inventory', schema: INVENTORY_SCHEMA, model: 'sonnet', effort: 'low', stallMs: STALL })
 const ordered = ((inv && inv.files) || []).filter((f) => f && f.path && f.path.indexOf('/.reports/') < 0).sort((a, b) => a.order - b.order).map((f) => f.path)
 log('Inventory: ' + ordered.length + ' csharp doctrine pages (core + domain) to harden')
 
@@ -420,11 +440,16 @@ if (pending.length) {
         'residual_high {files,claim} so the next round resolves it. Edit ONLY under ' + ROOT + '/. Residuals:\n' + JSON.stringify(cl, null, 1)].join('\n'),
         { label: 'reconcile-fix:r' + round, phase: 'Reconcile', schema: RECONCILE_FIX_SCHEMA, effort: 'max', stallMs: STALL })
       if (!fix) return { open: cl, invalid: [], surfaced: [] }
-      const verify = await agent([LAW, '', ADVERSARIAL, '', 'TASK: ADVERSARIAL VERIFY, one verdict per claim — re-read the named files from disk and ' +
-        'CONFIRM the fix was ACTUALLY made AND is COMPLETE + HIGH-QUALITY + doctrine-conformant, not a token/naive patch. ATTACK the fix: is it ' +
-        'shallow, partial, or does it leave the cross-file defect (duplicated region, altitude leak, un-unified owner)? Classify each: "fixed" ' +
-        '(confirmed real, complete, non-naive), "invalid" (claim factually wrong — cite why), or "open" (NOT fixed, OR fixed naively/incompletely — ' +
-        'must be redone). Default "open" on ANY doubt. Claims:\n' + JSON.stringify(cl, null, 1) + '\nFiles the fixer touched: ' + JSON.stringify(fix.files)].join('\n'),
+      const verify = await agent([DOCTRINE, '', 'TASK: ADVERSARIAL WRITING VERIFY — never a friendly confirmation; you REPAIR before you classify, ' +
+        'one verdict per claim. Re-read every named file from disk. Per claim: (1) RE-DERIVE necessity — was the residual real and a change ' +
+        'genuinely required? a claim that misreads the corpus is "invalid" (cite why). (2) PROVE ON DISK the fix was actually made AND is ' +
+        'complete, doctrine-conformant, and non-token — ATTACK it: shallow, partial, or leaving the cross-file defect (duplicated region, ' +
+        'altitude leak, un-unified owner) means NOT done. (3) REPAIR TO THE ROOT yourself via Edit, scoped to ' + ROOT + '/: a loose, weak, or ' +
+        'token fix — including a single-point patch where a root-level dense reconstruction of the same files is available — is a DEFECT you fix ' +
+        'NOW to the strongest doctrine form, capability preserved; never hand back a strengthenable fix. (4) Only then classify: "fixed" (proven ' +
+        'on disk OR repaired by you — cite evidence, list every file you edited in repaired_files), "invalid" (claim factually wrong — cite why), ' +
+        '"open" (RESERVED for a claim genuinely unreachable from the files at hand, never a fix you could strengthen yourself). Claims:\n' +
+        JSON.stringify(cl, null, 1) + '\nFiles the fixer touched: ' + JSON.stringify(fix.files)].join('\n'),
         { label: 'reconcile-verify:r' + round + ':' + i, phase: 'Reconcile', schema: RECONCILE_VERIFY_SCHEMA, effort: 'max', stallMs: STALL })
       const claims = (verify && verify.claims) || []
       const ok = new Set(claims.filter((c) => c.status === 'fixed').map((c) => c.claim))

@@ -468,9 +468,9 @@ edit. If the prior run is still going, stop it first.
 - **No `resumeFromRunId`.** A bare `Workflow({ scriptPath })` or `Workflow({ name })` is a NEW
   run with an empty journal — it never consults a prior run's cache. The most common cause of an
   unexpected restart.
-- **A different session.** The journal lives under the launching session's directory, so a run
-  started in another session (or after exiting Claude Code) cannot be resumed; it starts fresh.
-  This is a hard platform limit — no ledger or saved run ID recovers a cross-session run.
+- **A different session.** The journal lives under the launching session's directory, so a plain
+  resume from a new session (or after a process restart) finds an empty journal and re-runs from
+  zero. The journal itself is portable — recover with the **cross-session journal transplant** below.
 - **A changed cache key from the top.** Editing the script, or changing the `args` that feed the
   first agent's prompt, changes its `key`, misses the cache there, and re-runs from that point.
 
@@ -487,7 +487,32 @@ exact `Workflow({ scriptPath, resumeFromRunId })` command, the completion `<task
 repeats it, `/workflows` lists every run by ID, and each run directory is literally named
 `wf_<id>` under the session's `subagents/workflows/`. So if the ID has scrolled out of context,
 list that directory or open `/workflows`, recover it, and resume — a missing ledger is
-inconvenient, not fatal, within the session. The ledger only keeps the ID somewhere a later turn
-looks first; a run is unrecoverable solely across a session boundary. (For that cross-session
-case the only recourse is manual: read the run's `journal.jsonl` / `agent-<id>.jsonl` to see
-what completed and hand-author a continuation script that skips it.)
+inconvenient, not fatal, within the session.
+
+**Cross-session journal transplant.** The cache key is content-addressed — `v2:<sha256>` over
+the call's prompt plus `schema`/`model`/`isolation`/`agentType`, with no session component — so
+a journal moves between sessions intact as long as the script bytes and `args` are unchanged.
+To carry a run's completed work across a session boundary (a process restart, a background
+fork, a fresh session):
+
+1. If the new session already relaunched the workflow, stop that run first (`TaskStop`) — a
+   `Workflow({ scriptPath, resumeFromRunId })` call adopts the old run ID and creates `wf_<id>`
+   under the new session even when it finds no journal there, so the directory usually exists.
+2. Locate both run directories under
+   `~/.claude/projects/<project>/<session>/subagents/workflows/wf_<id>/` — the old session's
+   holds the populated `journal.jsonl`.
+3. Back up the new directory's `journal.jsonl` if one exists, then concatenate old journal +
+   new journal into the new directory's `journal.jsonl`. Resume matches `result` records by
+   key; duplicate or stale `started` records are inert.
+4. Resume with `Workflow({ scriptPath, resumeFromRunId: 'wf_<id>' })` — unchanged calls return
+   cached, and only genuinely-unfinished calls run live.
+5. Verify the hit before walking away: the journal gains `started` records only for the calls
+   that were unfinished. A burst of new `started` records for already-completed work means a
+   key mismatch — an edited script or changed `args` — so stop and diff against the bytes that
+   ran.
+
+The transplant carries only the result cache; per-agent transcripts (`agent-<id>.jsonl`) stay
+in the old directory and are not needed for resume. When the script or `args` HAVE changed,
+the transplant still replays every call before the first edit; for a diverged script, fall back
+to reading the old `journal.jsonl` and hand-authoring a continuation script that skips the
+completed work.
