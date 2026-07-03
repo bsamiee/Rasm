@@ -60,6 +60,28 @@ interface PlaywrightWorkerArgs { playwright: typeof import('playwright-core'); b
 // browserName is a PlaywrightWorkerOptions seed row (not a WorkerArg): { browserName; defaultBrowserType; headless; channel; launchOptions; connectOptions }
 ```
 
+Page/context CONTROL surfaces the fixture rail composes — the four families a hermetic platform fixture rides:
+
+```ts contract
+// page.clock — fake-time control: install() AUTO-ADVANCES from its epoch, so pre-jump ticks carry the page-load offset;
+//   callbacks fired by fastForward/pauseAt see the exact target instant — exact-text assertions ride the post-jump surface.
+interface Clock {
+  install(o?: { time?: number | string | Date }): Promise<void>
+  pauseAt(time: number | string | Date): Promise<void>; resume(): Promise<void>
+  fastForward(ticks: number | string): Promise<void>; runFor(ticks: number | string): Promise<void>
+  setFixedTime(time: number | string | Date): Promise<void>; setSystemTime(time: number | string | Date): Promise<void>
+}
+// page.routeWebSocket — hermetic WS lanes with no server: the handler IS the peer.
+page.routeWebSocket(url: string | RegExp | ((url: URL) => boolean), handler: (ws: WebSocketRoute) => any): Promise<void>
+interface WebSocketRoute { onMessage(h: (message: string | Buffer) => any): void; send(message: string | Buffer): void; close(o?: { code?: number; reason?: string }): Promise<void>; connectToServer(): WebSocketRoute }
+// HAR record/replay: browserContext.routeFromHAR(har, { url?, update?, notFound? }) — notFound: 'abort' | 'fallback'.
+// CDP WebAuthn (chromium-only): the virtual-authenticator ceremony rides a raw CDP session.
+const cdp = await context.newCDPSession(page)
+await cdp.send('WebAuthn.enable')
+const { authenticatorId } = await cdp.send('WebAuthn.addVirtualAuthenticator', { options: { protocol: 'ctap2', transport: 'internal', hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true } })
+await cdp.send('WebAuthn.removeVirtualAuthenticator', { authenticatorId })   // ceremony teardown = the refutation seed
+```
+
 ## [03]-[WEB_FIRST_EXPECT]
 
 `expect` is a SEPARATE assertion library from `@effect/vitest`'s — its matchers AUTO-RETRY against a live browser until they pass or time out, which no synchronous matcher can do. Never mix the two `expect` symbols in one spec file.
@@ -87,13 +109,27 @@ type Expect<ExtendedMatchers = {}> = {
 ```ts contract
 // type PlaywrightTestConfig<T = {}, W = {}> = Config<PlaywrightTestOptions & CustomProperties<T>, PlaywrightWorkerOptions & CustomProperties<W>>  (Config extends TestConfig — the optional input fields live there)
 interface TestConfig<T = {}, W = {}> {
-  testDir?: string; projects?: Project<T, W>[]; use?: UseOptions<T, W>
-  reporter?: 'list'|'dot'|'line'|'github'|'json'|'junit'|'html'|'null' | ReporterDescription[]; timeout?: number; retries?: number; workers?: number | string
-  expect?: { timeout?: number; toHaveScreenshot?: {…}; toMatchAriaSnapshot?: {…} }; webServer?: TestConfigWebServer | TestConfigWebServer[]; snapshotPathTemplate?: string
+  testDir?: string; testMatch?: string | RegExp | (string | RegExp)[]; outputDir?: string        // outputDir defaults to <package.json-dir>/test-results — a ROOT write on a bare run
+  projects?: Project<T, W>[]; use?: UseOptions<T, W>
+  reporter?: 'list'|'dot'|'line'|'github'|'json'|'junit'|'html'|'blob'|'null' | ReporterDescription[]
+  timeout?: number; globalTimeout?: number; retries?: number; workers?: number | string           // workers accepts a '50%' cores string
+  maxFailures?: number; forbidOnly?: boolean; failOnFlakyTests?: boolean; fullyParallel?: boolean
+  captureGitInfo?: { commit?: boolean; diff?: boolean }; tsconfig?: string
+  expect?: { timeout?: number; toHaveScreenshot?: { pathTemplate?; maxDiffPixels?; maxDiffPixelRatio?; threshold? }; toMatchAriaSnapshot?: { pathTemplate? } }
+  webServer?: TestConfigWebServer | TestConfigWebServer[]                                          // the ARRAY form boots several servers before the run
+  snapshotPathTemplate?: string   // tokens: {testDir} {snapshotDir} {platform} {projectName} {testFileDir} {testFilePath} {testFileName} {arg} {ext}
+}
+interface Project<T, W> {  // beyond name/use/testMatch: the dependency topology
+  dependencies?: string[]   // project names that must pass first — the auth-setup project pattern (storageState written by setup, consumed via use.storageState)
+  teardown?: string          // project that runs after this one and its dependents complete
 }
 // test-scoped (per test): baseURL, viewport, colorScheme, locale, timezoneId, geolocation, permissions, offline,
 //   storageState, testIdAttribute, contextOptions, serviceWorkers, actionTimeout, navigationTimeout, trace, video, screenshot
 // worker-scoped (per worker): browserName, headless, channel, launchOptions, connectOptions
+// CONFIG RESOLUTION IS CWD-ONLY — resolveConfigLocation probes playwright.config.{ts,js,mts,mjs,cts,cjs} in process.cwd(),
+//   never upward: only a ROOT-resident config defends a bare root invocation from a tree-wide *.spec.ts sweep.
+// CLI rails: --last-failed (+ --last-failed-file, state under outputDir), --only-changed [ref],
+//   blob reporter + `playwright merge-reports` for sharded runs, --update-snapshots for golden minting.
 ```
 
 `@playwright/test/reporter` is the SPI a custom reporter implements to project results as data — the seam that feeds the e2e gauge a machine result rather than console text.
@@ -124,6 +160,8 @@ interface Reporter {
 [STACK: `@playwright/test` + `@types/k6`] — the `tests/typescript/e2e` home is one owner over two orthogonal drivers: Playwright is the functional + visual gauge (does the flow work, does it look right), k6 the load gauge (does it hold under concurrency). They never share a runtime; the k6 binary is a runner fact exactly as the browser binaries are.
 
 [BOUNDARY vs the unit lane] — Playwright launches real browser processes: it is the heavy, high-fidelity end of the spectrum whose fast counterparts are `happy-dom`/`jsdom` (in-process DOM, no browser). A flow that needs no real engine belongs in the unit lane; a DOM-only assertion never justifies a browser launch.
+
+[STACK: the embedded test MCP] — the pinned `playwright` package ships `playwright run-test-mcp-server` (tools `test_list`/`test_run`/`test_debug`): agent-driven run and debug of the e2e estate with zero additional admission. The standalone `@playwright/mcp` browser-automation server is machine-plane agent tooling and never enters the repo manifests.
 
 ## [06]-[RAIL_LAW]
 

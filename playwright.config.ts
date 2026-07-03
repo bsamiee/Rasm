@@ -8,7 +8,7 @@
 
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { defineConfig, devices } from '@playwright/test';
+import { defineConfig, devices, type PlaywrightTestConfig } from '@playwright/test';
 
 // --- [CONSTANTS] -------------------------------------------------------------------------
 
@@ -38,7 +38,7 @@ const _LANES = {
 
 // --- [EXPORTS] ---------------------------------------------------------------------------
 
-export default defineConfig({
+const config: PlaywrightTestConfig = defineConfig({
     captureGitInfo: { commit: true, diff: false },
     expect: { timeout: 5_000, toHaveScreenshot: { maxDiffPixelRatio: 0.02 } },
     failOnFlakyTests: _CI,
@@ -66,3 +66,5 @@ export default defineConfig({
     },
     workers: '50%',
 });
+
+export default config;

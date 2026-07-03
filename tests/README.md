@@ -85,7 +85,7 @@ Every tool writes reports under `.artifacts/` and temp/work state under `.cache/
 |  [09]   | inline-snapshot   | snapshot storage                 | `pyproject.toml` `[tool.inline-snapshot]`                        |
 |  [10]   | Vitest            | TS coverage + results + bench ledger | root `vitest.config.ts`                                      |
 |  [11]   | StrykerJS         | TS mutation                      | `stryker.config.json`                                    |
-|  [12]   | Playwright        | e2e traces + results             | playwright config, landing with the TS buildout                  |
+|  [12]   | Playwright        | e2e traces + results             | root `playwright.config.ts` (auto-discovery self-defense)        |
 |  [13]   | Nx                | target outputs + cache           | `nx.json` targetDefaults                                         |
 |  [14]   | import-linter     | grimp cache                      | assay static rail invocation (`--cache-dir .cache/grimp`)        |
 

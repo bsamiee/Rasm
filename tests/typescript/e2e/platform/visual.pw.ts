@@ -8,7 +8,10 @@ test.describe('visual gauge', () => {
 
     test('a perturbed panel refutes the same golden', async ({ hermetic, page }) => {
         await hermetic.open('/panel');
-        await page.locator('svg rect').first().evaluate((node) => node.setAttribute('fill', '#ff0044'));
+        await page
+            .locator('svg rect')
+            .first()
+            .evaluate((node) => node.setAttribute('fill', '#ff0044'));
         await expect(page.locator('svg')).not.toHaveScreenshot('panel.png');
     });
 });

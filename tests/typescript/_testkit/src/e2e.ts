@@ -1,4 +1,4 @@
-import { Command, type CommandExecutor, FileSystem, type Path } from '@effect/platform';
+import { Command, type CommandExecutor, FileSystem } from '@effect/platform';
 import type { PlatformError } from '@effect/platform/Error';
 import { Data, Effect, Option, pipe, Record, Schema } from 'effect';
 
@@ -147,10 +147,7 @@ const K6 = {
                 (fault: PlatformError) => new K6Fault({ reason: 'crashed', detail: fault.message }),
             );
             const fs = yield* FileSystem.FileSystem;
-            const raw = yield* Effect.mapError(
-                fs.readFileString(lane.summary),
-                (fault) => new K6Fault({ reason: 'summary', detail: fault.message }),
-            );
+            const raw = yield* Effect.mapError(fs.readFileString(lane.summary), (fault) => new K6Fault({ reason: 'summary', detail: fault.message }));
             const summary = yield* Effect.mapError(_summary(raw), (fault) => new K6Fault({ reason: 'summary', detail: fault.message }));
             return code === _EXIT.pass
                 ? K6.Verdict.Passed({ summary })

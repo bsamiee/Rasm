@@ -68,6 +68,7 @@ _ROOT_ALLOWLIST: frozenset[str] = frozenset({
     "node_modules",
     "nx.json",
     "package.json",
+    "playwright.config.ts",
     "pnpm-lock.yaml",
     "pnpm-workspace.yaml",
     "pyproject.toml",

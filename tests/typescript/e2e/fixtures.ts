@@ -1,5 +1,5 @@
+import { type BrowserContext, test as base, expect, type Page } from '@playwright/test';
 import { Hermetic } from '@rasm/ts-testkit/e2e';
-import { type BrowserContext, type Page, test as base, expect } from '@playwright/test';
 import { Option } from 'effect';
 
 // --- [TYPES] -----------------------------------------------------------------------------
@@ -19,13 +19,14 @@ const _EPOCH = new Date('2026-01-01T00:00:00.000Z');
 
 // Hermetic serving: every context route on the kit origin fulfills from the page corpus — a 404 for
 // a phantom path is the falsifiable miss, never a hang.
-const _serve = (context: BrowserContext): Promise<void> =>
-    context.route(`${Hermetic.origin}/**`, (route) =>
+const _serve = async (context: BrowserContext): Promise<void> => {
+    await context.route(`${Hermetic.origin}/**`, (route) =>
         Option.match(Hermetic.page(new URL(route.request().url()).pathname), {
             onNone: () => route.fulfill({ body: '', status: 404 }),
             onSome: (document) => route.fulfill({ body: document, contentType: 'text/html' }),
         }),
     );
+};
 
 // The one fixture tower: every platform capability is a row here, composed from kit data — never a
 // helper beside a spec.
