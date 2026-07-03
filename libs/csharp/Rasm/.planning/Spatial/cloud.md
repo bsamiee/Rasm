@@ -80,7 +80,7 @@ public abstract partial record VectorCloud {
 
     public static Fin<VectorCloud> Cluster(Seq<Point3d> points, Context context, Option<CloudAdmissionPolicy> admission = default, Option<Seq<double>> mass = default, Op? key = null) =>
         from admitted in AdmitPoints(points: points, context: context, key: key, minimum: 1)
-        from policy in admission.IfNone(CloudAdmissionPolicy.Default).Admit(key: admitted.Key)
+        let policy = admission.IfNone(CloudAdmissionPolicy.Default)
         from fold in CloudKernel.AdmitCluster(points: admitted.Points, mass: mass.Map(static m => new Arr<double>([.. m.AsIterable()])), policy: policy, key: admitted.Key)
         select (VectorCloud)new ClusterCase(Vertices: fold.Points, Tolerance: admitted.Context, Mass: fold.Mass, Admission: fold.Receipt);
 
@@ -106,7 +106,6 @@ public abstract partial record VectorCloud {
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct CloudAdmissionPolicy(bool Deduplicate, Option<PositiveMagnitude> Tolerance) {
     internal static CloudAdmissionPolicy Default => new(Deduplicate: true, Tolerance: None);
-    internal Fin<CloudAdmissionPolicy> Admit(Op key) { CloudAdmissionPolicy self = this; return Fin.Succ(self); }
     internal bool Equivalent(Point3d left, Point3d right) => Tolerance switch {
         { IsSome: true, Case: PositiveMagnitude t } => left.EpsilonEquals(other: right, epsilon: t.Value),
         _ => left == right,

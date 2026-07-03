@@ -5,7 +5,7 @@
 from collections.abc import Callable
 import hashlib
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import Literal, TYPE_CHECKING
 
 from expression import Error, Ok, Result
 import msgspec
@@ -32,11 +32,17 @@ from tools.assay.rails.bridge import (
     _aggregate_closure,
     _completed_from_stdout,
     _decode_envelope,
+    _evidence_status,
+    _EvidenceCertificate,
     _faulted,
     _freshness,
     _FRESHNESS_ABSENT,
     _freshness_note,
     _FRESHNESS_STALE,
+    _INSTALLED_PLUGIN_GLOB,
+    _reference_problems,
+    _REFERENCE_UNPROMOTED_PREFIX,
+    _ReferenceEvidenceResult,
     _scenario_artifacts,
     _scenario_closure,
     _selection,
@@ -46,6 +52,7 @@ from tools.assay.rails.bridge import (
     client_run,
     first_fault,
     quit as bridge_quit,
+    RHINO_LINE_MAJOR,
     status,
     verify,
 )
@@ -160,6 +167,12 @@ def test_freshness_reports_bounded_state(assay_root: AssayHarness) -> None:
     assert _freshness(assay_root.settings) in {"fresh", "stale", "absent", "unknown"}
 
 
+def test_installed_plugin_glob_derives_from_rhino_line_major() -> None:
+    """The installed-plugin probe derives its packages segment from RHINO_LINE_MAJOR, mirroring the supervisor's BundleInfo.RhinoLineMajor anchor."""
+    assert RHINO_LINE_MAJOR == 9
+    assert f"/packages/{RHINO_LINE_MAJOR}.0/" in _INSTALLED_PLUGIN_GLOB
+
+
 # --- [SELECTION]
 
 
@@ -255,6 +268,7 @@ def test_scenario_closure_and_aggregate(assay_root: AssayHarness) -> None:
     assert {Path(row).name for row in payload["assemblies"]} == {"Rasm.Scenarios.dll", "Core.dll", "Cargo.dll"}
     assert payload["scenarioAssemblies"] == ["Rasm.Scenarios.dll"]
     assert payload["hostPlugins"] == ["b45a29b1-4343-4035-989e-044e8580d9cf"]
+    assert "evidenceMode" not in payload, "argv owns the evidence mode; the closure manifest never carries it"
     (reference_root,) = payload["referenceRoots"]
     assert reference_root["assembly"] == "Rasm.Scenarios.dll"
     assert reference_root["path"].endswith("tests/csharp/scenarios/_references")
@@ -394,6 +408,38 @@ def test_verify_non_empty_corpus_proceeds_past_guard(assay_root: AssayHarness) -
     executor = SeamExecutor(run_fn=_bridge_run(_envelope(), build_outcome=stop))
     outcome = verify(assay_root.settings, assay_root.scope(Claim.BRIDGE), BridgeParams(), executor)
     assert "stop after the guard" in assert_error_status(outcome, RailStatus.FAULTED).message
+
+
+def test_evidence_status_reference_lanes() -> None:
+    """_evidence_status folds reference problems honestly: unpromoted-only degrades, any promoted-corpus problem faults, alone or mixed."""
+    unpromoted = ("reference.unpromoted:blocks.CoreRail", "reference.unpromoted:ui.Paint")
+    mismatch = ("reference.mismatch:blocks.CoreRail",)
+    rows: tuple[tuple[str, Literal["verify", "author"], RailStatus, bool, tuple[str, ...], RailStatus], ...] = (
+        ("clean-verify-ok", "verify", RailStatus.OK, True, (), RailStatus.OK),
+        ("unpromoted-only-degrades", "verify", RailStatus.OK, True, unpromoted, RailStatus.DEGRADED),
+        ("promoted-mismatch-faults", "verify", RailStatus.OK, True, mismatch, RailStatus.FAULTED),
+        ("mixed-unpromoted-and-mismatch-faults", "verify", RailStatus.OK, True, (*unpromoted, *mismatch), RailStatus.FAULTED),
+        ("certificate-problem-faults", "verify", RailStatus.OK, False, (), RailStatus.FAULTED),
+        ("author-always-candidate", "author", RailStatus.OK, True, unpromoted, RailStatus.CANDIDATE),
+        ("supervisor-verdict-passes-through", "verify", RailStatus.FAILED, True, unpromoted, RailStatus.FAILED),
+    )
+    for label, evidence, done, certificate_ok, problems, expected in rows:
+        got = _evidence_status(evidence=evidence, done=done, certificate_ok=certificate_ok, reference_problems=problems)
+        assert got is expected, f"[{label}] {got.value} != {expected.value}"
+
+
+def test_reference_problems_bind_the_unpromoted_prefix() -> None:
+    """_reference_problems emits admission-prefixed rows: only unpromoted rows carry the lane prefix, matched rows vanish."""
+    certificate = _EvidenceCertificate(
+        references=(
+            _ReferenceEvidenceResult(scenario="blocks.CoreRail", admission="unpromoted"),
+            _ReferenceEvidenceResult(scenario="camera.Sweep", admission="matched", matched=True),
+            _ReferenceEvidenceResult(scenario="ui.Paint", admission="mismatch"),
+        )
+    )
+    problems = _reference_problems(certificate)
+    assert problems == ("reference.unpromoted:blocks.CoreRail", "reference.mismatch:ui.Paint")
+    assert [problem.startswith(_REFERENCE_UNPROMOTED_PREFIX) for problem in problems] == [True, False]
 
 
 def test_scenario_artifacts_tolerates_missing_report_dir(tmp_path: Path) -> None:

@@ -1,16 +1,17 @@
 # [TYPESCRIPT_VALUES]
 
-This page is the value law: which runtime primitive owns an invariant, how identity is declared, and how comparison, combination, and scalar arithmetic compose as instance values. The doctrine names the Effect family as the domain default; this layer legislates the selection — the owner an invariant rides, the construction that implants identity, the algebra instance that carries policy — so every value decision is recoverable from a declaration, and JS stdlib survives only at the FFI seam and inside marked kernels. Everything around the value plane is shed by kind: vocabulary tables and the derivation algebra are `derivation.md`'s, Schema owners and admitted shapes are `shapes.md`'s, the carrier and in-flow `Option`/`Either` folds are `rails-and-effects.md`'s, dispatch over values is `surfaces-and-dispatch.md`'s, keyed accumulators threaded through incremental dataflow are `streams.md`'s, the decode seam that admits these values is `boundaries.md`'s, and the kernel exemption is `language.md`'s.
+This page is the value law: which runtime primitive owns an invariant, how identity is declared, and how comparison, combination, and scalar arithmetic compose as instance values. The layer legislates the selection — the owner an invariant rides, the construction that implants identity, the algebra instance that carries policy — so every value decision is recoverable from a declaration, and JS stdlib survives only at the FFI seam and inside marked kernels. Everything around the value plane is shed by kind: vocabulary tables and the derivation algebra are `derivation.md`'s, Schema owners and admitted shapes are `shapes.md`'s, the carrier and in-flow `Option`/`Either` folds are `rails-and-effects.md`'s, dispatch over values is `surfaces-and-dispatch.md`'s, keyed accumulators threaded through incremental dataflow are `streams.md`'s, the decode seam that admits these values is `boundaries.md`'s, and the kernel exemption is `language.md`'s.
 
 ## [01]-[VALUE_ALGEBRA]
 
 [VALUE_ALGEBRA]:
-- Owner law: the invariant selects the owner — keyed state rides `HashMap`, membership `HashSet`, traversal order `SortedMap`, amortized growth and batch windows `Chunk`, literal-keyed rest shapes the plain record under `Record`/`Struct`/`Tuple` folds, linear transforms the `Array` module whose reads are total (`Option`-returning) and whose comparison-bearing operations take instances as parameters
+- Owner law: the invariant selects the owner — keyed state rides `HashMap`, membership `HashSet`, traversal order `SortedMap`, amortized growth and batch windows `Chunk`, closed literal key sets the plain record under `Record`/`Struct`/`Tuple` folds, linear transforms the `Array` module whose reads are total (`Option`-returning) and whose comparison-bearing operations take instances as parameters
 - Identity law: identity is a construction fact — `Data.struct`, `Data.tuple`, and `Data.array` implant `Equal`/`Hash` to full depth, `Equal.equals` is the one domain equality, and keyed containers compare through it, so a keyable value is `Data`-constructed or primitive and one concept constructs through one channel
 - Instance law: comparison, equivalence, and refinement are composed instance values — `Order`/`Equivalence`/`Predicate` build from shipped atoms through `mapInput`, `combine`, `struct`, and `tuple`, travel as parameters into `Array.sortBy`, `Array.dedupeWith`, and `SortedMap.empty`, and carry their derived operator family (`min`, `max`, `clamp`, `between`) with them
 - Merge law: a domain combine is a `Semigroup`/`Monoid` instance — `Semigroup.struct` names each field's algebra as a row, any `Order` derives its extremum semigroup, and the identity decision is structural: a lawful `empty` lifts the fold to `Monoid.combineAll` over any collection, an identity-free algebra folds `combineMany` over a witnessed head
 - Scalar law: instants are `DateTime`, spans are `Duration`, exact decimals are `BigDecimal`, and the arithmetic lives on the owner — calendar moves, distances, rounding, comparisons — so epoch numbers, `Date`, and binary-float money never carry domain meaning; the ambient clock read is rail material
 - Partiality law: a partial operation returns `Option` — `Number.divide`, `Number.parse`, `BigDecimal.fromString`, `BigDecimal.divide`, `Duration.divide`, `DateTime.make` — and the caller folds absence as a value; `NaN`, `Infinity`, silent `undefined`, and the throwing parse are the deleted spellings
+- Seam law: bytes and secrets are sealed at the text seam — `Encoding` owns binary-to-text with total encode and `Either`-returning decode, `Redacted` owns the secret lifecycle from admission to retirement, and the interior carries `Uint8Array` and sealed values, never base64 text or a raw secret string
 
 Treat the value plane as an algebra of owners and instances, never a bag of ad-hoc helpers. Replace a JS `Map`, an inline comparator, a hand merge function, an epoch subtraction, a NaN guard, or a raw secret string the moment the owning primitive or a composed instance carries the invariant.
 
@@ -20,72 +21,72 @@ Each table routes a value invariant to the primitive that owns it, and every `[U
 
 [COLLECTION_OWNER_FORMS]: which container owns a state invariant.
 
-| [INDEX] | [CONCERN]                        | [USE]                                          | [REPLACE]                                |
-| :-----: | :------------------------------- | :--------------------------------------------- | :---------------------------------------- |
-|  [01]   | keyed domain state               | `HashMap` keyed by `Data` value or primitive   | JS `Map`, object-as-map mutation           |
-|  [02]   | keyed read-merge-write           | `HashMap.modifyAt` `Option` fold               | `get`-then-`set` pair, spread rebuild      |
-|  [03]   | membership                       | `HashSet`                                      | JS `Set`, `Array.includes` scan            |
-|  [04]   | order-bearing keyed traversal    | `SortedMap` carrying its `Order`               | sort-on-read of map entries                |
-|  [05]   | amortized growth, batch windows  | `Chunk`                                        | `push` accumulation, spread rebuild        |
-|  [06]   | literal-keyed rest shape         | plain record under `Record`/`Struct` folds     | `HashMap` over a closed key set            |
-|  [07]   | linear transform, total read     | `Array` module folds; `Option`-returning reads | method chains with inline comparators      |
-|  [08]   | measured batch mutation          | `HashMap.mutate` / `MutableHashMap` kernel     | mutable map escaping as live state         |
+| [INDEX] | [CONCERN]                       | [USE]                                          | [REPLACE]                             |
+| :-----: | :------------------------------ | :--------------------------------------------- | :------------------------------------ |
+|  [01]   | keyed domain state              | `HashMap` keyed by `Data` value or primitive   | JS `Map`, object-as-map mutation      |
+|  [02]   | keyed read-merge-write          | `HashMap.modifyAt` `Option` fold               | `get`-then-`set` pair, spread rebuild |
+|  [03]   | membership                      | `HashSet`                                      | JS `Set`, `Array.includes` scan       |
+|  [04]   | order-bearing keyed traversal   | `SortedMap` carrying its `Order`               | sort-on-read of map entries           |
+|  [05]   | amortized growth, batch windows | `Chunk`                                        | `push` accumulation, spread rebuild   |
+|  [06]   | closed literal key set          | plain record under `Record`/`Struct` folds     | `HashMap` over a closed key set       |
+|  [07]   | linear transform, total read    | `Array` module folds; `Option`-returning reads | method chains with inline comparators |
+|  [08]   | measured batch mutation         | `HashMap.mutate` / `MutableHashMap` kernel     | mutable map escaping as live state    |
 
 [IDENTITY_FORMS]: how a value carries identity.
 
-| [INDEX] | [CONCERN]                  | [USE]                                        | [REPLACE]                              |
-| :-----: | :------------------------- | :------------------------------------------- | :-------------------------------------- |
+| [INDEX] | [CONCERN]                  | [USE]                                         | [REPLACE]                               |
+| :-----: | :------------------------- | :-------------------------------------------- | :-------------------------------------- |
 |  [01]   | domain equality            | `Equal.equals` over `Data`-constructed values | `===`, `JSON.stringify` comparison      |
-|  [02]   | record, tuple, array value | `Data.struct` / `Data.tuple` / `Data.array`  | plain literal expected to compare        |
-|  [03]   | container key              | `Data`-constructed or primitive key           | plain object key missing on fresh build  |
-|  [04]   | hash identity              | `Hash.hash` implied by the constructors       | hand hashCode, string-concat keys        |
-|  [05]   | projection equality        | `Equivalence` instance                        | widening `Equal` to answer a projection  |
+|  [02]   | record, tuple, array value | `Data.struct` / `Data.tuple` / `Data.array`   | plain literal expected to compare       |
+|  [03]   | container key              | `Data`-constructed or primitive key           | plain object key missing on fresh build |
+|  [04]   | hash identity              | `Hash.hash` implied by the constructors       | hand hashCode, string-concat keys       |
+|  [05]   | projection equality        | `Equivalence` instance                        | widening `Equal` to answer a projection |
 
 [INSTANCE_FORMS]: how comparison policy is declared.
 
-| [INDEX] | [CONCERN]                | [USE]                                                | [REPLACE]                          |
-| :-----: | :----------------------- | :--------------------------------------------------- | :---------------------------------- |
-|  [01]   | order on a projection    | `Order.mapInput` onto a shipped atom                 | `(a, b) => a.x - b.x`               |
-|  [02]   | lexicographic tie-break  | `Order.combine` / `Order.combineAll`                 | nested-ternary comparator           |
-|  [03]   | record, positional order | `Order.struct` / `Order.tuple`                       | hand multi-field comparator         |
-|  [04]   | inversion                | `Order.reverse`                                      | negated subtraction                 |
-|  [05]   | comparison family        | `Order.min` / `max` / `clamp` / `between`            | ad-hoc ternaries per site           |
-|  [06]   | projection equivalence   | `Equivalence.mapInput` / `struct` / `tuple` / `array` | delimiter-joined key strings        |
-|  [07]   | composed refinement      | `Predicate.and` / `or` / `not` / `struct`            | boolean-soup conditions             |
+| [INDEX] | [CONCERN]                | [USE]                                                 | [REPLACE]                    |
+| :-----: | :----------------------- | :---------------------------------------------------- | :--------------------------- |
+|  [01]   | order on a projection    | `Order.mapInput` onto a shipped atom                  | `(a, b) => a.x - b.x`        |
+|  [02]   | lexicographic tie-break  | `Order.combine` / `Order.combineAll`                  | nested-ternary comparator    |
+|  [03]   | record, positional order | `Order.struct` / `Order.tuple`                        | hand multi-field comparator  |
+|  [04]   | inversion                | `Order.reverse`                                       | negated subtraction          |
+|  [05]   | comparison family        | `Order.min` / `max` / `clamp` / `between`             | ad-hoc ternaries per site    |
+|  [06]   | projection equivalence   | `Equivalence.mapInput` / `struct` / `tuple` / `array` | delimiter-joined key strings |
+|  [07]   | composed refinement      | `Predicate.and` / `or` / `not` / `struct`             | boolean-soup conditions      |
 
 [MERGE_FORMS]: how two values of one shape combine.
 
-| [INDEX] | [CONCERN]                | [USE]                                                     | [REPLACE]                        |
-| :-----: | :----------------------- | :--------------------------------------------------------- | :-------------------------------- |
-|  [01]   | per-field record merge   | `Semigroup.struct` rows                                    | hand merge function                |
-|  [02]   | positional merge         | `Semigroup.tuple`                                          | index juggling                     |
-|  [03]   | numeric, duration atoms  | `@effect/typeclass/data/*` shipped instances               | re-authored `(a, b) => a + b`      |
-|  [04]   | extremum by any order    | `Semigroup.min` / `Semigroup.max` over an `Order`          | `reduce` with a comparison ternary |
-|  [05]   | keep-first, keep-last    | `Semigroup.first` / `Semigroup.last`                       | ordering hacks                     |
-|  [06]   | separator fold           | `Semigroup.intercalate`                                    | join-with-map scatter              |
-|  [07]   | fold with identity       | `Monoid.fromSemigroup` / `Monoid.struct`; `combineAll`     | `reduce` with a hand seed          |
+| [INDEX] | [CONCERN]               | [USE]                                                  | [REPLACE]                          |
+| :-----: | :---------------------- | :----------------------------------------------------- | :--------------------------------- |
+|  [01]   | per-field record merge  | `Semigroup.struct` rows                                | hand merge function                |
+|  [02]   | positional merge        | `Semigroup.tuple`                                      | index juggling                     |
+|  [03]   | numeric, duration atoms | `@effect/typeclass/data/*` shipped instances           | re-authored `(a, b) => a + b`      |
+|  [04]   | extremum by any order   | `Semigroup.min` / `Semigroup.max` over an `Order`      | `reduce` with a comparison ternary |
+|  [05]   | keep-first, keep-last   | `Semigroup.first` / `Semigroup.last`                   | ordering hacks                     |
+|  [06]   | separator fold          | `Semigroup.intercalate`                                | join-with-map scatter              |
+|  [07]   | fold with identity      | `Monoid.fromSemigroup` / `Monoid.struct`; `combineAll` | `reduce` with a hand seed          |
 
 [SCALAR_FORMS]: which owner carries a scalar invariant.
 
-| [INDEX] | [CONCERN]           | [USE]                                                  | [REPLACE]                          |
-| :-----: | :------------------ | :------------------------------------------------------ | :---------------------------------- |
-|  [01]   | instant             | `DateTime`; `DateTime.now` on the rail                  | `new Date()`, `Date.now()`          |
-|  [02]   | span                | `Duration` constructors / `Duration.decode`             | raw millisecond literals            |
-|  [03]   | calendar arithmetic | `DateTime.add` / `addDuration` / `startOf` / `endOf`    | epoch-millisecond arithmetic        |
-|  [04]   | elapsed             | `DateTime.distanceDuration`                             | `getTime()` subtraction             |
-|  [05]   | instant comparison  | `DateTime.Order` / `min` / `max` / `between`            | `>=` on epoch numbers               |
-|  [06]   | exact decimal       | `BigDecimal`                                            | binary-float money math             |
-|  [07]   | fallible numeric    | `Number.divide` / `Number.parse` returning `Option`     | NaN guards, `parseFloat` checks     |
+| [INDEX] | [CONCERN]           | [USE]                                                | [REPLACE]                       |
+| :-----: | :------------------ | :--------------------------------------------------- | :------------------------------ |
+|  [01]   | instant             | `DateTime`; `DateTime.now` on the rail               | `new Date()`, `Date.now()`      |
+|  [02]   | span                | `Duration` constructors / `Duration.decode`          | raw millisecond literals        |
+|  [03]   | calendar arithmetic | `DateTime.add` / `addDuration` / `startOf` / `endOf` | epoch-millisecond arithmetic    |
+|  [04]   | elapsed             | `DateTime.distanceDuration`                          | `getTime()` subtraction         |
+|  [05]   | instant comparison  | `DateTime.Order` / `min` / `max` / `between`         | `>=` on epoch numbers           |
+|  [06]   | exact decimal       | `BigDecimal`                                         | binary-float money math         |
+|  [07]   | fallible numeric    | `Number.divide` / `Number.parse` returning `Option`  | NaN guards, `parseFloat` checks |
 
 [BYTE_AND_SECRET_FORMS]: how bytes cross text channels and secrets stay sealed.
 
-| [INDEX] | [CONCERN]          | [USE]                                                    | [REPLACE]                            |
-| :-----: | :----------------- | :-------------------------------------------------------- | :------------------------------------ |
-|  [01]   | binary-to-text     | `Encoding.encodeBase64` / `encodeBase64Url` / `encodeHex` | hand `btoa`, platform buffer calls    |
-|  [02]   | text-to-binary     | `Encoding.decodeBase64` / `decodeHex` returning `Either`  | throwing `atob`, unchecked parse      |
-|  [03]   | secret carrier     | `Redacted.make` at admission                              | raw string secret inside a shape      |
-|  [04]   | secret comparison  | `Redacted.getEquivalence`                                 | unwrap-and-compare                    |
-|  [05]   | secret retirement  | `Redacted.unsafeWipe` at the owning seam                  | secret left live for the process life |
+| [INDEX] | [CONCERN]         | [USE]                                                     | [REPLACE]                             |
+| :-----: | :---------------- | :-------------------------------------------------------- | :------------------------------------ |
+|  [01]   | binary-to-text    | `Encoding.encodeBase64` / `encodeBase64Url` / `encodeHex` | hand `btoa`, platform buffer calls    |
+|  [02]   | text-to-binary    | `Encoding.decodeBase64` / `decodeHex` returning `Either`  | throwing `atob`, unchecked parse      |
+|  [03]   | secret carrier    | `Redacted.make` at admission                              | raw string secret inside a shape      |
+|  [04]   | secret comparison | `Redacted.getEquivalence`                                 | unwrap-and-compare                    |
+|  [05]   | secret retirement | `Redacted.unsafeWipe` at the owning seam                  | secret left live for the process life |
 
 ## [03]-[VALUE_CONTRACTS]
 
@@ -93,7 +94,7 @@ Each contract fixes the selection and composition rule its chooser rows cannot s
 
 [COLLECTION_OWNER_SITE]:
 - Use when: domain state is keyed, member-tested, ordered, accumulated, or batch-transformed — the invariant selects the owner before any code is shaped.
-- Accept: `HashMap` for keyed state, keyed by `Data`-constructed values or primitives; `HashMap.modifyAt` as the single keyed read-merge-write whose `Option -> Option` fold decides insert, update, and delete in one arm; `HashSet` membership; `SortedMap` when traversal order is the invariant — the `Order` arrives at construction, never at read; `Chunk` for amortized append and batch windows; `Array`/`Record`/`Struct`/`Tuple` module folds over plain shapes; `HashMap.mutate` or `MutableHashMap` batching writes inside one marked kernel with the draft never escaping.
+- Accept: `HashMap` for keyed state, keyed by `Data`-constructed values or primitives; `HashMap.modifyAt` as the single keyed read-merge-write whose `Option -> Option` fold decides insert, update, and delete in one fold; `HashSet` membership; `SortedMap` when traversal order is the invariant — the `Order` arrives at construction, never at read; `Chunk` for amortized append and batch windows; `Array`/`Record`/`Struct`/`Tuple` module folds over plain shapes; `HashMap.mutate` or `MutableHashMap` batching writes inside one marked kernel with the draft never escaping.
 - Reject: JS `Map`/`Set` in domain flow — reference-keyed, so structurally equal keys miss and composite keys degrade into hand-joined strings; object-as-map mutation; a `get`-then-`set` pair restating `modifyAt`; `Array.includes` scans where `HashSet` owns membership; sort-on-read where `SortedMap` owns order; `HashMap` over a closed literal key set — that shape is a plain record whose key space is derivation material.
 - Law: the fold is the write surface — a keyed accumulator builds through `Array.reduce` over `modifyAt`, persistent structural sharing keeps the fold allocation-honest, and no intermediate map escapes mid-fold.
 - Boundary: a keyed accumulator threaded through incremental dataflow is `streams.md`'s; decoded collection admission (`Schema.HashMap`, `Schema.Chunk`) is `shapes.md`'s; the kernel mark is `language.md`'s.
@@ -113,7 +114,7 @@ export const meter = (pulses: ReadonlyArray<Pulse>): HashMap.HashMap<readonly [s
       }))))
 
 export const read = (meters: HashMap.HashMap<readonly [string, string], Meter>, realm: string, lane: string): Option.Option<Meter> =>
-  HashMap.get(meters, Data.tuple(realm, lane))               // a fresh key retrieves: lookup rides Equal.equals, so a plain literal key would miss every time
+  HashMap.get(meters, Data.tuple(realm, lane))               // a fresh key retrieves: lookup rides structural Hash and Equal, so a plain literal key would miss every time
 ```
 
 [STRUCTURAL_IDENTITY_SITE]:
@@ -125,7 +126,7 @@ export const read = (meters: HashMap.HashMap<readonly [string, string], Meter>, 
 - Boundary: tagged families and class owners (`Data.taggedEnum`, `Schema.Class`, `Data.Class` heritage) implant the same identity at their declaration — the owner forms are `shapes.md`'s and `language.md`'s; the `Equivalence` algebra is this page's instance contract.
 
 ```ts conceptual
-import { Array, Data, Equal, Hash, HashSet } from "effect"
+import { Array, Data, Equal, HashSet } from "effect"
 
 export type Facet = { readonly axis: string; readonly grade: number }
 export type Mark = { readonly key: string; readonly facets: ReadonlyArray<Facet> }
@@ -133,12 +134,13 @@ export type Mark = { readonly key: string; readonly facets: ReadonlyArray<Facet>
 export const mark = (key: string, facets: ReadonlyArray<Facet>): Mark =>
   Data.struct({ key, facets: Data.array(Array.map(facets, Data.struct)) }) // identity is implanted at construction, to full depth: nested members are Data-constructed too
 
-const _one = mark("<value-a>", [{ axis: "<axis-a>", grade: 3 }])
-const _two = mark("<value-a>", [{ axis: "<axis-a>", grade: 3 }])
+export const distinct = (marks: ReadonlyArray<Mark>): HashSet.HashSet<Mark> =>
+  HashSet.fromIterable(marks)                                 // the set consumes the contract Equal implies — equal values hash equal — so structural duplicates collapse without a comparator
 
-export const same: boolean = Equal.equals(_one, _two)        // true — structure decides; _one === _two is false and never asked
-export const aligned: boolean = Hash.hash(_one) === Hash.hash(_two) // the contract Equal implies: equal values hash equal — what every keyed container consumes
-export const distinct: HashSet.HashSet<Mark> = HashSet.fromIterable([_one, _two]) // size 1: the set collapses structural duplicates
+export const sift = (seen: HashSet.HashSet<Mark>, incoming: ReadonlyArray<Mark>): ReadonlyArray<Mark> =>
+  Array.filter(incoming, (row) => !HashSet.has(seen, row))    // membership is structure-decided: a rebuilt equal mark is recognized and dropped — reference identity would pass every rebuild through
+
+const _replay = Equal.equals(mark("<value-a>", [{ axis: "<axis-a>", grade: 3 }]), mark("<value-a>", [{ axis: "<axis-a>", grade: 3 }])) // true — two fresh builds compare structurally; === on the same pair is false and never asked
 ```
 
 [ALGEBRA_INSTANCE_SITE]:
@@ -283,8 +285,8 @@ export const rotated = (live: Redacted.Redacted<string>, next: Redacted.Redacted
 Use these tests before keeping a form the value layer already owns.
 
 [STDLIB_RESIDUE]:
-- Smell: a `Map`, `Set`, `Date`, epoch number, `btoa`, or float money value carries domain meaning, or a domain shape stores base64 text as its byte representation.
-- Collapse: route to the owning primitive — `HashMap`/`HashSet`, `DateTime`/`Duration`, `BigDecimal`, `Encoding` — and pin the stdlib value at its FFI seam or marked kernel.
+- Smell: a `Map`, `Set`, `Date`, epoch number, `btoa`, or float money value carries domain meaning, a domain shape stores base64 text as its byte representation, or a secret travels as a raw string.
+- Collapse: route to the owning primitive — `HashMap`/`HashSet`, `DateTime`/`Duration`, `BigDecimal`, `Encoding`, `Redacted` — and pin the stdlib value at its FFI seam or marked kernel.
 - Done when: stdlib values appear only at FFI seams and inside marked kernels, and every domain invariant names its Effect owner.
 
 [IDENTITY_BLUR]:

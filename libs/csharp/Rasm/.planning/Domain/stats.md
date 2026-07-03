@@ -68,7 +68,7 @@ public partial record StatContext {
     public sealed record NoneCase : StatContext;
     public sealed record MetricCase(ScalarMetric Value) : StatContext;
     public sealed record ToleranceCase(double Value, bool WithinTolerance) : StatContext;
-    public static StatContext None => new NoneCase();
+    public static StatContext None { get; } = new NoneCase();
     public static StatContext Metric(ScalarMetric metric) => new MetricCase(Value: metric);
     public static StatContext Tolerance(double tolerance, double minimum, double maximum) =>
         new ToleranceCase(Value: tolerance, WithinTolerance: Math.Max(val1: Math.Abs(value: minimum), val2: Math.Abs(value: maximum)) <= tolerance);

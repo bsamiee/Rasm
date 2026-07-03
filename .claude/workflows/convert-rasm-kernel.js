@@ -1,6 +1,6 @@
 export const meta = {
   name: 'convert-rasm-kernel',
-  description: 'Convert the Rasm kernel to an ordinary planning-scoped package: ledger the mature Vectors/Domain/Analysis source + the boundary/consumer facts, rule the new .planning partition + Rhino boundary + compile-consumer disposition + roster delta in one blueprint, author the new design pages ground-up at the docs/stacks/csharp bar with zero capability loss (author -> hostile critique review -> cold redteam per unit, pipelined), execute the backup-gated restructure (Geometry re-home, source retirement, Radyab toy-app removal, csproj/slnx/lock/manifest alignment), sweep every durable-doc and .claude ripple in one wave, rebuild-improve the geometry brief through 3 cold passes, waterfall the five consumer RASM-CS briefs against the as-if-realized kernel, cross-align the whole C# brief corpus through 3 cold passes, and terminally verify capability coverage. About 50 agents, peak concurrency 6. Ephemeral: delete after the conversion lands.',
+  description: 'Convert the Rasm kernel to an ordinary planning-scoped package: ledger the mature Vectors/Domain/Analysis source + the boundary/consumer facts, rule the new .planning partition + Rhino boundary + compile-consumer disposition + roster delta in one blueprint, author the new design pages ground-up at the docs/stacks/csharp bar with zero capability loss (author -> hostile critique review -> cold redteam per unit, pipelined), execute the backup-gated restructure (Geometry re-home, source retirement, Radyab toy-app removal, csproj/slnx/lock/manifest alignment), sweep every durable-doc and .claude ripple in one wave, harden the full landed kernel folder through 3 cold passes, rebuild-improve the geometry brief through 3 cold passes, waterfall the five consumer RASM-CS briefs against the as-if-realized kernel, align the whole C# brief corpus in one cold pass, and terminally verify capability coverage. About 51 agents, peak concurrency 6. Ephemeral: delete after the conversion lands.',
   whenToUse: 'One-shot kernel conversion. Launch only after no other run is reading libs/csharp/Rasm paths; the .archive/Rasm backup must exist.',
   phases: [
     { title: 'Inventory', detail: '4 capability-ledger lanes (Vectors halves, Domain+Analysis, boundary/consumer census) + 1 ecosystem lane, parallel, opus' },
@@ -8,9 +8,10 @@ export const meta = {
     { title: 'Build', detail: 'per blueprint unit: ground-up author -> hostile critique review -> cold redteam, pipelined, fix-in-place' },
     { title: 'Restructure', detail: '1 agent: backup gate, Geometry re-home, source retirement, Radyab removal, csproj/slnx/lock/central-manifest alignment' },
     { title: 'Ripple', detail: 'kernel index docs + repo durable docs + .claude surfaces (+ .api catalogs when the roster changed), parallel' },
+    { title: 'Harden', detail: '3 sequential cold passes over the full landed kernel folder: holistic integration -> mechanical critique -> terminal redteam, fix-in-place' },
     { title: 'Campaign', detail: '3 cold passes (initial -> critique -> redteam): RASM-CS-GEOMETRY-BRIEF rebuilt and improved to the landed kernel + design-cs-geometry.js re-grounded' },
     { title: 'Waterfall', detail: '5 parallel: consumer RASM-CS briefs improved against the as-if-realized kernel, never weakened' },
-    { title: 'Corpus', detail: '3 sequential cold passes cross-aligning the whole C# brief corpus holistically' },
+    { title: 'Corpus', detail: '1 agent: one cold alignment pass over the whole C# brief corpus' },
     { title: 'Verify', detail: '1 terminal agent: capability reconciliation, structure audit, residue sweep, repair-in-place' },
   ],
 }
@@ -196,6 +197,24 @@ const catalogsPrompt = (roster) => [PRE, 'TASK: API CATALOG ALIGNMENT for the ro
   'surface AND how it stacks into the kernel rails, real members verified via the nuget MCP (get_package_context) + official docs/source via ' +
   'Context7/exa/tavily; never phantom members. For each REMOVED package git rm its catalog. Touch ONLY ' +
   ROOT + '/.api/. Report every file touched.'].join('\n')
+const hardenPrompt = (role, blueprint) => [PRE, STACK, 'TASK: FOLDER HARDEN — ' + role + ' pass (of 3, sequential, each COLD) over the FULL ' +
+  'landed kernel folder: every page under ' + NEW_PLAN + '/ (every sub-domain, new AND re-homed pages alike), with ' + ROOT + '/README.md + ' +
+  'ARCHITECTURE.md and both .api tiers (' + ROOT + '/.api/ + libs/csharp/.api/) as verification substrate. The restructure and ripple are ' +
+  'DONE — this folder is the final corpus; every finding is a fix applied in place, never a note; no hedging, no defending. ' +
+  (role === 'initial'
+    ? 'LENS: holistic integration — the corpus was authored and hardened per-unit; you own what spans units: cross-page duplication ' +
+      'collapses to one owner (a shape, receipt, or rail spelled twice dies), seam coherence (every page composes sibling vocabulary at the ' +
+      'exact spelling the owning page fences), entry-point unification (one polymorphic entry per rail, no parallel modality names), ' +
+      'stacking completeness (an admitted-package capability the concept admits but no page exploits is a gap you CLOSE), and index-doc ' +
+      'truth (the README router and ARCHITECTURE codemap/seams match the real corpus on disk).'
+    : role === 'critique'
+    ? 'LENS: cold mechanical conformance, line by line: collapse scan, owner choice, knob test, rail unification, C#14/net10 modernity, ' +
+      'page grammar + banned hedges + zero provenance, phantom-member kill (every external member verified against both .api tiers or the ' +
+      'nuget MCP), and capability coverage against the ledgers at ' + SCRATCH + '/ — an unexpressed ledger row is repaired, never noted.'
+    : 'LENS: terminal redteam — counterfactual on every core owner/algebra/dispatch (a stronger shape REPLACES the weaker), ' +
+      'diff-of-the-next-feature per page, long-tail + failure-mode attack, boundary/strata integrity against the blueprint ' + blueprint +
+      ' rulings, weakening-detection across the two prior passes, and the world-class bar: the folder reads as ONE designed system, never ' +
+      'nine stitched units.') + ' Report files touched + residue.'].join('\n')
 const geoBriefPrompt = (blueprint) => [PRE, STACK, 'TASK: GEOMETRY BRIEF REBUILD — pass 1 of 3 (initial). The standing campaign ' +
   '(RASM-CS-GEOMETRY-BRIEF.md -> design-cs-geometry.js -> DECISION -> rebuild legs) runs AFTER this conversion; it is alive, never dead, and ' +
   'it comes out STRONGER than it went in. Read the landed kernel corpus (' + NEW_PLAN + '/ in full — the new pages AND the 18 re-homed ' +
@@ -240,19 +259,13 @@ const waterfallPrompt = (b, blueprint) => [PRE, STACK, 'TASK: BRIEF WATERFALL �
   'a mandate; NEW avenues and features the new kernel enables EXTEND the brief; every stale Rasm path or member re-anchors onto the new ' +
   'pages. NEVER reduce, weaken, or hedge a mandate — improvement and extension only, holistically considered. Fix in place. Report files ' +
   'touched + residue.'].join('\n')
-const corpusPrompt = (role, blueprint) => [PRE, STACK, 'TASK: CROSS-CORPUS BRIEF REVIEW — ' + role + ' pass over the WHOLE C# brief corpus: ' +
-  'RASM-CS-GEOMETRY-BRIEF.md plus the five consumer briefs (APPHOST, APPUI, COMPUTE, FABRICATION, PERSISTENCE). COLD-read every brief IN ' +
-  'FULL against the landed kernel (' + NEW_PLAN + '/) and the blueprint ' + blueprint + '; every finding is a fix applied in place, never a ' +
-  'note — no hedging, no defending. ' + (role === 'initial'
-    ? 'LENS: alignment + propagation completeness — every landed-kernel capability that materially improves a consumer brief IS propagated; ' +
-      'inter-brief seams cohere (a capability one brief exports, the consumer composes at the same spelling); kernel law flows downstream ' +
-      'and is re-minted nowhere; duplicated or contradictory mandates collapse to one owner.'
-    : role === 'critique'
-    ? 'LENS: mechanical verification — every path, anchor, member, and package claim across all six briefs proven against disk, the page ' +
-      'fences, both .api tiers, or the nuget MCP; every mandate held to the doctrine bar; a phantom or stale claim dies.'
-    : 'LENS: terminal redteam — counterfactual on the corpus shape, diff-of-the-next-feature across briefs, weakening-detection (any earlier ' +
-      'pass that reduced a mandate is reverted STRONGER), long-tail seam attack, world-class holistic integrity; the corpus is hollow until ' +
-      'your attack fails.') + ' Report files touched + residue.'].join('\n')
+const alignPrompt = (blueprint) => [PRE, STACK, 'TASK: CROSS-CORPUS BRIEF ALIGNMENT — one COLD pass over the WHOLE C# brief corpus: ' +
+  'RASM-CS-GEOMETRY-BRIEF.md plus the five consumer briefs (APPHOST, APPUI, COMPUTE, FABRICATION, PERSISTENCE). Read every brief IN FULL ' +
+  'against the landed kernel (' + NEW_PLAN + '/) and the blueprint ' + blueprint + '; every finding is a fix applied in place, never a note ' +
+  '— no hedging, no defending. Align: inter-brief seams cohere (a capability one brief exports, the consumer composes at the same ' +
+  'spelling); kernel law flows downstream and is re-minted nowhere; duplicated or contradictory mandates collapse to one owner; every path, ' +
+  'anchor, member, and package claim spot-verified against disk, the page fences, both .api tiers, or the nuget MCP; and no waterfall pass ' +
+  'weakened a mandate — a reduced mandate is reverted STRONGER. Report files touched + residue.'].join('\n')
 const verifyPrompt = (blueprint, dossiers, built, gaps) => [PRE, 'TASK: TERMINAL VERIFY — adversarial, WRITING (repair what you can reach ' +
   'NOW; no further rounds). (1) CAPABILITY RECONCILIATION: walk every ledger (' + JSON.stringify(dossiers) + ') row against the landed pages ' +
   '(' + JSON.stringify(built) + ') and the blueprint ' + blueprint + ' drop list — every row is expressed or explicitly dropped with a ' +
@@ -329,6 +342,15 @@ phase('Ripple')
 const ripples = (await parallel(rippleThunks)).filter(Boolean)
 log('Ripple: ' + ripples.reduce((n, r) => n + (r.files || []).length, 0) + ' files touched; residue flagged: ' + ripples.reduce((n, r) => n + (r.residue || []).length, 0))
 
+// --- [HARDEN]
+phase('Harden')
+const harden = []
+for (const role of ['initial', 'critique', 'redteam']) {
+  const r = await agent(hardenPrompt(role, plan.blueprint), { label: 'harden:' + role, phase: 'Harden', effort: 'max', schema: RIPPLE_SCHEMA, stallMs: STALL })
+  if (r) harden.push(r)
+}
+log('Harden: ' + harden.length + '/3 folder passes, ' + harden.reduce((n, r) => n + (r.files || []).length, 0) + ' file-touches')
+
 // --- [CAMPAIGN]
 phase('Campaign')
 const geo = []
@@ -346,12 +368,8 @@ log('Waterfall: ' + waterfall.length + '/' + CONSUMER_BRIEFS.length + ' consumer
 
 // --- [CORPUS]
 phase('Corpus')
-const corpus = []
-for (const role of ['initial', 'critique', 'redteam']) {
-  const r = await agent(corpusPrompt(role, plan.blueprint), { label: 'corpus:' + role, phase: 'Corpus', effort: 'max', schema: RIPPLE_SCHEMA, stallMs: STALL })
-  if (r) corpus.push(r)
-}
-log('Corpus: ' + corpus.length + '/3 cross-corpus passes')
+const corpus = await agent(alignPrompt(plan.blueprint), { label: 'corpus:align', phase: 'Corpus', effort: 'max', schema: RIPPLE_SCHEMA, stallMs: STALL })
+log('Corpus: ' + ((corpus && corpus.files) || []).length + ' brief files aligned')
 
 // --- [VERIFY]
 phase('Verify')
@@ -359,12 +377,12 @@ const verdict = await agent(verifyPrompt(plan.blueprint, DOSSIERS, BUILT_PAGES, 
   { label: 'verify', phase: 'Verify', effort: 'max', schema: VERIFY_SCHEMA, stallMs: STALL })
 
 return {
-  campaign_files: campaign.flatMap((r) => r.files || []), waterfall_files: waterfall.flatMap((r) => r.files || []),
-  corpus_files: corpus.flatMap((r) => r.files || []),
+  harden_files: harden.flatMap((r) => r.files || []), campaign_files: campaign.flatMap((r) => r.files || []),
+  waterfall_files: waterfall.flatMap((r) => r.files || []), corpus_files: (corpus && corpus.files) || [],
   pages: BUILT_PAGES, rhino_ruling: plan.rhino_ruling, disposition: plan.disposition, roster: plan.roster || [],
   moved: (exec && exec.moved) || [], deleted: (exec && exec.deleted) || [], kept: (exec && exec.kept) || [],
   docs_touched: ripples.flatMap((r) => r.files || []),
-  doc_residue: ripples.concat(campaign, waterfall, corpus).flatMap((r) => r.residue || []),
+  doc_residue: ripples.concat(harden, campaign, waterfall, corpus ? [corpus] : []).flatMap((r) => r.residue || []),
   coverage: (verdict && verdict.coverage) || 'VERIFY MISSING — rerun', hard_residual: (verdict && verdict.residuals) || [],
   dossiers: DOSSIERS, blueprint: plan.blueprint, scratch: SCRATCH,
 }

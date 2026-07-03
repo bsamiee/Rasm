@@ -66,7 +66,7 @@ public readonly partial struct AngleTolerance {
 - Law: threading is explicit — `Context` rides as a parameter on the synchronous rails and inside `Env` on `Eff` pipelines (the `rails.md` threading law); no operation reads a global default, and `Millimeters()` exists so a context-free entry can still construct a real validated bundle.
 - Packages: Thinktecture.Runtime.Extensions (`[ValueObject<double>]`), LanguageExt.Core (`Validation`, applicative `Apply`), RhinoCommon (`RhinoMath`, `UnitSystem`, `RhinoDoc`, `Intersection` — value reads only).
 - Growth: a new model-space fact (a fourth tolerance, a grid resolution policy, a document epoch) is one validated slot plus one factory argument on the scalar floor — every derived factory inherits it; a parallel context record or an optional-parameter tail is the rejected form.
-- Boundary: `Analyze.From(RhinoDoc)`/`Analyze.In(...)` (`Analysis/query.md`) are thin forwarders over this family; `Env` carries the constructed `Context`; no other page names `RhinoDoc`.
+- Boundary: `Analyze.From(RhinoDoc)`/`Analyze.In(...)` (`Analysis/query.md`) are thin forwarders over this family; `Env` carries the constructed `Context`; this factory and that forwarder are the only two members in the corpus that name `RhinoDoc`.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------

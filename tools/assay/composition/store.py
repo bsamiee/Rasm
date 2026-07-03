@@ -94,7 +94,12 @@ PY_ARTIFACT_ROOTS: Final[dict[str, str]] = {
 PY_COVERAGE_FILES: Final[dict[str, str]] = {fmt: f"{PY_ARTIFACT_ROOTS['coverage']}/coverage.{fmt}" for fmt in ("json", "xml", "lcov")}
 # Stryker writes a sandbox (`.stryker-tmp`, cwd-relative) plus reports; the staged work root keeps the sandbox under
 # `.artifacts` while `--output` routes reports to the sibling report root, which assay pre-creates before the run.
-CS_ARTIFACT_ROOTS: Final[dict[str, str]] = {"stryker": f"{_ARTIFACTS}/csharp/stryker/work", "stryker-output": f"{_ARTIFACTS}/csharp/stryker"}
+# TRX evidence lands beside them; the test rail nests per-project result dirs under the trx root.
+CS_ARTIFACT_ROOTS: Final[dict[str, str]] = {
+    "stryker": f"{_ARTIFACTS}/csharp/stryker/work",
+    "stryker-output": f"{_ARTIFACTS}/csharp/stryker",
+    "trx": f"{_ARTIFACTS}/csharp/trx",
+}
 # One shared dotnet build closure for the static and test rails: per-claim or per-sha trees each hold a full
 # solution build (~16GB), so any second key doubles the disk for zero isolation — the exclusive build lease
 # already serializes writers, and the artifacts layout separates projects and pivots inside one tree.

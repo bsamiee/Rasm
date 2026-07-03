@@ -124,6 +124,8 @@ Scenario proof flows through one route, content to verdict:
 3. Evidence: the live RhinoWIP host executes the staged scenarios; `ScenarioContext` fact streams, manifests, and captures fold into the assay-owned artifact scopes.
 4. Verdict: `uv run python -m tools.assay bridge verify` folds the run into one bridge Envelope; `bridge status` reports host health, and `bridge quit` terminates the host cleanly.
 
+Reference lifecycle: `--evidence author` runs write candidate references under `tests/csharp/scenarios/_references/<theme>/`, human review promotes a candidate by renaming it to `<method>.reference.json`, and a verify run over an unpromoted corpus degrades rather than fails. The full lifecycle, tolerance, and admission law is [tools/rhino-bridge/README.md](../tools/rhino-bridge/README.md).
+
 The `Contract` and `Supervisor` suites under `tests/csharp/tools/rhino-bridge` prove the wire contract and the supervisor fold that this pipeline rides; a bridge protocol change lands with its suite change or it does not land.
 
 ## [07]-[GATE_OWNERSHIP]

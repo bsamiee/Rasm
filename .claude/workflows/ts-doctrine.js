@@ -1,17 +1,19 @@
 export const meta = {
   name: 'ts-doctrine',
-  description: 'Ground-up tear-down/rebuild of the docs/stacks/typescript code doctrine. Scout (5 opus agents: python stack craft reference, csharp stack floor/structure, TS estate + platform paradigm + coding-ts law, external bleeding-edge TS/Effect research, package estate over the pnpm catalog + both .api tiers) -> Settle (1 agent decides the file set: README atlas + at most 10 concept pages, never more files than the python stack, each page one disjoint decision layer, atlas order = creation order, kills named) -> Build (per file IN ATLAS ORDER, strictly sequential so each later page inherits finalized earlier law: author max -> critique xhigh -> redteam max, all WRITE in place) -> Sweep (1 agent: cold atlas-order double read, region-duplication kill, killed-file deletion). Up to 41 agents, peak concurrency 5. Takes no args. Ephemeral: stack-ts hardens the result afterward; delete after the doctrine lands.',
+  description: 'Ground-up tear-down/rebuild of the docs/stacks/typescript code doctrine. Scout (5 opus agents: python stack craft reference, csharp stack floor/structure, TS estate + platform paradigm, external bleeding-edge TS/Effect research, package estate over the pnpm catalog + both .api tiers) -> Settle (1 agent decides the file set: README atlas + at most 10 concept pages, kills named) -> Build (README authored FIRST as the finalized doctrine head, then EVERY concept page in ONE parallel fable wave pooled at 5, each authored under the README + its charter, sibling-blind) -> Passes (3 sequential fable corpus agents, one per pass: HARDEN density/mandates/export-law per page -> ALIGN one unified shape system + region dedup + atlas parity -> FINALIZE cold read + kill verification). 20 agents, peak concurrency 5. Takes no args. Ephemeral: stack-ts hardens the result afterward; delete after the doctrine lands.',
   whenToUse: 'Campaign stage 4, after the TS branch stand-up and .api rebuild land: replace the junior-level csharp-copied TS doctrine with an ultra-aggressive TS-native standard before any folder build-out runs.',
   phases: [
     { title: 'Scout', detail: '5 parallel read-only dossiers: python craft bar, csharp floor structure, TS estate + decision-space inventory, external bleeding-edge research, package estate (pnpm catalog + both .api tiers)' },
     { title: 'Settle', detail: '1 agent settles the file roster (README + <=10 pages), per-page layer/charter/regions, creation order, and the kill list' },
-    { title: 'Build', detail: 'per file in atlas order, fully sequential: author -> critique -> redteam, each writing in place; later pages read earlier ones as finalized law' },
-    { title: 'Sweep', detail: '1 agent: corpus-wide cold read in atlas order, zero duplicated snippet regions, atlas/roster parity, killed files deleted' },
+    { title: 'Build', detail: 'README held as settled on disk; all concept pages in one parallel fable wave (pooled at 5), each under the README + its own charter, sibling-blind' },
+    { title: 'Passes', detail: '3 sequential fable corpus passes, one agent each: harden (density/mandates/export-law) -> align (unified shape system, region dedup, atlas parity) -> finalize (cold read, kills verified deleted)' },
   ],
 }
 
 // --- [CONSTANTS] -------------------------------------------------------------------------
 const STALL = 480000
+const STAGGER_MS = 2000
+const WAVE_CAP = 5
 const TSD = 'docs/stacks/typescript'
 const PY = 'docs/stacks/python'
 const CS = 'docs/stacks/csharp'
@@ -31,8 +33,8 @@ const PLAN = { type: 'object', additionalProperties: false, required: ['files', 
     path: { type: 'string' }, title: { type: 'string' }, order: { type: 'number' }, layer: { type: 'string' }, charter: { type: 'string' },
     regions: { type: 'array', items: { type: 'string' } } } } },
   kills: { type: 'array', items: { type: 'string' } }, rationale: { type: 'string' } } }
-const SWEEP = { type: 'object', additionalProperties: false, required: ['report'], properties: {
-  deleted: { type: 'array', items: { type: 'string' } }, edits: { type: 'array', items: { type: 'string' } }, report: { type: 'string' } } }
+const PASS = { type: 'object', additionalProperties: false, required: ['report'], properties: {
+  edits: { type: 'array', items: { type: 'string' } }, report: { type: 'string' } } }
 
 // --- [DOCTRINE] --------------------------------------------------------------------------
 const LAW = 'Rasm monorepo. TARGET: ' + TSD + '/ - the TypeScript code doctrine. docs/stacks folders are ULTRA-OPINIONATED code-quality standards ' +
@@ -85,8 +87,30 @@ const MANDATES = 'CONTENT MANDATES - decision axes the corpus MUST legislate at 
   'derive (Schema.Schema.Type/Schema.Schema.Encoded, X.Type on class owners), wire twins derive through Schema.transform and encodings, and a ' +
   'hand-declared parallel interface or DTO beside a Schema owner is the named defect.'
 const PRE = [LAW, REFS, CRAFT, MANDATES].join('\n')
+const EXPORT_LAW = 'EXPORT LAW (binding in every snippet, and legislated as doctrine by the module/export-owning page): a module NEVER exports ' +
+  'inline at a declaration site - no `export const`, `export function`, `export class`, `export type`, `export interface`, `export declare ' +
+  'namespace` in the body. Declarations are authored unexported; the file ends with ONE `// --- [EXPORTS]` block carrying the complete public ' +
+  'surface as `export { A, B }` + `export type { T, U }` - one glance at the file end reveals the entire public surface. The one-name ' +
+  'value/type merge and minimal-surface laws still hold: the exports block is where the surface is DECLARED, never a license to widen it.'
+const DENSITY_GATE = 'DENSITY GATE (the rejection bar): a page whose cards and fences do not VISIBLY exceed the sibling-stack page density - ' +
+  'decisions per card, operator depth per fence, shapes-replaced per declaration - is REJECTED and rebuilt in place, never accepted as merely ' +
+  'okay. Every page DEMONSTRATES the mandates in its fences where its layer admits them: value-derived satisfies tables, one-name exports with ' +
+  'the end-of-file exports block, inline injection/wrapping at the owner, overload-collapsed and Function.dual entries, inference pre-solved at ' +
+  'the owner, nested Schema owners replacing 5+ loose shapes. A fence a competent senior would write the same way is table-stakes to delete or ' +
+  'deepen; reducing total const/type/shape count while gaining capability is the visible proof the page works.'
+const BUILDPRE = [PRE, EXPORT_LAW, DENSITY_GATE].join('\n')
 
 // --- [OPERATIONS] ------------------------------------------------------------------------
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+const pool = async (items, cap, worker) => {
+  const out = new Array(items.length)
+  let next = 0
+  let gate = Promise.resolve()
+  const launch = () => { gate = gate.then(() => sleep(STAGGER_MS)); return gate }
+  const run = async () => { while (next < items.length) { const i = next++; await launch(); out[i] = await worker(items[i], i) } }
+  await Promise.all(Array.from({ length: Math.min(cap, items.length) }, () => run()))
+  return out
+}
 const scoutPrompt = (scope) => [PRE, '', 'TASK: READ-ONLY SCOUT (investigate, do NOT edit). ' + scope, '',
   'Return the dossier: facts (verified, file-anchored), keep (craft mechanisms and laws that MUST shape the new corpus), constraints (page ' +
   'grammar, budget, and boundary laws that bound the rebuild), opportunities (where the new doctrine can push past both reference stacks), ' +
@@ -136,40 +160,48 @@ const settlePrompt = (dossiers) => [PRE, '', 'SCOUT DOSSIERS (S1 python craft, S
   'cross-cutting folder-scoped decisions included - with zero layer overlap; creation order is a real dependency order (vocabulary-setting ' +
   'layers before consuming layers). You may read any ' +
   'repo file to ground the call. Return the plan.'].join('\n')
-const authorPrompt = (row, files) => [PRE, '', 'THE SETTLED ROSTER (creation order):\n' + JSON.stringify(files.map((f) => ({
-  path: f.path, order: f.order, layer: f.layer, charter: f.charter })), null, 1), '', 'TASK: AUTHOR ' + row.path + ' GROUND-UP (order ' +
-  row.order + '; layer: ' + row.layer + '; charter: ' + row.charter + '; owned regions: ' + row.regions.join(' | ') + '). READ FIRST, from ' +
-  'disk: every roster file with order LOWER than yours - finalized law, adhered to, never restated, never contradicted - and the reference ' +
-  'stacks for craft at whatever depth you need. THEN WRITE THE COMPLETE FILE via Write. ' + (row.order === 0
-  ? 'The README is the atlas head: the doctrine laws in groups reauthored TS-NATIVE (the flow/shape/derivation/material/integration space ' +
-    'sized to what TS truly needs, never a count-mirror of a sibling), the atlas routing table over the settled roster, the collapse-scan ' +
-    'table, the rule-enforcement section mapping every law to its real mechanical gate (tsconfig strictness, the Biome rail, the @rasm/ts ' +
-    'exports map, the tests/typescript/_architecture suite audits - the doctrine authors the tool; Nx tags are graph metadata, never a lint gate), the page-craft law, ' +
-    'and the corpus law.'
-  : 'A concept page: narrow index table, then deep family cards, then the region snippets beside the rules they prove - transcription-grade, ' +
-    'compiling, universal placeholder identifiers, full operator depth.') + ' Ultra-aggressive: no table-stakes law, no how-to prose, no ' +
-  'domain content; every named member verified or not written; the old ' + TSD + ' content is quarry material only - salvage a law only when ' +
-  'it survives your own scrutiny. Your final text: a 5-line summary of what the file legislates.'].join('\n')
-const critiquePrompt = (row) => [PRE, '', 'TASK: CRITIQUE ' + row.path + ' (layer: ' + row.layer + '; owned regions: ' + row.regions.join(' | ') +
-  ') - the mechanical line-by-line audit; every hit is FIXED IN PLACE via Edit, never reported. Read the file, every LOWER-order roster file, ' +
-  'and the reference-stack README pages first. Checklist floor (hunt past it): page-craft grammar; card-field economy (a line that decides ' +
-  'nothing dies); snippet law (compiles, neutral identifiers, matches its owned region, 3-4x density, zero duplicated demonstration versus ' +
-  'earlier files); altitude (the page owns ONLY its layer; earlier-page law consumed as given); zero-meta (package law reads as settled fact - ' +
-  'a line that narrates sourcing, versions, or admission provenance dies); member verification (spot-check every named member via the .api ' +
-  'catalogues first, then node_modules/Context7/registry - unverifiable members are deleted or research-marked); TABLE-STAKES KILL (a law a ' +
-  'competent Effect user follows by default is cut or deepened until it decides something). Final text: the fix log, one line per edit.'].join('\n')
-const redteamPrompt = (row) => [PRE, '', 'TASK: RED-TEAM ' + row.path + ' (layer: ' + row.layer + ') - the terminal, most aggressive review; ' +
-  'every defect FIXED IN PLACE via Edit. Attacks: COUNTERFACTUAL on the core teaching shape (is a categorically stronger law or organization ' +
-  'available for this layer); ANTICIPATORY COLLAPSE (each law absorbs the next case as a row, never a new law); DUPLICATION sweep against ' +
-  'every lower-order file; CAPABILITY COMPLETENESS (the decision axes this layer owns - any silent axis is a gap you fill); BOUNDARY PUSH ' +
-  '(does the page legislate past table-stakes into law a strong engineer learns from - where not, deepen); then a full cold re-read of every ' +
-  'critique dimension. The page ends objectively denser and more capable than critique left it. Final text: the fix log.'].join('\n')
-const sweepPrompt = (plan) => [PRE, '', 'TASK: TERMINAL SWEEP over the new ' + TSD + ' corpus. Read the ENTIRE roster in atlas order TWICE - ' +
-  'first as a first reader, then as the region auditor. Enforce, fixing in place: zero duplicated snippet regions corpus-wide (repair by ' +
-  'routing to the owning page); upward stacking (later pages compose earlier law as supporting material, never re-teach); the README atlas ' +
-  'table matches the on-disk roster exactly; zero residual meta, provenance, or project anchors anywhere. THEN delete every killed file after ' +
-  'verifying each is truly superseded: ' + JSON.stringify(plan.kills) + '. Return deleted (paths), edits (one line each), report (the corpus ' +
-  'verdict in 5 lines).'].join('\n')
+const rosterOf = (files) => JSON.stringify(files.map((f) => ({ path: f.path, order: f.order, layer: f.layer, charter: f.charter })), null, 1)
+const authorPrompt = (row, files) => [BUILDPRE, '', 'THE SETTLED ROSTER (atlas order):\n' + rosterOf(files), '', 'TASK: AUTHOR ' + row.path +
+  ' GROUND-UP (order ' + row.order + '; layer: ' + row.layer + '; charter: ' + row.charter + '; owned regions: ' + row.regions.join(' | ') +
+  '). ' + (row.order === 0
+  ? 'You author the doctrine HEAD first - every concept page will be authored under it. Read the reference stacks for craft at whatever depth ' +
+    'you need, THEN WRITE THE COMPLETE FILE via Write. The README is the atlas head: the doctrine laws in groups reauthored TS-NATIVE (the ' +
+    'flow/shape/derivation/material/integration space sized to what TS truly needs, never a count-mirror of a sibling) carrying the CONTENT ' +
+    'MANDATES and the EXPORT LAW as first-class doctrine, the atlas routing table over the settled roster, the collapse-scan table, the ' +
+    'rule-enforcement section mapping every law to its real mechanical gate (tsconfig strictness, the Biome rail, the @rasm/ts exports map, ' +
+    'the tests/typescript/_architecture suite audits - the doctrine authors the tool; Nx tags are graph metadata, never a lint gate), the ' +
+    'page-craft law, and the corpus law.'
+  : 'The README (order 0) is FINALIZED ON DISK - read it FIRST and hold its doctrine, atlas, collapse-scan, and enforcement law as binding. ' +
+    'Sibling concept pages are being authored CONCURRENTLY - do NOT read or wait on a sibling; your page stands on the README + the reference ' +
+    'stacks + your own charter, and cross-page unification is the corpus passes\' mandate. THEN WRITE THE COMPLETE FILE via Write: a concept ' +
+    'page - narrow index table, then deep family cards, then the region snippets beside the rules they prove - transcription-grade, compiling, ' +
+    'universal placeholder identifiers, full operator depth, every snippet obeying the EXPORT LAW and demonstrating the mandates its layer ' +
+    'admits.') + ' Ultra-aggressive: no table-stakes law, no how-to prose, no domain content; every named member verified or not written; ' +
+  'whatever sits on disk at your path is quarry material only (a 1-line stub means greenfield) - salvage a law only when it survives your own ' +
+  'scrutiny. Your final text: a 5-line summary of what the file legislates.'].join('\n')
+const PASSES = [
+  { key: 'harden', task: 'HARDEN - per page in atlas order, the README head INCLUDED: attack density against the sibling floor and the ' +
+    'DENSITY GATE, rebuilding weak cards and fences ground-up in place; the README doctrine groups must carry the EXPORT LAW and the CONTENT ' +
+    'MANDATES as first-class law - inject them where absent; verify the mandates are DEMONSTRATED in fences where the layer admits them ' +
+    '(satisfies tables, one-name exports with the end-of-file exports block, inline injection/wrapping at the owner, overload-collapsed + ' +
+    'Function.dual entries, inference pre-solving, nested Schema owners); enforce the EXPORT LAW in every snippet (zero in-body exports ' +
+    'anywhere in the corpus); spot-verify named members (.api catalogues first, then node_modules) and delete phantoms; kill or deepen every ' +
+    'table-stakes card; card economy and page grammar throughout.' },
+  { key: 'align', task: 'ALIGN - the corpus as ONE body: one unified shape vocabulary across all pages (identical spellings for shared rails, ' +
+    'owners, fault families, policy forms); zero duplicated snippet regions corpus-wide (each fence exercises a region no other fence shows - ' +
+    'repair by routing to the owning page, never by re-teaching); altitude (each page owns ONLY its layer; later pages compose earlier law as ' +
+    'settled supporting material, never restate it); the README atlas table, routing rows, region ledger, and law groups match the on-disk ' +
+    'corpus exactly.' },
+  { key: 'finalize', task: 'FINALIZE - the terminal cold read, as a first reader with fresh hostile eyes: fix every residual weakness, hedge, ' +
+    'meta line, thin card, or under-dense fence; verify EVERY snippet ends with the exports block and carries zero in-body exports; verify the ' +
+    'killed files are deleted from disk (delete any straggler yourself) and the atlas [STATE] column reflects reality; the corpus must end ' +
+    'objectively denser and more capable than the passes found it - if a page is genuinely at the bar, prove it by finding nothing, never ' +
+    'invent churn.' },
+]
+const passPrompt = (p, n, files, kills) => [BUILDPRE, '', 'THE SETTLED ROSTER (atlas order):\n' + rosterOf(files),
+  'KILLED (must not exist on disk): ' + JSON.stringify(kills), '', 'TASK: CORPUS PASS ' + n + '/3 - ' + p.task + ' Read the README first, ' +
+  'then every roster page IN FULL in atlas order; WRITE every fix in place via Edit/Write - a finding is a fix, never a note; you are the ' +
+  'only agent touching the corpus in this pass. Return edits (one line each) + report (the corpus verdict in 5 lines).'].join('\n')
 
 // --- [COMPOSITION] -----------------------------------------------------------------------
 
@@ -190,18 +222,19 @@ const files = (plan.files || []).slice().sort((a, b) => a.order - b.order).slice
 log('Settle: ' + files.length + ' files (README + ' + (files.length - 1) + ' pages), ' + (plan.kills || []).length + ' kill(s). ' + (plan.rationale || ''))
 
 phase('Build')
-const built = []
-for (const row of files) {
-  await agent(authorPrompt(row, files), { label: 'author:' + row.path.split('/').pop(), phase: 'Build', effort: 'max', stallMs: STALL })
-  await agent(critiquePrompt(row), { label: 'critique:' + row.path.split('/').pop(), phase: 'Build', effort: 'xhigh', stallMs: STALL })
-  await agent(redteamPrompt(row), { label: 'redteam:' + row.path.split('/').pop(), phase: 'Build', effort: 'max', stallMs: STALL })
-  built.push(row.path)
-  log('Build ' + built.length + '/' + files.length + ': ' + row.path)
+// README (order 0) is SETTLED ON DISK from the prior leg; the corpus passes own its residual hardening (export law, mandates).
+log('Build: README held as settled - launching the concept-page wave (' + (files.length - 1) + ' pages, pooled at ' + WAVE_CAP + ')')
+await pool(files.slice(1), WAVE_CAP, (row) =>
+  agent(authorPrompt(row, files), { label: 'author:' + row.path.split('/').pop(), phase: 'Build', effort: 'max', stallMs: STALL }))
+log('Build: wave complete (' + (files.length - 1) + ' pages authored)')
+
+phase('Passes')
+const passReports = []
+for (let i = 0; i < PASSES.length; i++) {
+  const r = await agent(passPrompt(PASSES[i], i + 1, files, plan.kills || []), { label: 'pass:' + PASSES[i].key, phase: 'Passes', effort: 'max', schema: PASS, stallMs: STALL })
+  passReports.push({ key: PASSES[i].key, edits: ((r && r.edits) || []).length, report: (r && r.report) || '(pass agent died - re-run via resume)' })
+  log('Pass ' + (i + 1) + '/3 (' + PASSES[i].key + '): ' + (((r && r.edits) || []).length) + ' edit(s)')
 }
 
-phase('Sweep')
-const swept = await agent(sweepPrompt(plan), { label: 'sweep', phase: 'Sweep', effort: 'max', schema: SWEEP, stallMs: STALL })
-log('Sweep: ' + (((swept && swept.deleted) || []).length) + ' deleted, ' + (((swept && swept.edits) || []).length) + ' edits')
-
-return { files: built, kills: plan.kills || [], deleted: (swept && swept.deleted) || [], report: (swept && swept.report) || '',
+return { files: files.map((f) => f.path), kills: plan.kills || [], passes: passReports,
   research: dossiers.filter(Boolean).flatMap((d) => d.research || []) }

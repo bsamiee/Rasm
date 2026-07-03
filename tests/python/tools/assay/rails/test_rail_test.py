@@ -16,7 +16,7 @@ import pytest
 from tests.python._testkit.spec import assert_error_status, assert_ok, refutes, validity_matrix
 from tests.python.tools.assay.kit import SeamExecutor
 from tools.assay.composition.catalog import TOOLS
-from tools.assay.composition.store import ArtifactScope
+from tools.assay.composition.store import ArtifactScope, CS_ARTIFACT_ROOTS
 from tools.assay.core.exec import apply_row_status
 from tools.assay.core.govern import exclusive_lease
 from tools.assay.core.model import (
@@ -351,8 +351,9 @@ def test_checks_splice_and_scope_arms(assay_root: AssayHarness) -> None:
 
 
 def test_checks_trx_splice_composes_per_project(assay_root: AssayHarness) -> None:
-    """--trx splices the TRX evidence tail per project under .artifacts/csharp/trx/<project>; default off leaves the hole empty."""
-    trx_root = Path(str(assay_root.settings.root)).resolve() / ".artifacts/csharp/trx"
+    """--trx splices the TRX evidence tail per project under the dedicated CS_ARTIFACT_ROOTS trx key; default off leaves the hole empty."""
+    assert CS_ARTIFACT_ROOTS["trx"] == ".artifacts/csharp/trx", "the trx root is its own CS_ARTIFACT_ROOTS row, never derived from a sibling"
+    trx_root = Path(str(assay_root.settings.root)).resolve() / CS_ARTIFACT_ROOTS["trx"]
     projects = ("tests/csharp/libs/A/A.Tests.csproj", "tests/csharp/libs/B/B.Tests.csproj")
     multi = Routed(language=Language.CSHARP, scope=Scope.CHANGED, projects=projects)
 

@@ -85,8 +85,6 @@ class _DiscoveryLane(StrEnum):
 _GAP_NOTE: str = "mutation requested but no eligible lane (typescript has no mutation runner)"
 # Only these lanes reach dotnet dispatch; SHELL/SUPPORT/BENCHMARK/NON_TEST rows are report evidence, never test targets.
 _RUNNABLE_LANES: frozenset[_TestProjectLane] = frozenset((_TestProjectLane.MANAGED, _TestProjectLane.HOST_BOUND))
-# TRX evidence root beside the sibling C# artifact roots; per-project dirs nest under it.
-_TRX_ROOT: str = f"{PurePosixPath(CS_ARTIFACT_ROOTS['stryker-output']).parent}/trx"
 _COVERAGE_JSON: str = PY_COVERAGE_FILES["json"]
 _COVERAGE_OUTPUTS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("coverage.json", ("uv", "run", "coverage", "json", "-o", PY_COVERAGE_FILES["json"])),
@@ -324,7 +322,7 @@ def _checks(routed: Routed, params: TestParams, settings: AssaySettings, mode: M
         deferred = routed.projects[0] if check.tail is None and len(routed.projects) == 1 else ""
         sources = (*(check.tail or ()), deferred)
         project = next((PurePosixPath(part.replace("\\", "/")).stem for part in sources if part.endswith(".csproj")), "solution")
-        trx_dir = Path(str(settings.root)).resolve() / _TRX_ROOT / project
+        trx_dir = Path(str(settings.root)).resolve() / CS_ARTIFACT_ROOTS["trx"] / project
         return msgspec.structs.replace(check, args=msgspec.structs.replace(check.args, flags=("--report-trx", "--results-directory", str(trx_dir))))
 
     selected = tuple(_check(t, args) for t in _rows(routed.language, params, mode) for args in (_args(t),) if args is not None)

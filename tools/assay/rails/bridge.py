@@ -59,13 +59,19 @@ _ALL_TOKENS: Final[frozenset[str]] = frozenset(("", "all", "*"))
 _EMPTY_CORPUS_NOTE: Final[str] = f"bridge.corpus=empty: scenario corpus empty under {Path(_SCENARIO_PROJECT).parent.as_posix()}; nothing to verify"
 _TEXT_ARTIFACT_SUFFIXES: Final[frozenset[str]] = frozenset((".json", ".jsonl", ".log", ".txt"))
 _SHELL_SOURCE_DIRS: Final[tuple[str, ...]] = ("Shell", "Contract", "Cargo")
-_INSTALLED_PLUGIN_GLOB: Final[str] = "Library/Application Support/McNeel/Rhinoceros/packages/9.0/rasm-bridge/*/Rasm.Bridge.Shell.dll"
+# Mirrors the supervisor's BundleInfo.RhinoLineMajor anchor; the installed-plugin probe derives its packages segment from it.
+RHINO_LINE_MAJOR: Final[int] = 9
+_INSTALLED_PLUGIN_GLOB: Final[str] = (
+    f"Library/Application Support/McNeel/Rhinoceros/packages/{RHINO_LINE_MAJOR}.0/rasm-bridge/*/Rasm.Bridge.Shell.dll"
+)
 _FRESHNESS_STALE: Final[str] = (
     "bridge.freshness=stale: shell source newer than the installed plugin; run `assay package publish --slug rasm-bridge --version <v>`"
 )
 _FRESHNESS_ABSENT: Final[str] = (
     "bridge.freshness=absent: rasm-bridge plugin not installed; run `assay package publish --slug rasm-bridge --version <v>`"
 )
+# Not-yet-certified reference lane: unpromoted-only problem rows degrade, mirroring the supervisor's exit-2 fold; mixed rows stay faulted.
+_REFERENCE_UNPROMOTED_PREFIX: Final[str] = "reference.unpromoted:"
 type _CountRow[T] = tuple[str, Callable[[T], int]]
 
 
@@ -114,7 +120,6 @@ class _ClosureManifest(msgspec.Struct, frozen=True, gc=False, omit_defaults=True
     scenario_assemblies: tuple[str, ...] = ()
     host_plugins: tuple[str, ...] = ()
     built_against: _HostFingerprint = msgspec.field(default_factory=_HostFingerprint)
-    evidence_mode: str = "verify"
     reference_roots: tuple[_ReferenceRoot, ...] = ()
 
 
@@ -140,9 +145,6 @@ class _SessionScenario(msgspec.Struct, frozen=True, gc=False, omit_defaults=True
     scenario_status: RailStatus | None = None
     duration_ms: float = 0.0
     fault: _SessionFault | None = None
-    evidence_counts: object = None
-    certificate_path: str | None = None
-    artifact_refs: tuple[object, ...] | None = None
     reference_results: tuple[object, ...] | None = None
     first_scenario_failure: str | None = None
 
@@ -463,9 +465,7 @@ def _read_closure(path: Path) -> _ClosureManifest:
         return _ClosureManifest()
 
 
-def _aggregate_closure(
-    settings: AssaySettings, scope: ArtifactScope, closure: tuple[Path, _ClosureManifest], *, evidence: Literal["verify", "author"] = "verify"
-) -> Result[Path, Fault]:
+def _aggregate_closure(settings: AssaySettings, scope: ArtifactScope, closure: tuple[Path, _ClosureManifest]) -> Result[Path, Fault]:
     path, manifest = closure
     target = Path(scope.ensure()) / _AGGREGATE_CLOSURE_FILE
     cargo_fallback = Path(scope.path) / "bin" / "Cargo" / settings.configuration.value.lower()
@@ -486,7 +486,6 @@ def _aggregate_closure(
         scenario_assemblies=(_SCENARIO_ASSEMBLY,),
         host_plugins=tuple(sorted(manifest.host_plugins)),
         built_against=manifest.built_against,
-        evidence_mode=evidence,
         reference_roots=(_ReferenceRoot(assembly=_SCENARIO_ASSEMBLY, path=str((settings.root / _REFERENCE_ROOT).resolve())),),
     )
     try:
@@ -725,7 +724,7 @@ def _verify_locked(
                 else Error(Fault(built.argv, built.status, _first_diagnostic((built,)) or "bridge build failed"))
             )
         )
-        .bind(lambda closure: _aggregate_closure(settings, build_scope, closure, evidence=params.evidence))
+        .bind(lambda closure: _aggregate_closure(settings, build_scope, closure))
     )
     match prelude:
         case Result(tag="ok", ok=closure):
@@ -760,7 +759,7 @@ def _evidence_projection(
         certificate_problems=certificate_problems,
         reference_problems=reference_problems,
         status=_evidence_status(
-            evidence=evidence, done=done, certificate_ok=certificate is not None and not certificate_problems, reference_ok=not reference_problems
+            evidence=evidence, done=done, certificate_ok=certificate is not None and not certificate_problems, reference_problems=reference_problems
         ),
     )
 
@@ -811,12 +810,20 @@ def _manifest_count(counts: _EvidenceCounts) -> int:
     return counts.object_manifests + counts.geometry_manifests + counts.viewport_manifests + counts.gh2_canvas_manifests + counts.scratch_manifests
 
 
-def _evidence_status(*, evidence: Literal["verify", "author"], done: RailStatus, certificate_ok: bool, reference_ok: bool) -> RailStatus:
+def _evidence_status(
+    *, evidence: Literal["verify", "author"], done: RailStatus, certificate_ok: bool, reference_problems: tuple[str, ...]
+) -> RailStatus:
+    # Unpromoted-only reference problems are honest not-yet-certified evidence: DEGRADED (exit 2), never OK, never FAULTED.
+    # Any promoted-corpus problem (missing/mismatch/not-reviewed) faults, alone or mixed with unpromoted rows.
     if done.severity > RailStatus.OK.severity:
         return done
     if evidence == "author":
         return RailStatus.CANDIDATE
-    return RailStatus.OK if certificate_ok and reference_ok else RailStatus.FAULTED
+    if not certificate_ok:
+        return RailStatus.FAULTED
+    if not reference_problems:
+        return RailStatus.OK
+    return RailStatus.DEGRADED if all(problem.startswith(_REFERENCE_UNPROMOTED_PREFIX) for problem in reference_problems) else RailStatus.FAULTED
 
 
 def _count_rows[T](counts: T, rows: tuple[_CountRow[T], ...]) -> tuple[tuple[str, int], ...]:

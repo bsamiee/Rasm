@@ -95,7 +95,7 @@ internal static partial class GeodesicKernel {
         select value;
     internal static Fin<Vector3d> GeodesicTangentAt(MeshSpace space, Seq<int> sources, Point3d sample, Op key) =>
         from distances in EnsureGeodesicDistances(space: space, sources: sources, key: key)
-        from tangent in Fin.Succ(DecKernel.ComputeTriangleGradients(mesh: space.Native, u: distances))
+        from tangent in Fin.Succ(DecAssembly.ComputeTriangleGradients(mesh: space.Native, u: distances))
         from value in MeshProbe.ClosestFace(space: space, sample: sample, key: key, project: (mesh, face, _, faceIndex) => {
             if (!face.IsTriangle) return Fin.Fail<Vector3d>(error: key.InvalidResult());
             double twoArea = Vector3d.CrossProduct(a: mesh.Vertices[index: face.B] - mesh.Vertices[index: face.A], b: mesh.Vertices[index: face.C] - mesh.Vertices[index: face.A]).Length;
@@ -121,10 +121,10 @@ internal static partial class GeodesicKernel {
         if (h <= RhinoMath.ZeroTolerance) return Fin.Fail<Arr<double>>(key.InvalidResult());
         double t = h * h;
         return from heatFactor in space.Cache.ScalarHeatCholesky(time: t, key: key)
-               from delta in Fin.Succ(DecKernel.BuildSourceDelta(n: n, sources: sources, mass: laplacian.MassLumped))
+               from delta in Fin.Succ(DecAssembly.BuildSourceDelta(n: n, sources: sources, mass: laplacian.MassLumped))
                from u in heatFactor.Solve(rhs: delta, key: key)
-               from gradient in Fin.Succ(DecKernel.ComputeTriangleGradients(mesh: space.Native, u: u))
-               from divergence in Fin.Succ(DecKernel.ComputeVertexDivergence(mesh: space.Native, gradients: gradient))
+               from gradient in Fin.Succ(DecAssembly.ComputeTriangleGradients(mesh: space.Native, u: u))
+               from divergence in Fin.Succ(DecAssembly.ComputeVertexDivergence(mesh: space.Native, gradients: gradient))
                from phi in laplacian.Stiffness.SingularSolve(rhs: divergence, gauge: GaugePolicy.Pinned(indices: sources, mass: Some(laplacian.MassLumped), shift: GaugeShift.MinZero), context: space.Tolerance, key: key)
                select NormalizeToZero(values: phi);
     }
@@ -251,6 +251,8 @@ internal static partial class GeodesicKernel {
             EnqueueWindow(frontier: frontier, perEdge: perEdge, maxPerEdge: maxPerEdge, edgeIndex: edgeIndex, fromFace: f, b0: 0.0, b1: edge.Length, sx: sx, sy: sy, sigma: 0.0, pseudosource: source, dropped: out _);
         }
         // Wavefront: pop nearest, unfold across, update the apex inside the shadow, cast children, shed saddles.
+        // Cone angles precomputed in ONE face sweep — the per-pop saddle test reads the array, never rescans faces.
+        double[] coneAngle = ConeAnglesOf(imesh: imesh);
         int popBudget = Math.Max(val1: 1, val2: maxPerEdge) * Math.Max(val1: edgeCount, val2: 1) * 4;
         for (int pops = 0; frontier.Count > 0 && pops < popBudget; pops++) {
             PendingWindow win = frontier.Dequeue();
@@ -270,7 +272,7 @@ internal static partial class GeodesicKernel {
             int eHiApex = imesh.IndexOfEdge(lo: Math.Min(val1: baseEdge.Hi, val2: apex), hi: Math.Max(val1: baseEdge.Hi, val2: apex));
             CastChild(frontier: frontier, perEdge: perEdge, maxPerEdge: maxPerEdge, imesh: imesh, fromFace: across, win: win, edgeIndex: eLoApex, near: baseEdge.Lo, nearX: 0.0, nearY: 0.0, farX: apexX, farY: apexY, clamps: ref occlusionClamps);
             CastChild(frontier: frontier, perEdge: perEdge, maxPerEdge: maxPerEdge, imesh: imesh, fromFace: across, win: win, edgeIndex: eHiApex, near: baseEdge.Hi, nearX: baseLength, nearY: 0.0, farX: apexX, farY: apexY, clamps: ref occlusionClamps);
-            if (RhinoMath.IsValidDouble(x: vertexDistance[apex]) && imesh.IsInteriorVertex(vertex: apex) && ConeAngleAt(imesh: imesh, vertex: apex) > saddleThreshold
+            if (RhinoMath.IsValidDouble(x: vertexDistance[apex]) && imesh.IsInteriorVertex(vertex: apex) && coneAngle[apex] > saddleThreshold
                 && SeedSaddleWindows(frontier: frontier, perEdge: perEdge, maxPerEdge: maxPerEdge, imesh: imesh, saddle: apex, sigma: vertexDistance[apex], vertexDistance: vertexDistance) > 0)
                 pseudosourceCount++;
         }
@@ -351,18 +353,22 @@ internal static partial class GeodesicKernel {
         frontier.Enqueue(element: new PendingWindow(Edge: edgeIndex, FromFace: fromFace, B0: b0, B1: b1, Sx: sx, Sy: sy, Sigma: sigma, Pseudosource: pseudosource), priority: sigma + Math.Min(val1: d0, val2: d1));
         dropped = false;
     }
-    internal static double ConeAngleAt(IntrinsicMesh imesh, int vertex) {
-        double total = 0.0;
+    // THE one cone-angle owner: all three corners of every live face accumulated in a single sweep.
+    internal static double[] ConeAnglesOf(IntrinsicMesh imesh) {
+        double[] total = new double[imesh.VertexCount];
         foreach (int f in imesh.LiveFaceIndices()) {
             (int a, int b, int c) = imesh.Triangles[index: f]!.Value;
-            if (a != vertex && b != vertex && c != vertex) continue;
-            (int prev, int next) = a == vertex ? (c, b) : b == vertex ? (a, c) : (b, a);
-            double lp = imesh.EdgeLengthOf(i: vertex, j: prev); double ln = imesh.EdgeLengthOf(i: vertex, j: next); double lo = imesh.EdgeLengthOf(i: prev, j: next);
-            double denom = 2.0 * lp * ln;
-            double cos = denom > RhinoMath.ZeroTolerance ? ((lp * lp) + (ln * ln) - (lo * lo)) / denom : 1.0;
-            total += Math.Acos(d: Math.Min(val1: 1.0, val2: Math.Max(val1: -1.0, val2: cos)));
+            double lab = imesh.EdgeLengthOf(i: a, j: b); double lbc = imesh.EdgeLengthOf(i: b, j: c); double lca = imesh.EdgeLengthOf(i: c, j: a);
+            total[a] += CornerAngle(opposite: lbc, left: lab, right: lca);
+            total[b] += CornerAngle(opposite: lca, left: lab, right: lbc);
+            total[c] += CornerAngle(opposite: lab, left: lca, right: lbc);
         }
         return total;
+    }
+    private static double CornerAngle(double opposite, double left, double right) {
+        double denom = 2.0 * left * right;
+        double cos = denom > RhinoMath.ZeroTolerance ? ((left * left) + (right * right) - (opposite * opposite)) / denom : 1.0;
+        return Math.Acos(d: Math.Min(val1: 1.0, val2: Math.Max(val1: -1.0, val2: cos)));
     }
     // Cut locus: an edge covered by windows of distinct pseudosources whose distances disagree beyond a length band.
     private static int CountCutLocus(IntrinsicMesh imesh, List<GeodesicWindow>[] perEdge) {
@@ -453,6 +459,9 @@ internal static partial class GeodesicKernel {
             (px, py, vid) = UnfoldNeighbor(imesh: imesh, face: across, ea: ea, eb: eb, sharedAx: px[exitLocal], sharedAy: py[exitLocal], sharedBx: px[(exitLocal + 1) % 3], sharedBy: py[(exitLocal + 1) % 3], interiorX: px[(exitLocal + 2) % 3], interiorY: py[(exitLocal + 2) % 3]);
             face = across; qx = exX; qy = exY; endX = exX; endY = exY; arrivalFace = across;
         }
+        // Step-budget exhaustion after a trailing transition leaves the arrival face unrecorded; appending it keeps
+        // the segment law total on EVERY stop kind, so an honest IterationCap trace still carries valid evidence.
+        if (pathFaces.Count == 0 || pathFaces[^1] != face) pathFaces.Add(item: face);
         return new ExpTrace(SeatedWorldDir: seatedWorldDir, TracedLength: traversed, PathFaces: pathFaces, CrossedEdges: crossedEdges, EdgeCrossingCount: edgeCrossings, VertexPassCount: vertexPasses, Stop: stop, Crossings: crossings, EndX: endX, EndY: endY, ArrivalFace: arrivalFace, ReachedStopVertex: reachedStop);
     }
     internal static void LayoutFace(IntrinsicMesh imesh, int va, int vb, int vc, double[] px, double[] py) {
@@ -503,9 +512,7 @@ internal static partial class GeodesicKernel {
             if (a != hitVertex && b != hitVertex && c != hitVertex) continue;
             (int prev, int next) = a == hitVertex ? (c, b) : b == hitVertex ? (a, c) : (b, a);
             double lp = imesh.EdgeLengthOf(i: hitVertex, j: prev); double ln = imesh.EdgeLengthOf(i: hitVertex, j: next); double lo = imesh.EdgeLengthOf(i: prev, j: next);
-            double denom = 2.0 * lp * ln;
-            double cos = denom > RhinoMath.ZeroTolerance ? ((lp * lp) + (ln * ln) - (lo * lo)) / denom : 1.0;
-            fan.Add(item: (Face: f, Prev: prev, Next: next, Corner: Math.Acos(d: Math.Min(val1: 1.0, val2: Math.Max(val1: -1.0, val2: cos)))));
+            fan.Add(item: (Face: f, Prev: prev, Next: next, Corner: CornerAngle(opposite: lo, left: lp, right: ln)));
         }
         if (fan.Count == 0) return (-1, hitVertex, hitVertex, hitVertex, 0.0);
         double half = fan.Sum(static corner => corner.Corner) * 0.5;
@@ -549,7 +556,7 @@ internal static partial class GeodesicKernel {
                 if (SaddleReach(imesh: imesh, field: field, saddle: next) >= pivotReach - RhinoMath.SqrtEpsilon) break;
                 pivot = next;
             }
-            if (chainStop == GeodesicStopKind.LengthReached && firstSaddle >= 0 && imesh.IsInteriorVertex(vertex: firstSaddle) && ConeAngleAt(imesh: imesh, vertex: firstSaddle) > RhinoMath.TwoPI
+            if (chainStop == GeodesicStopKind.LengthReached && firstSaddle >= 0 && imesh.IsInteriorVertex(vertex: firstSaddle) && ConeAnglesOf(imesh: imesh)[firstSaddle] > RhinoMath.TwoPI
                 && StripAngleToVertex(imesh: imesh, field: field, source: source, target: firstSaddle, maxHops: maxHops) is { IsSome: true, Case: ValueTuple<double, double, int> leg }
                 && SeatSourceOutgoing(imesh: imesh, mesh: mesh, frames: frames, source: source, seatFace: leg.Item3, chartAngle: leg.Item1) is { IsSome: true, Case: ValueTuple<int, int, int, int, double, Vector3d> legSeat }
                 && legSeat.Item1 >= 0 && legSeat.Item6.IsValid) {
@@ -969,7 +976,7 @@ internal static partial class GeodesicKernel {
 flowchart LR
     Fields["fields: Geodesic / MCF / VectorHeat / GeodesicTangent / TangentLogMap cases"] --> GeodesicKernel
     GeodesicKernel -->|"heat: (M+tL)u=δ → ∇ → div → pinned Poisson"| Cache["mesh: LaplacianCache factors + memos"]
-    GeodesicKernel -->|scaffold| Dec["dec: BuildSourceDelta / ComputeTriangleGradients / ComputeVertexDivergence"]
+    GeodesicKernel -->|scaffold| Dec["dec: DecAssembly source-delta / gradients / divergence"]
     GeodesicKernel -->|MMP wavefront| WindowField
     WindowField -->|BVP backtrace| WalkChart
     GeodesicKernel -->|IVP exp seat| WalkChart

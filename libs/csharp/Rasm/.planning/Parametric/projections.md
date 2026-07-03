@@ -25,7 +25,7 @@ Two single-owner laws seal here. `SurfaceProjection.ShapeOperator` is THE one se
 - Owner: `MotionInterpolation` `[SmartEnum<int>]` — `Linear` (key 0, `Quaternion.Lerp`) and `Slerp` (key 1, `Quaternion.Slerp`) over ONE `[UseDelegateFromConstructor]` `Combine(Quaternion, Quaternion, double)` column; both interpolation surfaces derive from that single column (`DERIVED_LOGIC`): `Interpolate(Plane a, Plane b, UnitInterval t, Op)` — coincidence short-circuit at `RhinoMath.ZeroTolerance`, `Quaternion.Rotation(Plane.WorldXY, …)` rotors combined then `GetRotation(out Plane)`, origin linearly interpolated onto the rotated axes — and `Rotate(Direction a, Direction b, UnitInterval t, Context, Op)` — the antiparallel pair (`IsParallelTo == -1` under `Context.Angle`) takes the π rotor about `VectorFrame.SeedPerpendicular`, every other pair the shortest-arc rotor from `Transform.Rotation(...).GetQuaternion(...)`, combined from `Quaternion.Identity` and applied via `Quaternion.Rotate`. `Slerp` is the geodesic row; `Linear` yields nlerp on directions (renormalized by `Direction.Of` admission) and screw-free frame lerp on poses.
 - Owner: `SurfaceSpace` `[BoundaryAdapter]` `readonly record struct` — the validated `Surface` + `Context` capsule: `Of(Surface, Context, Op?)` admits once (context present, surface non-null and `IsValid`) and `Sample<TOut>(SurfaceProjection, double u, double v, Op?)` delegates to the selector gate with the captured tolerance. Re-homed from the proximity file to its parametric family: `Spatial/support` keeps `SupportSpace` (closest-point over ANY geometry); `SurfaceSpace` is parameter-addressed evaluation on a typed surface — different concern, different folder, same wire (`VectorIntent.SurfaceCase` carries it).
 - Entry: `MotionInterpolation.Interpolate`/`Rotate` are `internal` — the `Processing/intent` dispatch is their consumer (`poseCase` → `Interpolate`, `slerpCase` → `Rotate`); the public surface is the two rows plus `SurfaceSpace.Of`. `Rasm.Rhino` Camera reaches the rows only as `VectorIntent.Pose(from, to, t, mode: MotionInterpolation.Slerp, key)` case payload — the row NAME is the frozen contract, the interpolation body is not.
-- Boundary: `MotionInterpolation` is the ONE quaternion-interpolation owner — an inline `Quaternion.Slerp` beside a dispatch arm, a second plane-lerp helper, or a per-consumer rotor derivation is the named duplicate this page kills (the `Processing/intent` `slerpCase` arm delegates here by law); pure vector-space interpolation (`lerp` of raw vectors, mirror, planar projection) is `Numerics/atoms` `Direction` algebra, NOT motion — this owner starts where a rotor is involved; long-arc negation and hemisphere selection are INSIDE `Combine`'s operands (`Quaternion.Rotation` returns the shortest-arc rotor; the antiparallel branch is the only seam where arc choice is ambiguous, and it is pinned to the seeded-perpendicular π rotor) — a consumer flipping quaternion signs is the named defect; `UnitInterval` admission (`Domain/rails` `AcceptValidated`) happens at the intent factory, so `t` arrives admitted and re-clamping here is the double-validation defect.
+- Boundary: `MotionInterpolation` is the ONE quaternion-interpolation owner — an inline `Quaternion.Slerp` beside a dispatch arm, a second plane-lerp helper, or a per-consumer rotor derivation is the named duplicate this page kills (the `Processing/intent` `slerpCase` arm delegates here by law); pure vector-space interpolation (`lerp` of raw vectors, mirror, planar projection) is `Numerics/atoms` `Direction` algebra, NOT motion — this owner starts where a rotor is involved; arc policy is sealed inside the row and its `Quaternion.Rotation` operands — the antiparallel direction pair is the only seam where arc choice is ambiguous, and it is pinned to the seeded-perpendicular π rotor — so a consumer flipping quaternion signs is the named defect; `UnitInterval` admission (`Domain/validation` `AcceptValidated`) happens at the intent factory, so `t` arrives admitted and re-clamping here is the double-validation defect.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -67,11 +67,12 @@ public sealed partial class CurveProjection {
             Vector3d vector when vector.IsValid && (admitsMagnitude || !vector.IsTiny()) => Fin.Succ((object)vector),
             _ => Fin.Fail<object>(op.InvalidResult()),
         });
+    // Bool-switch arms keep each out-var self-contained: a frame declared in one ternary branch is out of scope in the other.
     private static CurveProjection FrameRow(int key, bool perpendicular, Func<Plane, object> project) =>
-        new(key: key, admitsMagnitude: false, sample: (curve, t, _, op) =>
-            (perpendicular ? curve.PerpendicularFrameAt(t: t, plane: out Plane frame) : curve.FrameAt(t: t, plane: out frame))
-                ? Fin.Succ(project(arg: frame))
-                : Fin.Fail<object>(op.InvalidResult()));
+        new(key: key, admitsMagnitude: false, sample: (curve, t, _, op) => perpendicular switch {
+            true => curve.PerpendicularFrameAt(t: t, plane: out Plane frame) ? Fin.Succ(project(arg: frame)) : Fin.Fail<object>(op.InvalidResult()),
+            false => curve.FrameAt(t: t, plane: out Plane frame) ? Fin.Succ(project(arg: frame)) : Fin.Fail<object>(op.InvalidResult()),
+        });
 }
 
 [SmartEnum<int>]
@@ -216,7 +217,7 @@ public readonly record struct SurfaceSpace {
 flowchart LR
     Intent["Processing/intent VectorIntent"] -->|CurveCase / SurfaceCase / ConeCase| Selectors["CurveProjection · SurfaceProjection · ConeProjection"]
     Intent -->|PoseCase → Interpolate, SlerpCase → Rotate| Motion["MotionInterpolation Combine column"]
-    Locate["Parametric/locate LocationValue rows"] -.->|Frame / Tangent / Curvature| Selectors
+    Locate["Parametric/locate LocationValue rows"] -.->|VectorIntent.Curve — Frame / Tangent / Curvature| Intent
     Space["SurfaceSpace.Sample"] --> Selectors
     Selectors -->|Curve.TangentAt / FrameAt / GetLength · Surface.CurvatureAt / Evaluate| Rhino["Rhino.Geometry evaluation"]
     Selectors -->|ShapeOperator / Metric / Jacobian| MatrixOwner["Numerics/matrix SymmetricMatrix · Matrix"]
@@ -238,7 +239,7 @@ One owner per axis; capability is a row, column, or factory fold, never a siblin
 |  [04]   | quaternion interpolation  | `MotionInterpolation` | `[SmartEnum<int>]` with ONE `Combine` column deriving pose + direction surfaces              | `Interpolate → Fin<Plane>`; `Rotate → Fin<Direction>` |    2    |
 |  [05]   | surface capsule           | `SurfaceSpace`        | `[BoundaryAdapter]` validated surface + tolerance carrier                                    | `Of → Fin<SurfaceSpace>`; `Sample<TOut> → Fin<TOut>` |    1    |
 
-The selector rows, the `Project<TOut>` gates, `ShapeOperatorOf`, `SurfaceDerivatives`, `OrientedFrame`, `Interpolate`, and `Rotate` are transcription-complete against the RhinoCommon evaluation surface; every named member spelling is catalogue-verified (`api-rhino.md` curve/surface/quaternion families). `Evaluation.NormalAt`/`FrameAt`/`SurfaceUv`, `Admit.Plane`, `AtomProjection.Raw`, `ScalarMetric`, `SymmetricMatrix.Of`/`Matrix.Of`, `Direction.Of`, `VectorFrame.SeedPerpendicular`, `Dimension`, `UnitInterval`, `Lease<T>`, and `Op` are composed upstream owners, never re-minted here.
+The selector rows, the `Project<TOut>` gates, `ShapeOperatorOf`, `SurfaceDerivatives`, `OrientedFrame`, `Interpolate`, and `Rotate` are transcription-complete against the RhinoCommon evaluation surface. `Evaluation.NormalAt`/`FrameAt`/`SurfaceUv`, `Admit.Plane`, `AtomProjection.Raw`, `ScalarMetric`, `SymmetricMatrix.Of`/`Matrix.Of`, `Direction.Of`, `VectorFrame.SeedPerpendicular`, `Dimension`, `UnitInterval`, `Lease<T>`, and `Op` are composed upstream owners, never re-minted here.
 
 ## [05]-[RESEARCH]
 

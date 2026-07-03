@@ -14,7 +14,7 @@ The page composes the `Domain` floor as settled vocabulary: `evaluation.md` owns
 - Owner: `SupportProjection` `[SmartEnum<int>]` — fourteen rows (`Closest`/`Direction`/`Span`/`Normal`/`Distance`/`Parameter`/`Uv`/`Component`/`MeshPoint`/`SignedDistance`/`ContainmentDistance`/`Tangent`/`Frame`/`SignedSpanAway`), each carrying three `[UseDelegateFromConstructor]` columns: `Capability(SupportSpace, ClosestHit)` (may this space answer this row), `Accepts(Type)` (which `TOut` shapes this row projects), and `ProjectRaw(SupportState)` (the row's canonical-value resolution). One internal `Project<TOut>(SupportSpace, ClosestHit, Point3d, Context, Op)` is the sole egress.
 - Cases: 14 — `Closest` (hit point or the whole `ClosestHit`), `Direction`/`Normal`/`Tangent` (unit carriers, `Direction` or raw `Vector3d`), `Span`/`SignedSpanAway` (the sample→hit displacement as `VectorSpan`/`Vector3d`/`Line`/`double`, sign ±1 a factory parameter — one `SpanOf(key, sign)` row builder, two rows), `Distance`/`Parameter`/`Uv`/`Component`/`MeshPoint`/`Frame` (`Option`-carried `ClosestHit` fields lifted through one `HitValue<T>` row builder), `SignedDistance`/`ContainmentDistance` (space-delegated signed evaluations).
 - Entry: `internal Fin<TOut> Project<TOut>(SupportSpace space, ClosestHit hit, Point3d sample, Context context, Op key)` — a three-gate switch: invalid hit → `key.InvalidResult()`; capability refused → `key.Unsupported(space.SourceType, typeof(TOut))`; output shape refused → `key.Unsupported(typeof(SupportProjection), typeof(TOut))`; then `ProjectRaw` yields a CANONICAL value and the egress resolves it — a direct `TOut` passes, a canonical carrier (`ClosestHit`/`Direction`/`VectorSpan`) delegates to its OWN `Project<TOut>`. The gates run in evidence order — hit validity before capability before shape — so a fault names the first real refusal.
-- Auto: row bodies are one-expression folds over the hit — `HitValue` rows lift an `Option` hit field with `ToFin(key.InvalidResult())` and accept it; `Direction`-family rows admit through `Direction.Of(vector, context, key)` so a degenerate direction faults at the atom, never as a raw zero vector; span rows admit ONE `VectorSpan` through `VectorSpan.Of` with the sign-oriented vector — `VectorSpan`/`Vector3d`/`Line` resolve through the owner's projection at the egress, and the `double` request is the ONE `state.Output` read in the enum (the signed scalar `sign·‖hit−sample‖` cannot ride the positive-by-construction magnitude). `CanProjectVector(space)` is the derived predicate (`Direction`/`Span`/`SignedSpanAway` unconditional; `Normal`/`Tangent` gated on the captured verdicts) the `fields.md` hit-field admission reads.
+- Auto: row bodies are one-expression folds over the hit — `HitValue` rows lift an `Option` hit field with `ToFin(key.InvalidResult())` and accept it; `Direction`-family rows admit through `Direction.Of(vector, context, key)` so a degenerate direction faults at the atom, never as a raw zero vector; span rows read `state.Output` twice by design — the `Vector3d` and `double` answers are RAW reads (a sample lying ON the support has a legal zero displacement, and the signed scalar `sign·‖hit−sample‖` cannot ride the positive-by-construction magnitude), while `VectorSpan`/`Line` admit through `VectorSpan.Of`, whose direction gate is correct for the unit-carrying shapes. `CanProjectVector(space)` is the derived predicate (`Direction`/`Span`/`SignedSpanAway` unconditional; `Normal`/`Tangent` gated on the captured verdicts) the `fields.md` hit-field admission reads.
 - Receipt: none minted here — `ClosestHit` IS the evidence carrier and it is `evaluation.md`'s; a projection returns the typed answer or the typed fault.
 - Packages: RhinoCommon (`Point3d`/`Vector3d`/`Plane`/`Line` — composed), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 - Growth: a new proximity modality is one `static readonly` row with its three columns; a new output shape on an existing row is one row on the canonical carrier's `Project<TOut>` (the egress picks it up unchanged); zero new entrypoints.
@@ -69,15 +69,17 @@ public sealed partial class SupportProjection {
         Hit(key: key, accepts: static output => output == typeof(T), capability: capability,
             projectRaw: state => choose(state.Hit).ToFin(Fail: state.Key.InvalidResult())
                 .Bind(value => state.Key.AcceptValue(value: value).Map(static accepted => (object)accepted!)));
-    // The double request is the enum's ONE state.Output read: the signed scalar sign*|hit-sample| cannot
-    // ride VectorSpan, whose magnitude is positive by construction.
+    // Vector3d and double are RAW state.Output reads: a sample ON the support yields a legal zero
+    // displacement, and the signed scalar cannot ride VectorSpan's positive-by-construction magnitude.
     private static SupportProjection SpanOf(int key, double sign) =>
         Hit(key: key,
             accepts: static output => output == typeof(VectorSpan) || output == typeof(Vector3d) || output == typeof(Line) || output == typeof(double),
-            projectRaw: state => state.Output == typeof(double)
-                ? state.Key.AcceptValue(value: sign * (state.Hit.Point - state.Sample).Length).Map(static d => (object)d)
-                : VectorSpan.Of(anchor: state.Sample, vector: sign * (state.Hit.Point - state.Sample), context: state.Context, key: state.Key)
-                    .Map(static span => (object)span));
+            projectRaw: state => state.Output switch {
+                Type t when t == typeof(double) => state.Key.AcceptValue(value: sign * (state.Hit.Point - state.Sample).Length).Map(static d => (object)d),
+                Type t when t == typeof(Vector3d) => state.Key.AcceptValue(value: sign * (state.Hit.Point - state.Sample)).Map(static v => (object)v),
+                _ => VectorSpan.Of(anchor: state.Sample, vector: sign * (state.Hit.Point - state.Sample), context: state.Context, key: state.Key)
+                    .Map(static span => (object)span),
+            });
 
     internal bool CanProjectVector(SupportSpace space) =>
         Equals(Direction) || Equals(Span) || Equals(SignedSpanAway)

@@ -27,8 +27,8 @@ The floor is host-neutral-shaped: finiteness is `double.IsFinite` over flat span
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using System.Numerics;
 using System.Numerics.Tensors;
+using DoubleDouble;
 using MathNet.Numerics.LinearAlgebra;
-using MathNet.Numerics.LinearAlgebra.Storage;
 using ComplexVector = MathNet.Numerics.LinearAlgebra.Vector<System.Numerics.Complex>;
 using DenseMatrixC = MathNet.Numerics.LinearAlgebra.Complex.DenseMatrix;
 using DenseMatrixD = MathNet.Numerics.LinearAlgebra.Double.DenseMatrix;
@@ -363,7 +363,7 @@ public sealed record CholeskySparse {
 
 ## [05]-[RECEIPTS]
 
-- Owner: `SolveReceipt` the one linear-solve evidence carrier (solution + `SolvePath`/`SolveStop` + dimensions + iteration/tolerance witnesses + the recomputed true relative residual + optional rank/fill/gauge evidence), `EigenSolveReceipt<TEigen, TVector>` the one eigen carrier generic over real/complex eigenvalues and real/complex vectors (pairs + path/stop + requested/returned + `MaxResidual`), `GaugeReceipt` the singular-solve evidence (solver kind, declared and numeric nullspace dimensions, operator scale, compatibility/после-gauge/M-weighted/relative residuals, pin rows, post-shift applied, rhs mutation and multiplier norms, orthogonality check, regularization shift, breakdown flag) — all three on the rails `[ValidityEvidence]` fold with `IValidityEvidence` conformance.
+- Owner: `SolveReceipt` the one linear-solve evidence carrier (solution + `SolvePath`/`SolveStop` + dimensions + iteration/tolerance witnesses + the recomputed true relative residual + optional rank/fill/gauge evidence), `EigenSolveReceipt<TEigen, TVector>` the one eigen carrier generic over real/complex eigenvalues and real/complex vectors (pairs + path/stop + requested/returned + `MaxResidual`), `GaugeReceipt` the singular-solve evidence (solver kind, declared and numeric nullspace dimensions, operator scale, compatibility/post-gauge/M-weighted/relative residuals, pin rows, post-shift applied, rhs mutation and multiplier norms, orthogonality check, regularization shift, breakdown flag) — all three on the rails `[ValidityEvidence]` fold with `IValidityEvidence` conformance.
 - Entry: receipts are minted only by `MatrixKernel` success paths (`SolveSuccess`, `EigenReceiptOf`) which gate the receipt's own validity before releasing it, so a receipt in hand IS a witnessed result.
 - Auto: the `[ValidityEvidence]` aspect is generated sugar over the ONE `rails.md` mechanism — it emits the mechanical gates as `ValidityClaim` rows off field metadata (every `double` field `Finite`, every count `Nonnegative`, every nested evidence field `Evidence`-when-some, every vocabulary field non-null) folded through `ValidityClaim.All`, conjoined with the hand-written `ValidityGate()` carrying only the SEMANTIC couplings (residual within tolerance, solution length matches columns, iterations within budget, returned ≤ requested). The mature ~12-to-18-term hand-rolled conjunction litany is the deleted form; only the couplings a generator cannot infer survive as authored code.
 - Receipt: these ARE the receipts — the typed evidence law: fields carry route, status, sampling, and solver evidence, so they stay typed records, never a generic ledger.
@@ -428,7 +428,7 @@ public readonly partial record struct GaugeReceipt(
 - Entry: every public-facing operation enters through the owning model member ([03]/[04]); the kernel is reached only through them.
 - Auto: `SingularGaugeSolve` derives every threshold from `OperatorFrobeniusScale` and the rhs scale (`context.Fractional` relative gates — never absolute literals), projects the rhs onto range(A) only when the compatibility residual demands it, applies the case solver through one `Switch`, post-shifts through `GaugeShift`, and witnesses BOTH the Euclidean and the M-weighted relative residuals against the original un-shifted operator; `RegularizedGramSolve` factors the SPD Gram, applying a diagonal-scaled Tikhonov shift ONLY on Cholesky breakdown (MathNet throws bare `Exception` on pivot loss — caught broadly at this one boundary, the algorithms-route exemption) and surfaces the applied shift plus the numeric rank read from the factor diagonal; `LobpcgCore` iterates span([X|W|P]) Rayleigh-Ritz: residual `R = AX − XΛ`, Jacobi-preconditioned `W`, one modified-Gram-Schmidt pass with rank-collapsed columns dropped (`SurvivingColumns`) and the reduced Ritz vectors scattered back (`ScatterRows`) so the block offsets survive — fewer survivors than `k` terminates typed as `MaxIterationsExhausted`, NEVER a hidden dense fallback; the initial basis is deterministic — `Deterministic.NextSignedUnit`/`NextSignedComplexUnit` (the `Domain/identity` splitmix64 owner; seeds 17 real / 19 Hermitian) orthonormalized, so eigen results replay bit-stable per provider.
 - Receipt: every path exits through `SolveSuccess`/`EigenReceiptOf`/`LobpcgReceiptOf` which mint the [05] receipts gated on their own validity.
-- Packages: MathNet.Numerics (factorizations, `SolveIterative` + `BiCgStab` + `DiagonalPreconditioner` + criterion stack, `Evd`, `Cholesky`), MathNet.Numerics.Providers.OpenBLAS (the SOLE opt-in native acceleration on the osx-arm64 target — pinned once at process start before first provider touch; MKL is x86-64-only and carries no kernel reference), CSparse (`SparseCholesky`, `SparseLU`, AMD ordering), Rasm.Domain (project — `Op`, `Context`, `Deterministic` splitmix64 derivation), System.Numerics.Tensors, TYoshimura.DoubleDouble (`DDouble` — the 106-bit compensated-accumulation lane when an ill-conditioned residual or inner-product fold saturates binary64), BCL (`System.Numerics.Complex`).
+- Packages: MathNet.Numerics (factorizations, `SolveIterative` + `BiCgStab` + `DiagonalPreconditioner` + criterion stack, `Evd`, `Cholesky`), MathNet.Numerics.Providers.OpenBLAS (the SOLE opt-in native acceleration on the osx-arm64 target — `Control.UseNativeOpenBLAS()` pinned once at process start before first provider touch; MKL is x86-64-only and carries no kernel reference), CSparse (`SparseCholesky`, `SparseLU`, AMD ordering), Rasm.Domain (project — `Op`, `Context`, `Deterministic` splitmix64 derivation), System.Numerics.Tensors, TYoshimura.DoubleDouble (`ddouble` — the 106-bit lane `CompensatedNorm` folds every recorded residual witness through, so cancellation in `b − Ax` cannot lie in the evidence), BCL (`System.Numerics.Complex`).
 - Growth: a new solve route is one kernel member + one `SolvePath` row + receipt fields it already carries; a new gauge case is one `GaugePolicy` case + one `Solve*` arm; a new eigen substrate (shift-invert Lanczos, spectra-style transforms) is one `EigenSolvePath` row over the same receipt.
 - Boundary: this kernel is the ONE linear-algebra access path — `Processing/register`'s GICP precision-field and spectrum-rebuild math route through `Matrix`/`SymmetricMatrix` owners, and a direct `DenseMatrix`/`Evd`/`Cholesky` reach in a sibling page is the named deleted form; statement loops inside `CompressRows`, `SolvePin`, `SolveKkt`, and the MGS pass are the named statement-kernel exemption (measured assembly and elimination hot paths); `BiCgStabDivergenceFactor = 1e3` and `KktPivotTolerance = 1.0` are named kernel policy constants — the divergence criterion's relative-increase ceiling and CSparse's full-partial-pivot column threshold.
 
@@ -477,9 +477,9 @@ internal static class MatrixKernel {
                     ? [(row, row, s.Values[k])]
                     : new[] { (row, s.ColInd[k], s.Values[k]), (s.ColInd[k], row, Complex.Conjugate(s.Values[k])) })));
     private static Matrix<double> ToMathNetSparse(SparseMatrix s) =>
-        DenseMatrixD.Build.Sparse(storage: SparseCompressedRowMatrixStorage<double>.OfCompressedSparseRowFormat(
+        DenseMatrixD.Build.SparseFromCompressedSparseRowFormat(
             rows: s.Rows.Value, columns: s.Cols.Value, valueCount: s.Values.Count,
-            rowPointers: [.. s.RowPtr.AsIterable()], columnIndices: [.. s.ColInd.AsIterable()], values: [.. s.Values.AsIterable()]));
+            rowPointers: [.. s.RowPtr.AsIterable()], columnIndices: [.. s.ColInd.AsIterable()], values: [.. s.Values.AsIterable()]);
     private static Matrix<double> ToMathNetSymmetric(SparseMatrix matrix, IEnumerable<(int Row, int Col, double Value)> upper) =>
         SparseMatrixD.OfIndexed(rows: matrix.Rows.Value, columns: matrix.Cols.Value, enumerable: upper.SelectMany(static e => e.Row == e.Col
             ? [(e.Row, e.Col, e.Value)]
@@ -507,8 +507,15 @@ internal static class MatrixKernel {
     }
 
     // --- [WITNESS] ----------------------------------------------------------------------------
+    // The recorded residual is the ONE truth witness — its norm folds accumulate in 106-bit ddouble
+    // so ill-conditioned cancellation in b - Ax cannot inflate or deflate the evidence.
     private static double RelativeResidual(Matrix<double> a, LinearVector x, LinearVector b) =>
-        (b - a.Multiply(x)).L2Norm() / Math.Max(val1: 1.0, val2: b.L2Norm());
+        CompensatedNorm(v: b - a.Multiply(x)) / Math.Max(val1: 1.0, val2: CompensatedNorm(v: b));
+    private static double CompensatedNorm(LinearVector v) {
+        ddouble sum = 0.0;
+        for (int i = 0; i < v.Count; i++) sum += (ddouble)v[i] * v[i];
+        return Math.Sqrt(d: (double)sum);
+    }
     internal static bool SolveInputIsValid(int rows, Arr<double> rhs) =>
         rhs.Count == rows && TensorPrimitives.IsFiniteAll<double>(rhs.AsSpan());
     internal static double SparseResidual(SparseMatrix matrix, Arr<double> solution, Arr<double> rhs) =>
@@ -977,7 +984,7 @@ internal static class MatrixKernel {
         adjoint(arg: factor).Solve(vectors);
 
     // --- [LOBPCG] --------------------------------------------------------------------------------
-    // Knyazev 2001: span([X_i, R_i, P_i]) Rayleigh-Ritz; first iteration omits the zero previous direction.
+    // Knyazev LOBPCG: span([X_i, R_i, P_i]) Rayleigh-Ritz; first iteration omits the zero previous direction.
     // Basis seeding is deterministic through the Domain/identity splitmix64 owner, so eigen results replay.
     private const int RealInitialBasisSeed = 17, HermitianInitialBasisSeed = 19;
     private delegate T BasisSample<T>(ref ulong state);

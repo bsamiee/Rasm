@@ -181,8 +181,13 @@ public partial record CurvatureMode {
     public sealed record ScalarCase(ScalarMetric Metric) : CurvatureMode;
     public static CurvatureMode Vector => new VectorCase();
     public static CurvatureMode Scalar(ScalarMetric metric) => new ScalarCase(Metric: metric);
-    internal bool IsCurveMagnitude => this switch { VectorCase => true, ScalarCase { Metric: ScalarMetric metric } => metric.IsMagnitude, _ => false };
-    internal Seq<ScalarMetric> SurfaceMetrics => this switch { VectorCase => Seq(ScalarMetric.Gaussian, ScalarMetric.Mean), ScalarCase { Metric: ScalarMetric metric } when metric.IsSurface => Seq(metric), _ => Seq<ScalarMetric>() };
+    // Row-identity folds over the stats.md vocabulary: the metric rows carry payload-shaped Of arms, not classification columns.
+    internal bool IsCurveMagnitude => this switch { VectorCase => true, ScalarCase { Metric: ScalarMetric metric } => metric.Equals(ScalarMetric.Magnitude), _ => false };
+    internal Seq<ScalarMetric> SurfaceMetrics => this switch {
+        VectorCase => Seq(ScalarMetric.Gaussian, ScalarMetric.Mean),
+        ScalarCase { Metric: ScalarMetric metric } when metric.Equals(ScalarMetric.Gaussian) || metric.Equals(ScalarMetric.Mean) => Seq(metric),
+        _ => Seq<ScalarMetric>(),
+    };
 }
 
 [SkipUnionOps]
@@ -258,10 +263,10 @@ internal static class Locate {
             ? Operation<TGeometry, TValue>.Build(
                 key: key, requirement: requirement ?? locator.CurveRequirement, state: (Key: key, Locator: locator, Project: project),
                 evaluator: static (state, geometry) =>
-                    from runtime in Env.EnvAsks
+                    from context in Env.Asks
                     from result in Normalization.CurveForm(source: geometry, key: state.Key)
-                        .Bind(lease => lease.Use(curve => state.Locator.ResolveParameter(curve: curve, context: runtime.Context, key: state.Key)
-                            .Bind(parameter => state.Project(state.Key, curve, parameter, runtime.Context)))).ToEff()
+                        .Bind(lease => lease.Use(curve => state.Locator.ResolveParameter(curve: curve, context: context, key: state.Key)
+                            .Bind(parameter => state.Project(state.Key, curve, parameter, context)))).ToEff()
                     select result).As<TGeometry, TOut>(key: key)
             : key.Unsupported<TGeometry, TOut>();
 
@@ -296,7 +301,7 @@ internal static class Locate {
             ? Operation<TGeometry, Plane>.Build(
                 key: key, requirement: Requirement.CurveLength, state: (Key: key, Parameters: parameters),
                 evaluator: static (state, geometry) => Normalization.CurveForm(source: geometry, key: state.Key)
-                    .Bind(lease => lease.Use(curve => Optional(curve.GetPerpendicularFrames(toSeq(state.Parameters.AsIterable().Order().Distinct()).AsIterable()))
+                    .Bind(lease => lease.Use(curve => Optional(curve.GetPerpendicularFrames(state.Parameters.Distinct().Order()))
                         .ToFin(state.Key.InvalidResult())
                         .Bind(planes => state.Key.Accept(values: planes)))).ToEff()).As<TGeometry, TOut>(key: key)
             : key.Unsupported<TGeometry, TOut>();
@@ -364,7 +369,7 @@ internal static class Locate {
                         project: static (op, curve, n, ctx) => CurveMagnitudes(key: op, curve: curve, count: n, context: ctx)
                             .Bind(values => Stat.Of(values: values, key: op, context: StatContext.Metric(metric: ScalarMetric.Magnitude)))
                             .Bind(stat => op.AcceptResults<Stat, TOut>(values: Seq(stat)))),
-                (CurvatureMode m, CurvatureAggregation.ExtremaCase extrema, _) when m.IsCurveMagnitude =>
+                (CurvatureMode m, CurvatureAggregation.ExtremaCase extrema, Type output) when m.IsCurveMagnitude && (output == typeof(Point3d) || output == typeof(double)) =>
                     Sweep<TGeometry, TOut, Curve>(key: key, count: count, requirement: Requirement.CurveLength, native: Normalization.CurveForm,
                         project: (op, curve, n, ctx) => CurveSamples(key: op, curve: curve, count: n, context: ctx).Bind(samples => ExtremaOf<TOut>(key: op, samples: samples, extrema: extrema))),
                 _ => key.Unsupported<TGeometry, TOut>(),
@@ -376,10 +381,10 @@ internal static class Locate {
                 (CurvatureMode m, CurvatureAggregation.SamplesCase, Type output) when !m.SurfaceMetrics.IsEmpty && output == typeof(Stat) =>
                     Sweep<TGeometry, TOut, Surface>(key: key, count: count, requirement: Requirement.SurfaceEvaluation, native: Normalization.SurfaceForm,
                         project: (op, surface, n, ctx) => SurfaceStats(key: op, surface: surface, count: n, context: ctx, metrics: m.SurfaceMetrics).Bind(stats => op.AcceptResults<Stat, TOut>(values: stats))),
-                (CurvatureMode.ScalarCase { Metric: ScalarMetric metric }, CurvatureAggregation.SamplesCase, Type output) when metric.IsSurface && output == typeof(double) =>
+                (CurvatureMode.ScalarCase { Metric: ScalarMetric metric } scalar, CurvatureAggregation.SamplesCase, Type output) when !scalar.SurfaceMetrics.IsEmpty && output == typeof(double) =>
                     Sweep<TGeometry, TOut, Surface>(key: key, count: count, requirement: Requirement.SurfaceEvaluation, native: Normalization.SurfaceForm,
                         project: (op, surface, n, ctx) => SurfaceScalars(key: op, surface: surface, count: n, context: ctx, metric: metric).Bind(values => op.AcceptResults<double, TOut>(values: values))),
-                (CurvatureMode.ScalarCase { Metric: ScalarMetric metric }, CurvatureAggregation.ExtremaCase extrema, _) when metric.IsSurface =>
+                (CurvatureMode.ScalarCase { Metric: ScalarMetric metric } scalar, CurvatureAggregation.ExtremaCase extrema, Type output) when !scalar.SurfaceMetrics.IsEmpty && (output == typeof(Point3d) || output == typeof(double)) =>
                     Sweep<TGeometry, TOut, Surface>(key: key, count: count, requirement: Requirement.SurfaceEvaluation, native: Normalization.SurfaceForm,
                         project: (op, surface, n, ctx) => SurfaceSamples(key: op, surface: surface, count: n, context: ctx, metric: metric).Bind(samples => ExtremaOf<TOut>(key: op, samples: samples, extrema: extrema))),
                 _ => key.Unsupported<TGeometry, TOut>(),
@@ -451,7 +456,7 @@ flowchart LR
     Rows -->|curve family| CurveArm["Locate.Curve — CurveForm lease · Locator.ResolveParameter"]
     Rows -->|SurfaceParameter| SurfaceArm["Locate.Surface — SurfaceForm lease · Evaluation.SurfaceUv"]
     Rows -->|ClosestTo × SupportProjection column| ClosestArm["Locate.Closest — SupportSpace + VectorIntent.Support"]
-    CurveArm -.->|Frame / Tangent / Curvature| Projections["Parametric/projections CurveProjection rows"]
+    CurveArm -.->|VectorIntent.Curve → Frame / Tangent / Curvature| Projections["Parametric/projections CurveProjection rows"]
     Sweep -->|Stat.Of · Stat.Extrema · ScalarMetric| Stats["Domain/stats"]
     Sweep -->|lease-scoped SurfaceCurvature| Rhino["Rhino.Geometry evaluation"]
     Spine --> Rhino
@@ -472,10 +477,10 @@ One owner per axis; capability is a case, column, or fold arm, never a sibling s
 |  [06]   | curvature aggregation | `CurvatureAggregation` | `[Union]` + `Key` column; `Band` policy on the extrema case                                | carrier (read by the sweep)                      |    2    |
 |  [07]   | operation spine       | `Locate`               | `internal static` — one `Admits` gate, 8 aspect builders, the `Curvature` matrix over one `Sweep`, 7 sample folds      | `Operation.Build → Eff<Env, Seq<TOut>>`          |    —    |
 
-The vocabulary unions, the case rows, `Resolve`, the `Locate` builders, the curvature matrix, and the sample folds are transcription-complete against the RhinoCommon location surface; every Rhino spelling (`DivideByCount`/`DivideByLength`/`GetPerpendicularFrames`/`NormalizedLengthParameter`/`LengthParameter`/`ClosedCurveOrientation`/`Contains`/`ShortPath`/`DerivativeAt`/`CurvatureAt`/`GetLength`) is catalogue-verified. `Operation<TGeometry,TOut>`/`Env`/`Requirement`/`Op`/`Lease<T>`/`Stat`/`ScalarMetric`/`StatContext`/`ExtremumDirection`/`SupportSpace`/`SupportProjection`/`VectorIntent`/`CurveProjection` and the `Normalization`/`Capability`/`Evaluation` lattices are composed upstream owners, never re-minted here.
+The vocabulary unions, the case rows, `Resolve`, the `Locate` builders, the curvature matrix, and the sample folds are transcription-complete against the RhinoCommon location surface (`DivideByCount`/`DivideByLength`/`GetPerpendicularFrames`/`NormalizedLengthParameter`/`LengthParameter`/`ClosedCurveOrientation`/`Contains`/`ShortPath`/`DerivativeAt`/`CurvatureAt`/`GetLength`). `Operation<TGeometry,TOut>`/`Env`/`Requirement`/`Op`/`Lease<T>`/`Stat`/`ScalarMetric`/`StatContext`/`ExtremumDirection`/`SupportSpace`/`SupportProjection`/`VectorIntent`/`CurveProjection` and the `Normalization`/`Capability`/`Evaluation` lattices are composed upstream owners, never re-minted here.
 
 ## [05]-[RESEARCH]
 
 - [LOCATION_MATRIX] — the (value × locator) matrix is the page's structural thesis: forty-eight combinations, twenty-seven supported, and the support pattern is per-VALUE, so the rows live on the `LocationValue` cases and the fold discriminates only the locator family — five arms replace a flat tuple switch whose every extension touches one central method. The closest family proves the collapse hardest: four values (`Point`/`Frame`/`Normal`/`Parameter`) differ ONLY in which `SupportProjection` row projects the `ClosestHit`, so the closest modality is one `Option<SupportProjection>` column and one shared `Locate.Closest` builder over `SupportSpace` + `VectorIntent.Support` — the value case contributes data, not code. Unsupported combinations fault as `Unsupported` (an impossible request shape), never `InvalidInput` (a malformed value) — the two refusal species stay distinct because the GH binding surfaces them differently.
 - [CURVATURE_SWEEP] — the sweep is one sampling spine under a policy matrix: `count` stations resolve through the `Domain/evaluation` samplers (arc-length-uniform curve parameters; area-stratified surface UVs), the native form arrives leased, and the (mode, aggregation, output) matrix selects the projection — raw vectors/bundles for downstream math, magnitude/metric scalars for direct reading, Welford `Stat` for summary (the multi-metric surface path samples ONCE and transposes lease-scoped metric rows — Gaussian and Mean ride the same `CurvatureAt` call), banded `Stat.Extrema` for extremal stations. The `Band` policy on the extrema case exposes the fold's plateau semantics: band `0.0` returns strict extrema, a positive band returns the tolerance-equivalent set — the difference between "the maximum-curvature point" and "the high-curvature region's stations" is one policy value.
-- [RUNTIME_COMPOSITION] — every builder lands in `Operation<TGeometry, TOut>.Build` with its requirement (derived from the locator or the family, never inline), its `Op` key (the `nameof`-derived `Keys` table — one operation identity per concern, `SYMBOLIC_REFERENCE` over string literals), and an evaluator reading `Env.Asks`/`EnvAsks` for the runtime `Context` — cancellation and readiness gating are `Prepare`'s inside the runtime substrate, so no location arm re-checks them. The coercion leases make polymorphic ingress safe: a `Brep` edge request coerces to an owned duplicate curve the lease disposes after projection, a live `Curve` passes borrowed, and the projection window is the only region where the native form exists — the same discipline the curvature `Sweep` applies to its native handle and `WithBundle` applies to every `SurfaceCurvature`.
+- [RUNTIME_COMPOSITION] — every builder lands in `Operation<TGeometry, TOut>.Build` with its requirement (derived from the locator or the family, never inline), its `Op` key (the `nameof`-derived `Keys` table — one operation identity per concern, `SYMBOLIC_REFERENCE` over string literals), and an evaluator reading `Env.Asks` for the runtime `Context` — cancellation and readiness gating are `Prepare`'s inside the runtime substrate, so no location arm re-checks them. The coercion leases make polymorphic ingress safe: a `Brep` edge request coerces to an owned duplicate curve the lease disposes after projection, a live `Curve` passes borrowed, and the projection window is the only region where the native form exists — the same discipline the curvature `Sweep` applies to its native handle and `WithBundle` applies to every `SurfaceCurvature`.

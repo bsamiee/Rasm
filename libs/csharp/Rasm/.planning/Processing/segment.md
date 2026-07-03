@@ -79,7 +79,7 @@ internal static partial class SegmentKernel {
     private static Fin<DescriptorResult> DescribeSpectralShape(MeshSpace space, MeshDescriptor.SpectralCase spec, int eigenpairs, bool includeAssembly, Op key) =>
         from bundle in space.Cache.SpectralBasisBundleOf(k: eigenpairs, key: key)
         from spectral in spec.Filter.ApplyDetailed(basis: bundle.Basis, sources: spec.Sources, policy: spec.Policy, key: key)
-        from assembly in includeAssembly ? DecKernel.Build(space: space, key: key).Map(calculus => Some(calculus.Receipt)) : Fin.Succ(Option<SpectralAssemblyReceipt>.None)
+        from assembly in includeAssembly ? DecAssembly.Build(space: space, key: key).Map(calculus => Some(calculus.Receipt)) : Fin.Succ(Option<SpectralAssemblyReceipt>.None)
         select new DescriptorResult(Values: spectral.Values, Receipt: new DescriptorReceipt(Spectral: spectral.Receipt, Eigen: bundle.Eigen, RequestedEigenpairs: eigenpairs, ReturnedEigenpairs: bundle.Eigen.ReturnedPairs, SpectralCacheHit: bundle.CacheHit, SkippedDegenerateFaces: bundle.SkippedDegenerateFaces, FactorNonZeros: bundle.FactorNonZeros, Assembly: assembly));
     private static Fin<TOut> ProjectDescriptor<TOut>(DescriptorResult descriptor, Op key) =>
         AtomProjection.Rows<DescriptorResult, TOut>(self: descriptor, key: key, owner: typeof(MeshDescriptor.SpectralCase),
@@ -391,7 +391,7 @@ internal static partial class SegmentKernel {
                 ? from descriptor in DescribeSpectralShape(space: state.Space, spec: spectral, eigenpairs: clusters.Eigenpairs.Value, key: state.Key)
                   from scalars in SegmentationScalarsOf(mesh: state.Space.Native, values: descriptor.Values, valuesAreVertices: true, key: state.Key)
                   from kmeans in ClusterLabels(values: scalars.FaceValues, count: clusters.RegionCount.Value, maxIterations: clusters.MaxIterations.Value, tolerance: clusters.Tolerance.Value, key: state.Key)
-                  let labels = ConnectedComponents(mesh: state.Space.Native, buckets: kmeans.Labels)
+                  let labels = ConnectedComponents(adjacency: FaceAdjacencyOf(mesh: state.Space.Native), buckets: kmeans.Labels)
                   select ResultOf(mesh: state.Space.Native, faceRegions: labels, scalars: scalars,
                       run: new SegmentationRun(Algorithm: MeshSegmentationAlgorithm.DescriptorScalarClusters, RequestedRegionCount: clusters.RegionCount.Value, SeedCount: 0, Status: kmeans.Converged ? MeshSegmentationStatus.Completed : MeshSegmentationStatus.MaxIterationsExhausted, Iterations: Some(kmeans.Iterations), MaxIterations: Some(clusters.MaxIterations.Value), Tolerance: Some(clusters.Tolerance.Value), Threshold: Option<double>.None, Descriptor: Some(descriptor.Receipt)))
                 : Fin.Fail<MeshSegmentationResult>(state.Key.Unsupported(geometryType: clusters.Descriptor.GetType(), outputType: typeof(MeshSegmentationResult))),
@@ -404,12 +404,13 @@ internal static partial class SegmentKernel {
             normalizedCutCase: static (state, cut) =>
                 from scalars in SegmentationScalarsOf(mesh: state.Space.Native, values: cut.Values, valuesAreVertices: cut.ValuesAreVertices, key: state.Key)
                 from _ in guard(scalars.FiniteCount >= cut.RegionCount.Value, state.Key.InvalidInput())
-                from system in NormalizedCutSystemOf(mesh: state.Space.Native, scalars: scalars.FaceValues, tolerance: cut.Tolerance.Value, key: state.Key)
+                let adjacency = FaceAdjacencyOf(mesh: state.Space.Native)
+                from system in NormalizedCutSystemOf(adjacency: adjacency, scalars: scalars.FaceValues, tolerance: cut.Tolerance.Value, key: state.Key)
                 from eigen in MatrixKernel.GeneralizedEigenpairsDetailed(stiffness: system.Laplacian, mass: system.Degree, k: Math.Min(val1: cut.Eigenpairs.Value, val2: Math.Max(val1: 1, val2: state.Space.Native.Faces.Count - 1)), key: state.Key)
                 from projection in FiedlerProjection(eigen: eigen, expectedCount: scalars.FaceValues.Count, key: state.Key)
                 from kmeans in ClusterLabels(values: projection, count: cut.RegionCount.Value, maxIterations: cut.MaxIterations.Value, tolerance: cut.Tolerance.Value, key: state.Key)
-                let labels = ConnectedComponents(mesh: state.Space.Native, buckets: kmeans.Labels)
-                let value = NormalizedCutValue(mesh: state.Space.Native, scalars: scalars.FaceValues, labels: labels, sigma: system.Sigma)
+                let labels = ConnectedComponents(adjacency: adjacency, buckets: kmeans.Labels)
+                let value = NormalizedCutValue(adjacency: adjacency, scalars: scalars.FaceValues, labels: labels, sigma: system.Sigma)
                 select ResultOf(mesh: state.Space.Native, faceRegions: labels, scalars: scalars,
                     run: new SegmentationRun(Algorithm: MeshSegmentationAlgorithm.NormalizedCut, RequestedRegionCount: cut.RegionCount.Value, SeedCount: 0, Status: kmeans.Converged ? MeshSegmentationStatus.Completed : MeshSegmentationStatus.MaxIterationsExhausted, Iterations: Some(kmeans.Iterations), MaxIterations: Some(cut.MaxIterations.Value), Tolerance: Some(cut.Tolerance.Value), Threshold: Option<double>.None, Descriptor: Option<DescriptorReceipt>.None, FactorNonZeros: eigen.FactorNonZeros, NormalizedCutValue: Some(value), AffinityNonZeros: Some(system.AffinityNonZeros), Eigen: Some(eigen))))
             .Bind(result => AtomProjection.Rows<MeshSegmentationResult, TOut>(self: result, key: key, owner: typeof(MeshSegmentation),
@@ -442,10 +443,9 @@ internal static partial class SegmentKernel {
     private static int BandIndexOf(double value, double min, double max, int count) =>
         !RhinoMath.IsValidDouble(x: value) ? UnassignedRegion : Math.Abs(value: max - min) <= RhinoMath.SqrtEpsilon ? 0 : Math.Min(val1: count - 1, val2: Math.Max(val1: 0, val2: (int)Math.Floor(d: (value - min) / ((max - min) / count))));
     private static MeshSegmentationResult ComponentsOf(Mesh mesh, SegmentationScalars scalars, Func<double, int> bucket, SegmentationRun run) =>
-        ResultOf(mesh: mesh, faceRegions: ConnectedComponents(mesh: mesh, buckets: [.. scalars.FaceValues.AsIterable().Select(value => RhinoMath.IsValidDouble(x: value) ? bucket(arg: value) : UnassignedRegion)]), scalars: scalars, run: run);
-    private static int[] ConnectedComponents(Mesh mesh, int[] buckets) {
-        int[] regions = [.. Enumerable.Repeat(element: UnassignedRegion, count: mesh.Faces.Count)];
-        int[][] adjacency = FaceAdjacencyOf(mesh: mesh);
+        ResultOf(mesh: mesh, faceRegions: ConnectedComponents(adjacency: FaceAdjacencyOf(mesh: mesh), buckets: [.. scalars.FaceValues.AsIterable().Select(value => RhinoMath.IsValidDouble(x: value) ? bucket(arg: value) : UnassignedRegion)]), scalars: scalars, run: run);
+    private static int[] ConnectedComponents(int[][] adjacency, int[] buckets) {
+        int[] regions = [.. Enumerable.Repeat(element: UnassignedRegion, count: adjacency.Length)];
         int region = 0;
         for (int start = 0; start < buckets.Length; start++) {
             if (buckets[start] < 0 || regions[start] >= 0) continue;
@@ -601,9 +601,8 @@ internal static partial class SegmentKernel {
     }
 
     // --- [NORMALIZED_CUT] — Gaussian affinity over face adjacency; sigma scale-derived from the value range
-    private static Fin<NormalizedCutSystem> NormalizedCutSystemOf(Mesh mesh, Arr<double> scalars, double tolerance, Op key) {
-        int faceCount = mesh.Faces.Count;
-        int[][] adjacency = FaceAdjacencyOf(mesh: mesh);
+    private static Fin<NormalizedCutSystem> NormalizedCutSystemOf(int[][] adjacency, Arr<double> scalars, double tolerance, Op key) {
+        int faceCount = adjacency.Length;
         double[] degree = new double[faceCount];
         bool hasFinite = false;
         double min = double.PositiveInfinity, max = double.NegativeInfinity;
@@ -645,14 +644,13 @@ internal static partial class SegmentKernel {
     }
     private static Fin<Arr<double>> FiedlerProjection(EigenSolveReceipt<double, Arr<double>> eigen, int expectedCount, Op key) {
         (double Eigenvalue, Arr<double> Eigenvector)[] pairs = [.. eigen.Pairs.AsIterable()];
-        return eigen.IsUsable && pairs.Length >= 2 && pairs[1].Eigenvector.Count == expectedCount && pairs[1].Eigenvector.ForAll(RhinoMath.IsValidDouble)
+        return eigen.IsValid && pairs.Length >= 2 && pairs[1].Eigenvector.Count == expectedCount && pairs[1].Eigenvector.ForAll(RhinoMath.IsValidDouble)
             ? Fin.Succ(pairs[1].Eigenvector)
             : Fin.Fail<Arr<double>>(key.InvalidResult());
     }
-    private static double NormalizedCutValue(Mesh mesh, Arr<double> scalars, int[] labels, double sigma) {
+    private static double NormalizedCutValue(int[][] adjacency, Arr<double> scalars, int[] labels, double sigma) {
         int maxRegion = labels.Where(static label => label >= 0).DefaultIfEmpty(defaultValue: -1).Max();
         if (maxRegion < 0) return 0.0;
-        int[][] adjacency = FaceAdjacencyOf(mesh: mesh);
         double[] assoc = new double[maxRegion + 1], cut = new double[maxRegion + 1];
         for (int f = 0; f < labels.Length; f++) {
             int lf = labels[f];
@@ -737,7 +735,7 @@ internal static partial class SegmentKernel {
         cones.IsNone
             ? Fin.Succ(Option<Arr<double>>.None)
             : from imesh in space.Cache.IntrinsicMeshSnapshot(key: key)
-              from adjustment in DecKernel.DistributeHolonomy(space: space, imesh: imesh, cones: cones.IfNone(toSeq<(int, double)>([])).Map(c => (c.Vertex, ConeIndex: c.HolonomyDeficit / (2.0 * Math.PI))), key: key)
+              from adjustment in DecAssembly.DistributeHolonomy(space: space, imesh: imesh, cones: cones.IfNone(toSeq<(int, double)>([])).Map(c => (c.Vertex, ConeIndex: c.HolonomyDeficit / (2.0 * Math.PI))), key: key)
               select Some(adjustment);
     private static Fin<Complex[]> SolveSmoothestCrossField(MeshSpace space, int symmetry, Option<Arr<double>> edgeAdjustment, Op key) =>
         BuildConnectionLaplacian(space: space, symmetry: symmetry, edgeAdjustment: edgeAdjustment, key: key)

@@ -126,6 +126,10 @@ const TS_LANG = [
     'never re-instantiate generics or re-assert literals. `import type`/`export type` stay explicit; value vs type imports never blur. ZERO ' +
     '`any`, `as any`, `as unknown as`, `@ts-ignore`/`@ts-expect-error`-without-reason, `enum`, `namespace`-as-scope, or `throw` in domain logic; ' +
     '`unknown` only at a boundary immediately decoded by a Schema.',
+  'EXPORT LAW: a module NEVER exports inline at a declaration site — declarations are authored unexported and the file ends with ONE ' +
+    '`// --- [EXPORTS]` block (`export { A, B }` + `export type { T, U }`) carrying the complete public surface; the one-name value/type merge ' +
+    'and minimal-surface laws still hold — the exports block declares the surface, never widens it. An in-body `export const`/`export type`/' +
+    '`export declare namespace` is the named defect.',
   'NOMINAL invariants ride Schema-refined brands INSIDE rich owners, so an interior function cannot be handed a raw primitive — never a ' +
     'free-floating one-field brand alias. No `const`+`type`+`typeof` triple for one concept (ONE canonical owner, derive the rest). Keep every ' +
     'choice CONSISTENT across the whole corpus so it reads as ONE unified, ultra-advanced shape system, never a patchwork.',

@@ -393,7 +393,9 @@ const LANG = {
         'entrypoint owns every call modality via overload signatures or a discriminated input union; `Function.dual` gives pipe + direct call ' +
         'in one function. SCHEMA AUTHORITY: static types derive (`Schema.Schema.Type`/`Schema.Schema.Encoded`, `X.Type`), wire twins derive ' +
         'through `Schema.transform` — a hand-declared parallel interface/DTO beside a Schema owner is a defect. SHAPE BUDGET: one deep nested ' +
-        'owner replaces 5+ loose interfaces/aliases/DTOs/brands; brands live INSIDE rich owners as Schema refinements, never free-floating.',
+        'owner replaces 5+ loose interfaces/aliases/DTOs/brands; brands live INSIDE rich owners as Schema refinements, never free-floating. ' +
+        'EXPORT LAW: no in-body exports — declarations are unexported and the file ends with ONE `// --- [EXPORTS]` block (`export { A, B }` + ' +
+        '`export type { T, U }`) carrying the complete public surface.',
       'Domain logic runs on typed-error rails — `Effect`/`Either`/`Option`, NEVER `throw` in domain code; boundaries validate through `Schema` ' +
         '(parse, never trust input). `import type`/`export type` are explicit; side-effect/value imports preserve runtime order. Per the ' +
         'docs/stacks/typescript file-organization overlay: `Effect.Service` owners are SERVICES, `Layer`/runtime wiring is COMPOSITION, ' +

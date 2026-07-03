@@ -1024,7 +1024,7 @@ def test_artifact_roots_route_all_heavy_lanes() -> None:
     assert all(root.startswith(".artifacts/python/") for root in PY_ARTIFACT_ROOTS.values())
     assert set(PY_COVERAGE_FILES) == {"json", "xml", "lcov"}
     assert all(path == f"{PY_ARTIFACT_ROOTS['coverage']}/coverage.{fmt}" for fmt, path in PY_COVERAGE_FILES.items())
-    assert set(CS_ARTIFACT_ROOTS) == {"stryker", "stryker-output"}
+    assert set(CS_ARTIFACT_ROOTS) == {"stryker", "stryker-output", "trx"}
     assert all(root.startswith(".artifacts/csharp/") for root in CS_ARTIFACT_ROOTS.values())
     assert CS_ARTIFACT_ROOTS["stryker"].startswith(f"{CS_ARTIFACT_ROOTS['stryker-output']}/"), "work tree nests under the report root"
     assert DOTNET_BUILD_CLOSURE == "dotnet"
