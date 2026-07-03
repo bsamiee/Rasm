@@ -13,10 +13,12 @@ public static class VerifyModuleInitializer {
 // The repo-wide snapshot-hygiene gate pair. VerifyChecks resolves the solution directory and
 // audits orphaned *.received.* litter, csproj-imported snapshot nestings, and the .gitignore /
 // .gitattributes / .editorconfig conventions for every *.verified.* extension in the tree.
+// The walk is whole-tree by design (VerifyChecks exposes no scope) so the fact is Explicit:
+// the default lane stays fast, and the hygiene lane runs it via `-- --explicit only`.
 // DanglingSnapshots fails a build-server run on *.verified.* files no executed test tracked;
-// off CI the check is inert by design, so the local gate is VerifyChecks alone.
+// off CI the check is inert by design.
 public sealed class SnapshotHygieneLaws {
-    [Fact]
+    [Fact(Explicit = true)]
     public Task VerifyConventionsHoldSolutionWide() => VerifyChecks.Run();
 
 #pragma warning disable VerifyDanglingSnapshots // experimental surface, deliberately armed as the CI dangling-snapshot gate

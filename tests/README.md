@@ -37,20 +37,20 @@ tests/
 [KIT_LAW]:
 - Shared test logic lives in exactly one per-language kit: `tests/csharp/_testkit` (plus `_scenariokit` for the host-aware scenario SDK), `tests/python/_testkit`, and `tests/typescript/_testkit`.
 - Kits never live under `libs/` — libs is the production plane.
-- Nothing cross-language lives inside a single language's tree; the neutral seams are `tests/contracts/`, proto descriptors, provisioned service containers, and the assay operator.
+- Nothing cross-language lives inside a single language's tree; the neutral seams are `tests/contracts/`, `tests/containers.json` (the one container-image pin every language's container row resolves), proto descriptors, provisioned service containers, and the assay operator.
 
 ## [02]-[LANES]
 
 Test lanes are orthogonal to language; every suite declares its lane through the owning route, never through folder improvisation:
 
-| [INDEX] | [LANE]      | [BOUNDARY]                                                             | [ROUTE]                                                                             |
-| :-----: | :---------- | :--------------------------------------------------------------------- | :----------------------------------------------------------------------------------- |
-|  [01]   | unit        | in-process, deterministic time, no sockets                             | default test run per language                                                       |
-|  [02]   | property    | generated-input law over a unit subject                                | `Spec.ForAll` (C#), `@spec` + Hypothesis (Python), `it.effect.prop` (TS)            |
-|  [03]   | integration | real process or IO boundary: containers, subprocess, loopback servers  | `network`/`subprocess` markers (Python); explicit boundary suites elsewhere         |
-|  [04]   | scenario    | live-host evidence through the rhino bridge                            | `[RhinoScenario]` content + the assay bridge rail                                   |
-|  [05]   | benchmark   | measurement in a separate session, never inside unit runs              | `_benchmarks` switcher (C#), `-m benchmark` (Python), bench include glob (TS)       |
-|  [06]   | mutation    | assay-gated survivor discovery                                         | assay mutation routes over the root Stryker configs + the staged Python gate       |
+| [INDEX] | [LANE]      | [BOUNDARY]                                                            | [ROUTE]                                                                       |
+| :-----: | :---------- | :-------------------------------------------------------------------- | :---------------------------------------------------------------------------- |
+|  [01]   | unit        | in-process, deterministic time, no sockets                            | default test run per language                                                 |
+|  [02]   | property    | generated-input law over a unit subject                               | `Spec.ForAll` (C#), `@spec` + Hypothesis (Python), `it.effect.prop` (TS)      |
+|  [03]   | integration | real process or IO boundary: containers, subprocess, loopback servers | `network`/`subprocess` markers (Python); explicit boundary suites elsewhere   |
+|  [04]   | scenario    | live-host evidence through the rhino bridge                           | `[RhinoScenario]` content + the assay bridge rail                             |
+|  [05]   | benchmark   | measurement in a separate session, never inside unit runs             | `_benchmarks` switcher (C#), `-m benchmark` (Python), bench include glob (TS) |
+|  [06]   | mutation    | assay-gated survivor discovery                                        | assay mutation routes over the root Stryker configs + the staged Python gate  |
 
 The word `integration` is reserved for the real process/IO boundary. A test that runs in-process with doubles is a unit test regardless of how many owners it spans; calling it integration inflates the lane and hides the missing boundary proof.
 
@@ -72,22 +72,22 @@ A failing law is evidence: investigate the production owner before weakening the
 
 Every tool writes reports under `.artifacts/` and temp/work state under `.cache/<tool>/`; the repo root stays litter-free, and exact directories live in the owning configuration:
 
-| [INDEX] | [TOOL]            | [SURFACE]                        | [ROUTE_OWNER]                                                    |
-| :-----: | :---------------- | :------------------------------- | :---------------------------------------------------------------- |
-|  [01]   | coverlet.MTP      | C# coverage                      | `Directory.Build.props` Coverage block                           |
-|  [02]   | MTP TrxReport     | C# test results                  | invocation law in `tests/csharp/README.md`                       |
-|  [03]   | Stryker.NET       | C# mutation                      | root `stryker-config.json` + assay mutation rail (staged)       |
-|  [04]   | BenchmarkDotNet   | C# benchmarks                    | `tests/csharp/_benchmarks` session config                        |
-|  [05]   | pytest + coverage | Python coverage + caches         | `pyproject.toml` tool tables                                     |
-|  [06]   | Hypothesis        | example database + observability | `tests/python/_testkit/runtime.py`                               |
-|  [07]   | pytest-benchmark  | Python benchmark storage         | `pyproject.toml` addopts                                         |
-|  [08]   | mutmut            | Python mutation                  | `pyproject.toml` `[tool.mutmut]` + `.config/coverage-mutmut.ini` |
-|  [09]   | inline-snapshot   | snapshot storage                 | `pyproject.toml` `[tool.inline-snapshot]`                        |
-|  [10]   | Vitest            | TS coverage + results + bench ledger | root `vitest.config.ts`                                      |
-|  [11]   | StrykerJS         | TS mutation                      | `stryker.config.json`                                    |
-|  [12]   | Playwright        | e2e traces + results             | root `playwright.config.ts` (auto-discovery self-defense)        |
-|  [13]   | Nx                | target outputs + cache           | `nx.json` targetDefaults                                         |
-|  [14]   | import-linter     | grimp cache                      | assay static rail invocation (`--cache-dir .cache/grimp`)        |
+| [INDEX] | [TOOL]            | [SURFACE]                            | [ROUTE_OWNER]                                                    |
+| :-----: | :---------------- | :----------------------------------- | :--------------------------------------------------------------- |
+|  [01]   | coverlet.MTP      | C# coverage                          | `Directory.Build.props` Coverage block                           |
+|  [02]   | MTP TrxReport     | C# test results                      | invocation law in `tests/csharp/README.md`                       |
+|  [03]   | Stryker.NET       | C# mutation                          | root `stryker-config.json` + assay mutation rail (staged)        |
+|  [04]   | BenchmarkDotNet   | C# benchmarks                        | `tests/csharp/_benchmarks` session config                        |
+|  [05]   | pytest + coverage | Python coverage + caches             | `pyproject.toml` tool tables                                     |
+|  [06]   | Hypothesis        | example database + observability     | `tests/python/_testkit/runtime.py`                               |
+|  [07]   | pytest-benchmark  | Python benchmark storage             | `pyproject.toml` addopts                                         |
+|  [08]   | mutmut            | Python mutation                      | `pyproject.toml` `[tool.mutmut]` + `.config/coverage-mutmut.ini` |
+|  [09]   | inline-snapshot   | snapshot storage                     | `pyproject.toml` `[tool.inline-snapshot]`                        |
+|  [10]   | Vitest            | TS coverage + results + bench ledger | root `vitest.config.ts`                                          |
+|  [11]   | StrykerJS         | TS mutation                          | `stryker.config.json`                                            |
+|  [12]   | Playwright        | e2e traces + results                 | root `playwright.config.ts` (auto-discovery self-defense)        |
+|  [13]   | Nx                | target outputs + cache               | `nx.json` targetDefaults                                         |
+|  [14]   | import-linter     | grimp cache                          | assay static rail invocation (`--cache-dir .cache/grimp`)        |
 
 Tool-admission litter rule: a change that admits or reconfigures any tool proves its caches and outputs land under `.cache/` or `.artifacts/` before it lands — routed through the tool's own documented configuration, config-file setting first, CLI flag second, never wrapper scripts or conftest shims. Gate: after the change's checks run, `git status` plus a root listing shows zero new root entries.
 
@@ -95,24 +95,24 @@ Tool-admission litter rule: a change that admits or reconfigures any tool proves
 
 Every new suite, kit capability, fixture, or corpus asset has exactly one home; extending the canonical owner always beats adding a sibling, and an owner whose shape is no longer the densest is rebuilt ground-up, never accreted around:
 
-| [INDEX] | [ADDITION]               | [HOME]                                                                             |
-| :-----: | :----------------------- | :----------------------------------------------------------------------------------- |
-|  [01]   | C# per-package suite     | `tests/csharp/libs/<Package>/`, specs mirroring source paths as `<Source>.spec.cs`  |
-|  [02]   | C# scenario              | `tests/csharp/scenarios`                                                            |
-|  [03]   | C# kit capability        | `tests/csharp/_testkit` (host-free) or `tests/csharp/_scenariokit` (host-aware)     |
-|  [04]   | C# infra-tool suite      | `tests/csharp/tools/<tool>/`                                                        |
-|  [05]   | C# gated benchmark       | `tests/csharp/_benchmarks` — a gated case is a registry row beside the switcher     |
-|  [06]   | Python per-package suite | `tests/python/libs/<package>/`                                                      |
-|  [07]   | Python kit capability    | the owning module in `tests/python/_testkit`                                        |
-|  [08]   | Python tool suite        | `tests/python/tools/<tool>/`                                                        |
-|  [09]   | TS unit spec             | beside its source in `libs/typescript`                                              |
-|  [10]   | TS kit capability        | `tests/typescript/_testkit`                                                         |
-|  [11]   | TS e2e suite             | `tests/typescript/e2e`                                                              |
+| [INDEX] | [ADDITION]               | [HOME]                                                                                   |
+| :-----: | :----------------------- | :--------------------------------------------------------------------------------------- |
+|  [01]   | C# per-package suite     | `tests/csharp/libs/<Package>/`, specs mirroring source paths as `<Source>.spec.cs`       |
+|  [02]   | C# scenario              | `tests/csharp/scenarios`                                                                 |
+|  [03]   | C# kit capability        | `tests/csharp/_testkit` (host-free) or `tests/csharp/_scenariokit` (host-aware)          |
+|  [04]   | C# infra-tool suite      | `tests/csharp/tools/<tool>/`                                                             |
+|  [05]   | C# gated benchmark       | `tests/csharp/_benchmarks` — a gated case is a registry row beside the switcher          |
+|  [06]   | Python per-package suite | `tests/python/libs/<package>/`                                                           |
+|  [07]   | Python kit capability    | the owning module in `tests/python/_testkit`                                             |
+|  [08]   | Python tool suite        | `tests/python/tools/<tool>/`                                                             |
+|  [09]   | TS unit spec             | beside its source in `libs/typescript`                                                   |
+|  [10]   | TS kit capability        | `tests/typescript/_testkit`                                                              |
+|  [11]   | TS e2e suite             | `tests/typescript/e2e`                                                                   |
 |  [12]   | TS architecture gauge    | `tests/typescript/_architecture` — branch-boundary suites the exports map cannot express |
-|  [13]   | TS dev-tool API catalog  | `tests/typescript/.api/`, one catalog per dev-plane package                         |
-|  [14]   | structural rule          | `.rules/<language>/`, registered through the root `sgconfig.yml`                    |
-|  [15]   | structural rule fixture  | `tests/ast-grep/pass` + `tests/ast-grep/fail` — every rule carries both             |
-|  [16]   | contract corpus seam     | `tests/contracts/<seam>/` per the corpus law                                        |
+|  [13]   | TS dev-tool API catalog  | `tests/typescript/.api/`, one catalog per dev-plane package                              |
+|  [14]   | structural rule          | `.rules/<language>/`, registered through the root `sgconfig.yml`                         |
+|  [15]   | structural rule fixture  | `tests/ast-grep/pass` + `tests/ast-grep/fail` — every rule carries both                  |
+|  [16]   | contract corpus seam     | `tests/contracts/<seam>/` per the corpus law                                             |
 
 Per-package mirror law: where the ecosystem separates tests from source, suite homes mirror the production tree — C# shells under `tests/csharp/libs` mirror `libs/csharp`, Python suites under `tests/python/libs` mirror `libs/python`. TS unit specs instead colocate beside source per the vitest idiom, so `tests/typescript/` never hosts unit specs.
 
@@ -148,15 +148,15 @@ Heavy-lane invocation law: the bounded lanes — unit, property, and benchmark s
 
 Before touching any testing surface, an agent checks the owners that carry the facts:
 
-| [INDEX] | [SURFACE]                                            | [CARRIES]                                                                                    |
-| :-----: | :--------------------------------------------------- | :--------------------------------------------------------------------------------------------- |
-|  [01]   | `Directory.Packages.props` + `Directory.Build.props` | C# test-stack pins, project classifiers, lane wiring, coverage routing                       |
-|  [02]   | `Directory.Build.targets`                            | classifier vocabulary sealing: a tests/csharp project carries exactly one valid classifier   |
-|  [03]   | `pyproject.toml`                                     | Python test dependencies, pytest/coverage/mutmut/import-linter policy, markers               |
-|  [04]   | `pnpm-workspace.yaml`                                | TS catalog pins, peer-rule resolutions, workspace package globs                              |
-|  [05]   | `.config/`                                           | mutmut coverage side-file, dotnet tool manifest                                              |
-|  [06]   | `sgconfig.yml` + `.rules/`                           | structural ast-grep rules; the assay static rail enforces them and probes the fail fixtures  |
+| [INDEX] | [SURFACE]                                            | [CARRIES]                                                                                       |
+| :-----: | :--------------------------------------------------- | :---------------------------------------------------------------------------------------------- |
+|  [01]   | `Directory.Packages.props` + `Directory.Build.props` | C# test-stack pins, project classifiers, lane wiring, coverage routing                          |
+|  [02]   | `Directory.Build.targets`                            | classifier vocabulary sealing: a tests/csharp project carries exactly one valid classifier      |
+|  [03]   | `pyproject.toml`                                     | Python test dependencies, pytest/coverage/mutmut/import-linter policy, markers                  |
+|  [04]   | `pnpm-workspace.yaml`                                | TS catalog pins, peer-rule resolutions, workspace package globs                                 |
+|  [05]   | `.config/`                                           | mutmut coverage side-file, dotnet tool manifest                                                 |
+|  [06]   | `sgconfig.yml` + `.rules/`                           | structural ast-grep rules; the assay static rail enforces them and probes the fail fixtures     |
 |  [07]   | `vitest.config.ts` + `stryker*.json` + `nx.json`     | TS runner defaults, artifact outputs, both root Stryker mutation configs, project-graph targets |
-|  [08]   | `tools/assay`                                        | the gate authority: `static`/`test`/`bridge`/`docs`/`code`/`package`/`api`/`provision` rails |
+|  [08]   | `tools/assay`                                        | the gate authority: `static`/`test`/`bridge`/`docs`/`code`/`package`/`api`/`provision` rails    |
 
 The operator is itself a tested surface: every `tools/` operator owns a suite under `tests/<language>/tools/<tool>`, and operator and suite move in the same change — `tools/assay` with `tests/python/tools/assay`, `tools/py_analyzer` with `tests/python/tools/py_analyzer`, `tools/cs-analyzer` with `tests/csharp/tools/cs-analyzer`. A rail change without its spec change is an incomplete change.

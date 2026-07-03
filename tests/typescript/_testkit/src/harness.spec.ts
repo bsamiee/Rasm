@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { HttpRouter, HttpServerResponse } from '@effect/platform';
 import { describe, expect, layer } from '@effect/vitest';
 import { Effect, Layer, Option, Schema } from 'effect';
@@ -8,9 +9,11 @@ import { Containers, HarnessFault, Loopback, Loopbacks, ObjectStore, ObjectStore
 const _DDL = 'CREATE TABLE marks (key TEXT PRIMARY KEY, rank INTEGER NOT NULL);';
 const _BYTES = Uint8Array.from([1, 2, 3, 4]);
 
-// Container-lane activation: the shared images are unpinned, so the live lane is env-opted; the unit lanes gate every run.
-const _PG_IMAGE = process.env['RASM_TESTKIT_PG_IMAGE'];
-const _STORE_IMAGE = process.env['RASM_TESTKIT_STORE_IMAGE'];
+// Images pin in tests/containers.json — the polyglot owner every language's container row resolves; RASM_TESTKIT_CONTAINERS activates the live lanes.
+const _PINS = Schema.decodeUnknownSync(Schema.Struct({ pg: Schema.String, store: Schema.String }))(
+    JSON.parse(readFileSync(new URL('../../../containers.json', import.meta.url), 'utf8')),
+);
+const _LIVE = process.env['RASM_TESTKIT_CONTAINERS'] !== undefined;
 
 // --- [MODELS] ----------------------------------------------------------------------------
 
@@ -83,8 +86,8 @@ layer(Loopbacks.serve(HttpRouter.empty.pipe(HttpRouter.get('/ping', HttpServerRe
     );
 });
 
-describe.skipIf(_PG_IMAGE === undefined)('pg container lane [RASM_TESTKIT_PG_IMAGE]', () => {
-    layer(PgLanes.container({ image: _PG_IMAGE ?? 'unset' }), { timeout: '150 seconds' })('real server', (it) => {
+describe.skipIf(!_LIVE)('pg container lane [RASM_TESTKIT_CONTAINERS]', () => {
+    layer(PgLanes.container({ image: _PINS.pg }), { timeout: '150 seconds' })('real server', (it) => {
         it.effect('the mapped-port driver serves the same lane algebra', () =>
             Effect.gen(function* () {
                 const lane = yield* PgLane;
@@ -97,17 +100,15 @@ describe.skipIf(_PG_IMAGE === undefined)('pg container lane [RASM_TESTKIT_PG_IMA
     });
 });
 
-describe.skipIf(_STORE_IMAGE === undefined)('object store container lane [RASM_TESTKIT_STORE_IMAGE]', () => {
+describe.skipIf(!_LIVE)('object store container lane [RASM_TESTKIT_CONTAINERS]', () => {
     const _live = Layer.unwrapScoped(
-        Effect.map(
-            Containers.start(Containers.objectStore({ image: _STORE_IMAGE ?? 'unset', rootUser: 'testing', rootPassword: 'testing-secret' })),
-            (started) =>
-                ObjectStores.s3({
-                    endpoint: `http://${started.getHost()}:${started.getMappedPort(9000)}`,
-                    bucket: 'kit',
-                    accessKeyId: 'testing',
-                    secretAccessKey: 'testing-secret',
-                }),
+        Effect.map(Containers.start(Containers.objectStore({ image: _PINS.store, rootUser: 'testing', rootPassword: 'testing-secret' })), (started) =>
+            ObjectStores.s3({
+                endpoint: `http://${started.getHost()}:${started.getMappedPort(9000)}`,
+                bucket: 'kit',
+                accessKeyId: 'testing',
+                secretAccessKey: 'testing-secret',
+            }),
         ),
     );
     layer(_live, { timeout: '150 seconds' })('real store', (it) => {

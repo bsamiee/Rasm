@@ -16,6 +16,7 @@ declare namespace Containers {
         readonly image: string;
         readonly ports: Array.NonEmptyReadonlyArray<number>;
         readonly environment: Record<string, string>;
+        readonly command?: ReadonlyArray<string>;
         readonly ready: WaitStrategy;
         readonly startupMs: number;
     };
@@ -95,7 +96,7 @@ const _lane = (exec: PgLane.Service['exec'], rows: PgLane.Service['rows']): PgLa
     },
 });
 
-// Container rows are DATA on the one builder: a new lane is a row, never a new mechanism. Images are caller-owned — the kit invents no pin.
+// Container rows are DATA on the one builder: a new lane is a row, never a new mechanism. Images are caller-owned — the polyglot pin lives in tests/containers.json, never in the kit.
 const Containers = {
     pg: (options: PgLane.ContainerOptions): Containers.Row => ({
         image: options.image,
@@ -112,19 +113,20 @@ const Containers = {
         image: options.image,
         ports: [_STORE.port],
         environment: { MINIO_ROOT_USER: options.rootUser, MINIO_ROOT_PASSWORD: options.rootPassword },
+        command: ['server', '/data'],
         ready: Wait.forHttp(_STORE.health, _STORE.port).forStatusCode(200),
         startupMs: _STORE.startupMs,
     }),
     start: (row: Containers.Row): Effect.Effect<StartedTestContainer, HarnessFault, Scope.Scope> =>
         Effect.acquireRelease(
-            _guarded('container', () =>
-                new GenericContainer(row.image)
+            _guarded('container', () => {
+                const built = new GenericContainer(row.image)
                     .withExposedPorts(...row.ports)
                     .withEnvironment(row.environment)
                     .withWaitStrategy(row.ready)
-                    .withStartupTimeout(row.startupMs)
-                    .start(),
-            ),
+                    .withStartupTimeout(row.startupMs);
+                return (row.command === undefined ? built : built.withCommand([...row.command])).start();
+            }),
             (started) => Effect.asVoid(Effect.promise(() => started.stop())),
         ),
 } as const;

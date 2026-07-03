@@ -52,7 +52,7 @@ The digest surface is ONE parameterized pattern — `{ name(data, …seed?): Pro
 |  [10]   | `crc32` / `crc64` / `adler32`         | `createCRC32`…      | checksums                                                |
 
 ```ts contract
-// The consumed row — both seed halves omitted ⇒ the seed-zero mint. Return is lowercase hex, native byte order.
+// The consumed row — both seed halves omitted ⇒ the seed-zero mint. Return is lowercase hex in canonical big-endian digest order.
 declare function xxhash128(data: IDataType, seedLow?: number, seedHigh?: number): Promise<string>
 declare function createXXHash128(seedLow?: number, seedHigh?: number): Promise<IHasher>
 declare function blake3(data: IDataType, bits?: number, key?: IDataType): Promise<string>   // keyed-digest exemplar
@@ -87,7 +87,7 @@ declare function createHMAC(hash: Promise<IHasher>, key: IDataType): Promise<IHa
 
 ## [04]-[CONTENTKEY_MINT]
 
-The one consumed rail. `identity/contentkey` calls `xxhash128(bytes)` with both seed halves defaulted to `0` — the seed-zero mint — and normalizes the returned hex from hash-wasm's native (little-endian) byte order to the big-endian layout of the C# `System.IO.Hashing.XxHash128` seed-0 digest, yielding the canonical `:x32` (32-hex-char) `ContentKey`. That LE→BE normalize is what makes the JS mint byte-identical to the C# mint; the `tests/contracts` corpus parity drivers (TS readers in `tests/typescript/_testkit`) assert bit-identity against the frozen `ContentHash` corpus.
+The one consumed rail. `identity/contentkey` calls `xxhash128(bytes)` with both seed halves defaulted to `0` — the seed-zero mint — and the returned hex IS the canonical `:x32` (32-hex-char) `ContentKey` directly: hash-wasm emits big-endian digest order, byte-identical to the C# `System.IO.Hashing.XxHash128` seed-0 `:x32` rendering with NO normalize step (the frozen corpus vector hashes to `9462a71a5dd13dcfa3b1d6d225fcbe70` from both mints). A hand-rolled byte-order shuffle on this path is a defect, not a compatibility layer. One asymmetry survives at the BYTES level only: `digest("binary")` returns the 16 raw bytes in that same display order — the reverse of the C# destination-buffer little-endian memory dump the corpus manifest records — so raw-buffer parity compares reverse one side, while hex parity is direct. The `tests/contracts` corpus parity drivers (TS readers in `tests/typescript/_testkit`) assert bit-identity against the frozen `ContentHash` corpus.
 
 - Small payload: `await xxhash128(bytes)` — one call, seed-zero.
 - Large / chunked payload: `createXXHash128(0, 0)` once, then `hasher.init().update(chunk)…digest()` — the WASM compile amortizes; `digest("binary")` returns the raw 16 bytes when the brand wants bytes before hexing.
@@ -95,7 +95,7 @@ The one consumed rail. `identity/contentkey` calls `xxhash128(bytes)` with both 
 
 ## [05]-[INTEGRATION]
 
-[STACK: `hash-wasm` + `effect/Schema` + `Effect`] — the mint is not a bare `Promise<string>`; it lands as a `Schema`-branded `ContentKey`. `Effect.promise(() => xxhash128(bytes))` (the call cannot fail once bytes exist) → `Schema.decode(ContentKey)` after the LE→BE normalize. The brand's refinement is the `:x32` shape (32 lowercase hex); `Schema` guarantees no `{value}` re-decode downstream.
+[STACK: `hash-wasm` + `effect/Schema` + `Effect`] — the mint is not a bare `Promise<string>`; it lands as a `Schema`-branded `ContentKey`. `Effect.promise(() => xxhash128(bytes))` (the call cannot fail once bytes exist) → `Schema.decode(ContentKey)` on the returned hex directly. The brand's refinement is the `:x32` shape (32 lowercase hex); `Schema` guarantees no `{value}` re-decode downstream.
 
 [STACK: compile-once lifecycle] — every entry is async because the WASM compiles on first await. The floor memoizes the `createXXHash128(0, 0)` promise as a module singleton so the compile happens once per runtime, not per mint; `hasher.init()` between mints resets state without recompiling. A per-call `xxhash128` is correct for one-off small payloads but recompiles-and-runs each call — reserve it for the single-mint case.
 
@@ -106,4 +106,4 @@ The one consumed rail. `identity/contentkey` calls `xxhash128(bytes)` with both 
 - Owns: WASM-backed content digests and KDFs; the seed-zero `XxHash128` mint the whole branch's content identity derives from.
 - Accept: `xxhash128(bytes)` / `createXXHash128(0,0)` for the ContentKey; `IDataType` inputs (prefer `Uint8Array` — a `string` input is UTF-8 encoded first); the streaming `IHasher` for chunked payloads; `createHMAC(createDIGEST(), key)` when a keyed digest is ever needed.
 - Reject: a non-zero seed on the ContentKey path; a second content-address notion or a non-`xxhash128` content key; re-minting in a delegate folder instead of importing `identity/contentkey`; treating any entry as sync — every one is a `Promise`.
-- Boundary: hex output is little-endian in hash-wasm's native layout; the LE→BE normalize belongs to the mint, and every cross-language parity claim is byte-level against the frozen corpus, never a re-hash comparison.
+- Boundary: hex output is already the canonical big-endian digest — a byte-order shuffle on the hex path is a defect; `digest("binary")` bytes are display-ordered (the reverse of the C# little-endian destination buffer), and every cross-language parity claim is byte-level against the frozen corpus, never a re-hash comparison.

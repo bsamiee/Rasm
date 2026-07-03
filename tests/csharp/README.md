@@ -17,7 +17,7 @@ Classifiers route every project into its lane: `Directory.Build.props` derives t
 
 Per-package suites live in `tests/csharp/libs/<Package>/` and mirror `libs/csharp` paths with `<Source>.spec.cs` files. `tests/csharp/_architecture` carries the assembly boundary laws (`AssemblyBoundaries.spec.cs`, `CatalogueBoundaries.spec.cs`) and the infra-primitive falsification suites that prove the kits, the benchmark gate, and the snapshot-hygiene rail (`TestInfrastructurePrimitives.spec.cs`, `ScenarioKitPrimitives.spec.cs`, `BenchmarkGatePrimitives.spec.cs`, `SnapshotHygiene.spec.cs`) — a kit capability without a falsification law in `_architecture` is unproven and gets deleted or proven, never trusted.
 
-Manual MTP runs route TRX with `--report-trx --results-directory .artifacts/csharp/trx/<project>`; assay-run suites route results into the assay artifact scope automatically. Mutation rides assay's staged Stryker.NET invocation; the root `stryker-config.json` auto-discovery bounds any bare `dotnet stryker` run with the concurrency cap and `.artifacts/` output routing.
+Manual MTP runs route TRX with `--report-trx --results-directory .artifacts/csharp/trx/<project>`; assay-run suites route results into the assay artifact scope automatically. Mutation rides assay's staged Stryker.NET invocation; the root `stryker-config.json` auto-discovery bounds any bare `dotnet stryker` run with the concurrency cap and `.artifacts/` output routing. The snapshot-hygiene walk (`VerifyChecks`) is a whole-tree audit marked `Explicit`: default runs skip it, and the hygiene lane invokes it with `dotnet test tests/csharp/_architecture/Rasm.Architecture.Tests.csproj -- --explicit only`.
 
 ## [02]-[KIT_SURFACE]
 

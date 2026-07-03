@@ -1,4 +1,4 @@
-# [TS_BRANCH_API_EFFECT_VITEST]
+# [@effect/vitest] — the Effect-native binding over the dev-plane spec runner
 
 `@effect/vitest` is the dev-plane binding between Vitest and the `Effect` runtime: it makes an `Effect`-returning test body a first-class Vitest test, runs it under deterministic `TestServices` (`TestClock` for virtual time, `TestRandom` for seeded randomness), shares an `Effect` `Layer` across a test block without a hand-rolled harness (the standalone `layer(SharedLayer)` opener, nested via `it.layer`), derives property tests from `Schema`/`FastCheck` arbitraries (`it.prop`), retries a flaky effect to a deadline (`it.flakyTest`), and installs `Equal`-aware equality testers so `expect(...).toEqual(...)` compares Effect data structurally. It re-exports the full `vitest` surface (`expect`, `describe`, `vi`, the lifecycle hooks) and ships a `./utils` subpath of Effect-aware assertions (`assertSome`, `assertLeft`, `assertSuccess`, `assertFailure`). It is the whole reason the testkit ships no bespoke test wrapper: layer-sharing, deterministic clocks, and Schema-driven generators are package capability, and specs live beside the folder they prove.
 
@@ -10,7 +10,7 @@
 - runtime target: dev/test only — a `devDependency`; the `tests/typescript/_architecture` suite asserts it never leaks into a runtime subpath or shipped bundle
 - peer: `vitest@^3.2.0` (both hard; `peerDependenciesMeta` is null), `effect@^3.21.0`; no runtime dependencies of its own. The admitted runner is `vitest@4.1.9` — one major ahead of the declared range; pnpm resolves the binding against it and the collector API (`test`/`expect`/`TestContext`) is stable across v3→v4, so the binding runs unmodified until a newer `@effect/vitest` widens the peer to `vitest@^4`
 - asset: pure-TypeScript test binding; the collectors run inside the Vitest worker
-- rail: plane:dev (the `tests/` estate; specs co-located with the folder they prove). This branch tier is the canonical owner of the generic runner surface; the folder overlays (`_tmp/services/.api/effect-vitest.md`, `_tmp/projection/.api/effect-vitest.md`) compose folder-scoped stacking onto it without re-documenting the generic contract
+- rail: plane:dev (the `tests/` estate; specs co-located with the folder they prove). The dev-tool tier (`tests/typescript/.api/`) is the canonical owner of this catalog; folder-scoped stacking composes onto it without re-documenting the generic contract
 
 ## [02]-[PUBLIC_TYPES]
 
