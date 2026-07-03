@@ -50,12 +50,12 @@ const gauged = (
     return yield* Effect.zipWith(measured(seed), measured(ceiling), Number.min, { concurrent: true })
   })
 
-const settled = Exit.match({
+type Settled = { readonly kind: "faulted"; readonly cause: Cause.Cause<GaugeFault> } | { readonly kind: "resolved"; readonly value: number }
+
+const settled: (exit: Exit.Exit<number, GaugeFault>) => Settled = Exit.match({ // the outcome vocabulary anchors as a type; the stated annotation governs the fold
   onFailure: (cause: Cause.Cause<GaugeFault>) => ({ kind: "faulted", cause } as const),
   onSuccess: (value: number) => ({ kind: "resolved", value } as const),
 })
-
-type Settled = ReturnType<typeof settled>
 
 const phased = (
   cached: Option.Option<number>,
@@ -72,12 +72,12 @@ export type { Settled }
 
 Abort versus accumulate is a correctness decision fixed once at the boundary as the combinator or its mode, never a boolean threaded into bodies. A dependent chain is abort-only — a later step consumes the earlier value, so there is nothing left to accumulate against. Independent operands choose the form by what must survive.
 
-| [INDEX] | [FORM]                                     | [ERROR_CHANNEL]              | [SURVIVES]                                         |
-| :-----: | :----------------------------------------- | :--------------------------- | :------------------------------------------------- |
-|  [01]   | `Effect.all(shape, { mode: "validate" })`  | slot-keyed `Option<E>` shape | every fault, slot-addressed for repair             |
-|  [02]   | `Effect.all(shape, { mode: "either" })`    | `never`                      | per-slot `Either` — partial success is the product |
-|  [03]   | `Effect.validateAll(items, step)`          | `NonEmptyArray<E>`           | faults only — successes discarded on any fault     |
-|  [04]   | `Effect.partition(items, step)`            | `never`                      | both halves — `[excluded, satisfying]`             |
+| [INDEX] | [FORM]                                    | [ERROR_CHANNEL]              | [SURVIVES]                                         |
+| :-----: | :---------------------------------------- | :--------------------------- | :------------------------------------------------- |
+|  [01]   | `Effect.all(shape, { mode: "validate" })` | slot-keyed `Option<E>` shape | every fault, slot-addressed for repair             |
+|  [02]   | `Effect.all(shape, { mode: "either" })`   | `never`                      | per-slot `Either` — partial success is the product |
+|  [03]   | `Effect.validateAll(items, step)`         | `NonEmptyArray<E>`           | faults only — successes discarded on any fault     |
+|  [04]   | `Effect.partition(items, step)`           | `never`                      | both halves — `[excluded, satisfying]`             |
 
 [DISPOSITION_LAW]:
 - Law: `mode: "validate"` is the repair report — the error channel keys each fault to its slot as `Option<E>`, so the caller repairs field-by-field; `mode: "either"` moves the split to the success channel when partial success is itself the deliverable.
@@ -149,18 +149,17 @@ const FaultPolicy = {                                        // exported anchor:
 } as const
 
 declare namespace FaultPolicy {
+  type Reason = keyof typeof FaultPolicy                     // discriminant lives in the hub: one import qualifies the reason union everywhere
   type Row = { readonly rank: number; readonly retry: boolean; readonly quarantine: boolean }
   type _Rows<T extends Record<Reason, Row> = typeof FaultPolicy> = T
 }
 
-type Reason = keyof typeof FaultPolicy
-
 class SurfaceFault extends Data.TaggedError("SurfaceFault")<{
-  readonly reason: Reason
+  readonly reason: FaultPolicy.Reason
   readonly surface: string
   readonly detail: string
 }> {
-  get policy(): (typeof FaultPolicy)[Reason] {
+  get policy(): (typeof FaultPolicy)[FaultPolicy.Reason] {
     return FaultPolicy[this.reason]
   }
 }
@@ -209,7 +208,6 @@ const routed = <A, R>(
 // --- [EXPORTS] --------------------------------------------------------------------------
 
 export { FaultPolicy, PermitFault, SurfaceFault, byRank, dominant, routed, salvaged }
-export type { Reason }
 ```
 
 ## [04]-[RESOURCE_BRACKET]
@@ -333,13 +331,14 @@ Telemetry is a transformer stack attached at the owner declaration, and every si
 - Law: span, log annotation, and metric attach as transformers on the same pipe that carries resilience — one `Effect.withSpan` per surface, policy recoverable from the declaration; the `Effect.fn` pipeline slot these transformers ride is `surfaces-and-dispatch.md`'s seam.
 - Law: `Effect.annotateLogs` record-form at the surface entry stamps every log in the region — per-call-site key spam restates context the region already carries, and `Effect.annotateSpans` carries the same record to the trace side.
 - Reject: manual span open/close pairs; `Effect.log` narrating control flow the span already records; telemetry buried inside the body where the declaration no longer states it.
+- Boundary: exporter wiring is not surface law — the `@effect/opentelemetry` spine (`Otlp.layer`, `Otlp.layerJson`, `Otlp.layerProtobuf`) lands as Layer rows at the composition root, `services-and-layers.md`'s provision; a surface names its span and metrics, never an exporter.
 
 [BOUNDED_DIMENSIONS]:
 - Law: a metric tag value is drawn from a bounded vocabulary — the derived outcome union, the family's reason rows — because every distinct value mints a series; interpolating an identifier into a tag is the cardinality defect. Identifier-grade context belongs in span attributes and log annotations, which are per-occurrence, never per-series.
 - Law: instruments are declared once beside the family they measure — `Metric.counter` with `incremental: true` for monotonic counts, `Metric.frequency` over the reason vocabulary so its value set is exactly the derived union, `Metric.timerWithBoundaries` with boundaries the budget names, `MetricBoundaries.exponential` where the range spans decades — and `Metric.tagged` at call time is licensed only by a bounded value.
 
 [OUTCOME_FROM_EXIT]:
-- Law: one `Exit` fold derives the outcome dimension for every signal, discriminating in interrupt-first order — `Cause.isInterruptedOnly`, then `Cause.failureOption`, then defect — because an interrupted run has no outcome and a defect is not a fault; the fold's return type is the dimension vocabulary, derived from the fold itself, never hand-listed beside it.
+- Law: one `Exit` fold derives the outcome dimension for every signal, discriminating in interrupt-first order — `Cause.isInterruptedOnly`, then `Cause.failureOption`, then defect — because an interrupted run has no outcome and a defect is not a fault; the dimension vocabulary anchors as a type — the three cause rows plus a template over the family's own reason axis — and the fold's stated annotation governs it, so a new reason widens the vocabulary at the anchor, never inside an arm.
 - Law: `Effect.onExit` is the single emission point — once per computation, after the outcome settles; outcome strings minted inside recovery arms drift, double-count retried attempts, and never see defects.
 - Law: measurement placement follows `[04]`'s stacking law — `Metric.trackDuration` and `Metric.trackErrorWith` below the retry stack measure attempts, above it the composed operation; the choice is the instrument's meaning, stated by its position.
 
@@ -348,7 +347,9 @@ import { Cause, Data, Effect, Exit, Metric, Option } from "effect"
 
 class PourFault extends Data.TaggedError("PourFault")<{ readonly reason: "clog" | "spill" }> {}
 
-const outcomeOf = Exit.match({
+type Outcome = "halted" | "crashed" | "resolved" | `rejected:${PourFault["reason"]}` // the vocabulary anchors on the family's own reason axis: a new reason widens it here
+
+const outcomeOf: (exit: Exit.Exit<unknown, PourFault>) => Outcome = Exit.match({
   onFailure: (cause: Cause.Cause<PourFault>) =>
     Cause.isInterruptedOnly(cause)
       ? ("halted" as const)
@@ -358,8 +359,6 @@ const outcomeOf = Exit.match({
         }),
   onSuccess: () => "resolved" as const,
 })
-
-type Outcome = ReturnType<typeof outcomeOf>
 
 const _poured = Metric.counter("pour_total", { description: "<terminal outcomes>", incremental: true })
 const _reasons = Metric.frequency("pour_fault_reason")

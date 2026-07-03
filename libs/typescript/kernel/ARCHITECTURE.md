@@ -25,7 +25,7 @@ kernel/src/            # W0; imports nothing — every runtime folder types agai
 ## [02]-[SEAMS]
 
 ```text seams
-identity/contentkey  ⇄  csharp:Rasm/Geometry          # [CONTENT_KEY]: content-hashing wasm reproducing the one Domain/ContentHash seed (XxHash128 seed-zero)
+identity/contentkey  ⇄  csharp:Rasm/Spatial/reconciliation # [CONTENT_KEY]: content-hashing wasm reproducing the one Domain/ContentHash seed (XxHash128 seed-zero)
 identity/contentkey  ←  csharp:Rasm.Compute/Runtime   # [WIRE]: XxHash128 seed-zero two-half
 clock/hlc            ←  csharp:Rasm.AppHost/Runtime   # [CONTENT_KEY]: HLC two-half bigint round-trip parity
 clock/hlc            ←  csharp:Rasm.AppHost/Runtime   # [WIRE]: HLC two-half + tenant

@@ -6,7 +6,7 @@
 - Realize every open `IDEAS` and `TASKLOG` card under `<TARGET>` into deep design-page code FENCES. `<TARGET>` is a [FOLDER] (ex: `libs/python/geometry`), a [PACKAGE] (`libs/csharp/Rasm.Bim`), a [LANGUAGE_ROOT] (`libs/python`), `libs` for all three, or several such paths.
 
 1. List all files in: `libs/.planning` and read them all
-2. `libs/.planning/planning-targets.md` contains the full list of possible `<TARGET>` values (all "planning" folders), note `libs/csharp/Rasm/Geometry/.planning` is the only one nested in a mature folder, the content of that folder all pertain to `libs/csharp/Rasm/Geometry/.planning`, the `.api/`, `README.md`, etc...
+2. `libs/.planning/planning-targets.md` contains the full list of possible `<TARGET>` values (all "planning" folders)
 3. Understand the STRATA for csharp `libs/.planning/architecture.md`
 4. READ: `README.md` + `CLAUDE.md` + `AGENTS.md`
 5. READ: `tools/assay/README.md` + `tools/rhino-bridge/README.md` + `.claude/skills/rhino-mcp`, we have Rhino WIP on local machine, and ALL PROBING MUST BE DONE, AND FULLY PERMITTED, we have all the tooling we can possible need to test/confirm anything, from those three sources, as well as the provisoning functionality grated by our `Parametric_Forge` project (epsecially for db's/containers/py tooling), understand the provisoning feature of

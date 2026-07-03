@@ -488,7 +488,7 @@ public static class Sensitivity {
         return scaled;
     }
 
-    // The DEC operator works in float64 (`Arr<double>` the Rasm/Vectors carrier) while the autodiff tape is
+    // The DEC operator works in float64 (`Arr<double>` the Rasm.Vectors carrier) while the autodiff tape is
     // float32; the impedance converts through `TensorPrimitives.ConvertChecked` at the seam, never the phantom
     // `Arr.fromSpan`/`Arr.AsSpan` spelling — the verified factory is `Arr.create<T>(ReadOnlySpan<T>)` and the
     // read-back is `.ToArray()`. A row outside the geometry table passes the direction through as identity.

@@ -16,15 +16,17 @@ This table maps a value invariant to the form that owns it; the most specific in
 |  [04]   | order-bearing keyed traversal     | `SortedMap` carrying its `Order` at construction    | sort-on-read of map entries           |
 |  [05]   | amortized growth, batch windows   | `Chunk`                                             | `push` accumulation, spread rebuild   |
 |  [06]   | closed literal key set            | plain record under `Record`/`Struct` folds          | `HashMap` over a closed key set       |
-|  [07]   | domain equality and container key | `Data` construction; `Equal.equals`                 | `===`, `JSON.stringify` comparison    |
-|  [08]   | comparison and refinement policy  | composed `Order`/`Equivalence`/`Predicate` instance | inline comparators, boolean soup      |
-|  [09]   | combine two values of one shape   | `Semigroup.struct`/`Monoid.struct` row table        | hand merge function, seeded `reduce`  |
-|  [10]   | keyed partial-record merge        | `getMonoidUnion`/`getSemigroupUnion` instance       | spread overlay last-wins              |
-|  [11]   | instant and span                  | `DateTime`/`Duration` owner arithmetic              | `Date`, epoch-millisecond math        |
-|  [12]   | exact decimal                     | `BigDecimal` with explicit rounding                 | binary-float money math               |
-|  [13]   | fallible numeric operation        | `Option`-returning owner; one fold at the consumer  | `NaN` guards, `parseFloat` ladders    |
-|  [14]   | binary crossing a text channel    | `Encoding` total encode, `Either` decode            | `btoa`/`atob`, platform buffer calls  |
-|  [15]   | secret value                      | `Redacted` sealed lifecycle                         | raw string secret in a shape or log   |
+|  [07]   | relationship and adjacency state  | `Graph.directed`/`Graph.undirected`; `Graph.mutate` | adjacency `HashMap`, hand traversal   |
+|  [08]   | prefix-keyed lookup               | `Trie`; `keysWithPrefix`/`longestPrefixOf` reads    | sorted-key scans, split-key ladders   |
+|  [09]   | domain equality and container key | `Data` construction; `Equal.equals`                 | `===`, `JSON.stringify` comparison    |
+|  [10]   | comparison and refinement policy  | composed `Order`/`Equivalence`/`Predicate` instance | inline comparators, boolean soup      |
+|  [11]   | combine two values of one shape   | `Semigroup.struct`/`Monoid.struct` row table        | hand merge function, seeded `reduce`  |
+|  [12]   | keyed partial-record merge        | `getMonoidUnion`/`getSemigroupUnion` instance       | spread overlay last-wins              |
+|  [13]   | instant and span                  | `DateTime`/`Duration` owner arithmetic              | `Date`, epoch-millisecond math        |
+|  [14]   | exact decimal                     | `BigDecimal` with explicit rounding                 | binary-float money math               |
+|  [15]   | fallible numeric operation        | `Option`-returning owner; one fold at the consumer  | `NaN` guards, `parseFloat` ladders    |
+|  [16]   | binary crossing a text channel    | `Encoding` total encode, `Either` decode            | `btoa`/`atob`, platform buffer calls  |
+|  [17]   | secret value                      | `Redacted` sealed lifecycle                         | raw string secret in a shape or log   |
 
 ## [02]-[COLLECTION_OWNERS]
 
@@ -41,6 +43,11 @@ The invariant selects the container before any code is shaped, and the write sur
 - Law: `HashMap.modifyAt` is the single keyed write — its update function receives `Option<V>` and returns `Option<V>`, so insert (`none -> some`), update (`some -> some`), and delete (`-> none`) are three arms of one fold; a `get`-then-`set` pair, a `has` ladder, or a spread rebuild restates modalities the fold already discriminates.
 - Law: the owner constructs its own keys — a lookup or write takes the raw discriminants and builds the `Data` key inside, because a key accepted from a caller may arrive plain-constructed and miss silently.
 - Reject: object-as-map mutation; an escaping mutable map; a second map holding a projection of the first that one `HashMap.filterMap` derives on demand.
+
+[GRAPH_AND_TRIE]:
+- Law: relationship and adjacency state rides `Graph.directed`/`Graph.undirected` — the module is `@experimental`, admitted with the pin owning drift — and construction is `Graph.mutate`: `Graph.addNode`/`Graph.addEdge`/`Graph.updateNode` write against the scoped mutable view, no draft escapes, and traversal is an owner read — `Graph.dfs`, `Graph.bfs`, `Graph.topo`, `Graph.dijkstra`, `Graph.stronglyConnectedComponents` — so an adjacency `HashMap` with a hand-rolled frontier restates the algorithm family the value already carries.
+- Law: prefix-keyed lookup rides `Trie` — `Trie.insertMany` builds, `Trie.longestPrefixOf`/`Trie.keysWithPrefix`/`Trie.entriesWithPrefix` read, `Trie.modify`/`Trie.removeMany` write — and a sorted-key scan or split-on-separator ladder restates the prefix walk the structure owns.
+- Use: diagram egress as a derive — `Graph.toMermaid`/`Graph.toGraphViz` project the live value, never a hand-assembled diagram string.
 
 ```typescript
 import { Array, Data, HashMap, Number, Option } from "effect"

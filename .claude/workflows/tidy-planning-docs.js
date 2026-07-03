@@ -31,9 +31,7 @@ const LAW = [
     'informed by what the folder owns and where it integrates. Enumerate BOTH `.api` tiers with a REAL disk listing, never from memory: the ' +
     '`.api/` catalogs at the folder`s context root AND the language-root catalogs at `libs/<lang>/.api/`. The code fences plus both tiers are ' +
     'the VERIFICATION GROUND for every prose/comment claim about a member, type, package, or capability: a claim neither ground verifies is a ' +
-    'PHANTOM the pass corrects from the catalogs or deletes, never leaves standing, and never verifies from memory. For the `libs/csharp/Rasm` ' +
-    'package the governing docs + `.api/` live at the `libs/csharp/Rasm/` ROOT while its only planning lives at ' +
-    '`libs/csharp/Rasm/Geometry/.planning` (the Geometry sub-domain); read the Rasm-root docs as context for the Geometry pages.',
+    'PHANTOM the pass corrects from the catalogs or deletes, never leaves standing, and never verifies from memory.',
   'READ `docs/standards/style-guide.md` IN FULL and apply it to all prose. READ `CLAUDE.md` section [08]-[FILE_ORGANIZATION] for the OFFICIAL ' +
     'canonical section-divider labels and the divider grammar. Every edit is scoped to files under the folder`s `.planning/`; editing anything ' +
     'outside it is forbidden.',
@@ -161,11 +159,9 @@ phase('Discover')
 const inv = await agent('List every PACKAGE FOLDER under ' + SCOPE + ' that owns design pages in a `.planning/` tree. For each, return {folder ' +
   '(the package dir, repo-relative, e.g. libs/csharp/Rasm.AppHost), planning (the .planning dir that holds the design pages, e.g. ' +
   'libs/csharp/Rasm.AppHost/.planning), context_root (the dir whose ARCHITECTURE.md/README.md/IDEAS.md/TASKLOG.md + .api/ govern that planning)}. ' +
-  'For a normal package folder=context_root=the package dir and planning=<package>/.planning. NOTE the Rasm outlier: libs/csharp/Rasm owns ' +
-  'planning ONLY at libs/csharp/Rasm/Geometry/.planning (the Geometry sub-domain), while its governing docs + .api live at the libs/csharp/Rasm/ ' +
-  'ROOT — emit ONE unit for it with folder=libs/csharp/Rasm, planning=libs/csharp/Rasm/Geometry/.planning, context_root=libs/csharp/Rasm. Also ' +
+  'For a normal package folder=context_root=the package dir and planning=<package>/.planning. Also ' +
   'emit a unit for any language-wide or branch-level .planning under the scope (e.g. libs/<lang>/.planning) with context_root the same dir. ' +
-  'EXCLUDE folders with no .planning (mature host-bound packages such as Rasm.Rhino/Rasm.Grasshopper). This is DISCOVERY and read-only is its ' +
+  'EXCLUDE folders with no .planning (host-bound source packages such as Rasm.Rhino/Rasm.Grasshopper). This is DISCOVERY and read-only is its ' +
   'ONLY concession: enumerate with a REAL find/fd listing from disk, NEVER from memory of the repo layout, and VERIFY every unit against disk ' +
   'state — the planning tree exists and holds at least one .md design page (return that count as pages), and the context_root actually holds ' +
   'the governing docs + .api/. The unit list is scope resolution, an initial pointer: downstream agents full-read every page under each ' +

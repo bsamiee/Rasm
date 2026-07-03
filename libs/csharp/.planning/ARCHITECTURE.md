@@ -21,7 +21,7 @@ libs/csharp/
 └── Rasm.Grasshopper/  # HOST-BOUNDARY — GH2 host APIs; references only Rasm
 ```
 
-The nine planning-scoped packages carry a `.planning/` scaffold with the four index docs and design pages; `Rasm.Element` is the lowest-AEC element seam the AEC peers and the app-platform stores depend up on; `Rasm` keeps its scaffold only in the greenfield `Geometry/` robust-core because its `Vectors`/`Analysis`/`Domain` siblings are mature source. `Rasm.Rhino` and `Rasm.Grasshopper` are durable host-bound source with no `.planning/`; their open work the future app root composes rides this branch `TASKLOG.md`.
+The nine planning-scoped packages carry a `.planning/` scaffold with the four index docs and design pages; `Rasm.Element` is the lowest-AEC element seam the AEC peers and the app-platform stores depend up on. `Rasm.Rhino` and `Rasm.Grasshopper` are durable host-bound source with no `.planning/`; their open work the future app root composes rides this branch `TASKLOG.md`.
 
 ## [02]-[SEAMS]
 
@@ -29,12 +29,12 @@ The nine planning-scoped packages carry a `.planning/` scaffold with the four in
 Rasm.AppHost      →  typescript:wire  # [WIRE]: ReceiptEnvelope/HLC/Tenant + capability SDK
 Rasm.Compute      →  typescript:wire  # [WIRE]: proto suite wire + FaultDetail
 Rasm.Persistence  →  typescript:wire  # [WIRE]: OpLog/Snapshot CRDT wire
-Rasm              →  python:runtime          # [CONTENT_KEY]: XxHash128 content-identity seed parity
-Rasm.Element      ⇄  python:geometry         # [WIRE]: ElementGraph content-key (one XxHash128 seed) + typed Material/Property/Assessment/Classification vocabulary the companion decodes, never re-mints
+Rasm              →  python:runtime   # [CONTENT_KEY]: XxHash128 content-identity seed parity
+Rasm.Element      ⇄  python:geometry  # [WIRE]: ElementGraph content-key (one XxHash128 seed) + vocabulary the companion decodes, never re-mints
 Rasm.Element      ⇄  typescript:wire  # [WIRE]: ElementGraph/Node/Relationship content-keyed wire the TypeScript peer decodes
-Rasm.Bim          ⇄  python:geometry         # [TESSELLATION]: GLB/IFC tessellation rail — C# requests, Python evaluates
-Rasm.AppHost      ⇄  python:runtime          # [WIRE]: gRPC companion server + capability invoke
-Rasm.Compute      ←  python:compute          # [GRADUATION]: graduation evidence HandoffAxis
+Rasm.Bim          ⇄  python:geometry  # [TESSELLATION]: GLB/IFC tessellation rail — C# requests, Python evaluates
+Rasm.AppHost      ⇄  python:runtime   # [WIRE]: gRPC companion server + capability invoke
+Rasm.Compute      ←  python:compute   # [GRADUATION]: graduation evidence HandoffAxis
 ```
 
 ## [03]-[DEPENDENCY_DIRECTION]

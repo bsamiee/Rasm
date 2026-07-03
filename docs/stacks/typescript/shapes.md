@@ -344,11 +344,11 @@ const _same: Equivalence.Equivalence<Member> = Schema.equivalence(Member)
 const _shown: (member: Member) => string = Pretty.make(Member)
 const _contract: JSONSchema.JsonSchema7Root = JSONSchema.make(Member)
 const _isMember = Schema.is(Member)
-const MemberStandard = Schema.standardSchemaV1(Member)
+const _standard = Schema.standardSchemaV1(Member)            // interior like every derived instance; its foreign-spec type is unnameable from here by design
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
-export { Member, MemberBadge, MemberPatch, MemberStandard }
+export { Member, MemberBadge, MemberPatch }
 ```
 
 One declaration feeds the generator, the equivalence, the printer, the contract, the guard, the foreign-validator view, the patch, and the badge view — eight surfaces, zero hand-maintained parallels, and every one moves when a field moves.

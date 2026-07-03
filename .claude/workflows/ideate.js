@@ -32,10 +32,7 @@ const LAW = [
     'IDEAS + TASKS card pool: IDEAS are conceptual/multi-step/higher-order deferred capability; TASKS are concrete/focused deferred units. Every ' +
     'card passes the 7-point density rubric (polymorphic collapse; one-hop; growth-axis absorption; Result/Option rails; library-at-depth; ' +
     'policy-values not boolean knobs; greenfield in-place). A card is ONLY for genuinely DEFERRED work — NEVER duplicate a realized design page, ' +
-    'NEVER a test/meta/decision/unblock/create-file card. Cards are FLOORS, not ceilings. C# PLANNING-HOMING: under `libs/csharp/Rasm` the active ' +
-    'planning effort is `Rasm/Geometry` — author its cards into `libs/csharp/Rasm/{IDEAS,TASKLOG}.md` (package root) while surveying its design ' +
-    'pages at `libs/csharp/Rasm/Geometry/.planning/**`; the governing `.api/`/`ARCHITECTURE.md`/`README.md` are at the `Rasm/` root. Mature ' +
-    'siblings `Analysis`/`Domain`/`Vectors` are not card targets.',
+    'NEVER a test/meta/decision/unblock/create-file card. Cards are FLOORS, not ceilings.',
   'NAIVETY LAW: a card is naive on two axes, both defects repaired on sight — COVERAGE: its Capability/Shape models a thin slice of the concept ' +
     '(the obvious three fields where the domain carries fifteen; a two-case family for a twenty-case domain); APPROACH: enumerated hardcoded ' +
     'instances — a fixed roster of styles/patterns/variants — where a parameterized algorithmic owner should generate the space (a roster is ' +

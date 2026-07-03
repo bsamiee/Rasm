@@ -52,7 +52,7 @@ Version/provenance   ←  python:artifacts/provenance        # [CONTENT_KEY]: si
 Version/retention    ←  csharp:Rasm.Compute                # [CONTENT_KEY]: content-keyed Assessment.Result blobs registered in the blob retention class
 Element/identity     ⇄  csharp:Rasm.AppHost/Runtime        # [PORT]: ObjectAcl identity store, TenantId RLS, KMS SigningKeyring + EnvelopeKeyring KMS-unwrap handle (#KEY_ENVELOPE, ONE_IDENTITY_STORE)
 Element/graph        ←  csharp:Rasm.AppHost/Runtime        # [PORT]: ClockPolicy/CorrelationId/TenantContext ProjectionContext ingredients
-Query/topology       ←  csharp:Rasm/Geometry/Spatial       # [CONTENT_KEY]: adjacency-derived GeometryHash the federation/diff reads, never re-mints
+Query/topology       ←  csharp:Rasm/Spatial/reconciliation # [CONTENT_KEY]: adjacency-derived GeometryHash the federation/diff reads, never re-mints
 Query/columnar       ←  csharp:Rasm.Bim/Model              # [PROJECTION]: BIM-typed BimOpenSchema FlatTableProjection (Bim-implemented seam)
 Query/lane           ⇄  python:data/tabular/query          # [WIRE]: ElementSet receipt currency + Substrait portable plan
 Query/cache          ←  csharp:Rasm.Compute                # [INDEX]: ArtifactIndexRow blob index + ModelResultIndex recency horizon + BenchmarkRow claim gate, read by reference (no Compute type crosses down)

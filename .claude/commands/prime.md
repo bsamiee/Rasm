@@ -41,7 +41,6 @@ Spent only on what TARGET or the arrived objective names — folder cores are ne
 fd -H -t f --max-depth 3 -E '_tmp' -E '.planning' '^(README|ARCHITECTURE)\.md$' libs/<lang> -X tail -n +1
 ```
 
-- HOMING EXCEPTION — `libs/csharp/Rasm`: the only irregular planning folder. Design pages live at `Rasm/Geometry/.planning/`; the Rasm-root `README.md`/`ARCHITECTURE.md` and `Rasm/.api/` govern the Geometry effort; `Analysis/`, `Domain/`, `Vectors/` are mature source and never planning targets; one `.csproj` is shared by all of `Rasm/`.
 - Never warm-up reads: `docs/stacks/<lang>/` doctrine is composed in full by whichever agent writes or judges fences in that language, at that moment; `tools/assay/README.md` is read when a verification rail actually runs (`uv run python -m tools.assay ...`); a central manifest is scanned only when package work enters scope.
 
 ## [04]-[SESSION_DISPATCH]

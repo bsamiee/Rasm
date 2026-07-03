@@ -49,42 +49,42 @@ Implementation collapses to one owner per axis and one entrypoint family per rai
 ## [02]-[SEAMS]
 
 ```text seams
-Agent/Capability.cs         →  typescript:wire/invoke               # [CONTENT_KEY]: CapabilityDescriptor command-shape
-Runtime/Ports.cs            →  typescript:kernel               # [CONTENT_KEY]: HLC two-half bigint round-trip parity
-Runtime/Ports.cs            ⇄  python:runtime/execution                   # [PORT]: CausalFrame Hlc two-half + Tenant
-*                           →  typescript:wire                        # [WIRE]: CredentialPemWire redacted carrier
+Agent/Capability.cs         →  typescript:wire/invoke                      # [CONTENT_KEY]: CapabilityDescriptor command-shape
+Runtime/Ports.cs            →  typescript:kernel                           # [CONTENT_KEY]: HLC two-half bigint round-trip parity
+Runtime/Ports.cs            ⇄  python:runtime/execution                    # [PORT]: CausalFrame Hlc two-half + Tenant
+*                           →  typescript:wire                             # [WIRE]: CredentialPemWire redacted carrier
 *                           →  typescript:wire/gateway                     # [WIRE]: support-capture verb
-Agent/Capability.cs         ⇄  python:runtime/transport                   # [WIRE]: DiscoveryResult capability invoke + CommandReceipt
-Observability/Health.cs     →  typescript:state             # [WIRE]: DegradationLevel / CommandAvailabilityWire
-Observability/Telemetry.cs  ←  python:runtime/observability               # [WIRE]: W3C trace-context inbound extraction
-Observability/Telemetry.cs  →  typescript:wire                       # [WIRE]: BenchmarkClaimWire / HostFingerprintWire identity gate
-Runtime/Config.cs           →  python:runtime/execution                   # [WIRE]: CredentialPem
-Runtime/Ports.cs            ⇄  python:runtime/transport                   # [WIRE]: HLC two-half stamp + Tenant partition
-Runtime/Ports.cs            →  typescript:state             # [WIRE]: ReceiptEnvelopeWire / HlcStampWire / TenantContextWire
-Runtime/Ports.cs            →  python:runtime/clock + typescript:kernel # [WIRE]: HLC two-half + tenant [gated: hash-wasm / xxhash cp315]
-Wire/Livewire.cs            →  typescript:wire                       # [WIRE]: BindingStatusWire / CoercedValueWire / WriteReceiptWire
-Observability/Telemetry.cs  →  typescript:telemetry          # [TRANSPORT]: OtelExport OTLP egress
-Runtime                     ←  csharp:Rasm/Geometry/Drawing               # [WIRE]: EncodedGeometry / PackOp.Apply channel discriminant
-Runtime                     →  csharp:Rasm.AppUi/Editing/notebook         # [PORT]: DeterminismContext / CapabilityPin environment identity
-Runtime                     →  csharp:Rasm.Persistence/Query/cache        # [PORT]: TenantId RLS + cache L2 partition
-Runtime                     →  csharp:Rasm.Persistence/Version/recovery   # [PORT]: ResolvedProfile DR-objective inputs
-Runtime                     →  csharp:Rasm.Persistence/Query/transaction  # [PORT]: drain 2PC in-doubt set
+Agent/Capability.cs         ⇄  python:runtime/transport                    # [WIRE]: DiscoveryResult capability invoke + CommandReceipt
+Observability/Health.cs     →  typescript:state                            # [WIRE]: DegradationLevel / CommandAvailabilityWire
+Observability/Telemetry.cs  ←  python:runtime/observability                # [WIRE]: W3C trace-context inbound extraction
+Observability/Telemetry.cs  →  typescript:wire                             # [WIRE]: BenchmarkClaimWire / HostFingerprintWire identity gate
+Runtime/Config.cs           →  python:runtime/execution                    # [WIRE]: CredentialPem
+Runtime/Ports.cs            ⇄  python:runtime/transport                    # [WIRE]: HLC two-half stamp + Tenant partition
+Runtime/Ports.cs            →  typescript:state                            # [WIRE]: ReceiptEnvelopeWire / HlcStampWire / TenantContextWire
+Runtime/Ports.cs            →  python:runtime/clock + typescript:kernel    # [WIRE]: HLC two-half + tenant [gated: hash-wasm / xxhash cp315]
+Wire/Livewire.cs            →  typescript:wire                             # [WIRE]: BindingStatusWire / CoercedValueWire / WriteReceiptWire
+Observability/Telemetry.cs  →  typescript:telemetry                        # [TRANSPORT]: OtelExport OTLP egress
+Runtime                     ←  csharp:Rasm/Drawing/pack                    # [WIRE]: EncodedGeometry / PackOp.Apply channel discriminant
+Runtime                     →  csharp:Rasm.AppUi/Editing/notebook          # [PORT]: DeterminismContext / CapabilityPin environment identity
+Runtime                     →  csharp:Rasm.Persistence/Query/cache         # [PORT]: TenantId RLS + cache L2 partition
+Runtime                     →  csharp:Rasm.Persistence/Version/recovery    # [PORT]: ResolvedProfile DR-objective inputs
+Runtime                     →  csharp:Rasm.Persistence/Query/transaction   # [PORT]: drain 2PC in-doubt set
 Runtime                     →  csharp:Rasm.Persistence/Element/identity    # [PORT]: KMS-unwrap port (#KEY_ENVELOPE EnvelopeKeyring)
-Runtime                     →  csharp:Rasm.Persistence/Sync/egress        # [PORT]: keyed OutboundHop egress
-Runtime/Ports.cs            ⇄  csharp:Rasm.Persistence                    # [PORT]: HLC two-half + TenantContext causal frame
-Agent/identity              ⇄  csharp:Rasm.Persistence                    # [PORT]: identity store (TenantId RLS)
-Agent/capability            ⇄  csharp:Rasm.Persistence                    # [PORT]: fenced per-tenant Budget debit (ONE_FENCED_LEASE_STORE)
-Runtime/orchestration       ⇄  csharp:Rasm.Persistence                    # [PORT]: workflow step-state CAS (ONE_FENCED_LEASE_STORE)
-Wire/outbox                 ⇄  csharp:Rasm.Persistence                    # [PORT]: transactional outbox same-tx (ONE_OUTBOX_EGRESS_SPINE)
-Wire/Coordination.cs        ⇄  csharp:Rasm.Persistence                    # [PORT]: CAS + fenced-lease + membership backing store (ONE_FENCED_LEASE_STORE)
+Runtime                     →  csharp:Rasm.Persistence/Sync/egress         # [PORT]: keyed OutboundHop egress
+Runtime/Ports.cs            ⇄  csharp:Rasm.Persistence                     # [PORT]: HLC two-half + TenantContext causal frame
+Agent/identity              ⇄  csharp:Rasm.Persistence                     # [PORT]: identity store (TenantId RLS)
+Agent/capability            ⇄  csharp:Rasm.Persistence                     # [PORT]: fenced per-tenant Budget debit (ONE_FENCED_LEASE_STORE)
+Runtime/orchestration       ⇄  csharp:Rasm.Persistence                     # [PORT]: workflow step-state CAS (ONE_FENCED_LEASE_STORE)
+Wire/outbox                 ⇄  csharp:Rasm.Persistence                     # [PORT]: transactional outbox same-tx (ONE_OUTBOX_EGRESS_SPINE)
+Wire/Coordination.cs        ⇄  csharp:Rasm.Persistence                     # [PORT]: CAS + fenced-lease + membership backing store (ONE_FENCED_LEASE_STORE)
 Wire/Coordination.cs        →  csharp:Rasm.AppHost/Sandbox/Provisioning.cs # [PORT]: MembershipView.Serving roster + RoleElection conductor lease
-Runtime/Features.cs         →  csharp:Rasm.AppHost/Agent/Reasoning.cs     # [SEAM]: FlagVerdict -> ModelRoute.From model-routing select
+Runtime/Features.cs         →  csharp:Rasm.AppHost/Agent/Reasoning.cs      # [SEAM]: FlagVerdict -> ModelRoute.From model-routing select
 Runtime/Features.cs         →  csharp:Rasm.AppHost/Sandbox/Provisioning.cs # [SEAM]: FlagVerdict -> RollStrategy progressive-rollout select
-Runtime/Features.cs         →  typescript:host                        # [WIRE]: FlagVerdictWire over the shared OpenFeature evaluation contract (ONE_FEATURE_FLAG_PROJECTION)
-Runtime/laneguard           →  csharp:Rasm.Compute/Runtime/admission      # [PORT]: WorkLane shed verdict (ONE_DEGRADATION_SHED_VERDICT)
-Observability/Health.cs     →  csharp:Rasm.Persistence/Store              # [HEALTH_PROBE]: HealthContributorRow fold over Npgsql/Redis/Kafka driver
-Model/agent                 →  csharp:Rasm.Compute/Model                  # [PORT]: Microsoft.Extensions.AI middleware governing/pricing
-Runtime                     →  csharp:Rasm.Element/Projection             # [PORT]: ProjectionContext neutral primitives (ClockPolicy clock instant / CorrelationId / TenantContext) the app composition root assembles into the seam ProjectionContext — never an AEC-domain reference or an AppHost type on the seam; AppHost stays reference-light below the element seam (mirror of Rasm.Element ARCHITECTURE Projection ← Rasm.AppHost)
+Runtime/Features.cs         →  typescript:host                             # [WIRE]: FlagVerdictWire over the shared OpenFeature evaluation contract
+Runtime/laneguard           →  csharp:Rasm.Compute/Runtime/admission       # [PORT]: WorkLane shed verdict (ONE_DEGRADATION_SHED_VERDICT)
+Observability/Health.cs     →  csharp:Rasm.Persistence/Store               # [HEALTH_PROBE]: HealthContributorRow fold over Npgsql/Redis/Kafka driver
+Model/agent                 →  csharp:Rasm.Compute/Model                   # [PORT]: Microsoft.Extensions.AI middleware governing/pricing
+Runtime                     →  csharp:Rasm.Element/Projection              # [PORT]: ProjectionContext neutral primitives
 ```
 
 ## [03]-[SPINE]

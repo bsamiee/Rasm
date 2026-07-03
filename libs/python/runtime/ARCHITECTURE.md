@@ -32,7 +32,7 @@ runtime/
 ## [02]-[SEAMS]
 
 ```text seams
-evidence/identity        ⇄  csharp:Rasm/Geometry               # [CONTENT_KEY]: XxHash128 digest endianness + seed parity (CANONICAL_BYTE_IDENTITY)
+evidence/identity        ⇄  csharp:Rasm/Spatial/reconciliation # [CONTENT_KEY]: XxHash128 digest endianness + seed parity (CANONICAL_BYTE_IDENTITY)
 evidence/identity        ⇄  csharp:Rasm.Element/Projection     # [CONTENT_KEY]: MATERIAL_LAYER_GOLDEN float-bearing IfcMaterialLayer parity ([H7]); CanonicalWriter IEEE-754-LE Double/Measure seed-zero digest == ContentIdentity — decode the producer reference, never re-mint
 clock/clock              ←  csharp:Rasm.AppHost/Runtime        # [PORT_RECORDS]: Hlc two-half NodaTime stamp single mint
 transport/wire           ⇄  csharp:Rasm.Compute/Runtime        # [WIRE]: WireProtoCodec PROTO_VOCABULARY transcode

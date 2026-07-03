@@ -70,7 +70,7 @@ Each table routes a concern to the legal form that owns it, and every `[USE]` na
 
 ## [03]-[LANGUAGE_FORM_CONTRACTS]
 
-Each contract fixes the placement rule the chooser row cannot state. Snippets compose finalized doctrine as supporting material; the spotlight is the legality form itself, and each contract closes on the boundary that hands the value to its owning page.
+Each contract fixes the placement rule the chooser row cannot state. Snippets compose settled doctrine as supporting material; the spotlight is the legality form itself, and each contract closes on the boundary that hands the value to its owning page.
 
 [COMPILER_PARITY_SITE]:
 - Law: `tsc` is the conformance authority — when the native compiler and `tsc` disagree, `tsc` decides which behavior was specified and its diagnostic codes are the ones doctrine cites; the same rejection may surface under sibling codes across the floor, and the repair lands at the shape until both compilers accept it.
@@ -88,18 +88,18 @@ Each contract fixes the placement rule the chooser row cannot state. Snippets co
 - Boundary: which package a specifier may name is the exports-map edge; this site owns the statement forms inside one legal file.
 
 ```typescript
-import "./register.ts"                                     // side-effect import leads the file: load order is program order; boot-edge modules only
+import "./register.ts"                  // side-effect import leads the file: load order is program order; boot-edge modules only
 import { Array, type Duration, Option, Order, pipe } from "effect" // one statement per specifier: inline type specifiers ride the named list; Array shadows the global value plane deliberately
-import type { Frame } from "./frame.ts"                    // type-only module: the whole statement erases; Frame stays reachable in type positions
+import type { Frame } from "./frame.ts" // type-only module: the whole statement erases; Frame stays reachable in type positions
 import { type Gauge, admit } from "./gauge.ts"
 
 const Window = { batch: 16, mode: "spaced" } as const
 
-declare namespace Window {                                 // type-only companion merged on the owner; ambient members export implicitly
+declare namespace Window {           // type-only companion merged on the owner; ambient members export implicitly
   type Key = keyof typeof Window
   type Spread = {
     readonly lead: Gauge
-    readonly hold: Duration.Duration                       // qualified type through the inline-erased specifier; no second import statement
+    readonly hold: Duration.Duration // qualified type through the inline-erased specifier; no second import statement
     readonly frame: Frame
   }
 }
@@ -114,7 +114,7 @@ const lead = (labels: ReadonlyArray<string>): Option.Option<Gauge> => // bare ty
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
-export { Window, lead }                                    // one entry carries every meaning of Window: the const value and the merged namespace types
+export { Window, lead } // one entry carries every meaning of Window: the const value and the merged namespace types
 ```
 
 [DEEP_MODULE_SITE]:
@@ -122,14 +122,14 @@ export { Window, lead }                                    // one entry carries 
 - Accept: declarations authored unexported, then one `// --- [EXPORTS]` block closing the file — `export { ... }` for names with a value side, `export type { ... }` for pure-type names; one owner export plus at most one operation-family export; every exported operation an annotated arrow `const` (`TS9007`-clean); every exported const stating its type or standing as a self-describing `as const` literal (`TS9010`-clean); interior `_`-declarations carrying no annotation burden while only bodies consume them; companion types riding the owner's merged namespace.
 - Reject: any `export` keyword on a body declaration — the block is the only export site; `export default` — the surface is named; a re-export statement (`export ... from`, `export *`, `export type ... from`) — a name leaves only its owning module and entry points are exports-map subpaths, never authored index modules; a hoisted `function` statement for an operation — operations are annotated arrow consts, read in declaration order and never rebindable; an exported `interface` — an open merge seam any consumer file can augment, so a closed public type is a `type` alias or the owner's merged companion, and `interface` survives only as a foreign-contract mirror, a deliberate merge target at the FFI seam, or the `this`-typed heritage implementor a package extension point demands; an exported `_`-symbol; a promotion alias `const Shape = _shape`; an exported signature speaking a `_`-type — the type a public signature names is public under the owner's one name, never leaked and never parallel-restated; a hand-written public union restating an interior table's keys — the table the surface speaks becomes the exported owner instead; a single-caller `_`-function — inline it, since a `_`-function earns existence at two call sites, as a named policy value, or as the marked kernel.
 - Law: one block entry exports every meaning its name carries — the const value, the same-name `type`, the merged namespace family, a class's constructor and instance type — so the one-name law is mechanical: merge first, list once; `export type { ... }` exists only for names with no value side, and the block declares the surface, never widens it.
-- Law: the annotation boundary is mechanical — declaration emit is syntactic, so a checker-computed export type trips at the export site no matter where the `export` keyword sits: an inference-dependent const or return is the defect, bare `as const` and entity-name heritage emit clean, while `satisfies` on an emitted table (`TS9010`) and call-expression owner heritage (`TS9021`) are the two checker-verified forms whose carve is manifest surface — the flag binds the declaration-emitting projects — and a widened table annotation, duplicated field annotations, or a demoted owner written to appease syntactic emit is the rejected repair.
+- Law: the annotation boundary is mechanical — declaration emit is syntactic, so a checker-computed export type trips at the export site no matter where the `export` keyword sits: an inference-dependent const or return is the defect, bare `as const` and entity-name heritage emit clean, while `satisfies` on an emitted table (`TS9010`), call-expression owner heritage (`TS9021`), and the derivation-rooted composition value — a contract assembly, derived projection, or variant extraction whose type is the checker's computation (`TS9010`) — are the checker-verified forms whose carve is manifest surface — the flag binds the declaration-emitting projects — and a widened table annotation, duplicated field annotations, or a demoted owner written to appease syntactic emit is the rejected repair.
 - Law: interior types are free — a `_`-declaration's checker-computed type costs nothing while no exported signature speaks it; the moment a public signature needs its keys, the declaration itself goes public under one name.
 - Boundary: package subpaths and per-runtime entry points are manifest surface; this site owns the shape of one module.
 
 ```typescript
 import { Array, Option, Order, pipe } from "effect"
 
-const Band = {                                             // public vocabulary: bare `as const` emits clean; the satisfies-checked table is the emit seam the card sanctions
+const Band = { // public vocabulary: bare `as const` emits clean; the satisfies-checked table is the emit seam the card sanctions
   tight: { ceiling: 4, weight: 3 },
   steady: { ceiling: 16, weight: 2 },
   loose: { ceiling: 64, weight: 1 },
@@ -182,13 +182,13 @@ export { Phase, Seal }                                     // Phase is one entry
 ```typescript
 import { Option } from "effect"
 
-const Grade = { low: 0, mid: 5, high: 9 } as const         // the table a public signature speaks is public under one name — never a _-leak or a hand union of its keys
+const Grade = { low: 0, mid: 5, high: 9 } as const // the table a public signature speaks is public under one name — never a _-leak or a hand union of its keys
 type Grade = keyof typeof Grade
 
 declare namespace overlay {
-  type Patch = {                                           // type-seam bag: domain absence is Option at the Schema owner, never these spellings
-    readonly label?: string                                // ?: answers "may the key be missing"; a label: undefined write is TS2375
-    readonly probe: string | undefined                     // | undefined answers "may the present cell be empty"; the key always exists
+  type Patch = {                        // type-seam bag: domain absence is Option at the Schema owner, never these spellings
+    readonly label?: string             // ?: answers "may the key be missing"; a label: undefined write is TS2375
+    readonly probe: string | undefined  // | undefined answers "may the present cell be empty"; the key always exists
     readonly floor: number
   }
 }
@@ -196,12 +196,12 @@ declare namespace overlay {
 const overlay = (table: Record<string, number>, band: Grade, key: string, label: string | undefined): overlay.Patch => ({
   probe: label,
   floor: Option.getOrElse(Option.fromNullable(table[key]), () => Grade[band]), // open index lifts at the read seam; the proven key reads total — no `!`, no re-check
-  ...(label !== undefined && { label }),                   // presence rides the conditional spread: include the key or omit it, never write undefined
+  ...(label !== undefined && { label }), // presence rides the conditional spread: include the key or omit it, never write undefined
 })
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
-export { Grade, overlay }                                  // overlay is one entry: the operation and its merged payload types travel under one name
+export { Grade, overlay } // overlay is one entry: the operation and its merged payload types travel under one name
 ```
 
 [KERNEL_EXEMPTION_SITE]:
@@ -211,6 +211,7 @@ export { Grade, overlay }                                  // overlay is one ent
 - Law: the kernel is closed — it admits values, emits an immutable value, leaks no mutable reference, and carries the mark on its first line so the exemption is recoverable from the declaration; above the kernel's signature everything stays expression-shaped.
 - Law: the kernel's cast algebra is one-directional — `any` pins to `unknown`, a proven index asserts to its element, a platform union narrows to its witnessed member; a cast that widens evidence or invents a shape the kernel never proved is illegal even here.
 - Boundary: the conversion combinators that lift a kernel throw are `rails-and-effects.md`'s; worker and marshal statement seams are `boundaries.md`'s; this site owns the in-process compute kernel.
+- Boundary: the kernel's earn test — fold first, measure, then mark — and its algorithmic forms are `computation.md`'s; this site owns the mark's legality and its cast algebra.
 
 ```typescript
 import { type Cause, Effect } from "effect"
@@ -221,14 +222,14 @@ const _spans = (bytes: Uint8Array, mark: number): ReadonlyArray<readonly [number
   const spans: Array<readonly [number, number]> = []
   let open = -1
   for (let index = 0; index < bytes.length; index += 1) {
-    const byte = bytes[index]!                             // sanctioned assertion: the loop bound is the evidence the checker cannot carry
+    const byte = bytes[index]! // sanctioned assertion: the loop bound is the evidence the checker cannot carry
     if (byte === mark && open < 0) open = index
     else if (byte === mark) {
       spans.push([open, index] as const)
       open = -1
     }
   }
-  return spans                                             // the accumulator detaches immutable; no mutable reference leaves the kernel
+  return spans // the accumulator detaches immutable; no mutable reference leaves the kernel
 }
 
 const admit = (

@@ -1,6 +1,6 @@
 # [CSHARP_BRANCH_TASKLOG]
 
-The cross-package C# work no single folder owns, plus the mature-folder open work that carries no `.planning/` scaffold. Per-folder work lives in each package `TASKLOG.md`; this node carries the cross-folder seam arbitrations, the mature `Rasm` cleanup, and the host-boundary seams the future app root composes. Cross-language amendments (the CRDT wire-vocabulary change, the SDK-codegen consumption) live in `libs/.planning/TASKLOG.md` and are referenced as wire seams, never restated.
+The cross-package C# work no single folder owns. Per-folder work lives in each package `TASKLOG.md`; this node carries the cross-folder seam arbitrations and the host-boundary seams the future app root composes. Cross-language amendments (the CRDT wire-vocabulary change, the SDK-codegen consumption) live in `libs/.planning/TASKLOG.md` and are referenced as wire seams, never restated.
 
 OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOCKED` keeps open but non-actionable work; `CLOSED` separates finished `COMPLETE` items from unimplemented `DROPPED` items. `Ripple` names the origin or counterpart card a cross-folder entry pairs with. `Atomic` flags a minor-scope task so a later session sizes its turn correctly and does not overscope a batch of small items.
 
@@ -66,8 +66,15 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Capability: open `Rasm.Bim/reconstruction` as the scan-to-BIM primitive-fitting owner.
 - Shape: `ReconstructionPrimitive` folds plane, cylinder, torus, and freeform fits from kernel segmented clouds into `BimElement` rows with `ElementPredicate`-classified `IfcClass` and `properties#PROPERTY_SETS` confidence bands.
 - Unlocks: captured splat/point payloads become BIM semantics through one reconstruction owner, while Persistence joins source-cloud lineage by `(GeometryHash, content-key)` and AppUi replays reality capture over the reconstructed model.
-- Anchors: `Rasm/Vectors` `Align` and cloud-ICP, `Rasm/Geometry/Spatial`, `Rasm.Compute/Runtime/codecs`, `Model/query#ELEMENT_SET`, `libs/.planning` graduation `reconstructed-mesh` and `topology-graph` geometry axes, and `Rasm.AppUi/Render/reality`.
+- Anchors: `Rasm.Vectors/Processing/register` cloud-ICP, `Rasm.Geometry/Spatial`, `Rasm.Compute/Runtime/codecs`, `Model/query#ELEMENT_SET`, `libs/.planning` graduation `reconstructed-mesh` and `topology-graph` geometry axes, and `Rasm.AppUi/Render/reality`.
 - Tension: C# re-imports offline RANSAC or learned-segmentation results; it does not host an in-process learned segmenter.
+
+[HOST_BOUNDARY_REENTRY]-[BLOCKED]: the host-boundary build surface re-enters the solution when kernel realization lands.
+- Capability: Restore `Rasm.Rhino`, `Rasm.Grasshopper`, and their test shells to `Workspace.slnx` once compiled `Rasm.Domain`/`Rasm.Vectors`/`Rasm.Analysis` types exist again.
+- Shape: Four slnx folder/project rows return — `/libs/csharp/Rasm.Rhino/`, `/libs/csharp/Rasm.Grasshopper/`, `/tests/csharp/libs/Rasm.Rhino/`, `/tests/csharp/libs/Rasm.Grasshopper/`; the frozen host source binds the frozen-name kernel contracts (`VectorIntent`/`VectorFrame`/`MotionInterpolation`, `Analyze`/`AnalysisQuery`/`Env`, `Op` + the `[Union]` generator emit) without edits.
+- Unlocks: Host-boundary compile, rhino-bridge runtime scenarios over kernel capability, and the future app-root composition.
+- Anchors: `Workspace.slnx`, the kernel frozen-name law, `tools/cs-analyzer` `UnionOpsGenerator`.
+- Ripple: `Rasm` `[HOST_BOUNDARY_REENTRY]`.
 
 ## [02]-[CLOSED]
 

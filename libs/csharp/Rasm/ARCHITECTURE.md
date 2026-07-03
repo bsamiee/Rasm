@@ -74,10 +74,13 @@ Rasm/
 
 ```text seams
 Domain/Identity.cs        →  csharp:Rasm.Element/Projection/address       # [CONTENT_KEY]: the kernel seed-zero XxHash128 ContentHash.Of entry the Rasm.Element seam composes for every NodeId/ContentAddress — ONE hasher, no second hasher
+Domain/Identity.cs        →  csharp:Rasm.Persistence/Element/codec        # [CONTENT_KEY]: ContentAddress composes the kernel seed-zero XxHash128 entry — no second hasher at the codec
+Domain/Identity.cs        →  csharp:Rasm.Compute/Model/identity           # [CONTENT_KEY]: ModelIdentity.Checksum composes ContentHash.Of — the ONE federation hasher, never a per-call-site XxHash128
 Spatial/Reconciliation.cs →  csharp:Rasm.Persistence/Query                # [CONTENT_KEY]: CanonicalTopology→GeometryHash canonical-byte content-identity hashed through the kernel Domain/Identity seed-zero entry; geometry crosses the seam by content-hash ONLY
-Spatial/Reconciliation.cs ⇄  python:runtime/evidence                      # [CONTENT_KEY]: canonical-byte content-identity reproducing the one Domain/Identity seed (XxHash128 seed-zero)
+Spatial/Reconciliation.cs ⇄  python:runtime/evidence/identity             # [CONTENT_KEY]: canonical-byte content-identity reproducing the one Domain/Identity seed (XxHash128 seed-zero)
 Spatial/Reconciliation.cs ⇄  typescript:kernel                            # [CONTENT_KEY]: content-hashing wasm reproducing the one Domain/Identity seed (XxHash128 seed-zero)
-Numerics/Spectral.cs      ⇄  csharp:Rasm.Compute                          # [SHAPE]: DiscreteCalculus DEC operator bundle + MeshAdjointSnapshot adjoint seam
+Numerics/Spectral.cs      ⇄  csharp:Rasm.Compute                          # [SHAPE]: DiscreteCalculus DEC operator bundle — the frozen adjoint-carrier shape
+Meshing/Mesh.cs           →  csharp:Rasm.Compute                          # [SHAPE]: MeshAdjointSnapshot adjoint handle over the cached DiscreteCalculus
 Spatial/Index.cs          →  csharp:Rasm.Fabrication/Toolpath/guard       # [SHAPE]: SpatialIndex BVH broad-phase keep-out prune
 Spatial/Index.cs          ←  csharp:Rasm.Fabrication/Posting/projection   # [SHAPE]: SpatialIndex BVH broad-phase
 Spatial/Index.cs          ⇄  csharp:Rasm.Compute                          # [SHAPE]: SpatialIndex.ToAcceleration BVH/octree node arrays
@@ -87,10 +90,11 @@ Numerics/Predicates.cs    ←  csharp:Rasm.Fabrication/Posting              # [W
 Drawing/View.cs           →  csharp:Rasm.Fabrication/Posting              # [PROJECTION]: DrawingProjection / HLR visible/hidden segments
 Drawing/View.cs           →  csharp:Rasm.AppUi/Render                     # [PROJECTION]: DrawingProjection / drafting-sheet layout
 Drawing/Pack.cs           →  csharp:Rasm.AppHost/Runtime                  # [WIRE]: EncodedGeometry / PackOp.Apply channel discriminant
-Processing/Flatten.cs     →  csharp:Rasm.Fabrication/Posting              # [PROJECTION]: ChartAtlas / UV island layout + DistortionReceipt
+Drawing/Pack.cs           →  csharp:Rasm.Compute/Tensor/residency         # [WIRE]: EncodedGeometry wrapped as EncodedTensor — residency view, never a re-pack
+Processing/Flatten.cs     →  csharp:Rasm.Fabrication/Nesting/nfp          # [PROJECTION]: ChartAtlas / UV island layout + DistortionReceipt
 Processing/Flatten.cs     →  csharp:Rasm.AppUi/Render                     # [PROJECTION]: ChartAtlas / texture UV channel
-Processing/Intent.cs      →  csharp:Rasm.Rhino/Camera                     # [BOUNDARY]: VectorIntent/VectorFrame/MotionInterpolation frozen-name contract; dormant host edge until host-boundary re-entry
-Analysis/Query.cs         →  csharp:Rasm.Rhino/Commands                   # [BOUNDARY]: Analyze/AnalysisQuery/Env frozen-name contract; dormant host edge until host-boundary re-entry
+Processing/Intent.cs      →  csharp:Rasm.Rhino/Camera                     # [BOUNDARY]: VectorIntent (here) + VectorFrame (Numerics/Atoms.cs) + MotionInterpolation (Parametric/Projections.cs) frozen-name contract; dormant host edge until host-boundary re-entry
+Analysis/Query.cs         →  csharp:Rasm.Rhino/Commands                   # [BOUNDARY]: Analyze/AnalysisQuery/Env frozen-name contract (Commands + Overlay bind the same entry); dormant host edge until host-boundary re-entry
 *                         ←  csharp:Rasm.Fabrication                      # [SHAPE]: Matrix / Point3d / Vector3d
 ```
 
@@ -101,7 +105,7 @@ Folder is domain grouping; fence namespace is the frozen contract axis. Every de
 | [INDEX] | [NAMESPACE] | [PAGES] | [FROZEN_BY] |
 | :-----: | :--- | :--- | :--- |
 | [01] | `Rasm.Domain` | `Domain/*` (7) | The `[Union]` generator emit `global::Rasm.Domain.Op.Of`, the `GenerateUnionOpsAttribute` marker, the Grasshopper `using Op =` aliases, the props global usings, the `ContentHash` federation seams, and the `Topology`/`Kind`/`Context` vocabulary the settled pages compose |
-| [02] | `Rasm.Vectors` | `Numerics/{Atoms,Matrix,Integrate,Spectral,Calculus}`, `Spatial/{Support,Cloud,Neighbors,Transport,Fields}`, `Parametric/Projections`, `Meshing/{Mesh,Dec,Reconstruct}`, `Processing/{Intent,Sample,Extract,Flow,Register,Geodesics,Segment}` (20) | The `Rasm.Rhino` Camera members (`VectorIntent`/`VectorFrame`/`MotionInterpolation`), the `MeshSpace` + DEC/field/cloud vocabulary the settled pages compose, and the Materials/Fabrication/Element design anchors |
+| [02] | `Rasm.Vectors` | `Numerics/{Atoms,Matrix,Integrate,Spectral,Calculus}`, `Spatial/{Support,Cloud,Neighbors,Transport,Fields}`, `Parametric/Projections`, `Meshing/{Mesh,Dec,Reconstruct}`, `Processing/{Intent,Sample,Extract,Flow,Register,Geodesics,Segment}` (21) | The `Rasm.Rhino` Camera members (`VectorIntent`/`VectorFrame`/`MotionInterpolation`), the `MeshSpace` + DEC/field/cloud vocabulary the settled pages compose, and the Materials/Fabrication/Element design anchors |
 | [03] | `Rasm.Analysis` | `Analysis/*` (5), `Parametric/Locate` (1) | The cs-analyzer docIDs (`IntersectionHit`, `RayQuery`), the `Rasm.Rhino` Commands/Overlay bindings (`Analyze`/`AnalysisQuery`/`Env`), and the props-injected usings |
 | [04] | `Rasm.Geometry.*` | `Numerics/{Predicates,Faults}`, `Spatial/{Index,Naming,Reconciliation}`, `Parametric/Curve`, `Meshing/{Delaunay,Arrangement,Intersect,Offset}`, `Processing/{Repair,Receipts,Decimate,Flatten,Fit,Solver}`, `Drawing/*` (18) | Settled robust-core law; the geometry campaign owns its namespace reconciliation |
 

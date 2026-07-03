@@ -6,18 +6,18 @@ A concern with many call shapes keeps one dense surface, never a family of shall
 
 When a concern matches several rows, the most specific wins; the rail the arms return is orthogonal to the form and is read after the form is fixed.
 
-| [INDEX] | [CONCERN_SIGNATURE]                       | [FORM]                                      | [REJECTED_FORM]                                  |
-| :-----: | :---------------------------------------- | :------------------------------------------ | :----------------------------------------------- |
-|  [01]   | one concern, several call shapes           | overloaded declaration over one input union | `resolve`/`resolveMany`/`resolveWhere` siblings   |
-|  [02]   | plural call shape must prove plurality     | `NonEmptyReadonlyArray` modality            | `batch: boolean` beside a widened array           |
-|  [03]   | closed family, arms local, coverage owed   | `$match` / `Match.exhaustive` terminal      | `orElse` fallback absorbing future tags           |
-|  [04]   | partial dispatch, residue is absence       | `Match.option` terminal                     | `null` return or sentinel                         |
-|  [05]   | staged dispatch, residue flows onward      | `Match.tag` arms + `Match.either` terminal  | pre-filtered parallel matchers per stage          |
-|  [06]   | keyed static correspondence                | vocabulary row lookup                       | `Match`/`switch` arms restating the table         |
-|  [07]   | operator with a pipe subject               | one `Function.dual` definition              | data-first plus curried twin pair                 |
-|  [08]   | per-kind behavior owned familywide         | mapped handler record, one generic dispatch | `switch` per consumer; call-site record assembly  |
-|  [09]   | cross-cutting policy on one function       | `Effect.fn` definition-seam pipeline        | policy hand-woven inside the body                 |
-|  [10]   | open structural input, no tag              | `Match.when` predicate and refinement arms  | `typeof` ladder with casts                        |
+| [INDEX] | [CONCERN_SIGNATURE]                      | [FORM]                                      | [REJECTED_FORM]                                  |
+| :-----: | :--------------------------------------- | :------------------------------------------ | :----------------------------------------------- |
+|  [01]   | one concern, several call shapes         | overloaded declaration over one input union | `resolve`/`resolveMany`/`resolveWhere` siblings  |
+|  [02]   | plural call shape must prove plurality   | `NonEmptyReadonlyArray` modality            | `batch: boolean` beside a widened array          |
+|  [03]   | closed family, arms local, coverage owed | `$match` / `Match.exhaustive` terminal      | `orElse` fallback absorbing future tags          |
+|  [04]   | partial dispatch, residue is absence     | `Match.option` terminal                     | `null` return or sentinel                        |
+|  [05]   | staged dispatch, residue flows onward    | `Match.tag` arms + `Match.either` terminal  | pre-filtered parallel matchers per stage         |
+|  [06]   | keyed static correspondence              | vocabulary row lookup                       | `Match`/`switch` arms restating the table        |
+|  [07]   | operator with a pipe subject             | one `Function.dual` definition              | data-first plus curried twin pair                |
+|  [08]   | per-kind behavior owned familywide       | mapped handler record, one generic dispatch | `switch` per consumer; call-site record assembly |
+|  [09]   | cross-cutting policy on one function     | `Effect.fn` definition-seam pipeline        | policy hand-woven inside the body                |
+|  [10]   | open structural input, no tag            | `Match.when` predicate and refinement arms  | `typeof` ladder with casts                       |
 
 ## [02]-[ENTRYPOINT_COLLAPSE]
 
@@ -84,13 +84,14 @@ export type { Batch, Key, Ledger, Row, Sweep }
 
 [FAMILY_DISPATCH]:
 - Law: a `Data.taggedEnum` family dispatches through its own generated surface — `$match` is the total record dispatch, data-first inside generic operations so the family's type parameters stay bound, and `$is` is the reusable refinement every filter and find site narrows through; a `_tag ===` comparison restated per site re-derives what the family already generated.
-- Law: a generic family's `taggedEnum` surface is module-interior dispatch vocabulary — the `WithGenerics` factory-call `const` is kind-polymorphic and has no nameable annotation, so exporting it demands the hand-written type the export gate forbids inferring; the family's static type exports freely, dispatch operations export annotated, and a non-generic family exports its constructor under `Data.TaggedEnum.Constructor<Family>` as `shapes.md`'s owner form.
+- Law: a generic family's `taggedEnum` surface is module-interior dispatch vocabulary — the `WithGenerics` factory-call `const` is kind-polymorphic and has no nameable annotation, and the annotation gate reaches the merged name even when only the type is exported, so the constructor lives `_`-prefixed while the family's static type exports under the clean name; dispatch operations export annotated, and a non-generic family exports its constructor under `Data.TaggedEnum.Constructor<Family>` as `shapes.md`'s owner form.
+- Law: `$match` computes its result through `Unify`, which reduces registered carriers and strands a bare type parameter — a generic operation's arms settle into `Option`, `Either`, `Effect`, or a concrete shape and the owner folds the carrier at its own seam, while a fold that must return the bare parameter rides `$is` narrowing instead of the record dispatch.
 - Law: `Match.valueTags(value, arms)` is the immediate exhaustive record dispatch over an already-held union value — its arm record types excess keys `never`, so a stale or misspelled arm is a compile error and no matcher value is built for a one-shot dispatch; `Match.discriminatorsExhaustive("<field>")` owns the family whose discriminant is a foreign field name, dispatching the wire shape without re-tagging it first.
 - Law: record form versus pipeline: the record forms (`$match`, `Match.valueTags`, `Match.tagsExhaustive`) serve a closed family whose arms are all local — coverage read at a glance; the `Match.type` pipeline builds the reusable dispatch value and serves arms that mix tag, structural, and predicate patterns or a terminal other than exhaustive; `Match.value` opens the same pipeline over one already-held value and earns its matcher only when arms exceed what `valueTags` states in place.
 - Boundary: a `Match` whose arms each return a static row restates a keyed table — a keyed correspondence dispatches through the vocabulary lookup the table already is; `Match` owns structural and predicate dispatch on non-keyed shapes.
 
 ```typescript
-import { Array, Data, type Either, Match, type Option, pipe } from "effect"
+import { Array, Data, type Either, Match, Option, pipe } from "effect"
 
 type Signal<A> = Data.TaggedEnum<{
   readonly Live: { readonly value: A }
@@ -102,17 +103,20 @@ interface SignalDefinition extends Data.TaggedEnum.WithGenerics<1> {
   readonly taggedEnum: Signal<this["A"]>
 }
 
-const Signal = Data.taggedEnum<SignalDefinition>()
+const _Signal = Data.taggedEnum<SignalDefinition>()          // interior constructor: the annotation gate reaches the merged name, so only the type exports
 
 const carried = <A>(signal: Signal<A>, fallback: A): A =>
-  Signal.$match(signal, {
-    Live: ({ value }) => value,
-    Degraded: ({ value }) => value,
-    Halted: () => fallback,
-  })
+  Option.getOrElse(
+    _Signal.$match(signal, {                                 // generic arms settle into Option: Unify reduces the carrier where a bare A would strand
+      Live: ({ value }) => Option.some(value),
+      Degraded: ({ value }) => Option.some(value),
+      Halted: () => Option.none(),
+    }),
+    () => fallback,
+  )
 
 const causes = <A>(signals: ReadonlyArray<Signal<A>>): ReadonlyArray<string> =>
-  Array.map(Array.filter(signals, Signal.$is("Halted")), ({ cause }) => cause)
+  Array.map(Array.filter(signals, _Signal.$is("Halted")), ({ cause }) => cause)
 
 type Wire =
   | { readonly _tag: "Packet"; readonly body: string }
@@ -210,11 +214,10 @@ const ROUTE = {                                              // exported anchor:
 } as const
 
 declare namespace ROUTE {
+  type Kind = keyof typeof ROUTE                             // discriminant lives in the hub: consumers qualify off the one import, never a sibling type
   type Row = { readonly weight: number; readonly label: string }
   type _Rows<T extends Record<Kind, Row> = typeof ROUTE> = T // row guard: a malformed or missing row fails at the declaration with zero widening
 }
-
-type Kind = keyof typeof ROUTE
 
 type Payload = {
   readonly open: { readonly key: string }
@@ -222,13 +225,13 @@ type Payload = {
   readonly close: { readonly key: string; readonly seal: string }
 }
 
-type Receipt = { readonly kind: Kind; readonly weight: number; readonly note: string }
+type Receipt = { readonly kind: ROUTE.Kind; readonly weight: number; readonly note: string }
 
-class Refused extends Data.TaggedError("Refused")<{ readonly kind: Kind; readonly cause: string }> {}
+class Refused extends Data.TaggedError("Refused")<{ readonly kind: ROUTE.Kind; readonly cause: string }> {}
 
-type _Handlers = { readonly [K in Kind]: (payload: Payload[K]) => Effect.Effect<Receipt, Refused> }
+type _Handlers = { readonly [K in ROUTE.Kind]: (payload: Payload[K]) => Effect.Effect<Receipt, Refused> }
 
-const _receipt = (kind: Kind, note: string): Receipt => ({ kind, weight: ROUTE[kind].weight, note })
+const _receipt = (kind: ROUTE.Kind, note: string): Receipt => ({ kind, weight: ROUTE[kind].weight, note })
 
 const _HANDLERS: _Handlers = {
   open: ({ key }) => Effect.succeed(_receipt("open", key)),
@@ -239,13 +242,13 @@ const _HANDLERS: _Handlers = {
   close: ({ key, seal }) => Effect.succeed(_receipt("close", `${key}:${seal}`)),
 }
 
-const submitted = <K extends Kind>(kind: K, payload: Payload[K]): Effect.Effect<Receipt, Refused> =>
+const submitted = <K extends ROUTE.Kind>(kind: K, payload: Payload[K]): Effect.Effect<Receipt, Refused> =>
   _HANDLERS[kind](payload)
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
 export { Refused, ROUTE, submitted }
-export type { Kind, Payload, Receipt }
+export type { Payload, Receipt }
 ```
 
 ## [06]-[ASPECT_SEAM]

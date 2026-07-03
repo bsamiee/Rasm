@@ -90,18 +90,14 @@ The predicate floor's precision ladder: `TYoshimura.DoubleDouble` supplies the m
 
 [GEOMETRY_KERNEL]:
 
-Host-neutral managed geometry owners the kernel composes additively beside its first-principles authored kernels, for the concerns a production ecosystem package owns better than a hand-roll. `GShark` is the pure-managed NURBS engine (`NurbsCurve`/`NurbsSurface`/`Bezier` point+derivative `Evaluate`, interpolation/approximation/least-squares `Fitting`, curve-curve and curve-surface `Intersection`, adaptive `Sampling`, curvature/length/closest-point `Analyze`, `Modify`/`Optimization` Newton refine) — the host-neutral parametric contract `Parametric/curve` exposes so a non-Rhino runtime evaluates curves/surfaces without RhinoCommon. `Supercluster.KDTree.Net` is the array-backed flat 3D kd-tree exact k-NN (`NearestNeighbors`) + radius search (`RadialSearch`) backing the `Spatial/neighbors` static-point-set lane that feeds the `Processing/fit` MLESAC primitive-fit, normal estimation, and the `Processing/register` ICP correspondences — the low-dimensional point-NN leaf the SAH-BVH + Morton octree broad-phase (`Spatial/index`) serves poorly, additive to (not a replacement for) the BVH/octree primitive broad-phase. `LibTessDotNet` is the de-facto C# GLU/libtess2 winding-rule polygon tessellator (arbitrary self-intersecting/holey contours combined under EvenOdd/NonZero/Positive/Negative/AbsGeqTwo into triangle `Polygons`/`ConnectedPolygons` with a `VertexCombine` callback) — the messy-winding polygon-FILL triangulation the clean-PSLG Bowyer-Watson Delaunay (`Meshing/delaunay`) cannot own, backing the `Drawing/view` + `Drawing/pack` fill leg. All three are pure-managed AnyCPU on osx-arm64.
+Host-neutral managed geometry owners the kernel composes additively beside its first-principles authored kernels, for the concerns a production ecosystem package owns better than a hand-roll. `GShark` is the pure-managed NURBS engine (`NurbsCurve`/`NurbsSurface`/`Bezier` point+derivative `Evaluate`, interpolation/approximation/least-squares `Fitting`, curve-curve and curve-surface `Intersection`, adaptive `Sampling`, curvature/length/closest-point `Analyze`, `Modify`/`Optimization` Newton refine) — the host-neutral parametric contract `Parametric/curve` exposes so a non-Rhino runtime evaluates curves/surfaces without RhinoCommon. `Supercluster.KDTree.Net` is the array-backed flat 3D kd-tree exact k-NN (`NearestNeighbors`) + radius search (`RadialSearch`) backing the `Spatial/neighbors` static-point-set lane that feeds the `Processing/fit` MLESAC primitive-fit, normal estimation, and the `Processing/register` ICP correspondences — the low-dimensional point-NN leaf the SAH-BVH + Morton octree broad-phase (`Spatial/index`) serves poorly, additive to (not a replacement for) the BVH/octree primitive broad-phase. Both are pure-managed AnyCPU on osx-arm64.
 - `GShark`
 - `Supercluster.KDTree.Net`
-- `LibTessDotNet`
 
 [COMPUTATIONAL_GEOMETRY]:
 
-Computational-geometry leaf libraries the kernel composes for convex-hull/Delaunay/Voronoi/offset/boolean concerns. All pure-managed AnyCPU on osx-arm64.
-- `MIConvexHull` — 2D/3D incremental convex hull + Delaunay/Voronoi construction; with `SharpVoronoiLib` it realizes the `Spatial/cloud` convex/concave-outline/alpha-shape hull rail
-- `Clipper2` — robust integer-exact 2D/3D polygon boolean (union/intersection/difference/XOR) and parallel offset
-- `CavalierContours` — arc-aware (bulge) polyline parallel offset + closed-polyline boolean, float-domain
-- `SharpVoronoiLib` — Fortune's-algorithm point-site Voronoi with edge clipping, border closure, Delaunay dual, and Lloyd relaxation
+The one computational-geometry leaf library the kernel composes; pure-managed AnyCPU on osx-arm64. The float-domain polygon boolean/offset/Voronoi/fill packages (`Clipper2`, `CavalierContours`, `SharpVoronoiLib`, `LibTessDotNet`) are NOT admitted here — the corpus owns those concerns exactly: `Meshing/arrangement` `PlanarOverlay` is the exact 2D polygon boolean and messy-winding fill (GWN cell classification over the CDT), `Meshing/offset` is the exact wavefront offset/skeleton, `Meshing/delaunay` owns the constrained Voronoi dual, and `Meshing/mesh` owns the restricted power diagram; the float lanes live in `Rasm.Fabrication`, never in the robust core.
+- `MIConvexHull` — 2D/3D incremental convex hull + Delaunay complex; realizes the `Spatial/cloud` convex/concave-outline/alpha-shape hull rail over `Triangulation.CreateDelaunay`
 
 [PROJECTS]:
 - `Rhino.Geometry` / `RhinoCommon` — the host compile surface; the kernel reads value structs and Mesh/Curve/Brep reference geometry, never `RhinoDoc`/`RhinoApp`/UI
@@ -122,7 +118,7 @@ The C# substrate registry cards this folder consumes; full registry and substrat
 - `System.Numerics.Tensors`
 
 [GRAPH_ALGORITHM]:
-- `QuikGraph` — the `Spatial/neighbors` Prim-MST normal orientation and the `Processing/segment` graph-cut lanes
+- `QuikGraph` — the `Spatial/neighbors` Prim-MST normal-orientation lane (`MinimumSpanningTreePrim` over the kNN graph); the `Processing/segment` normalized cut is spectral through the `Numerics/matrix` owner, not a combinatorial cut
 
 [TEST_SUBSTRATE]:
 - `xunit.v3.*`

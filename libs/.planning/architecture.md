@@ -8,7 +8,7 @@ The repository is one tri-language AEC platform organized into strict strata. Ea
 
 [KERNEL]
 - Folder(s): `Rasm`
-- The RhinoCommon-aware geometry/numeric kernel, with sub-domains Vectors, Analysis, Domain, and the robust-core Geometry. The branch base: referenced by every higher stratum, references none.
+- The RhinoCommon-aware geometry/numeric kernel — planning-scoped, one `.planning/` root spanning the Domain, Numerics, Spatial, Parametric, Meshing, Processing, Drawing, and Analysis sub-domains. The branch base: referenced by every higher stratum, references none.
 
 [AEC-DOMAIN]
 - Folder(s): the lowest-AEC element seam `Rasm.Element`, then the AEC peers `Rasm.Materials`, `Rasm.Bim`, `Rasm.Fabrication`.
@@ -62,8 +62,8 @@ Geometry, meshing, and IFC each have exactly one owner per runtime; the runtimes
 
 - A greenfield package keeps its design pages inside one `.planning/` at the package root, organized into sub-domain sub-folders that mirror the eventual source tree (`<pkg>/.planning/<sub-domain>/<page>.md`). The package root carries the four index docs — `README.md`, `ARCHITECTURE.md`, `IDEAS.md`, `TASKLOG.md` — and nothing else.
 - All planning lives under the single `.planning/`: never a `.planning/` inside a real source sub-folder. The package `ARCHITECTURE.md` maps the full folder structure (including planned sub-domains that have no page yet), so the map fuels ideas and tasks without scattering planning across the tree.
-- Mature folders with real code at the bar carry NO `.planning/`, neither at the package root nor inside a sub-folder. Their co-located source architecture note is the only design surface (the `Vectors/_ARCHITECTURE.md` pattern); their open split/cleanup/re-architect work lives as task cards in the branch `TASKLOG.md`.
-- The one exception is a genuinely-new unbuilt sub-domain inside an otherwise-mature package: it keeps its scaffold in that sub-domain folder (the robust-geometry `Rasm/Geometry/.planning/` is the canonical instance), because a package-root `.planning/` would wrongly imply the mature siblings (`Vectors/`, `Analysis/`, `Domain/`) are also in planning.
+- Mature folders with real code at the bar carry NO `.planning/`, neither at the package root nor inside a sub-folder. Their co-located source architecture note is the only design surface; their open split/cleanup/re-architect work lives as task cards in the branch `TASKLOG.md`.
+- The one exception is a genuinely-new unbuilt sub-domain inside an otherwise-mature package: it keeps its scaffold in that sub-domain folder, because a package-root `.planning/` would wrongly imply the mature siblings are also in planning.
 - `Rasm.Rhino` and `Rasm.Grasshopper` are out of scope: self-contained, durable, host-bound code with no `.planning/`.
 
 ## [06]-[PER_LANGUAGE_ROLES]

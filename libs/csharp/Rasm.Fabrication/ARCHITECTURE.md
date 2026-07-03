@@ -39,19 +39,21 @@ The `Process` owner and the `Polygon` substrate are read by every kernel, the `P
 
 ```text seams
 *                   →  csharp:Rasm.Element/Projection            # [CONTRACT]: depends up on {Rasm, Rasm.Element}; a future FabricationProjector:IElementProjection lowers fabrication output onto the seam ElementGraph as one registration row — AEC peers align via the seam, never each other [§4A]
-Posting/projection  ←  csharp:Rasm/Geometry/Numerics             # [WIRE]: Predicate.Orient2D/Orient3D exact silhouette/winding verdict
-Posting/projection  ←  csharp:Rasm/Geometry/Meshing/arrangement  # [WIRE]: Arrangement Apply/ToMesh kept-cell watertight outline for the BooleanSolid silhouette arm
-Posting/projection  ←  csharp:Rasm/Geometry/Healing              # [WIRE]: BooleanOp union/difference/intersection the BooleanSolid carries
-Posting/projection  ←  csharp:Rasm/Geometry/Spatial              # [SHAPE]: SpatialIndex BVH occluder broad-phase prune
+Posting/projection  ←  csharp:Rasm/Numerics/predicates           # [WIRE]: Predicate.Orient2D/Orient3D exact silhouette/winding verdict
+Posting/projection  ←  csharp:Rasm/Meshing/arrangement           # [WIRE]: Arrangement Apply/ToMesh kept-cell watertight outline for the BooleanSolid silhouette arm
+Posting/projection  ←  csharp:Rasm/Processing/repair             # [WIRE]: BooleanOp union/difference/intersection the BooleanSolid carries
+Posting/projection  ←  csharp:Rasm/Spatial/index                 # [SHAPE]: SpatialIndex BVH occluder broad-phase prune
+Posting/projection  ←  csharp:Rasm/Drawing/view                  # [PROJECTION]: DrawingProjection HLR visible/hidden segments beside the in-folder BSP solver
 Posting/projection  →  csharp:Rasm.AppUi/Render                  # [RECEIPT]: HiddenLineResult Viewport2D edge sets, the BSP visibility solver superseding the AppUi painter sort
-Toolpath/slicing    →  csharp:Rasm/Geometry/Meshing              # [WIRE]: forward consume — Section re-routes to a kernel mesh-section primitive if one lands; today the planar section is the in-folder author-kernel
+Toolpath/slicing    →  csharp:Rasm/Meshing/intersect             # [WIRE]: forward consume — Section re-routes to the kernel IntersectOp.PlaneMesh section primitive when realized; today the planar section is the in-folder author-kernel
 Process/physics     ←  csharp:Rasm.Materials/Properties          # [WIRE]: Thermal Conductivity / SpecificHeat / Density scalars admitted as raw doubles at the AEC-peer boundary (NOT a reference — the acyclic strata forbids the peer crossing)
 Nesting/stock       →  Nesting/nfp                               # [PLAN]: the resolved StockNest.Pack NestPlan rides FabricationInput.Plan and the Nest.Honor fold maps each NestPlacement straight to a PartTransform rather than re-packing — stock owns the rectangular cutting-stock YIELD, nfp the true-shape irregular NEST, the deleted CuttingPlan/PlannedPlacement wire mirror superseded by the in-package seam
 Nesting/stock       →  csharp:Rasm.Compute                       # [PROJECTION]: NestYield.WasteAreaMm2 feeds the AggregateEnvironmental/AggregateCost rollup through the seam Material node's Environmental/Cost cases — the recorded next-campaign Compute counterpart
 Polygon/import      ←  csharp:Rasm.Bim/Exchange                  # [SHAPE]: ACadSharp managed DWG/DXF DxfDocument/CadDocument read codec — Bim is the AEC-DOMAIN host-neutral CAD-interchange owner of the read surface; Fabrication consumes the read seam for 2D profile ingress over the same central ACadSharp pin (netDxf in AppUi owns the distinct WRITE leg). Mirrors the Bim-side Exchange/format ⇄ Rasm.Fabrication row (NOT a reference — the acyclic strata forbids the AEC peer crossing)
 Posting/program     →  csharp:Rasm.Persistence/Schema            # [WIRE]: CutProgram AST content-addressed durable-row projection
 Nesting/nfp         →  csharp:Rasm.Persistence/Schema            # [WIRE]: Placement / Remnant XxHash128 content-keyed durable row
-Toolpath/guard      ←  csharp:Rasm/Geometry/Spatial              # [SHAPE]: SpatialIndex BVH broad-phase keep-out prune
+Nesting/nfp         ←  csharp:Rasm/Processing/flatten            # [PROJECTION]: ChartAtlas unrolled UV islands + DistortionReceipt as true-shape part input
+Toolpath/guard      ←  csharp:Rasm/Spatial/index                 # [SHAPE]: SpatialIndex BVH broad-phase keep-out prune
 Toolpath/probing    →  csharp:Rasm.Fabrication/Posting           # [WIRE]: QUEUED — ProbeCycle G38/G10 GWord rows + measured WorkOffset (the probing page is the IDEAS-queued sub-domain)
 *                   →  csharp:Rasm                               # [SHAPE]: Matrix / Point3d / Vector3d
 ```

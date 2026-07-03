@@ -27,6 +27,7 @@
         "rootDir": ".",
         "skipLibCheck": true,
         "sourceMap": true,
+        "stableTypeOrdering": true,
         "strict": true,
         "strictBuiltinIteratorReturn": true,
         "target": "esnext",

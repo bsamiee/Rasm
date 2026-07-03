@@ -16,15 +16,11 @@
 
     <ItemGroup Label="Geometry">
         <PackageReference Include="GShark" />
-        <PackageReference Include="LibTessDotNet" />
         <PackageReference Include="Supercluster.KDTree.Net" />
     </ItemGroup>
 
     <ItemGroup Label="Computational Geometry">
-        <PackageReference Include="CavalierContours" />
-        <PackageReference Include="Clipper2" />
         <PackageReference Include="MIConvexHull" />
-        <PackageReference Include="SharpVoronoiLib" Aliases="Voronoi" />
     </ItemGroup>
 
     <ItemGroup Label="Content Hash">

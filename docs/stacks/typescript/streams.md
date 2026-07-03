@@ -8,21 +8,21 @@ Four siblings own material this page composes as settled: the `Effect` carrier a
 
 This table maps a dataflow shape to the form that owns it; the most specific shape wins.
 
-| [INDEX] | [DATAFLOW]                                | [OWNING_FORM]                                        | [REJECTED_FORM]                        |
-| :-----: | :---------------------------------------- | :--------------------------------------------------- | :-------------------------------------- |
-|  [01]   | bounded pure reduction over admitted data | `Chunk.reduce` fold, no carrier                      | a `Stream` over in-memory data           |
-|  [02]   | bounded collection, effect per element    | `Effect.forEach` with explicit `{ concurrency }`     | hand fiber loop; stream ceremony         |
-|  [03]   | unbounded, incremental, or scoped source  | `Stream` pipeline into one `run*` terminal           | whole-feed materialization               |
-|  [04]   | element-to-element state                  | `Stream.mapAccum` Mealy step                         | `Ref` mutated inside `map`               |
-|  [05]   | running trace of an accumulator           | `Stream.scan`, seed emitted first                    | a fold that swallows intermediates       |
-|  [06]   | count-or-latency window                   | `Stream.groupedWithin(width, patience)`              | timer fiber plus mutable buffer          |
-|  [07]   | budget-closed, cadence-flushed batch      | `Stream.aggregateWithin` + `Sink.foldWeighted`       | count windows over uneven payloads       |
-|  [08]   | static N consumers of one source          | `Stream.broadcast(n, lag)` scoped tuple              | re-running the source per consumer       |
-|  [09]   | per-key partitioned processing            | `Stream.groupByKey` + `GroupBy.evaluate`             | keyed map of arrays, then re-stream      |
-|  [10]   | heterogeneous source union                | `Stream.mergeWithTag` derived tagged merge           | hand-tagged `map` before `merge`         |
-|  [11]   | keyed alignment of two sorted feeds       | `Stream.zipAllSortedByKeyWith`                       | materialize both sides and join          |
-|  [12]   | callback or queue ingress                 | `Stream.asyncScoped` / `Stream.fromQueue`            | listener pushing into an outer array     |
-|  [13]   | N identical lookups in one flow           | `Request.TaggedClass` + `RequestResolver.makeBatched` | per-element query — the N+1              |
+| [INDEX] | [DATAFLOW]                                | [OWNING_FORM]                                         | [REJECTED_FORM]                      |
+| :-----: | :---------------------------------------- | :---------------------------------------------------- | :----------------------------------- |
+|  [01]   | bounded pure reduction over admitted data | `Chunk.reduce` fold, no carrier                       | a `Stream` over in-memory data       |
+|  [02]   | bounded collection, effect per element    | `Effect.forEach` with explicit `{ concurrency }`      | hand fiber loop; stream ceremony     |
+|  [03]   | unbounded, incremental, or scoped source  | `Stream` pipeline into one `run*` terminal            | whole-feed materialization           |
+|  [04]   | element-to-element state                  | `Stream.mapAccum` Mealy step                          | `Ref` mutated inside `map`           |
+|  [05]   | running trace of an accumulator           | `Stream.scan`, seed emitted first                     | a fold that swallows intermediates   |
+|  [06]   | count-or-latency window                   | `Stream.groupedWithin(width, patience)`               | timer fiber plus mutable buffer      |
+|  [07]   | budget-closed, cadence-flushed batch      | `Stream.aggregateWithin` + `Sink.foldWeighted`        | count windows over uneven payloads   |
+|  [08]   | static N consumers of one source          | `Stream.broadcast(n, lag)` scoped tuple               | re-running the source per consumer   |
+|  [09]   | per-key partitioned processing            | `Stream.groupByKey` + `GroupBy.evaluate`              | keyed map of arrays, then re-stream  |
+|  [10]   | heterogeneous source union                | `Stream.mergeWithTag` derived tagged merge            | hand-tagged `map` before `merge`     |
+|  [11]   | keyed alignment of two sorted feeds       | `Stream.zipAllSortedByKeyWith`                        | materialize both sides and join      |
+|  [12]   | callback or queue ingress                 | `Stream.asyncScoped` / `Stream.fromQueue`             | listener pushing into an outer array |
+|  [13]   | N identical lookups in one flow           | `Request.TaggedClass` + `RequestResolver.makeBatched` | per-element query — the N+1          |
 
 ## [02]-[PIPELINE_SELECTION]
 
@@ -75,6 +75,7 @@ State that threads element-to-element lives inside the pipeline as a fold accumu
 - Law: `Stream.mapAccumEffect` and `Stream.scanEffect` lift the same step onto the rail when it reads capability or fails — state threading is unchanged; the signature move is `readonly [S, A2]` becoming `Effect<readonly [S, A2], E2, R2>`.
 - Reject: a `Ref` mutated inside `Stream.map` or `Stream.tap` — state the pipeline cannot see; `Stream.runFold` where downstream still consumes — the fold terminates, the scan keeps flowing; an outer `let` written from `tap`.
 - Boundary: cross-fiber shared state is `concurrency.md`'s `Ref`/`STM`; the accumulator here is pipeline-local and single-fiber by construction, so reaching for a cell inside a pipeline marks state that belongs to the fold.
+- Boundary: the Mealy step's `(state, element) => [state, output]` shape is `computation.md`'s law — this page owns its lift into the stream and everything the carrier adds.
 
 ```typescript
 import { HashMap, Number, Option, Stream } from "effect"

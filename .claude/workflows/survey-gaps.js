@@ -19,10 +19,7 @@ const FOLDERS = [
   { name: 'AppHost', doc: 'libs/csharp/Rasm.AppHost', api: 'libs/csharp/Rasm.AppHost/.api', planning: 'libs/csharp/Rasm.AppHost/.planning', csproj: 'libs/csharp/Rasm.AppHost/Rasm.AppHost.csproj', note: '' },
   { name: 'Bim', doc: 'libs/csharp/Rasm.Bim', api: 'libs/csharp/Rasm.Bim/.api', planning: 'libs/csharp/Rasm.Bim/.planning', csproj: 'libs/csharp/Rasm.Bim/Rasm.Bim.csproj', note: '' },
   { name: 'Fabrication', doc: 'libs/csharp/Rasm.Fabrication', api: 'libs/csharp/Rasm.Fabrication/.api', planning: 'libs/csharp/Rasm.Fabrication/.planning', csproj: 'libs/csharp/Rasm.Fabrication/Rasm.Fabrication.csproj', note: '' },
-  { name: 'Geometry', doc: 'libs/csharp/Rasm', api: 'libs/csharp/Rasm/.api', planning: 'libs/csharp/Rasm/Geometry/.planning', csproj: 'libs/csharp/Rasm/Rasm.csproj', note: 'SPECIAL ' +
-    'LAYOUT: README/TASKLOG/IDEAS/.api live at the libs/csharp/Rasm ROOT; the geometry design pages live under libs/csharp/Rasm/Geometry/.planning ' +
-    '(the mature siblings Analysis/Domain/Vectors also live under libs/csharp/Rasm and are NOT touched). Read AND write the .api + README at the ' +
-    'Rasm root and the csproj at libs/csharp/Rasm/Rasm.csproj.' },
+  { name: 'Rasm', doc: 'libs/csharp/Rasm', api: 'libs/csharp/Rasm/.api', planning: 'libs/csharp/Rasm/.planning', csproj: 'libs/csharp/Rasm/Rasm.csproj', note: '' },
   { name: 'Compute', doc: 'libs/csharp/Rasm.Compute', api: 'libs/csharp/Rasm.Compute/.api', planning: 'libs/csharp/Rasm.Compute/.planning', csproj: 'libs/csharp/Rasm.Compute/Rasm.Compute.csproj', note: '' },
   { name: 'Materials', doc: 'libs/csharp/Rasm.Materials', api: 'libs/csharp/Rasm.Materials/.api', planning: 'libs/csharp/Rasm.Materials/.planning', csproj: 'libs/csharp/Rasm.Materials/Rasm.Materials.csproj', note: '' },
 ]
@@ -41,7 +38,7 @@ const LAW = [
     'strata, depend strictly upward). This run works ONE folder at a time end-to-end so the apply only ever consolidates a single folder findings ' +
     'and nothing is dropped. The mission is NOT a per-package keep/replace audit — it is to find AND admit the world-class MODERN packages this ' +
     'PLANNED folder is MISSING: both functionality gaps in existing concerns and real capability gaps in the planned scope. Persistence is the ' +
-    'PRIMARY weight (backends, store types, store extensions, ingress/egress), then Compute/Bim/Materials/Fabrication/Geometry/AppHost. Central ' +
+    'PRIMARY weight (backends, store types, store extensions, ingress/egress), then Compute/Bim/Materials/Fabrication/Rasm/AppHost. Central ' +
     'pins live in ' + MANIFEST + '.',
   'BAR: the folder must be able to build world-class, bleeding-edge, production-ready, professional-standard apps RIGHT NOW — ' +
     'ultra-dense/complex/rich, minimal-to-no hardcoding, maximal parameterization, easily extended, NO fake or illusory capability. Treat ' +
@@ -71,7 +68,7 @@ const LAW = [
     'community extensions: spatial, httpfs, iceberg, delta, postgres/mysql/sqlite scanners, vss, fts, h3, ducklake, and beyond), plus ' +
     'store/backend types (columnar, time-series, graph, vector, search, object, embedded, lakehouse) and ingress/egress codecs; for Bim — IFC ' +
     '(model graph, geometry/tessellation, validation, BCF, IDS), scheduling (CPM/resource-leveling/4D), cost (estimating/QTO/cost models), ' +
-    'GIS/geospatial; for Materials — appearance/spectral/measured-BSDF/datasets; for Compute — solvers/optimization/ML/numerics; for Geometry — ' +
+    'GIS/geospatial; for Materials — appearance/spectral/measured-BSDF/datasets; for Compute — solvers/optimization/ML/numerics; for Rasm — ' +
     'host-neutral geometry/mesh/spatial capability. Rhino/GH2/AEC-adjacent capability is in scope where it is host-neutral. Every named exemplar ' +
     'list here is SEED DATA marking the floor of a sweep, never its extent — the sweep covers the full space the parameters name.',
   'ASSAY + TFM TRUTH: verify a candidate that is in the cache via `uv run --frozen python -m tools.assay api`; for a multi-target NuGet package ' +
@@ -144,7 +141,7 @@ const executePrompt = (f, survey, research) => [
     'survives re-checking against the central manifest truth (a dup with an admitted row, a phantom version, or scope drift kills the claim), ' +
     'resolve every remaining dup/overlap across the six facets to the single best, and drop anything out of the folder scope — this is the ' +
     'per-folder plan, done here so nothing is dropped. THEN apply each surviving package NOW. ' +
-    'Homing map (Geometry has the special layout — its .api + README + csproj live at the libs/csharp/Rasm root): ' + HOMING + '. The owning ' +
+    'Homing map: ' + HOMING + '. The owning ' +
     'folder is ' + f.name + ' (csproj ' + f.csproj + ', .api root ' + f.api + ', central manifest ' + MANIFEST + ').' + (f.note ? ' ' + f.note : ''),
   'For EACH surviving package: (a) add the central pin to Directory.Packages.props in the matching ItemGroup at the newest stable version, with a ' +
     'one-line comment, plus any pure-managed transitive floor pins it needs; (b) add the PackageReference to the owning folder csproj; (c) update ' +

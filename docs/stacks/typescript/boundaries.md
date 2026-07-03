@@ -16,6 +16,9 @@ This table selects the owner for a foreign signal; when a signal matches several
 |  [06]   | environment or config read           | `Config` through the provider chain         | validated value at construction          | scattered `process.env` reads     |
 |  [07]   | process start                        | `runMain` in one boot module                | drained fibers and finalizers            | top-level `Effect.runPromise`     |
 |  [08]   | off-thread or socket handoff         | Schema-typed marshal frame                  | tagged request/response family           | untyped `postMessage` payload     |
+|  [09]   | relational store — statements, rows  | `SqlClient` Tag; statements as `sql` values | `SqlSchema`-fused decoded rows           | string-built SQL, driver import   |
+|  [10]   | reactive view binding                | `Atom.runtime` over the built Layer graph   | `useAtomValue`/`useAtomSet` projections  | in-view `run*`, per-render Layer  |
+|  [11]   | wasm module                          | scoped instantiation at the FFI seam        | calls through the marked kernel          | escaping linear-memory view       |
 
 ## [02]-[ADMISSION]
 
@@ -96,8 +99,8 @@ export { admitted, emitted, Envelope, Passport }
 - Reject: a hand-written fetch client beside a contract; an API document authored by hand; a client-side error type parallel to the declared fault; a spec regenerated into source and committed as a second truth.
 
 ```typescript
-import { HttpApi, HttpApiBuilder, HttpApiClient, HttpApiEndpoint, HttpApiGroup, OpenApi } from "@effect/platform"
-import { Effect, Layer, Schema } from "effect"
+import { HttpApi, HttpApiBuilder, HttpApiClient, HttpApiEndpoint, type HttpApiError, HttpApiGroup, type HttpClient, type HttpClientError, OpenApi } from "@effect/platform"
+import { Effect, Layer, type ParseResult, Schema } from "effect"
 
 // --- [MODELS] ---------------------------------------------------------------------------
 
@@ -131,13 +134,19 @@ const _RowsLive = HttpApiBuilder.group(Contract, "rows", (handlers) =>
         : Effect.fail(new Missing({ key: path.key })))
     .handle("grow", ({ payload }) => Effect.succeed(new Row({ key: 1, label: payload.label }))))
 
-const ContractLive = HttpApiBuilder.api(Contract).pipe(Layer.provide(_RowsLive))
+const ContractLive: Layer.Layer<HttpApi.Api> = HttpApiBuilder.api(Contract).pipe(Layer.provide(_RowsLive)) // the root proof: every handler edge eliminated at the declaration
 
 // --- [OPERATIONS] -----------------------------------------------------------------------
 
-const specification = OpenApi.fromApi(Contract)
+const specification: OpenApi.OpenAPISpec = OpenApi.fromApi(Contract)
 
-const probed = Effect.fn("probed")(function* (key: number) {
+const probed: (
+  key: number,
+) => Effect.Effect<
+  Row,
+  Missing | HttpApiError.HttpApiDecodeError | HttpClientError.HttpClientError | ParseResult.ParseError,
+  HttpClient.HttpClient
+> = Effect.fn("probed")(function* (key: number) { // the stated union is the whole client fault surface: declared fault, decode skew, transport
   const client = yield* HttpApiClient.make(Contract, { baseUrl: "<origin>" })
   return yield* client.rows.one({ path: { key } })
 })
@@ -162,7 +171,7 @@ export { Contract, ContractLive, Missing, probed, Row, specification }
 - Reject: an `as` bridge at call sites where the augmentation owns the truth; the augmentation in a global ambient dump far from the engine; a wrapper whose only job is smuggling a corrected type.
 
 ```typescript
-import { Either, ParseResult, Schema } from "effect"
+import { type Effect, Either, ParseResult, Schema } from "effect"
 
 // --- [TYPES] ----------------------------------------------------------------------------
 
@@ -196,7 +205,8 @@ const engineSchema = <A, I, R>(engine: Engine, shape: Schema.Schema<A, I, R>): S
       }),
   }).pipe(Schema.compose(shape, { strict: false }))
 
-const admitted = (engine: Engine) => Schema.decodeUnknown(engineSchema(engine, Snapshot))
+const admitted = (engine: Engine): ((raw: unknown) => Effect.Effect<Snapshot, ParseResult.ParseError>) =>
+  Schema.decodeUnknown(engineSchema(engine, Snapshot))        // the configured decode is the exported surface; its stated type is the whole seam contract
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
@@ -220,6 +230,11 @@ export type { Engine }
 - Law: importing a binding pins a module to that runtime lane; domain modules import zero bindings and therefore sit in every lane — the per-runtime subpath gate enforces the fence, and this page owns its consequence: a browser bundle cannot resolve a server binding because the module graph never reaches one.
 - Exemption: the top-level `runMain` call is the named platform-forced statement seam.
 - Reject: a runtime binding imported for one capability where the aggregate context Layer already carries it; runtime detection branching inside domain flow; a library module that calls any `run*`.
+
+[CONFIG_SURFACE]:
+- Law: configuration is one `Config.unwrap` owner — a nested record of reads collapsed to a single validated struct at construction, each scalar admitted where it enters: `Config.branded` refines onto the owning brand, `Config.url`/`Config.port`/`Config.duration` parse structure, `Config.nested` scopes the namespace, `Config.redacted` seals secrets — so the environment contract is one declaration resolved once at the boot edge and no validated value is re-checked past it.
+- Law: `Config.withDescription` rides every row — a missing or malformed variable reports its meaning in the `ConfigError`, never a bare key name.
+- Reject: scattered per-site `Config.string` reads; a raw scalar carried where the brand exists; a default buried at a read site where `Config.withDefault` states it at the owner.
 
 ```typescript
 import { Command, FetchHttpClient, FileSystem, HttpClient, Path } from "@effect/platform"
@@ -272,8 +287,8 @@ export {}
 - Reject: raw socket event listeners; a hand-written length-prefix parser; `JSON.stringify` written to a socket where the duplex codec owns the frame.
 
 ```typescript
-import { MsgPack, Socket, Transferable, Worker, WorkerRunner } from "@effect/platform"
-import { Context, Effect, type ParseResult, Schema, Stream } from "effect"
+import { MsgPack, Socket, Transferable, Worker, type WorkerError, WorkerRunner } from "@effect/platform"
+import { type Channel, type Chunk, Context, Effect, type Layer, type ParseResult, Schema, Stream } from "effect"
 
 // --- [MODELS] ---------------------------------------------------------------------------
 
@@ -301,25 +316,52 @@ class Bench extends Context.Tag("Bench")<Bench, Worker.SerializedWorkerPool<Grad
 
 // --- [COMPOSITION] ----------------------------------------------------------------------
 
-const BenchLive = Worker.makePoolSerializedLayer(Bench, { size: 4, concurrency: 2 })
+const BenchLive: Layer.Layer<Bench, WorkerError.WorkerError, Worker.Spawner | Worker.WorkerManager> =
+  Worker.makePoolSerializedLayer(Bench, { size: 4, concurrency: 2 })  // the R tail names the runtime rows only the boot edge satisfies
 
-const RunnerLive = WorkerRunner.layerSerialized(Protocol, {
-  Grade: ({ octets }) => Effect.succeed({ key: "<value-a>", extent: octets.byteLength }),
-  Sweep: ({ keys }) => Stream.fromIterable(keys),
-})
+const RunnerLive: Layer.Layer<never, WorkerError.WorkerError, WorkerRunner.PlatformRunner> =
+  WorkerRunner.layerSerialized(Protocol, {
+    Grade: ({ octets }) => Effect.succeed({ key: "<value-a>", extent: octets.byteLength }),
+    Sweep: ({ keys }) => Stream.fromIterable(keys),
+  })
 
 // --- [OPERATIONS] -----------------------------------------------------------------------
 
-const graded = (octets: Uint8Array) => Effect.flatMap(Bench, (pool) => pool.executeEffect(new Grade({ octets })))
+const graded = (
+  octets: Uint8Array,
+): Effect.Effect<{ readonly key: string; readonly extent: number }, MarshalFault | ParseResult.ParseError | WorkerError.WorkerError, Bench> =>
+  Effect.flatMap(Bench, (pool) => pool.executeEffect(new Grade({ octets }))) // the union states the marshal truth: domain fault, wire decode, worker transport
 
-const swept = (keys: ReadonlyArray<string>) => Stream.unwrap(Effect.map(Bench, (pool) => pool.execute(new Sweep({ keys }))))
+const swept = (
+  keys: ReadonlyArray<string>,
+): Stream.Stream<string, MarshalFault | ParseResult.ParseError | WorkerError.WorkerError, Bench> =>
+  Stream.unwrap(Effect.map(Bench, (pool) => pool.execute(new Sweep({ keys }))))
 
-const framed = (socket: Socket.Socket) =>
+const framed = (
+  socket: Socket.Socket,
+): Channel.Channel<
+  Chunk.Chunk<Grade | Sweep>,
+  Chunk.Chunk<Grade | Sweep>,
+  MsgPack.MsgPackError | ParseResult.ParseError | Socket.SocketError,
+  MsgPack.MsgPackError | ParseResult.ParseError,
+  void,
+  unknown
+> =>
   Socket.toChannelWith<MsgPack.MsgPackError | ParseResult.ParseError>()(socket).pipe(
-    MsgPack.duplexSchema({ inputSchema: Protocol, outputSchema: Protocol }),
+    MsgPack.duplexSchema({ inputSchema: Protocol, outputSchema: Protocol }), // both directions typed at the declaration: emitted and admitted frames, each with its fault row
   )
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
 export { Bench, BenchLive, framed, graded, Grade, MarshalFault, Protocol, RunnerLive, swept, Sweep }
 ```
+
+## [07]-[PERSISTENCE_SEAM]
+
+[SQL_STORE]:
+- Use: every relational store — statements, transactions, migrations, batched lookups.
+- Law: the store is the `SqlClient` Tag on `R`, and statements are `sql` tagged-template fragments composed as values — parameters bind at the fragment, so string-built SQL has no spelling; the transaction is the bracket-shaped `sql.withTransaction`, a rail transformer that commits on success and rolls back on failure or interruption.
+- Law: decode rides the admission law — `SqlSchema.findAll`/`findOne`/`single`/`void` fuse Request and Result Schemas with the statement so every row enters as a decoded value on the one `ParseError` rail, and `SqlResolver.ordered`/`grouped`/`findById` batch keyed lookups behind the same fused contract.
+- Law: migrations run at the boot edge — `Migrator.fromGlob`/`Migrator.fromRecord` rows executed by the boot module's Layer, never by a handler; the dialect binding is a runtime row at the root under `[05]`'s law.
+- Law: the embedded row is `KeyValueStore.KeyValueStore` for flat durable state and `Persistence.ResultPersistence` for schema-keyed result durability — chosen where a relational store is unearned, satisfied at the root like every capability.
+- Reject: a driver import in domain flow; a query string assembled by hand; a second decode after the fused accessor; a transaction opened per statement where one bracket owns the unit of work.

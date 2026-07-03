@@ -32,10 +32,7 @@ const LAW = [
     'set — any repeated structure, parallel spelling, or enumerable family a single algebra, table, fold, or generator can own is a target you ' +
     'hunt past the rubric yourself. NO NEW cards (ripple counterparts already exist; do not add more) — the single exception is ' +
     'the completeness stage, which MAY add exactly one missing genuinely-deferred card per real gap. Genuinely DEFERRED only; no ' +
-    'test/meta/decision/create-file cards. Fix-in-place; edit ONLY the card file(s) your TASK assigns. C# PLANNING-HOMING: cards at ' +
-    '`libs/csharp/Rasm/{IDEAS,TASKLOG}.md` govern the `Rasm/Geometry` planning effort — its governed design pages are nested at ' +
-    '`libs/csharp/Rasm/Geometry/.planning/**` (NOT directly under `Rasm/`), while the `.api/` + `ARCHITECTURE.md` + `README.md` sit at the `Rasm/` ' +
-    'root; read the corpus there. Mature siblings `Analysis`/`Domain`/`Vectors` are not card targets.',
+    'test/meta/decision/create-file cards. Fix-in-place; edit ONLY the card file(s) your TASK assigns.',
   'ADVERSARIAL STANCE: every card, status, anchor, Ripple, and prior disposition is naive or illusory until it survives your attack; dense, ' +
     'confident-looking cards are the prime suspects, and verdict=clean is EARNED by an attack that finds nothing, never conceded on a first read. ' +
     'Naivety in a kept thesis is a defect on two axes: COVERAGE — the card defers a thin slice of the concept it names; APPROACH — the thesis ' +

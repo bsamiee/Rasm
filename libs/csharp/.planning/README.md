@@ -6,7 +6,7 @@ The C# branch router and the cross-cutting package registry. The branch aggregat
 
 Nine planning-scoped package roots in strata order; each root `README.md` carries the folder's page router and its own package additions, and each `ARCHITECTURE.md` carries the folder's sub-domain map.
 
-- [01]-[KERNEL]: [Rasm](../Rasm/README.md) — Mature `Vectors`/`Analysis`/`Domain`, greenfield `Geometry/` robust-core scaffolded under `Geometry/.planning/`.
+- [01]-[KERNEL]: [Rasm](../Rasm/README.md) — RhinoCommon-aware geometry/numeric kernel.
 - [02]-[AEC-DOMAIN]: [Rasm.Element](../Rasm.Element/README.md) — lowest-AEC element seam.
 - [03]-[AEC-DOMAIN]: [Rasm.Materials](../Rasm.Materials/README.md) — profiles, appearance, construction.
 - [04]-[AEC-DOMAIN]: [Rasm.Bim](../Rasm.Bim/README.md) — BIM object model and IFC/glTF/STEP exchange.

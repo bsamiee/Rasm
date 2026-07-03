@@ -6,23 +6,23 @@ Capability is typed dataflow: a dependency is a Tag in the requirement channel, 
 
 When a concern matches several rows, the most specific wins; owner form is decided before edge, edge before runtime.
 
-| [INDEX] | [CONCERN_SIGNATURE]                          | [FORM]                                    | [REJECTED_FORM]                          |
-| :-----: | :------------------------------------------- | :---------------------------------------- | :--------------------------------------- |
-|  [01]   | owned capability, one canonical construction | `Effect.Service` class owner              | interface + Tag + Layer triple            |
-|  [02]   | replaceable capability, many engines         | `Context.Tag` port, root selects a Layer  | engine named inside the definition        |
-|  [03]   | ambient policy with a sensible default       | `Context.Reference`                       | knob threaded through every signature     |
-|  [04]   | capability present only in some environments | `Effect.serviceOption` read               | nullable service field                    |
-|  [05]   | dependency consumed, hidden from output      | `Layer.provide`                           | `provideMerge` widening by reflex         |
-|  [06]   | dependency consumed and republished          | `Layer.provideMerge`                      | re-providing the same layer downstream    |
-|  [07]   | sibling capabilities with no edge between    | `Layer.mergeAll`                          | nested `provide` chains faking an edge    |
-|  [08]   | rich service narrowed to a focused port      | `Layer.project`                           | hand-built adapter layer                  |
-|  [09]   | shared resource needing a private copy       | `Layer.fresh`                             | second layer const duplicating the first  |
-|  [10]   | graph shape decided by a runtime value       | `Layer.unwrapEffect` / `Layer.unwrapScoped` | branching between two prebuilt runtimes |
-|  [11]   | imperative host calls in repeatedly          | `ManagedRuntime.make`                     | per-call `Effect.runPromise` + re-provide |
-|  [12]   | process whose whole life is the graph        | `Layer.launch`                            | a runtime handle plus an idle main        |
-|  [13]   | resource family keyed by a runtime value     | `LayerMap.Service`                        | hand map of runtimes, per-key singletons  |
-|  [14]   | capability re-acquired on a schedule         | `Reloadable.auto`                         | tearing down and rebuilding the graph     |
-|  [15]   | proof needs a substitute implementation      | test Layer over the same Tag              | module patch, mock framework              |
+| [INDEX] | [CONCERN_SIGNATURE]                          | [FORM]                                      | [REJECTED_FORM]                           |
+| :-----: | :------------------------------------------- | :------------------------------------------ | :---------------------------------------- |
+|  [01]   | owned capability, one canonical construction | `Effect.Service` class owner                | interface + Tag + Layer triple            |
+|  [02]   | replaceable capability, many engines         | `Context.Tag` port, root selects a Layer    | engine named inside the definition        |
+|  [03]   | ambient policy with a sensible default       | `Context.Reference`                         | knob threaded through every signature     |
+|  [04]   | capability present only in some environments | `Effect.serviceOption` read                 | nullable service field                    |
+|  [05]   | dependency consumed, hidden from output      | `Layer.provide`                             | `provideMerge` widening by reflex         |
+|  [06]   | dependency consumed and republished          | `Layer.provideMerge`                        | re-providing the same layer downstream    |
+|  [07]   | sibling capabilities with no edge between    | `Layer.mergeAll`                            | nested `provide` chains faking an edge    |
+|  [08]   | rich service narrowed to a focused port      | `Layer.project`                             | hand-built adapter layer                  |
+|  [09]   | shared resource needing a private copy       | `Layer.fresh`                               | second layer const duplicating the first  |
+|  [10]   | graph shape decided by a runtime value       | `Layer.unwrapEffect` / `Layer.unwrapScoped` | branching between two prebuilt runtimes   |
+|  [11]   | imperative host calls in repeatedly          | `ManagedRuntime.make`                       | per-call `Effect.runPromise` + re-provide |
+|  [12]   | process whose whole life is the graph        | `Layer.launch`                              | a runtime handle plus an idle main        |
+|  [13]   | resource family keyed by a runtime value     | `LayerMap.Service`                          | hand map of runtimes, per-key singletons  |
+|  [14]   | capability re-acquired on a schedule         | `Reloadable.auto`                           | tearing down and rebuilding the graph     |
+|  [15]   | proof needs a substitute implementation      | test Layer over the same Tag                | module patch, mock framework              |
 
 ## [02]-[SERVICE_OWNER]
 
@@ -337,5 +337,5 @@ layer(TestGraph)("journal", (it) => {
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
-export {}                                                    // the collector call is the module's one side effect; the empty block is the structural proof
+export {} // the collector call is the module's one side effect; the empty block is the structural proof
 ```

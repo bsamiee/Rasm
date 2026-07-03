@@ -1,13 +1,12 @@
 export const meta = {
   name: 'convert-rasm-kernel',
-  description: 'Convert the Rasm kernel to an ordinary planning-scoped package: ledger the mature Vectors/Domain/Analysis source + the boundary/consumer facts, rule the new .planning partition + Rhino boundary + compile-consumer disposition + roster delta in one blueprint, author the new design pages ground-up at the docs/stacks/csharp bar with zero capability loss (author -> hostile critique review -> cold redteam per unit, pipelined; the physical restructure — Geometry re-home, source retirement, Radyab removal, csproj/slnx/lock/manifest alignment, index-doc rebuild — is operator-landed on disk), sweep every durable-doc and .claude ripple in one wave, harden the full landed kernel folder through 3 cold passes, rebuild-improve the geometry brief through 3 cold passes, waterfall the five consumer RASM-CS briefs against the as-if-realized kernel, align the whole C# brief corpus in one cold pass, and terminally verify capability coverage. About 50 agents, peak concurrency 6. Ephemeral: delete after the conversion lands.',
+  description: 'Convert the Rasm kernel to an ordinary planning-scoped package: ledger the mature Vectors/Domain/Analysis source + the boundary/consumer facts, rule the new .planning partition + Rhino boundary + compile-consumer disposition + roster delta in one blueprint, author the new design pages ground-up at the docs/stacks/csharp bar with zero capability loss (author -> hostile critique review -> cold redteam per unit, pipelined; the physical restructure — Geometry re-home, source retirement, Radyab removal, csproj/slnx/lock/manifest alignment, index-doc rebuild — is operator-landed on disk), sweep every durable-doc and .claude ripple in one wave, rebuild-improve the geometry brief through 3 cold passes, waterfall the five consumer RASM-CS briefs against the as-if-realized kernel, align the whole C# brief corpus in one cold pass, and terminally verify capability coverage. About 47 agents, peak concurrency 6. Ephemeral: delete after the conversion lands.',
   whenToUse: 'One-shot kernel conversion. Launch only after no other run is reading libs/csharp/Rasm paths; the .archive/Rasm backup must exist.',
   phases: [
     { title: 'Inventory', detail: '4 capability-ledger lanes (Vectors halves, Domain+Analysis, boundary/consumer census) + 1 ecosystem lane, parallel, opus' },
     { title: 'Architect', detail: '1 agent rules the sub-domain partition, the Rhino boundary, the consumer disposition, the roster delta, the move/delete manifest' },
     { title: 'Build', detail: 'per blueprint unit: ground-up author -> hostile critique review -> cold redteam, pipelined, fix-in-place' },
     { title: 'Ripple', detail: 'kernel index docs + repo durable docs + .claude surfaces (+ .api catalogs when the roster changed), parallel; the physical restructure is already operator-landed' },
-    { title: 'Harden', detail: '3 sequential cold passes over the full landed kernel folder: holistic integration -> mechanical critique -> terminal redteam, fix-in-place' },
     { title: 'Campaign', detail: '3 cold passes (initial -> critique -> redteam): RASM-CS-GEOMETRY-BRIEF rebuilt and improved to the landed kernel + design-cs-geometry.js re-grounded' },
     { title: 'Waterfall', detail: '5 parallel: consumer RASM-CS briefs improved against the as-if-realized kernel, never weakened' },
     { title: 'Corpus', detail: '1 agent: one cold alignment pass over the whole C# brief corpus' },
@@ -192,24 +191,6 @@ const catalogsPrompt = (roster) => [PRE, LANDED, 'TASK: API CATALOG VERIFICATION
   'spellings the pages fence, authoring a kernel overlay at ' + ROOT + '/.api/ ONLY where a folder-specific seam fact demands one; real ' +
   'members via the nuget MCP (get_package_context) + official docs via Context7/exa/tavily, never phantoms. Touch ONLY .api catalogue files. ' +
   'Report every file touched.'].join('\n')
-const hardenPrompt = (role, blueprint) => [PRE, STACK, 'TASK: FOLDER HARDEN — ' + role + ' pass (of 3, sequential, each COLD) over the FULL ' +
-  'landed kernel folder: every page under ' + NEW_PLAN + '/ (every sub-domain, new AND re-homed pages alike), with ' + ROOT + '/README.md + ' +
-  'ARCHITECTURE.md and both .api tiers (' + ROOT + '/.api/ + libs/csharp/.api/) as verification substrate. The restructure and ripple are ' +
-  'DONE — this folder is the final corpus; every finding is a fix applied in place, never a note; no hedging, no defending. ' +
-  (role === 'initial'
-    ? 'LENS: holistic integration — the corpus was authored and hardened per-unit; you own what spans units: cross-page duplication ' +
-      'collapses to one owner (a shape, receipt, or rail spelled twice dies), seam coherence (every page composes sibling vocabulary at the ' +
-      'exact spelling the owning page fences), entry-point unification (one polymorphic entry per rail, no parallel modality names), ' +
-      'stacking completeness (an admitted-package capability the concept admits but no page exploits is a gap you CLOSE), and index-doc ' +
-      'truth (the README router and ARCHITECTURE codemap/seams match the real corpus on disk).'
-    : role === 'critique'
-    ? 'LENS: cold mechanical conformance, line by line: collapse scan, owner choice, knob test, rail unification, C#14/net10 modernity, ' +
-      'page grammar + banned hedges + zero provenance, phantom-member kill (every external member verified against both .api tiers or the ' +
-      'nuget MCP), and capability coverage against the ledgers at ' + SCRATCH + '/ — an unexpressed ledger row is repaired, never noted.'
-    : 'LENS: terminal redteam — counterfactual on every core owner/algebra/dispatch (a stronger shape REPLACES the weaker), ' +
-      'diff-of-the-next-feature per page, long-tail + failure-mode attack, boundary/strata integrity against the blueprint ' + blueprint +
-      ' rulings, weakening-detection across the two prior passes, and the world-class bar: the folder reads as ONE designed system, never ' +
-      'nine stitched units.') + ' Report files touched + residue.'].join('\n')
 const geoBriefPrompt = (blueprint) => [PRE, STACK, GEO_DELTA, 'TASK: GEOMETRY BRIEF REBUILD — pass 1 of 3 (initial). The standing campaign ' +
   '(RASM-CS-GEOMETRY-BRIEF.md -> design-cs-geometry.js -> DECISION -> rebuild legs) runs AFTER this conversion; it is alive, never dead, and ' +
   'it comes out STRONGER than it went in. Read the landed kernel corpus (' + NEW_PLAN + '/ in full — the new pages AND the 18 re-homed ' +
@@ -332,15 +313,6 @@ phase('Ripple')
 const ripples = (await parallel(rippleThunks)).filter(Boolean)
 log('Ripple: ' + ripples.reduce((n, r) => n + (r.files || []).length, 0) + ' files touched; residue flagged: ' + ripples.reduce((n, r) => n + (r.residue || []).length, 0))
 
-// --- [HARDEN]
-phase('Harden')
-const harden = []
-for (const role of ['initial', 'critique', 'redteam']) {
-  const r = await agent(hardenPrompt(role, plan.blueprint), { label: 'harden:' + role, phase: 'Harden', effort: 'max', schema: RIPPLE_SCHEMA, stallMs: STALL })
-  if (r) harden.push(r)
-}
-log('Harden: ' + harden.length + '/3 folder passes, ' + harden.reduce((n, r) => n + (r.files || []).length, 0) + ' file-touches')
-
 // --- [CAMPAIGN]
 phase('Campaign')
 const geo = []
@@ -367,11 +339,11 @@ const verdict = await agent(verifyPrompt(plan.blueprint, DOSSIERS, BUILT_PAGES, 
   { label: 'verify', phase: 'Verify', effort: 'max', schema: VERIFY_SCHEMA, stallMs: STALL })
 
 return {
-  harden_files: harden.flatMap((r) => r.files || []), campaign_files: campaign.flatMap((r) => r.files || []),
+  campaign_files: campaign.flatMap((r) => r.files || []),
   waterfall_files: waterfall.flatMap((r) => r.files || []), corpus_files: (corpus && corpus.files) || [],
   pages: BUILT_PAGES, rhino_ruling: plan.rhino_ruling, disposition: plan.disposition, roster: plan.roster || [],
   docs_touched: ripples.flatMap((r) => r.files || []),
-  doc_residue: ripples.concat(harden, campaign, waterfall, corpus ? [corpus] : []).flatMap((r) => r.residue || []),
+  doc_residue: ripples.concat(campaign, waterfall, corpus ? [corpus] : []).flatMap((r) => r.residue || []),
   coverage: (verdict && verdict.coverage) || 'VERIFY MISSING — rerun', hard_residual: (verdict && verdict.residuals) || [],
   dossiers: DOSSIERS, blueprint: plan.blueprint, scratch: SCRATCH,
 }

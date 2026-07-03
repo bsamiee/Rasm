@@ -41,10 +41,10 @@ const LAW = [
   'MANDATE — INTEGRATION-SHAPED, NOT SURFACE-LEVEL: a rebuilt .api documents (a) the package full ADVANCED surface (combinators, hooks, native ' +
     'pipelines, discriminators, async mirrors — not just the basic members), AND (b) the INTEGRATION patterns the dense design should compose — ' +
     'how this library STACKS with the other admitted libs into single rails (e.g. a decode hook feeding a discriminated model under a retry ' +
-    'context with a telemetry span) — INCLUDING the SHARED/UNIVERSAL catalog tier where the language has one (`libs/python/.api/` for Python; ' +
-    '`libs/typescript/.api/` for TypeScript), so a folder/area catalog documents stacking ONTO those universal rails, not only its sibling-folder ' +
-    'libs. C# has NO central tier — its universals are Thinktecture/LanguageExt, and the `libs/csharp/Rasm/.api/` catalogs serve the ' +
-    '`Rasm/Geometry` planning effort. The catalog GUIDES the rebuild toward first-class, stacked usage. Reject surface-level member lists.',
+    'context with a telemetry span) — INCLUDING the SHARED/UNIVERSAL catalog tier (`libs/python/.api/` for Python; ' +
+    '`libs/typescript/.api/` for TypeScript; `libs/csharp/.api/` for C# — the Thinktecture/LanguageExt substrate), so a folder/area catalog ' +
+    'documents stacking ONTO those universal rails, not only its sibling-folder ' +
+    'libs. The catalog GUIDES the rebuild toward first-class, stacked usage. Reject surface-level member lists.',
   'ADVERSARIAL LAW: every catalog is naive, shallow, or illusory until it survives attack — dense confident-looking catalogs are the prime ' +
     'suspect. Naivety is a defect on two orthogonal axes, both intolerable: COVERAGE — the catalog documents a thin slice of its package, the ' +
     'obvious members where the real surface carries far more; APPROACH — enumerated hardcoded instances where one parameterized pattern should ' +

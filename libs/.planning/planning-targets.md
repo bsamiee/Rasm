@@ -8,9 +8,7 @@
 - Branch API catalogues: `libs/csharp/.api`
 - Routing: `libs/csharp/.planning/README.md`
 - Language-wide docs: `libs/csharp/.planning/ARCHITECTURE.md`, `libs/csharp/.planning/IDEAS.md`, `libs/csharp/.planning/TASKLOG.md`
-- Rasm (Sub-folder): `libs/csharp/Rasm/Geometry/.planning`, `libs/csharp/Rasm/.api`
-- Rasm root docs: `libs/csharp/Rasm/README.md`, `libs/csharp/Rasm/ARCHITECTURE.md`, `libs/csharp/Rasm/IDEAS.md`, `libs/csharp/Rasm/TASKLOG.md`
-- Planning Folders: `libs/csharp/Rasm.AppHost`, `libs/csharp/Rasm.AppUi`, `libs/csharp/Rasm.Bim`, `libs/csharp/Rasm.Compute`, `libs/csharp/Rasm.Element`, `libs/csharp/Rasm.Fabrication`, `libs/csharp/Rasm.Materials`, `libs/csharp/Rasm.Persistence`
+- Planning Folders: `libs/csharp/Rasm`, `libs/csharp/Rasm.AppHost`, `libs/csharp/Rasm.AppUi`, `libs/csharp/Rasm.Bim`, `libs/csharp/Rasm.Compute`, `libs/csharp/Rasm.Element`, `libs/csharp/Rasm.Fabrication`, `libs/csharp/Rasm.Materials`, `libs/csharp/Rasm.Persistence`
 - Planned Folders (not yet stood up): `libs/csharp/Rasm.Generation` (APP-PLATFORM layout/generation/assembly orchestration; seeded by `RASM-GENERATION-SPEC.md`)
 
 [TYPESCRIPT]:

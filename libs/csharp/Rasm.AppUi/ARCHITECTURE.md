@@ -69,8 +69,8 @@ Charts            ←  csharp:Rasm.Bim/Planning                    # [RECEIPT]: 
 Editing           ←  csharp:Rasm.Persistence/Sync                # [PROJECTION]: annotation collaboration op-log
 Editing/notebook  ←  csharp:Rasm.Persistence/Sync                # [PROJECTION]: NotebookOp op-log
 Render/pipeline   ←  csharp:Rasm.Compute/Runtime                 # [PROJECTION]: ResidencyManifest.Mint web geometry residency
-Render            ←  csharp:Rasm/Geometry/Drawing                # [PROJECTION]: DrawingProjection / drafting-sheet layout
-Render            ←  csharp:Rasm/Geometry/Processing             # [PROJECTION]: ChartAtlas / texture UV channel
+Render            ←  csharp:Rasm/Drawing/view                    # [PROJECTION]: DrawingProjection / drafting-sheet layout
+Render            ←  csharp:Rasm/Processing/flatten              # [PROJECTION]: ChartAtlas / texture UV channel
 Render/reality    ←  csharp:Rasm.Compute/Runtime                 # [PROJECTION]: SplatPayload / PointPayload decode
 Render/drafting   ←  csharp:Rasm.Fabrication/Posting             # [BOUNDARY]: HiddenLineSeam BSP visibility solver
 Render            ←  csharp:Rasm.Fabrication/Posting/projection  # [RECEIPT]: HiddenLineResult Viewport2D edge sets

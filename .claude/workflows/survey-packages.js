@@ -21,9 +21,8 @@ const STAGGER_MS = 1500
 const TARGET = typeof args === 'string' ? args.trim() : (args && typeof args === 'object' && args.target ? String(args.target).trim() : '')
 const norm = TARGET.replace(/\/+$/, '').replace(/\/\.planning$/, '')
 const lang = norm.startsWith('libs/csharp') ? 'csharp' : norm.startsWith('libs/python') ? 'python' : norm.startsWith('libs/typescript') ? 'typescript' : 'unknown'
-const isGeometry = norm === 'libs/csharp/Rasm/Geometry' || norm.startsWith('libs/csharp/Rasm/Geometry/')
-const docHome = isGeometry ? 'libs/csharp/Rasm' : norm
-const planningHome = isGeometry ? 'libs/csharp/Rasm/Geometry/.planning' : norm + '/.planning'
+const docHome = norm
+const planningHome = norm + '/.planning'
 const langRoot = lang === 'unknown' ? norm : 'libs/' + lang
 const apiTiers = docHome + '/.api (folder tier) + ' + langRoot + '/.api (language substrate tier)'
 const manifests = lang === 'csharp' ? 'Directory.Packages.props (central pins) + Directory.Build.props (TargetFramework / build floor)' : lang === 'python' ? 'pyproject.toml ' +
@@ -41,8 +40,7 @@ const HEAL_SCHEMA = { type: 'object', additionalProperties: false, required: ['f
 // --- [DOCTRINE] --------------------------------------------------------------------------
 const LAW = [
   'Rasm monorepo, autonomous package-modernization run. The target planning folder is ' + norm + ' (language=' + lang + '). Its README and .api ' +
-    'catalogs home to ' + docHome + (isGeometry ? ' (GEOMETRY SPECIAL-CASE: README / TASKLOG / IDEAS / .api live at the libs/csharp/Rasm ROOT, ' +
-    'while the design pages live under ' + planningHome + ' — never trample the mature siblings Analysis / Domain / Vectors)' : '') + '; design ' +
+    'catalogs home to ' + docHome + '; design ' +
     'pages live under ' + planningHome + '. Central package pins live in ' + manifests + ' — never a per-package manifest.',
   'ASSAY OWNER-ROUTING + CONSUMER-TFM HARDENING (a verified lesson, non-negotiable): external members are verified via `uv run --frozen python -m ' +
     'tools.assay api` (decompile/reflection over NuGet DLLs / installed Python distributions / node_modules). assay api default resolution selects ' +

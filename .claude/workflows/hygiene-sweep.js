@@ -28,10 +28,7 @@ const LAW = [
   'Rasm monorepo. CLAUDE.md governs (WORKSPACE_LAW, DEPENDENCY_POLICY, OWNER_ROUTING). This is a SURGICAL hygiene pass: refine/correct, NEVER ' +
     'explanatory bloat, NEVER a new design page. Cards: default refine-do-not-proliferate (a genuinely-new card only if truly appropriate). VERIFY ' +
     'against disk before removing any done-claimed card. De-bloat verbose ARCHITECTURE comment lines; use correct glyphs; stay concise. Resolve ' +
-    'the language toolchain owner from CLAUDE.md OWNER_ROUTING and invoke its real metadata/resolve command. Fix-in-place. C# PLANNING-HOMING: ' +
-    'under `libs/csharp/Rasm` the active planning effort is `Rasm/Geometry` — its design pages are at `libs/csharp/Rasm/Geometry/.planning/**` ' +
-    'while the README/`.api/`/`ARCHITECTURE.md`/cards sit at the `Rasm/` package ROOT; treat the Rasm root plus its nested `Geometry/.planning` as ' +
-    'ONE corpus for README<->manifest<->.api<->seam consistency. Mature siblings `Analysis`/`Domain`/`Vectors` are not planning targets.',
+    'the language toolchain owner from CLAUDE.md OWNER_ROUTING and invoke its real metadata/resolve command. Fix-in-place.',
   'MANIFEST OWNER: central package/version ownership lives in ONE owning manifest per language (per DEPENDENCY_POLICY) — identify the one ' +
     'governing this root (the Python pyproject, the C# Directory.Packages.props, or the TS workspace manifest) and treat it as the single source ' +
     'of truth. Each consumed dependency may carry an API/evidence catalog (a .api/<pkg> entry where the root maintains one); a folder README lists ' +

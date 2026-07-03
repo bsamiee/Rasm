@@ -6,8 +6,8 @@ Parallel work has a structural owner or it does not exist: every fiber parents t
 
 This table selects the owning primitive for a concurrent effect; when an effect matches several rows the most specific wins, and the ownership rows are read before the coordination rows.
 
-| [INDEX] | [EFFECT_SIGNATURE]                         | [PRIMITIVE]                                    | [REJECTED_FORM]                            |
-| :-----: | :----------------------------------------- | :--------------------------------------------- | :------------------------------------------ |
+| [INDEX] | [EFFECT_SIGNATURE]                         | [PRIMITIVE]                                    | [REJECTED_FORM]                              |
+| :-----: | :----------------------------------------- | :--------------------------------------------- | :------------------------------------------- |
 |  [01]   | child rejoins the owner, failure re-raises | `Effect.fork` + `Fiber.join`                   | `Effect.runFork` inside domain flow          |
 |  [02]   | child lifetime rides a region              | `Effect.forkScoped`                            | `forkDaemon` plus a hand-tracked kill list   |
 |  [03]   | one live fiber per key, restart supersedes | `FiberMap.run`                                 | a `Map<string, Fiber>` registry              |
@@ -60,13 +60,13 @@ const spawned = (
   sweep: Effect.Effect<void, SpawnFault>,
 ): Effect.Effect<Spawned, never, Scope.Scope> =>
   Effect.gen(function* () {
-    const registry = yield* FiberMap.make<string, void, SpawnFault>()          // keyed family: scope-bound, self-evicting
+    const registry = yield* FiberMap.make<string, void, SpawnFault>() // keyed family: scope-bound, self-evicting
     const janitor = yield* FiberHandle.make<void, SpawnFault>()
-    const feeder = yield* Effect.forkScoped(feed)                             // region-parented: the Scope, not the caller, ends it
-    yield* FiberHandle.run(janitor, { onlyIfMissing: true })(sweep)           // singleton slot: a second run is a no-op, not a twin
+    const feeder = yield* Effect.forkScoped(feed)                     // region-parented: the Scope, not the caller, ends it
+    yield* FiberHandle.run(janitor, { onlyIfMissing: true })(sweep)   // singleton slot: a second run is a no-op, not a twin
     return {
-      enroll: (key, work) => FiberMap.run(registry, key, work),               // supersede: the prior holder is interrupted first
-      pulse: Fiber.await(feeder),                                             // Exit disposition: observation never fails the observer
+      enroll: (key, work) => FiberMap.run(registry, key, work),       // supersede: the prior holder is interrupted first
+      pulse: Fiber.await(feeder),                                     // Exit disposition: observation never fails the observer
       settle: FiberMap.join(registry).pipe(Effect.ensuring(Fiber.interruptFork(feeder))),  // first child failure fails the owner; teardown never blocks
     }
   })
@@ -258,7 +258,7 @@ Keyed contention is owned by four scoped surfaces selected on one axis — value
 ```typescript
 import { Cache, Duration, Effect, RateLimiter, RcMap, type Scope } from "effect"
 
-const _PLANE = {                                             // interior policy row: no export reaches the anchor, so the expression-seam satisfies check rides it
+const _PLANE = { // interior policy row: no export reaches the anchor, so the expression-seam satisfies check rides it
   verdicts: { capacity: 512, timeToLive: Duration.minutes(5) },
   sessions: { idleTimeToLive: Duration.seconds(45) },
   egress: { limit: 90, interval: Duration.minutes(1), algorithm: "token-bucket" },
@@ -319,13 +319,13 @@ const hedged = <A, E, R>(
   lanes: ReadonlyArray<(key: string) => Effect.Effect<A, E, R>>,
 ): ((keys: ReadonlyArray<string>) => Effect.Effect<ReadonlyArray<A>, E, R>) =>
 (keys) =>
-  Effect.forEach(keys, (key) => Effect.raceAll(lanes.map((lane) => lane(key))), { concurrency: "inherit" })  // degree deferred to the boundary
+  Effect.forEach(keys, (key) => Effect.raceAll(lanes.map((lane) => lane(key))), { concurrency: "inherit" }) // degree deferred to the boundary
 
 const staged = <A, E, R>(
   lanes: ReadonlyArray<(key: string) => Effect.Effect<A, E, R>>,
   keys: ReadonlyArray<string>,
 ): Effect.Effect<ReadonlyArray<A>, E, R> =>
-  hedged(lanes)(keys).pipe(Effect.withConcurrency(8))               // the boundary owns the budget; the owner stays degree-agnostic
+  hedged(lanes)(keys).pipe(Effect.withConcurrency(8)) // the boundary owns the budget; the owner stays degree-agnostic
 
 const shadowed = <A, E, R, R2>(
   live: Effect.Effect<A, E, R>,
@@ -333,8 +333,8 @@ const shadowed = <A, E, R, R2>(
   note: (exit: Exit.Exit<A, E>) => Effect.Effect<void, never, R2>,
 ): Effect.Effect<A, E, R | R2> =>
   Effect.raceWith(live, probe, {
-    onSelfDone: (exit, other) => Fiber.interruptFork(other).pipe(Effect.andThen(exit)),   // live wins: the shadow dies without blocking
-    onOtherDone: (exit, self) => note(exit).pipe(Effect.andThen(Fiber.join(self))),       // shadow settles first: record it, keep waiting on live
+    onSelfDone: (exit, other) => Fiber.interruptFork(other).pipe(Effect.andThen(exit)), // live wins: the shadow dies without blocking
+    onOtherDone: (exit, self) => note(exit).pipe(Effect.andThen(Fiber.join(self))),     // shadow settles first: record it, keep waiting on live
   })
 
 // --- [EXPORTS] --------------------------------------------------------------------------
