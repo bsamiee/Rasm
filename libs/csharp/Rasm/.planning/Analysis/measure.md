@@ -306,7 +306,7 @@ public static partial class Analyze {
 - Auto: `EnclosingSamples` samples the geometry surface through the `Domain/evaluation` `SamplePoints` extension and DEGRADES to the eight bounding-box corners when sampling is unsupported for the type — enclosure never fails for a boundable input, it coarsens; `RitterFit` is ONE generic two-pass fold (farthest-from-seed, farthest-from-that, then the grow-ball sweep) parameterized by the constructed solid and its validity predicate — sphere and cylinder-disc share it verbatim; the cylinder derives its axis through `VectorIntent.Direction` admission, projects samples to the axis-normal plane for the disc, and folds the exact axial extent `(min, max)` along the admitted axis; the enclosing circle projects through `Plane.ClosestParameter` and delegates to the host `Circle.TrySmallestEnclosingCircle` — native exact beats a hand-rolled Welzl here, then re-embeds the planar result into world space.
 - Packages: RhinoCommon (`BoundingBox` `GetCorners`/`GetEdges`/`Diagonal`/`Center`/`Area`/`Volume`, `Box(Plane, GeometryBase)` capture, `GeometryBase.GetBoundingBox(Transform)`, `Circle.TrySmallestEnclosingCircle`, `Point3d.CullDuplicates`), `Rasm.Domain` (`BoundsOf`/`SamplePoints` extensions, `Capability` rows, `RhinoMath.ZeroTolerance` degenerate-ratio floor), `Rasm.Vectors` (`VectorIntent.Direction` axis admission), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 - Growth: a new box metric is one `BoxMetric` call arm (two projection lambdas); a new enclosing solid (a capsule, an ellipsoid) is one case composing the SAME `EnclosingSamples` + `RitterFit`/native-fit machinery; a new recovery frame source is one case arm — never a `BoundsCalculator` sibling class.
-- Boundary: fifteen modalities live on ONE union dispatched by ONE `Switch` — a `BoundingBoxOps`/`OrientedBoxOps`/`EnclosingSolidOps` class family is the named fragmentation this owner deletes; the aspect-ratio denominator floors at `RhinoMath.ZeroTolerance` so a degenerate extent yields a large finite ratio, never an infinity crossing the rail; `Corners(unique: true)` deduplicates at MODEL absolute tolerance from the threaded `Context`, never a literal epsilon; the enclosing fits are measured approximations by contract — Ritter over N surface samples, documented as the bounding guarantee (every sample enclosed), not a minimal-ball claim; the box-metric operations accept `BoundingBox` or `Box` VALUES as the geometry input (the box is the analyzed object), the recovery operations accept geometry — one union serves both altitudes and the type gates keep them disjoint.
+- Boundary: fifteen modalities live on ONE union dispatched by ONE `Switch` — a `BoundingBoxOps`/`OrientedBoxOps`/`EnclosingSolidOps` class family is the named fragmentation this owner deletes; the aspect-ratio denominator floors at `RhinoMath.ZeroTolerance` so a degenerate extent yields a large finite ratio, never an infinity crossing the rail; `Corners(unique: true)` deduplicates at MODEL absolute tolerance from the threaded `Context`, never a literal epsilon; the enclosing fits are measured approximations by contract — Ritter over N surface samples (`EnclosingSampleCount` the named default, a bare count literal the dead form), documented as the bounding guarantee (every sample enclosed), not a minimal-ball claim; the box-metric operations accept `BoundingBox` or `Box` VALUES as the geometry input (the box is the analyzed object), the recovery operations accept geometry — one union serves both altitudes and the type gates keep them disjoint.
 
 ```csharp contract
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -336,9 +336,10 @@ public partial record Bounds {
     public sealed record DiagonalCase : Bounds;
     public sealed record AspectRatioCase : Bounds;
     public sealed record TightnessCase : Bounds;
-    public sealed record EnclosingSphereCase(int Count = 64) : Bounds;
-    public sealed record EnclosingCircleCase(Plane Plane, int Count = 64) : Bounds;
-    public sealed record EnclosingCylinderCase(Vector3d Axis, int Count = 64) : Bounds;
+    public sealed record EnclosingSphereCase(int Count = EnclosingSampleCount) : Bounds;
+    public sealed record EnclosingCircleCase(Plane Plane, int Count = EnclosingSampleCount) : Bounds;
+    public sealed record EnclosingCylinderCase(Vector3d Axis, int Count = EnclosingSampleCount) : Bounds;
+    internal const int EnclosingSampleCount = 64;
     internal static readonly Op BoundsKey = Op.Of(name: nameof(Bounds)), OrientedKey = Op.Of(name: "OrientedBounds"), TransformedKey = Op.Of(name: "TransformedBounds"), PrincipalKey = Op.Of(name: "PrincipalBounds"), CenterKey = Op.Of(name: "BoundsCenter");
     internal static readonly Op CornersKey = Op.Of(name: "BoundsCorners"), BoxEdgesKey = Op.Of(name: "BoxEdges"), BoxAreaKey = Op.Of(name: "BoxArea"), BoxVolumeKey = Op.Of(name: "BoxVolume"), BoxDiagonalKey = Op.Of(name: "BoxDiagonal");
     internal static readonly Op BoxAspectRatioKey = Op.Of(name: "BoxAspectRatio"), BoxTightnessKey = Op.Of(name: "BoxTightness"), EnclosingSphereKey = Op.Of(name: "EnclosingSphere"), EnclosingCircleKey = Op.Of(name: "EnclosingCircle"), EnclosingCylinderKey = Op.Of(name: "EnclosingCylinder");
@@ -354,9 +355,9 @@ public partial record Bounds {
     public static Bounds Diagonal => new DiagonalCase();
     public static Bounds AspectRatio => new AspectRatioCase();
     public static Bounds Tightness => new TightnessCase();
-    public static Bounds EnclosingSphere(int count = 64) => new EnclosingSphereCase(Count: count);
-    public static Bounds EnclosingCircle(Plane plane, int count = 64) => new EnclosingCircleCase(Plane: plane, Count: count);
-    public static Bounds EnclosingCylinder(Vector3d axis, int count = 64) => new EnclosingCylinderCase(Axis: axis, Count: count);
+    public static Bounds EnclosingSphere(int count = EnclosingSampleCount) => new EnclosingSphereCase(Count: count);
+    public static Bounds EnclosingCircle(Plane plane, int count = EnclosingSampleCount) => new EnclosingCircleCase(Plane: plane, Count: count);
+    public static Bounds EnclosingCylinder(Vector3d axis, int count = EnclosingSampleCount) => new EnclosingCylinderCase(Axis: axis, Count: count);
 
     internal Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull => Switch(
         axisAlignedCase: static _ => (typeof(TOut) == typeof(BoundingBox) && Capability.Bound.Admits(type: typeof(TGeometry)))
@@ -500,7 +501,7 @@ public static partial class Analyze {
 
 ## [04]-[CONFORMANCE]
 
-- Owner: `ConformanceMetric` `[BoundaryAdapter]` `[SmartEnum<int>]` — eight policy rows, each binding the typed `Output` (`double`/`bool`/`Stat`/`ResidualSample`/`Distribution`), the `IsSigned`/`IsContainment`/`ExactCurveDeviation` admission columns, and the `ConformanceProjection` delegate folding the sampled residual stream into the metric's result: `Distance` streams the raw distances, `Rms`/`WithinTolerance`/`Summary` fold the `Domain/stats` Welford `Stat` with `StatContext.Tolerance` provenance, `Maximum` extracts the worst sample through `Stat.Extrema`, `SignedResidual`/`Containment` stream the typed samples themselves, `Distribution` folds `Distribution.Of` over caller percentiles. `ResidualSample` `[BoundaryAdapter]` — the per-sample receipt (`Index`, `Location`, `Distance`, `Tolerance`, `WithinTolerance`) declaring validity through `IValidityEvidence`: non-negative index, valid location, finite distance/tolerance, and the `WithinTolerance == (|Distance| <= Tolerance)` consistency law.
+- Owner: `ConformanceMetric` `[BoundaryAdapter]` `[SmartEnum<int>]` — eight policy rows, each binding the typed `Output` (`double`/`bool`/`Stat`/`ResidualSample`/`Distribution`), the `IsSigned`/`IsContainment`/`ExactCurveDeviation` admission columns, and the `ConformanceProjection` delegate folding the sampled residual stream into the metric's result: `Distance` streams the raw distances, `Rms`/`WithinTolerance`/`Summary` fold the `Domain/stats` Welford `Stat` with `StatContext.Tolerance` provenance, `Maximum` extracts the worst sample through `Stat.Extrema`, `SignedResidual`/`Containment` stream the typed samples themselves, `Distribution` folds `Distribution.Of` over caller percentiles. `ResidualSample` `[BoundaryAdapter]` — the per-sample receipt (`Index`, `Location`, `Distance`, `Tolerance`, `WithinTolerance`) declaring `IValidityEvidence` through the `Domain/rails` `ValidityClaim` fold: non-negative index, finite location and distance, non-negative tolerance, and the `WithinTolerance == (|Distance| <= Tolerance)` consistency law.
 - Cases: `Distance` · `Rms` · `WithinTolerance` · `Summary` · `Maximum` · `SignedResidual` · `Containment` · `Distribution` (8).
 - Entry: `Analyze.RelationConformance<TGeometry, TTarget, TOut>(metric, count, percentiles, key)` — the pair operation `Analysis/query`'s `Conformance` case forwards to; build-time gates reject a null metric, a non-positive count, an inadmissible `(geometry, target)` kind pair, or an output mismatching the metric's `Output`.
 - Auto: admission is data-driven — `AcceptsTarget` reads the metric columns (containment demands `Brep`/`Mesh` targets; signed demands `Capability.SignedDistance` targets; unsigned accepts any closest-point-capable or curve-like target) and `TargetRequirement` escalates containment targets to `Requirement.SolidTopology`; the two-operand gate runs `RequirementContext.Pair` — kind-resolve both operands, demand curve-or-surface source topology, apply `Requirement.ForKind` to the source and the metric-derived requirement to the target, all before a single sample; curve-vs-curve pairs under an `ExactCurveDeviation` metric SHORT-CIRCUIT to the `Analysis/relations` exact `CurveDeviationOf` — one host call replaces N samples when exactness is available; every other pair samples N points through the `Domain/evaluation` `SamplePoints` extension and measures each through `SupportSpace.Of` + the metric-selected `SupportProjection` (`ContainmentDistance`/`SignedDistance`/`Distance`) projected by `VectorIntent.Support`.
@@ -564,9 +565,12 @@ public sealed partial class ConformanceMetric {
 // --- [MODELS] -------------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct ResidualSample(int Index, Point3d Location, double Distance, double Tolerance, bool WithinTolerance) : IValidityEvidence {
-    public bool IsValid =>
-        Index >= 0 && Location.IsValid && RhinoMath.IsValidDouble(Distance) && RhinoMath.IsValidDouble(Tolerance) && Tolerance >= 0.0
-        && WithinTolerance == (Math.Abs(Distance) <= Tolerance);
+    public bool IsValid => ValidityClaim.All(
+        ValidityClaim.Of(Index >= 0),
+        ValidityClaim.Finite(Location),
+        ValidityClaim.Finite(Distance),
+        ValidityClaim.Nonnegative(Tolerance),
+        ValidityClaim.Of(WithinTolerance == (Math.Abs(Distance) <= Tolerance)));
 }
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------

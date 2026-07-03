@@ -87,7 +87,7 @@ Each contract fixes the placement rule the chooser row cannot state. Snippets co
 - Law: the value-plane import graph is a DAG — a cycle is split ownership and its repair moves the shared declaration to its owner, never defers the read behind a lazy accessor; a cycle whose every edge is `import type` erases to no cycle at all, so type-plane back-references are free exactly where value edges are illegal.
 - Boundary: which package a specifier may name is the exports-map edge; this site owns the statement forms inside one legal file.
 
-```ts conceptual
+```typescript
 import "./register.ts"                                     // side-effect import leads the file: load order is program order; boot-edge modules only
 import { type Duration, Array, Option, Order, pipe } from "effect" // one statement per specifier: inline type specifiers ride the named list; Array shadows the global value plane deliberately
 import type { Frame } from "./frame.ts"                    // type-only module: the whole statement erases; Frame stays reachable in type positions
@@ -126,7 +126,7 @@ export { Window, lead }                                    // one entry carries 
 - Law: interior types are free — a `_`-declaration's checker-computed type costs nothing while no exported signature speaks it; the moment a public signature needs its keys, the declaration itself goes public under one name.
 - Boundary: package subpaths and per-runtime entry points are manifest surface; this site owns the shape of one module.
 
-```ts conceptual
+```typescript
 import { Array, Option, Order, pipe } from "effect"
 
 const Band = {                                             // public vocabulary: bare `as const` emits clean; the satisfies-checked table is the emit seam the card sanctions
@@ -157,7 +157,7 @@ export { Band, widest }                                    // the tail is the wh
 - Law: erasure is the foundation of every law on this page — a file's runtime semantics are its JavaScript with types deleted, so each construct is either fully erased or fully runtime; the four banned forms are the only type-plane syntax carrying emit semantics, and each replacement splits cleanly into a plain runtime value and a derived type companion.
 - Boundary: the derivation algebra the vocabulary table feeds is `derivation.md`'s; the generated owner's identity semantics are `values.md`'s and the Schema owner families are `shapes.md`'s; this site owns which declaration form is legal.
 
-```ts conceptual
+```typescript
 import { Data } from "effect"
 
 const Phase = { draft: 0, sealed: 1, retired: 2 } as const // the enum replacement: one object literal at runtime, ordinals as readable rows
@@ -178,7 +178,7 @@ export { Phase, Seal }                                     // Phase is one entry
 - Law: these forms live at the type-level seam — option bags, platform payloads, interop cells; a domain shape's absence is `Option` admitted at the Schema owner, and a type-seam bag never crosses into domain flow carrying `undefined`.
 - Boundary: the `Option` lift combinators are `values.md` material; Schema absence admission is `shapes.md`'s; this site owns the spelling and the read posture.
 
-```ts conceptual
+```typescript
 import { Option } from "effect"
 
 const Grade = { low: 0, mid: 5, high: 9 } as const         // the table a public signature speaks is public under one name — never a _-leak or a hand union of its keys
@@ -211,7 +211,7 @@ export { Grade, overlay }                                  // overlay is one ent
 - Law: the kernel's cast algebra is one-directional — `any` pins to `unknown`, a proven index asserts to its element, a platform union narrows to its witnessed member; a cast that widens evidence or invents a shape the kernel never proved is illegal even here.
 - Boundary: the conversion combinators that lift a kernel throw are `rails-and-effects.md`'s; worker and marshal statement seams are `boundaries.md`'s; this site owns the in-process compute kernel.
 
-```ts conceptual
+```typescript
 import { Cause, Effect } from "effect"
 
 const _parse = (text: string): unknown => JSON.parse(text) as unknown // BOUNDARY ADAPTER: any-pin — the platform any never escapes; the parse throw exits only into the conversion below

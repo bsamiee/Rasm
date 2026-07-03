@@ -23,7 +23,7 @@ using Foundation.CSharp.Analyzers.Contracts;
 
 namespace Rasm.Domain;
 
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] --------------------------------------------------------------------------------
 [ValueObject<double>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 public readonly partial struct AbsoluteTolerance {
     [BoundaryAdapter]
@@ -74,7 +74,7 @@ using Foundation.CSharp.Analyzers.Contracts;
 
 namespace Rasm.Domain;
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] -------------------------------------------------------------------------------
 public sealed record Context {
     private const double DefaultFractionalTolerance = 1.0e-8;
     private Context(AbsoluteTolerance absolute, RelativeTolerance relative, AngleTolerance angle, UnitSystem units) {

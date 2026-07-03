@@ -408,6 +408,16 @@ def test_parse_failure_emits_pys0000(kit: TmpRoot[None]) -> None:
     assert tuple(row[0:4] for row in diagnostic_rows(kit.root, (path,))) == (("PYS0000", "src/domain/broken.py", 1, 1),)
 
 
+def test_lazy_imports_parse_with_offsets_preserved(kit: TmpRoot[None]) -> None:
+    # PEP 810 modules never degrade to PYS0000; the blanked soft keyword keeps every downstream diagnostic position exact.
+    path = kit.write(
+        "src/domain/deferred.py",
+        "lazy import json\nlazy from pathlib import PurePath\n\n\ndef run(value: Input) -> Output:\n    if value:\n        return Output()\n"
+        "    return Output()\n",
+    )
+    assert diagnostic_rows(kit.root, (path,)) == (("PYS0001", "src/domain/deferred.py", 6, 5, "DomainImperativeFlow", "FunctionalDiscipline"),)
+
+
 def test_excluded_trees_are_pruned_before_parse(kit: TmpRoot[None]) -> None:
     kit.write(".venv/broken.py", "def broken(:\n")
     fixture = kit.write(

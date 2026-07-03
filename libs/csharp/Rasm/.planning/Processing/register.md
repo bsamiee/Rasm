@@ -124,6 +124,8 @@ public readonly partial record struct AlignmentReceipt(
 internal static class AlignKernel {
     // Numeric-representation bound (double exp underflows below ~-745), not a tunable — never a policy row.
     private const double WelschLogFloor = -700.0;
+    // Armijo sufficient-decrease slope c1 — a numeric-method constant of the backtracking family, never a policy row.
+    private const double ArmijoSlope = 1.0e-4;
 
     private readonly record struct IcpState(Transform Current, double FinalDelta, int Iterations, AlignmentStep Step, Option<AlignmentStopKind> Stop);
 
@@ -270,9 +272,9 @@ internal static class AlignKernel {
         from targetIndices in guard(match.TargetIndices.All(index => index >= 0 && index < targetPca.Samples.Count), key.InvalidInput())
         from precision in PrecisionFieldOf(source: source, match: match, sourcePca: sourcePca, targetPca: targetPca, current: current, covarianceRidge: policy.CovarianceRidge.Value, key: key)
         from initial in ObjectiveOf(source: source, match: match, precision: precision, current: current, key: key)
-        from solve in NormalEquation(source: source, match: match, precisionField: precision, current: current, damping: policy.ConvergenceTolerance.Value, key: key)
-        from usableSolve in guard(solve.IsValid && solve.Solution.Count == 6 && solve.Solution.ForAll(RhinoMath.IsValidDouble), key.InvalidResult())
-        from step in LineSearch(source: source, match: match, sourcePca: sourcePca, targetPca: targetPca, current: current, initial: initial, solution: solve, policy: policy, key: key)
+        from normalEq in NormalEquation(source: source, match: match, precisionField: precision, current: current, damping: policy.ConvergenceTolerance.Value, key: key)
+        from usableSolve in guard(normalEq.Solve.IsValid && normalEq.Solve.Solution.Count == 6 && normalEq.Solve.Solution.ForAll(RhinoMath.IsValidDouble) && RhinoMath.IsValidDouble(x: normalEq.DirectionalDerivative), key.InvalidResult())
+        from step in LineSearch(source: source, match: match, sourcePca: sourcePca, targetPca: targetPca, current: current, initial: initial, solution: normalEq.Solve, directionalDerivative: normalEq.DirectionalDerivative, policy: policy, key: key)
         select step;
 
     private static Fin<int> AdmitAlignmentRows(Seq<Point3d> source, Point3d[] target, double[] weights, int minimum, Op key) =>
@@ -427,7 +429,7 @@ internal static class AlignKernel {
                 : Fin.Fail<GicpObjective>(key.InvalidResult());
         });
 
-    private static Fin<SolveReceipt> NormalEquation(Seq<Point3d> source, AlignmentMatch match, GicpPrecisionField precisionField, Transform current, double damping, Op key) =>
+    private static Fin<(SolveReceipt Solve, double DirectionalDerivative)> NormalEquation(Seq<Point3d> source, AlignmentMatch match, GicpPrecisionField precisionField, Transform current, double damping, Op key) =>
         key.Catch(() => {
             double[] h = new double[36]; double[] g = new double[6];
             for (int i = 0; i < source.Count; i++) {

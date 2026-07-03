@@ -13,8 +13,8 @@ The one acceptance/readiness oracle (`Rasm.Domain`). This page owns five surface
 ## [02]-[READINESS_ALGEBRA]
 
 - Owner: `Requirement` sealed record — an immutable `Seq<Check>` with monoid `+` (concat-distinct) — plus the private nested `Check` `[SmartEnum<string>]` whose rows carry their applicability predicate and check body as `[UseDelegateFromConstructor]` columns. Readiness is data: a requirement is a set of check rows, never a method family.
-- Cases: `Requirement` rows — `None` · `Basic` (validity + usable bounds) · `CurveLength` · `AreaMass` (closed-planar + self-intersection) · `MeshCheck` · `SolidTopology` (brep integrity + mesh manifold + brep solid + mesh check) · `VolumeMass` (solid topology + surface solid) · `SurfaceEvaluation` (usable UV domain) · `Strict` (every row). `Check` rows — `Validity` (`IsValidWithLog`) · `UsableBounds` (accurate box, non-degenerate under model tolerance) · `BrepIntegrity` (`IsValidTopology`/`IsValidGeometry`/`IsValidTolerancesAndFlags`, each log captured) · `MeshRhinoCheck` (`Mesh.Check` full defect report) · `MeshManifoldReadiness` (`IsSolid`) · `BrepSolidReadiness` · `SurfaceSolidReadiness` · `CurveLengthReadiness` (not short, length above model tolerance) · `CurveAreaReadiness` (closed + planar) · `SurfaceDomainReadiness` · `ContinuityReadiness` (C1 discontinuity scan, both surface directions) · `PolycurveStructure` (`HasGap`) · `CurveSelfIntersection` (`Intersection.CurveSelf` event count).
-- Entry: `Apply<T>(Context?, T?, CancellationToken)` → `Validation<Error, T>` — the ONE readiness gate: null value → `Fault.MissingGeometry`; empty requirement → straight acceptance through the oracle; a null `Context` under a non-empty requirement → `Fault.MissingContext`; otherwise the check fold. `ForKind(Kind)` dispatches topology → requirement through the exhaustive generated `Topology.Map` so callers never hand-pick rows and a new `Topology` row breaks this dispatch loudly at compile time: Curve → `CurveLength`, Surface → `SurfaceEvaluation`, Brep/Extrusion → `SolidTopology`, Mesh/SubD → `MeshCheck`, Point/PointCloud/Hatch → `None`, Unknown → `Basic`.
+- Cases: `Requirement` rows — `None` · `Basic` (validity + usable bounds) · `CurveLength` · `AreaMass` (closed-planar + self-intersection) · `MeshCheck` · `SolidTopology` (brep integrity + mesh manifold + brep solid + mesh check) · `VolumeMass` (solid topology + surface solid) · `SurfaceEvaluation` (usable UV domain) · `Strict` (every row). `Check` rows — `Validity` (`IsValidWithLog`) · `UsableBounds` (accurate box computes and is valid — `IsDegenerate < 4`, so flat and point boxes pass: a point's box is its point) · `BrepIntegrity` (`IsValidTopology`/`IsValidGeometry`/`IsValidTolerancesAndFlags`, each log captured) · `MeshRhinoCheck` (`Mesh.Check` full defect report) · `MeshManifoldReadiness` (`IsSolid`) · `BrepSolidReadiness` · `SurfaceSolidReadiness` · `CurveLengthReadiness` (not short, length above model tolerance) · `CurveAreaReadiness` (closed + planar) · `SurfaceDomainReadiness` · `ContinuityReadiness` (C1 discontinuity scan, both surface directions) · `PolycurveStructure` (`HasGap`) · `CurveSelfIntersection` (`Intersection.CurveSelf` event count).
+- Entry: `Apply<T>(Context?, T?, CancellationToken)` → `Validation<Error, T>` — the ONE readiness gate: null value → `Fault.MissingGeometry`; empty requirement → straight input admission through the oracle (`AcceptInput` — a readiness rejection is `Fault.InvalidInput`, never a result fault); a null `Context` under a non-empty requirement → `Fault.MissingContext`; otherwise the check fold. `ForKind(Kind)` dispatches topology → requirement through the exhaustive generated `Topology.Map` so callers never hand-pick rows and a new `Topology` row breaks this dispatch loudly at compile time: Curve → `CurveLength`, Surface → `SurfaceEvaluation`, Brep/Extrusion → `SolidTopology`, Mesh/SubD → `MeshCheck`, Point/PointCloud/Hatch → `None`, Unknown → `Basic`.
 - Auto: `RunChecks` folds every row applicatively over one `Validation` rail — independent check failures ACCUMULATE (a brep reports its bad topology and its degenerate bounds in one verdict), and each row self-skips through its `Applies` column. Non-`GeometryBase` values run lease-aware: `Domain/normalization.md`'s owners — the `Capability` row vocabulary (`Capability.CurveForm.Admits`/`Capability.SurfaceForm.Admits`/`Capability.Coercible`) and the `Normalization` `Lease`-returning `CurveForm`/`SurfaceForm`/`BrepForm` recoveries — lift the primitive to native geometry, the checks run inside `Lease.Use`, and owned conversions dispose on exit.
 - Law: every check failure is `Fault.InvalidGeometry(shape, checkKey, log)` — the failing `Type` names WHAT, the row key names WHICH readiness failed, and the host log says WHY (the payload is the type, never the live reference — the `rails.md` evidence law); cancellation pre-empts every row as `Fault.Cancelled`. `Demand` is the one verdict constructor — `MeshReport`'s lazy guard is the named exemption (the `TextLog` string materializes only on failure); a check body building its own fault is the deleted form.
 - Law: the matrix is closed and row-owned — a new readiness concern is one `Check` row (key + `applies` + `run` columns) and membership in the requirement rows that need it; a boolean parameter, a per-type validator class, or an inline readiness `if` at a call site is the deleted form.
@@ -27,7 +27,7 @@ using Foundation.CSharp.Analyzers.Contracts;
 
 namespace Rasm.Domain;
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] -------------------------------------------------------------------------------
 public sealed partial record Requirement {
     private static readonly Op Operand = Op.Of(name: nameof(Operand));
     private readonly Seq<Check> checks;
@@ -52,7 +52,7 @@ public sealed partial record Requirement {
     public Validation<Error, T> Apply<T>(Context? context, T? value, CancellationToken cancel = default) where T : notnull =>
         (value, context, this) switch {
             (null, _, _) => Fin.Fail<T>(error: new Fault.MissingGeometry()).ToValidation(),
-            (T candidate, _, Requirement { IsEmpty: true }) => Operand.AcceptValue(value: candidate).ToValidation(),
+            (T candidate, _, Requirement { IsEmpty: true }) => Operand.AcceptInput(value: candidate).ToValidation(),
             (T candidate, Context ctx, Requirement req) => RunChecks(checks: req.checks, context: ctx, original: candidate, cancel: cancel),
             _ => Fin.Fail<T>(error: new Fault.MissingContext(Key: Operand)).ToValidation(),
         };
@@ -87,7 +87,7 @@ public sealed partial record Requirement {
             object curveLike when Capability.CurveForm.Admits(type: curveLike.GetType()) => RunLeaseChecks(lease: Normalization.CurveForm(source: curveLike, key: Operand), checks: checks, context: context, original: original, cancel: cancel),
             object surfaceLike when Capability.SurfaceForm.Admits(type: surfaceLike.GetType()) => RunLeaseChecks(lease: Normalization.SurfaceForm(source: surfaceLike, key: Operand), checks: checks, context: context, original: original, cancel: cancel),
             object brepLike when Capability.Coercible(source: brepLike.GetType(), target: typeof(Brep)) => RunLeaseChecks(lease: Normalization.BrepForm(source: brepLike, key: Operand), checks: checks, context: context, original: original, cancel: cancel),
-            _ => Operand.AcceptValue(value: original).ToValidation(),
+            _ => Operand.AcceptInput(value: original).ToValidation(),
         };
     private static Validation<Error, T> RunChecks<T>(Seq<Check> checks, Context context, GeometryBase geometry, T original, CancellationToken cancel) where T : notnull =>
         checks
@@ -168,7 +168,7 @@ public sealed partial record Requirement {
 
 - Owner: `OpAcceptance` internal static — THE validity oracle and the result-acceptance gate, its acceptance members riding one `extension(Op)` receiver block. `Op` fronts it publicly (`key.AcceptValue`/`AcceptInput` delegate through the lowered static form); the Analysis output projection (`Analysis/query.md`) routes it directly. The name is frozen — the repository analyzer's vocabulary names `OpAcceptance` by docID.
 - Entry: `AcceptValue<T>` gates one value through the oracle (null → `InvalidResult`, `Enum` → pass, oracle-false or oracle-unknown → `InvalidResult`); `AcceptInput<T>` re-labels the rejection as `InvalidInput`; `Accept` (single + `IEnumerable`) lifts into `Seq` with per-element gating; `AcceptResults<TValue, TOut>` is the same-type sequence bridge — heterogeneous raw→typed projection is `Numerics/atoms.md`'s `ProjectionRow` dispatch, never a `typeof` ladder here.
-- Law: the ONE-ORACLE law — `ValidityOf(object?)` is the single validity authority in the corpus. The mature `AnalysisAcceptance.ValidityOf` fork is dead: its five result arms register through `IValidityEvidence` instead, and `AnalysisOutput` calls this oracle. The oracle keeps arms ONLY for foreign material it cannot instrument — `GeometryBase`, scalars (`RhinoMath.IsValidDouble` / `float.IsFinite`), `Guid`, `string`, `Ray3d`, `MeshPoint`, `ComponentIndex`, the pass-through set (`bool`/`int`/`Enum`/`SurfaceCurvature`/`MeshCheckParameters`/smart enums), scalar tuples — plus ONE `IValidityEvidence` arm for every kernel-owned receipt and carrier.
+- Law: the ONE-ORACLE law — `ValidityOf(object?)` is the single validity authority in the corpus. The mature `AnalysisAcceptance.ValidityOf` fork is dead: its five result arms register through `IValidityEvidence` instead, and `AnalysisOutput` calls this oracle. The oracle keeps arms ONLY for foreign material it cannot instrument — `GeometryBase`, scalars (`RhinoMath.IsValidDouble` / `RhinoMath.IsValidSingle`, both screening the host unset sentinel), `Guid`, `string`, `Ray3d`, `MeshPoint`, `ComponentIndex`, the pass-through set (`bool`/`int`/`Enum`/`SurfaceCurvature`/`MeshCheckParameters`/smart enums), scalar tuples — plus ONE `IValidityEvidence` arm for every kernel-owned receipt and carrier.
 - Law: the registration law — a kernel type reaches the oracle by implementing `IValidityEvidence` with a `ValidityClaim.All` fold (`rails.md`), never by adding an oracle arm. `ClosestHit` (`evaluation.md`), `TopologyProjection` (`normalization.md`), `Stat`/`Distribution` (`stats.md`), `IntersectionHit`/`CurveDeviation` (`Analysis/relations.md`), `ResidualSample` (`Analysis/measure.md`), `SpatialHit`/`SpatialPair` (`Spatial/neighbors.md`), and every `Rasm.Vectors` receipt register this way; the mature per-type arms for those owners are the deleted form. An unknown type is REJECTED by `AcceptValue` — admission of a new result type is exactly one interface implementation.
 - Law: the eighteen Rhino value shapes reach `IsValid` through compiled `Expression` lambdas cached in one `FrozenDictionary` — built once, allocation-free thereafter, no per-call reflection; the table is the last probe before `None`.
 - Boundary: `OpAcceptance` is internal — the assembly-public gates are `Op`'s acceptance members and the readiness algebra above; the oracle never crosses the package seam.
@@ -181,7 +181,7 @@ using Foundation.CSharp.Analyzers.Contracts;
 
 namespace Rasm.Domain;
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ---------------------------------------------------------------------------
 [BoundaryAdapter]
 internal static partial class OpAcceptance {
     private static readonly FrozenDictionary<Type, Func<object, bool>> ValueValidity = new Type[] {
@@ -220,7 +220,7 @@ internal static partial class OpAcceptance {
             null => Option<bool>.None,
             GeometryBase geometry => Some(geometry.IsValid),
             double scalar => Some(RhinoMath.IsValidDouble(scalar)),
-            float scalar => Some(float.IsFinite(scalar)),
+            float scalar => Some(RhinoMath.IsValidSingle(x: scalar)),
             Guid id => Some(id != Guid.Empty),
             string text => Some(!string.IsNullOrWhiteSpace(value: text)),
             Ray3d ray => Some(ray.Position.IsValid && ray.Direction.IsValid && !ray.Direction.IsTiny()),
@@ -250,7 +250,7 @@ using Foundation.CSharp.Analyzers.Contracts;
 
 namespace Rasm.Domain;
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ---------------------------------------------------------------------------
 internal static partial class OpAcceptance {
     extension<TRaw>(TRaw candidate) where TRaw : struct, INumber<TRaw> {
         [BoundaryAdapter]
@@ -292,7 +292,7 @@ public static class OpExtensions {
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 namespace Rasm.Domain;
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ---------------------------------------------------------------------------
 internal static class RequirementContext {
     extension(Context context) {
         internal Validation<Error, (TA A, TB B, Kind KindA, Kind KindB)> Pair<TA, TB>(
@@ -330,7 +330,7 @@ using System.Numerics.Tensors;
 
 namespace Rasm.Domain;
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ---------------------------------------------------------------------------
 internal static class Admit {
     internal static Fin<T> NotNull<T>(T? value, Op key) where T : class => Optional(value).ToFin(key.InvalidInput());
     internal static Fin<T> NotNull<T>(T? value, Error error) where T : class => Optional(value).ToFin(error);

@@ -83,7 +83,7 @@ export type { Batch, Key, Ledger, Row, Sweep }
 
 [FAMILY_DISPATCH]:
 - Law: a `Data.taggedEnum` family dispatches through its own generated surface — `$match` is the total record dispatch, data-first inside generic operations so the family's type parameters stay bound, and `$is` is the reusable refinement every filter and find site narrows through; a `_tag ===` comparison restated per site re-derives what the family already generated.
-- Law: the `taggedEnum` surface is module-interior dispatch vocabulary — the factory-call `const` has no nameable annotation, so exporting it demands the hand-written type the export gate forbids inferring; the family's static type exports freely, dispatch operations export annotated, and a family that must export constructors is the class-shaped owner the shape page legislates.
+- Law: a generic family's `taggedEnum` surface is module-interior dispatch vocabulary — the `WithGenerics` factory-call `const` is kind-polymorphic and has no nameable annotation, so exporting it demands the hand-written type the export gate forbids inferring; the family's static type exports freely, dispatch operations export annotated, and a non-generic family exports its constructor under `Data.TaggedEnum.Constructor<Family>` as the shape page's owner form.
 - Law: `Match.valueTags(value, arms)` is the immediate exhaustive record dispatch over an already-held union value — its arm record types excess keys `never`, so a stale or misspelled arm is a compile error and no matcher value is built for a one-shot dispatch; `Match.discriminatorsExhaustive("<field>")` owns the family whose discriminant is a foreign field name, dispatching the wire shape without re-tagging it first.
 - Law: record form versus pipeline: the record forms (`$match`, `Match.valueTags`, `Match.tagsExhaustive`) serve a closed family whose arms are all local — coverage read at a glance; the `Match.type` pipeline builds the reusable dispatch value and serves arms that mix tag, structural, and predicate patterns or a terminal other than exhaustive; `Match.value` opens the same pipeline over one already-held value and earns its matcher only when arms exceed what `valueTags` states in place.
 - Boundary: a `Match` whose arms each return a static row restates a keyed table — a keyed correspondence dispatches through the vocabulary lookup the table already is; `Match` owns structural and predicate dispatch on non-keyed shapes.
@@ -191,8 +191,8 @@ export type { Row }
 ## [05]-[HANDLER_RECORD]
 
 [RECORD_CONTRACT]:
-- Law: per-kind behavior is one record at the owner, keyed by the vocabulary and checked against one mapped contract — `{ readonly [K in Kind]: (payload: Payload[K]) => Rail }` — and dispatch is one generic indexed call, `HANDLERS[kind](payload)`: the mapped annotation is what resolves the indexed access to a single correlated signature, so the per-kind payload flows through without casts.
-- Law: annotation versus `satisfies` is adjudicated by the record's consumer — the record backing a correlated generic dispatch is annotated with its mapped contract, because `satisfies` keeps the inferred per-row function types and the generic indexed call then faces a union of signatures it cannot satisfy; `satisfies` is the form for the vocabulary table whose row literals feed derivation (`keyof typeof`, indexed-access projections), where widening is the thing being prevented.
+- Law: per-kind behavior is one record at the owner, keyed by the vocabulary and checked against one mapped contract — `{ readonly [K in Kind]: (payload: Payload[K]) => Rail }` — and dispatch is one generic indexed call, `_HANDLERS[kind](payload)`: the mapped annotation is what resolves the indexed access to a single correlated signature, so the per-kind payload flows through without casts.
+- Law: annotation versus `satisfies` is adjudicated by the record's consumer — the record backing a correlated generic dispatch is annotated with its mapped contract, because `satisfies` keeps the inferred per-row function types and the generic indexed call then faces a union of signatures it cannot satisfy; the vocabulary table whose row literals feed derivation takes the anchor form instead, its contract check placed by export reach, because widening is the thing being prevented.
 - Law: a new kind is one vocabulary row, one payload field, and one handler row — the mapped contract turns the missing handler into a compile error at the record while every consumer stays untouched; the diff of the next kind never leaves the owner.
 - Reject: consumer-side reassembly — a call site assembling its own record over exported loose handlers, a `switch` over kinds repeated per consumer, an `Object.keys` iteration re-deriving what `Kind` already is.
 
@@ -203,11 +203,16 @@ export type { Row }
 ```typescript
 import { Data, Effect } from "effect"
 
-const ROUTE = {
+const ROUTE = {                                              // exported anchor: plain as const keeps every literal; the merged guard carries the contract
   open: { weight: 1, label: "<label-a>" },
   amend: { weight: 2, label: "<label-b>" },
   close: { weight: 4, label: "<label-c>" },
-} as const satisfies Record<string, { readonly weight: number; readonly label: string }>
+} as const
+
+declare namespace ROUTE {
+  type Row = { readonly weight: number; readonly label: string }
+  type _Rows<T extends Record<Kind, Row> = typeof ROUTE> = T // row guard: a malformed or missing row fails at the declaration with zero widening
+}
 
 type Kind = keyof typeof ROUTE
 
@@ -221,11 +226,11 @@ type Receipt = { readonly kind: Kind; readonly weight: number; readonly note: st
 
 class Refused extends Data.TaggedError("Refused")<{ readonly kind: Kind; readonly cause: string }> {}
 
-type Handlers = { readonly [K in Kind]: (payload: Payload[K]) => Effect.Effect<Receipt, Refused> }
+type _Handlers = { readonly [K in Kind]: (payload: Payload[K]) => Effect.Effect<Receipt, Refused> }
 
 const _receipt = (kind: Kind, note: string): Receipt => ({ kind, weight: ROUTE[kind].weight, note })
 
-const HANDLERS: Handlers = {
+const _HANDLERS: _Handlers = {
   open: ({ key }) => Effect.succeed(_receipt("open", key)),
   amend: ({ key, delta }) =>
     delta === 0
@@ -235,7 +240,7 @@ const HANDLERS: Handlers = {
 }
 
 const submitted = <K extends Kind>(kind: K, payload: Payload[K]): Effect.Effect<Receipt, Refused> =>
-  HANDLERS[kind](payload)
+  _HANDLERS[kind](payload)
 
 // --- [EXPORTS] ---------------------------------------------------------------------------
 

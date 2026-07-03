@@ -93,7 +93,7 @@ public static class Nabla {
 - Entry: `KernelKind.Profile(distance, radius, key)` — gated through `Admit.KernelInput`, returns the full `KernelProfile`; `KernelKind.Weight(distance, radius)` the bare-value fast path; `WeightKernelFamily.Weight(distance, support)` zero outside support; `Falloff.Weight(...)` three overloads discriminating on input shape — bare distance, offset vector, offset + sample point (the metric case's requirement) — all folding through one `WeightCore` gated by `Admit.FalloffInput`.
 - Auto: `SupportProfile` is the one clamp/status fold every kernel row shares — its bands live on the dimensionless `q = d/r` so support classification is invariant under model scale, outside-support and boundary yield exact zeros with their status, and the nonsmooth-origin flag fires only for kernels whose derivative jumps at `d = 0`; the metric falloff admits the sampled tensor as SPD by the three leading principal minors (Sylvester) before forming the quadratic — allocation-free per sample where a factorization would churn the hot loop — so an indefinite metric fails typed instead of producing `√negative`.
 - Receipt: `KernelProfile` IS the per-evaluation receipt (value + derivatives + status).
-- Packages: Thinktecture.Runtime.Extensions (`[UseDelegateFromConstructor]` columns), LanguageExt.Core, `matrix.md` (`SymmetricMatrix` — the metric carrier), Rasm.Domain (`Op`, the `Admit.KernelInput`/`FalloffInput` gates, the `AcceptValidated<TVO, TRaw>` bridge).
+- Packages: Thinktecture.Runtime.Extensions (`[UseDelegateFromConstructor]` columns), LanguageExt.Core, `matrix.md` (`SymmetricMatrix` — the metric carrier), Rasm.Domain (`Op`, the `Admit.KernelInput`/`FalloffInput` gates, the one-type-argument `AcceptValidated<TVO>` bridge).
 - Growth: a new kernel is one `KernelKind` row (three delegate columns); a new reconstruction weight is one `WeightKernelFamily` row; a new decay law is one `Falloff` case + one `WeightCore` arm.
 - Boundary: `Spatial/fields` wraps `Falloff.Metric` over its `TensorField` by passing `tensorField.Sampler(context)` — the tensor-field type NEVER appears here, keeping this page upstream of the field algebra; `Meshing/reconstruct` composes `KernelKind` for its RBF/MLS windows and `WeightKernelFamily` rows for its Levin/APSS weights — one profile mathematics, zero copies.
 
@@ -171,15 +171,15 @@ public abstract partial record Falloff {
     public static Falloff Inverse => new InverseCase();
     public static Falloff InverseSquare => new InverseSquareCase();
     public static Fin<Falloff> Gaussian(double spread, Op? key = null) =>
-        key.OrDefault().AcceptValidated<PositiveMagnitude, double>(candidate: spread).Map(static value => (Falloff)new GaussianCase(Spread: value));
+        key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: spread).Map(static value => (Falloff)new GaussianCase(Spread: value));
     public static Fin<Falloff> Kernel(KernelKind kind, double radius, Op? key = null) =>
         from active in Optional(kind).ToFin(key.OrDefault().InvalidInput())
-        from r in key.OrDefault().AcceptValidated<PositiveMagnitude, double>(candidate: radius)
+        from r in key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: radius)
         select (Falloff)new KernelCase(Kind: active, Radius: r);
     public static Fin<Falloff> Metric(KernelKind kind, Func<Point3d, Fin<SymmetricMatrix>> metric, double radius, Op? key = null) =>
         from active in Optional(kind).ToFin(key.OrDefault().InvalidInput())
         from sampler in Optional(metric).ToFin(key.OrDefault().InvalidInput())
-        from r in key.OrDefault().AcceptValidated<PositiveMagnitude, double>(candidate: radius)
+        from r in key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: radius)
         select (Falloff)new MetricCase(Kind: active, Metric: sampler, Radius: r);
     public Fin<double> Weight(double distance, double tolerance, Op key) =>
         WeightCore(distance: distance, distanceSquared: distance * distance, offset: Option<(Vector3d Offset, Point3d Sample)>.None, tolerance: tolerance, key: key);

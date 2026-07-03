@@ -41,7 +41,7 @@ When a concern matches several rows, the most specific wins; owner form is decid
 - Boundary: a port whose implementations vary by deployment is chooser row `[02]` even when a default exists — a `Reference` default is policy data, never a live engine; an engine default smuggles the root's selection into the definition.
 - Reject: `Effect.serviceOptional` where the absence case has a policy — it converts absence into `NoSuchElementException` and forfeits the `Option` fold.
 
-```ts
+```typescript
 import { Context, Duration, Effect, HashMap, Option, Ref } from "effect"
 
 class Budget extends Context.Reference<Budget>()("Budget", {
@@ -100,7 +100,7 @@ export { Budget, Probe, Registry }
 - Law: `Layer.unwrapEffect` admits a value-decided graph — an `Effect<Layer<…>>` whose result shape the root cannot know statically — and `Layer.unwrapScoped` is the same seam when the deciding effect holds resources; both keep selection inside the layer algebra, so a runtime decision never leaks upward into two hand-assembled runtimes.
 - Boundary: which services exist is this page's concern; what a built service does on the rail — spans, schedules, brackets — is `rails-and-effects.md`.
 
-```ts
+```typescript
 import { Context, Effect, Layer, Schedule } from "effect"
 
 class Conn extends Context.Tag("Conn")<Conn, {
@@ -112,7 +112,7 @@ class Sender extends Context.Tag("Sender")<Sender, {
   readonly sent: (frame: string) => Effect.Effect<void>
 }>() {}
 
-const ConnLive: Layer.Layer<Conn> = Layer.scoped(
+const _ConnLive: Layer.Layer<Conn> = Layer.scoped(
   Conn,
   Effect.acquireRelease(
     Effect.succeed(Conn.of({ sent: (frame) => Effect.log(frame), health: Effect.succeed(true) })),
@@ -125,7 +125,7 @@ class Store extends Effect.Service<Store>()("Store", {
     const conn = yield* Conn
     return { saved: (row: string) => conn.sent(`<store:${row}>`) }
   }),
-  dependencies: [ConnLive],
+  dependencies: [_ConnLive],
 }) {}
 
 class Meter extends Effect.Service<Meter>()("Meter", {
@@ -133,14 +133,14 @@ class Meter extends Effect.Service<Meter>()("Meter", {
     const conn = yield* Conn
     return { counted: (label: string) => conn.sent(`<meter:${label}>`) }
   }),
-  dependencies: [ConnLive],
+  dependencies: [_ConnLive],
 }) {}
 
-const domain: Layer.Layer<Store | Meter> = Layer.mergeAll(Store.Default, Meter.Default)
-const SenderLive: Layer.Layer<Sender> = Layer.project(ConnLive, Conn, Sender, (conn) => ({ sent: conn.sent }))
-const audit: Layer.Layer<Meter> = Meter.DefaultWithoutDependencies.pipe(Layer.provide(Layer.fresh(ConnLive)))
-const wired: Layer.Layer<Store | Meter | Conn> = domain.pipe(Layer.provideMerge(ConnLive))
-const root: Layer.Layer<Store | Meter | Sender> = Layer.mergeAll(domain, SenderLive)
+const _domain: Layer.Layer<Store | Meter> = Layer.mergeAll(Store.Default, Meter.Default)
+const _SenderLive: Layer.Layer<Sender> = Layer.project(_ConnLive, Conn, Sender, (conn) => ({ sent: conn.sent }))
+const audit: Layer.Layer<Meter> = Meter.DefaultWithoutDependencies.pipe(Layer.provide(Layer.fresh(_ConnLive)))
+const wired: Layer.Layer<Store | Meter | Conn> = _domain.pipe(Layer.provideMerge(_ConnLive))
+const root: Layer.Layer<Store | Meter | Sender> = Layer.mergeAll(_domain, _SenderLive)
 
 // --- [EXPORTS] ---------------------------------------------------------------------------
 
@@ -159,7 +159,7 @@ export { Conn, Meter, Sender, Store, audit, root, wired }
 - Law: selection composes as `Layer.unwrapEffect` over the config read — the decision is itself an effect in the layer algebra, its `ConfigError` rides the layer's error channel, and the root that provides the selected engine still proves `never, never` or declares the config fault, one line either way.
 - Use: `Layer.succeed(Port, Port.of({ … }))` as the zero-construction engine — the same table row shape serves a live engine, a stub, and a recorded fake.
 
-```ts
+```typescript
 import { Config, Context, Data, Effect, Layer, Ref, Struct, type ConfigError } from "effect"
 
 class TransportFault extends Data.TaggedError("TransportFault")<{ readonly reason: string }> {}
@@ -168,12 +168,12 @@ class Transport extends Context.Tag("Transport")<Transport, {
   readonly dispatched: (frame: string) => Effect.Effect<string, TransportFault>
 }>() {}
 
-const DirectLive: Layer.Layer<Transport> = Layer.succeed(
+const _DirectLive: Layer.Layer<Transport> = Layer.succeed(
   Transport,
   Transport.of({ dispatched: (frame) => Effect.succeed(`<direct:${frame}>`) }),
 )
 
-const PooledLive: Layer.Layer<Transport> = Layer.scoped(
+const _PooledLive: Layer.Layer<Transport> = Layer.scoped(
   Transport,
   Effect.gen(function* () {
     const lanes = yield* Effect.acquireRelease(Effect.succeed(2), () => Effect.log("<lanes-down>"))
@@ -187,15 +187,15 @@ const PooledLive: Layer.Layer<Transport> = Layer.scoped(
   }),
 )
 
-const engines = {
-  direct: DirectLive,
-  pooled: PooledLive,
+const _engines = {
+  direct: _DirectLive,
+  pooled: _PooledLive,
 } as const satisfies Record<string, Layer.Layer<Transport>>
 
 const TransportLive: Layer.Layer<Transport, ConfigError.ConfigError> = Layer.unwrapEffect(
-  Config.literal(...Struct.keys(engines))("TRANSPORT_ENGINE").pipe(
+  Config.literal(...Struct.keys(_engines))("TRANSPORT_ENGINE").pipe(
     Config.withDefault("direct"),
-    Effect.map((kind) => engines[kind]),
+    Effect.map((kind) => _engines[kind]),
   ),
 )
 
@@ -223,14 +223,14 @@ export { Transport, TransportFault, TransportLive, relayed }
 - Use: `Reloadable.manual(Tag, { layer })` with `Reloadable.reload(Tag)` when refresh is event-driven — the signal calls reload, readers are untouched.
 - Boundary: reload cadence is a `Schedule` value; its composition algebra is `rails-and-effects.md`.
 
-```ts
+```typescript
 import { Clock, Context, Duration, Effect, Layer, LayerMap, ManagedRuntime, Reloadable, Schedule } from "effect"
 
 class Roster extends Context.Tag("Roster")<Roster, {
   readonly allowed: (label: string) => boolean
 }>() {}
 
-const RosterLive: Layer.Layer<Roster> = Layer.effect(
+const _RosterLive: Layer.Layer<Roster> = Layer.effect(
   Roster,
   Effect.map(Clock.currentTimeMillis, (minted) =>
     Roster.of({ allowed: (label) => label.length <= 32 && minted >= 0 }),
@@ -238,7 +238,7 @@ const RosterLive: Layer.Layer<Roster> = Layer.effect(
 )
 
 const RosterAuto: Layer.Layer<Reloadable.Reloadable<Roster>> = Reloadable.auto(Roster, {
-  layer: RosterLive,
+  layer: _RosterLive,
   schedule: Schedule.spaced(Duration.minutes(10)),
 })
 
@@ -258,11 +258,11 @@ const gated = (label: string): Effect.Effect<boolean, never, Reloadable.Reloadab
 const read = (tenant: string, key: string): Effect.Effect<string, never, Tenants> =>
   Vault.use((vault) => vault.read(key)).pipe(Effect.provide(Tenants.get(tenant)))
 
-const memo: Layer.MemoMap = Effect.runSync(Layer.makeMemoMap)
+const _memo: Layer.MemoMap = Effect.runSync(Layer.makeMemoMap)
 const host: ManagedRuntime.ManagedRuntime<Tenants | Reloadable.Reloadable<Roster>, never> =
-  ManagedRuntime.make(Layer.mergeAll(Tenants.Default, RosterAuto), memo)
+  ManagedRuntime.make(Layer.mergeAll(Tenants.Default, RosterAuto), _memo)
 const board: ManagedRuntime.ManagedRuntime<Reloadable.Reloadable<Roster>, never> =
-  ManagedRuntime.make(RosterAuto, memo)
+  ManagedRuntime.make(RosterAuto, _memo)
 
 const served = (tenant: string, key: string): Promise<string> =>
   host.runPromise(Effect.flatMap(gated(tenant), (open) => (open ? read(tenant, key) : Effect.succeed("<denied>"))))
@@ -287,7 +287,7 @@ export { Roster, RosterAuto, Tenants, Vault, board, halted, host, served }
 - Law: `it.effect` runs under deterministic `TestServices` — time is virtual until `TestClock.adjust` moves it, randomness is seeded — so a duration-dependent path is proven by forking the effect, adjusting the clock, and joining the fiber: zero wall-clock waits, zero flake.
 - Boundary: a spec module's public surface is empty — the collector call is its one side effect, so the exports block carries nothing and inline exports remain banned.
 
-```ts
+```typescript
 import { expect, layer } from "@effect/vitest"
 import { Config, ConfigProvider, Context, Duration, Effect, Fiber, Layer, TestClock } from "effect"
 
@@ -333,4 +333,8 @@ layer(TestGraph)("journal", (it) => {
       expect(yield* journal.admitted("<live:two>")).toBe("<live:two>")
     }))
 })
+
+// --- [EXPORTS] ---------------------------------------------------------------------------
+
+export {}                                                    // the collector call is the module's one side effect; the empty block is the structural proof
 ```

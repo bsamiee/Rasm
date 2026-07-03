@@ -73,6 +73,7 @@ const spawned = (
   })
 
 // --- [EXPORTS] ---------------------------------------------------------------------------
+
 export { SlotFault, spawned }
 export type { Spawned }
 ```
@@ -117,6 +118,7 @@ const flushed = <A, E, R>(drain: Effect.Effect<A, E, R>, patience: Duration.Dura
   drain.pipe(Effect.uninterruptible, Effect.disconnect, Effect.timeoutOption(patience))  // deadline settles on time; the shielded drain finishes in background
 
 // --- [EXPORTS] ---------------------------------------------------------------------------
+
 export { ExpiredFault, committed, flushed }
 ```
 
@@ -173,6 +175,7 @@ const bridged = (
   })
 
 // --- [EXPORTS] ---------------------------------------------------------------------------
+
 export { FeedFault, bridged }
 export type { Drained }
 ```
@@ -236,6 +239,7 @@ const balanced = (
   })
 
 // --- [EXPORTS] ---------------------------------------------------------------------------
+
 export { balanced }
 export type { Claim }
 ```
@@ -258,7 +262,7 @@ Keyed contention is owned by four scoped surfaces selected on one axis — value
 import { Cache, Duration, Effect, RateLimiter, RcMap } from "effect"
 import type { Scope } from "effect"
 
-const PLANE = {
+const _PLANE = {                                             // interior policy row: no export reaches the anchor, so the expression-seam satisfies check rides it
   verdicts: { capacity: 512, timeToLive: Duration.minutes(5) },
   sessions: { idleTimeToLive: Duration.seconds(45) },
   egress: { limit: 90, interval: Duration.minutes(1), algorithm: "token-bucket" },
@@ -279,12 +283,12 @@ const contended = <A, E, S, R>(
   open: (key: string) => Effect.Effect<S, E, R>,
 ): Effect.Effect<Plane<A, E, S>, never, Scope.Scope | R> =>
   Effect.gen(function* () {
-    const limit = yield* RateLimiter.make(PLANE.egress)
+    const limit = yield* RateLimiter.make(_PLANE.egress)
     const verdicts = yield* Cache.make({
-      ...PLANE.verdicts,
+      ..._PLANE.verdicts,
       lookup: (key: string) => limit(mint(key).pipe(RateLimiter.withCost(2))),  // window inherited by every miss; weight declared at the owner
     })
-    const sessions = yield* RcMap.make({ lookup: open, ...PLANE.sessions })
+    const sessions = yield* RcMap.make({ lookup: open, ..._PLANE.sessions })
     return {
       verdict: (key) => verdicts.get(key),                          // concurrent misses on one key collapse to one lookup
       session: (key) => RcMap.get(sessions, key),                   // scoped acquisition: refcount up, idle clock after last release
@@ -293,7 +297,8 @@ const contended = <A, E, S, R>(
   })
 
 // --- [EXPORTS] ---------------------------------------------------------------------------
-export { PLANE, contended }
+
+export { contended }
 export type { Plane }
 ```
 
@@ -338,5 +343,6 @@ const shadowed = <A, E, R, R2>(
   })
 
 // --- [EXPORTS] ---------------------------------------------------------------------------
+
 export { hedged, shadowed, staged }
 ```

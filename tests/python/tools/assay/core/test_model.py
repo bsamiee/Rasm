@@ -472,6 +472,11 @@ def test_fold_csharp_process_output_parses_and_dedupes_source_diagnostics() -> N
     [
         (Parser.RUFF, b"error[F401]: unused import\n --> pkg/a.py:1:1\n", ("ruff:f401", "error", "pkg/a.py", 1, 1, "unused import")),
         (
+            Parser.RUFF,
+            b"line-too-long: Line too long (165 > 150)\n --> pkg/a.py:3:151\n",
+            ("ruff:line-too-long", "error", "pkg/a.py", 3, 151, "Line too long (165 > 150)"),
+        ),
+        (
             Parser.TY,
             b"error[unresolved-attribute]: object has no member\n --> pkg/a.py:2:9\n",
             ("ty:unresolved-attribute", "error", "pkg/a.py", 2, 9, "object has no member"),
@@ -487,8 +492,13 @@ def test_fold_csharp_process_output_parses_and_dedupes_source_diagnostics() -> N
             ("tsc:ts2322", "error", "src/a.ts", 4, 7, "Type 'number' is not assignable to type 'string'."),
         ),
         (Parser.RUFF_FORMAT, b"Would reformat: pkg/a.py\n", ("ruff-format:format", "error", "pkg/a.py", 0, 0, "file would be reformatted")),
+        (
+            Parser.RUFF_FORMAT,
+            b"unformatted: File would be reformatted\n --> pkg/a.py:1:1\n",
+            ("ruff-format:unformatted", "error", "pkg/a.py", 1, 1, "File would be reformatted"),
+        ),
     ],
-    ids=["ruff", "ty", "mypy", "tsc", "ruff-format"],
+    ids=["ruff", "ruff-full", "ty", "mypy", "tsc", "ruff-format", "ruff-format-full"],
 )
 def test_fold_static_text_tools_emit_structured_diagnostics(parser: Parser, payload: bytes, expected: tuple[str, str, str, int, int, str]) -> None:
     """Text diagnostics from Python and TypeScript tools become first-class source Match rows, keyed by the parser stamp."""

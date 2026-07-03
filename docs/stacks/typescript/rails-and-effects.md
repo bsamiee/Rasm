@@ -32,7 +32,7 @@ Choose the narrowest carrier that states the real outcome; a wider carrier is ea
 - Law: the `Cause` tree retains typed failure, defect, and interruption — it is carried whole and discriminated once at the terminal seam; `[06]`'s outcome fold owns the discrimination order, and a fold that reads `.message` erases the tree the egress `Cause.pretty` renders.
 - Use: `Effect.sandbox` when recovery itself must read defects and interruptions on the typed channel; `Effect.exit` when the outcome becomes state.
 
-```typescript conceptual
+```typescript
 import { Data, Effect, Exit, Option } from "effect"
 import type { Cause, Either } from "effect"
 
@@ -87,7 +87,7 @@ Abort versus accumulate is a correctness decision fixed once at the boundary as 
 - Use: `Effect.validate` for a fixed-arity pair accumulating both faults into the `Cause`; `Effect.validateFirst` when alternatives race for one success and the miss report must name every rejected attempt — `Effect.firstSuccessOf` keeps only the terminal fault.
 - Reject: a disposition parameter the body re-reads; a `for` loop collecting failures beside the rail; `Effect.forEach` over a batch whose faults the caller must enumerate — its first-failure abort is the dependent-chain default, not the batch report.
 
-```typescript conceptual
+```typescript
 import { Data, Effect, Number } from "effect"
 import type { Array, Option } from "effect"
 
@@ -132,7 +132,7 @@ A surface owns one reason-discriminated fault family whose policy lives in one v
 
 [FAMILY_SIZING]:
 - Law: the family is sized by routing, not by cause — a class per distinct payload-and-recovery route, one `catchTag` arm each, and a `reason` row per cause inside it. A class per cause turns `catchTags` into a switch over causes; one class with a free-string reason is unroutable and unfoldable — both are the named defects, and the declaration mechanics of the classes are `shapes.md`'s.
-- Law: one `as const satisfies` table is the policy's single source of truth — rows carry rank, retry, and quarantine, `keyof typeof` derives the `Reason` union, and the class getter projects the row so policy is recoverable from any fault value; a `switch` or `Match` over reasons re-derives what a row already states, and a new cause lands as one row plus zero new branches.
+- Law: one `as const` policy table is the policy's single source of truth — rows carry rank, retry, and quarantine, `keyof typeof` derives the `Reason` union, the contract check is placed by the anchor's export reach, and the class getter projects the row so policy is recoverable from any fault value; a `switch` or `Match` over reasons re-derives what a row already states, and a new cause lands as one row plus zero new branches.
 - Law: a fault no consumer arm can act on is a defect, not a channel member — `Effect.die` and `Effect.orDie` escalate it at the routing seam so `E` stays total over actionable faults and no handler carries a dead arm.
 
 [ROUTING_AND_FOLDS]:
@@ -141,15 +141,20 @@ A surface owns one reason-discriminated fault family whose policy lives in one v
 - Law: quarantine is a typed divert, never a dropped element — a quarantinable fault is delivered to a typed intake and continues as `Either.left` on the success channel, so the rail proceeds and the evidence survives to the drain; a recovery that substitutes a default value destroys the evidence and is rejected wherever the fault feeds a report.
 - Law: a recovery operator serves pipe and direct call as one `Function.dual` definition whose typed overload pair pre-solves inference at the owner — a parallel pipe-twin beside a data-first function is the named defect.
 
-```typescript conceptual
+```typescript
 import { Array, Data, Effect, Either, Function, Option, Order } from "effect"
 
-const FaultPolicy = {
+const FaultPolicy = {                                        // exported anchor: plain as const keeps every literal; the merged guard carries the contract
   malformed: { rank: 4, retry: false, quarantine: true },
   contention: { rank: 2, retry: true, quarantine: false },
   exhausted: { rank: 3, retry: true, quarantine: false },
   breached: { rank: 5, retry: false, quarantine: false },
-} as const satisfies Record<string, { rank: number; retry: boolean; quarantine: boolean }>
+} as const
+
+declare namespace FaultPolicy {
+  type Row = { readonly rank: number; readonly retry: boolean; readonly quarantine: boolean }
+  type _Rows<T extends Record<Reason, Row> = typeof FaultPolicy> = T
+}
 
 type Reason = keyof typeof FaultPolicy
 
@@ -165,7 +170,7 @@ class ShapeFault extends Data.TaggedError("ShapeFault")<{
 
 class PermitFault extends Data.TaggedError("PermitFault")<{ readonly permit: string }> {}
 
-const byRank = Order.mapInput(Order.number, (fault: ShapeFault) => fault.policy.rank)
+const byRank: Order.Order<ShapeFault> = Order.mapInput(Order.number, (fault: ShapeFault) => fault.policy.rank)
 
 const dominant = (faults: Array.NonEmptyReadonlyArray<ShapeFault>): ShapeFault => Array.max(faults, byRank)
 
@@ -224,7 +229,7 @@ A lifetime rides the rail as a bracket whose release is part of the computation'
 - Law: `Effect.scoped` placement against `Effect.retry` decides re-acquisition — retry around the scoped bracket re-acquires per attempt, the poisoned-resource recovery; the bracket around retry holds one acquisition across attempts, the kept-session form. Neither is a default; the fault family names which resource state survives its faults.
 - Reject: teardown as an ordinary step after use — it silently skips on failure and interruption; `try`/`finally` in domain flow; a bracket whose acquire is retried by a loop instead of sitting under the same policy value as its use.
 
-```typescript conceptual
+```typescript
 import { Data, Effect, Exit } from "effect"
 import type { Schedule, Scope } from "effect"
 
@@ -290,8 +295,8 @@ Recurrence is a named `Schedule` value composed once beside the fault family it 
 - Law: layering against retry is budget semantics — a timeout below `Effect.retry` is the per-attempt budget, above it the total budget; both may stack, and which budgets exist is the surface's stated vocabulary, never an accident of pipe order.
 - Law: `Effect.repeat` recurs on the success channel — `while`/`until` read the output and the first run is not a recurrence — so polling and convergence are repeat policies over a state-advancing step, never `while` statements.
 
-```typescript conceptual
-import { Data, Effect, Schedule } from "effect"
+```typescript
+import { Data, type Duration, Effect, Schedule } from "effect"
 
 class PressFault extends Data.TaggedError("PressFault")<{ readonly reason: "jam" | "starve" }> {
   get transient(): boolean {
@@ -299,7 +304,7 @@ class PressFault extends Data.TaggedError("PressFault")<{ readonly reason: "jam"
   }
 }
 
-const backoff = Schedule.exponential("40 millis", 2).pipe(
+const backoff: Schedule.Schedule<[Duration.Duration, number], PressFault> = Schedule.exponential("40 millis", 2).pipe(
   Schedule.jittered,
   Schedule.intersect(Schedule.recurs(6)),
   Schedule.upTo("20 seconds"),
@@ -342,7 +347,7 @@ Telemetry is a transformer stack attached at the owner declaration, and every si
 - Law: `Effect.onExit` is the single emission point — once per computation, after the outcome settles; outcome strings minted inside recovery arms drift, double-count retried attempts, and never see defects.
 - Law: measurement placement follows `[04]`'s stacking law — `Metric.trackDuration` and `Metric.trackErrorWith` below the retry stack measure attempts, above it the composed operation; the choice is the instrument's meaning, stated by its position.
 
-```typescript conceptual
+```typescript
 import { Cause, Data, Effect, Exit, Metric, Option } from "effect"
 
 class PourFault extends Data.TaggedError("PourFault")<{ readonly reason: "clog" | "spill" }> {}
@@ -360,21 +365,21 @@ const outcomeOf = Exit.match({
 
 type Outcome = ReturnType<typeof outcomeOf>
 
-const poured = Metric.counter("pour_total", { description: "<terminal outcomes>", incremental: true })
-const reasons = Metric.frequency("pour_fault_reason")
-const latency = Metric.timerWithBoundaries("pour_latency_millis", [5, 25, 125, 625])
+const _poured = Metric.counter("pour_total", { description: "<terminal outcomes>", incremental: true })
+const _reasons = Metric.frequency("pour_fault_reason")
+const _latency = Metric.timerWithBoundaries("pour_latency_millis", [5, 25, 125, 625])
 
 const observed = <A, R>(pour: Effect.Effect<A, PourFault, R>): Effect.Effect<A, PourFault, R> =>
   pour.pipe(
-    Metric.trackDuration(latency),
-    Metric.trackErrorWith(reasons, (fault: PourFault) => fault.reason),
-    Effect.onExit((exit) => Metric.increment(Metric.tagged(poured, "outcome", outcomeOf(exit)))),
+    Metric.trackDuration(_latency),
+    Metric.trackErrorWith(_reasons, (fault: PourFault) => fault.reason),
+    Effect.onExit((exit) => Metric.increment(Metric.tagged(_poured, "outcome", outcomeOf(exit)))),
     Effect.withSpan("pour.resolve", { attributes: { "pour.surface": "<surface-a>" } }),
     Effect.annotateLogs({ surface: "<surface-a>" }),
   )
 
 // --- [EXPORTS] ------------------------------------------------------------------------
 
-export { observed, outcomeOf, PourFault, poured }
+export { observed, outcomeOf, PourFault }
 export type { Outcome }
 ```

@@ -42,7 +42,7 @@ The invariant selects the container before any code is shaped, and the write sur
 - Law: the owner constructs its own keys — a lookup or write takes the raw discriminants and builds the `Data` key inside, because a key accepted from a caller may arrive plain-constructed and miss silently.
 - Reject: object-as-map mutation; an escaping mutable map; a second map holding a projection of the first that one `HashMap.filterMap` derives on demand.
 
-```ts conceptual
+```typescript
 import { Array, Data, HashMap, Number, Option } from "effect"
 
 type Pulse = { readonly realm: string; readonly lane: string; readonly load: number }
@@ -81,7 +81,7 @@ Identity is declared where a value is built, never computed where it is compared
 - Reject: `===` between domain values — reference identity asked of structural data; `JSON.stringify` comparison — key-order-dependent and allocating per probe; a hand deep-equality function; a plain literal as a container key.
 - Boundary: tagged families and class owners implant this same identity at their declaration — the owner forms are `shapes.md`'s; the `Equivalence` algebra is `[04]`'s.
 
-```ts conceptual
+```typescript
 import { Array, Data, Equal, Hash, HashSet } from "effect"
 
 type Facet = { readonly axis: string; readonly grade: number }
@@ -123,7 +123,7 @@ Ordering, equivalence, and refinement carry domain policy, so each is one compos
 - Reject: boolean-soup conditions; per-site min/max/clamp ternaries; a comparison policy that exists twice under two names.
 - Boundary: an `Order` consumed by a merge is `[05]`'s; `Schema.equivalence` derivation is `shapes.md`'s; predicate dispatch over non-keyed shapes is `surfaces-and-dispatch.md`'s.
 
-```ts conceptual
+```typescript
 import { Array, Equivalence, Order, Predicate, SortedMap, pipe } from "effect"
 
 type Probe = { readonly realm: string; readonly grade: number; readonly load: number }
@@ -170,7 +170,7 @@ A domain combine is a `Semigroup`/`Monoid` instance, never an ad-hoc function. `
 - Use: `Record.union(self, that, combine)` as the one-off spelling when the combine is genuinely site-local; a keyed merge that recurs is the instance.
 - Boundary: applicative error accumulation on the rail is `rails-and-effects.md`'s; a merge folded across a stream window is `streams.md`'s.
 
-```ts conceptual
+```typescript
 import * as Monoid from "@effect/typeclass/Monoid"
 import * as Semigroup from "@effect/typeclass/Semigroup"
 import * as DurationInstances from "@effect/typeclass/data/Duration"
@@ -234,7 +234,7 @@ A scalar invariant rides the owner whose operations are the domain's operations:
 - Reject: `new Date()` and `Date.now()` in domain flow; `parseFloat`-then-`isNaN` ladders; an `Infinity` escaping a division; hand unit scaling between milliseconds and minutes.
 - Boundary: wire admission of scalars — `Schema.DateTimeUtc`, decimal-string decode — is `shapes.md`'s and `boundaries.md`'s; `Schedule` policy consuming `Duration` and the `Clock` capability behind `DateTime.now` are `rails-and-effects.md`'s.
 
-```ts conceptual
+```typescript
 import { BigDecimal, DateTime, Duration, Effect, Number, Option, pipe } from "effect"
 
 const _grace = {                                              // span policy is one value table: satisfies validates rows without widening, no reader re-derives units
@@ -275,7 +275,7 @@ Bytes and secrets are sealed at the text seam. The interior carries `Uint8Array`
 - Reject: `btoa`/`atob` and platform buffer conversions in domain flow; a raw string secret inside a shape, log, error, or policy record — the field is `Redacted` from admission; unwrap-and-compare; base64 text carried as the domain representation of bytes.
 - Boundary: `Config.redacted` and `Schema.Redacted` admission are `boundaries.md`'s and `shapes.md`'s; lifting the decode `Either` onto the rail is `rails-and-effects.md`'s.
 
-```ts conceptual
+```typescript
 import { Either, Encoding, Equivalence, Option, Redacted } from "effect"
 
 const frame = (bytes: Uint8Array): string =>

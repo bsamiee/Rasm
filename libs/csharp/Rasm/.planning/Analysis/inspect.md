@@ -219,7 +219,7 @@ public static partial class Analyze {
 - Cases: `Meshes` 7 declared (factories `Validity`/`Counts`/`Defects`/`Quality`/`FaceQuality`/`FaceShape`/`AtVisiblePolygon`/`VisiblePolygonCount`/`NakedEdges`/`Outline`); `MeshSampleKind` 32 rows in 5 bands; `MeshMetric` 6 rows.
 - Entry: `Meshes.Operation<TGeometry, TOut>()` — every arm lifts through `MeshLift` (the `Analyze.Native` mesh specialization: a typed `Operation<Mesh, TValue>` applied to any geometry that IS a mesh, rejecting the rest), so the family accepts `object`-typed pipelines and stays mesh-strict at evaluation.
 - Auto: the sample census runs `Mesh.Check` ONCE — `MeshCheck` captures `MeshCheckParameters.Defaults()` through `Requirement.MeshReport`, and the band's rows all read the same capture; visible-polygon resolution (`VisiblePolygonSourceOf`) maps an ngon-or-face onto the canonical `ComponentIndex` (`MeshNgon` where the face belongs to an ngon, `MeshFace` otherwise) so every per-polygon metric addresses the SAME component vocabulary the rest of the corpus uses; `VerticesOf` extracts the polygon boundary ring (`GetFaceVertices` for faces, `NgonBoundaryVertexList` for ngons); metric measurement short-circuits host fast paths (`GetFaceAspectRatio` for face aspect; `FaceNormals` for face normals) and folds the ring metric via `VectorCloud.Ring` + `VectorIntent.Cloud` everywhere else; ngon area sums constituent-face areas, ngon normals area-weight constituent face normals, and the dihedral fold walks `AdjacentFaces` neighbours (ngon-external only) taking the maximum `VectorIntent.Angular` normal angle; `MeshMetricStatOp` folds any metric's samples through the `Domain/stats` Welford `Stat.Of` so per-polygon streams and their summary ride one machinery.
-- Receipt: `MeshSample(Kind, Value)` — non-negative sample under a real band; `MeshMetricSample(Source, Value)` — addressed finite non-negative measurement; `MeshFaceShape(Source, Shape)` — addressed `Spatial/cloud` `VectorCloudShape` classification; all three declare `IValidityEvidence`, oracle-admitted.
+- Receipt: `MeshSample(Kind, Value)` — non-negative sample under a real band; `MeshMetricSample(Source, Value)` — addressed finite non-negative measurement; `MeshFaceShape(Source, Shape)` — addressed `Spatial/cloud` `VectorCloudShape` classification; all three declare `IValidityEvidence` through the `Domain/rails` `ValidityClaim` fold, oracle-admitted.
 - Packages: RhinoCommon (`Mesh.Check` + `MeshCheckParameters`, `MeshNgon` + `Ngons` census, `Faces` `GetFaceVertices`/`GetFaceAspectRatio`/`AdjacentFaces`/`TriangleCount`/`QuadCount`, `FaceNormals.ComputeFaceNormals`, `TopologyVertices.ConnectedEdgesCount`, `GetNakedEdges`, `GetOutlines(Plane)`, `GetNgonAndFacesEnumerable`/`GetNgonAndFacesCount`, `ComponentIndex`), `Rasm.Vectors` (`VectorCloud.Ring`, `VectorCloudMetric`, `VectorCloudShape`, `VectorIntent.Cloud`/`Direction`/`Angular`), `Rasm.Domain` (`Requirement.MeshCheck`/`MeshReport`, `Stat`, `TopologyProjection`, `Op`/`Fault` rail), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 - Growth: a new mesh sample is one `MeshSampleKind` row in its band — the census, the banded factories, and the receipt machinery are untouched; a new face metric is one `MeshMetric` row binding a measure delegate over the SAME polygon resolution; a new polygon-level extraction is one `Meshes` case lifted through `MeshLift`.
 - Boundary: the census bands derive from row membership — a hand-maintained per-band kind list beside the enum is the deleted drift form; defect rows read the ONE threaded `MeshCheckParameters` capture and a per-row re-run of `Mesh.Check` is the killed N-fold host cost; face metrics measure VISIBLE polygons through the canonical `ComponentIndex` addressing — a triangle-level metric family beside the ngon-aware one is the rejected split vocabulary; ring measurement routes through the `Spatial/cloud` metric surface exclusively — a local perimeter/skewness/area loop beside `VectorCloudMetric` is the killed parallel rail; `AtVisiblePolygon` re-emits the `Domain/normalization` `TopologyProjection` carrier (mesh-component band) so downstream face extraction shares the corpus-wide transfer/disposal protocol.
@@ -422,17 +422,21 @@ public sealed partial class MeshMetric {
 // --- [MODELS] -------------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct MeshSample(MeshSampleKind Kind, int Value) : IValidityEvidence {
-    public bool IsValid => !Kind.Group.Equals(MeshSampleGroup.None) && Value >= 0;
+    public bool IsValid => ValidityClaim.All(
+        ValidityClaim.Of(!Kind.Group.Equals(MeshSampleGroup.None)),
+        ValidityClaim.Of(Value >= 0));
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct MeshMetricSample(ComponentIndex Source, double Value) : IValidityEvidence {
-    public bool IsValid => Source is { ComponentIndexType: not ComponentIndexType.InvalidType, Index: >= 0 } && RhinoMath.IsValidDouble(x: Value) && Value >= 0.0;
+    public bool IsValid => ValidityClaim.All(
+        ValidityClaim.Of(Source is { ComponentIndexType: not ComponentIndexType.InvalidType, Index: >= 0 }),
+        ValidityClaim.Nonnegative(Value));
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct MeshFaceShape(ComponentIndex Source, VectorCloudShape Shape) : IValidityEvidence {
-    public bool IsValid => Source is { ComponentIndexType: not ComponentIndexType.InvalidType, Index: >= 0 };
+    public bool IsValid => ValidityClaim.Of(Source is { ComponentIndexType: not ComponentIndexType.InvalidType, Index: >= 0 });
 }
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------

@@ -412,14 +412,13 @@ def _phase_failed(rows: tuple[Result[Completed, Fault], ...]) -> bool:
     return False
 
 
-def _skipped(checks: tuple[Check, ...], routed: Routed, settings: AssaySettings, scope: ArtifactScope) -> tuple[Result[Completed, Fault], ...]:
+def _skipped(
+    checks: tuple[Check, ...], routed: Routed, settings: AssaySettings, scope: ArtifactScope, *, note: str = "restore failed; build skipped"
+) -> tuple[Result[Completed, Fault], ...]:
     return tuple(
         Ok(
             receipt(
-                argv_for(check, routed, settings=settings, scope=scope).default_value((check.tool.name,)),
-                0,
-                status=RailStatus.SKIP,
-                notes=("restore failed; build skipped",),
+                argv_for(check, routed, settings=settings, scope=scope).default_value((check.tool.name,)), 0, status=RailStatus.SKIP, notes=(note,)
             )
         )
         for check in checks
@@ -492,12 +491,13 @@ def _probe_compiles(closure_phases: PhaseChecks, routed: Routed, settings: Assay
     return compiles
 
 
-def _format_gated(checks: tuple[Check, ...], phases: PhaseChecks) -> tuple[Check, ...]:
+def _format_gated(checks: tuple[Check, ...], phases: PhaseChecks) -> tuple[tuple[Check, ...], tuple[Check, ...]]:
     # A non-compiling target drops both the write fix and its read-only check twin: the format tool binds against the
     # analyzer view and may fault or emit spurious drift on a target the compiler itself rejects. The write-capable tool
-    # names drive the gate, so the format CHECK row falls with its WRITE sibling without naming the tool.
+    # names drive the gate; the gated slice returns so dispatch surfaces SKIP receipts — a silently absent format
+    # family would read as a clean pass.
     writable = frozenset(check.tool.name for _, lane in phases for check in lane if check.tool.mode.writes)
-    return tuple(check for check in checks if check.tool.name not in writable)
+    return tuple(check for check in checks if check.tool.name not in writable), tuple(check for check in checks if check.tool.name in writable)
 
 
 def _dispatch(
@@ -512,16 +512,18 @@ def _dispatch(
     uses_closure = _uses_build_scope(routed, closure_phases)
     # The probe gates the format phase before the write lease; it is orthogonal to _build_fan's RESTORE->BUILD block gate.
     compiles = not (uses_closure and write) or _probe_compiles(closure_phases, routed, settings, executor)
-    gated_write = write if compiles else _format_gated(write, phases)
-    plain = tuple(
+    active_write, gated_write = (write, ()) if compiles else _format_gated(write, phases)
+    plain_rows = tuple(
         check
         for phase, checks in phases
         if phase is not Phase.FIX and not (uses_closure and phase in {Phase.RESTORE, Phase.BUILD})
-        for check in (checks if compiles else _format_gated(checks, phases))
+        for check in checks
     )
+    plain, gated_plain = (plain_rows, ()) if compiles else _format_gated(plain_rows, phases)
     return (
-        *(_write_fan(gated_write, routed, settings, scope, executor) if gated_write else ()),
+        *(_write_fan(active_write, routed, settings, scope, executor) if active_write else ()),
         *(executor.fan(plain, settings=settings, scope=scope, routed=routed) if plain else ()),
+        *_skipped((*gated_write, *gated_plain), routed, settings, scope, note="compile probe failed; format skipped"),
         *(_build_fan(closure_phases, routed, settings, executor) if uses_closure else ()),
     )
 

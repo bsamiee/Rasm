@@ -49,7 +49,8 @@ const LAW = 'Rasm monorepo, TS catch-up campaign stage 5 (build-out). The ' + TS
   'index, cluster cards (owner, packages, growth, earned boundary/receipt/entry lines), transcription-complete signature fences an implementer ' +
   'copies verbatim (bodies where the body is the law, ZERO comments in fences, invariants on the card), at most one mermaid per cluster; ' +
   'fences obey the EXPORT LAW - no in-body exports, declarations unexported with ONE end-of-file `// --- [EXPORTS]` block carrying the ' +
-  'complete public surface. ' +
+  'complete public surface; the block is itself a collapse target (sibling exports for one concept merge into ONE polymorphic export, ' +
+  'modality discriminated inside, companions riding the same name via declaration merging; 1-2 exports per module the bar). ' +
   'ULTRA-STACKING: BOTH .api tiers (' + TS + '/.api/ substrate + <folder>/.api/ domain) are mined to operator depth; an admitted capability ' +
   'the concept admits but no owner exploits is a defect; an external member is written ONLY at a spelling an .api catalogue verifies - an ' +
   'unverifiable member is a RESEARCH item, never settled fence code. LAW SOURCES (read, adhere, never restate): the folder section of ' +

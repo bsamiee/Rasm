@@ -111,7 +111,7 @@ public abstract partial record SpectralFilter {
 
 ## [03]-[DEC_CARRIERS]
 
-- Owner: `DiscreteCalculus` — the FROZEN-NAME discrete-exterior-calculus operator bundle: `D0` (vertex→edge incidence, `SparseMatrix`), `D1` (edge→face curl), `Star0`/`Star1`/`Star2` (the diagonal Hodge stars: vertex mass, edge cotan weights, inverse face areas — `Arr<double>` diagonals), the `SpectralAssemblyReceipt`, and the optional `Transport` (signpost intrinsic-transport evidence, declared by `Meshing/mesh`) and `Harmonic` (1-form basis) slots; its `Project<TOut>` routes the evidence family through typed `ProjectionRow` rows. `SpectralBasis` the eigenpair carrier (`Eigenvalues` finite and nonnegative within tolerance — the eigen mints deliver them ascending, the gate does not re-derive ordering — `Eigenvectors` uniform-length) with `Truncate(k)`. `SpectralAssemblyReceipt` the assembly evidence — vertex/edge/face census, admitted/skipped-degenerate/missing-edge face counts, matrix shape and nnz, positive-star counts, the `∂∂ = 0` boundary-composition residual, genus and harmonic dimension, topology census (boundary edges/components, non-manifold edges, Euler characteristic), and for edge-connection assemblies the symmetry residual against its tolerance. `HarmonicOneFormReceipt` — the harmonic-basis evidence with the dimension law `dim = 2g + max(0, b−1)`, the rank/nullity partition of the edge space, SVD/eps-rank thresholds, nullspace eigenvalue window, and the closed/coclosed/`Star1`-orthonormal residuals gated SCALE-RELATIVE (the gate carries `max(1, spectralRadius)` and a dimensionless `1e3` rounding-accumulation slack — never a bare absolute). `HarmonicOneFormBasis` the forms + receipt pair.
+- Owner: `DiscreteCalculus` — the FROZEN-NAME discrete-exterior-calculus operator bundle: `D0` (vertex→edge incidence, `SparseMatrix`), `D1` (edge→face curl), `Star0`/`Star1`/`Star2` (the diagonal Hodge stars: vertex mass, edge cotan weights, inverse face areas — `Arr<double>` diagonals), the `SpectralAssemblyReceipt`, and the optional `Transport` (signpost intrinsic-transport evidence, declared by `Meshing/mesh`) and `Harmonic` (1-form basis) slots; its `Project<TOut>` routes the evidence family through typed `ProjectionRow` rows. `SpectralBasis` the eigenpair carrier (`Eigenvalues` finite and nonnegative within the ONE scale-relative `ZeroBand` — `SqrtEpsilon` × spectral radius, so unit-scaled spectra never fail an absolute gate; the eigen mints deliver them ascending, the gate does not re-derive ordering — `Eigenvectors` uniform-length) with `Truncate(k)`; the SAME band classifies zero modes in the descriptor kernel — one threshold declaration, zero drift. `SpectralAssemblyReceipt` the assembly evidence — vertex/edge/face census, admitted/skipped-degenerate/missing-edge face counts, matrix shape and nnz, positive-star counts, the `∂∂ = 0` boundary-composition residual, genus and harmonic dimension, topology census (boundary edges/components, non-manifold edges, Euler characteristic), and for edge-connection assemblies the symmetry residual against its tolerance. `HarmonicOneFormReceipt` — the harmonic-basis evidence with the dimension law `dim = 2g + max(0, b−1)`, the rank/nullity partition of the edge space, SVD/eps-rank thresholds, nullspace eigenvalue window, and the closed/coclosed/`Star1`-orthonormal residuals gated SCALE-RELATIVE (the gate carries `max(1, spectralRadius)` and a dimensionless `1e3` rounding-accumulation slack — never a bare absolute). `HarmonicOneFormBasis` the forms + receipt pair.
 - Entry: carriers are CONSTRUCTED by `Meshing/dec` (assembly) and `Meshing/mesh` (caching); this page owns their shape, validity law, and projection — consumers (`Rasm.Compute` adjoint surface, `Processing/geodesics`, `Processing/segment`, `Spatial/fields` spectral cases) read them from here.
 - Auto: `DiscreteCalculus.IsValid` cross-couples the stars to the operator shapes (`Star0.Count == D0.Cols`, `Star1.Count == D0.Rows`, `Star2.Count == D1.Rows`), requires strictly positive vertex/face stars, and admits edge stars down to a scale-relative negative band (intrinsic cotan weights of near-degenerate triangles legitimately dip below zero within roundoff of the Star1 scale).
 - Receipt: all three receipts on the `[ValidityEvidence]` fold; the semantic gates preserve the mature couplings verbatim — the harmonic dimension law, the `Rank + Nullity == EdgeCount` partition, the residual-tolerance ladder.
@@ -211,12 +211,17 @@ public readonly record struct DiscreteCalculus(SparseMatrix D0, SparseMatrix D1,
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct SpectralBasis(Arr<double> Eigenvalues, Arr<Arr<double>> Eigenvectors) {
     internal int VertexCount => Eigenvectors.IsEmpty ? 0 : Eigenvectors[index: 0].Count;
+    internal double SpectralRadius => Eigenvalues.Fold(initialState: 0.0, f: static (max, lambda) => Math.Max(val1: max, val2: Math.Abs(value: lambda)));
+    // THE one zero band — scale-relative to the spectral radius: eigen error grows with the operator
+    // scale, and an absolute SqrtEpsilon band misclassifies every mode of an mm-unit spectrum as zero.
+    internal double ZeroBand => EpsilonPolicy.SqrtEpsilon * Math.Max(val1: SpectralRadius, val2: EpsilonPolicy.ZeroTolerance);
     public bool IsValid {
         get {
             int vertexCount = VertexCount;
+            double zeroBand = ZeroBand;
             return Eigenvalues.Count > 0
                 && Eigenvalues.Count == Eigenvectors.Count
-                && Eigenvalues.ForAll(static lambda => double.IsFinite(lambda) && lambda >= -EpsilonPolicy.SqrtEpsilon)
+                && Eigenvalues.ForAll(lambda => double.IsFinite(lambda) && lambda >= -zeroBand)
                 && Eigenvectors.ForAll(phi => vertexCount > 0 && phi.Count == vertexCount && phi.ForAll(double.IsFinite));
         }
     }
@@ -227,7 +232,7 @@ public readonly record struct SpectralBasis(Arr<double> Eigenvalues, Arr<Arr<dou
 
 ## [04]-[DESCRIPTOR_ALGEBRA]
 
-- Owner: `SpectralDescriptorPolicy` the normalization bundle (scale × energy × zero-mode × optional crop, `Raw` the canonical no-op row, `IsRaw`/`IsValueOnly` derived predicates, `Admit` the gate); `SpectralWaveReceipt` the WKS normalization evidence (energy/bandwidth, first-nonzero scale, zero-mode and crop censuses, raw/normalized weight sums with the `Σw = 1` gate, log-eigenvalue range); `SpectralDescriptorReceipt` the descriptor evidence (filter, vertex/eigenpair/source censuses, pairwise and comparison-ready flags, the policy applied, optional wave evidence); `SpectralDescriptor` the values + receipt carrier with `Normalize(policy)` (value-only renormalization — a scale/crop change demands re-evaluation and fails typed; only the energy axis merges into the receipt's policy, so evaluation provenance survives) and `Rank(candidates, policy)`; `SpectralRankingPolicy` (`Default` = Raw + Euclidean) / `SpectralRank` / `SpectralRanking`; `SpectralKernel` the `internal static` evaluation owner — `EvaluateFilteredDetailed` (the dense-buffer filtered-signature kernel: point signatures `Σ w(λₖ)·φₖ(v)²` or pairwise distances `√(Σ w(λₖ)·(φₖ(v) − φₖ(s))²/|S|)` over admitted source sets, zero-mode and crop policy applied to the eigen index set, scale normalization by first nonzero eigenvalue), `NormalizeDescriptor`/`NormalizeValues` (L1/L2 via `TensorPrimitives.SumOfMagnitudes`/`Norm`, z-score), `RankDescriptors` (candidates re-normalized to the query policy, distances read off the `SpectralDistanceKind` compute column, ranked ascending with index tiebreak), and the one named numeric-policy constant `WaveBandwidthFloor = 1e-9` — the harmonic eps-rank default is `Meshing/dec`'s assembly policy, declared beside the construction that applies it, never re-declared here.
+- Owner: `SpectralDescriptorPolicy` the normalization bundle (scale × energy × zero-mode × optional crop, `Raw` the canonical no-op row, `IsRaw`/`IsValueOnly` derived predicates, `Admit` the gate); `SpectralWaveReceipt` the WKS normalization evidence (energy/bandwidth, first-nonzero scale, zero-mode and crop censuses, raw/normalized weight sums with the `Σw = 1` gate, log-eigenvalue range); `SpectralDescriptorReceipt` the descriptor evidence (filter, vertex/eigenpair/source censuses, pairwise and comparison-ready flags, the policy applied, optional wave evidence); `SpectralDescriptor` the values + receipt carrier with `Normalize(policy)` (value-only renormalization — a scale/crop change demands re-evaluation and fails typed; only the energy axis merges into the receipt's policy, so evaluation provenance survives) and `Rank(candidates, policy)`; `SpectralRankingPolicy` (`Default` = Raw + Euclidean) / `SpectralRank` / `SpectralRanking`; `SpectralKernel` the `internal static` evaluation owner — `EvaluateFilteredDetailed` (the dense-buffer filtered-signature kernel: point signatures `Σ w(λₖ)·φₖ(v)²` or pairwise distances `√(Σ w(λₖ)·(φₖ(v) − φₖ(s))²/|S|)` over admitted source sets, zero modes classified by the basis' scale-relative `ZeroBand`, crop policy applied to the eigen index set, scale normalization by first nonzero eigenvalue), `NormalizeDescriptor`/`NormalizeValues` (L1/L2 via `TensorPrimitives.SumOfMagnitudes`/`Norm`, z-score), `RankDescriptors` (candidates re-normalized to the query policy, distances read off the `SpectralDistanceKind` compute column, ranked ascending with index tiebreak), and the one named numeric-policy constant `WaveBandwidthFloor = 1e-9` — the harmonic eps-rank default is `Meshing/dec`'s assembly policy, declared beside the construction that applies it, never re-declared here.
 - Entry: `filter.ApplyDetailed(basis, sources, policy, key)` is the evaluation entry; `descriptor.Normalize(policy)` and `descriptor.Rank(candidates, policy)` the post-processing entries — one descriptor pipeline, no sibling evaluate/compare surfaces.
 - Auto: WKS weights normalize to unit sum with the full `SpectralWaveReceipt` minted inline; `ComparisonReady` derives from policy + wave evidence so a raw HKS never silently ranks against a normalized WKS; `RankDescriptors` re-normalizes every candidate to the query's policy before measuring — policy mismatch is repaired, not ignored.
 - Receipt: `SpectralWaveReceipt` and `SpectralDescriptorReceipt` on the `[ValidityEvidence]` fold with semantic gates (`CroppedEigenpairCount >= NonZeroEigenpairCount`, `RawWeightSum > 0`, WKS unit-sum within `1e-9`; source/eigenpair/vertex couplings).
@@ -303,15 +308,17 @@ internal static class SpectralKernel {
         if (n == 0 || (sources.IsSome && sourceSet.Length == 0) || sourceSet.Any(s => s < 0 || s >= n) || sourceSet.Distinct().Count() != sourceSet.Length)
             return Fin.Fail<SpectralDescriptor>(error: key.InvalidInput());
         if (!basis.Eigenvectors.ForAll(phi => phi.Count == n)) return Fin.Fail<SpectralDescriptor>(error: key.InvalidResult());
-        int zeroModeCount = basis.Eigenvalues.AsIterable().Count(static lambda => lambda <= EpsilonPolicy.SqrtEpsilon);
-        double firstNonZero = basis.Eigenvalues.AsIterable().FirstOrDefault(static lambda => lambda > EpsilonPolicy.SqrtEpsilon);
-        if (policy.ScaleNormalization.Equals(SpectralScaleNormalization.FirstNonZeroEigenvalue) && firstNonZero <= EpsilonPolicy.SqrtEpsilon) return Fin.Fail<SpectralDescriptor>(error: key.InvalidResult());
+        double zeroBand = basis.ZeroBand;
+        int zeroModeCount = basis.Eigenvalues.AsIterable().Count(lambda => lambda <= zeroBand);
+        double firstNonZero = basis.Eigenvalues.AsIterable().FirstOrDefault(lambda => lambda > zeroBand);
+        if (policy.ScaleNormalization.Equals(SpectralScaleNormalization.FirstNonZeroEigenvalue) && firstNonZero <= zeroBand) return Fin.Fail<SpectralDescriptor>(error: key.InvalidResult());
         int[] eigenIndices = [.. Enumerable.Range(start: 0, count: basis.Eigenvalues.Count)
-            .Where(i => policy.ZeroModePolicy.Equals(SpectralZeroModePolicy.Keep) || basis.Eigenvalues[index: i] > EpsilonPolicy.SqrtEpsilon)
+            .Where(i => policy.ZeroModePolicy.Equals(SpectralZeroModePolicy.Keep) || basis.Eigenvalues[index: i] > zeroBand)
             .Take(policy.CropCount.Map(static count => count.Value).IfNone(basis.Eigenvalues.Count))];
         if (eigenIndices.Length == 0) return Fin.Fail<SpectralDescriptor>(error: key.InvalidInput());
-        double[] scaledEigenvalues = [.. eigenIndices.Select(k => policy.ScaleNormalization.Equals(SpectralScaleNormalization.FirstNonZeroEigenvalue) ? basis.Eigenvalues[index: k] / firstNonZero : basis.Eigenvalues[index: k])];
-        (double[] weights, Option<SpectralWaveReceipt> wave) = WeightsOf(filter: filter, eigenvalues: scaledEigenvalues, firstNonZero: firstNonZero, zeroModeCount: zeroModeCount, croppedCount: eigenIndices.Length);
+        bool scaleNormalized = policy.ScaleNormalization.Equals(SpectralScaleNormalization.FirstNonZeroEigenvalue);
+        double[] scaledEigenvalues = [.. eigenIndices.Select(k => scaleNormalized ? basis.Eigenvalues[index: k] / firstNonZero : basis.Eigenvalues[index: k])];
+        (double[] weights, Option<SpectralWaveReceipt> wave) = WeightsOf(filter: filter, eigenvalues: scaledEigenvalues, firstNonZero: firstNonZero, zeroBand: scaleNormalized ? zeroBand / firstNonZero : zeroBand, zeroModeCount: zeroModeCount, croppedCount: eigenIndices.Length);
         if (weights.Any(static weight => !double.IsFinite(weight)) || (filter is SpectralFilter.WaveCase && wave.IsNone)) return Fin.Fail<SpectralDescriptor>(key.InvalidResult());
         bool isPairwise = sourceSet.Length > 0;
         double normFactor = isPairwise ? 1.0 / sourceSet.Length : 1.0;
@@ -364,20 +371,22 @@ internal static class SpectralKernel {
         && left.CropCount.Match(
             Some: l => right.CropCount.Match(Some: r => l.Value == r.Value, None: static () => false),
             None: () => right.CropCount.IsNone);
-    private static (double[] Weights, Option<SpectralWaveReceipt> Wave) WeightsOf(SpectralFilter filter, double[] eigenvalues, double firstNonZero, int zeroModeCount, int croppedCount) =>
+    // zeroBand arrives in the SAME units as the eigenvalue array (scaled by 1/firstNonZero when the
+    // policy scale-normalizes), so zero-mode classification is one law across raw and scaled spectra.
+    private static (double[] Weights, Option<SpectralWaveReceipt> Wave) WeightsOf(SpectralFilter filter, double[] eigenvalues, double firstNonZero, double zeroBand, int zeroModeCount, int croppedCount) =>
         filter is SpectralFilter.WaveCase wave
-            ? WaveWeightsOf(wave: wave, eigenvalues: eigenvalues, firstNonZero: firstNonZero, zeroModeCount: zeroModeCount, croppedCount: croppedCount)
+            ? WaveWeightsOf(wave: wave, eigenvalues: eigenvalues, firstNonZero: firstNonZero, zeroBand: zeroBand, zeroModeCount: zeroModeCount, croppedCount: croppedCount)
             : ([.. eigenvalues.Select(filter.Weight)], Option<SpectralWaveReceipt>.None);
-    private static (double[] Weights, Option<SpectralWaveReceipt> Wave) WaveWeightsOf(SpectralFilter.WaveCase wave, double[] eigenvalues, double firstNonZero, int zeroModeCount, int croppedCount) {
+    private static (double[] Weights, Option<SpectralWaveReceipt> Wave) WaveWeightsOf(SpectralFilter.WaveCase wave, double[] eigenvalues, double firstNonZero, double zeroBand, int zeroModeCount, int croppedCount) {
         double[] raw = [.. eigenvalues.Select(wave.Weight)];
         double sum = raw.Sum();
         if (!double.IsFinite(sum) || sum <= EpsilonPolicy.SqrtEpsilon) return (raw, Option<SpectralWaveReceipt>.None);
         double[] normalized = [.. raw.Select(weight => weight / sum)];
-        double[] positiveLogs = [.. eigenvalues.Where(static lambda => lambda > EpsilonPolicy.SqrtEpsilon).Select(static lambda => Math.Log(d: lambda))];
+        double[] positiveLogs = [.. eigenvalues.Where(lambda => lambda > zeroBand).Select(static lambda => Math.Log(d: lambda))];
         SpectralWaveReceipt receipt = new(
             Energy: wave.Energy.Value,
             Bandwidth: Math.Max(val1: wave.Bandwidth.Value, val2: WaveBandwidthFloor),
-            FirstNonZeroScale: firstNonZero > EpsilonPolicy.SqrtEpsilon ? Some(firstNonZero) : Option<double>.None,
+            FirstNonZeroScale: firstNonZero > 0.0 ? Some(firstNonZero) : Option<double>.None,
             ZeroModeCount: zeroModeCount,
             CroppedEigenpairCount: croppedCount,
             NonZeroEigenpairCount: positiveLogs.Length,

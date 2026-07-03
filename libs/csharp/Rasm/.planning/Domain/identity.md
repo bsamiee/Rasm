@@ -14,7 +14,7 @@ The determinism owner (`Rasm.Domain`). This page owns the two reproducibility su
 - Law: THE federation content key, verbatim contract — every content hash in the federation composes this entry: the geometry content hash, the `Rasm.Element` projection/address seam, the `Rasm.Persistence` snapshot spine and artifact index, the python `runtime/evidence` peer, the typescript `kernel` peer, the rhino-bridge `CargoManifest.ContentHash`, and `Rasm.Rhino` block identity. One algorithm, one seed, no second hasher: a second hashing path anywhere in the federation forks identity and is the deleted form.
 - Law: canonicalization is the caller's proof — this entry hashes the bytes it is handed; byte-stable member order, numeric normalization, and encoding are the projecting owner's obligations, stated where the projection lives. Two semantically equal values with divergent canonical projections are two identities, by design.
 - Packages: System.IO.Hashing (`XxHash128.HashToUInt128` — the static one-shot; MIT, managed, no native dependency).
-- Growth: streaming identity over large payloads is the same algorithm's incremental lifecycle (`XxHash128` `Append` + `GetCurrentHashAsUInt128`, seed zero) landing as one overload on this owner when a consumer needs it — never a second algorithm, never a width change.
+- Growth: streaming identity over large payloads is the same algorithm's incremental lifecycle (`XxHash128` `Append` + `GetCurrentHashAsUInt128`, seed zero) landing as one member on this owner when a consumer needs it — never a second algorithm, never a width change.
 - Boundary: `UInt128` is the identity currency; wire and storage encodings (hex, two-lane `ulong`, byte order) are boundary projections owned at the consuming seam, never here.
 
 ```csharp signature
@@ -24,7 +24,7 @@ using Foundation.CSharp.Analyzers.Contracts;
 
 namespace Rasm.Domain;
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ---------------------------------------------------------------------------
 // The kernel's ONE content-identity entry: seed-zero XxHash128 over canonical bytes -> UInt128.
 // Every federation content hash composes THIS entry — one algorithm, one seed, no second hasher.
 public static class ContentHash {
@@ -50,7 +50,7 @@ using System.Numerics;
 
 namespace Rasm.Domain;
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ---------------------------------------------------------------------------
 // The ONE splitmix64 owner: reproducible order keys, unit draws, and signed-unit streams.
 public static class Deterministic {
     private const ulong Gamma = 0x9E3779B97F4A7C15UL;

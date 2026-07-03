@@ -17,7 +17,7 @@ Rhino geometry value structs (`Vector3d`, `Point3d`, `Plane`, `Line`, `Transform
 - Entry: `Dimension.Validate`/`TryCreate`/`Create` (generated); `PositiveMagnitude`/`UnitInterval` likewise; `SignedAxis.Of(Option<Plane> frame)` returns the world or frame-resolved axis vector; `SignedAxis.Cardinal(bool planar)` the declared axis sweep; `VectorRelation.Of(Vector3d a, Vector3d b, Context context, Op? key = null)` classifies; `AnglePivot.World`/`Frame(plane)`/`Normal(direction)` construct; `VectorAngle.Of(Direction a, Direction b, AnglePivot pivot, Op key)` and the raw-vector overload `Of(Vector3d, Vector3d, Context, AnglePivot?, Op?)` measure; `VectorAngle.Project<TOut>(Op key)` routes self-or-value through the projection rail.
 - Auto: the generated `ValidateFactoryArguments` hooks gate finiteness by `double.IsFinite` and bounds by the owner's invariant, so interior code never re-validates an admitted scalar; `AnglePivot.Admit` re-validates only the case payload (a frame's orthonormality via `Admit.Plane`, a normal via the `Direction` unit gate) and `Compute` dispatches the three `VectorAngle` overloads through the generated `Switch`; `VectorRelation.Of` admits both operands as `Direction` first, then reads `IsParallelTo`/`IsPerpendicularTo` under the context angle tolerance as one tuple pattern.
 - Receipt: none — scalar owners are admission evidence themselves; the `Sign` column on `BoundarySense` and the `World`/axis columns on `SignedAxis` are behavior rows, not receipts.
-- Packages: Thinktecture.Runtime.Extensions (`[ValueObject<T>]`, `[SmartEnum<int>]`, `[Union]`, `[UseDelegateFromConstructor]`), LanguageExt.Core (`Fin`, `Option`, `Seq`, `guard`), Rasm.Domain (project — `Op` key + fault factory, `Context` tolerance bundle, the `Admit` vocabulary + `AcceptValidated<TVO, TRaw>` bridge), RhinoCommon (`Vector3d`, `Plane` value structs only).
+- Packages: Thinktecture.Runtime.Extensions (`[ValueObject<T>]`, `[SmartEnum<int>]`, `[Union]`, `[UseDelegateFromConstructor]`), LanguageExt.Core (`Fin`, `Option`, `Seq`, `guard`), Rasm.Domain (project — `Op` key + fault factory, `Context` tolerance bundle, the `Admit` vocabulary + the one-type-argument `AcceptValidated<TVO>` bridge — raw width resolves by receiver overload), RhinoCommon (`Vector3d`, `Plane` value structs only).
 - Growth: a new scalar invariant is one `[ValueObject]` owner beside these three; a new axis family member, relation class, or pivot modality is one enum row or union case — never a sibling type; a new epsilon is one named `EpsilonPolicy` row, and a bare epsilon literal at a call site is the named defect.
 - Boundary: `RhinoMath.IsValidDouble`/`SqrtEpsilon`/`ZeroTolerance`/`TwoPI` are the deleted forms on this floor — `double.IsFinite`, `EpsilonPolicy.SqrtEpsilon`, `EpsilonPolicy.ZeroTolerance`, and `Math.Tau` replace them so the numeric floor is portable by inspection while the assembly stays RhinoCommon-aware; a raw `double` parameter that means dimension, magnitude, or unit parameter is the deleted form — the generated owner crosses the signature; angle measurement never reaches `Vector3d.VectorAngle` directly from a consumer — `AnglePivot.Compute` owns the three-overload dispatch.
 
@@ -98,7 +98,7 @@ public readonly partial struct VectorAngle {
         validationError = double.IsFinite(value) && value >= 0.0 && value <= Math.Tau ? null : new ValidationError(message: string.Create(CultureInfo.InvariantCulture, $"VectorAngle must be in [0, tau] radians (got {value:R})."));
     internal static Fin<VectorAngle> Of(Direction a, Direction b, AnglePivot pivot, Op key) =>
         from activePivot in pivot.Admit(key: key)
-        from angle in key.AcceptValidated<VectorAngle, double>(candidate: activePivot.Compute(a: a.Value, b: b.Value))
+        from angle in key.AcceptValidated<VectorAngle>(candidate: activePivot.Compute(a: a.Value, b: b.Value))
         select angle;
     internal static Fin<VectorAngle> Of(Vector3d a, Vector3d b, Context context, AnglePivot? pivot = null, Op? key = null) =>
         from left in Direction.Of(value: a, context: context, key: key.OrDefault())
@@ -155,8 +155,8 @@ public readonly record struct Direction {
     public Direction Reflect(Direction normal) =>
         new(value: Transform.Mirror(pointOnMirrorPlane: Point3d.Origin, normalToMirrorPlane: normal.Value) * Value);
     public static Fin<Direction> Refract(Direction incident, Direction normal, double etaIncident, double etaTransmitted, Op key) =>
-        from activeIncident in key.AcceptValidated<PositiveMagnitude, double>(candidate: etaIncident)
-        from activeTransmitted in key.AcceptValidated<PositiveMagnitude, double>(candidate: etaTransmitted)
+        from activeIncident in key.AcceptValidated<PositiveMagnitude>(candidate: etaIncident)
+        from activeTransmitted in key.AcceptValidated<PositiveMagnitude>(candidate: etaTransmitted)
         let exiting = incident.Value * normal.Value > 0.0
         let orientedNormal = exiting switch { true => -normal.Value, false => normal.Value }
         let eta = activeIncident.Value / activeTransmitted.Value
@@ -192,7 +192,7 @@ public readonly record struct VectorSpan {
         select span;
     internal static Fin<VectorSpan> Of(Point3d anchor, Direction direction, double magnitude, Op key) =>
         from point in key.AcceptValue(value: anchor)
-        from length in key.AcceptValidated<PositiveMagnitude, double>(candidate: magnitude)
+        from length in key.AcceptValidated<PositiveMagnitude>(candidate: magnitude)
         let span = new VectorSpan(anchor: point, direction: direction, magnitude: length)
         from _ in guard(span.Axis.IsValid, key.InvalidResult())
         select span;
@@ -252,7 +252,7 @@ public readonly record struct VectorCone {
     public static Fin<VectorCone> Of(Point3d apex, Vector3d axis, double halfAngleRadians, Context context, Op? key = null) =>
         from _ in Admit.Cone(apex: apex, axis: axis, halfAngle: halfAngleRadians, key: key.OrDefault())
         from direction in Direction.Of(value: axis, context: context, key: key.OrDefault())
-        from angle in key.OrDefault().AcceptValidated<VectorAngle, double>(candidate: halfAngleRadians)
+        from angle in key.OrDefault().AcceptValidated<VectorAngle>(candidate: halfAngleRadians)
         select new VectorCone(apex: apex, axis: direction, halfAngle: angle);
     public Fin<bool> Contains(Vector3d query, Context context, Op? key = null) {
         VectorCone cone = this;
@@ -281,7 +281,7 @@ public readonly record struct VectorCone {
     public Fin<Seq<Direction>> PartitionBy(int sectors, Context context, Op? key = null) {
         Op op = key.OrDefault();
         VectorCone cone = this;
-        return from sectorCount in op.AcceptValidated<Dimension, int>(candidate: sectors)
+        return from sectorCount in op.AcceptValidated<Dimension>(candidate: sectors)
                from rim in Direction.Of(value: VectorFrame.SeedPerpendicular(axis: cone.Axis.Value), context: context, key: op)
                let stepAngle = Math.Tau / sectorCount.Value
                let lateral = Math.Sin(a: cone.HalfAngle.Value)

@@ -35,7 +35,7 @@ This table selects the owner for a foreign signal; when a signal matches several
 - Boundary: the receipt carries the coordinate and the digest, never the octets; the digest function is fixed at composition and arrives as a parameter or service, never chosen per site.
 
 ```typescript
-import { Effect, Option, Schema } from "effect"
+import { Effect, Option, type ParseResult, Schema } from "effect"
 
 // --- [MODELS] ---------------------------------------------------------------------------
 
@@ -52,13 +52,21 @@ class Envelope extends Schema.Class<Envelope>("Envelope")({
 
 // --- [OPERATIONS] -----------------------------------------------------------------------
 
-const opened = Schema.decodeUnknown(Envelope, { errors: "all", onExcessProperty: "error" })
-const content = Schema.decodeUnknown(Schema.parseJson(Passport), { errors: "all" })
-const emitted = Schema.encode(Envelope)
+const _opened = Schema.decodeUnknown(Envelope, { errors: "all", onExcessProperty: "error" })
+const _content = Schema.decodeUnknown(Schema.parseJson(Passport), { errors: "all" })
 
-const admitted = Effect.fn("admitted")(function* (raw: unknown, digest: (octets: Uint8Array) => string) {
-  const envelope = yield* opened(raw)
-  const passport = yield* content(new TextDecoder().decode(envelope.band))
+const emitted: (envelope: Envelope) => Effect.Effect<typeof Envelope.Encoded, ParseResult.ParseError> =
+  Schema.encode(Envelope)
+
+const admitted: (
+  raw: unknown,
+  digest: (octets: Uint8Array) => string,
+) => Effect.Effect<
+  { readonly key: string; readonly coordinate: string; readonly label: string; readonly passport: Passport },
+  ParseResult.ParseError
+> = Effect.fn("admitted")(function* (raw: unknown, digest: (octets: Uint8Array) => string) {
+  const envelope = yield* _opened(raw)
+  const passport = yield* _content(new TextDecoder().decode(envelope.band))
   return {
     key: digest(envelope.band),
     coordinate: envelope.coordinate,
@@ -102,7 +110,7 @@ class Missing extends Schema.TaggedError<Missing>()("Missing", { key: Schema.Num
 
 // --- [CONTRACT] -------------------------------------------------------------------------
 
-const rows = HttpApiGroup.make("rows")
+const _rows = HttpApiGroup.make("rows")
   .add(
     HttpApiEndpoint.get("one", "/rows/:key")
       .setPath(Schema.Struct({ key: Schema.NumberFromString }))
@@ -111,11 +119,11 @@ const rows = HttpApiGroup.make("rows")
   )
   .add(HttpApiEndpoint.post("grow", "/rows").setPayload(Schema.Struct({ label: Schema.String })).addSuccess(Row))
 
-const Contract = HttpApi.make("contract").add(rows)
+const Contract = HttpApi.make("contract").add(_rows)
 
 // --- [COMPOSITION] ----------------------------------------------------------------------
 
-const RowsLive = HttpApiBuilder.group(Contract, "rows", (handlers) =>
+const _RowsLive = HttpApiBuilder.group(Contract, "rows", (handlers) =>
   handlers
     .handle("one", ({ path }) =>
       path.key > 0
@@ -123,7 +131,7 @@ const RowsLive = HttpApiBuilder.group(Contract, "rows", (handlers) =>
         : Effect.fail(new Missing({ key: path.key })))
     .handle("grow", ({ payload }) => Effect.succeed(new Row({ key: 1, label: payload.label }))))
 
-const ContractLive = HttpApiBuilder.api(Contract).pipe(Layer.provide(RowsLive))
+const ContractLive = HttpApiBuilder.api(Contract).pipe(Layer.provide(_RowsLive))
 
 // --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -136,7 +144,7 @@ const probed = Effect.fn("probed")(function* (key: number) {
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
-export { Contract, ContractLive, probed, specification }
+export { Contract, ContractLive, Missing, probed, Row, specification }
 ```
 
 ## [04]-[CODEC_ENGINE]
@@ -285,7 +293,7 @@ class Sweep extends Schema.TaggedRequest<Sweep>()("Sweep", {
   failure: MarshalFault,
 }) {}
 
-const Protocol = Schema.Union(Grade, Sweep)
+const Protocol: Schema.Union<[typeof Grade, typeof Sweep]> = Schema.Union(Grade, Sweep)
 
 // --- [SERVICES] -------------------------------------------------------------------------
 
@@ -313,5 +321,5 @@ const framed = (socket: Socket.Socket) =>
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
-export { Bench, BenchLive, framed, graded, Grade, RunnerLive, swept, Sweep }
+export { Bench, BenchLive, framed, graded, Grade, MarshalFault, Protocol, RunnerLive, swept, Sweep }
 ```

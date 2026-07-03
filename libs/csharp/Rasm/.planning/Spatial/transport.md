@@ -168,7 +168,8 @@ internal sealed record SinkhornPlan(
             ProjectionRow.Of<VectorCloud>(() => self.BarycentricImage(source: source, target: target, key: key)));
     }
     // BarycentricImage: row i maps to (Σ_j π[i,j]·t_j)/rowMass with rowMass as the transported weight — a
-    // positive-row-mass gate; re-admitted through VectorCloud.Cluster with mass so the image IS a measure.
+    // positive-row-mass gate; re-admitted through VectorCloud.Cluster with mass (context: target.Tolerance —
+    // the image lives in the target's tolerance regime) so the image IS a measure.
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]

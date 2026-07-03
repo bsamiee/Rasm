@@ -50,7 +50,15 @@ _DIAGNOSTIC_SEVERITY_RANK: dict[str, int] = {"error": 0, "warning": 1, "info": 2
 _PROCESS_BACKED_OK_CLAIMS: tuple[Claim, ...] = (Claim.STATIC, Claim.TEST, Claim.PACKAGE, Claim.BRIDGE, Claim.PROVISION)
 _ANSI_ESCAPE = re.compile(r"\x1b\[[0-9;]*m")
 _HEADER_DIAGNOSTIC = re.compile(r"^(?P<severity>error|warning|warn|info|note)(?:\[(?P<rule>[^\]]+)])?:\s*(?P<message>.+)$", re.IGNORECASE)
+# Ruff full-output grammar leads with the kebab rule name, not a severity token; violations are errors by exit-code contract.
+_RULE_HEADER = re.compile(r"^(?P<rule>[a-z][a-z0-9]*(?:-[a-z0-9]+)*):\s*(?P<message>.+)$")
 _ARROW_LOCATION = re.compile(r"^\s*-->\s*(?P<path>.+?):(?P<line>\d+):(?P<column>\d+)$")
+# Header grammars arming the two-line header->arrow fold: severity-first is universal; rule-name-first is scoped to the
+# ruff family with the policy severity, because a bare kebab token carries no severity of its own.
+_HEADER_POLICIES: tuple[tuple[frozenset[str], re.Pattern[str], str], ...] = (
+    (frozenset(), _HEADER_DIAGNOSTIC, ""),
+    (frozenset(("ruff", "ruff-format")), _RULE_HEADER, "error"),
+)
 _MYPY_DIAGNOSTIC = re.compile(
     r"^(?P<path>.+?):(?P<line>\d+)(?::(?P<column>\d+))?:\s*(?P<severity>error|warning|note):\s*"
     r"(?P<message>.*?)(?:\s+\[(?P<rule>[a-z0-9_.-]+)])?$",
@@ -64,7 +72,7 @@ _TSC_DIAGNOSTIC = re.compile(
 _BIOME_TEXT_DIAGNOSTIC = re.compile(
     r"^(?P<path>.+?):(?P<line>\d+):(?P<column>\d+)\s+(?P<rule>(?:lint|assist|parse|format)[/\w.-]*)\s*(?P<message>.*)$", re.IGNORECASE
 )
-_FORMAT_DIAGNOSTIC = re.compile(r"^(?:Would reformat:\s*(?P<path>.+)|(?P<path2>.+?)\s+would be reformatted)$", re.IGNORECASE)
+_FORMAT_DIAGNOSTIC = re.compile(r"^(?:Would reformat:\s*(?P<path>.+)|(?P<path2>\S+)\s+would be reformatted)$", re.IGNORECASE)
 _CS_DIAGNOSTIC = re.compile(
     r"^(?P<path>.*?\.(?:cs|csproj|props|targets|slnx))\((?P<line>\d+),(?P<column>\d+)\):\s*"
     r"(?P<severity>error|warning|info)\s+(?P<rule>[A-Z][A-Z0-9]*\d+):\s*(?P<message>.*?)(?:\s+\[(?P<project>[^\]]+)\])?$",
@@ -484,8 +492,18 @@ def _text_rows(tool: str, payload: str) -> tuple[Match, ...]:
         if row is not None:
             rows.append(row)
             continue
-        if (found := _HEADER_DIAGNOSTIC.match(line)) is not None:
-            pending = (_severity(found.group("severity")), found.group("rule") or tool, found.group("message").strip())
+        header = next(
+            (
+                (policy_severity or _severity(found.group("severity")), found.groupdict().get("rule") or tool, found.group("message").strip())
+                for tools, pattern, policy_severity in _HEADER_POLICIES
+                if not tools or tool in tools
+                for found in (pattern.match(line),)
+                if found is not None
+            ),
+            None,
+        )
+        if header is not None:
+            pending = header
             continue
         if pending is not None and (found := _ARROW_LOCATION.match(line)) is not None:
             severity, rule, message = pending

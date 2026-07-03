@@ -300,9 +300,10 @@ def _csharp_closure_phases() -> static_rail.PhaseChecks:
 
 @pytest.mark.parametrize("compiles", [True, False], ids=["compiling", "non-compiling"])
 def test_format_gate_follows_compile_probe(monkeypatch: pytest.MonkeyPatch, assay_root: AssayHarness, *, compiles: bool) -> None:
-    """A non-compiling probe drops both dotnet-format rows whole; a compiling probe leaves the full lane intact.
+    """A non-compiling probe gates both dotnet-format rows into disclosed SKIP receipts; a compiling probe leaves the full lane intact.
 
-    The closure restore and build run either way — compiles (probe) and blocked (restore->build) stay distinct.
+    The closure restore and build run either way — compiles (probe) and blocked (restore->build) stay distinct, and a
+    gated format family never vanishes silently from the receipt stream.
     """
     routed = Routed(Language.CSHARP, Scope.CHANGED, files=("src/App/a.cs",), projects=("src/App/App.csproj",))
     ran: list[str] = []
@@ -318,7 +319,10 @@ def test_format_gate_follows_compile_probe(monkeypatch: pytest.MonkeyPatch, assa
     )
     assert ran.count("dotnet-format") == (2 if compiles else 0)
     assert {"dotnet-restore", "dotnet-build"} <= set(ran)
-    assert all(assert_ok(row).status is RailStatus.OK for row in rows)
+    gated = tuple(done for row in rows for done in (assert_ok(row),) if done.status is RailStatus.SKIP)
+    assert len(gated) == (0 if compiles else 2)
+    assert all(done.notes == ("compile probe failed; format skipped",) for done in gated)
+    assert all(assert_ok(row).status in {RailStatus.OK, RailStatus.SKIP} for row in rows)
 
 
 # --- [SARIF_STATUS_LAWS]

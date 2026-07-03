@@ -51,14 +51,16 @@ public sealed partial class DworkSamplingDomain {
     public static readonly DworkSamplingDomain CandidateSet = new(key: 1);
 }
 
-// CandidateScale: mesh-candidate oversampling multiplier; DensityDriven: emits a density-error witness.
+// CandidateScale: candidate-pool oversampling multiplier (support draws and mesh lattices); DensityDriven:
+// emits a density-error witness. Selection kinds NEED a strict oversample — a pool equal to the request
+// degenerates farthest selection to the identity and fixes Lloyd at iteration zero.
 [SmartEnum<int>]
 public sealed partial class SampleAlgorithmKind {
     public static readonly SampleAlgorithmKind Explicit = new(key: 0, candidateScale: 0.0, densityDriven: false);
     public static readonly SampleAlgorithmKind BridsonActiveListPoisson = new(key: 1, candidateScale: 0.0, densityDriven: false);
-    public static readonly SampleAlgorithmKind FarthestCandidate = new(key: 2, candidateScale: 1.0, densityDriven: false);
-    public static readonly SampleAlgorithmKind FarthestOptimize = new(key: 3, candidateScale: 1.0, densityDriven: false);
-    public static readonly SampleAlgorithmKind LloydCandidateRelaxation = new(key: 4, candidateScale: 1.0, densityDriven: false);
+    public static readonly SampleAlgorithmKind FarthestCandidate = new(key: 2, candidateScale: 8.0, densityDriven: false);
+    public static readonly SampleAlgorithmKind FarthestOptimize = new(key: 3, candidateScale: 8.0, densityDriven: false);
+    public static readonly SampleAlgorithmKind LloydCandidateRelaxation = new(key: 4, candidateScale: 8.0, densityDriven: false);
     public static readonly SampleAlgorithmKind CapacityLimitedLloydCandidate = new(key: 5, candidateScale: 1.0, densityDriven: false);
     public static readonly SampleAlgorithmKind WeightedMassPropagation = new(key: 6, candidateScale: 0.0, densityDriven: false);
     public static readonly SampleAlgorithmKind VariableDensityPoisson = new(key: 7, candidateScale: 8.0, densityDriven: true);
@@ -350,12 +352,14 @@ public readonly record struct PowerCcvtReceipt(
         ValidityClaim.Of(Spectrum.Map(static receipt => receipt.IsValid).IfNone(noneValue: true)));
 }
 
+// Every non-Kind slot defaults so call sites name only the facts their algorithm states — the former
+// 30-parameter forwarding helper is the deleted thin-indirection form.
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct SampleAlgorithmReceipt(
-    SampleAlgorithmKind Kind, Option<int> Seed, Option<int> TargetCount, Option<int> OversampleCount, Option<int> OversampleFactor,
-    Option<double> Alpha, Option<double> Beta, Option<double> Gamma, Option<double> Radius, Option<double> WeightLimitRadius,
-    Option<int> Eliminated, Option<int> NeighborUpdates, bool MaximalCoverageGuaranteed, bool CapacityResidualValidated,
-    bool TransportAssignmentValidated, bool MeshSpectrumValidated,
+    SampleAlgorithmKind Kind, Option<int> Seed = default, Option<int> TargetCount = default, Option<int> OversampleCount = default, Option<int> OversampleFactor = default,
+    Option<double> Alpha = default, Option<double> Beta = default, Option<double> Gamma = default, Option<double> Radius = default, Option<double> WeightLimitRadius = default,
+    Option<int> Eliminated = default, Option<int> NeighborUpdates = default, bool MaximalCoverageGuaranteed = false, bool CapacityResidualValidated = false,
+    bool TransportAssignmentValidated = false, bool MeshSpectrumValidated = false,
     Option<int> Attempts = default, Option<int> ActivePops = default, Option<int> RejectedTooClose = default, Option<int> RejectedDomain = default,
     Option<double> DensityMin = default, Option<double> DensityMax = default, Option<double> LocalRadiusMin = default, Option<double> LocalRadiusMax = default,
     Option<double> CapacityResidual = default, Option<MeshSamplingSpectrumReceipt> Spectrum = default, Option<DworkReceipt> Dwork = default,

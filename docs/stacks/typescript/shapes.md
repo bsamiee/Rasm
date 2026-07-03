@@ -142,7 +142,7 @@ class Closed extends Schema.TaggedClass<Closed>()("Closed", {
   }
 }
 
-const Journal = Schema.Union(Opened, Closed)
+const Journal: Schema.Union<[typeof Opened, typeof Closed]> = Schema.Union(Opened, Closed)
 type Journal = typeof Journal.Type
 
 class ShapeFault extends Schema.TaggedError<ShapeFault>()("ShapeFault", {
@@ -239,7 +239,7 @@ class Grade extends Schema.Class<Grade>("Grade")({
 
 type GradeWire = typeof Grade.Encoded
 
-const GradeFromPacked = Schema.transformOrFail(Schema.NonEmptyString, Grade, {
+const GradeFromPacked: Schema.transformOrFail<typeof Schema.NonEmptyString, typeof Grade> = Schema.transformOrFail(Schema.NonEmptyString, Grade, {
   strict: true,
   decode: (packed, _, ast) => {
     const at = packed.lastIndexOf("@")
@@ -253,7 +253,7 @@ const GradeFromPacked = Schema.transformOrFail(Schema.NonEmptyString, Grade, {
   encode: (wire) => ParseResult.succeed(`${wire.grade_key}@${wire.grade_score}`),
 })
 
-const GradeFromJson = Schema.parseJson(Grade)
+const GradeFromJson: Schema.SchemaClass<Grade, string> = Schema.parseJson(Grade)
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 

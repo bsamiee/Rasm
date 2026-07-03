@@ -78,7 +78,7 @@ Each contract fixes the placement rule its chooser rows cannot state. Snippets c
 - Law: the tuple spread holds `Schema.Literal`'s non-empty overload and preserves the exact literal tuple; spreading derived keys lands in the widened `ReadonlyArray` overload and demotes the schema to `SchemaClass<Kind>` — non-emptiness and order are tuple facts stated once at the anchor, never assertion repairs at the seam.
 - Boundary: the stated-annotation export gate is `language.md`'s; the Schema owner that admits the wire value, and the class families vocabularies embed into, are `shapes.md`'s; dispatch composed over row lookups is `surfaces-and-dispatch.md`'s.
 
-```ts conceptual
+```typescript
 import { Schema } from "effect"
 
 const tiers = ["narrow", "level", "broad"] as const          // key anchor: order, iteration, and non-emptiness are tuple facts stated once
@@ -119,7 +119,7 @@ export { ceiling, Tier, tiers, TierWire }                    // the tuple a publ
 - Law: generation is type-plane — a key the runtime must compute crosses at a value, because runtime case conversion widens to `string` and cannot index a generated record; a family the runtime addresses by key anchors as table rows instead.
 - Boundary: domain shape variants, partial views, and wire projections derive on the Schema owner in `shapes.md`; these forms own type-seam families only.
 
-```ts conceptual
+```typescript
 import type { Effect } from "effect"
 
 type Verb = "emit" | "drain"                                 // type anchor: only the type plane reads it, so a value tuple here would be a dead runtime table
@@ -166,7 +166,7 @@ export type { Verb }
 - Law: pre-solving is not renaming — the instantiation expression changes the type surface by monomorphizing the generic to the domain shape, and the binding carries the domain role's semantic name; a binding that changes neither type nor name is the deleted hop.
 - Boundary: data-first/data-last pairing on a pre-solved operator is `surfaces-and-dispatch.md`'s.
 
-```ts conceptual
+```typescript
 import { Array } from "effect"
 
 type Lane = "bulk" | "live"
@@ -200,7 +200,7 @@ export type { Lane, Step }
 - Law: recursion is budgeted — the accumulator carries every partial so each step's result is final and tail-recursion elimination applies; type-level parsing or arithmetic over domain data re-derives what the value level owns, and the repair is one value computation whose result the type level derives from the anchor.
 - Boundary: exhaustive dispatch over an extracted union is `surfaces-and-dispatch.md`'s.
 
-```ts conceptual
+```typescript
 import type { Effect } from "effect"
 
 type Realm = "doc" | "layer"                                 // type anchor: no runtime row exists, so the union itself anchors the correspondence
@@ -243,7 +243,7 @@ export type { Channel, Facet, Feed, Parse, Probe, Realm, Split, Trail, Verb }
 - Law: the fence is plural instantiation — the lambda earns existence when combinator call sites apply distinct instances; when every call site names one container, the combinator collapses into that container's module and the lambda dies.
 - Boundary: which container a domain value rides, and the instance merge algebra over `struct` and `tuple` composition, are `values.md`'s.
 
-```ts conceptual
+```typescript
 import * as covariant from "@effect/typeclass/Covariant"
 import * as ArrayInstances from "@effect/typeclass/data/Array"
 import * as OptionInstances from "@effect/typeclass/data/Option"
@@ -286,7 +286,7 @@ export type { Ranked, RankedTypeLambda }
 - Law: the subtraction law — each transition subtracts its key from the open set and intersects it into the filled record, so the protocol is order-free, refills are compile errors, and completion is exactly the spent key set.
 - Boundary: a builder whose product is a domain shape terminates at the Schema owner in `shapes.md`; runtime acquire/release ordering is `rails-and-effects.md` material.
 
-```ts conceptual
+```typescript
 import { Record } from "effect"
 
 type Slots = { readonly route: string; readonly limit: number; readonly lane: "bulk" | "live" }
@@ -303,15 +303,15 @@ const draft = <Filled extends Partial<Slots>>(state: Filled): Draft<Filled> => (
 
 const seal = (complete: Draft<Slots>): Slots => complete.state // completion is demanded by the parameter type, never by a conditional return needing a cast
 
-const staged = draft({}).slot("route", "<value-a>").slot("limit", 8)
+const _staged = draft({}).slot("route", "<value-a>").slot("limit", 8)
 
 // @ts-expect-error the protocol forbids refilling a slot
-const twice = staged.slot("route", "<value-b>")
+const _twice = _staged.slot("route", "<value-b>")
 
 // @ts-expect-error seal demands every slot; "lane" is missing
-const early = seal(staged)
+const _early = seal(_staged)
 
-const sealed: Slots = seal(staged.slot("lane", "live"))      // the order-free protocol closes only when the key set is spent
+const _sealed: Slots = seal(_staged.slot("lane", "live"))    // the order-free protocol closes only when the key set is spent
 
 // --- [EXPORTS] ---------------------------------------------------------------------
 

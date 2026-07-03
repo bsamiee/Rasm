@@ -41,6 +41,9 @@ _BOUNDARY_EXEMPTION = re.compile(
     r"rationale=(?P<rationale>\S.+)"
 )
 _BOUNDARY_REASONS = frozenset({"protocol-required", "cleanup-finally", "cancellation-guard", "adapter-normalization"})
+# PEP 810 soft keyword: blanked byte-for-byte before parse so offsets survive; lazy imports fold as plain import facts
+# until the vendored grammar learns the form.
+_LAZY_IMPORT = re.compile(r"(?m)^([ \t]*)lazy( +)(?=(?:import|from)\b)")
 _FALLIBLE_PREFIXES = ("try_", "parse_", "load_", "fetch_", "read_", "decode_", "validate_", "ensure_", "resolve_", "find_")
 _MODEL_DECORATORS = frozenset({"dataclass", "pydantic.dataclasses.dataclass"})
 _PYDANTIC_MODEL_BASES = frozenset({
@@ -342,7 +345,7 @@ def _parser() -> Parser:
 def _analyze_file(root: Path, path: Path) -> ModuleFacts:
     resolved = path.resolve()
     try:
-        source = resolved.read_text(encoding="utf-8")
+        source = _LAZY_IMPORT.sub(lambda found: f"{found.group(1)}    {found.group(2)}", resolved.read_text(encoding="utf-8"))
         src = source.encode("utf-8")
     except OSError as error:
         return ModuleFacts((diagnostic(RuleId.parse, resolved, 1, 1, str(error)),), (), (), ())

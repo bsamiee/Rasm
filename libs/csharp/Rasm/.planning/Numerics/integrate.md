@@ -393,13 +393,16 @@ public abstract partial record IntegrationStep<TState, TDelta> {
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct DenseOutputSpan<TState, TDelta>(TState Start, TState End, double Step, Seq<TDelta> Stages, ButcherTableau Tableau, DenseOutputReceipt Receipt, IntegrationModule<TState, TDelta> Module) {
     // The receipt arrives already derived (integrator admission); construction proves only the per-step
-    // facts: theta = 1 must reproduce the declared weight combination within the norm band.
+    // facts: theta = 1 reproduces the declared weight combination within a SCALE-RELATIVE band on the
+    // MAX STAGE norm — drift is a coefficient-error combination of stages, so the stage magnitude is its
+    // true scale; an absolute gate fails large fields, a combined-norm gate fails near-cancelling ones.
     internal static Fin<DenseOutputSpan<TState, TDelta>> Of(IntegrationModule<TState, TDelta> module, TState start, TState end, double step, Seq<TDelta> stages, ButcherTableau tableau, DenseOutputReceipt receipt, Op key) =>
         tableau.DenseWeightsAt(theta: 1.0, key: key).Bind(weights => {
             TDelta reconstructed = module.Combine(coefficients: weights, deltas: stages);
             TDelta declared = module.Combine(coefficients: tableau.Weights, deltas: stages);
             double drift = module.Norm(arg: module.Sum(arg1: reconstructed, arg2: module.Scale(arg1: -1.0, arg2: declared)));
-            return double.IsFinite(drift) && drift * Math.Abs(value: step) <= EpsilonPolicy.SqrtEpsilon
+            double stageScale = stages.Fold(initialState: 0.0, f: (max, delta) => Math.Max(val1: max, val2: module.Norm(arg: delta)));
+            return double.IsFinite(drift) && drift <= EpsilonPolicy.SqrtEpsilon * Math.Max(val1: 1.0, val2: stageScale)
                 && stages.Count == tableau.StageCount && Math.Abs(value: step) > EpsilonPolicy.ZeroTolerance && receipt.IsValid
                 ? Fin.Succ(new DenseOutputSpan<TState, TDelta>(Start: start, End: end, Step: step, Stages: stages, Tableau: tableau, Receipt: receipt, Module: module))
                 : Fin.Fail<DenseOutputSpan<TState, TDelta>>(key.InvalidResult());
@@ -441,7 +444,7 @@ public abstract partial record FieldIntegrator {
                from tableau in active.Tableau.Admit(key: op)
                from adaptiveKind in guard(active.IsAdaptive, op.Unsupported(geometryType: active.GetType(), outputType: typeof(AdaptiveCase)))
                from rejects in guard(maxRejects >= 0, op.InvalidInput())
-               from validated in op.AcceptValidated<PositiveMagnitude, double>(candidate: tolerance)
+               from validated in op.AcceptValidated<PositiveMagnitude>(candidate: tolerance)
                from dense in tableau.DenseOutputReceipt(key: op)
                select (FieldIntegrator)new AdaptiveCase(kind: active, tolerance: validated, maxRejects: maxRejects, control: control ?? StepControl.Default, dense: dense);
     }

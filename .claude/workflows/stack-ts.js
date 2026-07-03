@@ -129,7 +129,16 @@ const TS_LANG = [
   'EXPORT LAW: a module NEVER exports inline at a declaration site — declarations are authored unexported and the file ends with ONE ' +
     '`// --- [EXPORTS]` block (`export { A, B }` + `export type { T, U }`) carrying the complete public surface; the one-name value/type merge ' +
     'and minimal-surface laws still hold — the exports block declares the surface, never widens it. An in-body `export const`/`export type`/' +
-    '`export declare namespace` is the named defect.',
+    '`export declare namespace` is the named defect. EXPORT-SURFACE COLLAPSE: the exports block is itself a collapse target — sibling exports ' +
+    'serving one concept merge into ONE polymorphic export: modality (single/batch/stream) discriminates INSIDE on input shape, variants ride ' +
+    'overloads/`Function.dual`, and companion types/helpers ride the SAME name via declaration merging (namespace merge: `Owner.Config`, ' +
+    '`Owner.Outcome`) or the class owner — a consumer imports one canonical name and reaches everything. The bar is 1-2 exports per module, one ' +
+    'per genuinely disjoint concept; a fold/type derivable from an exported owner is attached to it, never exported beside it; export names are ' +
+    'the bounded context`s canonical semantic word, never suffix families. THE MECHANISM (done properly, never naively): interior anchors stay ' +
+    'unexported (the key tuple, the row table); the ONE exported owner ASSEMBLES them — rows spread in, companion values as properties (the ' +
+    'wire schema, the key tuple), operations as members with their inference intact — while a `declare namespace` type hub on the same name ' +
+    'carries every derived type; derived discriminants keep anchoring on the INTERIOR row table (`keyof typeof rows`), never on the assembled ' +
+    'owner where member keys would pollute the key space — the naive merge that breaks `keyof` derivation is the named trap.',
   'NOMINAL invariants ride Schema-refined brands INSIDE rich owners, so an interior function cannot be handed a raw primitive — never a ' +
     'free-floating one-field brand alias. No `const`+`type`+`typeof` triple for one concept (ONE canonical owner, derive the rest). Keep every ' +
     'choice CONSISTENT across the whole corpus so it reads as ONE unified, ultra-advanced shape system, never a patchwork.',
@@ -144,6 +153,41 @@ const TS_CITATION = [
     'DEFECT to close. Cite ONLY members that exist — verify novel members against the installed packages via `uv run python -m tools.assay api` ' +
     'over node_modules; a member you cannot verify is a PHANTOM to delete. Use the DEEPEST primitive each package reaches (LIBRARY_DEPTH); flat ' +
     'code below that operator depth is surface sprawl.',
+  'ECOSYSTEM-DEPTH MANDATE: `effect` and `@effect/experimental` carry far more than any doctrine currently uses — the installed .d.ts module ' +
+    'roster (node_modules/effect/dist/dts/, node_modules/@effect/experimental/dist/dts/) is the coverage checklist: a module or combinator ' +
+    'family with doctrine-grade decision weight that no page exploits is a COVERAGE gap you close on the owning page; the same law holds for ' +
+    'every admitted satellite (@effect/platform*, rpc, cli, sql, opentelemetry, printer, ai). Surface-level use of a deep package is the same ' +
+    'defect as omission.',
+  'COVERAGE FLOORS (research-verified against the installed packages; each names capability the corpus must own a law for — verify the law ' +
+    'exists on the owning page or close the gap; a floor is a floor, never the set): effect core — `ExecutionPlan` tiered failover as one ' +
+    'value; the `Effect.cached`/`cachedWithTTL`/`cachedInvalidateWithTTL`/`cachedFunction`/`once` keyless memo family; ' +
+    '`Effect.iterate`/`loop` + `when`/`unless` + `matchEffect`/`matchCauseEffect` closing statement kernels; `Schema.suspend` recursive ' +
+    'owners, `Schema.Exit`/`Cause`/`Defect` outcome transport, `Schema.Config`, `attachPropertySignature`, `declare`/`instanceOf` foreign ' +
+    'admission, the annotations discipline; `Stream.paginateEffect` pagination, `repeatEffectWithSchedule` polling, `changes`/`sliding`/' +
+    '`zipWithPrevious`; `Schedule.resetAfter` reconnect correctness, `andThen` phase change, `CurrentIterationMetadata`, calendar gates; ' +
+    '`Graph` (dijkstra/astar/topo/SCC/toMermaid) + `Trie` prefix owners; the resource-cell quartet `RcRef`/`ScopedRef`/`Resource`/' +
+    '`ScopedCache` completing the contention axis; `RequestResolver.contextFromServices`/`batchN`/`aroundRequests`/`fromEffectTagged`; the ' +
+    'lazy `Iterable` middle tier + `Array` long-tail sieves (`partitionMap`/`getSomes`/`window`/`mapAccum`); `Layer.scopedDiscard` ' +
+    'registration law + `Layer.annotateLogs`/`span`; `Config.unwrap` nested records + `Config.branded`; the integration primitives ' +
+    '`Effectable.Class`/`Streamable.Class`/`Unify.unify`/`GlobalValue.globalValue`/`Pipeable`/`Inspectable`/`PrimaryKey`; ' +
+    '`Match.instanceOf` FFI triage + `Cause.squash`/`prettyErrors` forensics; `PartitionedSemaphore` fairness, `PubSub` replay, `HashRing` ' +
+    'placement; the `Micro` BAN (one carrier, one runtime) and the `Effect.Do`/`bind` REJECT (gen is the sole do-notation). experimental — ' +
+    '`Machine` as the runtime FSM owner (tagged request procedures, `forkOne` supervision, `snapshot`/`restore`, retry-as-Schedule; the ' +
+    'award-grade state-machine exemplar); `ChannelSchema` as the GENERAL wire codec (MsgPack/Ndjson demote to rows); ' +
+    '`RequestResolver.dataLoader`/`persisted`; `PersistedCache`+`Persistence` as the durable contention axis; `Reactivity` keyed ' +
+    'invalidation; the store-backed `RateLimiter` vs in-process row. platform — `HttpIncomingMessage` as the one ingress-decode owner; ' +
+    '`HttpTraceContext` propagation codecs; `Effectify.effectify`; `Transferable.Collector`; `KeyValueStore.layerSchema`. rpc — the protocol ' +
+    'x serialization vocabulary matrix. opentelemetry — the `Otlp.layer` export seam sentence. TS7 type plane — reverse-mapped inference ' +
+    'owners (per-row contextual typing, zero call-site ceremony; relation depth 2 keeps rows shallow); the `unique symbol` TypeId + ' +
+    'variance-struct phantom brand regime (disjoint from Schema.brand by plane); overload ordering strictly narrow->wide with the ' +
+    'dead-signature ban (first-match resolution silently mis-dispatches — verified); the numeric type-plane budgets (~800 tail / ~40 non-tail ' +
+    'iterations, 10^4 template axes; TS2589/TS2590 are architecture pressure — move to the value level, never suppress); the registry merge ' +
+    'seam (the ONE sanctioned open interface: contributors inject rows via `declare module` at the declaring module); `satisfies never` ' +
+    'kernel residue proof; ASCII-bounded type-level string decomposition (Corsa/Strada code-point divergence); variadic-tuple owner ' +
+    'combinators; `import defer` as boot-edge-only vocabulary; class-interface merging gated to the implanting seam. ADMISSION FACTS: ' +
+    '`ExecutionPlan`/`PartitionedSemaphore`/`HashRing`/`Graph` carry @experimental tags — laws state it. ANTI-FABRICATION (confirmed absent ' +
+    'in the installed releases — never cite): `RequestResolver.grouped`, `RequestResolver.setDelay`, `Record.upsert`, `Schedule.both`, ' +
+    '`Layer.parent`, `DateTime.zonedNow`, `Runtime.enableRuntimeMetrics`.',
 ].join('\n')
 const PAGECRAFT = [
   'PAGE-CRAFT LAW (README [05]-[PAGE_CRAFT]): page grammar is a NARROW index table, then deep FAMILY CARDS, then the region snippet beside the ' +
@@ -171,9 +215,12 @@ const OPINIONATED = [
   'HEAVILY-OPINIONATED PROJECT DOCTRINE, NOT a language survey. ZERO table-stakes is tolerated, ever: a card or snippet teaching something a ' +
     'competent TypeScript developer already knows — rather than an opinionated, dense, project-specific CHOICE — is a DEFECT to delete or densify. ' +
     'No net-casting to "cover the language"; cover only the opinionated decisions the projects need, each at 13/10.',
-  'LOC budget ~450 is a SOFT pressure signal toward DENSIFICATION, NOT a hard gate. The real metric is per-card and per-snippet density: every ' +
-    'card and every snippet world-class, zero filler. NEVER strip snippet whitespace, remove design content, or fragment a coherent concept to hit ' +
-    'a number; a split is justified ONLY by concept disjointness, never by line count.',
+  'LOC affordance: 350-400 per page, 450 only where truly earned. Density comes from card COMPLEXITY, never card/snippet spam — a new card only ' +
+    'where a real decision cluster justifies it, placed per page craft. NEVER strip snippet whitespace, remove design content, or fragment a ' +
+    'coherent concept to hit a number; a split is justified ONLY by concept disjointness, never by line count.',
+  'EXEMPLAR FENCES: where a page`s layer admits it, at least one fence reads as an award-grade implementation — the meat-and-bones code a ' +
+    'world-class engineer would study (a Machine-backed state machine, a fused fold pipeline, a request-batched resolver, a derivation tower) — ' +
+    'never a toy slice; the algorithmic-bodies page owns the deepest of these and later pages compose it.',
 ].join('\n')
 const STYLE_PROSE = [
   'PROSE QUALITY — apply docs/standards/style-guide.md: lead each section with the controlling rule/contract; one idea per paragraph; close on the ' +
@@ -225,8 +272,9 @@ const critiquePrompt = (page, arch) => [DOCTRINE, '',
     'combinator/Layer — a FLOOR: hunt collapse targets beyond it. (2) ONE-CANONICAL-FORM + SCHEMA AUTHORITY -> replace any non-canonical owner; ' +
     'ELIMINATE every const+type+typeof triple (derive via `Schema.Schema.Type`/`typeof`), every hand-declared wire twin (derive via ' +
     '`Schema.transform`), loose interface/type-alias proliferation, tag-only wrappers, free-floating brands, and any hand-written union a value ' +
-    'table could derive. (3) KNOB_TEST -> collapse boolean/mode/strict knobs to policy values or input-shape; move `timeout`/`retry`/`deadline` ' +
-    'to an Effect aspect/`Schedule`.',
+    'table could derive — sweep the WHOLE page for every loose const/type and collapse each into its owning rich declaration, including the ' +
+    'exports block per EXPORT-SURFACE COLLAPSE. (3) KNOB_TEST -> collapse boolean/mode/strict knobs to policy values or input-shape; move ' +
+    '`timeout`/`retry`/`deadline` to an Effect aspect/`Schedule`.',
   '(4) EFFECT RAIL + SCHEMA BOUNDARY -> domain logic is `Effect`-shaped; ZERO `throw`/raw `Promise` in domain flow; failures are a closed ' +
     'tagged-error family in the error channel; recovery via `catchTag(s)`, retry via `Schedule`, resources via `acquireRelease`/`Scope`; ' +
     'boundaries decode-not-validate with the `effect` Schema module; cross-cutting concerns are combinators/Layers, never inline. (5) TYPES -> ' +

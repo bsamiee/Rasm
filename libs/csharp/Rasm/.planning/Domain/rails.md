@@ -18,7 +18,7 @@ The namespace is a frozen contract axis: the union-ops generator emits `global::
 - Owner: `Op` `[ValueObject<string>]` readonly struct — ordinal equality, ordinal-ignore-case ordering — the identity of one kernel operation. Every fault minted through the key's factory carries the `Op` that raised it; every acceptance gate is keyed by the `Op` that demanded it. The ambient cases carry their own evidence instead — a check-row key, a rejected scalar with its requirement, a unit system — because no single operation identity exists where they arise.
 - Entry: `Op.Of([CallerMemberName] string name = "")` mints the key from the calling member with zero ceremony; a `[GenerateUnionOps]` union case carries its generated `SelfOp` instead of re-minting per call. Public polymorphic surfaces accept `Op? key = null` and resolve through `OrDefault()` (the extension is `validation.md`'s); internal kernels demand a required `Op key` tail parameter.
 - Cases: fault factories `MissingContext()`/`InvalidInput()`/`InvalidResult(detail?)`/`Unsupported(geometryType, outputType)`/`Caution(concern)` → `Error`; acceptance bridges `AcceptInput`/`AcceptValue`/`AcceptText`/`Confirm`/`Need`(class + `Option<T>`) → `Fin<T>` delegating to `OpAcceptance` (`validation.md`'s oracle); scalar guards `Finite`/`Positive` → `Fin<double>` lifting the `[06]` claim rows; boundary-exception rail `Catch<T>(Func<Fin<T>>)` + side-effect brackets `Side(Action)`/`SideWhen(bool, Action)`.
-- Law: `Catch` is the one inbound exception funnel — `Try.lift` captures the throwing body, a captured `OperationCanceledException` surfaces as `Fault.Cancelled` (`Error.Is<E>` discriminates, so a host call cancelled mid-body keeps its category instead of masquerading as a result failure), every other capture survives as the `InvalidResult` detail, and the self-flattening `Match` collapses the outer `Try` rail into the body's inner `Fin`. A bare `try`/`catch` in domain flow is the deleted form.
+- Law: `Catch` is the one inbound exception funnel — `Try.lift` captures the throwing body, a captured `OperationCanceledException` surfaces as `Fault.Cancelled` (`Error.HasException<E>` discriminates, recursing `ManyErrors`, so a host call cancelled mid-body keeps its category — derived cancellations included — instead of masquerading as a result failure), every other capture survives as the `InvalidResult` detail, and the self-flattening `Match` collapses the outer `Try` rail into the body's inner `Fin`. A bare `try`/`catch` in domain flow is the deleted form.
 - Law: `Finite`/`Positive` lift the `[06]` claim rows (`ValidityClaim.Finite`/`Positive`) into key-bound admission — the host predicate is stated once, on the claim row, never re-spelled here; collection- and shape-level admission is `validation.md`'s `Admit` vocabulary, never re-spelled per kernel.
 - Boundary: `Op` is a key, never a message channel — diagnostic text lives on the `Fault` case payloads; the key renders inside the case `Message` and nowhere else.
 
@@ -28,7 +28,7 @@ using Foundation.CSharp.Analyzers.Contracts;
 
 namespace Rasm.Domain;
 
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] --------------------------------------------------------------------------------
 [ValueObject<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
@@ -53,7 +53,7 @@ public readonly partial struct Op {
         return Optional(body).ToFin(Fail: self.InvalidInput()).Bind(valid =>
             Try.lift<Fin<T>>(f: valid).Run().Match(
                 Succ: static result => result,
-                Fail: error => Fin.Fail<T>(error: error.Is<OperationCanceledException>() ? new Fault.Cancelled() : self.InvalidResult(detail: error.Message))));
+                Fail: error => Fin.Fail<T>(error: error.HasException<OperationCanceledException>() ? new Fault.Cancelled() : self.InvalidResult(detail: error.Message))));
     }
     [BoundaryAdapter]
     public static Unit Side(Action action) {
@@ -69,14 +69,14 @@ public readonly partial struct Op {
 
 - Owner: `GenerateUnionOpsAttribute` + `SkipUnionOpsAttribute` — the local analyzer/generator vocabulary. The union-ops generator resolves the marker by metadata name `Rasm.Domain.GenerateUnionOpsAttribute`; both spellings are frozen contract.
 - Auto: for every sealed record case of a `[GenerateUnionOps]` union, the generator emits `internal static readonly global::Rasm.Domain.Op SelfOp = global::Rasm.Domain.Op.Of(name: nameof(<Case>));` into a partial case declaration — each case carries its own operation key, minted once, named after the case.
-- Law: union-ops coverage is total by declaration — a `[Union]` whose cases are operations declares `[GenerateUnionOps]`; a `[Union]` whose cases are carriers, resources, or requests declares `[SkipUnionOps]`. The opt-out is a statement, never an omission.
+- Law: union-ops coverage is total by declaration — a `[Union]` whose cases are operations declares `[GenerateUnionOps]`; a `[Union]` whose cases are carriers, resources, or requests declares `[SkipUnionOps]` (`Fault` and `Lease<T>` on this page — failure and resource cases are carriers, never operations). The opt-out is a statement, never an omission.
 - Boundary: the attributes are designed vocabulary, not runtime behavior — they carry no members, apply to classes and structs, and never inherit; a marked union with no sealed record cases is inert (the generator emits nothing). The generator and its analyzer rules live with the repository analyzer; this page owns only the contract names and the emitted `SelfOp` shape.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 namespace Rasm.Domain;
 
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] --------------------------------------------------------------------------------
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct, Inherited = false)]
 public sealed class GenerateUnionOpsAttribute : Attribute;
 
@@ -86,7 +86,7 @@ public sealed class SkipUnionOpsAttribute : Attribute;
 
 ## [04]-[FAULT_BAND]
 
-- Owner: `Expected` — the abstract `Error` bridge pinning `IsExpected`/`IsExceptional` and lowering into the LanguageExt exception protocol through `WrappedErrorExpectedException` — plus `Fault`, the closed `[GenerateUnionOps]` `[Union]` of every kernel-substrate failure, and `FaultExtensions`, the `extension(Error)` block projecting `Category` off any `Error`.
+- Owner: `Expected` — the abstract `Error` bridge pinning `IsExpected`/`IsExceptional` and lowering into the LanguageExt exception protocol through `WrappedErrorExpectedException` — plus `Fault`, the closed `[SkipUnionOps]` `[Union]` of every kernel-substrate failure (cases are failure carriers keyed by the raising `Op` payload — a per-case `SelfOp` would be twelve dead fields), and `FaultExtensions`, the `extension(Error)` block projecting `Category` off any `Error`.
 - Cases: `MissingOperation` (Operation) · `MissingContext(Op)` (Operation) · `InvalidInput(Op)` (Input) · `InvalidResult(Op, Option<string>)` (Result) · `Cancelled` (Cancelled) · `Unsupported(Op, Type, Type)` (Unsupported, code 9104) · `ComputationFailed(string)` (Computation) · `MissingGeometry` (Geometry) · `InvalidGeometry(Type, string, string)` (Geometry) · `OutOfRange(string, double, string, Option<Op>)` (Tolerance) · `InvalidUnitSystem(UnitSystem, string)` (Context) · `Caution(Op, string)` (Caution) — twelve cases, each carrying its typed payload and rendering its own `Message`.
 - Law: `Unsupported` is the only coded case — `UnsupportedCode` 9104 is the discriminant the Grasshopper drain reads to distinguish an unsupported projection from a hard failure; every other case discriminates by `Category` string and case type, and recovery predicates match on the case, never on rendered text.
 - Law: payloads are evidence, never live resources — `InvalidGeometry` carries the failing `Type`, not the geometry reference: coercion leases dispose before a fault surfaces, so a live payload would hand consumers a disposed native object and retain host memory inside accumulating `Validation` rails. `OutOfRange` carries an optional `Op` — `None` from keyless factory admission (`context.md`'s triad), re-keyed to the demanding operation by the `AcceptValidated` bridge (`validation.md`).
@@ -100,7 +100,7 @@ using Foundation.CSharp.Analyzers.Contracts;
 
 namespace Rasm.Domain;
 
-// --- [ERRORS] ---------------------------------------------------------------------------
+// --- [ERRORS] -------------------------------------------------------------------------------
 [BoundaryAdapter]
 public abstract record Expected : Error {
     protected Expected() { }
@@ -110,7 +110,7 @@ public abstract record Expected : Error {
     public virtual string Category => "Fault";
 }
 
-[GenerateUnionOps]
+[SkipUnionOps]
 [Union]
 public abstract partial record Fault : Expected {
     private Fault() : base() { }
@@ -166,7 +166,7 @@ public static class FaultExtensions {
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 namespace Rasm.Domain;
 
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] --------------------------------------------------------------------------------
 [SkipUnionOps]
 [Union]
 public abstract partial record Lease<T> where T : class, IDisposable {
@@ -200,10 +200,10 @@ using Foundation.CSharp.Analyzers.Contracts;
 
 namespace Rasm.Domain;
 
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] --------------------------------------------------------------------------------
 public interface IValidityEvidence { public bool IsValid { get; } }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] -------------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct ValidityClaim(bool Holds) {
     public static ValidityClaim Of(bool holds) => new(Holds: holds);
@@ -246,6 +246,6 @@ One substrate floor; growth is a case, a claim row, or a generated `SelfOp` — 
 | :-----: | :------------------ | :----------------------------------- | :-------------------------------------------------------------- | :-------------------------------------------- | :-----: |
 |  [01]   | Operation identity  | `Op`                                 | `[ValueObject<string>]` + fault/acceptance factory              | `Op → Error` / `Op → Fin<T>`                  |   17    |
 |  [02]   | Codegen contract    | `GenerateUnionOps`/`SkipUnionOps`    | marker attributes + generated per-case `SelfOp`                 | `[Union] case → Op`                           |    2    |
-|  [03]   | Substrate faults    | `Expected` + `Fault`                 | `[GenerateUnionOps]` `[Union]`, typed payloads, code 9104       | `Fault → Error` (direct subtype)              |   12    |
+|  [03]   | Substrate faults    | `Expected` + `Fault`                 | `[SkipUnionOps]` `[Union]`, typed payloads, code 9104           | `Fault → Error` (direct subtype)              |   12    |
 |  [04]   | Resource ownership  | `Lease<T>`                           | `[SkipUnionOps]` `[Union]` Owned/Borrowed                       | `Lease<T>.Use → TResult`, disposal folded     |    2    |
 |  [05]   | Receipt validity    | `IValidityEvidence` + `ValidityClaim` | evidence floor + claim fold, implicit `bool`                    | `ValidityClaim.All → bool` → the one oracle   |   13    |
