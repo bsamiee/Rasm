@@ -96,7 +96,7 @@ Host-neutral managed geometry owners the kernel composes additively beside its f
 
 [COMPUTATIONAL_GEOMETRY]:
 
-The one computational-geometry leaf library the kernel composes; pure-managed AnyCPU on osx-arm64. The float-domain polygon boolean/offset/Voronoi/fill packages (`Clipper2`, `CavalierContours`, `SharpVoronoiLib`, `LibTessDotNet`) are NOT admitted here — the corpus owns those concerns exactly: `Meshing/arrangement` `PlanarOverlay` is the exact 2D polygon boolean and messy-winding fill (GWN cell classification over the CDT), `Meshing/offset` is the exact wavefront offset/skeleton, `Meshing/delaunay` owns the constrained Voronoi dual, and `Meshing/mesh` owns the restricted power diagram; the float lanes live in `Rasm.Fabrication`, never in the robust core.
+The one computational-geometry leaf library the kernel composes; pure-managed AnyCPU on osx-arm64. The float-domain polygon boolean/offset/Voronoi/fill packages (`Clipper2`, `CavalierContours`, `SharpVoronoiLib`, `LibTessDotNet`) are NOT admitted here — the corpus owns those concerns exactly: `Meshing/arrangement` `PlanarOverlay` is the exact 2D polygon boolean and messy-winding fill (GWN cell classification over the CDT), `Meshing/offset` is the exact wavefront offset/skeleton, `Meshing/delaunay` owns the constrained Voronoi dual, and `Meshing/mesh` owns the restricted power diagram; the `Clipper2`/`CavalierContours`/`SharpVoronoiLib` float lanes live in `Rasm.Fabrication`, never in the robust core, and `LibTessDotNet` is retired outright — `Meshing/delaunay` subsumes its polygon-fill concern.
 - `MIConvexHull` — 2D/3D incremental convex hull + Delaunay complex; realizes the `Spatial/cloud` convex/concave-outline/alpha-shape hull rail over `Triangulation.CreateDelaunay`
 
 [PROJECTS]:

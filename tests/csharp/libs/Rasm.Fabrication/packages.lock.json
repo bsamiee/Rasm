@@ -258,20 +258,16 @@
         "type": "Project",
         "dependencies": {
           "CSparse": "[4.4.0, )",
-          "CavalierContours": "[1.0.0, )",
-          "Clipper2": "[2.0.0, )",
           "Csp.Contracts": "[1.0.0, )",
           "ExtendedNumerics.BigRational": "[3000.0.2.132, )",
           "GShark": "[2.3.1, )",
           "JetBrains.Annotations": "[2026.2.0, )",
           "LanguageExt.Core": "[5.0.0-beta-77, )",
-          "LibTessDotNet": "[1.1.15, )",
           "MIConvexHull": "[1.1.19.1019, )",
           "MathNet.Numerics": "[6.0.0-beta2, )",
           "MathNet.Numerics.Providers.OpenBLAS": "[6.0.0-beta2, )",
           "PeterO.Numbers": "[1.8.2, )",
           "QuikGraph": "[2.5.0, )",
-          "SharpVoronoiLib": "[1.2.0, )",
           "Supercluster.KDTree.Net": "[1.0.22, )",
           "System.IO.Hashing": "[10.0.9, )",
           "System.Numerics.Tensors": "[10.0.9, )",
@@ -400,12 +396,6 @@
         "requested": "[2.3.1, )",
         "resolved": "2.3.1",
         "contentHash": "WdMXLzNiRy/StHGpt9MgftlFkWuGJ65Ly6ilzGfx0gmkglWfhprT8N5kDjtrBxj/9ISU+0dKJA7UvJdWJtyVsQ=="
-      },
-      "LibTessDotNet": {
-        "type": "CentralTransitive",
-        "requested": "[1.1.15, )",
-        "resolved": "1.1.15",
-        "contentHash": "KuA7N3Nv/lIeawJdQBQJR6oqWD9KETHLbWzBqapwFs+Tby+R5I4crkKujKMm5bXcSuFZ8LNtflFQVadsWCbBjg=="
       },
       "MathNet.Numerics": {
         "type": "CentralTransitive",

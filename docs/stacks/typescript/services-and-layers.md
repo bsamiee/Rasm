@@ -1,28 +1,31 @@
 # [TYPESCRIPT_SERVICES_AND_LAYERS]
 
-Capability is typed dataflow: a dependency is a Tag in the requirement channel, the Layer graph is the only construction mechanism, and this page owns the four decisions that follow — which owner form mints the Tag, which edge combinator wires the graph, where the graph becomes a runtime, and how a substitute enters. The owner is one `Effect.Service` class carrying Tag, default Layer, constructor, and accessors under one name — the interface-plus-tag-plus-layer triple is the ceremony this page deletes. Requirement pressure is a three-tier ladder the type system enforces: a `Context.Tag` read adds to `R` and the root must answer it, a `Context.Reference` read costs nothing because its default answers, and an `Effect.serviceOption` read costs nothing because absence is `Option`. Wiring is algebra, not assembly: `provide` hides an edge, `provideMerge` republishes it, `fresh` breaks sharing, `project` narrows, `unwrapEffect` lets a value decide the shape, and one shared layer reference builds once across every arm of a diamond. The root's declared annotation — `Layer.Layer<Out>` with error and requirement defaulted to `never` — is the wiring proof, failed at the declaration rather than the run seam. A definition names no engine; the root selects one. Substitution is Layer provision against the same Tag, never a module patch. The named defect is wiring sprawl: beside-interfaces, module-level live singletons, parameter-drilled dependencies, per-call graph rebuilds, and mock frameworks.
+Capability is typed dataflow: a dependency is a Tag in the requirement channel, the Layer graph is the only construction mechanism, and this page owns the four decisions that follow — which owner form mints the Tag, which edge or node form wires the graph, where the graph becomes a runtime, and how a substitute enters. The owner is one `Effect.Service` class carrying Tag, default Layer, constructor, and accessors under one name — the interface-plus-tag-plus-layer triple is the ceremony this page deletes. Requirement pressure is a three-tier ladder the type system enforces: a `Context.Tag` read adds to `R` and the root must answer it, a `Context.Reference` read costs nothing because its default answers, and an `Effect.serviceOption` read costs nothing because absence is `Option`. Wiring is algebra, not assembly: `provide` hides an edge, `provideMerge` republishes it, `fresh` breaks sharing, `project` narrows, the discard family registers lifetime without surface, `unwrapEffect` lets a value decide the shape, and one shared layer reference builds once across every arm of a diamond. The root's declared annotation — `Layer.Layer<Out>` with error and requirement defaulted to `never` — is the wiring proof, failed at the declaration rather than the run seam. A definition names no engine; the root selects one. Substitution is Layer provision against the same Tag, never a module patch. The named defect is wiring sprawl: beside-interfaces, module-level live singletons, parameter-drilled dependencies, per-call graph rebuilds, and mock frameworks.
 
 ## [01]-[WIRING_CHOOSER]
 
 When a concern matches several rows, the most specific wins; owner form is decided before edge, edge before runtime.
 
-| [INDEX] | [CONCERN_SIGNATURE]                          | [FORM]                                      | [REJECTED_FORM]                           |
-| :-----: | :------------------------------------------- | :------------------------------------------ | :---------------------------------------- |
-|  [01]   | owned capability, one canonical construction | `Effect.Service` class owner                | interface + Tag + Layer triple            |
-|  [02]   | replaceable capability, many engines         | `Context.Tag` port, root selects a Layer    | engine named inside the definition        |
-|  [03]   | ambient policy with a sensible default       | `Context.Reference`                         | knob threaded through every signature     |
-|  [04]   | capability present only in some environments | `Effect.serviceOption` read                 | nullable service field                    |
-|  [05]   | dependency consumed, hidden from output      | `Layer.provide`                             | `provideMerge` widening by reflex         |
-|  [06]   | dependency consumed and republished          | `Layer.provideMerge`                        | re-providing the same layer downstream    |
-|  [07]   | sibling capabilities with no edge between    | `Layer.mergeAll`                            | nested `provide` chains faking an edge    |
-|  [08]   | rich service narrowed to a focused port      | `Layer.project`                             | hand-built adapter layer                  |
-|  [09]   | shared resource needing a private copy       | `Layer.fresh`                               | second layer const duplicating the first  |
-|  [10]   | graph shape decided by a runtime value       | `Layer.unwrapEffect` / `Layer.unwrapScoped` | branching between two prebuilt runtimes   |
-|  [11]   | imperative host calls in repeatedly          | `ManagedRuntime.make`                       | per-call `Effect.runPromise` + re-provide |
-|  [12]   | process whose whole life is the graph        | `Layer.launch`                              | a runtime handle plus an idle main        |
-|  [13]   | resource family keyed by a runtime value     | `LayerMap.Service`                          | hand map of runtimes, per-key singletons  |
-|  [14]   | capability re-acquired on a schedule         | `Reloadable.auto`                           | tearing down and rebuilding the graph     |
-|  [15]   | proof needs a substitute implementation      | test Layer over the same Tag                | module patch, mock framework              |
+| [INDEX] | [CONCERN_SIGNATURE]                          | [FORM]                                       | [REJECTED_FORM]                            |
+| :-----: | :------------------------------------------- | :------------------------------------------- | :----------------------------------------- |
+|  [01]   | owned capability, one canonical construction | `Effect.Service` class owner                 | interface + Tag + Layer triple             |
+|  [02]   | replaceable capability, many engines         | `Context.Tag` port, root selects a Layer     | engine named inside the definition         |
+|  [03]   | ambient policy with a sensible default       | `Context.Reference`                          | knob threaded through every signature      |
+|  [04]   | capability present only in some environments | `Effect.serviceOption` read                  | nullable service field                     |
+|  [05]   | dependency consumed, hidden from output      | `Layer.provide`                              | `provideMerge` widening by reflex          |
+|  [06]   | dependency consumed and republished          | `Layer.provideMerge`                         | re-providing the same layer downstream     |
+|  [07]   | sibling capabilities with no edge between    | `Layer.mergeAll`                             | nested `provide` chains faking an edge     |
+|  [08]   | rich service narrowed to a focused port      | `Layer.project`                              | hand-built adapter layer                   |
+|  [09]   | shared resource needing a private copy       | `Layer.fresh`                                | second layer const duplicating the first   |
+|  [10]   | graph work publishing no service             | `Layer.scopedDiscard` / `Layer.effectDiscard`| phantom Tag minted to carry a side effect  |
+|  [11]   | construction needs log or span identity      | `Layer.annotateLogs` / `Layer.withSpan`      | hand-stamped logging in every constructor  |
+|  [12]   | one build shared across sequenced builds     | `Layer.memoize` under `Effect.scoped`        | module-hoisted runtime faking the share    |
+|  [13]   | graph shape decided by a runtime value       | `Layer.unwrapEffect` / `Layer.unwrapScoped`  | branching between two prebuilt runtimes    |
+|  [14]   | imperative host calls in repeatedly          | `ManagedRuntime.make`                        | per-call `Effect.runPromise` + re-provide  |
+|  [15]   | process whose whole life is the graph        | `Layer.launch`                               | a runtime handle plus an idle main         |
+|  [16]   | resource family keyed by a runtime value     | `LayerMap.Service`                           | hand map of runtimes, per-key singletons   |
+|  [17]   | capability re-acquired on a schedule         | `Reloadable.auto`                            | tearing down and rebuilding the graph      |
+|  [18]   | proof needs a substitute implementation      | test Layer over the same Tag                 | module patch, mock framework               |
 
 ## [02]-[SERVICE_OWNER]
 
@@ -32,7 +35,7 @@ When a concern matches several rows, the most specific wins; owner form is decid
 - Law: construction is a four-knob ladder fixed by what the build needs — `succeed` for a ready value, `sync` for a lazy thunk, `effect` for a dependent or fallible build, `scoped` for a build whose teardown registers on the graph `Scope` via `Effect.acquireRelease` or `Effect.addFinalizer` — and giving the knob a function `(...args) => Effect` turns `Shape.Default` into a Layer factory, which is the one sanctioned way a layer takes parameters.
 - Law: `dependencies: [Dep.Default]` bakes upstream defaults into `Shape.Default` and mints `Shape.DefaultWithoutDependencies` beside it; the baked form is the ninety-percent import, the unbaked form exists exactly for rewiring an upstream edge without re-declaring the service.
 - Use: `accessors: true` whenever the service shape is non-generic — `Shape.member` is the call-site spelling and each accessor carries `R = Shape` so the requirement is never hidden.
-- Reject: `Effect.Tag` accessor-only owners and `Context.GenericTag` string minting — both survive only as quarry in code this page replaces; a service object key named `make`, `use`, `of`, `key`, `pipe`, or `_tag` — the class statics own those names and the compiler rejects the shadow.
+- Reject: `Effect.Tag` accessor-only owners and `Context.GenericTag` string minting — both survive only as quarry in code this page replaces; a service shape key named `of`, `use`, `key`, `pipe`, `name`, `context`, `stack`, or `_tag` — the class statics own those names and the compiler rejects the shadow with a `property "…" is forbidden` literal.
 
 [TAG_TIER]:
 - Law: the tier is requirement pressure, and the pressure is visible in `R` — `yield*` on a `Context.Tag` types as `Effect<Shape, never, Shape>` so the root must answer; `yield*` on a `Context.Reference` types as `Effect<Value>` because `defaultValue` answers when no Layer overrides; `Effect.serviceOption(Tag)` types as `Effect<Option<Shape>>` so presence is data and the read never blocks the wiring proof. Choose by asking what an unwired root should mean: a compile error, a default, or a `None`.
@@ -57,12 +60,14 @@ class Registry extends Effect.Service<Registry>()("Registry", {
     const budget = yield* Budget
     const probe = yield* Effect.serviceOption(Probe)
     const cells = yield* Ref.make(HashMap.empty<string, number>())
-    yield* Effect.addFinalizer(() => Ref.set(cells, HashMap.empty<string, number>()))
     const emit = (label: string) => (count: number) =>
       Option.match(probe, {
         onNone: () => Effect.void,
         onSome: (active) => active.observed(label, count),
       })
+    // teardown flushes the final census to the probe before the graph closes
+    yield* Effect.addFinalizer(() =>
+      Ref.get(cells).pipe(Effect.flatMap((held) => emit("drained")(HashMap.size(held)))))
     return {
       leased: (key: string) =>
         Ref.modify(cells, (held) =>
@@ -71,7 +76,7 @@ class Registry extends Effect.Service<Registry>()("Registry", {
             onSome: (left) => [left - 1, HashMap.set(held, key, left - 1)] as const,
           })
         ).pipe(Effect.tap(emit("leased"))),
-      drained: Ref.get(cells).pipe(Effect.map(HashMap.size)),
+      census: Ref.get(cells).pipe(Effect.map(HashMap.size)),
     }
   }),
   accessors: true,
@@ -90,10 +95,16 @@ export { Budget, Probe, Registry }
 - Law: layer construction failure is graph policy attached at the layer value — `Layer.retry(schedule)` re-drives a flaky acquisition, `Layer.orElse` falls back to an alternate supplier, `Layer.orDie` rules the failure unrecoverable, `Layer.tapErrorCause` observes it — composed where the layer is declared, never `try`/`catch` around the run seam.
 - Reject: providing the same dependency at two altitudes — the deeper `provide` shadows the root's substitution and splits the diamond.
 
+[REGISTRATION_NODES]:
+- Law: work whose value is its lifetime publishes `never` — `Layer.scopedDiscard(effect)` when the registration owns teardown (a poller forked with `Effect.forkScoped`, a handler deregistered with the graph), `Layer.effectDiscard` for one-shot boot work, `Layer.discard` to demote an output-bearing layer to its side effects — and a `Layer<never>` merged at the root adds lifetime without widening the output, so registration rides the same annotated proof as every service.
+- Law: telemetry export is the canonical registration node — `Otlp.layerJson({ baseUrl, resource })` builds `Layer<never, never, HttpClient>`, merged once at the root and satisfied by one platform client layer — so no interior file imports an exporter and swapping the export seam replaces one node.
+- Law: construction observability attaches at the layer value — `Layer.annotateLogs(record)` stamps every log the build and its forked fibers emit, `Layer.withSpan(name)` wraps one node's construction, `Layer.span(name)` publishes `Tracer.ParentSpan` so the whole graph's construction nests under one span — boot forensics with zero constructor edits.
+- Reject: a phantom Tag minted so a side effect has something to publish — the discard family is the spelling for output-free nodes.
+
 [DIAMOND_MEMOIZATION]:
 - Law: within one build, memoization is by reference identity — every arm that composes the same layer const shares one construction, so a diamond costs one acquisition with zero annotation; the corollary is load-bearing: a layer minted by calling a factory twice is two nodes, so a shared resource is declared once as a const and every consumer composes that reference.
 - Law: `Layer.fresh` is the sharing opt-out — it wraps the reference so its subtree builds privately — and it is the only spelling for a private copy; duplicating the layer declaration to break sharing hides the intent and forks the configuration.
-- Use: `Layer.memoize` when one build must be shared across sequenced `Layer.build` calls inside a single `Scope` — the memoized handle is itself scoped, so the sharing window is structural.
+- Law: `Layer.memoize` extends sharing across sequenced builds — the call shape is effectful: `yield* Layer.memoize(layer)` under `Effect.scoped` yields a handle whose every `Effect.provide` reuses one construction, and the sharing window closes with the scope.
 
 [ROOT_PROOF]:
 - Law: the composition root is annotated, not inferred — `const root: Layer.Layer<Out> = …` — and because `Layer.Layer<ROut, E, RIn>` defaults `E` and `RIn` to `never`, the annotation is the wiring proof: a missing edge or an unhandled construction fault fails at this declaration, one line, at compile time, before any run seam is reached.
@@ -118,7 +129,12 @@ const _ConnLive: Layer.Layer<Conn> = Layer.scoped(
     Effect.succeed(Conn.of({ sent: (frame) => Effect.log(frame), health: Effect.succeed(true) })),
     () => Effect.log("<conn-closed>"),
   ),
-).pipe(Layer.retry(Schedule.jittered(Schedule.exponential("50 millis"))))
+).pipe(
+  Layer.retry(Schedule.jittered(Schedule.exponential("50 millis"))),
+  Layer.annotateLogs({ node: "<conn>" }),
+)
+
+const _health: Effect.Effect<boolean, never, Conn> = Effect.flatMap(Conn, (conn) => conn.health)
 
 class Store extends Effect.Service<Store>()("Store", {
   effect: Effect.gen(function* () {
@@ -136,15 +152,28 @@ class Meter extends Effect.Service<Meter>()("Meter", {
   dependencies: [_ConnLive],
 }) {}
 
+// Layer<never>: lifetime only — the fresh copy keeps probe traffic off the domain diamond
+const _heartbeat: Layer.Layer<never> = Layer.scopedDiscard(
+  Effect.forkScoped(_health.pipe(Effect.repeat(Schedule.spaced("30 seconds")))),
+).pipe(Layer.provide(Layer.fresh(_ConnLive)), Layer.withSpan("<heartbeat-up>"))
+
 const _domain: Layer.Layer<Store | Meter> = Layer.mergeAll(Store.Default, Meter.Default)
 const _SenderLive: Layer.Layer<Sender> = Layer.project(_ConnLive, Conn, Sender, (conn) => ({ sent: conn.sent }))
-const audit: Layer.Layer<Meter> = Meter.DefaultWithoutDependencies.pipe(Layer.provide(Layer.fresh(_ConnLive)))
-const wired: Layer.Layer<Store | Meter | Conn> = _domain.pipe(Layer.provideMerge(_ConnLive))
-const root: Layer.Layer<Store | Meter | Sender> = Layer.mergeAll(_domain, _SenderLive)
+
+const root: Layer.Layer<Store | Meter | Sender | Conn> = Layer.mergeAll(_domain, _SenderLive, _heartbeat)
+  .pipe(Layer.provideMerge(_ConnLive))
+
+// one acquisition serves both sequenced builds; teardown when the scope closes
+const probed: Effect.Effect<boolean> = Effect.scoped(
+  Effect.gen(function* () {
+    const shared = yield* Layer.memoize(_ConnLive)
+    return (yield* Effect.provide(_health, shared)) && (yield* Effect.provide(_health, shared))
+  }),
+)
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
-export { Conn, Meter, Sender, Store, audit, root, wired }
+export { Conn, Meter, Sender, Store, probed, root }
 ```
 
 ## [04]-[ENGINE_SWAP]
@@ -210,14 +239,14 @@ export { Transport, TransportFault, TransportLive, relayed }
 ## [05]-[RUNTIME_ASSEMBLY]
 
 [RUNTIME_ROOTS]:
-- Law: the boot module is the one imperative seam — it makes runtimes, chains `dispose`, and nothing else in the codebase calls a run method; a process whose entire life is the graph boots with `Layer.launch` — build, suspend forever, teardown as interruption — and a host that calls in repeatedly — browser shell, worker bridge, foreign callback registry — holds a `ManagedRuntime.make(root)` whose `runPromise`/`runFork`/`runSync` methods carry the built context into every call, so the graph builds once and the per-call rebuild in chooser row `[11]` cannot exist.
+- Law: the boot module is the one imperative seam — it makes runtimes, chains `dispose`, and nothing else in the codebase calls a run method; a process whose entire life is the graph boots with `Layer.launch` — build, suspend forever, teardown as interruption — and a host that calls in repeatedly — browser shell, worker bridge, foreign callback registry — holds a `ManagedRuntime.make(root)` whose `runPromise`/`runFork`/`runSync` methods carry the built context into every call, so the graph builds once and the per-call rebuild in chooser row `[14]` cannot exist.
 - Law: several runtimes share acquisitions by sharing one `Layer.MemoMap` — mint it with `Layer.makeMemoMap`, pass it to each `ManagedRuntime.make(layer, memo)` — so a host runtime and a view runtime referencing the same layer consts hold the same instances, and disposal is per-runtime while the shared node lives until its last holder releases.
 - Exemption: `dispose` returns a `Promise` and the boot seam chains it natively — this module is the platform-forced edge where `Promise` is legal.
 - Boundary: the `runMain` boot mechanics, signal draining, and per-runtime bindings are `boundaries.md`'s; this page owns which runtime owner the process holds.
 
 [KEYED_SCOPES]:
-- Law: a resource family keyed by a runtime value — tenant, session, shard, region — is one `LayerMap.Service` owner: `lookup: (key) => Layer` declares how a key becomes a subgraph, `idleTimeToLive` declares when an unreferenced subgraph dies, and the class statics do the rest — `.get(key)` yields the keyed Layer to provide, `.runtime(key)` yields a keyed runtime, `.invalidate(key)` evicts — so per-key wiring, caching, refcounting, and eviction are one declaration instead of a hand map of runtimes.
-- Law: the keyed subgraph composes the parameterized `Default` factory — `lookup: (key) => Shape.Default(key)` — which is why the `(...args) => Effect` constructor knob exists; a keyed family whose lookup ignores its key is a shared service wearing a map.
+- Law: a resource family keyed by a runtime value — tenant, session, shard, region — is one `LayerMap.Service` owner: `lookup: (key) => Layer` declares how a key becomes a subgraph and composes the parameterized `Default` factory — `lookup: (key) => Shape.Default(key)`, which is why the `(...args) => Effect` constructor knob exists — `idleTimeToLive` declares when an unreferenced subgraph dies, a closed roster swaps `lookup` for `layers: { row: Layer }`, and `preloadKeys` warms named keys at construction; the statics carry the consumer surface — `.get(key)` yields the keyed Layer to provide, `.runtime(key)` a keyed `Runtime` under `Scope`, `.invalidate(key)` evicts. The module ships under the `@experimental` pin; the hand map of runtimes it replaces is the rejected form either way.
+- Law: invalidation is the lifecycle edge — revocation, rotation, and a poisoned engine spell `.invalidate(key)`, and the next acquisition rebuilds the subgraph while every other key keeps its instance; tearing the whole graph to evict one key is the rejected form, and a keyed family whose lookup ignores its key is a shared service wearing a map.
 
 [RELOADABLE_CAPABILITY]:
 - Law: a capability that must refresh without tearing the graph — remote flags, rotated credentials, a polled roster — wraps as `Reloadable.auto(Tag, { layer, schedule })`; the output service is `Reloadable<Tag>`, consumers read the current version through `Reloadable.get(Tag)` per use, and the schedule re-runs the underlying layer in place while every other node keeps its instance.
@@ -228,14 +257,15 @@ export { Transport, TransportFault, TransportLive, relayed }
 import { Clock, Context, Duration, Effect, Layer, LayerMap, ManagedRuntime, Reloadable, Schedule } from "effect"
 
 class Roster extends Context.Tag("Roster")<Roster, {
-  readonly allowed: (label: string) => boolean
+  readonly minted: number
+  readonly allowed: (tenant: string) => boolean
 }>() {}
 
+// each reload re-reads the clock: minted is the version witness consumers compare
 const _RosterLive: Layer.Layer<Roster> = Layer.effect(
   Roster,
   Effect.map(Clock.currentTimeMillis, (minted) =>
-    Roster.of({ allowed: (label) => label.length <= 32 && minted >= 0 }),
-  ),
+    Roster.of({ minted, allowed: (tenant) => tenant.length <= 32 })),
 )
 
 const RosterAuto: Layer.Layer<Reloadable.Reloadable<Roster>> = Reloadable.auto(Roster, {
@@ -253,26 +283,29 @@ class Tenants extends LayerMap.Service<Tenants>()("Tenants", {
   idleTimeToLive: Duration.minutes(5),
 }) {}
 
-const gated = (label: string): Effect.Effect<boolean, never, Reloadable.Reloadable<Roster>> =>
-  Effect.map(Reloadable.get(Roster), (roster) => roster.allowed(label))
-
 const read = (tenant: string, key: string): Effect.Effect<string, never, Tenants> =>
   Vault.use((vault) => vault.read(key)).pipe(Effect.provide(Tenants.get(tenant)))
 
 const _memo: Layer.MemoMap = Effect.runSync(Layer.makeMemoMap)
 const host: ManagedRuntime.ManagedRuntime<Tenants | Reloadable.Reloadable<Roster>, never> =
   ManagedRuntime.make(Layer.mergeAll(Tenants.Default, RosterAuto), _memo)
-const board: ManagedRuntime.ManagedRuntime<Reloadable.Reloadable<Roster>, never> =
+const _board: ManagedRuntime.ManagedRuntime<Reloadable.Reloadable<Roster>, never> =
   ManagedRuntime.make(RosterAuto, _memo)
 
+// a disallowed tenant loses its keyed subgraph; the next acquisition rebuilds it
 const served = (tenant: string, key: string): Promise<string> =>
-  host.runPromise(Effect.flatMap(gated(tenant), (open) => (open ? read(tenant, key) : Effect.succeed("<denied>"))))
+  host.runPromise(
+    Effect.flatMap(Reloadable.get(Roster), (roster) =>
+      roster.allowed(tenant)
+        ? read(tenant, key)
+        : Effect.as(Tenants.invalidate(tenant), "<revoked>")),
+  )
 
-const halted = (): Promise<void> => board.dispose().then(() => host.dispose())
+const halted = (): Promise<void> => _board.dispose().then(() => host.dispose())
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
-export { Roster, RosterAuto, Tenants, Vault, board, halted, host, served }
+export { Roster, RosterAuto, Tenants, Vault, halted, host, served }
 ```
 
 ## [06]-[TEST_SUBSTITUTION]

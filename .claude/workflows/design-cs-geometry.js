@@ -60,13 +60,16 @@ const INTEGRATE_SCHEMA = { type: 'object', additionalProperties: false, required
   files_touched: { type: 'array', items: { type: 'string' } } } }
 
 // --- [DOCTRINE] --------------------------------------------------------------------------
-const PRE = 'Rasm monorepo. THE BRIEF ' + BRIEF + ' (repo root) is binding law — read it COMPLETELY first: [00]-[SHARED_LAW], V1-V14 the binding ' +
-  'verdicts with ruled defaults, [02] the evidence register E1-E15, [03] escalation targets, [04] package pressure with the roster rulings ' +
-  '(Manifold in-house manifoldc P/Invoke ADD, five orphan REMOVEs, GShark vendor-and-own fallback, the named-and-rejected records), [05] build ' +
-  'legs, [06] out-of-scope. Target: the kernel geometry planning corpus (its .planning home is wherever it lives on disk TODAY — resolve it, do ' +
-  'not assume; the kernel conversion may have re-homed it). docs/stacks/csharp/ + the relevant domain shards govern every fence; the WORKSPACE_LAW ' +
-  'strata govern placement; member verification runs uv run python -m tools.assay api over restored assemblies where source exists, and reads ' +
-  'planning fences as truth where the conversion has replaced source. Both consumer gates are load-bearing law: the Generation KERNEL GATE ' +
+const PRE = 'Rasm monorepo. THE BRIEF ' + BRIEF + ' (repo root) is binding law — read it COMPLETELY first: [00]-[SHARED_LAW] (incl. the ' +
+  'LANDED_KERNEL_LAW and INDEX_DOC_OBLIGATIONS), V1-V14 the binding verdicts with ruled defaults, [02] the evidence register E1-E16, [03] ' +
+  'escalation targets, [04] package pressure with the roster rulings (Manifold in-house manifoldc P/Invoke ADD, the landed Fabrication-lane ' +
+  'records, GShark vendor-and-own fallback, the named-and-rejected records), [05] build legs, [06] out-of-scope. Target: the ROBUST-CORE pages ' +
+  'inside libs/csharp/Rasm/.planning/ — the 18 settled Rasm.Geometry.* pages merged into the shared eight-folder root — plus the NEW planes the ' +
+  'verdicts mint; the 34 landed kernel pages beside them (Rasm.Domain/Rasm.Vectors/Rasm.Analysis) are STANDING LAW composed and extended through ' +
+  'declared seams, never re-litigated. docs/stacks/csharp/ + the relevant domain shards govern every fence; the WORKSPACE_LAW ' +
+  'strata govern placement; member verification reads the landed planning fences as kernel truth (the mature source is retired — ' +
+  'fields.md SampleDetailed, intent.md Topology, mesh.md TopologyDetailed, spectral.md DiscreteCalculus are fenced public surfaces) and the ' +
+  '.api catalogues (decompile-verified) + the nuget MCP for external members. Both consumer gates are load-bearing law: the Generation KERNEL GATE ' +
   '(RASM-GENERATION-SPEC.md — SpineRef stations/frames, isolines, geodesics, subdivision, panelization, pattern-to-surface) and the Fabrication ' +
   'toolpath gate (corner-strategy offsets, slice stacks, medial-with-clearance-radius, developables, manufacturing-tolerance booleans). Your ' +
   'stance is HOSTILE: the corpus is naive until disk proves otherwise; the register is an initial pointer, never a ceiling.'
@@ -84,12 +87,13 @@ const ROW_SCHEMA = 'PAGE-ROW SCHEMA (every row total): path | semantic action + 
 const surveyPrompt = (lane, scope, rows) => [PRE, 'TASK: READ-ONLY SURVEY, lane = ' + lane + '. Scope: ' + scope + '. Deep-read fully. ' +
   'Re-verify ON DISK every register row assigned: ' + rows + ' — HOLD (anchor exact), DRIFT (real defect, anchor moved — corrected anchor), or ' +
   'REFUTED (disk falsifies — cite the line). Beyond the register: both naivety axes, unwired seams, duplicate mechanisms, dead code, phantom ' +
-  'members (assay-verify), namespace/fault-cluster drift. WRITE the dossier to ' + SCRATCH + '/dossier-' + lane + '.md (per-page verdicts + ' +
+  'members (verify against landed fences + .api catalogs), namespace/fault-cluster drift. WRITE the dossier to ' + SCRATCH + '/dossier-' + lane + '.md (per-page verdicts + ' +
   'defects with anchors + charter-as-it-should-be; cross-cutting findings). Dense, evidence-first. NO edits outside ' + SCRATCH + '/.'].join('\n')
 const PROBE_GSHARK = [PRE, 'TASK: FEASIBILITY PROBE — the GShark envelope vs the V2 parametric-tier op roster. The V2 floor rides GShark ' +
   '(dormant since 2023-08) far beyond its proven envelope; the brief rules a vendor-and-own fallback IF gaps surface. Your job: surface them ' +
-  'NOW so the DECISION rules from evidence, never mid-leg. Method: read the GShark .api catalog in FULL; run uv run python -m tools.assay api ' +
-  'over the restored GShark assembly and verify EVERY member the V2 floor names (Divide maxSegmentLength/equalSegmentLengths, ParameterAtLength, ' +
+  'NOW so the DECISION rules from evidence, never mid-leg. Method: read the GShark .api catalog (libs/csharp/Rasm/.api/api-gshark.md, ' +
+  'decompile-verified member truth) in FULL and verify EVERY member the V2 floor names against it, corroborating envelope and currency via the ' +
+  'nuget MCP + the upstream repo/source via web research (Divide maxSegmentLength/equalSegmentLengths, ParameterAtLength, ' +
   'PointAtLength, PerpendicularFrames, IsoCurve, ClosestParameter, normalized-domain conventions, NURBS surface evaluation depth, knot/degree/' +
   'weight access for the canonical-bytes projection) plus every member the V2 NEW pages (surface/subdivide/develop/panelize/patternmap) would ' +
   'plausibly compose; probe numerical-quality signals (issue tracker via web research where useful, two-source law). WRITE ' + SCRATCH +
@@ -99,7 +103,7 @@ const PROBE_GSHARK = [PRE, 'TASK: FEASIBILITY PROBE — the GShark envelope vs t
 const PROBE_IMPLICIT = [PRE, 'TASK: FEASIBILITY PROBE — the V4/V10c implicit-point hinge. Three verdicts share one open premise: can ' +
   'Tessellation host implicit-coordinate vertices (the Lpi crossing) through constraint recovery, so operand crossings ride the exact path ' +
   '(V4 ruled default), the medial Voronoi-dual accessor reconciles (V10c), and slice-stack orientation guarantees hold. Method: deep-read the ' +
-  'delaunay, arrangement, intersect, and predicates pages (the corpus wherever it lives on disk) at algorithm depth — the constraint-recovery ' +
+  'delaunay, arrangement, intersect, and predicates pages (libs/csharp/Rasm/.planning/{Meshing,Numerics}/) at algorithm depth — the constraint-recovery ' +
   'walk, the vertex representation, the exact-arithmetic lattice, where a rounded coordinate first enters; consult the exact-computation ' +
   'literature via web research where the pages leave the question open (two-source law; Shewchuk/CGAL-style implicit-point treatments are the ' +
   'reference frame). WRITE ' + SCRATCH + '/probe-implicit.md: the mechanism as designed, the exact insertion points where implicit coordinates ' +
@@ -147,16 +151,19 @@ const integratePrompt = (decision, findings) => [PRE, 'TASK: WRITING INTEGRATOR 
 // --- [SURVEY]
 phase('Survey')
 const LANES = [
-  { lane: 'numerics-spatial', scope: 'the Numerics + Spatial planning pages (predicates, faults, index, naming, reconciliation) FULLY, plus the kernel ' +
-    'index docs', rows: 'the E-rows anchored in predicates/faults/index/naming/reconciliation' },
-  { lane: 'meshing', scope: 'the Meshing planning pages (delaunay, intersect, arrangement, offset, and peers) FULLY', rows: 'the E-rows anchored in ' +
-    'the Meshing pages' },
-  { lane: 'processing', scope: 'the Processing planning pages (repair, receipts, decimate, flatten, solver, fit) FULLY', rows: 'the E-rows anchored in ' +
-    'the Processing pages' },
-  { lane: 'parametric-drawing-gates', scope: 'the Parametric + Drawing planning pages (curve, view, pack) FULLY, plus RASM-GENERATION-SPEC.md (the ' +
+  { lane: 'numerics-spatial', scope: 'the ROBUST-CORE Numerics + Spatial pages (predicates, faults, index, naming, reconciliation) FULLY, plus their ' +
+    'landed sibling kernel pages (atoms/matrix/integrate/spectral/calculus; support/cloud/neighbors/transport/fields) as standing-law context, plus ' +
+    'the kernel index docs (README.md + ARCHITECTURE.md — the INDEX_DOC_OBLIGATIONS rows)', rows: 'the E-rows anchored in predicates/faults/index/naming/reconciliation + E16' },
+  { lane: 'meshing', scope: 'the ROBUST-CORE Meshing pages (delaunay, intersect, arrangement, offset) FULLY, plus the landed substrate pages ' +
+    '(mesh, dec, reconstruct) as standing-law context', rows: 'the E-rows anchored in the robust-core Meshing pages' },
+  { lane: 'processing', scope: 'the ROBUST-CORE Processing pages (repair, receipts, decimate, flatten, solver, fit) FULLY, plus the landed Processing ' +
+    'pages (intent, sample, extract, flow, register, geodesics, segment) as standing-law context', rows: 'the E-rows anchored in ' +
+    'the robust-core Processing pages' },
+  { lane: 'parametric-drawing-gates', scope: 'the Parametric + Drawing robust-core pages (curve, view, pack) FULLY, plus the landed projections/locate ' +
+    'and Analysis pages as standing-law context, plus RASM-GENERATION-SPEC.md (the ' +
     'KERNEL GATE + SpineRef law) and the Fabrication ledger rows the brief cites', rows: 'the E-rows anchored in curve/view/pack + both consumer-gate citations' },
-  { lane: 'api-manifests', scope: 'BOTH .api tiers COMPLETE (libs/csharp/.api/ + the kernel package .api/), Directory.Packages.props, the kernel ' +
-    'csproj; verify every [04] roster claim against feeds via the nuget MCP where the brief cites versions', rows: 'every [04] stub/feed anchor (each a register row)' },
+  { lane: 'api-manifests', scope: 'BOTH .api tiers COMPLETE (libs/csharp/.api/ 30 + the kernel .api/ 12), Directory.Packages.props, the kernel ' +
+    'csproj (12 references); verify every [04] roster claim against feeds via the nuget MCP where the brief cites versions', rows: 'every [04] stub/feed anchor (each a register row) + E13/E14' },
 ]
 const surveyors = LANES.map((l) => () =>
   agent(surveyPrompt(l.lane, l.scope, l.rows), { label: 'survey:' + l.lane, phase: 'Survey', model: 'opus', effort: 'max', schema: SURVEY_SCHEMA, stallMs: STALL }))

@@ -71,7 +71,6 @@
         <PackageVersion Include="Clipper2"                Version="2.0.0" />
         <PackageVersion Include="geometry3Sharp"          Version="1.0.324" />
         <PackageVersion Include="GShark"                  Version="2.3.1" />
-        <PackageVersion Include="LibTessDotNet"           Version="1.1.15" />
         <PackageVersion Include="MIConvexHull"            Version="1.1.19.1019" />
         <PackageVersion Include="SharpVoronoiLib"         Version="1.2.0" />
         <PackageVersion Include="Supercluster.KDTree.Net" Version="1.0.22" />
