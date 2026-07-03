@@ -61,9 +61,10 @@ const config: PlaywrightTestConfig = defineConfig({
     use: {
         actionTimeout: 10_000,
         colorScheme: 'light',
+        // reducedMotion is a context option, not a test option; it rides the contextOptions pass-through.
+        contextOptions: { reducedMotion: 'reduce' },
         locale: 'en-US',
         navigationTimeout: 15_000,
-        reducedMotion: 'reduce',
         screenshot: 'only-on-failure',
         testIdAttribute: 'data-testid',
         timezoneId: 'UTC',
