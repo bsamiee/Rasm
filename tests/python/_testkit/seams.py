@@ -189,9 +189,7 @@ async def loopback_server[S: _AsyncServer](
 
 
 @asynccontextmanager
-async def grpc_loopback(
-    bind: Callable[[grpc.aio.Server], None], *, host: str = "127.0.0.1"
-) -> AsyncGenerator[tuple[Loopback, grpc.aio.Channel]]:
+async def grpc_loopback(bind: Callable[[grpc.aio.Server], None], *, host: str = "127.0.0.1") -> AsyncGenerator[tuple[Loopback, grpc.aio.Channel]]:
     """Serve a ``grpc.aio`` server on an ephemeral loopback port with a connected channel.
 
     ``bind`` registers servicers or generic handlers on the fresh server; the daemon and

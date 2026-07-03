@@ -72,6 +72,17 @@ const STACK = 'Compose docs/stacks/csharp in FULL before judging any code-facing
   'bar: maximal collapse, zero litter/bloat/weak code, zero hand-rolling of capability an admitted package or the kernel owns, full internal ' +
   'integration, no underutilized api.'
 
+const LANDED = 'STATE: the physical restructure is ALREADY LANDED on disk, operator-executed per the blueprint manifest — the 18 Geometry ' +
+  'pages merged into the shared sub-domain folders under libs/csharp/Rasm/.planning/, the Vectors/Domain/Analysis source deleted (originals ' +
+  'archived at .archive/Rasm), Radyab removed, csproj/lock/central-manifest/slnx aligned, and the kernel README/ARCHITECTURE/IDEAS/TASKLOG ' +
+  'already rebuilt. Where the campaign framing above describes the conversion as pending, the DISK is the truth: verify and refine, never redo.'
+
+const GEO_DELTA = 'BEFORE/AFTER: before this conversion the brief targeted libs/csharp/Rasm/Geometry/.planning/ (18 settled pages in six ' +
+  'sub-folders) beside the mature Vectors/Domain/Analysis SOURCE it anchored by file:line; AFTER, those 18 pages live merged into the shared ' +
+  'libs/csharp/Rasm/.planning/ sub-domain folders beside 34 NEW pages that re-express the whole Vectors/Domain/Analysis capability at the ' +
+  'doctrine bar, and the source is deleted — the originals remain readable at .archive/Rasm/{Vectors,Domain,Analysis} for grounding any ' +
+  'anchor whose original referent must be understood. The brief adjusts to the AFTER state and IMPROVES against it, never thins.'
+
 // --- [OPERATIONS] ------------------------------------------------------------------------
 const ledgerPrompt = (lane, scope, focus) => [PRE, 'TASK: CAPABILITY LEDGER, lane = ' + lane + ' (read-only outside ' + SCRATCH + '/). Scope: ' +
   scope + '. ' + focus + ' Read every file FULLY. WRITE the ledger to ' + SCRATCH + '/ledger-' + lane + '.md: one row per capability unit ' +
@@ -142,16 +153,15 @@ const redteamPrompt = (unit, blueprint, dossiers) => [PRE, 'TASK: COLD REDTEAM �
   'weight; the old AnalysisQuery/Analyze entry shape is preserved for nobody; capability is re-expressed at maximum advancement on pure ' +
   'merit and chaff is dropped with an explicit standing reason, never carried. Every defect is repaired in place; the pages end objectively ' +
   'denser and more capable than the critique left them. Report files touched + fixed + coverage_gaps you cannot reach.'].join('\n')
-const rippleKernelPrompt = (blueprint) => [PRE, 'TASK: KERNEL INDEX DOCS rewrite per the blueprint ' + blueprint + ' and the disk truth after ' +
-  'restructure. Rewrite ' + ROOT + '/README.md, ARCHITECTURE.md, IDEAS.md, TASKLOG.md to the converted reality: one ' + NEW_PLAN + '/ root, ' +
-  'the full page router + package registry, the codemap from the REAL page set on disk (the moved Geometry pages include Parametric/, which ' +
-  'the old codemap omitted), the seams re-expressed for the new partition, the namespace law per the blueprint map, the rhino ruling, the ' +
-  'roster — the mature/greenfield split is GONE from every sentence. TASKLOG carries the conversion as a closed card, the disposition ' +
-  'follow-up cards the blueprint rules (host-boundary re-entry at kernel realization), and re-scopes open cards to the new pages; IDEAS ' +
-  'entries re-anchor or drop. The apps/grasshopper/Radyab toy app is deleted by the restructure — no card preserves it, and no card frames ' +
-  'Analysis-entry compat; Analysis capability cards anchor to the new pages on merit alone. Durable-doc law: declarative, zero provenance, ' +
-  'zero narration.'].join('\n')
-const rippleRepoPrompt = (blueprint) => [PRE, 'TASK: REPO DURABLE-DOC SWEEP per the blueprint ' + blueprint + '. rg for ' +
+const rippleKernelPrompt = (blueprint) => [PRE, LANDED, 'TASK: KERNEL INDEX DOCS verify-and-refine per the blueprint ' + blueprint + '. The ' +
+  'four index docs at ' + ROOT + ' are already rebuilt — hostile-verify each against the blueprint and the REAL page set on disk, and refine ' +
+  'in place: router completeness (all 52 pages routed with truthful one-line charters), the ARCHITECTURE codemap vs disk, the seams block ' +
+  '(every edge mirrored on the counterpart folder ARCHITECTURE where one exists), the namespace matrix, the package registry vs the csproj + ' +
+  'central manifest + .api tiers, TASKLOG (the conversion recorded as a truthful closed card, HOST_BOUNDARY_REENTRY + T-BOOLEAN carried, ' +
+  'open cards re-scoped to the new pages), and IDEAS (the WATCH card). The mature/greenfield split is GONE from every sentence; no card ' +
+  'preserves Radyab or frames Analysis-entry compat. Fix every drift found; never a from-scratch rewrite of conforming content. Durable-doc ' +
+  'law: declarative, zero provenance, zero narration.'].join('\n')
+const rippleRepoPrompt = (blueprint) => [PRE, LANDED, 'TASK: REPO DURABLE-DOC SWEEP per the blueprint ' + blueprint + '. rg for ' +
   'Geometry/.planning|Rasm/Vectors|Rasm/Analysis|Rasm/Domain|mature|greenfield across the durable docs and fix every mention to the converted ' +
   'reality — surgical, never rewriting sections the conversion does not touch. Known carriers: libs/.planning/architecture.md (the [05] ' +
   'Rasm/Geometry/.planning exception instance, the [01] kernel stratum rows, and [03] ONLY where the blueprint rhino ruling names a Tier-0 ' +
@@ -161,7 +171,7 @@ const rippleRepoPrompt = (blueprint) => [PRE, 'TASK: REPO DURABLE-DOC SWEEP per 
   'Sweep root README.md only where rg hits, and any durable-doc mention of the deleted ' +
   'apps/grasshopper/Radyab toy app. Do NOT edit .claude/ (a sibling agent owns it) or memory files; list any memory mention in residue. ' +
   'Report every file touched + residue.'].join('\n')
-const rippleClaudePrompt = (blueprint) => [PRE, 'TASK: CLAUDE-SURFACE SWEEP per the blueprint ' + blueprint + '. The .claude/ surfaces carry ' +
+const rippleClaudePrompt = (blueprint) => [PRE, LANDED, 'TASK: CLAUDE-SURFACE SWEEP per the blueprint ' + blueprint + '. The .claude/ surfaces carry ' +
   'kernel special-casing that dies with the conversion: the kernel is now ONE ORDINARY planning-scoped target — planning at ' + NEW_PLAN +
   ', api at ' + ROOT + '/.api, no homing case, no off-limits mature siblings, no mature/greenfield split. rg -i for ' +
   'homing|Geometry/.planning|Vectors|Analysis|mature across .claude/workflows/*.js (EXCLUDING convert-rasm-kernel.js — its old-path ' +
@@ -175,11 +185,13 @@ const rippleClaudePrompt = (blueprint) => [PRE, 'TASK: CLAUDE-SURFACE SWEEP per 
   'constructor over the file body (replace the leading export const meta = with const meta =) and repair any syntax error you introduced. Do ' +
   'NOT edit .claude/skills/ (the workflow-creator homing pattern is generic skill law, not kernel-coupled), .claude/scratch/, or memory ' +
   'files. Report every file touched + residue.'].join('\n')
-const catalogsPrompt = (roster) => [PRE, 'TASK: API CATALOG ALIGNMENT for the roster delta: ' + JSON.stringify(roster) + '. For each ADDED ' +
-  'package author ' + ROOT + '/.api/api-<package>.md at integration-shaped depth matching the sibling catalogs there — the full advanced ' +
-  'surface AND how it stacks into the kernel rails, real members verified via the nuget MCP (get_package_context) + official docs/source via ' +
-  'Context7/exa/tavily; never phantom members. For each REMOVED package git rm its catalog. Touch ONLY ' +
-  ROOT + '/.api/. Report every file touched.'].join('\n')
+const catalogsPrompt = (roster) => [PRE, LANDED, 'TASK: API CATALOG VERIFICATION for the roster delta: ' + JSON.stringify(roster) + '. The ' +
+  'catalog deletions (api-triangle, api-geometry3sharp) and the api-mathnet-providers OpenBLAS-only trim are already landed — hostile-verify ' +
+  'each against the roster ruling and deepen where the trim left thin coverage. The kernel csproj now references QuikGraph: confirm the ' +
+  'branch-tier catalogue at libs/csharp/.api/ covers the kernel Spatial/neighbors (Prim-MST) + Processing/segment (graph-cut) usage at the ' +
+  'spellings the pages fence, authoring a kernel overlay at ' + ROOT + '/.api/ ONLY where a folder-specific seam fact demands one; real ' +
+  'members via the nuget MCP (get_package_context) + official docs via Context7/exa/tavily, never phantoms. Touch ONLY .api catalogue files. ' +
+  'Report every file touched.'].join('\n')
 const hardenPrompt = (role, blueprint) => [PRE, STACK, 'TASK: FOLDER HARDEN — ' + role + ' pass (of 3, sequential, each COLD) over the FULL ' +
   'landed kernel folder: every page under ' + NEW_PLAN + '/ (every sub-domain, new AND re-homed pages alike), with ' + ROOT + '/README.md + ' +
   'ARCHITECTURE.md and both .api tiers (' + ROOT + '/.api/ + libs/csharp/.api/) as verification substrate. The restructure and ripple are ' +
@@ -198,7 +210,7 @@ const hardenPrompt = (role, blueprint) => [PRE, STACK, 'TASK: FOLDER HARDEN — 
       'diff-of-the-next-feature per page, long-tail + failure-mode attack, boundary/strata integrity against the blueprint ' + blueprint +
       ' rulings, weakening-detection across the two prior passes, and the world-class bar: the folder reads as ONE designed system, never ' +
       'nine stitched units.') + ' Report files touched + residue.'].join('\n')
-const geoBriefPrompt = (blueprint) => [PRE, STACK, 'TASK: GEOMETRY BRIEF REBUILD — pass 1 of 3 (initial). The standing campaign ' +
+const geoBriefPrompt = (blueprint) => [PRE, STACK, GEO_DELTA, 'TASK: GEOMETRY BRIEF REBUILD — pass 1 of 3 (initial). The standing campaign ' +
   '(RASM-CS-GEOMETRY-BRIEF.md -> design-cs-geometry.js -> DECISION -> rebuild legs) runs AFTER this conversion; it is alive, never dead, and ' +
   'it comes out STRONGER than it went in. Read the landed kernel corpus (' + NEW_PLAN + '/ in full — the new pages AND the 18 re-homed ' +
   'robust-core pages merged into the shared sub-domain folders), the blueprint ' + blueprint + ', RASM-CS-GEOMETRY-BRIEF.md IN FULL, and ' +
@@ -216,7 +228,7 @@ const geoBriefPrompt = (blueprint) => [PRE, STACK, 'TASK: GEOMETRY BRIEF REBUILD
   'corpus; never restructure a prompt, never touch schemas/labels/models/meta blocks; parse-check via node -e with the async-function ' +
   'constructor over the file body (replace the leading export const meta = with const meta =) and repair any syntax error you introduce. ' +
   'Report files touched + residue.'].join('\n')
-const geoCritiquePrompt = (blueprint) => [PRE, STACK, 'TASK: GEOMETRY BRIEF CRITIQUE — pass 2 of 3, a COLD read with zero deference to pass ' +
+const geoCritiquePrompt = (blueprint) => [PRE, STACK, GEO_DELTA, 'TASK: GEOMETRY BRIEF CRITIQUE — pass 2 of 3, a COLD read with zero deference to pass ' +
   '1: no hedging, no defending, every finding is a fix applied in place. Read RASM-CS-GEOMETRY-BRIEF.md IN FULL, the landed kernel corpus at ' +
   NEW_PLAN + '/, the blueprint ' + blueprint + ', and .claude/workflows/design-cs-geometry.js. Audit and FIX: every path and anchor proven ' +
   'real on disk; every named member verified against the new page fences, both .api tiers, or the nuget MCP — a phantom dies; every mandate ' +
@@ -224,7 +236,7 @@ const geoCritiquePrompt = (blueprint) => [PRE, STACK, 'TASK: GEOMETRY BRIEF CRIT
   'depth, no bloat, no underutilized api); campaign completeness — a landed-kernel weakness or new-package avenue pass 1 missed is ADDED, ' +
   'never noted; the design-cs-geometry.js edits verified value-necessary and parse-clean. The brief ends objectively stronger. Report files ' +
   'touched + residue.'].join('\n')
-const geoRedteamPrompt = (blueprint) => [PRE, STACK, 'TASK: GEOMETRY BRIEF REDTEAM — pass 3 of 3, the terminal, most aggressive COLD review: ' +
+const geoRedteamPrompt = (blueprint) => [PRE, STACK, GEO_DELTA, 'TASK: GEOMETRY BRIEF REDTEAM — pass 3 of 3, the terminal, most aggressive COLD review: ' +
   'the brief is naive, thin, or illusory until YOUR attack fails, and a prior clean verdict is a rejected self-assessment. Read ' +
   'RASM-CS-GEOMETRY-BRIEF.md IN FULL, the landed corpus at ' + NEW_PLAN + '/, the blueprint ' + blueprint + ', and ' +
   '.claude/workflows/design-cs-geometry.js. Attack and FIX in place: counterfactual on the campaign shape the brief prescribes (a stronger ' +
@@ -249,7 +261,7 @@ const alignPrompt = (blueprint) => [PRE, STACK, 'TASK: CROSS-CORPUS BRIEF ALIGNM
   'spelling); kernel law flows downstream and is re-minted nowhere; duplicated or contradictory mandates collapse to one owner; every path, ' +
   'anchor, member, and package claim spot-verified against disk, the page fences, both .api tiers, or the nuget MCP; and no waterfall pass ' +
   'weakened a mandate — a reduced mandate is reverted STRONGER. Report files touched + residue.'].join('\n')
-const verifyPrompt = (blueprint, dossiers, built, gaps) => [PRE, 'TASK: TERMINAL VERIFY — adversarial, WRITING (repair what you can reach ' +
+const verifyPrompt = (blueprint, dossiers, built, gaps) => [PRE, LANDED, 'TASK: TERMINAL VERIFY — adversarial, WRITING (repair what you can reach ' +
   'NOW; no further rounds). (1) CAPABILITY RECONCILIATION: walk every ledger (' + JSON.stringify(dossiers) + ') row against the landed pages ' +
   '(' + JSON.stringify(built) + ') and the blueprint ' + blueprint + ' drop list — every row is expressed or explicitly dropped with a ' +
   'standing reason; repair expressible gaps in place (the mature source survives at .archive/Rasm for consultation), report unreachable ones ' +

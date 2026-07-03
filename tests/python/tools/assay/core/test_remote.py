@@ -260,9 +260,7 @@ async def test_probe_toolchain_faults_unsupported_on_missing_remote_tool() -> No
 
 
 @pytest.mark.anyio
-async def test_remote_transfer_pushes_manifest_then_pulls_scope_tree(  # one end-to-end transfer law: push the git manifest, run, pull the scope tree, assert receipt counts
-    assay_root: AssayHarness, tmp_path: Path
-) -> None:
+async def test_remote_transfer_pushes_manifest_then_pulls_scope_tree(assay_root: AssayHarness, tmp_path: Path) -> None:
     """``_remote_transfer`` pushes the git-tracked working tree to ``<workroot>/<run_id>`` then pulls the scope tree back.
 
     The push leg lands exactly the ``git ls-files`` manifest under the remote run dir; the pull leg downloads the
@@ -431,7 +429,7 @@ def _moto_s3(monkeypatch: pytest.MonkeyPatch) -> Iterator[AbstractFileSystem]:
 
 
 @pytest.mark.anyio
-async def test_remote_transfer_reads_shared_cloud_scope_without_byte_transfer(  # one SHARED-pull law: seed a remote-written s3 tree, read it scope-relative with zero transfer, degrade a missing tree to a note
+async def test_remote_transfer_reads_shared_cloud_scope_without_byte_transfer(
     assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch, socket_enabled: None
 ) -> None:
     """A SHARED cloud offload reads the tool-written scope tree straight from the object store with zero byte transfer.

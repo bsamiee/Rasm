@@ -241,7 +241,7 @@
     <PropertyGroup Label="Coverage" Condition="'$(IsTestProject)' == 'true'">
         <CoverletOutputFormat>json,cobertura</CoverletOutputFormat>
         <CoverletOutput>$(MSBuildThisFileDirectory).artifacts/coverage/$(MSBuildProjectName)/</CoverletOutput>
-        <CoverletInclude>[Rasm*]*,[Csp.*]*,[Radyab]*</CoverletInclude>
+        <CoverletInclude>[Rasm*]*,[Csp.*]*</CoverletInclude>
         <CoverletExclude>[*Tests]*,[*TestKit]*</CoverletExclude>
         <CoverletExcludeAssembliesWithoutSources>None</CoverletExcludeAssembliesWithoutSources>
         <CoverletExcludeByFile>**/obj/**;**/*.Generated.cs;**/*.g.cs</CoverletExcludeByFile>

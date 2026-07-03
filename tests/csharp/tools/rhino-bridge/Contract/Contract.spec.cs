@@ -406,9 +406,9 @@ public sealed class EnvelopeWireLaws {
 
     [Fact]
     public void SelectionDiscriminatorsAreFrozen() {
-        Assert.StartsWith(expectedStartString: "{\"$type\":\"all\"", actualString: JsonSerializer.Serialize<ScenarioSelection>(value: new ScenarioSelection.AllCase(), jsonTypeInfo: BridgeJsonContext.Default.ScenarioSelection), comparisonType: StringComparison.Ordinal);
-        Assert.StartsWith(expectedStartString: "{\"$type\":\"themes\"", actualString: JsonSerializer.Serialize<ScenarioSelection>(value: new ScenarioSelection.ThemesCase(Themes: ["a"]), jsonTypeInfo: BridgeJsonContext.Default.ScenarioSelection), comparisonType: StringComparison.Ordinal);
-        Assert.StartsWith(expectedStartString: "{\"$type\":\"names\"", actualString: JsonSerializer.Serialize<ScenarioSelection>(value: new ScenarioSelection.NamesCase(Names: ["a"]), jsonTypeInfo: BridgeJsonContext.Default.ScenarioSelection), comparisonType: StringComparison.Ordinal);
+        Assert.StartsWith(expectedStartString: "{\"$type\":\"all\"", actualString: JsonSerializer.Serialize(value: new ScenarioSelection.AllCase(), jsonTypeInfo: BridgeJsonContext.Default.ScenarioSelection), comparisonType: StringComparison.Ordinal);
+        Assert.StartsWith(expectedStartString: "{\"$type\":\"themes\"", actualString: JsonSerializer.Serialize(value: new ScenarioSelection.ThemesCase(Themes: ["a"]), jsonTypeInfo: BridgeJsonContext.Default.ScenarioSelection), comparisonType: StringComparison.Ordinal);
+        Assert.StartsWith(expectedStartString: "{\"$type\":\"names\"", actualString: JsonSerializer.Serialize(value: new ScenarioSelection.NamesCase(Names: ["a"]), jsonTypeInfo: BridgeJsonContext.Default.ScenarioSelection), comparisonType: StringComparison.Ordinal);
     }
 }
 

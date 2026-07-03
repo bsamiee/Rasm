@@ -103,11 +103,11 @@ const TierWire: Schema.Literal<Tier.Kinds> = Schema.Literal(...tiers) // the tup
 
 const ceiling = <K extends Tier.Kind>(kind: K): Tier.Ceiling<K> => Tier[kind].ceiling // conditional return by indexed access: the checker proves the body
 
-const cap: 2 = ceiling("narrow")                             // checked witness: the row's literal projects, never the axis union
+const _cap: 2 = ceiling("narrow")                            // checked witness: the row's literal projects, never the axis union
 
 // --- [EXPORTS] ---------------------------------------------------------------------
 
-export { ceiling, Tier, TierWire }
+export { ceiling, Tier, tiers, TierWire }                    // the tuple a public signature speaks goes public under its own name, never leaked as a _-type
 ```
 
 [GENERATED_SURFACE_SITE]:
@@ -150,7 +150,7 @@ const quota: Record<Signal.Grant, number> = {                // governed value: 
   "close:drain": 2,
 }
 
-const drain: Signal.Drain = "frame:drain"                    // checked witness over the generated subset
+const _drain: Signal.Drain = "frame:drain"                   // checked witness over the generated subset
 
 // --- [EXPORTS] ---------------------------------------------------------------------
 
@@ -179,12 +179,12 @@ const plan = <const Steps extends ReadonlyArray<Step>>(     // const parameter: 
 
 const nextStep: typeof Array.head<Step> = Array.head        // instantiation expression rides the annotation: the package generic pre-solved once under a semantic name
 
-const run = plan([{ lane: "live", take: 2 }, { lane: "bulk", take: 5 }], "live")
+const _run = plan([{ lane: "live", take: 2 }, { lane: "bulk", take: 5 }], "live")
 
-const fuse: "bulk" | "live" = run.fuse                      // the owner solved inference; consumers never re-instantiate or re-assert
+const _fuse: "bulk" | "live" = _run.fuse                    // the owner solved inference; consumers never re-instantiate or re-assert
 
 // @ts-expect-error "bulk" is a lane, but not one of this plan's lanes
-const drift = plan([{ lane: "live", take: 2 }], "bulk")
+const _drift = plan([{ lane: "live", take: 2 }], "bulk")
 
 // --- [EXPORTS] ---------------------------------------------------------------------
 
@@ -229,7 +229,7 @@ type Trail<S extends string, Acc extends ReadonlyArray<string> = []> = S extends
   ? Trail<Rest, [...Acc, Head]>
   : readonly [...Acc, S]
 
-const deep: Trail<"doc/pull/live/burst"> = ["doc", "pull", "live", "burst"] // checked witness over the decomposed tuple
+const _deep: Trail<"doc/pull/live/burst"> = ["doc", "pull", "live", "burst"] // checked witness over the decomposed tuple
 
 // --- [EXPORTS] ---------------------------------------------------------------------
 
@@ -268,9 +268,9 @@ const RankedCovariant: covariant.Covariant<RankedTypeLambda> = { map: _map, imap
 const brace = <F extends HKT.TypeLambda>(F: covariant.Covariant<F>): (<R, O, E>(self: HKT.Kind<F, R, O, E, number>) => HKT.Kind<F, R, O, E, { readonly value: number; readonly even: boolean }>) =>
   (self) => F.map(self, (value) => ({ value, even: value % 2 === 0 })) // one combinator, every container: the instance is the only per-container cost
 
-const braced = brace(OptionInstances.Covariant)(Option.some(3))        // Option.Option<{ value: number; even: boolean }>
-const rows = brace(ArrayInstances.Covariant)([1, 2, 3])                // ReadonlyArray<{ value: number; even: boolean }>
-const ranked = brace(RankedCovariant)({ rank: 1, value: 3 })           // Ranked<{ value: number; even: boolean }>
+const _braced = brace(OptionInstances.Covariant)(Option.some(3))       // Option.Option<{ value: number; even: boolean }>
+const _rows = brace(ArrayInstances.Covariant)([1, 2, 3])               // ReadonlyArray<{ value: number; even: boolean }>
+const _ranked = brace(RankedCovariant)({ rank: 1, value: 3 })          // Ranked<{ value: number; even: boolean }>
 
 // --- [EXPORTS] ---------------------------------------------------------------------
 
