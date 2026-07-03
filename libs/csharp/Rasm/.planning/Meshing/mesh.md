@@ -567,9 +567,11 @@ internal static class MeshKernel {
     internal static Fin<ConnectionEntries> ConnectionEntriesOf(MeshSpace space, IntrinsicMesh imesh, Option<Arr<double>> edgeAdjustment, SignpostPolicy policy, Op key);
 
     // --- [COMMON_SUBDIVISION] — overlay(M,T): shared vertices + one crossing vertex per normal-coordinate unit; each
-    // transverse T-edge traced as a straight geodesic over M recovering its ordered M-edge crossings; InterpolationA
-    // scatters M-barycentric rows ((1-u), u), InterpolationB T-barycentric rows at t_k=(k+1)/(c+1); the arrival
-    // residual is the trace's relative gap (+inf on a failed recovery) so a wrong overlay fails IsValid, never silently.
+    // transverse T-edge traced by the ONE face-unfolding walk owner (GeodesicKernel.WalkChart under
+    // GeodesicWalkMode.EdgeOverlay, Processing/geodesics — its overlay seat records raw (CutEdge,U) crossings for
+    // exactly this replay) recovering its ordered M-edge crossings; InterpolationA scatters M-barycentric rows
+    // ((1-u), u), InterpolationB T-barycentric rows at t_k=(k+1)/(c+1); the arrival residual is the trace's
+    // relative gap (+inf on a failed recovery) so a wrong overlay fails IsValid, never silently.
     private static CommonSubdivision BuildCommonSubdivision(MeshSpace space, IntrinsicMesh imesh, Op key);
 
     // --- [POWER_CELLS] — NAMED STATEMENT-KERNEL EXEMPTION: the Sutherland-Hodgman radical clip, the FIFO incident-pair

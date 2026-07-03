@@ -6,6 +6,7 @@
         "./arbitraries": "./src/arbitraries.ts",
         "./bench": "./src/bench.ts",
         "./corpus": "./src/corpus.ts",
+        "./e2e": "./src/e2e.ts",
         "./gauges": "./src/gauges.ts",
         "./harness": "./src/harness.ts",
         "./laws": "./src/laws.ts",

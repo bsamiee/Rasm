@@ -41,19 +41,29 @@ public abstract partial record MeshDescriptor {
 public sealed partial class MeshSamplingSpectrumAlgorithm { public static readonly MeshSamplingSpectrumAlgorithm CandidateSpectrum = new(key: 0); }
 
 // --- [MODELS] -------------------------------------------------------------------------------
-[BoundaryAdapter, ValidityEvidence, StructLayout(LayoutKind.Auto)]
-public readonly partial record struct DescriptorReceipt(
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct DescriptorReceipt(
     SpectralDescriptorReceipt Spectral, EigenSolveReceipt<double, Arr<double>> Eigen, int RequestedEigenpairs, int ReturnedEigenpairs,
-    bool SpectralCacheHit = false, int SkippedDegenerateFaces = 0, Option<int> FactorNonZeros = default, Option<SpectralAssemblyReceipt> Assembly = default) : IValidityEvidence;
+    bool SpectralCacheHit = false, int SkippedDegenerateFaces = 0, Option<int> FactorNonZeros = default, Option<SpectralAssemblyReceipt> Assembly = default) : IValidityEvidence {
+    public bool IsValid => ValidityClaim.All(
+        ValidityClaim.Evidence(Spectral),
+        ValidityClaim.Evidence(Eigen),
+        ValidityClaim.Of(RequestedEigenpairs >= 1 && ReturnedEigenpairs > 0 && ReturnedEigenpairs <= RequestedEigenpairs),
+        ValidityClaim.CountAtLeast(count: SkippedDegenerateFaces, floor: 0),
+        ValidityClaim.Of(FactorNonZeros.Map(static count => count > 0).IfNone(noneValue: true)),
+        ValidityClaim.Of(Assembly.Map(static receipt => receipt.IsValid).IfNone(noneValue: true)));
+}
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct DescriptorResult(Arr<double> Values, DescriptorReceipt Receipt);
 
-[BoundaryAdapter, ValidityEvidence, StructLayout(LayoutKind.Auto)]
-public readonly partial record struct MeshSamplingSpectrumReceipt(
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct MeshSamplingSpectrumReceipt(
     int VertexCount, int SampleCount, int EigenpairCount, double LowFrequencyEnergy, double TotalEnergy,
     double SuppressionRatio, double ValidationThreshold, bool Validated, MeshSamplingSpectrumAlgorithm? Algorithm = null) : IValidityEvidence {
-    // Page gate the aspect fold conjoins: the verdict is recomputable and both ratios are unit-bounded.
-    private bool ValidityGate() => ValidityClaim.All(
+    // The rails ValidityClaim.All fold: the verdict is recomputable and both ratios are unit-bounded.
+    public bool IsValid => ValidityClaim.All(
+        ValidityClaim.Of(Algorithm is not null && VertexCount >= 0 && SampleCount >= 0 && EigenpairCount >= 0),
+        ValidityClaim.Nonnegative(value: LowFrequencyEnergy),
         ValidityClaim.Positive(value: TotalEnergy),
         ValidityClaim.UnitInterval(value: SuppressionRatio),
         ValidityClaim.UnitInterval(value: ValidationThreshold),
@@ -163,15 +173,20 @@ public sealed partial class MeshFeatureKind {
 // --- [MODELS] -------------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct FeatureEdge(int A, int B, MeshFeatureKind Kind, Option<double> DihedralRadians, Option<double> SignedDihedralRadians = default, Option<double> CurvatureSignal = default);
 
-[BoundaryAdapter, ValidityEvidence, StructLayout(LayoutKind.Auto)]
-public readonly partial record struct FeatureReceipt(
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct FeatureReceipt(
     Seq<FeatureEdge> Edges, int BoundaryEdges, int CreaseEdges, int NonManifoldEdges, int UnweldedEdges, int NgonInteriorSkippedEdges,
     double DihedralThresholdRadians, int UnclassifiedEdges = 0, int RidgeEdges = 0, int ValleyEdges = 0, int RegionBoundaryEdges = 0,
     double CurvatureThreshold = 0.0, double SmoothingScale = 0.0, int CurvatureFiniteVertices = 0, int CurvatureRejectedVertices = 0,
     int TopologyEdgeCount = 0, MeshFeatureAlgorithm? Algorithm = null) : IValidityEvidence {
     // Census totality is the receipt's OWN gate: the edge rows reconcile the per-kind counts, and per-kind counts
     // plus the unclassified census (smooth or faceless) reconcile every topology edge — recomputable, not a comment.
-    private bool ValidityGate() => ValidityClaim.All(
+    public bool IsValid => ValidityClaim.All(
+        ValidityClaim.Of(Algorithm is not null && BoundaryEdges >= 0 && CreaseEdges >= 0 && NonManifoldEdges >= 0 && UnweldedEdges >= 0 && NgonInteriorSkippedEdges >= 0 && UnclassifiedEdges >= 0 && RidgeEdges >= 0 && ValleyEdges >= 0 && RegionBoundaryEdges >= 0),
+        ValidityClaim.Of(CurvatureFiniteVertices >= 0 && CurvatureRejectedVertices >= 0),
+        ValidityClaim.Nonnegative(value: DihedralThresholdRadians),
+        ValidityClaim.Nonnegative(value: CurvatureThreshold),
+        ValidityClaim.Nonnegative(value: SmoothingScale),
         ValidityClaim.CountExactly(count: Edges.Count, expected: BoundaryEdges + CreaseEdges + NonManifoldEdges + UnweldedEdges + NgonInteriorSkippedEdges + RidgeEdges + ValleyEdges + RegionBoundaryEdges),
         ValidityClaim.CountExactly(count: TopologyEdgeCount, expected: Edges.Count + UnclassifiedEdges));
     internal Fin<TOut> Project<TOut>(Op key) {
@@ -358,14 +373,27 @@ public sealed partial class MeshSegmentationStatus {
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------
-[BoundaryAdapter, ValidityEvidence, StructLayout(LayoutKind.Auto)]
-public readonly partial record struct MeshSegmentationReceipt(
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct MeshSegmentationReceipt(
     MeshSegmentationAlgorithm Algorithm, MeshSegmentationStatus Status, int RequestedRegionCount, int RegionCount, int SeedCount,
     int AssignedFaceCount, int UnassignedFaceCount, int SkippedDegenerateFaces, int SkippedNonFiniteValues, Option<int> Iterations,
     Option<int> MaxIterations, Option<double> Tolerance, Option<double> Threshold, Option<DescriptorReceipt> Descriptor,
     Option<SolveReceipt> Solve, Option<bool> SpectralCacheHit, Option<bool> FactorCacheHit, Option<int> FactorNonZeros,
     Option<double> NormalizedCutValue = default, Option<int> AffinityNonZeros = default, Option<int> WatershedSaddleCount = default,
-    Option<EigenSolveReceipt<double, Arr<double>>> Eigen = default) : IValidityEvidence;
+    Option<EigenSolveReceipt<double, Arr<double>>> Eigen = default) : IValidityEvidence {
+    public bool IsValid {
+        get {
+            Option<int> maxIterations = MaxIterations;
+            return ValidityClaim.All(
+                ValidityClaim.Of(Algorithm is not null && Status is not null),
+                ValidityClaim.Of(RequestedRegionCount >= 0 && RegionCount >= 0 && SeedCount >= 0 && AssignedFaceCount >= 0 && UnassignedFaceCount >= 0 && SkippedDegenerateFaces >= 0 && SkippedNonFiniteValues >= 0),
+                ValidityClaim.Of(Iterations.Map(iter => iter >= 0 && maxIterations.Map(max => max >= iter).IfNone(noneValue: true)).IfNone(noneValue: true)),
+                ValidityClaim.Of(FactorNonZeros.Map(static count => count >= 0).IfNone(noneValue: true) && AffinityNonZeros.Map(static count => count >= 0).IfNone(noneValue: true) && WatershedSaddleCount.Map(static count => count >= 0).IfNone(noneValue: true)),
+                ValidityClaim.Of(Tolerance.Map(static value => double.IsFinite(value) && value >= 0.0).IfNone(noneValue: true) && Threshold.Map(double.IsFinite).IfNone(noneValue: true) && NormalizedCutValue.Map(static value => double.IsFinite(value) && value >= 0.0).IfNone(noneValue: true)),
+                ValidityClaim.Of(Descriptor.Map(static receipt => receipt.IsValid).IfNone(noneValue: true) && Solve.Map(static receipt => receipt.IsValid).IfNone(noneValue: true) && Eigen.Map(static receipt => receipt.IsValid).IfNone(noneValue: true)));
+        }
+    }
+}
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct MeshSegmentationResult(Arr<int> FaceRegions, Arr<int> VertexRegions, MeshSegmentationReceipt Receipt);
 
@@ -915,14 +943,21 @@ public abstract partial record RemeshKind {
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------
-[BoundaryAdapter, ValidityEvidence, StructLayout(LayoutKind.Auto)]
-public readonly partial record struct RemeshReceipt(
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct RemeshReceipt(
     RemeshKind Kind, int PreVertexCount, int PreFaceCount, int PostVertexCount, int PostFaceCount,
     double ReductionRatio, bool Valid, bool TopologyChanged, Option<double> TargetLength = default, Option<int> TargetQuadCount = default,
     Option<double> AdaptiveSize = default, Option<bool> AdaptiveQuadCount = default, Option<bool> HardEdgePreservationRequested = default,
     Option<QuadGuideInfluence> GuideInfluence = default, Option<QuadPreserveEdges> PreserveEdges = default, Option<QuadRemeshSymmetryAxis> SymmetryAxis = default,
     int GuideCurveCount = 0, int FaceBlockCount = 0, Option<int> DesiredPolygonCount = default, Option<bool> AllowDistortion = default,
-    Option<int> Accuracy = default, Option<bool> NormalizeMeshSize = default, int FaceTagCount = 0, int LockedComponentCount = 0, Option<string> ReduceError = default) : IValidityEvidence;
+    Option<int> Accuracy = default, Option<bool> NormalizeMeshSize = default, int FaceTagCount = 0, int LockedComponentCount = 0, Option<string> ReduceError = default) : IValidityEvidence {
+    public bool IsValid => ValidityClaim.All(
+        ValidityClaim.Of(Kind is not null && Valid),
+        ValidityClaim.Of(PreVertexCount >= 0 && PreFaceCount >= 0 && PostVertexCount >= 0 && PostFaceCount >= 0 && GuideCurveCount >= 0 && FaceBlockCount >= 0 && FaceTagCount >= 0 && LockedComponentCount >= 0),
+        ValidityClaim.Nonnegative(value: ReductionRatio),
+        ValidityClaim.Of(TargetLength.Map(static value => double.IsFinite(value) && value > 0.0).IfNone(noneValue: true) && AdaptiveSize.Map(static value => double.IsFinite(value) && value >= 0.0).IfNone(noneValue: true)),
+        ValidityClaim.Of(TargetQuadCount.Map(static count => count >= 1).IfNone(noneValue: true) && DesiredPolygonCount.Map(static count => count >= 1).IfNone(noneValue: true)));
+}
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct RemeshResult(Mesh Mesh, RemeshReceipt Receipt) {
@@ -934,8 +969,13 @@ public readonly record struct RemeshResult(Mesh Mesh, RemeshReceipt Receipt) {
     }
 }
 
-[BoundaryAdapter, ValidityEvidence, StructLayout(LayoutKind.Auto)]
-public readonly partial record struct FlattenReceipt(int VertexCount, int UvCount, int TextureCoordinateCount, int BoundaryComponents, bool Valid, Option<double> EdgeLengthDistortionRms) : IValidityEvidence;
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct FlattenReceipt(int VertexCount, int UvCount, int TextureCoordinateCount, int BoundaryComponents, bool Valid, Option<double> EdgeLengthDistortionRms) : IValidityEvidence {
+    public bool IsValid => ValidityClaim.All(
+        ValidityClaim.Of(Valid),
+        ValidityClaim.Of(VertexCount >= 0 && UvCount >= 0 && TextureCoordinateCount >= 0 && BoundaryComponents >= 0),
+        ValidityClaim.Of(EdgeLengthDistortionRms.Map(static value => double.IsFinite(value) && value >= 0.0).IfNone(noneValue: true)));
+}
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct FlattenResult(Arr<Point2d> Uvs, Mesh Mesh, FlattenReceipt Receipt) {
@@ -1084,7 +1124,7 @@ flowchart LR
 |  [05]   | Direction fields    | `CrossFieldKey` + GODF arms                 | smoothest LOBPCG / constrained Cholesky / cone-prescribed, one memo    | `CrossFieldAt → Fin<Vector3d>`                       |    3    |
 |  [06]   | Stripe scalar       | stripe arm                                  | cross-field-aligned level-set over blended vertex frames               | `StripeAt → Fin<double>`                             |    —    |
 |  [07]   | Host restructure    | `RemeshKind`/`QuadTarget` + `ApplyRemeshDetailed` + flatten arm | host-capture unions + parameter-echo receipts       | `ApplyRemeshDetailed → Fin<RemeshResult>`            |   2+2   |
-|  [08]   | Evidence            | receipt family                              | `[ValidityEvidence]` fold + declared gates + `AtomProjection` rows     | gated `Fin` projections                              |    —    |
+|  [08]   | Evidence            | receipt family                              | `ValidityClaim.All` fold + declared gates + `AtomProjection` rows      | gated `Fin` projections                              |    —    |
 
 The flood, grow, cluster, affinity, and UV-accumulation loops are the named statement-kernel exemption — measured label/graph hot loops behind `Fin` admission; the QuadRemesh/Reduce/LSCM arms are the named platform-forced boundary (native calls returning nullable results, converted at the seam).
 

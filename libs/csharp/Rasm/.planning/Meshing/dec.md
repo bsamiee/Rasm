@@ -233,6 +233,24 @@ internal static class DecAssembly {
     // signs. REJECTS a flipped intrinsic snapshot — flipped edges no longer correspond to embedded chords.
     internal static Fin<Vector3d> WhitneyVectorAt(MeshSpace space, MeshKernel.IntrinsicMesh imesh, Arr<double> oneForm, Point3d sample, Op key);
 
+    // --- [HODGE_POINT_EVALUATION] — the field-facing seat: Spatial/fields' VectorField.Hodge arm and the
+    // Processing/extract probe egress both land here. Solve ONCE per (space, source): sample the field at edge
+    // chords, edge-integrate into the 1-form omega (chord-tangent dot under d0 orientation), then
+    // HodgeDecomposeDetailed over the selected Laplacian's stiffness — memoized through the mesh.md type-keyed
+    // Memoized slot under HodgeSolutionKey (source identity keys the memo; sense never enters the key).
+    [StructLayout(LayoutKind.Auto)] internal readonly record struct HodgeSolutionKey(VectorField Source);
+    internal static Fin<HodgeDecomposition> HodgeSolutionOf(VectorField source, MeshSpace space, Context context, Op key);
+    // Sense selects at evaluation, never a second solve: Toward -> Exact (the irrotational dα); Away -> the
+    // solenoidal remainder (CoExact + Harmonic summed edgewise) — Whitney-lifted at the sample.
+    internal static Fin<Vector3d> HodgeVectorAt(VectorField source, MeshSpace space, BoundarySense sense, Point3d sample, Context context, Op key) =>
+        from solved in HodgeSolutionOf(source: source, space: space, context: context, key: key)
+        from imesh in MeshLaplacian.IntrinsicDelaunay.Snapshot(cache: space.Cache, key: key)
+        from value in WhitneyVectorAt(space: space, imesh: imesh, sample: sample, key: key,
+            oneForm: sense.Equals(BoundarySense.Toward)
+                ? solved.Exact
+                : new Arr<double>([.. Enumerable.Range(0, solved.CoExact.Count).Select(e => solved.CoExact[index: e] + solved.Harmonic[index: e])]))
+        select value;
+
     // --- [CROUZEIX_RAVIART] — edge-based connection heat operator M = (mass + time*grad) as Hermitian-real blocks.
     // Transpose-paired off-diagonals make max|M - M^T| a witness of any orientation-sign or degeneracy defect; the
     // gate is machine-epsilon scaled by the largest assembled magnitude. Flipped intrinsic snapshots are Unsupported.
@@ -347,11 +365,11 @@ flowchart LR
 |  [02]   | Face row            | `IntrinsicTriangle`                      | one private per-face row serving DEC/CR/holonomy/divergence folds   | carrier                                                           |    1    |
 |  [03]   | Connection heat     | `BuildCrouzeixRaviartHeatSystemDetailed` | Hermitian-real block system, symmetry-residual gated                | `→ Fin<(SparseMatrix, SpectralAssemblyReceipt)>`                  |    —    |
 |  [04]   | Trivial connection  | `DistributeHolonomy`                     | CDS cone 1-form, Gauss-Bonnet integer gate                          | `→ Fin<Arr<double>>`                                              |    —    |
-|  [05]   | Harmonic + Hodge    | `BuildHarmonicOneForms` / `HodgeDecomposeDetailed` / `WhitneyVectorAt` | genus-dim Star1-orthonormal basis + `ω = dα + δβ + η` components + Whitney lift | `→ Fin<HarmonicOneFormBasis>` / `→ Fin<HodgeDecomposition>` / `→ Fin<Vector3d>` |    —    |
+|  [05]   | Harmonic + Hodge    | `BuildHarmonicOneForms` / `HodgeDecomposeDetailed` / `WhitneyVectorAt` / `HodgeSolutionOf` + `HodgeVectorAt` | genus-dim Star1-orthonormal basis + `ω = dα + δβ + η` components + Whitney lift + the memoized field-facing point-evaluation seat | `→ Fin<HarmonicOneFormBasis>` / `→ Fin<HodgeDecomposition>` / `→ Fin<Vector3d>` |    —    |
 |  [06]   | Heat scaffold       | `ComputeTriangleGradients` / `ComputeIntrinsicVertexDivergence` | extrinsic + intrinsic gradient/divergence pair | pure folds                                                        |    2    |
 |  [07]   | Spectral basis      | `ComputeSpectralBasisDetailed` + `SpectralBasisBundle` | generalized eigen over the (L, M) pencil, cache-truncated | `→ Fin<SpectralBasisBundle>`                                      |    —    |
 
-`Build`, `AssembleDecOperators`, `HodgeDecomposeDetailed`, `BuildCrouzeixRaviartHeatSystemDetailed`, `EmitCrouzeixRaviartPair`, `DistributeHolonomy`, `ComputeIntrinsicStar1`, and `ComputeSpectralBasisDetailed` are transcription-complete; the residual folds, receipt constructors, harmonic-basis MGS, the `WhitneyVectorAt` lift, and scatter kernels are signature-fixed with their bodies the algorithms the `[04]` contracts specify — every invariant they compute lands as a gated receipt field, so no signature-fixed body can silently weaken.
+`Build`, `AssembleDecOperators`, `HodgeDecomposeDetailed`, `HodgeVectorAt`, `BuildCrouzeixRaviartHeatSystemDetailed`, `EmitCrouzeixRaviartPair`, `DistributeHolonomy`, `ComputeIntrinsicStar1`, and `ComputeSpectralBasisDetailed` are transcription-complete; the residual folds, receipt constructors, harmonic-basis MGS, the `WhitneyVectorAt` lift, the `HodgeSolutionOf` edge-integrate-and-decompose memo body, and scatter kernels are signature-fixed with their bodies the algorithms the `[04]` contracts specify — every invariant they compute lands as a gated receipt field, so no signature-fixed body can silently weaken.
 
 ## [04]-[RESEARCH]
 

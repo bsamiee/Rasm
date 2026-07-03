@@ -9,7 +9,7 @@ The floor is host-neutral-shaped: finiteness is `double.IsFinite` over flat span
 - [02]-[SOLVE_VOCABULARY]: `EigenSolvePath`/`EigenSolveStop`/`SolvePath`/`SolveStop`/`MatrixNormKind`/`GaugeSolverKind`/`GaugeShift` smart enums + `GaugePolicy` `[Union]` — the route, stop, norm, and gauge algebra every receipt discriminates on.
 - [03]-[DENSE_OWNERS]: `Matrix` · `SymmetricMatrix` + `SvdResult`/`LuResult`/`QrResult`/`CholeskyResult` decomposition carriers.
 - [04]-[SPARSE_OWNERS]: `SparseMatrix` CSR (+ structural invariants) · `SparseHermitian` upper-store · `CholeskySparse` lock-guarded AMD SPD factor cache.
-- [05]-[RECEIPTS]: `SolveReceipt` · `EigenSolveReceipt<TEigen,TVector>` · `GaugeReceipt` — typed evidence on the `[ValidityEvidence]` fold; the hand-rolled `IsValid` conjunction litany is the deleted form.
+- [05]-[RECEIPTS]: `SolveReceipt` · `EigenSolveReceipt<TEigen,TVector>` · `GaugeReceipt` — typed evidence on the rails `ValidityClaim.All` fold; the hand-rolled `IsValid` conjunction litany is the deleted form.
 - [06]-[SOLVE_KERNEL]: `MatrixKernel` — bridges, dense decompositions/solves, sparse assembly, iterative + direct sparse solves, `SingularGaugeSolve`, generalized eigen by congruence, LOBPCG real + Hermitian.
 
 ## [02]-[SOLVE_VOCABULARY]
@@ -151,7 +151,7 @@ public abstract partial record GaugePolicy {
 - Cases: `Matrix` operations `Of` · `Identity` · `Transpose` · `Multiply` · `Inverse` · `PseudoInverse` · `DecomposeEigenDetailed` (complex general) · `DecomposeLu`/`DecomposeQr`/`DecomposeSvd` · `Norm(MatrixNormKind)` · `Trace` · `Determinant` · `Spectral` (σ₀) · `SolveDetailed` (square LU) · `LeastSquaresDetailed` (QR) · `Rank` · `At`/`With`; `SymmetricMatrix` `Of` · `ToDense` · `DecomposeEigenDetailed`/`DecomposeEigen` · `DecomposeCholesky` · `At`/`With`.
 - Entry: every fallible operation returns `Fin<T>` threading `Op? key = null`; `Matrix.Of(rows, cols, entries)` gates `entries.Count == rows·cols` then `TensorPrimitives.IsFiniteAll` over the flat span — the one-pass vectorized admission, never a strided per-element loop.
 - Auto: `Norm` dispatches through the `MatrixNormKind` compute column; `Spectral` reads σ₀ off a fresh SVD; `SymmetricMatrix.At(i, j)` folds `(min, max)` into the triangular index so the packed store is symmetric by construction — a written entry mirrors automatically.
-- Receipt: `SvdResult(U, Sigma, V, Rank)` — `Sigma` descending, `Rank` the MathNet conditioning rank; `LuResult(Source, Determinant, Factor)` with `SolveDetailed` streaming through the held factor; `QrResult(Q, R)`; `CholeskyResult(L, Source, Factor)` with `SolveDetailed`. All on the `[ValidityEvidence]` fold.
+- Receipt: `SvdResult(U, Sigma, V, Rank)` — `Sigma` descending, `Rank` the MathNet conditioning rank; `LuResult(Source, Determinant, Factor)` with `SolveDetailed` streaming through the held factor; `QrResult(Q, R)`; `CholeskyResult(L, Source, Factor)` with `SolveDetailed`. All on the rails `ValidityClaim.All` fold.
 - Packages: MathNet.Numerics (`DenseMatrix.Build.DenseOfRowMajor`, `.Svd(computeVectors:)`, `.LU()`, `.QR(QRMethod.Full)`, `.Cholesky()`, `.Evd(Symmetricity.Symmetric/Asymmetric)`, `.PseudoInverse()`, norms), System.Numerics.Tensors (`TensorPrimitives.IsFiniteAll` admission), LanguageExt.Core, Thinktecture.Runtime.Extensions (`Dimension` composition).
 - Growth: a new dense decomposition is one `Decompose*` member returning a typed carrier plus one `SolvePath` row — never a sibling matrix type; a norm is one `MatrixNormKind` row.
 - Boundary: MathNet types never cross the public surface — `Matrix`/`Arr<double>` in, typed receipts out, and the `internal` factorization handles are the held-handle exception that stays inside the assembly; `Inverse()` in a hot loop is the named anti-pattern — solve through the held `LuResult` factor instead; symmetric consumers construct `SymmetricMatrix`, never a dense `Matrix` asserted symmetric, because MathNet's `IsSymmetric()` compares entries with exact `!=` and accumulation-built operators fail it.
@@ -218,9 +218,12 @@ public readonly record struct SymmetricMatrix(Dimension Dimension, Arr<double> U
     private static int FlatIndex(int n, int i, int j) => (i * n) - (i * (i - 1) / 2) + (j - i);
 }
 
-[ValidityEvidence, StructLayout(LayoutKind.Auto)]
-public readonly partial record struct SvdResult(Matrix U, Arr<double> Sigma, Matrix V, int Rank) : IValidityEvidence {
-    private bool ValidityGate() => U.IsValid && V.IsValid && Sigma.All(static value => double.IsFinite(value) && value >= 0.0);
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct SvdResult(Matrix U, Arr<double> Sigma, Matrix V, int Rank) : IValidityEvidence {
+    public bool IsValid => ValidityClaim.All(
+        ValidityClaim.Of(U.IsValid && V.IsValid),
+        ValidityClaim.Of(Sigma.All(static value => double.IsFinite(value) && value >= 0.0)),
+        ValidityClaim.CountAtLeast(count: Rank, floor: 0));
 }
 
 [StructLayout(LayoutKind.Auto)]
@@ -365,61 +368,83 @@ public sealed record CholeskySparse {
 
 ## [05]-[RECEIPTS]
 
-- Owner: `SolveReceipt` the one linear-solve evidence carrier (solution + `SolvePath`/`SolveStop` + dimensions + iteration/tolerance witnesses + the recomputed true relative residual + optional rank/fill/gauge evidence), `EigenSolveReceipt<TEigen, TVector>` the one eigen carrier generic over real/complex eigenvalues and real/complex vectors (pairs + path/stop + requested/returned + `MaxResidual`), `GaugeReceipt` the singular-solve evidence (solver kind, declared and numeric nullspace dimensions, operator scale, compatibility/post-gauge/M-weighted/relative residuals, pin rows, post-shift applied, rhs mutation and multiplier norms, orthogonality check, regularization shift, breakdown flag) — all three on the rails `[ValidityEvidence]` fold with `IValidityEvidence` conformance.
+- Owner: `SolveReceipt` the one linear-solve evidence carrier (solution + `SolvePath`/`SolveStop` + dimensions + iteration/tolerance witnesses + the recomputed true relative residual + optional rank/fill/gauge evidence), `EigenSolveReceipt<TEigen, TVector>` the one eigen carrier generic over real/complex eigenvalues and real/complex vectors (pairs + path/stop + requested/returned + `MaxResidual`), `GaugeReceipt` the singular-solve evidence (solver kind, declared and numeric nullspace dimensions, operator scale, compatibility/post-gauge/M-weighted/relative residuals, pin rows, post-shift applied, rhs mutation and multiplier norms, orthogonality check, regularization shift, breakdown flag) — all three spelling the rails fold `public bool IsValid => ValidityClaim.All(…)` with `IValidityEvidence` conformance.
 - Entry: receipts are minted only by the `MatrixKernel` exits (`SolveSuccess`, `EigenReceiptOf`) under the two-tier evidence law — hard numerical garbage (non-finite residual, cap-exceeded residual, wrong-length or non-finite solution) never mints and fails typed; a usable-stop receipt is gated valid before release; a non-usable-stop receipt (`RankDeficient`, `IterativeExhausted`, KKT breakdown) is the WITNESSED refusal, returned as evidence the caller reads off `Stop.IsUsable`/`IsValid` before consuming the solution. Treating any minted receipt as a usable result without reading its stop is the named consumer defect.
-- Auto: the `[ValidityEvidence]` aspect is generated sugar over the ONE `rails.md` mechanism — it emits the mechanical gates as `ValidityClaim` rows off field metadata (every `double` field `Finite`, every count `Nonnegative`, every nested evidence field `Evidence`-when-some, every vocabulary field non-null) folded through `ValidityClaim.All`, conjoined with the hand-written `ValidityGate()` carrying only the SEMANTIC couplings (residual within tolerance, solution length matches columns, iterations within budget, returned ≤ requested). The mature ~12-to-18-term hand-rolled conjunction litany is the deleted form; only the couplings a generator cannot infer survive as authored code.
+- Auto: validity is the ONE `rails.md` fold spelled explicitly — each receipt's `IsValid` is `ValidityClaim.All(…)` over authored claim rows: the mechanical gates off field shape (every `double` witness `Finite`/`Nonnegative`, every count nonnegative, every nested evidence field valid-when-some, every vocabulary field non-null) conjoined with the SEMANTIC couplings (residual within tolerance, solution length matches columns, iterations within budget, returned ≤ requested). The mature ~12-to-18-term hand-rolled boolean conjunction litany is the deleted form; the claim rows state each invariant once, one row per witness.
 - Receipt: these ARE the receipts — the typed evidence law: fields carry route, status, sampling, and solver evidence, so they stay typed records, never a generic ledger.
-- Packages: Rasm.Domain (project — `IValidityEvidence` + `ValidityClaim`, the rails validity floor), the analyzer contracts owner (`[ValidityEvidence]` — the generated claim-row fold, sited beside `[BoundaryAdapter]`/`[GenerateUnionOps]`), LanguageExt.Core (`Option`, `Seq`, `Arr`).
-- Growth: new evidence is one field plus at most one `ValidityGate` term; a new outcome family is one receipt type ONLY when its evidence shape is disjoint (the eigen/solve/gauge split), never per-algorithm receipt clones.
+- Packages: Rasm.Domain (project — `IValidityEvidence` + `ValidityClaim`, the rails validity floor), LanguageExt.Core (`Option`, `Seq`, `Arr`).
+- Growth: new evidence is one field plus at most one claim row; a new outcome family is one receipt type ONLY when its evidence shape is disjoint (the eigen/solve/gauge split), never per-algorithm receipt clones.
 - Boundary: `Option<T>` carries absence of evidence (`Iterations` on direct solves), never sentinel values; the residual stored is ALWAYS recomputed against the original operator — a preconditioned or factor-reconstructed residual is the named lying witness.
 
 ```csharp
 // --- [MODELS] -----------------------------------------------------------------------------
-[ValidityEvidence]
-public readonly partial record struct SolveReceipt(
+public readonly record struct SolveReceipt(
     Arr<double> Solution, SolvePath Path, SolveStop Stop, Dimension Rows, Dimension Cols, int RhsLength,
     Option<int> Iterations, Option<int> MaxIterations, Option<double> Tolerance, double Residual,
     Option<bool> FullRank, Option<int> InputNonZeros, Option<int> FactorNonZeros, Option<GaugeReceipt> Gauge = default) : IValidityEvidence {
-    private bool ValidityGate() {
-        SolvePath path = Path;
-        Option<int> maxIterations = MaxIterations;
-        return Stop.IsUsable
-            && RhsLength == Rows.Value
-            && Residual <= Tolerance.IfNone(double.PositiveInfinity)
-            && Solution.Count == Cols.Value
-            && TensorPrimitives.IsFiniteAll<double>(Solution.AsSpan())
-            && FullRank.Map(rank => !path.Equals(SolvePath.DenseQrLeastSquares) || rank).IfNone(noneValue: true)
-            && FactorNonZeros.Map(nz => !path.Equals(SolvePath.SparseCholesky) || nz > 0).IfNone(noneValue: true)
-            && Iterations.Map(iter => maxIterations.Map(max => max >= iter).IfNone(noneValue: true)).IfNone(noneValue: true);
+    public bool IsValid {
+        get {
+            SolvePath path = Path;
+            Option<int> maxIterations = MaxIterations;
+            return ValidityClaim.All(
+                ValidityClaim.Of(Path is not null && Stop is not null && Stop.IsUsable),
+                ValidityClaim.CountExactly(count: RhsLength, expected: Rows.Value),
+                ValidityClaim.Nonnegative(value: Residual),
+                ValidityClaim.Of(Residual <= Tolerance.IfNone(double.PositiveInfinity)),
+                ValidityClaim.CountExactly(count: Solution.Count, expected: Cols.Value),
+                ValidityClaim.Finite(Solution.AsSpan()),
+                ValidityClaim.Of(Iterations.Map(static iter => iter >= 0).IfNone(noneValue: true) && InputNonZeros.Map(static nz => nz >= 0).IfNone(noneValue: true) && FactorNonZeros.Map(static nz => nz >= 0).IfNone(noneValue: true)),
+                ValidityClaim.Of(FullRank.Map(rank => !path.Equals(SolvePath.DenseQrLeastSquares) || rank).IfNone(noneValue: true)),
+                ValidityClaim.Of(FactorNonZeros.Map(nz => !path.Equals(SolvePath.SparseCholesky) || nz > 0).IfNone(noneValue: true)),
+                ValidityClaim.Of(Iterations.Map(iter => maxIterations.Map(max => max >= iter).IfNone(noneValue: true)).IfNone(noneValue: true)),
+                ValidityClaim.Of(Gauge.Map(static gauge => gauge.IsValid).IfNone(noneValue: true)));
+        }
     }
 }
 
-[ValidityEvidence]
-public readonly partial record struct EigenSolveReceipt<TEigen, TVector>(
+public readonly record struct EigenSolveReceipt<TEigen, TVector>(
     Seq<(TEigen Eigenvalue, TVector Eigenvector)> Pairs, EigenSolvePath Path, EigenSolveStop Stop,
     int RequestedPairs, int ReturnedPairs, Option<int> Iterations, Option<int> MaxIterations, Option<double> Tolerance,
     double MaxResidual, Option<int> FactorNonZeros = default) : IValidityEvidence {
-    private bool ValidityGate() {
-        Option<int> maxIterations = MaxIterations;
-        return Stop.IsUsable
-            && RequestedPairs >= 1 && ReturnedPairs > 0 && ReturnedPairs <= RequestedPairs && Pairs.Count == ReturnedPairs
-            && MaxResidual <= Tolerance.IfNone(double.PositiveInfinity)
-            && Iterations.Map(iter => maxIterations.Map(max => max >= iter).IfNone(noneValue: true)).IfNone(noneValue: true)
-            && FactorNonZeros.Map(static count => count > 0).IfNone(noneValue: true);
+    public bool IsValid {
+        get {
+            Option<int> maxIterations = MaxIterations;
+            return ValidityClaim.All(
+                ValidityClaim.Of(Path is not null && Stop is not null && Stop.IsUsable),
+                ValidityClaim.Of(RequestedPairs >= 1 && ReturnedPairs > 0 && ReturnedPairs <= RequestedPairs && Pairs.Count == ReturnedPairs),
+                ValidityClaim.Nonnegative(value: MaxResidual),
+                ValidityClaim.Of(MaxResidual <= Tolerance.IfNone(double.PositiveInfinity)),
+                ValidityClaim.Of(Iterations.Map(iter => maxIterations.Map(max => max >= iter).IfNone(noneValue: true)).IfNone(noneValue: true)),
+                ValidityClaim.Of(FactorNonZeros.Map(static count => count > 0).IfNone(noneValue: true)));
+        }
     }
 }
 
-[ValidityEvidence]
-public readonly partial record struct GaugeReceipt(
+public readonly record struct GaugeReceipt(
     GaugeSolverKind Solver, int NullspaceDim, Option<int> NullspaceDimNumeric,
     double OperatorFrobeniusScale, double ResidualCompatibility, bool RhsProjected, double ResidualAfterGauge, double ResidualAfterGaugeM,
     double ResidualRelative, Option<int> PinnedIndex, Arr<int> PinIndices, int ConstraintRows, GaugeShift PostShiftApplied,
     double RhsMutationNorm, double MultiplierNorm, Option<int> Iterations, double GaugeOrthogonalityCheck, double RegularizationEpsUsed,
     bool NumericalBreakdown) : IValidityEvidence {
-    private bool ValidityGate() {
-        int nullspaceDim = NullspaceDim;
-        return OperatorFrobeniusScale > 0.0
-            && NullspaceDimNumeric.Map(count => count <= nullspaceDim).IfNone(noneValue: true);
+    public bool IsValid {
+        get {
+            int nullspaceDim = NullspaceDim;
+            return ValidityClaim.All(
+                ValidityClaim.Of(Solver is not null && PostShiftApplied is not null),
+                ValidityClaim.Of(NullspaceDim >= 0 && ConstraintRows >= 0),
+                ValidityClaim.Of(PinIndices.ForAll(static index => index >= 0)),
+                ValidityClaim.Positive(value: OperatorFrobeniusScale),
+                ValidityClaim.Nonnegative(value: ResidualCompatibility),
+                ValidityClaim.Nonnegative(value: ResidualAfterGauge),
+                ValidityClaim.Nonnegative(value: ResidualAfterGaugeM),
+                ValidityClaim.Nonnegative(value: ResidualRelative),
+                ValidityClaim.Nonnegative(value: RhsMutationNorm),
+                ValidityClaim.Nonnegative(value: MultiplierNorm),
+                ValidityClaim.Nonnegative(value: GaugeOrthogonalityCheck),
+                ValidityClaim.Nonnegative(value: RegularizationEpsUsed),
+                ValidityClaim.Of(PinnedIndex.Map(static index => index >= 0).IfNone(noneValue: true) && Iterations.Map(static iter => iter >= 0).IfNone(noneValue: true)),
+                ValidityClaim.Of(NullspaceDimNumeric.Map(count => count <= nullspaceDim).IfNone(noneValue: true)));
+        }
     }
 }
 ```
@@ -1107,5 +1132,5 @@ internal static class MatrixKernel {
 |  [02]   | Gauge algebra        | `GaugePolicy`                                        | `[Union]` Pin/MeanZeroDeflation/LagrangeKKT + presets          |    3    |
 |  [03]   | Dense owners         | `Matrix` · `SymmetricMatrix` (+ 4 decomposition carriers) | admission-gated `record struct` over MathNet                  |    2    |
 |  [04]   | Sparse owners        | `SparseMatrix` · `SparseHermitian` · `CholeskySparse` | CSR invariants + lock-guarded AMD factor cache over CSparse    |    3    |
-|  [05]   | Evidence             | `SolveReceipt` · `EigenSolveReceipt<TEigen,TVector>` · `GaugeReceipt` | `[ValidityEvidence]` fold + semantic `ValidityGate`            |    3    |
+|  [05]   | Evidence             | `SolveReceipt` · `EigenSolveReceipt<TEigen,TVector>` · `GaugeReceipt` | `ValidityClaim.All` fold + semantic claim rows                 |    3    |
 |  [06]   | Kernel               | `MatrixKernel`                                       | the ONE MathNet+CSparse access path (dense/sparse/gauge/eigen/LOBPCG) |    1    |

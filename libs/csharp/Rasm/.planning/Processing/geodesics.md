@@ -776,7 +776,7 @@ internal static partial class GeodesicKernel {
 - Owner: `VectorHeatKey` cache probe (time + ordered source tangents); `TangentLogMapAlgorithm` `[SmartEnum<int>]` (VectorHeatApproximate/ExactStraightestExp/ExactWindowPropagation); `TangentLogMapReceipt`/`TangentLogMapResult` the log-map evidence on the rails fold with the path law as the declared gate; the `GeodesicKernel` transport arms.
 - Entry: `GeodesicKernel.VectorHeatAt(space, sources, time, sample, key)` → `Fin<Vector3d>` (Sharp-Soliman-Crane parallel transport of tangent data — the frozen `VectorField.VectorHeat` case delegates here); `GeodesicKernel.TangentLogMapAt(space, source, sample, time, algorithm, trace, windows, key)` → `Fin<TangentLogMapResult>` — ONE log-map surface routing three algorithms through the generated `Switch` (a new `TangentLogMapAlgorithm` row is a hard compile gate), Func-form so the allocating exact arms stay unevaluated until dispatch; `GeodesicKernel.ExactExpMapAt(space, source, sample, policy, key)` → `Fin<TangentLogMapResult>` (the IVP seat of the one tracer).
 - Auto: vector heat orders sources deterministically (vertex, then direction components — permuted source sets hit one memo), encodes each source tangent into the vertex frame as a mass-weighted complex (the scalar heat-method source convention), solves the connection system at symmetry 1 through the cached connection Cholesky and the magnitude/indicator scalars through the cached scalar-heat Cholesky, and recovers `unit(direction) · (magnitude/indicator)` per vertex — transported direction from the connection, transported magnitude from the ratio; sampling decodes per-vertex complexes through the frame bundle and blends barycentrically. The approximate log map scales the transported source tangent by the heat geodesic distance and records the magnitude residual; the exact exp map seats the world chord tangent and walks the straightest geodesic with the closing residual `|requested − traced|/requested`; the exact log map interpolates MMP-exact vertex distances barycentrically (an unreached island interpolates `+∞` and fails the rail), backtraces the BVP, and accepts a direction ONLY when the backtrace reached the source with a finite ray AND the independent chart distance matches the field distance inside the scale-relative band (`PathRelativeResidual ≤ SqrtEpsilon`) — a confirmed saddle chain returns the first leg's initial direction scaled by the target's field distance (`|log| = d(p,q)`), while an unconfirmed bend, a wrong owning-window pick, or a degenerate ray disagrees the two witnesses and fails the projection rather than fabricating a direction.
-- Receipt: `TangentLogMapReceipt` — algorithm, source vertex, finite-log census, optional magnitude residual and heat time, the path evidence (`PathFaces`/`CrossedEdges`/`TracedLength`/`PathRelativeResidual`/segment-crossing-pass counts/stop kind), and the wavefront census (window/clamp/pseudosource/cut-locus counts). Validity is the `[ValidityEvidence]` fold conjoined with the declared gate: path arrays match their counts and `SegmentCount = EdgeCrossingCount + VertexPassCount + 1` whenever a stop kind is present and segments exist — the segment law is structural evidence, not a comment.
+- Receipt: `TangentLogMapReceipt` — algorithm, source vertex, finite-log census, optional magnitude residual and heat time, the path evidence (`PathFaces`/`CrossedEdges`/`TracedLength`/`PathRelativeResidual`/segment-crossing-pass counts/stop kind), and the wavefront census (window/clamp/pseudosource/cut-locus counts). Validity is the rails `ValidityClaim.All` fold — mechanical rows conjoined with the declared gate: path arrays match their counts and `SegmentCount = EdgeCrossingCount + VertexPassCount + 1` whenever a stop kind is present and segments exist — the segment law is structural evidence, not a comment.
 - Boundary: the near-source case returns the zero tangent with a valid receipt (log of the base point IS zero), never a fault; the two exact arms REJECT rather than degrade — `ExactWindowPropagation` with an unconfirmed direction fails the projection while still carrying the MMP-exact distance in its receipt, and a consumer wanting best-effort direction selects `VectorHeatApproximate` by row, never by flag.
 
 ```csharp
@@ -796,14 +796,19 @@ public sealed partial class GeodesicStopKind {
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------
-[BoundaryAdapter, ValidityEvidence, StructLayout(LayoutKind.Auto)]
-public readonly partial record struct TangentLogMapReceipt(
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct TangentLogMapReceipt(
     TangentLogMapAlgorithm Algorithm, int SourceVertex, int TargetCount, bool VectorHeatBacked, bool RejectsFlippedIntrinsic,
     int FiniteLogCount, Option<double> MaxMagnitudeResidual, Option<double> HeatTime, Arr<int> PathFaces, Arr<int> CrossedEdges,
     double TracedLength, double PathRelativeResidual, int SegmentCount, int EdgeCrossingCount, int VertexPassCount,
     Option<GeodesicStopKind> StopKind = default, int WindowCount = 0, int OcclusionClampCount = 0, int PseudosourceCount = 0, int CutLocusCount = 0) : IValidityEvidence {
-    // Page gate the aspect fold conjoins: path arrays match their counts, indices nonnegative, the segment law holds.
-    private bool ValidityGate() => ValidityClaim.All(
+    // The rails ValidityClaim.All fold: mechanical rows plus the declared gate — path arrays match their counts,
+    // indices nonnegative, the segment law holds.
+    public bool IsValid => ValidityClaim.All(
+        ValidityClaim.Of(Algorithm is not null && SourceVertex >= 0 && TargetCount >= 0 && FiniteLogCount >= 0 && WindowCount >= 0 && OcclusionClampCount >= 0 && PseudosourceCount >= 0 && CutLocusCount >= 0),
+        ValidityClaim.Nonnegative(value: TracedLength),
+        ValidityClaim.Nonnegative(value: PathRelativeResidual),
+        ValidityClaim.Of(MaxMagnitudeResidual.Map(static residual => double.IsFinite(residual) && residual >= 0.0).IfNone(noneValue: true) && HeatTime.Map(static time => double.IsFinite(time) && time > 0.0).IfNone(noneValue: true)),
         ValidityClaim.CountExactly(count: PathFaces.Count, expected: SegmentCount),
         ValidityClaim.CountExactly(count: CrossedEdges.Count, expected: EdgeCrossingCount),
         ValidityClaim.Of(PathFaces.ForAll(static face => face >= 0) && CrossedEdges.ForAll(static edge => edge >= 0)),
@@ -1025,7 +1030,7 @@ flowchart LR
 |  [04]   | Trace policies        | `GeodesicTracePolicy` + `WindowPropagationPolicy` | policy records, `Default` presets, monadic `Of`                    | `Of → Fin<policy>`                                  |    —    |
 |  [05]   | Stop vocabulary       | `GeodesicStopKind`                        | `[SmartEnum<int>]` terminal partition                               | pure rows                                           |    3    |
 |  [06]   | Transport + log maps  | `TangentLogMapAlgorithm` + transport arms | generated three-arm `Switch`, Func-form lazy dispatch               | `TangentLogMapAt → Fin<TangentLogMapResult>`        |    3    |
-|  [07]   | Evidence              | `TangentLogMapReceipt`/`Result`           | `[ValidityEvidence]` fold + declared path-law gate                  | gated `Fin` projection                              |    —    |
+|  [07]   | Evidence              | `TangentLogMapReceipt`/`Result`           | `ValidityClaim.All` fold + declared path-law gate                   | gated `Fin` projection                              |    —    |
 |  [08]   | Sampling substrate    | `MeshProbe` + `FrameBundle`               | ONE closest-face interpolation owner + ONE weak-keyed tangent-frame owner | `ScalarOn/VectorOn/ComplexBlend → Fin<T>`     |    —    |
 
 The wavefront, walk, and strip loops are the named statement-kernel exemption: pure-scalar hot loops over detached intrinsic geometry, admitted through `Fin` at every entry, with no host state touched past the `IntrinsicMesh` freeze boundary.

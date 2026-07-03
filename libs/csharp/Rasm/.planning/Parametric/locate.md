@@ -37,7 +37,8 @@ namespace Rasm.Analysis;
 // --- [TYPES] --------------------------------------------------------------------------------
 [SkipUnionOps]
 [Union]
-public partial record Locator {
+public abstract partial record Locator {
+    private Locator() { }
     public sealed record CurveParameter(double T) : Locator;
     public sealed record ArcLength(double Distance) : Locator;
     public sealed record NormalizedLength(double S) : Locator;
@@ -61,7 +62,8 @@ public partial record Locator {
 
 [SkipUnionOps]
 [Union]
-public partial record LocationValue {
+public abstract partial record LocationValue {
+    private LocationValue() { }
     public sealed record PointCase : LocationValue {
         internal override Op Key => LocationKeys.PointAt;
         internal override Option<SupportProjection> Closest => Some(SupportProjection.Closest);
@@ -174,7 +176,8 @@ public partial record LocationValue {
 
 [SkipUnionOps]
 [Union]
-public partial record Division {
+public abstract partial record Division {
+    private Division() { }
     public sealed record ByCount(int Count) : Division;
     public sealed record ByLength(double Length) : Division;
     internal Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull => this switch {
@@ -191,7 +194,8 @@ public partial record Division {
 
 [SkipUnionOps]
 [Union]
-public partial record CurvatureMode {
+public abstract partial record CurvatureMode {
+    private CurvatureMode() { }
     public sealed record VectorCase : CurvatureMode;
     public sealed record ScalarCase(ScalarMetric Metric) : CurvatureMode;
     public static CurvatureMode Vector => new VectorCase();
@@ -207,7 +211,8 @@ public partial record CurvatureMode {
 
 [SkipUnionOps]
 [Union]
-public partial record CurvatureAggregation {
+public abstract partial record CurvatureAggregation {
+    private CurvatureAggregation() { }
     public sealed record SamplesCase : CurvatureAggregation;
     public sealed record ExtremaCase(ExtremumDirection Direction, double Band) : CurvatureAggregation;
     public static readonly CurvatureAggregation Samples = new SamplesCase();
@@ -217,7 +222,8 @@ public partial record CurvatureAggregation {
 
 [SkipUnionOps]
 [Union]
-public partial record Location {
+public abstract partial record Location {
+    private Location() { }
     public sealed record AtCase(Locator Locator, LocationValue Value) : Location;
     public sealed record CurvatureCase(int Count, CurvatureMode Mode, CurvatureAggregation Aggregation) : Location;
     public sealed record DivideCase(Division By) : Location;

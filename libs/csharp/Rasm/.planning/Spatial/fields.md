@@ -426,9 +426,10 @@ public abstract partial record VectorField {
                dipole/harmonic/biotSavart/saddle closed forms,
                curl/curlNoise via Nabla.CurlAt/CurlNoiseAt with sampler closures,
                vectorHeat -> GeodesicKernel.VectorHeatAt, geodesicTangent -> GeodesicKernel.GeodesicTangentAt,
-               hodge -> ONE-LINE delegation to the dec.md Hodge point-evaluator (its solver body: edge-integrate
-               the sampled field into a 1-form -> HodgeDecomposeDetailed, mesh.md-cached -> Whitney-evaluate the
-               sense-selected component at the sample) — the pipeline is dec.md's, never this arm's. */));
+               hodge -> ONE-LINE delegation to DecAssembly.HodgeVectorAt(c.Source, c.Space, c.Sense, s.Sample,
+               s.Context, s.Key) — dec.md's point-evaluation seat (edge-integrate the sampled field into a
+               1-form -> HodgeDecomposeDetailed, memoized through the mesh.md Memoized slot under dec.md's
+               HodgeSolutionKey -> Whitney-evaluate the sense-selected component) — never this arm's. */));
 
     // The three shared folds every analytic case composes:
     private static Fin<Vector3d> RotationalField(Point3d anchor, Direction axis, Falloff falloff, double axial, double swirl, (Point3d Sample, Context Context, Op Key) state) {

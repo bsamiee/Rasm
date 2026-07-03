@@ -353,7 +353,8 @@ public abstract partial record ExtractionProbe {
         scalarCase: static (op, probe) => op.Need(probe.Source).Map(_ => (ExtractionProbe)probe),
         tensorCase: static (op, probe) => op.Need(probe.Source).Map(_ => (ExtractionProbe)probe));
     // Typed rows kill the typeof(TOut) branching; only the matched row's producer runs. The mesh-bound
-    // log-map rows route to geodesics.md's kernel; scalar rows ride fields.md's tagged rails.
+    // log-map rows route to geodesics.md's kernel; the Hodge evidence rows route to dec.md's memoized
+    // HodgeSolutionOf seat; scalar rows ride fields.md's tagged rails.
     internal Fin<TOut> Project<TOut>(Point3d sample, Context context, Op key) => Switch(
         state: (Sample: sample, Context: context, Key: key),
         vectorCase: static (state, probe) => AtomProjection.Rows<ExtractionProbe.VectorCase, TOut>(self: probe, key: state.Key, owner: typeof(VectorCase),
@@ -363,6 +364,12 @@ public abstract partial record ExtractionProbe {
             ProjectionRow.Of<TangentLogMapReceipt>(() => probe.Source is VectorField.TangentLogMapCase log
                 ? GeodesicKernel.TangentLogMapAt(space: log.Space, source: log.Source, sample: state.Sample, time: log.Time.Value, algorithm: log.Algorithm, trace: log.Trace, windows: log.Windows, key: state.Key).Map(static result => result.Receipt)
                 : Fin.Fail<TangentLogMapReceipt>(state.Key.Unsupported(geometryType: probe.Source.GetType(), outputType: typeof(TangentLogMapReceipt)))),
+            ProjectionRow.Of<HodgeDecompositionReceipt>(() => probe.Source is VectorField.HodgeCase hodge
+                ? DecAssembly.HodgeSolutionOf(source: hodge.Source, space: hodge.Space, context: state.Context, key: state.Key).Map(static solved => solved.Receipt)
+                : Fin.Fail<HodgeDecompositionReceipt>(state.Key.Unsupported(geometryType: probe.Source.GetType(), outputType: typeof(HodgeDecompositionReceipt)))),
+            ProjectionRow.Of<HarmonicOneFormReceipt>(() => probe.Source is VectorField.HodgeCase hodge
+                ? DecAssembly.HodgeSolutionOf(source: hodge.Source, space: hodge.Space, context: state.Context, key: state.Key).Bind(solved => solved.Receipt.Harmonic.ToFin(state.Key.InvalidResult()))
+                : Fin.Fail<HarmonicOneFormReceipt>(state.Key.Unsupported(geometryType: probe.Source.GetType(), outputType: typeof(HarmonicOneFormReceipt)))),
             ProjectionRow.Of<Vector3d>(() => probe.Source.SampleVector(sample: state.Sample, context: state.Context, key: state.Key)),
             ProjectionRow.Of<double>(() => probe.Source.SampleVector(sample: state.Sample, context: state.Context, key: state.Key).Map(static vector => vector.Length)),
             ProjectionRow.Of<VectorSpan>(() => SpanAt(probe: probe, state: state)),

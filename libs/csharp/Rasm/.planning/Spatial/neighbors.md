@@ -59,10 +59,10 @@ public abstract partial record NeighborSource {
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct NeighborHit(int Id) { public bool IsValid => Id >= 0; }
+public readonly record struct NeighborHit(int Id) : IValidityEvidence { public bool IsValid => Id >= 0; }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct NeighborPair(int A, int B) { public bool IsValid => A >= 0 && B >= 0 && A != B; }
+public readonly record struct NeighborPair(int A, int B) : IValidityEvidence { public bool IsValid => A >= 0 && B >= 0 && A != B; }
 
 // --- [MODELS] -----------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]

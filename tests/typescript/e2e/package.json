@@ -1,0 +1,14 @@
+{
+    "name": "@rasm/ts-e2e",
+    "private": true,
+    "type": "module",
+    "dependencies": {
+        "@effect/platform": "catalog:",
+        "@effect/platform-node": "catalog:",
+        "@playwright/test": "catalog:",
+        "@rasm/ts-testkit": "workspace:*",
+        "@types/k6": "catalog:",
+        "effect": "catalog:",
+        "typescript": "catalog:"
+    }
+}

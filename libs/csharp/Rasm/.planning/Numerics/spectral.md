@@ -114,15 +114,15 @@ public abstract partial record SpectralFilter {
 - Owner: `DiscreteCalculus` — the FROZEN-NAME discrete-exterior-calculus operator bundle: `D0` (vertex→edge incidence, `SparseMatrix`), `D1` (edge→face curl), `Star0`/`Star1`/`Star2` (the diagonal Hodge stars: vertex mass, edge cotan weights, inverse face areas — `Arr<double>` diagonals), the `SpectralAssemblyReceipt`, and the optional `Transport` (signpost intrinsic-transport evidence, declared by `Meshing/mesh`) and `Harmonic` (1-form basis) slots; its `Project<TOut>` routes the evidence family through typed `ProjectionRow` rows. `SpectralBasis` the eigenpair carrier (`Eigenvalues` finite and nonnegative within the ONE scale-relative `ZeroBand` — `SqrtEpsilon` × spectral radius, so unit-scaled spectra never fail an absolute gate; the eigen mints deliver them ascending, the gate does not re-derive ordering — `Eigenvectors` uniform-length) with `Truncate(k)`; the SAME band classifies zero modes in the descriptor kernel — one threshold declaration, zero drift. `SpectralAssemblyReceipt` the assembly evidence — vertex/edge/face census, admitted/skipped-degenerate/missing-edge face counts, matrix shape and nnz, positive-star counts, the `∂∂ = 0` boundary-composition residual, genus and harmonic dimension, topology census (boundary edges/components, non-manifold edges, Euler characteristic), and for edge-connection assemblies the symmetry residual against its tolerance. `HarmonicOneFormReceipt` — the harmonic-basis evidence with the dimension law `dim = 2g + max(0, b−1)`, the rank/nullity partition of the edge space, SVD/eps-rank thresholds, nullspace eigenvalue window, and the closed/coclosed/`Star1`-orthonormal residuals gated SCALE-RELATIVE (the gate carries `max(1, spectralRadius)` and a dimensionless `1e3` rounding-accumulation slack — never a bare absolute). `HarmonicOneFormBasis` the forms + receipt pair.
 - Entry: carriers are CONSTRUCTED by `Meshing/dec` (assembly) and `Meshing/mesh` (caching); this page owns their shape, validity law, and projection — consumers (`Rasm.Compute` adjoint surface, `Processing/geodesics`, `Processing/segment`, `Spatial/fields` spectral cases) read them from here.
 - Auto: `DiscreteCalculus.IsValid` cross-couples the stars to the operator shapes (`Star0.Count == D0.Cols`, `Star1.Count == D0.Rows`, `Star2.Count == D1.Rows`), requires strictly positive vertex/face stars, and admits edge stars down to a scale-relative negative band (intrinsic cotan weights of near-degenerate triangles legitimately dip below zero within roundoff of the Star1 scale).
-- Receipt: all three receipts on the `[ValidityEvidence]` fold; the semantic gates preserve the mature couplings verbatim — the harmonic dimension law, the `Rank + Nullity == EdgeCount` partition, the residual-tolerance ladder.
-- Packages: `matrix.md` owners (`SparseMatrix`, `EigenSolveReceipt`), LanguageExt.Core, Rasm.Domain (`[ValidityEvidence]`, `Op`).
+- Receipt: all three receipts spell the rails fold — `public bool IsValid => ValidityClaim.All(…)` with `IValidityEvidence` registration; the semantic gates preserve the mature couplings verbatim — the harmonic dimension law, the `Rank + Nullity == EdgeCount` partition, the residual-tolerance ladder.
+- Packages: `matrix.md` owners (`SparseMatrix`, `EigenSolveReceipt`), LanguageExt.Core, Rasm.Domain (`IValidityEvidence` + `ValidityClaim`, `Op`).
 - Growth: a new DEC operator (a primal-dual wedge, a vector-valued star) is one field + one validity coupling + one `ProjectionRow`; a new assembly witness is one receipt field.
 - Boundary: `DiscreteCalculus` is the `Rasm.Compute` adjoint seam — the name, field set, and projection rows are the cross-package contract and stay stable; `SignpostTransportReceipt` is DECLARED by `Meshing/mesh` (the intrinsic-triangulation owner) and only carried here as optional evidence, so the DDG receipt family has exactly one declaration site per receipt with this page owning the mesh-free members.
 
 ```csharp
 // --- [MODELS] -----------------------------------------------------------------------------
-[ValidityEvidence, StructLayout(LayoutKind.Auto)]
-public readonly partial record struct SpectralAssemblyReceipt(
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct SpectralAssemblyReceipt(
     int VertexCount, int EdgeCount, int FaceCount, int AdmittedFaceCount, int SkippedDegenerateFaces, int SkippedMissingEdges,
     bool FlippedIntrinsicRejected, int MatrixRows, int MatrixCols, int NonZeros,
     int PositiveStar0Count, int PositiveStar1Count, int PositiveStar2Count,
@@ -131,47 +131,55 @@ public readonly partial record struct SpectralAssemblyReceipt(
     bool TopologyEulerValidated = false, int ComponentCount = 1, int PositiveMassCount = 0,
     double SymmetryResidual = 0.0, double SymmetryTolerance = 0.0, Option<int> FactorNonZeros = default,
     double BoundaryCompositionTolerance = 0.0) : IValidityEvidence {
-    private bool ValidityGate() =>
-        AdmittedFaceCount + SkippedDegenerateFaces + SkippedMissingEdges <= FaceCount
-        && SymmetryResidual <= SymmetryTolerance
-        && FactorNonZeros.Map(static value => value > 0).IfNone(noneValue: true)
-        && (Kind.Equals(SpectralAssemblyKind.EdgeConnection)
-            ? ComponentCount == 2 && MatrixRows == EdgeCount * ComponentCount && MatrixCols == MatrixRows && PositiveMassCount <= EdgeCount
-            : ComponentCount == 1 && PositiveStar0Count <= VertexCount && PositiveStar1Count <= EdgeCount && PositiveStar2Count <= FaceCount
-              && (Genus is { IsSome: true, Case: int genus }
-                  ? genus >= 0 && HarmonicDimension == (2 * genus) + Math.Max(0, BoundaryComponentCount - 1)
-                  : HarmonicDimension == 0));
+    public bool IsValid => ValidityClaim.All(
+        ValidityClaim.Of(VertexCount >= 0 && EdgeCount >= 0 && FaceCount >= 0 && MatrixRows >= 0 && MatrixCols >= 0 && NonZeros >= 0),
+        ValidityClaim.Nonnegative(value: BoundaryCompositionResidual),
+        ValidityClaim.Nonnegative(value: SymmetryResidual),
+        ValidityClaim.Of(AdmittedFaceCount + SkippedDegenerateFaces + SkippedMissingEdges <= FaceCount),
+        ValidityClaim.Of(SymmetryResidual <= SymmetryTolerance),
+        ValidityClaim.Of(FactorNonZeros.Map(static value => value > 0).IfNone(noneValue: true)),
+        ValidityClaim.Of(Kind is not null
+            && (Kind.Equals(SpectralAssemblyKind.EdgeConnection)
+                ? ComponentCount == 2 && MatrixRows == EdgeCount * ComponentCount && MatrixCols == MatrixRows && PositiveMassCount <= EdgeCount
+                : ComponentCount == 1 && PositiveStar0Count <= VertexCount && PositiveStar1Count <= EdgeCount && PositiveStar2Count <= FaceCount
+                  && (Genus is { IsSome: true, Case: int genus }
+                      ? genus >= 0 && HarmonicDimension == (2 * genus) + Math.Max(0, BoundaryComponentCount - 1)
+                      : HarmonicDimension == 0))));
 }
 
-[ValidityEvidence, StructLayout(LayoutKind.Auto)]
-public readonly partial record struct HarmonicOneFormReceipt(
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct HarmonicOneFormReceipt(
     Option<int> Genus, int ExpectedDimension, int ConstraintRows, int EdgeCount, int Rank, int Nullity, int BasisCount,
     double SvdTolerance, double EpsRank, double SpectralRadius, double NullspaceThreshold,
     double MinNullEigenvalue, double MaxNullEigenvalue, double MaxClosedResidual, double MaxCoClosedResidual,
     double Star1OrthonormalResidual, int PositiveStar1Count, EigenSolveReceipt<double, Arr<double>> Eigen,
     int BoundaryComponentCount = 0) : IValidityEvidence {
-    private bool ValidityGate() {
-        int expected = ExpectedDimension;
-        int boundaryComponentCount = BoundaryComponentCount;
-        // Residual gate is operator-scale-relative: the eigen tolerance and the sqrt-machineEps floor both
-        // carry max(1, spectralRadius); 1e3 is the dimensionless rounding-accumulation slack the applied
-        // differential residuals incur above the eigenvalue tolerance — never a bare absolute.
-        double residualTolerance = Math.Max(val1: SvdTolerance, val2: EpsilonPolicy.SqrtEpsilon * Math.Max(val1: 1.0, val2: SpectralRadius)) * 1.0e3;
-        return Rank + Nullity == EdgeCount
-            && BasisCount == expected
-            && Nullity >= expected
-            && PositiveStar1Count <= EdgeCount
-            && Genus.Map(genus => expected == (2 * genus) + Math.Max(0, boundaryComponentCount - 1)).IfNone(expected == 0)
-            && SvdTolerance > 0.0
-            && EpsRank > 0.0
-            && Math.Abs(value: SvdTolerance - NullspaceThreshold) <= EpsilonPolicy.SqrtEpsilon * Math.Max(val1: 1.0, val2: NullspaceThreshold)
-            && NullspaceThreshold <= (EpsRank * Math.Max(val1: 1.0, val2: SpectralRadius)) + EpsilonPolicy.SqrtEpsilon
-            && MinNullEigenvalue >= -EpsilonPolicy.SqrtEpsilon
-            && MaxNullEigenvalue >= MinNullEigenvalue - EpsilonPolicy.SqrtEpsilon
-            && MaxClosedResidual <= residualTolerance
-            && MaxCoClosedResidual <= residualTolerance
-            && Star1OrthonormalResidual <= residualTolerance
-            && Eigen.IsValid;
+    public bool IsValid {
+        get {
+            int expected = ExpectedDimension;
+            int boundaryComponentCount = BoundaryComponentCount;
+            // Residual gate is operator-scale-relative: the eigen tolerance and the sqrt-machineEps floor both
+            // carry max(1, spectralRadius); 1e3 is the dimensionless rounding-accumulation slack the applied
+            // differential residuals incur above the eigenvalue tolerance — never a bare absolute.
+            double residualTolerance = Math.Max(val1: SvdTolerance, val2: EpsilonPolicy.SqrtEpsilon * Math.Max(val1: 1.0, val2: SpectralRadius)) * 1.0e3;
+            return ValidityClaim.All(
+                ValidityClaim.Of(EdgeCount >= 0 && Rank >= 0 && Nullity >= 0 && BasisCount >= 0 && ConstraintRows >= 0),
+                ValidityClaim.Of(Rank + Nullity == EdgeCount),
+                ValidityClaim.CountExactly(count: BasisCount, expected: expected),
+                ValidityClaim.Of(Nullity >= expected),
+                ValidityClaim.Of(PositiveStar1Count <= EdgeCount),
+                ValidityClaim.Of(Genus.Map(genus => expected == (2 * genus) + Math.Max(0, boundaryComponentCount - 1)).IfNone(expected == 0)),
+                ValidityClaim.Positive(value: SvdTolerance),
+                ValidityClaim.Positive(value: EpsRank),
+                ValidityClaim.Of(Math.Abs(value: SvdTolerance - NullspaceThreshold) <= EpsilonPolicy.SqrtEpsilon * Math.Max(val1: 1.0, val2: NullspaceThreshold)),
+                ValidityClaim.Of(NullspaceThreshold <= (EpsRank * Math.Max(val1: 1.0, val2: SpectralRadius)) + EpsilonPolicy.SqrtEpsilon),
+                ValidityClaim.Of(MinNullEigenvalue >= -EpsilonPolicy.SqrtEpsilon),
+                ValidityClaim.Of(MaxNullEigenvalue >= MinNullEigenvalue - EpsilonPolicy.SqrtEpsilon),
+                ValidityClaim.Of(MaxClosedResidual <= residualTolerance),
+                ValidityClaim.Of(MaxCoClosedResidual <= residualTolerance),
+                ValidityClaim.Of(Star1OrthonormalResidual <= residualTolerance),
+                ValidityClaim.Evidence(Eigen));
+        }
     }
 }
 
@@ -235,7 +243,7 @@ public readonly record struct SpectralBasis(Arr<double> Eigenvalues, Arr<Arr<dou
 - Owner: `SpectralDescriptorPolicy` the normalization bundle (scale × energy × zero-mode × optional crop, `Raw` the canonical no-op row, `IsRaw`/`IsValueOnly` derived predicates, `Admit` the gate); `SpectralWaveReceipt` the WKS normalization evidence (energy/bandwidth, first-nonzero scale, zero-mode and crop censuses, raw/normalized weight sums with the `Σw = 1` gate, log-eigenvalue range); `SpectralDescriptorReceipt` the descriptor evidence (filter, vertex/eigenpair/source censuses, pairwise and comparison-ready flags, the policy applied, optional wave evidence); `SpectralDescriptor` the values + receipt carrier with `Normalize(policy)` (value-only renormalization — a scale/crop change demands re-evaluation and fails typed; only the energy axis merges into the receipt's policy, so evaluation provenance survives) and `Rank(candidates, policy)`; `SpectralRankingPolicy` (`Default` = Raw + Euclidean) / `SpectralRank` / `SpectralRanking`; `SpectralKernel` the `internal static` evaluation owner — `EvaluateFilteredDetailed` (the dense-buffer filtered-signature kernel: point signatures `Σ w(λₖ)·φₖ(v)²` or pairwise distances `√(Σ w(λₖ)·(φₖ(v) − φₖ(s))²/|S|)` over admitted source sets, zero modes classified by the basis' scale-relative `ZeroBand`, crop policy applied to the eigen index set, scale normalization by first nonzero eigenvalue), `NormalizeDescriptor`/`NormalizeValues` (L1/L2 via `TensorPrimitives.SumOfMagnitudes`/`Norm`, z-score), `RankDescriptors` (candidates re-normalized to the query policy, distances read off the `SpectralDistanceKind` compute column, ranked ascending with index tiebreak), and the one named numeric-policy constant `WaveBandwidthFloor = 1e-9` — the harmonic eps-rank default is `Meshing/dec`'s assembly policy, declared beside the construction that applies it, never re-declared here.
 - Entry: `filter.ApplyDetailed(basis, sources, policy, key)` is the evaluation entry; `descriptor.Normalize(policy)` and `descriptor.Rank(candidates, policy)` the post-processing entries — one descriptor pipeline, no sibling evaluate/compare surfaces.
 - Auto: WKS weights normalize to unit sum with the full `SpectralWaveReceipt` minted inline; `ComparisonReady` derives from policy + wave evidence so a raw HKS never silently ranks against a normalized WKS; `RankDescriptors` re-normalizes every candidate to the query's policy before measuring — policy mismatch is repaired, not ignored.
-- Receipt: `SpectralWaveReceipt` and `SpectralDescriptorReceipt` on the `[ValidityEvidence]` fold with semantic gates (`CroppedEigenpairCount >= NonZeroEigenpairCount`, `RawWeightSum > 0`, WKS unit-sum within `1e-9`; source/eigenpair/vertex couplings).
+- Receipt: `SpectralWaveReceipt` and `SpectralDescriptorReceipt` on the rails `ValidityClaim.All` fold with semantic gates (`CroppedEigenpairCount >= NonZeroEigenpairCount`, `RawWeightSum > 0`, WKS unit-sum within `1e-9`; source/eigenpair/vertex couplings).
 - Packages: MathNet.Numerics (`Distance.Euclidean/Manhattan/Cosine`), System.Numerics.Tensors (`TensorPrimitives.SumOfMagnitudes`/`Norm`/`IsFiniteAll`), LanguageExt.Core, Thinktecture.Runtime.Extensions.
 - Growth: a new signature family (scale-invariant HKS, improved WKS variants) is one filter case + policy rows — the kernel loop is already generic over the weight function; a new distance is one `SpectralDistanceKind` row — the compute column IS the arm.
 - Boundary: `EvaluateFilteredDetailed`'s dense `double[]` buffer loop is the named statement-kernel exemption — per-eigenpair-per-vertex accumulation over `n·k` (·`|S|` pairwise) terms where a `Seq` fold would churn allocations; the kernel is mesh-free — vertex COUNT is the only topology it sees, so it serves tet bases, grid bases, and mesh bases identically; mesh-side basis computation and caching (`SpectralBasisBundle`) are `Meshing/dec`'s.
@@ -252,28 +260,35 @@ public readonly record struct SpectralDescriptorPolicy(SpectralScaleNormalizatio
         guard(policy.IsValid, key.InvalidInput()).ToFin().Map(_ => policy);
 }
 
-[ValidityEvidence, StructLayout(LayoutKind.Auto)]
-public readonly partial record struct SpectralWaveReceipt(double Energy, double Bandwidth, Option<double> FirstNonZeroScale, int ZeroModeCount, int CroppedEigenpairCount, int NonZeroEigenpairCount, double RawWeightSum, double NormalizedWeightSum, Option<double> MinLogEigenvalue, Option<double> MaxLogEigenvalue, bool WksNormalized) : IValidityEvidence {
-    private bool ValidityGate() =>
-        Energy > 0.0 && Bandwidth > 0.0
-        && CroppedEigenpairCount >= NonZeroEigenpairCount
-        && NonZeroEigenpairCount > 0
-        && RawWeightSum > 0.0
-        && (!WksNormalized || Math.Abs(value: NormalizedWeightSum - 1.0) <= 1.0e-9)
-        && FirstNonZeroScale.Map(static first => first > 0.0).IfNone(noneValue: true)
-        && MinLogEigenvalue.Map(min => MaxLogEigenvalue.Map(max => min <= max).IfNone(noneValue: true)).IfNone(noneValue: true);
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct SpectralWaveReceipt(double Energy, double Bandwidth, Option<double> FirstNonZeroScale, int ZeroModeCount, int CroppedEigenpairCount, int NonZeroEigenpairCount, double RawWeightSum, double NormalizedWeightSum, Option<double> MinLogEigenvalue, Option<double> MaxLogEigenvalue, bool WksNormalized) : IValidityEvidence {
+    public bool IsValid {
+        get {
+            Option<double> maxLogEigenvalue = MaxLogEigenvalue;
+            return ValidityClaim.All(
+                ValidityClaim.Positive(value: Energy),
+                ValidityClaim.Positive(value: Bandwidth),
+                ValidityClaim.Of(ZeroModeCount >= 0 && CroppedEigenpairCount >= NonZeroEigenpairCount && NonZeroEigenpairCount > 0),
+                ValidityClaim.Positive(value: RawWeightSum),
+                ValidityClaim.Of(!WksNormalized || Math.Abs(value: NormalizedWeightSum - 1.0) <= 1.0e-9),
+                ValidityClaim.Of(FirstNonZeroScale.Map(static first => first > 0.0).IfNone(noneValue: true)),
+                ValidityClaim.Of(MinLogEigenvalue.Map(min => maxLogEigenvalue.Map(max => min <= max).IfNone(noneValue: true)).IfNone(noneValue: true)));
+        }
+    }
 }
 
-[ValidityEvidence, StructLayout(LayoutKind.Auto)]
-public readonly partial record struct SpectralDescriptorReceipt(SpectralFilter Filter, int VertexCount, int EigenpairCount, int SourceCount, bool ComparisonReady, bool Pairwise, bool EnergyNormalized, bool ScaleNormalized, SpectralDescriptorPolicy Policy = default, int ZeroModeCount = 0, int CroppedEigenpairCount = 0, Option<SpectralWaveReceipt> Wave = default) : IValidityEvidence {
-    private bool ValidityGate() =>
-        VertexCount > 0 && EigenpairCount > 0
-        && CroppedEigenpairCount > 0 && CroppedEigenpairCount <= EigenpairCount
-        && ZeroModeCount <= EigenpairCount
-        && SourceCount <= VertexCount
-        && (!Pairwise || SourceCount > 0)
-        && Policy.IsValid
-        && (!ComparisonReady || !Policy.IsRaw || Wave.IsSome);
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct SpectralDescriptorReceipt(SpectralFilter Filter, int VertexCount, int EigenpairCount, int SourceCount, bool ComparisonReady, bool Pairwise, bool EnergyNormalized, bool ScaleNormalized, SpectralDescriptorPolicy Policy = default, int ZeroModeCount = 0, int CroppedEigenpairCount = 0, Option<SpectralWaveReceipt> Wave = default) : IValidityEvidence {
+    public bool IsValid => ValidityClaim.All(
+        ValidityClaim.Of(Filter is not null),
+        ValidityClaim.Of(VertexCount > 0 && EigenpairCount > 0),
+        ValidityClaim.Of(CroppedEigenpairCount > 0 && CroppedEigenpairCount <= EigenpairCount),
+        ValidityClaim.Of(ZeroModeCount >= 0 && ZeroModeCount <= EigenpairCount),
+        ValidityClaim.Of(SourceCount >= 0 && SourceCount <= VertexCount),
+        ValidityClaim.Of(!Pairwise || SourceCount > 0),
+        ValidityClaim.Of(Policy.IsValid),
+        ValidityClaim.Of(!ComparisonReady || !Policy.IsRaw || Wave.IsSome),
+        ValidityClaim.Of(Wave.Map(static wave => wave.IsValid).IfNone(noneValue: true)));
 }
 
 [StructLayout(LayoutKind.Auto)]
@@ -428,6 +443,6 @@ internal static class SpectralKernel {
 |  [01]   | Spectral policy       | `SpectralAssemblyKind` · `SpectralScaleNormalization` · `SpectralEnergyNormalization` · `SpectralZeroModePolicy` · `SpectralDistanceKind` | `[SmartEnum<int>]` vocabularies                             | 2·2·4·2·3 |
 |  [02]   | Transfer functions    | `SpectralFilter`                                           | closed `[Union]` + partial-monoid `Compose` + inlined weight |    6    |
 |  [03]   | DEC carriers          | `DiscreteCalculus` (frozen seam) · `SpectralBasis`         | operator bundle + eigenpair carrier                          |    2    |
-|  [04]   | Assembly evidence     | `SpectralAssemblyReceipt` · `HarmonicOneFormReceipt` · `HarmonicOneFormBasis` | `[ValidityEvidence]` fold + scale-relative residual gates    |    3    |
+|  [04]   | Assembly evidence     | `SpectralAssemblyReceipt` · `HarmonicOneFormReceipt` · `HarmonicOneFormBasis` | `ValidityClaim.All` fold + scale-relative residual gates    |    3    |
 |  [05]   | Descriptor algebra    | `SpectralDescriptorPolicy` · `SpectralWaveReceipt` · `SpectralDescriptorReceipt` · `SpectralDescriptor` · `SpectralRankingPolicy`/`SpectralRank`/`SpectralRanking` | policy + evidence + carrier family                           |    7    |
 |  [06]   | Evaluation kernel     | `SpectralKernel`                                           | dense filtered-signature/normalize/rank kernel               |    1    |

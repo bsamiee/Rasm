@@ -53,7 +53,7 @@ Folder = domain grouping; fence namespace = frozen contract axis. The rebuilt AR
 | Fence namespace | Pages | Why frozen |
 |---|---|---|
 | `Rasm.Domain` | Domain/* (7) | `[Union]` generator emit `global::Rasm.Domain.Op.Of`, `GenerateUnionOpsAttribute` marker, 11 GH `using Op =` aliases, props global usings, `ContentHash` federation seams, `Topology`/`Kind`/`Context` composed by 10+ settled pages |
-| `Rasm.Vectors` | Numerics/{atoms,matrix,integrate,spectral,calculus}, Spatial/{support,cloud,neighbors,transport,fields}, Parametric/projections, Meshing/{mesh,dec,reconstruct}, Processing/{intent,sample,extract,flow,register,geodesics,segment} (20) | Rasm.Rhino Camera (`VectorIntent`/`VectorFrame`/`MotionInterpolation`), 12/18 settled pages compose `MeshSpace` + the DEC/field/cloud vocabulary, Materials/Fabrication/Element design anchors |
+| `Rasm.Vectors` | Numerics/{atoms,matrix,integrate,spectral,calculus}, Spatial/{support,cloud,neighbors,transport,fields}, Parametric/projections, Meshing/{mesh,dec,reconstruct}, Processing/{intent,sample,extract,flow,register,geodesics,segment} (21) | Rasm.Rhino Camera (`VectorIntent`/`VectorFrame`/`MotionInterpolation`), 12/18 settled pages compose `MeshSpace` + the DEC/field/cloud vocabulary, Materials/Fabrication/Element design anchors |
 | `Rasm.Analysis` | Analysis/* (5), Parametric/locate (1) | cs-analyzer docIDs (`IntersectionHit`, `RayQuery`), Rasm.Rhino Commands/Overlay, GH props usings, Radyab factory calls (`Measure.*`, `Points.*`, `Bounds.*`, `AnalysisQuery`, `Analyze.Run`, `Env`) |
 | `Rasm.Geometry.*` | the 18 re-homed | Settled robust-core law; geometry campaign owns its V1 namespace reconciliation |
 

@@ -16,7 +16,7 @@ The one `Combine(coefficients, deltas)` linear-combination fold lives on the mod
 - Cases: `Euler(1)` · `Heun(2)` · `Midpoint(2)` · `Ralston(2)` · `RK4(4)` · `RK38(4)` fixed; `BogackiShampine(3/2)` · `CashKarp(5/4)` · `DormandPrince(5/4)` adaptive (9).
 - Entry: `IntegratorKind.<Row>.Tableau` reads the validated carrier; `ButcherTableau.Admit(Op key)` gates a tableau onto the rail; `Tableau.MomentReceipt` re-derives the moment evidence on demand; `IsFunctionalSameAsLast` detects the FSAL structure (last stage equals the weight row) that fingerprints the method-specific dense-output families.
 - Auto: abscissae never enter as data — `Fixed`/`Adaptive` derive them as coupling row sums, so the consistency condition `cᵢ = Σaᵢⱼ` is true by construction and re-checked by `IsValid` as the transcription witness; `AdaptiveExponent` derives the step-control exponent `1/(q+1)` from the embedded order; the moment folds accumulate in 106-bit `ddouble` (`MomentSum`) so the fold's own rounding stays far below the tolerance band it witnesses.
-- Receipt: `ButcherMomentReceipt(StageCount, MethodOrder, EmbeddedOrder, CheckedConditionCount, FailedConditionCount, MaxResidual)` — on the `[ValidityEvidence]` fold with the `FailedConditionCount == 0 && MaxResidual <= CoefficientTolerance` semantic gate.
+- Receipt: `ButcherMomentReceipt(StageCount, MethodOrder, EmbeddedOrder, CheckedConditionCount, FailedConditionCount, MaxResidual)` — on the rails `ValidityClaim.All` fold with the `FailedConditionCount == 0 && MaxResidual <= CoefficientTolerance` semantic gate.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core (`Seq`, `Option`, `Fin`), TYoshimura.DoubleDouble (`ddouble` — the 106-bit accumulation `MomentSum` folds every order-condition and dense-output moment sum through).
 - Growth: a new integrator (Tsitouras 5(4), Verner 6(5)) is ONE `IntegratorKind` row — coupling, weights, error weights — with the order conditions validating the transcription automatically; a new order condition (order-5 moment rows) is one `Check` line in `MomentReceiptOf` tightening every row at once.
 - Boundary: `CoefficientTolerance = 1.0e-9` is the tableau's own documented order-condition residual band — exact-rational coefficients evaluate to residuals near machine epsilon, so the band catches transcription errors, not roundoff; tableau data lives ONLY on the vocabulary rows — a consumer never spells a coupling coefficient.
@@ -121,9 +121,14 @@ public readonly record struct ButcherTableau(Seq<Seq<double>> Coupling, Seq<doub
     }
 }
 
-[ValidityEvidence, StructLayout(LayoutKind.Auto)]
-public readonly partial record struct ButcherMomentReceipt(int StageCount, int MethodOrder, Option<int> EmbeddedOrder, int CheckedConditionCount, int FailedConditionCount, double MaxResidual) : IValidityEvidence {
-    private bool ValidityGate() => FailedConditionCount == 0 && MaxResidual <= ButcherTableau.CoefficientTolerance;
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct ButcherMomentReceipt(int StageCount, int MethodOrder, Option<int> EmbeddedOrder, int CheckedConditionCount, int FailedConditionCount, double MaxResidual) : IValidityEvidence {
+    public bool IsValid => ValidityClaim.All(
+        ValidityClaim.Of(StageCount >= 1 && MethodOrder >= 1 && CheckedConditionCount >= 0),
+        ValidityClaim.Of(EmbeddedOrder.Map(static order => order >= 1).IfNone(noneValue: true)),
+        ValidityClaim.CountExactly(count: FailedConditionCount, expected: 0),
+        ValidityClaim.Nonnegative(value: MaxResidual),
+        ValidityClaim.Of(MaxResidual <= ButcherTableau.CoefficientTolerance));
 }
 ```
 
@@ -133,7 +138,7 @@ public readonly partial record struct ButcherMomentReceipt(int StageCount, int M
 - Cases: `GenericMomentFit` · `DormandPrinceShampine` · `BogackiShampine` (3).
 - Entry: consumers never reach the family directly — `tableau.DenseWeightsAt(theta, key)` and `tableau.DenseOutputReceipt(key)` are the two entries, with the family identified from the tableau fingerprint each time.
 - Auto: the generic route pins the endpoints exactly — `b(0) = 0`, `b(1) = weights` — and fits only the interior through the `θ(1−θ)`-scaled correction, so endpoint continuity is structural; `DenseOrderFor` caps the generic dense order by the count of distinct abscissae (the Vandermonde rank ceiling).
-- Receipt: `DenseOutputReceipt` — stage/order/dense-order + per-θ moment evidence + endpoint value/derivative residuals + coefficient residual + the identified family + the optional generic-fit `SolveReceipt` — on the `[ValidityEvidence]` fold with the semantic gate coupling every residual to `CoefficientTolerance` and the family to its evidence shape (a method-specific family carries no correction solve; an aggregated generic receipt must carry its correction-solve evidence).
+- Receipt: `DenseOutputReceipt` — stage/order/dense-order + per-θ moment evidence + endpoint value/derivative residuals + coefficient residual + the identified family + the optional generic-fit `SolveReceipt` — on the rails `ValidityClaim.All` fold with the semantic gate coupling every residual to `CoefficientTolerance` and the family to its evidence shape (a method-specific family carries no correction solve; an aggregated generic receipt must carry its correction-solve evidence).
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, `matrix.md` owners (`Matrix`, `SolveReceipt`) — the moment fit is the first in-corpus consumer of the dense least-squares route.
 - Growth: a new published interpolant (Tsitouras dense output) is one family row — fingerprint, order, table; a tableau without a published interpolant costs nothing — the generic moment fit covers it at the Vandermonde-rank order.
 - Boundary: interpolant tables are exact rationals spelled as ratios (`-8048581381.0 / 2820520608.0`), never decimal approximations — the moment validation would flag the drift; dense output is the event-localization substrate `Processing/flow` binds for root bisection, and a consumer interpolating trajectories by chord instead of `b(θ)` re-derives a capability this owner already proves.
@@ -185,23 +190,27 @@ public sealed partial class DenseOutputCoefficientFamily {
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
-[ValidityEvidence, StructLayout(LayoutKind.Auto)]
-public readonly partial record struct DenseOutputReceipt(int StageCount, int MethodOrder, int DenseOrder, int CheckedThetaCount, int CheckedConditionCount, int FailedConditionCount, double MaxResidual, bool UsesStageDerivatives, double EndpointValueResidualLeft, double EndpointValueResidualRight, double EndpointDerivResidualLeft, double EndpointDerivResidualRight, double CoefficientResidual, DenseOutputCoefficientFamily? CoefficientFamily = null, bool GenericCorrectionSolve = false, Option<SolveReceipt> CorrectionSolve = default) : IValidityEvidence {
-    private bool ValidityGate() =>
-        DenseOrder <= MethodOrder
-        && CheckedConditionCount >= CheckedThetaCount
-        && FailedConditionCount == 0
-        && MaxResidual <= ButcherTableau.CoefficientTolerance
-        && UsesStageDerivatives
-        && EndpointValueResidualLeft <= ButcherTableau.CoefficientTolerance
-        && EndpointValueResidualRight <= ButcherTableau.CoefficientTolerance
-        && CoefficientResidual <= ButcherTableau.CoefficientTolerance
-        && CoefficientFamily is not null
-        && (!CoefficientFamily.MethodSpecific || EndpointDerivResidualLeft <= ButcherTableau.CoefficientTolerance)
-        && (!CoefficientFamily.MethodSpecific || EndpointDerivResidualRight <= ButcherTableau.CoefficientTolerance)
-        && GenericCorrectionSolve == CoefficientFamily.Equals(DenseOutputCoefficientFamily.GenericMomentFit)
-        && (!CoefficientFamily.MethodSpecific || CorrectionSolve.IsNone)
-        && (CoefficientFamily.MethodSpecific || CheckedThetaCount < 3 || CorrectionSolve.IsSome);
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct DenseOutputReceipt(int StageCount, int MethodOrder, int DenseOrder, int CheckedThetaCount, int CheckedConditionCount, int FailedConditionCount, double MaxResidual, bool UsesStageDerivatives, double EndpointValueResidualLeft, double EndpointValueResidualRight, double EndpointDerivResidualLeft, double EndpointDerivResidualRight, double CoefficientResidual, DenseOutputCoefficientFamily? CoefficientFamily = null, bool GenericCorrectionSolve = false, Option<SolveReceipt> CorrectionSolve = default) : IValidityEvidence {
+    public bool IsValid => ValidityClaim.All(
+        ValidityClaim.Of(StageCount >= 1 && MethodOrder >= 1 && DenseOrder >= 0 && CheckedThetaCount >= 0),
+        ValidityClaim.Of(DenseOrder <= MethodOrder),
+        ValidityClaim.Of(CheckedConditionCount >= CheckedThetaCount),
+        ValidityClaim.CountExactly(count: FailedConditionCount, expected: 0),
+        ValidityClaim.Nonnegative(value: MaxResidual),
+        ValidityClaim.Of(MaxResidual <= ButcherTableau.CoefficientTolerance),
+        ValidityClaim.Of(UsesStageDerivatives),
+        ValidityClaim.Nonnegative(value: EndpointValueResidualLeft),
+        ValidityClaim.Nonnegative(value: EndpointValueResidualRight),
+        ValidityClaim.Of(EndpointValueResidualLeft <= ButcherTableau.CoefficientTolerance && EndpointValueResidualRight <= ButcherTableau.CoefficientTolerance),
+        ValidityClaim.Nonnegative(value: CoefficientResidual),
+        ValidityClaim.Of(CoefficientResidual <= ButcherTableau.CoefficientTolerance),
+        ValidityClaim.Of(CoefficientFamily is not null),
+        ValidityClaim.Of(CoefficientFamily is null || !CoefficientFamily.MethodSpecific || (EndpointDerivResidualLeft <= ButcherTableau.CoefficientTolerance && EndpointDerivResidualRight <= ButcherTableau.CoefficientTolerance)),
+        ValidityClaim.Of(CoefficientFamily is null || GenericCorrectionSolve == CoefficientFamily.Equals(DenseOutputCoefficientFamily.GenericMomentFit)),
+        ValidityClaim.Of(CoefficientFamily is null || !CoefficientFamily.MethodSpecific || CorrectionSolve.IsNone),
+        ValidityClaim.Of(CoefficientFamily is null || CoefficientFamily.MethodSpecific || CheckedThetaCount < 3 || CorrectionSolve.IsSome),
+        ValidityClaim.Of(CorrectionSolve.Map(static solve => solve.IsValid).IfNone(noneValue: true)));
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
@@ -508,6 +517,6 @@ public abstract partial record FieldIntegrator {
 | [INDEX] | [AXIS/CONCERN]      | [OWNER]                          | [KIND]                                                          | [CASES] |
 | :-----: | :------------------ | :-------------------------------- | :--------------------------------------------------------------- | :-----: |
 |  [01]   | Integrator rows     | `IntegratorKind`                 | `[SmartEnum<int>]` — the tableau IS the row                     |    9    |
-|  [02]   | Coefficient carrier | `ButcherTableau` + `ButcherMomentReceipt` | order-condition-validated record + `[ValidityEvidence]` receipt |    1    |
+|  [02]   | Coefficient carrier | `ButcherTableau` + `ButcherMomentReceipt` | order-condition-validated record + `ValidityClaim.All` receipt |    1    |
 |  [03]   | Continuous extension | `DenseOutputCoefficientFamily` · `DenseOutputReceipt` · `ButcherDenseOutput` | exact-rational tables + moment-fit fallback via `matrix.md`     |    3    |
 |  [04]   | Step algebra        | `IntegrationModule<TState,TDelta>` (THE `Combine`) · `StepControl` · `FieldIntegrator` · `IntegrationStep` · `DenseOutputSpan` | carrier-generic policy records + `[Union]` stepper              |   2·2   |
