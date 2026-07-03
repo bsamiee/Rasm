@@ -1,15 +1,15 @@
 export const meta = {
   name: 'stack-ts',
   whenToUse: 'Iterative adversarial hardening of the docs/stacks/typescript code doctrine; re-run until cold passes find nothing.',
-  description: 'Durable adversarial HARDEN engine for the docs/stacks/typescript code doctrine. Every page is SUSPECT until it survives attack — naive, shallow, or illusory by default, rebuilt ground-up wherever the attack finds weakness — but the settled atlas roster is challenged with disqualifying evidence, never re-decided from zero. Phase-barriered waves, one agent per file throughout: Inventory (real disk state) -> Gate (1 agent: structure challenge — merge/split/kill/rename only on disqualifying evidence, applies structure only) -> Initial wave (1 agent/file in parallel: rebuild under the README + own charter) -> Critique wave (1 agent/file in parallel, each reads the WHOLE corpus, edits only its file) -> Redteam wave (same, most aggressive) -> Passes (3 sequential corpus agents: align -> gap-close -> finalize, each holding the whole corpus) -> Reconcile (residuals -> clusters -> balanced buckets -> fix -> adversarial verify). SUPREMACY LAW: python and csharp stacks are BOTH the floor, never the ceiling. Every edit is scoped to docs/stacks/typescript. Takes no args.',
+  description: 'Durable adversarial HARDEN engine for the docs/stacks/typescript code doctrine. Every page is SUSPECT until it survives attack — naive, shallow, or illusory by default, rebuilt ground-up wherever the attack finds weakness — but the settled atlas roster is challenged with disqualifying evidence, never re-decided from zero. Phase-barriered waves, one agent per file throughout: Inventory (real disk state) -> Gate (1 agent: structure challenge — merge/split/kill/rename only on disqualifying evidence, applies structure only) -> Initial wave (1 agent/file in parallel: rebuild under the README + own charter) -> Critique wave (1 agent/file in parallel, each reads the WHOLE corpus, edits only its file) -> Redteam wave (same, most aggressive) -> Pass (1 corpus agent holding the whole corpus: align + gap-close + computation-law bodies + cold finalize in one sweep) -> Reconcile (1 corpus agent: every deferred cross-file residual fixed in place). SUPREMACY LAW: python and csharp stacks are BOTH the floor, never the ceiling. Every edit is scoped to docs/stacks/typescript. Takes no args.',
   phases: [
     { title: 'Inventory', detail: 'read-only recon: real page set in atlas order, per-page capability map + hostile weak/strong call' },
     { title: 'Gate', detail: '1 agent: challenge the settled atlas structure with disqualifying evidence; apply approved renames/skeletons only, never content' },
     { title: 'Initial', detail: 'wave: 1 agent per file in parallel — ground-up rebuild where attack lands, under the README head + own charter' },
     { title: 'Critique', detail: 'wave: 1 agent per file in parallel — reads README + EVERY stack file for corpus awareness, edits ONLY its own file' },
     { title: 'Redteam', detail: 'wave: 1 agent per file in parallel — corpus-aware, most aggressive, edits ONLY its own file' },
-    { title: 'Passes', detail: '3 sequential corpus agents: align (one shape system, region dedup, atlas parity) -> gap-close (coverage floors, mandates) -> finalize (cold read)' },
-    { title: 'Reconcile', detail: 'cross-file residuals: cluster -> balanced buckets -> fix(max) -> adversarial verify(xhigh); hard residuals hand off to resolve-residuals' },
+    { title: 'Pass', detail: '1 corpus agent: full-chain harden — align, gap-close, computation-law bodies, cold finalize in one sweep' },
+    { title: 'Reconcile', detail: '1 corpus agent: every deferred cross-file residual fixed in place; unresolved items hand off to resolve-residuals' },
   ],
 }
 
@@ -17,15 +17,13 @@ export const meta = {
 const CAP = 12
 const STAGGER_MS = 1500
 const STALL = 300000
-const TARGET_WORK = 10
 const ROOT = 'docs/stacks/typescript'
 
 // --- [MODELS] ----------------------------------------------------------------------------
 const INVENTORY_SCHEMA = { type: 'object', additionalProperties: false, required: ['files'], properties: { files: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['path', 'order'], properties: { path: { type: 'string' }, order: { type: 'integer' }, verdict: { type: 'string' }, map: { type: 'string' }, regions: { type: 'array', items: { type: 'string' } } } } } } }
 const GATE_SCHEMA = { type: 'object', additionalProperties: false, required: ['files', 'rationale'], properties: { files: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['path', 'order', 'charter'], properties: { path: { type: 'string' }, order: { type: 'integer' }, charter: { type: 'string' }, isNew: { type: 'boolean' } } } }, renames: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['from', 'to'], properties: { from: { type: 'string' }, to: { type: 'string' } } } }, rationale: { type: 'string' } } }
 const FIXLOG_SCHEMA = { type: 'object', additionalProperties: false, required: ['file', 'verdict', 'summary'], properties: { file: { type: 'string' }, verdict: { type: 'string', enum: ['rebuilt', 'refined', 'clean'] }, collapsed: { type: 'string' }, extended: { type: 'string' }, regions: { type: 'array', items: { type: 'string' } }, residual_high: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['files', 'claim'], properties: { files: { type: 'array', items: { type: 'string' } }, claim: { type: 'string' } } } }, summary: { type: 'string' } } }
-const RECONCILE_FIX_SCHEMA = { type: 'object', additionalProperties: false, required: ['files', 'verdict', 'summary'], properties: { files: { type: 'array', items: { type: 'string' } }, verdict: { type: 'string', enum: ['fixed', 'clean'] }, summary: { type: 'string' } } }
-const RECONCILE_VERIFY_SCHEMA = { type: 'object', additionalProperties: false, required: ['overall', 'claims'], properties: { overall: { type: 'boolean' }, claims: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['claim', 'status'], properties: { claim: { type: 'string' }, status: { type: 'string', enum: ['fixed', 'invalid', 'open'] }, evidence: { type: 'string' } } } }, repaired_files: { type: 'array', items: { type: 'string' } } } }
+const RECONCILE_SCHEMA = { type: 'object', additionalProperties: false, required: ['files', 'verdict', 'summary'], properties: { files: { type: 'array', items: { type: 'string' } }, verdict: { type: 'string', enum: ['fixed', 'clean'] }, summary: { type: 'string' }, unresolved: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['files', 'claim'], properties: { files: { type: 'array', items: { type: 'string' } }, claim: { type: 'string' } } } } } }
 
 // --- [DOCTRINE] --------------------------------------------------------------------------
 const LAW = [
@@ -322,48 +320,29 @@ const redteamPrompt = (page, arch) => [DOCTRINE, '',
     'capable, more agnostic-compliant, more bleeding-edge, and PART OF ONE UNIFIED SHAPE SYSTEM more than the critique left it; if the strongest ' +
     'form is genuinely present, prove it by finding nothing — never invent churn. Report `extended` and `regions`. Return residual_high ' +
     '{files:[...], claim}.' + archLine(arch)].join('\n')
-const PASSES = [
-  { key: 'align', task: 'ALIGN — the corpus as ONE body: one unified shape vocabulary across all pages (identical spellings for shared rails, ' +
-    'owners, fault families, policy forms); zero duplicated snippet regions corpus-wide (each fence exercises a region no other fence shows — ' +
-    'repair by routing to the owning page, never by re-teaching); altitude (each page owns ONLY its layer; later atlas pages compose earlier ' +
-    'law as settled supporting material, never restate it); the README atlas table, routing rows, region ledger, and law groups match the ' +
-    'on-disk corpus exactly.' },
-  { key: 'gap-close', task: 'GAP-CLOSE — verify every COVERAGE FLOOR and CONTENT MANDATE has an owning law on the right page and every fence ' +
-    'demonstrates the mandates its layer admits (satisfies tables, one-name exports + the exports block, inline injection/wrapping, ' +
-    'overload/dual entries, inference pre-solving, nested Schema owners); close every gap IN PLACE on the owning page; enforce the EXPORT LAW ' +
-    'and EXPORT-SURFACE COLLAPSE in every snippet corpus-wide; spot-verify named members and delete phantoms.' },
-  { key: 'finalize', task: 'FINALIZE — the terminal cold read as a first reader with fresh hostile eyes: fix every residual weakness, hedge, ' +
-    'meta line, thin card, or under-dense fence; density within the LOC affordance without card/snippet spam; the corpus must end objectively ' +
-    'denser and more capable than the passes found it — if a page is genuinely at the bar, prove it by finding nothing, never invent churn.' },
-]
-const passPrompt = (p, n, ordered) => [DOCTRINE, '', 'THE SETTLED ATLAS (order):\n' + JSON.stringify(ordered, null, 1), '',
-  'TASK: CORPUS PASS ' + n + '/' + PASSES.length + ' — ' + p.task + ' Read the README first, then every atlas page IN FULL in order; WRITE ' +
-  'every fix in place via Edit/Write across ANY page (you are the only agent touching the corpus in this pass — a finding is a fix, never a ' +
-  'note); a genuinely unresolvable cross-corpus item is a residual_high. Return file (the corpus root), verdict, regions [], edits summary, ' +
+const passPrompt = (ordered) => [DOCTRINE, '', 'THE SETTLED ATLAS (order):\n' + JSON.stringify(ordered, null, 1), '',
+  'TASK: CORPUS HARDEN PASS — the ONE terminal sweep; you are the only agent touching the corpus. Read the README first, then every atlas page ' +
+  'IN FULL in atlas order — the order IS the implementation chain: each page composes every earlier page`s law as settled material, so walk the ' +
+  'chain and attack every seam where a later page restates, contradicts, or under-uses an earlier owner. WRITE every fix in place via ' +
+  'Edit/Write across ANY page — a finding is a fix, never a note. The sweep owns FOUR mandates at once:',
+  '(1) ALIGN — the corpus as ONE body: one unified shape vocabulary across all pages (identical spellings for shared rails, owners, fault ' +
+  'families, policy forms); zero duplicated snippet regions corpus-wide (each fence exercises a region no other fence shows — repair by ' +
+  'routing to the owning page, never by re-teaching); altitude (each page owns ONLY its layer; later atlas pages compose earlier law as ' +
+  'settled supporting material, never restate it); the README atlas table, routing rows, and law groups match the on-disk corpus exactly. ' +
+  '(2) GAP-CLOSE — every COVERAGE FLOOR and CONTENT MANDATE has an owning law on the right page and every fence demonstrates the mandates its ' +
+  'layer admits (satisfies tables, one-name exports + the exports block, inline injection/wrapping, overload/dual entries, inference ' +
+  'pre-solving, nested Schema owners); enforce the EXPORT LAW and EXPORT-SURFACE COLLAPSE in every snippet corpus-wide; spot-verify named ' +
+  'members and delete phantoms. ' +
+  '(3) COMPUTATION-LAW BODIES — the algorithmic-bodies page legislates every working body in the corpus: audit EVERY fence on EVERY page ' +
+  'against its law — seed folds over mutable accumulation, scan for running traces, lazy Iterable pipelines materialized once at the tail, ' +
+  'window/zip/groupBy co-iteration, `Array.mapAccum` stateful steps, Match-driven structural recursion, tabulation-as-fold memoization, ' +
+  'kernels only where EARNED beside their named Exemption — and rebuild any body below that bar in place; a fence whose body computation law ' +
+  'would rewrite is a defect on ITS page, whatever the page`s own layer. ' +
+  '(4) FINALIZE — the terminal cold read as a first reader with fresh hostile eyes: fix every residual weakness, hedge, meta line, thin card, ' +
+  'or under-dense fence; density within the LOC affordance without card/snippet spam; the corpus must end objectively denser and more capable ' +
+  'than you found it — if a page is genuinely at the bar, prove it by finding nothing, never invent churn.',
+  'A genuinely unresolvable cross-corpus item is a residual_high. Return file (the corpus root), verdict, regions [], edits summary, ' +
   'residual_high.'].join('\n')
-const clusterWork = (c) => { const files = new Set(); for (const r of c) for (const f of r.files) files.add(f); return files.size * 2 + c.length }
-const shardOversized = (cs) => {
-  const cap = Math.max(TARGET_WORK, Math.ceil(cs.reduce((w, c) => w + clusterWork(c), 0) / CAP))
-  return cs.flatMap((c) => {
-    if (clusterWork(c) <= cap) return [c]
-    const byFile = new Map()
-    for (const r of c) { const k = r.files[0] || '~'; if (!byFile.has(k)) byFile.set(k, []); byFile.get(k).push(r) }
-    const shards = []
-    for (const g of [...byFile.values()].sort((a, b) => clusterWork(b) - clusterWork(a))) {
-      const t = shards.find((s) => clusterWork(s.concat(g)) <= cap)
-      if (t) t.push(...g); else shards.push([...g])
-    }
-    return shards
-  })
-}
-const packClusters = (clusters) => {
-  const sorted = clusters.slice().sort((a, b) => clusterWork(b) - clusterWork(a))
-  const total = sorted.reduce((s, c) => s + clusterWork(c), 0)
-  const n = Math.max(1, Math.min(CAP, sorted.length, Math.ceil(total / TARGET_WORK)))
-  const buckets = Array.from({ length: n }, () => ({ w: 0, rows: [] }))
-  for (const cl of sorted) { const b = buckets.reduce((m, x) => (x.w < m.w ? x : m)); b.w += clusterWork(cl); b.rows.push(...cl) }
-  return buckets.filter((b) => b.rows.length).map((b) => b.rows)
-}
 
 // --- [COMPOSITION] -----------------------------------------------------------------------
 
@@ -412,62 +391,30 @@ const redLogs = (await pool(ordered, CAP, (page) =>
     .then((r) => r ? { page, log: r } : null))).filter(Boolean)
 log('Redteam wave: ' + redLogs.length + '/' + ordered.length + ' files attacked (corpus-aware)')
 
-// --- [PASSES]
-phase('Passes')
-const passLogs = []
-for (let i = 0; i < PASSES.length; i++) {
-  const r = await agent(passPrompt(PASSES[i], i + 1, ordered), { label: 'pass:' + PASSES[i].key, phase: 'Passes', schema: FIXLOG_SCHEMA, effort: 'max', stallMs: STALL })
-  if (r) passLogs.push({ page: ROOT, log: r })
-  log('Pass ' + (i + 1) + '/' + PASSES.length + ' (' + PASSES[i].key + '): ' + ((r && r.summary) || '(agent died — resume re-runs)'))
-}
+// --- [PASS]
+phase('Pass')
+const passLog = await agent(passPrompt(ordered), { label: 'pass:harden', phase: 'Pass', schema: FIXLOG_SCHEMA, effort: 'max', stallMs: STALL })
+log('Pass: ' + ((passLog && passLog.summary) || '(agent died — resume re-runs)'))
 
 const norm = (x, page) => typeof x === 'string' ? { files: [page], claim: x } : { files: x.files && x.files.length ? x.files : [page], claim: x.claim }
 const allRes = []
-for (const r of [...initialLogs, ...critLogs, ...redLogs, ...passLogs]) if (r.log.residual_high) for (const x of r.log.residual_high) allRes.push(norm(x, r.page))
+for (const r of [...initialLogs, ...critLogs, ...redLogs, ...(passLog ? [{ page: ROOT, log: passLog }] : [])]) if (r.log.residual_high) for (const x of r.log.residual_high) allRes.push(norm(x, r.page))
 const uniq = [...new Map(allRes.map((r) => [r.files.slice().sort().join(',') + '|' + r.claim, r])).values()]
-const clusters = (() => {
-  const parent = new Map(); const find = (f) => { let p = f; while (parent.get(p) !== p) p = parent.get(p); return p }; const add = (f) => { if (!parent.has(f)) parent.set(f, f) }
-  const anchored = uniq.filter((r) => r.files.length)
-  for (const r of anchored) { r.files.forEach(add); for (let i = 1; i < r.files.length; i++) parent.set(find(r.files[i]), find(r.files[0])) }
-  const by = new Map()
-  for (const r of anchored) { const root = find(r.files[0]); if (!by.has(root)) by.set(root, []); by.get(root).push(r) }
-  const out = [...by.values()]
-  const loose = uniq.filter((r) => !r.files.length)
-  if (loose.length) out.push(loose)
-  return out
-})()
-const buckets = packClusters(shardOversized(clusters))
-log('Waves+Passes done; reconcile ' + uniq.length + ' residuals -> ' + clusters.length + ' clusters -> ' + buckets.length + ' balanced buckets [' + buckets.map((b) => b.length).join(', ') + ']')
-let reconciled = []
-if (buckets.length) {
+log('Waves+Pass done; ' + uniq.length + ' deferred cross-file residual(s)')
+let hard_residual = []
+if (uniq.length) {
   phase('Reconcile')
-  reconciled = (await pool(buckets, CAP, async (cl, i) => {
-    const fix = await agent([DOCTRINE, '', 'TASK: RECONCILE these cross-FILE residuals the per-page + sweep passes deferred. NO severity — treat ' +
-      'EVERY residual as must-address. Read EVERY listed file. For each real cross-file defect, FIX it in place to the ROOT (unify the shared ' +
-      'canonical owner/Schema/Effect rail/region across files, or repair the altitude/duplication issue; a token single-point patch where a ' +
-      'root-level dense reconstruction of the same files is available is itself a defect), preserving all capability and keeping ONE unified ' +
-      'shape system; if a residual is FACTUALLY INCORRECT, leave it and say why. ' +
-  'A concurrent sibling may share a page with your bucket (oversized components shard file-atomically): edit any potentially shared page with ' +
-  'surgical anchored Edits only — re-read and re-apply on an edit conflict, never a whole-file rewrite. ' +
-  'Edit ONLY under ' + ROOT + '/. Residuals:\n' + JSON.stringify(cl, null, 1)].join('\n'), { label: 'reconcile-fix', phase: 'Reconcile', schema: RECONCILE_FIX_SCHEMA, effort: 'max', stallMs: STALL })
-    if (!fix) return null
-    const verify = await agent([DOCTRINE, '', 'TASK: ADVERSARIAL CRITIQUE-GRADE WRITING VERIFY — never a friendly confirmation. Per residual: ' +
-      '(1) RE-DERIVE necessity — was the claimed fix needed at all, and is the claim itself sound? (2) PROVE ON DISK the fix landed properly — ' +
-      'read every named file cold and attack the fix as naive, token, or illusory until what is actually on disk survives. (3) REPAIR loose, ' +
-      'weak, or token fixes IN PLACE to the objectively-best root-level form of the same files at the FULL doctrine bar above — a single-point ' +
-      'patch where a root-level dense reconstruction is available is itself a defect YOU repair now, preserving all capability and ONE unified ' +
-      'shape system. THEN classify EVERY claim, echoing each claim string VERBATIM (a dropped or paraphrased claim cannot validate): "fixed" ' +
-      '(proven on disk, your own repair included), "invalid" (cite why the claim is factually wrong), or "open" — ONLY for a claim genuinely ' +
-      'unreachable from the files at hand, never to punt a strengthenable fix. List every file you edited in `repaired_files`. ' +
-      'Claims:\n' + JSON.stringify(cl, null, 1) + '\nFiles the ' +
-      'fixer touched: ' + JSON.stringify(fix.files)].join('\n'), { label: 'reconcile-verify:' + i, phase: 'Reconcile', schema: RECONCILE_VERIFY_SCHEMA, effort: 'xhigh', stallMs: STALL })
-    return { cluster: cl, fix, verify }
-  })).filter(Boolean)
+  const rec = await agent([DOCTRINE, '', 'TASK: RECONCILE — the terminal cross-file residual sweep; you are ONE agent owning the whole corpus, ' +
+    'no concurrent writers. The residuals below were deferred by per-file wave agents and the corpus pass. NO severity — treat EVERY residual ' +
+    'as must-address. Read EVERY file a residual names, plus the README. For each real cross-file defect, FIX it in place to the ROOT (unify ' +
+    'the shared canonical owner/Schema/Effect rail/region across files, or repair the altitude/duplication issue; a token single-point patch ' +
+    'where a root-level dense reconstruction of the same files is available is itself a defect), preserving all capability and keeping ONE ' +
+    'unified shape system. A residual that is FACTUALLY INCORRECT is dropped with its refutation folded into `summary`. A residual genuinely ' +
+    'unresolvable from the files at hand — and ONLY that — returns in `unresolved` with its claim VERBATIM; never punt a strengthenable fix. ' +
+    'Edit ONLY under ' + ROOT + '/. Residuals:\n' + JSON.stringify(uniq, null, 1)].join('\n'),
+    { label: 'reconcile', phase: 'Reconcile', schema: RECONCILE_SCHEMA, effort: 'max', stallMs: STALL })
+  hard_residual = rec ? (rec.unresolved || []).filter((r) => r && r.claim) : uniq
+  log('Reconcile: ' + uniq.length + ' residuals consumed; ' + hard_residual.length + ' unresolved -> resolve-residuals')
 }
-const claimsAll = reconciled.flatMap((r) => (r.verify && r.verify.claims) || [])
-const openClaims = new Set(claimsAll.filter((c) => c.status === 'open').map((c) => c.claim))
-const hard_residual = uniq.filter((r) => openClaims.has(r.claim))
-log('Reconcile: ' + buckets.length + ' buckets; ' + hard_residual.length + ' open hard residual(s) -> resolve-residuals')
 return { workflow: 'stack-ts', root: ROOT, settled: arch, ordered: ordered, initial: initialLogs.length, critiqued: critLogs.length,
-  redteamed: redLogs.length, passes: passLogs.map((r) => ({ key: r.log.file, summary: r.log.summary })), total: ordered.length,
-  buckets: buckets.length, hard_residual: hard_residual }
+  redteamed: redLogs.length, pass: (passLog && passLog.summary) || null, total: ordered.length, hard_residual: hard_residual }

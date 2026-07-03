@@ -80,7 +80,7 @@ const ENGINE_VOCAB = 'ENGINE-NATIVE ACTIONS: the page-set table carries TWO acti
 const ROW_SCHEMA = 'PAGE-ROW SCHEMA (every row total): path | semantic action + engine lowering | owner charter with its TIER-1 folder, TIER-2 ' +
   'namespace, and fault cluster per V1/V12 | entry signature (the Apply op-union, or NONE for vocabulary pages) | in/out seam edges (one anchor ' +
   'per seam, both ledger directions) | wave. Plus: the ratified folder/namespace/fault-cluster partition; the corrected seam ledger including ' +
-  'every counterpart-package ledger edit; verdict (V1-V14), evidence (E1-E15), and [03]-delta disposition tables. A blueprint leaving ANY ' +
+  'every counterpart-package ledger edit; verdict (V1-V14), evidence (E1-E16), and [03]-delta disposition tables. A blueprint leaving ANY ' +
   'disposition open is INCOMPLETE and loses at judge.'
 
 // --- [OPERATIONS] ------------------------------------------------------------------------
