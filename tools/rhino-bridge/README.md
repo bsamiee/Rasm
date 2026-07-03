@@ -33,11 +33,11 @@ uv run python -m tools.assay bridge verify --evidence author blocks
 
 Selection rules:
 - Empty, `all`, or `*` selects every typed scenario corpus.
-- A theme token selects every scenario in that theme.
-- A full scenario name, bare scenario method name, or glob selects matching scenario names.
+- A theme token selects every scenario in that theme; theme tokens admit `*`/`?` globs.
+- A full scenario name, bare scenario method name, or `*`/`?` glob selects matching scenario names, ordinal case-sensitive.
 - A scenario owner path, project path, or theme-local `Scenarios/` path selects that corpus.
 - Script-file scenario discovery is absent. Test-owned typed `[RhinoScenario]` sources own scenario discovery and emit `bridge-closure.json`.
-- Default evidence mode is `verify`: a valid `EvidenceCertificate` and reviewed `ReferenceEvidence` are required. `--evidence author` emits candidate evidence for review and is not proof.
+- Default evidence mode is `verify`: a valid `EvidenceCertificate` and reviewed `ReferenceEvidence` are required. `--evidence author` emits candidate evidence for review and is not proof. A verify run over a reference root with no reviewed corpus reports `unpromoted` reference rows and degrades (exit 2) instead of failing.
 
 ## [04]-[COMMAND_SURFACE]
 
@@ -50,7 +50,7 @@ Public Assay bridge verbs map to these effects.
 |  [03]   | `bridge status`           | Launch or reuse RhinoWIP; return endpoint, host, RPC, MCP, and capability facts. |
 |  [04]   | `bridge quit`             | Prepare Rhino/GH2 documents, then run the quit ladder.                           |
 
-The direct supervisor accepts `status`, `quit`, `redeploy <package>`, and `verify <selection-json> <closure-manifest>`. `redeploy` returns `RedeployIncomplete`; Assay owns stable operator spelling, build closure preparation, artifact routing, and the outer lease.
+The direct supervisor accepts `status`, `quit`, `redeploy <package>`, and `verify <selection-json> <closure-manifest> [verify|author]`. `redeploy` reports itself unsupported; Assay owns stable operator spelling, build closure preparation, artifact routing, and the outer lease.
 
 ## [05]-[MACHINE_CONTRACT]
 
@@ -90,7 +90,6 @@ The direct supervisor accepts `status`, `quit`, `redeploy <package>`, and `verif
 - Manifests: `<reportDir>/manifests/<scenario>.*.json`.
 - Reference results: `<reportDir>/references/<scenario>.reference-result.json`.
 - Scratch manifest: `<reportDir>/scratch/<scenario>/scratch.manifest.json`.
-- Retention log: `<reportDir>/retention.jsonl`.
 - Reference stage: `<reportDir>/refs/<contentHash>/`.
 - Unload leak dump: `<reportDir>/<pid>.gcdump` when available.
 - Endpoint: `~/.rasm/rhino-bridge-rbx.json`.
@@ -207,7 +206,7 @@ Capability requirements live on the attribute as `Requires`. Cargo probes `cargo
 
 Scenario code does not write `#r`, `#load`, absolute build-output paths, local report paths, direct MCP calls, or direct bitmap/capture files. Assay builds the test projects that own typed scenarios, reads each `bridge-closure.json`, aggregates selected closures, and hands the manifest to the supervisor.
 
-`ReferenceEvidence` lives beside the scenario owner under `Scenarios/_references/<theme>/<method>.reference.json`. Authoring mode may emit candidates; verify mode fails until reviewed references exist and match within declared tolerances. PNGs are forensic artifacts by default; stable object, geometry, viewport, GH2 canvas, scratch, and normalized visual metadata are the reference surface.
+`ReferenceEvidence` lives beside the scenario owner under `Scenarios/_references/<theme>/<method>.reference.json`. The lifecycle: an `--evidence author` run writes `<theme>/<method>.candidate.reference.json` under the reference root; a human review sets `admission` to `reviewed` and renames the file to `<method>.reference.json`; verify mode then matches within declared tolerances. Verify over a root with no reviewed corpus reports `unpromoted` and degrades; a promoted root with a missing or mismatched reference fails. PNGs are forensic artifacts by default; stable object, geometry, viewport, GH2 canvas, scratch, and normalized visual metadata are the reference surface.
 
 ## [10]-[INTEGRATIONS]
 

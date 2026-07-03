@@ -1,24 +1,23 @@
 # [COMPOSITION_SYSTEM]
 
-The fourteen folders form one composition system: every folder ships `Layer`/`Service` families, and an app is a ~30-line `main.ts` that merges the selected families into one `runMain`. Capability growth is a row, case, policy value, or dispatch arm on an owning surface; an app need that forces a lib edit is the named failure. This page carries the composition model — the package shape, the edge ledger, the port law, the app recipes — and the extension recipes; the per-folder design pages carry the fences.
+The thirteen folders form one composition system: every folder ships `Layer`/`Service` families, and an app is a ~30-line `main.ts` that merges the selected families into one `runMain`. Capability growth is a row, case, policy value, or dispatch arm on an owning surface; an app need that forces a lib edit is the named failure. This page carries the composition model — the package shape, the edge ledger, the port law, the app recipes — and the extension recipes; the per-folder design pages carry the fences.
 
 ## [01]-[PACKAGE_SHAPE]
 
-One npm package `@rasm/ts` with per-folder exports subpaths (`@rasm/ts/kernel` … `@rasm/ts/iac`, plus `@rasm/ts/proof` on the dev plane). The exports map is the primary enforcement altitude: an unexported interior module is physically unresolvable, so machinery/contract splits hold at module resolution, not by convention; the Nx tag triples ride every project as graph metadata.
+One npm package `@rasm/ts` with per-folder exports subpaths (`@rasm/ts/kernel` … `@rasm/ts/iac`); the map ships no test-infra subpath — the dev plane lives under `tests/`, and plane separation is physical. The exports map is the primary enforcement altitude: an unexported interior module is physically unresolvable, so machinery/contract splits hold at module resolution, not by convention; the Nx tag triples ride every project as graph metadata.
 
 - Runtime-spanning folders (`store`, `security`, `telemetry`, `wire`, `host`) publish per-runtime subpaths (`./server`, `./browser`, `./wasm`); a browser bundle never resolves node code because the node entry does not exist on its resolution path.
 - `wire` publishes decoded-value vocabulary through `#vocab`; the codec machinery interior is unexported. `ui` types wire values through `#vocab` only.
-- `kernel` publishes its law/arbitrary substrate behind a dev-only subpath so `fast-check` never rides a runtime graph.
-- `proof/gauge` audits what the exports map cannot express: the edge-ledger import audit, per-runtime subpath purity, the branch-wide migrator-import ban, and the `security` per-sub-folder crypto-admission boundaries.
+- Schema-derived arbitraries live in `@rasm/ts-testkit` (`tests/typescript/_testkit`), never on a `@rasm/ts` subpath — `fast-check` never rides a runtime graph.
+- The `tests/typescript/_architecture` suite audits what the exports map cannot express: the edge-ledger import audit, per-runtime subpath purity, the branch-wide migrator-import ban, and the `security` per-sub-folder crypto-admission boundaries.
 
 ## [02]-[EDGE_LEDGER]
 
-The permitted-edge table is the boundary law: the `@rasm/ts` exports map enforces it physically (an unexported subpath is unresolvable), `proof/gauge` audits the remainder, and roster growth is a reviewed row-add. Every project carries `scope:<folder>` (`scope:viewer` for the `ui` viewer project), `runtime:{neutral,node,bun,browser}`, `plane:{runtime,deploy,dev}`; `runtime:browser` depends only on `{browser, neutral}`, `runtime:node` only on `{node, neutral}`, `plane:deploy` is depended on by nothing, `plane:dev` imports anything and is imported by nothing.
+The permitted-edge table is the boundary law: the `@rasm/ts` exports map enforces it physically (an unexported subpath is unresolvable), the `tests/typescript/_architecture` suite audits the remainder, and roster growth is a reviewed row-add. Every project carries `scope:<folder>` (`scope:viewer` for the `ui` viewer project), `runtime:{neutral,node,bun,browser}`, `plane:{runtime,deploy,dev}`; `runtime:browser` depends only on `{browser, neutral}`, `runtime:node` only on `{node, neutral}`, `plane:deploy` is depended on by nothing, `plane:dev` (the `tests/` estate) imports anything and is imported by nothing.
 
 | [FOLDER] | [MAY_IMPORT] | [WAVE] |
 | :--- | :--- | :---: |
 | `kernel` | — | W0 |
-| `proof` | anything | W0 |
 | `state` | `kernel` | W1 |
 | `host` | `kernel` | W1 |
 | `security` | `kernel`, `host` | W1 |
@@ -32,7 +31,7 @@ The permitted-edge table is the boundary law: the `@rasm/ts` exports map enforce
 | `ui` | `kernel`, `state`, `wire` (`#vocab` only) | W4 |
 | `iac` | `kernel`, `store` (capability vocabulary), `telemetry` (board functions) | W4 |
 
-Beyond the rows: `ui` and `browser` never import each other — peers an app composes; external-package admission is folder-scoped by the ledger's admission union (`@pulumi/*` only in `iac`, `@effect/sql-*` drivers only in `store`, `jose` only in `security`, `react*` only in `ui`/`viewer`/`browser`, and so on per the ledger), audited at `proof/gauge`; the `security` sub-folder admissions (`jose` in `sign` only, `arctic` in `authn` only) ride the same audit.
+Beyond the rows: `ui` and `browser` never import each other — peers an app composes; external-package admission is folder-scoped by the ledger's admission union (`@pulumi/*` only in `iac`, `@effect/sql-*` drivers only in `store`, `jose` only in `security`, `react*` only in `ui`/`viewer`/`browser`, and so on per the ledger), audited by the `tests/typescript/_architecture` suite; the `security` sub-folder admissions (`jose` in `sign` only, `arctic` in `authn` only) ride the same audit.
 
 ## [03]-[PORTS]
 
@@ -94,6 +93,6 @@ Every extension lands on a canonical owner. An extension that seems to need a ne
 
 ## [06]-[BOUNDARIES]
 
-- `proof` is infrastructure, never the spec home: specs live beside their owning folders; layer-sharing is `@effect/vitest` capability, never a hand-rolled harness.
+- Test infrastructure lives under `tests/`, never in the branch: specs colocate beside their owning folders and import `@rasm/ts-testkit` (`tests/typescript/_testkit`) through the workspace graph; layer-sharing is `@effect/vitest` capability, never a hand-rolled harness.
 - `@effect/cluster` (in-process durable actors/workflow) and K8s (deployment topology) are two altitudes; `work` owns the first, `iac` the second, and StackOutputs → `ShardingConfig` is their one seam.
 - Apps are repos outside `libs/typescript`; the branch carries no app scaffolding, no example app, and no composition helper — the ~30-line root is the proof the surfaces compose.

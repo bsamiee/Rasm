@@ -214,7 +214,7 @@ def _spans(source: str) -> dict[tuple[str | None, str], SchemaLocation]:
         walk = tuple(ast.walk(ast.parse(source)))
     except SyntaxError:
         return {}
-    spans = {
+    spans: dict[tuple[str | None, str], SchemaLocation] = {
         (node.name, child.name): _location(child)
         for node in walk
         if isinstance(node, ast.ClassDef)

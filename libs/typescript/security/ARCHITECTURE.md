@@ -27,7 +27,7 @@ security/src/ # imports kernel + host only; never store (SessionStore/IdentityJo
   └── crypto.ts    # argon2 hashing + HMAC webhook signing + AES-GCM envelope (the store Shredder primitive)
 ```
 
-The three crypto sub-folders are the admission boundaries `proof/gauge` audits: `authn` owns the ceremony packages, `sign` owns the token-crypto and hashing primitives (`sign/crypto` is the one HMAC/AES-GCM owner), and `secret` owns the leased-secret provider. `authn/apikey` delegates its digest to `sign/crypto` — an in-folder relation carried in the map, never a seam. `session` declares the identity ports so a zero-durable-state browser app composes `security` without pulling the SQL folder.
+The three crypto sub-folders are the admission boundaries the `tests/typescript/_architecture` suite audits: `authn` owns the ceremony packages, `sign` owns the token-crypto and hashing primitives (`sign/crypto` is the one HMAC/AES-GCM owner), and `secret` owns the leased-secret provider. `authn/apikey` delegates its digest to `sign/crypto` — an in-folder relation carried in the map, never a seam. `session` declares the identity ports so a zero-durable-state browser app composes `security` without pulling the SQL folder.
 
 ## [02]-[SEAMS]
 

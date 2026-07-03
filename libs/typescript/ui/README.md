@@ -108,4 +108,4 @@ The branch substrate this folder consumes; the registry lives in `libs/typescrip
 
 - `effect` — rails, `Schema` (message catalogs, `FormBinding`), `Layer`, `Match` across every row.
 - `@effect/platform` — the HttpApi/Rpc client contracts the `AtomHttpApi`/`AtomRpc` direct-binding rows compose.
-- `@effect/vitest` — the dev-plane spec runner binding `proof` law combinators to the folder specs.
+- `@effect/vitest` — the dev-plane spec runner binding the `@rasm/ts-testkit` law combinators (`tests/typescript/_testkit`) to this folder's colocated specs.

@@ -69,7 +69,7 @@
 |  [02]   | `PgClient.layerConfig(config: Config.Wrap<PgClientConfig>): Layer<PgClient \| SqlClient, ConfigError \| SqlError>` | driver layer | `host/config` env/secret-mount resolution — the standing app-root row |
 |  [03]   | `PgClient.layerFromPool(options: PgClientFromPoolOptions): Layer<PgClient \| SqlClient, SqlError>`  | driver layer   | `scope/handle` shared-pool tenancy fan-out               |
 |  [04]   | `PgClient.make(config)` / `PgClient.fromPool(options): Effect<PgClient, SqlError, Scope \| Reactivity>` | scoped make | scoped construction inside a larger acquire graph        |
-|  [05]   | `PgClient.makeCompiler(transform?, transformJson?): Statement.Compiler`                             | compiler       | custom identifier transform / raw-SQL proof harness      |
+|  [05]   | `PgClient.makeCompiler(transform?, transformJson?): Statement.Compiler`                             | compiler       | custom identifier transform / raw-SQL testkit harness (`tests/typescript/_testkit`)      |
 
 [ENTRYPOINT_SCOPE]: the pg journal patterns — SQL over `reserve`/`withTransaction`/`listen`
 - rail: store/journal

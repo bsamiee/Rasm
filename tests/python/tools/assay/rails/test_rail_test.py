@@ -10,9 +10,10 @@ from expression import Ok
 from expression.collections import block
 import msgspec
 from mutmut import configuration as mutmut_configuration
+from mutmut.mutation.data import SourceFileMutationData
 import pytest
 
-from tests.python._testkit.spec import assert_error_status, assert_ok, refutes
+from tests.python._testkit.spec import assert_error_status, assert_ok, refutes, validity_matrix
 from tests.python.tools.assay.kit import SeamExecutor
 from tools.assay.composition.catalog import TOOLS
 from tools.assay.composition.store import ArtifactScope
@@ -36,7 +37,7 @@ from tools.assay.core.model import (
 )
 from tools.assay.core.routing import Routed, Scope
 from tools.assay.rails import test as test_rail
-from tools.assay.rails.mutation_gate import _tally, gate
+from tools.assay.rails.mutation_gate import _tally, gate, schema_report
 from tools.assay.rails.test import (
     _adopt_coverage,
     _checks,
@@ -66,12 +67,12 @@ if TYPE_CHECKING:
     from expression import Result
 
     from tests.python.tools.assay.kit import AssayHarness
-    from tools.assay.core.model import Completed
+    from tools.assay.core.model import Completed, ToolArgs
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-COVERS: tuple[object, ...] = (TestParams, coverage_percent, test_rail.coverage, test_rail.list, test_rail.run, gate, apply_row_status)
+COVERS: tuple[object, ...] = (TestParams, coverage_percent, test_rail.coverage, test_rail.list, test_rail.run, gate, schema_report, apply_row_status)
 
 _PY = Language.PYTHON
 _PY_ROUTED = Routed(language=_PY, scope=Scope.CHANGED)
@@ -83,6 +84,7 @@ _SHELL_WITH_CONTENT_CSPROJ = (
     "<Project><PropertyGroup><AssayTestShell>true</AssayTestShell></PropertyGroup>"
     '<ItemGroup><ProjectReference Include="../../../../libs/csharp/Rasm/Rasm.csproj" /></ItemGroup></Project>'
 )
+_STRYKER_POLICY = ("--test-runner", "mtp", "--mutation-level", "Standard", "--config-file", ".config/stryker-config.json")
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -91,38 +93,25 @@ def _ok(argv: tuple[str, ...], stdout: bytes = b"", *, status: RailStatus = Rail
     return receipt(argv, 0, status=status, stdout=stdout)
 
 
+# Laws compose argv from the real catalog rows, never synthetic mirrors.
 def _row(name: str, mode: Mode) -> Tool:
-    """Select one real TEST catalog row by (name, mode); laws compose argv from the catalog, never synthetic rows.
-
-    Returns:
-        The unique catalog row.
-    """
     (row,) = tuple(t for t in TOOLS if t.name == name and t.mode is mode and t.claim is Claim.TEST)
     return row
 
 
+# Minimal TEST row for pure-policy laws, carrying the catalog's policy groups for the name.
 def _tool(name: str = "pytest", mode: Mode = Mode.RUN, runner: Runner = Runner.UV, language: Language = _PY) -> Tool:
-    """Build a minimal TEST row for pure-policy laws, carrying the catalog's policy groups for the name.
-
-    Returns:
-        TEST row for ``name`` with the catalog's policy groups.
-    """
     groups = next((t.groups for t in TOOLS if t.name == name and t.claim is Claim.TEST), ())
     return Tool(name=name, runner=runner, command=(name,), input=Input.NONE, language=language, claim=Claim.TEST, mode=mode, groups=groups)
 
 
-# The one justified synthetic row: no real mutation row lacks a CHANGED scope projection, but the
+# The one justified synthetic row: every real mutation row projects a CHANGED scope, but the
 # degradation law (unscoped -> UNSUPPORTED, never a full-tree run) must hold for future runners.
 def _unscoped_mutation() -> Tool:
     return _tool("vitest-mut", Mode.MUTATION)
 
 
 def _seed_coverage_json(root: Path, payload: bytes) -> Path:
-    """Write coverage.json at the canonical artifact path under root.
-
-    Returns:
-        Path to the written coverage.json file.
-    """
     target = root / ".artifacts" / "python" / "coverage" / "coverage.json"
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_bytes(payload)
@@ -148,67 +137,49 @@ def _capture_rail(monkeypatch: pytest.MonkeyPatch) -> list[tuple[TestParams, obj
     return seen
 
 
+# Seed Workspace.slnx plus the marker-bearing csproj roster; the Ghost project stays unwritten on purpose.
 def _seed_solution(assay_root: AssayHarness) -> tuple[str, ...]:
-    """Seed Workspace.slnx plus the marker-bearing csproj roster; the Ghost project stays unwritten on purpose.
-
-    Returns:
-        Every project path admitted to the seeded solution.
-    """
-    projects = (
-        "libs/csharp/Rasm/Rasm.csproj",
-        "tests/csharp/_architecture/Rasm.Architecture.Tests.csproj",
-        "tests/csharp/_benchmarks/Rasm.Benchmarks.csproj",
-        "tests/csharp/_scenariokit/Rasm.ScenarioKit.csproj",
-        "tests/csharp/_testkit/Rasm.TestKit.csproj",
-        "tests/csharp/libs/Rasm/Rasm.Tests.csproj",
-        "tests/csharp/libs/Rasm.Empty/Rasm.Empty.Tests.csproj",
-        "tests/csharp/libs/Rasm.Ghost/Rasm.Ghost.Tests.csproj",
-        "tests/csharp/libs/Rasm.Host/Rasm.Host.Tests.csproj",
-        "tests/csharp/scenarios/Rasm.Scenarios.csproj",
-        "tests/csharp/tools/cs-analyzer/Csp.Analyzer.Tests.csproj",
-        "tests/csharp/tools/rhino-bridge/Contract/Contract.csproj",
-        "tests/csharp/tools/rhino-bridge/Supervisor/Supervisor.csproj",
-    )
-    assay_root.write(
-        "Workspace.slnx",
-        "<Solution>"
-        + "".join(f'<Folder Name="/{Path(project).parent.as_posix()}/"><Project Path="{project}" /></Folder>' for project in projects)
-        + "</Solution>",
-    )
-    assay_root.write("tests/csharp/libs/Rasm/Rasm.Tests.csproj", _SHELL_WITH_CONTENT_CSPROJ)
-    assay_root.write("tests/csharp/scenarios/Rasm.Scenarios.csproj", _SHELL_CSPROJ)
-    assay_root.write("tests/csharp/libs/Rasm.Host/Rasm.Host.Tests.csproj", _HOST_CSPROJ)
-    assay_root.write("tests/csharp/libs/Rasm.Empty/Rasm.Empty.Tests.csproj", _NON_TEST_CSPROJ)
-    assay_root.write("tests/csharp/_scenariokit/Rasm.ScenarioKit.csproj", _NON_TEST_CSPROJ)
-    for project in projects:
-        path = assay_root.root / project
-        if "Ghost" not in project and not path.exists():
-            assay_root.write(project, "<Project />")
-    return projects
+    markers = {
+        "libs/csharp/Rasm/Rasm.csproj": "<Project />",
+        "tests/csharp/_architecture/Rasm.Architecture.Tests.csproj": "<Project />",
+        "tests/csharp/_benchmarks/Rasm.Benchmarks.csproj": "<Project />",
+        "tests/csharp/_scenariokit/Rasm.ScenarioKit.csproj": _NON_TEST_CSPROJ,
+        "tests/csharp/_testkit/Rasm.TestKit.csproj": "<Project />",
+        "tests/csharp/libs/Rasm/Rasm.Tests.csproj": _SHELL_WITH_CONTENT_CSPROJ,
+        "tests/csharp/libs/Rasm.Empty/Rasm.Empty.Tests.csproj": _NON_TEST_CSPROJ,
+        "tests/csharp/libs/Rasm.Ghost/Rasm.Ghost.Tests.csproj": None,
+        "tests/csharp/libs/Rasm.Host/Rasm.Host.Tests.csproj": _HOST_CSPROJ,
+        "tests/csharp/scenarios/Rasm.Scenarios.csproj": _SHELL_CSPROJ,
+        "tests/csharp/tools/cs-analyzer/Csp.Analyzer.Tests.csproj": "<Project />",
+        "tests/csharp/tools/rhino-bridge/Contract/Contract.csproj": "<Project />",
+        "tests/csharp/tools/rhino-bridge/Supervisor/Supervisor.csproj": "<Project />",
+    }
+    folders = "".join(f'<Folder Name="/{Path(p).parent.as_posix()}/"><Project Path="{p}" /></Folder>' for p in markers)
+    assay_root.write("Workspace.slnx", f"<Solution>{folders}</Solution>")
+    [assay_root.write(project, content) for project, content in markers.items() if content is not None]
+    return tuple(markers)
 
 
-# --- [LAWS_COVERAGE_PERCENT]
+# --- [LAWS_COVERAGE_ARTIFACTS] ------------------------------------------------------------
 
 
-@pytest.mark.parametrize(
-    "payload,expected",
-    [
-        pytest.param(b'{"totals": {"percent_covered": 87.5}}', 87.5, id="float-percent"),
-        pytest.param(b'{"totals": {"percent_covered": 100}}', 100.0, id="int-percent-coerced-to-float"),
-        pytest.param(b'{"totals": {"percent_covered": 0.0}}', 0.0, id="zero-percent"),
-        pytest.param(b'{"totals": {"percent_covered": 72.345}, "files": {}}', 72.345, id="extra-keys-ignored"),
-        pytest.param(b'{"meta": {}}', None, id="missing-totals-none"),
-        pytest.param(b'{"totals": {}}', None, id="missing-percent-none"),
-        pytest.param(b"{bad json", None, id="malformed-json-none"),
-        pytest.param(None, None, id="absent-file-none"),
-    ],
-)
-def test_coverage_percent_from_json(tmp_path: Path, payload: bytes | None, expected: float | None) -> None:
+def test_coverage_percent_decodes_or_degrades(tmp_path: Path) -> None:
     """coverage_percent decodes totals and degrades missing or malformed files to None."""
-    if payload is not None:
-        _seed_coverage_json(tmp_path, payload)
-    result = coverage_percent(tmp_path)
-    assert result is None if expected is None else result == pytest.approx(expected)
+    rows: tuple[tuple[str, bytes | None, float | None], ...] = (
+        ("float-percent", b'{"totals": {"percent_covered": 87.5}}', 87.5),
+        ("int-coerced", b'{"totals": {"percent_covered": 100}}', 100.0),
+        ("zero-percent", b'{"totals": {"percent_covered": 0.0}}', 0.0),
+        ("extra-keys-ignored", b'{"totals": {"percent_covered": 72.345}, "files": {}}', 72.345),
+        ("missing-totals", b'{"meta": {}}', None),
+        ("missing-percent", b'{"totals": {}}', None),
+        ("malformed-json", b"{bad json", None),
+        ("absent-file", None, None),
+    )
+    for index, (label, payload, expected) in enumerate(rows):
+        root = tmp_path / str(index)
+        _seed_coverage_json(root, payload) if payload is not None else None
+        got = coverage_percent(root)
+        assert got is None if expected is None else got == pytest.approx(expected), label
 
 
 def test_adopt_coverage_artifact_fields(assay_root: AssayHarness) -> None:
@@ -219,86 +190,97 @@ def test_adopt_coverage_artifact_fields(assay_root: AssayHarness) -> None:
     assert (artifact.id, artifact.kind, artifact.bytes, artifact.lines) == ("coverage.json", ArtifactKind.TEST, 38, 1)
 
 
-# --- [LAWS_TESTPARAMS]
+# --- [LAWS_PARAMS_AND_POLICY] --------------------------------------------------------------
 
 
-def test_testparams_rejects_multiple_language_flags() -> None:
-    """TestParams rejects ambiguous language selectors."""
+def test_testparams_language_flags_and_help(monkeypatch: pytest.MonkeyPatch, capsysbinary: pytest.CaptureFixture[bytes]) -> None:
+    """Ambiguous language selectors fault; help exposes the boolean selectors and --trx, never a --language value flag."""
     fault = TestParams(csharp=True, typescript=True).bound("run")
     assert isinstance(fault, Fault)
     assert "--csharp" in fault.message
     assert "--typescript" in fault.message
 
-
-def test_test_help_exposes_boolean_flags(monkeypatch: pytest.MonkeyPatch, capsysbinary: pytest.CaptureFixture[bytes]) -> None:
-    """Test help exposes the boolean language selectors and the TRX flag, and omits the removed --language value flag."""
     from tools.assay import __main__ as main_mod  # noqa: PLC0415
 
-    neutralized = SimpleNamespace(force_flush=lambda *_a, **_k: True, shutdown=lambda: None)
-    monkeypatch.setattr(main_mod, "get_tracer_provider", lambda: neutralized)
-    code = main_mod.main(["test", "run", "--help"])
-    cap = capsysbinary.readouterr()
-    assert code == 0
-    assert all(flag in cap.out for flag in (b"--csharp", b"--python", b"--typescript", b"--trx"))
-    assert b"--language" not in cap.out
+    monkeypatch.setattr(main_mod, "get_tracer_provider", lambda: SimpleNamespace(force_flush=lambda *_a, **_k: True, shutdown=lambda: None))
+    assert main_mod.main(["test", "run", "--help"]) == 0
+    out = capsysbinary.readouterr().out
+    assert all(flag in out for flag in (b"--csharp", b"--python", b"--typescript", b"--trx"))
+    assert b"--language" not in out
 
 
-# --- [LAWS_ELIGIBLE]
-
-
-@pytest.mark.parametrize(
-    "tool,params,expected",
-    [
-        pytest.param(_tool("mutmut", Mode.MUTATION), TestParams(mutation=MutationLane.OFF), False, id="mutation-OFF→F"),
-        pytest.param(_tool("mutmut", Mode.MUTATION), TestParams(mutation=MutationLane.CHANGED), True, id="mutation-CHANGED→T"),
-        pytest.param(_tool("mutmut", Mode.MUTATION), TestParams(mutation=MutationLane.FULL), True, id="mutation-FULL→T"),
-        pytest.param(_tool("dotnet-build", Mode.BUILD, Runner.DOTNET), TestParams(), True, id="build-default→T"),
-        pytest.param(_tool("pytest"), TestParams(benchmark=False, coverage=False), True, id="pytest-plain→T"),
-        pytest.param(_tool("pytest"), TestParams(coverage=True), False, id="pytest-coverage→F"),
-        pytest.param(_tool("pytest"), TestParams(benchmark=True), False, id="pytest-benchmark→F"),
-        pytest.param(_tool("coverage"), TestParams(coverage=False), False, id="coverage-no-flag→F"),
-        pytest.param(_tool("coverage"), TestParams(coverage=True), True, id="coverage-flag→T"),
-        pytest.param(_tool("coverage-json"), TestParams(coverage=False), False, id="coverage-json-no-flag→F"),
-        pytest.param(_tool("coverage-json"), TestParams(coverage=True), True, id="coverage-json-flag→T"),
-        pytest.param(_tool("pytest-benchmark"), TestParams(benchmark=False), False, id="pytest-benchmark-no-flag→F"),
-        pytest.param(_tool("pytest-benchmark"), TestParams(benchmark=True), True, id="pytest-benchmark-flag→T"),
-    ],
-)
-def test_eligible_branch_matrix(tool: Tool, params: TestParams, expected: bool) -> None:  # noqa: FBT001 -- bool param injected by parametrize matrix
+def test_eligible_branch_matrix() -> None:
     """_eligible projects every (mode, params) arm to the correct True/False gate."""
-    assert _eligible(tool, params) is expected
+    validity_matrix(
+        [
+            ("mutation-OFF", (_tool("mutmut", Mode.MUTATION), TestParams()), False),
+            ("mutation-CHANGED", (_tool("mutmut", Mode.MUTATION), TestParams(mutation=MutationLane.CHANGED)), True),
+            ("mutation-FULL", (_tool("mutmut", Mode.MUTATION), TestParams(mutation=MutationLane.FULL)), True),
+            ("build-default", (_tool("dotnet-build", Mode.BUILD, Runner.DOTNET), TestParams()), True),
+            ("pytest-plain", (_tool("pytest"), TestParams()), True),
+            ("pytest-under-coverage", (_tool("pytest"), TestParams(coverage=True)), False),
+            ("pytest-under-benchmark", (_tool("pytest"), TestParams(benchmark=True)), False),
+            ("coverage-no-flag", (_tool("coverage"), TestParams()), False),
+            ("coverage-flag", (_tool("coverage"), TestParams(coverage=True)), True),
+            ("coverage-json-no-flag", (_tool("coverage-json"), TestParams()), False),
+            ("coverage-json-flag", (_tool("coverage-json"), TestParams(coverage=True)), True),
+            ("benchmark-no-flag", (_tool("pytest-benchmark"), TestParams()), False),
+            ("benchmark-flag", (_tool("pytest-benchmark"), TestParams(benchmark=True)), True),
+        ],
+        lambda case: _eligible(*case),
+    )
 
 
-# --- [LAWS_FILTER]
-
-
-@pytest.mark.parametrize(
-    "expr,expected",
-    [
-        pytest.param("", (), id="empty→empty"),
-        pytest.param("   ", (), id="whitespace→empty"),
-        pytest.param("/SomeTrait", ("--filter-query", "/SomeTrait"), id="query-slash"),
-        pytest.param("  /SomeTrait  ", ("--filter-query", "/SomeTrait"), id="query-trimmed"),
-        pytest.param("Category=unit", ("--filter-trait", "Category=unit"), id="trait-kv"),
-        pytest.param("MyTests", ("--filter-class", "*MyTests*"), id="class-Tests-suffix"),
-        pytest.param("MyLaws", ("--filter-class", "*MyLaws*"), id="class-Laws-suffix"),
-        pytest.param("MySpec", ("--filter-class", "*MySpec*"), id="class-Spec-suffix"),
-        pytest.param("My+Class", ("--filter-class", "*My+Class*"), id="class-plus-sign"),
-        pytest.param("test_something", ("--filter-method", "*test_something*"), id="plain-method"),
-    ],
-)
-def test_filter_discriminant_arms(expr: str, expected: tuple[str, ...]) -> None:
+def test_filter_discriminant_arms() -> None:
     """_filter maps each filter expression to the correct MTP flag tuple."""
-    assert _filter(expr) == expected
+    expected = {
+        "": (),
+        "   ": (),
+        "/SomeTrait": ("--filter-query", "/SomeTrait"),
+        "  /SomeTrait  ": ("--filter-query", "/SomeTrait"),
+        "Category=unit": ("--filter-trait", "Category=unit"),
+        "MyTests": ("--filter-class", "*MyTests*"),
+        "MyLaws": ("--filter-class", "*MyLaws*"),
+        "MySpec": ("--filter-class", "*MySpec*"),
+        "My+Class": ("--filter-class", "*My+Class*"),
+        "test_something": ("--filter-method", "*test_something*"),
+    }
+    assert {expr: _filter(expr) for expr in expected} == expected
 
 
-# --- [LAWS_SCOPED_MUTATION]
+def test_apply_row_status_empty_signature() -> None:
+    """A row's (returncode, marker) empty signature maps a nothing-to-do receipt to EMPTY; any mismatch keeps the tool verdict."""
+    rows: tuple[tuple[str, tuple[int, bytes] | None, int, bytes, bytes, RailStatus], ...] = (
+        ("pytest-exit5-empty", (5, b""), 5, b"", b"no tests ran", RailStatus.EMPTY),
+        ("vitest-marker-stderr", (1, b"No test files found"), 1, b"", b"No test files found, exiting with code 1", RailStatus.EMPTY),
+        ("vitest-marker-stdout", (1, b"No test files found"), 1, b"No test files found\n", b"", RailStatus.EMPTY),
+        ("marker-absent-failed", (1, b"No test files found"), 1, b"", b"2 tests failed", RailStatus.FAILED),
+        ("rc-mismatch-failed", (5, b""), 1, b"", b"", RailStatus.FAILED),
+        ("no-signature-keeps-raw", None, 5, b"", b"", RailStatus.BUSY),
+    )
+    for label, signature, rc, stdout, stderr, expected in rows:
+        tool = msgspec.structs.replace(_tool("vitest", Mode.RUN, Runner.PNPM, Language.TYPESCRIPT), empty_signature=signature)
+        assert apply_row_status(tool, receipt(("vitest", "run"), rc, stdout=stdout, stderr=stderr)).status is expected, label
 
 
-def _filled_law(args: object, tool: Tool, expected: tuple[str, ...]) -> None:
-    """Assert the typed splice values weave the row's holes into the exact expected argv body."""
+def test_catalog_test_runners_carry_empty_signature() -> None:
+    """Every RUN/LIST test runner whose tool signals no-eligible-work declares the signature on its catalog row."""
+    expected = {
+        ("pytest", Mode.RUN): (5, b""),
+        ("pytest", Mode.LIST): (5, b""),
+        ("pytest-benchmark", Mode.RUN): (5, b""),
+        ("coverage", Mode.RUN): (5, b""),
+        ("vitest", Mode.RUN): (1, b"No test files found"),
+    }
+    assert {(t.name, t.mode): t.empty_signature for t in TOOLS if (t.name, t.mode) in expected} == expected
+
+
+# --- [LAWS_MUTATION_ARGV] ------------------------------------------------------------------
+
+
+def _filled_law(args: ToolArgs | None, tool: Tool, expected: tuple[str, ...]) -> None:
     assert args is not None, "mutation args dropped out of the lane unexpectedly"
-    assert args.fill(tool.command) == expected, f"filled {args.fill(tool.command)} != {expected}"  # type: ignore[attr-defined]
+    assert args.fill(tool.command) == expected, f"filled {args.fill(tool.command)} != {expected}"
 
 
 def test_mutation_args_compose_catalog_argv(assay_root: AssayHarness) -> None:
@@ -318,30 +300,8 @@ def test_mutation_args_compose_catalog_argv(assay_root: AssayHarness) -> None:
     output_dir = Path(str(settings.root)).resolve() / ".artifacts/csharp/stryker"
     assert (scoped.solution, scoped.output) == (str(settings.solution), str(output_dir))
     assert output_dir.is_dir(), "the rail pre-creates the Stryker report --output dir"
-    _filled_law(
-        scoped,
-        stryker,
-        (
-            "tool",
-            "run",
-            "dotnet-stryker",
-            "--",
-            "--test-runner",
-            "mtp",
-            "--mutation-level",
-            "Standard",
-            "--config-file",
-            ".config/stryker-config.json",
-            "--solution",
-            str(settings.solution),
-            "--output",
-            str(output_dir),
-            "--mutate",
-            "src/Foo.cs",
-            "--mutate",
-            "src/Bar.cs",
-        ),
-    )
+    anchors = ("--solution", str(settings.solution), "--output", str(output_dir), "--mutate", "src/Foo.cs", "--mutate", "src/Bar.cs")
+    _filled_law(scoped, stryker, ("tool", "run", "dotnet-stryker", "--", *_STRYKER_POLICY, *anchors))
 
     # Wrong filled shapes prove the transform is non-vacuous.
     refutes(changed, _filled_law, mutmut, ("mutmut", "run", "src/a.py", "src/b.py"))  # passthrough: no governor, no module-name glob
@@ -351,21 +311,21 @@ def test_mutation_args_compose_catalog_argv(assay_root: AssayHarness) -> None:
 
 
 def test_mutation_rows_confine_every_path_to_artifacts() -> None:
-    """No mutation row can write to repo root: stage roots, sandbox, and report outputs all live under .artifacts/."""
+    """No mutation row can write to repo root: stage roots, sandbox cwd, and report outputs all live under .artifacts/."""
     mutmut, stryker = _row("mutmut", Mode.MUTATION), _row("dotnet-stryker", Mode.MUTATION)
     assert stryker.stage.root == ".artifacts/csharp/stryker/work", "Stryker cwd (and its .stryker-tmp sandbox) is the staged work root"
     assert mutmut.stage.root == ".artifacts/python/mutmut/work", "mutmut cwd (and its mutants/ cache) is the staged work root"
-    assert stryker.command[8:10] == ("--config-file", ".config/stryker-config.json"), "config is read-only and pinned; discovery-by-cwd is forgone"
+    assert all(part in stryker.command for part in _STRYKER_POLICY), "config is read-only and pinned; discovery-by-cwd is forgone"
     # Every literal path token in both commands is a read-only .config anchor or a typed hole the rail fills under .artifacts.
     literal_paths = [t for row in (mutmut, stryker) for t in row.command if "/" in t and "{" not in t]
     assert literal_paths == [".config/stryker-config.json"]
 
 
-# --- [LAWS_CHECKS]
+# --- [LAWS_CHECKS] -------------------------------------------------------------------------
 
 
-def test_checks_splice_arms(assay_root: AssayHarness) -> None:
-    """_checks routes DOTNET RUN filters into the typed {filter*} splice and leaves UV/MUTATION rows unfiltered."""
+def test_checks_splice_and_scope_arms(assay_root: AssayHarness) -> None:
+    """_checks routes DOTNET RUN filters into {filter*}, leaves UV/MUTATION rows unfiltered, and pins the pytest suite tail."""
     settings = assay_root.settings.model_copy(update={"mutation_max_cpu": 2})
     csharp_routed = Routed(language=Language.CSHARP, scope=Scope.CHANGED, projects=("tests/csharp/libs/A/A.Tests.csproj",))
     spliced = _checks(csharp_routed, TestParams(filter="test_something"), settings, Mode.RUN)
@@ -382,16 +342,12 @@ def test_checks_splice_arms(assay_root: AssayHarness) -> None:
     assert [c.tool.name for c in uv_checks] == ["pytest"]
     assert uv_checks[0].args.filter == (), "UV rows carry no MTP filter splice"
 
-
-def test_checks_pytest_scope_pin(assay_root: AssayHarness) -> None:
-    """Explicit [paths...] leave the pytest family unpinned for file tails; the changed default and --all pin an empty tail."""
-    routed = Routed(language=_PY, scope=Scope.CHANGED, files=("tests/t_a.py",))
-    (suite_wide,) = _checks(routed, TestParams(), assay_root.settings, Mode.RUN)
-    assert suite_wide.tail == ()
-    (all_wide,) = _checks(routed, TestParams(paths=("tests",), all=True), assay_root.settings, Mode.RUN)
-    assert all_wide.tail == ()
-    (scoped,) = _checks(routed, TestParams(paths=("tests",)), assay_root.settings, Mode.RUN)
-    assert scoped.tail is None
+    # Explicit [paths...] leave the pytest family unpinned for file tails; the changed default and --all pin an empty tail.
+    scoped_routed = Routed(language=_PY, scope=Scope.CHANGED, files=("tests/t_a.py",))
+    (suite_wide,) = _checks(scoped_routed, TestParams(), assay_root.settings, Mode.RUN)
+    (all_wide,) = _checks(scoped_routed, TestParams(paths=("tests",), all=True), assay_root.settings, Mode.RUN)
+    (scoped,) = _checks(scoped_routed, TestParams(paths=("tests",)), assay_root.settings, Mode.RUN)
+    assert (suite_wide.tail, all_wide.tail, scoped.tail) == ((), (), None)
 
 
 def test_checks_trx_splice_composes_per_project(assay_root: AssayHarness) -> None:
@@ -415,45 +371,11 @@ def test_checks_trx_splice_composes_per_project(assay_root: AssayHarness) -> Non
     assert off.args.flags == ()
     assert "--report-trx" not in off.args.fill(off.tool.command), "TRX evidence is opt-in; the default argv carries no report flags"
 
-    (py_row,) = _checks(Routed(language=_PY, scope=Scope.CHANGED, files=()), TestParams(trx=True), assay_root.settings, Mode.RUN)
-    assert py_row.args.flags == (), "TRX is a dotnet RUN concern; UV rows never receive the splice"
+    (py_check,) = _checks(Routed(language=_PY, scope=Scope.CHANGED, files=()), TestParams(trx=True), assay_root.settings, Mode.RUN)
+    assert py_check.args.flags == (), "TRX is a dotnet RUN concern; UV rows never receive the splice"
 
 
-@pytest.mark.parametrize(
-    "signature, rc, stdout, stderr, expected_status",
-    [
-        ((5, b""), 5, b"", b"no tests ran", RailStatus.EMPTY),  # pytest exit 5 → empty scope on the returncode alone
-        ((1, b"No test files found"), 1, b"", b"No test files found, exiting with code 1", RailStatus.EMPTY),  # vitest stderr marker
-        ((1, b"No test files found"), 1, b"No test files found\n", b"", RailStatus.EMPTY),  # marker on stdout admits too
-        ((1, b"No test files found"), 1, b"", b"2 tests failed", RailStatus.FAILED),  # rc matches, marker absent → genuine failure
-        ((5, b""), 1, b"", b"", RailStatus.FAILED),  # rc mismatch → signature never fires
-        (None, 5, b"", b"", RailStatus.BUSY),  # signature-less row keeps the raw returncode projection
-    ],
-    ids=["pytest_exit5_empty", "vitest_marker_stderr", "vitest_marker_stdout", "marker_absent_failed", "rc_mismatch_failed", "no_signature_asis"],
-)
-def test_apply_row_status_empty_signature(
-    signature: tuple[int, bytes] | None, rc: int, stdout: bytes, stderr: bytes, expected_status: RailStatus
-) -> None:
-    """A row's (returncode, marker) empty signature maps a nothing-to-do receipt to EMPTY; any mismatch keeps the tool verdict."""
-    tool = msgspec.structs.replace(_tool("vitest", Mode.RUN, Runner.PNPM, Language.TYPESCRIPT), empty_signature=signature)
-    done = receipt(("vitest", "run"), rc, stdout=stdout, stderr=stderr)
-    assert apply_row_status(tool, done).status is expected_status
-
-
-def test_catalog_test_runners_carry_empty_signature() -> None:
-    """Every RUN/LIST test runner whose tool signals no-eligible-work declares the signature on its catalog row."""
-    expected = {
-        ("pytest", Mode.RUN): (5, b""),
-        ("pytest", Mode.LIST): (5, b""),
-        ("pytest-benchmark", Mode.RUN): (5, b""),
-        ("coverage", Mode.RUN): (5, b""),
-        ("vitest", Mode.RUN): (1, b"No test files found"),
-    }
-    rows = {(t.name, t.mode): t.empty_signature for t in TOOLS if (t.name, t.mode) in expected}
-    assert rows == expected
-
-
-# --- [LAWS_UNSUPPORTED_SCOPE]
+# --- [LAWS_SELECT_AND_LANES] ---------------------------------------------------------------
 
 
 def test_unsupported_scope_arms(monkeypatch: pytest.MonkeyPatch, assay_root: AssayHarness) -> None:
@@ -468,15 +390,13 @@ def test_unsupported_scope_arms(monkeypatch: pytest.MonkeyPatch, assay_root: Ass
     assert _unsupported_scope(routed, TestParams(mutation=MutationLane.FULL), assay_root.settings, Mode.MUTATION) == ()
     assert _unsupported_scope(routed, TestParams(mutation=MutationLane.CHANGED), assay_root.settings, Mode.RUN) == ()
     monkeypatch.undo()
-
     assert _unsupported_scope(routed, TestParams(mutation=MutationLane.CHANGED), assay_root.settings, Mode.MUTATION) == (), (
         "every real catalog mutation row projects a CHANGED scope"
     )
 
     project = "tests/csharp/libs/Rasm/Rasm.Tests.csproj"
     host = Routed(Language.CSHARP, Scope.CHANGED, projects=(project,), host_bound=(project,))
-    host_receipt = assert_ok(_unsupported_scope(host, TestParams(), assay_root.settings, Mode.RUN)[0])
-    assert host_receipt.status is RailStatus.UNSUPPORTED
+    assert assert_ok(_unsupported_scope(host, TestParams(), assay_root.settings, Mode.RUN)[0]).status is RailStatus.UNSUPPORTED
 
     shell = "tests/csharp/scenarios/Rasm.Scenarios.csproj"
     assay_root.write(shell, _SHELL_CSPROJ)
@@ -484,9 +404,6 @@ def test_unsupported_scope_arms(monkeypatch: pytest.MonkeyPatch, assay_root: Ass
     target_receipt = assert_ok(row)
     assert (target_receipt.status, target_receipt.returncode) == (RailStatus.UNSUPPORTED, RailStatus.UNSUPPORTED.exit_code)
     assert any("test-target[shell]" in n for n in target_receipt.notes)
-
-
-# --- [LAWS_SELECT]
 
 
 def test_select_solution_admission_arms(assay_root: AssayHarness) -> None:
@@ -529,57 +446,41 @@ def test_select_changed_arm_classifies_marker_lanes(assay_root: AssayHarness) ->
     selected = assert_ok(_select(routed, TestParams(), assay_root.settings))
     assert set(selected.routed.projects) == {host, managed}
     assert selected.routed.host_bound == (host,), "host_bound is rebuilt from the marker table, not trusted from routing"
-    assert dict(selected.lanes) == {
-        lib: _TestProjectLane.NON_TEST,
-        shell: _TestProjectLane.SHELL,
-        host: _TestProjectLane.HOST_BOUND,
-        managed: _TestProjectLane.MANAGED,
-    }
+    lanes = (_TestProjectLane.NON_TEST, _TestProjectLane.SHELL, _TestProjectLane.HOST_BOUND, _TestProjectLane.MANAGED)
+    assert dict(selected.lanes) == dict(zip((lib, shell, host, managed), lanes, strict=True))
 
 
-@pytest.mark.parametrize("content", [pytest.param("<Solution", id="corrupt-xml"), pytest.param(None, id="missing-file")])
-def test_select_all_faults_on_corrupt_or_missing_solution(assay_root: AssayHarness, content: str | None) -> None:
+def test_select_all_faults_on_corrupt_or_missing_solution(assay_root: AssayHarness) -> None:
     """--all over a corrupt or missing Workspace.slnx is a loud FAULTED result, never a green zero-check run."""
-    match content:
-        case None:
-            (assay_root.root / "Workspace.slnx").unlink()
-        case _:
-            assay_root.write("Workspace.slnx", content)
     routed = Routed(language=Language.CSHARP, scope=Scope.CHANGED)
-    fault = assert_error_status(_select(routed, TestParams(all=True), assay_root.settings), RailStatus.FAULTED)
-    assert "Workspace.slnx" in " ".join(fault.argv)
+    assay_root.write("Workspace.slnx", "<Solution")
+    corrupt = assert_error_status(_select(routed, TestParams(all=True), assay_root.settings), RailStatus.FAULTED)
+    (assay_root.root / "Workspace.slnx").unlink()
+    missing = assert_error_status(_select(routed, TestParams(all=True), assay_root.settings), RailStatus.FAULTED)
+    assert all("Workspace.slnx" in " ".join(fault.argv) for fault in (corrupt, missing))
 
 
-# --- [LAWS_PROJECT_LANE]
-
-
-@pytest.mark.parametrize(
-    "rel,content,expected",
-    [
-        pytest.param("tests/csharp/libs/A/A.Tests.csproj", "<Project />", _TestProjectLane.MANAGED, id="no-marker→managed"),
-        pytest.param("tests/csharp/libs/A/A.Tests.csproj", _SHELL_WITH_CONTENT_CSPROJ, _TestProjectLane.SHELL, id="shell-marker-wins-over-content"),
-        pytest.param(
-            "tests/csharp/libs/A/A.Tests.csproj",
-            "<Project><PropertyGroup><AssayTestShell>true</AssayTestShell><AssayHostBound>true</AssayHostBound></PropertyGroup></Project>",
-            _TestProjectLane.SHELL,
-            id="shell-outranks-host-bound",
-        ),
-        pytest.param("tests/csharp/libs/A/A.Tests.csproj", _HOST_CSPROJ, _TestProjectLane.HOST_BOUND, id="host-bound-marker"),
-        pytest.param("tests/csharp/libs/A/A.Tests.csproj", _NON_TEST_CSPROJ, _TestProjectLane.NON_TEST, id="istestproject-false"),
-        pytest.param("tests/csharp/libs/A/A.Tests.csproj", None, _TestProjectLane.NON_TEST, id="unreadable→fault-shaped-non-test"),
-        pytest.param("tests/csharp/_testkit/Kit.csproj", _SHELL_CSPROJ, _TestProjectLane.SUPPORT, id="testkit-path-outranks-markers"),
-        pytest.param("tests/csharp/_benchmarks/Bench.csproj", "<Project />", _TestProjectLane.BENCHMARK, id="benchmarks-path"),
-        pytest.param("libs/csharp/Rasm/Rasm.csproj", "<Project />", _TestProjectLane.NON_TEST, id="outside-tests-csharp"),
-    ],
-)
-def test_project_lane_marker_matrix(assay_root: AssayHarness, rel: str, content: str | None, expected: _TestProjectLane) -> None:
+def test_project_lane_marker_matrix(assay_root: AssayHarness) -> None:
     """_project_lane routes path arms then the one-read marker table; an unreadable csproj is never silently MANAGED."""
-    if content is not None:
-        assay_root.write(rel, content)
-    assert _project_lane(rel, assay_root.settings) is expected
+    dual = "<Project><PropertyGroup><AssayTestShell>true</AssayTestShell><AssayHostBound>true</AssayHostBound></PropertyGroup></Project>"
+    lane = _TestProjectLane
+    rows: tuple[tuple[str, str, str | None, _TestProjectLane], ...] = (
+        ("no-marker-managed", "tests/csharp/libs/A/A.Tests.csproj", "<Project />", lane.MANAGED),
+        ("shell-marker-wins-over-content", "tests/csharp/libs/A/A.Tests.csproj", _SHELL_WITH_CONTENT_CSPROJ, lane.SHELL),
+        ("shell-outranks-host-bound", "tests/csharp/libs/A/A.Tests.csproj", dual, lane.SHELL),
+        ("host-bound-marker", "tests/csharp/libs/A/A.Tests.csproj", _HOST_CSPROJ, lane.HOST_BOUND),
+        ("istestproject-false", "tests/csharp/libs/A/A.Tests.csproj", _NON_TEST_CSPROJ, lane.NON_TEST),
+        ("unreadable-fault-shaped-non-test", "tests/csharp/libs/Missing/Missing.Tests.csproj", None, lane.NON_TEST),
+        ("testkit-path-outranks-markers", "tests/csharp/_testkit/Kit.csproj", _SHELL_CSPROJ, lane.SUPPORT),
+        ("benchmarks-path", "tests/csharp/_benchmarks/Bench.csproj", "<Project />", lane.BENCHMARK),
+        ("outside-tests-csharp", "libs/csharp/Rasm/Rasm.csproj", "<Project />", lane.NON_TEST),
+    )
+    for label, rel, content, expected in rows:
+        assay_root.write(rel, content) if content is not None else None
+        assert _project_lane(rel, assay_root.settings) is expected, label
 
 
-# --- [LAWS_DISPATCH]
+# --- [LAWS_DISPATCH_AND_ROSTER] --------------------------------------------------------------
 
 
 def test_dispatch_routes_checks_to_fan_and_appends_unsupported(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -597,56 +498,37 @@ def test_dispatch_routes_checks_to_fan_and_appends_unsupported(assay_root: Assay
     assert _dispatch(routed, TestParams(), settings=assay_root.settings, scope=scope, mode=Mode.RUN, executor=executor) == (Ok(ok),)
 
 
-# --- [LAWS_ROSTER_MATCHES]
-
-
 def test_roster_matches_skip_and_kind_arms() -> None:
     """_roster_matches skips headers/summaries and non-success discovery."""
     mixed = _ok(("dotnet", "test", "--list-tests"), b"The following tests are available:\nMyNs.MyClass.test_one\n3 test(s) found\n")
     matches = _roster_matches((mixed,))
     assert [m.id for m in matches] == ["MyNs.MyClass.test_one"]
     assert all(m.kind is ArtifactKind.PROCESS for m in matches)
-
     assert _roster_matches((receipt(("dotnet", "test", "--list-tests"), 1, stdout=b"X.test\n"),)) == ()
     assert _roster_matches((_ok(("pytest", "--collect-only")),)) == ()
 
 
-# --- [LAWS_DETAIL]
-
-
-@pytest.mark.parametrize(
-    "done,params,seed,check",
-    [
-        pytest.param((), TestParams(mutation=MutationLane.OFF, coverage=False), None, None, id="off+no-coverage→None"),
-        pytest.param(
-            (_ok(("mutmut", "run"), b"not-json\n"),), TestParams(mutation=MutationLane.FULL, coverage=False), None, None, id="full+noise-stdout→None"
-        ),
-        pytest.param((_ok(("uv", "run", "pytest")),), TestParams(mutation=MutationLane.OFF, coverage=True), None, None, id="coverage+no-json→None"),
-        pytest.param(
-            (_ok(("uv", "run", "pytest")),),
-            TestParams(mutation=MutationLane.OFF, coverage=True),
-            b'{"totals": {"percent_covered": 91.5}}',
-            91.5,
-            id="coverage+json→TestRun",
-        ),
-    ],
-)
-def test_detail_mutation_and_coverage_arms(
-    tmp_path: Path, done: tuple[Completed, ...], params: TestParams, seed: bytes | None, check: float | None
-) -> None:
+def test_detail_mutation_and_coverage_arms(tmp_path: Path) -> None:
     """_detail projects mutation and coverage combinations into TestRun or None."""
-    if seed is not None:
-        _seed_coverage_json(tmp_path, seed)
-    result = _detail(done, params, tmp_path)
-    match check:
-        case None:
-            assert result is None
-        case _:
-            assert isinstance(result, TestRun)
-            assert result.coverage == pytest.approx(check)
+    rows: tuple[tuple[str, tuple[Completed, ...], TestParams, bytes | None, float | None], ...] = (
+        ("off+no-coverage", (), TestParams(), None, None),
+        ("full+noise-stdout", (_ok(("mutmut", "run"), b"not-json\n"),), TestParams(mutation=MutationLane.FULL), None, None),
+        ("coverage+no-json", (_ok(("uv", "run", "pytest")),), TestParams(coverage=True), None, None),
+        ("coverage+json", (_ok(("uv", "run", "pytest")),), TestParams(coverage=True), b'{"totals": {"percent_covered": 91.5}}', 91.5),
+    )
+    for index, (label, done, params, seed, expected) in enumerate(rows):
+        root = tmp_path / str(index)
+        _seed_coverage_json(root, seed) if seed is not None else root.mkdir()
+        result = _detail(done, params, root)
+        match expected:
+            case None:
+                assert result is None, label
+            case _:
+                assert isinstance(result, TestRun), label
+                assert result.coverage == pytest.approx(expected), label
 
 
-# --- [LAWS_VERBS]
+# --- [LAWS_VERBS] ----------------------------------------------------------------------------
 
 
 def test_verbs_route_claim_verb_and_forced_params(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -660,58 +542,41 @@ def test_verbs_route_claim_verb_and_forced_params(assay_root: AssayHarness, monk
     assert (forced.coverage, forced.benchmark) == (True, False)
 
 
-# --- [LAWS_LIST_VERB]
-
-
-@pytest.mark.parametrize(
-    "params,outcome,assertion",
-    [
-        pytest.param(
-            TestParams(),
-            _ok(("pytest", "--collect-only"), b"tests/a.py::test_one\ntests/a.py::test_two\n"),
-            lambda r: r.counts.total == 2 and "test-roster" in {a.id for a in r.artifacts},
-            id="ok-report+roster-artifact",
-        ),
-        pytest.param(
-            TestParams(grep="ALPHA"),
-            _ok(("pytest", "--collect-only"), b"tests/a.py::test_alpha\ntests/a.py::test_beta\n"),
-            lambda r: [row.id for row in r.results] == ["tests/a.py::test_alpha"],
-            id="grep-filters-roster-case-insensitive",
-        ),
-        pytest.param(
+def test_list_report_projection_arms(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+    """List projects roster artifacts, grep filtering, limit notes, discovery failures, and empty discovery."""
+    roster = _ok(("pytest", "--collect-only"), b"tests/a.py::test_one\ntests/a.py::test_two\n")
+    three = _ok(("pytest", "--collect-only"), b"tests/a.py::test_one\ntests/a.py::test_two\ntests/a.py::test_three\n")
+    greppable = _ok(("pytest", "--collect-only"), b"tests/a.py::test_alpha\ntests/a.py::test_beta\n")
+    rows: tuple[tuple[str, TestParams, Completed, Callable[..., bool]], ...] = (
+        ("ok-report+roster-artifact", TestParams(), roster, lambda r: r.counts.total == 2 and "test-roster" in {a.id for a in r.artifacts}),
+        ("grep-case-insensitive", TestParams(grep="ALPHA"), greppable, lambda r: [m.id for m in r.results] == ["tests/a.py::test_alpha"]),
+        (
+            "limit-trims+detail-keeps-pre-limit-total",
             TestParams(limit=1),
-            _ok(("pytest", "--collect-only"), b"tests/a.py::test_one\ntests/a.py::test_two\ntests/a.py::test_three\n"),
+            three,
             lambda r: r.counts.total == 1 and any("total=3" in n and "returned=1" in n for n in r.notes) and r.detail.selected == 3,
-            id="limit-trims-roster+detail-keeps-pre-limit-total",
         ),
-        pytest.param(
+        (
+            "discovery-failure-changes-status",
             TestParams(),
             receipt(("dotnet", "test", "--list-tests"), 1, stderr=b"no project"),
             lambda r: (
                 r.status is RailStatus.FAILED
-                and any(row.severity == "failed" for row in r.results)
+                and any(m.severity == "failed" for m in r.results)
                 and any("discovery" in n and "dotnet test" in n for n in r.notes)
             ),
-            id="discovery-failure-changes-status",
         ),
-        pytest.param(
+        (
+            "empty-discovery-counted-unresolved",
             TestParams(),
             _ok(("pytest", "--collect-only")),
             lambda r: ("empty_or_failed_discovery", 1) in r.detail.discovery_counts,
-            id="empty-discovery-counted-as-unresolved",
         ),
-    ],
-)
-def test_list_report_projection_arms(
-    assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch, params: TestParams, outcome: Completed, assertion: Callable[..., bool]
-) -> None:
-    """List projects roster artifacts, grep filtering, limit notes, discovery failures, and empty discovery."""
-    _wire(monkeypatch, outcome)
-    report = assert_ok(test_rail.list(assay_root.settings, ArtifactScope.open(assay_root.settings, Claim.TEST), params, SeamExecutor()))
-    assert assertion(report)
-
-
-# --- [LAWS_RUN_VERB]
+    )
+    for label, params, outcome, law in rows:
+        _wire(monkeypatch, outcome)
+        report = assert_ok(test_rail.list(assay_root.settings, ArtifactScope.open(assay_root.settings, Claim.TEST), params, SeamExecutor()))
+        assert law(report), label
 
 
 def test_run_envelope_names_host_routed(monkeypatch: pytest.MonkeyPatch, assay_root: AssayHarness) -> None:
@@ -729,38 +594,25 @@ def test_run_envelope_names_host_routed(monkeypatch: pytest.MonkeyPatch, assay_r
     assert {("managed", 1), ("host_bound", 1)} <= set(report.detail.project_counts)
 
 
-def test_run_mutation_gap_note_emitted(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Run emits a mutation gap note when the language has no eligible runner (typescript has no mutation row by design)."""
-    routed = Routed(language=Language.TYPESCRIPT, scope=Scope.CHANGED)
-    _wire(monkeypatch, _ok(("pytest",)), routed=routed, seam="_dispatch_all")
+def test_run_gap_note_and_coverage_detail(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Run notes the TS mutation gap (no TS mutation row by design) and decodes coverage.json into the TestRun detail."""
+    scope = ArtifactScope.open(assay_root.settings, Claim.TEST)
+    _wire(monkeypatch, _ok(("pytest",)), routed=Routed(language=Language.TYPESCRIPT, scope=Scope.CHANGED), seam="_dispatch_all")
     params = TestParams(mutation=MutationLane.FULL, language=Language.TYPESCRIPT)
-    report = assert_ok(test_rail.run(assay_root.settings, ArtifactScope.open(assay_root.settings, Claim.TEST), params, SeamExecutor()))
-    assert any("mutation" in n for n in report.notes)
+    gap_report = assert_ok(test_rail.run(assay_root.settings, scope, params, SeamExecutor()))
+    assert any("mutation" in n for n in gap_report.notes)
 
-
-def test_run_coverage_percent_populates_detail(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Run with coverage=True decodes coverage.json under settings.root into the TestRun detail."""
     _seed_coverage_json(assay_root.root, b'{"totals": {"percent_covered": 82.5}}')
     _wire(monkeypatch, _ok(("uv", "run", "pytest")), seam="_dispatch_all")
-    report = assert_ok(
-        test_rail.run(assay_root.settings, ArtifactScope.open(assay_root.settings, Claim.TEST), TestParams(coverage=True), SeamExecutor())
-    )
+    report = assert_ok(test_rail.run(assay_root.settings, scope, TestParams(coverage=True), SeamExecutor()))
     assert isinstance(report.detail, TestRun)
     assert report.detail.coverage == pytest.approx(82.5)
 
 
-# --- [LAWS_DISPATCH_ALL]
+# --- [LAWS_THIN_RAIL] --------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize(
-    "params,expected_modes",
-    [
-        pytest.param(TestParams(mutation=MutationLane.FULL), [Mode.RUN, Mode.MUTATION], id="mutation→adds-MUTATION"),
-        pytest.param(TestParams(coverage=True), [Mode.RUN, Mode.STAGE, Mode.CLIENT], id="coverage→adds-STAGE-then-CLIENT"),
-        pytest.param(TestParams(), [Mode.RUN], id="plain→RUN-only"),
-    ],
-)
-def test_dispatch_all_mode_arms(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch, params: TestParams, expected_modes: list[Mode]) -> None:
+def test_dispatch_all_mode_arms(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
     """_dispatch_all adds mutation, coverage-combine, and coverage-report sub-dispatches in order; combine precedes every report row."""
     call_modes: list[Mode] = []
 
@@ -771,11 +623,14 @@ def test_dispatch_all_mode_arms(assay_root: AssayHarness, monkeypatch: pytest.Mo
     monkeypatch.setattr(test_rail, "_dispatch", _record)
     routed = Routed(language=_PY, scope=Scope.CHANGED, files=())
     scope = ArtifactScope.open(assay_root.settings, Claim.TEST)
-    _dispatch_all(routed, params, settings=assay_root.settings, scope=scope, mode=Mode.RUN, executor=SeamExecutor())
-    assert call_modes == expected_modes
-
-
-# --- [LAWS_ROUTED]
+    for params, expected in (
+        (TestParams(mutation=MutationLane.FULL), [Mode.RUN, Mode.MUTATION]),
+        (TestParams(coverage=True), [Mode.RUN, Mode.STAGE, Mode.CLIENT]),
+        (TestParams(), [Mode.RUN]),
+    ):
+        call_modes.clear()
+        _dispatch_all(routed, params, settings=assay_root.settings, scope=scope, mode=Mode.RUN, executor=SeamExecutor())
+        assert call_modes == expected
 
 
 def test_routed_sequences_one_routed_per_language(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -785,15 +640,11 @@ def test_routed_sequences_one_routed_per_language(assay_root: AssayHarness, monk
     assert {r.language for r in assert_ok(_routed((_PY, Language.TYPESCRIPT), (), assay_root.settings))} == {_PY, Language.TYPESCRIPT}
 
 
-# --- [LAWS_THIN_RAIL]
-
-
 def test_thin_rail_mutation_nests_sorted_language_leases(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
     """_thin_rail acquires one mutation lease per eligible language, nested in sorted order."""
     leased_calls: list[str] = []
-    routed = Routed(language=_PY, scope=Scope.CHANGED, files=())
     scope = ArtifactScope.open(assay_root.settings, Claim.TEST)
-    _wire(monkeypatch, _ok(("mutmut", "run")), routed=routed, seam="_dispatch_all")
+    _wire(monkeypatch, _ok(("mutmut", "run")), routed=Routed(language=_PY, scope=Scope.CHANGED, files=()), seam="_dispatch_all")
     monkeypatch.setattr(test_rail, "resolve_languages", lambda *_a, **_k: Ok((Language.CSHARP, _PY)))
 
     def _descend(resource: str, action: Callable[[object], Result[object, object]], **_k: object) -> Result[object, object]:
@@ -808,9 +659,8 @@ def test_thin_rail_mutation_nests_sorted_language_leases(assay_root: AssayHarnes
 
 def test_thin_rail_per_language_mutation_leases_do_not_contend(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
     """Per-language mutation leases isolate csharp and python contention."""
-    routed = Routed(language=_PY, scope=Scope.CHANGED, files=())
     scope = ArtifactScope.open(assay_root.settings, Claim.TEST)
-    _wire(monkeypatch, _ok(("mutmut", "run")), routed=routed, seam="_dispatch_all")
+    _wire(monkeypatch, _ok(("mutmut", "run")), routed=Routed(language=_PY, scope=Scope.CHANGED, files=()), seam="_dispatch_all")
     params = TestParams(mutation=MutationLane.FULL, language=Language.PYTHON)
     with exclusive_lease("mutation-csharp", "holder", settings=assay_root.settings) as held:
         assert_ok(held)
@@ -824,8 +674,7 @@ def test_thin_rail_per_language_mutation_leases_do_not_contend(assay_root: Assay
 
 def test_thin_rail_no_mutation_skips_leasing(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
     """_thin_rail with mutation=OFF calls the work directly: no lease is ever acquired."""
-    routed = Routed(language=_PY, scope=Scope.CHANGED, files=())
-    _wire(monkeypatch, _ok(("pytest",)), routed=routed, seam="_dispatch_all")
+    _wire(monkeypatch, _ok(("pytest",)), routed=Routed(language=_PY, scope=Scope.CHANGED, files=()), seam="_dispatch_all")
 
     def _forbidden(*_a: object, **_k: object) -> Result[object, object]:
         raise AssertionError("mutation=OFF must never lease")
@@ -837,78 +686,100 @@ def test_thin_rail_no_mutation_skips_leasing(assay_root: AssayHarness, monkeypat
     assert report.status in {RailStatus.OK, RailStatus.EMPTY}
 
 
-# --- [LAWS_MUTATION_GATE]
+# --- [LAWS_MUTATION_GATE] ----------------------------------------------------------------------
 
 
-def _seed_cache(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, exit_codes: dict[str, int | None]) -> None:
-    """Synthesize mutmut's persisted result surface: cwd pyproject + source tree + mutants/ meta cache."""
-    (tmp_path / "src").mkdir()
-    (tmp_path / "src" / "mod.py").write_text("X = 1\n")
-    (tmp_path / "pyproject.toml").write_text('[tool.mutmut]\nsource_paths = ["src"]\n')
-    (tmp_path / "mutants" / "src").mkdir(parents=True)
+# Synthesize mutmut's persisted result surface: cwd pyproject + source tree + mutants/ meta cache.
+def _seed_cache(root: Path, monkeypatch: pytest.MonkeyPatch, exit_codes: dict[str, int | None]) -> None:
+    (root / "src").mkdir(parents=True)
+    (root / "src" / "mod.py").write_text("X = 1\n")
+    (root / "pyproject.toml").write_text('[tool.mutmut]\nsource_paths = ["src"]\n')
+    (root / "mutants" / "src").mkdir(parents=True)
     meta = {"exit_code_by_key": exit_codes, "durations_by_key": {}, "estimated_durations_by_key": {}}
-    (tmp_path / "mutants" / "src" / "mod.py.meta").write_bytes(msgspec.json.encode(meta))
-    monkeypatch.chdir(tmp_path)
+    (root / "mutants" / "src" / "mod.py.meta").write_bytes(msgspec.json.encode(meta))
+    monkeypatch.chdir(root)
     monkeypatch.setattr(mutmut_configuration, "_config", None)
 
 
 def _gate_row() -> Tool:
-    """Select the one catalog gate row: TEST claim, VERIFY mode, MUTATION-tagged.
-
-    Returns:
-        The mutmut-gate catalog row.
-    """
     (row,) = tuple(t for t in TOOLS if t.claim is Claim.TEST and t.mode is Mode.VERIFY and ToolGroup.MUTATION in t.groups)
     return row
 
 
-@pytest.mark.parametrize(
-    "codes,rc,killed,survived,selected",
-    [
-        pytest.param({"a": 1, "b": 1, "c": 1, "d": 1, "e": 0}, 0, 4, 1, 5, id="floor-edge-0.800→PASS"),
-        pytest.param({"a": 1, "b": 0}, 1, 1, 1, 2, id="score-0.5→FAIL"),
-        pytest.param({"a": 1, "b": 33, "c": 36, "d": None}, 0, 1, 0, 4, id="unscored-excluded-from-denominator"),
-        pytest.param({}, 1, 0, 0, 0, id="empty-cache→FAIL"),
-    ],
-)
-def test_gate_seeded_cache_matrix(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
-    codes: dict[str, int | None],
-    rc: int,
-    killed: int,
-    survived: int,
-    selected: int,
-) -> None:
+def test_gate_seeded_cache_matrix(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     """Mutation gate keeps tally, JSON line, verdict stream, and exit code aligned."""
-    _seed_cache(tmp_path, monkeypatch, codes)
-    tally = _tally()
-    assert (tally["killed"], tally["survived"], tally.total()) == (killed, survived, selected)
-    code = gate()
-    out, err = capsys.readouterr()
-    lines = out.splitlines()
-    assert (code, len(lines)) == (rc, 1)
-    assert err.startswith("[PASS]" if rc == 0 else "[FAIL]")
-    done = receipt(("uv", "run", "python", "-m", "tools.assay.rails.mutation_gate"), code, stdout=lines[0].encode())
-    assert _detail((done,), TestParams(mutation=MutationLane.FULL), tmp_path) == TestRun(
-        mutation=MutationLane.FULL, killed=killed, survived=survived, selected=selected
+    rows: tuple[tuple[str, dict[str, int | None], int, int, int, int], ...] = (
+        ("floor-edge-0.800-pass", {"a": 1, "b": 1, "c": 1, "d": 1, "e": 0}, 0, 4, 1, 5),
+        ("score-0.5-fail", {"a": 1, "b": 0}, 1, 1, 1, 2),
+        ("unscored-excluded-from-denominator", {"a": 1, "b": 33, "c": 36, "d": None}, 0, 1, 0, 4),
+        ("empty-cache-fail", {}, 1, 0, 0, 0),
     )
+    for index, (label, codes, rc, killed, survived, selected) in enumerate(rows):
+        _seed_cache(tmp_path / str(index), monkeypatch, codes)
+        tally = _tally()
+        assert (tally["killed"], tally["survived"], tally.total()) == (killed, survived, selected), label
+        code = gate()
+        out, err = capsys.readouterr()
+        lines = out.splitlines()
+        assert (code, len(lines)) == (rc, 1), label
+        assert err.startswith("[PASS]" if rc == 0 else "[FAIL]"), label
+        done = receipt(("uv", "run", "python", "-m", "tools.assay.rails.mutation_gate"), code, stdout=lines[0].encode())
+        expected = TestRun(mutation=MutationLane.FULL, killed=killed, survived=survived, selected=selected)
+        assert _detail((done,), TestParams(mutation=MutationLane.FULL), tmp_path / str(index)) == expected, label
 
 
-def test_gate_tool_is_catalog_row_off_dispatch_fans() -> None:
-    """The kill-rate gate is one catalog row whose VERIFY mode keeps it off every RUN/MUTATION dispatch fan."""
-    row = _gate_row()
-    assert (row.name, row.runner, row.groups, row.mode) == ("mutmut-gate", Runner.UV, (ToolGroup.MUTATION,), Mode.VERIFY)
-    assert (row.stage.root, row.stage.project) == ("", True)
-    assert row.input is Input.OWNED
-    assert row.command == ("python", "-m", "tools.assay.rails.mutation_gate")
-    for mode in (Mode.RUN, Mode.MUTATION, Mode.LIST):
-        assert row not in _rows(_PY, TestParams(mutation=MutationLane.FULL), mode), f"gate row leaked into the {mode.value} fan"
+def test_schema_report_projects_mutmut_results(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    """schema_report maps mutmut meta to schema mutants — id, mutatorName, status, function-span location; gate() lands the artifact."""
+    (tmp_path / "src").mkdir()
+    source = "def alpha() -> int:\n    return 1\n\n\nclass Owner:\n    def beta(self) -> int:\n        return 2\n"
+    (tmp_path / "src" / "mod.py").write_text(source)
+    (tmp_path / "pyproject.toml").write_text('[tool.mutmut]\nsource_paths = ["src"]\n')
+    (tmp_path / "mutants" / "src").mkdir(parents=True)
+    codes: dict[str, int | None] = {
+        "src.mod.x_alpha__mutmut_1": 1,
+        "src.mod.x_alpha__mutmut_2": 0,
+        "src.mod.x_alpha__mutmut_3": None,
+        "src.mod.xǁOwnerǁx_beta__mutmut_1": 5,
+    }
+    meta = {"exit_code_by_key": codes, "durations_by_key": {}, "estimated_durations_by_key": {}}
+    (tmp_path / "mutants" / "src" / "mod.py.meta").write_bytes(msgspec.json.encode(meta))
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(mutmut_configuration, "_config", None)
+    data = SourceFileMutationData(path=Path("src/mod.py"))
+    data.load()
+
+    wire = msgspec.json.decode(msgspec.json.encode(schema_report((data,), floor=0.85)))
+
+    assert (wire["schemaVersion"], wire["thresholds"]) == ("2", {"high": 90, "low": 85})
+    entry = wire["files"]["src/mod.py"]
+    assert (entry["language"], entry["source"]) == ("python", source)
+    by_id = {m["id"]: m for m in entry["mutants"]}
+    assert set(by_id) == set(codes)
+    assert all(set(m) == {"id", "mutatorName", "status", "location"} and m["mutatorName"] == "mutmut" for m in by_id.values())
+    assert {key: by_id[key]["status"] for key in codes} == {
+        "src.mod.x_alpha__mutmut_1": "Killed",
+        "src.mod.x_alpha__mutmut_2": "Survived",
+        "src.mod.x_alpha__mutmut_3": "Pending",
+        "src.mod.xǁOwnerǁx_beta__mutmut_1": "NoCoverage",
+    }
+    assert by_id["src.mod.x_alpha__mutmut_1"]["location"] == {"start": {"line": 1, "column": 1}, "end": {"line": 2, "column": 13}}
+    assert by_id["src.mod.xǁOwnerǁx_beta__mutmut_1"]["location"] == {"start": {"line": 6, "column": 5}, "end": {"line": 7, "column": 17}}
+
+    assert gate() == 1  # score 0.5 under the 0.80 floor; the schema artifact still lands
+    capsys.readouterr()
+    emitted = msgspec.json.decode((tmp_path / ".artifacts" / "python" / "mutmut" / "mutation-report.json").read_bytes())
+    assert set(emitted["files"]) == {"src/mod.py"}
+    assert len(emitted["files"]["src/mod.py"]["mutants"]) == len(codes)
 
 
 def test_gate_check_rides_staged_mutmut_success(assay_root: AssayHarness) -> None:
     """_gate fans one staged-worktree catalog gate-row check after mutmut success — real rows end to end."""
+    row = _gate_row()
+    assert (row.name, row.runner, row.groups, row.mode) == ("mutmut-gate", Runner.UV, (ToolGroup.MUTATION,), Mode.VERIFY)
+    assert (row.stage.root, row.stage.project, row.input) == ("", True, Input.OWNED)
+    for mode in (Mode.RUN, Mode.MUTATION, Mode.LIST):
+        assert row not in _rows(_PY, TestParams(mutation=MutationLane.FULL), mode), f"gate row leaked into the {mode.value} fan"
+
     (staged,) = (t for t in _rows(_PY, TestParams(mutation=MutationLane.FULL), Mode.MUTATION) if t.stage.root)
     seen: list[Check] = []
 
@@ -917,48 +788,30 @@ def test_gate_check_rides_staged_mutmut_success(assay_root: AssayHarness) -> Non
         return (Ok(_ok(("uv", "run", "python", "-m", "tools.assay.rails.mutation_gate"))),)
 
     done = (Ok(_ok(("uv", "run", "--group", "mutation", "mutmut", "run"))),)
+    executor = SeamExecutor(fan_fn=_fake_fan)
     out = _gate(
-        done,
-        _PY_ROUTED,
-        TestParams(mutation=MutationLane.FULL),
-        settings=assay_root.settings,
-        scope=assay_root.scope(Claim.TEST),
-        executor=SeamExecutor(fan_fn=_fake_fan),
+        done, _PY_ROUTED, TestParams(mutation=MutationLane.FULL), settings=assay_root.settings, scope=assay_root.scope(Claim.TEST), executor=executor
     )
     assert len(out) == 1
-    assert [c.tool for c in seen] == [_gate_row()]
+    assert [c.tool for c in seen] == [row]
     assert seen[0].cwd == Path(str(assay_root.settings.root)) / staged.stage.root
 
 
-@pytest.mark.parametrize(
-    "argv,code,staged",
-    [
-        pytest.param(("uv", "run", "mutmut", "run"), 1, True, id="mutmut-failed→no-gate"),
-        pytest.param(("uv", "run", "pytest"), 0, True, id="non-mutmut-success→no-gate"),
-        pytest.param(("uv", "run", "mutmut", "run"), 0, False, id="no-staged-row→no-gate"),
-    ],
-)
-def test_gate_skips_without_success_or_stage(
-    assay_root: AssayHarness,
-    monkeypatch: pytest.MonkeyPatch,
-    argv: tuple[str, ...],
-    code: int,
-    staged: bool,  # noqa: FBT001  # parametrize matrix field, not a call-site positional bool
-) -> None:
+def test_gate_skips_without_success_or_stage(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
     """_gate stays empty without mutmut success and a staged row."""
 
     def _forbidden(*_a: object, **_k: object) -> tuple[Result[Completed, object], ...]:
         raise AssertionError("executor.fan must not run")
 
-    if not staged:
-        # Counterfactual catalog: the real mutmut row is staged, so the stage-less arm needs the synthetic row.
-        monkeypatch.setattr(test_rail, "_rows", lambda *_a, **_k: (_tool("mutmut", Mode.MUTATION),))
     executor = SeamExecutor(fan_fn=_forbidden)
-    done = (Ok(receipt(argv, code)),)
-    gated = _gate(
-        done, _PY_ROUTED, TestParams(mutation=MutationLane.FULL), settings=assay_root.settings, scope=assay_root.scope(Claim.TEST), executor=executor
-    )
-    assert gated == ()
+    scope = assay_root.scope(Claim.TEST)
+    params = TestParams(mutation=MutationLane.FULL)
+    for argv, code in ((("uv", "run", "mutmut", "run"), 1), (("uv", "run", "pytest"), 0)):
+        assert _gate((Ok(receipt(argv, code)),), _PY_ROUTED, params, settings=assay_root.settings, scope=scope, executor=executor) == ()
+    # Counterfactual catalog: the real mutmut row is staged, so the stage-less arm needs the synthetic row.
+    monkeypatch.setattr(test_rail, "_rows", lambda *_a, **_k: (_tool("mutmut", Mode.MUTATION),))
+    done = (Ok(receipt(("uv", "run", "mutmut", "run"), 0)),)
+    assert _gate(done, _PY_ROUTED, params, settings=assay_root.settings, scope=scope, executor=executor) == ()
 
 
 def test_dispatch_all_gate_rides_mutation_results(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:

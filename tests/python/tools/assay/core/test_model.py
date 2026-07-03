@@ -249,7 +249,7 @@ def test_from_returncode_closed_table(rc: int, expected: RailStatus) -> None:
 
 def test_alias_skipped_resolves_to_skip() -> None:
     """RailStatus('skipped') is RailStatus.SKIP — the wire alias contract."""
-    assert RailStatus("skipped") is RailStatus.SKIP
+    assert RailStatus("skipped") is RailStatus.SKIP  # type: ignore[call-arg]  # enum value lookup, not the 3-arg member constructor
 
 
 # --- [FOLD]

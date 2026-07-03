@@ -15,7 +15,19 @@ from tests.python._testkit.spec import assert_error_status, assert_ok
 from tests.python.tools.assay.kit import SeamExecutor
 from tools.assay.composition.settings import AssaySettings
 from tools.assay.composition.store import ArtifactScope
-from tools.assay.core.model import Artifact, ArtifactKind, BridgeLifecycle, Claim, Fault, Mode, RailStatus, receipt, Report, validate_detail, VerifySummary
+from tools.assay.core.model import (
+    Artifact,
+    ArtifactKind,
+    BridgeLifecycle,
+    Claim,
+    Fault,
+    Mode,
+    RailStatus,
+    receipt,
+    Report,
+    validate_detail,
+    VerifySummary,
+)
 from tools.assay.rails.bridge import (
     _aggregate_closure,
     _completed_from_stdout,
@@ -105,19 +117,6 @@ def _closure(path: Path, *assemblies: str) -> None:
             "builtAgainst": {"bundleVersion": "9.0", "rhinoCommonVersion": "9.0", "grasshopper2Version": "2.0", "runtimeVersion": "10.0"},
         })
     )
-
-
-def _supervisor(assay_root: AssayHarness) -> Path:
-    """Materialize the built supervisor binary so client_run resolves its real spawn target.
-
-    Returns:
-        The materialized binary path under the bridge build scope pivot.
-    """
-    pivot = f"{assay_root.settings.configuration.value.lower()}_test-rid"
-    binary = Path(str(ArtifactScope.build(assay_root.settings, "bridge").path)) / "bin" / "Supervisor" / pivot / "Rasm.Bridge.Supervisor"
-    binary.parent.mkdir(parents=True, exist_ok=True)
-    binary.write_bytes(b"")
-    return binary
 
 
 def _bridge_run(envelope: bytes, verbs: list[str] | None = None, build_outcome: Result[Completed, Fault] | None = None) -> Callable[..., object]:
@@ -279,7 +278,7 @@ def test_client_run_spawns_built_supervisor_binary(assay_root: AssayHarness) -> 
         checks.append(check)
         return Ok(receipt(("supervisor",), 0, stdout=_envelope()))
 
-    binary = _supervisor(assay_root)
+    binary = assay_root.supervisor()
     done = assert_ok(client_run(assay_root.settings, "status", executor=SeamExecutor(run_fn=_spawn)))
     check = checks[0]
     filled = check.args.fill(check.tool.command)
@@ -311,9 +310,10 @@ def test_bridge_lease_second_contender_sees_busy(assay_root: AssayHarness) -> No
 @pytest.mark.parametrize("verb_name, verb_fn", _LIFECYCLE_VERBS, ids=[name for name, _ in _LIFECYCLE_VERBS])
 def test_lifecycle_verbs_fold_supervisor_completion(verb_name: str, verb_fn: _BridgeVerb, assay_root: AssayHarness) -> None:
     """Lifecycle verbs ride the real lease and the built supervisor binary, folding the executor completion."""
-    _supervisor(assay_root)
+    assay_root.supervisor()
     verbs: list[str] = []
-    report = assert_ok(verb_fn(assay_root.settings, assay_root.scope(Claim.BRIDGE), BridgeParams(), SeamExecutor(run_fn=_bridge_run(_envelope(), verbs))))
+    executor = SeamExecutor(run_fn=_bridge_run(_envelope(), verbs))
+    report = assert_ok(verb_fn(assay_root.settings, assay_root.scope(Claim.BRIDGE), BridgeParams(), executor))
     assert report.claim is Claim.BRIDGE
     assert report.verb == verb_name
     assert report.status is RailStatus.OK
@@ -327,7 +327,7 @@ def test_lifecycle_detail_projects_host_and_capabilities(assay_root: AssayHarnes
         host={"bundleVersion": "9.0", "rhinoCommonVersion": "9.0", "grasshopper2Version": "", "runtimeVersion": "10.0"},
         capabilities=({"key": "rail.core", "outcome": "ok", "receipt": "warm"}, {"key": "rail.vectors", "outcome": "skipped", "receipt": ""}),
     )
-    _supervisor(assay_root)
+    assay_root.supervisor()
     report = assert_ok(status(assay_root.settings, assay_root.scope(Claim.BRIDGE), BridgeParams(), SeamExecutor(run_fn=_bridge_run(envelope))))
     detail = report.detail
     assert isinstance(detail, BridgeLifecycle)
@@ -340,7 +340,7 @@ def test_lifecycle_detail_projects_host_and_capabilities(assay_root: AssayHarnes
 
 
 def test_build_folds_bridge_build_receipt(assay_root: AssayHarness) -> None:
-    """build folds the per-project executor receipts into one bridge-build report."""
+    """Build folds the per-project executor receipts into one bridge-build report."""
     report = assert_ok(build(assay_root.settings, assay_root.scope(Claim.BRIDGE), BridgeParams(), SeamExecutor(run_fn=_bridge_run(_envelope()))))
     assert report.claim is Claim.BRIDGE
     assert report.verb == "build"
@@ -352,7 +352,7 @@ def test_build_folds_bridge_build_receipt(assay_root: AssayHarness) -> None:
 
 
 def test_verify_folds_session_summary(assay_root: AssayHarness) -> None:
-    """verify drives build, closure aggregation, and the supervisor session end-to-end over the executor port."""
+    """Verify drives build, closure aggregation, and the supervisor session end-to-end over the executor port."""
     assay_root.write("tests/csharp/scenarios/Blocks/CoreRail.cs", "// scenario source")
     scope = assay_root.scope(Claim.BRIDGE)
     # The verify prelude reads the closure from the bridge BUILD scope, not the claim scope.
@@ -361,7 +361,7 @@ def test_verify_folds_session_summary(assay_root: AssayHarness) -> None:
     cargo = build_root / "bin" / "Cargo" / assay_root.settings.configuration.value.lower()
     cargo.mkdir(parents=True)
     (cargo / "Cargo.dll").write_bytes(b"")
-    _supervisor(assay_root)
+    assay_root.supervisor()
     envelope = _envelope(
         scenarios=({"scenario": "blocks.CoreRail", "status": "ok", "durationMs": 1.0},),
         evidence=({"$type": "fact", "stamp": {"scenario": "blocks.CoreRail"}, "key": "mesh.count", "value": 3},),
@@ -391,7 +391,8 @@ def test_verify_non_empty_corpus_proceeds_past_guard(assay_root: AssayHarness) -
     """One scenario source defeats the guard: verify reaches the build stage and propagates its fault."""
     assay_root.write("tests/csharp/scenarios/Blocks/CoreRail.cs", "// scenario source")
     stop = Error(Fault(("rasm-bridge-build",), RailStatus.FAULTED, "stop after the guard"))
-    outcome = verify(assay_root.settings, assay_root.scope(Claim.BRIDGE), BridgeParams(), SeamExecutor(run_fn=_bridge_run(_envelope(), build_outcome=stop)))
+    executor = SeamExecutor(run_fn=_bridge_run(_envelope(), build_outcome=stop))
+    outcome = verify(assay_root.settings, assay_root.scope(Claim.BRIDGE), BridgeParams(), executor)
     assert "stop after the guard" in assert_error_status(outcome, RailStatus.FAULTED).message
 
 

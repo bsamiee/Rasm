@@ -30,6 +30,7 @@ from tools.assay.core.routing import (  # private probes for read/parse degradat
     Scope,
     Source,
     target_files,
+    TargetFiles,
 )
 
 
@@ -136,7 +137,7 @@ _PY_TOOL = Tool(
 # Mirrors AssaySettings.probe_fixture_prefixes for prefix-stripping laws.
 _DEFAULT_PREFIXES: tuple[str, ...] = ("tests/ast-grep/", "tests/python/tools/py_analyzer/")
 
-COVERS: tuple[object, ...] = (expand, infer_languages, place, resolve_languages, routable_files, route, Routed, Source, target_files)
+COVERS: tuple[object, ...] = (expand, infer_languages, place, resolve_languages, routable_files, route, Routed, Source, target_files, TargetFiles)
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 

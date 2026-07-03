@@ -1,14 +1,14 @@
-# [@playwright/test] — browser e2e driver the gauge e2e rows compose
+# [@playwright/test] — browser e2e driver the `tests/typescript/e2e` suites compose
 
 [PACKAGE_SURFACE]:
 - package: `@playwright/test` · version `1.61.1` · license `Apache-2.0`
 - module: dual CJS/ESM (`.js` + `.mjs`) with `exports` map `.` / `./cli` / `./reporter` / `./package.json`; the root is a thin re-export of `playwright/test` → `playwright/types/test` (types resolve through it). The custom-reporter SPI is the separate `@playwright/test/reporter` subpath.
 - asset: bundled `playwright` + `playwright-core` engines; the actual browser binaries (chromium / firefox / webkit) install out-of-band via `playwright install` — a runner fact, never a JS dependency on any bundle.
 - runtime: node `>=18`; each spec runs in a worker process driving a real browser over CDP/the Playwright protocol.
-- plane: `plane:dev` — the browser `E2E_GAUGE` of `proof/gauge/e2e`, beside the `@types/k6` load driver. `proof/gauge/purity` fences it off every runtime graph.
+- plane: `plane:dev` — the browser `E2E_GAUGE` of the `tests/typescript/e2e` home, beside the `@types/k6` load driver. The `tests/typescript/_architecture` suite fences it off every runtime graph.
 - rail: browser-e2e / visual-and-aria gauge.
 
-`@playwright/test` is the functional + visual e2e driver `gauge/e2e.ts` composes: a `test` runner with worker-scoped browser fixtures, a web-first auto-retrying `expect`, a config-as-code `defineConfig` matrix over `devices`, and a reporter SPI that projects results as data. It drives TWO seams — the standalone runner for full cross-browser e2e, and (via `@vitest/browser-playwright`) the browser PROVIDER under vitest browser mode so a browser-runtime unit spec reuses the same engine. The load half of the gauge is k6 (`@types/k6`); the two drivers are orthogonal rows on the one `e2e` owner.
+`@playwright/test` is the functional + visual e2e driver the `tests/typescript/e2e` home composes: a `test` runner with worker-scoped browser fixtures, a web-first auto-retrying `expect`, a config-as-code `defineConfig` matrix over `devices`, and a reporter SPI that projects results as data. It drives TWO seams — the standalone runner for full cross-browser e2e, and (via `@vitest/browser-playwright`) the browser PROVIDER under vitest browser mode so a browser-runtime unit spec reuses the same engine. The load half of the gauge is k6 (`@types/k6`); the two drivers are orthogonal rows on the one `e2e` owner.
 
 ## [01]-[ENTRY_SURFACE]
 
@@ -78,7 +78,7 @@ type Expect<ExtendedMatchers = {}> = {
 // expect.poll(fn).toBe(x) and expect(fn).toPass() are the two general retry rails for non-DOM assertions.
 ```
 
-`toHaveScreenshot()` (pixel gauge, golden-image compare) and `toMatchAriaSnapshot()` (accessibility-tree gauge) are the two projection matchers `gauge/e2e` reads as pass/fail data; both persist a golden under the project's snapshot dir — align with `corpus` frozen-fixture discipline.
+`toHaveScreenshot()` (pixel gauge, golden-image compare) and `toMatchAriaSnapshot()` (accessibility-tree gauge) are the two projection matchers the e2e gauge reads as pass/fail data; both persist a golden under the project's snapshot dir — align with the `tests/contracts/` frozen-fixture discipline.
 
 ## [04]-[CONFIG_AND_REPORTER]
 
@@ -96,7 +96,7 @@ interface TestConfig<T = {}, W = {}> {
 // worker-scoped (per worker): browserName, headless, channel, launchOptions, connectOptions
 ```
 
-`@playwright/test/reporter` is the SPI a custom reporter implements to project results as data — the seam that feeds `gauge/e2e` a machine result rather than console text.
+`@playwright/test/reporter` is the SPI a custom reporter implements to project results as data — the seam that feeds the e2e gauge a machine result rather than console text.
 
 ```ts contract
 // import type { Reporter, FullConfig, Suite, TestCase, TestResult, TestStep, TestError, WorkerInfo, FullResult } from "@playwright/test/reporter"
@@ -117,11 +117,11 @@ interface Reporter {
 
 ## [05]-[INTEGRATION]
 
-[STACK: `@playwright/test` standalone + `defineConfig` matrix] — `gauge/e2e.ts` owns a `playwright.config.ts` whose `projects` fan the same spec set across chromium/firefox/webkit and `devices` presets; `use.trace`/`video`/`screenshot` capture artifacts on retry, and a custom `Reporter` (subpath SPI) folds `TestResult` rows into the gauge's threshold data. `webServer` boots the app under test before the suite.
+[STACK: `@playwright/test` standalone + `defineConfig` matrix] — the `tests/typescript/e2e` home owns a `playwright.config.ts` whose `projects` fan the same spec set across chromium/firefox/webkit and `devices` presets; `use.trace`/`video`/`screenshot` capture artifacts on retry, and a custom `Reporter` (subpath SPI) folds `TestResult` rows into the gauge's threshold data. `webServer` boots the app under test before the suite.
 
 [STACK: `@playwright/test` engine + `@vitest/browser-playwright`] — the SAME Playwright engine is the browser PROVIDER under vitest browser mode (the sibling `vitest-browser-playwright.md`). A browser-runtime unit spec runs its `@effect/vitest` body inside a real browser page that Playwright drives — reusing the one `playwright install` browser binaries across the e2e gauge and the browser-mode unit lane, each lane keeping its own launch config (`use.launchOptions` here, `playwright({ launchOptions })` there). Playwright's `expect` is NOT used there; the vitest/`@effect/vitest` assertion rail is, because the spec is a vitest spec that merely executes in-browser.
 
-[STACK: `@playwright/test` + `@types/k6`] — `gauge/e2e` is one owner over two orthogonal drivers: Playwright is the functional + visual gauge (does the flow work, does it look right), k6 the load gauge (does it hold under concurrency). They never share a runtime; the k6 binary is a runner fact exactly as the browser binaries are.
+[STACK: `@playwright/test` + `@types/k6`] — the `tests/typescript/e2e` home is one owner over two orthogonal drivers: Playwright is the functional + visual gauge (does the flow work, does it look right), k6 the load gauge (does it hold under concurrency). They never share a runtime; the k6 binary is a runner fact exactly as the browser binaries are.
 
 [BOUNDARY vs the unit lane] — Playwright launches real browser processes: it is the heavy, high-fidelity end of the spectrum whose fast counterparts are `happy-dom`/`jsdom` (in-process DOM, no browser). A flow that needs no real engine belongs in the unit lane; a DOM-only assertion never justifies a browser launch.
 

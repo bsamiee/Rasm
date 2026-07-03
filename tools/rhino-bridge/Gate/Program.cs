@@ -91,7 +91,7 @@ internal static partial class Program {
             SessionState connecting = new SessionState.Connecting(Host: host, PollsRemaining: 0);
             SessionState dialog = SessionDispatch.Apply(connecting, new SessionSignal.HeartbeatSilent(SilentFor: policy.HeartbeatWindow + TimeSpan.FromSeconds(1)), policy);
             SessionState running = new SessionState.Running(Host: host, Cargo: new CargoReceipt("hash", 0, [], []),
-                Done: Seq<ScenarioReceipt>(), Remaining: Seq(new ScenarioEntry("gate", "gate.standin", [], 0)), RestartBudget: 1);
+                Done: Seq<ScenarioReceipt>(), Remaining: Seq(new ScenarioEntry("gate", "gate.standin", [], 0)));
             SessionState wedged = SessionDispatch.Apply(running, new SessionSignal.HeartbeatSilent(SilentFor: policy.HeartbeatWindow + TimeSpan.FromSeconds(1)), policy);
             Signal(child, "-CONT");
             bool pass = aliveSilent
@@ -300,15 +300,15 @@ internal static partial class Program {
         File.WriteAllText(manifest, """{"assemblies":["A.dll","B.dll"],"hostPlugins":["b45a29b1-4343-4035-989e-044e8580d9cf"],"builtAgainst":{"bundleVersion":"9.0","rhinoCommonVersion":"9.0","grasshopper2Version":"2.0","runtimeVersion":"10.0"}}""");
         string refs = Path.Combine(scratch, "refs");
         Guid session = Guid.NewGuid();
-        Fin<CargoManifest> first = Evidence.Stage(manifest, session, scratch, refs);
-        Fin<CargoManifest> again = Evidence.Stage(manifest, session, scratch, refs);
-        bool pass = first is Fin<CargoManifest>.Succ(CargoManifest staged)
-            && again is Fin<CargoManifest>.Succ(CargoManifest restaged)
-            && staged.ContentHash == restaged.ContentHash
-            && File.Exists(Path.Combine(staged.StagePath, "A.dll"))
-            && staged.HostPlugins.Length == 1;
+        Fin<StagedCargo> first = Evidence.Stage(manifest, session, scratch, refs);
+        Fin<StagedCargo> again = Evidence.Stage(manifest, session, scratch, refs);
+        bool pass = first is Fin<StagedCargo>.Succ(StagedCargo staged)
+            && again is Fin<StagedCargo>.Succ(StagedCargo restaged)
+            && staged.Manifest.ContentHash == restaged.Manifest.ContentHash
+            && File.Exists(Path.Combine(staged.Manifest.StagePath, "A.dll"))
+            && staged.Manifest.HostPlugins.Length == 1;
         Report("xxhash3-staging", pass, new JsonObject {
-            ["contentHash"] = first is Fin<CargoManifest>.Succ(CargoManifest m) ? m.ContentHash : "failed",
+            ["contentHash"] = first is Fin<StagedCargo>.Succ(StagedCargo m) ? m.Manifest.ContentHash : "failed",
             ["deterministic"] = pass,
         });
     }
@@ -318,7 +318,8 @@ internal static partial class Program {
         BridgeEvent fact = new BridgeEvent.FactCase("gate.fact", JsonDocument.Parse("1").RootElement.Clone()) {
             Stamp = new EventStamp(session, 1, 1, "gate"),
         };
-        string spool = Path.Combine(scratch, "gate.jsonl");
+        string spool = ReportLayout.Spool(scratch, "gate");
+        _ = Directory.CreateDirectory(Path.Combine(scratch, ReportLayout.EventsDirectory));
         string line = JsonSerializer.Serialize(fact, BridgeJsonContext.Default.BridgeEvent);
         File.WriteAllText(spool, line + "\n" + line + "\n" + line[..(line.Length / 2)]);
         Seq<BridgeEvent> harvested = Evidence.HarvestSpool(scratch, "gate");
@@ -355,7 +356,8 @@ internal static partial class Program {
     // MCP listener suppression rides the launch environment and is reported as a capability fact.
     private static void RowMcpSuppression() {
         string packages = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-            "Library", "Application Support", "McNeel", "Rhinoceros", "packages", "9.0");
+            "Library", "Application Support", "McNeel", "Rhinoceros", "packages",
+            string.Create(CultureInfo.InvariantCulture, $"{BundleInfo.RhinoLineMajor}.0"));
         string[] installed = Directory.Exists(packages) ? [.. Directory.GetDirectories(packages).Select(static path => Path.GetFileName(path) ?? string.Empty)] : [];
         bool mcpPresent = installed.Any(static name => name.Contains("mcp", StringComparison.OrdinalIgnoreCase));
         Report("mcp-suppression", !mcpPresent, new JsonObject {

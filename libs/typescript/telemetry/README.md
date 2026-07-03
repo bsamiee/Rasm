@@ -40,4 +40,4 @@ Cross-cutting TypeScript substrate the folder consumes; the branch registry live
 
 - `effect` — rails, `Schema`, `Layer`, `Match`, `Stream`, vocabulary substrate.
 - `@effect/opentelemetry` — the substrate export family: the Otlp exporter/NodeSdk/WebSdk surface `otlp/export` composes; `telemetry` owns it, every folder emits through it.
-- `@effect/vitest` — the dev-plane spec runner binding `proof` law combinators to the folder specs.
+- `@effect/vitest` — the dev-plane spec runner binding the `@rasm/ts-testkit` law combinators (`tests/typescript/_testkit`) to this folder's colocated specs.

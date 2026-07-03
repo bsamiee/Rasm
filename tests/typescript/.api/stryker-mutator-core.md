@@ -1,16 +1,16 @@
-# [@stryker-mutator/core] — mutation engine + the canonical `@stryker-mutator/api` config / receipt / SPI surface both proof Stryker plugins compose onto
+# [@stryker-mutator/core] — mutation engine + the canonical `@stryker-mutator/api` config / receipt / SPI surface both admitted Stryker plugins compose onto
 
 [PACKAGE_SURFACE]:
 - package: `@stryker-mutator/core` · version `9.6.1` · license `Apache-2.0`
 - module: ESM (`type: module`); `exports` map `.` → `dist/src/index.js` (types resolve via the co-located `dist/src/index.d.ts`, no explicit types condition). Barrel exports `{ Stryker, StrykerCli }`, default `Stryker`.
-- api peer: `@stryker-mutator/api` `9.6.1` (Apache-2.0), seven subpaths — `./core`, `./plugin`, `./report`, `./test-runner`, `./check`, `./ignore`, `./logging`. This catalog is the CANONICAL home for the api surface the plugin HOST owns: `StrykerOptions`/`PartialStrykerOptions` (`./core`), `MutantResult`/`MutantStatus` (`./core`), `Reporter` + the instrument channel (`./report`, `./core`), and the `PluginKind` plugin-loading ABI (`./plugin`). The two SPIs a runner/checker plugin IMPLEMENTS (`TestRunner` in `./test-runner`, `Checker` in `./check`) are owned deeply by the sibling `stryker-mutator-vitest-runner.md` / `stryker-mutator-typescript-checker.md`; the receipt they feed and the ABI they register through live here. `proof/gauge/mutation` composes THIS object — the plugin catalogs re-document only the partial config rows they contribute.
+- api peer: `@stryker-mutator/api` `9.6.1` (Apache-2.0), seven subpaths — `./core`, `./plugin`, `./report`, `./test-runner`, `./check`, `./ignore`, `./logging`. This catalog is the CANONICAL home for the api surface the plugin HOST owns: `StrykerOptions`/`PartialStrykerOptions` (`./core`), `MutantResult`/`MutantStatus` (`./core`), `Reporter` + the instrument channel (`./report`, `./core`), and the `PluginKind` plugin-loading ABI (`./plugin`). The two SPIs a runner/checker plugin IMPLEMENTS (`TestRunner` in `./test-runner`, `Checker` in `./check`) are owned deeply by the sibling `stryker-mutator-vitest-runner.md` / `stryker-mutator-typescript-checker.md`; the receipt they feed and the ABI they register through live here. `.config/stryker.config.json` encodes THIS object — the plugin catalogs re-document only the partial config rows they contribute.
 - receipt schema: `MutantResult.status` and `MutantStatus` re-export from `mutation-testing-report-schema` `3.7.3` (as `@stryker-mutator/api/core`'s `schema.*`); `Reporter.onMutationTestReportReady` folds a `schema.MutationTestResult` + a `MutationTestMetricsResult` (`mutation-testing-metrics` `3.7.3`).
 - asset: pure JS; forks OS worker processes (not `worker_threads`) for checkers and test runners.
 - runtime: node `>=20`; DI via `typed-inject`; config validated against a JSON schema (`stryker.config.json` / `stryker.conf.js` / `.mjs`).
-- plane: `plane:dev` — the `MUTATION_GAUGE` of `proof/gauge/mutation`, paired with the `@vitest/coverage-v8` line/branch thresholds as one "thresholds as data" surface. `proof/gauge/purity` fences it off every runtime graph.
+- plane: `plane:dev` — the `MUTATION_GAUGE` of the mutation/coverage gauge; `.config/stryker.config.json` pairs its thresholds with the `@vitest/coverage-v8` line/branch thresholds as one "thresholds as data" surface. The `tests/typescript/_architecture` suite fences it off every runtime graph.
 - rail: mutation-engine / threshold gauge / plugin host.
 
-`@stryker-mutator/core` is the mutation engine `gauge/mutation.ts` drives AND the plugin host both proof Stryker plugins load through: it instruments production files, forks worker processes, runs each surviving mutant through a test runner, and scores the kill ratio against a `MutationScoreThresholds` gate. The gauge composes the PROGRAMMATIC `Stryker` class (not the CLI) so thresholds, `mutate` globs, reporters, checkers, and the runner are encoded as ONE `PartialStrykerOptions` data object. The runner and checker are PLUGINS on one `PluginKind` SPI the host owns — `@stryker-mutator/vitest-runner` and `@stryker-mutator/typescript-checker` are two `strykerPlugins` rows the config selects by string, each contributing partial `StrykerOptions` rows (documented against this catalog's canonical schema) plus one plugin-owned option bag.
+`@stryker-mutator/core` is the mutation engine the assay mutation rail drives (`--configFile .config/stryker.config.json`) AND the plugin host both admitted Stryker plugins load through: it instruments production files, forks worker processes, runs each surviving mutant through a test runner, and scores the kill ratio against a `MutationScoreThresholds` gate. `.config/stryker.config.json` encodes thresholds, `mutate` globs, reporters, checkers, and the runner as ONE declarative `PartialStrykerOptions` data object. The runner and checker are PLUGINS on one `PluginKind` SPI the host owns — `@stryker-mutator/vitest-runner` and `@stryker-mutator/typescript-checker` are two `strykerPlugins` rows the config selects by string, each contributing partial `StrykerOptions` rows (documented against this catalog's canonical schema) plus one plugin-owned option bag.
 
 ## [01]-[ENGINE]
 
@@ -98,14 +98,14 @@ This is exactly why the checker matters: it moves a doomed mutant to `CompileErr
 
 ## [04]-[PLUGIN_SPI]
 
-[PUBLIC_TYPE_SCOPE]: the `@stryker-mutator/api/plugin` loading ABI the host owns and both proof plugins register through. A plugin is ONE parameterized descriptor (`PluginKind` × the three `declare*Plugin` forms), never a hardcoded runner/checker set; the sibling packages export `strykerPlugins: FactoryPlugin<PluginKind.*, ["$injector"]>[]` rows the host discovers by convention.
+[PUBLIC_TYPE_SCOPE]: the `@stryker-mutator/api/plugin` loading ABI the host owns and both admitted plugins register through. A plugin is ONE parameterized descriptor (`PluginKind` × the three `declare*Plugin` forms), never a hardcoded runner/checker set; the sibling packages export `strykerPlugins: FactoryPlugin<PluginKind.*, ["$injector"]>[]` rows the host discovers by convention.
 
 | [INDEX] | [SYMBOL]                    | [TYPE_FAMILY] | [CAPABILITY / BOUNDARY]                                                       |
 | :-----: | :-------------------------- | :------------ | :---------------------------------------------------------------------------- |
 |  [01]   | `PluginKind`                | enum          | `Checker \| TestRunner \| Reporter \| Ignore` — the plugin taxonomy            |
 |  [02]   | `PluginInterfaces`          | lookup type   | kind → the SPI interface a plugin of that kind implements                      |
 |  [03]   | `Plugins`                   | lookup type   | kind → the `Plugin<K>` DESCRIPTOR (class/factory/value), never the interface   |
-|  [04]   | `FactoryPlugin<K, Tokens>`  | interface     | `{ kind; name; factory }` — the DI-factory registration both proof plugins use |
+|  [04]   | `FactoryPlugin<K, Tokens>`  | interface     | `{ kind; name; factory }` — the DI-factory registration both admitted plugins use |
 |  [05]   | `ValuePlugin` / `ClassPlugin` | interface   | the value / class descriptor variants of `Plugin<K>`                           |
 |  [06]   | `declareFactoryPlugin`      | function      | type-checks a plugin's DI graph and returns a `FactoryPlugin<K, Tokens>`       |
 |  [07]   | `commonTokens` / `tokens`   | const / fn    | the DI token constants + the string-literal-tuple helper typing `["$injector"]` |
@@ -129,7 +129,7 @@ declare const commonTokens: Readonly<{ getLogger: "getLogger"; injector: "$injec
 declare function tokens<TS extends string[]>(...tokensList: TS): TS       // string-literal tuple, e.g. tokens(commonTokens.injector)
 ```
 
-The four SPIs a plugin implements, keyed by `PluginKind`: `TestRunner` (`dryRun`/`mutantRun`; owned by `stryker-mutator-vitest-runner.md` [02]), `Checker` (`check`/`group?`; owned by `stryker-mutator-typescript-checker.md` [02]), `Reporter` ([05] below), and `Ignorer` (`shouldIgnore(path): string | undefined` — the Ignore SPI that suppresses mutants in matched code patterns). The proof stack registers a `FactoryPlugin<TestRunner>` and a `FactoryPlugin<Checker>`; a custom gauge reporter would register a `ValuePlugin<Reporter>` or `FactoryPlugin<Reporter>`.
+The four SPIs a plugin implements, keyed by `PluginKind`: `TestRunner` (`dryRun`/`mutantRun`; owned by `stryker-mutator-vitest-runner.md` [02]), `Checker` (`check`/`group?`; owned by `stryker-mutator-typescript-checker.md` [02]), `Reporter` ([05] below), and `Ignorer` (`shouldIgnore(path): string | undefined` — the Ignore SPI that suppresses mutants in matched code patterns). The mutation gauge registers a `FactoryPlugin<TestRunner>` and a `FactoryPlugin<Checker>`; a custom gauge reporter would register a `ValuePlugin<Reporter>` or `FactoryPlugin<Reporter>`.
 
 ## [05]-[REPORTER_AND_INSTRUMENT]
 
@@ -159,11 +159,11 @@ type CoveragePerTestId = Record<string, CoverageData>                           
 
 [STACK: `Stryker` + `@stryker-mutator/vitest-runner` + `@stryker-mutator/typescript-checker`] — the mutation gauge is this engine plus two `strykerPlugins` rows on the ONE ABI ([04]). `testRunner: 'vitest'` runs each mutant through the SAME `vitest.config.ts` specs the unit/e2e lanes already own (no separate mutation spec authoring), and `checkers: ['typescript']` type-checks each mutant first so a mutant that breaks compilation is `MutantStatus.CompileError` — INVALID, out of the score denominator ([03]) instead of masquerading as `Survived`. Both are `FactoryPlugin<PluginKind.TestRunner|Checker, ["$injector"]>` rows the config selects by string; their SPI surfaces are the sibling `stryker-mutator-vitest-runner.md` / `stryker-mutator-typescript-checker.md`, and the config rows they contribute reference THIS catalog's [02] schema.
 
-[STACK: Stryker thresholds + `@vitest/coverage-v8` thresholds] — `gauge/mutation.ts` is "thresholds as data": `MutationScoreThresholds { high, low, break }` ([02]) sits beside the vitest coverage line/branch/function thresholds as ONE gate surface. Coverage answers "is this line executed"; mutation answers "is this line's behavior actually asserted" — the gauge fails when either floor breaks. `coverageAnalysis: 'perTest'` reuses the runner's `MutantCoverage` ([05]) to map mutants to covering tests.
+[STACK: Stryker thresholds + `@vitest/coverage-v8` thresholds] — the mutation/coverage gauge is "thresholds as data": `MutationScoreThresholds { high, low, break }` ([02]) lives in `.config/stryker.config.json` beside the vitest coverage line/branch/function thresholds as ONE gate surface. Coverage answers "is this line executed"; mutation answers "is this line's behavior actually asserted" — the gauge fails when either floor breaks. `coverageAnalysis: 'perTest'` reuses the runner's `MutantCoverage` ([05]) to map mutants to covering tests.
 
 [STACK: Stryker + the assay `test --mutation` rail] — the repo operator owns the invocation: `assay test --mutation changed` scopes Stryker via `--mutate <glob>` over changed files and holds an exclusive `mutation-<lang>` lease while worker processes fan out. This catalog owns the engine/config/receipt/SPI contract the gauge encodes; the operator owns when and how the process is spawned. The gauge folds `runMutationTest()`'s `MutantResult[]` (or a custom `Reporter`, [05]) — never parsed CLI stdout.
 
-[STACK: `Stryker` + `fast-check`] — mutation testing is the meta-gauge on the property suite: a mutant that survives every generated case exposes a law too weak to pin the behavior, so a `Survived` result is the signal to strengthen a `law/property.ts` combinator (tighten the invariant or widen the arbitrary), not merely to add an example.
+[STACK: `Stryker` + `fast-check`] — mutation testing is the meta-gauge on the property suite: a mutant that survives every generated case exposes a law too weak to pin the behavior, so a `Survived` result is the signal to strengthen a `_testkit` law combinator (tighten the invariant or widen the arbitrary), not merely to add an example.
 
 ## [07]-[RAIL_LAW]
 

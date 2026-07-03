@@ -87,7 +87,7 @@ declare function createHMAC(hash: Promise<IHasher>, key: IDataType): Promise<IHa
 
 ## [04]-[CONTENTKEY_MINT]
 
-The one consumed rail. `identity/contentkey` calls `xxhash128(bytes)` with both seed halves defaulted to `0` — the seed-zero mint — and normalizes the returned hex from hash-wasm's native (little-endian) byte order to the big-endian layout of the C# `System.IO.Hashing.XxHash128` seed-0 digest, yielding the canonical `:x32` (32-hex-char) `ContentKey`. That LE→BE normalize is what makes the JS mint byte-identical to the C# mint; `proof/corpus/parity` asserts bit-identity against the frozen `ContentHash` corpus.
+The one consumed rail. `identity/contentkey` calls `xxhash128(bytes)` with both seed halves defaulted to `0` — the seed-zero mint — and normalizes the returned hex from hash-wasm's native (little-endian) byte order to the big-endian layout of the C# `System.IO.Hashing.XxHash128` seed-0 digest, yielding the canonical `:x32` (32-hex-char) `ContentKey`. That LE→BE normalize is what makes the JS mint byte-identical to the C# mint; the `tests/contracts` corpus parity drivers (TS readers in `tests/typescript/_testkit`) assert bit-identity against the frozen `ContentHash` corpus.
 
 - Small payload: `await xxhash128(bytes)` — one call, seed-zero.
 - Large / chunked payload: `createXXHash128(0, 0)` once, then `hasher.init().update(chunk)…digest()` — the WASM compile amortizes; `digest("binary")` returns the raw 16 bytes when the brand wants bytes before hexing.
@@ -99,7 +99,7 @@ The one consumed rail. `identity/contentkey` calls `xxhash128(bytes)` with both 
 
 [STACK: compile-once lifecycle] — every entry is async because the WASM compiles on first await. The floor memoizes the `createXXHash128(0, 0)` promise as a module singleton so the compile happens once per runtime, not per mint; `hasher.init()` between mints resets state without recompiling. A per-call `xxhash128` is correct for one-off small payloads but recompiles-and-runs each call — reserve it for the single-mint case.
 
-[STACK: delegate law] — `wire/frame`, `browser/transport`, and `store/object` never import `hash-wasm`; they import `identity/contentkey`. This catalog documents the substrate the floor internalizes; downstream folders compose the `ContentKey` VALUE, never the hasher. The C# parity seam (`Rasm/Geometry` mints, `Rasm.Compute/Runtime` two-half digest vectors) is asserted read-only through `proof/corpus/parity`.
+[STACK: delegate law] — `wire/frame`, `browser/transport`, and `store/object` never import `hash-wasm`; they import `identity/contentkey`. This catalog documents the substrate the floor internalizes; downstream folders compose the `ContentKey` VALUE, never the hasher. The C# parity seam (`Rasm/Geometry` mints, `Rasm.Compute/Runtime` two-half digest vectors) is asserted read-only through the `tests/contracts` corpus parity drivers.
 
 ## [06]-[RAIL_LAW]
 

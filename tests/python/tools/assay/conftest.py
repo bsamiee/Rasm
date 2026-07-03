@@ -21,7 +21,6 @@ from tests.python._testkit.seams import SeamProbe, Sync
 from tests.python.tools.assay.kit import (
     assay_settings,
     AssayHarness,
-    BridgeResult,
     CliResult,
     install_cpu_double,
     RailProbe,
@@ -246,16 +245,6 @@ def ssh_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Provisioned[Awai
 
     monkeypatch.setattr(remote_mod, "_connect_once", _connect)
     return provisioned
-
-
-@pytest.fixture
-def bridge_result(tmp_path: Path) -> BridgeResult:
-    """Bridge-result variant writer rooted under ``tmp_path / "verify"``.
-
-    Returns:
-        Variant writer for valid and adversarial bridge result files.
-    """
-    return BridgeResult(tmp_path / "verify")
 
 
 @pytest.fixture

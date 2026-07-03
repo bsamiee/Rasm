@@ -20,14 +20,15 @@ import pytest
 from upath import UPath
 
 from tests.python._testkit.env import provision, SshHost
-from tests.python._testkit.spec import assert_error_status, assert_ok, ProjectionCase, projection_matrix
+from tests.python._testkit.spec import assert_ok
 
 # Hypothesis resolves fixture annotations at collection time under PEP 649.
 from tests.python.tools.assay.kit import AssayHarness  # noqa: TC001
 from tools.assay.composition.settings import AssaySettings, PullStrategy, run_id_host_token, Ssh
 from tools.assay.composition.store import ArtifactScope
+from tools.assay.core.exec import fan_out, run_check
 from tools.assay.core.govern import ExecPlan, recv_ssh
-from tools.assay.core.model import ArtifactKind, Check, Claim, Input, Language, Mode, RailStatus, receipt, Runner, Tool
+from tools.assay.core.model import ArtifactKind, Check, Claim, Input, Language, Mode, receipt, Runner, Tool
 import tools.assay.core.remote as remote_mod
 from tools.assay.core.remote import pooled_ssh, remote_command, run_remote, ssh_outcome
 from tools.assay.core.routing import Routed, Scope
@@ -69,7 +70,7 @@ def _stream_tool(name: str, command: tuple[str, ...]) -> Tool:
     return Tool(name, Runner.DIRECT, command, Input.NONE, Language.CSHARP, Claim.STATIC, mode=Mode.BUILD)
 
 
-def _remote_settings(root: object, **overrides: object) -> AssaySettings:
+def _remote_settings(root: Path | str, **overrides: object) -> AssaySettings:
     """Build validated SSH-target settings rooted at ``root``.
 
     Returns:
@@ -115,15 +116,14 @@ async def _git_seed(root: Path, files: Mapping[str, bytes]) -> None:
 
 def test_ssh_outcome_projects_status_and_signal() -> None:
     """``ssh_outcome``: integer exits pass through (no notes); a signal kill maps to 255 with the signal name."""
-    cases: tuple[ProjectionCase[tuple[int | None, object | None]], ...] = (
-        ProjectionCase(label="clean-exit", intent=(0, None), supported_out=(0, ()), oracle=None, unsupported_out=()),
-        ProjectionCase(label="nonzero-exit", intent=(2, None), supported_out=(2, ()), oracle=None, unsupported_out=()),
-        ProjectionCase(label="signal-no-name", intent=(None, None), supported_out=(255, ()), oracle=None, unsupported_out=()),
-        ProjectionCase(
-            label="signal-named", intent=(None, ("TERM", False, "", "")), supported_out=(255, ("ssh.signal=TERM",)), oracle=None, unsupported_out=()
-        ),
+    rows: tuple[tuple[str, int | None, object | None, tuple[int, tuple[str, ...]]], ...] = (
+        ("clean-exit", 0, None, (0, ())),
+        ("nonzero-exit", 2, None, (2, ())),
+        ("signal-no-name", None, None, (255, ())),
+        ("signal-named", None, ("TERM", False, "", ""), (255, ("ssh.signal=TERM",))),
     )
-    projection_matrix(cases, lambda intent: ssh_outcome(intent[0], intent[1]))
+    for label, exit_status, sig, expected in rows:
+        assert ssh_outcome(exit_status, sig) == expected, f"{label}: outcome drifted"
     # _as_bytes is the sibling reply projection: bytes pass through, None empties, str encodes.
     assert (remote_mod._as_bytes(b"x"), remote_mod._as_bytes(None), remote_mod._as_bytes("s")) == (b"x", b"", b"s")
 
@@ -157,8 +157,6 @@ def test_fold_receipt_projects_exec_facts_onto_completed() -> None:
 @pytest.mark.anyio
 async def test_run_check_remote_round_trips_through_ssh_double(assay_root: AssayHarness, ssh_env: SshEnv) -> None:
     """The non-streaming remote arm shell-quotes argv and returns the ssh double reply."""
-    from tools.assay.core.exec import run_check  # noqa: PLC0415  # exec entry drives the remote arm; deferred to keep the remote module the suite subject
-
     remote = assay_root.remote(ssh_env.url)
     check = Check(tool=Tool("remote-echo", Runner.DIRECT, ("/bin/echo", "hello"), Input.NONE, Language.CSHARP, Claim.STATIC), cwd=assay_root.root)
     # Bridge run_check's owned event loop through a thread under anyio tests.
@@ -177,8 +175,6 @@ async def test_run_check_remote_streaming_round_trips(
     ssh_env: SshEnv,
 ) -> None:
     """The remote streaming arm drains the ssh double reply and tail-caps the receipt; the scoped row persists the artifact."""
-    from tools.assay.core.exec import run_check  # noqa: PLC0415  # exec entry drives the remote arm
-
     remote = assay_root.remote(ssh_env.url)
     scope = assay_root.scope(Claim.STATIC) if scoped else None
     name = "remote-scoped-stream-law" if scoped else "remote-stream-law"
@@ -200,8 +196,6 @@ async def test_run_check_remote_streaming_round_trips(
 @pytest.mark.anyio
 async def test_fan_out_remote_pools_ssh_connection(assay_root: AssayHarness, ssh_env: SshEnv) -> None:
     """``fan_out`` over a remote runner pools one ssh connection across workers and closes it on scope exit."""
-    from tools.assay.core.exec import fan_out  # noqa: PLC0415  # exec entry drives the pooled fan
-
     remote = assay_root.remote(ssh_env.url)
     base = Tool("remote-fan-law", Runner.DIRECT, ("/bin/echo", "hi"), Input.NONE, Language.CSHARP, Claim.STATIC, mode=Mode.CHECK)
     checks = tuple(Check(tool=msgspec.structs.replace(base, name=f"remote-fan-{i}"), cwd=assay_root.root) for i in range(2))
@@ -256,7 +250,8 @@ async def test_probe_toolchain_faults_unsupported_on_missing_remote_tool() -> No
     finally:
         conn.close()
         await conn.wait_closed()
-    assert absent is not None and absent[0] == "missing-tool", f"missing remote tool must surface its name: {absent!r}"
+    assert absent is not None, "a missing remote tool must surface a probe result"
+    assert absent[0] == "missing-tool", f"missing remote tool must surface its name: {absent!r}"
     assert present is None, f"a present remote tool must probe clean: {present!r}"
     assert absolute is None, "an absolute-path command is self-locating and must skip the probe"
 
@@ -265,7 +260,7 @@ async def test_probe_toolchain_faults_unsupported_on_missing_remote_tool() -> No
 
 
 @pytest.mark.anyio
-async def test_remote_transfer_pushes_manifest_then_pulls_scope_tree(  # noqa: PLR0914  # one end-to-end transfer law: push the git manifest, run, pull the scope tree, assert receipt counts
+async def test_remote_transfer_pushes_manifest_then_pulls_scope_tree(  # noqa: PLR0914, PLR0915  # one end-to-end transfer law: push the git manifest, run, pull the scope tree, assert receipt counts
     assay_root: AssayHarness, tmp_path: Path
 ) -> None:
     """``_remote_transfer`` pushes the git-tracked working tree to ``<workroot>/<run_id>`` then pulls the scope tree back.
@@ -436,7 +431,7 @@ def _moto_s3(monkeypatch: pytest.MonkeyPatch) -> Iterator[AbstractFileSystem]:
 
 
 @pytest.mark.anyio
-async def test_remote_transfer_reads_shared_cloud_scope_without_byte_transfer(  # noqa: PLR0914  # one SHARED-pull law: seed a remote-written s3 tree, read it scope-relative with zero transfer, degrade a missing tree to a note
+async def test_remote_transfer_reads_shared_cloud_scope_without_byte_transfer(  # noqa: PLR0914, PLR0915  # one SHARED-pull law: seed a remote-written s3 tree, read it scope-relative with zero transfer, degrade a missing tree to a note
     assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch, socket_enabled: None
 ) -> None:
     """A SHARED cloud offload reads the tool-written scope tree straight from the object store with zero byte transfer.
@@ -605,7 +600,9 @@ def test_lane_manifest_csharp_scopes_to_transitive_project_closure(assay_root: A
         ),
     ],
 )
-def test_lane_manifest_python_and_unknown_lanes(label: str, tool: Tool, universe: tuple[str, ...], expected: set[str], assay_root: AssayHarness) -> None:
+def test_lane_manifest_python_and_unknown_lanes(
+    label: str, tool: Tool, universe: tuple[str, ...], expected: set[str], assay_root: AssayHarness
+) -> None:
     """The Python lane scopes to package source + tests + config anchors; a lane with no project graph keeps the full universe."""
     _ = label
     assert set(remote_mod._lane_manifest(_manifest_plan(assay_root, tool), universe)) == expected

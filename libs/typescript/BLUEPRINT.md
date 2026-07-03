@@ -1,6 +1,6 @@
 # [RASM_TS_BLUEPRINT]
 
-`libs/typescript` is a first-class platform library: fourteen top-level folders shipping composable Effect `Layer`/`Service` families that thin app composition roots select. One npm package `@rasm/ts` with per-folder exports subpaths. Complete in isolation; aligned with the C# and Python branches only through wire bytes, frozen corpora, and the contract drift gate. Each folder section below carries its charter, package allocation, source-tree shape (leaves map 1:1 to `.planning/<path>.md` design pages), inbound seams, growth axes, and `_tmp` salvage targets. Branch-wide law — catalog allocation, the cross-folder port contracts, the build order — closes the file. Campaign verdicts, the versioned catalog, the edge ledger, and the seam re-mirror map live in `RASM-TS-PLATFORM-DECISION.md`; this file owns intent and growth.
+`libs/typescript` is a first-class platform library: thirteen top-level folders shipping composable Effect `Layer`/`Service` families that thin app composition roots select. One npm package `@rasm/ts` with per-folder exports subpaths — never a test-infra subpath; the dev plane lives under `tests/`. Complete in isolation; aligned with the C# and Python branches only through wire bytes, the `tests/contracts` frozen corpus, and the contract drift gate. Each folder section below carries its charter, package allocation, source-tree shape (leaves map 1:1 to `.planning/<path>.md` design pages), inbound seams, growth axes, and `_tmp` salvage targets. Branch-wide law — catalog allocation, the cross-folder port contracts, the build order — closes the file. Campaign verdicts, the versioned catalog, the edge ledger, and the seam re-mirror map live in `RASM-TS-PLATFORM-DECISION.md`; this file owns intent and growth.
 
 ## [01]-[KERNEL]
 
@@ -28,38 +28,17 @@ kernel/src/
 [GROWTH]: a new cross-language value is a new brand or vocabulary row here — never a per-folder re-declaration; a new fault class is a `classify.ts` row every rail inherits.
 [SALVAGE]: mine `_tmp/interchange` refinement (brands/budgets), the identity/HLC parity law halves, the `CLOSED_FAMILY_LINT_FENCE` idea. Discard per-site mint plumbing.
 
-## [02]-[PROOF]
+## [02]-[PROOF_DISSOLUTION]
 
-The dev-plane folder: frozen fixture corpora with typed readers, law combinators, Schema-driven arbitraries, layer/container harnesses, and the gauges. `proof` is infrastructure — specs live beside their owning folders; no hand-rolled harness wrapper exists because layer-sharing is `@effect/vitest` capability.
+ROUTE record — `proof` is dissolved out of `libs/typescript`: test infrastructure never lives under `libs/`, and the `@rasm/ts` exports map ships no test-infra subpath. The re-homing map: frozen corpus bytes + producer/consumer law → `tests/contracts/` (C# sole producer; the byte-identity digest, `MATERIAL_LAYER_GOLDEN`, BimWire golden bytes, and HLC two-half vectors land there, asserting the `K:47`, `AH:64`, `CO:110`, `BM:98` parity claims); TS corpus readers, law combinators (fold identity, merge commutativity, upcast totality), Schema-driven arbitraries, and harness layers (testcontainers pg-18.4-with-extensions + the S3-compatible object-store row, the pglite fast unit lane, `@effect/vitest` layer sharing — never a hand-rolled wrapper) → `@rasm/ts-testkit` at `tests/typescript/_testkit`; the gauges the exports map cannot express (edge-ledger import audit, per-runtime subpath purity, external-admission and per-sub-folder crypto-admission audits, the branch-wide migrator-import ban) → the `tests/typescript/_architecture` suite; mutation thresholds-as-data → `.config/stryker.config.json`; e2e drivers → `tests/typescript/e2e`; dev-tool `.api` catalogs → `tests/typescript/.api/`. Specs colocate beside their owning folders and import the kit through the workspace graph; a new frozen corpus is a `tests/contracts/<seam>/` asset with its kit reader, and a new branch law is a kit combinator — the `tests/typescript/README.md` law governs both.
 
-[PACKAGES]: `vitest` + `@vitest/*` (`browser-playwright`, `coverage-v8`, `ui`), `fast-check`, `testcontainers`, `@electric-sql/pglite`, `@playwright/test`, `@stryker-mutator/*`, `@types/k6`, `happy-dom`, `jsdom`. Substrate: `@effect/vitest`.
-
-```
-proof/src/
-  corpus/
-    parity.ts        # byte-identity digest + content-key + HLC two-half corpus readers (HLC vectors upstream-gated)
-    golden.ts        # MATERIAL_LAYER_GOLDEN, BimWire golden bytes, convergence corpus readers
-  law/
-    property.ts      # reusable fast-check law combinators: fold identity, merge commutativity, upcast totality
-    arbitrary.ts     # Schema-driven arbitraries for every kernel brand and decoded wire shape
-  harness/
-    container.ts     # testcontainers pg-18.4-with-extensions + S3-compatible object-store rows — the store capability-row and object-presign verification lanes
-    unit.ts          # pglite fast unit lane (no server extensions) + layer-sharing patterns
-  gauge/
-    mutation.ts      # Stryker + coverage thresholds as data
-    purity.ts        # edge-ledger import / subpath-purity / bundle-law / sub-folder crypto-admission gauge — the checks the exports map cannot express; asserts zero @effect/sql/Migrator | @effect/sql-pg/PgMigrator imports branch-wide
-    e2e.ts           # playwright + k6 drivers
-```
-
-[SEAMS]: corpus drivers assert `K:47`, `AH:64`, `CO:110`, `BM:98` parity claims.
-[GROWTH]: a new frozen corpus is a `corpus/` reader row; a new branch law is a `law/property.ts` combinator every folder's specs import.
-[SALVAGE]: mine `_tmp/projection` convergence/law + window `REPLAY_LAW` proof spines and the `_tmp/interchange` parity harness half. Discard nothing — net-new owner.
+[SALVAGE]: mine `_tmp/projection` convergence/law + window `REPLAY_LAW` proof spines and the `_tmp/interchange` parity harness half INTO the kit at TS buildout. Discard nothing — the owner moved, the capability stands.
 
 ## [03]-[STATE]
 
 The host-free fold algebra: keyed folds, CRDT merge, causality, evidence, live queries. One algebra, two altitudes — browser apps fold wire-decoded events in memory; node apps fold journal events durably through `store/project`. `state` never imports `wire`: wire decodes INTO state vocabulary, so the algebra stays transport-free and browser-safe by construction.
 
-[PACKAGES]: `@electric-sql/d2ts`, `@electric-sql/d2mini` (incremental-dataflow lane), `@effect/typeclass` (R24-gated: Semigroup/semilattice instances for crdt merge + proof laws). Substrate: `effect`.
+[PACKAGES]: `@electric-sql/d2ts`, `@electric-sql/d2mini` (incremental-dataflow lane), `@effect/typeclass` (R24-gated: Semigroup/semilattice instances for crdt merge + the `tests/typescript/_testkit` law combinators). Substrate: `effect`.
 
 ```
 state/src/
@@ -68,7 +47,7 @@ state/src/
     replay.ts        # replay law + the d2ts incremental-dataflow lane
   crdt/
     merge.ts         # CRDT op merge semantics — one algebra generic over the op vocabulary; the C#-minted wire family and app-authored journal families are instances
-    converge.ts      # convergence laws; fixture hooks into proof/corpus
+    converge.ts      # convergence laws; fixtures pinned in the tests/contracts corpus
   causal/
     vector.ts        # version vectors, commit/branch shapes, Merkle comparison
     order.ts         # happened-before folds + honest-uncertainty windows (kernel/clock); causal delivery buffer; stability frontier (GLB meet), causal finalize, retention-frontier handoff to store/journal/retain
@@ -84,7 +63,7 @@ state/src/
 
 [SEAMS]: `AH:58` (availability), `AH:63` (receipt), `CO:73` (progress), `AU:61` (timeline), `PE:46` (causal vector), `PE:44` consumer (crdt merge).
 [GROWTH]: a new evidence kind is an `evidence/` vocabulary row + one fold arm; a new CRDT type is a `merge.ts` case with its `converge.ts` law.
-[SALVAGE]: mine `_tmp/projection` wholesale — fold, crdt/convergence, causality, query/window, evidence; re-sequence the MERKLE/CAUSAL_FINALIZE blocked gates against `proof/corpus`. Discard phantom-`testing/` citations (repoint to `proof`) and array re-sort fallbacks.
+[SALVAGE]: mine `_tmp/projection` wholesale — fold, crdt/convergence, causality, query/window, evidence; re-sequence the MERKLE/CAUSAL_FINALIZE blocked gates against the `tests/contracts` corpus. Discard phantom-`testing/` citations (repoint to `tests/contracts` + `tests/typescript/_testkit`) and array re-sort fallbacks.
 
 ## [04]-[HOST]
 
@@ -265,7 +244,7 @@ store/src/
     append.ts        # the ONE append surface: streams (appKey, tenantId, aggregate); OCC by expected version; events are closed Schema.TaggedClass families with app-authored eventVersion
     outbox.ts        # transactional outbox atomic with the append + idempotency ledger (ON CONFLICT DO UPDATE RETURNING (xmax = 0))
     snapshot.ts      # snapshot store keyed snapshot_schema_version
-    upcast.ts        # read-time eventVersion upcaster folds — total functions, proven in proof/law; the raw log is never rewritten
+    upcast.ts        # read-time eventVersion upcaster folds — total functions, proven via the testkit law combinators; the raw log is never rewritten
     retain.ts        # retention policy rows + crypto-shredding via the security/sign Shredder; per-subject erasure = key destruction, the log never rewritten; the per-subject DSAR export fold (portability read over journal + object rows) rides beside erasure
   project/
     inline.ts        # same-transaction read-your-writes lanes (binds state folds to durability)
@@ -465,21 +444,21 @@ iac/src/
 
 ## [15]-[CATALOG_STRUCTURE]
 
-Allocation law: the SUBSTRATE tier — `effect`, `@effect/platform`, `@effect/platform-node`, `@effect/platform-bun`, `@effect/platform-browser`, `@effect/experimental`, `@effect/opentelemetry`, `@effect/vitest` (dev) — is catalogued once at `libs/typescript/.api/`; every other package is folder-local in `libs/typescript/<folder>/.api/`, never duplicated. A folder README names consumed substrate packages under `[SUBSTRATE_PACKAGES]`; owner groups in `pnpm-workspace.yaml` mirror the folder roster plus `dev` and `tooling` tiers. Version verdicts, drops, the REJECTED negative space, and prepared/gated rows are the DECISION `[CATALOG]`.
+Allocation law: the SUBSTRATE tier — `effect`, `@effect/platform`, `@effect/platform-node`, `@effect/platform-bun`, `@effect/platform-browser`, `@effect/experimental`, `@effect/opentelemetry`, `@effect/vitest` (dev) — is catalogued once at `libs/typescript/.api/`; every other runtime package is folder-local in `libs/typescript/<folder>/.api/`, never duplicated; the dev-tool tier (vitest family, fast-check, testcontainers, pglite, playwright, stryker, DOM environments, k6 types) is catalogued at `tests/typescript/.api/` — dev tooling is consumed from the tests estate, never a lib folder. A folder README names consumed substrate packages under `[SUBSTRATE_PACKAGES]`; owner groups in `pnpm-workspace.yaml` mirror the folder roster plus `dev` and `tooling` tiers. Version verdicts, drops, the REJECTED negative space, and prepared/gated rows are the DECISION `[CATALOG]`.
 
 ## [16]-[PORT_LAW]
 
-The permitted-edge ledger, the tag vocabulary, and the external-admission union are the DECISION `[EDGE_LEDGER]`; the `@rasm/ts` exports map enforces the ledger physically, `proof/gauge` audits it, and roster growth is a reviewed row-add there. This section owns the durable port law the ledger forces.
+The permitted-edge ledger, the tag vocabulary, and the external-admission union are the DECISION `[EDGE_LEDGER]`; the `@rasm/ts` exports map enforces the ledger physically, the `tests/typescript/_architecture` suite audits it, and roster growth is a reviewed row-add there. This section owns the durable port law the ledger forces.
 
 Cross-folder needs that would violate the ledger travel as ports: `security` declares `SessionStore`/`IdentityJournal` Tags (store journal satisfies), `work` composes the `@effect/sql` core `SqlClient` Tag and the `@effect/cluster` `MessageStorage` Tag (store driver satisfies both), `store/retrieve` declares the `Embedder` Tag (`ai/embed` satisfies), `ui` declares runtime-capability ports (`browser` satisfies), `kernel/fault` declares the enricher contract (`wire` satisfies, `telemetry` consumes), `telemetry` audit + meter declare journal ports (`store` journal satisfies), `edge/hook` declares the ingress + quota ports (`work` queue or `store` journal satisfies), `edge/live` declares the protocol-handler mount port (the `store` EventLog sync server satisfies). The app root wires every port; a port exists only where the ledger forbids the import — a port minted to dodge a legal edge is the named defect. A Tag for a runtime VALUE typed against a legally imported vocabulary — the `wire` gateway availability gate over `state/evidence` — is ordinary dependency injection, outside this registry.
 
-`proof/gauge` `purity.ts` audits what the exports map cannot express — the edge-ledger import audit, the branch-wide migrator-import ban, per-runtime subpath purity, and the `security` per-sub-folder crypto-admission boundaries.
+The `tests/typescript/_architecture` suite audits what the exports map cannot express — the edge-ledger import audit, the branch-wide migrator-import ban, per-runtime subpath purity, and the `security` per-sub-folder crypto-admission boundaries.
 
 ## [17]-[BUILD_ORDER]
 
-Topological waves from the DECISION `[EDGE_LEDGER]`; `proof` fills continuously as fixtures land:
+Topological waves from the DECISION `[EDGE_LEDGER]`; the `tests/contracts` corpus and the `tests/typescript` kit fill continuously as fixtures land:
 
-- W0: `kernel`, `proof`
+- W0: `kernel`
 - W1: `state`, `host`, `security`, `telemetry`
 - W2: `wire`, `work`
 - W3: `store`, `ai`

@@ -56,7 +56,7 @@
 |  [04]   | `applyInterceptors(next, interceptors)`                                                             | onion          | compose trace + auth + retry interceptors around the invocation |
 |  [05]   | `encodeBinaryHeader(value, desc?)` / `decodeBinaryHeader(value, type?)` / `appendHeaders(...h)`     | `-bin` header  | protobuf-in-header codec (Connect/gRPC `-bin` metadata); header merge |
 |  [06]   | `ConnectError.from(reason, code?)` / `err.findDetails(desc)`                                        | fault fold     | `fault/detail` — normalize a caught reason, decode typed error details |
-|  [07]   | `createRouterTransport(routes, options?)` / `cors`                                                  | in-proc / CORS | in-memory `Transport` for `proof`; CORS metadata helper (server-adjacent) |
+|  [07]   | `createRouterTransport(routes, options?)` / `cors`                                                  | in-proc / CORS | in-memory `Transport` for kit-driven specs; CORS metadata helper (server-adjacent) |
 
 [ENTRYPOINT_SCOPE]: the `./protocol` toolkit — building a custom Effect-native transport
 - rail: invoke/client
@@ -91,10 +91,10 @@
 - construct the client once via `createClient(emittedService, transport)`; the `service` is always the codegen `DescService`, never a hand-written method map.
 - wrap the client at `invoke/client` in `Effect.tryPromise`/`Stream.fromAsyncIterable`; a bare `Promise`/`AsyncIterable` or a raw `try`/`catch` around a call in domain code is the leak defect.
 - fold every `ConnectError` through `fault/detail`'s `fromConnect`; `Code` is matched exhaustively for retryability and `HopReason`, never inspected by an ad-hoc `if`.
-- the server-side router (`createConnectRouter`/`createHandlerContext`/`ServiceImpl`) is out of `wire`'s role — only `createRouterTransport` is admitted, and only inside `proof`.
+- the server-side router (`createConnectRouter`/`createHandlerContext`/`ServiceImpl`) is out of `wire`'s role — only `createRouterTransport` is admitted, and only inside kit-driven specs.
 
 [RAIL_LAW]:
 - Package: `@connectrpc/connect`
 - Owns: the `Transport` protocol port, `createClient`/`Client<T>` descriptor-derived typed client (plus the callback/any variants), `CallOptions`, the `Interceptor` onion, the `ConnectError`/`Code` fault algebra with `from`/`findDetails`, `ContextValues`, the `-bin` header codec, and the `./protocol` transport-construction toolkit
 - Accept: `createClient` over a `connect-web` `Transport` and an emitted `DescService`, client methods lifted through `Effect.tryPromise`/`Stream.fromAsyncIterable`, `ConnectError` folded through `fault/detail`, retry via `Effect.retry(Schedule)` gated on retryable `Code`, `CallOptions.signal` from Effect interruption, trace propagation via an `Interceptor`, a custom Effect-native `Transport` from the `./protocol` kit
-- Reject: a hand-written client method map beside the emitted descriptor, a bare `Promise`/`AsyncIterable` or raw `try`/`catch` in domain code, ad-hoc `Code` inspection outside the `fromConnect` fold, the server-side router surface anywhere in `wire` except `createRouterTransport` under `proof`
+- Reject: a hand-written client method map beside the emitted descriptor, a bare `Promise`/`AsyncIterable` or raw `try`/`catch` in domain code, ad-hoc `Code` inspection outside the `fromConnect` fold, the server-side router surface anywhere in `wire` except `createRouterTransport` in kit-driven specs

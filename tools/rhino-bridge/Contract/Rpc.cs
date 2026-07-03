@@ -48,6 +48,7 @@ public interface IBridgeCargo : IDisposable {
 [JsonSerializable(typeof(UnloadReceipt))]
 [JsonSerializable(typeof(QuitPrepareReceipt))]
 [JsonSerializable(typeof(SessionEnvelope))]
+[JsonSerializable(typeof(EvidenceMode))]
 [JsonSerializable(typeof(EvidenceClass))]
 [JsonSerializable(typeof(EvidenceRole))]
 [JsonSerializable(typeof(ReferenceAdmission))]

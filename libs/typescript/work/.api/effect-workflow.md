@@ -89,7 +89,7 @@
 
 | [INDEX] | [SURFACE]                                                                              | [ENTRY_FAMILY] | [CONSUMER / BOUNDARY]                                     |
 | :-----: | :------------------------------------------------------------------------------------- | :------------- | :-------------------------------------------------------- |
-|  [01]   | `WorkflowEngine.layerMemory`                                                           | engine (spec)  | in-memory execution for `proof` specs; no durability      |
+|  [01]   | `WorkflowEngine.layerMemory`                                                           | engine (spec)  | in-memory execution for kit-driven specs; no durability      |
 |  [02]   | `WorkflowEngine.makeUnsafe(encoded)` / the `WorkflowEngine.Encoded` interface          | engine (raw)   | a custom engine backing behind the erased interface       |
 |  [03]   | `WorkflowProxy.toRpcGroup(workflows, { prefix? })`                                     | wire expose    | a workflow set → an `@effect/rpc` `RpcGroup` (`edge` contribution) |
 |  [04]   | `WorkflowProxy.toHttpApiGroup(name, workflows)` / `WorkflowProxyServer`               | wire expose    | a workflow set → an `@effect/platform` `HttpApiGroup` + the server binding; typed client for free |

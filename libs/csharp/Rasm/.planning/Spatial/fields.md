@@ -2,11 +2,11 @@
 
 The implicit-field algebra: THREE closed field unions — `ScalarField` (~35 cases), `VectorField` (~25 cases), `TensorField` (6 cases) — each sampled anywhere in space through ONE per-union dispatch (`SampleScalar` / `SampleVector` / `SampleTensor`), composed through operators that flatten, and constructed through admitted case payloads so the union's case set IS the admission structure: a case's payload types (value objects, `Direction`, validated `MeshSpace` sources, fitted reconstruction receipts) prove the invariants at construction, and no parallel recursive re-validation switch exists beside the case list. The retired corpus carried fifty-eight raw factories plus two mirror 35/25-arm admission switches; here raw ingress is a small set of one-expression admitting factories, multi-knob ingress rides policy records, and everything else constructs directly from already-admitted material.
 
-Ownership seams are explicit. `Numerics/calculus.md` owns the sample-anywhere math this page composes: the 6-axis central-difference stencil behind the differential cases, the `Falloff`/`KernelKind` weight-profile vocabularies, and the `NoiseKind` procedural lattices. `Meshing/reconstruct.md` owns the reconstruction kernels and the SDF-from-mesh policy vocabulary — the `Rbf`/`Mls`/`LevinMls`/`Apss`/`TetSignedHeat`/`Poisson` cases here carry FITTED payloads that page's solvers mint, and iso-surface extraction lives there, not here. The mesh-aware case names are FROZEN contract — `Geodesic`/`MeanCurvatureFlow`/`SpectralDistance`/`Stripe`/`SignedDistanceFromMesh` on the scalar union, `CrossField`/`Hodge`/`VectorHeat`/`GeodesicTangent`/`TangentLogMap` on the vector union — each arm delegating to the owning solver page (`Processing/geodesics.md`, `Processing/segment.md`, `Meshing/dec.md`, `Meshing/reconstruct.md`) through the `mesh.md` `MeshSpace` seam. The status-tagged sampling rail — `SampleDetailed` and `SampleSdfDetailed` — is PUBLIC: every consumer that needs to know HOW a value was produced (analytic, composed, mesh-approximate, reconstruction, tet) reads the tagged sample, and the settled `Drawing/pack.md` seam binds `SampleDetailed` by name.
+Ownership seams are explicit. `Numerics/calculus.md` owns the sample-anywhere math this page composes: the `Nabla` sampler-generic central-difference stencil behind the differential cases, the `Falloff`/`KernelKind` weight-profile vocabularies, and the `FieldNoise` procedural lattices the `NoiseKind` rows declared HERE point at. `Meshing/reconstruct.md` owns the reconstruction kernels and the SDF-from-mesh policy vocabulary — the `Rbf`/`Mls`/`LevinMls`/`Apss`/`TetSignedHeat`/`Poisson` cases here carry FITTED payloads that page's solvers mint, and iso-surface extraction lives there, not here. The mesh-aware case names are FROZEN contract — `Geodesic`/`MeanCurvatureFlow`/`SpectralDistance`/`Stripe`/`SignedDistanceFromMesh` on the scalar union, `CrossField`/`Hodge`/`VectorHeat`/`GeodesicTangent`/`TangentLogMap` on the vector union — each arm delegating to the owning solver page (`Processing/geodesics.md`, `Processing/segment.md`, `Meshing/dec.md`, `Meshing/reconstruct.md`) through the `mesh.md` `MeshSpace` seam. The status-tagged sampling rail — `SampleDetailed` and `SampleSdfDetailed` — is PUBLIC: every consumer that needs to know HOW a value was produced (analytic, composed, mesh-approximate, reconstruction, tet) reads the tagged sample, and the settled `Drawing/pack.md` seam binds `SampleDetailed` by name.
 
 ## [01]-[INDEX]
 
-- [02]-[FIELD_VOCAB]: the field-local vocabularies — smin blend algebra with erosion columns, CSG combine rows, blend scaling, ray and bounce policies, sample statuses.
+- [02]-[FIELD_VOCAB]: the field-local vocabularies — smin blend algebra with erosion columns, CSG combine rows, blend scaling, noise rows, ray and bounce policies, sample statuses and profile features.
 - [03]-[SDF_PRIMITIVES]: the twelve exact analytic signed-distance primitives as TYPED cases.
 - [04]-[SCALAR_FIELD]: the scalar union; operators and Lipschitz bounds; the 35-arm sample dispatch; the public tagged sampling rail.
 - [05]-[VECTOR_FIELD]: the vector union; the 25-arm sample dispatch; the shared radial/rotational/closest-directed folds.
@@ -14,23 +14,24 @@ Ownership seams are explicit. `Numerics/calculus.md` owns the sample-anywhere ma
 
 ## [02]-[FIELD_VOCAB]
 
-- Owner: `BlendKind` `[Union]` — `Hard`/`Polynomial`/`Exponential`/`Root`/`Cubic`/`Chamfer`/`Groove`/`Round` smooth-minimum species, each case carrying its knobs AND its `ErosionFactor` as a CASE COLUMN (the Lipschitz-erosion multiplier the bound fold reads — a named policy value on the row, never a private constant table beside the union); `Smin(a,b)` the per-case smooth-minimum; `Erode(leftLip, rightLip)` the bound erosion `factor·max(l,r)`. `CsgKind` `[SmartEnum<int>]` — `Union`/`Intersect`/`Difference`, one `Combine(left, right, blend)` delegate column each (`min`, `−smin(−a,−b)`, `−smin(−a,b)`). `FieldBlend` `[SmartEnum<int>]` — `Sum`/`Average` with a `Scale(count)` column; one generic `CombineCore` serves scalars, vectors, and tensor components. `RayPolicy` `[Union]` — `Infinite(BoundarySense)`/`Segment(BoundarySense, PositiveMagnitude)` with a `ProjectionRow`-typed `Project<TOut>` over `Ray3d`/`Plane`/`Direction`/`Vector3d`/`Line`/`VectorSpan` (finite outputs gated on the segment case). `BouncePolicy` `[Union]` — `Reflect`/`Refract(etaIncident, etaTransmitted)` delegating to `atoms.md` `Direction.Reflect`/`Direction.Refract`. `SdfStatus` `[SmartEnum<int>]` — `Analytic`/`ComposedAnalytic`/`MeshApproximate`/`Reconstruction`/`TetSignedHeat` — the provenance rows the tagged samples carry.
-- Boundary: `Falloff`, `KernelKind`, and `NoiseKind` are `Numerics/calculus.md` OWNERS composed here — the weight-profile math, kernel support/derivative profiles, and permutation-lattice noise never re-derive on this page; the erosion factors ride the `BlendKind` cases so a new blend species declares its factor in its own constructor — the detached constant table is the deleted form; `RayPolicy.Project` resolves through typed `ProjectionRow` entries and a `typeof` ladder is the killed dispatch.
+- Owner: `BlendKind` `[Union]` — `Hard`/`Polynomial`/`Exponential`/`Root`/`Cubic`/`Chamfer`/`Groove`/`Round` smooth-minimum species, each case carrying its knobs AND overriding the union's abstract `ErosionFactor` column (the Lipschitz-erosion multiplier the bound fold reads — a named policy value on the row, never a private constant table beside the union); `Smin(a,b)` the per-case smooth-minimum; `Erode(leftLip, rightLip)` the ONE-expression bound erosion `ErosionFactor·max(l,r)` — the abstract column makes a per-case switch unnecessary. `CsgKind` `[SmartEnum<int>]` — `Union`/`Intersect`/`Difference`, one `Combine(left, right, blend)` delegate column each (`min`, `−smin(−a,−b)`, `−smin(−a,b)`). `FieldBlend` `[SmartEnum<int>]` — `Sum`/`Average` with a `Scale(count)` column; one generic `CombineCore` serves scalars, vectors, and tensor components. `NoiseKind` `[SmartEnum<int>]` — `Perlin`/`Simplex`/`SmoothSimplex`/`Worley` lattice rows, each a `Sample(point, seed, frequency)` delegate column onto the `calculus.md` `FieldNoise` lattices plus a `RaisesCaution` column (`Perlin` true — visible lattice anisotropy) and a `ContinuouslyDifferentiable` column (`Worley` false — the `CurlNoise` admission gate); the row vocabulary lives HERE by the calculus.md seam — lattices are mathematics, rows are field policy. `RayPolicy` `[Union]` — `Infinite(BoundarySense)`/`Segment(BoundarySense, PositiveMagnitude)` with a `ProjectionRow`-typed `Project<TOut>` over `Ray3d`/`Plane`/`Direction`/`Vector3d`/`Line`/`VectorSpan` (finite outputs gated on the segment case). `BouncePolicy` `[Union]` — `Reflect`/`Refract(etaIncident, etaTransmitted)` delegating to `atoms.md` `Direction.Reflect`/`Direction.Refract`. `SdfStatus` `[SmartEnum<int>]` — `Analytic`/`ComposedAnalytic`/`NativeProfile`/`MeshApproximate`/`Reconstruction`/`TetSignedHeat` — the provenance rows the tagged samples carry; the mature `LossyFallback` row is DROPPED with a standing reason: `SampleSdfDetailed` refuses non-distance species with a typed fault instead of emitting a mislabeled value, so the flag has nothing left to mark. `ProfileExtrusionFeature` `[SmartEnum<int>]` — `Interior`/`ProfileBoundary`/`Cap`/`Rim`, the closest-feature classification the profile-extrusion tagged sample carries.
+- Boundary: `Falloff` and `KernelKind` are `Numerics/calculus.md` OWNERS composed here — the weight-profile math and kernel support/derivative profiles never re-derive on this page, and the `NoiseKind` rows POINT AT calculus.md's `FieldNoise` lattices, never re-implement them; the erosion factors ride the `BlendKind` cases so a new blend species declares its factor in its own declaration — the detached constant table is the deleted form; `RayPolicy.Project` resolves through typed `ProjectionRow` entries and a `typeof` ladder is the killed dispatch.
 
 ```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------
 [Union]
 public abstract partial record BlendKind {
     private BlendKind() { }
-    public sealed record HardCase() : BlendKind { public double ErosionFactor => 1.00; }
-    public sealed record PolynomialCase(PositiveMagnitude K) : BlendKind { public double ErosionFactor => 1.25; }
-    public sealed record ExponentialCase(PositiveMagnitude K) : BlendKind { public double ErosionFactor => 1.15; }
-    public sealed record RootCase(PositiveMagnitude K) : BlendKind { public double ErosionFactor => 1.10; }
-    public sealed record CubicCase(PositiveMagnitude K) : BlendKind { public double ErosionFactor => 1.30; }
-    public sealed record ChamferCase(PositiveMagnitude K) : BlendKind { public double ErosionFactor => 1.50; }
-    public sealed record GrooveCase(PositiveMagnitude K, PositiveMagnitude D) : BlendKind { public double ErosionFactor => 1.40; }
-    public sealed record RoundCase(PositiveMagnitude R) : BlendKind { public double ErosionFactor => 1.20; }
+    public sealed record HardCase() : BlendKind { public override double ErosionFactor => 1.00; }
+    public sealed record PolynomialCase(PositiveMagnitude K) : BlendKind { public override double ErosionFactor => 1.25; }
+    public sealed record ExponentialCase(PositiveMagnitude K) : BlendKind { public override double ErosionFactor => 1.15; }
+    public sealed record RootCase(PositiveMagnitude K) : BlendKind { public override double ErosionFactor => 1.10; }
+    public sealed record CubicCase(PositiveMagnitude K) : BlendKind { public override double ErosionFactor => 1.30; }
+    public sealed record ChamferCase(PositiveMagnitude K) : BlendKind { public override double ErosionFactor => 1.50; }
+    public sealed record GrooveCase(PositiveMagnitude K, PositiveMagnitude D) : BlendKind { public override double ErosionFactor => 1.40; }
+    public sealed record RoundCase(PositiveMagnitude R) : BlendKind { public override double ErosionFactor => 1.20; }
 
+    public abstract double ErosionFactor { get; }
     public static BlendKind Hard => new HardCase();
     public static Fin<BlendKind> Polynomial(double k, Op? key = null) =>
         key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: k).Map(static v => (BlendKind)new PolynomialCase(K: v));
@@ -46,11 +47,8 @@ public abstract partial record BlendKind {
         grooveCase: static (s, c) => Math.Max(s.A, Math.Min(c.D.Value, Math.Min(s.A - c.K.Value, s.B - c.K.Value))),
         roundCase: static (s, c) => { double ax = Math.Max(c.R.Value - s.A, 0.0), bx = Math.Max(c.R.Value - s.B, 0.0); return Math.Max(c.R.Value, Math.Min(s.A, s.B)) - Math.Sqrt((ax * ax) + (bx * bx)); });
 
-    internal double Erode(double leftLip, double rightLip) => Switch(state: Math.Max(leftLip, rightLip),
-        hardCase: static (d, c) => d * c.ErosionFactor, polynomialCase: static (d, c) => d * c.ErosionFactor,
-        exponentialCase: static (d, c) => d * c.ErosionFactor, rootCase: static (d, c) => d * c.ErosionFactor,
-        cubicCase: static (d, c) => d * c.ErosionFactor, chamferCase: static (d, c) => d * c.ErosionFactor,
-        grooveCase: static (d, c) => d * c.ErosionFactor, roundCase: static (d, c) => d * c.ErosionFactor);
+    // The abstract column IS the dispatch — no per-case Erode switch exists.
+    internal double Erode(double leftLip, double rightLip) => ErosionFactor * Math.Max(leftLip, rightLip);
 }
 
 [SmartEnum<int>]
@@ -110,9 +108,33 @@ public abstract partial record BouncePolicy {
 public sealed partial class SdfStatus {
     public static readonly SdfStatus Analytic = new(key: 0);
     public static readonly SdfStatus ComposedAnalytic = new(key: 1);
-    public static readonly SdfStatus MeshApproximate = new(key: 2);
-    public static readonly SdfStatus Reconstruction = new(key: 3);
-    public static readonly SdfStatus TetSignedHeat = new(key: 4);
+    public static readonly SdfStatus NativeProfile = new(key: 2);
+    public static readonly SdfStatus MeshApproximate = new(key: 3);
+    public static readonly SdfStatus Reconstruction = new(key: 4);
+    public static readonly SdfStatus TetSignedHeat = new(key: 5);
+}
+
+[SmartEnum<int>]
+public sealed partial class ProfileExtrusionFeature {
+    public static readonly ProfileExtrusionFeature Interior = new(key: 0);
+    public static readonly ProfileExtrusionFeature ProfileBoundary = new(key: 1);
+    public static readonly ProfileExtrusionFeature Cap = new(key: 2);
+    public static readonly ProfileExtrusionFeature Rim = new(key: 3);
+}
+
+[SmartEnum<int>]
+public sealed partial class NoiseKind {
+    public static readonly NoiseKind Perlin = new(key: 0, raisesCaution: true, continuouslyDifferentiable: true,
+        sample: static (p, seed, f) => FieldNoise.PerlinAt(point: p, seed: seed, frequency: f));
+    public static readonly NoiseKind Simplex = new(key: 1, raisesCaution: false, continuouslyDifferentiable: true,
+        sample: static (p, seed, f) => FieldNoise.SkewedSimplexAt(point: p, seed: seed, frequency: f, smooth: false));
+    public static readonly NoiseKind SmoothSimplex = new(key: 2, raisesCaution: false, continuouslyDifferentiable: true,
+        sample: static (p, seed, f) => FieldNoise.SkewedSimplexAt(point: p, seed: seed, frequency: f, smooth: true));
+    public static readonly NoiseKind Worley = new(key: 3, raisesCaution: false, continuouslyDifferentiable: false,
+        sample: static (p, seed, f) => FieldNoise.WorleyAt(point: p, seed: seed, frequency: f));
+    public bool RaisesCaution { get; }
+    public bool ContinuouslyDifferentiable { get; }
+    [UseDelegateFromConstructor] internal partial double Sample(Point3d point, int seed, double frequency);
 }
 ```
 
@@ -155,7 +177,21 @@ public abstract partial record SdfKind {
         internal override double Distance(Point3d p) => CappedCone(p: p, halfHeight: HalfHeight.Value, r1: R1, r2: R2);
     }
     public sealed record TorusCase(PositiveMagnitude Major, PositiveMagnitude Minor) : SdfKind { public override double Lipschitz => 1.0; internal override double Distance(Point3d p) { double qx = Math.Sqrt((p.X * p.X) + (p.Y * p.Y)) - Major.Value; return Math.Sqrt((qx * qx) + (p.Z * p.Z)) - Minor.Value; } }
-    public sealed record HexPrismCase(PositiveMagnitude HalfHeight, PositiveMagnitude Circumradius) : SdfKind { public override double Lipschitz => 1.0; internal override double Distance(Point3d p) { (double qx, double qy) = (Math.Abs(p.X), Math.Abs(p.Y)); double over = Math.Max((0.8660254037844386 * qx) + (0.5 * qy), qy) - Circumradius.Value; return CappedProfile(dxy: over, dz: Math.Abs(p.Z) - HalfHeight.Value); } }
+    public sealed record HexPrismCase(PositiveMagnitude HalfHeight, PositiveMagnitude Circumradius) : SdfKind {
+        public override double Lipschitz => 1.0;
+        // Exact hex cross-section: k-fold to the fundamental sector, then vertex-corrected edge distance (IQ);
+        // a bare max-of-half-planes underestimates outside the corners and is the rejected bound form.
+        internal override double Distance(Point3d p) {
+            const double kx = -0.8660254037844386, ky = 0.5, kz = 0.5773502691896258;
+            double h = 0.8660254037844386 * Circumradius.Value;
+            (double ax, double ay) = (Math.Abs(p.X), Math.Abs(p.Y));
+            double fold = 2.0 * Math.Min((kx * ax) + (ky * ay), 0.0);
+            (ax, ay) = (ax - (fold * kx), ay - (fold * ky));
+            (double ex, double ey) = (ax - Math.Clamp(ax, -kz * h, kz * h), ay - h);
+            double dxy = Math.Sqrt((ex * ex) + (ey * ey)) * Math.Sign(ey);
+            return CappedProfile(dxy: dxy, dz: Math.Abs(p.Z) - HalfHeight.Value);
+        }
+    }
     public sealed record OctahedronCase(PositiveMagnitude S) : SdfKind { public override double Lipschitz => 1.0; internal override double Distance(Point3d p) => ExactOctahedron(p: p, s: S.Value); }
     public sealed record EllipsoidCase(PositiveMagnitude X, PositiveMagnitude Y, PositiveMagnitude Z) : SdfKind { public override double Lipschitz => 2.0; internal override double Distance(Point3d p) { /* k0*(k0-1)/k1 first-order normalized estimate */ return default; } }
     public sealed record SlabCase(PositiveMagnitude HalfHeight) : SdfKind { public override double Lipschitz => 1.0; internal override double Distance(Point3d p) => Math.Abs(p.Z) - HalfHeight.Value; }
@@ -180,8 +216,8 @@ public abstract partial record SdfKind {
 
 - Owner: `ScalarField` `[Union]` — the ~35-case scalar algebra in five case families: ANALYTIC SOURCES `Constant(double)` · `Density(Point3d, PositiveMagnitude Spread, double Strength)` · `Potential(Seq<(Point3d, double)> Charges, Falloff)` · `Worley(Seq<Point3d> Seeds, Dimension Order)` · `Morse(Point3d, PositiveMagnitude Depth, PositiveMagnitude Width)` · `Mollifier(Point3d, PositiveMagnitude Radius)` · `Noise(NoiseKind, NoisePolicy)` · `Distance(SupportSpace, BoundarySense)` · `Primitive(SdfKind, Plane Pose)` · `ProfileExtrusion(Curve, Plane, PositiveMagnitude HalfHeight)`; COMBINATORS `Blend(Seq<ScalarField>, FieldBlend)` · `Csg(Left, Right, CsgKind, BlendKind)` · `Scaled` · `Power` · `Clamp` · `Displace`; DOMAIN WARPS `Periodic(Vector3d Period)` · `Twist(double AnglePerUnit, Direction Axis)` · `Bend(double Curvature, Direction Axis)` · `Elongate(Vector3d Extent)` · `Onion(PositiveMagnitude Thickness)` · `SdfRound(PositiveMagnitude Radius)`; DIFFERENTIAL `Magnitude(VectorField)` · `Divergence(VectorField, PositiveMagnitude Epsilon)` · `Laplacian(ScalarField, PositiveMagnitude Epsilon)` · `StrainMagnitude(VectorField, PositiveMagnitude Epsilon)`; MESH-AWARE (names frozen) `Geodesic(MeshSpace, Seq<int> Sources)` · `MeanCurvatureFlow(MeshSpace, PositiveMagnitude TimeStep, Dimension Iterations)` · `SpectralDistance(MeshSpace, SpectralFilter, Seq<int> Sources, Dimension Pairs)` · `Stripe(MeshSpace, VectorField CrossField, PositiveMagnitude Frequency)` · `SignedDistanceFromMesh(MeshSpace, SdfMeshPolicy)`; RECONSTRUCTION (fitted payloads minted by `reconstruct.md`) `Rbf` · `Mls` · `LevinMls` · `Apss` · `TetSignedHeat` · `Poisson`.
 - Entry: case constructors take ADMITTED payloads — the admission structure IS the case set; raw ingress is the one-expression factory per family (`Density(center, spread: double, strength, key)` chains `AcceptValidated<PositiveMagnitude>`; `Noise(kind, policy)` takes the `NoisePolicy` record — `Seed`/`Octaves: Dimension`/`Persistence`/`Lacunarity`/`Frequency` admitted once — replacing the six-knob factory; mesh-aware factories prove sources against the `MeshSpace` vertex range once). The recursive 35-arm re-validation switch of the retired source DOES NOT EXIST: a `ScalarField` in hand is valid by construction.
-- Auto: `SampleScalar(sample, context, key)` is the ONE total 35-arm generated `Switch` — analytic sources evaluate closed forms (potential folds charge×`Falloff.Weight`; noise folds octaves under the persistence-normalized fBm sum; Worley reads the order-th sorted seed distance); `Distance` routes `support.md` (`Closest` then signed or unsigned by admission); combinators recurse (`Csg` through `CsgKind.Combine`; `Blend` through `FieldBlend.CombineScalar`; shared `SampleMapped` collapses `Scaled`/`Power`/`Clamp`/`Onion`/`SdfRound` to one recurse-then-map body); warps pre-transform the sample (toroidal wrap, axis-angle twist, bend rotation, per-axis elongate clamp) and recurse; differential arms delegate to the `calculus.md` stencil owner (`FieldCalculus.DivergenceAt`/`LaplacianAt`/`StrainMagnitudeAt`); mesh-aware arms delegate through the `MeshSpace` seam to their owning solver pages; reconstruction arms evaluate the fitted payload through `reconstruct.md` evaluators. Operators flatten: `+` merges `Sum`-mode `Blend` chains flat (never a tree of binary blends), `-`/unary-`-`/`*` ride `Scaled`. `LipschitzBound()` is the analytic-species fold — primitives read the case column, `ProfileExtrusion` is 1, `Csg` erodes through its `BlendKind`, wrap species pass through, everything else is `None`.
-- Receipt: `SampleDetailed(sample, context, key) → Fin<FieldSample>` — the PUBLIC tagged rail: value + `SdfStatus` provenance + optional nested evidence (`SdfMeshReceipt` for mesh-backed, reconstruction sample receipts for fitted species, tet receipts for the FEM species); `SampleSdfDetailed(sample, context, key) → Fin<SdfSample>` — the SDF-restricted form that REFUSES species with no distance semantics (a `LipschitzBound().IsNone` composite that is not mesh/tet/reconstruction-backed faults with `Unsupported` rather than mislabeling a value as a distance).
+- Auto: `SampleScalar(sample, context, key)` is the ONE total 35-arm generated `Switch` — analytic sources evaluate closed forms (potential folds charge×`Falloff.Weight`; noise folds octaves under the persistence-normalized fBm sum; Worley reads the order-th sorted seed distance); `Distance` routes `support.md` (`Closest` then signed or unsigned by admission); combinators recurse (`Csg` through `CsgKind.Combine`; `Blend` through `FieldBlend.CombineScalar`; shared `SampleMapped` collapses `Scaled`/`Power`/`Clamp`/`Onion`/`SdfRound` to one recurse-then-map body); warps pre-transform the sample (toroidal wrap, axis-angle twist, bend rotation, per-axis elongate clamp) and recurse; differential arms delegate to the `calculus.md` stencil owner `Nabla`, plugging `SampleScalar`/`SampleVector` closures in as the sampler (`Nabla.DivergenceAt`/`LaplacianAt`/`StrainMagnitudeAt` — the stencil never learns the union); the profile-extrusion arm evaluates the native-curve profile (plane remap, `Curve.ClosestPoint` + `Contains`, cap/profile max-fold) and classifies the answering `ProfileExtrusionFeature`; mesh-aware arms delegate through the `MeshSpace` seam to their owning solver pages; reconstruction arms evaluate the fitted payload through `reconstruct.md` evaluators. Operators flatten: `+` merges `Sum`-mode `Blend` chains flat (never a tree of binary blends), `-`/unary-`-`/`*` ride `Scaled`. `LipschitzBound()` is the analytic-species fold — primitives read the case column, `ProfileExtrusion` is 1, `Csg` erodes through its `BlendKind`, `Scaled` multiplies by `|scale|`, `Displace` adds its operands' bounds, `Blend` folds `Sum` to the bound sum and `Average` to the mean, distance-preserving species (`Onion`/`SdfRound`/`Elongate`/`Clamp`/`Periodic`) pass through, everything else — including `Twist`/`Bend`, whose tangential stretch grows with radius — is `None`.
+- Receipt: `SampleDetailed(sample, context, key) → Fin<FieldSample>` — the PUBLIC tagged rail: value + `SdfStatus` provenance + optional nested evidence (`SdfMeshReceipt` for mesh-backed, reconstruction sample receipts for fitted species, tet receipts for the FEM species); `SampleSdfDetailed(sample, context, key) → Fin<SdfSample>` — the SDF-restricted form that REFUSES species with no distance semantics (a `LipschitzBound().IsNone` composite that is not mesh/tet/reconstruction/profile-backed faults with `Unsupported` rather than mislabeling a value as a distance — the refusal is the standing replacement for the mature `LossyFallback` status). `SdfSample` carries the profile-extrusion evidence columns — `ProfileFeature` (which feature answered: interior, profile boundary, cap, rim) and `ProfileContainment` (the `PointContainment` verdict that signed the in-plane distance) — as `Option` columns present only on the `NativeProfile` species.
 - Packages: RhinoCommon (`Point3d`/`Vector3d`/`Transform.Rotation`/`Plane`/`Curve`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 - Growth: a new scalar species is ONE case + one `Switch` arm (+ one factory only if raw material enters); a new blend/CSG mode is a vocabulary row; a new provenance species is one `SdfStatus` row carried by the tagged rail.
 - Boundary: iso-surface extraction is `Meshing/reconstruct.md`'s — this page samples, never meshes; the mesh-aware arms are one-line delegations and any solver math appearing here is a mis-homed body; `SampleScalar` assumes admitted fields and a defensive re-validation inside an arm is the deleted double-admission; the tagged rail is THE public sampling seam (`pack.md` binds `SampleDetailed`) and a second `Evaluate`/`Probe` sibling family is the rejected surface.
@@ -200,7 +236,9 @@ public readonly record struct NoisePolicy(int Seed, Dimension Octaves, double Pe
 public readonly record struct FieldSample(double Value, SdfStatus Status, Option<SdfMeshReceipt> Mesh, Option<ReconstructionSampleReceipt> Reconstruction);
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct SdfSample(double Value, SdfStatus Status, Option<double> LipschitzBound, Option<SdfMeshReceipt> Mesh);
+public readonly record struct SdfSample(
+    double Value, SdfStatus Status, Option<double> LipschitzBound, Option<SdfMeshReceipt> Mesh,
+    Option<ProfileExtrusionFeature> ProfileFeature, Option<PointContainment> ProfileContainment);
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 [Union]
@@ -268,10 +306,16 @@ public abstract partial record ScalarField {
         PrimitiveCase p => Some(p.Shape.Lipschitz),
         ProfileExtrusionCase => Some(1.0),
         CsgCase c => from l in c.Left.LipschitzBound() from r in c.Right.LipschitzBound() select c.Smoothing.Erode(leftLip: l, rightLip: r),
+        ScaledCase s => s.Source.LipschitzBound().Map(l => Math.Abs(s.Scale) * l),
+        DisplaceCase d => from l in d.Source.LipschitzBound() from r in d.Displacement.LipschitzBound() select l + r,
+        BlendCase b => b.Fields.TraverseM(static f => f.LipschitzBound()).Map(bounds =>
+            b.Mode.Equals(FieldBlend.Average) ? bounds.Sum() / bounds.Count : bounds.Sum()),
         OnionCase o => o.Source.LipschitzBound(),
         SdfRoundCase r => r.Source.LipschitzBound(),
         ElongateCase e => e.Source.LipschitzBound(),
-        _ => Option<double>.None,
+        ClampCase c => c.Source.LipschitzBound(),
+        PeriodicCase p => p.Source.LipschitzBound(),
+        _ => Option<double>.None,  // Twist/Bend stretch tangentially with radius: no honest global bound.
     };
 
     internal Fin<double> SampleScalar(Point3d sample, Context context, Op key) =>
@@ -288,22 +332,29 @@ public abstract partial record ScalarField {
                 from r in c.Right.SampleScalar(sample: s.Sample, context: s.Context, key: s.Key)
                 select c.Op.Combine(left: l, right: r, blend: c.Smoothing),
             primitiveCase: static (s, c) => c.Shape.SignedDistance(worldPoint: s.Sample, pose: c.Pose, key: s.Key),
-            laplacianCase: static (s, c) => FieldCalculus.LaplacianAt(field: c.Source, point: s.Sample, eps: c.Epsilon.Value, context: s.Context, key: s.Key),
+            laplacianCase: static (s, c) => Nabla.LaplacianAt(
+                sampler: p => c.Source.SampleScalar(sample: p, context: s.Context, key: s.Key),
+                point: s.Sample, eps: c.Epsilon.Value, key: s.Key),
             geodesicCase: static (s, c) => MeshKernel.HeatGeodesicAt(space: c.Space, sources: c.Sources, sample: s.Sample, key: s.Key),
             signedDistanceFromMeshCase: static (s, c) => MeshSdf.SignedDistanceDetailed(space: c.Space, policy: c.Policy, sample: s.Sample, key: s.Key).Map(static r => r.Distance),
-            /* … remaining arms: potential/density/blend/magnitude/divergence/strain (calculus.md stencil),
-               worley/morse/mollifier/noise (calculus.md lattices), scaled/power/clamp/onion/sdfRound via ONE
-               SampleMapped recurse-then-map body, periodic/twist/bend/elongate/displace domain warps,
+            /* … remaining arms: potential/density/blend/magnitude, divergence/strain via Nabla with SampleVector
+               samplers, noise (NoiseKind.Sample + the NoisePolicy fBm octave fold), worley/morse/mollifier,
+               profileExtrusion (plane remap + Curve.ClosestPoint/Contains + cap/profile max-fold -> NativeProfile),
+               scaled/power/clamp/onion/sdfRound via ONE SampleMapped recurse-then-map body,
+               periodic (Nabla.ToroidalWrap)/twist/bend/elongate/displace domain warps,
                meanCurvatureFlow/spectralDistance/stripe mesh delegations, rbf/mls/levinMls/apss/tet/poisson
                reconstruct.md evaluators — every arm total, every scalar exits through key.AcceptValue. */
             poissonCase: static (s, c) => s.Key.AcceptValue(value: c.Grid.SampleTrilinear(point: s.Sample) - c.Gamma)));
 
     public Fin<FieldSample> SampleDetailed(Point3d sample, Context context, Op? key = null) { /* status-tagged rail:
-        Primitive -> Analytic; Lipschitz-bounded composite -> ComposedAnalytic; SignedDistanceFromMesh ->
-        MeshApproximate + SdfMeshReceipt; Rbf/Mls/LevinMls/Apss/Poisson -> Reconstruction + sample receipt;
-        TetSignedHeat -> TetSignedHeat + receipts; everything else -> ComposedAnalytic with no distance claim. */ return default!; }
+        Primitive -> Analytic; Lipschitz-bounded composite -> ComposedAnalytic; ProfileExtrusion -> NativeProfile;
+        SignedDistanceFromMesh -> MeshApproximate + SdfMeshReceipt; Rbf/Mls/LevinMls/Apss/Poisson ->
+        Reconstruction + sample receipt; TetSignedHeat -> TetSignedHeat + receipts; everything else ->
+        ComposedAnalytic with no distance claim. */ return default!; }
     public Fin<SdfSample> SampleSdfDetailed(Point3d sample, Context context, Op? key = null) { /* the SDF-restricted
-        form: refuses (Unsupported) any species that cannot claim distance semantics. */ return default!; }
+        form: refuses (Unsupported) any species that cannot claim distance semantics — the standing replacement
+        for the mature LossyFallback status; NativeProfile samples carry the ProfileFeature/ProfileContainment
+        columns. */ return default!; }
 }
 ```
 
@@ -311,7 +362,7 @@ public abstract partial record ScalarField {
 
 - Owner: `VectorField` `[Union]` — ~25 cases in four families: ANALYTIC `Constant(Vector3d)` · `Vortex(Point3d Anchor, Direction Axis, Falloff)` · `Ring(Point3d Center, Direction Axis, PositiveMagnitude Radius, Falloff)` · `Helical(Point3d Anchor, Direction Axis, double Axial, double Swirl, Falloff)` · `Coulomb(Seq<(Point3d, double)> Charges, Falloff)` · `Dipole(Point3d Origin, Direction Moment, PositiveMagnitude Strength)` · `Harmonic(Seq<(Direction, double Frequency, double Phase, double Amplitude)>)` · `BiotSavart(Point3d Start, Point3d End, double Current)` · `Saddle(Point3d Anchor, Plane Basis, double Strength)`; PROXIMITY-DRIVEN `Influence(SupportSpace, Falloff, BoundarySense, Option<PositiveMagnitude> ShellRadius)` · `HitField(SupportSpace, SupportProjection, BoundarySense)` · `ClusterField(VectorCloud.ClusterCase, Falloff, PositiveMagnitude Radius, BoundarySense)`; COMBINATORS/WARPS `Blend` · `Scaled` · `Projected(Plane)` · `Warp(Transform)` · `ClampMagnitude(Min, Max)` · `CrossProduct(Left, Right)`; DIFFERENTIAL `Gradient(ScalarField, Epsilon)` · `Curl(VectorField, Epsilon)` · `CurlNoise(ScalarField Potential, Epsilon)` (refuses a Worley potential — cell noise has no continuous curl); MESH-AWARE (names frozen) `CrossField(MeshSpace, Dimension Symmetry, Option<Seq<(int, Direction)>> Constraints, Option<Seq<(int, double)>> Cones)` · `Hodge(VectorField, MeshSpace, BoundarySense)` · `VectorHeat(MeshSpace, Seq<(int, Vector3d)>, PositiveMagnitude Time)` · `GeodesicTangent(MeshSpace, Seq<int>)` · `TangentLogMap(MeshSpace, int Source, PositiveMagnitude Time, TangentLogMapAlgorithm, GeodesicTracePolicy, WindowPropagationPolicy)`.
 - Entry: same construction law as the scalar union — admitted case payloads, one-expression raw-ingress factories (`Ring` derives its default falloff `Gaussian(radius/3)` when none is given; `HitField` gates the projection on `SupportProjection.CanProjectVector`; `CrossField` proves symmetry ∈ {1,2,4,6} and vertex ranges once), operators identical to the scalar operators (Sum-flattening `+`, `Scaled` scaling).
-- Auto: `SampleVector(sample, context, key)` is the ONE total 25-arm `Switch` built on three shared folds — `ClosestDirected(source, sample, sense, hitToScaled)` (one closest-hit query feeding `Influence` shell residuals and `HitField` projections, sense-signed and admitted through `Direction.Of`), `RotationalField(anchor, axis, falloff, axial, swirl)` (the ONE swirl body: `Vortex` is `(0,1)`, `Ring` is `(0,1)` at offset radius, `Helical` is `(axial, swirl)` — three cases, one kernel), and `RadialContribution(sum, source, scale, falloff)` (the accumulating charge fold `Coulomb` and `ClusterField` share, the cluster arm restricted to `WithinRadius` indices from `cloud.md`). Dipole/harmonic/Biot-Savart/saddle evaluate their closed forms (finite-wire Biot-Savart with perpendicular-component regularization; saddle `u·X − v·Y` in the basis); differential arms delegate to the `calculus.md` stencil; mesh-aware arms delegate through the `MeshSpace` seam.
+- Auto: `SampleVector(sample, context, key)` is the ONE total 25-arm `Switch` built on three shared folds — `ClosestDirected(source, sample, sense, hitToScaled)` (one closest-hit query feeding `Influence` shell residuals and `HitField` projections, sense-signed and admitted through `Direction.Of`), `RotationalField(anchor, axis, falloff, axial, swirl)` (the ONE swirl body: `Vortex` is `(0,1)`, `Ring` is `(0,1)` at offset radius, `Helical` is `(axial, swirl)` — three cases, one kernel), and `RadialContribution(sum, source, scale, falloff)` (the accumulating charge fold `Coulomb` and `ClusterField` share, the cluster arm restricted to `WithinRadius` indices from `cloud.md`). Dipole/harmonic/Biot-Savart/saddle evaluate their closed forms (finite-wire Biot-Savart with perpendicular-component regularization; saddle `u·X − v·Y` in the basis); differential arms delegate to the `calculus.md` `Nabla` stencil with `SampleScalar`/`SampleVector` closures as the sampler; mesh-aware arms delegate through the `MeshSpace` seam.
 - Receipt: vector samples are values; provenance-tagged vector sampling rides `SampleDetailed`'s vector sibling arm on demand (growth case, same `SdfStatus` vocabulary).
 - Growth: a new field species is one case + one arm (+ a shared-fold parameter when it is a swirl/radial/closest variant — the three folds absorb before a new body is admitted).
 - Boundary: the three shared folds are the collapse law — a new analytic case re-implementing swirl, radial accumulation, or closest-directed shaping is the rejected duplication; `CurlNoise` admission refuses the non-differentiable potential at CONSTRUCTION (the sampler never guards); mesh-aware arms are one-line delegations.
@@ -334,7 +385,7 @@ public abstract partial record VectorField {
                     from distance in hit.Distance.ToFin(Fail: op.InvalidResult())
                     let residual = c.ShellRadius.Map(r => Math.Abs(distance - r.Value)).IfNone(distance)
                     let shellSign = c.ShellRadius.Map(r => distance >= r.Value ? 1.0 : -1.0).IfNone(1.0)
-                    from weight in c.Falloff.Weight(offset: hit.Point - s.Sample, sample: s.Sample, context: s.Context, tolerance: s.Context.Absolute.Value, key: op)
+                    from weight in c.Falloff.Weight(offset: hit.Point - s.Sample, sample: s.Sample, tolerance: s.Context.Absolute.Value, key: op)
                     select (Raw: shellSign * (hit.Point - s.Sample), Scale: c.ShellRadius.IsSome ? residual * weight : weight)),
             hitFieldCase: static (s, c) => ClosestDirected(source: c.Source, sample: s.Sample, sense: c.Sense, context: s.Context, key: s.Key,
                 hitToScaled: (hit, op) => c.Projection.Equals(SupportProjection.Span) || c.Projection.Equals(SupportProjection.SignedSpanAway)
@@ -347,17 +398,21 @@ public abstract partial record VectorField {
             clusterFieldCase: static (s, c) => c.Source.WithinRadius(sample: s.Sample, radius: c.Radius.Value, key: s.Key)
                 .Bind(ids => ids.Fold(Fin.Succ(Vector3d.Zero),
                     (acc, i) => acc.Bind(sum => RadialContribution(sum: sum, source: c.Source.Vertices[i], scale: c.Sense.Sign, state: s, falloff: c.Falloff)))),
-            gradientCase: static (s, c) => FieldCalculus.GradientAt(field: c.Source, point: s.Sample, eps: c.Epsilon.Value, context: s.Context, key: s.Key),
+            gradientCase: static (s, c) => Nabla.GradientAt(
+                sampler: p => c.Source.SampleScalar(sample: p, context: s.Context, key: s.Key),
+                point: s.Sample, eps: c.Epsilon.Value, key: s.Key),
             crossFieldCase: static (s, c) => MeshKernel.CrossFieldAt(space: c.Space, symmetry: c.Symmetry.Value, constraints: c.Constraints, cones: c.Cones, sample: s.Sample, key: s.Key),
             tangentLogMapCase: static (s, c) => MeshKernel.TangentLogMapAt(space: c.Space, source: c.Source, sample: s.Sample, time: c.Time.Value, algorithm: c.Algorithm, trace: c.Trace, windows: c.Windows, key: s.Key).Map(static r => r.Tangent)
             /* … remaining arms: constant/blend/scaled/projected/warp/clampMagnitude/crossProduct combinators,
                ring (RotationalField at offset radius), dipole/harmonic/biotSavart/saddle closed forms,
-               curl/curlNoise (calculus.md), hodge/vectorHeat/geodesicTangent mesh delegations. */));
+               curl/curlNoise via Nabla.CurlAt/CurlNoiseAt with sampler closures,
+               hodge/vectorHeat/geodesicTangent mesh delegations. */));
 
     // The three shared folds every analytic case composes:
     private static Fin<Vector3d> RotationalField(Point3d anchor, Direction axis, Falloff falloff, double axial, double swirl, (Point3d Sample, Context Context, Op Key) state) {
-        Vector3d rPerp = FieldCalculus.PerpendicularComponent(r: state.Sample - anchor, axis: axis.Value);
-        return falloff.Weight(offset: rPerp, sample: state.Sample, context: state.Context, tolerance: state.Context.Absolute.Value, key: state.Key)
+        Vector3d r = state.Sample - anchor;
+        Vector3d rPerp = r - ((r * axis.Value) * axis.Value);
+        return falloff.Weight(offset: rPerp, sample: state.Sample, tolerance: state.Context.Absolute.Value, key: state.Key)
             .Map(w => w * ((axial * axis.Value) + (swirl * Vector3d.CrossProduct(a: axis.Value, b: rPerp))));
     }
     private static Fin<Vector3d> RadialContribution(Vector3d sum, Point3d source, double scale, (Point3d Sample, Context Context, Op Key) state, Falloff falloff) {
@@ -378,8 +433,8 @@ public abstract partial record VectorField {
 ## [06]-[TENSOR_FIELD]
 
 - Owner: `TensorField` `[Union]` — `Constant(SymmetricMatrix)` · `Curvature(SurfaceSpace)` · `Lift(Func<Point3d, SymmetricMatrix>)` (the one opaque-closure ingress, guarded under `key.Catch` at sample time) · `Warp(TensorField, Transform)` · `Scaled(TensorField, double)` · `Blend(Seq<TensorField>, FieldBlend)`.
-- Entry: `SampleTensor(sample, context, key) → Fin<SymmetricMatrix>` — the six-arm `Switch`; `PrincipalDirections(sample, context, key)` decomposes the 3×3 sample through `matrix.md` eigen into `(eigenvalue, Direction)` rows.
-- Auto: the `Curvature` arm is the SINGLE second-fundamental-form consumer — it projects the sample onto the surface (`Surface.ClosestPoint`) and reads `Parametric/projections.md`'s `SurfaceProjection.ShapeOperator` at the recovered `(u,v)`; the shape-operator TENSOR is owned there and this case never re-derives principal curvatures. `Warp` transforms by congruence `R·M·Rᵀ` (rotation block lifted from the `Transform`, product through `matrix.md` `Matrix.Multiply`, repacked upper-triangular); `Blend` combines component-wise through `FieldBlend.CombineScalar` over dimension-agreeing tensors; anisotropic falloff metrics (`calculus.md` `Falloff.AnisotropicKernel`) sample THIS union for their metric tensor — the composition runs downward into calculus, never a second metric type.
+- Entry: `SampleTensor(sample, context, key) → Fin<SymmetricMatrix>` — the six-arm `Switch`; `PrincipalDirections(sample, context, key)` decomposes the 3×3 sample through `matrix.md` eigen into `(eigenvalue, Direction)` rows; `Sampler(context, key?) → Func<Point3d, Fin<SymmetricMatrix>>` — the closure bridge `calculus.md` `Falloff.Metric` takes, so the anisotropic decay samples THIS union without calculus ever naming a field type.
+- Auto: the `Curvature` arm is the SINGLE second-fundamental-form consumer — it projects the sample onto the surface (`Surface.ClosestPoint`) and reads `Parametric/projections.md`'s `SurfaceProjection.ShapeOperator` at the recovered `(u,v)`; the shape-operator TENSOR is owned there and this case never re-derives principal curvatures. `Warp` transforms by congruence `R·M·Rᵀ` (rotation block lifted from the `Transform`, product through `matrix.md` `Matrix.Multiply`, repacked upper-triangular); `Blend` combines component-wise through `FieldBlend.CombineScalar` over dimension-agreeing tensors; anisotropic falloff metrics (`calculus.md` `Falloff.Metric`) take `tensorField.Sampler(context)` as their metric sampler — the composition runs downward into calculus, never a second metric type.
 - Growth: a new tensor species is one case + one arm; a curvature variant (e.g. mesh shape operator) is a new case delegating to its owning page, never local differential geometry.
 - Boundary: `Lift` is the only closure-carrying case and its sampler runs inside `key.Catch` with an `IsValid` gate — an unguarded user closure is the named foreign-code seam; the congruence transform requires an invertible spatial map (`TryGetInverse` gates the pre-image sample) and dimension-3 tensors — both admission facts, faulted not defaulted.
 
@@ -391,7 +446,8 @@ public abstract partial record VectorField {
 |  [02]   | CSG combination         | `CsgKind`                     | `[SmartEnum<int>]` + `Combine` delegate column                       | dispatch row                                   |    3    |
 |  [03]   | SDF primitive           | `SdfKind`                     | `[Union]` typed parameter cases + `Lipschitz`/`Distance` members     | `SignedDistance → Fin<double>`                 |   12    |
 |  [04]   | Scalar field algebra    | `ScalarField`                 | `[Union]` ~35 cases, five families, flattening operators             | `SampleScalar → Fin<double>`                   |   ~35   |
-|  [05]   | Tagged sampling rail    | `SampleDetailed`/`SampleSdfDetailed` | status-tagged public seam (`SdfStatus` + nested receipts)      | `→ Fin<FieldSample>` / `Fin<SdfSample>`        |    5    |
+|  [05]   | Tagged sampling rail    | `SampleDetailed`/`SampleSdfDetailed` | status-tagged public seam (`SdfStatus` + nested receipts)      | `→ Fin<FieldSample>` / `Fin<SdfSample>`        |    6    |
 |  [06]   | Vector field algebra    | `VectorField`                 | `[Union]` ~25 cases over three shared folds                          | `SampleVector → Fin<Vector3d>`                 |   ~25   |
 |  [07]   | Tensor field algebra    | `TensorField`                 | `[Union]` 6 cases; congruence transform; one shape-operator consumer | `SampleTensor → Fin<SymmetricMatrix>`          |    6    |
 |  [08]   | Ray/bounce policy       | `RayPolicy`/`BouncePolicy`    | `[Union]` pairs over `atoms.md` optics                               | `Project<TOut>` / `Apply → Fin<Direction>`     |   2+2   |
+|  [09]   | Noise vocabulary        | `NoiseKind`                   | `[SmartEnum<int>]` lattice rows + caution/differentiability columns  | `Sample` delegate onto `FieldNoise`            |    4    |

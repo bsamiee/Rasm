@@ -46,4 +46,4 @@ The TS substrate registry cards this folder composes; the full registry and subs
 - `@effect/opentelemetry` — the OTLP span and metric emission every provider call and agent run rides.
 
 [TEST_SUBSTRATE]:
-- `@effect/vitest` — the dev-plane spec runner binding `proof` law combinators to this folder's specs.
+- `@effect/vitest` — the dev-plane spec runner binding the `@rasm/ts-testkit` law combinators (`tests/typescript/_testkit`) to this folder's colocated specs.

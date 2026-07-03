@@ -44,7 +44,7 @@ internal sealed partial class HostCapability {
     }
 }
 
-// --- [BOUNDARY] -----------------------------------------------------------------------------
+// --- [BOUNDARIES] ---------------------------------------------------------------------------
 
 // Ownership: the per-scenario scratch redirect. Live scenarios root their File3dm/PDF/OBJ writes at
 // Path.GetTempPath(); pointing the OS temp vars at a <reportDir>/scratch/<scenario> tree for the
@@ -58,7 +58,7 @@ internal readonly record struct ScratchRedirect(string Root, bool Redirected, st
     internal static ScratchRedirect Open(string reportDir, string scenario) {
         // BOUNDARY ADAPTER: a filesystem fault degrades to an un-redirected scratch rooted at the
         // report dir — the scenario stays live and Dispose is inert, never a raw throw across the rail.
-        string root = Path.Combine(path1: reportDir, path2: Spool.ScratchDirectory, path3: scenario);
+        string root = Path.Combine(path1: reportDir, path2: ReportLayout.ScratchDirectory, path3: scenario);
         try {
             _ = Directory.CreateDirectory(path: root);
             ScratchRedirect redirect = new(
@@ -99,6 +99,7 @@ public sealed class CargoHost : IBridgeCargo {
 
     private readonly Lock sync = new();
     private readonly CargoManifest manifest;
+    private readonly HostFingerprint running;
     private Seq<(ScenarioEntry Entry, MethodInfo Method)> corpus;
     private Seq<CapabilityEntry> capabilities;
     private Seq<(string Key, string Value)> discoveryFacts;
@@ -106,9 +107,12 @@ public sealed class CargoHost : IBridgeCargo {
     private long sequence;
     private bool scanned;
 
-    public CargoHost(CargoManifest manifest) {
+    // The shell computes the running fingerprint once per swap and hands it across the ALC seam;
+    // cargo never re-derives host identity.
+    public CargoHost(CargoManifest manifest, HostFingerprint running) {
         ArgumentNullException.ThrowIfNull(argument: manifest);
         this.manifest = manifest;
+        this.running = running;
     }
 
     public ScenarioEntry[] Discover() => [.. Scan().Map(f: static row => row.Entry)];
@@ -174,7 +178,7 @@ public sealed class CargoHost : IBridgeCargo {
 
     internal (PhaseStatus Outcome, string Receipt) ProbeRender() {
         long started = Stopwatch.GetTimestamp();
-        string path = Path.Combine(path1: manifest.ReportDir, path2: Spool.Gh2Directory, path3: "probe", path4: "gh2-render.png");
+        string path = Path.Combine(path1: manifest.ReportDir, path2: ReportLayout.Gh2Directory, path3: "probe", path4: "gh2-render.png");
         return AcquireLane().Bind(f: live => live.DrawCanvas(path: path)) switch {
             Fin<CaptureFile>.Succ(CaptureFile file) => (PhaseStatus.Ok,
                 string.Create(provider: CultureInfo.InvariantCulture, $"DrawToBitmap {file.Width}x{file.Height} in {Stopwatch.GetElapsedTime(startingTimestamp: started).TotalMilliseconds:F0}ms via the ctor-never-Show editor")),
@@ -188,8 +192,6 @@ public sealed class CargoHost : IBridgeCargo {
     private static ScenarioReceipt Receipt(ScenarioEntry scenario, PhaseStatus status, double duration, BridgeFault? fault) =>
         new(Scenario: scenario.Name, Status: status, DurationMs: duration, Fault: fault) {
             ScenarioStatus = status,
-            CertificatePath = string.Empty,
-            ArtifactRefs = [],
             ReferenceResults = [],
             FirstScenarioFailure = string.Empty,
         };
@@ -312,7 +314,7 @@ public sealed class CargoHost : IBridgeCargo {
             };
         } catch (Exception error) when (DriftMember(error: error) is { } member) {
             fact("scenario.drift", member);
-            return (PhaseStatus.Failed, new BridgeFault.HostDrift(MissingMember: member, BuiltAgainst: manifest.BuiltAgainst, Running: RunningFingerprint()));
+            return (PhaseStatus.Failed, new BridgeFault.HostDrift(MissingMember: member, BuiltAgainst: manifest.BuiltAgainst, Running: running));
         } catch (TargetInvocationException wrapped) when (wrapped.InnerException is { } inner) {
             return Failed(fact: fact, key: "scenario.exception", detail: $"{inner.GetType().Name}: {inner.Message}\n{inner.StackTrace}");
         } catch (Exception error) when (error is not OutOfMemoryException and not StackOverflowException and not AccessViolationException) {
@@ -326,7 +328,7 @@ public sealed class CargoHost : IBridgeCargo {
             _ = Shoot(spool: spool, view: view, scenario: scenario.Name, label: null, onFailure: true, emit: emit, fact: fact);
         }
         if (scenario.Requires.Any(predicate: static key => key.StartsWith(value: "gh2.", comparisonType: StringComparison.Ordinal))) {
-            string path = Path.Combine(path1: manifest.ReportDir, path2: Spool.Gh2Directory, path3: scenario.Name, path4: "failure.png");
+            string path = Path.Combine(path1: manifest.ReportDir, path2: ReportLayout.Gh2Directory, path3: scenario.Name, path4: "failure.png");
             Fin<CaptureFile> shot = AcquireLane().Bind(f: live => live.DrawCanvas(path: path));
             if (shot is Fin<CaptureFile>.Succ(CaptureFile file)) {
                 ArtifactRef artifact = Spool.IndexFile(
@@ -386,7 +388,8 @@ public sealed class CargoHost : IBridgeCargo {
                         continue;
                     }
                     int before = entries.Count;
-                    foreach (Type type in TypesOf(assembly: assembly, facts: facts)) {
+                    foreach (Type type in HostReflection.LoadableTypes(assembly: assembly, onLoaderFault: error =>
+                        facts.Add(item: ("discovery.type.load.failed", $"{assembly.GetName().Name}: {error.GetType().Name}: {error.Message}")))) {
                         MethodInfo[] methods;
                         try {
                             methods = type.GetMethods(bindingAttr: BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly);
@@ -452,7 +455,7 @@ public sealed class CargoHost : IBridgeCargo {
     }
 
     private BridgeEvent.FactCase Fact(string key, object? value, string? scenario) =>
-        new(Key: key, Value: Json(value: value)) { Stamp = NextStamp(scenario: scenario) };
+        BridgeEvent.Fact(key: key, value: Json(value: value), stamp: NextStamp(scenario: scenario));
 
     private EventStamp NextStamp(string? scenario) => new(
         SessionId: manifest.SessionId,
@@ -494,34 +497,12 @@ public sealed class CargoHost : IBridgeCargo {
         return new ScenarioEntry(Theme: theme, Name: $"{theme}.{method.Name}", Requires: requires, BudgetMs: budgetMs);
     }
 
-    private static IEnumerable<Type> TypesOf(Assembly assembly, List<(string Key, string Value)> facts) {
-        // BOUNDARY ADAPTER: partially loadable assemblies still yield usable types and loader facts.
-        try {
-            return assembly.GetTypes();
-        } catch (ReflectionTypeLoadException partial) {
-            foreach (Exception? error in partial.LoaderExceptions) {
-                if (error is not null) {
-                    facts.Add(item: ("discovery.type.load.failed", $"{assembly.GetName().Name}: {error.GetType().Name}: {error.Message}"));
-                }
-            }
-            return partial.Types.Where(predicate: static type => type is not null)!;
-        }
-    }
-
     private IEnumerable<string> ScenarioAssemblyPaths() =>
         manifest.ScenarioAssemblies is { Length: > 0 } rows
             ? rows
                 .Select(selector: name => Path.Combine(path1: manifest.StagePath, path2: name))
                 .Where(predicate: File.Exists)
             : Directory.EnumerateFiles(path: manifest.StagePath, searchPattern: "*.Tests.dll");
-
-    private static HostFingerprint RunningFingerprint() => new(
-        BundleVersion: RhinoApp.Version.ToString(),
-        RhinoCommonVersion: typeof(RhinoApp).Assembly.GetName().Version?.ToString() ?? string.Empty,
-        Grasshopper2Version: AppDomain.CurrentDomain.GetAssemblies()
-            .FirstOrDefault(predicate: static assembly => string.Equals(a: assembly.GetName().Name, b: "Grasshopper2", comparisonType: StringComparison.Ordinal))
-            ?.GetName().Version?.ToString() ?? string.Empty,
-        RuntimeVersion: Environment.Version.ToString());
 
     private static JsonElement Json(object? value) => value switch {
         null => JsonSerializer.SerializeToElement(value: (string?)null),

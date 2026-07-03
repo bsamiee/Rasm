@@ -11,26 +11,22 @@ namespace Rasm.Bridge.Supervisor;
 
 internal sealed record CrashSummary(string Thread, string ExceptionType, string ReportPath);
 
+// Evidence mode rides argv (the single source of truth); the closure carries only reference roots.
 internal sealed record ClosureManifest(string[] Assemblies, Guid[] HostPlugins, HostFingerprint BuiltAgainst, string[] ScenarioAssemblies) {
-    public string EvidenceMode { get; init; } = "verify";
     public ReferenceRoot[] ReferenceRoots { get; init; } = [];
 }
+
+// Ownership: the staging result — the wire manifest plus the supervisor-side reference roots that
+// never cross into the host.
+internal sealed record StagedCargo(CargoManifest Manifest, ReferenceRoot[] ReferenceRoots);
 
 internal readonly record struct ReferenceActual(string Scenario, EvidenceName Name, JsonElement Actual, ReferenceTolerance Tolerance);
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 
-// Ownership: workstation-side evidence outside the live host session fold.
+// Ownership: workstation-side evidence outside the live host session fold. Report paths resolve
+// through the Contract ReportLayout owner.
 internal static class Evidence {
-    private const string CertificateFile = "bridge-certificate.json";
-    private const string EventsDirectory = "events";
-    private const string CapturesDirectory = "captures";
-    private const string Gh2Directory = "gh2";
-    private const string ManifestsDirectory = "manifests";
-    private const string ReferencesDirectory = "references";
-    private const string ScratchDirectory = "scratch";
-    private const string RetentionFile = "retention.jsonl";
-
     internal static Option<string> GcDump(int pid, string reportDir, TimeSpan deadline) {
         string artifact = Path.Combine(path1: reportDir, path2: string.Create(provider: CultureInfo.InvariantCulture, $"{pid}.gcdump"));
         return Exec.Run(file: "dotnet",
@@ -41,13 +37,11 @@ internal static class Evidence {
     }
 
     internal static Seq<BridgeEvent> HarvestSpool(string reportDir, string scenario) {
-        string path = Path.Combine(path1: reportDir, path2: EventsDirectory, path3: scenario + ".jsonl");
-        string legacy = Path.Combine(path1: reportDir, path2: scenario + ".jsonl");
+        string path = ReportLayout.Spool(reportDir: reportDir, scenario: scenario);
         try {
-            string source = File.Exists(path: path) ? path : legacy;
-            return !File.Exists(path: source)
+            return !File.Exists(path: path)
                 ? Seq<BridgeEvent>()
-                : toSeq(value: File.ReadLines(path: source)).Choose(selector: static line => Decode(line: line));
+                : toSeq(value: File.ReadLines(path: path)).Choose(selector: static line => Decode(line: line));
         } catch (Exception error) when (error is IOException or UnauthorizedAccessException) {
             return Seq<BridgeEvent>();
         }
@@ -56,11 +50,9 @@ internal static class Evidence {
     internal static (long Count, long LastSequence) SpoolTail(string reportDir) {
         Seq<string> files;
         try {
-            string events = Path.Combine(path1: reportDir, path2: EventsDirectory);
+            string events = Path.Combine(path1: reportDir, path2: ReportLayout.EventsDirectory);
             files = Directory.Exists(path: events)
                 ? toSeq(value: Directory.EnumerateFiles(path: events, searchPattern: "*.jsonl"))
-                : Directory.Exists(path: reportDir)
-                    ? toSeq(value: Directory.EnumerateFiles(path: reportDir, searchPattern: "*.jsonl"))
                 : Seq<string>();
         } catch (Exception error) when (error is IOException or UnauthorizedAccessException) {
             files = Seq<string>();
@@ -85,11 +77,8 @@ internal static class Evidence {
         }
     }
 
-    internal static string CertificatePath(string reportDir) =>
-        Path.Combine(path1: reportDir, path2: CertificateFile);
-
     internal static void EnsureReportFiles(string reportDir, Seq<ScenarioReceipt> receipts) {
-        string references = Path.Combine(path1: reportDir, path2: ReferencesDirectory);
+        string references = Path.Combine(path1: reportDir, path2: ReportLayout.ReferencesDirectory);
         _ = Directory.CreateDirectory(path: references);
         foreach (ScenarioReceipt receipt in receipts) {
             string scenario = SafeScenario(name: receipt.Scenario);
@@ -98,11 +87,10 @@ internal static class Evidence {
                 value: receipt.ReferenceResults ?? [],
                 jsonTypeInfo: BridgeJsonContext.Default.ReferenceEvidenceResultArray);
         }
-        WriteRetention(reportDir: reportDir, receipts: receipts);
     }
 
     internal static string WriteCertificate(string reportDir, EvidenceCertificate certificate) {
-        string path = CertificatePath(reportDir: reportDir);
+        string path = ReportLayout.Certificate(reportDir: reportDir);
         _ = Directory.CreateDirectory(path: reportDir);
         string temp = Path.Combine(path1: reportDir, path2: $".{Guid.NewGuid():N}.tmp");
         File.WriteAllText(path: temp, contents: JsonSerializer.Serialize(value: certificate, jsonTypeInfo: BridgeJsonContext.Default.EvidenceCertificate));
@@ -133,69 +121,75 @@ internal static class Evidence {
             : Option<CrashSummary>.None;
     }
 
-    internal static Fin<CargoManifest> Stage(string closureManifest, Guid sessionId, string reportDir, string refsRoot) {
+    internal static Fin<StagedCargo> Stage(string closureManifest, Guid sessionId, string reportDir, string refsRoot) {
         try {
             ClosureManifest? closure = JsonSerializer.Deserialize(
                 json: File.ReadAllText(path: closureManifest), jsonTypeInfo: SupervisorJsonContext.Default.ClosureManifest);
             if (closure is null)
-                return Fin.Fail<CargoManifest>(error: Error.New(message: $"closure manifest decoded to null: {closureManifest}"));
+                return Fin.Fail<StagedCargo>(error: Error.New(message: $"closure manifest decoded to null: {closureManifest}"));
             if (closure.Assemblies is not { Length: > 0 })
-                return Fin.Fail<CargoManifest>(error: Error.New(message: $"closure manifest contains no assemblies: {closureManifest}"));
+                return Fin.Fail<StagedCargo>(error: Error.New(message: $"closure manifest contains no assemblies: {closureManifest}"));
             string root = Path.GetDirectoryName(path: Path.GetFullPath(path: closureManifest)) ?? ".";
             Seq<string> assemblies = toSeq(value: closure.Assemblies)
                 .Map(f: path => Path.IsPathRooted(path: path) ? path : Path.Combine(path1: root, path2: path));
             Seq<string> missing = assemblies.Filter(f: path => !File.Exists(path: path));
             if (!missing.IsEmpty)
-                return Fin.Fail<CargoManifest>(error: Error.New(message: $"closure assemblies absent: {string.Join(separator: ", ", values: missing)}"));
+                return Fin.Fail<StagedCargo>(error: Error.New(message: $"closure assemblies absent: {string.Join(separator: ", ", values: missing)}"));
             string contentHash = Hash(assemblies: toSeq(value: assemblies.OrderBy(keySelector: static path => Path.GetFileName(path: path), comparer: StringComparer.Ordinal)));
             string stagePath = Path.Combine(path1: refsRoot, path2: contentHash);
             _ = Directory.CreateDirectory(path: stagePath);
             _ = assemblies.Iter(f: source => CopyFresh(source: source, stagePath: stagePath));
-            return Fin.Succ(value: new CargoManifest(
-                SessionId: sessionId, ReportDir: reportDir, ContentHash: contentHash, StagePath: stagePath,
-                HostPlugins: closure.HostPlugins ?? [], BuiltAgainst: closure.BuiltAgainst,
-                ScenarioAssemblies: closure.ScenarioAssemblies ?? []) {
-                EvidenceMode = string.IsNullOrWhiteSpace(value: closure.EvidenceMode) ? "verify" : closure.EvidenceMode,
-                ReferenceRoots = closure.ReferenceRoots ?? [],
-            });
+            return Fin.Succ(value: new StagedCargo(
+                Manifest: new CargoManifest(
+                    SessionId: sessionId, ReportDir: reportDir, ContentHash: contentHash, StagePath: stagePath,
+                    HostPlugins: closure.HostPlugins ?? [], BuiltAgainst: closure.BuiltAgainst,
+                    ScenarioAssemblies: closure.ScenarioAssemblies ?? []),
+                ReferenceRoots: closure.ReferenceRoots ?? []));
         } catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException) {
-            return Fin.Fail<CargoManifest>(error: Error.New(message: $"closure staging failed: {error.Message}"));
+            return Fin.Fail<StagedCargo>(error: Error.New(message: $"closure staging failed: {error.Message}"));
         }
     }
 
+    // The honest reference lifecycle: author-mode runs write candidate files beside the scenario
+    // owner (reference root when configured), a human review promotes candidate -> reviewed under
+    // <root>/<theme>/<method>.reference.json, and a verify run over a root with no reviewed corpus
+    // reports Unpromoted rather than a structural failure.
     internal static ReferenceEvidenceResult[] ReferenceResults(
-        string evidenceMode, ReferenceRoot[] roots, Seq<ScenarioReceipt> receipts, Seq<BridgeEvent> evidence, string reportDir) {
-        bool author = string.Equals(a: evidenceMode, b: "author", comparisonType: StringComparison.Ordinal);
+        EvidenceMode mode, ReferenceRoot[] roots, Seq<ScenarioReceipt> receipts, Seq<BridgeEvent> evidence, string reportDir) {
+        ArgumentNullException.ThrowIfNull(argument: mode);
         ReferenceActual[] actuals = [.. evidence.Choose(selector: static evt =>
-            evt is BridgeEvent.FactCase fact && fact.Key.StartsWith(value: "reference.", comparisonType: StringComparison.Ordinal)
+            evt is BridgeEvent.FactCase fact && EvidenceRole.Reference.OwnsFactKey(key: fact.Key)
                 ? ReferenceActualOf(fact: fact)
                 : Option<ReferenceActual>.None)];
         System.Collections.Generic.HashSet<string> covered = new(collection: actuals.Select(selector: static row => row.Scenario), comparer: StringComparer.Ordinal);
-        IEnumerable<ReferenceEvidenceResult> observed = author
+        bool promoted = Promoted(roots: roots);
+        IEnumerable<ReferenceEvidenceResult> observed = mode == EvidenceMode.Author
             ? actuals.GroupBy(keySelector: static row => row.Scenario, comparer: StringComparer.Ordinal)
-                .SelectMany(selector: group => CandidateResults(reportDir: reportDir, group: group))
-            : actuals.Select(selector: row => MatchReference(roots: roots, actual: row));
-        IEnumerable<ReferenceEvidenceResult> missing = author
+                .SelectMany(selector: group => CandidateResults(roots: roots, reportDir: reportDir, group: group))
+            : actuals.Select(selector: row => MatchReference(roots: roots, actual: row, promoted: promoted));
+        IEnumerable<ReferenceEvidenceResult> missing = mode == EvidenceMode.Author
             ? []
             : receipts.Filter(f: static row => row.Status == PhaseStatus.Ok)
                 .Filter(f: receipt => !covered.Contains(item: receipt.Scenario))
-                .Map(f: receipt => MissingReference(roots: roots, receipt: receipt));
+                .Map(f: receipt => MissingReference(roots: roots, receipt: receipt, promoted: promoted));
         return [.. observed.Concat(second: missing).OrderBy(keySelector: static row => row.Scenario, comparer: StringComparer.Ordinal)
             .ThenBy(keySelector: static row => row.Name.Key, comparer: StringComparer.Ordinal)];
 
-        static IEnumerable<ReferenceEvidenceResult> CandidateResults(string reportDir, IGrouping<string, ReferenceActual> group) {
-            string candidate = WriteCandidateReferences(reportDir: reportDir, scenario: group.Key, actuals: [.. group]);
+        static IEnumerable<ReferenceEvidenceResult> CandidateResults(ReferenceRoot[] roots, string reportDir, IGrouping<string, ReferenceActual> group) {
+            string candidate = WriteCandidateReferences(path: CandidatePath(roots: roots, reportDir: reportDir, scenario: group.Key), actuals: [.. group]);
             return group.Select(selector: row => new ReferenceEvidenceResult(
                 Name: row.Name, Class: EvidenceClass.CertifiedReference, Admission: ReferenceAdmission.Candidate, Matched: false,
-                ReferencePath: candidate, Detail: "reference.candidate", Tolerance: row.Tolerance) {
+                ReferencePath: candidate, Detail: "reference.candidate:review, set admission to reviewed, and rename to <method>.reference.json", Tolerance: row.Tolerance) {
                 Scenario = row.Scenario,
             });
         }
 
-        static ReferenceEvidenceResult MissingReference(ReferenceRoot[] roots, ScenarioReceipt receipt) =>
+        static ReferenceEvidenceResult MissingReference(ReferenceRoot[] roots, ScenarioReceipt receipt, bool promoted) =>
             new(Name: new EvidenceName(Key: "scenario.reference"), Class: EvidenceClass.CertifiedReference,
-                Admission: ReferenceAdmission.Missing, Matched: false, ReferencePath: ReferencePath(roots: roots, scenario: receipt.Scenario),
-                Detail: "reference.missing:no reference facts emitted", Tolerance: ExactTolerance()) {
+                Admission: promoted ? ReferenceAdmission.Missing : ReferenceAdmission.Unpromoted, Matched: false,
+                ReferencePath: ReferencePath(roots: roots, scenario: receipt.Scenario),
+                Detail: promoted ? "reference.missing:no reference facts emitted" : "reference.unpromoted:no reviewed corpus under the reference root; run --evidence author, review, promote",
+                Tolerance: ExactTolerance()) {
                 Scenario = receipt.Scenario,
             };
     }
@@ -208,7 +202,7 @@ internal static class Evidence {
         if (scenario.Length == 0) {
             return Option<ReferenceActual>.None;
         }
-        string key = fact.Key["reference.".Length..];
+        string key = EvidenceRole.Reference.FactArgument(key: fact.Key);
         JsonElement actual = fact.Value.Clone();
         ReferenceTolerance tolerance = ExactTolerance();
         if (fact.Value.ValueKind == JsonValueKind.Object) {
@@ -231,10 +225,12 @@ internal static class Evidence {
             Scenario: scenario, Name: new EvidenceName(Key: key), Actual: actual, Tolerance: tolerance));
     }
 
-    private static ReferenceEvidenceResult MatchReference(ReferenceRoot[] roots, ReferenceActual actual) {
+    private static ReferenceEvidenceResult MatchReference(ReferenceRoot[] roots, ReferenceActual actual, bool promoted) {
         string path = ReferencePath(roots: roots, scenario: actual.Scenario);
         if (!File.Exists(path: path)) {
-            return Fail(admission: ReferenceAdmission.Missing, detail: "reference.missing");
+            return promoted
+                ? Fail(admission: ReferenceAdmission.Missing, detail: "reference.missing")
+                : Fail(admission: ReferenceAdmission.Unpromoted, detail: "reference.unpromoted:no reviewed corpus under the reference root; run --evidence author, review, promote");
         }
         Fin<ReferenceEvidence[]> loaded = ReadReferences(path: path);
         if (loaded is Fin<ReferenceEvidence[]>.Fail) {
@@ -265,8 +261,7 @@ internal static class Evidence {
             Scenario = actual.Scenario,
         };
 
-    private static string WriteCandidateReferences(string reportDir, string scenario, ReferenceActual[] actuals) {
-        string path = Path.Combine(path1: reportDir, path2: ReferencesDirectory, path3: $"{SafeScenario(name: scenario)}.candidate.reference.json");
+    private static string WriteCandidateReferences(string path, ReferenceActual[] actuals) {
         ReferenceEvidence[] rows = [.. actuals.Select(selector: static actual => new ReferenceEvidence(
             Name: actual.Name, Class: EvidenceClass.CertifiedReference, Expected: actual.Actual,
             Tolerance: actual.Tolerance, Admission: ReferenceAdmission.Candidate,
@@ -293,14 +288,43 @@ internal static class Evidence {
         }
     }
 
+    // Root resolution prefers an exact theme row, then the theme-less catch-all row assay ships;
+    // the theme-keyed miss over a catch-all root was the structural fault that made verify-mode
+    // unsatisfiable regardless of promoted references.
+    private static string RootPath(ReferenceRoot[] roots, string theme) {
+        string themed = roots.FirstOrDefault(predicate: row =>
+            string.Equals(a: row.Theme, b: theme, comparisonType: StringComparison.Ordinal)).Path;
+        string catchAll = roots.FirstOrDefault(predicate: static row =>
+            row.Theme is null or { Length: 0 } && row.Path is { Length: > 0 }).Path;
+        return themed is { Length: > 0 } ? themed : catchAll is { Length: > 0 } ? catchAll : string.Empty;
+    }
+
+    private static bool Promoted(ReferenceRoot[] roots) {
+        // BOUNDARY ADAPTER: unreadable roots read as unpromoted.
+        try {
+            return roots.Select(selector: static row => row.Path).Where(predicate: static path => path is { Length: > 0 })
+                .Distinct(comparer: StringComparer.Ordinal)
+                .Any(predicate: static root => Directory.Exists(path: root)
+                    && Directory.EnumerateFiles(path: root, searchPattern: "*.reference.json", searchOption: SearchOption.AllDirectories)
+                        .Any(predicate: static file => !file.EndsWith(value: ".candidate.reference.json", comparisonType: StringComparison.Ordinal)));
+        } catch (Exception error) when (error is IOException or UnauthorizedAccessException) {
+            return false;
+        }
+    }
+
     private static string ReferencePath(ReferenceRoot[] roots, string scenario) {
         (string theme, string method) = ScenarioParts(scenario: scenario);
-        ReferenceRoot root = roots.FirstOrDefault(predicate: row =>
-            string.Equals(a: row.Theme, b: theme, comparisonType: StringComparison.Ordinal));
-        string referenceRoot = root.Path is { Length: > 0 }
-            ? root.Path
-            : Path.Combine(path1: ".", path2: "_references");
+        string root = RootPath(roots: roots, theme: theme);
+        string referenceRoot = root.Length > 0 ? root : Path.Combine(path1: ".", path2: "_references");
         return Path.Combine(path1: referenceRoot, path2: theme, path3: method + ".reference.json");
+    }
+
+    private static string CandidatePath(ReferenceRoot[] roots, string reportDir, string scenario) {
+        (string theme, string method) = ScenarioParts(scenario: scenario);
+        string root = RootPath(roots: roots, theme: theme);
+        return root.Length > 0
+            ? Path.Combine(path1: root, path2: theme, path3: method + ".candidate.reference.json")
+            : Path.Combine(path1: reportDir, path2: ReportLayout.ReferencesDirectory, path3: $"{SafeScenario(name: scenario)}.candidate.reference.json");
     }
 
     private static (string Theme, string Method) ScenarioParts(string scenario) {
@@ -361,24 +385,17 @@ internal static class Evidence {
         File.Move(sourceFileName: temp, destFileName: path, overwrite: true);
     }
 
-    private static void WriteRetention(string reportDir, Seq<ScenarioReceipt> receipts) {
-        string path = Path.Combine(path1: reportDir, path2: RetentionFile);
-        _ = Directory.CreateDirectory(path: reportDir);
-        File.WriteAllLines(path: path, contents: receipts.Map(f: static receipt =>
-            JsonSerializer.Serialize(value: new { scenario = receipt.Scenario, retention = "evidence" })));
-    }
-
     private static bool EvidenceFile(string reportDir, string path) {
         string relative = Path.GetRelativePath(relativeTo: reportDir, path: path).Replace(oldChar: Path.DirectorySeparatorChar, newChar: '/');
-        if (relative.EndsWith(value: ".tmp", comparisonType: StringComparison.Ordinal) || string.Equals(a: relative, b: CertificateFile, comparisonType: StringComparison.Ordinal)) {
+        if (relative.EndsWith(value: ".tmp", comparisonType: StringComparison.Ordinal) || string.Equals(a: relative, b: ReportLayout.CertificateFile, comparisonType: StringComparison.Ordinal)) {
             return false;
         }
         if (!relative.Contains(value: '/', comparisonType: StringComparison.Ordinal) && relative.EndsWith(value: ".gcdump", comparisonType: StringComparison.OrdinalIgnoreCase)) {
             return true;
         }
         string root = relative.Split(separator: '/', count: 2)[0];
-        return root is EventsDirectory or CapturesDirectory or Gh2Directory or ManifestsDirectory or ReferencesDirectory or ScratchDirectory
-            || string.Equals(a: relative, b: RetentionFile, comparisonType: StringComparison.Ordinal);
+        return root is ReportLayout.EventsDirectory or ReportLayout.CapturesDirectory or ReportLayout.Gh2Directory
+            or ReportLayout.ManifestsDirectory or ReportLayout.ReferencesDirectory or ReportLayout.ScratchDirectory;
     }
 
     private static ArtifactRef ArtifactRef(string reportDir, string path) {
@@ -395,22 +412,22 @@ internal static class Evidence {
     private static EvidenceRole Role(string relative) =>
         !relative.Contains(value: '/', comparisonType: StringComparison.Ordinal) && relative.EndsWith(value: ".gcdump", comparisonType: StringComparison.OrdinalIgnoreCase) ? EvidenceRole.Forensic :
         relative.Split(separator: '/', count: 2)[0] switch {
-            EventsDirectory => EvidenceRole.Spool,
-            CapturesDirectory => EvidenceRole.Capture,
-            Gh2Directory => EvidenceRole.Gh2CanvasManifest,
-            ManifestsDirectory => relative.Contains(value: "geometry", comparisonType: StringComparison.Ordinal) ? EvidenceRole.GeometryManifest
+            ReportLayout.EventsDirectory => EvidenceRole.Spool,
+            ReportLayout.CapturesDirectory => EvidenceRole.Capture,
+            ReportLayout.Gh2Directory => EvidenceRole.Gh2CanvasManifest,
+            ReportLayout.ManifestsDirectory => relative.Contains(value: "geometry", comparisonType: StringComparison.Ordinal) ? EvidenceRole.GeometryManifest
                 : relative.Contains(value: "viewport", comparisonType: StringComparison.Ordinal) ? EvidenceRole.ViewportManifest
                 : EvidenceRole.ObjectManifest,
-            ReferencesDirectory => EvidenceRole.Reference,
-            ScratchDirectory => EvidenceRole.Scratch,
+            ReportLayout.ReferencesDirectory => EvidenceRole.Reference,
+            ReportLayout.ScratchDirectory => EvidenceRole.Scratch,
             _ => EvidenceRole.Artifact,
         };
 
     private static ArtifactRetentionClass Retention(string relative) =>
         !relative.Contains(value: '/', comparisonType: StringComparison.Ordinal) && relative.EndsWith(value: ".gcdump", comparisonType: StringComparison.OrdinalIgnoreCase) ? ArtifactRetentionClass.Forensic :
         relative.Split(separator: '/', count: 2)[0] switch {
-            ScratchDirectory => ArtifactRetentionClass.Scratch,
-            CapturesDirectory or Gh2Directory when relative.Contains(value: "failure", comparisonType: StringComparison.Ordinal) => ArtifactRetentionClass.Forensic,
+            ReportLayout.ScratchDirectory => ArtifactRetentionClass.Scratch,
+            ReportLayout.CapturesDirectory or ReportLayout.Gh2Directory when relative.Contains(value: "failure", comparisonType: StringComparison.Ordinal) => ArtifactRetentionClass.Forensic,
             _ => ArtifactRetentionClass.Evidence,
         };
 

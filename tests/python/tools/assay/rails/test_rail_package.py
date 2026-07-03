@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from expression import Error, Ok, Result
+from expression import Error, Ok
 import msgspec
 import pytest
 
@@ -43,8 +43,10 @@ from tools.assay.rails.package import (
 if TYPE_CHECKING:
     import builtins
 
+    from expression import Result
+
     from tests.python.tools.assay.kit import AssayHarness
-    from tools.assay.core.model import Check, Completed
+    from tools.assay.core.model import Check, Completed, Report
 
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -93,19 +95,6 @@ _DEAD_PID = 99_999_999
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 # --- [FLOW_HARNESS]
-
-
-def _supervisor(assay_root: AssayHarness) -> Path:
-    """Materialize the built supervisor binary so bridge lifecycle steps ride the real client_run.
-
-    Returns:
-        The materialized binary path under the bridge build scope pivot.
-    """
-    pivot = f"{assay_root.settings.configuration.value.lower()}_test-rid"
-    binary = Path(str(ArtifactScope.build(assay_root.settings, "bridge").path)) / "bin" / "Supervisor" / pivot / "Rasm.Bridge.Supervisor"
-    binary.parent.mkdir(parents=True, exist_ok=True)
-    binary.write_bytes(b"")
-    return binary
 
 
 def _props_stdout(yak_shape: YakShape, meta: YakMeta) -> bytes:
@@ -157,18 +146,16 @@ def _flow_run_check(
     return fake
 
 
-def _install_flow(
-    assay_root: AssayHarness, yak_shape: YakShape, **flow_kwargs: object
-) -> tuple[Result[object, Fault], builtins.list[str]]:
+def _install_flow(assay_root: AssayHarness, yak_shape: YakShape) -> tuple[Result[Report, Fault], builtins.list[str]]:
     """Run publish end-to-end with the canned executor pipeline and the materialized supervisor binary.
 
     Returns:
         Publish result paired with the captured bridge lifecycle verbs.
     """
     meta = yak_shape.materialize(assay_root)
-    _supervisor(assay_root)
+    assay_root.supervisor()
     verbs: builtins.list[str] = []
-    executor = SeamExecutor(run_fn=_flow_run_check(yak_shape, meta, bridge_verbs=verbs, **flow_kwargs))  # type: ignore[arg-type]
+    executor = SeamExecutor(run_fn=_flow_run_check(yak_shape, meta, bridge_verbs=verbs))
     return publish(assay_root.settings, assay_root.scope(Claim.PACKAGE), PackageParams(slug=yak_shape.slug, version="9.9.9"), executor), verbs
 
 
@@ -439,7 +426,7 @@ def test_finish_non_ok_stage_skips_post_steps(
 def test_drive_steps_bridge_policy_acquires_bridge_lock(assay_root: AssayHarness, yak_shape: YakShape) -> None:
     """Bridge publish steps serialize on the shared bridge lease."""
     meta = yak_shape.materialize(assay_root)
-    _supervisor(assay_root)
+    assay_root.supervisor()
     executor = SeamExecutor(run_fn=_flow_run_check(yak_shape, meta))
     staged = fold(Claim.PACKAGE, "publish", (receipt(("yak", "build"), 0, status=RailStatus.OK),))
     steps = _pkg_mod._STEP_POLICY["publish", True]
@@ -557,34 +544,30 @@ def test_stage_build_outputs_fault_cleans_staged_tree(assay_root: AssayHarness, 
 # --- [COMMIT_SENTINEL]
 
 
-def test_recover_absent_marker_is_noop(assay_root: AssayHarness, yak_shape: YakShape) -> None:
-    """_recover with no sentinel on disk is a no-op reporting direction 'absent'."""
+@pytest.mark.parametrize("direction, expected", [("absent", "absent"), ("corrupt", "clear"), ("forward", "forward"), ("back", "back")])
+def test_recover_direction_matrix(direction: str, expected: str, assay_root: AssayHarness, yak_shape: YakShape) -> None:
+    """_recover reports 'absent' with no sentinel, clears corrupt markers, and heals dead-pid markers forward or back."""
     meta = yak_shape.materialize(assay_root)
-    assert assert_ok(_pkg_mod._recover(meta, yak_shape.slug)) == "absent"
-
-
-def test_recover_dead_pid_marker_heals_forward(assay_root: AssayHarness, yak_shape: YakShape) -> None:
-    """Dead-pid marker with package_dir present rolls forward."""
-    meta = yak_shape.materialize(assay_root)
-    meta.package_dir.mkdir(parents=True, exist_ok=True)
-    (meta.package_dir / "dist.yak").write_bytes(b"committed")
-    previous = _seed_previous(meta)
-    marker = _seed_marker(meta, _DEAD_PID, previous)
-    assert assert_ok(_pkg_mod._recover(meta, yak_shape.slug)) == "forward"
-    assert not previous.exists()
-    assert not marker.exists()
-    assert (meta.package_dir / "dist.yak").read_bytes() == b"committed"
-
-
-def test_recover_dead_pid_marker_heals_back(assay_root: AssayHarness, yak_shape: YakShape) -> None:
-    """Dead-pid marker with package_dir missing rolls back."""
-    meta = yak_shape.materialize(assay_root)
-    previous = _seed_previous(meta)
-    marker = _seed_marker(meta, _DEAD_PID, previous)
-    assert assert_ok(_pkg_mod._recover(meta, yak_shape.slug)) == "back"
-    assert (meta.package_dir / "dist.yak").read_bytes() == b"old"
-    assert not previous.exists()
-    assert not marker.exists()
+    previous = _seed_previous(meta) if direction in {"forward", "back"} else None
+    marker: Path | None = None
+    match direction:
+        case "corrupt":
+            marker = _marker_path(meta)
+            marker.parent.mkdir(parents=True, exist_ok=True)
+            marker.write_bytes(b"{not json")
+        case "forward" | "back":
+            assert previous is not None
+            if direction == "forward":
+                meta.package_dir.mkdir(parents=True, exist_ok=True)
+                (meta.package_dir / "dist.yak").write_bytes(b"committed")
+            marker = _seed_marker(meta, _DEAD_PID, previous)
+        case _:
+            pass
+    assert assert_ok(_pkg_mod._recover(meta, yak_shape.slug)) == expected
+    assert marker is None or not marker.exists()
+    assert previous is None or not previous.exists()
+    if direction in {"forward", "back"}:
+        assert (meta.package_dir / "dist.yak").read_bytes() == (b"committed" if direction == "forward" else b"old")
 
 
 def test_recover_live_pid_marker_is_busy(assay_root: AssayHarness, yak_shape: YakShape) -> None:
@@ -632,7 +615,7 @@ def test_stage_heals_dead_pid_marker_under_lease(assay_root: AssayHarness, yak_s
     meta = yak_shape.materialize(assay_root)
     previous = _seed_previous(meta)
     marker = _seed_marker(meta, _DEAD_PID, previous)
-    _supervisor(assay_root)
+    assay_root.supervisor()
     executor = SeamExecutor(run_fn=_flow_run_check(yak_shape, meta))
     report = assert_ok(publish(assay_root.settings, assay_root.scope(Claim.PACKAGE), PackageParams(slug=yak_shape.slug, version="1.0.0"), executor))
     assert report.status is RailStatus.OK

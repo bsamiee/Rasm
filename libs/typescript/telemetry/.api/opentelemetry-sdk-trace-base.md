@@ -68,7 +68,7 @@ The pipeline is TWO parameterized interfaces, not a fixed set of pairs. `SpanPro
 |  [05]   | `BufferConfig` / `BatchSpanProcessorBrowserConfig` | interface    | batch tuning; browser adds `disableAutoFlushOnDocumentHide`      |
 |  [06]   | `SpanExporter`                        | interface                 | `export(spans, cb)`/`shutdown`/`forceFlush?` — format + transport |
 |  [07]   | `ConsoleSpanExporter`                 | class                     | stdout diagnostics                                               |
-|  [08]   | `InMemorySpanExporter`                | class                     | `getFinishedSpans()`/`reset()` — the `proof` spec-assert lane     |
+|  [08]   | `InMemorySpanExporter`                | class                     | `getFinishedSpans()`/`reset()` — the kit-driven spec-assert lane     |
 
 ```ts contract
 interface SpanProcessor {
@@ -131,6 +131,6 @@ interface IdGenerator { generateTraceId(): string; generateSpanId(): string }
 ## [06]-[RAIL_LAW]
 
 - Owns: the runtime-neutral trace-export pipeline — `SpanProcessor`/`SpanExporter` contracts + the `Simple`/`Batch`/`Noop` and `Console`/`InMemory` rows, the `Sampler` algebra + `ParentBased` combinator, the `IdGenerator`, `TracerConfig`/`SpanLimits`, and the `ReadableSpan`/`Span` recorded shape. `BasicTracerProvider` is the base `sdk-trace-node` extends.
-- Accept: `BatchSpanProcessor` wrapping an `OTLPTraceExporter` for production; `ParentBasedSampler({ root: TraceIdRatioBasedSampler(ratio) })` for head sampling; `InMemorySpanExporter` for `proof` specs; the whole surface reached through `@effect/opentelemetry` `NodeSdk`/`WebSdk` `Configuration`, never constructed inline in instrumentation.
+- Accept: `BatchSpanProcessor` wrapping an `OTLPTraceExporter` for production; `ParentBasedSampler({ root: TraceIdRatioBasedSampler(ratio) })` for head sampling; `InMemorySpanExporter` for kit-driven specs; the whole surface reached through `@effect/opentelemetry` `NodeSdk`/`WebSdk` `Configuration`, never constructed inline in instrumentation.
 - Reject: `SimpleSpanProcessor` in production (per-span sync export — diagnostics only); setting `TracerConfig.resource` under the effect facade (the `Resource` layer owns it); importing this package outside `scope:telemetry`; a hand-rolled span exporter where the `SpanExporter` interface + an OTLP/vendor row suffices; treating this leg as permanent — it collapses at `[R3]`.
 - Boundary: `BasicTracerProvider` is directly instantiated only in a pure-SDK path; under effect the node lane's `NodeTracerProvider` (sdk-trace-node) is the wrapped provider. `BatchSpanProcessorBase<T>`, `ForceFlushState`, and the `[inspectCustom]` node-console hook are internal (not barrel exports) — consume the concrete `BatchSpanProcessor`.

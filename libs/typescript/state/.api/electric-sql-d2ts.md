@@ -144,7 +144,7 @@ declare function electricStreamToD2Input<T extends Row>(opts: {
 
 [STACK: two altitudes — `d2mini.md` core, d2ts durable] — `d2mini` is this same operator algebra minus time (browser in-memory, `sendData(collection)`, no `Version`); d2ts is the durable/versioned altitude (`sendData(version, collection)`, `Version`/`Antichain`, `Index.reconstructAt`, `./sqlite` trace). `fold/algebra` binds one algebra; the runtime picks d2mini (browser, in-memory) or d2ts (node, durable through `store/project`) — never a second fold implementation.
 
-[STACK: REPLAY_LAW + `causal/order` frontiers] — `Version.meet` is the stability-frontier GLB `causal/order` computes; `Antichain` is the honest-uncertainty frontier over `kernel/clock` windows; `iterate` runs the happened-before transitive fold; `Index.compact(frontier)` is the retention-frontier handoff to `store/journal`. A fold rebuilt from any event prefix replays through the same graph to the live version — the convergence the `crdt/converge` laws assert, proven in `proof` via `@effect/vitest` `it.prop` (`.api/effect-vitest.md`) over `proof/corpus` fixtures.
+[STACK: REPLAY_LAW + `causal/order` frontiers] — `Version.meet` is the stability-frontier GLB `causal/order` computes; `Antichain` is the honest-uncertainty frontier over `kernel/clock` windows; `iterate` runs the happened-before transitive fold; `Index.compact(frontier)` is the retention-frontier handoff to `store/journal`. A fold rebuilt from any event prefix replays through the same graph to the live version — the convergence the `crdt/converge` laws assert, proven in kit-driven specs via `@effect/vitest` `it.prop` (`.api/effect-vitest.md`) over fixtures pinned in the `tests/contracts` corpus.
 
 ## [05]-[RAIL_LAW]
 

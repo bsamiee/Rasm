@@ -15,7 +15,7 @@ from tools.assay.rails.docs import check, DocsParams, FaultedPromotion
 
 if TYPE_CHECKING:
     from tests.python.tools.assay.kit import AssayHarness
-    from tools.assay.core.model import Check
+    from tools.assay.core.model import Check, Report
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -31,8 +31,11 @@ _FAULT_B = Fault(("mmdc",), RailStatus.UNSUPPORTED, "second fault")
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _check(assay_root: AssayHarness, receipts: tuple[Result[Completed, Fault], ...], *, strict: bool = False, paths: tuple[str, ...] = ("README.md",)) -> Result[object, Fault]:
-    return check(assay_root.settings, assay_root.scope(Claim.DOCS), DocsParams(paths=paths, strict=strict), SeamExecutor(fan_fn=lambda *_a, **_k: receipts))
+def _check(
+    assay_root: AssayHarness, receipts: tuple[Result[Completed, Fault], ...], *, strict: bool = False, paths: tuple[str, ...] = ("README.md",)
+) -> Result[Report, Fault]:
+    executor = SeamExecutor(fan_fn=lambda *_a, **_k: receipts)
+    return check(assay_root.settings, assay_root.scope(Claim.DOCS), DocsParams(paths=paths, strict=strict), executor)
 
 
 # --- [PROMOTION_MATRIX]
@@ -55,7 +58,7 @@ def test_check_promotion_and_fault_matrix(
     assay_root: AssayHarness,
     receipts: tuple[Result[Completed, Fault], ...],
     strict: bool,  # noqa: FBT001  # parametrized bool flag
-    expect: object,
+    expect: RailStatus | str,
 ) -> None:
     """Check folds receipts onto one rail: strict promotes only EMPTY/SKIP, faults short-circuit first-wins."""
     match expect:
@@ -72,6 +75,8 @@ def test_check_promotion_and_fault_matrix(
             assert report.status is status
             assert report.claim is Claim.DOCS
             assert report.verb == "check"
+        case _:
+            pytest.fail(f"unmapped expectation row: {expect!r}")
 
 
 # --- [ROUTING_AND_SINKS]

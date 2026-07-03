@@ -4,8 +4,6 @@
     "type": "module",
     "exports": {
         "./kernel": "./kernel/src/index.ts",
-        "./kernel/law": "./kernel/src/law.ts",
-        "./proof": "./proof/src/index.ts",
         "./state": "./state/src/index.ts",
         "./host": "./host/src/index.ts",
         "./host/server": "./host/src/server.ts",

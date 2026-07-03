@@ -1,6 +1,6 @@
 # [TYPESCRIPT_BRANCH_ARCHITECTURE]
 
-The branch domain map of `libs/typescript` — fourteen folders in five dependency waves, acyclic with `kernel` at the base and the publication folders at the leaves. Wire decode is a boundary concern inside `wire`, never the branch center; deployment (`iac`) and dev infrastructure (`proof`) are plane-distinct citizens outside the runtime graph. The permitted-edge ledger, tag law, and port registry are `composition-system.md`; the data spine is `dataflow-system.md`.
+The branch domain map of `libs/typescript` — thirteen folders in five dependency waves, acyclic with `kernel` at the base and the publication folders at the leaves. Wire decode is a boundary concern inside `wire`, never the branch center; deployment (`iac`) is the plane-distinct citizen outside the runtime graph, and dev infrastructure lives under `tests/` (`tests/contracts/`, `tests/typescript/`), never in the branch. The permitted-edge ledger, tag law, and port registry are `composition-system.md`; the data spine is `dataflow-system.md`.
 
 Each node is a folder root; the `.planning/` scaffold is authoring substrate, never part of the map.
 
@@ -9,7 +9,6 @@ Each node is a folder root; the `.planning/` scaffold is authoring substrate, ne
 ```text codemap
 libs/typescript/
 ├── kernel/     # W0 runtime — cross-language identity, clock, schema-brand, quantity, fault values
-├── proof/      # W0 dev     — frozen corpora, law combinators, arbitraries, harnesses, gauges
 ├── state/      # W1 runtime — host-free fold algebra: folds, CRDT merge, causality, evidence, live queries
 ├── host/       # W1 runtime — process runtime: exec rows, config chain, flags, net policy, lifecycle
 ├── security/   # W1 runtime — authn, authz, sessions, secrets, signing over stateless primitives
@@ -51,9 +50,9 @@ TS consumes the GLB tessellation rail through the C#-owned wire; no TS↔Python 
 
 ## [03]-[DEPENDENCY_DIRECTION]
 
-Dependency flows strictly downward through five waves — W0 `kernel`/`proof`, W1 `state`/`host`/`security`/`telemetry`, W2 `wire`/`work`, W3 `store`/`ai`, W4 `edge`/`browser`/`ui`/`iac` — with the full permitted-edge table, its forced resolutions, and the port registry owned by `composition-system.md`. The direction facts the map fixes:
+Dependency flows strictly downward through five waves — W0 `kernel`, W1 `state`/`host`/`security`/`telemetry`, W2 `wire`/`work`, W3 `store`/`ai`, W4 `edge`/`browser`/`ui`/`iac` — with the full permitted-edge table, its forced resolutions, and the port registry owned by `composition-system.md`. The direction facts the map fixes:
 
-- `kernel` imports nothing and is imported by every runtime folder; `proof` imports anything and is imported by nothing.
+- `kernel` imports nothing and is imported by every runtime folder; the dev plane (`tests/`) imports anything and is imported by nothing.
 - Only `browser` and `ui` carry a `wire` edge — `ui` through the `#vocab` subpath only; every other runtime folder excludes it.
 - `work` and `security` never import `store`: they compose port Tags the app root satisfies with `store` Layers. `store → security` is a direct edge, not a port: `store/journal` imports the `security/sign` AES-GCM envelope as its crypto-shredding `Shredder`.
 - `iac` is depended on by nothing at runtime; its ledger edges point downward (`store` capability vocabulary, `telemetry` board functions), and the one value crossing back into the runtime graph is typed StackOutputs → `ShardingConfig` (the `work` seam).

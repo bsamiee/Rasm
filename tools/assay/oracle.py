@@ -57,6 +57,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from tree_sitter import Node
+    from upath import UPath
 
     from tools.assay.core.model import InprocThunk
 
@@ -171,6 +172,7 @@ _DECL_NODES: frozenset[str] = frozenset((
     "public_field_definition",
     "variable_declarator",
 ))
+_EXPORT_SPEC: frozenset[str] = frozenset(("export_specifier",))
 _TYPE_CAP: str = "type"  # roster capture-name vocabulary: every INPROC/tree-sitter declaration row caps under this name
 _INSPECT_KINDS: tuple[tuple[str, Callable[[object], bool]], ...] = (
     (_TYPE_CAP, inspect.isclass),
@@ -280,6 +282,14 @@ def rank_namespace(surface: Surface, symbol: str) -> str:
 # --- [TFM_POLICY]
 
 
+def _props_digest(path: Path | UPath) -> str | None:
+    # Content digest keying the props lru_caches; None marks an unreadable file for the caller's fallback.
+    try:
+        return hashlib.sha256(path.read_bytes()).hexdigest()[:16]
+    except OSError:
+        return None
+
+
 @lru_cache(maxsize=8)
 def _tfm_floor_at(path_str: str, digest: str) -> tuple[int, int]:
     _ = digest  # lru_cache key slot: content hash, immune to mtime-preserving rewrites
@@ -297,11 +307,8 @@ def consumer_tfm_floor(settings: AssaySettings) -> tuple[int, int]:
         (major, minor) of the workspace ``<TargetFramework>``, or the net10.0 fallback when absent.
     """
     path = settings.root / _BUILD_PROPS
-    try:
-        raw = path.read_bytes()
-    except OSError:
-        return _TFM_FLOOR_FALLBACK
-    return _tfm_floor_at(str(path), hashlib.sha256(raw).hexdigest()[:16])
+    digest = _props_digest(path)
+    return _TFM_FLOOR_FALLBACK if digest is None else _tfm_floor_at(str(path), digest)
 
 
 def tfm_rank(tfm: str, floor: tuple[int, int]) -> tuple[int, int, int] | None:
@@ -366,11 +373,7 @@ def _asm_digest(path_str: str, size: int, mtime_ns: int) -> str:  # noqa: ARG001
 
 
 def _fingerprint(paths: tuple[Path, ...]) -> str:
-    """Fingerprint a source's input files by path, size, mtime, and content digest.
-
-    Returns:
-        16-hex content fingerprint keying the typed surface cache.
-    """
+    # 16-hex content fingerprint (path, size, mtime, digest) keying the typed surface cache.
     seed = "|".join(
         f"{p}:{st.st_size}:{st.st_mtime_ns}:{_asm_digest(str(p), st.st_size, st.st_mtime_ns)}" for p in paths if p.is_file() for st in (p.stat(),)
     )
@@ -430,11 +433,8 @@ def packages(settings: AssaySettings) -> dict[str, str]:
         Package name to pinned version, empty when the props file is absent.
     """
     path = settings.root / _PACKAGES_PROPS
-    try:
-        raw = path.read_bytes()
-    except OSError:
-        return {}
-    return _packages_at(str(path), hashlib.sha256(raw).hexdigest()[:16])
+    digest = _props_digest(path)
+    return {} if digest is None else _packages_at(str(path), digest)
 
 
 def resolve_key(package_map: dict[str, str], key: str) -> Result[str, ApiResolution]:
@@ -537,12 +537,14 @@ def nuget_source(
 
 
 def _pydist_names() -> tuple[str, ...]:
-    """List installed Python distribution names.
-
-    Returns:
-        Sorted unique distribution names.
-    """
     return tuple(sorted({dist.metadata["Name"] for dist in importlib.metadata.distributions() if dist.metadata["Name"]}))
+
+
+def _dist_root(dist: importlib.metadata.Distribution) -> Path:
+    try:
+        return Path(str(dist.locate_file("")))
+    except OSError:
+        return Path()
 
 
 def pydist_inventory_sources() -> tuple[ApiSource, ...]:
@@ -551,34 +553,24 @@ def pydist_inventory_sources() -> tuple[ApiSource, ...]:
     Returns:
         Sorted per-distribution ApiSource rows without per-file asset expansion.
     """
-    rows = []
-    for dist in importlib.metadata.distributions():
-        name = dist.metadata["Name"] or ""
-        if not name:
-            continue
-        try:
-            root = Path(str(dist.locate_file("")))
-        except OSError:
-            root = Path()
-        rows.append(
-            ApiSource(
-                source_kind=SourceKind.PYDIST,
-                source_id=name,
-                version=dist.version or "",
-                package=name,
-                package_root=str(root) if root.is_dir() else "",
-                status=RailStatus.OK,
-            )
+    rows = (
+        ApiSource(
+            source_kind=SourceKind.PYDIST,
+            source_id=name,
+            version=dist.version or "",
+            package=name,
+            package_root=str(root) if root.is_dir() else "",
+            status=RailStatus.OK,
         )
+        for dist in importlib.metadata.distributions()
+        for name in (dist.metadata["Name"] or "",)
+        if name
+        for root in (_dist_root(dist),)
+    )
     return tuple(sorted(rows, key=lambda row: row.source_id.casefold()))
 
 
 def _pydist_source(key: str) -> Source | None:
-    """Resolve an installed Python distribution into a source.
-
-    Returns:
-        Source over the distribution's files, or ``None`` when the key is not installed.
-    """
     # No assemblies: PYDIST roster and decompile use the INPROC inspect thunk, not ilspycmd.
     try:
         dist = importlib.metadata.distribution(key)  # codec boundary: an uninstalled key raises PackageNotFoundError -> None (fall through)
@@ -600,11 +592,7 @@ def _pydist_source(key: str) -> Source | None:
 
 
 def _pydist_modules(key: str) -> tuple[str, ...]:
-    """Recover a distribution's import roots.
-
-    Returns:
-        Declared top-level modules, mapped import roots, or the dashes-to-underscores fallback.
-    """
+    # Declared top_level.txt roots, else packages_distributions() mapped roots, else dashes-to-underscores.
     # top_level.txt is absent in many modern wheels; packages_distributions() recovers real import roots.
     try:
         text = importlib.metadata.distribution(key).read_text("top_level.txt")
@@ -623,19 +611,10 @@ def tsdecl_names(settings: AssaySettings) -> tuple[str, ...]:
         Sorted package names, empty when node_modules is absent.
     """
     base = Path(str(settings.root)) / _NODE_MODULES
-    match base.is_dir():
-        case False:
-            return ()
-        case True:
-            top = tuple(d.name for d in base.iterdir() if d.is_dir() and not d.name.startswith((".", "@")))
-            scoped = tuple(
-                f"{scope.name}/{pkg.name}"
-                for scope in base.iterdir()
-                if scope.is_dir() and scope.name.startswith("@")
-                for pkg in scope.iterdir()
-                if pkg.is_dir()
-            )
-            return tuple(sorted((*top, *scoped)))
+    dirs = tuple(d for d in base.iterdir() if d.is_dir()) if base.is_dir() else ()
+    top = (d.name for d in dirs if not d.name.startswith((".", "@")))
+    scoped = (f"{scope.name}/{pkg.name}" for scope in dirs if scope.name.startswith("@") for pkg in scope.iterdir() if pkg.is_dir())
+    return tuple(sorted((*top, *scoped)))
 
 
 def _json_fields(path: Path, *fields: str) -> dict[str, str]:
@@ -654,18 +633,6 @@ def _json_fields(path: Path, *fields: str) -> dict[str, str]:
     return {field: _field(field) for field in fields}
 
 
-def _tsdecl_entry(pkg_dir: Path, manifest: dict[str, str]) -> Path | None:
-    # package.json `types`/`typings` field wins over the `index.d.ts` convention.
-    declared = manifest["types"] or manifest["typings"]
-    target = (pkg_dir / declared) if declared else (pkg_dir / _DTS_ENTRY)
-    return target if target.is_file() else None
-
-
-def _pnpm_version(store: Path, mangled: str) -> str:
-    # pnpm store directory name encodes the version as `{mangled}@version(+peer)(_hash)`; strip the peer/hash suffixes.
-    return next((d.name.removeprefix(f"{mangled}@").split("+", 1)[0].split("_", 1)[0] for d in sorted(store.glob(f"{mangled}@*"))), "")
-
-
 def tsdecl_source(settings: AssaySettings, key: str) -> Source | None:
     """Resolve a node_modules package into a declaration source.
 
@@ -681,19 +648,18 @@ def tsdecl_source(settings: AssaySettings, key: str) -> Source | None:
             return None
         case pkg_dir:
             manifest = _json_fields(pkg_dir / "package.json", "types", "typings", "version")
-            entry = _tsdecl_entry(pkg_dir, manifest)
+            # package.json `types`/`typings` wins over the `index.d.ts` convention.
+            declared = pkg_dir / (manifest["types"] or manifest["typings"] or _DTS_ENTRY)
+            entry = declared if declared.is_file() else None
             siblings = tuple(sorted((entry.parent if entry is not None else pkg_dir).glob(_DTS_GLOB)))
             assets = tuple(dict.fromkeys((*((entry,) if entry is not None else ()), *siblings)))
-            version = _pnpm_version(store, mangled) or manifest["version"]
-            return Source(key=key, kind=SourceKind.TSDECL, version=version, package_root=pkg_dir, asset_paths=assets)
+            # pnpm store dir encodes `{mangled}@version(+peer)(_hash)`; strip the peer/hash suffixes.
+            pnpm = next((d.name.removeprefix(f"{mangled}@").split("+", 1)[0].split("_", 1)[0] for d in sorted(store.glob(f"{mangled}@*"))), "")
+            return Source(key=key, kind=SourceKind.TSDECL, version=pnpm or manifest["version"], package_root=pkg_dir, asset_paths=assets)
 
 
 def _resolve_targets(source: Source, kind: PathKind) -> tuple[Path, ...]:
-    """Project a source's concrete asset paths for one kind token.
-
-    Returns:
-        Deduplicated paths for the kind; the caller validates the kind token against ``PATH_KINDS``.
-    """
+    # Deduplicated paths per kind token; the caller validates the token against PATH_KINDS.
     catalog: dict[PathKind, tuple[Path, ...]] = {
         "all": (*source.assemblies, *source.xmls, *((source.nuspec,) if source.nuspec is not None else ()), *source.asset_paths),
         "assembly": source.assemblies,
@@ -836,22 +802,13 @@ _ROSTER_PARSERS: tuple[tuple[re.Pattern[str], Callable[[str], tuple[str, ...]]],
 
 
 def _roster_parser(version: str) -> Callable[[str], tuple[str, ...]]:
-    """Select the roster parser gated by the probed ilspycmd version.
-
-    Returns:
-        Parser for the listing text; the catch-all cisde grammar handles every currently shipped version.
-    """
+    # Version-gated parser selection; the catch-all cisde grammar handles every currently shipped version.
     numeric = found.group(1) if (found := _ILSPY_VERSION.search(version)) else version
     return next(parser for pattern, parser in _ROSTER_PARSERS if pattern.search(numeric) is not None)
 
 
 def _run_decompile(settings: AssaySettings, executor: Executor, fqn: str, assemblies: tuple[Path, ...]) -> Result[Completed, Fault]:
-    """Decompile one type through the LIST catalog row, first successful assembly wins.
-
-    Returns:
-        First non-empty successful receipt (else the first attempt), or a fault when the LIST row is absent.
-    """
-    # Ref assemblies precede lib assemblies; first non-empty successful decompile wins.
+    # Ref assemblies precede lib assemblies; first non-empty successful decompile wins, else the first attempt.
     ordered = sorted(assemblies, key=lambda a: ("/ref/" not in a.as_posix(), a.as_posix().casefold()))
     match _api_row(Language.CSHARP, Mode.LIST):
         case None:
@@ -865,11 +822,7 @@ def _run_decompile(settings: AssaySettings, executor: Executor, fqn: str, assemb
 
 
 def _cache_path(settings: AssaySettings, source: Source, content_fingerprint: str) -> str:
-    """Build the typed surface-cache path for one source fingerprint.
-
-    Returns:
-        Store path co-located under the per-key scope dir.
-    """
+    # Store path co-located under the per-key scope dir.
     return settings.store().path(ArtifactKind.SCOPE.value, "api", safe_key(source.key), f"{content_fingerprint or 'unresolved'}.json")
 
 
@@ -947,11 +900,6 @@ def _cs_list(
 
 
 def _inproc_check(settings: AssaySettings, source: Source, mode: Mode, thunk: InprocThunk, executor: Executor) -> Result[Completed, Fault]:
-    """Run an INPROC api thunk through the executor port on its catalog row.
-
-    Returns:
-        Thunk receipt, or a fault when the language's INPROC row is absent.
-    """
     # Thunks run through the executor port to share the deadline, rate limiter, and trace span with subprocess rails.
     language = Language.PYTHON if source.kind is SourceKind.PYDIST else Language.TYPESCRIPT
     match _api_row(language, mode):
@@ -1141,7 +1089,7 @@ def _ts_captures(parser: TSParser, path: Path, symbol: str) -> tuple[Capture, ..
     parse_fault = (Capture(name="parse_error", text="tree-sitter parse error", file=path.name, line=1, parse_error=True),) if root.has_error else ()
     match symbol:
         case "":
-            return (*parse_fault, *_ts_declared(root, path, is_dts=is_dts), *_export_aliases(root, path))
+            return (*parse_fault, *_ts_declared(root, path, is_dts=is_dts), *_export_specs(root, path))
         case _:
             return (*parse_fault, *_ts_member(root, symbol, path, is_dts=is_dts))
 
@@ -1180,32 +1128,28 @@ def _ts_declared(root: Node, path: Path, *, is_dts: bool) -> tuple[Capture, ...]
     )
 
 
-def _ts_member(root: Node, symbol: str, path: Path, *, is_dts: bool) -> tuple[Capture, ...]:
-    # Owner-qualified lookups search the owner first; flat lookups anchor to exported declarations.
-    owner, _dot, target = symbol.rpartition(".")
-    owner_node = next(
+def _find_decl(scope: Node, target: str, *, is_dts: bool | None) -> Node | None:
+    # is_dts None skips the export gate: owner-scoped members inherit the owner's export.
+    return next(
         (
             n
-            for n in _walk_decls(root)
-            if owner and (name := n.child_by_field_name("name")) is not None and node_text(name) == owner and _exported(name, is_dts=is_dts)
+            for n in _walk(scope, _DECL_NODES)
+            if (name := n.child_by_field_name("name")) is not None
+            and node_text(name) == target
+            and (is_dts is None or _exported(name, is_dts=is_dts))
         ),
         None,
     )
-    node = (
-        next((n for n in _walk_decls(owner_node) if (name := n.child_by_field_name("name")) is not None and node_text(name) == target), None)
-        if owner_node is not None
-        else next(
-            (
-                n
-                for n in _walk_decls(root)
-                if (name := n.child_by_field_name("name")) is not None and node_text(name) == target and _exported(name, is_dts=is_dts)
-            ),
-            None,
-        )
-    )
+
+
+def _ts_member(root: Node, symbol: str, path: Path, *, is_dts: bool) -> tuple[Capture, ...]:
+    # Owner-qualified lookups search the owner first; flat lookups anchor to exported declarations.
+    owner, _dot, target = symbol.rpartition(".")
+    owner_node = _find_decl(root, owner, is_dts=is_dts) if owner else None
+    node = _find_decl(owner_node, target, is_dts=None) if owner_node is not None else _find_decl(root, target, is_dts=is_dts)
     match node:
         case None:
-            return _export_member(root, target, path)
+            return _export_specs(root, path, target)
         case node:
             full = node_text(node)
             sig, sig_cut = _clip(full.splitlines()[0] if full else "", _SIG_CAP)
@@ -1239,22 +1183,16 @@ def _parents(node: Node) -> tuple[Node, ...]:
             return (parent, *_parents(parent))
 
 
-def _export_aliases(root: Node, path: Path) -> tuple[Capture, ...]:
-    return tuple(
-        _span_capture(_TYPE_CAP, clipped, spec, path, truncated=cut)
-        for spec in _walk(root, "export_specifier")
-        if _export_name(spec)
-        for clipped, cut in (_clip(_export_name(spec), NAME_CAP),)
+def _export_specs(root: Node, path: Path, target: str | None = None) -> tuple[Capture, ...]:
+    # target None rosters every alias name; a target returns at most one signature capture.
+    rows = tuple(
+        _span_capture(_TYPE_CAP if target is None else "signature", clipped, spec, path, truncated=cut)
+        for spec in _walk(root, _EXPORT_SPEC)
+        for name in (_export_name(spec),)
+        if name and (target is None or name == target)
+        for clipped, cut in (_clip(name if target is None else node_text(spec), NAME_CAP if target is None else _SIG_CAP),)
     )
-
-
-def _export_member(root: Node, target: str, path: Path) -> tuple[Capture, ...]:
-    return tuple(
-        _span_capture("signature", clipped, spec, path, truncated=cut)
-        for spec in _walk(root, "export_specifier")
-        if _export_name(spec) == target
-        for clipped, cut in (_clip(node_text(spec), _SIG_CAP),)
-    )[:1]
+    return rows if target is None else rows[:1]
 
 
 def _export_name(node: Node) -> str:
@@ -1262,14 +1200,9 @@ def _export_name(node: Node) -> str:
     return node_text(names[-1]) if names else ""
 
 
-def _walk(node: Node, kind: str) -> tuple[Node, ...]:
-    own = (node,) if node.type == kind else ()
-    return (*own, *(d for child in node.children for d in _walk(child, kind)))
-
-
-def _walk_decls(node: Node) -> tuple[Node, ...]:
-    own = (node,) if node.type in _DECL_NODES else ()
-    return (*own, *(d for child in node.children for d in _walk_decls(child)))
+def _walk(node: Node, kinds: frozenset[str]) -> tuple[Node, ...]:
+    own = (node,) if node.type in kinds else ()
+    return (*own, *(d for child in node.children for d in _walk(child, kinds)))
 
 
 # --- [XML_DOC]
@@ -1308,8 +1241,8 @@ def _xml_members(path: Path) -> tuple[ET.Element[str], ...]:
 
 
 @dataclass(frozen=True, slots=True)
-class _CsOracle:
-    """Shared C# adapter body: host bundle and NuGet differ only in resolution, not in the ilspy port."""
+class _Adapter:
+    """Shared adapter body; leaves override only the arm their provenance changes."""
 
     settings: AssaySettings
     executor: Executor
@@ -1319,9 +1252,9 @@ class _CsOracle:
         """Project the source's health/inventory row.
 
         Returns:
-            ApiSource row; assetless bundles report EMPTY.
+            ApiSource row with status derived from resolved assets.
         """
-        return to_api_source(self.source, status=RailStatus.OK if self.source.assemblies else RailStatus.EMPTY)
+        return to_api_source(self.source)
 
     def resolve(self, kind: PathKind) -> tuple[Path, ...]:
         """Project the source's concrete asset paths for one kind token.
@@ -1330,6 +1263,11 @@ class _CsOracle:
             Deduplicated paths for the kind.
         """
         return _resolve_targets(self.source, kind)
+
+
+@dataclass(frozen=True, slots=True)
+class _CsOracle(_Adapter):
+    """Shared C# adapter body: host bundle and NuGet differ only in resolution, not in the ilspy port."""
 
     def surface(self, scope: ArtifactScope) -> Result[Surface, Fault]:
         """List the type roster through the QUERY row, replaying the typed fingerprint cache when valid.
@@ -1354,44 +1292,24 @@ class _CsOracle:
 class HostBundleOracle(_CsOracle):
     """Rhino host-bundle DLL+XML adapter."""
 
+    @override
+    def probe(self) -> ApiSource:
+        """Project the source's health/inventory row.
+
+        Returns:
+            ApiSource row; assetless bundles report EMPTY.
+        """
+        return to_api_source(self.source, status=RailStatus.OK if self.source.assemblies else RailStatus.EMPTY)
+
 
 @dataclass(frozen=True, slots=True)
 class NugetOracle(_CsOracle):
     """NuGet package-cache adapter; ``source.tfm`` carries the consumer-bound framework choice."""
 
-    @override
-    def probe(self) -> ApiSource:
-        """Project the inventory row with restore state derived from the package root.
-
-        Returns:
-            ApiSource row carrying the consumer-bound TFM.
-        """
-        return to_api_source(self.source)
-
 
 @dataclass(frozen=True, slots=True)
-class _InprocOracle:
+class _InprocOracle(_Adapter):
     """Shared INPROC adapter body: pydist and tsdecl differ only in their thunk."""
-
-    settings: AssaySettings
-    executor: Executor
-    source: Source
-
-    def probe(self) -> ApiSource:
-        """Project the source's health/inventory row.
-
-        Returns:
-            ApiSource row with status derived from resolved assets.
-        """
-        return to_api_source(self.source)
-
-    def resolve(self, kind: PathKind) -> tuple[Path, ...]:
-        """Project the source's concrete asset paths for one kind token.
-
-        Returns:
-            Deduplicated paths for the kind.
-        """
-        return _resolve_targets(self.source, kind)
 
     def surface(self, scope: ArtifactScope) -> Result[Surface, Fault]:
         """Roster declared types through the QUERY-mode INPROC thunk, replaying the typed cache when valid.

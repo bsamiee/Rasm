@@ -1,6 +1,9 @@
 using System.Globalization;
+using System.IO.Enumeration;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using Thinktecture;
 
@@ -56,6 +59,17 @@ public sealed partial class SessionPhase {
     public static readonly SessionPhase Status = new(key: "status");
 }
 
+// Ownership: evidence-mode admission. Verify demands reviewed references; Author emits candidates.
+// Wire projections are the frozen "verify"/"author" tokens on argv and bridge-closure.json.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+[JsonConverter(typeof(Thinktecture.Text.Json.Serialization.ThinktectureSpanParsableJsonConverterFactory<EvidenceMode, ValidationError>))]
+public sealed partial class EvidenceMode {
+    public static readonly EvidenceMode Verify = new(key: "verify");
+    public static readonly EvidenceMode Author = new(key: "author");
+}
+
 // Ownership: scenario evidence class. Smoke is admission evidence; CertifiedReference is the
 // mandatory reviewed-reference comparison that turns a run into proof.
 [SmartEnum<string>]
@@ -70,30 +84,44 @@ public sealed partial class EvidenceClass {
     public static readonly EvidenceClass CertifiedReference = new(key: "certified-reference");
 }
 
-// Ownership: evidence role is the bridge artifact index vocabulary. Consumers decide behavior from
-// these rows instead of suffix scans or source-tree placement.
+// Ownership: evidence role is the bridge artifact index AND fact-key vocabulary. FactPrefix rows
+// are frozen wire law rendered by ScenarioKit FactKey and parsed by the session fold; consumers
+// classify through OfFactKey instead of scattering prefix literals or suffix scans.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 [JsonConverter(typeof(Thinktecture.Text.Json.Serialization.ThinktectureSpanParsableJsonConverterFactory<EvidenceRole, ValidationError>))]
 public sealed partial class EvidenceRole {
-    public static readonly EvidenceRole Fact = new(key: "fact");
-    public static readonly EvidenceRole Assertion = new(key: "assertion");
-    public static readonly EvidenceRole Reference = new(key: "reference");
-    public static readonly EvidenceRole ObjectManifest = new(key: "object-manifest");
-    public static readonly EvidenceRole GeometryManifest = new(key: "geometry-manifest");
-    public static readonly EvidenceRole ViewportManifest = new(key: "viewport-manifest");
-    public static readonly EvidenceRole Gh2CanvasManifest = new(key: "gh2-canvas-manifest");
-    public static readonly EvidenceRole Capture = new(key: "capture");
-    public static readonly EvidenceRole Artifact = new(key: "artifact");
-    public static readonly EvidenceRole Scratch = new(key: "scratch");
-    public static readonly EvidenceRole Certificate = new(key: "certificate");
-    public static readonly EvidenceRole Forensic = new(key: "forensic");
-    public static readonly EvidenceRole Spool = new(key: "spool");
+    public static readonly EvidenceRole Fact = new(key: "fact", factPrefix: "");
+    public static readonly EvidenceRole Assertion = new(key: "assertion", factPrefix: "case.");
+    public static readonly EvidenceRole Reference = new(key: "reference", factPrefix: "reference.");
+    public static readonly EvidenceRole ObjectManifest = new(key: "object-manifest", factPrefix: "manifest.object.");
+    public static readonly EvidenceRole GeometryManifest = new(key: "geometry-manifest", factPrefix: "manifest.geometry.");
+    public static readonly EvidenceRole ViewportManifest = new(key: "viewport-manifest", factPrefix: "manifest.viewport.");
+    public static readonly EvidenceRole Gh2CanvasManifest = new(key: "gh2-canvas-manifest", factPrefix: "manifest.gh2.");
+    public static readonly EvidenceRole Capture = new(key: "capture", factPrefix: "");
+    public static readonly EvidenceRole Artifact = new(key: "artifact", factPrefix: "artifact.");
+    public static readonly EvidenceRole Scratch = new(key: "scratch", factPrefix: "");
+    public static readonly EvidenceRole Certificate = new(key: "certificate", factPrefix: "");
+    public static readonly EvidenceRole Forensic = new(key: "forensic", factPrefix: "");
+    public static readonly EvidenceRole Spool = new(key: "spool", factPrefix: "");
+
+    public string FactPrefix { get; }
+
+    public static EvidenceRole OfFactKey(string key) =>
+        Items.FirstOrDefault(predicate: role => role.OwnsFactKey(key: key)) ?? Fact;
+
+    public bool OwnsFactKey(string key) {
+        ArgumentNullException.ThrowIfNull(argument: key);
+        return FactPrefix.Length > 0 && key.StartsWith(value: FactPrefix, comparisonType: StringComparison.Ordinal);
+    }
+
+    public string FactArgument(string key) => OwnsFactKey(key: key) ? key[FactPrefix.Length..] : key;
 }
 
 // Ownership: reviewed-reference admission. Candidate exists only in authoring mode; verify mode
-// requires Reviewed plus a Matched result.
+// requires Reviewed plus a Matched result. Unpromoted marks a verify run whose reference root
+// carries no reviewed corpus yet — a distinct degraded state, never a structural failure.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -101,6 +129,7 @@ public sealed partial class EvidenceRole {
 public sealed partial class ReferenceAdmission {
     public static readonly ReferenceAdmission Reviewed = new(key: "reviewed");
     public static readonly ReferenceAdmission Candidate = new(key: "candidate");
+    public static readonly ReferenceAdmission Unpromoted = new(key: "unpromoted");
     public static readonly ReferenceAdmission Missing = new(key: "missing");
     public static readonly ReferenceAdmission Mismatch = new(key: "mismatch");
     public static readonly ReferenceAdmission Matched = new(key: "matched");
@@ -189,12 +218,10 @@ public abstract partial record BridgeFault {
 public readonly record struct EventStamp(Guid SessionId, long Sequence, long AtUnixMs, string? Scenario);
 
 // Ownership: one evidence type for RPC notifications, JSONL spool lines, and envelope facts.
-// Fact keys stay author-open; OnFailure records the trigger and never selects behavior.
+// Fact keys stay author-open; OnFailure records the trigger and never selects behavior. The Fact
+// factories are the single FactCase construction owner across shell, cargo, and supervisor.
 [JsonDerivedType(typeof(FactCase), "fact")]
 [JsonDerivedType(typeof(CaptureCase), "capture")]
-[JsonDerivedType(typeof(EvidenceCase), "evidence")]
-[JsonDerivedType(typeof(ArtifactCase), "artifact")]
-[JsonDerivedType(typeof(CertificateCase), "certificate")]
 [JsonDerivedType(typeof(PhaseCase), "phase")]
 [JsonDerivedType(typeof(ProgressCase), "progress")]
 [JsonDerivedType(typeof(HostExceptionCase), "host-exception")]
@@ -209,12 +236,21 @@ public abstract partial record BridgeEvent {
         public CaptureArtifact? Capture { get; init; }
         public EvidenceClass Class { get; init; } = EvidenceClass.Visual;
     }
-    public sealed record EvidenceCase(EvidenceName Name, EvidenceClass Class, EvidenceRole Role, JsonElement Value) : BridgeEvent;
-    public sealed record ArtifactCase(ArtifactRef Artifact) : BridgeEvent;
-    public sealed record CertificateCase(string Path, EvidenceCertificate Certificate) : BridgeEvent;
     public sealed record PhaseCase(SessionPhase Phase, PhaseStatus Status, double DurationMs, BridgeFault? Fault) : BridgeEvent;
     public sealed record ProgressCase(int Done, int Total) : BridgeEvent;
     public sealed record HostExceptionCase(string Report) : BridgeEvent;
+
+    public static FactCase Fact(string key, JsonElement value, EventStamp stamp = default) =>
+        new(Key: key, Value: value) { Stamp = stamp };
+
+    public static FactCase Fact(string key, string value, EventStamp stamp = default) =>
+        new(Key: key, Value: JsonSerializer.SerializeToElement(value: value, jsonTypeInfo: BridgeJsonContext.Default.String)) { Stamp = stamp };
+
+    public static FactCase Fact(string key, JsonNode payload, EventStamp stamp = default) {
+        ArgumentNullException.ThrowIfNull(argument: payload);
+        using JsonDocument value = JsonDocument.Parse(json: payload.ToJsonString());
+        return new FactCase(Key: key, Value: value.RootElement.Clone()) { Stamp = stamp };
+    }
 }
 
 // Ownership: the single ~/.rasm home for bridge endpoint, lease, and quit-journal state. Every bridge path under the
@@ -225,6 +261,40 @@ public static class RasmHome {
         Path.Combine(path1: Environment.GetFolderPath(folder: Environment.SpecialFolder.UserProfile), path2: ".rasm");
 
     public static string Resolve(string name) => Path.Combine(path1: Directory, path2: name);
+}
+
+// Ownership: the single report-dir layout vocabulary. Every bridge writer and the session fold
+// resolve report paths through these rows; the strings are frozen wire law for assay artifact reads.
+public static class ReportLayout {
+    public const string CertificateFile = "bridge-certificate.json";
+    public const string CapturesDirectory = "captures";
+    public const string EventsDirectory = "events";
+    public const string Gh2Directory = "gh2";
+    public const string ManifestsDirectory = "manifests";
+    public const string ReferencesDirectory = "references";
+    public const string ScratchDirectory = "scratch";
+
+    public static string Certificate(string reportDir) => Path.Combine(path1: reportDir, path2: CertificateFile);
+
+    public static string Spool(string reportDir, string scenario) =>
+        Path.Combine(path1: reportDir, path2: EventsDirectory, path3: scenario + ".jsonl");
+}
+
+// Ownership: partial-load type enumeration shared by shell and cargo ALC residents; loader faults
+// surface through the optional sink instead of aborting discovery.
+public static class HostReflection {
+    public static IEnumerable<Type> LoadableTypes(Assembly assembly, Action<Exception>? onLoaderFault = null) {
+        ArgumentNullException.ThrowIfNull(argument: assembly);
+        try {
+            return assembly.GetTypes();
+        } catch (ReflectionTypeLoadException partial) {
+            foreach (Exception? error in partial.LoaderExceptions) {
+                if (error is not null)
+                    onLoaderFault?.Invoke(obj: error);
+            }
+            return partial.Types.Where(predicate: static type => type is not null)!;
+        }
+    }
 }
 
 // Ownership: endpoint admission. Validation owns pipe shape, IsLiveFor owns liveness, and `rbx-`
@@ -372,11 +442,10 @@ public sealed record EvidenceCertificate(
     ObjectManifest[] ObjectManifests, GeometryManifest[] GeometryManifests,
     ViewportManifest[] ViewportManifests, Gh2CanvasManifest[] Gh2CanvasManifests,
     ScratchManifest[] ScratchManifests, PhaseReceipt[] Phases, FaultSummary? FirstFault);
+// Certificate, artifact index, and evidence counts are session-scoped envelope facts; the receipt
+// carries only per-scenario verdict, reference rows, and first failure.
 public readonly record struct ScenarioReceipt(string Scenario, PhaseStatus Status, double DurationMs, BridgeFault? Fault) {
     public PhaseStatus ScenarioStatus { get; init; } = Status;
-    public EvidenceCounts EvidenceCounts { get; init; }
-    public string CertificatePath { get; init; } = string.Empty;
-    public ArtifactRef[] ArtifactRefs { get; init; } = [];
     public ReferenceEvidenceResult[] ReferenceResults { get; init; } = [];
     public string FirstScenarioFailure { get; init; } = string.Empty;
 }
@@ -392,13 +461,11 @@ public readonly record struct QuitPrepareReceipt(int Documents, int MarkedClean,
 }
 
 // Ownership: per-session cargo carrier; SessionId and ReportDir source all in-host stamps and
-// artifacts, while content-hash reuse stays inside the shell swap.
+// artifacts, while content-hash reuse stays inside the shell swap. Evidence mode and reference
+// roots are supervisor-side concerns and never cross into the host.
 public sealed record CargoManifest(
     Guid SessionId, string ReportDir, string ContentHash, string StagePath,
-    Guid[] HostPlugins, HostFingerprint BuiltAgainst, string[] ScenarioAssemblies) {
-    public string EvidenceMode { get; init; } = "verify";
-    public ReferenceRoot[] ReferenceRoots { get; init; } = [];
-}
+    Guid[] HostPlugins, HostFingerprint BuiltAgainst, string[] ScenarioAssemblies);
 public sealed record CargoReceipt(string ContentHash, double SwapMs, ScenarioEntry[] Scenarios, CapabilityEntry[] Capabilities);
 
 // Ownership: the frozen negotiation shape. Directional nulls and capability facts keep handshake
@@ -411,8 +478,9 @@ public sealed record Handshake(
     public const string ShellContentCapability = "shell.content.sha256";
 }
 
-// Ownership: wire selection by value shape; supervisor->shell payloads grow by fields unless
-// handshake capabilities gate a new case.
+// Ownership: wire selection by value shape AND its matching semantics; supervisor->shell payloads
+// grow by fields unless handshake capabilities gate a new case. Filter is the single owner of
+// theme/name resolution: fnmatch-style `*`/`?` wildcards, ordinal case, and bare-method-name hits.
 [JsonDerivedType(typeof(AllCase), "all")]
 [JsonDerivedType(typeof(ThemesCase), "themes")]
 [JsonDerivedType(typeof(NamesCase), "names")]
@@ -422,6 +490,24 @@ public abstract partial record ScenarioSelection {
     public sealed record AllCase : ScenarioSelection;
     public sealed record ThemesCase(string[] Themes) : ScenarioSelection;
     public sealed record NamesCase(string[] Names) : ScenarioSelection;
+
+    public ScenarioEntry[] Filter(ScenarioEntry[] entries) {
+        ArgumentNullException.ThrowIfNull(argument: entries);
+        return Switch(
+            state: entries,
+            allCase: static (all, _) => all,
+            themesCase: static (all, themes) => [.. all.Where(entry => themes.Themes.Any(pattern => Matches(pattern: pattern, candidate: entry.Theme)))],
+            namesCase: static (all, names) => [.. all.Where(entry => names.Names.Any(pattern =>
+                Matches(pattern: pattern, candidate: entry.Name) || Matches(pattern: pattern, candidate: MethodOf(name: entry.Name))))]);
+    }
+
+    private static bool Matches(string pattern, string candidate) =>
+        FileSystemName.MatchesSimpleExpression(expression: pattern, name: candidate, ignoreCase: false);
+
+    private static string MethodOf(string name) {
+        int split = name.IndexOf(value: '.', comparisonType: StringComparison.Ordinal);
+        return split > 0 && split < name.Length - 1 ? name[(split + 1)..] : name;
+    }
 }
 
 // Ownership: the terminal session fold. Fields materialize fold results only; evidence carries

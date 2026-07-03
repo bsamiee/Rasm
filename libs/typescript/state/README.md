@@ -7,7 +7,7 @@
 - [01]-[ALGEBRA](.planning/fold/algebra.md): the keyed fold owner — one algebra, two altitudes (browser in-memory, store durable), generic over the op vocabulary.
 - [02]-[REPLAY](.planning/fold/replay.md): the replay law and the d2ts incremental-dataflow lane — a fold rebuilt from any prefix converges to the live fold; an array re-sort fallback is the named defect.
 - [03]-[MERGE](.planning/crdt/merge.md): the CRDT op merge semantics — one merge algebra generic over the op vocabulary; the C#-minted wire family and app-authored journal families are instances.
-- [04]-[CONVERGE](.planning/crdt/converge.md): the convergence laws — commutativity, associativity, idempotence — with fixture hooks into `proof/corpus`.
+- [04]-[CONVERGE](.planning/crdt/converge.md): the convergence laws — commutativity, associativity, idempotence — with fixture hooks into the `tests/contracts` corpus (TS readers in `tests/typescript/_testkit`).
 - [05]-[VECTOR](.planning/causal/vector.md): version vectors, commit/branch shapes, and Merkle comparison.
 - [06]-[ORDER](.planning/causal/order.md): happened-before folds over the kernel honest-uncertainty windows, the causal delivery buffer, the stability frontier (GLB meet), causal finalize, and the retention-frontier handoff to `store/journal`.
 - [07]-[RECEIPT](.planning/evidence/receipt.md): the `ReceiptEnvelope`-decoded evidence vocabulary — the typed receipt family, never erased.
@@ -26,7 +26,7 @@ The folder-local packages, catalogued at `.api/`; versions live only in the `pnp
 - `@electric-sql/d2mini` — the minimal differential core; the same incremental lane at its smallest surface for the in-memory fold paths.
 
 [MERGE_LAW]:
-- `@effect/typeclass` — the Semigroup/semilattice instance vocabulary the `crdt/merge` algebra and the `proof` law combinators share; a merge is a lawful semilattice instance, never an ad hoc function.
+- `@effect/typeclass` — the Semigroup/semilattice instance vocabulary the `crdt/merge` algebra and the `@rasm/ts-testkit` law combinators (`tests/typescript/_testkit`) share; a merge is a lawful semilattice instance, never an ad hoc function.
 
 ## [3]-[SUBSTRATE_PACKAGES]
 

@@ -14,7 +14,7 @@ namespace Rasm.Bridge.Supervisor;
 [Union]
 internal abstract partial record SupervisorVerb {
     private SupervisorVerb() { }
-    internal sealed record Verify(ScenarioSelection Selection, string ClosureManifest, string EvidenceMode) : SupervisorVerb;
+    internal sealed record Verify(ScenarioSelection Selection, string ClosureManifest, EvidenceMode EvidenceMode) : SupervisorVerb;
     internal sealed record Status : SupervisorVerb;
     // The direct supervisor does not own redeploy — Assay owns the stable operator spelling and the real
     // package cycle. The verb is admitted only to report itself UNSUPPORTED (exit 3); PackagePath is no
@@ -66,9 +66,9 @@ internal static class Verbs {
         ArgumentNullException.ThrowIfNull(argument: argv);
         return argv switch {
             ["verify", { } selection, { } manifest] => Selection(raw: selection)
-                .Map(f: SupervisorVerb (admitted) => new SupervisorVerb.Verify(Selection: admitted, ClosureManifest: manifest, EvidenceMode: "verify")),
-            ["verify", { } selection, { } manifest, { } evidenceMode] when evidenceMode is "verify" or "author" => Selection(raw: selection)
-                .Map(f: SupervisorVerb (admitted) => new SupervisorVerb.Verify(Selection: admitted, ClosureManifest: manifest, EvidenceMode: evidenceMode)),
+                .Map(f: SupervisorVerb (admitted) => new SupervisorVerb.Verify(Selection: admitted, ClosureManifest: manifest, EvidenceMode: EvidenceMode.Verify)),
+            ["verify", { } selection, { } manifest, { } evidenceToken] when EvidenceMode.TryGet(key: evidenceToken, item: out EvidenceMode? mode) => Selection(raw: selection)
+                .Map(f: SupervisorVerb (admitted) => new SupervisorVerb.Verify(Selection: admitted, ClosureManifest: manifest, EvidenceMode: mode)),
             ["status"] => Fin.Succ<SupervisorVerb>(value: new SupervisorVerb.Status()),
             ["redeploy", { } package] => Fin.Succ<SupervisorVerb>(value: new SupervisorVerb.Redeploy(PackagePath: package)),
             ["quit"] => Fin.Succ<SupervisorVerb>(value: new SupervisorVerb.Quit()),
@@ -93,7 +93,12 @@ internal static class Verbs {
     private static string Shape(Type parameter) =>
         parameter.GetCustomAttributes<JsonDerivedTypeAttribute>().Select(selector: static derived => derived.TypeDiscriminator?.ToString()).ToArray() is { Length: > 0 } discriminants
             ? $"json union: $type in [{string.Join(separator: '|', value: discriminants)}]"
-            : parameter == typeof(string) ? "string" : parameter.Name;
+            : parameter == typeof(string) ? "string" : SmartEnumShape(parameter: parameter) ?? parameter.Name;
+
+    private static string? SmartEnumShape(Type parameter) =>
+        parameter.GetProperty(name: "Items", bindingAttr: BindingFlags.Public | BindingFlags.Static)?.GetValue(obj: null) is System.Collections.IEnumerable items
+            ? $"key in [{string.Join(separator: '|', values: items.Cast<object>().Select(selector: static item => item.ToString() ?? string.Empty))}]"
+            : null;
 
     private static JsonObject ParameterNode(ParameterInfo parameter) => new() {
         ["name"] = JsonNamingPolicy.CamelCase.ConvertName(name: parameter.Name ?? string.Empty),

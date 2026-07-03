@@ -2,20 +2,20 @@
 
 The point-sampling owner — ONE `SampleKind` `[Union]` whose twelve cases span the complete distribution suite (explicit and weighted pass-through, Bridson active-list Poisson disk, farthest-point and farthest-point-optimize, Lloyd and capacity-limited Lloyd relaxation, weighted-priority scalar density, adaptive variable-density, Yuksel weighted sample elimination, Dwork variable-density surface Poisson, and the de Goes BNOT continuous power-CCVT) behind ONE `SampleKernel.Sample` dispatch over the `extract.md` `ExtractionDomain` (support / mesh / cloud / candidate). The former 22-parameter `PowerCcvt` constructor is dead: every knob band lands in a grouped policy record family (`CapacityPolicy` / `MotionPolicy` / `ArmijoPolicy` / `RegularityPolicy` composed by `PowerCcvtPolicy`) with a canonical `Default` preset, and the ONE advanced override is a `with`-mutation of that preset — the `Meshing/mesh.md` `TuftedCoverPolicy.Default` pattern applied to the widest knob surface in the corpus. Construction admits once through the case factories; the interior is total over admitted kinds.
 
-The BNOT solver (`PowerCcvtRun`) composes, never re-implements: the restricted Laguerre diagram is `Meshing/mesh.md`'s `RestrictedPowerDiagram` (sole consumer, the coupling preserved by decision); the gauge-fixed ENFORCE-CAPACITY concave Newton solves the density-weighted power-graph Laplacian through `Numerics/matrix.md`'s `SparseMatrix.SingularSolveDetailed` under `GaugePolicy.MeanZeroConstant`/`PinConstant` (the SPSD nullspace is the constant vector — `PowerCcvtGauge` selects the item-owned gauge, never a parallel solve); both convergence loops are `Schedule.recurs`-driven `RepeatWhile` over an `Atom` cell, partitioned `Converged | StoppedWithoutConvergence` as a typed terminal, never budget-exhaustion → `Fin.Fail`. Every stochastic draw is deterministic: order keys and unit intervals derive from `Domain/identity.md`'s one splitmix64 owner (`Determinism.OrderKey`/`Determinism.UnitInterval`) — the former private hash twin is dead. The hexagonal-packing reference spacing `√(2·measure/(√3·n))` is computed by ONE `Spacing` fold serving the outer stopping scale, the Lloyd fallback, and the normalized Poisson radius — the three former recomputation sites are collapsed. Blue-noise quality on meshes is witnessed by `Processing/segment.md`'s `SamplingSpectrum.Validate`; receipts (`SampleReceipt`, `SampleAlgorithmReceipt`, `DworkReceipt`, `PowerCellFragmentFacts`, `PowerCcvtReceipt`) ride the `Domain/rails.md` `[ValidityEvidence]` fold with authored cross-field refinements only. `Op` stays the explicit value key end to end.
+The BNOT solver (`PowerCcvtRun`) composes, never re-implements: the restricted Laguerre diagram is `Meshing/mesh.md`'s `RestrictedPowerDiagram` (sole consumer, the coupling preserved by decision); the gauge-fixed ENFORCE-CAPACITY concave Newton solves the density-weighted power-graph Laplacian through `Numerics/matrix.md`'s `SparseMatrix.SingularSolveDetailed` under `GaugePolicy.MeanZeroConstant`/`PinConstant` (the SPSD nullspace is the constant vector — `PowerCcvtGauge` selects the item-owned gauge, never a parallel solve); both convergence loops are `Schedule.recurs`-driven `RepeatWhile` over an `Atom` cell, partitioned `Converged | StoppedWithoutConvergence` as a typed terminal, never budget-exhaustion → `Fin.Fail`. Every stochastic draw is deterministic: order keys and unit intervals derive from `Domain/identity.md`'s one splitmix64 owner (`Deterministic.OrderKey`/`Deterministic.UnitInterval`) — the former private hash twin is dead. The hexagonal-packing reference spacing `√(2·measure/(√3·n))` is computed by ONE `Spacing` fold serving the outer stopping scale, the Lloyd fallback, and the normalized Poisson radius — the three former recomputation sites are collapsed. Blue-noise quality on meshes is witnessed by `Processing/segment.md`'s `SegmentKernel.ValidateSamplingSpectrum`; every receipt (`SampleReceipt`, `SampleAlgorithmReceipt`, `DworkReceipt`, `PowerCellFragmentFacts`, `PowerCcvtReceipt`) spells `IsValid` as ONE `Domain/rails.md` `ValidityClaim.All` fold over claim rows plus the cross-field claims only it can state — a hand-rolled `&&` chain is the deleted form. `Op` stays the explicit value key end to end.
 
 ## [01]-[INDEX]
 
-- [02]-[SAMPLING]: `SampleKind` union + factories; the algorithm/stop/status vocabularies; `SampleKernel` domain dispatch (admitted projection, support generation via `Domain/evaluation.md`, mesh candidate generation via `Meshing/mesh.md`, cloud candidates via `Spatial/cloud.md` mass); the classical candidate suite (Bridson, farthest, FPO, Lloyd, capacity, priority density, Yuksel elimination, Dwork annulus); the ONE `Spacing` fold; `SampleReceipt`/`SampleAlgorithmReceipt` evidence.
+- [02]-[SAMPLING]: `SampleKind` union + factories; the algorithm/stop/status vocabularies; `SampleKernel` domain dispatch (admitted projection, support candidates via `Domain/evaluation.md`'s `SamplePoints` extension, the page-owned `SurfaceCandidatePoints` mesh-boundary lattice, cloud candidates via `Spatial/cloud.md` mass); the classical candidate suite (Bridson, farthest, FPO, Lloyd, capacity, priority density, Yuksel elimination, Dwork annulus); the ONE `Spacing` fold; `SampleReceipt`/`SampleAlgorithmReceipt` evidence.
 - [03]-[POWER_CCVT]: the grouped `PowerCcvtPolicy` family; `PowerCcvtGauge` gauge selection over `matrix.md` `GaugePolicy`; `PowerCcvtRun` — capacity Newton (7a) + two-phase site motion (7b) + regularity break + surface lift; `PowerCellFragmentFacts`/`PowerCcvtReceipt` witnesses.
 
 ## [02]-[SAMPLING]
 
 - Owner: `SampleKind` `[Union]` — `Explicit(Seq<Point3d>)` · `PoissonDisk(PositiveMagnitude Radius, Dimension Attempts, int Seed)` · `Farthest(Dimension)` · `Optimize(Dimension, Dimension)` · `Lloyd(Dimension, Dimension)` · `Capacity(Dimension Count, Dimension Limit, Dimension Iterations, PositiveMagnitude Tolerance)` · `Weighted(Seq<(Point3d, double)>)` · `ScalarDensity(ScalarField, Dimension)` · `Adaptive(ScalarField, Dimension, PositiveMagnitude MinSpacing)` · `SampleElimination(Dimension Count, Dimension OversampleFactor, PositiveMagnitude Alpha, PositiveMagnitude Beta, PositiveMagnitude Gamma, int Seed)` · `DworkVariableDensity(ScalarField Radius, Dimension Count, PositiveMagnitude MinRadius, Dimension Attempts, int Seed)` · `PowerCcvt(Dimension Count, PowerCcvtPolicy Policy)`; the vocabularies `SampleAlgorithmKind` (11 rows), `SampleStopKind` (`Completed`/`CapacityLimited`/`AllRejected`/`CandidateExhausted`), `SampleDomainStatus` (`Projected`/`CandidateAccepted`/`CandidateRejected`), `DworkSamplingDomain` (`ContinuousMesh`/`CandidateSet`).
 - Entry: one factory per case admits raw scalars through `Op.AcceptValidated<Dimension|PositiveMagnitude>` and the case's `Admit` invariants (Yuksel `OversampleFactor > 1 ∧ Beta ≤ 1`; weighted mass through `CloudKernel.MassOf`; density fields non-null); evaluation is `SampleKind.Project<TOut>(ExtractionDomain, Context, Op?)` reached through the `intent.md` rail — `TOut` discriminates `Seq<Point3d>` / `VectorCloud` (weighted cluster when mass survives) / `PointCloud` / `SampleReceipt` through `AtomProjection.Rows` typed rows.
-- Auto: `SampleKernel.Sample` discriminates by domain shape — explicit/weighted points PROJECT onto the domain (closest support hit, `ClosestMeshPoint` within `Context.Absolute`, cluster-vertex coincidence); generated kinds on a support space draw candidates through `Domain/evaluation.md`'s `Evaluation.SamplePoints` oversampled by the algorithm's `CandidateScale`; mesh domains generate surface candidates through `MeshKernel.SurfaceCandidatePoints` at the kind's `MeshCandidateDensity` (area-derived, `PoissonDisk` from `radius²`), then run the candidate suite and witness the result through `SamplingSpectrum.Validate`; cloud domains sample the cluster's own vertices with `CloudKernel.MassOf` mass carried through. The candidate suite: Bridson active-list Poisson (annulus `[r,2r]`, deterministic parent/candidate draws, maximal-coverage flag = exhausted active list); farthest-point (centroid-seeded min-distance maximization); FPO (worst-coverage swap improvement); Lloyd relaxation (site ← nearest candidate to cell mean); capacity-limited Lloyd (per-site fill ceiling + residual = unassigned fraction); weighted-priority density (exponential-clock `−log(U)/w` ordering + per-sample local radius `minSpacing/√(w/wMax)`); Yuksel weighted elimination (`(1−d/dMax)^α` heap weights, `dMin = dMax·(1−(n/N)^γ)·β`, max-weight removal with neighbor weight decrement); Dwork variable-density (spatial-hash grid at pitch `rMin/√3`, per-parent annulus band ring query, radius field re-sampled at every accepted point — one run over candidate sets, one over the live mesh surface with area-CDF barycentric seeding and tangent-frame annulus proposals re-projected by `ClosestMeshPoint`).
+- Auto: `SampleKernel.Sample` discriminates by domain shape — explicit/weighted points PROJECT onto the domain (closest support hit, `ClosestMeshPoint` within `Context.Absolute`, cluster-vertex coincidence); generated kinds on a support space draw candidates through `Domain/evaluation.md`'s geometry-extension `SamplePoints` oversampled by the algorithm's `CandidateScale`, then RUN the candidate suite over them (the retired file's silent projection-passthrough for density kinds is dead; `PoissonDisk` and `PowerCcvt` stay typed `Unsupported` off a support space); mesh domains generate surface candidates through the page-owned `SurfaceCandidatePoints` lattice at the kind's `MeshCandidateDensity` (area-derived, `PoissonDisk` from `radius²`), then run the candidate suite and witness the result through `SegmentKernel.ValidateSamplingSpectrum`; cloud domains sample the cluster's own vertices with `CloudKernel.MassOf` mass carried through. The candidate suite: Bridson active-list Poisson (annulus `[r,2r]`, deterministic parent/candidate draws, maximal-coverage flag = exhausted active list); farthest-point (centroid-seeded min-distance maximization); FPO (worst-coverage swap improvement); Lloyd relaxation (site ← nearest candidate to cell mean); capacity-limited Lloyd (per-site fill ceiling + residual = unassigned fraction); weighted-priority density (exponential-clock `−log(U)/w` ordering + per-sample local radius `minSpacing/√(w/wMax)`); Yuksel weighted elimination (`(1−d/dMax)^α` heap weights, `dMin = dMax·(1−(n/N)^γ)·β`, max-weight removal with neighbor weight decrement); Dwork variable-density (spatial-hash grid at pitch `rMin/√3`, per-parent annulus band ring query, radius field re-sampled at every accepted point — one run over candidate sets, one over the live mesh surface with area-CDF barycentric seeding and tangent-frame annulus proposals re-projected by `ClosestMeshPoint`).
 - Receipt: `SampleReceipt` — attempted/emitted/rejected, candidate count, min/mean/max pairwise spacing, density error (`|emitted−target|/target` for density-driven kinds), density accepted/rejected, iterations, `SampleStopKind`, `SampleDomainStatus`, and the nested `SampleAlgorithmReceipt` carrying per-algorithm facts (seed, target, oversample, α/β/γ, radii, eliminations, neighbor updates, coverage/capacity/transport/spectrum validation flags, and the `DworkReceipt`/`PowerCcvtReceipt`/`MeshSamplingSpectrumReceipt` children) — one algorithm-evidence stream, never parallel receipt types per algorithm.
-- Packages: `Rasm`/Domain (`Op`/`Context`/`Admit`/`Determinism.OrderKey`/`Determinism.UnitInterval`/`Evaluation.SamplePoints`/`[ValidityEvidence]`), `Rasm`/Numerics (`Dimension`/`PositiveMagnitude`/`AtomProjection`/`ProjectionRow`), `Rasm`/Spatial (`VectorCloud`/`CloudKernel.MassOf`/`ScalarField`), `Rasm`/Meshing (`MeshSpace`/`MeshKernel.SurfaceCandidatePoints`/`RestrictedPowerDiagram`), `Rasm`/Processing (`ExtractionDomain` ingress, `SamplingSpectrum.Validate`), LanguageExt.Core (`Fin`/`Seq`/`Arr`/`Option`/`Atom`/`IO`/`Schedule`), Thinktecture.Runtime.Extensions, RhinoCommon (`Point3d`/`Mesh.ClosestMeshPoint`/`AreaMassProperties`/`Plane.FitPlaneToPoints`/`BoundingBox`/`PointCloud` — boundary-admitted).
+- Packages: `Rasm`/Domain (`Op`/`Context`/`Admit`/`Deterministic.OrderKey`/`Deterministic.UnitInterval`/the `evaluation.md` geometry-extension `SamplePoints`/`ValidityClaim`), `Rasm`/Numerics (`Dimension`/`PositiveMagnitude`/`AtomProjection`/`ProjectionRow`), `Rasm`/Spatial (`VectorCloud`/`CloudKernel.MassOf`/`ScalarField`), `Rasm`/Meshing (`MeshSpace`/`MeshKernel.RestrictedPowerCells` + the `RestrictedPowerDiagram`/`PowerCell`/`PowerFacet` carriers), `Rasm`/Processing (`ExtractionDomain` ingress, `SegmentKernel.ValidateSamplingSpectrum`), LanguageExt.Core (`Fin`/`Seq`/`Arr`/`Option`/`Atom`/`IO`/`Schedule`), Thinktecture.Runtime.Extensions, RhinoCommon (`Point3d`/`Mesh.ClosestMeshPoint`/`AreaMassProperties`/`Plane.FitPlaneToPoints`/`BoundingBox`/`PointCloud` — boundary-admitted).
 - Growth: a new sampling algorithm is one `SampleKind` case + one `SampleAlgorithmKind` row + one suite arm (the union `Switch` breaks loudly); a new per-algorithm fact is one `SampleAlgorithmReceipt` field; a new candidate domain is one `ExtractionDomain` case ripening here as one dispatch arm — never a sibling sampler class.
 - Boundary: the suite kernels (Bridson conflict scan, Dwork shell walk, Yuksel weight heap, FPO swap loop) are named statement-kernel exemptions — hot spatial loops with typed-receipt egress; every draw threads `Determinism` so identical seeds replay identical distributions; hexagonal reference spacing, stopping scales, and local radii are scale-derived (`Spacing` fold over the domain measure), never absolute literals; a kind whose candidate demand the domain cannot meet terminates `CandidateExhausted` with the shortfall on the receipt — capability is never silently degraded.
 
@@ -23,7 +23,7 @@ The BNOT solver (`PowerCcvtRun`) composes, never re-implements: the restricted L
 
 - Owner: `PowerCcvtPolicy(Dimension Iterations, PositiveMagnitude Tolerance, Option<ScalarField> Density, CapacityPolicy Capacity, MotionPolicy Motion, ArmijoPolicy Search, RegularityPolicy Regularity, PowerCcvtGauge Gauge, int Seed)` with nested `CapacityPolicy(ResidualTol, NewtonFloor, MaxNewton)`, `MotionPolicy(LloydSweeps, GradientSteps, LloydPosTol, GradPosTol)`, `ArmijoPolicy(C1, Backtrack, InitialStep, MaxHalvings)` (shared verbatim by the dual-Newton ascent and the site-motion gradient ascent — one line-search policy, two consumers), `RegularityPolicy(AliasScale, JitterVariance, MagnitudeScale, RelocateFraction)`; `PowerCcvtGauge` (`ZeroMean`/`PinIndexZero`) whose `Policy(fragmentMasses)` column mints the `matrix.md` `GaugePolicy` row — the Hessian nullspace fix is the item's own behavior; `PowerCcvtStopKind` (`Converged`/`StoppedWithoutConvergence`).
 - Entry: `SampleKind.PowerCcvt(int count, Option<PowerCcvtPolicy> policy = default, Op? key = null)` — the preset is `PowerCcvtPolicy.Default`; the ONE advanced override is `PowerCcvtPolicy.Default with { … }` admitted through `policy.Admit` (backtrack < 1, C1 < 1, relocate ≤ 1, positive budgets); twenty-two loose knobs collapse to one composed value.
-- Auto: `PowerCcvtRun` executes de Goes 2012 BNOT on the mesh: fit the canonical plane (`Plane.FitPlaneToPoints`, deviation witnessed as `PlanarityDeviation`), draw `n` density-importance sites (exponential-clock reservoir over the density field, farthest-point fallback for constant density), then iterate — (7a) ENFORCE-CAPACITY: rebuild the `RestrictedPowerDiagram` at live sites/weights, assemble the density-weighted power-graph Laplacian from facet lengths (`w_ij = l_ij/(2|p_i−p_j|)`, symmetric scatter + matched diagonal + scale-derived Tikhonov), solve `L·δ = g` (`g_i = m*−m_i`, `Σg_i = 0`) through `SingularSolveDetailed` under the selected gauge, Armijo-ASCEND the monotone dual objective `Φ = Σᵢ TransportCostᵢ + Σᵢ wᵢ(m*−mᵢ)`, converging on the scale-relative capacity residual; (7b) two-phase site motion: Lloyd sweeps `qᵢ ← bᵢ` (empty Aurenhammer-dominated cells hold their seat) then Armijo-INCREASE transport-energy gradient ascent along `+2mᵢ(bᵢ−qᵢ)` — a sufficient-DECREASE test would stall the concave maximization at iteration one; the joint stop is `displacement ≤ LloydPosTol·meanSpacing ∧ ‖∇q‖ ≤ GradPosTol·meanSpacing` with `meanSpacing` from the ONE `Spacing` fold. Both loops are `Atom` + `IO.lift` + `RepeatWhile(Schedule.recurs(budget))`. Terminal: break lattice regularity ONCE (alias radius `AliasScale·meanSpacing`; Box-Muller jitter and relocation offsets deterministic in seed via `Determinism.UnitInterval`), lift sites to the surface by `ClosestMeshPoint` (a missed projection holds the in-plane site), and populate the receipt.
+- Auto: `PowerCcvtRun` executes de Goes 2012 BNOT on the mesh: fit the canonical plane (`Plane.FitPlaneToPoints`, deviation witnessed as `PlanarityDeviation`), draw `n` density-importance sites (exponential-clock reservoir over the density field, farthest-point fallback for constant density), then iterate — (7a) ENFORCE-CAPACITY: rebuild the `RestrictedPowerDiagram` at live sites/weights, assemble the density-weighted power-graph Laplacian from facet lengths (`w_ij = l_ij/(2|p_i−p_j|)`, symmetric scatter + matched diagonal + scale-derived Tikhonov), solve `L·δ = g` (`g_i = m*−m_i`, `Σg_i = 0`) through `SingularSolveDetailed` under the selected gauge, Armijo-ASCEND the monotone dual objective `Φ = Σᵢ TransportCostᵢ + Σᵢ wᵢ(m*−mᵢ)`, converging on the scale-relative capacity residual; (7b) two-phase site motion: Lloyd sweeps `qᵢ ← bᵢ` (empty Aurenhammer-dominated cells hold their seat) then Armijo-INCREASE transport-energy gradient ascent along `+2mᵢ(bᵢ−qᵢ)` — a sufficient-DECREASE test would stall the concave maximization at iteration one; the joint stop is `displacement ≤ LloydPosTol·meanSpacing ∧ ‖∇q‖ ≤ GradPosTol·meanSpacing` with `meanSpacing` from the ONE `Spacing` fold. Both loops are `Atom` + `IO.lift` + `RepeatWhile(Schedule.recurs(budget))`. Terminal: break lattice regularity ONCE (alias radius `AliasScale·meanSpacing`; Box-Muller jitter and relocation offsets deterministic in seed via `Deterministic.UnitInterval`), lift sites to the surface by `ClosestMeshPoint` (a missed projection holds the in-plane site), and populate the receipt.
 - Receipt: `PowerCellFragmentFacts` (site/fragment/facet/empty-cell counts, total/min/max mass, integration residual) + `PowerCcvtReceipt` (target mass, ∞/L1/L2/normalized capacity residuals, outer/Lloyd/gradient/Newton iteration counts, weight extrema and mean, transport energy + delta, dual objective, centroid shift, position/weight gradient norms, halvings/rebuilds/aliased/jittered/relocated counts, normalized Poisson radius, planarity deviation, gauge, stop, fragment facts, the composed `SolveReceipt` dual-solve witness, and the `MeshSamplingSpectrumReceipt` surfaced INTO the receipt — one fact stream, no parallel spectrum field); `MeanZeroGaugeApplied` cross-checks the gauge against the solve's `GaugeShift` evidence.
 - Growth: a new gauge is one `PowerCcvtGauge` row minting its `GaugePolicy`; a new motion schedule or line-search variant is one policy record field on the SAME run; a density-transport variant (Lloyd energy vs. capacity weighting) is a `MotionPolicy` column — never a second solver class.
 - Boundary: the per-iteration diagram rebuild, triplet assembly, and Armijo searches are the named statement-kernel exemption; the OUTER schedules are domain flow; `d_ij` offsets are recomputed from live dual weights inside the diagram build, never trusted from stale facets; the transport energy reads the site-anchored cell integrals directly — a parallel-axis correction would double-count; the solver never reuses the discrete Sinkhorn/capacity-Lloyd machinery (continuous OT is a different estimator) and the diagram build never re-enters this page (the `mesh.md` coupling is one-directional).
@@ -237,14 +237,13 @@ public abstract partial record SampleKind {
     internal Fin<TOut> Project<TOut>(ExtractionDomain domain, Context context, Op? key = null) {
         Op op = key.OrDefault();
         return from result in Evaluate(domain: domain, context: context, key: op)
-               from output in AtomProjection.Rows<TOut>(key: op, owner: typeof(SampleKind),
+               from output in AtomProjection.Rows<SampleReceipt, TOut>(self: result.Receipt, key: op, owner: typeof(SampleKind),
                    ProjectionRow.Of<Seq<Point3d>>(() => Fin.Succ(result.Points)),
                    ProjectionRow.Of<VectorCloud>(() => result.Mass.Match(
-                       Some: mass => VectorCloud.WeightedCluster(points: result.Points, mass: toSeq(mass.AsIterable()), context: context, key: op),
+                       Some: mass => VectorCloud.Cluster(points: result.Points, context: context, mass: Some(toSeq(mass.AsIterable())), key: op),
                        None: () => VectorCloud.Cluster(points: result.Points, context: context, key: op))),
                    ProjectionRow.Of<PointCloud>(() => VectorCloud.Cluster(points: result.Points, context: context, key: op)
-                       .Bind(cloud => cloud is VectorCloud.ClusterCase cluster ? Fin.Succ(cluster.Indexed) : Fin.Fail<PointCloud>(op.InvalidResult()))),
-                   ProjectionRow.Of<SampleReceipt>(() => Fin.Succ(result.Receipt)))
+                       .Bind(cloud => cloud is VectorCloud.ClusterCase cluster ? Fin.Succ(cluster.Indexed) : Fin.Fail<PointCloud>(op.InvalidResult()))))
                select output;
     }
     private static Fin<SampleKind> Counted(int count, int value, Func<Dimension, Dimension, SampleKind> create, Op? key) {
@@ -281,27 +280,39 @@ public sealed record PowerCcvtPolicy(
 }
 
 // --- [MODELS] ---------------------------------------------------------------------------------
-[ValidityEvidence, BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly partial record struct DworkReceipt(
+// Every receipt's IsValid is ONE ValidityClaim.All fold (Domain/rails.md); the cross-field claims are
+// the rows only this receipt can state. A hand-rolled && chain is the deleted form.
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct DworkReceipt(
     DworkSamplingDomain Domain, double RMin, Option<double> BackgroundCellSize, Option<int> BackgroundGridCells,
     int AttemptsPerActive, int GeneratedCandidates, int ActivePops, int RejectedTooClose, int RejectedDomain,
     double LocalRadiusMin, double LocalRadiusMax) : IValidityEvidence {
     public bool CandidateOnly => Domain.Equals(DworkSamplingDomain.CandidateSet);
-    private bool ValidityRefinement => LocalRadiusMax >= LocalRadiusMin;
+    public bool IsValid => ValidityClaim.All(
+        ValidityClaim.Positive(RMin),
+        ValidityClaim.Of(BackgroundCellSize.Map(static size => double.IsFinite(size) && size > 0.0).IfNone(noneValue: true)),
+        ValidityClaim.Of(BackgroundGridCells.Map(static cells => cells >= 0).IfNone(noneValue: true)),
+        ValidityClaim.CountAtLeast(AttemptsPerActive, 1), ValidityClaim.CountAtLeast(GeneratedCandidates, 0),
+        ValidityClaim.CountAtLeast(ActivePops, 0), ValidityClaim.CountAtLeast(RejectedTooClose, 0),
+        ValidityClaim.CountAtLeast(RejectedDomain, 0), ValidityClaim.Ordered(LocalRadiusMin, LocalRadiusMax));
 }
 
 // Restricted-power-cell fragment evidence the BNOT outer schedule rebuilds each iteration.
-[ValidityEvidence, BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly partial record struct PowerCellFragmentFacts(
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct PowerCellFragmentFacts(
     int SiteCount, int FragmentCount, int FacetCount, int EmptyCellCount,
     double TotalMass, double MassMin, double MassMax, double IntegrationResidual) : IValidityEvidence {
-    private bool ValidityRefinement => SiteCount > 0 && EmptyCellCount <= SiteCount && MassMax >= MassMin;
+    public bool IsValid => ValidityClaim.All(
+        ValidityClaim.CountAtLeast(SiteCount, 1), ValidityClaim.CountAtLeast(FragmentCount, 0),
+        ValidityClaim.CountAtLeast(FacetCount, 0), ValidityClaim.CountAtLeast(EmptyCellCount, 0),
+        ValidityClaim.Of(EmptyCellCount <= SiteCount), ValidityClaim.Nonnegative(TotalMass),
+        ValidityClaim.Ordered(MassMin, MassMax), ValidityClaim.Nonnegative(IntegrationResidual));
 }
 
 // BNOT witness: the capacity Newton populates the dual/weight/residual fields; the two-phase outer loop
 // populates motion/rebuild/regularity fields; the spectrum child is surfaced INTO this receipt (one stream).
-[ValidityEvidence, BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly partial record struct PowerCcvtReceipt(
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct PowerCcvtReceipt(
     int SiteCount, double TargetMass, double ActualMassMin, double ActualMassMax,
     double CapacityResidualInf, double CapacityResidualL1, double CapacityResidualL2, double CapacityResidualNormalized,
     int OuterIterations, int LloydIterations, int GradientIterations, int DualNewtonIterations,
@@ -313,15 +324,27 @@ public readonly partial record struct PowerCcvtReceipt(
     public bool MeanZeroGaugeApplied =>
         Gauge.Equals(PowerCcvtGauge.ZeroMean)
         && DualSolve.Bind(static solve => solve.Gauge).Map(static gauge => gauge.PostShiftApplied.Equals(GaugeShift.MeanZero)).IfNone(noneValue: false);
-    private bool ValidityRefinement =>
-        SiteCount > 0 && TargetMass > 0.0 && Fragments.SiteCount == SiteCount
-        && ActualMassMax >= ActualMassMin && WeightMax >= WeightMin && EmptyCellCount <= SiteCount
-        && NormalizedPoissonRadius is >= 0.0 and <= 1.0
-        && DualSolve.Map(static solve => solve.IsUsable).IfNone(noneValue: true);
+    public bool IsValid => ValidityClaim.All(
+        ValidityClaim.CountAtLeast(SiteCount, 1), ValidityClaim.Positive(TargetMass),
+        ValidityClaim.Ordered(ActualMassMin, ActualMassMax),
+        ValidityClaim.Nonnegative(CapacityResidualInf), ValidityClaim.Nonnegative(CapacityResidualL1),
+        ValidityClaim.Nonnegative(CapacityResidualL2), ValidityClaim.Nonnegative(CapacityResidualNormalized),
+        ValidityClaim.CountAtLeast(OuterIterations, 0), ValidityClaim.CountAtLeast(LloydIterations, 0),
+        ValidityClaim.CountAtLeast(GradientIterations, 0), ValidityClaim.CountAtLeast(DualNewtonIterations, 0),
+        ValidityClaim.Ordered(WeightMin, WeightMax), ValidityClaim.Finite(WeightMean),
+        ValidityClaim.Finite(TransportEnergy), ValidityClaim.Finite(TransportEnergyDelta), ValidityClaim.Finite(DualObjective),
+        ValidityClaim.Nonnegative(CentroidShift), ValidityClaim.Nonnegative(PositionGradientNorm), ValidityClaim.Nonnegative(WeightGradientNorm),
+        ValidityClaim.Of(EmptyCellCount >= 0 && EmptyCellCount <= SiteCount),
+        ValidityClaim.CountAtLeast(StepHalvingCount, 0), ValidityClaim.CountAtLeast(RebuildCount, 0),
+        ValidityClaim.CountAtLeast(AliasedSiteCount, 0), ValidityClaim.CountAtLeast(JitteredSiteCount, 0), ValidityClaim.CountAtLeast(RelocatedSiteCount, 0),
+        ValidityClaim.UnitInterval(NormalizedPoissonRadius), ValidityClaim.Nonnegative(PlanarityDeviation),
+        ValidityClaim.Of(Fragments.SiteCount == SiteCount), ValidityClaim.Evidence(Fragments),
+        ValidityClaim.Of(DualSolve.Map(static solve => solve.IsUsable).IfNone(noneValue: true)),
+        ValidityClaim.Of(Spectrum.Map(static receipt => receipt.IsValid).IfNone(noneValue: true)));
 }
 
-[ValidityEvidence, BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly partial record struct SampleAlgorithmReceipt(
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct SampleAlgorithmReceipt(
     SampleAlgorithmKind Kind, Option<int> Seed, Option<int> TargetCount, Option<int> OversampleCount, Option<int> OversampleFactor,
     Option<double> Alpha, Option<double> Beta, Option<double> Gamma, Option<double> Radius, Option<double> WeightLimitRadius,
     Option<int> Eliminated, Option<int> NeighborUpdates, bool MaximalCoverageGuaranteed, bool CapacityResidualValidated,
@@ -329,15 +352,29 @@ public readonly partial record struct SampleAlgorithmReceipt(
     Option<int> Attempts = default, Option<int> ActivePops = default, Option<int> RejectedTooClose = default, Option<int> RejectedDomain = default,
     Option<double> DensityMin = default, Option<double> DensityMax = default, Option<double> LocalRadiusMin = default, Option<double> LocalRadiusMax = default,
     Option<double> CapacityResidual = default, Option<MeshSamplingSpectrumReceipt> Spectrum = default, Option<DworkReceipt> Dwork = default,
-    Option<int> CapacityAssignedCandidates = default, Option<int> CapacityUnassignedCandidates = default, Option<PowerCcvtReceipt> PowerCcvt = default) : IValidityEvidence;
+    Option<int> CapacityAssignedCandidates = default, Option<int> CapacityUnassignedCandidates = default, Option<PowerCcvtReceipt> PowerCcvt = default) : IValidityEvidence {
+    public bool IsValid => ValidityClaim.All(
+        ValidityClaim.Of(Kind is not null),
+        ValidityClaim.Of(TargetCount.Map(static count => count >= 0).IfNone(noneValue: true)),
+        ValidityClaim.Of(Eliminated.Map(static count => count >= 0).IfNone(noneValue: true)),
+        ValidityClaim.Of(NeighborUpdates.Map(static count => count >= 0).IfNone(noneValue: true)),
+        ValidityClaim.Of(Dwork.Map(static receipt => receipt.IsValid).IfNone(noneValue: true)),
+        ValidityClaim.Of(Spectrum.Map(static receipt => receipt.IsValid).IfNone(noneValue: true)),
+        ValidityClaim.Of(PowerCcvt.Map(static receipt => receipt.IsValid).IfNone(noneValue: true)));
+}
 
-[ValidityEvidence, BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly partial record struct SampleReceipt(
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct SampleReceipt(
     int Attempted, int Emitted, int Rejected, Option<int> CandidateCount,
     Option<double> MinSpacing, Option<double> MeanSpacing, Option<double> MaxSpacing,
     Option<double> DensityError, Option<int> DensityAccepted, Option<int> DensityRejected, Option<int> Iterations,
     SampleStopKind Stop, SampleDomainStatus DomainStatus, Option<SampleAlgorithmReceipt> Algorithm) : IValidityEvidence {
-    private bool ValidityRefinement => Emitted <= Attempted + Rejected;
+    public bool IsValid => ValidityClaim.All(
+        ValidityClaim.CountAtLeast(Attempted, 0), ValidityClaim.CountAtLeast(Emitted, 0), ValidityClaim.CountAtLeast(Rejected, 0),
+        ValidityClaim.Of(Emitted <= Attempted + Rejected),
+        ValidityClaim.Of(MinSpacing.Map(double.IsFinite).IfNone(noneValue: true)),
+        ValidityClaim.Of(DensityError.Map(static error => double.IsFinite(error) && error >= 0.0).IfNone(noneValue: true)),
+        ValidityClaim.Of(Algorithm.Map(static receipt => receipt.IsValid).IfNone(noneValue: true)));
 }
 
 // --- [OPERATIONS] -----------------------------------------------------------------------------
@@ -425,10 +462,8 @@ internal static class SampleKernel {
     private static Fin<SampleResult> SampleGeneratedSupport(SampleKind kind, SupportSpace space, Context context, Op key) =>
         kind.Facts.Count.ToFin(Fail: key.Unsupported(geometryType: kind.GetType(), outputType: typeof(SampleResult))).Bind(count =>
             from domain in ExtractionDomain.Support(value: space, key: key)
-            from points in Evaluation.SamplePoints(source: space.Value, count: (int)Math.Ceiling(a: count * Math.Max(1.0, kind.Facts.CandidateScale)), context: context, key: key)
-            from sampled in kind is SampleKind.SampleEliminationCase
-                ? SampleOnCandidates(kind: kind, candidates: points.Map(static point => new SampleCandidate(Point: point, Mass: Option<double>.None)), admitsPoisson: false, domainMeasure: Option<(int Dimensions, double Measure)>.None, context: context, key: key)
-                : SampleAdmitted(points: points.Map(static point => new SampleCandidate(Point: point, Mass: Option<double>.None)), domain: domain, algorithm: kind.Facts.Algorithm, context: context, key: key)
+            from points in space.Value.SamplePoints(count: (int)Math.Ceiling(a: count * Math.Max(1.0, kind.Facts.CandidateScale)), context: context, key: key)
+            from sampled in SampleOnCandidates(kind: kind, candidates: points.Map(static point => new SampleCandidate(Point: point, Mass: Option<double>.None)), admitsPoisson: false, domainMeasure: Option<(int Dimensions, double Measure)>.None, context: context, key: key)
             select sampled);
     private static Fin<SampleResult> SampleOnMesh(SampleKind kind, MeshSpace domain, Context context, Op key) {
         if (kind is SampleKind.PowerCcvtCase power) return PowerCcvtMeshSolve(domain: domain, kind: power, context: context, key: key);
@@ -443,15 +478,43 @@ internal static class SampleKernel {
                            stop: points.Count <= 0 ? SampleStopKind.AllRejected : points.Count < dwork.Count.Value ? SampleStopKind.CandidateExhausted : SampleStopKind.Completed,
                            status: rejected > 0 ? SampleDomainStatus.CandidateRejected : SampleDomainStatus.CandidateAccepted,
                            densityError: kind.DensityError(emitted: points.Count), algorithm: selection.Algorithm))
-                   from validated in SamplingSpectrum.Validate(space: domain, result: result, key: key)
+                   from validated in SegmentKernel.ValidateSamplingSpectrum(space: domain, result: result, key: key)
                    select validated;
         using AreaMassProperties? props = AreaMassProperties.Compute(mesh: domain.Native, area: true, firstMoments: false, secondMoments: false, productMoments: false);
         return Optional(props).ToFin(key.InvalidResult()).Bind(p =>
             from density in kind.MeshCandidateDensity(area: p.Area, key: key)
-            from candidates in MeshKernel.SurfaceCandidatePoints(space: domain, density: density, key: key)
+            from candidates in SurfaceCandidatePoints(space: domain, density: density, key: key)
             from sampled in SampleOnCandidates(kind: kind, candidates: candidates.Map(static point => new SampleCandidate(Point: point, Mass: Option<double>.None)), admitsPoisson: true, domainMeasure: Some((Dimensions: 2, Measure: p.Area)), context: context, key: key)
-            from validated in SamplingSpectrum.Validate(space: domain, result: sampled, key: key)
+            from validated in SegmentKernel.ValidateSamplingSpectrum(space: domain, result: sampled, key: key)
             select validated);
+    }
+
+    // Mesh-boundary candidate lattice: per-triangle interior barycentric grid at area-proportional density.
+    // Sole consumer is this kernel; a second mesh candidate generator is the deleted parallel-rail form.
+    private static Fin<Seq<Point3d>> SurfaceCandidatePoints(MeshSpace space, double density, Op key) {
+        if (!double.IsFinite(density) || density <= 0.0) return Fin.Fail<Seq<Point3d>>(key.InvalidInput());
+        List<Point3d> samples = [];
+        using Mesh triangulated = space.Native.DuplicateMesh();
+        if (triangulated.Faces.QuadCount > 0 && !triangulated.Faces.ConvertQuadsToTriangles()) return Fin.Fail<Seq<Point3d>>(key.InvalidResult());
+        for (int f = 0; f < triangulated.Faces.Count; f++) {
+            MeshFace face = triangulated.Faces[index: f];
+            if (!face.IsTriangle) continue;
+            Point3d a = triangulated.Vertices[index: face.A]; Point3d b = triangulated.Vertices[index: face.B]; Point3d c = triangulated.Vertices[index: face.C];
+            double area = 0.5 * Vector3d.CrossProduct(a: b - a, b: c - a).Length;
+            int count = Math.Max(val1: 1, val2: (int)Math.Ceiling(a: area * density));
+            int side = Math.Max(val1: 1, val2: (int)Math.Ceiling(a: Math.Sqrt(d: count * 2.0)));
+            int emitted = 0;
+            for (int i = 0; i <= side && emitted < count; i++) {
+                for (int j = 0; j <= side - i && emitted < count; j++) {
+                    double wa = (i + 1.0) / (side + 3.0); double wb = (j + 1.0) / (side + 3.0); double wc = 1.0 - wa - wb;
+                    samples.Add(item: new Point3d(x: (wa * a.X) + (wb * b.X) + (wc * c.X), y: (wa * a.Y) + (wb * b.Y) + (wc * c.Y), z: (wa * a.Z) + (wb * b.Z) + (wc * c.Z)));
+                    emitted++;
+                }
+            }
+        }
+        return samples.Count > 0 && samples.TrueForAll(static point => point.IsValid)
+            ? Fin.Succ(toSeq(samples))
+            : Fin.Fail<Seq<Point3d>>(key.InvalidResult());
     }
 
     // de Goes BNOT: canonical plane fit + density-importance site draw feed the PowerCcvtRun two-phase solver.
@@ -459,11 +522,11 @@ internal static class SampleKernel {
         using AreaMassProperties? props = AreaMassProperties.Compute(mesh: domain.Native, area: true, firstMoments: false, secondMoments: false, productMoments: false);
         return Optional(props).Map(static p => p.Area).Filter(static area => double.IsFinite(area) && area > 0.0).ToFin(key.InvalidResult()).Bind(meshArea =>
             from density in kind.MeshCandidateDensity(area: meshArea, key: key)
-            from candidates in MeshKernel.SurfaceCandidatePoints(space: domain, density: density, key: key)
+            from candidates in SurfaceCandidatePoints(space: domain, density: density, key: key)
             from fit in CanonicalPlaneOf(points: candidates, key: key)
             let sites = DensityImportanceSites(candidates: candidates, count: Math.Min(val1: kind.Count.Value, val2: candidates.Count), density: kind.Policy.Density, context: context, seed: kind.Policy.Seed, key: key)
             from run in new PowerCcvtRun(domain: domain, count: kind.Count, policy: kind.Policy, sites: sites, totalMass: meshArea, planarityDeviation: fit.Deviation, context: context, key: key).Run()
-            from validated in SamplingSpectrum.Validate(space: domain, result: run, key: key)
+            from validated in SegmentKernel.ValidateSamplingSpectrum(space: domain, result: run, key: key)
             select SurfaceSpectrumIntoReceipt(result: validated));
     }
     private static Fin<(Plane Plane, double Deviation)> CanonicalPlaneOf(Seq<Point3d> points, Op key) =>
@@ -477,7 +540,7 @@ internal static class SampleKernel {
             Some: field => toSeq(Enumerable.Range(start: 0, count: candidates.Count)
                 .Select(i => (Index: i, Weight: field.SampleScalar(sample: candidates[index: i], context: context, key: key).Match(Succ: value => value > 0.0 && double.IsFinite(value) ? value : 0.0, Fail: static _ => 0.0)))
                 .Where(static row => row.Weight > 0.0)
-                .OrderBy(row => -Math.Log(d: Determinism.UnitInterval(point: candidates[index: row.Index], salt: 0, seed: seed)) / row.Weight)
+                .OrderBy(row => -Math.Log(d: Deterministic.UnitInterval(point: candidates[index: row.Index], salt: 0, seed: seed)) / row.Weight)
                 .Take(count: count)
                 .Select(row => candidates[index: row.Index])),
             None: () => toSeq(FarthestIndices(candidates: candidates.Map(static point => new SampleCandidate(Point: point, Mass: Option<double>.None)), count: count).Select(i => candidates[index: i])));
@@ -581,7 +644,7 @@ internal static class SampleKernel {
         private static Option<PowerCell> CellOf(RestrictedPowerDiagram diagram, int site) =>
             site >= 0 && site < diagram.Cells.Count ? Some(diagram.Cells[index: site]) : Option<PowerCell>.None;
         private Fin<RestrictedPowerDiagram> RebuildPowerCells(Seq<Point3d> currentSites, Arr<double> weights) =>
-            RestrictedPowerDiagram.Of(space: domain, sites: currentSites, weights: Some(weights), density: policy.Density, key: key);
+            MeshKernel.RestrictedPowerCells(space: domain, sites: currentSites, weights: Some(weights), density: policy.Density, key: key);
         private static double PairwiseShift(Seq<Point3d> from, Seq<Point3d> to) =>
             Enumerable.Range(start: 0, count: Math.Min(val1: from.Count, val2: to.Count)).Sum(i => from[index: i].DistanceTo(other: to[index: i]));
 
@@ -727,8 +790,8 @@ internal static class SampleKernel {
             return new Regularity(Sites: toSeq(moved), AliasedCount: aliasedCount, JitteredCount: aliasedCount, RelocatedCount: relocated);
         }
         private Vector3d JitterOffset(Point3d site, int salt, double magnitude) {
-            double u1 = Determinism.UnitInterval(point: site, salt: (salt * 4) + 1, seed: policy.Seed);
-            double u2 = Determinism.UnitInterval(point: site, salt: (salt * 4) + 2, seed: policy.Seed);
+            double u1 = Deterministic.UnitInterval(point: site, salt: (salt * 4) + 1, seed: policy.Seed);
+            double u2 = Deterministic.UnitInterval(point: site, salt: (salt * 4) + 2, seed: policy.Seed);
             double radius = magnitude * Math.Sqrt(d: Math.Max(val1: 0.0, val2: -2.0 * Math.Log(d: u1)));
             double angle = 2.0 * Math.PI * u2;
             return new Vector3d(x: radius * Math.Cos(d: angle), y: radius * Math.Sin(a: angle), z: 0.0);
@@ -829,7 +892,7 @@ internal static class SampleKernel {
         (double localMin, double localMax) = (double.PositiveInfinity, 0.0);
         using IEnumerator<int> ordered = Enumerable.Range(start: 0, count: candidates.Count)
             .Where(i => weights[i] > 0.0)
-            .OrderBy(i => -Math.Log(d: Determinism.UnitInterval(point: candidates[index: i].Point, salt: 0, seed: 0)) / weights[i])
+            .OrderBy(i => -Math.Log(d: Deterministic.UnitInterval(point: candidates[index: i].Point, salt: 0, seed: 0)) / weights[i])
             .GetEnumerator();
         while (chosen.Count < count && ordered.MoveNext()) {
             int index = ordered.Current;
@@ -860,7 +923,7 @@ internal static class SampleKernel {
                     : Fin.Succ((current.Accepted, current.Rejected + 1, current.RadiusMin, current.RadiusMax)))))
             .Bind(stats => {
                 if (stats.Accepted <= 0) return Fin.Fail<SampleSelection>(key.InvalidResult());
-                DworkCandidate[] ordered = [.. admitted.Take(count: stats.Accepted).OrderBy(item => Determinism.OrderKey(point: candidates[index: item.Index].Point, seed: seed))];
+                DworkCandidate[] ordered = [.. admitted.Take(count: stats.Accepted).OrderBy(item => Deterministic.OrderKey(point: candidates[index: item.Index].Point, seed: seed))];
                 double cellSize = Math.Max(val1: stats.RadiusMin / Math.Sqrt(d: 3.0), val2: double.Epsilon);
                 Point3d gridOrigin = ordered.Length > 0 ? new BoundingBox(points: ordered.Select(item => candidates[index: item.Index].Point)).Min : Point3d.Origin;
                 DworkCell CellOf(Point3d point) => new(X: (long)Math.Floor(d: (point.X - gridOrigin.X) / cellSize), Y: (long)Math.Floor(d: (point.Y - gridOrigin.Y) / cellSize), Z: (long)Math.Floor(d: (point.Z - gridOrigin.Z) / cellSize));
@@ -895,7 +958,7 @@ internal static class SampleKernel {
                 List<DworkCandidate> active = ordered.Length > 0 ? [ordered[0]] : [];
                 (int activePops, int tooClose, int outside) = (0, 0, 0);
                 while (active.Count > 0 && chosen.Count < count) {
-                    int activeOffset = (int)(Determinism.OrderKey(point: candidates[index: active[0].Index].Point, seed: seed + activePops) % (ulong)active.Count);
+                    int activeOffset = (int)(Deterministic.OrderKey(point: candidates[index: active[0].Index].Point, seed: seed + activePops) % (ulong)active.Count);
                     DworkCandidate parent = active[activeOffset];
                     Point3d parentPoint = candidates[index: parent.Index].Point;
                     DworkCell parentCell = CellOf(point: parentPoint);
@@ -912,7 +975,7 @@ internal static class SampleKernel {
                                     }
                     bool accepted = false;
                     for (int attempt = 0; attempt < attempts && !accepted && annulus.Count > 0; attempt++) {
-                        DworkCandidate candidate = annulus[(int)(Determinism.OrderKey(point: parentPoint, seed: seed + activePops + attempt + 1) % (ulong)annulus.Count)];
+                        DworkCandidate candidate = annulus[(int)(Deterministic.OrderKey(point: parentPoint, seed: seed + activePops + attempt + 1) % (ulong)annulus.Count)];
                         if (chosen.Exists(item => item.Index == candidate.Index) || Conflicts(candidate: candidate)) { tooClose++; continue; }
                         chosen.Add(item: candidate);
                         Record(candidate: candidate);
@@ -967,7 +1030,7 @@ internal static class SampleKernel {
                     Some: sample => {
                         Add(sample: sample);
                         while (active.Count > 0 && chosen.Count < count) {
-                            int activeOffset = (int)(Determinism.OrderKey(point: chosen[index: active[0]].Point, seed: seed + tally.ActivePops) % (ulong)active.Count);
+                            int activeOffset = (int)(Deterministic.OrderKey(point: chosen[index: active[0]].Point, seed: seed + tally.ActivePops) % (ulong)active.Count);
                             int parentIndex = active[index: activeOffset];
                             bool accepted = false;
                             for (int attempt = 0; attempt < attempts && !accepted; attempt++) {
@@ -1001,11 +1064,11 @@ internal static class SampleKernel {
                 ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidResult());
         }
         private Option<Point3d> SurfaceSample(int salt) {
-            double target = Determinism.UnitInterval(point: Point3d.Origin, salt: salt, seed: seed) * totalArea;
+            double target = Deterministic.UnitInterval(point: Point3d.Origin, salt: salt, seed: seed) * totalArea;
             DworkTriangle triangle = triangles[^1];
             for (int i = 0; i < triangles.Length; i++) if (target <= triangles[i].CumulativeArea) { triangle = triangles[i]; break; }
-            double u = Math.Sqrt(d: Determinism.UnitInterval(point: triangle.A, salt: salt + 1, seed: seed));
-            double v = Determinism.UnitInterval(point: triangle.B, salt: salt + 2, seed: seed);
+            double u = Math.Sqrt(d: Deterministic.UnitInterval(point: triangle.A, salt: salt + 1, seed: seed));
+            double v = Deterministic.UnitInterval(point: triangle.B, salt: salt + 2, seed: seed);
             (double wa, double wb, double wc) = (1.0 - u, u * (1.0 - v), u * v);
             Point3d sample = new(x: (wa * triangle.A.X) + (wb * triangle.B.X) + (wc * triangle.C.X), y: (wa * triangle.A.Y) + (wb * triangle.B.Y) + (wc * triangle.C.Y), z: (wa * triangle.A.Z) + (wb * triangle.B.Z) + (wc * triangle.C.Z));
             return sample.IsValid ? Some(sample) : Option<Point3d>.None;
@@ -1015,8 +1078,8 @@ internal static class SampleKernel {
                 Succ: value => value > 0.0 && double.IsFinite(value) ? Some(new DworkSurfacePoint(Point: point, Radius: Math.Max(val1: minRadius, val2: value))) : Option<DworkSurfacePoint>.None,
                 Fail: _ => Option<DworkSurfacePoint>.None);
         private Option<DworkSurfacePoint> AnnulusCandidate(DworkSurfacePoint parent, int attempt) {
-            double angle = 2.0 * Math.PI * Determinism.UnitInterval(point: parent.Point, salt: (tally.ActivePops * attempts * 4) + (attempt * 4) + 7, seed: seed);
-            double distance = parent.Radius * Math.Sqrt(d: 1.0 + (3.0 * Determinism.UnitInterval(point: parent.Point, salt: (tally.ActivePops * attempts * 4) + (attempt * 4) + 8, seed: seed)));
+            double angle = 2.0 * Math.PI * Deterministic.UnitInterval(point: parent.Point, salt: (tally.ActivePops * attempts * 4) + (attempt * 4) + 7, seed: seed);
+            double distance = parent.Radius * Math.Sqrt(d: 1.0 + (3.0 * Deterministic.UnitInterval(point: parent.Point, salt: (tally.ActivePops * attempts * 4) + (attempt * 4) + 8, seed: seed)));
             Vector3d normal = NormalAt(point: parent.Point);
             Vector3d tangent = VectorFrame.SeedPerpendicular(axis: normal);
             Vector3d bitangent = Vector3d.CrossProduct(a: normal, b: tangent);
@@ -1075,16 +1138,16 @@ internal static class SampleKernel {
     private static Fin<SampleSelection> PoissonDiskSelection(Seq<SampleCandidate> candidates, double radius, int attempts, int seed, Op key) {
         if (candidates.IsEmpty || radius <= 0.0 || attempts < 1) return Fin.Fail<SampleSelection>(key.InvalidInput());
         (double r2, double r4) = (radius * radius, 4.0 * radius * radius);
-        int[] order = [.. Enumerable.Range(start: 0, count: candidates.Count).OrderBy(i => Determinism.OrderKey(point: candidates[index: i].Point, seed: seed))];
+        int[] order = [.. Enumerable.Range(start: 0, count: candidates.Count).OrderBy(i => Deterministic.OrderKey(point: candidates[index: i].Point, seed: seed))];
         List<int> chosen = [order[0]];
         List<int> active = [order[0]];
         (int activePops, int tooClose, int outside) = (0, 0, 0);
         while (active.Count > 0) {
-            int activeOffset = (int)(Determinism.OrderKey(point: candidates[index: active[0]].Point, seed: seed + activePops) % (ulong)active.Count);
+            int activeOffset = (int)(Deterministic.OrderKey(point: candidates[index: active[0]].Point, seed: seed + activePops) % (ulong)active.Count);
             int parent = active[activeOffset];
             bool accepted = false;
             for (int attempt = 0; attempt < attempts && !accepted; attempt++) {
-                int candidate = order[(int)(Determinism.OrderKey(point: candidates[index: parent].Point, seed: seed + activePops + attempt + 1) % (ulong)order.Length)];
+                int candidate = order[(int)(Deterministic.OrderKey(point: candidates[index: parent].Point, seed: seed + activePops + attempt + 1) % (ulong)order.Length)];
                 double fromParent = candidates[index: parent].Point.DistanceToSquared(other: candidates[index: candidate].Point);
                 if (fromParent < r2 || fromParent > r4) { outside++; continue; }
                 if (chosen.Exists(index => candidates[index: index].Point.DistanceToSquared(other: candidates[index: candidate].Point) < r2)) { tooClose++; continue; }
@@ -1144,7 +1207,7 @@ internal static class SampleKernel {
         while (activeCount > count) {
             int remove = Enumerable.Range(start: 0, count: input.Length)
                 .Where(i => active[i])
-                .Select(i => (Index: i, Weight: weights[i], Key: Determinism.OrderKey(point: input[i].Point, seed: seed)))
+                .Select(i => (Index: i, Weight: weights[i], Key: Deterministic.OrderKey(point: input[i].Point, seed: seed)))
                 .Aggregate((best, item) => item.Weight > best.Weight || (item.Weight == best.Weight && item.Key < best.Key) ? item : best)
                 .Index;
             active[remove] = false;
@@ -1156,7 +1219,7 @@ internal static class SampleKernel {
             }
         }
         return Fin.Succ<(int[] Indices, SampleAlgorithmReceipt Algorithm)>((
-            Indices: [.. Enumerable.Range(start: 0, count: input.Length).Where(i => active[i]).OrderBy(i => Determinism.OrderKey(point: input[i].Point, seed: seed))],
+            Indices: [.. Enumerable.Range(start: 0, count: input.Length).Where(i => active[i]).OrderBy(i => Deterministic.OrderKey(point: input[i].Point, seed: seed))],
             Algorithm: AlgorithmFacts(kind: SampleAlgorithmKind.YukselWeightedSampleElimination, seed: Some(seed), targetCount: Some(count), oversampleCount: Some(input.Length),
                 oversampleFactor: Some(input.Length / Math.Max(val1: 1, val2: count)), alpha: Some(alpha), beta: Some(beta), gamma: Some(gamma),
                 radius: Some(dMax), weightLimitRadius: Some(dMin), eliminated: Some(eliminated), neighborUpdates: Some(neighborUpdates))));

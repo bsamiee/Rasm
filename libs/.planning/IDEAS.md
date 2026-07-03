@@ -82,7 +82,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Capability: content-addressed fixture corpus for cross-runtime identity, fault, CRDT, GLB, and HLC parity.
 - Shape: `csharp:Rasm.Compute/Runtime/codecs#CONTENT_ADDRESSING` and `csharp:Rasm/Geometry/Spatial/reconciliation#CANONICAL_BYTE_IDENTITY` mint frozen bytes once: eight-primitive clash bytes, 52-byte `0x9462A71A5DD13DCFA3B1D6D225FCBE70` adjacency digest, `FaultDetail` `(package, code, case)` triples, CRDT op-set, GLB-by-key, and HLC two-half stamps.
 - Unlocks: `CONTENT_IDENTITY_PARITY`, `FAULT_WIRE_ROUNDTRIP`, and `TRI_LANGUAGE_WIRE_PARITY` read one corpus rather than re-deriving fixtures in each runtime.
-- Anchors: one `XxHash128` seed, `python:runtime/evidence/identity#IDENTITY`, `typescript:interchange/Codec/frame#CONTENT_HASHING`, `typescript:testing/`, the C# shared test corpus, C# `[BRANCH_TEST_NODE_PROVISIONING]`, Python `[PYTHON_TEST_INFRA_FLOOR]`, and TS `testing/`.
+- Anchors: one `XxHash128` seed, `python:runtime/evidence/identity#IDENTITY`, `typescript:wire/frame#CONTENT_HASHING`, the `tests/contracts/` corpus (TS readers in `tests/typescript/_testkit`), C# `[BRANCH_TEST_NODE_PROVISIONING]`, and Python `[PYTHON_TEST_INFRA_FLOOR]`.
 
 [WEB_GEOMETRY_RESIDENCY_WIRE]-[QUEUED]: WebGPU raster uses a second geometry wire shape rather than overloading GLB.
 - Capability: content-keyed splat/meshlet residency manifest distinct from triangulated GLB.

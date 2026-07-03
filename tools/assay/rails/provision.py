@@ -1,5 +1,6 @@
 """Run local provisioning infrastructure through the Forge-owned CLI."""
 
+from collections.abc import Callable  # noqa: TC003  # handler factory annotations are runtime-evaluated at registry weave
 from dataclasses import dataclass
 import re
 from typing import ClassVar, Final, override
@@ -426,17 +427,12 @@ def _decode_payload(verb: str, outcome: Completed | None) -> Result[_ProvisionPa
     )
 
 
-def _raw_command_mismatch(raw: object, verb: str) -> bool:
-    return isinstance(raw, dict) and isinstance(raw.get("command"), str) and bool(raw.get("command")) and raw.get("command") != verb
-
-
-def _raw_command(raw: object) -> str:
-    return str(raw.get("command")) if isinstance(raw, dict) and isinstance(raw.get("command"), str) else ""
-
-
 def _decode_validated_payload(verb: str, outcome: Completed, body: bytes, raw: object, *, required: bool) -> Result[_ProvisionPayload | None, Fault]:
-    if required and _raw_command_mismatch(raw, verb):
-        return _payload_fault(outcome.argv, verb, f"forge-provision JSON command={_raw_command(raw)}")
+    match raw.get("command") if isinstance(raw, dict) else None:
+        case str() as command if required and command and command != verb:
+            return _payload_fault(outcome.argv, verb, f"forge-provision JSON command={command}")
+        case _:
+            pass
     validated = _validate_payload_wire(verb, outcome, raw)
     if validated.is_error():
         return Error(validated.error)
@@ -711,18 +707,6 @@ def _tool_surface_probe_value(value: object) -> str:
     return _wire(value.get("executable"))
 
 
-def _decode_and_project(verb: str, done: tuple[Completed, ...], stack: Completed | None) -> Result[ProvisionRun, Fault]:
-    return _decode_payload(verb, stack).map(lambda payload: _project(verb, done, payload))
-
-
-def _decode_check_detail(done: tuple[Completed, ...], stack: Completed | None, tools_outcome: Completed | None) -> Result[ProvisionRun, Fault]:
-    return _decode_payload("check", stack).bind(
-        lambda payload: _decode_payload("tools", tools_outcome).map(
-            lambda tool_payload: _project("check", done, _merge_tool_payload(payload, tool_payload))
-        )
-    )
-
-
 def _probe_name(argv: tuple[str, ...]) -> str:
     return next((row.name for row in _PROBE_ROWS if argv[: len(row.command)] == row.command), " ".join(argv[:2]))
 
@@ -886,11 +870,14 @@ def _merge_tool_payload(payload: _ProvisionPayload | None, tool_payload: _Provis
 
 
 def _detail(verb: str, done: tuple[Completed, ...]) -> Result[ProvisionRun, Fault]:
-    stack = _stack_outcome(done, verb)
+    decoded = _validate_local_probe_values(done).bind(lambda _: _decode_payload(verb, _stack_outcome(done, verb)))
     if verb != "check":
-        return _validate_local_probe_values(done).bind(lambda _: _decode_and_project(verb, done, stack))
-    tools_outcome = _stack_outcome(done, "tools")
-    return _validate_local_probe_values(done).bind(lambda _: _decode_check_detail(done, stack, tools_outcome))
+        return decoded.map(lambda payload: _project(verb, done, payload))
+    return decoded.bind(
+        lambda payload: _decode_payload("tools", _stack_outcome(done, "tools")).map(
+            lambda tool_payload: _project("check", done, _merge_tool_payload(payload, tool_payload))
+        )
+    )
 
 
 def _run(settings: AssaySettings, scope: ArtifactScope, verb: str, checks: tuple[Check, ...], executor: Executor) -> Result[Report, Fault]:
@@ -904,107 +891,44 @@ def _run(settings: AssaySettings, scope: ArtifactScope, verb: str, checks: tuple
     )
 
 
-def _invoke(settings: AssaySettings, scope: ArtifactScope, verb: str, executor: Executor) -> Result[Report, Fault]:
-    return _run(settings, scope, verb, (_stack(verb),), executor)
+# --- [COMPOSITION] ----------------------------------------------------------------------
+
+# Only `check` fans beyond its own forge-provision row: the tools evidence row plus the local runtime probes.
+_VERB_CHECKS: Final[dict[str, Callable[[], tuple[Check, ...]]]] = {
+    "check": lambda: (_stack("check"), _stack("tools"), *(Check(tool=row) for row in _PROBE_ROWS))
+}
 
 
-def up(settings: AssaySettings, scope: ArtifactScope, _params: ProvisionParams, executor: Executor) -> Result[Report, Fault]:
-    """Start Forge-owned provisioning services.
-
-    Returns:
-        Provision report, or provisioning fault.
-    """
-    return _invoke(settings, scope, "up", executor)
-
-
-def down(settings: AssaySettings, scope: ArtifactScope, _params: ProvisionParams, executor: Executor) -> Result[Report, Fault]:
-    """Stop Forge-owned provisioning services.
+def _handler(verb: str) -> Callable[[AssaySettings, ArtifactScope, ProvisionParams, Executor], Result[Report, Fault]]:
+    """Bind one verb to the shared sanitized-evidence rail; registry Bind rows own the help text.
 
     Returns:
-        Provision report, or provisioning fault.
+        Handler running the verb's check fan and projecting ``ProvisionRun`` evidence.
     """
-    return _invoke(settings, scope, "down", executor)
+
+    def _verb(settings: AssaySettings, scope: ArtifactScope, _params: ProvisionParams, executor: Executor) -> Result[Report, Fault]:
+        """Run the bound forge-provision verb and project sanitized evidence.
+
+        Returns:
+            Provision report, or provisioning fault.
+        """
+        return _run(settings, scope, verb, _VERB_CHECKS.get(verb, lambda: (_stack(verb),))(), executor)
+
+    _verb.__name__ = _verb.__qualname__ = verb
+    _verb.__doc__ = f"Run forge-provision {verb} and project sanitized ProvisionRun evidence."
+    return _verb
 
 
-def status(settings: AssaySettings, scope: ArtifactScope, _params: ProvisionParams, executor: Executor) -> Result[Report, Fault]:
-    """Report provisioning status.
-
-    Returns:
-        Provision report, or provisioning fault.
-    """
-    return _invoke(settings, scope, "status", executor)
-
-
-def doctor(settings: AssaySettings, scope: ArtifactScope, _params: ProvisionParams, executor: Executor) -> Result[Report, Fault]:
-    """Diagnose provisioning runtime readiness.
-
-    Returns:
-        Provision report, or provisioning fault.
-    """
-    return _invoke(settings, scope, "doctor", executor)
-
-
-def ports(settings: AssaySettings, scope: ArtifactScope, _params: ProvisionParams, executor: Executor) -> Result[Report, Fault]:
-    """Report configured provisioning ports.
-
-    Returns:
-        Provision report, or provisioning fault.
-    """
-    return _invoke(settings, scope, "ports", executor)
-
-
-def inventory(settings: AssaySettings, scope: ArtifactScope, _params: ProvisionParams, executor: Executor) -> Result[Report, Fault]:
-    """Report owned provisioning resources.
-
-    Returns:
-        Provision report, or provisioning fault.
-    """
-    return _invoke(settings, scope, "inventory", executor)
-
-
-def extensions(settings: AssaySettings, scope: ArtifactScope, _params: ProvisionParams, executor: Executor) -> Result[Report, Fault]:
-    """Report provisioning extension targets.
-
-    Returns:
-        Provision report, or provisioning fault.
-    """
-    return _invoke(settings, scope, "extensions", executor)
-
-
-def plan(settings: AssaySettings, scope: ArtifactScope, _params: ProvisionParams, executor: Executor) -> Result[Report, Fault]:
-    """Render the provisioning compose plan.
-
-    Returns:
-        Provision report, or provisioning fault.
-    """
-    return _invoke(settings, scope, "plan", executor)
-
-
-def env(settings: AssaySettings, scope: ArtifactScope, _params: ProvisionParams, executor: Executor) -> Result[Report, Fault]:
-    """Report redacted provisioning environment evidence.
-
-    Returns:
-        Provision report, or provisioning fault.
-    """
-    return _invoke(settings, scope, "env", executor)
-
-
-def check(settings: AssaySettings, scope: ArtifactScope, _params: ProvisionParams, executor: Executor) -> Result[Report, Fault]:
-    """Check provisioning extensions and local runtime probes.
-
-    Returns:
-        Provision report, or provisioning fault.
-    """
-    return _run(settings, scope, "check", (_stack("check"), _stack("tools"), *(Check(tool=row) for row in _PROBE_ROWS)), executor)
-
-
-def apply(settings: AssaySettings, scope: ArtifactScope, _params: ProvisionParams, executor: Executor) -> Result[Report, Fault]:
-    """Apply Forge-owned provisioning extension changes.
-
-    Returns:
-        Provision report, or provisioning fault.
-    """
-    return _invoke(settings, scope, "apply", executor)
-
+up = _handler("up")
+down = _handler("down")
+status = _handler("status")
+doctor = _handler("doctor")
+ports = _handler("ports")
+inventory = _handler("inventory")
+extensions = _handler("extensions")
+plan = _handler("plan")
+env = _handler("env")
+check = _handler("check")
+apply = _handler("apply")
 
 __all__ = ["ProvisionParams", "apply", "check", "doctor", "down", "env", "extensions", "inventory", "plan", "ports", "status", "up"]

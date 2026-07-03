@@ -171,6 +171,18 @@ public sealed class UnionWireLaws {
         _ = Assert.ThrowsAny<JsonException>(testCode: static () =>
             JsonSerializer.Deserialize(json: """{"$type":"chaos-case","stamp":{"sessionId":"6a8e6c1e-9f5a-4d2c-8b8e-2f1a3c4d5e6f","sequence":1,"atUnixMs":1,"scenario":null}}""", jsonTypeInfo: BridgeJsonContext.Default.BridgeEvent));
 
+    [Theory]
+    [InlineData("evidence")]
+    [InlineData("artifact")]
+    [InlineData("certificate")]
+    public void RetiredEventDiscriminatorsStayRetired(string discriminator) =>
+        // The never-constructed union cases were purged; their discriminators must not silently decode.
+        _ = Assert.ThrowsAny<JsonException>(testCode: () =>
+            JsonSerializer.Deserialize(
+                json: """{"$type":"RETIRED","stamp":{"sessionId":"6a8e6c1e-9f5a-4d2c-8b8e-2f1a3c4d5e6f","sequence":1,"atUnixMs":1,"scenario":null}}"""
+                    .Replace(oldValue: "RETIRED", newValue: discriminator, comparisonType: StringComparison.Ordinal),
+                jsonTypeInfo: BridgeJsonContext.Default.BridgeEvent));
+
     [Fact]
     public void UnknownFaultTypeFailsLoud() =>
         _ = Assert.ThrowsAny<JsonException>(testCode: static () =>
@@ -279,6 +291,125 @@ public sealed class ToleranceLaws {
             Assert.Equal(expected: JsonRpcErrorCode.MethodNotFound, actual: missing.ErrorCode);
             return true;
         }).ConfigureAwait(continueOnCapturedContext: true);
+}
+
+// The report-dir layout and fact-key vocabularies are frozen wire law the assay workstation decodes.
+public sealed class WireVocabularyLaws {
+    [Fact]
+    public void ReportLayoutStringsAreFrozen() {
+        Assert.Equal(expected: "bridge-certificate.json", actual: ReportLayout.CertificateFile);
+        Assert.Equal(expected: "captures", actual: ReportLayout.CapturesDirectory);
+        Assert.Equal(expected: "events", actual: ReportLayout.EventsDirectory);
+        Assert.Equal(expected: "gh2", actual: ReportLayout.Gh2Directory);
+        Assert.Equal(expected: "manifests", actual: ReportLayout.ManifestsDirectory);
+        Assert.Equal(expected: "references", actual: ReportLayout.ReferencesDirectory);
+        Assert.Equal(expected: "scratch", actual: ReportLayout.ScratchDirectory);
+        Assert.Equal(expected: Path.Combine("r", "bridge-certificate.json"), actual: ReportLayout.Certificate(reportDir: "r"));
+        Assert.Equal(expected: Path.Combine("r", "events", "s.jsonl"), actual: ReportLayout.Spool(reportDir: "r", scenario: "s"));
+    }
+
+    [Fact]
+    public void EvidenceModeKeysAreTheFrozenTokens() {
+        Assert.Equal(expected: ["verify", "author"], actual: EvidenceMode.Items.Select(selector: static mode => mode.Key));
+        Assert.Same(expected: EvidenceMode.Author, actual: EvidenceMode.Get(key: "author"));
+        Assert.False(condition: EvidenceMode.TryGet(key: "chaos", item: out _));
+    }
+
+    [Fact]
+    public void ReferenceAdmissionKeysStayAdditive() =>
+        Assert.Equal(
+            expected: ["reviewed", "candidate", "unpromoted", "missing", "mismatch", "matched"],
+            actual: ReferenceAdmission.Items.Select(selector: static admission => admission.Key));
+
+    [Theory]
+    [InlineData("case.volume.status", "assertion")]
+    [InlineData("case.volume.start", "assertion")]
+    [InlineData("reference.volume", "reference")]
+    [InlineData("manifest.object.blocks", "object-manifest")]
+    [InlineData("manifest.geometry.blocks", "geometry-manifest")]
+    [InlineData("manifest.viewport.blocks", "viewport-manifest")]
+    [InlineData("manifest.gh2.blocks", "gh2-canvas-manifest")]
+    [InlineData("artifact.capture", "artifact")]
+    [InlineData("cargo.swapped", "fact")]
+    [InlineData("manifest.objects", "fact")]
+    [InlineData("reference", "fact")]
+    [InlineData("capture.frame", "fact")]
+    public void FactKeysClassifyThroughTheTypedVocabulary(string key, string role) =>
+        Assert.Same(expected: EvidenceRole.Get(key: role), actual: EvidenceRole.OfFactKey(key: key));
+
+    [Fact]
+    public void FactArgumentStripsExactlyTheOwnedPrefix() {
+        Assert.Equal(expected: "volume", actual: EvidenceRole.Reference.FactArgument(key: "reference.volume"));
+        Assert.Equal(expected: "unowned", actual: EvidenceRole.Reference.FactArgument(key: "unowned"));
+        Assert.False(condition: EvidenceRole.Fact.OwnsFactKey(key: "anything"));
+    }
+}
+
+// Selection matching is one Contract-owned semantics: ordinal exact, fnmatch-style wildcards, and
+// bare-method-name hits; zero-match returns empty so the shell raises its typed fault.
+public sealed class SelectionFilterLaws {
+    private static readonly ScenarioEntry[] Corpus = [
+        new ScenarioEntry(Theme: "blocks", Name: "blocks.Baseline", Requires: [], BudgetMs: 0),
+        new ScenarioEntry(Theme: "blocks", Name: "blocks.Insert", Requires: [], BudgetMs: 0),
+        new ScenarioEntry(Theme: "vectors", Name: "vectors.CoreRail", Requires: [], BudgetMs: 0),
+    ];
+
+    [Fact]
+    public void AllSelectsTheWholeCorpus() =>
+        Assert.Equal(expected: Corpus, actual: new ScenarioSelection.AllCase().Filter(entries: Corpus));
+
+    [Fact]
+    public void ThemesMatchExactAndGlob() {
+        Assert.Equal(expected: 2, actual: new ScenarioSelection.ThemesCase(Themes: ["blocks"]).Filter(entries: Corpus).Length);
+        Assert.Equal(expected: 3, actual: new ScenarioSelection.ThemesCase(Themes: ["b*", "vec?ors"]).Filter(entries: Corpus).Length);
+    }
+
+    [Fact]
+    public void NamesMatchExactGlobAndBareMethod() {
+        Assert.Equal(expected: ["blocks.Baseline"], actual: new ScenarioSelection.NamesCase(Names: ["blocks.Baseline"]).Filter(entries: Corpus).Select(selector: static entry => entry.Name));
+        Assert.Equal(expected: ["blocks.Baseline", "blocks.Insert"], actual: new ScenarioSelection.NamesCase(Names: ["blocks.*"]).Filter(entries: Corpus).Select(selector: static entry => entry.Name));
+        Assert.Equal(expected: ["vectors.CoreRail"], actual: new ScenarioSelection.NamesCase(Names: ["CoreRail"]).Filter(entries: Corpus).Select(selector: static entry => entry.Name));
+        Assert.Equal(expected: ["blocks.Baseline"], actual: new ScenarioSelection.NamesCase(Names: ["Base*"]).Filter(entries: Corpus).Select(selector: static entry => entry.Name));
+    }
+
+    [Fact]
+    public void MatchingIsCaseSensitiveAndZeroMatchIsEmpty() {
+        Assert.Empty(collection: new ScenarioSelection.NamesCase(Names: ["BLOCKS.*"]).Filter(entries: Corpus));
+        Assert.Empty(collection: new ScenarioSelection.ThemesCase(Themes: ["chaos"]).Filter(entries: Corpus));
+        Assert.Empty(collection: new ScenarioSelection.NamesCase(Names: ["blocks.Base?"]).Filter(entries: Corpus));
+    }
+}
+
+// The exact camelCase field names the assay workstation decoder binds; removal or rename is a
+// schema_version event, never a silent drift.
+public sealed class EnvelopeWireLaws {
+    [Fact]
+    public void EnvelopeFieldNamesAreFrozen() {
+        SessionEnvelope envelope = new(
+            RunId: "r", Verb: "verify", Status: PhaseStatus.Ok, DurationMs: 1.0, ReportDir: "d",
+            Host: WireGens.Host, Capabilities: [], Scenarios: [new ScenarioReceipt(Scenario: "s", Status: PhaseStatus.Ok, DurationMs: 1.0, Fault: null)],
+            Evidence: [], FirstFailure: "", FirstFaultPhase: null, Fault: null);
+        using JsonDocument document = JsonDocument.Parse(json: JsonSerializer.Serialize(value: envelope, jsonTypeInfo: BridgeJsonContext.Default.SessionEnvelope));
+        string[] fields = [.. document.RootElement.EnumerateObject().Select(selector: static property => property.Name)];
+        Assert.All(
+            collection: (string[])[
+                "runId", "verb", "status", "scenarioStatus", "sessionStatus", "durationMs", "reportDir",
+                "host", "capabilities", "scenarios", "evidence", "firstFailure", "firstScenarioFailure",
+                "firstSessionFault", "firstFaultPhase", "fault", "phaseReceipts", "certificatePath",
+                "artifactRefs", "evidenceCounts", "scenarioCounts", "spool"],
+            action: field => Assert.Contains(expected: field, collection: fields));
+        string[] scenarioFields = [.. document.RootElement.GetProperty(propertyName: "scenarios")[0].EnumerateObject().Select(selector: static property => property.Name)];
+        Assert.All(
+            collection: (string[])["scenario", "status", "scenarioStatus", "durationMs", "fault", "referenceResults", "firstScenarioFailure"],
+            action: field => Assert.Contains(expected: field, collection: scenarioFields));
+    }
+
+    [Fact]
+    public void SelectionDiscriminatorsAreFrozen() {
+        Assert.StartsWith(expectedStartString: "{\"$type\":\"all\"", actualString: JsonSerializer.Serialize<ScenarioSelection>(value: new ScenarioSelection.AllCase(), jsonTypeInfo: BridgeJsonContext.Default.ScenarioSelection), comparisonType: StringComparison.Ordinal);
+        Assert.StartsWith(expectedStartString: "{\"$type\":\"themes\"", actualString: JsonSerializer.Serialize<ScenarioSelection>(value: new ScenarioSelection.ThemesCase(Themes: ["a"]), jsonTypeInfo: BridgeJsonContext.Default.ScenarioSelection), comparisonType: StringComparison.Ordinal);
+        Assert.StartsWith(expectedStartString: "{\"$type\":\"names\"", actualString: JsonSerializer.Serialize<ScenarioSelection>(value: new ScenarioSelection.NamesCase(Names: ["a"]), jsonTypeInfo: BridgeJsonContext.Default.ScenarioSelection), comparisonType: StringComparison.Ordinal);
+    }
 }
 
 public sealed class PhaseStatusAlgebraLaws {

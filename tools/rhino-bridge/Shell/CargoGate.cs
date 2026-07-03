@@ -3,7 +3,6 @@ using System.Diagnostics;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.Loader;
-using System.Text.Json;
 using Rasm.Bridge.Contract;
 
 namespace Rasm.Bridge.Shell;
@@ -106,7 +105,7 @@ internal sealed class CargoGate : IDisposable {
         }
     }
 
-    internal CargoReceipt Swap(CargoManifest manifest, Action<BridgeEvent> publish) {
+    internal CargoReceipt Swap(CargoManifest manifest, HostFingerprint running, Action<BridgeEvent> publish) {
         lock (sync) {
             long started = Stopwatch.GetTimestamp();
             bool reused = current is { } live && string.Equals(a: live.ContentHash, b: manifest.ContentHash, comparisonType: StringComparison.Ordinal);
@@ -115,10 +114,10 @@ internal sealed class CargoGate : IDisposable {
                     current = null;
                     PublishUnload(receipt: UnloadKernel(lease: stale), publish: publish);
                 }
-                current = Activate(manifest: manifest);
+                current = Activate(manifest: manifest, running: running);
             }
             CargoLease lease = current!;
-            publish(Fact(key: reused ? "cargo.reused" : "cargo.swapped", value: manifest.ContentHash));
+            publish(BridgeEvent.Fact(key: reused ? "cargo.reused" : "cargo.swapped", value: manifest.ContentHash));
             return new CargoReceipt(
                 ContentHash: manifest.ContentHash,
                 SwapMs: Stopwatch.GetElapsedTime(startingTimestamp: started).TotalMilliseconds,
@@ -146,15 +145,16 @@ internal sealed class CargoGate : IDisposable {
         }
     }
 
-    private CargoLease Activate(CargoManifest manifest) {
+    private CargoLease Activate(CargoManifest manifest, HostFingerprint running) {
         string entryPath = Path.Combine(path1: manifest.StagePath, path2: CargoAssemblyFile);
         generation++;
         CargoLoadContext context = new(cargoAssemblyPath: entryPath, generation: generation);
         try {
             Assembly assembly = context.LoadFromAssemblyPath(assemblyPath: entryPath);
             Type entry = assembly.GetType(name: CargoEntryType, throwOnError: true)!;
-            // Manifest identity crosses shell-ALC-first so cargo stamps and writes to the session root.
-            IBridgeCargo cargo = (IBridgeCargo)Activator.CreateInstance(type: entry, args: [manifest])!;
+            // Manifest identity and the shell-computed running fingerprint cross shell-ALC-first so
+            // cargo stamps the session root and attributes drift without re-deriving host identity.
+            IBridgeCargo cargo = (IBridgeCargo)Activator.CreateInstance(type: entry, args: [manifest, running])!;
             return new CargoLease(ContentHash: manifest.ContentHash, Context: context, Cargo: cargo);
         } catch {
             context.Unload();
@@ -199,8 +199,5 @@ internal sealed class CargoGate : IDisposable {
     }
 
     private static void PublishUnload(UnloadReceipt receipt, Action<BridgeEvent> publish) =>
-        publish(Fact(key: receipt.Confirmed ? "cargo.unload.confirmed" : "cargo.unload.leaked", value: string.Create(System.Globalization.CultureInfo.InvariantCulture, $"gcRetries={receipt.GcRetries} elapsedMs={receipt.ElapsedMs:F0} debugger={receipt.DebuggerAttached}")));
-
-    private static BridgeEvent.FactCase Fact(string key, string value) =>
-        new(Key: key, Value: JsonSerializer.SerializeToElement(value: value, jsonTypeInfo: BridgeJsonContext.Default.String)) { Stamp = default };
+        publish(BridgeEvent.Fact(key: receipt.Confirmed ? "cargo.unload.confirmed" : "cargo.unload.leaked", value: string.Create(System.Globalization.CultureInfo.InvariantCulture, $"gcRetries={receipt.GcRetries} elapsedMs={receipt.ElapsedMs:F0} debugger={receipt.DebuggerAttached}")));
 }

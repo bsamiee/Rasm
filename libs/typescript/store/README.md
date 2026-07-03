@@ -7,7 +7,7 @@
 - [01]-[APPEND](.planning/journal/append.md): the ONE append surface — streams keyed `(appKey, tenantId, aggregate)`, OCC by expected version, events as closed `Schema.TaggedClass` families with app-authored `eventVersion`.
 - [02]-[OUTBOX](.planning/journal/outbox.md): the transactional outbox atomic with the append plus the idempotency ledger (`ON CONFLICT DO UPDATE RETURNING (xmax = 0)` claim).
 - [03]-[SNAPSHOT](.planning/journal/snapshot.md): the snapshot store keyed `snapshot_schema_version`.
-- [04]-[UPCAST](.planning/journal/upcast.md): read-time `eventVersion` upcaster folds — total functions proven in `proof/law`; the raw log is never rewritten.
+- [04]-[UPCAST](.planning/journal/upcast.md): read-time `eventVersion` upcaster folds — total functions, totality proven through the `tests/typescript/_testkit` law combinators; the raw log is never rewritten.
 - [05]-[RETAIN](.planning/journal/retain.md): retention policy rows plus crypto-shredding via the `security/sign` `Shredder` — per-subject erasure is key destruction — with the per-subject DSAR export fold riding beside erasure.
 - [06]-[INLINE](.planning/project/inline.md): same-transaction read-your-writes lanes binding `state` folds to durability.
 - [07]-[ASYNC](.planning/project/async.md): checkpointed, LISTEN/NOTIFY-woken, SKIP LOCKED lanes.

@@ -1,6 +1,6 @@
 # [@oslojs/crypto] — the constant-time HMAC / digest / verify / CSPRNG-port primitive behind the signing folds; admitted in sign only
 
-`@oslojs/crypto` is the pure-TypeScript, dependency-free crypto primitive `sign/crypto` composes for the rows WebCrypto and `@node-rs/argon2` do not own: message authentication (`HMAC` over any `HashAlgorithm`), timing-safe comparison (`constantTimeEqual`), the SHA-1/2/3 + SHAKE digest roster, signature *verification* (ECDSA/RSA public-key only — no private-key signing, no key generation), and a CSPRNG **port** (`RandomReader`) the caller fills from the platform entropy source. It is subpath-export ESM: every capability is a `@oslojs/crypto/<sub>` import, so `proof/gauge` fences it to `sign/` and a tree-shaker drops the unused curves. It owns no symmetric cipher — the `sign/crypto` AES-GCM envelope `Shredder` is WebCrypto `SubtleCrypto`, never this package. Its one polymorphic axis is the `HashAlgorithm` constructor interface: `HMAC`, the digest one-shots, and RSA-PSS all take an algorithm *value*, so a new hash is a row, never a new API.
+`@oslojs/crypto` is the pure-TypeScript, dependency-free crypto primitive `sign/crypto` composes for the rows WebCrypto and `@node-rs/argon2` do not own: message authentication (`HMAC` over any `HashAlgorithm`), timing-safe comparison (`constantTimeEqual`), the SHA-1/2/3 + SHAKE digest roster, signature *verification* (ECDSA/RSA public-key only — no private-key signing, no key generation), and a CSPRNG **port** (`RandomReader`) the caller fills from the platform entropy source. It is subpath-export ESM: every capability is a `@oslojs/crypto/<sub>` import, so the `tests/typescript/_architecture` suite fences it to `sign/` and a tree-shaker drops the unused curves. It owns no symmetric cipher — the `sign/crypto` AES-GCM envelope `Shredder` is WebCrypto `SubtleCrypto`, never this package. Its one polymorphic axis is the `HashAlgorithm` constructor interface: `HMAC`, the digest one-shots, and RSA-PSS all take an algorithm *value*, so a new hash is a row, never a new API.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -92,7 +92,7 @@
 - Stack with `sign/crypto` design rows: `hmac(SHA256, …)` = webhook signing; `constantTimeEqual` = the equality every NON-argon2 fixed-length digest/token/signature compare routes through (an argon2 credential digest is argon2 `verify`); `generateRandomString` (over the WebCrypto-filled `RandomReader`) = `authn/apikey` body mint and `authn/otp` recovery-code mint before the `@node-rs/argon2` digest-at-rest.
 
 [LOCAL_ADMISSION]:
-- imported only inside `sign/` subpaths; an `authn`/`secret`/`session` rail importing it is the defect `proof/gauge` catches. `authn/otp` reaches the HMAC only through the `CryptoPlugin` `sign/crypto` constructs.
+- imported only inside `sign/` subpaths; an `authn`/`secret`/`session` rail importing it is the defect the `tests/typescript/_architecture` import audit catches. `authn/otp` reaches the HMAC only through the `CryptoPlugin` `sign/crypto` constructs.
 - pure-JS and runtime-neutral: no `node:*`, safe in a `runtime:browser` composition; the `sign/` node caveat is `@node-rs/argon2`, not this package.
 - one-shot vs stream: prefer the `hmac`/`sha*` one-shots; use the `HMAC`/`SHA*` classes only for genuinely chunked input that must not be buffered.
 

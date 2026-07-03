@@ -73,11 +73,7 @@ public sealed class ShellHost : IDisposable {
             shellVersion: ShellVersion,
             rhinoVersion: RhinoApp.Version.ToString(),
             fault: string.Empty);
-        fingerprint = new HostFingerprint(
-            BundleVersion: RhinoApp.Version.ToString(),
-            RhinoCommonVersion: typeof(RhinoApp).Assembly.GetName().Version?.ToString() ?? string.Empty,
-            Grasshopper2Version: LoadedAssemblyVersion(simpleName: "Grasshopper2"),
-            RuntimeVersion: Environment.Version.ToString());
+        fingerprint = RunningFingerprint();
         shellContent = ShellContent(deployDir: deployDir);
         resolvingTap = (_, name) => RecordDefaultResolve(assemblyName: name);
         reportTap = (source, error) => Publish(evt: new BridgeEvent.HostExceptionCase(Report: $"{source}: {error.GetType().Name}: {error.Message}") { Stamp = default });
@@ -183,9 +179,10 @@ public sealed class ShellHost : IDisposable {
         activeManifest = manifest;
         return await pump.OnUiThreadAsync(job: () => {
             PreloadHostPlugins(plugins: manifest.HostPlugins);
-            CargoReceipt receipt = gate.Swap(manifest: manifest, publish: Publish);
-            Publish(evt: Fact(key: "scenario.discovered.count", value: receipt.Scenarios.Length.ToString(provider: CultureInfo.InvariantCulture)));
-            Publish(evt: Fact(key: "scenario.discovered.names", value: string.Join(separator: ',', values: receipt.Scenarios.Select(selector: static scenario => scenario.Name))));
+            // The post-preload fingerprint is the drift baseline cargo attributes HostDrift against.
+            CargoReceipt receipt = gate.Swap(manifest: manifest, running: RunningFingerprint(), publish: Publish);
+            Publish(evt: BridgeEvent.Fact(key: "scenario.discovered.count", value: receipt.Scenarios.Length.ToString(provider: CultureInfo.InvariantCulture)));
+            Publish(evt: BridgeEvent.Fact(key: "scenario.discovered.names", value: string.Join(separator: ',', values: receipt.Scenarios.Select(selector: static scenario => scenario.Name))));
             return receipt;
         }, ct: ct).ConfigureAwait(continueOnCapturedContext: false);
     }
@@ -195,9 +192,9 @@ public sealed class ShellHost : IDisposable {
         Admit(connection: connection);
         IBridgeCargo cargo = gate.Current ?? throw new LocalRpcException(message: "no cargo loaded: LoadCargoAsync precedes RunAsync") { ErrorCode = FaultErrorCode };
         ScenarioEntry[] discovered = await pump.OnUiThreadAsync(job: cargo.Discover, ct: ct).ConfigureAwait(continueOnCapturedContext: false);
-        ScenarioEntry[] selected = Select(entries: discovered, selection: selection);
-        Publish(evt: Fact(key: "scenario.selected.count", value: selected.Length.ToString(provider: CultureInfo.InvariantCulture)));
-        Publish(evt: Fact(key: "scenario.selected.names", value: string.Join(separator: ',', values: selected.Select(selector: static scenario => scenario.Name))));
+        ScenarioEntry[] selected = selection.Filter(entries: discovered);
+        Publish(evt: BridgeEvent.Fact(key: "scenario.selected.count", value: selected.Length.ToString(provider: CultureInfo.InvariantCulture)));
+        Publish(evt: BridgeEvent.Fact(key: "scenario.selected.names", value: string.Join(separator: ',', values: selected.Select(selector: static scenario => scenario.Name))));
         if (selected.Length == 0) {
             BridgeFault fault = new BridgeFault.CapabilityAbsent(
                 Capability: "scenario.selection",
@@ -224,32 +221,27 @@ public sealed class ShellHost : IDisposable {
 
     private async Task<QuitPrepareReceipt> PrepareQuitAsync(Connection connection, CancellationToken ct) {
         Admit(connection: connection);
-        // The scrub runs on the UI thread before the quit ladder so doc.Modified and GH2 Unmodify land
-        // on the host thread that owns those documents; the reflective GH2 path's failure is a typed fact.
-        // It then re-reads OpenDocuments so the residual still-Modified count and any persisted doc Path
-        // are reported as the AE-rung precondition: ResidualDirty == 0 is what keeps `terminate` off the
-        // AppKit "Save changes?" sheet, and a retried scrub on the supervisor side reaches the same fixpoint.
-        QuitPrepareReceipt receipt = await pump.OnUiThreadAsync(job: static () => {
+        // UI-thread scrub, then re-read: ResidualDirty == 0 is the AE-rung precondition that keeps
+        // `terminate` off the AppKit save sheet; the GH2 outcome stays a typed union, never a sentinel.
+        (QuitPrepareReceipt receipt, Gh2ScrubOutcome gh2) = await pump.OnUiThreadAsync(job: static () => {
             RhinoDoc[] open = RhinoDoc.OpenDocuments();
             int markedClean = open.Count(predicate: static doc => doc.Modified);
             Array.ForEach(array: open, action: static doc => doc.Modified = false);
-            Gh2ScrubOutcome gh2 = CleanGrasshopper2();
+            Gh2ScrubOutcome scrub = CleanGrasshopper2();
             RhinoDoc[] residual = RhinoDoc.OpenDocuments();
             int residualDirty = residual.Count(predicate: static doc => doc.Modified);
             string[] savedPaths = [.. residual.Where(predicate: static doc => doc.Modified && doc.Path is { Length: > 0 }).Select(selector: static doc => doc.Path)];
-            return new QuitPrepareReceipt(Documents: open.Length, MarkedClean: markedClean, ResidualDirty: residualDirty, Gh2: gh2.Summary, SavedPaths: savedPaths);
+            return (new QuitPrepareReceipt(Documents: open.Length, MarkedClean: markedClean, ResidualDirty: residualDirty, Gh2: scrub.Summary, SavedPaths: savedPaths), scrub);
         }, ct: ct).ConfigureAwait(continueOnCapturedContext: false);
-        Publish(evt: Fact(
+        Publish(evt: BridgeEvent.Fact(
             key: "quit.prepared",
             value: string.Create(provider: CultureInfo.InvariantCulture,
                 $"{(receipt.Scrubbed ? "rhino-docs-marked-clean" : "rhino-docs-residual-dirty")}; documents={receipt.Documents};markedClean={receipt.MarkedClean};residualDirty={receipt.ResidualDirty}; gh2={receipt.Gh2}")));
-        if (CleanGrasshopper2Failed(gh2: receipt.Gh2)) {
-            Publish(evt: Fact(key: "quit.scrub.gh2-reflective-failed", value: receipt.Gh2));
+        if (gh2 is Gh2ScrubOutcome.Failed) {
+            Publish(evt: BridgeEvent.Fact(key: "quit.scrub.gh2-reflective-failed", value: receipt.Gh2));
         }
         return receipt;
     }
-
-    private static bool CleanGrasshopper2Failed(string gh2) => gh2.StartsWith(value: "reflective-scrub-failed:", comparisonType: StringComparison.Ordinal);
 
     // --- [ADMISSION]
 
@@ -290,9 +282,6 @@ public sealed class ShellHost : IDisposable {
         BridgeEvent stamped = evt switch {
             BridgeEvent.FactCase row => row with { Stamp = stamp },
             BridgeEvent.CaptureCase row => row with { Stamp = stamp },
-            BridgeEvent.EvidenceCase row => row with { Stamp = stamp },
-            BridgeEvent.ArtifactCase row => row with { Stamp = stamp },
-            BridgeEvent.CertificateCase row => row with { Stamp = stamp },
             BridgeEvent.PhaseCase row => row with { Stamp = stamp },
             BridgeEvent.ProgressCase row => row with { Stamp = stamp },
             BridgeEvent.HostExceptionCase row => row with { Stamp = stamp },
@@ -363,7 +352,7 @@ public sealed class ShellHost : IDisposable {
         // neither, so the rename-stable GUID is the primary signal with the identity pair as fallback.
         string.Equals(a: assembly.GetCustomAttribute<GuidAttribute>()?.Value, b: McneelPlugInGuid, comparisonType: StringComparison.OrdinalIgnoreCase)
         || (string.Equals(a: assembly.GetName().Name, b: "RhinoMcpPlatform", comparisonType: StringComparison.Ordinal)
-            && SafeTypes(assembly: assembly).Any(predicate: static type => IsRhMcpNamespace(ns: type.Namespace)));
+            && HostReflection.LoadableTypes(assembly: assembly).Any(predicate: static type => IsRhMcpNamespace(ns: type.Namespace)));
 
     private static bool IsRhMcpNamespace(string? ns) =>
         ns is "RhMcp" || (ns?.StartsWith(value: "RhMcp.", comparisonType: StringComparison.Ordinal) ?? false);
@@ -393,26 +382,22 @@ public sealed class ShellHost : IDisposable {
             } catch (Exception error) when (error is not OutOfMemoryException and not StackOverflowException and not AccessViolationException) {
                 outcome = $"threw {error.GetType().Name}: {error.Message}";
             }
-            Publish(evt: Fact(key: $"hostplugin.{id:D}", value: outcome));
+            Publish(evt: BridgeEvent.Fact(key: $"hostplugin.{id:D}", value: outcome));
         }
     }
 
-    private static BridgeEvent.FactCase Fact(string key, string value) =>
-        new(Key: key, Value: JsonSerializer.SerializeToElement(value: value, jsonTypeInfo: BridgeJsonContext.Default.String)) { Stamp = default };
-
-    private static ScenarioEntry[] Select(ScenarioEntry[] entries, ScenarioSelection selection) =>
-        selection.Switch(
-            state: entries,
-            allCase: static (all, _) => all,
-            themesCase: static (all, themes) => [.. all.Where(entry => themes.Themes.Contains(value: entry.Theme, comparer: StringComparer.Ordinal))],
-            namesCase: static (all, names) => [.. all.Where(entry => names.Names.Contains(value: entry.Name, comparer: StringComparer.Ordinal))]);
+    private static HostFingerprint RunningFingerprint() => new(
+        BundleVersion: RhinoApp.Version.ToString(),
+        RhinoCommonVersion: typeof(RhinoApp).Assembly.GetName().Version?.ToString() ?? string.Empty,
+        Grasshopper2Version: LoadedAssemblyVersion(simpleName: "Grasshopper2"),
+        RuntimeVersion: Environment.Version.ToString());
 
     private static Gh2ScrubOutcome CleanGrasshopper2() {
         // BOUNDARY ADAPTER: the reflective GH2 Document.AllDocuments + Unmodify scrub projects loader
         // drift and reflection faults onto the typed Failed case, never a swallow folded into success.
         try {
             Type? documentType = AppDomain.CurrentDomain.GetAssemblies()
-                .SelectMany(selector: static assembly => SafeTypes(assembly: assembly))
+                .SelectMany(selector: static assembly => HostReflection.LoadableTypes(assembly: assembly))
                 .FirstOrDefault(predicate: static type => string.Equals(a: type.FullName, b: "Grasshopper2.Doc.Document", comparisonType: StringComparison.Ordinal));
             if (documentType is null) {
                 return new Gh2ScrubOutcome.NotLoaded();
@@ -426,14 +411,6 @@ public sealed class ShellHost : IDisposable {
             return new Gh2ScrubOutcome.Scrubbed(Documents: documents.Length, Unmodified: unmodified);
         } catch (Exception error) when (error is not OutOfMemoryException and not StackOverflowException and not AccessViolationException) {
             return new Gh2ScrubOutcome.Failed(Detail: $"{error.GetType().Name}: {error.Message}");
-        }
-    }
-
-    private static IEnumerable<Type> SafeTypes(Assembly assembly) {
-        try {
-            return assembly.GetTypes();
-        } catch (ReflectionTypeLoadException partial) {
-            return partial.Types.Where(predicate: static type => type is not null)!;
         }
     }
 

@@ -25,7 +25,6 @@ from tests.python._testkit.seams import (
     SeamProbe,
     Sync,
     TmpRoot,
-    VariantWriter,
 )
 from tests.python._testkit.strategies import resolve
 from tools.assay.composition.registry import REGISTRY
@@ -65,8 +64,6 @@ from tools.assay.rails import package as package_rail
 
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
-
     from expression import Result
     import pytest
 
@@ -195,6 +192,18 @@ class AssayHarness(TmpRoot[AssaySettings], frozen=True, gc=False):
         target = Ssh.parse(exec_target).model_copy(update={"known_hosts": None})
         return self.settings.model_copy(update={"exec_target": target, "exec_known_hosts": None})
 
+    def supervisor(self) -> Path:
+        """Materialize the built supervisor binary so ``client_run`` resolves its real spawn target.
+
+        Returns:
+            The materialized binary path under the bridge build scope pivot.
+        """
+        pivot = f"{self.settings.configuration.value.lower()}_test-rid"
+        binary = Path(str(ArtifactScope.build(self.settings, "bridge").path)) / "bin" / "Supervisor" / pivot / "Rasm.Bridge.Supervisor"
+        binary.parent.mkdir(parents=True, exist_ok=True)
+        binary.write_bytes(b"")
+        return binary
+
     @staticmethod
     def envelope_of(payload: Report | Fault, *, claim: Claim, verb: str) -> Envelope:
         """Wrap a payload through the canonical Envelope projection.
@@ -286,61 +295,6 @@ class SeamExecutor(msgspec.Struct, frozen=True, gc=False):
         """
         assert self.fan_fn is not None, "rail reached executor.fan but this SeamExecutor cans no fan lane"
         return self.fan_fn(*args, **kwargs)  # type: ignore[return-value]  # ty: ignore[invalid-return-type]  # canned lane owns the Result shape
-
-
-class BridgeResult(msgspec.Struct, frozen=True, gc=False):
-    """Bridge JSON variant writer for valid and adversarial payload files."""
-
-    directory: Path
-
-    def valid(self, command: str = "scenario.verify.csx") -> Path:
-        """Write a well-formed bridge result JSON.
-
-        Returns:
-            Path to the written valid result file.
-        """
-        payload = {
-            "command": command,
-            "status": "ok",
-            "phases": [
-                {
-                    "phase": "execute",
-                    "status": "ok",
-                    "data": {"diagnostics": {"commandWindow": [], "exceptionReports": []}},
-                    "outputs": [{"source": "stdout", "text": "rasm.rhino-bridge.evidence=facts={}"}],
-                }
-            ],
-        }
-        return self._writer({"valid": "valid.json"}, {"valid": payload}).path("valid")
-
-    def malformed(self) -> Path:
-        """Write invalid bridge result JSON.
-
-        Returns:
-            Path to the written malformed result file.
-        """
-        return self._writer({"malformed": "malformed.json"}, {"malformed": b"{not json"}).path("malformed")
-
-    def partial(self) -> Path:
-        """Write valid JSON with an incomplete bridge result shape.
-
-        Returns:
-            Path to the written partial result file.
-        """
-        return self._writer({"partial": "partial.json"}, {"partial": b"{}"}).path("partial")
-
-    def missing(self) -> Path:
-        """Return a bridge result path whose backing file is intentionally absent.
-
-        Returns:
-            Path to the intentionally absent result file.
-        """
-        return self._writer({"missing": "absent.json"}, {}, absent=frozenset({"missing"})).path("missing")
-
-    def _writer(
-        self, names: Mapping[str, str], payloads: Mapping[str, bytes | object], *, absent: frozenset[str] = frozenset()
-    ) -> VariantWriter[str]:
-        return VariantWriter(directory=self.directory, names=names, payloads=payloads, absent=absent)
 
 
 class YakShape(msgspec.Struct, frozen=True, gc=False):

@@ -598,8 +598,7 @@ def test_assay_settings_artifact_rejects_unsafe_segments(part: str, assay_root: 
 def test_assay_settings_store_honors_protocol_and_forwards_opts(assay_root: AssayHarness) -> None:
     """Store builds the requested filesystem and forwards backend opts.
 
-    The memory branch rejects None-protocol fallback to local FS; auto_mkdir=False pins option
-    forwarding onto the constructed backend.
+    The memory branch rejects None-protocol fallback to local FS; auto_mkdir=False pins option forwarding onto the constructed backend.
     """
     from fsspec.implementations.local import LocalFileSystem  # noqa: PLC0415  # backend-class identity probe is the only fsspec-impl import here
     from fsspec.implementations.memory import MemoryFileSystem  # noqa: PLC0415  # paired backend identity probe
@@ -639,8 +638,7 @@ def test_artifact_scope_open_computes_path_lazily_per_claim(claim: Claim, assay_
 def test_artifact_scope_ensure_materializes_through_store_boundary(assay_root: AssayHarness) -> None:
     """ArtifactScope.ensure materializes lazy scopes through the ArtifactStore boundary.
 
-    The returned path is scope.path, repeated calls are idempotent, and escaped backend paths are
-    rejected before raw fsspec access.
+    The returned path is scope.path, repeated calls are idempotent, and escaped backend paths are rejected before raw fsspec access.
     """
     from pathlib import Path as _Path  # noqa: PLC0415  # local: filesystem-existence probe
 
@@ -733,6 +731,9 @@ def test_artifact_store_io_lifecycle(mem_store: ArtifactStore, tmp_path: Path) -
     assert len(paths) == 2
     assert (mem_store.read_bytes("scope", "a.txt"), mem_store.read_bytes("scope", "b.txt")) == (b"alpha", b"beta")
 
+
+def test_artifact_store_exists_size_remove_open_adopt(mem_store: ArtifactStore, tmp_path: Path) -> None:
+    """exists/exists_path/size_path agree on a written payload; open_write, adopt_file, remove_path round out the lifecycle."""
     payload = b"size-check-payload"
     backend = mem_store.write_bytes(payload, "scope", "check.txt")
     assert mem_store.exists("scope", "check.txt")
@@ -771,28 +772,6 @@ def test_artifact_store_write_at_atomic_commit_and_failure() -> None:
     committing = ArtifactStore(fs=_FsStub(), root="atomic-root")
     path = committing.write_bytes(b"committed-via-open", "scope", "via-open.bin")
     assert committing.read_path(path) == b"committed-via-open"
-
-
-def test_artifact_store_exists_size_remove_open_adopt(mem_store: ArtifactStore, tmp_path: Path) -> None:
-    """exists/exists_path/size_path agree on a written payload; open_write, adopt_file, remove_path round out the lifecycle."""
-    payload = b"size-check-payload"
-    backend = mem_store.write_bytes(payload, "scope", "check.txt")
-    assert mem_store.exists("scope", "check.txt")
-    assert mem_store.exists_path(backend)
-    assert mem_store.size_path(backend) == len(payload)
-    assert not mem_store.exists("scope", "missing.txt")
-
-    stream_path, fh = mem_store.open_write("scope", "stream.bin")
-    assert "stream.bin" in stream_path
-    assert hasattr(fh, "write")
-
-    local = tmp_path / "to-adopt.bin"
-    local.write_bytes(b"adopted-content")
-    mem_store.adopt_file(local, "artifacts", "copy.bin")
-    assert mem_store.read_bytes("artifacts", "copy.bin") == b"adopted-content"
-
-    mem_store.remove_path(backend)
-    assert not mem_store.exists("scope", "check.txt")
 
 
 # --- [ARTIFACT_STORE_WALK_LAWS]
@@ -857,8 +836,7 @@ def test_artifact_store_retain_history_prunes_oldest(keep: int, survivors: int, 
 def test_artifact_store_retain_scopes_prunes_oldest_per_claim(keep: int, expected: tuple[str, ...]) -> None:
     """retain_scopes prunes oldest run dirs per claim using lexicographic fallback order.
 
-    The stub omits mtime so ordering depends on run_id; the second claim root proves pruning is
-    claim-local.
+    The stub omits mtime so ordering depends on run_id; the second claim root proves pruning is claim-local.
     """
     stub = _FsStub()
     store = ArtifactStore(fs=stub, root="scopes-root")
@@ -887,10 +865,7 @@ def test_artifact_store_sorted_history_ids_mtime_tie_lexicographic_fallback() ->
 
 
 def test_artifact_store_retain_history_already_removed_is_tolerated() -> None:
-    """retain_history tolerates FileNotFoundError during prune.
-
-    The stub discovers a seeded run and raises only from rm, exercising the race arm.
-    """
+    """retain_history tolerates FileNotFoundError during prune. The stub discovers a seeded run and raises only from rm, exercising the race arm."""
     racey_fs = _FsStub(rm_raises=True)
     store = ArtifactStore(fs=racey_fs, root="racey-root")
     racey_fs.seed("racey-root/history/run-race/envelope.json", WIRE_ENCODER.encode(make_history_envelope("run-race")))
@@ -998,37 +973,29 @@ def test_history_retention_state_machine() -> None:
 # --- [ARTIFACT_STORE_RESOLVE_ARTIFACTS_LAWS]
 
 
-def test_artifact_store_resolve_artifacts_empty_token_returns_empty(mem_store: ArtifactStore) -> None:
-    """resolve_artifacts with an empty/whitespace-only token returns () without scanning the backend."""
-    mem_store.write_bytes(b"x", "scope", "a.txt")
+def test_artifact_store_resolve_artifacts_matrix(mem_store: ArtifactStore, monkeypatch: pytest.MonkeyPatch) -> None:
+    """resolve_artifacts: empty tokens return (), basename matches across roots, substring and direct paths hit, latest ranks by root priority."""
+    mem_store.write_bytes(b"a", "scope", "needle.txt")
     assert mem_store.resolve_artifacts("", "scope") == ()
     assert mem_store.resolve_artifacts("  ", "scope") == ()
 
-
-def test_artifact_store_resolve_artifacts_basename_substring_and_direct(mem_store: ArtifactStore) -> None:
-    """resolve_artifacts matches a basename across roots, a path substring, and a direct existing backend path."""
-    mem_store.write_bytes(b"a", "scope", "needle.txt")
     mem_store.write_bytes(b"b", "history", "run-1", "needle.txt")
     basename = mem_store.resolve_artifacts("needle.txt", "scope", "history")
     assert len(basename) == 2
     assert all("needle.txt" in m for m in basename)
-
     mem_store.write_bytes(b"c", "scope", "mydir", "file.txt")
     assert any("mydir" in m for m in mem_store.resolve_artifacts("mydir", "scope", "history"))
-
     direct = mem_store.write_bytes(b"direct", "scope", "direct.txt")
     assert mem_store.resolve_artifacts(direct, "scope") == (direct,)
 
-
-def test_artifact_store_resolve_artifacts_latest_across_roots(mem_store: ArtifactStore, monkeypatch: pytest.MonkeyPatch) -> None:
-    """resolve_artifacts latest=True returns the first non-empty root's newest file (root priority)."""
     mem_store.write_bytes(b"first", "scope", "a.txt")
     mem_store.write_bytes(b"newer", "history", "run-x", "b.txt")
-    monkeypatch.setattr(_store_mod, "mtime_from_info", lambda info: 2.0 if str(info.get("name", "")).endswith("b.txt") else 1.0)
+    # history's b.txt is globally newest; a.txt is merely scope's newest — ranked[0]=a.txt proves root priority beats recency.
+    ranks = {"b.txt": 3.0, "a.txt": 2.0}
+    monkeypatch.setattr(_store_mod, "mtime_from_info", lambda info: ranks.get(str(info.get("name", "")).rsplit("/", 1)[-1], 1.0))
     ranked = mem_store.resolve_artifacts("latest", "scope", "history", latest=True)
     assert len(ranked) >= 1
-    assert "a.txt" in ranked[0]
-
+    assert "a.txt" in ranked[0], "the first non-empty root's newest file wins (root priority)"
     assert mem_store.resolve_artifacts("latest", "empty-scope", "empty-history", latest=True) == ()
 
 
@@ -1042,10 +1009,6 @@ def test_artifact_store_load_history_option_projection(mem_store: ArtifactStore)
     mem_store.write_history("run-opt", WIRE_ENCODER.encode(make_history_envelope("run-opt")))
     assert_some(Option.of_optional(mem_store.load_history("run-opt")))
     assert_none(Option.of_optional(mem_store.load_history("absent-run")))
-
-
-def test_artifact_store_write_bytes_idempotent_overwrite(mem_store: ArtifactStore) -> None:
-    """Re-writing the same payload at a backend path is idempotent in read-back (overwrite semantics)."""
     idempotent(b"idem-payload", lambda p: (mem_store.write_bytes(p, "scope", "idem.bin"), mem_store.read_bytes("scope", "idem.bin"))[1])
 
 

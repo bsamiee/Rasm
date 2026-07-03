@@ -44,7 +44,7 @@
 |  [01]   | `NodeHttpClient.layerUndici` / `.layer` / `.layerWithoutAgent`                     | client layer    | `host/net/client.ts` — the undici-backed `HttpClient` (HTTP/2, pooling) |
 |  [02]   | `NodeHttpClient.dispatcherLayer` / `.dispatcherLayerGlobal` / `.makeDispatcher`    | dispatcher      | tune the undici `Dispatcher` (connections, pipelining, TLS) under the client |
 |  [03]   | `NodeHttpServer.layer(createServer, listenOptions)` / `.layerConfig(createServer, config)` | server layer    | `edge/serve` — bind `HttpServer` to a `node:http` server; `layerConfig` reads host/port from `Config` |
-|  [04]   | `NodeHttpServer.layerTest` / `NodeHttpServer.makeHandler`                          | test / handler  | `proof` in-process server specs; a raw `IncomingMessage => ServerResponse` handler |
+|  [04]   | `NodeHttpServer.layerTest` / `NodeHttpServer.makeHandler`                          | test / handler  | kit-driven in-process server specs; a raw `IncomingMessage => ServerResponse` handler |
 |  [05]   | `NodeHttpServerRequest.toIncomingMessage` / `.toServerResponse`                    | node interop    | `edge` — reach the raw `node:http` objects at the boundary (streaming, upgrade) |
 
 [ENTRYPOINT_SCOPE]: sockets, workers, and stream bridges

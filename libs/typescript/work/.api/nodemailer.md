@@ -62,8 +62,8 @@
 |  [02]   | `shared.parseConnectionUrl(url)` → `SMTPConnection.Options`                                   | url decode       | decodes a `smtp://user:pass@host:port` `Config` value into structured options at the boundary |
 |  [03]   | `XOAuth2#getToken(renew, cb)` / `#generateToken(cb)` / `#buildXOAuth2Token(accessToken)`     | oauth token      | the refresh-token → access-token flow behind `OAUTH2` auth; the owner caches the `token` event value in a `Ref` under `Redacted` |
 |  [04]   | `DKIM#sign(input, extraOptions?)` → `PassThrough`                                             | dkim sign        | native message signing; keys arrive as `Redacted` PEM from `Config`, never inline in the message |
-|  [05]   | `createTestAccount(apiUrl?)` → `Promise<TestAccount>` / `getTestMessageUrl(info)` → `string \| false` | test sink | Ethereal capture for `proof`/staging — a real SMTP inbox with a preview URL, no live delivery |
-|  [06]   | `streamTransport`/`jsonTransport` options                                                     | inspect sink     | `{ streamTransport: true, buffer }` yields the raw MIME `Buffer`/`Readable`; `{ jsonTransport: true }` yields the message as JSON — the deterministic `proof` and dry-run modalities |
+|  [05]   | `createTestAccount(apiUrl?)` → `Promise<TestAccount>` / `getTestMessageUrl(info)` → `string \| false` | test sink | Ethereal capture for kit-driven specs/staging — a real SMTP inbox with a preview URL, no live delivery |
+|  [06]   | `streamTransport`/`jsonTransport` options                                                     | inspect sink     | `{ streamTransport: true, buffer }` yields the raw MIME `Buffer`/`Readable`; `{ jsonTransport: true }` yields the message as JSON — the deterministic kit-driven spec and dry-run modalities |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -89,10 +89,10 @@
 - Use `Layer.scoped` with `close()` as the finalizer and `verify()` at build; never a module-level transporter singleton or an unclosed pool.
 - Use `SMTPError.code` classified into a `Data.taggedEnum` for `Effect.retry`; never string-match the error `message` or retry a terminal `EAUTH`.
 - Use `SentMessageInfo.rejected`/`rejectedErrors` as a domain outcome the durable job reconciles; never treat a partial-rejection send as a total success or a thrown failure.
-- Use `streamTransport`/`jsonTransport` + `createTestAccount` for `proof`/dry-run; never send through a live SMTP transport in a deterministic test.
+- Use `streamTransport`/`jsonTransport` + `createTestAccount` for kit-driven specs/dry-run; never send through a live SMTP transport in a deterministic test.
 
 [RAIL_LAW]:
 - Package: `nodemailer` (+ `@types/nodemailer`)
 - Owns: mail egress — the polymorphic `createTransport`, `sendMail`/`verify`/`close`/`isIdle`, the one `Mail.Options` message shape, the `LOGIN`/`OAUTH2`/`CUSTOM` auth union, native DKIM signing, SMTP pooling with rate limits, `wellKnown` provider resolution, and the `SentMessageInfo` delivery receipt
-- Accept: `Effect.tryPromise`-lifted send/verify, a scoped `Layer` transporter with `close` release, `Redacted`/`Config.redacted` secrets, one `Schema`-decoded message, `SMTPError.code` as a `Data.taggedEnum` retry discriminant, partial-rejection reconciliation, `streamTransport`/`jsonTransport` for `proof`
+- Accept: `Effect.tryPromise`-lifted send/verify, a scoped `Layer` transporter with `close` release, `Redacted`/`Config.redacted` secrets, one `Schema`-decoded message, `SMTPError.code` as a `Data.taggedEnum` retry discriminant, partial-rejection reconciliation, `streamTransport`/`jsonTransport` for kit-driven specs
 - Reject: a factory per transport, an untyped inline message, secrets outside `Redacted`, a module-level transporter singleton, string-matched error retry, treating partial rejection as success, live SMTP in a deterministic test

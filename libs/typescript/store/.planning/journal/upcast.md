@@ -1,1 +1,1 @@
-# [STORE_UPCAST] — read-time eventVersion upcaster folds — total functions, proven in proof/law; the raw log is never rewritten
+# [STORE_UPCAST] — read-time eventVersion upcaster folds — total functions, totality proven through the tests/typescript/_testkit law combinators; the raw log is never rewritten

@@ -37,8 +37,8 @@
 |  [03]   | `Schema.TaggedError` / `Schema.TaggedRequest`             | fault / request    | `wire/fault` decoded errors, `store`/`work` request schemas with success+failure channels |
 |  [04]   | `Schema.PropertySignature` / `Schema.optionalWith`        | field modality     | `kernel/schema` optional-to-`Option` decode, constructor defaults, key renaming at the seam |
 |  [05]   | `ParseResult.ParseError` / `ParseResult.ParseIssue`       | decode fault       | every ingress — lifts into the `Effect` error channel; `ArrayFormatter` renders issue trees |
-|  [06]   | `SchemaAST.AST` + annotation IDs                          | reflection node    | `proof/law` arbitrary derivation, `edge/api` OpenAPI emission read the annotated AST |
-|  [07]   | `FastCheck.Arbitrary<A>` (`effect/FastCheck`) / `Arbitrary.LazyArbitrary<A>` | generator | `proof/law/arbitrary.ts` — Schema-derived property generators, no hand-rolled fixtures; `LazyArbitrary<A>` = `(fc: typeof FastCheck) => FastCheck.Arbitrary<A>`, the deferred/recursive-schema form |
+|  [06]   | `SchemaAST.AST` + annotation IDs                          | reflection node    | the testkit arbitrary derivation (`tests/typescript/_testkit`), `edge/api` OpenAPI emission read the annotated AST |
+|  [07]   | `FastCheck.Arbitrary<A>` (`effect/FastCheck`) / `Arbitrary.LazyArbitrary<A>` | generator | the testkit arbitrary source (`tests/typescript/_testkit`) — Schema-derived property generators, no hand-rolled fixtures; `LazyArbitrary<A>` = `(fc: typeof FastCheck) => FastCheck.Arbitrary<A>`, the deferred/recursive-schema form |
 
 [PUBLIC_TYPE_SCOPE]: services, layers, and dispatch surfaces
 - rail: surfaces-and-dispatch
@@ -81,11 +81,11 @@
 |  [02]   | `Schema.Struct({...})` / `Schema.TaggedStruct(tag, {...})` / `Schema.Class<Self>(id)({...})`     | declare shape   | `SHAPE_BUDGET` — one runtime authority per concept; `Class` adds an opaque constructor + prototype |
 |  [03]   | `Schema.Union` / `Schema.Literal` / `Schema.Enums` / `Schema.TemplateLiteralParser`              | closed union    | `state`/`wire` tagged families; `TemplateLiteralParser` decodes structured string keys |
 |  [04]   | `Schema.pick` / `Schema.omit` / `Schema.partial` / `Schema.extend` / `Schema.pluck`              | project         | `DERIVED_TYPES` — every projection derives from the one owner, never a parallel schema |
-|  [05]   | `Schema.transformOrFail(from, to, { decode, encode })` / `Schema.transform`                      | bidirectional   | `wire` codec crossings, `kernel` brand mint — total both directions, proven in `proof/law` |
+|  [05]   | `Schema.transformOrFail(from, to, { decode, encode })` / `Schema.transform`                      | bidirectional   | `wire` codec crossings, `kernel` brand mint — total both directions, proven by the `@rasm/ts-testkit` law combinators (`tests/typescript/_testkit`) |
 |  [06]   | `Schema.brand("K")` / `Schema.filter` / `Schema.optionalWith(s, { as: "Option", default })`     | refine          | `kernel/schema` brand floor; `optionalWith` decodes absence to `Option` with a constructor default |
 |  [07]   | `Schema.Option` / `Schema.Either` / `Schema.Chunk` / `Schema.HashMap` / `Schema.Redacted`        | effect-data     | schemas whose decoded value is an Effect data structure, not a plain object |
 |  [08]   | `Schema.Uint8ArrayFromBase64` / `Schema.StringFromHex` / `Schema.parseJson(inner)`               | wire codec      | `wire` byte↔value crossings; `parseJson` composes an inner schema over a JSON string field |
-|  [09]   | `Arbitrary.make(schema)` / `Arbitrary.makeLazy(schema)` / `JSONSchema.make(schema)` / `Pretty.make(schema)` / `Schema.equivalence(schema)` | derive | one Schema yields the generator (`proof`), the OpenAPI node (`edge`), the printer, and structural equality; `makeLazy` returns the deferred `LazyArbitrary<A>` for recursive/suspended schemas |
+|  [09]   | `Arbitrary.make(schema)` / `Arbitrary.makeLazy(schema)` / `JSONSchema.make(schema)` / `Pretty.make(schema)` / `Schema.equivalence(schema)` | derive | one Schema yields the generator (`tests/typescript/_testkit`), the OpenAPI node (`edge`), the printer, and structural equality; `makeLazy` returns the deferred `LazyArbitrary<A>` for recursive/suspended schemas |
 |  [10]   | `Schema.standardSchemaV1(schema)`                                                                | interop         | `ui` form libraries and any Standard-Schema consumer bind the decoder without an adapter |
 
 [ENTRYPOINT_SCOPE]: `Context` / `Layer` / `Runtime` — services and composition roots
@@ -98,7 +98,7 @@
 |  [03]   | `Layer.effect(Tag, build)` / `Layer.scoped(Tag, build)` / `Layer.succeed(Tag, value)`         | construct layer | folder Layers; `scoped` ties the service to a `Scope` so teardown is structural |
 |  [04]   | `Layer.provide` / `Layer.provideMerge` / `Layer.mergeAll` / `Layer.merge`                     | compose layer   | app root builds the dependency graph; `provideMerge` keeps the provided service in the output |
 |  [05]   | `Layer.launch(layer)` / `Layer.memoize` / `Layer.fresh` / `Layer.retry(schedule)`             | run / lifetime  | `host/life` long-lived roots; `memoize` shares one instance, `fresh` forces a new build |
-|  [06]   | `Layer.setConfigProvider` / `Layer.setTracer` / `Layer.setClock` / `Layer.setRequestBatching` | override policy | `host/config`, `telemetry`, `proof` (TestClock) swap the runtime service under the whole graph |
+|  [06]   | `Layer.setConfigProvider` / `Layer.setTracer` / `Layer.setClock` / `Layer.setRequestBatching` | override policy | `host/config`, `telemetry`, the testkit harness (TestClock) swap the runtime service under the whole graph |
 |  [07]   | `ManagedRuntime.make(layer)` → `.runFork` / `.runPromise` / `.dispose`                         | runtime root    | `browser/boot` builds once, the imperative host calls in; `LayerMap.make` for keyed runtimes |
 |  [08]   | `Reloadable.auto(Tag, { layer, schedule })` / `Reloadable.reload`                             | hot reload      | `host/flag` re-evaluates a remote provider on a schedule without tearing the graph |
 
@@ -175,7 +175,7 @@
 - `@effect/platform` (`.api/effect-platform.md`): the platform contracts are `Effect`-returning services keyed by `Context.Tag` — `HttpClient` yields `Effect<HttpClientResponse, HttpClientError>`, `HttpApiEndpoint` bodies are `Schema`-typed handlers, and `FileSystem`/`Command`/`Worker` are Tags a `Layer` satisfies. One Schema decodes the request and encodes the response; the same tagged error family flows the `Effect` error channel to the `edge` problem-detail mapping.
 - `@effect/platform-node` (`.api/effect-platform-node.md`): the `Node*` `Layer`s satisfy the platform Tags this substrate's `Layer` graph requires; `NodeRuntime.runMain` is the `Effect.runFork` edge for a node process, draining fibers and finalizers on signal.
 - `@effect/opentelemetry` (`.api/effect-opentelemetry.md`): `Metric`, `Logger`, and `Tracer` are the vendor-neutral signal owners; the OTel `Layer` swaps the `Tracer`/`MetricRegistry`/`Logger` services under the whole graph via `Layer.setTracer`, so `Effect.withSpan`/`withMetric` on any rail export through OTLP with no call-site change.
-- `@effect/vitest` (`.api/effect-vitest.md`): `it.effect`/`it.scoped` run an `Effect` under `TestServices` (deterministic `TestClock`/`TestRandom`); `it.prop` consumes `Schema`-derived `FastCheck.Arbitrary`s; `it.layer` shares a `Layer` across a spec block — the `proof` folder needs no hand-rolled harness.
+- `@effect/vitest` (`.api/effect-vitest.md`): `it.effect`/`it.scoped` run an `Effect` under `TestServices` (deterministic `TestClock`/`TestRandom`); `it.prop` consumes `Schema`-derived `FastCheck.Arbitrary`s; `it.layer` shares a `Layer` across a spec block — the testkit needs no hand-rolled harness.
 - folder-local substrate (catalogued at `libs/typescript/<folder>/.api/`): `@effect/sql` `SqlClient` and `@effect/cluster` `MessageStorage` are `Context.Tag`s `work`/`store` compose and the app root satisfies; `@effect-atom` binds an `Effect`/`SubscriptionRef` into a React atom (`ui`); `@electric-sql/d2ts` folds a `state` dataflow; `hash-wasm` sits behind the `kernel` `ContentKey` mint — each is `Effect`-wrapped at its owner, never leaked raw.
 
 [LOCAL_ADMISSION]:

@@ -17,8 +17,7 @@ import msgspec.structs
 import pytest
 from upath import UPath
 
-from tests.python._testkit.laws import register_law
-from tests.python._testkit.spec import assert_error, assert_ok, validity_matrix, ValidityCase
+from tests.python._testkit.spec import assert_error, assert_ok
 from tests.python._testkit.strategies import resolve
 from tests.python.tools.assay.kit import SeamExecutor
 from tools.assay.composition.catalog import select
@@ -27,7 +26,7 @@ from tools.assay.composition.store import ArtifactScope
 from tools.assay.core.exec import apply_row_status, EngineExecutor
 from tools.assay.core.model import ArtifactKind, Check, Claim, Fault, Input, Language, Mode, RailStatus, receipt, Runner, Tool, ToolGroup
 from tools.assay.core.routing import resolve_languages, Routed, Scope
-from tools.assay.diagnostics import AstMatch, Capture, CAPTURE_ENCODER, CAPTURES
+from tools.assay.diagnostics import AstMatch, cap_note, Capture, CAPTURE_ENCODER, CAPTURES, node_text, ts_query
 import tools.assay.rails.code as code_rail
 from tools.assay.rails.code import (
     _AG_SPEC,
@@ -56,179 +55,166 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from tests.python.tools.assay.kit import AssayHarness
-    from tools.assay.core.model import Report
+    from tools.assay.core.model import Completed, Report
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
+COVERS: tuple[object, ...] = (CodeParams, query, search, ts_language, ts_query, node_text, cap_note, resolve_languages, apply_row_status)
+
 _QUERY_TOOL = Tool("tree-sitter", Runner.INPROC, ("tree-sitter", "query"), Input.FILES, Language.PYTHON, Claim.CODE, mode=Mode.QUERY)
 _PY_FUNC_QUERY = "(function_definition name: (identifier) @name)"
-_BLANK_CASES: tuple[str, ...] = ("", "   ", "\t")
 _AG_MATCH = AstMatch(text="alpha = 1", file="pkg/mod.py", lines="alpha = 1\n", replacement="let alpha = 1")
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
+
+def _thunk(assay_root: AssayHarness, query_src: str, path: str, *, limit: int = 10, tool: Tool = _QUERY_TOOL) -> Completed:
+    return _ts_thunk(query_src, tool.language, assay_root.root, limit=limit)(Check(tool=tool, paths=(path,)))
+
+
 # --- [CODEPARAMS_LAWS]
 
-
-def test_codeparams_defaults() -> None:
-    """Default CodeParams has blank pattern, empty paths, max_results=1000."""
-    p = CodeParams()
-    assert not p.pattern
-    assert p.paths == ()
-    assert not p.csharp
-    assert not p.python
-    assert not p.typescript
-    assert p.max_results == 1000
-
-
-@pytest.mark.parametrize(
-    "verb, paths, expected_pattern, is_fault",
-    [
-        ("search", ("mypat", "src/"), "mypat", False),
-        ("query", ("qpat",), "qpat", False),
-        ("search", (), "", True),
-        ("query", (), "", True),
-        ("search", ("   ",), "", True),
-    ],
+_BOUND_ROWS: tuple[tuple[str, CodeParams, str, str | None], ...] = (
+    ("search-positional-projects", CodeParams(paths=("mypat", "src/")), "search", "mypat"),
+    ("query-positional-projects", CodeParams(paths=("qpat",)), "query", "qpat"),
+    ("search-missing-faults", CodeParams(), "search", None),
+    ("query-missing-faults", CodeParams(), "query", None),
+    ("search-blank-positional-faults", CodeParams(paths=("   ",)), "search", None),
+    ("search-empty-pattern-faults", CodeParams(pattern=""), "search", None),
+    ("search-spaces-pattern-faults", CodeParams(pattern="   "), "search", None),
+    ("query-tab-pattern-faults", CodeParams(pattern="\t"), "query", None),
+    ("non-code-verb-passthrough", CodeParams(paths=("extra",)), "static", ""),
 )
-def test_codeparams_bound_positional_projection(
-    verb: str,
-    paths: tuple[str, ...],
-    expected_pattern: str,
-    is_fault: bool,  # noqa: FBT001  # parametrized bool flag
-) -> None:
-    """bound() projects the leading positional into pattern, faults on missing or blank pattern."""
-    result = CodeParams(paths=paths).bound(verb)
-    match is_fault:
-        case True:
-            assert isinstance(result, Fault), f"expected Fault, got {type(result)}: {result!r}"
+
+
+@pytest.mark.parametrize("params, verb, expected", [row[1:] for row in _BOUND_ROWS], ids=[row[0] for row in _BOUND_ROWS])
+def test_codeparams_bound_matrix(params: CodeParams, verb: str, expected: str | None) -> None:
+    """bound() projects the leading positional into pattern, faults on missing/blank patterns, and ignores non-code verbs."""
+    result = params.bound(verb)
+    match expected:
+        case None:
+            assert isinstance(result, Fault), f"expected Fault, got {result!r}"
             assert result.status is RailStatus.FAULTED
-        case False:
+        case _:
             assert isinstance(result, CodeParams), f"expected CodeParams, got {type(result)}"
-            assert result.pattern == expected_pattern
+            assert result.pattern == expected
 
 
 @given(resolve(CodeParams))
 @hyp_settings(parent=hyp_settings.get_profile("rasm"))
-def test_codeparams_bound_with_explicit_pattern_never_overwrites(p: CodeParams) -> None:
-    """bound() never overwrites a flag-supplied non-blank pattern."""
+def test_codeparams_bound_explicit_pattern_stable(p: CodeParams) -> None:
+    """bound() never overwrites a flag-supplied pattern and is idempotent on it."""
     assume(sum((p.csharp, p.python, p.typescript)) <= 1)
     for verb in ("search", "query"):
-        result = dc_replace(p, pattern="explicit").bound(verb)
-        assert not isinstance(result, Fault), f"flag-pattern must survive bound({verb!r}): {result!r}"
-        assert isinstance(result, CodeParams)
-        assert result.pattern == "explicit", f"pattern overwritten by bound({verb!r})"
-
-
-@given(resolve(CodeParams))
-@hyp_settings(parent=hyp_settings.get_profile("rasm"))
-def test_codeparams_bound_idempotent_on_explicit_pattern(p: CodeParams) -> None:
-    """bound() is idempotent when pattern is already set — second call changes nothing."""
-    assume(sum((p.csharp, p.python, p.typescript)) <= 1)
-    for verb in ("search", "query"):
-        first = dc_replace(p, pattern="pat", paths=()).bound(verb)
-        assert isinstance(first, CodeParams)
+        first = dc_replace(p, pattern="explicit").bound(verb)
+        assert isinstance(first, CodeParams), f"flag-pattern must survive bound({verb!r}): {first!r}"
+        assert first.pattern == "explicit", f"pattern overwritten by bound({verb!r})"
         second = first.bound(verb)
         assert isinstance(second, CodeParams)
-        assert first.pattern == second.pattern
+        assert second.pattern == "explicit"
 
 
-@pytest.mark.parametrize("blank", _BLANK_CASES, ids=["empty", "spaces", "tab"])
-def test_codeparams_bound_rejects_blank_for_all_code_verbs(blank: str) -> None:
-    """bound() rejects blank/whitespace-only patterns for search and query."""
-    for verb in ("search", "query"):
-        result = CodeParams(pattern=blank).bound(verb)
-        assert isinstance(result, Fault), f"expected Fault for {blank!r} on {verb!r}"
-        assert result.status is RailStatus.FAULTED
+def test_codeparams_rejects_multiple_language_flags() -> None:
+    """Code params accept one language flag at most."""
+    fault = CodeParams(pattern="alpha", csharp=True, python=True).bound("search")
+    assert isinstance(fault, Fault)
+    assert "--csharp" in fault.message
+    assert "--python" in fault.message
 
 
-def test_codeparams_bound_passthrough_non_code_verb() -> None:
-    """bound() with a non-code verb does not trigger pattern validation."""
-    assert isinstance(CodeParams(paths=("extra",)).bound("static"), CodeParams)
+def test_code_help_exposes_boolean_language_flags(monkeypatch: pytest.MonkeyPatch, capsysbinary: pytest.CaptureFixture[bytes]) -> None:
+    """Code help exposes selector flags and never the removed --language value flag."""
+    from tools.assay import __main__ as main_mod  # noqa: PLC0415
 
-
-def test_codeparams_bound_validity_matrix() -> None:
-    """Validity matrix: pattern+verb combos that produce/don't produce a Fault."""
-    validity_matrix(
-        [
-            ValidityCase("search_with_pattern_ok", CodeParams(pattern="x").bound("search"), expected=False),
-            ValidityCase("query_with_pattern_ok", CodeParams(pattern="x").bound("query"), expected=False),
-            ValidityCase("search_blank_fault", CodeParams(pattern="").bound("search"), expected=True),
-            ValidityCase("query_blank_fault", CodeParams(pattern="").bound("query"), expected=True),
-        ],
-        lambda v: isinstance(v, Fault),
-    )
+    neutralized = SimpleNamespace(force_flush=lambda *_a, **_k: True, shutdown=lambda: None)
+    monkeypatch.setattr(main_mod, "get_tracer_provider", lambda: neutralized)
+    code = main_mod.main(["code", "search", "--help"])
+    cap = capsysbinary.readouterr()
+    assert code == 0
+    assert b"--csharp" in cap.out
+    assert b"--python" in cap.out
+    assert b"--typescript" in cap.out
+    assert b"--language" not in cap.out
 
 
 # --- [TS_THUNK_QUERY_LAWS]
-
-
-def test_ts_thunk_python_query_captures_name(assay_root: AssayHarness) -> None:
-    """Python function-name query yields a Capture with correct text, line, and ordinal."""
-    assay_root.write("pkg/mod.py", "def alpha():\n    return 1\n")
-    done = _ts_thunk(_PY_FUNC_QUERY, Language.PYTHON, assay_root.root, limit=10)(Check(tool=_QUERY_TOOL, paths=("pkg/mod.py",)))
-    caps = CAPTURES.decode(done.stdout)
-    assert done.status.value == "ok"
-    assert caps[0].text == "alpha"
-    assert caps[0].line == 1
-    assert caps[0].column > 0
-    assert caps[0].ordinal == 0
 
 
 def test_ts_thunk_tsx_uses_tsx_grammar(assay_root: AssayHarness) -> None:
     """TSX files are parsed with the TSX grammar — JSX elements are captured."""
     assay_root.write("src/view.tsx", "export const View = () => <div />;\n")
     ts_tool = msgspec.structs.replace(_QUERY_TOOL, language=Language.TYPESCRIPT)
-    done = _ts_thunk("(jsx_self_closing_element) @jsx", Language.TYPESCRIPT, assay_root.root, limit=10)(Check(tool=ts_tool, paths=("src/view.tsx",)))
+    done = _thunk(assay_root, "(jsx_self_closing_element) @jsx", "src/view.tsx", tool=ts_tool)
     caps = CAPTURES.decode(done.stdout)
     assert done.status.value == "ok"
     assert caps[0].name == "jsx"
     assert caps[0].file == "src/view.tsx"
 
 
-def test_ts_thunk_parse_error_emits_capture_row(assay_root: AssayHarness) -> None:
-    """A syntactically broken source file surfaces a parse_error Capture row and returncode=1."""
-    assay_root.write("pkg/bad.py", "def broken(:\n")
-    done = _ts_thunk(_PY_FUNC_QUERY, Language.PYTHON, assay_root.root, limit=10)(Check(tool=_QUERY_TOOL, paths=("pkg/bad.py",)))
-    assert done.returncode == 1
-    assert any(c.parse_error for c in CAPTURES.decode(done.stdout))
+def test_ts_thunk_missing_file_yields_empty_receipt(assay_root: AssayHarness) -> None:
+    """A path that does not exist on disk is silently skipped — no captures, EMPTY status."""
+    done = _thunk(assay_root, _PY_FUNC_QUERY, "nonexistent.py")
+    assert done.status is RailStatus.EMPTY
+    assert done.returncode == 0
 
 
-def test_ts_thunk_invalid_query_emits_query_error_row(assay_root: AssayHarness) -> None:
-    """Invalid query syntax is returned as a query_error Capture row, not an escaped exception."""
+def test_ts_thunk_literal_prefilters_admit_and_skip(assay_root: AssayHarness) -> None:
+    """#eq?/#any-of? byte prefilters skip needle-free files without parsing and admit real hits — no false negatives."""
     assay_root.write("pkg/mod.py", "def alpha():\n    return 1\n")
-    done = _ts_thunk("(", Language.PYTHON, assay_root.root, limit=10)(Check(tool=_QUERY_TOOL, paths=("pkg/mod.py",)))
-    caps = CAPTURES.decode(done.stdout)
-    assert done.returncode == 1
-    assert caps[0].name == "query_error"
-    assert caps[0].parse_error
+    assay_root.write("pkg/beta.py", "def beta():\n    return 1\n")
+    assay_root.write("pkg/broken_miss.py", "def broken(:\n")
+    eq = '(function_definition name: (identifier) @name (#eq? @name "alpha"))'
+    admitted = _thunk(assay_root, eq, "pkg/mod.py")
+    skipped = _thunk(assay_root, eq, "pkg/broken_miss.py")
+    assert (admitted.status, CAPTURES.decode(admitted.stdout)[0].text) == (RailStatus.OK, "alpha")
+    assert (skipped.status, skipped.returncode, tuple(CAPTURES.decode(skipped.stdout))) == (RailStatus.EMPTY, 0, ())
+    any_of = '(function_definition name: (identifier) @name (#any-of? @name "alpha" "beta"))'
+    hit = _thunk(assay_root, any_of, "pkg/beta.py")
+    assert (hit.status.value, CAPTURES.decode(hit.stdout)[0].text) == ("ok", "beta")
 
 
-def test_ts_thunk_match_limit_truncates(assay_root: AssayHarness) -> None:
-    """Tree-sitter match cap is applied at cursor level; Capture.truncated is set on the last row."""
-    assay_root.write("pkg/mod.py", "def a():\n    pass\ndef b():\n    pass\n")
-    done = _ts_thunk(_PY_FUNC_QUERY, Language.PYTHON, assay_root.root, limit=1)(Check(tool=_QUERY_TOOL, paths=("pkg/mod.py",)))
-    caps = CAPTURES.decode(done.stdout)
+def test_ts_thunk_receipt_argv_and_cap_fallback(assay_root: AssayHarness) -> None:
+    """_ts_thunk preserves argv provenance and falls back when limit=0."""
+    assay_root.write("pkg/mod.py", "def alpha():\n    return 1\n")
+    done = _thunk(assay_root, _PY_FUNC_QUERY, "pkg/mod.py", limit=0)
+    assert done.argv == ("tree-sitter", "query", Language.PYTHON, "pkg/mod.py")
+    assert done.status is RailStatus.OK
+    assert len(CAPTURES.decode(done.stdout)) == 1
+
+
+def test_ts_capture_full_byte_shape(assay_root: AssayHarness) -> None:
+    """Captures preserve byte offsets, exact-cap boundaries, and cursor-level truncation on overflow."""
+    assay_root.write("pkg/mod.py", "def alpha():\n    return 1\n")
+    done = _thunk(assay_root, _PY_FUNC_QUERY, "pkg/mod.py")
+    expected = Capture(name="name", text="alpha", file="pkg/mod.py", line=1, column=5, end_line=1, end_column=10, start_byte=4, end_byte=9)
+    assert done.status.value == "ok"
+    assert tuple(CAPTURES.decode(done.stdout)) == (expected,)
+    assay_root.write("pkg/two.py", "def a():\n    pass\ndef b():\n    pass\n")
+    exact = _thunk(assay_root, _PY_FUNC_QUERY, "pkg/two.py", limit=2)
+    assert [(c.ordinal, c.truncated) for c in CAPTURES.decode(exact.stdout)] == [(0, False), (1, False)]
+    capped = _thunk(assay_root, _PY_FUNC_QUERY, "pkg/two.py", limit=1)
+    caps = CAPTURES.decode(capped.stdout)
     assert len(caps) == 1
     assert caps[0].truncated
 
 
-def test_ts_thunk_any_of_prefilter_no_false_negative(assay_root: AssayHarness) -> None:
-    """#any-of? prefilter keeps files matching any literal — no false negatives on valid names."""
-    assay_root.write("pkg/mod.py", "def beta():\n    return 1\n")
-    q = '(function_definition name: (identifier) @name (#any-of? @name "alpha" "beta"))'
-    done = _ts_thunk(q, Language.PYTHON, assay_root.root, limit=10)(Check(tool=_QUERY_TOOL, paths=("pkg/mod.py",)))
-    caps = CAPTURES.decode(done.stdout)
-    assert done.status.value == "ok"
-    assert caps[0].text == "beta"
-
-
-def test_ts_thunk_missing_file_yields_empty_receipt(assay_root: AssayHarness) -> None:
-    """A path that does not exist on disk is silently skipped — no captures, EMPTY status."""
-    done = _ts_thunk(_PY_FUNC_QUERY, Language.PYTHON, assay_root.root, limit=10)(Check(tool=_QUERY_TOOL, paths=("nonexistent.py",)))
-    assert done.status is RailStatus.EMPTY
-    assert done.returncode == 0
+def test_ts_capture_error_row_identity(assay_root: AssayHarness) -> None:
+    """Capture error rows preserve query, parse, file, and truncation identity; every error receipt carries returncode 1."""
+    assay_root.write("pkg/mod.py", "def alpha():\n    return 1\n")
+    qerr_done = _thunk(assay_root, "(", "pkg/mod.py")
+    qerr = CAPTURES.decode(qerr_done.stdout)
+    assert qerr_done.returncode == 1
+    assert (qerr[0].name, qerr[0].file, qerr[0].line, qerr[0].parse_error) == ("query_error", "pkg/mod.py", 1, True)
+    assert "EOF" in qerr[0].text
+    assay_root.write("pkg/bad.py", "def broken(:\n")
+    plain = _thunk(assay_root, _PY_FUNC_QUERY, "pkg/bad.py")
+    assert plain.returncode == 1
+    assert any(c.parse_error for c in CAPTURES.decode(plain.stdout))
+    assay_root.write("pkg/broken_sat.py", "def a():\n    pass\ndef b():\n    pass\ndef oops(:\n")
+    saturated = _thunk(assay_root, _PY_FUNC_QUERY, "pkg/broken_sat.py", limit=1)
+    expected = Capture(name="parse_error", text="tree-sitter parse error", file="pkg/broken_sat.py", line=1, parse_error=True, truncated=True)
+    assert tuple(CAPTURES.decode(saturated.stdout)) == (expected,)
 
 
 # --- [ARTIFACT_LAWS]
@@ -257,10 +243,6 @@ def test_artifact_line_count_equals_splitlines(p: CodeParams) -> None:
 # --- [INTERNAL_PRIMITIVE_LAWS]
 
 
-register_law(resolve_languages, "none_resolves_all_code_languages")
-register_law(resolve_languages, "choice_arms_short_circuit_fault_and_pin_single_language")
-
-
 def test_languages_none_resolves_all_code_languages() -> None:
     """resolve_languages(None, ()) returns every CODE catalog language, sorted by value, no duplicates."""
     langs = assert_ok(resolve_languages(None, (), claim=Claim.CODE))
@@ -274,29 +256,6 @@ def test_languages_choice_arms_short_circuit_fault_and_pin_single_language() -> 
     conflict = Fault((), RailStatus.FAULTED, "parse: code: choose one language flag")
     assert assert_error(resolve_languages(conflict, (), claim=Claim.CODE)) is conflict
     assert assert_ok(resolve_languages(Language.PYTHON, ("a.py", "b.cs"), claim=Claim.CODE)) == (Language.PYTHON,)
-
-
-def test_codeparams_rejects_multiple_language_flags() -> None:
-    """Code params accept one language flag at most."""
-    fault = CodeParams(pattern="alpha", csharp=True, python=True).bound("search")
-    assert isinstance(fault, Fault)
-    assert "--csharp" in fault.message
-    assert "--python" in fault.message
-
-
-def test_code_help_exposes_boolean_language_flags(monkeypatch: pytest.MonkeyPatch, capsysbinary: pytest.CaptureFixture[bytes]) -> None:
-    """Code help exposes selector flags and never the removed --language value flag."""
-    from tools.assay import __main__ as main_mod  # noqa: PLC0415
-
-    neutralized = SimpleNamespace(force_flush=lambda *_a, **_k: True, shutdown=lambda: None)
-    monkeypatch.setattr(main_mod, "get_tracer_provider", lambda: neutralized)
-    code = main_mod.main(["code", "search", "--help"])
-    cap = capsysbinary.readouterr()
-    assert code == 0
-    assert b"--csharp" in cap.out
-    assert b"--python" in cap.out
-    assert b"--typescript" in cap.out
-    assert b"--language" not in cap.out
 
 
 def test_checks_and_dispatch_empty_routed(assay_root: AssayHarness) -> None:
@@ -348,59 +307,38 @@ def test_ts_language_tsx_key_resolves_tsx_grammar() -> None:
 
 
 @pytest.mark.parametrize(
-    "returncode, has_rows, expected_status, check_note",
+    "returncode, stderr, has_rows, expected",
     [
-        (0, True, RailStatus.OK, None),
-        (1, True, RailStatus.OK, None),
-        (2, True, RailStatus.OK, "some error"),  # rc=2 with rows → OK; stderr surfaced as warning note
-        (0, False, RailStatus.EMPTY, None),
-        (1, False, RailStatus.EMPTY, None),
-        (2, False, RailStatus.FAILED, "2"),  # rc=2 without rows → FAILED; exit code embedded in note
-        (3, False, RailStatus.FAILED, None),
+        (0, "boom", True, (RailStatus.OK, ("content match",))),
+        (1, "boom", True, (RailStatus.OK, ("content match",))),
+        (2, "x" * 250, True, (RailStatus.OK, ("content match; ripgrep warning: " + "x" * 200,))),
+        (0, "boom", False, (RailStatus.EMPTY, ("no content matches",))),
+        (1, "boom", False, (RailStatus.EMPTY, ("no content matches",))),
+        (2, "boom", False, (RailStatus.FAILED, ("ripgrep failed (exit 2): boom",))),
+        (3, "", False, (RailStatus.FAILED, ("ripgrep failed (exit 3): error",))),
     ],
-    ids=["rc0_rows", "rc1_rows", "rc2_rows_warn", "rc0_norows", "rc1_norows", "rc2_norows_fail", "rc3_norows_fail"],
+    ids=["rc0_rows", "rc1_rows", "rc2_rows_warning_truncated", "rc0_norows", "rc1_norows", "rc2_norows_exact_message", "rc3_stderr_fallback"],
 )
-def test_rg_status_branches(
+def test_rg_status_exact_note_bytes(
     returncode: int,
+    stderr: str,
     has_rows: bool,  # noqa: FBT001  # parametrized bool flag
-    expected_status: RailStatus,
-    check_note: str | None,
+    expected: tuple[RailStatus, tuple[str, ...]],
 ) -> None:
-    """_rg_status dispatches across rc x has_rows to the correct RailStatus; validates embedded notes."""
-    status, notes = _rg_status(returncode, "some error", has_rows=has_rows)
-    assert status is expected_status
-    assert len(notes) >= 1
-    if check_note is not None:
-        assert any(check_note in n for n in notes)
+    """_rg_status preserves exact status and warning-note tuples across the full rc x rows matrix."""
+    assert _rg_status(returncode, stderr, has_rows=has_rows) == expected
 
 
-# --- [RG_ROWS_LAWS]
-
-
-@pytest.mark.parametrize(
-    "raw, expected_count, check_listing",
-    [
-        (b'{"type":"match","data":{"path":{"text":"src/a.py"},"lines":{"text":"alpha = 1 "},"line_number":3}}\n', 1, "src/a.py:3"),
-        (b'{"type":"begin","data":{"path":{"text":"src/a.py"}}}\nnot-json\n', 0, None),
-    ],
-    ids=["match_events_parsed", "non_match_events_ignored"],
-)
-def test_rg_rows(raw: bytes, expected_count: int, check_listing: str | None) -> None:
-    """_RG_SPEC decodes match events and skips non-match NDJSON safely."""
+def test_rg_rows_skips_non_match_events() -> None:
+    """_RG_SPEC skips begin events and non-JSON NDJSON lines without faulting."""
+    raw = b'{"type":"begin","data":{"path":{"text":"src/a.py"}}}\nnot-json\n'
     rows, listing, notes = _project_rows((receipt(("rg",), 0, stdout=raw, status=RailStatus.OK),), 100, "alpha", spec=_RG_SPEC)
-    assert len(rows) == expected_count
-    assert notes == ()  # uncapped row sets carry no truncation note
-    if check_listing:
-        assert check_listing in listing
-        assert "alpha" in rows[0].text
-        assert rows[0].id == "ripgrep:src/a.py:3"
-    else:
-        assert not listing
+    assert len(rows) == 0
+    assert not listing
+    assert notes == ()
 
 
 # --- [TS_ROWS_LAWS]
-
-register_law(apply_row_status, "empty_on_exit1")
 
 
 @pytest.mark.parametrize(
@@ -453,23 +391,11 @@ def test_ts_rows_produces_match_rows_and_listing(
         assert "parse-error" in rows[0].text
 
 
-# --- [MATCH_ID_AND_CAP_NOTE_LAWS]
-
-
-def test_match_ids_carry_source_prefixes() -> None:
-    """Every spec row emits identity ids shaped source:file:line[:capture] with its tool prefix."""
-    ts_cap = Capture(name="name", text="alpha", file="pkg/mod.py", line=1, column=5)
-    rg_event = b'{"type":"match","data":{"path":{"text":"src/a.py"},"lines":{"text":"alpha"},"line_number":3}}\n'
-    ag = receipt(("ast-grep",), 0, stdout=msgspec.json.encode((_AG_MATCH,)), status=RailStatus.OK)
-    ts = receipt(("tree-sitter",), 0, stdout=CAPTURE_ENCODER.encode((ts_cap,)), status=RailStatus.OK)
-    rg = receipt(("rg",), 0, stdout=rg_event, status=RailStatus.OK)
-    assert _project_rows((ag,), 10, "$X", spec=_AG_SPEC)[0][0].id == "ast-grep:pkg/mod.py:1"
-    assert _project_rows((ts,), 10, "(q)", spec=_TS_SPEC)[0][0].id == "tree-sitter:pkg/mod.py:1:name"
-    assert _project_rows((rg,), 10, "alpha", spec=_RG_SPEC)[0][0].id == "ripgrep:src/a.py:3"
+# --- [PROJECTION_SHAPE_LAWS]
 
 
 def test_project_rows_shape_parity() -> None:
-    """Each projector preserves its id, text, listing, and uncapped-note shape."""
+    """Each projector preserves its source-prefixed id, text, listing, and uncapped-note shape."""
     ts_cap = Capture(name="name", text="alpha", file="pkg/mod.py", line=1, column=5, ordinal=0, pattern=0)
     rg_line = b'{"type":"match","data":{"path":{"text":"src/a.py"},"lines":{"text":"alpha = 1 \\n"},"line_number":3}}\n'
     ag = _project_rows((receipt(("ast-grep",), 0, stdout=msgspec.json.encode((_AG_MATCH,)), status=RailStatus.OK),), 10, "$X", spec=_AG_SPEC)
@@ -585,6 +511,7 @@ def test_content_search_monkeypatched(
 
 def test_content_search_no_catalog_row_returns_fault(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
     """_content_search faults with FAULTED when no CONTENT-mode tool exists in the catalog."""
+    # White-box seam: catalog absence is unreachable through the shipped total catalog.
     monkeypatch.setattr(code_rail, "select", lambda *_a, **_kw: ())
     fault = assert_error(search(assay_root.settings, assay_root.scope(Claim.CODE), CodeParams(pattern="anything", paths=()), SeamExecutor()))
     assert fault.status is RailStatus.FAULTED
@@ -624,49 +551,6 @@ def test_eq_needles_prefilter_byte_sets(query_src: str, expected: tuple[frozense
     assert _eq_needles(query_src) == expected
 
 
-def test_ts_thunk_eq_prefilter_skip_and_admit(assay_root: AssayHarness) -> None:
-    """_ts_thunk prefilter skips needle-free files and admits needle hits."""
-    assay_root.write("pkg/mod.py", "def alpha():\n    return 1\n")
-    assay_root.write("pkg/broken_miss.py", "def broken(:\n")
-    thunk = _ts_thunk('(function_definition name: (identifier) @name (#eq? @name "alpha"))', Language.PYTHON, assay_root.root, limit=10)
-    admitted = thunk(Check(tool=_QUERY_TOOL, paths=("pkg/mod.py",)))
-    skipped = thunk(Check(tool=_QUERY_TOOL, paths=("pkg/broken_miss.py",)))
-    assert (admitted.status, CAPTURES.decode(admitted.stdout)[0].text) == (RailStatus.OK, "alpha")
-    assert (skipped.status, skipped.returncode, tuple(CAPTURES.decode(skipped.stdout))) == (RailStatus.EMPTY, 0, ())
-
-
-def test_ts_thunk_receipt_argv_and_cap_fallback(assay_root: AssayHarness) -> None:
-    """_ts_thunk preserves argv provenance and falls back when limit=0."""
-    assay_root.write("pkg/mod.py", "def alpha():\n    return 1\n")
-    done = _ts_thunk(_PY_FUNC_QUERY, Language.PYTHON, assay_root.root, limit=0)(Check(tool=_QUERY_TOOL, paths=("pkg/mod.py",)))
-    assert done.argv == ("tree-sitter", "query", Language.PYTHON, "pkg/mod.py")
-    assert done.status is RailStatus.OK
-    assert len(CAPTURES.decode(done.stdout)) == 1
-
-
-def test_ts_capture_full_byte_shape(assay_root: AssayHarness) -> None:
-    """_ts_file_captures preserves byte offsets and exact-cap truncation."""
-    assay_root.write("pkg/mod.py", "def alpha():\n    return 1\n")
-    done = _ts_thunk(_PY_FUNC_QUERY, Language.PYTHON, assay_root.root, limit=10)(Check(tool=_QUERY_TOOL, paths=("pkg/mod.py",)))
-    expected = Capture(name="name", text="alpha", file="pkg/mod.py", line=1, column=5, end_line=1, end_column=10, start_byte=4, end_byte=9)
-    assert tuple(CAPTURES.decode(done.stdout)) == (expected,)
-    assay_root.write("pkg/two.py", "def a():\n    pass\ndef b():\n    pass\n")
-    exact = _ts_thunk(_PY_FUNC_QUERY, Language.PYTHON, assay_root.root, limit=2)(Check(tool=_QUERY_TOOL, paths=("pkg/two.py",)))
-    assert [(c.ordinal, c.truncated) for c in CAPTURES.decode(exact.stdout)] == [(0, False), (1, False)]
-
-
-def test_ts_capture_error_row_identity(assay_root: AssayHarness) -> None:
-    """Capture error rows preserve query, parse, file, and truncation identity."""
-    assay_root.write("pkg/mod.py", "def alpha():\n    return 1\n")
-    qerr = CAPTURES.decode(_ts_thunk("(", Language.PYTHON, assay_root.root, limit=10)(Check(tool=_QUERY_TOOL, paths=("pkg/mod.py",))).stdout)
-    assert (qerr[0].name, qerr[0].file, qerr[0].line, qerr[0].parse_error) == ("query_error", "pkg/mod.py", 1, True)
-    assert "EOF" in qerr[0].text
-    assay_root.write("pkg/broken_sat.py", "def a():\n    pass\ndef b():\n    pass\ndef oops(:\n")
-    saturated = _ts_thunk(_PY_FUNC_QUERY, Language.PYTHON, assay_root.root, limit=1)(Check(tool=_QUERY_TOOL, paths=("pkg/broken_sat.py",)))
-    expected = Capture(name="parse_error", text="tree-sitter parse error", file="pkg/broken_sat.py", line=1, parse_error=True, truncated=True)
-    assert tuple(CAPTURES.decode(saturated.stdout)) == (expected,)
-
-
 def test_splice_argv_shapes(assay_root: AssayHarness) -> None:
     """Search and content splice values weave the catalog row templates into exact spawn argv."""
     routed = Routed(language=Language.PYTHON, scope=Scope.CHANGED)
@@ -684,27 +568,6 @@ def test_splice_argv_shapes(assay_root: AssayHarness) -> None:
     assert bare == ("rg", "--json", "-U", "--multiline-dotall", "-P", "--hidden", "--glob", "!.git", "-e", "alpha", "--", "."), (
         "an unset language drops the {globs*} splice whole"
     )
-
-
-@pytest.mark.parametrize(
-    "returncode, stderr, has_rows, expected",
-    [
-        (0, "boom", True, (RailStatus.OK, ("content match",))),
-        (2, "x" * 250, True, (RailStatus.OK, ("content match; ripgrep warning: " + "x" * 200,))),
-        (1, "boom", False, (RailStatus.EMPTY, ("no content matches",))),
-        (2, "boom", False, (RailStatus.FAILED, ("ripgrep failed (exit 2): boom",))),
-        (3, "", False, (RailStatus.FAILED, ("ripgrep failed (exit 3): error",))),
-    ],
-    ids=["rc0_rows_no_warning", "rc2_rows_warning_truncated_200", "rc1_norows_exact_note", "rc2_norows_exact_message", "rc3_empty_stderr_fallback"],
-)
-def test_rg_status_exact_note_bytes(
-    returncode: int,
-    stderr: str,
-    has_rows: bool,  # noqa: FBT001  # parametrized bool flag
-    expected: tuple[RailStatus, tuple[str, ...]],
-) -> None:
-    """_rg_status preserves exact status and warning-note tuples."""
-    assert _rg_status(returncode, stderr, has_rows=has_rows) == expected
 
 
 def test_content_report_byte_shape(assay_root: AssayHarness) -> None:
@@ -741,64 +604,3 @@ def test_structural_report_promotion_and_defect_rows(assay_root: AssayHarness) -
     failed = assert_ok(search(assay_root.settings, assay_root.scope(Claim.CODE), params, panic_executor))
     assert (failed.verb, failed.status, failed.artifacts) == ("search", RailStatus.FAILED, ())
     assert [(r.id, "panicked" in r.text) for r in failed.results] == [("ast-grep run", True)]
-
-
-# --- [COMPOSITION] ----------------------------------------------------------------------
-
-# --- [LAW_COVERAGE]
-
-register_law(CodeParams, "bound_positional_projection")
-register_law(CodeParams, "bound_does_not_overwrite_flag_pattern")
-register_law(CodeParams, "bound_idempotent_explicit_pattern")
-register_law(CodeParams, "bound_rejects_blank_pattern")
-register_law(CodeParams, "bound_passthrough_non_code_verb")
-register_law(CodeParams, "bound_validity_matrix")
-register_law(CodeParams, "defaults_are_blank_sentinel")
-register_law(query, "ts_thunk_python_captures_name")
-register_law(query, "ts_thunk_tsx_grammar")
-register_law(query, "ts_thunk_parse_error_becomes_capture_row")
-register_law(query, "ts_thunk_query_error_becomes_capture_row")
-register_law(query, "ts_thunk_match_limit_truncates")
-register_law(query, "ts_thunk_any_of_prefilter_no_false_negative")
-register_law(query, "ts_thunk_missing_file_yields_empty")
-register_law(query, "query_ok_on_valid_tree")
-register_law(query, "query_empty_on_no_match")
-register_law(query, "artifact_code_store_path")
-register_law(query, "artifact_lines_equals_splitlines")
-register_law(search, "search_structural_on_metavar")
-register_law(search, "search_content_ok_on_literal_pattern")
-register_law(search, "artifact_code_store_path")
-register_law(search, "content_search_no_match_empty_status")
-register_law(search, "content_search_failure_exit_failed_status")
-register_law(search, "content_search_hit_produces_ok_status")
-register_law(search, "content_search_hit_with_warning_produces_warning_note")
-register_law(search, "content_search_rg_rows_listing_format")
-register_law(search, "content_search_no_catalog_row_returns_fault")
-register_law(search, "match_ids_carry_source_prefixes")
-register_law(search, "project_rows_ag_shape_parity")
-register_law(search, "project_rows_rg_shape_parity")
-register_law(query, "project_rows_ts_shape_parity")
-register_law(search, "content_search_forced_cap_results_note")
-register_law(search, "structural_search_forced_cap_results_note")
-register_law(query, "query_forced_cap_saturation_note")
-register_law(search, "languages_none_resolves_all_code_languages")
-register_law(search, "checks_empty_routed_returns_empty_tuple")
-register_law(search, "dispatch_empty_checks_returns_empty_tuple")
-register_law(search, "targets_empty_paths_returns_default_target")
-register_law(search, "ts_language_tsx_key_resolves_tsx_grammar")
-register_law("tools.assay.diagnostics.ts_language", "ts_language_tsx_key_resolves_tsx_grammar", module=__name__)
-register_law("tools.assay.diagnostics.ts_query", "ts_thunk_invalid_query_emits_query_error_row", module=__name__)
-register_law("tools.assay.diagnostics.node_text", "ts_rows_produces_match_rows_and_listing", module=__name__)
-register_law("tools.assay.diagnostics.cap_note", "content_search_forced_cap_emits_results_note", module=__name__)
-register_law(search, "empty_on_exit1_group_becomes_empty")
-register_law(query, "ts_rows_produces_match_rows_and_listing")
-register_law(query, "top_level_patterns_masked_depth_count")
-register_law(query, "eq_needles_prefilter_byte_sets")
-register_law(query, "ts_thunk_eq_prefilter_skip_and_admit")
-register_law(query, "ts_thunk_receipt_argv_and_cap_fallback")
-register_law(query, "ts_capture_full_byte_shape")
-register_law(query, "ts_capture_error_row_identity")
-register_law(search, "splice_argv_shapes")
-register_law(search, "rg_status_exact_note_bytes")
-register_law(search, "content_report_byte_shape")
-register_law(search, "structural_report_promotion_and_defect_rows")

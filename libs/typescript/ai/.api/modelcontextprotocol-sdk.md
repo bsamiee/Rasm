@@ -78,7 +78,7 @@ type ClientOptions = ProtocolOptions & {
 One `Transport` interface, four client implementations plus an in-memory pair for tests. `tool/mcp.ts` picks by
 server locality: `Stdio` spawns a local server process; `StreamableHTTP` (the current remote transport) POSTs +
 SSE-streams with OAuth + reconnection + session resumption; `SSE` is the legacy remote transport; `InMemory`
-pairs a client and server in-process for `proof` specs.
+pairs a client and server in-process for kit-driven specs.
 
 ```ts contract
 interface Transport {
@@ -168,7 +168,7 @@ at the boundary. The tool-annotation hints are the seam onto native `Tool` annot
   fetch so timeout/retry/proxy stay uniform; local `Stdio` servers spawn through `host/exec`.
 - `security`/`session`: the OAuth `authProvider` composes `security`'s runtime-neutral OAuth ceremony + browser
   token storage, so remote MCP auth reuses the one session lane rather than a second OAuth notion.
-- `@effect/vitest`: `InMemoryTransport.createLinkedPair()` drives `proof` specs that exercise the client against an
+- `@effect/vitest`: `InMemoryTransport.createLinkedPair()` drives kit-driven specs that exercise the client against an
   in-process server with no network.
 
 [BOUNDARY]: hosting stays native — rail: mcp-client

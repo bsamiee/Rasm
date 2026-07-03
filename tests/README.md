@@ -23,6 +23,8 @@ tests/
 │   ├── libs/          # per-package suites mirroring libs/python
 │   └── tools/         # assay + py_analyzer suites
 └── typescript/
+    ├── .api/          # dev-tool API catalogs the kit and suites compose
+    ├── _architecture/ # branch-boundary gauge suites; home now, suites at TS buildout
     ├── _testkit/      # @rasm/ts-testkit workspace package; kit body at TS buildout
     └── e2e/           # playwright home, stood up at TS buildout
 ```
@@ -106,9 +108,11 @@ Every new suite, kit capability, fixture, or corpus asset has exactly one home; 
 |  [09]   | TS unit spec             | beside its source in `libs/typescript`                                              |
 |  [10]   | TS kit capability        | `tests/typescript/_testkit`                                                         |
 |  [11]   | TS e2e suite             | `tests/typescript/e2e`                                                              |
-|  [12]   | structural rule          | `.rules/<language>/`, registered through the root `sgconfig.yml`                    |
-|  [13]   | structural rule fixture  | `tests/ast-grep/pass` + `tests/ast-grep/fail` — every rule carries both             |
-|  [14]   | contract corpus seam     | `tests/contracts/<seam>/` per the corpus law                                        |
+|  [12]   | TS architecture gauge    | `tests/typescript/_architecture` — branch-boundary suites the exports map cannot express |
+|  [13]   | TS dev-tool API catalog  | `tests/typescript/.api/`, one catalog per dev-plane package                         |
+|  [14]   | structural rule          | `.rules/<language>/`, registered through the root `sgconfig.yml`                    |
+|  [15]   | structural rule fixture  | `tests/ast-grep/pass` + `tests/ast-grep/fail` — every rule carries both             |
+|  [16]   | contract corpus seam     | `tests/contracts/<seam>/` per the corpus law                                        |
 
 Per-package mirror law: where the ecosystem separates tests from source, suite homes mirror the production tree — C# shells under `tests/csharp/libs` mirror `libs/csharp`, Python suites under `tests/python/libs` mirror `libs/python`. TS unit specs instead colocate beside source per the vitest idiom, so `tests/typescript/` never hosts unit specs.
 

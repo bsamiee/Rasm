@@ -5,7 +5,7 @@
 - module: ESM (`type: module`); subpaths `.` (the dashboard Vite-plugin factory `(ctx: Vitest) => Vite.Plugin`) and `./reporter` (the `html` reporter — a `Reporter`). Peer: `vitest 4.1.9`.
 - asset: `dist/index.d.ts` (`declare const _default: (ctx: Vitest) => Vite.Plugin`) · `reporter.d.ts` (`declare const reporter: Reporter`).
 - runtime: the dashboard is a Vite-served browser app over the runner's WebSocket RPC; the `html` reporter emits a self-contained static bundle (no server) openable offline.
-- plane: `plane:dev` — spec inspection; `proof/gauge/purity` asserts no `plane:runtime` graph imports it.
+- plane: `plane:dev` — spec inspection; the `tests/typescript/_architecture` suite asserts no `plane:runtime` graph imports it.
 - rail: spec-run inspection — an agent/CI face over a run, never a runtime dependency, never a gauge input.
 
 `@vitest/ui` is two surfaces in one package, both reading the same `Vitest` + Reported-Tasks tree (`TestModule`/`TestCase`, see `vitest.md`): (1) the LIVE dashboard — a Vite plugin activated by `--ui` / `test.ui: true`, served at `test.uiBase` (default `/__vitest__/`) on the API port over the runner's `WebSocketRPC`, streaming the module graph, task tree, console output, and (when coverage is on) the istanbul HTML tree; (2) the DURABLE `html` reporter (`reporters: ['html']`) — the same UI frozen to a static artifact under `HTMLOptions.outputFile`, the CI-visible face of a run. In browser mode (`browser.ui: true`) the dashboard embeds and shows the real browser iframe beside the tree. There is no runtime API here to compose against — the package is configured (a config flag, a reporter row), not imported.

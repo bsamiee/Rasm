@@ -5,10 +5,10 @@
 - module: ESM (`type: module`); single barrel `happy-dom` — no `exports` map, so deep paths (`happy-dom/lib/window/Window.js`) resolve but the barrel is canonical; declarations ship co-located (`lib/**/*.d.ts`, implicit `lib/index.d.ts`).
 - asset: pure JS + `.d.ts` under `lib/`; zero native, zero wasm — a hand-written WHATWG DOM in TypeScript.
 - runtime: node `>=20`; the whole DOM is a plain object graph the spec builds and discards — microsecond startup, no browser process, no layout, no pixels.
-- plane: `plane:dev` — the fast `DOM_ENVIRONMENT` half of `proof/harness/unit`; the fidelity counterpart is `jsdom.md`. `proof/gauge/purity` fences it off every runtime graph.
+- plane: `plane:dev` — the fast `DOM_ENVIRONMENT` half of the `_testkit` unit lane; the fidelity counterpart is `jsdom.md`. The `tests/typescript/_architecture` suite fences it off every runtime graph.
 - rail: dom-environment / fast-unit-lane.
 
-happy-dom is the FAST DOM under `harness/unit`: it renders nothing and runs no layout, trading strict spec-conformance for speed so a DOM-touching unit spec settles in microseconds. Two consumption seams — vitest selects it by the `environment: 'happy-dom'` string (vitest dynamically imports this package and installs its classes as globals; `test.environmentOptions.happyDOM` forwards `Window` construction options), and a spec needing an isolated, directly-controlled DOM constructs `new Window(...)` and drives async settling through `window.happyDOM` (a `DetachedWindowAPI`). The fidelity boundary — in-page `<script>` execution, exact computed-style, byte-exact WHATWG serialization — routes to `jsdom.md`.
+happy-dom is the FAST DOM of the `_testkit` unit lane: it renders nothing and runs no layout, trading strict spec-conformance for speed so a DOM-touching unit spec settles in microseconds. Two consumption seams — vitest selects it by the `environment: 'happy-dom'` string (vitest dynamically imports this package and installs its classes as globals; `test.environmentOptions.happyDOM` forwards `Window` construction options), and a spec needing an isolated, directly-controlled DOM constructs `new Window(...)` and drives async settling through `window.happyDOM` (a `DetachedWindowAPI`). The fidelity boundary — in-page `<script>` execution, exact computed-style, byte-exact WHATWG serialization — routes to `jsdom.md`.
 
 ## [01]-[ENTRY_WINDOW]
 
@@ -96,16 +96,16 @@ The full WHATWG roster — `Document`, the `Element`/`Node` tree, the `Event` fa
 | [INDEX] | [SYMBOL]                                    | [CAPABILITY / BOUNDARY]                                                        |
 | :-----: | :------------------------------------------ | :----------------------------------------------------------------------------- |
 |  [01]   | `VirtualConsole` / `VirtualConsolePrinter`  | capture console output as structured records; `printer.readAll()` drains for assertion — the console-parity seam |
-|  [02]   | `DOMParser` / `XMLSerializer`               | parse an HTML/XML string to a document and serialize back — the fragment round-trip a `corpus/golden` byte assertion drives |
+|  [02]   | `DOMParser` / `XMLSerializer`               | parse an HTML/XML string to a document and serialize back — the fragment round-trip a `tests/contracts/` golden byte assertion drives |
 |  [03]   | `BrowserErrorCaptureEnum` / `BrowserNavigationCrossOriginPolicyEnum` | the bounded vocabularies `settings.errorCapture` / `navigation.crossOriginPolicy` select |
 
 ## [05]-[INTEGRATION]
 
 [STACK: `happy-dom` environment + `@effect/vitest`] — the DOM lane and the effect-spec rail are one runtime. A DOM-touching spec sets `environment: 'happy-dom'` (config or a `// @vitest-environment happy-dom` docblock), then runs `it.effect`/`it.layer` bodies against the installed globals. When the effect under test schedules DOM async work (timers, `fetch`, microtasks), `window.happyDOM.waitUntilComplete()` is the settle point folded into the effect before the assertion — never a bare `await Promise.resolve()`. `layer(SharedLayer)(...)` still shares acquired resources across the block; the DOM environment is orthogonal to the Layer.
 
-[STACK: `happy-dom` + `@electric-sql/pglite`] — both are the FAST HALF of `harness/unit`: in-process, no server, no external process, microsecond-to-millisecond startup. A spec that needs both a DOM and a database composes the `PGlite` Layer (see `electric-sql-pglite.md`) under the `happy-dom` environment in one `layer(...)` block — the whole verification runs in-process with nothing to tear down but object graphs.
+[STACK: `happy-dom` + `@electric-sql/pglite`] — both are the FAST HALF of the `_testkit` unit lane: in-process, no server, no external process, microsecond-to-millisecond startup. A spec that needs both a DOM and a database composes the `PGlite` Layer (see `electric-sql-pglite.md`) under the `happy-dom` environment in one `layer(...)` block — the whole verification runs in-process with nothing to tear down but object graphs.
 
-[STACK: `happy-dom` + `fast-check`] — a property that generates DOM inputs (markup fragments, event sequences, viewport dimensions) runs each generated case inside the window; `settings.timer.preventTimerLoops` and `maxIntervalIterations` bound a pathological generated case so shrinking terminates. The `Schema`-derived arbitraries in `law/arbitrary.ts` feed the same predicate.
+[STACK: `happy-dom` + `fast-check`] — a property that generates DOM inputs (markup fragments, event sequences, viewport dimensions) runs each generated case inside the window; `settings.timer.preventTimerLoops` and `maxIntervalIterations` bound a pathological generated case so shrinking terminates. The `Schema`-derived arbitraries in the `_testkit` law/arbitrary source feed the same predicate.
 
 [BOUNDARY vs `jsdom`] — happy-dom disables script execution and computed-style rendering by default and approximates (never implements) layout. A spec asserting in-page `<script>` side effects, exact `getComputedStyle` cascade, or byte-exact WHATWG fragment serialization is a `jsdom` spec by definition. Both are `plane:dev` DOM environments; neither may be imported from a `plane:runtime` folder.
 

@@ -402,7 +402,7 @@ declare const isAiError: (u: unknown) => u is AiError
   the `telemetry` folder's OTLP exporter ships them — one span per generation, tool call, and agent run.
 - `@effect/experimental` + `@effect/rpc`: `Chat.layerPersisted` durable sessions and the `McpServer` RPC
   transport ride these peers; `agent/*` composes `Chat.Persistence` over `work` cluster entities.
-- `@effect/vitest`: `proof` law specs exercise providers behind a stub `LanguageModel.make` and drive MCP hosting
+- `@effect/vitest`: kit-driven law specs exercise providers behind a stub `LanguageModel.make` and drive MCP hosting
   through an in-memory transport.
 
 [STACK]: `embed` -> `store` `Embedder` port — rail: ai-embed

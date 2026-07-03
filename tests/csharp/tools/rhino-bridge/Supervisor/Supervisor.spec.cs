@@ -7,6 +7,7 @@ namespace Rasm.Bridge.Supervisor.Tests;
 
 internal static class SessionGens {
     public static readonly Guid Sid = Guid.Parse(input: "6a8e6c1e-9f5a-4d2c-8b8e-2f1a3c4d5e6f");
+    public static readonly string ReportDir = Directory.CreateTempSubdirectory(prefix: "rbx-spec-").FullName;
     public static readonly BundleInfo Bundle = new(AppPath: "/Applications/RhinoWIP.app", CFBundleName: "RhinoWIP", CFBundleExecutable: "Rhinoceros", CFBundleVersion: "9.0.26153");
     public static readonly HostFingerprint Fingerprint = new(BundleVersion: "9.0.26153.12416", RhinoCommonVersion: "9.0.26153.12416", Grasshopper2Version: "2.0.0", RuntimeVersion: "10.0.2");
     public static readonly EndpointRecord Endpoint = EndpointRecord.Create(pipeName: "rbx-spec", rhinoPid: 4242, rhinoStartedAtUnixMs: 1_765_432_000_000, contractVersion: 1, shellVersion: "1.0.0", rhinoVersion: "9.0.26153", fault: "");
@@ -16,14 +17,12 @@ internal static class SessionGens {
     public static readonly CargoManifest Manifest = new(SessionId: Sid, ReportDir: "/tmp/rbx", ContentHash: "xx64:abc", StagePath: "/tmp/stage", HostPlugins: [], BuiltAgainst: Fingerprint, ScenarioAssemblies: ["Rasm.Rhino.Tests.dll"]);
     public static readonly CargoReceipt Cargo = new(ContentHash: "xx64:abc", SwapMs: 100.0, Scenarios: [], Capabilities: [new CapabilityEntry(Key: "gh2.dataflow", Outcome: PhaseStatus.Unsupported, Receipt: "0b render-only")]);
     public static readonly SessionState.Ready Ready = new(Host: Host, Peer: Peer);
-    public static readonly SessionState.Running Running = new(Host: Host, Cargo: Cargo, Done: Seq(value: Receipt(name: "blocks.baseline", status: PhaseStatus.Ok)), Remaining: Seq(value: Entry(name: "blocks.next")), RestartBudget: SessionPolicy.Default.RestartBudget);
+    public static readonly SessionState.Running Running = new(Host: Host, Cargo: Cargo, Done: Seq(value: Receipt(name: "blocks.baseline", status: PhaseStatus.Ok)), Remaining: Seq(value: Entry(name: "blocks.next")));
     public static readonly SessionState.Quitting Quitting = new(Host: Host, Rung: SessionPhase.QuitAe, RungStartedMs: 1_765_432_100_000);
     public static readonly SessionState.Faulted Faulted = new(Fault: new BridgeFault.BusyHeld(HolderPid: 777, AgeSeconds: 12.0), At: SessionPhase.Connect, Done: Seq<ScenarioReceipt>());
 
     public static SessionState[] NonTerminal => [
         new SessionState.Idle(Bundle: Bundle),
-        new SessionState.Reconciling(Bundle: Bundle, MarkersCleared: Seq<string>()),
-        new SessionState.Launching(Bundle: Bundle, LaunchedAtMs: 1_765_432_000_000),
         new SessionState.Connecting(Host: Host, PollsRemaining: 360),
         new SessionState.Negotiating(Host: Host, Ours: Ours),
         new SessionState.Loading(Host: Host, Peer: Peer, Manifest: Manifest),
@@ -38,7 +37,7 @@ internal static class SessionGens {
         new(Key: key, Value: JsonSerializer.SerializeToElement(value: 1.0, jsonTypeInfo: BridgeJsonContext.Default.Double)) { Stamp = Stamp(sequence: sequence, scenario: scenario) };
 
     public static SessionEnvelope Fold(SessionState final, Seq<BridgeEvent> stream = default, (long Count, long LastSequence) spoolTail = default) =>
-        SessionFold.Run(runId: Sid.ToString(format: "n"), verb: new SupervisorVerb.Status(), final: final, stream: stream, spoolTail: spoolTail, reportDir: "/tmp/rbx");
+        SessionFold.Run(runId: Sid.ToString(format: "n"), verb: new SupervisorVerb.Status(), final: final, stream: stream, spoolTail: spoolTail, reportDir: ReportDir);
 
     public static BridgeEvent.PhaseCase Phase(long sequence, SessionPhase phase, PhaseStatus status, BridgeFault? fault = null) =>
         new(Phase: phase, Status: status, DurationMs: 5.0, Fault: fault) { Stamp = Stamp(sequence: sequence) };
@@ -54,19 +53,43 @@ internal static class SessionGens {
 
 public sealed class PolicyLaws {
     [Fact]
-    public void PolicyRowsHold() {
-        Assert.Equal(expected: 1, actual: SessionPolicy.Default.RestartBudget);
-        Assert.Equal(expected: TimeSpan.FromDays(value: 7), actual: SessionPolicy.Default.FailureRetention);
-        Assert.True(condition: SessionPolicy.Default.PruneGreenRuns);
-    }
-
-    [Fact]
     public void EveryNonTerminalStateCarriesADeadlineRow() {
         Assert.All(collection: SessionGens.NonTerminal, action: static state =>
             Assert.True(condition: SessionPolicy.Default.DeadlineFor(state: state).IsSome));
         Assert.True(condition: SessionPolicy.Default.DeadlineFor(state: SessionGens.Ready).IsNone);
         Assert.True(condition: SessionPolicy.Default.DeadlineFor(state: new SessionState.Terminal(Envelope: SessionGens.Fold(final: SessionGens.Faulted))).IsNone);
     }
+
+    [Fact]
+    public void ExecuteBudgetSumsPerScenarioBudgetsNotTheirMax() {
+        ScenarioEntry[] batch = [SessionGens.Entry(name: "blocks.a"), SessionGens.Entry(name: "blocks.b"), SessionGens.Entry(name: "blocks.c")];
+        TimeSpan budget = SessionPolicy.Default.ExecuteBudget(selected: batch);
+        Assert.Equal(expected: TimeSpan.FromSeconds(value: 90), actual: budget);
+        Assert.NotEqual(expected: TimeSpan.FromSeconds(value: 30), actual: budget);
+    }
+
+    [Fact]
+    public void ExecuteBudgetSubstitutesTheDefaultForUnsetBudgets() =>
+        Assert.Equal(
+            expected: TimeSpan.FromSeconds(value: 60),
+            actual: SessionPolicy.Default.ExecuteBudget(selected: [
+                new ScenarioEntry(Theme: "blocks", Name: "blocks.a", Requires: [], BudgetMs: 0),
+                new ScenarioEntry(Theme: "blocks", Name: "blocks.b", Requires: [], BudgetMs: -5),
+            ]));
+
+    [Fact]
+    public void ExecuteBudgetClampsAtTheSessionDeadline() =>
+        Assert.Equal(
+            expected: SessionPolicy.Default.SessionDeadline,
+            actual: SessionPolicy.Default.ExecuteBudget(selected: [.. Enumerable.Range(start: 0, count: 30)
+                .Select(selector: static index => new ScenarioEntry(
+                    Theme: "blocks",
+                    Name: string.Create(provider: System.Globalization.CultureInfo.InvariantCulture, $"blocks.s{index}"),
+                    Requires: [], BudgetMs: 30_000))]));
+
+    [Fact]
+    public void ExecuteBudgetOfAnEmptySelectionIsTheDefault() =>
+        Assert.Equal(expected: SessionPolicy.Default.ScenarioDefaultBudget, actual: SessionPolicy.Default.ExecuteBudget(selected: []));
 }
 
 public sealed class DispatchLaws {
@@ -74,13 +97,10 @@ public sealed class DispatchLaws {
     private static readonly SessionSignal Exit = new SessionSignal.HostExited(Pid: 4242, AtUnixMs: 1_765_432_200_000);
     private static readonly SessionSignal Silent = new SessionSignal.HeartbeatSilent(SilentFor: TimeSpan.FromMinutes(value: 2));
     private static readonly SessionSignal Overrun = new SessionSignal.DeadlineHit(Phase: SessionPhase.Execute, Elapsed: TimeSpan.FromHours(value: 2));
-    private static readonly SessionSignal Shutdown = new SessionSignal.ShutdownStarted(AtUnixMs: 1_765_432_200_000);
 
     private static SessionSignal[] Signals => [
         new SessionSignal.HostExited(Pid: 4242, AtUnixMs: 1L),
         new SessionSignal.HeartbeatSilent(SilentFor: TimeSpan.FromMinutes(value: 2)),
-        new SessionSignal.ShutdownStarted(AtUnixMs: 1L),
-        new SessionSignal.RpcCompleted(Phase: SessionPhase.Execute, Status: PhaseStatus.Failed),
         new SessionSignal.DeadlineHit(Phase: SessionPhase.Execute, Elapsed: TimeSpan.FromHours(value: 2)),
     ];
 
@@ -101,14 +121,10 @@ public sealed class DispatchLaws {
     }
 
     [Fact]
-    public void PreLaunchStatesIgnoreHostSignals() {
+    public void IdleIgnoresHostSignals() {
         SessionState idle = new SessionState.Idle(Bundle: SessionGens.Bundle);
-        SessionState reconciling = new SessionState.Reconciling(Bundle: SessionGens.Bundle, MarkersCleared: Seq<string>());
-        Assert.All(collection: (SessionState[])[idle, reconciling], action: static state => {
-            Assert.Same(expected: state, actual: SessionDispatch.Apply(state: state, signal: Exit, policy: Policy));
-            Assert.Same(expected: state, actual: SessionDispatch.Apply(state: state, signal: Silent, policy: Policy));
-            Assert.Same(expected: state, actual: SessionDispatch.Apply(state: state, signal: Shutdown, policy: Policy));
-        });
+        Assert.Same(expected: idle, actual: SessionDispatch.Apply(state: idle, signal: Exit, policy: Policy));
+        Assert.Same(expected: idle, actual: SessionDispatch.Apply(state: idle, signal: Silent, policy: Policy));
     }
 
     [Fact]
@@ -146,13 +162,6 @@ public sealed class DispatchLaws {
             @object: SessionDispatch.Apply(state: SessionGens.Running, signal: Overrun, policy: Policy)).Fault);
 
     [Fact]
-    public void RunningShutdownEntersTheQuitLadder() {
-        SessionState.Quitting quitting = Assert.IsType<SessionState.Quitting>(@object: SessionDispatch.Apply(state: SessionGens.Running, signal: Shutdown, policy: Policy));
-        Assert.Same(expected: SessionPhase.QuitAe, actual: quitting.Rung);
-        Assert.Equal(expected: SessionGens.Host, actual: quitting.Host);
-    }
-
-    [Fact]
     public void QuitLadderEscalatesAeForceKillThenWedges() {
         SessionState.Quitting force = Assert.IsType<SessionState.Quitting>(@object: SessionDispatch.Apply(state: SessionGens.Quitting, signal: Overrun, policy: Policy));
         Assert.Same(expected: SessionPhase.QuitForce, actual: force.Rung);
@@ -164,22 +173,8 @@ public sealed class DispatchLaws {
     }
 
     [Fact]
-    public void QuitRungRpcFailureEscalatesAndSuccessHolds() {
-        SessionSignal failedRung = new SessionSignal.RpcCompleted(Phase: SessionPhase.QuitAe, Status: PhaseStatus.Failed);
-        SessionSignal cleanRung = new SessionSignal.RpcCompleted(Phase: SessionPhase.QuitAe, Status: PhaseStatus.Ok);
-        Assert.Same(expected: SessionPhase.QuitForce, actual: Assert.IsType<SessionState.Quitting>(
-            @object: SessionDispatch.Apply(state: SessionGens.Quitting, signal: failedRung, policy: Policy)).Rung);
-        Assert.Same(expected: SessionGens.Quitting, actual: SessionDispatch.Apply(state: SessionGens.Quitting, signal: cleanRung, policy: Policy));
-    }
-
-    [Fact]
     public void QuitHostExitConfirmsTheRungClean() =>
         Assert.Same(expected: SessionGens.Quitting, actual: SessionDispatch.Apply(state: SessionGens.Quitting, signal: Exit, policy: Policy));
-
-    [Fact]
-    public void RpcOutcomesHoldOutsideTheQuitLadder() =>
-        Assert.Same(expected: SessionGens.Running, actual: SessionDispatch.Apply(
-            state: SessionGens.Running, signal: new SessionSignal.RpcCompleted(Phase: SessionPhase.Execute, Status: PhaseStatus.Failed), policy: Policy));
 
     [Fact]
     public void FaultedAndTerminalAbsorbEverySignal() {
@@ -338,6 +333,113 @@ public sealed class FoldLaws {
     }
 }
 
+// The reference lifecycle: author emits candidates under the theme root, review + rename promotes,
+// an unpromoted root degrades instead of failing, and only reviewed+matched rows certify.
+public sealed class ReferenceLifecycleLaws {
+    private const string Scenario = "blocks.Baseline";
+
+    [Fact]
+    public void AuthorModeWritesTheCandidateUnderTheThemeRoot() {
+        string root = Directory.CreateTempSubdirectory(prefix: "rbx-refs-").FullName;
+        SessionEnvelope envelope = FoldVerify(mode: EvidenceMode.Author, root: root, stream: ReferenceStream());
+        string candidate = Path.Combine(root, "blocks", "Baseline.candidate.reference.json");
+        Assert.True(condition: File.Exists(path: candidate));
+        ReferenceEvidenceResult row = Assert.Single(collection: envelope.Scenarios[0].ReferenceResults);
+        Assert.Same(expected: ReferenceAdmission.Candidate, actual: row.Admission);
+        Assert.Equal(expected: candidate, actual: row.ReferencePath);
+        Assert.Same(expected: PhaseStatus.Ok, actual: envelope.Scenarios[0].ScenarioStatus);
+    }
+
+    [Fact]
+    public void VerifyOverAnEmptyRootDegradesAsUnpromoted() {
+        string root = Directory.CreateTempSubdirectory(prefix: "rbx-refs-").FullName;
+        SessionEnvelope envelope = FoldVerify(mode: EvidenceMode.Verify, root: root, stream: ReferenceStream());
+        ReferenceEvidenceResult row = Assert.Single(collection: envelope.Scenarios[0].ReferenceResults);
+        Assert.Same(expected: ReferenceAdmission.Unpromoted, actual: row.Admission);
+        Assert.Same(expected: PhaseStatus.Degraded, actual: envelope.Scenarios[0].ScenarioStatus);
+        Assert.Same(expected: PhaseStatus.Degraded, actual: envelope.Status);
+        Assert.Equal(expected: 2, actual: envelope.Status.ExitCode);
+    }
+
+    [Fact]
+    public void ReviewedMatchingReferenceCertifiesTheScenario() {
+        string root = PromotedRoot(expected: 42.0);
+        SessionEnvelope envelope = FoldVerify(mode: EvidenceMode.Verify, root: root, stream: ReferenceStream());
+        ReferenceEvidenceResult row = Assert.Single(collection: envelope.Scenarios[0].ReferenceResults);
+        Assert.Same(expected: ReferenceAdmission.Matched, actual: row.Admission);
+        Assert.True(condition: row.Matched);
+        Assert.Same(expected: PhaseStatus.Ok, actual: envelope.Scenarios[0].ScenarioStatus);
+        Assert.Same(expected: PhaseStatus.Ok, actual: envelope.Status);
+    }
+
+    [Fact]
+    public void ReviewedMismatchFailsTheScenarioWithTheDetail() {
+        string root = PromotedRoot(expected: 43.0);
+        SessionEnvelope envelope = FoldVerify(mode: EvidenceMode.Verify, root: root, stream: ReferenceStream());
+        ReferenceEvidenceResult row = Assert.Single(collection: envelope.Scenarios[0].ReferenceResults);
+        Assert.Same(expected: ReferenceAdmission.Mismatch, actual: row.Admission);
+        Assert.Same(expected: PhaseStatus.Failed, actual: envelope.Scenarios[0].ScenarioStatus);
+        Assert.Equal(expected: "reference.mismatch", actual: envelope.Scenarios[0].FirstScenarioFailure);
+    }
+
+    [Fact]
+    public void CandidateFilesNeverSatisfyVerify() {
+        string root = Directory.CreateTempSubdirectory(prefix: "rbx-refs-").FullName;
+        _ = Directory.CreateDirectory(path: Path.Combine(root, "blocks"));
+        File.WriteAllText(
+            path: Path.Combine(root, "blocks", "Baseline.candidate.reference.json"),
+            contents: JsonSerializer.Serialize(value: ReviewedRows(expected: 42.0, admission: ReferenceAdmission.Candidate), jsonTypeInfo: BridgeJsonContext.Default.ReferenceEvidenceArray));
+        SessionEnvelope envelope = FoldVerify(mode: EvidenceMode.Verify, root: root, stream: ReferenceStream());
+        ReferenceEvidenceResult row = Assert.Single(collection: envelope.Scenarios[0].ReferenceResults);
+        Assert.Same(expected: ReferenceAdmission.Unpromoted, actual: row.Admission);
+        Assert.NotSame(expected: PhaseStatus.Ok, actual: envelope.Scenarios[0].ScenarioStatus);
+    }
+
+    [Fact]
+    public void SilentScenarioOverAPromotedRootFailsAsMissing() {
+        string root = PromotedRoot(expected: 42.0);
+        SessionEnvelope envelope = FoldVerify(mode: EvidenceMode.Verify, root: root, stream: Seq<BridgeEvent>());
+        ReferenceEvidenceResult row = Assert.Single(collection: envelope.Scenarios[0].ReferenceResults);
+        Assert.Same(expected: ReferenceAdmission.Missing, actual: row.Admission);
+        Assert.Same(expected: PhaseStatus.Failed, actual: envelope.Scenarios[0].ScenarioStatus);
+    }
+
+    private static SessionEnvelope FoldVerify(EvidenceMode mode, string root, Seq<BridgeEvent> stream) =>
+        SessionFold.Run(
+            runId: SessionGens.Sid.ToString(format: "n"),
+            verb: new SupervisorVerb.Verify(Selection: new ScenarioSelection.AllCase(), ClosureManifest: "closure.json", EvidenceMode: mode),
+            final: SessionGens.Running with { Done = Seq(value: SessionGens.Receipt(name: Scenario, status: PhaseStatus.Ok)), Remaining = Seq<ScenarioEntry>() },
+            stream: stream,
+            spoolTail: default,
+            reportDir: Directory.CreateTempSubdirectory(prefix: "rbx-report-").FullName,
+            evidenceMode: mode,
+            referenceRoots: [new ReferenceRoot(Assembly: "Rasm.Scenarios.dll", Theme: "", Path: root)]);
+
+    private static Seq<BridgeEvent> ReferenceStream() {
+        using JsonDocument payload = JsonDocument.Parse(json: """{"name":"volume","actual":42.0,"tolerance":{"mode":"exact","absolute":0,"relative":0}}""");
+        return Seq<BridgeEvent>(value: new BridgeEvent.FactCase(Key: "reference.volume", Value: payload.RootElement.Clone()) {
+            Stamp = SessionGens.Stamp(sequence: 1, scenario: Scenario),
+        });
+    }
+
+    private static ReferenceEvidence[] ReviewedRows(double expected, ReferenceAdmission admission) => [
+        new ReferenceEvidence(
+            Name: new EvidenceName(Key: "volume"), Class: EvidenceClass.CertifiedReference,
+            Expected: JsonSerializer.SerializeToElement(value: expected, jsonTypeInfo: BridgeJsonContext.Default.Double),
+            Tolerance: new ReferenceTolerance(Mode: "exact", Absolute: 0.0, Relative: 0.0),
+            Admission: admission, ReviewedBy: "spec", ReviewedAt: "2026-01-01T00:00:00Z"),
+    ];
+
+    private static string PromotedRoot(double expected) {
+        string root = Directory.CreateTempSubdirectory(prefix: "rbx-refs-").FullName;
+        _ = Directory.CreateDirectory(path: Path.Combine(root, "blocks"));
+        File.WriteAllText(
+            path: Path.Combine(root, "blocks", "Baseline.reference.json"),
+            contents: JsonSerializer.Serialize(value: ReviewedRows(expected: expected, admission: ReferenceAdmission.Reviewed), jsonTypeInfo: BridgeJsonContext.Default.ReferenceEvidenceArray));
+        return root;
+    }
+}
+
 public sealed class VerbLaws {
     [Fact]
     public void ParseAdmitsEveryVerbShape() {
@@ -345,6 +447,9 @@ public sealed class VerbLaws {
         ScenarioSelection.ThemesCase themes = Assert.IsType<ScenarioSelection.ThemesCase>(@object: verify.Selection);
         Assert.Equal(expected: ["blocks"], actual: themes.Themes);
         Assert.Equal(expected: "/tmp/closure.json", actual: verify.ClosureManifest);
+        Assert.Same(expected: EvidenceMode.Verify, actual: verify.EvidenceMode);
+        Assert.Same(expected: EvidenceMode.Author, actual: Assert.IsType<SupervisorVerb.Verify>(
+            @object: Succ(argv: ["verify", """{"$type":"all"}""", "/tmp/closure.json", "author"])).EvidenceMode);
         _ = Assert.IsType<SupervisorVerb.Status>(@object: Succ(argv: ["status"]));
         Assert.Equal(expected: "/tmp/p.yak", actual: Assert.IsType<SupervisorVerb.Redeploy>(@object: Succ(argv: ["redeploy", "/tmp/p.yak"])).PackagePath);
         _ = Assert.IsType<SupervisorVerb.Quit>(@object: Succ(argv: ["quit"]));
@@ -353,7 +458,9 @@ public sealed class VerbLaws {
     [Fact]
     public void ParseRejectsUnknownShapes() {
         Assert.All(
-            collection: (string[][])[["launch"], ["verify"], ["verify", "not-json", "/tmp/closure.json"], ["redeploy"], []],
+            collection: (string[][])[
+                ["launch"], ["verify"], ["verify", "not-json", "/tmp/closure.json"],
+                ["verify", """{"$type":"all"}""", "/tmp/closure.json", "chaos"], ["redeploy"], []],
             action: static argv => Assert.IsType<Fin<SupervisorVerb>.Fail>(@object: Verbs.Parse(argv: argv)));
     }
 
@@ -364,6 +471,8 @@ public sealed class VerbLaws {
         Assert.Equal(expected: ["verify", "status", "redeploy", "quit"], actual: verbs);
         string selectionShape = help.RootElement.GetProperty(propertyName: "verbs")[0].GetProperty(propertyName: "args")[0].GetProperty(propertyName: "shape").GetString() ?? string.Empty;
         Assert.Contains(expectedSubstring: "all|themes|names", actualString: selectionShape, comparisonType: StringComparison.Ordinal);
+        string evidenceShape = help.RootElement.GetProperty(propertyName: "verbs")[0].GetProperty(propertyName: "args")[2].GetProperty(propertyName: "shape").GetString() ?? string.Empty;
+        Assert.Contains(expectedSubstring: "verify|author", actualString: evidenceShape, comparisonType: StringComparison.Ordinal);
         JsonElement exitCodes = help.RootElement.GetProperty(propertyName: "exitCodes");
         Assert.All(collection: PhaseStatus.Items, action: status =>
             Assert.Equal(expected: status.ExitCode, actual: exitCodes.GetProperty(propertyName: status.Key).GetInt32()));

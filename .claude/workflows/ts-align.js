@@ -38,7 +38,7 @@ const VERIFY = { type: 'object', additionalProperties: false, required: ['claims
 const LAW = 'Rasm monorepo, TS catch-up campaign alignment pass. The ' + TS + ' folders carry realized design pages built against ' + DECISION +
   ' + ' + BLUEPRINT + ' at the ' + TSD + ' doctrine bar. THIS PASS smooths what per-folder builds cannot: cross-folder seams inside the ' +
   'branch, cross-language seams to csharp/python, and branch-wide consistency - fixing at the ROOT (a dense reconstruction of the touched ' +
-  'cluster beats a point patch) without re-litigating the settled 14-folder roster or any DECISION verdict. LAWS: one canonical name + one ' +
+  'cluster beats a point patch) without re-litigating the settled 13-folder roster or any DECISION verdict. LAWS: one canonical name + one ' +
   'owner per shared concept; every seam recorded on BOTH endpoint files with mirrored glyphs; C# owns the wire vocabulary, XxHash128 ' +
   'content-key parity is bit-identical, TS consumes GLB and owns no geometry; the edge ledger of ' + DECISION + ' governs every import claim; ' +
   'fences stay transcription-complete with .api-verified members only (unverifiable = RESEARCH item); IDEAS/TASKLOG are empty placeholders - ' +

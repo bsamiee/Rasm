@@ -1,7 +1,7 @@
 export const meta = {
   name: 'implement-ts',
   whenToUse: 'Realize open cards into design-page code fences across the TypeScript target folders.',
-  description: 'Realize every open IDEAS/TASKLOG card across the libs/typescript platform folders (kernel, proof, state, host, security, telemetry, wire, work, store, ai, edge, browser, ui, iac) into deep design-page code FENCES at the docs/stacks/typescript bar (Effect-TS rails, Schema-first boundaries, one canonical owner per concept, exhaustive discriminated unions, zero any/throw/enum), resolve all ripples, and truthfully close the cards. Per FOLDER, not per page: one discovery agent maps cards + ripple classes + blockers; each target folder is realized as ONE implement -> critique -> redteam cycle (all WRITE, both reviews adversarial, fix-in-place; BLOCKED probe + folder-local package admission inline, no prep phase); a bounded reconcile aligns in-scope seams, realizes 1-hop same-language counterparts, and applies the single central package.json pin serially; a final per-folder closeout verify-remediate-and-closes complete cards. Card-driven (it implements ideas/tasks), NOT the in-isolation api-stacking of rebuild-api. Disposable, TypeScript-only. args = a target path string, an array of paths, or empty for all platform folders. The language-wide libs/typescript/.planning is out of scope.',
+  description: 'Realize every open IDEAS/TASKLOG card across the libs/typescript platform folders (kernel, state, host, security, telemetry, wire, work, store, ai, edge, browser, ui, iac) into deep design-page code FENCES at the docs/stacks/typescript bar (Effect-TS rails, Schema-first boundaries, one canonical owner per concept, exhaustive discriminated unions, zero any/throw/enum), resolve all ripples, and truthfully close the cards. Per FOLDER, not per page: one discovery agent maps cards + ripple classes + blockers; each target folder is realized as ONE implement -> critique -> redteam cycle (all WRITE, both reviews adversarial, fix-in-place; BLOCKED probe + folder-local package admission inline, no prep phase); a bounded reconcile aligns in-scope seams, realizes 1-hop same-language counterparts, and applies the single central package.json pin serially; a final per-folder closeout verify-remediate-and-closes complete cards. Card-driven (it implements ideas/tasks), NOT the in-isolation api-stacking of rebuild-api. Disposable, TypeScript-only. args = a target path string, an array of paths, or empty for all platform folders. The language-wide libs/typescript/.planning is out of scope.',
   phases: [
     { title: 'Discover', detail: 'one agent: resolve scope against a real disk listing, full-read each target IDEAS/TASKLOG (cards only; design pages are downstream scope); extract open cards (all tasks incl atomic + 1-3 ideas), sequence each folder, classify every ripple (in_scope / oos_samelang / cross_lang) with every counterpart confirmed on disk, record in-scope gates and malformed ripples' },
     { title: 'Realize', detail: 'per target folder, pooled at CAP: implement(max) -> critique(max, adversarial + charter-completeness) -> redteam(max, adversarial + staleness lens); all WRITE, fix-in-place, own-pages-only, cross-folder seams logged as residuals' },
@@ -16,7 +16,7 @@ const STAGGER_MS = 1500
 const ROOT = 'libs/typescript'
 const SHARED_API = 'libs/typescript/.api'
 const CENTRAL = 'package.json'
-const DEFAULT_TARGETS = ['libs/typescript/kernel', 'libs/typescript/proof', 'libs/typescript/state', 'libs/typescript/host', 'libs/typescript/security', 'libs/typescript/telemetry', 'libs/typescript/wire', 'libs/typescript/work', 'libs/typescript/store', 'libs/typescript/ai', 'libs/typescript/edge', 'libs/typescript/browser', 'libs/typescript/ui', 'libs/typescript/iac']
+const DEFAULT_TARGETS = ['libs/typescript/kernel', 'libs/typescript/state', 'libs/typescript/host', 'libs/typescript/security', 'libs/typescript/telemetry', 'libs/typescript/wire', 'libs/typescript/work', 'libs/typescript/store', 'libs/typescript/ai', 'libs/typescript/edge', 'libs/typescript/browser', 'libs/typescript/ui', 'libs/typescript/iac']
 
 // --- [INPUTS] ----------------------------------------------------------------------------
 const norm = (t) => { const s = String(t).trim(); return s.indexOf('libs/') === 0 ? s : ROOT + '/' + s }
@@ -71,8 +71,8 @@ const CLOSEOUT_SCHEMA = { type: 'object', additionalProperties: false, required:
 const LAW = [
   'Rasm monorepo, libs/typescript planning corpus (markdown specs of intended TypeScript module designs). This is ultra-advanced TS realization, ' +
     'never a polish pass — discard naive idioms wholesale. CLAUDE.md manifest + ' +
-    'WORKSPACE_LAW strata govern. The session targets are libs/typescript platform folders (the 14-folder roster: kernel, proof, state, host, ' +
-    'security, telemetry, wire, work, store, ai, edge, browser, ui, iac). Each holds `IDEAS.md` + `TASKLOG.md` + `ARCHITECTURE.md` + ' +
+    'WORKSPACE_LAW strata govern. The session targets are libs/typescript platform folders (the 13-folder roster: kernel, state, host, ' +
+    'security, telemetry, wire, work, store, ai, edge, browser, ui, iac; test infrastructure lives under tests/, never in the branch). Each holds `IDEAS.md` + `TASKLOG.md` + `ARCHITECTURE.md` + ' +
     '`README.md` at its area ROOT, design pages at ' +
     '`<area>/.planning/<subdomain>/*.md`, and an area-specific `.api/*.md` catalog. The language-wide `libs/typescript/.planning` is OUT of scope ' +
     'this run. Read the area-root `ARCHITECTURE.md` (sub-domain map + `[02]-[SEAMS]`) and `README.md` (admitted-package roster) as governing ' +

@@ -18,17 +18,18 @@ public sealed class RhinoScenarioAttribute(string theme) : Attribute {
 }
 
 // One closed fact-key grammar: every ScenarioContext/DocumentScope wire key renders through a
-// row. Supervisor session folds classify by these exact prefixes — rendered strings never change.
+// row. Prefixes come from the Contract EvidenceRole vocabulary the session fold classifies by,
+// so render and parse share one string owner — rendered strings never change.
 [SmartEnum]
 internal sealed partial class FactKey {
-    public static readonly FactKey Reference = new(static argument => $"reference.{argument}");
-    public static readonly FactKey ObjectManifest = new(static argument => $"manifest.object.{argument}");
-    public static readonly FactKey GeometryManifest = new(static argument => $"manifest.geometry.{argument}");
-    public static readonly FactKey ViewportManifest = new(static argument => $"manifest.viewport.{argument}");
-    public static readonly FactKey Gh2Manifest = new(static argument => $"manifest.gh2.{argument}");
-    public static readonly FactKey Artifact = new(static argument => $"artifact.{argument}");
-    public static readonly FactKey CaseStart = new(static argument => $"case.{argument}.start");
-    public static readonly FactKey CaseStatus = new(static argument => $"case.{argument}.status");
+    public static readonly FactKey Reference = new(static argument => EvidenceRole.Reference.FactPrefix + argument);
+    public static readonly FactKey ObjectManifest = new(static argument => EvidenceRole.ObjectManifest.FactPrefix + argument);
+    public static readonly FactKey GeometryManifest = new(static argument => EvidenceRole.GeometryManifest.FactPrefix + argument);
+    public static readonly FactKey ViewportManifest = new(static argument => EvidenceRole.ViewportManifest.FactPrefix + argument);
+    public static readonly FactKey Gh2Manifest = new(static argument => EvidenceRole.Gh2CanvasManifest.FactPrefix + argument);
+    public static readonly FactKey Artifact = new(static argument => EvidenceRole.Artifact.FactPrefix + argument);
+    public static readonly FactKey CaseStart = new(static argument => $"{EvidenceRole.Assertion.FactPrefix}{argument}.start");
+    public static readonly FactKey CaseStatus = new(static argument => $"{EvidenceRole.Assertion.FactPrefix}{argument}.status");
     public static readonly FactKey ScratchPath = new(static _ => "scratch.path");
     public static readonly FactKey Stamp = new(static _ => "stamp");
     public static readonly FactKey DocumentBefore = new(static _ => "document.before.objects");

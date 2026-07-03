@@ -27,10 +27,9 @@ internal sealed record BundleInfo(string AppPath, string CFBundleName, string CF
     private Version Numeric => Version.TryParse(input: CFBundleVersion, result: out Version? parsed) ? parsed : new Version(major: 0, minor: 0);
     private bool IsWip => CFBundleName.Contains(value: "WIP", comparisonType: StringComparison.OrdinalIgnoreCase);
 
-    // The bridge leases the Rhino 9 line (RhinoWIP today, GA next): auto-discovery excludes Rhino 8 so a missing
-    // WIP install faults loudly instead of silently leasing an unsupported host. An explicit RHINO_WIP_APP_PATH
-    // override is honored verbatim — it carries metadata-only derivation (Gate GA-marker probe), never an unattended lease.
-    private const int RhinoLineMajor = 9;
+    // The single Rhino-line anchor: auto-discovery excludes older majors so a missing WIP install
+    // faults loudly, and version-derived paths (Yak package store) derive from this constant.
+    internal const int RhinoLineMajor = 9;
 
     public static Fin<BundleInfo> Discover(TimeSpan toolDeadline) {
         string? narrowed = Environment.GetEnvironmentVariable(variable: "RHINO_WIP_APP_PATH");
@@ -485,17 +484,16 @@ internal static class Lease {
         } catch (Exception error) when (error is IOException or UnauthorizedAccessException) {
             return Fin.Fail<LeaseToken>(error: Error.New(message: $"stale lease delete failed: {error.Message}"));
         }
-        publish(HostEvents.Fact(key: "lease.reclaimed", sessionId: sessionId, atUnixMs: now,
-            payload: new JsonObject { ["holderPid"] = held.HolderPid, ["acquiredAtUnixMs"] = held.AcquiredAtUnixMs, ["path"] = path }));
+        publish(BridgeEvent.Fact(key: "lease.reclaimed",
+            payload: new JsonObject { ["holderPid"] = held.HolderPid, ["acquiredAtUnixMs"] = held.AcquiredAtUnixMs, ["path"] = path },
+            stamp: new EventStamp(SessionId: sessionId, Sequence: 0, AtUnixMs: now, Scenario: null)));
         return Claim(path: path, now: now);
     }
 }
 
-// Ownership: signal-edge teardown. assay kills the supervisor group with SIGTERM then SIGKILL after a
-// 1.0s grace, far too short to unwind a blocked RPC await, so the lease release, endpoint poison, and
-// orphan-host kill run synchronously and idempotently inside the signal callback — composing the
-// committed Lease token cell and the live-host pid cell rather than relying on a finally that the
-// blocked await would never reach. SIGKILL stays uncatchable; the dead-pid lease reclaim is its backstop.
+// Ownership: signal-edge teardown. The ~1s SIGTERM grace cannot unwind a blocked RPC await, so lease
+// release, endpoint poison, and orphan-host kill run synchronously and idempotently in the callback;
+// SIGKILL stays uncatchable with the dead-pid lease reclaim as its backstop.
 internal static class Shutdown {
     internal static Unit Drive(SupervisorRuntime runtime, string reason) {
         ArgumentNullException.ThrowIfNull(argument: runtime);
@@ -547,17 +545,6 @@ internal static class Shutdown {
         } catch (Exception error) when (error is IOException or UnauthorizedAccessException) {
         }
         return unit;
-    }
-}
-
-// Ownership: workstation-side fact materialization; terminal fold assigns final sequence ordering.
-internal static class HostEvents {
-    internal static BridgeEvent.FactCase Fact(string key, Guid sessionId, long atUnixMs, JsonObject payload) {
-        ArgumentNullException.ThrowIfNull(argument: payload);
-        using JsonDocument value = JsonDocument.Parse(json: payload.ToJsonString());
-        return new BridgeEvent.FactCase(Key: key, Value: value.RootElement.Clone()) {
-            Stamp = new EventStamp(SessionId: sessionId, Sequence: 0, AtUnixMs: atUnixMs, Scenario: null),
-        };
     }
 }
 
@@ -615,13 +602,9 @@ internal static class QuitJournal {
     }
 }
 
-// Ownership: the orderly scrub-before-terminate gate. The shell-owned PrepareQuitAsync marks every
-// open RhinoDoc clean and Unmodifies GH2, returning a receipt whose ResidualDirty==0 is the AE-rung
-// precondition. Each attempt is bounded at the quit-rung deadline so a wedged reflective GH2 scrub
-// cannot block forever; a cancelled/timed-out or residual-dirty first attempt is retried once (the
-// re-assert) and the terminal outcome is published as a typed `quit.prepared`/`quit.prepare.incomplete`
-// fact, so a not-clean host reaching `terminate` is evidence rather than a silent slide into the modal
-// "Save changes?" sheet that wedges the rung and forces the SIGKILL crash.
+// Ownership: the scrub-before-terminate gate. Each shell scrub attempt is bounded at the quit-rung
+// deadline, retried once toward the ResidualDirty==0 fixpoint (the AE-rung precondition), and the
+// outcome is a typed `quit.prepared`/`quit.prepare.incomplete` fact, never a silent dirty terminate.
 internal static class QuitPrepare {
     private const int MaxAttempts = 2;
 
@@ -634,14 +617,14 @@ internal static class QuitPrepare {
         for (int attempt = 1; attempt <= MaxAttempts && scrubbed.IsNone; attempt++) {
             (Option<QuitPrepareReceipt> receipt, string detail) = await AttemptAsync(prepare: prepare, deadline: deadline, root: root).ConfigureAwait(false);
             lastDetail = detail;
-            // A clean fixpoint (ResidualDirty==0) ends the gate; a residual-dirty receipt is re-asserted
-            // because the scrub's second pass marks any doc the first pass raced clean before terminate.
+            // A clean fixpoint ends the gate; a residual-dirty receipt is re-asserted before terminate.
             scrubbed = receipt.Filter(pred: static settled => settled.Scrubbed);
         }
+        EventStamp stamp = new(SessionId: sessionId, Sequence: 0, AtUnixMs: clock.GetUtcNow().ToUnixTimeMilliseconds(), Scenario: null);
         publish(scrubbed.Case is QuitPrepareReceipt clean
-            ? Fact(key: "quit.prepared", value: string.Create(provider: CultureInfo.InvariantCulture,
-                $"rhino-docs-marked-clean; documents={clean.Documents};markedClean={clean.MarkedClean};residualDirty={clean.ResidualDirty}; gh2={clean.Gh2}"), sessionId: sessionId, clock: clock)
-            : Fact(key: "quit.prepare.incomplete", value: lastDetail, sessionId: sessionId, clock: clock));
+            ? BridgeEvent.Fact(key: "quit.prepared", value: string.Create(provider: CultureInfo.InvariantCulture,
+                $"rhino-docs-marked-clean; documents={clean.Documents};markedClean={clean.MarkedClean};residualDirty={clean.ResidualDirty}; gh2={clean.Gh2}"), stamp: stamp)
+            : BridgeEvent.Fact(key: "quit.prepare.incomplete", value: lastDetail, stamp: stamp));
     }
 
     private static async Task<(Option<QuitPrepareReceipt> Receipt, string Detail)> AttemptAsync(Func<CancellationToken, Task<QuitPrepareReceipt>> prepare, TimeSpan deadline, CancellationToken root) {
@@ -657,24 +640,15 @@ internal static class QuitPrepare {
         } catch (OperationCanceledException) {
             return (Option<QuitPrepareReceipt>.None, string.Create(provider: CultureInfo.InvariantCulture, $"scrub exceeded its {deadline.TotalMilliseconds:F0}ms bound"));
         } catch (Exception error) when (error is RemoteRpcException or JsonException or IOException or ObjectDisposedException) {
-            // A shell that returns an unparseable or faulted quit receipt is an incomplete quit-prepare, not a
-            // session fault: fold to None so the quit ladder still terminates the host. StreamJsonRpc surfaces a
-            // result that will not bind to the receipt type as a raw System.Text.Json.JsonException (the wrapper
-            // is not a RemoteRpcException), and RemoteRpcException covers the connection/invocation/method family.
+            // An unparseable or faulted quit receipt folds to None so the ladder still terminates the
+            // host; StreamJsonRpc surfaces unbindable results as raw JsonException, not RemoteRpcException.
             return (Option<QuitPrepareReceipt>.None, $"{error.GetType().Name}: {error.Message}");
         }
     }
-
-    private static BridgeEvent.FactCase Fact(string key, string value, Guid sessionId, TimeProvider clock) =>
-        new(Key: key, Value: JsonSerializer.SerializeToElement(value: value, jsonTypeInfo: BridgeJsonContext.Default.String)) {
-            Stamp = new EventStamp(SessionId: sessionId, Sequence: 0, AtUnixMs: clock.GetUtcNow().ToUnixTimeMilliseconds(), Scenario: null),
-        };
 }
 
-// Ownership: quit ladder. Rungs are AE terminate, Cocoa forceTerminate, then kill(2) SIGKILL;
-// SIGTERM is banned. Each rung emits a PhaseCase, and every rung — confirmed close or deadline
-// elapse read as a modal block — journals its window so the next launch's Reconcile can classify
-// any recovery marker written during the quit attempt; the modal block escalates to the next rung.
+// Ownership: quit ladder. Rungs are AE terminate, Cocoa forceTerminate, then kill(2) SIGKILL —
+// SIGTERM is banned. Every rung emits a PhaseCase and journals its window for Reconcile.
 internal static class QuitLadder {
     internal static Eff<SupervisorRuntime, PhaseStatus> Run(LiveHost host, Guid sessionId, Action<BridgeEvent> publish) {
         ArgumentNullException.ThrowIfNull(argument: host);
@@ -714,10 +688,9 @@ internal static class QuitLadder {
     }
 }
 
-// Ownership: pre-launch crash-marker reconcile. Markers inside supervised journal windows clear and
-// foreign document recovery state is reported and preserved, while the recovery-dialog blockers — the
-// .rhl recovery file and the Rhinoceros-*.ips startup crash sentinels — clear unconditionally at the
-// launch edge so an unclean prior exit can never wedge a headless launch behind a recovery dialog.
+// Ownership: pre-launch crash-marker reconcile. Supervised-window markers clear, foreign recovery
+// state is reported and preserved, and the recovery-dialog blockers (.rhl + startup .ips sentinels)
+// clear unconditionally at the launch edge so a headless launch never wedges behind a dialog.
 internal static class Reconcile {
     internal static Eff<SupervisorRuntime, Seq<BridgeEvent>> Run(BundleInfo bundle, Guid sessionId) {
         ArgumentNullException.ThrowIfNull(argument: bundle);
@@ -736,10 +709,10 @@ internal static class Reconcile {
         string library = Path.Combine(path1: Environment.GetFolderPath(folder: Environment.SpecialFolder.UserProfile), path2: "Library");
         Seq<string> blockers = Seq(value: Path.Combine(path1: library, path2: "Autosave Information", path3: bundle.AutosaveMarker + ".rhl")).Filter(f: File.Exists)
             + Reports(directory: Path.Combine(path1: library, path2: "Logs", path3: "DiagnosticReports"), pattern: bundle.CrashReportPattern);
-        return blockers.Map(f: BridgeEvent (path) => HostEvents.Fact(
+        return blockers.Map(f: BridgeEvent (path) => BridgeEvent.Fact(
             key: TryDelete(path: path) ? "recovery.cleared" : "recovery.clear-failed",
-            sessionId: sessionId, atUnixMs: now,
-            payload: new JsonObject { ["path"] = path, ["reason"] = "pre-launch recovery-dialog blocker" }));
+            payload: new JsonObject { ["path"] = path, ["reason"] = "pre-launch recovery-dialog blocker" },
+            stamp: new EventStamp(SessionId: sessionId, Sequence: 0, AtUnixMs: now, Scenario: null)));
     }
 
     private static Seq<BridgeEvent> Sweep(SupervisorRuntime runtime, BundleInfo bundle, Guid sessionId) {
@@ -753,9 +726,10 @@ internal static class Reconcile {
         long observedMs = new DateTimeOffset(dateTime: File.GetLastWriteTimeUtc(path: path)).ToUnixTimeMilliseconds();
         bool supervised = journal.Exists(f: entry => observedMs >= entry.StartedAtUnixMs && observedMs <= entry.RetiredAtUnixMs + slack);
         JsonObject payload = new() { ["path"] = path, ["observedAtUnixMs"] = observedMs };
+        EventStamp stamp = new(SessionId: sessionId, Sequence: 0, AtUnixMs: atUnixMs, Scenario: null);
         return supervised
-            ? HostEvents.Fact(key: TryDelete(path: path) ? "reconcile.cleared" : "reconcile.clear-failed", sessionId: sessionId, atUnixMs: atUnixMs, payload: payload)
-            : HostEvents.Fact(key: "reconcile.skipped.foreign", sessionId: sessionId, atUnixMs: atUnixMs, payload: payload);
+            ? BridgeEvent.Fact(key: TryDelete(path: path) ? "reconcile.cleared" : "reconcile.clear-failed", payload: payload, stamp: stamp)
+            : BridgeEvent.Fact(key: "reconcile.skipped.foreign", payload: payload, stamp: stamp);
     }
 
     private static Seq<string> Markers(BundleInfo bundle) {

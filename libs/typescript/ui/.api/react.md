@@ -79,7 +79,7 @@
 |  [04]   | `createElement` / `cloneElement` / `isValidElement` / `Children.{map,toArray,only}`     | element (escape)| slot/`asChild` internals (`@radix-ui/react-slot`), prop-injecting a passed element; JSX is the authored path |
 |  [05]   | `createContext` / `forwardRef` / `createRef` / `Component` / `PureComponent`            | legacy         | present but never authored — ref-as-prop, `<Context>` provider, and function components supersede the class/forwardRef forms |
 |  [06]   | `cache(fn)` / `cacheSignal()`                                                            | server memo    | RSC-only request-scoped memoization; inert in the client SPA build — a boundary row, not a client capability |
-|  [07]   | `act(scope)` / `captureOwnerStack()` / `unstable_useCacheRefresh()`                     | test/dev       | `proof` spec flushing (`@effect/vitest`), dev owner-stack capture, cache invalidation — not shipped-component surface |
+|  [07]   | `act(scope)` / `captureOwnerStack()` / `unstable_useCacheRefresh()`                     | test/dev       | kit-driven spec flushing (`@effect/vitest`), dev owner-stack capture, cache invalidation — not shipped-component surface |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

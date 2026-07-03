@@ -112,8 +112,7 @@ def _completed(check: Check, *, rc: int = 0, status: RailStatus = RailStatus.OK,
 def test_registry_structural_invariants() -> None:
     """REGISTRY rows own unique leaves, callable handlers, and total claim coverage.
 
-    Mutants caught: duplicate rows, non-callable handlers, missing claim coverage, and corrupted
-    runner names.
+    Mutants caught: duplicate rows, non-callable handlers, missing claim coverage, and corrupted runner names.
     """
     pairs = [(b.claim, b.verb) for b in REGISTRY]
     support_matrix(
@@ -220,10 +219,7 @@ def test_parse_fault_diagnostic_context_and_rejected_argv() -> None:
 
 
 def test_parse_fault_never_persisted(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
-    """parse_fault emits only to stdout; history must stay clean.
-
-    Mutant caught: persist=True leaks parse faults into delta and retention folds.
-    """
+    """parse_fault emits only to stdout; history must stay clean. Mutant caught: persist=True leaks parse faults into delta and retention folds."""
     monkeypatch.setenv("ASSAY_ROOT", str(assay_root.root))
     env = parse_fault(("static", "static"), "bad flag")
     assert env.run_id
@@ -306,10 +302,7 @@ def test_ok_envelope_static_failed_context_uses_source_diagnostics_and_resources
 
 
 def test_parse_fault_config_error_path(monkeypatch: pytest.MonkeyPatch) -> None:
-    """parse_fault catches ValidationError from AssaySettings() and emits a 'config:' Fault.
-
-    Mutant caught: not catching ValidationError → config error propagates as uncaught exception.
-    """
+    """parse_fault catches ValidationError from AssaySettings() and emits a 'config:' Fault whose message formats the field errors."""
 
     class _IntField(BaseModel):
         x: int
@@ -320,23 +313,15 @@ def test_parse_fault_config_error_path(monkeypatch: pytest.MonkeyPatch) -> None:
     assert env.error is not None
     assert env.error.message.startswith("config:")
 
-
-def test_validation_message_formats_pydantic_errors() -> None:
-    """_validation_message formats pydantic ValidationError into readable field: message pairs.
-
-    Mutant caught: returning empty string → config error message is blank in Envelope.
-    """
-
-    class _M(BaseModel):
+    class _TwoFields(BaseModel):
         x: int
         y: str
 
     try:
-        _M.model_validate({"x": "not_int", "y": 123})
+        _TwoFields.model_validate({"x": "not_int", "y": 123})
     except ValidationError as exc:
         msg = registry_mod._validation_message(exc)
-        assert "x" in msg
-        assert len(msg) > 0
+        assert "x" in msg, "an empty _validation_message would blank the config-fault Envelope"
 
 
 def test_encode_unicode_error_produces_scrubbed_envelope(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -359,21 +344,11 @@ def test_encode_unicode_error_produces_scrubbed_envelope(monkeypatch: pytest.Mon
 # --- [RAIL]
 
 
-def test_identity_hom_returns_ok_report() -> None:
-    """_identity_hom returns Ok(Report) folded as STATIC/'self-test' regardless of args — identity layer for compose testing.
-
-    Mutants caught: returning Error or wrong type → .is_ok() assertion fails; fold claim/verb literals corrupted.
-    """
+def test_identity_hom_and_correlate(assay_root: AssayHarness) -> None:
+    """_identity_hom folds Ok(Report) as STATIC/'self-test' regardless of args; _correlate projects run_id/strict with attrless non-strict default."""
     report = assert_ok(registry_mod._identity_hom("a", "b", x=1))
     assert isinstance(report, Report)
     assert (report.claim, report.verb) == (Claim.STATIC, "self-test")
-
-
-def test_correlate_maps_run_id_and_strict(assay_root: AssayHarness) -> None:
-    """_correlate projects run_id, strict, and agent_context; attrless params are non-strict.
-
-    Mutants caught: missing strict, wrong run_id, and getattr default drift in log correlation.
-    """
     scope = ArtifactScope.open(assay_root.settings, Claim.STATIC)
     ctx = registry_mod._correlate(assay_root.settings, scope, _strict_params(strict=True), SeamExecutor())
     assert ctx["run_id"] == assay_root.settings.run_id
@@ -407,8 +382,7 @@ def test_bound_passthrough_identity_and_surplus_fault() -> None:
 def test_strict_gate_truth_table(status: RailStatus, strict: bool, passes: bool) -> None:  # noqa: FBT001  # parametrize matrix columns
     """_strict promotes only strict EMPTY/SKIP folds to FAULTED; every other cell passes through unchanged.
 
-    Mutants caught: removed strict guard, EMPTY-only gating, boolean gate drift, attrless strict defaults,
-    and argv=None on the promoted fault.
+    Mutants caught: removed strict guard, EMPTY-only gating, boolean gate drift, attrless strict defaults, and argv=None on the promoted fault.
     """
     result = registry_mod._strict(Ok(Report(Claim.STATIC, "static", status)), _strict_params(strict=strict))
     match passes:
@@ -431,10 +405,7 @@ def test_narrow_raises_type_error_for_non_function() -> None:
 
 
 def test_validated_propagates_ok_and_error() -> None:
-    """_validated checks Ok reports and leaves Error faults untouched.
-
-    Mutants caught: swallowed Ok returns and validation calls on Fault.
-    """
+    """_validated checks Ok reports and leaves Error faults untouched. Mutants caught: swallowed Ok returns and validation calls on Fault."""
     report = fold(Claim.STATIC, "static", (receipt(("dotnet",), 0, status=RailStatus.OK),))
     assert assert_ok(registry_mod._validated(Ok(report))) is report
     fault = Fault((), RailStatus.FAULTED, "err")
@@ -444,8 +415,7 @@ def test_validated_propagates_ok_and_error() -> None:
 def test_validated_invalid_detail_raises_into_validation_fault(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
     """Invalid details raise through _validated and fold to validation faults at _guard.
 
-    _validated does not return Error for invalid detail payloads; the rail boundary owns the
-    exception-to-FAULTED conversion.
+    _validated does not return Error for invalid detail payloads; the rail boundary owns the exception-to-FAULTED conversion.
     """
     report = fold(Claim.STATIC, "static", (receipt(("dotnet",), 0, status=RailStatus.OK),), detail=TestRun(coverage=150.0))
     with pytest.raises(msgspec.ValidationError, match="coverage"):
@@ -479,10 +449,7 @@ def test_guard_maps_exception_to_fault(exc: Exception, prefix: str) -> None:
 
 
 def test_rail_runner_emits_ok_and_fault_paths(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
-    """rail(bind) folds Ok reports and Error faults into their Envelope paths.
-
-    Mutants caught: wrong OK claim/verb and OK status on fault output.
-    """
+    """rail(bind) folds Ok reports and Error faults into their Envelope paths. Mutants caught: wrong OK claim/verb and OK status on fault output."""
     monkeypatch.setenv("ASSAY_ROOT", str(assay_root.root))
     bind = _STATIC_BIND
 
@@ -498,8 +465,7 @@ def test_rail_runner_emits_ok_and_fault_paths(assay_root: AssayHarness, monkeypa
 def test_rail_runner_scope_oserror_faults(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
     """rail(bind) runner with ArtifactScope.open raising OSError emits a FAULTED Envelope.
 
-    Drives the except OSError branch inside the run() closure.
-    Mutant caught: not catching OSError → exception propagates to caller.
+    Drives the except OSError branch inside the run() closure. Mutant caught: not catching OSError → exception propagates to caller.
     """
     monkeypatch.setenv("ASSAY_ROOT", str(assay_root.root))
     bind = _STATIC_BIND
@@ -577,8 +543,7 @@ def test_emit_exit_code_duration_and_persistence_matrix(
 ) -> None:
     """_emit derives exit code, duration, and persistence from outcome class.
 
-    Mutants caught: duration scaling, dropped fault exit_code, inverted persistence gates, and
-    run_id=None writes.
+    Mutants caught: duration scaling, dropped fault exit_code, inverted persistence gates, and run_id=None writes.
     """
     bind = _STATIC_BIND
     settings = assay_root.settings.model_copy(update={"run_id": f"{assay_root.settings.run_id}-{label}"})
@@ -735,9 +700,8 @@ def test_persist_oserror_is_swallowed(assay_root: AssayHarness, monkeypatch: pyt
 def test_self_test_structure_and_census(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
     """self_test emits a healthy, persisted, wire-round-trippable STATIC/self-test Envelope.
 
-    Results carry the expanded census/health rows while counts.total tracks folded receipts.
-    Mutants caught: wrong identity/status, missing Match extension, rhino default drift, summary
-    rewrites, dropped run_id, or wire-invalid Match/notes payloads.
+    Results carry the expanded census/health rows while counts.total tracks folded receipts. Mutants caught: wrong identity/status, missing Match
+    extension, rhino default drift, summary rewrites, dropped run_id, or wire-invalid Match/notes payloads.
     """
     import inspect  # noqa: PLC0415
 
@@ -762,32 +726,27 @@ def test_self_test_structure_and_census(assay_root: AssayHarness, monkeypatch: p
     assert persisted.verb == "self-test"
 
 
-@pytest.mark.parametrize("probe", ["census", "_composes"])
+@pytest.mark.parametrize("probe", ["census", "_composes", "claim_row"])
 def test_self_test_unhealthy_when_composition_breaks(probe: str, assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
-    """self_test health is a strict conjunction over composition probes.
+    """self_test health is a strict conjunction over composition probes; the roster derives from Claim, not REGISTRY.
 
-    Mutants caught: OR-folded health, corrupted defect argv, and status/exit drift from healthy.
+    Mutants caught: OR-folded health, corrupted defect argv, status/exit drift, and an unrefutable claim
+    losing its last bound row.
     """
     monkeypatch.setenv("ASSAY_ROOT", str(assay_root.root))
-    monkeypatch.setattr(health_mod if probe == "census" else registry_mod, probe, lambda: False)
+    match probe:
+        case "census":
+            monkeypatch.setattr(health_mod, "census", lambda: False)
+        case "_composes":
+            monkeypatch.setattr(registry_mod, "_composes", lambda: False)
+        case _:
+            monkeypatch.setattr(registry_mod, "REGISTRY", tuple(b for b in REGISTRY if b.claim is not Claim.DOCS))
     env = self_test(executor=SeamExecutor(fan_fn=lambda checks, **_k: tuple(Ok(_completed(c)) for c in checks)))
     assert env.status is RailStatus.FAILED
     assert env.exit_code == RailStatus.FAILED.exit_code
     assert "healthy=False" in env.notes[0]
     assert env.report is not None
     assert any(m.id == "assay self-test" and m.severity == "failed" for m in env.report.results)
-
-
-def test_self_test_unhealthy_when_claim_loses_its_last_row(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
-    """self_test fails when a declared Claim has no bound REGISTRY row.
-
-    The roster derives from Claim, not REGISTRY, so dropping every row for one claim remains refutable.
-    """
-    monkeypatch.setenv("ASSAY_ROOT", str(assay_root.root))
-    monkeypatch.setattr(registry_mod, "REGISTRY", tuple(b for b in REGISTRY if b.claim is not Claim.DOCS))
-    env = self_test(executor=SeamExecutor(fan_fn=lambda checks, **_k: tuple(Ok(_completed(c)) for c in checks)))
-    assert env.status is RailStatus.FAILED
-    assert "healthy=False" in env.notes[0]
 
 
 def test_self_test_summary_carries_yak_ready_token(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -805,8 +764,7 @@ def test_self_test_summary_carries_yak_ready_token(assay_root: AssayHarness, mon
 def test_ok_envelope_cap_boundary_and_defect_diagnostic(assay_root: AssayHarness) -> None:
     """_ok_envelope preserves cap-boundary rows and distills FAILED rows into defects.
 
-    Mutants caught: cap comparison drift, nulled failed-row filters, corrupted defects tally,
-    and dropped OK status.
+    Mutants caught: cap comparison drift, nulled failed-row filters, corrupted defects tally, and dropped OK status.
     """
     from tools.assay.composition.registry import _ok_envelope  # noqa: PLC0415
 
@@ -836,9 +794,8 @@ def test_ok_envelope_cap_boundary_and_defect_diagnostic(assay_root: AssayHarness
 def test_ok_envelope_truncation_persists_full_report(assay_root: AssayHarness, capsysbinary: pytest.CaptureFixture[bytes]) -> None:
     """_ok_envelope caps stdout, persists the full report, and emits only an in-band cap note.
 
-    The cap signal lives in report/envelope notes and the HISTORY artifact; stderr stays silent.
-    Mutants caught: cap overrun, nulled artifact identity/metadata, dropped cap note, or restored
-    stderr side channel.
+    The cap signal lives in report/envelope notes and the HISTORY artifact; stderr stays silent. Mutants caught: cap overrun, nulled artifact
+    identity/metadata, dropped cap note, or restored stderr side channel.
     """
     from tools.assay.composition.registry import _ok_envelope  # noqa: PLC0415
 

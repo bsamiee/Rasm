@@ -6,8 +6,6 @@ public encode/decode surfaces.
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
-from typing import TYPE_CHECKING
-
 from hypothesis import example, given, strategies as st
 import msgspec
 import pytest
@@ -15,6 +13,7 @@ import pytest
 from tests.python._testkit.spec import roundtrip
 from tests.python._testkit.strategies import resolve
 from tools.assay.automation.model import (
+    Action,  # noqa: TC001  # @given resolves parameter annotations at decoration time
     ACTION_DECODER,
     Debounce,
     decode,
@@ -25,14 +24,11 @@ from tools.assay.automation.model import (
     Rail,
     Schedule,
     Sequence,
+    Trigger,  # noqa: TC001  # @given resolves parameter annotations at decoration time
     TRIGGER_DECODER,
     Watch,
 )
 from tools.assay.core.model import Claim
-
-
-if TYPE_CHECKING:
-    from tools.assay.automation.model import Action, Trigger
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------

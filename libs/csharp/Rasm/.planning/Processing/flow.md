@@ -1,31 +1,31 @@
 # [RASM_VECTORS_FLOW]
 
-The streamline/trace owner — ONE `Termination` `[Union]` (`StepCount`/`ArcLength`/`MagnitudeFloor`/`CrossSurface`/`RegionThreshold`/`LoopDetected`) that decides every stop and localizes every crossing event by dense-output root bisection, and ONE `FlowKernel.Trace<TOut>` entry that advances any `VectorField` under the `Numerics/integrate.md` stepper through a fold-shaped immutable `StreamlineState`, terminating by a `Schedule.recurs`-driven `RepeatWhile` whose iteration ceiling is the `TracePolicy.MaxIterations` policy row — never a compiled-in constant. The stepper seam is `Numerics/integrate.md`'s `FieldIntegrator.Step` — the pure tableau/PI-control/dense-output floor meets geometry exactly here: the step outcome (`StreamlineStep` accepted/rejected + the geometric `DenseOutputState` continuous extension over `Point3d`/`Vector3d` stages) is THIS page's carrier vocabulary, while `IntegratorKind`, `ButcherTableau`, `DenseOutputCoefficientFamily`, the dense-weight evaluation `DenseWeightsAt`, and the single stage-combination fold `ButcherTableau.Combine` are composed as settled numerics, never re-derived. Event localization is exact where the integrator grants it: a bracketed sign change refines through the accepted step's dense output (`DenseOutputRoot`), and only a dense-less segment falls back to chord bisection (`BoundedBisection`) — the localization kind is receipt evidence, not a mode flag.
+The streamline/trace owner — ONE `Termination` `[Union]` (`StepCount`/`ArcLength`/`MagnitudeFloor`/`CrossSurface`/`RegionThreshold`/`LoopDetected`) that decides every stop and localizes every crossing event by dense-output root bisection, and ONE `FlowKernel.Trace<TOut>` entry that advances any `VectorField` under the `Numerics/integrate.md` stepper through a fold-shaped immutable `StreamlineState`, terminating by a `Schedule.recurs`-driven `RepeatWhile` whose iteration ceiling is the `TracePolicy.MaxIterations` policy row — never a compiled-in constant. The stepper seam is `Numerics/integrate.md`'s carrier-generic `FieldIntegrator.Step`: THIS page declares the ONE spatial `IntegrationModule<Point3d, Vector3d>` instance the stepper folds over (`integrate.md` assigns its consumer exactly one module declaration), and the step outcome arrives as the settled `IntegrationStep<Point3d, Vector3d>` accepted/rejected union carrying the `DenseOutputSpan<Point3d, Vector3d>` continuous extension — no parallel step or dense-output vocabulary exists here, and `IntegratorKind`, `ButcherTableau`, `DenseOutputCoefficientFamily`, `DenseWeightsAt`, and the module's single `Combine` fold are composed as settled numerics, never re-derived. Event localization is exact where the integrator grants it: a bracketed sign change refines through the accepted step's `DenseOutputSpan.PointAt` so the localized point lies ON the high-order solution curve (`DenseOutputRoot`), and only a dense-less segment falls back to chord bisection (`BoundedBisection`) — the localization kind is receipt evidence, not a mode flag.
 
-`Op` stays the explicit value key threaded positionally through every kernel signature — these pipelines are short, so no `Eff<Env>` lift is warranted, and no dual paradigm exists. Every receipt (`TraceEvent`, `StreamlineTrace`, the composed `DenseOutputReceipt`) rides the `Domain/rails.md` validity fold: `[ValidityEvidence]` generates the finite-double/non-negative-count/nested-evidence conjunction and the page authors only the cross-field refinement terms the fold cannot derive. Result projection routes through the `Numerics/atoms.md` `AtomProjection.Rows` typed-row dispatch — the `typeof(TOut)` reflection switch is dead corpus-wide. Termination admission composes `Spatial/support.md`'s own capability predicates (`AdmitsClosest`/`AdmitsSignedDistance`) and `Spatial/fields.md` scalar sampling; the `Domain/validation.md` admission vocabulary (`Admit.NotNull`/`Admit.Finite`) gates every raw ingress once.
+`Op` stays the explicit value key threaded positionally through every kernel signature — these pipelines are short, so no `Eff<Env>` lift is warranted, and no dual paradigm exists. Every receipt (`TraceEvent`, `StreamlineTrace`, the composed `DenseOutputReceipt`) rides the `Domain/rails.md` validity fold: `IsValid` is one `ValidityClaim.All` over claim rows — finiteness, non-negative counts, unit-interval parameters, ordering, nested evidence — plus the cross-field claims only this page can state; a hand-rolled `&&` chain in a receipt body is the deleted form. Result projection routes through `Numerics/atoms.md`'s `AtomProjection.Rows` typed-row dispatch with the receipt as the implicit self row — `typeof(TOut)` reflection switching is dead corpus-wide. Termination admission leans on the `Spatial/support.md` adapter directly: an admitted `SupportSpace` is closest-capable by construction, and the per-hit `AdmitsSignedDistance(hit)` gate runs exactly where the hit exists; the `Domain/validation.md` admission vocabulary (`Admit.NotNull`/`Admit.Finite`) gates every raw ingress once.
 
 ## [01]-[INDEX]
 
 - [02]-[TERMINATION]: the 6-stop `Termination` union; stop/event vocabularies (`StreamlineStopKind`/`TraceEventKind`/`TraceEventStatus`/`TraceEventLocalizationKind`); endpoint-touch and bracketed-crossing event evaluation; dense-output root localization with chord-bisection fallback; the `TraceEvent` receipt.
-- [03]-[TRACE]: `TracePolicy` (iteration ceiling as a policy row); the `StreamlineStep`/`StreamlineState` fold vocabulary over the `integrate.md` stepper; `FlowKernel.Trace<TOut>` + `ProjectTrace<TOut>` typed-row projection (`StreamlineTrace`/`Seq<Point3d>`/`Polyline`/`Curve`); the `StreamlineTrace` receipt.
+- [03]-[TRACE]: `TracePolicy` (iteration ceiling as a policy row); the ONE spatial `IntegrationModule` instance; the `StreamlineState` fold over `integrate.md`'s `IntegrationStep` outcomes; `FlowKernel.Trace<TOut>` + `ProjectTrace<TOut>` typed-row projection (`StreamlineTrace`/`Seq<Point3d>`/`Polyline`/`Curve`); the `StreamlineTrace` receipt.
 
 ## [02]-[TERMINATION]
 
 - Owner: `Termination` `[Union]` — `StepCountCase(Dimension)`, `ArcLengthCase(PositiveMagnitude)`, `MagnitudeFloorCase(PositiveMagnitude)`, `CrossSurfaceCase(SupportSpace, Dimension LocalizationBudget)`, `RegionThresholdCase(ScalarField, double Threshold, Dimension LocalizationBudget)`, `LoopDetectedCase(PositiveMagnitude ClosureRadius)` — one closed stop vocabulary the tracer evaluates each accepted step; `TraceEventKind` (`CrossSurface`/`RegionThresholdCrossing`) names WHAT crossed, `TraceEventStatus` (`InitialEndpointTouch`/`PreviousEndpointTouch`/`CurrentEndpointTouch`/`BracketedCrossing`) names WHERE the localizer found it, `TraceEventLocalizationKind` (`BoundedBisection`/`DenseOutputRoot`) names HOW — three orthogonal receipt vocabularies, never merged into one flag.
-- Entry: `Termination.Evaluate(StreamlineState, Vector3d currentSample, Context, Op)` → `Fin<(bool Stop, Option<TraceEvent> Event)>` — a total generated `Switch`: the three scalar stops (`Steps`/`Arc`/`Magnitude`) and the loop stop decide from state alone; the two event stops sample a signed value function (`CrossSurface` = the support signed distance through `SupportSpace.SignedDistance` off the closest hit; `RegionThreshold` = `ScalarField.SampleScalar − Threshold`) and run the event localizer.
-- Auto: event localization is a three-tier decision — an endpoint already inside tolerance emits an endpoint-touch event with zero iterations; a sign change over the segment brackets and bisects to the case's `LocalizationBudget`, refining the midpoint through the accepted step's `DenseOutputState.PointAt` when the integrator produced one (so the localized point lies ON the high-order solution curve, `DenseOutputRoot`) and through the chord otherwise (`BoundedBisection`); no sign change and no touch emits no event. `CrossSurface` tolerance is `Context.Absolute`; `RegionThreshold` tolerance is `Context.Fractional` scaled by the threshold magnitude — both scale-derived, never bare literals. `LoopDetected` tests the squared closure radius against every non-adjacent trail vertex.
-- Receipt: `TraceEvent` — kind, status, the `(Previous, Current, Localized)` point triple with its value triple, the segment parameter, the governing tolerance, the localized residual, the bisection iteration count, the localization kind, and the composed `Option<DenseOutputReceipt>` — `[ValidityEvidence]` fold plus the refinement terms (parameter ∈ [0,1], a `DenseOutputRoot` event REQUIRES its dense receipt, the residual restates `|Values.Localized|`); `IsValidFor(terminationPoint)` additionally welds the event to the trace terminus.
-- Boundary: `CrossSurfaceCase` admits only a `SupportSpace` whose OWN predicates grant the query (`AdmitsClosest && AdmitsSignedDistance`) — the dead `GeometryKernel.CanClosest` god-predicate is not re-minted; capability lives on the `Spatial/support.md` adapter that owns it. Factories admit raw doubles through `Op.AcceptValidated<PositiveMagnitude>` and budgets through `Dimension`; a non-positive step count, budget, or radius is a typed `InvalidInput` fault, never a clamp.
+- Entry: `Termination.Evaluate(StreamlineState, Vector3d currentSample, Context, Op)` → `Fin<(bool Stop, Option<TraceEvent> Event)>` — a total generated `Switch`: the three scalar stops (`Steps`/`Arc`/`Magnitude`) and the loop stop decide from state alone; the two event stops sample a signed value function (`CrossSurface` = the support signed distance through `SupportSpace.SignedDistance` off the closest hit, gated per hit by `AdmitsSignedDistance(hit)`; `RegionThreshold` = `ScalarField.SampleScalar − Threshold`) and run the event localizer.
+- Auto: event localization is a three-tier decision — an endpoint already inside tolerance emits an endpoint-touch event with zero iterations; a sign change over the segment brackets and bisects to the case's `LocalizationBudget`, refining the midpoint through the accepted step's `DenseOutputSpan.PointAt` when the integrator produced one (so the localized point lies ON the high-order solution curve, `DenseOutputRoot`) and through the chord otherwise (`BoundedBisection`); no sign change and no touch emits no event. `CrossSurface` tolerance is `Context.Absolute`; `RegionThreshold` tolerance is `Context.Fractional` scaled by the threshold magnitude — both scale-derived, never bare literals. `LoopDetected` tests the squared closure radius against every non-adjacent trail vertex.
+- Receipt: `TraceEvent` — kind, status, the `(Previous, Current, Localized)` point triple with its value triple, the segment parameter, the governing tolerance, the localized residual, the bisection iteration count, the localization kind, and the composed `Option<DenseOutputReceipt>` — `ValidityClaim.All` over the finiteness/parameter/count rows plus the cross-field claims (the residual restates `|Values.Localized|`, a `DenseOutputRoot` event REQUIRES its dense receipt); `IsValidFor(terminationPoint)` additionally welds the event to the trace terminus.
+- Boundary: `CrossSurfaceCase` admits any constructed `SupportSpace` — the `Spatial/support.md` `Of` gate already proves closest capability, so no god-predicate is re-minted here; signed-distance capability is a PER-HIT fact (`AdmitsSignedDistance(hit)`) and an unsupported hit is a typed `Unsupported` fault naming the source type at evaluation, never a silent zero. Factories admit raw doubles through `Op.AcceptValidated<PositiveMagnitude>` and budgets through `Dimension`; a non-positive step count, budget, or radius is a typed `InvalidInput` fault, never a clamp.
 
 ## [03]-[TRACE]
 
-- Owner: `TracePolicy(Dimension MaxIterations, Dimension LocalizationBudget)` — the outer iteration ceiling and the default event-localization budget as ONE policy record with `Default` (100 000 / 64); `StreamlineStep` `[Union]` (`Accepted(next, suggestedStep, error, dense)` / `Rejected(suggestedStep, error)`) — the geometric outcome vocabulary of one `integrate.md` `FieldIntegrator.Step`; `StreamlineState` — the immutable fold state (trail, current, step, arc, accepted/rejected counters, min/max step, error extrema, live dense output, event, stop) whose `Accept`/`Reject` members are the only transitions; `DenseOutputState` — the per-step continuous extension (start, end, step, RK stages, tableau, dense receipt) whose `PointAt(θ)` evaluates `Tableau.DenseWeightsAt(θ)` through the ONE `ButcherTableau.Combine` stage fold.
+- Owner: `TracePolicy(Dimension MaxIterations, Dimension LocalizationBudget)` — the outer iteration ceiling and the default event-localization budget as ONE policy record with `Default` (100 000 / 64); `SpatialIntegration.Module` — the ONE `IntegrationModule<Point3d, Vector3d>` instance in the corpus (`Add: p + h·v`, `Scale`, `Sum`, `Norm: |v|`, `Zero`), the consumer-side declaration `integrate.md` assigns to this page; `StreamlineState` — the immutable fold state (trail, current, step, arc, accepted/rejected counters, min/max step, error extrema, live `DenseOutputSpan<Point3d, Vector3d>`, event, stop) whose `Accept`/`Reject` members fold the `integrate.md` `IntegrationStep<Point3d, Vector3d>` outcome and are the only transitions.
 - Entry: `FlowKernel.Trace<TOut>(VectorField source, Point3d seed, PositiveMagnitude initialStep, FieldIntegrator integrator, Termination termination, Context context, Op key, Option<TracePolicy> policy = default)` — the one trace entrypoint; `TOut` discriminates the projection (`StreamlineTrace` receipt, `Seq<Point3d>` trail, `Polyline`, `Curve`), and an incomplete trace refuses the geometric projections while still surfacing its receipt.
-- Auto: the trace loop is a `Schedule.recurs(policy.MaxIterations)`-driven `RepeatWhile` over an `Atom<Fin<StreamlineState>>` — the continue-or-done discriminant is `state.Stop`, budget exhaustion is the typed terminal `MaxIterationsExhausted`, and reject-budget exhaustion (`integrator` adaptive `MaxRejects`) is `RejectBudgetExhausted` — never `Fin.Fail`, never a raw counter. Each advance samples the field at the current point, evaluates `Termination` (stop ⇒ record the event and terminate), else folds one `FieldIntegrator.Step` outcome through `Accept`/`Reject`. The emitted polyline substitutes the localized event point for the final trail vertex so the geometry ends exactly at the crossing.
-- Receipt: `StreamlineTrace` — trail, stop kind, accepted/rejected step counts, arc length, final/min/max step, method + embedded order (read off the integrator), last/max error, termination point, and the optional `TraceEvent` — `[ValidityEvidence]` fold plus refinements (`AcceptedSteps == Trail.Count − 1`, `MaxStep ≥ MinStep`, an event present must satisfy `IsValidFor(TerminationPoint)`); `IsComplete` gates the `Polyline`/`Curve` projections.
-- Packages: `Rasm`/Numerics (`FieldIntegrator`/`IntegratorKind`/`ButcherTableau.{DenseWeightsAt,Combine}`/`DenseOutputReceipt` — the `integrate.md` stepper floor, composed never re-derived; `AtomProjection`/`ProjectionRow` — the typed projection rail; `Dimension`/`PositiveMagnitude`), `Rasm`/Spatial (`SupportSpace` predicates + signed distance; `ScalarField.SampleScalar`), `Rasm`/Domain (`Op` fault/acceptance factory, `Context` tolerances, `Admit` vocabulary, `[ValidityEvidence]`/`IValidityEvidence` fold), LanguageExt.Core (`Fin`/`Option`/`Seq`/`Atom`/`IO`/`Schedule`), Thinktecture.Runtime.Extensions (`[Union]`/`[SmartEnum<int>]`), RhinoCommon (`Point3d`/`Vector3d`/`Polyline`/`Curve.ToPolylineCurve` — value carriers at the seam).
+- Auto: the trace loop is a `Schedule.recurs(policy.MaxIterations)`-driven `RepeatWhile` over an `Atom<Fin<StreamlineState>>` — the continue-or-done discriminant is `state.Stop`, budget exhaustion is the typed terminal `MaxIterationsExhausted`, and reject-budget exhaustion (the adaptive integrator's `RejectBudget`) is `RejectBudgetExhausted` — never `Fin.Fail`, never a raw counter. Each advance samples the field at the current point, evaluates `Termination` (stop ⇒ record the event and terminate), else folds one `FieldIntegrator.Step` outcome — `Step(module, sample, state, h, key)` over `SpatialIntegration.Module` with the field abstracted as the derivative sampler — through `Accept`/`Reject`. The emitted polyline substitutes the localized event point for the final trail vertex so the geometry ends exactly at the crossing.
+- Receipt: `StreamlineTrace` — trail, stop kind, accepted/rejected step counts, arc length, final/min/max step, method + embedded order (read off the integrator), last/max error, termination point, and the optional `TraceEvent` — `ValidityClaim.All` rows plus the cross-field claims (`AcceptedSteps == Trail.Count − 1`, `MinStep ≤ MaxStep`, an event present must satisfy `IsValidFor(TerminationPoint)`); `IsComplete` gates the `Polyline`/`Curve` projections.
+- Packages: `Rasm`/Numerics (`FieldIntegrator`/`IntegratorKind`/`IntegrationModule`/`IntegrationStep`/`DenseOutputSpan`/`DenseOutputReceipt` — the `integrate.md` stepper floor, composed never re-derived; `AtomProjection`/`ProjectionRow` — the typed projection rail; `Dimension`/`PositiveMagnitude`), `Rasm`/Spatial (`SupportSpace` closest + per-hit signed distance; `ScalarField.SampleScalar`), `Rasm`/Domain (`Op` fault/acceptance factory, `Context` tolerances, `Admit` vocabulary, `IValidityEvidence`/`ValidityClaim` fold), LanguageExt.Core (`Fin`/`Option`/`Seq`/`Atom`/`IO`/`Schedule`), Thinktecture.Runtime.Extensions (`[Union]`/`[SmartEnum<int>]`), RhinoCommon (`Point3d`/`Vector3d`/`Polyline`/`Curve.ToPolylineCurve` — value carriers at the seam).
 - Growth: a new stop condition is one `Termination` case + one `Evaluate` arm (the generated `Switch` breaks every dispatch site loudly); a new event source is one `TraceEventKind` row over the SAME localizer; a new output shape is one `ProjectionRow` in `ProjectTrace`; a bidirectional or multi-seed trace is a fold over this SAME entry, never a sibling tracer.
-- Boundary: the tracer is total over the `Fin` rail — field-sampling failure, a rejected dense endpoint, or an unlocalizable bracket routes a typed fault, never a throw; the loop state is immutable and the `Atom` cell is the ONE boundary state seam (`Swap` transitions are idempotent per the rails law); `Polyline`/`Curve` leave only from a `Terminated` trace so a budget-exhausted trail can never masquerade as a completed streamline; the localized event point and the trace terminus agree to `ZeroTolerance` by the `IsValidFor` weld — a receipt that disagrees is invalid by construction, not by convention.
+- Boundary: the tracer is total over the `Fin` rail — field-sampling failure, a rejected dense endpoint, or an unlocalizable bracket routes a typed fault, never a throw; the loop state is immutable and the `Atom` cell is the ONE boundary state seam (`Swap` transitions are idempotent per the rails law); a local step-outcome union or dense-output carrier beside the `integrate.md` `IntegrationStep`/`DenseOutputSpan` owners is the deleted parallel-rail form; `Polyline`/`Curve` leave only from a `Terminated` trace so a budget-exhausted trail can never masquerade as a completed streamline; the localized event point and the trace terminus agree to the event tolerance by the `IsValidFor` weld — a receipt that disagrees is invalid by construction, not by convention.
 
 ```csharp contract
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -99,16 +99,15 @@ public abstract partial record Termination {
     public static Fin<Termination> LoopDetected(double closureRadius, Op? key = null) =>
         Positive(candidate: closureRadius, create: static value => new LoopDetectedCase(ClosureRadius: value), key: key);
 
+    // An admitted SupportSpace is closest-capable by construction (support.md Of gate); the signed-distance
+    // gate is per-hit and runs at Evaluate, where the hit exists.
     internal Fin<Termination> Admit(Op key) => Switch(
         state: key,
         stepCountCase: static (_, termination) => Fin.Succ<Termination>(termination),
         arcLengthCase: static (_, termination) => Fin.Succ<Termination>(termination),
         magnitudeFloorCase: static (_, termination) => Fin.Succ<Termination>(termination),
         crossSurfaceCase: static (op, termination) =>
-            from surface in Admit.NotNull(value: termination.Surface, key: op)
-            from grants in guard(surface.AdmitsClosest && surface.AdmitsSignedDistance,
-                op.Unsupported(geometryType: surface.SourceType, outputType: typeof(double)))
-            select (Termination)termination,
+            Admit.NotNull(value: termination.Surface, key: op).Map(static _ => (Termination)termination),
         regionThresholdCase: static (op, termination) =>
             from region in Admit.NotNull(value: termination.Region, key: op)
             from threshold in Admit.Finite(value: termination.Threshold, key: op)
@@ -127,9 +126,9 @@ public abstract partial record Termination {
             state: s.Field, kind: TraceEventKind.CrossSurface, tolerance: s.Context.Absolute.Value, budget: c.LocalizationBudget.Value,
             sample: point =>
                 from hit in c.Surface.Closest(sample: point, key: s.Key)
-                from value in c.Surface.AdmitsSignedDistance
+                from value in c.Surface.AdmitsSignedDistance(hit: hit)
                     ? c.Surface.SignedDistance(hit: hit, sample: point, key: s.Key)
-                    : Fin.Fail<double>(s.Key.InvalidResult())
+                    : Fin.Fail<double>(s.Key.Unsupported(geometryType: c.Surface.SourceType, outputType: typeof(double)))
                 select value,
             key: s.Key).Map(@event => (Stop: @event.IsSome, Event: @event)),
         regionThresholdCase: static (s, c) => EvaluateEvent(
@@ -153,7 +152,7 @@ public abstract partial record Termination {
             ? EndpointEvent(kind: kind, status: TraceEventStatus.InitialEndpointTouch, points: (state.Current, state.Current, state.Current), values: (currentValue, currentValue, currentValue), parameter: 0.0, tolerance: tolerance)
             : SegmentEvent(previous: state.Trail[state.Trail.Count - 2], current: state.Current, dense: state.Dense, currentValue: currentValue, kind: kind, tolerance: tolerance, budget: budget, sample: sample, key: key)
         select output;
-    private static Fin<Option<TraceEvent>> SegmentEvent(Point3d previous, Point3d current, Option<DenseOutputState> dense, double currentValue, TraceEventKind kind, double tolerance, int budget, Func<Point3d, Fin<double>> sample, Op key) =>
+    private static Fin<Option<TraceEvent>> SegmentEvent(Point3d previous, Point3d current, Option<DenseOutputSpan<Point3d, Vector3d>> dense, double currentValue, TraceEventKind kind, double tolerance, int budget, Func<Point3d, Fin<double>> sample, Op key) =>
         from previousValue in sample(previous)
         from output in Math.Abs(value: previousValue) <= tolerance
             ? EndpointEvent(kind: kind, status: TraceEventStatus.PreviousEndpointTouch, points: (previous, current, previous), values: (previousValue, currentValue, previousValue), parameter: 0.0, tolerance: tolerance)
@@ -171,7 +170,7 @@ public abstract partial record Termination {
                 LocalizationKind: TraceEventLocalizationKind.BoundedBisection, DenseOutput: Option<DenseOutputReceipt>.None)))
             : Fin.Succ(Option<TraceEvent>.None);
     // Bounded bisection over the sign-changing bracket; each midpoint evaluates through the dense output when present.
-    private static Fin<TraceEvent> LocateRoot(Point3d previous, Point3d current, Option<DenseOutputState> dense, double previousValue, double currentValue, TraceEventKind kind, double tolerance, int budget, Func<Point3d, Fin<double>> sample, Op key) =>
+    private static Fin<TraceEvent> LocateRoot(Point3d previous, Point3d current, Option<DenseOutputSpan<Point3d, Vector3d>> dense, double previousValue, double currentValue, TraceEventKind kind, double tolerance, int budget, Func<Point3d, Fin<double>> sample, Op key) =>
         from bracket in toSeq(Enumerable.Range(start: 0, count: budget)).Fold(
             initialState: Fin.Succ((A: previous, B: current, FA: previousValue, FB: currentValue, TA: 0.0, TB: 1.0, Localized: previous, FLocalized: previousValue, TLocalized: 0.0, Done: false, Iterations: 0)),
             f: (acc, _) => acc.Bind(state => state.Done
@@ -193,12 +192,12 @@ public abstract partial record Termination {
                 Values: (previousValue, currentValue, residual), Parameter: parameter, Tolerance: tolerance,
                 Residual: Math.Abs(value: residual), Iterations: bracket.Iterations,
                 LocalizationKind: dense.Map(static _ => TraceEventLocalizationKind.DenseOutputRoot).IfNone(TraceEventLocalizationKind.BoundedBisection),
-                DenseOutput: dense.Map(static state => state.Receipt)))
+                DenseOutput: dense.Map(static span => span.Receipt)))
             : Fin.Fail<TraceEvent>(key.InvalidResult())
         select @event;
-    private static Fin<Point3d> PointAt(Point3d previous, Point3d current, Option<DenseOutputState> dense, double theta, Op key) =>
+    private static Fin<Point3d> PointAt(Point3d previous, Point3d current, Option<DenseOutputSpan<Point3d, Vector3d>> dense, double theta, Op key) =>
         dense.Match(
-            Some: state => state.PointAt(theta: theta, key: key),
+            Some: span => span.PointAt(theta: theta, key: key),
             None: () => key.AcceptValue(value: previous + (theta * (current - previous))));
     private static bool ClosureDetected(StreamlineState state, double radius) =>
         state.Trail.Count >= 3
@@ -213,88 +212,77 @@ public sealed record TracePolicy(Dimension MaxIterations, Dimension Localization
         LocalizationBudget: Dimension.Create(value: 64));
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------------
-// Per-step continuous extension over the accepted RK stages. PointAt(theta) evaluates the tableau dense
-// weights (integrate.md's ButcherDenseOutput) through the ONE ButcherTableau.Combine stage fold.
-[StructLayout(LayoutKind.Auto)]
-internal readonly record struct DenseOutputState(Point3d Start, Point3d End, double Step, Seq<Vector3d> Stages, ButcherTableau Tableau, DenseOutputReceipt Receipt) : IValidityEvidence {
-    public bool IsValid =>
-        Start.IsValid && End.IsValid && double.IsFinite(Step) && Math.Abs(value: Step) > 0.0
-        && Stages.Count == Tableau.StageCount && Stages.ForAll(static vector => vector.IsValid)
-        && Tableau.IsValid && Receipt.IsValid;
-    internal static Fin<DenseOutputState> Of(Point3d start, Point3d end, double step, Seq<Vector3d> stages, ButcherTableau tableau, Op key) =>
-        tableau.DenseOutputReceipt(key: key).Bind(receipt =>
-            tableau.DenseWeightsAt(theta: 1.0, key: key).Bind(weights => {
-                Point3d endpoint = start + (step * ButcherTableau.Combine(coefficients: weights, vectors: stages));
-                DenseOutputState state = new(Start: start, End: end, Step: step, Stages: stages, Tableau: tableau, Receipt: receipt);
-                return endpoint.DistanceTo(other: end) <= ButcherTableau.CoefficientTolerance * Math.Max(1.0, end.DistanceTo(other: start)) && state.IsValid
-                    ? Fin.Succ(state)
-                    : Fin.Fail<DenseOutputState>(key.InvalidResult());
-            }));
-    internal Fin<Point3d> PointAt(double theta, Op key) {
-        if (!double.IsFinite(theta) || theta is < 0.0 or > 1.0 || !IsValid) return Fin.Fail<Point3d>(key.InvalidInput());
-        (Point3d start, double step, Seq<Vector3d> stages, ButcherTableau tableau) = (Start, Step, Stages, Tableau);
-        return tableau.DenseWeightsAt(theta: theta, key: key)
-            .Bind(weights => key.AcceptValue(value: start + (step * ButcherTableau.Combine(coefficients: weights, vectors: stages))));
-    }
+// THE one spatial IntegrationModule instance — integrate.md assigns its consumer exactly one module
+// declaration; a second Point3d/Vector3d module anywhere in the corpus is the deleted parallel-rail form.
+internal static class SpatialIntegration {
+    internal static readonly IntegrationModule<Point3d, Vector3d> Module = new(
+        Add: static (state, h, delta) => state + (h * delta),
+        Scale: static (factor, delta) => factor * delta,
+        Sum: static (left, right) => left + right,
+        Norm: static delta => delta.Length,
+        Zero: Vector3d.Zero);
 }
 
-// [ValidityEvidence] (Domain/rails.md): generated IsValid = finite doubles + non-negative counts + non-null
-// vocabulary rows + nested/optional evidence conjunction, AND-ed with the authored ValidityRefinement.
-[ValidityEvidence, BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly partial record struct TraceEvent(
+// --- [MODELS] ---------------------------------------------------------------------------------
+// IsValid = ONE ValidityClaim.All fold (Domain/rails.md); the cross-field claims are the rows only
+// this receipt can state: the residual restates |Values.Localized|, DenseOutputRoot requires evidence.
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct TraceEvent(
     TraceEventKind Kind, TraceEventStatus Status,
     (Point3d Previous, Point3d Current, Point3d Localized) Points, (double Previous, double Current, double Localized) Values,
     double Parameter, double Tolerance, double Residual, int Iterations,
     TraceEventLocalizationKind LocalizationKind, Option<DenseOutputReceipt> DenseOutput) : IValidityEvidence {
-    private bool ValidityRefinement =>
-        Points.Previous.IsValid && Points.Current.IsValid && Points.Localized.IsValid
-        && Parameter is >= 0.0 and <= 1.0
-        && Math.Abs(value: Residual - Math.Abs(value: Values.Localized)) <= ButcherTableau.CoefficientTolerance
-        && (!LocalizationKind.Equals(TraceEventLocalizationKind.DenseOutputRoot) || DenseOutput.IsSome);
+    public bool IsValid => ValidityClaim.All(
+        ValidityClaim.Finite(Points.Previous), ValidityClaim.Finite(Points.Current), ValidityClaim.Finite(Points.Localized),
+        ValidityClaim.Finite(Values.Previous), ValidityClaim.Finite(Values.Current), ValidityClaim.Finite(Values.Localized),
+        ValidityClaim.UnitInterval(Parameter), ValidityClaim.Nonnegative(Tolerance), ValidityClaim.Nonnegative(Residual),
+        ValidityClaim.CountAtLeast(Iterations, 0),
+        ValidityClaim.Of(Math.Abs(value: Residual - Math.Abs(value: Values.Localized)) <= ButcherTableau.CoefficientTolerance),
+        ValidityClaim.Of(!LocalizationKind.Equals(TraceEventLocalizationKind.DenseOutputRoot) || DenseOutput.IsSome),
+        ValidityClaim.Of(DenseOutput.Map(static receipt => receipt.IsValid).IfNone(noneValue: true)));
     internal bool IsValidFor(Point3d terminationPoint) =>
         IsValid && terminationPoint.DistanceTo(other: Points.Localized) <= Tolerance;
 }
 
-[ValidityEvidence, BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly partial record struct StreamlineTrace(
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct StreamlineTrace(
     Seq<Point3d> Trail, StreamlineStopKind Stop, int AcceptedSteps, int RejectedSteps, double ArcLength,
     double FinalStep, int MethodOrder, Option<int> EmbeddedOrder, Option<double> LastError, double MaxError,
     double MinStep, double MaxStep, Point3d TerminationPoint, Option<TraceEvent> Event) : IValidityEvidence {
     public bool IsComplete => Stop.Equals(StreamlineStopKind.Terminated);
-    private bool ValidityRefinement =>
-        !Trail.IsEmpty && Trail.ForAll(static point => point.IsValid) && TerminationPoint.IsValid
-        && MethodOrder > 0 && EmbeddedOrder.Map(order => order > 0 && order < MethodOrder).IfNone(noneValue: true)
-        && AcceptedSteps == Trail.Count - 1 && MaxStep >= MinStep
-        && Event.Map(@event => @event.IsValidFor(terminationPoint: TerminationPoint)).IfNone(noneValue: true);
+    public bool IsValid => ValidityClaim.All(
+        ValidityClaim.CountAtLeast(Trail.Count, 1),
+        ValidityClaim.Of(Trail.ForAll(static point => point.IsValid)),
+        ValidityClaim.Finite(TerminationPoint),
+        ValidityClaim.Nonnegative(ArcLength), ValidityClaim.Finite(FinalStep),
+        ValidityClaim.Nonnegative(MaxError), ValidityClaim.Ordered(MinStep, MaxStep),
+        ValidityClaim.CountAtLeast(RejectedSteps, 0), ValidityClaim.CountAtLeast(MethodOrder, 1),
+        ValidityClaim.Of(EmbeddedOrder.Map(order => order > 0 && order < MethodOrder).IfNone(noneValue: true)),
+        ValidityClaim.Of(LastError.Map(double.IsFinite).IfNone(noneValue: true)),
+        ValidityClaim.CountExactly(AcceptedSteps, Trail.Count - 1),
+        ValidityClaim.Of(Event.Map(@event => @event.IsValidFor(terminationPoint: TerminationPoint)).IfNone(noneValue: true)));
 }
 
 // --- [OPERATIONS] -----------------------------------------------------------------------------
-[Union]
-internal abstract partial record StreamlineStep {
-    public sealed record AcceptedCase(Point3d Next, double SuggestedStep, Option<double> Error, DenseOutputState Dense) : StreamlineStep;
-    public sealed record RejectedCase(double SuggestedStep, Option<double> Error) : StreamlineStep;
-    private StreamlineStep() { }
-}
-
-// Immutable fold state; Accept/Reject are the only transitions and Stop is the continue-or-done discriminant.
+// Immutable fold state; Accept/Reject fold the integrate.md IntegrationStep outcome and are the only
+// transitions. Stop is the continue-or-done discriminant.
 internal readonly record struct StreamlineState(
     Seq<Point3d> Trail, Point3d Current, double H, double Arc, int Steps, int Rejects, int RejectedSteps,
     double MinStep, double MaxStep, Option<double> LastError, double MaxError,
-    Option<DenseOutputState> Dense, Option<TraceEvent> Event, Option<StreamlineStopKind> Stop) {
+    Option<DenseOutputSpan<Point3d, Vector3d>> Dense, Option<TraceEvent> Event, Option<StreamlineStopKind> Stop) {
     internal static StreamlineState Start(Point3d seed, double h) =>
         new(Trail: Seq(seed), Current: seed, H: h, Arc: 0.0, Steps: 0, Rejects: 0, RejectedSteps: 0,
             MinStep: h, MaxStep: h, LastError: Option<double>.None, MaxError: 0.0,
-            Dense: Option<DenseOutputState>.None, Event: Option<TraceEvent>.None, Stop: Option<StreamlineStopKind>.None);
-    internal StreamlineState Accept(StreamlineStep.AcceptedCase accepted) =>
+            Dense: Option<DenseOutputSpan<Point3d, Vector3d>>.None, Event: Option<TraceEvent>.None, Stop: Option<StreamlineStopKind>.None);
+    internal StreamlineState Accept(IntegrationStep<Point3d, Vector3d>.AcceptedCase accepted) =>
         Advance(suggested: accepted.SuggestedStep, error: accepted.Error) with {
             Trail = Trail.Add(accepted.Next), Current = accepted.Next,
             Arc = Arc + accepted.Next.DistanceTo(other: Current), Steps = Steps + 1, Rejects = 0,
             Dense = Some(accepted.Dense),
         };
-    internal StreamlineState Reject(StreamlineStep.RejectedCase rejected, int rejectBudget) =>
+    internal StreamlineState Reject(IntegrationStep<Point3d, Vector3d>.RejectedCase rejected, int rejectBudget) =>
         Advance(suggested: rejected.SuggestedStep, error: rejected.Error) with {
-            Rejects = Rejects + 1, RejectedSteps = RejectedSteps + 1, Dense = Option<DenseOutputState>.None,
+            Rejects = Rejects + 1, RejectedSteps = RejectedSteps + 1, Dense = Option<DenseOutputSpan<Point3d, Vector3d>>.None,
             Stop = Rejects + 1 >= rejectBudget ? Some(StreamlineStopKind.RejectBudgetExhausted) : Stop,
         };
     private StreamlineState Advance(double suggested, Option<double> error) =>
@@ -314,11 +302,10 @@ internal static class FlowKernel {
         from output in ProjectTrace<TOut>(trace: trace, key: key)
         select output;
 
-    // Typed-row projection through the atoms.md dispatch rail — typeof(TOut) branching is dead.
+    // Typed-row projection through the atoms.md rail — the receipt is the implicit self row.
     internal static Fin<TOut> ProjectTrace<TOut>(StreamlineTrace trace, Op key) =>
         from valid in trace.IsValid ? Fin.Succ(trace) : Fin.Fail<StreamlineTrace>(error: key.InvalidResult())
-        from output in AtomProjection.Rows<TOut>(key: key, owner: typeof(StreamlineTrace),
-            ProjectionRow.Of<StreamlineTrace>(() => Fin.Succ(valid)),
+        from output in AtomProjection.Rows<StreamlineTrace, TOut>(self: valid, key: key,
             ProjectionRow.Of<Seq<Point3d>>(() => valid.Trail.TraverseM(point => key.AcceptValue(value: point)).As()),
             ProjectionRow.Of<Polyline>(() => valid.IsComplete ? PolylineOf(trace: valid, key: key) : Fin.Fail<Polyline>(key.InvalidResult())),
             ProjectionRow.Of<Curve>(() => valid.IsComplete
@@ -337,12 +324,17 @@ internal static class FlowKernel {
             .Run();
         return cell.Value;
     }
+    // One advance: sample -> terminate-or-step; the stepper is integrate.md's carrier-generic Step folded
+    // over the ONE spatial module with the field as the derivative sampler.
     private static Fin<StreamlineState> AdvanceState(StreamlineState state, VectorField source, FieldIntegrator integrator, Termination termination, Context context, Op key) =>
         from vector in source.SampleVector(sample: state.Current, context: context, key: key)
         from decision in termination.Evaluate(state: state, currentSample: vector, context: context, key: key)
         from next in decision.Stop
             ? Fin.Succ(state with { Event = decision.Event, Stop = Some(StreamlineStopKind.Terminated) })
-            : integrator.Step(field: source, point: state.Current, h: state.H, context: context, key: key)
+            : integrator.Step(
+                    module: SpatialIntegration.Module,
+                    sample: point => source.SampleVector(sample: point, context: context, key: key),
+                    state: state.Current, h: state.H, key: key)
                 .Map(step => step.Switch(
                     state: (State: state, Budget: integrator.RejectBudget),
                     acceptedCase: static (s, accepted) => s.State.Accept(accepted: accepted),

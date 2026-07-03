@@ -144,7 +144,7 @@ const authorPrompt = (row, files) => [PRE, '', 'THE SETTLED ROSTER (creation ord
   ? 'The README is the atlas head: the doctrine laws in groups reauthored TS-NATIVE (the flow/shape/derivation/material/integration space ' +
     'sized to what TS truly needs, never a count-mirror of a sibling), the atlas routing table over the settled roster, the collapse-scan ' +
     'table, the rule-enforcement section mapping every law to its real mechanical gate (tsconfig strictness, the Biome rail, the @rasm/ts ' +
-    'exports map, the proof/gauge audits - the doctrine authors the tool; Nx tags are graph metadata, never a lint gate), the page-craft law, ' +
+    'exports map, the tests/typescript/_architecture suite audits - the doctrine authors the tool; Nx tags are graph metadata, never a lint gate), the page-craft law, ' +
     'and the corpus law.'
   : 'A concept page: narrow index table, then deep family cards, then the region snippets beside the rules they prove - transcription-grade, ' +
     'compiling, universal placeholder identifiers, full operator depth.') + ' Ultra-aggressive: no table-stakes law, no how-to prose, no ' +

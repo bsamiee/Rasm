@@ -5,10 +5,10 @@
 - module: ESM (`type: module`); single barrel `fast-check` — one `.` export, no deep-import paths; default export `fc` mirrors the named surface.
 - asset: `lib/fast-check.d.ts` (bundled single-file declarations); runtime `lib/fast-check.js`.
 - runtime: platform-neutral (node / bun / browser / worker); zero native or wasm; randomness via bundled `pure-rand` (`RandomGenerator` supports v7 + v8 shapes).
-- plane: `plane:dev` — admitted behind the dev-only `proof` subpath so no runtime graph imports it; `proof/gauge/purity` asserts the arbitrary source never leaks into a shipped bundle.
+- plane: `plane:dev` — admitted on the `tests/` dev plane so no runtime graph imports it; the `tests/typescript/_architecture` suite asserts the arbitrary source never leaks into a runtime subpath.
 - rail: property / generative law.
 
-`fast-check` is the sole generator engine under `proof/law`. `arbitrary.ts` derives every kernel-brand and decoded-wire `Arbitrary<T>` from an `effect/Schema` via `Arbitrary.make` (never hand-rolls one); `property.ts` folds those arbitraries into the three reusable law combinators — fold identity, merge commutativity, upcast totality — each a `property`/`asyncProperty` closed by `assert` and bound to specs through `@effect/vitest` `it.prop` / `it.effect`. The v4 surface below is authoritative for `4.8.0`: the v3 char-family (`char`, `ascii`, `unicode`, `hexaString`, `fullUnicodeString`, `stringOf`) and `frequency` are GONE — string variation collapses into one `string(constraints)` with a `unit` axis, and weighting collapses into `oneof`.
+`fast-check` is the sole generator engine behind the `_testkit` law/arbitrary source (`tests/typescript/_testkit`), which derives every kernel-brand and decoded-wire `Arbitrary<T>` from an `effect/Schema` via `Arbitrary.make` (never hand-rolls one) and folds those arbitraries into the three reusable law combinators — fold identity, merge commutativity, upcast totality — each a `property`/`asyncProperty` closed by `assert` and bound to specs through `@effect/vitest` `it.prop` / `it.effect`. The v4 surface below is authoritative for `4.8.0`: the v3 char-family (`char`, `ascii`, `unicode`, `hexaString`, `fullUnicodeString`, `stringOf`) and `frequency` are GONE — string variation collapses into one `string(constraints)` with a `unit` axis, and weighting collapses into `oneof`.
 
 ## [01]-[CORE_TYPES]
 
@@ -82,7 +82,7 @@ declare function sample<Ts>(generator: IRawProperty<Ts> | Arbitrary<Ts>, params?
 
 ## [03]-[ARBITRARIES]
 
-The full generator roster is SEED DATA for the one `Arbitrary<T>` algebra — a new shape is a row, never a new mechanism. `proof/law` reaches almost none of these by hand: it derives from `Schema` (see [05]) and drops to raw arbitraries only for a shape `Schema` cannot express.
+The full generator roster is SEED DATA for the one `Arbitrary<T>` algebra — a new shape is a row, never a new mechanism. The `_testkit` law/arbitrary source reaches almost none of these by hand: it derives from `Schema` (see [05]) and drops to raw arbitraries only for a shape `Schema` cannot express.
 
 [ENTRYPOINT_SCOPE]: scalars — `nat`, `integer`, `maxSafeInteger`, `maxSafeNat`, `double`, `float`, `boolean`, `bigInt`, `constant`, `constantFrom`, `falsy`, `date`, `ulid`, `uuid` (all take a `*Constraints` bag; `constant<const T>` preserves literal type).
 
@@ -134,7 +134,7 @@ interface RunDetailsCommon<Ts> {
 
 ## [05]-[INTEGRATION]
 
-[STACK: `effect/Schema` → `Arbitrary.make` → `fast-check`] — the ONE arbitrary source in `arbitrary.ts`. Every kernel brand (`ContentKey`, `Hlc`, `AppKey`, `Guid-v7`, `OrdinalKey`, SI `Quantity`) and decoded wire shape is a `Schema`; `Arbitrary.make(schema)` yields a `FastCheck.Arbitrary<A>` that already honors the schema's `filter`/refinement, so `INGRESS_BUDGET` decode budgets hold at generation time — never re-encoded as a hand-written `.filter`. `effect` re-exports the SAME engine as `effect/FastCheck`, so the arbitrary a spec composes and the engine a property runs are one instance.
+[STACK: `effect/Schema` → `Arbitrary.make` → `fast-check`] — the ONE arbitrary source in `tests/typescript/_testkit`. Every kernel brand (`ContentKey`, `Hlc`, `AppKey`, `Guid-v7`, `OrdinalKey`, SI `Quantity`) and decoded wire shape is a `Schema`; `Arbitrary.make(schema)` yields a `FastCheck.Arbitrary<A>` that already honors the schema's `filter`/refinement, so `INGRESS_BUDGET` decode budgets hold at generation time — never re-encoded as a hand-written `.filter`. `effect` re-exports the SAME engine as `effect/FastCheck`, so the arbitrary a spec composes and the engine a property runs are one instance.
 
 ```ts contract
 import * as Arbitrary from "effect/Arbitrary"
@@ -144,7 +144,7 @@ declare const make: <A, I, R>(schema: Schema.Schema<A, I, R>) => FastCheck.Arbit
 declare const makeLazy: <A, I, R>(schema: Schema.Schema<A, I, R>) => LazyArbitrary<A>   // LazyArbitrary<A> = (fc: typeof FastCheck) => FastCheck.Arbitrary<A>
 ```
 
-[STACK: `fast-check` + `@effect/vitest`] — `property.ts` closes each law with `assert`, but specs bind arbitraries through `@effect/vitest` `it.prop(name, arbitraries, self)` (array OR record of arbitraries) and effect-returning predicates through `it.effect` / `it.scoped`; `layer(SharedLayer)(…)` shares one acquired Layer across a property block so the harness resources (see `electric-sql-pglite.md`) build once. `it.flakyTest` wraps a known-nondeterministic effect.
+[STACK: `fast-check` + `@effect/vitest`] — the `_testkit` law source closes each law with `assert`, but specs bind arbitraries through `@effect/vitest` `it.prop(name, arbitraries, self)` (array OR record of arbitraries) and effect-returning predicates through `it.effect` / `it.scoped`; `layer(SharedLayer)(…)` shares one acquired Layer across a property block so the harness resources (see `electric-sql-pglite.md`) build once. `it.flakyTest` wraps a known-nondeterministic effect.
 
 [LAW COMBINATOR SHAPE] — the three reusable combinators are ONE parameterized rail, not three ad-hoc specs: a combinator takes `(arb: Arbitrary<A>, op)` and emits a `property`. Fold identity = `property(arb, a => equals(fold([a]), a))`; merge commutativity = `property(arb, arb, (a, b) => equals(merge(a, b), merge(b, a)))`; upcast totality = `property(arbLower, a => isRight(upcast(a)))`. New law = new row (arbs + predicate), never a new mechanism.
 

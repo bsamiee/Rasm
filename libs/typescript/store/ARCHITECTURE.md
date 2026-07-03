@@ -12,7 +12,7 @@ store/src/           # imports kernel, state, host, security (W3); runtime-spann
 │   ├── append.ts    # the ONE append surface: streams (appKey, tenantId, aggregate); OCC by expected version; events are closed Schema.TaggedClass families with app-authored eventVersion
 │   ├── outbox.ts    # transactional outbox atomic with the append + idempotency ledger (ON CONFLICT DO UPDATE RETURNING (xmax = 0))
 │   ├── snapshot.ts  # snapshot store keyed snapshot_schema_version
-│   ├── upcast.ts    # read-time eventVersion upcaster folds — total functions, proven in proof/law; the raw log is never rewritten
+│   ├── upcast.ts    # read-time eventVersion upcaster folds — total functions, totality proven through the tests/typescript/_testkit law combinators; the raw log is never rewritten
 │   └── retain.ts    # retention policy rows + crypto-shredding via the security/sign Shredder; per-subject erasure = key destruction, the log never rewritten; the per-subject DSAR export fold (portability read over journal + object rows) rides beside erasure
 ├── project/         # The read side: two lanes plus rebuild
 │   ├── inline.ts    # same-transaction read-your-writes lanes (binds state folds to durability)

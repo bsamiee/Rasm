@@ -59,7 +59,7 @@
 |  [03]   | `entity.toLayerMailbox((mailbox, replier) => Effect<never>, options)`                          | register (raw) | the mailbox-draining form for streaming/batched entities  |
 |  [04]   | `entity.client` — `Effect<(entityId) => RpcClient, never, Sharding>`                           | invoke         | the typed per-id client; faults are `MailboxFull`/`AlreadyProcessingMessage`/`PersistenceError` |
 |  [05]   | `entity.annotateRpcs(ClusterSchema.Persisted, true)` / `.annotate(...)`                        | annotate       | apply durability/shard-group/interrupt policy to the Rpcs above the call |
-|  [06]   | `Entity.makeTestClient(entity, layer)` / `Entity.keepAlive(enabled)`                          | test / lifetime | in-process test client for `proof`; keep an idle entity resident |
+|  [06]   | `Entity.makeTestClient(entity, layer)` / `Entity.keepAlive(enabled)`                          | test / lifetime | in-process test client for kit-driven specs; keep an idle entity resident |
 
 [ENTRYPOINT_SCOPE]: message storage + sharding config layers
 - rail: durable-actor/system
@@ -79,7 +79,7 @@
 
 | [INDEX] | [SURFACE]                                                                                       | [ENTRY_FAMILY] | [CONSUMER / BOUNDARY]                                     |
 | :-----: | :---------------------------------------------------------------------------------------------- | :------------- | :-------------------------------------------------------- |
-|  [01]   | `HttpRunner.layerHttp` / `SocketRunner.layer` / `SingleRunner.layer` / `TestRunner`             | runner         | the runner entrypoint `Layer`s; `SingleRunner` single-node, `TestRunner` for `proof` |
+|  [01]   | `HttpRunner.layerHttp` / `SocketRunner.layer` / `SingleRunner.layer` / `TestRunner`             | runner         | the runner entrypoint `Layer`s; `SingleRunner` single-node, `TestRunner` for kit-driven specs |
 |  [02]   | `HttpRunner.layerClientProtocolHttp(options)` / `layerClientProtocolWebsocket` / `toHttpEffect` | runner client  | the inter-runner RPC transport; `toHttpEffect` mounts the runner server as an `HttpApp` |
 |  [03]   | `RunnerHealth.layerK8s(options?)` / `layerPing` / `layerNoop`                                   | discovery      | health/liveness; `layerK8s` discovers runners via `K8sHttpClient` |
 |  [04]   | `K8sHttpClient.layer` — `Layer<K8sHttpClient, never, HttpClient \| FileSystem>` / `makeGetPods` | discovery      | `work/engine/entity` — K8s pod discovery, NEVER provisioning |

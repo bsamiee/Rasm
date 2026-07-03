@@ -13,15 +13,6 @@ namespace Rasm.Bridge.Cargo;
 // complete line crash-durable, while disk faults degrade to counted spool facts instead of failing
 // the scenario.
 internal sealed class Spool : IDisposable {
-    internal const string CertificateFile = "bridge-certificate.json";
-    internal const string EventsDirectory = "events";
-    internal const string CapturesDirectory = "captures";
-    internal const string Gh2Directory = "gh2";
-    internal const string ManifestsDirectory = "manifests";
-    internal const string ReferencesDirectory = "references";
-    internal const string ScratchDirectory = "scratch";
-    internal const string RetentionFile = "retention.jsonl";
-
     private const int CaptureDpi = 96;
     private const int FallbackHeight = 768;
     private const int FallbackWidth = 1024;
@@ -35,9 +26,9 @@ internal sealed class Spool : IDisposable {
         this.reportDir = reportDir;
         this.scenario = scenario;
         try {
-            _ = Directory.CreateDirectory(path: Path.Combine(path1: reportDir, path2: EventsDirectory));
+            _ = Directory.CreateDirectory(path: Path.Combine(path1: reportDir, path2: ReportLayout.EventsDirectory));
             stream = new FileStream(
-                path: Path.Combine(path1: reportDir, path2: EventsDirectory, path3: scenario + ".jsonl"),
+                path: ReportLayout.Spool(reportDir: reportDir, scenario: scenario),
                 mode: FileMode.Append, access: FileAccess.Write, share: FileShare.Read,
                 bufferSize: 1, options: FileOptions.WriteThrough);
         } catch (Exception error) when (error is IOException or UnauthorizedAccessException or NotSupportedException) {
@@ -71,7 +62,7 @@ internal sealed class Spool : IDisposable {
             System.Drawing.Size frame = view.ActiveViewport.Size;
             int width = frame.Width > 0 ? frame.Width : FallbackWidth;
             int height = frame.Height > 0 ? frame.Height : FallbackHeight;
-            string captureDir = Path.Combine(path1: reportDir, path2: CapturesDirectory, path3: scenario);
+            string captureDir = Path.Combine(path1: reportDir, path2: ReportLayout.CapturesDirectory, path3: scenario);
             _ = Directory.CreateDirectory(path: captureDir);
             string stem = label is { Length: > 0 } ? Sanitize(label) : "failure";
             string path = Path.Combine(path1: captureDir, path2: $"{stem}.png");
@@ -109,13 +100,6 @@ internal sealed class Spool : IDisposable {
         return new ArtifactRef(
             Id: id, Role: role, RelativePath: id, MediaType: mediaType, Bytes: info.Exists ? info.Length : 0L,
             Hash: Hash(path: path), Retention: retention, Scenario: scenario, OnFailure: onFailure);
-    }
-
-    internal static void WriteAtomicText(string path, string content) {
-        _ = Directory.CreateDirectory(path: Path.GetDirectoryName(path: path) ?? ".");
-        string temp = path + ".tmp";
-        File.WriteAllText(path: temp, contents: content);
-        File.Move(sourceFileName: temp, destFileName: path, overwrite: true);
     }
 
     private static ArtifactHash Hash(string path) {

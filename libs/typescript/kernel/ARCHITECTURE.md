@@ -32,7 +32,7 @@ clock/hlc            ←  csharp:Rasm.AppHost/Runtime   # [WIRE]: HLC two-half +
 schema/quantity      ⇄  csharp:Rasm.Compute/Symbolic  # [WIRE]: QuantityFamily SI canonicalization consumed by host-free peers over the wire (AEC-domain admits UnitsNet in-folder, never a downward reference)
 ```
 
-Every row is a byte-level parity claim, never a code dependency: the C# side mints, the floor reproduces, and the `proof/corpus` parity drivers assert bit-identity against the frozen corpora. The `Quantity` row rides the proto transit at `wire/codec`; the content-key and HLC rows anchor the two identities every other folder's seams derive from.
+Every row is a byte-level parity claim, never a code dependency: the C# side mints, the floor reproduces, and the `tests/contracts` corpus parity drivers (TS readers in `tests/typescript/_testkit`) assert bit-identity against the frozen corpora. The `Quantity` row rides the proto transit at `wire/codec`; the content-key and HLC rows anchor the two identities every other folder's seams derive from.
 
 [FLOOR_LAW]:
 - The `ContentKey` mint is singular: `wire/frame`, the `browser/transport` decode worker, and `store/object` delegate to `identity/contentkey` — a second mint, a second content-address notion, or a non-zero seed is the named cross-language drift defect.
@@ -40,4 +40,4 @@ Every row is a byte-level parity claim, never a code dependency: the C# side min
 - `AppIdentity` spans {app, tenant, build, host-fingerprint}; the `telemetry` OTel Resource, the `browser` boot, and the `store` scope derive from this ONE value — a per-folder identity re-declaration is the named defect.
 - The fault enricher CONTRACT is declared in `fault/classify`; `wire` implements the Layer, `telemetry` consumes it, the app root wires the port — this floor imports neither.
 - `Quantity` carries SI magnitude + dimension, canonicalized once at the C# admission; a `{value, unit}` re-decode is the rejected form.
-- Every brand decodes under an `INGRESS_BUDGET` refinement budget; the law/arbitrary substrate publishes behind the dev-only subpath so `fast-check` never rides a runtime graph.
+- Every brand decodes under an `INGRESS_BUDGET` refinement budget; Schema-derived arbitraries for the kernel brands live in `@rasm/ts-testkit` (`tests/typescript/_testkit`), never on a `@rasm/ts` subpath — `fast-check` never rides a runtime graph.

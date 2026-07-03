@@ -79,7 +79,7 @@ export declare function getDashboard(args?: GetDashboardArgs, opts?: pulumi.Invo
 |  [09]   | `connections`          | prepared                 | metrics endpoints, collector configs                          |
 |  [10]   | `fleetmanagement`      | prepared                 | collector fleet pipelines                                     |
 |  [11]   | `frontendobservability`| prepared                 | RUM apps                                                      |
-|  [12]   | `k6`                   | prepared                 | load-test projects (mirrors the `proof/gauge/e2e` k6 lane)    |
+|  [12]   | `k6`                   | prepared                 | load-test projects (mirrors the `tests/typescript/e2e` k6 lane)    |
 |  [13]   | `apps` · `assert` · `assistant` · `enterprise` · `experimental` · `config` | prepared | app/enterprise/experimental resource rows |
 |  [14]   | `types`               | —                        | shared input/output interface library                         |
 

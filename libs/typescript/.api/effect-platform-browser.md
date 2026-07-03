@@ -1,6 +1,6 @@
 # [@effect/platform-browser] — browser Web-API bindings backing the browser runtime
 
-`@effect/platform-browser` satisfies the abstract `@effect/platform` service Tags with concrete browser Web-API implementations, so folder code types against the platform-neutral contract and the browser binding is a Layer selection at app composition. It owns the single `BrowserRuntime.runMain` boot law; `KeyValueStore` over `localStorage`/`sessionStorage`; the `Worker` client/runner over `Worker`/`SharedWorker`/`MessagePort`; `HttpClient` over `XMLHttpRequest` (the only transport exposing upload/download progress and arraybuffer responses); `Socket` over the native `WebSocket`; DOM-event `Stream` sources; and the `Clipboard`/`Geolocation`/`Permissions` Web-API services. This is the `runtime:browser` lane the edge ledger fences: `@effect/platform-node`/`@effect/platform-bun`/`node:*` are banned inside it, and `@effect/platform-browser` is banned inside `runtime:node` — subpath purity is `proof/gauge` enforced.
+`@effect/platform-browser` satisfies the abstract `@effect/platform` service Tags with concrete browser Web-API implementations, so folder code types against the platform-neutral contract and the browser binding is a Layer selection at app composition. It owns the single `BrowserRuntime.runMain` boot law; `KeyValueStore` over `localStorage`/`sessionStorage`; the `Worker` client/runner over `Worker`/`SharedWorker`/`MessagePort`; `HttpClient` over `XMLHttpRequest` (the only transport exposing upload/download progress and arraybuffer responses); `Socket` over the native `WebSocket`; DOM-event `Stream` sources; and the `Clipboard`/`Geolocation`/`Permissions` Web-API services. This is the `runtime:browser` lane the edge ledger fences: `@effect/platform-node`/`@effect/platform-bun`/`node:*` are banned inside it, and `@effect/platform-browser` is banned inside `runtime:node` — subpath purity is enforced by the `tests/typescript/_architecture` suite.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -66,7 +66,7 @@
 [BROWSER_BOUNDARY_TOPOLOGY]:
 - one boot law: `BrowserRuntime.runMain` is the single entry; `browser/boot/runtime` owns it and a second boot is the named defect. It is a `RunMain` instance shared in shape with `BunRuntime.runMain`/`NodeRuntime.runMain`, so the boot contract is identical across runtimes.
 - Tag-satisfaction, not reimplementation: folder code types against `@effect/platform`'s abstract `KeyValueStore`/`Worker`/`HttpClient`/`Socket` Tags; this package's `layer*` values satisfy them with browser implementations. The same folder code runs on node/bun when the app root selects the node/bun binding instead — capability is the contract, the binding is the Layer.
-- `runtime:browser` purity: the edge ledger bans `@effect/platform-node`/`@effect/platform-bun`/`node:*` inside this scope and bans this package inside `runtime:node`; `proof/gauge` `purity.ts` audits per-runtime subpath purity the exports map cannot express.
+- `runtime:browser` purity: the edge ledger bans `@effect/platform-node`/`@effect/platform-bun`/`node:*` inside this scope and bans this package inside `runtime:node`; the `tests/typescript/_architecture` suite audits per-runtime subpath purity the exports map cannot express.
 
 [INTEGRATION_LAW]:
 - Stack with `@effect/experimental` EventLog: `BrowserKeyValueStore.layerLocalStorage` satisfies the `KeyValueStore` `EventLog.layerIdentityKvs({ key })` requires; `BrowserSocket.layerWebSocketConstructor` satisfies the `Socket.WebSocketConstructor` `EventLogRemote.layerWebSocket` requires; `EventJournal.layerIndexedDb` provides the journal. The browser EventLog client is these four Layers merged.
@@ -75,7 +75,7 @@
 - Stack with `@effect/platform` `Stream`/`HttpClient`: `BrowserStream.fromEventListener*` feeds `browser/boot/connect` connectivity rows; the XHR `HttpClient` composes the `host/net/client` default-policy (timeout/retry) transformers like any other client.
 
 [LOCAL_ADMISSION]:
-- imported only inside `runtime:browser` subpaths; a node/bun rail that imports it is the defect `proof/gauge` catches.
+- imported only inside `runtime:browser` subpaths; a node/bun rail that imports it is the defect the `tests/typescript/_architecture` import audit catches.
 - Web-API services (`Clipboard`/`Geolocation`/`Permissions`) are provided as ports `ui` declares and `browser` satisfies; `ui` never imports this package directly.
 - the XHR `HttpClient` is the browser transport when upload/download progress or arraybuffer is required; otherwise `@effect/platform`'s `fetch` client suffices.
 

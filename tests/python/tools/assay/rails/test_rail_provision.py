@@ -28,20 +28,9 @@ if TYPE_CHECKING:
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-COVERS: tuple[object, ...] = (
-    ProvisionParams,
-    provision_rail.apply,
-    provision_rail.check,
-    provision_rail.doctor,
-    provision_rail.down,
-    provision_rail.env,
-    provision_rail.extensions,
-    provision_rail.inventory,
-    provision_rail.plan,
-    provision_rail.ports,
-    provision_rail.status,
-    provision_rail.up,
-)
+_STACK_VERB_NAMES = ("up", "down", "status", "doctor", "ports", "inventory", "extensions", "plan", "env", "apply")
+
+COVERS: tuple[object, ...] = (ProvisionParams, provision_rail.check, *(getattr(provision_rail, verb) for verb in _STACK_VERB_NAMES))
 
 _PROJECT = {"rootKey": "abc123", "projectKey": "forge-test-abc123", "instance": "default", "composeProject": "forge-forge-test-abc123-default"}
 
@@ -147,8 +136,7 @@ def _fan_payload(command: tuple[str, ...], stdout: bytes, *, rc: int = 0) -> Cal
 
 
 def _override_fan(overrides: dict[tuple[str, ...], Result[Completed, Fault]]) -> Callable[..., tuple[Result[Completed, Fault], ...]]:
-    """Canned check-verb fan: overridden commands play their outcome; every other command succeeds with its default stdout."""
-
+    # Canned check-verb fan: overridden commands play their outcome; every other command succeeds with its default stdout.
     def fan(checks: tuple[Check, ...], **_kw: object) -> tuple[Result[Completed, Fault], ...]:
         commands = tuple(check.args.fill(check.tool.command) for check in checks)
         return tuple(overrides.get(command, Ok(receipt(command, 0, status=RailStatus.OK, stdout=_stdout(command)))) for command in commands)
@@ -181,21 +169,10 @@ def test_provisionparams_arity_is_zero() -> None:
 
 # --- [STACK_DELEGATION]
 
-_STACK_VERBS = (
-    ("up", provision_rail.up),
-    ("down", provision_rail.down),
-    ("status", provision_rail.status),
-    ("doctor", provision_rail.doctor),
-    ("ports", provision_rail.ports),
-    ("inventory", provision_rail.inventory),
-    ("extensions", provision_rail.extensions),
-    ("plan", provision_rail.plan),
-    ("env", provision_rail.env),
-    ("apply", provision_rail.apply),
-)
+_STACK_VERBS = tuple((verb, getattr(provision_rail, verb)) for verb in _STACK_VERB_NAMES)
 
 
-@pytest.mark.parametrize("verb, handler", _STACK_VERBS, ids=[row[0] for row in _STACK_VERBS])
+@pytest.mark.parametrize("verb, handler", _STACK_VERBS, ids=_STACK_VERB_NAMES)
 def test_provision_stack_verb_delegates(
     assay_root: AssayHarness, verb: str, handler: Callable[[AssaySettings, ArtifactScope, ProvisionParams, SeamExecutor], Result[Report, Fault]]
 ) -> None:
@@ -208,86 +185,47 @@ def test_provision_stack_verb_delegates(
 
 # --- [FAULT_MATRIX]
 
+
+def _frow(
+    ident: str, payload: bytes | dict[str, object], *fragments: str, verb: str = "status", rc: int = 0
+) -> tuple[str, str, bytes, int, tuple[str, ...]]:
+    body = payload if isinstance(payload, bytes) else msgspec.json.encode(payload)
+    return (ident, verb, body, rc, fragments)
+
+
+_STALE_V3 = "installed forge-provision is older than the Rasm provision adapter"
+
 # One adapter-boundary fault table: wire framing, schema vintage, command identity, and egress sanitizing.
-_FAULT_ROWS: tuple[tuple[str, object, str, bytes, int, tuple[str, ...]], ...] = (
-    ("malformed-json", provision_rail.status, "status", b"{not-json", 0, ("invalid forge-provision JSON",)),
-    ("log-framed-stdout", provision_rail.status, "status", b"log line\n" + _json("status"), 0, ("expected exactly one forge-provision JSON object",)),
-    (
-        "schema-v1",
-        provision_rail.status,
-        "status",
-        msgspec.json.encode({"schemaVersion": 1, "command": "status", "ok": True}),
-        0,
-        ("unsupported forge-provision schema",),
-    ),
-    (
-        "schema-v2",
-        provision_rail.status,
-        "status",
-        msgspec.json.encode({"schemaVersion": 2, "command": "status", "ok": True}),
-        0,
-        ("unsupported forge-provision schema",),
-    ),
-    (
+_FAULT_ROWS = (
+    _frow("malformed-json", b"{not-json", "invalid forge-provision JSON"),
+    _frow("log-framed-stdout", b"log line\n" + _json("status"), "expected exactly one forge-provision JSON object"),
+    _frow("schema-v1", {"schemaVersion": 1, "command": "status", "ok": True}, "unsupported forge-provision schema"),
+    _frow("schema-v2", {"schemaVersion": 2, "command": "status", "ok": True}, "unsupported forge-provision schema"),
+    _frow(
         "stale-schema-v3",
-        provision_rail.status,
-        "status",
-        msgspec.json.encode({"schemaVersion": 3, "command": "status", "ok": True, "warnings": []}),
-        0,
-        ("installed forge-provision is older than the Rasm provision adapter", "uv run python -m tools.assay provision status"),
+        {"schemaVersion": 3, "command": "status", "ok": True, "warnings": []},
+        _STALE_V3,
+        "uv run python -m tools.assay provision status",
     ),
-    (
-        "ok-false-without-error",
-        provision_rail.status,
-        "status",
-        msgspec.json.encode({"schemaVersion": 3, "command": "status", "ok": False}),
-        1,
-        ("ok:false requires error.code",),
-    ),
-    (
-        "missing-project",
-        provision_rail.status,
-        "status",
-        msgspec.json.encode({k: v for k, v in msgspec.json.decode(_json("status")).items() if k != "project"}),
-        0,
-        ("missing project object",),
-    ),
-    ("command-missing", provision_rail.status, "status", msgspec.json.encode({"schemaVersion": 3, "ok": True}), 0, ("missing command",)),
-    (
-        "command-empty",
-        provision_rail.status,
-        "status",
-        msgspec.json.encode({"schemaVersion": 3, "command": "", "ok": True}),
-        0,
-        ("missing command",),
-    ),
-    (
-        "command-mismatch",
-        provision_rail.status,
-        "status",
-        msgspec.json.encode({"schemaVersion": 3, "command": "doctor", "ok": True}),
-        0,
-        ("forge-provision JSON command",),
-    ),
-    ("sensitive-key", provision_rail.status, "status", _json("status", services={"timescale": {"enabled": True}}, token="redacted"), 0, ("sensitive key",)),  # noqa: S106  # canned secret-shaped probe
-    (
+    _frow("ok-false-without-error", {"schemaVersion": 3, "command": "status", "ok": False}, "ok:false requires error.code", rc=1),
+    _frow("missing-project", {k: v for k, v in msgspec.json.decode(_json("status")).items() if k != "project"}, "missing project object"),
+    _frow("command-missing", {"schemaVersion": 3, "ok": True}, "missing command"),
+    _frow("command-empty", {"schemaVersion": 3, "command": "", "ok": True}, "missing command"),
+    _frow("command-mismatch", {"schemaVersion": 3, "command": "doctor", "ok": True}, "forge-provision JSON command"),
+    _frow("sensitive-key", _json("status", services={"timescale": {"enabled": True}}, token="redacted"), "sensitive key"),  # noqa: S106  # canned secret-shaped probe
+    _frow(
         "sensitive-value",
-        provision_rail.status,
-        "status",
         _json("status", error={"code": "x", "message": "postgres://postgres:pw@127.0.0.1/forge", "exitCode": 1}, ok=False),
-        0,
-        ("sensitive value",),
+        "sensitive value",
     ),
-    (
+    _frow(
         "diagnostic-json-path",
-        provision_rail.doctor,
-        "doctor",
         _json("doctor", diagnostic={"resolvedEndpoint": "unix:///Users/example/.colima/default/docker.sock"}),
-        0,
-        ("sensitive value",),
+        "sensitive value",
+        verb="doctor",
     ),
     *(
-        (f"local-path-{label}", provision_rail.doctor, "doctor", _json("doctor", docker={"executableKind": value}), 0, ("sensitive value",))
+        _frow(f"local-path-{label}", _json("doctor", docker={"executableKind": value}), "sensitive value", verb="doctor")
         for label, value in (
             ("users", "/Users/example/.docker/config.json"),
             ("tmp", "/" + "tmp/forge/socket"),
@@ -300,18 +238,11 @@ _FAULT_ROWS: tuple[tuple[str, object, str, bytes, int, tuple[str, ...]], ...] = 
 )
 
 
-@pytest.mark.parametrize("handler, verb, payload, rc, fragments", [row[1:] for row in _FAULT_ROWS], ids=[row[0] for row in _FAULT_ROWS])
-def test_provision_fault_matrix(
-    assay_root: AssayHarness,
-    handler: Callable[[AssaySettings, ArtifactScope, ProvisionParams, SeamExecutor], Result[Report, Fault]],
-    verb: str,
-    payload: bytes,
-    rc: int,
-    fragments: tuple[str, ...],
-) -> None:
+@pytest.mark.parametrize("verb, payload, rc, fragments", [row[1:] for row in _FAULT_ROWS], ids=[row[0] for row in _FAULT_ROWS])
+def test_provision_fault_matrix(assay_root: AssayHarness, verb: str, payload: bytes, rc: int, fragments: tuple[str, ...]) -> None:
     """Every adapter-boundary violation faults FAULTED with its exact diagnostic message."""
     executor = SeamExecutor(fan_fn=_fan_payload(("forge-provision", "--json", verb), payload, rc=rc))
-    fault = assert_error_status(_run(handler, assay_root, executor), RailStatus.FAULTED)
+    fault = assert_error_status(_run(getattr(provision_rail, verb), assay_root, executor), RailStatus.FAULTED)
     for fragment in fragments:
         assert fragment in fault.message
 
@@ -418,6 +349,30 @@ def test_provision_port_policy_allows_null_seed_fingerprint(assay_root: AssayHar
     assert detail.port_policy == (("mode", "auto"), ("source", "current-manifest"), ("range", "15364-15554"))
 
 
+def test_provision_ok_projection_variants(assay_root: AssayHarness) -> None:
+    """Verb-specific Ok payloads project exact safe evidence: redacted DSN admission and scalar plan summary without Compose YAML."""
+    dsn = "postgres://postgres:***@127.0.0.1:15432/forge"
+    service = {
+        "enabled": True,
+        "connectable": True,
+        "host": "127.0.0.1",
+        "port": 15432,
+        "portEnv": "FORGE_PROVISION_TIMESCALE_PORT",
+        "dsnEnv": "FORGE_PROVISION_TIMESCALE_DSN",
+        "dsnRedacted": dsn,
+        "containerPort": 5432,
+        "composeService": "timescale",
+    }
+    env_executor = SeamExecutor(fan_fn=_fan_payload(("forge-provision", "--json", "env"), _json("env", services={"timescale": service})))
+    env_detail = _detail(assert_ok(_run(provision_rail.env, assay_root, env_executor)))
+    assert env_detail.service_connections[0][6] == dsn
+    plan_payload = _json("plan", artifacts={"generated": (), "plan": {"composeYaml": "redacted", "authMode": "auto-root", "serviceCount": 2}})
+    plan_executor = SeamExecutor(fan_fn=_fan_payload(("forge-provision", "--json", "plan"), plan_payload))
+    plan_detail = _detail(assert_ok(_run(provision_rail.plan, assay_root, plan_executor)))
+    assert plan_detail.plan_summary == (("authMode", "auto-root"), ("serviceCount", "2"))
+    assert "composeYaml" not in dict(plan_detail.plan_summary)
+
+
 # Extension projection matrix: catalog rows, runtime-probed null admission, and tool-surface rows are attribute expectations per payload.
 _EXTENSION_ROWS: tuple[tuple[str, tuple[dict[str, object], ...], dict[str, tuple[tuple[str, ...], ...]]], ...] = (
     (
@@ -498,7 +453,20 @@ _EXTENSION_ROWS: tuple[tuple[str, tuple[dict[str, object], ...], dict[str, tuple
         ),
         {
             "extension_metadata": (
-                ("*", "hll", "postgresql-contrib-or-image-probed", "runtime-probed", "runtime-probed", "create-extension", "optional", "", "", "", "", "probe-only"),
+                (
+                    "*",
+                    "hll",
+                    "postgresql-contrib-or-image-probed",
+                    "runtime-probed",
+                    "runtime-probed",
+                    "create-extension",
+                    "optional",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "probe-only",
+                ),
             ),
             "tool_surface_extensions": (),
         },
@@ -569,7 +537,7 @@ _EXTENSION_ROWS: tuple[tuple[str, tuple[dict[str, object], ...], dict[str, tuple
                     "vec_version",
                     "",
                 ),
-            ),
+            )
         },
     ),
 )
@@ -664,38 +632,6 @@ def test_provision_ok_false_projects_failed_run(assay_root: AssayHarness, rc: in
     )
 
 
-def test_provision_allows_redacted_dsn_values(assay_root: AssayHarness) -> None:
-    """Redacted local DSNs remain safe connection evidence."""
-    payload = _json(
-        "env",
-        services={
-            "timescale": {
-                "enabled": True,
-                "connectable": True,
-                "host": "127.0.0.1",
-                "port": 15432,
-                "portEnv": "FORGE_PROVISION_TIMESCALE_PORT",
-                "dsnEnv": "FORGE_PROVISION_TIMESCALE_DSN",
-                "dsnRedacted": "postgres://postgres:***@127.0.0.1:15432/forge",
-                "containerPort": 5432,
-                "composeService": "timescale",
-            }
-        },
-    )
-    executor = SeamExecutor(fan_fn=_fan_payload(("forge-provision", "--json", "env"), payload))
-    detail = _detail(assert_ok(_run(provision_rail.env, assay_root, executor)))
-    assert detail.service_connections[0][6] == "postgres://postgres:***@127.0.0.1:15432/forge"
-
-
-def test_provision_plan_projects_safe_plan_summary(assay_root: AssayHarness) -> None:
-    """Plan keeps bounded scalar metadata and never projects raw Compose YAML."""
-    payload = _json("plan", artifacts={"generated": (), "plan": {"composeYaml": "redacted", "authMode": "auto-root", "serviceCount": 2}})
-    executor = SeamExecutor(fan_fn=_fan_payload(("forge-provision", "--json", "plan"), payload))
-    detail = _detail(assert_ok(_run(provision_rail.plan, assay_root, executor)))
-    assert detail.plan_summary == (("authMode", "auto-root"), ("serviceCount", "2"))
-    assert "composeYaml" not in dict(detail.plan_summary)
-
-
 # --- [CHECK_VERB_LAWS]
 
 
@@ -722,7 +658,10 @@ def test_provision_check_keeps_tools_success_when_stack_check_fails(assay_root: 
     tools_cmd = ("forge-provision", "--json", "tools")
     tools_payload = _json(
         "tools",
-        tools={"surfaces": {"duckdb": {"ok": True, "executable": "duckdb", "probe": {"extensionRows": 31}}}, "summary": {"selected": "all", "ok": True}},
+        tools={
+            "surfaces": {"duckdb": {"ok": True, "executable": "duckdb", "probe": {"extensionRows": 31}}},
+            "summary": {"selected": "all", "ok": True},
+        },
     )
     executor = SeamExecutor(
         fan_fn=_override_fan({

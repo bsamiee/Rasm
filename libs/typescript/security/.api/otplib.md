@@ -81,7 +81,7 @@
 - Stack with `hooks` for variants: `OTPHooks.encodeToken`/`truncateDigest` implement Steam Guard and other non-numeric alphabets without forking the rail — the variant is a hook value, not a new package.
 
 [LOCAL_ADMISSION]:
-- imported only inside `authn/` subpaths (the `authn/otp` row); a `sign`/`session`/`secret` rail importing it is the defect `proof/gauge` catches. The crypto primitive still lives in `sign` — otplib receives it as an injected `CryptoPlugin`.
+- imported only inside `authn/` subpaths (the `authn/otp` row); a `sign`/`session`/`secret` rail importing it is the defect the `tests/typescript/_architecture` import audit catches. The crypto primitive still lives in `sign` — otplib receives it as an injected `CryptoPlugin`.
 - default plugins are fine for a first cut; the `{ crypto }` swap to the `sign/crypto`-backed plugin is the standing target so the folder has one HMAC owner.
 - prefer the functional `generate`/`verify` entries; reach for `OTP`/`TOTP`/`HOTP` only when a plugin/guardrail config is fixed per subject and reused.
 

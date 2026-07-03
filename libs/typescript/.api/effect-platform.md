@@ -92,7 +92,7 @@
 |  [03]   | `HttpServerRequest.schemaBodyJson(schema)` / `.schemaHeaders` / `.schemaSearchParams` / `.upgrade` | ingress decode | `edge` — decode body/headers/query through `Schema`; `.upgrade` yields the WebSocket `Socket` |
 |  [04]   | `HttpMiddleware.cors(options)` / `.logger` / `.xForwardedHeaders` / `.searchParamsParser`          | wrap           | `edge/middleware` — cross-cutting transforms on the handler `HttpApp` |
 |  [05]   | `HttpLayerRouter.use` / `.addHttpApi(api)` / `.cors()` / `.serve(handler)` / `HttpLayerRouter.add` | layer route    | `edge` — the `Layer`-native router mixing raw HTTP routes with a mounted `HttpApi` |
-|  [06]   | `HttpServer.serve(httpApp, middleware?)` / `HttpServer.layerTestClient`                            | run / test     | `edge/serve` binds the app to the runtime server `Layer`; `proof` uses the in-memory test client |
+|  [06]   | `HttpServer.serve(httpApp, middleware?)` / `HttpServer.layerTestClient`                            | run / test     | `edge/serve` binds the app to the runtime server `Layer`; kit-driven specs use the in-memory test client |
 
 [ENTRYPOINT_SCOPE]: system-API contracts and frame codecs
 - rail: system-apis

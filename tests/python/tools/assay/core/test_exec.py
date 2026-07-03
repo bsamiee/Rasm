@@ -6,7 +6,6 @@ Pure transforms use oracle laws; boundary surfaces use real subprocesses and the
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
 import os
-from pathlib import Path
 import sys
 import time
 from types import SimpleNamespace
@@ -19,7 +18,7 @@ import msgspec
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter  # noqa: TC002  # collection-time fixture annotation
 import pytest
 
-from tests.python._testkit.spec import assert_error, assert_error_status, assert_ok, ProjectionCase, projection_matrix, validity_matrix
+from tests.python._testkit.spec import assert_error, assert_error_status, assert_ok, validity_matrix
 
 # Hypothesis resolves fixture annotations at collection time under PEP 649.
 from tests.python.tools.assay.kit import AssayHarness  # noqa: TC001
@@ -32,7 +31,8 @@ from tools.assay.core.routing import discover, discover_async, Routed, Scope
 
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterator, Mapping, Sequence
+    from collections.abc import Iterator, Mapping, Sequence
+    from pathlib import Path
 
     from expression import Result
 
@@ -240,43 +240,16 @@ def test_splice_command_injects_scope_flags_for_dotnet_build_verbs(assay_root: A
     """``splice_command`` injects scope flags into dotnet build-graph verbs and passes everything else verbatim."""
     scope = assay_root.scope(Claim.STATIC)
     verbs = assay_root.settings.scoped_verbs
-    cases: tuple[ProjectionCase[tuple[Runner, tuple[str, ...], Mode, bool]], ...] = (
-        ProjectionCase(
-            label="dotnet-build-splices",
-            intent=(Runner.DOTNET, ("build", "Workspace.slnx"), Mode.BUILD, True),
-            supported_out=(*scope.dotnet_flags,),
-            oracle=None,
-            unsupported_out=(),
-        ),
-        ProjectionCase(
-            label="uv-passthrough",
-            intent=(Runner.UV, ("ruff", "check", "."), Mode.CHECK, True),
-            supported_out=("ruff", "check", "."),
-            oracle=None,
-            unsupported_out=(),
-        ),
-        ProjectionCase(
-            label="dotnet-list-passthrough",
-            intent=(Runner.DOTNET, ("test", "--list-tests"), Mode.LIST, True),
-            supported_out=("test", "--list-tests"),
-            oracle=None,
-            unsupported_out=(),
-        ),
-        ProjectionCase(
-            label="none-scope-passthrough",
-            intent=(Runner.DOTNET, ("build", "Workspace.slnx"), Mode.BUILD, False),
-            supported_out=("build", "Workspace.slnx"),
-            oracle=None,
-            unsupported_out=(),
-        ),
+    rows: tuple[tuple[str, Runner, tuple[str, ...], Mode, bool, tuple[str, ...]], ...] = (
+        ("dotnet-build-splices", Runner.DOTNET, ("build", "Workspace.slnx"), Mode.BUILD, True, tuple(scope.dotnet_flags)),
+        ("uv-passthrough", Runner.UV, ("ruff", "check", "."), Mode.CHECK, True, ("ruff", "check", ".")),
+        ("dotnet-list-passthrough", Runner.DOTNET, ("test", "--list-tests"), Mode.LIST, True, ("test", "--list-tests")),
+        ("none-scope-passthrough", Runner.DOTNET, ("build", "Workspace.slnx"), Mode.BUILD, False, ("build", "Workspace.slnx")),
     )
-
-    def project(intent: tuple[Runner, tuple[str, ...], Mode, bool]) -> tuple[str, ...]:
-        runner, command, mode, scoped = intent
+    for label, runner, command, mode, scoped, expected in rows:
         spliced = splice_command(runner, command, scope if scoped else None, verbs, mode)
-        return tuple(f for f in scope.dotnet_flags if f in spliced) if runner is Runner.DOTNET and mode is Mode.BUILD and scoped else spliced
-
-    projection_matrix(cases, project)
+        got = tuple(f for f in scope.dotnet_flags if f in spliced) if runner is Runner.DOTNET and mode is Mode.BUILD and scoped else spliced
+        assert got == expected, f"{label}: splice drifted: {spliced!r}"
 
 
 def test_splice_command_separator_identity_and_project_isolation(assay_root: AssayHarness) -> None:
@@ -298,7 +271,7 @@ def test_splice_command_separator_identity_and_project_isolation(assay_root: Ass
     assert artifact_path.endswith("/dotnet/tests__csharp__libs__Shape__Shape.Tests")
 
 
-def test_argv_for_exact_argv_rows(assay_root: AssayHarness) -> None:
+def test_argv_for_exact_argv_rows(assay_root: AssayHarness) -> None:  # noqa: PLR0914  # one exact-argv law: every runner/mode row shares the settings/scope fixture
     """``argv_for`` composes runner prefix, spliced body, and routed tails exactly per runner/mode row.
 
     Rows pin UV group/project segments, MODULE prefix, DIRECT passthrough, QUERY splice bypass, routed file
@@ -327,9 +300,7 @@ def test_argv_for_exact_argv_rows(assay_root: AssayHarness) -> None:
     tails = assert_ok(argv_for(Check(tool=files_tool), routed_files, settings=settings, scope=scope))
     assert tails[:2] == Runner.UV.prefix, f"runner prefix not leading argv: {tails!r}"
     assert {"ruff", "check", "a.py", "b.py"} <= set(tails), f"command body or routed tails lost in {tails!r}"
-    project_tool = Tool(
-        "dotnet-test", Runner.DOTNET, ("test",), Input.PROJECT, Language.CSHARP, Claim.TEST, mode=Mode.RUN, input_flag=("--project",)
-    )
+    project_tool = Tool("dotnet-test", Runner.DOTNET, ("test",), Input.PROJECT, Language.CSHARP, Claim.TEST, mode=Mode.RUN, input_flag=("--project",))
     routed_projects = Routed(language=Language.CSHARP, scope=Scope.FULL, projects=("tests/csharp/libs/Shape/Shape.Tests.csproj",))
     project_argv = assert_ok(argv_for(Check(tool=project_tool), routed_projects, settings=settings, scope=assay_root.scope(Claim.TEST)))
     assert project_argv[project_argv.index("--artifacts-path") + 1].endswith("/dotnet/tests__csharp__libs__Shape__Shape.Tests")
@@ -357,39 +328,28 @@ def _runtime_tree(base: Path) -> Path:
     return base
 
 
-def _dotnet_env_wins(tmp_path: Path, mp: pytest.MonkeyPatch) -> str:
-    # A valid DOTNET_ROOT short-circuits before the listing probe can spawn.
-    root = _runtime_tree(tmp_path / "env-root")
-    mp.setenv("DOTNET_ROOT", str(root))
-    mp.setattr(exec_mod, "discover", lambda *_a, **_kw: (_ for _ in ()).throw(AssertionError("probe must not run")))
-    return str(root)
-
-
-def _dotnet_listing_wins(tmp_path: Path, mp: pytest.MonkeyPatch) -> str:
-    # Invalid DOTNET_ROOT falls through to the bracketed runtime listing path.
-    real = _runtime_tree(tmp_path / "real-root")
-    mp.setenv("DOTNET_ROOT", str(tmp_path / "absent"))
-    listing = f"Microsoft.NETCore.App 10.0.0 [{real}/shared/Microsoft.NETCore.App]\nnoise\n"
-    mp.setattr(exec_mod, "discover", lambda *_a, **_kw: Ok(listing.encode()))
-    return str(real)
-
-
-def _dotnet_muxer_wins(tmp_path: Path, mp: pytest.MonkeyPatch) -> str:
-    # With no env root and a failed listing, the muxer parent is the final candidate.
-    real = _runtime_tree(tmp_path / "muxer-root")
-    (real / "dotnet").write_bytes(b"")
-    mp.delenv("DOTNET_ROOT", raising=False)
-    mp.setattr(exec_mod, "discover", lambda *_a, **_kw: Error(Fault(("dotnet", "--list-runtimes"), RailStatus.FAULTED)))
-    mp.setattr(exec_mod.shutil, "which", lambda _name: str(real / "dotnet"))
-    return str(real)
-
-
 @pytest.mark.usefixtures("_fresh_dotnet_root")
-@pytest.mark.parametrize("setup", [_dotnet_env_wins, _dotnet_listing_wins, _dotnet_muxer_wins], ids=["env", "listing", "muxer"])
-def test_dotnet_root_probe_precedence(setup: Callable[[Path, pytest.MonkeyPatch], str], tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize("source", ["env", "listing", "muxer"])
+def test_dotnet_root_probe_precedence(source: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """``_dotnet_root`` walks env → ``--list-runtimes`` → muxer parent, taking the first that resolves a real runtime tree."""
-    expected = setup(tmp_path, monkeypatch)
-    assert exec_mod._dotnet_root() == expected
+    real = _runtime_tree(tmp_path / f"{source}-root")
+    match source:
+        case "env":
+            # A valid DOTNET_ROOT short-circuits before the listing probe can spawn.
+            monkeypatch.setenv("DOTNET_ROOT", str(real))
+            monkeypatch.setattr(exec_mod, "discover", lambda *_a, **_kw: (_ for _ in ()).throw(AssertionError("probe must not run")))
+        case "listing":
+            # Invalid DOTNET_ROOT falls through to the bracketed runtime listing path.
+            monkeypatch.setenv("DOTNET_ROOT", str(tmp_path / "absent"))
+            listing = f"Microsoft.NETCore.App 10.0.0 [{real}/shared/Microsoft.NETCore.App]\nnoise\n"
+            monkeypatch.setattr(exec_mod, "discover", lambda *_a, **_kw: Ok(listing.encode()))
+        case _:
+            # With no env root and a failed listing, the muxer parent is the final candidate.
+            (real / "dotnet").write_bytes(b"")
+            monkeypatch.delenv("DOTNET_ROOT", raising=False)
+            monkeypatch.setattr(exec_mod, "discover", lambda *_a, **_kw: Error(Fault(("dotnet", "--list-runtimes"), RailStatus.FAULTED)))
+            monkeypatch.setattr(exec_mod.shutil, "which", lambda _name: str(real / "dotnet"))
+    assert exec_mod._dotnet_root() == str(real)
 
 
 def test_apphost_overlay_laws(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -506,17 +466,21 @@ def test_staged_tool_executes_from_materialized_worktree(assay_root: AssayHarnes
     assert reported == os.path.realpath(str(work)), f"staged child ran outside the worktree: {reported!r}"
 
 
+_STAGED_REMOTE = Tool(
+    "stage-remote-law", Runner.UV, ("python", "--version"), Input.NONE, Language.PYTHON, Claim.TEST, mode=Mode.RUN,
+    stage=Stage(root=".artifacts/python/work"),
+)  # fmt: skip
 _LOCAL_ONLY_ROWS: tuple[tuple[str, Tool, str], ...] = (
-    (
-        "staged",
-        Tool("stage-remote-law", Runner.UV, ("python", "--version"), Input.NONE, Language.PYTHON, Claim.TEST, mode=Mode.RUN, stage=Stage(root=".artifacts/python/work")),
-        "staged tools require local execution",
-    ),
+    ("staged", _STAGED_REMOTE, "staged tools require local execution"),
     *(
-        (claim.value, Tool("host-bound-remote-law", Runner.DOTNET, ("run", "--", "verify"), Input.NONE, Language.CSHARP, claim, mode=Mode.VERIFY), "host-bound tools require local execution")
+        (
+            claim.value,
+            Tool("host-bound-remote-law", Runner.DOTNET, ("run", "--", "verify"), Input.NONE, Language.CSHARP, claim, mode=Mode.VERIFY),
+            "host-bound tools require local execution",
+        )
         for claim in (Claim.BRIDGE, Claim.PACKAGE, Claim.PROVISION)
     ),
-)  # fmt: skip
+)
 
 
 @pytest.mark.parametrize("label, tool, message", _LOCAL_ONLY_ROWS, ids=[c[0] for c in _LOCAL_ONLY_ROWS])
@@ -645,5 +609,6 @@ def test_discover_boundary_laws(tmp_path: Path) -> None:
 def test_remaining_deadline_floors_at_one_millisecond(drift: float) -> None:
     """``remaining`` floors an elapsed deadline at 1ms and passes ``None`` through as unbounded."""
     budget = remaining(time.monotonic() - drift)
-    assert budget is not None and budget >= 0.001
+    assert budget is not None
+    assert budget >= 0.001
     assert remaining(None) is None

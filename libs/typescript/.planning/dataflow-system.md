@@ -4,7 +4,7 @@ One data spine runs the branch: C#-minted wire bytes decode at `wire`, land in o
 
 ## [01]-[CONTENT_IDENTITY]
 
-`XxHash128` seed-zero is the one content-identity regime, bit-identical across C#, Python, and TypeScript. `kernel/identity` owns the ONE mint (`ContentKey`, `:x32` spelling, LE→BE normalization); exactly three sites delegate to it — `wire/frame` (artifact reassembly verify), the `browser/transport` decode worker (off-thread verify), and `store/object` (`ObjectKey`). An artifact hashed by any runtime is reusable by every other. A second mint, a second content-address notion, or a non-zero seed is the named cross-language drift defect; `proof/corpus` asserts bit-parity against the frozen byte-identity corpora.
+`XxHash128` seed-zero is the one content-identity regime, bit-identical across C#, Python, and TypeScript. `kernel/identity` owns the ONE mint (`ContentKey`, `:x32` spelling, LE→BE normalization); exactly three sites delegate to it — `wire/frame` (artifact reassembly verify), the `browser/transport` decode worker (off-thread verify), and `store/object` (`ObjectKey`). An artifact hashed by any runtime is reusable by every other. A second mint, a second content-address notion, or a non-zero seed is the named cross-language drift defect; the `tests/contracts` corpus readers (in `tests/typescript/_testkit`) assert bit-parity against the frozen byte-identity corpora.
 
 ## [02]-[WIRE_PLANE]
 
@@ -18,8 +18,8 @@ C# owns every `*Wire` shape; TS decodes verbatim and authors none. Decode happen
 
 Persistence is an append-only journal — no migrations, by construction. Streams are keyed `(appKey, tenantId, aggregate)`; events are closed app-authored `Schema.TaggedClass` families carrying `eventVersion`; appends are OCC by expected version, with the idempotency ledger and the transactional outbox atomic in the same commit.
 
-- Schema evolution is read-time upcasting: per-type `eventVersion` folds plus snapshot upcasters keyed by `snapshot_schema_version`, totality proven in `proof/law`. The raw log is never rewritten.
-- DDL is idempotent declarative ensure, additive-only, with the split as law: `iac` applies at provision time, `store` verifies at startup, runtime never mutates schema. `PgMigrator` is banned branch-wide; `proof/gauge` asserts the ban.
+- Schema evolution is read-time upcasting: per-type `eventVersion` folds plus snapshot upcasters keyed by `snapshot_schema_version`, totality proven through the `tests/typescript/_testkit` law combinators. The raw log is never rewritten.
+- DDL is idempotent declarative ensure, additive-only, with the split as law: `iac` applies at provision time, `store` verifies at startup, runtime never mutates schema. `PgMigrator` is banned branch-wide; the `tests/typescript/_architecture` suite asserts the ban.
 - The read side has two lanes: inline projections (same-transaction, read-your-writes) and async projections (checkpointed, LISTEN/NOTIFY-woken, SKIP LOCKED). Rebuild is a lane operation over the journal, never a data migration.
 - One fold algebra, two altitudes: browser apps fold wire-decoded events in memory through `state`; node apps fold journal events durably through `store/project` binding the same `state` algebra. The algebra is generic over the op vocabulary — wire-minted and app-authored journal families are instances.
 - Retention and erasure ride the journal without rewriting it: retention classes fold from the `state` retention frontier; per-subject erasure is crypto-shredding — destroying the key for the `security/sign` AES-GCM envelope makes the subject's rows unreadable, and DSAR export is a portability fold over journal and object rows.
@@ -35,7 +35,7 @@ Persistence is an append-only journal — no migrations, by construction. Stream
 
 ## [06]-[CROSS_LANGUAGE_INVARIANTS]
 
-Frozen law; `proof/corpus` drivers assert each:
+Frozen law; the `tests/contracts` corpus drivers (TS readers in `tests/typescript/_testkit`) assert each:
 - C# owns the wire vocabulary; TS re-mints nothing and imports zero C#/Python artifacts — alignment travels through wire bytes, frozen corpora, and the descriptor drift gate.
 - One content-identity regime (seed-zero `XxHash128`), one clock law (HLC two-half), one quantity law (SI canonicalized once at C# admission; `kernel/schema` `Quantity` carries magnitude + dimension — a `{value, unit}` re-decode is the rejected form).
 - The C# typed-receipt family never collapses into one erased TS receipt.
@@ -54,4 +54,4 @@ Frozen law; `proof/corpus` drivers assert each:
 | [07] | new retention class | `state` retention frontier + `store/journal` | one class row |
 | [08] | new fold consumer | `state` fold algebra instances | one op-vocabulary instance |
 | [09] | new tenancy shape | `store/scope` policy values | one scope value — isolation never forks |
-| [10] | new frozen corpus or parity claim | `proof/corpus` readers | one reader row + its driver |
+| [10] | new frozen corpus or parity claim | `tests/contracts/<seam>/` + the `tests/typescript/_testkit` readers | one corpus asset + one reader row + its driver |

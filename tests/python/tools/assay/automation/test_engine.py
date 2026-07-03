@@ -14,14 +14,15 @@ from typing import TYPE_CHECKING
 
 import anyio
 import anyio.lowlevel
+from expression import Result  # runtime: msgspec resolves row-struct field annotations at class creation
 import msgspec
 import pytest
 
 from tests.python.tools.assay.kit import RailProbe
 from tools.assay.automation import engine as _eng
 from tools.assay.automation.engine import drive, is_governed
-from tools.assay.automation.model import Debounce, Edge, Manual, Program, Rail, Schedule, Sequence, Watch, WatchFilter
-from tools.assay.core.model import Claim, Counts, envelope, RailStatus, receipt
+from tools.assay.automation.model import Action, Debounce, Edge, Manual, Program, Rail, Schedule, Sequence, Trigger, Watch, WatchFilter
+from tools.assay.core.model import Claim, Completed, Counts, envelope, Fault, RailStatus, receipt
 from tools.assay.diagnostics import fold
 
 
@@ -58,7 +59,7 @@ class _ProgramCase(msgspec.Struct, frozen=True, gc=False):
 
     label: str
     argv: tuple[str, ...]
-    canned: object
+    canned: Result[Completed, Fault]
     status: RailStatus
     counts: Counts | None = None
     message: str | None = None
@@ -68,7 +69,7 @@ class _LeafCase(msgspec.Struct, frozen=True, gc=False):
     """Sequence/Debounce tree row: expected emit count, per-emit status, fired command count."""
 
     label: str
-    action: object
+    action: Action
     emits: int
     status: RailStatus
     fired: int
@@ -78,8 +79,8 @@ class _FaultCase(msgspec.Struct, frozen=True, gc=False):
     """Setup/guard/resolve/decode fault row with expected Envelope label and message substrings."""
 
     label: str
-    trigger: object
-    action: object
+    trigger: Trigger
+    action: Action
     claim: Claim
     verb: str
     substrings: tuple[str, ...] = ()
@@ -99,87 +100,33 @@ _GOVERNOR_CASES: tuple[_GovernorCase, ...] = (
     _GovernorCase("primed-reads-nonblocking", 0.5, 80.0, governed=True, intervals=(None,)),
 )
 
+_OK_ROW = RailProbe.receipt(("dotnet", "build"), 0, status=RailStatus.OK, stdout=b"Build succeeded.\n")
 _PROGRAM_CASES: tuple[_ProgramCase, ...] = (
-    _ProgramCase(
-        "ok-report",
-        ("dotnet", "build"),
-        RailProbe.receipt(("dotnet", "build"), 0, status=RailStatus.OK, stdout=b"Build succeeded.\n"),
-        RailStatus.OK,
-        counts=Counts(1, 0, 1),
-    ),
-    _ProgramCase(
-        "fault-arm",
-        ("missing-tool",),
-        RailProbe.error(("missing-tool",), "spawn: executable not found"),
-        RailStatus.FAULTED,
-        message="spawn: executable not found",
-    ),
-    _ProgramCase(
-        "rc1-failed", ("tool",), RailProbe.receipt(("tool",), 1, status=RailStatus.FAILED, stdout=b"out"), RailStatus.FAILED, counts=Counts(0, 1, 1)
-    ),
-    _ProgramCase(
-        "rc0-empty", ("tool",), RailProbe.receipt(("tool",), 0, status=RailStatus.EMPTY, stdout=b"out"), RailStatus.EMPTY, counts=Counts(1, 0, 1)
-    ),
-    _ProgramCase(
-        "rc124-timeout",
-        ("tool",),
-        RailProbe.receipt(("tool",), 124, status=RailStatus.TIMEOUT, stdout=b"out"),
-        RailStatus.TIMEOUT,
-        counts=Counts(0, 0, 0),
-    ),
+    _ProgramCase("ok-report", ("dotnet", "build"), _OK_ROW, RailStatus.OK, counts=Counts(1, 0, 1)),
+    _ProgramCase("fault-arm", ("missing-tool",), RailProbe.error(("missing-tool",), "spawn: no tool"), RailStatus.FAULTED, message="spawn: no tool"),
+    _ProgramCase("rc1-failed", ("tool",), RailProbe.receipt(("tool",), 1, status=RailStatus.FAILED), RailStatus.FAILED, counts=Counts(0, 1, 1)),
+    _ProgramCase("rc0-empty", ("tool",), RailProbe.receipt(("tool",), 0, status=RailStatus.EMPTY), RailStatus.EMPTY, counts=Counts(1, 0, 1)),
+    _ProgramCase("rc124-timeout", ("t",), RailProbe.receipt(("t",), 124, status=RailStatus.TIMEOUT), RailStatus.TIMEOUT, counts=Counts(0, 0, 0)),
 )
 
+_NESTED = Sequence(actions=(Program(argv=("p", "out")), Sequence(actions=(Program(argv=("p", "in")),)), Debounce(action=Program(argv=("p", "w")))))
 _LEAF_CASES: tuple[_LeafCase, ...] = (
     _LeafCase("sequence-two-ok", Sequence(actions=(Program(argv=("p", "1")), Program(argv=("p", "2")))), 2, RailStatus.OK, 2),
-    _LeafCase(
-        "nested-seq-debounce",
-        Sequence(
-            actions=(
-                Program(argv=("p", "outer")),
-                Sequence(actions=(Program(argv=("p", "nested")),)),
-                Debounce(action=Program(argv=("p", "wrapped"))),
-            )
-        ),
-        3,
-        RailStatus.OK,
-        3,
-    ),
+    _LeafCase("nested-seq-debounce", _NESTED, 3, RailStatus.OK, 3),
     _LeafCase("manual-debounce-unwrap", Debounce(action=Program(argv=("tool",)), window_ms=500, edge=Edge.TRAILING), 1, RailStatus.OK, 1),
     # A FAULTED leaf (empty argv) short-circuits _sequence before the trailing leaf runs.
     _LeafCase("halt-on-fault", Sequence(actions=(Program(argv=()), Program(argv=("p", "2")))), 1, RailStatus.FAULTED, 0),
 )
 
+_BAD_ZONE = Schedule(cron="* * * * *", timezone="Invalid/Zone")
 _FAULT_CASES: tuple[_FaultCase, ...] = (
-    # Setup faults stay envelope-local instead of escaping the task group.
-    _FaultCase(
-        "setup-error",
-        Schedule(cron="* * * * *", timezone="Invalid/Zone"),
-        Rail(claim=Claim.STATIC, verb="static"),
-        Claim.STATIC,
-        "static",
-        ("automation setup",),
-    ),
-    # Empty argv faults before process spawn.
+    # Setup faults stay envelope-local; empty argv faults before spawn; unbound/undecodable rails fault at the leaf;
+    # Debounce wrappers label setup faults by the inner action.
+    _FaultCase("setup-error", _BAD_ZONE, Rail(claim=Claim.STATIC, verb="static"), Claim.STATIC, "static", ("automation setup",)),
     _FaultCase("empty-argv", Manual(), Program(argv=()), Claim.STATIC, "program", ("non-empty",)),
-    # Unbound rails fault at the leaf with no prior emission.
-    _FaultCase(
-        "rail-unbound",
-        Manual(),
-        Rail(claim=Claim.STATIC, verb="does-not-exist"),
-        Claim.STATIC,
-        "does-not-exist",
-        ("unbound rail", "static:does-not-exist"),
-    ),
-    # Registered rail params decode failures fold to Fault.
+    _FaultCase("rail-unbound", Manual(), Rail(claim=Claim.STATIC, verb="nope"), Claim.STATIC, "nope", ("unbound rail", "static:nope")),
     _FaultCase("rail-param-decode", Manual(), Rail(claim=Claim.STATIC, verb="static", params=msgspec.Raw(b"{not json")), Claim.STATIC, "static"),
-    # Setup faults label Debounce wrappers by the inner action.
-    _FaultCase(
-        "debounce-setup-inner-label",
-        Schedule(cron="* * * * *", timezone="Invalid/Zone"),
-        Debounce(action=Rail(claim=Claim.CODE, verb="search")),
-        Claim.CODE,
-        "search",
-    ),
+    _FaultCase("debounce-setup-inner-label", _BAD_ZONE, Debounce(action=Rail(claim=Claim.CODE, verb="search")), Claim.CODE, "search"),
 )
 
 # (label, canned awatch batches, expected fire count) — empty timeout heartbeats never fire.
@@ -282,7 +229,7 @@ def test_drive_program_outcome_matrix(
     Falsified by: ``_program_outcome`` promoting a nonzero exit to Fault, swallowing a Fault into an OK
     Report, mis-routing the argv, or ``fold`` miscounting a receipt status.
     """
-    rail_probe.install(monkeypatch, _eng, "run_check_async", row.canned)  # type: ignore[arg-type]  # canned rows own the Result shape
+    rail_probe.install(monkeypatch, _eng, "run_check_async", row.canned)
 
     anyio.run(drive, Manual(), Program(argv=row.argv), assay_root.settings)
 
@@ -359,7 +306,7 @@ def test_drive_leaf_matrix(
     """
     rail_probe.install(monkeypatch, _eng, "run_check_async", rail_probe.ok(("p",)))
 
-    anyio.run(drive, Manual(), row.action, assay_root.settings)  # type: ignore[arg-type]  # rows carry real Action trees
+    anyio.run(drive, Manual(), row.action, assay_root.settings)
 
     assert len(captured_emits) == row.emits, f"expected {row.emits} emits, got {len(captured_emits)}"
     assert all(env.status is row.status for env in captured_emits), f"statuses {[e.status for e in captured_emits]} != {row.status}"
@@ -737,7 +684,7 @@ def test_drive_fault_matrix(row: _FaultCase, assay_root: AssayHarness, captured_
 
     Falsified by: dropping any boundary that converts those defects into a self-contained Fault.
     """
-    anyio.run(drive, row.trigger, row.action, assay_root.settings)  # type: ignore[arg-type]  # rows carry real Trigger/Action values
+    anyio.run(drive, row.trigger, row.action, assay_root.settings)
 
     env = _one(captured_emits)
     assert (env.status, env.claim, env.verb) == (RailStatus.FAULTED, row.claim, row.verb)

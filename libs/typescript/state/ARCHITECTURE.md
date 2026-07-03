@@ -13,7 +13,7 @@ state/src/               # imports kernel ONLY; runtime:neutral — no platform 
 │   └── replay.ts        # replay law + the d2ts incremental-dataflow lane
 ├── crdt/                # The convergent merge algebra and its laws
 │   ├── merge.ts         # CRDT op merge semantics — one algebra generic over the op vocabulary; the C#-minted wire family and app-authored journal families are instances
-│   └── converge.ts      # convergence laws; fixture hooks into proof/corpus
+│   └── converge.ts      # convergence laws; fixture hooks into the tests/contracts corpus (TS readers in tests/typescript/_testkit)
 ├── causal/              # The causality vocabulary and the delivery order
 │   ├── vector.ts        # version vectors, commit/branch shapes, Merkle comparison
 │   └── order.ts         # happened-before folds + honest-uncertainty windows (kernel/clock); causal delivery buffer; stability frontier (GLB meet), causal finalize, retention-frontier handoff to store/journal/retain

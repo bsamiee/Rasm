@@ -50,7 +50,7 @@ Two parameterized surfaces. `MetricReader` (abstract) owns pull-collection + the
 |  [04]   | `PeriodicExportingMetricReaderOptions`    | type                | `exporter` + `exportIntervalMillis?` + per-instrument `cardinalityLimits?` |
 |  [05]   | `PushMetricExporter`                      | interface           | `export(ResourceMetrics, cb)` + optional temporality/aggregation selectors |
 |  [06]   | `ConsoleMetricExporter`                   | class               | stdout diagnostics; `constructor({ temporalitySelector? })`      |
-|  [07]   | `InMemoryMetricExporter`                  | class               | `getMetrics()`/`reset()`; `constructor(AggregationTemporality)` — the `proof` lane |
+|  [07]   | `InMemoryMetricExporter`                  | class               | `getMetrics()`/`reset()`; `constructor(AggregationTemporality)` — the kit-driven spec lane |
 |  [08]   | `MetricProducer` / `MetricCollectOptions` | interface           | external pull-source; `collect({ timeoutMillis? })`              |
 |  [09]   | `AggregationSelector` / `AggregationTemporalitySelector` | type | `(InstrumentType) => AggregationOption` / `=> AggregationTemporality` |
 |  [10]   | `AggregationTemporality`                  | enum                | `DELTA` / `CUMULATIVE`                                           |
@@ -140,6 +140,6 @@ interface CollectionResult { resourceMetrics: ResourceMetrics; errors: unknown[]
 ## [07]-[RAIL_LAW]
 
 - Owns: the metric collection→export pipeline — `MetricReader`/`PeriodicExportingMetricReader` + the three per-instrument-type selectors, `PushMetricExporter` + `Console`/`InMemory` rows, the `View`/`AggregationOption`/`AttributesProcessor` reshaping algebra, and the `MetricData` discriminated-union wire shape.
-- Accept: `PeriodicExportingMetricReader` wrapping an `OTLPMetricExporter` for production; `ViewOptions` with `AggregationOption` + `createAllowList`/`createDenyList` for cardinality control; the exporter's `selectAggregationTemporality?` for delta/cumulative preference; `InMemoryMetricExporter(temporality)` for `proof` specs; the whole surface reached through `@effect/opentelemetry` `NodeSdk`/`WebSdk` `Configuration.metricReader`.
+- Accept: `PeriodicExportingMetricReader` wrapping an `OTLPMetricExporter` for production; `ViewOptions` with `AggregationOption` + `createAllowList`/`createDenyList` for cardinality control; the exporter's `selectAggregationTemporality?` for delta/cumulative preference; `InMemoryMetricExporter(temporality)` for kit-driven specs; the whole surface reached through `@effect/opentelemetry` `NodeSdk`/`WebSdk` `Configuration.metricReader`.
 - Reject: constructing `MeterProvider` inline under the effect facade (`Metrics.layer` owns it); a reader subclass where a selector value suffices; a new metric struct where the `MetricData` union + `DataPoint<T>` already discriminates; importing outside `scope:telemetry`; treating this leg as permanent — it collapses at `[R3]`.
 - Boundary: `View` is configured as `ViewOptions` (the class is internal); `Aggregator`/`AggregatorKind` and `createNoopAttributesProcessor`/`createMultiAttributesProcessor` are internal (not barrel exports); `CollectionResult.errors` carries partial-collection faults — collection surfaces errors rather than throwing.

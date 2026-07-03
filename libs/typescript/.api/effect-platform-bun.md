@@ -93,7 +93,7 @@
 - Node↔Bun is a Layer swap: `host/exec/runtime` holds `Node | Bun` runtime rows; selecting Bun is providing `BunContext.layer` + `BunHttpServer.layer` + `BunRuntime.runMain` at the app root, never a code fork. Every Bun `layer*` satisfies the same abstract `@effect/platform` Tag its Node counterpart does.
 - one aggregate context: `BunContext.layer` merges `CommandExecutor | FileSystem | Path | Terminal | WorkerManager`; folder code that needs any of them provides the one `BunContext` Layer, not per-service merges.
 - `[R1]` install gate: bun rows are catalogued as ADD but go load-bearing only after the Leg-16 install proof verifies the peer ranges resolve on the target platform; until then Node is the proven serve/exec runtime.
-- `runtime:node` purity: edge-ledger bans this package inside `runtime:browser`; `proof/gauge` `purity.ts` audits it.
+- `runtime:node` purity: edge-ledger bans this package inside `runtime:browser`; the `tests/typescript/_architecture` suite audits it.
 
 [INTEGRATION_LAW]:
 - Stack with `@effect/platform` `HttpApp` + `@effect/experimental` EventLog server: `BunHttpServer.layer` hosts the app-assembled `HttpApi` (`edge/api/serve`) and the `EventLogServer.makeHandlerHttp` upgrade handler (`edge/live` mount port); `BunSocket.layerWebSocketConstructor` and `BunKeyValueStore.layerFileSystem` satisfy the `EventLogRemote`/`EventLog.layerIdentityKvs` requirements node-side.
@@ -102,7 +102,7 @@
 - Stack with `host/net`: `BunSocket`/`BunSocketServer` back the `host/net/channel` framed-transport rows; `BunCommandExecutor` + `BunWorker` back the `host/exec/process` subprocess + worker choreography that `work` runner discovery and the `assay`-style ops verbs execute over.
 
 [LOCAL_ADMISSION]:
-- imported only inside `runtime:node` subpaths; a browser rail that imports it is the defect `proof/gauge` catches.
+- imported only inside `runtime:node` subpaths; a browser rail that imports it is the defect the `tests/typescript/_architecture` import audit catches.
 - prefer `BunContext.layer` over individual `BunFileSystem`/`BunPath`/`BunCommandExecutor` merges unless a rail genuinely needs a single service.
 - cluster runners (`BunClusterHttp`/`BunClusterSocket`) require the `@effect/cluster`/`@effect/sql` peers; admit them only in `work` with the store driver satisfying `MessageStorage`.
 
