@@ -148,10 +148,123 @@ public sealed class TestInfrastructurePrimitiveLaws {
         Spec.FailCategory(result: Fin.Fail<int>(error: new Fault.Missing()), category: nameof(Fault.Missing));
         Spec.Some(result: Some(value: 1));
         Spec.None(result: Option<int>.None);
+        Spec.Valid(result: Success<Error, int>(value: 1));
+        Spec.Invalid(result: Fail<Error, int>(value: new Fault.Rejected()));
+        Spec.AllErrors(v: Fail<Error, int>(value: Error.Many(new Fault.Missing(), new Fault.Conflict())), nameof(Fault.Conflict), nameof(Fault.Missing));
+        Spec.FailMany(result: Fin.Fail<int>(error: Error.Many(Error.New(message: "alpha"), Error.New(message: "beta"))), expectedCount: 2, "alpha", "beta");
         _ = Assert.Throws<XunitException>(testCode: static () => Spec.Succ(result: Fin.Fail<int>(error: new Fault.Rejected())));
         _ = Assert.Throws<XunitException>(testCode: static () => Spec.Fail(result: Fin.Succ(value: 1)));
         _ = Assert.Throws<XunitException>(testCode: static () => Spec.Some(result: Option<int>.None));
         _ = Assert.Throws<XunitException>(testCode: static () => Spec.None(result: Some(value: 1)));
+        _ = Assert.Throws<XunitException>(testCode: static () => Spec.Valid(result: Fail<Error, int>(value: new Fault.Cancelled())));
+        _ = Assert.Throws<XunitException>(testCode: static () => Spec.Invalid(result: Success<Error, int>(value: 1)));
+    }
+
+    [Fact]
+    [Law(typeof(Spec), nameof(Spec.Classified), Member = nameof(Spec.Classified))]
+    public void ClassifiedPrintsEveryBucketOverOneSweep() {
+        List<string> lines = [];
+        Spec.Classified(gen: Gen.Int[0, 9], classify: static value => value < 5 ? "low" : "high", writeLine: lines.Add, iter: 200);
+        Assert.NotEmpty(collection: lines);
+        Assert.Contains(collection: lines, filter: static line => line.Contains(value: "low", comparisonType: StringComparison.Ordinal));
+        Assert.Contains(collection: lines, filter: static line => line.Contains(value: "high", comparisonType: StringComparison.Ordinal));
+    }
+
+    [Fact]
+    [Law(typeof(Spec), nameof(Spec.Parallel), Member = nameof(Spec.Parallel))]
+    public void ParallelChecksLinearizabilityAndSurfacesFailingOperations() {
+        // Atomic Swap is linearizable, so the actual-vs-model pairing holds under every interleaving.
+        Spec.Parallel(
+            init: Gen.Int[0, 10].Select(static seed => (Actual: Atom(seed), Model: Atom(seed))),
+            equal: static (actual, model) => actual.Value == model.Value,
+            operations: [TrackedAdd()]);
+        // A throwing operation is surfaced by the parallel sampler, never swallowed.
+        _ = Assert.ThrowsAny<Exception>(testCode: static () => Spec.Parallel(
+            init: Gen.Const(value: Atom(0)),
+            operations: [GenOperation.Create<Atom<int>, int>(
+                gen: Gen.Int[1, 3],
+                name: static delta => string.Create(provider: System.Globalization.CultureInfo.InvariantCulture, $"boom({delta})"),
+                action: static (_, _) => throw new InvalidOperationException(message: "parallel op failure"))]));
+    }
+
+    [Fact]
+    [Law(typeof(Spec), nameof(Spec.DualPath), Member = nameof(Spec.DualPath))]
+    public void DualPathDemandsConvergentMutationsAndRefutesDivergence() {
+        Spec.DualPath(
+            initial: Gen.Int[0, 100].Select(static seed => Atom(seed)),
+            paramGen: Gen.Int[1, 10],
+            name: static delta => string.Create(provider: System.Globalization.CultureInfo.InvariantCulture, $"add({delta})"),
+            path1: static (cell, delta) => _ = cell.Swap(state => state + delta),
+            path2: static (cell, delta) => _ = cell.Swap(state => state + delta),
+            equal: static (left, right) => left.Value == right.Value);
+        _ = Assert.ThrowsAny<Exception>(testCode: static () => Spec.DualPath(
+            initial: Gen.Int[0, 100].Select(static seed => Atom(seed)),
+            paramGen: Gen.Int[1, 10],
+            name: static delta => string.Create(provider: System.Globalization.CultureInfo.InvariantCulture, $"drift({delta})"),
+            path1: static (cell, delta) => _ = cell.Swap(state => state + delta),
+            path2: static (cell, delta) => _ = cell.Swap(state => state + delta + 1),
+            equal: static (left, right) => left.Value == right.Value));
+    }
+
+    [Fact]
+    [Law(typeof(Spec), nameof(Spec.Catalog), Member = nameof(Spec.Catalog))]
+    public void CatalogGatesKeyUniquenessAndExactMembership() {
+        Spec.Catalog(items: (string[])["alpha", "beta"], expectedKeys: ["alpha", "beta"], key: static item => item, law: static item => Assert.NotEqual(expected: "", actual: item));
+        _ = Assert.ThrowsAny<XunitException>(testCode: static () => Spec.Catalog(items: (string[])["alpha", "alpha"], expectedKeys: ["alpha", "alpha"], key: static item => item));
+        _ = Assert.ThrowsAny<XunitException>(testCode: static () => Spec.Catalog(items: (string[])["alpha", "beta"], expectedKeys: ["alpha", "gamma"], key: static item => item));
+    }
+
+    [Fact]
+    [Law(typeof(Spec), nameof(Spec.Family), Member = nameof(Spec.Family))]
+    public void FamilyDemandsAdmissionAndRejectionTogether() {
+        static bool TryPositive(int value, out int owned) { owned = value; return value > 0; }
+        static bool AdmitAll(int value, out int owned) { owned = value; return true; }
+        Spec.Family(new Spec.ValueObjectShape<int, int>(Valid: Gen.Int[1, 100], Invalid: Gen.Int[-100, 0], TryCreate: TryPositive, Read: static value => value));
+        // An admit-everything TryCreate is refuted by the invalid lane — a one-sided family proves
+        // nothing; the sampler surfaces the violation as a CsCheck failure carrying the witness.
+        _ = Assert.ThrowsAny<Exception>(testCode: static () => Spec.Family(
+            new Spec.ValueObjectShape<int, int>(Valid: Gen.Int[1, 10], Invalid: Gen.Int[-10, 0], TryCreate: AdmitAll, Read: static value => value)));
+    }
+
+    [Fact]
+    [Law(typeof(Spec), nameof(Spec.CountsConserve), Member = nameof(Spec.CountsConserve))]
+    public void CountConservationRefusesLeaksAndNegatives() {
+        Spec.CountsConserve(attempted: 5, emitted: 3, rejected: 2, label: "conserved");
+        _ = Assert.ThrowsAny<XunitException>(testCode: static () => Spec.CountsConserve(attempted: 5, emitted: 3, rejected: 1, label: "leak"));
+        _ = Assert.ThrowsAny<XunitException>(testCode: static () => Spec.CountsConserve(attempted: -1, emitted: 0, rejected: 0, label: "negative"));
+    }
+
+    [Fact]
+    [Law(typeof(Spec), "cscheck-hash-regression")]
+    public void HashPinsARegressionValueAndRefutesDrift() {
+        // First run (expected 0) reports the discovered hash by throwing; the pinned value then
+        // passes and any drifted expectation fails — no hardcoded literal survives in the law.
+        static void Fold(Hash hash) { hash.Add(Math.PI); hash.Add("kit"); hash.Add(42); }
+        CsCheckException discovery = Assert.Throws<CsCheckException>(testCode: static () => Check.Hash(action: Fold, expected: 0));
+        long pinned = long.Parse(s: discovery.Message.Split(' ')[^1], provider: System.Globalization.CultureInfo.InvariantCulture);
+        Check.Hash(action: Fold, expected: pinned);
+        _ = Assert.Throws<CsCheckException>(testCode: () => Check.Hash(action: Fold, expected: pinned == 0L ? 1L : pinned + 1L));
+    }
+
+    [Fact]
+    [Law(typeof(Spec), "cscheck-faster-comparison")]
+    public void FasterDetectsAsymmetryAndRefutesTheInversion() {
+        // A spot performance law over a 10^4 workload asymmetry; never a BenchmarkDotNet replacement.
+        // The void workload keeps the lambdas on the Action overload — a value-returning lambda
+        // selects the Func<T> overload, which gates return-value equality instead of timing.
+        static void Burn(int count) => _ = Enumerable.Range(start: 1, count: count).Sum(selector: static i => Math.Sqrt(i));
+        Check.Faster(faster: static () => Burn(10), slower: static () => Burn(100_000), threads: 1, timeout: 30);
+        _ = Assert.Throws<CsCheckException>(testCode: static () =>
+            Check.Faster(faster: static () => Burn(100_000), slower: static () => Burn(10), threads: 1, timeout: 30));
+    }
+
+    [Fact]
+    [Law(typeof(Manifests), nameof(Manifests.ProjectGraph), Member = nameof(Manifests.ProjectGraph))]
+    public void ProjectGraphRefusesEmptyTablesAndNamesDrift() {
+        _ = Assert.Throws<XunitException>(testCode: static () => Manifests.ProjectGraph());
+        XunitException drift = Assert.Throws<XunitException>(testCode: static () => Manifests.ProjectGraph(
+            (Project: "tests/csharp/_testkit/Rasm.TestKit.csproj", References: ["libs/csharp/Phantom/Phantom.csproj"])));
+        Assert.Contains(expectedSubstring: "Rasm.TestKit.csproj", actualString: drift.Message, comparisonType: StringComparison.Ordinal);
     }
 
     [Fact]

@@ -16,7 +16,11 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Ripple: <origin/counterpart card this entry pairs with across folders, as `pkg` `[SLUG]`; present only on a cross-folder ripple counterpart card>.
 -->
 
-(none)
+[WATCH_PACKAGES]-[QUEUED]: four ecosystem candidates re-enter the roster review on their next release gate.
+- Capability: Admit `geometry4Sharp` (on first NuGet release), `CSparse.Extensions` (managed iterative solvers, on first NuGet), `TVGL` (if repackaged current), and `Kemsekov.GraphSharp` (optional graph enrichment) when each clears the feed/license/arm64 gates.
+- Shape: One roster admission per candidate through the central manifest + a kernel `.api` catalogue; owning pages — `Meshing/mesh`, `Numerics/matrix`, `Spatial/cloud`, `Spatial/neighbors`.
+- Unlocks: Managed mesh substrate depth, iterative sparse breadth, and graph-algorithm enrichment without hand-rolls.
+- Anchors: The ecosystem survey verdicts; every current finalist failed a gate (unreleased, dead, or x64-only), so the pool waits on releases, never on research.
 
 ## [02]-[CLOSED]
 

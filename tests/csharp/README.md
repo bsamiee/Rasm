@@ -15,7 +15,7 @@ Classifiers route every project into its lane: `Directory.Build.props` derives t
 |  [05]   | `AssayTestShell`       | scenario/shell content assay routes out of unit-test runs                  |
 |  [06]   | `AssayHostBound`       | project binding the live host; never executed as a managed unit suite      |
 
-Per-package suites live in `tests/csharp/libs/<Package>/` and mirror `libs/csharp` paths with `<Source>.spec.cs` files. `tests/csharp/_architecture` carries the assembly boundary laws (`AssemblyBoundaries.spec.cs`, `CatalogueBoundaries.spec.cs`) and the infra-primitive falsification suites that prove both kits (`TestInfrastructurePrimitives.spec.cs`, `ScenarioKitPrimitives.spec.cs`) — a kit capability without a falsification law in `_architecture` is unproven and gets deleted or proven, never trusted.
+Per-package suites live in `tests/csharp/libs/<Package>/` and mirror `libs/csharp` paths with `<Source>.spec.cs` files. `tests/csharp/_architecture` carries the assembly boundary laws (`AssemblyBoundaries.spec.cs`, `CatalogueBoundaries.spec.cs`) and the infra-primitive falsification suites that prove the kits, the benchmark gate, and the snapshot-hygiene rail (`TestInfrastructurePrimitives.spec.cs`, `ScenarioKitPrimitives.spec.cs`, `BenchmarkGatePrimitives.spec.cs`, `SnapshotHygiene.spec.cs`) — a kit capability without a falsification law in `_architecture` is unproven and gets deleted or proven, never trusted.
 
 Manual MTP runs route TRX with `--report-trx --results-directory .artifacts/csharp/trx/<project>`; assay-run suites route results into the assay artifact scope automatically.
 
@@ -33,7 +33,7 @@ Manual MTP runs route TRX with `--report-trx --results-directory .artifacts/csha
 |  [06]   | `Seams.cs`     | the `Shape<TValue>` call-shape union (`Sync`/`Async`/`FanOut`/`Factory`), `SeamProbe`, `VariantWriter`, `TmpRoot`, `NdjsonOracle` |
 |  [07]   | `Manifests.cs` | `ProjectFacts` csproj projection and workspace-rooted path resolution — manifest facts only, never package rosters |
 
-`Rasm.ScenarioKit` is the sibling host-aware SDK: `[RhinoScenario(theme)]` with optional `Requires`/`BudgetMs`, `ScenarioContext` as the one evidence channel (`Require`/`Expect` for asserted facts, `Note` plus the `ObjectManifest`/`GeometryManifest`/`ViewportManifest`/`Gh2CanvasManifest` writers for observations, `Certify`/`Reference` for reviewed reference evidence, `Case` for named sub-case status, `Scratch`/`Stamp` for deterministic paths, `Artifact` for capture registration), `DocumentScope` for document lifecycle, and `Capture.Snapshot` for viewport captures. Unbound SDK calls fail typed — a scenario surface never throws or writes stray files outside a bridge run.
+`Rasm.ScenarioKit` is the sibling host-aware SDK: `[RhinoScenario(theme)]` with optional `Requires`/`BudgetMs`, `ScenarioContext` as the one evidence channel (`Require`/`Expect` for asserted facts, `Note` plus the `ObjectManifest`/`GeometryManifest`/`ViewportManifest`/`Gh2CanvasManifest` writers for observations, `Certify` for reference evidence — one generic verb over typed values and raw `JsonElement` actuals, emitting the `{name, actual, tolerance}` payload the supervisor folds while admission stays supervisor-decided by evidence mode — `Case` for named sub-case status, `Scratch`/`Stamp` for deterministic paths, `Artifact` for capture registration), `DocumentScope` for document lifecycle, and `Capture.Snapshot` for viewport captures. Unbound SDK calls fail typed — a scenario surface never throws or writes stray files outside a bridge run.
 
 ## [03]-[LAW_ROWS]
 
@@ -67,7 +67,7 @@ Start from the kit's magnitude-stratified scalars (`Gens.Finite`, `Gens.AnyDoubl
 
 ## [06]-[SNAPSHOTS]
 
-Verify owns stable artifact snapshots only — generated source, emitted contracts, durable wire goldens — registered once per assembly through a `[ModuleInitializer]` calling `VerifyDiffPlex.Initialize()`. Snapshot only what an independent producer emits, and treat a `.verified.txt` diff as evidence about the producer, never as a file to re-accept reflexively. C# is the sole producer for `tests/contracts/`: corpus assets are emitted by the owning wire surface and round-trip-proven through Verify under the corpus law in [tests/contracts/README.md](../contracts/README.md).
+Verify owns stable artifact snapshots only — generated source, emitted contracts, durable wire goldens — registered once per assembly through a `[ModuleInitializer]` calling `VerifyDiffPlex.Initialize()`. Snapshot only what an independent producer emits, and treat a `.verified.txt` diff as evidence about the producer, never as a file to re-accept reflexively. The hygiene gate pair lives in `_architecture`: `VerifyChecks.Run()` audits solution-wide snapshot conventions — orphaned `*.received.*` litter, csproj-imported snapshot nestings, the `.gitignore`/`.gitattributes`/`.editorconfig` rows for every verified extension — and `DanglingSnapshots.Run()` fails a build-server run on verified files no executed test tracked. C# is the sole producer for `tests/contracts/`: corpus assets are emitted by the owning wire surface and round-trip-proven through Verify under the corpus law in [tests/contracts/README.md](../contracts/README.md).
 
 ## [07]-[BENCHMARKS]
 

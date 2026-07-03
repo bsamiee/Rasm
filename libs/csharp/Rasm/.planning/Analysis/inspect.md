@@ -13,12 +13,12 @@ Face metrics are ngon-aware by construction: `MeshMetric` `[SmartEnum<int>]` (Ed
 
 - Owner: `Topologies` `[Union]` `[SkipUnionOps]` — `KindCase` (the `Domain/normalization` `Kind`/`Topology`/`string` classification of any admitted geometry), `DomainsCase` (`Interval` streams — one for curves, U then V for surfaces, surface-like inputs lowered through the `SurfaceForm` lease), `SolidOrientationCase` (`BrepSolidOrientation` — mesh `SolidOrientation()` int mapped onto the SAME enum, brep property read directly), `ComponentsCase` (connected components — `Mesh.SplitDisjointPieces` / `Brep.GetConnectedComponents`, a valid single-component brep duplicating itself), `ContainsPointCase(Point3d)` (solid containment at model tolerance under `Requirement.SolidTopology`), `ScalarCase(TopologyScalar)`. `TopologyScalar` `[BoundaryAdapter]` `[SmartEnum<int>]` — eight rows binding the typed `Output` and the `[UseDelegateFromConstructor]` `Extract(GeometryBase, Op)` delegate: `Manifold` (`bool`), `Euler`/`BoundaryLoops`/`Genus`/`HoleCount`/`FaceCount`/`EdgeCount`/`VertexCount` (`int`), the count rows parameterized by mesh/brep count projections over ONE `ElementCountOf` fold.
 - Cases: `Topologies` `Kind` · `Domains` · `SolidOrientation` · `Components` · `ContainsPoint` · `Scalar` (6 declared; scalar factories `Manifold`/`Euler`/`BoundaryLoops`/`Genus`/`HoleCount`/`FaceCount`/`EdgeCount`/`VertexCount` preserve the flat vocabulary); `TopologyScalar` 8 rows.
-- Entry: `Topologies.Operation<TGeometry, TOut>()` — the family seam; every arm gates capability (`Kind.CanEvaluateTopology` for scalar/orientation/containment — the ONE surviving topology-evaluation predicate, its byte-identical solid twin collapsed; `Kind.CanCurveForm || Kind.CanSurfaceForm` for domains) and output type at build.
+- Entry: `Topologies.Operation<TGeometry, TOut>()` — the family seam; every arm gates capability (`Capability.EvaluateTopology.Admits` for scalar/orientation/containment — the ONE surviving topology-evaluation row, its byte-identical solid twin collapsed; `Capability.CurveForm || Capability.SurfaceForm` admission for domains) and output type at build.
 - Auto: `OnGeometry` is the ONE mesh/brep polymorphic gate — `Mesh` and `Brep` dispatch directly, `HasBrepForm` natives and brep-coercible inputs lower through the leased `BrepForm`, everything else rejects — every scalar, orientation, containment, and component operation folds through it, so brep-like admission is written ONCE; `EulerOf` computes `V − E + F` from mesh topology lists or brep tables, gating brep counts on `IsManifold`; `BoundaryLoopsOf` counts mesh naked-edge polylines or brep outer/inner loops containing a naked-valence trim edge; `GenusOf` demands oriented-manifold (mesh) or manifold (brep) then applies `g = (2C − χ − B) / 2` through the applicative three-way `(EulerOf, BoundaryLoopsOf, ComponentCountOf).Apply(…)`; `HoleCountOf` is `max(0, B − C)`; `ComponentCountOf` disposes the split pieces it counts.
 - Receipt: none on a dedicated rail — scalars project onto `bool`/`int`/`Interval`/`Kind`/`Topology`/`string`/`BrepSolidOrientation`/geometry values admitted through the one oracle; `Components` re-emits owned `GeometryBase` pieces, disposing every piece on a failed typed projection.
 - Packages: RhinoCommon (`Mesh` `TopologyVertices`/`TopologyEdges`/`Faces`/`GetNakedEdges`/`SplitDisjointPieces`/`IsManifold`/`IsPointInside`/`SolidOrientation`, `Brep` `Vertices`/`Edges`/`Faces`/`Loops`/`Trims`/`IsManifold`/`IsPointInside`/`SolidOrientation`/`GetConnectedComponents`, `BrepLoopType`, `EdgeAdjacency`, `BrepSolidOrientation`), `Rasm.Domain` (`Kind` capability web + `KindOf`, `BrepForm`/`SurfaceForm` leases, `Requirement.SolidTopology`, `Op`/`Fault` rail), Thinktecture.Runtime.Extensions (`[UseDelegateFromConstructor]` generated delegate binding), LanguageExt.Core.
 - Growth: a new topology scalar (a shell count, a cavity count) is one `TopologyScalar` row — key, output, extract delegate over the SAME `OnGeometry` fold; a new structural interrogation is one `Topologies` case; a new geometry family entering the gate is one `OnGeometry` arm serving every row at once.
-- Boundary: brep/mesh polymorphism lives in ONE gate — per-operation `is Mesh`/`is Brep` switches beside `OnGeometry` are the deleted repetition; the genus/hole/Euler family is DERIVED from three primitive rows and a stored or re-enumerated genus beside the formula is the killed form; `Kind.CanEvaluateTopology` is the single admission predicate — its solid-topology twin was byte-identical and exists no longer, containment escalating through `Requirement.SolidTopology` instead; `SolidOrientationOf` maps the mesh int onto `BrepSolidOrientation` so BOTH families answer in one enum — a mesh-specific orientation enum is the rejected parallel vocabulary; component extraction OWNS its disposal — pieces that fail the typed projection are disposed before the fault leaves, never leaked.
+- Boundary: brep/mesh polymorphism lives in ONE gate — per-operation `is Mesh`/`is Brep` switches beside `OnGeometry` are the deleted repetition; the genus/hole/Euler family is DERIVED from three primitive rows and a stored or re-enumerated genus beside the formula is the killed form; `Capability.EvaluateTopology` is the single admission row — its solid-topology twin was byte-identical and exists no longer, containment escalating through `Requirement.SolidTopology` instead; `SolidOrientationOf` maps the mesh int onto `BrepSolidOrientation` so BOTH families answer in one enum — a mesh-specific orientation enum is the rejected parallel vocabulary; component extraction OWNS its disposal — pieces that fail the typed projection are disposed before the fault leaves, never leaked.
 
 ```csharp contract
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -84,7 +84,7 @@ public sealed partial class TopologyScalar {
 public static partial class Analyze {
     internal static Operation<TGeometry, TOut> Kind<TGeometry, TOut>() where TGeometry : notnull {
         Op key = Op.Of();
-        return Rasm.Domain.Kind.Can(type: typeof(TGeometry), predicate: static _ => true)
+        return (Capability.Universal(type: typeof(TGeometry)) || Rasm.Domain.Kind.Of(type: typeof(TGeometry)).IsSome)
             ? typeof(TOut) switch {
                 Type t when t == typeof(Kind) => KernelLift<TGeometry, Kind, Op>(key: key, state: key, extract: static (op, g, ctx) => g.KindOf(context: ctx).Bind(k => op.Accept(value: k))).As<TGeometry, TOut>(key: key),
                 Type t when t == typeof(string) => KernelLift<TGeometry, string, Op>(key: key, state: key, extract: static (op, g, ctx) => g.KindOf(context: ctx).Bind(k => op.Accept(value: k.ToString(format: null, formatProvider: CultureInfo.InvariantCulture)))).As<TGeometry, TOut>(key: key),
@@ -95,13 +95,13 @@ public static partial class Analyze {
     }
     internal static Operation<TGeometry, TOut> TopologyDomains<TGeometry, TOut>() where TGeometry : notnull {
         Op key = Op.Of();
-        return typeof(TOut) == typeof(Interval) && (Rasm.Domain.Kind.CanCurveForm(type: typeof(TGeometry)) || Rasm.Domain.Kind.CanSurfaceForm(type: typeof(TGeometry)))
+        return typeof(TOut) == typeof(Interval) && (Capability.CurveForm.Admits(type: typeof(TGeometry)) || Capability.SurfaceForm.Admits(type: typeof(TGeometry)))
             ? KernelLift<TGeometry, Interval, Op>(key: key, state: key, extract: static (op, g, _) => DomainsOf(geometry: g, op: op).Bind(domains => op.Accept(values: domains))).As<TGeometry, TOut>(key: key)
             : key.Unsupported<TGeometry, TOut>();
     }
     internal static Operation<TGeometry, TOut> TopologySolidOrientation<TGeometry, TOut>() where TGeometry : notnull {
         Op key = Op.Of();
-        return typeof(TOut) == typeof(BrepSolidOrientation) && Rasm.Domain.Kind.CanEvaluateTopology(type: typeof(TGeometry))
+        return typeof(TOut) == typeof(BrepSolidOrientation) && Capability.EvaluateTopology.Admits(type: typeof(TGeometry))
             ? KernelLift<TGeometry, BrepSolidOrientation, Op>(key: key, state: key, extract: static (op, g, _) => SolidOrientationOf(geometry: g, op: op).Bind(orientation => op.Accept(value: orientation))).As<TGeometry, TOut>(key: key)
             : key.Unsupported<TGeometry, TOut>();
     }
@@ -114,14 +114,14 @@ public static partial class Analyze {
     }
     internal static Operation<TGeometry, TOut> TopologyContains<TGeometry, TOut>(Point3d point) where TGeometry : notnull {
         Op key = Op.Of();
-        return point.IsValid && typeof(TOut) == typeof(bool) && Rasm.Domain.Kind.CanEvaluateTopology(type: typeof(TGeometry))
+        return point.IsValid && typeof(TOut) == typeof(bool) && Capability.EvaluateTopology.Admits(type: typeof(TGeometry))
             ? KernelLift<TGeometry, bool, (Op Key, Point3d Target)>(key: key, state: (Key: key, Target: point), requirement: Requirement.SolidTopology,
                 extract: static (s, g, ctx) => ContainsPoint(geometry: g, target: s.Target, context: ctx, op: s.Key).Bind(contained => s.Key.Accept(value: contained))).As<TGeometry, TOut>(key: key)
             : key.Unsupported<TGeometry, TOut>();
     }
     internal static Operation<TGeometry, TOut> TopologyScalar<TGeometry, TOut>(TopologyScalar scalar) where TGeometry : notnull {
         Op key = Op.Of();
-        return typeof(TOut) == scalar.Output && Rasm.Domain.Kind.CanEvaluateTopology(type: typeof(TGeometry))
+        return typeof(TOut) == scalar.Output && Capability.EvaluateTopology.Admits(type: typeof(TGeometry))
             ? KernelLift<TGeometry, TOut, (Op Key, TopologyScalar Scalar)>(key: key, state: (Key: key, Scalar: scalar),
                 extract: static (s, g, _) => OnGeometry(geometry: g, op: s.Key, onMesh: mesh => s.Scalar.Extract(geometry: mesh, op: s.Key), onBrep: brep => s.Scalar.Extract(geometry: brep, op: s.Key))
                     .Bind(value => value is TOut typed ? s.Key.Accept(value: typed) : Fin.Fail<Seq<TOut>>(s.Key.Unsupported(geometryType: value.GetType(), outputType: typeof(TOut)))))
@@ -131,7 +131,7 @@ public static partial class Analyze {
         Optional(geometry).ToFin(op.InvalidInput()).Bind(g => g switch {
             Curve curve => Fin.Succ(Seq(curve.Domain)),
             Surface surface => Fin.Succ(Seq(surface.Domain(direction: 0), surface.Domain(direction: 1))),
-            object surfaceLike when Rasm.Domain.Kind.CanSurfaceForm(type: surfaceLike.GetType()) => surfaceLike.SurfaceForm(op: op).Bind(lease => lease.Use(surface => DomainsOf(geometry: surface, op: op))),
+            object surfaceLike when Capability.SurfaceForm.Admits(type: surfaceLike.GetType()) => Normalization.SurfaceForm(source: surfaceLike, key: op).Bind(lease => lease.Use(surface => DomainsOf(geometry: surface, op: op))),
             _ => Fin.Fail<Seq<Interval>>(op.Unsupported(g.GetType(), typeof(Interval))),
         });
     internal static Fin<BrepSolidOrientation> SolidOrientationOf<TGeometry>(TGeometry geometry, Op op) where TGeometry : notnull =>
@@ -152,7 +152,7 @@ public static partial class Analyze {
         Optional(geometry).ToFin(op.InvalidInput()).Bind(g => g switch {
             Mesh mesh => Fin.Succ(toSeq(mesh.SplitDisjointPieces().Cast<GeometryBase>())),
             Brep brep => BrepComponentsOf(brep: brep, op: op),
-            GeometryBase { HasBrepForm: true } native => native.BrepForm(op: op).Bind(lease => lease.Use(brep => BrepComponentsOf(brep: brep, op: op))),
+            GeometryBase { HasBrepForm: true } native => Normalization.BrepForm(source: native, key: op).Bind(lease => lease.Use(brep => BrepComponentsOf(brep: brep, op: op))),
             _ => Fin.Fail<Seq<GeometryBase>>(op.Unsupported(g.GetType(), typeof(Seq<GeometryBase>))),
         });
     internal static Fin<bool> ManifoldOf<TG>(TG geometry, Op op) where TG : notnull =>
@@ -192,8 +192,8 @@ public static partial class Analyze {
         Optional(geometry).ToFin(op.InvalidInput()).Bind(g => g switch {
             Mesh mesh => onMesh(arg: mesh),
             Brep brep => onBrep(arg: brep),
-            GeometryBase { HasBrepForm: true } native => native.BrepForm(op: op).Bind(lease => lease.Use(project: onBrep)),
-            object brepLike when Rasm.Domain.Kind.CanCoerce(source: brepLike.GetType(), target: typeof(Brep)) => brepLike.BrepForm(op: op).Bind(lease => lease.Use(project: onBrep)),
+            GeometryBase { HasBrepForm: true } native => Normalization.BrepForm(source: native, key: op).Bind(lease => lease.Use(project: onBrep)),
+            object brepLike when Capability.BrepForm.Admits(type: brepLike.GetType()) => Normalization.BrepForm(source: brepLike, key: op).Bind(lease => lease.Use(project: onBrep)),
             _ => Fin.Fail<TResult>(op.Unsupported(g.GetType(), typeof(TResult))),
         });
     private static Fin<Seq<GeometryBase>> BrepComponentsOf(Brep brep, Op op) =>

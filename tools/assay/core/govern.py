@@ -765,7 +765,7 @@ def _slot_census(settings: AssaySettings, slots: int) -> tuple[int, int]:
 
 
 @contextlib.asynccontextmanager
-async def dotnet_slot(  # noqa: PLR0912, PLR0914, PLR0915  # closed resource-state ladder + machine-pool census; static rail work only surfaces its receipts
+async def dotnet_slot(  # noqa: PLR0912  # closed resource-state ladder + machine-pool census; static rail work only surfaces its receipts
     check: Check, settings: AssaySettings, deadline: float | None
 ) -> AsyncIterator[Result[tuple[str, ...], Fault]]:
     """Hold one machine-wide dotnet admission slot for a DOTNET check, or time out at the deadline.

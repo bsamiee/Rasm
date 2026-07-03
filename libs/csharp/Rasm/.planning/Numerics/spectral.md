@@ -99,7 +99,7 @@ public abstract partial record SpectralFilter {
         ApplyDetailed(basis: basis, sources: sources, policy: SpectralDescriptorPolicy.Raw, key: key);
     internal Fin<SpectralDescriptor> ApplyDetailed(SpectralBasis basis, Option<Seq<int>> sources, SpectralDescriptorPolicy policy, Op key) =>
         Optional(this).ToFin(key.InvalidInput())
-            .Bind(filter => guard(basis.IsValid, key.InvalidInput())
+            .Bind(filter => guard(basis.IsValid, key.InvalidInput()).ToFin()
             .Bind(_ => SpectralDescriptorPolicy.Admit(policy: policy, key: key))
             .Bind(activePolicy => SpectralKernel.EvaluateFilteredDetailed(basis: basis, sources: sources, filter: filter, policy: activePolicy, key: key)));
     private static double RawWaveWeight(double eigenvalue, double energy, double bandwidth) =>
@@ -227,7 +227,7 @@ public readonly record struct SpectralBasis(Arr<double> Eigenvalues, Arr<Arr<dou
 
 ## [04]-[DESCRIPTOR_ALGEBRA]
 
-- Owner: `SpectralDescriptorPolicy` the normalization bundle (scale × energy × zero-mode × optional crop, `Raw` the canonical no-op row, `IsRaw`/`IsValueOnly` derived predicates, `Admit` the gate); `SpectralWaveReceipt` the WKS normalization evidence (energy/bandwidth, first-nonzero scale, zero-mode and crop censuses, raw/normalized weight sums with the `Σw = 1` gate, log-eigenvalue range); `SpectralDescriptorReceipt` the descriptor evidence (filter, vertex/eigenpair/source censuses, pairwise and comparison-ready flags, the policy applied, optional wave evidence); `SpectralDescriptor` the values + receipt carrier with `Normalize(policy)` (value-only renormalization — a scale/crop change demands re-evaluation and fails typed) and `Rank(candidates, policy)`; `SpectralRankingPolicy` (`Default` = Raw + Euclidean) / `SpectralRank` / `SpectralRanking`; `SpectralKernel` the `internal static` evaluation owner — `EvaluateFilteredDetailed` (the dense-buffer filtered-signature kernel: point signatures `Σ w(λₖ)·φₖ(v)²` or pairwise distances `√(Σ w(λₖ)·(φₖ(v) − φₖ(s))²/|S|)` over admitted source sets, zero-mode and crop policy applied to the eigen index set, scale normalization by first nonzero eigenvalue), `NormalizeDescriptor`/`NormalizeValues` (L1/L2 via `TensorPrimitives.SumOfMagnitudes`/`Norm`, z-score), `RankDescriptors` (candidates re-normalized to the query policy, distances read off the `SpectralDistanceKind` compute column, ranked ascending with index tiebreak), and the two named numeric-policy constants `WaveBandwidthFloor = 1e-9`, `HarmonicEpsRankDefault = 1e-10`.
+- Owner: `SpectralDescriptorPolicy` the normalization bundle (scale × energy × zero-mode × optional crop, `Raw` the canonical no-op row, `IsRaw`/`IsValueOnly` derived predicates, `Admit` the gate); `SpectralWaveReceipt` the WKS normalization evidence (energy/bandwidth, first-nonzero scale, zero-mode and crop censuses, raw/normalized weight sums with the `Σw = 1` gate, log-eigenvalue range); `SpectralDescriptorReceipt` the descriptor evidence (filter, vertex/eigenpair/source censuses, pairwise and comparison-ready flags, the policy applied, optional wave evidence); `SpectralDescriptor` the values + receipt carrier with `Normalize(policy)` (value-only renormalization — a scale/crop change demands re-evaluation and fails typed; only the energy axis merges into the receipt's policy, so evaluation provenance survives) and `Rank(candidates, policy)`; `SpectralRankingPolicy` (`Default` = Raw + Euclidean) / `SpectralRank` / `SpectralRanking`; `SpectralKernel` the `internal static` evaluation owner — `EvaluateFilteredDetailed` (the dense-buffer filtered-signature kernel: point signatures `Σ w(λₖ)·φₖ(v)²` or pairwise distances `√(Σ w(λₖ)·(φₖ(v) − φₖ(s))²/|S|)` over admitted source sets, zero-mode and crop policy applied to the eigen index set, scale normalization by first nonzero eigenvalue), `NormalizeDescriptor`/`NormalizeValues` (L1/L2 via `TensorPrimitives.SumOfMagnitudes`/`Norm`, z-score), `RankDescriptors` (candidates re-normalized to the query policy, distances read off the `SpectralDistanceKind` compute column, ranked ascending with index tiebreak), and the one named numeric-policy constant `WaveBandwidthFloor = 1e-9` — the harmonic eps-rank default is `Meshing/dec`'s assembly policy, declared beside the construction that applies it, never re-declared here.
 - Entry: `filter.ApplyDetailed(basis, sources, policy, key)` is the evaluation entry; `descriptor.Normalize(policy)` and `descriptor.Rank(candidates, policy)` the post-processing entries — one descriptor pipeline, no sibling evaluate/compare surfaces.
 - Auto: WKS weights normalize to unit sum with the full `SpectralWaveReceipt` minted inline; `ComparisonReady` derives from policy + wave evidence so a raw HKS never silently ranks against a normalized WKS; `RankDescriptors` re-normalizes every candidate to the query's policy before measuring — policy mismatch is repaired, not ignored.
 - Receipt: `SpectralWaveReceipt` and `SpectralDescriptorReceipt` on the `[ValidityEvidence]` fold with semantic gates (`CroppedEigenpairCount >= NonZeroEigenpairCount`, `RawWeightSum > 0`, WKS unit-sum within `1e-9`; source/eigenpair/vertex couplings).
@@ -267,6 +267,7 @@ public readonly partial record struct SpectralDescriptorReceipt(SpectralFilter F
         && ZeroModeCount <= EigenpairCount
         && SourceCount <= VertexCount
         && (!Pairwise || SourceCount > 0)
+        && Policy.IsValid
         && (!ComparisonReady || !Policy.IsRaw || Wave.IsSome);
 }
 
@@ -294,13 +295,12 @@ public readonly record struct SpectralRanking(SpectralDescriptor Query, Seq<Spec
 // --- [OPERATIONS] -------------------------------------------------------------------------
 internal static class SpectralKernel {
     internal const double WaveBandwidthFloor = 1e-9;
-    internal const double HarmonicEpsRankDefault = 1e-10;
     // STATEMENT-KERNEL EXEMPTION — dense per-eigenpair-per-vertex accumulation buffer; a Seq fold
     // would churn allocations over n * k (* |S| pairwise) terms.
     internal static Fin<SpectralDescriptor> EvaluateFilteredDetailed(SpectralBasis basis, Option<Seq<int>> sources, SpectralFilter filter, SpectralDescriptorPolicy policy, Op key) {
         int n = basis.VertexCount;
         int[] sourceSet = sources is { IsSome: true, Case: Seq<int> values } ? [.. values.AsIterable()] : [];
-        if (n == 0 || (sources.IsSome && sourceSet.Length == 0) || sourceSet.Any(s => s < 0 || s >= n) || sourceSet.Distinct().Take(count: sourceSet.Length + 1).Count() != sourceSet.Length)
+        if (n == 0 || (sources.IsSome && sourceSet.Length == 0) || sourceSet.Any(s => s < 0 || s >= n) || sourceSet.Distinct().Count() != sourceSet.Length)
             return Fin.Fail<SpectralDescriptor>(error: key.InvalidInput());
         if (!basis.Eigenvectors.ForAll(phi => phi.Count == n)) return Fin.Fail<SpectralDescriptor>(error: key.InvalidResult());
         int zeroModeCount = basis.Eigenvalues.AsIterable().Count(static lambda => lambda <= EpsilonPolicy.SqrtEpsilon);
@@ -335,12 +335,16 @@ internal static class SpectralKernel {
         return NormalizeValues(values: result, policy: policy, key: key).Map(values => new SpectralDescriptor(Values: new Arr<double>(values), Receipt: new SpectralDescriptorReceipt(Filter: filter, VertexCount: n, EigenpairCount: basis.Eigenvalues.Count, SourceCount: sourceSet.Length, ComparisonReady: !policy.IsRaw || wave.IsSome, Pairwise: isPairwise, EnergyNormalized: !policy.EnergyNormalization.Equals(SpectralEnergyNormalization.Raw), ScaleNormalized: !policy.ScaleNormalization.Equals(SpectralScaleNormalization.Raw), Policy: policy, ZeroModeCount: zeroModeCount, CroppedEigenpairCount: eigenIndices.Length, Wave: wave)));
     }
     internal static Fin<SpectralDescriptor> NormalizeDescriptor(SpectralDescriptor descriptor, SpectralDescriptorPolicy policy, Op key) =>
+        from valid in guard(descriptor.IsValid, key.InvalidInput()).ToFin()
         from activePolicy in SpectralDescriptorPolicy.Admit(policy: policy, key: key)
         from _ in activePolicy.IsValueOnly
             ? Fin.Succ(unit)
             : Fin.Fail<Unit>(key.Unsupported(geometryType: typeof(SpectralDescriptor), outputType: typeof(SpectralDescriptorPolicy)))
         from values in NormalizeValues(values: [.. descriptor.Values.AsIterable()], policy: activePolicy, key: key)
-        let receipt = descriptor.Receipt with { ComparisonReady = !activePolicy.IsRaw || descriptor.Receipt.Wave.IsSome, EnergyNormalized = !activePolicy.EnergyNormalization.Equals(SpectralEnergyNormalization.Raw), ScaleNormalized = !activePolicy.ScaleNormalization.Equals(SpectralScaleNormalization.Raw), Policy = activePolicy }
+        // Energy is the ONLY re-normalizable axis: merge it into the evaluation policy so the receipt
+        // keeps its scale/zero-mode/crop provenance instead of overwriting it with the value-only policy.
+        let mergedPolicy = descriptor.Receipt.Policy with { EnergyNormalization = activePolicy.EnergyNormalization }
+        let receipt = descriptor.Receipt with { ComparisonReady = !mergedPolicy.IsRaw || descriptor.Receipt.Wave.IsSome, EnergyNormalized = !activePolicy.EnergyNormalization.Equals(SpectralEnergyNormalization.Raw), Policy = mergedPolicy }
         select new SpectralDescriptor(Values: new Arr<double>(values), Receipt: receipt);
     internal static Fin<SpectralRanking> RankDescriptors(SpectralDescriptor query, Seq<SpectralDescriptor> candidates, SpectralRankingPolicy policy, Op key) =>
         !policy.IsValid || !query.IsValid || candidates.IsEmpty || !candidates.ForAll(static candidate => candidate.IsValid)

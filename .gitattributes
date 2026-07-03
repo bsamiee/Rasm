@@ -33,6 +33,7 @@
 *.gitattributes text eol=lf
 *.gitignore text eol=lf
 *.verified.* text eol=lf
+*.verified.txt text eol=lf working-tree-encoding=UTF-8
 
 # Git LFS Configuration for Architectural/Parametric Files
 

@@ -3,14 +3,14 @@
 `MathNet.Numerics` supplies dense linear algebra over `Matrix<double>`/`Vector<double>`,
 the full factorization family (`LU`/`QR`/`Cholesky`/`Svd`/`Evd`/`GramSchmidt`) with the
 analytical surface (`Solve`/`Inverse`/`PseudoInverse`/`Rank`/`Kernel`/`Range`/
-`Determinant`/`ConditionNumber`), the RID-keyed native-provider selection façade over
-MKL/CUDA/OpenBLAS with a managed-path parallelism governor, the CSR sparse storage
-surface with CSC/COO/indexed ingestion, and the MathNet iterative solvers with a
-composable stop-criteria `Iterator` and preconditioner seam; `CSparse` (`api-csparse`)
-supplies the direct sparse factorizations beside them. The MKL adapter is tunable
-(`MklConsistency`/`MklPrecision`/`MklAccuracy`) for deterministic reproducibility.
+`Determinant`/`ConditionNumber`), the RID-keyed native-provider selection façade with
+OpenBLAS as the sole opt-in native accelerator and a managed-path parallelism governor,
+the CSR sparse storage surface with CSC/COO/indexed ingestion, and the MathNet iterative
+solvers with a composable stop-criteria `Iterator` and preconditioner seam; `CSparse`
+(`api-csparse`) supplies the direct sparse factorizations beside them.
 ABI: MathNet `lib/net8.0` is the highest TFM in 6.0.0-beta2 — the net10 consumer binds
-net8.0; MIT. MKL/OpenBLAS native assets are x64-only (no osx-arm64).
+net8.0; MIT. OpenBLAS native assets are x64-only (no osx-arm64); the managed provider is
+the kernel's operating path.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -20,13 +20,6 @@ net8.0; MIT. MKL/OpenBLAS native assets are x64-only (no osx-arm64).
 - namespace: `MathNet.Numerics`, `MathNet.Numerics.LinearAlgebra`, `.LinearAlgebra.Double`, `.LinearAlgebra.Storage`, `.LinearAlgebra.Factorization`, `.LinearAlgebra.Solvers`, `.LinearAlgebra.Double.Solvers`, `.Providers.LinearAlgebra`
 - asset: runtime library (managed; native providers ride sibling asset packages)
 - floor: net8.0 (no net10/net9 lib in 6.0.0-beta2; the net10 consumer binds `lib/net8.0`)
-- rail: numeric
-
-[PACKAGE_SURFACE]: `MathNet.Numerics.Providers.MKL`
-- package: `MathNet.Numerics.Providers.MKL` (6.0.0-beta2)
-- assembly: `MathNet.Numerics.Providers.MKL`
-- namespace: `MathNet.Numerics.Providers.MKL`, `.Providers.MKL.LinearAlgebra`
-- asset: managed provider adapter (native binaries ship in `MathNet.Numerics.MKL.Win-x64` / `.Linux-x64`; no osx-arm64 asset)
 - rail: numeric
 
 [PACKAGE_SURFACE]: `MathNet.Numerics.Providers.OpenBLAS`
@@ -55,9 +48,7 @@ net8.0; MIT. MKL/OpenBLAS native assets are x64-only (no osx-arm64).
 |  [01]   | `Control`                      | static façade  | provider selection + managed-path parallelism + `Describe` |
 |  [02]   | `LinearAlgebraControl`         | static façade  | provider-level selection; `Provider`/`TryUse`/`HintPath` |
 |  [03]   | `ILinearAlgebraProvider`       | provider seam  | the active provider handle                             |
-|  [04]   | `MklLinearAlgebraControl`      | provider type  | MKL adapter; `CreateNativeMKL`/`UseNativeMKL` tuning    |
-|  [05]   | `OpenBlasLinearAlgebraControl` | provider type  | OpenBLAS adapter; `CreateNativeOpenBLAS`/`UseNativeOpenBLAS` |
-|  [06]   | `MklConsistency` / `MklPrecision` / `MklAccuracy` | tuning enum | determinism / precision / accuracy levers for MKL  |
+|  [04]   | `OpenBlasLinearAlgebraControl` | provider type  | OpenBLAS adapter; `CreateNativeOpenBLAS`/`UseNativeOpenBLAS` |
 
 [PUBLIC_TYPE_SCOPE]: dense algebra
 - rail: numeric
@@ -110,9 +101,9 @@ net8.0; MIT. MKL/OpenBLAS native assets are x64-only (no osx-arm64).
 | [INDEX] | [SURFACE]                                          | [CALL_SHAPE]    | [CAPABILITY]                              |
 | :-----: | :------------------------------------------------- | :-------------- | :---------------------------------------- |
 |  [01]   | `Control.UseManaged()`                             | static `void`   | selects the pure-managed provider         |
-|  [02]   | `Control.TryUseNativeMKL()` / `TryUseNativeOpenBLAS()` | static `bool` | selects native; `false` on load failure   |
-|  [03]   | `Control.TryUseNativeCUDA()` / `TryUseNative()`    | static `bool`   | selects CUDA / best-available native       |
-|  [04]   | `Control.UseBestProviders()` / `ConfigureAuto()`   | static `void`   | MKL → CUDA → OpenBLAS → managed probe       |
+|  [02]   | `Control.TryUseNativeOpenBLAS()`                   | static `bool`   | selects OpenBLAS; `false` on load failure |
+|  [03]   | `Control.TryUseNative()`                           | static `bool`   | selects the best-available native provider |
+|  [04]   | `Control.UseBestProviders()` / `ConfigureAuto()`   | static `void`   | native-then-managed probe ladder           |
 |  [05]   | `Control.MaxDegreeOfParallelism`                   | static `int`    | managed-path parallel degree (get/set)     |
 |  [06]   | `Control.UseSingleThread()` / `UseMultiThreading()`| static `void`   | force serial / parallel managed BLAS       |
 |  [07]   | `Control.NativeProviderPath` / `LinearAlgebraControl.HintPath` | static `string` | native binary search hint            |
@@ -120,8 +111,7 @@ net8.0; MIT. MKL/OpenBLAS native assets are x64-only (no osx-arm64).
 |  [09]   | `Control.FreeResources()` / `LinearAlgebraControl.FreeResources()` | static `void` | release native provider resources    |
 |  [10]   | `LinearAlgebraControl.Provider`                    | static prop     | gets/sets the active provider handle       |
 |  [11]   | `LinearAlgebraControl.TryUse(ILinearAlgebraProvider)` | static `bool`| activates a provided handle, no-throw      |
-|  [12]   | `MklLinearAlgebraControl.UseNativeMKL(MklConsistency, MklPrecision, MklAccuracy)` | static `void` | select MKL with determinism/precision tuning |
-|  [13]   | `MklLinearAlgebraControl.CreateNativeMKL(...)` / `OpenBlasLinearAlgebraControl.CreateNativeOpenBLAS()` | static handle | mint a tuned provider handle for `TryUse`/`Provider` |
+|  [12]   | `OpenBlasLinearAlgebraControl.CreateNativeOpenBLAS()` | static handle | mint a provider handle for `TryUse`/`Provider` |
 
 [ENTRYPOINT_SCOPE]: dense factorization + analysis
 - rail: numeric
@@ -169,11 +159,10 @@ MathNet sparse imports normalize to CSR via the `Of*` family; the direct sparse 
 
 [PROVIDER_SELECTION]:
 - namespace: `MathNet.Numerics`, `MathNet.Numerics.Providers.LinearAlgebra`
-- façade: `Control` (selection + parallelism + diagnostics), `LinearAlgebraControl` (provider-level), `MklLinearAlgebraControl`/`OpenBlasLinearAlgebraControl` (per-provider tuning)
-- selection: `UseManaged`, `Try*Native*` (`false` instead of throwing on a missing native asset), `UseBestProviders`/`ConfigureAuto` (MKL → CUDA → OpenBLAS → managed); the canonical pattern is `TryUse*` so a missing asset degrades, never throws
+- façade: `Control` (selection + parallelism + diagnostics), `LinearAlgebraControl` (provider-level), `OpenBlasLinearAlgebraControl` (provider tuning)
+- selection: `UseManaged`, `TryUseNativeOpenBLAS`/`TryUseNative` (`false` instead of throwing on a missing native asset), `UseBestProviders`/`ConfigureAuto` (native-then-managed probe); the canonical pattern is `TryUse*` so a missing asset degrades, never throws
 - managed governor: on osx-arm64 (no native asset) `Control.MaxDegreeOfParallelism`/`UseMultiThreading`/`UseSingleThread` are the only performance levers — managed multithreading governs every dense product when no native provider loads
-- MKL tuning: `MklConsistency` {Auto, Compatible, SSE2, SSE4_2, AVX, AVX2} fixes the code path for bitwise cross-run determinism; `MklPrecision` {Single, Double} and `MklAccuracy` {Low, High} trade speed for accuracy — `UseNativeMKL(consistency, precision, accuracy)` is the deterministic-reproducibility entry a benchmark/receipt lane needs
-- RID reality: MKL/OpenBLAS native assets are x64-only (`MathNet.Numerics.MKL.Win-x64` / `.Linux-x64`); no `.OSX` asset exists; osx-arm64 falls back to `UseManaged`
+- RID reality: OpenBLAS native assets are x64-only; no `.OSX` asset exists; osx-arm64 falls back to `UseManaged` — OpenBLAS is the sole opt-in native accelerator the kernel documents (`Numerics/matrix`)
 
 [DENSE_ALGEBRA]:
 - namespace: `MathNet.Numerics.LinearAlgebra`, `.LinearAlgebra.Double`, `.LinearAlgebra.Factorization`
@@ -197,12 +186,12 @@ MathNet sparse imports normalize to CSR via the `Of*` family; the direct sparse 
 - The direct (`CSparse`) and iterative (`MathNet`) sparse strategies and the dense (`MathNet`) lane meet at the `SolveReceipt` boundary — density and reusability are the discriminants (dense small SPD, CSC direct with `Refactorize` for repeated solves, iterative for systems too large to factor), all folding the same typed receipt under the same `Fin` rail
 
 [LOCAL_ADMISSION]:
-- The numeric lane selects the provider once at composition through `LinearProvider.Select()`; a per-call-site `Control.UseNativeMKL()` is the named defect
-- Dense and sparse solves emit the `Factorization` `ComputeReceipt` case; provider rank is claim-gated through `BenchmarkRow.Claim`, never a static default — `Control.Describe()` and the MKL tuning levers are the receipt's provider facts
+- The numeric lane selects the provider once at composition through `LinearProvider.Select()`; a per-call-site provider switch is the named defect
+- Dense and sparse solves emit the `Factorization` `ComputeReceipt` case; provider rank is claim-gated through `BenchmarkRow.Claim`, never a static default — `Control.Describe()` is the receipt's provider fact
 - The MathNet sparse format axis is an ingestion discriminant over CSR-backed storage, not four storage types; the CSC direct path is CSparse (`api-csparse`)
 
 [RAIL_LAW]:
-- Package: `MathNet.Numerics` (+ `.Providers.MKL`, `.Providers.OpenBLAS`), `CSparse`
+- Package: `MathNet.Numerics` (+ `.Providers.OpenBLAS`), `CSparse`
 - Owns: dense BLAS-class algebra + analysis, native-provider selection + managed parallelism governor, the full factorization family, CSR ingestion, MathNet iterative solvers
-- Accept: `Matrix<double>`/`Vector<double>` dense work, CSR/CSC/COO/indexed sparse ingestion, direct (CSparse) + iterative (MathNet) solve, MKL determinism/precision tuning
+- Accept: `Matrix<double>`/`Vector<double>` dense work, CSR/CSC/COO/indexed sparse ingestion, direct (CSparse) + iterative (MathNet) solve
 - Reject: a package-local matrix wrapper face, a second provider selector beside `LinearProvider`, per-call-site provider switches, a hand-rolled rank/inverse/pseudoinverse beside the `Matrix<T>` analytical surface

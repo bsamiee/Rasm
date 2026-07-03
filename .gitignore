@@ -59,6 +59,10 @@ htmlcov/
 .approval_tests_temp/
 .benchmarks/
 
+# Verify
+*.received.*
+*.received/
+
 # --- [CACHES] -----------------------------------------------------------------
 
 .cache/

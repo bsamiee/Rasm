@@ -15,7 +15,7 @@ The page owns the descriptor evidence (`DescriptorReceipt`/`DescriptorResult`/`M
 ## [02]-[DESCRIPTORS]
 
 - Owner: `MeshDescriptor` `[Union]` — one `SpectralCase` (filter + optional sources + descriptor policy) by decision, not a thinned ShapeDNA clone: the `SpectralFilter` transfer algebra already spans heat/wave/biharmonic/diffusion/commute-time/identity, so a descriptor variant is a FILTER row, never a new descriptor case; `MeshSamplingSpectrumAlgorithm` (CandidateSpectrum); `DescriptorReceipt`/`DescriptorResult`/`MeshSamplingSpectrumReceipt` evidence; the `SegmentKernel` descriptor arms.
-- Entry: `SegmentKernel.DescribeShape<TOut>(space, kind, eigenpairs, key)` — output-typed projection through `AtomProjection` rows (`Arr<double>` values, `SpectralDescriptor`, `SpectralDescriptorReceipt`, `DescriptorReceipt`), with the assembly receipt computed ONLY when the requested output carries it; `SegmentKernel.SpectralDistanceAt(space, filter, sources, pairs, sample, key)` (the frozen `ScalarField.SpectralDistance` delegate); `SegmentKernel.ValidateSamplingSpectrum(space, result, key)` — stamps the blue-noise verdict into the `sample` result's algorithm receipt.
+- Entry: `SegmentKernel.DescribeShape<TOut>(space, kind, eigenpairs, key)` — output-typed projection through `AtomProjection` rows (`Arr<double>` values, `SpectralDescriptor`, `SpectralDescriptorReceipt`, `DescriptorReceipt`, plus the rail's identity fallthrough for the full `DescriptorResult`), with the assembly receipt computed ONLY when the requested output carries it; `SegmentKernel.SpectralDistanceAt(space, filter, sources, pairs, sample, key)` (the frozen `ScalarField.SpectralDistance` delegate); `SegmentKernel.ValidateSamplingSpectrum(space, result, key)` — stamps the blue-noise verdict into the `sample` result's algorithm receipt.
 - Auto: descriptors pull the cached `SpectralBasisBundle` (one generalized eigensolve per basis size per mesh snapshot — the cache-hit flag lands in the receipt), apply the filter's `ApplyDetailed` with source restriction and normalization policy, and project; the spectrum gate splats the sample set to a barycentric vertex indicator, projects it onto the low-frequency eigenmodes (first three of at most eight), and validates `low/total ≤ 0.5` — a blue-noise candidate set must not concentrate energy in the low band; the threshold is a defaulted entry parameter and the basis cap / low-mode count are named page constants, never bare literals.
 - Receipt: `DescriptorReceipt` (spectral receipt + eigen receipt + requested/returned pairs + cache/factor evidence + optional assembly receipt); `MeshSamplingSpectrumReceipt` on the rails fold with the declared gate `Validated == (SuppressionRatio ≤ ValidationThreshold)` and both ratios inside `[0,1]` — the verdict is recomputable from the receipt's own fields.
 - Boundary: output selection lives in `ProjectionRow` keys inside the `AtomProjection` dispatch — reflection branching in solver bodies is the deleted form, and the ONE sanctioned entry-level type test is the lazy-assembly gate (`DescribeShape` computes the assembly receipt only when `TOut` carries it, so a value projection never pays a DEC build); the descriptor family is closed over the filter algebra and a `MeshDescriptorKind` sibling enum re-listing filter names is the rejected duplicate vocabulary.
@@ -105,14 +105,14 @@ internal static partial class SegmentKernel {
         int vertexCount = space.Native.Vertices.Count;
         if (basis.Eigenvectors.Count == 0 || points.IsEmpty) return Fin.Fail<MeshSamplingSpectrumReceipt>(key.InvalidInput());
         double[] indicator = new double[vertexCount];
+        // Splat rides the ONE MeshProbe closest-face owner; a page-local ClosestMeshPoint reach is the deleted parallel rail.
         for (int i = 0; i < points.Count; i++) {
-            MeshPoint meshPoint = space.Native.ClosestMeshPoint(testPoint: points[index: i], maximumDistance: MeshProbe.SearchDistance(space: space));
-            if (meshPoint is null || meshPoint.FaceIndex < 0 || meshPoint.FaceIndex >= space.Native.Faces.Count) return Fin.Fail<MeshSamplingSpectrumReceipt>(key.InvalidResult());
-            MeshFace face = space.Native.Faces[index: meshPoint.FaceIndex];
-            double[] weights = meshPoint.T;
-            if (weights.Length < 3 || (face.IsQuad && weights.Length < 4)) return Fin.Fail<MeshSamplingSpectrumReceipt>(key.InvalidResult());
-            indicator[face.A] += weights[0]; indicator[face.B] += weights[1]; indicator[face.C] += weights[2];
-            if (face.IsQuad) indicator[face.D] += weights[3];
+            Fin<Unit> splat = MeshProbe.ClosestFace(space: space, sample: points[index: i], key: key, project: (_, face, weights, _) => {
+                indicator[face.A] += weights[0]; indicator[face.B] += weights[1]; indicator[face.C] += weights[2];
+                if (face.IsQuad) indicator[face.D] += weights[3];
+                return Fin.Succ(unit);
+            });
+            if (splat.IsFail) return Fin.Fail<MeshSamplingSpectrumReceipt>(key.InvalidResult());
         }
         double low = 0.0, total = 0.0;
         int lowLimit = Math.Min(val1: SpectrumLowModeCount, val2: basis.Eigenvectors.Count);
@@ -128,7 +128,9 @@ internal static partial class SegmentKernel {
         }
         double ratio = total > RhinoMath.SqrtEpsilon ? low / total : 1.0;
         double bounded = Math.Max(val1: 0.0, val2: Math.Min(val1: 1.0, val2: ratio));
-        MeshSamplingSpectrumReceipt receipt = new(VertexCount: vertexCount, SampleCount: points.Count, EigenpairCount: basis.Eigenvectors.Count, LowFrequencyEnergy: low, TotalEnergy: total, SuppressionRatio: bounded, ValidationThreshold: lowFrequencyCeiling, Validated: total > RhinoMath.SqrtEpsilon && RhinoMath.IsValidDouble(x: ratio) && bounded <= lowFrequencyCeiling, Algorithm: MeshSamplingSpectrumAlgorithm.CandidateSpectrum);
+        // Validated is EXACTLY the declared gate claim (SuppressionRatio <= ValidationThreshold) — a degenerate total
+        // is rejected by the gate's Positive(TotalEnergy) row, never by a divergent second condition here.
+        MeshSamplingSpectrumReceipt receipt = new(VertexCount: vertexCount, SampleCount: points.Count, EigenpairCount: basis.Eigenvectors.Count, LowFrequencyEnergy: low, TotalEnergy: total, SuppressionRatio: bounded, ValidationThreshold: lowFrequencyCeiling, Validated: bounded <= lowFrequencyCeiling, Algorithm: MeshSamplingSpectrumAlgorithm.CandidateSpectrum);
         return receipt.IsValid ? Fin.Succ(receipt) : Fin.Fail<MeshSamplingSpectrumReceipt>(key.InvalidResult());
     }
 }
@@ -139,7 +141,7 @@ internal static partial class SegmentKernel {
 - Owner: `MeshFeatureAlgorithm` (DihedralProxy — the algorithm row future curvature-tensor detectors extend); `MeshFeatureKind` eight-kind edge taxonomy (Boundary/Crease/NonManifold/Unwelded/NgonInteriorSkipped/Ridge/Valley/RegionBoundary); `FeatureEdge` per-edge evidence (endpoints, kind, unsigned + signed dihedral, curvature signal); `FeatureReceipt` with per-kind counts and typed `Project<TOut>` rows (full edges, or endpoint pairs with ngon-interior edges filtered); `MeshFeaturePolicy` — the dihedral threshold is caller intent, the curvature threshold and smoothing scale are SCALE-DERIVED from the mean edge length at admission, and optional per-face regions turn region boundaries into features.
 - Entry: `SegmentKernel.DetectFeatureEdgesDetailed(space, dihedralRadians, key)` seats the derived policy; `SegmentKernel.DetectFeatureEdgesDetailed(space, policy, key)` is the full-control arity — one concept, input-shape discrimination.
 - Auto: topology edges classify by connected-face census (1 → Boundary, >2 → NonManifold, unwelded → Unwelded, ngon-interior → skipped-but-counted), then smooth 2-face edges classify by the signed dihedral (cross-product sign against the edge axis) against the threshold — ridge/valley when the length-normalized curvature signal (`|angle|/length`, endpoint-mean blended by `length/(length+smoothingScale)`) also exceeds the curvature threshold, plain crease otherwise; region-boundary classification precedes angle tests when face regions are declared.
-- Boundary: ngon interiors are COUNTED and skipped, never silently dropped, and the below-threshold remainder lands in `UnclassifiedEdges` — the per-kind counts plus the unclassified census sum to the topology-edge count, so the receipt reconciles every topology edge from its own fields; the curvature signal's endpoint smoothing is the anti-alias against single-edge noise and a raw per-edge threshold is the rejected form.
+- Boundary: ngon interiors are COUNTED and skipped, never silently dropped, and the below-threshold remainder lands in `UnclassifiedEdges` — the receipt carries `TopologyEdgeCount` and its validity gate ENFORCES both census reconciliations (edge rows = per-kind counts; per-kind + unclassified = topology edges), so totality is recomputable from the receipt's own fields, never a prose promise; the curvature signal's endpoint smoothing is the anti-alias against single-edge noise and a raw per-edge threshold is the rejected form.
 
 ```csharp
 // --- [TYPES] --------------------------------------------------------------------------------
@@ -166,8 +168,12 @@ public readonly partial record struct FeatureReceipt(
     Seq<FeatureEdge> Edges, int BoundaryEdges, int CreaseEdges, int NonManifoldEdges, int UnweldedEdges, int NgonInteriorSkippedEdges,
     double DihedralThresholdRadians, int UnclassifiedEdges = 0, int RidgeEdges = 0, int ValleyEdges = 0, int RegionBoundaryEdges = 0,
     double CurvatureThreshold = 0.0, double SmoothingScale = 0.0, int CurvatureFiniteVertices = 0, int CurvatureRejectedVertices = 0,
-    MeshFeatureAlgorithm? Algorithm = null) : IValidityEvidence {
-    // Census totality: per-kind counts + UnclassifiedEdges (smooth or faceless) sum to the mesh's topology-edge count.
+    int TopologyEdgeCount = 0, MeshFeatureAlgorithm? Algorithm = null) : IValidityEvidence {
+    // Census totality is the receipt's OWN gate: the edge rows reconcile the per-kind counts, and per-kind counts
+    // plus the unclassified census (smooth or faceless) reconcile every topology edge — recomputable, not a comment.
+    private bool ValidityGate() => ValidityClaim.All(
+        ValidityClaim.CountExactly(count: Edges.Count, expected: BoundaryEdges + CreaseEdges + NonManifoldEdges + UnweldedEdges + NgonInteriorSkippedEdges + RidgeEdges + ValleyEdges + RegionBoundaryEdges),
+        ValidityClaim.CountExactly(count: TopologyEdgeCount, expected: Edges.Count + UnclassifiedEdges));
     internal Fin<TOut> Project<TOut>(Op key) {
         FeatureReceipt self = this;
         return AtomProjection.Rows<FeatureReceipt, TOut>(self: self, key: key,
@@ -235,7 +241,7 @@ internal static partial class SegmentKernel {
                 features.Add(item: new FeatureEdge(A: p.I, B: p.J, Kind: edge.Kind, DihedralRadians: edge.Angle, SignedDihedralRadians: signed, CurvatureSignal: signal));
                 counts[edge.Kind.Key]++;
             }
-            return new FeatureReceipt(Edges: toSeq(features), BoundaryEdges: counts[MeshFeatureKind.Boundary.Key], CreaseEdges: counts[MeshFeatureKind.Crease.Key], NonManifoldEdges: counts[MeshFeatureKind.NonManifold.Key], UnweldedEdges: counts[MeshFeatureKind.Unwelded.Key], NgonInteriorSkippedEdges: counts[MeshFeatureKind.NgonInteriorSkipped.Key], DihedralThresholdRadians: activePolicy.DihedralThreshold.Value, UnclassifiedEdges: unclassified, RidgeEdges: counts[MeshFeatureKind.Ridge.Key], ValleyEdges: counts[MeshFeatureKind.Valley.Key], RegionBoundaryEdges: counts[MeshFeatureKind.RegionBoundary.Key], CurvatureThreshold: activePolicy.CurvatureThreshold.Value, SmoothingScale: activePolicy.SmoothingScale.Value, CurvatureFiniteVertices: curvature.FiniteVertices, CurvatureRejectedVertices: curvature.RejectedVertices, Algorithm: MeshFeatureAlgorithm.DihedralProxy);
+            return new FeatureReceipt(Edges: toSeq(features), BoundaryEdges: counts[MeshFeatureKind.Boundary.Key], CreaseEdges: counts[MeshFeatureKind.Crease.Key], NonManifoldEdges: counts[MeshFeatureKind.NonManifold.Key], UnweldedEdges: counts[MeshFeatureKind.Unwelded.Key], NgonInteriorSkippedEdges: counts[MeshFeatureKind.NgonInteriorSkipped.Key], DihedralThresholdRadians: activePolicy.DihedralThreshold.Value, UnclassifiedEdges: unclassified, RidgeEdges: counts[MeshFeatureKind.Ridge.Key], ValleyEdges: counts[MeshFeatureKind.Valley.Key], RegionBoundaryEdges: counts[MeshFeatureKind.RegionBoundary.Key], CurvatureThreshold: activePolicy.CurvatureThreshold.Value, SmoothingScale: activePolicy.SmoothingScale.Value, CurvatureFiniteVertices: curvature.FiniteVertices, CurvatureRejectedVertices: curvature.RejectedVertices, TopologyEdgeCount: mesh.TopologyEdges.Count, Algorithm: MeshFeatureAlgorithm.DihedralProxy);
         });
     private static (MeshFeatureKind Kind, Option<double> Angle)? ClassifySmoothFeature(Mesh mesh, int edge, int[] faces, Vector3f[] faceNormals, MeshFeaturePolicy policy, double edgeCurvature, out Option<double> signed, out Option<double> signal) {
         double rawAngle = Vector3d.VectorAngle(a: (Vector3d)faceNormals[faces[0]], b: (Vector3d)faceNormals[faces[1]]);
@@ -299,10 +305,10 @@ internal static partial class SegmentKernel {
 
 - Owner: `MeshSegmentation` `[Union]` (name frozen) — six cases with monadic factories internalizing admission (`ScalarThreshold`/`ScalarBands`/`SeededRegionGrow`/`DescriptorClusters`/`Watershed`/`NormalizedCut`); `MeshSegmentationAlgorithm`/`MeshSegmentationStatus` vocabularies; `MeshSegmentationReceipt` the one segmentation evidence record (algorithm, status, region/seed/assignment census, skipped-value census, optional iteration/tolerance/threshold/descriptor/solve/eigen/cut evidence) and `MeshSegmentationResult` (face regions + majority-vote vertex regions + receipt); the `SegmentKernel` dispatch and algorithm internals.
 - Cases: 6 algorithms; 2 statuses.
-- Entry: `SegmentKernel.Segment<TOut>(space, kind, key)` → generated total `Switch` over the union, projecting through `AtomProjection` rows (`Arr<int>` face regions or the full receipt) — one entry, the algorithm is the case, `TOut` is the projection.
+- Entry: `SegmentKernel.Segment<TOut>(space, kind, key)` → generated total `Switch` over the union, projecting through `AtomProjection` rows (`Arr<int>` face regions, the full receipt, or the identity `MeshSegmentationResult` carrying face + majority-vote vertex regions) — one entry, the algorithm is the case, `TOut` is the projection.
 - Auto: face scalars derive once (vertex values averaged per face, degenerate faces skipped by a scale-derived area floor, non-finite values censused); threshold/bands bucket faces then split buckets into connected components over the topology-edge face adjacency; seeded region-grow advances breadth-first proposals under a scalar tolerance with deterministic tie-breaks (lowest region, then lowest source face) until stable or capped; descriptor clusters run the [02] descriptor then cluster face values; watershed floods faces in ascending scalar order into union-find basins, merging across saddles within the merge tolerance and counting the rest as saddles, then compacts labels densely; normalized-cut builds the Gaussian affinity graph over face adjacency (`σ = max(tolerance, range/√faceCount)` — scale-derived, never a knob), assembles graph Laplacian + degree mass, solves the generalized eigenproblem through the `matrix` owner, clusters the Fiedler projection, splits components, and evaluates the achieved normalized-cut value into the receipt; clustering is 1-D k-means with farthest-first seeding (deterministic — no RNG).
 - Receipt: one receipt shape for all six algorithms — algorithm-specific evidence rides `Option` columns (watershed saddle census, cut value, affinity non-zeros, eigen receipt), never sibling receipt types; the fold derives validity.
-- Boundary: `UnassignedRegion = -1` is the one sentinel, confined to the label arrays and censused in the receipt — an unassigned face is evidence, not an error; every factory admits through the `Op` rail so an invalid request never constructs; six algorithms share ONE scalar-derivation, ONE adjacency, and ONE component split — per-algorithm re-derivations are the deleted form.
+- Boundary: `UnassignedRegion = -1` is the one sentinel, confined to the label arrays and censused in the receipt — an unassigned face is evidence, not an error; scalar admission requires at least one finite entry and treats NaN as a MASK (censused per algorithm, so a partial field segments its defined region instead of failing outright — an all-finite factory gate that dead-ends the census column is the rejected form); every factory admits through the `Op` rail so an invalid request never constructs; six algorithms share ONE scalar-derivation, ONE adjacency, and ONE component split — per-algorithm re-derivations are the deleted form.
 
 ```csharp
 // --- [TYPES] --------------------------------------------------------------------------------
@@ -329,8 +335,10 @@ public abstract partial record MeshSegmentation {
         key.OrDefault() switch { Op op => from admitted in AdmitScalars(values: values, key: op) from tolerance in op.AcceptValidated<PositiveMagnitude>(candidate: mergeTolerance) select (MeshSegmentation)new WatershedCase(Values: admitted, MergeTolerance: tolerance, ValuesAreVertices: valuesAreVertices) };
     public static Fin<MeshSegmentation> NormalizedCut(Arr<double> values, int regionCount, int eigenpairs, int maxIterations, double tolerance, bool valuesAreVertices = false, Op? key = null) =>
         key.OrDefault() switch { Op op => from admitted in AdmitScalars(values: values, key: op) from regions in op.AcceptValidated<Dimension>(candidate: regionCount) from _ in guard(regionCount > 1, op.InvalidInput()) from pairs in op.AcceptValidated<Dimension>(candidate: eigenpairs) from __ in guard(eigenpairs > 1, op.InvalidInput()) from cap in op.AcceptValidated<Dimension>(candidate: maxIterations) from eps in op.AcceptValidated<PositiveMagnitude>(candidate: tolerance) select (MeshSegmentation)new NormalizedCutCase(Values: admitted, RegionCount: regions, Eigenpairs: pairs, MaxIterations: cap, Tolerance: eps, ValuesAreVertices: valuesAreVertices) };
+    // NaN entries mark MASKED faces/vertices — every algorithm skips and censuses them (SkippedNonFiniteValues), so a
+    // partial field segments its defined region; only an empty or all-non-finite field is inert and fails admission.
     private static Fin<Arr<double>> AdmitScalars(Arr<double> values, Op key) =>
-        values.Count == 0 || !values.AsIterable().All(RhinoMath.IsValidDouble) ? Fin.Fail<Arr<double>>(key.InvalidInput()) : Fin.Succ(values);
+        values.Count == 0 || !values.AsIterable().Any(RhinoMath.IsValidDouble) ? Fin.Fail<Arr<double>>(key.InvalidInput()) : Fin.Succ(values);
 }
 
 [SmartEnum<int>]
@@ -989,8 +997,8 @@ internal static partial class SegmentKernel {
     private static RemeshReceipt TopologyOf(RemeshKind kind, Mesh source, Mesh output) =>
         new(Kind: kind, PreVertexCount: source.Vertices.Count, PreFaceCount: source.Faces.Count, PostVertexCount: output.Vertices.Count, PostFaceCount: output.Faces.Count, ReductionRatio: source.Faces.Count == 0 ? 0.0 : (double)output.Faces.Count / source.Faces.Count, Valid: output.IsValid, TopologyChanged: source.Vertices.Count != output.Vertices.Count || source.Faces.Count != output.Faces.Count);
 
-    // --- [FLATTEN] — native LSCM with the edge-length distortion witness
-    internal static Fin<FlattenResult> ParameterizeFlattenDetailed(MeshSpace space, Op key) {
+    // --- [FLATTEN] — native LSCM with the edge-length distortion witness; Catch funnels a native throw onto the rail.
+    internal static Fin<FlattenResult> ParameterizeFlattenDetailed(MeshSpace space, Op key) => key.Catch(() => {
         using Mesh mesh = space.Native.DuplicateMesh();
         using MeshUnwrapper unwrapper = new(mesh);
         if (!unwrapper.Unwrap(method: MeshUnwrapMethod.LSCM) || mesh.TextureCoordinates.Count != mesh.Vertices.Count)
@@ -1043,7 +1051,7 @@ internal static partial class SegmentKernel {
             }
         }
         static int FaceVertexAt(MeshFace face, int corner) => corner switch { 0 => face.A, 1 => face.B, 2 => face.C, _ => face.D };
-    }
+    });
 }
 ```
 

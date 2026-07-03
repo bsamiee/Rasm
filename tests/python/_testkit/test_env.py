@@ -1,12 +1,15 @@
-"""Environment-double laws for dispatch, SSH/SFTP, and filesystem behavior."""
+"""Environment-double laws for dispatch, SSH/SFTP, filesystem, object-store, and loopback behavior."""
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
 from typing import TYPE_CHECKING
 
 import pytest
+lazy import asyncssh
+lazy import grpc
 
-from tests.python._testkit.env import provision, RemoteFS, SshHost
+from tests.python._testkit.env import ObjectStore, provision, RemoteFS, SshHost
+from tests.python._testkit.seams import grpc_loopback
 
 
 if TYPE_CHECKING:
@@ -20,9 +23,10 @@ if TYPE_CHECKING:
 # --- [DISPATCH]
 
 
-def test_provision_is_total_over_the_spec_union() -> None:
-    """Every ``EnvSpec`` variant provisions a URL, factory, and teardown."""
-    specs: tuple[EnvSpec, ...] = (SshHost(), RemoteFS())
+def test_provision_is_total_over_the_spec_union(socket_enabled: None) -> None:
+    """Every ``EnvSpec`` variant provisions a URL, factory, and idempotent teardown."""
+    _ = socket_enabled  # ObjectStore binds a real loopback endpoint at provision time
+    specs: tuple[EnvSpec, ...] = (SshHost(), RemoteFS(), ObjectStore())
     for spec, provisioned in zip(specs, map(provision, specs), strict=True):
         assert provisioned.url, f"{type(spec).__name__} provisioned an empty url"
         assert callable(provisioned.client_factory), f"{type(spec).__name__} factory is not callable"
@@ -63,8 +67,6 @@ async def test_ssh_handler_owns_reply_and_exit_code() -> None:
 @pytest.mark.anyio
 async def test_ssh_streaming_process_arm_round_trips() -> None:
     """The streaming SSH process shape yields bytes and exit 0."""
-    import asyncssh  # noqa: PLC0415  # lazy: only the streaming law needs the DEVNULL sentinel
-
     provisioned = provision(SshHost())
     conn = await provisioned.client_factory()
     try:
@@ -148,3 +150,50 @@ def test_remote_fs_obeys_filesystem_algebra() -> None:
         assert not fs.exists("nest/deep/blob.bin"), "recursive rm left content behind"
     finally:
         provisioned.teardown()
+
+
+# --- [OBJECT_STORE]
+
+
+def test_object_store_round_trips_and_isolates_endpoints(socket_enabled: None) -> None:
+    """Two ObjectStore provisions serve disjoint endpoints; put/cat/info round-trips with an e-tag."""
+    _ = socket_enabled
+    first, second = provision(ObjectStore()), provision(ObjectStore(bucket="peer-bucket"))
+    try:
+        assert first.url != second.url, "moto endpoints collided"
+        fs = first.client_factory()
+        fs.pipe_file("kit-bucket/nest/blob.bin", b"alpha")
+        assert fs.cat_file("kit-bucket/nest/blob.bin") == b"alpha", "put/cat round-trip broke"
+        info = fs.info("kit-bucket/nest/blob.bin")
+        assert info["size"] == len(b"alpha"), "info size drifted from the payload"
+        assert info.get("ETag"), "object store lost the e-tag the egress content-key contract reads"
+        peer = second.client_factory()
+        peer.pipe_file("peer-bucket/nest/blob.bin", b"beta")
+        assert (fs.cat_file("kit-bucket/nest/blob.bin"), peer.cat_file("peer-bucket/nest/blob.bin")) == (b"alpha", b"beta"), "cross-endpoint bleed"
+    finally:
+        first.teardown()
+        first.teardown()  # idempotent: a second stop of a dead server is a no-op
+        second.teardown()
+
+
+# --- [GRPC_LOOPBACK]
+
+
+@pytest.mark.anyio
+async def test_grpc_loopback_serves_generic_unary_and_tears_down(socket_enabled: None) -> None:
+    """The grpc.aio capsule binds an ephemeral port and serves a raw-bytes unary handler."""
+    _ = socket_enabled
+
+    async def _reverse(request: bytes, context: object) -> bytes:  # noqa: RUF029  # no await; grpc.aio drives the handler coroutine
+        _ = context
+        return bytes(reversed(request))
+
+    def _bind(server: grpc.aio.Server) -> None:
+        server.add_generic_rpc_handlers((
+            grpc.method_handlers_generic_handler("kit.Echo", {"Reverse": grpc.unary_unary_rpc_method_handler(_reverse)}),
+        ))
+
+    async with grpc_loopback(_bind) as (endpoint, channel):
+        assert endpoint.port > 0, "capsule failed to bind an ephemeral loopback port"
+        reply: bytes = await channel.unary_unary("/kit.Echo/Reverse")(b"abc")
+        assert reply == b"cba", f"unary echo broke: {reply!r}"

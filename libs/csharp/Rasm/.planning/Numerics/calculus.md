@@ -1,6 +1,6 @@
 # [RASM_NUMERICS_CALCULUS]
 
-The sample-anywhere analytic math floor of `Rasm.Vectors` — differential operators, weight-profile mathematics, and procedural noise lattices, each generic over a SAMPLER so no field union, mesh, or cloud type appears on this floor. The page owns `Nabla`, the six-axis central-difference stencil promoted from the mature validation grab-bag into a pure differential-calculus owner — `GradientAt`, `CurlAt`, `CurlNoiseAt`, `DivergenceAt`, `LaplacianAt`, `StrainMagnitudeAt` over `Func<Point3d, Fin<double>>` / `Func<Point3d, Fin<Vector3d>>` samplers, with the curl-noise decorrelation offsets and toroidal domain wrap as named policy values; the weight-profile family — `KernelProfileStatus`, `KernelProfile` (value + first + second derivative + smoothness status), `KernelKind` the six compactly-supported kernels (Wendland C², quintic, cosine, cubic, linear, Epanechnikov) whose rows carry the profile AND its two derivatives as delegate columns over one `SupportProfile` fold, `WeightKernelFamily` the five reconstruction-weight profiles (smooth-poly, Wendland C², Gaussian, compact-exponential, singular-interpolating) with the `Interpolating` capability column, and `Falloff` the radial-decay `[Union]` (constant, inverse, inverse-square, Gaussian, compact kernel, metric-anisotropic) whose anisotropic case takes a `SymmetricMatrix` METRIC SAMPLER so the tensor-field coupling stays downstream; and `FieldNoise`, the procedural lattices — Perlin gradient noise over the canonical 256-entry permutation table, skewed and smoothed simplex, and Worley cellular noise — seed-parameterized and deterministic.
+The sample-anywhere analytic math floor of `Rasm.Vectors` — differential operators, weight-profile mathematics, and procedural noise lattices, each generic over a SAMPLER so no field union, mesh, or cloud type appears on this floor. The page owns `Nabla`, the six-axis central-difference stencil promoted from the mature validation grab-bag into a pure differential-calculus owner — `GradientAt`, `CurlAt`, `CurlNoiseAt`, `DivergenceAt`, `LaplacianAt`, `StrainMagnitudeAt` over `Func<Point3d, Fin<double>>` / `Func<Point3d, Fin<Vector3d>>` samplers, with the curl-noise decorrelation offsets and toroidal domain wrap as named policy values; the weight-profile family — `KernelProfileStatus`, `KernelProfile` (value + first + second derivative + smoothness status), `KernelKind` the six compactly-supported kernels (Wendland C², quintic, cosine, cubic, linear, Epanechnikov) whose rows carry the profile AND its two derivatives as delegate columns over one `SupportProfile` fold, `WeightKernelFamily` the five reconstruction-weight profiles (smooth-poly, Wendland C², Gaussian, compact-exponential, singular-interpolating) with the `Interpolating` capability column, and `Falloff` the radial-decay `[Union]` (constant, inverse, inverse-square, Gaussian, compact kernel, metric-anisotropic) whose anisotropic case takes a `SymmetricMatrix` METRIC SAMPLER — SPD-gated by leading principal minors per sample — so the tensor-field coupling stays downstream; and `FieldNoise`, the procedural lattices — Perlin gradient noise over the canonical 256-entry permutation table, skewed and smoothed simplex, and Worley cellular noise — seed-parameterized and deterministic.
 
 `Spatial/fields` composes these owners as its case mathematics (falloff-weighted influence fields, noise cases, kernel-windowed densities); `Meshing/reconstruct` composes `WeightKernelFamily` as its MLS/APSS/Levin weighting; the finite-difference operators serve any implicit field a sampler can express. The admission-guard half of the mature `FieldNabla` (NotNull/AllFinite/Plane/Cone/input gates) is `Rasm.Domain`'s validation vocabulary — this page carries ONLY the mathematics.
 
@@ -19,7 +19,7 @@ The sample-anywhere analytic math floor of `Rasm.Vectors` — differential opera
 - Receipt: none — the operators are pure projections; evidence belongs to the field or solver that composes them.
 - Packages: LanguageExt.Core (`Fin`, query expressions), Rasm.Domain (`Op`), RhinoCommon (`Point3d`/`Vector3d` value structs).
 - Growth: a new differential operator (Hessian, Jacobian determinant, vector Laplacian) is one member over the same `SampleAxes` stencil; a higher-order stencil (fourth-order central differences) is one alternative stencil member the operators re-bind to — never a per-field re-implementation.
-- Boundary: the mature corpus hard-wired these operators to its field unions — the sampler signature inverts that dependency so `Spatial/fields` (downstream) plugs `field.SampleScalar` in as the sampler and this floor stays field-agnostic; the mesh-aware Laplacians (cotangent, intrinsic Delaunay) are `Meshing/mesh`'s operators over connectivity, NOT this stencil — this page differentiates ambient ℝ³ samplers only.
+- Boundary: the mature corpus hard-wired these operators to its field unions — the sampler signature inverts that dependency so `Spatial/fields` (downstream) plugs `field.SampleScalar` in as the sampler and this floor stays field-agnostic; the mesh-aware Laplacians (cotangent, intrinsic Delaunay) are `Meshing/mesh`'s operators over connectivity, NOT this stencil — this page differentiates ambient ℝ³ samplers only; `ToroidalWrap` assumes an admitted strictly-positive period — the `Period` guard in the Domain validation vocabulary is its upstream gate, so the wrap itself stays a total pure fold.
 
 ```csharp
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -88,12 +88,12 @@ public static class Nabla {
 
 ## [03]-[WEIGHT_PROFILES]
 
-- Owner: `KernelProfileStatus` the smoothness verdict vocabulary (`Smooth`/`SupportBoundary`/`NonsmoothOrigin`/`OutsideSupport`); `KernelProfile` the evaluation carrier — value, first derivative, second derivative, status — so a consumer differentiating a kernel-windowed quantity reads the derivative off the profile instead of re-differencing; `KernelKind` the `[SmartEnum<int>]` of six compactly-supported kernels whose rows carry `value(q)`, `value′(q)/r`, and `value″(q)/r²` as three delegate columns folded through ONE `SupportProfile` (support clamp at `q = d/r ≥ 1`, boundary band, nonsmooth-origin flag for the odd-power kernels) — Wendland C² `(1−q)⁴(1+4q)`, quintic `(1−q)⁵`, cosine `½(1+cos πq)`, cubic `(1−q)³`, linear `1−q`, Epanechnikov `1−q²`; `WeightKernelFamily` the `[SmartEnum<int>]` of five reconstruction-weight profiles — smooth-poly `(1−t²)²`, Wendland C², Gaussian `e^(−t²/σ²)` with `GaussianBandwidthSquared = 1/9`, compact-exponential, and the SINGULAR interpolating weight `1/max(t², ε)` — with the `Interpolating` capability column the MLS routes dispatch on; `Falloff` the `[Union]` radial-decay family — `Constant`, `Inverse` (`1/d`, degeneracy-gated), `InverseSquare`, `Gaussian(spread)`, `Kernel(kind, radius)` (compact support through `KernelKind`), and `Metric(kind, metric, radius)` — the anisotropic case whose `metric: Func<Point3d, Fin<SymmetricMatrix>>` SAMPLER yields the local 3×3 metric tensor, SPD-gated through `DecomposeCholesky`, so the Mahalanobis distance `√(offsetᵀ·M·offset)` drives the kernel profile without this floor naming any field type.
+- Owner: `KernelProfileStatus` the smoothness verdict vocabulary (`Smooth`/`SupportBoundary`/`NonsmoothOrigin`/`OutsideSupport`); `KernelProfile` the evaluation carrier — value, first derivative, second derivative, status — so a consumer differentiating a kernel-windowed quantity reads the derivative off the profile instead of re-differencing; `KernelKind` the `[SmartEnum<int>]` of six compactly-supported kernels whose rows carry `value(q)`, `value′(q)/r`, and `value″(q)/r²` as three delegate columns folded through ONE `SupportProfile` (support clamp at `q = d/r ≥ 1`, boundary band, nonsmooth-origin flag for the odd-power kernels) — Wendland C² `(1−q)⁴(1+4q)`, quintic `(1−q)⁵`, cosine `½(1+cos πq)`, cubic `(1−q)³`, linear `1−q`, Epanechnikov `1−q²`; `WeightKernelFamily` the `[SmartEnum<int>]` of five reconstruction-weight profiles — smooth-poly `(1−t²)²`, Wendland C², Gaussian `e^(−t²/σ²)` with `GaussianBandwidthSquared = 1/9`, compact-exponential, and the SINGULAR interpolating weight `1/max(t², ε)` — with the `Interpolating` capability column the MLS routes dispatch on; `Falloff` the `[Union]` radial-decay family — `Constant`, `Inverse` (`1/d`, degeneracy-gated), `InverseSquare`, `Gaussian(spread)`, `Kernel(kind, radius)` (compact support through `KernelKind`), and `Metric(kind, metric, radius)` — the anisotropic case whose `metric: Func<Point3d, Fin<SymmetricMatrix>>` SAMPLER yields the local 3×3 metric tensor, SPD-gated by the Sylvester leading-principal-minors fold, so the Mahalanobis distance `√(offsetᵀ·M·offset)` drives the kernel profile without this floor naming any field type.
 - Cases: `KernelKind` 6 · `WeightKernelFamily` 5 · `Falloff` 6 · `KernelProfileStatus` 4.
-- Entry: `KernelKind.Profile(distance, radius, key)` — input-gated, returns the full `KernelProfile`; `KernelKind.Weight(distance, radius)` the bare-value fast path; `WeightKernelFamily.Weight(distance, support)` zero outside support; `Falloff.Weight(...)` three overloads discriminating on input shape — bare distance, offset vector, offset + sample point (the metric case's requirement) — all folding through one `WeightCore`.
-- Auto: `SupportProfile` is the one clamp/status fold every kernel row shares — outside-support and boundary yield exact zeros with their status, the nonsmooth-origin flag fires only for kernels whose derivative jumps at `d = 0`; the metric falloff admits the sampled tensor as SPD by Cholesky before forming the quadratic, so an indefinite metric fails typed instead of producing `√negative`.
+- Entry: `KernelKind.Profile(distance, radius, key)` — gated through `Admit.KernelInput`, returns the full `KernelProfile`; `KernelKind.Weight(distance, radius)` the bare-value fast path; `WeightKernelFamily.Weight(distance, support)` zero outside support; `Falloff.Weight(...)` three overloads discriminating on input shape — bare distance, offset vector, offset + sample point (the metric case's requirement) — all folding through one `WeightCore` gated by `Admit.FalloffInput`.
+- Auto: `SupportProfile` is the one clamp/status fold every kernel row shares — its bands live on the dimensionless `q = d/r` so support classification is invariant under model scale, outside-support and boundary yield exact zeros with their status, and the nonsmooth-origin flag fires only for kernels whose derivative jumps at `d = 0`; the metric falloff admits the sampled tensor as SPD by the three leading principal minors (Sylvester) before forming the quadratic — allocation-free per sample where a factorization would churn the hot loop — so an indefinite metric fails typed instead of producing `√negative`.
 - Receipt: `KernelProfile` IS the per-evaluation receipt (value + derivatives + status).
-- Packages: Thinktecture.Runtime.Extensions (`[UseDelegateFromConstructor]` columns), LanguageExt.Core, `matrix.md` (`SymmetricMatrix` — the metric carrier), Rasm.Domain (`Op`).
+- Packages: Thinktecture.Runtime.Extensions (`[UseDelegateFromConstructor]` columns), LanguageExt.Core, `matrix.md` (`SymmetricMatrix` — the metric carrier), Rasm.Domain (`Op`, the `Admit.KernelInput`/`FalloffInput` gates, the `AcceptValidated<TVO, TRaw>` bridge).
 - Growth: a new kernel is one `KernelKind` row (three delegate columns); a new reconstruction weight is one `WeightKernelFamily` row; a new decay law is one `Falloff` case + one `WeightCore` arm.
 - Boundary: `Spatial/fields` wraps `Falloff.Metric` over its `TensorField` by passing `tensorField.Sampler(context)` — the tensor-field type NEVER appears here, keeping this page upstream of the field algebra; `Meshing/reconstruct` composes `KernelKind` for its RBF/MLS windows and `WeightKernelFamily` rows for its Levin/APSS weights — one profile mathematics, zero copies.
 
@@ -122,7 +122,7 @@ public sealed partial class KernelKind {
     public static readonly KernelKind Epanechnikov = new(key: 5, evaluate: static (d, r) => SupportProfile(distance: d, radius: r, nonsmoothAtOrigin: false, value: static (q, _) => 1.0 - (q * q), first: static (q, r) => -2.0 * q / r, second: static (_, r) => -2.0 / (r * r)));
     [UseDelegateFromConstructor] private partial KernelProfile Evaluate(double distance, double radius);
     public Fin<KernelProfile> Profile(double distance, double radius, Op key) =>
-        from _ in guard(double.IsFinite(distance) && double.IsFinite(radius) && distance >= 0.0 && radius > EpsilonPolicy.ZeroTolerance, key.InvalidInput()).ToFin()
+        from _ in Admit.KernelInput(distance: distance, radius: radius, key: key)
         from profile in Evaluate(distance: distance, radius: radius) switch {
             KernelProfile p when p.IsValid => Fin.Succ(p),
             _ => Fin.Fail<KernelProfile>(key.InvalidResult()),
@@ -130,14 +130,15 @@ public sealed partial class KernelKind {
         select profile;
     public double Weight(double distance, double radius) => Evaluate(distance: distance, radius: radius).Value;
     private static double Pow1(double q, int power) => Math.Pow(x: 1.0 - q, y: power);
-    // The one support clamp/status fold every kernel row shares.
+    // The one support clamp/status fold every kernel row shares. Bands live on the normalized
+    // coordinate q = d/r, so they are dimensionless — invariant under model scale.
     private static KernelProfile SupportProfile(double distance, double radius, bool nonsmoothAtOrigin, Func<double, double, double> value, Func<double, double, double> first, Func<double, double, double> second) {
         double q = distance / radius;
-        return distance > radius
+        return q > 1.0
             ? new KernelProfile(Value: 0.0, FirstDerivative: 0.0, SecondDerivative: 0.0, Status: KernelProfileStatus.OutsideSupport)
-            : Math.Abs(value: distance - radius) <= EpsilonPolicy.SqrtEpsilon
+            : Math.Abs(value: q - 1.0) <= EpsilonPolicy.SqrtEpsilon
                 ? new KernelProfile(Value: 0.0, FirstDerivative: 0.0, SecondDerivative: 0.0, Status: KernelProfileStatus.SupportBoundary)
-                : new KernelProfile(Value: value(arg1: q, arg2: radius), FirstDerivative: first(arg1: q, arg2: radius), SecondDerivative: second(arg1: q, arg2: radius), Status: nonsmoothAtOrigin && distance <= EpsilonPolicy.SqrtEpsilon ? KernelProfileStatus.NonsmoothOrigin : KernelProfileStatus.Smooth);
+                : new KernelProfile(Value: value(arg1: q, arg2: radius), FirstDerivative: first(arg1: q, arg2: radius), SecondDerivative: second(arg1: q, arg2: radius), Status: nonsmoothAtOrigin && q <= EpsilonPolicy.SqrtEpsilon ? KernelProfileStatus.NonsmoothOrigin : KernelProfileStatus.Smooth);
     }
 }
 
@@ -170,15 +171,15 @@ public abstract partial record Falloff {
     public static Falloff Inverse => new InverseCase();
     public static Falloff InverseSquare => new InverseSquareCase();
     public static Fin<Falloff> Gaussian(double spread, Op? key = null) =>
-        key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: spread).Map(static value => (Falloff)new GaussianCase(Spread: value));
+        key.OrDefault().AcceptValidated<PositiveMagnitude, double>(candidate: spread).Map(static value => (Falloff)new GaussianCase(Spread: value));
     public static Fin<Falloff> Kernel(KernelKind kind, double radius, Op? key = null) =>
         from active in Optional(kind).ToFin(key.OrDefault().InvalidInput())
-        from r in key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: radius)
+        from r in key.OrDefault().AcceptValidated<PositiveMagnitude, double>(candidate: radius)
         select (Falloff)new KernelCase(Kind: active, Radius: r);
     public static Fin<Falloff> Metric(KernelKind kind, Func<Point3d, Fin<SymmetricMatrix>> metric, double radius, Op? key = null) =>
         from active in Optional(kind).ToFin(key.OrDefault().InvalidInput())
         from sampler in Optional(metric).ToFin(key.OrDefault().InvalidInput())
-        from r in key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: radius)
+        from r in key.OrDefault().AcceptValidated<PositiveMagnitude, double>(candidate: radius)
         select (Falloff)new MetricCase(Kind: active, Metric: sampler, Radius: r);
     public Fin<double> Weight(double distance, double tolerance, Op key) =>
         WeightCore(distance: distance, distanceSquared: distance * distance, offset: Option<(Vector3d Offset, Point3d Sample)>.None, tolerance: tolerance, key: key);
@@ -187,7 +188,7 @@ public abstract partial record Falloff {
     public Fin<double> Weight(Vector3d offset, Point3d sample, double tolerance, Op key) =>
         WeightCore(distance: offset.Length, distanceSquared: offset.SquareLength, offset: Some((Offset: offset, Sample: sample)), tolerance: tolerance, key: key);
     private Fin<double> WeightCore(double distance, double distanceSquared, Option<(Vector3d Offset, Point3d Sample)> offset, double tolerance, Op key) =>
-        guard(double.IsFinite(distance) && double.IsFinite(distanceSquared) && double.IsFinite(tolerance) && distance >= 0.0 && tolerance >= 0.0, key.InvalidInput()).ToFin().Bind(_ => Switch(
+        Admit.FalloffInput(distance: distance, distanceSquared: distanceSquared, tolerance: tolerance, key: key).Bind(_ => Switch(
             state: (Distance: distance, DistanceSquared: distanceSquared, Offset: offset, Tolerance: tolerance, Key: key),
             constantCase: static (_, _) => Fin.Succ(1.0),
             inverseCase: static (s, _) => s.Distance > s.Tolerance ? Fin.Succ(1.0 / s.Distance) : Fin.Fail<double>(s.Key.InvalidInput()),
@@ -197,17 +198,27 @@ public abstract partial record Falloff {
             metricCase: static (s, k) =>
                 from m in s.Offset.ToFin(s.Key.Unsupported(geometryType: typeof(MetricCase), outputType: typeof(double)))
                 from tensor in k.Metric(arg: m.Sample)
-                from _ in tensor.Dimension.Value == 3 ? tensor.DecomposeCholesky(key: s.Key).Map(static _ => unit) : Fin.Fail<Unit>(s.Key.InvalidInput())
+                from _ in guard(tensor.Dimension.Value == 3 && SpdByMinors(tensor: tensor), s.Key.InvalidInput())
+                // Zero offset (query at the source) is legal: quadratic 0 -> distance 0 -> kernel maximum;
+                // the -ZeroTolerance band absorbs rounding of tiny offsets under an SPD-proven tensor.
                 from metricDistance in (m.Offset.X, m.Offset.Y, m.Offset.Z) switch {
                     (double x, double y, double z) when
                         (x * ((tensor.At(i: 0, j: 0) * x) + (tensor.At(i: 0, j: 1) * y) + (tensor.At(i: 0, j: 2) * z))) +
                         (y * ((tensor.At(i: 1, j: 0) * x) + (tensor.At(i: 1, j: 1) * y) + (tensor.At(i: 1, j: 2) * z))) +
                         (z * ((tensor.At(i: 2, j: 0) * x) + (tensor.At(i: 2, j: 1) * y) + (tensor.At(i: 2, j: 2) * z))) is double quadratic
-                        && double.IsFinite(quadratic) && quadratic > 0.0 => s.Key.AcceptValue(value: Math.Sqrt(d: quadratic)),
+                        && double.IsFinite(quadratic) && quadratic > -EpsilonPolicy.ZeroTolerance => s.Key.AcceptValue(value: Math.Sqrt(d: Math.Max(val1: 0.0, val2: quadratic))),
                     _ => Fin.Fail<double>(s.Key.InvalidResult()),
                 }
                 from profile in k.Kind.Profile(distance: metricDistance, radius: k.Radius.Value, key: s.Key)
                 select profile.Value));
+    // Sylvester SPD gate — three leading principal minors of the symmetric 3x3, allocation-free;
+    // a per-sample factorization is the deleted form in this hot path.
+    private static bool SpdByMinors(SymmetricMatrix tensor) {
+        double a = tensor.At(i: 0, j: 0), b = tensor.At(i: 0, j: 1), c = tensor.At(i: 0, j: 2);
+        double d = tensor.At(i: 1, j: 1), e = tensor.At(i: 1, j: 2), f = tensor.At(i: 2, j: 2);
+        double det2 = (a * d) - (b * b);
+        return a > 0.0 && det2 > 0.0 && (det2 * f) - (a * e * e) + (2.0 * b * c * e) - (d * c * c) > 0.0;
+    }
 }
 ```
 
@@ -215,7 +226,7 @@ public abstract partial record Falloff {
 
 - Owner: `FieldNoise` the `internal static` procedural-noise owner — `PerlinAt(point, seed, frequency)` classic gradient noise over the canonical Ken-Perlin 256-entry permutation table (`Fade` quintic smoothing, `Grad` hashed gradient selection, trilinear `Lerp` lattice blend); `SimplexAt` the 3D simplex lattice (corner ranking by fractional ordering, `SimplexCorner` radial-falloff gradient contributions, ×32 amplitude normalization); `SkewedSimplexAt(point, seed, frequency, smooth)` the skew-transformed variant with the optional two-tap rotation smoothing; `WorleyAt` cellular noise (per-cell hashed feature points over the 27-cell neighborhood, nearest-feature Euclidean distance).
 - Cases: 3 internal lattice entries (`PerlinAt` · `WorleyAt` · `SkewedSimplexAt` with the smooth flag) spanning the four published lattice modes over one shared hash substrate (`Perm`, `HashCell`); `SimplexAt` is the private skew-domain kernel both simplex modes ride.
-- Entry: every lattice takes `(Point3d point, int seed, double frequency)` — deterministic for a given triple, so noise-driven fields replay across processes; input admission (octaves, persistence, lacunarity, frequency bounds for fractal sums) is the CONSUMER's policy admitted through the Domain validation vocabulary — the lattice itself is total over finite input.
+- Entry: every lattice takes `(Point3d point, int seed, double frequency)` — deterministic for a given triple, so noise-driven fields replay across processes; input admission (octaves, persistence, lacunarity, frequency bounds for fractal sums) is the CONSUMER's policy admitted through `Admit.NoiseInput` — the lattice itself is total over finite input.
 - Auto: `Perm(x, seed)` folds the seed into the table lookup so seeds relabel the lattice without a table copy; Worley hashes three decorrelated channels (offsets 17/31) for the per-cell feature point.
 - Receipt: none — pure deterministic functions.
 - Packages: BCL only (`Math.Floor`, integer bit ops); RhinoCommon `Point3d` as the coordinate carrier.

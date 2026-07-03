@@ -1,3 +1,5 @@
+using System.Text.Json;
+using Rasm.Bridge.Contract;
 using Rasm.ScenarioKit;
 using Rasm.TestKit;
 
@@ -110,6 +112,51 @@ public sealed class FactsEmptyTriggerLaws {
             Spec.Holds(condition: ctx.FactCount > 0, label: $"{verb.Verb} must count as evidence");
             Assert.Equal(expected: ctx.FactCount, actual: log.Count);
         });
+    }
+}
+
+public sealed class ReferenceEmissionLaws {
+    // Author-mode candidates are minted from exactly this wire payload: the supervisor fold reads
+    // {name, actual, tolerance} off the reference.-prefixed fact and decides admission itself from
+    // evidence mode and corpus state — an SDK-asserted admission field would be a standing lie.
+    [Fact]
+    public void CertifyEmitsTheCandidateActualUnderTheReferenceGrammar() =>
+        Spec.ForAll(gen: EvidenceGens.Projection, property: static input => {
+            List<(string Key, object? Value)> log = [];
+            ScenarioContext ctx = EvidenceGens.Context(log: log);
+            ReferenceTolerance tolerance = new(Mode: "absolute", Absolute: 1.0e-9, Relative: 0.0);
+            Spec.Succ(result: ctx.Certify(key: new EvidenceName(Key: input.Label), actual: input.Payload, tolerance: tolerance));
+            (string key, object? value) = Assert.Single(collection: log);
+            Assert.Equal(expected: $"reference.{input.Label}", actual: key);
+            Assert.Equal(expected: EvidenceRole.Reference, actual: EvidenceRole.OfFactKey(key: key));
+            Assert.Equal(expected: input.Label, actual: EvidenceRole.Reference.FactArgument(key: key));
+            JsonElement payload = JsonSerializer.SerializeToElement(value: value);
+            Assert.Equal(expected: input.Label, actual: payload.GetProperty("name").GetString());
+            Assert.Equal(expected: input.Payload, actual: payload.GetProperty("actual").GetInt32());
+            Assert.Equal(expected: "absolute", actual: payload.GetProperty("tolerance").GetProperty("Mode").GetString());
+            Assert.False(condition: payload.TryGetProperty("admission", out _), "admission is supervisor-decided; the SDK never asserts it");
+        });
+
+    [Fact]
+    public void ReferenceEmissionCountsRideTheEvidenceStream() {
+        List<(string Key, object? Value)> log = [];
+        ScenarioContext ctx = EvidenceGens.Context(log: log);
+        _ = ctx.Certify(key: new EvidenceName(Key: "axis"), actual: 42.0, tolerance: default);
+        _ = ctx.Certify(key: new EvidenceName(Key: "span"), actual: JsonSerializer.SerializeToElement(value: 2.5), tolerance: default);
+        Assert.Equal(expected: 2, actual: ctx.ReferenceCount);
+        Assert.Equal(expected: 2, actual: ctx.FactCount);
+        Assert.Equal(expected: ["reference.axis", "reference.span"], actual: log.Select(selector: static row => row.Key));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData(" \t ")]
+    public void BlankReferenceKeyIsAnInputGuardAndCountsNothing(string? key) {
+        ScenarioContext ctx = EvidenceGens.Context(log: []);
+        _ = Assert.ThrowsAny<ArgumentException>(testCode: () => ctx.Certify(key: new EvidenceName(Key: key!), actual: 1, tolerance: default));
+        Assert.Equal(expected: 0, actual: ctx.FactCount);
+        Assert.Equal(expected: 0, actual: ctx.ReferenceCount);
     }
 }
 

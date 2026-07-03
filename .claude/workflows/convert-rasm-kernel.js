@@ -1,13 +1,12 @@
 export const meta = {
   name: 'convert-rasm-kernel',
-  description: 'Convert the Rasm kernel to an ordinary planning-scoped package: ledger the mature Vectors/Domain/Analysis source + the boundary/consumer facts, rule the new .planning partition + Rhino boundary + compile-consumer disposition + roster delta in one blueprint, author the new design pages ground-up at the docs/stacks/csharp bar with zero capability loss (author -> hostile critique review -> cold redteam per unit, pipelined), execute the backup-gated restructure (Geometry re-home, source retirement, Radyab toy-app removal, csproj/slnx/lock/manifest alignment), sweep every durable-doc and .claude ripple in one wave, harden the full landed kernel folder through 3 cold passes, rebuild-improve the geometry brief through 3 cold passes, waterfall the five consumer RASM-CS briefs against the as-if-realized kernel, align the whole C# brief corpus in one cold pass, and terminally verify capability coverage. About 51 agents, peak concurrency 6. Ephemeral: delete after the conversion lands.',
+  description: 'Convert the Rasm kernel to an ordinary planning-scoped package: ledger the mature Vectors/Domain/Analysis source + the boundary/consumer facts, rule the new .planning partition + Rhino boundary + compile-consumer disposition + roster delta in one blueprint, author the new design pages ground-up at the docs/stacks/csharp bar with zero capability loss (author -> hostile critique review -> cold redteam per unit, pipelined; the physical restructure — Geometry re-home, source retirement, Radyab removal, csproj/slnx/lock/manifest alignment, index-doc rebuild — is operator-landed on disk), sweep every durable-doc and .claude ripple in one wave, harden the full landed kernel folder through 3 cold passes, rebuild-improve the geometry brief through 3 cold passes, waterfall the five consumer RASM-CS briefs against the as-if-realized kernel, align the whole C# brief corpus in one cold pass, and terminally verify capability coverage. About 50 agents, peak concurrency 6. Ephemeral: delete after the conversion lands.',
   whenToUse: 'One-shot kernel conversion. Launch only after no other run is reading libs/csharp/Rasm paths; the .archive/Rasm backup must exist.',
   phases: [
     { title: 'Inventory', detail: '4 capability-ledger lanes (Vectors halves, Domain+Analysis, boundary/consumer census) + 1 ecosystem lane, parallel, opus' },
     { title: 'Architect', detail: '1 agent rules the sub-domain partition, the Rhino boundary, the consumer disposition, the roster delta, the move/delete manifest' },
     { title: 'Build', detail: 'per blueprint unit: ground-up author -> hostile critique review -> cold redteam, pipelined, fix-in-place' },
-    { title: 'Restructure', detail: '1 agent: backup gate, Geometry re-home, source retirement, Radyab removal, csproj/slnx/lock/central-manifest alignment' },
-    { title: 'Ripple', detail: 'kernel index docs + repo durable docs + .claude surfaces (+ .api catalogs when the roster changed), parallel' },
+    { title: 'Ripple', detail: 'kernel index docs + repo durable docs + .claude surfaces (+ .api catalogs when the roster changed), parallel; the physical restructure is already operator-landed' },
     { title: 'Harden', detail: '3 sequential cold passes over the full landed kernel folder: holistic integration -> mechanical critique -> terminal redteam, fix-in-place' },
     { title: 'Campaign', detail: '3 cold passes (initial -> critique -> redteam): RASM-CS-GEOMETRY-BRIEF rebuilt and improved to the landed kernel + design-cs-geometry.js re-grounded' },
     { title: 'Waterfall', detail: '5 parallel: consumer RASM-CS briefs improved against the as-if-realized kernel, never weakened' },
@@ -43,9 +42,6 @@ const BUILT_SCHEMA = { type: 'object', additionalProperties: false, required: ['
 const REVIEW_SCHEMA = { type: 'object', additionalProperties: false, required: ['files', 'fixed', 'coverage_gaps'], properties: {
   files: { type: 'array', items: { type: 'string' } }, fixed: { type: 'array', items: { type: 'string' } },
   coverage_gaps: { type: 'array', items: { type: 'string' } } } }
-const EXEC_SCHEMA = { type: 'object', additionalProperties: false, required: ['moved', 'deleted', 'kept', 'summary'], properties: {
-  moved: { type: 'array', items: { type: 'string' } }, deleted: { type: 'array', items: { type: 'string' } },
-  kept: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['path', 'reason'], properties: { path: { type: 'string' }, reason: { type: 'string' } } } }, summary: { type: 'string' } } }
 const RIPPLE_SCHEMA = { type: 'object', additionalProperties: false, required: ['files', 'summary'], properties: {
   files: { type: 'array', items: { type: 'string' } }, summary: { type: 'string' }, residue: { type: 'array', items: { type: 'string' } } } }
 const VERIFY_SCHEMA = { type: 'object', additionalProperties: false, required: ['coverage', 'residuals'], properties: {
@@ -146,19 +142,6 @@ const redteamPrompt = (unit, blueprint, dossiers) => [PRE, 'TASK: COLD REDTEAM �
   'weight; the old AnalysisQuery/Analyze entry shape is preserved for nobody; capability is re-expressed at maximum advancement on pure ' +
   'merit and chaff is dropped with an explicit standing reason, never carried. Every defect is repaired in place; the pages end objectively ' +
   'denser and more capable than the critique left them. Report files touched + fixed + coverage_gaps you cannot reach.'].join('\n')
-const execPrompt = (blueprint) => [PRE, 'TASK: RESTRUCTURE EXECUTION per the blueprint ' + blueprint + ' manifest + rulings. ORDER: (1) verify ' +
-  '.archive/Rasm holds the mature source (Vectors/, Domain/, Analysis/) — a missing backup ABORTS every delete (report in kept). (2) git mv ' +
-  'the 18 Geometry pages per the blueprint MOVES map EXACTLY — they MERGE into the shared sub-domain folders under ' + NEW_PLAN + '/ (no ' +
-  NEW_PLAN + '/Geometry/ folder exists after the move) — remove the emptied ' + ROOT + '/Geometry/ tree, then apply the ' +
-  'blueprint surgical Geometry-page edits (path/name re-pointing only, never content rework). (3) git rm ' + ROOT + '/Analysis/, ' + ROOT +
-  '/Vectors/ (incl. _ARCHITECTURE.md), and the mature ' + ROOT + '/Domain/*.cs the blueprint retires. (4) rebuild ' + ROOT + '/Rasm.csproj to ' +
-  'the planning-folder convention — label-grouped PackageReference set per the roster + rhino ruling, usings pruned to the ruling, hand-edit ' +
-  'never dotnet add — apply the roster delta to Directory.Packages.props (grouped, one-line maintenance comments), then run dotnet restore on ' +
-  'the csproj to regenerate packages.lock.json and prove resolution. (5) apply the CONSUMER DISPOSITION exactly as ruled: the Workspace.slnx ' +
-  'rows and test-project actions — never edit Rasm.Rhino/Rasm.Grasshopper source. (6) TRASH THE TOY APP: apps/grasshopper/Radyab is ruled ' +
-  'disposable — git rm the whole project and remove its Workspace.slnx folder+project rows (slnx lines 2-5 area); fix any apps/grasshopper ' +
-  'README reference to it. Use git commands for every move/delete so history survives. Report every path ' +
-  'moved/deleted/kept-with-reason.'].join('\n')
 const rippleKernelPrompt = (blueprint) => [PRE, 'TASK: KERNEL INDEX DOCS rewrite per the blueprint ' + blueprint + ' and the disk truth after ' +
   'restructure. Rewrite ' + ROOT + '/README.md, ARCHITECTURE.md, IDEAS.md, TASKLOG.md to the converted reality: one ' + NEW_PLAN + '/ root, ' +
   'the full page router + package registry, the codemap from the REAL page set on disk (the moved Geometry pages include Parametric/, which ' +
@@ -320,16 +303,11 @@ const BUILT_PAGES = built.flatMap((b) => b.pages)
 const gaps = built.flatMap((b) => (b.review && b.review.coverage_gaps) || []).concat(built.flatMap((b) => b.uncovered))
   .concat(built.flatMap((b) => (b.redteam && b.redteam.coverage_gaps) || []))
 if (built.length < plan.units.length || !BUILT_PAGES.length) {
-  log('Build incomplete (' + built.length + '/' + plan.units.length + ' units) — the restructure DELETE gate requires the full corpus; aborting before any move/delete. Resume re-runs the missing units.')
+  log('Build incomplete (' + built.length + '/' + plan.units.length + ' units) — the downstream sweep gate requires the full corpus; aborting. Resume re-runs the missing units.')
   return { aborted: 'build', built: BUILT_PAGES, dossiers: DOSSIERS, blueprint: plan.blueprint }
 }
 log('Build: ' + BUILT_PAGES.length + ' pages across ' + built.length + ' units, ' + built.reduce((n, b) => n + ((b.review && b.review.fixed) || []).length, 0) +
   ' critique fixes, ' + built.reduce((n, b) => n + ((b.redteam && b.redteam.fixed) || []).length, 0) + ' redteam fixes, ' + gaps.length + ' gap(s) forward to verify')
-
-// --- [RESTRUCTURE]
-phase('Restructure')
-const exec = await agent(execPrompt(plan.blueprint), { label: 'restructure', phase: 'Restructure', effort: 'high', schema: EXEC_SCHEMA, stallMs: STALL })
-log('Restructure: ' + ((exec && exec.moved) || []).length + ' moved, ' + ((exec && exec.deleted) || []).length + ' deleted, ' + ((exec && exec.kept) || []).length + ' kept-with-reason')
 
 // --- [RIPPLE]
 const rippleThunks = [
@@ -380,7 +358,6 @@ return {
   harden_files: harden.flatMap((r) => r.files || []), campaign_files: campaign.flatMap((r) => r.files || []),
   waterfall_files: waterfall.flatMap((r) => r.files || []), corpus_files: (corpus && corpus.files) || [],
   pages: BUILT_PAGES, rhino_ruling: plan.rhino_ruling, disposition: plan.disposition, roster: plan.roster || [],
-  moved: (exec && exec.moved) || [], deleted: (exec && exec.deleted) || [], kept: (exec && exec.kept) || [],
   docs_touched: ripples.flatMap((r) => r.files || []),
   doc_residue: ripples.concat(harden, campaign, waterfall, corpus ? [corpus] : []).flatMap((r) => r.residue || []),
   coverage: (verdict && verdict.coverage) || 'VERIFY MISSING — rerun', hard_residual: (verdict && verdict.residuals) || [],

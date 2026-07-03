@@ -223,15 +223,15 @@ public static partial class Analyze {
         });
 
     internal static Fin<Seq<Curve>> IsoSeq(Surface surface, IsoStatus iso, double normalized, Op op) => (iso, normalized is >= 0.0 and <= 1.0) switch {
-        (IsoStatus.West, _) when surface is BrepFace face => Fin.Succ(toSeq(face.TrimAwareIsoCurve(direction: 1, constantParameter: face.Domain(0).T0))),
-        (IsoStatus.East, _) when surface is BrepFace face => Fin.Succ(toSeq(face.TrimAwareIsoCurve(direction: 1, constantParameter: face.Domain(0).T1))),
-        (IsoStatus.South, _) when surface is BrepFace face => Fin.Succ(toSeq(face.TrimAwareIsoCurve(direction: 0, constantParameter: face.Domain(1).T0))),
-        (IsoStatus.North, _) when surface is BrepFace face => Fin.Succ(toSeq(face.TrimAwareIsoCurve(direction: 0, constantParameter: face.Domain(1).T1))),
-        (IsoStatus.West or IsoStatus.South or IsoStatus.East or IsoStatus.North, _) => Optional(surface.IsoCurve(direction: iso == IsoStatus.West || iso == IsoStatus.East ? 1 : 0, constantParameter: iso switch { IsoStatus.West => surface.Domain(0).T0, IsoStatus.East => surface.Domain(0).T1, IsoStatus.South => surface.Domain(1).T0, _ => surface.Domain(1).T1 })).ToFin(op.InvalidResult()).Map(static curve => Seq(curve)),
-        (IsoStatus.X or IsoStatus.Y, true) when surface.Domain(direction: iso == IsoStatus.X ? 0 : 1) is { IsValid: true } domain =>
+        (IsoStatus.West, _) when surface is BrepFace face => Fin.Succ(toSeq(face.TrimAwareIsoCurve(1, face.Domain(0).T0))),
+        (IsoStatus.East, _) when surface is BrepFace face => Fin.Succ(toSeq(face.TrimAwareIsoCurve(1, face.Domain(0).T1))),
+        (IsoStatus.South, _) when surface is BrepFace face => Fin.Succ(toSeq(face.TrimAwareIsoCurve(0, face.Domain(1).T0))),
+        (IsoStatus.North, _) when surface is BrepFace face => Fin.Succ(toSeq(face.TrimAwareIsoCurve(0, face.Domain(1).T1))),
+        (IsoStatus.West or IsoStatus.South or IsoStatus.East or IsoStatus.North, _) => Optional(surface.IsoCurve(iso)).ToFin(op.InvalidResult()).Map(static curve => Seq(curve)),
+        (IsoStatus.X or IsoStatus.Y, true) when surface.Domain(iso == IsoStatus.X ? 0 : 1) is { IsValid: true } domain =>
             surface is BrepFace face
-                ? Fin.Succ(toSeq(face.TrimAwareIsoCurve(direction: iso == IsoStatus.X ? 1 : 0, constantParameter: domain.ParameterAt(normalized))))
-                : Optional(surface.IsoCurve(direction: iso == IsoStatus.X ? 1 : 0, constantParameter: domain.ParameterAt(normalized))).ToFin(op.InvalidResult()).Map(static curve => Seq(curve)),
+                ? Fin.Succ(toSeq(face.TrimAwareIsoCurve(iso == IsoStatus.X ? 1 : 0, domain.ParameterAt(normalized))))
+                : Optional(surface.IsoCurve(iso, domain.ParameterAt(normalized))).ToFin(op.InvalidResult()).Map(static curve => Seq(curve)),
         _ => Fin.Fail<Seq<Curve>>(op.InvalidInput()),
     };
     internal static Fin<Option<CurveForm>> ClassifyCurveForm(TopologyProjection projection, Context context, Op op) =>
@@ -271,8 +271,8 @@ public static partial class Analyze {
                     _ => Fin.Fail<Lease<GeometryBase>>(op.Unsupported(geometry.GetType(), typeof(Curve))),
                 }).Bind(lease => lease.Use(shape =>
                     Optional(silhouette.DraftAngle.Case switch {
-                        double angle => Rhino.Geometry.Silhouette.ComputeDraftCurve(geometry: shape, draftAngle: angle, pullDirection: direction, tolerance: context.Absolute.Value, angleToleranceRadians: context.Angle.Value, cancelToken: cancel),
-                        _ => Rhino.Geometry.Silhouette.Compute(geometry: shape, silhouetteType: SilhouetteType.Projecting | SilhouetteType.TangentProjects | SilhouetteType.Tangent | SilhouetteType.Crease | SilhouetteType.Boundary, parallelCameraDirection: direction, tolerance: context.Absolute.Value, angleToleranceRadians: context.Angle.Value, clippingPlanes: [], cancelToken: cancel),
+                        double angle => Rhino.Geometry.Silhouette.ComputeDraftCurve(shape, angle, direction, context.Absolute.Value, context.Angle.Value, cancel),
+                        _ => Rhino.Geometry.Silhouette.Compute(shape, SilhouetteType.Projecting | SilhouetteType.TangentProjects | SilhouetteType.Tangent | SilhouetteType.Crease | SilhouetteType.Boundary, direction, context.Absolute.Value, context.Angle.Value, [], cancel),
                     }).ToFin(cancel.IsCancellationRequested ? new Fault.Cancelled() : op.InvalidResult())
                     .Map(found => toSeq(found).Map(sil => TopologyProjection.Of(curve: sil.Curve, source: sil.GeometryComponentIndex))))));
 }

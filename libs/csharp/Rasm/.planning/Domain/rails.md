@@ -15,11 +15,11 @@ The namespace is a frozen contract axis: the union-ops generator emits `global::
 
 ## [02]-[OPERATION_KEY]
 
-- Owner: `Op` `[ValueObject<string>]` readonly struct — ordinal equality, ordinal-ignore-case ordering — the identity of one kernel operation. Every fault names the `Op` that raised it; every acceptance gate is keyed by the `Op` that demanded it.
+- Owner: `Op` `[ValueObject<string>]` readonly struct — ordinal equality, ordinal-ignore-case ordering — the identity of one kernel operation. Every fault minted through the key's factory carries the `Op` that raised it; every acceptance gate is keyed by the `Op` that demanded it. The ambient cases carry their own evidence instead — a check-row key, a rejected scalar with its requirement, a unit system — because no single operation identity exists where they arise.
 - Entry: `Op.Of([CallerMemberName] string name = "")` mints the key from the calling member with zero ceremony; a `[GenerateUnionOps]` union case carries its generated `SelfOp` instead of re-minting per call. Public polymorphic surfaces accept `Op? key = null` and resolve through `OrDefault()` (the extension is `validation.md`'s); internal kernels demand a required `Op key` tail parameter.
-- Cases: fault factories `MissingContext()`/`InvalidInput()`/`InvalidResult(detail?)`/`Unsupported(geometryType, outputType)`/`Caution(concern)` → `Error`; acceptance bridges `AcceptInput`/`AcceptValue`/`AcceptText`/`Confirm`/`Need`(class + `Option<T>`)/`Finite`/`Positive` → `Fin<T>` delegating to `OpAcceptance` (`validation.md`'s oracle); boundary-exception rail `Catch<T>(Func<Fin<T>>)` + side-effect brackets `Side(Action)`/`SideWhen(bool, Action)`.
-- Law: `Catch` is the one inbound exception funnel — `Try.lift` captures the throwing body, the captured `error.Message` survives as the `InvalidResult` detail, and the self-flattening `Match` collapses the outer `Try` rail into the body's inner `Fin`. A bare `try`/`catch` in domain flow is the deleted form.
-- Law: `Finite`/`Positive` are the per-scalar key-bound guards over `RhinoMath.IsValidDouble` — the host predicate that additionally screens the `RhinoMath.UnsetValue` sentinel; collection- and shape-level admission is `validation.md`'s `Admit` vocabulary, never re-spelled per kernel.
+- Cases: fault factories `MissingContext()`/`InvalidInput()`/`InvalidResult(detail?)`/`Unsupported(geometryType, outputType)`/`Caution(concern)` → `Error`; acceptance bridges `AcceptInput`/`AcceptValue`/`AcceptText`/`Confirm`/`Need`(class + `Option<T>`) → `Fin<T>` delegating to `OpAcceptance` (`validation.md`'s oracle); scalar guards `Finite`/`Positive` → `Fin<double>` lifting the `[06]` claim rows; boundary-exception rail `Catch<T>(Func<Fin<T>>)` + side-effect brackets `Side(Action)`/`SideWhen(bool, Action)`.
+- Law: `Catch` is the one inbound exception funnel — `Try.lift` captures the throwing body, a captured `OperationCanceledException` surfaces as `Fault.Cancelled` (`Error.Is<E>` discriminates, so a host call cancelled mid-body keeps its category instead of masquerading as a result failure), every other capture survives as the `InvalidResult` detail, and the self-flattening `Match` collapses the outer `Try` rail into the body's inner `Fin`. A bare `try`/`catch` in domain flow is the deleted form.
+- Law: `Finite`/`Positive` lift the `[06]` claim rows (`ValidityClaim.Finite`/`Positive`) into key-bound admission — the host predicate is stated once, on the claim row, never re-spelled here; collection- and shape-level admission is `validation.md`'s `Admit` vocabulary, never re-spelled per kernel.
 - Boundary: `Op` is a key, never a message channel — diagnostic text lives on the `Fault` case payloads; the key renders inside the case `Message` and nowhere else.
 
 ```csharp signature
@@ -45,15 +45,15 @@ public readonly partial struct Op {
     [BoundaryAdapter] public Fin<Unit> Confirm(bool success) => success ? Fin.Succ(value: unit) : Fin.Fail<Unit>(error: InvalidResult());
     [BoundaryAdapter] public Fin<T> Need<T>(T? value) where T : class => Optional(value).ToFin(Fail: InvalidInput());
     [BoundaryAdapter] public Fin<T> Need<T>(Option<T> value) => value.ToFin(Fail: InvalidInput());
-    [BoundaryAdapter] public Fin<double> Finite(double value) => guard(RhinoMath.IsValidDouble(x: value), InvalidInput()).ToFin().Map(_ => value);
-    [BoundaryAdapter] public Fin<double> Positive(double value) => guard(RhinoMath.IsValidDouble(x: value) && (value > 0.0), InvalidInput()).ToFin().Map(_ => value);
+    [BoundaryAdapter] public Fin<double> Finite(double value) => guard(ValidityClaim.Finite(value: value), InvalidInput()).ToFin().Map(_ => value);
+    [BoundaryAdapter] public Fin<double> Positive(double value) => guard(ValidityClaim.Positive(value: value), InvalidInput()).ToFin().Map(_ => value);
     [BoundaryAdapter]
     public Fin<T> Catch<T>(Func<Fin<T>> body) {
         Op self = this;
         return Optional(body).ToFin(Fail: self.InvalidInput()).Bind(valid =>
             Try.lift<Fin<T>>(f: valid).Run().Match(
                 Succ: static result => result,
-                Fail: error => Fin.Fail<T>(error: self.InvalidResult(detail: error.Message))));
+                Fail: error => Fin.Fail<T>(error: error.Is<OperationCanceledException>() ? new Fault.Cancelled() : self.InvalidResult(detail: error.Message))));
     }
     [BoundaryAdapter]
     public static Unit Side(Action action) {
@@ -86,9 +86,10 @@ public sealed class SkipUnionOpsAttribute : Attribute;
 
 ## [04]-[FAULT_BAND]
 
-- Owner: `Expected` — the abstract `Error` bridge pinning `IsExpected`/`IsExceptional` and lowering into the LanguageExt exception protocol through `WrappedErrorExpectedException` — plus `Fault`, the closed `[GenerateUnionOps]` `[Union]` of every kernel-substrate failure, and `FaultExtensions.Category` projecting the band off any `Error`.
-- Cases: `MissingOperation` (Operation) · `MissingContext(Op)` (Operation) · `InvalidInput(Op)` (Input) · `InvalidResult(Op, Option<string>)` (Result) · `Cancelled` (Cancelled) · `Unsupported(Op, Type, Type)` (Unsupported, code 9104) · `ComputationFailed(string)` (Computation) · `MissingGeometry` (Geometry) · `InvalidGeometry(GeometryBase, string, string)` (Geometry) · `OutOfRange(string, double, string)` (Tolerance) · `InvalidUnitSystem(UnitSystem, string)` (Context) · `Caution(Op, string)` (Caution) — twelve cases, each carrying its typed payload and rendering its own `Message`.
+- Owner: `Expected` — the abstract `Error` bridge pinning `IsExpected`/`IsExceptional` and lowering into the LanguageExt exception protocol through `WrappedErrorExpectedException` — plus `Fault`, the closed `[GenerateUnionOps]` `[Union]` of every kernel-substrate failure, and `FaultExtensions`, the `extension(Error)` block projecting `Category` off any `Error`.
+- Cases: `MissingOperation` (Operation) · `MissingContext(Op)` (Operation) · `InvalidInput(Op)` (Input) · `InvalidResult(Op, Option<string>)` (Result) · `Cancelled` (Cancelled) · `Unsupported(Op, Type, Type)` (Unsupported, code 9104) · `ComputationFailed(string)` (Computation) · `MissingGeometry` (Geometry) · `InvalidGeometry(Type, string, string)` (Geometry) · `OutOfRange(string, double, string, Option<Op>)` (Tolerance) · `InvalidUnitSystem(UnitSystem, string)` (Context) · `Caution(Op, string)` (Caution) — twelve cases, each carrying its typed payload and rendering its own `Message`.
 - Law: `Unsupported` is the only coded case — `UnsupportedCode` 9104 is the discriminant the Grasshopper drain reads to distinguish an unsupported projection from a hard failure; every other case discriminates by `Category` string and case type, and recovery predicates match on the case, never on rendered text.
+- Law: payloads are evidence, never live resources — `InvalidGeometry` carries the failing `Type`, not the geometry reference: coercion leases dispose before a fault surfaces, so a live payload would hand consumers a disposed native object and retain host memory inside accumulating `Validation` rails. `OutOfRange` carries an optional `Op` — `None` from keyless factory admission (`context.md`'s triad), re-keyed to the demanding operation by the `AcceptValidated` bridge (`validation.md`).
 - Law: the two-family seam is an explicit decision — `Fault` is the kernel-substrate rail (`Expected`-derived records, direct `Error` subtyping, payloads addressable by pattern match); `Rasm.Geometry`'s `GeometryFault` band 2400 is the robust-core rail (ordinal-coded, `ToError()`-lowered). Two families, two altitudes, never merged: a substrate failure — missing context, invalid input, cancelled run, unsupported projection — is a `Fault` case; a robust-core geometry failure — degenerate offset, stalled skeleton, singular constraint system — is a `GeometryFault` case. Neither absorbs the other; a page composing both rails converts nothing — both are already `Error`.
 - Growth: a new substrate failure is one `Fault` case with its typed payload and `Category`; a parallel error type, a bare `Error.New` in domain flow, or a case minted for a robust-core concern is the rejected form.
 - Boundary: `Fault` crosses the kernel, the `Rasm.Analysis` runtime, and the Grasshopper boundary as the one failure vocabulary; only self-sufficient `Message`, `Category`, and the 9104 code are read outside the kernel.
@@ -129,23 +130,27 @@ public abstract partial record Fault : Expected {
     }
     public sealed partial record ComputationFailed(string Label) : Fault { public override string Message => $"Rhino {Label} computation failed."; public override string Category => "Computation"; }
     public sealed partial record MissingGeometry : Fault { public override string Message => "Geometry input is required."; public override string Category => "Geometry"; }
-    public sealed partial record InvalidGeometry(GeometryBase Geometry, string Check, string Log) : Fault {
+    public sealed partial record InvalidGeometry(Type Shape, string Check, string Log) : Fault {
         public override string Message => string.IsNullOrWhiteSpace(value: Log)
-            ? $"Geometry validation failed for {Geometry.GetType().Name} under check '{Check}'."
-            : $"Geometry validation failed for {Geometry.GetType().Name} under check '{Check}': {Log}";
+            ? $"Geometry validation failed for {Shape.Name} under check '{Check}'."
+            : $"Geometry validation failed for {Shape.Name} under check '{Check}': {Log}";
         public override string Category => "Geometry";
     }
-    public sealed partial record OutOfRange(string Label, double Scalar, string Requirement) : Fault { public override string Message => string.Create(provider: CultureInfo.InvariantCulture, $"Geometry value '{Label}' must be {Requirement}; actual={Scalar:R}."); public override string Category => "Tolerance"; }
+    public sealed partial record OutOfRange(string Label, double Scalar, string Requirement, Option<Op> Key = default) : Fault {
+        public override string Message => string.Create(provider: CultureInfo.InvariantCulture, $"Geometry value '{Label}'{Key.Map(static k => $" (operation '{k}')").IfNone(static () => string.Empty)} must be {Requirement}; actual={Scalar:R}.");
+        public override string Category => "Tolerance";
+    }
     public sealed partial record InvalidUnitSystem(UnitSystem Units, string Requirement) : Fault { public override string Message => $"Model unit system must be {Requirement}; actual={Units}."; public override string Category => "Context"; }
     public sealed partial record Caution(Op Key, string Concern) : Fault { public override string Message => $"Geometry operation '{Key}' raised a recoverable concern: {Concern}."; public override string Category => "Caution"; }
 }
 
-public static partial class FaultExtensions {
-    [BoundaryAdapter]
-    public static string Category(this Error error) => error switch {
-        Expected expected => expected.Category,
-        _ => "Fault",
-    };
+public static class FaultExtensions {
+    extension(Error error) {
+        public string Category => error switch {
+            Expected expected => expected.Category,
+            _ => "Fault",
+        };
+    }
 }
 ```
 

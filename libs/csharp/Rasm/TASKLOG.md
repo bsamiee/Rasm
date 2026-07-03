@@ -17,6 +17,13 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Atomic: <present only on a minor-scope task; one short phrase naming the small unit so a later session does not overscope its turn>.
 -->
 
+[HOST_BOUNDARY_REENTRY]-[BLOCKED]: the host-boundary packages re-enter the solution build surface when kernel realization lands.
+- Capability: Restore `Rasm.Rhino`, `Rasm.Grasshopper`, and their test shells to `Workspace.slnx` once compiled `Rasm.Domain`/`Rasm.Vectors`/`Rasm.Analysis` types exist again.
+- Shape: Four slnx folder/project rows return — `/libs/csharp/Rasm.Rhino/`, `/libs/csharp/Rasm.Grasshopper/`, `/tests/csharp/libs/Rasm.Rhino/`, `/tests/csharp/libs/Rasm.Grasshopper/`; the frozen host source binds the frozen-name contracts (`VectorIntent`/`VectorFrame`/`MotionInterpolation`, `Analyze`/`AnalysisQuery`/`Env`, `Op` + the `[Union]` generator emit).
+- Unlocks: Host-boundary compile, the rhino-bridge runtime scenarios over kernel capability, and future app-root composition.
+- Anchors: `Processing/intent#INTENT`, `Analysis/query#QUERY`, `Domain/rails#RAILS`, the frozen-name law in the kernel index docs, `tools/cs-analyzer` `UnionOpsGenerator` emit.
+- Tension: Blocked on realization, never on planning — no design page waits on this card.
+
 [T-BOOLEAN-NATIVE-ASSET]-[BLOCKED]: native arrangement asset remains a scale-only gate after the managed exact boolean path lands.
 - Capability: Admit a robust exact-arithmetic mesh-arrangement native asset only for boolean workloads beyond the managed arrangement scale ceiling.
 - Shape: `HealOp.Boolean` composes `Arrangement.Apply(ArrangementKind.MeshBoolean, ...)` for common managed cases; `NativeAssetMissing` stays reserved for the future tier-3 scale route.

@@ -2,7 +2,7 @@
 
 The optimal-transport owner: ONE log-domain stabilized Sinkhorn kernel over weighted cluster pairs — balanced marginals, unbalanced KL-relaxed marginals, and Sinkhorn-divergence debiasing are POLICY rows of one iteration, never three solver bodies — projecting through ONE `SinkhornPlan.Project<TOut>` into every transport answer: the regularized distance, the full evidence receipt, the thresholded correspondence set, the coupling as a `matrix.md` `Matrix`, and the barycentric-transport image cloud. Transport mass is the cluster's own admitted normalized mass (`cloud.md` `MassOf`), so a weighted cluster IS a discrete measure and no second measure type exists.
 
-The kernel is numerically owned end to end: every scaling update runs in log space through one `LogSumExp` fold, and the exponential-underflow policy is a NAMED constant — `LogUnderflowFloor = -745.0`, the natural-log of the smallest positive double, below which a coupling exponent floors to exactly zero with the flooring recorded as receipt evidence, never a silent denormal. The iteration is a flat row-major `double[]` statement kernel — the retired raw-MathNet dense-matrix reach is deleted; linear algebra enters only at the egress where the coupling projects into the `matrix.md` owner.
+The kernel is numerically owned end to end: every scaling update runs in log space through one `LogSumExp` fold, and the exponential-underflow policy is a NAMED constant — `LogUnderflowFloor = -708.396…`, the natural log of the smallest positive NORMAL double, below which `Math.Exp` degrades subnormal-then-zero, so the coupling exponent floors to exactly zero with the flooring recorded as receipt evidence, never a silent denormal (a floor at ln `double.Epsilon` ≈ −745 is the rejected constant — it passes the whole subnormal band (−745, −708.4] through silently). The iteration is a flat row-major `double[]` statement kernel — the retired raw-MathNet dense-matrix reach is deleted; linear algebra enters only at the egress where the coupling projects into the `matrix.md` owner.
 
 ## [01]-[INDEX]
 
@@ -75,8 +75,9 @@ public readonly record struct CloudTransportPolicy(
 ```csharp signature
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static class CloudTransport {
-    // ln(double.Epsilon-adjacent): below this exponent Math.Exp underflows to 0; flooring is recorded, never silent.
-    internal const double LogUnderflowFloor = -745.0;
+    // ln(smallest positive NORMAL double): below this exponent Math.Exp is subnormal or zero;
+    // the coupling floors to exactly 0 and the flooring is recorded — no denormal survives silently.
+    internal const double LogUnderflowFloor = -708.3964185322641;
 
     public static Fin<TOut> Sinkhorn<TOut>(VectorCloud source, VectorCloud target, CloudTransportPolicy policy, Op? key = null) {
         Op op = key.OrDefault();
@@ -144,6 +145,8 @@ public static class CloudTransport {
     }
 
     private static double LogSumExp(ReadOnlySpan<double> row, double[] shift) { /* max-shifted LSE over row[j]+shift[j] */ return default; }
+    // LogSumExpColumn (strided column LSE) / MaxDelta (worst |prev-next| log-scaling delta) /
+    // MarginalResiduals (worst row/column marginal error vs a and b): one-body private statics of the kernel.
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -188,6 +191,7 @@ public readonly record struct SinkhornReceipt(
         ValidityClaim.Of(ResidualKind.Equals(MassRelaxation.IsSome ? SinkhornResidualKind.ScalingChange : SinkhornResidualKind.MarginalMass)),
         ValidityClaim.Nonnegative(SourceConvergenceResidual),
         ValidityClaim.Nonnegative(TargetConvergenceResidual),
+        ValidityClaim.Of(Stop.Converged == (Math.Max(SourceConvergenceResidual, TargetConvergenceResidual) <= ConvergenceTolerance)),
         ValidityClaim.CountAtLeast(count: Iterations, floor: 1),
         ValidityClaim.Nonnegative(CouplingMass),
         ValidityClaim.Of(NonZeroCouplings >= 0),
@@ -225,7 +229,7 @@ public readonly record struct CloudCorrespondenceSet(
         ValidityClaim.Of(CoveredTargetCount >= 0 && CoveredTargetCount <= TargetCount),
         ValidityClaim.Nonnegative(TotalMass),
         ValidityClaim.Nonnegative(Rmse),
-        ValidityClaim.Ordered(lower: MedianDistance, upper: MaxDistance),
+        ValidityClaim.Ordered(lower: MedianDistance, upper: Quantile90),
         ValidityClaim.Ordered(lower: Quantile90, upper: Quantile95),
         ValidityClaim.Ordered(lower: Quantile95, upper: MaxDistance),
         ValidityClaim.Nonnegative(RetainedSourceMass),

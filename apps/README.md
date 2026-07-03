@@ -5,16 +5,15 @@ Top-level layout for shippable plugins. The host platform (Rhino-only vs Grassho
 ```
 apps/
 ├── grasshopper/        # Grasshopper 2 plugins (component libraries)
-│   ├── Radyab/          # current exemplar
 │   └── <new Grasshopper plugin>/<Plugin>.csproj
 └── rhino/              # Rhino-only plugins (commands, UI, no GH components)
     └── <new Rhino plugin>/<Plugin>.csproj
 ```
 
-| [INDEX] | [HOST]        | [WHEN_TO_USE]                                                        | [EXAMPLES]                                             |
-| :-----: | ------------- | -------------------------------------------------------------------- | ------------------------------------------------------ |
-|  [01]   | `grasshopper` | Plugin exposes Grasshopper2 components, parameter ports, IDataAccess | `apps/grasshopper/Radyab/`; `<new Grasshopper plugin>` |
-|  [02]   | `rhino`       | Plugin exposes Rhino commands, panels, overlays — no GH components   | `<new Rhino plugin>`                                   |
+| [INDEX] | [HOST]        | [WHEN_TO_USE]                                                        | [EXAMPLES]                   |
+| :-----: | ------------- | -------------------------------------------------------------------- | ---------------------------- |
+|  [01]   | `grasshopper` | Plugin exposes Grasshopper2 components, parameter ports, IDataAccess | `<new Grasshopper plugin>`   |
+|  [02]   | `rhino`       | Plugin exposes Rhino commands, panels, overlays — no GH components   | `<new Rhino plugin>`         |
 
 ## [01]-[CSPROJ_CONVENTIONS]
 
@@ -39,12 +38,12 @@ To add a new plugin:
 
 ## [02]-[REFERENCE_PLUGIN]
 
-`apps/grasshopper/Radyab/Radyab.csproj` is the current Grasshopper-host exemplar, not the only plugin shape. Match the host folder convention when adding new plugins:
+The Grasshopper-host plugin shape; match the host folder convention when adding new plugins:
 
 ```
-apps/grasshopper/Radyab/
+apps/grasshopper/<Plugin>/
 ├── Components/         # IComponentDefinition implementations
 ├── Icons/              # plugin.ico + .ghicon assets
 ├── Library.cs          # plugin manifest (IoId, Author, Icon)
-└── Radyab.csproj
+└── <Plugin>.csproj
 ```

@@ -113,6 +113,34 @@
           "xunit.v3.assert": "1.1.0"
         }
       },
+      "Verify.DiffPlex": {
+        "type": "Direct",
+        "requested": "[3.3.0, )",
+        "resolved": "3.3.0",
+        "contentHash": "0o8BepD2GkQU0J8/ttQq4b+Mp+eVKjihpJWFWRTmVsMrN09mGLltnZjxwC6Y5lOrEwuestlByxfNvOIkC9sUyg==",
+        "dependencies": {
+          "Argon": "0.34.0",
+          "DiffEngine": "19.2.0",
+          "DiffPlex": "1.9.0",
+          "EmptyFiles": "8.18.1",
+          "SimpleInfoName": "3.2.0",
+          "Verify": "31.20.0"
+        }
+      },
+      "Verify.XunitV3": {
+        "type": "Direct",
+        "requested": "[31.20.0, )",
+        "resolved": "31.20.0",
+        "contentHash": "rWaM0L/ufScjyvGqZ81phrRKoIphIkxhBANduyQY/gnm4yv1aARHAiUtnIDjqZak3k6w7mV3T2EiXwMe+zZM5g==",
+        "dependencies": {
+          "Argon": "0.34.0",
+          "DiffEngine": "19.2.0",
+          "Microsoft.Bcl.AsyncInterfaces": "10.0.9",
+          "SimpleInfoName": "3.2.0",
+          "Verify": "31.20.0",
+          "xunit.v3.extensibility.core": "3.2.2"
+        }
+      },
       "xunit.v3.mtp-v2": {
         "type": "Direct",
         "requested": "[3.2.2, )",
@@ -124,10 +152,33 @@
           "xunit.v3.core.mtp-v2": "[3.2.2]"
         }
       },
+      "Argon": {
+        "type": "Transitive",
+        "resolved": "0.34.0",
+        "contentHash": "BZHO48GC2lBRlJpBI1Ld7POLClP9EEc0i6MQ4pqcWwDsfCu1YFLWVYmloduiivgDeEwBaHry4MIiZSlOfcNTMQ=="
+      },
       "CycleDetection": {
         "type": "Transitive",
         "resolved": "2.0.0",
         "contentHash": "iQb2Nm9WqPseGCxPcdeU5qMbWkxtSr1bmnliC7slitx7GOG8cKO2pKZUQ2Yl+DQQZQ7c8qIXe3k+zYE0f96dIA=="
+      },
+      "DiffEngine": {
+        "type": "Transitive",
+        "resolved": "19.2.0",
+        "contentHash": "T6LKWC+YPNswK8hgZ+kYqsIeS75qd2loAFbyopOoLwN0zK/MIEGjKMdIIF46slQfDIveZU5Rj8Ur4lUxnXdahQ==",
+        "dependencies": {
+          "EmptyFiles": "8.18.1"
+        }
+      },
+      "DiffPlex": {
+        "type": "Transitive",
+        "resolved": "1.9.0",
+        "contentHash": "Z4IDEH6iOb6d+Y2QUjsbq1Fp5I/kwZzNdr/evBTbCGq+ShAjE4baLm7lX1tfjV2p34QI3V9kctCQziFuuKqeCA=="
+      },
+      "EmptyFiles": {
+        "type": "Transitive",
+        "resolved": "8.18.1",
+        "contentHash": "5gA7ICU+CafaHJLbrL/lOEABwkmXS6089WoCbn+NkIul2ATAGGzQsD4cXOFmYmQp6b9Jd/f4bb2EK+14dY75Pw=="
       },
       "MessagePack.Annotations": {
         "type": "Transitive",
@@ -141,8 +192,8 @@
       },
       "Microsoft.Bcl.AsyncInterfaces": {
         "type": "Transitive",
-        "resolved": "6.0.0",
-        "contentHash": "UcSjPsst+DfAdJGVDsu346FX0ci0ah+lw3WRtn18NUwEqRt70HaOQ7lI72vy3+1LxtqI3T5GWwV39rQSrCzAeg=="
+        "resolved": "10.0.9",
+        "contentHash": "Aq7M8lG6BrHeatqKqncVm9m55ec34k6nnfPRLe/PvGg+b/pAsRM2ejofeKmCLjTXMa+5NGXm382f8CG/D5WDow=="
       },
       "Microsoft.Extensions.Configuration.Abstractions": {
         "type": "Transitive",
@@ -210,6 +261,11 @@
         "resolved": "0.11.6",
         "contentHash": "f33RkDtZO8VlGXCtmQIviOtxgnUdym9xx/b1p9h91CRGOsJFxCFOFK1FDbVt1OCf1aWwYejUFa2MOQyFWTFjbA=="
       },
+      "SimpleInfoName": {
+        "type": "Transitive",
+        "resolved": "3.2.0",
+        "contentHash": "K8ivHRbPWfncijk62Dan/r/z55gwq3aFzqB6yFlD9X0bbpIaacHyHH2cpcIdz0FECUpERUZTwxts0z4gRWpQpA=="
+      },
       "System.ValueTuple": {
         "type": "Transitive",
         "resolved": "4.6.1",
@@ -240,6 +296,16 @@
           "Mono.Cecil": "0.11.6",
           "Newtonsoft.Json": "13.0.4",
           "System.ValueTuple": "4.6.1"
+        }
+      },
+      "Verify": {
+        "type": "Transitive",
+        "resolved": "31.20.0",
+        "contentHash": "rG9Uvg49LwBHRBagYjBj3ckMj2PwEl6QhI5GUhqec1Z3sNWX9+58oVUH90ckPOhj/2VgVi0lh7kYIXcLkxur2A==",
+        "dependencies": {
+          "Argon": "0.34.0",
+          "DiffEngine": "19.2.0",
+          "SimpleInfoName": "3.2.0"
         }
       },
       "xunit.analyzers": {
@@ -282,6 +348,15 @@
         "type": "Project",
         "dependencies": {
           "JetBrains.Annotations": "[2026.2.0, )"
+        }
+      },
+      "rasm.benchmarks": {
+        "type": "Project",
+        "dependencies": {
+          "Csp.Contracts": "[1.0.0, )",
+          "JetBrains.Annotations": "[2026.2.0, )",
+          "LanguageExt.Core": "[5.0.0-beta-77, )",
+          "Thinktecture.Runtime.Extensions": "[10.4.0, )"
         }
       },
       "Rasm.Bridge.Contract": {

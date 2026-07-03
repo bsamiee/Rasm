@@ -2,7 +2,7 @@
 
 The streamline/trace owner — ONE `Termination` `[Union]` (`StepCount`/`ArcLength`/`MagnitudeFloor`/`CrossSurface`/`RegionThreshold`/`LoopDetected`) that decides every stop and localizes every crossing event by dense-output root bisection, and ONE `FlowKernel.Trace<TOut>` entry that advances any `VectorField` under the `Numerics/integrate.md` stepper through a fold-shaped immutable `StreamlineState`, terminating by a `Schedule.recurs`-driven `RepeatWhile` whose iteration ceiling is the `TracePolicy.MaxIterations` policy row — never a compiled-in constant. The stepper seam is `Numerics/integrate.md`'s carrier-generic `FieldIntegrator.Step`: THIS page declares the ONE spatial `IntegrationModule<Point3d, Vector3d>` instance the stepper folds over (`integrate.md` assigns its consumer exactly one module declaration), and the step outcome arrives as the settled `IntegrationStep<Point3d, Vector3d>` accepted/rejected union carrying the `DenseOutputSpan<Point3d, Vector3d>` continuous extension — no parallel step or dense-output vocabulary exists here, and `IntegratorKind`, `ButcherTableau`, `DenseOutputCoefficientFamily`, `DenseWeightsAt`, and the module's single `Combine` fold are composed as settled numerics, never re-derived. Event localization is exact where the integrator grants it: a bracketed sign change refines through the accepted step's `DenseOutputSpan.PointAt` so the localized point lies ON the high-order solution curve (`DenseOutputRoot`), and only a dense-less segment falls back to chord bisection (`BoundedBisection`) — the localization kind is receipt evidence, not a mode flag.
 
-`Op` stays the explicit value key threaded positionally through every kernel signature — these pipelines are short, so no `Eff<Env>` lift is warranted, and no dual paradigm exists. Every receipt (`TraceEvent`, `StreamlineTrace`, the composed `DenseOutputReceipt`) rides the `Domain/rails.md` validity fold: `IsValid` is one `ValidityClaim.All` over claim rows — finiteness, non-negative counts, unit-interval parameters, ordering, nested evidence — plus the cross-field claims only this page can state; a hand-rolled `&&` chain in a receipt body is the deleted form. Result projection routes through `Numerics/atoms.md`'s `AtomProjection.Rows` typed-row dispatch with the receipt as the implicit self row — `typeof(TOut)` reflection switching is dead corpus-wide. Termination admission leans on the `Spatial/support.md` adapter directly: an admitted `SupportSpace` is closest-capable by construction, and the per-hit `AdmitsSignedDistance(hit)` gate runs exactly where the hit exists; the `Domain/validation.md` admission vocabulary (`Admit.NotNull`/`Admit.Finite`) gates every raw ingress once.
+`Op` stays the explicit value key threaded positionally through every kernel signature — these pipelines are short, so no `Eff<Env>` lift is warranted, and no dual paradigm exists. Every receipt (`TraceEvent`, `StreamlineTrace`, the composed `DenseOutputReceipt`) rides the `Domain/rails.md` validity fold: `IsValid` is one `ValidityClaim.All` over claim rows — finiteness, non-negative counts, unit-interval parameters, ordering, nested evidence — plus the cross-field claims only this page can state; a hand-rolled `&&` chain in a receipt body is the deleted form. Result projection routes through `Numerics/atoms.md`'s `AtomProjection.Rows` typed-row dispatch with the receipt as the implicit self row — `typeof(TOut)` reflection switching is dead corpus-wide. Termination admission leans on the `Spatial/support.md` adapter directly: an admitted `SupportSpace` is closest-capable by construction, and the per-hit `AdmitsSignedDistance(hit)` gate runs exactly where the hit exists; raw ingress gates once through the `Domain/rails.md` acceptance bridge (`Op.Need`/`Op.Finite`/`Op.AcceptValidated`) — the `Admit` member name shadows the `Rasm.Domain.Admit` class inside `Termination`, so the Op-owned gates are the canonical form here.
 
 ## [01]-[INDEX]
 
@@ -100,21 +100,22 @@ public abstract partial record Termination {
         Positive(candidate: closureRadius, create: static value => new LoopDetectedCase(ClosureRadius: value), key: key);
 
     // An admitted SupportSpace is closest-capable by construction (support.md Of gate); the signed-distance
-    // gate is per-hit and runs at Evaluate, where the hit exists.
+    // gate is per-hit and runs at Evaluate, where the hit exists. Op.Need/Finite are the gates here:
+    // the Admit member name shadows the Rasm.Domain.Admit class inside this type.
     internal Fin<Termination> Admit(Op key) => Switch(
         state: key,
         stepCountCase: static (_, termination) => Fin.Succ<Termination>(termination),
         arcLengthCase: static (_, termination) => Fin.Succ<Termination>(termination),
         magnitudeFloorCase: static (_, termination) => Fin.Succ<Termination>(termination),
         crossSurfaceCase: static (op, termination) =>
-            Admit.NotNull(value: termination.Surface, key: op).Map(static _ => (Termination)termination),
+            op.Need(termination.Surface).Map(static _ => (Termination)termination),
         regionThresholdCase: static (op, termination) =>
-            from region in Admit.NotNull(value: termination.Region, key: op)
-            from threshold in Admit.Finite(value: termination.Threshold, key: op)
+            from region in op.Need(termination.Region)
+            from threshold in op.Finite(termination.Threshold)
             select (Termination)termination,
         loopDetectedCase: static (_, termination) => Fin.Succ<Termination>(termination));
     internal static Fin<Termination> Admit(Termination value, Op key) =>
-        Admit.NotNull(value: value, key: key).Bind(termination => termination.Admit(key: key));
+        key.Need(value).Bind(termination => termination.Admit(key: key));
 
     internal Fin<(bool Stop, Option<TraceEvent> Event)> Evaluate(StreamlineState state, Vector3d currentSample, Context context, Op key) => Switch(
         state: (Field: state, Sample: currentSample, Context: context, Key: key),
@@ -237,7 +238,7 @@ public readonly record struct TraceEvent(
         ValidityClaim.Finite(Values.Previous), ValidityClaim.Finite(Values.Current), ValidityClaim.Finite(Values.Localized),
         ValidityClaim.UnitInterval(Parameter), ValidityClaim.Nonnegative(Tolerance), ValidityClaim.Nonnegative(Residual),
         ValidityClaim.CountAtLeast(Iterations, 0),
-        ValidityClaim.Of(Math.Abs(value: Residual - Math.Abs(value: Values.Localized)) <= ButcherTableau.CoefficientTolerance),
+        ValidityClaim.Of(Math.Abs(value: Residual - Math.Abs(value: Values.Localized)) <= EpsilonPolicy.ZeroTolerance),
         ValidityClaim.Of(!LocalizationKind.Equals(TraceEventLocalizationKind.DenseOutputRoot) || DenseOutput.IsSome),
         ValidityClaim.Of(DenseOutput.Map(static receipt => receipt.IsValid).IfNone(noneValue: true)));
     internal bool IsValidFor(Point3d terminationPoint) =>

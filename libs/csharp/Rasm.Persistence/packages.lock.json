@@ -1790,46 +1790,6 @@
         "resolved": "3.0.1",
         "contentHash": "mkZt1r6Nx5CAoD3klhC7VMQFzwWMHHjoYpv3X9u+GMvTMbSRaDdiA88HUoOzT7kCeq4/L1nKctmrByhLK28Xjw=="
       },
-      "Microsoft.NETCore.Platforms": {
-        "type": "Transitive",
-        "resolved": "1.0.1-rc2-24027",
-        "contentHash": "BIZpJMovdHgUbCrZR9suwwLpZMNehIkaFKiIb9X5+wPjXNHMSQ91ETSASAnEXERyU7+ptJAfJGqgr3Y9ly98MQ==",
-        "dependencies": {
-          "Microsoft.NETCore.Targets": "1.0.1-rc2-24027"
-        }
-      },
-      "Microsoft.NETCore.Runtime": {
-        "type": "Transitive",
-        "resolved": "1.0.2-rc2-24027",
-        "contentHash": "z/R3npq0vJi1urIComaxGXX2CCfv27N78pNa3dMG4fyCQZA6u50v8ttWFnPV1caSN1O5JvDavqpBXVT1FdHcrA==",
-        "dependencies": {
-          "Microsoft.NETCore.Runtime.CoreCLR": "1.0.2-rc2-24027",
-          "Microsoft.NETCore.Runtime.Native": "1.0.2-rc2-24027"
-        }
-      },
-      "Microsoft.NETCore.Runtime.CoreCLR": {
-        "type": "Transitive",
-        "resolved": "1.0.2-rc2-24027",
-        "contentHash": "ANtMxCAN/4krahv/EnSHzTMosrTb3lwMrxqR+NBNLGOhXPs+Vo/UiUSOppF30CHJjK0mQvRMJyQrOGTRKmv64Q==",
-        "dependencies": {
-          "Microsoft.NETCore.Windows.ApiSets": "1.0.1-rc2-24027"
-        }
-      },
-      "Microsoft.NETCore.Runtime.Native": {
-        "type": "Transitive",
-        "resolved": "1.0.2-rc2-24027",
-        "contentHash": "aUtA5PJE7rGp0v6aKdYefj8GGpbf5nsND7xlMzPf0+n00YeYuM65sQtrd3TwtQlfmN4J57d40wfzEM3suVwWlg=="
-      },
-      "Microsoft.NETCore.Targets": {
-        "type": "Transitive",
-        "resolved": "1.0.1-rc2-24027",
-        "contentHash": "pNy4HhkgeM1kE/IqtDQLfUcMpy3NB3B/p8J/71G9Wvu2p/ARRH2hjq1TkETiqQW7ER9aFUs86wmgHyk3dtDgVQ=="
-      },
-      "Microsoft.NETCore.Windows.ApiSets": {
-        "type": "Transitive",
-        "resolved": "1.0.1-rc2-24027",
-        "contentHash": "/G/btXCgCbBpwWeeOoOiCAwayjcjPPW1hYqJ4uvreFA0J0+vu6o4pKQcypEz0X4CzmmUdcYG9hO6i43nBNBumg=="
-      },
       "Microsoft.VisualStudio.SolutionPersistence": {
         "type": "Transitive",
         "resolved": "1.0.52",
@@ -1841,15 +1801,6 @@
         "contentHash": "YqueG52R/Xej4VVbKuRIodjiAhV0HR/XVbLbNrJhCZnzjnSjgMJ/dCdV0akQQxavX6hp/LC6rqLGLcXeQYU7XA==",
         "dependencies": {
           "System.CodeDom": "6.0.0"
-        }
-      },
-      "NETStandard.Library": {
-        "type": "Transitive",
-        "resolved": "1.5.0-rc2-24027",
-        "contentHash": "4f0PviqALhzt6cOGUFibsaXKN+Rh/lwF95LXH9sYURkGjrn28NvkbK18Zw5BXLIL2v2TqzPgaSKsKhUniNMtXA==",
-        "dependencies": {
-          "Microsoft.NETCore.Platforms": "1.0.1-rc2-24027",
-          "Microsoft.NETCore.Runtime": "1.0.2-rc2-24027"
         }
       },
       "NetTopologySuite.IO.PostGis": {
@@ -2297,17 +2248,15 @@
           "LibTessDotNet": "[1.1.15, )",
           "MIConvexHull": "[1.1.19.1019, )",
           "MathNet.Numerics": "[6.0.0-beta2, )",
-          "MathNet.Numerics.Providers.MKL": "[6.0.0-beta2, )",
           "MathNet.Numerics.Providers.OpenBLAS": "[6.0.0-beta2, )",
           "PeterO.Numbers": "[1.8.2, )",
+          "QuikGraph": "[2.5.0, )",
           "SharpVoronoiLib": "[1.2.0, )",
           "Supercluster.KDTree.Net": "[1.0.22, )",
           "System.IO.Hashing": "[10.0.9, )",
           "System.Numerics.Tensors": "[10.0.9, )",
           "TYoshimura.DoubleDouble": "[5.0.8, )",
-          "Thinktecture.Runtime.Extensions": "[10.4.0, )",
-          "Triangle": "[0.0.6-Beta3, )",
-          "geometry3Sharp": "[1.0.324, )"
+          "Thinktecture.Runtime.Extensions": "[10.4.0, )"
         }
       },
       "rasm.apphost": {
@@ -2564,12 +2513,6 @@
           "Microsoft.Extensions.DependencyInjection.Abstractions": "2.1.0"
         }
       },
-      "geometry3Sharp": {
-        "type": "CentralTransitive",
-        "requested": "[1.0.324, )",
-        "resolved": "1.0.324",
-        "contentHash": "vdEC1zaX6lV8LI9BvqizplraEJ6zFE98rMM+hDZqVPXMtwDIIY/RpTQQtxe043E9gsSdx0Xyz1TbSqIYQnBPaw=="
-      },
       "Google.Protobuf": {
         "type": "CentralTransitive",
         "requested": "[3.35.1, )",
@@ -2667,15 +2610,6 @@
         "requested": "[6.0.0-beta2, )",
         "resolved": "6.0.0-beta2",
         "contentHash": "ew55vr5MqCEokG0jRsndoRSPNxdDvSgGwhWyxEFhzc8EuGn3TNtSGKRppCcpHnwXtjFiUvFBN+BBo75yrdKOrQ=="
-      },
-      "MathNet.Numerics.Providers.MKL": {
-        "type": "CentralTransitive",
-        "requested": "[6.0.0-beta2, )",
-        "resolved": "6.0.0-beta2",
-        "contentHash": "clfQCGFUtT5csP8B8iHEYJnVkW1fhBlW0xvv3hHQM54VbVUYGK2TuRtNvznSBkK7jhj7JjJ6EVw2Bzli/pz+Ug==",
-        "dependencies": {
-          "MathNet.Numerics": "6.0.0-beta2"
-        }
       },
       "MathNet.Numerics.Providers.OpenBLAS": {
         "type": "CentralTransitive",
@@ -3742,15 +3676,6 @@
         "requested": "[10.0.9, )",
         "resolved": "10.0.9",
         "contentHash": "VgZO8VEK/bX89MGJS3SQ0IhGfM8tMnCBIoXuKqTQ/jB7L3phQY2mKUdg6/W1LtIZkkE6EC0EjEowGbk5VFgH8Q=="
-      },
-      "Triangle": {
-        "type": "CentralTransitive",
-        "requested": "[0.0.6-Beta3, )",
-        "resolved": "0.0.6-Beta3",
-        "contentHash": "iaFs9/Vu25HeeETuTD99VX5C2qxcUgiH3S+zjUxI64VzOCVj9GT8/89CfE1j+euGjXPDedaS/DNq5JrKxv5LuQ==",
-        "dependencies": {
-          "NETStandard.Library": "1.5.0-rc2-24027"
-        }
       },
       "TYoshimura.DoubleDouble": {
         "type": "CentralTransitive",

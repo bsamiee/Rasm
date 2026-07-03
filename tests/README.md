@@ -84,7 +84,7 @@ Every tool writes reports under `.artifacts/` and temp/work state under `.cache/
 |  [08]   | mutmut            | Python mutation                  | `pyproject.toml` `[tool.mutmut]` + `.config/coverage-mutmut.ini` |
 |  [09]   | inline-snapshot   | snapshot storage                 | `pyproject.toml` `[tool.inline-snapshot]`                        |
 |  [10]   | Vitest            | TS coverage + results            | root `vitest.config.ts`                                          |
-|  [11]   | StrykerJS         | TS mutation                      | `.config/stryker.config.json`                                    |
+|  [11]   | StrykerJS         | TS mutation                      | `stryker.config.json`                                    |
 |  [12]   | Playwright        | e2e traces + results             | playwright config, landing with the TS buildout                  |
 |  [13]   | Nx                | target outputs + cache           | `nx.json` targetDefaults                                         |
 |  [14]   | import-linter     | grimp cache                      | assay static rail invocation (`--cache-dir .cache/grimp`)        |
@@ -132,7 +132,7 @@ The `Contract` and `Supervisor` suites under `tests/csharp/tools/rhino-bridge` p
 
 The assay operator is the single mutation and coverage gate authority in all three languages; thresholds and kill-floors live in the owning configs, never in docs or specs:
 - Stryker.NET policy — solution mode, baseline, thresholds — lives in `.config/stryker-config.json`; the assay mutation rail owns the staged invocation and routes its output under `.artifacts/`.
-- StrykerJS policy lives in `.config/stryker.config.json`; the TS invocation law is [tests/typescript/README.md](typescript/README.md).
+- StrykerJS policy lives in `stryker.config.json`; the TS invocation law is [tests/typescript/README.md](typescript/README.md).
 - The Python mutation lane is a staged gate under assay scored against its kill-floor; the lane law is [tests/python/README.md](python/README.md).
 - Zero mutant discovery is a failed rail in every language, never a green pass.
 - Both Stryker rails emit `mutation-testing-report-schema` JSON natively into `.artifacts/`; assay's kill-floor verdict is the single cross-language authority over the results.

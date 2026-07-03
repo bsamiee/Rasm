@@ -1,4 +1,3 @@
-using System.Text.Json;
 using Rasm.Bridge.Contract;
 using Rhino;
 using Rhino.Display;
@@ -83,6 +82,9 @@ public sealed class ScenarioContext {
 
     public void Note<T>(EvidenceName key, T value) => Fact(key: key.Key, value: value);
 
+    // One reference verb owns every actual (typed value or raw JsonElement via T). The supervisor
+    // fold consumes exactly {name, actual, tolerance}; admission is decided supervisor-side by
+    // evidence mode and corpus state, never asserted by the SDK.
     public Fin<Unit> Certify<T>(EvidenceName key, T actual, ReferenceTolerance tolerance) {
         if (string.IsNullOrWhiteSpace(value: key.Key)) {
             throw new ArgumentException(message: "evidence key cannot be blank", paramName: nameof(key));
@@ -92,21 +94,6 @@ public sealed class ScenarioContext {
             name = key.Key,
             actual,
             tolerance,
-            admission = ReferenceAdmission.Reviewed.Key,
-        });
-        return Fin.Succ(value: unit);
-    }
-
-    public Fin<Unit> Reference(EvidenceName key, JsonElement actual, ReferenceTolerance tolerance) {
-        if (string.IsNullOrWhiteSpace(value: key.Key)) {
-            throw new ArgumentException(message: "evidence key cannot be blank", paramName: nameof(key));
-        }
-        ReferenceCount++;
-        Fact(key: FactKey.Reference.Render(argument: key.Key), value: new {
-            name = key.Key,
-            actual,
-            tolerance,
-            admission = ReferenceAdmission.Reviewed.Key,
         });
         return Fin.Succ(value: unit);
     }

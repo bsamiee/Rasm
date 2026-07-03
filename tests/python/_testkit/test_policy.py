@@ -8,6 +8,7 @@ from pathlib import Path  # noqa: TC003  # module-level _PYPROJECT assignment pr
 import sys
 import tomllib
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 from unittest.mock import create_autospec
 
 from hypothesis import is_hypothesis_test
@@ -15,9 +16,13 @@ import msgspec
 import pytest
 
 from tests.python._testkit import laws as laws_mod
-from tests.python._testkit.bench import _series_from_storage
+from tests.python._testkit.bench import _series_from_storage, pytest_benchmark_update_json
 from tests.python._testkit.laws import assert_law_coverage, auto_exempt, consume_covers, LawRecord, MANIFEST, SUT_PACKAGES
 from tests.python._testkit.runtime import REPO_ROOT
+
+
+if TYPE_CHECKING:
+    from unittest.mock import Mock
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -259,6 +264,31 @@ def test_bench_series_keying_is_file_disjoint(tmp_path: Path) -> None:
     assert len(series) == 2, f"cross-file series merged: {series!r}"
     assert all(len(points) == 1 for points in series.values()), f"a series absorbed a foreign median: {series!r}"
     assert {key[0] for key in series} == {"tests/python/a/bench_a.py", "tests/python/b/bench_b.py"}
+
+
+def test_sustained_regression_gate_fires_and_stays_silent(tmp_path: Path) -> None:
+    """The stored-series fold fails a sustained final-segment jump and passes a flat history."""
+
+    def doc(median: float) -> bytes:
+        entry = {"fullname": "tests/python/x/bench_x.py::bench_x[g-10]", "group": "g", "extra_info": {"size": 10}, "stats": {"median": median}}
+        return msgspec.json.encode({"benchmarks": [entry]})
+
+    def storage(root: Path, medians: tuple[float, ...]) -> Mock:
+        machine = root / "store" / "machine"
+        machine.mkdir(parents=True)
+        for index, median in enumerate(medians, start=1):
+            (machine / f"{index:04}_run.json").write_bytes(doc(median))
+        config: Mock = create_autospec(pytest.Config, instance=True)
+        config.getoption.return_value = "file://store"
+        config.rootpath = root
+        return config
+
+    stepped = storage(tmp_path / "stepped", (1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 3.0, 3.0, 3.0))
+    with pytest.raises(pytest.fail.Exception, match="sustained benchmark regression"):
+        pytest_benchmark_update_json(stepped, None, msgspec.json.decode(doc(3.0)))
+
+    flat = storage(tmp_path / "flat", (1.0,) * 9)
+    pytest_benchmark_update_json(flat, None, msgspec.json.decode(doc(1.0)))
 
 
 # --- [LITTER_CONTAINMENT_POLICY]

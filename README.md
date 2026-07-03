@@ -19,19 +19,18 @@ NOTE: It is crucial that EACH folder within `libs/` is made with immense focus o
 
 ## [02]-[TOPOLOGY]
 
-| [INDEX] | [SURFACE]                 | [OWNER]                   | [ROLE]                                                                                |
-| :-----: | :------------------------ | :------------------------ | :------------------------------------------------------------------------------------ |
-|  [01]   | `apps/grasshopper/Radyab` | Test/throw-away app       | Thin test app, not binding to any patterns                                            |
-|  [02]   | `libs/csharp`             | C# library suite          | Geometry, host, runtime, UI, compute, and persistence foundations.                    |
-|  [03]   | `libs/python`             | Python library suite      | Host-free science, compute, data, geometry/IFC, and artifact companion packages.      |
-|  [04]   | `libs/typescript`         | TypeScript library suite  | Host-free web/edge platform: wire interchange, projection, UI, platform, services.    |
-|  [05]   | `tests/csharp`            | Managed C# proof surface  | Contract, law, and scenario-adjacent tests for shared libraries.                      |
-|  [06]   | `tests/python`            | Python tool proof surface | Assay and repo-tool behavior tests.                                                   |
-|  [07]   | `tools/assay`             | Typed operator            | Static, test, bridge, package, code, docs, provision, and API evidence rails.         |
-|  [08]   | `tools/rhino-bridge`      | Live Rhino owner          | Host lifecycle, scenario execution, cargo, spool, protocol, and evidence.             |
-|  [09]   | `tools/cs-analyzer`       | C# architecture pressure  | Local Roslyn diagnostics for repeated source-shape laws.                              |
-|  [10]   | `tools/yak`               | Package metadata          | Tracked Yak manifests and icons for package roots.                                    |
-|  [11]   | `docs`                    | Durable doctrine          | Agent-facing standards, host notes, stack doctrine, source-backed reference material. |
+| [INDEX] | [SURFACE]            | [OWNER]                   | [ROLE]                                                                                |
+| :-----: | :------------------- | :------------------------ | :------------------------------------------------------------------------------------ |
+|  [01]   | `libs/csharp`        | C# library suite          | Geometry, host, runtime, UI, compute, and persistence foundations.                    |
+|  [02]   | `libs/python`        | Python library suite      | Host-free science, compute, data, geometry/IFC, and artifact companion packages.      |
+|  [03]   | `libs/typescript`    | TypeScript library suite  | Host-free web/edge platform: wire interchange, projection, UI, platform, services.    |
+|  [04]   | `tests/csharp`       | Managed C# proof surface  | Contract, law, and scenario-adjacent tests for shared libraries.                      |
+|  [05]   | `tests/python`       | Python tool proof surface | Assay and repo-tool behavior tests.                                                   |
+|  [06]   | `tools/assay`        | Typed operator            | Static, test, bridge, package, code, docs, provision, and API evidence rails.         |
+|  [07]   | `tools/rhino-bridge` | Live Rhino owner          | Host lifecycle, scenario execution, cargo, spool, protocol, and evidence.             |
+|  [08]   | `tools/cs-analyzer`  | C# architecture pressure  | Local Roslyn diagnostics for repeated source-shape laws.                              |
+|  [09]   | `tools/yak`          | Package metadata          | Tracked Yak manifests and icons for package roots.                                    |
+|  [10]   | `docs`               | Durable doctrine          | Agent-facing standards, host notes, stack doctrine, source-backed reference material. |
 
 ## [03]-[LIBRARY_OWNERS]
 

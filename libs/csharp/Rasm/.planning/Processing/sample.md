@@ -185,20 +185,26 @@ public abstract partial record SampleKind {
                select admitted;
     }
 
-    internal Fin<SampleKind> Admit(Op key) => this switch {
-        ExplicitCase c => c.Points.IsEmpty ? Fin.Fail<SampleKind>(key.InvalidInput()) : Fin.Succ(this),
-        WeightedCase c => c.Points.IsEmpty
-            ? Fin.Fail<SampleKind>(key.InvalidInput())
-            : CloudKernel.MassOf(mass: new Arr<double>([.. c.Points.AsIterable().Select(static item => item.Mass)]), count: c.Points.Count, key: key).Map(_ => this),
-        ScalarDensityCase c => Admit.NotNull(value: c.Density, key: key).Map(_ => this),
-        AdaptiveCase c => Admit.NotNull(value: c.Density, key: key).Map(_ => this),
-        SampleEliminationCase c => guard(c.OversampleFactor.Value > 1 && c.Beta.Value <= 1.0, key.InvalidInput()).ToFin().Map(_ => this),
-        DworkVariableDensityCase c => Admit.NotNull(value: c.Radius, key: key).Map(_ => this),
-        PowerCcvtCase c => c.Policy.Admit(key: key).Map(_ => this),
-        _ => Fin.Succ(this),
-    };
+    // Generated total Switch: a new case breaks this member at compile time — the loud-break growth law.
+    // Op.Need is the null gate here: the Admit member name shadows the Rasm.Domain.Admit class inside this type.
+    internal Fin<SampleKind> Admit(Op key) => Switch(
+        state: key,
+        explicitCase: static (op, c) => c.Points.IsEmpty ? Fin.Fail<SampleKind>(op.InvalidInput()) : Fin.Succ<SampleKind>(c),
+        poissonDiskCase: static (_, c) => Fin.Succ<SampleKind>(c),
+        farthestCase: static (_, c) => Fin.Succ<SampleKind>(c),
+        optimizeCase: static (_, c) => Fin.Succ<SampleKind>(c),
+        lloydCase: static (_, c) => Fin.Succ<SampleKind>(c),
+        capacityCase: static (_, c) => Fin.Succ<SampleKind>(c),
+        weightedCase: static (op, c) => c.Points.IsEmpty
+            ? Fin.Fail<SampleKind>(op.InvalidInput())
+            : CloudKernel.MassOf(mass: new Arr<double>([.. c.Points.AsIterable().Select(static item => item.Mass)]), count: c.Points.Count, key: op).Map(_ => (SampleKind)c),
+        scalarDensityCase: static (op, c) => op.Need(c.Density).Map(_ => (SampleKind)c),
+        adaptiveCase: static (op, c) => op.Need(c.Density).Map(_ => (SampleKind)c),
+        sampleEliminationCase: static (op, c) => guard(c.OversampleFactor.Value > 1 && c.Beta.Value <= 1.0, op.InvalidInput()).ToFin().Map(_ => (SampleKind)c),
+        dworkVariableDensityCase: static (op, c) => op.Need(c.Radius).Map(_ => (SampleKind)c),
+        powerCcvtCase: static (op, c) => c.Policy.Admit(key: op).Map(_ => (SampleKind)c));
     internal static Fin<SampleKind> Admit(SampleKind value, Op key) =>
-        Admit.NotNull(value: value, key: key).Bind(kind => kind.Admit(key: key));
+        key.Need(value).Bind(kind => kind.Admit(key: key));
 
     internal Fin<SampleResult> Evaluate(ExtractionDomain domain, Context context, Op key) =>
         Admit(key: key).Bind(kind => SampleKernel.Sample(kind: kind, domain: domain, context: context, key: key));
@@ -206,31 +212,29 @@ public abstract partial record SampleKind {
     // never borrowed from another algorithm row.
     private const double AdaptiveCandidateScale = 12.0;
     // One derived projection: per-case target/iteration/scale facts read off the payload + the algorithm row.
-    internal (Option<int> Count, Option<int> Iterations, double CandidateScale, SampleAlgorithmKind Algorithm) Facts => this switch {
-        ExplicitCase => (Option<int>.None, Option<int>.None, 0.0, SampleAlgorithmKind.Explicit),
-        PoissonDiskCase => (Option<int>.None, Option<int>.None, 0.0, SampleAlgorithmKind.BridsonActiveListPoisson),
-        FarthestCase c => (Some(c.Count.Value), Option<int>.None, SampleAlgorithmKind.FarthestCandidate.CandidateScale, SampleAlgorithmKind.FarthestCandidate),
-        OptimizeCase c => (Some(c.Count.Value), Some(c.Iterations.Value), SampleAlgorithmKind.FarthestOptimize.CandidateScale, SampleAlgorithmKind.FarthestOptimize),
-        LloydCase c => (Some(c.Count.Value), Some(c.Iterations.Value), SampleAlgorithmKind.LloydCandidateRelaxation.CandidateScale, SampleAlgorithmKind.LloydCandidateRelaxation),
-        CapacityCase c => (Some(c.Count.Value), Some(c.Iterations.Value), c.Limit.Value, SampleAlgorithmKind.CapacityLimitedLloydCandidate),
-        WeightedCase => (Option<int>.None, Option<int>.None, 0.0, SampleAlgorithmKind.WeightedMassPropagation),
-        ScalarDensityCase c => (Some(c.Count.Value), Option<int>.None, SampleAlgorithmKind.VariableDensityPoisson.CandidateScale, SampleAlgorithmKind.VariableDensityPoisson),
-        AdaptiveCase c => (Some(c.Count.Value), Option<int>.None, AdaptiveCandidateScale, SampleAlgorithmKind.VariableDensityPoisson),
-        SampleEliminationCase c => (Some(c.Count.Value), Option<int>.None, c.OversampleFactor.Value, SampleAlgorithmKind.YukselWeightedSampleElimination),
-        DworkVariableDensityCase c => (Some(c.Count.Value), Option<int>.None, SampleAlgorithmKind.DworkVariableDensity.CandidateScale, SampleAlgorithmKind.DworkVariableDensity),
-        PowerCcvtCase c => (Some(c.Count.Value), Some(c.Policy.Iterations.Value), SampleAlgorithmKind.ContinuousPowerCcvt.CandidateScale, SampleAlgorithmKind.ContinuousPowerCcvt),
-        _ => (Option<int>.None, Option<int>.None, 0.0, SampleAlgorithmKind.Explicit),
-    };
+    // Generated total Switch — a new case cannot silently mis-report; it breaks here at compile time.
+    internal (Option<int> Count, Option<int> Iterations, double CandidateScale, SampleAlgorithmKind Algorithm) Facts => Switch(
+        explicitCase: static _ => (Option<int>.None, Option<int>.None, 0.0, SampleAlgorithmKind.Explicit),
+        poissonDiskCase: static _ => (Option<int>.None, Option<int>.None, 0.0, SampleAlgorithmKind.BridsonActiveListPoisson),
+        farthestCase: static c => (Some(c.Count.Value), Option<int>.None, SampleAlgorithmKind.FarthestCandidate.CandidateScale, SampleAlgorithmKind.FarthestCandidate),
+        optimizeCase: static c => (Some(c.Count.Value), Some(c.Iterations.Value), SampleAlgorithmKind.FarthestOptimize.CandidateScale, SampleAlgorithmKind.FarthestOptimize),
+        lloydCase: static c => (Some(c.Count.Value), Some(c.Iterations.Value), SampleAlgorithmKind.LloydCandidateRelaxation.CandidateScale, SampleAlgorithmKind.LloydCandidateRelaxation),
+        capacityCase: static c => (Some(c.Count.Value), Some(c.Iterations.Value), c.Limit.Value, SampleAlgorithmKind.CapacityLimitedLloydCandidate),
+        weightedCase: static _ => (Option<int>.None, Option<int>.None, 0.0, SampleAlgorithmKind.WeightedMassPropagation),
+        scalarDensityCase: static c => (Some(c.Count.Value), Option<int>.None, SampleAlgorithmKind.VariableDensityPoisson.CandidateScale, SampleAlgorithmKind.VariableDensityPoisson),
+        adaptiveCase: static c => (Some(c.Count.Value), Option<int>.None, AdaptiveCandidateScale, SampleAlgorithmKind.VariableDensityPoisson),
+        sampleEliminationCase: static c => (Some(c.Count.Value), Option<int>.None, c.OversampleFactor.Value, SampleAlgorithmKind.YukselWeightedSampleElimination),
+        dworkVariableDensityCase: static c => (Some(c.Count.Value), Option<int>.None, SampleAlgorithmKind.DworkVariableDensity.CandidateScale, SampleAlgorithmKind.DworkVariableDensity),
+        powerCcvtCase: static c => (Some(c.Count.Value), Some(c.Policy.Iterations.Value), SampleAlgorithmKind.ContinuousPowerCcvt.CandidateScale, SampleAlgorithmKind.ContinuousPowerCcvt));
     internal Option<double> DensityError(int emitted) =>
         Facts is { Algorithm.DensityDriven: true, Count: Option<int> count }
             ? count.Map(value => Math.Abs(value: emitted - value) / Math.Max(1.0, value))
             : Option<double>.None;
+    // Explicit/weighted kinds PROJECT and never reach this lattice density; only generated kinds dispatch here.
     internal Fin<double> MeshCandidateDensity(double area, Op key) {
         double safeArea = Math.Max(val1: area, val2: double.Epsilon);
         double target = this switch {
-            ExplicitCase ex => ex.Points.Count,
             PoissonDiskCase pd => safeArea / Math.Max(val1: pd.Radius.Value * pd.Radius.Value, val2: double.Epsilon),
-            WeightedCase weighted => weighted.Points.Count,
             _ => Facts.Count.Map(value => value * Math.Max(1.0, Facts.CandidateScale)).IfNone(0.0),
         };
         return double.IsFinite(target) && target > 0.0
@@ -359,8 +363,18 @@ public readonly record struct SampleAlgorithmReceipt(
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.Of(Kind is not null),
         ValidityClaim.Of(TargetCount.Map(static count => count >= 0).IfNone(noneValue: true)),
+        ValidityClaim.Of(OversampleCount.Map(static count => count >= 0).IfNone(noneValue: true)),
+        ValidityClaim.Of(Attempts.Map(static count => count >= 1).IfNone(noneValue: true)),
+        ValidityClaim.Of(ActivePops.Map(static count => count >= 0).IfNone(noneValue: true)),
         ValidityClaim.Of(Eliminated.Map(static count => count >= 0).IfNone(noneValue: true)),
         ValidityClaim.Of(NeighborUpdates.Map(static count => count >= 0).IfNone(noneValue: true)),
+        ValidityClaim.Of(RejectedTooClose.Map(static count => count >= 0).IfNone(noneValue: true)),
+        ValidityClaim.Of(RejectedDomain.Map(static count => count >= 0).IfNone(noneValue: true)),
+        ValidityClaim.Of(Radius.Map(static radius => double.IsFinite(radius) && radius > 0.0).IfNone(noneValue: true)),
+        ValidityClaim.Of(WeightLimitRadius.Map(static radius => double.IsFinite(radius) && radius >= 0.0).IfNone(noneValue: true)),
+        ValidityClaim.Of(CapacityResidual.Map(static residual => double.IsFinite(residual) && residual >= 0.0).IfNone(noneValue: true)),
+        ValidityClaim.Of(DensityMin.Bind(min => DensityMax.Map(max => (bool)ValidityClaim.Ordered(min, max))).IfNone(noneValue: true)),
+        ValidityClaim.Of(LocalRadiusMin.Bind(min => LocalRadiusMax.Map(max => (bool)ValidityClaim.Ordered(min, max))).IfNone(noneValue: true)),
         ValidityClaim.Of(Dwork.Map(static receipt => receipt.IsValid).IfNone(noneValue: true)),
         ValidityClaim.Of(Spectrum.Map(static receipt => receipt.IsValid).IfNone(noneValue: true)),
         ValidityClaim.Of(PowerCcvt.Map(static receipt => receipt.IsValid).IfNone(noneValue: true)));
@@ -546,9 +560,12 @@ internal static class SampleKernel {
                 .Take(count: count)
                 .Select(row => candidates[index: row.Index])),
             None: () => toSeq(FarthestIndices(candidates: candidates.Map(static point => new SampleCandidate(Point: point, Mass: Option<double>.None)), count: count).Select(i => candidates[index: i])));
+    // The spectrum MOVES into the BNOT receipt — the generic slot clears so exactly one stream carries it.
     private static SampleResult SurfaceSpectrumIntoReceipt(SampleResult result) =>
         result.Receipt.Algorithm.Bind(static algorithm => algorithm.PowerCcvt.Map(ccvt => (Algorithm: algorithm, Ccvt: ccvt))).Match(
-            Some: pair => result with { Receipt = result.Receipt with { Algorithm = Some(pair.Algorithm with { PowerCcvt = Some(pair.Ccvt with { Spectrum = pair.Algorithm.Spectrum }) }) } },
+            Some: pair => result with { Receipt = result.Receipt with { Algorithm = Some(pair.Algorithm with {
+                Spectrum = Option<MeshSamplingSpectrumReceipt>.None,
+                PowerCcvt = Some(pair.Ccvt with { Spectrum = pair.Algorithm.Spectrum }) }) } },
             None: () => result);
 
     // The BNOT two-phase driver. Inner statement kernels (diagram rebuild, triplet assembly, Armijo searches)
@@ -582,7 +599,7 @@ internal static class SampleKernel {
                     GradientIterations = state.GradientIterations + motion.GradientIterations,
                     StepHalvings = state.StepHalvings + motion.GradientHalvings,
                     RebuildCount = state.RebuildCount + advanced.RebuildCount + motion.GradientHalvings + 2,
-                    PositionGradientNorm = motion.PositionGradientNorm, CentroidShift = motion.Displacement,
+                    PositionGradientNorm = motion.PositionGradientNorm,
                     TransportEnergyDelta = advanced.TransportEnergy - state.Capacity.TransportEnergy,
                     Converged = motion.Displacement <= policy.Motion.LloydPosTol.Value * meanSpacing
                              && motion.PositionGradientNorm <= policy.Motion.GradPosTol.Value * meanSpacing,
@@ -806,11 +823,11 @@ internal static class SampleKernel {
         [StructLayout(LayoutKind.Auto)]
         private readonly record struct OuterState(
             Seq<Point3d> Sites, NewtonState Capacity, int OuterIterations, int LloydIterations, int GradientIterations,
-            int StepHalvings, int RebuildCount, double PositionGradientNorm, double CentroidShift, double TransportEnergyDelta,
+            int StepHalvings, int RebuildCount, double PositionGradientNorm, double TransportEnergyDelta,
             bool Converged, Option<Error> Fault) {
             internal static OuterState Of(Seq<Point3d> sites, NewtonState capacity) => new(
                 Sites: sites, Capacity: capacity, OuterIterations: 0, LloydIterations: 0, GradientIterations: 0,
-                StepHalvings: capacity.StepHalvings, RebuildCount: capacity.RebuildCount, PositionGradientNorm: 0.0, CentroidShift: 0.0,
+                StepHalvings: capacity.StepHalvings, RebuildCount: capacity.RebuildCount, PositionGradientNorm: 0.0,
                 TransportEnergyDelta: 0.0, Converged: false, Fault: Option<Error>.None);
         }
         [StructLayout(LayoutKind.Auto)] private readonly record struct SiteMotion(Seq<Point3d> Sites, int LloydIterations, int GradientIterations, int GradientHalvings, double Displacement, double PositionGradientNorm);

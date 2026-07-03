@@ -14,10 +14,10 @@ Every mass-properties handle is a disposable native resource leased through the 
 
 - Owner: `MassKind` `[BoundaryAdapter]` `[SmartEnum<int>]` — four rows binding `Requirement` (Length→`CurveLength`, Area→`AreaMass`, Volume→`VolumeMass`, None→rejecting delegates) plus the `compute` delegate (one geometry → one leased `IDisposable` mass handle) and the `aggregate` delegate (many geometries → one summed handle); `KindOf(GeometryBase)` resolves the solid-aware default (Curve→Length; Brep/Mesh/Extrusion/Surface→`IsSolid ? Volume : Area`); `PrincipalFrameOf` recovers the centroid-anchored principal plane from full second+product moments. `MassProperty` `[BoundaryAdapter]` `[SmartEnum<int>]` — eight rows binding the op-key `Suffix`, the typed `Output`, three moment-demand columns (`FirstMoments`/`SecondMoments`/`ProductMoments` as `Func<MassKind, bool>` — length-error uniquely demands second moments), and the `extract` delegate projecting the host handle (`Length`/`Area`/`Volume` magnitudes, `Centroid`, `CentroidError`, `CentroidCoordinatesRadiiOfGyration`, `WorldCoordinatesPrincipalMomentsOfInertia` axes, `WorldCoordinatesMomentsOfInertia`, `WorldCoordinatesProductMoments`). `Measure` `[Union]` — `LengthCase`/`SpatialMidpointCase`/`MassPropertyCase(MassKind, MassProperty)` with the eleven factories minting `(MassKind, MassProperty)` coordinates.
 - Cases: `Measure` `Length` · `SpatialMidpoint` · `MassProperty` (3 declared; 11 factories); `MassKind` `None` · `Length` · `Area` · `Volume` (4); `MassProperty` `Magnitude` · `MagnitudeError` · `Centroid` · `CentroidError` · `Radii` · `PrincipalAxes` · `Inertia` · `InertiaProducts` (8).
-- Entry: `Measure.Operation<TGeometry, TOut>()` — the family seam `Analysis/query` forwards to; `Length` builds the scalar-length op only where the geometry kind is curve-topology or universal AND `TOut == double`; `SpatialMidpoint` builds the polymorphic centroid op for `TOut == Point3d` over point/box/curve/brep/mesh/surface/SubD-shaped inputs; `MassProperty` builds the leased mass op when `TOut == property.Output`, per-item through `MassKind.Compute` and aggregate through `MassKind.Aggregate` — the SAME operation carries both modalities, the aggregate branch traversing the whole prepared sequence into one summed handle.
+- Entry: `Measure.Operation<TGeometry, TOut>()` — the family seam `Analysis/query` forwards to; `Length` builds the scalar-length op only where the geometry kind is curve-topology or universal AND `TOut == double`; `SpatialMidpoint` builds the polymorphic centroid op for `TOut == Point3d` over point/box/curve/brep/mesh/surface/SubD-shaped inputs; `MassProperty` builds the AGGREGATE mass op when `TOut == property.Output` — the whole prepared sequence folds through `MassKind.Aggregate` into ONE summed leased handle whose projections extract once, and a single geometry is the 1-aggregate degenerate case, so per-item and batch answers ride one body with no second operation.
 - Auto: `LengthOf` short-circuits analytic primitives (`Line.Length`/`Polyline.Length`/`Circle.Circumference`/`Arc.Length`) before the fractional-tolerance `Curve.GetLength` fold, lowering `Ellipse` through a leased NURBS form; `CentroidOf` routes closed-planar curves to `AreaMassProperties`, open curves to `LengthMassProperties`, solids to volume mass, sheets to area mass, and analytic carriers (`Point3d`/`Point`/`Line`/`Polyline`/`BoundingBox`/`Box`) to their exact centers — the solid/sheet decision reads `IsSolid` per geometry, never a caller flag; the aggregate fold accumulates leases, sums via the host `Sum(summands, bAddTo: true)`, disposes every non-surviving handle on success AND failure branches, and degrades a heterogeneous length aggregate to per-item sum only when a non-curve member forces it.
 - Receipt: none on a dedicated rail — measures project onto host value types (`double`/`Point3d`/`Vector3d`/`Plane`/`(double, Vector3d)` axis tuples) admitted through the one oracle; the `(double Moment, Vector3d Axis)` principal-axis tuple is oracle-validated per element (finite non-negative moment, non-tiny valid axis).
-- Packages: RhinoCommon (`LengthMassProperties`/`AreaMassProperties`/`VolumeMassProperties` `Compute` + `Sum` + moment accessors, `Curve`/`Brep`/`Mesh`/`Surface`/`Extrusion` `IsSolid`, `SubDToBrepOptions.Default`), `Rasm.Domain` (`Requirement` rows, `Lease<T>`, `Op` rail, `Kind` capability web, coercion lattice `CurveForm`/`BrepForm`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
+- Packages: RhinoCommon (`LengthMassProperties`/`AreaMassProperties`/`VolumeMassProperties` `Compute` + `Sum` + moment accessors, `Curve`/`Brep`/`Mesh`/`Surface`/`Extrusion` `IsSolid`, `SubDToBrepOptions.Default`), `Rasm.Domain` (`Requirement` rows, `Lease<T>`, `Op` rail, `Capability` rows, `Normalization` form recoveries `CurveForm`/`BrepForm`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 - Growth: a new mass projection (a gyration tensor, a centroid-frame inertia) is one `MassProperty` row — key, suffix, output, three moment columns, one extract delegate — zero operation edits; a new mass domain is one `MassKind` row binding its requirement and compute/aggregate delegates; a new analytic centroid carrier is one `CentroidOf` switch arm.
 - Boundary: eleven measures are three cases over two policy enums — a `MeasureLength`/`MeasureArea`/`MeasureVolume`/`MeasureCentroid` sibling-operation family is the named proliferation this coordinate design deletes; every mass handle is leased (`Lease<IDisposable>.Owned(…).Use(…)`) and a raw `Compute` whose handle escapes the projection scope is the resource-leak defect; the moment-demand columns request EXACTLY the moments the extraction reads (magnitude requests none, inertia requests all three) so the host never computes unread moments; `MassKind.None` rejects through its delegates rather than a null-object silently succeeding; the area path threads `context.Fractional`/`context.Absolute.Value` into the host tolerances and a hardcoded tolerance literal is the deleted form.
 
@@ -73,8 +73,6 @@ public sealed partial class MassKind {
     private readonly Func<MassKind, IEnumerable<object>, Context, bool, bool, bool, Op, Fin<IDisposable>> aggregate;
     public string Label { get; }
     internal Requirement Requirement { get; }
-    public Eff<Env, IDisposable> Compute(object? geometry, Op op, bool firstMoments = false, bool secondMoments = false, bool productMoments = false) =>
-        Optional(geometry).ToFin(op.InvalidInput()).ToEff().Bind(g => Env.Asks.Bind(context => compute(g, context, firstMoments, secondMoments, productMoments, op).ToEff()));
     internal Fin<IDisposable> Aggregate(IEnumerable<object> geometry, Context context, bool firstMoments, bool secondMoments, bool productMoments, Op op) =>
         aggregate(this, geometry, context, firstMoments, secondMoments, productMoments, op);
     internal static MassKind KindOf(GeometryBase geometry) => geometry switch {
@@ -105,16 +103,16 @@ public sealed partial class MassKind {
     private static Fin<IDisposable> Done<TMass>(TMass? mass) where TMass : class, IDisposable =>
         Optional(mass).ToFin(new Fault.ComputationFailed(typeof(TMass).Name)).Map(static handle => (IDisposable)handle);
     private static Fin<IDisposable> LengthOf(object geometry, Context _, bool firstMoments, bool secondMoments, bool productMoments, Op op) =>
-        geometry.CurveForm(op: op).Bind(lease => lease.Use(curve =>
+        Normalization.CurveForm(source: geometry, key: op).Bind(lease => lease.Use(curve =>
             Done(LengthMassProperties.Compute(curve, length: true, firstMoments: firstMoments, secondMoments: secondMoments, productMoments: productMoments))));
     private static Fin<IDisposable> AreaOf(object geometry, Context context, bool firstMoments, bool secondMoments, bool productMoments, Op op) => geometry switch {
         Mesh mesh => Done(AreaMassProperties.Compute(mesh, area: true, firstMoments: firstMoments, secondMoments: secondMoments, productMoments: productMoments)),
         Curve curve => Done(AreaMassProperties.Compute(curve, context.Absolute.Value)),
-        object curveLike when Kind.CanCurveForm(type: curveLike.GetType()) => curveLike.CurveForm(op: op).Bind(lease => lease.Use(curve => AreaOf(geometry: curve, context: context, firstMoments: firstMoments, secondMoments: secondMoments, productMoments: productMoments, op: op))),
+        object curveLike when Capability.CurveForm.Admits(type: curveLike.GetType()) => Normalization.CurveForm(source: curveLike, key: op).Bind(lease => lease.Use(curve => AreaOf(geometry: curve, context: context, firstMoments: firstMoments, secondMoments: secondMoments, productMoments: productMoments, op: op))),
         Brep brep => Done(AreaMassProperties.Compute(brep, area: true, firstMoments: firstMoments, secondMoments: secondMoments, productMoments: productMoments, relativeTolerance: context.Fractional, absoluteTolerance: context.Absolute.Value)),
         Surface surface => Done(AreaMassProperties.Compute(surface, area: true, firstMoments: firstMoments, secondMoments: secondMoments, productMoments: productMoments)),
         GeometryBase { HasBrepForm: true } or Box or BoundingBox or Sphere or Cylinder or Cone or Torus =>
-            geometry.BrepForm(op: op).Bind(lease => lease.Use(brep => AreaOf(geometry: brep, context: context, firstMoments: firstMoments, secondMoments: secondMoments, productMoments: productMoments, op: op))),
+            Normalization.BrepForm(source: geometry, key: op).Bind(lease => lease.Use(brep => AreaOf(geometry: brep, context: context, firstMoments: firstMoments, secondMoments: secondMoments, productMoments: productMoments, op: op))),
         _ => Fin.Fail<IDisposable>(op.Unsupported(geometry.GetType(), typeof(AreaMassProperties))),
     };
     private static Fin<IDisposable> VolumeOf(object geometry, Context context, bool firstMoments, bool secondMoments, bool productMoments, Op op) => geometry switch {
@@ -122,7 +120,7 @@ public sealed partial class MassKind {
         Brep brep => Done(VolumeMassProperties.Compute(brep, volume: true, firstMoments: firstMoments, secondMoments: secondMoments, productMoments: productMoments, relativeTolerance: context.Fractional, absoluteTolerance: context.Absolute.Value)),
         Surface surface => Done(VolumeMassProperties.Compute(surface, volume: true, firstMoments: firstMoments, secondMoments: secondMoments, productMoments: productMoments)),
         GeometryBase { HasBrepForm: true } or Box or BoundingBox or Sphere or Cylinder or Cone or Torus =>
-            geometry.BrepForm(op: op).Bind(lease => lease.Use(brep => VolumeOf(geometry: brep, context: context, firstMoments: firstMoments, secondMoments: secondMoments, productMoments: productMoments, op: op))),
+            Normalization.BrepForm(source: geometry, key: op).Bind(lease => lease.Use(brep => VolumeOf(geometry: brep, context: context, firstMoments: firstMoments, secondMoments: secondMoments, productMoments: productMoments, op: op))),
         _ => Fin.Fail<IDisposable>(op.Unsupported(geometry.GetType(), typeof(VolumeMassProperties))),
     };
     private static Fin<IDisposable> LengthAggregate(MassKind self, IEnumerable<object> geometry, Context context, bool firstMoments, bool secondMoments, bool productMoments, Op op) =>
@@ -214,7 +212,7 @@ public static partial class Analyze {
         return (typeof(TOut), typeof(TGeometry)) switch {
             (Type output, Type geometry) when output == typeof(Point3d)
                 && (geometry == typeof(object) || geometry == typeof(GeometryBase) || geometry == typeof(Point3d) || geometry == typeof(Point) || geometry == typeof(BoundingBox) || geometry == typeof(Box)
-                    || Kind.CanCurveForm(type: geometry) || typeof(Brep).IsAssignableFrom(geometry) || typeof(Mesh).IsAssignableFrom(geometry) || Kind.CanSurfaceForm(type: geometry) || typeof(SubD).IsAssignableFrom(geometry)) =>
+                    || Capability.CurveForm.Admits(type: geometry) || typeof(Brep).IsAssignableFrom(geometry) || typeof(Mesh).IsAssignableFrom(geometry) || Capability.SurfaceForm.Admits(type: geometry) || typeof(SubD).IsAssignableFrom(geometry)) =>
                 Operation<TGeometry, Point3d>.Build(key: key, requiresContext: true, state: key,
                     evaluator: static (op, geometry) =>
                         from context in Env.Asks
@@ -228,16 +226,12 @@ public static partial class Analyze {
         Op key = Op.Of(name: $"{mass.Label}{property.Suffix}");
         return (mass.Equals(MassKind.None), typeof(TOut) == property.Output) switch {
             (true, _) => Operation<TGeometry, TOut>.Reject(key: key, fault: key.InvalidInput()),
-            (false, true) => Operation<TGeometry, TOut>.Build(
-                key: key, state: (Key: key, Mass: mass, Property: property), requirement: mass.Requirement, requiresContext: true,
-                aggregate: Some<Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>>>(
-                    geometry => from context in Env.Asks
-                                from aggregate in mass.Aggregate(geometry: geometry.Map(static item => (object)item).AsIterable(), context: context, firstMoments: property.FirstMoments(mass: mass), secondMoments: property.SecondMoments(mass: mass), productMoments: property.ProductMoments(mass: mass), op: key).ToEff()
-                                from values in new Lease<IDisposable>.Owned(Value: aggregate).Use(handle => property.Extract<TOut>(key: key, mass: handle)).ToEff()
-                                select values),
-                evaluator: static (state, geometry) =>
-                    from computed in state.Mass.Compute(geometry: geometry, op: state.Key, firstMoments: state.Property.FirstMoments(mass: state.Mass), secondMoments: state.Property.SecondMoments(mass: state.Mass), productMoments: state.Property.ProductMoments(mass: state.Mass))
-                    from values in new Lease<IDisposable>.Owned(Value: computed).Use(handle => state.Property.Extract<TOut>(key: state.Key, mass: handle)).ToEff()
+            (false, true) => Operation<TGeometry, TOut>.Aggregate(
+                key: key, requirement: mass.Requirement, requiresContext: true,
+                project: geometry =>
+                    from context in Env.Asks
+                    from summed in mass.Aggregate(geometry: geometry.Map(static item => (object)item).AsIterable(), context: context, firstMoments: property.FirstMoments(mass: mass), secondMoments: property.SecondMoments(mass: mass), productMoments: property.ProductMoments(mass: mass), op: key).ToEff()
+                    from values in new Lease<IDisposable>.Owned(Value: summed).Use(handle => property.Extract<TOut>(key: key, mass: handle)).ToEff()
                     select values),
             _ => key.Unsupported<TGeometry, TOut>(),
         };
@@ -308,9 +302,9 @@ public static partial class Analyze {
 
 - Owner: `Bounds` `[Union]` `[SkipUnionOps]` — fifteen cases over four modality clusters: box RECOVERY (`AxisAlignedCase` → `BoundingBox` through the `Domain/normalization` `BoundsOf` extension; `InPlaneCase(Plane)` → the plane-oriented `Box(plane, geometry)` capture; `TransformedCase(Transform)` → `GetBoundingBox(xform)`; `PrincipalFrameCase` → the `MassKind.PrincipalFrameOf` OBB), box PROJECTIONS (`CenterCase`/`CornersCase(bool Unique)`/`EdgesCase` → `Point3d`/`Line` streams, corners optionally deduplicated through `Point3d.CullDuplicates` at model tolerance), box METRICS (`AreaCase`/`VolumeCase`/`DiagonalCase`/`AspectRatioCase`/`TightnessCase` → scalars through ONE `BoxMetric` builder over `BoundingBox`-or-`Box` inputs; tightness = AABB volume over principal-OBB volume, the orientation-quality ratio), and ENCLOSING solids (`EnclosingSphereCase(int)`/`EnclosingCircleCase(Plane, int)`/`EnclosingCylinderCase(Vector3d, int)` → Ritter-fitted `Sphere`, native smallest-circle `Circle` in a projection plane, axis-projected Ritter-disc `Cylinder` with exact axial extent).
 - Cases: `AxisAligned` · `Oriented` · `Transformed` · `Principal` · `Center` · `Corners` · `Edges` · `Area` · `Volume` · `Diagonal` · `AspectRatio` · `Tightness` · `EnclosingSphere` · `EnclosingCircle` · `EnclosingCylinder` (15).
-- Entry: `Bounds.Operation<TGeometry, TOut>()` — one generated `Switch` where every arm gates capability (`Kind.CanBound(type, includeSphere: true)` for boundable inputs, `Kind.Can(type, static k => k.CanPrincipal)` for mass-backed frames, `GeometryBase` assignability for oriented/transformed capture) and output type before building, rejecting onto `Fault.Unsupported` at build time.
+- Entry: `Bounds.Operation<TGeometry, TOut>()` — one generated `Switch` where every arm gates capability (`Capability.Bound.Admits(type)` for boundable inputs, `Capability.OrientedBound.Admits(type)` for principal-frame boxes, `GeometryBase` assignability for oriented/transformed capture) and output type before building, rejecting onto `Fault.Unsupported` at build time.
 - Auto: `EnclosingSamples` samples the geometry surface through the `Domain/evaluation` `SamplePoints` extension and DEGRADES to the eight bounding-box corners when sampling is unsupported for the type — enclosure never fails for a boundable input, it coarsens; `RitterFit` is ONE generic two-pass fold (farthest-from-seed, farthest-from-that, then the grow-ball sweep) parameterized by the constructed solid and its validity predicate — sphere and cylinder-disc share it verbatim; the cylinder derives its axis through `VectorIntent.Direction` admission, projects samples to the axis-normal plane for the disc, and folds the exact axial extent `(min, max)` along the admitted axis; the enclosing circle projects through `Plane.ClosestParameter` and delegates to the host `Circle.TrySmallestEnclosingCircle` — native exact beats a hand-rolled Welzl here, then re-embeds the planar result into world space.
-- Packages: RhinoCommon (`BoundingBox` `GetCorners`/`GetEdges`/`Diagonal`/`Center`/`Area`/`Volume`, `Box(Plane, GeometryBase)` capture, `GeometryBase.GetBoundingBox(Transform)`, `Circle.TrySmallestEnclosingCircle`, `Point3d.CullDuplicates`), `Rasm.Domain` (`BoundsOf`/`SamplePoints` extensions, `Kind` capability web, `RhinoMath.ZeroTolerance` degenerate-ratio floor), `Rasm.Vectors` (`VectorIntent.Direction` axis admission), Thinktecture.Runtime.Extensions, LanguageExt.Core.
+- Packages: RhinoCommon (`BoundingBox` `GetCorners`/`GetEdges`/`Diagonal`/`Center`/`Area`/`Volume`, `Box(Plane, GeometryBase)` capture, `GeometryBase.GetBoundingBox(Transform)`, `Circle.TrySmallestEnclosingCircle`, `Point3d.CullDuplicates`), `Rasm.Domain` (`BoundsOf`/`SamplePoints` extensions, `Capability` rows, `RhinoMath.ZeroTolerance` degenerate-ratio floor), `Rasm.Vectors` (`VectorIntent.Direction` axis admission), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 - Growth: a new box metric is one `BoxMetric` call arm (two projection lambdas); a new enclosing solid (a capsule, an ellipsoid) is one case composing the SAME `EnclosingSamples` + `RitterFit`/native-fit machinery; a new recovery frame source is one case arm — never a `BoundsCalculator` sibling class.
 - Boundary: fifteen modalities live on ONE union dispatched by ONE `Switch` — a `BoundingBoxOps`/`OrientedBoxOps`/`EnclosingSolidOps` class family is the named fragmentation this owner deletes; the aspect-ratio denominator floors at `RhinoMath.ZeroTolerance` so a degenerate extent yields a large finite ratio, never an infinity crossing the rail; `Corners(unique: true)` deduplicates at MODEL absolute tolerance from the threaded `Context`, never a literal epsilon; the enclosing fits are measured approximations by contract — Ritter over N surface samples, documented as the bounding guarantee (every sample enclosed), not a minimal-ball claim; the box-metric operations accept `BoundingBox` or `Box` VALUES as the geometry input (the box is the analyzed object), the recovery operations accept geometry — one union serves both altitudes and the type gates keep them disjoint.
 
@@ -365,9 +359,9 @@ public partial record Bounds {
     public static Bounds EnclosingCylinder(Vector3d axis, int count = 64) => new EnclosingCylinderCase(Axis: axis, Count: count);
 
     internal Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull => Switch(
-        axisAlignedCase: static _ => (typeof(TOut) == typeof(BoundingBox) && Kind.CanBound(typeof(TGeometry), includeSphere: true))
+        axisAlignedCase: static _ => (typeof(TOut) == typeof(BoundingBox) && Capability.Bound.Admits(type: typeof(TGeometry)))
             ? Analysis.Operation<TGeometry, BoundingBox>.Build(key: BoundsKey, state: BoundsKey,
-                evaluator: static (op, geometry) => geometry.BoundsOf(op: op).Bind(box => op.Accept(value: box)).ToEff()).As<TGeometry, TOut>(key: BoundsKey)
+                evaluator: static (op, geometry) => geometry.BoundsOf(key: op).Bind(box => op.Accept(value: box)).ToEff()).As<TGeometry, TOut>(key: BoundsKey)
             : BoundsKey.Unsupported<TGeometry, TOut>(),
         inPlaneCase: static p => (typeof(TOut) == typeof(Box) && typeof(GeometryBase).IsAssignableFrom(c: typeof(TGeometry)))
             ? Analyze.Native<TGeometry, TOut, GeometryBase, Box, (Op Key, Plane Plane)>(key: OrientedKey, state: (OrientedKey, p.Plane),
@@ -377,7 +371,7 @@ public partial record Bounds {
             ? Analyze.Native<TGeometry, TOut, GeometryBase, BoundingBox, (Op Key, Transform Xform)>(key: TransformedKey, state: (Key: TransformedKey, t.Xform),
                 project: static (state, native) => state.Key.Accept(value: native.GetBoundingBox(xform: state.Xform)).ToEff())
             : TransformedKey.Unsupported<TGeometry, TOut>(),
-        principalFrameCase: static _ => (typeof(TOut) == typeof(Box) && Kind.Can(type: typeof(TGeometry), predicate: static k => k.CanPrincipal))
+        principalFrameCase: static _ => (typeof(TOut) == typeof(Box) && Capability.OrientedBound.Admits(type: typeof(TGeometry)))
             ? Analyze.Native<TGeometry, TOut, GeometryBase, Box, Op>(key: PrincipalKey, state: PrincipalKey, requirement: Requirement.Basic,
                 project: static (state, native) =>
                     from context in Env.Asks
@@ -386,15 +380,15 @@ public partial record Bounds {
                     from result in state.Accept(value: box).ToEff()
                     select result)
             : PrincipalKey.Unsupported<TGeometry, TOut>(),
-        centerCase: static _ => (typeof(TOut) == typeof(Point3d) && Kind.CanBound(typeof(TGeometry), includeSphere: true))
+        centerCase: static _ => (typeof(TOut) == typeof(Point3d) && Capability.Bound.Admits(type: typeof(TGeometry)))
             ? Analysis.Operation<TGeometry, Point3d>.Build(key: CenterKey, state: CenterKey,
-                evaluator: static (op, geometry) => geometry.BoundsOf(op: op).Bind(box => op.Accept(value: box.Center)).ToEff()).As<TGeometry, TOut>(key: CenterKey)
+                evaluator: static (op, geometry) => geometry.BoundsOf(key: op).Bind(box => op.Accept(value: box.Center)).ToEff()).As<TGeometry, TOut>(key: CenterKey)
             : CenterKey.Unsupported<TGeometry, TOut>(),
-        cornersCase: static c => (typeof(TOut) == typeof(Point3d) && Kind.CanBound(typeof(TGeometry), includeSphere: true))
+        cornersCase: static c => (typeof(TOut) == typeof(Point3d) && Capability.Bound.Admits(type: typeof(TGeometry)))
             ? Analysis.Operation<TGeometry, Point3d>.Build(key: CornersKey, requiresContext: c.Unique, state: (Key: CornersKey, c.Unique),
                 evaluator: static (state, geometry) =>
                     from runtime in Env.EnvAsks
-                    from box in geometry.BoundsOf(op: state.Key).ToEff()
+                    from box in geometry.BoundsOf(key: state.Key).ToEff()
                     from result in state.Key.Accept(values: state.Unique ? Point3d.CullDuplicates(points: box.GetCorners(), tolerance: runtime.Context.Absolute.Value) : box.GetCorners()).ToEff()
                     select result).As<TGeometry, TOut>(key: CornersKey)
             : CornersKey.Unsupported<TGeometry, TOut>(),
@@ -406,17 +400,17 @@ public partial record Bounds {
         volumeCase: static _ => Analyze.BoxMetric<TGeometry, TOut>(key: BoxVolumeKey, boundingBox: static box => box.Volume, box: static box => box.Volume),
         diagonalCase: static _ => Analyze.BoxMetric<TGeometry, TOut>(key: BoxDiagonalKey, boundingBox: static box => box.Diagonal.Length, box: static box => box.BoundingBox.Diagonal.Length),
         aspectRatioCase: static _ => Analyze.BoxMetric<TGeometry, TOut>(key: BoxAspectRatioKey, boundingBox: static box => AspectOf(box.Diagonal), box: static box => AspectOf(new Vector3d(box.X.Length, box.Y.Length, box.Z.Length))),
-        tightnessCase: static _ => (typeof(TOut) == typeof(double) && typeof(GeometryBase).IsAssignableFrom(c: typeof(TGeometry)) && Kind.Can(type: typeof(TGeometry), predicate: static k => k.CanPrincipal))
+        tightnessCase: static _ => (typeof(TOut) == typeof(double) && typeof(GeometryBase).IsAssignableFrom(c: typeof(TGeometry)) && Capability.OrientedBound.Admits(type: typeof(TGeometry)))
             ? Analyze.Native<TGeometry, TOut, GeometryBase, double, Op>(key: BoxTightnessKey, state: BoxTightnessKey, requirement: Requirement.Basic,
                 project: static (state, native) =>
                     from context in Env.Asks
                     from frame in MassKind.PrincipalFrameOf(geometry: native, context: context, key: state).ToEff()
                     from obb in state.AcceptValue(value: new Box(frame, native)).ToEff()
-                    from aabb in native.BoundsOf(op: state).ToEff()
+                    from aabb in native.BoundsOf(key: state).ToEff()
                     from result in (obb.Volume > RhinoMath.ZeroTolerance ? state.Accept(value: aabb.Volume / obb.Volume) : Fin.Fail<Seq<double>>(state.InvalidResult())).ToEff()
                     select result)
             : BoxTightnessKey.Unsupported<TGeometry, TOut>(),
-        enclosingSphereCase: static s => (typeof(TOut) == typeof(Sphere) && Kind.CanBound(typeof(TGeometry), includeSphere: true))
+        enclosingSphereCase: static s => (typeof(TOut) == typeof(Sphere) && Capability.Bound.Admits(type: typeof(TGeometry)))
             ? Analysis.Operation<TGeometry, Sphere>.Build(key: EnclosingSphereKey, requiresContext: true, state: (Key: EnclosingSphereKey, s.Count),
                 evaluator: static (state, geometry) =>
                     from context in Env.Asks
@@ -425,7 +419,7 @@ public partial record Bounds {
                     from accepted in state.Key.Accept(value: result).ToEff()
                     select accepted).As<TGeometry, TOut>(key: EnclosingSphereKey)
             : EnclosingSphereKey.Unsupported<TGeometry, TOut>(),
-        enclosingCircleCase: static c => (typeof(TOut) == typeof(Circle) && Kind.CanBound(typeof(TGeometry), includeSphere: true))
+        enclosingCircleCase: static c => (typeof(TOut) == typeof(Circle) && Capability.Bound.Admits(type: typeof(TGeometry)))
             ? Analysis.Operation<TGeometry, Circle>.Build(key: EnclosingCircleKey, requiresContext: true, state: (Key: EnclosingCircleKey, c.Plane, c.Count),
                 evaluator: static (state, geometry) =>
                     from context in Env.Asks
@@ -438,7 +432,7 @@ public partial record Bounds {
                     from accepted in state.Key.Accept(value: result).ToEff()
                     select accepted).As<TGeometry, TOut>(key: EnclosingCircleKey)
             : EnclosingCircleKey.Unsupported<TGeometry, TOut>(),
-        enclosingCylinderCase: static cy => (typeof(TOut) == typeof(Cylinder) && Kind.CanBound(typeof(TGeometry), includeSphere: true))
+        enclosingCylinderCase: static cy => (typeof(TOut) == typeof(Cylinder) && Capability.Bound.Admits(type: typeof(TGeometry)))
             ? Analysis.Operation<TGeometry, Cylinder>.Build(key: EnclosingCylinderKey, requiresContext: true, state: (Key: EnclosingCylinderKey, cy.Axis, cy.Count),
                 evaluator: static (state, geometry) =>
                     from context in Env.Asks
@@ -461,7 +455,7 @@ public partial record Bounds {
     private static Fin<Seq<Point3d>> EnclosingSamples<TGeometry>(TGeometry geometry, int count, Context context, Op key) where TGeometry : notnull =>
         geometry.SamplePoints(count: count, context: context, key: key)
             .BindFail(error => error switch {
-                Fault.Unsupported => geometry.BoundsOf(op: key).Bind(box => guard(box.IsValid, key.InvalidInput()).ToFin().Map(_ => toSeq(box.GetCorners()))),
+                Fault.Unsupported => geometry.BoundsOf(key: key).Bind(box => guard(box.IsValid, key.InvalidInput()).ToFin().Map(_ => toSeq(box.GetCorners()))),
                 _ => Fin.Fail<Seq<Point3d>>(error),
             });
     private static Point3d FarthestFrom(Seq<Point3d> samples, Point3d anchor) =>
@@ -509,9 +503,9 @@ public static partial class Analyze {
 - Owner: `ConformanceMetric` `[BoundaryAdapter]` `[SmartEnum<int>]` — eight policy rows, each binding the typed `Output` (`double`/`bool`/`Stat`/`ResidualSample`/`Distribution`), the `IsSigned`/`IsContainment`/`ExactCurveDeviation` admission columns, and the `ConformanceProjection` delegate folding the sampled residual stream into the metric's result: `Distance` streams the raw distances, `Rms`/`WithinTolerance`/`Summary` fold the `Domain/stats` Welford `Stat` with `StatContext.Tolerance` provenance, `Maximum` extracts the worst sample through `Stat.Extrema`, `SignedResidual`/`Containment` stream the typed samples themselves, `Distribution` folds `Distribution.Of` over caller percentiles. `ResidualSample` `[BoundaryAdapter]` — the per-sample receipt (`Index`, `Location`, `Distance`, `Tolerance`, `WithinTolerance`) declaring validity through `IValidityEvidence`: non-negative index, valid location, finite distance/tolerance, and the `WithinTolerance == (|Distance| <= Tolerance)` consistency law.
 - Cases: `Distance` · `Rms` · `WithinTolerance` · `Summary` · `Maximum` · `SignedResidual` · `Containment` · `Distribution` (8).
 - Entry: `Analyze.RelationConformance<TGeometry, TTarget, TOut>(metric, count, percentiles, key)` — the pair operation `Analysis/query`'s `Conformance` case forwards to; build-time gates reject a null metric, a non-positive count, an inadmissible `(geometry, target)` kind pair, or an output mismatching the metric's `Output`.
-- Auto: admission is data-driven — `AcceptsTarget` reads the metric columns (containment demands `Brep`/`Mesh` targets; signed demands `Kind.CanSignedDistance` targets; unsigned accepts any closest-point-capable or curve-like target) and `TargetRequirement` escalates containment targets to `Requirement.SolidTopology`; the two-operand gate runs `RequirementContext.Pair` — kind-resolve both operands, demand curve-or-surface source topology, apply `Requirement.ForKind` to the source and the metric-derived requirement to the target, all before a single sample; curve-vs-curve pairs under an `ExactCurveDeviation` metric SHORT-CIRCUIT to the `Analysis/relations` exact `CurveDeviationOf` — one host call replaces N samples when exactness is available; every other pair samples N points through the `Domain/evaluation` `SamplePoints` extension and measures each through `SupportSpace.Of` + the metric-selected `SupportProjection` (`ContainmentDistance`/`SignedDistance`/`Distance`) projected by `VectorIntent.Support`.
+- Auto: admission is data-driven — `AcceptsTarget` reads the metric columns (containment demands `Brep`/`Mesh` targets; signed demands `Capability.SignedDistance` targets; unsigned accepts any closest-point-capable or curve-like target) and `TargetRequirement` escalates containment targets to `Requirement.SolidTopology`; the two-operand gate runs `RequirementContext.Pair` — kind-resolve both operands, demand curve-or-surface source topology, apply `Requirement.ForKind` to the source and the metric-derived requirement to the target, all before a single sample; curve-vs-curve pairs under an `ExactCurveDeviation` metric SHORT-CIRCUIT to the `Analysis/relations` exact `CurveDeviationOf` — one host call replaces N samples when exactness is available; every other pair samples N points through the `Domain/evaluation` `SamplePoints` extension and measures each through `SupportSpace.Of` + the metric-selected `SupportProjection` (`ContainmentDistance`/`SignedDistance`/`Distance`) projected by `VectorIntent.Support`.
 - Receipt: `ResidualSample` — evidence-carrying, oracle-admitted; aggregate metrics re-emit `Stat`/`Distribution` whose own validity the Domain oracle already owns.
-- Packages: `Rasm.Vectors` (`SupportSpace`/`SupportProjection` — the `Spatial/support` adapter; `VectorIntent.Support` — the `Processing/intent` rail), `Rasm.Domain` (`Stat`/`StatContext`/`Distribution` — the `Domain/stats` substrate; `RequirementContext.Pair`; `SamplePoints`/`CurveForm` extensions; `Kind` capability web), RhinoCommon (geometry payloads), Thinktecture.Runtime.Extensions, LanguageExt.Core.
+- Packages: `Rasm.Vectors` (`SupportSpace`/`SupportProjection` — the `Spatial/support` adapter; `VectorIntent.Support` — the `Processing/intent` rail), `Rasm.Domain` (`Stat`/`StatContext`/`Distribution` — the `Domain/stats` substrate; `RequirementContext.Pair`; `SamplePoints`/`CurveForm` owners; `Capability` rows), RhinoCommon (geometry payloads), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 - Growth: a new conformance metric (a percentile band, a signed RMS, a Hausdorff estimate) is ONE row — key, output, three columns, one projection delegate — zero pipeline edits; a new target admission class is one column read by `AcceptsTarget`, never a parallel sampling pipeline.
 - Boundary: the residual pipeline is ONE sampling fold parameterized by the metric row — a `DistanceConformance`/`ContainmentConformance`/`SignedConformance` operation family is the deleted sibling form; distance measurement routes through the `Spatial/support` projection gate exclusively — a local closest-point/containment switch beside `SupportSpace` is the killed parallel proximity rail; `WithinTolerance` inside every sample is DERIVED at construction from the threaded model tolerance (`|d| <= context.Absolute.Value`), so the receipt is self-consistent by construction and the evidence law makes an inconsistent sample unrepresentable past the oracle; percentiles reach only the `Distribution` row — the factory already stripped them elsewhere, and the projection signature still carries them so the row set stays uniform.
 
@@ -556,9 +550,9 @@ public sealed partial class ConformanceMetric {
     internal ConformanceProjection Projection { get; }
     internal bool AcceptsTarget(Type target, bool curveSource) =>
         (IsContainment && (target == typeof(Brep) || target == typeof(Mesh)))
-        || (IsSigned && !IsContainment && Kind.CanSignedDistance(type: target))
-        || (!IsSigned && !IsContainment && (Kind.CanClosest(type: target)
-            || (curveSource && (target == typeof(Line) || target == typeof(Circle) || target == typeof(Arc) || target == typeof(Polyline) || Kind.CanCurveForm(type: target)))));
+        || (IsSigned && !IsContainment && Capability.SignedDistance.Admits(type: target))
+        || (!IsSigned && !IsContainment && (Capability.Closest.Admits(type: target)
+            || (curveSource && (target == typeof(Line) || target == typeof(Circle) || target == typeof(Arc) || target == typeof(Polyline) || Capability.CurveForm.Admits(type: target)))));
     internal Requirement TargetRequirement(Kind kind) =>
         IsContainment && (kind.Topology == Topology.Brep || kind.Topology == Topology.Mesh) ? Requirement.SolidTopology : Requirement.None;
     internal Fin<Seq<TOut>> Project<TOut>(Seq<ResidualSample> residuals, Seq<double> percentiles, Context context, Op key) =>
@@ -600,8 +594,8 @@ public static partial class Analyze {
             .Bind(distances => Distribution.Of(values: distances, percentiles: percentiles, key: key));
     private static bool CanConform(ConformanceMetric metric, Type geometry, Type target) =>
         geometry == typeof(object) || target == typeof(object)
-        || (Kind.CanCurveForm(type: geometry) && metric.AcceptsTarget(target: target, curveSource: true))
-        || (Kind.CanSurfaceForm(type: geometry) && metric.AcceptsTarget(target: target, curveSource: false));
+        || (Capability.CurveForm.Admits(type: geometry) && metric.AcceptsTarget(target: target, curveSource: true))
+        || (Capability.SurfaceForm.Admits(type: geometry) && metric.AcceptsTarget(target: target, curveSource: false));
     private static Fin<double> ConformanceDistanceFor(ConformanceMetric metric, object target, Point3d point, Context context, Op key) =>
         from space in SupportSpace.Of(value: target, key: key)
         let projection = metric.IsContainment ? SupportProjection.ContainmentDistance : metric.IsSigned ? SupportProjection.SignedDistance : SupportProjection.Distance
@@ -613,16 +607,16 @@ public static partial class Analyze {
             .Bind(points => points.Map((p, i) => distance(arg1: primitive, arg2: p, arg3: context).Map(d => new ResidualSample(i, p, d, context.Absolute.Value, Math.Abs(d) <= context.Absolute.Value))).TraverseM(identity).As());
     private static Fin<Seq<ResidualSample>> ConformanceSamples<TGeometry, TTarget>(ConformanceMetric metric, int count, TGeometry geometry, TTarget target, Context context, Op key) where TGeometry : notnull where TTarget : notnull =>
         (geometry, target) switch {
-            (object curveLike, object targetCurveLike) when Kind.CanCurveForm(type: curveLike.GetType()) && Kind.CanCurveForm(type: targetCurveLike.GetType()) && metric.ExactCurveDeviation =>
-                curveLike.CurveForm(op: key).Bind(leftLease => targetCurveLike.CurveForm(op: key).Bind(rightLease => leftLease.Use(left => rightLease.Use(right =>
+            (object curveLike, object targetCurveLike) when Capability.CurveForm.Admits(type: curveLike.GetType()) && Capability.CurveForm.Admits(type: targetCurveLike.GetType()) && metric.ExactCurveDeviation =>
+                Normalization.CurveForm(source: curveLike, key: key).Bind(leftLease => Normalization.CurveForm(source: targetCurveLike, key: key).Bind(rightLease => leftLease.Use(left => rightLease.Use(right =>
                     CurveDeviationOf(left: left, right: right, context: context, op: key)
                         .Map(static d => Seq(new ResidualSample(Index: 0, Location: d.MaximumA, Distance: d.MaximumDistance, Tolerance: d.Tolerance, WithinTolerance: d.WithinTolerance))))))),
-            (object curveLike, _) when Kind.CanCurveForm(type: curveLike.GetType()) =>
-                curveLike.CurveForm(op: key).Bind(lease => lease.Use(curve => ConformanceSampleResiduals(curve, target, count, context, key,
+            (object curveLike, _) when Capability.CurveForm.Admits(type: curveLike.GetType()) =>
+                Normalization.CurveForm(source: curveLike, key: key).Bind(lease => lease.Use(curve => ConformanceSampleResiduals(curve, target, count, context, key,
                     sampler: static (c, n, ctx, op) => c.SamplePoints(count: n, context: ctx, key: op),
                     distance: (t, pt, model) => ConformanceDistanceFor(metric: metric, target: t, point: pt, context: model, key: key)))),
-            (object surfaceLike, _) when Kind.CanSurfaceForm(type: surfaceLike.GetType()) =>
-                surfaceLike.SurfaceForm(op: key).Bind(lease => lease.Use(surface => ConformanceSampleResiduals(surface, target, count, context, key,
+            (object surfaceLike, _) when Capability.SurfaceForm.Admits(type: surfaceLike.GetType()) =>
+                Normalization.SurfaceForm(source: surfaceLike, key: key).Bind(lease => lease.Use(surface => ConformanceSampleResiduals(surface, target, count, context, key,
                     sampler: static (s, n, ctx, op) => s.SamplePoints(count: n, context: ctx, key: op),
                     distance: (t, pt, model) => ConformanceDistanceFor(metric: metric, target: t, point: pt, context: model, key: key)))),
             _ => Fin.Fail<Seq<ResidualSample>>(key.Unsupported(typeof(TGeometry), typeof(ResidualSample))),
@@ -670,6 +664,6 @@ All three fences are transcription-complete host captures: the mass compute/aggr
 
 ## [06]-[RESEARCH]
 
-- [MASS_LEASE_DISCIPLINE] — every host mass-properties handle is an unmanaged-backed `IDisposable`, and the algebra guarantees no handle escapes: per-item compute leases one handle for the extract scope; the aggregate fold accumulates handles left-to-right, disposes the accumulated set on any mid-fold failure, sums into the first handle through the host `Sum(summands, bAddTo: true)` mutator, disposes every non-surviving summand on success, and disposes everything on a failed sum — the law-matrix asserts handle balance (creations equal disposals) across success, mid-fold failure, and sum-failure paths, and moment-demand minimality (the host computes exactly the moments the property row's columns request). The homogeneous curve aggregate routes the host's native multi-curve `LengthMassProperties.Compute(IEnumerable<Curve>, …)` overload — one native call, not N sums.
+- [MASS_LEASE_DISCIPLINE] — every host mass-properties handle is an unmanaged-backed `IDisposable`, and the algebra guarantees no handle escapes: the aggregate fold accumulates handles left-to-right, disposes the accumulated set on any mid-fold failure, sums into the first handle through the host `Sum(summands, bAddTo: true)` mutator, disposes every non-surviving summand on success, and disposes everything on a failed sum; `PrincipalFrameOf` leases its single compute handle for exactly the frame-recovery scope — the law-matrix asserts handle balance (creations equal disposals) across success, mid-fold failure, and sum-failure paths, and moment-demand minimality (the host computes exactly the moments the property row's columns request). The homogeneous curve aggregate routes the host's native multi-curve `LengthMassProperties.Compute(IEnumerable<Curve>, …)` overload — one native call, not N sums.
 - [RITTER_ENCLOSURE] — the enclosing-solid family holds one geometric contract: every surface sample lies inside the emitted solid. `RitterFit` is the classic two-pass bounding-sphere construction (seed diameter from two farthest-point sweeps, then grow-ball) whose result over-approximates the minimal ball by a bounded factor — the sphere and the cylinder disc compose the SAME fold, the cylinder adding an exact axial extent so its height is tight even when its radius is Ritter-approximate; the circle delegates to the host exact smallest-enclosing-circle in the projection plane. The law-matrix asserts containment (all samples inside, at tolerance), the sampling fallback (an unsupported sampler degrades to the eight AABB corners and still encloses the box), and axis admission (a zero or non-finite cylinder axis rejects through `VectorIntent.Direction`, never a NaN frame). Verification rides the bridge scenario rail against live geometry.
 - [RESIDUAL_SAMPLING] — conformance is a sampled-residual estimate with an exactness escape hatch: N surface/curve samples measured against the target through the support-projection gate yield `ResidualSample` receipts whose `WithinTolerance` is derived from the threaded model tolerance at construction — the receipt's evidence law (`WithinTolerance == (|Distance| <= Tolerance)`) makes a tampered or drifted sample unrepresentable past the oracle; curve-vs-curve pairs under exact metrics bypass sampling entirely through the host `Curve.GetDistancesBetweenCurves` deviation, so `WithinTolerance`/`Maximum` answer from the true extremum, never a sample undercount. The law-matrix asserts estimate monotonicity (more samples never lower the maximum residual), exact-path agreement (the sampled maximum converges toward the exact deviation as N grows), and containment-metric escalation (solid targets validate under `Requirement.SolidTopology` before any inside/outside distance is trusted).

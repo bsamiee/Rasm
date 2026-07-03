@@ -441,7 +441,7 @@ def _host_facts(report: Report | None) -> dict[str, str]:
             return {}
 
 
-def _delta_report(before_id: str, after_id: str, before: Envelope | None, after: Envelope | None) -> Report:  # noqa: PLR0914  # delta + host-drift projection over both endpoints
+def _delta_report(before_id: str, after_id: str, before: Envelope | None, after: Envelope | None) -> Report:  # delta + host-drift projection over both endpoints
     # Compares by status, counts, and `(id, line)` result keys; a missing side folds to EMPTY.
     def snapshot(run_id: str, env: Envelope) -> tuple[RunSnapshot, frozenset[tuple[str, int]], dict[str, str]]:
         report = env.report

@@ -281,6 +281,7 @@ dev = [
     "ruff>=0.15.20,<0.16",
     "squawk-cli",
     "ty",
+    "types-grpcio",
     "types-psutil",
     "validate-pyproject[all]",
 ]
@@ -396,7 +397,7 @@ warn_unreachable =        false
 disable_error_code =      ["func-returns-value", "attr-defined", "type-arg", "override", "arg-type"]
 
 [[tool.mypy.overrides]]
-module =                 ["fsspec", "fsspec.*", "boto3", "boto3.*"]  # backend imports lack py.typed coverage
+module =                 ["fsspec", "fsspec.*", "boto3", "boto3.*", "s3fs"]  # backend imports lack py.typed coverage
 ignore_missing_imports = true
 
 # --- [PYTEST] --------------------------------------------------------------
@@ -424,9 +425,13 @@ addopts = [
     "--disable-socket",
     "--allow-unix-socket",
     "--benchmark-storage=file://.artifacts/python/benchmarks",  # benchmark artifacts route through the Assay catalog URI
+    "--benchmark-autosave",                                     # feeds the sustained-regression series; writes only when benchmarks ran
     "--hypothesis-profile=rasm",
 ]
-filterwarnings = ["error"]
+filterwarnings = [
+    "error",
+    "ignore:Not saving anything:pytest_benchmark.logger.PytestBenchmarkWarning",  # autosave no-op in sessions whose benchmarks are deselected
+]
 timeout = "30"  # pytest-timeout registers this option as a string; pytest 9 TOML mode rejects a native int
 required_plugins = [
     "anyio",
@@ -597,6 +602,9 @@ ignore = [
     "RET506",  # explicit error branches keep ROP rails visible
     "SIM108",  # match/case owns dispatch, not ternaries
     "SIM114",  # match/case owns dispatch, not merged if arms
+    # --- [DENSITY]
+    "PLR0914", # dense dispatch surfaces own their locals; a variable cap pressures fragmentation
+    "PLR0915", # one surface owns every arm; a statement cap never justifies splitting a closed union
     # --- [ERROR_RAILS]
     "EM101",   # frozen errors carry inline messages
     "EM102",   # error constructors carry formatted context
@@ -634,8 +642,6 @@ ignore = [
     "PLC3002",
     "PLR0911",
     "PLR0912",
-    "PLR0914",
-    "PLR0915",
     "PLR6201",
     "PLW1510",
     "PTH109",

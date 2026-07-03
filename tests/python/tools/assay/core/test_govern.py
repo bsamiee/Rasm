@@ -825,7 +825,7 @@ def test_steal_rewrites_owner_and_yields_busy_on_lost_race(assay_root: AssayHarn
 
 
 @pytest.mark.mutation
-def test_claim_contention_busy_vs_steal_decision(  # noqa: PLR0915  # three contention scenarios share one scripted flock + fd harness
+def test_claim_contention_busy_vs_steal_decision(  # three contention scenarios share one scripted flock + fd harness
     assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """``_claim`` maps live contention to BUSY and stale contention to owner rewrite.

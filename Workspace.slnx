@@ -1,9 +1,4 @@
 <Solution>
-  <Folder Name="/apps/" />
-  <Folder Name="/apps/grasshopper/" />
-  <Folder Name="/apps/grasshopper/Radyab/">
-    <Project Path="apps/grasshopper/Radyab/Radyab.csproj" />
-  </Folder>
   <Folder Name="/libs/" />
   <Folder Name="/libs/csharp/" />
   <Folder Name="/libs/csharp/Rasm.AppHost/">
@@ -27,17 +22,11 @@
   <Folder Name="/libs/csharp/Rasm/">
     <Project Path="libs/csharp/Rasm/Rasm.csproj" />
   </Folder>
-  <Folder Name="/libs/csharp/Rasm.Grasshopper/">
-    <Project Path="libs/csharp/Rasm.Grasshopper/Rasm.Grasshopper.csproj" />
-  </Folder>
   <Folder Name="/libs/csharp/Rasm.Materials/">
     <Project Path="libs/csharp/Rasm.Materials/Rasm.Materials.csproj" />
   </Folder>
   <Folder Name="/libs/csharp/Rasm.Persistence/">
     <Project Path="libs/csharp/Rasm.Persistence/Rasm.Persistence.csproj" />
-  </Folder>
-  <Folder Name="/libs/csharp/Rasm.Rhino/">
-    <Project Path="libs/csharp/Rasm.Rhino/Rasm.Rhino.csproj" />
   </Folder>
   <Folder Name="/tests/" />
   <Folder Name="/tests/csharp/" />
@@ -81,14 +70,8 @@
   <Folder Name="/tests/csharp/libs/Rasm/">
     <Project Path="tests/csharp/libs/Rasm/Rasm.Tests.csproj" />
   </Folder>
-  <Folder Name="/tests/csharp/libs/Rasm.Grasshopper/">
-    <Project Path="tests/csharp/libs/Rasm.Grasshopper/Rasm.Grasshopper.Tests.csproj" />
-  </Folder>
   <Folder Name="/tests/csharp/libs/Rasm.Materials/">
     <Project Path="tests/csharp/libs/Rasm.Materials/Rasm.Materials.Tests.csproj" />
-  </Folder>
-  <Folder Name="/tests/csharp/libs/Rasm.Rhino/">
-    <Project Path="tests/csharp/libs/Rasm.Rhino/Rasm.Rhino.Tests.csproj" />
   </Folder>
   <Folder Name="/tests/csharp/tools/cs-analyzer/">
     <Project Path="tests/csharp/tools/cs-analyzer/Csp.Analyzer.Tests.csproj" />

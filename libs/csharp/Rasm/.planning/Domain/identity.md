@@ -34,9 +34,9 @@ public static class ContentHash {
 
 ## [03]-[DETERMINISTIC_DERIVATION]
 
-- Owner: `Deterministic` static class — the one splitmix64 owner. The finalizer `Mix`, the golden-gamma stream `Advance`, the unit projections `NextUnit`/`NextSignedUnit`/`NextSignedComplexUnit`, the coordinate `OrderKey`, and the clamped `UnitInterval` are one derivation family over one mixing function.
+- Owner: `Deterministic` static class — the one splitmix64 owner. The finalizer `Mix` and the golden-gamma stream `Advance` are the private mechanism; the public family is the draws and keys — the unit projections `NextUnit`/`NextSignedUnit`/`NextSignedComplexUnit`, the coordinate `OrderKey`, and the clamped `UnitInterval` — one derivation family over one mixing function, with the mixer unreachable outside the owner so every new derivation lands HERE.
 - Entry: two modalities discriminated by input shape — stream sampling advances a `ref ulong state` seeded by the consuming algorithm's named policy seed (`NextSignedUnit(ref state)` for real bases, `NextSignedComplexUnit(ref state)` for Hermitian bases); coordinate keying is stateless (`OrderKey(coordinates, seed)` with the `Point3d` overload routing into the span floor, `UnitInterval(point, salt, seed)` for per-point reproducible draws).
-- Law: ONE mixing function — the splitmix64 finalizer with its published constants (`0x9E3779B97F4A7C15` gamma, `0xBF58476D1CE4E5B9`/`0x94D049BB133111EB` mixers) — under every member: the matrix eigensolver's basis streams and the sampler's coordinate keys are derivations of this one finalizer. The mature pair of private PRNGs — the eigensolver's local splitmix64 beside the sampler's ad-hoc coordinate mix — is the collapsed form; a private mix anywhere in the corpus is the deleted form.
+- Law: ONE mixing function — the splitmix64 finalizer with its published constants (`0x9E3779B97F4A7C15` gamma, `0xBF58476D1CE4E5B9`/`0x94D049BB133111EB` mixers) — under every member: the matrix eigensolver's basis streams and the sampler's coordinate keys are derivations of this one finalizer. The mature pair of private PRNGs — the eigensolver's local splitmix64 beside the sampler's ad-hoc coordinate mix — is the collapsed form; a mix minted outside this owner is the deleted form.
 - Law: coordinate keys normalize the signed zero — `-0.0` projects to `+0.0` before bit extraction, so the two zeros key identically — and the seed widens unsigned (`(uint)seed`) so a negative seed never sign-extends into the state.
 - Law: unit projections take the top 53 bits (`>> 11`, scaled by `2^-53`) so every draw is an exact double; `UnitInterval` clamps to `[RhinoMath.SqrtEpsilon, 1 - RhinoMath.SqrtEpsilon]` so log-weighted rejection draws (`-log(u) / weight`) stay finite at both ends.
 - Law: derivation is not identity — `ContentHash` owns content equality; `Deterministic` owns reproducible algorithm-internal ordering and sampling. A content key built from `OrderKey`, or a sampler seeded from a content hash, crosses the concerns and is rejected.
@@ -54,13 +54,13 @@ namespace Rasm.Domain;
 // The ONE splitmix64 owner: reproducible order keys, unit draws, and signed-unit streams.
 public static class Deterministic {
     private const ulong Gamma = 0x9E3779B97F4A7C15UL;
-    public static ulong Mix(ulong state) {
+    private static ulong Mix(ulong state) {
         ulong z = state;
         z = unchecked((z ^ (z >> 30)) * 0xBF58476D1CE4E5B9UL);
         z = unchecked((z ^ (z >> 27)) * 0x94D049BB133111EBUL);
         return z ^ (z >> 31);
     }
-    public static ulong Advance(ref ulong state) => Mix(state: state = unchecked(state + Gamma));
+    private static ulong Advance(ref ulong state) => Mix(state: state = unchecked(state + Gamma));
     public static double NextUnit(ref ulong state) => (Advance(state: ref state) >> 11) * (1.0 / 9_007_199_254_740_992.0);
     public static double NextSignedUnit(ref ulong state) => (NextUnit(state: ref state) * 2.0) - 1.0;
     public static Complex NextSignedComplexUnit(ref ulong state) => new(real: NextSignedUnit(state: ref state), imaginary: NextSignedUnit(state: ref state));
@@ -89,4 +89,4 @@ Two owners, two concerns, zero siblings; every reproducibility need in the corpu
 | [INDEX] | [AXIS/CONCERN]           | [OWNER]         | [KIND]                                             | [RAIL]                                          | [CASES] |
 | :-----: | :----------------------- | :-------------- | :-------------------------------------------------- | :----------------------------------------------- | :-----: |
 |  [01]   | Content identity         | `ContentHash`   | static entry over seed-zero `XxHash128`             | `ReadOnlySpan<byte> → UInt128`                   |    1    |
-|  [02]   | Reproducible derivation  | `Deterministic` | the one splitmix64 family: streams + keys + draws   | `ref ulong → double`/`coordinates → ulong`       |    8    |
+|  [02]   | Reproducible derivation  | `Deterministic` | the one splitmix64 family: streams + keys + draws over a private mixer | `ref ulong → double`/`coordinates → ulong`       |    6    |

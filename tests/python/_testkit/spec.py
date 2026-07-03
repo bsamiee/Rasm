@@ -8,8 +8,18 @@ import operator
 from typing import overload, Protocol, Self
 
 from expression import Option, Result
-from hypothesis import settings as hyp_settings
-from hypothesis.stateful import Bundle, consumes, invariant, multiple, RuleBasedStateMachine, run_state_machine_as_test
+from hypothesis import settings as hyp_settings, target
+from hypothesis.stateful import (
+    Bundle,
+    consumes,
+    initialize,
+    invariant,
+    multiple,
+    precondition,
+    rule,
+    RuleBasedStateMachine,
+    run_state_machine_as_test,
+)
 import msgspec
 import msgspec.json
 
@@ -429,7 +439,12 @@ __all__ = [
     "assert_roundtrip",
     "model_based",
     "Bundle",
+    "RuleBasedStateMachine",
     "consumes",
+    "initialize",
     "invariant",
     "multiple",
+    "precondition",
+    "rule",
+    "target",
 ]

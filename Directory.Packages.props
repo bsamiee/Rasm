@@ -75,7 +75,6 @@
         <PackageVersion Include="MIConvexHull"            Version="1.1.19.1019" />
         <PackageVersion Include="SharpVoronoiLib"         Version="1.2.0" />
         <PackageVersion Include="Supercluster.KDTree.Net" Version="1.0.22" />
-        <PackageVersion Include="Triangle"                Version="0.0.6-Beta3" />
     </ItemGroup>
 
     <ItemGroup Label="Fabrication">

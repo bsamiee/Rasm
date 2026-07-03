@@ -10,12 +10,13 @@ from typing import Protocol, Self, TYPE_CHECKING
 from unittest.mock import create_autospec, MagicMock
 
 import msgspec
+lazy import grpc.aio
+lazy import pytest
+lazy import sniffio
 
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator, Awaitable, Mapping
-
-    import pytest
 
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -187,6 +188,32 @@ async def loopback_server[S: _AsyncServer](
         yield Loopback(host=host, port=port_of(server))
 
 
+@asynccontextmanager
+async def grpc_loopback(
+    bind: Callable[[grpc.aio.Server], None], *, host: str = "127.0.0.1"
+) -> AsyncGenerator[tuple[Loopback, grpc.aio.Channel]]:
+    """Serve a ``grpc.aio`` server on an ephemeral loopback port with a connected channel.
+
+    ``bind`` registers servicers or generic handlers on the fresh server; the daemon and
+    server-runtime lanes ride this one capsule instead of per-suite lifecycle code.
+
+    Yields:
+        The bound ``Loopback`` endpoint and an open insecure ``grpc.aio.Channel``.
+    """
+    # grpc.aio binds the asyncio loop; under the trio anyio backend the capsule cannot exist.
+    if sniffio.current_async_library() != "asyncio":
+        pytest.skip("grpc_loopback requires the asyncio backend")
+    server = grpc.aio.server()
+    bind(server)
+    port = server.add_insecure_port(f"{host}:0")
+    await server.start()
+    try:
+        async with grpc.aio.insecure_channel(f"{host}:{port}") as channel:
+            yield Loopback(host=host, port=port), channel
+    finally:
+        await server.stop(grace=None)
+
+
 # --- [FIXTURE_WRITERS]
 
 
@@ -206,14 +233,8 @@ class VariantWriter[V](msgspec.Struct, frozen=True, gc=False):
             The path to the (possibly unwritten) variant file.
         """
         target = self.directory / self.names[variant]
-        match variant in self.absent, self.payloads.get(variant):
-            case True, _:
-                return target
-            case _, bytes() as raw:
-                return self._emit(target, raw)
-            case _, payload:
-                return self._emit(target, self.encode(payload))
-        return target  # unreachable: the `_, payload` arm is irrefutable (ty cannot prove 2-tuple exhaustiveness)
+        payload = self.payloads.get(variant)
+        return target if variant in self.absent else self._emit(target, payload if isinstance(payload, bytes) else self.encode(payload))
 
     def write_all(self) -> dict[V, Path]:
         return {variant: self.path(variant) for variant in self.names}
@@ -341,6 +362,7 @@ __all__ = [
     "Variant",
     "VariantWriter",
     "autospec_proc",
+    "grpc_loopback",
     "install_module_attr",
     "loopback_server",
     "psutil_module_double",

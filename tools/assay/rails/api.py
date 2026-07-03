@@ -451,7 +451,7 @@ def _member_report(
             assert_never(never)
 
 
-def _cs_member(  # noqa: PLR0914  # decompile rendering uses its locals as independent pipeline stages
+def _cs_member(  # decompile rendering uses its locals as independent pipeline stages
     settings: AssaySettings, scope: ArtifactScope, orc: Oracle, surface: Surface, symbol: str, shape: SymbolShape, p: ApiParams
 ) -> Result[Report, Fault]:
     head, _, tail = symbol.rpartition(".")
@@ -631,7 +631,7 @@ def _grep_member_report(settings: AssaySettings, scope: ArtifactScope, orc: Orac
             return msgspec.structs.replace(fold(Claim.API, "query", (done,), detail=detail), artifacts=artifacts, results=results)
 
 
-def _decompile_report(  # noqa: PLR0913,PLR0914,PLR0917  # all slots are structural caller positions shared across C# and INPROC paths
+def _decompile_report(  # noqa: PLR0913, PLR0917  # all slots are structural caller positions shared across C# and INPROC paths
     settings: AssaySettings,
     scope: ArtifactScope,
     orc: Oracle,

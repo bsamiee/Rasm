@@ -2,7 +2,7 @@
 
 THE neighborhood substrate: ONE `NeighborIndex` `[Union]` over every proximity-index modality — the native `RTree` tiers (point array, point cloud, mesh faces, inserted bounds) and the static `Supercluster.KDTree.Net` kd-tree tier — behind ONE `Query(NeighborQuery)` dispatch, plus the `NeighborKernel` operation surface that owns every per-point neighborhood fold in the corpus: batch kNN/radius graphs with typed receipts, neighborhood PCA, covariance normal estimation with Hoppe-DeRose MST orientation, quadric-fit principal curvature with Koenderink classification, and the ONE rotation-minimizing-frame chain. The retired corpus carried three parallel `RTree` wrappers (cloud metrics, ICP correspondence, power-diagram seeding) and a fourth in the analysis layer — all four collapse onto this substrate; `cloud.md` metric rows, `register.md` correspondences, `sample.md`/`mesh.md` seeding, and the `Analysis/query.md` search/overlap/point-pair cases are consumers of these folds, never re-implementations.
 
-This page ABSORBS the retired analysis spatial family — `SpatialIndex` (Points/PointCloud/MeshFaces/FromBounds), `SpatialProbe` (Nearest/Within), `SpatialHit`/`SpatialPair` — as query modalities: box and sphere searches are `NeighborQuery` cases, tree-against-tree overlap is a case, probe-driven point-pairs are a case, and the hit/pair carriers land as `NeighborHit`/`NeighborPair`. It also owns the RMF chain: `atoms.md` `Direction.ParallelTransport` and `VectorFrame.Chain` DELEGATE to `NeighborKernel.BishopChain` here — one Wang double-reflection body in the corpus. The settled `Rasm.Geometry.Spatial` index (first-principles SAH-BVH + Morton octree over primitive AABBs) is a DIFFERENT altitude by standing decision: it owns predicate-exact primitive broad-phase; this substrate owns the Rhino-native and static-point neighborhood tier — the two coexist under the host-capture law and neither re-implements the other.
+This page ABSORBS the retired analysis spatial family — `SpatialIndex` (Points/PointCloud/MeshFaces/FromBounds), `SpatialProbe` (Nearest/Within), `SpatialHit`/`SpatialPair` — as query modalities: box and sphere searches are `NeighborQuery` cases, tree-against-tree overlap is a case, probe-driven point-pairs are a case, and the hit/pair carriers land as `NeighborHit`/`NeighborPair`. It also owns RMF GENERATION: `atoms.md` `VectorFrame.Chain` DELEGATES to `NeighborKernel.BishopChain` here — one Wang double-reflection body in the corpus (`Direction.ParallelTransport` is the atoms-owned APPLICATION fold over caller-supplied frames, a different altitude that carries no reflection body). The settled `Rasm.Geometry.Spatial` index (first-principles SAH-BVH + Morton octree over primitive AABBs) is a DIFFERENT altitude by standing decision: it owns predicate-exact primitive broad-phase; this substrate owns the Rhino-native and static-point neighborhood tier — the two coexist under the host-capture law and neither re-implements the other.
 
 ## [01]-[INDEX]
 
@@ -13,12 +13,12 @@ This page ABSORBS the retired analysis spatial family — `SpatialIndex` (Points
 ## [02]-[NEIGHBOR_INDEX]
 
 - Owner: `NeighborIndex` `[Union]` — `Cloud` (a `VectorCloud.ClusterCase` riding its lazy native `PointCloud` index), `Points` (`RTree.CreateFromPointArray` over an admitted `Point3d[]`), `MeshFaces` (`RTree.CreateMeshFaceTree` — face-id hits), `Bounds` (an `RTree` built by `Insert(box, elementId)` over admitted `BoundingBox` extents), `Static` (a `SuperClusterKDTree.KDTree<double, double, int>` built once over an immutable point set — the exact-kNN tier for repeated queries over a frozen cloud, `register.md`'s per-iteration correspondence backend). `NeighborQuery` `[Union]` — `Nearest(int K)` / `Radius(PositiveMagnitude R, Option<Dimension> Cap)` / `Box(BoundingBox)` / `Ball(Sphere)` / `Overlaps(NeighborIndex Other, double Tolerance)` / `Pairs(Seq<Point3d> Needles, NeighborQuery Probe)`. `NeighborHit(int Id)` and `NeighborPair(int A, int B)` are the id carriers.
-- Entry: `public static Fin<NeighborIndex> Of(NeighborSource source, Op? key = null)` — one admitting factory over a `NeighborSource` `[Union]` (cluster / points / mesh / bounds / static-points) so index species is a case value, never five factory names; `internal Fin<NeighborAnswer> Query(NeighborQuery query, Point3d anchor, Op key)` — the ONE dispatch; `NeighborAnswer` `[Union]` carries `Hits(Seq<NeighborHit>)` / `PairsFound(Seq<NeighborPair>)` / `Graph(NeighborhoodGraph)`.
-- Auto: the native search cases run inside the ONE callback capsule — `RTree.Search(box|sphere, callback)` and `RTree.SearchOverlaps(treeA, treeB, tolerance, callback)` mutate a caller-owned buffer through an `EventHandler<RTreeEventArgs>` that reads `args.Id`/`args.IdB` and sets `args.Cancel` from the cooperative token; the capsule sorts hits (id order) and pairs (lexicographic) before emission so results are deterministic regardless of tree traversal order. Batch kNN/radius over hay×needles routes the static forms — `RTree.Point3dKNeighbors(hay, needles, amount)` / `RTree.Point3dClosestPoints(hay, needles, limitDistance)` on point arrays, `RTree.PointCloudKNeighbors` / `RTree.PointCloudClosestPoints` on the cloud tier — each an `IEnumerable<int[]>` leased (`as IDisposable`) for the read window; radius batches re-rank by squared distance and truncate to the policy cap. The `Static` tier queries `NearestNeighbors(point, k)` / `RadialSearch(center, r², cap)` — the Euclidean metric is SQUARED-distance, so the radius squares at this seam and nowhere else. `Pairs` validates needles, runs the probe per needle, and emits sorted `(needle, source)` pairs — the absorbed point-pair modality.
+- Entry: `public static Fin<NeighborIndex> Of(NeighborSource source, Op? key = null)` — one admitting factory over a `NeighborSource` `[Union]` (cluster / points / mesh / bounds / static-points) so index species is a case value, never five factory names; `internal Fin<NeighborAnswer> Query(NeighborQuery query, Point3d anchor, Op key, CancellationToken cancel = default)` — the ONE dispatch: `anchor` is read only by the `Nearest`/`Radius` arms (volume, overlap, and pair cases carry their own geometry and ignore it), and `cancel` is the cooperative token the callback capsule rides (`Analysis/query.md` pre-gates on `Env` cancellation today and threads the token when mid-traversal cancel matters; `default` elsewhere). `NeighborAnswer` `[Union]` carries `Hits(Seq<NeighborHit> Values)` / `PairsFound(Seq<NeighborPair> Values)` / `Graph(NeighborhoodGraph Value)` — case and field names are the `Analysis/query.md` `ProjectAnswer` binding, frozen by that consumer.
+- Auto: the native search cases run inside the ONE callback capsule — `RTree.Search(box|sphere, callback)` and `RTree.SearchOverlaps(treeA, treeB, tolerance, callback)` mutate a caller-owned buffer through an `EventHandler<RTreeEventArgs>` that reads `args.Id`/`args.IdB` and sets `args.Cancel` from the cooperative token; the capsule sorts hits (id order) and pairs (lexicographic) before emission so results are deterministic regardless of tree traversal order. Batch kNN/radius over hay×needles routes the static forms — `RTree.Point3dKNeighbors(hayPoints, needlePts, amount)` / `RTree.Point3dClosestPoints(hayPoints, needlePts, limitDistance)` on point arrays, `RTree.PointCloudKNeighbors(pointcloud, needlePts, amount)` / `RTree.PointCloudClosestPoints(pointcloud, needlePts, limitDistance)` on the cloud tier — each an `IEnumerable<int[]>` leased (`as IDisposable`) for the read window; radius batches re-rank by squared distance and truncate to the policy cap; a kNN request clamps `k` to the hay population before the query, so the receipt's `RequestedNeighborCount ≤ InputCount` conservation term holds by construction. The `Static` tier queries `NearestNeighbors(point, k)` / `RadialSearch(center, r², cap)` — the Euclidean metric is SQUARED-distance, so the radius squares at this seam and nowhere else. `Pairs` validates needles, runs the probe per needle, and emits sorted `(needle, source)` pairs — the absorbed point-pair modality.
 - Receipt: `NeighborhoodGraph(int[][] Ids, NeighborhoodReceipt Receipt)` — the batch answer every per-point fold consumes; `NeighborhoodReceipt` carries input/query/requested counts, the `NeighborSearchBackend` row (`RTreeKnn`/`RTreeRadius`/`KdTreeKnn`/`KdTreeRadius`), radius evidence, self-inclusion, empty/out-of-range/duplicate counts, and min/max/mean returned counts — `IValidityEvidence`, `IsValid` one `ValidityClaim.All` fold declaring the cross-field terms (`RequestedNeighborCount ≤ InputCount`, zero out-of-range, zero duplicates, `RadiusLimited == Radius.IsSome`).
 - Packages: RhinoCommon (`RTree` full surface — `CreateFromPointArray`/`CreatePointCloudTree`/`CreateMeshFaceTree`/`Insert`/`Search`/`SearchOverlaps`/`Point3dKNeighbors`/`Point3dClosestPoints`/`PointCloudKNeighbors`/`PointCloudClosestPoints`, `RTreeEventArgs.Id`/`IdB`/`Cancel`), Supercluster.KDTree.Net (`SuperClusterKDTree.KDTree` — assembly `KDTree.dll`, namespace `SuperClusterKDTree`, `KDTree.Create(points, payloads, DistanceMetrics.EuclideanDistance)`, `NearestNeighbors`, `RadialSearch`; build-once immutable, rebuild on point-set change), LanguageExt.Core, Thinktecture.Runtime.Extensions.
 - Growth: a new index species is one `NeighborIndex` case + one `NeighborSource` case + its query arms; a new query shape is one `NeighborQuery` case + one dispatch arm; a new backend is one `NeighborSearchBackend` row — never a parallel wrapper class per consumer.
-- Boundary: the RTree callback capsule is the named platform seam — the mutating buffer, the `args.Cancel` write, and the `IDisposable` lease on the batch enumerable never escape it; a consumer-local `RTree` construction (the retired cloud/align/mesh triplication) is the killed form — every kNN in the corpus reads `NeighborhoodGraph`; the kd-tree squared-radius conversion happens ONCE at the `Static` arm and an unsquared radius passed through is the named silent-wrong-result defect; `using SuperClusterKDTree;` is the only correct namespace (the package id is not the namespace, and `Supercluster.KDTree` resolves a different bundled type when SharpVoronoiLib is referenced); the settled `Rasm.Geometry.Spatial.SpatialIndex` is never wrapped, seeded, or re-implemented here — primitive AABB broad-phase routes there by standing decision.
+- Boundary: the RTree callback capsule is the named platform seam — the mutating buffer, the `args.Cancel` write, and the `IDisposable` lease on the batch enumerable never escape it; a consumer-local `RTree` construction (the retired cloud/align/mesh triplication) is the killed form — every kNN in the corpus reads `NeighborhoodGraph`; the native `RTree` handle a case carries dies WITH the case (finalizer-backed, mirroring the `ClusterCase` index-memo law) — a consumer needing deterministic release wraps the whole index in `Lease<T>.Owned`, and a case-level `Dispose` member is the rejected half-ownership; the kd-tree squared-radius conversion happens ONCE at the `Static` arm and an unsquared radius passed through is the named silent-wrong-result defect; `using SuperClusterKDTree;` is the only correct namespace (the package id is not the namespace, and `Supercluster.KDTree` resolves a different bundled type when SharpVoronoiLib is referenced); the settled `Rasm.Geometry.Spatial.SpatialIndex` is never wrapped, seeded, or re-implemented here — primitive AABB broad-phase routes there by standing decision.
 
 ```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------
@@ -47,6 +47,17 @@ public abstract partial record NeighborQuery {
         select (NeighborQuery)new RadiusCase(R: magnitude, Cap: bound);
 }
 
+[SkipUnionOps]
+[Union]
+public abstract partial record NeighborSource {
+    private NeighborSource() { }
+    public sealed record ClusterCase(VectorCloud.ClusterCase Cloud) : NeighborSource;
+    public sealed record PointsCase(Seq<Point3d> Values) : NeighborSource;
+    public sealed record MeshCase(Mesh Source) : NeighborSource;
+    public sealed record BoundsCase(Seq<BoundingBox> Boxes) : NeighborSource;
+    public sealed record StaticCase(Seq<Point3d> Values) : NeighborSource;
+}
+
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct NeighborHit(int Id) { public bool IsValid => Id >= 0; }
 
@@ -73,18 +84,17 @@ public readonly record struct NeighborhoodReceipt(
 
 public readonly record struct NeighborhoodGraph(int[][] Ids, NeighborhoodReceipt Receipt);
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// Case and field names frozen by Analysis/query.md ProjectAnswer: Hits.Values / PairsFound.Values.
 [SkipUnionOps]
 [Union]
-public abstract partial record NeighborSource {
-    private NeighborSource() { }
-    public sealed record ClusterCase(VectorCloud.ClusterCase Cloud) : NeighborSource;
-    public sealed record PointsCase(Seq<Point3d> Values) : NeighborSource;
-    public sealed record MeshCase(Mesh Source) : NeighborSource;
-    public sealed record BoundsCase(Seq<BoundingBox> Boxes) : NeighborSource;
-    public sealed record StaticCase(Seq<Point3d> Values) : NeighborSource;
+public abstract partial record NeighborAnswer {
+    private NeighborAnswer() { }
+    public sealed record Hits(Seq<NeighborHit> Values) : NeighborAnswer;
+    public sealed record PairsFound(Seq<NeighborPair> Values) : NeighborAnswer;
+    public sealed record Graph(NeighborhoodGraph Value) : NeighborAnswer;
 }
 
+// --- [OPERATIONS] -------------------------------------------------------------------------
 [Union]
 public abstract partial record NeighborIndex {
     private NeighborIndex() { }
@@ -122,7 +132,8 @@ public abstract partial record NeighborIndex {
                     Tree: KDTree.Create(coordinates, payloads, DistanceMetrics.EuclideanDistance), Points: points));
     }
 
-    internal Fin<NeighborAnswer> Query(NeighborQuery query, Point3d anchor, Op key) => /* one total dispatch:
+    // anchor: read by Nearest/Radius arms only; cancel: rides args.Cancel inside the capsule (default = never).
+    internal Fin<NeighborAnswer> Query(NeighborQuery query, Point3d anchor, Op key, CancellationToken cancel = default) => /* one total dispatch:
         NearestCase  -> batch kNN arm of the owning tier (RTree.Point3dKNeighbors / PointCloudKNeighbors /
                         KDTree.NearestNeighbors) lifted to NeighborhoodGraph;
         RadiusCase   -> radius arm (Point3dClosestPoints / PointCloudClosestPoints / RadialSearch(center, r*r, cap))
@@ -131,7 +142,7 @@ public abstract partial record NeighborIndex {
         OverlapsCase -> RTree.SearchOverlaps(treeA, treeB, tolerance, callback) -> sorted NeighborPair seq;
         PairsCase    -> per-needle probe -> sorted (needle, source) NeighborPair seq. */ default!;
 
-    // The callback capsule: the ONE mutating-buffer seam every native search runs through.
+    // The callback capsule: the ONE mutating-buffer seam every native search runs through; Query's token sources it.
     private static Fin<Seq<TItem>> SearchCapsule<TItem>(Func<List<TItem>, bool> run, Comparison<TItem> order, CancellationToken cancel, Op key) {
         List<TItem> buffer = [];
         bool completed = run(buffer);
@@ -153,7 +164,7 @@ public abstract partial record NeighborIndex {
 - Receipt: `NeighborhoodPcaReceipt` (counts, rank/eigen clamp evidence, floor, nested `NeighborhoodReceipt`); `CurvatureReceipt` (counts, rank/residual rejection split, mean/max residual, tolerances, nested neighborhood + range receipts); `CurvatureRangeReceipt` (bucket counts + k₁/k₂/Gaussian/mean/shape-index extents + tolerance); each `IValidityEvidence` with `IsValid` one `ValidityClaim.All` fold declaring its conservation terms (`Accepted + Rejected == Input`, bucket sums, nested-receipt count agreement via `ValidityClaim.Evidence`) once.
 - Packages: QuikGraph (`UndirectedGraph<TVertex,TEdge>`, `SEdge<int>`, `AlgorithmExtensions.MinimumSpanningTreePrim(edgeWeights)`), RhinoCommon, LanguageExt.Core.
 - Growth: a new per-point measurement is one fold over the SAME `NeighborhoodGraph` spine + its receipt columns; a new classification band is one policy column; a new orientation strategy is one arm beside the MST fold.
-- Boundary: every fold reads `GraphOf` — a fold constructing its own tree is the tri-plication this page kills; the quadric solve routes `matrix.md` owners and a raw-MathNet reach here is the named bypass defect; QuikGraph owns the MST and a hand-rolled Prim/Kruskal is the deleted form; curvature needs ≥6 neighbors (six quadric unknowns) and the policy floor enforces it before any solve; eigen clamping is evidence, never silent — clamp counts ride the receipts.
+- Boundary: every fold reads `GraphOf` — a fold constructing its own tree is the tri-plication this page kills; the quadric solve routes `matrix.md` owners and a raw-MathNet reach here is the named bypass defect; QuikGraph owns the MST and a hand-rolled Prim/Kruskal is the deleted form; the curvature entry gates `NeighborCount >= 6` before any solve (six quadric unknowns — `NeighborhoodPolicy.Admit` floors at 3 for PCA alone); eigen clamping is evidence, never silent — clamp counts ride the receipts.
 
 ```csharp signature
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -296,12 +307,12 @@ internal static class NeighborKernel {
 
 ## [04]-[BISHOP_CHAIN]
 
-- Owner: `NeighborKernel.BishopChain` — the ONE rotation-minimizing-frame body (Wang et al. double reflection) in the corpus: `atoms.md` `Direction.ParallelTransport(Seq<Plane>)` and `VectorFrame.Chain` delegate here (the atoms fence binds `NeighborKernel.BishopChain` by name); the `cloud.md` `BishopFrames` metric row names it; `Parametric/projections.md` curve-frame sweeps compose it.
+- Owner: `NeighborKernel.BishopChain` — the ONE rotation-minimizing-frame body (Wang et al. double reflection) in the corpus: `atoms.md` `VectorFrame.Chain` delegates here (the atoms fence binds `NeighborKernel.BishopChain` by name); the `cloud.md` `BishopFrames` metric row names it; `Parametric/projections.md` curve-frame sweeps compose it. `atoms.md` `Direction.ParallelTransport(Seq<Plane>)` transports a direction through frames a CALLER supplies — the application fold, never a second generator.
 - Entry: `internal static Fin<Seq<Plane>> BishopChain(VectorCloud cloud, Op key)` — ring case seeds from the oriented ring normal, polyline case from `VectorFrame.SeedPerpendicular` on the first tangent, cluster case refuses (`Unsupported` — a cluster has no chain order); and the point-form `BishopChain(Seq<Point3d> points, Direction initialNormal, bool closed, Context context, Op key)`.
 - Auto: the chain seeds an initial frame (tangent-orthogonalized seed normal), then folds each step through the double reflection — reflect the previous reference and tangent across the chord bisector plane, reflect again across the new tangent's bisector — which is the discretely rotation-minimizing transport; degenerate segments reuse the prior tangent, tiny reflection axes pass the vector through unchanged. Closed chains redistribute the holonomy: the angular defect between the transported final frame and the seed frame spreads as `−residual·i/count` per frame about each local tangent, so the closed chain meets itself with zero twist seam.
 - Receipt: none — the chain is a pure fold; a degenerate chain faults with the step's evidence.
 - Growth: a new transport flavor (e.g. frame interpolation weights) is a policy argument on the fold, never a second chain body.
-- Boundary: this is THE RMF owner — the retired corpus carried the double-reflection body in the cloud kernel AND a parallel-transport body in the atoms file; both collapse here, `atoms.md` keeping only the delegating member; per-frame construction admits through `VectorFrame.Of` so every emitted plane is an orthonormal admitted frame, never a raw plane assembly.
+- Boundary: this is THE RMF generator — the retired corpus carried the double-reflection body in the cloud kernel while the atoms file re-derived transport frames per call; the generator collapses here, `VectorFrame.Chain` keeps only the delegating member, and `Direction.ParallelTransport` stays the atoms-owned application fold over given frames; per-frame construction admits through `VectorFrame.Of` so every emitted plane is an orthonormal admitted frame, never a raw plane assembly.
 
 ## [05]-[DENSITY_BAR]
 

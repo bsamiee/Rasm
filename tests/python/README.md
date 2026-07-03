@@ -8,15 +8,15 @@ Authoring law for every Python spec, kit member, and tool suite under `tests/pyt
 
 | [INDEX] | [MODULE]        | [OWNS]                                                                                                    |
 | :-----: | :-------------- | :----------------------------------------------------------------------------------------------------------- |
-|  [01]   | `spec.py`       | pure assertion oracles: algebraic laws, `refutes`, the matrix folds, `Result`/`Option` rail asserts, `assert_roundtrip`, `model_based` |
-|  [02]   | `strategies.py` | `resolve(subject)` — the one Hypothesis strategy resolver over msgspec and pydantic-core schema algebras   |
-|  [03]   | `seams.py`      | the `Shape` call-shape union (`Sync`/`Async`/`FanOut`/`Factory`), `SeamProbe`, `Loopback`, `VariantWriter`, `TmpRoot`/`tmp_root`, `NdjsonOracle`, `autospec_proc`, module-attr doubles |
-|  [04]   | `env.py`        | declarative environment doubles: `SshHost`, `RemoteFS`, `Provisioned`, one polymorphic `provision` dispatch |
+|  [01]   | `spec.py`       | pure assertion oracles: algebraic laws, `refutes`, the matrix folds, `Result`/`Option` rail asserts, `assert_roundtrip`, `model_based` plus the stateful/guided-search vocabulary (`rule`, `initialize`, `precondition`, `Bundle`, `target`) |
+|  [02]   | `strategies.py` | `resolve(subject)` — the one Hypothesis strategy resolver over msgspec and pydantic-core schema algebras; defaulted struct fields sample presence and absence so the `UNSET`/omitted wire lane generates |
+|  [03]   | `seams.py`      | the `Shape` call-shape union (`Sync`/`Async`/`FanOut`/`Factory`), `SeamProbe`, `Loopback`, `loopback_server`/`grpc_loopback`, `VariantWriter`, `TmpRoot`/`tmp_root`, `NdjsonOracle`, `autospec_proc`, module-attr doubles |
+|  [04]   | `env.py`        | declarative environment doubles: `SshHost`, `RemoteFS`, `ObjectStore`, `Provisioned`, one polymorphic `provision` dispatch |
 |  [05]   | `bench.py`      | `BenchCase` registry rows, `bench_params`/`run_bench`/`run_registry`, absolute-budget gates, sustained-regression detection |
 |  [06]   | `laws.py`       | `@spec` law registration, declarative `COVERS` consumption, `auto_exempt`, `LawRecord`/`MANIFEST`, SUT registration, `assert_law_coverage` — the law-coverage census gate |
 |  [07]   | `runtime.py`    | the pytest plugin: Hypothesis profiles + example database, marker auto-application, observability and profiling artifact routing |
 
-`test_env.py` and `test_policy.py` are the kit's own falsification suites: environment doubles and the SUT-agnostic policy meta-laws over registered packages, declared markers, benchmark hooks, and litter containment. A kit capability without a falsification law here is unproven and gets deleted or proven, never trusted. Per-package suites live in `tests/python/libs/<package>/` mirroring `libs/python`, and each package `conftest.py` composes the shared kit instead of redeclaring it; tool suites live in `tests/python/tools/<tool>/`.
+`test_env.py` and `test_policy.py` are the kit's own falsification suites: environment doubles plus loopback capsules, and the SUT-agnostic policy meta-laws over registered packages, declared markers, benchmark hooks — including the sustained-regression fold — and litter containment. A kit capability without a falsification law here is unproven and gets deleted or proven, never trusted. Per-package suites live in `tests/python/libs/<package>/` mirroring `libs/python`, and each package `conftest.py` composes the shared kit instead of redeclaring it; tool suites live in `tests/python/tools/<tool>/`.
 
 ## [02]-[LAW_REGISTRATION]
 
@@ -39,11 +39,11 @@ Algebraic, matrix, rail, and stateful proofs ride the kit oracles:
 - Every law family carries a refuting witness through `refutes`: a known-broken input the law must fail on, proving the law can fail at all.
 - Case families fold as matrices, never fact-per-case spam: `validity_matrix` over `ValidityCase` rows, `projection_matrix` over `ProjectionCase` rows, `support_matrix` over probe rows. A new case is a row.
 - Rail outcomes prove through `assert_ok`, `assert_error`, `assert_error_status`, `assert_some`, and `assert_none` — never truthiness checks or `isinstance` dances on the carrier.
-- Stateful subjects prove through `model_based` over a `RuleBasedStateMachine` under the `rasm-stateful` profile; process-boundary output decodes through `NdjsonOracle`, never string-contains scraping.
+- Stateful subjects prove through `model_based` over a `RuleBasedStateMachine` under the `rasm-stateful` profile, composing `rule`/`initialize`/`precondition`/`Bundle`/`consumes` from the kit surface; `target` guides search toward extremal observations under the `rasm-stress` profile's target phase. Process-boundary output decodes through `NdjsonOracle`, never string-contains scraping.
 
 ## [04]-[SEAMS]
 
-Seam substitution dispatches on the `Shape` variant — `Sync`, `Async`, `FanOut`, and `Factory` are the call shapes of one substitution owner, installed through `SeamProbe` with recorded calls projected via `projected`. Loopback servers ride `loopback_server`/`Loopback` under the `network` marker; filesystem fixtures ride `VariantWriter` and `tmp_root`; remote environments ride the `provision` dispatch over `SshHost`/`RemoteFS`. Where a public driver exists, drive it: genuinely white-box seams (stall verdicts, crash recovery) earn direct probes, everything else goes through the public surface.
+Seam substitution dispatches on the `Shape` variant — `Sync`, `Async`, `FanOut`, and `Factory` are the call shapes of one substitution owner, installed through `SeamProbe` with recorded calls projected via `projected`. Loopback servers ride `loopback_server`/`Loopback` under the `network` marker, and `grpc.aio` services — the server-runtime and tessellation-daemon lanes — ride `grpc_loopback`, which binds an ephemeral port and yields the endpoint with a connected channel; filesystem fixtures ride `VariantWriter` and `tmp_root`; remote environments ride the `provision` dispatch over `SshHost`/`RemoteFS`/`ObjectStore`, where `ObjectStore` serves a real S3-compatible loopback endpoint projected as an fsspec filesystem view. Where a public driver exists, drive it: genuinely white-box seams (stall verdicts, crash recovery) earn direct probes, everything else goes through the public surface.
 
 ## [05]-[LANES_MARKERS]
 

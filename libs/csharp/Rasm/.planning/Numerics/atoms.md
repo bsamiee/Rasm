@@ -15,9 +15,9 @@ Rhino geometry value structs (`Vector3d`, `Point3d`, `Plane`, `Line`, `Transform
 - Owner: `EpsilonPolicy` the `static` constants owner naming the kernel's two epsilon rows — `SqrtEpsilon` (`2⁻²⁶`, the square root of binary64 machine epsilon — near-unit and residual gates) and `ZeroTolerance` (`2⁻³²` — degeneracy floors); `double.IsFinite` is the finiteness predicate and `Math.Tau` the full turn, so no `RhinoMath` member survives on the numeric floor. `Dimension` `[ValueObject<int>]` (`>= 1` count), `PositiveMagnitude` `[ValueObject<double>]` (finite, `> ZeroTolerance`), `UnitInterval` `[ValueObject<double>]` (finite, `[0,1]`) are the generated scalar admission owners — `ValidateFactoryArguments` is the one admission seam, `TryCreate`/`Validate` the rail bridges, and every downstream signature that means "a count", "a positive length", or "a normalized parameter" carries the owner, never a raw primitive re-gated per call site. `BoundarySense` `[SmartEnum<int>]` (2, `Sign` column), `SignedAxis` `[SmartEnum<int>]` (6 cardinal signed axes; `World` column + `[UseDelegateFromConstructor]` frame-axis column; `Of(Option<Plane>)` resolves world-or-frame; `Cardinal(planar)` filters the planar four), `VectorRelation` `[SmartEnum<int>]` (4; `Of` classifies two vectors against the `Context` angle tolerance), `AnglePivot` `[Union]` (World/Frame/Normal measurement pivot with `Admit` + `Compute` dispatch over the three `Vector3d.VectorAngle` overloads), `VectorAngle` `[ValueObject<double>]` (`[0, Math.Tau]` radians; `Of(a, b, pivot)` measures through the pivot).
 - Cases: `BoundarySense` `Toward(+1)` · `Away(-1)`; `SignedAxis` `NegativeX(-1)` · `PositiveX(1)` · `NegativeY(-2)` · `PositiveY(2)` · `NegativeZ(-3)` · `PositiveZ(3)`; `VectorRelation` `Oblique(0)` · `Parallel(1)` · `AntiParallel(-1)` · `Perpendicular(2)`; `AnglePivot` `WorldCase` · `FrameCase(Plane)` · `NormalCase(Direction)` (3).
 - Entry: `Dimension.Validate`/`TryCreate`/`Create` (generated); `PositiveMagnitude`/`UnitInterval` likewise; `SignedAxis.Of(Option<Plane> frame)` returns the world or frame-resolved axis vector; `SignedAxis.Cardinal(bool planar)` the declared axis sweep; `VectorRelation.Of(Vector3d a, Vector3d b, Context context, Op? key = null)` classifies; `AnglePivot.World`/`Frame(plane)`/`Normal(direction)` construct; `VectorAngle.Of(Direction a, Direction b, AnglePivot pivot, Op key)` and the raw-vector overload `Of(Vector3d, Vector3d, Context, AnglePivot?, Op?)` measure; `VectorAngle.Project<TOut>(Op key)` routes self-or-value through the projection rail.
-- Auto: the generated `ValidateFactoryArguments` hooks gate finiteness by `double.IsFinite` and bounds by the owner's invariant, so interior code never re-validates an admitted scalar; `AnglePivot.Admit` re-validates only the case payload (a frame's orthonormality via the `Rasm.Domain` admission vocabulary, a normal's unit length) and `Compute` dispatches the three `VectorAngle` overloads through the generated `Switch`; `VectorRelation.Of` admits both operands as `Direction` first, then reads `IsParallelTo`/`IsPerpendicularTo` under the context angle tolerance as one tuple pattern.
+- Auto: the generated `ValidateFactoryArguments` hooks gate finiteness by `double.IsFinite` and bounds by the owner's invariant, so interior code never re-validates an admitted scalar; `AnglePivot.Admit` re-validates only the case payload (a frame's orthonormality via `Admit.Plane`, a normal via the `Direction` unit gate) and `Compute` dispatches the three `VectorAngle` overloads through the generated `Switch`; `VectorRelation.Of` admits both operands as `Direction` first, then reads `IsParallelTo`/`IsPerpendicularTo` under the context angle tolerance as one tuple pattern.
 - Receipt: none — scalar owners are admission evidence themselves; the `Sign` column on `BoundarySense` and the `World`/axis columns on `SignedAxis` are behavior rows, not receipts.
-- Packages: Thinktecture.Runtime.Extensions (`[ValueObject<T>]`, `[SmartEnum<int>]`, `[Union]`, `[UseDelegateFromConstructor]`), LanguageExt.Core (`Fin`, `Option`, `Seq`, `guard`), Rasm.Domain (project — `Op` key + fault factory, `Context` tolerance bundle, the admission vocabulary), RhinoCommon (`Vector3d`, `Plane` value structs only).
+- Packages: Thinktecture.Runtime.Extensions (`[ValueObject<T>]`, `[SmartEnum<int>]`, `[Union]`, `[UseDelegateFromConstructor]`), LanguageExt.Core (`Fin`, `Option`, `Seq`, `guard`), Rasm.Domain (project — `Op` key + fault factory, `Context` tolerance bundle, the `Admit` vocabulary + `AcceptValidated<TVO, TRaw>` bridge), RhinoCommon (`Vector3d`, `Plane` value structs only).
 - Growth: a new scalar invariant is one `[ValueObject]` owner beside these three; a new axis family member, relation class, or pivot modality is one enum row or union case — never a sibling type; a new epsilon is one named `EpsilonPolicy` row, and a bare epsilon literal at a call site is the named defect.
 - Boundary: `RhinoMath.IsValidDouble`/`SqrtEpsilon`/`ZeroTolerance`/`TwoPI` are the deleted forms on this floor — `double.IsFinite`, `EpsilonPolicy.SqrtEpsilon`, `EpsilonPolicy.ZeroTolerance`, and `Math.Tau` replace them so the numeric floor is portable by inspection while the assembly stays RhinoCommon-aware; a raw `double` parameter that means dimension, magnitude, or unit parameter is the deleted form — the generated owner crosses the signature; angle measurement never reaches `Vector3d.VectorAngle` directly from a consumer — `AnglePivot.Compute` owns the three-overload dispatch.
 
@@ -83,8 +83,8 @@ public abstract partial record AnglePivot {
     internal Fin<AnglePivot> Admit(Op key) => Switch(
         state: key,
         worldCase: static (_, pivot) => Fin.Succ<AnglePivot>(pivot),
-        frameCase: static (op, pivot) => Admission.Plane(basis: pivot.Value, key: op).Map(_ => (AnglePivot)pivot),
-        normalCase: static (op, pivot) => Admission.Direction(value: pivot.Value, key: op).Map(_ => (AnglePivot)pivot));
+        frameCase: static (op, pivot) => Rasm.Domain.Admit.Plane(basis: pivot.Value, key: op).Map(_ => (AnglePivot)pivot),
+        normalCase: static (op, pivot) => guard(pivot.Value.IsValid, op.InvalidInput()).ToFin().Map(_ => (AnglePivot)pivot));
     internal double Compute(Vector3d a, Vector3d b) => Switch(
         state: (A: a, B: b),
         worldCase: static (state, _) => Vector3d.VectorAngle(a: state.A, b: state.B),
@@ -98,7 +98,7 @@ public readonly partial struct VectorAngle {
         validationError = double.IsFinite(value) && value >= 0.0 && value <= Math.Tau ? null : new ValidationError(message: string.Create(CultureInfo.InvariantCulture, $"VectorAngle must be in [0, tau] radians (got {value:R})."));
     internal static Fin<VectorAngle> Of(Direction a, Direction b, AnglePivot pivot, Op key) =>
         from activePivot in pivot.Admit(key: key)
-        from angle in key.AcceptValidated<VectorAngle>(candidate: activePivot.Compute(a: a.Value, b: b.Value))
+        from angle in key.AcceptValidated<VectorAngle, double>(candidate: activePivot.Compute(a: a.Value, b: b.Value))
         select angle;
     internal static Fin<VectorAngle> Of(Vector3d a, Vector3d b, Context context, AnglePivot? pivot = null, Op? key = null) =>
         from left in Direction.Of(value: a, context: context, key: key.OrDefault())
@@ -132,10 +132,10 @@ public sealed partial class VectorRelation {
 
 - Owner: `Direction` the `readonly record struct` unit vector — the single admitted-direction currency of the kernel; `VectorSpan` the anchored vector (`Point3d` anchor + `Direction` + `PositiveMagnitude`, so a span is valid by construction); `VectorFrame` the validated orthonormal frame over `Plane`; `VectorCone` the apex/axis/half-angle solid sector. All four are construction-gated: the private constructor is unreachable except through the validating `Of`, so an instance IS its admission evidence.
 - Cases: `Direction` operations `Of` (context or explicit tolerance) · unary `-` · `*` (magnitude scale) · `Reflect(normal)` (mirror transform) · `Refract(incident, normal, etaIncident, etaTransmitted, key)` (Snell with total-internal-reflection failure) · `ParallelTransport(Seq<Plane> frames)` (plane-to-plane transport fold over an admitted frame sequence); `VectorSpan` `Of` · `Value` · `Axis` · `Components(frame)` (in-plane decomposition) · `Project<TOut>`; `VectorFrame` `Of(origin, normal, xHint)` (Gram-Schmidt against the hint, `SeedPerpendicular` fallback) · `Chain(points, initialNormal, closed, context)` (rotation-minimizing Bishop chain — delegated) · `Project<TOut>`; `VectorCone` `Of` · `SolidAngle` (`Math.Tau·(1−cos θ)`) · `Contains(query)` · `Enclose(left, right)` (smallest enclosing cone: containment shortcuts, coaxial max, half-sum rotation merge) · `PartitionBy(sectors)` (rim-ray fan).
-- Entry: every constructor is a `Fin`-returning `Of` threading the `Op` key; `Direction.Refract` admits both refractive indices as `PositiveMagnitude`, orients the normal against the incident side, and fails typed on the total-internal-reflection branch (`k < −ZeroTolerance`); `VectorCone.Enclose` requires coincident apexes within the context absolute tolerance and solves the envelope as one four-way decision expression; `VectorFrame.Chain` returns `Fin<Seq<VectorFrame>>` re-admitting each chained plane.
+- Entry: every constructor is a `Fin`-returning `Of` threading the `Op` key — `Direction.Of` gates through `Admit.Directional`, `VectorCone.Of` through `Admit.Cone` (finite apex, directional axis, half-angle in `(0, π]`); `Direction.Refract` admits both refractive indices as `PositiveMagnitude`, orients the normal against the incident side, and fails typed on the total-internal-reflection branch (`k < −ZeroTolerance`); `VectorCone.Enclose` requires coincident apexes within the context absolute tolerance and solves the envelope as one four-way decision expression; `VectorFrame.Chain` returns `Fin<Seq<VectorFrame>>` re-admitting each chained plane.
 - Auto: `Direction.IsValid` is the unit-length gate (`|‖v‖ − 1| <= EpsilonPolicy.SqrtEpsilon`) — semantic, not a mechanical fold; `VectorSpan.Value` recomposes `Direction * Magnitude` so the stored triple is the canonical decomposition; `SeedPerpendicular` is the deterministic perpendicular seed (`Vector3d.PerpendicularTo` with `XAxis` fallback) shared by frame construction and cone partition.
 - Receipt: none — the models are self-evident admitted values; failures carry the `Op` typed fault.
-- Packages: LanguageExt.Core (`Fin`, `Seq`, `Option`, `TraverseM`, `Apply`, `guard`), Thinktecture.Runtime.Extensions, Rasm.Domain (project — `Op`, `Context`, admission vocabulary), RhinoCommon (`Vector3d`, `Point3d`, `Plane`, `Line`, `Transform` value structs).
+- Packages: LanguageExt.Core (`Fin`, `Seq`, `Option`, `TraverseM`, `Apply`, `guard`), Thinktecture.Runtime.Extensions, Rasm.Domain (project — `Op`, `Context`, the `Admit` vocabulary: `Directional`/`Cone`/`Plane`/`PlaneSequence`), RhinoCommon (`Vector3d`, `Point3d`, `Plane`, `Line`, `Transform` value structs).
 - Growth: a new direction algorithm (rotation toward, cone-constrained clamp, slerp-adjacent blend) is one member on `Direction` or `VectorCone` — never a sibling `DirectionUtils`; a new frame-construction modality is one `Of` overload discriminating on input shape.
 - Boundary: `VectorFrame.Chain` composes the ONE rotation-minimizing-frame owner in `Spatial/neighbors` (`NeighborKernel.BishopChain`, Wang double-reflection — the point-form overload) — the chain math lives there, this page owns only the frame admission over the chained planes; quaternion pose interpolation is `Parametric/projections`' `MotionInterpolation` (the ONE slerp site) and never re-derives here; `Direction.ParallelTransport` transports through GIVEN frames — building frames from points is the neighbors owner's concern, and a second double-reflection implementation here is the deleted form.
 
@@ -148,17 +148,15 @@ public readonly record struct Direction {
     public static Fin<Direction> Of(Vector3d value, Context context, Op? key = null) =>
         Optional(context).ToFin(key.OrDefault().MissingContext()).Bind(model => Of(value: value, tolerance: model.Absolute.Value, key: key));
     internal static Fin<Direction> Of(Vector3d value, double tolerance, Op? key = null) =>
-        (value.IsValid, value.IsTiny(tolerance), value.Unitize()) switch {
-            (true, false, true) => Fin.Succ(new Direction(value: value)),
-            _ => Fin.Fail<Direction>(error: key.OrDefault().InvalidInput()),
-        };
+        Admit.Directional(value: value, tolerance: tolerance, key: key.OrDefault()).Bind(vector =>
+            vector.Unitize() ? Fin.Succ(new Direction(value: vector)) : Fin.Fail<Direction>(error: key.OrDefault().InvalidInput()));
     public static Direction operator -(Direction direction) => new(value: -direction.Value);
     public static Vector3d operator *(Direction direction, double magnitude) => direction.Value * magnitude;
     public Direction Reflect(Direction normal) =>
         new(value: Transform.Mirror(pointOnMirrorPlane: Point3d.Origin, normalToMirrorPlane: normal.Value) * Value);
     public static Fin<Direction> Refract(Direction incident, Direction normal, double etaIncident, double etaTransmitted, Op key) =>
-        from activeIncident in key.AcceptValidated<PositiveMagnitude>(candidate: etaIncident)
-        from activeTransmitted in key.AcceptValidated<PositiveMagnitude>(candidate: etaTransmitted)
+        from activeIncident in key.AcceptValidated<PositiveMagnitude, double>(candidate: etaIncident)
+        from activeTransmitted in key.AcceptValidated<PositiveMagnitude, double>(candidate: etaTransmitted)
         let exiting = incident.Value * normal.Value > 0.0
         let orientedNormal = exiting switch { true => -normal.Value, false => normal.Value }
         let eta = activeIncident.Value / activeTransmitted.Value
@@ -172,7 +170,7 @@ public readonly record struct Direction {
     public Fin<Direction> ParallelTransport(Seq<Plane> frames, Op? key = null) {
         Vector3d value = Value;
         Op op = key.OrDefault();
-        return Admission.PlaneSequence(planes: frames, allowEmpty: false, key: op).Bind(admittedFrames =>
+        return Admit.PlaneSequence(planes: frames, allowEmpty: false, key: op).Bind(admittedFrames =>
             toSeq(Enumerable.Range(start: 1, count: Math.Max(val1: 0, val2: admittedFrames.Count - 1))).Fold(
                 initialState: Of(value: value, tolerance: EpsilonPolicy.ZeroTolerance, key: op),
                 f: (acc, i) => acc.Bind(prev => Of(value: Transform.PlaneToPlane(plane0: admittedFrames[index: i - 1], plane1: admittedFrames[index: i]) * prev.Value, tolerance: EpsilonPolicy.ZeroTolerance, key: op))));
@@ -194,13 +192,13 @@ public readonly record struct VectorSpan {
         select span;
     internal static Fin<VectorSpan> Of(Point3d anchor, Direction direction, double magnitude, Op key) =>
         from point in key.AcceptValue(value: anchor)
-        from length in key.AcceptValidated<PositiveMagnitude>(candidate: magnitude)
+        from length in key.AcceptValidated<PositiveMagnitude, double>(candidate: magnitude)
         let span = new VectorSpan(anchor: point, direction: direction, magnitude: length)
         from _ in guard(span.Axis.IsValid, key.InvalidResult())
         select span;
     internal Fin<(double X, double Y)> Components(Plane frame, Op key) {
         Vector3d value = Value;
-        return Admission.Plane(basis: frame, key: key).Bind(validFrame =>
+        return Admit.Plane(basis: frame, key: key).Bind(validFrame =>
             (key.AcceptValue(value: value * validFrame.XAxis), key.AcceptValue(value: value * validFrame.YAxis))
             .Apply(static (x, y) => (X: x, Y: y))
             .As());
@@ -226,7 +224,7 @@ public readonly record struct VectorFrame {
         from x in Direction.Of(value: tangent, context: context, key: key.OrDefault())
         from y in Direction.Of(value: Vector3d.CrossProduct(a: z.Value, b: x.Value), context: context, key: key.OrDefault())
         let frame = new Plane(origin: point, xDirection: x.Value, yDirection: y.Value)
-        from valid in Admission.Plane(basis: frame, key: key.OrDefault())
+        from valid in Admit.Plane(basis: frame, key: key.OrDefault())
         select new VectorFrame(value: valid);
     // The chain math is Spatial/neighbors' one rotation-minimizing-frame owner; this member admits its planes.
     public static Fin<Seq<VectorFrame>> Chain(Seq<Point3d> points, Direction initialNormal, bool closed, Context context, Op? key = null) =>
@@ -239,7 +237,7 @@ public readonly record struct VectorFrame {
     internal Fin<TOut> Project<TOut>(Op key) {
         VectorFrame self = this;
         return AtomProjection.Rows<VectorFrame, TOut>(self: self, key: key,
-            ProjectionRow.Of<Plane>(() => Admission.Plane(basis: self.Value, key: key)),
+            ProjectionRow.Of<Plane>(() => Admit.Plane(basis: self.Value, key: key)),
             ProjectionRow.Of<Transform>(() => key.AcceptValue(value: Transform.PlaneToPlane(plane0: Plane.WorldXY, plane1: self.Value))));
     }
 }
@@ -252,11 +250,10 @@ public readonly record struct VectorCone {
     public VectorAngle HalfAngle { get; }
     public double SolidAngle => Math.Tau * (1.0 - Math.Cos(d: HalfAngle.Value));
     public static Fin<VectorCone> Of(Point3d apex, Vector3d axis, double halfAngleRadians, Context context, Op? key = null) =>
-        from anchor in key.OrDefault().AcceptValue(value: apex)
+        from _ in Admit.Cone(apex: apex, axis: axis, halfAngle: halfAngleRadians, key: key.OrDefault())
         from direction in Direction.Of(value: axis, context: context, key: key.OrDefault())
-        from angle in key.OrDefault().AcceptValidated<VectorAngle>(candidate: halfAngleRadians)
-        from _ in guard(angle.Value <= Math.PI, key.OrDefault().InvalidInput())
-        select new VectorCone(apex: anchor, axis: direction, halfAngle: angle);
+        from angle in key.OrDefault().AcceptValidated<VectorAngle, double>(candidate: halfAngleRadians)
+        select new VectorCone(apex: apex, axis: direction, halfAngle: angle);
     public Fin<bool> Contains(Vector3d query, Context context, Op? key = null) {
         VectorCone cone = this;
         return from probe in Direction.Of(value: query, context: context, key: key.OrDefault())
@@ -284,7 +281,7 @@ public readonly record struct VectorCone {
     public Fin<Seq<Direction>> PartitionBy(int sectors, Context context, Op? key = null) {
         Op op = key.OrDefault();
         VectorCone cone = this;
-        return from sectorCount in op.AcceptValidated<Dimension>(candidate: sectors)
+        return from sectorCount in op.AcceptValidated<Dimension, int>(candidate: sectors)
                from rim in Direction.Of(value: VectorFrame.SeedPerpendicular(axis: cone.Axis.Value), context: context, key: op)
                let stepAngle = Math.Tau / sectorCount.Value
                let lateral = Math.Sin(a: cone.HalfAngle.Value)
@@ -348,7 +345,7 @@ internal static class AtomProjection {
             (Vector3d v, Type t) when t == typeof(Vector3d) => Value<Vector3d, TOut>(value: v, key: key),
             (Vector3d v, Type t) when t == typeof(Direction) => context.ToFin(Fail: key.MissingContext()).Bind(model => Direction.Of(value: v, context: model, key: key).Bind(direction => direction.Project<TOut>(key: key))),
             (Vector3d v, Type t) when t == typeof(double) && admitsVectorMagnitude => key.AcceptValue(value: v).Bind(valid => Value<double, TOut>(value: valid.Length, key: key)),
-            (Plane p, Type t) when t == typeof(Plane) => Admission.Plane(basis: p, key: key).Bind(valid => Value<Plane, TOut>(value: valid, key: key)),
+            (Plane p, Type t) when t == typeof(Plane) => Admit.Plane(basis: p, key: key).Bind(valid => Value<Plane, TOut>(value: valid, key: key)),
             (Plane p, Type t) when t == typeof(VectorFrame) => context.ToFin(Fail: key.MissingContext()).Bind(model => VectorFrame.Of(origin: p.Origin, normal: p.ZAxis, xHint: Some(p.XAxis), context: model, key: key).Bind(frame => frame.Project<TOut>(key: key))),
             (double d, Type t) when t == typeof(double) => Value<double, TOut>(value: d, key: key),
             (Circle c, Type t) when t == typeof(Circle) => Value<Circle, TOut>(value: c, key: key),

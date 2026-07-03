@@ -91,7 +91,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Shape: producers `csharp:Rasm.Compute/Runtime/codecs#CONTENT_ADDRESSING` and `csharp:Rasm/Geometry/Spatial/reconciliation#CANONICAL_BYTE_IDENTITY` mint into the `tests/contracts/` corpus; consumers `python:runtime/evidence/identity#IDENTITY`, `typescript:wire/frame#CONTENT_HASHING`, and each language's kit harness read it.
 - Unlocks: `CONTENT_IDENTITY_PARITY`, `FAULT_WIRE_ROUNDTRIP`, and `TRI_LANGUAGE_WIRE_PARITY` share one corpus instead of re-deriving fixtures per runtime.
 - Anchors: the one `XxHash128` seed, the eight-primitive clash bytes, 52-byte `0x9462A71A5DD13DCFA3B1D6D225FCBE70` adjacency digest, `FaultDetail` triples, CRDT op-set, GLB-by-key, HLC two-half stamps, and corpus index `csharp:Rasm/Geometry/Spatial/reconciliation#ONE_WIRE_FIXTURE_CORPUS`.
-- Tension: `CANONICAL_BYTE_IDENTITY` is host-validated REAL and frozen; `CLASH_GOLDEN`, `FAULT_TRIPLES`, `CRDT_OP_SET`, `GLB_BY_KEY`, and `HLC_TWO_HALF` stay DESIGN-PIN until each producer pins its byte-deriving input, with `csharp:Rasm/Geometry/Spatial/index#CLASH_GOLDEN` as the open pin.
+- Tension: `CANONICAL_BYTE_IDENTITY` and `CLASH_GOLDEN` are REAL and frozen (`csharp:Rasm/Geometry/Spatial/index#CLASH_GOLDEN` pinned); `FAULT_TRIPLES`, `CRDT_OP_SET`, `GLB_BY_KEY`, and `HLC_TWO_HALF` stay DESIGN-PIN until each producer pins its byte-deriving input — pin states ledgered in `tests/contracts/MANIFEST.md`.
 
 [WEB_GEOMETRY_RESIDENCY_WIRE]-[BLOCKED]: bind the WebGPU residency manifest as the second geometry wire shape.
 - Capability: the content-keyed splat/meshlet residency manifest is the second geometry wire shape for WebGPU raster paths beyond triangulated GLB-per-tile.

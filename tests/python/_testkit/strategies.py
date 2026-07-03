@@ -108,7 +108,7 @@ def _decimal_max(md: object, dp: object) -> Decimal | None:
 
 
 # One polymorphic surface over the closed msgspec node taxonomy.
-def _node(node: _mi.Type) -> st.SearchStrategy[object]:  # noqa: C901, PLR0911, PLR0912, PLR0914, PLR0915
+def _node(node: _mi.Type) -> st.SearchStrategy[object]:  # noqa: C901, PLR0911, PLR0912
     """Map one ``msgspec.inspect`` node to a codec-bounded strategy.
 
     Returns:
@@ -239,7 +239,7 @@ def _unwrap(schema: _Schema) -> _Schema:
 
 
 # One polymorphic surface over the pydantic-core schema algebra.
-def _pyd_node(schema: _Schema, defs: dict[str, _Schema]) -> st.SearchStrategy[object]:  # noqa: C901, PLR0911, PLR0912, PLR0914, PLR0915
+def _pyd_node(schema: _Schema, defs: dict[str, _Schema]) -> st.SearchStrategy[object]:  # noqa: C901, PLR0911, PLR0912
     """Map one ``pydantic-core`` schema node to a constraint-honoring strategy.
 
     Args:
@@ -393,8 +393,12 @@ def resolve[T](subject: TypeForm[T]) -> st.SearchStrategy[T]:  # noqa: PLR0912
                 case _mi.StructType(fields=fields) | _mi.DataclassType(fields=fields) | _mi.NamedTupleType(fields=fields):
                     struct = subject
 
+                    # Defaulted fields sample presence AND absence: msgspec collapses `T | UnsetType`
+                    # to a required=False node, so omission is the only route to the UNSET wire lane.
                     def _struct_build() -> st.SearchStrategy[object]:
-                        return st.builds(struct, **{f.name: _node(f.type) for f in fields})
+                        required = {f.name: _node(f.type) for f in fields if f.required}
+                        optional = {f.name: _node(f.type) for f in fields if not f.required}
+                        return st.fixed_dictionaries(required, optional=optional).map(lambda kw: struct(**kw))
 
                     st.register_type_strategy(subject, st.deferred(_struct_build))
                 case _mi.TypedDictType(fields=fields):

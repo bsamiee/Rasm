@@ -284,7 +284,7 @@ def _contained(root: Path, rel: str) -> Path | ValueError:
             return target if target.is_relative_to(root) else ValueError(f"stage path escaped root: {rel!r}")
 
 
-async def _run_process_backend(plan: ExecPlan) -> Completed:  # noqa: PLR0914  # closed local/remote backend branches keep telemetry state local
+async def _run_process_backend(plan: ExecPlan) -> Completed:  # closed local/remote backend branches keep telemetry state local
     started = time.monotonic()
     _LOG.info(
         "process.start", tool=plan.check.tool.name, argv=plan.argv, cwd=plan.cwd, streaming=plan.streaming, remote=bool(plan.settings.exec_target)

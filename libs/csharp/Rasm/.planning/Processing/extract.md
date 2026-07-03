@@ -20,7 +20,7 @@ Every `.Project<TOut>` on this page routes through `Numerics/atoms.md`'s `AtomPr
 ## [03]-[PROJECTION_RAIL]
 
 - Owner: `ExtractionProbe` `[Union]` — `Vector(VectorField)` / `Scalar(ScalarField)` / `Tensor(TensorField)` — the field point-probe; `Extraction` `[Union]` (PUBLIC — the extraction request vocabulary `intent.md` wraps as ONE case) — `ProbeCase(ExtractionProbe, Point3d)` / `ContourCase(ExtractionDomain, ContourPolicy)` / `IsoSurfaceCase(ScalarField, BoundingBox, Dimension Resolution, Dimension MaxRootSteps)` / `SampledCase(SampledExtraction Mode, ExtractionDomain Domain, SampleKind Seeds)`; `SampledExtraction` `[Union]` — `GlyphCase(VectorField, PositiveMagnitude Scale)` / `GridCase(ScalarField)` / `StreamBundleCase(VectorField, PositiveMagnitude InitialStep, FieldIntegrator, Termination)` — ONE sampled-mode family over one shared seed generator; `ExtractionTolerance` `[Union]` — `FromContext(double)` / `RhinoDefault(Option<double> Witnessed)` with the `RhinoFixed` witness factory / `NotApplicable` — provenance and value as one carrier.
-- Entry: `Extraction.Probe/Contour/IsoSurface/Sampled(...)` factories admit once (probe sample accepted, domain re-admitted, policy validated through the mode's own `Admit`, iso bounds gated finite and non-degenerate); `extraction.Project<TOut>(Context, Op)` is the one egress — probe rows project field samples (`Vector3d`, magnitude `double`, and the `VectorSpan`/`Direction`/`Line` span family; the mesh-bound `TangentLogMapCase` routes to `Processing/geodesics.md`'s `GeodesicKernel.TangentLogMapAt` for `TangentLogMapResult`/`TangentLogMapReceipt`; scalar rows ride `Spatial/fields.md`'s exposed `SampleSdfDetailed` → `SdfSample` and `SampleDetailed` → `FieldSample` tagged rails; tensor rows project `SymmetricMatrix` or principal eigenpairs); contour rows project `Seq<Curve>`, `ExtractionReceipt`, `ScalarIsolineResult`/`ScalarIsolineReceipt`; iso-surface rows project `Mesh`/`IsoSurfaceResult`/`ExtractionReceipt` off `Meshing/reconstruct.md`'s `IsoSurface.Detailed` (the `IsoSurfaceReceipt` is the implicit self row); sampled rows project `Seq<Line>` glyphs, `Seq<(Point3d, double)>` grids, and `Seq<StreamlineTrace>`/`Seq<Polyline>`/`Seq<Curve>` bundles through `flow.md`'s `ProjectTrace`.
+- Entry: `Extraction.Probe/Contour/IsoSurface/Sampled(...)` factories admit once (probe source and sample gated — a null field union never reaches `Project` — domain re-admitted, policy validated through the mode's own `Admit`, iso bounds gated finite and non-degenerate); `extraction.Project<TOut>(Context, Op)` is the one egress — probe rows project field samples (`Vector3d`, magnitude `double`, and the `VectorSpan`/`Direction`/`Line` span family; the mesh-bound `TangentLogMapCase` routes to `Processing/geodesics.md`'s `GeodesicKernel.TangentLogMapAt` for `TangentLogMapResult`/`TangentLogMapReceipt`; scalar rows ride `Spatial/fields.md`'s exposed `SampleSdfDetailed` → `SdfSample` and `SampleDetailed` → `FieldSample` tagged rails; tensor rows project `SymmetricMatrix` or principal eigenpairs); contour rows project `Seq<Curve>`, `ExtractionReceipt`, `ScalarIsolineResult`/`ScalarIsolineReceipt`; iso-surface rows project `Mesh`/`IsoSurfaceResult`/`ExtractionReceipt` off `Meshing/reconstruct.md`'s `IsoSurface.Detailed` (the `IsoSurfaceReceipt` is the implicit self row); sampled rows project `Seq<Line>` glyphs, `Seq<(Point3d, double)>` grids, and `Seq<StreamlineTrace>`/`Seq<Polyline>`/`Seq<Curve>` bundles through `flow.md`'s `ProjectTrace`.
 - Auto: `ProjectSamples` is the ONE sampled spine — evaluate `Seeds` through `sample.md` (`SampleKind.Evaluate` over the domain), fold each seed through the mode's item arm (glyph = probe the vector field and scale a `Line` along the span; grid = sample the scalar; bundle = `FlowKernel.Trace`), mint the `ExtractionReceipt` (seed receipt + `ItemFailures` count), and project through ONE `Rows` call per mode with the receipt as the implicit self row — item rows are gated on zero rejections, so a partial sampled extraction is a typed fault, never a truncated success.
 - Receipt: `ExtractionReceipt` — `Route` (`Native`/`Local`), `Attempted`/`Emitted` with DERIVED `Rejected` and `Complete`, the `ExtractionTolerance` carrier, `ParallelCallback`, the optional child receipts (`IsoSurfaceReceipt`/`ScalarIsolineReceipt`/`SampleReceipt`), and ONE `Option<int> ItemFailures` — the three former per-mode failure slots and the stored status/tolerance-source enums are dead; `IsValid` is one `ValidityClaim.All` fold over the count rows and nested evidence.
 - Packages: `Rasm`/Spatial (`ScalarField`/`VectorField`/`TensorField` sampling, `SampleSdfDetailed`/`SampleDetailed`, `SupportSpace`, `VectorCloud`), `Rasm`/Meshing (`MeshSpace`, `IsoSurface.Detailed` + `IsoSurfacePolicy`/`IsoSurfaceResult`/`IsoSurfaceReceipt`), `Rasm`/Processing (`SampleKind`/`SampleReceipt`, `FlowKernel`/`Termination`/`StreamlineTrace`, `GeodesicKernel.TangentLogMapAt`), `Rasm`/Numerics (`FieldIntegrator`, `AtomProjection`/`ProjectionRow`, `EpsilonPolicy`, `Dimension`/`PositiveMagnitude`, `VectorSpan`/`Direction`), `Rasm`/Domain (`Op`/`Context`/`Admit`/`ValidityClaim`), LanguageExt.Core, Thinktecture.Runtime.Extensions, RhinoCommon (contour/iso/section natives, `IsoStatus`, `CollectionsMarshal` welding).
@@ -88,12 +88,13 @@ public abstract partial record ContourPolicy {
         new SurfaceIsoCase(Status: status, Parameter: parameter).Admit(key: key.OrDefault());
     public static Fin<ContourPolicy> MeshScalar(Arr<double> values, Seq<double> levels, Op? key = null) =>
         new MeshScalarCase(Values: values, Levels: levels).Admit(key: key.OrDefault());
+    // Qualified Rasm.Domain.Admit: the Admit member name shadows the vocabulary class inside this type.
     internal Fin<ContourPolicy> Admit(Op key) => Switch(
         state: key,
-        planeCase: static (op, policy) => Admit.Plane(basis: policy.Section, key: op).Map(_ => (ContourPolicy)policy),
+        planeCase: static (op, policy) => Rasm.Domain.Admit.Plane(basis: policy.Section, key: op).Map(_ => (ContourPolicy)policy),
         axisCase: static (op, policy) =>
-            from start in Admit.Finite(point: policy.Start, key: op)
-            from end in Admit.Finite(point: policy.End, key: op)
+            from start in Rasm.Domain.Admit.Finite(point: policy.Start, key: op)
+            from end in Rasm.Domain.Admit.Finite(point: policy.End, key: op)
             from span in guard((policy.End - policy.Start).Length > 0.0, op.InvalidInput())
             select (ContourPolicy)policy,
         surfaceIsoCase: static (op, policy) => (policy.Status, policy.Parameter) switch {
@@ -102,8 +103,8 @@ public abstract partial record ContourPolicy {
             _ => Fin.Fail<ContourPolicy>(op.InvalidInput()),
         },
         meshScalarCase: static (op, policy) =>
-            from scalars in Admit.FiniteScalars(values: toSeq(policy.Values.AsIterable()), allowEmpty: false, key: op)
-            from levels in Admit.FiniteScalars(values: policy.Levels, allowEmpty: false, key: op)
+            from scalars in Rasm.Domain.Admit.FiniteScalars(values: toSeq(policy.Values.AsIterable()), allowEmpty: false, key: op)
+            from levels in Rasm.Domain.Admit.FiniteScalars(values: policy.Levels, allowEmpty: false, key: op)
             select (ContourPolicy)policy);
 }
 
@@ -115,11 +116,12 @@ public abstract partial record ExtractionDomain {
     private ExtractionDomain() { }
     public static Fin<ExtractionDomain> Support(SupportSpace value, Op? key = null) =>
         Optional(value).ToFin(key.OrDefault().InvalidInput()).Map(valid => (ExtractionDomain)new SupportCase(value: valid));
+    // Op.Need is the null gate here: the Admit member name shadows the Rasm.Domain.Admit class inside this type.
     public static Fin<ExtractionDomain> Mesh(MeshSpace value, Op? key = null) =>
-        Admit.NotNull(value: value.Native, key: key.OrDefault()).Map(_ => (ExtractionDomain)new MeshCase(value: value));
+        key.OrDefault().Need(value.Native).Map(_ => (ExtractionDomain)new MeshCase(value: value));
     public static Fin<ExtractionDomain> Cloud(VectorCloud value, Op? key = null) {
         Op op = key.OrDefault();
-        return Admit.NotNull(value: value, key: op)
+        return op.Need(value)
             .Bind(cloud => cloud.Admit(key: op))
             .Map(static valid => (ExtractionDomain)new CloudCase(value: valid));
     }
@@ -186,8 +188,8 @@ public abstract partial record ExtractionDomain {
     // domain end. direction = which way the RESULTING curve runs (RhinoCommon IsoCurve law).
     private static Fin<(int Direction, double Parameter)> IsoFrame(IsoStatus status, double parameter, Func<int, Interval> domain, Op key) =>
         status switch {
-            IsoStatus.X => Admit.Finite(value: parameter, key: key).Map(_ => (Direction: 1, Parameter: parameter)),
-            IsoStatus.Y => Admit.Finite(value: parameter, key: key).Map(_ => (Direction: 0, Parameter: parameter)),
+            IsoStatus.X => key.Finite(parameter).Map(_ => (Direction: 1, Parameter: parameter)),
+            IsoStatus.Y => key.Finite(parameter).Map(_ => (Direction: 0, Parameter: parameter)),
             IsoStatus.West => Fin.Succ((Direction: 1, Parameter: domain(0).T0)),
             IsoStatus.East => Fin.Succ((Direction: 1, Parameter: domain(0).T1)),
             IsoStatus.South => Fin.Succ((Direction: 0, Parameter: domain(1).T0)),
@@ -343,6 +345,13 @@ public abstract partial record ExtractionProbe {
     public static ExtractionProbe Vector(VectorField source) => new VectorCase(Source: source);
     public static ExtractionProbe Scalar(ScalarField source) => new ScalarCase(Source: source);
     public static ExtractionProbe Tensor(TensorField source) => new TensorCase(Source: source);
+    // The bare constructors stay cheap; the request boundary (Extraction.Probe) runs this source gate,
+    // so a null field union never reaches Project. Op.Need: the member name shadows the Admit class.
+    internal Fin<ExtractionProbe> Admit(Op key) => Switch(
+        state: key,
+        vectorCase: static (op, probe) => op.Need(probe.Source).Map(_ => (ExtractionProbe)probe),
+        scalarCase: static (op, probe) => op.Need(probe.Source).Map(_ => (ExtractionProbe)probe),
+        tensorCase: static (op, probe) => op.Need(probe.Source).Map(_ => (ExtractionProbe)probe));
     // Typed rows kill the typeof(TOut) branching; only the matched row's producer runs. The mesh-bound
     // log-map rows route to geodesics.md's kernel; scalar rows ride fields.md's tagged rails.
     internal Fin<TOut> Project<TOut>(Point3d sample, Context context, Op key) => Switch(
@@ -404,10 +413,12 @@ public abstract partial record Extraction {
     public sealed record IsoSurfaceCase(ScalarField Field, BoundingBox Bounds, Dimension Resolution, Dimension MaxRootSteps) : Extraction;
     public sealed record SampledCase(SampledExtraction Mode, ExtractionDomain Domain, SampleKind Seeds) : Extraction;
     private Extraction() { }
-    public static Fin<Extraction> Probe(ExtractionProbe source, Point3d sample, Op? key = null) =>
-        from validSource in Optional(source).ToFin(key.OrDefault().InvalidInput())
-        from validSample in key.OrDefault().AcceptValue(value: sample)
-        select (Extraction)new ProbeCase(Source: validSource, Sample: validSample);
+    public static Fin<Extraction> Probe(ExtractionProbe source, Point3d sample, Op? key = null) {
+        Op op = key.OrDefault();
+        return from validSource in Optional(source).ToFin(op.InvalidInput()).Bind(active => active.Admit(key: op))
+               from validSample in op.AcceptValue(value: sample)
+               select (Extraction)new ProbeCase(Source: validSource, Sample: validSample);
+    }
     public static Fin<Extraction> Contour(ExtractionDomain domain, ContourPolicy policy, Op? key = null) {
         Op op = key.OrDefault();
         return from validDomain in Optional(domain).ToFin(op.InvalidInput()).Bind(active => active.Admit(key: op))

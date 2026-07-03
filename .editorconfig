@@ -381,3 +381,13 @@ dotnet_diagnostic.MA0191.severity = none                                      # 
 
 [tests/**/Scenarios/Vectors.cs]
 dotnet_diagnostic.IDE0306.severity = none                                     # RhinoCommon PointCloud collection-expression form binds Add(PointCloudItem), not the Point3d ctor; the simplification does not compile.
+
+# Verify
+[*.{received,verified}.{txt}]
+charset = utf-8-bom
+end_of_line = lf
+indent_size = unset
+indent_style = unset
+insert_final_newline = false
+tab_width = unset
+trim_trailing_whitespace = false

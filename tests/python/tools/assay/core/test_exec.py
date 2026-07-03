@@ -271,7 +271,7 @@ def test_splice_command_separator_identity_and_project_isolation(assay_root: Ass
     assert artifact_path.endswith("/dotnet/tests__csharp__libs__Shape__Shape.Tests")
 
 
-def test_argv_for_exact_argv_rows(assay_root: AssayHarness) -> None:  # noqa: PLR0914  # one exact-argv law: every runner/mode row shares the settings/scope fixture
+def test_argv_for_exact_argv_rows(assay_root: AssayHarness) -> None:  # one exact-argv law: every runner/mode row shares the settings/scope fixture
     """``argv_for`` composes runner prefix, spliced body, and routed tails exactly per runner/mode row.
 
     Rows pin UV group/project segments, MODULE prefix, DIRECT passthrough, QUERY splice bypass, routed file

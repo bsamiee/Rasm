@@ -13,7 +13,7 @@ The tolerance/units substrate (`Rasm.Domain`). This page owns the tolerance tria
 
 - Owner: three `[ValueObject<double>]` readonly structs, each with a `ValidateFactoryArguments` admission guard — raw scalars are admitted exactly once; the interior reads `.Value` and never re-checks.
 - Cases: `AbsoluteTolerance` — finite and `> RhinoMath.ZeroTolerance` (a zero or negative distance tolerance cannot gate any geometric predicate) · `RelativeTolerance` — finite and in `[0, 1)` (a fractional tolerance at or above one is no tolerance) · `AngleTolerance` — finite and in `(RhinoMath.Epsilon, RhinoMath.TwoPI]` radians.
-- Entry: the generated `Create`/`TryCreate`/`Validate` factories; rail admission is the `TryCreateValidated<TVO, TRaw>` bridge (`validation.md`) lifting the generated `ValidationError` into `Fault.OutOfRange` carrying the owner name, the rejected scalar, and the requirement text.
+- Entry: the generated `Create`/`TryCreate`/`Validate` factories; rail admission is the receiver-generic `TryCreateValidated<TVO>` bridge (`validation.md` — the raw width rides the extension receiver, so a call names only the owner) lifting the generated `ValidationError` into `Fault.OutOfRange` carrying the owner name, the rejected scalar, and the requirement text.
 - Law: `KeyMemberName = "Value"` with public access — tolerance scalars feed host math (`curve.IsShort(tolerance: ctx.Absolute.Value)`) without egress ceremony; the owner exists for admission and identity, not to hide the double.
 - Boundary: the guards read `RhinoMath` bounds because the triad gates host geometry; the values themselves are pure scalars and cross every runtime.
 
@@ -84,9 +84,9 @@ public sealed record Context {
         Units = units;
     }
     public static Validation<Error, Context> Of(double absolute, double relative, double angle, UnitSystem units) =>
-        (absolute.TryCreateValidated<AbsoluteTolerance, double>(),
-         relative.TryCreateValidated<RelativeTolerance, double>(),
-         angle.TryCreateValidated<AngleTolerance, double>(),
+        (absolute.TryCreateValidated<AbsoluteTolerance>(),
+         relative.TryCreateValidated<RelativeTolerance>(),
+         angle.TryCreateValidated<AngleTolerance>(),
          (units switch {
              UnitSystem.Unset or UnitSystem.None => Fin.Fail<UnitSystem>(error: new Fault.InvalidUnitSystem(Units: units, Requirement: "must be a Rhino model unit system")),
              _ => Fin.Succ(units),
@@ -114,7 +114,7 @@ public sealed record Context {
     };
     [BoundaryAdapter]
     public static Validation<Error, Context> Of(RhinoDoc? doc) =>
-        Optional(doc).ToValidation<Error>(Fail: new Fault.MissingContext(Key: Op.Of(name: nameof(Of))))
+        Optional(doc).ToValidation<Error>(Fail: new Fault.MissingContext(Key: Op.Of(name: nameof(Context))))
             .Bind(static candidate => Of(
                 absolute: candidate.ModelAbsoluteTolerance,
                 relative: candidate.ModelRelativeTolerance,

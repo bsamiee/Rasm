@@ -116,7 +116,7 @@ _ENCODE = json.Encoder(order="deterministic")
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def describe(node: Trigger | Action) -> str:  # noqa: PLR0911, PLR0912, PLR0914
+def describe(node: Trigger | Action) -> str:  # noqa: PLR0911, PLR0912
     """Render a compact label for automation telemetry.
 
     Returns:

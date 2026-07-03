@@ -129,7 +129,7 @@ public readonly partial record struct ButcherMomentReceipt(int StageCount, int M
 
 ## [03]-[DENSE_OUTPUT]
 
-- Owner: `DenseOutputCoefficientFamily` the `[SmartEnum<int>]` continuous-extension owner — `DormandPrinceShampine` (dense order 4) and `BogackiShampine` (dense order 3) carry their published EXACT-RATIONAL interpolant coefficient tables as row data with an abscissae + FSAL fingerprint (`Identify` matches a tableau to its family, falling to `GenericMomentFit`); `WeightsAt`/`DerivativeAt` evaluate the polynomial rows by Horner and Horner-derivative; `ButcherDenseOutput` the derivation kernel — `Receipt` proves the interpolant at construction (moment residuals at θ ∈ {0, ½, 1}, endpoint value/derivative residuals, coefficient-consistency against the step weights), `WeightsAt` yields the stage weights of the continuous extension `b(θ)` for any θ ∈ [0,1], and the generic fallback solves the least-squares moment fit — a Vandermonde preimage (`MomentPreimage`) plus a moment-design least-squares correction (`Correction`) — through `Matrix.SolveDetailed`/`LeastSquaresDetailed`, so the interpolant construction itself leaves a `SolveReceipt` inside the dense-output evidence.
+- Owner: `DenseOutputCoefficientFamily` the `[SmartEnum<int>]` continuous-extension owner — `DormandPrinceShampine` (dense order 4) and `BogackiShampine` (dense order 3) carry their published EXACT-RATIONAL interpolant coefficient tables as row data with an abscissae + FSAL fingerprint (`Identify` matches a tableau to its family, falling to `GenericMomentFit`); `WeightsAt`/`DerivativeAt` evaluate the polynomial rows by Horner and Horner-derivative; `ButcherDenseOutput` the derivation kernel — `Receipt` proves the interpolant ONCE per integrator admission (moment residuals at θ ∈ {0, ½, 1}, endpoint value/derivative residuals, coefficient-consistency against the step weights), `WeightsAt` yields the stage weights of the continuous extension `b(θ)` for any θ ∈ [0,1], and the generic fallback solves the least-squares moment fit — a Vandermonde preimage (`MomentPreimage`) plus a moment-design least-squares correction (`Correction`) — through `Matrix.SolveDetailed`/`LeastSquaresDetailed`, so the interpolant construction itself leaves a `SolveReceipt` inside the dense-output evidence.
 - Cases: `GenericMomentFit` · `DormandPrinceShampine` · `BogackiShampine` (3).
 - Entry: consumers never reach the family directly — `tableau.DenseWeightsAt(theta, key)` and `tableau.DenseOutputReceipt(key)` are the two entries, with the family identified from the tableau fingerprint each time.
 - Auto: the generic route pins the endpoints exactly — `b(0) = 0`, `b(1) = weights` — and fits only the interior through the `θ(1−θ)`-scaled correction, so endpoint continuity is structural; `DenseOrderFor` caps the generic dense order by the count of distinct abscissae (the Vandermonde rank ceiling).
@@ -198,6 +198,7 @@ public readonly partial record struct DenseOutputReceipt(int StageCount, int Met
         && CoefficientResidual <= ButcherTableau.CoefficientTolerance
         && CoefficientFamily is not null
         && (!CoefficientFamily.MethodSpecific || EndpointDerivResidualLeft <= ButcherTableau.CoefficientTolerance)
+        && (!CoefficientFamily.MethodSpecific || EndpointDerivResidualRight <= ButcherTableau.CoefficientTolerance)
         && GenericCorrectionSolve == CoefficientFamily.Equals(DenseOutputCoefficientFamily.GenericMomentFit)
         && (!CoefficientFamily.MethodSpecific || CorrectionSolve.IsNone)
         && (CoefficientFamily.MethodSpecific || CheckedThetaCount < 3 || CorrectionSolve.IsSome);
@@ -414,24 +415,39 @@ public readonly record struct DenseOutputSpan<TState, TDelta>(TState Start, TSta
 // --- [OPERATIONS] -------------------------------------------------------------------------
 [Union]
 public abstract partial record FieldIntegrator {
-    public sealed record FixedCase : FieldIntegrator { internal FixedCase(IntegratorKind kind) => Kind = kind; public IntegratorKind Kind { get; } }
+    public sealed record FixedCase : FieldIntegrator { internal FixedCase(IntegratorKind kind, DenseOutputReceipt dense) { Kind = kind; Dense = dense; } public IntegratorKind Kind { get; } public DenseOutputReceipt Dense { get; } }
     public sealed record AdaptiveCase : FieldIntegrator {
-        internal AdaptiveCase(IntegratorKind kind, PositiveMagnitude tolerance, int maxRejects, StepControl control) { Kind = kind; Tolerance = tolerance; MaxRejects = maxRejects; Control = control; }
+        internal AdaptiveCase(IntegratorKind kind, PositiveMagnitude tolerance, int maxRejects, StepControl control, DenseOutputReceipt dense) { Kind = kind; Tolerance = tolerance; MaxRejects = maxRejects; Control = control; Dense = dense; }
         public IntegratorKind Kind { get; }
         public PositiveMagnitude Tolerance { get; }
         public int MaxRejects { get; }
         public StepControl Control { get; }
+        public DenseOutputReceipt Dense { get; }
     }
     private FieldIntegrator() { }
-    public static Fin<FieldIntegrator> Fixed(IntegratorKind kind, Op? key = null) =>
-        Admit(value: new FixedCase(kind: kind), key: key.OrDefault());
+    // Admission derives the dense-output receipt ONCE and carries it on the case; the step loop
+    // reuses proved evidence instead of re-running the moment-fit least-squares per step.
+    public static Fin<FieldIntegrator> Fixed(IntegratorKind kind, Op? key = null) {
+        Op op = key.OrDefault();
+        return from active in Optional(kind).ToFin(op.InvalidInput())
+               from tableau in active.Tableau.Admit(key: op)
+               from fixedKind in guard(!active.IsAdaptive, op.Unsupported(geometryType: active.GetType(), outputType: typeof(FixedCase)))
+               from dense in tableau.DenseOutputReceipt(key: op)
+               select (FieldIntegrator)new FixedCase(kind: active, dense: dense);
+    }
     public static Fin<FieldIntegrator> Adaptive(IntegratorKind kind, double tolerance, int maxRejects = 3, StepControl? control = null, Op? key = null) {
         Op op = key.OrDefault();
-        return op.AcceptValidated<PositiveMagnitude>(candidate: tolerance)
-            .Bind(validated => Admit(value: new AdaptiveCase(kind: kind, tolerance: validated, maxRejects: maxRejects, control: control ?? StepControl.Default), key: op));
+        return from active in Optional(kind).ToFin(op.InvalidInput())
+               from tableau in active.Tableau.Admit(key: op)
+               from adaptiveKind in guard(active.IsAdaptive, op.Unsupported(geometryType: active.GetType(), outputType: typeof(AdaptiveCase)))
+               from rejects in guard(maxRejects >= 0, op.InvalidInput())
+               from validated in op.AcceptValidated<PositiveMagnitude, double>(candidate: tolerance)
+               from dense in tableau.DenseOutputReceipt(key: op)
+               select (FieldIntegrator)new AdaptiveCase(kind: active, tolerance: validated, maxRejects: maxRejects, control: control ?? StepControl.Default, dense: dense);
     }
     public int RejectBudget => Switch(state: 0, fixedCase: static (s, _) => s, adaptiveCase: static (_, c) => c.MaxRejects);
     internal ButcherTableau Tableau => Switch(state: default(ButcherTableau), fixedCase: static (_, c) => c.Kind.Tableau, adaptiveCase: static (_, c) => c.Kind.Tableau);
+    internal DenseOutputReceipt Dense => Switch(state: default(DenseOutputReceipt), fixedCase: static (_, c) => c.Dense, adaptiveCase: static (_, c) => c.Dense);
     public int MethodOrder => Tableau.MethodOrder;
     public Option<int> EmbeddedOrder => Tableau.EmbeddedOrder;
     internal Fin<FieldIntegrator> Admit(Op key) =>
@@ -441,12 +457,14 @@ public abstract partial record FieldIntegrator {
                 from kind in Optional(integrator.Kind).ToFin(op.InvalidInput())
                 from tableau in kind.Tableau.Admit(key: op)
                 from fixedKind in guard(!kind.IsAdaptive, op.Unsupported(geometryType: kind.GetType(), outputType: typeof(FixedCase)))
+                from dense in guard(integrator.Dense.IsValid, op.InvalidInput())
                 select (FieldIntegrator)integrator,
             adaptiveCase: static (op, integrator) =>
                 from kind in Optional(integrator.Kind).ToFin(op.InvalidInput())
                 from tableau in kind.Tableau.Admit(key: op)
                 from rejects in guard(integrator.MaxRejects >= 0, op.InvalidInput())
                 from adaptiveKind in guard(kind.IsAdaptive, op.Unsupported(geometryType: kind.GetType(), outputType: typeof(AdaptiveCase)))
+                from dense in guard(integrator.Dense.IsValid, op.InvalidInput())
                 select (FieldIntegrator)integrator);
     public static Fin<FieldIntegrator> Admit(FieldIntegrator value, Op key) =>
         Optional(value).ToFin(key.InvalidInput()).Bind(integrator => integrator.Admit(key: key));
@@ -459,7 +477,7 @@ public abstract partial record FieldIntegrator {
         fixedCase: static (s, c) =>
             from ks in Stages(module: s.Module, sample: s.Sample, tableau: c.Kind.Tableau, state: s.State, h: s.H, key: s.Key)
             let next = s.Module.Add(arg1: s.State, arg2: s.H, arg3: s.Module.Combine(coefficients: c.Kind.Tableau.Weights, deltas: ks))
-            from dense in DenseOutputSpan<TState, TDelta>.Of(module: s.Module, start: s.State, end: next, step: s.H, stages: ks, tableau: c.Kind.Tableau, key: s.Key)
+            from dense in DenseOutputSpan<TState, TDelta>.Of(module: s.Module, start: s.State, end: next, step: s.H, stages: ks, tableau: c.Kind.Tableau, receipt: c.Dense, key: s.Key)
             select (IntegrationStep<TState, TDelta>)new IntegrationStep<TState, TDelta>.AcceptedCase(Next: next, SuggestedStep: s.H, Error: Option<double>.None, Dense: dense),
         adaptiveCase: static (s, c) =>
             from embeddedWeights in c.Kind.Tableau.EmbeddedWeights.ToFin(Fail: s.Key.InvalidInput())
@@ -469,7 +487,7 @@ public abstract partial record FieldIntegrator {
             let err = Math.Abs(value: s.H) * s.Module.Norm(arg: s.Module.Sum(arg1: primary, arg2: s.Module.Scale(arg1: -1.0, arg2: secondary)))
             let scale = c.Control.Rescale(error: err, tolerance: c.Tolerance.Value, exponent: c.Kind.AdaptiveExponent)
             from result in err <= c.Tolerance.Value
-                ? DenseOutputSpan<TState, TDelta>.Of(module: s.Module, start: s.State, end: s.Module.Add(arg1: s.State, arg2: s.H, arg3: primary), step: s.H, stages: ks, tableau: c.Kind.Tableau, key: s.Key)
+                ? DenseOutputSpan<TState, TDelta>.Of(module: s.Module, start: s.State, end: s.Module.Add(arg1: s.State, arg2: s.H, arg3: primary), step: s.H, stages: ks, tableau: c.Kind.Tableau, receipt: c.Dense, key: s.Key)
                     .Map(dense => (IntegrationStep<TState, TDelta>)new IntegrationStep<TState, TDelta>.AcceptedCase(Next: s.Module.Add(arg1: s.State, arg2: s.H, arg3: primary), SuggestedStep: s.H * scale, Error: Some(err), Dense: dense))
                 : Fin.Succ((IntegrationStep<TState, TDelta>)new IntegrationStep<TState, TDelta>.RejectedCase(SuggestedStep: s.H * scale, Error: Some(err)))
             select result);
