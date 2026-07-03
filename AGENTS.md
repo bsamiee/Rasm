@@ -25,6 +25,7 @@
 - Whenever adding a new external package, regardless of langauge, make a SIMPLE stub file in the relevant `.api/` folder with a single line value of: `(placeholder)`. A seperate session will finalize/flesh out the file, however, if the package is relevant to current scope of work, you must still do the deep investigation to extract all relevant information to implement in the relevant design docs.
 - Code fences and prose implementation snippets in design docs MUST be fully realized, not abstract signatures or conceptual implementations, treat them as real code implementation, that MUST adhere to the `docs/stacks/<language>/` file standards, treat the stacks docs as a FLOOR not the ceiling, this is non-negotiable.
 - Every repo tool must route generated storage, caches, benchmark output, mutation workdirs, coverage files, snapshots, and scratch artifacts through the owning language/tool configuration or the owning repo tool surface. Do not rely on ambient CLI defaults or gitignore-only tolerance for root litter; configure the tool in `pyproject.toml`, `Directory.Build.props`, tool manifests, test conftests, or the canonical tool engine so outputs land under `.cache`, `.artifacts`, or another owner-declared path.
+- Repo-root residency is a closed allowlist owned by `tests/python/_testkit/test_policy.py`: a deliberate new root file adds its allowlist row in the same change, and a red root gate resolves by routing tool output or by reviewed allowlist amendment — never by deleting a legitimate root file to silence the gate.
 
 ## [03]-[MONOREPO_TOPOLOGY]
 

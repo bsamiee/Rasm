@@ -512,6 +512,10 @@ pytest_add_cli_args = [
 do_not_mutate = ["tools/assay/__init__.py", "tools/assay/rails/mutation_gate.py"]
 mutate_only_covered_lines = true  # mutation run supplies absolute-keyed coverage data for mutmut's covered-line map
 max_stack_depth = -1              # disables mutmut's strict stack walk over importlib pseudo-filenames
+# Per-mutant wall/CPU cap = (estimated suite time + timeout_constant) * timeout_multiplier, replacing the lax 15x default.
+# Concurrency has no config key: --max-children is CLI-only (assay-governed); a bare run defaults to cpu_count.
+timeout_multiplier = 4.0
+timeout_constant = 5.0
 
 # --- [IMPORT_LINTER] -------------------------------------------------------
 

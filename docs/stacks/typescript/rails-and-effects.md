@@ -1,4 +1,4 @@
-# [TS_RAILS_AND_EFFECTS]
+# [TYPESCRIPT_RAILS_AND_EFFECTS]
 
 This page is the carrier algebra. `Effect<A, E, R>` is the one rail every fallible, contextual, or deferred computation rides; this page legislates which carrier states an outcome, how dependence and independence compose, how a fault family is sized, routed, accumulated, and folded, how a resource bracket stacks against resilience, and how recurrence and telemetry ride the rail as policy values and transformers. A carrier is chosen once at admission and threaded unchanged: the narrowest carrier that states the real outcome transports the value, reusable transforms preserve it, and collapse to a bare value happens only at the run seam. The interior is total over admitted carriers — raw promises, thrown exceptions, `null` sentinels, and boolean status flags never travel it.
 
@@ -8,7 +8,7 @@ Six siblings own surfaces this algebra composes as settled material: the fiber t
 
 Choose the narrowest carrier that states the real outcome; a wider carrier is earned only by a capability the narrower one cannot carry — a typed cause, deferral, context, or Cause-tree evidence. The chooser rows are this page's map: each row's law lives in the section that owns it.
 
-| [INDEX] | [SURFACE]                                     | [OWNS]                              | [REJECT]                            |
+| [INDEX] | [SURFACE]                                     | [OWNS]                              | [REJECTED_FORM]                     |
 | :-----: | :-------------------------------------------- | :---------------------------------- | :---------------------------------- |
 |  [01]   | `Effect<A, E, R>`                             | fallible, contextual, deferred step | bare `Promise`, thrown control flow |
 |  [02]   | `Option<A>`                                   | non-failing absence                 | `null`/`undefined` sentinels        |
@@ -33,8 +33,7 @@ Choose the narrowest carrier that states the real outcome; a wider carrier is ea
 - Use: `Effect.sandbox` when recovery itself must read defects and interruptions on the typed channel; `Effect.exit` when the outcome becomes state.
 
 ```typescript
-import { Data, Effect, Exit, Option } from "effect"
-import type { Cause, Either } from "effect"
+import { type Cause, Data, Effect, type Either, Exit, Number, type Option } from "effect"
 
 class GaugeFault extends Data.TaggedError("GaugeFault")<{ readonly detail: string }> {}
 
@@ -48,7 +47,7 @@ const gauged = (
   Effect.gen(function* () {
     const seed = yield* cached.pipe(Effect.mapError(() => new GaugeFault({ detail: "<cold>" })))
     const ceiling = yield* gate
-    return yield* Effect.zipWith(measured(seed), measured(ceiling), Math.min, { concurrent: true })
+    return yield* Effect.zipWith(measured(seed), measured(ceiling), Number.min, { concurrent: true })
   })
 
 const settled = Exit.match({
@@ -63,7 +62,7 @@ const phased = (
   gate: Either.Either<number, GaugeFault>,
 ): Effect.Effect<Settled> => Effect.map(Effect.exit(gauged(cached, gate)), settled)
 
-// --- [EXPORTS] ------------------------------------------------------------------------
+// --- [EXPORTS] --------------------------------------------------------------------------
 
 export { GaugeFault, gauged, measured, phased, settled }
 export type { Settled }
@@ -88,8 +87,7 @@ Abort versus accumulate is a correctness decision fixed once at the boundary as 
 - Reject: a disposition parameter the body re-reads; a `for` loop collecting failures beside the rail; `Effect.forEach` over a batch whose faults the caller must enumerate — its first-failure abort is the dependent-chain default, not the batch report.
 
 ```typescript
-import { Data, Effect, Number } from "effect"
-import type { Array, Option } from "effect"
+import { type Array, Data, Effect, Number, type Option } from "effect"
 
 class SlotFault extends Data.TaggedError("SlotFault")<{ readonly slot: string; readonly raw: string }> {}
 
@@ -121,7 +119,7 @@ const chained = (rawFloor: string, rawSpend: string): Effect.Effect<number, Slot
     return floor - spent
   })
 
-// --- [EXPORTS] ------------------------------------------------------------------------
+// --- [EXPORTS] --------------------------------------------------------------------------
 
 export { SlotFault, admit, chained, gated, partitioned, sealed }
 ```
@@ -139,7 +137,6 @@ A surface owns one reason-discriminated fault family whose policy lives in one v
 - Law: `catchTag` and `catchTags` route between classes; behavior inside a class reads policy fields — the handler record is the routing table, attached inline at the recovery seam, and a partial record leaves the remaining tags on the channel.
 - Law: an accumulated fault set collapses to one representative through the rank lattice — `Order.mapInput` projects the table's rank, `Array.max` folds the `NonEmptyArray` the accumulating forms mint; an if-ladder comparing tags re-implements the order the table already declares.
 - Law: quarantine is a typed divert, never a dropped element — a quarantinable fault is delivered to a typed intake and continues as `Either.left` on the success channel, so the rail proceeds and the evidence survives to the drain; a recovery that substitutes a default value destroys the evidence and is rejected wherever the fault feeds a report.
-- Law: a recovery operator serves pipe and direct call as one `Function.dual` definition whose typed overload pair pre-solves inference at the owner — a parallel pipe-twin beside a data-first function is the named defect.
 
 ```typescript
 import { Array, Data, Effect, Either, Function, Option, Order } from "effect"
@@ -158,7 +155,7 @@ declare namespace FaultPolicy {
 
 type Reason = keyof typeof FaultPolicy
 
-class ShapeFault extends Data.TaggedError("ShapeFault")<{
+class SurfaceFault extends Data.TaggedError("SurfaceFault")<{
   readonly reason: Reason
   readonly surface: string
   readonly detail: string
@@ -170,24 +167,24 @@ class ShapeFault extends Data.TaggedError("ShapeFault")<{
 
 class PermitFault extends Data.TaggedError("PermitFault")<{ readonly permit: string }> {}
 
-const byRank: Order.Order<ShapeFault> = Order.mapInput(Order.number, (fault: ShapeFault) => fault.policy.rank)
+const byRank: Order.Order<SurfaceFault> = Order.mapInput(Order.number, (fault: SurfaceFault) => fault.policy.rank)
 
-const dominant = (faults: Array.NonEmptyReadonlyArray<ShapeFault>): ShapeFault => Array.max(faults, byRank)
+const dominant = (faults: Array.NonEmptyReadonlyArray<SurfaceFault>): SurfaceFault => Array.max(faults, byRank)
 
 const salvaged: {
-  (intake: (fault: ShapeFault) => Effect.Effect<void>): <A, R>(
-    self: Effect.Effect<A, ShapeFault, R>,
-  ) => Effect.Effect<Either.Either<A, ShapeFault>, ShapeFault, R>
+  (intake: (fault: SurfaceFault) => Effect.Effect<void>): <A, R>(
+    self: Effect.Effect<A, SurfaceFault, R>,
+  ) => Effect.Effect<Either.Either<A, SurfaceFault>, SurfaceFault, R>
   <A, R>(
-    self: Effect.Effect<A, ShapeFault, R>,
-    intake: (fault: ShapeFault) => Effect.Effect<void>,
-  ): Effect.Effect<Either.Either<A, ShapeFault>, ShapeFault, R>
+    self: Effect.Effect<A, SurfaceFault, R>,
+    intake: (fault: SurfaceFault) => Effect.Effect<void>,
+  ): Effect.Effect<Either.Either<A, SurfaceFault>, SurfaceFault, R>
 } = Function.dual(
   2,
   <A, R>(
-    self: Effect.Effect<A, ShapeFault, R>,
-    intake: (fault: ShapeFault) => Effect.Effect<void>,
-  ): Effect.Effect<Either.Either<A, ShapeFault>, ShapeFault, R> =>
+    self: Effect.Effect<A, SurfaceFault, R>,
+    intake: (fault: SurfaceFault) => Effect.Effect<void>,
+  ): Effect.Effect<Either.Either<A, SurfaceFault>, SurfaceFault, R> =>
     self.pipe(
       Effect.map(Either.right),
       Effect.catchIf(
@@ -198,20 +195,20 @@ const salvaged: {
 )
 
 const routed = <A, R>(
-  work: Effect.Effect<A, ShapeFault | PermitFault, R>,
+  work: Effect.Effect<A, SurfaceFault | PermitFault, R>,
   floor: number,
-): Effect.Effect<Option.Option<A>, ShapeFault, R> =>
+): Effect.Effect<Option.Option<A>, SurfaceFault, R> =>
   work.pipe(
     Effect.map(Option.some),
     Effect.catchTags({
       PermitFault: (fault) => Effect.die(fault),
-      ShapeFault: (fault) => (fault.policy.rank <= floor ? Effect.succeed(Option.none<A>()) : Effect.fail(fault)),
+      SurfaceFault: (fault) => (fault.policy.rank <= floor ? Effect.succeed(Option.none<A>()) : Effect.fail(fault)),
     }),
   )
 
-// --- [EXPORTS] ------------------------------------------------------------------------
+// --- [EXPORTS] --------------------------------------------------------------------------
 
-export { FaultPolicy, PermitFault, ShapeFault, byRank, dominant, routed, salvaged }
+export { FaultPolicy, PermitFault, SurfaceFault, byRank, dominant, routed, salvaged }
 export type { Reason }
 ```
 
@@ -230,8 +227,7 @@ A lifetime rides the rail as a bracket whose release is part of the computation'
 - Reject: teardown as an ordinary step after use — it silently skips on failure and interruption; `try`/`finally` in domain flow; a bracket whose acquire is retried by a loop instead of sitting under the same policy value as its use.
 
 ```typescript
-import { Data, Effect, Exit } from "effect"
-import type { Schedule, Scope } from "effect"
+import { Data, Effect, Exit, type Schedule, type Scope } from "effect"
 
 class LeaseFault extends Data.TaggedError("LeaseFault")<{
   readonly stage: "open" | "probe"
@@ -273,7 +269,7 @@ const audited = (lease: Effect.Effect<Lease, LeaseFault, Scope.Scope>): Effect.E
     return yield* live.probe
   })
 
-// --- [EXPORTS] ------------------------------------------------------------------------
+// --- [EXPORTS] --------------------------------------------------------------------------
 
 export { audited, flushed, leased, LeaseFault, oneLease, perAttempt }
 export type { Lease }
@@ -291,7 +287,7 @@ Recurrence is a named `Schedule` value composed once beside the fault family it 
 
 [TRANSFORMER_FORMS]:
 - Law: `Effect.retry` is one entry over `{ times, while, until, schedule }` — the options object is the collapsed suffix family, and `{ times: n }` mints no `Schedule` for a trivial bound; the fault-keyed gate rides the policy value, the options carry only call-local intent.
-- Law: a deadline mints a family fault through `Effect.timeoutFail` — bare `Effect.timeout` widens `E` with the foreign `Cause.TimeoutException`; `Effect.timeoutTo` folds to a value where the deadline is a legitimate outcome rather than a fault.
+- Law: a deadline joins the family through `Effect.timeoutFail`; member selection across the deadline family and its interruption semantics are `concurrency.md`'s — this page owns only the budget a deadline buys against retry.
 - Law: layering against retry is budget semantics — a timeout below `Effect.retry` is the per-attempt budget, above it the total budget; both may stack, and which budgets exist is the surface's stated vocabulary, never an accident of pipe order.
 - Law: `Effect.repeat` recurs on the success channel — `while`/`until` read the output and the first run is not a recurrence — so polling and convergence are repeat policies over a state-advancing step, never `while` statements.
 
@@ -324,7 +320,7 @@ const bounded = <A, R>(attempt: Effect.Effect<A, PressFault, R>): Effect.Effect<
 const converged = <R>(step: Effect.Effect<number, PressFault, R>): Effect.Effect<number, PressFault, R> =>
   Effect.repeat(step, { until: (drift) => drift < 1e-6, times: 256 })
 
-// --- [EXPORTS] ------------------------------------------------------------------------
+// --- [EXPORTS] --------------------------------------------------------------------------
 
 export { backoff, bounded, converged, PressFault, resilient }
 ```
@@ -378,7 +374,7 @@ const observed = <A, R>(pour: Effect.Effect<A, PourFault, R>): Effect.Effect<A, 
     Effect.annotateLogs({ surface: "<surface-a>" }),
   )
 
-// --- [EXPORTS] ------------------------------------------------------------------------
+// --- [EXPORTS] --------------------------------------------------------------------------
 
 export { observed, outcomeOf, PourFault }
 export type { Outcome }

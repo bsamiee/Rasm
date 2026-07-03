@@ -46,7 +46,7 @@ Browser-mode suites run real browser semantics through the vitest browser provid
 
 ## [09]-[GATES]
 
-The root `vitest.config.ts` is the runner authority: coverage and result artifacts route to `.artifacts/typescript/`, runner cache to `.cache/vitest`, and per-package projects return with the TS buildout. Nx target defaults in `nx.json` mirror those outputs for the project graph. Mutation runs ride StrykerJS from the root `stryker.config.json` — root residency keeps every invocation, flagged or bare, inside auto-discovery so sandbox state can never fall back to a root `.stryker-tmp/`; temp state rides `.cache/stryker/`, reports land in `.artifacts/typescript/stryker`, and the incremental file stays uncommitted.
+The root `vitest.config.ts` is the runner authority: coverage and result artifacts route to `.artifacts/typescript/`, runner cache to `.cache/vitest`, worker concurrency and test/hook timeouts are bounded in the config, and per-package projects return with the TS buildout. Nx target defaults in `nx.json` mirror those outputs for the project graph. Mutation runs ride StrykerJS from the root `stryker.config.json` — root residency keeps every invocation, flagged or bare, inside auto-discovery so sandbox state can never fall back to a root `.stryker-tmp/`; the config carries the concurrency cap, dry-run and per-test timeouts, and the explicit mutate scope, temp state rides `.cache/stryker/`, reports land in `.artifacts/typescript/stryker`, and the incremental file stays uncommitted. Container-lane suites ride testcontainers with the Ryuk reaper on by default — abandoned runs cannot strand containers, networks, or volumes, and nothing in the repo sets `TESTCONTAINERS_RYUK_DISABLED`.
 
 ## [10]-[DENSITY_AND_BANS]
 

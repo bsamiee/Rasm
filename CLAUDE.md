@@ -35,6 +35,7 @@ Read: `README.md` + `tools/assay/README.md`
 - [NEVER] Preserve stale APIs, wrappers, aliases, or old-baseline caveats when a root-up collapse improves the system.
 - [NEVER] Split one concern across parallel objects, services, error rails, command families, or compatibility shims.
 - [NEVER] Create operation families such as `Get`, `GetMany`, `GetBy<Key>`, `List`, or `Search` for one concept when one polymorphic operation can discriminate by input value.
+- [ALWAYS] Repo-root residency is a closed allowlist owned by `tests/python/_testkit/test_policy.py`: a deliberate new root file adds its allowlist row in the same change; a red root gate resolves by routing tool output under `.cache/`/`.artifacts/` or by reviewed allowlist amendment — never by deleting a legitimate root file to silence the gate.
 
 ## [02]-[REQUIRED_STANDARDS]
 

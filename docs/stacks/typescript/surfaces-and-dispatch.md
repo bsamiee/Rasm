@@ -31,7 +31,7 @@ When a concern matches several rows, the most specific wins; the rail the arms r
 [MODAL_ARITY]:
 - Law: the batch modality is `NonEmptyReadonlyArray` — `readonly [A, ...Array<A>]` — so plurality is a fact of the type: the batch overload returns a non-empty result derived by construction (`Array.headNonEmpty` resolves the proven head, `Effect.forEach` sweeps the tail, `[head, ...tail] as const` recombines the tuple), never a claimed plurality the interior must re-prove over a possibly-empty array.
 - Law: empty is not a batch — a caller holding a possibly-empty collection resolves emptiness at its own seam or routes the query shape; admitting bare `ReadonlyArray` as the batch modality discards non-emptiness for every downstream consumer at once.
-- Boundary: how the swept rail combines — abort versus accumulate, concurrency degree — is the rail page's disposition; this surface owns only the arity discriminant and the shape-following return.
+- Boundary: how the swept rail combines — abort versus accumulate — is `rails-and-effects.md`'s disposition and the declared degree is `concurrency.md`'s; this surface owns only the arity discriminant and the shape-following return.
 
 ```typescript
 import { Array, Data, Effect, HashMap, Predicate } from "effect"
@@ -63,12 +63,13 @@ function resolved(
       ? Effect.succeed(_swept(ledger, input))
       : Effect.zipWith(
           _fetched(ledger, Array.headNonEmpty(input)),
-          Effect.forEach(Array.tailNonEmpty(input), (key) => _fetched(ledger, key)),
+          Effect.forEach(Array.tailNonEmpty(input), (key) => _fetched(ledger, key), { concurrency: "inherit" }),
           (head, tail) => [head, ...tail] as const,
+          { concurrent: true },
         )
 }
 
-// --- [EXPORTS] ---------------------------------------------------------------------------
+// --- [EXPORTS] --------------------------------------------------------------------------
 
 export { Missing, resolved }
 export type { Batch, Key, Ledger, Row, Sweep }
@@ -83,14 +84,13 @@ export type { Batch, Key, Ledger, Row, Sweep }
 
 [FAMILY_DISPATCH]:
 - Law: a `Data.taggedEnum` family dispatches through its own generated surface — `$match` is the total record dispatch, data-first inside generic operations so the family's type parameters stay bound, and `$is` is the reusable refinement every filter and find site narrows through; a `_tag ===` comparison restated per site re-derives what the family already generated.
-- Law: a generic family's `taggedEnum` surface is module-interior dispatch vocabulary — the `WithGenerics` factory-call `const` is kind-polymorphic and has no nameable annotation, so exporting it demands the hand-written type the export gate forbids inferring; the family's static type exports freely, dispatch operations export annotated, and a non-generic family exports its constructor under `Data.TaggedEnum.Constructor<Family>` as the shape page's owner form.
+- Law: a generic family's `taggedEnum` surface is module-interior dispatch vocabulary — the `WithGenerics` factory-call `const` is kind-polymorphic and has no nameable annotation, so exporting it demands the hand-written type the export gate forbids inferring; the family's static type exports freely, dispatch operations export annotated, and a non-generic family exports its constructor under `Data.TaggedEnum.Constructor<Family>` as `shapes.md`'s owner form.
 - Law: `Match.valueTags(value, arms)` is the immediate exhaustive record dispatch over an already-held union value — its arm record types excess keys `never`, so a stale or misspelled arm is a compile error and no matcher value is built for a one-shot dispatch; `Match.discriminatorsExhaustive("<field>")` owns the family whose discriminant is a foreign field name, dispatching the wire shape without re-tagging it first.
 - Law: record form versus pipeline: the record forms (`$match`, `Match.valueTags`, `Match.tagsExhaustive`) serve a closed family whose arms are all local — coverage read at a glance; the `Match.type` pipeline builds the reusable dispatch value and serves arms that mix tag, structural, and predicate patterns or a terminal other than exhaustive; `Match.value` opens the same pipeline over one already-held value and earns its matcher only when arms exceed what `valueTags` states in place.
 - Boundary: a `Match` whose arms each return a static row restates a keyed table — a keyed correspondence dispatches through the vocabulary lookup the table already is; `Match` owns structural and predicate dispatch on non-keyed shapes.
 
 ```typescript
-import { Array, Data, Match, Option, pipe } from "effect"
-import type { Either } from "effect"
+import { Array, Data, type Either, Match, type Option, pipe } from "effect"
 
 type Signal<A> = Data.TaggedEnum<{
   readonly Live: { readonly value: A }
@@ -104,11 +104,11 @@ interface SignalDefinition extends Data.TaggedEnum.WithGenerics<1> {
 
 const Signal = Data.taggedEnum<SignalDefinition>()
 
-const carried = <A>(signal: Signal<A>): Option.Option<A> =>
+const carried = <A>(signal: Signal<A>, fallback: A): A =>
   Signal.$match(signal, {
-    Live: ({ value }) => Option.some(value),
-    Degraded: ({ value }) => Option.some(value),
-    Halted: () => Option.none(),
+    Live: ({ value }) => value,
+    Degraded: ({ value }) => value,
+    Halted: () => fallback,
   })
 
 const causes = <A>(signals: ReadonlyArray<Signal<A>>): ReadonlyArray<string> =>
@@ -136,7 +136,7 @@ const scored: (probe: Probe) => Option.Option<number> = pipe(
   Match.option,
 )
 
-// --- [EXPORTS] ---------------------------------------------------------------------------
+// --- [EXPORTS] --------------------------------------------------------------------------
 
 export { carried, causes, scored, settled }
 export type { Probe, Signal, Wire }
@@ -180,9 +180,9 @@ const ranked: {
 )
 
 const swept = (rows: ReadonlyArray<Row>, limit: number): Effect.Effect<ReadonlyArray<Row>, Ceiling> =>
-  Effect.forEach(ranked(rows), (row) => pipe(Effect.succeed(row), gated(limit)))
+  Effect.forEach(ranked(rows), (row) => pipe(Effect.succeed(row), gated(limit)), { concurrency: "inherit" })
 
-// --- [EXPORTS] ---------------------------------------------------------------------------
+// --- [EXPORTS] --------------------------------------------------------------------------
 
 export { Ceiling, gated, ranked, swept }
 export type { Row }
@@ -242,7 +242,7 @@ const _HANDLERS: _Handlers = {
 const submitted = <K extends Kind>(kind: K, payload: Payload[K]): Effect.Effect<Receipt, Refused> =>
   _HANDLERS[kind](payload)
 
-// --- [EXPORTS] ---------------------------------------------------------------------------
+// --- [EXPORTS] --------------------------------------------------------------------------
 
 export { Refused, ROUTE, submitted }
 export type { Kind, Payload, Receipt }
@@ -255,10 +255,10 @@ export type { Kind, Payload, Receipt }
 - Law: every pipeline step receives the original call arguments after the effect — `(effect, ...args)` — so policy parameterizes on the call without threading arguments through the body or closing over module state: a deadline fault carrying the argument's key, log annotation carrying the call's inputs.
 - Law: the seam splits by attempt scope — a concern that must observe one attempt composes before the retry step; a concern that must observe the whole call composes after it; the exported annotation on the seam's `const` states the full fault union the stack produces, readable without opening the body.
 - Use: `Effect.fnUntraced` where span allocation is a measured cost on a hot path — the same seam and pipeline, no tracer.
-- Boundary: `Schedule` composition algebra, the fault-family taxonomy, and telemetry semantics are the rail page's; this page owns only where the policy value attaches and the order it stacks.
+- Boundary: `Schedule` composition algebra, the fault-family taxonomy, and telemetry semantics are `rails-and-effects.md`'s; this page owns only where the policy value attaches and the order it stacks.
 
 [PIPELINE_ORDER]:
-- Law: pipeline order is wrap order — the first step is innermost, each later step encloses everything before it — so the two resilience geometries are both spellable and the declaration states which was chosen: deadline-then-retry gives each attempt its own budget; retry-then-deadline places one budget over all attempts.
+- Law: pipeline order is wrap order — the first step is innermost, each later step encloses everything before it — so both resilience geometries are spellable and the declaration states which was chosen; which budget each geometry buys is `rails-and-effects.md`'s layering law, consumed here as settled.
 - Law: retry policy is a value — one `Schedule` composed once at the module and referenced by the seam — refined by `while`/`until` on the fault tag so only the transient family re-drives; a hand-rolled retry loop, or a schedule rebuilt inline per declaration, dissolves the policy the value form makes auditable.
 
 ```typescript
@@ -287,7 +287,7 @@ const resolved: (key: string, ceiling: number) => Effect.Effect<Quote, Flap | La
   (effect, key, ceiling) => Effect.annotateLogs(effect, { key, ceiling }),
 )
 
-// --- [EXPORTS] ---------------------------------------------------------------------------
+// --- [EXPORTS] --------------------------------------------------------------------------
 
 export { Flap, Lapse, resolved }
 export type { Quote }

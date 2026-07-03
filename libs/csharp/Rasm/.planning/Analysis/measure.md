@@ -38,7 +38,8 @@ namespace Rasm.Analysis;
 // --- [TYPES] --------------------------------------------------------------------------------
 [SkipUnionOps]
 [Union]
-public partial record Measure {
+public abstract partial record Measure {
+    private Measure() { }
     public sealed record LengthCase : Measure;
     public sealed record SpatialMidpointCase : Measure;
     public sealed record MassPropertyCase(MassKind Mass, MassProperty Property) : Measure;
@@ -323,7 +324,8 @@ namespace Rasm.Analysis;
 // --- [TYPES] --------------------------------------------------------------------------------
 [SkipUnionOps]
 [Union]
-public partial record Bounds {
+public abstract partial record Bounds {
+    private Bounds() { }
     public sealed record AxisAlignedCase : Bounds;
     public sealed record InPlaneCase(Plane Plane) : Bounds;
     public sealed record TransformedCase(Transform Xform) : Bounds;

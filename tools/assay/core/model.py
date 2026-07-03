@@ -334,6 +334,7 @@ class ToolArgs(Base, frozen=True, cache_hash=True):
     argv: tuple[str, ...] = ()
     assembly: str = ""
     binary: str = ""
+    config: str = ""
     configuration: str = ""
     filter: tuple[str, ...] = ()
     flags: tuple[str, ...] = ()

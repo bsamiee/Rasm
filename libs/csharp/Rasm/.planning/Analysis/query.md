@@ -15,9 +15,9 @@ The measured-query runtime — the kernel's public analysis entry. `AnalysisQuer
 - Cases: geometry `Coerce` · `CurveForm` · `Vertices` · `SamplePoints` · `SurfaceUv` · `Closest` · `SignedDistance` (7 declared; `Kind`/`Bounds()`/`SurfaceForm`/`BrepForm` factory-preserved); family `Bounds` · `Measure` · `Location` · `Curves` · `Faces` · `Topologies` · `Meshes` · `Points` (8); relation `Intersections` · `Classification` · `CurveDeviation` · `SelfIntersection` · `Ray` · `Conformance` (6); spatial `SearchBox` · `SearchSphere` · `Overlap` · `PointPairs` (4).
 - Entry: the three `internal virtual` dispatchers — `Single<TGeometry, TOut>(Op)`, `Pair<TA, TB, TOut>(Op)`, `Service<TOut>(Op)` — each defaulting to `key.Unsupported<…>()` so a case consumed at the wrong arity rejects on the rail, never throws; a case overrides exactly the arities it owns. Consumers reach the dispatch only through `Analyze.Query`/`Analyze.Run` — the union's dispatch surface stays internal.
 - Auto: `SurfaceForm`/`BrepForm` collapse onto `Coerce(typeof(Surface))`/`Coerce(typeof(Brep))` because their operations are the same coercion op gated by the same output-type test — three factory spellings, one case, one operation; `Kind` routes to `Selection(Topologies.Kind)` and parameterless `Bounds()` defaults to `Bounds(Bounds.AxisAligned)` because those requests were always the identical operations reached through a second vocabulary. The `Conformance` factory computes its percentile payload eagerly — percentiles survive only under `ConformanceMetric.Distribution`, every other metric carries the empty `Seq<double>`.
-- Packages: Thinktecture.Runtime.Extensions (`[Union]`, generated `Switch`), LanguageExt.Core (`Fin`/`Option`/`Seq`/`Eff`), `Rasm.Domain` (`Op`/`Fault`/`Requirement`/`Context`/`Kind` capability web/`CurveForm`/`ClosestHit`/coercion-evaluation extension lattice), `Rasm.Vectors` (`NeighborIndex`/`NeighborQuery` — the `Spatial/neighbors` substrate), RhinoCommon (`Point3d`/`Point2d`/`BoundingBox`/`Sphere` payload values).
+- Packages: Thinktecture.Runtime.Extensions (`[Union]`, generated `Switch`), LanguageExt.Core (`Fin`/`Option`/`Seq`/`Eff`), `Rasm.Domain` (`Op`/`Fault`/`Requirement`/`Context`/`Kind` capability web/`CurveForm`/`ClosestHit`/coercion-evaluation extension lattice), `Rasm.Vectors` (`NeighborIndex`/`NeighborQuery`/`NeighborSource`/`NeighborAnswer` — the `Spatial/neighbors` substrate), RhinoCommon (`Point3d`/`Point2d`/`BoundingBox`/`Sphere` payload values).
 - Growth: a new query modality is one case on the owning band plus one factory — a family page gaining a capability adds a case to ITS union and this algebra is untouched; a new relation is one case forwarding to a `Analysis/relations` builder; a new spatial probe shape is one `NeighborQuery` case on the `Spatial/neighbors` owner. A new band is admitted only by charter amendment.
-- Boundary: the request algebra is ONE union — a `GeometryRequest`-style second ADT wrapped by a `Geometry(…)` case and re-dispatched through a `request switch` mapping into the same operations is the collapsed dead form, and the twin coercion builders it forced (`GeometryCoerce` beside `Coerce`) collapse to one; factory spellings preserve every absorbed request (`Kind`, `Bounds`, `CurveForm`, `SurfaceForm`, `BrepForm`, `Vertices`, `SamplePoints`, `SurfaceUv`, `Closest`, `SignedDistance`) so no consumer capability is dropped by the unification; the output-type gates (`Output == typeof(TOut)`, `typeof(TOut) == typeof(CurveForm)`) reject at operation-build time onto the `Fault.Unsupported` rail — code 9104, the host binding's probe discriminant — never at evaluation; the geometry-band operations compose the `Domain/normalization` coercion lattice and the `Domain/evaluation` closest/sampling surface as settled owner vocabulary (`CoerceTo<TOut>`/`CurveForm`/`SurfaceForm`/`CurveFormOf`/`VerticesOf`/`SamplePoints`/`SurfaceUv`/`ClosestOf`/`SignedDistanceOf`), never re-implementing a coercion or an evaluation locally; the spatial band's service builders forward to the `Spatial/neighbors` owner's `NeighborIndex.Query` dispatch (`Box`/`Ball`/`Overlaps`/`Pairs` cases) and project its `NeighborAnswer` union — `Hits(Seq<NeighborHit>)` and `PairsFound(Seq<NeighborPair>)` are the two arms this band lifts, every other answer shape rejects as `InvalidResult` — so a query-side RTree wrapper or a second answer vocabulary beside that substrate is the deleted parallel rail.
+- Boundary: the request algebra is ONE union — a `GeometryRequest`-style second ADT wrapped by a `Geometry(…)` case and re-dispatched through a `request switch` mapping into the same operations is the collapsed dead form, and the twin coercion builders it forced (`GeometryCoerce` beside `Coerce`) collapse to one; factory spellings preserve every absorbed request (`Kind`, `Bounds`, `CurveForm`, `SurfaceForm`, `BrepForm`, `Vertices`, `SamplePoints`, `SurfaceUv`, `Closest`, `SignedDistance`) so no consumer capability is dropped by the unification; the output-type gates (`Output == typeof(TOut)`, `typeof(TOut) == typeof(CurveForm)`) reject at operation-build time onto the `Fault.Unsupported` rail — code 9104, the host binding's probe discriminant — never at evaluation; the geometry-band operations compose the `Domain/normalization` coercion lattice and the `Domain/evaluation` closest/sampling surface as settled owner vocabulary (`CoerceTo<TOut>`/`CurveForm`/`SurfaceForm`/`CurveFormOf`/`VerticesOf`/`SamplePoints`/`SurfaceUv`/`ClosestOf`/`SignedDistanceOf`), never re-implementing a coercion or an evaluation locally; the spatial band rides ONE service spine — every builder resolves its index, forwards to the `Spatial/neighbors` owner's `NeighborIndex.Query` dispatch (`Box`/`Ball`/`Overlaps`/`Pairs` cases) with the runtime token threaded into the substrate's cancellation capsule, and projects its `NeighborAnswer` union (`Hits(Seq<NeighborHit>)` and `PairsFound(Seq<NeighborPair>)` are the two arms this band lifts, every other answer shape rejects as `InvalidResult`); pair-probe admission is the substrate's own law — volume/overlap/nested probes refuse THERE, so a new pair-admissible probe lands as one upstream case with zero edits here — and a query-side probe whitelist, RTree wrapper, or second answer vocabulary beside that substrate is the deleted parallel rail.
 
 ```csharp contract
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -173,38 +173,28 @@ public static partial class Analyze {
 
     // --- [SPATIAL_BAND_BUILDERS]
     internal static Operation<Unit, TOut> SpatialSearch<TOut>(NeighborIndex index, BoundingBox box, Op key) where TOut : notnull =>
-        (typeof(TOut) == typeof(NeighborHit) && box.IsValid)
-            ? Operation<Unit, TOut>.Service(key: key, evaluate: () =>
-                from runtime in Env.EnvAsks
-                from answer in (runtime.Cancellation.IsCancellationRequested ? Fin.Fail<NeighborAnswer>(new Fault.Cancelled()) : index.Query(query: new NeighborQuery.BoxCase(Bounds: box), anchor: box.Center, key: key)).ToEff()
-                from hits in ProjectAnswer<TOut>(answer: answer, key: key).ToEff()
-                select hits)
+        typeof(TOut) == typeof(NeighborHit) && box.IsValid
+            ? SpatialService<TOut>(key: key, resolve: _ => Fin.Succ(index), query: new NeighborQuery.BoxCase(Bounds: box), anchor: box.Center)
             : key.Unsupported<Unit, TOut>();
     internal static Operation<Unit, TOut> SpatialSearch<TOut>(NeighborIndex index, Sphere sphere, Op key) where TOut : notnull =>
-        (typeof(TOut) == typeof(NeighborHit) && sphere.IsValid)
-            ? Operation<Unit, TOut>.Service(key: key, evaluate: () =>
-                from runtime in Env.EnvAsks
-                from answer in (runtime.Cancellation.IsCancellationRequested ? Fin.Fail<NeighborAnswer>(new Fault.Cancelled()) : index.Query(query: new NeighborQuery.BallCase(Ball: sphere), anchor: sphere.Center, key: key)).ToEff()
-                from hits in ProjectAnswer<TOut>(answer: answer, key: key).ToEff()
-                select hits)
+        typeof(TOut) == typeof(NeighborHit) && sphere.IsValid
+            ? SpatialService<TOut>(key: key, resolve: _ => Fin.Succ(index), query: new NeighborQuery.BallCase(Ball: sphere), anchor: sphere.Center)
             : key.Unsupported<Unit, TOut>();
     internal static Operation<Unit, TOut> SpatialOverlaps<TOut>(NeighborIndex left, NeighborIndex right, double tolerance, Op key) where TOut : notnull =>
-        (typeof(TOut) == typeof(NeighborPair) && double.IsFinite(tolerance) && tolerance >= 0.0)
-            ? Operation<Unit, TOut>.Service(key: key, evaluate: () =>
-                from runtime in Env.EnvAsks
-                from answer in (runtime.Cancellation.IsCancellationRequested ? Fin.Fail<NeighborAnswer>(new Fault.Cancelled()) : left.Query(query: new NeighborQuery.OverlapsCase(Other: right, Tolerance: tolerance), anchor: Point3d.Origin, key: key)).ToEff()
-                from pairs in ProjectAnswer<TOut>(answer: answer, key: key).ToEff()
-                select pairs)
+        typeof(TOut) == typeof(NeighborPair) && double.IsFinite(tolerance) && tolerance >= 0.0
+            ? SpatialService<TOut>(key: key, resolve: _ => Fin.Succ(left), query: new NeighborQuery.OverlapsCase(Other: right, Tolerance: tolerance), anchor: Point3d.Origin)
             : key.Unsupported<Unit, TOut>();
     internal static Operation<Unit, TOut> SpatialPointPairs<TOut>(Seq<Point3d> points, Seq<Point3d> needles, NeighborQuery probe, Op key) where TOut : notnull =>
-        (typeof(TOut) == typeof(NeighborPair) && probe is NeighborQuery.NearestCase or NeighborQuery.RadiusCase)
-            ? Operation<Unit, TOut>.Service(key: key, evaluate: () =>
-                from runtime in Env.EnvAsks
-                from index in NeighborIndex.Of(source: new NeighborSource.PointsCase(Values: points), key: key).ToEff()
-                from answer in (runtime.Cancellation.IsCancellationRequested ? Fin.Fail<NeighborAnswer>(new Fault.Cancelled()) : index.Query(query: new NeighborQuery.PairsCase(Needles: needles, Probe: probe), anchor: Point3d.Origin, key: key)).ToEff()
-                from pairs in ProjectAnswer<TOut>(answer: answer, key: key).ToEff()
-                select pairs)
+        typeof(TOut) == typeof(NeighborPair)
+            ? SpatialService<TOut>(key: key, resolve: op => NeighborIndex.Of(source: new NeighborSource.PointsCase(Values: points), key: op), query: new NeighborQuery.PairsCase(Needles: needles, Probe: probe), anchor: Point3d.Origin)
             : key.Unsupported<Unit, TOut>();
+    private static Operation<Unit, TOut> SpatialService<TOut>(Op key, Func<Op, Fin<NeighborIndex>> resolve, NeighborQuery query, Point3d anchor) where TOut : notnull =>
+        Operation<Unit, TOut>.Service(key: key, evaluate: () =>
+            from runtime in Env.EnvAsks
+            from index in resolve(key).ToEff()
+            from answer in index.Query(query: query, anchor: anchor, key: key, cancel: runtime.Cancellation).ToEff()
+            from projected in ProjectAnswer<TOut>(answer: answer, key: key).ToEff()
+            select projected);
     private static Fin<Seq<TOut>> ProjectAnswer<TOut>(NeighborAnswer answer, Op key) => answer switch {
         NeighborAnswer.Hits found => new AnalysisOutput<TOut>(Key: key).Many(values: found.Values),
         NeighborAnswer.PairsFound found => new AnalysisOutput<TOut>(Key: key).Many(values: found.Values),
@@ -215,7 +205,7 @@ public static partial class Analyze {
 
 ## [03]-[OPERATION_RUNTIME]
 
-- Owner: `Env` `[BoundaryAdapter]` — the `Eff` reader runtime (`Context` + `IProgress<double>?` + `CancellationToken`) with the two static projections `EnvAsks` (the whole runtime) and `Asks` (the `Context` alone); the record shape is host-frozen — the Grasshopper binding constructs it positionally. `Operation<TGeometry, TOut>` — the operation algebra: private `Body` `[Union]` (`Rejected(Error)` / `PerItem(Func<TGeometry, Eff<Env, Seq<TOut>>>)` / `Aggregate(Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>>)` / `Service(Func<Eff<Env, Seq<TOut>>>)`); public `Key`, internal `Requirement`/`RequiresContext`/`IsSupported`/`IsAggregate`/`NeedsContext`; one constructor per `Body` case — `Build` wires the `Prepare` gate ahead of every per-item evaluator, `Aggregate` folds the same gate across the whole input before its one sequence projection, `Reject` carries a build-time fault, `Service` runs input-free — no constructor argument another constructor silently discards; `Apply(Seq<TGeometry>)` is the ONE execution fold over the `Body` `Switch`. `Analyze` — the facade: `Scope` (a `Fin<Context>`-carrying record with `With(IProgress<double>)`/`With(CancellationToken)` and its own `Run`), `From(RhinoDoc?)`, `In(UnitSystem)`/`In(double, double, double, UnitSystem)`/`In(Context)`, the three `Query` arities resolving an `AnalysisQuery?` onto typed operations, the three `Run` arities executing them, and the internal `Unsupported`/`As`/`Native` lifts every family page composes. `AnalysisOutput<TOut>` `[BoundaryAdapter]` — the typed projection gate (`One`/`Many`/`Objects`/`Unsupported`) admitting every value through `Op.AcceptValue`, the one oracle.
+- Owner: `Env` `[BoundaryAdapter]` — the `Eff` reader runtime (`Context` + `IProgress<double>?` + `CancellationToken`) with the two static projections `EnvAsks` (the whole runtime) and `Asks` (the `Context` alone); the record shape is host-frozen — the Grasshopper binding constructs it positionally. `Operation<TGeometry, TOut>` — the operation algebra: private `Body` `[Union]` (`Rejected(Error)` / `PerItem(Func<TGeometry, Eff<Env, Seq<TOut>>>)` / `Aggregate(Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>>)` / `Service(Func<Eff<Env, Seq<TOut>>>)`); public `Key`, internal `Requirement`/`RequiresContext`/`IsSupported`/`IsAggregate`/`NeedsContext`; one constructor per `Body` case — `Build` wires the `Prepare` gate ahead of every per-item evaluator, `Aggregate` folds the same gate across the whole input before its one sequence projection, `Reject` carries a build-time fault, `Service` runs input-free — no constructor argument another constructor silently discards; `Apply(Seq<TGeometry>)` is the ONE execution fold over the `Body` `Switch`. `Analyze` — the facade: `Scope` (a `Fin<Context>`-carrying record with `With(IProgress<double>)`/`With(CancellationToken)` and its own `Run`), `From(RhinoDoc?)`, `In(UnitSystem)`/`In(double, double, double, UnitSystem)`/`In(Context)`, the three `Query` arities resolving an `AnalysisQuery?` onto typed operations, the three `Run` arities executing them, and the internal `Unsupported`/`As`/`Native` lifts every family page composes. `AnalysisOutput<TOut>` `[BoundaryAdapter]` — the typed projection gate (`One`/`Many`/`Objects`) admitting every value through `Op.AcceptValue`, the one oracle; enumerable host ingress is `Op.Accept(values:)`'s job, never a second arm here.
 - Entry: `Analyze.Run<TGeometry, TOut>(AnalysisQuery, params ReadOnlySpan<TGeometry>)` / `Run<TA, TB, TOut>(AnalysisQuery, params ReadOnlySpan<(TA A, TB B)>)` / `Run<TOut>(AnalysisQuery)` → `Validation<Error, Seq<TOut>>`; scoped execution through `Analyze.In(…).With(progress).With(cancel).Run(operation, input)`; operation construction through `Analyze.Query<…>(query, key)`. One entry family, three arities discriminated by the input shape — no `RunMany`/`RunPair`/`RunService` verb siblings.
 - Auto: `Prepare` folds — cancellation first (`Fault.Cancelled`), null-admission second (`Fault.MissingGeometry`), then the `Requirement` matrix; an EMPTY requirement still routes `GeometryBase` values through `Requirement.Apply`'s validity-oracle admission, so no geometry reaches an evaluator unvetted while non-geometry service payloads pass untouched. Scope-less `Run` resolves context by need: an operation with `NeedsContext` and no scope fails `Fault.MissingContext`; a context-free operation defaults to `Context.Of(units: UnitSystem.Millimeters)`. `Apply` flattens per-item chunks (`TraverseM` + `Bind`), feeds aggregates the whole prepared `Seq`, and lifts a `Rejected` body's fault onto the effect rail — rejection is data until execution.
 - Receipt: none on a dedicated rail — `Validation<Error, Seq<TOut>>` IS the public result carrier; faults accumulate the `Domain/rails` `Fault` union, and `Fault.Unsupported` (code 9104) is the probe discriminant the host binding branches on.
@@ -250,17 +240,12 @@ public sealed record Env(Context Context, IProgress<double>? Progress, Cancellat
 internal readonly record struct AnalysisOutput<TOut>(Op Key) {
     public Fin<Seq<TOut>> One<TValue>(TValue value) => Many(values: Seq(value));
     public Fin<Seq<TOut>> Many<TValue>(Seq<TValue> values) => Project(key: Key, values: values);
-    public Fin<Seq<TOut>> Many<TValue>(IEnumerable<TValue> values) {
-        Op key = Key;
-        return Optional(values).ToFin(key.InvalidResult()).Bind(found => Project(key: key, values: found.AsIterable().ToSeq()));
-    }
     public Fin<Seq<TOut>> Objects(Seq<object> values, Type sourceType) {
         Op key = Key;
         return typeof(TOut) == sourceType
             ? values.TraverseM(value => key.AcceptValue(value: (TOut)value)).As()
             : Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: sourceType, outputType: typeof(TOut)));
     }
-    public Fin<Seq<TOut>> Unsupported<TValue>() => Fin.Fail<Seq<TOut>>(Key.Unsupported(geometryType: typeof(TValue), outputType: typeof(TOut)));
     private static Fin<Seq<TOut>> Project<TValue>(Op key, Seq<TValue> values) =>
         typeof(TOut) == typeof(TValue)
             ? values.TraverseM(value => key.AcceptValue(value: value)).As().Map(static admitted => admitted.Map(static value => (TOut)(object)value!))
@@ -358,15 +343,15 @@ public static partial class Analyze {
     public static Scope In(Context context) => new(context: Optional(context).ToFin(Op.Of(name: nameof(Scope)).MissingContext()));
 
     public static Operation<TGeometry, TOut> Query<TGeometry, TOut>(AnalysisQuery? query, Op? key = null) where TGeometry : notnull where TOut : notnull {
-        Op active = key ?? Op.Of(name: nameof(Query));
+        Op active = key.OrDefault();
         return Optional(query).Map(q => q.Single<TGeometry, TOut>(key: active)).IfNone(Operation<TGeometry, TOut>.Reject(key: active, fault: active.InvalidInput()));
     }
     public static Operation<(TA A, TB B), TOut> Query<TA, TB, TOut>(AnalysisQuery? query, Op? key = null) where TA : notnull where TB : notnull where TOut : notnull {
-        Op active = key ?? Op.Of(name: nameof(Query));
+        Op active = key.OrDefault();
         return Optional(query).Map(q => q.Pair<TA, TB, TOut>(key: active)).IfNone(Operation<(TA A, TB B), TOut>.Reject(key: active, fault: active.InvalidInput()));
     }
     public static Operation<Unit, TOut> Query<TOut>(AnalysisQuery? query, Op? key = null) where TOut : notnull {
-        Op active = key ?? Op.Of(name: nameof(Query));
+        Op active = key.OrDefault();
         return Optional(query).Map(q => q.Service<TOut>(key: active)).IfNone(Operation<Unit, TOut>.Reject(key: active, fault: active.InvalidInput()));
     }
 
@@ -442,7 +427,7 @@ One owner per axis; capability is a case, a factory row, or a body arm, never a 
 |  [02]   | Operation algebra   | `Operation<TGeometry, TOut>`| `Body` `[Union]` (`Rejected`/`PerItem`/`Aggregate`/`Service`) + `Prepare`    | `Apply → Eff<Env, Seq<TOut>>`                   |    4    |
 |  [03]   | Runtime environment | `Env`                       | reader record + `EnvAsks`/`Asks` projections                                 | `Eff<Env, _>` carriage                          |    —    |
 |  [04]   | Execution facade    | `Analyze`                   | `static partial class` — `Scope`/`From`/`In` + 3×`Query` + 4×`Run` + lifts  | `Validation<Error, Seq<TOut>>`                  |    —    |
-|  [05]   | Output projection   | `AnalysisOutput<TOut>`      | `readonly record struct` (`One`/`Many`/`Objects`/`Unsupported`)              | `Fin<Seq<TOut>>` through the one oracle          |    4    |
+|  [05]   | Output projection   | `AnalysisOutput<TOut>`      | `readonly record struct` (`One`/`Many`/`Objects`)                            | `Fin<Seq<TOut>>` through the one oracle          |    3    |
 
 Both fences are transcription-complete: the request union with all four bands and every factory spelling, the geometry-band operation builders composing the `Domain/normalization` + `Domain/evaluation` owner lattice, the spatial-band service builders lifting the `Spatial/neighbors` `NeighborIndex.Query` substrate onto the operation rail, the full `Body`/`Prepare`/`Apply` algebra, the `Analyze` facade with the one `RhinoDoc` adapter, and the one-oracle `AnalysisOutput`. The family and relation builders the union forwards to are owned by `Analysis/measure`, `Analysis/inspect`, `Analysis/select`, `Analysis/relations`, and `Parametric/locate` — composed here by name, legislated there.
 

@@ -70,7 +70,8 @@ internal sealed class RasmBenchmarkConfig : ManualConfig {
             .GetCustomAttributes<AssemblyMetadataAttribute>()
             .FirstOrDefault(static attr => string.Equals(a: attr.Key, b: "RasmWorkspaceRoot", comparisonType: StringComparison.Ordinal));
         ArtifactsPath = Path.Combine(path1: root?.Value ?? Directory.GetCurrentDirectory(), path2: ".artifacts", path3: "benchmarks", path4: "rasm");
-        _ = AddJob(Job.Default.WithId(id: "net10-release"));
+        // Explicit adaptive-engine ceilings keep every session self-limiting regardless of BDN default drift.
+        _ = AddJob(Job.Default.WithId(id: "net10-release").WithMaxWarmupCount(count: 50).WithMaxIterationCount(count: 100));
         _ = AddDiagnoser(MemoryDiagnoser.Default);
         _ = AddExporter(JsonExporter.Full);
         _ = AddValidator(ExecutionValidator.FailOnError);

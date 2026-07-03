@@ -1,4 +1,4 @@
-# [TS_BOUNDARIES]
+# [TYPESCRIPT_BOUNDARIES]
 
 The edge is the only place the system meets material it did not mint: wire payloads, foreign codecs, platform capability, sibling threads and peers. This page fixes where each crossing converts and who owns it — admission placement, contracts as data, codec engines, runtime selection, and marshal — so that no module past a seam names a provider shape, re-validates an admitted value, or resolves a runtime. Every seam is a declaration site: what crosses, in which direction, with which fault, is recoverable from the owner alone.
 
@@ -6,7 +6,7 @@ The edge is the only place the system meets material it did not mint: wire paylo
 
 This table selects the owner for a foreign signal; when a signal matches several rows, the most specific wins, and identity rows are read before transport rows.
 
-| [INDEX] | [FOREIGN_SIGNAL]                     | [SEAM_OWNER]                                | [INTERIOR_FORM]                          | [REJECT]                          |
+| [INDEX] | [FOREIGN_SIGNAL]                     | [SEAM_OWNER]                                | [INTERIOR_FORM]                          | [REJECTED_FORM]                   |
 | :-----: | :----------------------------------- | :------------------------------------------ | :--------------------------------------- | :-------------------------------- |
 |  [01]   | raw payload — body, file, message    | Schema owner at first sight                 | decoded value on the rail                | interior re-validation            |
 |  [02]   | signed or hashed octets              | opaque byte band held at admission          | digest receipt + content projection      | parse-then-reserialize            |
@@ -273,7 +273,7 @@ export {}
 
 ```typescript
 import { MsgPack, Socket, Transferable, Worker, WorkerRunner } from "@effect/platform"
-import { Context, Effect, ParseResult, Schema, Stream } from "effect"
+import { Context, Effect, type ParseResult, Schema, Stream } from "effect"
 
 // --- [MODELS] ---------------------------------------------------------------------------
 

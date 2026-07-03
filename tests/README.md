@@ -50,7 +50,7 @@ Test lanes are orthogonal to language; every suite declares its lane through the
 |  [03]   | integration | real process or IO boundary: containers, subprocess, loopback servers  | `network`/`subprocess` markers (Python); explicit boundary suites elsewhere         |
 |  [04]   | scenario    | live-host evidence through the rhino bridge                            | `[RhinoScenario]` content + the assay bridge rail                                   |
 |  [05]   | benchmark   | measurement in a separate session, never inside unit runs              | `_benchmarks` switcher (C#), `-m benchmark` (Python), bench include glob (TS)       |
-|  [06]   | mutation    | assay-gated survivor discovery                                         | assay mutation routes over the `.config/` Stryker configs + the staged Python gate  |
+|  [06]   | mutation    | assay-gated survivor discovery                                         | assay mutation routes over the root Stryker configs + the staged Python gate       |
 
 The word `integration` is reserved for the real process/IO boundary. A test that runs in-process with doubles is a unit test regardless of how many owners it spans; calling it integration inflates the lane and hides the missing boundary proof.
 
@@ -76,7 +76,7 @@ Every tool writes reports under `.artifacts/` and temp/work state under `.cache/
 | :-----: | :---------------- | :------------------------------- | :---------------------------------------------------------------- |
 |  [01]   | coverlet.MTP      | C# coverage                      | `Directory.Build.props` Coverage block                           |
 |  [02]   | MTP TrxReport     | C# test results                  | invocation law in `tests/csharp/README.md`                       |
-|  [03]   | Stryker.NET       | C# mutation                      | assay mutation rail (staged invocation)                          |
+|  [03]   | Stryker.NET       | C# mutation                      | root `stryker-config.json` + assay mutation rail (staged)       |
 |  [04]   | BenchmarkDotNet   | C# benchmarks                    | `tests/csharp/_benchmarks` session config                        |
 |  [05]   | pytest + coverage | Python coverage + caches         | `pyproject.toml` tool tables                                     |
 |  [06]   | Hypothesis        | example database + observability | `tests/python/_testkit/runtime.py`                               |
@@ -131,12 +131,14 @@ The `Contract` and `Supervisor` suites under `tests/csharp/tools/rhino-bridge` p
 ## [07]-[GATE_OWNERSHIP]
 
 The assay operator is the single mutation and coverage gate authority in all three languages; thresholds and kill-floors live in the owning configs, never in docs or specs:
-- Stryker.NET policy — solution mode, baseline, thresholds — lives in `.config/stryker-config.json`; the assay mutation rail owns the staged invocation and routes its output under `.artifacts/`.
-- StrykerJS policy lives in `stryker.config.json`; the TS invocation law is [tests/typescript/README.md](typescript/README.md).
+- Stryker.NET policy — solution mode, concurrency cap, output routing, baseline, thresholds — lives in the root `stryker-config.json`; the assay mutation rail owns the staged invocation with absolute anchors, and root residency keeps a bare `dotnet stryker` inside auto-discovery, capped and routed instead of solution-wide at default parallelism.
+- StrykerJS policy lives in the root `stryker.config.json`; the TS invocation law is [tests/typescript/README.md](typescript/README.md).
 - The Python mutation lane is a staged gate under assay scored against its kill-floor; the lane law is [tests/python/README.md](python/README.md).
 - Zero mutant discovery is a failed rail in every language, never a green pass.
 - Both Stryker rails emit `mutation-testing-report-schema` JSON natively into `.artifacts/`; assay's kill-floor verdict is the single cross-language authority over the results.
 - Coverage aggregates as cobertura (C#) plus lcov (Python, TS) under `.artifacts/` — no invented merged format; each language-native reporter owns its output shape.
+
+Heavy-lane invocation law: the bounded lanes — unit, property, and benchmark sessions per language — may be launched directly by a human or an agent; mutation, solution-wide static, and bridge verify ride assay, which owns staging, governor caps, and artifact scopes. Defense-in-depth holds regardless of invoker: every heavy tool's auto-discovered configuration carries its own concurrency cap, per-run and per-test timeouts, an explicit mutate/target scope, and `.artifacts/`/`.cache/` output routing, so a bare invocation outside assay is small, self-limiting, and cheap to kill — never a machine-saturating sweep, never a root write.
 
 ## [08]-[CONTRACTS_CORPUS]
 
@@ -152,9 +154,9 @@ Before touching any testing surface, an agent checks the owners that carry the f
 |  [02]   | `Directory.Build.targets`                            | classifier vocabulary sealing: a tests/csharp project carries exactly one valid classifier   |
 |  [03]   | `pyproject.toml`                                     | Python test dependencies, pytest/coverage/mutmut/import-linter policy, markers               |
 |  [04]   | `pnpm-workspace.yaml`                                | TS catalog pins, peer-rule resolutions, workspace package globs                              |
-|  [05]   | `.config/`                                           | Stryker.NET + StrykerJS configs, mutmut coverage side-file, dotnet tool manifest             |
+|  [05]   | `.config/`                                           | mutmut coverage side-file, dotnet tool manifest                                              |
 |  [06]   | `sgconfig.yml` + `.rules/`                           | structural ast-grep rules; the assay static rail enforces them and probes the fail fixtures  |
-|  [07]   | `vitest.config.ts` + `nx.json`                       | TS runner defaults, artifact outputs, project-graph targets                                  |
+|  [07]   | `vitest.config.ts` + `stryker*.json` + `nx.json`     | TS runner defaults, artifact outputs, both root Stryker mutation configs, project-graph targets |
 |  [08]   | `tools/assay`                                        | the gate authority: `static`/`test`/`bridge`/`docs`/`code`/`package`/`api`/`provision` rails |
 
 The operator is itself a tested surface: every `tools/` operator owns a suite under `tests/<language>/tools/<tool>`, and operator and suite move in the same change — `tools/assay` with `tests/python/tools/assay`, `tools/py_analyzer` with `tests/python/tools/py_analyzer`, `tools/cs-analyzer` with `tests/csharp/tools/cs-analyzer`. A rail change without its spec change is an incomplete change.

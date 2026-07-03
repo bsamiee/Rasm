@@ -105,7 +105,7 @@ const ceiling = <K extends Tier.Kind>(kind: K): Tier.Ceiling<K> => Tier[kind].ce
 
 const _cap: 2 = ceiling("narrow")                            // checked witness: the row's literal projects, never the axis union
 
-// --- [EXPORTS] ---------------------------------------------------------------------
+// --- [EXPORTS] --------------------------------------------------------------------------
 
 export { ceiling, Tier, tiers, TierWire }                    // the tuple a public signature speaks goes public under its own name, never leaked as a _-type
 ```
@@ -152,7 +152,7 @@ const quota: Record<Signal.Grant, number> = {                // governed value: 
 
 const _drain: Signal.Drain = "frame:drain"                   // checked witness over the generated subset
 
-// --- [EXPORTS] ---------------------------------------------------------------------
+// --- [EXPORTS] --------------------------------------------------------------------------
 
 export { quota, Signal }
 export type { Verb }
@@ -186,7 +186,7 @@ const _fuse: "bulk" | "live" = _run.fuse                    // the owner solved 
 // @ts-expect-error "bulk" is a lane, but not one of this plan's lanes
 const _drift = plan([{ lane: "live", take: 2 }], "bulk")
 
-// --- [EXPORTS] ---------------------------------------------------------------------
+// --- [EXPORTS] --------------------------------------------------------------------------
 
 export { nextStep, plan }
 export type { Lane, Step }
@@ -231,7 +231,7 @@ type Trail<S extends string, Acc extends ReadonlyArray<string> = []> = S extends
 
 const _deep: Trail<"doc/pull/live/burst"> = ["doc", "pull", "live", "burst"] // checked witness over the decomposed tuple
 
-// --- [EXPORTS] ---------------------------------------------------------------------
+// --- [EXPORTS] --------------------------------------------------------------------------
 
 export type { Channel, Facet, Feed, Parse, Probe, Realm, Split, Trail, Verb }
 ```
@@ -272,7 +272,7 @@ const _braced = brace(OptionInstances.Covariant)(Option.some(3))       // Option
 const _rows = brace(ArrayInstances.Covariant)([1, 2, 3])               // ReadonlyArray<{ value: number; even: boolean }>
 const _ranked = brace(RankedCovariant)({ rank: 1, value: 3 })          // Ranked<{ value: number; even: boolean }>
 
-// --- [EXPORTS] ---------------------------------------------------------------------
+// --- [EXPORTS] --------------------------------------------------------------------------
 
 export { brace, RankedCovariant }
 export type { Ranked, RankedTypeLambda }
@@ -313,7 +313,7 @@ const _early = seal(_staged)
 
 const _sealed: Slots = seal(_staged.slot("lane", "live"))    // the order-free protocol closes only when the key set is spent
 
-// --- [EXPORTS] ---------------------------------------------------------------------
+// --- [EXPORTS] --------------------------------------------------------------------------
 
 export { draft, seal }
 export type { Draft, Slots }

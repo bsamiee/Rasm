@@ -1,4 +1,4 @@
-# [TS_CONCURRENCY]
+# [TYPESCRIPT_CONCURRENCY]
 
 Parallel work has a structural owner or it does not exist: every fiber parents to the fiber that forked it, to the `Scope` that admitted it, or — under an audited exemption — to the global scope, so an orphaned computation is unspellable rather than discouraged. Interruption is the third outcome riding `Cause`, never a value in the error channel and never a boolean flag: a deadline is a `timeout` member interrupting the loser, a shield is a masked window whose wait is restored, and compensation attaches through `Effect.onInterrupt` at the owner. Waiting is suspension on a primitive — `Deferred` handshake, `Latch` gate, `STM.check` — never a poll; channels are selected by consumption shape (`Queue` distributes, `PubSub` replicates, `Mailbox` ends); shared cells are selected by invariant span (`Ref` for one cell, `SynchronizedRef` for effectful update, STM for the multi-cell commit); keyed contention rides the `Cache`/`RcMap`/`Pool`/`RateLimiter` owners; and every fan-out declares its degree. This page owns who runs concurrently and who owns mutable state; the `Exit`/`Cause` fold and the `acquireRelease` bracket are `rails-and-effects.md`'s, channel-to-`Stream` ingress and `SubscriptionRef.changes` consumption are `streams.md`'s, and the root assembly that satisfies `Scope` and runtime services is `services-and-layers.md`'s.
 
@@ -45,24 +45,23 @@ A fork is an ownership statement, not a scheduling detail: the parent selected a
 - Reject: `Map<string, Fiber.Fiber<void, never>>` with hand eviction; an "already running" boolean beside a fork; per-member interrupt loops where closing the owning scope already interrupts the set.
 
 ```typescript
-import { Data, Effect, Fiber, FiberHandle, FiberMap } from "effect"
-import type { Exit, Scope } from "effect"
+import { Data, Effect, type Exit, Fiber, FiberHandle, FiberMap, type Scope } from "effect"
 
-class SlotFault extends Data.TaggedError("SlotFault")<{ readonly key: string }> {}
+class SpawnFault extends Data.TaggedError("SpawnFault")<{ readonly key: string }> {}
 
 type Spawned = {
-  readonly enroll: (key: string, work: Effect.Effect<void, SlotFault>) => Effect.Effect<Fiber.RuntimeFiber<void, SlotFault>>
-  readonly pulse: Effect.Effect<Exit.Exit<void, SlotFault>>
-  readonly settle: Effect.Effect<void, SlotFault>
+  readonly enroll: (key: string, work: Effect.Effect<void, SpawnFault>) => Effect.Effect<Fiber.RuntimeFiber<void, SpawnFault>>
+  readonly pulse: Effect.Effect<Exit.Exit<void, SpawnFault>>
+  readonly settle: Effect.Effect<void, SpawnFault>
 }
 
 const spawned = (
-  feed: Effect.Effect<void, SlotFault>,
-  sweep: Effect.Effect<void, SlotFault>,
+  feed: Effect.Effect<void, SpawnFault>,
+  sweep: Effect.Effect<void, SpawnFault>,
 ): Effect.Effect<Spawned, never, Scope.Scope> =>
   Effect.gen(function* () {
-    const registry = yield* FiberMap.make<string, void, SlotFault>()          // keyed family: scope-bound, self-evicting
-    const janitor = yield* FiberHandle.make<void, SlotFault>()
+    const registry = yield* FiberMap.make<string, void, SpawnFault>()          // keyed family: scope-bound, self-evicting
+    const janitor = yield* FiberHandle.make<void, SpawnFault>()
     const feeder = yield* Effect.forkScoped(feed)                             // region-parented: the Scope, not the caller, ends it
     yield* FiberHandle.run(janitor, { onlyIfMissing: true })(sweep)           // singleton slot: a second run is a no-op, not a twin
     return {
@@ -72,9 +71,9 @@ const spawned = (
     }
   })
 
-// --- [EXPORTS] ---------------------------------------------------------------------------
+// --- [EXPORTS] --------------------------------------------------------------------------
 
-export { SlotFault, spawned }
+export { SpawnFault, spawned }
 export type { Spawned }
 ```
 
@@ -94,8 +93,7 @@ Interruption is the third outcome — distinct from success and from every fault
 - Reject: `Cause.TimeoutException` caught downstream where `timeoutFail` mints the typed fault at the owner; racing a hand-rolled `Effect.sleep` against work a `timeout` member already owns.
 
 ```typescript
-import { Data, Effect } from "effect"
-import type { Duration, Option } from "effect"
+import { Data, type Duration, Effect, type Option } from "effect"
 
 class ExpiredFault extends Data.TaggedError("ExpiredFault")<{ readonly stage: string }> {}
 
@@ -117,7 +115,7 @@ const committed = <A, E, R>(options: {
 const flushed = <A, E, R>(drain: Effect.Effect<A, E, R>, patience: Duration.DurationInput): Effect.Effect<Option.Option<A>, E, R> =>
   drain.pipe(Effect.uninterruptible, Effect.disconnect, Effect.timeoutOption(patience))  // deadline settles on time; the shielded drain finishes in background
 
-// --- [EXPORTS] ---------------------------------------------------------------------------
+// --- [EXPORTS] --------------------------------------------------------------------------
 
 export { ExpiredFault, committed, flushed }
 ```
@@ -142,19 +140,18 @@ Fibers coordinate through typed primitives whose topology is fixed at constructi
 - Reject: a counter `Ref` incremented by hand; bare `take`/`release` pairs where `withPermits` brackets them; a semaphore standing where the bound belongs to one fan-out's `{ concurrency }` option.
 
 ```typescript
-import { Data, Deferred, Effect, Mailbox } from "effect"
-import type { Chunk, Scope } from "effect"
+import { type Chunk, Data, Deferred, Effect, Mailbox, type Scope } from "effect"
 
-class FeedFault extends Data.TaggedError("FeedFault")<{ readonly at: string }> {}
+class MintFault extends Data.TaggedError("MintFault")<{ readonly at: string }> {}
 
 type Drained = { readonly expected: number; readonly rows: Chunk.Chunk<string>; readonly sealed: boolean }
 
 const bridged = (
   keys: ReadonlyArray<string>,
-  mint: (key: string) => Effect.Effect<string, FeedFault>,
-): Effect.Effect<Drained, FeedFault, Scope.Scope> =>
+  mint: (key: string) => Effect.Effect<string, MintFault>,
+): Effect.Effect<Drained, MintFault, Scope.Scope> =>
   Effect.gen(function* () {
-    const box = yield* Mailbox.make<string, FeedFault>({ capacity: 16, strategy: "suspend" })  // backpressure declared at construction
+    const box = yield* Mailbox.make<string, MintFault>({ capacity: 16, strategy: "suspend" })  // backpressure declared at construction
     const bound = yield* Deferred.make<number>()
     const gate = yield* Effect.makeSemaphore(4)                                // cross-site bound; the forEach degree is the local fan
 
@@ -170,13 +167,13 @@ const bridged = (
     )
 
     const expected = yield* Deferred.await(bound)
-    const [rows, sealed] = yield* box.takeN(expected)                          // producer failure surfaces here, typed as FeedFault
+    const [rows, sealed] = yield* box.takeN(expected)                          // producer failure surfaces here, typed as MintFault
     return { expected, rows, sealed }
   })
 
-// --- [EXPORTS] ---------------------------------------------------------------------------
+// --- [EXPORTS] --------------------------------------------------------------------------
 
-export { FeedFault, bridged }
+export { MintFault, bridged }
 export type { Drained }
 ```
 
@@ -196,7 +193,7 @@ Shared mutation is a cell with an owner: the update shape selects the cell, and 
 - Reject: two `Ref`s updated in sequence under a shared invariant; lock-ordering discipline where a transaction owns the cells; polling a cell for a threshold `STM.check` suspends on.
 
 ```typescript
-import { Chunk, Effect, Ref, STM, TMap, TRef } from "effect"
+import { Chunk, Effect, Number, Ref, STM, TMap, TRef } from "effect"
 
 type Claim = readonly [slot: string, weight: number]
 
@@ -217,7 +214,7 @@ const balanced = (
           const held = yield* TRef.get(load)
           yield* STM.check(() => held + weight <= ceiling)          // suspends until a cell changes; the re-run re-reads, never polls
           yield* TRef.set(load, held + weight)
-          yield* TRef.update(crest, (peak) => Math.max(peak, held + weight))
+          yield* TRef.update(crest, (peak) => Number.max(peak, held + weight))
           yield* TMap.set(plan, slot, weight)                       // three cells, one commit: a torn write is unspellable
         }),
       )
@@ -238,7 +235,7 @@ const balanced = (
     }))
   })
 
-// --- [EXPORTS] ---------------------------------------------------------------------------
+// --- [EXPORTS] --------------------------------------------------------------------------
 
 export { balanced }
 export type { Claim }
@@ -259,8 +256,7 @@ Keyed contention is owned by four scoped surfaces selected on one axis — value
 - Reject: `Effect.sleep` pacing between calls; a semaphore standing for a rate window; per-call-site limiter construction where one scoped owner is the window.
 
 ```typescript
-import { Cache, Duration, Effect, RateLimiter, RcMap } from "effect"
-import type { Scope } from "effect"
+import { Cache, Duration, Effect, RateLimiter, RcMap, type Scope } from "effect"
 
 const _PLANE = {                                             // interior policy row: no export reaches the anchor, so the expression-seam satisfies check rides it
   verdicts: { capacity: 512, timeToLive: Duration.minutes(5) },
@@ -296,7 +292,7 @@ const contended = <A, E, S, R>(
     }
   })
 
-// --- [EXPORTS] ---------------------------------------------------------------------------
+// --- [EXPORTS] --------------------------------------------------------------------------
 
 export { contended }
 export type { Plane }
@@ -317,8 +313,7 @@ Fan-out degree and racing are declared decisions on the combinator, never emerge
 - Reject: `Promise.race` at the seam; a hand-rolled first-wins where both arms settle one `Deferred` — `race` already owns loser interruption; a race against `Effect.sleep` where the deadline family owns expiry.
 
 ```typescript
-import { Effect, Fiber } from "effect"
-import type { Exit } from "effect"
+import { Effect, type Exit, Fiber } from "effect"
 
 const hedged = <A, E, R>(
   lanes: ReadonlyArray<(key: string) => Effect.Effect<A, E, R>>,
@@ -342,7 +337,7 @@ const shadowed = <A, E, R, R2>(
     onOtherDone: (exit, self) => note(exit).pipe(Effect.andThen(Fiber.join(self))),       // shadow settles first: record it, keep waiting on live
   })
 
-// --- [EXPORTS] ---------------------------------------------------------------------------
+// --- [EXPORTS] --------------------------------------------------------------------------
 
 export { hedged, shadowed, staged }
 ```

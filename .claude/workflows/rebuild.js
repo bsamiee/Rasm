@@ -71,14 +71,10 @@ const LANG = {
       '— the tools/cs-analyzer compiled-doctrine gate enforces it (a true positive is architecture pressure, fix the shape; a false positive is ' +
       'rule pressure, never a suppression). Cite only host/NuGet members confirmed via `uv run python -m tools.assay api`; back bridge claims ' +
       'with EvidenceCertificate + reviewed ReferenceEvidence.',
-    homing: 'C# PLANNING-HOMING: under libs/csharp/Rasm the active planning effort is Rasm/Geometry — its design pages live at ' +
-      'libs/csharp/Rasm/Geometry/.planning/** while its governing ARCHITECTURE.md/IDEAS.md/TASKLOG.md/README.md and .api/ catalogs live at the ' +
-      'libs/csharp/Rasm ROOT (one level UP from Geometry/); home any Rasm or Rasm/Geometry target there ({name: "Geometry", root: ' +
-      '"libs/csharp/Rasm", planning: "libs/csharp/Rasm/Geometry/.planning", api: "libs/csharp/Rasm/.api"}) and NEVER touch the mature siblings ' +
-      'Analysis/Domain/Vectors.',
+    homing: '',
     apiTiers: 'MINE BOTH capability tiers: the SHARED substrate catalogs `libs/csharp/.api/*.md` (Thinktecture generated owners, LanguageExt ' +
-      'rails/effects/schedules/immutable collections, QuikGraph, Mapperly and siblings) AND the folder catalogs `<package>/.api/*.md` ' +
-      '(Rasm/Geometry pages read `libs/csharp/Rasm/.api/`); ALWAYS layer the universal Thinktecture/LanguageExt rails onto the domain packages, ' +
+      'rails/effects/schedules/immutable collections, QuikGraph, Mapperly and siblings) AND the folder catalogs `<package>/.api/*.md`; ' +
+      'ALWAYS layer the universal Thinktecture/LanguageExt rails onto the domain packages, ' +
       'never only the folder set.',
     readLaw: 'docs/stacks/csharp/ in FULL — README plus language, shapes, surfaces-and-dispatch, rails-and-effects, boundaries, algorithms, ' +
       'system-apis — PLUS the docs/stacks/csharp/domain/ shard(s) relevant to each page concern (READ the shard; conformance to it is a hard gate)',
@@ -590,7 +586,7 @@ const planPrompt = (pkgHint) => ['Rasm monorepo. TASK: thin enumerate + classify
   JSON.stringify(TARGETS) + '. Each TARGET is a package/area ROOT (e.g. ' + L.root + '/<Package>), a SUB-FOLDER under .planning at ANY depth, ' +
   'or a specific design FILE. The OWNING FOLDER of a target is the path BEFORE "/.planning/", or the target itself when it has no ' +
   '"/.planning/" segment. ' + (L.homing ? L.homing + ' ' : '') + 'Use find/ls; do NOT cd. Return packages — one entry per DISTINCT owning ' +
-  'folder: {name: the LAST path segment of the owning root, root, planning: "<root>/.planning" (the homing special case overrides), api: ' +
+  'folder: {name: the LAST path segment of the owning root, root, planning: "<root>/.planning", api: ' +
   '"<root>/.api"}. PAGES: expand each target — a ROOT target expands to EVERY design page under its planning tree (repo-relative *.md); a ' +
   'SUB-FOLDER target to every page under it at ANY depth; a FILE target to itself; union + dedup; EXCLUDE ' +
   'IDEAS.md/TASKLOG.md/README.md/ARCHITECTURE.md and any _*.md campaign brief from the page list.',

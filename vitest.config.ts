@@ -63,6 +63,7 @@ const _CONFIG = {
     setupFiles: [],
     snapshot: { format: { printBasicPrototype: false } },
     timeouts: { hook: 10_000, slow: 5_000, test: 10_000 },
+    workers: { max: '50%' },
 } as const;
 
 // --- [EXPORTS] ---------------------------------------------------------------
@@ -104,6 +105,7 @@ const config: ViteUserConfig = defineConfig({
         hookTimeout: _CONFIG.timeouts.hook,
         include: [..._CONFIG.patterns.testInclude],
         isolate: true,
+        maxWorkers: _CONFIG.workers.max,
         onConsoleLog: (log, type) => !log.includes('Download the React DevTools') && type !== 'stderr',
         outputFile: { ..._CONFIG.output.outputFile },
         passWithNoTests: false,

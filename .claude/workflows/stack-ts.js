@@ -1,13 +1,15 @@
 export const meta = {
   name: 'stack-ts',
   whenToUse: 'Iterative adversarial hardening of the docs/stacks/typescript code doctrine; re-run until cold passes find nothing.',
-  description: 'Durable adversarial HARDEN engine for the docs/stacks/typescript code doctrine. Every page is SUSPECT until it survives attack — naive, shallow, or illusory by default, rebuilt ground-up wherever the attack finds weakness — but the settled atlas roster is challenged with disqualifying evidence, never re-decided from zero. Phases: Inventory (real disk state + region ledger seed) -> Gate (1 agent: structure challenge — merge/split/kill/rename only on disqualifying evidence, applies structure only) -> Harden (per page: rebuild(max) -> critique(xhigh) -> redteam(max), all WRITE in place, pooled) -> Sweep (sequential atlas-order integration, zero duplicated snippet regions) -> Reconcile (residuals -> union-find clusters -> budgeted shards -> work-balanced buckets -> fix -> adversarial verify). SUPREMACY LAW: python and csharp stacks are BOTH the floor, never the ceiling — TS legislates past them wherever TS-native mechanisms admit stronger law. Every edit is scoped to docs/stacks/typescript. Takes no args.',
+  description: 'Durable adversarial HARDEN engine for the docs/stacks/typescript code doctrine. Every page is SUSPECT until it survives attack — naive, shallow, or illusory by default, rebuilt ground-up wherever the attack finds weakness — but the settled atlas roster is challenged with disqualifying evidence, never re-decided from zero. Phase-barriered waves, one agent per file throughout: Inventory (real disk state) -> Gate (1 agent: structure challenge — merge/split/kill/rename only on disqualifying evidence, applies structure only) -> Initial wave (1 agent/file in parallel: rebuild under the README + own charter) -> Critique wave (1 agent/file in parallel, each reads the WHOLE corpus, edits only its file) -> Redteam wave (same, most aggressive) -> Passes (3 sequential corpus agents: align -> gap-close -> finalize, each holding the whole corpus) -> Reconcile (residuals -> clusters -> balanced buckets -> fix -> adversarial verify). SUPREMACY LAW: python and csharp stacks are BOTH the floor, never the ceiling. Every edit is scoped to docs/stacks/typescript. Takes no args.',
   phases: [
-    { title: 'Inventory', detail: 'read-only recon: real page set in atlas order, per-page capability map + hostile weak/strong call, region ledger seed' },
+    { title: 'Inventory', detail: 'read-only recon: real page set in atlas order, per-page capability map + hostile weak/strong call' },
     { title: 'Gate', detail: '1 agent: challenge the settled atlas structure with disqualifying evidence; apply approved renames/skeletons only, never content' },
-    { title: 'Harden', detail: 'per page: rebuild(max, ground-up where attack finds weakness) -> critique(xhigh) -> redteam(max), every stage adversarial and writing' },
-    { title: 'Sweep', detail: 'sequential atlas-order pass: each page integrates finalized priors implicitly, unified shape system, no duplicated snippet regions' },
-    { title: 'Reconcile', detail: 'cross-file residuals: cluster -> shard -> balanced buckets -> fix(max) -> adversarial verify(xhigh); hard residuals hand off to resolve-residuals' },
+    { title: 'Initial', detail: 'wave: 1 agent per file in parallel — ground-up rebuild where attack lands, under the README head + own charter' },
+    { title: 'Critique', detail: 'wave: 1 agent per file in parallel — reads README + EVERY stack file for corpus awareness, edits ONLY its own file' },
+    { title: 'Redteam', detail: 'wave: 1 agent per file in parallel — corpus-aware, most aggressive, edits ONLY its own file' },
+    { title: 'Passes', detail: '3 sequential corpus agents: align (one shape system, region dedup, atlas parity) -> gap-close (coverage floors, mandates) -> finalize (cold read)' },
+    { title: 'Reconcile', detail: 'cross-file residuals: cluster -> balanced buckets -> fix(max) -> adversarial verify(xhigh); hard residuals hand off to resolve-residuals' },
   ],
 }
 
@@ -22,7 +24,6 @@ const ROOT = 'docs/stacks/typescript'
 const INVENTORY_SCHEMA = { type: 'object', additionalProperties: false, required: ['files'], properties: { files: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['path', 'order'], properties: { path: { type: 'string' }, order: { type: 'integer' }, verdict: { type: 'string' }, map: { type: 'string' }, regions: { type: 'array', items: { type: 'string' } } } } } } }
 const GATE_SCHEMA = { type: 'object', additionalProperties: false, required: ['files', 'rationale'], properties: { files: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['path', 'order', 'charter'], properties: { path: { type: 'string' }, order: { type: 'integer' }, charter: { type: 'string' }, isNew: { type: 'boolean' } } } }, renames: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['from', 'to'], properties: { from: { type: 'string' }, to: { type: 'string' } } } }, rationale: { type: 'string' } } }
 const FIXLOG_SCHEMA = { type: 'object', additionalProperties: false, required: ['file', 'verdict', 'summary'], properties: { file: { type: 'string' }, verdict: { type: 'string', enum: ['rebuilt', 'refined', 'clean'] }, collapsed: { type: 'string' }, extended: { type: 'string' }, regions: { type: 'array', items: { type: 'string' } }, residual_high: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['files', 'claim'], properties: { files: { type: 'array', items: { type: 'string' } }, claim: { type: 'string' } } } }, summary: { type: 'string' } } }
-const SWEEP_SCHEMA = { type: 'object', additionalProperties: false, required: ['file', 'verdict', 'owned_regions'], properties: { file: { type: 'string' }, verdict: { type: 'string', enum: ['routed', 'clean'] }, rerouted: { type: 'array', items: { type: 'string' } }, owned_regions: { type: 'array', items: { type: 'string' } }, residual_high: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['files', 'claim'], properties: { files: { type: 'array', items: { type: 'string' } }, claim: { type: 'string' } } } } } }
 const RECONCILE_FIX_SCHEMA = { type: 'object', additionalProperties: false, required: ['files', 'verdict', 'summary'], properties: { files: { type: 'array', items: { type: 'string' } }, verdict: { type: 'string', enum: ['fixed', 'clean'] }, summary: { type: 'string' } } }
 const RECONCILE_VERIFY_SCHEMA = { type: 'object', additionalProperties: false, required: ['overall', 'claims'], properties: { overall: { type: 'boolean' }, claims: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['claim', 'status'], properties: { claim: { type: 'string' }, status: { type: 'string', enum: ['fixed', 'invalid', 'open'] }, evidence: { type: 'string' } } } }, repaired_files: { type: 'array', items: { type: 'string' } } } }
 
@@ -250,9 +251,11 @@ const pool = async (items, cap, worker) => {
 const nameOf = (p) => p.indexOf(ROOT + '/') === 0 ? p.slice(ROOT.length + 1) : p
 const archLine = (arch) => arch ? '\nSETTLED ATLAS (honor each page`s charter; an initial pointer, never a ceiling — re-read everything from ' +
   'disk, it never licenses a skim):\n' + JSON.stringify(arch, null, 1) : ''
-const authorPrompt = (page, arch) => [DOCTRINE, '', 'TASK: ADVERSARIAL HARDEN-REBUILD of ' + page + ' to the ULTRA-DENSE TypeScript doctrine ' +
-  'bar. Attack the page as naive/shallow/illusory; wherever the attack lands, rebuild that surface GROUND-UP to 13/10 — never polish a weak ' +
-  'base. Read the page, the README atlas + doctrine, the sibling pages (cross-page unification), the python + csharp stacks (the FLOOR, ' +
+const authorPrompt = (page, arch) => [DOCTRINE, '', 'TASK: INITIAL WAVE — ADVERSARIAL HARDEN-REBUILD of ' + page + ' to the ULTRA-DENSE ' +
+  'TypeScript doctrine bar; you own THIS file alone (siblings are being rebuilt concurrently by their own agents — do not read or edit them; ' +
+  'corpus unification is the later waves\' mandate). Attack the page as naive/shallow/illusory; wherever the attack lands, rebuild that ' +
+  'surface GROUND-UP to 13/10 — never polish a weak ' +
+  'base. Read the page, the README atlas + doctrine (binding law), the python + csharp stacks (the FLOOR, ' +
   'READ-ONLY), the style-guide, and verify members against the Effect ecosystem (assay api over node_modules). Construct in ' +
   'BOUNDARY_ADMISSION lifecycle order (Schema decode at the edge); collapse parallel shapes into ONE canonical owner with every secondary ' +
   'surface DERIVED — and KILL every const+type+typeof triple, loose interface/type-alias spam, hand-declared wire twin, free-floating brand, ' +
@@ -262,8 +265,11 @@ const authorPrompt = (page, arch) => [DOCTRINE, '', 'TASK: ADVERSARIAL HARDEN-RE
   'visible. Cut every table-stakes card/snippet. Apply page-craft + style/comment hygiene. Report `collapsed`, `extended`, and the page`s ' +
   'spotlight `regions`. Return residual_high {files:[...], claim}.' + archLine(arch)].join('\n')
 const critiquePrompt = (page, arch) => [DOCTRINE, '',
-  'TASK: HOSTILE DOCTRINAL-CONFORMANCE AUDIT + FIX IN PLACE of ' + page + '. ULTRA-HARSH, UNAGREEABLE: assume a violation exists in EVERY fence; ' +
-    'trust NOTHING the prose claims; "good enough" rejected. Read the page, the README doctrine, the sibling pages, the python + csharp stacks ' +
+  'TASK: CRITIQUE WAVE — HOSTILE DOCTRINAL-CONFORMANCE AUDIT + FIX IN PLACE of ' + page + '. ULTRA-HARSH, UNAGREEABLE: assume a violation ' +
+    'exists in EVERY fence; trust NOTHING the prose claims; "good enough" rejected. CORPUS AWARENESS: read the README + EVERY file under ' +
+    'docs/stacks/typescript/ IN FULL so your judgments are corpus-aware (vocabulary consistency, region overlap, altitude) — but you EDIT ' +
+    'ONLY ' + page + '; siblings are being critiqued concurrently by their own agents, so treat their current text as context, never as ' +
+    'settled law, and log a genuinely cross-file defect as residual_high instead of touching a sibling. Also read the python + csharp stacks ' +
     '(the floor), the style-guide, and verify members via assay api. Run the MECHANICAL checklist LINE-BY-LINE and REPAIR every hit ' +
     'in place — every hit a fix, never a note; the checklist is a FLOOR, never the complete audit: hunt doctrinal defects past it:',
   '(1) COLLAPSE_SCAN signals (3+ mandatory): sibling names -> one polymorphic entrypoint; arity variants -> input-shape discrimination or ' +
@@ -292,8 +298,10 @@ const critiquePrompt = (page, arch) => [DOCTRINE, '',
     'any table-stakes/decorative/speculative card or snippet. EDIT to fix every hit. Report `extended` and `regions`. Return residual_high ' +
     '{files:[...], claim}.' + archLine(arch)].join('\n')
 const redteamPrompt = (page, arch) => [DOCTRINE, '',
-  'TASK: ADVERSARIAL ARCHITECT RED-TEAM + FIX IN PLACE of ' + page + ' — the LAST and MOST AGGRESSIVE pass. Red-team is critique AND MORE; the ' +
-    'burden of proof is ON THE PAGE; trust NOTHING the prior passes claimed. Open the Effect ecosystem, the sibling pages, the README doctrine, ' +
+  'TASK: RED-TEAM WAVE — ADVERSARIAL ARCHITECT ATTACK + FIX IN PLACE of ' + page + ' — the MOST AGGRESSIVE per-file stage. Red-team is ' +
+    'critique AND MORE; the burden of proof is ON THE PAGE; trust NOTHING the prior waves claimed. CORPUS AWARENESS: read the README + EVERY ' +
+    'file under docs/stacks/typescript/ IN FULL — but EDIT ONLY ' + page + '; siblings are being red-teamed concurrently, so their text is ' +
+    'context never settled law, and a genuinely cross-file defect is a residual_high, never a sibling edit. Open the Effect ecosystem, ' +
     'the python + csharp stacks (the floor), the style-guide. Attack and REPAIR in place — no soft-pedalling, a fix never a ledger:',
   'LENSES: (A) COUNTERFACTUAL on the core teaching shape — does a denser canonical owner (a richer Schema class family, a value-derived ' +
     'vocabulary table, an exhaustive DU) or a DEEPER Effect primitive collapse the whole fence? rebuild to it. (B) ANTICIPATORY_COLLAPSE — does ' +
@@ -314,32 +322,25 @@ const redteamPrompt = (page, arch) => [DOCTRINE, '',
     'capable, more agnostic-compliant, more bleeding-edge, and PART OF ONE UNIFIED SHAPE SYSTEM more than the critique left it; if the strongest ' +
     'form is genuinely present, prove it by finding nothing — never invent churn. Report `extended` and `regions`. Return residual_high ' +
     '{files:[...], claim}.' + archLine(arch)].join('\n')
-const sweepPrompt = (page, ledger) => [DOCTRINE, '',
-  'TASK: SEQUENTIAL CORPUS-INTEGRATION SWEEP + FIX IN PLACE of ' + page + '. The prior pages in README atlas order are now FINALIZED. Make this ' +
-    'page integrate them IMPLICITLY, share ONE unified shape vocabulary with them, and own a disjoint region. Read THIS page from disk; you are ' +
-    'given the REGION LEDGER of every prior finalized page as data (NOT bodies) — read a prior body ONLY when the ledger flags a candidate collision.',
-  'ENFORCE: (1) ALTITUDE ROUTING — route any mechanic the ledger shows owned upstream (compose as settled supporting material; never re-teach a ' +
-    'prior law). (2) NO DUPLICATE SNIPPET — demote any snippet exercising an owned region and pick an UNOWNED spotlight, or delete it. (3) UNIFIED ' +
-    'SHAPE SYSTEM + DENSITY — the page`s canonical owners, Effect rails, and Schema boundaries are CONSISTENT with the finalized priors (one ' +
-    'corpus, not a patchwork); end denser, fully agnostic, table-stakes-free, within the soft ~450 LOC density signal (never split a coherent ' +
-    'concept or strip snippet whitespace).',
-  'REGION LEDGER (finalized priors):\n' + JSON.stringify(ledger, null, 1) + '\nEDIT this page to fix every hit. Return UPDATED `owned_regions`, ' +
-    '`rerouted`, verdict, and residual_high {files:[...], claim}.'].join('\n')
-const STAGES = [
-  { key: 'rebuild', build: authorPrompt, effort: 'max' },
-  { key: 'crit', build: critiquePrompt, effort: 'xhigh' },
-  { key: 'redteam', build: redteamPrompt, effort: 'max' },
+const PASSES = [
+  { key: 'align', task: 'ALIGN — the corpus as ONE body: one unified shape vocabulary across all pages (identical spellings for shared rails, ' +
+    'owners, fault families, policy forms); zero duplicated snippet regions corpus-wide (each fence exercises a region no other fence shows — ' +
+    'repair by routing to the owning page, never by re-teaching); altitude (each page owns ONLY its layer; later atlas pages compose earlier ' +
+    'law as settled supporting material, never restate it); the README atlas table, routing rows, region ledger, and law groups match the ' +
+    'on-disk corpus exactly.' },
+  { key: 'gap-close', task: 'GAP-CLOSE — verify every COVERAGE FLOOR and CONTENT MANDATE has an owning law on the right page and every fence ' +
+    'demonstrates the mandates its layer admits (satisfies tables, one-name exports + the exports block, inline injection/wrapping, ' +
+    'overload/dual entries, inference pre-solving, nested Schema owners); close every gap IN PLACE on the owning page; enforce the EXPORT LAW ' +
+    'and EXPORT-SURFACE COLLAPSE in every snippet corpus-wide; spot-verify named members and delete phantoms.' },
+  { key: 'finalize', task: 'FINALIZE — the terminal cold read as a first reader with fresh hostile eyes: fix every residual weakness, hedge, ' +
+    'meta line, thin card, or under-dense fence; density within the LOC affordance without card/snippet spam; the corpus must end objectively ' +
+    'denser and more capable than the passes found it — if a page is genuinely at the bar, prove it by finding nothing, never invent churn.' },
 ]
-const processPage = async (page, arch) => {
-  const logs = {}
-  for (const st of STAGES) {
-    const r = await agent(st.build(page, arch), { label: st.key + ':' + nameOf(page), phase: 'Harden', schema: FIXLOG_SCHEMA, effort: st.effort, stallMs: STALL })
-    if (r === null) break
-    logs[st.key] = r
-  }
-  return { page, logs, ok: Object.keys(logs).length === STAGES.length }
-}
-const regionsOf = (logs) => { for (const st of ['redteam', 'crit', 'rebuild']) { const l = logs[st]; if (l && l.regions && l.regions.length) return l.regions } return [] }
+const passPrompt = (p, n, ordered) => [DOCTRINE, '', 'THE SETTLED ATLAS (order):\n' + JSON.stringify(ordered, null, 1), '',
+  'TASK: CORPUS PASS ' + n + '/' + PASSES.length + ' — ' + p.task + ' Read the README first, then every atlas page IN FULL in order; WRITE ' +
+  'every fix in place via Edit/Write across ANY page (you are the only agent touching the corpus in this pass — a finding is a fix, never a ' +
+  'note); a genuinely unresolvable cross-corpus item is a residual_high. Return file (the corpus root), verdict, regions [], edits summary, ' +
+  'residual_high.'].join('\n')
 const clusterWork = (c) => { const files = new Set(); for (const r of c) for (const f of r.files) files.add(f); return files.size * 2 + c.length }
 const shardOversized = (cs) => {
   const cap = Math.max(TARGET_WORK, Math.ceil(cs.reduce((w, c) => w + clusterWork(c), 0) / CAP))
@@ -393,28 +394,36 @@ const archFiles = ((arch && arch.files) || []).filter((f) => f && f.path).sort((
 const ordered = archFiles.length ? archFiles.map((f) => f.path) : invFiles.map((f) => f.path)
 log('Gate: settled atlas = ' + ordered.length + ' pages' + (arch && arch.renames && arch.renames.length ? ' (' + arch.renames.length + ' structural changes)' : ' (roster unchanged)'))
 
-// --- [HARDEN]
-phase('Harden')
-const done = (await pool(ordered, CAP, (page) => processPage(page, arch))).filter(Boolean)
+// --- [WAVES]
+// Phase-barriered: every file's stage completes before the next wave; 1 agent per file throughout, so no write collisions.
+phase('Initial')
+const initialLogs = (await pool(ordered, CAP, (page) =>
+  agent(authorPrompt(page, arch), { label: 'initial:' + nameOf(page), phase: 'Initial', schema: FIXLOG_SCHEMA, effort: 'max', stallMs: STALL })
+    .then((r) => r ? { page, log: r } : null))).filter(Boolean)
+log('Initial wave: ' + initialLogs.length + '/' + ordered.length + ' files rebuilt')
+phase('Critique')
+const critLogs = (await pool(ordered, CAP, (page) =>
+  agent(critiquePrompt(page, arch), { label: 'critique:' + nameOf(page), phase: 'Critique', schema: FIXLOG_SCHEMA, effort: 'xhigh', stallMs: STALL })
+    .then((r) => r ? { page, log: r } : null))).filter(Boolean)
+log('Critique wave: ' + critLogs.length + '/' + ordered.length + ' files audited (corpus-aware)')
+phase('Redteam')
+const redLogs = (await pool(ordered, CAP, (page) =>
+  agent(redteamPrompt(page, arch), { label: 'redteam:' + nameOf(page), phase: 'Redteam', schema: FIXLOG_SCHEMA, effort: 'max', stallMs: STALL })
+    .then((r) => r ? { page, log: r } : null))).filter(Boolean)
+log('Redteam wave: ' + redLogs.length + '/' + ordered.length + ' files attacked (corpus-aware)')
 
-// --- [SWEEP]
-phase('Sweep')
-const ledger = []
-const sweepLogs = []
-const seedRegions = (p) => { const d = done.find((r) => r.page === p); if (d) { const rr = regionsOf(d.logs); if (rr.length) return rr } const iv = invFiles.find((f) => f.path === p); return (iv && iv.regions) || [] }
-for (let i = 0; i < ordered.length; i++) {
-  const page = ordered[i]
-  const r = await agent(sweepPrompt(page, ledger), { label: 'sweep:' + nameOf(page), phase: 'Sweep', schema: SWEEP_SCHEMA, effort: 'xhigh', stallMs: STALL })
-  const regions = (r && r.owned_regions && r.owned_regions.length) ? r.owned_regions : seedRegions(page)
-  ledger.push({ file: page, owned_regions: regions })
-  if (r) sweepLogs.push(r)
+// --- [PASSES]
+phase('Passes')
+const passLogs = []
+for (let i = 0; i < PASSES.length; i++) {
+  const r = await agent(passPrompt(PASSES[i], i + 1, ordered), { label: 'pass:' + PASSES[i].key, phase: 'Passes', schema: FIXLOG_SCHEMA, effort: 'max', stallMs: STALL })
+  if (r) passLogs.push({ page: ROOT, log: r })
+  log('Pass ' + (i + 1) + '/' + PASSES.length + ' (' + PASSES[i].key + '): ' + ((r && r.summary) || '(agent died — resume re-runs)'))
 }
-log('Sweep: ' + sweepLogs.length + '/' + ordered.length + ' pages integrated in atlas order')
 
 const norm = (x, page) => typeof x === 'string' ? { files: [page], claim: x } : { files: x.files && x.files.length ? x.files : [page], claim: x.claim }
 const allRes = []
-for (const r of done) for (const st of ['rebuild', 'crit', 'redteam']) { const l = r.logs && r.logs[st]; if (l && l.residual_high) for (const x of l.residual_high) allRes.push(norm(x, r.page)) }
-for (const r of sweepLogs) if (r.residual_high) for (const x of r.residual_high) allRes.push(norm(x, r.file))
+for (const r of [...initialLogs, ...critLogs, ...redLogs, ...passLogs]) if (r.log.residual_high) for (const x of r.log.residual_high) allRes.push(norm(x, r.page))
 const uniq = [...new Map(allRes.map((r) => [r.files.slice().sort().join(',') + '|' + r.claim, r])).values()]
 const clusters = (() => {
   const parent = new Map(); const find = (f) => { let p = f; while (parent.get(p) !== p) p = parent.get(p); return p }; const add = (f) => { if (!parent.has(f)) parent.set(f, f) }
@@ -428,7 +437,7 @@ const clusters = (() => {
   return out
 })()
 const buckets = packClusters(shardOversized(clusters))
-log('Harden+Sweep done; reconcile ' + uniq.length + ' residuals -> ' + clusters.length + ' clusters -> ' + buckets.length + ' balanced buckets [' + buckets.map((b) => b.length).join(', ') + ']')
+log('Waves+Passes done; reconcile ' + uniq.length + ' residuals -> ' + clusters.length + ' clusters -> ' + buckets.length + ' balanced buckets [' + buckets.map((b) => b.length).join(', ') + ']')
 let reconciled = []
 if (buckets.length) {
   phase('Reconcile')
@@ -459,4 +468,6 @@ const claimsAll = reconciled.flatMap((r) => (r.verify && r.verify.claims) || [])
 const openClaims = new Set(claimsAll.filter((c) => c.status === 'open').map((c) => c.claim))
 const hard_residual = uniq.filter((r) => openClaims.has(r.claim))
 log('Reconcile: ' + buckets.length + ' buckets; ' + hard_residual.length + ' open hard residual(s) -> resolve-residuals')
-return { workflow: 'stack-ts', root: ROOT, settled: arch, ordered: ordered, hardened: done.filter((r) => r.ok).length, incomplete: done.filter((r) => !r.ok).length, total: ordered.length, region_seed: ledger, buckets: buckets.length, hard_residual: hard_residual }
+return { workflow: 'stack-ts', root: ROOT, settled: arch, ordered: ordered, initial: initialLogs.length, critiqued: critLogs.length,
+  redteamed: redLogs.length, passes: passLogs.map((r) => ({ key: r.log.file, summary: r.log.summary })), total: ordered.length,
+  buckets: buckets.length, hard_residual: hard_residual }

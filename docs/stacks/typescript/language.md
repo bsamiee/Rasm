@@ -89,7 +89,7 @@ Each contract fixes the placement rule the chooser row cannot state. Snippets co
 
 ```typescript
 import "./register.ts"                                     // side-effect import leads the file: load order is program order; boot-edge modules only
-import { type Duration, Array, Option, Order, pipe } from "effect" // one statement per specifier: inline type specifiers ride the named list; Array shadows the global value plane deliberately
+import { Array, type Duration, Option, Order, pipe } from "effect" // one statement per specifier: inline type specifiers ride the named list; Array shadows the global value plane deliberately
 import type { Frame } from "./frame.ts"                    // type-only module: the whole statement erases; Frame stays reachable in type positions
 import { type Gauge, admit } from "./gauge.ts"
 
@@ -120,7 +120,7 @@ export { Window, lead }                                    // one entry carries 
 [DEEP_MODULE_SITE]:
 - Use when: a module lays out its public surface — the terminal exports block, the two-export budget, the `_`-prefixed interior, and the annotation each export carries.
 - Accept: declarations authored unexported, then one `// --- [EXPORTS]` block closing the file — `export { ... }` for names with a value side, `export type { ... }` for pure-type names; one owner export plus at most one operation-family export; every exported operation an annotated arrow `const` (`TS9007`-clean); every exported const stating its type or standing as a self-describing `as const` literal (`TS9010`-clean); interior `_`-declarations carrying no annotation burden while only bodies consume them; companion types riding the owner's merged namespace.
-- Reject: any `export` keyword on a body declaration — the block is the only export site; `export default` — the surface is named; a re-export statement (`export ... from`, `export *`, `export type ... from`) — a name leaves only its owning module and entry points are exports-map subpaths, never authored index modules; a hoisted `function` statement for an operation — operations are annotated arrow consts, read in declaration order and never rebindable; an exported `interface` — an open merge seam any consumer file can augment, so a closed public type is a `type` alias or the owner's merged companion, and `interface` survives only as a foreign-contract mirror or deliberate merge target at the FFI seam; an exported `_`-symbol; a promotion alias `const Shape = _shape`; an exported signature speaking a `_`-type — the type a public signature names is public under the owner's one name, never leaked and never parallel-restated; a hand-written public union restating an interior table's keys — the table the surface speaks becomes the exported owner instead; a single-caller `_`-function — inline it, since a `_`-function earns existence at two call sites, as a named policy value, or as the marked kernel.
+- Reject: any `export` keyword on a body declaration — the block is the only export site; `export default` — the surface is named; a re-export statement (`export ... from`, `export *`, `export type ... from`) — a name leaves only its owning module and entry points are exports-map subpaths, never authored index modules; a hoisted `function` statement for an operation — operations are annotated arrow consts, read in declaration order and never rebindable; an exported `interface` — an open merge seam any consumer file can augment, so a closed public type is a `type` alias or the owner's merged companion, and `interface` survives only as a foreign-contract mirror, a deliberate merge target at the FFI seam, or the `this`-typed heritage implementor a package extension point demands; an exported `_`-symbol; a promotion alias `const Shape = _shape`; an exported signature speaking a `_`-type — the type a public signature names is public under the owner's one name, never leaked and never parallel-restated; a hand-written public union restating an interior table's keys — the table the surface speaks becomes the exported owner instead; a single-caller `_`-function — inline it, since a `_`-function earns existence at two call sites, as a named policy value, or as the marked kernel.
 - Law: one block entry exports every meaning its name carries — the const value, the same-name `type`, the merged namespace family, a class's constructor and instance type — so the one-name law is mechanical: merge first, list once; `export type { ... }` exists only for names with no value side, and the block declares the surface, never widens it.
 - Law: the annotation boundary is mechanical — declaration emit is syntactic, so a checker-computed export type trips at the export site no matter where the `export` keyword sits: an inference-dependent const or return is the defect, bare `as const` and entity-name heritage emit clean, while `satisfies` on an emitted table (`TS9010`) and call-expression owner heritage (`TS9021`) are the two checker-verified forms whose carve is manifest surface — the flag binds the declaration-emitting projects — and a widened table annotation, duplicated field annotations, or a demoted owner written to appease syntactic emit is the rejected repair.
 - Law: interior types are free — a `_`-declaration's checker-computed type costs nothing while no exported signature speaks it; the moment a public signature needs its keys, the declaration itself goes public under one name.
@@ -138,6 +138,7 @@ const Band = {                                             // public vocabulary:
 declare namespace Band {
   type Kind = keyof typeof Band
   type Row = (typeof Band)[Kind]
+  type _Rows<T extends Record<Kind, { readonly ceiling: number; readonly weight: number }> = typeof Band> = T // row guard: the contract homes in the merged companion; the anchor keeps its literals
 }
 
 const _byCeiling = Order.mapInput(Order.reverse(Order.number), (kind: Band.Kind) => Band[kind].ceiling) // interior policy value: _-prefixed, checker-computed, annotation-free
@@ -212,7 +213,7 @@ export { Grade, overlay }                                  // overlay is one ent
 - Boundary: the conversion combinators that lift a kernel throw are `rails-and-effects.md`'s; worker and marshal statement seams are `boundaries.md`'s; this site owns the in-process compute kernel.
 
 ```typescript
-import { Cause, Effect } from "effect"
+import { type Cause, Effect } from "effect"
 
 const _parse = (text: string): unknown => JSON.parse(text) as unknown // BOUNDARY ADAPTER: any-pin — the platform any never escapes; the parse throw exits only into the conversion below
 

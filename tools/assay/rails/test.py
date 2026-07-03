@@ -235,13 +235,15 @@ def _mutation_args(tool: Tool, params: TestParams, settings: AssaySettings, file
             scope = scoped(files)
         case _:
             scope = ()
-    # A staged dotnet mutation row (Stryker) runs from an empty work root: absolute --solution/--output anchor it to
-    # the real tree; Stryker.NET requires the report --output dir to pre-exist, so the rail creates it here.
+    # A staged dotnet mutation row (Stryker) runs from an empty work root: absolute --config-file/--solution/--output
+    # anchor it to the real tree; Stryker.NET requires the report --output dir to pre-exist, so the rail creates it here.
     staged_dotnet = tool.runner is Runner.DOTNET and bool(tool.stage.root)
-    output = str(Path(str(settings.root)).resolve() / CS_ARTIFACT_ROOTS["stryker-output"]) if staged_dotnet else ""
+    root = Path(str(settings.root)).resolve()
+    output = str(root / CS_ARTIFACT_ROOTS["stryker-output"]) if staged_dotnet else ""
     if output:
         Path(output).mkdir(parents=True, exist_ok=True)
     return ToolArgs(
+        config=str(root / "stryker-config.json") if staged_dotnet else "",
         max_children=str(settings.mutation_max_cpu) if tool.name in _MUTATION_GOVERNOR else "",
         output=output,
         scope=scope,

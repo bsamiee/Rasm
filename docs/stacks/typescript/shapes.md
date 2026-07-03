@@ -16,17 +16,18 @@ Choose the owner form before writing any field. The most specific matching row w
 |  [02]   | field block embedded in one owner                    | inline `Schema.Struct` record        | inherited       | structural |
 |  [03]   | closed case family crossing a wire                   | `Schema.Union` of tagged case owners | per-case        | `_tag`     |
 |  [04]   | closed case family, process-local                    | `Data.taggedEnum`                    | none            | `_tag`     |
-|  [05]   | fault carried on the error channel or a wire         | `Schema.TaggedError`                 | encoded derives | `_tag`     |
-|  [06]   | scalar invariant                                     | brand-in-field refinement            | inherited       | value      |
-|  [07]   | one concept, N systematic storage or wire views      | `VariantSchema.make` field family    | per-variant     | structural |
-|  [08]   | request, patch, or view of an owner                  | derived projection, never declared   | derives         | inherited  |
+|  [05]   | fault crossing a wire, logging, or joining a union   | `Schema.TaggedError`                 | encoded derives | `_tag`     |
+|  [06]   | fault living and dying in-process                    | `Data.TaggedError`                   | none            | `_tag`     |
+|  [07]   | scalar invariant                                     | brand-in-field refinement            | inherited       | value      |
+|  [08]   | one concept, N systematic storage or wire views      | `VariantSchema.make` field family    | per-variant     | structural |
+|  [09]   | request, patch, or view of an owner                  | derived projection, never declared   | derives         | inherited  |
 
 [OWNER_SELECTION]:
 - Law: named products take `Schema.Class` regardless of wire exposure — the class costs one identifier string over the `Data.Class` form and gains decode, encode, `make` validation, and the whole derived-surface family the moment any consumer needs them; `Data.Class` and `Data.Case` are rejected product forms because a second product paradigm buys nothing the Schema form lacks.
 - Law: the `Data`-versus-`Schema` split is earned only for case families, where the Schema form costs a class per case — a family that never serializes, never logs structurally, and never joins a decoded union is `Data.taggedEnum`; any family that might is declared wire-carried from the start, because a `Data.taggedEnum` cannot reach a wire and promotion rewrites every case construction site.
 - Law: inside a wire-carried union, a case with behavior is `Schema.TaggedClass` and a pure-data case is `Schema.TaggedStruct` — the union mixes both freely, and behavior arriving later converts a struct case to a class case with zero consumer edits because tag and fields are unchanged.
 - Law: `Schema.Struct` survives only as row [02] — an anonymous field block embedded in one owner or a single-consumer contract; a passed-around `Struct` promoted to a `Class` later re-anchors every consumer, so a concept with a name is declared as a class first, never migrated to one.
-- Reject: a one-field class wrapping a scalar row [06] already refines; an `interface` or `type` alias declared beside any owner; a shape triple minted per architectural layer; a boolean-discriminated pair standing where row [03] or [04] owns the family.
+- Reject: a one-field class wrapping a scalar row [07] already refines; an `interface` or `type` alias declared beside any owner; a shape triple minted per architectural layer; a boolean-discriminated pair standing where row [03] or [04] owns the family.
 
 [SHAPE_ECONOMY]:
 - Law: growth lands inside the owner as a row — a field, a getter, a case, a variant column, a refinement — and the diff of the next requirement is the proof: one declaration inside the owner, consumers untouched or broken loudly at the missing arm.
@@ -42,11 +43,11 @@ The rich owner is one `Schema.Class<Self>(identifier)(fields)` declaration: the 
 - Law: every derived reading is a class getter composing the algebra the fields admit — an `Order` policy value folding a collection field, an `Option.match` collapsing an absence field; a free function re-deriving what a getter states, or a consumer computing it at the call site, marks the missing getter.
 - Law: an embedded concept with its own invariants is its own class composed as a field at full depth — `Schema.NonEmptyArray(Anchor)` — never flattened into prefixed sibling fields; the inline `Struct` block is the sub-form only while the block has no behavior and no second consumer.
 - Law: lineage derives, siblings never re-declare — `Owner.extend<Wider>(identifier)(fields)` widens into a subtype carrying every base field, getter, and refinement; `Owner.transformOrFail<Enriched>(identifier)(fields, { decode, encode })` derives an owner whose added fields compute from the base at decode; a second class restating base fields is the defect these two forms exist to kill.
-- Law: `new Owner(...)` and `Owner.make(...)` run the filter set, so trusted interior construction proves the same invariants decode proves; raw material enters through decode at the admission seam — placement is the boundary page's — and `{ disableValidation: true }` survives only inside a kernel that already proved the invariant it skips.
+- Law: `new Owner(...)` and `Owner.make(...)` run the filter set, so trusted interior construction proves the same invariants decode proves; raw material enters through decode at the admission seam — placement is `boundaries.md`'s — and `{ disableValidation: true }` survives only inside a kernel that already proved the invariant it skips.
 - Reject: an `interface`-plus-implementation pair; a DTO type beside the class; constructor parameter properties; a `with<Field>` copy-method family restating what a successor constructor or derived projection owns.
 
 ```typescript
-import { Array as Arr, Option, Order, Schema } from "effect"
+import { Array, Option, Order, Schema } from "effect"
 
 const _Key = Schema.NonEmptyString.pipe(
   Schema.pattern(/^[a-z][a-z0-9-]*$/),
@@ -71,7 +72,7 @@ class Shape extends Schema.Class<Shape>("Shape")({
   note: Schema.optionalWith(Schema.NonEmptyString, { as: "Option" }),
 }) {
   get strongest(): Anchor {
-    return Arr.max(this.anchors, _byWeight)
+    return Array.max(this.anchors, _byWeight)
   }
   get caption(): string {
     return Option.match(this.note, {
@@ -94,7 +95,7 @@ class Sealed extends Shape.extend<Sealed>("Sealed")({
 export { Anchor, Sealed, Shape }
 ```
 
-The `Shape` family replaces six loose shapes — the interface, the wire DTO, the key brand alias, the validator, the factory, and the anchor-summary helper — and `Sealed` lands as lineage, not a sibling: every base refinement, getter, and field arrives by derivation. The non-empty collection type makes `Arr.max` total, so the getter needs no fallback arm.
+The `Shape` family replaces six loose shapes — the interface, the wire DTO, the key brand alias, the validator, the factory, and the anchor-summary helper — and `Sealed` lands as lineage, not a sibling: every base refinement, getter, and field arrives by derivation. The non-empty collection type makes `Array.max` total, so the getter needs no fallback arm.
 
 ## [03]-[TAGGED_FAMILIES]
 
@@ -105,14 +106,15 @@ A closed family is one owner under one name; the `_tag` is simultaneously the ru
 - Law: case payloads are `readonly` fields and a payload-free case is `{}`; constructors carry structural equality, so family members compare by value with no identity ceremony.
 - Law: a generic family rides `Data.TaggedEnum.WithGenerics` with a definition interface — never a hand-parameterized union restating the case algebra per type argument.
 - Law: a wire-carried family is `Schema.Union` over tagged case owners bound to one same-name `const`-plus-`type` pair, and the member set is the single growth site — a new case is one class plus the union row, with every exhaustive consumer breaking loudly until its arm exists.
-- Law: vocabulary literals spread from the value anchor — `Schema.Literal(..._Stage)` derives the schema arm from the same `as const` table the type level derives from, so the vocabulary has one row set and zero parallel spellings.
-- Boundary: `$match` is the family's carried dispatch surface; terminal selection between exhaustive, option, and either forms is the dispatch page's.
+- Law: vocabulary literals spread from the value anchor — `Schema.Literal(..._Stage)` derives the schema arm from the same `as const` table the type level derives from, so the vocabulary has one row set and zero parallel spellings; the tuple-overload mechanics are `derivation.md`'s.
+- Boundary: `$match` is the family's carried dispatch surface; terminal selection between exhaustive, option, and either forms is `surfaces-and-dispatch.md`'s.
 - Reject: sibling schemas per case with no union owner; a string-typed `status` field where a case family owns the states; a `kind` field beside `_tag`; a class hierarchy dispatched by `instanceof`.
 
 [FAULT_DECLARATION]:
 - Use: `Schema.TaggedError<Self>()(tag, fields)` for a fault that crosses a wire, logs structurally, or joins a decoded union — one class is the fault value, the fault schema, and the `_tag` catch key, and the instance is yieldable on the rail.
+- Law: the in-process fault is `Data.TaggedError("<tag>")<Fields>` — the same `_tag` catch key and yieldable instance at zero codec cost; the wire test is the one case families answer, and promotion to the Schema form rewrites only the declaration, because `new Fault({ ... })` construction is identical on both.
 - Law: fields carry evidence as data — the refused key, the stage, retryability, severity — typed so policy reads them; `message` is a derived `override get` computed from fields and never a stored field, because a message field is denormalized evidence that drifts from what the fields prove.
-- Boundary: fault-family architecture — the family-per-surface partition, reason discriminants, policy folds, catch routing — is the rails page's; this page owns the declaration form.
+- Boundary: fault-family architecture — the family-per-surface partition, reason discriminants, policy folds, catch routing — is `rails-and-effects.md`'s; this page owns the declaration form.
 - Reject: `class Fault extends Error`; evidence baked into message strings; a fault union assembled from untagged shapes.
 
 ```typescript
@@ -222,7 +224,7 @@ The wire twin derives: `typeof Owner.Encoded` is the wire type, `Schema.encodedS
 - Law: spelling divergence is a field-level rename — `Schema.propertySignature(S).pipe(Schema.fromKey("<foreign-name>"))` inside the field record, so the decoded side carries canonical names, the encoded side carries the foreign spelling, and no parallel rename map or mapping layer exists.
 - Law: structural divergence is one bidirectional declaration — `Schema.transform(From, To, { strict: true, decode, encode })` when total, `Schema.transformOrFail` returning `ParseResult.succeed` or `ParseResult.fail(new ParseResult.Type(ast, actual, "<why>"))` when partial; both directions declare at one site, and the `To` side's own refinements re-prove after the mapping runs, so a transform moves spelling and structure but never restates validation.
 - Law: `Schema.parseJson(Owner)` fuses `JSON.parse` and `JSON.stringify` into the codec — raw JSON string to owner is one decode and owner to string is one encode; a `JSON.parse` call beside a decode is the named defect, and the fused schema composes anywhere a schema does.
-- Boundary: decode and encode execution — `Schema.decodeUnknown` placement, `ParseError` lifting — is the boundary page's; this page owns the twin's declaration.
+- Boundary: decode and encode execution — `Schema.decodeUnknown` placement, `ParseError` lifting — is `boundaries.md`'s; this page owns the twin's declaration.
 - Reject: hand-written `toWire`/`fromWire` method pairs; a codec class beside an owner; two one-directional transforms for one twin; a version branch inside the owner where a read-boundary migration owns it.
 
 ```typescript
@@ -323,8 +325,7 @@ Every free surface derives from the owner's AST, and every ad-hoc view derives f
 - Reject: a hand-declared patch or request interface; `Schema.partial` where the exact form is meant; a stored projection type restating what a one-line derivation states at the use site.
 
 ```typescript
-import { Arbitrary, FastCheck, JSONSchema, Pretty, Schema } from "effect"
-import type { Equivalence } from "effect"
+import { Arbitrary, type Equivalence, FastCheck, JSONSchema, Pretty, Schema } from "effect"
 
 class Member extends Schema.Class<Member>("Member")({
   key: Schema.UUID,

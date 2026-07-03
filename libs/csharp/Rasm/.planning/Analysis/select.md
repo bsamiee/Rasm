@@ -12,7 +12,7 @@ Every projection that duplicates host geometry travels as a `TopologyProjection`
 
 ## [02]-[CURVES]
 
-- Owner: `CurveFeature` `[SmartEnum<int>]` — the closed curve-provenance vocabulary (`Input`/`Segment`/`Edge`/`Boundary`/`NakedOuter`/`NakedInner`/`Interior`/`NonManifold`/`OuterLoop`/`InnerLoop`/`Iso`/`Silhouette`/`SubCurve`/`Draft`): every extracted curve names WHAT it was on the source, so downstream filtering reads a row, never re-derives adjacency. `EdgeDescriptor` internal `[SkipUnionOps]` `[Union]` — `OfBrep(EdgeAdjacency, Seq<BrepLoopType>)`/`OfMesh(int ConnectedFaces)`/`OfLoop(BrepLoopType)` with the ONE `Features` projection deriving the feature rows an edge carries (naked brep edge → `Boundary` plus its loop-side rows; interior valence → `Interior`; valence above two or above-two mesh face count → `NonManifold`; mesh boundary at one connected face) and `IsSelectableEdge` naming the selectable subset. `Curves` `[Union]` — `EdgesCase(Option<CurveFeature>)` (`None` = all selectable edges) / `SegmentsCase(bool Smooth)` (polycurve segments versus G1 sub-curves) / `IsoCase(IsoStatus, double Normalized)` / `SilhouetteCase(Vector3d?, Option<double> DraftAngle)` (one case owns silhouette AND draft — the angle's presence selects the host computation) / `AtCase(int?)` / `FormCase(int?)`, with `Feature(Topology)` resolving the emitted feature per source stratum (curve input → `Input`, surface boundary → `Boundary`, else `Edge`), `Matches(EdgeDescriptor)` the data-driven selection test, and `Select(Seq<TopologyProjection>)` the ONE index-selection law (null index → first, out-of-range → `Fault.InvalidInput` — never a silent clamp).
+- Owner: `CurveFeature` `[SmartEnum<int>]` — the closed curve-provenance vocabulary (`Input`/`Segment`/`Edge`/`Boundary`/`NakedOuter`/`NakedInner`/`Interior`/`NonManifold`/`OuterLoop`/`InnerLoop`/`Iso`/`Silhouette`/`SubCurve`/`Draft`): every extracted curve names WHAT it was on the source, so downstream filtering reads a row, never re-derives adjacency. `EdgeDescriptor` internal `[SkipUnionOps]` `[Union]` — `OfBrep(EdgeAdjacency, Seq<BrepLoopType>)`/`OfMesh(int ConnectedFaces)`/`OfLoop(BrepLoopType)` with the ONE `Features` projection deriving the feature rows an edge carries (naked brep edge → `Boundary` plus its loop-side rows; interior valence → `Interior`; valence above two or above-two mesh face count → `NonManifold`; mesh boundary at one connected face) and `IsSelectableEdge` naming the selectable subset. `Curves` `[Union]` — `EdgesCase(Option<CurveFeature>)` (`None` = all selectable edges) / `SegmentsCase(bool Smooth)` (polycurve segments versus G1 sub-curves) / `IsoCase(IsoStatus, double Normalized)` / `SilhouetteCase(Vector3d?, Option<double> DraftAngle)` (one case owns silhouette AND draft — the angle's presence selects the host computation) / `AtCase(int?)` / `FormCase(int?)`, with `Feature(Topology)` resolving the emitted feature per source stratum (curve input → `Input`, surface boundary → `Boundary`, else `Edge`), `Matches(EdgeDescriptor)` the data-driven selection test, and `Select(Seq<TopologyProjection>)` the ONE index-selection law (`At` null index → first, `Form` null index → every candidate classified, out-of-range → `Fault.InvalidInput` — never a silent clamp).
 - Cases: `Curves` `Edges` · `Segments` · `Iso` · `Silhouette` · `At` · `Form` (6 declared; 14 factories — eight `EdgesCase` feature spellings, `Segments`, `Iso`, `Silhouette`, `Draft`, `At`, `Form`); `EdgeDescriptor` 3; `CurveFeature` 14.
 - Entry: `Curves.Operation<TGeometry, TOut>()` — the family seam `Analysis/query` forwards to; admission is `CanProject` (universal ingress, else `Kind.Of` topology dispatch against the case's source lattice), and the output gate fans ONE `CurveProject` builder across five typed projections: `Curve` (the duplicated geometry), `TopologyProjection` (the provenance carrier itself — resource transfer to the caller), `CurveFeature` (the provenance row), `ComponentIndex` (the source address), and `CurveForm` (analytic classification under `FormCase` through the `Domain/normalization` `CurveFormOf`).
 - Auto: `CurveProject` resolves the source kind once (`geometry.KindOf(context)`), derives the emitted feature from the aspect × topology, extracts ALL candidate projections, applies `Select`, projects the chosen subset, and releases every non-transferred projection through `TopologyProjection.Project` — extraction, selection, projection, and disposal are one fold, and a leaked duplicate is structurally impossible on both success and failure branches; the extraction lattice discriminates per source: curve-formable inputs lower through `Normalization.CurveForm` (polyline inputs explode to per-segment `LineCurve` projections under boundary spellings; `SegmentsCase` routes `GetSubCurves` for smooth G1 pieces versus `DuplicateSegments` for polycurve segments, degrading to the whole duplicated curve when the source is monolithic), brep edges/loops and mesh topology edges select through `Matches` over their descriptors, `BrepFace` boundaries walk loop trims, iso extraction is TRIM-AWARE on faces (`TrimAwareIsoCurve` at west/east/south/north domain ends or the normalized interior parameter) and domain-parameterized on plain surfaces (`IsoCurve`), SubD edges duplicate after a lazy surface-mesh cache update, and silhouettes admit the view direction through `VectorIntent.Direction` (default `Vector3d.ZAxis`), lower `Surface`/`SubD` sources to owned breps inside a `Lease` window, and route `DraftAngle` presence to `ComputeDraftCurve` versus the full `SilhouetteType` union under model absolute + angle tolerances with cooperative cancellation.
@@ -78,7 +78,8 @@ internal abstract partial record EdgeDescriptor {
 
 [SkipUnionOps]
 [Union]
-public partial record Curves {
+public abstract partial record Curves {
+    private Curves() { }
     public sealed record EdgesCase(Option<CurveFeature> Kind) : Curves;
     public sealed record SegmentsCase(bool Smooth) : Curves;
     public sealed record IsoCase(IsoStatus Direction, double Normalized) : Curves;
@@ -304,7 +305,8 @@ namespace Rasm.Analysis;
 // --- [TYPES] --------------------------------------------------------------------------------
 [SkipUnionOps]
 [Union]
-public partial record Faces {
+public abstract partial record Faces {
+    private Faces() { }
     public sealed record AllCase : Faces;
     public sealed record RankedCase(Vector3d Axis, ExtremumDirection Direction) : Faces;
     public sealed record AtCase(int? Value) : Faces;
@@ -425,7 +427,8 @@ public sealed partial class SpreadAspect {
 
 [SkipUnionOps]
 [Union]
-public partial record Points {
+public abstract partial record Points {
+    private Points() { }
     public sealed record ExtremaCase(Option<Seq<Vector3d>> Directions) : Points;
     public sealed record EdgeMidpointsCase : Points;
     public sealed record VerticesCase : Points;

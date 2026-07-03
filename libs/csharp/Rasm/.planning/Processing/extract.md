@@ -25,7 +25,7 @@ Every `.Project<TOut>` on this page routes through `Numerics/atoms.md`'s `AtomPr
 - Receipt: `ExtractionReceipt` — `Route` (`Native`/`Local`), `Attempted`/`Emitted` with DERIVED `Rejected` and `Complete`, the `ExtractionTolerance` carrier, `ParallelCallback`, the optional child receipts (`IsoSurfaceReceipt`/`ScalarIsolineReceipt`/`SampleReceipt`), and ONE `Option<int> ItemFailures` — the three former per-mode failure slots and the stored status/tolerance-source enums are dead; `IsValid` is one `ValidityClaim.All` fold over the count rows and nested evidence.
 - Packages: `Rasm`/Spatial (`ScalarField`/`VectorField`/`TensorField` sampling, `SampleSdfDetailed`/`SampleDetailed`, `SupportSpace`, `VectorCloud`), `Rasm`/Meshing (`MeshSpace`, `IsoSurface.Detailed` + `IsoSurfacePolicy`/`IsoSurfaceResult`/`IsoSurfaceReceipt`), `Rasm`/Processing (`SampleKind`/`SampleReceipt`, `FlowKernel`/`Termination`/`StreamlineTrace`, `GeodesicKernel.TangentLogMapAt`), `Rasm`/Numerics (`FieldIntegrator`, `AtomProjection`/`ProjectionRow`, `EpsilonPolicy`, `Dimension`/`PositiveMagnitude`, `VectorSpan`/`Direction`), `Rasm`/Domain (`Op`/`Context`/`Admit`/`ValidityClaim`), LanguageExt.Core, Thinktecture.Runtime.Extensions, RhinoCommon (contour/iso/section natives, `IsoStatus`, `CollectionsMarshal` welding).
 - Growth: a new section policy is one `ContourPolicy` case + one adapter arm per admitting domain; a new sampled mode is one `SampledExtraction` case + one item arm on the spine; a new probe output is one `ProjectionRow`; a new ingress shape is one `Of` arm — the request union, the mode family, and the row set absorb all growth.
-- Boundary: native-first is law — the local PL kernel exists ONLY for the scalar-contour hole in RhinoCommon and never shadows a native route; `Extraction` construction is the page's factories (sealed union, private root constructor) so no half-admitted request exists; sampled projection composes the `sample.md`/`flow.md`/`fields.md` owners and re-implements none of them — a domain-local sampler, tracer, or field evaluator beside the owning pages is the deleted parallel-rail form; `typeof(TOut)` comparison anywhere on this page is the named dead pattern, `AtomProjection.Rows` is the only output dispatch.
+- Boundary: native-first is law — the local PL kernel exists ONLY for the scalar-contour hole in RhinoCommon and never shadows a native route; `Extraction` construction is the page's factories (sealed union, private root constructor) so no half-admitted request exists; sampled projection composes the `sample.md`/`flow.md`/`fields.md` owners and re-implements none of them — a domain-local sampler, tracer, or field evaluator beside the owning pages is the deleted parallel-rail form; `typeof(TOut)` comparison anywhere on this page is the named dead pattern, `AtomProjection.Rows` is the only output dispatch. The log-map pair is the probe's ONLY mesh-band special case — its result has no value-only form; the retired probe's second `typeof`-keyed special case (Hodge decomposition evidence) is ABSORBED, never carried: a Hodge field probes its sampled component vector here, and the `HodgeDecompositionReceipt` rides `fields.md`'s tagged vector rail (the declared `SampleDetailed` vector-sibling arm, whose nested-evidence slot is exactly this receipt) — a probe row that re-derived the 1-form beside `fields.md`'s edge-integration would be the parallel-rail form this rail deletes.
 
 ```csharp contract
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -466,22 +466,22 @@ public abstract partial record Extraction {
                     isoSurface: Some(result.Receipt), itemFailures: result.Receipt.Valid ? Option<int>.None : Some(1))))
             select output,
         sampledCase: static (state, extraction) => extraction.Mode.Switch(
-            state: (extraction.Domain, extraction.Seeds, state.Context, state.Key),
+            state: (Domain: extraction.Domain, Seeds: extraction.Seeds, Context: state.Context, Key: state.Key),
             glyphCase: static (s, mode) => ProjectSamples<TOut, Line>(
-                seeds: s.Seeds, domain: s.Item1, context: s.Item3, key: s.Item4,
+                seeds: s.Seeds, domain: s.Domain, context: s.Context, key: s.Key,
                 sample: (point, model, op) => ExtractionProbe.Vector(source: mode.Field).Project<VectorSpan>(sample: point, context: model, key: op)
                     .Map(span => new Line(span.Anchor, span.Anchor + (mode.Scale.Value * span.Value))),
                 project: static (glyphs, rejected, receipt, op) => AtomProjection.Rows<ExtractionReceipt, TOut>(self: receipt, key: op, owner: typeof(SampledExtraction.GlyphCase),
                     ProjectionRow.Of<Seq<Line>>(() => rejected == 0 ? Fin.Succ(glyphs) : Fin.Fail<Seq<Line>>(op.InvalidResult())))),
             gridCase: static (s, mode) => ProjectSamples<TOut, (Point3d Point, double Value)>(
-                seeds: s.Seeds, domain: s.Item1, context: s.Item3, key: s.Item4,
+                seeds: s.Seeds, domain: s.Domain, context: s.Context, key: s.Key,
                 sample: (point, model, op) => mode.Field.SampleScalar(sample: point, context: model, key: op).Map(value => (Point: point, Value: value)),
                 project: static (samples, rejected, receipt, op) => AtomProjection.Rows<ExtractionReceipt, TOut>(self: receipt, key: op, owner: typeof(SampledExtraction.GridCase),
                     ProjectionRow.Of<Seq<(Point3d Point, double Value)>>(() => rejected == 0 && samples.ForAll(static sample => sample.Point.IsValid && double.IsFinite(sample.Value))
                         ? Fin.Succ(samples)
                         : Fin.Fail<Seq<(Point3d Point, double Value)>>(op.InvalidResult())))),
             streamBundleCase: static (s, mode) => ProjectSamples<TOut, StreamlineTrace>(
-                seeds: s.Seeds, domain: s.Item1, context: s.Item3, key: s.Item4,
+                seeds: s.Seeds, domain: s.Domain, context: s.Context, key: s.Key,
                 sample: (seed, model, op) => FlowKernel.Trace<StreamlineTrace>(source: mode.Field, seed: seed, initialStep: mode.InitialStep, integrator: mode.Integrator, termination: mode.Termination, context: model, key: op),
                 project: static (traces, rejected, receipt, op) => AtomProjection.Rows<ExtractionReceipt, TOut>(self: receipt, key: op, owner: typeof(SampledExtraction.StreamBundleCase),
                     ProjectionRow.Of<Seq<StreamlineTrace>>(() => rejected == 0 ? traces.TraverseM(trace => FlowKernel.ProjectTrace<StreamlineTrace>(trace: trace, key: op)).As() : Fin.Fail<Seq<StreamlineTrace>>(op.InvalidResult())),

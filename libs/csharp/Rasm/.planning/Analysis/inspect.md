@@ -13,7 +13,7 @@ Face metrics are ngon-aware by construction: `MeshMetric` `[SmartEnum<int>]` (Ed
 
 - Owner: `Topologies` `[Union]` `[SkipUnionOps]` — `KindCase` (the `Domain/normalization` `Kind`/`Topology`/`string` classification of any admitted geometry), `DomainsCase` (`Interval` streams — one for curves, U then V for surfaces, surface-like inputs lowered through the `SurfaceForm` lease), `SolidOrientationCase` (`BrepSolidOrientation` — mesh `SolidOrientation()` int mapped onto the SAME enum, brep property read directly), `ComponentsCase` (connected components — `Mesh.SplitDisjointPieces` / `Brep.GetConnectedComponents`, a valid single-component brep duplicating itself), `ContainsPointCase(Point3d)` (solid containment at model tolerance under `Requirement.SolidTopology`), `ScalarCase(TopologyScalar)`. `TopologyScalar` `[BoundaryAdapter]` `[SmartEnum<int>]` — eight rows binding the typed `Output` and the `[UseDelegateFromConstructor]` `Extract(GeometryBase, Op)` delegate: `Manifold` (`bool`), `Euler`/`BoundaryLoops`/`Genus`/`HoleCount`/`FaceCount`/`EdgeCount`/`VertexCount` (`int`), the count rows parameterized by mesh/brep count projections over ONE `ElementCountOf` fold.
 - Cases: `Topologies` `Kind` · `Domains` · `SolidOrientation` · `Components` · `ContainsPoint` · `Scalar` (6 declared; scalar factories `Manifold`/`Euler`/`BoundaryLoops`/`Genus`/`HoleCount`/`FaceCount`/`EdgeCount`/`VertexCount` preserve the flat vocabulary); `TopologyScalar` 8 rows.
-- Entry: `Topologies.Operation<TGeometry, TOut>()` — the family seam; every arm gates capability (`Capability.EvaluateTopology.Admits` for scalar/orientation/containment — the ONE surviving topology-evaluation row, its byte-identical solid twin collapsed; `Capability.CurveForm || Capability.SurfaceForm` admission for domains) and output type at build.
+- Entry: `Topologies.Operation<TGeometry, TOut>()` — the family seam; every arm gates capability (`Capability.EvaluateTopology.Admits` for scalar/orientation/containment — the ONE surviving topology-evaluation row, its byte-identical solid twin collapsed; `Capability.CurveForm || Capability.SurfaceForm` admission for domains) and output type at build. Context is demanded exactly where read — `Kind` (unit-aware classification) declares `requiresContext`, `ContainsPoint` demands through its `SolidTopology` requirement, and the scalar/domain/orientation/component rows run scope-less under the default context; an operation that demands context it never reads is the deleted over-requirement.
 - Auto: `OnGeometry` is the ONE mesh/brep polymorphic gate — `Mesh` and `Brep` dispatch directly, `HasBrepForm` natives and brep-coercible inputs lower through the leased `BrepForm`, everything else rejects — every scalar, orientation, containment, and component operation folds through it, so brep-like admission is written ONCE; `EulerOf` computes `V − E + F` from mesh topology lists or brep tables, gating brep counts on `IsManifold`; `BoundaryLoopsOf` counts mesh naked-edge polylines or brep outer/inner loops containing a naked-valence trim edge; `GenusOf` demands oriented-manifold (mesh) or manifold (brep) then applies `g = (2C − χ − B) / 2` through the applicative three-way `(EulerOf, BoundaryLoopsOf, ComponentCountOf).Apply(…)`; `HoleCountOf` is `max(0, B − C)`; `ComponentCountOf` disposes the split pieces it counts.
 - Receipt: none on a dedicated rail — scalars project onto `bool`/`int`/`Interval`/`Kind`/`Topology`/`string`/`BrepSolidOrientation`/geometry values admitted through the one oracle; `Components` re-emits owned `GeometryBase` pieces, disposing every piece on a failed typed projection.
 - Packages: RhinoCommon (`Mesh` `TopologyVertices`/`TopologyEdges`/`Faces`/`GetNakedEdges`/`SplitDisjointPieces`/`IsManifold`/`IsPointInside`/`SolidOrientation`, `Brep` `Vertices`/`Edges`/`Faces`/`Loops`/`Trims`/`IsManifold`/`IsPointInside`/`SolidOrientation`/`GetConnectedComponents`, `BrepLoopType`, `EdgeAdjacency`, `BrepSolidOrientation`), `Rasm.Domain` (`Kind` capability web + `KindOf`, `BrepForm`/`SurfaceForm` leases, `Requirement.SolidTopology`, `Op`/`Fault` rail), Thinktecture.Runtime.Extensions (`[UseDelegateFromConstructor]` generated delegate binding), LanguageExt.Core.
@@ -36,7 +36,8 @@ namespace Rasm.Analysis;
 // --- [TYPES] --------------------------------------------------------------------------------
 [SkipUnionOps]
 [Union]
-public partial record Topologies {
+public abstract partial record Topologies {
+    private Topologies() { }
     public sealed record KindCase : Topologies;
     public sealed record DomainsCase : Topologies;
     public sealed record SolidOrientationCase : Topologies;
@@ -86,9 +87,9 @@ public static partial class Analyze {
         Op key = Op.Of();
         return (Capability.Universal(type: typeof(TGeometry)) || Rasm.Domain.Kind.Of(type: typeof(TGeometry)).IsSome)
             ? typeof(TOut) switch {
-                Type t when t == typeof(Kind) => KernelLift<TGeometry, Kind, Op>(key: key, state: key, extract: static (op, g, ctx) => g.KindOf(context: ctx).Bind(k => op.Accept(value: k))).As<TGeometry, TOut>(key: key),
-                Type t when t == typeof(string) => KernelLift<TGeometry, string, Op>(key: key, state: key, extract: static (op, g, ctx) => g.KindOf(context: ctx).Bind(k => op.Accept(value: k.ToString(format: null, formatProvider: CultureInfo.InvariantCulture)))).As<TGeometry, TOut>(key: key),
-                Type t when t == typeof(Topology) => KernelLift<TGeometry, Topology, Op>(key: key, state: key, extract: static (op, g, ctx) => g.KindOf(context: ctx).Bind(k => op.Accept(value: k.Topology))).As<TGeometry, TOut>(key: key),
+                Type t when t == typeof(Kind) => KernelLift<TGeometry, Kind, Op>(key: key, state: key, extract: static (op, g, ctx) => g.KindOf(context: ctx).Bind(k => op.Accept(value: k)), requiresContext: true).As<TGeometry, TOut>(key: key),
+                Type t when t == typeof(string) => KernelLift<TGeometry, string, Op>(key: key, state: key, extract: static (op, g, ctx) => g.KindOf(context: ctx).Bind(k => op.Accept(value: k.ToString(format: null, formatProvider: CultureInfo.InvariantCulture))), requiresContext: true).As<TGeometry, TOut>(key: key),
+                Type t when t == typeof(Topology) => KernelLift<TGeometry, Topology, Op>(key: key, state: key, extract: static (op, g, ctx) => g.KindOf(context: ctx).Bind(k => op.Accept(value: k.Topology)), requiresContext: true).As<TGeometry, TOut>(key: key),
                 _ => key.Unsupported<TGeometry, TOut>(),
             }
             : key.Unsupported<TGeometry, TOut>();
@@ -181,7 +182,7 @@ public static partial class Analyze {
             onBrep: b => (BoundaryLoopsOf(geometry: b, op: op), ComponentCountOf(geometry: b, op: op)).Apply(static (boundaries, components) => Math.Max(val1: 0, val2: boundaries - components)).As());
     internal static Fin<int> ElementCountOf<TG>(TG geometry, Op op, Func<Mesh, int> meshCount, Func<Brep, int> brepCount) where TG : notnull =>
         OnGeometry(geometry: geometry, op: op, onMesh: m => Fin.Succ(meshCount(arg: m)), onBrep: b => Fin.Succ(brepCount(arg: b)));
-    private static Operation<TGeometry, TValue> KernelLift<TGeometry, TValue, TState>(Op key, TState state, Func<TState, TGeometry, Context, Fin<Seq<TValue>>> extract, Requirement? requirement = null, bool requiresContext = true) where TGeometry : notnull =>
+    private static Operation<TGeometry, TValue> KernelLift<TGeometry, TValue, TState>(Op key, TState state, Func<TState, TGeometry, Context, Fin<Seq<TValue>>> extract, Requirement? requirement = null, bool requiresContext = false) where TGeometry : notnull =>
         Operation<TGeometry, TValue>.Build(
             key: key, requirement: requirement, requiresContext: requiresContext, state: (State: state, Extract: extract),
             evaluator: static (s, geometry) =>
@@ -242,7 +243,8 @@ namespace Rasm.Analysis;
 // --- [TYPES] --------------------------------------------------------------------------------
 [SkipUnionOps]
 [Union]
-public partial record Meshes {
+public abstract partial record Meshes {
+    private Meshes() { }
     public sealed record SamplesCase(MeshSampleGroup Group) : Meshes;
     public sealed record FaceQualityCase(MeshMetric Metric) : Meshes;
     public sealed record FaceShapeCase : Meshes;

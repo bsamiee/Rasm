@@ -42,7 +42,7 @@ Use this skill with `coding-csharp` for `.cs` specs/testkit code, `coding-bash` 
 |  [02]   | Testkit          | `tests/csharp/_testkit` (`Rasm.TestKit`, host-free)         | Law algebra, reusable generators, numeric oracles, seam probes, manifest census, law-coverage gate.              |
 |  [03]   | Scenario SDK     | `tests/csharp/_scenariokit` (`Rasm.ScenarioKit`)            | Host-aware scenario attribute, evidence context, document scope, and viewport capture surfaces.                  |
 |  [04]   | Runtime scenario | `tests/csharp/scenarios` (`Rasm.Scenarios`)                 | Host runtime APIs, native validity, UI marshaling, document/canvas behavior proven through bridge evidence.      |
-|  [05]   | Mutation         | `.config/stryker-config.json` via the repo mutation route  | Explicit Stryker MTP survivor discovery over the solution; zero discovery fails the rail.                        |
+|  [05]   | Mutation         | root `stryker-config.json` via the repo mutation route  | Explicit Stryker MTP survivor discovery over the solution; zero discovery fails the rail.                        |
 |  [06]   | Architecture     | `tests/csharp/_architecture`                                | Assembly dependency/cycle laws, manifest census laws, and infra-primitive falsification proving both kits.      |
 |  [07]   | Benchmark        | `tests/csharp/_benchmarks`                                  | Managed hot-path measurement and the regression gate verb outside xUnit.                                         |
 
@@ -117,7 +117,7 @@ Scenario content lives in `tests/csharp/scenarios`; the SDK is `Rasm.ScenarioKit
 |  [01]   | xUnit v3        | MTP rail, assertions, fixtures, `TheoryData<T1..T15>`, `TheoryDataRow`, `MatrixTheoryData`, runner JSON.    |
 |  [02]   | CsCheck         | `Gen`/`Sample`, shrink/replay, classify, chi-squared, model-based, parallel, regression-hash, `Faster`.     |
 |  [03]   | coverlet.MTP    | Opt-in managed coverage map.                                                                                 |
-|  [04]   | Stryker.NET     | Explicit MTP mutation over the solution through `.config/stryker-config.json`.                               |
+|  [04]   | Stryker.NET     | Explicit MTP mutation over the solution through the root `stryker-config.json`.                               |
 |  [05]   | Verify          | Stable artifact snapshots only; `Verify.DiffPlex` renders string diffs beside `Verify.XunitV3` consumers.   |
 |  [06]   | ArchUnitNET     | Assembly boundary laws.                                                                                      |
 |  [07]   | BenchmarkDotNet | Benchmark console project with the regression gate verb.                                                     |
@@ -149,7 +149,7 @@ Current local facts:
 - There is no user-facing `IAssemblyFixture<T>` API; use `[assembly: AssemblyFixture(...)]` plus constructor injection.
 - xUnit typed theory rows/data exist through arity 15.
 - `Spec.Metamorphic` is a relation-table law family over `Spec.ForAll`, not CsCheck `SampleMetamorphic`; the dual-path CsCheck form is `Spec.DualPath`.
-- Treat Stryker zero discovery as a failed mutation rail; thresholds live in `.config/stryker-config.json`, never in specs or prose.
+- Treat Stryker zero discovery as a failed mutation rail; thresholds live in the root `stryker-config.json`, never in specs or prose.
 
 ---
 ## [06]-[VALIDATION]

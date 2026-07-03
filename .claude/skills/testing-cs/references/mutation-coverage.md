@@ -18,7 +18,7 @@
 - Target the repo-declared threshold for eligible managed code, never for host-runtime rails.
 - Classify survivors as missing oracle, equivalent mutant, runtime-owned path, or product bug.
 - Improve existing laws before adding branch-by-branch tests.
-- Use `--mutation changed` for bounded diagnostics before enforcing full mutation; thresholds live in `.config/stryker-config.json`.
+- Use `--mutation changed` for bounded diagnostics before enforcing full mutation; thresholds live in the root `stryker-config.json`.
 - The quality wrapper applies a whole-process timeout. Stryker owns mutant scheduling; selected mutants plus timed-out mutants mean the rail ran.
 - Mutation uses an advisory lock. Live contention fails fast; unlocked stale lock files are reused automatically.
 

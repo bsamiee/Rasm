@@ -213,8 +213,8 @@ TOOLS: tuple[Tool, ...] = (
         input_flag=("--project",),
     ),
     Tool("dotnet-test", DOTNET, ("test", "--list-tests", "{filter*}"), PROJECT, CS, Claim.TEST, mode=Mode.LIST, input_flag=("--project",)),
-    # Stryker.NET runs from the empty staged work root: the config file pins mutation policy, {solution} anchors the
-    # real tree, and {output} routes reports to the pre-created report root so no sandbox litter escapes .artifacts.
+    # Stryker.NET runs from the empty staged work root: {config}/{solution}/{output} are absolute anchors into the
+    # real tree (root stryker-config.json pins policy; the pre-created report root keeps sandbox litter in .artifacts).
     Tool(
         "dotnet-stryker",
         DOTNET,
@@ -228,7 +228,7 @@ TOOLS: tuple[Tool, ...] = (
             "--mutation-level",
             "Standard",
             "--config-file",
-            ".config/stryker-config.json",
+            "{config}",
             "--solution",
             "{solution}",
             "--output",

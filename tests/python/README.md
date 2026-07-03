@@ -57,7 +57,7 @@ The marker taxonomy is closed and declared in `pyproject.toml`; the runtime plug
 |  [04]   | `benchmark`  | measurement session, excluded from the default run                                     |
 |  [05]   | `mutation`   | mutation-acceptance and survivor-triage laws                                           |
 
-The default run is the unit lane: sockets disabled through pytest-socket, benchmarks deselected, the `rasm` profile active. The `network` and `subprocess` markers are the Python spelling of the integration lane. The mutation lane is a staged gate under assay: mutmut policy lives in `pyproject.toml` `[tool.mutmut]` with the absolute-path coverage side-file `.config/coverage-mutmut.ini`, and `subprocess`-marked tests stay out because children execute the unmutated tree.
+The default run is the unit lane: sockets disabled through pytest-socket, benchmarks deselected, the `rasm` profile active. The `network` and `subprocess` markers are the Python spelling of the integration lane. The mutation lane is a staged gate under assay: mutmut policy lives in `pyproject.toml` `[tool.mutmut]` with the absolute-path coverage side-file `.config/coverage-mutmut.ini`, and `subprocess`-marked tests stay out because children execute the unmutated tree. The config's per-mutant timeout bounds cap any bare `mutmut run`; concurrency is CLI-owned (`--max-children`, assay-governed).
 
 ## [06]-[SNAPSHOTS]
 

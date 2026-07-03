@@ -289,7 +289,7 @@ public abstract partial record VectorIntent {
         componentsCase: static (state, intent) =>
             from span in VectorSpan.Of(anchor: intent.Anchor, vector: intent.Value, context: state.Context, key: state.Key)
             from components in span.Components(frame: intent.Basis, key: state.Key)
-            from output in AtomProjection.Self<ValueTuple<double, double>, TOut>(value: components, key: state.Key, owner: typeof(VectorSpan))
+            from output in AtomProjection.Self<(double X, double Y), TOut>(value: components, key: state.Key, owner: typeof(ComponentsCase))
             select output,
         relationCase: static (state, intent) =>
             from relation in VectorRelation.Of(a: intent.A, b: intent.B, context: state.Context, key: state.Key)

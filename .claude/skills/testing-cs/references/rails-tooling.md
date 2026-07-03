@@ -24,7 +24,7 @@ Managed gates isolate build output under the repo-owned artifact root. Mutation 
 ---
 ## [02]-[MUTATION]
 
-Stryker runs in MTP solution mode; `.config/stryker-config.json` owns test-runner, solution, baseline, thresholds, and reporters, and every invocation carries it explicitly. Zero discovery fails the rail — with empty lib shells a solution mutation run is unsupported, never a green pass.
+Stryker runs in MTP solution mode; the root `stryker-config.json` owns test-runner, solution, concurrency, output routing, baseline, thresholds, and reporters — auto-discovered by a bare `dotnet stryker`, passed explicitly by every assay invocation. Zero discovery fails the rail — with empty lib shells a solution mutation run is unsupported, never a green pass.
 
 ```bash
 <quality-router> self-test

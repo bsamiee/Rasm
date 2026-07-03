@@ -5,6 +5,10 @@
         "configFile": "vitest.config.ts"
     },
     "mutate": ["libs/typescript/**/src/**/*.{ts,tsx}", "!**/*.{test,spec}.{ts,tsx}", "!**/*.d.ts"],
+    "concurrency": 4,
+    "dryRunTimeoutMinutes": 5,
+    "timeoutMS": 5000,
+    "timeoutFactor": 1.5,
     "tempDirName": ".cache/stryker/tmp",
     "incremental": true,
     "incrementalFile": ".cache/stryker/incremental.json",

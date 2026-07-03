@@ -1,4 +1,4 @@
-# [TS_SERVICES_AND_LAYERS]
+# [TYPESCRIPT_SERVICES_AND_LAYERS]
 
 Capability is typed dataflow: a dependency is a Tag in the requirement channel, the Layer graph is the only construction mechanism, and this page owns the four decisions that follow — which owner form mints the Tag, which edge combinator wires the graph, where the graph becomes a runtime, and how a substitute enters. The owner is one `Effect.Service` class carrying Tag, default Layer, constructor, and accessors under one name — the interface-plus-tag-plus-layer triple is the ceremony this page deletes. Requirement pressure is a three-tier ladder the type system enforces: a `Context.Tag` read adds to `R` and the root must answer it, a `Context.Reference` read costs nothing because its default answers, and an `Effect.serviceOption` read costs nothing because absence is `Option`. Wiring is algebra, not assembly: `provide` hides an edge, `provideMerge` republishes it, `fresh` breaks sharing, `project` narrows, `unwrapEffect` lets a value decide the shape, and one shared layer reference builds once across every arm of a diamond. The root's declared annotation — `Layer.Layer<Out>` with error and requirement defaulted to `never` — is the wiring proof, failed at the declaration rather than the run seam. A definition names no engine; the root selects one. Substitution is Layer provision against the same Tag, never a module patch. The named defect is wiring sprawl: beside-interfaces, module-level live singletons, parameter-drilled dependencies, per-call graph rebuilds, and mock frameworks.
 
@@ -77,7 +77,7 @@ class Registry extends Effect.Service<Registry>()("Registry", {
   accessors: true,
 }) {}
 
-// --- [EXPORTS] ---------------------------------------------------------------------------
+// --- [EXPORTS] --------------------------------------------------------------------------
 
 export { Budget, Probe, Registry }
 ```
@@ -142,7 +142,7 @@ const audit: Layer.Layer<Meter> = Meter.DefaultWithoutDependencies.pipe(Layer.pr
 const wired: Layer.Layer<Store | Meter | Conn> = _domain.pipe(Layer.provideMerge(_ConnLive))
 const root: Layer.Layer<Store | Meter | Sender> = Layer.mergeAll(_domain, _SenderLive)
 
-// --- [EXPORTS] ---------------------------------------------------------------------------
+// --- [EXPORTS] --------------------------------------------------------------------------
 
 export { Conn, Meter, Sender, Store, audit, root, wired }
 ```
@@ -155,12 +155,12 @@ export { Conn, Meter, Sender, Store, audit, root, wired }
 - Reject: an abstract class or branded interface as the port — the Tag already carries nominal identity and the class form invites inheritance.
 
 [ROOT_SELECTION]:
-- Law: the engine roster is one `as const satisfies Record<string, Layer.Layer<Port>>` table — `satisfies` validates every entry against the port without widening the keys, the engine union derives as `keyof typeof` so admission (`Config.literal(...Struct.keys(table))`) and selection (`table[kind]`) both read the table, and adding an engine is one row that updates the config validator, the type, and the dispatch in the same edit.
+- Law: the engine roster is one interior `as const satisfies Record<string, Layer.Layer<Port>>` table — the engine union derives as `keyof typeof`, so admission (`Config.literal(...Struct.keys(table))`) and selection (`table[kind]`) read one anchor, and adding an engine is one row that updates the config validator, the type, and the dispatch in the same edit.
 - Law: selection composes as `Layer.unwrapEffect` over the config read — the decision is itself an effect in the layer algebra, its `ConfigError` rides the layer's error channel, and the root that provides the selected engine still proves `never, never` or declares the config fault, one line either way.
 - Use: `Layer.succeed(Port, Port.of({ … }))` as the zero-construction engine — the same table row shape serves a live engine, a stub, and a recorded fake.
 
 ```typescript
-import { Config, Context, Data, Effect, Layer, Ref, Struct, type ConfigError } from "effect"
+import { Config, type ConfigError, Context, Data, Effect, Layer, Ref, Struct } from "effect"
 
 class TransportFault extends Data.TaggedError("TransportFault")<{ readonly reason: string }> {}
 
@@ -202,7 +202,7 @@ const TransportLive: Layer.Layer<Transport, ConfigError.ConfigError> = Layer.unw
 const relayed = (frames: ReadonlyArray<string>): Effect.Effect<Array<string>, TransportFault, Transport> =>
   Transport.pipe(Effect.flatMap((transport) => Effect.forEach(frames, transport.dispatched, { concurrency: 4 })))
 
-// --- [EXPORTS] ---------------------------------------------------------------------------
+// --- [EXPORTS] --------------------------------------------------------------------------
 
 export { Transport, TransportFault, TransportLive, relayed }
 ```
@@ -213,6 +213,7 @@ export { Transport, TransportFault, TransportLive, relayed }
 - Law: the boot module is the one imperative seam — it makes runtimes, chains `dispose`, and nothing else in the codebase calls a run method; a process whose entire life is the graph boots with `Layer.launch` — build, suspend forever, teardown as interruption — and a host that calls in repeatedly — browser shell, worker bridge, foreign callback registry — holds a `ManagedRuntime.make(root)` whose `runPromise`/`runFork`/`runSync` methods carry the built context into every call, so the graph builds once and the per-call rebuild in chooser row `[11]` cannot exist.
 - Law: several runtimes share acquisitions by sharing one `Layer.MemoMap` — mint it with `Layer.makeMemoMap`, pass it to each `ManagedRuntime.make(layer, memo)` — so a host runtime and a view runtime referencing the same layer consts hold the same instances, and disposal is per-runtime while the shared node lives until its last holder releases.
 - Exemption: `dispose` returns a `Promise` and the boot seam chains it natively — this module is the platform-forced edge where `Promise` is legal.
+- Boundary: the `runMain` boot mechanics, signal draining, and per-runtime bindings are `boundaries.md`'s; this page owns which runtime owner the process holds.
 
 [KEYED_SCOPES]:
 - Law: a resource family keyed by a runtime value — tenant, session, shard, region — is one `LayerMap.Service` owner: `lookup: (key) => Layer` declares how a key becomes a subgraph, `idleTimeToLive` declares when an unreferenced subgraph dies, and the class statics do the rest — `.get(key)` yields the keyed Layer to provide, `.runtime(key)` yields a keyed runtime, `.invalidate(key)` evicts — so per-key wiring, caching, refcounting, and eviction are one declaration instead of a hand map of runtimes.
@@ -269,7 +270,7 @@ const served = (tenant: string, key: string): Promise<string> =>
 
 const halted = (): Promise<void> => board.dispose().then(() => host.dispose())
 
-// --- [EXPORTS] ---------------------------------------------------------------------------
+// --- [EXPORTS] --------------------------------------------------------------------------
 
 export { Roster, RosterAuto, Tenants, Vault, board, halted, host, served }
 ```
@@ -334,7 +335,7 @@ layer(TestGraph)("journal", (it) => {
     }))
 })
 
-// --- [EXPORTS] ---------------------------------------------------------------------------
+// --- [EXPORTS] --------------------------------------------------------------------------
 
 export {}                                                    // the collector call is the module's one side effect; the empty block is the structural proof
 ```

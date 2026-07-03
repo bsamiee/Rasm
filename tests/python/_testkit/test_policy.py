@@ -4,6 +4,7 @@
 
 from contextvars import ContextVar
 import enum
+import fnmatch
 from pathlib import Path  # noqa: TC003  # module-level _PYPROJECT assignment prevents deferral
 import sys
 import tomllib
@@ -33,8 +34,58 @@ _PYPROJECT: Path = REPO_ROOT / "pyproject.toml"
 
 _POLICY_MARKERS: frozenset[str] = frozenset({"benchmark", "mutation", "network", "property"})
 
-# Root mutants/ means mutmut ran from the repository root instead of the staged mutation workdir.
-_LITTER_DIRS: frozenset[str] = frozenset({".hypothesis", ".benchmarks", ".coverage", ".approval_tests_temp", "mutants", ".mutants"})
+# Repo-root residency is a closed allowlist: an unlisted entry is tool litter (a tool ran unrouted from root)
+# or an unreviewed surface — route its output under .cache/ or .artifacts/, or review it and extend the roster.
+_ROOT_ALLOWLIST: frozenset[str] = frozenset({
+    ".DS_Store",
+    ".archive",
+    ".artifacts",
+    ".cache",
+    ".claude",
+    ".config",
+    ".editorconfig",
+    ".git",
+    ".gitattributes",
+    ".gitignore",
+    ".nx",
+    ".rules",
+    ".venv",
+    ".vscode",
+    "AGENTS.md",
+    "CLAUDE.md",
+    "Directory.Build.props",
+    "Directory.Build.targets",
+    "Directory.Packages.props",
+    "LICENSE",
+    "NuGet.config",
+    "README.md",
+    "Workspace.slnx",
+    "apps",
+    "biome.json",
+    "docs",
+    "global.json",
+    "libs",
+    "node_modules",
+    "nx.json",
+    "package.json",
+    "pnpm-lock.yaml",
+    "pnpm-workspace.yaml",
+    "pyproject.toml",
+    "sgconfig.yml",
+    "stryker-config.json",
+    "stryker.config.json",
+    "tests",
+    "tools",
+    "tsconfig.base.json",
+    "tsconfig.json",
+    "uv.lock",
+    "vite.config.ts",
+    "vite.factory.ts",
+    "vitest.config.ts",
+})
+
+# Campaign briefs, decisions, and specs land at root by workflow law.
+_ROOT_PATTERNS: tuple[str, ...] = ("RASM-*.md",)
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -294,7 +345,11 @@ def test_sustained_regression_gate_fires_and_stays_silent(tmp_path: Path) -> Non
 # --- [LITTER_CONTAINMENT_POLICY]
 
 
-def test_repo_root_has_no_tool_scratch_litter() -> None:
-    """Test tools must route scratch directories under configured cache/artifact homes."""
-    present = sorted(name for name in _LITTER_DIRS if (REPO_ROOT / name).exists())
-    assert not present, f"repo root collected test-tool litter (route each under .cache/ or .artifacts/): {present}"
+def test_repo_root_has_only_allowlisted_entries() -> None:
+    """Every repo-root entry is allowlisted by name or pattern, so any rogue tool write fails here by name."""
+    unexpected = sorted(
+        entry.name
+        for entry in REPO_ROOT.iterdir()
+        if entry.name not in _ROOT_ALLOWLIST and not any(fnmatch.fnmatch(entry.name, pattern) for pattern in _ROOT_PATTERNS)
+    )
+    assert not unexpected, f"unexpected repo-root entries (route tool output under .cache/ or .artifacts/, or review and allowlist): {unexpected}"

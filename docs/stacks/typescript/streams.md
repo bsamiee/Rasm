@@ -1,4 +1,4 @@
-# [STREAMS]
+# [TYPESCRIPT_STREAMS]
 
 Dataflow earns a `Stream` at exactly three signals: the source is unbounded or arrives over time, the consumer must observe elements before the source ends, or a window, backpressure bound, or resource lifetime shapes the flow. `Stream<A, E, R>` is the multi-valued `Effect` — the same typed error channel, the same requirement channel, chunked pull underneath — so a pipeline is one declaration whose state, windows, fan geometry, ingress policy, and batch collapse all attach as typed values on the owner, and the moment none of the three signals holds, the carrier is refused: bounded pure data folds without one, bounded effectful data traverses the rail.
 
@@ -31,23 +31,22 @@ Three discriminants select the carrier — boundedness, effectfulness, increment
 [CARRIER_SELECT]:
 - Law: bounded plus pure folds without a carrier — `Chunk.reduce` over the admitted collection; bounded plus effectful traverses the rail — `Effect.forEach` with the degree explicit; unbounded, incremental, windowed, or resource-scoped dataflow is a `Stream`, the only form whose consumption is chunked pull with backpressure.
 - Law: `Stream<A, E, R>` shares the rail's channels — faults are tagged values in `E`, capability rides `R` — and returns to the rail only at a terminal: `Stream.runFold` for one value, `Stream.run(sink)` for a composed consumer, `Stream.runDrain` for effects-only flow, `Stream.runForEach` for a per-element effect, and `Stream.runCollect` only at a tail already proven bounded, because it materializes the whole remainder.
-- Law: one entrypoint owns batch and feed — overload signatures discriminate `Chunk` from `Stream` on the input value and conditionally return the value or the rail; seed and step are shared declarations, so the modalities cannot drift, and the overload implementation is the single sanctioned statement seam: one `return` over one ternary.
+- Law: one entrypoint owns batch and feed — overload signatures discriminate `Chunk` from `Stream` on the input value and conditionally return the value or the rail; seed and step are shared declarations, so the modalities cannot drift, and the overload set with its statement seam is `surfaces-and-dispatch.md`'s settled form.
 - Reject: `Stream.fromIterable` wrapped around in-memory data to fold it; `Stream.runCollect` on an unbounded source; a `digestChunk`/`digestStream` twin pair; an array pushed inside `runForEach` — the fold owns accumulation.
 - Boundary: `Chunk` algebra is `values.md`'s; `Effect.forEach` degrees and fiber ownership are `concurrency.md`'s — this page owns the selection between them and everything the `Stream` branch opens.
 
 ```typescript
-import { Chunk, Stream } from "effect"
-import type { Effect } from "effect"
+import { Chunk, type Effect, Number, Stream } from "effect"
 
 type Reading = { readonly key: string; readonly value: number }
 type Digest = { readonly count: number; readonly total: number; readonly high: number }
 
-const _SEED: Digest = { count: 0, total: 0, high: Number.NEGATIVE_INFINITY }
+const _SEED: Digest = { count: 0, total: 0, high: -Infinity }
 
 const _folded = (digest: Digest, reading: Reading): Digest => ({
   count: digest.count + 1,
   total: digest.total + reading.value,
-  high: Math.max(digest.high, reading.value),
+  high: Number.max(digest.high, reading.value),
 })
 
 function digest(readings: Chunk.Chunk<Reading>): Digest
@@ -60,7 +59,7 @@ function digest<E, R>(
     : Stream.runFold(readings, _SEED, _folded)
 }
 
-// --- [EXPORTS] -------------------------------------------------------------------------
+// --- [EXPORTS] --------------------------------------------------------------------------
 
 export { digest }
 export type { Digest, Reading }
@@ -78,7 +77,7 @@ State that threads element-to-element lives inside the pipeline as a fold accumu
 - Boundary: cross-fiber shared state is `concurrency.md`'s `Ref`/`STM`; the accumulator here is pipeline-local and single-fiber by construction, so reaching for a cell inside a pipeline marks state that belongs to the fold.
 
 ```typescript
-import { HashMap, Option, Stream } from "effect"
+import { HashMap, Number, Option, Stream } from "effect"
 
 type Sample = { readonly key: string; readonly value: number }
 type Motion = { readonly key: string; readonly shift: number; readonly arrival: boolean }
@@ -98,9 +97,9 @@ const motions = <E, R>(samples: Stream.Stream<Sample, E, R>): Stream.Stream<Moti
   Stream.mapAccum(samples, HashMap.empty<string, number>(), _advanced)
 
 const crest = <E, R>(samples: Stream.Stream<Sample, E, R>): Stream.Stream<number, E, R> =>
-  Stream.scan(samples, Number.NEGATIVE_INFINITY, (high, sample) => Math.max(high, sample.value))
+  Stream.scan(samples, -Infinity, (high, sample) => Number.max(high, sample.value))
 
-// --- [EXPORTS] -------------------------------------------------------------------------
+// --- [EXPORTS] --------------------------------------------------------------------------
 
 export { crest, motions }
 export type { Motion, Sample }
@@ -123,8 +122,7 @@ A window is a pair of policy values — a `Sink` deciding what closes a batch, a
 - Reject: count-only batching of variable-size payloads; a byte counter threaded through `mapAccum` to fake a weighted window; a flush raced against a hand timer.
 
 ```typescript
-import { Chunk, Function, Schedule, Sink, Stream } from "effect"
-import type { Duration } from "effect"
+import { Chunk, type Duration, Function, Schedule, Sink, Stream } from "effect"
 
 type Entry = { readonly key: string; readonly payload: string }
 type Parcel = { readonly entries: Chunk.Chunk<Entry>; readonly weight: number }
@@ -161,7 +159,7 @@ const parcels: {
     Stream.aggregateWithin(entries, _packed(budget), Schedule.fixed(cadence)),
 )
 
-// --- [EXPORTS] -------------------------------------------------------------------------
+// --- [EXPORTS] --------------------------------------------------------------------------
 
 export { parcels }
 export type { Entry, Parcel }
@@ -228,7 +226,7 @@ const reconciled = <E1, R1, E2, R2>(
     order: Order.string,
   })
 
-// --- [EXPORTS] -------------------------------------------------------------------------
+// --- [EXPORTS] --------------------------------------------------------------------------
 
 export { fused, reconciled, totals }
 export type { Ledger, Pulse, Sample }
@@ -241,7 +239,7 @@ The seam between a push world and pull geometry is a bridge with an explicit buf
 [SCOPED_BRIDGE]:
 - Law: a callback provider becomes a stream through `Stream.asyncScoped(register, policy)` — the registration is a scoped acquisition, so `Effect.acquireRelease` inside owns subscribe and unsubscribe as one bracket and teardown fires on completion, failure, and interruption alike; `emit.single`/`emit.chunk`/`emit.fail`/`emit.end` are the only crossings, and the listener maps provider faults into the tagged family before emitting, so the error channel stays typed at the seam.
 - Law: the bridge family discriminates on registration lifetime — `Stream.asyncScoped` when registration acquires, `Stream.asyncPush` when emission throughput dominates (its emit ops return `boolean`, not `Promise`), `Stream.asyncEffect` only when registration acquires nothing.
-- Law: a queue or pubsub handoff is `Stream.fromQueue(dequeue, { shutdown: true })` or `Stream.fromPubSub` — `shutdown: true` couples queue shutdown to stream end so the producer's close is the consumer's completion; the `Queue` itself is `concurrency.md`'s owner, arriving here as a value.
+- Law: a queue or pubsub handoff is `Stream.fromQueue(dequeue, { shutdown: true })` or `Stream.fromPubSub` — `shutdown: true` couples queue shutdown to stream end so the producer's close is the consumer's completion; the `Queue` itself is `concurrency.md`'s owner, arriving here as a value, and a cell's `SubscriptionRef.changes` arrives as the same already-typed feed.
 - Exemption: the provider's push callbacks are the platform-forced statement seam — emissions are `void`-discarded inside the listener, the one place the pipeline cannot be an expression.
 - Reject: a listener pushing into an outer array; `asyncEffect` where the registration subscribes — teardown would have no owner; an unsubscribe deferred to a consumer's cleanup instead of the bridge's own bracket.
 
@@ -251,8 +249,7 @@ The seam between a push world and pull geometry is a bridge with an explicit buf
 - Reject: a hand token bucket around `mapEffect`; sleep-loop pacing; shedding via a mutable counter inside `filter`.
 
 ```typescript
-import { Chunk, Data, Effect, Stream } from "effect"
-import type { Duration } from "effect"
+import { Chunk, Data, type Duration, Effect, Stream } from "effect"
 
 class FeedFault extends Data.TaggedError("FeedFault")<{ readonly reason: string }> {}
 
@@ -279,7 +276,7 @@ const tempered = <A>(feed: Feed<A>, tempo: Tempo): Stream.Stream<A, FeedFault> =
     Stream.throttle({ cost: Chunk.size, units: tempo.lag, duration: tempo.spare, strategy: "shape" }),
   )
 
-// --- [EXPORTS] -------------------------------------------------------------------------
+// --- [EXPORTS] --------------------------------------------------------------------------
 
 export { FeedFault, tempered }
 export type { Feed, Tempo }
@@ -301,8 +298,7 @@ N identical lookups inside one flow are one declared request family and one reso
 - Boundary: the resolver's provider call is `boundaries.md`'s seam — material is decoded before the resolver distributes it; this page owns only the collapse geometry.
 
 ```typescript
-import { Array, Data, Effect, HashMap, Option, Request, RequestResolver, Stream } from "effect"
-import type { Duration } from "effect"
+import { Array, Data, type Duration, Effect, HashMap, Option, Request, RequestResolver, Stream } from "effect"
 
 type Shape = { readonly id: string; readonly rank: number }
 
@@ -364,7 +360,7 @@ class Lookup extends Request.TaggedClass("Lookup")<Shape, LookupFault, { readonl
     )
 }
 
-// --- [EXPORTS] -------------------------------------------------------------------------
+// --- [EXPORTS] --------------------------------------------------------------------------
 
 export { Lookup, LookupFault }
 export type { Page, Shape }

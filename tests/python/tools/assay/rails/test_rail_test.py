@@ -84,7 +84,7 @@ _SHELL_WITH_CONTENT_CSPROJ = (
     "<Project><PropertyGroup><AssayTestShell>true</AssayTestShell></PropertyGroup>"
     '<ItemGroup><ProjectReference Include="../../../../libs/csharp/Rasm/Rasm.csproj" /></ItemGroup></Project>'
 )
-_STRYKER_POLICY = ("--test-runner", "mtp", "--mutation-level", "Standard", "--config-file", ".config/stryker-config.json")
+_STRYKER_POLICY = ("--test-runner", "mtp", "--mutation-level", "Standard")
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -297,10 +297,23 @@ def test_mutation_args_compose_catalog_argv(assay_root: AssayHarness) -> None:
 
     scoped = _mutation_args(stryker, TestParams(mutation=MutationLane.CHANGED), settings, ("src/Foo.cs", "src/Bar.cs"))
     assert scoped is not None
-    output_dir = Path(str(settings.root)).resolve() / ".artifacts/csharp/stryker"
-    assert (scoped.solution, scoped.output) == (str(settings.solution), str(output_dir))
+    root = Path(str(settings.root)).resolve()
+    output_dir = root / ".artifacts/csharp/stryker"
+    config_file = root / "stryker-config.json"
+    assert (scoped.config, scoped.solution, scoped.output) == (str(config_file), str(settings.solution), str(output_dir))
     assert output_dir.is_dir(), "the rail pre-creates the Stryker report --output dir"
-    anchors = ("--solution", str(settings.solution), "--output", str(output_dir), "--mutate", "src/Foo.cs", "--mutate", "src/Bar.cs")
+    anchors = (
+        "--config-file",
+        str(config_file),
+        "--solution",
+        str(settings.solution),
+        "--output",
+        str(output_dir),
+        "--mutate",
+        "src/Foo.cs",
+        "--mutate",
+        "src/Bar.cs",
+    )
     _filled_law(scoped, stryker, ("tool", "run", "dotnet-stryker", "--", *_STRYKER_POLICY, *anchors))
 
     # Wrong filled shapes prove the transform is non-vacuous.
@@ -315,10 +328,10 @@ def test_mutation_rows_confine_every_path_to_artifacts() -> None:
     mutmut, stryker = _row("mutmut", Mode.MUTATION), _row("dotnet-stryker", Mode.MUTATION)
     assert stryker.stage.root == ".artifacts/csharp/stryker/work", "Stryker cwd (and its .stryker-tmp sandbox) is the staged work root"
     assert mutmut.stage.root == ".artifacts/python/mutmut/work", "mutmut cwd (and its mutants/ cache) is the staged work root"
-    assert all(part in stryker.command for part in _STRYKER_POLICY), "config is read-only and pinned; discovery-by-cwd is forgone"
-    # Every literal path token in both commands is a read-only .config anchor or a typed hole the rail fills under .artifacts.
+    assert all(part in stryker.command for part in (*_STRYKER_POLICY, "--config-file")), "policy is pinned; the rail fills {config} absolutely"
+    # Every path in both commands is a typed hole the rail fills; the root stryker-config.json additionally bounds bare runs by auto-discovery.
     literal_paths = [t for row in (mutmut, stryker) for t in row.command if "/" in t and "{" not in t]
-    assert literal_paths == [".config/stryker-config.json"]
+    assert literal_paths == []
 
 
 # --- [LAWS_CHECKS] -------------------------------------------------------------------------

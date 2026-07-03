@@ -2,6 +2,8 @@
     "stryker-config": {
         "test-runner": "mtp",
         "solution": "Workspace.slnx",
+        "concurrency": 4,
+        "output": ".artifacts/csharp/stryker",
         "baseline": {
             "enabled": true,
             "provider": "Disk"
