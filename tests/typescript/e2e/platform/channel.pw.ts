@@ -20,11 +20,13 @@ test.describe('websocket lane', () => {
 });
 
 test.describe('cohort isolation', () => {
-    test('two cohort clients hold isolated storage', async ({ duo }) => {
-        const [first, second] = await duo('/store');
-        await expect(first.getByTestId('held')).not.toBeEmpty();
-        await expect(second.getByTestId('held')).not.toBeEmpty();
-        expect(await first.getByTestId('held').textContent()).not.toBe(await second.getByTestId('held').textContent());
+    test('every cohort client holds pairwise-distinct storage', async ({ cohort }) => {
+        const clients = await cohort('/store', 3);
+        const held = await Promise.all(clients.map((client) => client.getByTestId('held').textContent()));
+        for (const slot of held) {
+            expect(slot).toBeTruthy();
+        }
+        expect(new Set(held).size).toBe(held.length);
     });
 
     test('one context shares storage across its pages — the isolation falsifier', async ({ context, hermetic, page }) => {

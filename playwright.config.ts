@@ -52,15 +52,21 @@ const config: PlaywrightTestConfig = defineConfig({
         ? [['blob', { outputDir: path.join(_ARTIFACTS, 'blob') }], ['github']]
         : [['list'], ['html', { open: 'never', outputFolder: path.join(_ARTIFACTS, 'report') }]],
     retries: _CI ? 2 : 0,
-    snapshotPathTemplate: '{testDir}/goldens/{projectName}/{testFilePath}/{arg}{ext}',
+    // Goldens key per-platform by decision: a Linux CI lane lands as a golden mint, never a break.
+    snapshotPathTemplate: '{testDir}/goldens/{projectName}/{platform}/{testFilePath}/{arg}{ext}',
     testDir: path.join(_ROOT, 'tests/typescript/e2e'),
     testMatch: '**/*.pw.ts',
     timeout: 30_000,
+    tsconfig: path.join(_ROOT, 'tests/typescript/e2e/tsconfig.json'),
     use: {
         actionTimeout: 10_000,
+        colorScheme: 'light',
+        locale: 'en-US',
         navigationTimeout: 15_000,
+        reducedMotion: 'reduce',
         screenshot: 'only-on-failure',
         testIdAttribute: 'data-testid',
+        timezoneId: 'UTC',
         trace: 'on-first-retry',
         video: 'retain-on-failure',
     },

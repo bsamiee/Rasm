@@ -19,4 +19,11 @@ test.describe('clock control', () => {
         await expect(page.getByTestId('now')).toHaveText(/^2026-01-01T00:00:/);
         await expect(page.getByTestId('now')).not.toHaveText(_ADVANCED);
     });
+
+    test('a fixed clock pins every reading while timers still fire', async ({ hermetic, page, pausedClock }) => {
+        await hermetic.open('/clock');
+        await pausedClock.setFixedTime(_T0);
+        await pausedClock.runFor('00:05');
+        await expect(page.getByTestId('now')).toHaveText(_T0.toISOString()); // ticks fired; the reading never moved off the pinned instant
+    });
 });

@@ -7,7 +7,7 @@ import { Option } from 'effect';
 type Kit = {
     readonly hermetic: { readonly open: (route: string) => Promise<void> };
     readonly pausedClock: Page['clock'];
-    readonly duo: (route: string) => Promise<readonly [Page, Page]>;
+    readonly cohort: (route: string, count: number) => Promise<ReadonlyArray<Page>>;
     readonly webauthn: { readonly id: string; readonly remove: () => Promise<void> };
 };
 
@@ -29,11 +29,12 @@ const _serve = async (context: BrowserContext): Promise<void> => {
 };
 
 // The one fixture tower: every platform capability is a row here, composed from kit data — never a
-// helper beside a spec.
+// helper beside a spec. Multi-client choreography is one parameterized cohort; a fixed-arity twin is
+// the rejected form.
 const test = base.extend<Kit>({
-    duo: async ({ browser }, use) => {
+    cohort: async ({ browser }, use) => {
         const opened: Array<BrowserContext> = [];
-        await use(async (route) => {
+        await use(async (route, count) => {
             const open = async (): Promise<Page> => {
                 const context = await browser.newContext();
                 opened.push(context);
@@ -42,7 +43,7 @@ const test = base.extend<Kit>({
                 await page.goto(`${Hermetic.origin}${route}`);
                 return page;
             };
-            return [await open(), await open()] as const;
+            return Promise.all(Array.from({ length: count }, open));
         });
         await Promise.all(opened.map((context) => context.close()));
     },
