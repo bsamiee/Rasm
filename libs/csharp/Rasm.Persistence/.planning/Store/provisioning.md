@@ -203,11 +203,10 @@ public abstract partial record ProvisionVerdict {
 // ctor; `Category` virtual; `Code`/`Message` inherited from `Error`), the SAME federation base the seam
 // `Rasm.Element/Projection/fault#FAULT_BAND` `ElementFault` (2500) and the `Rasm.Bim/Model/faults#FAULT_BAND` `BimFault`
 // (2600) realize — NOT `LanguageExt.Common.Expected`, whose `(string,int,Option)` `base(detail, code, None)` ctor (no
-// `Category` to override) is the deleted form. `[SkipUnionOps]` skips the generated implicit-conversion ops while the
-// generated `Switch`/`Map` survives; band membership is a per-case `Code` override and `Category` the telemetry label,
+// `Category` to override) is the deleted form. No `[GenerateUnionOps]` — the kernel union-ops generator is strictly
+// opt-in, so the band carries no per-case `SelfOp` and the `[Union]`-generated `Switch`/`Map` is untouched; band membership is a per-case `Code` override and `Category` the telemetry label,
 // so the case lifts BARE onto `Fin<T>` with no `.ToError()` hop and a retry reads `error.IsType<ServerFault.Unreachable>()`.
 // `IsTransient` stays an abstract per-case bit (the transient-vs-deterministic retry gate) the nested records override.
-[SkipUnionOps]
 [Union]
 public abstract partial record ServerFault : Expected, IValidationError<ServerFault> {
     private ServerFault() : base() { }
@@ -512,11 +511,10 @@ public readonly record struct EmbeddedFact(string Kind, long First, long Second,
 // protected ctor; `Category` virtual; `Code`/`Message` inherited from `Error`), the SAME federation base the seam
 // `Rasm.Element/Projection/fault#FAULT_BAND` `ElementFault` (2500) and the `Rasm.Bim/Model/faults#FAULT_BAND` `BimFault`
 // (2600) realize — NOT `LanguageExt.Common.Expected`, whose `(string,int,Option)` `base(detail, code, None)` ctor (no
-// `Category` to override) is the deleted form. `[SkipUnionOps]` skips the generated implicit-conversion ops while the
-// generated `Switch`/`Map` survives; band membership is a per-case `Code => 771x` override and `Category` the telemetry
+// `Category` to override) is the deleted form. No `[GenerateUnionOps]` — the kernel union-ops generator is strictly
+// opt-in, so the band carries no per-case `SelfOp` and the `[Union]`-generated `Switch`/`Map` is untouched; band membership is a per-case `Code => 771x` override and `Category` the telemetry
 // label, so the case lifts BARE onto `Fin<T>` with no `.ToError()` hop. `IsTransient` stays an abstract per-case bit (the
 // retry gate — only Busy is transient) the nested records override.
-[SkipUnionOps]
 [Union]
 public abstract partial record EmbeddedFault : Expected, IValidationError<EmbeddedFault> {
     private EmbeddedFault() : base() { }

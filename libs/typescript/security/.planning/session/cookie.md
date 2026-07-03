@@ -15,11 +15,11 @@
 [SPEC_AND_FAULT]:
 - Owner: `CookieSpec` is the attribute table — one row per cookie role carrying `{ name, options }`; `FramedCookie` is the framed value the edge writes; `CsrfFault` is the folder fault shape at 403. Cookie attributes are the web standard, so `CookieOptions` is a local shape, not a package member.
 - Packages: `session/token` supplies the `TokenPair`/`Session`; `sign/crypto` mints and compares the CSRF token; the edge applies each `FramedCookie` through `HttpServerResponse.setCookie`.
-- Boundary: `session/token` owns the token values; the edge owns the response write and the request read (extracting the CSRF cookie and header); this page owns only the attribute policy and the CSRF compare.
+- Boundary: `session/token` owns the token values; the edge owns the response write and the request read, lifting the raw cookie and header into `Option` at its own seam; this page owns only the attribute policy and the CSRF compare.
 - Growth: a new cookie role is one `CookieSpec` row; a `sameSite`/`path` change is a row edit that reframes every write with zero handler change.
 
 ```typescript
-import { DateTime, Duration, Effect, Redacted, Schema } from "effect"
+import { DateTime, Duration, Effect, Option, Redacted, Schema } from "effect"
 import { Crypto } from "../sign/crypto.ts"
 import type { TokenPair } from "./token.ts"
 
@@ -99,17 +99,13 @@ class Cookie extends Effect.Service<Cookie>()("security/session/Cookie", {
       })
     const clear = (): ReadonlyArray<FramedCookie> =>
       [_framed("access", Redacted.make(""), 0), _framed("refresh", Redacted.make(""), 0), _framed("csrf", Redacted.make(""), 0)]
-    const csrf = (): Effect.Effect<FramedCookie, CsrfFault> =>
-      cipher.token(_CSRF_ALPHABET, 32).pipe(
-        Effect.mapError(() => new CsrfFault({ reason: "absent" })),
-        Effect.map((token) => _framed("csrf", token)),
-      )
-    const verify = (cookieToken: string | undefined, headerToken: string | undefined): Effect.Effect<void, CsrfFault> =>
-      cookieToken === undefined || headerToken === undefined
-        ? Effect.fail(new CsrfFault({ reason: "absent" }))
-        : cipher.same(Redacted.make(cookieToken), headerToken)
-          ? Effect.void
-          : Effect.fail(new CsrfFault({ reason: "mismatch" }))
+    const csrf = (): Effect.Effect<FramedCookie> =>
+      cipher.token(_CSRF_ALPHABET, 32).pipe(Effect.orDie, Effect.map((token) => _framed("csrf", token)))
+    const verify = (cookieToken: Option.Option<string>, headerToken: Option.Option<string>): Effect.Effect<void, CsrfFault> =>
+      Option.match(Option.zipWith(cookieToken, headerToken, (held, presented) => cipher.same(Redacted.make(held), presented)), {
+        onNone: () => Effect.fail(new CsrfFault({ reason: "absent" })),
+        onSome: (matched) => (matched ? Effect.void : Effect.fail(new CsrfFault({ reason: "mismatch" }))),
+      })
     return { frame, clear, csrf, verify } as const
   }),
   dependencies: [Crypto.Default],

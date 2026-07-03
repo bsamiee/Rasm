@@ -7,7 +7,7 @@ import datetime as dt
 from decimal import Decimal
 import enum
 from math import ceil, floor
-from typing import TYPE_CHECKING, TypeAliasType, TypedDict, TypeForm
+from typing import get_args, TYPE_CHECKING, TypeAliasType, TypedDict, TypeForm
 
 from hypothesis import strategies as st
 import msgspec
@@ -35,6 +35,7 @@ class _Size(TypedDict):
 
 _EMPTY: _Schema = {}
 _CAP = 64  # Bound generated payloads for cheap encoding and shrinking.
+_NUM_CEILING = 1_000_000  # Unconstrained numerics span both signs; a one-sided default hides sign defects.
 
 _JSON_SCALAR: st.SearchStrategy[object] = st.one_of(
     st.none(), st.booleans(), st.integers(min_value=-1_000, max_value=1_000), st.text(min_size=0, max_size=16)
@@ -108,7 +109,7 @@ def _decimal_max(md: object, dp: object) -> Decimal | None:
 
 
 # One polymorphic surface over the closed msgspec node taxonomy.
-def _node(node: _mi.Type) -> st.SearchStrategy[object]:  # noqa: C901, PLR0911, PLR0912
+def _node(node: _mi.Type) -> st.SearchStrategy[object]:  # noqa: C901, PLR0911
     """Map one ``msgspec.inspect`` node to a codec-bounded strategy.
 
     Returns:
@@ -120,13 +121,13 @@ def _node(node: _mi.Type) -> st.SearchStrategy[object]:  # noqa: C901, PLR0911, 
     """
     match node:
         case _mi.IntType(ge=ge, gt=gt, le=le, lt=lt):
-            lo = ge if ge is not None else (gt + 1 if gt is not None else 0)
-            hi = le if le is not None else (lt - 1 if lt is not None else 1_000_000)
+            lo = ge if ge is not None else (gt + 1 if gt is not None else -_NUM_CEILING)
+            hi = le if le is not None else (lt - 1 if lt is not None else _NUM_CEILING)
             step = node.multiple_of
             return _multiples_int(lo, hi, step) if isinstance(step, int) else st.integers(min_value=lo, max_value=hi)
         case _mi.FloatType(ge=ge, gt=gt, le=le, lt=lt):
-            lo_f = ge if ge is not None else (gt if gt is not None else 0.0)
-            hi_f = le if le is not None else (lt if lt is not None else 1_000_000.0)
+            lo_f = ge if ge is not None else (gt if gt is not None else -float(_NUM_CEILING))
+            hi_f = le if le is not None else (lt if lt is not None else float(_NUM_CEILING))
             step_f = node.multiple_of
             return (
                 _multiples_float(lo_f, hi_f, step_f)
@@ -239,7 +240,7 @@ def _unwrap(schema: _Schema) -> _Schema:
 
 
 # One polymorphic surface over the pydantic-core schema algebra.
-def _pyd_node(schema: _Schema, defs: dict[str, _Schema]) -> st.SearchStrategy[object]:  # noqa: C901, PLR0911, PLR0912
+def _pyd_node(schema: _Schema, defs: dict[str, _Schema]) -> st.SearchStrategy[object]:  # noqa: C901, PLR0911
     """Map one ``pydantic-core`` schema node to a constraint-honoring strategy.
 
     Args:
@@ -256,7 +257,7 @@ def _pyd_node(schema: _Schema, defs: dict[str, _Schema]) -> st.SearchStrategy[ob
             hi_i = _ibound(leaf, "le", "lt", -1)
             mo = leaf.get("multiple_of")
             return (
-                _multiples_int(lo_i if lo_i is not None else -(_CAP * 1000), hi_i if hi_i is not None else _CAP * 1000, mo)
+                _multiples_int(lo_i if lo_i is not None else -_NUM_CEILING, hi_i if hi_i is not None else _NUM_CEILING, mo)
                 if isinstance(mo, int)
                 else st.integers(min_value=lo_i, max_value=hi_i)
             )
@@ -265,7 +266,7 @@ def _pyd_node(schema: _Schema, defs: dict[str, _Schema]) -> st.SearchStrategy[ob
             hi, excl_hi = _fbound(leaf, "le", "lt")
             mo_f = leaf.get("multiple_of")
             return (
-                _multiples_float(lo if lo is not None else -(_CAP * 1000.0), hi if hi is not None else _CAP * 1000.0, mo_f)
+                _multiples_float(lo if lo is not None else -float(_NUM_CEILING), hi if hi is not None else float(_NUM_CEILING), mo_f)
                 if isinstance(mo_f, int | float)
                 else st.floats(min_value=lo, max_value=hi, exclude_min=excl_lo, exclude_max=excl_hi, allow_nan=False, allow_infinity=False)
             )
@@ -284,12 +285,14 @@ def _pyd_node(schema: _Schema, defs: dict[str, _Schema]) -> st.SearchStrategy[ob
         case "str":
             return _text(leaf.get("min_length"), leaf.get("max_length"), leaf.get("pattern"))
         case "bytes":
-            mx_b = leaf.get("max_length")
-            return st.binary(max_size=mx_b if isinstance(mx_b, int) else 256)
+            mn_b, mx_b = leaf.get("min_length"), leaf.get("max_length")
+            return st.binary(min_size=mn_b if isinstance(mn_b, int) else 0, max_size=mx_b if isinstance(mx_b, int) else 256)
         case "bool":
             return st.booleans()
-        case "none" | "any":
+        case "none":
             return st.none()
+        case "any":
+            return _json_value()
         case "datetime":
             return st.datetimes(timezones=st.just(dt.UTC))
         case "date":
@@ -367,18 +370,30 @@ _REGISTERED: set[type] = set()
 
 
 # One entry point over alias, pydantic, msgspec, and native type-form algebras.
-def resolve[T](subject: TypeForm[T]) -> st.SearchStrategy[T]:  # noqa: PLR0912
-    """Register a constraint-bounded strategy for ``subject`` and return ``st.from_type(subject)``.
+def resolve[T](subject: TypeForm[T]) -> st.SearchStrategy[T]:
+    """Register a constraint-bounded strategy for ``subject`` and return its strategy.
 
     Args:
         subject: Concrete type, PEP 695 alias, union, ``Literal``, ``Annotated``, or type expression.
 
     Returns:
-        ``st.from_type(subject)`` producing valid, encode-clean instances of ``T``.
+        A strategy producing valid, encode-clean instances of ``T``.
     """
     if isinstance(subject, TypeAliasType):
         return resolve(subject.__value__)
-    if isinstance(subject, type) and subject not in _REGISTERED:
+    if not isinstance(subject, type):
+        # Non-class type forms — unions, Annotated metadata, Literal — route through the msgspec node
+        # algebra so constraints survive; member types register first so any from_type fallback lands
+        # on registered strategies instead of unconstrained builds.
+        for member in get_args(subject):
+            resolve(member) if isinstance(member, type | TypeAliasType) else None
+        try:
+            node = _mi.type_info(subject)
+        except TypeError:
+            return st.from_type(subject)
+        # The node algebra proves the element type; TypeForm cannot recover it statically.
+        return _node(node)  # type: ignore[return-value]  # ty: ignore[invalid-return-type]
+    if subject not in _REGISTERED:
         _REGISTERED.add(subject)
         if issubclass(subject, pydantic.BaseModel):
             model = subject

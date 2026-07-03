@@ -3,19 +3,27 @@
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
 from collections.abc import Callable  # noqa: TC003  # PEP 695 ParamSpec annotations are runtime-evaluated; TYPE_CHECKING guard breaks them
+from datetime import timedelta
 import enum
 import functools
 import importlib
 import inspect
 from pathlib import Path
+import sys
 from typing import TypeAliasType
+import weakref
 
 from hypothesis import event as hyp_event, given as hyp_given, settings as hyp_settings
 import msgspec
 import pytest
 
-from tests.python._testkit.runtime import PROFILE_DEFAULT
+from tests.python._testkit.runtime import REPO_ROOT
 
+
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+# bench_*.py are measurement sessions, never census members; laws live only in these module shapes.
+_LAW_GLOBS: tuple[str, ...] = ("test_*.py", "*_test.py")
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -29,11 +37,19 @@ class LawRecord(msgspec.Struct, frozen=True):
     subject_module: str = ""
 
 
+class Sut(msgspec.Struct, frozen=True):
+    """SUT registration: explicit exemptions plus the suite directory whose law modules census the package."""
+
+    exempt: frozenset[str] = frozenset()
+    suite: Path | None = None
+
+
 # --- [TABLES] ---------------------------------------------------------------------------
 
 MANIFEST: list[LawRecord] = []
-SUT_PACKAGES: dict[str, frozenset[str]] = {}
+SUT_PACKAGES: dict[str, Sut] = {}
 _CONSUMED: set[str] = set()
+_STAMPED: weakref.WeakSet[object] = weakref.WeakSet()
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -110,7 +126,7 @@ def spec[**P](
     *,
     given: bool = True,
     mutation: bool = False,
-    profile: str = PROFILE_DEFAULT,
+    profile: str | None = None,
     markers: tuple[str, ...] = (),
     timeout: float | None = None,
     law: str | None = None,
@@ -122,9 +138,10 @@ def spec[**P](
         subject: Type or callable whose strategy/law coverage is registered.
         given: True injects ``resolve(subject)`` as the rightmost positional argument.
         mutation: True also applies ``pytest.mark.mutation``.
-        profile: Registered Hypothesis profile name.
+        profile: Registered Hypothesis profile name to pin; ``None`` follows the session-active
+            profile, so mutation/CI/stress lanes govern undecorated laws through the CLI profile.
         markers: Extra pytest mark names to apply.
-        timeout: Hypothesis deadline in seconds; ``None`` inherits from the profile.
+        timeout: Hypothesis deadline in seconds; ``None`` inherits from the governing profile.
         law: Override law name in ``MANIFEST``; defaults to the decorated function's ``__name__``.
         events: Optional drawn-value event taggers for Hypothesis statistics.
 
@@ -133,20 +150,24 @@ def spec[**P](
     """
 
     def _decorator(fn: Callable[P, None]) -> Callable[P, None]:
-        if hasattr(fn, "__wrapped__"):
+        if fn in _STAMPED:
             msg = f"@spec double-decoration detected on {fn!r}; remove the duplicate decorator."
             raise TypeError(msg)
-
-        profile_settings = hyp_settings.get_profile(profile)
 
         match given:
             case True:
                 from tests.python._testkit.strategies import resolve  # noqa: PLC0415  # deferred to break import cycle
 
-                assert isinstance(subject, type), f"@spec given=True requires a type, got {subject!r}"
-                # Hypothesis must wrap before settings; wraps preserves the collected signature.
+                if not isinstance(subject, type):
+                    msg = f"@spec given=True requires a type, got {subject!r}"
+                    raise TypeError(msg)
+                # Hypothesis maps the positional strategy to fn's rightmost parameter and injects it as
+                # a KEYWORD argument, so event taggers read that name; wraps preserves the collected signature.
+                drawn = next(reversed(inspect.signature(fn).parameters), "")
                 target = (
-                    functools.wraps(fn)(lambda *args, **kwargs: ([hyp_event(tag(args[-1])) for tag in events], fn(*args, **kwargs))[-1])
+                    functools.wraps(fn)(
+                        lambda *args, **kwargs: ([hyp_event(tag(kwargs[drawn] if drawn in kwargs else args[-1])) for tag in events], fn(*args, **kwargs))[-1]
+                    )
                     if events
                     else fn
                 )
@@ -154,14 +175,23 @@ def spec[**P](
             case _:
                 with_given = fn
 
-        match timeout:
-            case None:
-                with_settings = hyp_settings(parent=profile_settings)(with_given)
-            case _:
-                with_settings = hyp_settings(parent=profile_settings, deadline=timeout)(with_given)
+        # Explicit settings attach only for a named pin or a deadline; hypothesis numeric deadlines are
+        # MILLISECONDS, so seconds convert here — and an unpinned law stays governed by the active profile.
+        pinned = hyp_settings.get_profile(profile) if profile is not None else None
+        deadline = timedelta(seconds=timeout) if timeout is not None else None
+        match (pinned, deadline):
+            case (None, None):
+                with_settings = with_given
+            case (None, ceiling):
+                with_settings = hyp_settings(deadline=ceiling)(with_given)
+            case (parent, None):
+                with_settings = hyp_settings(parent=parent)(with_given)
+            case (parent, ceiling):
+                with_settings = hyp_settings(parent=parent, deadline=ceiling)(with_given)
 
         all_marks = (*markers, *(("mutation",) if mutation else ()))
         result = functools.reduce(lambda acc, m: getattr(pytest.mark, m)(acc), all_marks, with_settings)
+        _STAMPED.add(result)  # identity stamp: the only durable double-decoration witness (@given sets no __wrapped__)
 
         fn_name: str = getattr(fn, "__name__", repr(fn))
         MANIFEST.append(
@@ -200,30 +230,73 @@ def consume_covers(module: object) -> None:
         MANIFEST.append(LawRecord(subject=_qualname(subject), law="covers", module=name, subject_module=getattr(subject, "__module__", "") or ""))
 
 
-def register_sut(package: str, *, exempt: frozenset[str] = frozenset()) -> None:
+def register_sut(package: str, *, exempt: frozenset[str] = frozenset(), suite: Path | None = None) -> None:
     """Record a SUT package for law-coverage gating.
 
-    Called once per project conftest. Multiple calls accumulate packages independently; a duplicate
-    registration of the same package merges exempt sets (idempotent under repeated conftest import).
+    Called once per project conftest. A duplicate registration merges exempt sets and keeps the
+    first resolved suite (idempotent under repeated conftest import).
 
     Args:
         package: Fully-qualified package name (e.g. ``"tools.<package>"``).
         exempt: Symbol simple-names that are explicitly exempt from law coverage, each with a
             standing justification at the call site; auto-exempt symbols never need listing.
+        suite: Directory whose law modules carry this package's census; ``None`` derives the
+            calling conftest's directory, so subset-collection detection needs no caller edits.
     """
-    SUT_PACKAGES[package] = SUT_PACKAGES.get(package, frozenset()) | exempt
+    frame = inspect.currentframe()
+    caller_file = frame.f_back.f_globals.get("__file__") if frame is not None and frame.f_back is not None else None
+    derived = suite if suite is not None else (Path(caller_file).resolve().parent if isinstance(caller_file, str) else None)
+    prior = SUT_PACKAGES.get(package)
+    SUT_PACKAGES[package] = Sut(
+        exempt=(prior.exempt if prior is not None else frozenset()) | exempt,
+        suite=prior.suite if prior is not None and prior.suite is not None else derived,
+    )
 
 
-def assert_law_coverage() -> None:
-    """Assert every registered SUT public symbol is law-covered, auto-exempt, or explicitly exempt."""
+def _law_modules(suite: Path) -> frozenset[str]:
+    """Dotted names of every on-disk law module under ``suite``.
+
+    Returns:
+        Frozen set of dotted module names (repo-relative where possible, absolute parts otherwise).
+    """
+    files = (py for pattern in _LAW_GLOBS for py in suite.rglob(pattern))
+    return frozenset(".".join((py.relative_to(REPO_ROOT) if py.is_relative_to(REPO_ROOT) else py).with_suffix("").parts) for py in files)
+
+
+def uncollected_laws() -> dict[str, tuple[str, ...]]:
+    """Report per-package law modules on disk but never imported by this session's collection.
+
+    Collection imports every selected law module, so a dotted name absent from ``sys.modules``
+    means that module's laws never reached the manifest and the package census would report
+    false gaps.
+
+    Returns:
+        Package name to sorted missing dotted module names; empty when every census is whole.
+    """
+    gaps = {
+        package: tuple(sorted(name for name in _law_modules(sut.suite) if name not in sys.modules))
+        for package, sut in SUT_PACKAGES.items()
+        if sut.suite is not None
+    }
+    return {package: missing for package, missing in gaps.items() if missing}
+
+
+def assert_law_coverage(*, only: frozenset[str] | None = None) -> None:
+    """Assert every registered SUT public symbol is law-covered, auto-exempt, or explicitly exempt.
+
+    Args:
+        only: Packages to census; ``None`` censuses every registration.
+    """
     global_covered = frozenset(rec.subject.rsplit(".", 1)[-1] for rec in MANIFEST if not rec.subject_module)
 
-    for package, exempt in SUT_PACKAGES.items():
+    for package, sut in SUT_PACKAGES.items():
+        if only is not None and package not in only:
+            continue
         surface, failures = _public_surface(package)
         covered = global_covered | frozenset(
             rec.subject.rsplit(".", 1)[-1] for rec in MANIFEST if rec.subject_module == package or rec.subject_module.startswith(f"{package}.")
         )
-        uncovered = frozenset(name for name, member in surface.items() if name not in covered and name not in exempt and not auto_exempt(member))
+        uncovered = frozenset(name for name, member in surface.items() if name not in covered and name not in sut.exempt and not auto_exempt(member))
         gaps = [*(f"  - {name}" for name in sorted(uncovered)), *(f"  ! {mod}: {err}" for mod, err in failures)]
         assert not gaps, (
             f"Law coverage gap in '{package}': {len(uncovered)} symbol(s) have no law, {len(failures)} module import failure(s):\n" + "\n".join(gaps)
@@ -232,4 +305,4 @@ def assert_law_coverage() -> None:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["spec", "consume_covers", "register_sut", "assert_law_coverage", "auto_exempt", "MANIFEST", "LawRecord"]
+__all__ = ["spec", "consume_covers", "register_sut", "assert_law_coverage", "auto_exempt", "uncollected_laws", "MANIFEST", "LawRecord", "Sut"]

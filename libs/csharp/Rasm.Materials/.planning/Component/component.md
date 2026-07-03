@@ -170,10 +170,10 @@ public sealed partial class ComponentFamily {
 // disjoint slots by Category: Dimension a non-positive/non-finite length or degenerate geometry, Coring a void fraction
 // outside [0,1), Family a family/profile/registration mismatch, Bond a masonry COURSE-PATTERN fault, Mortar a masonry
 // MORTAR-SPEC fault, Section a section-INTEGRAL failure, Capacity a capacity-SOLVE failure, Designation a malformed
-// ComponentId, Grade a registered-grade-band miss. [SkipUnionOps] skips the implicit-conversion ops (every case carries
-// an explicit Op) and emits NO per-case factory; the nested …Case records + same-name-less static factories return the
-// Expected-derived base so a case lifts bare with no .ToError() hop.
-[SkipUnionOps]
+// ComponentId, Grade a registered-grade-band miss. No [GenerateUnionOps] (the kernel union-ops generator is strictly
+// opt-in; every case carries an explicit Op, wanting no generated SelfOp); [Union] generates Switch/Map, never
+// factories — the nested …Case records + same-name-less static factories return the Expected-derived base so a case
+// lifts bare with no .ToError() hop.
 [Union]
 public abstract partial record ComponentFault : Expected, IValidationError<ComponentFault> {
     private ComponentFault(Op key, string detail) { Key = key; Detail = detail; }

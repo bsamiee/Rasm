@@ -22,7 +22,7 @@ SLO is algebra, not config: an `Objective` is a typed policy value — an SLI ov
 
 ```typescript
 import { Data, type Duration } from "effect"
-import type { Convention } from "@rasm/ts/telemetry"
+import type { Convention } from "../signal/convention.ts"
 
 type Sli = Data.TaggedEnum<{
   Latency: { readonly ceiling: Duration.Duration; readonly metric: Convention.MetricName; readonly quantile: number }

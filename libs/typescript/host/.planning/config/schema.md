@@ -71,10 +71,11 @@ export { Setting }
 - Law: `Config.withDefault` states ownership of the fallback — default at the row when the owner fixes the value and no consumer distinguishes absent from defaulted; no default when an unset variable must fail the boot; a fallback repeated at read sites marks a default that belonged on the row.
 - Law: shaped rows keep validation at the seam — a `Schema.Config` row arrives branded and bounded, so no regex check, range guard, or parse survives past the resolve; the branded scalar the row admits is the same refinement the owning Schema field carries — one refinement, two admission sites, zero drift.
 - Boundary: `Config.string` survives only for a genuinely free-form value; a literal choice restated beside the vocabulary table that anchors it, a raw secret string, and a post-resolve validation pass are rejected on sight.
-- Packages: `effect` (`Config`, `Schema.Config`, `Struct.keys`).
+- Law: the fence instantiates the family form — a sibling contract declared exactly as `Setting` is, under its own namespace, its rows drawn from this vocabulary — so the row law and the family law are proven by one module.
+- Packages: `effect` (`Config`, `Effect.Service`, `Schema.Config`, `Struct.keys`).
 
 ```typescript
-import { Config, Schema, Struct } from "effect"
+import { Config, Effect, Schema, Struct } from "effect"
 
 const _tiers = {
   dev: { verbose: true },
@@ -105,7 +106,11 @@ const _shaped = Config.unwrap({
   ),
 })
 
+class Serve extends Effect.Service<Serve>()("app/Serve", {
+  effect: Config.nested(_shaped, "SERVE"),
+}) {}
+
 // --- [EXPORTS] --------------------------------------------------------------------------
 
-export {}
+export { Serve }
 ```

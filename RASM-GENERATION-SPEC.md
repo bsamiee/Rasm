@@ -227,7 +227,7 @@ Every surface below is landed and frozen by the Component-Paradigm campaign; the
 
 ## [07]-[FAULT_RESERVATION]
 
-Band 2350 is reserved for `GenerationFault` by the `FaultBand.Generation` registry row (`Rasm.Element/Projection/fault#FAULT_TABLES`). The charter: an `Expected`-derived `[SkipUnionOps]` `[Union]` in the seam band shape — nested `…Case` records over `(Op Key, string Detail)`, per-case `Category`, static factories, `Code => FaultBand.Generation`.
+Band 2350 is reserved for `GenerationFault` by the `FaultBand.Generation` registry row (`Rasm.Element/Projection/fault#FAULT_TABLES`). The charter: an `Expected`-derived `[Union]` in the seam band shape (no `[GenerateUnionOps]` — fault cases are carriers, and the kernel union-ops generator is strictly opt-in) — nested `…Case` records over `(Op Key, string Detail)`, per-case `Category`, static factories, `Code => FaultBand.Generation`.
 
 - `Path` — a degenerate spine or parameter domain (the `SpineRef` resolution rail).
 - `Joint` — a non-positive resolved mortar/module joint on a joint-bearing derivation.

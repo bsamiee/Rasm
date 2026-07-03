@@ -4,7 +4,7 @@
 
 ## [1]-[ROUTER]
 
-- [01]-[CONTENTKEY](.planning/identity/contentkey.md): the `XxHash128` seed-zero `ContentKey` brand — the ONE mint; `:x32` spelling; LE→BE normalize at every delegate.
+- [01]-[CONTENTKEY](.planning/identity/contentkey.md): the `XxHash128` seed-zero `ContentKey` brand — the ONE mint; `:x32` spelling, wire-canonical off the hasher; delegates never touch byte order.
 - [02]-[APPIDENTITY](.planning/identity/appidentity.md): the `AppKey`/`AppIdentity`/`TenantContext` value vocabulary — the {app, tenant, build, host-fingerprint} dimensions `telemetry`, `browser` boot, and `store` scopes derive from.
 - [03]-[HLC](.planning/clock/hlc.md): the `Hlc` brand — two-half compose (physical first, logical second, both little-endian), compare/merge folds.
 - [04]-[UNCERTAINTY](.planning/clock/uncertainty.md): the honest clock-uncertainty window vocabulary `state` causality consumes.

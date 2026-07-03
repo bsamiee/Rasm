@@ -87,6 +87,16 @@ public sealed class TestInfrastructurePrimitiveLaws {
             gen: Gen.Double[2.0, 1.0e3],
             property: static x => Spec.Holds(condition: x * x >= x, label: "square must not shrink"),
             refutingWitness: 0.5));
+        // Refutation matches the sampler's failure notion: a witness crashing a guard (not an
+        // assert) still refutes, because any throw fails a sampled property.
+        Spec.Hold(law: Law.Of(
+            name: "guarded-sqrt",
+            gen: Gen.Double[1.0, 1.0e3],
+            property: static x => {
+                ArgumentOutOfRangeException.ThrowIfNegative(value: x);
+                Spec.Holds(condition: Math.Sqrt(d: x) > 0.0, label: "positive root");
+            },
+            refutingWitness: -1.0));
         // A tautology: no witness can fail it, so registration itself is the failure.
         XunitException tautology = Assert.Throws<XunitException>(testCode: static () => Spec.Hold(law: Law.Of(
             name: "vacuous",
@@ -161,6 +171,22 @@ public sealed class TestInfrastructurePrimitiveLaws {
     }
 
     [Fact]
+    [Law(typeof(Spec), nameof(Spec.FinChainOrder), Member = nameof(Spec.FinChainOrder))]
+    public void FinChainOrderDemandsCommutingRailsAndRefutesAsymmetry() {
+        // Power-of-two scalings commute exactly; a both-fail pair shares the failure lane even
+        // when the short-circuiting order surfaces different errors.
+        Spec.FinChainOrder(gen: Gen.Double[-1.0e3, 1.0e3], first: static x => Fin.Succ(value: x * 2.0), second: static x => Fin.Succ(value: x * 4.0));
+        Spec.FinChainOrder(gen: Gen.Double[-1.0e3, -1.0],
+            first: static _ => Fin.Fail<double>(error: new Fault.Missing()),
+            second: static _ => Fin.Fail<double>(error: new Fault.Rejected()));
+        // An order-dependent pair refutes: the guard admits the raw value and rejects the shifted one.
+        _ = Assert.ThrowsAny<Exception>(testCode: static () => Spec.FinChainOrder(
+            gen: Gen.Double[1.0, 100.0],
+            first: static x => Fin.Succ(value: x + 1000.0),
+            second: static x => x < 500.0 ? Fin.Succ(value: x) : Fin.Fail<double>(error: new Fault.Rejected())));
+    }
+
+    [Fact]
     [Law(typeof(Spec), nameof(Spec.Classified), Member = nameof(Spec.Classified))]
     public void ClassifiedPrintsEveryBucketOverOneSweep() {
         List<string> lines = [];
@@ -185,6 +211,12 @@ public sealed class TestInfrastructurePrimitiveLaws {
                 gen: Gen.Int[1, 3],
                 name: static delta => string.Create(provider: System.Globalization.CultureInfo.InvariantCulture, $"boom({delta})"),
                 action: static (_, _) => throw new InvalidOperationException(message: "parallel op failure"))]));
+        // An empty operation table proves nothing and must refuse to run.
+        _ = Assert.Throws<XunitException>(testCode: static () => Spec.Parallel(init: Gen.Const(value: Atom(0)), operations: []));
+        _ = Assert.Throws<XunitException>(testCode: static () => Spec.Parallel(
+            init: Gen.Const(value: (Actual: Atom(0), Model: Atom(0))),
+            equal: static (actual, model) => actual.Value == model.Value,
+            operations: []));
     }
 
     [Fact]
@@ -278,13 +310,39 @@ public sealed class TestInfrastructurePrimitiveLaws {
     }
 
     [Fact]
+    [Law(typeof(Tolerance), "ulps-regime")]
+    public void UlpBudgetAdmitsBitAdjacencyAndNothingNonFinite() {
+        double basis = 1.0 / 3.0;
+        Spec.Matrix(
+            (Label: "one-ulp-adjacent", Probe: () => Approx.Equal(left: basis, right: Math.BitIncrement(x: basis), tolerance: Tolerance.WithinUlps(units: 1L)), Expected: true),
+            (Label: "two-ulp-rejected", Probe: () => Approx.Equal(left: basis, right: Math.BitIncrement(x: Math.BitIncrement(x: basis)), tolerance: Tolerance.WithinUlps(units: 1L)), Expected: false),
+            (Label: "zero-budget-disables", Probe: () => Approx.Equal(left: basis, right: Math.BitIncrement(x: basis), tolerance: new Tolerance(Abs: 0.0, Rel: 0.0)), Expected: false),
+            (Label: "sign-straddle-counts-through-zero", Probe: static () => Approx.Equal(left: -double.Epsilon, right: double.Epsilon, tolerance: Tolerance.WithinUlps(units: 2L)), Expected: true),
+            (Label: "signed-zero-coincides", Probe: static () => Approx.Equal(left: 0.0, right: -0.0, tolerance: Tolerance.WithinUlps(units: 1L)), Expected: true),
+            (Label: "nan-never", Probe: static () => Approx.Equal(left: double.NaN, right: double.NaN, tolerance: Tolerance.WithinUlps(units: long.MaxValue)), Expected: false),
+            (Label: "infinity-never", Probe: static () => Approx.Equal(left: double.PositiveInfinity, right: double.PositiveInfinity, tolerance: Tolerance.WithinUlps(units: long.MaxValue)), Expected: false));
+    }
+
+    [Fact]
+    [Law(typeof(Metric), nameof(Metric.Periodic), Member = nameof(Metric.Periodic))]
+    public void PeriodicMetricAdmitsModuloThePeriodOnly() {
+        Spec.ForAll(gen: Gens.Angle, property: static theta => Spec.Equal(
+            left: (ReadOnlySpan<double>)[theta], right: [theta + Math.Tau], tolerance: Tolerance.Absolute(epsilon: 1.0e-9), metric: Metric.Periodic(period: Math.Tau), what: "full turn"));
+        Spec.Matrix(
+            (Label: "half-turn-rejected", Probe: static () => Approx.Equal(left: 0.0, right: Math.PI, tolerance: Tolerance.Absolute(epsilon: 1.0e-9), metric: Metric.Periodic(period: Math.Tau)), Expected: false),
+            (Label: "nan-never", Probe: static () => Approx.Equal(left: double.NaN, right: 0.0, tolerance: Tolerance.Absolute(epsilon: 1.0e-9), metric: Metric.Periodic(period: Math.Tau)), Expected: false));
+        _ = Assert.Throws<ArgumentOutOfRangeException>(testCode: static () => Metric.Periodic(period: 0.0));
+        _ = Assert.Throws<ArgumentOutOfRangeException>(testCode: static () => Metric.Periodic(period: double.PositiveInfinity));
+    }
+
+    [Fact]
     [Law(typeof(SeamProbe<>), "seam-typed-log-lifo")]
     public void SeamProbeRecordsTypedCallsAndRestoresLifo() {
         SeamProbe<Unit> probe = new();
         string current = "<unbound>";
         Func<Unit, int>? outer = null;
         Func<Unit, int>? inner = null;
-        SeamRestore outerScope = probe.Install(member: "outer", shape: new Shape<int>.Sync(Value: 7), bind: canned => {
+        SeamRestore outerScope = probe.Install(member: "outer", shape: new Shape<int>.Canned(Value: 7), bind: canned => {
             string prior = current;
             (current, outer) = ("outer", canned);
             return () => current = prior;
@@ -301,7 +359,7 @@ public sealed class TestInfrastructurePrimitiveLaws {
         Assert.Equal(expected: "outer", actual: current);
         outerScope.Dispose();
         Assert.Equal(expected: "<unbound>", actual: current);
-        // The typed log: sync records the member with a payload, factory records its inner label
+        // The typed log: canned records the member with a payload, factory records its inner label
         // with none — the payload bag is a typed Option, never an object?/kwargs pair.
         Assert.Equal(expected: 2, actual: probe.Calls.Count);
         Assert.Equal(expected: new SeamCall<Unit>(Member: "outer", Payload: Some(value: unit)), actual: probe.Calls[0]);
@@ -313,23 +371,205 @@ public sealed class TestInfrastructurePrimitiveLaws {
     [Law(typeof(Shape<>), "seam-shape-switch")]
     public void ShapeSwitchDispatchesEveryCase() {
         static string Render(Shape<int> shape) => shape.Switch(
-            sync: static s => string.Create(System.Globalization.CultureInfo.InvariantCulture, $"sync:{s.Value}"),
-            async: static s => string.Create(System.Globalization.CultureInfo.InvariantCulture, $"async:{s.Value}"),
+            canned: static s => string.Create(System.Globalization.CultureInfo.InvariantCulture, $"canned:{s.Value}"),
             fanOut: static s => string.Create(System.Globalization.CultureInfo.InvariantCulture, $"fan:{s.Values.Count}"),
             factory: static s => $"factory:{s.InnerLabel}");
-        Assert.Equal(expected: "sync:1", actual: Render(new Shape<int>.Sync(Value: 1)));
-        Assert.Equal(expected: "async:2", actual: Render(new Shape<int>.Async(Value: 2)));
+        Assert.Equal(expected: "canned:1", actual: Render(new Shape<int>.Canned(Value: 1)));
         Assert.Equal(expected: "fan:3", actual: Render(new Shape<int>.FanOut(Values: Seq(0, 0, 0))));
         Assert.Equal(expected: "factory:run.x", actual: Render(new Shape<int>.Factory(Value: 4, InnerLabel: "run.x")));
     }
 
     [Fact]
+    [Law(typeof(SeamProbe<>), "seam-fanout-walk")]
+    public void FanOutWalksItsValuesPerCallAndExhaustsLoudly() {
+        SeamProbe<Unit> probe = new();
+        Func<Unit, int> seam = static _ => 0;
+        using SeamRestore scope = probe.Install(member: "walk", shape: new Shape<int>.FanOut(Values: Seq(7, 9)), bind: canned => {
+            Func<Unit, int> prior = seam;
+            seam = canned;
+            return () => seam = prior;
+        });
+        Assert.Equal(expected: 7, actual: seam(unit));
+        Assert.Equal(expected: 9, actual: seam(unit));
+        XunitException exhausted = Assert.Throws<XunitException>(testCode: () => seam(unit));
+        Assert.Contains(expectedSubstring: "exhausted after 2", actualString: exhausted.Message, comparisonType: StringComparison.Ordinal);
+        // Each successful walk step records typed; the exhausted call records nothing.
+        Assert.Equal(expected: 2, actual: probe.Calls.Count);
+        // A fresh install restarts the walk: the cursor is install-scoped, never shape-scoped.
+        Shape<int>.FanOut shared = new(Values: Seq(1));
+        SeamProbe<Unit> second = new();
+        Func<Unit, int>? replay = null;
+        using SeamRestore first = second.Install(member: "a", shape: shared, bind: canned => { replay = canned; return () => { }; });
+        Assert.Equal(expected: 1, actual: replay!(unit));
+        using SeamRestore next = second.Install(member: "b", shape: shared, bind: canned => { replay = canned; return () => { }; });
+        Assert.Equal(expected: 1, actual: replay!(unit));
+    }
+
+    [Fact]
     [Law(typeof(NdjsonOracle<>), "ndjson-line-gate")]
-    public void NdjsonOracleGatesLineCount() {
+    public void NdjsonOracleGatesLineCountForOneAndAll() {
         NdjsonOracle<SampleRow> oracle = new(Decoder: SampleContext.Default.SampleRow, ExpectLines: 1);
         byte[] one = JsonSerializer.SerializeToUtf8Bytes(value: new SampleRow(Tag: "x", Rank: 5), jsonTypeInfo: SampleContext.Default.SampleRow);
+        string two = $"{Encoding.UTF8.GetString(one)}\n{Encoding.UTF8.GetString(one)}";
         Assert.Equal(expected: new SampleRow(Tag: "x", Rank: 5), actual: oracle.One(raw: one));
-        _ = Assert.Throws<XunitException>(testCode: () => oracle.One(raw: Encoding.UTF8.GetBytes($"{Encoding.UTF8.GetString(one)}\n{Encoding.UTF8.GetString(one)}")));
+        _ = Assert.Throws<XunitException>(testCode: () => oracle.One(raw: Encoding.UTF8.GetBytes(two)));
+        // All decodes every gated row in order and refuses a drifted line count just like One.
+        NdjsonOracle<SampleRow> stream = new(Decoder: SampleContext.Default.SampleRow, ExpectLines: 2);
+        Assert.Equal(expected: [new SampleRow(Tag: "x", Rank: 5), new SampleRow(Tag: "x", Rank: 5)], actual: stream.All(raw: two));
+        _ = Assert.Throws<XunitException>(testCode: () => stream.All(raw: one));
+    }
+
+    [Fact]
+    [Law(typeof(Gens), "geometry-bands")]
+    public void GeometryBandsCarryTheirConstructionInvariants() {
+        // Directions are unit vectors in every dimension the band serves.
+        Spec.ForAll(gen: Gen.Int[1, 8].SelectMany(Gens.Direction), property: static direction =>
+            Spec.Equal(left: Math.Sqrt(d: direction.Sum(static x => x * x)), right: 1.0, tolerance: 1.0e-12, what: "unit norm"));
+        // Householder products pass the orthogonality residual the kit itself owns.
+        Spec.ForAll(gen: Gen.Int[1, 6].SelectMany(n => Gens.Orthogonal(n: n).Select(q => (N: n, Q: q))), property: static t =>
+            Spec.Holds(condition: Numeric.OrthogonalityResidual(rows: t.N, cols: t.N, at: (i, j) => t.Q[i][j]) <= 1.0e-10, label: "orthogonal residual"), iter: 40);
+        // Conditioned matrices are symmetric with trace equal to the constructed spectrum sum.
+        Spec.ForAll(gen: Gen.Int[2, 6].SelectMany(n => Gens.Conditioned(n: n, kappa: 1.0e6).Select(m => (N: n, M: m))), property: static t => {
+            Spec.Holds(condition: Numeric.SymmetryResidual(dimension: t.N, at: (i, j) => t.M[i][j]) <= 1.0e-10, label: "symmetric");
+            double expected = Enumerable.Range(start: 0, count: t.N).Sum(i => Math.Pow(x: 1.0e6, y: -(double)i / (t.N - 1)));
+            Spec.Equal(left: Enumerable.Range(start: 0, count: t.N).Sum(i => t.M[i][i]), right: expected, tolerance: 1.0e-8, what: "trace = spectrum sum");
+        }, iter: 40);
+        // Rings are star-shaped and CCW by construction: shoelace area is strictly positive and
+        // reversal negates it up to accumulation order over the all-positive term stream.
+        Spec.ForAll(gen: Gen.Int[3, 12].SelectMany(Gens.Ring), property: static ring => {
+            double area = Numeric.ShoelaceArea(ring: ring);
+            Spec.Holds(condition: area > 0.0, label: "ccw ring area positive");
+            Spec.Equal(left: Numeric.ShoelaceArea(ring: [.. ring.Reverse()]), right: -area, tolerance: Math.Abs(value: area) * 1.0e-12, what: "reversal negates");
+        }, iter: 100);
+        _ = Assert.Throws<ArgumentOutOfRangeException>(testCode: static () => Gens.Direction(dim: 0));
+        _ = Assert.Throws<ArgumentOutOfRangeException>(testCode: static () => Gens.NearCollinear(dim: 1));
+        _ = Assert.Throws<ArgumentOutOfRangeException>(testCode: static () => Gens.Conditioned(n: 2, kappa: 0.5));
+        _ = Assert.Throws<ArgumentOutOfRangeException>(testCode: static () => Gens.Ring(vertices: 2));
+    }
+
+    [Fact]
+    [Law(typeof(Gens), "scalar-bands")]
+    public void ScalarBandsCarryTheirConstructionInvariants() {
+        Spec.ForAll(gen: Gen.Int[1, 8].SelectMany(count => Gens.Simplex(count: count).Select(weights => (Count: count, Weights: weights))), property: static t => {
+            Assert.Equal(expected: t.Count, actual: t.Weights.Count);
+            Spec.Holds(condition: t.Weights.Filter(static weight => weight <= 0.0).IsEmpty, label: "simplex weights are strictly positive");
+            Spec.Equal(left: Numeric.Sum(values: t.Weights), right: 1.0, what: "simplex mass");
+        }, iter: 100);
+        // The cancellation band keeps its relative offset inside the annihilation window; a pair
+        // rounding to identity is the extreme of the band, never a violation.
+        Spec.ForAll(gen: Gens.Cancellation, property: static pair => {
+            Spec.Holds(condition: double.IsFinite(d: pair.X) && double.IsFinite(d: pair.Y), label: "cancellation pair finite");
+            Spec.Holds(condition: Math.Abs(value: pair.Y - pair.X) <= Math.Abs(value: pair.X) * 1.0e-7, label: "cancellation offset stays in the band");
+        });
+        Spec.ForAll(gen: Gens.UnitClosed, property: static u => Spec.Holds(condition: u is >= 0.0 and <= 1.0, label: "unit-closed band"));
+        Spec.ForAll(gen: Gens.Angle, property: static theta => Spec.Holds(condition: theta is >= -Math.Tau and <= Math.Tau, label: "angle band"));
+        Spec.ForAll(gen: Gens.Positive, property: static x => Spec.Holds(condition: x > 0.0 && double.IsFinite(d: x), label: "positive band"));
+        _ = Assert.Throws<ArgumentOutOfRangeException>(testCode: static () => Gens.Simplex(count: 0));
+    }
+
+    [Fact]
+    [Law(typeof(Gens), "rail-error-lanes")]
+    public void RailErrorLanesKeepTheExpectedExceptionalSplit() {
+        Spec.ForAll(gen: Gens.Faults, property: static error => Spec.Holds(condition: error.IsExpected, label: "faults stay expected"));
+        Spec.ForAll(gen: Gens.Exceptional, property: static error => Spec.Holds(condition: error.IsExceptional, label: "exceptional lane carries live exceptions"));
+    }
+
+    [Fact]
+    [Law(typeof(Numeric), nameof(Numeric.OrientSign), Member = nameof(Numeric.OrientSign))]
+    public void OrientSignIsExactOnTheCollinearTortureBand() {
+        // Closed-form anchors: CCW positive, swap negates, exact collinearity is exactly zero.
+        Assert.Equal(expected: 1, actual: Numeric.OrientSign(simplex: [[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]]));
+        Assert.Equal(expected: -1, actual: Numeric.OrientSign(simplex: [[1.0, 0.0], [0.0, 0.0], [0.0, 1.0]]));
+        Assert.Equal(expected: 0, actual: Numeric.OrientSign(simplex: [[0.0, 0.0], [1.0, 1.0], [2.0, 2.0]]));
+        Assert.Equal(expected: 1, actual: Numeric.OrientSign(simplex: [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]]));
+        Assert.Equal(expected: -1, actual: Numeric.OrientSign(simplex: [[0.0, 0.0, 0.0], [0.0, 1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]]));
+        // Antisymmetry and cyclic invariance are exact integer determinant identities, so they hold
+        // even where the double-precision determinant misjudges the near-collinear band.
+        Spec.ForAll(gen: Gens.NearCollinear(dim: 2), property: static t => {
+            int sign = Numeric.OrientSign(simplex: [t.A, t.B, t.C]);
+            Assert.Equal(expected: -sign, actual: Numeric.OrientSign(simplex: [t.B, t.A, t.C]));
+            Assert.Equal(expected: sign, actual: Numeric.OrientSign(simplex: [t.B, t.C, t.A]));
+        }, iter: 200);
+        _ = Assert.Throws<ArgumentException>(testCode: static () => Numeric.OrientSign(simplex: [[0.0, 0.0], [1.0, 1.0]]));
+        _ = Assert.Throws<ArgumentException>(testCode: static () => Numeric.OrientSign(simplex: [[double.NaN, 0.0], [1.0, 0.0], [0.0, 1.0]]));
+    }
+
+    [Fact]
+    [Law(typeof(Numeric), "geometry-oracles")]
+    public void AreaAndVolumeOraclesMatchClosedForms() {
+        double[][] square = [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]];
+        Spec.Equal(left: Numeric.ShoelaceArea(ring: square), right: 1.0, what: "ccw unit square");
+        Spec.Equal(left: Numeric.ShoelaceArea(ring: [.. square.Reverse()]), right: -1.0, what: "cw negates");
+        Assert.True(condition: double.IsNaN(d: Numeric.ShoelaceArea(ring: [[1.0], [2.0]])), userMessage: "malformed ring is NaN");
+        Spec.Equal(left: Numeric.SignedTetraVolume(a: [1.0, 0.0, 0.0], b: [0.0, 1.0, 0.0], c: [0.0, 0.0, 1.0]), right: 1.0 / 6.0, what: "unit tetra");
+        double[][] cube = [[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0], [0, 0, 1], [1, 0, 1], [1, 1, 1], [0, 1, 1]];
+        int[][] outward = [[0, 3, 2, 1], [4, 5, 6, 7], [0, 1, 5, 4], [1, 2, 6, 5], [2, 3, 7, 6], [3, 0, 4, 7]];
+        Spec.Equal(left: Numeric.SignedVolume(vertices: cube, faces: outward), right: 1.0, what: "unit cube via quad fans");
+        Spec.Equal(left: Numeric.SignedVolume(vertices: cube, faces: [.. outward.Select(face => (int[])[.. face.Reverse()])]), right: -1.0, what: "inverted orientation negates");
+        Assert.True(condition: double.IsNaN(d: Numeric.SignedVolume(vertices: cube, faces: [[0, 1, 99]])), userMessage: "out-of-range index is NaN");
+    }
+
+    [Fact]
+    [Law(typeof(Numeric), "point-moment-oracles")]
+    public void PointMomentOraclesMatchClosedForms() {
+        Spec.Equal(left: Numeric.Centroid(points: [[0.0, 0.0], [2.0, 0.0], [2.0, 2.0], [0.0, 2.0]]), right: [1.0, 1.0], tolerance: Tolerance.Default, what: "uniform centroid");
+        Spec.Equal(left: Numeric.Centroid(points: [[0.0], [10.0]], weights: [3.0, 1.0]), right: [2.5], tolerance: Tolerance.Default, what: "weighted centroid");
+        // Central second moments of the segment {(0,0),(2,0)} under uniform mass, packed upper row-major.
+        Spec.Equal(left: Numeric.CovarianceUpper(points: [[0.0, 0.0], [2.0, 0.0]]), right: [1.0, 0.0, 0.0], tolerance: Tolerance.Default, what: "covariance upper triangle");
+        Spec.Equal(left: Numeric.ArcLength(points: [[0.0, 0.0], [3.0, 4.0], [3.0, 4.0]]), right: 5.0, what: "polyline arc length");
+        (double min, double mean, double max) = Numeric.PairwiseDistances(points: [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]]);
+        Spec.Equal(left: min, right: 1.0, what: "unit square min pair");
+        Spec.Equal(left: mean, right: (4.0 + (2.0 * Math.Sqrt(d: 2.0))) / 6.0, what: "unit square mean pair");
+        Spec.Equal(left: max, right: Math.Sqrt(d: 2.0), what: "unit square max pair");
+        Spec.Equal(left: Numeric.ConvergenceOrder(coarseError: 1.0e-2, fineError: 2.5e-3), right: 2.0, what: "second-order convergence");
+        Spec.Equal(left: Numeric.Sum(values: Seq(1.5, 2.5, -1.0)), right: 3.0, what: "seq fold");
+        // NaN lanes are the reachable reds: every degraded input fails the calling gate loudly.
+        Spec.Matrix(
+            (Label: "weight-count-mismatch-is-nan", Probe: static () => Numeric.Centroid(points: [[1.0]], weights: [1.0, 2.0]).All(predicate: double.IsNaN), Expected: true),
+            (Label: "vanishing-mass-is-nan", Probe: static () => Numeric.Centroid(points: [[1.0], [2.0]], weights: [1.0, -1.0]).All(predicate: double.IsNaN), Expected: true),
+            (Label: "distance-dim-mismatch-is-nan", Probe: static () => double.IsNaN(d: Numeric.Distance(left: [1.0], right: [1.0, 2.0])), Expected: true),
+            (Label: "convergence-nonpositive-error-is-nan", Probe: static () => double.IsNaN(d: Numeric.ConvergenceOrder(coarseError: 0.0, fineError: 1.0e-3)), Expected: true));
+    }
+
+    [Fact]
+    [Law(typeof(Norm), "matrix-and-spectral-oracles")]
+    public void MatrixAndSpectralOraclesMatchClosedForms() {
+        double[][] m = [[1.0, -2.0], [3.0, 4.0]];
+        double At(int row, int col) => m[row][col];
+        Spec.Equal(left: Norm.MaxAbs.Of(rows: 2, cols: 2, at: At), right: 4.0, what: "max-abs norm");
+        Spec.Equal(left: Norm.L1.Of(rows: 2, cols: 2, at: At), right: 6.0, what: "L1 column-sum norm");
+        Spec.Equal(left: Norm.LInf.Of(rows: 2, cols: 2, at: At), right: 7.0, what: "LInf row-sum norm");
+        Spec.Equal(left: Norm.Frobenius.Of(rows: 2, cols: 2, at: At), right: Math.Sqrt(d: 30.0), what: "frobenius norm");
+        double[][] a3 = [[2.0, 0.0, 1.0], [1.0, 3.0, -1.0], [0.0, 5.0, 2.0]];
+        Spec.Equal(left: Numeric.Determinant(n: 3, at: (row, col) => a3[row][col]), right: 27.0, what: "3x3 determinant");
+        Spec.Equal(left: Numeric.Determinant(n: 0, at: static (_, _) => 0.0), right: 1.0, what: "empty determinant is the empty product");
+        // Exact solve and eigenpair residuals vanish; shape mismatches are the reachable NaN reds.
+        double[][] diag = [[2.0, 0.0], [0.0, 3.0]];
+        Spec.Equal(left: Numeric.SolveResidual(rows: 2, cols: 2, at: (row, col) => diag[row][col], x: [1.0, 2.0], b: [2.0, 6.0]), right: 0.0, what: "exact solve residual");
+        Spec.Equal(left: Numeric.EigenpairResidual(n: 2, at: (row, col) => diag[row][col], eigenvalue: 3.0, eigenvector: [0.0, 1.0]), right: 0.0, what: "exact eigenpair residual");
+        Spec.Equal(left: Numeric.ProductResidual(rows: 2, width: 2, cols: 2, left: static (row, col) => row == col ? 1.0 : 0.0, right: At, actual: At), right: 0.0, what: "identity product residual");
+        Spec.Equal(left: Numeric.FrobeniusDistance(left: At, right: static (_, _) => 0.0, rows: 2, cols: 2), right: Math.Sqrt(d: 30.0), what: "frobenius distance to zero");
+        Spec.Matrix(
+            (Label: "solve-shape-mismatch-is-nan", Probe: () => double.IsNaN(d: Numeric.SolveResidual(rows: 2, cols: 2, at: At, x: [1.0], b: [2.0, 6.0])), Expected: true),
+            (Label: "eigenvector-shape-mismatch-is-nan", Probe: () => double.IsNaN(d: Numeric.EigenpairResidual(n: 2, at: At, eigenvalue: 1.0, eigenvector: [1.0])), Expected: true));
+        // The path-graph Laplacian meets its own closed-form eigenpair and conserves row mass.
+        double[][] laplacian = Numeric.PathGraphLaplacian(n: 5);
+        double lambda = 2.0 - (2.0 * Math.Cos(d: 2.0 * Math.PI / 5.0));
+        double[] phi = [.. Enumerable.Range(start: 0, count: 5).Select(j => Math.Cos(d: 2.0 * Math.PI * (j + 0.5) / 5.0))];
+        Spec.Holds(condition: Numeric.EigenpairResidual(n: 5, at: (row, col) => laplacian[row][col], eigenvalue: lambda, eigenvector: phi) <= 1.0e-12, label: "closed-form eigenpair");
+        Spec.Matrix(rows: [.. Enumerable.Range(start: 0, count: 5).Select(row => (
+            Label: string.Create(provider: System.Globalization.CultureInfo.InvariantCulture, $"laplacian row {row} mass"),
+            Probe: (Func<bool>)(() => Numeric.LaplacianRowSum(laplacian: laplacian, row: row) == 0.0),
+            Expected: true))]);
+        _ = Assert.Throws<ArgumentOutOfRangeException>(testCode: static () => Numeric.PathGraphLaplacian(n: 1));
+        // Heat kernel over a delta eigenbasis reduces to exp(-lambda t) on the diagonal.
+        Spec.Equal(left: Numeric.HeatKernel(eigenvalues: [0.5, 2.0], eigenvectors: static (i, x) => i == x ? 1.0 : 0.0, t: 0.7, x: 0, y: 0), right: Math.Exp(d: -0.35), what: "diagonal heat kernel");
+        Spec.Equal(left: Numeric.HeatKernel(eigenvalues: [0.5, 2.0], eigenvectors: static (i, x) => i == x ? 1.0 : 0.0, t: 0.7, x: 0, y: 1), right: 0.0, what: "off-diagonal heat kernel");
+        System.Numerics.Complex[] z = [new(1.0, 2.0), new(3.0, -1.0)];
+        System.Numerics.Complex selfDot = Numeric.DotComplex(count: 2, left: i => z[i], right: i => z[i]);
+        Spec.Equal(left: selfDot.Real, right: 15.0, what: "hermitian self-dot is the squared norm");
+        Spec.Equal(left: selfDot.Imaginary, right: 0.0, what: "hermitian self-dot is real");
+        Assert.Equal(expected: 2, actual: Numeric.EulerCharacteristic(vertices: 8, edges: 12, faces: 6));
     }
 
     [Fact]

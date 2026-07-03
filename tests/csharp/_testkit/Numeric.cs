@@ -1,4 +1,4 @@
-using Complex = System.Numerics.Complex;
+using System.Numerics;
 
 namespace Rasm.TestKit;
 
@@ -20,7 +20,7 @@ public sealed partial class Norm {
     public partial double Of(int rows, int cols, Func<int, int, double> at);
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [OPERATIONS] ---------------------------------------------------------------------------
 // Independent double/array oracles: every member RETURNS a value — a residual, a moment, a
 // closed form — and the caller's Spec gate decides pass or fail. No oracle asserts mid-flight.
 public static class Numeric {
@@ -67,10 +67,71 @@ public static class Numeric {
             Enumerable.Range(start: i + 1, count: points.Length - i - 1).Select(j => Distance(left: points[i], right: points[j])))];
         return distances.Length == 0 ? (Min: 0.0, Mean: 0.0, Max: 0.0) : (Min: distances.Min(), Mean: distances.Average(), Max: distances.Max());
     }
+    // A dimension mismatch is NaN, never a silent shorter-prefix distance.
     public static double Distance(double[] left, double[] right) {
         ArgumentNullException.ThrowIfNull(argument: left);
         ArgumentNullException.ThrowIfNull(argument: right);
-        return Math.Sqrt(d: Enumerable.Range(start: 0, count: Math.Min(val1: left.Length, val2: right.Length)).Sum(i => (left[i] - right[i]) * (left[i] - right[i])));
+        return left.Length != right.Length
+            ? double.NaN
+            : Math.Sqrt(d: Enumerable.Range(start: 0, count: left.Length).Sum(i => (left[i] - right[i]) * (left[i] - right[i])));
+    }
+
+    // --- [GEOMETRY_ORACLES]
+    // Shoelace signed area over a closed 2D ring; orientation rides the sign and malformed rows
+    // return NaN so the calling gate fails loudly.
+    public static double ShoelaceArea(double[][] ring) {
+        ArgumentNullException.ThrowIfNull(argument: ring);
+        return ring.Any(predicate: static point => point.Length < 2)
+            ? double.NaN
+            : 0.5 * Enumerable.Range(start: 0, count: ring.Length).Sum(i => {
+                (double[] a, double[] b) = (ring[i], ring[(i + 1) % ring.Length]);
+                return (a[0] * b[1]) - (b[0] * a[1]);
+            });
+    }
+    // Divergence-theorem signed volume: origin-anchored tetrahedra over the fan triangulation of
+    // each face. Watertight outward-oriented meshes conserve the enclosed volume exactly.
+    public static double SignedVolume(double[][] vertices, int[][] faces) {
+        ArgumentNullException.ThrowIfNull(argument: vertices);
+        ArgumentNullException.ThrowIfNull(argument: faces);
+        return vertices.Any(predicate: static vertex => vertex.Length < 3)
+            || faces.Any(face => face.Length < 3 || face.Any(index => index < 0 || index >= vertices.Length))
+            ? double.NaN
+            : faces.Sum(face => Enumerable.Range(start: 1, count: face.Length - 2)
+                .Sum(k => SignedTetraVolume(a: vertices[face[0]], b: vertices[face[k]], c: vertices[face[k + 1]])));
+    }
+    public static double SignedTetraVolume(double[] a, double[] b, double[] c) {
+        ArgumentNullException.ThrowIfNull(argument: a);
+        ArgumentNullException.ThrowIfNull(argument: b);
+        ArgumentNullException.ThrowIfNull(argument: c);
+        return a.Length < 3 || b.Length < 3 || c.Length < 3
+            ? double.NaN
+            : ((a[0] * ((b[1] * c[2]) - (b[2] * c[1]))) - (a[1] * ((b[0] * c[2]) - (b[2] * c[0]))) + (a[2] * ((b[0] * c[1]) - (b[1] * c[0])))) / 6.0;
+    }
+    // Exact orientation over binary64-exact scaled integers: 3 points read as a 2D left-turn, 4 as
+    // a 3D above-plane test. No rounding can flip the sign, so adaptive predicates gate against it.
+    public static int OrientSign(double[][] simplex) {
+        ArgumentNullException.ThrowIfNull(argument: simplex);
+        int dim = simplex.Length - 1;
+        _ = simplex.Length is 3 or 4 && simplex.All(point => point.Length >= dim && point.Take(count: dim).All(predicate: double.IsFinite))
+            ? dim : throw new ArgumentException(message: "OrientSign expects 3 finite 2D points or 4 finite 3D points", paramName: nameof(simplex));
+        (BigInteger Mantissa, int Exponent)[][] parts = [.. simplex.Select(point => ((BigInteger Mantissa, int Exponent)[])[.. point.Take(count: dim).Select(Decompose)])];
+        int floor = parts.SelectMany(selector: static point => point).Min(selector: static part => part.Exponent);
+        BigInteger[][] scaled = [.. parts.Select(point => (BigInteger[])[.. point.Select(part => part.Mantissa << (part.Exponent - floor))])];
+        BigInteger[][] edges = [.. scaled.Skip(count: 1).Select(point => (BigInteger[])[.. point.Select((value, axis) => value - scaled[0][axis])])];
+        BigInteger determinant = dim == 2
+            ? (edges[0][0] * edges[1][1]) - (edges[0][1] * edges[1][0])
+            : (edges[0][0] * ((edges[1][1] * edges[2][2]) - (edges[1][2] * edges[2][1])))
+                - (edges[0][1] * ((edges[1][0] * edges[2][2]) - (edges[1][2] * edges[2][0])))
+                + (edges[0][2] * ((edges[1][0] * edges[2][1]) - (edges[1][1] * edges[2][0])));
+        return determinant.Sign;
+    }
+    // Every finite double is mantissa·2^exponent exactly; subnormals share the 2^-1074 scale.
+    private static (BigInteger Mantissa, int Exponent) Decompose(double value) {
+        long bits = BitConverter.DoubleToInt64Bits(value: value);
+        int exponentBits = (int)((bits >> 52) & 0x7FF);
+        long fraction = bits & 0xF_FFFF_FFFF_FFFF;
+        BigInteger mantissa = exponentBits == 0 ? fraction : fraction | (1L << 52);
+        return (bits < 0L ? -mantissa : mantissa, (exponentBits == 0 ? 1 : exponentBits) - 1075);
     }
 
     // --- [MATRIX_ORACLES]
@@ -119,14 +180,17 @@ public static class Numeric {
             rows: cols, cols: cols);
 
     // --- [SPECTRAL_ORACLES]
-    // Path-graph Laplacian; eigenvalue closed form lambda_k = 2 - 2cos(k*pi/n).
-    public static double[][] PathGraphLaplacian(int n) =>
-        [.. Enumerable.Range(start: 0, count: n).Select(row => (double[])[.. Enumerable.Range(start: 0, count: n).Select(col => (row, col) switch {
+    // Path-graph Laplacian; closed-form eigenpairs lambda_k = 2 - 2cos(k*pi/n) with
+    // phi_k(j) = cos(k*pi*(j + 1/2)/n). A single node has no path structure to gate.
+    public static double[][] PathGraphLaplacian(int n) {
+        ArgumentOutOfRangeException.ThrowIfLessThan(value: n, other: 2);
+        return [.. Enumerable.Range(start: 0, count: n).Select(row => (double[])[.. Enumerable.Range(start: 0, count: n).Select(col => (row, col) switch {
             var (i, j) when i == j && (i == 0 || i == n - 1) => 1.0,
             var (i, j) when i == j => 2.0,
             var (i, j) when Math.Abs(value: i - j) == 1 => -1.0,
             _ => 0.0,
         })])];
+    }
     public static double LaplacianRowSum(double[][] laplacian, int row) {
         ArgumentNullException.ThrowIfNull(argument: laplacian);
         return laplacian[row].Sum();

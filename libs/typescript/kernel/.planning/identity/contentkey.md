@@ -1,6 +1,6 @@
 # [KERNEL_CONTENTKEY]
 
-The one content identity of the branch: `ContentKey` is the `XxHash128` seed-zero digest branded at the canonical `:x32` spelling — 32 lowercase hex characters in the big-endian layout the C# `System.IO.Hashing.XxHash128` seed-0 mint persists — and `contentKey` is the ONE mint (invariant 2, `[R2]`, seams `K:47`/`CO:110`). Exactly three sites delegate to it — `wire/frame` reassembly, the `browser/transport` decode worker, and `store/object` `ObjectKey` — and a second mint, a second content-address notion, or a non-zero seed is the named cross-language drift defect. The LE→BE normalize lives inside the mint's single digest path, so no delegate ever touches byte order, and bit-parity is asserted against the frozen `CANONICAL_BYTE_IDENTITY` and `MATERIAL_LAYER_GOLDEN` corpora by the `tests/contracts` drivers. The module is `kernel/src/identity/contentkey.ts` — the only cataloguing and import site of `hash-wasm` in the branch.
+The one content identity of the branch: `ContentKey` is the `XxHash128` seed-zero digest branded at the canonical `:x32` spelling — 32 lowercase hex characters in the big-endian layout the C# `System.IO.Hashing.XxHash128` seed-0 mint persists — and `contentKey` is the ONE mint (invariant 2, `[R2]`, seams `K:47`/`CO:110`). Exactly three sites delegate to it — `wire/frame` reassembly, the `browser/transport` decode worker, and `store/object` `ObjectKey` — and a second mint, a second content-address notion, or a non-zero seed is the named cross-language drift defect. The hasher's hex is already that canonical spelling — `hash-wasm` and the C# mint render the digest in the same big-endian order, proven by the frozen corpus vector both mints hash to — so no byte-order step exists anywhere on the key path, and bit-parity is asserted against the frozen `CANONICAL_BYTE_IDENTITY` and `MATERIAL_LAYER_GOLDEN` corpora by the `tests/contracts` drivers. The module is `kernel/src/identity/contentkey.ts` — the only cataloguing and import site of `hash-wasm` in the branch.
 
 ## [1]-[CLUSTERS]
 
@@ -24,16 +24,16 @@ The one content identity of the branch: `ContentKey` is the `XxHash128` seed-zer
 [SEED_ZERO_MINT]:
 - Owner: `contentKey`, the modality-polymorphic mint — one annotated arrow whose input discriminates on the value shape: a whole `Uint8Array` payload or an `Iterable<Uint8Array>` chunk sequence, both landing on one digest path; a `mode` flag, a `mintMany` twin, or a string input (encoding ambiguity) is the rejected surface, and text hashes only after the caller's own explicit encode to bytes.
 - Law: the seed is zero on both halves — `createXXHash128(0, 0)` — and the factory promise is memoized through `GlobalValue.globalValue` under the module's scoped key, so the WASM compile happens once per runtime across bundler-duplicated module instances and `init()` resets state between mints without recompiling.
-- Law: one digest path serves both modalities — `init` → `update` per chunk → `digest("binary")` → in-place byte reverse → `Encoding.encodeHex` — so the LE→BE normalize is spelled exactly once; `hash-wasm` emits little-endian while the C# mint persists big-endian, and a raw `digest()` hex string compared against a C# key is the named endianness defect.
+- Law: one digest path serves both modalities — `init` → `update` per chunk → `digest()` — and the returned hex is already the canonical big-endian `:x32` the C# mint persists; a byte-order shuffle anywhere on this path mints the memory-dump spelling and is the named endianness defect, and `digest("binary")` bytes are display-ordered — the reverse of the C# little-endian destination-buffer dump — so raw-buffer parity reverses one side and the hex path never does.
 - Law: the hash section is synchronous and JS-thread-atomic — every await sits before `init`, so concurrent mints on the shared hasher cannot interleave and the shared state machine needs no lock; a future streaming modality (chunks arriving over time) must construct a private hasher per mint, never span an await across the shared one.
-- Law: the mint cannot fail — `Effect.promise` carries the compile (rejection is a defect), and the brand decode is proven by construction (hex of 16 bytes is always `:x32`), so the surface is `Effect<ContentKey>` and `Effect.orDie` states that a decode fault here is a defect, never a channel member.
-- Exemption: `_digested` is a marked `// BOUNDARY ADAPTER` kernel — the `IHasher` state machine forces statements, the draft digest mutates in place, and only the immutable hex string leaves; the implementer carries the mark on its first line.
+- Law: the mint cannot fail — `Effect.promise` carries the compile (rejection is a defect), and the brand decode is proven by construction (the hasher's hex is always `:x32`), so the surface is `Effect<ContentKey>` and `Effect.orDie` states that a decode fault here is a defect, never a channel member.
+- Exemption: `_digested` is a marked `// BOUNDARY ADAPTER` kernel — the `IHasher` state machine forces statements across the chunk walk, and only the immutable hex string leaves; the implementer carries the mark on its first line.
 - Growth: a keyed digest, a checksum family, or a second algorithm is a new row on the `hash-wasm` pattern catalogued at `kernel/.api/hash-wasm.md` — one new interior factory and one new owner, never a seed knob on this mint.
 - Boundary: delegates import `contentKey` and compare; they never import `hash-wasm`, never re-hash for parity claims (byte-level corpus equality only), and their mismatch faults are their own folder rails.
-- Packages: `hash-wasm` (`createXXHash128`, `IHasher`); `effect` (`Effect`, `Encoding`, `GlobalValue`, `Predicate`, `Schema`).
+- Packages: `hash-wasm` (`createXXHash128`, `IHasher`); `effect` (`Effect`, `GlobalValue`, `Predicate`, `Schema`).
 
 ```typescript
-import { Effect, Encoding, GlobalValue, Predicate, Schema } from "effect"
+import { Effect, GlobalValue, Predicate, Schema } from "effect"
 import { createXXHash128, type IHasher } from "hash-wasm"
 
 const _SHAPE = /^[0-9a-f]{32}$/
@@ -48,9 +48,7 @@ const _compiled = GlobalValue.globalValue("@rasm/ts/kernel/ContentKey", () => cr
 const _digested = (hasher: IHasher, chunks: Iterable<Uint8Array>): string => {
   const armed = hasher.init()
   for (const chunk of chunks) armed.update(chunk)
-  const digest = armed.digest("binary")
-  digest.reverse()
-  return Encoding.encodeHex(digest)
+  return armed.digest()
 }
 
 const contentKey = (payload: Uint8Array | Iterable<Uint8Array>): Effect.Effect<ContentKey> =>

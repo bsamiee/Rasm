@@ -8,7 +8,7 @@ namespace Rasm.TestKit;
 // discipline. Package rosters are never asserted from here.
 public sealed record ProjectFacts(string RelativePath, FrozenSet<string> ProjectReferences, FrozenSet<string> VersionedPackages);
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [OPERATIONS] ---------------------------------------------------------------------------
 public static class Manifests {
     // The workspace root resolves once per process by walking up from test output to the slnx.
     private static readonly Lazy<DirectoryInfo> Workspace = new(valueFactory: static () => {

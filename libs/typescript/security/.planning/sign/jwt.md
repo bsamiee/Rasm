@@ -1,6 +1,6 @@
 # [SECURITY_JWT] — jose JWT/JWS/JWKS mint, verify, and rotation — the one token-crypto owner
 
-`sign/jwt` is the single JWT/JWS/JWKS authority: it mints own-issued access tokens with the active rotation key, verifies them against the local JWKS with a pinned algorithm allow-list and declarative claim gates, and verifies external OIDC `id_token`s against a cooldown-throttled `createRemoteJWKSet` resolver held per issuer. The claim gates are `jose`'s own `JWTClaimVerificationOptions` — `exp`/`nbf`/`aud`/`iss`/`maxTokenAge` under a `clockTolerance` — so no timestamp is re-checked by hand, and `algorithms` is always pinned because an unpinned `alg` is an accepted-algorithm-confusion hole. Keys arrive only as `KeyHandle`s from `secret/material` — the private signing key is unwrapped exactly into `SignJWT.sign`, never re-imported per call — and rotation is a `KeyRing` of one active `Signing` handle plus every published `Verify` handle, re-admitted on a `Schedule` through `Reloadable.auto`. The whole `JOSEError` family folds by its stable `code` into `JwtFault`, the folder's `Schema.TaggedError` reason-shape; `session/token` consumes `mint`/`verify` and `authn/oauth` consumes `verifyExternal`.
+`sign/jwt` is the single JWT/JWS/JWKS authority: it mints own-issued access tokens with the active rotation key, verifies them against the local JWKS with a pinned algorithm allow-list and declarative claim gates, and verifies external OIDC `id_token`s against a cooldown-throttled `createRemoteJWKSet` resolver held per issuer. The claim gates are `jose`'s own `JWTClaimVerificationOptions` — `exp`/`nbf`/`aud`/`iss`/`maxTokenAge` under a `clockTolerance` — so no timestamp is re-checked by hand, and `algorithms` is always pinned because an unpinned `alg` is an accepted-algorithm-confusion hole. Keys arrive only as `KeyHandle`s from `secret/material` — the private signing key is unwrapped exactly into `SignJWT.sign`, never re-imported per call — and rotation is a `KeyRing` of one active `Signing` handle plus every published `Verify` handle, admitted once at layer construction and re-admitted by rebuilding the layer: the composition root's `Reloadable.auto` row owns the cadence. The whole `JOSEError` family folds by its stable `code` into `JwtFault`, the folder's `Schema.TaggedError` reason-shape; `session/token` consumes `mint`/`verify` and `authn/oauth` consumes `verifyExternal`.
 
 ## [1]-[CLUSTER_INDEX]
 
@@ -20,7 +20,7 @@
 
 ```typescript
 import { createLocalJWKSet, createRemoteJWKSet, jwtVerify, SignJWT, type JSONWebKeySet, type JWTPayload, type JWTVerifyResult } from "jose"
-import { Config, DateTime, Duration, Effect, Option, Redacted, Schema } from "effect"
+import { Config, DateTime, Duration, Effect, Option, Predicate, Redacted, Schema, Struct } from "effect"
 import { KeyAlg, Material, type Ring } from "../secret/material.ts"
 
 // --- [CONSTANTS] ------------------------------------------------------------------------
@@ -91,7 +91,7 @@ const _reasonOf = (cause: unknown): JwtFault.Reason => {
 [LOCAL]:
 - Owner: `Jwt.mint`/`Jwt.verify` over the `KeyRing` — `mint` stamps `{ alg, kid }` from the active `Signing` handle so verifiers route by `kid`; `verify` runs `createLocalJWKSet` over every published `Verify` handle with `algorithms` pinned and the claim gates applied, then decodes the payload through `AccessClaims`.
 - Packages: `jose` — `SignJWT` fluent builder + `sign`, `jwtVerify` with `JWTVerifyOptions`; `secret/material` supplies the `KeyRing`, `Material.jwks` renders the local set.
-- Law: the private key unwraps only into `SignJWT.sign`; the claim gate (`issuer`/`audience`/`clockTolerance`) is one `Config`-sourced policy value; rotation re-admits the ring on a `Schedule` through `Reloadable.auto`, so a `kid` retires without a consumer edit.
+- Law: the private key unwraps only into `SignJWT.sign`; the claim gate (`issuer`/`audience`/`clockTolerance`) is one `Config`-sourced policy value; rotation re-admits the ring by rebuilding this layer — the root wraps it in its `Reloadable.auto` row, so a `kid` retires with zero edits here, and a retired signing key keeps verifying while its `Verify` handle stays published.
 - Receipt: `mint` returns the token `Redacted`; `verify` returns `AccessClaims`, never a bare `JWTPayload`.
 
 ```typescript
@@ -105,7 +105,8 @@ class Jwt extends Effect.Service<Jwt>()("security/sign/Jwt", {
     const tolerance = yield* Config.integer("JWT_CLOCK_TOLERANCE").pipe(Config.withDefault(5))
     const signingPem = yield* Config.redacted("JWT_SIGNING_KEY")
     const signingAlg = yield* Config.literal("ES256", "ES384", "RS256", "EdDSA")("JWT_SIGNING_ALG").pipe(Config.withDefault<KeyAlg.Kind>("ES256"))
-    const jwks = JSON.parse(Redacted.value(yield* Config.redacted("JWT_JWKS"))) as JSONWebKeySet
+    const rawJwks = yield* Config.redacted("JWT_JWKS")
+    const jwks = yield* Effect.try({ try: () => JSON.parse(Redacted.value(rawJwks)) as JSONWebKeySet, catch: (cause) => new JwtFault({ reason: "malformed", detail: String(cause) }) })
     const ring: Ring = yield* material.ring({ signingPem, signingAlg, jwks })
     const local = createLocalJWKSet(yield* material.jwks(ring.verify))
     const _remote = yield* Effect.cachedFunction((jwksUri: string) =>

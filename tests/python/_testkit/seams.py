@@ -276,15 +276,19 @@ def tmp_root[S](root: Path, make_settings: KitFactory[S]) -> TmpRoot[S]:
 
 
 class NdjsonOracle[T](msgspec.Struct, frozen=True, gc=False):
-    """NDJSON oracle that checks line count before decoding the first row."""
+    """NDJSON oracle that gates the exact line count and decodes every row."""
 
     decoder: msgspec.json.Decoder[T]
     expect_lines: int = 1
 
+    def rows(self, raw: bytes) -> tuple[T, ...]:
+        lines = raw.splitlines()
+        assert len(lines) == self.expect_lines, f"expected exactly {self.expect_lines} NDJSON line(s), got {len(lines)}: {lines!r}"
+        return tuple(self.decoder.decode(line) for line in lines)
+
     def one(self, raw: bytes) -> T:
-        rows = raw.splitlines()
-        assert len(rows) == self.expect_lines, f"expected exactly {self.expect_lines} NDJSON line(s), got {len(rows)}: {rows!r}"
-        return self.decoder.decode(rows[0])
+        assert self.expect_lines == 1, f"one() reads a single-write oracle; this oracle expects {self.expect_lines} lines — use rows()"
+        return self.rows(raw)[0]
 
     def from_capture(self, cap: pytest.CaptureFixture[bytes] | pytest.CaptureFixture[str]) -> T:
         out = cap.readouterr().out

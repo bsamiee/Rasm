@@ -8,14 +8,14 @@
 | :-----: | :------------------------------ | :------------------------------- | :------------------------ | :--------------------------------------- |
 |  [01]   | role + claim vocabulary         | `Role` table / `ClaimSet`        | `effect` `Schema`         | a role string per site, a claims DTO     |
 |  [02]   | tenancy contract for RLS        | `TenantContext` `Context.Reference` | `effect`               | a tenant parameter threaded per query    |
-|  [03]   | resolve claims from a token     | `Claim.resolve` / `Claim.bind`   | `session/jwt`, `store` port | re-deriving roles at each policy check   |
+|  [03]   | resolve claims from a token     | `Claim.resolve` / `Claim.bind`   | `sign/jwt`, `store` port  | re-deriving roles at each policy check   |
 
 ## [2]-[CLAIM_VOCABULARY]
 
 [ROLES_AND_CONTEXT]:
 - Owner: `Role` is the bounded role table (rank plus inherited roles for the policy fold); `ClaimSet` is the resolved claim shape (subject, tenant, roles, scopes); `TenantContext` is the ambient tenancy reference. `ClaimStore` declares the role storage.
 - Packages: `effect` — `Role` derives its `Kind` through `keyof typeof`, `ClaimSet` decodes roles into a `HashSet`, `TenantContext` is a `Context.Reference` whose default is the unauthenticated context.
-- Boundary: `store/scope` reads `TenantContext` to bind RLS (the tenancy seam); `session/token` supplies the `AccessClaims`; `authz/policy` consumes the `ClaimSet`; `ClaimStore` is a `store`-satisfied port.
+- Boundary: `store/scope` reads `TenantContext` to bind RLS (the tenancy seam); `sign/jwt` owns the `AccessClaims` shape the edge's verify hands in; `authz/policy` consumes the `ClaimSet`; `ClaimStore` is a `store`-satisfied port.
 - Growth: a new role is one `_roles` entry; a new claim facet is one `ClaimSet` field; the tenant boundary never changes shape.
 
 ```typescript
@@ -94,7 +94,7 @@ class ClaimStore extends Context.Tag("security/authz/ClaimStore")<ClaimStore, {
 
 [CLAIM]:
 - Owner: `Claim.resolve` lifts a verified `AccessClaims` into a `ClaimSet` — subject and scopes from the token, roles from the `ClaimStore` keyed by `(subject, tenant)`; `Claim.bind` provides the `TenantContext` for a request scope so `store` binds RLS; `Claim.context` derives the reference value from a `ClaimSet`.
-- Packages: `session/jwt` `AccessClaims` as the token source, `store`-satisfied `ClaimStore` for the durable roles, `effect` `Config` for the default tenant policy.
+- Packages: `sign/jwt` `AccessClaims` as the token source, `store`-satisfied `ClaimStore` for the durable roles, `effect` `Config` for the default tenant policy.
 - Law: roles are read once per request into the `ClaimSet`, never re-derived at each policy check; the tenant flows through the `Context.Reference`, not a parameter; an empty role set is a valid unprivileged subject, and only a store failure is a `ClaimFault`.
 - Receipt: `ClaimSet` — the immutable resolved claim the policy fold reads; `TenantContext` — the ambient tenancy the store binds.
 

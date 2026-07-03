@@ -12,7 +12,7 @@
 ## [2]-[VECTOR_OWNER]
 
 - Owner: `Vector` — one `Schema.Class` whose `clocks` field is the decoded `HashMap` of replica counters; comparison, dominance, increment, and the two lattice instances ride the class as statics, so one import carries the shape, the codec target, and the whole causal-order algebra.
-- Packages: `effect` (`Schema`, `HashMap`, `Order`, `Option`, `Number`); `../crdt/merge.ts` (`Merge.Instance` for join/meet).
+- Packages: `effect` (`Schema`, `HashMap`, `Order`, `Option`, `Number`); `@effect/typeclass` (`Semigroup.make`); `@rasm/ts/kernel` (`ContentKey`, `Hlc`); `../crdt/merge.ts` (`Merge.Instance` for join/meet).
 - Law: `Vector.compare` answers the happened-before question structurally — `"before"` when strictly dominated, `"after"` when strictly dominating, `"equal"` on identical clocks, `"concurrent"` when each side carries a count the other lacks — and the ordering vocabulary anchors on the interior tuple so `causal/order` and `query/window` derive the same literal union.
 - Law: `join` is the pointwise-max lattice (`posture` semilattice, empty `Vector.zero`) — the merge every delivery advances `seen` by; `meet` is the pointwise-min GLB over the key union with absent-as-zero, so a replica that never acked pins the frontier at zero rather than being skipped — the stability-frontier semantics `causal/order` requires.
 - Law: replica identity is the interior `_Replica` brand (`ReplicaId`) reaching consumers only as `Vector.Replica` — one spelling for presence actors, delivery origins, and ack keys; a free-floating replica-id export is the named defect.
@@ -20,7 +20,8 @@
 - Boundary: `wire/codec/version` decodes the C# version-vector wire into `Vector`; `store/journal` persists commits — both consume this owner and this owner imports neither.
 
 ```typescript
-import { Array, HashMap, Number, Option, Order, Schema } from "effect"
+import * as Semigroup from "@effect/typeclass/Semigroup"
+import { HashMap, Number, Option, Order, Schema } from "effect"
 import { ContentKey, Hlc } from "@rasm/ts/kernel"
 import { Merge } from "../crdt/merge.ts"
 
@@ -53,10 +54,7 @@ const _pointwise = (pick: (left: number, right: number) => number) => (self: Vec
 
 const _lattice = (pick: (left: number, right: number) => number, empty: Option.Option<Vector>): Merge.Instance<Vector> =>
   Merge.instance({
-    combine: {
-      combine: _pointwise(pick),
-      combineMany: (self, rest) => Array.reduce(Array.fromIterable(rest), self, _pointwise(pick)),
-    },
+    combine: Semigroup.make(_pointwise(pick)),
     posture: { commutative: true, idempotent: true },
     alike: (self, that) => Vector.compare(self, that) === "equal",
     empty,
@@ -87,6 +85,7 @@ class Vector extends Schema.Class<Vector>("Vector")({
 - Owner: `Commit` — the content-keyed commit class (`key`, `parents`, `vector`, `stamp`, `author`) with the branch shape and Merkle summary riding it as statics, so the whole commit-graph vocabulary travels one import and the decode seam targets one owner family.
 - Law: `Commit.Branch` is a pure-data head pointer (`Schema.Struct`) — name brand, head key, vector — behavior never accretes on it; a branch with behavior would be a `Schema.Class` case and that promotion is one declaration edit.
 - Law: `Commit.Merkle` summarizes a journal range as digest tiers over a declared fanout; `Commit.diverges` descends from the root tier keeping only child buckets under diverging parents, so comparison cost is proportional to the divergence, and equal roots answer in one row — the anti-entropy read the sync protocol consumes.
+- Law: fanout is summary identity — two summaries compare only at equal fanout, and a mismatched pair answers every leaf bucket of `self`, the full-sync verdict, because bucket coordinates under different fanouts name different ranges.
 - Law: tier digests are `ContentKey` — the one `XxHash128` seed-zero identity minted in `kernel/identity`; this owner composes the brand and never re-mints (invariant: one mint, delegating sites only).
 - Exemption: the `diverges` tier descent is a measured statement kernel — candidate narrowing mutates only the local frontier arrays and the accumulator dies at the return.
 - Growth: a deeper anti-entropy question (bucket counts, range stamps) is a field row on `Commit.Merkle` plus a `diverges` projection — never a second summary shape.
@@ -111,6 +110,7 @@ class Commit extends Schema.Class<Commit>("Commit")({
     tiers: Schema.NonEmptyArray(Schema.Array(ContentKey)),
   })
   static diverges(self: Commit.Merkle, that: Commit.Merkle): ReadonlyArray<number> {
+    if (self.fanout !== that.fanout) return self.tiers[self.tiers.length - 1]!.map((_digest, at) => at)
     const tiers = Math.max(self.tiers.length, that.tiers.length)
     let candidates: ReadonlyArray<number> = [0]
     for (let tier = 0; tier < tiers; tier += 1) {

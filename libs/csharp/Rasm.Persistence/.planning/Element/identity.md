@@ -571,11 +571,10 @@ public abstract partial record SchemaVerdict {
 // `Message => Detail` projects the case detail, and `Category` projects the telemetry label through the generated
 // `Switch`, so the typed case lifts BARE onto `Fin<T>`/`Validation<Error,T>` with no `.ToError()` hop and a recovery
 // reads `error.IsType<IdentityFault.CellUnresolvable>()` / `error.HasCode(8344)` / `error.Category()`, never a message
-// substring; a bare `Error.New(8341, …)` at a call site is the deleted form. `[SkipUnionOps]` is the canonical
-// fault-band annotation (the production `UiFault` shape) — it skips the generated implicit-conversion ops while the
-// generated `Switch`/`Map` survives. `Create` is the IValidationError admission the generated converter bridge calls
+// substring; a bare `Error.New(8341, …)` at a call site is the deleted form. No `[GenerateUnionOps]` — the kernel
+// union-ops generator is strictly opt-in, so the band carries no generated per-case `SelfOp`; the `[Union]`-generated
+// `Switch`/`Map` is untouched. `Create` is the IValidationError admission the generated converter bridge calls
 // on a deserialization reject.
-[SkipUnionOps]
 [Union]
 public abstract partial record IdentityFault : Expected, IValidationError<IdentityFault> {
     private IdentityFault() : base() { }

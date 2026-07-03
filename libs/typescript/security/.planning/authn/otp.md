@@ -16,7 +16,7 @@
 - Owner: `OtpVerdict` is the second-factor result — `Accepted({ delta })` (the drift signal HOTP resync consumes) or `Rejected`; `RecoverySet` carries the one-time codes and their digests; `OtpFault` is the folder 500 fault shape. `OtpConfig` fixes the strategy and tolerance policy.
 - Packages: `otplib` — `generate`/`verify` are async because the `CryptoPlugin.hmac` may be async, `generateSecret`/`generateURI` are sync; `VerifyResult` narrows on `.valid`. `sign/crypto` supplies the `CryptoPlugin`/`Base32Plugin` and the recovery digest.
 - Boundary: the edge renders the `otpauth://` URI to a QR (the one place the secret leaves `Redacted`); `sign/crypto` owns the HMAC and the recovery hash, so no folder pulls a second crypto stack.
-- Growth: a Steam-Guard-style alphabet is one otplib `hooks` value, never a new package; HOTP is the same call with `strategy: "hotp"` and a `counter`.
+- Growth: a Steam-Guard-style alphabet is one otplib `hooks` value, never a new package; HOTP is the same call with a `Some` counter — the input value is the strategy discriminant, never a name fork.
 
 ```typescript
 import { generate, generateSecret, generateURI, verify, type OTPVerifyOptions } from "otplib"
@@ -40,6 +40,8 @@ const OtpFaultPolicy = {
 } as const
 
 const _EPOCH_TOLERANCE: readonly [number, number] = [1, 0]
+
+const _COUNTER_TOLERANCE: readonly [number, number] = [0, 2]
 
 declare namespace OtpFault {
   type Reason = keyof typeof OtpFaultPolicy
@@ -72,9 +74,9 @@ class OtpFault extends Schema.TaggedError<OtpFault>()("OtpFault", {
 ## [3]-[SECOND_FACTOR]
 
 [OTP]:
-- Owner: `Otp.enroll` mints the base32 secret and the `otpauth://` URI; `Otp.verify` checks a presented token past-only under `_EPOCH_TOLERANCE`; `Otp.mintRecovery` issues N single-use codes and their digests; `Otp.redeem` finds the matching unspent digest by constant-time argon2 verify.
+- Owner: `Otp.enroll` mints the base32 secret and the `otpauth://` URI; `Otp.verify` checks a presented token — TOTP past-only under `_EPOCH_TOLERANCE`, or HOTP look-ahead under `_COUNTER_TOLERANCE` when the caller passes a `Some` counter; `Otp.mintRecovery` issues N single-use codes and their digests; `Otp.redeem` finds the matching unspent digest by constant-time argon2 verify.
 - Packages: `otplib` bound to `sign/crypto`'s `plugin`/`base32` ports; `sign/crypto` `Crypto.token`/`.digest`/`.verify` for the recovery codes; `Effect.findFirst` over the recovery digests.
-- Law: verification is result-typed and constant-time inside otplib — a wrong code is `Rejected`, never a throw; the secret and URI stay `Redacted`; recovery codes are `sign/crypto` material digested at rest, and `redeem` returns the matched index so the store marks exactly that code spent.
+- Law: verification is result-typed and constant-time inside otplib — a wrong code is `Rejected`, never a throw; the secret and URI stay `Redacted`; a valid HOTP match persists `counter + delta + 1` — the `Accepted.delta` the caller's store consumes as the resync signal; recovery codes are `sign/crypto` material digested at rest, and `redeem` returns the matched index so the store marks exactly that code spent.
 - Receipt: `OtpVerdict` on verify (`delta` for drift), `Option<number>` on redeem (the spent index), `RecoverySet` on mint — never a raw boolean.
 
 ```typescript
@@ -98,9 +100,13 @@ class Otp extends Effect.Service<Otp>()("security/authn/Otp", {
         },
         catch: (cause) => new OtpFault({ reason: "mint", detail: String(cause) }),
       })
-    const verify_ = (secret: Redacted.Redacted<string>, token: string): Effect.Effect<OtpVerdict, OtpFault> =>
+    const verify_ = (secret: Redacted.Redacted<string>, token: string, counter: Option.Option<number> = Option.none()): Effect.Effect<OtpVerdict, OtpFault> =>
       Effect.tryPromise({
-        try: () => verify({ strategy: "totp", secret: Redacted.value(secret), token, epochTolerance: _EPOCH_TOLERANCE, ..._ports } satisfies OTPVerifyOptions),
+        try: () =>
+          Option.match(counter, {
+            onNone: () => verify({ strategy: "totp", secret: Redacted.value(secret), token, epochTolerance: _EPOCH_TOLERANCE, ..._ports } satisfies OTPVerifyOptions),
+            onSome: (at) => verify({ strategy: "hotp", secret: Redacted.value(secret), token, counter: at, counterTolerance: _COUNTER_TOLERANCE, ..._ports } satisfies OTPVerifyOptions),
+          }),
         catch: (cause) => new OtpFault({ reason: "verify", detail: String(cause) }),
       }).pipe(Effect.map((result) => (result.valid ? _OtpVerdict.Accepted({ delta: result.delta }) : _OtpVerdict.Rejected())))
     const mintRecovery = (count: number): Effect.Effect<RecoverySet, OtpFault> =>
@@ -118,8 +124,15 @@ class Otp extends Effect.Service<Otp>()("security/authn/Otp", {
           cipher.verify("apiKey", row.digest, presented).pipe(Effect.map((verdict) => verdict._tag === "Matched"), Effect.orDie)),
         Option.map((row) => row.index),
       )
-    const generate_ = (secret: Redacted.Redacted<string>): Effect.Effect<Redacted.Redacted<string>, OtpFault> =>
-      Effect.tryPromise({ try: () => generate({ strategy: "totp", secret: Redacted.value(secret), ..._ports }), catch: (cause) => new OtpFault({ reason: "mint", detail: String(cause) }) }).pipe(Effect.map(Redacted.make))
+    const generate_ = (secret: Redacted.Redacted<string>, counter: Option.Option<number> = Option.none()): Effect.Effect<Redacted.Redacted<string>, OtpFault> =>
+      Effect.tryPromise({
+        try: () =>
+          Option.match(counter, {
+            onNone: () => generate({ strategy: "totp", secret: Redacted.value(secret), ..._ports }),
+            onSome: (at) => generate({ strategy: "hotp", secret: Redacted.value(secret), counter: at, ..._ports }),
+          }),
+        catch: (cause) => new OtpFault({ reason: "mint", detail: String(cause) }),
+      }).pipe(Effect.map(Redacted.make))
     return { enroll, verify: verify_, mintRecovery, redeem, generate: generate_ } as const
   }),
   dependencies: [Crypto.Default],

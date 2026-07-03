@@ -124,11 +124,10 @@ public sealed partial class SecretScope {
 // `Rasm.Element/Projection/fault#FAULT_BAND` `ElementFault` (2500) and the `Rasm.Bim/Model/faults#FAULT_BAND` `BimFault`
 // (2600) realize — NOT `LanguageExt.Common.Expected`, whose `(string,int,Option)` `base(detail, code, None)` ctor (no
 // `Category` to override) is the deleted form. A case lifts BARE onto the Fin rail through the Expected derivation (no
-// `.ToError()` hop), `[SkipUnionOps]` skipping the generated implicit-conversion ops while the generated `Switch`/`Map`
-// survives; band membership is a per-case `Code => 835x` override, sitting beside the cypher `GraphFault` (836x) and
+// `.ToError()` hop), no `[GenerateUnionOps]` (the kernel union-ops generator is strictly opt-in — the band wants no
+// per-case `SelfOp`), the `[Union]`-generated `Switch`/`Map` untouched; band membership is a per-case `Code => 835x` override, sitting beside the cypher `GraphFault` (836x) and
 // `TopologyFault` (837x). Every native arm carries the `DuckDBErrorType` the boundary discriminated on so the fault names
 // the typed native error class, never a message substring, and `Category` projects the telemetry label.
-[SkipUnionOps]
 [Union]
 public abstract partial record ColumnarFault : Expected, IValidationError<ColumnarFault> {
     private ColumnarFault() : base() { }

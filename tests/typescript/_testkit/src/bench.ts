@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import { FileSystem, Path } from '@effect/platform';
 import { Array, Context, Data, DateTime, Effect, Option, Order, pipe, Record, Schema, String } from 'effect';
 
@@ -51,7 +52,7 @@ class BenchFault extends Data.TaggedError('BenchFault')<{
 // --- [SERVICES] --------------------------------------------------------------------------
 
 class BenchHome extends Context.Reference<BenchHome>()('rasm-testkit/BenchHome', {
-    defaultValue: (): string => new URL('../../../../.artifacts/typescript/bench', import.meta.url).pathname,
+    defaultValue: (): string => fileURLToPath(new URL('../../../../.artifacts/typescript/bench', import.meta.url)),
 }) {}
 
 // --- [OPERATIONS] ------------------------------------------------------------------------
@@ -62,6 +63,55 @@ const _encodeRow = Schema.encode(Schema.parseJson(BenchRow));
 
 const _median = (values: ReadonlyArray<number>): Option.Option<number> =>
     pipe(Array.sort(values, Order.number), (sorted) => Array.get(sorted, Math.floor(sorted.length / 2)));
+
+// A missing ledger is an empty history; a corrupted line is a typed malformed fault, never a die.
+const _history: Effect.Effect<ReadonlyArray<BenchRow>, BenchFault, FileSystem.FileSystem | Path.Path> = Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const home = yield* BenchHome;
+    const raw = yield* Effect.orElseSucceed(fs.readFileString(path.join(home, _LEDGER.history)), () => '');
+    return yield* Effect.mapError(
+        Effect.forEach(Array.filter(String.split(raw, '\n'), String.isNonEmpty), (line) => _decodeRow(line)),
+        (fault) => new BenchFault({ reason: 'malformed', detail: fault.message }),
+    );
+});
+
+// Harvest keys on the autosave's own mtime: re-running the gate over one bench run appends nothing — a duplicated
+// harvest would forge the consecutive-slow-run evidence the breach verdict reads.
+const _harvest: Effect.Effect<ReadonlyArray<BenchRow>, BenchFault, FileSystem.FileSystem | Path.Path> = Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const home = yield* BenchHome;
+    const target = path.join(home, _LEDGER.latest);
+    const raw = yield* Effect.mapError(fs.readFileString(target), (fault) => new BenchFault({ reason: 'unreadable', detail: fault.message }));
+    const info = yield* Effect.mapError(fs.stat(target), (fault) => new BenchFault({ reason: 'unreadable', detail: fault.message }));
+    const at = yield* Option.match(info.mtime, {
+        onNone: () => Effect.map(DateTime.now, DateTime.formatIso),
+        onSome: (minted) => Effect.succeed(DateTime.formatIso(DateTime.unsafeFromDate(minted))),
+    });
+    const latest = yield* Effect.mapError(_decodeLatest(raw), (fault) => new BenchFault({ reason: 'malformed', detail: fault.message }));
+    const seen = yield* _history;
+    const rows = Array.flatMap(latest.files, (file) =>
+        Array.flatMap(file.groups, (group) =>
+            Array.map(
+                group.benchmarks,
+                // The group fullName already carries the repo-relative spec path; an absolute filepath key couples the ledger to one machine.
+                (entry) => new BenchRow({ at, name: `${group.fullName}::${entry.name}`, hz: entry.hz, rme: entry.rme }),
+            ),
+        ),
+    );
+    return yield* Array.some(seen, (row) => row.at === at)
+        ? Effect.succeed<ReadonlyArray<BenchRow>>([])
+        : Effect.gen(function* () {
+              const lines = yield* Effect.orDie(Effect.forEach(rows, (row) => _encodeRow(row)));
+              yield* Effect.orDie(fs.makeDirectory(home, { recursive: true }));
+              yield* Effect.mapError(
+                  fs.writeFileString(path.join(home, _LEDGER.history), `${lines.join('\n')}\n`, { flag: 'a' }),
+                  (fault) => new BenchFault({ reason: 'unreadable', detail: fault.message }),
+              );
+              return rows;
+          });
+});
 
 const _receipt = (name: string, rows: ReadonlyArray<BenchRow>, policy: Bench.Policy): Bench.Receipt => {
     const recent = Array.takeRight(rows, policy.window);
@@ -111,46 +161,13 @@ const Bench = {
                     : ('pass' as Bench.Verdict),
             }),
         ),
-    // Fold the autosaved latest.json into the history ledger; every `vitest bench` run feeds the gate, never a manual save.
-    harvest: Effect.gen(function* () {
-        const fs = yield* FileSystem.FileSystem;
-        const path = yield* Path.Path;
-        const home = yield* BenchHome;
-        const raw = yield* Effect.mapError(
-            fs.readFileString(path.join(home, _LEDGER.latest)),
-            (fault) => new BenchFault({ reason: 'unreadable', detail: fault.message }),
-        );
-        const latest = yield* Effect.mapError(_decodeLatest(raw), (fault) => new BenchFault({ reason: 'malformed', detail: fault.message }));
-        const at = DateTime.formatIso(yield* DateTime.now);
-        const rows = Array.flatMap(latest.files, (file) =>
-            Array.flatMap(file.groups, (group) =>
-                Array.map(
-                    group.benchmarks,
-                    // The group fullName already carries the repo-relative spec path; an absolute filepath key couples the ledger to one machine.
-                    (entry) => new BenchRow({ at, name: `${group.fullName}::${entry.name}`, hz: entry.hz, rme: entry.rme }),
-                ),
-            ),
-        );
-        const lines = yield* Effect.orDie(Effect.forEach(rows, (row) => _encodeRow(row)));
-        yield* Effect.orDie(fs.makeDirectory(home, { recursive: true }));
-        yield* Effect.mapError(
-            fs.writeFileString(path.join(home, _LEDGER.history), `${lines.join('\n')}\n`, { flag: 'a' }),
-            (fault) => new BenchFault({ reason: 'unreadable', detail: fault.message }),
-        );
-        return rows;
-    }),
-    history: Effect.gen(function* () {
-        const fs = yield* FileSystem.FileSystem;
-        const path = yield* Path.Path;
-        const home = yield* BenchHome;
-        const raw = yield* Effect.orElseSucceed(fs.readFileString(path.join(home, _LEDGER.history)), () => '');
-        return yield* Effect.orDie(Effect.forEach(Array.filter(String.split(raw, '\n'), String.isNonEmpty), (line) => _decodeRow(line)));
-    }),
+    harvest: _harvest,
+    history: _history,
     // The gate verb: harvest the latest run, fold the full ledger, and FAIL typed on a sustained breach.
     gate: (policy: Bench.Policy = _POLICY): Effect.Effect<Bench.Report, BenchFault, FileSystem.FileSystem | Path.Path> =>
         Effect.gen(function* () {
-            yield* Bench.harvest;
-            const report = Bench.fold(yield* Bench.history, policy);
+            yield* _harvest;
+            const report = Bench.fold(yield* _history, policy);
             return yield* report.verdict === 'breach'
                 ? Effect.fail(
                       new BenchFault({

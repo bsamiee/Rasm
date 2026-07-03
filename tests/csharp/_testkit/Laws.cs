@@ -28,7 +28,7 @@ public readonly record struct LawRecord(Type Subject, string Name, Option<string
 // `[CspExempt]`/`[CspScope(Tooling)]` production sites — never a parallel catalog.
 public readonly record struct SutTarget(Assembly Assembly, FrozenSet<string> ExemptNames);
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [OPERATIONS] ---------------------------------------------------------------------------
 public static class Laws {
     // Record-synthesized and compiler-emitted members carry no law obligation; their simple names
     // and prefixes are stable across the generators that emit them.
@@ -74,7 +74,7 @@ public static class Laws {
             : Fin.Fail<Unit>(error: Error.Many(errors: gaps));
     }
 
-    // --- [OPERATIONS]
+    // --- [SURFACE_CENSUS]
     // PublicSurface is exported types plus their declared-only public members, minus the
     // record-synthesized, compiler-generated, and `[Union]`/`[SmartEnum]` generated-case symbols.
     private static Seq<string> PublicSurface(Assembly assembly) =>

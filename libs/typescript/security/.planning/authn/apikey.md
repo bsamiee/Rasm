@@ -97,10 +97,8 @@ class ApiKeyStore extends Context.Tag("security/authn/ApiKeyStore")<ApiKeyStore,
 ```typescript
 // --- [OPERATIONS] -----------------------------------------------------------------------
 
-const _split = (presented: string): Option.Option<{ readonly prefix: string; readonly token: string }> => {
-  const dot = presented.indexOf(".")
-  return dot <= 0 ? Option.none() : Option.some({ prefix: presented.slice(0, dot), token: presented })
-}
+const _prefixOf = (presented: string): Option.Option<string> =>
+  Option.map(Option.filter(Option.some(presented.indexOf(".")), (dot) => dot > 0), (dot) => presented.slice(0, dot))
 
 // --- [SERVICES] -------------------------------------------------------------------------
 
@@ -125,13 +123,15 @@ class ApiKey extends Effect.Service<ApiKey>()("security/authn/ApiKey", {
       })
     const resolve = (presented: Redacted.Redacted<string>): Effect.Effect<ApiKeyRecord, ApiKeyFault> =>
       Effect.gen(function* () {
-        const parts = yield* Option.match(_split(Redacted.value(presented)), { onNone: () => Effect.fail(new ApiKeyFault({ reason: "malformed", detail: "no prefix" })), onSome: Effect.succeed })
-        const candidates = yield* store.byPrefix(parts.prefix)
+        const prefix = yield* Option.match(_prefixOf(Redacted.value(presented)), { onNone: () => Effect.fail(new ApiKeyFault({ reason: "malformed", detail: "no prefix" })), onSome: Effect.succeed })
+        const candidates = yield* store.byPrefix(prefix)
         const hit = yield* Effect.findFirst(candidates, (record) => cipher.verify("apiKey", record.digest, presented).pipe(Effect.map((verdict) => verdict._tag === "Matched"), Effect.orDie))
-        const record = yield* Option.match(hit, { onNone: () => Effect.fail(new ApiKeyFault({ reason: "notFound", detail: parts.prefix })), onSome: Effect.succeed })
-        if (Option.isSome(record.revokedAt)) return yield* Effect.fail(new ApiKeyFault({ reason: "revoked", detail: record.id }))
+        const record = yield* Option.match(hit, { onNone: () => Effect.fail(new ApiKeyFault({ reason: "notFound", detail: prefix })), onSome: Effect.succeed })
+        yield* Option.isSome(record.revokedAt) ? Effect.fail(new ApiKeyFault({ reason: "revoked", detail: record.id })) : Effect.void
         const now = yield* DateTime.now
-        if (Option.match(record.expiresAt, { onNone: () => false, onSome: (exp) => DateTime.greaterThan(now, exp) })) return yield* Effect.fail(new ApiKeyFault({ reason: "expired", detail: record.id }))
+        yield* Option.match(record.expiresAt, { onNone: () => false, onSome: (exp) => DateTime.greaterThan(now, exp) })
+          ? Effect.fail(new ApiKeyFault({ reason: "expired", detail: record.id }))
+          : Effect.void
         yield* store.touch(record.id, now)
         return record
       })

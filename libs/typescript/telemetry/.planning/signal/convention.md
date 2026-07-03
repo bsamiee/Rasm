@@ -108,7 +108,6 @@ const _rasm = {
   auditTargetKey: "rasm.audit.target.key",
   auditTargetKind: "rasm.audit.target.kind",
   crashHop: "rasm.crash.hop",
-  hostFingerprint: "rasm.host.fingerprint",
   meterResource: "rasm.meter.resource",
   meterSurface: "rasm.meter.surface",
   sloBurn: "rasm.slo.burn",

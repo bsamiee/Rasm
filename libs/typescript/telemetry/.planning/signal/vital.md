@@ -128,14 +128,14 @@ const _observed: Stream.Stream<Vital.Fact> = Stream.asyncScoped<Vital.Fact>(
 [EMISSION]:
 - Owner: the assembled `Vital` export — the row table spread in, the grade fold, the live fact stream, and the drain Layer under one name.
 - Law: two instruments serve every kind, both bounded — `Convention.metric.vitalLevel` is a gauge written through `Metric.set` and tagged by the kind row (six series), `Convention.metric.vitalObserved` is an incremental counter tagged by kind and derived grade (eighteen series) — and the exact-value distribution beyond the gauge is an export-lane concern, never a third instrument here.
-- Law: `Vital.live(tempo)` is the registration node — a `Layer.scopedDiscard` forking the observed stream through `Stream.changesWith` on the accounted value (a repeat of an unchanged accounting emits nothing) and `Stream.debounce(tempo.settle)` so a layout-shift burst settles before it stamps, then draining each fact into the two instruments; the Layer merges at the browser composition root beside `Export.live`.
+- Law: `Vital.live(tempo)` is the registration node — a `Layer.scopedDiscard` forking the observed stream through `Stream.changesWith` on the accounted value (a repeat of an unchanged accounting emits nothing) and `Stream.throttle` shaping the stamp rate to the tempo so a layout-shift burst cannot flood the gauge, then draining each fact into the two instruments; the Layer merges at the browser composition root beside `Export.live`.
 - Receipt: each drained fact annotates the current span with the kind and grade rows, so a session trace carries its vitals inline.
 - Entry: `Vital.live(tempo)`; `Vital.stream` for a consumer that folds its own view; `Vital.grade(kind, value)` for board threshold reuse.
 - Growth: an instrument axis is closed — new analysis lands as board queries over the same two instruments.
 
 ```typescript
 import { Effect, Layer, Metric, Stream } from "effect"
-import { Convention } from "@rasm/ts/telemetry"
+import { Convention } from "./convention.ts"
 
 const _level = Metric.gauge(Convention.metric.vitalLevel)
 const _observedCount = Metric.counter(Convention.metric.vitalObserved, { incremental: true })
@@ -169,7 +169,7 @@ const Vital: {
         Stream.runForEach(
           _observed.pipe(
             Stream.changesWith((prior, next) => prior.kind === next.kind && prior.value === next.value),
-            Stream.debounce(tempo.settle),
+            Stream.throttle({ cost: () => 1, duration: tempo.settle, strategy: "shape", units: 8 }),
           ),
           _drained,
         ),

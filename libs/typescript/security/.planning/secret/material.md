@@ -89,7 +89,7 @@ class MaterialFault extends Schema.TaggedError<MaterialFault>()("MaterialFault",
 [ADMIT]:
 - Owner: `Material.admit` — one polymorphic import folding a `CredentialPemWire` into a `KeyHandle`. The `format` selects the JOSE importer (`importPKCS8` private, `importSPKI`/`importX509` public, `importJWK` either), and `secret` selects the `Signing`/`Verify` arm for the ambiguous `jwk` case; there is no `admitSigning`/`admitVerify` twin.
 - Packages: `jose` — `importPKCS8`/`importSPKI`/`importX509`/`importJWK` yield a non-extractable `CryptoKey`; `exportJWK`+`calculateJwkThumbprint` compute the RFC 7638 `kid` when the wire omits one.
-- Boundary: `sign/jwt` is the only consumer that unwraps the `Redacted<CryptoKey>` — into `SignJWT.sign`/`jwtVerify`; `secret/doppler` produces the `CredentialPemWire` this admits. The import throw folds to `MaterialFault.import`; an alg outside `KeyAlg` is `MaterialFault.unsupported`.
+- Boundary: `sign/jwt` is the only consumer that unwraps the `Redacted<CryptoKey>` — into `SignJWT.sign`/`jwtVerify`; `secret/doppler` produces the `CredentialPemWire` this admits. The import throw folds to `MaterialFault.import`; an alg outside `KeyAlg` and the symmetric `importJWK` arm (`Uint8Array` material) are `MaterialFault.unsupported`.
 - Receipt: `KeyHandle` — `Signing` carries the private handle, `Verify` the public; both carry the stable `kid` rotation keys are addressed by. `Material.ring` narrows a signing wire plus a public JWKS into the `{ active, verify }` set `sign/jwt` consumes, so no downstream re-narrows the union by hand.
 
 ```typescript
@@ -111,10 +111,13 @@ const _import = (wire: CredentialPemWire): Effect.Effect<CryptoKey, MaterialFaul
           ? importSPKI(pem, wire.alg)
           : wire.format === "x509"
             ? importX509(pem, wire.alg)
-            : importJWK(JSON.parse(pem) as JWK, wire.alg) as Promise<CryptoKey>
+            : importJWK(JSON.parse(pem) as JWK, wire.alg)
     },
     catch: (cause) => new MaterialFault({ reason: "import", detail: String(cause) }),
-  })
+  }).pipe(Effect.filterOrFail(
+    (key): key is CryptoKey => !(key instanceof Uint8Array),
+    () => new MaterialFault({ reason: "unsupported", detail: "symmetric jwk material" }),
+  ))
 
 const _kid = (wire: CredentialPemWire, key: CryptoKey): Effect.Effect<string, MaterialFault> =>
   Option.match(wire.kid, {
@@ -149,18 +152,28 @@ class Material extends Effect.Service<Material>()("security/secret/Material", {
       Effect.map(
         Effect.forEach(keys, (handle) =>
           Effect.tryPromise({
-            try: async () => ({ ...(await exportJWK(Redacted.value(handle.key))), kid: handle.kid, alg: handle.alg, use: "sig" }) as JWK,
+            try: async () => ({ ...(await exportJWK(Redacted.value(handle.key))), kid: handle.kid, alg: handle.alg, use: "sig" }),
             catch: (cause) => new MaterialFault({ reason: "import", detail: String(cause) }),
           })),
         (list) => ({ keys: Array.fromIterable(list) }),
       ),
     ring: (input: { readonly signingPem: Redacted.Redacted<string>; readonly signingAlg: KeyAlg.Kind; readonly jwks: JSONWebKeySet }): Effect.Effect<Ring, MaterialFault> =>
       Effect.gen(function* () {
-        const active = yield* _admit(new CredentialPemWire({ material: input.signingPem, format: "pkcs8", alg: input.signingAlg, secret: true, kid: Option.none() }))
-        if (active._tag !== "Signing") return yield* Effect.fail(new MaterialFault({ reason: "import", detail: "signing wire resolved to a public key" }))
+        const active = yield* _admit(new CredentialPemWire({ material: input.signingPem, format: "pkcs8", alg: input.signingAlg, secret: true, kid: Option.none() })).pipe(
+          Effect.filterOrFail(
+            (handle): handle is Extract<KeyHandle, { readonly _tag: "Signing" }> => handle._tag === "Signing",
+            () => new MaterialFault({ reason: "import", detail: "signing wire resolved to a public key" }),
+          ))
         const verify = yield* Effect.forEach(input.jwks.keys, (jwk) =>
-          _admit(new CredentialPemWire({ material: Redacted.make(JSON.stringify(jwk)), format: "jwk", alg: (jwk.alg ?? input.signingAlg) as KeyAlg.Kind, secret: false, kid: Option.fromNullable(jwk.kid) })).pipe(
-            Effect.flatMap((handle) => handle._tag === "Verify" ? Effect.succeed(handle) : Effect.fail(new MaterialFault({ reason: "import", detail: "jwks entry resolved to a private key" })))))
+          Effect.flatMap(
+            Schema.decodeUnknown(Schema.Literal(..._algs))(jwk.alg ?? input.signingAlg).pipe(
+              Effect.mapError(() => new MaterialFault({ reason: "unsupported", detail: String(jwk.alg) }))),
+            (alg) =>
+              _admit(new CredentialPemWire({ material: Redacted.make(JSON.stringify(jwk)), format: "jwk", alg, secret: false, kid: Option.fromNullable(jwk.kid) })).pipe(
+                Effect.filterOrFail(
+                  (handle): handle is Extract<KeyHandle, { readonly _tag: "Verify" }> => handle._tag === "Verify",
+                  () => new MaterialFault({ reason: "import", detail: "jwks entry resolved to a private key" }),
+                ))))
         return { active, verify }
       }),
   },

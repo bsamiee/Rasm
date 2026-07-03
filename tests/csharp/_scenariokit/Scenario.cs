@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using Rasm.Bridge.Contract;
 using Rhino;
 using Rhino.Display;
@@ -5,7 +6,6 @@ using Rhino.Display;
 namespace Rasm.ScenarioKit;
 
 // --- [TYPES] --------------------------------------------------------------------------------
-
 // Scenario attributes are the in-host manifest: discovery reads theme, requirements, budget,
 // and static Fin<Unit>(ScenarioContext) entrypoints BY FULL NAME over staged assemblies, so the
 // attribute's full name and member signatures are frozen wire law. There is no pre-host registry.
@@ -16,17 +16,11 @@ public sealed class RhinoScenarioAttribute(string theme) : Attribute {
     public int BudgetMs { get; init; }
 }
 
-// One closed fact-key grammar: every ScenarioContext/DocumentScope wire key renders through a
-// row. Prefixes come from the Contract EvidenceRole vocabulary the session fold classifies by,
-// so render and parse share one string owner — rendered strings never change.
+// The closed grammar for composite and constant wire keys. Prefix lanes (reference., manifest.*,
+// artifact.) render straight off the Contract's EvidenceRole.FactPrefix, so render and parse
+// share the Contract as their one string owner — rendered strings never change.
 [SmartEnum]
 internal sealed partial class FactKey {
-    public static readonly FactKey Reference = new(static argument => EvidenceRole.Reference.FactPrefix + argument);
-    public static readonly FactKey ObjectManifest = new(static argument => EvidenceRole.ObjectManifest.FactPrefix + argument);
-    public static readonly FactKey GeometryManifest = new(static argument => EvidenceRole.GeometryManifest.FactPrefix + argument);
-    public static readonly FactKey ViewportManifest = new(static argument => EvidenceRole.ViewportManifest.FactPrefix + argument);
-    public static readonly FactKey Gh2Manifest = new(static argument => EvidenceRole.Gh2CanvasManifest.FactPrefix + argument);
-    public static readonly FactKey Artifact = new(static argument => EvidenceRole.Artifact.FactPrefix + argument);
     public static readonly FactKey CaseStart = new(static argument => $"{EvidenceRole.Assertion.FactPrefix}{argument}.start");
     public static readonly FactKey CaseStatus = new(static argument => $"{EvidenceRole.Assertion.FactPrefix}{argument}.status");
     public static readonly FactKey ScratchPath = new(static _ => "scratch.path");
@@ -40,10 +34,14 @@ internal sealed partial class FactKey {
 }
 
 // --- [SERVICES] -----------------------------------------------------------------------------
-
 // ScenarioContext is the SDK boundary: assert+fact calls write runner-owned facts while the SDK
 // stays wire-blind, and scope registration lets the runner drain leaks before unload.
 public sealed class ScenarioContext {
+    // The manifest admission table: the one modality gate for the role-dispatched Manifest verb.
+    private static readonly FrozenSet<EvidenceRole> ManifestLanes = new[] {
+        EvidenceRole.ObjectManifest, EvidenceRole.GeometryManifest, EvidenceRole.ViewportManifest, EvidenceRole.Gh2CanvasManifest,
+    }.ToFrozenSet();
+
     private readonly List<DocumentScope> scopes = [];
     private readonly Action<string, object?> sink;
 
@@ -71,11 +69,7 @@ public sealed class ScenarioContext {
 
     public Fin<T> Expect<T>(string label, Fin<T> projection) {
         ArgumentNullException.ThrowIfNull(argument: projection);
-        Fact(key: label, value: projection switch {
-            Fin<T>.Succ(T value) => value,
-            Fin<T>.Fail(Error error) => $"FAIL: {error.Message}",
-            _ => "FAIL: unresolved projection",
-        });
+        Fact(key: label, value: projection.Match<object?>(Succ: static value => value, Fail: static error => $"FAIL: {error.Message}"));
         AssertionCount++;
         return projection;
     }
@@ -86,11 +80,9 @@ public sealed class ScenarioContext {
     // fold consumes exactly {name, actual, tolerance}; admission is decided supervisor-side by
     // evidence mode and corpus state, never asserted by the SDK.
     public Fin<Unit> Certify<T>(EvidenceName key, T actual, ReferenceTolerance tolerance) {
-        if (string.IsNullOrWhiteSpace(value: key.Key)) {
-            throw new ArgumentException(message: "evidence key cannot be blank", paramName: nameof(key));
-        }
+        ArgumentException.ThrowIfNullOrWhiteSpace(argument: key.Key, paramName: nameof(key));
         ReferenceCount++;
-        Fact(key: FactKey.Reference.Render(argument: key.Key), value: new {
+        Fact(key: EvidenceRole.Reference.FactPrefix + key.Key, value: new {
             name = key.Key,
             actual,
             tolerance,
@@ -98,22 +90,19 @@ public sealed class ScenarioContext {
         return Fin.Succ(value: unit);
     }
 
-    public void ObjectManifest<T>(EvidenceName key, T value) =>
-        Fact(key: FactKey.ObjectManifest.Render(argument: key.Key), value: value);
-
-    public void GeometryManifest<T>(EvidenceName key, T value) =>
-        Fact(key: FactKey.GeometryManifest.Render(argument: key.Key), value: value);
-
-    public void ViewportManifest<T>(EvidenceName key, T value) =>
-        Fact(key: FactKey.ViewportManifest.Render(argument: key.Key), value: value);
-
-    public void Gh2CanvasManifest<T>(EvidenceName key, T value) =>
-        Fact(key: FactKey.Gh2Manifest.Render(argument: key.Key), value: value);
+    // One manifest verb owns all four manifest lanes: the role argument is the modality, and the
+    // admission table gates it — an unknown lane is an input guard, never a mis-prefixed fact.
+    public void Manifest<T>(EvidenceRole role, EvidenceName key, T value) {
+        ArgumentNullException.ThrowIfNull(argument: role);
+        _ = ManifestLanes.Contains(item: role)
+            ? role : throw new ArgumentOutOfRangeException(paramName: nameof(role), actualValue: role.Key, message: "role does not own a manifest lane");
+        Fact(key: role.FactPrefix + key.Key, value: value);
+    }
 
     public void Artifact(string path, EvidenceRole role) {
         ArgumentException.ThrowIfNullOrWhiteSpace(argument: path);
         ArgumentNullException.ThrowIfNull(argument: role);
-        Fact(key: FactKey.Artifact.Render(argument: role.Key), value: path);
+        Fact(key: EvidenceRole.Artifact.FactPrefix + role.Key, value: path);
     }
 
     public string Scratch(string stem) {
@@ -134,8 +123,10 @@ public sealed class ScenarioContext {
         ArgumentException.ThrowIfNullOrWhiteSpace(argument: name);
         ArgumentNullException.ThrowIfNull(argument: action);
         Fact(key: FactKey.CaseStart.Render(argument: name), value: true);
-        Fin<Unit> result = action();
-        Fact(key: FactKey.CaseStatus.Render(argument: name), value: result is Fin<Unit>.Succ ? "ok" : result is Fin<Unit>.Fail(Error error) ? $"failed:{error.Message}" : "unresolved");
+        // Host boundary: Try converts a throwing sub-case to typed failure so the status fact
+        // always lands and sibling cases still run; the Error keeps the exception for the fold.
+        Fin<Unit> result = Try.lift(f: action).Run();
+        Fact(key: FactKey.CaseStatus.Render(argument: name), value: result.Match(Succ: static _ => "ok", Fail: static error => $"failed:{error.Message}"));
         return result;
     }
 

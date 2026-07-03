@@ -16,9 +16,9 @@ The hybrid-logical clock law: `Hlc` is one `Schema.Class` of two branded non-neg
 - Law: the value space is unbounded-monotone — the brands bound only `>= 0n`, so `tick` and `receive` are total folds with no mid-domain range throw; the u64 ceiling is a wire-layout fact enforced by the `FromBytes` encode seam alone.
 - Law: `Hlc.Order` is physical-then-logical lexicographic ascending — the one causal comparison every fold, sort, and max shares; the member name mirrors the ecosystem's canonical-instance convention (`Duration.Order`, `DateTime.Order`).
 - Law: `tick(local, now)` is the send/local-event fold — a wall reading beyond `physical` resets `logical` to zero, otherwise `logical` advances by one; `receive(local, remote, now)` is the merge fold — the greatest physical wins and `logical` advances past whichever operands share it — so a merged stamp never regresses under `Hlc.Order` and causality survives clock skew.
-- Law: `physicalOf(instant)` and `delta(span)` are the single unit site — epoch milliseconds, pinned by the `[R22]` parity vectors; a C#-proven different epoch encoding repairs as these two bodies with zero call-site edits, which is why no other module in the branch converts time into the physical half.
+- Law: `physicalOf(instant)` and `delta(span)` are the single unit site — epoch milliseconds, zero-clamped so a pre-epoch wall reading folds to the genesis physical instead of a mid-domain throw, pinned by the `[R22]` parity vectors; a C#-proven different epoch encoding repairs as these two bodies with zero call-site edits, which is why no other module in the branch converts time into the physical half.
 - Law: `genesis` is the zero stamp — the fold seed for empty causality chains and the identity every replay starts from.
-- Law: interior mints ride `Schema.decodeSync` over proven inputs — zero literals, `+ 1n` on a non-negative brand, truncated epoch reads — so the throw path is structurally unreachable and the mint stays inside the trusted-construction channel `new Hlc` completes.
+- Law: interior mints ride `Schema.decodeSync` over proven inputs — zero literals, `+ 1n` on a non-negative brand, zero-clamped epoch reads — so the throw path is structurally unreachable and the mint stays inside the trusted-construction channel `new Hlc` completes.
 - Growth: a new clock fold (bounded-drift tick, batch merge) is one static composing the existing folds; a new stamp field is a wire-shape question for `wire`, never a widening here.
 - Boundary: wall-clock reads ride the consumer's rail (`DateTime.now` under its `Clock` service) and arrive as values; the uncertainty window over the same physical axis is `clock/uncertainty`'s owner.
 - Packages: `effect` (`Schema`, `Order`, `DateTime`, `Duration`, `ParseResult`).
@@ -53,7 +53,7 @@ const _unpacked = (bytes: Uint8Array): { readonly physical: bigint; readonly log
   return { physical: view.getBigUint64(0, true), logical: view.getBigUint64(8, true) }
 }
 
-const _packed = (stamp: Hlc): Uint8Array => {
+const _packed = (stamp: { readonly physical: bigint; readonly logical: bigint }): Uint8Array => {
   const view = new DataView(new ArrayBuffer(16))
   view.setBigUint64(0, stamp.physical, true)
   view.setBigUint64(8, stamp.logical, true)
@@ -77,7 +77,7 @@ class Hlc extends Schema.Class<Hlc>("Hlc")({
         ? ParseResult.fail(new ParseResult.Type(ast, stamp, "<u64-overflow>"))
         : ParseResult.succeed(_packed(stamp)),
   })
-  static readonly physicalOf = (instant: DateTime.Utc): Hlc.Physical => _physical(BigInt(DateTime.toEpochMillis(instant)))
+  static readonly physicalOf = (instant: DateTime.Utc): Hlc.Physical => _physical(BigInt(Math.max(DateTime.toEpochMillis(instant), 0)))
   static readonly delta = (span: Duration.DurationInput): Hlc.Physical => _physical(BigInt(Math.trunc(Duration.toMillis(span))))
   static readonly tick = (local: Hlc, now: Hlc.Physical): Hlc =>
     now > local.physical

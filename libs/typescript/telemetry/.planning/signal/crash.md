@@ -21,7 +21,8 @@ Crash capture is one total fold from any settled `Cause` to a structured fatal e
 
 ```typescript
 import { Chunk, DateTime, Effect, Ref } from "effect"
-import { Redaction } from "@rasm/ts/telemetry"
+import { Convention } from "./convention.ts"
+import { Redaction } from "../otlp/export.ts"
 
 declare namespace Crash {
   type Breadcrumb = {
@@ -64,7 +65,7 @@ const _crumb = (
 import { Cause, Chunk, Effect, FiberSet, Layer, Metric, Option, Ref } from "effect"
 import { FaultDetail, FaultEnricher } from "@rasm/ts/kernel"
 
-const _captured = Metric.counter("rasm.crash.captured", { incremental: true })
+const _captured = Metric.counter(Convention.metric.crashCaptured, { incremental: true })
 
 const _exception = (cause: Cause.Cause<unknown>): Convention.Attributes => {
   const squashed = Cause.squash(cause)
@@ -100,8 +101,12 @@ class Crash extends Effect.Service<Crash>()("telemetry/Crash", {
           ? Effect.void
           : Effect.gen(function* () {
               const detail = yield* Option.match(enricher, {
-                onNone: () => Effect.succeedNone,
-                onSome: (live) => Effect.orElseSucceed(live.enrich(cause), Option.none<FaultDetail>),
+                onNone: () => Effect.succeed(Option.none<FaultDetail>()),
+                onSome: (live) =>
+                  Effect.matchCauseEffect(live.enrich(cause), {
+                    onFailure: () => Effect.succeed(Option.none<FaultDetail>()),
+                    onSuccess: (found) => Effect.succeed(found),
+                  }),
               })
               const crumbs = yield* Ref.get(ring)
               yield* Effect.annotateCurrentSpan(Convention.attr.errorType, String(Cause.squash(cause)))
@@ -147,7 +152,7 @@ export { Crash }
 - Growth: a new runtime is one `Hook` literal at its boot edge — never a change here.
 
 ```typescript
-import type { Crash } from "@rasm/ts/telemetry"
+import type { Crash } from "./signal/crash.ts"
 
 const browserHook: Crash.Hook = {
   install: (emit) => {

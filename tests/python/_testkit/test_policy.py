@@ -3,23 +3,27 @@
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
 from contextvars import ContextVar
+from datetime import datetime, timedelta, UTC
 import enum
 import fnmatch
+import functools
+import os
 from pathlib import Path  # noqa: TC003  # module-level _PYPROJECT assignment prevents deferral
 import sys
 import tomllib
-from types import SimpleNamespace
+from types import ModuleType, SimpleNamespace
 from typing import TYPE_CHECKING
 from unittest.mock import create_autospec
 
-from hypothesis import is_hypothesis_test
+import anyio
+from hypothesis import is_hypothesis_test, settings as hyp_settings
 import msgspec
 import pytest
 
 from tests.python._testkit import laws as laws_mod
 from tests.python._testkit.bench import _series_from_storage, pytest_benchmark_update_json
-from tests.python._testkit.laws import assert_law_coverage, auto_exempt, consume_covers, LawRecord, MANIFEST, SUT_PACKAGES
-from tests.python._testkit.runtime import REPO_ROOT
+from tests.python._testkit.laws import assert_law_coverage, auto_exempt, consume_covers, LawRecord, MANIFEST, spec, Sut, uncollected_laws
+from tests.python._testkit.runtime import PROFILE_MUTATION, REPO_ROOT
 
 
 if TYPE_CHECKING:
@@ -136,10 +140,19 @@ def _collect_session_items(pytestconfig: pytest.Config) -> list[pytest.Function]
 
 
 def test_law_coverage_gate() -> None:
-    """Registered SUT public symbols must have a law or an explicit exemption."""
-    if not SUT_PACKAGES:
+    """Registered SUT public symbols must have a law or an explicit exemption.
+
+    Subset-aware: COVERS ledgers and ``@spec`` records aggregate across collected modules, so a
+    package whose on-disk law modules were not all imported is skipped by name instead of censused
+    against a partial manifest; every fully-collected package still gates.
+    """
+    if not laws_mod.SUT_PACKAGES:
         pytest.skip("no SUT registered — register_sut was not called in this collection")
-    assert_law_coverage()
+    partial = uncollected_laws()
+    assert_law_coverage(only=frozenset(laws_mod.SUT_PACKAGES) - frozenset(partial))
+    if partial:
+        detail = "; ".join(f"{package}: {', '.join(missing)}" for package, missing in sorted(partial.items()))
+        pytest.skip(f"law census partial — uncollected law modules ({detail}); activation: full tests/python collection")
 
 
 def test_law_coverage_is_package_scoped_not_name_global(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest) -> None:
@@ -158,12 +171,97 @@ def test_law_coverage_is_package_scoped_not_name_global(tmp_path: Path, monkeypa
 
     record = LawRecord(subject="thing", law="alpha_thing_law", module=__name__, subject_module="lawpkg_alpha")
     monkeypatch.setattr(laws_mod, "MANIFEST", [record])
-    monkeypatch.setattr(laws_mod, "SUT_PACKAGES", {"lawpkg_alpha": frozenset()})
+    monkeypatch.setattr(laws_mod, "SUT_PACKAGES", {"lawpkg_alpha": Sut()})
     assert_law_coverage()
 
-    monkeypatch.setattr(laws_mod, "SUT_PACKAGES", {"lawpkg_alpha": frozenset(), "lawpkg_beta": frozenset()})
+    monkeypatch.setattr(laws_mod, "SUT_PACKAGES", {"lawpkg_alpha": Sut(), "lawpkg_beta": Sut()})
     with pytest.raises(AssertionError, match="lawpkg_beta"):
         assert_law_coverage()
+
+
+def test_law_census_detects_partial_collection_and_gate_self_skips(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest
+) -> None:
+    """An uncollected on-disk law module suppresses the census by skip; a whole census still fails on real gaps.
+
+    The pair is the gate's falsification: partial collection can be SEEN to skip, and the skip arm
+    cannot mask a genuine gap once every law module is imported.
+    """
+    suite = tmp_path / "suite"
+    suite.mkdir()
+    (suite / "test_ghost.py").write_text("", encoding="utf-8")
+    pkg = tmp_path / "lawpkg_partial"
+    pkg.mkdir()
+    (pkg / "__init__.py").write_text('__all__ = ["thing"]\n\n\ndef thing() -> None: ...\n', encoding="utf-8")
+    monkeypatch.syspath_prepend(str(tmp_path))
+    request.addfinalizer(lambda: sys.modules.pop("lawpkg_partial", None))
+
+    monkeypatch.setattr(laws_mod, "MANIFEST", [])
+    monkeypatch.setattr(laws_mod, "SUT_PACKAGES", {"lawpkg_partial": Sut(suite=suite)})
+    missing = uncollected_laws()["lawpkg_partial"]
+    assert missing, "on-disk law module not reported as uncollected"
+    with pytest.raises(pytest.skip.Exception, match="law census partial"):
+        test_law_coverage_gate()
+
+    for name in missing:
+        monkeypatch.setitem(sys.modules, name, ModuleType(name))
+    assert "lawpkg_partial" not in uncollected_laws(), "census still partial after every law module imported"
+    with pytest.raises(AssertionError, match="lawpkg_partial"):
+        test_law_coverage_gate()
+
+
+def test_registered_suts_carry_their_suite_roots() -> None:
+    """Live registrations derive a real suite directory, so subset detection is armed for every SUT."""
+    if not laws_mod.SUT_PACKAGES:
+        pytest.skip("no SUT registered — register_sut was not called in this collection")
+    for package, sut in laws_mod.SUT_PACKAGES.items():
+        assert sut.suite is not None and sut.suite.is_dir(), f"{package} registered without a live suite root: {sut.suite!r}"
+
+
+# --- [SPEC_SETTINGS_POLICY]
+
+
+def test_spec_follows_active_profile_pins_named_and_scales_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Unpinned laws track the session profile, a named profile pins, timeout is seconds, events tag every draw, and double-decoration refuses."""
+    monkeypatch.setattr(laws_mod, "MANIFEST", [])
+    runs: list[int] = []
+    pinned_runs: list[int] = []
+    tagged: list[int] = []
+
+    def _tag(drawn: object) -> str:
+        tagged.append(drawn) if isinstance(drawn, int) else None
+        return f"n={drawn}"
+
+    hyp_settings.register_profile("kit-probe", max_examples=3, deadline=None, database=None, derandomize=True)
+    prior = hyp_settings.get_current_profile_name()
+    hyp_settings.load_profile("kit-probe")
+    try:
+        # Collection order mirror: the CLI profile loads before law modules import, so decoration binds it.
+        @spec(int, law="probe-follows", events=(_tag,))
+        def probe(n: int) -> None:
+            runs.append(n)
+
+        @spec(int, profile=PROFILE_MUTATION, law="probe-pinned")
+        def pinned(n: int) -> None:
+            pinned_runs.append(n)
+
+        # @given injects the drawn argument; the bare call is the runtime contract the checker cannot see.
+        probe()  # type: ignore[call-arg]  # ty: ignore[missing-argument]
+        pinned()  # type: ignore[call-arg]  # ty: ignore[missing-argument]
+    finally:
+        hyp_settings.load_profile(prior)
+    assert len(runs) == 3, f"unpinned law ignored the active profile: {len(runs)} examples"
+    assert tagged == runs, f"events tagger missed drawn examples: tagged {tagged}, ran {runs}"
+    assert len(pinned_runs) == hyp_settings.get_profile(PROFILE_MUTATION).max_examples, f"named pin lost: {len(pinned_runs)} examples"
+
+    @spec(int, given=False, timeout=2.5, law="probe-deadline")
+    def bounded() -> None: ...
+
+    resolved: object = getattr(bounded, "_hypothesis_internal_use_settings", None)
+    assert getattr(resolved, "deadline", None) == timedelta(seconds=2.5), f"timeout=2.5 must mean seconds, resolved {resolved!r}"
+
+    with pytest.raises(TypeError, match="double-decoration"):
+        spec(int, law="probe-duplicate")(probe)
 
 
 # --- [COVERS_AND_AUTO_EXEMPTION]
@@ -261,12 +359,12 @@ def test_manifest_has_no_lambda_subjects() -> None:
 def test_declared_markers_cover_policy_set() -> None:
     """The policy marker set is declared in pyproject."""
     missing = _POLICY_MARKERS - _pytest_ini_marker_names()
-    assert not missing, f"Policy markers not declared in ini_options.markers: {missing}"
+    assert not missing, f"Policy markers not declared in the [tool.pytest] markers table: {missing}"
 
 
 def test_mutation_marker_is_declared_not_unknown() -> None:
     """The ``mutation`` marker is registered for ``-m mutation`` selection."""
-    assert "mutation" in _pytest_ini_marker_names(), "mutation marker not declared in [tool.pytest.ini_options] markers"
+    assert "mutation" in _pytest_ini_marker_names(), "mutation marker not declared in the [tool.pytest] markers table"
 
 
 def test_network_marker_auto_applied_to_socket_fixture_items(pytestconfig: pytest.Config) -> None:
@@ -341,6 +439,34 @@ def test_sustained_regression_gate_fires_and_stays_silent(tmp_path: Path) -> Non
 
     flat = storage(tmp_path / "flat", (1.0,) * 9)
     pytest_benchmark_update_json(flat, None, msgspec.json.decode(doc(1.0)))
+
+
+# --- [OBSERVABILITY_ROUTING_POLICY]
+
+
+@pytest.mark.subprocess
+def test_observability_gate_routes_hypothesis_observations_to_artifacts() -> None:
+    """``TESTS_OBSERVABILITY`` grows the dated testcase JSONL with decodable rows; the unset gate writes nothing.
+
+    The child pair is the wiring's falsification: an always-on callback fails the ungated arm, and a
+    dead callback (or a broken internal hypothesis import path) fails the gated arm.
+    """
+    law = "tests/python/_testkit/test_strategies.py::test_literal_form_stays_inside_its_vocabulary"
+    artifact = REPO_ROOT / ".artifacts" / "python" / "hypothesis" / f"{datetime.now(tz=UTC).date().isoformat()}_testcases.jsonl"
+
+    def child(*, observed: bool) -> int:
+        base = {name: value for name, value in os.environ.items() if name != "TESTS_OBSERVABILITY"}  # noqa: TID251  # subprocess env clone
+        env = {**base, **({"TESTS_OBSERVABILITY": "1"} if observed else {})}
+        spawn = functools.partial(anyio.run_process, env=env, cwd=str(REPO_ROOT), check=False)
+        result = anyio.run(spawn, [sys.executable, "-m", "pytest", law, "-q"])
+        assert result.returncode == 0, f"observability child failed: {result.stdout!r} {result.stderr!r}"
+        return artifact.stat().st_size if artifact.exists() else 0
+
+    initial = artifact.stat().st_size if artifact.exists() else 0
+    assert child(observed=False) == initial, "testcase observations written without the TESTS_OBSERVABILITY gate"
+    assert child(observed=True) > initial, "gated child wrote no testcase observations"
+    decoded: object = msgspec.json.decode(artifact.read_bytes().splitlines()[-1])
+    assert isinstance(decoded, dict) and decoded, f"artifact row is not a JSON object: {decoded!r}"
 
 
 # --- [LITTER_CONTAINMENT_POLICY]

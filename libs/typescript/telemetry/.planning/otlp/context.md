@@ -17,7 +17,7 @@ Causal identity crosses every ingress through one `Propagation` owner: the W3C `
 - Law: the carrier is one shape — `Readonly<Record<string, string | undefined>>` — so platform `Headers`, worker message metadata, queue envelope maps, and plain records all admit through one signature; carrier keys read case-normalized at the seam because HTTP header casing is transport accident, never data.
 - Law: `parseTraceParent` returning `null` and a malformed `tracestate` both fold to `Option.none` — a damaged inbound context is indistinguishable from an absent one by design, because continuing a corrupt trace forges causality where starting a root records the truth.
 - Law: `baggage` is annotation material, not span identity — the decoded record stamps `Effect.annotateLogs`/`Effect.annotateSpans` regions and never widens the parent span; a baggage value never becomes a metric tag (unbounded cardinality).
-- Receipt: `Option<Tracer.ExternalSpan>` — the doctrine interior form for inbound trace identity; consumers needing the raw OTel `SpanContext` read the interior lane through `Propagation.ingress` instead of re-parsing.
+- Receipt: `Option<Tracer.ExternalSpan>` — the doctrine interior form for inbound trace identity; the raw OTel `SpanContext` stays interior, and a consumer needing continuation composes `ingress` rather than re-parsing the carrier.
 - Growth: a new wire dialect (`b3`, `xb3`) is one decode arm inside `_context` selecting on the carrier's present keys — never a second extraction owner.
 
 ```typescript
@@ -61,7 +61,7 @@ const _extract = (carrier: Propagation.Carrier): Option.Option<Tracer.ExternalSp
     }))
 
 const _baggage = (carrier: Propagation.Carrier): Readonly<Record<string, string>> =>
-  parseKeyPairsIntoRecord(Option.getOrUndefined(_read(carrier, _BAGGAGE_HEADER)))
+  parseKeyPairsIntoRecord(Option.getOrElse(_read(carrier, _BAGGAGE_HEADER), () => undefined))
 ```
 
 ## [3]-[CONTINUATION]

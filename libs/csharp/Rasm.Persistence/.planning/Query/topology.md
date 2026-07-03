@@ -162,14 +162,13 @@ public abstract partial record TopologyResult {
 // base the seam `Rasm.Element/Projection/fault#FAULT_BAND` `ElementFault` (2500) and the `Rasm.Bim/Model/faults#FAULT_BAND`
 // `BimFault` (2600) realize — NOT `LanguageExt.Common.Expected`, whose `(string,int,Option)` `base(detail, code, None)`
 // ctor (no `Category` to override) is the deleted form. The case lifts BARE onto the Fin rail through the Expected
-// derivation (no `.ToError()` hop), `[SkipUnionOps]` skipping the generated implicit-conversion ops while the generated
-// `Switch`/`Map` survives; band membership is a per-case `Code => 837x` override, sitting beside `ColumnarFault` (835x)
+// derivation (no `.ToError()` hop), no `[GenerateUnionOps]` (the kernel union-ops generator is strictly opt-in — the
+// band wants no per-case `SelfOp`), the `[Union]`-generated `Switch`/`Map` untouched; band membership is a per-case `Code => 837x` override, sitting beside `ColumnarFault` (835x)
 // and the cypher `GraphFault` (836x). RootAbsent: a rooted query (ancestry/descent/connected/resolve/ancestor/path)
 // names a NodeId the snapshot never declares. Cyclic: Order is asked over a graph the IsDirectedAcyclicGraph pre-gate
 // rejects, the detail naming the cyclic-partition count rather than letting SourceFirstTopologicalSort silently drop
 // the cyclic remainder — the offending partitions themselves are recovered through the Cycles query (the same one SCC
 // probe), never thrown.
-[SkipUnionOps]
 [Union]
 public abstract partial record TopologyFault : Expected, IValidationError<TopologyFault> {
     private TopologyFault() : base() { }

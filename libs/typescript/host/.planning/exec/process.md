@@ -13,12 +13,13 @@ Subprocess and off-thread execution are declarative values: a child process is o
 - Law: the fault surface is two families, sized by routing — the platform's own `PlatformError` carries spawn and I/O failure untouched (re-wrapping a tagged family is ceremony), and `ExecFault` mints exactly the two causes the platform cannot: `exit` (a settled code refusing `demand`, the code as evidence) and `budget` (the expiry `Effect.timeoutFail` mints). `fault.retryable` projects the recovery posture — budget yes, exit no.
 - Law: teardown is interruption — the budget interrupt, a parent scope closing, and a race loss all release the child through the executor's own bracket; a hand `kill`, a PID ledger, and a signal listener beside the rail are rejected. Escalation policy (grace then hard) is the budget value itself.
 - Law: `demand` rides the receipt modality only — text and stream captures are byte lanes whose consumer owns interpretation; a gate over captured text marks a receipt call that should have been made.
+- Law: `budget` rides the settled modalities only — receipt and text captures are bounded whole; the live stream outlives any spec deadline by nature, so its overload carries no `ExecFault` and a pull deadline is the consumer's own pipeline fact, never a spec knob the stream lane silently ignores.
 - Boundary: `CommandExecutor` arrives from the runtime row's `context`; stdio bridges (`NodeStream.stdin`, `NodeSink.stdout`) are row-tier members an ops verb composes at its own seam, never re-exported here.
 - Entry: `Proc.run(spec)`; the executor requirement rides `R` to the root.
 - Packages: `@effect/platform` (`Command`, `CommandExecutor`), `effect` (`Clock`, `Data`, `Duration`, `Effect`, `Option`, `Stream`).
 
 ```typescript
-import { Command, type CommandExecutor, type Error } from "@effect/platform"
+import { Command, type CommandExecutor, type PlatformError } from "@effect/platform"
 import { Array, Clock, Data, Duration, Effect, Option, type Stream, pipe } from "effect"
 
 class ExecFault extends Data.TaggedError("ExecFault")<{
@@ -42,7 +43,7 @@ declare namespace Proc {
     readonly demand?: number
   }
   type Receipt = { readonly command: string; readonly code: number; readonly elapsed: Duration.Duration }
-  type Faults = ExecFault | Error.PlatformError
+  type Faults = ExecFault | PlatformError.PlatformError
 }
 
 const _staged = (spec: Proc.Spec): Command.Command =>
@@ -74,7 +75,7 @@ const _settled = (spec: Proc.Spec): Effect.Effect<Proc.Receipt, Proc.Faults, Com
   }).pipe(_budgeted(spec))
 
 function run(spec: Proc.Spec & { readonly capture: "text" }): Effect.Effect<string, Proc.Faults, CommandExecutor.CommandExecutor>
-function run(spec: Proc.Spec & { readonly capture: "stream" }): Stream.Stream<Uint8Array, Error.PlatformError, CommandExecutor.CommandExecutor>
+function run(spec: Proc.Spec & { readonly capture: "stream" }): Stream.Stream<Uint8Array, PlatformError.PlatformError, CommandExecutor.CommandExecutor>
 function run(spec: Proc.Spec): Effect.Effect<Proc.Receipt, Proc.Faults, CommandExecutor.CommandExecutor>
 function run(spec: Proc.Spec & { readonly capture?: Proc.Capture }) {
   return spec.capture === "stream"
@@ -139,5 +140,5 @@ const RunnerLive: Layer.Layer<never, WorkerError.WorkerError, WorkerRunner.Platf
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
-export {}
+export { Bench, BenchLive, Grade, PoolFault, RunnerLive, Sweep }
 ```

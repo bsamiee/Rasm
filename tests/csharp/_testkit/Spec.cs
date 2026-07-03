@@ -8,12 +8,12 @@ namespace Rasm.TestKit;
 // --- [TYPES] --------------------------------------------------------------------------------
 public delegate bool TryCreate<TIn, TOut>(TIn value, out TOut obj);
 
+// --- [MODELS] -------------------------------------------------------------------------------
 // One metamorphic relation row: a follow-up-input transform and the (source, base, follow)
 // relation it must satisfy. A table of rows shares one base evaluation per sample; the source
 // argument lets one row family also carry oracle relations — never parallel relation methods.
 public sealed record MetamorphicRelation<T, TResult>(string Name, Func<T, T> Transform, Func<T, TResult, TResult, bool> Relate);
 
-// --- [MODELS] -------------------------------------------------------------------------------
 // A law is admissible only with a refuting witness: an input the property MUST fail on. Hold runs
 // the refutation before sampling — a witness the property survives exposes the law as a tautology
 // no mutant can ever violate, and that registration is itself the failure.
@@ -57,26 +57,25 @@ public static class Law {
         _ = (eq ?? EqualityComparer<T>.Default.Equals)(left, right) ? true : throw new XunitException($"{name}: {left} != {right}");
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [OPERATIONS] ---------------------------------------------------------------------------
 public static partial class Spec {
+    // Null/-1 sentinels defer to CsCheck's Check.* defaults, which already give the CsCheck_Seed/
+    // CsCheck_Iter/CsCheck_Time/CsCheck_Threads env knobs first refusal at static init.
     public static void ForAll<T>(Gen<T> gen, Action<T> property, string? seed = null, long? iter = null, int? time = null, int? threads = null) {
         ArgumentNullException.ThrowIfNull(argument: gen);
         ArgumentNullException.ThrowIfNull(argument: property);
-        SamplePolicy policy = SamplePolicy.Of(seed: seed, iter: iter, time: time, threads: threads);
-        gen.Sample(assert: value => { Cancel(); property(value); }, seed: policy.Seed, iter: policy.Iter, time: policy.Time, threads: policy.Threads);
+        gen.Sample(assert: value => { Cancel(); property(value); }, seed: seed, iter: iter ?? -1L, time: time ?? -1, threads: threads ?? -1);
     }
     public static void Holds(bool condition, string label) =>
         _ = condition ? unit : throw new XunitException(userMessage: label);
     // The tautology guard: a known-broken witness MUST make `law` throw, or the law proves nothing
-    // and every mutant survives it. The catch is this page's one boundary-licensed `try`.
+    // and every mutant survives it. The sampler counts ANY throw as property failure, so any throw
+    // refutes; Try owns the exception-to-Fin conversion, keeping this page catch-free.
     public static void Refutes<T>(T witness, Action<T> law, string? name = null) {
         ArgumentNullException.ThrowIfNull(argument: law);
-        try {
-            law(witness);
-        } catch (XunitException) {
-            return;
-        }
-        throw new XunitException($"'{name ?? "law"}' is a tautology — its refuting witness survives the property (witness={witness})");
+        _ = Try.lift(f: () => { law(witness); return unit; }).Run().Match(
+            Succ: _ => throw new XunitException($"'{name ?? "law"}' is a tautology — its refuting witness survives the property (witness={witness})"),
+            Fail: static _ => unit);
     }
     public static void Hold<T>(Law<T> law, string? seed = null, long? iter = null, int? time = null, int? threads = null) {
         ArgumentNullException.ThrowIfNull(argument: law);
@@ -113,28 +112,33 @@ public static partial class Spec {
     }
 
     // --- [STATEFUL]
-    // The actual-vs-model pairing IS the stateful law; the operation sequence threads through
-    // CsCheck's model-based sampler under the same SamplePolicy env resolution ForAll uses.
+    // The actual-vs-model pairing IS the stateful law; every stateful sampler shares the seed/iter/
+    // time replay knobs so a shrunk interleaving or operation sequence pins by seed like ForAll.
     public static void ModelBased<TActual, TModel>(Gen<(TActual Actual, TModel Model)> init, Func<TActual, TModel, bool> equal, GenOperation<TActual, TModel>[] operations,
         string? seed = null, long? iter = null, int? time = null) {
         ArgumentNullException.ThrowIfNull(argument: operations);
         Holds(condition: operations.Length > 0, label: "ModelBased: empty operation table proves nothing");
         Cancel();
-        SamplePolicy policy = SamplePolicy.Of(seed: seed, iter: iter, time: time, threads: null);
-        init.SampleModelBased(operations: operations, equal: equal, seed: policy.Seed, iter: policy.Iter, time: policy.Time);
+        init.SampleModelBased(operations: operations, equal: equal, seed: seed, iter: iter ?? -1L, time: time ?? -1);
     }
     // Two mutation paths over one subject must land in equal states; CsCheck shrinks the parameter.
-    public static void DualPath<T, TParam>(Gen<T> initial, Gen<TParam> paramGen, Func<TParam, string> name, Action<T, TParam> path1, Action<T, TParam> path2, Func<T, T, bool>? equal = null) {
+    public static void DualPath<T, TParam>(Gen<T> initial, Gen<TParam> paramGen, Func<TParam, string> name, Action<T, TParam> path1, Action<T, TParam> path2,
+        Func<T, T, bool>? equal = null, string? seed = null, long? iter = null, int? time = null) {
         Cancel();
-        initial.SampleMetamorphic(operations: GenMetamorphic.Create(gen: paramGen, name: name, action1: path1, action2: path2), equal: equal);
+        initial.SampleMetamorphic(operations: GenMetamorphic.Create(gen: paramGen, name: name, action1: path1, action2: path2), equal: equal, seed: seed, iter: iter ?? -1L, time: time ?? -1);
     }
-    public static void Parallel<T>(Gen<T> init, params GenOperation<T>[] operations) {
+    public static void Parallel<T>(Gen<T> init, GenOperation<T>[] operations, string? seed = null, long? iter = null, int? time = null) {
+        ArgumentNullException.ThrowIfNull(argument: operations);
+        Holds(condition: operations.Length > 0, label: "Parallel: empty operation table proves nothing");
         Cancel();
-        init.SampleParallel(operations: operations);
+        init.SampleParallel(operations: operations, seed: seed, iter: iter ?? -1L, time: time ?? -1);
     }
-    public static void Parallel<TActual, TModel>(Gen<(TActual Actual, TModel Model)> init, Func<TActual, TModel, bool> equal, params GenOperation<TActual, TModel>[] operations) {
+    public static void Parallel<TActual, TModel>(Gen<(TActual Actual, TModel Model)> init, Func<TActual, TModel, bool> equal, GenOperation<TActual, TModel>[] operations,
+        string? seed = null, long? iter = null, int? time = null) {
+        ArgumentNullException.ThrowIfNull(argument: operations);
+        Holds(condition: operations.Length > 0, label: "Parallel: empty operation table proves nothing");
         Cancel();
-        init.SampleParallel(operations: operations, equal: equal);
+        init.SampleParallel(operations: operations, equal: equal, seed: seed, iter: iter ?? -1L, time: time ?? -1);
     }
 
     // --- [RAIL_GATES]
@@ -175,8 +179,6 @@ public static partial class Spec {
             return unit;
         });
     }
-    public static void AccumulationOrder<T>(Gen<T> gen, Func<T, Validation<Error, T>> path, params string[] expectedCategories) =>
-        ForAll(gen: gen, property: value => AllErrors(v: path(value), expectedCategories: expectedCategories));
     public static void ManyErrors(Error error, int expectedCount, params string[] expectedSubstrings) {
         ManyErrors many = Assert.IsType<ManyErrors>(@object: error);
         Assert.Equal(expected: expectedCount, actual: many.Errors.Count);
@@ -200,8 +202,7 @@ public static partial class Spec {
     // Classify-table print: buckets and timing per class over one sample sweep.
     public static void Classified<T>(Gen<T> gen, Func<T, string> classify, Action<string> writeLine, string? seed = null, long? iter = null, int? time = null, int? threads = null) {
         ArgumentNullException.ThrowIfNull(argument: gen);
-        SamplePolicy policy = SamplePolicy.Of(seed: seed, iter: iter, time: time, threads: threads);
-        gen.Sample(classify: classify, writeLine: writeLine, seed: policy.Seed, iter: policy.Iter, time: policy.Time, threads: policy.Threads);
+        gen.Sample(classify: classify, writeLine: writeLine, seed: seed, iter: iter ?? -1L, time: time ?? -1, threads: threads ?? -1);
     }
     // Chi-squared distribution law: expected counts define both the sample size and the buckets.
     public static void Distributed<T>(Gen<T> gen, Func<T, int> bucket, params int[] expected) {
@@ -272,17 +273,4 @@ public static partial class Spec {
     private static void Cancel() => TestContext.Current.CancellationToken.ThrowIfCancellationRequested();
     private static Unit Tap<T>(Action<T>? action, T value) { action?.Invoke(value); return unit; }
     private static string CategoryOf(Error error) => error.GetType().Name;
-
-    // -1 sentinels defer to CsCheck's own defaults after the env knobs get first refusal.
-    private readonly record struct SamplePolicy(string? Seed, long Iter, int Time, int Threads) {
-        public static SamplePolicy Of(string? seed, long? iter, int? time, int? threads) => new(
-            Seed: seed ?? Environment.GetEnvironmentVariable(variable: "CsCheck_Seed"),
-            Iter: iter ?? EnvLong(name: "CsCheck_Iter") ?? -1L,
-            Time: time ?? EnvInt(name: "CsCheck_Time") ?? -1,
-            Threads: threads ?? EnvInt(name: "CsCheck_Threads") ?? -1);
-        private static long? EnvLong(string name) =>
-            long.TryParse(s: Environment.GetEnvironmentVariable(variable: name), style: NumberStyles.Integer, provider: CultureInfo.InvariantCulture, result: out long value) && value > 0L ? value : null;
-        private static int? EnvInt(string name) =>
-            int.TryParse(s: Environment.GetEnvironmentVariable(variable: name), style: NumberStyles.Integer, provider: CultureInfo.InvariantCulture, result: out int value) && value > 0 ? value : null;
-    }
 }

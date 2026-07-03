@@ -155,7 +155,6 @@ internal sealed partial class Capability {
         Universal(type: type) || type == typeof(Line) || type == typeof(Polyline) || typeof(Brep).IsAssignableFrom(c: type) || CurveFormAdmits(type: type);
 }
 
-[SkipUnionOps]
 [Union]
 public partial record CurveForm {
     public sealed record LineCase(Line Value) : CurveForm;

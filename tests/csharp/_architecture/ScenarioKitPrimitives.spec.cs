@@ -160,6 +160,37 @@ public sealed class ReferenceEmissionLaws {
     }
 }
 
+public sealed class ManifestAndArtifactLaws {
+    // One manifest verb owns all four lanes; the wire strings are frozen law the supervisor
+    // classifies by prefix, and a non-manifest role is an SDK input guard that facts nothing.
+    [Fact]
+    public void ManifestVerbRendersEveryLaneAndRejectsForeignRoles() {
+        List<(string Key, object? Value)> log = [];
+        ScenarioContext ctx = EvidenceGens.Context(log: log);
+        ctx.Manifest(role: EvidenceRole.ObjectManifest, key: new EvidenceName(Key: "k"), value: 1);
+        ctx.Manifest(role: EvidenceRole.GeometryManifest, key: new EvidenceName(Key: "k"), value: 2);
+        ctx.Manifest(role: EvidenceRole.ViewportManifest, key: new EvidenceName(Key: "k"), value: 3);
+        ctx.Manifest(role: EvidenceRole.Gh2CanvasManifest, key: new EvidenceName(Key: "k"), value: 4);
+        Assert.Equal(expected: ["manifest.object.k", "manifest.geometry.k", "manifest.viewport.k", "manifest.gh2.k"], actual: log.Select(selector: static row => row.Key));
+        Assert.Equal(expected: 4, actual: ctx.FactCount);
+        _ = Assert.Throws<ArgumentOutOfRangeException>(testCode: () => ctx.Manifest(role: EvidenceRole.Reference, key: new EvidenceName(Key: "k"), value: 5));
+        Assert.Equal(expected: 4, actual: ctx.FactCount);
+        // Round trip through the Contract parse side: prefix classification recovers each lane.
+        Assert.Equal(expected: EvidenceRole.ObjectManifest, actual: EvidenceRole.OfFactKey(key: "manifest.object.k"));
+        Assert.Equal(expected: "k", actual: EvidenceRole.Gh2CanvasManifest.FactArgument(key: "manifest.gh2.k"));
+    }
+
+    [Fact]
+    public void ArtifactRendersTheRoleKeyedWireString() {
+        List<(string Key, object? Value)> log = [];
+        ScenarioContext ctx = EvidenceGens.Context(log: log);
+        ctx.Artifact(path: "/tmp/x.png", role: EvidenceRole.Capture);
+        (string key, object? value) = Assert.Single(collection: log);
+        Assert.Equal(expected: "artifact.capture", actual: key);
+        Assert.Equal(expected: "/tmp/x.png", actual: value);
+    }
+}
+
 public sealed class ScopeAndCaptureLaws {
     [Fact]
     public void EmptyRegistryDrainsZeroAndRealizesNoView() {
@@ -167,6 +198,12 @@ public sealed class ScopeAndCaptureLaws {
         Assert.Null(ctx.RealizedView);
         Assert.Equal(expected: 0, actual: ctx.DrainScopes());
     }
+
+    // The scope rail is honest: a faulting document surface (the unit context carries no live
+    // doc) degrades to typed failure instead of throwing across the entrypoint boundary.
+    [Fact]
+    public void OpenOnAFaultingDocumentSurfaceDegradesTyped() =>
+        Spec.Fail(result: DocumentScope.Open(ctx: EvidenceGens.Context(log: [])));
 
     [Fact]
     public void SnapshotOutsideARunDegradesTyped() =>
@@ -189,18 +226,14 @@ public sealed class ScopeAndCaptureLaws {
 public sealed class FactKeyGrammarLaws {
     // Rendered fact keys are frozen wire law: Supervisor session folds classify by these exact
     // strings and prefixes, so any drift in a row is a bridge protocol break, never a refactor.
+    // Prefix lanes (reference., manifest.*, artifact.) render off EvidenceRole.FactPrefix and are
+    // pinned at their emitting verbs in ReferenceEmissionLaws and ManifestAndArtifactLaws.
     [Fact]
     public void EveryRowRendersTheExactWireString() {
-        Assert.Equal(expected: 13, actual: FactKey.Items.Count);
+        Assert.Equal(expected: 7, actual: FactKey.Items.Count);
         static bool Renders(FactKey row, string argument, string wire) =>
             string.Equals(a: row.Render(argument: argument), b: wire, comparisonType: StringComparison.Ordinal);
         Spec.Matrix(
-            ("reference", () => Renders(FactKey.Reference, "k", "reference.k"), true),
-            ("manifest.object", () => Renders(FactKey.ObjectManifest, "k", "manifest.object.k"), true),
-            ("manifest.geometry", () => Renders(FactKey.GeometryManifest, "k", "manifest.geometry.k"), true),
-            ("manifest.viewport", () => Renders(FactKey.ViewportManifest, "k", "manifest.viewport.k"), true),
-            ("manifest.gh2", () => Renders(FactKey.Gh2Manifest, "k", "manifest.gh2.k"), true),
-            ("artifact", () => Renders(FactKey.Artifact, "role", "artifact.role"), true),
             ("case.start", () => Renders(FactKey.CaseStart, "name", "case.name.start"), true),
             ("case.status", () => Renders(FactKey.CaseStatus, "name", "case.name.status"), true),
             ("scratch.path", () => Renders(FactKey.ScratchPath, "ignored", "scratch.path"), true),
@@ -217,6 +250,21 @@ public sealed class FactKeyGrammarLaws {
         ScenarioContext ctx = EvidenceGens.Context(log: log);
         _ = ctx.Case(name: "probe", action: static () => Fin.Succ(value: unit));
         Assert.Equal(expected: ["case.probe.start", "case.probe.status"], actual: log.Select(selector: static row => row.Key));
+        Assert.Equal(expected: "ok", actual: log[1].Value);
+    }
+
+    // A throwing sub-case is a host boundary fact, not a lost status: the bracket converts it to a
+    // typed failure, lands the status fact, and lets sibling cases keep running.
+    [Fact]
+    public void ThrowingSubCaseLandsTypedFailureAndTheStatusFact() {
+        List<(string Key, object? Value)> log = [];
+        ScenarioContext ctx = EvidenceGens.Context(log: log);
+        Spec.Fail(result: ctx.Case(name: "boom", action: static () => throw new InvalidOperationException(message: "kaput")), then: static error =>
+            Assert.Contains(expectedSubstring: "kaput", actualString: error.Message, comparisonType: StringComparison.Ordinal));
+        Assert.Equal(expected: ["case.boom.start", "case.boom.status"], actual: log.Select(selector: static row => row.Key));
+        Assert.StartsWith(expectedStartString: "failed:", actualString: (string)log[1].Value!, comparisonType: StringComparison.Ordinal);
+        _ = ctx.Case(name: "after", action: static () => Fin.Succ(value: unit));
+        Assert.Equal(expected: "ok", actual: log[3].Value);
     }
 }
 

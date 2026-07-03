@@ -15,10 +15,29 @@ from tests.python._testkit.seams import grpc_loopback
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from fsspec import AbstractFileSystem
+
     from tests.python._testkit.env import EnvSpec
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+
+
+def _fs_algebra(fs: AbstractFileSystem, root: str) -> None:
+    """One filesystem algebra every provisioned backend satisfies: write/cat, info, cp, mv, find, rm."""
+    fs.makedirs(f"{root}nest/deep", exist_ok=True)
+    fs.pipe_file(f"{root}nest/deep/blob.bin", b"payload")
+    assert fs.cat_file(f"{root}nest/deep/blob.bin") == b"payload", "write/cat round-trip broke"
+    assert (fs.exists(f"{root}nest/deep/blob.bin"), fs.isdir(f"{root}nest/deep")) == (True, True), "exists/isdir disagree with the write"
+    assert fs.info(f"{root}nest/deep/blob.bin")["size"] == len(b"payload"), "info size drifted from the payload"
+    fs.copy(f"{root}nest/deep/blob.bin", f"{root}nest/copy.bin")
+    assert (fs.cat_file(f"{root}nest/copy.bin"), fs.exists(f"{root}nest/deep/blob.bin")) == (b"payload", True), "copy moved instead of duplicating"
+    fs.mv(f"{root}nest/copy.bin", f"{root}nest/moved.bin")
+    assert (fs.exists(f"{root}nest/moved.bin"), fs.exists(f"{root}nest/copy.bin")) == (True, False), "mv left the source behind"
+    assert sorted(fs.find(f"{root}nest")) == [f"{root}nest/deep/blob.bin", f"{root}nest/moved.bin"], f"find drifted: {fs.find(f'{root}nest')!r}"
+    fs.rm(f"{root}nest", recursive=True)
+    assert not fs.exists(f"{root}nest/deep/blob.bin"), "recursive rm left content behind"
+
 
 # --- [DISPATCH]
 
@@ -132,27 +151,38 @@ def test_remote_fs_isolates_per_test_roots() -> None:
 
 
 def test_remote_fs_obeys_filesystem_algebra() -> None:
-    """RemoteFS satisfies write/cat, info, cp/mv/rm, and find laws."""
+    """RemoteFS satisfies the shared filesystem algebra over its scoped memory root."""
     provisioned = provision(RemoteFS())
-    fs = provisioned.client_factory()
     try:
-        fs.makedirs("nest/deep", exist_ok=True)
-        fs.pipe_file("nest/deep/blob.bin", b"payload")
-        assert fs.cat_file("nest/deep/blob.bin") == b"payload", "write/cat round-trip broke"
-        assert (fs.exists("nest/deep/blob.bin"), fs.isdir("nest/deep")) == (True, True), "exists/isdir disagree with the write"
-        assert fs.info("nest/deep/blob.bin")["size"] == len(b"payload"), "info size drifted from the payload"
-        fs.copy("nest/deep/blob.bin", "nest/copy.bin")
-        assert (fs.cat_file("nest/copy.bin"), fs.exists("nest/deep/blob.bin")) == (b"payload", True), "copy moved instead of duplicating"
-        fs.mv("nest/copy.bin", "nest/moved.bin")
-        assert (fs.exists("nest/moved.bin"), fs.exists("nest/copy.bin")) == (True, False), "mv left the source behind"
-        assert sorted(fs.find("nest")) == ["nest/deep/blob.bin", "nest/moved.bin"], f"find enumeration drifted: {fs.find('nest')!r}"
-        fs.rm("nest", recursive=True)
-        assert not fs.exists("nest/deep/blob.bin"), "recursive rm left content behind"
+        _fs_algebra(provisioned.client_factory(), "")
     finally:
         provisioned.teardown()
 
 
 # --- [OBJECT_STORE]
+
+
+def test_object_store_obeys_the_same_filesystem_algebra(socket_enabled: None) -> None:
+    """The S3 double satisfies the identical algebra the memory backend does, rooted at its bucket."""
+    _ = socket_enabled
+    provisioned = provision(ObjectStore())
+    try:
+        _fs_algebra(provisioned.client_factory(), "kit-bucket/")
+    finally:
+        provisioned.teardown()
+
+
+def test_object_store_teardown_resets_process_global_state(socket_enabled: None) -> None:
+    """Moto state is process-global: teardown resets it, so a later provision never sees residue keys."""
+    _ = socket_enabled
+    first = provision(ObjectStore())
+    first.client_factory().pipe_file("kit-bucket/residue.bin", b"stale")
+    first.teardown()
+    second = provision(ObjectStore())
+    try:
+        assert not second.client_factory().exists("kit-bucket/residue.bin"), "prior provision's key leaked through the shared moto backend"
+    finally:
+        second.teardown()
 
 
 def test_object_store_round_trips_and_isolates_endpoints(socket_enabled: None) -> None:

@@ -12,7 +12,7 @@ public abstract partial record Fault : Expected {
     public sealed record Conflict : Fault { public Conflict() : base(detail: "<fault-conflict>", code: 9004) { } }
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [OPERATIONS] ---------------------------------------------------------------------------
 public static class Gens {
     // --- [SCALARS]
     // Magnitude stratification makes every float hazard a weighted lane, never a rare accident:
@@ -35,6 +35,11 @@ public static class Gens {
     // Cancellation pairs: subtraction annihilates leading digits; oracles must survive the band.
     public static readonly Gen<(double X, double Y)> Cancellation = Finite.Select(Gen.Double[start: 1.0e-16, finish: 1.0e-8],
         static (double x, double eps) => (X: x, Y: x * (1.0 + eps)));
+    // Wrap hazards are lanes: the seam constants and their ulp neighbours sample every run.
+    public static readonly Gen<double> Angle = Gen.Frequency(
+        (70, Gen.Double[start: -Math.Tau, finish: Math.Tau]),
+        (30, Gen.OneOfConst(0.0, -0.0, Math.PI, -Math.PI, Math.Tau, -Math.Tau, Math.PI / 2.0, -Math.PI / 2.0,
+            Math.BitDecrement(x: Math.Tau), Math.BitIncrement(x: -Math.Tau), Math.BitIncrement(x: 0.0), Math.BitDecrement(x: Math.PI))));
     public static readonly Gen<int> IntEdges = Gen.Frequency(
         (70, Gen.Int[start: -1_000_000, finish: 1_000_000]),
         (30, Gen.OneOfConst(int.MinValue, int.MinValue + 1, -1, 0, 1, (1 << 30) - 1, 1 << 30, int.MaxValue - 1, int.MaxValue)));
@@ -60,18 +65,85 @@ public static class Gens {
     public static Gen<Seq<T>> SeqOf<T>(Gen<T> element, int max = 256) =>
         (element ?? throw new ArgumentNullException(nameof(element))).Array[0, max].Select(static (T[] xs) => toSeq(xs));
     // Partition of unity: strictly positive weights normalized to sum 1; oracles get a real simplex.
-    public static Gen<Seq<double>> Simplex(int count) =>
-        count switch {
-            <= 0 => Gen.Const(value: Seq<double>()),
-            _ => Gen.Double[start: 1.0e-6, finish: 1.0e6].Array[count].Select(static values => {
-                double total = values.Sum();
-                return toSeq(values.Select(value => value / total));
-            }),
-        };
+    public static Gen<Seq<double>> Simplex(int count) {
+        ArgumentOutOfRangeException.ThrowIfLessThan(value: count, other: 1);
+        return Gen.Double[start: 1.0e-6, finish: 1.0e6].Array[count].Select(static values => {
+            double total = values.Sum();
+            return toSeq(values.Select(value => value / total));
+        });
+    }
+
+    // --- [GEOMETRY]
+    // Unit vectors by annulus-rejected normalization: Where preserves shrinking and the norm floor
+    // keeps the division stable in every dimension.
+    public static Gen<double[]> Direction(int dim) {
+        ArgumentOutOfRangeException.ThrowIfLessThan(value: dim, other: 1);
+        return Gen.Double[start: -1.0, finish: 1.0].Array[dim]
+            .Where(predicate: static raw => raw.Sum(static x => x * x) >= 1.0e-6)
+            .Select(selector: static raw => {
+                double norm = Math.Sqrt(d: raw.Sum(static x => x * x));
+                return (double[])[.. raw.Select(x => x / norm)];
+            });
+    }
+    // Star-shaped simple rings: equally spaced angles under a random phase with magnitude-banded
+    // radii, so CCW orientation and strictly positive shoelace area hold BY CONSTRUCTION.
+    public static Gen<double[][]> Ring(int vertices) {
+        ArgumentOutOfRangeException.ThrowIfLessThan(value: vertices, other: 3);
+        return Gen.Double[start: 1.0e-3, finish: 1.0e3].Array[vertices].Select(Gen.Double[start: -Math.Tau, finish: Math.Tau],
+            static (double[] radii, double phase) => (double[][])[.. radii.Select((radius, i) => {
+                double theta = phase + (i * Math.Tau / radii.Length);
+                return (double[])[radius * Math.Cos(d: theta), radius * Math.Sin(a: theta)];
+            })]);
+    }
+    // The exact-arithmetic torture band: C sits on the AB line (steps == 0) or a few ulps off it,
+    // where double-precision orientation determinants misjudge and only exact predicates survive.
+    public static Gen<(double[] A, double[] B, double[] C)> NearCollinear(int dim) {
+        ArgumentOutOfRangeException.ThrowIfLessThan(value: dim, other: 2);
+        return Tame.Array[dim].Select(Tame.Array[dim], Gen.Double[start: -2.0, finish: 2.0],
+                static (double[] a, double[] b, double t) => (A: a, B: b, C: (double[])[.. a.Select((x, i) => x + (t * (b[i] - x)))]))
+            .Select(Gen.Int[start: 0, finish: dim - 1], Gen.Int[start: -8, finish: 8], static ((double[] A, double[] B, double[] C) p, int axis, int steps) => {
+                p.C[axis] = UlpNudge(value: p.C[axis], steps: steps);
+                return (p.A, p.B, p.C);
+            });
+    }
+    // Householder products: exactly orthogonal up to rounding, so OrthogonalityResidual gates them.
+    public static Gen<double[][]> Orthogonal(int n) {
+        ArgumentOutOfRangeException.ThrowIfLessThan(value: n, other: 1);
+        return Direction(dim: n).Array[n].Select(selector: reflectors => reflectors.Aggregate(seed: IdentityMatrix(n: n), func: Reflect));
+    }
+    // Q D Qᵀ with a log-spaced spectrum 1 … 1/kappa: the condition number is known BY CONSTRUCTION,
+    // so conditioning-aware tolerances (κ·base) come from the generator, never a guessed constant.
+    public static Gen<double[][]> Conditioned(int n, double kappa) {
+        ArgumentOutOfRangeException.ThrowIfLessThan(value: n, other: 1);
+        _ = double.IsFinite(d: kappa) && kappa >= 1.0
+            ? kappa : throw new ArgumentOutOfRangeException(paramName: nameof(kappa), actualValue: kappa, message: "kappa must be finite and >= 1");
+        return Orthogonal(n: n).Select(selector: q => {
+            double[] spectrum = [.. Enumerable.Range(start: 0, count: n).Select(i => Math.Pow(x: kappa, y: n == 1 ? 0.0 : -(double)i / (n - 1)))];
+            return (double[][])[.. Enumerable.Range(start: 0, count: n).Select(i =>
+                (double[])[.. Enumerable.Range(start: 0, count: n).Select(j => Enumerable.Range(start: 0, count: n).Sum(k => q[i][k] * spectrum[k] * q[j][k]))])];
+        });
+    }
+    private static double[][] IdentityMatrix(int n) =>
+        [.. Enumerable.Range(start: 0, count: n).Select(i => (double[])[.. Enumerable.Range(start: 0, count: n).Select(j => i == j ? 1.0 : 0.0)])];
+    private static double[][] Reflect(double[][] m, double[] v) {
+        double[] w = [.. Enumerable.Range(start: 0, count: v.Length).Select(j => Enumerable.Range(start: 0, count: v.Length).Sum(k => v[k] * m[k][j]))];
+        return [.. Enumerable.Range(start: 0, count: v.Length).Select(i => (double[])[.. Enumerable.Range(start: 0, count: v.Length).Select(j => m[i][j] - (2.0 * v[i] * w[j]))])];
+    }
+    private static double UlpNudge(double value, int steps) =>
+        Enumerable.Range(start: 0, count: Math.Abs(value: steps)).Aggregate(seed: value, func: (acc, _) => steps > 0 ? Math.BitIncrement(x: acc) : Math.BitDecrement(x: acc));
 
     // --- [RAIL]
     public static readonly Gen<Error> Faults = Gen.OneOfConst<Error>(
         new Fault.Missing(), new Fault.Rejected(), new Fault.Cancelled(), new Fault.Conflict());
+    // Exceptional-lane errors carry live exceptions, so recovery rails prove they survive the
+    // Exceptional/Expected split. Error.New remaps Timeout/OperationCanceled/Aggregate to Expected
+    // rows, so only genuinely-exceptional types ride here; instances mint fresh per sample.
+    public static readonly Gen<Error> Exceptional = Gen.Int[start: 0, finish: 3].Select(selector: static kind => kind switch {
+        0 => Error.New(thisException: new InvalidOperationException(message: "<fault-exceptional-invalid>")),
+        1 => Error.New(thisException: new ArithmeticException(message: "<fault-exceptional-arithmetic>")),
+        2 => Error.New(thisException: new IOException(message: "<fault-exceptional-io>")),
+        _ => Error.New(thisException: new FormatException(message: "<fault-exceptional-format>")),
+    });
     public static Gen<Fin<T>> FinOf<T>(Gen<T> succ, Gen<Error>? fail = null, int succWeight = 80) =>
         Gen.Frequency(
             (succWeight, (succ ?? throw new ArgumentNullException(nameof(succ))).Select(static (T v) => Fin.Succ(value: v))),

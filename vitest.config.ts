@@ -31,7 +31,7 @@ const _CONFIG = {
         shouldClearNativeTimers: true,
         toFake: ['setTimeout', 'setInterval', 'Date', 'performance'] as const,
     },
-    optimizeDeps: ['@effect/vitest', 'rfc6902', 'effect', 'fast-check'],
+    optimizeDeps: ['@effect/vitest', 'rfc6902', 'effect'],
     output: {
         chaiConfig: { includeStack: true, showDiff: true, truncateThreshold: 0 },
         diff: { expand: true, truncateThreshold: 0 },

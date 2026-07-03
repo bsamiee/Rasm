@@ -13,7 +13,7 @@
 ## [2]-[IDENTITY_VOCABULARY]
 
 [SHAPES_AND_PORTS]:
-- Owner: `Subject` is the durable identity (branded `id`, tenant, verification), `Session` the live session (branded `id`, subject, scope, window, refresh fingerprint, rotation generation), `CredentialRef` the `{ kind, key }` an authn ceremony resolves through. `SessionStore` owns the live-session lifecycle, `IdentityJournal` the credential↔subject resolution and enrollment; both are `Context.Tag` ports the app root satisfies with `store`.
+- Owner: `Subject` is the durable identity (branded `id`, tenant, verification), `Session` the live session (branded `id`, subject, tenant, scope, window, refresh fingerprint, rotation generation — the tenant rides the session so a rotated access token keeps its tenancy claim), `CredentialRef` the `{ kind, key }` an authn ceremony resolves through. `SessionStore` owns the live-session lifecycle, `IdentityJournal` the credential↔subject resolution and enrollment; both are `Context.Tag` ports the app root satisfies with `store`.
 - Packages: `effect` — one `Schema.Class` per shape carries the id brand as a field refinement so `Subject["id"]` is the only `SubjectId` spelling; the ports declare their fault as `SessionFault` on the `E` channel.
 - Boundary: `store/journal` satisfies both ports (the `session/token ← store/journal [PORT]` seam); a port exists exactly because the wave ledger forbids `security → store`, so a Tag minted to dodge a legal edge would be the defect.
 - Growth: a new credential kind is one `CredentialRef.kind` literal; a new session facet is one `Session` field the store persists.
@@ -61,6 +61,7 @@ class CredentialRef extends Schema.Class<CredentialRef>("CredentialRef")({
 class Session extends Schema.Class<Session>("Session")({
   id: _SessionId,
   subject: _SubjectId,
+  tenant: Schema.optionalWith(_TenantId, { as: "Option" }),
   scope: Schema.Array(Schema.NonEmptyString),
   issuedAt: Schema.DateTimeUtc,
   expiresAt: Schema.DateTimeUtc,
@@ -134,7 +135,7 @@ class Token extends Effect.Service<Token>()("security/session/Token", {
         const now = yield* DateTime.now
         const id = yield* Schema.decode(_SessionId)(crypto.randomUUID()).pipe(Effect.orDie)
         const secret = yield* cipher.token(_ALPHABET, 48).pipe(Effect.mapError((cause) => new SessionFault({ reason: "store", detail: cause.message })))
-        const session = new Session({ id, subject: subject.id, scope, issuedAt: now, expiresAt: DateTime.addDuration(now, refreshTtl), refreshHash: cipher.fingerprint(secret), generation: 0 })
+        const session = new Session({ id, subject: subject.id, tenant: subject.tenant, scope, issuedAt: now, expiresAt: DateTime.addDuration(now, refreshTtl), refreshHash: cipher.fingerprint(secret), generation: 0 })
         yield* store.create(session)
         const claims = new AccessClaims({ sub: subject.id, sid: id, scope, tid: subject.tenant })
         const access = yield* jwt.mint(claims, accessTtl).pipe(Effect.mapError((cause) => new SessionFault({ reason: "store", detail: cause.message })))
@@ -157,15 +158,14 @@ class Token extends Effect.Service<Token>()("security/session/Token", {
         const id = yield* Schema.decode(_SessionId)(sid ?? "").pipe(Effect.mapError(() => new SessionFault({ reason: "mismatch", detail: "malformed refresh" })))
         const session = yield* Effect.flatMap(store.read(id), Option.match({ onNone: () => Effect.fail(new SessionFault({ reason: "notFound", detail: sid ?? "" })), onSome: Effect.succeed }))
         const now = yield* DateTime.now
-        if (DateTime.greaterThan(now, session.expiresAt)) return yield* Effect.fail(new SessionFault({ reason: "expired", detail: sid ?? "" }))
-        if (!cipher.matches(Redacted.make(secret ?? ""), session.refreshHash)) {
-          yield* store.revokeSubject(session.subject)
-          return yield* Effect.fail(new SessionFault({ reason: "reuse", detail: session.subject }))
-        }
+        yield* DateTime.greaterThan(now, session.expiresAt) ? Effect.fail(new SessionFault({ reason: "expired", detail: sid ?? "" })) : Effect.void
+        yield* cipher.matches(Redacted.make(secret ?? ""), session.refreshHash)
+          ? Effect.void
+          : Effect.zipRight(store.revokeSubject(session.subject), Effect.fail(new SessionFault({ reason: "reuse", detail: session.subject })))
         const next = yield* cipher.token(_ALPHABET, 48).pipe(Effect.mapError((cause) => new SessionFault({ reason: "store", detail: cause.message })))
         const rotated = new Session({ ...session, refreshHash: cipher.fingerprint(next), generation: session.generation + 1, issuedAt: now, expiresAt: DateTime.addDuration(now, refreshTtl) })
         yield* store.replace(rotated)
-        const claims = new AccessClaims({ sub: session.subject, sid: session.id, scope: session.scope, tid: Option.none() })
+        const claims = new AccessClaims({ sub: session.subject, sid: session.id, scope: session.scope, tid: session.tenant })
         const access = yield* jwt.mint(claims, accessTtl).pipe(Effect.mapError((cause) => new SessionFault({ reason: "store", detail: cause.message })))
         return new TokenPair({ access, refresh: Redacted.make(`${session.id}.${Redacted.value(next)}`), session: rotated })
       })

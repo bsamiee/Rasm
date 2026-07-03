@@ -19,6 +19,7 @@
 - Law: `family` is typed by the `Inventory` census literal, so a fault names which wire family produced it and the census closure makes an unnamed family a compile error.
 - Law: evidence is data — `evidence` carries the OCC `{ actual, expected }` pair for `stale`, the key pair for `parity`, the coordinate pair for `sequence`; `message` derives from fields and is never stored.
 - Law: `sequence` never quarantines — a gap has no frame to hold; the fault is evidence the consumer's re-pull decision reads, and the policy row states it.
+- Law: `overrun` marks a pre-decode policy-ceiling refusal — the frame rails mint it where a declared extent exceeds the lane's cap; engine-internal ceiling throws surface as `ParseError` and classify `malformed` at intake.
 - Law: `ParseError` is not re-wrapped in flow — decode surfaces keep `ParseResult.ParseError` on their error channel; classification into `WireFault` happens exactly once, at the quarantine intake, where the frame context exists to name `family` and `reason`.
 - Boundary: the wire-crossed fault altitude is `fault/detail.ts`; a node rail importing `FaultDetail` for a local failure is the invariant-6 defect this family exists to prevent.
 
@@ -141,7 +142,7 @@ class Quarantine extends Effect.Service<Quarantine>()("wire/Quarantine", {
 ## [4]-[REPLAY]
 
 - Owner: the replay fold on the same module — quarantined frames re-offer to their family decode under a budget `Schedule`, success releases the frame, exhaustion retires it terminally.
-- Entry: `replayed(decode)` — the decode arrives as a parameter keyed by family, so replay stays generic over every codec page and imports none of them; the app root supplies the family-indexed decode record it composed from the codec pages' `#vocab` surfaces.
+- Entry: `Quarantine.replayed(decode, delivered, retired)` — the decode arrives as a parameter keyed by family, so replay stays generic over every codec page and imports none of them; the app root supplies the family-indexed decode record it composed from the codec pages' `#vocab` surfaces.
 - Growth: replay pacing is the `_REPLAY` schedule value; a per-family pacing override is a future policy column on `_policy`, never a second replay path.
 - Law: replay consumes the intake as a drain — each taken frame either decodes (released, decoded value delivered to the supplied sink) or re-enters with `attempts + 1`; a frame whose policy is non-replayable or whose attempts are spent is retired to the terminal sink with its fault intact.
 - Law: replay never re-classifies — the original fault travels with the frame through every attempt, so the terminal report shows the first cause, not the last symptom.
@@ -152,7 +153,7 @@ import type { Inventory } from "../contract/drift.ts"
 
 const _REPLAY: Schedule.Schedule<number> = Schedule.spaced("30 seconds").pipe(Schedule.intersect(Schedule.recurs(8)), Schedule.map(([, count]) => count))
 
-const replayed = <A, R>(
+const _replayed = <A, R>(
   decode: (family: Inventory.Family, octets: Uint8Array) => Effect.Effect<A, WireFault, R>,
   delivered: (value: A) => Effect.Effect<void, never, R>,
   retired: (frame: PoisonFrame) => Effect.Effect<void, never, R>,
@@ -181,5 +182,7 @@ const replayed = <A, R>(
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
-export { Quarantine, replayed, WireFault }
+export { Quarantine, WireFault }
 ```
+
+`_replayed` rides the service class as `static readonly replayed = _replayed` in the single `Quarantine` declaration — one import carries the fault family's sibling, the intake, the divert, and the replay drain.

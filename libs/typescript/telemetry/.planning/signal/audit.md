@@ -24,6 +24,7 @@ The audit stream is a durable fact family, not a log level: `AuditFact` is one `
 import { Duration, Schema } from "effect"
 
 const _ACTORS = ["user", "service", "system"] as const
+const _CLASSES = ["compliance", "forensic", "operational"] as const
 
 const _retention = {
   compliance: { keep: Duration.decode("2557 days") },
@@ -47,7 +48,7 @@ class AuditFact extends Schema.Class<AuditFact>("AuditFact")({
   app: Schema.NonEmptyString,
   at: Schema.DateTimeUtc,
   change: Schema.Array(Change),
-  retention: Schema.Literal("compliance", "forensic", "operational"),
+  retention: Schema.Literal(..._CLASSES),
   target: Schema.Struct({
     key: Schema.NonEmptyString,
     kind: Schema.NonEmptyString,
@@ -64,7 +65,8 @@ class AuditFact extends Schema.Class<AuditFact>("AuditFact")({
 declare namespace AuditFact {
   type Retention = keyof typeof _retention
   type Wire = typeof AuditFact.Encoded
-  type _Rows<T extends Record<Retention, { readonly keep: Duration.Duration }> = typeof _retention> = T
+  type _Rows<T extends Record<(typeof _CLASSES)[number], { readonly keep: Duration.Duration }> = typeof _retention> = T
+  type _Keys<K extends (typeof _CLASSES)[number] = Retention> = K
 }
 ```
 
@@ -107,7 +109,7 @@ class _AuditJournal extends Context.Tag("telemetry/AuditJournal")<_AuditJournal,
 ```typescript
 import { Array, Chunk, DateTime, Effect, Metric, Queue, Schedule, Stream } from "effect"
 import type { AppIdentity } from "@rasm/ts/kernel"
-import { Convention } from "@rasm/ts/telemetry"
+import { Convention } from "./convention.ts"
 
 const _FLOW = { intake: 256, patience: "2 seconds", width: 64 } as const
 

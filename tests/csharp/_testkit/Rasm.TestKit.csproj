@@ -1,6 +1,2 @@
 <Project Sdk="Microsoft.NET.Sdk">
-    <PropertyGroup>
-        <!-- CA1724: the LanguageExt.Async namespace collides with the Shape<T>.Async seam case. -->
-        <NoWarn>$(NoWarn);CA1724</NoWarn>
-    </PropertyGroup>
 </Project>

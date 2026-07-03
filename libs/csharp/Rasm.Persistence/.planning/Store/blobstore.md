@@ -171,11 +171,11 @@ public readonly record struct BlobTransferFact(string Kind, ContentAddress Key, 
 // resolves to the wrong base and falls outside the kernel federation a telemetry reader bands by code. Band membership
 // is a per-case `Code => 540x` override, `Message`/`Category` projecting through the generated `Switch`, so a typed case
 // lifts BARE onto `Fin<T>`/`IO<T>` with no `.ToError()` hop and a recovery reads `error.IsType<RemoteStoreFault.Conflict>()`
-// / `error.HasCode(5402)` / `error.Category()`, never a message substring. `[SkipUnionOps]` is the canonical fault-band
-// annotation. `IsTransient` stays an `abstract` discriminant with one override per case (orthogonal to the base-ctor
-// change) so `Transport.IsTransient` remains the sole `Schedule`-retry gate. `Create` is the IValidationError admission
-// the generated converter bridge calls on a deserialization reject.
-[SkipUnionOps]
+// / `error.HasCode(5402)` / `error.Category()`, never a message substring. No `[GenerateUnionOps]` — the kernel
+// union-ops generator is strictly opt-in, so the band carries no generated per-case `SelfOp`. `IsTransient` stays an
+// `abstract` discriminant with one override per case (orthogonal to the base-ctor change) so `Transport.IsTransient`
+// remains the sole `Schedule`-retry gate. `Create` is the IValidationError admission the generated converter bridge
+// calls on a deserialization reject.
 [Union]
 public abstract partial record RemoteStoreFault : Expected, IValidationError<RemoteStoreFault> {
     private RemoteStoreFault() : base() { }

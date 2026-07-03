@@ -22,7 +22,6 @@
         "@effect/vitest": "catalog:",
         "@electric-sql/pglite": "catalog:",
         "effect": "catalog:",
-        "fast-check": "catalog:",
         "hash-wasm": "catalog:",
         "testcontainers": "catalog:",
         "typescript": "catalog:",

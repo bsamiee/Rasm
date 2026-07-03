@@ -23,7 +23,7 @@ OTLP egress is one policy value and one Layer: `Export.live(policy)` composes th
 ```typescript
 import type { Duration, Redacted } from "effect"
 import type { AppIdentity } from "@rasm/ts/kernel"
-import { Convention } from "@rasm/ts/telemetry"
+import { Convention } from "../signal/convention.ts"
 
 declare namespace Export {
   type Lane = keyof typeof _lanes
@@ -147,7 +147,7 @@ flowchart LR
 ```
 
 ```typescript
-import { Duration, Layer, Redacted } from "effect"
+import { Duration, Layer, Record, Redacted } from "effect"
 import type { HttpClient } from "@effect/platform"
 import { NodeSdk, Otlp, WebSdk } from "@effect/opentelemetry"
 import { AggregationTemporalityPreference, OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-http"
@@ -157,7 +157,7 @@ import { PeriodicExportingMetricReader } from "@opentelemetry/sdk-metrics"
 import { BatchSpanProcessor, ParentBasedSampler, TraceIdRatioBasedSampler } from "@opentelemetry/sdk-trace-base"
 
 const _headers = (policy: Export.Policy): Record<string, string> =>
-  Object.fromEntries(Object.entries(policy.collector.headers).map(([key, sealed]) => [key, Redacted.value(sealed)]))
+  Record.map(policy.collector.headers, Redacted.value)
 
 const _temporality = {
   cumulative: AggregationTemporalityPreference.CUMULATIVE,

@@ -36,7 +36,6 @@ using static LanguageExt.Prelude;
 namespace Rasm.Analysis;
 
 // --- [TYPES] --------------------------------------------------------------------------------
-[SkipUnionOps]
 [Union]
 public abstract partial record Measure {
     private Measure() { }
@@ -301,7 +300,7 @@ public static partial class Analyze {
 
 ## [03]-[BOUNDS]
 
-- Owner: `Bounds` `[Union]` `[SkipUnionOps]` — fifteen cases over four modality clusters: box RECOVERY (`AxisAlignedCase` → `BoundingBox` through the `Domain/normalization` `BoundsOf` extension; `InPlaneCase(Plane)` → the plane-oriented `Box(plane, geometry)` capture; `TransformedCase(Transform)` → `GetBoundingBox(xform)`; `PrincipalFrameCase` → the `MassKind.PrincipalFrameOf` OBB), box PROJECTIONS (`CenterCase`/`CornersCase(bool Unique)`/`EdgesCase` → `Point3d`/`Line` streams, corners optionally deduplicated through `Point3d.CullDuplicates` at model tolerance), box METRICS (`AreaCase`/`VolumeCase`/`DiagonalCase`/`AspectRatioCase`/`TightnessCase` → scalars through ONE `BoxMetric` builder over `BoundingBox`-or-`Box` inputs; tightness = AABB volume over principal-OBB volume, the orientation-quality ratio), and ENCLOSING solids (`EnclosingSphereCase(int)`/`EnclosingCircleCase(Plane, int)`/`EnclosingCylinderCase(Vector3d, int)` → Ritter-fitted `Sphere`, native smallest-circle `Circle` in a projection plane, axis-projected Ritter-disc `Cylinder` with exact axial extent).
+- Owner: `Bounds` `[Union]` — fifteen cases over four modality clusters: box RECOVERY (`AxisAlignedCase` → `BoundingBox` through the `Domain/normalization` `BoundsOf` extension; `InPlaneCase(Plane)` → the plane-oriented `Box(plane, geometry)` capture; `TransformedCase(Transform)` → `GetBoundingBox(xform)`; `PrincipalFrameCase` → the `MassKind.PrincipalFrameOf` OBB), box PROJECTIONS (`CenterCase`/`CornersCase(bool Unique)`/`EdgesCase` → `Point3d`/`Line` streams, corners optionally deduplicated through `Point3d.CullDuplicates` at model tolerance), box METRICS (`AreaCase`/`VolumeCase`/`DiagonalCase`/`AspectRatioCase`/`TightnessCase` → scalars through ONE `BoxMetric` builder over `BoundingBox`-or-`Box` inputs; tightness = AABB volume over principal-OBB volume, the orientation-quality ratio), and ENCLOSING solids (`EnclosingSphereCase(int)`/`EnclosingCircleCase(Plane, int)`/`EnclosingCylinderCase(Vector3d, int)` → Ritter-fitted `Sphere`, native smallest-circle `Circle` in a projection plane, axis-projected Ritter-disc `Cylinder` with exact axial extent).
 - Cases: `AxisAligned` · `Oriented` · `Transformed` · `Principal` · `Center` · `Corners` · `Edges` · `Area` · `Volume` · `Diagonal` · `AspectRatio` · `Tightness` · `EnclosingSphere` · `EnclosingCircle` · `EnclosingCylinder` (15).
 - Entry: `Bounds.Operation<TGeometry, TOut>()` — one generated `Switch` where every arm gates capability (`Capability.Bound.Admits(type)` for boundable inputs, `Capability.OrientedBound.Admits(type)` for principal-frame boxes, `GeometryBase` assignability for oriented/transformed capture) and output type before building, rejecting onto `Fault.Unsupported` at build time.
 - Auto: `EnclosingSamples` samples the geometry surface through the `Domain/evaluation` `SamplePoints` extension and DEGRADES to the eight bounding-box corners when sampling is unsupported for the type — enclosure never fails for a boundable input, it coarsens; `RitterFit` is ONE generic two-pass fold (farthest-from-seed, farthest-from-that, then the grow-ball sweep) parameterized by the constructed solid and its validity predicate — sphere and cylinder-disc share it verbatim; the cylinder derives its axis through `VectorIntent.Direction` admission, projects samples to the axis-normal plane for the disc, and folds the exact axial extent `(min, max)` along the admitted axis; the enclosing circle projects through `Plane.ClosestParameter` and delegates to the host `Circle.TrySmallestEnclosingCircle` — native exact beats a hand-rolled Welzl here, then re-embeds the planar result into world space.
@@ -322,7 +321,6 @@ using static LanguageExt.Prelude;
 namespace Rasm.Analysis;
 
 // --- [TYPES] --------------------------------------------------------------------------------
-[SkipUnionOps]
 [Union]
 public abstract partial record Bounds {
     private Bounds() { }

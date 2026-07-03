@@ -86,11 +86,10 @@ public sealed partial class TabularSpec {
 // OTHER `Expected` (which carries no `Category` to override) and is the deleted form; band membership is a per-case
 // `Code => 837x` override, `Message => Detail` projects the case detail, and `Category` projects the telemetry label
 // through the generated `Switch`, so a recovery reads `error.IsType<TabularFault.CellCast>()` / `error.HasCode(8371)`
-// / `error.Category()`, never a message substring. `[SkipUnionOps]` is the canonical fault-band annotation (the
-// production `UiFault` shape) — it skips the generated implicit-conversion ops while the generated `Switch`/`Map`
-// survives, and the `Expected` derivation makes a bare case an `Error` directly so it lifts onto `Fin<T>`/`Validation`
+// / `error.Category()`, never a message substring. No `[GenerateUnionOps]` — the kernel union-ops generator is
+// strictly opt-in, so the band carries no generated per-case `SelfOp` while the `[Union]`-generated `Switch`/`Map`
+// is untouched, and the `Expected` derivation makes a bare case an `Error` directly so it lifts onto `Fin<T>`/`Validation`
 // with no `.ToError()` hop and an `IValidationError` accumulation stays recoverable through `Error.Combine`.
-[SkipUnionOps]
 [Union]
 public abstract partial record TabularFault : Expected, IValidationError<TabularFault> {
     private TabularFault() : base() { }

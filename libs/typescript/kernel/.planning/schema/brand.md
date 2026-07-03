@@ -66,7 +66,7 @@ const Refined: {
 - Law: the three ceilings split by enforcement site — `maxDepth` is enforced here by the gate; `maxFrames` and `maxAssembledBytes` are stream ceilings the `wire` frame rail enforces with `Stream.take` and a running-byte filter, consuming these rows as values so the whole ingress budget has one declaration.
 - Law: depth counts object nesting with the root's children at 1, and the probe short-circuits at first breach — the gate answers "too deep", never "how deep", so a wide shallow payload costs one sweep and a deep bomb costs `maxDepth` levels.
 - Law: budgets gate untrusted ingress only — a same-origin trusted lane composes its schema bare, and a budget re-applied to an already-admitted value is the interior re-validation defect.
-- Exemption: `_deeper` is a marked `// BOUNDARY ADAPTER` kernel — an iterative frontier over rebound arrays, licensed by the fixed JS call-stack ceiling adversarial depth would overflow; no mutable reference escapes and the implementer carries the mark on its first line.
+- Exemption: `_deeper` is a marked `// BOUNDARY ADAPTER` kernel — an iterative frontier over rebound arrays, licensed by the fixed JS call-stack ceiling adversarial depth would overflow; the record-view pin on the traversed object is the kernel's sanctioned cast, no mutable reference escapes, and the implementer carries the mark on its first line.
 - Growth: a new ceiling is one `Shape` field plus one enforcement row at its owning seam; a per-surface budget is a caller-composed `Shape` value, never a second owner.
 - Boundary: which seams are untrusted, and the quarantine intake a breached decode diverts to, are `wire` decisions; this owner fixes the ceilings and the gate.
 - Packages: `effect` (`Schema`, `ParseResult`).
@@ -89,7 +89,7 @@ const _deeper = (root: unknown, ceiling: number): boolean => {
     for (const [value, depth] of frontier) {
       if (typeof value !== "object" || value === null) continue
       if (depth + 1 > ceiling) return true
-      for (const child of Object.values(value)) next.push([child, depth + 1])
+      for (const child of Object.values(value as { readonly [key: string]: unknown })) next.push([child, depth + 1])
     }
     frontier = next
   }

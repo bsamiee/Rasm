@@ -452,9 +452,6 @@ markers = [
     "subprocess: tests that spawn the real CLI in a child interpreter; excluded from mutation lanes (children run the unmutated tree)",
 ]
 
-[tool.anyio]
-asyncio_mode = "auto"
-
 # --- [INLINE_SNAPSHOT] -----------------------------------------------------
 
 [tool.inline-snapshot]
@@ -658,7 +655,7 @@ ignore = [
     "TRY300",
 ]
 "tools/py_analyzer/**" = ["TC003"]
-"tests/**"         = ["S101", "PLR2004", "PLR0913", "ARG001", "ARG002", "ANN201", "ANN401", "D101", "D102", "D103", "SLF001", "PLC2701"]  # PLC2701: specs import the private-by-design _testkit package
+"tests/**"         = ["S101", "PT018", "PLR2004", "PLR0913", "ARG001", "ARG002", "ANN201", "ANN401", "D101", "D102", "D103", "SLF001", "PLC2701"]  # PLC2701: specs import the private-by-design _testkit package
 "**/adapters/**"   = ["ANN401"]
 "**/conftest.py"   = ["E402", "F401", "ARG001"]
 "tests/python/_testkit/runtime.py" = ["E402"]  # Hypothesis environment gates must precede imports

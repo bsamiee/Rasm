@@ -1,5 +1,6 @@
+import { fileURLToPath } from 'node:url';
 import { FileSystem, Path } from '@effect/platform';
-import { Array, Context, Data, Effect, HashMap, Option, pipe, Schema, String } from 'effect';
+import { Array, Context, Data, Effect, HashMap, Option, Order, pipe, Schema, String } from 'effect';
 import { xxhash128 } from 'hash-wasm';
 
 // --- [TYPES] -----------------------------------------------------------------------------
@@ -8,6 +9,7 @@ declare namespace Corpus {
     type Pin = Schema.Schema.Type<typeof _Pin>;
     type Payload = Schema.Schema.Type<typeof _Payload>;
     type Pair = { readonly message: string; readonly bin: Option.Option<string>; readonly json: Option.Option<string> };
+    type Loaded = { readonly message: string; readonly bytes: Option.Option<Uint8Array>; readonly json: Option.Option<string> };
     type Registry = HashMap.HashMap<string, Fixture>;
 }
 
@@ -31,10 +33,12 @@ class Fixture extends Schema.Class<Fixture>('Fixture')({
     producer: Schema.NonEmptyString,
     payloads: Schema.NonEmptyArray(_Payload),
     pin: _Pin,
-}) {}
+}) {
+    static readonly byName: Order.Order<Fixture> = Order.mapInput(Order.string, (entry: Fixture) => entry.fixture);
+}
 
 type Asset = Data.TaggedEnum<{
-    Emitted: { readonly fixture: Fixture; readonly pairs: ReadonlyArray<Corpus.Pair> };
+    Emitted: { readonly fixture: Fixture; readonly pairs: Array.NonEmptyReadonlyArray<Corpus.Pair> };
     Awaiting: { readonly fixture: Fixture };
     Blocked: { readonly fixture: Fixture };
 }>;
@@ -51,18 +55,20 @@ class CorpusFault extends Data.TaggedError('CorpusFault')<{
 
 // Corpus location: defaulted relative to the kit source, overridable at the Layer graph for fixture-tree specs.
 class CorpusRoot extends Context.Reference<CorpusRoot>()('rasm-testkit/CorpusRoot', {
-    defaultValue: (): string => new URL('../../../contracts', import.meta.url).pathname,
+    defaultValue: (): string => fileURLToPath(new URL('../../../contracts', import.meta.url)),
 }) {}
 
 // Seed-zero XxHash128: hash-wasm emits the canonical big-endian digest hex directly — live-proven against the frozen triangle vector.
 class ContentDigest extends Effect.Service<ContentDigest>()('rasm-testkit/ContentDigest', {
     succeed: {
-        x32: (bytes: Uint8Array): Effect.Effect<string> => Effect.promise(() => xxhash128(bytes)),
+        x128: (bytes: Uint8Array): Effect.Effect<string> => Effect.promise(() => xxhash128(bytes)),
     },
     accessors: true,
 }) {}
 
 // --- [OPERATIONS] ------------------------------------------------------------------------
+
+const _bare = (cell: string | undefined): string => (cell ?? '').replace(/`/g, '');
 
 const _hexBytes = (hex: string): Uint8Array =>
     Uint8Array.from(
@@ -80,20 +86,14 @@ const _rows = (markdown: string): ReadonlyArray<unknown> =>
         String.split(markdown, '\n'),
         Array.filterMap((line) =>
             pipe(
-                Array.map(String.split(line, '|'), (cell) => String.trim(cell).replace(/`/g, '')),
-                Option.liftPredicate((cells) => /^[A-Z][A-Z0-9_]+$/.test(Array.get(cells, 2).pipe(Option.getOrElse(() => '')))),
+                Array.map(String.split(line, '|'), String.trim),
+                Option.liftPredicate((cells) => /^[A-Z][A-Z0-9_]+$/.test(_bare(cells[2]))),
                 Option.map((cells) => ({
-                    fixture: Array.get(cells, 2).pipe(Option.getOrElse(() => '')),
-                    seam: Array.get(cells, 3).pipe(Option.getOrElse(() => '')),
-                    producer: Array.get(cells, 4).pipe(Option.getOrElse(() => '')),
-                    payloads: _tokens(
-                        pipe(
-                            String.split(line, '|'),
-                            Array.get(5),
-                            Option.getOrElse(() => ''),
-                        ),
-                    ),
-                    pin: Array.get(cells, 6).pipe(Option.getOrElse(() => '')),
+                    fixture: _bare(cells[2]),
+                    seam: _bare(cells[3]),
+                    producer: _bare(cells[4]),
+                    payloads: _tokens(cells[5] ?? ''),
+                    pin: _bare(cells[6]),
                 })),
             ),
         ),
@@ -113,6 +113,44 @@ const _pairs = (names: ReadonlyArray<string>): ReadonlyArray<Corpus.Pair> =>
             })),
     );
 
+// Emission is decided on decodable asset PAIRS, never raw directory entries: a stray file in a seam dir can never mint a vacuous Emitted.
+// Only a NotFound seam is honest absence — any other read fault (permissions, not-a-directory) is typed, never a vacuous pin verdict.
+const _asset = (fixture: Fixture): Effect.Effect<Asset, CorpusFault, FileSystem.FileSystem | Path.Path> =>
+    Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const root = yield* CorpusRoot;
+        const emitted = yield* fs.readDirectory(path.join(root, fixture.seam)).pipe(
+            Effect.catchIf(
+                (fault) => fault._tag === 'SystemError' && fault.reason === 'NotFound',
+                () => Effect.succeed<ReadonlyArray<string>>([]),
+            ),
+            Effect.mapError((fault) => new CorpusFault({ reason: 'unreadable', detail: fault.message })),
+        );
+        const pairs = _pairs(emitted);
+        return Array.isNonEmptyReadonlyArray(pairs)
+            ? Asset.Emitted({ fixture, pairs })
+            : fixture.pin === 'REAL'
+              ? Asset.Awaiting({ fixture })
+              : Asset.Blocked({ fixture });
+    });
+
+// One resolve owns both modalities: a fixture name yields its Asset, the bare call sweeps the whole registry in name order.
+function resolve(): Effect.Effect<ReadonlyArray<Asset>, CorpusFault, FileSystem.FileSystem | Path.Path>;
+function resolve(name: string): Effect.Effect<Asset, CorpusFault, FileSystem.FileSystem | Path.Path>;
+function resolve(name?: string): Effect.Effect<Asset | ReadonlyArray<Asset>, CorpusFault, FileSystem.FileSystem | Path.Path> {
+    return name === undefined
+        ? Effect.flatMap(Corpus.manifest, (registry) =>
+              Effect.forEach(Array.sort(Array.fromIterable(HashMap.values(registry)), Fixture.byName), _asset),
+          )
+        : Effect.flatMap(
+              Effect.flatMap(Corpus.manifest, (registry) =>
+                  Effect.mapError(HashMap.get(registry, name), () => new CorpusFault({ reason: 'unregistered', detail: name })),
+              ),
+              _asset,
+          );
+}
+
 const Corpus = {
     // The frozen REAL expectation the TS consumer law reproduces: bytes, canonical digest, and hash-wasm's LE hex twin.
     CANONICAL_BYTE_IDENTITY: {
@@ -131,20 +169,31 @@ const Corpus = {
         const entries = yield* Effect.mapError(_decoded(_rows(raw)), (fault) => new CorpusFault({ reason: 'malformed', detail: fault.message }));
         return HashMap.fromIterable(Array.map(entries, (entry) => [entry.fixture, entry] as const));
     }),
-    resolve: (name: string): Effect.Effect<Asset, CorpusFault, FileSystem.FileSystem | Path.Path> =>
+    resolve,
+    // The reader owns asset content: an Emitted pair loads its frozen bytes and canonical JSON without any consumer-side path assembly.
+    load: (fixture: Fixture, pair: Corpus.Pair): Effect.Effect<Corpus.Loaded, CorpusFault, FileSystem.FileSystem | Path.Path> =>
         Effect.gen(function* () {
-            const registry = yield* Corpus.manifest;
-            const fixture = yield* Effect.mapError(HashMap.get(registry, name), () => new CorpusFault({ reason: 'unregistered', detail: name }));
             const fs = yield* FileSystem.FileSystem;
             const path = yield* Path.Path;
             const root = yield* CorpusRoot;
-            const seam = path.join(root, fixture.seam);
-            const emitted = yield* Effect.orElseSucceed(fs.readDirectory(seam), (): ReadonlyArray<string> => []);
-            return Array.isNonEmptyReadonlyArray(emitted)
-                ? Asset.Emitted({ fixture, pairs: _pairs(emitted) })
-                : fixture.pin === 'REAL'
-                  ? Asset.Awaiting({ fixture })
-                  : Asset.Blocked({ fixture });
+            const slot = <A>(name: Option.Option<string>, read: (target: string) => Effect.Effect<A, { readonly message: string }>) =>
+                Option.match(name, {
+                    onNone: () => Effect.succeed(Option.none<A>()),
+                    onSome: (file) =>
+                        Effect.map(
+                            Effect.mapError(
+                                read(path.join(root, fixture.seam, file)),
+                                (fault) => new CorpusFault({ reason: 'unreadable', detail: fault.message }),
+                            ),
+                            Option.some,
+                        ),
+                });
+            return {
+                message: pair.message,
+                // The platform read yields a Node Buffer; the reader contract is a plain Uint8Array in every runtime.
+                bytes: yield* slot(pair.bin, (target) => Effect.map(fs.readFile(target), (held) => Uint8Array.from(held))),
+                json: yield* slot(pair.json, (target) => fs.readFileString(target)),
+            };
         }),
 } as const;
 

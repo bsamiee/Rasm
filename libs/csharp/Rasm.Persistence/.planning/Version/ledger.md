@@ -195,7 +195,7 @@ public static class OpLog {
 
 ## [03]-[MERGE_LAW]
 
-- Owner: `ConflictReceipt`, `ConflictVerdict` `[SmartEnum<string>]`, `ConflictResult`, `SyncApplyReceipt` (with its `Conserves` invariant), `SyncFault` the closed `[Union]` fault family deriving from the KERNEL `Rasm.Domain.Expected` (`[SkipUnionOps]` + parameterless `: base()` + per-case `Code`/`Message`/`Category` `Switch`, NOT `LanguageExt.Common.Expected`) in the 825x band, `SyncSession` the one session capsule of policy values and delegate rows; `SyncMerge` the fold surface routing each `OpLogEntry` by its `ColumnFamily.Stance` — `Lww`/`FirstWriter` through `Adjudicate`, `Crdt` into `Crdt.Apply`.
+- Owner: `ConflictReceipt`, `ConflictVerdict` `[SmartEnum<string>]`, `ConflictResult`, `SyncApplyReceipt` (with its `Conserves` invariant), `SyncFault` the closed `[Union]` fault family deriving from the KERNEL `Rasm.Domain.Expected` (parameterless `: base()` + per-case `Code`/`Message`/`Category` `Switch`, NOT `LanguageExt.Common.Expected`; no `[GenerateUnionOps]` — the kernel union-ops generator is strictly opt-in) in the 825x band, `SyncSession` the one session capsule of policy values and delegate rows; `SyncMerge` the fold surface routing each `OpLogEntry` by its `ColumnFamily.Stance` — `Lww`/`FirstWriter` through `Adjudicate`, `Crdt` into `Crdt.Apply`.
 - Cases: 4 verdict rows on `ConflictVerdict` — `LocalWin | RemoteWin | Merged | Rejected` — collapsed into one `ConflictResult(Verdict, Receipt, Conflicted, Held)` where `Conflicted` distinguishes a genuine divergence (an HLC-resolved `LocalWin`/`RemoteWin` over differing content) from an idempotent-replay `LocalWin` (content-equal) or a fresh `Merged`, and `Held` carries the held content key the fork fault reads without a second lookup; `Rejected` is reachable only on an equal `(stamp, origin)` with divergent content (the causal fork the `Apply` fold lifts to `SyncFault.Forked` and halts on), never a soft conflict bucket; the `SyncFault` family is `SchemaMismatch | ReplicationFaulted | SpeckleMarshal | TransferDecode | Unconserved | Forked`.
 - Entry: `public static IO<SyncApplyReceipt> Apply(SyncSession session, Seq<OpLogEntry> incoming)` carries commit effects; replay converges idempotently and the receipt proves applied, skipped, conflicted, converged, and pushed counts under `Conserves` (each entry increments EXACTLY ONE counter so the conservation sum is exact), an auto-resolved LWW divergence counting as `Conflicted` and recording its `ConflictReceipt` into `Conflicts` (whether the winner was committed or the local kept), an `IO.fail` `SyncFault.Unconserved` when the batch does not close.
 - Receipt: `ConflictReceipt` is the typed fork evidence the `SyncFault.Forked` halt carries and the inspector projects; `SyncApplyReceipt` is the per-run apply evidence.
@@ -231,14 +231,13 @@ using Expected = Rasm.Domain.Expected;            // the federation fault-band b
 // protected ctor; `Category` virtual; `Code`/`Message` inherited from `Error`), the SAME federation base the seam
 // `Rasm.Element/Projection/fault#FAULT_BAND` `ElementFault` (2500) and the `Rasm.Bim/Model/faults#FAULT_BAND`
 // `BimFault` (2600) realize — NOT `LanguageExt.Common.Expected`, whose `(string,int,Option)` `base(detail, code, None)`
-// ctor (no `Category` to override) is the deleted form. `[SkipUnionOps]` is the canonical fault-band annotation (the
-// production `UiFault` shape) — it skips the generated implicit-conversion ops while the generated `Switch`/`Map`
-// survives, the `Expected` derivation making a bare case an `Error` directly so it lifts onto `Fin<T>`/`Validation`
+// ctor (no `Category` to override) is the deleted form. No `[GenerateUnionOps]` — the kernel union-ops generator is
+// strictly opt-in, so the band carries no per-case `SelfOp` while the `[Union]`-generated `Switch`/`Map` is
+// untouched, the `Expected` derivation making a bare case an `Error` directly so it lifts onto `Fin<T>`/`Validation`
 // with no `.ToError()` hop; band membership is a per-case `Code => 825x` override, `Message` projects the case
 // detail, and `Category` the telemetry label, so a recovery reads `error.IsType<SyncFault.Forked>()` /
 // `error.HasCode(8256)` / `error.Category()`, never a message substring. (`using Expected = Rasm.Domain.Expected;`
 // aliases the bare `Expected` to the kernel base across the page.)
-[SkipUnionOps]
 [Union]
 public abstract partial record SyncFault : Expected, IValidationError<SyncFault> {
     private SyncFault() : base() { }

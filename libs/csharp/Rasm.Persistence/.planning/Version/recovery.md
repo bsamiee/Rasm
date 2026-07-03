@@ -75,10 +75,9 @@ public sealed partial class RecoveryPoint {
 // is the deleted form. Band membership is a per-case `Code => 829x` override and `Message`/`Category` project through the
 // generated `Switch`, so the typed case lifts BARE onto `Fin<T>`/`IO<T>` with no `.ToError()` hop and a recovery reads
 // `error.IsType<RecoveryFault.TimelineDivergence>()` / `error.HasCode(8295)` / `error.Category()`, never a message
-// substring. `[SkipUnionOps]` is the canonical fault-band annotation (the production `UiFault` shape) — it skips the
-// generated implicit-conversion ops while the generated `Switch`/`Map` survives. `Create` is the IValidationError
+// substring. No `[GenerateUnionOps]` — the kernel union-ops generator is strictly opt-in, so the band carries no
+// generated per-case `SelfOp`; the `[Union]`-generated `Switch`/`Map` is untouched. `Create` is the IValidationError
 // admission the generated converter bridge calls on a deserialization reject.
-[SkipUnionOps]
 [Union]
 public abstract partial record RecoveryFault : Expected, IValidationError<RecoveryFault> {
     private RecoveryFault() : base() { }

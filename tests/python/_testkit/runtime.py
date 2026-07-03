@@ -6,6 +6,7 @@ from datetime import datetime, UTC
 import importlib
 import os
 from pathlib import Path
+import sys
 import threading
 
 
@@ -87,7 +88,7 @@ def _build_profiler_argv(artifact_dir: Path, secs: str) -> list[str]:
     artifact_dir.mkdir(parents=True, exist_ok=True)
     ts = datetime.now(tz=UTC).strftime("%Y%m%dT%H%M%S")
     artifact = artifact_dir / f"session-{ts}.jsonl"
-    return ["python", "-m", "profiling.sampling", "attach", str(os.getpid()), "--jsonl", "-o", str(artifact), "-d", secs]
+    return [sys.executable, "-m", "profiling.sampling", "attach", str(os.getpid()), "--jsonl", "-o", str(artifact), "-d", secs]
 
 
 def _run_profiler(artifact_dir: Path, secs: str) -> None:

@@ -12,7 +12,7 @@ The dashboard library is one handler record over a closed pack vocabulary: five 
 ## [2]-[PANES]
 
 [PANES]:
-- Owner: the interior `_pane` builders — small total functions each returning one panel row from settled inputs: the request-duration quantile timeseries, the vital gauge against its budget row, the graded-vital stat, the meter usage timeseries split by resource, the crash logs pane, and the SLO burn pair per alert spec.
+- Owner: the interior `_pane` builders — small total functions each returning one panel row from settled inputs: the request-duration quantile timeseries, the vital gauge against its budget row, the meter usage timeseries split by resource, the crash logs pane, and the per-spec SLO burn stat over the objective's own SLI expression.
 - Law: a builder never invents a name or a threshold — series come from `Convention.metric` rows, tenancy filters from `Convention.rasm` keys against the `$tenant` template variable, vital ceilings from `Vital.rows`, burn thresholds from the spec's own `factor` — so the builders are pure plumbing between vocabulary and visualization, and deleting any hardcoded literal from them leaves nothing to delete.
 - Law: spans are the builders' only local decision — each pane declares its grid `span` so the model's shelf fold lays every pack without per-pack layout code.
 - Growth: a new reusable visualization is one builder consumed by pack rows — it earns existence at two pack call sites, else it inlines.
@@ -93,7 +93,7 @@ const _burnPair = (spec: Alert.Spec): typeof DashboardModel.Panel.Type =>
 ## [3]-[PACKS]
 
 [PACKS]:
-- Owner: the `Library` handler record — the payload map types each pack's input (`slo` demands objectives, `meter` its resource rows, the rest are empty rows), the mapped handler contract turns a missing pack into a compile error at the record, and `Library.pack(kind, identity, payload)` is the one generic indexed dispatch whose payload follows the kind.
+- Owner: the `Library` handler record — the payload map types each pack's input (`slo` demands objectives, `overview` its quantiles, the rest are empty rows), the mapped handler contract turns a missing pack into a compile error at the record, and `Library.pack(kind, identity, payload)` is the one generic indexed dispatch whose payload follows the kind.
 - Law: every pack routes through `DashboardModel.of` — identity-derived uid, stamped identity attributes, the always-present tenant variable — so the pack layer cannot mint an identity-free dashboard; the `slo` pack folds `Alert.of(objective)` specs into burn panels and annotation rows, making the alert and dashboard views of one objective provably the same data.
 - Law: `Library.suite(identity, payload)` derives the standing fleet — every pack whose payload the suite input carries — the one call an app's deploy program makes; `iac/observe` applies `DashboardModel.laid` projections of exactly this suite.
 - Boundary: provider emission — grafana JSON, folder placement, apply lifecycle — is `iac/observe`'s seam over `typeof DashboardModel.Encoded`; the `[R14]` foundation-sdk gate lives behind the model's encode, invisible here.

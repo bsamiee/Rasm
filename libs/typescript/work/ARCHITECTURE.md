@@ -30,7 +30,10 @@ No inbound C# wire seam: durable execution is TS-native capability. `work`'s ali
 
 ```text seams
 engine/storage.ts   ←  store/journal   # [PORT]: SqlClient (@effect/sql core) + MessageStorage Tags; the store-owned driver Layer satisfies at the app root
-engine/entity.ts    →  edge/hook       # [PORT]: per-tenant fenced-quota rows edge/hook types against
+engine/entity.ts    →  edge/hook       # [PORT]: per-tenant fenced-quota rows + the Fence.Refusal type edge/hook types against
 engine/entity.ts    ←  iac/stack       # [SHAPE]: StackOutputs → ShardingConfig, the sole iac↔work meeting seam
+flow/durable.ts     →  edge/hook       # [PORT]: Flow.gate tokens resolved by verified inbound callbacks (DurableDeferred out-of-band completion)
 deliver/webhook.ts  ←  security/sign   # [BOUNDARY]: HMAC egress signing via the security/sign envelope
+deliver/mail.ts     ←  store/journal   # [PORT]: the Mailer.Suppress ledger Tag; store journal Layers satisfy at the app root
+deliver/relay.ts    ←  store/journal   # [PORT]+[SHAPE]: the Relay.Wake LISTEN pulse Tag; the deliver_outbox row contract — store authors the ensure DDL at name-level parity with Relay.Row
 ```

@@ -31,6 +31,12 @@ const Audit: Data.TaggedEnum.Constructor<Audit> = Data.taggedEnum<Audit>();
 
 const _SNAP = { home: '__snapshots__', extension: '.snap' } as const;
 
+// Every compilable source dialect joins the audit — a .tsx or .mts module must never evade a banned-module verdict.
+const _SOURCE = { include: /\.(?:[mc]?ts|tsx)$/, declaration: /\.d\.[mc]?ts$/ } as const;
+
+// Dependency, build, and VCS trees never join a source audit: a workspace symlink under the root would sweep foreign code.
+const _PRUNE = /(^|\/)(node_modules|dist|coverage|\.git)(\/|$)/;
+
 // --- [ERRORS] ----------------------------------------------------------------------------
 
 class GaugeFault extends Data.TaggedError('GaugeFault')<{ readonly reason: 'unreadable'; readonly detail: string }> {}
@@ -45,15 +51,23 @@ const _walked = (root: string): Effect.Effect<ReadonlyArray<string>, GaugeFault,
 
 const _specifiers = (path: string, text: string): ReadonlyArray<Imports.Specifier> => {
     // BOUNDARY ADAPTER: the compiler walk is a platform callback seam; the accumulator detaches immutable at the return.
+    // The walk is recursive so a dynamic `import("<specifier>")` buried in a body cannot evade a banned-module verdict.
     const source = ts.createSourceFile(path, text, ts.ScriptTarget.Latest, false);
     const found: Array<Imports.Specifier> = [];
-    ts.forEachChild(source, (node) => {
+    const visit = (node: ts.Node): void => {
         if (ts.isImportDeclaration(node) && ts.isStringLiteral(node.moduleSpecifier)) {
             found.push({ specifier: node.moduleSpecifier.text, typeOnly: node.importClause?.isTypeOnly === true });
         } else if (ts.isExportDeclaration(node) && node.moduleSpecifier !== undefined && ts.isStringLiteral(node.moduleSpecifier)) {
             found.push({ specifier: node.moduleSpecifier.text, typeOnly: node.isTypeOnly });
+        } else if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword) {
+            const head = node.arguments[0];
+            if (head !== undefined && ts.isStringLiteral(head)) {
+                found.push({ specifier: head.text, typeOnly: false });
+            }
         }
-    });
+        ts.forEachChild(node, visit);
+    };
+    visit(source);
     return found;
 };
 
@@ -79,12 +93,12 @@ const Snapshots = {
 const Imports = {
     scan: (sources: ReadonlyArray<{ readonly path: string; readonly text: string }>): ReadonlyArray<Imports.Module> =>
         Array.map(sources, (source) => ({ path: source.path, specifiers: _specifiers(source.path, source.text) })),
-    load: (root: string): Effect.Effect<ReadonlyArray<Imports.Module>, GaugeFault, FileSystem.FileSystem | Path.Path> =>
+    load: (root: string, prune: RegExp = _PRUNE): Effect.Effect<ReadonlyArray<Imports.Module>, GaugeFault, FileSystem.FileSystem | Path.Path> =>
         Effect.gen(function* () {
             const fs = yield* FileSystem.FileSystem;
             const path = yield* Path.Path;
             const entries = yield* _walked(root);
-            const files = Array.filter(entries, (entry) => entry.endsWith('.ts') && !entry.endsWith('.d.ts'));
+            const files = Array.filter(entries, (entry) => _SOURCE.include.test(entry) && !_SOURCE.declaration.test(entry) && !prune.test(entry));
             return Imports.scan(
                 yield* Effect.forEach(files, (file) =>
                     Effect.map(

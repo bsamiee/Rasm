@@ -148,9 +148,8 @@ public static class ElementSchema {
 // `Category` to override) is the deleted form. Band membership is a per-case `Code => 830x` override, `Message`/
 // `Category` projecting through the generated `Switch`, so the typed case lifts BARE onto `Fin<T>`/`Validation<Error,T>`
 // with no `.ToError()` hop and a recovery reads `error.IsType<GraphFault.StreamVersionConflict>()` / `error.HasCode(8301)`
-// / `error.Category()`, never a message substring. `[SkipUnionOps]` is the canonical fault-band annotation (the
-// production `UiFault` shape) — it skips the generated implicit-conversion ops while the generated `Switch`/`Map` survives.
-[SkipUnionOps]
+// / `error.Category()`, never a message substring. No `[GenerateUnionOps]` — the kernel union-ops generator is
+// strictly opt-in, so the band carries no generated per-case `SelfOp`; the `[Union]`-generated `Switch`/`Map` is untouched.
 [Union]
 public abstract partial record GraphFault : Expected, IValidationError<GraphFault> {
     private GraphFault() : base() { }

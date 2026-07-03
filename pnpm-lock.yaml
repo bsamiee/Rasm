@@ -420,9 +420,6 @@ catalogs:
     exceljs:
       specifier: 4.4.0
       version: 4.4.0
-    fast-check:
-      specifier: 4.8.0
-      version: 4.8.0
     happy-dom:
       specifier: 20.10.6
       version: 20.10.6
@@ -994,9 +991,6 @@ importers:
       exceljs:
         specifier: 'catalog:'
         version: 4.4.0
-      fast-check:
-        specifier: 'catalog:'
-        version: 4.8.0
       happy-dom:
         specifier: 'catalog:'
         version: 20.10.6
@@ -1191,9 +1185,6 @@ importers:
       effect:
         specifier: 'catalog:'
         version: 3.21.4
-      fast-check:
-        specifier: 'catalog:'
-        version: 4.8.0
       hash-wasm:
         specifier: 'catalog:'
         version: 4.12.0
@@ -8842,10 +8833,6 @@ packages:
     resolution: {integrity: sha512-h5+1OzzfCC3Ef7VbtKdcv7zsstUQwUDlYpUTvjeUsJAssPgLn7QzbboPtL5ro04Mq0rPOsMzl7q5hIbRs2wD1A==}
     engines: {node: '>=8.0.0'}
 
-  fast-check@4.8.0:
-    resolution: {integrity: sha512-GOJ158CUMnN6cSahsv4+ExARvIDuzzinFjkp0E9WtiBa5zcVeLozVkWaE4IzFcc+Y48Wp1EDlUZsXRyAztQcSg==}
-    engines: {node: '>=12.17.0'}
-
   fast-content-type-parse@3.0.0:
     resolution: {integrity: sha512-ZvLdcY8P+N8mGQJahJV5G4U88CSvT1rP8ApL6uETe88MBXrBHAkZlSEySdUlyztF7ccb+Znos3TFqaepHxdhBg==}
 
@@ -11375,9 +11362,6 @@ packages:
 
   pure-rand@7.0.1:
     resolution: {integrity: sha512-oTUZM/NAZS8p7ANR3SHh30kXB+zK2r2BPcEn/awJIbOvq82WoMN4p62AWWp3Hhw50G0xMsw1mhIBLqHw64EcNQ==}
-
-  pure-rand@8.4.0:
-    resolution: {integrity: sha512-IoM8YF/jY0hiugFo/wOWqfmarlE6J0wc6fDK1PhftMk7MGhVZl88sZimmqBBFomLOCSmcCCpsfj7wXASCpvK9A==}
 
   pvtsutils@1.3.6:
     resolution: {integrity: sha512-PLgQXQ6H2FWCaeRak8vvk1GW462lMxB5s3Jm673N82zI4vqtVUPuZdffdZbPDFRoU8kAhItWFtPCWiPpp4/EDg==}
@@ -22927,10 +22911,6 @@ snapshots:
     dependencies:
       pure-rand: 6.1.0
 
-  fast-check@4.8.0:
-    dependencies:
-      pure-rand: 8.4.0
-
   fast-content-type-parse@3.0.0: {}
 
   fast-csv@4.3.6:
@@ -25762,8 +25742,6 @@ snapshots:
   pure-rand@6.1.0: {}
 
   pure-rand@7.0.1: {}
-
-  pure-rand@8.4.0: {}
 
   pvtsutils@1.3.6:
     dependencies:

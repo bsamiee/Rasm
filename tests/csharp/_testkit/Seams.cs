@@ -7,13 +7,13 @@ using Xunit.Sdk;
 namespace Rasm.TestKit;
 
 // --- [TYPES] --------------------------------------------------------------------------------
-// One call-shape family: the case is the substitution behavior, the generated Switch is the sole
-// dispatch, and the canned value rides each case rather than a parallel mode flag.
+// One call-shape family: each case is a DISTINCT substitution behavior — Canned repeats one value,
+// FanOut walks its sequence across successive calls, Factory records its inner label payload-free.
+// The generated Switch is the sole dispatch; async seams can a completed task via TValue itself.
 [Union]
 public abstract partial record Shape<TValue> {
     private Shape() { }
-    public sealed record Sync(TValue Value) : Shape<TValue>;
-    public sealed record Async(TValue Value) : Shape<TValue>;
+    public sealed record Canned(TValue Value) : Shape<TValue>;
     public sealed record FanOut(Seq<TValue> Values) : Shape<TValue>;
     public sealed record Factory(TValue Value, string InnerLabel = "<factory>.run") : Shape<TValue>;
 }
@@ -63,24 +63,30 @@ public sealed class SeamProbe<TArgs> {
 
     public Seq<TArgs> Payloads => calls.Value.Bind(static call => call.Payload.ToSeq());
 
-    // Install binds `member` to the canned shape at the production resolution site through `bind`,
+    // Install binds `member` to the shape at the production resolution site through `bind`,
     // recording each call before yielding the case payload; the returned scope restores the prior
-    // delegate, so a stack of installs unwinds last-in-first-out on disposal.
+    // delegate, so a stack of installs unwinds last-in-first-out on disposal. FanOut walks its
+    // values per call through an install-scoped cursor; exhaustion fails loudly, never recycles.
     public SeamRestore Install<TResult>(string member, Shape<TResult> shape, Func<Func<TArgs, TResult>, Action> bind) {
         ArgumentException.ThrowIfNullOrWhiteSpace(argument: member);
         ArgumentNullException.ThrowIfNull(argument: shape);
         ArgumentNullException.ThrowIfNull(argument: bind);
+        int[] cursor = [0];
         TResult Record(string label, Option<TArgs> payload, TResult value) {
             _ = calls.Swap(log => log.Add(new SeamCall<TArgs>(Member: label, Payload: payload)));
             return value;
         }
-        TResult Canned(TArgs args) => shape.Switch(
-            state: (args, member, Record: (Func<string, Option<TArgs>, TResult, TResult>)Record),
-            sync: static (st, s) => st.Record(st.member, Some(value: st.args), s.Value),
-            async: static (st, s) => st.Record(st.member, Some(value: st.args), s.Value),
-            fanOut: static (st, s) => s.Values is [var head, ..] ? st.Record(st.member, Some(value: st.args), head) : throw new XunitException($"FanOut seam '{st.member}' has no values"),
+        TResult Substitute(TArgs args) => shape.Switch(
+            state: (args, member, cursor, Record: (Func<string, Option<TArgs>, TResult, TResult>)Record),
+            canned: static (st, s) => st.Record(st.member, Some(value: st.args), s.Value),
+            fanOut: static (st, s) => {
+                int index = Interlocked.Increment(location: ref st.cursor[0]) - 1;
+                return index < s.Values.Count
+                    ? st.Record(st.member, Some(value: st.args), s.Values[index])
+                    : throw new XunitException($"FanOut seam '{st.member}' exhausted after {s.Values.Count} value(s)");
+            },
             factory: static (st, s) => st.Record(s.InnerLabel, Option<TArgs>.None, s.Value));
-        return new SeamRestore(Restore: bind(Canned));
+        return new SeamRestore(Restore: bind(Substitute));
     }
 }
 
@@ -146,20 +152,45 @@ public static class TmpRoot {
 }
 
 // --- [DECODE_ORACLES]
-// NdjsonOracle gates the line count before decoding the first row through the contract's
-// JsonTypeInfo<T>: shape is asserted before content.
+// NdjsonOracle gates the line count before decoding through the contract's JsonTypeInfo<T>:
+// shape is asserted before content. One reads the first row; All decodes every gated row into an
+// array — assertion material stays reflection-free where LanguageExt trait equality would fault.
 public sealed record NdjsonOracle<T>(JsonTypeInfo<T> Decoder, int ExpectLines = 1) {
     public T One(ReadOnlySpan<byte> raw) {
-        int lines = CountLines(raw);
-        return lines == ExpectLines
-            ? JsonSerializer.Deserialize(utf8Json: FirstLine(raw), jsonTypeInfo: Decoder) ?? throw new XunitException("NDJSON row decoded to null")
-            : throw new XunitException(string.Create(provider: CultureInfo.InvariantCulture, $"expected exactly {ExpectLines} NDJSON line(s), got {lines}"));
+        GateLines(raw: raw);
+        return Decode(line: FirstLine(raw: raw));
     }
 
     public T One(string raw) {
         ArgumentNullException.ThrowIfNull(argument: raw);
         return One(System.Text.Encoding.UTF8.GetBytes(raw));
     }
+
+    public T[] All(ReadOnlySpan<byte> raw) {
+        GateLines(raw: raw);
+        List<T> rows = new(capacity: ExpectLines);
+        ReadOnlySpan<byte> rest = raw.TrimEnd((byte)'\n').TrimEnd((byte)'\r');
+        while (!rest.IsEmpty) {
+            rows.Add(item: Decode(line: FirstLine(raw: rest)));
+            int newline = rest.IndexOf((byte)'\n');
+            rest = newline < 0 ? [] : rest[(newline + 1)..];
+        }
+        return [.. rows];
+    }
+
+    public T[] All(string raw) {
+        ArgumentNullException.ThrowIfNull(argument: raw);
+        return All(System.Text.Encoding.UTF8.GetBytes(raw));
+    }
+
+    private void GateLines(ReadOnlySpan<byte> raw) {
+        int lines = CountLines(raw);
+        _ = lines == ExpectLines
+            ? lines : throw new XunitException(string.Create(provider: CultureInfo.InvariantCulture, $"expected exactly {ExpectLines} NDJSON line(s), got {lines}"));
+    }
+
+    private T Decode(ReadOnlySpan<byte> line) =>
+        JsonSerializer.Deserialize(utf8Json: line, jsonTypeInfo: Decoder) ?? throw new XunitException("NDJSON row decoded to null");
 
     private static int CountLines(ReadOnlySpan<byte> raw) {
         ReadOnlySpan<byte> trimmed = raw.TrimEnd((byte)'\n').TrimEnd((byte)'\r');

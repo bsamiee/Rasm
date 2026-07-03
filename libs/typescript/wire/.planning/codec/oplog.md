@@ -25,7 +25,7 @@ import { Effect, Either, Option, type ParseResult, Schema } from "effect"
 import { Quarantine, WireFault } from "../fault/quarantine.ts"
 import { CrdtOp, Pack } from "./crdt.ts"
 
-class Entry extends Schema.Class<Entry>("Entry")({
+class Entry extends Schema.Class<Entry>("OpLogEntry")({
   seq: Schema.BigIntFromSelf,
   op: CrdtOp,
 }) {}

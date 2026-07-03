@@ -7,7 +7,7 @@ The SI quantity law: a physical measure is one `Quantity` — SI-coherent magnit
 | [INDEX] | [CLUSTER]           | [OWNS]                                                       | [PUBLIC]    |
 | :-----: | :------------------ | :------------------------------------------------------------ | :---------- |
 |  [01]   | `DIMENSION_VECTOR`  | the SI base-exponent vector, its algebra, the named rows      | `Dimension` |
-|  [02]   | `QUANTITY_ALGEBRA`  | magnitude+dimension carrier and its `Either`-railed arithmetic | `Quantity`  |
+|  [02]   | `QUANTITY_ALGEBRA`  | magnitude+dimension carrier and its `Either`-railed arithmetic | `Quantity`, `QuantityFault` |
 
 ## [2]-[DIMENSION_VECTOR]
 

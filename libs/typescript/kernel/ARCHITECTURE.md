@@ -9,7 +9,7 @@ Each codemap node is the eventual source file its `.planning/` design page becom
 ```text codemap
 kernel/src/            # W0; imports nothing — every runtime folder types against this floor
 ├── identity/          # the cross-language identity values
-│   ├── contentkey.ts  # XxHash128 seed-zero ContentKey brand — the ONE mint; :x32 spelling; LE→BE normalize at every delegate
+│   ├── contentkey.ts  # XxHash128 seed-zero ContentKey brand — the ONE mint; :x32 spelling, wire-canonical off the hasher; delegates never touch byte order
 │   └── appidentity.ts # AppKey / AppIdentity / TenantContext value vocabulary — {app, tenant, build, host-fingerprint} dimensions telemetry, browser boot, and store scopes derive from
 ├── clock/             # the hybrid-logical time law
 │   ├── hlc.ts         # Hlc brand — two-half compose (physical first, logical second, both little-endian), compare/merge folds
@@ -40,4 +40,4 @@ Every row is a byte-level parity claim, never a code dependency: the C# side min
 - `AppIdentity` spans {app, tenant, build, host-fingerprint}; the `telemetry` OTel Resource, the `browser` boot, and the `store` scope derive from this ONE value — a per-folder identity re-declaration is the named defect.
 - The fault enricher CONTRACT is declared in `fault/classify`; `wire` implements the Layer, `telemetry` consumes it, the app root wires the port — this floor imports neither.
 - `Quantity` carries SI magnitude + dimension, canonicalized once at the C# admission; a `{value, unit}` re-decode is the rejected form.
-- Every brand decodes under an `INGRESS_BUDGET` refinement budget; Schema-derived arbitraries for the kernel brands live in `@rasm/ts-testkit` (`tests/typescript/_testkit`), never on a `@rasm/ts` subpath — `fast-check` never rides a runtime graph.
+- Untrusted ingress decodes under the `INGRESS_BUDGET` ceilings through the budget-gated combinator `schema/brand` owns — the depth gate here, the frame and byte ceilings enforced by the `wire` streams as values; Schema-derived arbitraries for the kernel brands live in `@rasm/ts-testkit` (`tests/typescript/_testkit`), never on a `@rasm/ts` subpath — `fast-check` never rides a runtime graph.

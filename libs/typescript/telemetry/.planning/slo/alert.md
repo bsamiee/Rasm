@@ -44,7 +44,8 @@ declare namespace Alert {
 
 ```typescript
 import { Array, Struct } from "effect"
-import { Convention, Slo, type Sli } from "@rasm/ts/telemetry"
+import { Convention } from "../signal/convention.ts"
+import { Slo, type Sli } from "./burnrate.ts"
 
 declare namespace Alert {
   type Spec = {

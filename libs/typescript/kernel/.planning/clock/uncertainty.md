@@ -53,7 +53,7 @@ const ClockGrade: ClockGrade.Shape = { ..._grades, kinds: _kinds }
 - Law: `around(at, bound)` is the one constructor and its `bound` is modality-polymorphic — a `ClockGrade.Kind` selects the ladder row, any `Duration.DurationInput` carries a measured bound — discriminated by the derived grade guard on the value itself, never a flag; the window is `[at - delta, at + delta]` with the lower edge clamped at zero.
 - Law: `precedes(left, right)` is the three-verdict fold — `"before"` when `left.latest < right.earliest`, `"after"` when `right.latest < left.earliest`, `"indeterminate"` on overlap — and the verdict union is a pure type anchor (`Uncertainty.Precedence`) because only the type plane reads it; `state/causal` dispatches on the literal and a definite order is claimed only when the windows prove it.
 - Law: `hull(left, right)` is the associative window join — least earliest, greatest latest — the aggregation fold a batch of readings collapses under; `contains(self, at)` answers point membership for watermark and frontier reads.
-- Law: construction rides `around` and the interior mint proves its own inputs — clamped subtraction and checked addition stay non-negative — so the class filters cannot trip and the algebra is total.
+- Law: construction rides `around`/`spanning` and the interior mint proves its own inputs — clamped subtraction and checked addition stay non-negative — while the class carries `earliest <= latest` as its own filter, so decode, `new`, and `make` all prove the window, an inverted wire window fails admission as a `ParseError`, and `width` is total on every channel.
 - Growth: a new verdict consumer is a `state` fold over `Precedence`; a new window operation (meet, widen-by-grade) is one static composing the existing bounds.
 - Boundary: happened-before over *stamps* (physical+logical) is `Hlc.Order`'s total comparison; windows answer the honest wall-clock question only, and `state/causal` decides when each applies.
 - Packages: `effect` (`Schema`, `Duration`); `kernel/clock/hlc` (`Hlc.fields.physical`, `Hlc.delta`).
@@ -64,10 +64,12 @@ const _mint = Schema.decodeSync(Hlc.fields.physical)
 const _floored = (at: Hlc.Physical, spread: Hlc.Physical): Hlc.Physical =>
   at > spread ? _mint(at - spread) : _mint(0n)
 
-class Uncertainty extends Schema.Class<Uncertainty>("Uncertainty")({
-  earliest: Hlc.fields.physical,
-  latest: Hlc.fields.physical,
-}) {
+class Uncertainty extends Schema.Class<Uncertainty>("Uncertainty")(
+  Schema.Struct({
+    earliest: Hlc.fields.physical,
+    latest: Hlc.fields.physical,
+  }).pipe(Schema.filter((window) => window.earliest <= window.latest)),
+) {
   static readonly around = (at: Hlc.Physical, bound: Duration.DurationInput | ClockGrade.Kind): Uncertainty =>
     Uncertainty.spanning(at, Hlc.delta(_isKind(bound) ? ClockGrade[bound].bound : bound))
   static readonly spanning = (at: Hlc.Physical, spread: Hlc.Physical): Uncertainty =>

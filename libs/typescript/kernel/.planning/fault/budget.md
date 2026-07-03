@@ -96,7 +96,7 @@ const _gated = (row: Budget.Row): Budget.Gated =>
     Schedule.resetAfter(row.reset),
     Schedule.intersect(Schedule.recurs(row.attempts)),
     Schedule.upTo(row.window),
-    Schedule.whileInput((fault: unknown) => FaultClass.retryable(fault)),
+    Schedule.whileInput(FaultClass.retryable),
   )
 
 const _compiled: { readonly [K in Budget.Kind]: Budget.Gated } = {

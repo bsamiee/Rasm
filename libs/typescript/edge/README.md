@@ -37,3 +37,4 @@ The branch substrate this folder consumes; the registry lives in `libs/typescrip
 - `@effect/platform` — the `HttpApi`/`HttpApiGroup` contracts, the middleware contracts, and the `HttpApp` mount vocabulary the whole folder builds on.
 - `@effect/platform-node` — the `NodeHttpServer` serve row.
 - `@effect/platform-bun` — the `BunHttpServer` serve row.
+- `@effect/experimental` — the `Sse` codec behind the `live/socket` SSE encode seam and the store-backed `RateLimiter` Tag behind the `api/middleware` distributed-quota row.

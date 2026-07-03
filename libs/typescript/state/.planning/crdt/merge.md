@@ -8,12 +8,12 @@
 | :-----: | :------------------ | :---------------------------------------------------------------------------- | :-------------------------------------------------------- |
 |  [01]   | [INSTANCE_CONTRACT] | the `Merge.Instance<A>` shape, posture vocabulary, order-derived equivalence  | `Merge.Posture`, `Merge.Instance`, `Merge.instance`       |
 |  [02]   | [INSTANCE_ROSTER]   | scalar, keyed, optional, and product instance constructors                    | `Merge.max/min/first/counter/flag/union/optional/struct`  |
-|  [03]   | [FOLD_ENTRY]        | the arity-discriminated fold and the convergence-legality read                | `Merge.fold`, `Merge.convergent`                          |
+|  [03]   | [FOLD_ENTRY]        | the absence-honest fold and the convergence-legality read                     | `Merge.fold`, `Merge.convergent`                          |
 
 ## [2]-[INSTANCE_CONTRACT]
 
 - Owner: `Merge.Instance<A>` — `combine` (the `Semigroup`; associativity is its contract), `posture` (the declared commutativity/idempotence obligations `crdt/converge` asserts), `alike` (the equivalence every law check and table comparison shares), `empty` (the lawful identity as `Option`, never a forged sentinel).
-- Packages: `@effect/typeclass` (`Semigroup`, `Monoid`, `data/*` atoms); `effect` (`Equivalence`, `Option`, `Order`, `Record`).
+- Packages: `@effect/typeclass` (`Semigroup`, `data/*` atoms); `effect` (`Array`, `Equivalence`, `Option`, `Order`, `Record`).
 - Law: associativity rides the `Semigroup` contract itself; commutativity and idempotence are claims the posture declares and `crdt/converge` proves — an instance claiming a posture it cannot witness fails at the law gate, never diverges silently at a replica.
 - Law: `alike` derives from the instance's own material — `_fromOrder` for extremum instances, `Schema.equivalence` for decoded owners, composed `Equivalence` rows for products — so law checks and replay-table comparison never fall back to reference identity.
 - Growth: a new merge semantic is a new constructor row or a `data/*` atom lift; the `Instance` shape never widens per semantic.
@@ -45,10 +45,7 @@ declare namespace Merge {
     readonly union: <V>(row: Instance<V>) => Instance<Record.ReadonlyRecord<string, V>>
     readonly optional: <A>(row: Instance<A>) => Instance<Option.Option<A>>
     readonly struct: <S extends object>(fields: Fields<S>) => Instance<Types.Simplify<S>>
-    readonly fold: {
-      <A>(instance: Instance<A>, rows: Array.NonEmptyReadonlyArray<A>): A
-      <A>(instance: Instance<A>, rows: ReadonlyArray<A>): Option.Option<A>
-    }
+    readonly fold: <A>(instance: Instance<A>, rows: ReadonlyArray<A>) => Option.Option<A>
     readonly convergent: <A>(instance: Instance<A>) => boolean
   }
 }
@@ -110,19 +107,16 @@ const _struct = <S extends object>(fields: Merge.Fields<S>): Merge.Instance<Type
 
 ## [4]-[FOLD_ENTRY]
 
-- Owner: `Merge.fold` — one entrypoint over both fold modalities, discriminated by proven arity: a `NonEmptyReadonlyArray` folds to the bare value through `combineMany` on the witnessed head; an unproven collection folds to `Option`, padded by the instance's lawful `empty` when one exists.
+- Owner: `Merge.fold` — the absence-honest fold: a non-empty collection folds through `combineMany` on its head, an empty collection falls to the instance's lawful `empty`, and the return is `Option` because an identity-free instance has no lawful answer for zero rows. A caller holding a witnessed `NonEmptyReadonlyArray` composes `instance.combine.combineMany(Array.headNonEmpty(rows), Array.tailNonEmpty(rows))` directly — the package surface is the proven-arity spelling, never a second entrypoint.
 - Law: the reducer the d2ts/d2mini `reduce` operator applies in `fold/replay` is the elementwise projection of this same `combineMany` — the merge law and the incremental reducer law are one law at two speeds, declared once here.
 - Law: `Merge.convergent` is the gate read — `commutative && idempotent` — the `fold/replay` retraction guard and the `crdt/converge` obligation selector consume the same predicate, never a re-derived posture check.
 - Boundary: law assertion runs in the tests estate — `crdt/converge.md` owns the obligation rows and witnesses; `tests/typescript/_testkit` lifts them over Schema-derived arbitraries against the `tests/contracts` corpus.
 
 ```typescript
-function fold<A>(instance: Merge.Instance<A>, rows: Array.NonEmptyReadonlyArray<A>): A
-function fold<A>(instance: Merge.Instance<A>, rows: ReadonlyArray<A>): Option.Option<A>
-function fold<A>(instance: Merge.Instance<A>, rows: ReadonlyArray<A>): A | Option.Option<A> {
-  return Array.isNonEmptyReadonlyArray(rows)
-    ? instance.combine.combineMany(Array.headNonEmpty(rows), Array.tailNonEmpty(rows))
-    : Option.map(instance.empty, (empty) => instance.combine.combineMany(empty, rows))
-}
+const _fold = <A>(instance: Merge.Instance<A>, rows: ReadonlyArray<A>): Option.Option<A> =>
+  Array.isNonEmptyReadonlyArray(rows)
+    ? Option.some(instance.combine.combineMany(Array.headNonEmpty(rows), Array.tailNonEmpty(rows)))
+    : instance.empty
 
 const Merge: Merge.Shape = {
   instance: (spec) => spec,
@@ -154,7 +148,7 @@ const Merge: Merge.Shape = {
     empty: Option.some(Option.none()),
   }),
   struct: _struct,
-  fold,
+  fold: _fold,
   convergent: (instance) => instance.posture.commutative && instance.posture.idempotent,
 }
 

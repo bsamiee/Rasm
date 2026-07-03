@@ -137,13 +137,19 @@ const K6 = {
         Effect.map((code) => code === 0),
         Effect.orElseSucceed(() => false),
     ),
+    // `env` feeds the script's `__ENV` — the one sanctioned parameterization channel; a hardcoded target host in a script is the rejected form.
     run: (lane: {
         readonly script: string;
         readonly summary: string;
+        readonly env?: Record<string, string>;
     }): Effect.Effect<K6.Verdict, K6Fault, CommandExecutor.CommandExecutor | FileSystem.FileSystem> =>
         Effect.gen(function* () {
             const code = yield* Effect.mapError(
-                Command.exitCode(Command.make('k6', 'run', '--quiet', `--summary-export=${lane.summary}`, lane.script)),
+                Command.exitCode(
+                    pipe(Command.make('k6', 'run', '--quiet', `--summary-export=${lane.summary}`, lane.script), (spawn) =>
+                        lane.env === undefined ? spawn : Command.env(spawn, lane.env),
+                    ),
+                ),
                 (fault: PlatformError) => new K6Fault({ reason: 'crashed', detail: fault.message }),
             );
             const fs = yield* FileSystem.FileSystem;

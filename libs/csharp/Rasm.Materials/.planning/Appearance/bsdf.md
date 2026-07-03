@@ -73,13 +73,12 @@ public sealed partial class SpectralBand {
 // virtual Expected member defaulting to "Fault" and read by FaultExtensions.Category(error). So the band is the one-line
 // `Code => FaultBand.Material` registry read, Message and Category are ONE total generated Switch each (the canonical
 // production UiFault shape — three near-identical per-case `override Category` bodies are the collapse trigger this
-// Switch closes). [SkipUnionOps] is the
-// kernel-owned Rasm.Domain marker (NOT a Thinktecture knob): it tells the repo union-ops source-gen to emit NO implicit
-// case→base conversion operators and NO per-case factory, so the band declares its OWN factories — a nested `…Case`
+// Switch closes). No [GenerateUnionOps]: the kernel union-ops source-gen is strictly opt-in and emits only per-case
+// SelfOp keys for marked unions — fault cases are carriers already keyed by an explicit Op, so the union stays
+// unmarked. [Union] generates Switch/Map, never factories, so the band declares its OWN — a nested `…Case`
 // record carries the data and an unsuffixed static factory MaterialFault.Parameter(key, detail) returns the base, the
 // `…Case` suffix freeing the factory name (a same-named nested type + method is CS0102). Create routes the unspecific
 // case under a boundary-admission Op so the IValidationError<MaterialFault>.Create(string) floor is total.
-[SkipUnionOps]
 [Union]
 public abstract partial record MaterialFault : Expected, IValidationError<MaterialFault> {
     private MaterialFault(Op key, string detail) { Key = key; Detail = detail; }

@@ -60,12 +60,12 @@ public sealed partial class IdentityScheme {
 // override) is the deleted form. Band membership is a per-case `Code => 828x` override, `Message`/`Category` projecting
 // through the generated `Switch`, so the typed case lifts BARE onto `Fin<T>` with no `.ToError()` hop and a recovery
 // reads `error.IsType<RetentionFault.Unstamped>()` / `error.HasCode(8283)` / `error.Category()`, never a message
-// substring. `[SkipUnionOps]` is the canonical fault-band annotation. `Create` is the IValidationError admission the
+// substring. No `[GenerateUnionOps]` — the kernel union-ops generator is strictly opt-in, so the band carries no
+// generated per-case `SelfOp`. `Create` is the IValidationError admission the
 // generated converter bridge calls on a deserialization reject — `Unclassed` (an admitted artifact never mints it
 // directly); `CeilingBreach` is a RANKED stamp whose seam rank exceeds the class ceiling (the genuine sensitivity
 // comparison); `Unstamped` is an UNRANKED stamp the seam table does not order (fail-closed — a `CeilingBreach` reporting
 // a comparison that never happened is the deleted form).
-[SkipUnionOps]
 [Union]
 public abstract partial record RetentionFault : Expected, IValidationError<RetentionFault> {
     private RetentionFault() : base() { }

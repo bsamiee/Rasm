@@ -14,12 +14,12 @@
 - Owner: `Fold.Plan<Op, K, S>` — `name` (the plan identity registries and telemetry dimensions key on), `key` (op to fold key), `lift` (op to state contribution), `merge` (the `crdt/merge` instance combining contributions) — the single declaration every altitude executes; a fold is a value, and capability growth is a plan row.
 - Packages: `effect` (`HashMap`, `Array`, `Option`, `Stream`, `Effect`); `../crdt/merge.ts`.
 - Law: the fold is `combineMap` shaped — an op projects into a contribution and contributions merge under the lawful instance — so insert (`none -> lift`) and update (`some -> combine`) are two arms of one `HashMap.modifyAt` fold and no `get`-then-`set` pair exists.
-- Law: `Fold.Delta<A>` — signed `[value, multiplicity]` rows — is the folder-wide delta currency: `fold/replay` pushes it into the engines, `query/window` returns it from `asOfDiff`, and negative rows are retraction vocabulary only the engine lane may honor; the pure altitude folds insertions and treats nonpositive rows as absent, because un-merging demands the versioned trace only `fold/replay` retains.
+- Law: `Fold.Delta<A>` — signed `[value, multiplicity]` rows — is the folder-wide delta currency: `fold/replay` pushes it into the engines, `query/window` returns it from `asOfDiff`, and negative rows are retraction vocabulary only the engine lane may honor, because un-merging demands the versioned trace only `fold/replay` retains; the pure altitude consumes bare ops and never a delta, so a consumer holding one routes it through a replay handle.
 - Law: `Fold.Change<K, S>` reifies a fold advance — the touched key and its post-state, `Option.none` when the key retracted — the one row shape live views, timeline feeds, and store projections consume, so every altitude emits identical change vocabulary.
 - Growth: a new fold is one `Fold.plan` row binding an existing or new merge instance; a new consumer altitude binds the plan, never re-declares the fold.
 
 ```typescript
-import { Array, Effect, HashMap, Option, Stream } from "effect"
+import { Array, Effect, HashMap, Option, Stream, pipe } from "effect"
 import { Merge } from "../crdt/merge.ts"
 
 declare namespace Fold {
@@ -62,6 +62,14 @@ const _absorb = <Op, K, S>(plan: Fold.Plan<Op, K, S>) => (table: Fold.Table<K, S
 - Boundary: engine execution (d2mini graphs, d2ts versioned graphs, ordered lanes) is `fold/replay.md`'s; the durable altitude is `store/project` binding these plans; live view projection over the folded table is `query/live.md`'s.
 
 ```typescript
+const _step = <Op, K, S>(plan: Fold.Plan<Op, K, S>): Fold.Step<Op, K, S> => (table, op) =>
+  pipe(_absorb(plan)(table, op), (next) =>
+    [next, { key: plan.key(op), state: HashMap.get(next, plan.key(op)) }] as const)
+
+const _trace = <Op, K, S>(plan: Fold.Plan<Op, K, S>) =>
+<E, R>(ops: Stream.Stream<Op, E, R>): Stream.Stream<Fold.Change<K, S>, E, R> =>
+  Stream.mapAccum(ops, HashMap.empty<K, S>(), _step(plan))
+
 function run<Op, K, S>(plan: Fold.Plan<Op, K, S>, ops: ReadonlyArray<Op>): Fold.Table<K, S>
 function run<Op, K, S, E, R>(
   plan: Fold.Plan<Op, K, S>,
@@ -78,13 +86,8 @@ function run<Op, K, S, E, R>(
 
 const Fold: Fold.Shape = {
   plan: (spec) => spec,
-  step: (plan) => (table, op) => {
-    const key = plan.key(op)
-    const next = _absorb(plan)(table, op)
-    return [next, { key, state: HashMap.get(next, key) }] as const
-  },
-  trace: (plan) => (ops) =>
-    Stream.map(Stream.mapAccum(ops, HashMap.empty(), Fold.step(plan)), (change) => change),
+  step: _step,
+  trace: _trace,
   run,
 }
 

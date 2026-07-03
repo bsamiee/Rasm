@@ -16,6 +16,7 @@ import sniffio
 lazy import asyncssh
 lazy from fsspec.implementations.dirfs import DirFileSystem
 lazy from fsspec.implementations.memory import MemoryFileSystem
+lazy import httpx
 lazy from moto.server import ThreadedMotoServer
 lazy import s3fs
 
@@ -58,7 +59,11 @@ class RemoteFS(msgspec.Struct, frozen=True, gc=False):
 
 
 class ObjectStore(msgspec.Struct, frozen=True, gc=False):
-    """S3-compatible object-store double over one in-process threaded moto endpoint."""
+    """S3-compatible object-store double over one in-process threaded moto endpoint.
+
+    Endpoints are per-provision but moto account state is process-global, so teardown resets the
+    backend and a later provision always starts pristine.
+    """
 
     bucket: str = "kit-bucket"
     region: str = "us-east-1"
@@ -146,14 +151,31 @@ def _provision_store(spec: ObjectStore) -> Provisioned[AbstractFileSystem]:
     live: list[ThreadedMotoServer] = [server]
 
     def _store() -> AbstractFileSystem:
-        fs = s3fs.S3FileSystem(key="testing", secret="testing", endpoint_url=endpoint, client_kwargs={"region_name": spec.region})  # noqa: S106  # static moto double credential, not a secret
+        # skip_instance_cache: fsspec caches instances by args, and a stopped moto port can be reissued
+        # to a later provision — a cached instance would then carry the dead server's dircache.
+        fs = s3fs.S3FileSystem(
+            key="testing",  # static moto double credential, not a secret
+            secret="testing",  # noqa: S106
+            endpoint_url=endpoint,
+            client_kwargs={"region_name": spec.region},
+            skip_instance_cache=True,
+        )
         # S3 rejects a LocationConstraint of us-east-1, so bucket creation bypasses s3fs.mkdir's unconditional constraint.
         constraint = {"CreateBucketConfiguration": {"LocationConstraint": spec.region}} if spec.region != "us-east-1" else {}
         fs.exists(spec.bucket) or fs.call_s3("create_bucket", Bucket=spec.bucket, **constraint)
         return fs
 
     def _stop() -> None:
-        live.pop().stop() if live else None
+        if not live:
+            return
+        server_handle = live.pop()
+        try:
+            # Moto backend state is process-global: reset it so no residue leaks into a later provision.
+            httpx.post(f"{endpoint}/moto-api/reset", timeout=5.0)
+        except httpx.HTTPError:
+            server_handle.stop()  # endpoint already dead — no state left to reset
+            return
+        server_handle.stop()
 
     return Provisioned(url=endpoint, client_factory=_store, teardown=_stop)
 

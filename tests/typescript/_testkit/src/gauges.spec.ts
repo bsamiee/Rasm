@@ -55,6 +55,19 @@ describe('import gauge engine', () => {
             }),
         ).toEqual(['kernel/seal.ts']);
     });
+
+    it('a dynamic import buried in a body cannot evade the banned-module verdict', () => {
+        const verdict = Imports.verdict(
+            Imports.scan([{ path: 'app/lazy.ts', text: "export const sneak = async () => { const fs = await import('node:fs'); return fs; };" }]),
+            _RULES,
+        );
+        expect(
+            Audit.$match(verdict, {
+                Unsupported: () => [],
+                Audited: ({ violations }) => Array.map(violations, (violation) => [violation.specifier, violation.kind] as const),
+            }),
+        ).toEqual([['node:fs', 'banned']]);
+    });
 });
 
 layer(NodeContext.layer)('gauges over the real tree', (it) => {
@@ -86,6 +99,38 @@ layer(NodeContext.layer)('gauges over the real tree', (it) => {
                 const report = yield* Snapshots.audit(scratch);
                 expect(report.scanned).toBe(2);
                 expect(report.orphans).toEqual([path.join('__snapshots__', 'ghost.spec.ts.snap')]);
+            }),
+        ),
+    );
+
+    it.effect('dependency trees under the root never join the audit: a node_modules source is pruned', () =>
+        Effect.scoped(
+            Effect.gen(function* () {
+                const fs = yield* FileSystem.FileSystem;
+                const path = yield* Path.Path;
+                const scratch = yield* fs.makeTempDirectoryScoped();
+                yield* fs.makeDirectory(path.join(scratch, 'node_modules', 'foreign'), { recursive: true });
+                yield* fs.writeFileString(path.join(scratch, 'own.ts'), "import { a } from './a.ts';");
+                yield* fs.writeFileString(path.join(scratch, 'node_modules', 'foreign', 'dep.ts'), "import { b } from 'node:fs';");
+                const modules = yield* Imports.load(scratch);
+                expect(Array.map(modules, (module) => module.path)).toEqual(['own.ts']);
+            }),
+        ),
+    );
+
+    it.effect('a .tsx or .mts module joins the audit; a declaration file never does', () =>
+        Effect.scoped(
+            Effect.gen(function* () {
+                const fs = yield* FileSystem.FileSystem;
+                const path = yield* Path.Path;
+                const scratch = yield* fs.makeTempDirectoryScoped();
+                yield* fs.writeFileString(path.join(scratch, 'panel.tsx'), "import { readFileSync } from 'node:fs';\nexport const p = <div/>;");
+                yield* fs.writeFileString(path.join(scratch, 'worker.mts'), "import { b } from 'node:fs';");
+                yield* fs.writeFileString(path.join(scratch, 'shapes.d.ts'), "import type { Stats } from 'node:fs';");
+                const modules = yield* Imports.load(scratch);
+                expect(Array.map(modules, (module) => module.path).sort()).toEqual(['panel.tsx', 'worker.mts']);
+                const verdict = Imports.verdict(modules, _RULES);
+                expect(Audit.$match(verdict, { Unsupported: () => -1, Audited: ({ violations }) => violations.length })).toBe(2);
             }),
         ),
     );

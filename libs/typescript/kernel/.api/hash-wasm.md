@@ -95,7 +95,7 @@ The one consumed rail. `identity/contentkey` calls `xxhash128(bytes)` with both 
 
 ## [05]-[INTEGRATION]
 
-[STACK: `hash-wasm` + `effect/Schema` + `Effect`] — the mint is not a bare `Promise<string>`; it lands as a `Schema`-branded `ContentKey`. `Effect.promise(() => xxhash128(bytes))` (the call cannot fail once bytes exist) → `Schema.decode(ContentKey)` on the returned hex directly. The brand's refinement is the `:x32` shape (32 lowercase hex); `Schema` guarantees no `{value}` re-decode downstream.
+[STACK: `hash-wasm` + `effect/Schema` + `Effect`] — the mint is not a bare `Promise<string>`; it lands as a `Schema`-branded `ContentKey`. `Effect.promise` carries the memoized `createXXHash128(0, 0)` compile (the digest cannot fail once bytes exist), the synchronous `init`/`update`/`digest()` walk emits the hex, and `Schema.decode(ContentKey)` brands it directly. The brand's refinement is the `:x32` shape (32 lowercase hex); `Schema` guarantees no `{value}` re-decode downstream.
 
 [STACK: compile-once lifecycle] — every entry is async because the WASM compiles on first await. The floor memoizes the `createXXHash128(0, 0)` promise as a module singleton so the compile happens once per runtime, not per mint; `hasher.init()` between mints resets state without recompiling. A per-call `xxhash128` is correct for one-off small payloads but recompiles-and-runs each call — reserve it for the single-mint case.
 

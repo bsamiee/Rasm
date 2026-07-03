@@ -273,10 +273,9 @@ public sealed partial class RejectTier {
 // WRAPS the tier, never re-enumerates the 8 ranks as 8 union cases) — `Message`/`Category` projecting through the
 // generated `Switch`, so the typed case lifts BARE onto `Fin<T>`/`Validation<Error,T>` with no `.ToError()` hop and a
 // recovery reads `error.IsType<CodecFault.SnapshotRejected>()` / `error.HasCode(8326)` / `error.Category()`, never the
-// bare `Error.New(8310/8330)` a codec/reassembly miss would otherwise spell. `[SkipUnionOps]` is the canonical
-// fault-band annotation (the production `UiFault` shape) — it skips the generated implicit-conversion ops while the
-// generated `Switch`/`Map` survives.
-[SkipUnionOps]
+// bare `Error.New(8310/8330)` a codec/reassembly miss would otherwise spell. No `[GenerateUnionOps]` — the kernel
+// union-ops generator is strictly opt-in, so the band carries no generated per-case `SelfOp`; the `[Union]`-generated
+// `Switch`/`Map` is untouched.
 [Union]
 public abstract partial record CodecFault : Expected, IValidationError<CodecFault> {
     private CodecFault() : base() { }

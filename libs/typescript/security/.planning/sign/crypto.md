@@ -88,15 +88,27 @@ const CryptoCost = {
   apiKey: { memoryCost: 12288, timeCost: 3, parallelism: 1, outputLen: 32, algorithm: Algorithm.Argon2id, version: Version.V0x13 },
 } as const satisfies Record<string, Omit<Options, "secret" | "salt">>
 
+const _HASHES = { sha1: SHA1, sha256: SHA256, sha512: SHA512 } as const
+
 // --- [OPERATIONS] -----------------------------------------------------------------------
 
 const _CredentialVerdict = Data.taggedEnum<CredentialVerdict>()
+
+const _bytes = (text: string): Uint8Array => new TextEncoder().encode(text)
+
+const _sameBytes = (left: Uint8Array, right: Uint8Array): boolean =>
+  left.byteLength === right.byteLength && constantTimeEqual(left, right)
 
 const _stale = (phc: string, cost: (typeof CryptoCost)[keyof typeof CryptoCost]): boolean => {
   const parts = /\$m=(\d+),t=(\d+),p=(\d+)\$/.exec(phc)
   return parts === null || Number(parts[1]) !== cost.memoryCost || Number(parts[2]) !== cost.timeCost || Number(parts[3]) !== cost.parallelism
 }
 ```
+
+[EGRESS_AND_TOKENS]:
+- Owner: `Crypto.sign`/`Crypto.compare` — HMAC-SHA256 webhook signing rendered hex; `Crypto.token` — opaque mint over the WebCrypto-filled `RandomReader`; `Crypto.fingerprint`/`Crypto.matches` — the SHA-256 fingerprint pair for high-entropy opaque tokens; `Crypto.same` — the constant-time string compare `session/cookie` CSRF rides; `Crypto.plugin`/`Crypto.base32` — the otplib ports over these same primitives.
+- Law: every compare routes `_sameBytes` — length is the only short-circuit (length is public), content stays constant-time, and a length mismatch is `false`, never a throw; the otplib `hmac` port dispatches the `HashAlgorithm` value off the `_HASHES` row table, so a new hash is a row, never a name fork.
+- Receipt: hex signatures and fingerprints travel as plain strings (a digest is not a secret); every minted token is `Redacted` from the mint.
 
 ```typescript
 // --- [SERVICES] -------------------------------------------------------------------------
@@ -128,14 +140,14 @@ class Crypto extends Effect.Service<Crypto>()("security/sign/Crypto", {
     const token = (alphabet: string, length: number): Effect.Effect<Redacted.Redacted<string>, CryptoFault> =>
       Effect.try({ try: () => Redacted.make(generateRandomString(reader, alphabet, length)), catch: (cause) => new CryptoFault({ reason: "rng", detail: String(cause) }) })
     const fingerprint = (opaque: Redacted.Redacted<string>): string =>
-      encodeHexLowerCase(sha256(new TextEncoder().encode(Redacted.value(opaque))))
+      encodeHexLowerCase(sha256(_bytes(Redacted.value(opaque))))
     const matches = (opaque: Redacted.Redacted<string>, storedHex: string): boolean =>
-      constantTimeEqual(sha256(new TextEncoder().encode(Redacted.value(opaque))), decodeHex(storedHex))
+      _sameBytes(sha256(_bytes(Redacted.value(opaque))), decodeHex(storedHex))
     const same = (left: Redacted.Redacted<string>, right: string): boolean =>
-      constantTimeEqual(new TextEncoder().encode(Redacted.value(left)), new TextEncoder().encode(right))
+      _sameBytes(_bytes(Redacted.value(left)), _bytes(right))
     const plugin = {
       name: "rasm-sign",
-      hmac: (alg: string, key: Uint8Array, data: Uint8Array) => hmac(alg === "sha512" ? SHA512 : alg === "sha256" ? SHA256 : SHA1, key, data),
+      hmac: (alg: keyof typeof _HASHES, key: Uint8Array, data: Uint8Array) => hmac(_HASHES[alg], key, data),
       randomBytes: (len: number) => { const bytes = new Uint8Array(len); reader.read(bytes); return bytes },
       constantTimeEqual,
     } as const

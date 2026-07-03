@@ -50,12 +50,12 @@ public sealed partial class CypherEnablement {
 // (parameterless protected ctor; `Category` virtual; `Code`/`Message` inherited from `Error`), the SAME federation
 // base the seam `Rasm.Element/Projection/fault#FAULT_BAND` `ElementFault` (2500) and the `Rasm.Bim/Model/faults#FAULT_BAND`
 // `BimFault` (2600) realize — NOT `LanguageExt.Common.Expected`, whose `(string,int,Option)` `base(detail, code, None)`
-// ctor (no `Category` to override) is the deleted form. `[SkipUnionOps]` skips the generated implicit-conversion ops
-// while the generated `Switch`/`Map` survives; band membership is a per-case `Code => 836x` override, `Message`
+// ctor (no `Category` to override) is the deleted form. No `[GenerateUnionOps]` — the kernel union-ops generator is
+// strictly opt-in, so the band carries no per-case `SelfOp` and the `[Union]`-generated `Switch`/`Map` is
+// untouched; band membership is a per-case `Code => 836x` override, `Message`
 // projects the addressable cause, `Category` the telemetry label, so a recovery routes `error.IsType<GraphFault.RouteFailed>()`
 // / `error.HasCode(8362)` / `error.Category()`, never a stringified provider token, and the bare case lifts onto
 // `Fin<T>` with no `.ToError()` hop.
-[SkipUnionOps]
 [Union]
 public abstract partial record GraphFault : Expected, IValidationError<GraphFault> {
     private GraphFault() : base() { }

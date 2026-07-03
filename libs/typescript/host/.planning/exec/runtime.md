@@ -9,13 +9,13 @@ A runtime is a row, and a bun swap is a Layer selection in the app root, never a
 
 ## [2]-[RUNTIME_ROWS]
 
-- Owner: `Runtime` — the assembled row table. Interior anchor `_rows` keyed `node | bun`; each row carries `main` (the `RunMain` boot edge — `NodeRuntime.runMain` / `BunRuntime.runMain`, one shared shape derived as `typeof NodeRuntime.runMain`), `context` (the aggregate binding: `NodeContext.layer` / `BunContext.layer` satisfying `CommandExecutor | FileSystem | Path | Terminal | WorkerManager` in one Layer), `client` (`NodeHttpClient.layerUndici` with connection pooling and HTTP/2 / `FetchHttpClient.layer` on bun), `serve` (a bind-parameterized `HttpServer` Layer over `node:http` `createServer` / `Bun.serve`), `worker` (the spawn-factory pool binding `NodeWorker.layer` / `BunWorker.layer`), `runner` (the worker-side `PlatformRunner`: `NodeWorkerRunner.layer` / `BunWorkerRunner.layer`), and `kv` (`NodeKeyValueStore.layerFileSystem` / `BunKeyValueStore.layerFileSystem`). The row is the only site that names a binding package; every consumer yields the abstract Tag.
-- Law: the guard pair closes the table — the key guard fixes the kind set, the core guard proves every row carries the full member set; a new runtime failing either is a compile error at this declaration, and row-specific extras (dispatcher tuning, serve options) stay precisely typed by inference because the guard constrains presence, never the binding's exact output union.
+- Owner: `Runtime` — one bare `as const` row table keyed `node | bun`, companion types riding its merged hub; each row carries `main` (the `RunMain` boot edge — `NodeRuntime.runMain` / `BunRuntime.runMain`, one shared shape derived as `typeof NodeRuntime.runMain`), `context` (the aggregate binding: `NodeContext.layer` / `BunContext.layer` satisfying `CommandExecutor | FileSystem | Path | Terminal | WorkerManager` in one Layer), `client` (`NodeHttpClient.layerUndici` with connection pooling and HTTP/2 / `FetchHttpClient.layer` on bun), `serve` (a bind-parameterized `HttpServer` Layer over `node:http` `createServer` / `Bun.serve`), `worker` (the spawn-factory pool binding `NodeWorker.layer` / `BunWorker.layer`), `runner` (the worker-side `PlatformRunner`: `NodeWorkerRunner.layer` / `BunWorkerRunner.layer`), and `kv` (`NodeKeyValueStore.layerFileSystem` / `BunKeyValueStore.layerFileSystem`). The row is the only site that names a binding package; every consumer yields the abstract Tag.
+- Law: the row guard closes the member set — `_Rows` proves every row carries the full `Core` complement, so a new runtime missing a member is a compile error at this declaration; row-specific extras (dispatcher tuning, serve options) stay precisely typed by inference because the guard constrains presence, never the binding's exact output union, and the table itself is the kind set — no parallel contract restates it.
 - Law: cluster runners ride the same rows at the same altitude — `NodeClusterHttp.layer` / `NodeClusterSocket.layer` (with `layerDispatcherK8s` and the discovery-only `layerK8sHttpClient`) and `BunClusterHttp.layer({ transport, serialization, storage })` / `BunClusterSocket.layer` are selected off the binding tier at the app root beside the row; `work` types against the `MessageStorage`/`Sharding` Tags and never imports a binding, so runner transport is root data.
 - Law: dispatcher tuning is row-interior — proxy posture, connection ceilings, and TLS pin through `NodeHttpClient.dispatcherLayer`/`makeDispatcher` beneath the node row's `client`; the policy the branch composes over any client is `../net/client.md`'s and never forks per runtime.
 - Boundary: this module imports `node:http` for the serve row — the sanctioned FFI seam; a `node:*` or binding-package import anywhere else in the branch outside a row module is the defect the architecture audit catches.
 - Entry: `Runtime.node` / `Runtime.bun` read by the boot module only.
-- Packages: `@effect/platform-node`, `@effect/platform-bun`, `@effect/platform` (`FetchHttpClient`), `effect` (`Types`).
+- Packages: `@effect/platform-node`, `@effect/platform-bun`, `@effect/platform` (`FetchHttpClient`).
 
 ```typescript
 import { FetchHttpClient } from "@effect/platform"
@@ -25,10 +25,9 @@ import {
 import {
   BunContext, BunHttpServer, BunKeyValueStore, BunRuntime, BunWorker, BunWorkerRunner,
 } from "@effect/platform-bun"
-import type { Types } from "effect"
 import { createServer } from "node:http"
 
-const _rows = {
+const Runtime = {
   node: {
     main: NodeRuntime.runMain,
     context: NodeContext.layer,
@@ -51,7 +50,7 @@ const _rows = {
 
 declare namespace Runtime {
   type Bind = { readonly port: number }
-  type Kind = keyof typeof _rows
+  type Kind = keyof typeof Runtime
   type Main = typeof NodeRuntime.runMain
   type Core = {
     readonly main: Main
@@ -62,13 +61,9 @@ declare namespace Runtime {
     readonly runner: unknown
     readonly kv: (directory: string) => unknown
   }
-  type Row<K extends Kind = Kind> = (typeof _rows)[K]
-  type Shape = Types.Simplify<typeof _rows>
-  type _Rows<T extends Record<Kind, Core> = typeof _rows> = T
-  type _Keys<K extends keyof Core | Kind = Kind> = K
+  type Row<K extends Kind = Kind> = (typeof Runtime)[K]
+  type _Rows<T extends Record<Kind, Core> = typeof Runtime> = T
 }
-
-const Runtime: Runtime.Shape = { ..._rows }
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
@@ -77,7 +72,7 @@ export { Runtime }
 
 ## [3]-[ROOT_SELECT]
 
-- Owner: the boot law the row feeds. Exactly one `main` call per process, in one boot module that exports nothing: a process whose whole life is the graph boots `row.main(Layer.launch(root))` — build, suspend, teardown as interruption, finalizers drained on `SIGINT`/`SIGTERM`; a host that calls in repeatedly holds `ManagedRuntime.make(root)` and chains `dispose`; several runtimes in one process share acquisitions through one `Layer.makeMemoMap` handed to each `ManagedRuntime.make(root, memo)`. A worker entry is a boot module under the same law: `WorkerRunner.launch(protocolLayer)` run beneath `row.runner`.
+- Owner: the boot law the row feeds. Exactly one `main` call per process, in one boot module that exports nothing: a process whose whole life is the graph boots `row.main(Layer.launch(root))` — build, suspend, teardown as interruption, finalizers drained on `SIGINT`/`SIGTERM`; a graph carrying registered drain steps parks through `../life/cycle.md`'s `parked` entry instead of bare `Layer.launch` — the same one-`main` law with the drain fold owning the interrupt; a host that calls in repeatedly holds `ManagedRuntime.make(root)` and chains `dispose`; several runtimes in one process share acquisitions through one `Layer.makeMemoMap` handed to each `ManagedRuntime.make(root, memo)`. A worker entry is a boot module under the same law: `WorkerRunner.launch(protocolLayer)` run beneath `row.runner`.
 - Law: the row is selected by the boot module and appears nowhere else — the ~30-line app `main.ts` merges its Layer families, provides `row.context` plus `row.client` once, and calls `row.main`; a second `runMain`, an `Effect.runPromise` heading a long-lived process, and a binding import inside a lib module are the named defects.
 - Law: the fence is physical — this module ships on the `./server` exports subpath, so `runtime:browser` resolution cannot reach a row; the architecture suite audits the purity the exports map cannot express.
 - Receipt: the root's stated annotation `Layer.Layer<Out>` plus the row's `main` pinning `R` to `never` are the boot proof — an unwired Tag fails at the boot line, at compile time.
@@ -90,7 +85,7 @@ import { Runtime } from "./runtime.ts"
 
 declare const root: Layer.Layer<HttpClient.HttpClient>
 
-const _service: void = Runtime.node.main(Layer.launch(Layer.mergeAll(root, Runtime.node.context)))
+Runtime.node.main(Layer.launch(Layer.mergeAll(root, Runtime.node.context)))
 
 const _memo: Layer.MemoMap = Effect.runSync(Layer.makeMemoMap)
 const _host: ManagedRuntime.ManagedRuntime<HttpClient.HttpClient, never> = ManagedRuntime.make(root, _memo)
