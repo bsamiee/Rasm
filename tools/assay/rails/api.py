@@ -676,12 +676,25 @@ def _walk_attrs(root: object, parts: tuple[str, ...]) -> object | None:
 def _member_captures(obj: object, symbol: str) -> tuple[Capture, ...]:
     sig, sig_cut = _clip(f"{symbol}{_signature(obj)}", _SIG_CAP)
     doc, doc_cut = _clip(inspect.getdoc(obj) or "", _SIG_CAP)
-    full, full_cut = _clip(_object_source(obj), _NAME_CAP * 8)
+    full, full_cut = _clip(_object_source(obj) or _live_surface(obj, symbol), _NAME_CAP * 8)
     return (
         Capture(name="signature", text=sig, file=str(getattr(obj, "__module__", "")), line=0, truncated=sig_cut),
         Capture(name="doc", text=doc, file="", line=0, truncated=doc_cut),
         Capture(name="full", text=full, file="", line=0, truncated=full_cut),
     )
+
+
+def _live_surface(obj: object, symbol: str) -> str:
+    # Sourceless owners (C-extension classes/modules) reconstruct their public surface from live members,
+    # so a member query stays a real extraction instead of degrading to the bare symbol name.
+    if not (inspect.isclass(obj) or inspect.ismodule(obj)):
+        return ""
+    rows = tuple(
+        f"{name}{_signature(member)}" if callable(member) else f"{name}: {type(member).__name__}"
+        for name, member in inspect.getmembers(obj)
+        if not name.startswith("_")
+    )
+    return "\n".join((f"{symbol}{_signature(obj)}:", *(f"    {row}" for row in rows))) if rows else ""
 
 
 def _signature(obj: object) -> str:
@@ -1596,7 +1609,9 @@ def _fidelity_note(source: _Source) -> str:
 
 
 def _miss_report(verb: str, key: str, resolution: ApiResolution) -> Report:
-    note = f"no '{key}' source; {resolution.reason}, {len(resolution.candidates)} nearest candidate(s)"
+    # The nearest keys ride the note inline so a notes-first reader self-corrects without opening detail.
+    nearest = ", ".join(name for name, _ in resolution.candidates[:3])
+    note = f"no '{key}' source; {resolution.reason}" + (f", nearest: {nearest}" if nearest else "")
     done = Completed(("api", verb, key), 0, status=RailStatus.UNSUPPORTED, notes=(note,))
     return fold(Claim.API, verb, (done,), detail=resolution)
 

@@ -40,11 +40,11 @@ Implementation collapses to one owner per axis and one entrypoint family per rai
 ```text seams
 Element/graph        ←  csharp:Rasm.Element                # [SEAM]: ElementGraph/GraphDelta/Node/NodeId/Relationship/Header persisted as the SoR
 Element/codec        ←  csharp:Rasm                        # [CONTENT_KEY]: kernel seed-zero XxHash128 entry the ContentAddress composes, no second hasher
-Element/codec        →  typescript:interchange/codec       # [WIRE]: SnapshotHeader + canonical-CBOR content-stable bytes
-Version/commits      →  typescript:interchange/codec       # [WIRE]: CrdtOpWire MessagePack union + Hlc 16-byte cell
+Element/codec        →  typescript:wire                    # [WIRE]: SnapshotHeader + canonical-CBOR content-stable bytes
+Version/commits      →  typescript:wire                    # [WIRE]: CrdtOpWire MessagePack union + Hlc 16-byte cell
 Version/commits      ⇄  python:runtime/transport           # [WIRE]: CrdtOp None-companion bytes + the one XxHash128 seed parity corpus
-Version/commits      →  typescript:interchange/refinement  # [SHAPE]: commit/branch/version-vector/Merkle wire shapes
-Version/merge        →  typescript:interchange/codec       # [SHAPE]: JsonPatchDocument RFC 6902 EntityEdit egress
+Version/commits      →  typescript:state                   # [SHAPE]: commit/branch/version-vector/Merkle wire shapes
+Version/merge        →  typescript:wire                    # [SHAPE]: JsonPatchDocument RFC 6902 EntityEdit egress
 Version/ledger       ⇄  python:runtime/transport           # [WIRE]: OpLogEntry Payload CRDT delta over the one wire vocabulary
 Version/ledger       ⇄  csharp:Rasm.AppHost/Runtime        # [PORT]: HLC two-half + TenantContext causal frame; the W3C TraceSlot trace-id slot
 Version/timetravel   ←  python:data/gridded/virtual        # [CONTENT_KEY]: icechunk as-of snapshot identity over the shared XxHash128 seed

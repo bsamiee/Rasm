@@ -406,8 +406,8 @@ public static class EnergyGraphReads {
     const string SpaceBoundary  = "IfcRelSpaceBoundary";
     const string SpaceClass     = "IfcSpace";
     const string BaseQuantities = "Qto_SpaceBaseQuantities";
-    const string BoundaryLevelAttr = "BoundaryLevel";   // the Bim SpatialBoundaries Generic-edge payload key — "1st"/"2nd" IfcRelSpaceBoundary level
-    const string SecondLevel    = "2nd";                // prefer 2nd-level (space-to-space adjacency) boundaries so a 1st+2nd export never double-counts the envelope
+    const string BoundaryLevelAttr = "BoundaryLevel";   // the Bim SpatialBoundaries Generic-edge payload key — THREE-valued: "1st"/"2nd" plus "" for a base-class IfcRelSpaceBoundary whose level the file never declared (the fabricated-"1st" upgrade is deleted)
+    const string SecondLevel    = "2nd";                // prefer 2nd-level (space-to-space adjacency) boundaries so a 1st+2nd export never double-counts the envelope; the "" undeclared rows read 1st-EQUIVALENT by policy — included when no 2nd-level set exists, excluded beside one
 
     public static Seq<Node.Object> SpacesOf(this ElementGraph graph, Seq<NodeId> targets) =>
         targets.IsEmpty
@@ -416,7 +416,9 @@ public static class EnergyGraphReads {
 
     // A space's bounding surfaces ride the Bim-projected IfcRelSpaceBoundary neutral Generic edges (Relating=space,
     // Related=bounding element). When a model carries BOTH 1st- and 2nd-level boundaries (the common Revit/ArchiCAD export),
-    // only the 2nd-level set is read so the envelope is never double-counted; a 1st-level-only model reads its 1st-level set.
+    // only the 2nd-level set is read so the envelope is never double-counted; a 1st-level-only model reads its 1st-level
+    // set, and an undeclared-level "" row (a base-class IfcRelSpaceBoundary) rides that same 1st-equivalent arm — the
+    // secondLevel filter excludes it beside a declared 2nd-level set, the empty-set fallback includes it.
     public static Seq<Node.Object> BoundingSurfacesOf(this ElementGraph graph, NodeId space) {
         Seq<(Relationship.Generic Edge, Node.Object Surface)> boundaries =
             graph.EdgesAt(space).Choose(e => e is Relationship.Generic g && g.WireName == SpaceBoundary && g.Relating == space

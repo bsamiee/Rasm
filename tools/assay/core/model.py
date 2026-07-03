@@ -272,6 +272,8 @@ class Tool(Base, frozen=True, cache_hash=True):
     thunk: InprocThunk | None = None
     stage: Stage = Stage()
     env: tuple[tuple[str, str], ...] = ()
+    # (returncode, output marker) the tool emits for "nothing to do"; a b"" marker keys on the returncode alone.
+    empty_signature: tuple[int, bytes] | None = None
 
     def uv_groups(self) -> tuple[ToolGroup, ...]:
         """Return the groups that name genuine uv dependency groups for ``uv run --group`` injection.

@@ -44,25 +44,25 @@ class NodeShape(StrEnum):
     # ISO 5807 flowchart + ER/datastore silhouette roster; the draw owner lowers each to a `drawsvg.Path`
     # or a `drawpyo.object_from_library('flowchart', ...)` key, never a Rectangle-only body. A new shape is
     # one row folded in the draw owner's `Node` geometry dispatch — the marks and layout stay untouched.
-    RECTANGLE = "rectangle"                    # process / program box
-    DIAMOND = "diamond"                        # decision
-    OVAL = "oval"                              # terminal (start/end, stadium)
-    PARALLELOGRAM = "parallelogram"            # data / IO
-    ENTITY = "entity"                          # ER entity — titled record with field-port rows
-    HEXAGON = "hexagon"                        # preparation
-    CYLINDER = "cylinder"                      # datastore / direct-access database
-    DOCUMENT = "document"                      # single document (wavy base)
-    MULTI_DOCUMENT = "multi_document"          # stacked documents
+    RECTANGLE = "rectangle"  # process / program box
+    DIAMOND = "diamond"  # decision
+    OVAL = "oval"  # terminal (start/end, stadium)
+    PARALLELOGRAM = "parallelogram"  # data / IO
+    ENTITY = "entity"  # ER entity — titled record with field-port rows
+    HEXAGON = "hexagon"  # preparation
+    CYLINDER = "cylinder"  # datastore / direct-access database
+    DOCUMENT = "document"  # single document (wavy base)
+    MULTI_DOCUMENT = "multi_document"  # stacked documents
     PREDEFINED_PROCESS = "predefined_process"  # subroutine (double side-bars)
-    MANUAL_INPUT = "manual_input"              # keyed input (sloped top)
-    MANUAL_OPERATION = "manual_operation"      # manual step (inverted trapezoid)
-    OFF_PAGE = "off_page"                      # off-page connector (home-plate pentagon)
-    STORED_DATA = "stored_data"                # stored data (curved left+right)
-    DISPLAY = "display"                        # display (rounded-left bullet)
-    DELAY = "delay"                            # delay (D-shape)
-    CONNECTOR = "connector"                    # on-page connector (small circle)
-    CARD = "card"                              # punched card (clipped top-left)
-    TAPE = "tape"                              # punched tape (wavy top + base)
+    MANUAL_INPUT = "manual_input"  # keyed input (sloped top)
+    MANUAL_OPERATION = "manual_operation"  # manual step (inverted trapezoid)
+    OFF_PAGE = "off_page"  # off-page connector (home-plate pentagon)
+    STORED_DATA = "stored_data"  # stored data (curved left+right)
+    DISPLAY = "display"  # display (rounded-left bullet)
+    DELAY = "delay"  # delay (D-shape)
+    CONNECTOR = "connector"  # on-page connector (small circle)
+    CARD = "card"  # punched card (clipped top-left)
+    TAPE = "tape"  # punched tape (wavy top + base)
 
 
 class PortSide(StrEnum):
@@ -85,16 +85,16 @@ class EndCap(StrEnum):
     # `Edge.line_end_source`/`line_end_target` glyph set; the `ER_*` crow's-feet are the ENTITY_RELATION
     # cardinality carried as a TYPED end marker, never a bare-string `cardinality` edge label both arms reparse.
     NONE = "none"
-    ARROW = "arrow"                # filled arrowhead (drawpyo `classic`)
-    OPEN = "open"                  # open v-arrowhead (drawpyo `open`)
-    BLOCK = "block"                # block arrowhead
-    DIAMOND = "diamond"            # UML aggregation/composition (the `fill` index picks hollow vs solid)
-    CIRCLE = "circle"             # association endpoint (drawpyo `oval`)
-    CROSS = "cross"               # measurement / negation tick
-    ER_ONE = "er_one"              # crow's-foot: exactly one (single bar) -> drawpyo `ERone`
-    ER_MANY = "er_many"            # crow's-foot: many (fork) -> drawpyo `ERmany`
-    ER_ZERO_ONE = "er_zero_one"    # crow's-foot: zero-or-one (circle + bar) -> drawpyo `ERzeroToOne`
-    ER_ONE_MANY = "er_one_many"    # crow's-foot: one-or-many (bar + fork) -> drawpyo `ERoneToMany`
+    ARROW = "arrow"  # filled arrowhead (drawpyo `classic`)
+    OPEN = "open"  # open v-arrowhead (drawpyo `open`)
+    BLOCK = "block"  # block arrowhead
+    DIAMOND = "diamond"  # UML aggregation/composition (the `fill` index picks hollow vs solid)
+    CIRCLE = "circle"  # association endpoint (drawpyo `oval`)
+    CROSS = "cross"  # measurement / negation tick
+    ER_ONE = "er_one"  # crow's-foot: exactly one (single bar) -> drawpyo `ERone`
+    ER_MANY = "er_many"  # crow's-foot: many (fork) -> drawpyo `ERmany`
+    ER_ZERO_ONE = "er_zero_one"  # crow's-foot: zero-or-one (circle + bar) -> drawpyo `ERzeroToOne`
+    ER_ONE_MANY = "er_one_many"  # crow's-foot: one-or-many (bar + fork) -> drawpyo `ERoneToMany`
     ER_ZERO_MANY = "er_zero_many"  # crow's-foot: zero-or-many (circle + fork) -> drawpyo `ERzeroToMany`
 
 
@@ -112,30 +112,30 @@ class SubLayout(StrEnum):
 
 
 class TextAnchor(StrEnum):
-    START = "start"    # SVG text-anchor start -> ziafont/ziamath halign "left"
+    START = "start"  # SVG text-anchor start -> ziafont/ziamath halign "left"
     MIDDLE = "middle"  # -> "center"
-    END = "end"        # -> "right"
+    END = "end"  # -> "right"
 
 
 class TextRun(Struct, frozen=True):
     # label typography identity carried on `GlyphStyle`; the draw owner resolves size/weight/slant/family
     # through `ziafont.Text`/`ziamath.Latex`, so a label carries its own type rather than inheriting a
     # hardcoded draw-side size. None on `GlyphStyle.text` selects the draw owner's default face and size.
-    size: float = 12.0             # em size in user units
-    weight: int = 400              # CSS numeric weight (400 normal .. 700 bold)
+    size: float = 12.0  # em size in user units
+    weight: int = 400  # CSS numeric weight (400 normal .. 700 bold)
     italic: bool = False
-    family: str = ""               # "" = the draw owner's default face; else a named family
-    ink: int | None = None         # palette index for the label glyph; None = inherit the mark's stroke index
+    family: str = ""  # "" = the draw owner's default face; else a named family
+    ink: int | None = None  # palette index for the label glyph; None = inherit the mark's stroke index
 
 
 class Port(Struct, frozen=True):
-    id: str                          # the ELK port id an edge endpoint may reference
-    side: PortSide = PortSide.EAST   # -> elk.port.side under portConstraints
-    index: int = 0                   # -> elk.port.index (side-local order)
-    width: float = 8.0               # -> ELK port {width}; the field-port hit-box the router seats an edge on
-    height: float = 8.0              # -> ELK port {height}
-    at: Point | None = None          # fixed node-relative port coordinate; set -> elk.portConstraints FIXED_POS
-    label: str | None = None         # ELK port label (an ER field name / flowchart record-slot caption)
+    id: str  # the ELK port id an edge endpoint may reference
+    side: PortSide = PortSide.EAST  # -> elk.port.side under portConstraints
+    index: int = 0  # -> elk.port.index (side-local order)
+    width: float = 8.0  # -> ELK port {width}; the field-port hit-box the router seats an edge on
+    height: float = 8.0  # -> ELK port {height}
+    at: Point | None = None  # fixed node-relative port coordinate; set -> elk.portConstraints FIXED_POS
+    label: str | None = None  # ELK port label (an ER field name / flowchart record-slot caption)
 
 
 class GlyphStyle(Struct, frozen=True):
@@ -144,9 +144,9 @@ class GlyphStyle(Struct, frozen=True):
     stroke: int = 0
     width: float = 1.0
     opacity: float = 1.0
-    dash: tuple[float, ...] = ()     # stroke-dasharray run; () = solid
-    corner: float = 0.0              # corner radius; 0 = sharp (drawsvg Rectangle rx/ry, drawpyo `rounded`)
-    text: TextRun | None = None      # label typography; None = the draw owner's default face/size
+    dash: tuple[float, ...] = ()  # stroke-dasharray run; () = solid
+    corner: float = 0.0  # corner radius; 0 = sharp (drawsvg Rectangle rx/ry, drawpyo `rounded`)
+    text: TextRun | None = None  # label typography; None = the draw owner's default face/size
 
 
 @tagged_union(frozen=True)
@@ -160,8 +160,16 @@ class DiagramGlyph:
 
     @staticmethod
     def Node(
-        index: int, x: float, y: float, w: float, h: float, label: str | None, style: GlyphStyle,
-        shape: NodeShape = NodeShape.RECTANGLE, ports: tuple[Port, ...] = (), parent: int | None = None,
+        index: int,
+        x: float,
+        y: float,
+        w: float,
+        h: float,
+        label: str | None,
+        style: GlyphStyle,
+        shape: NodeShape = NodeShape.RECTANGLE,
+        ports: tuple[Port, ...] = (),
+        parent: int | None = None,
     ) -> "DiagramGlyph":
         return DiagramGlyph(node=(index, x, y, w, h, label, style, shape, ports, parent))
 
@@ -170,7 +178,9 @@ class DiagramGlyph:
         return DiagramGlyph(edge=(source, target, points, label, style, weight))
 
     @staticmethod
-    def Swimlane(index: int, x: float, y: float, w: float, h: float, title: str | None, style: GlyphStyle, parent: int | None = None) -> "DiagramGlyph":
+    def Swimlane(
+        index: int, x: float, y: float, w: float, h: float, title: str | None, style: GlyphStyle, parent: int | None = None
+    ) -> "DiagramGlyph":
         return DiagramGlyph(swimlane=(index, x, y, w, h, title, style, parent))
 
     @staticmethod

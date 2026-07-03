@@ -86,7 +86,7 @@ class _ProvisionExtension(msgspec.Struct, frozen=True, gc=False, rename="camel")
     kind: str = ""
     source_package: str | None = None
     aliases: tuple[str, ...] = ()
-    load_name: str = ""
+    load_name: str | None = None
     probe_function: str | None = None
     expected_service: str = ""
     risk_class: str = ""
@@ -111,8 +111,8 @@ class _ProvisionExtension(msgspec.Struct, frozen=True, gc=False, rename="camel")
     load_policy: str = ""
     surface: str = ""
     database: str = ""
-    availability: str = ""
-    admission: str = ""
+    availability: str | None = None
+    admission: str | None = None
     profile: str = ""
 
 

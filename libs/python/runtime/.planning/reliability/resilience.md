@@ -37,13 +37,7 @@ from msgspec import UNSET, Struct, UnsetType
 from obstore.exceptions import BaseError as ObjectStoreTransient
 from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode
-from stamina.instrumentation import (
-    RetryDetails,
-    RetryHook,
-    RetryHookFactory,
-    StructlogOnRetryHook,
-    set_on_retry_hooks,
-)
+from stamina.instrumentation import RetryDetails, RetryHook, RetryHookFactory, StructlogOnRetryHook, set_on_retry_hooks
 
 from rasm.runtime.faults import RuntimeRail, async_boundary, boundary
 from rasm.runtime.metrics import Metrics
@@ -58,6 +52,7 @@ _WAIT_COLUMNS: Final[tuple[str, ...]] = ("wait_initial", "wait_max", "wait_jitte
 
 
 # --- [TYPES] ----------------------------------------------------------------------------
+
 
 @runtime_checkable
 class RetryAfter(Protocol):
@@ -90,6 +85,7 @@ class RetryMode(StrEnum):
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
+
 class Policy(Struct, frozen=True):
     attempts: int
     timeout: float
@@ -113,6 +109,7 @@ _TRACER: Final = trace.get_tracer("rasm.runtime.resilience")
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+
 
 def _retry_after(*transient: type[Exception]) -> stamina.BackoffHook:
     def backoff(exc: Exception) -> bool | float | timedelta:
@@ -161,19 +158,19 @@ def _retry_receipt() -> RetryHook:
     def hook(details: RetryDetails) -> AbstractContextManager[None]:
         cause = type(details.caused_by).__qualname__
         Signals.emit(
-            Receipt.of("resilience", ("planned", details.name, {
-                "retry_num": details.retry_num,
-                "wait_for": details.wait_for,
-                "waited_so_far": details.waited_so_far,
-                "caused_by": cause,
-            })),
+            Receipt.of(
+                "resilience",
+                (
+                    "planned",
+                    details.name,
+                    {"retry_num": details.retry_num, "wait_for": details.wait_for, "waited_so_far": details.waited_so_far, "caused_by": cause},
+                ),
+            ),
             _RETRY_FACTS,
         )
-        span = _TRACER.start_span("resilience.retry", attributes={
-            "rasm.retry_num": details.retry_num,
-            "rasm.wait_for": details.wait_for,
-            "rasm.caused_by": cause,
-        })
+        span = _TRACER.start_span(
+            "resilience.retry", attributes={"rasm.retry_num": details.retry_num, "rasm.wait_for": details.wait_for, "rasm.caused_by": cause}
+        )
         span.set_status(Status(StatusCode.ERROR, cause))
         return trace.use_span(span, end_on_exit=True)
 
@@ -270,7 +267,12 @@ POLICY: Final[Map[str, Policy]] = Map.of_seq([
     # conflict classes by `__qualname__` rather than importing them, and the lakehouse mutating arms
     # ride `guarded_sync(RetryClass.LAKE_COMMIT, ...)` (the sync envelope) since `Lakehouse.run` is
     # synchronous; `wait_initial` opens moderately wide so a competing commit lands before the re-read.
-    ("lake-commit", Policy(attempts=4, timeout=60.0, target=_named("CommitFailedError", "CommitFailedException", "CommitStateUnknownException"), wait_initial=0.2)),
+    (
+        "lake-commit",
+        Policy(
+            attempts=4, timeout=60.0, target=_named("CommitFailedError", "CommitFailedException", "CommitStateUnknownException"), wait_initial=0.2
+        ),
+    ),
     # the remote-database transport transient the `data:tabular/query#QUERY` `QueryEngine.run` `Remote`
     # leg rides through `guarded(RetryClass.REMOTE_DB, ...)`: an ADBC `OperationalError` whose
     # `status_code` is `TIMEOUT`/`IO` (the Flight SQL / ADBC manager driver call hitting a transient
@@ -300,9 +302,5 @@ RetryReceiptHook: Final = RetryHookFactory(hook_factory=_retry_receipt)
 # retry.attempts counter the observability/metrics#METRIC owner composes here (the single
 # process-global registration that owns the on-retry signal), and the structlog warning,
 # all three woven from one RetryDetails payload in one set_on_retry_hooks call.
-RETRY_HOOKS: Final[tuple[RetryHook | RetryHookFactory, ...]] = (
-    RetryReceiptHook,
-    Metrics.retry_hook(),
-    StructlogOnRetryHook,
-)
+RETRY_HOOKS: Final[tuple[RetryHook | RetryHookFactory, ...]] = (RetryReceiptHook, Metrics.retry_hook(), StructlogOnRetryHook)
 ```

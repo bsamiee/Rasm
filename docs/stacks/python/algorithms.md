@@ -41,7 +41,19 @@ import numpy as np
 from builtins import frozendict
 from expression import Error, Ok, Result
 
-type SolveFault = Literal["<nan>", "<inf>", "<non-finite>", "<singular>", "<rank-deficient>", "<residual-exceeded>", "<stalled>", "<broken>", "<wrong-arity>", "<broken-symmetry>", "<contract>"]
+type SolveFault = Literal[
+    "<nan>",
+    "<inf>",
+    "<non-finite>",
+    "<singular>",
+    "<rank-deficient>",
+    "<residual-exceeded>",
+    "<stalled>",
+    "<broken>",
+    "<wrong-arity>",
+    "<broken-symmetry>",
+    "<contract>",
+]
 type Solver = Callable[[np.ndarray, np.ndarray], tuple[np.ndarray, int]]
 type Gate = Callable[[np.ndarray, np.ndarray, int], Result[np.ndarray, SolveFault]]
 type Probe = Callable[[np.ndarray, float], Result[np.ndarray, SolveFault]]
@@ -84,10 +96,10 @@ POLICY: frozendict[Route, RoutePolicy] = frozendict({
 
 def solved(route: Route, operand: np.ndarray, solvers: frozendict[Route, Solver], b: np.ndarray, cap: float, /) -> Result["SolveReceipt", SolveFault]:
     policy = POLICY[route]
-    return admitted(operand).bind(lambda m: policy.probe(m, cap)).bind(
-        lambda m: policy.gate(m, *solvers[route](m, b)).bind(
-            lambda x: witnessed(route, m, x, b, scaled(policy.scale, m, b))
-        )
+    return (
+        admitted(operand)
+        .bind(lambda m: policy.probe(m, cap))
+        .bind(lambda m: policy.gate(m, *solvers[route](m, b)).bind(lambda x: witnessed(route, m, x, b, scaled(policy.scale, m, b))))
     )
 ```
 
@@ -276,8 +288,10 @@ def admitted_kernel(lowered: Kernel, arity: int, /) -> Result[Kernel, SolveFault
     probe = (np.zeros(1) for _ in range(arity))
     sample = lowered(*probe)
     return (
-        Error("<wrong-arity>") if len(sample) != 2
-        else Ok(lowered) if all(np.isfinite(np.asarray(part)).all() for part in sample)
+        Error("<wrong-arity>")
+        if len(sample) != 2
+        else Ok(lowered)
+        if all(np.isfinite(np.asarray(part)).all() for part in sample)
         else Error("<non-finite>")
     )
 ```

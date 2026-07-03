@@ -105,11 +105,7 @@ EXPORT_TIMEOUT_S: Final[float] = 10.0
 
 RUNTIME_RESOURCE: Final[Resource] = get_aggregated_resources(
     [ProcessResourceDetector(), OsResourceDetector(), OTELResourceDetector()],
-    initial_resource=Resource.create({
-        SERVICE_NAME: "rasm-companion",
-        SERVICE_VERSION: version("rasm-runtime"),
-        SERVICE_INSTANCE_ID: uuid4().hex,
-    }),
+    initial_resource=Resource.create({SERVICE_NAME: "rasm-companion", SERVICE_VERSION: version("rasm-runtime"), SERVICE_INSTANCE_ID: uuid4().hex}),
 )
 
 PARENT_SAMPLER: Final[Sampler] = ParentBased(root=ALWAYS_ON)
@@ -153,30 +149,26 @@ class SignalSpec(Struct, frozen=True):
 # (`add_span_processor`/`add_log_record_processor`) and the matching `processor` class
 # (`BatchSpanProcessor`/`BatchLogRecordProcessor`) are the only per-signal variation, so
 # the identical queue-triple wiring lives once rather than in two sibling closures.
-def _batched(
-    add: Callable[[Drainable, object], None], processor: Callable[..., object]
-) -> ProcessorAttach:
-    return lambda prov, exp, prof: add(prov, processor(
-        exp, max_queue_size=prof.max_queue_size,
-        schedule_delay_millis=prof.schedule_delay_ms, max_export_batch_size=prof.max_export_batch_size,
-    ))
+def _batched(add: Callable[[Drainable, object], None], processor: Callable[..., object]) -> ProcessorAttach:
+    return lambda prov, exp, prof: add(
+        prov,
+        processor(
+            exp, max_queue_size=prof.max_queue_size, schedule_delay_millis=prof.schedule_delay_ms, max_export_batch_size=prof.max_export_batch_size
+        ),
+    )
 
 
 SIGNAL_SPECS: Final[Block[SignalSpec]] = Block.of_seq([
     SignalSpec(
         Signal.TRACE,
-        lambda ep, hd, comp, mp: OTLPSpanExporter(
-            endpoint=ep, headers=hd, timeout=EXPORT_TIMEOUT_S, compression=comp, meter_provider=mp
-        ),
+        lambda ep, hd, comp, mp: OTLPSpanExporter(endpoint=ep, headers=hd, timeout=EXPORT_TIMEOUT_S, compression=comp, meter_provider=mp),
         lambda resource, sampler: TracerProvider(resource=resource, sampler=sampler),
         _batched(TracerProvider.add_span_processor, BatchSpanProcessor),
         trace.set_tracer_provider,
     ),
     SignalSpec(
         Signal.LOG,
-        lambda ep, hd, comp, mp: OTLPLogExporter(
-            endpoint=ep, headers=hd, timeout=EXPORT_TIMEOUT_S, compression=comp, meter_provider=mp
-        ),
+        lambda ep, hd, comp, mp: OTLPLogExporter(endpoint=ep, headers=hd, timeout=EXPORT_TIMEOUT_S, compression=comp, meter_provider=mp),
         lambda resource, _: LoggerProvider(resource=resource),
         _batched(LoggerProvider.add_log_record_processor, BatchLogRecordProcessor),
         _logs.set_logger_provider,
@@ -186,7 +178,10 @@ SIGNAL_SPECS: Final[Block[SignalSpec]] = Block.of_seq([
 
 def _meter_provider(endpoint: str, headers: Mapping[str, str] | None, profile: SignalProfile) -> MeterProvider:
     exporter = OTLPMetricExporter(
-        endpoint=endpoint, headers=headers, timeout=EXPORT_TIMEOUT_S, compression=profile.compression,
+        endpoint=endpoint,
+        headers=headers,
+        timeout=EXPORT_TIMEOUT_S,
+        compression=profile.compression,
         preferred_temporality={Counter: AggregationTemporality.DELTA},
     )
     reader = PeriodicExportingMetricReader(exporter, export_interval_millis=profile.export_interval_ms)
@@ -208,9 +203,7 @@ class InstalledProviders(Struct, frozen=True):
         # `create_exporter_metrics` counters onto the meter's reader, so the meter must still
         # be live to export that final self-observability batch before its own shutdown.
         ordered = sorted(self.by_signal.items(), key=lambda kv: kv[0] == Signal.METRIC)
-        rails = Block.of_seq(ordered).map(
-            lambda kv: boundary("resource", lambda kv=kv: _drained(kv[1], kv[0]))
-        )
+        rails = Block.of_seq(ordered).map(lambda kv: boundary("resource", lambda kv=kv: _drained(kv[1], kv[0])))
         # The `ACCUMULATE` overload arm statically narrows to `RuntimeRail[Block[Signal]]`, so the
         # `traversed` return needs no cast — the faults owner's `Disposition`-keyed overloads carry it.
         return traversed(rails, by=Disposition.ACCUMULATE)
@@ -221,6 +214,7 @@ class InstallReceipt(Struct, frozen=True):
     outcome: InstallOutcome
     endpoint: str
     signal_profile: SignalProfile
+
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -242,6 +236,7 @@ def latched[R, **P](
 
     return aspect
 
+
 # --- [SERVICES] -------------------------------------------------------------------------
 
 
@@ -250,14 +245,8 @@ class Telemetry:
     _installed: ClassVar[InstalledProviders | None] = None
 
     @classmethod
-    @latched(
-        lambda: Telemetry._receipt,
-        lambda r: setattr(Telemetry, "_receipt", r),
-        lambda prior: replace(prior, outcome=InstallOutcome.REENTRANT),
-    )
-    def install(
-        cls, profile: RuntimeProfile, endpoint: str, headers: Mapping[str, str] | None = None
-    ) -> InstallReceipt:
+    @latched(lambda: Telemetry._receipt, lambda r: setattr(Telemetry, "_receipt", r), lambda prior: replace(prior, outcome=InstallOutcome.REENTRANT))
+    def install(cls, profile: RuntimeProfile, endpoint: str, headers: Mapping[str, str] | None = None) -> InstallReceipt:
         signal_profile = SIGNAL_PROFILE[profile]
         if not PROFILE_POLICY[profile].emit_otel:
             return InstallReceipt(profile, InstallOutcome.SILENT, endpoint, signal_profile)

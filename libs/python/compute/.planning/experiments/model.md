@@ -72,9 +72,7 @@ _PARITY_TOL: Final[float] = 1e-4  # converter float32-vs-float64 numeric drift t
 # `label` at 0 and the dense `probabilities`/scores at 1 once `zipmap` is off), `predict` rides
 # output 0 (a regressor's sole output, the catch-all every estimator exposes). The fold keeps the
 # first row whose verb the estimator implements, so the parity diff reads the matching column.
-PROBE_RANK: Final[Block[tuple[ProbeAttr, int]]] = Block.of_seq(
-    [("predict_proba", 1), ("decision_function", 1), ("predict", 0)]
-)
+PROBE_RANK: Final[Block[tuple[ProbeAttr, int]]] = Block.of_seq([("predict_proba", 1), ("decision_function", 1), ("predict", 0)])
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -124,12 +122,7 @@ class ExportSource:
         # `to_onnx(model, X)` infers `initial_types` from the trained schema; `zipmap` off keeps a
         # classifier's probability output a dense `np.ndarray` the parity `np.abs`-diff can consume.
         return to_onnx(
-            model,
-            X=sample,
-            target_opset=target_opset,
-            options={"zipmap": False},
-            white_op=gating.white or None,
-            black_op=gating.black or None,
+            model, X=sample, target_opset=target_opset, options={"zipmap": False}, white_op=gating.white or None, black_op=gating.black or None
         )
 
     def reference(self) -> ProbeRef:
@@ -137,11 +130,7 @@ class ExportSource:
         # `Block.choose`/`try_head`/`default_value` fold is total over the closed rank with `predict`
         # (output 0) the catch-all, never a `next(...)` that raises `StopIteration` on a dropped tail row.
         model, sample = self.fitted
-        attr, index = (
-            PROBE_RANK.choose(lambda row: Some(row) if hasattr(model, row[0]) else Nothing)
-            .try_head()
-            .default_value(("predict", 0))
-        )
+        attr, index = PROBE_RANK.choose(lambda row: Some(row) if hasattr(model, row[0]) else Nothing).try_head().default_value(("predict", 0))
         return ProbeRef(index=index, reference=np.asarray(getattr(model, attr)(sample), dtype=float))
 
 
@@ -230,9 +219,7 @@ class ValidationCheck:
                 # label column a `zipmap`-off classifier emits at output 0 — so the finite test gates on a
                 # numeric dtype and treats a categorical label (no `NaN`/`±inf` codomain) as finite, keeping
                 # the verdict total over every estimator's output dtype rather than railing a string label.
-                finite = all(
-                    bool(np.isfinite(r).all()) if np.issubdtype(r.dtype, np.number) else True for r in outputs
-                )
+                finite = all(bool(np.isfinite(r).all()) if np.issubdtype(r.dtype, np.number) else True for r in outputs)
                 return ValidationEvidence(smoke=(len(outputs), finite))
             case ValidationCheck(tag="parity", parity=(produced, reference)):
                 # both arrays are `ParityArray`-refined at the `Parity` constructor, so the diff is over
@@ -272,12 +259,7 @@ class ModelAssetManifest(Struct, frozen=True):
         # the bounded `str | int | bool` scalars `Span.set_attributes` admits, the one source both the
         # span and any future reader share; the per-check `ValidationEvidence` ledger is a `dict` value
         # `set_attributes` rejects and rides the receipt facts only.
-        return {
-            "subject": self.subject(),
-            "validated": self.validated,
-            "opset": self.opset,
-            "providers": ",".join(self.providers),
-        }
+        return {"subject": self.subject(), "validated": self.validated, "opset": self.opset, "providers": ",".join(self.providers)}
 
     def subject(self) -> str:
         return self.model_card.get("producer", "<anonymous>")
@@ -285,11 +267,7 @@ class ModelAssetManifest(Struct, frozen=True):
     def graduates(self, ceiling: dict[str, float] | None = None) -> RuntimeRail[GraduationReceipt]:
         residuals = self.residuals
         return GraduationReceipt.graduates(
-            "compute",
-            HandoffAxis(model_asset=self.subject()),
-            self.checksum,
-            residuals,
-            ceiling or dict.fromkeys(residuals, 0.0),
+            "compute", HandoffAxis(model_asset=self.subject()), self.checksum, residuals, ceiling or dict.fromkeys(residuals, 0.0)
         )
 
     def contribute(self) -> Iterable[Receipt]:

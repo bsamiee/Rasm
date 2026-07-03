@@ -10,12 +10,12 @@ The neutral objectified-edge algebra: one `Relationship` `[Union]` over FIVE lib
 
 - Owner: `Relationship` the `[Union]` neutral objectified-edge algebra carrying the uniform consumer accessor surface (`Kind`/`Relating`/`Related`/`Members`/`DirectedPairs`/`IsContainment`/`Endpoints`/`Touches`/`ToCanonicalBytes(tolerance)`); `RelationshipKind` the `[SmartEnum<string>]` neutral CASE discriminant a topology/merge consumer routes on; the `ComposeKind`/`AssignKind`/`ConnectKind`/`VoidKind` `[SmartEnum<string>]` per-case `SubKind` vocabularies the `Bake` fold dispatches on; `MaterialUsage` the `[Union]` occurrence-usage payload the `Associate` edge carries (owning its co-located `CanonicalBytes`); the `LayerSetDirection`/`DirectionSense` neutral geometric enums and `CardinalPoint` the `[SmartEnum<int>]` reference-grid vocabulary the `ProfileSet` usage admits a raw IFC integer through.
 - Cases: `Compose` (a `Whole`→`Part` decomposition with a `ComposeKind` flavor — aggregate/nest/contain/reference) · `Assign` (a `Subject`→`Definition` binding with an `AssignKind` flavor — property-definition/type-definition/group/assessment) · `Associate` (a `Subject`→`Resource` binding — a `Composition/material#MATERIAL_COMPOSITION` material node carrying a `MaterialUsage` occurrence payload, or an `Appearance` presentation node or a `Geospatial/coverage#COVERAGE_NODE` `Coverage` field node carrying `MaterialUsage.None` — the IFC `IfcRelAssociates` base; the structural `Graph/delta#GRAPH_DELTA` `LegalLink` admits Material/Appearance/Coverage and the `Bake` fold reads each resource kind) · `Connect` (a `From`↔`To` connectivity with a `ConnectKind` flavor and an optional realizing node) · `Void` (a `Host`→`Feature` opening with a `VoidKind` flavor — void/fill) · `Generic` (a `WireName` + endpoints + attribute map passthrough so no IFC relationship is dropped); the closed five-kind algebra plus the passthrough.
-- Entry: the case constructors are the typed edge admissions (`new Relationship.Compose(whole, part, ComposeKind.Aggregate)`, `new Relationship.Associate(subject, material, usage)`); `Kind` projects the neutral `RelationshipKind` case token a consumer routes on, `Relating`/`Related` the endpoint reads and `Endpoints` the `(Relating, Related)` pair the structural law and traversal take, `Members` every node the edge involves (binary endpoints plus a `Connect`'s realizing intermediary) and `DirectedPairs` the directed adjacency it contributes, `IsContainment` the spatial-containment predicate a Persistence spatial-structure query filters on; `Touches(nodeId)` tests `Members` membership for the incidence index and the `DropNode` cascade; `ToCanonicalBytes(tolerance)` projects the standalone edge bytes a content-3-way merge keys on under the model tolerance, the SAME projection `CanonicalBytes(writer)` composes into the graph content key — the tolerance threaded so a `Generic` edge's `PropertyValue.Measure` attributes quantize to `Header.Tolerance` exactly as the node measures do (the five typed cases carry no Measure and are tolerance-insensitive).
-- Auto: `Endpoints` dispatches the generated total `Switch` projecting each case's relating/related pair (a `Compose` whole→part, an `Assign` subject→definition, a `Generic` its endpoints) so the incidence index (`Graph/element#ELEMENT_GRAPH`) and the structural legality (`Graph/delta#GRAPH_DELTA`) read one accessor; the neutral sub-kinds round-trip their token at the wire and drive the `Bake` descent (`Compose.Aggregate`/`Nest`/`Contain` descend into parts, `Assign.TypeDefinition` binds the type for inheritance, `Assign.PropertyDefinition`/`Assessment` attach the bag/receipt, `Associate` folds the material plus its usage); the `Assign.TypeDefinition` edge carries the named type→occurrence inheritance the `Bake` fold applies over the type's standardized data — single fields occurrence-overrides-type, `Seq` fields (materials/assessments/classifications) union + dedup-by-key — distinct from the `Properties/property#PROPERTY_BAG` `InheritanceMode` value-bag precedence the bag `Merge` owns, so the seam binds the type once through this one neutral row and the `Bake` realizes the full standardized inheritance; the `Generic` attribute map carries the IFC-specific fields the Bim projector preserved so a round-trip re-authors the original relation.
+- Entry: the case constructors are the typed edge admissions (`new Relationship.Compose(whole, part, ComposeKind.Aggregate)`, `new Relationship.Associate(subject, material, usage)`); `Kind` projects the neutral `RelationshipKind` case token a consumer routes on, `Relating`/`Related` the endpoint reads and `Endpoints` the `(Relating, Related)` pair the structural law and traversal take, `Members` every node the edge involves (binary endpoints, a `Connect`'s realizing intermediary, and a `Generic` edge's `PropertyValue.References` attribute-buried ids) and `DirectedPairs` the directed adjacency it contributes (endpoints plus realizing, never the buried refs), `IsContainment` the spatial-containment predicate a Persistence spatial-structure query filters on; `Touches(nodeId)` tests `Members` membership for the incidence index and the `DropNode` cascade; `ToCanonicalBytes(tolerance)` projects the standalone edge bytes a content-3-way merge keys on under the model tolerance, the SAME projection `CanonicalBytes(writer)` composes into the graph content key — the tolerance threaded so a `Generic` edge's `PropertyValue.Measure` attributes quantize to `Header.Tolerance` exactly as the node measures do (the five typed cases carry no Measure and are tolerance-insensitive).
+- Auto: ONE private `Ends` generated total `Switch` projects each case's relating/related pair plus the `Connect` realizing intermediary (the primary correspondence, DERIVED_LOGIC), and `Endpoints`/`Relating`/`Related`/`Members`/`DirectedPairs`/`Touches` all DERIVE from it — so the incidence index (`Graph/element#ELEMENT_GRAPH`) and the structural legality (`Graph/delta#GRAPH_DELTA`) read one accessor and the endpoint law is declared at exactly one dispatch site, never three parallel Switches restating the five binary pairs; `Kind` projects through the generated `Map` (case → precomputed constant row — no throwaway lambdas, the constant dual of the func-form `Switch` the allocating `Remap` takes); the neutral sub-kinds round-trip their token at the wire and drive the `Bake` descent (`Compose.Aggregate`/`Nest`/`Contain` descend into parts, `Assign.TypeDefinition` binds the type for inheritance, `Assign.PropertyDefinition`/`Assessment` attach the bag/receipt, `Associate` folds the material plus its usage); the `Assign.TypeDefinition` edge carries the named type→occurrence inheritance the `Bake` fold applies over the type's standardized data — single fields occurrence-overrides-type, `Seq` fields (materials/assessments/classifications) union + dedup-by-key — distinct from the `Properties/property#PROPERTY_BAG` `InheritanceMode` value-bag precedence the bag `Merge` owns, so the seam binds the type once through this one neutral row and the `Bake` realizes the full standardized inheritance; the `Generic` attribute map carries the IFC-specific fields the Bim projector preserved so a round-trip re-authors the original relation.
 - Receipt: the `Relationship` is the typed edge a `GraphDelta` adds/removes and the `Bake` fold traverses; the `MaterialUsage` on an `Associate` edge is the occurrence geometric binding a host materializes (a layer set's direction, offset, and reference extent, a profile's cardinal point) so a wall and its mirror share one `LayerSet` composition with two `Associate` usages; the `Generic` passthrough is the round-trip guarantee — every IFC relationship the projector cannot map to a neutral case rides `Generic` so an import→export cycle drops nothing.
 - Packages: Thinktecture.Runtime.Extensions (`[Union]`/`[SmartEnum<string>]`/`[SmartEnum<int>]`), LanguageExt.Core (`Map`/`Option`/`Fin`), `Rasm` (content-key seed + the `Op` op-key).
 - Growth: a new graph-relationship semantic is one neutral case or one sub-kind row (a `Reference` compose flavor, a new `AssignKind`); a new IFC relationship maps onto an existing neutral case or rides `Generic`, never a new seam case; a new occurrence usage is one `MaterialUsage` arm; the algebra is closed at five neutral kinds plus the passthrough, the IFC roster living in the Bim projector.
-- Boundary: `Relationship` is the NEUTRAL edge algebra — the rejected seventeen-typed-`IfcRel*`-case design is the deleted form, because it re-opened the IFC-schema strata the `Classification` collapse closed; the IFC names, directionality, inverse semantics, and the eight stranded families live in the `Rasm.Bim` `SemanticProjector`, mapping each `IfcRel*` onto a neutral case with its typed payload or the `Generic` passthrough, and the seam carries no `IfcRel*` spelling; the discrimination is two-level — the base `RelationshipKind Kind` is the neutral CASE token a topology/merge consumer routes on (a uniform read with NO union switch, the flat edge column Persistence persists), the per-case `SubKind` the NEUTRAL graph-semantic flavor the `Bake` reads (whole/part flavor, assignment flavor), neither the IFC roster, and a per-case `Kind` shadowing a base `Kind` is the deleted form; `Members`/`Touches`/`DirectedPairs` include a `Connect`'s realizing intermediary so a `DropNode` cascade never strands a realizing reference; the `Associate` edge carries the `MaterialUsage` occurrence payload — the type-level `Composition/material#MATERIAL_COMPOSITION` set carries the shared layer/profile structure, the edge the per-occurrence geometric binding — so usage never duplicates onto the composition; classification is a generic value ON the `Object` node, NOT an edge, so the seam carries no classification-association relationship; the `Generic` passthrough guarantees no relationship is dropped, so a round-trip through the seam preserves every edge.
+- Boundary: `Relationship` is the NEUTRAL edge algebra — the rejected seventeen-typed-`IfcRel*`-case design is the deleted form, because it re-opened the IFC-schema strata the `Classification` collapse closed; the IFC names, directionality, inverse semantics, and the eight stranded families live in the `Rasm.Bim` `SemanticProjector`, mapping each `IfcRel*` onto a neutral case with its typed payload or the `Generic` passthrough, and the seam carries no `IfcRel*` spelling; the discrimination is two-level — the base `RelationshipKind Kind` is the neutral CASE token a topology/merge consumer routes on (a uniform read with NO union switch, the flat edge column Persistence persists), the per-case `SubKind` the NEUTRAL graph-semantic flavor the `Bake` reads (whole/part flavor, assignment flavor), neither the IFC roster, and a per-case `Kind` shadowing a base `Kind` is the deleted form; `Members`/`Touches` include a `Connect`'s realizing intermediary AND a `Generic` edge's buried attribute references (the `PropertyValue.References` dual of `Remap`) so a `DropNode` cascade never strands a live reference, while `DirectedPairs` stays endpoints-plus-realizing (a buried attribute reference is not a directed adjacency leg); the `Associate` edge carries the `MaterialUsage` occurrence payload — the type-level `Composition/material#MATERIAL_COMPOSITION` set carries the shared layer/profile structure, the edge the per-occurrence geometric binding — so usage never duplicates onto the composition; classification is a generic value ON the `Object` node, NOT an edge, so the seam carries no classification-association relationship; the `Generic` passthrough guarantees no relationship is dropped, so a round-trip through the seam preserves every edge.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
@@ -59,15 +59,14 @@ public sealed partial class AssignKind {
  public static readonly AssignKind Assessment = new("assessment"); // attaches an Assessment receipt
 }
 
-// The connection MEDIUM flavor ONLY — the orthogonal "realized by an intermediate element" axis is the Connect case's
-// own Option<NodeId> Realizing field, NOT a third row here: realizing-ness is recoverable from Realizing.IsSome, so a
-// `Realizing` row is a parallel discriminant re-describing the field (the MODAL_ARITY rejected form) AND
-// contradicts it (SubKind=Realizing with Realizing=None, or SubKind=Path with Realizing=Some). The medium (path/port)
-// and the realization (direct vs via-intermediate) are TWO orthogonal axes — a Path OR a Port connection may each be
-// realized by an intermediate element (an IfcRelConnectsWithRealizingElements over either medium) — so the medium is
-// the row and the realizing element is the field, never one enum conflating both.
+// The connection MEDIUM only — realization is the Connect case's own Option<NodeId> Realizing field, NOT a fourth
+// row: a Realizing row would re-describe the field (MODAL_ARITY's rejected parallel discriminant) and contradict it
+// (SubKind=Realizing with Realizing=None). Medium (element/path/port) and realization (direct/via-intermediate) are
+// orthogonal axes: IfcRelConnectsWithRealizingElements subtypes the medium-less IfcRelConnectsElements base directly,
+// so it rides Element with Realizing=Some — never a false "path" stamp and never a medium of its own.
 [SmartEnum<string>]
 public sealed partial class ConnectKind {
+ public static readonly ConnectKind Element = new("element"); // bare element adjacency — the concrete IfcRelConnectsElements base, no path/port medium
  public static readonly ConnectKind Path = new("path"); // path-element connectivity (walls, members)
  public static readonly ConnectKind Port = new("port"); // MEP port connectivity
 }
@@ -113,11 +112,10 @@ public sealed partial class CardinalPoint {
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
-// The occurrence material usage the Associate edge carries: the per-occurrence geometric binding the type-level
-// MaterialComposition set does not carry. A CLASS-root [Union] + [Equatable] (the [GRAPH_FAMILY] form), so the
-// Associate.Usage member is itself Generator.Equals-drillable: a changed LayerSet.OffsetFromReferenceLine or a
-// ProfileSet.CardinalPoint surfaces as an Edges[i].Usage.<member> path in the Rasm.Persistence 3-way merge, not a
-// whole-edge replacement — never the record-generated equality (which a class-root union forfeits) stacked with [Equatable].
+// The occurrence material usage the Associate edge carries — the per-occurrence geometric binding the type-level
+// MaterialComposition set does not carry. CLASS-root [Union] + [Equatable] (the [GRAPH_FAMILY] form) so Associate.Usage
+// is drillable: a changed OffsetFromReferenceLine surfaces as Edges[i].Usage.<member> in the 3-way merge, never a
+// whole-edge replacement.
 [Union]
 [Equatable]
 public abstract partial class MaterialUsage {
@@ -125,13 +123,10 @@ public abstract partial class MaterialUsage {
 
  public sealed partial class None : MaterialUsage;
 
- // The layer-set occurrence usage — the IfcMaterialLayerSetUsage geometric binding the type-level LayerSet composition
- // does not carry: the layering Direction (AXIS1/2/3) and Sense (POSITIVE/NEGATIVE) the layers stack along, the signed
- // OffsetFromReferenceLine of the layer-set zero face from the element reference line, AND the ReferenceExtent — the
- // size of the layer set perpendicular to the layers a host materializes the buildup against when the reference line
- // does not bisect it (a wall whose finish layers sit asymmetrically about its locating line). ReferenceExtent is bare
- // coordinate-space placement data (NaN when unset, canonicalized at hashing through the CanonicalWriter NaN canon),
- // the SAME raw-scalar shape the ProfileSet usage carries — never a dimensioned MeasureValue, never dropped at ingest.
+ // The IfcMaterialLayerSetUsage geometric binding the type-level LayerSet composition does not carry: stacking
+ // Direction/Sense, the signed OffsetFromReferenceLine off the element reference line, and the ReferenceExtent a host
+ // materializes an asymmetric buildup against. ReferenceExtent is bare coordinate-space placement (NaN when unset,
+ // canonicalized at hashing) — the same raw-scalar shape as ProfileSet, never a dimensioned MeasureValue, never dropped.
  public sealed partial class LayerSet(LayerSetDirection direction, DirectionSense sense, double offsetFromReferenceLine, double referenceExtent) : MaterialUsage {
   public LayerSetDirection Direction { get; } = direction;
   public DirectionSense Sense { get; } = sense;
@@ -166,15 +161,11 @@ public abstract partial class MaterialUsage {
   profileSet: u => w.Ordinal(2).Ordinal(u.CardinalPoint.Key).Double(u.ReferenceExtent));
 }
 
-// A CLASS-root [Union] (the [GRAPH_FAMILY] form), NOT a record-root: a class-root union surrenders
-// Thinktecture's record-generated equality, so structural equality AND the member-level structured diff ride
-// Generator.Equals [Equatable] (never stacked on a record-root union). [Equatable] is LOAD-BEARING: the
-// ElementGraph [Equatable] edge array ([OrderedEquality]) walks its Relationship values, and Generator.Equals
-// drills into a changed edge's members only when the edge type is itself [Equatable] — so the Rasm.Persistence
-// 3-way StructuralMerge's edge member diff (a changed Associate.Usage, a Generic.Attributes delta) localizes to
-// Edges[i].<member>, not whole-edge replacement. The Generic case's Map attributes carry [UnorderedEquality] so
-// a key-set delta nests into the graph diff; the rich MaterialUsage payload is itself [Equatable] so the
-// Associate.Usage drill reaches its members.
+// A CLASS-root [Union] (the [GRAPH_FAMILY] form): a class root surrenders Thinktecture's record-generated equality,
+// so structural equality AND the member-level diff ride Generator.Equals [Equatable] — never stacked on a record root.
+// LOAD-BEARING: the ElementGraph [OrderedEquality] edge walk drills into a changed edge only when the edge type is
+// itself [Equatable], so the Persistence 3-way StructuralMerge localizes to Edges[i].<member> (a changed
+// Associate.Usage, a [UnorderedEquality] Generic.Attributes delta), not whole-edge replacement.
 [Union]
 [Equatable]
 public abstract partial class Relationship {
@@ -185,49 +176,54 @@ public abstract partial class Relationship {
  public sealed partial class Associate(NodeId subject, NodeId resource, MaterialUsage usage) : Relationship { public NodeId Subject { get; } = subject; public NodeId Resource { get; } = resource; public MaterialUsage Usage { get; } = usage; }
  public sealed partial class Connect(NodeId from, NodeId to, ConnectKind subKind, Option<NodeId> realizing) : Relationship { public NodeId From { get; } = from; public NodeId To { get; } = to; public ConnectKind SubKind { get; } = subKind; public Option<NodeId> Realizing { get; } = realizing; }
  public sealed partial class Void(NodeId host, NodeId feature, VoidKind subKind) : Relationship { public NodeId Host { get; } = host; public NodeId Feature { get; } = feature; public VoidKind SubKind { get; } = subKind; }
- public sealed partial class Generic(string wireName, NodeId relating, NodeId related, Map<PropertyName, PropertyValue> attributes) : Relationship { public string WireName { get; } = wireName; public NodeId Relating { get; } = relating; public NodeId Related { get; } = related; [property: UnorderedEquality] public Map<PropertyName, PropertyValue> Attributes { get; } = attributes; }
+ public sealed partial class Generic(string wireName, NodeId relating, NodeId related, Map<PropertyName, PropertyValue> attributes) : Relationship { public string WireName { get; } = wireName; public NodeId Relating { get; } = relating; public NodeId Related { get; } = related; [UnorderedEquality] public Map<PropertyName, PropertyValue> Attributes { get; } = attributes; }
 
- public (NodeId Relating, NodeId Related) Endpoints => Switch(
- compose: static r => (r.Whole, r.Part),
- assign: static r => (r.Subject, r.Definition),
- associate: static r => (r.Subject, r.Resource),
- connect: static r => (r.From, r.To),
- @void: static r => (r.Host, r.Feature),
- generic: static r => (r.Relating, r.Related));
+ // The ONE primary case walk (DERIVED_LOGIC): each case's relating/related pair PLUS the Connect realizing
+ // intermediary (None elsewhere) — Endpoints/Relating/Related/Members/DirectedPairs/Touches all DERIVE from this
+ // triple, so the five binary cases state their endpoint law exactly once and a new case extends exactly one
+ // dispatch site instead of three parallel Switches restating the same pairs.
+ (NodeId Relating, NodeId Related, Option<NodeId> Realizing) Ends => Switch(
+ compose: static r => (r.Whole, r.Part, Option<NodeId>.None),
+ assign: static r => (r.Subject, r.Definition, Option<NodeId>.None),
+ associate: static r => (r.Subject, r.Resource, Option<NodeId>.None),
+ connect: static r => (r.From, r.To, r.Realizing),
+ @void: static r => (r.Host, r.Feature, Option<NodeId>.None),
+ generic: static r => (r.Relating, r.Related, Option<NodeId>.None));
 
- // The neutral CASE discriminant a topology/merge consumer routes on without switching on the union type —
- // the flat token Rasm.Persistence persists as an edge column and groups by in the 3-way StructuralMerge.
- public RelationshipKind Kind => Switch(
- compose: static _ => RelationshipKind.Compose,
- assign: static _ => RelationshipKind.Assign,
- associate: static _ => RelationshipKind.Associate,
- connect: static _ => RelationshipKind.Connect,
- @void: static _ => RelationshipKind.Void,
- generic: static _ => RelationshipKind.Generic);
+ public (NodeId Relating, NodeId Related) Endpoints => Ends switch { var (relating, related, _) => (relating, related) };
+
+ // The neutral CASE token a topology/merge consumer routes on without a union switch — the flat column Persistence
+ // persists and groups by. Generated Map (case → PRECOMPUTED constant), NOT Switch: every arm is a singleton row,
+ // no throwaway `static _ => Const` lambdas — the constant dual of Remap's allocating func-form below.
+ public RelationshipKind Kind => Map(
+ compose: RelationshipKind.Compose,
+ assign: RelationshipKind.Assign,
+ associate: RelationshipKind.Associate,
+ connect: RelationshipKind.Connect,
+ @void: RelationshipKind.Void,
+ generic: RelationshipKind.Generic);
 
  // Endpoint reads a consumer takes without destructuring the Endpoints pair.
  public NodeId Relating => Endpoints.Relating;
  public NodeId Related => Endpoints.Related;
 
- // Every distinct node the edge involves — the binary endpoints plus a Connect's realizing intermediary —
- // the cascade/orphan reachability set DropNode and the merge read (so a dropped realizing node cascades its edge).
- public Seq<NodeId> Members => Switch(
- compose: static r => Seq(r.Whole, r.Part),
- assign: static r => Seq(r.Subject, r.Definition),
- associate: static r => Seq(r.Subject, r.Resource),
- connect: static r => r.Realizing.Match(Some: n => Seq(r.From, r.To, n), None: () => Seq(r.From, r.To)),
- @void: static r => Seq(r.Host, r.Feature),
- generic: static r => Seq(r.Relating, r.Related));
+ // Every distinct node the edge involves — the binary endpoints, a Connect's realizing intermediary, AND every graph-node
+ // id BURIED in a Generic edge's PropertyValue attributes (the recursive Properties/property#PROPERTY_VALUE
+ // PropertyValue.References dual of Remap) — the cascade/orphan reachability set the incidence index, the DropNode
+ // cascade, and the Apply replay guard read, so a buried attribute Reference is live for renumber AND cascade in lockstep
+ // (Remap rewrites it, Members sweeps it) — never the asymmetry that stranded a dangling Reference on a surviving Generic
+ // edge. DirectedPairs stays endpoints-plus-realizing (an attribute reference is not a directed adjacency leg).
+ public Seq<NodeId> Members =>
+  (Ends switch { var (relating, related, realizing) => Seq(relating, related) + realizing.ToSeq() })
+  + (this is Generic g ? g.Attributes.Values.ToSeq().Bind(static v => v.References()) : Seq<NodeId>());
 
  // The directed adjacency the edge contributes to a topology view — one pair for a binary edge, the two
  // realizing legs (From→Realizing→To) for a Connect carrying a realizing intermediary.
- public Seq<(NodeId From, NodeId To)> DirectedPairs => Switch(
- compose: static r => Seq((r.Whole, r.Part)),
- assign: static r => Seq((r.Subject, r.Definition)),
- associate: static r => Seq((r.Subject, r.Resource)),
- connect: static r => r.Realizing.Match(Some: n => Seq((r.From, n), (n, r.To)), None: () => Seq((r.From, r.To))),
- @void: static r => Seq((r.Host, r.Feature)),
- generic: static r => Seq((r.Relating, r.Related)));
+ public Seq<(NodeId From, NodeId To)> DirectedPairs => Ends switch {
+ var (relating, related, realizing) => realizing.Match(
+  Some: via => Seq((relating, via), (via, related)),
+  None: () => Seq((relating, related))),
+ };
 
  // Spatial containment — the IfcRelContainedInSpatialStructure shape a Persistence spatial-structure query filters:
  // a Compose edge with the Contain flavor (the decomposition Aggregate/Nest and the non-owning Reference are NOT containment).
@@ -235,18 +231,11 @@ public abstract partial class Relationship {
 
  public bool Touches(NodeId node) => Members.Exists(m => m == node);
 
- // The standalone canonical bytes a content-3-way merge keys an edge on — the SAME projection the graph content
- // address composes through CanonicalBytes, threading the MODEL tolerance so the projection matches the snapshot. The
- // five typed cases (Compose/Assign/Associate/Connect/Void) carry NO Measure-bearing scalar — the Associate
- // ReferenceExtent is a bare coordinate the writer canonicalizes (NaN/-0.0/∞) but never quantizes — so they are
- // tolerance-insensitive; the Generic passthrough's Attributes are Properties/property#PROPERTY_VALUE PropertyValue
- // values, and a PropertyValue.Measure quantizes to the WRITER tolerance through w.Measure, so a tolerance-0 writer
- // hashes a Generic edge's measure attributes EXACT and forks the edge key off two edges whose measures differ
- // below Header.Tolerance — the cross-runtime instability. ToCanonicalBytes therefore takes the model tolerance (the
- // Graph/element#ELEMENT_GRAPH graph.Header.Tolerance the ElementGraph passes, the Graph/delta#GRAPH_DELTA delta key
- // and the Projection/address#CONTENT_ADDRESS OfGraph edge sort threading the same grid) so a Generic edge's measure
- // attributes quantize identically to the node measures, never the prior tolerance-0 hardcode the typed cases did not
- // need but the Generic arm silently broke.
+ // The standalone edge bytes a content-3-way merge keys on — the SAME projection CanonicalBytes composes into the
+ // graph content key, threading the MODEL tolerance (graph.Header.Tolerance via ElementGraph, the delta key, and the
+ // OfGraph edge sort). The five typed cases carry no Measure and are tolerance-insensitive (Associate ReferenceExtent
+ // is a bare coordinate the writer canonicalizes, never quantizes); a Generic edge's PropertyValue.Measure attributes
+ // quantize through w.Measure — the prior tolerance-0 hardcode forked Generic edge keys below Header.Tolerance.
  public ReadOnlyMemory<byte> ToCanonicalBytes(double tolerance) { CanonicalWriter w = new(tolerance); CanonicalBytes(w); return w.ToBytes(); }
 
  // The canonical projection through the Projection/address#CONTENT_ADDRESS writer: case ordinal,
@@ -259,20 +248,11 @@ public abstract partial class Relationship {
  @void: r => w.Ordinal(4).String(r.Host.Value).String(r.Feature.Value).String(r.SubKind.Key),
  generic: r => { w.Ordinal(5).String(r.WireName).String(r.Relating.Value).String(r.Related.Value).Ordinal(r.Attributes.Count); foreach (var (n, v) in r.Attributes.OrderBy(static p => p.Key.Value, StringComparer.Ordinal)) { w.String(n.Value); v.CanonicalBytes(w); } return w; });
 
- // Re-map every NODE-ID the edge carries through the supplied map (an unmapped id passes through unchanged), the
- // sub-kind and typed payload intact — the seam-owned edge-endpoint rewrite a Rasm.Persistence Reconcile composes
- // when it rewrites a re-ingested graph onto durable node ids. EVERY node-id the edge owns is rewritten, not only the
- // structural endpoints: a Connect re-maps its optional realizing intermediary, AND a Generic edge re-maps every
- // kernel NodeId buried in its Attributes — a Properties/property#PROPERTY_VALUE PropertyValue.Reference(NodeId) the
- // projector preserved on the passthrough is a graph reference a reconcile MUST rewrite or strand, so the Generic arm
- // composes the PropertyValue.Remap(map) owner (the ONE recursive PropertyValue node-id rewrite, recursing the
- // Reference/List/Table/Complex arms) over each attribute value rather than passing Attributes through verbatim (the
- // deleted "endpoints-only" rewrite that dangled an attribute reference). A class-root [Union] case has NO `with`, so
- // each arm RECONSTRUCTS its case — the func-form generated total Switch (each arm a Func<TCase,Relationship> invoked
- // ONLY for the matched case), NOT Map: Thinktecture's Map maps cases to PRECOMPUTED constant values without lambdas,
- // so it cannot carry an allocating per-case reconstruction (and builds all six arms eagerly), the func-form
- // Switch the doctrinal owner of allocating dispatch. Exhaustive over the closed six-case algebra (a new edge kind
- // breaks the build here, never a silent pass-through).
+ // Re-maps EVERY NodeId the edge carries (an unmapped id passes through unchanged): endpoints, a Connect's realizing
+ // intermediary, AND every kernel reference buried in a Generic attribute — the Generic arm composes the ONE recursive
+ // PropertyValue.Remap owner, never a verbatim Attributes pass that dangles a Reference (the deleted endpoints-only
+ // rewrite). Class-root union cases have no `with`, so each arm reconstructs through the func-form Switch (Map carries
+ // only precomputed constants); exhaustive over the closed six-case algebra — a new case breaks the rewrite at compile time.
  public Relationship Remap(Func<NodeId, NodeId> map) => Switch<Relationship>(
   compose: r => new Compose(map(r.Whole), map(r.Part), r.SubKind),
   assign: r => new Assign(map(r.Subject), map(r.Definition), r.SubKind),
@@ -285,6 +265,6 @@ public abstract partial class Relationship {
 
 ## [03]-[RESEARCH]
 
-- [NEUTRAL_EDGE_ALGEBRA]: the seam rejects the seventeen-typed-`IfcRel*`-case relationship union because it re-opens the IFC-schema strata leak the `Classification` collapse fixed — the seam carries a neutral five-kind algebra (`Compose`/`Assign`/`Associate`/`Connect`/`Void`) plus a `Generic` passthrough, and the `Rasm.Bim` `SemanticProjector` maps every `IfcRel*` onto a neutral case (with its typed payload) or rides `Generic(wireName, relating, related, attrs)` so nothing is dropped; the eight previously-stranded families (`ConnectsStructuralMember`/`Activity`, `ConnectsPortToElement`, `SpaceBoundary` 1st/2nd, `Covers*`, `ConnectsPathElements` wall-join priorities, `Declares`, `AssignsToControl`/`Process`/`Product`/`Actor`, `InterferesElements`) all ride the neutral payload or `Generic`, the IFC directionality and inverse semantics living wholly in the projector — verified against the GeometryGym `IfcRelationship` subtype surface before the projector mapping is final.
+- [NEUTRAL_EDGE_ALGEBRA]: the seam rejects the seventeen-typed-`IfcRel*`-case relationship union because it re-opens the IFC-schema strata leak the `Classification` collapse fixed — the seam carries a neutral five-kind algebra (`Compose`/`Assign`/`Associate`/`Connect`/`Void`) plus a `Generic` passthrough, and the `Rasm.Bim` `SemanticProjector` maps every `IfcRel*` onto a neutral case (with its typed payload) or rides `Generic(wireName, relating, related, attrs)` so nothing is dropped; the eight previously-stranded families (`ConnectsStructuralMember`/`Activity`, `ConnectsPortToElement`, `SpaceBoundary` 1st/2nd, `Covers*`, `ConnectsPathElements` wall-join priorities, `Declares`, `AssignsToControl`/`Process`/`Product`/`Actor`, `InterferesElements`) all ride the neutral payload or `Generic`, the IFC directionality and inverse semantics living wholly in the projector; the `Connect` medium vocabulary is three-row — `Element` the medium-less concrete `IfcRelConnectsElements` base (and its direct `IfcRelConnectsWithRealizingElements` subtype, whose realizing head rides `Connect.Realizing`, never a sub-kind row), `Path` the path-element join, `Port` the port join — so a bare element adjacency never force-stamps `path` and a realizing edge never mints a parallel medium — verified against the GeometryGym `IfcRelationship` subtype surface before the projector mapping is final.
 - [OCCURRENCE_USAGE]: the occurrence material usage rides the `Associate` edge — the IFC `IfcMaterialLayerSetUsage` (`LayerSetDirection`/`DirectionSense`/`OffsetFromReferenceLine`/`ReferenceExtent`) and `IfcMaterialProfileSetUsage` (`CardinalPoint`/`ReferenceExtent`) are the per-occurrence geometric binding, distinct from the type-level `IfcMaterialLayerSet`/`IfcMaterialProfileSet` the `Composition/material#MATERIAL_COMPOSITION` set carries — so two occurrences sharing one layer set carry two `Associate` edges with two `MaterialUsage` payloads, the composition shared once; the `LayerSet` usage's `ReferenceExtent` (the layer-set size perpendicular to the layers a host materializes the buildup against when the reference line does not bisect it) rides the case as a bare `NaN`-when-unset scalar the way the `ProfileSet` usage's does, so an asymmetric wall finish is never dropped at ingest; the neutral `LayerSetDirection`/`DirectionSense` enums and the `CardinalPoint` `[SmartEnum<int>]` carry the geometric parameters host-neutral, the `ProfileSet.Of` factory admitting the raw IFC integer reference through `CardinalPoint.Of` — the `TryGet` bridge over the GeometryGym `IfcCardinalPointReference` 0..19 reference grid (the bounding-box `1..9`, the unset `0`, the centroidal/shear references `10..19` a non-rectangular section places on), railing `ElementFault.ValueRejected` on an out-of-grid integer and forcing every admission through `Of` via the private ctor — so a downstream `IfcMaterialProfileSetUsage` only ever receives a resolved grid position, the host materializing the layer offsets and the profile placement from the usage at the app root.
-- [UNIFORM_ACCESSOR_SURFACE]: the union carries a uniform consumer surface so a `Rasm.Persistence` `Query` topology pass and a `Version` 3-way `StructuralMerge` read an edge WITHOUT a union switch — `Kind` (the neutral `RelationshipKind` case token persisted as a flat edge column and grouped on in merge), `Relating`/`Related`/`Endpoints`/`Members`/`DirectedPairs` (the endpoint and adjacency projections a topology view and an orphan/cascade sweep read), `IsContainment` (the spatial-structure predicate), and `ToCanonicalBytes(tolerance)` (the standalone edge content key a content-3-way merge diffs on under the model tolerance, the SAME projection `CanonicalBytes(writer)` composes into the graph address — the `Generic` arm's measure attributes quantizing to `Header.Tolerance`); the two-level discrimination keeps `Kind` (case) on the base and `SubKind` (flavor) on each case, so the consumer's `RelationshipKind`/`.Kind`/`.IsContainment` shape resolves to the seam's actual union rather than re-deriving a parallel discriminant.
+- [UNIFORM_ACCESSOR_SURFACE]: the union carries a uniform consumer surface so a `Rasm.Persistence` `Query` topology pass and a `Version` 3-way `StructuralMerge` read an edge WITHOUT a union switch — `Kind` (the neutral `RelationshipKind` case token persisted as a flat edge column and grouped on in merge, projected through the generated `Map` because every arm is a precomputed constant row), `Relating`/`Related`/`Endpoints`/`DirectedPairs` (the endpoint and adjacency projections a topology view reads, ALL derived from the one private `Ends` case walk — the primary relating/related/realizing correspondence declared once, so the accessor family cannot drift case-by-case) and `Members` (that `Ends`-derived reachability set UNIONED with a `Generic` edge's `PropertyValue.References` attribute-buried ids the orphan/cascade sweep and the incidence index read), `IsContainment` (the spatial-structure predicate), and `ToCanonicalBytes(tolerance)` (the standalone edge content key a content-3-way merge diffs on under the model tolerance, the SAME projection `CanonicalBytes(writer)` composes into the graph address — the `Generic` arm's measure attributes quantizing to `Header.Tolerance`); the two-level discrimination keeps `Kind` (case) on the base and `SubKind` (flavor) on each case, so the consumer's `RelationshipKind`/`.Kind`/`.IsContainment` shape resolves to the seam's actual union rather than re-deriving a parallel discriminant.

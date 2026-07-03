@@ -70,8 +70,10 @@ class MeshFrame(Struct, frozen=True):
 def _frame(extract: _Extract) -> RuntimeRail[MeshFrame]:
     canonical = np.ascontiguousarray(extract.points, dtype="float64")
     return ContentIdentity.of("mesh", canonical.tobytes()).map(
-        lambda points: MeshFrame(points, len(canonical), extract.cell_blocks,
-            len(extract.point_data), len(extract.cell_data), len(extract.field_data)))
+        lambda points: MeshFrame(
+            points, len(canonical), extract.cell_blocks, len(extract.point_data), len(extract.cell_data), len(extract.field_data)
+        )
+    )
 
 
 def _meshio_extract(mesh: "meshio.Mesh") -> _Extract:
@@ -79,9 +81,11 @@ def _meshio_extract(mesh: "meshio.Mesh") -> _Extract:
         points=np.asarray(mesh.points),
         cell_blocks=tuple(mesh.cells_dict.keys()),
         point_data={name: np.asarray(array) for name, array in mesh.point_data.items()},
-        cell_data={f"{name}.{cell_type}": np.asarray(array)
-                   for name, per_type in mesh.cell_data_dict.items() for cell_type, array in per_type.items()},
-        field_data={name: np.asarray(array) for name, array in mesh.field_data.items()})
+        cell_data={
+            f"{name}.{cell_type}": np.asarray(array) for name, per_type in mesh.cell_data_dict.items() for cell_type, array in per_type.items()
+        },
+        field_data={name: np.asarray(array) for name, array in mesh.field_data.items()},
+    )
 
 
 def _trimesh_extract(surface: "trimesh.Trimesh") -> _Extract:
@@ -97,7 +101,8 @@ def _trimesh_extract(surface: "trimesh.Trimesh") -> _Extract:
         cell_blocks=("triangle",) if len(surface.faces) else (),
         point_data=color,
         cell_data={"triangle": np.asarray(surface.faces)} if len(surface.faces) else {},
-        field_data={})
+        field_data={},
+    )
 
 
 # A per-vertex aux stack (`normal`/`color`) is emitted only when EVERY object-table mesh carries it,
@@ -116,13 +121,18 @@ def _rhino3dm_extract(model: "rhino3dm.File3dm") -> _Extract:
         points=np.concatenate(points) if points else np.empty((0, 3), dtype="float64"),
         cell_blocks=tuple(sorted(blocks)),
         point_data={name: stack for name, stack in (("normal", normals), ("color", colors)) if stack is not None},
-        cell_data={}, field_data={})
+        cell_data={},
+        field_data={},
+    )
 
 
 def _stack(meshes: list["rhino3dm.Mesh"], rows: "Callable[[rhino3dm.Mesh], list[tuple[float, ...]]]", dtype: str) -> np.ndarray | None:
     per_mesh = [rows(mesh) for mesh in meshes]
-    return (np.concatenate([np.array(rs, dtype=dtype) for rs in per_mesh])
-            if meshes and all(len(rs) == len(mesh.Vertices) for rs, mesh in zip(per_mesh, meshes, strict=True)) else None)
+    return (
+        np.concatenate([np.array(rs, dtype=dtype) for rs in per_mesh])
+        if meshes and all(len(rs) == len(mesh.Vertices) for rs, mesh in zip(per_mesh, meshes, strict=True))
+        else None
+    )
 
 
 class _Backend(Struct, frozen=True):
@@ -167,20 +177,46 @@ def _rhino3dm_export(model: "rhino3dm.File3dm", out: ResourceRef, fmt: str) -> N
 # `ReadError`/`WriteError` codec roots. The tuple `catch` is the `reliability/faults#FAULT` `boundary`
 # widening (`type[Exception] | tuple[...]`) the `except` clause accepts natively.
 _BACKEND: Final[Map[str, _Backend]] = Map.of_seq([
-    ("rhino3dm", _Backend(_rhino3dm_load, _rhino3dm_extract, _rhino3dm_export,
-        lambda model: model.Settings.ModelUnitSystem.name.lower(), (FileNotFoundError, OSError), frozenset({".3dm"}))),
-    ("trimesh", _Backend(_trimesh_load, _trimesh_extract,
-        lambda mesh, out, fmt: mesh.export(str(out.path), file_type=fmt),
-        lambda mesh: mesh.units or "m", (ValueError, OSError), frozenset({".stl", ".obj", ".ply", ".glb", ".gltf", ".off", ".3mf"}))),
-    ("meshio", _Backend(_meshio_load, _meshio_extract,
-        lambda mesh, out, fmt: meshio.write(str(out.path), mesh, file_format=fmt),
-        lambda _: "m", (meshio.ReadError, meshio.WriteError), frozenset(meshio.extension_to_filetypes.keys()))),
+    (
+        "rhino3dm",
+        _Backend(
+            _rhino3dm_load,
+            _rhino3dm_extract,
+            _rhino3dm_export,
+            lambda model: model.Settings.ModelUnitSystem.name.lower(),
+            (FileNotFoundError, OSError),
+            frozenset({".3dm"}),
+        ),
+    ),
+    (
+        "trimesh",
+        _Backend(
+            _trimesh_load,
+            _trimesh_extract,
+            lambda mesh, out, fmt: mesh.export(str(out.path), file_type=fmt),
+            lambda mesh: mesh.units or "m",
+            (ValueError, OSError),
+            frozenset({".stl", ".obj", ".ply", ".glb", ".gltf", ".off", ".3mf"}),
+        ),
+    ),
+    (
+        "meshio",
+        _Backend(
+            _meshio_load,
+            _meshio_extract,
+            lambda mesh, out, fmt: meshio.write(str(out.path), mesh, file_format=fmt),
+            lambda _: "m",
+            (meshio.ReadError, meshio.WriteError),
+            frozenset(meshio.extension_to_filetypes.keys()),
+        ),
+    ),
 ])
 
 _EXT: Final[frozendict[str, str]] = frozendict(
     {ext: "meshio" for ext in _BACKEND["meshio"].exts}
     | {ext: "trimesh" for ext in _BACKEND["trimesh"].exts}
-    | {ext: "rhino3dm" for ext in _BACKEND["rhino3dm"].exts})
+    | {ext: "rhino3dm" for ext in _BACKEND["rhino3dm"].exts}
+)
 
 
 @tagged_union(frozen=True)
@@ -202,8 +238,7 @@ class MeshBackend:
 
 def _column(array: np.ndarray) -> pa.Array:
     flat = np.ascontiguousarray(array)
-    return (pa.array(flat) if flat.ndim == 1
-            else pa.FixedSizeListArray.from_arrays(pa.array(flat.reshape(-1)), flat.shape[1]))
+    return pa.array(flat) if flat.ndim == 1 else pa.FixedSizeListArray.from_arrays(pa.array(flat.reshape(-1)), flat.shape[1])
 
 
 def _columns(arrays: Arrays) -> pa.Table:
@@ -221,10 +256,22 @@ class MeshReceipt(Struct, frozen=True):
     units: str
 
     def contribute(self) -> Iterator[Receipt]:
-        yield Receipt.of("mesh", ("emitted", self.content_key.hex,
-            {"backend": self.backend, "points": self.point_count, "blocks": ",".join(self.cell_blocks),
-             "point_arrays": self.point_arrays, "cell_arrays": self.cell_arrays,
-             "field_arrays": self.field_arrays, "units": self.units}))
+        yield Receipt.of(
+            "mesh",
+            (
+                "emitted",
+                self.content_key.hex,
+                {
+                    "backend": self.backend,
+                    "points": self.point_count,
+                    "blocks": ",".join(self.cell_blocks),
+                    "point_arrays": self.point_arrays,
+                    "cell_arrays": self.cell_arrays,
+                    "field_arrays": self.field_arrays,
+                    "units": self.units,
+                },
+            ),
+        )
 
 
 class MeshPayload(Struct, frozen=True):
@@ -255,8 +302,7 @@ class MeshPayload(Struct, frozen=True):
         def run() -> "RuntimeRail[tuple[pa.Table, QueryReceipt]]":
             extract = row.extract(row.load(ref))
             table = _columns({**extract.point_data, **extract.cell_data})
-            return QueryReceipt.railed(self.backend.tag, self.content_key.hex, table).map(
-                lambda receipt: (table, receipt))
+            return QueryReceipt.railed(self.backend.tag, self.content_key.hex, table).map(lambda receipt: (table, receipt))
 
         with _TRACER.start_as_current_span("mesh.arrays", attributes={"rasm.mesh.backend": self.backend.tag}):
             return boundary("mesh.arrays", run, catch=row.fault).bind(lambda rail: rail)
@@ -281,13 +327,13 @@ class MeshPayload(Struct, frozen=True):
         return self._emit(ref, out, out.path.suffix.lstrip("."), "mesh.write")
 
     def contribute(self) -> Iterator[Receipt]:
-        return MeshReceipt(self.backend.tag, self.content_key, self.point_count, self.cell_blocks,
-            self.point_arrays, self.cell_arrays, self.field_arrays, self.units).contribute()
+        return MeshReceipt(
+            self.backend.tag, self.content_key, self.point_count, self.cell_blocks, self.point_arrays, self.cell_arrays, self.field_arrays, self.units
+        ).contribute()
 
     @classmethod
     def _build(cls, backend: MeshBackend, frame: MeshFrame, units: str) -> "MeshPayload":
-        return cls(backend, frame.points, frame.point_count, frame.cell_blocks,
-            frame.point_arrays, frame.cell_arrays, frame.field_arrays, units)
+        return cls(backend, frame.points, frame.point_count, frame.cell_blocks, frame.point_arrays, frame.cell_arrays, frame.field_arrays, units)
 
     def _emit(self, ref: ResourceRef, out: ResourceRef, fmt: str, subject: str) -> "RuntimeRail[ContentKey]":
         row = self.backend.row
@@ -304,9 +350,11 @@ def _frames(reader: "meshio.xdmf.TimeSeriesReader") -> Frames:
     with reader:
         for step in range(reader.num_steps):
             time, point_data, cell_data = reader.read_data(step)
-            yield (float(time), _columns({name: np.asarray(array) for name, array in point_data.items()}),
-                   _columns({f"{name}.{cell_type}": np.asarray(array)
-                             for name, per_type in cell_data.items() for cell_type, array in per_type.items()}))
+            yield (
+                float(time),
+                _columns({name: np.asarray(array) for name, array in point_data.items()}),
+                _columns({f"{name}.{cell_type}": np.asarray(array) for name, per_type in cell_data.items() for cell_type, array in per_type.items()}),
+            )
 ```
 
 ## [03]-[POINTCLOUD]
@@ -356,8 +404,8 @@ class PointBounds(Struct, frozen=True):
         # box admits every depth (the catalogue "2D bounds skip Z filtering" outcome) without the
         # `ensure_3d` 2D-promotion, which is a pure no-op over an already-3D `mins`/`maxs` pair.
         return laspy.copc.Bounds(
-            mins=np.array([self.minx, self.miny, self.minz], dtype="float64"),
-            maxs=np.array([self.maxx, self.maxy, self.maxz], dtype="float64"))
+            mins=np.array([self.minx, self.miny, self.minz], dtype="float64"), maxs=np.array([self.maxx, self.maxy, self.maxz], dtype="float64")
+        )
 
 
 @tagged_union(frozen=True)
@@ -397,8 +445,7 @@ def _to_arrow(record: Record) -> pa.Table:
 # The one point-cloud emitted-phase evidence both the content-keyed table and the frozen owner
 # contribute, native scalars the receipts `Encoder(enc_hook=repr)` serializes without a `str()` coerce.
 def _pointcloud_receipt(content_key: ContentKey, point_count: int, point_format: int, crs_wkt: str) -> Iterator[Receipt]:
-    yield Receipt.of("pointcloud", ("emitted", content_key.hex,
-        {"points": point_count, "format": point_format, "crs": crs_wkt}))
+    yield Receipt.of("pointcloud", ("emitted", content_key.hex, {"points": point_count, "format": point_format, "crs": crs_wkt}))
 
 
 class PointRecordTable(Struct, frozen=True):
@@ -412,8 +459,10 @@ class PointRecordTable(Struct, frozen=True):
     def of(cls, record: Record, crs_wkt: str = "") -> "RuntimeRail[PointRecordTable]":
         coords = _coords(record)
         return ContentIdentity.of("pointcloud", coords.tobytes()).map(
-            lambda key: cls(table=_to_arrow(record), point_count=len(coords),
-                point_format=int(record.point_format.id), crs_wkt=crs_wkt, content_key=key))
+            lambda key: cls(
+                table=_to_arrow(record), point_count=len(coords), point_format=int(record.point_format.id), crs_wkt=crs_wkt, content_key=key
+            )
+        )
 
     def contribute(self) -> Iterator[Receipt]:
         return _pointcloud_receipt(self.content_key, self.point_count, self.point_format, self.crs_wkt)
@@ -430,8 +479,14 @@ class PointCloud(Struct, frozen=True):
         def run() -> RuntimeRail[PointCloud]:
             data = _read(str(ref.path), selection)
             return ContentIdentity.of("pointcloud", _coords(data).tobytes()).map(
-                lambda key: cls(content_key=key, point_count=int(data.header.point_count),
-                    point_format=int(data.header.point_format.id), crs_wkt=str(data.header.parse_crs() or "")))
+                lambda key: cls(
+                    content_key=key,
+                    point_count=int(data.header.point_count),
+                    point_format=int(data.header.point_format.id),
+                    crs_wkt=str(data.header.parse_crs() or ""),
+                )
+            )
+
         with _TRACER.start_as_current_span("pointcloud.read"):
             return boundary("pointcloud.read", run, catch=laspy.LaspyException).bind(lambda rail: rail)
 
@@ -439,14 +494,17 @@ class PointCloud(Struct, frozen=True):
     async def subset(ref: ResourceRef, query: CopcQuery, selection: Selection = None) -> "RuntimeRail[PointRecordTable]":
         path = str(ref.path)
         remote = path.startswith(("http://", "https://"))
+
         def run() -> RuntimeRail[PointRecordTable]:
             reader = _open_copc(path, selection)
             return PointRecordTable.of(query.query(reader), crs_wkt=str(reader.header.parse_crs() or ""))
+
         with _TRACER.start_as_current_span("pointcloud.subset", attributes={"rasm.pointcloud.remote": remote}):
             railed_rail = (
                 await guarded(RetryClass.HTTP, anyio.to_thread.run_sync, run, subject="pointcloud.subset")
                 if remote
-                else await async_boundary("pointcloud.subset", lambda: anyio.to_thread.run_sync(run), catch=laspy.LaspyException))
+                else await async_boundary("pointcloud.subset", lambda: anyio.to_thread.run_sync(run), catch=laspy.LaspyException)
+            )
             return railed_rail.bind(lambda rail: rail)
 
     @staticmethod
@@ -454,6 +512,7 @@ class PointCloud(Struct, frozen=True):
         def run() -> RuntimeRail[PointRecordTable]:
             data = _read(str(ref.path), selection)
             return PointRecordTable.of(data, crs_wkt=str(data.header.parse_crs() or ""))
+
         with _TRACER.start_as_current_span("pointcloud.to_arrow"):
             return boundary("pointcloud.to_arrow", run, catch=laspy.LaspyException).bind(lambda rail: rail)
 
@@ -463,6 +522,7 @@ class PointCloud(Struct, frozen=True):
             data = laspy.read(str(source.path))
             _WRITE[mode](data, str(out.path))
             return ContentIdentity.of("pointcloud.write", out.path.read_bytes())
+
         with _TRACER.start_as_current_span("pointcloud.write", attributes={"rasm.pointcloud.compress": mode}):
             return boundary("pointcloud.write", run, catch=laspy.LaspyException).bind(lambda rail: rail)
 

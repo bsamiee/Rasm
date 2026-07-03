@@ -54,10 +54,10 @@ type Constraints = "tuple[opt.LinearConstraint | opt.NonlinearConstraint, ...]" 
 # construction rather than indexing a phantom `object` tuple by magic position.
 type Carried = (
     tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]  # linear: cost, A_ub, b_ub, A_eq, b_eq, box
-    | tuple[np.ndarray, np.ndarray, np.ndarray, Constraints]                       # integer: cost, integrality, box, constraints
-    | tuple[Objective, np.ndarray, "GlobalMethod"]                                 # stochastic: objective, box, engine
-    | tuple[Objective, np.ndarray, np.ndarray, Constraints]                        # constrained: objective, x0, box, constraints
-    | tuple[np.ndarray]                                                            # assignment: cost matrix
+    | tuple[np.ndarray, np.ndarray, np.ndarray, Constraints]  # integer: cost, integrality, box, constraints
+    | tuple[Objective, np.ndarray, "GlobalMethod"]  # stochastic: objective, box, engine
+    | tuple[Objective, np.ndarray, np.ndarray, Constraints]  # constrained: objective, x0, box, constraints
+    | tuple[np.ndarray]  # assignment: cost matrix
 )
 
 
@@ -186,32 +186,38 @@ _SEED = 0
 # `0/1/2/3` agree across the `linprog` and `milp` exit-code tables; code `4` diverges — `linprog`
 # "numerical difficulties", `milp` "other" — and neither is the matrix-conditioning `conlim` verdict
 # `solvers/receipt.md#RECEIPT` reserves `ILL_CONDITIONED` for, so both fold the honest `OTHER`.
-_PROGRAM_STATUS: FrozenDict[int, SolveStatus] = FrozenDict(
-    {0: SolveStatus.SUCCESS, 1: SolveStatus.MAX_STEPS, 2: SolveStatus.INFEASIBLE, 3: SolveStatus.UNBOUNDED, 4: SolveStatus.OTHER}
-)
+_PROGRAM_STATUS: FrozenDict[int, SolveStatus] = FrozenDict({
+    0: SolveStatus.SUCCESS,
+    1: SolveStatus.MAX_STEPS,
+    2: SolveStatus.INFEASIBLE,
+    3: SolveStatus.UNBOUNDED,
+    4: SolveStatus.OTHER,
+})
 
 
 # --- [MODELS] ------------------------------------------------------------------------------
+
 
 class ProgramSolve(Struct, frozen=True):  # GC-tracked: carries the host `OptimizeResult` and assignment tuple
     # the raw host carrier and nothing derived: the iterate and objective are read LAZILY off the
     # carrier only past `Termination.adjudicate`, so an infeasible `linprog` whose `result.x`/`result.fun`
     # are `None` adjudicates to `SolveStatus.INFEASIBLE` rather than crashing a `float(None)` into the fence.
-    result: "opt.OptimizeResult | None"        # host result, or `None` for the closed-form assignment route
+    result: "opt.OptimizeResult | None"  # host result, or `None` for the closed-form assignment route
     assignment: "tuple[np.ndarray, np.ndarray] | None"  # the `linear_sum_assignment` row/column pair, else `None`
 
 
 class ProgramRoute(Struct, frozen=True):  # GC-tracked: carries the entry/iterate/carriers closures
     # the buffer-and-key projection is NOT a route column: `_project` owns every per-tag `Carried`
     # shape in one `match`, so the row carries only what genuinely varies per route.
-    entry: Callable[[Carried, int], ProgramSolve]                         # binds the route's `scipy.optimize` entrypoint, returning the RAW carrier
+    entry: Callable[[Carried, int], ProgramSolve]  # binds the route's `scipy.optimize` entrypoint, returning the RAW carrier
     iterate: Callable[[Carried, ProgramSolve], tuple[np.ndarray, float]]  # reads (x, objective) off the SUCCESS carrier
-    carriers: Callable[[Carried, ProgramSolve], Constraints]             # reifies the `LinearConstraint`/`NonlinearConstraint` fold inputs
-    termination: Termination                                             # the static result-shape adjudicator policy for this route
-    seeded: bool                                                         # whether the `rng` seed alters the iterate, so it folds into the content key
+    carriers: Callable[[Carried, ProgramSolve], Constraints]  # reifies the `LinearConstraint`/`NonlinearConstraint` fold inputs
+    termination: Termination  # the static result-shape adjudicator policy for this route
+    seeded: bool  # whether the `rng` seed alters the iterate, so it folds into the content key
 
 
 # --- [OPERATIONS] --------------------------------------------------------------------------
+
 
 def solve(intent: ProgramIntent, *, seed: int = _SEED) -> "RuntimeRail[OutcomeReceipt]":
     # `boundary` fences the scipy solve (raising routes, the gated `ImportError`); the railed
@@ -289,6 +295,7 @@ def _violation(constraints: Constraints, x: np.ndarray) -> float:
 
 # --- [COMPOSITION] -------------------------------------------------------------------------
 
+
 def _entry_linear(fields: Carried, _: int) -> ProgramSolve:
     from scipy.optimize import linprog
 
@@ -348,10 +355,7 @@ def _carriers_linear(fields: Carried, _: ProgramSolve) -> Constraints:
     from scipy.optimize import LinearConstraint
 
     _cost, ub_mat, ub_rhs, eq_mat, eq_rhs, _box = fields
-    return (
-        *(LinearConstraint(ub_mat, -np.inf, ub_rhs),) * bool(ub_rhs.size),
-        *(LinearConstraint(eq_mat, eq_rhs, eq_rhs),) * bool(eq_rhs.size),
-    )
+    return (*(LinearConstraint(ub_mat, -np.inf, ub_rhs),) * bool(ub_rhs.size), *(LinearConstraint(eq_mat, eq_rhs, eq_rhs),) * bool(eq_rhs.size))
 
 
 def _no_carriers(_: Carried, __: ProgramSolve) -> Constraints:
@@ -368,8 +372,10 @@ def _project(intent: ProgramIntent) -> Carried:
         case ProgramIntent(tag="linear", linear=(c, a_ub, b_ub, a_eq, b_eq, bounds)):
             return (
                 np.asarray(c, dtype=float),
-                np.atleast_2d(np.asarray(a_ub, dtype=float)), np.asarray(b_ub, dtype=float),
-                np.atleast_2d(np.asarray(a_eq, dtype=float)), np.asarray(b_eq, dtype=float),
+                np.atleast_2d(np.asarray(a_ub, dtype=float)),
+                np.asarray(b_ub, dtype=float),
+                np.atleast_2d(np.asarray(a_eq, dtype=float)),
+                np.asarray(b_eq, dtype=float),
                 np.asarray(bounds, dtype=float),
             )
         case ProgramIntent(tag="integer", integer=(c, integrality, bounds, constraints)):
@@ -384,15 +390,13 @@ def _project(intent: ProgramIntent) -> Carried:
             assert_never(unreachable)
 
 
-_PROGRAM_ROUTES: FrozenDict[str, ProgramRoute] = FrozenDict(
-    {
-        "linear": ProgramRoute(_entry_linear, _iterate_host, _carriers_linear, Termination.CODED, False),
-        "integer": ProgramRoute(_entry_integer, _iterate_host, _fwd_carriers, Termination.CODED, False),
-        "stochastic": ProgramRoute(_entry_stochastic, _iterate_host, _no_carriers, Termination.FLAGGED, True),
-        "constrained": ProgramRoute(_entry_constrained, _iterate_host, _fwd_carriers, Termination.FLAGGED, False),
-        "assignment": ProgramRoute(_entry_assignment, _iterate_assignment, _no_carriers, Termination.FEASIBLE, False),
-    }
-)
+_PROGRAM_ROUTES: FrozenDict[str, ProgramRoute] = FrozenDict({
+    "linear": ProgramRoute(_entry_linear, _iterate_host, _carriers_linear, Termination.CODED, False),
+    "integer": ProgramRoute(_entry_integer, _iterate_host, _fwd_carriers, Termination.CODED, False),
+    "stochastic": ProgramRoute(_entry_stochastic, _iterate_host, _no_carriers, Termination.FLAGGED, True),
+    "constrained": ProgramRoute(_entry_constrained, _iterate_host, _fwd_carriers, Termination.FLAGGED, False),
+    "assignment": ProgramRoute(_entry_assignment, _iterate_assignment, _no_carriers, Termination.FEASIBLE, False),
+})
 ```
 
 ## [03]-[RESEARCH]

@@ -116,7 +116,7 @@ class ArtifactFileSystem(Protocol):
 
     @property
     def transaction(self) -> contextlib.AbstractContextManager[object]:
-        """Return a backend write transaction, or nullcontext when unsupported."""
+        """A backend write transaction, or nullcontext when unsupported."""
         return contextlib.nullcontext()
 
 
@@ -197,6 +197,10 @@ PY_ARTIFACT_ROOTS: Final[dict[str, str]] = {
 PY_COVERAGE_FILES: Final[dict[str, str]] = {fmt: f"{PY_ARTIFACT_ROOTS['coverage']}/coverage.{fmt}" for fmt in ("json", "xml", "lcov")}
 # Stryker writes a sandbox (`.stryker-tmp`, cwd-relative) and reports; the staged work root keeps both under `.artifacts`.
 CS_ARTIFACT_ROOTS: Final[dict[str, str]] = {"stryker": f"{_ARTIFACTS}/csharp/stryker/work"}
+# One shared dotnet build closure for the static and test rails: per-claim or per-sha trees each hold a full
+# solution build (~16GB), so any second key doubles the disk for zero isolation — the exclusive build lease
+# already serializes writers, and the artifacts layout separates projects and pivots inside one tree.
+DOTNET_BUILD_CLOSURE: Final[str] = "dotnet"
 
 # --- [BOUNDARIES] -----------------------------------------------------------------------
 
@@ -271,12 +275,15 @@ def _parse_exec_target(value: object) -> Local | Ssh:
     match value:
         case Local() | Ssh():
             return value
-        case "" | None | {} | {"host": ""}:
+        case "" | None:
             return Local()
         case str() as url:
             return Ssh.parse(url)
-        case {"host": str()} as fields:
+        case {"host": str() as host} as fields if host:
             return Ssh.model_validate(fields)
+        case {}:
+            # A hostless or empty round-tripped dump is the local case; bare `{}` matches every mapping, so this arm stays below the host arm.
+            return Local()
         case _:
             raise ValueError(f"exec_target must be '' (local), an 'ssh://[user@]host[:port]' URL, or an ExecTarget value: {value!r}")
 
@@ -620,7 +627,10 @@ class AssaySettings(BaseSettings):  # noqa: PLR0904  # AssaySettings is the cent
                 match _parse_exec_target(raw.get("exec_target", "")):
                     case Ssh() as ssh:
                         overrides = {
-                            field: raw[key] for field, key in (("known_hosts", "exec_known_hosts"), ("workroot", "exec_workroot")) if key in raw
+                            field: value
+                            for field, key in (("known_hosts", "exec_known_hosts"), ("workroot", "exec_workroot"))
+                            for value in (raw.get(key),)
+                            if key in raw
                         }
                         return {**raw, "exec_target": ssh.model_copy(update=overrides) if overrides else ssh}
                     case local:
@@ -708,7 +718,7 @@ class AssaySettings(BaseSettings):  # noqa: PLR0904  # AssaySettings is the cent
 
     @property
     def local_root(self) -> UPath:
-        """Return the local workspace root usable as a subprocess cwd.
+        """The local workspace root usable as a subprocess cwd.
 
         Raises:
             ValueError: When root is not a local file path.

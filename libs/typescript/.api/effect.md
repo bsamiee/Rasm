@@ -1,517 +1,193 @@
-# [API_CATALOGUE] effect
+# [TS_BRANCH_API_EFFECT]
 
-`effect` supplies the universal computation substrate: the three-channel `Effect<A, E, R>` type, the `Layer` dependency-injection graph, `ManagedRuntime` for app-boundary discharge, typed concurrency primitives (`Fiber`, `Ref`, `SubscriptionRef`, `Schedule`), push/pull `Stream`, the `Schema` wire-codec and domain-shape system, metric and tracing observability, and the closed value-algebra (`Data.taggedEnum`, `Match`, `Option`, `Either`, `Exit`, `Config`). Deep imports per concept (`effect/Effect`, `effect/Layer`, …) with a barrel re-export at `effect`; most combinators carry dual data-first/data-last overloads — the data-last curried arm is the `pipe`-composable form shown throughout.
+`effect` is the branch standard library and the one runtime substrate every `libs/typescript` folder types against: the `Effect<A, E, R>` carrier (typed success, typed error channel, typed requirement context), `Schema` (parse-not-validate decode/encode with derivation to `Arbitrary`/`JSONSchema`/`Pretty`/`Equivalence`), `Context`/`Layer`/`Runtime` (dependency injection and composition roots), `Match`/`Data` (tagged-union dispatch and closed families), `Stream`/`Sink`/`Channel` (pull-based backpressured streaming), the concurrency substrate (`Fiber`, `Ref`/`SubscriptionRef`, `Deferred`, `Queue`/`PubSub`/`Mailbox`, `Semaphore`, `STM`), `Schedule` (recurrence algebra for retry/repeat), the observability trio (`Metric`, `Logger`, `Tracer`), `Config`/`ConfigProvider` (validated environment ingress), the immutable collection family (`Chunk`/`HashMap`/`HashSet`/`Array`/`Record`/`SortedMap`), the caching and batching surface (`Cache`, `RcMap`, `Pool`, `RateLimiter`, `Request`/`RequestResolver`), and the interop primitives (`Option`, `Either`, `Cause`, `Exit`, `Redacted`, `Encoding`, `Duration`, `DateTime`). It is isomorphic and dependency-free — one carrier that composes monadically for dependent steps and applicatively for independent accumulation, with cross-cutting capability (decode, span, retry, lifetime) attaching at the seam through effect transformers rather than being threaded by hand.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `effect`
-- package: `effect`
-- module: `effect/Effect`, `effect/Layer`, `effect/Runtime`, `effect/ManagedRuntime`, `effect/Scope`, `effect/Fiber`, `effect/Ref`, `effect/SubscriptionRef`, `effect/Schedule`, `effect/Stream`, `effect/Schema`, `effect/Metric`, `effect/Logger`, `effect/Tracer`, `effect/Data`, `effect/Match`, `effect/Array`, `effect/Order`, `effect/Option`, `effect/Either`, `effect/Exit`, `effect/Cause`, `effect/Config`, `effect/Duration`, `effect/Context`
-- asset: runtime library
-- rail: computation, dependency-injection, stream, schema, observability, value-algebra
-
----
-
-## [02]-[CORE_COMPUTATION]
-
-### Effect
-
-```ts
-// effect/Effect
-export interface Effect<out A, out E = never, out R = never>
-  extends Effect.Variance<A, E, R>, Pipeable { /* + Symbol.iterator for gen do-notation */ }
-
-export declare namespace Effect {
-  type Success<T>  // A
-  type Error<T>    // E
-  type Context<T>  // R
-}
-```
-
-`A` = success, `E` = typed error channel, `R` = required context (services). Three-channel discipline: domain operations declare failures in `E` and dependencies in `R`. Generator do-notation via `Effect.gen(function*(){ … })`.
-
-Constructors:
-
-```ts
-export declare const succeed:   <A>(value: A) => Effect<A>
-export declare const fail:      <E>(error: E) => Effect<never, E>
-export declare const sync:      <A>(thunk: LazyArg<A>) => Effect<A>
-export declare const die:       (defect: unknown) => Effect<never>
-export declare const gen:       { /* (f: () => Generator<…>) => Effect<…> */ }
-```
-
-Transformation (data-last arm):
-
-```ts
-export declare const map:      <A, B>(f: (a: A) => B) => <E, R>(self: Effect<A, E, R>) => Effect<B, E, R>
-export declare const flatMap:  <A, B, E2, R2>(f: (a: A) => Effect<B, E2, R2>) => <E, R>(self: Effect<A, E, R>) => Effect<B, E | E2, R | R2>
-export declare const tap:      <A, X, E2, R2>(f: (a: A) => Effect<X, E2, R2>) => <E, R>(self: Effect<A, E, R>) => Effect<A, E | E2, R | R2>
-export declare const mapError: <E, E2>(f: (e: E) => E2) => <A, R>(self: Effect<A, E, R>) => Effect<A, E2, R>
-```
-
-Error rails (typed recovery; never `try/catch` in domain logic):
-
-```ts
-export declare const catchAll:  <E, A2, E2, R2>(f: (e: E) => Effect<A2, E2, R2>) => <A, R>(self: Effect<A, E, R>) => Effect<A | A2, E2, R | R2>
-export declare const catchTag:  <K extends E["_tag"] & string, E, A1, E1, R1>(k: K, f: (e: …) => Effect<A1, E1, R1>) => <A, R>(self: Effect<A, E, R>) => Effect<…>
-export declare const catchTags: <Cases>(cases: Cases) => <A, E, R>(self: Effect<A, E, R>) => Effect<…>
-```
-
-Concurrency:
-
-```ts
-export declare const all:     <const Arg extends Iterable<Effect<any, any, any>> | Record<string, Effect<any, any, any>>, O extends Options>(arg: Arg, options?: O) => Effect<…>
-export declare const forEach: <A, B, E, R>(self: Iterable<A>, f: (a: A, i: number) => Effect<B, E, R>, options?: { concurrency?: Concurrency }) => Effect<Array<B>, E, R>
-export declare const fork:    <A, E, R>(self: Effect<A, E, R>) => Effect<Fiber.RuntimeFiber<A, E>, never, R>
-```
-
-Resource and scope:
-
-```ts
-export declare const scoped:          <A, E, R>(effect: Effect<A, E, R>) => Effect<A, E, Exclude<R, Scope.Scope>>
-export declare const acquireRelease:  <A, E, R, X, R2>(acquire: Effect<A, E, R>, release: (a: A, exit: Exit.Exit<unknown, unknown>) => Effect<X, never, R2>) => Effect<A, E, R | R2 | Scope.Scope>
-```
-
-Resilience and observability:
-
-```ts
-export declare const retry:        <E, R2>(policy: Schedule.Schedule<any, E, R2>) => <A, R>(self: Effect<A, E, R>) => Effect<A, E, R | R2>
-export declare const timeout:      (duration: Duration.DurationInput) => <A, E, R>(self: Effect<A, E, R>) => Effect<A, E | Cause.TimeoutException, R>
-export declare const withSpan:     (name: string, options?: …) => <A, E, R>(self: Effect<A, E, R>) => Effect<A, E, Exclude<R, Tracer.ParentSpan>>
-export declare const annotateLogs: (key: string, value: unknown) => <A, E, R>(self: Effect<A, E, R>) => Effect<A, E, R>
-```
-
-Context access and injection:
-
-```ts
-export declare const serviceOption:   <I, S>(tag: Context.Tag<I, S>) => Effect<Option.Option<S>>
-export declare const serviceOptional: <I, S>(tag: Context.Tag<I, S>) => Effect<S, Cause.NoSuchElementException>
-export declare const provide:         <RIn, E, ROut>(layer: Layer<ROut, E, RIn>) => <A, E1, R>(self: Effect<A, E1, R>) => Effect<A, E | E1, RIn | Exclude<R, ROut>>
-export declare const provideService:  <I, S>(tag: Context.Tag<I, S>, service: S) => <A, E, R>(self: Effect<A, E, R>) => Effect<A, E, Exclude<R, I>>
-```
-
-App-boundary execution (the only site an `Effect` is discharged):
-
-```ts
-export declare const runFork:        <A, E>(effect: Effect<A, E>, options?: Runtime.RunForkOptions) => Fiber.RuntimeFiber<A, E>
-export declare const runPromise:     <A, E>(effect: Effect<A, E, never>, options?: { readonly signal?: AbortSignal }) => Promise<A>
-export declare const runPromiseExit: <A, E>(effect: Effect<A, E, never>, options?: { readonly signal?: AbortSignal }) => Promise<Exit.Exit<A, E>>
-export declare const runSync:        <A, E>(effect: Effect<A, E>) => A
-```
-
-### Effect.Service
-
-```ts
-export declare const Service: <Self = never>() => [Self] extends [never] ? MissingSelfGeneric : {
-  <const Key extends string, const Make extends {
-    readonly effect: Effect<Service.AllowedType<Key, Make>, any, any>
-                   | ((...args: any) => Effect<Service.AllowedType<Key, Make>, any, any>)
-    readonly dependencies?: ReadonlyArray<Layer.Layer.Any>
-    readonly accessors?: boolean
-  } /* | { scoped } | { sync } | { succeed } */>(key: Key, make: Make): Service.Class<Self, Key, Make>
-}
-```
-
-`Effect.Service` is the closed service-owner pattern: one `Self` brand, one `Key` string, one of `{ effect | scoped | sync | succeed }` plus optional `dependencies`/`accessors`. The generated class is simultaneously the `Tag` and carries a static `Default` Layer.
-
----
-
-## [03]-[CONTEXT_AND_LAYER]
-
-### Context / Tag
-
-```ts
-// effect/Context
-export interface Context<in Services> extends Equal, Pipeable, Inspectable
-export interface Tag<in out Id, in out Value> extends Pipeable, Inspectable
-export interface TagClass<Self, Id extends string, Type> extends Tag<Self, Type>
-
-export declare namespace Tag {
-  type Service<T>     // Value
-  type Identifier<T>  // Id
-}
-
-export declare const GenericTag: <Identifier, Service = Identifier>(key: string) => Tag<Identifier, Service>
-export declare const empty:      () => Context<never>
-export declare const make:       <I, S>(tag: Tag<I, S>, service: Types.NoInfer<S>) => Context<I>
-export declare const add:        <I, S, I2, S2>(self: Context<I>, tag: Tag<I2, S2>, service: S2) => Context<I | I2>
-export declare const get:        <Services, T extends ValidTagsById<Services>>(self: Context<Services>, tag: T) => Tag.Service<T>
-```
-
-Class-style tag: `class Foo extends Context.Tag("Foo")<Foo, FooShape>() {}` produces the canonical identifier-keyed service handle accessed via `yield* Foo` inside `Effect.gen`.
-
-### Layer
-
-```ts
-// effect/Layer
-export interface Layer<in ROut, out E = never, out RIn = never>
-  extends Layer.Variance<ROut, E, RIn>, Pipeable
-
-export declare namespace Layer {
-  type Context<T>  // RIn
-  type Error<T>    // E
-  type Success<T>  // ROut
-  type Any
-}
-
-export declare const provide:       <RIn2, E2, ROut2>(that: Layer<RIn2, E2, ROut2>) => <RIn, E, ROut>(self: Layer<ROut, E, RIn>) => Layer<ROut | ROut2, E | E2, Exclude<RIn, ROut2> | RIn2>
-export declare const merge:         <RIn2, E2, ROut2>(that: Layer<RIn2, E2, ROut2>) => <RIn, E, ROut>(self: Layer<ROut, E, RIn>) => Layer<ROut | ROut2, E | E2, RIn | RIn2>
-export declare const effect:        <I, S, E, R>(tag: Context.Tag<I, S>, effect: Effect<Types.NoInfer<S>, E, R>) => Layer<I, E, R>
-export declare const scoped:        <I, S, E, R>(tag: Context.Tag<I, S>, effect: Effect<S, E, R>) => Layer<I, E, Exclude<R, Scope>>
-export declare const scopedDiscard: <E, R>(effect: Effect<unknown, E, R>) => Layer<never, E, Exclude<R, Scope>>
-export declare const succeed:       <I, S>(tag: Context.Tag<I, S>, resource: Types.NoInfer<S>) => Layer<I>
-export declare const empty:         Layer<never>
-```
-
-`Layer<ROut, E, RIn>` is the dependency-graph node: builds `ROut` from `RIn` dependencies, possibly failing with `E`. Layers are memoized so a shared dependency builds once.
-
----
-
-## [04]-[RUNTIME]
-
-### Runtime
-
-```ts
-// effect/Runtime
-export interface Runtime<in R> extends Pipeable {
-  readonly context: Context.Context<R>
-  readonly runtimeFlags: RuntimeFlags.RuntimeFlags
-  readonly fiberRefs: FiberRefs.FiberRefs
-}
-
-export declare const runFork:    <R>(runtime: Runtime<R>) => <A, E>(effect: Effect<A, E, R>, options?: RunForkOptions) => Fiber.RuntimeFiber<A, E>
-export declare const runPromise: <R>(runtime: Runtime<R>) => <A, E>(effect: Effect<A, E, R>, options?: { readonly signal?: AbortSignal }) => Promise<A>
-export declare const runSync:    <R>(runtime: Runtime<R>) => <A, E>(effect: Effect<A, E, R>) => A
-```
-
-### ManagedRuntime
-
-```ts
-// effect/ManagedRuntime
-export interface ManagedRuntime<in R, out ER> extends Effect.Effect<Runtime.Runtime<R>, ER> {
-  readonly memoMap:       Layer.MemoMap
-  readonly runtimeEffect: Effect.Effect<Runtime.Runtime<R>, ER>
-  readonly runtime:       () => Promise<Runtime.Runtime<R>>
-  readonly runFork:       <A, E>(self: Effect<A, E, R>, options?: RunForkOptions) => Fiber.RuntimeFiber<A, E | ER>
-  readonly runPromise:    <A, E>(self: Effect<A, E, R>, options?: { readonly signal?: AbortSignal }) => Promise<A>
-  readonly runSync:       <A, E>(self: Effect<A, E, R>) => A
-  readonly dispose:       () => Promise<void>
-  readonly disposeEffect: Effect<void, ER>
-}
-
-export declare const make: <R, E>(layer: Layer.Layer<R, E, never>, memoMap?: Layer.MemoMap) => ManagedRuntime<R, E>
-```
-
-`ManagedRuntime.make(appLayer)` is the app-root handle constructed once from the assembled Layer graph; `dispose()` runs all scoped finalizers.
-
-### Scope
-
-```ts
-// effect/Scope
-export interface Scope extends Pipeable {
-  readonly [ScopeTypeId]: ScopeTypeId
-  readonly strategy: ExecutionStrategy.ExecutionStrategy
-}
-export interface CloseableScope extends Scope, Pipeable
-
-export declare const Scope:         Context.Tag<Scope, Scope>
-export declare const addFinalizer:  (self: Scope, finalizer: Effect.Effect<unknown>) => Effect.Effect<void>
-export declare const close:         (self: CloseableScope, exit: Exit.Exit<unknown, unknown>) => Effect.Effect<void>
-export declare const make:          (executionStrategy?: ExecutionStrategy.ExecutionStrategy) => Effect.Effect<CloseableScope>
-```
-
----
-
-## [05]-[CONCURRENCY_STATE]
-
-### Fiber
-
-```ts
-// effect/Fiber
-export interface Fiber<out A, out E = never> extends Effect.Effect<A, E>, Fiber.Variance<A, E> {
-  readonly id:              () => FiberId.FiberId
-  readonly status:          Effect<FiberStatus.FiberStatus>
-  readonly await:           Effect<Exit.Exit<A, E>>
-  readonly interruptAsFork: (fiberId: FiberId.FiberId) => Effect<void>
-}
-export interface RuntimeFiber<out A, out E = never> extends Fiber<A, E>, Fiber.RuntimeVariance<A, E>
-```
-
-### Ref / SubscriptionRef
-
-```ts
-// effect/Ref
-export interface Ref<in out A> extends Ref.Variance<A>, Effect.Effect<A>, Readable.Readable<A> {
-  modify<B>(f: (a: A) => readonly [B, A]): Effect<B>
-}
-export declare const make: <A>(value: A) => Effect.Effect<Ref<A>>
-
-// effect/SubscriptionRef
-export interface SubscriptionRef<in out A>
-  extends SubscriptionRef.Variance<A>, Synchronized.SynchronizedRef<A>, Subscribable<A> {
-  readonly changes: Stream.Stream<A>
-}
-export declare const make: <A>(value: A) => Effect.Effect<SubscriptionRef<A>>
-```
-
-`SubscriptionRef.changes` is the subscribable cell bridge each store fold exposes to the atom layer.
-
-### Schedule
-
-```ts
-// effect/Schedule
-export interface Schedule<out Out, in In = unknown, out R = never>
-  extends Schedule.Variance<Out, In, R>, Pipeable
-
-export declare const exponential: (base: Duration.DurationInput, factor?: number) => Schedule<Duration.Duration>
-export declare const recurs:      (n: number) => Schedule<number>
-export declare const union:       <Out2, In2, R2>(that: Schedule<Out2, In2, R2>) => <Out, In, R>(self: Schedule<Out, In, R>) => Schedule<Out | Out2, In & In2, R | R2>
-export declare const addDelay:    <Out>(f: (out: Out) => Duration.DurationInput) => <In, R>(self: Schedule<Out, In, R>) => Schedule<Out, In, R>
-export declare const jittered:    <Out, In, R>(self: Schedule<Out, In, R>) => Schedule<Out, In, R | Random>
-export declare const whileOutput: <Out>(f: Predicate<NoInfer<Out>>) => <In, R>(self: Schedule<Out, In, R>) => Schedule<Out, In, R>
-```
-
-`Schedule` is the typed retry-policy value; stream interruption folds to a `Schedule`, never an improvised loop.
-
----
-
-## [06]-[STREAM]
-
-```ts
-// effect/Stream
-export interface Stream<out A, out E = never, out R = never>
-  extends Stream.Variance<A, E, R>, Pipeable
-
-export declare const fromEffect:   <A, E, R>(effect: Effect.Effect<A, E, R>) => Stream<A, E, R>
-export declare const asyncPush:    <A, E = never, R = never>(register: (emit: Emit.EmitOpsPush<E, A>) => Effect.Effect<unknown, E, R | Scope.Scope>, options?: { readonly bufferSize?: number | "unbounded" }) => Stream<A, E, Exclude<R, Scope.Scope>>
-export declare const asyncScoped:  <A, E = never, R = never>(register: (emit: Emit.Emit<R, E, A, void>) => Effect.Effect<unknown, E, R | Scope.Scope>, bufferSize?: number | "unbounded") => Stream<A, E, Exclude<R, Scope.Scope>>
-export declare const asyncEffect:  <A, E = never, R = never>(register: (emit: Emit.Emit<R, E, A, void>) => Effect.Effect<unknown, E, R>, bufferSize?: number | "unbounded") => Stream<A, E, R>
-export declare const never:        Stream<never>
-export declare const empty:        Stream<never>
-export declare const fail:         <E>(error: E) => Stream<never, E>
-
-export declare const tap:          <A, X, E2, R2>(f: (a: A) => Effect.Effect<X, E2, R2>) => <E, R>(self: Stream<A, E, R>) => Stream<A, E | E2, R | R2>
-export declare const mapEffect:    <A, B, E2, R2>(f: (a: A) => Effect.Effect<B, E2, R2>, options?: { concurrency?: number | "unbounded" }) => <E, R>(self: Stream<A, E, R>) => Stream<B, E | E2, R | R2>
-export declare const retry:        <E, R2>(schedule: Schedule.Schedule<any, E, R2>) => <A, R>(self: Stream<A, E, R>) => Stream<A, E, R | R2>
-
-export declare const runFold:      <S, A>(s: S, f: (s: S, a: A) => S) => <E, R>(self: Stream<A, E, R>) => Effect.Effect<S, E, R>
-export declare const runForEach:   <A, X, E2, R2>(f: (a: A) => Effect.Effect<X, E2, R2>) => <E, R>(self: Stream<A, E, R>) => Effect.Effect<void, E | E2, R | R2>
-```
-
-The canonical store pattern is `Stream.runFold` into an immutable keyed map per store owner, with `Stream.retry(schedule)` for staleness-forward reconnect.
-
----
-
-## [07]-[SCHEMA]
-
-```ts
-// effect/Schema
-export interface Schema<in out A, in out I = A, out R = never>
-  extends Schema.Variance<A, I, R>, Pipeable {
-  readonly Type:    A
-  readonly Encoded: I
-  readonly Context: R
-  readonly ast:     AST.AST
-}
-
-export declare const decodeUnknown:        <A, I, R>(schema: Schema<A, I, R>, options?: ParseOptions) => (u: unknown, overrideOptions?: ParseOptions) => Effect.Effect<A, ParseResult.ParseError, R>
-export declare const decodeUnknownEither:  <A, I>(schema: Schema<A, I, never>, options?: ParseOptions) => (u: unknown, overrideOptions?: ParseOptions) => Either.Either<A, ParseResult.ParseError>
-export declare const decodeUnknownPromise: <A, I>(schema: Schema<A, I, never>, options?: ParseOptions) => (u: unknown, overrideOptions?: ParseOptions) => Promise<A>
-export declare const encodeUnknown:        <A, I, R>(schema: Schema<A, I, R>, options?: ParseOptions) => (u: unknown, overrideOptions?: ParseOptions) => Effect.Effect<I, ParseResult.ParseError, R>
-
-export declare const Class:       <Self = never>(identifier: string) => <Fields extends Struct.Fields>(fieldsOr: Fields | HasFields<Fields>, annotations?: …) => Class<Self, Fields, …>
-export declare const TaggedClass: <Self = never>(identifier?: string) => <Tag extends string, Fields extends Struct.Fields>(tag: Tag, fieldsOr: Fields | HasFields<Fields>, …) => TaggedClass<Self, Tag, …>
-export declare const TaggedError: <Self = never>(identifier?: string) => <Tag extends string, Fields extends Struct.Fields>(tag: Tag, fieldsOr: Fields | HasFields<Fields>, …) => TaggedErrorClass<Self, Tag, Fields>
-
-export declare function Literal<Literals extends NonEmptyReadonlyArray<AST.LiteralValue>>(...literals: Literals): Literal<Literals>
-export declare function Struct<Fields extends Struct.Fields>(fields: Fields): Struct<Fields>
-export declare function Union<Members extends AST.Members<Schema.All>>(...members: Members): Union<Members>
-export declare const Array:    <Value extends Schema.Any>(value: Value) => Array$<Value>  // declared as Array$; re-exported as Array
-export declare const Record:   <K extends Schema.All, V extends Schema.All>(options: { readonly key: K; readonly value: V }) => Record$<K, V>
-export declare const optional: <S extends Schema.All>(self: S) => optional<S>
-
-// effect/ParseResult — the decode-failure projection family
-export type ParseError = ParseResult.ParseError                            // YieldableError carrying the issue tree
-export interface ArrayFormatterIssue { readonly _tag: ParseIssueTag; readonly path: ReadonlyArray<PropertyKey>; readonly message: string }
-export declare const ArrayFormatter: { readonly formatError: (error: ParseError) => Effect.Effect<Array<ArrayFormatterIssue>>; readonly formatErrorSync: (error: ParseError) => Array<ArrayFormatterIssue> }
-export declare const TreeFormatter:  { readonly formatError: (error: ParseError) => Effect.Effect<string>; readonly formatErrorSync: (error: ParseError) => string }
-```
-
-`Schema.Class` is the one domain-shape pattern; `Schema.TaggedError` is the one error-rail pattern; decode entry is `Schema.decodeUnknown*` at the wire edge. `ParseResult.ArrayFormatter.formatErrorSync` projects a `ParseError` into per-path `{ path, message }` issues — the one fold a per-field error map composes; `ParseResult.TreeFormatter` renders the single human-readable tree.
-
----
-
-## [08]-[OBSERVABILITY]
-
-### Metric
-
-```ts
-// effect/Metric
-export interface Metric<in out Type, in In, out Out>
-  extends Metric.Variance<Type, In, Out>, Pipeable
-
-export declare namespace Metric {
-  interface Counter<In extends number | bigint>  extends Metric<MetricKeyType.Counter<In>, In, MetricState.Counter<In>>
-  interface Gauge<In extends number | bigint>    extends Metric<MetricKeyType.Gauge<In>, In, MetricState.Gauge<In>>
-  interface Histogram<In extends number | bigint> extends Metric<MetricKeyType.Histogram<In>, In, MetricState.Histogram<In>>
-  interface Summary<In extends number | bigint>  extends Metric<MetricKeyType.Summary<In>, In, MetricState.Summary<In>>
-  interface Frequency<In extends string>         extends Metric<MetricKeyType.Frequency<In>, In, MetricState.Frequency<In>>
-}
-
-export declare const counter:   (name: string, options?: …) => Metric.Counter<number>
-export declare const gauge:     (name: string, options?: …) => Metric.Gauge<number>
-export declare const histogram: (name: string, boundaries: MetricBoundaries.MetricBoundaries, description?: string) => Metric<MetricKeyType.MetricKeyType.Histogram, number, MetricState.MetricState.Histogram>
-export declare const summary:   (options: …) => Metric.Summary<number>
-export declare const frequency: (name: string, options?: …) => Metric.Frequency<string>
-```
-
-### Logger / Tracer
-
-```ts
-// effect/Logger
-export interface Logger<in Message, out Output> extends Logger.Variance<Message, Output>, Pipeable {
-  readonly log: (options: Logger.Options<Message>) => Output
-}
-
-// effect/Tracer
-export interface Tracer {
-  readonly span:    (name: string, parent: Option<AnySpan>, context: Context<never>, links: ReadonlyArray<Link>, startTime: bigint, kind: SpanKind) => Span
-  readonly context: <X>(f: () => X, fiber: Fiber.RuntimeFiber<any, any>) => X
-}
-export declare const Tracer: Context.Tag<Tracer, Tracer>
-```
-
----
-
-## [09]-[VALUE_ALGEBRA]
-
-### Data
-
-```ts
-// effect/Data
-export declare const struct:      <A extends Record<string, any>>(a: A) => { readonly [P in keyof A]: A[P] }
-export declare const tuple:       <As extends ReadonlyArray<any>>(...as: As) => Readonly<As>
-export declare const array:       <As extends ReadonlyArray<any>>(as: As) => Readonly<As>
-export declare const tagged:      <A extends { readonly _tag: string }>(tag: A["_tag"]) => Case.Constructor<A, "_tag">
-export declare const taggedEnum:  <A extends { readonly _tag: string }>() => TaggedEnum.Constructor<A>
-export declare const Class:       new <A extends Record<string, any> = {}>(args: Types.VoidIfEmpty<{ readonly [P in keyof A]: A[P] }>) => Readonly<A>
-export declare const TaggedClass: <Tag extends string>(tag: Tag) => new <A extends Record<string, any> = {}>(args: …) => Readonly<A> & { readonly _tag: Tag }
-export declare const Error:       new <A extends Record<string, any> = {}>(args: …) => Cause.YieldableError & Readonly<A>
-export declare const TaggedError: <Tag extends string>(tag: Tag) => new <A extends Record<string, any> = {}>(args: …) => Cause.YieldableError & { readonly _tag: Tag } & Readonly<A>
-```
-
-`Data.taggedEnum<Family>()` is the one closed-family owner: per-tag constructors, `Family.$match` the exhaustive fold (eager `(value, cases)` and curried `(cases)` arms), `Family.$is("Tag")` the narrowing refinement.
-
-### Match
-
-```ts
-// effect/Match
-export declare const value:                   <const I>(i: I) => Matcher<I, …>
-export declare const type:                    <I>() => Matcher<I, …>
-export declare const tag:                     <R, P extends Tags<"_tag", R> & string, …>(...pattern: [first: P, ...P[], f: (_: Extract<R, Record<"_tag", P>>) => Ret]) => (self) => Matcher<…>
-export declare const tags:                    <R, Ret>(fields: { readonly [Tag in Tags<"_tag", R>]?: (…) => Ret }) => (self) => Matcher<…>
-export declare const tagsExhaustive:          <R, Ret>(fields: { readonly [Tag in Tags<"_tag", R> & string]: (…) => Ret }) => (self) => (u: I) => Unify<…>
-export declare const discriminator:           <D extends string>(field: D) => (...pattern) => (self) => Matcher<…>
-export declare const discriminatorsExhaustive:<D extends string>(field: D) => (fields) => (self) => (u: I) => Unify<…>
-export declare const when:                    <R, const P>(pattern: P, f: (_: WhenMatch<R, P>) => Ret) => (self) => Matcher<…>
-export declare const not:                     <R, const P>(pattern: P, f) => (self) => Matcher<…>
-export declare const orElse:                  <RA, Ret>(f: (_: RA) => Ret) => <I, R, A, Pr>(self: Matcher<I, R, RA, A, Pr, Ret>) => (input: I) => Unify<ReturnType<typeof f> | A>
-export declare const exhaustive:              <I, F, A, Pr, Ret>(self: Matcher<I, F, never, A, Pr, Ret>) => (u: I) => Unify<A>
-export declare const option:                  <…>(self) => (input: I) => Option.Option<Unify<A>>
-export declare const either:                  <…>(self) => (input: I) => Either.Either<Unify<A>, R>
-```
-
-`Match.tagsExhaustive` is the total fold over a `Data.TaggedEnum` `_tag` union; a missing arm is a typecheck failure. `discriminatorsExhaustive` covers totality over a non-`_tag` wire discriminant. `tags`/`discriminators` are partial arms paired with `orElse`.
-
-### Array / Order
-
-```ts
-// effect/Array — the immutable ReadonlyArray combinator module (declared as ReadonlyArray, re-exported as Array)
-export declare const fromIterable: <A>(collection: Iterable<A>) => Array<A>
-export declare const range:        (start: number, end: number) => NonEmptyArray<number>
-export declare const map:          <A, B>(self: ReadonlyArray<A>, f: (a: A, i: number) => B) => Array<B>
-export declare const reduce:       <A, B>(self: ReadonlyArray<A>, b: B, f: (b: B, a: A, i: number) => B) => B
-export declare const sort:         <A>(O: Order.Order<A>) => (self: ReadonlyArray<A>) => Array<A>
-export declare const join:         (sep: string) => (self: ReadonlyArray<string>) => string
-export declare const matchLeft:    <A, B, C>(self: ReadonlyArray<A>, options: { readonly onEmpty: LazyArg<B>; readonly onNonEmpty: (head: A, tail: Array<A>) => C }) => B | C
-export declare const matchRight:   <A, B, C>(self: ReadonlyArray<A>, options: { readonly onEmpty: LazyArg<B>; readonly onNonEmpty: (init: Array<A>, last: A) => C }) => B | C
-
-// effect/Order
-export interface Order<in A> { (self: A, that: A): -1 | 0 | 1 }
-export declare const string:   Order<string>
-export declare const number:   Order<number>
-export declare const mapInput:  <A, B>(self: Order<A>, f: (b: B) => A) => Order<B>
-```
-
-`Array` is the curried/uncurried `ReadonlyArray` combinator owner used by every pure list fold; `matchLeft`/`matchRight` are the head/init pattern-matches that own bounded-history and last-element folds. `Order.mapInput` projects an `Order` onto a derived key for `Array.sort`.
-
-### Option / Either / Exit / Cause
-
-```ts
-// effect/Option
-export type Option<A> = None<A> | Some<A>
-export interface None<out A> extends Pipeable, Inspectable { readonly _tag: "None" }
-export interface Some<out A> extends Pipeable, Inspectable { readonly _tag: "Some"; readonly value: A }
-
-// effect/Either
-export type Either<A, E = never> = Left<E, A> | Right<E, A>
-export interface Left<out E, out A>  extends Pipeable, Inspectable { readonly _tag: "Left";  readonly left: E }
-export interface Right<out E, out A> extends Pipeable, Inspectable { readonly _tag: "Right"; readonly right: A }
-export declare const right:  <A, E = never>(a: A) => Either<A, E>
-export declare const left:   <E, A = never>(e: E) => Either<A, E>
-export declare const match:  <E, A, B, C = B>(self: Either<A, E>, options: { readonly onLeft: (left: E) => B; readonly onRight: (right: A) => C }) => B | C
-
-// effect/Exit
-export type Exit<A, E = never> = Success<A, E> | Failure<A, E>
-export interface Failure<out A, out E> extends Effect.Effect<A, E>, Pipeable, Inspectable { readonly _tag: "Failure"; readonly cause: Cause.Cause<E> }
-export interface Success<out A, out E> extends Effect.Effect<A, E>, Pipeable, Inspectable { readonly _tag: "Success"; readonly value: A }
-export declare const isFailure: <A, E>(self: Exit<A, E>) => self is Failure<A, E>
-export declare const isSuccess: <A, E>(self: Exit<A, E>) => self is Success<A, E>
-
-// effect/Cause — full failure tree: Empty | Fail | Die | Interrupt | Sequential | Parallel
-```
-
-`Exit` is the discharge result of `runPromiseExit` / `Fiber.await`; `Failure` carries the full `Cause` tree (typed `Fail`, defect `Die`, `Interrupt`).
-
-### Config / Duration
-
-```ts
-// effect/Config
-export interface Config<out A> extends Config.Variance<A>, Effect.Effect<A, ConfigError.ConfigError>
-export declare const string:      (name?: string) => Config<string>
-export declare const number:      (name?: string) => Config<number>
-export declare const boolean:     (name?: string) => Config<boolean>
-export declare const redacted:    { (name?: string): Config<Redacted.Redacted>; <A>(config: Config<A>): Config<Redacted.Redacted<A>> }
-export declare const nested:      (name: string) => <A>(self: Config<A>) => Config<A>
-export declare const withDefault:  <const A2>(def: A2) => <A>(self: Config<A>) => Config<A2 | A>
-
-// effect/Duration
-export interface Duration extends Equal.Equal, Pipeable, Inspectable
-export type DurationInput = Duration | number | bigint | readonly [seconds: number, nanos: number] | `${number} ${Unit}`
-```
-
-`Config` is the domain-value pattern for secret/env resolution — one domain value at the composition root; `Config.redacted` keeps secrets out of logs.
-
----
-
-## [10]-[IMPLEMENTATION_LAW]
+- package: `effect` (3.21.4, MIT, © Effectful Technologies)
+- module format: ESM, `sideEffects: false`; per-module deep-import subpaths (`effect/Effect`, `effect/Schema`, …) plus the flat `effect` barrel — the module boundary graph imports the barrel, deep-imports only where tree-shaking a single module matters
+- runtime target: isomorphic (node, bun, browser, worker); zero runtime dependencies; no native addon
+- asset: pure-TypeScript runtime library shipping `.js` + `.d.ts`; the type-level surface (`typeof schema.Type`, `keyof typeof`, branded refinements) is load-bearing, so `tsc`/`tsgo` are the real gate
+- rail: substrate (every folder types against it; catalogued once at the branch tier)
+
+## [02]-[PUBLIC_TYPES]
+
+[PUBLIC_TYPE_SCOPE]: the carrier, its data siblings, and failure algebra
+- rail: rails-and-effects
+
+| [INDEX] | [SYMBOL]                                          | [TYPE_FAMILY]        | [CONSUMER]                                                             |
+| :-----: | :------------------------------------------------ | :------------------- | :-------------------------------------------------------------------- |
+|  [01]   | `Effect<A, E, R>`                                 | carrier              | every folder — the one rail; `R` is the Tag requirement set the app root satisfies |
+|  [02]   | `Option<A>` / `Either<R, L>`                      | value union          | `kernel` absence, decode results; `Option` replaces `null`/`undefined` in domain |
+|  [03]   | `Cause<E>` / `Exit<A, E>`                         | failure tree / outcome | `wire/fault` reconstruction, `telemetry/signal/crash` — retains defect + interrupt + parallel failures |
+|  [04]   | `Data.TaggedEnum<...>` / `Data.Class`             | closed family        | `state` CRDT ops, `wire` decoded unions, `edge` control intents — value equality by structure |
+|  [05]   | `Redacted<A>`                                     | secret carrier       | `security/secret`, `host/config` — never logged; `Redacted.value` unwraps at the crypto seam only |
+|  [06]   | `Duration` / `DateTime.Utc` / `DateTime.Zoned`    | time value           | `kernel/clock`, `work/queue`, `store/journal` — monotonic + wall-clock evidence |
+|  [07]   | `Brand.Branded<A, K>`                             | nominal refinement   | `kernel/schema` brand floor (`ContentKey`, `Hlc`, `OrdinalKey`) — decode-once type identity |
+|  [08]   | `Scope` / `Fiber<A, E>`                           | resource / handle    | `host/life`, `work/engine`, `browser/boot` — structured lifetime and interruptible child fibers |
+
+[PUBLIC_TYPE_SCOPE]: schema, its derivations, and boundary shapes
+- rail: boundaries
+
+| [INDEX] | [SYMBOL]                                                  | [TYPE_FAMILY]      | [CONSUMER]                                                       |
+| :-----: | :-------------------------------------------------------- | :----------------- | :-------------------------------------------------------------- |
+|  [01]   | `Schema.Schema<Type, Encoded, R>`                         | codec              | every boundary — one Schema owns decode, encode, and every derived surface |
+|  [02]   | `Schema.Struct` / `Schema.Class` / `Schema.TaggedClass`   | record family      | `store/journal` events (`Schema.TaggedClass` + `eventVersion`), `kernel` value objects |
+|  [03]   | `Schema.TaggedError` / `Schema.TaggedRequest`             | fault / request    | `wire/fault` decoded errors, `store`/`work` request schemas with success+failure channels |
+|  [04]   | `Schema.PropertySignature` / `Schema.optionalWith`        | field modality     | `kernel/schema` optional-to-`Option` decode, constructor defaults, key renaming at the seam |
+|  [05]   | `ParseResult.ParseError` / `ParseResult.ParseIssue`       | decode fault       | every ingress — lifts into the `Effect` error channel; `ArrayFormatter` renders issue trees |
+|  [06]   | `SchemaAST.AST` + annotation IDs                          | reflection node    | `proof/law` arbitrary derivation, `edge/api` OpenAPI emission read the annotated AST |
+|  [07]   | `FastCheck.Arbitrary<A>` (`effect/FastCheck`)             | generator          | `proof/law/arbitrary.ts` — Schema-derived property generators, no hand-rolled fixtures |
+
+[PUBLIC_TYPE_SCOPE]: services, layers, and dispatch surfaces
+- rail: surfaces-and-dispatch
+
+| [INDEX] | [SYMBOL]                                        | [TYPE_FAMILY]     | [CONSUMER]                                                          |
+| :-----: | :---------------------------------------------- | :---------------- | :----------------------------------------------------------------- |
+|  [01]   | `Context.Tag<Id, Service>` / `Context.Reference`| service key        | every port (`SqlClient`, `Embedder`, `SessionStore`) — `Reference` carries a default |
+|  [02]   | `Layer<ROut, E, RIn>`                           | wiring             | app composition roots — folders ship `Layer` families the thin `main.ts` selects |
+|  [03]   | `LayerMap.Service` / `LayerMap`                 | keyed layer cache | `store/scope` per-tenant `StoreHandle` Layers keyed `(appKey, tenancy)` — isolation as a scope value |
+|  [04]   | `ManagedRuntime<R, E>`                          | runtime root      | `browser/boot`, `host/exec` — a built runtime the imperative host edge calls into |
+|  [05]   | `Match.Matcher` (`Match.type`/`Match.value`)    | dispatch builder  | `wire` codec dispatch, `iac/provider` closed-arm selection, `edge` fault mapping |
+|  [06]   | `Metric.Metric` / `Logger.Logger` / `Tracer.Span` | signal owner     | `telemetry` — counters/histograms, structured loggers, spans composed onto the rail |
+
+## [03]-[ENTRYPOINTS]
+
+[ENTRYPOINT_SCOPE]: `Effect` carrier — construction, boundary lift, and running
+- rail: rails-and-effects
+
+| [INDEX] | [SURFACE]                                                                                   | [ENTRY_FAMILY]     | [CONSUMER]                                                        |
+| :-----: | :------------------------------------------------------------------------------------------ | :----------------- | :--------------------------------------------------------------- |
+|  [01]   | `Effect.succeed` / `Effect.fail` / `Effect.sync` / `Effect.suspend`                         | construct          | pure values and lazy thunks into the rail; `fail` seeds the typed error channel |
+|  [02]   | `Effect.gen(function*(){ … })` / `Effect.fn("span")(body, …pipeline)`                        | do-notation        | every domain flow; `Effect.fn` is the traced-body seam — body per attempt, pipeline carries resilience |
+|  [03]   | `Effect.tryPromise({ try, catch })` / `Effect.try` / `Effect.async` / `Effect.promise`      | boundary lift      | `BOUNDARY_ADMISSION` — a `Promise`/throw converts to a typed error at the owning seam |
+|  [04]   | `Effect.all(effects, { concurrency, mode })` / `Effect.forEach` / `Effect.validateAll`      | applicative        | independent operands accumulate; `mode: "validate"` collects every failure, not just the first |
+|  [05]   | `Effect.flatMap` / `Effect.andThen` / `Effect.zipWith` / `Effect.tap`                        | sequence           | dependent steps; `andThen` accepts value, `Effect`, or thunk — one combinator, many operands |
+|  [06]   | `Effect.catchTag` / `Effect.catchTags` / `Effect.catchAll` / `Effect.tapErrorTag`           | recover            | `wire`/`store` typed recovery by `_tag`; exhaustive over the tagged error family |
+|  [07]   | `Effect.retry(policy)` / `Effect.timeout` / `Effect.withExecutionPlan` / `Effect.race`      | resilience         | `host/net`, `ai/model`, `work/activity` — `ExecutionPlan` is multi-provider fallback with per-tier schedules |
+|  [08]   | `Effect.acquireRelease` / `Effect.acquireUseRelease` / `Effect.addFinalizer` / `Effect.scoped` | resource        | `host/life`, `store` connections, `work` leases — release runs on success, failure, and interrupt |
+|  [09]   | `Effect.fork` / `Effect.forkScoped` / `Effect.forkDaemon` / `Effect.interrupt`              | concurrency        | `edge/live` subscriptions, `browser/transport` workers — scoped forks die with their scope |
+|  [10]   | `Effect.provide` / `Effect.provideService` / `Effect.updateService`                         | context supply     | app root injects `Layer`/service; `provideService` for a single Tag at a call site |
+|  [11]   | `Effect.withSpan` / `Effect.annotateLogs` / `Effect.withMetric` / `Effect.log*`             | observability seam | `telemetry` — `DEFINITION_TIME_ASPECTS` attach span/log/metric onto the rail, recoverable from declaration |
+|  [12]   | `Effect.runFork` / `Effect.runPromise` / `Effect.runSync` / `Effect.runPromiseExit`         | run                | the one imperative edge — `runFork` for long-lived roots, `runPromiseExit` for typed outcome |
+
+[ENTRYPOINT_SCOPE]: `Schema` — decode, project, transform, derive
+- rail: boundaries
+
+| [INDEX] | [SURFACE]                                                                                        | [ENTRY_FAMILY]  | [CONSUMER]                                                     |
+| :-----: | :----------------------------------------------------------------------------------------------- | :-------------- | :------------------------------------------------------------ |
+|  [01]   | `Schema.decodeUnknown(schema)` / `Schema.decodeUnknownEither` / `Schema.encode`                  | decode / encode | every ingress decodes once; `encode` at explicit egress; `ParseError` lifts to the error channel |
+|  [02]   | `Schema.Struct({...})` / `Schema.TaggedStruct(tag, {...})` / `Schema.Class<Self>(id)({...})`     | declare shape   | `SHAPE_BUDGET` — one runtime authority per concept; `Class` adds an opaque constructor + prototype |
+|  [03]   | `Schema.Union` / `Schema.Literal` / `Schema.Enums` / `Schema.TemplateLiteralParser`              | closed union    | `state`/`wire` tagged families; `TemplateLiteralParser` decodes structured string keys |
+|  [04]   | `Schema.pick` / `Schema.omit` / `Schema.partial` / `Schema.extend` / `Schema.pluck`              | project         | `DERIVED_TYPES` — every projection derives from the one owner, never a parallel schema |
+|  [05]   | `Schema.transformOrFail(from, to, { decode, encode })` / `Schema.transform`                      | bidirectional   | `wire` codec crossings, `kernel` brand mint — total both directions, proven in `proof/law` |
+|  [06]   | `Schema.brand("K")` / `Schema.filter` / `Schema.optionalWith(s, { as: "Option", default })`     | refine          | `kernel/schema` brand floor; `optionalWith` decodes absence to `Option` with a constructor default |
+|  [07]   | `Schema.Option` / `Schema.Either` / `Schema.Chunk` / `Schema.HashMap` / `Schema.Redacted`        | effect-data     | schemas whose decoded value is an Effect data structure, not a plain object |
+|  [08]   | `Schema.Uint8ArrayFromBase64` / `Schema.StringFromHex` / `Schema.parseJson(inner)`               | wire codec      | `wire` byte↔value crossings; `parseJson` composes an inner schema over a JSON string field |
+|  [09]   | `Arbitrary.make(schema)` / `JSONSchema.make(schema)` / `Pretty.make(schema)` / `Schema.equivalence(schema)` | derive   | one Schema yields the generator (`proof`), the OpenAPI node (`edge`), the printer, and structural equality |
+|  [10]   | `Schema.standardSchemaV1(schema)`                                                                | interop         | `ui` form libraries and any Standard-Schema consumer bind the decoder without an adapter |
+
+[ENTRYPOINT_SCOPE]: `Context` / `Layer` / `Runtime` — services and composition roots
+- rail: surfaces-and-dispatch
+
+| [INDEX] | [SURFACE]                                                                                     | [ENTRY_FAMILY]  | [CONSUMER]                                                    |
+| :-----: | :-------------------------------------------------------------------------------------------- | :-------------- | :----------------------------------------------------------- |
+|  [01]   | `class Svc extends Effect.Service<Svc>()("app/Svc", { effect, dependencies })`                | service owner   | the canonical service form — Tag, default `Layer`, and accessor in one declaration |
+|  [02]   | `class Tag extends Context.Tag("app/Port")<Tag, Shape>() {}` / `Context.Reference`            | port Tag        | `PORT_LAW` — `security`/`store`/`ui` declare ports the app root satisfies across the ledger edge |
+|  [03]   | `Layer.effect(Tag, build)` / `Layer.scoped(Tag, build)` / `Layer.succeed(Tag, value)`         | construct layer | folder Layers; `scoped` ties the service to a `Scope` so teardown is structural |
+|  [04]   | `Layer.provide` / `Layer.provideMerge` / `Layer.mergeAll` / `Layer.merge`                     | compose layer   | app root builds the dependency graph; `provideMerge` keeps the provided service in the output |
+|  [05]   | `Layer.launch(layer)` / `Layer.memoize` / `Layer.fresh` / `Layer.retry(schedule)`             | run / lifetime  | `host/life` long-lived roots; `memoize` shares one instance, `fresh` forces a new build |
+|  [06]   | `Layer.setConfigProvider` / `Layer.setTracer` / `Layer.setClock` / `Layer.setRequestBatching` | override policy | `host/config`, `telemetry`, `proof` (TestClock) swap the runtime service under the whole graph |
+|  [07]   | `ManagedRuntime.make(layer)` → `.runFork` / `.runPromise` / `.dispose`                         | runtime root    | `browser/boot` builds once, the imperative host calls in; `LayerMap.make` for keyed runtimes |
+|  [08]   | `Reloadable.auto(Tag, { layer, schedule })` / `Reloadable.reload`                             | hot reload      | `host/flag` re-evaluates a remote provider on a schedule without tearing the graph |
+
+[ENTRYPOINT_SCOPE]: dispatch — `Match` and `Data`
+- rail: surfaces-and-dispatch
+
+| [INDEX] | [SURFACE]                                                                                   | [ENTRY_FAMILY]  | [CONSUMER]                                                      |
+| :-----: | :------------------------------------------------------------------------------------------ | :-------------- | :------------------------------------------------------------- |
+|  [01]   | `Match.type<T>()` / `Match.value(v)` → `Match.tag`/`Match.when` → `Match.exhaustive`         | dispatch        | `wire`/`edge`/`iac` — exhaustive over a tagged family; missing arm is a compile error |
+|  [02]   | `Match.tagsExhaustive({ TagA: fa, TagB: fb })` / `Match.discriminatorsExhaustive("kind")`    | record dispatch | closed-family dispatch by `_tag` or a named discriminant, total by construction |
+|  [03]   | `Match.whenOr` / `Match.whenAnd` / `Match.not` / `Match.orElse` / `Match.withReturnType`      | predicate arm   | structural/predicate dispatch on non-keyed shapes; `withReturnType` pins the arm result type |
+|  [04]   | `Data.taggedEnum<Union>()` → `{ $match, $is, ...ctors }`                                     | closed family   | `state`/`wire` decoded unions with generated constructors, `$match`, and `$is` guards |
+|  [05]   | `Data.TaggedError("Tag")<{...}>` / `Data.TaggedClass` / `Data.struct` / `Data.array`         | value + fault   | structural-equality records and typed errors; `Data.struct` gives `Equal`/`Hash` for free |
+
+[ENTRYPOINT_SCOPE]: `Stream` / `Sink` — pull-based streaming
+- rail: rails-and-effects
+
+| [INDEX] | [SURFACE]                                                                                          | [ENTRY_FAMILY] | [CONSUMER]                                                    |
+| :-----: | :------------------------------------------------------------------------------------------------- | :------------- | :----------------------------------------------------------- |
+|  [01]   | `Stream.fromQueue` / `Stream.fromPubSub` / `Stream.async` / `Stream.fromReadableStream`            | source         | `edge/live` SSE/WS feeds, `wire/frame` reassembly, `browser/transport` fetch streams |
+|  [02]   | `Stream.mapEffect(f, { concurrency })` / `Stream.grouped` / `Stream.groupedWithin` / `Stream.throttle` | transform   | bounded-concurrency per-element effects, batch windows, rate shaping on one carrier |
+|  [03]   | `Stream.broadcast` / `Stream.partition` / `Stream.merge` / `Stream.zipLatest`                      | fan            | multi-consumer fan-out, keyed split, latest-value join for live dashboards |
+|  [04]   | `Stream.run(sink)` / `Stream.runForEach` / `Stream.runFold` / `Stream.toReadableStream`            | drain          | terminal consumption; `Sink.foldWeighted`/`Sink.collectAllN` are the reusable fold sinks |
+|  [05]   | `Stream.retry(schedule)` / `Stream.debounce` / `Stream.buffer` / `Stream.haltWhen`                 | resilience     | resumable feeds; `haltWhen(deferred)` ends the stream on an external signal |
+
+[ENTRYPOINT_SCOPE]: concurrency and mutable state
+- rail: rails-and-effects
+
+| [INDEX] | [SURFACE]                                                                                    | [ENTRY_FAMILY]  | [CONSUMER]                                                    |
+| :-----: | :------------------------------------------------------------------------------------------- | :-------------- | :----------------------------------------------------------- |
+|  [01]   | `Ref.make` / `SubscriptionRef.make` / `SynchronizedRef` (`.modify`, `.updateSomeAndGet`)     | shared cell     | `SubscriptionRef` is a `Ref` + `Stream.changes` — `ui/atom` and `state/query/live` observe mutations |
+|  [02]   | `Deferred.make` / `Deferred.await` / `Deferred.succeed`                                       | one-shot        | fiber handoff, `haltWhen` signals, promise-once coordination |
+|  [03]   | `Queue.bounded` / `Queue.sliding` / `PubSub.bounded` / `Mailbox.make`                         | channel         | `work/queue` job intake, `edge/live` fan-out, `wire/quarantine` poison buffer with backpressure |
+|  [04]   | `FiberRef.make` / `FiberRef.locallyScoped` / built-in `FiberRef.currentLogAnnotations`        | fiber-local     | `edge/middleware` request/tenant/locale context, propagated across `fork` without threading |
+|  [05]   | `Effect.makeSemaphore(n)` / `Effect.makeLatch` / `FiberSet.make` / `FiberMap.make`            | bound / track   | concurrency caps (`edge` load-shed), keyed fiber registries (`work/engine` per-entity fibers) |
+|  [06]   | `STM.commit` / `TRef.make` / `TMap` / `TQueue` / `TSemaphore` / `TReentrantLock`              | transaction     | `state`/`work` multi-cell atomic updates with automatic retry on conflict |
+
+[ENTRYPOINT_SCOPE]: schedule, config, time, and observability signals
+- rail: system-apis
+
+| [INDEX] | [SURFACE]                                                                                       | [ENTRY_FAMILY]  | [CONSUMER]                                                 |
+| :-----: | :---------------------------------------------------------------------------------------------- | :-------------- | :-------------------------------------------------------- |
+|  [01]   | `Schedule.exponential` / `Schedule.jittered` / `Schedule.intersect` / `Schedule.recurWhile` / `Schedule.cron` | recurrence | `kernel/fault` budget rows compile to schedules; `work/queue` cron; retry policy as a value |
+|  [02]   | `Config.string` / `Config.redacted` / `Config.integer` / `Config.withDefault` / `Config.nested` | config schema   | `host/config` typed ingress; `Config.redacted` keeps secrets in `Redacted` end-to-end |
+|  [03]   | `ConfigProvider.fromEnv` / `ConfigProvider.fromJson` / `.orElse` / `ConfigProvider.constantCase`| provider chain  | `host/config/provider.ts` env→file→remote chain; case adapters map `FOO_BAR`↔`fooBar` |
+|  [04]   | `Duration.seconds` / `Duration.decode` / `DateTime.now` / `DateTime.addDuration` / `Cron.parse` | time            | `kernel/clock` HLC composition, `work` deadlines, `store` retention windows |
+|  [05]   | `Metric.counter` / `Metric.histogram` / `Metric.gauge` / `Metric.timerWithBoundaries` / `.tagged` | metric        | `telemetry/signal` — `(app, tenant)`-tagged instruments; `Effect.withMetric` attaches to a rail |
+|  [06]   | `Logger.make` / `Logger.replace` / `Logger.batched` / `LogLevel.Debug` / `Logger.structuredLogger`| logger        | `telemetry` structured logging; `Logger.batched` for buffered export, `withMinimumLogLevel` gate |
+|  [07]   | `Metric.snapshot` / `Tracer.externalSpan` / `Effect.makeSpanScoped`                             | signal read     | `telemetry/board` reads the registry; `externalSpan` continues an extracted W3C trace context |
+
+[ENTRYPOINT_SCOPE]: immutable collections, equality, and caching
+- rail: shapes
+
+| [INDEX] | [SURFACE]                                                                                    | [ENTRY_FAMILY]  | [CONSUMER]                                                    |
+| :-----: | :------------------------------------------------------------------------------------------- | :-------------- | :----------------------------------------------------------- |
+|  [01]   | `Chunk` / `HashMap` / `HashSet` / `SortedMap` / `MutableHashMap` (algorithm-local)           | collection      | `state/fold` keyed folds, `wire` decoded maps — Effect collections, not JS `Map`/`Set` |
+|  [02]   | `Array.*` / `Record.*` / `Struct.*` / `Tuple.*` (module functions over plain values)          | stdlib fold     | `DERIVED_LOGIC` folds; `Array.reduce`/`Record.map` replace imperative loops at FFI-safe altitude |
+|  [03]   | `Order.*` / `Equivalence.*` / `Equal.equals` / `Hash.hash` / `Predicate.*`                    | comparison      | `state/causal` ordering, `Data`-backed structural equality, `Predicate.and`/`or` refinement algebra |
+|  [04]   | `Cache.make({ capacity, timeToLive, lookup })` / `RcMap.make` / `KeyedPool.make` / `Pool.make`| cache / pool     | `store/scope` lookups, `host/net` connection pools, `ai` provider clients — TTL + reference counting |
+|  [05]   | `RateLimiter.make({ limit, interval })` / `Request.Class` / `RequestResolver.makeBatched`     | rate / batch     | `host/net` API-key limits, `store`/`ai` request de-duplication and batching under one resolver |
+|  [06]   | `Encoding.encodeBase64` / `Encoding.decodeHex` / `Redacted.make` / `Redacted.value`           | codec / secret   | `security` byte encodings, `wire` frame codecs; `Redacted` unwraps only at the crypto boundary |
+
+## [04]-[IMPLEMENTATION_LAW]
 
 [EFFECT_TOPOLOGY]:
-- three-channel `Effect<A, E, R>`: `A` = success, `E` = typed failures, `R` = required services
-- all domain logic lives inside `Effect.gen` or combinators; `runFork`/`runPromise`/`runSync` are boundary-only
-- context access inside `Effect.gen`: `yield* Tag` is the canonical form; `serviceOption`/`serviceOptional` are the named optional accessors; there is no bare `Effect.service`
-- dual signatures: data-first `(self, …)` and data-last `(…): (self) => …`; the data-last arm is the `pipe`-composable form
-- do not use `try/catch` in domain logic; use `catchAll`/`catchTag`/`catchTags`
+- `Effect<A, E, R>` is a description, not a running computation; nothing executes until `Effect.runFork`/`runPromise`/`runSync` at the one imperative edge, or `Layer.launch`/`ManagedRuntime` at a composition root. Dependent steps compose through `Effect.flatMap`/`Effect.gen`; independent operands accumulate through `Effect.all`/`Effect.forEach` where the `mode`/`concurrency` option — never a flag on the value — selects abort-on-first-failure versus validate-all.
+- The three type parameters are the whole contract: `A` success, `E` the typed error channel (a tagged union, discriminated by `catchTag`/`catchTags`), `R` the requirement set of `Context.Tag`s the app root must satisfy. `R` reaching `never` at the composition root is the proof that every dependency is wired; an unsatisfied Tag is a compile error, not a runtime `undefined`.
+- `Schema` is the one boundary codec: `Type` is the decoded interior value, `Encoded` the wire shape, and every secondary surface (`Arbitrary`, `JSONSchema`, `Pretty`, `Equivalence`, `standardSchemaV1`) derives from the same AST so it cannot drift. Decode once at ingress with `Schema.decodeUnknown`; the interior never re-validates and never sees `null`/`undefined`/provider shapes.
+- `Context.Tag`/`Effect.Service` are the DI primitives; `Layer` builds the acyclic dependency graph with memoized construction, `scoped` construction for resource lifetime, and `provide`/`provideMerge` for wiring. A `Layer` is a value — folders export Layer families and the thin app `main.ts` selects and composes them with zero lib edits.
+- Cross-cutting capability attaches at its seam as an effect transformer: decode+brand at the single Schema, `Effect.withSpan`/`annotateLogs`/`withMetric` for observability, `Effect.retry(Schedule)` for resilience, `Effect.acquireRelease`+`Layer.scoped` for lifetime. `Effect.fn("name")(body, ...pipeline)` is the seam where the body runs once per attempt and the pipeline carries the policy — resilience is recoverable from the declaration, never buried inside the body.
+- Interruption is structural: `Effect.forkScoped` fibers are interrupted when their `Scope` closes, finalizers run on success, failure, and interrupt alike, and `Cause` retains the full failure tree (typed error + defect + interrupt + parallel causes) so `wire/fault` and `telemetry/crash` reconstruct rather than flatten.
+
+[STACKS_WITH]:
+- `@effect/platform` (`.api/effect-platform.md`): the platform contracts are `Effect`-returning services keyed by `Context.Tag` — `HttpClient` yields `Effect<HttpClientResponse, HttpClientError>`, `HttpApiEndpoint` bodies are `Schema`-typed handlers, and `FileSystem`/`Command`/`Worker` are Tags a `Layer` satisfies. One Schema decodes the request and encodes the response; the same tagged error family flows the `Effect` error channel to the `edge` problem-detail mapping.
+- `@effect/platform-node` (`.api/effect-platform-node.md`): the `Node*` `Layer`s satisfy the platform Tags this substrate's `Layer` graph requires; `NodeRuntime.runMain` is the `Effect.runFork` edge for a node process, draining fibers and finalizers on signal.
+- `@effect/opentelemetry` (`.api/effect-opentelemetry.md`): `Metric`, `Logger`, and `Tracer` are the vendor-neutral signal owners; the OTel `Layer` swaps the `Tracer`/`MetricRegistry`/`Logger` services under the whole graph via `Layer.setTracer`, so `Effect.withSpan`/`withMetric` on any rail export through OTLP with no call-site change.
+- `@effect/vitest` (`.api/effect-vitest.md`): `it.effect`/`it.scoped` run an `Effect` under `TestServices` (deterministic `TestClock`/`TestRandom`); `it.prop` consumes `Schema`-derived `FastCheck.Arbitrary`s; `it.layer` shares a `Layer` across a spec block — the `proof` folder needs no hand-rolled harness.
+- folder-local substrate (catalogued at `libs/typescript/<folder>/.api/`): `@effect/sql` `SqlClient` and `@effect/cluster` `MessageStorage` are `Context.Tag`s `work`/`store` compose and the app root satisfies; `@effect-atom` binds an `Effect`/`SubscriptionRef` into a React atom (`ui`); `@electric-sql/d2ts` folds a `state` dataflow; `hash-wasm` sits behind the `kernel` `ContentKey` mint — each is `Effect`-wrapped at its owner, never leaked raw.
 
 [LOCAL_ADMISSION]:
-- `Effect.Service` is the one closed service-owner pattern; `Context.Tag` class-style is the explicit tag for non-service boundaries
-- `Layer<ROut, E, RIn>` owns the dependency graph; `ManagedRuntime.make(appLayer)` is the single composition root
-- `Schema.Class` is the one domain-shape pattern; `Schema.TaggedError` is the one error-rail pattern; `Schema.decodeUnknown*` is the wire-edge decode entry
-- `Data.taggedEnum` owns closed variant families; `Match.tagsExhaustive` owns the total fold; hand-rolled `_tag` unions are rejected
-- `SubscriptionRef.changes` is the state-to-view stream seam; `Stream.runFold` + `Stream.retry(schedule)` is the canonical consume-and-reconnect pattern
+- Use `Effect<A, E, R>` for every fallible or effectful operation; never a bare `Promise`, a thrown exception in domain logic, or a `try`/`catch` outside a `BOUNDARY ADAPTER` kernel — a `Promise`/throw converts at the owning seam through `Effect.tryPromise`/`Effect.try`.
+- Use one `Schema` per concept with `pick`/`omit`/`partial`/`extend` projections; never a parallel `type`/`interface` mirroring a runtime shape, a fresh Schema per view, or a standalone branded-primitive export.
+- Use `Context.Tag`/`Effect.Service` + `Layer` for dependencies; never a module-level singleton, a hand-passed config object, or a manual constructor-injection chain.
+- Use `Match.exhaustive`/`Data.taggedEnum().$match` for closed-family dispatch and vocabulary lookup for keyed domains; never an `if`/`switch` ladder that re-derives what a tag or a vocabulary row already carries.
+- Use Effect collections (`HashMap`/`HashSet`/`Chunk`) and `Option` in domain code; JS `Map`/`Set`/`Array`/`null` survive only at FFI and serialization boundaries.
+- Use `Effect.retry(Schedule)`, `Effect.withSpan`, and `Effect.acquireRelease` as composed transformers; never a hand-rolled retry loop, a manual `startSpan`/`endSpan` pair, or a `try`/`finally` cleanup where a scope owns the lifetime.
 
 [RAIL_LAW]:
 - Package: `effect`
-- Owns: computation, dependency-injection, streaming, schema, observability, value-algebra
-- Accept: typed error rails, `Schedule`-backed retry, `Layer`-backed DI, `Schema`-backed wire decode/encode
-- Reject: bare `Promise` chains in domain logic, hand-rolled retry loops, `try/catch` in domain code, parallel `_tag` union types outside `Data.taggedEnum`
+- Owns: the `Effect` carrier, `Schema` decode/encode + derivations, `Context`/`Layer`/`Runtime` DI, `Match`/`Data` dispatch, `Stream`/`Sink` streaming, the concurrency + `STM` substrate, `Schedule` recurrence, `Config`/`ConfigProvider`, `Metric`/`Logger`/`Tracer` signals, the immutable collection + equality family, `Cache`/`Pool`/`Request` batching, and the `Option`/`Either`/`Cause`/`Redacted`/`Encoding`/`Duration`/`DateTime` interop primitives
+- Accept: `Effect.gen`/`Effect.fn`, `Schema.decodeUnknown` + one owner schema, `Effect.Service`/`Context.Tag` + `Layer`, `Match.exhaustive`/`Data.taggedEnum`, `Effect.retry(Schedule)`/`Effect.withSpan`/`Effect.acquireRelease` as seam transformers, `Effect.all`/`forEach` with explicit `concurrency`, Effect collections + `Option`
+- Reject: bare `Promise`/`async`/throw in domain logic, parallel schemas or standalone branded-type exports, module singletons in place of Layers, `if`/`switch` re-deriving a vocabulary, JS `Map`/`Set`/`null` in domain code, hand-rolled retry/span/cleanup where a combinator owns it

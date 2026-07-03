@@ -80,6 +80,7 @@
 | [INDEX] | [SURFACE]                         | [CALL_SHAPE]                 | [CAPABILITY]                                      |
 | :-----: | :-------------------------------- | :--------------------------- | :------------------------------------------------ |
 |  [01]   | `[SmartEnum]` / `[SmartEnum<TKey>]` | type attribute              | generates smart enum cases, lookup, parse, `Switch`, and `Map` |
+|  [01a]  | `T Get(TKey key)` / `bool TryGet(TKey? key, out T? item)` / `Items` | generated lookup members | the ONLY generated lookups: throwing `Get` (`UnknownSmartEnumIdentifierException`), the `bool`/`out` `TryGet`, the `Items` roster — an `Option<T>`-returning `TryGet(key)` is NOT generated; the corpus idiom is the hand-written one-expression Option-lift overload `public static Option<X> TryGet(string key) => TryGet(key, out X? row) && row is { } hit ? Some(hit) : None;` declared ON the owning vocabulary (elements/spatial/zones pattern), never assumed |
 |  [02]   | `[ValueObject<T>]`                | type attribute               | generates key-backed value object, factories, conversion, and equality |
 |  [03]   | `[ComplexValueObject]`            | type attribute               | generates a validated multi-field owner           |
 |  [04]   | `[Union]` / `[Union<T...>]`       | type attribute               | generates regular or ad-hoc union and exhaustive dispatch |

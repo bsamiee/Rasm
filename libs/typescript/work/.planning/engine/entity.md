@@ -1,0 +1,1 @@
+# [WORK_ENTITY] — cluster Entities, sharding, and runner discovery (K8sHttpClient is discovery, never provisioning); per-tenant fenced-quota rows; runner entrypoint Layers selected via host/exec at the app root

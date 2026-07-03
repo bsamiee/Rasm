@@ -69,9 +69,7 @@ _REDACTION: Redaction = Redaction(classified=Map.empty())
 
 # ReadoutKind -> DiscreteField attribute. The interpolate readout is parameterized over its output:
 # the value array, the recovered gradient (flux), or the Hessian, all cataloged on DiscreteField.
-_READOUT: FrozenDict[ReadoutKind, str] = FrozenDict(
-    {ReadoutKind.VALUE: "value", ReadoutKind.GRAD: "grad", ReadoutKind.HESS: "hess"}
-)
+_READOUT: FrozenDict[ReadoutKind, str] = FrozenDict({ReadoutKind.VALUE: "value", ReadoutKind.GRAD: "grad", ReadoutKind.HESS: "hess"})
 
 # Per-operation residual-floor tolerance, one row per FieldOp; the resample row floors the resample
 # extent verdict where no transfer residual exists. A new operation tolerance is one row.
@@ -88,16 +86,15 @@ _INTERPOLATOR: FrozenDict[int, str] = FrozenDict({1: "Interpolator1D", 2: "Inter
 # common trailing slot. The single owner over the case shapes: the factory packs by it, the accessors
 # read fixed slots off it, `.status` reads the last slot, and `.facts` projects each named slot —
 # mirroring solvers/receipt.md#RECEIPT `_SLOTS`, so an operation's evidence is one row.
-_SLOTS: FrozenDict[FieldOp, tuple[str, ...]] = FrozenDict(
-    {
-        "interpolate": ("key", "element", "readout", "dof_count", "components", "extent", "peak", "status"),
-        "project": ("key", "element", "dof_count", "extent", "residual", "status"),
-        "resample": ("key", "dim", "query_count", "extent", "peak", "status"),
-    }
-)
+_SLOTS: FrozenDict[FieldOp, tuple[str, ...]] = FrozenDict({
+    "interpolate": ("key", "element", "readout", "dof_count", "components", "extent", "peak", "status"),
+    "project": ("key", "element", "dof_count", "extent", "residual", "status"),
+    "resample": ("key", "dim", "query_count", "extent", "peak", "status"),
+})
 
 
 # --- [MODELS] ------------------------------------------------------------------------------
+
 
 @tagged_union(frozen=True)
 class FieldReceipt:
@@ -108,8 +105,7 @@ class FieldReceipt:
 
     @classmethod
     def Interpolate(
-        cls, key: ContentKey, element: ElementKind, readout: ReadoutKind,
-        dof_count: int, components: int, extent: float, peak: float,
+        cls, key: ContentKey, element: ElementKind, readout: ReadoutKind, dof_count: int, components: int, extent: float, peak: float
     ) -> Self:
         return cls(interpolate=(key, element, readout, dof_count, components, extent, peak, _status(None, extent, _TOL["interpolate"])))
 
@@ -188,6 +184,7 @@ class FieldQuery:
 
 # --- [SERVICES] ----------------------------------------------------------------------------
 
+
 # The worker `interpax`/`jax` modules folded into ONE frozen value object with behavior — the
 # `solvers/quadrature.md#QUADRATURE` `QuadEngine.worker()`/`solvers/differential.md#DIFFERENTIAL`
 # `SolveEngine.worker()` discipline every sibling JAX route runs. `worker()` imports once behind the band
@@ -221,6 +218,7 @@ class FieldEngine:
 
 
 # --- [OPERATIONS] --------------------------------------------------------------------------
+
 
 # `_dispatch` is the one `railed` `effect.result` chain `evaluate` joins through `bind`: the resample arm
 # `yield from`-binds `_key`'s `RuntimeRail[ContentKey]` so a canonical-encode fault rides the one rail,

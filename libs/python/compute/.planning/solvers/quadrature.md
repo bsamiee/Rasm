@@ -60,6 +60,7 @@ if TYPE_CHECKING:
 
 # --- [TYPES] -------------------------------------------------------------------------------
 
+
 class QuadKind(StrEnum):
     GAUSS_KRONROD = "gauss_kronrod"
     CLENSHAW_CURTIS = "clenshaw_curtis"
@@ -132,6 +133,7 @@ _REDACTION: Redaction = Redaction(classified=Map.empty())
 
 
 # --- [MODELS] ------------------------------------------------------------------------------
+
 
 # ONE policy struct across both numeric routes (the differential.md `IntegratePolicy` single-policy
 # discipline): the integrate fields (`epsabs`..`adaptive`) are read by the integrate route, the interp
@@ -239,7 +241,16 @@ class QuadEngine:
     # JAX-differentiable class through `_construct` (node_derivatives=True so the interpax Hermite reads its
     # third dydx array) and reads it under the full Readout. `None` interpax surface (BSPLINE) returns None
     # so the caller routes the scipy body — one fold over the row, never an `if interpax_method.../if class...`.
-    def interpolant(self, row: InterpRow, points: np.ndarray, values: np.ndarray, xq: np.ndarray, kind: "InterpKind", policy: "QuadPolicy", dydx: np.ndarray | None) -> np.ndarray | None:
+    def interpolant(
+        self,
+        row: InterpRow,
+        points: np.ndarray,
+        values: np.ndarray,
+        xq: np.ndarray,
+        kind: "InterpKind",
+        policy: "QuadPolicy",
+        dydx: np.ndarray | None,
+    ) -> np.ndarray | None:
         if row.interpax_method is not None:
             nu = policy.nu if policy.readout is Readout.DERIVATIVE else 0
             base = np.asarray(self.interpax.interp1d(xq, points, values, method=row.interpax_method, derivative=nu))
@@ -279,10 +290,7 @@ class QuadratureIntent:
 
     @staticmethod
     def Fem(
-        system: "AssembledSystem",
-        dirichlet: float = 0.0,
-        scheme: SparseScheme = SparseScheme.Spsolve(),
-        policy: LinearPolicy = LinearPolicy(),
+        system: "AssembledSystem", dirichlet: float = 0.0, scheme: SparseScheme = SparseScheme.Spsolve(), policy: LinearPolicy = LinearPolicy()
     ) -> "QuadratureIntent":
         return QuadratureIntent(fem=(system, dirichlet, scheme, policy))
 
@@ -299,17 +307,15 @@ class QuadratureIntent:
 # sampled.simpson/cumulative_simpson. The `scipy` field is the host floor callable. VECTORIZED reuses
 # quadgk over a vector integrand (quadgk with norm=inf handles arrays); SAMPLED_SIMPSON's adaptive slot
 # is unread (the sampled branch routes through quadax.sampled directly).
-_QUAD: FrozenDict[QuadKind, QuadRow] = FrozenDict(
-    {
-        QuadKind.GAUSS_KRONROD: QuadRow("quadgk", "fixed_quadgk", False, False, "quad"),
-        QuadKind.CLENSHAW_CURTIS: QuadRow("quadcc", "fixed_quadcc", False, False, "quad"),
-        QuadKind.ROMBERG: QuadRow("romberg", None, True, False, "quad"),
-        QuadKind.ROMBERG_TS: QuadRow("rombergts", None, True, False, "tanhsinh"),
-        QuadKind.TANH_SINH: QuadRow("quadts", "fixed_quadts", False, False, "tanhsinh"),
-        QuadKind.VECTORIZED: QuadRow("quadgk", "fixed_quadgk", False, False, "quad_vec"),
-        QuadKind.SAMPLED_SIMPSON: QuadRow("simpson", None, False, True, "simpson"),
-    }
-)
+_QUAD: FrozenDict[QuadKind, QuadRow] = FrozenDict({
+    QuadKind.GAUSS_KRONROD: QuadRow("quadgk", "fixed_quadgk", False, False, "quad"),
+    QuadKind.CLENSHAW_CURTIS: QuadRow("quadcc", "fixed_quadcc", False, False, "quad"),
+    QuadKind.ROMBERG: QuadRow("romberg", None, True, False, "quad"),
+    QuadKind.ROMBERG_TS: QuadRow("rombergts", None, True, False, "tanhsinh"),
+    QuadKind.TANH_SINH: QuadRow("quadts", "fixed_quadts", False, False, "tanhsinh"),
+    QuadKind.VECTORIZED: QuadRow("quadgk", "fixed_quadgk", False, False, "quad_vec"),
+    QuadKind.SAMPLED_SIMPSON: QuadRow("simpson", None, False, True, "simpson"),
+})
 
 # InterpKind -> the one family row. The method-only kinds (LINEAR/CUBIC2/CATMULL_ROM) carry an
 # interpax one-shot method and no class; the spline kinds (CUBIC/PCHIP/AKIMA/HERMITE) carry the
@@ -317,21 +323,22 @@ _QUAD: FrozenDict[QuadKind, QuadRow] = FrozenDict(
 # make_interp_spline FLOOR, since the admitted scipy catalog carries no node-derivative CubicHermiteSpline
 # drop-in; BSPLINE carries neither interpax surface and routes to scipy make_interp_spline or the np.interp
 # floor. A row whose interpax_method and interpax_class are both None has no differentiable companion.
-_INTERP: FrozenDict[InterpKind, InterpRow] = FrozenDict(
-    {
-        InterpKind.LINEAR: InterpRow("linear", None, "make_interp_spline"),
-        InterpKind.CUBIC2: InterpRow("cubic2", None, "make_interp_spline"),
-        InterpKind.CATMULL_ROM: InterpRow("catmull-rom", None, "make_interp_spline"),
-        InterpKind.CUBIC: InterpRow(None, "CubicSpline", "CubicSpline"),
-        InterpKind.PCHIP: InterpRow(None, "PchipInterpolator", "PchipInterpolator"),
-        InterpKind.AKIMA: InterpRow(None, "Akima1DInterpolator", "Akima1DInterpolator"),
-        InterpKind.HERMITE: InterpRow(None, "CubicHermiteSpline", "make_interp_spline"),  # interpax owns the node-derivative Hermite; the scipy floor is the C2-cubic `make_interp_spline`
-        InterpKind.BSPLINE: InterpRow(None, None, "make_interp_spline"),
-    }
-)
+_INTERP: FrozenDict[InterpKind, InterpRow] = FrozenDict({
+    InterpKind.LINEAR: InterpRow("linear", None, "make_interp_spline"),
+    InterpKind.CUBIC2: InterpRow("cubic2", None, "make_interp_spline"),
+    InterpKind.CATMULL_ROM: InterpRow("catmull-rom", None, "make_interp_spline"),
+    InterpKind.CUBIC: InterpRow(None, "CubicSpline", "CubicSpline"),
+    InterpKind.PCHIP: InterpRow(None, "PchipInterpolator", "PchipInterpolator"),
+    InterpKind.AKIMA: InterpRow(None, "Akima1DInterpolator", "Akima1DInterpolator"),
+    InterpKind.HERMITE: InterpRow(
+        None, "CubicHermiteSpline", "make_interp_spline"
+    ),  # interpax owns the node-derivative Hermite; the scipy floor is the C2-cubic `make_interp_spline`
+    InterpKind.BSPLINE: InterpRow(None, None, "make_interp_spline"),
+})
 
 
 # --- [OPERATIONS] --------------------------------------------------------------------------
+
 
 # Decodes the live `QuadratureInfo.status` bitfield off the gated `quadax` module the `QuadEngine` carrier
 # holds — reads `quadax.STATUS` (runtime module state, never a local constant), `code == 0` short-circuits to
@@ -374,7 +381,11 @@ def _integrate_receipt(fn: object, span: tuple[float, float], kind: QuadKind, po
     # integration carries no error estimate, so the verdict is the finiteness floor on the computed value
     # (0.0 -> SUCCESS, non-finite -> NONFINITE), never an unconditional success on a divergent integrand.
     if callable(fn) and hasattr(fn, "integrate"):
-        out = np.asarray(fn.antiderivative()(np.linspace(lo, hi, policy.floor_nodes))) if policy.readout is Readout.CUMULATIVE else np.asarray(fn.integrate(lo, hi))
+        out = (
+            np.asarray(fn.antiderivative()(np.linspace(lo, hi, policy.floor_nodes)))
+            if policy.readout is Readout.CUMULATIVE
+            else np.asarray(fn.integrate(lo, hi))
+        )
         residual = 0.0 if np.all(np.isfinite(out)) else float("inf")
         return SolverReceipt.Iterative(residual, 0, policy.epsrel, result=None)
     row = _QUAD[kind]
@@ -432,11 +443,7 @@ def _integrate_scipy(fn: object, lo: float, hi: float, row: QuadRow, policy: Qua
         # Sample on the grid axis (axis 0), so a VECTORIZED `(n, d)` integrand integrates over the grid,
         # never over the value dimension a default axis=-1 would collapse.
         samples = np.asarray([fn(float(t)) for t in grid]) if callable(fn) else np.asarray(fn)
-        out = (
-            np.cumulative_trapezoid(samples, grid, axis=0)
-            if policy.readout is Readout.CUMULATIVE
-            else np.trapezoid(samples, grid, axis=0)
-        )
+        out = np.cumulative_trapezoid(samples, grid, axis=0) if policy.readout is Readout.CUMULATIVE else np.trapezoid(samples, grid, axis=0)
         residual = float((hi - lo) / n) if np.all(np.isfinite(out)) else float("inf")
         return SolverReceipt.Iterative(residual, n, policy.epsrel, result=None)
 
@@ -516,8 +523,14 @@ def _interpolate_scipy(
 # remaining spline kinds take `(points, values)`. Passing the derivative array to `make_interp_spline`
 # would bind it to the `k` degree slot, a silent miscall the back-end discriminant forbids.
 def _construct(
-    ctor: Callable[..., object], points: np.ndarray, values: np.ndarray, kind: InterpKind, policy: QuadPolicy,
-    dydx: np.ndarray | None, *, node_derivatives: bool,
+    ctor: Callable[..., object],
+    points: np.ndarray,
+    values: np.ndarray,
+    kind: InterpKind,
+    policy: QuadPolicy,
+    dydx: np.ndarray | None,
+    *,
+    node_derivatives: bool,
 ) -> object:
     if kind is InterpKind.HERMITE and node_derivatives:
         return ctor(points, values, dydx if dydx is not None else np.gradient(values, points))

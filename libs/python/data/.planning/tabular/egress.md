@@ -83,7 +83,13 @@ class StoreOp:
     sign: tuple[Method, Sequence[str], timedelta] = case()
 
     @staticmethod
-    def Put(payload: bytes, mode: "PutMode" = "overwrite", attributes: "Attributes | None" = None, tags: dict[str, str] | None = None, chunk_size: int = CHUNK) -> StoreOp:
+    def Put(
+        payload: bytes,
+        mode: "PutMode" = "overwrite",
+        attributes: "Attributes | None" = None,
+        tags: dict[str, str] | None = None,
+        chunk_size: int = CHUNK,
+    ) -> StoreOp:
         return StoreOp(put=(payload, mode, attributes or {}, tags or {}, chunk_size))
 
     @staticmethod
@@ -95,7 +101,9 @@ class StoreOp:
         return StoreOp(get_range=(path, start, end, length))
 
     @staticmethod
-    def GetRanges(path: str, starts: tuple[int, ...], ends: tuple[int, ...] | None = None, lengths: tuple[int, ...] | None = None, coalesce: int = COALESCE) -> StoreOp:
+    def GetRanges(
+        path: str, starts: tuple[int, ...], ends: tuple[int, ...] | None = None, lengths: tuple[int, ...] | None = None, coalesce: int = COALESCE
+    ) -> StoreOp:
         return StoreOp(get_ranges=(path, starts, ends, lengths, coalesce))
 
     @staticmethod
@@ -123,7 +131,13 @@ class StoreOp:
         return StoreOp(reader=(path, buffer_size, size))
 
     @staticmethod
-    def Writer(path: str, attributes: "Attributes | None" = None, tags: dict[str, str] | None = None, buffer_size: int | None = None, max_concurrency: int = FANOUT) -> StoreOp:
+    def Writer(
+        path: str,
+        attributes: "Attributes | None" = None,
+        tags: dict[str, str] | None = None,
+        buffer_size: int | None = None,
+        max_concurrency: int = FANOUT,
+    ) -> StoreOp:
         return StoreOp(writer=(path, attributes or {}, tags or {}, buffer_size, max_concurrency))
 
     @staticmethod
@@ -159,54 +173,141 @@ async def _listing_async(store: ObjectStore, prefix: str, *, offset: str | None,
 
 
 _ROUTE: Final[Map[str, _Row]] = Map.of_seq([
-    ("put", _Row(obstore.put, obstore.put_async,
-        lambda op, t: ((t, op.put[0]), {"mode": op.put[1], "attributes": op.put[2], "tags": op.put[3], "chunk_size": op.put[4]}),
-        lambda op, t, result: (len(op.put[0]), result, op.put[0], None),
-        lambda op, t: t)),
-    ("get", _Row(obstore.get, obstore.get_async,
-        lambda op, t: ((op.get[0],), {"options": op.get[1]}),
-        lambda op, t, result: (len(body := result.bytes()), result.meta, body, (result.range, result.attributes)),
-        lambda op, t: op.get[0])),
-    ("get_range", _Row(obstore.get_range, obstore.get_range_async,
-        lambda op, t: ((op.get_range[0],), {"start": op.get_range[1], "end": op.get_range[2], "length": op.get_range[3]}),
-        lambda op, t, window: (len(window), None, window, None),
-        lambda op, t: op.get_range[0])),
-    ("get_ranges", _Row(obstore.get_ranges, obstore.get_ranges_async,
-        lambda op, t: ((op.get_ranges[0],), {"starts": op.get_ranges[1], "ends": op.get_ranges[2], "lengths": op.get_ranges[3], "coalesce": op.get_ranges[4]}),
-        lambda op, t, windows: (sum(len(w) for w in windows), None, tuple(windows), None),
-        lambda op, t: op.get_ranges[0])),
-    ("list", _Row(_listing, _listing_async,
-        lambda op, t: ((op.list[0],), {"offset": op.list[1], "delimiter": op.list[2]}),
-        lambda op, t, rows: (rows, None, None, None),
-        lambda op, t: op.list[0])),
-    ("head", _Row(obstore.head, obstore.head_async,
-        lambda op, t: ((op.head,), {}),
-        lambda op, t, meta: (meta["size"], meta, None, None),
-        lambda op, t: op.head)),
-    ("delete", _Row(obstore.delete, obstore.delete_async,
-        lambda op, t: ((op.delete,), {}),
-        lambda op, t, _: (0, None, None, None),
-        lambda op, t: op.delete if isinstance(op.delete, str) else ",".join(op.delete))),
-    ("copy", _Row(obstore.copy, obstore.copy_async,
-        lambda op, t: ((op.copy[0], op.copy[1]), {"overwrite": op.copy[2]}),
-        lambda op, t, _: (0, None, None, None),
-        lambda op, t: op.copy[1])),
-    ("rename", _Row(obstore.rename, obstore.rename_async,
-        lambda op, t: ((op.rename[0], op.rename[1]), {"overwrite": op.rename[2]}),
-        lambda op, t, _: (0, None, None, None),
-        lambda op, t: op.rename[1])),
-    ("reader", _Row(obstore.open_reader, obstore.open_reader_async,
-        lambda op, t: ((op.reader[0],), {k: v for k, v in (("buffer_size", op.reader[1]), ("size", op.reader[2])) if v is not None}),
-        lambda op, t, file: (0, None, None, file),
-        lambda op, t: op.reader[0])),
-    ("writer", _Row(obstore.open_writer, obstore.open_writer_async,
-        lambda op, t: ((op.writer[0],), {k: v for k, v in (("attributes", op.writer[1]), ("tags", op.writer[2]), ("buffer_size", op.writer[3]), ("max_concurrency", op.writer[4])) if v is not None}),
-        lambda op, t, file: (0, None, None, file),
-        lambda op, t: op.writer[0])),
-    ("sign", _Row(obstore.sign, obstore.sign_async,
-        lambda op, t: ((op.sign[0], op.sign[1], op.sign[2]), {}),
-        lambda op, t, urls: (len(op.sign[1]), None, None, urls),
-        lambda op, t: op.sign[1][0] if op.sign[1] else "")),
+    (
+        "put",
+        _Row(
+            obstore.put,
+            obstore.put_async,
+            lambda op, t: ((t, op.put[0]), {"mode": op.put[1], "attributes": op.put[2], "tags": op.put[3], "chunk_size": op.put[4]}),
+            lambda op, t, result: (len(op.put[0]), result, op.put[0], None),
+            lambda op, t: t,
+        ),
+    ),
+    (
+        "get",
+        _Row(
+            obstore.get,
+            obstore.get_async,
+            lambda op, t: ((op.get[0],), {"options": op.get[1]}),
+            lambda op, t, result: (len(body := result.bytes()), result.meta, body, (result.range, result.attributes)),
+            lambda op, t: op.get[0],
+        ),
+    ),
+    (
+        "get_range",
+        _Row(
+            obstore.get_range,
+            obstore.get_range_async,
+            lambda op, t: ((op.get_range[0],), {"start": op.get_range[1], "end": op.get_range[2], "length": op.get_range[3]}),
+            lambda op, t, window: (len(window), None, window, None),
+            lambda op, t: op.get_range[0],
+        ),
+    ),
+    (
+        "get_ranges",
+        _Row(
+            obstore.get_ranges,
+            obstore.get_ranges_async,
+            lambda op, t: (
+                (op.get_ranges[0],),
+                {"starts": op.get_ranges[1], "ends": op.get_ranges[2], "lengths": op.get_ranges[3], "coalesce": op.get_ranges[4]},
+            ),
+            lambda op, t, windows: (sum(len(w) for w in windows), None, tuple(windows), None),
+            lambda op, t: op.get_ranges[0],
+        ),
+    ),
+    (
+        "list",
+        _Row(
+            _listing,
+            _listing_async,
+            lambda op, t: ((op.list[0],), {"offset": op.list[1], "delimiter": op.list[2]}),
+            lambda op, t, rows: (rows, None, None, None),
+            lambda op, t: op.list[0],
+        ),
+    ),
+    (
+        "head",
+        _Row(
+            obstore.head,
+            obstore.head_async,
+            lambda op, t: ((op.head,), {}),
+            lambda op, t, meta: (meta["size"], meta, None, None),
+            lambda op, t: op.head,
+        ),
+    ),
+    (
+        "delete",
+        _Row(
+            obstore.delete,
+            obstore.delete_async,
+            lambda op, t: ((op.delete,), {}),
+            lambda op, t, _: (0, None, None, None),
+            lambda op, t: op.delete if isinstance(op.delete, str) else ",".join(op.delete),
+        ),
+    ),
+    (
+        "copy",
+        _Row(
+            obstore.copy,
+            obstore.copy_async,
+            lambda op, t: ((op.copy[0], op.copy[1]), {"overwrite": op.copy[2]}),
+            lambda op, t, _: (0, None, None, None),
+            lambda op, t: op.copy[1],
+        ),
+    ),
+    (
+        "rename",
+        _Row(
+            obstore.rename,
+            obstore.rename_async,
+            lambda op, t: ((op.rename[0], op.rename[1]), {"overwrite": op.rename[2]}),
+            lambda op, t, _: (0, None, None, None),
+            lambda op, t: op.rename[1],
+        ),
+    ),
+    (
+        "reader",
+        _Row(
+            obstore.open_reader,
+            obstore.open_reader_async,
+            lambda op, t: ((op.reader[0],), {k: v for k, v in (("buffer_size", op.reader[1]), ("size", op.reader[2])) if v is not None}),
+            lambda op, t, file: (0, None, None, file),
+            lambda op, t: op.reader[0],
+        ),
+    ),
+    (
+        "writer",
+        _Row(
+            obstore.open_writer,
+            obstore.open_writer_async,
+            lambda op, t: (
+                (op.writer[0],),
+                {
+                    k: v
+                    for k, v in (
+                        ("attributes", op.writer[1]),
+                        ("tags", op.writer[2]),
+                        ("buffer_size", op.writer[3]),
+                        ("max_concurrency", op.writer[4]),
+                    )
+                    if v is not None
+                },
+            ),
+            lambda op, t, file: (0, None, None, file),
+            lambda op, t: op.writer[0],
+        ),
+    ),
+    (
+        "sign",
+        _Row(
+            obstore.sign,
+            obstore.sign_async,
+            lambda op, t: ((op.sign[0], op.sign[1], op.sign[2]), {}),
+            lambda op, t, urls: (len(op.sign[1]), None, None, urls),
+            lambda op, t: op.sign[1][0] if op.sign[1] else "",
+        ),
+    ),
 ])
 
 
@@ -225,15 +326,33 @@ class EgressReceipt(Struct, frozen=True):
     @classmethod
     def of(cls, operation: str, path: str, length: int, meta: Meta, content_key: ContentKey | None, payload: Any) -> EgressReceipt:
         slot = meta or {}
-        return cls(operation=operation, path=path, byte_length=length, e_tag=str(slot.get("e_tag") or ""), version=str(slot.get("version") or ""), content_key=content_key, payload=payload)
+        return cls(
+            operation=operation,
+            path=path,
+            byte_length=length,
+            e_tag=str(slot.get("e_tag") or ""),
+            version=str(slot.get("version") or ""),
+            content_key=content_key,
+            payload=payload,
+        )
 
     def contribute(self) -> Iterable[Receipt]:
         # `byte_length` rides as a native `int`: the receipts `Encoder(enc_hook=repr)` serializes
         # scalars without a `str()` coerce, exactly the deleted form the receipts owner rejects.
-        yield Receipt.of("object-egress", ("emitted", self.path, {
-            "op": self.operation, "bytes": self.byte_length, "etag": self.e_tag, "version": self.version,
-            "key": self.content_key.hex if self.content_key is not None else None,
-        }))
+        yield Receipt.of(
+            "object-egress",
+            (
+                "emitted",
+                self.path,
+                {
+                    "op": self.operation,
+                    "bytes": self.byte_length,
+                    "etag": self.e_tag,
+                    "version": self.version,
+                    "key": self.content_key.hex if self.content_key is not None else None,
+                },
+            ),
+        )
 
 
 class ObjectEgress(Struct, frozen=True):
@@ -242,16 +361,32 @@ class ObjectEgress(Struct, frozen=True):
 
     @classmethod
     @beartype(conf=FAULT_CONF)
-    def of(cls, ref: ResourceRef, config: Config | None = None, client_options: "ClientConfig | None" = None, retry_config: "RetryConfig | None" = None, credential_provider: Provider = None) -> ObjectEgress:
-        return cls(ref=ref, store=from_url(ref.root, config=config, client_options=client_options, retry_config=retry_config, credential_provider=credential_provider))
+    def of(
+        cls,
+        ref: ResourceRef,
+        config: Config | None = None,
+        client_options: "ClientConfig | None" = None,
+        retry_config: "RetryConfig | None" = None,
+        credential_provider: Provider = None,
+    ) -> ObjectEgress:
+        return cls(
+            ref=ref,
+            store=from_url(
+                ref.root, config=config, client_options=client_options, retry_config=retry_config, credential_provider=credential_provider
+            ),
+        )
 
     def run(self, op: StoreOp, path: str = "") -> RuntimeRail[EgressReceipt]:
         with _TRACER.start_as_current_span(f"egress.{op.tag}", attributes={"rasm.egress.scheme": self.ref.scheme}):
-            return guarded_sync(RetryClass.OBJECT_STORE, self._apply, op, path or self.ref.relative, subject=f"egress.{op.tag}").bind(lambda rail: rail)
+            return guarded_sync(RetryClass.OBJECT_STORE, self._apply, op, path or self.ref.relative, subject=f"egress.{op.tag}").bind(
+                lambda rail: rail
+            )
 
     async def run_async(self, op: StoreOp, path: str = "") -> RuntimeRail[EgressReceipt]:
         with _TRACER.start_as_current_span(f"egress.{op.tag}", attributes={"rasm.egress.scheme": self.ref.scheme}):
-            return (await guarded(RetryClass.OBJECT_STORE, self._apply_async, op, path or self.ref.relative, subject=f"egress.{op.tag}")).bind(lambda rail: rail)
+            return (await guarded(RetryClass.OBJECT_STORE, self._apply_async, op, path or self.ref.relative, subject=f"egress.{op.tag}")).bind(
+                lambda rail: rail
+            )
 
     def _receipt(self, op: StoreOp, target: str, returned: Any) -> RuntimeRail[EgressReceipt]:
         row = _ROUTE[op.tag]

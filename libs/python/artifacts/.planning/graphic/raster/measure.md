@@ -26,7 +26,18 @@ from artifacts.graphic.raster.process import TransformArm, TransformInput, _chan
 
 lazy from skimage import feature, filters, io as skio, measure, metrics, registration, transform, util
 
-_MORPHOMETRY: tuple[str, ...] = ("area", "eccentricity", "solidity", "orientation", "perimeter", "euler_number", "extent", "axis_major_length", "axis_minor_length", "equivalent_diameter_area")
+_MORPHOMETRY: tuple[str, ...] = (
+    "area",
+    "eccentricity",
+    "solidity",
+    "orientation",
+    "perimeter",
+    "euler_number",
+    "extent",
+    "axis_major_length",
+    "axis_minor_length",
+    "equivalent_diameter_area",
+)
 _HARALICK: tuple[str, ...] = ("contrast", "dissimilarity", "homogeneity", "energy", "correlation", "ASM")
 _GLCM_DISTANCES: tuple[int, ...] = (1, 2)
 _GLCM_ANGLES: tuple[float, ...] = (0.0, np.pi / 4, np.pi / 2, 3 * np.pi / 4)
@@ -51,10 +62,14 @@ def _measure(tx: TransformInput) -> RasterFact:
             table = measure.regionprops_table(labels, gray, properties=("label", *_MORPHOMETRY, "moments_hu"))
             count = int(table["label"].size)
             morph = frozendict({prop: float(np.asarray(table[prop]).mean()) for prop in _MORPHOMETRY}) if count else frozendict()
-            hu = frozendict({key: float(np.asarray(table[key]).mean()) for key in table if key.startswith("moments_hu")}) if count else frozendict()  # the 7 rotation/scale-invariant Hu moments expand to moments_hu-0..6 columns (separator-robust prefix fold)
+            hu = (
+                frozendict({key: float(np.asarray(table[key]).mean()) for key in table if key.startswith("moments_hu")}) if count else frozendict()
+            )  # the 7 rotation/scale-invariant Hu moments expand to moments_hu-0..6 columns (separator-robust prefix fold)
             return _save_array(tx.image, frozendict({"regions": float(count)}) | morph | hu)
         case Transform.GLCM:
-            glcm = feature.graycomatrix(util.img_as_ubyte(gray), distances=list(_GLCM_DISTANCES), angles=list(_GLCM_ANGLES), levels=256, symmetric=True, normed=True)
+            glcm = feature.graycomatrix(
+                util.img_as_ubyte(gray), distances=list(_GLCM_DISTANCES), angles=list(_GLCM_ANGLES), levels=256, symmetric=True, normed=True
+            )
             return _save_array(tx.image, frozendict({prop: float(feature.graycoprops(glcm, prop).mean()) for prop in _HARALICK}))
         case Transform.BLOB | Transform.BLOB_DOG | Transform.BLOB_DOH:
             return _save_array(tx.image, frozendict({"blobs": float(len(getattr(feature, row.member)(gray, **(row.kwargs | tx.opts))))}))
@@ -71,7 +86,9 @@ def _measure(tx: TransformInput) -> RasterFact:
             kept = int(inliers.sum()) if inliers is not None else 0
             residual = float(model.residuals(points[inliers]).mean()) if kept else float("inf")
             return _save_array(tx.image, frozendict({"inliers": float(kept), "inlier_ratio": kept / max(len(points), 1), "residual": residual}))
-        case Transform.BLUR_EFFECT:  # the first NO-reference metric: sharpness from re-blur strength, no operand pair, so it rides _measure not _metrics
+        case (
+            Transform.BLUR_EFFECT
+        ):  # the first NO-reference metric: sharpness from re-blur strength, no operand pair, so it rides _measure not _metrics
             return _save_array(tx.image, frozendict({"blur": float(measure.blur_effect(gray))}))
         case Transform.HOUGH_LINE:  # the DETECTION family (peaks over the accumulator) distinct from the RANSAC geometric FIT family above
             hspace, angles, dists = transform.hough_line(feature.canny(gray))
@@ -83,7 +100,9 @@ def _measure(tx: TransformInput) -> RasterFact:
         case Transform.HOUGH_CIRCLE:
             opts = row.kwargs | tx.opts
             radii = np.arange(int(opts["radius_min"]), int(opts["radius_max"]), int(opts["radius_step"]))
-            accums, *_centres_radii = transform.hough_circle_peaks(transform.hough_circle(feature.canny(gray), radii), radii, total_num_peaks=int(opts["peaks"]))
+            accums, *_centres_radii = transform.hough_circle_peaks(
+                transform.hough_circle(feature.canny(gray), radii), radii, total_num_peaks=int(opts["peaks"])
+            )
             return _save_array(tx.image, frozendict({"circles": float(len(accums))}))
         case Transform.STRUCTURE_TENSOR:  # the Arr+Acc trace coherence-energy render
             elems = feature.structure_tensor(gray, sigma=float((row.kwargs | tx.opts)["sigma"]), order="rc")
@@ -100,8 +119,20 @@ def _measure(tx: TransformInput) -> RasterFact:
             return _save_array(stack[..., 0], frozendict({"features": float(stack.shape[-1])}))
         case Transform.PROFILE_LINE:  # intensity profile along an opts-defined src->dst segment — the section-cut/line-profile scan measurement (AEC scan-line + publication figure)
             opts = row.kwargs | tx.opts
-            profile = np.asarray(measure.profile_line(gray, (opts["src_row"], opts["src_col"]), (opts["dst_row"], opts["dst_col"]), linewidth=int(opts["linewidth"])), dtype=float)
-            scan = frozendict({"profile_mean": float(profile.mean()), "profile_min": float(profile.min()), "profile_max": float(profile.max()), "profile_length": float(profile.size)}) if profile.size else frozendict({"profile_length": 0.0})
+            profile = np.asarray(
+                measure.profile_line(gray, (opts["src_row"], opts["src_col"]), (opts["dst_row"], opts["dst_col"]), linewidth=int(opts["linewidth"])),
+                dtype=float,
+            )
+            scan = (
+                frozendict({
+                    "profile_mean": float(profile.mean()),
+                    "profile_min": float(profile.min()),
+                    "profile_max": float(profile.max()),
+                    "profile_length": float(profile.size),
+                })
+                if profile.size
+                else frozendict({"profile_length": 0.0})
+            )
             return _save_array(tx.image, scan)
         case _:  # the member-derived corner-response family: corner_harris/shi_tomasi/fast/moravec/kitchen_rosenfeld all resolve through one getattr + corner_peaks
             peaks = feature.corner_peaks(getattr(feature, row.member)(gray), **(row.kwargs | tx.opts))
@@ -139,19 +170,25 @@ def _register(tx: TransformInput) -> RasterFact:
 def _metrics(tx: TransformInput) -> RasterFact:
     row = MEASURE_TRANSFORMS[tx.kind]
     reference = skio.imread(BytesIO(tx.reference))
-    if tx.kind is Transform.CONTINGENCY:  # the label-overlap sparse count matrix over both Otsu-labelled maps — a segmentation deepen beside the rand-error/info-variation pair, stamping nnz + per-side label cardinality, not a scalar the _LABEL_KEYS zip carries
+    if (
+        tx.kind is Transform.CONTINGENCY
+    ):  # the label-overlap sparse count matrix over both Otsu-labelled maps — a segmentation deepen beside the rand-error/info-variation pair, stamping nnz + per-side label cardinality, not a scalar the _LABEL_KEYS zip carries
         ref_gray, test_gray = _luminance(reference), _luminance(tx.image)
         truth = measure.label(ref_gray > filters.threshold_otsu(ref_gray))
         test = measure.label(test_gray > filters.threshold_otsu(test_gray))
         overlap = metrics.contingency_table(truth, test)
-        return _save_array(tx.image, frozendict({"overlap_nnz": float(overlap.nnz), "truth_labels": float(overlap.shape[0]), "test_labels": float(overlap.shape[1])}))
+        return _save_array(
+            tx.image, frozendict({"overlap_nnz": float(overlap.nnz), "truth_labels": float(overlap.shape[0]), "test_labels": float(overlap.shape[1])})
+        )
     if tx.kind in _LABEL_METRICS:
         ref_gray, test_gray = _luminance(reference), _luminance(tx.image)
         truth = measure.label(ref_gray > filters.threshold_otsu(ref_gray))
         test = measure.label(test_gray > filters.threshold_otsu(test_gray))
         scored = np.atleast_1d(getattr(metrics, row.member)(truth, test))
         return _save_array(tx.image, frozendict({key: float(value) for key, value in zip(_LABEL_KEYS[tx.kind], scored, strict=True)}))
-    if tx.kind is Transform.HAUSDORFF:  # a binary point-set distance, not an intensity scalar: over the canny edge maps, never the raw 3-D pixel argwhere
+    if (
+        tx.kind is Transform.HAUSDORFF
+    ):  # a binary point-set distance, not an intensity scalar: over the canny edge maps, never the raw 3-D pixel argwhere
         edges = feature.canny(_luminance(reference)), feature.canny(_luminance(tx.image))
         return _save_array(tx.image, frozendict({tx.kind.value: float(getattr(metrics, row.member)(*edges, **(row.kwargs | tx.opts)))}))
     channel = frozendict({"channel_axis": _channels(tx.image)}) if tx.kind is Transform.SSIM else frozendict()
@@ -172,8 +209,12 @@ MEASURE_TRANSFORMS: frozendict[Transform, TransformArm] = frozendict({
     Transform.PEAKS: TransformArm("peak_local_max", _measure, frozendict({"min_distance": 5})),
     Transform.CORNERS: TransformArm("corner_harris", _measure, frozendict({"min_distance": 5})),
     Transform.CORNERS_SHI_TOMASI: TransformArm("corner_shi_tomasi", _measure, frozendict({"min_distance": 5})),
-    Transform.FIT_CIRCLE: TransformArm("CircleModel", _measure, frozendict({"min_samples": 3, "residual_threshold": 2.0, "max_trials": 200, "rng": 0})),
-    Transform.FIT_ELLIPSE: TransformArm("EllipseModel", _measure, frozendict({"min_samples": 5, "residual_threshold": 2.0, "max_trials": 200, "rng": 0})),
+    Transform.FIT_CIRCLE: TransformArm(
+        "CircleModel", _measure, frozendict({"min_samples": 3, "residual_threshold": 2.0, "max_trials": 200, "rng": 0})
+    ),
+    Transform.FIT_ELLIPSE: TransformArm(
+        "EllipseModel", _measure, frozendict({"min_samples": 5, "residual_threshold": 2.0, "max_trials": 200, "rng": 0})
+    ),
     Transform.FIT_LINE: TransformArm("LineModelND", _measure, frozendict({"min_samples": 2, "residual_threshold": 2.0, "max_trials": 200, "rng": 0})),
     Transform.OPTICAL_FLOW: TransformArm("optical_flow_tvl1", _register),
     Transform.OPTICAL_FLOW_ILK: TransformArm("optical_flow_ilk", _register),
@@ -200,7 +241,9 @@ MEASURE_TRANSFORMS: frozendict[Transform, TransformArm] = frozendict({
     Transform.CORNERS_FAST: TransformArm("corner_fast", _measure, frozendict({"min_distance": 5})),
     Transform.CORNERS_MORAVEC: TransformArm("corner_moravec", _measure, frozendict({"min_distance": 5})),
     Transform.CORNERS_KR: TransformArm("corner_kitchen_rosenfeld", _measure, frozendict({"min_distance": 5})),
-    Transform.PROFILE_LINE: TransformArm("profile_line", _measure, frozendict({"src_row": 0.0, "src_col": 0.0, "dst_row": 100.0, "dst_col": 100.0, "linewidth": 1})),
+    Transform.PROFILE_LINE: TransformArm(
+        "profile_line", _measure, frozendict({"src_row": 0.0, "src_col": 0.0, "dst_row": 100.0, "dst_col": 100.0, "linewidth": 1})
+    ),
     Transform.CENSURE_KEYPOINTS: TransformArm("CENSURE", _register, frozendict({"min_scale": 1, "max_scale": 7})),
 })
 ```

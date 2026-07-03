@@ -37,7 +37,9 @@ from rasm.runtime.faults import RuntimeRail, async_boundary
 from artifacts.composition.imposition import Geometry, ImposedPlan, ImposeOp, Imposition, Marks, Scheme
 from artifacts.delivery.register import Register
 from artifacts.exchange.conformance import Conformance, ConformanceVerdict
-from artifacts.exchange.conformance import SignSpec as PadesSpec  # collides with credential.SignSpec — aliased at the seam (carries the PadesLevel/SignerSource the caller fills)
+from artifacts.exchange.conformance import (
+    SignSpec as PadesSpec,
+)  # collides with credential.SignSpec — aliased at the seam (carries the PadesLevel/SignerSource the caller fills)
 from artifacts.exchange.credential import (
     ActionDefinition,
     CredentialEvidence,
@@ -56,20 +58,24 @@ from artifacts.package.archive import SevenZKnobs, ZipStreamKnobs
 from artifacts.package.codec import Bundle, CodecProfile, CompressionAlgo
 
 lazy import pymupdf  # the plan-set collation engine; cold native MuPDF, deferred to the assemble/seal/issue paths
-lazy from lxml import etree, isoschematron  # the ISO 19650 transmittal-record XML builder + conformance oracle; cold, deferred to the `Manifest` serialize (a non-manifest path never pays the libxml2 load)
+lazy from lxml import (
+    etree,
+    isoschematron,
+)  # the ISO 19650 transmittal-record XML builder + conformance oracle; cold, deferred to the `Manifest` serialize (a non-manifest path never pays the libxml2 load)
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 
 class Purpose(StrEnum):  # the ISO 19650 purpose-of-issue vocabulary the record header carries; a stringly free-text purpose is the deleted form
-    COORDINATION = "coordination"        # issued for spatial coordination (S1)
-    INFORMATION = "information"          # issued for information (S2)
-    REVIEW_COMMENT = "review-comment"    # issued for review and comment (S3)
+    COORDINATION = "coordination"  # issued for spatial coordination (S1)
+    INFORMATION = "information"  # issued for information (S2)
+    REVIEW_COMMENT = "review-comment"  # issued for review and comment (S3)
     REVIEW_AUTHORIZE = "review-authorize"  # issued for review and authorization (S4)
-    CONSTRUCTION = "construction"        # issued for construction (published, contractual)
-    TENDER = "tender"                    # issued for tender/bid
-    APPROVAL = "approval"                # issued for statutory approval
-    AS_BUILT = "as-built"                # as-constructed record issue
+    CONSTRUCTION = "construction"  # issued for construction (published, contractual)
+    TENDER = "tender"  # issued for tender/bid
+    APPROVAL = "approval"  # issued for statutory approval
+    AS_BUILT = "as-built"  # as-constructed record issue
+
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -80,8 +86,8 @@ class RecordDefect:
     # `TransmittalRecord.of` returns it; the two boundary causes the gate distinguishes, never a bare
     # `str` erasing which admission failed.
     tag: Literal["invalid_payload", "invalid_purpose"] = tag()
-    invalid_payload: str = case()   # the failing `_PAYLOAD` field locs
-    invalid_purpose: str = case()   # the unrecognized purpose-of-issue token
+    invalid_payload: str = case()  # the failing `_PAYLOAD` field locs
+    invalid_purpose: str = case()  # the unrecognized purpose-of-issue token
 
 
 class SheetRef(Struct, frozen=True):
@@ -90,9 +96,9 @@ class SheetRef(Struct, frozen=True):
     key: ContentKey
     data: bytes
     title: str
-    discipline: str            # the ISO 13567 / NCS discipline code
-    suitability: str           # the ISO 19650 suitability code (`Suitability.of`-parseable at the register)
-    revision: str              # the ISO 19650 revision code
+    discipline: str  # the ISO 13567 / NCS discipline code
+    suitability: str  # the ISO 19650 suitability code (`Suitability.of`-parseable at the register)
+    revision: str  # the ISO 19650 revision code
     fmt: str = "application/pdf"
 
 
@@ -108,12 +114,12 @@ class TransmittalPayload(TypedDict, closed=True):  # the raw client record heade
 
 
 class TransmittalRecord(Struct, frozen=True):  # the ISO 19650 transmittal/issue header, admitted once
-    number: str                # the transmittal number/reference
-    issuing_party: str         # the sender (issuing appointed party)
-    recipient: str             # the receiving party
-    purpose: Purpose           # the purpose of issue
-    revision: str = "P01"      # the transmittal revision code
-    issued_at: str = ""        # the ISO-8601 issue date
+    number: str  # the transmittal number/reference
+    issuing_party: str  # the sender (issuing appointed party)
+    recipient: str  # the receiving party
+    purpose: Purpose  # the purpose of issue
+    revision: str = "P01"  # the transmittal revision code
+    issued_at: str = ""  # the ISO-8601 issue date
     project: str = ""
     project_id: str = ""
 
@@ -127,11 +133,18 @@ class TransmittalRecord(Struct, frozen=True):  # the ISO 19650 transmittal/issue
             return Error(RecordDefect(invalid_payload=str([error["loc"] for error in fault.errors()])))
         if row["purpose"] not in _PURPOSES:  # the derived value set — never the `_value2member_map_` private-dunder probe
             return Error(RecordDefect(invalid_purpose=row["purpose"]))
-        return Ok(TransmittalRecord(
-            number=row["number"], issuing_party=row["issuing_party"], recipient=row["recipient"],
-            purpose=Purpose(row["purpose"]), revision=row.get("revision", "P01"), issued_at=row.get("issued_at", ""),
-            project=row.get("project", ""), project_id=row.get("project_id", ""),
-        ))
+        return Ok(
+            TransmittalRecord(
+                number=row["number"],
+                issuing_party=row["issuing_party"],
+                recipient=row["recipient"],
+                purpose=Purpose(row["purpose"]),
+                revision=row.get("revision", "P01"),
+                issued_at=row.get("issued_at", ""),
+                project=row.get("project", ""),
+                project_id=row.get("project_id", ""),
+            )
+        )
 
 
 class Deliverable(Struct, frozen=True):  # the common payload every case reads — the sheets, the issued index, the header
@@ -148,15 +161,15 @@ class AssembleSpec(Struct, frozen=True):
 
 class SealSpec(Struct, frozen=True):
     algo: CompressionAlgo = CompressionAlgo.ZIP_STREAM  # the byte-reproducible `_EPOCH`-stamped container default
-    profile: CodecProfile | None = None                # None -> the archive default profile for `algo`
-    attachments: tuple[tuple[str, bytes], ...] = ()    # (name, bytes) — the register XML / receipts / signed manifests sealed beside the plan-set
-    password: str | None = None                        # the container encryption pass (WinZip-AES for ZIP, header-crypt for 7z)
+    profile: CodecProfile | None = None  # None -> the archive default profile for `algo`
+    attachments: tuple[tuple[str, bytes], ...] = ()  # (name, bytes) — the register XML / receipts / signed manifests sealed beside the plan-set
+    password: str | None = None  # the container encryption pass (WinZip-AES for ZIP, header-crypt for 7z)
 
 
 class IssueSpec(Struct, frozen=True):
-    pades: PadesSpec                                    # the hard legal PAdES-LTA sign spec (signer/level/tsa/certify/commitment)
-    credential_signer: SignerSpec | None = None         # the optional soft C2PA signer (cert/callback); None -> PAdES-only
-    cover: bytes = b""                                  # the c2pa-signable cover asset (PDF is read-only for c2pa; the lineage rides a cover raster)
+    pades: PadesSpec  # the hard legal PAdES-LTA sign spec (signer/level/tsa/certify/commitment)
+    credential_signer: SignerSpec | None = None  # the optional soft C2PA signer (cert/callback); None -> PAdES-only
+    cover: bytes = b""  # the c2pa-signable cover asset (PDF is read-only for c2pa; the lineage rides a cover raster)
     cover_fmt: str = "image/png"
     intent: tuple[Intent, DigitalSource | None] = (Intent.CREATE, None)
     title: str = "Transmittal"
@@ -172,26 +185,26 @@ class TransmittalEvidence(Struct, frozen=True, gc=False):
     issued_at: str
     issuing_party: str
     recipient: str
-    suitability: str          # the purpose-of-issue suitability code the receipt carries
-    stage: str                # which product this evidence closes (assemble/seal/issue/manifest)
+    suitability: str  # the purpose-of-issue suitability code the receipt carries
+    stage: str  # which product this evidence closes (assemble/seal/issue/manifest)
     sheets: int
     dominant_suitability: str
     latest_revision: str
     validation_state: str = "unsigned"
-    container: str = ""       # the sealed container `ContentKey.hex` (Seal)
+    container: str = ""  # the sealed container `ContentKey.hex` (Seal)
     container_members: int = 0
-    plan_set: str = ""        # the imposed / signed plan-set `ContentKey.hex` (Assemble/Issue)
-    scheme: str = ""          # the imposition scheme (Assemble)
-    press_sheets: int = 0     # the imposed press-sheet count (Assemble)
-    signatures: int = 0       # the bound signature count (Assemble)
+    plan_set: str = ""  # the imposed / signed plan-set `ContentKey.hex` (Assemble/Issue)
+    scheme: str = ""  # the imposition scheme (Assemble)
+    press_sheets: int = 0  # the imposed press-sheet count (Assemble)
+    signatures: int = 0  # the bound signature count (Assemble)
     signed_valid: bool = False
     pades_level: str = ""
     signer: str = ""
     signed_at: str = ""
     credential_state: str = ""
-    lineage: int = 0          # the C2PA ingredient count = sheet-lineage depth (Issue)
+    lineage: int = 0  # the C2PA ingredient count = sheet-lineage depth (Issue)
     record_valid: bool = True  # the transmittal-record Schematron conformance (Manifest); True where no record is produced
-    record_errors: int = 0     # the record's failed-assert count when `record_valid` is False
+    record_errors: int = 0  # the record's failed-assert count when `record_valid` is False
     verdict: ConformanceVerdict | None = None  # the leaf forensic edge the caller reads, the receipt projects the scalar
 
     def facts(self) -> dict[str, object]:
@@ -282,9 +295,7 @@ class Transmittal:  # the closed issue vocabulary; the fault rail is `BoundaryFa
                 async with create_task_group() as signs:
                     pades: TaskHandle[RuntimeRail[tuple[ContentKey, ConformanceVerdict]]] = signs.start_soon(_sign_pades, plan_set, spec)
                     cose: TaskHandle[RuntimeRail[tuple[ContentKey, CredentialEvidence]]] | None = (
-                        signs.start_soon(_sign_cose, spec, deliverable.sheets)
-                        if spec.cover and spec.credential_signer is not None
-                        else None
+                        signs.start_soon(_sign_cose, spec, deliverable.sheets) if spec.cover and spec.credential_signer is not None else None
                     )
                 return _folded_signs(deliverable, pades.return_value, cose.return_value if cose is not None else None)
             case _ as unreachable:
@@ -301,7 +312,9 @@ class Transmittal:  # the closed issue vocabulary; the fault rail is `BoundaryFa
             case Ok(receipt):
                 register_key = receipt.slot
                 record = await _record(deliverable, register_key.hex, spec.container)
-                return record.map(lambda rec: (ContentIdentity.of("transmittal.manifest", rec.data), _manifest_evidence(deliverable, register_key.hex, spec, rec)))
+                return record.map(
+                    lambda rec: (ContentIdentity.of("transmittal.manifest", rec.data), _manifest_evidence(deliverable, register_key.hex, spec, rec))
+                )
             case _ as unreachable:
                 assert_never(unreachable)
 
@@ -311,12 +324,19 @@ class Transmittal:  # the closed issue vocabulary; the fault rail is `BoundaryFa
         # `ArtifactReceipt.Transmittal` case's five settled scalars exactly as the conformance/credential
         # producers project theirs, so `receipt.py` imports no `TransmittalEvidence` value object.
         railed = await self.close()
-        return railed.map(lambda pair: ArtifactReceipt.Transmittal(pair[0], pair[1].transmittal_id, pair[1].sheets, pair[1].suitability, pair[1].container or pair[1].plan_set, pair[1].validation_state))
+        return railed.map(
+            lambda pair: ArtifactReceipt.Transmittal(
+                pair[0], pair[1].transmittal_id, pair[1].sheets, pair[1].suitability, pair[1].container or pair[1].plan_set, pair[1].validation_state
+            )
+        )
+
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _PAYLOAD: Final = TypeAdapter(TransmittalPayload)
-_PURPOSES: Final[frozenset[str]] = frozenset(purpose.value for purpose in Purpose)  # derived membership set the seam admits a raw purpose against, never `_value2member_map_`
+_PURPOSES: Final[frozenset[str]] = frozenset(
+    purpose.value for purpose in Purpose
+)  # derived membership set the seam admits a raw purpose against, never `_value2member_map_`
 _FAULTS: Final[tuple[type[BaseException], ...]] = (RuntimeError, ValueError, KeyError, OSError)
 _GATE: Final[CapacityLimiter] = CapacityLimiter(4)  # the own-native-seam offload bound (pymupdf collate + lxml record)
 _NS: Final[str] = "https://rasm.dev/schema/iso19650/transmittal"
@@ -345,8 +365,12 @@ def _collate(sheets: tuple[SheetRef, ...], record: TransmittalRecord, /) -> byte
                 out.insert_pdf(src)
         out.set_toc(toc)
         out.set_metadata({
-            "title": record.number, "author": record.issuing_party, "subject": record.purpose.value,
-            "keywords": record.project, "creator": "rasm-artifacts", "producer": "rasm-artifacts",
+            "title": record.number,
+            "author": record.issuing_party,
+            "subject": record.purpose.value,
+            "keywords": record.project,
+            "creator": "rasm-artifacts",
+            "producer": "rasm-artifacts",
         })
         return out.tobytes(garbage=4, deflate=True, use_objstms=1, no_new_id=True)
 
@@ -384,11 +408,18 @@ def _record_xml(deliverable: Deliverable, register_key: str, container_key: str,
     root = etree.Element(qname("Transmittal"), nsmap={None: _NS})
     header = etree.SubElement(root, qname("Header"))
     for field, value in (
-        ("number", record.number), ("revision", record.revision), ("issuedAt", record.issued_at),
-        ("issuingParty", record.issuing_party), ("recipient", record.recipient), ("purpose", record.purpose.value),
-        ("project", record.project), ("projectReference", record.project_id),
-        ("dominantSuitability", verdict.dominant_suitability), ("latestRevision", verdict.latest_revision),
-        ("registerKey", register_key), ("containerKey", container_key),
+        ("number", record.number),
+        ("revision", record.revision),
+        ("issuedAt", record.issued_at),
+        ("issuingParty", record.issuing_party),
+        ("recipient", record.recipient),
+        ("purpose", record.purpose.value),
+        ("project", record.project),
+        ("projectReference", record.project_id),
+        ("dominantSuitability", verdict.dominant_suitability),
+        ("latestRevision", verdict.latest_revision),
+        ("registerKey", register_key),
+        ("containerKey", container_key),
     ):
         etree.SubElement(header, qname(field)).text = value
     containers = etree.SubElement(root, qname("Containers"))
@@ -396,7 +427,9 @@ def _record_xml(deliverable: Deliverable, register_key: str, container_key: str,
         node = etree.SubElement(containers, qname("Container"), reference=sheet.key.hex, suitability=sheet.suitability, revision=sheet.revision)
         for field, value in (("title", sheet.title), ("discipline", sheet.discipline), ("format", sheet.fmt)):
             etree.SubElement(node, qname(field)).text = value
-    schema = isoschematron.Schematron(etree.fromstring(_record_schema()), store_report=True)  # per-call: the ISO engine is not thread-re-entrant on error_log
+    schema = isoschematron.Schematron(
+        etree.fromstring(_record_schema()), store_report=True
+    )  # per-call: the ISO engine is not thread-re-entrant on error_log
     valid = schema.validate(root)
     return RecordBytes(etree.tostring(root, method="c14n2"), valid, len(schema.error_log))
 
@@ -414,9 +447,7 @@ def _lineage_manifest(spec: IssueSpec, sheets: tuple[SheetRef, ...], /) -> Manif
     # transmits — the forensic lineage a flat issue record ignores.
     ingredients = tuple(
         Ingredient.Stream(
-            IngredientDefinition(title=sheet.title, format=sheet.fmt, relationship="componentOf", instance_id=sheet.key.hex),
-            sheet.fmt,
-            sheet.data,
+            IngredientDefinition(title=sheet.title, format=sheet.fmt, relationship="componentOf", instance_id=sheet.key.hex), sheet.fmt, sheet.data
         )
         for sheet in sheets
     )
@@ -457,7 +488,8 @@ def _assemble_evidence(deliverable: Deliverable, spec: AssembleSpec, key: Conten
     # defaults guard only the structurally-unreachable `Nothing` a Proof op would carry.
     return structs.replace(
         _base_evidence(deliverable, "assemble"),
-        plan_set=key.hex, scheme=spec.scheme.value,
+        plan_set=key.hex,
+        scheme=spec.scheme.value,
         press_sheets=plan.map(lambda p: p.sheets).default_value(0),
         signatures=plan.map(lambda p: p.signatures).default_value(0),
     )
@@ -468,10 +500,18 @@ def _seal_evidence(deliverable: Deliverable, key: ContentKey, members: int, /) -
 
 
 def _manifest_evidence(deliverable: Deliverable, register_key: str, spec: ManifestSpec, record: RecordBytes, /) -> TransmittalEvidence:
-    return structs.replace(_base_evidence(deliverable, "manifest"), container=spec.container, plan_set=register_key, record_valid=record.valid, record_errors=record.errors)
+    return structs.replace(
+        _base_evidence(deliverable, "manifest"),
+        container=spec.container,
+        plan_set=register_key,
+        record_valid=record.valid,
+        record_errors=record.errors,
+    )
 
 
-def _issue_evidence(deliverable: Deliverable, plan_set: ContentKey, verdict: ConformanceVerdict, credential: Option[CredentialEvidence], /) -> TransmittalEvidence:
+def _issue_evidence(
+    deliverable: Deliverable, plan_set: ContentKey, verdict: ConformanceVerdict, credential: Option[CredentialEvidence], /
+) -> TransmittalEvidence:
     # PAdES is the hard legal signature; C2PA is soft provenance — a present credential records its state and
     # sheet-lineage depth, an absent/failed one folds to the empty defaults, the validity the PAdES bottom line.
     return structs.replace(
@@ -479,7 +519,9 @@ def _issue_evidence(deliverable: Deliverable, plan_set: ContentKey, verdict: Con
         plan_set=plan_set.hex,
         validation_state="valid" if verdict.signature_valid and verdict.trusted else "invalid",
         signed_valid=verdict.signature_valid and verdict.trusted,
-        pades_level=verdict.pades_level, signer=verdict.signer_subject, signed_at=verdict.signed_at,
+        pades_level=verdict.pades_level,
+        signer=verdict.signer_subject,
+        signed_at=verdict.signed_at,
         credential_state=credential.map(lambda ev: ev.validation_state).default_value("unsigned"),
         lineage=credential.map(lambda ev: ev.ingredients).default_value(0),
         verdict=verdict,
@@ -491,9 +533,15 @@ def _base_evidence(deliverable: Deliverable, stage: str, /) -> TransmittalEviden
     # suitability / latest revision / container count rather than a second per-sheet re-walk here.
     record, verdict = deliverable.record, deliverable.register.audited()
     return TransmittalEvidence(
-        transmittal_id=record.number, revision=record.revision, issued_at=record.issued_at,
-        issuing_party=record.issuing_party, recipient=record.recipient, suitability=verdict.dominant_suitability,
-        stage=stage, sheets=len(deliverable.sheets), dominant_suitability=verdict.dominant_suitability,
+        transmittal_id=record.number,
+        revision=record.revision,
+        issued_at=record.issued_at,
+        issuing_party=record.issuing_party,
+        recipient=record.recipient,
+        suitability=verdict.dominant_suitability,
+        stage=stage,
+        sheets=len(deliverable.sheets),
+        dominant_suitability=verdict.dominant_suitability,
         latest_revision=verdict.latest_revision,
     )
 

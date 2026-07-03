@@ -59,6 +59,7 @@ public sealed class PackageAdmissionLaws {
             "subtree",
             "Speckle.Objects",
             "Speckle.Sdk",
+            "CommunityToolkit.HighPerformance",
             "NodaMoney",
             "NodaTime",
             "ProjNET",

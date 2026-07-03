@@ -72,14 +72,14 @@ class ScheduleKind(StrEnum):  # NCS/AIA/CSI AEC schedule types — each keys one
 
 
 class LegendKind(StrEnum):  # ISO-drafting + authored legend types — the DERIVED trio reads drawing/standard
-    LINE_TYPE = "line-type"              # ISO 128 line-type samples (LineType.pattern)
-    HATCH_MATERIAL = "hatch-material"    # ISO 128-50 section indicators (Standard.hatch)
+    LINE_TYPE = "line-type"  # ISO 128 line-type samples (LineType.pattern)
+    HATCH_MATERIAL = "hatch-material"  # ISO 128-50 section indicators (Standard.hatch)
     DISCIPLINE_LAYER = "discipline-layer"  # ISO 13567/AIA discipline pen colors (Standard.rgb)
-    SYMBOL = "symbol"                    # authored drawing-symbol legend
-    ABBREVIATION = "abbreviation"        # authored abbreviations legend
-    KEYNOTE = "keynote"                  # authored keynote legend (specification/classify codes)
+    SYMBOL = "symbol"  # authored drawing-symbol legend
+    ABBREVIATION = "abbreviation"  # authored abbreviations legend
+    KEYNOTE = "keynote"  # authored keynote legend (specification/classify codes)
     MATERIAL_FINISH = "material-finish"  # authored material/finish legend
-    GENERAL_NOTE = "general-note"        # authored general notes
+    GENERAL_NOTE = "general-note"  # authored general notes
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -95,7 +95,9 @@ _FAULTS: tuple[type[Exception], ...] = (PolarsError, ValueError, KeyError, NotIm
 _INGRESS: BeartypeConf = BeartypeConf(violation_type=ValueError)
 # the AEC schedule publication identity — a clean bordered grid, all-caps headers, centered title, ISO-drafting
 # †/‡/§ footnote marks (opt_footnote_marks) rather than the numeric default a symbol legend reads as a callout.
-_AEC_THEME: Theme = Theme(style=1, color="gray", all_caps=True, header_align="center", outline=("solid", "1px", "#333333"), footnote_marks=FootnoteMarks.STANDARD)
+_AEC_THEME: Theme = Theme(
+    style=1, color="gray", all_caps=True, header_align="center", outline=("solid", "1px", "#333333"), footnote_marks=FootnoteMarks.STANDARD
+)
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -128,9 +130,11 @@ class ScheduleTemplate(Struct, frozen=True):
     color_by: str | None = None
     totals: tuple[str, ...] = ()  # numeric columns the group/grand-summary SUMs beside the key count (the QTO takeoff totals)
     note: str = ""
-    group: str | None = None      # the division sort-lead column shown group-adjacent (a future great-tables row-group; the polars row-group render is version-blocked — see RESEARCH)
-    rollup: tuple[str, ...] = ()   # the group_by keys that roll the settled element frame to its canonical BOQ display shape
-    carry: tuple[str, ...] = ()    # non-key non-measure display columns the rollup carries by first() (a per-item unit rate)
+    group: str | None = (
+        None  # the division sort-lead column shown group-adjacent (a future great-tables row-group; the polars row-group render is version-blocked — see RESEARCH)
+    )
+    rollup: tuple[str, ...] = ()  # the group_by keys that roll the settled element frame to its canonical BOQ display shape
+    carry: tuple[str, ...] = ()  # non-key non-measure display columns the rollup carries by first() (a per-item unit rate)
     footnotes: tuple[Footnote, ...] = ()  # column-anchored footnotes marked †/‡ by the theme's opt_footnote_marks sequence
 
 
@@ -147,7 +151,7 @@ class ScheduleContent:
     # the two admission regimes as per-mode payloads — the tabular frame is dead on the legend arm and the
     # legend entries dead on the tabular arm, so each case carries ONLY its own payload, never a shared bag.
     tag: Literal["tabular", "legend"] = tag()
-    tabular: tuple[pl.DataFrame, ScheduleKind] = case()          # a settled QTO/schedule frame + its template
+    tabular: tuple[pl.DataFrame, ScheduleKind] = case()  # a settled QTO/schedule frame + its template
     legend: tuple[LegendKind, tuple[LegendEntry, ...]] = case()  # a legend kind + its authored entries
 
 
@@ -161,12 +165,32 @@ class Schedule(Struct, frozen=True):
 
     @classmethod
     @beartype(conf=_INGRESS)
-    def tabular(cls, frame: pl.DataFrame, kind: ScheduleKind, palette: Palette, /, *, fmt: TableFormat = TableFormat.HTML, theme: Theme = _AEC_THEME, standard: Standard = Standard()) -> Self:
+    def tabular(
+        cls,
+        frame: pl.DataFrame,
+        kind: ScheduleKind,
+        palette: Palette,
+        /,
+        *,
+        fmt: TableFormat = TableFormat.HTML,
+        theme: Theme = _AEC_THEME,
+        standard: Standard = Standard(),
+    ) -> Self:
         return cls(content=ScheduleContent(tabular=(frame, kind)), palette=palette, fmt=fmt, theme=theme, standard=standard)
 
     @classmethod
     @beartype(conf=_INGRESS)
-    def legend(cls, kind: LegendKind, palette: Palette, /, entries: Iterable[LegendEntry] = (), *, fmt: TableFormat = TableFormat.HTML, theme: Theme = _AEC_THEME, standard: Standard = Standard()) -> Self:
+    def legend(
+        cls,
+        kind: LegendKind,
+        palette: Palette,
+        /,
+        entries: Iterable[LegendEntry] = (),
+        *,
+        fmt: TableFormat = TableFormat.HTML,
+        theme: Theme = _AEC_THEME,
+        standard: Standard = Standard(),
+    ) -> Self:
         return cls(content=ScheduleContent(legend=(kind, tuple(entries))), palette=palette, fmt=fmt, theme=theme, standard=standard)
 
     async def resolve(self) -> RuntimeRail[tuple[bytes, ArtifactReceipt]]:
@@ -249,7 +273,19 @@ def _schedule_ops(template: ScheduleTemplate, palette: Palette, present: frozens
     summary = (TableOp.GrandSummary(grand_fns, missing_text=""),) if template.key in present else ()
     footnotes = tuple(TableOp.Footnote(text, at=StubLoc.COLUMN_LABELS, columns=[column]) for column, text in template.footnotes if column in present)
     noted = (TableOp.SourceNote(template.note),) if template.note else ()
-    return (TableOp.Header(template.title), *stub, TableOp.Label(labels), *fmts, *aligns, *spanners, *colored, TableOp.SubMissing(text="—"), *summary, *footnotes, *noted)
+    return (
+        TableOp.Header(template.title),
+        *stub,
+        TableOp.Label(labels),
+        *fmts,
+        *aligns,
+        *spanners,
+        *colored,
+        TableOp.SubMissing(text="—"),
+        *summary,
+        *footnotes,
+        *noted,
+    )
 
 
 def _legend_frame(kind: LegendKind, entries: tuple[LegendEntry, ...], standard: Standard) -> pl.DataFrame:
@@ -268,7 +304,10 @@ def _legend_rows(kind: LegendKind, entries: tuple[LegendEntry, ...], standard: S
         case LegendKind.HATCH_MATERIAL:
             return tuple((_hatch_swatch(standard.hatch(material)), material.value, _HATCH_MEANING[material]) for material in HatchMaterial)
         case LegendKind.DISCIPLINE_LAYER:
-            return tuple((_color_swatch(standard.rgb(LayerName.of(discipline, "XXXX"))), discipline.value, _DISCIPLINE_MEANING[discipline]) for discipline in Discipline)
+            return tuple(
+                (_color_swatch(standard.rgb(LayerName.of(discipline, "XXXX"))), discipline.value, _DISCIPLINE_MEANING[discipline])
+                for discipline in Discipline
+            )
         case LegendKind.SYMBOL | LegendKind.ABBREVIATION | LegendKind.KEYNOTE | LegendKind.MATERIAL_FINISH | LegendKind.GENERAL_NOTE:
             return tuple((entry.swatch, entry.code, entry.description) for entry in entries)
         case _ as unreachable:
@@ -335,186 +374,318 @@ def _hex(rgb: tuple[int, int, int]) -> str:
 # single edit site per schedule type, from which _schedule_ops derives the whole TableOp sequence.
 _TEMPLATE: frozendict[ScheduleKind, ScheduleTemplate] = frozendict({
     ScheduleKind.DOOR: ScheduleTemplate(
-        "DOOR SCHEDULE", "mark",
+        "DOOR SCHEDULE",
+        "mark",
         (
-            ColumnSpec("mark", "MARK", align="center"), ColumnSpec("type", "TYPE", align="center"),
-            ColumnSpec("width", "W", FmtKind.NUMBER, "mm", "right"), ColumnSpec("height", "H", FmtKind.NUMBER, "mm", "right"),
-            ColumnSpec("thickness", "THK", FmtKind.NUMBER, "mm", "right"), ColumnSpec("material", "MATERIAL"),
-            ColumnSpec("finish", "FINISH"), ColumnSpec("glazing", "GLAZING"), ColumnSpec("fire_rating", "FIRE", align="center"),
-            ColumnSpec("frame_type", "FR TYPE", align="center"), ColumnSpec("frame_material", "FR MATL"),
-            ColumnSpec("hardware_set", "HW SET", align="center"), ColumnSpec("head", "HEAD", align="center"),
-            ColumnSpec("jamb", "JAMB", align="center"), ColumnSpec("sill", "SILL", align="center"), ColumnSpec("remarks", "REMARKS"),
+            ColumnSpec("mark", "MARK", align="center"),
+            ColumnSpec("type", "TYPE", align="center"),
+            ColumnSpec("width", "W", FmtKind.NUMBER, "mm", "right"),
+            ColumnSpec("height", "H", FmtKind.NUMBER, "mm", "right"),
+            ColumnSpec("thickness", "THK", FmtKind.NUMBER, "mm", "right"),
+            ColumnSpec("material", "MATERIAL"),
+            ColumnSpec("finish", "FINISH"),
+            ColumnSpec("glazing", "GLAZING"),
+            ColumnSpec("fire_rating", "FIRE", align="center"),
+            ColumnSpec("frame_type", "FR TYPE", align="center"),
+            ColumnSpec("frame_material", "FR MATL"),
+            ColumnSpec("hardware_set", "HW SET", align="center"),
+            ColumnSpec("head", "HEAD", align="center"),
+            ColumnSpec("jamb", "JAMB", align="center"),
+            ColumnSpec("sill", "SILL", align="center"),
+            ColumnSpec("remarks", "REMARKS"),
         ),
-        (SpannerSpec("LEAF", ("type", "width", "height", "thickness")), SpannerSpec("FACE", ("material", "finish", "glazing")),
-         SpannerSpec("FRAME", ("frame_type", "frame_material")), SpannerSpec("DETAILS", ("head", "jamb", "sill"))),
-        sort="mark", color_by="fire_rating", note="Fire ratings per local code; verify hardware sets against door types.",
+        (
+            SpannerSpec("LEAF", ("type", "width", "height", "thickness")),
+            SpannerSpec("FACE", ("material", "finish", "glazing")),
+            SpannerSpec("FRAME", ("frame_type", "frame_material")),
+            SpannerSpec("DETAILS", ("head", "jamb", "sill")),
+        ),
+        sort="mark",
+        color_by="fire_rating",
+        note="Fire ratings per local code; verify hardware sets against door types.",
     ),
     ScheduleKind.WINDOW: ScheduleTemplate(
-        "WINDOW SCHEDULE", "mark",
+        "WINDOW SCHEDULE",
+        "mark",
         (
-            ColumnSpec("mark", "MARK", align="center"), ColumnSpec("type", "TYPE", align="center"),
-            ColumnSpec("width", "W", FmtKind.NUMBER, "mm", "right"), ColumnSpec("height", "H", FmtKind.NUMBER, "mm", "right"),
-            ColumnSpec("sill_height", "SILL HT", FmtKind.NUMBER, "mm", "right"), ColumnSpec("material", "MATERIAL"),
-            ColumnSpec("glazing", "GLAZING"), ColumnSpec("operation", "OPERATION"),
-            ColumnSpec("u_value", "U", FmtKind.NUMBER, "W/m²K", "right", 2), ColumnSpec("shgc", "SHGC", FmtKind.NUMBER, "", "right", 2),
-            ColumnSpec("head", "HEAD", align="center"), ColumnSpec("jamb", "JAMB", align="center"),
-            ColumnSpec("sill", "SILL", align="center"), ColumnSpec("remarks", "REMARKS"),
+            ColumnSpec("mark", "MARK", align="center"),
+            ColumnSpec("type", "TYPE", align="center"),
+            ColumnSpec("width", "W", FmtKind.NUMBER, "mm", "right"),
+            ColumnSpec("height", "H", FmtKind.NUMBER, "mm", "right"),
+            ColumnSpec("sill_height", "SILL HT", FmtKind.NUMBER, "mm", "right"),
+            ColumnSpec("material", "MATERIAL"),
+            ColumnSpec("glazing", "GLAZING"),
+            ColumnSpec("operation", "OPERATION"),
+            ColumnSpec("u_value", "U", FmtKind.NUMBER, "W/m²K", "right", 2),
+            ColumnSpec("shgc", "SHGC", FmtKind.NUMBER, "", "right", 2),
+            ColumnSpec("head", "HEAD", align="center"),
+            ColumnSpec("jamb", "JAMB", align="center"),
+            ColumnSpec("sill", "SILL", align="center"),
+            ColumnSpec("remarks", "REMARKS"),
         ),
-        (SpannerSpec("OPENING", ("type", "width", "height", "sill_height")), SpannerSpec("GLAZING", ("material", "glazing", "operation")),
-         SpannerSpec("PERFORMANCE", ("u_value", "shgc")), SpannerSpec("DETAILS", ("head", "jamb", "sill"))),
+        (
+            SpannerSpec("OPENING", ("type", "width", "height", "sill_height")),
+            SpannerSpec("GLAZING", ("material", "glazing", "operation")),
+            SpannerSpec("PERFORMANCE", ("u_value", "shgc")),
+            SpannerSpec("DETAILS", ("head", "jamb", "sill")),
+        ),
         sort="mark",
     ),
     ScheduleKind.ROOM_FINISH: ScheduleTemplate(
-        "ROOM FINISH SCHEDULE", "room_no",
+        "ROOM FINISH SCHEDULE",
+        "room_no",
         (
-            ColumnSpec("room_no", "NO.", align="center"), ColumnSpec("room_name", "ROOM NAME"), ColumnSpec("floor", "FLOOR"),
-            ColumnSpec("base", "BASE"), ColumnSpec("wall_n", "N"), ColumnSpec("wall_e", "E"), ColumnSpec("wall_s", "S"),
-            ColumnSpec("wall_w", "W"), ColumnSpec("ceiling", "CEILING"),
-            ColumnSpec("ceiling_height", "CLG HT", FmtKind.NUMBER, "mm", "right"), ColumnSpec("remarks", "REMARKS"),
+            ColumnSpec("room_no", "NO.", align="center"),
+            ColumnSpec("room_name", "ROOM NAME"),
+            ColumnSpec("floor", "FLOOR"),
+            ColumnSpec("base", "BASE"),
+            ColumnSpec("wall_n", "N"),
+            ColumnSpec("wall_e", "E"),
+            ColumnSpec("wall_s", "S"),
+            ColumnSpec("wall_w", "W"),
+            ColumnSpec("ceiling", "CEILING"),
+            ColumnSpec("ceiling_height", "CLG HT", FmtKind.NUMBER, "mm", "right"),
+            ColumnSpec("remarks", "REMARKS"),
         ),
         (SpannerSpec("WALLS", ("wall_n", "wall_e", "wall_s", "wall_w")), SpannerSpec("CEILING", ("ceiling", "ceiling_height"))),
         sort="room_no",
     ),
     ScheduleKind.WALL_TYPE: ScheduleTemplate(
-        "WALL TYPE SCHEDULE", "type_mark",
+        "WALL TYPE SCHEDULE",
+        "type_mark",
         (
-            ColumnSpec("type_mark", "TYPE", align="center"), ColumnSpec("description", "DESCRIPTION"),
-            ColumnSpec("thickness", "THK", FmtKind.NUMBER, "mm", "right"), ColumnSpec("fire_rating", "FIRE", align="center"),
-            ColumnSpec("stc", "STC", FmtKind.INTEGER, "", "right"), ColumnSpec("assembly", "ASSEMBLY"), ColumnSpec("remarks", "REMARKS"),
+            ColumnSpec("type_mark", "TYPE", align="center"),
+            ColumnSpec("description", "DESCRIPTION"),
+            ColumnSpec("thickness", "THK", FmtKind.NUMBER, "mm", "right"),
+            ColumnSpec("fire_rating", "FIRE", align="center"),
+            ColumnSpec("stc", "STC", FmtKind.INTEGER, "", "right"),
+            ColumnSpec("assembly", "ASSEMBLY"),
+            ColumnSpec("remarks", "REMARKS"),
         ),
-        (SpannerSpec("RATING", ("fire_rating", "stc")),), sort="type_mark", color_by="fire_rating",
+        (SpannerSpec("RATING", ("fire_rating", "stc")),),
+        sort="type_mark",
+        color_by="fire_rating",
     ),
     ScheduleKind.PARTITION: ScheduleTemplate(
-        "PARTITION SCHEDULE", "type_mark",
+        "PARTITION SCHEDULE",
+        "type_mark",
         (
-            ColumnSpec("type_mark", "TYPE", align="center"), ColumnSpec("description", "DESCRIPTION"),
-            ColumnSpec("thickness", "THK", FmtKind.NUMBER, "mm", "right"), ColumnSpec("height", "HT"),
-            ColumnSpec("fire_rating", "FIRE", align="center"), ColumnSpec("stc", "STC", FmtKind.INTEGER, "", "right"),
-            ColumnSpec("head_condition", "HEAD"), ColumnSpec("remarks", "REMARKS"),
+            ColumnSpec("type_mark", "TYPE", align="center"),
+            ColumnSpec("description", "DESCRIPTION"),
+            ColumnSpec("thickness", "THK", FmtKind.NUMBER, "mm", "right"),
+            ColumnSpec("height", "HT"),
+            ColumnSpec("fire_rating", "FIRE", align="center"),
+            ColumnSpec("stc", "STC", FmtKind.INTEGER, "", "right"),
+            ColumnSpec("head_condition", "HEAD"),
+            ColumnSpec("remarks", "REMARKS"),
         ),
-        (SpannerSpec("RATING", ("fire_rating", "stc")),), sort="type_mark", color_by="fire_rating",
+        (SpannerSpec("RATING", ("fire_rating", "stc")),),
+        sort="type_mark",
+        color_by="fire_rating",
     ),
     ScheduleKind.EQUIPMENT: ScheduleTemplate(
-        "EQUIPMENT SCHEDULE", "mark",
+        "EQUIPMENT SCHEDULE",
+        "mark",
         (
-            ColumnSpec("mark", "MARK", align="center"), ColumnSpec("description", "DESCRIPTION"),
-            ColumnSpec("manufacturer", "MANUFACTURER"), ColumnSpec("model", "MODEL"),
-            ColumnSpec("quantity", "QTY", FmtKind.INTEGER, "", "right"), ColumnSpec("electrical", "ELEC"),
-            ColumnSpec("plumbing", "PLBG"), ColumnSpec("weight", "WEIGHT", FmtKind.NUMBER, "kg", "right"), ColumnSpec("remarks", "REMARKS"),
+            ColumnSpec("mark", "MARK", align="center"),
+            ColumnSpec("description", "DESCRIPTION"),
+            ColumnSpec("manufacturer", "MANUFACTURER"),
+            ColumnSpec("model", "MODEL"),
+            ColumnSpec("quantity", "QTY", FmtKind.INTEGER, "", "right"),
+            ColumnSpec("electrical", "ELEC"),
+            ColumnSpec("plumbing", "PLBG"),
+            ColumnSpec("weight", "WEIGHT", FmtKind.NUMBER, "kg", "right"),
+            ColumnSpec("remarks", "REMARKS"),
         ),
-        (SpannerSpec("PRODUCT", ("manufacturer", "model")), SpannerSpec("UTILITIES", ("electrical", "plumbing"))), sort="mark",
+        (SpannerSpec("PRODUCT", ("manufacturer", "model")), SpannerSpec("UTILITIES", ("electrical", "plumbing"))),
+        sort="mark",
     ),
     ScheduleKind.PLUMBING_FIXTURE: ScheduleTemplate(
-        "PLUMBING FIXTURE SCHEDULE", "mark",
+        "PLUMBING FIXTURE SCHEDULE",
+        "mark",
         (
-            ColumnSpec("mark", "MARK", align="center"), ColumnSpec("description", "DESCRIPTION"),
-            ColumnSpec("manufacturer", "MANUFACTURER"), ColumnSpec("model", "MODEL"), ColumnSpec("hot_water", "HW"),
-            ColumnSpec("cold_water", "CW"), ColumnSpec("waste", "WASTE"), ColumnSpec("vent", "VENT"), ColumnSpec("remarks", "REMARKS"),
+            ColumnSpec("mark", "MARK", align="center"),
+            ColumnSpec("description", "DESCRIPTION"),
+            ColumnSpec("manufacturer", "MANUFACTURER"),
+            ColumnSpec("model", "MODEL"),
+            ColumnSpec("hot_water", "HW"),
+            ColumnSpec("cold_water", "CW"),
+            ColumnSpec("waste", "WASTE"),
+            ColumnSpec("vent", "VENT"),
+            ColumnSpec("remarks", "REMARKS"),
         ),
-        (SpannerSpec("PRODUCT", ("manufacturer", "model")), SpannerSpec("CONNECTIONS", ("hot_water", "cold_water", "waste", "vent"))), sort="mark",
+        (SpannerSpec("PRODUCT", ("manufacturer", "model")), SpannerSpec("CONNECTIONS", ("hot_water", "cold_water", "waste", "vent"))),
+        sort="mark",
     ),
     ScheduleKind.LIGHTING_FIXTURE: ScheduleTemplate(
-        "LIGHTING FIXTURE SCHEDULE", "mark",
+        "LIGHTING FIXTURE SCHEDULE",
+        "mark",
         (
-            ColumnSpec("mark", "MARK", align="center"), ColumnSpec("type", "TYPE", align="center"),
-            ColumnSpec("description", "DESCRIPTION"), ColumnSpec("lamp", "LAMP"),
-            ColumnSpec("wattage", "W", FmtKind.INTEGER, "W", "right"), ColumnSpec("voltage", "V", FmtKind.INTEGER, "V", "right"),
-            ColumnSpec("mounting", "MOUNTING"), ColumnSpec("manufacturer", "MANUFACTURER"), ColumnSpec("model", "MODEL"), ColumnSpec("remarks", "REMARKS"),
+            ColumnSpec("mark", "MARK", align="center"),
+            ColumnSpec("type", "TYPE", align="center"),
+            ColumnSpec("description", "DESCRIPTION"),
+            ColumnSpec("lamp", "LAMP"),
+            ColumnSpec("wattage", "W", FmtKind.INTEGER, "W", "right"),
+            ColumnSpec("voltage", "V", FmtKind.INTEGER, "V", "right"),
+            ColumnSpec("mounting", "MOUNTING"),
+            ColumnSpec("manufacturer", "MANUFACTURER"),
+            ColumnSpec("model", "MODEL"),
+            ColumnSpec("remarks", "REMARKS"),
         ),
-        (SpannerSpec("LAMP", ("lamp", "wattage", "voltage")), SpannerSpec("PRODUCT", ("manufacturer", "model"))), sort="mark",
+        (SpannerSpec("LAMP", ("lamp", "wattage", "voltage")), SpannerSpec("PRODUCT", ("manufacturer", "model"))),
+        sort="mark",
     ),
     ScheduleKind.FINISH: ScheduleTemplate(
-        "FINISH SCHEDULE", "code",
+        "FINISH SCHEDULE",
+        "code",
         (
-            ColumnSpec("code", "CODE", align="center"), ColumnSpec("category", "CATEGORY"), ColumnSpec("material", "MATERIAL"),
-            ColumnSpec("manufacturer", "MANUFACTURER"), ColumnSpec("product", "PRODUCT"), ColumnSpec("color", "COLOR"),
-            ColumnSpec("finish", "FINISH"), ColumnSpec("size", "SIZE", align="right"), ColumnSpec("location", "LOCATION"), ColumnSpec("remarks", "REMARKS"),
+            ColumnSpec("code", "CODE", align="center"),
+            ColumnSpec("category", "CATEGORY"),
+            ColumnSpec("material", "MATERIAL"),
+            ColumnSpec("manufacturer", "MANUFACTURER"),
+            ColumnSpec("product", "PRODUCT"),
+            ColumnSpec("color", "COLOR"),
+            ColumnSpec("finish", "FINISH"),
+            ColumnSpec("size", "SIZE", align="right"),
+            ColumnSpec("location", "LOCATION"),
+            ColumnSpec("remarks", "REMARKS"),
         ),
-        (SpannerSpec("PRODUCT", ("manufacturer", "product", "color", "finish")),), sort="code",
+        (SpannerSpec("PRODUCT", ("manufacturer", "product", "color", "finish")),),
+        sort="code",
     ),
     ScheduleKind.HARDWARE_SET: ScheduleTemplate(
-        "DOOR HARDWARE SET SCHEDULE", "set_no",
+        "DOOR HARDWARE SET SCHEDULE",
+        "set_no",
         (
-            ColumnSpec("set_no", "SET", align="center"), ColumnSpec("quantity", "QTY", FmtKind.INTEGER, "", "right"),
-            ColumnSpec("item", "ITEM"), ColumnSpec("manufacturer", "MANUFACTURER"), ColumnSpec("product", "PRODUCT"), ColumnSpec("finish", "FINISH", align="center"),
+            ColumnSpec("set_no", "SET", align="center"),
+            ColumnSpec("quantity", "QTY", FmtKind.INTEGER, "", "right"),
+            ColumnSpec("item", "ITEM"),
+            ColumnSpec("manufacturer", "MANUFACTURER"),
+            ColumnSpec("product", "PRODUCT"),
+            ColumnSpec("finish", "FINISH", align="center"),
         ),
         sort="set_no",
     ),
     ScheduleKind.PANEL: ScheduleTemplate(
-        "PANEL SCHEDULE", "circuit",
+        "PANEL SCHEDULE",
+        "circuit",
         (
-            ColumnSpec("circuit", "CKT", align="center"), ColumnSpec("description", "DESCRIPTION"),
-            ColumnSpec("load_va", "LOAD", FmtKind.INTEGER, "VA", "right"), ColumnSpec("poles", "P", FmtKind.INTEGER, "", "center"),
-            ColumnSpec("breaker", "TRIP", FmtKind.INTEGER, "A", "right"), ColumnSpec("phase", "PH", align="center"), ColumnSpec("remarks", "REMARKS"),
+            ColumnSpec("circuit", "CKT", align="center"),
+            ColumnSpec("description", "DESCRIPTION"),
+            ColumnSpec("load_va", "LOAD", FmtKind.INTEGER, "VA", "right"),
+            ColumnSpec("poles", "P", FmtKind.INTEGER, "", "center"),
+            ColumnSpec("breaker", "TRIP", FmtKind.INTEGER, "A", "right"),
+            ColumnSpec("phase", "PH", align="center"),
+            ColumnSpec("remarks", "REMARKS"),
         ),
-        (SpannerSpec("BREAKER", ("poles", "breaker", "phase")),), sort="circuit",
+        (SpannerSpec("BREAKER", ("poles", "breaker", "phase")),),
+        sort="circuit",
     ),
     ScheduleKind.STRUCTURAL_COLUMN: ScheduleTemplate(
-        "COLUMN SCHEDULE", "mark",
+        "COLUMN SCHEDULE",
+        "mark",
         (
-            ColumnSpec("mark", "MARK", align="center"), ColumnSpec("size", "SIZE"), ColumnSpec("material", "MATERIAL"),
-            ColumnSpec("grade", "GRADE", align="center"), ColumnSpec("base_plate", "BASE PL"), ColumnSpec("splice", "SPLICE"), ColumnSpec("remarks", "REMARKS"),
+            ColumnSpec("mark", "MARK", align="center"),
+            ColumnSpec("size", "SIZE"),
+            ColumnSpec("material", "MATERIAL"),
+            ColumnSpec("grade", "GRADE", align="center"),
+            ColumnSpec("base_plate", "BASE PL"),
+            ColumnSpec("splice", "SPLICE"),
+            ColumnSpec("remarks", "REMARKS"),
         ),
         sort="mark",
     ),
     ScheduleKind.STRUCTURAL_BEAM: ScheduleTemplate(
-        "BEAM SCHEDULE", "mark",
+        "BEAM SCHEDULE",
+        "mark",
         (
-            ColumnSpec("mark", "MARK", align="center"), ColumnSpec("size", "SIZE"), ColumnSpec("material", "MATERIAL"),
-            ColumnSpec("grade", "GRADE", align="center"), ColumnSpec("camber", "CAMBER", FmtKind.NUMBER, "mm", "right"),
-            ColumnSpec("connection", "CONNECTION"), ColumnSpec("remarks", "REMARKS"),
+            ColumnSpec("mark", "MARK", align="center"),
+            ColumnSpec("size", "SIZE"),
+            ColumnSpec("material", "MATERIAL"),
+            ColumnSpec("grade", "GRADE", align="center"),
+            ColumnSpec("camber", "CAMBER", FmtKind.NUMBER, "mm", "right"),
+            ColumnSpec("connection", "CONNECTION"),
+            ColumnSpec("remarks", "REMARKS"),
         ),
         sort="mark",
     ),
     ScheduleKind.FURNITURE: ScheduleTemplate(
-        "FURNITURE & EQUIPMENT SCHEDULE", "mark",
+        "FURNITURE & EQUIPMENT SCHEDULE",
+        "mark",
         (
-            ColumnSpec("mark", "MARK", align="center"), ColumnSpec("description", "DESCRIPTION"),
-            ColumnSpec("manufacturer", "MANUFACTURER"), ColumnSpec("model", "MODEL"),
-            ColumnSpec("quantity", "QTY", FmtKind.INTEGER, "", "right"), ColumnSpec("location", "LOCATION"), ColumnSpec("remarks", "REMARKS"),
+            ColumnSpec("mark", "MARK", align="center"),
+            ColumnSpec("description", "DESCRIPTION"),
+            ColumnSpec("manufacturer", "MANUFACTURER"),
+            ColumnSpec("model", "MODEL"),
+            ColumnSpec("quantity", "QTY", FmtKind.INTEGER, "", "right"),
+            ColumnSpec("location", "LOCATION"),
+            ColumnSpec("remarks", "REMARKS"),
         ),
-        (SpannerSpec("PRODUCT", ("manufacturer", "model")),), sort="mark",
+        (SpannerSpec("PRODUCT", ("manufacturer", "model")),),
+        sort="mark",
     ),
     # the canonical Rasm.Bim QTO consumer: the settled per-element takeoff frame arriving over data/tabular is ROLLED
     # to its BOQ display shape (group_by division+item+material+unit, measures SUMmed, rate carried), rendered as
     # classification-DIVISION row-group blocks each closing on a per-division Subtotal, the whole sheet on the grand
     # Total, the amount column cost-shaded, and the rate/amount columns footnoted — the true bill-of-quantities form.
     ScheduleKind.QUANTITY: ScheduleTemplate(
-        "QUANTITY TAKEOFF", "description",
+        "QUANTITY TAKEOFF",
+        "description",
         (
-            ColumnSpec("classification", "DIVISION", align="center"), ColumnSpec("description", "DESCRIPTION"),
-            ColumnSpec("material", "MATERIAL"), ColumnSpec("unit", "UNIT", align="center"),
-            ColumnSpec("count", "QTY", FmtKind.INTEGER, "no.", "right"), ColumnSpec("length", "LENGTH", FmtKind.NUMBER, "m", "right", 2),
-            ColumnSpec("area", "AREA", FmtKind.NUMBER, "m²", "right", 2), ColumnSpec("volume", "VOLUME", FmtKind.NUMBER, "m³", "right", 3),
+            ColumnSpec("classification", "DIVISION", align="center"),
+            ColumnSpec("description", "DESCRIPTION"),
+            ColumnSpec("material", "MATERIAL"),
+            ColumnSpec("unit", "UNIT", align="center"),
+            ColumnSpec("count", "QTY", FmtKind.INTEGER, "no.", "right"),
+            ColumnSpec("length", "LENGTH", FmtKind.NUMBER, "m", "right", 2),
+            ColumnSpec("area", "AREA", FmtKind.NUMBER, "m²", "right", 2),
+            ColumnSpec("volume", "VOLUME", FmtKind.NUMBER, "m³", "right", 3),
             ColumnSpec("weight", "WEIGHT", FmtKind.NUMBER, "kg", "right", 1),
-            ColumnSpec("unit_rate", "RATE", FmtKind.NUMBER, "", "right", 2), ColumnSpec("total_cost", "AMOUNT", FmtKind.NUMBER, "", "right", 2),
+            ColumnSpec("unit_rate", "RATE", FmtKind.NUMBER, "", "right", 2),
+            ColumnSpec("total_cost", "AMOUNT", FmtKind.NUMBER, "", "right", 2),
         ),
         (SpannerSpec("MEASURE", ("count", "length", "area", "volume", "weight")), SpannerSpec("COST", ("unit_rate", "total_cost"))),
-        sort="description", color_by="total_cost", totals=("count", "length", "area", "volume", "weight", "total_cost"),
-        group="classification", rollup=("classification", "description", "material", "unit"), carry=("unit_rate",),
-        footnotes=(("unit_rate", "Rates exclude overheads, profit, and preliminaries."), ("total_cost", "BIM-derived estimate — verify before tender.")),
+        sort="description",
+        color_by="total_cost",
+        totals=("count", "length", "area", "volume", "weight", "total_cost"),
+        group="classification",
+        rollup=("classification", "description", "material", "unit"),
+        carry=("unit_rate",),
+        footnotes=(
+            ("unit_rate", "Rates exclude overheads, profit, and preliminaries."),
+            ("total_cost", "BIM-derived estimate — verify before tender."),
+        ),
         note="Quantities BIM-derived and approximate; verify before pricing.",
     ),
 })
 
 # the legend kind -> its printed title; the single edit site per legend type.
 _LEGEND_TITLE: frozendict[LegendKind, str] = frozendict({
-    LegendKind.LINE_TYPE: "LINE TYPE LEGEND", LegendKind.HATCH_MATERIAL: "MATERIAL HATCH LEGEND",
-    LegendKind.DISCIPLINE_LAYER: "DISCIPLINE LAYER LEGEND", LegendKind.SYMBOL: "SYMBOL LEGEND",
-    LegendKind.ABBREVIATION: "ABBREVIATIONS", LegendKind.KEYNOTE: "KEYNOTE LEGEND",
-    LegendKind.MATERIAL_FINISH: "MATERIAL LEGEND", LegendKind.GENERAL_NOTE: "GENERAL NOTES",
+    LegendKind.LINE_TYPE: "LINE TYPE LEGEND",
+    LegendKind.HATCH_MATERIAL: "MATERIAL HATCH LEGEND",
+    LegendKind.DISCIPLINE_LAYER: "DISCIPLINE LAYER LEGEND",
+    LegendKind.SYMBOL: "SYMBOL LEGEND",
+    LegendKind.ABBREVIATION: "ABBREVIATIONS",
+    LegendKind.KEYNOTE: "KEYNOTE LEGEND",
+    LegendKind.MATERIAL_FINISH: "MATERIAL LEGEND",
+    LegendKind.GENERAL_NOTE: "GENERAL NOTES",
 })
 
 # the ISO 128 line-type -> its drafting meaning (the legend description beside the real dash swatch); TOTAL over
 # the full ISO 128-2:2020 Table 1 fifteen-type LineType family so `_legend_rows` indexes every member (a 10-of-15
 # slice KeyErrors the moment standard.md's LineType grows past the covered set).
 _LINE_MEANING: frozendict[LineType, str] = frozendict({
-    LineType.CONTINUOUS: "Visible edges and outlines", LineType.DASHED: "Hidden edges",
-    LineType.DASHED_SPACED: "Hidden edges (alternate)", LineType.LONG_DASH_DOT: "Centre lines and axes of symmetry",
-    LineType.LONG_DASH_DOUBLE_DOT: "Adjacent parts, alternate positions", LineType.LONG_DASH_TRIPLE_DOT: "Special surface treatment",
-    LineType.DOTTED: "Hidden detail", LineType.LONG_DASH_SHORT_DASH: "Cutting and viewing planes",
+    LineType.CONTINUOUS: "Visible edges and outlines",
+    LineType.DASHED: "Hidden edges",
+    LineType.DASHED_SPACED: "Hidden edges (alternate)",
+    LineType.LONG_DASH_DOT: "Centre lines and axes of symmetry",
+    LineType.LONG_DASH_DOUBLE_DOT: "Adjacent parts, alternate positions",
+    LineType.LONG_DASH_TRIPLE_DOT: "Special surface treatment",
+    LineType.DOTTED: "Hidden detail",
+    LineType.LONG_DASH_SHORT_DASH: "Cutting and viewing planes",
     LineType.LONG_DASH_DOUBLE_SHORT_DASH: "Outlines of parts in front of a cutting plane",
-    LineType.DASH_DOT: "Pitch lines and lines of symmetry", LineType.DOUBLE_DASH_DOT: "Outline of movable parts",
+    LineType.DASH_DOT: "Pitch lines and lines of symmetry",
+    LineType.DOUBLE_DASH_DOT: "Outline of movable parts",
     LineType.DASH_DOUBLE_DOT: "Hinge lines and lines of weakness",
     LineType.DOUBLE_DASH_DOUBLE_DOT: "Outlines of adjacent parts, alternate positions",
     LineType.DASH_TRIPLE_DOT: "Boundaries of special surface treatment",
@@ -523,27 +694,43 @@ _LINE_MEANING: frozendict[LineType, str] = frozendict({
 
 # the ISO 128-50 section material -> its meaning (the legend description beside the angled section indicator).
 _HATCH_MEANING: frozendict[HatchMaterial, str] = frozendict({
-    HatchMaterial.STEEL: "Steel / metal in section", HatchMaterial.CONCRETE: "Cast-in-place concrete",
-    HatchMaterial.CONCRETE_REINFORCED: "Reinforced concrete", HatchMaterial.MASONRY: "Masonry / brick",
-    HatchMaterial.TIMBER_GRAIN: "Timber, grain direction", HatchMaterial.TIMBER_END: "Timber, end grain",
-    HatchMaterial.INSULATION_THERMAL: "Thermal / acoustic insulation", HatchMaterial.EARTH: "Earth / subgrade",
-    HatchMaterial.HARDCORE: "Hardcore / compacted fill", HatchMaterial.LIQUID: "Liquid", HatchMaterial.GLASS: "Glass / glazing",
+    HatchMaterial.STEEL: "Steel / metal in section",
+    HatchMaterial.CONCRETE: "Cast-in-place concrete",
+    HatchMaterial.CONCRETE_REINFORCED: "Reinforced concrete",
+    HatchMaterial.MASONRY: "Masonry / brick",
+    HatchMaterial.TIMBER_GRAIN: "Timber, grain direction",
+    HatchMaterial.TIMBER_END: "Timber, end grain",
+    HatchMaterial.INSULATION_THERMAL: "Thermal / acoustic insulation",
+    HatchMaterial.EARTH: "Earth / subgrade",
+    HatchMaterial.HARDCORE: "Hardcore / compacted fill",
+    HatchMaterial.LIQUID: "Liquid",
+    HatchMaterial.GLASS: "Glass / glazing",
 })
 
 # the ISO 13567/AIA discipline -> its name (the legend description beside the real discipline pen swatch).
 _DISCIPLINE_MEANING: frozendict[Discipline, str] = frozendict({
-    Discipline.ARCHITECTURAL: "Architectural", Discipline.CIVIL: "Civil", Discipline.ELECTRICAL: "Electrical",
-    Discipline.FIRE: "Fire protection", Discipline.GENERAL: "General", Discipline.HAZMAT: "Hazardous materials",
-    Discipline.INTERIORS: "Interiors", Discipline.LANDSCAPE: "Landscape", Discipline.MECHANICAL: "Mechanical",
-    Discipline.PLUMBING: "Plumbing", Discipline.EQUIPMENT: "Equipment", Discipline.RESOURCE: "Resource",
-    Discipline.STRUCTURAL: "Structural", Discipline.TELECOM: "Telecommunications", Discipline.SURVEY: "Survey / mapping",
-    Discipline.PROCESS: "Process", Discipline.OTHER: "Other disciplines", Discipline.CONTRACTOR: "Contractor / shop",
+    Discipline.ARCHITECTURAL: "Architectural",
+    Discipline.CIVIL: "Civil",
+    Discipline.ELECTRICAL: "Electrical",
+    Discipline.FIRE: "Fire protection",
+    Discipline.GENERAL: "General",
+    Discipline.HAZMAT: "Hazardous materials",
+    Discipline.INTERIORS: "Interiors",
+    Discipline.LANDSCAPE: "Landscape",
+    Discipline.MECHANICAL: "Mechanical",
+    Discipline.PLUMBING: "Plumbing",
+    Discipline.EQUIPMENT: "Equipment",
+    Discipline.RESOURCE: "Resource",
+    Discipline.STRUCTURAL: "Structural",
+    Discipline.TELECOM: "Telecommunications",
+    Discipline.SURVEY: "Survey / mapping",
+    Discipline.PROCESS: "Process",
+    Discipline.OTHER: "Other disciplines",
+    Discipline.CONTRACTOR: "Contractor / shop",
 })
 
 # --- [EXPORTS] --------------------------------------------------------------------------
-__all__ = [
-    "ColumnSpec", "LegendEntry", "LegendKind", "Schedule", "ScheduleContent", "ScheduleKind", "ScheduleTemplate", "SpannerSpec",
-]
+__all__ = ["ColumnSpec", "LegendEntry", "LegendKind", "Schedule", "ScheduleContent", "ScheduleKind", "ScheduleTemplate", "SpannerSpec"]
 ```
 
 `Schedule` is the one AEC-scheduling owner every door/window/room-finish/equipment/panel/structural schedule, the BIM-derived quantity takeoff, and every ISO-drafting legend is built from: the `ScheduleContent` `tabular` case carries a settled `polars.DataFrame` (the QTO/schedule rows arriving over the `data/tabular` wire from `csharp:Rasm.Bim`, styled here, never authored here) plus a `ScheduleKind` selecting the NCS/AIA column template, and the `legend` case carries a `LegendKind` selecting which `drawing/standard#STANDARD` owned vocabulary to enumerate into a symbol→meaning table. `_schedule_ops` DERIVES the whole `visualization/table#TABLE` `TableOp` sequence from the one `_TEMPLATE` row — headers, spanners, per-column `FmtKind`, missing-value substitution, `hex_ramp`-derived cost coloring, a division-sorted layout, the grand `GrandSummary` total, and column-anchored `Footnote` marks — filtered to the columns the shaped frame carries so a subset/rolled QTO frame never references an absent column; `_schedule_frame` rolls a per-element takeoff up to its BOQ display shape (`group_by(*rollup).agg`, `@beartype`-admitted at the two constructors' seam), and `_legend_rows` reads the real ISO code (the `LineType.pattern` dash array, the `Standard.hatch` section angle, the `Standard.rgb` discipline sRGB) into a `drawsvg`-authored swatch. The one `TablePlan.build` render is the single bytes fact keying the artifact and the `ArtifactReceipt.Schedule` receipt, the synchronous fold offloads onto `to_thread` off the event loop, and the flat table bytes are the handoff `composition/compose#COMPOSE` places — computing no sheet placement, holding no `great-tables` surface, and re-authoring no IFC.

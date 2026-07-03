@@ -107,6 +107,7 @@ TRANSPORT_LIMITS: Final[httpx.Limits] = httpx.Limits(max_connections=16, max_kee
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
+
 class TransferPlan(Struct, frozen=True):
     subject: str
     retry_class: RetryClass
@@ -126,6 +127,7 @@ class ResourceRef(Struct, frozen=True):
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+
 
 class _BearerAuth(httpx.Auth):
     # the `SecretStr` is read through `.get_secret_value()` exactly once, here at the transport
@@ -155,6 +157,7 @@ class Transfer:
 
 
 # --- [SERVICES] -------------------------------------------------------------------------
+
 
 class ResourceRoot(Struct, frozen=True):
     scheme: str
@@ -218,9 +221,7 @@ class TransportResource:
             case TransportResource(tag="ssh", ssh=(host, port, retry_class, password, known_hosts)):
                 options = _ssh_options(password, known_hosts)
                 plan = TransferPlan(
-                    "ssh", retry_class,
-                    lambda: _sftp_read(host, port, relative, options),
-                    lambda: _sftp_chunks(host, port, relative, options),
+                    "ssh", retry_class, lambda: _sftp_read(host, port, relative, options), lambda: _sftp_chunks(host, port, relative, options)
                 )
             case _ as unreachable:
                 assert_never(unreachable)
@@ -228,6 +229,7 @@ class TransportResource:
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
+
 
 async def _raise_for_status(response: httpx.Response) -> None:
     response.raise_for_status()
@@ -273,6 +275,7 @@ async def drain() -> None:
 # --- [BOUNDARIES] -----------------------------------------------------------------------
 # Per-provider WHOLE/STREAM legs the `[SERVICES]` `TransferPlan` thunks bind by call-time name.
 
+
 async def _obj_body(store: ObjectStore, relative: str) -> Bytes:
     return (await obstore.get_async(store, relative)).bytes()
 
@@ -307,13 +310,12 @@ def _ssh_options(password: Option[SecretStr], known_hosts: asyncssh.SSHKnownHost
     # the one connection-config value object the catalog options-law mandates over per-call
     # `connect(...)` keyword soup; `.get_secret_value()` un-masks the password only here, and
     # `known_hosts` is the admission-supplied verified database, never the disabled `None`.
-    return asyncssh.SSHClientConnectionOptions(
-        password=password.map(SecretStr.get_secret_value).default_value(None),
-        known_hosts=known_hosts,
-    )
+    return asyncssh.SSHClientConnectionOptions(password=password.map(SecretStr.get_secret_value).default_value(None), known_hosts=known_hosts)
 
 
-async def _sftp_session(stack: AsyncExitStack, host: str, port: int, relative: str, options: asyncssh.SSHClientConnectionOptions) -> asyncssh.SFTPClientFile:
+async def _sftp_session(
+    stack: AsyncExitStack, host: str, port: int, relative: str, options: asyncssh.SSHClientConnectionOptions
+) -> asyncssh.SFTPClientFile:
     conn = await stack.enter_async_context(asyncssh.connect(host, port=port, options=options))
     sftp = await stack.enter_async_context(conn.start_sftp_client())
     return await stack.enter_async_context(await sftp.open(relative, "rb"))

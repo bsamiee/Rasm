@@ -44,15 +44,15 @@ if TYPE_CHECKING:  # type-only: every runtime open3d call rides a method on the 
 
 
 class DeviationStage(StrEnum):
-    SEGMENT = "segment"          # classify planar primitives only
-    DEVIATE = "deviate"          # fold the element signed band only
-    ATTRIBUTED = "attributed"    # per-segment band + per-face triangle-id overlay
+    SEGMENT = "segment"  # classify planar primitives only
+    DEVIATE = "deviate"  # fold the element signed band only
+    ATTRIBUTED = "attributed"  # per-segment band + per-face triangle-id overlay
 
 
 class PrimitiveClass(StrEnum):
-    SLAB = "slab"        # plane normal ~ world-up
-    WALL = "wall"        # plane normal ~ horizontal
-    COLUMN = "column"    # vertical wall pair, narrow footprint
+    SLAB = "slab"  # plane normal ~ world-up
+    WALL = "wall"  # plane normal ~ horizontal
+    COLUMN = "column"  # vertical wall pair, narrow footprint
     GENERIC = "generic"  # unclassified planar primitive
 
 
@@ -67,8 +67,8 @@ type SignedField = Annotated[np.ndarray, Is[lambda a: bool(np.isfinite(a).all())
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _SUBJECT: GeometrySubject = "scan-deviation"
-_TOLERANCE_CEILING: float = 0.05    # worst-point hard ceiling the graduation gate reads
-_WORKING_TOLERANCE: float = 0.02    # tighter per-point acceptance band the noncompliant fraction measures
+_TOLERANCE_CEILING: float = 0.05  # worst-point hard ceiling the graduation gate reads
+_WORKING_TOLERANCE: float = 0.02  # tighter per-point acceptance band the noncompliant fraction measures
 _FRACTION_CEILING: float = 0.10
 # verticality of |n . up| defaults; the live policy tunes them per scan campaign.
 _UP_AXIS: float = 0.85
@@ -82,14 +82,14 @@ _TRACER: Final[trace.Tracer] = trace.get_tracer("geometry.scan.deviation")
 
 
 class DeviationBand(Struct, frozen=True, gc=False):
-    over_extreme: float    # signed min: worst excess (outside the design solid)
-    under_extreme: float   # signed max: worst missing (inside the design solid)
-    max_distance: float    # |signed| extremum, the verdict residual
+    over_extreme: float  # signed min: worst excess (outside the design solid)
+    under_extreme: float  # signed max: worst missing (inside the design solid)
+    max_distance: float  # |signed| extremum, the verdict residual
     mean_distance: float
     std_distance: float
     rms_distance: float
-    over_count: int        # points with negative sign (over-build)
-    under_count: int       # points with positive sign (under-build)
+    over_count: int  # points with negative sign (over-build)
+    under_count: int  # points with positive sign (under-build)
     noncompliant_fraction: float
 
     @staticmethod
@@ -108,10 +108,14 @@ class DeviationBand(Struct, frozen=True, gc=False):
         # so the bulk-surface gate stays independent of the max-distance gate rather than collapsing into it.
         over_band = np.clip(magnitude - working_tolerance, 0.0, None)
         return DeviationBand(
-            over_extreme=float(signed.min()), under_extreme=float(signed.max()),
-            max_distance=float(magnitude.max()), mean_distance=float(magnitude.mean()),
-            std_distance=float(magnitude.std()), rms_distance=float(np.linalg.norm(magnitude) / np.sqrt(n)),
-            over_count=int(np.where(sign < 0, 1, 0).sum()), under_count=int(np.where(sign > 0, 1, 0).sum()),
+            over_extreme=float(signed.min()),
+            under_extreme=float(signed.max()),
+            max_distance=float(magnitude.max()),
+            mean_distance=float(magnitude.mean()),
+            std_distance=float(magnitude.std()),
+            rms_distance=float(np.linalg.norm(magnitude) / np.sqrt(n)),
+            over_count=int(np.where(sign < 0, 1, 0).sum()),
+            under_count=int(np.where(sign > 0, 1, 0).sum()),
             noncompliant_fraction=float(np.where(over_band > 0.0, 1, 0).sum() / n),
         )
 
@@ -127,10 +131,14 @@ class DeviationBand(Struct, frozen=True, gc=False):
         # and its `Encoder(enc_hook=repr, order="deterministic")` renderer serializes them without a
         # `str()`/`repr()` coerce — pre-formatting here is the deleted form the receipts owner rejects.
         return {
-            "over_extreme": self.over_extreme, "under_extreme": self.under_extreme,
-            "max_distance": self.max_distance, "mean_distance": self.mean_distance,
-            "std_distance": self.std_distance, "rms_distance": self.rms_distance,
-            "over_count": self.over_count, "under_count": self.under_count,
+            "over_extreme": self.over_extreme,
+            "under_extreme": self.under_extreme,
+            "max_distance": self.max_distance,
+            "mean_distance": self.mean_distance,
+            "std_distance": self.std_distance,
+            "rms_distance": self.rms_distance,
+            "over_count": self.over_count,
+            "under_count": self.under_count,
             "noncompliant_fraction": self.noncompliant_fraction,
         }
 
@@ -138,7 +146,7 @@ class DeviationBand(Struct, frozen=True, gc=False):
 class Segment(Struct, frozen=True, gc=False):
     plane: tuple[float, float, float, float]
     normal: tuple[float, float, float]
-    members: tuple[int, ...]              # inlier indices into the ORIGINAL cloud, surviving the iterative peel
+    members: tuple[int, ...]  # inlier indices into the ORIGINAL cloud, surviving the iterative peel
     kind: PrimitiveClass
     band: DeviationBand = field(default_factory=DeviationBand.identity)
 
@@ -166,9 +174,9 @@ class DeviationPolicy(Struct, frozen=True):
     ransac_n: int = 3
     num_iterations: int = 1000
     max_planes: int = 8
-    tolerance: float = _TOLERANCE_CEILING           # worst-point hard ceiling: no point may exceed it
-    working_tolerance: float = _WORKING_TOLERANCE    # tighter per-point acceptance band the fraction measures
-    fraction: float = _FRACTION_CEILING              # max share of points allowed past the working band
+    tolerance: float = _TOLERANCE_CEILING  # worst-point hard ceiling: no point may exceed it
+    working_tolerance: float = _WORKING_TOLERANCE  # tighter per-point acceptance band the fraction measures
+    fraction: float = _FRACTION_CEILING  # max share of points allowed past the working band
     up_axis: float = _UP_AXIS
     flat_axis: float = _FLAT_AXIS
 
@@ -191,8 +199,13 @@ class DeviationResult(Struct, frozen=True):
 
     @staticmethod
     def of(
-        stage: DeviationStage, element: str, band: DeviationBand, policy: DeviationPolicy,
-        *, segments: tuple[Segment, ...] = (), triangle_ids: tuple[int, ...] = (),
+        stage: DeviationStage,
+        element: str,
+        band: DeviationBand,
+        policy: DeviationPolicy,
+        *,
+        segments: tuple[Segment, ...] = (),
+        triangle_ids: tuple[int, ...] = (),
     ) -> DeviationResult:
         # SEGMENT carries no measured deviation, so it never asserts a compliant verdict and never graduates.
         compliant = stage is not DeviationStage.SEGMENT and band.verdict(policy.tolerance, policy.fraction)
@@ -219,7 +232,9 @@ class DeviationResult(Struct, frozen=True):
 
     def graduates(self, evidence_key: ContentKey) -> RuntimeRail[GraduationReceipt]:
         return GraduationReceipt.graduates(
-            "geometry.scan.deviation", HandoffAxis(geometry=_SUBJECT), evidence_key,
+            "geometry.scan.deviation",
+            HandoffAxis(geometry=_SUBJECT),
+            evidence_key,
             {"max_distance": self.band.max_distance, "noncompliant_fraction": self.band.noncompliant_fraction},
             {"max_distance": _TOLERANCE_CEILING, "noncompliant_fraction": _FRACTION_CEILING},
         )
@@ -270,8 +285,12 @@ class ScanDeviation(Struct, frozen=True):
                 _, _, triangle_id = query.on_surface(points)
                 segments = tuple(s.attributed(signed, self.policy.working_tolerance) for s in self._segment(cloud))
                 return DeviationResult.of(
-                    stage, element, DeviationBand.fold(signed, self.policy.working_tolerance), self.policy,
-                    segments=segments, triangle_ids=tuple(int(t) for t in np.asarray(triangle_id)),
+                    stage,
+                    element,
+                    DeviationBand.fold(signed, self.policy.working_tolerance),
+                    self.policy,
+                    segments=segments,
+                    triangle_ids=tuple(int(t) for t in np.asarray(triangle_id)),
                 )
             case unreachable:
                 assert_never(unreachable)

@@ -56,11 +56,11 @@ Rasm.AppUi/
 ## [02]-[SEAMS]
 
 ```text seams
-Shell/commands    →  typescript:interchange/transport            # [WIRE]: CommandPayloadWire + AvailabilityStore gate
-Render/capture    →  typescript:interchange/codec                # [PROJECTION]: RenderReceiptWire frame-hash proof
-Render/evidence   →  typescript:projection/evidence              # [PROJECTION]: EvidenceFeed / EvidenceTimeline
-Render/pipeline   →  typescript:platform/transport               # [PROJECTION]: GeometryResidencyWire ResidencyManifest content-key
-Render/glb        →  typescript:ui/render                        # [RECEIPT]: ResidencyManifest content-key-keyed mesh residency
+Shell/commands    →  typescript:wire/gateway            # [WIRE]: CommandPayloadWire + AvailabilityStore gate
+Render/capture    →  typescript:wire                # [PROJECTION]: RenderReceiptWire frame-hash proof
+Render/evidence   →  typescript:state              # [PROJECTION]: EvidenceFeed / EvidenceTimeline
+Render/pipeline   →  typescript:wire/frame               # [PROJECTION]: GeometryResidencyWire ResidencyManifest content-key
+Render/glb        →  typescript:ui/viewer                        # [RECEIPT]: ResidencyManifest content-key-keyed mesh residency
 Render            ←  python:geometry/mesh                        # [SHAPE]: SharpGLTF GLB import per-element tessellation
 Editing/notebook  ←  csharp:Rasm.AppHost/Runtime                 # [PORT]: DeterminismContext / CapabilityPin environment identity
 Render/query      ←  csharp:Rasm.Bim/Model                       # [PORT]: ElementSet query algebra via capability descriptor
@@ -79,8 +79,8 @@ Editing/issues    ←  csharp:Rasm.Bim/coordination                # [PORT]: BCF
 Editing           ←  csharp:Rasm.Bim/coordination                # [DOMAIN]: BcfTopic/BcfComment/BcfViewpoint annotation domain
 Editing/history   →  csharp:Rasm.Persistence/Sync                # [PROJECTION]: Forward/inverse delta replays as SyncOpKind durable inverse stream
 Render/shading    ⇄  csharp:Rasm.Compute                         # [SHAPE]: shared ONE_WGPU_DEVICE (Silk.NET.WebGPU)
-Shell/controls    →  typescript:interchange/transport            # [WIRE]: ControlIntentWire kind-discriminated control vocabulary
-Shell/solver      →  typescript:ui/render                        # [WIRE]: LayoutConstraintWire ordered Kiwi constraint program
+Shell/controls    →  typescript:wire            # [WIRE]: ControlIntentWire kind-discriminated control vocabulary
+Shell/solver      →  typescript:wire                        # [WIRE]: LayoutConstraintWire ordered Kiwi constraint program
 Editing/tables    ←  csharp:Rasm.AppUi/Shell/virtualization      # [PORT]: VirtualWindow viewport-range realized-item window
 ```
 

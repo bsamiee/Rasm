@@ -72,7 +72,7 @@ The three branches are first-class peers, each a complete library adoptable in a
 
 - C# is the Rhino9(WIP)/GH2-aware AEC platform: the geometry kernel, the AEC-domain (materials/BIM/fabrication), the app-platform, and the host boundaries. It is the producer of the wire vocabulary and the capability descriptors every peer consumes.
 - Python is the host-free science/compute/data/geometry/IFC companion: mature-library leverage (numpy/scipy/open3d/ifcopenshell/pyarrow/polars) for offline analysis, tessellation, data interchange, and artifact/visualization production. It integrates only through the wire and the companion/offline seams.
-- TypeScript is the host-free web/edge platform: wire-interchange, the browser SPA + UI, and durable node services. It consumes the C# wire only and owns no geometry.
+- TypeScript is the first-class host-free web/edge platform: a fourteen-folder substrate (kernel, proof, state, host, security, telemetry, wire, work, store, ai, edge, browser, ui, iac) composing whole products; wire decode is a boundary concern inside `wire`, not the branch's identity. It consumes the C# wire and the GLB rail only and owns no geometry.
 
 Within each language the same organization principle holds: real higher-order domain folders (no weak or mini sibling — a small isolated concern folds into the bigger concept it belongs to), source-mirroring sub-domain organization, OOP capsules at boundaries and FP-ROP internals. A branch re-derives its topology from the finalized owner set, never from a stale layout.
 

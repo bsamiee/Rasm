@@ -71,7 +71,9 @@ type Anchor = tuple[float, float]
 type Extent = Annotated[float, Is[lambda value: value > 0.0]]
 type Columns = Annotated[int, Is[lambda count: count >= 1]]
 type MarkArgs = Callable[[float, float, float], tuple[float, ...]]
-type FilterKind = Literal["unsharp", "blur", "median", "sharpness", "contrast", "brightness", "saturation", "autocontrast", "equalize", "posterize", "solarize"]
+type FilterKind = Literal[
+    "unsharp", "blur", "median", "sharpness", "contrast", "brightness", "saturation", "autocontrast", "equalize", "posterize", "solarize"
+]
 type ArcKind = Literal["arc", "chord", "pieslice"]
 type BlendKind = Literal["multiply", "screen", "overlay", "soft_light", "hard_light", "difference", "add", "subtract", "darker", "lighter"]
 
@@ -88,7 +90,41 @@ class MarkKind(Enum):
     MITER = ("Polygon", lambda x, y, s: (x - s, y, x, y - s, x + s, y, x, y + s))
     BLEED = ("Rect", lambda x, y, s: (x - s, y - s, 2.0 * s, 2.0 * s))
     CROSS = ("Polyline", lambda x, y, s: (x - s, y, x, y, x, y - s, x, y, x + s, y, x, y, x, y + s))
-    STAR = ("Polyline", lambda x, y, s: (x, y - s, x, y, x + s, y - s, x, y, x + s, y, x, y, x + s, y + s, x, y, x, y + s, x, y, x - s, y + s, x, y, x - s, y, x, y, x - s, y - s))
+    STAR = (
+        "Polyline",
+        lambda x, y, s: (
+            x,
+            y - s,
+            x,
+            y,
+            x + s,
+            y - s,
+            x,
+            y,
+            x + s,
+            y,
+            x,
+            y,
+            x + s,
+            y + s,
+            x,
+            y,
+            x,
+            y + s,
+            x,
+            y,
+            x - s,
+            y + s,
+            x,
+            y,
+            x - s,
+            y,
+            x,
+            y,
+            x - s,
+            y - s,
+        ),
+    )
 
     def __init__(self, primitive: str, args: MarkArgs) -> None:
         self.primitive = primitive
@@ -206,7 +242,15 @@ class DrawOp:
         return DrawOp(text=(text, xy, style))
 
     @staticmethod
-    def Caption(text: str, xy: Anchor, style: TextStyle = TextStyle(), pad: float = 6.0, radius: float = 4.0, box_fill: str | None = "white", box_outline: str | None = "black") -> "DrawOp":
+    def Caption(
+        text: str,
+        xy: Anchor,
+        style: TextStyle = TextStyle(),
+        pad: float = 6.0,
+        radius: float = 4.0,
+        box_fill: str | None = "white",
+        box_outline: str | None = "black",
+    ) -> "DrawOp":
         return DrawOp(caption=(text, xy, style, pad, radius, box_fill, box_outline))
 
     @staticmethod
@@ -226,7 +270,9 @@ class DrawOp:
         return DrawOp(ellipse=(box, outline, fill, width))
 
     @staticmethod
-    def Arc(box: Bounds, start: float, end: float, kind: ArcKind = "arc", fill: str | None = "black", outline: str | None = "black", width: int = 1) -> "DrawOp":
+    def Arc(
+        box: Bounds, start: float, end: float, kind: ArcKind = "arc", fill: str | None = "black", outline: str | None = "black", width: int = 1
+    ) -> "DrawOp":
         return DrawOp(arc=(box, start, end, kind, fill, outline, width))
 
     @staticmethod
@@ -234,7 +280,9 @@ class DrawOp:
         return DrawOp(polygon=(points, fill, outline, width))
 
     @staticmethod
-    def Regular(center: Anchor, radius: float, sides: int, rotation: float = 0.0, fill: str | None = None, outline: str = "black", width: int = 1) -> "DrawOp":
+    def Regular(
+        center: Anchor, radius: float, sides: int, rotation: float = 0.0, fill: str | None = None, outline: str = "black", width: int = 1
+    ) -> "DrawOp":
         return DrawOp(regular=(center, radius, sides, rotation, fill, outline, width))
 
     @staticmethod
@@ -250,7 +298,14 @@ class DrawOp:
         return DrawOp(grade=(size, table))
 
     @staticmethod
-    def Frame(filter: FilterKind | None = None, radius: float = 2.0, border: int = 0, border_fill: str = "white", fit: tuple[int, int] | None = None, exif_orient: bool = False) -> "DrawOp":
+    def Frame(
+        filter: FilterKind | None = None,
+        radius: float = 2.0,
+        border: int = 0,
+        border_fill: str = "white",
+        fit: tuple[int, int] | None = None,
+        exif_orient: bool = False,
+    ) -> "DrawOp":
         return DrawOp(frame=(filter, radius, border, border_fill, fit, exif_orient))
 
 
@@ -260,12 +315,18 @@ class FigureOp:
     scale_fit: tuple[bytes, Length, Length] = case()
     tile: tuple[tuple[bytes, ...], int, Length, Length, float] = case()
     crop: tuple[bytes, Bounds] = case()
-    merge: tuple[tuple[bytes, ...], BooleanOp] = case()  # N-source planar set-op (merged tile silhouettes / knockout) — imported graphic/vector `boolean`
-    matte: tuple[bytes, float, str] = case()             # fixed-width offset keyline/matte around the artwork silhouette — imported graphic/vector `outline` stroke-to-outline
+    merge: tuple[tuple[bytes, ...], BooleanOp] = (
+        case()
+    )  # N-source planar set-op (merged tile silhouettes / knockout) — imported graphic/vector `boolean`
+    matte: tuple[bytes, float, str] = (
+        case()
+    )  # fixed-width offset keyline/matte around the artwork silhouette — imported graphic/vector `outline` stroke-to-outline
     rotate: tuple[bytes, str, Corner] = case()
     overlay: tuple[bytes, tuple[MarkSpec, ...]] = case()
     pdf: tuple[bytes, float] = case()
-    annotate: tuple[RasterSource, RenderPolicy, tuple[DrawOp, ...], bytes | None] = case()  # trailing `icc` embeds the working-space ICC profile on the PNG egress (color-tagged figure); the full source->dest transform is graphic/color/managed#MANAGED's
+    annotate: tuple[RasterSource, RenderPolicy, tuple[DrawOp, ...], bytes | None] = (
+        case()
+    )  # trailing `icc` embeds the working-space ICC profile on the PNG egress (color-tagged figure); the full source->dest transform is graphic/color/managed#MANAGED's
     metadata: tuple[bytes, tuple[tuple[int, str], ...], str | None] = case()
 
     @staticmethod
@@ -346,7 +407,9 @@ class Figure(Struct, frozen=True):
                 # the pure-Python `svgelements` placement fold crosses `to_thread` OFF the loop
                 # (OFFLOAD_LANE), the `_extent` `bounds`-rail lift raising into the `_FAULTS` boundary.
                 data = await to_thread.run_sync(_compose_vector, self.op, limiter=_GATE)
-        return ContentIdentity.key(f"figure-{self.op.tag}", data)  # bare synchronous accessor: the whole-byte figure source is infallible (no canonical encode), so `_emit` returns a bare `ContentKey` the boundary wraps, never the railed `of`
+        return ContentIdentity.key(
+            f"figure-{self.op.tag}", data
+        )  # bare synchronous accessor: the whole-byte figure source is infallible (no canonical encode), so `_emit` returns a bare `ContentKey` the boundary wraps, never the railed `of`
 
     def contribute(self) -> "Iterable[Receipt]":
         # `Some` for the in-process arms (bytes/key/receipt off the ONE sync render), `Nothing` for the
@@ -387,7 +450,12 @@ def _placed_layers(op: FigureOp, names: tuple[str, ...]) -> tuple[Layer, ...]:
                 Layer(
                     _name(names, index),
                     svg(_place(raw, index, columns, cw, ch, gutter), (0.0, 0.0, width, height)),
-                    (index % columns * (cw + gutter), index // columns * (ch + gutter), index % columns * (cw + gutter) + cw, index // columns * (ch + gutter) + ch),
+                    (
+                        index % columns * (cw + gutter),
+                        index // columns * (ch + gutter),
+                        index % columns * (cw + gutter) + cw,
+                        index // columns * (ch + gutter) + ch,
+                    ),
                 )
                 for index, raw in enumerate(sources)
             )
@@ -461,7 +529,9 @@ def _compose_vector(op: FigureOp) -> bytes:
             # re-styled with the matte stroke through the imported `path` styled owner and framed UNDER the source so
             # the artwork sits on its own trim/bleed keyline — a bleed-and-trim sheet or margin-frame matte in one hop.
             matte = outline(source, width).default_with(_source_fault)
-            return svg([*(path(shape, style=(stroke, width)) for shape in elements(matte)), *(path(shape) for shape in elements(source))], _extent(matte))
+            return svg(
+                [*(path(shape, style=(stroke, width)) for shape in elements(matte)), *(path(shape) for shape in elements(source))], _extent(matte)
+            )
         case FigureOp(tag="rotate", rotate=(source, angle, corner)):
             extent = _extent(source)
             ax, ay = _anchor(corner, extent, 0.0)
@@ -561,12 +631,36 @@ def _gated_annotate(render_kwargs: dict[str, object], draws: Sequence[DrawOp], i
     for op in draws:
         match op:
             case DrawOp(tag="text", text=(content, xy, style)):
-                surface.multiline_text(xy, content, font=_face(style), fill=style.fill, anchor=style.anchor, align=style.align, spacing=style.spacing, direction=style.direction, features=list(style.features) or None, language=style.language, stroke_width=style.stroke_width, stroke_fill=style.stroke_fill)
+                surface.multiline_text(
+                    xy,
+                    content,
+                    font=_face(style),
+                    fill=style.fill,
+                    anchor=style.anchor,
+                    align=style.align,
+                    spacing=style.spacing,
+                    direction=style.direction,
+                    features=list(style.features) or None,
+                    language=style.language,
+                    stroke_width=style.stroke_width,
+                    stroke_fill=style.stroke_fill,
+                )
             case DrawOp(tag="caption", caption=(content, xy, style, pad, radius, box_fill, box_outline)):
                 face = _face(style)
-                left, top, right, bottom = surface.multiline_textbbox(xy, content, font=face, align=style.align, spacing=style.spacing, stroke_width=style.stroke_width)
+                left, top, right, bottom = surface.multiline_textbbox(
+                    xy, content, font=face, align=style.align, spacing=style.spacing, stroke_width=style.stroke_width
+                )
                 surface.rounded_rectangle((left - pad, top - pad, right + pad, bottom + pad), radius=radius, fill=box_fill, outline=box_outline)
-                surface.multiline_text(xy, content, font=face, fill=style.fill, align=style.align, spacing=style.spacing, stroke_width=style.stroke_width, stroke_fill=style.stroke_fill)
+                surface.multiline_text(
+                    xy,
+                    content,
+                    font=face,
+                    fill=style.fill,
+                    align=style.align,
+                    spacing=style.spacing,
+                    stroke_width=style.stroke_width,
+                    stroke_fill=style.stroke_fill,
+                )
             case DrawOp(tag="box", box=(box, outline, fill, width)):
                 surface.rectangle(box, outline=outline, fill=fill, width=width)
             case DrawOp(tag="round_box", round_box=(box, radius, outline, fill, width)):
@@ -596,7 +690,9 @@ def _gated_annotate(render_kwargs: dict[str, object], draws: Sequence[DrawOp], i
                 image.alpha_composite(mark, (int(xy[0]), int(xy[1])))
             case DrawOp(tag="blend", blend=(raw, mode)):
                 overlay = Image.open(BytesIO(raw)).convert("RGBA")
-                image = getattr(ImageChops, mode)(image, overlay if overlay.size == image.size else overlay.resize(image.size, Image.Resampling.LANCZOS))
+                image = getattr(ImageChops, mode)(
+                    image, overlay if overlay.size == image.size else overlay.resize(image.size, Image.Resampling.LANCZOS)
+                )
                 surface = ImageDraw.Draw(image)
             case DrawOp(tag="grade", grade=(size, table)):
                 image = image.filter(ImageFilter.Color3DLUT(size, list(table)))

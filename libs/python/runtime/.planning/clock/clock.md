@@ -107,9 +107,7 @@ class Ordering:
         # the carried payload IS the C# `CompareTo` sign, read back through the one `fold` — never a
         # second `tag`-keyed match drifting from this owner's dispatch. The thunks return the narrow
         # `Literal`s so `fold[Literal[-1, 0, 1]]` infers the literal union, no widening to `int`, no cast.
-        return self.fold[Literal[-1, 0, 1]](
-            before=lambda: -1, equal=lambda: 0, after=lambda: 1
-        )
+        return self.fold[Literal[-1, 0, 1]](before=lambda: -1, equal=lambda: 0, after=lambda: 1)
 
     def reverse(self) -> Self:
         return self.fold(before=lambda: Ordering(after=1), equal=lambda: self, after=lambda: Ordering(before=-1))
@@ -187,10 +185,7 @@ class CausalFrame(Struct, frozen=True):
             "wire",
             lambda: convert(
                 {
-                    "hlc": {
-                        "physical_ticks": carrier.get(SLOTS["physical"][0], "0"),
-                        "logical": carrier.get(SLOTS["logical"][0], "0"),
-                    },
+                    "hlc": {"physical_ticks": carrier.get(SLOTS["physical"][0], "0"), "logical": carrier.get(SLOTS["logical"][0], "0")},
                     "tenant": carrier.get(SLOTS["tenant"][0], "default"),
                 },
                 cls,

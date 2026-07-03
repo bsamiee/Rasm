@@ -269,11 +269,7 @@ class Step:
 
 def stepped(state: int, ceiling: int, /) -> Step:
     folded = state // 2 if state % 2 == 0 else (3 * state + 1) // 2
-    return (
-        Step(settle=state) if state <= 1
-        else Step(diverge=folded) if folded >= ceiling
-        else Step(advance=folded)
-    )
+    return Step(settle=state) if state <= 1 else Step(diverge=folded) if folded >= ceiling else Step(advance=folded)
 
 
 @tailrec

@@ -59,6 +59,7 @@ if TYPE_CHECKING:
         # attribute off a bare `object`, the `expr: object`-to-`Protocol` collapse the siblings hold.
         __name__: str
         bool: object
+
         def isnan(self, x: "Array", /) -> "Mask": ...
         def isinf(self, x: "Array", /) -> "Mask": ...
         def logical_or(self, x1: "Mask", x2: "Mask", /) -> "Mask": ...
@@ -66,6 +67,7 @@ if TYPE_CHECKING:
 
 
 # --- [TYPES] -------------------------------------------------------------------------------
+
 
 class FiniteGate(StrEnum):
     REJECT = "reject"
@@ -96,8 +98,8 @@ class FiniteGate(StrEnum):
 
 
 class AdmitMode(StrEnum):
-    STRICT = "strict"            # admit the resolved operand verbatim under the finite gate
-    SANITIZE = "sanitize"        # replace every non-finite cell through `xpx.nan_to_num` before the gate
+    STRICT = "strict"  # admit the resolved operand verbatim under the finite gate
+    SANITIZE = "sanitize"  # replace every non-finite cell through `xpx.nan_to_num` before the gate
     DENSE_GUARD = "dense-guard"  # route the sparse host transfer through `maybe_densify` under `DenseBound`
 
     def condition(self, xp: "ArrayNamespace", array: "Array") -> "Array":
@@ -129,6 +131,7 @@ class SparseLayout(StrEnum):
 
 # --- [MODELS] ------------------------------------------------------------------------------
 
+
 class NamedAxis(Struct, frozen=True, gc=False):
     name: str
     size: int
@@ -154,12 +157,7 @@ class SparseFacts(Struct, frozen=True, gc=False):
 
     @staticmethod
     def of(array: "SparseArray") -> "SparseFacts":
-        return SparseFacts(
-            layout=SparseLayout.recover(array),
-            fill_value=float(array.fill_value),
-            nnz=int(array.nnz),
-            density=float(array.density),
-        )
+        return SparseFacts(layout=SparseLayout.recover(array), fill_value=float(array.fill_value), nnz=int(array.nnz), density=float(array.density))
 
     def as_map(self) -> dict[str, object]:
         return {"layout": self.layout.value, "fill_value": self.fill_value, "nnz": self.nnz, "density": self.density}
@@ -245,6 +243,7 @@ class ArrayPayload(Struct, frozen=True):
 
 
 # --- [OPERATIONS] --------------------------------------------------------------------------
+
 
 # the one `railed` `effect.result` chain `admit` joins through `.bind` inside the `array.admit` fence:
 # resolve the namespace, condition the operand by the output mode, short-circuit a finite violation

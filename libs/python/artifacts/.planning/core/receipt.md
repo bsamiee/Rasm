@@ -35,9 +35,28 @@ from artifacts.exchange.conformance import ConformanceVerdict
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type ArtifactKind = Literal[
-    "pdf", "office", "report", "document", "chart", "scene", "table", "preview", "bundle", "introspection",
-    "egress", "verdict", "credential", "media", "diagram", "metadata", "drawing", "schedule", "spec", "cad",
-    "register", "transmittal",
+    "pdf",
+    "office",
+    "report",
+    "document",
+    "chart",
+    "scene",
+    "table",
+    "preview",
+    "bundle",
+    "introspection",
+    "egress",
+    "verdict",
+    "credential",
+    "media",
+    "diagram",
+    "metadata",
+    "drawing",
+    "schedule",
+    "spec",
+    "cad",
+    "register",
+    "transmittal",
 ]
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -127,7 +146,18 @@ class ArtifactReceipt:
         return cls(credential=(key, manifest_id, signer, assertions, validation_state))
 
     @classmethod
-    def Media(cls, key: ContentKey, container: str, codec: str, duration: float, bytes_: int, frames: int, bit_rate: int = 0, facts: frozendict[str, float | str] = frozendict(), /) -> Self:
+    def Media(
+        cls,
+        key: ContentKey,
+        container: str,
+        codec: str,
+        duration: float,
+        bytes_: int,
+        frames: int,
+        bit_rate: int = 0,
+        facts: frozendict[str, float | str] = frozendict(),
+        /,
+    ) -> Self:
         return cls(media=(key, container, codec, duration, bytes_, frames, bit_rate, facts))
 
     @classmethod
@@ -151,11 +181,26 @@ class ArtifactReceipt:
         return cls(spec=(key, section, division, parts, articles, bytes_))
 
     @classmethod
-    def Cad(cls, key: ContentKey, dxfversion: str, units: str, artifact: str, bytes_: int, layers: int, blocks: int, errors: int, fixes: int, counts: frozendict[str, int], /) -> Self:
+    def Cad(
+        cls,
+        key: ContentKey,
+        dxfversion: str,
+        units: str,
+        artifact: str,
+        bytes_: int,
+        layers: int,
+        blocks: int,
+        errors: int,
+        fixes: int,
+        counts: frozendict[str, int],
+        /,
+    ) -> Self:
         return cls(cad=(key, dxfversion, units, artifact, bytes_, layers, blocks, errors, fixes, counts))
 
     @classmethod
-    def Register(cls, key: ContentKey, kind: str, sheets: int, suitability: str, revision: str, classification: str, validation: str, bytes_: int, /) -> Self:
+    def Register(
+        cls, key: ContentKey, kind: str, sheets: int, suitability: str, revision: str, classification: str, validation: str, bytes_: int, /
+    ) -> Self:
         return cls(register=(key, kind, sheets, suitability, revision, classification, validation, bytes_))
 
     @classmethod
@@ -168,17 +213,28 @@ class ArtifactReceipt:
         # would erase it to `object` and defeat the exhaustiveness witness the planner keys on.
         match self:
             case (
-                ArtifactReceipt(tag="pdf", pdf=(key, *_)) | ArtifactReceipt(tag="office", office=(key, *_))
-                | ArtifactReceipt(tag="report", report=(key, *_)) | ArtifactReceipt(tag="document", document=(key, *_))
-                | ArtifactReceipt(tag="chart", chart=(key, *_)) | ArtifactReceipt(tag="scene", scene=(key, *_))
-                | ArtifactReceipt(tag="table", table=(key, *_)) | ArtifactReceipt(tag="preview", preview=(key, *_))
-                | ArtifactReceipt(tag="bundle", bundle=(key, *_)) | ArtifactReceipt(tag="introspection", introspection=(key, *_))
-                | ArtifactReceipt(tag="egress", egress=(key, *_)) | ArtifactReceipt(tag="verdict", verdict=(key, *_))
-                | ArtifactReceipt(tag="credential", credential=(key, *_)) | ArtifactReceipt(tag="media", media=(key, *_))
-                | ArtifactReceipt(tag="diagram", diagram=(key, *_)) | ArtifactReceipt(tag="metadata", metadata=(key, *_))
-                | ArtifactReceipt(tag="drawing", drawing=(key, *_)) | ArtifactReceipt(tag="schedule", schedule=(key, *_))
-                | ArtifactReceipt(tag="spec", spec=(key, *_)) | ArtifactReceipt(tag="cad", cad=(key, *_))
-                | ArtifactReceipt(tag="register", register=(key, *_)) | ArtifactReceipt(tag="transmittal", transmittal=(key, *_))
+                ArtifactReceipt(tag="pdf", pdf=(key, *_))
+                | ArtifactReceipt(tag="office", office=(key, *_))
+                | ArtifactReceipt(tag="report", report=(key, *_))
+                | ArtifactReceipt(tag="document", document=(key, *_))
+                | ArtifactReceipt(tag="chart", chart=(key, *_))
+                | ArtifactReceipt(tag="scene", scene=(key, *_))
+                | ArtifactReceipt(tag="table", table=(key, *_))
+                | ArtifactReceipt(tag="preview", preview=(key, *_))
+                | ArtifactReceipt(tag="bundle", bundle=(key, *_))
+                | ArtifactReceipt(tag="introspection", introspection=(key, *_))
+                | ArtifactReceipt(tag="egress", egress=(key, *_))
+                | ArtifactReceipt(tag="verdict", verdict=(key, *_))
+                | ArtifactReceipt(tag="credential", credential=(key, *_))
+                | ArtifactReceipt(tag="media", media=(key, *_))
+                | ArtifactReceipt(tag="diagram", diagram=(key, *_))
+                | ArtifactReceipt(tag="metadata", metadata=(key, *_))
+                | ArtifactReceipt(tag="drawing", drawing=(key, *_))
+                | ArtifactReceipt(tag="schedule", schedule=(key, *_))
+                | ArtifactReceipt(tag="spec", spec=(key, *_))
+                | ArtifactReceipt(tag="cad", cad=(key, *_))
+                | ArtifactReceipt(tag="register", register=(key, *_))
+                | ArtifactReceipt(tag="transmittal", transmittal=(key, *_))
             ):
                 return key
             case _ as unreachable:
@@ -191,25 +247,55 @@ class ArtifactReceipt:
             case ArtifactReceipt(tag="preview", preview=(_key, width, height, scores)):
                 return {"width": width, "height": height, **scores}
             case ArtifactReceipt(tag="verdict", verdict=(_key, verdict)):
-                return {**verdict.facts()}  # `ConformanceVerdict.facts()` is already `dict[str, object]`; the native scalars pass through unstringified
+                return {
+                    **verdict.facts()
+                }  # `ConformanceVerdict.facts()` is already `dict[str, object]`; the native scalars pass through unstringified
             case ArtifactReceipt(tag="media", media=(_key, container, codec, duration, bytes_, frames, bit_rate, facts)):
-                return {"container": container, "codec": codec, "duration": duration, "bytes": bytes_,
-                        "frames": frames, "bit_rate": bit_rate, **facts}  # flattens the per-page av/pysubs2 evidence band as `preview` flattens `scores`
+                return {
+                    "container": container,
+                    "codec": codec,
+                    "duration": duration,
+                    "bytes": bytes_,
+                    "frames": frames,
+                    "bit_rate": bit_rate,
+                    **facts,
+                }  # flattens the per-page av/pysubs2 evidence band as `preview` flattens `scores`
             case ArtifactReceipt(tag="cad", cad=(_key, dxfversion, units, artifact, bytes_, layers, blocks, errors, fixes, counts)):
-                return {"dxfversion": dxfversion, "units": units, "format": artifact, "bytes": bytes_,
-                        "layers": layers, "blocks": blocks, "errors": errors, "fixes": fixes, **counts}  # DXF output format rides `"format"`, never `"artifact"` (the reserved discriminant `contribute` appends); flattens the census as `preview` flattens `scores`
+                return {
+                    "dxfversion": dxfversion,
+                    "units": units,
+                    "format": artifact,
+                    "bytes": bytes_,
+                    "layers": layers,
+                    "blocks": blocks,
+                    "errors": errors,
+                    "fixes": fixes,
+                    **counts,
+                }  # DXF output format rides `"format"`, never `"artifact"` (the reserved discriminant `contribute` appends); flattens the census as `preview` flattens `scores`
             case ArtifactReceipt(tag="scene", scene=(_key, target, bytes_, facts)):
-                return {"target": target, "bytes": bytes_, **facts}  # flattens the pyvista point/cell/window + usd-core prim/layer/up-axis/meters-per-unit render evidence band as `preview` flattens `scores`
+                return {
+                    "target": target,
+                    "bytes": bytes_,
+                    **facts,
+                }  # flattens the pyvista point/cell/window + usd-core prim/layer/up-axis/meters-per-unit render evidence band as `preview` flattens `scores`
             case (
-                ArtifactReceipt(tag="pdf", pdf=(_key, *tail)) | ArtifactReceipt(tag="office", office=(_key, *tail))
-                | ArtifactReceipt(tag="report", report=(_key, *tail)) | ArtifactReceipt(tag="document", document=(_key, *tail))
+                ArtifactReceipt(tag="pdf", pdf=(_key, *tail))
+                | ArtifactReceipt(tag="office", office=(_key, *tail))
+                | ArtifactReceipt(tag="report", report=(_key, *tail))
+                | ArtifactReceipt(tag="document", document=(_key, *tail))
                 | ArtifactReceipt(tag="chart", chart=(_key, *tail))
-                | ArtifactReceipt(tag="table", table=(_key, *tail)) | ArtifactReceipt(tag="bundle", bundle=(_key, *tail))
-                | ArtifactReceipt(tag="introspection", introspection=(_key, *tail)) | ArtifactReceipt(tag="egress", egress=(_key, *tail))
-                | ArtifactReceipt(tag="credential", credential=(_key, *tail)) | ArtifactReceipt(tag="diagram", diagram=(_key, *tail))
-                | ArtifactReceipt(tag="metadata", metadata=(_key, *tail)) | ArtifactReceipt(tag="drawing", drawing=(_key, *tail))
-                | ArtifactReceipt(tag="schedule", schedule=(_key, *tail)) | ArtifactReceipt(tag="spec", spec=(_key, *tail))
-                | ArtifactReceipt(tag="register", register=(_key, *tail)) | ArtifactReceipt(tag="transmittal", transmittal=(_key, *tail))
+                | ArtifactReceipt(tag="table", table=(_key, *tail))
+                | ArtifactReceipt(tag="bundle", bundle=(_key, *tail))
+                | ArtifactReceipt(tag="introspection", introspection=(_key, *tail))
+                | ArtifactReceipt(tag="egress", egress=(_key, *tail))
+                | ArtifactReceipt(tag="credential", credential=(_key, *tail))
+                | ArtifactReceipt(tag="diagram", diagram=(_key, *tail))
+                | ArtifactReceipt(tag="metadata", metadata=(_key, *tail))
+                | ArtifactReceipt(tag="drawing", drawing=(_key, *tail))
+                | ArtifactReceipt(tag="schedule", schedule=(_key, *tail))
+                | ArtifactReceipt(tag="spec", spec=(_key, *tail))
+                | ArtifactReceipt(tag="register", register=(_key, *tail))
+                | ArtifactReceipt(tag="transmittal", transmittal=(_key, *tail))
             ):
                 return dict(zip(_KEYS[self.tag], tail, strict=True))
             case _ as unreachable:

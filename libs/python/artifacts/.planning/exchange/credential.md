@@ -51,6 +51,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from rasm.runtime.content_identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import FAULT_CONF, RuntimeRail, async_boundary
 
+
 # --- [TYPES] ----------------------------------------------------------------------------
 class SigningAlg(StrEnum):
     ES256 = "es256"
@@ -232,7 +233,9 @@ class SignerSpec:
         match self:
             case SignerSpec(tag="cert_key", cert_key=CertKeySigner() as s):
                 # `C2paSignerInfo` requires `ta_url` as str/bytes and rejects `None`; the no-TSA absence projects to "" at the seam.
-                return Signer.from_info(C2paSignerInfo(alg=_SIGNING_ALG[s.alg], sign_cert=s.sign_cert, private_key=s.private_key, ta_url=s.ta_url or ""))
+                return Signer.from_info(
+                    C2paSignerInfo(alg=_SIGNING_ALG[s.alg], sign_cert=s.sign_cert, private_key=s.private_key, ta_url=s.ta_url or "")
+                )
             case SignerSpec(tag="callback", callback=CallbackSigner() as s):
                 return Signer.from_callback(s.sign, _SIGNING_ALG[s.alg], s.certs, s.ta_url)
             case _ as unreachable:
@@ -406,14 +409,18 @@ class CredentialEvidence(Struct, frozen=True, gc=False):
             ingredient_validation_failures=tuple(check.code for delta in results.ingredient_deltas for check in delta.validation_deltas.failure),
             assertion_labels=tuple(item.label for item in active.assertions),
             generators=active.claim_generator_info,
-            actions=tuple(action for item in active.assertions if item.label == _ACTIONS_LABEL for action in _ACTION_DECODER.decode(item.data).actions),
+            actions=tuple(
+                action for item in active.assertions if item.label == _ACTIONS_LABEL for action in _ACTION_DECODER.decode(item.data).actions
+            ),
             ingredient_lineage=active.ingredients,
             resources=resources,
         )
 
     @classmethod
     def unsigned(cls, signer: str, /) -> Self:
-        return cls(manifest_id="", signer=signer, assertions=0, ingredients=0, validation_state="unsigned", manifest_count=0, sdk_version=sdk_version())
+        return cls(
+            manifest_id="", signer=signer, assertions=0, ingredients=0, validation_state="unsigned", manifest_count=0, sdk_version=sdk_version()
+        )
 
 
 # the per-case request payloads `Provenance` discriminates over — the typed spec the asset bytes pair
@@ -458,10 +465,10 @@ class EmbedSpec(Struct, frozen=True):
 # `context`), so the asymmetry is structural, never a dropped slot.
 class CredentialSettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="RASM_CREDENTIAL_", frozen=True, extra="forbid")
-    trust_anchors: Path | None = None       # PEM trust-anchor bundle the verify chains against
-    trust_config: Path | None = None        # the allowed-EKU / signing-config the verify enforces
-    allowed_list: Path | None = None        # explicit end-entity allow-list
-    ta_url: str = ""                         # default RFC-3161 TSA the campaign signer stamps against
+    trust_anchors: Path | None = None  # PEM trust-anchor bundle the verify chains against
+    trust_config: Path | None = None  # the allowed-EKU / signing-config the verify enforces
+    allowed_list: Path | None = None  # explicit end-entity allow-list
+    ta_url: str = ""  # default RFC-3161 TSA the campaign signer stamps against
     verify_trust: bool = True
     verify_timestamp_trust: bool = True
     remote_manifest_fetch: bool = True
@@ -547,7 +554,11 @@ class Provenance:
         # `unsigned`, while the embedded path passes `manifest_data=None` — one `try_create` either way.
         detached = spec.manifest.author(spec.context, remote_url=spec.remote_url).sign(spec.signer.cose(), spec.fmt, BytesIO(asset), sink)
         signed = sink.getvalue()
-        reader = self._opened(lambda: Reader.try_create(spec.fmt, BytesIO(signed), manifest_data=detached if spec.remote_url is not None else None, context=spec.context))
+        reader = self._opened(
+            lambda: Reader.try_create(
+                spec.fmt, BytesIO(signed), manifest_data=detached if spec.remote_url is not None else None, context=spec.context
+            )
+        )
         return signed, self._evidence(reader, spec.signer.alg)
 
     def _embedded(self, asset: bytes, spec: EmbedSpec, /) -> tuple[bytes, CredentialEvidence]:

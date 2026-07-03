@@ -143,8 +143,11 @@ if (deadIdx.length) { log('Investigate produced no plan for ' + deadIdx.length +
 const plans = firstPass.filter(Boolean)
 const failed_investigate = RESIDUALS.filter((_, i) => !firstPass[i]).map((r) => r.id)
 const clusters = clusterByFiles(plans)
+// Heaviest cluster first: an implementer's load is dominated by distinct spanned files + plans; under CAP the long pole must never launch last.
+const clusterWork = (cl) => { const files = new Set(); for (const p of cl) for (const f of (p.files || [])) files.add(f); return files.size * 2 + cl.length }
+clusters.sort((a, b) => clusterWork(b) - clusterWork(a) || (a[0].id || '').localeCompare(b[0].id || ''))
 log('Investigate: ' + plans.length + '/' + RESIDUALS.length + ' plans' + (failed_investigate.length ? ' — STILL FAILED after re-attempt (surfaced, ' +
-  'not lost): ' + failed_investigate.join(',') : '') + ' -> ' + clusters.length + ' file-clusters')
+  'not lost): ' + failed_investigate.join(',') : '') + ' -> ' + clusters.length + ' file-clusters; work [' + clusters.map(clusterWork).join(', ') + '] (2*files+plans)')
 
 // --- [IMPLEMENT]
 phase('Implement')

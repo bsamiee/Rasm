@@ -10,7 +10,7 @@ import xml.etree.ElementTree as ET  # noqa: S405  # trusted local Workspace.slnx
 
 from cyclopts import Parameter
 from cyclopts.types import NonNegativeInt  # noqa: TC002  # cyclopts resolves Param-annotated dataclass fields at runtime
-from expression import Ok, Result  # noqa: TC002  # beartype @checked resolves the handler forward-ref (PEP 649)
+from expression import Error, Ok, Result  # beartype @checked resolves the handler forward-ref (PEP 649)
 from expression.collections import block
 from expression.extra.result import sequence
 import msgspec
@@ -21,6 +21,7 @@ from tools.assay.composition.settings import (  # noqa: TC001  # beartype resolv
     ArtifactScope,
     ArtifactStore,
     AssaySettings,
+    DOTNET_BUILD_CLOSURE,
     PY_ARTIFACT_ROOTS,
     PY_COVERAGE_FILES,
 )
@@ -312,9 +313,14 @@ def _checks(routed: Routed, params: TestParams, settings: AssaySettings, mode: M
             case _:
                 return tool
 
-    selected = tuple(
-        Check(tool=spliced, paths=routed.files) for t in _rows(routed.language, params, mode) for spliced in (_splice(t),) if spliced is not None
-    )
+    # Explicit [paths...] scope the pytest family; the changed-file default and --all keep the full configured suite.
+    suite_wide = not params.paths or params.all
+
+    def _check(tool: Tool) -> Check:
+        pinned = suite_wide and tool.runner is Runner.UV and tool.input is Input.FILES
+        return Check(tool=tool, paths=routed.files, tail=()) if pinned else Check(tool=tool, paths=routed.files)
+
+    selected = tuple(_check(spliced) for t in _rows(routed.language, params, mode) for spliced in (_splice(t),) if spliced is not None)
     return expand(selected, routed, settings=settings)
 
 
@@ -398,6 +404,25 @@ def _dispatch(
     match checks:
         case ():
             return unsupported
+        case _ if routed.language is Language.CSHARP and mode in {Mode.RUN, Mode.LIST}:
+            # dotnet test builds land in the one shared closure tree; a per-run tree would persist a full
+            # solution build per invocation under scope retention. The exclusive lease serializes writers.
+            build_scope = ArtifactScope.build(settings, DOTNET_BUILD_CLOSURE)
+            resource = f"build-{DOTNET_BUILD_CLOSURE}-{settings.configuration.value}"
+            project = ",".join(routed.projects or (routed.language.value,))
+            outcome = leased(
+                resource,
+                lambda _held: Ok(fan_out(checks, settings=settings, scope=build_scope, routed=routed)),
+                settings=settings,
+                run_id=settings.run_id,
+                project=project,
+                mode="exclusive",
+            )
+            match outcome:
+                case Result(tag="ok", ok=rows):
+                    return (*rows, *unsupported)
+                case Result(error=fault):
+                    return (Error(fault), *unsupported)
         case _:
             return (*fan_out(checks, settings=settings, scope=scope, routed=routed), *unsupported)
 

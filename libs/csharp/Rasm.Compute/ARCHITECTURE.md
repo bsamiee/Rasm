@@ -64,16 +64,16 @@ Implementation collapses to one owner per axis and one entrypoint family per rai
 
 ```text seams
 Runtime           ⇄  python:geometry/mesh                  # [CONTENT_KEY]: ContentIdentity XxHash128 + deflection/tolerance seed parity
-Runtime/channels  →  typescript:interchange/codec          # [WIRE]: ReceiptEnvelopeWire / FaultDetailWire / proto vocabulary
-Runtime/channels  →  typescript:interchange/contract       # [WIRE]: FileDescriptorSet ContractDrift verdict
-Runtime/channels  →  typescript:platform/transport         # [WIRE]: ArtifactFrameWire reassembly
-Runtime/channels  →  typescript:ui/render                  # [WIRE]: GeometryPayload proto descriptor / MeshTensor view
+Runtime/channels  →  typescript:wire          # [WIRE]: ReceiptEnvelopeWire / FaultDetailWire / proto vocabulary
+Runtime/channels  →  typescript:wire/contract       # [WIRE]: FileDescriptorSet ContractDrift verdict
+Runtime/channels  →  typescript:wire/frame         # [WIRE]: ArtifactFrameWire reassembly
+Runtime/channels  →  typescript:wire/frame                  # [WIRE]: GeometryPayload proto descriptor / MeshTensor view
 Runtime/channels  ⇄  python:runtime/transport              # [WIRE]: PROTO_VOCABULARY service contracts
 Runtime/channels  ⇄  python:geometry/mesh                  # [WIRE]: ComputeService/ArtifactSync gRPC GLB tessellation
-Runtime/progress  →  typescript:projection/evidence        # [WIRE]: ProgressMarkWire
+Runtime/progress  →  typescript:state        # [WIRE]: ProgressMarkWire
 Runtime           ←  python:geometry/mesh                  # [TRANSPORT]: ServerHost ComputeService/ArtifactSync GLB + semantic header
 Runtime/codecs    ←  python:geometry/mesh                  # [PROJECTION]: IFC tessellation bridge via IfcOpenShell
-Runtime/progress  →  typescript:interchange/codec          # [PROJECTION]: ProgressStore stream proto
+Runtime/progress  →  typescript:wire          # [PROJECTION]: ProgressStore stream proto
 Runtime           ←  python:geometry                       # [GRADUATION]: HandoffAxis geometry case: topology-graph / lifecycle / registration
 Runtime/payload   →  csharp:Rasm.AppUi/Render/pipeline      # [PROJECTION]: ResidencyPayload (blob + StreamSpan layout) 1:1 → ResidencyManifest.Mint EXT_meshopt_compression bufferView (TS_PROJECTION WEB_GEOMETRY_RESIDENCY_WIRE; payload owns the blob, AppUi owns the manifest mint)
 Analysis          ←  csharp:Rasm.Element/Graph             # [READ]: ElementGraph concrete above the seam (no IElementProjection); seam-owned Find/ObjectNodes/Material/MaterialsOf/CompositionOf/MechanicalOf/SectionOf reads + the seam GeometrySource port (content key → AxisCurve/FootprintPolygon, app-wired over the Persistence blob store) + Compute-owned AxisOf/SpacesOf/BoundingSurfacesOf discipline extensions composing them (AxisOf/BuildSurface resolve the analytical Axis/FootPrint one-hop by content key through GeometrySource, never a phantom node field)
@@ -93,7 +93,7 @@ Runtime/channels  →  csharp:Rasm.Bim/Semantics             # [TRANSPORT]: Bsdd
 Runtime/codecs    ⇄  csharp:Rasm.Element/Graph             # [CONTENT_KEY]: RepresentationContentHash keyed map shares the kernel seed-zero XxHash128 GeometryHash geometry-content space; the policy-seeded InterchangeIdentity cache key is DISTINCT, never conflated
 Runtime/codecs    ←  csharp:Rasm.Bim/Exchange              # [TESSELLATION]: TessellationOutcome two-hop GLB, CacheHit by ArtifactKey
 Runtime/codecs    ←  csharp:Rasm.Bim/Review                # [TRANSPORT]: IdsAuditRequest ifctester two-hop rpc; Compute owns the transport/verdict-wire relay only (references no Bim type, meeting Bim at the companion-rpc wire as the tessellation GLB does), the IdsVerdict row + the IdsAudit.Reconcile that composes it from that wire are Bim-owned (never re-declared Compute-side), joined on (GlobalId, FacetKey)
-Symbolic          ⇄  python:compute + typescript:interchange # [WIRE]: QuantityFamily SI canonicalization consumed by host-free peers over the wire (AEC-domain admits UnitsNet in-folder, never a downward reference)
+Symbolic          ⇄  python:compute + typescript:kernel # [WIRE]: QuantityFamily SI canonicalization consumed by host-free peers over the wire (AEC-domain admits UnitsNet in-folder, never a downward reference)
 Symbolic/dimensional ⇄  csharp:Rasm.Element/Properties        # [SHAPE]: DimensionMonomial ℚ⁷ proof discriminator ↔ seam Dimension ℤ⁷ measure discriminator, both project from UnitsNet BaseDimensions and align at the 7-vector, never coupled (no reference either way); the symbolic side alone resolves onward to the Compute-internal QuantityFamily, the seam resolves via UnitsNet directly
 Symbolic/lowering    →  csharp:Rasm.Persistence/Query/cache      # [CONTENT_KEY]: compiled symbolic-formula / cost-catalog / QTO-formula reused by the SymbolicExpr canonical-NF XxHash128 ContentKey (its OWN content identity, NEVER a fabricated ModelResultKey — MODEL_RESULT_INDEX holds the counterpart); the LoweringCache CompiledKey is the L1-local cache-partition over it, never crossing a process
 Model/embedding   ⇄  csharp:Rasm.Persistence/Query/lane     # [CONTENT_KEY]: EmbeddingVector.ContentKey (modelKey×encoding×codebook Id×encoded bytes) XxHash128 ↔ VectorRow.ContentKey; ProductCodebook trained in Persistence #VECTOR_CODEBOOK, coarse→fine resolve (no Compute-side fit)
@@ -107,7 +107,7 @@ Runtime/scheduling →  csharp:Rasm.Persistence               # [SPILL]: JobGrap
 Runtime/channels  →  csharp:Rasm.Persistence/Version/ledger # [WIRE]: GraphDiff/SubtreeFetch content-key set-difference wire leg; Compute owns the proto frame, ledger#CHANGEFEED TransferSet/Closure dials the algebra
 Runtime/codecs    ⇄  csharp:Rasm.Persistence/Query/cache   # [CONTENT_KEY]: ContentIdentity XxHash128 seed-zero two-half
 Runtime/receipts  →  csharp:Rasm.Persistence/Query/cache   # [INDEX]: BenchmarkClaim.Persist → BenchmarkRow#BENCHMARK_INDEX claim gate; Claim reads the ModelResultIndex recency horizon by reference, no second horizon minted Compute-side
-Runtime/codecs    →  python:runtime/evidence/identity + typescript:interchange/Codec/frame # [WIRE]: XxHash128 seed-zero two-half [gated: hash-wasm / xxhash cp315]
+Runtime/codecs    →  python:runtime/evidence/identity + typescript:kernel # [WIRE]: XxHash128 seed-zero two-half [gated: hash-wasm / xxhash cp315]
 Runtime           ←  csharp:Rasm.Persistence/Sync          # [PROJECTION]: content-key delta via FastCDC
 Tensor/dispatch   ⇄  csharp:Rasm.AppUi/Render              # [SHAPE]: shared ONE_WGPU_DEVICE (Silk.NET.WebGPU)
 Runtime/admission ←  csharp:Rasm.AppHost                   # [PORT]: WorkLane shed verdict (ONE_DEGRADATION_SHED_VERDICT)

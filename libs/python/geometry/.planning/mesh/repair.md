@@ -65,21 +65,10 @@ class BooleanOp(StrEnum):  # the CSG verb is one row feeding the single batch_bo
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 # the full winding/normal/inversion/hole-fill/weld pass a non-watertight reconstruction needs before the boolean arm
-STEPS_WATERTIGHT: Final[Steps] = (
-    RepairStep.FIX_WINDING,
-    RepairStep.FIX_NORMALS,
-    RepairStep.FIX_INVERSION,
-    RepairStep.FILL_HOLES,
-    RepairStep.WELD,
-)
+STEPS_WATERTIGHT: Final[Steps] = (RepairStep.FIX_WINDING, RepairStep.FIX_NORMALS, RepairStep.FIX_INVERSION, RepairStep.FILL_HOLES, RepairStep.WELD)
 
 # the orientation-only pass for an already-merged reconstruction whose coincident vertices need no re-weld
-STEPS_ORIENT: Final[Steps] = (
-    RepairStep.FIX_WINDING,
-    RepairStep.FIX_NORMALS,
-    RepairStep.FIX_INVERSION,
-    RepairStep.FILL_HOLES,
-)
+STEPS_ORIENT: Final[Steps] = (RepairStep.FIX_WINDING, RepairStep.FIX_NORMALS, RepairStep.FIX_INVERSION, RepairStep.FILL_HOLES)
 
 # the empty field-policy the `@receipted` egress aspect carries into `Signals.emit`; the watertight/winding
 # verdict and the geometry measures are non-secret, so no field classifies — anchored after the Redaction model it builds.
@@ -93,24 +82,26 @@ REDACTION: Final[Redaction] = Redaction(classified=Map.empty())
 @tagged_union(frozen=True)
 class RepairFault(Exception):
     tag: Literal["rejected", "unknown_step"] = tag()
-    rejected: str = case()        # the non-NoError manifold3d Error name the status gate trips on
-    unknown_step: str = case()    # a RepairStep / BooleanOp absent from its dispatch table
+    rejected: str = case()  # the non-NoError manifold3d Error name the status gate trips on
+    unknown_step: str = case()  # a RepairStep / BooleanOp absent from its dispatch table
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class MeshRepairReceipt(Struct, frozen=True, gc=False):  # leaf-scalar evidence; owns its (Phase, subject, facts) projection, the result-carrier is the ReceiptContributor
+class MeshRepairReceipt(
+    Struct, frozen=True, gc=False
+):  # leaf-scalar evidence; owns its (Phase, subject, facts) projection, the result-carrier is the ReceiptContributor
     op: OpKind
-    valid: bool                       # watertight AND NoError; the phase discriminant
+    valid: bool  # watertight AND NoError; the phase discriminant
     watertight: bool
     winding_consistent: bool
     volume: float
     area: float
     vertex_count: int
     face_count: int
-    verb: str                         # the applied step-set join or the CSG verb
-    status: str                       # the manifold3d Error name ("NoError" off the conditioning arm)
+    verb: str  # the applied step-set join or the CSG verb
+    status: str  # the manifold3d Error name ("NoError" off the conditioning arm)
     subject: GeometrySubject
     closure_gap: float | None = None  # |kernel volume - re-wrapped Trimesh volume| on the boolean arm, None on conditioning
 
@@ -118,10 +109,15 @@ class MeshRepairReceipt(Struct, frozen=True, gc=False):  # leaf-scalar evidence;
     def fact(self) -> tuple[Phase, GeometrySubject, dict[str, object]]:
         phase: Phase = "emitted" if self.valid else "admitted"
         facts: dict[str, object] = {  # native scalars; the receipts owner's enc_hook=repr renderer serializes without a str() coerce
-            "op": self.op, "verb": self.verb, "status": self.status,
-            "watertight": self.watertight, "winding_consistent": self.winding_consistent,
-            "volume": self.volume, "area": self.area,
-            "vertex_count": self.vertex_count, "face_count": self.face_count,
+            "op": self.op,
+            "verb": self.verb,
+            "status": self.status,
+            "watertight": self.watertight,
+            "winding_consistent": self.winding_consistent,
+            "volume": self.volume,
+            "area": self.area,
+            "vertex_count": self.vertex_count,
+            "face_count": self.face_count,
             "closure_gap": self.closure_gap,
         }
         return phase, self.subject, facts
@@ -143,7 +139,9 @@ class MeshRepairOp:
     boolean: tuple[Meshes, BooleanOp] = case()
 
     @staticmethod
-    def Condition(mesh: trimesh.Trimesh, steps: Steps = STEPS_WATERTIGHT) -> Self:  # the reconstruction-hop entry; the consumer selects the step-set, never a bare weld bool
+    def Condition(
+        mesh: trimesh.Trimesh, steps: Steps = STEPS_WATERTIGHT
+    ) -> Self:  # the reconstruction-hop entry; the consumer selects the step-set, never a bare weld bool
         return MeshRepairOp(condition=(mesh, steps))
 
     @staticmethod
@@ -175,6 +173,7 @@ _OPTYPES: Final[Map[BooleanOp, str]] = Map.of_seq((
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
+
 async def apply(op: MeshRepairOp, lane: LanePolicy) -> "RuntimeRail[MeshResult]":
     # the kernel offloads onto the lane PEP-734 hop (the lane stitches the active OTel context and folds a worker
     # raise through its own async_boundary), then the Ok MeshResult threads through the @receipted egress builder
@@ -196,7 +195,9 @@ def _raise[T](fault: RepairFault) -> T:
     raise fault
 
 
-def _to_manifold(mesh: trimesh.Trimesh) -> "manifold3d.Manifold":  # Mesh64 past the uint32 ceiling so a large operand keeps 64-bit positions and triangle indices
+def _to_manifold(
+    mesh: trimesh.Trimesh,
+) -> "manifold3d.Manifold":  # Mesh64 past the uint32 ceiling so a large operand keeps 64-bit positions and triangle indices
     import manifold3d
 
     verts, faces = np.asarray(mesh.vertices), np.asarray(mesh.faces)
@@ -213,9 +214,17 @@ def _conditioned(mesh: trimesh.Trimesh, steps: Steps) -> MeshResult:
     return MeshResult(
         mesh,
         MeshRepairReceipt(
-            "condition", watertight, watertight, bool(mesh.is_winding_consistent),
-            float(mesh.volume), float(mesh.area), len(mesh.vertices), len(mesh.faces),
-            "+".join(s.value for s in steps), "NoError", "reconstructed-mesh",
+            "condition",
+            watertight,
+            watertight,
+            bool(mesh.is_winding_consistent),
+            float(mesh.volume),
+            float(mesh.area),
+            len(mesh.vertices),
+            len(mesh.faces),
+            "+".join(s.value for s in steps),
+            "NoError",
+            "reconstructed-mesh",
         ),
     )
 
@@ -233,9 +242,17 @@ def _combined(meshes: Meshes, op: BooleanOp) -> MeshResult:
     return MeshResult(
         mesh,
         MeshRepairReceipt(
-            "boolean", watertight, watertight, bool(mesh.is_winding_consistent),
-            kernel_volume, float(solid.surface_area()), solid.num_vert(), solid.num_tri(),
-            op.value, status.name, "mesh-algebra",
+            "boolean",
+            watertight,
+            watertight,
+            bool(mesh.is_winding_consistent),
+            kernel_volume,
+            float(solid.surface_area()),
+            solid.num_vert(),
+            solid.num_tri(),
+            op.value,
+            status.name,
+            "mesh-algebra",
             abs(kernel_volume - float(mesh.volume)) if watertight else None,  # kernel-vs-mesh agreement, None on an open result
         ),
     )

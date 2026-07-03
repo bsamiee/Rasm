@@ -217,7 +217,7 @@ public static class AssemblyAggregator {
     // its combined-mass estimate, never the unphysical per-leaf dB sum that over-predicts a rigidly-connected layer set.
     static double[] MassLawBands(double massKgM2) {
         double[] sri = new double[AcousticBand.Count];
-        foreach (AcousticBand band in AcousticBand.Items) { sri[band.Index] = Math.Max(0.0, 20.0 * Math.Log10(massKgM2 * band.CenterHz) - MassLawConstantDb); }
+        foreach (AcousticBand band in AcousticBand.Items) { sri[band.Key] = Math.Max(0.0, 20.0 * Math.Log10(massKgM2 * band.CenterHz) - MassLawConstantDb); }
         return sri;
     }
 

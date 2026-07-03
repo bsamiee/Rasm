@@ -1,7 +1,7 @@
 export const meta = {
   name: 'design-component-paradigm',
   whenToUse: 'One-shot campaign design pass: decide the C# Component/Section/IfcClass paradigm and rewrite the Generation blueprint before any build leg runs.',
-  description: 'Disposable design workflow for the Component-Paradigm campaign. Survey (4 opus agents: Materials corpus, Element seam + Bim, doctrine + substrate .api, external research) -> Draft (4 fable agents, distinct paradigm angles, all answering the fixed question set a-j) -> Judge (3 fable lenses: doctrine, 5x capability, blast-radius/cost) -> Synthesize (1 fable merge of winner + grafts) -> Decide (1 fable red-team gate that attacks the synthesis then WRITES RASM-COMPONENT-PARADIGM-DECISION.md and the rewritten RASM-GENERATION-SPEC.md) -> Salvage (4 draft miners + 1 overturn auditor against the WRITTEN outputs, then 1 writing integrator that applies every accepted finding in place — a decide gate drops value silently, so the salvage pass is structural, never optional). About 19 agents, peak concurrency 5. Takes no args.',
+  description: 'Disposable design workflow for the Component-Paradigm campaign. Survey (4 opus agents: Materials corpus, Element seam + Bim, doctrine + substrate .api, external research) -> Draft (4 fable agents, distinct paradigm angles, all answering the fixed question set a-j) -> Judge (3 fable lenses: doctrine, 5x capability, blast-radius/cost) -> Synthesize (1 fable merge of winner + grafts) -> Decide (1 fable red-team gate that attacks the synthesis then WRITES .archive/RASM-COMPONENT-PARADIGM-DECISION.md and the rewritten RASM-GENERATION-SPEC.md) -> Salvage (4 draft miners + 1 overturn auditor against the WRITTEN outputs, then 1 writing integrator that applies every accepted finding in place — a decide gate drops value silently, so the salvage pass is structural, never optional). About 19 agents, peak concurrency 5. Takes no args.',
   phases: [
     { title: 'Survey', detail: '4 parallel dossiers: S1 Materials corpus (verify/extend W1-W9), S2 Element seam + Bim + archived scope (frozen invariants, assay-verify GeometryGym reflection), S3 doctrine + substrate + folder .api (assay-verify VividOrange), S4 external research (IFC 4.3 parameterized profiles, Revit family model, graph grammars, parametric layout)' },
     { title: 'Draft', detail: '4 parallel complete paradigm proposals: D1 parametric-descriptor, D2 schema-reflected IFC-first, D3 graph-generative, D4 conservative collapse; every draft answers the fixed question set a-j' },
@@ -15,7 +15,7 @@ export const meta = {
 // --- [CONSTANTS] -------------------------------------------------------------------------
 
 const STALL = 300000
-const DECISION = 'RASM-COMPONENT-PARADIGM-DECISION.md'
+const DECISION = '.archive/RASM-COMPONENT-PARADIGM-DECISION.md'
 const SPEC = 'RASM-GENERATION-SPEC.md'
 const SCOPE_AR = '.archive/RASM-REBUILD-SCOPE.md'
 const DEC_AR = '.archive/RASM-REBUILD-DECISION.md'

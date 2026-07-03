@@ -45,15 +45,20 @@ type Text = Literal["matches", "contains"]
 type Inclusive = Literal["both", "neither", "left", "right"]
 
 _CMP: Final[Map[Cmp, Callable[[float], Check]]] = Map.of_seq([
-    ("ge", Check.ge), ("le", Check.le), ("gt", Check.gt), ("lt", Check.lt),
-    ("eq", Check.equal_to), ("ne", Check.not_equal_to),
+    ("ge", Check.ge),
+    ("le", Check.le),
+    ("gt", Check.gt),
+    ("lt", Check.lt),
+    ("eq", Check.equal_to),
+    ("ne", Check.not_equal_to),
 ])
 _SET: Final[Map[bool, Callable[[Iterable[Any]], Check]]] = Map.of_seq([(True, Check.isin), (False, Check.notin)])
-_TEXT: Final[Map[Text, Callable[[str | Pattern[str]], Check]]] = Map.of_seq([
-    ("matches", Check.str_matches), ("contains", Check.str_contains),
-])
+_TEXT: Final[Map[Text, Callable[[str | Pattern[str]], Check]]] = Map.of_seq([("matches", Check.str_matches), ("contains", Check.str_contains)])
 _INCLUSIVE: Final[Map[Inclusive, tuple[bool, bool]]] = Map.of_seq([
-    ("both", (True, True)), ("neither", (False, False)), ("left", (True, False)), ("right", (False, True)),
+    ("both", (True, True)),
+    ("neither", (False, False)),
+    ("left", (True, False)),
+    ("right", (False, True)),
 ])
 
 
@@ -70,7 +75,9 @@ class ContractClaim(Struct, frozen=True):
     content_key: ContentKey
 
     @classmethod
-    def of(cls, subject: Literal["data-quality", "data-covenant"], shape: tuple[int, ...], breaches: tuple[tuple[str, ...], ...], key: ContentKey) -> "ContractClaim":
+    def of(
+        cls, subject: Literal["data-quality", "data-covenant"], shape: tuple[int, ...], breaches: tuple[tuple[str, ...], ...], key: ContentKey
+    ) -> "ContractClaim":
         return cls(subject, ClaimStatus.PASSED if not breaches else ClaimStatus.FAILED, shape, breaches, key)
 
     def contribute(self) -> tuple[Receipt, ...]:
@@ -118,12 +125,7 @@ class QualityRule(Struct, frozen=True):
 
     def to_column(self) -> pap.Column:
         return pap.Column(
-            self.dtype,
-            checks=[c.to_check() for c in self.checks],
-            nullable=self.nullable,
-            unique=self.unique,
-            required=self.required,
-            coerce=False,
+            self.dtype, checks=[c.to_check() for c in self.checks], nullable=self.nullable, unique=self.unique, required=self.required, coerce=False
         )
 
 
@@ -354,7 +356,14 @@ class FrameCovenant(Struct, frozen=True):
 
     @classmethod
     @beartype(conf=FAULT_CONF)
-    def of(cls, interop: FrameInterop, schemas: "Mapping[str, type[dy.Schema]]", *edges: RelationEdge, validation: Validation = "warn", cast: bool = False) -> "FrameCovenant":
+    def of(
+        cls,
+        interop: FrameInterop,
+        schemas: "Mapping[str, type[dy.Schema]]",
+        *edges: RelationEdge,
+        validation: Validation = "warn",
+        cast: bool = False,
+    ) -> "FrameCovenant":
         return cls(interop=interop, edges=edges, schemas=Map.of_seq(schemas.items()), validation=validation, cast=cast)
 
     @beartype(conf=FAULT_CONF)
@@ -372,7 +381,9 @@ class FrameCovenant(Struct, frozen=True):
                     return self._claim(members, dict(pairs), key)
                 case CovenantOp(tag="consistent", consistent=members):
                     passed = self._collection(members).is_valid(dict(pairs), cast=self.cast)
-                    return ContractClaim.of("data-covenant", (len(self.schemas), len(self.edges)), () if passed else (("collection", "consistent"),), key)
+                    return ContractClaim.of(
+                        "data-covenant", (len(self.schemas), len(self.edges)), () if passed else (("collection", "consistent"),), key
+                    )
                 case CovenantOp(tag="restrict", restrict=(anchor, members)):
                     collection = self._collection(members)
                     data = dict(pairs)
@@ -393,7 +404,9 @@ class FrameCovenant(Struct, frozen=True):
                     collection = self._collection(members)
                     restored = dy.deserialize_collection(collection.serialize())
                     matched = restored is not None and restored.matches(collection)
-                    return ContractClaim.of("data-covenant", (len(self.schemas), len(self.edges)), () if matched else (("contract", "round-trip"),), key)
+                    return ContractClaim.of(
+                        "data-covenant", (len(self.schemas), len(self.edges)), () if matched else (("contract", "round-trip"),), key
+                    )
                 case CovenantOp(tag="sample", sample=(rows, members)):
                     return self._claim(members, _members(self._collection(members).sample(rows, generator=self.generator)), key)
                 case unreachable:
@@ -405,12 +418,14 @@ class FrameCovenant(Struct, frozen=True):
         policy = {m.name: m.policy for m in members}
         namespace: dict[str, Any] = {
             "__annotations__": {
-                name: Annotated[dy.LazyFrame[schema], policy.get(name, MemberPolicy()).member()]
-                for name, schema in self.schemas.items()
+                name: Annotated[dy.LazyFrame[schema], policy.get(name, MemberPolicy()).member()] for name, schema in self.schemas.items()
             },
-            **{edge.name: dy.filter()(
-                lambda collection, _edge=edge: _edge.kind.relate(getattr(collection, _edge.left), getattr(collection, _edge.right), _edge.on)
-            ) for edge in self.edges},
+            **{
+                edge.name: dy.filter()(
+                    lambda collection, _edge=edge: _edge.kind.relate(getattr(collection, _edge.left), getattr(collection, _edge.right), _edge.on)
+                )
+                for edge in self.edges
+            },
         }
         return type("Covenant", (dy.Collection,), namespace)
 
@@ -429,7 +444,11 @@ class FrameCovenant(Struct, frozen=True):
             for row in (
                 *((name, "rule", rule, str(count)) for rule, count in failure.counts().items()),
                 *((name, "co-occur", "|".join(sorted(ruleset)), str(count)) for ruleset, count in failure.cooccurrence_counts().items()),
-                *((name, "detail", column, str(details.filter(details[column] == "invalid").height)) for column in details.columns if column not in invalid.columns),
+                *(
+                    (name, "detail", column, str(details.filter(details[column] == "invalid").height))
+                    for column in details.columns
+                    if column not in invalid.columns
+                ),
                 *(((name, "invalid", "rows", str(invalid.height)),) if invalid.height else ()),
             )
         )

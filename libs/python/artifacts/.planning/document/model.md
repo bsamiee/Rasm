@@ -78,9 +78,9 @@ class RunScript(StrEnum):
 
 
 class TextDirection(StrEnum):
-    AUTO = "auto"      # shaper resolves the base level from content (`bidi.get_base_level` → 0/1)
+    AUTO = "auto"  # shaper resolves the base level from content (`bidi.get_base_level` → 0/1)
     LTR = "ltr"
-    RTL = "rtl"        # the `bidi.get_display(base_dir="R")` paragraph the shaper reorders
+    RTL = "rtl"  # the `bidi.get_display(base_dir="R")` paragraph the shaper reorders
 
 
 class TextDecoration(StrEnum):
@@ -113,7 +113,7 @@ class AnnotKind(StrEnum):
 
 
 class StructEltKind(StrEnum):
-    DOCUMENT = "Document"          # grouping
+    DOCUMENT = "Document"  # grouping
     PART = "Part"
     ART = "Art"
     SECT = "Sect"
@@ -121,44 +121,44 @@ class StructEltKind(StrEnum):
     TOC = "TOC"
     TOCI = "TOCI"
     INDEX = "Index"
-    NONSTRUCT = "NonStruct"        # grouping with no inherent structure (PDF/UA generic container)
-    PRIVATE = "Private"            # producer-private content outside the logical structure tree
-    H1 = "H1"                      # headings
+    NONSTRUCT = "NonStruct"  # grouping with no inherent structure (PDF/UA generic container)
+    PRIVATE = "Private"  # producer-private content outside the logical structure tree
+    H1 = "H1"  # headings
     H2 = "H2"
     H3 = "H3"
     H4 = "H4"
     H5 = "H5"
     H6 = "H6"
-    P = "P"                        # block-level
+    P = "P"  # block-level
     BLOCKQUOTE = "BlockQuote"
     NOTE = "Note"
     BIBENTRY = "BibEntry"
     CODE = "Code"
     CAPTION = "Caption"
-    SPAN = "Span"                  # inline-level
+    SPAN = "Span"  # inline-level
     QUOTE = "Quote"
     LINK = "Link"
     REFERENCE = "Reference"
     ANNOT = "Annot"
-    RUBY = "Ruby"                  # East-Asian ruby (furigana) assembly over its RB/RT/RP parts
-    RB = "RB"                      # ruby base text
-    RT = "RT"                      # ruby annotation text
-    RP = "RP"                      # ruby punctuation (fallback delimiters)
-    WARICHU = "Warichu"            # East-Asian inline warichu assembly over its WT/WP parts
-    WT = "WT"                      # warichu text
-    WP = "WP"                      # warichu punctuation
-    L = "L"                        # list grouping
+    RUBY = "Ruby"  # East-Asian ruby (furigana) assembly over its RB/RT/RP parts
+    RB = "RB"  # ruby base text
+    RT = "RT"  # ruby annotation text
+    RP = "RP"  # ruby punctuation (fallback delimiters)
+    WARICHU = "Warichu"  # East-Asian inline warichu assembly over its WT/WP parts
+    WT = "WT"  # warichu text
+    WP = "WP"  # warichu punctuation
+    L = "L"  # list grouping
     LI = "LI"
     LBL = "Lbl"
     LBODY = "LBody"
-    TABLE = "Table"               # table grouping
+    TABLE = "Table"  # table grouping
     THEAD = "THead"
     TBODY = "TBody"
     TFOOT = "TFoot"
     TR = "TR"
     TH = "TH"
     TD = "TD"
-    FIGURE = "Figure"             # illustration
+    FIGURE = "Figure"  # illustration
     FORMULA = "Formula"
     FORM = "Form"
 
@@ -196,7 +196,9 @@ type ForeignRoleStr = Annotated[str, Meta(min_length=1, max_length=64, pattern=r
 type AltText = Annotated[str, Meta(max_length=2048)]
 type LangTag = Annotated[str, Meta(min_length=2, max_length=35, pattern=r"\A[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*\Z")]
 type MediaType = Annotated[str, Meta(min_length=3, max_length=127, pattern=r"\A[\w.+-]+/[\w.+-]+\Z")]
-type ClassificationCode = Annotated[str, Meta(min_length=1, max_length=32, pattern=r"\A[A-Za-z0-9][\w .\-]*\Z")]  # CSI/OmniClass notation `classify#CLASSIFY` renders/parses
+type ClassificationCode = Annotated[
+    str, Meta(min_length=1, max_length=32, pattern=r"\A[A-Za-z0-9][\w .\-]*\Z")
+]  # CSI/OmniClass notation `classify#CLASSIFY` renders/parses
 type Rgb = tuple[int, int, int]
 type Rect = tuple[float, float, float, float]
 
@@ -208,9 +210,11 @@ class NodeMeta(Struct, frozen=True, omit_defaults=True):
     role: str
     page: int
     bounds: Rect | None = None
-    lang: LangTag | UnsetType = UNSET          # PDF/UA `/Lang` BCP-47 tag; absent under `omit_defaults`
-    actual_text: str | UnsetType = UNSET       # PDF/UA `/ActualText` replacement for non-textual glyphs
-    classification: ClassificationCode | UnsetType = UNSET  # CSI/OmniClass code the `specification/classify#CLASSIFY` resolver keys the drawing<->spec cross-reference on
+    lang: LangTag | UnsetType = UNSET  # PDF/UA `/Lang` BCP-47 tag; absent under `omit_defaults`
+    actual_text: str | UnsetType = UNSET  # PDF/UA `/ActualText` replacement for non-textual glyphs
+    classification: ClassificationCode | UnsetType = (
+        UNSET  # CSI/OmniClass code the `specification/classify#CLASSIFY` resolver keys the drawing<->spec cross-reference on
+    )
 
 
 class StandardRole(Struct, frozen=True, tag="standard", tag_field="role_kind"):
@@ -290,17 +294,17 @@ class RunNode(Struct, frozen=True, tag=NodeKind.RUN.value, tag_field="kind"):
 class ListNode(Struct, frozen=True, tag=NodeKind.LIST.value, tag_field="kind"):
     meta: NodeMeta
     list_kind: ListKind = ListKind.UNORDERED
-    start: int = 1                             # `ORDERED` first ordinal -> Typst `#enum(start:)`
-    items: tuple[DocumentNode, ...] = ()       # one `LI` sub-tree per item
+    start: int = 1  # `ORDERED` first ordinal -> Typst `#enum(start:)`
+    items: tuple[DocumentNode, ...] = ()  # one `LI` sub-tree per item
 
 
 class TableNode(Struct, frozen=True, tag=NodeKind.TABLE.value, tag_field="kind"):
     meta: NodeMeta
     rows: tuple[tuple[DocumentNode, ...], ...] = ()
     spans: tuple[tuple[int, int, int, int], ...] = ()  # (row, present-cell index, col_span, row_span) merged-cell quads BOTH lowerings honor
-    header_rows: int = 0                        # leading `THead` rows -> Typst `table.header(repeat: true)` + `Table.header`
-    footer_rows: int = 0                        # trailing `TFoot` rows -> Typst `table.footer`
-    caption: tuple[RunNode, ...] = ()           # table title -> Typst `#figure(kind: table, caption:)` + HTML `<caption>`, the PDF/UA `Caption` child
+    header_rows: int = 0  # leading `THead` rows -> Typst `table.header(repeat: true)` + `Table.header`
+    footer_rows: int = 0  # trailing `TFoot` rows -> Typst `table.footer`
+    caption: tuple[RunNode, ...] = ()  # table title -> Typst `#figure(kind: table, caption:)` + HTML `<caption>`, the PDF/UA `Caption` child
 
 
 class FigureNode(Struct, frozen=True, tag=NodeKind.FIGURE.value, tag_field="kind"):
@@ -316,9 +320,9 @@ class FormulaNode(Struct, frozen=True, tag=NodeKind.FORMULA.value, tag_field="ki
     # the tree-resident equation the `FORMULA` `StructEltKind` role lowers, so a formula is source-addressable
     # (journal manuscript egress + AEC `ziamath` SVG) rather than only a pre-rendered `FigureNode`.
     meta: NodeMeta
-    tex: str                                    # LaTeX math source — the interchange notation `to_latex`/`to_markdown` emit verbatim and the `ziamath` renderer lowers to SVG; a TRUSTED authored math island, never markup-escaped
-    display: bool = False                       # block/display math (`\[..\]`, `$$..$$`, Typst `#mitex`) vs inline (`$..$`, Typst `#mi`)
-    alt: AltText = ""                            # the ISO 14289 `Formula` structure-element `/Alt` text equivalent the `folder:document/tagged#ACCESS` AUDIT verifies
+    tex: str  # LaTeX math source — the interchange notation `to_latex`/`to_markdown` emit verbatim and the `ziamath` renderer lowers to SVG; a TRUSTED authored math island, never markup-escaped
+    display: bool = False  # block/display math (`\[..\]`, `$$..$$`, Typst `#mitex`) vs inline (`$..$`, Typst `#mi`)
+    alt: AltText = ""  # the ISO 14289 `Formula` structure-element `/Alt` text equivalent the `folder:document/tagged#ACCESS` AUDIT verifies
 
 
 class FieldNode(Struct, frozen=True, tag=NodeKind.FIELD.value, tag_field="kind"):
@@ -327,7 +331,7 @@ class FieldNode(Struct, frozen=True, tag=NodeKind.FIELD.value, tag_field="kind")
     field: FieldKind
     value: str | bool | None = None
     flags: tuple[FieldFlag, ...] = ()
-    options: tuple[str, ...] = ()               # `CHOICE` candidate values
+    options: tuple[str, ...] = ()  # `CHOICE` candidate values
 
 
 class AnnotationNode(Struct, frozen=True, tag=NodeKind.ANNOTATION.value, tag_field="kind"):
@@ -345,8 +349,7 @@ class StructureNode(Struct, frozen=True, tag=NodeKind.STRUCTURE.value, tag_field
 
 
 type DocumentNode = (
-    PageNode | SectionNode | BlockNode | RunNode | ListNode
-    | TableNode | FigureNode | FormulaNode | FieldNode | AnnotationNode | StructureNode
+    PageNode | SectionNode | BlockNode | RunNode | ListNode | TableNode | FigureNode | FormulaNode | FieldNode | AnnotationNode | StructureNode
 )
 
 
@@ -360,53 +363,75 @@ class CorpusRow(Struct, frozen=True):
     alt_status: AltStatus = AltStatus.NA
     lang: str = ""
     actual_text: str = ""
-    classification: str = ""   # the `NodeMeta.classification` CSI/OmniClass column the `classify#CLASSIFY` resolver queries
-    xref: str = ""             # the `AnnotationNode` `Xref.cite()` column the drawing<->spec cross-reference resolver reads
+    classification: str = ""  # the `NodeMeta.classification` CSI/OmniClass column the `classify#CLASSIFY` resolver queries
+    xref: str = ""  # the `AnnotationNode` `Xref.cite()` column the drawing<->spec cross-reference resolver reads
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _ENCODER: Final = msgspec.msgpack.Encoder(order="deterministic")  # one deterministic codec for node, digest, and corpus
-_JSON_ENCODER: Final = msgspec.json.Encoder(order="deterministic")  # the structured-data (JSON-LD/JATS-adjacent) tree egress, the `to_json` interchange codec
+_JSON_ENCODER: Final = msgspec.json.Encoder(
+    order="deterministic"
+)  # the structured-data (JSON-LD/JATS-adjacent) tree egress, the `to_json` interchange codec
 _DOCUMENT_DECODER: Final = msgspec.msgpack.Decoder(DocumentNode)
 _CHILD_FIELDS: Final[frozenset[str]] = frozenset({"children", "heading", "runs", "items", "caption", "rows"})  # every `children`-projected field
 _TYPST_ESCAPE: Final[frozendict[TypstScope, dict[int, str]]] = frozendict({
     TypstScope.STRING: str.maketrans({"\\": "\\\\", '"': '\\"'}),
     TypstScope.MARKUP: str.maketrans({c: f"\\{c}" for c in "\\[]#*_@$<>`"}),
 })
-_LIST_MARKUP: Final[frozendict[ListKind, str]] = frozendict(
-    {ListKind.UNORDERED: "list", ListKind.ORDERED: "enum", ListKind.DESCRIPTION: "terms"}
-)
-_DECORATION_MARKUP: Final[frozendict[TextDecoration, str]] = frozendict(
-    {TextDecoration.UNDERLINE: "underline", TextDecoration.STRIKETHROUGH: "strike", TextDecoration.OVERLINE: "overline"}
-)
-_DECORATION_CSS: Final[frozendict[TextDecoration, str]] = frozendict(
-    {TextDecoration.UNDERLINE: "underline", TextDecoration.STRIKETHROUGH: "line-through", TextDecoration.OVERLINE: "overline"}
-)
-_BLOCK_HTML: Final[frozendict[BlockKind, str]] = frozendict(
-    {BlockKind.PARAGRAPH: "p", BlockKind.QUOTE: "blockquote", BlockKind.CAPTION: "figcaption", BlockKind.ARTIFACT: "div"}
-)  # `HEADING` -> `h{level}` and `CODE` -> `pre`/`code` are arm-built; this table carries the flat one-tag block kinds
-_LIST_HTML: Final[frozendict[ListKind, str]] = frozendict(
-    {ListKind.UNORDERED: "ul", ListKind.ORDERED: "ol", ListKind.DESCRIPTION: "dl"}
-)
+_LIST_MARKUP: Final[frozendict[ListKind, str]] = frozendict({ListKind.UNORDERED: "list", ListKind.ORDERED: "enum", ListKind.DESCRIPTION: "terms"})
+_DECORATION_MARKUP: Final[frozendict[TextDecoration, str]] = frozendict({
+    TextDecoration.UNDERLINE: "underline",
+    TextDecoration.STRIKETHROUGH: "strike",
+    TextDecoration.OVERLINE: "overline",
+})
+_DECORATION_CSS: Final[frozendict[TextDecoration, str]] = frozendict({
+    TextDecoration.UNDERLINE: "underline",
+    TextDecoration.STRIKETHROUGH: "line-through",
+    TextDecoration.OVERLINE: "overline",
+})
+_BLOCK_HTML: Final[frozendict[BlockKind, str]] = frozendict({
+    BlockKind.PARAGRAPH: "p",
+    BlockKind.QUOTE: "blockquote",
+    BlockKind.CAPTION: "figcaption",
+    BlockKind.ARTIFACT: "div",
+})  # `HEADING` -> `h{level}` and `CODE` -> `pre`/`code` are arm-built; this table carries the flat one-tag block kinds
+_LIST_HTML: Final[frozendict[ListKind, str]] = frozendict({ListKind.UNORDERED: "ul", ListKind.ORDERED: "ol", ListKind.DESCRIPTION: "dl"})
 # the plain-text manuscript spelling tables the `to_markdown`/`to_latex` lowerings read — the same
 # markup-table discipline `_TYPST_ESCAPE`/`_BLOCK_HTML` hold, one row per active char / decoration / depth.
-_MD_ESCAPE: Final[dict[int, str]] = str.maketrans({c: f"\\{c}" for c in "\\`*_[]<>|"})  # CommonMark inline-active set: neutralize emphasis/code/link/autolink/table-pipe, never mangle every hyphen/period
+_MD_ESCAPE: Final[dict[int, str]] = str.maketrans({
+    c: f"\\{c}" for c in "\\`*_[]<>|"
+})  # CommonMark inline-active set: neutralize emphasis/code/link/autolink/table-pipe, never mangle every hyphen/period
 _MD_DECORATION: Final[frozendict[TextDecoration, tuple[str, str]]] = frozendict({
-    TextDecoration.UNDERLINE: ("<u>", "</u>"),                                              # GFM raw-HTML — CommonMark has no native underline
-    TextDecoration.STRIKETHROUGH: ("~~", "~~"),                                             # GFM strikethrough
-    TextDecoration.OVERLINE: ('<span style="text-decoration:overline">', "</span>"),        # GFM raw-HTML — no native overline
+    TextDecoration.UNDERLINE: ("<u>", "</u>"),  # GFM raw-HTML — CommonMark has no native underline
+    TextDecoration.STRIKETHROUGH: ("~~", "~~"),  # GFM strikethrough
+    TextDecoration.OVERLINE: ('<span style="text-decoration:overline">', "</span>"),  # GFM raw-HTML — no native overline
 })
 _LATEX_ESCAPE: Final[dict[int, str]] = str.maketrans({
-    "\\": "\\textbackslash{}", "~": "\\textasciitilde{}", "^": "\\textasciicircum{}",
-    "&": "\\&", "%": "\\%", "$": "\\$", "#": "\\#", "_": "\\_", "{": "\\{", "}": "\\}",
+    "\\": "\\textbackslash{}",
+    "~": "\\textasciitilde{}",
+    "^": "\\textasciicircum{}",
+    "&": "\\&",
+    "%": "\\%",
+    "$": "\\$",
+    "#": "\\#",
+    "_": "\\_",
+    "{": "\\{",
+    "}": "\\}",
 })  # the ten LaTeX-active characters — the three control-word forms plus the seven single-backslash escapes
-_LATEX_SECTION: Final[frozendict[int, str]] = frozendict(
-    {1: "section", 2: "subsection", 3: "subsubsection", 4: "paragraph", 5: "subparagraph", 6: "subparagraph"}
-)
-_LATEX_DECORATION: Final[frozendict[TextDecoration, str]] = frozendict(
-    {TextDecoration.UNDERLINE: "uline", TextDecoration.STRIKETHROUGH: "sout", TextDecoration.OVERLINE: "overline"}
-)  # the `document/emit#DOCUMENT LATEX` preamble carries `ulem` (uline/sout) and a math-mode overline; the emit arm declares the package set
+_LATEX_SECTION: Final[frozendict[int, str]] = frozendict({
+    1: "section",
+    2: "subsection",
+    3: "subsubsection",
+    4: "paragraph",
+    5: "subparagraph",
+    6: "subparagraph",
+})
+_LATEX_DECORATION: Final[frozendict[TextDecoration, str]] = frozendict({
+    TextDecoration.UNDERLINE: "uline",
+    TextDecoration.STRIKETHROUGH: "sout",
+    TextDecoration.OVERLINE: "overline",
+})  # the `document/emit#DOCUMENT LATEX` preamble carries `ulem` (uline/sout) and a math-mode overline; the emit arm declares the package set
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
@@ -462,12 +487,15 @@ _STRUCT_CATEGORY: Final[frozendict[StructEltKind, tuple[StructCategory, int]]] =
     StructEltKind.FORMULA: (StructCategory.ILLUSTRATION, 0),
     StructEltKind.FORM: (StructCategory.ILLUSTRATION, 0),
 })
-_FOREIGN_CATEGORY: Final[tuple[StructCategory, int]] = (StructCategory.GROUPING, 0)  # an unknown role maps to a neutral grouping, never a figure carrying mandatory alt
+_FOREIGN_CATEGORY: Final[tuple[StructCategory, int]] = (
+    StructCategory.GROUPING,
+    0,
+)  # an unknown role maps to a neutral grouping, never a figure carrying mandatory alt
 # DERIVED secondary: category -> its canonical standard role (the `/RoleMap` target the tagged owner reads),
 # first-wins inversion of `_STRUCT_CATEGORY` so the canonical is the first-declared role of each category.
-_STANDARD_FOR: Final[frozendict[StructCategory, StructEltKind]] = frozendict(
-    {category: elt for elt, (category, _level) in reversed(tuple(_STRUCT_CATEGORY.items()))}
-)
+_STANDARD_FOR: Final[frozendict[StructCategory, StructEltKind]] = frozendict({
+    category: elt for elt, (category, _level) in reversed(tuple(_STRUCT_CATEGORY.items()))
+})
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -710,15 +738,14 @@ def _column_count(rows: tuple[tuple[DocumentNode, ...], ...], span_map: frozendi
 
 
 def _cells(rows: tuple[tuple[DocumentNode, ...], ...], span_map: frozendict[tuple[int, int], tuple[int, int]], base: int) -> str:
-    return ", ".join(
-        _cell_markup(to_typst_source(cell), span_map.get((base + r, c)))
-        for r, row in enumerate(rows) for c, cell in enumerate(row)
-    )
+    return ", ".join(_cell_markup(to_typst_source(cell), span_map.get((base + r, c))) for r, row in enumerate(rows) for c, cell in enumerate(row))
 
 
 def _cell_markup(content: str, span: tuple[int, int] | None) -> str:
-    args = "" if span is None else ", ".join(
-        part for part in (f"colspan: {span[0]}" if span[0] != 1 else "", f"rowspan: {span[1]}" if span[1] != 1 else "") if part
+    args = (
+        ""
+        if span is None
+        else ", ".join(part for part in (f"colspan: {span[0]}" if span[0] != 1 else "", f"rowspan: {span[1]}" if span[1] != 1 else "") if part)
     )
     return f"table.cell({args})[{content}]" if args else f"[{content}]"
 
@@ -783,10 +810,14 @@ def _run_element(run: RunNode) -> "_Element":
     inner = etree.Element("span")
     inner.text = run.text  # lxml escapes on serialize; never an f-string interpolation into markup
     decoration = " ".join(_DECORATION_CSS[deco] for deco in run.decorations)
-    style = "; ".join(part for part in (
-        f"color:rgb({run.color[0]},{run.color[1]},{run.color[2]})" if run.color != (0, 0, 0) else "",
-        f"text-decoration:{decoration}" if decoration else "",
-    ) if part)
+    style = "; ".join(
+        part
+        for part in (
+            f"color:rgb({run.color[0]},{run.color[1]},{run.color[2]})" if run.color != (0, 0, 0) else "",
+            f"text-decoration:{decoration}" if decoration else "",
+        )
+        if part
+    )
     if style:
         inner.set("style", style)
     if run.direction is TextDirection.RTL:
@@ -854,7 +885,9 @@ def _element(node: DocumentNode) -> "_Element":
             math.set("role", "math")
             if alt:
                 math.set("aria-label", alt)  # the WCAG text equivalent for the `Formula` structure element
-            math.text = f"\\[{tex}\\]" if display else f"\\({tex}\\)"  # lxml escapes `<`/`&`/`"` on serialize; the LaTeX body is never an f-string markup splice
+            math.text = (
+                f"\\[{tex}\\]" if display else f"\\({tex}\\)"
+            )  # lxml escapes `<`/`&`/`"` on serialize; the LaTeX body is never an f-string markup splice
             return math
         case AnnotationNode(annot=AnnotKind.LINK, contents=text, link=Uri(href=href)):
             return _anchor(href, text)
@@ -884,8 +917,11 @@ def _filled_terms(dl: "_Element", items: tuple[DocumentNode, ...]) -> "_Element"
 
 
 def _table_element(
-    rows: tuple[tuple[DocumentNode, ...], ...], head_n: int, foot_n: int,
-    span_map: frozendict[tuple[int, int], tuple[int, int]], caption: tuple[RunNode, ...],
+    rows: tuple[tuple[DocumentNode, ...], ...],
+    head_n: int,
+    foot_n: int,
+    span_map: frozendict[tuple[int, int], tuple[int, int]],
+    caption: tuple[RunNode, ...],
 ) -> "_Element":
     table = etree.Element("table")
     if caption:  # the PDF/UA `Caption` element is the first child of `<table>`
@@ -994,7 +1030,9 @@ def to_latex(node: DocumentNode) -> str:
             note = f"% alt: {_latex(alt)}\n" if alt else ""  # the alt equivalent rides a source comment — LaTeX carries no figure `alt` slot
             return f"\\begin{{figure}}\n\\centering\n{note}\\includegraphics{{{asset_key.hex}}}\n{cap}\\end{{figure}}\n\n"
         case FormulaNode(tex=tex, display=display):
-            return f"\\[\n{tex}\n\\]\n\n" if display else f"${tex}$"  # native LaTeX math, the source verbatim (escaping the `tex` island would corrupt the math)
+            return (
+                f"\\[\n{tex}\n\\]\n\n" if display else f"${tex}$"
+            )  # native LaTeX math, the source verbatim (escaping the `tex` island would corrupt the math)
         case AnnotationNode(annot=AnnotKind.LINK, contents=text, link=Uri(href=href)):
             return f"\\href{{{href}}}{{{_latex(text)}}}"
         case AnnotationNode(annot=AnnotKind.LINK, contents=text, link=Dest(page=page)):
@@ -1086,8 +1124,11 @@ def _latex_term(item: DocumentNode) -> str:
 
 
 def _latex_table(
-    rows: tuple[tuple[DocumentNode, ...], ...], head_n: int, foot_n: int,
-    span_map: frozendict[tuple[int, int], tuple[int, int]], caption: tuple[RunNode, ...],
+    rows: tuple[tuple[DocumentNode, ...], ...],
+    head_n: int,
+    foot_n: int,
+    span_map: frozendict[tuple[int, int], tuple[int, int]],
+    caption: tuple[RunNode, ...],
 ) -> str:
     # a `tabular` inside a `table` float — the column spec folds row 0's colspans to the grid width, an `\hline`
     # rules the header/footer band boundaries (the `head_n`/`foot_n` counts), a colspan cell rides `\multicolumn`
@@ -1097,10 +1138,7 @@ def _latex_table(
     width = _column_count(rows, span_map)
     spec = "|" + "l|" * width
     boundaries = frozenset(edge for edge in (head_n, len(rows) - foot_n, len(rows)) if 0 < edge <= len(rows))
-    lines = "".join(
-        _latex_row(row, r, span_map) + ("\\hline\n" if r + 1 in boundaries else "")
-        for r, row in enumerate(rows)
-    )
+    lines = "".join(_latex_row(row, r, span_map) + ("\\hline\n" if r + 1 in boundaries else "") for r, row in enumerate(rows))
     cap = f"\\caption{{{_latex_runs(caption)}}}\n" if caption else ""
     return f"\\begin{{table}}\n\\centering\n{cap}\\begin{{tabular}}{{{spec}}}\n\\hline\n{lines}\\end{{tabular}}\n\\end{{table}}\n\n"
 
@@ -1142,7 +1180,7 @@ from .model import BlockNode, DocumentNode, ListNode, PageNode, SectionNode, Str
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type Path = tuple[int, ...]                              # the child-ordinal vector from the root: a node's structural uid
+type Path = tuple[int, ...]  # the child-ordinal vector from the root: a node's structural uid
 type IndexEntry = tuple[DocumentNode, ContentKey | None, int]
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -1240,8 +1278,14 @@ def diff(before: DocumentNode, after: DocumentNode, /) -> tuple[DocumentDelta, .
         if parent is None:
             return Block.empty()
         key = node.meta.key
-        return old_at.try_find(key).bind(old.try_find).map(lambda prior: survived(node, key, parent, index, prior)).default_with(
-            lambda: Block.singleton(Inserted(parent=parent, index=index, node=node)) if old_at.try_find(parent).is_some() else Block.empty()
+        return (
+            old_at
+            .try_find(key)
+            .bind(old.try_find)
+            .map(lambda prior: survived(node, key, parent, index, prior))
+            .default_with(
+                lambda: Block.singleton(Inserted(parent=parent, index=index, node=node)) if old_at.try_find(parent).is_some() else Block.empty()
+            )
         )
 
     def deletes_for(item: tuple[Path, IndexEntry]) -> Option[DocumentDelta]:

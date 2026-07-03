@@ -95,10 +95,46 @@ class ProfilePolicy(Struct, frozen=True):
 
 
 PROFILE_POLICY: Final[Map[RuntimeProfile, ProfilePolicy]] = Map.of_seq([
-    (RuntimeProfile.TOOL, ProfilePolicy(eager_import=True, scratch_writable=True, emit_otel=True, lane_capacity=8, gate=FeatureGate(admitted=frozenset({Feature.SECRET_MANAGER, Feature.KEYSTORE_PROBE, Feature.OUTBOUND_TRANSPORT}), tripped=frozenset()))),
-    (RuntimeProfile.SIDECAR, ProfilePolicy(eager_import=True, scratch_writable=True, emit_otel=True, lane_capacity=16, gate=FeatureGate(admitted=frozenset({Feature.SECRET_MANAGER, Feature.KEYSTORE_PROBE, Feature.OUTBOUND_TRANSPORT}), tripped=frozenset()))),
-    (RuntimeProfile.PACKAGE, ProfilePolicy(eager_import=False, scratch_writable=False, emit_otel=False, lane_capacity=4, gate=FeatureGate(admitted=frozenset({Feature.OUTBOUND_TRANSPORT}), tripped=frozenset({Killswitch.DISABLE_SECRET_MANAGER})))),
-    (RuntimeProfile.TEST, ProfilePolicy(eager_import=False, scratch_writable=True, emit_otel=False, lane_capacity=2, gate=FeatureGate(admitted=frozenset(), tripped=frozenset({Killswitch.DISABLE_OUTBOUND, Killswitch.DISABLE_SECRET_MANAGER})))),
+    (
+        RuntimeProfile.TOOL,
+        ProfilePolicy(
+            eager_import=True,
+            scratch_writable=True,
+            emit_otel=True,
+            lane_capacity=8,
+            gate=FeatureGate(admitted=frozenset({Feature.SECRET_MANAGER, Feature.KEYSTORE_PROBE, Feature.OUTBOUND_TRANSPORT}), tripped=frozenset()),
+        ),
+    ),
+    (
+        RuntimeProfile.SIDECAR,
+        ProfilePolicy(
+            eager_import=True,
+            scratch_writable=True,
+            emit_otel=True,
+            lane_capacity=16,
+            gate=FeatureGate(admitted=frozenset({Feature.SECRET_MANAGER, Feature.KEYSTORE_PROBE, Feature.OUTBOUND_TRANSPORT}), tripped=frozenset()),
+        ),
+    ),
+    (
+        RuntimeProfile.PACKAGE,
+        ProfilePolicy(
+            eager_import=False,
+            scratch_writable=False,
+            emit_otel=False,
+            lane_capacity=4,
+            gate=FeatureGate(admitted=frozenset({Feature.OUTBOUND_TRANSPORT}), tripped=frozenset({Killswitch.DISABLE_SECRET_MANAGER})),
+        ),
+    ),
+    (
+        RuntimeProfile.TEST,
+        ProfilePolicy(
+            eager_import=False,
+            scratch_writable=True,
+            emit_otel=False,
+            lane_capacity=2,
+            gate=FeatureGate(admitted=frozenset(), tripped=frozenset({Killswitch.DISABLE_OUTBOUND, Killswitch.DISABLE_SECRET_MANAGER})),
+        ),
+    ),
 ])
 
 
@@ -137,7 +173,9 @@ class RuntimeContext(Struct, frozen=True):
         cls, profile: RuntimeProfile, *, deadline: Deadline | None = None, classification: str = "internal", causal: CausalFrame | None = None
     ) -> Self:
         frame = Option.of_optional(causal)
-        return cls(profile=profile, correlation=Correlation.seed(frame), deadline=Option.of_optional(deadline), classification=classification, causal=frame)
+        return cls(
+            profile=profile, correlation=Correlation.seed(frame), deadline=Option.of_optional(deadline), classification=classification, causal=frame
+        )
 
     @property
     def policy(self) -> ProfilePolicy:
@@ -154,7 +192,11 @@ class RuntimeContext(Struct, frozen=True):
         return self.policy.gate.is_tripped(killswitch)
 
     def attribute(self) -> dict[str, str | int]:
-        base: dict[str, str | int] = {"rasm.profile": self.profile.value, "rasm.trace_id": self.correlation.trace_id.hex(), "rasm.classification": self.classification}
+        base: dict[str, str | int] = {
+            "rasm.profile": self.profile.value,
+            "rasm.trace_id": self.correlation.trace_id.hex(),
+            "rasm.classification": self.classification,
+        }
         return self.causal.map(lambda frame: base | frame.attributes("packed")).default_value(base)
 ```
 
@@ -201,8 +243,8 @@ from rasm.runtime.resilience import RetryClass, guarded
 
 
 class SecretShape(StrEnum):
-    TOKEN = "token"           # the bare passphrase/bearer the SSH/HTTP legs read off `.get_secret_value()`
-    CREDENTIAL = "credential" # the (username, secret) pair the `httpx.BasicAuth` leg reads
+    TOKEN = "token"  # the bare passphrase/bearer the SSH/HTTP legs read off `.get_secret_value()`
+    CREDENTIAL = "credential"  # the (username, secret) pair the `httpx.BasicAuth` leg reads
 
 
 @tagged_union(frozen=True)
@@ -214,6 +256,7 @@ class SecretTier:
     keystore: bool = case()
     file: bool = case()
     cloud: str = case()
+
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -255,8 +298,12 @@ class SecretBoundary(Struct, frozen=True):
     @overload
     async def resolve(self, service: str, username: str | None = ..., shape: Literal[SecretShape.TOKEN] = ...) -> RuntimeRail[Option[SecretStr]]: ...
     @overload
-    async def resolve(self, service: str, username: str | None = ..., *, shape: Literal[SecretShape.CREDENTIAL]) -> RuntimeRail[Option[Credential]]: ...
-    async def resolve(self, service: str, username: str | None = None, shape: SecretShape = SecretShape.TOKEN) -> RuntimeRail[Option[SecretStr]] | RuntimeRail[Option[Credential]]:
+    async def resolve(
+        self, service: str, username: str | None = ..., *, shape: Literal[SecretShape.CREDENTIAL]
+    ) -> RuntimeRail[Option[Credential]]: ...
+    async def resolve(
+        self, service: str, username: str | None = None, shape: SecretShape = SecretShape.TOKEN
+    ) -> RuntimeRail[Option[SecretStr]] | RuntimeRail[Option[Credential]]:
         # `username=None` is the service-scoped bearer leg the keystore resolves to its backend-default
         # user; the resolved `Credential.username` is read back off the store, never re-stamped from the request.
         admitted = SECRET_LADDER.filter(lambda row: row.gate.map(self.gate.admits).default_value(True))
@@ -290,6 +337,7 @@ class SecretBoundary(Struct, frozen=True):
         # body for the shared tail to depend on; the deferred `cloud` arm folds to `Ok(Nothing)`.
         match row.tier:
             case SecretTier(tag="keystore"):
+
                 def keystore_read() -> Option[Credential]:
                     # the store resolves a `None` `username` to its backend-default user; the returned
                     # credential's own `username` is authoritative, never the request value. `NoKeyringError`
@@ -302,12 +350,15 @@ class SecretBoundary(Struct, frozen=True):
                     except keyring.errors.NoKeyringError:
                         return Nothing
                     return Option.of_optional(found).map(lambda c: Credential(c.username, SecretStr(c.password)))
+
                 return await guarded(row.retry_class, anyio.to_thread.run_sync, keystore_read, subject="secret")
             case SecretTier(tag="file"):
+
                 def file_read() -> Option[Credential]:
                     name = Option.of_optional(username).map(lambda u: f"{service}_{u}").default_value(service)
                     path = Path(SECRETS_MOUNT) / name
                     return Some(Credential(username or service, SecretStr(path.read_text(encoding="utf-8").strip()))) if path.exists() else Nothing
+
                 return await guarded(row.retry_class, anyio.to_thread.run_sync, file_read, subject="secret")
             case SecretTier(tag="cloud"):
                 # the deferred `google-cloud-secret-manager` arm: no `SECRET_LADDER` row admits it
@@ -320,6 +371,7 @@ class SecretBoundary(Struct, frozen=True):
     def known_hosts(self) -> RuntimeRail[asyncssh.SSHKnownHosts]:
         path = Option.of_optional(self.settings.known_hosts).map(str).default_value(str(Path.home() / ".ssh" / "known_hosts"))
         return boundary("resource", lambda: asyncssh.read_known_hosts(path), catch=OSError)
+
 
 # --- [TABLES] ---------------------------------------------------------------------------
 

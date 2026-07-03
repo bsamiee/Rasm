@@ -31,18 +31,41 @@ from rasm.runtime.faults import RuntimeRail, async_boundary
 
 from artifacts.core.receipt import ArtifactReceipt
 
-lazy from artifacts.scene.export import SceneTarget, render_export, render_ingest        # cyclically coupled peer (export imports render) — deferred to break the cycle
+lazy from artifacts.scene.export import (
+    SceneTarget,
+    render_export,
+    render_ingest,
+)  # cyclically coupled peer (export imports render) — deferred to break the cycle
 lazy from artifacts.scene.render_worker import render_compose, render_frames, render_image
 
 type Vec3 = tuple[float, float, float]
 type Plane = tuple[Vec3, Vec3]
 type Bounds = tuple[float, float, float, float, float, float]
 type ScalarRange = tuple[float, float]
-type Palette = str | tuple[str, ...]   # a matplotlib colormap NAME or the graphic/color/derive#DERIVE resolved CSS-colour LIST; add_mesh(cmap=) accepts both
+type Palette = (
+    str | tuple[str, ...]
+)  # a matplotlib colormap NAME or the graphic/color/derive#DERIVE resolved CSS-colour LIST; add_mesh(cmap=) accepts both
 type FieldFilterTag = Literal[
-    "clip", "clip_box", "clip_scalar", "slice", "slice_orthogonal", "threshold",
-    "contour", "warp", "warp_vector", "glyph", "streamlines", "decimate", "surface",
-    "smooth", "subdivide", "fill_holes", "clean", "cell_to_point", "point_to_cell", "combine",
+    "clip",
+    "clip_box",
+    "clip_scalar",
+    "slice",
+    "slice_orthogonal",
+    "threshold",
+    "contour",
+    "warp",
+    "warp_vector",
+    "glyph",
+    "streamlines",
+    "decimate",
+    "surface",
+    "smooth",
+    "subdivide",
+    "fill_holes",
+    "clean",
+    "cell_to_point",
+    "point_to_cell",
+    "combine",
 ]
 type SceneOpTag = Literal["image", "export", "frames", "ingest", "compose"]
 
@@ -59,9 +82,9 @@ class RenderStyle(StrEnum):
     SURFACE = "surface"
     VOLUME = "volume"
     POINTS = "points"
-    ARROWS = "arrows"   # add_arrows vector-field glyphs over the active vector field
-    LABELS = "labels"   # add_point_labels text annotation at each point
-    LINES = "lines"     # add_mesh(style="wireframe") drawing-edge linework for the AEC drawing plane
+    ARROWS = "arrows"  # add_arrows vector-field glyphs over the active vector field
+    LABELS = "labels"  # add_point_labels text annotation at each point
+    LINES = "lines"  # add_mesh(style="wireframe") drawing-edge linework for the AEC drawing plane
 
 
 class SceneSource(StrEnum):
@@ -128,7 +151,7 @@ class CameraPose(NamedTuple):
 @tagged_union(frozen=True)
 class FieldFilter:
     tag: FieldFilterTag = tag()
-    clip: tuple[Plane, bool] = case()               # (plane, crinkle) — crinkle keeps whole boundary cells rather than a clean cut
+    clip: tuple[Plane, bool] = case()  # (plane, crinkle) — crinkle keeps whole boundary cells rather than a clean cut
     clip_box: Bounds = case()
     clip_scalar: tuple[float, bool] = case()
     slice: Plane = case()
@@ -137,17 +160,19 @@ class FieldFilter:
     contour: tuple[tuple[float, ...], str] = case()  # (isovalues, method='contour'/'marching_cubes'/'flying_edges')
     warp: float = case()
     glyph: tuple[float, bool, float | None, bool] = case()  # (factor, orient, tolerance, clamping)
-    streamlines: tuple[Vec3, float | None, int, str, float | None] = case()  # (source_center, source_radius, n_points, integration_direction, max_time)
-    decimate: tuple[float, bool] = case()            # (reduction, volume_preservation)
+    streamlines: tuple[Vec3, float | None, int, str, float | None] = (
+        case()
+    )  # (source_center, source_radius, n_points, integration_direction, max_time)
+    decimate: tuple[float, bool] = case()  # (reduction, volume_preservation)
     surface: bool = case()
-    warp_vector: float = case()      # warp_by_vector displacement over the active vector field
-    smooth: int = case()             # n_iter Laplacian surface smoothing (mesh repair)
-    subdivide: int = case()          # nsub recursive triangle subdivision (mesh refinement)
-    fill_holes: float = case()       # hole_size boundary-hole fill (mesh repair)
-    clean: bool = case()             # merge duplicate/degenerate points (mesh repair)
-    cell_to_point: bool = case()     # cell_data_to_point_data field transfer
-    point_to_cell: bool = case()     # point_data_to_cell_data field transfer
-    combine: bool = case()           # MultiBlock.combine merge (merge_points), e.g. after slice_orthogonal
+    warp_vector: float = case()  # warp_by_vector displacement over the active vector field
+    smooth: int = case()  # n_iter Laplacian surface smoothing (mesh repair)
+    subdivide: int = case()  # nsub recursive triangle subdivision (mesh refinement)
+    fill_holes: float = case()  # hole_size boundary-hole fill (mesh repair)
+    clean: bool = case()  # merge duplicate/degenerate points (mesh repair)
+    cell_to_point: bool = case()  # cell_data_to_point_data field transfer
+    point_to_cell: bool = case()  # point_data_to_cell_data field transfer
+    combine: bool = case()  # MultiBlock.combine merge (merge_points), e.g. after slice_orthogonal
 
     @staticmethod
     def Clip(normal: Vec3, origin: Vec3, crinkle: bool = False) -> "FieldFilter":
@@ -186,7 +211,13 @@ class FieldFilter:
         return FieldFilter(glyph=(factor, orient, tolerance, clamping))
 
     @staticmethod
-    def Streamlines(source_center: Vec3, source_radius: float | None = None, n_points: int = 100, integration_direction: str = "both", max_time: float | None = None) -> "FieldFilter":
+    def Streamlines(
+        source_center: Vec3,
+        source_radius: float | None = None,
+        n_points: int = 100,
+        integration_direction: str = "both",
+        max_time: float | None = None,
+    ) -> "FieldFilter":
         return FieldFilter(streamlines=(source_center, source_radius, n_points, integration_direction, max_time))
 
     @staticmethod
@@ -250,7 +281,14 @@ class FieldFilter:
             case FieldFilter(tag="glyph", glyph=(factor, orient, tolerance, clamping)):
                 return dataset.glyph(scale=scalars, factor=factor, orient=orient, tolerance=tolerance, clamping=clamping)
             case FieldFilter(tag="streamlines", streamlines=(source_center, source_radius, n_points, direction, max_time)):
-                return dataset.streamlines(vectors=scalars, source_center=source_center, source_radius=source_radius, n_points=n_points, integration_direction=direction, max_time=max_time)
+                return dataset.streamlines(
+                    vectors=scalars,
+                    source_center=source_center,
+                    source_radius=source_radius,
+                    n_points=n_points,
+                    integration_direction=direction,
+                    max_time=max_time,
+                )
             case FieldFilter(tag="decimate", decimate=(reduction, volume_preservation)):
                 return dataset.decimate(target_reduction=reduction, volume_preservation=volume_preservation)
             case FieldFilter(tag="surface", surface=_):
@@ -289,45 +327,57 @@ class RenderSpec(Struct, frozen=True):
     metallic: float | None = None
     roughness: float | None = None
     show_edges: bool = False
-    line_width: float | None = None     # RenderStyle.LINES wireframe pen width (AEC drawing-edge linework)
-    ambient: float | None = None        # add_mesh classic-lighting Phong band, orthogonal to the pbr metallic/roughness pair
+    line_width: float | None = None  # RenderStyle.LINES wireframe pen width (AEC drawing-edge linework)
+    ambient: float | None = None  # add_mesh classic-lighting Phong band, orthogonal to the pbr metallic/roughness pair
     diffuse: float | None = None
     specular: float | None = None
-    smooth_shading: bool = False        # per-vertex Gouraud shading (vs the default per-face flat)
-    volume_opacity: str | None = None   # add_volume opacity transfer-function name ('linear'/'sigmoid'/'sigmoid_6'), overriding the scalar float
-    blending: str | None = None         # add_volume ray blending ('composite'/'maximum'/'minimum'/'average'/'additive')
-    volume_mapper: str | None = None    # add_volume mapper ('smart'/'gpu'/'fixed_point'/'ugrid')
+    smooth_shading: bool = False  # per-vertex Gouraud shading (vs the default per-face flat)
+    volume_opacity: str | None = None  # add_volume opacity transfer-function name ('linear'/'sigmoid'/'sigmoid_6'), overriding the scalar float
+    blending: str | None = None  # add_volume ray blending ('composite'/'maximum'/'minimum'/'average'/'additive')
+    volume_mapper: str | None = None  # add_volume mapper ('smart'/'gpu'/'fixed_point'/'ugrid')
     features: frozenset[RenderFeature] = frozenset()
     anti_aliasing: AntiAlias | None = None
     camera: CameraPose = CameraPose()
-    title: str | None = None                                    # add_text figure title at the upper edge
-    annotations: tuple[tuple[str, str], ...] = ()               # add_text (text, position) callouts for the documentation-figure plane
-    up_axis: Literal["y", "z"] = "z"                            # AEC/USD deliverable metadata: the scene/stage#STAGE UpAxis the USD export threads
-    meters_per_unit: float = 1.0                               # AEC/USD deliverable metadata: the real-world scale the USD/AR export anchors on
-    labels: frozendict[str, tuple[str, ...]] = frozendict()    # AEC/USD deliverable metadata: taxonomy -> discipline/classification labels the USD MeshScene.labels carries
+    title: str | None = None  # add_text figure title at the upper edge
+    annotations: tuple[tuple[str, str], ...] = ()  # add_text (text, position) callouts for the documentation-figure plane
+    up_axis: Literal["y", "z"] = "z"  # AEC/USD deliverable metadata: the scene/stage#STAGE UpAxis the USD export threads
+    meters_per_unit: float = 1.0  # AEC/USD deliverable metadata: the real-world scale the USD/AR export anchors on
+    labels: frozendict[str, tuple[str, ...]] = (
+        frozendict()
+    )  # AEC/USD deliverable metadata: taxonomy -> discipline/classification labels the USD MeshScene.labels carries
 
     def staged(self, dataset: object) -> object:
         return reduce(lambda field, flt: flt.apply(field, self.scalars), self.filters, dataset)
 
     def added(self, plotter: object, mesh: object) -> None:
         shared = {"scalars": self.scalars, "cmap": self.colormap, "clim": self.clim, "opacity": self.opacity}
-        drop = lambda row: {key: value for key, value in row.items() if value is not None}  # every provider kwarg dropped when unset, never a None passed through
+        drop = lambda row: {
+            key: value for key, value in row.items() if value is not None
+        }  # every provider kwarg dropped when unset, never a None passed through
         match self.style:
             case RenderStyle.SURFACE:
-                material = {"pbr": self.pbr or None, "metallic": self.metallic, "roughness": self.roughness, "show_edges": self.show_edges or None,
-                            "ambient": self.ambient, "diffuse": self.diffuse, "specular": self.specular, "smooth_shading": self.smooth_shading or None}
+                material = {
+                    "pbr": self.pbr or None,
+                    "metallic": self.metallic,
+                    "roughness": self.roughness,
+                    "show_edges": self.show_edges or None,
+                    "ambient": self.ambient,
+                    "diffuse": self.diffuse,
+                    "specular": self.specular,
+                    "smooth_shading": self.smooth_shading or None,
+                }
                 plotter.add_mesh(mesh, **drop(shared | material))
             case RenderStyle.VOLUME:
                 volume = {**shared, "opacity": self.volume_opacity or self.opacity, "blending": self.blending, "mapper": self.volume_mapper}
-                plotter.add_volume(mesh, **drop(volume))   # opacity is the transfer-function NAME when set, else the scalar float
+                plotter.add_volume(mesh, **drop(volume))  # opacity is the transfer-function NAME when set, else the scalar float
             case RenderStyle.POINTS:
                 plotter.add_points(mesh, **drop(shared))
             case RenderStyle.LINES:
-                plotter.add_mesh(mesh, style="wireframe", **drop(shared | {"line_width": self.line_width}))   # drawing-edge linework
+                plotter.add_mesh(mesh, style="wireframe", **drop(shared | {"line_width": self.line_width}))  # drawing-edge linework
             case RenderStyle.ARROWS:
-                plotter.add_arrows(mesh.points, mesh[self.scalars])   # centers = points, directions = the active vector field
+                plotter.add_arrows(mesh.points, mesh[self.scalars])  # centers = points, directions = the active vector field
             case RenderStyle.LABELS:
-                plotter.add_point_labels(mesh.points, mesh[self.scalars])   # text labels rendered from the active scalar field
+                plotter.add_point_labels(mesh.points, mesh[self.scalars])  # text labels rendered from the active scalar field
             case _:
                 assert_never(self.style)
 
@@ -385,18 +435,30 @@ class Scene3d(Struct, frozen=True):
         match self.op:
             case SceneOp(tag="image", image=(grid, spec)):
                 data = await to_process.run_sync(render_image, grid, spec, limiter=_SCENE_LIMITER)
-                key = ContentIdentity.key(SceneTarget.PNG.value, data)  # bare synchronous accessor: the rendered PNG bytes are an infallible whole-byte source, so `_emit` mints off a bare `ContentKey`, never the railed `of`
-                return key, ArtifactReceipt.Scene(key, SceneTarget.PNG.value, len(data), frozendict({"width": spec.window[0], "height": spec.window[1]}))
+                key = ContentIdentity.key(
+                    SceneTarget.PNG.value, data
+                )  # bare synchronous accessor: the rendered PNG bytes are an infallible whole-byte source, so `_emit` mints off a bare `ContentKey`, never the railed `of`
+                return key, ArtifactReceipt.Scene(
+                    key, SceneTarget.PNG.value, len(data), frozendict({"width": spec.window[0], "height": spec.window[1]})
+                )
             case SceneOp(tag="export", export=(grid, target, spec)):
                 data, facts = await to_process.run_sync(render_export, grid, target.value, spec, limiter=_SCENE_LIMITER)
                 key = ContentIdentity.key(target.value, data)
-                return key, ArtifactReceipt.Scene(key, target.value, len(data), facts)  # `facts` carries the `scene/stage#STAGE` `ComputeUsdStageStats` prim/layer/up-axis/meters-per-unit/extent band on the USD arms, empty on the render-sink arms
+                return (
+                    key,
+                    ArtifactReceipt.Scene(key, target.value, len(data), facts),
+                )  # `facts` carries the `scene/stage#STAGE` `ComputeUsdStageStats` prim/layer/up-axis/meters-per-unit/extent band on the USD arms, empty on the render-sink arms
             case SceneOp(tag="frames", frames=(grid, orbit, steps, spec)):
                 sequence = await to_process.run_sync(render_frames, grid, orbit, steps, spec, limiter=_SCENE_LIMITER)
                 key = ContentIdentity.key(
                     _FRAME_FORMAT, tuple(ContentIdentity.key(_FRAME_FORMAT, frame.tobytes()) for frame in sequence)
                 )  # merkle over the per-frame bare keys: each infallible whole-byte frame keys through the synchronous `key`, then the parent joins them, never the railed `of`
-                return key, ArtifactReceipt.Scene(key, _FRAME_FORMAT, sum(frame.nbytes for frame in sequence), frozendict({"frames": len(sequence), "width": spec.window[0], "height": spec.window[1]}))
+                return key, ArtifactReceipt.Scene(
+                    key,
+                    _FRAME_FORMAT,
+                    sum(frame.nbytes for frame in sequence),
+                    frozendict({"frames": len(sequence), "width": spec.window[0], "height": spec.window[1]}),
+                )
             case SceneOp(tag="ingest", ingest=(scene, source, target, spec)):
                 data, facts = await to_process.run_sync(render_ingest, scene, source.value, target.value, spec, limiter=_SCENE_LIMITER)
                 key = ContentIdentity.key(target.value, data)
@@ -404,7 +466,9 @@ class Scene3d(Struct, frozen=True):
             case SceneOp(tag="compose", compose=(grid_a, grid_b, op, spec)):
                 data = await to_process.run_sync(render_compose, grid_a, grid_b, op.value, spec, limiter=_SCENE_LIMITER)
                 key = ContentIdentity.key(SceneTarget.PNG.value, data)
-                return key, ArtifactReceipt.Scene(key, SceneTarget.PNG.value, len(data), frozendict({"boolean": op.value, "width": spec.window[0], "height": spec.window[1]}))
+                return key, ArtifactReceipt.Scene(
+                    key, SceneTarget.PNG.value, len(data), frozendict({"boolean": op.value, "width": spec.window[0], "height": spec.window[1]})
+                )
             case _:
                 assert_never(self.op)
 ```
@@ -467,7 +531,9 @@ def surface_arrays(grid: object, spec: RenderSpec) -> tuple[NDArray[np.float32],
         np.asarray(surf.points, dtype=np.float32),
         surf.regular_faces.astype(np.int32),
         np.asarray(surf.point_normals, dtype=np.float32),
-        _mapped_rgb(surf, spec),  # the scalar->colormap per-vertex RGB the `scene/stage#STAGE` displayColor primvar carries; None when the field is absent
+        _mapped_rgb(
+            surf, spec
+        ),  # the scalar->colormap per-vertex RGB the `scene/stage#STAGE` displayColor primvar carries; None when the field is absent
     )
 
 
@@ -483,9 +549,7 @@ def _mapped_rgb(surf: object, spec: RenderSpec) -> NDArray[np.float32] | None:
 
 
 def shoot(plotter: "pv.Plotter", spec: RenderSpec) -> NDArray[np.uint8]:
-    return plotter.screenshot(
-        filename=None, return_img=True, window_size=list(spec.window), transparent_background=spec.transparent
-    )
+    return plotter.screenshot(filename=None, return_img=True, window_size=list(spec.window), transparent_background=spec.transparent)
 
 
 def png(plotter: "pv.Plotter", out: Path, spec: RenderSpec) -> bytes:
@@ -533,6 +597,7 @@ def _orbit(plotter: "pv.Plotter", orbit: OrbitPath, steps: int) -> tuple[tuple[V
 def render_frames(grid: object, orbit: OrbitPath, steps: int, spec: RenderSpec) -> tuple[NDArray[np.uint8], ...]:
     plotter = render_plotter(grid, spec)
     try:
+
         def _capture(view: tuple[Vec3, Vec3, Vec3]) -> NDArray[np.uint8]:
             plotter.camera_position = list(view)
             return shoot(plotter, spec)

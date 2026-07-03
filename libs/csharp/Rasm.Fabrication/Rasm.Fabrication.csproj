@@ -18,6 +18,7 @@
         <PackageReference Include="MTConnect.NET-Common" />
         <PackageReference Include="OcctNet.Wrapper" />
         <PackageReference Include="PicoGK" />
+        <PackageReference Include="RectangleBinPack.CSharp" />
         <PackageReference Include="RectpackSharp" />
         <PackageReference Include="Robots" />
         <PackageReference Include="SharpVoronoiLib" Aliases="Voronoi" />

@@ -77,11 +77,9 @@ class TessellationResult(Struct, frozen=True, gc=False):
 
     def fact(self, phase: Phase, source: SourceTag) -> Receipt:
         # flat native scalars the receipts `enc_hook=repr` renderer serializes without a `str()` coerce.
-        return Receipt.of("mesh.daemon", (phase, source, {
-            "content_key": self.content_key.hex,
-            "elements": self.element_count,
-            "triangles": self.triangle_count,
-        }))
+        return Receipt.of(
+            "mesh.daemon", (phase, source, {"content_key": self.content_key.hex, "elements": self.element_count, "triangles": self.triangle_count})
+        )
 
 
 REDACTION: Final[Redaction] = Redaction(classified=Map.empty())
@@ -161,6 +159,7 @@ def _dispatch(source: TessellationSource) -> tuple[TessellateKernel, bytes, tupl
         case _ as unreachable:
             assert_never(unreachable)
 
+
 # --- [SERVICES] -------------------------------------------------------------------------
 
 
@@ -188,7 +187,9 @@ class TessellationDaemon(ReceiptContributor):
         kernel, body, args = _dispatch(source)
         return ContentIdentity.of(source.tag, body, self._policy).map(lambda key: self._unit(kernel, args, key, source.tag))
 
-    def _unit(self, kernel: TessellateKernel, args: tuple[object, ...], key: ContentKey, tag: SourceTag) -> tuple[ContentKey, SourceTag, "Admit[TessellationResult]"]:
+    def _unit(
+        self, kernel: TessellateKernel, args: tuple[object, ...], key: ContentKey, tag: SourceTag
+    ) -> tuple[ContentKey, SourceTag, "Admit[TessellationResult]"]:
         async def work() -> RuntimeRail[TessellationResult]:
             # the offload leg carries `retry=RetryClass.OCCT` so a transient `BrokenWorkerInterpreter`
             # cold-start crash on the OCCT subinterpreter retries under one stamina policy row before the
@@ -198,16 +199,20 @@ class TessellationDaemon(ReceiptContributor):
             # per-daemon retry loop; the trailing `policy`/`num_threads` are positional kernel offload args.
             offloaded = await self._lane.offload(kernel, *args, self._policy, self._lane.capacity, retry=RetryClass.OCCT)
             return offloaded.map(lambda y: TessellationResult(key, y[0], y[2], y[3], y[1]))
+
         return key, tag, Admit(keyed=(key, work))
 
     # one fact stream: each landed `TessellationResult` projects through `TessellationResult.fact` — a PRE-drain key
     # `admitted` (by-reference replay), an absent key `emitted` (fresh iteration) — and every drain or
     # key-mint `BoundaryFault` projects through the receipts owner's `rejected` case, so a failed
     # tessellation is structured evidence on the one contributed stream rather than a dropped source.
-    def _fold(self, admitted: Block[tuple[ContentKey, SourceTag, Admit[TessellationResult]]], warm: Map[ContentKey, TessellationResult], faults: Block[BoundaryFault]) -> None:
-        facts = admitted.choose(lambda a: self._cache.try_find(a[0]).map(
-            lambda result: result.fact("admitted" if a[0] in warm else "emitted", a[1])
-        ))
+    def _fold(
+        self,
+        admitted: Block[tuple[ContentKey, SourceTag, Admit[TessellationResult]]],
+        warm: Map[ContentKey, TessellationResult],
+        faults: Block[BoundaryFault],
+    ) -> None:
+        facts = admitted.choose(lambda a: self._cache.try_find(a[0]).map(lambda result: result.fact("admitted" if a[0] in warm else "emitted", a[1])))
         self._receipts = self._receipts.append(facts).append(faults.map(lambda f: Receipt.of("mesh.daemon", f)))
 
     def contribute(self) -> Iterable[Receipt]:

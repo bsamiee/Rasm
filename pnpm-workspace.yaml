@@ -1,179 +1,212 @@
 packages:
+  - 'libs/typescript'
   - 'libs/typescript/*'
+  - 'libs/typescript/ui/viewer'
 
 catalog:
-  '@anthropic-ai/tokenizer': 0.0.4
-  '@ast-grep/cli': 0.43.0
-  '@aws-sdk/client-s3': 3.1067.0
-  '@aws-sdk/client-sesv2': 3.1067.0
-  '@aws-sdk/s3-request-presigner': 3.1067.0
-  '@berenddeboer/nx-biome': 1.0.3
-  '@biomejs/biome': 2.5.0
-  '@bufbuild/buf': 1.71.0
-  '@bufbuild/protobuf': 2.12.0
-  '@bufbuild/protoc-gen-es': 2.12.0
+  # substrate — the Effect core family; moves as one peer-locked wave
+  effect: 3.21.4
+  '@effect/platform': 0.96.2
+  '@effect/platform-node': 0.107.0
+  '@effect/platform-bun': 0.90.0
+  '@effect/platform-browser': 0.76.0
+  '@effect/experimental': 0.60.0
+  '@effect/opentelemetry': 0.63.0
+  '@effect/vitest': 0.29.0
+  # kernel
+  hash-wasm: 4.12.0
+  # wire
+  '@bufbuild/protobuf': 2.12.1
   '@connectrpc/connect': 2.1.2
   '@connectrpc/connect-web': 2.1.2
-  '@deck.gl/core': 9.3.4
-  '@deck.gl/geo-layers': 9.3.4
-  '@deck.gl/layers': 9.3.4
-  '@deck.gl/mapbox': 9.3.4
-  '@dopplerhq/node-sdk': 1.3.0
-  '@effect-atom/atom': 0.5.3
-  '@effect-atom/atom-react': 0.5.0
+  '@msgpack/msgpack': 3.1.3
+  cbor-x: 1.6.4
+  rfc6902: 5.2.0
+  # state
   '@electric-sql/d2mini': 0.1.8
   '@electric-sql/d2ts': 0.1.8
-  '@effect-aws/client-s3': 1.11.0
-  '@effect/ai': 0.36.0
-  '@effect/ai-amazon-bedrock': 0.16.0
-  '@effect/ai-anthropic': 0.26.0
-  '@effect/ai-google': 0.15.0
-  '@effect/ai-openai': 0.40.0
-  '@effect/ai-openrouter': 0.11.0
-  '@effect/build-utils': 0.8.9
-  '@effect/cli': 0.75.2
-  '@effect/cluster': 0.59.0
-  '@effect/docgen': 0.5.2
-  '@effect/eslint-plugin': 0.3.2
-  '@effect/experimental': 0.60.0
-  '@effect/language-service': 0.86.2
-  '@effect/opentelemetry': 0.63.0
-  '@effect/platform': 0.96.1
-  '@effect/platform-browser': 0.76.0
-  '@effect/platform-node': 0.107.0
-  '@effect/rpc': 0.75.1
+  '@effect/typeclass': 0.40.0
+  # store
   '@effect/sql': 0.51.1
   '@effect/sql-pg': 0.52.1
-  '@effect/tsgo': 0.14.5
-  '@effect/vitest': 0.29.0
+  '@effect/sql-sqlite-node': 0.52.0
+  '@effect/sql-sqlite-bun': 0.52.0
+  '@effect/sql-sqlite-wasm': 0.52.0
+  '@aws-sdk/client-s3': 3.1078.0
+  '@aws-sdk/s3-request-presigner': 3.1078.0
+  sharp: 0.35.3
+  # work
+  '@effect/cluster': 0.59.0
   '@effect/workflow': 0.18.2
-  '@floating-ui/react': 0.27.19
-  '@floating-ui/react-dom': 2.1.8
-  '@geoarrow/deck.gl-geoarrow': ^0.4.1
-  '@google/model-viewer': 4.3.1
-  '@mermaid-js/mermaid-cli': 11.15.0
-  '@msgpack/msgpack': 3.1.3
-  '@nx-extend/pulumi': 12.0.3
-  '@nx-tools/nx-container': 7.2.3
-  '@nx/devkit': 23.0.0
-  '@nx/docker': 23.0.0
-  '@nx/dotnet': 23.0.0
-  '@nx/js': 23.0.0
-  '@nx/node': 23.0.0
-  '@nx/playwright': 23.0.0
-  '@nx/plugin': 23.0.0
-  '@nx/react': 23.0.0
-  '@nx/vite': 23.0.0
-  '@nx/vitest': 23.0.0
-  '@nxlv/python': 22.2.0
-  '@octokit/rest': 22.0.1
+  nodemailer: 9.0.3
+  '@types/nodemailer': 8.0.1
+  exceljs: 4.4.0
+  jspdf: 4.2.1
+  jszip: 3.10.1
+  papaparse: 5.5.4
+  '@types/papaparse': 5.5.2
+  # ai
+  '@effect/ai': 0.36.0
+  '@effect/ai-amazon-bedrock': 0.16.1
+  '@effect/ai-anthropic': 0.26.0
+  '@effect/ai-google': 0.15.0
+  '@effect/ai-openai': 0.40.1
+  '@effect/ai-openrouter': 0.11.0
+  '@modelcontextprotocol/sdk': 1.29.0
+  # edge
+  '@effect/cli': 0.75.2
+  '@effect/printer': 0.49.0
+  '@effect/printer-ansi': 0.49.0
+  '@effect/rpc': 0.75.1
+  # security
+  jose: 6.2.3
+  arctic: 3.7.0
+  '@simplewebauthn/browser': 13.3.0
+  '@simplewebauthn/server': 13.3.2
+  otplib: 13.4.1
+  '@node-rs/argon2': 2.0.2
+  '@oslojs/crypto': 1.0.1
+  '@oslojs/encoding': 1.1.0
+  '@dopplerhq/node-sdk': 1.3.0
+  # telemetry
+  '@opentelemetry/semantic-conventions': 1.41.1
   '@opentelemetry/core': 2.8.0
-  '@opentelemetry/exporter-metrics-otlp-http': 0.219.0
-  '@opentelemetry/exporter-trace-otlp-http': 0.219.0
   '@opentelemetry/resources': 2.8.0
   '@opentelemetry/sdk-logs': 0.219.0
   '@opentelemetry/sdk-metrics': 2.8.0
   '@opentelemetry/sdk-trace-base': 2.8.0
   '@opentelemetry/sdk-trace-node': 2.8.0
   '@opentelemetry/sdk-trace-web': 2.8.0
-  '@opentelemetry/semantic-conventions': 1.41.1
-  '@playwright/test': 1.61.0
-  '@pulumi/aws': 7.33.0
-  '@pulumi/awsx': 3.6.0
-  '@pulumi/command': 1.2.1
-  '@pulumi/docker': 5.0.0
-  '@pulumi/esc-sdk': 0.14.0
-  '@pulumi/kubernetes': 4.32.0
-  '@pulumi/policy': 1.21.0
-  '@pulumi/pulumi': 3.246.0
-  '@pulumi/random': 4.21.0
-  '@radix-ui/react-label': 2.1.10
-  '@radix-ui/react-separator': 1.1.10
-  '@radix-ui/react-slot': 1.3.0
-  '@radix-ui/react-visually-hidden': 1.2.5
-  '@react-aria/live-announcer': 3.5.1
-  '@rolldown/plugin-babel': 0.2.3
-  '@simplewebauthn/browser': 13.3.0
-  '@simplewebauthn/server': 13.3.1
-  '@stryker-mutator/core': 9.6.1
-  '@stryker-mutator/typescript-checker': 9.6.1
-  '@stryker-mutator/vitest-runner': 9.6.1
-  '@swc-node/register': 1.11.1
-  '@swc/core': 1.15.41
-  '@tailwindcss/vite': 4.3.1
-  '@tanstack/react-table': 8.21.3
-  '@tanstack/react-virtual': 3.14.3
-  '@types/k6': 2.0.0
-  '@types/node': 25.9.3
-  '@types/nodemailer': 8.0.1
-  '@types/papaparse': 5.5.2
+  '@opentelemetry/exporter-metrics-otlp-http': 0.219.0
+  '@opentelemetry/exporter-trace-otlp-http': 0.219.0
+  # browser
+  idb-keyval: 6.2.6
+  nuqs: 2.9.0
+  workbox-build: 7.4.1
+  workbox-window: 7.4.1
+  # ui
+  react: 19.2.7
+  react-dom: 19.2.7
   '@types/react': 19.2.17
   '@types/react-dom': 19.2.3
-  '@typescript/native-preview': 7.0.0-dev.20260616.1
+  react-aria: 3.50.0
+  react-aria-components: 1.19.0
+  react-stately: 3.48.0
+  '@react-aria/live-announcer': 3.5.1
+  babel-plugin-react-compiler: 1.0.0
+  react-compiler-runtime: 1.0.0
+  react-error-boundary: 6.1.2
+  '@effect-atom/atom': 0.5.3
+  '@effect-atom/atom-react': 0.5.0
+  '@floating-ui/react': 0.27.19
+  '@floating-ui/react-dom': 2.1.8
+  '@radix-ui/react-label': 2.1.11
+  '@radix-ui/react-separator': 1.1.11
+  '@radix-ui/react-slot': 1.3.0
+  '@radix-ui/react-visually-hidden': 1.2.7
+  '@tanstack/react-table': 8.21.3
+  '@tanstack/react-virtual': 3.14.5
   '@use-gesture/react': 10.3.1
-  '@webgpu/types': 0.1.70
-  '@vitejs/plugin-react': 6.0.2
+  cmdk: 1.1.1
+  vaul: 1.1.2
+  lucide-react: 1.23.0
+  class-variance-authority: 0.7.1
+  clsx: 2.1.1
+  tailwindcss: 4.3.2
+  tailwindcss-react-aria-components: 2.2.0
+  tailwind-merge: 3.6.0
+  tw-animate-css: 1.4.0
+  colorjs.io: 0.6.1
+  isomorphic-dompurify: 3.18.0
+  # viewer — the ui/viewer Nx project spatial tier
+  three: 0.185.1
+  maplibre-gl: 5.24.0
+  '@deck.gl/core': 9.3.5
+  '@deck.gl/geo-layers': 9.3.5
+  '@deck.gl/layers': 9.3.5
+  '@deck.gl/mapbox': 9.3.5
+  '@geoarrow/deck.gl-geoarrow': 0.4.1
+  apache-arrow: 21.1.0
+  '@google/model-viewer': 4.3.1
+  '@lume/kiwi': 0.4.4
+  '@turf/turf': 7.3.5
+  '@webgpu/types': 0.1.71
+  # iac — the deploy plane
+  '@pulumi/pulumi': 3.250.0
+  '@pulumi/kubernetes': 4.32.0
+  '@pulumi/aws': 7.35.0
+  '@pulumi/awsx': 3.6.0
+  '@pulumi/gcp': 9.29.0
+  '@pulumi/cloudflare': 6.17.0
+  '@pulumi/postgresql': 3.17.0
+  '@pulumi/tls': 5.5.0
+  '@pulumi/random': 4.21.0
+  '@pulumi/command': 1.2.1
+  '@pulumi/docker': 5.1.0
+  '@pulumi/policy': 1.21.0
+  '@pulumiverse/doppler': 0.9.0
+  '@pulumiverse/grafana': 2.33.0
+  # dev — the proof plane
+  vitest: 4.1.9
   '@vitest/browser-playwright': 4.1.9
   '@vitest/coverage-v8': 4.1.9
   '@vitest/ui': 4.1.9
-  arctic: 3.7.0
-  babel-plugin-react-compiler: 1.0.0
-  browserslist: 4.28.2
-  class-variance-authority: 0.7.1
-  clsx: 2.1.1
-  cmdk: 1.1.1
-  colorjs.io: 0.6.1
-  effect: 3.21.3
-  exceljs: 4.4.0
   fast-check: 4.8.0
-  happy-dom: 20.10.5
-  hash-wasm: ^4.12.0
-  idb-keyval: 6.2.5
-  ioredis: 5.11.1
-  isomorphic-dompurify: 3.16.0
+  testcontainers: 12.0.4
+  '@electric-sql/pglite': 0.5.3
+  '@playwright/test': 1.61.1
+  '@stryker-mutator/core': 9.6.1
+  '@stryker-mutator/typescript-checker': 9.6.1
+  '@stryker-mutator/vitest-runner': 9.6.1
+  '@types/k6': 2.0.0
+  happy-dom: 20.10.6
   jsdom: 29.1.1
-  jspdf: 4.2.1
-  jszip: 3.10.1
-  lightningcss: 1.32.0
-  lucide-react: 1.20.0
-  maplibre-gl: 5.24.0
-  nodemailer: 8.0.11
-  nuqs: 2.8.9
-  nx: 23.0.0
-  otplib: 13.4.1
-  papaparse: 5.5.3
-  react: 19.2.7
-  react-aria: 3.49.0
-  react-aria-components: 1.18.0
-  react-compiler-runtime: 1.0.0
-  react-dom: 19.2.7
-  react-error-boundary: 6.1.2
-  react-stately: 3.47.0
-  rfc6902: 5.2.0
-  rollup-plugin-visualizer: 7.0.1
-  sharp: 0.35.1
-  tailwind-merge: 3.6.0
-  tailwindcss: 4.3.1
-  tailwindcss-react-aria-components: 2.1.1
-  testcontainers: 12.0.2
-  three: 0.184.0
-  tslib: 2.8.1
-  tsx: 4.22.4
-  tw-animate-css: 1.4.0
+  # tooling — compilers, workspace, build, lint, codegen
   typescript: 6.0.3
-  vaul: 1.1.2
-  vite: 8.0.16
+  '@typescript/native-preview': 7.0.0-dev.20260702.3
+  '@effect/tsgo': 0.15.0
+  '@effect/language-service': 0.86.2
+  '@effect/build-utils': 0.8.9
+  '@effect/docgen': 0.5.2
+  nx: 23.0.1
+  '@nx/devkit': 23.0.1
+  '@nx/docker': 23.0.1
+  '@nx/dotnet': 23.0.1
+  '@nx/js': 23.0.1
+  '@nx/node': 23.0.1
+  '@nx/playwright': 23.0.1
+  '@nx/plugin': 23.0.1
+  '@nx/react': 23.0.1
+  '@nx/vite': 23.0.1
+  '@nx/vitest': 23.0.1
+  '@nxlv/python': 22.2.1
+  '@nx-tools/nx-container': 7.3.0
+  '@berenddeboer/nx-biome': 1.0.3
+  '@biomejs/biome': 2.5.2
+  '@ast-grep/cli': 0.44.0
+  '@bufbuild/buf': 1.71.0
+  '@bufbuild/protoc-gen-es': 2.12.1
+  '@swc/core': 1.15.43
+  '@swc-node/register': 1.11.1
+  tsx: 4.22.4
+  tslib: 2.8.1
+  '@types/node': 26.1.0
+  vite: 8.1.3
+  '@vitejs/plugin-react': 6.0.3
+  '@tailwindcss/vite': 4.3.2
+  '@rolldown/plugin-babel': 0.2.3
+  rollup-plugin-visualizer: 7.0.1
+  browserslist: 4.28.4
+  lightningcss: 1.32.0
+  vite-plugin-pwa: 1.3.0
   vite-plugin-compression: 0.5.1
   vite-plugin-csp: 1.1.2
   vite-plugin-image-optimizer: 2.0.3
   vite-plugin-inspect: 11.4.1
-  vite-plugin-pwa: 1.3.0
   vite-plugin-svgr: 5.2.0
   vite-plugin-webfont-dl: 3.12.0
-  vitest: 4.1.9
-  workbox-build: 7.4.1
-  workbox-window: 7.4.1
-  yaml: 2.9.0
+  '@octokit/rest': 22.0.1
+  '@mermaid-js/mermaid-cli': 11.16.0
 
 catalogMode: strict
 
@@ -213,9 +246,9 @@ allowBuilds:
   '@parcel/watcher': true
   '@pulumi/command': true
   '@pulumi/docker': true
-  '@pulumi/docker-build': true
   '@pulumi/kubernetes': true
   '@swc/core': true
+  '@node-rs/argon2': true
   better-sqlite3: true
   core-js: true
   cpu-features: true
@@ -227,6 +260,8 @@ allowBuilds:
   sharp: true
   ssh2: true
   unrs-resolver: true
+  '@pulumi/docker-build': true
+  cbor-extract: true
 
 preferWorkspacePackages: true
 
@@ -237,21 +272,66 @@ strictSsl: true
 verifyDepsBeforeRun: warn
 
 minimumReleaseAgeExclude:
-  - '@typescript/native-preview-darwin-arm64@7.0.0-dev.20260616.1'
-  - '@typescript/native-preview-darwin-x64@7.0.0-dev.20260616.1'
-  - '@typescript/native-preview-linux-arm64@7.0.0-dev.20260616.1'
-  - '@typescript/native-preview-linux-arm@7.0.0-dev.20260616.1'
-  - '@typescript/native-preview-linux-x64@7.0.0-dev.20260616.1'
-  - '@typescript/native-preview-win32-arm64@7.0.0-dev.20260616.1'
-  - '@typescript/native-preview-win32-x64@7.0.0-dev.20260616.1'
-  - '@typescript/native-preview@7.0.0-dev.20260616.1'
-  - happy-dom@20.10.5
-  - lucide-react@1.20.0
-  - '@effect/tsgo-darwin-arm64@0.14.5'
-  - '@effect/tsgo-darwin-x64@0.14.5'
-  - '@effect/tsgo-linux-arm64@0.14.5'
-  - '@effect/tsgo-linux-arm@0.14.5'
-  - '@effect/tsgo-linux-x64@0.14.5'
-  - '@effect/tsgo-win32-arm64@0.14.5'
-  - '@effect/tsgo-win32-x64@0.14.5'
-  - '@effect/tsgo@0.14.5'
+  - '@typescript/native-preview-darwin-arm64@7.0.0-dev.20260702.3'
+  - '@typescript/native-preview-darwin-x64@7.0.0-dev.20260702.3'
+  - '@typescript/native-preview-linux-arm64@7.0.0-dev.20260702.3'
+  - '@typescript/native-preview-linux-arm@7.0.0-dev.20260702.3'
+  - '@typescript/native-preview-linux-x64@7.0.0-dev.20260702.3'
+  - '@typescript/native-preview-win32-arm64@7.0.0-dev.20260702.3'
+  - '@typescript/native-preview-win32-x64@7.0.0-dev.20260702.3'
+  - '@typescript/native-preview@7.0.0-dev.20260702.3'
+  - happy-dom@20.10.6
+  - lucide-react@1.23.0
+  - '@effect/tsgo-darwin-arm64@0.15.0'
+  - '@effect/tsgo-darwin-x64@0.15.0'
+  - '@effect/tsgo-linux-arm64@0.15.0'
+  - '@effect/tsgo-linux-arm@0.15.0'
+  - '@effect/tsgo-linux-x64@0.15.0'
+  - '@effect/tsgo-win32-arm64@0.15.0'
+  - '@effect/tsgo-win32-x64@0.15.0'
+  - '@effect/tsgo@0.15.0'
+  - '@aws-sdk/checksums@3.1000.11'
+  - '@aws-sdk/client-s3@3.1078.0'
+  - '@aws-sdk/core@3.974.26'
+  - '@aws-sdk/credential-provider-env@3.972.52'
+  - '@aws-sdk/credential-provider-http@3.972.54'
+  - '@aws-sdk/credential-provider-ini@3.972.59'
+  - '@aws-sdk/credential-provider-login@3.972.58'
+  - '@aws-sdk/credential-provider-node@3.972.61'
+  - '@aws-sdk/credential-provider-process@3.972.52'
+  - '@aws-sdk/credential-provider-sso@3.972.58'
+  - '@aws-sdk/credential-provider-web-identity@3.972.58'
+  - '@aws-sdk/middleware-sdk-s3@3.972.57'
+  - '@aws-sdk/nested-clients@3.997.26'
+  - '@aws-sdk/s3-request-presigner@3.1078.0'
+  - '@aws-sdk/signature-v4-multi-region@3.996.38'
+  - '@aws-sdk/token-providers@3.1078.0'
+  - '@aws-sdk/types@3.973.15'
+  - '@aws-sdk/xml-builder@3.972.33'
+  - '@img/sharp-darwin-arm64@0.35.3'
+  - '@img/sharp-darwin-x64@0.35.3'
+  - '@img/sharp-freebsd-wasm32@0.35.3'
+  - '@img/sharp-linux-arm64@0.35.3'
+  - '@img/sharp-linux-arm@0.35.3'
+  - '@img/sharp-linux-ppc64@0.35.3'
+  - '@img/sharp-linux-riscv64@0.35.3'
+  - '@img/sharp-linux-s390x@0.35.3'
+  - '@img/sharp-linux-x64@0.35.3'
+  - '@img/sharp-linuxmusl-arm64@0.35.3'
+  - '@img/sharp-linuxmusl-x64@0.35.3'
+  - '@img/sharp-wasm32@0.35.3'
+  - '@img/sharp-webcontainers-wasm32@0.35.3'
+  - '@img/sharp-win32-arm64@0.35.3'
+  - '@img/sharp-win32-ia32@0.35.3'
+  - '@img/sharp-win32-x64@0.35.3'
+  - '@pulumi/aws@7.35.0'
+  - '@pulumi/pulumi@3.250.0'
+  - '@smithy/core@3.29.0'
+  - '@smithy/credential-provider-imds@4.4.5'
+  - '@smithy/fetch-http-handler@5.6.2'
+  - '@smithy/node-http-handler@4.9.2'
+  - '@smithy/signature-v4@5.6.1'
+  - '@smithy/types@4.15.1'
+  - sharp@0.35.3
+  - three@0.185.1
+  - vite@8.1.3

@@ -264,18 +264,28 @@ class QueryReceipt(Struct, frozen=True):
 
     @classmethod
     def of(
-        cls, engine: str, source: str, table: pa.Table, content_key: ContentKey, *,
-        predicate_count: int = 0, lineage_edges: tuple[tuple[str, str], ...] = (),
+        cls,
+        engine: str,
+        source: str,
+        table: pa.Table,
+        content_key: ContentKey,
+        *,
+        predicate_count: int = 0,
+        lineage_edges: tuple[tuple[str, str], ...] = (),
     ) -> "QueryReceipt":
         return cls(
-            engine=engine, source=source, columns=table.num_columns, predicate_count=predicate_count,
-            row_count=table.num_rows, content_key=content_key, lineage_edges=lineage_edges,
+            engine=engine,
+            source=source,
+            columns=table.num_columns,
+            predicate_count=predicate_count,
+            row_count=table.num_rows,
+            content_key=content_key,
+            lineage_edges=lineage_edges,
         )
 
     @classmethod
     def railed(
-        cls, engine: str, source: str, table: pa.Table, *, predicate_count: int = 0,
-        lineage_edges: tuple[tuple[str, str], ...] = (),
+        cls, engine: str, source: str, table: pa.Table, *, predicate_count: int = 0, lineage_edges: tuple[tuple[str, str], ...] = ()
     ) -> "RuntimeRail[QueryReceipt]":
         # content identity over the canonical Arrow bytes, never the `engine:source` string —
         # an unchanged table re-egressed reuses its key, and the railed `ContentIdentity.of`
@@ -296,9 +306,9 @@ def execute(plan: ScanPlan, dataset: DatasetRef) -> "RuntimeRail[pa.Table]":
 @beartype(conf=FAULT_CONF)
 def scan(plan: ScanPlan, dataset: DatasetRef) -> "RuntimeRail[tuple[pa.Table, QueryReceipt]]":
     return execute(plan, dataset).bind(
-        lambda table: QueryReceipt.railed(
-            plan.tag, str(dataset.ref.path), table, predicate_count=plan.predicate_count
-        ).map(lambda receipt: (table, receipt))
+        lambda table: QueryReceipt.railed(plan.tag, str(dataset.ref.path), table, predicate_count=plan.predicate_count).map(
+            lambda receipt: (table, receipt)
+        )
     )
 
 
@@ -313,9 +323,7 @@ def _run(plan: ScanPlan, dataset: DatasetRef) -> pa.Table:
         case ScanPlan(tag="io_source", io_source=(projection, predicate)):
             import polars as pl  # noqa: PLC0415
 
-            lf = pl.io.plugins.register_io_source(
-                io_source=_io_source(dataset, source), schema=_scan_lazy(pl, dataset.kind, source).collect_schema(),
-            )
+            lf = pl.io.plugins.register_io_source(io_source=_io_source(dataset, source), schema=_scan_lazy(pl, dataset.kind, source).collect_schema())
             return _pushed(pl, lf, projection, predicate).collect(engine="streaming").to_arrow()
         case ScanPlan(tag="duckdb", duckdb=(sql, projection)):
             # request-scoped: the `with` releases the connection on every exit once
@@ -341,17 +349,24 @@ def _run(plan: ScanPlan, dataset: DatasetRef) -> pa.Table:
 
             reader = fastexcel.read_excel(source)
             kwargs = {
-                "header_row": spec.header_row, "column_names": list(spec.column_names) or None,
-                "skip_rows": spec.skip_rows, "n_rows": spec.n_rows, "schema_sample_rows": spec.schema_sample_rows,
-                "dtype_coercion": spec.dtype_coercion, "use_columns": list(spec.use_columns) or None,
+                "header_row": spec.header_row,
+                "column_names": list(spec.column_names) or None,
+                "skip_rows": spec.skip_rows,
+                "n_rows": spec.n_rows,
+                "schema_sample_rows": spec.schema_sample_rows,
+                "dtype_coercion": spec.dtype_coercion,
+                "use_columns": list(spec.use_columns) or None,
                 "dtypes": dict(spec.dtypes) if spec.dtypes is not None else None,
-                "skip_whitespace_tail_rows": spec.skip_whitespace_tail_rows, "whitespace_as_null": spec.whitespace_as_null,
+                "skip_whitespace_tail_rows": spec.skip_whitespace_tail_rows,
+                "whitespace_as_null": spec.whitespace_as_null,
             }
             block = reader.load_table(spec.table, **kwargs) if spec.table is not None else reader.load_sheet(spec.sheet, **kwargs)
             batch, errors = block.to_arrow_with_errors()
             return pa.Table.from_batches([batch]).replace_schema_metadata({
-                b"excel.sheet": block.name.encode(), b"excel.cell_errors": str(0 if errors is None else len(errors.errors)).encode(),
-                b"excel.total_height": str(block.total_height).encode(), b"excel.visible": str(block.visible).encode(),
+                b"excel.sheet": block.name.encode(),
+                b"excel.cell_errors": str(0 if errors is None else len(errors.errors)).encode(),
+                b"excel.total_height": str(block.total_height).encode(),
+                b"excel.visible": str(block.visible).encode(),
             })
         case ScanPlan(tag="corpus", corpus=(rows,)):
             # `rows` are the artifacts `documents/model#NODE` `to_corpus_record` flat `dict` mappings
@@ -378,9 +393,7 @@ def _io_source(dataset: DatasetRef, source: str) -> "Callable[[list[str] | None,
     # `register_io_source` contract: the generator yields polars `DataFrame` windows (NOT
     # `pa.RecordBatch`), `predicate` arrives as a polars `Expr`, and projection/predicate/row-cap
     # push through `with_columns`/`filter`/`head` so the plugin folds a pushed-down lazy scan.
-    def generator(
-        with_columns: list[str] | None, predicate: "Expr | None", n_rows: int | None, batch_size: int | None,
-    ) -> "Iterator[pl.DataFrame]":
+    def generator(with_columns: list[str] | None, predicate: "Expr | None", n_rows: int | None, batch_size: int | None) -> "Iterator[pl.DataFrame]":
         import polars as pl  # noqa: PLC0415
 
         lf = _scan_lazy(pl, dataset.kind, source)

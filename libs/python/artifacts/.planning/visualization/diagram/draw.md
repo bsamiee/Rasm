@@ -47,17 +47,19 @@ type Paint = dict[str, object]
 
 
 class DrawTarget(StrEnum):
-    SVG = "svg"        # drawsvg named-layer SVG -> export/layered
+    SVG = "svg"  # drawsvg named-layer SVG -> export/layered
     DRAWIO = "drawio"  # drawpyo editable .drawio (mxGraph XML)
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 _DRAW_LANES = CapacityLimiter(os.process_cpu_count() or 4)
-_PRECISION: float = 3.0        # ziafont/ziamath d-float places; the content-key stability lever
-_INK: str = "#000000"          # readable label ink over any light fill; annotations use the palette
-_ENTITY_BAND: float = 16.0     # ER-entity title-band height: the header divider offset + the title-run y-position
+_PRECISION: float = 3.0  # ziafont/ziamath d-float places; the content-key stability lever
+_INK: str = "#000000"  # readable label ink over any light fill; annotations use the palette
+_ENTITY_BAND: float = 16.0  # ER-entity title-band height: the header divider offset + the title-run y-position
 _HALIGN: frozendict[TextAnchor, str] = frozendict({  # closed TextAnchor -> ziafont/ziamath halign domain, no dual-spelling normalization
-    TextAnchor.START: "left", TextAnchor.MIDDLE: "center", TextAnchor.END: "right",
+    TextAnchor.START: "left",
+    TextAnchor.MIDDLE: "center",
+    TextAnchor.END: "right",
 })
 _DRAWIO_STYLE: frozendict[NodeShape, str] = frozendict({
     NodeShape.DIAMOND: "rhombus",
@@ -72,8 +74,8 @@ _DRAWIO_STYLE: frozendict[NodeShape, str] = frozendict({
 @tagged_union(frozen=True)
 class DrawArtifact:
     tag: Literal["layered", "drawio"] = tag()
-    layered: tuple[Layer, ...] = case()   # SVG arm -> export/layered named-layer rows
-    drawio: bytes = case()                # drawio arm -> standalone editable .drawio bytes
+    layered: tuple[Layer, ...] = case()  # SVG arm -> export/layered named-layer rows
+    drawio: bytes = case()  # drawio arm -> standalone editable .drawio bytes
 
     @staticmethod
     def Layered(layers: tuple[Layer, ...]) -> "DrawArtifact":
@@ -90,7 +92,7 @@ class DiagramDraw(Struct, frozen=True):
     width: float = 800.0
     height: float = 600.0
     target: DrawTarget = DrawTarget.SVG
-    font_family: str | None = None        # None -> the bundled DejaVuSans outline fallback
+    font_family: str | None = None  # None -> the bundled DejaVuSans outline fallback
 
     async def render(self) -> RuntimeRail[tuple[DrawArtifact, ArtifactReceipt]]:
         return await async_boundary(f"diagram.draw.{self.target}", self._compute)
@@ -108,8 +110,8 @@ class DiagramDraw(Struct, frozen=True):
         return (sum(1 for g in self.glyphs if g.tag == "node"), sum(1 for g in self.glyphs if g.tag == "edge"))
 
     def _render_svg(self) -> tuple[DrawArtifact, ArtifactReceipt]:
-        ziafont.config.precision = _PRECISION          # global render policy set once inside the serialized lane
-        ziafont.config.svg2 = True                     # inline <path> egress (no <symbol>/<use>); ziamath.config.svg2 delegates
+        ziafont.config.precision = _PRECISION  # global render policy set once inside the serialized lane
+        ziafont.config.svg2 = True  # inline <path> egress (no <symbol>/<use>); ziamath.config.svg2 delegates
         ramp = hex_ramp(self.palette)
         face = ziafont.Font(self.font_family)
         groups = self._groups(ramp, face, _arrow())
@@ -156,8 +158,13 @@ def _dash(style: GlyphStyle) -> Paint:
 
 
 def _paint(style: GlyphStyle, ramp: list[str]) -> Paint:
-    return {"fill": ramp[style.fill % len(ramp)], "stroke": ramp[style.stroke % len(ramp)],
-            "stroke_width": style.width, "fill_opacity": style.opacity, **_dash(style)}
+    return {
+        "fill": ramp[style.fill % len(ramp)],
+        "stroke": ramp[style.stroke % len(ramp)],
+        "stroke_width": style.width,
+        "fill_opacity": style.opacity,
+        **_dash(style),
+    }
 
 
 def _style_of(glyph: DiagramGlyph) -> GlyphStyle:
@@ -178,7 +185,11 @@ def _style_of(glyph: DiagramGlyph) -> GlyphStyle:
 
 def _label(face: "ziafont.Font", text: str, size: float, x: float, y: float, halign: TextAnchor, color: str) -> "draw.DrawingElement":
     align = _HALIGN[halign]
-    frag = ziamath.Text(text, size=size, halign=align, color=color).svgxml() if "$" in text else face.text(text, size=size, halign=align, color=color).svgxml()
+    frag = (
+        ziamath.Text(text, size=size, halign=align, color=color).svgxml()
+        if "$" in text
+        else face.text(text, size=size, halign=align, color=color).svgxml()
+    )
     inner = "".join(ET.tostring(child, encoding="unicode") for child in frag)  # svg2 -> prefix-free inline <path>/<g>
     group = draw.Group(transform=f"translate({x},{y})")
     group.append(draw.Raw(inner))
@@ -206,7 +217,15 @@ def _shape(shape: NodeShape, x: float, y: float, w: float, h: float, paint: Pain
             return draw.Lines(x + cut, y, x + w - cut, y, x + w, y + h / 2, x + w - cut, y + h, x + cut, y + h, x, y + h / 2, close=True, **paint)
         case NodeShape.CYLINDER:
             cap = h * 0.12
-            return draw.Path(**paint).M(x, y + cap).A(w / 2, cap, 0, 0, 1, x + w, y + cap).L(x + w, y + h - cap).A(w / 2, cap, 0, 0, 1, x, y + h - cap).Z()
+            return (
+                draw
+                .Path(**paint)
+                .M(x, y + cap)
+                .A(w / 2, cap, 0, 0, 1, x + w, y + cap)
+                .L(x + w, y + h - cap)
+                .A(w / 2, cap, 0, 0, 1, x, y + h - cap)
+                .Z()
+            )
         case _ as unreachable:
             assert_never(unreachable)
 
@@ -233,11 +252,20 @@ def _lower(glyph: DiagramGlyph, ramp: list[str], face: "ziafont.Font", arrow: "d
             for port in ports:
                 yield draw.Circle(*_port_xy(port, x, y, w, h), max(1.5, style.width), fill=ramp[style.stroke % len(ramp)])
             if label:
-                title_y = y + _ENTITY_BAND / 2 if shape is NodeShape.ENTITY else y + h / 2  # ENTITY titles ride the header band; every other shape centers
+                title_y = (
+                    y + _ENTITY_BAND / 2 if shape is NodeShape.ENTITY else y + h / 2
+                )  # ENTITY titles ride the header band; every other shape centers
                 yield _label(face, label, 10.0, x + w / 2, title_y, TextAnchor.MIDDLE, _INK)
         case DiagramGlyph(tag="edge", edge=(_s, _t, points, label, style, weight)):
-            yield draw.Lines(*chain.from_iterable(points), close=False, fill="none", stroke=ramp[style.stroke % len(ramp)],
-                             stroke_width=weight or style.width, marker_end=arrow, **_dash(style))
+            yield draw.Lines(
+                *chain.from_iterable(points),
+                close=False,
+                fill="none",
+                stroke=ramp[style.stroke % len(ramp)],
+                stroke_width=weight or style.width,
+                marker_end=arrow,
+                **_dash(style),
+            )
             if label:
                 yield _label(face, label, 8.0, *points[len(points) // 2], TextAnchor.MIDDLE, _INK)
         case DiagramGlyph(tag="swimlane", swimlane=(_i, x, y, w, h, title, style, _parent)):
@@ -260,7 +288,14 @@ def _marker(x: float, y: float, kind: MarkerKind, angle: float, style: GlyphStyl
         case MarkerKind.ARROW | MarkerKind.TICK:
             return draw.Path(stroke=fill, stroke_width=style.width, transform=f"rotate({angle},{x},{y})").M(x - 4, y).L(x + 4, y)
         case MarkerKind.NORTH:
-            return draw.Path(fill=fill, stroke=fill, stroke_width=style.width, transform=f"rotate({angle},{x},{y})").M(x, y - 6).L(x - 3, y + 4).L(x + 3, y + 4).Z()
+            return (
+                draw
+                .Path(fill=fill, stroke=fill, stroke_width=style.width, transform=f"rotate({angle},{x},{y})")
+                .M(x, y - 6)
+                .L(x - 3, y + 4)
+                .L(x + 3, y + 4)
+                .Z()
+            )
         case MarkerKind.CROSS:
             return draw.Path(stroke=fill, stroke_width=style.width).M(x - 3, y).L(x + 3, y).M(x, y - 3).L(x, y + 3)
         case _ as unreachable:
@@ -276,9 +311,16 @@ def _lower_drawio(glyph: DiagramGlyph, page: object, ramp: list[str], placed: di
             obj.apply_attribute_dict({"fillColor": ramp[style.fill % len(ramp)], "strokeColor": ramp[style.stroke % len(ramp)]})
             placed[index] = obj
         case DiagramGlyph(tag="edge", edge=(source, target, points, label, style, weight)):
-            edge = DrawioEdge(page=page, source=placed.get(source), target=placed.get(target), label=label or "",
-                              waypoints="orthogonal", pattern="dashed_medium" if style.dash else "solid",
-                              strokeColor=ramp[style.stroke % len(ramp)], strokeWidth=weight or style.width)
+            edge = DrawioEdge(
+                page=page,
+                source=placed.get(source),
+                target=placed.get(target),
+                label=label or "",
+                waypoints="orthogonal",
+                pattern="dashed_medium" if style.dash else "solid",
+                strokeColor=ramp[style.stroke % len(ramp)],
+                strokeWidth=weight or style.width,
+            )
             for px, py in points[1:-1]:
                 edge.add_point(px, py)  # push the laid-out interior waypoints for route fidelity
         case DiagramGlyph(tag="swimlane", swimlane=(index, x, y, w, h, title, style, _parent)):

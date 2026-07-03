@@ -55,8 +55,8 @@ type FourierRoute = tuple[
 
 
 class FourierBasis(StrEnum):
-    COMPLEX = "complex"      # fft/ifft, lifted to fftn/ifftn over a non-empty `axes`
-    REAL = "real"            # rfft/irfft half-spectrum of real input
+    COMPLEX = "complex"  # fft/ifft, lifted to fftn/ifftn over a non-empty `axes`
+    REAL = "real"  # rfft/irfft half-spectrum of real input
     HERMITIAN = "hermitian"  # hfft/ihfft transform of a Hermitian-symmetric spectrum
 
 
@@ -66,15 +66,15 @@ class TrigKind(StrEnum):
 
 
 class PadPolicy(StrEnum):
-    EXACT = "exact"        # transform the operand verbatim
-    FAST = "fast"          # zero-pad each transformed axis to its own `next_fast_len` for the pocketfft radix
+    EXACT = "exact"  # transform the operand verbatim
+    FAST = "fast"  # zero-pad each transformed axis to its own `next_fast_len` for the pocketfft radix
 
 
 class SpectralReadout(StrEnum):
-    PEAK = "peak"            # frequency at the maximum-magnitude bin
-    CENTROID = "centroid"    # magnitude-weighted mean frequency
+    PEAK = "peak"  # frequency at the maximum-magnitude bin
+    CENTROID = "centroid"  # magnitude-weighted mean frequency
     BANDWIDTH = "bandwidth"  # magnitude-weighted spectral spread about the centroid
-    FLATNESS = "flatness"    # geometric-over-arithmetic mean (Wiener entropy)
+    FLATNESS = "flatness"  # geometric-over-arithmetic mean (Wiener entropy)
 
     def fold(self, freqs: "Array", amplitude: "Array") -> float:
         # the spine is the LINEAR AMPLITUDE spectrum `|X(f)|`, never power: `PEAK`/`CENTROID`/`BANDWIDTH`
@@ -113,10 +113,10 @@ class TransformEvidence:
     # outcome shape, not one struct of six default-zero fields. `facts()` is the total
     # projection the receipt spreads, so each shape names only its own slots.
     tag: Literal["spectrum", "compaction", "envelope", "roundtrip"] = tag()
-    spectrum: tuple[SpectralReadout, float, float] = case()      # (readout, band_hz, energy)
-    compaction: tuple[int, float, float] = case()                # (leading, concentration, energy)
-    envelope: tuple[float, float, float] = case()                # (mean, inst_hz, band_hz)
-    roundtrip: tuple[float, float, float] = case()               # (band_hz, energy, residual)
+    spectrum: tuple[SpectralReadout, float, float] = case()  # (readout, band_hz, energy)
+    compaction: tuple[int, float, float] = case()  # (leading, concentration, energy)
+    envelope: tuple[float, float, float] = case()  # (mean, inst_hz, band_hz)
+    roundtrip: tuple[float, float, float] = case()  # (band_hz, energy, residual)
 
     @staticmethod
     def Spectrum(readout: SpectralReadout, band_hz: float, energy: float) -> "TransformEvidence":
@@ -199,6 +199,7 @@ class TransformOp:
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
+
 # one row per FourierBasis carrying the (forward, inverse, freq-grid) triple over the
 # lead-axis 1-D entrypoints; `@cache` defers the import-banned scipy load to first call and
 # memoizes the one Map so the table builds once. The n-D path runs the complex fftn/ifftn
@@ -253,8 +254,15 @@ def _apply(samples: object, fs: float, op: TransformOp, key: ContentKey) -> Tran
 
 
 def _fourier(
-    xp: "ModuleType", fft: "ModuleType", x: "Array", spacing: float,
-    basis: FourierBasis, axes: tuple[int, ...], readout: SpectralReadout, pad: PadPolicy, invert: bool,
+    xp: "ModuleType",
+    fft: "ModuleType",
+    x: "Array",
+    spacing: float,
+    basis: FourierBasis,
+    axes: tuple[int, ...],
+    readout: SpectralReadout,
+    pad: PadPolicy,
+    invert: bool,
 ) -> TransformEvidence:
     forward, inverse, grid = _fourier_routes()[basis]
     lead = axes[0] if axes else (x.ndim - 1)
@@ -303,7 +311,9 @@ def _hankel(xp: "ModuleType", fft: "ModuleType", x: "Array", dln: float, mu: flo
     return TransformEvidence.Roundtrip(band, energy, residual)
 
 
-def _trigonometric(xp: "ModuleType", fft: "ModuleType", x: "Array", kind: TrigKind, variant: int, axes: tuple[int, ...], keep: float) -> TransformEvidence:
+def _trigonometric(
+    xp: "ModuleType", fft: "ModuleType", x: "Array", kind: TrigKind, variant: int, axes: tuple[int, ...], keep: float
+) -> TransformEvidence:
     transform = (fft.dstn if axes else fft.dst) if kind is TrigKind.SINE else (fft.dctn if axes else fft.dct)
     coeffs = xp.asarray(transform(x, type=variant, axes=axes, norm="ortho") if axes else transform(x, type=variant, norm="ortho"))
     energy = xpx.nan_to_num(xp.abs(coeffs) ** 2, xp=xp)

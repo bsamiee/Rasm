@@ -1,0 +1,1 @@
+# [EDGE_MIDDLEWARE] — auth + API-key admission (security), W3C trace continuation (telemetry), rate/quota + load-shed (concurrency caps, queue-depth 503/Retry-After), CORS + security-header, idempotency-key, locale negotiation (Accept-Language → kernel Locale FiberRef row), FiberRef request/tenant context rows

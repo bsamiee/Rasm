@@ -53,10 +53,7 @@ type Into[R] = Callable[[Lang, str, Node], R]
 _TRACER: Final = trace.get_tracer("rasm.runtime.evidence")
 
 
-_BINDING_PY: Final[str] = (
-    "[(class_definition name: (identifier) @name)"
-    " (type_alias_statement (type (identifier) @name))] @decl"
-)
+_BINDING_PY: Final[str] = "[(class_definition name: (identifier) @name) (type_alias_statement (type (identifier) @name))] @decl"
 _BINDING_TS: Final[str] = (
     "[(class_declaration name: (type_identifier) @name)"
     " (interface_declaration name: (type_identifier) @name)"
@@ -137,11 +134,7 @@ class CompiledProbe(Struct, frozen=True):
 
 GRAMMARS: Final[Map[Lang, Grammar]] = Map.of_seq(
     (lang, Grammar.of(lang, capsule))
-    for lang, capsule in (
-        ("python", ts_py.language()),
-        ("typescript", ts_ts.language_typescript()),
-        ("tsx", ts_ts.language_tsx()),
-    )
+    for lang, capsule in (("python", ts_py.language()), ("typescript", ts_ts.language_typescript()), ("tsx", ts_ts.language_tsx()))
 )
 PROBE_SOURCES: Final[Map[Probe, Map[Lang, str]]] = Map.of_seq(
     (name, Map.of_seq(rows))
@@ -197,7 +190,11 @@ class GrammarRegistry:
             captures = cursor.captures(tree.root_node, progress_callback=lambda step: step < budget)
             truncated = cursor.did_exceed_match_limit
             if scope.is_recording():
-                scope.set_attributes({"evidence.nodes": visited, "evidence.captures": sum(map(len, captures.values())), "evidence.truncated": truncated})
+                scope.set_attributes({
+                    "evidence.nodes": visited,
+                    "evidence.captures": sum(map(len, captures.values())),
+                    "evidence.truncated": truncated,
+                })
             if truncated:
                 fault = BoundaryFault(resource=(f"{probe}:{lang}", "match-limit"))
                 scope.set_status(Status(StatusCode.ERROR, fault.tag))
@@ -207,24 +204,27 @@ class GrammarRegistry:
 
     @overload
     @staticmethod
-    def scan(probe: Probe, corpus: Corpus, *, by: Literal[Disposition.ABORT, Disposition.ACCUMULATE] = ..., budget: int = ...) -> RuntimeRail[Block[Evidence]]: ...
+    def scan(
+        probe: Probe, corpus: Corpus, *, by: Literal[Disposition.ABORT, Disposition.ACCUMULATE] = ..., budget: int = ...
+    ) -> RuntimeRail[Block[Evidence]]: ...
     @overload
     @staticmethod
-    def scan(probe: Probe, corpus: Corpus, *, by: Literal[Disposition.PARTITION], budget: int = ...) -> RuntimeRail[tuple[Block[Evidence], Block[BoundaryFault]]]: ...
+    def scan(
+        probe: Probe, corpus: Corpus, *, by: Literal[Disposition.PARTITION], budget: int = ...
+    ) -> RuntimeRail[tuple[Block[Evidence], Block[BoundaryFault]]]: ...
     @overload
-    @staticmethod
-    def scan[R](probe: Probe, corpus: Corpus, into: Into[R], *, by: Literal[Disposition.ABORT, Disposition.ACCUMULATE] = ..., budget: int = ...) -> RuntimeRail[Block[R]]: ...
-    @overload
-    @staticmethod
-    def scan[R](probe: Probe, corpus: Corpus, into: Into[R], *, by: Literal[Disposition.PARTITION], budget: int = ...) -> RuntimeRail[tuple[Block[R], Block[BoundaryFault]]]: ...
     @staticmethod
     def scan[R](
-        probe: Probe,
-        corpus: Corpus,
-        into: Into[R] = Evidence.of,
-        *,
-        by: Disposition = Disposition.ACCUMULATE,
-        budget: int = 1 << 20,
+        probe: Probe, corpus: Corpus, into: Into[R], *, by: Literal[Disposition.ABORT, Disposition.ACCUMULATE] = ..., budget: int = ...
+    ) -> RuntimeRail[Block[R]]: ...
+    @overload
+    @staticmethod
+    def scan[R](
+        probe: Probe, corpus: Corpus, into: Into[R], *, by: Literal[Disposition.PARTITION], budget: int = ...
+    ) -> RuntimeRail[tuple[Block[R], Block[BoundaryFault]]]: ...
+    @staticmethod
+    def scan[R](
+        probe: Probe, corpus: Corpus, into: Into[R] = Evidence.of, *, by: Disposition = Disposition.ACCUMULATE, budget: int = 1 << 20
     ) -> RuntimeRail[Block[R]] | RuntimeRail[tuple[Block[R], Block[BoundaryFault]]]:
         # The `by` row selects the multi-grammar output shape exactly as the faults owner's
         # `traversed` overloads carry it, so a caller narrows on the disposition it passes
@@ -244,14 +244,9 @@ class GrammarRegistry:
     @staticmethod
     def _cross(spans: Block[SpanFact]) -> Block[Evidence]:
         seed: Map[str, frozenset[Lang]] = Map.empty()
-        bindings = spans.fold(
-            lambda acc, fact: acc.change(fact.text, lambda b: Some(b.default_value(frozenset()) | {fact.locus.lang})),
-            seed,
-        )
+        bindings = spans.fold(lambda acc, fact: acc.change(fact.text, lambda b: Some(b.default_value(frozenset()) | {fact.locus.lang})), seed)
         return spans.choose(
-            lambda fact: Some(Evidence(drift=DriftFact(fact.text, bindings[fact.text], fact.locus)))
-            if len(bindings[fact.text]) > 1
-            else Nothing
+            lambda fact: Some(Evidence(drift=DriftFact(fact.text, bindings[fact.text], fact.locus))) if len(bindings[fact.text]) > 1 else Nothing
         )
 
 
@@ -262,9 +257,9 @@ class ApiCatalogue:
         dist = metadata.distribution(distribution)
         import_name = distribution.replace("-", "_")
         version = dist.version
-        return Block.of_seq(
-            Evidence(member=MemberFact(distribution, version, import_name, ep.group, ep.name)) for ep in dist.entry_points
-        ).cons(Evidence(member=MemberFact(distribution, version, import_name, "import", import_name)))
+        return Block.of_seq(Evidence(member=MemberFact(distribution, version, import_name, ep.group, ep.name)) for ep in dist.entry_points).cons(
+            Evidence(member=MemberFact(distribution, version, import_name, "import", import_name))
+        )
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
@@ -278,9 +273,7 @@ class EvidenceScan(Struct, frozen=True):
         # The per-tag `Map.change` fold tallies every case under `count.{tag}`; `Block.choose`
         # drains the `drift` arm into `(drift.{name}, langs)` pairs, the disjoint `count.*`/`drift.*`
         # prefixes keeping a symbol named for a tag from colliding with a tally key in the flat map.
-        counts = self.evidence.fold(
-            lambda acc, ev: acc.change(f"count.{ev.tag}", lambda n: Some(n.default_value(0) + 1)), Map.empty()
-        )
+        counts = self.evidence.fold(lambda acc, ev: acc.change(f"count.{ev.tag}", lambda n: Some(n.default_value(0) + 1)), Map.empty())
         drifts = self.evidence.choose(
             lambda ev: Some((f"drift.{ev.drift.name}", ",".join(sorted(ev.drift.bindings)))) if ev.tag == "drift" else Nothing
         )

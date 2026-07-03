@@ -26,12 +26,12 @@ The nine planning-scoped packages carry a `.planning/` scaffold with the four in
 ## [02]-[SEAMS]
 
 ```text seams
-Rasm.AppHost      →  typescript:interchange  # [WIRE]: ReceiptEnvelope/HLC/Tenant + capability SDK
-Rasm.Compute      →  typescript:interchange  # [WIRE]: proto suite wire + FaultDetail
-Rasm.Persistence  →  typescript:interchange  # [WIRE]: OpLog/Snapshot CRDT wire
+Rasm.AppHost      →  typescript:wire  # [WIRE]: ReceiptEnvelope/HLC/Tenant + capability SDK
+Rasm.Compute      →  typescript:wire  # [WIRE]: proto suite wire + FaultDetail
+Rasm.Persistence  →  typescript:wire  # [WIRE]: OpLog/Snapshot CRDT wire
 Rasm              →  python:runtime          # [CONTENT_KEY]: XxHash128 content-identity seed parity
 Rasm.Element      ⇄  python:geometry         # [WIRE]: ElementGraph content-key (one XxHash128 seed) + typed Material/Property/Assessment/Classification vocabulary the companion decodes, never re-mints
-Rasm.Element      ⇄  typescript:interchange  # [WIRE]: ElementGraph/Node/Relationship content-keyed wire the TypeScript peer decodes
+Rasm.Element      ⇄  typescript:wire  # [WIRE]: ElementGraph/Node/Relationship content-keyed wire the TypeScript peer decodes
 Rasm.Bim          ⇄  python:geometry         # [TESSELLATION]: GLB/IFC tessellation rail — C# requests, Python evaluates
 Rasm.AppHost      ⇄  python:runtime          # [WIRE]: gRPC companion server + capability invoke
 Rasm.Compute      ←  python:compute          # [GRADUATION]: graduation evidence HandoffAxis

@@ -60,7 +60,26 @@ type RenderKwargs = dict[str, str | int | float | bool | list[str] | None]
 type ShapeRendering = Literal["optimize_speed", "crisp_edges", "geometric_precision"]
 type TextRendering = Literal["optimize_speed", "optimize_legibility", "geometric_precision"]
 type ImageRendering = Literal["optimize_quality", "optimize_speed"]
-type VectorOpTag = Literal["transform", "bounds", "serialize", "rasterize", "measure", "sample", "flatten", "subpaths", "project", "boolean", "outline", "text_path", "region", "contains", "clip", "fit", "warp", "wind"]
+type VectorOpTag = Literal[
+    "transform",
+    "bounds",
+    "serialize",
+    "rasterize",
+    "measure",
+    "sample",
+    "flatten",
+    "subpaths",
+    "project",
+    "boolean",
+    "outline",
+    "text_path",
+    "region",
+    "contains",
+    "clip",
+    "fit",
+    "warp",
+    "wind",
+]
 type VectorResultTag = Literal["document", "extent", "measure", "sampled", "contours", "raster", "region", "hits"]
 type VectorFaultTag = Literal["parse", "render", "singular", "empty", "contract", "open_path", "degenerate"]
 type Region = tuple[float, Bounds, int, bool, Bounds]  # (absolute area, tight bounds, contour count, convex, control-hull bounds)
@@ -108,7 +127,7 @@ class WindingRule(StrEnum):
 
 class BoundsKind(StrEnum):
     GEOMETRIC = "geometric"  # tight path extent
-    INK = "ink"              # stroke-inclusive visual extent (bbox with_stroke=True)
+    INK = "ink"  # stroke-inclusive visual extent (bbox with_stroke=True)
 
 
 class WindingDir(StrEnum):  # target contour winding for the normalize arm — maps onto the settable pathops.Path.clockwise
@@ -126,7 +145,7 @@ class ComposeStep(StrEnum):
 
 
 class ComposeOrder(StrEnum):
-    PRE = "pre"    # left-compose (the new step applies BEFORE the accumulated transform)
+    PRE = "pre"  # left-compose (the new step applies BEFORE the accumulated transform)
     POST = "post"  # right-compose (the new step applies AFTER the accumulated transform)
 
 
@@ -176,8 +195,8 @@ class VectorFault:
     singular: None = case()
     empty: None = case()
     contract: str = case()
-    open_path: None = case()   # a pathops boolean/stroke met an unclosed contour (`OpenPathError`)
-    degenerate: str = case()   # a pathops `PathOpsError` leaf (`NumberOfPointsError`/`UnsupportedVerbError`/root)
+    open_path: None = case()  # a pathops boolean/stroke met an unclosed contour (`OpenPathError`)
+    degenerate: str = case()  # a pathops `PathOpsError` leaf (`NumberOfPointsError`/`UnsupportedVerbError`/root)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -294,7 +313,14 @@ def boolean(sources: tuple[bytes, ...], op: BooleanOp = BooleanOp.UNION, fill: W
     return traverse(_to_pathops, Block.of_seq(sources)).bind(_fold)
 
 
-def outline(source: bytes, width: float = 1.0, cap: CapStyle = CapStyle.BUTT_CAP, join: JoinStyle = JoinStyle.MITER_JOIN, miter: float = 4.0, dash: tuple[float, ...] | None = None) -> Result[bytes, VectorFault]:
+def outline(
+    source: bytes,
+    width: float = 1.0,
+    cap: CapStyle = CapStyle.BUTT_CAP,
+    join: JoinStyle = JoinStyle.MITER_JOIN,
+    miter: float = 4.0,
+    dash: tuple[float, ...] | None = None,
+) -> Result[bytes, VectorFault]:
     def _stroke(centerline: "pathops.Path", /) -> Result[bytes, VectorFault]:
         def _run() -> "pathops.Path":
             centerline.stroke(width, getattr(pathops.LineCap, cap.name), getattr(pathops.LineJoin, join.name), miter, dash)
@@ -501,9 +527,7 @@ def bounds(source: bytes, kind: BoundsKind = BoundsKind.GEOMETRIC) -> Result[Bou
 
 
 def transform(source: bytes, matrix: "Matrix | None" = None) -> Result[bytes, VectorFault]:
-    return _scene(source).bind(
-        lambda shapes: _bounds(shapes).map(lambda box: svg(tuple(path(shape, matrix) for shape in shapes), box))
-    )
+    return _scene(source).bind(lambda shapes: _bounds(shapes).map(lambda box: svg(tuple(path(shape, matrix) for shape in shapes), box)))
 
 
 def measure(source: bytes) -> Result[float, VectorFault]:
@@ -534,7 +558,9 @@ def _flattened(outline: "Path", kind: FlattenKind, error: float, box: Bounds, /)
     return svg((f'<path d="{outline.d()}"/>',), box)
 
 
-def project(points: Iterable[Point2], matrix: "Matrix", kind: ProjectKind = ProjectKind.POINT, inverse: bool = False) -> Result[tuple[Point2, ...], VectorFault]:
+def project(
+    points: Iterable[Point2], matrix: "Matrix", kind: ProjectKind = ProjectKind.POINT, inverse: bool = False
+) -> Result[tuple[Point2, ...], VectorFault]:
     if inverse and matrix.determinant == 0:
         return Error(VectorFault(singular=None))
     active, apply = (Matrix(matrix).inverse() if inverse else matrix), _PROJECT[kind]
@@ -592,7 +618,14 @@ class VectorOp:
         return VectorOp(boolean=(tuple(sources), op, fill))
 
     @staticmethod
-    def Outline(source: bytes, width: float = 1.0, cap: CapStyle = CapStyle.BUTT_CAP, join: JoinStyle = JoinStyle.MITER_JOIN, miter: float = 4.0, dash: tuple[float, ...] | None = None) -> "VectorOp":
+    def Outline(
+        source: bytes,
+        width: float = 1.0,
+        cap: CapStyle = CapStyle.BUTT_CAP,
+        join: JoinStyle = JoinStyle.MITER_JOIN,
+        miter: float = 4.0,
+        dash: tuple[float, ...] | None = None,
+    ) -> "VectorOp":
         return VectorOp(outline=(source, width, cap, join, miter, dash))
 
     @staticmethod
@@ -747,8 +780,51 @@ class Vector(Struct, frozen=True):
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 __all__ = [
-    "BooleanOp", "Bounds", "BoundsKind", "CapStyle", "ComposeOrder", "ComposeStep", "Element", "FlattenKind", "JoinStyle", "Length", "Point2", "ProjectKind", "Region", "RenderPolicy", "Style", "Vector", "VectorFault", "VectorOp", "VectorResult", "WindingDir", "WindingRule",
-    "boolean", "bounds", "clip", "compose", "contains", "elements", "fit", "flatten", "measure", "outline", "path", "polar", "project", "px", "rasterize", "reflect", "region", "sample", "subpaths", "svg", "text_path", "transform", "warp", "wind",
+    "BooleanOp",
+    "Bounds",
+    "BoundsKind",
+    "CapStyle",
+    "ComposeOrder",
+    "ComposeStep",
+    "Element",
+    "FlattenKind",
+    "JoinStyle",
+    "Length",
+    "Point2",
+    "ProjectKind",
+    "Region",
+    "RenderPolicy",
+    "Style",
+    "Vector",
+    "VectorFault",
+    "VectorOp",
+    "VectorResult",
+    "WindingDir",
+    "WindingRule",
+    "boolean",
+    "bounds",
+    "clip",
+    "compose",
+    "contains",
+    "elements",
+    "fit",
+    "flatten",
+    "measure",
+    "outline",
+    "path",
+    "polar",
+    "project",
+    "px",
+    "rasterize",
+    "reflect",
+    "region",
+    "sample",
+    "subpaths",
+    "svg",
+    "text_path",
+    "transform",
+    "warp",
+    "wind",
 ]
 ```
 

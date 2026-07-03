@@ -34,17 +34,7 @@ import numpy as np
 import pint
 from expression import Block, Error, case, tag, tagged_union
 from msgspec import Struct
-from uncertainties import (
-    UFloat,
-    correlated_values,
-    correlated_values_norm,
-    correlation_matrix,
-    covariance_matrix,
-    ufloat,
-    umath,
-    unumpy,
-    wrap,
-)
+from uncertainties import UFloat, correlated_values, correlated_values_norm, correlation_matrix, covariance_matrix, ufloat, umath, unumpy, wrap
 from uncertainties.unumpy import ulinalg
 
 from rasm.compute.graduation.handoff import GraduationReceipt, HandoffAxis
@@ -57,6 +47,7 @@ _UREG: pint.UnitRegistry = pint.get_application_registry()
 
 
 # --- [TYPES] -------------------------------------------------------------------------------
+
 
 class Umath(StrEnum):
     # one SmartEnum-with-data: the `str` value is the `uncertainties.umath` attribute name and `arity`
@@ -167,9 +158,7 @@ class Covariance:
 
     @staticmethod
     def Norm(std_devs: Sequence[float], correlation: Sequence[Sequence[float]]) -> "Covariance":
-        return Covariance(
-            norm=(tuple(map(float, std_devs)), tuple(tuple(map(float, row)) for row in correlation))
-        )
+        return Covariance(norm=(tuple(map(float, std_devs)), tuple(tuple(map(float, row)) for row in correlation)))
 
     def reconstruct(self, nominals: Sequence[float], tags: Sequence[str], /) -> Sequence[UFloat]:
         # one cohort-construction fold: a full covariance matrix or a (std, correlation) pair rebuilds
@@ -178,9 +167,7 @@ class Covariance:
             case Covariance(tag="full", full=matrix):
                 return correlated_values(list(nominals), [list(r) for r in matrix], tags=list(tags))
             case Covariance(tag="norm", norm=(stds, corr)):
-                return correlated_values_norm(
-                    list(zip(nominals, stds, strict=True)), [list(r) for r in corr], tags=list(tags)
-                )
+                return correlated_values_norm(list(zip(nominals, stds, strict=True)), [list(r) for r in corr], tags=list(tags))
             case _ as unreachable:
                 assert_never(unreachable)
 
@@ -193,11 +180,7 @@ class Covariance:
             case Covariance(tag="full", full=matrix):
                 return b"full" + np.ascontiguousarray(matrix, dtype=np.float64).tobytes()
             case Covariance(tag="norm", norm=(stds, corr)):
-                return (
-                    b"norm"
-                    + np.ascontiguousarray(stds, dtype=np.float64).tobytes()
-                    + np.ascontiguousarray(corr, dtype=np.float64).tobytes()
-                )
+                return b"norm" + np.ascontiguousarray(stds, dtype=np.float64).tobytes() + np.ascontiguousarray(corr, dtype=np.float64).tobytes()
             case _ as unreachable:
                 assert_never(unreachable)
 
@@ -279,6 +262,7 @@ class CohortView(StrEnum):
 
 # --- [MODELS] ------------------------------------------------------------------------------
 
+
 class QuantityReceipt(Struct, frozen=True, gc=False):
     unit_expr: str
     dimensionality: str
@@ -301,9 +285,7 @@ class QuantityReceipt(Struct, frozen=True, gc=False):
         # receipt; the axis case IS the subject, never a parallel `subject: str` field.
         measured = {"consistency": 0.0 if self.consistent else 1.0}
         ceiling = {"consistency": 0.0}
-        return GraduationReceipt.graduates(
-            "compute", HandoffAxis(unit_law=self.unit_expr), self.content_key, measured, ceiling
-        )
+        return GraduationReceipt.graduates("compute", HandoffAxis(unit_law=self.unit_expr), self.content_key, measured, ceiling)
 
     def contribute(self) -> Iterable[Receipt]:
         # the runtime two-argument `Receipt.of(owner, evidence)` contract: the `(Phase, subject, facts)`
@@ -336,9 +318,7 @@ class UncertainQuantity(Struct, frozen=True):
         def _build() -> "RuntimeRail[UncertainQuantity]":
             cell = ufloat(nominal, std_dev)
             measurement = _UREG.Measurement(nominal, std_dev, unit)
-            return _scalar_key(nominal, std_dev, unit).map(
-                lambda key: cls(measurement, Magnitude.Scalar(cell), key)
-            )
+            return _scalar_key(nominal, std_dev, unit).map(lambda key: cls(measurement, Magnitude.Scalar(cell), key))
 
         return boundary("quantity.of", _build).bind(lambda outcome: outcome)
 
@@ -389,9 +369,7 @@ class UncertainQuantity(Struct, frozen=True):
 
         return boundary("quantity.convert", _to).bind(lambda outcome: outcome)
 
-    def propagate(
-        self, propagation: Propagation, unit: str, /, *operands: "UncertainQuantity"
-    ) -> "RuntimeRail[UncertainQuantity]":
+    def propagate(self, propagation: Propagation, unit: str, /, *operands: "UncertainQuantity") -> "RuntimeRail[UncertainQuantity]":
         # `*operands` carry the extra cells a binary `atan2`/`hypot`/`pow` (or a multi-argument `Wrapped`)
         # needs, so the catalogued arity is reachable rather than stranded behind a unary signature.
         # The `Propagation.arity` gate rejects a count mismatch as a typed `boundary` fault BEFORE the
@@ -404,9 +382,7 @@ class UncertainQuantity(Struct, frozen=True):
         def _build() -> "RuntimeRail[UncertainQuantity]":
             supplied = 1 + len(operands)
             if propagation.arity >= 0 and supplied != propagation.arity:
-                return Error(BoundaryFault(boundary=(
-                    f"quantity.propagate.{propagation.label}", f"arity {propagation.arity} != {supplied}"
-                )))
+                return Error(BoundaryFault(boundary=(f"quantity.propagate.{propagation.label}", f"arity {propagation.arity} != {supplied}")))
             mag = self.magnitude.join(tuple(o.magnitude for o in operands), propagation.apply)
             out = mag.cell
             return _propagated_key(propagation, unit, (self, *operands)).map(
@@ -425,11 +401,7 @@ class UncertainQuantity(Struct, frozen=True):
         # `True` for a clean multiplicative one — and `claim` stays total rather than raising the
         # offset-unit fault out of domain code where the `unit_law` graduation gate needs a real verdict.
         cell = self.magnitude.cell
-        rel = (
-            float(abs(cell.std_dev / cell.nominal_value))
-            if cell.nominal_value
-            else (0.0 if cell.std_dev == 0.0 else float("inf"))
-        )
+        rel = float(abs(cell.std_dev / cell.nominal_value)) if cell.nominal_value else (0.0 if cell.std_dev == 0.0 else float("inf"))
         dim = dict(self.measurement.units.dimensionality)
         return QuantityReceipt(
             unit_expr=f"{self.measurement.units:~}",
@@ -446,6 +418,7 @@ class UncertainQuantity(Struct, frozen=True):
 
 
 # --- [OPERATIONS] --------------------------------------------------------------------------
+
 
 def cohort(quantities: Sequence[UncertainQuantity], view: CohortView, /) -> "RuntimeRail[np.ndarray]":
     def _read() -> np.ndarray:
@@ -480,15 +453,8 @@ def _scalar_key(nominal: float, std_dev: float, unit: str, /) -> "RuntimeRail[Co
     return ContentIdentity.of("quantity", buffer)
 
 
-def _cohort_key(
-    nominals: Sequence[float], covariance: Covariance, unit: str, tags: Sequence[str], /
-) -> "RuntimeRail[ContentKey]":
-    buffer = (
-        np.ascontiguousarray(list(nominals), dtype=np.float64).tobytes()
-        + covariance.canonical()
-        + unit.encode()
-        + "\x00".join(tags).encode()
-    )
+def _cohort_key(nominals: Sequence[float], covariance: Covariance, unit: str, tags: Sequence[str], /) -> "RuntimeRail[ContentKey]":
+    buffer = np.ascontiguousarray(list(nominals), dtype=np.float64).tobytes() + covariance.canonical() + unit.encode() + "\x00".join(tags).encode()
     return ContentIdentity.of("quantity.cohort", buffer)
 
 

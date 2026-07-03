@@ -48,9 +48,7 @@ from rasm.runtime.receipts import Receipt, Redaction, receipted
 # `np.ndarray`, which would flatten a structured leaf, the same vocabulary the sibling solver routes carry.
 type ArrayFn = Callable[[np.ndarray], np.ndarray]
 type Pytree = object
-type DiffModeTag = Literal[
-    "gradient", "forward_jacobian", "reverse_jacobian", "hessian", "jvp", "vjp", "hvp", "finite_difference"
-]
+type DiffModeTag = Literal["gradient", "forward_jacobian", "reverse_jacobian", "hessian", "jvp", "vjp", "hvp", "finite_difference"]
 # A directional applicator reads the gated carrier, the objective, the `(primal, tangent)` pytree pair, and
 # the projected `DiffPolicy` keywords (the HVP cell threads them into its inner `jax.grad`; the JVP/VJP cells
 # ignore them), returning the `(value, product)` pair the summary folds.
@@ -107,25 +105,26 @@ _REDACTION: Redaction = Redaction(classified=Map.empty())
 # floor a 2-D matrix, the Hessian a square matrix carrying its symmetry residual. `_summary` reads this for
 # every mode including the UNSUPPORTED pairing that has no `_SPEC` row, so the shape vocabulary lives here
 # rather than only on the spec; a new mode names its product class in one row, never an inline reshape.
-_PRODUCT: FrozenDict[DiffModeTag, DiffProduct] = FrozenDict(
-    {
-        "gradient": DiffProduct.SCALAR,
-        "forward_jacobian": DiffProduct.JACOBIAN,
-        "reverse_jacobian": DiffProduct.JACOBIAN,
-        "hessian": DiffProduct.HESSIAN,
-        "jvp": DiffProduct.SCALAR,
-        "vjp": DiffProduct.SCALAR,
-        "hvp": DiffProduct.SCALAR,
-        "finite_difference": DiffProduct.JACOBIAN,
-    }
-)
+_PRODUCT: FrozenDict[DiffModeTag, DiffProduct] = FrozenDict({
+    "gradient": DiffProduct.SCALAR,
+    "forward_jacobian": DiffProduct.JACOBIAN,
+    "reverse_jacobian": DiffProduct.JACOBIAN,
+    "hessian": DiffProduct.HESSIAN,
+    "jvp": DiffProduct.SCALAR,
+    "vjp": DiffProduct.SCALAR,
+    "hvp": DiffProduct.SCALAR,
+    "finite_difference": DiffProduct.JACOBIAN,
+})
 
 
 # --- [MODELS] ------------------------------------------------------------------------------
 
+
 @dataclass(frozen=True, slots=True)
 class DiffPolicy:
-    argnums: int | tuple[int, ...] = 0  # positional argument(s) differentiated; the bare jax transform contract — `int` returns one product, `tuple[int, ...]` returns the per-argument product tuple `_summary` concatenates. Threaded to the bare jax transforms only (the `equinox.filter_*` peers reject it)
+    argnums: int | tuple[int, ...] = (
+        0  # positional argument(s) differentiated; the bare jax transform contract — `int` returns one product, `tuple[int, ...]` returns the per-argument product tuple `_summary` concatenates. Threaded to the bare jax transforms only (the `equinox.filter_*` peers reject it)
+    )
     holomorphic: bool = False  # complex-holomorphic differentiation; jax.grad/jacfwd alone carry it
     allow_int: bool = False  # integer-input differentiation; jax.jacrev/grad alone carry it
     has_aux: bool = False  # objective returns (value, aux); _split peels the shifted return, aux flag rides the receipt
@@ -263,7 +262,9 @@ class DiffReceipt(Struct, frozen=True):
     mode: DiffModeTag
     target: DiffTarget
     shape: DiffProduct
-    argnums: int | tuple[int, ...]  # the differentiated positional argument(s) the JAX transform read — intrinsic product provenance carried on the receipt that holds the product, self-describing like `accuracy`/`implicit_adjoint`, not a demultiplex key any consumer reads back (the `PYTREE` filter modes report `0`, the first-arg leaf filter)
+    argnums: (
+        int | tuple[int, ...]
+    )  # the differentiated positional argument(s) the JAX transform read — intrinsic product provenance carried on the receipt that holds the product, self-describing like `accuracy`/`implicit_adjoint`, not a demultiplex key any consumer reads back (the `PYTREE` filter modes report `0`, the first-arg leaf filter)
     value: float | None
     aux: bool
     product: tuple[float, ...]
@@ -315,32 +316,31 @@ class DiffReceipt(Struct, frozen=True):
 # absent here (a `PYTREE` HVP or `PYTREE` finite-difference) is the single UNSUPPORTED source — both
 # UNSUPPORTED notions fold to one membership miss rather than two separate guards. The directional cells hold
 # no keyword tuple because a `(value, aux)` head would shift the `jvp`/`vjp` return tuple the cell unpacks.
-_SPEC: FrozenDict[tuple[DiffTarget, DiffModeTag], DiffSpec] = FrozenDict(
-    {
-        (DiffTarget.ARRAY, "gradient"): DiffSpec(("argnums", "has_aux"), lambda e: e.jax.value_and_grad),
-        (DiffTarget.ARRAY, "forward_jacobian"): DiffSpec(("argnums", "has_aux", "holomorphic"), lambda e: e.jax.jacfwd),
-        (DiffTarget.ARRAY, "reverse_jacobian"): DiffSpec(("argnums", "has_aux", "allow_int"), lambda e: e.jax.jacrev),
-        (DiffTarget.ARRAY, "hessian"): DiffSpec(("argnums", "has_aux"), lambda e: e.jax.hessian),
-        (DiffTarget.PYTREE, "gradient"): DiffSpec(("has_aux",), lambda e: e.eqx.filter_value_and_grad),
-        (DiffTarget.PYTREE, "forward_jacobian"): DiffSpec(("has_aux",), lambda e: e.eqx.filter_jacfwd),
-        (DiffTarget.PYTREE, "reverse_jacobian"): DiffSpec(("has_aux",), lambda e: e.eqx.filter_jacrev),
-        (DiffTarget.PYTREE, "hessian"): DiffSpec(("has_aux",), lambda e: e.eqx.filter_hessian),
-        (DiffTarget.ARRAY, "jvp"): DiffSpec((), lambda e, fn, v, kw: _read_array_jvp(
-            e.jax.jvp(fn, (e.jax.numpy.asarray(v[0]),), (e.jax.numpy.asarray(v[1]),))
-        )),
-        (DiffTarget.PYTREE, "jvp"): DiffSpec((), lambda e, fn, v, kw: (None, e.eqx.filter_jvp(fn, (v[0],), (v[1],))[1])),
-        (DiffTarget.ARRAY, "vjp"): DiffSpec((), lambda e, fn, v, kw: (None, e.jax.vjp(fn, e.jax.numpy.asarray(v[0]))[1](e.jax.numpy.asarray(v[1]))[0])),
-        (DiffTarget.PYTREE, "vjp"): DiffSpec((), lambda e, fn, v, kw: (None, e.eqx.filter_vjp(fn, v[0])[1](v[1])[0])),
-        (DiffTarget.ARRAY, "hvp"): DiffSpec(("argnums", "holomorphic", "allow_int"), lambda e, fn, v, kw: (
-            None,
-            e.jax.jvp(e.jax.grad(fn, **kw), (e.jax.numpy.asarray(v[0]),), (e.jax.numpy.asarray(v[1]),))[1],
-        )),
-        (DiffTarget.ARRAY, "finite_difference"): DiffSpec((), None),
-    }
-)
+_SPEC: FrozenDict[tuple[DiffTarget, DiffModeTag], DiffSpec] = FrozenDict({
+    (DiffTarget.ARRAY, "gradient"): DiffSpec(("argnums", "has_aux"), lambda e: e.jax.value_and_grad),
+    (DiffTarget.ARRAY, "forward_jacobian"): DiffSpec(("argnums", "has_aux", "holomorphic"), lambda e: e.jax.jacfwd),
+    (DiffTarget.ARRAY, "reverse_jacobian"): DiffSpec(("argnums", "has_aux", "allow_int"), lambda e: e.jax.jacrev),
+    (DiffTarget.ARRAY, "hessian"): DiffSpec(("argnums", "has_aux"), lambda e: e.jax.hessian),
+    (DiffTarget.PYTREE, "gradient"): DiffSpec(("has_aux",), lambda e: e.eqx.filter_value_and_grad),
+    (DiffTarget.PYTREE, "forward_jacobian"): DiffSpec(("has_aux",), lambda e: e.eqx.filter_jacfwd),
+    (DiffTarget.PYTREE, "reverse_jacobian"): DiffSpec(("has_aux",), lambda e: e.eqx.filter_jacrev),
+    (DiffTarget.PYTREE, "hessian"): DiffSpec(("has_aux",), lambda e: e.eqx.filter_hessian),
+    (DiffTarget.ARRAY, "jvp"): DiffSpec(
+        (), lambda e, fn, v, kw: _read_array_jvp(e.jax.jvp(fn, (e.jax.numpy.asarray(v[0]),), (e.jax.numpy.asarray(v[1]),)))
+    ),
+    (DiffTarget.PYTREE, "jvp"): DiffSpec((), lambda e, fn, v, kw: (None, e.eqx.filter_jvp(fn, (v[0],), (v[1],))[1])),
+    (DiffTarget.ARRAY, "vjp"): DiffSpec((), lambda e, fn, v, kw: (None, e.jax.vjp(fn, e.jax.numpy.asarray(v[0]))[1](e.jax.numpy.asarray(v[1]))[0])),
+    (DiffTarget.PYTREE, "vjp"): DiffSpec((), lambda e, fn, v, kw: (None, e.eqx.filter_vjp(fn, v[0])[1](v[1])[0])),
+    (DiffTarget.ARRAY, "hvp"): DiffSpec(
+        ("argnums", "holomorphic", "allow_int"),
+        lambda e, fn, v, kw: (None, e.jax.jvp(e.jax.grad(fn, **kw), (e.jax.numpy.asarray(v[0]),), (e.jax.numpy.asarray(v[1]),))[1]),
+    ),
+    (DiffTarget.ARRAY, "finite_difference"): DiffSpec((), None),
+})
 
 
 # --- [OPERATIONS] --------------------------------------------------------------------------
+
 
 # `@receipted(_REDACTION)` wraps the measured dispatch and emits its `DiffReceipt.contribute` stream on
 # exit; the entry `differentiate` fences it in one `boundary` so the aspect fires on the contributor while a
@@ -359,11 +359,7 @@ def _dispatch(fn: Callable, x: Pytree, mode: Differentiation, target: DiffTarget
     match mode:
         case Differentiation(tag="finite_difference", finite_difference=(step, acc)):
             return _finite_difference(fn, x, step, acc)
-        case (
-            Differentiation(tag="jvp", jvp=tangent)
-            | Differentiation(tag="vjp", vjp=tangent)
-            | Differentiation(tag="hvp", hvp=tangent)
-        ):
+        case Differentiation(tag="jvp", jvp=tangent) | Differentiation(tag="vjp", vjp=tangent) | Differentiation(tag="hvp", hvp=tangent):
             return _directional(DiffEngine.gated(), spec, fn, (x, tangent), mode.tag, target, policy)
         case Differentiation(tag="gradient" | "forward_jacobian" | "reverse_jacobian" | "hessian"):
             return _transformed(DiffEngine.gated(), spec, fn, x, mode.tag, target, policy)
@@ -378,8 +374,16 @@ def _dispatch(fn: Callable, x: Pytree, mode: Differentiation, target: DiffTarget
 # off-diagonal residual `‖H - Hᵀ‖_∞` is the symmetry witness), a `(1, n)` lift for a SCALAR/directional
 # vector. The shape-aware extent is parameterized over output, not erased to one norm pair.
 def _summary(
-    product: np.ndarray, mode: DiffModeTag, target: DiffTarget, *,
-    status: DiffStatus, accuracy: int, implicit: bool, argnums: int | tuple[int, ...] = 0, value: float | None = None, aux: object = None,
+    product: np.ndarray,
+    mode: DiffModeTag,
+    target: DiffTarget,
+    *,
+    status: DiffStatus,
+    accuracy: int,
+    implicit: bool,
+    argnums: int | tuple[int, ...] = 0,
+    value: float | None = None,
+    aux: object = None,
 ) -> DiffReceipt:
     arr = np.asarray(product, dtype=float)
     flat = np.ravel(arr)
@@ -413,7 +417,9 @@ def _summary(
 # `np.asarray` so `_summary` recovers `(rows, cols)`, the PYTREE branch concatenates the inexact leaves to a
 # flat vector. The keyword projection — not a per-mode `if` — keeps `holomorphic`/`allow_int` off a transform
 # that rejects them, and `_split` peels the value/aux/product triple off the transform's has_aux return shape.
-def _transformed(engine: DiffEngine, spec: DiffSpec, fn: Callable, x: Pytree, mode: DiffModeTag, target: DiffTarget, policy: DiffPolicy) -> DiffReceipt:
+def _transformed(
+    engine: DiffEngine, spec: DiffSpec, fn: Callable, x: Pytree, mode: DiffModeTag, target: DiffTarget, policy: DiffPolicy
+) -> DiffReceipt:
     transform = cast(TransformPick, spec.apply)(engine)
     primal = engine.jax.numpy.asarray(x) if target is DiffTarget.ARRAY else x
     out = transform(fn, **policy.projected(spec.keywords))(primal)
@@ -421,7 +427,17 @@ def _transformed(engine: DiffEngine, spec: DiffSpec, fn: Callable, x: Pytree, mo
     # transforms return `(product, aux)` under has_aux else the bare product. One `_split` fold peels the
     # `(value, product, aux)` triple off the mode and the policy's `has_aux` flag rather than per-mode reshaping.
     value, product, aux = _split(out, mode, policy.has_aux)
-    return _summary(engine.flatten(product, target, policy.argnums), mode, target, status=DiffStatus.EXACT, accuracy=0, implicit=True, argnums=policy.argnums, value=value, aux=aux)
+    return _summary(
+        engine.flatten(product, target, policy.argnums),
+        mode,
+        target,
+        status=DiffStatus.EXACT,
+        accuracy=0,
+        implicit=True,
+        argnums=policy.argnums,
+        value=value,
+        aux=aux,
+    )
 
 
 # The transform-return peel: a `gradient` head is the scalar value (or its `(value, aux)` pair under has_aux),
@@ -447,7 +463,9 @@ def _split(out: object, mode: DiffModeTag, has_aux: bool) -> tuple[float | None,
 # `jax.grad`, the JVP/VJP cells ignore them), and the product reads back through the carrier's flatten. The
 # UNSUPPORTED-pairing short-circuit lives in `_dispatch` so this rail never receives an absent cell and never
 # re-imports jax; the tangent stays a pytree for the PYTREE target.
-def _directional(engine: DiffEngine, spec: DiffSpec, fn: Callable, primals: tuple[Pytree, Pytree], mode: DiffModeTag, target: DiffTarget, policy: DiffPolicy) -> DiffReceipt:
+def _directional(
+    engine: DiffEngine, spec: DiffSpec, fn: Callable, primals: tuple[Pytree, Pytree], mode: DiffModeTag, target: DiffTarget, policy: DiffPolicy
+) -> DiffReceipt:
     value, product = cast(Applicator, spec.apply)(engine, fn, primals, policy.projected(spec.keywords))
     # `jax.jvp`/`vjp` carry no `argnums` keyword — a directional derivative is against the one `(primal, tangent)`
     # pair, so the product is single-block and the witness is `0` regardless of `policy.argnums`.
@@ -485,7 +503,9 @@ def _finite_difference(fn: ArrayFn, x: object, step: float, acc: int) -> DiffRec
         for axis in range(point.size)
     ]
     jac = np.stack(columns, axis=1)
-    return _summary(jac, "finite_difference", DiffTarget.ARRAY, status=DiffStatus.TRUNCATION_BOUNDED, accuracy=int(center["accuracy"]), implicit=False)
+    return _summary(
+        jac, "finite_difference", DiffTarget.ARRAY, status=DiffStatus.TRUNCATION_BOUNDED, accuracy=int(center["accuracy"]), implicit=False
+    )
 ```
 
 ## [03]-[RESEARCH]

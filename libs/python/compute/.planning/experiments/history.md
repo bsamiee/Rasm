@@ -55,9 +55,9 @@ class Traceable(ReceiptContributor, Protocol):
 
 
 class CrossStat(StrEnum):
-    RANK_CORRELATION = "rank_correlation"      # Spearman rho: Pearson over the no-ties argsort ranks
-    RANK_DISTANCE = "rank_distance"            # Spearman footrule: 1 - normalized L1 rank displacement
-    KENDALL_TAU = "kendall_tau"                # concordant-minus-discordant pair fraction over the ranks
+    RANK_CORRELATION = "rank_correlation"  # Spearman rho: Pearson over the no-ties argsort ranks
+    RANK_DISTANCE = "rank_distance"  # Spearman footrule: 1 - normalized L1 rank displacement
+    KENDALL_TAU = "kendall_tau"  # concordant-minus-discordant pair fraction over the ranks
     LINEAR_CORRELATION = "linear_correlation"  # Pearson over the raw shared-axis index magnitudes
 
     # the statistic family OWNS its kernels exactly as `experiments/study.md#STUDY`'s `StudyMethod`
@@ -78,9 +78,7 @@ class CrossStat(StrEnum):
         def vector(run: "RunProjection") -> np.ndarray:
             return np.asarray([run.indices[axis] for axis in shared], dtype=float)
 
-        pairs = rows.mapi(
-            lambda i, a: rows.skip(i + 1).map(lambda b: (f"{a.name}~{b.name}", self.score(vector(a), vector(b))))
-        ).collect(lambda p: p)
+        pairs = rows.mapi(lambda i, a: rows.skip(i + 1).map(lambda b: (f"{a.name}~{b.name}", self.score(vector(a), vector(b))))).collect(lambda p: p)
         return dict(pairs)
 
     @staticmethod
@@ -160,7 +158,7 @@ class ResumePlan:
 
 class RunProjection(Struct, frozen=True):
     name: str
-    design_cells: int   # evaluated design rows, read off the prior `StudyReceipt.design_cells`
+    design_cells: int  # evaluated design rows, read off the prior `StudyReceipt.design_cells`
     response_width: int  # per-cell output arity, read off the prior `StudyReceipt.response_width`
     indices: dict[str, float]
 
@@ -186,7 +184,7 @@ class RunProjection(Struct, frozen=True):
 class ComparisonReceipt(Struct, frozen=True):
     names: tuple[str, ...]
     cells: dict[str, tuple[int, int]]  # name -> (design_cells, response_width)
-    ratios: dict[str, float]           # name -> RunProjection.width_ratio, the per-cell arity normalization
+    ratios: dict[str, float]  # name -> RunProjection.width_ratio, the per-cell arity normalization
     indices: dict[str, dict[str, float]]
     agreement: dict[str, dict[str, float]]  # stat -> {pair -> score}, the per-CrossStat matrix
 
@@ -221,9 +219,7 @@ _REDACTION: Final[Redaction] = Redaction(classified=Map.empty())  # run-history 
 
 
 @beartype(conf=FAULT_CONF)
-def _compare(
-    by_key: Map[ContentKey, StudyReceipt], keys: tuple[ContentKey, ...], stats: frozenset[CrossStat],
-) -> ComparisonReceipt:
+def _compare(by_key: Map[ContentKey, StudyReceipt], keys: tuple[ContentKey, ...], stats: frozenset[CrossStat]) -> ComparisonReceipt:
     # the cohort lookup stays `Option`-native through `Block.partition` over `try_find`: the resolved
     # receipts and the unresolved keys split in one pass, so a missing cohort key names every absent
     # hex in one `KeyError` the `content.history.compare` fence folds to a typed fault rather than a
@@ -246,8 +242,7 @@ def _compare(
 
 @beartype(conf=FAULT_CONF)
 def _resume(
-    by_key: Map[ContentKey, StudyReceipt], cache: Map[ContentKey, np.ndarray],
-    study: Study, objective: Objective, design: np.ndarray, key: ContentKey,
+    by_key: Map[ContentKey, StudyReceipt], cache: Map[ContentKey, np.ndarray], study: Study, objective: Objective, design: np.ndarray, key: ContentKey
 ) -> StudyReceipt:
     prior = by_key.try_find(key).to_optional()
     cached = cache.try_find(key).to_optional()
@@ -270,6 +265,7 @@ def _recompute(study: Study, design: np.ndarray, responses: np.ndarray, key: Con
     # and discrepancy through the `StudyMethod` union folds, so this owner re-declares no design algebra.
     # elapsed is zero and speedup absent because the timing belongs to the original evaluation.
     return StudyReceipt.graded(study, design, Measured(responses, 0.0, Nothing), key)
+
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
@@ -294,9 +290,7 @@ class RunHistory(Struct, frozen=True):
             lambda key: self._traced("resume", lambda: _resume(self._by_key, self.responses, study, objective, design, key))
         )
 
-    def compare(
-        self, *keys: ContentKey, stats: frozenset[CrossStat] = frozenset({CrossStat.RANK_CORRELATION})
-    ) -> RuntimeRail[ComparisonReceipt]:
+    def compare(self, *keys: ContentKey, stats: frozenset[CrossStat] = frozenset({CrossStat.RANK_CORRELATION})) -> RuntimeRail[ComparisonReceipt]:
         # variadic over the run cohort; the single-pair join is the two-key cohort and the statistic
         # family is the `stats` parameter, parameterizing the comparison on input shape AND output table.
         return self._traced("compare", lambda: _compare(self._by_key, keys, stats))

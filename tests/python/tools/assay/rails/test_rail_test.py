@@ -18,7 +18,7 @@ from tests.python._testkit.laws import register_law
 from tests.python._testkit.spec import assert_error_status, assert_ok, refutes, support_matrix, validity_matrix, ValidityCase
 from tools.assay.composition.catalog import TOOLS
 from tools.assay.composition.settings import ArtifactScope
-from tools.assay.core.engine import exclusive_lease
+from tools.assay.core.engine import apply_row_status, exclusive_lease
 from tools.assay.core.model import (
     ArtifactKind,
     Check,
@@ -466,6 +466,79 @@ def test_checks_splice_arms(assay_root: AssayHarness, monkeypatch: pytest.Monkey
     uv_checks = _checks(py_routed, TestParams(filter="test_something"), settings, Mode.RUN)
     assert len(uv_checks) == 1
     assert "--filter-method" not in uv_checks[0].tool.command
+
+
+def test_checks_pytest_scope_pin(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Explicit [paths...] leave the pytest family unpinned for file tails; the changed default and --all pin an empty tail."""
+    pytest_row = Tool(
+        name="pytest", runner=Runner.UV, command=("pytest",), input=Input.FILES, language=Language.PYTHON, claim=Claim.TEST, mode=Mode.RUN
+    )
+    monkeypatch.setattr(test_rail, "_rows", lambda *_a, **_k: (pytest_row,))
+    routed = Routed(language=_PY, scope=Scope.CHANGED, files=("tests/t_a.py",))
+
+    (suite_wide,) = _checks(routed, TestParams(), assay_root.settings, Mode.RUN)
+    assert suite_wide.tail == ()
+    (all_wide,) = _checks(routed, TestParams(paths=("tests",), all=True), assay_root.settings, Mode.RUN)
+    assert all_wide.tail == ()
+    (scoped,) = _checks(routed, TestParams(paths=("tests",)), assay_root.settings, Mode.RUN)
+    assert scoped.tail is None
+
+
+register_law(_checks, "pytest_scope_pins_empty_tail_without_explicit_paths")
+
+
+@pytest.mark.parametrize(
+    "signature, rc, stdout, stderr, expected_status",
+    [
+        ((5, b""), 5, b"", b"no tests ran", RailStatus.EMPTY),  # pytest exit 5 → empty scope on the returncode alone
+        ((1, b"No test files found"), 1, b"", b"No test files found, exiting with code 1", RailStatus.EMPTY),  # vitest stderr marker
+        ((1, b"No test files found"), 1, b"No test files found\n", b"", RailStatus.EMPTY),  # marker on stdout admits too
+        ((1, b"No test files found"), 1, b"", b"2 tests failed", RailStatus.FAILED),  # rc matches, marker absent → genuine failure
+        ((5, b""), 1, b"", b"", RailStatus.FAILED),  # rc mismatch → signature never fires
+        (None, 5, b"", b"", RailStatus.BUSY),  # signature-less row keeps the raw returncode projection
+    ],
+    ids=[
+        "pytest_exit5_empty",
+        "vitest_marker_stderr",
+        "vitest_marker_stdout",
+        "marker_absent_failed",
+        "rc_mismatch_failed",
+        "no_signature_unchanged",
+    ],
+)
+def test_apply_row_status_empty_signature(
+    signature: tuple[int, bytes] | None, rc: int, stdout: bytes, stderr: bytes, expected_status: RailStatus
+) -> None:
+    """A row's (returncode, marker) empty signature maps a nothing-to-do receipt to EMPTY; any mismatch keeps the tool verdict."""
+    tool = Tool(
+        name="vitest",
+        runner=Runner.PNPM,
+        command=("vitest", "run"),
+        input=Input.NONE,
+        language=Language.TYPESCRIPT,
+        claim=Claim.TEST,
+        mode=Mode.RUN,
+        empty_signature=signature,
+    )
+    done = receipt(("vitest", "run"), rc, stdout=stdout, stderr=stderr)
+    assert apply_row_status(tool, done).status is expected_status
+
+
+def test_catalog_test_runners_carry_empty_signature() -> None:
+    """Every RUN/LIST test runner whose tool signals no-eligible-work declares the signature on its catalog row."""
+    expected = {
+        ("pytest", Mode.RUN): (5, b""),
+        ("pytest", Mode.LIST): (5, b""),
+        ("pytest-benchmark", Mode.RUN): (5, b""),
+        ("coverage", Mode.RUN): (5, b""),
+        ("vitest", Mode.RUN): (1, b"No test files found"),
+    }
+    rows = {(t.name, t.mode): t.empty_signature for t in TOOLS if (t.name, t.mode) in expected}
+    assert rows == expected
+
+
+register_law(apply_row_status, "empty_signature_maps_no_eligible_work_to_empty")
+register_law(apply_row_status, "test_runner_rows_declare_empty_signature")
 
 
 # --- [LAWS_UNSUPPORTED_SCOPE]

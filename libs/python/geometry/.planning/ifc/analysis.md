@@ -175,18 +175,11 @@ class AnalysisResult(Struct, frozen=True, gc=False):
 
     def contribute(self) -> Iterable[Receipt]:
         facts: dict[str, object] = {f"{self.kind}.{i}.{k}": v for i, r in enumerate(self.rows) for k, v in r.facts.items()}
-        yield Receipt.of(
-            "rasm.geometry.ifc.analysis",
-            ("emitted", self.kind.value, facts | {"subjects": len(self.subjects)} | self.evidence()),
-        )
+        yield Receipt.of("rasm.geometry.ifc.analysis", ("emitted", self.kind.value, facts | {"subjects": len(self.subjects)} | self.evidence()))
 
     def graduates(self, evidence_key: ContentKey, ceiling: dict[str, float]) -> "RuntimeRail[GraduationReceipt]":
         return GraduationReceipt.graduates(
-            "rasm.geometry.ifc.analysis",
-            HandoffAxis(geometry=ANALYSIS_SUBJECT),
-            evidence_key,
-            self.evidence(),
-            ceiling,
+            "rasm.geometry.ifc.analysis", HandoffAxis(geometry=ANALYSIS_SUBJECT), evidence_key, self.evidence(), ceiling
         )
 
 
@@ -237,9 +230,7 @@ class IfcAnalysis:
                 quantities = kind is AnalysisKind.QUANTITY
                 return IfcSelector.filter(model, query).map(
                     lambda elements: AnalysisResult(
-                        kind,
-                        tuple(e.GlobalId for e in elements),
-                        tuple(IfcAnalysis._takeoff(e, quantities) for e in elements),
+                        kind, tuple(e.GlobalId for e in elements), tuple(IfcAnalysis._takeoff(e, quantities) for e in elements)
                     )
                 )
             case AnalysisKind.SPACE_PROGRAM:
@@ -272,10 +263,7 @@ class IfcAnalysis:
             for key in (s.LongName or s.Name or "",)
             if program.get(key, 0.0) > 0.0
         )
-        rows = tuple(
-            AnalysisRow.of_compliance(s.GlobalId, area / target, 0 if area >= target else 1)
-            for s, target, area in graded
-        )
+        rows = tuple(AnalysisRow.of_compliance(s.GlobalId, area / target, 0 if area >= target else 1) for s, target, area in graded)
         return AnalysisResult(AnalysisKind.SPACE_PROGRAM, tuple(s.GlobalId for s, _, _ in graded), rows)
 
     @staticmethod
@@ -302,9 +290,7 @@ class IfcAnalysis:
         # applicable spec (a real `True`/`False` verdict with a non-empty applicable set) folds a row.
         rows = tuple(
             AnalysisRow.of_compliance(
-                spec.name,
-                len(spec.passed_entities) / max(len(spec.passed_entities) + len(spec.failed_entities), 1),
-                len(spec.failed_entities),
+                spec.name, len(spec.passed_entities) / max(len(spec.passed_entities) + len(spec.failed_entities), 1), len(spec.failed_entities)
             )
             for spec in document.specifications
             if spec.status is not None
@@ -322,15 +308,12 @@ class IfcAnalysis:
         if not query:
             return Ok(("", ""))
         a_query, _, b_query = query.partition(QUERY_SPLIT[AnalysisKind.CLASH])
-        return IfcSelector.parse((a_query, b_query or a_query)).map(
-            lambda sides: (sides[0].filter_string, sides[1].filter_string)
-        )
+        return IfcSelector.parse((a_query, b_query or a_query)).map(lambda sides: (sides[0].filter_string, sides[1].filter_string))
 
     @staticmethod
     def _clash(model: "ifcopenshell.file", sides: tuple[str, str]) -> AnalysisResult:
         rows = tuple(
-            AnalysisRow.of_clash(c["a_global_id"], c["b_global_id"], c["distance"], c.get("cluster", 0))
-            for c in IfcAnalysis._run_clash(model, sides)
+            AnalysisRow.of_clash(c["a_global_id"], c["b_global_id"], c["distance"], c.get("cluster", 0)) for c in IfcAnalysis._run_clash(model, sides)
         )
         return AnalysisResult(AnalysisKind.CLASH, tuple(r.clash[0] for r in rows), rows)
 
@@ -353,10 +336,7 @@ class IfcAnalysis:
         # One overlap -> one topic bound to the ClashResult.p1 point and the offending GUID pair,
         # the issue-authoring leg stacking ifcclash + bcf rather than a same-string round-trip.
         handler = document.add_topic(
-            f"Clash {collision['a_global_id']} × {collision['b_global_id']}",
-            f"penetration {collision['distance']:.4f}",
-            "rasm",
-            topic_type="Clash",
+            f"Clash {collision['a_global_id']} × {collision['b_global_id']}", f"penetration {collision['distance']:.4f}", "rasm", topic_type="Clash"
         )
         handler.add_viewpoint_from_point_and_guids(collision["p1"], collision["a_global_id"], collision["b_global_id"])
         return AnalysisRow.of_topic(handler.guid, handler.topic.title, "clash")
@@ -380,13 +360,7 @@ class IfcAnalysis:
         # the outer `boundary` fence, so a non-transient OCC raise still converts to a `BoundaryFault`.
         def solve() -> ClashSet:
             clasher = Clasher(ClashSettings())
-            clash_set: ClashSet = {
-                "name": "ifc.clash",
-                "a": [source(sides[0])],
-                "b": [source(sides[1])],
-                "mode": "intersection",
-                "tolerance": 0.001,
-            }
+            clash_set: ClashSet = {"name": "ifc.clash", "a": [source(sides[0])], "b": [source(sides[1])], "mode": "intersection", "tolerance": 0.001}
             clasher.clash_sets = [clash_set]
             clasher.clash()
             clasher.smart_group_clashes(clasher.clash_sets, max_clustering_distance=1.0)

@@ -217,6 +217,10 @@ public static class VisualCodec {
         }
     }
 
+    // The capture-time raster tone curve: a SkiaSharp per-channel float SKColorFilter LUT on the encode path. CHARTERED
+    // DISTINCT from the appearance-domain csharp:Rasm.Materials/Appearance/surface#TONE_MAP ToneOperator (which grounds
+    // path-traced RgbSpectrum radiance through Unicolour) — one tone-map owner per runtime, the shared Narkowicz/Reinhard
+    // coefficients two runtimes implementing one published curve, never cross-owner drift and never a dependency either way.
     [SmartEnum<string>]
     public sealed partial class ToneMap {
         public static readonly ToneMap None = new("none", static _ => 1f);

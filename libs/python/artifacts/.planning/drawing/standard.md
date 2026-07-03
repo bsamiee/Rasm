@@ -46,21 +46,21 @@ type Pattern = tuple[float, ...]  # ezdxf linetype dash array: +dash / -gap / 0.
 
 
 class LineType(StrEnum):  # ISO 128-2:2020 Table 1 — the full 15 basic line types; the member value IS the ezdxf linetype name
-    CONTINUOUS = "CONTINUOUS"                                        # 01 continuous — visible edges
-    DASHED = "ISO_DASHED"                                            # 02 dashed — hidden edges
-    DASHED_SPACED = "ISO_DASHED_SPACED"                              # 03 dashed spaced — hidden alt
-    LONG_DASH_DOT = "ISO_LONG_DASH_DOT"                             # 04 long-dashed dotted — centre / axis
-    LONG_DASH_DOUBLE_DOT = "ISO_LONG_DASH_DOUBLE_DOT"              # 05 long-dashed double-dotted — phantom / adjacent
-    LONG_DASH_TRIPLE_DOT = "ISO_LONG_DASH_TRIPLE_DOT"             # 06 long-dashed triple-dotted — special surface
-    DOTTED = "ISO_DOTTED"                                          # 07 dotted — hidden detail
-    LONG_DASH_SHORT_DASH = "ISO_LONG_DASH_SHORT_DASH"            # 08 long-dashed short-dashed — cutting-plane
+    CONTINUOUS = "CONTINUOUS"  # 01 continuous — visible edges
+    DASHED = "ISO_DASHED"  # 02 dashed — hidden edges
+    DASHED_SPACED = "ISO_DASHED_SPACED"  # 03 dashed spaced — hidden alt
+    LONG_DASH_DOT = "ISO_LONG_DASH_DOT"  # 04 long-dashed dotted — centre / axis
+    LONG_DASH_DOUBLE_DOT = "ISO_LONG_DASH_DOUBLE_DOT"  # 05 long-dashed double-dotted — phantom / adjacent
+    LONG_DASH_TRIPLE_DOT = "ISO_LONG_DASH_TRIPLE_DOT"  # 06 long-dashed triple-dotted — special surface
+    DOTTED = "ISO_DOTTED"  # 07 dotted — hidden detail
+    LONG_DASH_SHORT_DASH = "ISO_LONG_DASH_SHORT_DASH"  # 08 long-dashed short-dashed — cutting-plane
     LONG_DASH_DOUBLE_SHORT_DASH = "ISO_LONG_DASH_DOUBLE_SHORT_DASH"  # 09 long-dashed double-short-dashed
-    DASH_DOT = "ISO_DASH_DOT"                                     # 10 dashed dotted — chain / pitch / symmetry
-    DOUBLE_DASH_DOT = "ISO_DOUBLE_DASH_DOT"                       # 11 double-dashed dotted — movable-part outline
-    DASH_DOUBLE_DOT = "ISO_DASH_DOUBLE_DOT"                       # 12 dashed double-dotted
-    DOUBLE_DASH_DOUBLE_DOT = "ISO_DOUBLE_DASH_DOUBLE_DOT"         # 13 double-dashed double-dotted
-    DASH_TRIPLE_DOT = "ISO_DASH_TRIPLE_DOT"                       # 14 dashed triple-dotted
-    DOUBLE_DASH_TRIPLE_DOT = "ISO_DOUBLE_DASH_TRIPLE_DOT"         # 15 double-dashed triple-dotted
+    DASH_DOT = "ISO_DASH_DOT"  # 10 dashed dotted — chain / pitch / symmetry
+    DOUBLE_DASH_DOT = "ISO_DOUBLE_DASH_DOT"  # 11 double-dashed dotted — movable-part outline
+    DASH_DOUBLE_DOT = "ISO_DASH_DOUBLE_DOT"  # 12 dashed double-dotted
+    DOUBLE_DASH_DOUBLE_DOT = "ISO_DOUBLE_DASH_DOUBLE_DOT"  # 13 double-dashed double-dotted
+    DASH_TRIPLE_DOT = "ISO_DASH_TRIPLE_DOT"  # 14 dashed triple-dotted
+    DOUBLE_DASH_TRIPLE_DOT = "ISO_DOUBLE_DASH_TRIPLE_DOT"  # 15 double-dashed triple-dotted
 
     @property
     def pattern(self) -> "Pattern":
@@ -103,8 +103,8 @@ class HatchMaterial(StrEnum):  # ISO 128-50 section-hatch material indications
 
 
 class HatchFill(StrEnum):  # the ISO 128-50 section-fill regime — the axis the pattern-only table could not express
-    PATTERN = "pattern"    # a scaled ezdxf.tools.pattern definition (the ANSI/ISO hatch lines)
-    SOLID = "solid"        # a solid poche (solid-black structural steel in section) — Hatch.set_solid_fill
+    PATTERN = "pattern"  # a scaled ezdxf.tools.pattern definition (the ANSI/ISO hatch lines)
+    SOLID = "solid"  # a solid poche (solid-black structural steel in section) — Hatch.set_solid_fill
     GRADIENT = "gradient"  # a two-color graded fill (earth / subgrade) — Hatch.set_gradient
 
 
@@ -170,16 +170,16 @@ class Status(StrEnum):  # AIA layer status field — the codec's trailing field
 
 
 class SheetType(StrEnum):  # NCS / US National CAD Standard sheet-type designators — the 2nd char of a sheet id
-    GENERAL = "0"      # general (symbols, notes, legends)
-    PLAN = "1"         # plans (horizontal views)
-    ELEVATION = "2"    # elevations (vertical exterior views)
-    SECTION = "3"      # sections
+    GENERAL = "0"  # general (symbols, notes, legends)
+    PLAN = "1"  # plans (horizontal views)
+    ELEVATION = "2"  # elevations (vertical exterior views)
+    SECTION = "3"  # sections
     LARGE_SCALE = "4"  # large-scale views (plan / elevation enlargements)
-    DETAIL = "5"       # details
-    SCHEDULE = "6"     # schedules and diagrams
-    USER_7 = "7"       # user defined
-    USER_8 = "8"       # user defined
-    THREE_D = "9"      # 3D representations (isometric / perspective)
+    DETAIL = "5"  # details
+    SCHEDULE = "6"  # schedules and diagrams
+    USER_7 = "7"  # user defined
+    USER_8 = "8"  # user defined
+    THREE_D = "9"  # 3D representations (isometric / perspective)
 
 
 class TextHeight(StrEnum):  # ISO 3098 nominal lettering height cascade (mm)
@@ -203,17 +203,17 @@ class LetteringStyle(StrEnum):  # ISO 3098 lettering type — stroke and proport
 
 class DimStyleFamily(StrEnum):  # ISO 129-1 dimension-style families dimension#DIMENSION lowers onto DimStyle
     ARCHITECTURAL = "architectural"  # oblique tick terminator, 1/50-typical, mm, 0 decimals
-    ENGINEERING = "engineering"      # filled-arrow terminator, structural/mechanical, mm, 1 decimal
-    CIVIL = "civil"                  # filled-arrow, large-scale site, m, 2 decimals
-    ANGULAR = "angular"              # arrow terminator, degree units
-    RADIAL = "radial"                # arrow terminator, radius / diameter prefix
+    ENGINEERING = "engineering"  # filled-arrow terminator, structural/mechanical, mm, 1 decimal
+    CIVIL = "civil"  # filled-arrow, large-scale site, m, 2 decimals
+    ANGULAR = "angular"  # arrow terminator, degree units
+    RADIAL = "radial"  # arrow terminator, radius / diameter prefix
 
 
 class Terminator(StrEnum):  # ISO 129-1 dimension-line terminations
-    FILLED_ARROW = "filled_arrow"      # closed filled — mechanical / engineering
-    OPEN_ARROW = "open_arrow"          # open 90 degrees
+    FILLED_ARROW = "filled_arrow"  # closed filled — mechanical / engineering
+    OPEN_ARROW = "open_arrow"  # open 90 degrees
     OBLIQUE_STROKE = "oblique_stroke"  # 45-degree architectural tick (DIMTSZ)
-    DOT = "dot"                        # small filled circle
+    DOT = "dot"  # small filled circle
     NONE = "none"
 
 
@@ -224,12 +224,12 @@ class LineTypeRow(Struct, frozen=True):
 
 
 class ScaleRow(Struct, frozen=True):
-    ratio: str      # "1:100"
-    factor: float   # 0.01 — paper units per model unit
+    ratio: str  # "1:100"
+    factor: float  # 0.01 — paper units per model unit
 
 
 class DisciplineStyle(Struct, frozen=True):
-    aci: int              # AutoCAD Color Index pen — the discipline's standard color
+    aci: int  # AutoCAD Color Index pen — the discipline's standard color
     linetype: LineType
     lineweight: LineWeight
 
@@ -237,35 +237,35 @@ class DisciplineStyle(Struct, frozen=True):
 class LetteringRow(Struct, frozen=True):
     # the full ISO 3098 lettering geometry, every ratio relative to the nominal cap height h — never a
     # bare stroke/width tuple: a text producer reads pen thickness, baseline pitch, and char/word spacing.
-    stroke: float    # d/h — line thickness ratio (type A 1/14, type B 1/10)
-    width: float     # w/h — nominal character width ratio (uppercase)
-    spacing: float   # a/h — minimum inter-character spacing (2d)
+    stroke: float  # d/h — line thickness ratio (type A 1/14, type B 1/10)
+    width: float  # w/h — nominal character width ratio (uppercase)
+    spacing: float  # a/h — minimum inter-character spacing (2d)
     baseline: float  # b/h — minimum baseline spacing (type A 20d, type B 14d)
-    word: float      # e/h — minimum word spacing (6d)
+    word: float  # e/h — minimum word spacing (6d)
 
 
 class DimStyleFamilyRow(Struct, frozen=True):
     terminator: Terminator
-    height: TextHeight    # DIMTXT base
-    arrow_size: float     # DIMASZ base (mm)
-    extension: float      # DIMEXE — extension-line reach beyond the dim line
-    offset: float         # DIMEXO — extension-line offset from the feature
-    gap: float            # DIMGAP — gap around the dimension text
-    baseline: float       # DIMDLI — baseline-dimension line increment
-    decimals: int         # DIMDEC
-    unit: str             # "mm" / "m" / "deg" — dimension#DIMENSION reads for the suffix / DIMLFAC decision
+    height: TextHeight  # DIMTXT base
+    arrow_size: float  # DIMASZ base (mm)
+    extension: float  # DIMEXE — extension-line reach beyond the dim line
+    offset: float  # DIMEXO — extension-line offset from the feature
+    gap: float  # DIMGAP — gap around the dimension text
+    baseline: float  # DIMDLI — baseline-dimension line increment
+    decimals: int  # DIMDEC
+    unit: str  # "mm" / "m" / "deg" — dimension#DIMENSION reads for the suffix / DIMLFAC decision
 
 
 class HatchSpec(Struct, frozen=True):
     # the ISO 128-50 section-fill projection — `apply(hatch)` dispatches the fill REGIME onto a section producer's
     # ezdxf `Hatch` (a scaled pattern, a solid poche, or a two-color graded fill), so the producer composes
     # `spec.apply(hatch)` and the fill regime stays owned here rather than a hardcoded `set_pattern_fill` per material.
-    pattern: str        # the ACAD/ISO pattern name ezdxf.tools.pattern.load carries (the PATTERN regime)
+    pattern: str  # the ACAD/ISO pattern name ezdxf.tools.pattern.load carries (the PATTERN regime)
     scale: float = 1.0
     angle: float = 0.0
     fill: HatchFill = HatchFill.PATTERN
-    fill_color: int = 7                    # the SOLID poche ACI pen
-    gradient: tuple[int, int] = (250, 8)   # the GRADIENT (dark, light) ACI pair, aci2rgb-resolved for set_gradient
+    fill_color: int = 7  # the SOLID poche ACI pen
+    gradient: tuple[int, int] = (250, 8)  # the GRADIENT (dark, light) ACI pair, aci2rgb-resolved for set_gradient
 
     def definition(self) -> list:
         # the ezdxf pattern-line definition, scaled — so ezdxf's OWN renderer draws the fill rather than
@@ -280,7 +280,11 @@ class HatchSpec(Struct, frozen=True):
             case HatchFill.SOLID:
                 hatch.set_solid_fill(color=self.fill_color)
             case HatchFill.GRADIENT:
-                hatch.set_gradient(color1=_colors.RGB(*_colors.aci2rgb(self.gradient[0])), color2=_colors.RGB(*_colors.aci2rgb(self.gradient[1])), rotation=self.angle)
+                hatch.set_gradient(
+                    color1=_colors.RGB(*_colors.aci2rgb(self.gradient[0])),
+                    color2=_colors.RGB(*_colors.aci2rgb(self.gradient[1])),
+                    rotation=self.angle,
+                )
             case HatchFill.PATTERN:
                 hatch.set_pattern_fill(self.pattern, scale=self.scale, angle=self.angle, definition=self.definition())
             case _ as unreachable:
@@ -313,19 +317,19 @@ class LetteringMetric(Struct, frozen=True):
     # the resolved ISO 3098 drawn geometry at one nominal height — the value object the dimension/annotate/
     # symbol text producers read, never three parallel projections: the DXF add_text uses `height`, the text
     # pen its `pen` lineweight, multi-line advance its `pitch`, and the ziafont/SVG outliner its `point_size`.
-    height: float        # nominal cap height (mm) == TextHeight.mm — the DXF add_text height
-    pen: float           # ISO 3098 line thickness d = stroke·h — the text entity's lineweight
-    char_width: float    # nominal glyph advance w = width·h — the text-extent estimate the producers box against
-    pitch: float         # minimum baseline spacing b = baseline·h — multi-line advance
+    height: float  # nominal cap height (mm) == TextHeight.mm — the DXF add_text height
+    pen: float  # ISO 3098 line thickness d = stroke·h — the text entity's lineweight
+    char_width: float  # nominal glyph advance w = width·h — the text-extent estimate the producers box against
+    pitch: float  # minimum baseline spacing b = baseline·h — multi-line advance
     char_spacing: float  # minimum inter-character spacing a
     word_spacing: float  # minimum word spacing e
-    point_size: float    # TTF em point size whose cap == h (ziafont/SVG outline); == h when no metric binds
+    point_size: float  # TTF em point size whose cap == h (ziafont/SVG outline); == h when no metric binds
 
 
 class LayerName(Struct, frozen=True):
     discipline: Discipline
-    major: str               # 4-char functional group — WALL / DOOR / DIMS / GRID
-    minor: str = ""          # 4-char sub-group — FULL / PATT / IDEN
+    major: str  # 4-char functional group — WALL / DOOR / DIMS / GRID
+    minor: str = ""  # 4-char sub-group — FULL / PATT / IDEN
     status: Status = Status.NEW
 
     @classmethod
@@ -376,10 +380,22 @@ class DimStyleSpec(Struct, frozen=True):
         row, s = _DIMSTYLE[self.family], self.scale.factor
         blk, tick = _TERMINATOR[row.terminator]
         base: dict[str, object] = {
-            "dimtxt": self.text.mm / s, "dimasz": row.arrow_size / s, "dimexe": row.extension / s,
-            "dimexo": row.offset / s, "dimgap": row.gap / s, "dimdli": row.baseline / s,
-            "dimdec": row.decimals, "dimtsz": tick / s, "dimtad": 1, "dimtih": 0, "dimtoh": 0,
-            "dimscale": 1.0, "dimtxsty": "ISO-3098", "dimlunit": 2, "dimzin": 8, "dimtol": 0,
+            "dimtxt": self.text.mm / s,
+            "dimasz": row.arrow_size / s,
+            "dimexe": row.extension / s,
+            "dimexo": row.offset / s,
+            "dimgap": row.gap / s,
+            "dimdli": row.baseline / s,
+            "dimdec": row.decimals,
+            "dimtsz": tick / s,
+            "dimtad": 1,
+            "dimtih": 0,
+            "dimtoh": 0,
+            "dimscale": 1.0,
+            "dimtxsty": "ISO-3098",
+            "dimlunit": 2,
+            "dimzin": 8,
+            "dimtol": 0,
         }
         return frozendict({**base, **({"dimblk": blk} if blk else {})})
 
@@ -387,7 +403,7 @@ class DimStyleSpec(Struct, frozen=True):
 class Standard(Struct, frozen=True):
     scale: ScaleRatio = ScaleRatio.FULL
     lettering: LetteringStyle = LetteringStyle.TYPE_B
-    font: Option[str] = Nothing          # the Textstyle font (shx/ttf); Nothing -> the ezdxf isocp default
+    font: Option[str] = Nothing  # the Textstyle font (shx/ttf); Nothing -> the ezdxf isocp default
     metric: Option[FontMetric] = Nothing  # the ISO 3098 cap-height, admitted ONCE at `of` from the font
 
     @classmethod
@@ -415,8 +431,11 @@ class Standard(Struct, frozen=True):
         for name in layers:
             pen = name.pen
             doc.layers.add(
-                name.compose(), color=pen.aci, true_color=_colors.rgb2int(_colors.aci2rgb(pen.aci)),
-                linetype=pen.linetype.value, lineweight=_LINEWEIGHT[pen.lineweight],
+                name.compose(),
+                color=pen.aci,
+                true_color=_colors.rgb2int(_colors.aci2rgb(pen.aci)),
+                linetype=pen.linetype.value,
+                lineweight=_LINEWEIGHT[pen.lineweight],
             )
         for family in families:
             dimstyle = doc.dimstyles.add(family.value)
@@ -429,8 +448,12 @@ class Standard(Struct, frozen=True):
         # status screens an EXISTING/DEMOLISH/FUTURE layer through one derived transparency, never a per-entity set.
         pen = layer.pen
         return GfxAttribs(
-            layer=layer.compose(), color=pen.aci, rgb=self.rgb(layer),
-            linetype=pen.linetype.value, lineweight=_LINEWEIGHT[pen.lineweight], ltscale=self.scale.factor,
+            layer=layer.compose(),
+            color=pen.aci,
+            rgb=self.rgb(layer),
+            linetype=pen.linetype.value,
+            lineweight=_LINEWEIGHT[pen.lineweight],
+            ltscale=self.scale.factor,
             transparency=_STATUS_TRANSPARENCY[layer.status],
         )
 
@@ -449,8 +472,13 @@ class Standard(Struct, frozen=True):
         row, h = _LETTERING[self.lettering], height.mm
         point = self.metric.map(lambda m: m.point_size(h)).default_value(h)
         return LetteringMetric(
-            height=h, pen=row.stroke * h, char_width=row.width * h, pitch=row.baseline * h,
-            char_spacing=row.spacing * h, word_spacing=row.word * h, point_size=point,
+            height=h,
+            pen=row.stroke * h,
+            char_width=row.width * h,
+            pitch=row.baseline * h,
+            char_spacing=row.spacing * h,
+            word_spacing=row.word * h,
+            point_size=point,
         )
 
     def paper_factor(self, model_units: int | None = None) -> float:
@@ -469,7 +497,7 @@ def _read_metric(path: str, /) -> "Option[FontMetric]":
         return Nothing
     try:
         return FontMetric.bind(TTFont(path, lazy=True))
-    except (OSError, TTLibError):
+    except OSError, TTLibError:
         return Nothing
 
 
@@ -490,7 +518,9 @@ _LINETYPE: frozendict[LineType, LineTypeRow] = frozendict({
     LineType.DASH_DOUBLE_DOT: LineTypeRow("ISO dash double-dot __ . . __ . .", (21.0, 12.0, -3.0, 0.0, -3.0, 0.0, -3.0)),
     LineType.DOUBLE_DASH_DOUBLE_DOT: LineTypeRow("ISO double-dash double-dot __ __ . . __ __", (36.0, 12.0, -3.0, 12.0, -3.0, 0.0, -3.0, 0.0, -3.0)),
     LineType.DASH_TRIPLE_DOT: LineTypeRow("ISO dash triple-dot __ . . . __", (24.0, 12.0, -3.0, 0.0, -3.0, 0.0, -3.0, 0.0, -3.0)),
-    LineType.DOUBLE_DASH_TRIPLE_DOT: LineTypeRow("ISO double-dash triple-dot __ __ . . . __ __", (39.0, 12.0, -3.0, 12.0, -3.0, 0.0, -3.0, 0.0, -3.0, 0.0, -3.0)),
+    LineType.DOUBLE_DASH_TRIPLE_DOT: LineTypeRow(
+        "ISO double-dash triple-dot __ __ . . . __ __", (39.0, 12.0, -3.0, 12.0, -3.0, 0.0, -3.0, 0.0, -3.0, 0.0, -3.0)
+    ),
 })
 # ISO 128-20 R10 cascade -> DXF lineweight (1/100 mm). Derived: the int is round(mm * 100).
 _LINEWEIGHT: frozendict[LineWeight, int] = frozendict({w: round(float(w.value) * 100) for w in LineWeight})
@@ -538,8 +568,14 @@ _DISCIPLINE: frozendict[Discipline, DisciplineStyle] = frozendict({
 # AIA/ISO 13567 layer status -> the screened-plot transparency (0.0 opaque .. 1.0 clear); EXISTING/DEMOLISH/FUTURE
 # plot screened so the current-work (NEW) layers read solid over them. `None` keeps the layer fully opaque.
 _STATUS_TRANSPARENCY: frozendict[Status, float | None] = frozendict({
-    Status.NEW: None, Status.EXISTING: 0.55, Status.DEMOLISH: 0.7, Status.FUTURE: 0.4,
-    Status.TEMPORARY: 0.35, Status.MOVED: 0.5, Status.RELOCATED: 0.5, Status.NOT_IN_CONTRACT: 0.6,
+    Status.NEW: None,
+    Status.EXISTING: 0.55,
+    Status.DEMOLISH: 0.7,
+    Status.FUTURE: 0.4,
+    Status.TEMPORARY: 0.35,
+    Status.MOVED: 0.5,
+    Status.RELOCATED: 0.5,
+    Status.NOT_IN_CONTRACT: 0.6,
 })
 # ISO 3098 nominal height cascade (mm).
 _TEXT_HEIGHT: frozendict[TextHeight, float] = frozendict({h: float(h.value) for h in TextHeight})
@@ -568,9 +604,25 @@ _TERMINATOR: frozendict[Terminator, tuple[str, float]] = frozendict({
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 __all__ = [
-    "DimStyleFamily", "DimStyleSpec", "Discipline", "FontMetric", "HatchFill", "HatchMaterial", "HatchSpec", "LayerName",
-    "LetteringMetric", "LetteringStyle", "LineType", "LineWeight", "ScaleRatio", "SheetId", "SheetType",
-    "Standard", "Status", "Terminator", "TextHeight",
+    "DimStyleFamily",
+    "DimStyleSpec",
+    "Discipline",
+    "FontMetric",
+    "HatchFill",
+    "HatchMaterial",
+    "HatchSpec",
+    "LayerName",
+    "LetteringMetric",
+    "LetteringStyle",
+    "LineType",
+    "LineWeight",
+    "ScaleRatio",
+    "SheetId",
+    "SheetType",
+    "Standard",
+    "Status",
+    "Terminator",
+    "TextHeight",
 ]
 ```
 

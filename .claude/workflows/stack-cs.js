@@ -420,6 +420,8 @@ const clusterOf = (rs) => {
   return [...by.values()]
 }
 const dedupRes = (rs) => [...new Map(rs.map((r) => [r.files.slice().sort().join(',') + '|' + r.claim, r])).values()]
+// clusterWork — a fixer's load is dominated by distinct files read + reconciled; heaviest cluster launches first so the long pole never starts last under CAP.
+const clusterWork = (c) => { const files = new Set(); for (const r of c) for (const f of r.files) files.add(f); return files.size * 2 + c.length }
 log('Harden+Sweep done; TERMINAL reconcile ' + uniq.length + ' residual(s) (no-defer, adversarial verify, loop until dry)')
 const MAX_ROUNDS = 6
 let pending = uniq
@@ -429,8 +431,8 @@ if (pending.length) {
   phase('Reconcile')
   while (pending.length && round < MAX_ROUNDS) {
     round++
-    const clusters = clusterOf(pending)
-    log('Reconcile round ' + round + ': ' + pending.length + ' residual(s) -> ' + clusters.length + ' cluster(s)')
+    const clusters = clusterOf(pending).sort((a, b) => clusterWork(b) - clusterWork(a) || (a[0].claim || '').localeCompare(b[0].claim || ''))
+    log('Reconcile round ' + round + ': ' + pending.length + ' residual(s) -> ' + clusters.length + ' cluster(s); work [' + clusters.map(clusterWork).join(', ') + '] (2*files+claims)')
     const resolved = (await pool(clusters, CAP, async (cl, i) => {
       const fix = await agent([DOCTRINE, '', 'TASK: TERMINAL RECONCILE — fix EVERY one of these cross-FILE residuals the harden + sweep passes ' +
         'surfaced; NO severity, NO leftovers, NO deferral (nothing leaves unfixed). Read EVERY listed file. For each real cross-file defect FIX it in ' +

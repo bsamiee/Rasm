@@ -61,7 +61,9 @@ class Sink(StrEnum):
 # --- [CONSTANTS] -----------------------------------------------------------------------
 
 _EPOCH: datetime = datetime(1980, 1, 1, tzinfo=UTC)  # fixed zip member stamp -> byte-stable, content-addressable bundle
-_ZIP_LEVEL: int = 9  # match the `package/archive#ARCHIVE` reproducible-ZIP deflate level so the OBJ bundle is byte-identical on the shared zlib_ng SIMD substrate
+_ZIP_LEVEL: int = (
+    9  # match the `package/archive#ARCHIVE` reproducible-ZIP deflate level so the OBJ bundle is byte-identical on the shared zlib_ng SIMD substrate
+)
 _RENDER_SINKS: frozenset[Sink] = frozenset({Sink.RASTER, Sink.PLOTTER})  # sinks that write over a live offscreen plotter
 _USD_SINKS: frozenset[Sink] = frozenset({Sink.USD_LAYER, Sink.USDZ_PACKAGE})  # sinks that author a USD layer from the surface arrays, no render pass
 
@@ -94,8 +96,7 @@ class ExportError(Exception):
 ROW: frozendict[SceneTarget, ExportRow] = frozendict({
     SceneTarget.PNG: ExportRow(suffix="png", sink=Sink.RASTER),
     SceneTarget.GLTF: ExportRow(
-        suffix="gltf", sink=Sink.PLOTTER, surface=True,
-        options=frozendict({"inline_data": True, "save_normals": True, "rotate_scene": True}),
+        suffix="gltf", sink=Sink.PLOTTER, surface=True, options=frozendict({"inline_data": True, "save_normals": True, "rotate_scene": True})
     ),
     SceneTarget.VRML: ExportRow(suffix="vrml", sink=Sink.PLOTTER),
     SceneTarget.OBJ: ExportRow(suffix="obj", sink=Sink.PLOTTER, bundle=True),
@@ -122,7 +123,9 @@ def render_export(grid: object, target: str, spec: RenderSpec) -> tuple[bytes, f
     row = ROW[kind]
     with TemporaryDirectory() as work:
         out = Path(work) / f"scene.{row.suffix}"
-        facts: frozendict[str, float | str] = frozendict()  # USD sinks fill it from `_authored`'s `ComputeUsdStageStats` band; the render sinks leave it empty (the `_emit` arm mints window facts from `spec.window`)
+        facts: frozendict[str, float | str] = (
+            frozendict()
+        )  # USD sinks fill it from `_authored`'s `ComputeUsdStageStats` band; the render sinks leave it empty (the `_emit` arm mints window facts from `spec.window`)
         try:
             match row.sink:
                 case Sink.RASTER | Sink.PLOTTER:  # the render sinks build+close one offscreen plotter over the admitted grid
@@ -156,7 +159,9 @@ def render_ingest(scene: bytes, source: str, target: str, spec: RenderSpec) -> t
             raise
         except Exception as failed:  # noqa: BLE001
             raise ExportError("<write-failed>") from failed
-        return _captured(Path(work), out, row.bundle), frozendict()  # an imported scene carries no authored-stage stats; the round-trip re-export band is empty
+        return _captured(
+            Path(work), out, row.bundle
+        ), frozendict()  # an imported scene carries no authored-stage stats; the round-trip re-export band is empty
 
 
 def _plotted(plotter: object, kind: SceneTarget, row: ExportRow, spec: RenderSpec, out: Path, /) -> None:
@@ -225,7 +230,9 @@ def _captured(root: Path, out: Path, bundle: bool, /) -> bytes:
         # bind the shared zlib_ng SIMD raw-DEFLATE at the fixed level AND pass the matching level to each ZIP_AUTO
         # (which ignores the function-level get_compressobj), so the OBJ+MTL bundle is byte-identical to the
         # `package/archive#ARCHIVE` ZIP path — one reproducible-ZIP convention across every stream_zip user.
-        return b"".join(stream_zip(members, extended_timestamps=False, get_compressobj=lambda: zlib_ng.compressobj(wbits=-zlib_ng.MAX_WBITS, level=_ZIP_LEVEL)))
+        return b"".join(
+            stream_zip(members, extended_timestamps=False, get_compressobj=lambda: zlib_ng.compressobj(wbits=-zlib_ng.MAX_WBITS, level=_ZIP_LEVEL))
+        )
     except ZipError as broken:
         raise ExportError("<bundle-failed>") from broken
 ```

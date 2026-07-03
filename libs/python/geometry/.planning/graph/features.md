@@ -114,18 +114,26 @@ class AnalyticOp(StrEnum):
 
 # the default analytic selection a `FeaturePolicy` carries: the mode_guard then prunes the directed-
 # only rows on an undirected graph, so this set is the menu and the guard is the per-graph filter.
-_DEFAULT_OPS: Final[frozenset[AnalyticOp]] = frozenset(
-    {AnalyticOp.COMPONENTS, AnalyticOp.STRONG_COMPONENTS, AnalyticOp.BETWEENNESS, AnalyticOp.PAGERANK, AnalyticOp.SPANNING_WEIGHT}
-)
+_DEFAULT_OPS: Final[frozenset[AnalyticOp]] = frozenset({
+    AnalyticOp.COMPONENTS,
+    AnalyticOp.STRONG_COMPONENTS,
+    AnalyticOp.BETWEENNESS,
+    AnalyticOp.PAGERANK,
+    AnalyticOp.SPANNING_WEIGHT,
+})
 # the all-pairs / enumeration band whose blocking cores `bridged` hoists to a worker thread so the
 # event loop never stalls; every other reducer is cheap enough to fold inline on either path.
 _HEAVY_OPS: Final[frozenset[AnalyticOp]] = frozenset({AnalyticOp.BETWEENNESS, AnalyticOp.PAGERANK, AnalyticOp.CYCLES})
 # the centrality band whose flat fact IS the top head score, not the board cardinality: `Census.facts`
 # projects `peak()` for these rows and `as_scalar()` for the count/partition rows, so a betweenness fact
 # rides its max centrality while a component-count fact rides its count — one membership test, no branch.
-_HEAD_OPS: Final[frozenset[AnalyticOp]] = frozenset(
-    {AnalyticOp.BETWEENNESS, AnalyticOp.DEGREE, AnalyticOp.CLOSENESS, AnalyticOp.EIGENVECTOR, AnalyticOp.PAGERANK}
-)
+_HEAD_OPS: Final[frozenset[AnalyticOp]] = frozenset({
+    AnalyticOp.BETWEENNESS,
+    AnalyticOp.DEGREE,
+    AnalyticOp.CLOSENESS,
+    AnalyticOp.EIGENVECTOR,
+    AnalyticOp.PAGERANK,
+})
 # this owner's OWN bounded worker pool the heavy-band offload holds: a concurrent fan of bridged analytics
 # holds at most four slots rather than draining anyio's runtime-shared default 40-token pool — the
 # explicit-limiter law every bounded subsystem rides. The per-owner 4-slot PATTERN the `graph/algebra.md`
@@ -264,8 +272,7 @@ class FeatureResult(Struct, ReceiptContributor, frozen=True):
         # through the one compute residual-over-ceiling admission; never a re-measured value or a second gate.
         spec = CASE[self.kind]
         return GraduationReceipt.graduates(
-            "geometry.graph.features", HandoffAxis(geometry=self.graduation_subject), evidence_key,
-            spec.ledger(self.census), dict(spec.ceiling),
+            "geometry.graph.features", HandoffAxis(geometry=self.graduation_subject), evidence_key, spec.ledger(self.census), dict(spec.ceiling)
         )
 
 
@@ -396,16 +403,50 @@ def _component_count(generator: Iterable[object]) -> AnalyticValue:
 # returns one typed `AnalyticValue`, so the dispatch backend is one policy row, never a forked site.
 ANALYTICS: Final[tuple[AnalyticSpec, ...]] = (
     AnalyticSpec(AnalyticOp.COMPONENTS, lambda g, p: _component_count(nx.connected_components(g, backend=p.backend.value)), lambda m: not m.directed),
-    AnalyticSpec(AnalyticOp.WEAK_COMPONENTS, lambda g, p: _component_count(nx.weakly_connected_components(g, backend=p.backend.value)), lambda m: m.directed),
-    AnalyticSpec(AnalyticOp.STRONG_COMPONENTS, lambda g, p: _component_count(nx.strongly_connected_components(g, backend=p.backend.value)), lambda m: m.directed),
+    AnalyticSpec(
+        AnalyticOp.WEAK_COMPONENTS, lambda g, p: _component_count(nx.weakly_connected_components(g, backend=p.backend.value)), lambda m: m.directed
+    ),
+    AnalyticSpec(
+        AnalyticOp.STRONG_COMPONENTS,
+        lambda g, p: _component_count(nx.strongly_connected_components(g, backend=p.backend.value)),
+        lambda m: m.directed,
+    ),
     AnalyticSpec(AnalyticOp.BETWEENNESS, lambda g, p: _ranked(nx.betweenness_centrality(g, backend=p.backend.value), p), lambda _: True),
     AnalyticSpec(AnalyticOp.DEGREE, lambda g, p: _ranked(nx.degree_centrality(g, backend=p.backend.value), p), lambda _: True),
     AnalyticSpec(AnalyticOp.CLOSENESS, lambda g, p: _ranked(nx.closeness_centrality(g, backend=p.backend.value), p), lambda _: True),
-    AnalyticSpec(AnalyticOp.EIGENVECTOR, lambda g, p: _ranked(nx.eigenvector_centrality(g, max_iter=p.power_iter, backend=p.backend.value), p) if g.number_of_nodes() else AnalyticValue.Leaderboard(()), lambda _: True),
-    AnalyticSpec(AnalyticOp.PAGERANK, lambda g, p: _ranked(nx.pagerank(g, max_iter=p.power_iter, backend=p.backend.value), p) if g.number_of_nodes() else AnalyticValue.Leaderboard(()), lambda _: True),
-    AnalyticSpec(AnalyticOp.SPANNING_WEIGHT, lambda g, p: AnalyticValue.Scalar(float(nx.minimum_spanning_tree(g, backend=p.backend.value).number_of_edges())), lambda m: not m.directed),
-    AnalyticSpec(AnalyticOp.CYCLES, lambda g, p: AnalyticValue.Scalar(float(sum(1 for _ in nx.simple_cycles(g, backend=p.backend.value)))), lambda _: True),
-    AnalyticSpec(AnalyticOp.COMMUNITY, lambda g, p: AnalyticValue.Groups(tuple(tuple(sorted(int(n) for n in c)) for c in nx.community.louvain_communities(g, backend=p.backend.value))) if g.number_of_nodes() else AnalyticValue.Groups(()), lambda m: not m.directed),
+    AnalyticSpec(
+        AnalyticOp.EIGENVECTOR,
+        lambda g, p: (
+            _ranked(nx.eigenvector_centrality(g, max_iter=p.power_iter, backend=p.backend.value), p)
+            if g.number_of_nodes()
+            else AnalyticValue.Leaderboard(())
+        ),
+        lambda _: True,
+    ),
+    AnalyticSpec(
+        AnalyticOp.PAGERANK,
+        lambda g, p: (
+            _ranked(nx.pagerank(g, max_iter=p.power_iter, backend=p.backend.value), p) if g.number_of_nodes() else AnalyticValue.Leaderboard(())
+        ),
+        lambda _: True,
+    ),
+    AnalyticSpec(
+        AnalyticOp.SPANNING_WEIGHT,
+        lambda g, p: AnalyticValue.Scalar(float(nx.minimum_spanning_tree(g, backend=p.backend.value).number_of_edges())),
+        lambda m: not m.directed,
+    ),
+    AnalyticSpec(
+        AnalyticOp.CYCLES, lambda g, p: AnalyticValue.Scalar(float(sum(1 for _ in nx.simple_cycles(g, backend=p.backend.value)))), lambda _: True
+    ),
+    AnalyticSpec(
+        AnalyticOp.COMMUNITY,
+        lambda g, p: (
+            AnalyticValue.Groups(tuple(tuple(sorted(int(n) for n in c)) for c in nx.community.louvain_communities(g, backend=p.backend.value)))
+            if g.number_of_nodes()
+            else AnalyticValue.Groups(())
+        ),
+        lambda m: not m.directed,
+    ),
 )
 
 # one row per FeatureKind owning the subject the case crosses and the empty-graph ledger/ceiling the
@@ -439,12 +480,16 @@ def _project(mesh: trimesh.Trimesh, kind: FeatureKind, policy: FeaturePolicy) ->
 
 def _assemble(graph: nx.Graph, marks: Marks, kind: FeatureKind, policy: FeaturePolicy, values: Map[AnalyticOp, AnalyticValue]) -> FeatureResult:
     census = Census(
-        kind=kind, mode=policy.mode, backend=policy.backend,
-        marks=int(marks.size), nodes=graph.number_of_nodes(), edges=graph.number_of_edges(), values=values,
+        kind=kind,
+        mode=policy.mode,
+        backend=policy.backend,
+        marks=int(marks.size),
+        nodes=graph.number_of_nodes(),
+        edges=graph.number_of_edges(),
+        values=values,
     )
     return FeatureResult(
-        kind=kind, census=census, graduation_subject=CASE[kind].subject,
-        node_link=msgspec.json.encode(nx.node_link_data(graph, edges="edges")),
+        kind=kind, census=census, graduation_subject=CASE[kind].subject, node_link=msgspec.json.encode(nx.node_link_data(graph, edges="edges"))
     )
 
 
@@ -473,7 +518,9 @@ class Features(Struct, frozen=True):
         # rail through `traversed` ACCUMULATE so one fault stays addressable while every success emitted.
         match request:
             case Sequence() as batch:
-                return traversed(Block.of_seq([boundary(f"features.{item.kind}", lambda i=item: self._extract(i)) for item in batch]), by=Disposition.ACCUMULATE)
+                return traversed(
+                    Block.of_seq([boundary(f"features.{item.kind}", lambda i=item: self._extract(i)) for item in batch]), by=Disposition.ACCUMULATE
+                )
             case FeatureRequest() as single:
                 return boundary(f"features.{single.kind}", lambda: self._extract(single))
             case _ as unreachable:

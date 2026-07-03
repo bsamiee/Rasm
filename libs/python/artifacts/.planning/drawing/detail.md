@@ -64,20 +64,20 @@ _RADIUS: float = 6.0  # the default callout-bubble radius (mm) the SymbolKind pr
 
 
 class CalloutKind(StrEnum):  # selects the drawing/symbol#SYMBOL bubble the sheet's Symbol producer draws
-    DETAIL = "detail"              # a detail bubble -> a drawn detail elsewhere
-    SECTION = "section"            # a building/wall section cut -> a section drawing
-    ELEVATION = "elevation"        # an interior-elevation marker -> an elevation
-    ENLARGEMENT = "enlargement"    # an enlarged-plan window -> an enlarged plan
+    DETAIL = "detail"  # a detail bubble -> a drawn detail elsewhere
+    SECTION = "section"  # a building/wall section cut -> a section drawing
+    ELEVATION = "elevation"  # an interior-elevation marker -> an elevation
+    ENLARGEMENT = "enlargement"  # an enlarged-plan window -> an enlarged plan
     WALL_SECTION = "wall_section"  # a vertical wall-section cut
-    BLOWUP = "blowup"              # a blow-up of a small region -> a magnified detail
+    BLOWUP = "blowup"  # a blow-up of a small region -> a magnified detail
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
 class DetailRef(Struct, frozen=True):
     # the cross-reference endpoint — a detail's own identity AND a callout's target; `.cite()` is the
     # printed "3/A-501" citation both the ReferenceGraph nodes and the DetailLibrary index key on.
-    designator: str                             # the detail number/tag ("3")
-    sheet: str                                  # the sheet the detail is drawn on ("A-501")
+    designator: str  # the detail number/tag ("3")
+    sheet: str  # the sheet the detail is drawn on ("A-501")
     discipline: Discipline = Discipline.ARCHITECTURAL
 
     def cite(self) -> str:
@@ -88,9 +88,9 @@ class DetailRef(Struct, frozen=True):
 class CalloutBoundary:
     # the enlarged-region outline on the host drawing the callout leader runs from to the marker.
     tag: Literal["circle", "rectangle", "polygon", "section_line"] = tag()
-    circle: tuple[Point, float] = case()                   # center, radius — the classic detail-boundary bubble
-    rectangle: tuple[Point, Point] = case()                # corner, corner — an enlarged-plan window
-    polygon: tuple[Point, ...] = case()                    # a freeform enlarged region
+    circle: tuple[Point, float] = case()  # center, radius — the classic detail-boundary bubble
+    rectangle: tuple[Point, Point] = case()  # corner, corner — an enlarged-plan window
+    polygon: tuple[Point, ...] = case()  # a freeform enlarged region
     section_line: tuple[tuple[Point, ...], float] = case()  # cut-line vertices + bearing — a section-cut boundary
 
     def anchor(self) -> Point:
@@ -112,13 +112,13 @@ class CalloutBoundary:
 class Callout(Struct, frozen=True):
     # the reference-bearing mark: `(host, ordinal)` is the STRUCTURAL discriminant keeping two
     # identical-`target` callouts from distinct sheets DISTINCT edges under the content-keyed index.
-    host: str                   # the sheet the callout is placed on ("A-101")
-    ordinal: int                # the placement ordinal on the host — the structural edge discriminant
-    target: DetailRef           # the referenced detail
-    anchor: Point               # the callout-marker centre — the leader endpoint AND the bubble centre
-    kind: CalloutKind           # selects the SymbolKind bubble the sheet's Symbol producer draws
-    boundary: CalloutBoundary   # the enlarged-region outline
-    style: SymbolStyle          # the shared drawing/symbol#SYMBOL mark-style (palette/layer), never a DetailStyle
+    host: str  # the sheet the callout is placed on ("A-101")
+    ordinal: int  # the placement ordinal on the host — the structural edge discriminant
+    target: DetailRef  # the referenced detail
+    anchor: Point  # the callout-marker centre — the leader endpoint AND the bubble centre
+    kind: CalloutKind  # selects the SymbolKind bubble the sheet's Symbol producer draws
+    boundary: CalloutBoundary  # the enlarged-region outline
+    style: SymbolStyle  # the shared drawing/symbol#SYMBOL mark-style (palette/layer), never a DetailStyle
 
 
 @tagged_union(frozen=True)
@@ -126,9 +126,9 @@ class DetailSource:
     # how a library block is populated — an authored block reconstructs from its stored bytes, a foreign
     # detail imports (copy) or xrefs (reference) an external library drawing.
     tag: Literal["authored", "imported", "referenced"] = tag()
-    authored: None = case()      # drawn in-project; the block bytes reconstruct through Importer.import_modelspace
-    imported: str = case()       # origin path recorded at registration; the captured block bytes reconstruct (content-addressed)
-    referenced: str = case()     # linked from an external drawing (filename) through ezdxf xref.attach
+    authored: None = case()  # drawn in-project; the block bytes reconstruct through Importer.import_modelspace
+    imported: str = case()  # origin path recorded at registration; the captured block bytes reconstruct (content-addressed)
+    referenced: str = case()  # linked from an external drawing (filename) through ezdxf xref.attach
 
 
 class DetailEntry(Struct, frozen=True):
@@ -138,21 +138,48 @@ class DetailEntry(Struct, frozen=True):
     title: str
     scale: ScaleRatio
     source: DetailSource
-    block: bytes                 # the authored standalone-DXF detail body (base64) the key derives from
+    block: bytes  # the authored standalone-DXF detail body (base64) the key derives from
     key: ContentKey
-    classification: str = ""     # MasterFormat/UniFormat code — the specification/classify#CLASSIFY seam
+    classification: str = ""  # MasterFormat/UniFormat code — the specification/classify#CLASSIFY seam
     keynotes: tuple[str, ...] = ()
     revision: str = ""
 
     @classmethod
-    def authored(cls, ref: DetailRef, title: str, scale: ScaleRatio, block: bytes, /, *, classification: str = "", keynotes: tuple[str, ...] = (), revision: str = "") -> Self:
-        return cls(ref=ref, title=title, scale=scale, source=DetailSource(authored=None), block=block,
-                   key=ContentIdentity.of("drawing-detail-block", block), classification=classification, keynotes=keynotes, revision=revision)
+    def authored(
+        cls,
+        ref: DetailRef,
+        title: str,
+        scale: ScaleRatio,
+        block: bytes,
+        /,
+        *,
+        classification: str = "",
+        keynotes: tuple[str, ...] = (),
+        revision: str = "",
+    ) -> Self:
+        return cls(
+            ref=ref,
+            title=title,
+            scale=scale,
+            source=DetailSource(authored=None),
+            block=block,
+            key=ContentIdentity.of("drawing-detail-block", block),
+            classification=classification,
+            keynotes=keynotes,
+            revision=revision,
+        )
 
     @classmethod
     def imported(cls, ref: DetailRef, title: str, scale: ScaleRatio, path: str, block: bytes, /, *, classification: str = "") -> Self:
-        return cls(ref=ref, title=title, scale=scale, source=DetailSource(imported=path), block=block,
-                   key=ContentIdentity.of("drawing-detail-block", block), classification=classification)
+        return cls(
+            ref=ref,
+            title=title,
+            scale=scale,
+            source=DetailSource(imported=path),
+            block=block,
+            key=ContentIdentity.of("drawing-detail-block", block),
+            classification=classification,
+        )
 
 
 class DetailLibrary(Struct, frozen=True):
@@ -174,15 +201,15 @@ class ReferenceReport(Struct, frozen=True):
     # the cross-reference DAG evidence the receipt, the detail index, and the composition root read; the
     # raw coverage tuples are stored and `severed` DERIVES the issue-time verdict (core/plan#PLAN's
     # PipelinePlan.severed pattern — never a fatal rail, and no Option field on a wire-shaped Struct).
-    order: tuple[str, ...] = ()             # stable tie-broken citation order (lexicographical_topological_sort keyed on .cite() -> deterministic numbering)
-    generations: tuple[int, ...] = ()       # per-generation node counts (topological_generations -> index depth)
-    depth: int = 0                          # deepest cross-reference chain length (dag_longest_path) — the revision-risk sheet-hop metric a change propagates through
-    edges: int = 0                          # cross-reference edge count
-    reduced: int = 0                        # transitive-reduction edge count (the minimal cross-ref graph)
-    dangling: tuple[str, ...] = ()          # callout citations the library can't resolve
+    order: tuple[str, ...] = ()  # stable tie-broken citation order (lexicographical_topological_sort keyed on .cite() -> deterministic numbering)
+    generations: tuple[int, ...] = ()  # per-generation node counts (topological_generations -> index depth)
+    depth: int = 0  # deepest cross-reference chain length (dag_longest_path) — the revision-risk sheet-hop metric a change propagates through
+    edges: int = 0  # cross-reference edge count
+    reduced: int = 0  # transitive-reduction edge count (the minimal cross-ref graph)
+    dangling: tuple[str, ...] = ()  # callout citations the library can't resolve
     cyclic: tuple[tuple[str, str], ...] = ()  # the cross-reference cycle's (host, target) edges
-    collided: tuple[str, ...] = ()          # designators claimed by >1 distinct-content detail
-    wire: bytes = b""                       # the node_link_json content-key input
+    collided: tuple[str, ...] = ()  # designators claimed by >1 distinct-content detail
+    wire: bytes = b""  # the node_link_json content-key input
 
     @property
     def severed(self) -> "Option[DetailFault]":
@@ -197,7 +224,7 @@ class ReferenceReport(Struct, frozen=True):
 
 class Resolved(Struct, frozen=True):
     report: ReferenceReport
-    index: frozendict[str, int]             # citation -> stable rustworkx node index (the join key)
+    index: frozendict[str, int]  # citation -> stable rustworkx node index (the join key)
 
 
 # --- [ERRORS] ---------------------------------------------------------------------------
@@ -207,12 +234,12 @@ class DetailFault:
     # ReferenceReport.severed as issue-time EVIDENCE, the provider cases (foreign/render/contract) ride
     # the runtime RuntimeRail as the boundary-converted raise.
     tag: Literal["dangling", "cyclic", "collided", "foreign", "render", "contract"] = tag()
-    dangling: tuple[str, ...] = case()           # callout citations the library can't resolve
+    dangling: tuple[str, ...] = case()  # callout citations the library can't resolve
     cyclic: tuple[tuple[str, str], ...] = case()  # the cross-reference cycle's (host, target) edges
-    collided: tuple[str, ...] = case()           # designators claimed by >1 distinct-content detail
-    foreign: str = case()                        # an ezdxf Importer/xref cross-document import raise (path)
-    render: str = case()                         # a drawsvg/ezdxf render raise
-    contract: str = case()                       # the @beartype contract violation
+    collided: tuple[str, ...] = case()  # designators claimed by >1 distinct-content detail
+    foreign: str = case()  # an ezdxf Importer/xref cross-document import raise (path)
+    render: str = case()  # a drawsvg/ezdxf render raise
+    contract: str = case()  # the @beartype contract violation
 
 
 # --- [SERVICES] -------------------------------------------------------------------------
@@ -224,7 +251,9 @@ class Detail(Struct, frozen=True):
 
     @classmethod
     @beartype
-    def over(cls, callouts: Callout | Iterable[Callout], library: DetailLibrary, palette: Palette, /, *, target: SymbolTarget = SymbolTarget.SVG) -> Self:
+    def over(
+        cls, callouts: Callout | Iterable[Callout], library: DetailLibrary, palette: Palette, /, *, target: SymbolTarget = SymbolTarget.SVG
+    ) -> Self:
         match callouts:  # the one modal-arity head — a lone callout the singleton, a sheet set the multi-element
             case Callout():
                 return cls(callouts=(callouts,), library=library, palette=palette, target=target)
@@ -264,7 +293,9 @@ class Detail(Struct, frozen=True):
         # an AUTHORED set, this guards an INGESTED graph whose edges arrive pre-built through
         # parse_node_link_json, so is_directed_acyclic_graph/digraph_find_cycle are the post-hoc audit.
         graph = parse_node_link_json(wire.decode(), node_attrs=lambda d: d["cite"], edge_attrs=lambda d: d["host"])
-        return Nothing if is_directed_acyclic_graph(graph) else Some(DetailFault(cyclic=tuple((str(a), str(b)) for a, b in digraph_find_cycle(graph))))
+        return (
+            Nothing if is_directed_acyclic_graph(graph) else Some(DetailFault(cyclic=tuple((str(a), str(b)) for a, b in digraph_find_cycle(graph))))
+        )
 
     async def resolve(self) -> RuntimeRail[tuple[tuple[Layer, ...], ArtifactReceipt]]:
         return await async_boundary(f"drawing.detail.{self.target}", self._compute)
@@ -393,7 +424,10 @@ def _layer_svg(name: str, frags: list[bytes]) -> bytes:
 
 
 _ATTDEFS: tuple[tuple[str, Point], ...] = (  # the number/sheet/title/scale ATTRIB placeholders add_auto_blockref fills
-    ("DETAIL_NO", (0.0, 0.0)), ("SHEET", (0.0, -1.0)), ("TITLE", (0.0, -2.0)), ("SCALE", (0.0, -3.0)),
+    ("DETAIL_NO", (0.0, 0.0)),
+    ("SHEET", (0.0, -1.0)),
+    ("TITLE", (0.0, -2.0)),
+    ("SCALE", (0.0, -3.0)),
 )
 
 
@@ -450,14 +484,21 @@ def _dxf_engine(detail: Detail) -> tuple[tuple[Layer, ...], ArtifactReceipt]:
     for callout in detail.callouts:  # Exemption: modelspace is the GraphicsFactory sink; add_* mutate in place
         attribs = std.graphics(callout.style.layer).asdict()  # the discipline pen off the owned LayerName, exactly as symbol.md
         if detail.library.resolve(callout.target).is_some():
-            msp.add_auto_blockref(_block_name(callout.target), callout.anchor, {"DETAIL_NO": callout.target.designator, "SHEET": callout.target.sheet}, dxfattribs=attribs)
+            msp.add_auto_blockref(
+                _block_name(callout.target),
+                callout.anchor,
+                {"DETAIL_NO": callout.target.designator, "SHEET": callout.target.sheet},
+                dxfattribs=attribs,
+            )
         msp.add_line(callout.boundary.anchor(), callout.anchor, dxfattribs=attribs)
     stream = io.StringIO()
     doc.write(stream)
     box, data = _bbox(detail), stream.getvalue().encode()
     width, height = _dxf_extent(msp, box)
     key = ContentIdentity.of("drawing-detail-dxf", resolved.report.wire + data)
-    return (Layer(name="dxf", source=data, bbox=box),), ArtifactReceipt.Drawing(key, "detail", len(detail.callouts), "ezdxf", width, height, len(data))
+    return (Layer(name="dxf", source=data, bbox=box),), ArtifactReceipt.Drawing(
+        key, "detail", len(detail.callouts), "ezdxf", width, height, len(data)
+    )
 
 
 # the callout-kind -> drawing/symbol#SYMBOL bubble constructor; the single edit site a new callout reaches.
@@ -478,8 +519,16 @@ _ENGINES: frozendict[SymbolTarget, DetailEngine] = frozendict({
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 __all__ = [
-    "Callout", "CalloutBoundary", "CalloutKind", "Detail", "DetailEntry", "DetailFault",
-    "DetailLibrary", "DetailRef", "DetailSource", "ReferenceReport",
+    "Callout",
+    "CalloutBoundary",
+    "CalloutKind",
+    "Detail",
+    "DetailEntry",
+    "DetailFault",
+    "DetailLibrary",
+    "DetailRef",
+    "DetailSource",
+    "ReferenceReport",
 ]
 ```
 

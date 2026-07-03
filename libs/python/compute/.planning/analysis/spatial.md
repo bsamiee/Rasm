@@ -212,9 +212,13 @@ class SpatialQuery:
     def resolve(self) -> SpatialEvidence:
         match self:
             case SpatialQuery(tag="neighbours", neighbours=(pts, qs, k)):
-                return _proximity("neighbours", pts, qs, float(k), lambda tree: _knn_distances(np.asarray(tree.query(qs, k=k, workers=-1)[0], dtype=float)))
+                return _proximity(
+                    "neighbours", pts, qs, float(k), lambda tree: _knn_distances(np.asarray(tree.query(qs, k=k, workers=-1)[0], dtype=float))
+                )
             case SpatialQuery(tag="radius", radius=(pts, qs, r)):
-                return _proximity("radius", pts, qs, r, lambda tree: SpatialEvidence.Proximity(int(sum(len(hit) for hit in tree.query_ball_point(qs, r=r))), 0.0, r))
+                return _proximity(
+                    "radius", pts, qs, r, lambda tree: SpatialEvidence.Proximity(int(sum(len(hit) for hit in tree.query_ball_point(qs, r=r))), 0.0, r)
+                )
             case SpatialQuery(tag="pairs", pairs=(pts, r)):
                 return _pairs(pts, r)
             case SpatialQuery(tag="distances", distances=(left, right, metric)):
@@ -348,12 +352,7 @@ def _interior_point(halfspaces: np.ndarray) -> np.ndarray:
 
     a, b = halfspaces[:, :-1], halfspaces[:, -1]
     norms = np.linalg.norm(a, axis=1, keepdims=True)
-    result = linprog(
-        np.concatenate([np.zeros(a.shape[1]), [-1.0]]),
-        A_ub=np.hstack([a, norms]),
-        b_ub=-b,
-        bounds=(None, None),
-    )
+    result = linprog(np.concatenate([np.zeros(a.shape[1]), [-1.0]]), A_ub=np.hstack([a, norms]), b_ub=-b, bounds=(None, None))
     return np.asarray(result.x[:-1], dtype=float)
 
 
@@ -392,8 +391,7 @@ def solve(query: SpatialQuery) -> "RuntimeRail[SpatialReceipt]":
     # `len(pts) + len(queries)` sum the concatenated buffer's `shape[0]` carries on a two-set route.
     return ArrayPayload.admit(ArraySource.Live(query.points), (), FiniteGate.REJECT).bind(
         lambda payload: boundary(
-            f"spatial.{query.tag}",
-            lambda: SpatialReceipt.of(query.tag, query.cardinality, payload.content_key, query.resolve()),
+            f"spatial.{query.tag}", lambda: SpatialReceipt.of(query.tag, query.cardinality, payload.content_key, query.resolve())
         )
     )
 ```

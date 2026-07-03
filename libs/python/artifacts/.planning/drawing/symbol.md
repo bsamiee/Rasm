@@ -53,12 +53,10 @@ lazy from schemdraw import Drawing as Schematic, elements, segments, svgconfig, 
 # --- [TYPES] ----------------------------------------------------------------------------
 type Point = tuple[float, float]
 type Box = tuple[float, float, float, float]
-type SymbolTag = Literal[
-    "section", "elevation", "detail", "grid", "matchline", "north", "scale_bar", "revision", "keyplan", "datum", "breakline"
-]
+type SymbolTag = Literal["section", "elevation", "detail", "grid", "matchline", "north", "scale_bar", "revision", "keyplan", "datum", "breakline"]
 
 _LANES: CapacityLimiter = CapacityLimiter(os.process_cpu_count() or 4)
-_MIN_GAP: float = 0.02      # minimum t-separation keeping a dense grid-bubble run monotone and non-overlapping
+_MIN_GAP: float = 0.02  # minimum t-separation keeping a dense grid-bubble run monotone and non-overlapping
 _GLYPH: RenderPolicy = RenderPolicy(dpi=300.0)  # the sheet-cell PNG raster policy `graphic/vector#VECTOR` `rasterize` reads
 
 
@@ -76,8 +74,8 @@ class SymbolStyle(Struct, frozen=True):
     layer: LayerName
     fill: int = 0
     stroke: int = 0
-    weight: LineWeight = LineWeight.W025          # ISO 128 line-weight group `drawing/standard#STANDARD` legislates
-    text_height: TextHeight = TextHeight.H2_5     # ISO 3098 lettering height `drawing/standard#STANDARD` legislates
+    weight: LineWeight = LineWeight.W025  # ISO 128 line-weight group `drawing/standard#STANDARD` legislates
+    text_height: TextHeight = TextHeight.H2_5  # ISO 3098 lettering height `drawing/standard#STANDARD` legislates
     terminator: Terminator = Terminator.FILLED_ARROW  # ISO 129-1/128-2 line-end the section/elevation tails draw
 
 
@@ -173,11 +171,16 @@ class Symbol(Struct, frozen=True):
 def _style(mark: SymbolKind, /) -> SymbolStyle:
     match mark:  # every case's style is its last payload slot; one total projection, never a per-tag getattr
         case (
-            SymbolKind(tag="section", section=(*_, style)) | SymbolKind(tag="elevation", elevation=(*_, style))
-            | SymbolKind(tag="detail", detail=(*_, style)) | SymbolKind(tag="grid", grid=(*_, style))
-            | SymbolKind(tag="matchline", matchline=(*_, style)) | SymbolKind(tag="north", north=(*_, style))
-            | SymbolKind(tag="scale_bar", scale_bar=(*_, style)) | SymbolKind(tag="revision", revision=(*_, style))
-            | SymbolKind(tag="keyplan", keyplan=(*_, style)) | SymbolKind(tag="datum", datum=(*_, style))
+            SymbolKind(tag="section", section=(*_, style))
+            | SymbolKind(tag="elevation", elevation=(*_, style))
+            | SymbolKind(tag="detail", detail=(*_, style))
+            | SymbolKind(tag="grid", grid=(*_, style))
+            | SymbolKind(tag="matchline", matchline=(*_, style))
+            | SymbolKind(tag="north", north=(*_, style))
+            | SymbolKind(tag="scale_bar", scale_bar=(*_, style))
+            | SymbolKind(tag="revision", revision=(*_, style))
+            | SymbolKind(tag="keyplan", keyplan=(*_, style))
+            | SymbolKind(tag="datum", datum=(*_, style))
             | SymbolKind(tag="breakline", breakline=(*_, style))
         ):
             return style
@@ -190,10 +193,14 @@ def _center(mark: SymbolKind, /) -> Point:
         case SymbolKind(tag="matchline", matchline=(vertices, *_)) | SymbolKind(tag="breakline", breakline=(vertices, *_)):
             return vertices[0]
         case (
-            SymbolKind(tag="section", section=(center, *_)) | SymbolKind(tag="elevation", elevation=(center, *_))
-            | SymbolKind(tag="detail", detail=(center, *_)) | SymbolKind(tag="grid", grid=(center, *_))
-            | SymbolKind(tag="north", north=(center, *_)) | SymbolKind(tag="scale_bar", scale_bar=(center, *_))
-            | SymbolKind(tag="revision", revision=(center, *_)) | SymbolKind(tag="keyplan", keyplan=(center, *_))
+            SymbolKind(tag="section", section=(center, *_))
+            | SymbolKind(tag="elevation", elevation=(center, *_))
+            | SymbolKind(tag="detail", detail=(center, *_))
+            | SymbolKind(tag="grid", grid=(center, *_))
+            | SymbolKind(tag="north", north=(center, *_))
+            | SymbolKind(tag="scale_bar", scale_bar=(center, *_))
+            | SymbolKind(tag="revision", revision=(center, *_))
+            | SymbolKind(tag="keyplan", keyplan=(center, *_))
             | SymbolKind(tag="datum", datum=(center, *_))
         ):
             return center
@@ -204,8 +211,10 @@ def _center(mark: SymbolKind, /) -> Point:
 def _extent(mark: SymbolKind, /) -> float:
     match mark:  # the mark's characteristic half-extent, the bbox and the DXF block signature read
         case (
-            SymbolKind(tag="section", section=(_, radius, *_)) | SymbolKind(tag="elevation", elevation=(_, radius, *_))
-            | SymbolKind(tag="detail", detail=(_, radius, *_)) | SymbolKind(tag="grid", grid=(_, radius, *_))
+            SymbolKind(tag="section", section=(_, radius, *_))
+            | SymbolKind(tag="elevation", elevation=(_, radius, *_))
+            | SymbolKind(tag="detail", detail=(_, radius, *_))
+            | SymbolKind(tag="grid", grid=(_, radius, *_))
             | SymbolKind(tag="north", north=(_, radius, *_))
         ):
             return radius * 2.0
@@ -268,7 +277,9 @@ def _bisected_bubble(radius: float, upper: str, lower: str, style: SymbolStyle, 
     return sym
 
 
-def _section_element(radius: float, detail_no: str, sheet_ref: str, bearing: float, style: SymbolStyle, ramp: list[str]) -> "elements.ElementCompound":
+def _section_element(
+    radius: float, detail_no: str, sheet_ref: str, bearing: float, style: SymbolStyle, ramp: list[str]
+) -> "elements.ElementCompound":
     sym, (stroke, _fill, lw, _size) = _bisected_bubble(radius, detail_no, sheet_ref, style, ramp), _pen(style, ramp)
     tip = (radius * 2.0 * math.cos(math.radians(bearing)), radius * 2.0 * math.sin(math.radians(bearing)))
     sym.segments.append(segments.Segment([(0.0, 0.0), tip], color=stroke, lw=lw, arrow=_ARROW[style.terminator]))
@@ -281,7 +292,9 @@ def _elevation_element(radius: float, elev_no: str, sheet_ref: str, angle: float
     sym.segments.append(segments.SegmentCircle((0.0, 0.0), radius, color=stroke, lw=lw))
     point = (radius * 1.8 * math.cos(math.radians(angle)), radius * 1.8 * math.sin(math.radians(angle)))
     flank = radius * 0.5
-    sym.segments.append(segments.SegmentPoly([(0.0, 0.0), (point[0] - flank, point[1]), (point[0] + flank, point[1])], closed=True, color=stroke, fill=fill))
+    sym.segments.append(
+        segments.SegmentPoly([(0.0, 0.0), (point[0] - flank, point[1]), (point[0] + flank, point[1])], closed=True, color=stroke, fill=fill)
+    )
     sym.segments.append(segments.SegmentText((0.0, radius * 0.4), elev_no, align=("center", "center"), fontsize=size, color=stroke))
     sym.segments.append(segments.SegmentText((0.0, -radius * 0.4), sheet_ref, align=("center", "center"), fontsize=size, color=stroke))
     sym.anchors["point"] = point
@@ -308,7 +321,9 @@ def _matchline_element(vertices: tuple[Point, ...], sheet_ref: str, style: Symbo
     sym, (stroke, _fill, lw, size) = elements.ElementCompound(), _pen(style, ramp)
     origin, path = vertices[0], [(vx - vertices[0][0], vy - vertices[0][1]) for vx, vy in vertices]
     sym.segments.append(segments.Segment(path, color=stroke, lw=lw * 4.0, ls="--"))
-    sym.segments.append(segments.SegmentText(path[len(path) // 2], f"MATCH LINE — SEE {sheet_ref}", align=("center", "bottom"), fontsize=size, color=stroke))
+    sym.segments.append(
+        segments.SegmentText(path[len(path) // 2], f"MATCH LINE — SEE {sheet_ref}", align=("center", "bottom"), fontsize=size, color=stroke)
+    )
     sym.anchors["match"] = path[-1]
     return sym
 
@@ -320,8 +335,8 @@ def _north_element(radius: float, bearing: float, style: SymbolStyle, ramp: list
     rot, base = math.radians(bearing), radius * 0.42
     tip, tail = _rotate((0.0, radius), rot), _rotate((0.0, -radius * 0.25), rot)
     left, right = _rotate((-base, -radius * 0.55), rot), _rotate((base, -radius * 0.55), rot)
-    sym.segments.append(segments.SegmentPoly([tip, left, tail], closed=True, color=stroke, fill=fill))   # filled north half
-    sym.segments.append(segments.SegmentPoly([tip, right, tail], closed=True, color=stroke))             # hollow south half
+    sym.segments.append(segments.SegmentPoly([tip, left, tail], closed=True, color=stroke, fill=fill))  # filled north half
+    sym.segments.append(segments.SegmentPoly([tip, right, tail], closed=True, color=stroke))  # hollow south half
     sym.segments.append(segments.SegmentText(_rotate((0.0, radius * 1.25), rot), "N", align=("center", "center"), fontsize=size, color=stroke))
     sym.anchors["north"] = tip
     return sym
@@ -331,27 +346,46 @@ def _scale_element(length: float, seg: int, units: str, ratio: str, style: Symbo
     # the divided graphic-scale ruler — the standalone twin of `composition/sheet#SHEET` `Scale.bar`.
     sym, (stroke, fill, lw, size) = elements.ElementCompound(), _pen(style, ramp)
     step, height = length / max(seg, 1), size
-    for i in range(max(seg, 1)):  # Exemption: schemdraw builds a symbol by appending Segment* to the mutable self.segments; the alternating-fill ruler assembles in place
-        sym.segments.append(segments.SegmentPoly(
-            [(i * step, 0.0), ((i + 1) * step, 0.0), ((i + 1) * step, height), (i * step, height)],
-            closed=True, color=stroke, lw=lw, fill=fill if i % 2 else None,
-        ))
-    sym.segments.append(segments.SegmentText((length / 2.0, -height), f"0 — {length:g} {units} ({ratio})", align=("center", "top"), fontsize=size, color=stroke))
+    for i in range(
+        max(seg, 1)
+    ):  # Exemption: schemdraw builds a symbol by appending Segment* to the mutable self.segments; the alternating-fill ruler assembles in place
+        sym.segments.append(
+            segments.SegmentPoly(
+                [(i * step, 0.0), ((i + 1) * step, 0.0), ((i + 1) * step, height), (i * step, height)],
+                closed=True,
+                color=stroke,
+                lw=lw,
+                fill=fill if i % 2 else None,
+            )
+        )
+    sym.segments.append(
+        segments.SegmentText((length / 2.0, -height), f"0 — {length:g} {units} ({ratio})", align=("center", "top"), fontsize=size, color=stroke)
+    )
     return sym
 
 
 def _revision_element(size_: float, mark: str, style: SymbolStyle, ramp: list[str]) -> "elements.ElementCompound":
     sym, (stroke, _fill, lw, text) = elements.ElementCompound(), _pen(style, ramp)
-    sym.segments.append(segments.SegmentPoly([(0.0, size_), (-size_ * 0.87, -size_ * 0.5), (size_ * 0.87, -size_ * 0.5)], closed=True, color=stroke, lw=lw))
-    sym.segments.append(segments.SegmentText((0.0, -size_ * 0.05), mark, align=("center", "center"), fontsize=text, color=stroke))  # the revision number
+    sym.segments.append(
+        segments.SegmentPoly([(0.0, size_), (-size_ * 0.87, -size_ * 0.5), (size_ * 0.87, -size_ * 0.5)], closed=True, color=stroke, lw=lw)
+    )
+    sym.segments.append(
+        segments.SegmentText((0.0, -size_ * 0.05), mark, align=("center", "center"), fontsize=text, color=stroke)
+    )  # the revision number
     return sym
 
 
-def _keyplan_element(extent: tuple[float, float], parcels: tuple[Box, ...], highlight: int, style: SymbolStyle, ramp: list[str]) -> "elements.ElementCompound":
+def _keyplan_element(
+    extent: tuple[float, float], parcels: tuple[Box, ...], highlight: int, style: SymbolStyle, ramp: list[str]
+) -> "elements.ElementCompound":
     sym, (stroke, fill, lw, _size) = elements.ElementCompound(), _pen(style, ramp)
-    sym.segments.append(segments.SegmentPoly([(0.0, 0.0), (extent[0], 0.0), (extent[0], extent[1]), (0.0, extent[1])], closed=True, color=stroke, lw=lw))
+    sym.segments.append(
+        segments.SegmentPoly([(0.0, 0.0), (extent[0], 0.0), (extent[0], extent[1]), (0.0, extent[1])], closed=True, color=stroke, lw=lw)
+    )
     for index, (x0, y0, x1, y1) in enumerate(parcels):  # Exemption: the parcel rectangles assemble onto the mutable self.segments
-        sym.segments.append(segments.SegmentPoly([(x0, y0), (x1, y0), (x1, y1), (x0, y1)], closed=True, color=stroke, fill=fill if index == highlight else None))
+        sym.segments.append(
+            segments.SegmentPoly([(x0, y0), (x1, y0), (x1, y1), (x0, y1)], closed=True, color=stroke, fill=fill if index == highlight else None)
+        )
     return sym
 
 
@@ -404,7 +438,9 @@ def _grid_runs(indices: tuple[int, ...], anchors: tuple[Point, ...]) -> tuple[tu
     # than collapsing both onto one diagonal line; each bubble joins whichever band holds more collinear peers.
     rows: dict[float, list[int]] = {}
     cols: dict[float, list[int]] = {}
-    for index, (x, y) in zip(indices, anchors, strict=True):  # Exemption: the two-key co-grouping accumulates into local band dicts — the partition seam
+    for index, (x, y) in zip(
+        indices, anchors, strict=True
+    ):  # Exemption: the two-key co-grouping accumulates into local band dicts — the partition seam
         rows.setdefault(round(y, 1), []).append(index)
         cols.setdefault(round(x, 1), []).append(index)
     runs: list[tuple[int, ...]] = []
@@ -435,7 +471,9 @@ def _grid_solve(marks: tuple[SymbolKind, ...]) -> tuple[SymbolKind, ...]:
         given = tuple(math.dist(start, marks[index].grid[0]) / span for index in line)
         solver = kiwisolver.Solver()  # one independent solver per collinear run
         ts = tuple(kiwisolver.Variable(f"t{index}") for index in line)
-        solver.addConstraint((ts[0] == 0.0) | kiwisolver.strength.required)   # Exemption: kiwisolver Solver is the stateful native sink; constraints add in place
+        solver.addConstraint(
+            (ts[0] == 0.0) | kiwisolver.strength.required
+        )  # Exemption: kiwisolver Solver is the stateful native sink; constraints add in place
         solver.addConstraint((ts[-1] == 1.0) | kiwisolver.strength.required)
         for k in range(1, len(ts) - 1):
             solver.addConstraint((ts[k] == given[k]) | kiwisolver.strength.weak)
@@ -467,9 +505,16 @@ def _bbox(marks: tuple[SymbolKind, ...]) -> Box:
     corners = tuple(
         corner
         for mark in marks
-        for corner in ((_center(mark)[0] - _extent(mark), _center(mark)[1] - _extent(mark)), (_center(mark)[0] + _extent(mark), _center(mark)[1] + _extent(mark)))
+        for corner in (
+            (_center(mark)[0] - _extent(mark), _center(mark)[1] - _extent(mark)),
+            (_center(mark)[0] + _extent(mark), _center(mark)[1] + _extent(mark)),
+        )
     )
-    return (min(c[0] for c in corners), min(c[1] for c in corners), max(c[0] for c in corners), max(c[1] for c in corners)) if corners else (0.0, 0.0, 1.0, 1.0)
+    return (
+        (min(c[0] for c in corners), min(c[1] for c in corners), max(c[0] for c in corners), max(c[1] for c in corners))
+        if corners
+        else (0.0, 0.0, 1.0, 1.0)
+    )
 
 
 def _dxf_block(block: object, mark: SymbolKind) -> object:
@@ -505,8 +550,10 @@ def _dxf_block(block: object, mark: SymbolKind) -> object:
             for x0, y0, x1, y1 in parcels:  # Exemption: the parcel rectangles assemble onto the block in place
                 block.add_lwpolyline([(x0, y0), (x1, y0), (x1, y1), (x0, y1)], close=True)
         case (
-            SymbolKind(tag="section", section=(_, radius, *_)) | SymbolKind(tag="elevation", elevation=(_, radius, *_))
-            | SymbolKind(tag="detail", detail=(_, radius, *_)) | SymbolKind(tag="grid", grid=(_, radius, *_))
+            SymbolKind(tag="section", section=(_, radius, *_))
+            | SymbolKind(tag="elevation", elevation=(_, radius, *_))
+            | SymbolKind(tag="detail", detail=(_, radius, *_))
+            | SymbolKind(tag="grid", grid=(_, radius, *_))
         ):  # the bubble family — a circle carrying its number ATTRIB
             block.add_circle((0.0, 0.0), radius)
             block.add_attdef("NUMBER", (0.0, 0.0))
@@ -535,7 +582,9 @@ def _svg_engine(symbol: Symbol) -> tuple[tuple[Layer, ...], ArtifactReceipt]:
         groups.setdefault(_style(mark).layer.compose(), []).append(_svg_mark(mark, ramp))
     layers = tuple(Layer(name=name, source=_layer_svg(name, frags, box), bbox=box) for name, frags in sorted(groups.items()))
     key = ContentIdentity.of("drawing-symbol-svg", b"".join(layer.source for layer in layers))
-    return layers, ArtifactReceipt.Drawing(key, "symbol", len(symbol.marks), "drawsvg", int(box[2] - box[0]), int(box[3] - box[1]), sum(len(layer.source) for layer in layers))
+    return layers, ArtifactReceipt.Drawing(
+        key, "symbol", len(symbol.marks), "drawsvg", int(box[2] - box[0]), int(box[3] - box[1]), sum(len(layer.source) for layer in layers)
+    )
 
 
 def _dxf_engine(symbol: Symbol) -> tuple[tuple[Layer, ...], ArtifactReceipt]:
@@ -553,7 +602,9 @@ def _dxf_engine(symbol: Symbol) -> tuple[tuple[Layer, ...], ArtifactReceipt]:
     doc.write(stream)
     data, box = stream.getvalue().encode(), _bbox(symbol.marks)
     key = ContentIdentity.of("drawing-symbol-dxf", data)
-    return (Layer(name="dxf", source=data, bbox=box),), ArtifactReceipt.Drawing(key, "symbol", len(symbol.marks), "ezdxf", int(box[2] - box[0]), int(box[3] - box[1]), len(data))
+    return (Layer(name="dxf", source=data, bbox=box),), ArtifactReceipt.Drawing(
+        key, "symbol", len(symbol.marks), "ezdxf", int(box[2] - box[0]), int(box[3] - box[1]), len(data)
+    )
 
 
 _ENGINES: frozendict[SymbolTarget, Callable[[Symbol], tuple[tuple[Layer, ...], ArtifactReceipt]]] = frozendict({

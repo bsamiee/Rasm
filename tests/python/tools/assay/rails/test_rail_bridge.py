@@ -302,18 +302,28 @@ def test_read_closure_fallback_shape_is_empty() -> None:
 
 # --- [CLIENT_AND_LIFECYCLE]
 
-register_law(client_run, "runs_supervisor_project_with_single_json_envelope")
+register_law(client_run, "spawns_built_supervisor_binary_with_single_json_envelope")
+register_law(client_run, "faults_without_built_supervisor")
 register_law(bridge_lease, "serializes_bridge_resource")
 
 
-def test_client_run_invokes_canonical_supervisor_project(assay_root: AssayHarness, rail_probe: RailProbe, monkeypatch: pytest.MonkeyPatch) -> None:
-    rail_probe.install(monkeypatch, _bridge_mod, "run_check", Ok(receipt(("dotnet",), 0, stdout=_envelope())))
+def test_client_run_spawns_built_supervisor_binary(assay_root: AssayHarness, rail_probe: RailProbe, monkeypatch: pytest.MonkeyPatch) -> None:
+    rail_probe.install(monkeypatch, _bridge_mod, "run_check", Ok(receipt(("supervisor",), 0, stdout=_envelope())))
+    pivot = f"{assay_root.settings.configuration.value.lower()}_test-rid"
+    binary = Path(str(ArtifactScope.build(assay_root.settings, "bridge").path)) / "bin" / "Supervisor" / pivot / "Rasm.Bridge.Supervisor"
+    binary.parent.mkdir(parents=True, exist_ok=True)
+    binary.write_bytes(b"")
     done = assert_ok(client_run(assay_root.settings, "status"))
     check = rail_probe.checks[0]
     assert done.status is RailStatus.OK
-    assert any(Path(part).as_posix().endswith("tools/rhino-bridge/Supervisor/Supervisor.csproj") for part in check.tool.command)
+    assert check.tool.command[0] == str(binary)
     assert check.tool.command[-1] == "status"
     assert check.cwd == assay_root.root
+
+
+def test_client_run_faults_without_built_supervisor(assay_root: AssayHarness) -> None:
+    fault = assert_error_status(client_run(assay_root.settings, "status"), RailStatus.FAULTED)
+    assert "bridge build" in fault.message
 
 
 def test_bridge_lease_second_contender_sees_busy(assay_root: AssayHarness) -> None:

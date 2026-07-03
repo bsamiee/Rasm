@@ -98,23 +98,19 @@ _REDACTION: Redaction = Redaction(classified=Map.empty())
 
 # scipy lsqr/lsmr `istop`: 1/2/4/5 solved (lsmr adds 5, machine-precision exact), 3 conlim
 # ill-conditioned, 7 max-iterations — one shared table over both least-squares solvers.
-_ISTOP: FrozenDict[int, str] = FrozenDict(
-    {1: "successful", 2: "successful", 3: "conlim", 4: "successful", 5: "successful", 7: "max_steps_reached"}
-)
+_ISTOP: FrozenDict[int, str] = FrozenDict({1: "successful", 2: "successful", 3: "conlim", 4: "successful", 5: "successful", 7: "max_steps_reached"})
 
 # Structure -> lineax tag-attribute names; `_tags` resolves them against the gated module into a
 # 7 structures stay one data row each rather than 7 closures.
-_TAG_NAMES: FrozenDict[MatrixStructure, tuple[str, ...]] = FrozenDict(
-    {
-        MatrixStructure.GENERAL: (),
-        MatrixStructure.SYMMETRIC: ("symmetric_tag",),
-        MatrixStructure.SPD: ("symmetric_tag", "positive_semidefinite_tag"),
-        MatrixStructure.LOWER_TRIANGULAR: ("lower_triangular_tag",),
-        MatrixStructure.UPPER_TRIANGULAR: ("upper_triangular_tag",),
-        MatrixStructure.TRIDIAGONAL: ("tridiagonal_tag",),
-        MatrixStructure.DIAGONAL: ("diagonal_tag",),
-    }
-)
+_TAG_NAMES: FrozenDict[MatrixStructure, tuple[str, ...]] = FrozenDict({
+    MatrixStructure.GENERAL: (),
+    MatrixStructure.SYMMETRIC: ("symmetric_tag",),
+    MatrixStructure.SPD: ("symmetric_tag", "positive_semidefinite_tag"),
+    MatrixStructure.LOWER_TRIANGULAR: ("lower_triangular_tag",),
+    MatrixStructure.UPPER_TRIANGULAR: ("upper_triangular_tag",),
+    MatrixStructure.TRIDIAGONAL: ("tridiagonal_tag",),
+    MatrixStructure.DIAGONAL: ("diagonal_tag",),
+})
 
 
 # scipy Krylov `info`: 0 converged, >0 max-iterations, <0 illegal-input/breakdown.
@@ -143,6 +139,7 @@ def _spd_free(m: "LinearMap") -> bool:
 
 
 # --- [MODELS] ------------------------------------------------------------------------------
+
 
 # One tuning value object over every route: the Krylov/lsqr/lineax tolerance, the Krylov iteration
 # cap, the optional matrix-free preconditioner, and the multi-RHS sweep flag. The scheme discriminant
@@ -175,8 +172,7 @@ class LinearMap:
 
     @staticmethod
     def Free(
-        matvec: Matvec, shape: tuple[int, int], rmatvec: Matvec | None = None,
-        structure: MatrixStructure = MatrixStructure.GENERAL,
+        matvec: Matvec, shape: tuple[int, int], rmatvec: Matvec | None = None, structure: MatrixStructure = MatrixStructure.GENERAL
     ) -> "LinearMap":
         return LinearMap(free=(matvec, shape, rmatvec, structure))
 
@@ -395,9 +391,7 @@ class LinearIntent:
         return LinearIntent(eigen=(matrix, k, mode))
 
     @staticmethod
-    def Operator(
-        matrix: LinearMap, rhs: np.ndarray, shape: SolveShape = SolveShape.SQUARE, policy: LinearPolicy = LinearPolicy()
-    ) -> "LinearIntent":
+    def Operator(matrix: LinearMap, rhs: np.ndarray, shape: SolveShape = SolveShape.SQUARE, policy: LinearPolicy = LinearPolicy()) -> "LinearIntent":
         return LinearIntent(operator=(matrix, rhs, shape, policy))
 
     def solve(self) -> "RuntimeRail[SolverReceipt]":
@@ -477,9 +471,7 @@ def _sparse_receipt(m: LinearMap, b: np.ndarray, scheme: SparseScheme, policy: L
             # with the iterate, so `len(steps)` is the true iteration count comparable to the
             # cg/bicgstab per-iteration callback rather than the `"pr_norm"` per-inner-step default.
             extra = {"callback_type": "x"} if kind is KrylovKind.GMRES else {}
-            x, info = getattr(spla, kind.value)(
-                op, b, rtol=policy.tol, maxiter=policy.maxiter, M=pre, callback=lambda *_: steps.append(1), **extra
-            )
+            x, info = getattr(spla, kind.value)(op, b, rtol=policy.tol, maxiter=policy.maxiter, M=pre, callback=lambda *_: steps.append(1), **extra)
             return SolverReceipt.Iterative(m.residual(x, b), len(steps), policy.tol, result=_info_status(int(info)))
         # `lsqr` and `lsmr` are the two catalogued sparse least-squares solvers — both return
         # `(x, istop, itn, normr, ...)` with the same `istop` vocabulary, so one or-pattern folds both.

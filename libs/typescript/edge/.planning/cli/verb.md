@@ -1,0 +1,1 @@
+# [EDGE_VERB] — verb contribution families under the one assembly law — the app assembles exactly one Command root from selected families; doctor/replay/inspect ship as the lib ops family, executing over host/exec

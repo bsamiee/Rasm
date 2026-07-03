@@ -29,7 +29,12 @@ from rasm.runtime.faults import RuntimeRail, async_boundary
 from rasm.runtime.lanes import WORKER_BAND
 
 from artifacts.core.receipt import ArtifactReceipt
-from artifacts.media.container import MediaEvidence, MediaFault, MediaProfile, _WORKER_RETRY  # the shared spine family + the ONE transient-death retry policy, imported not re-minted
+from artifacts.media.container import (
+    MediaEvidence,
+    MediaFault,
+    MediaProfile,
+    _WORKER_RETRY,
+)  # the shared spine family + the ONE transient-death retry policy, imported not re-minted
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -39,17 +44,17 @@ type TimelineOpTag = Literal["trim", "concat", "segment", "xfade"]
 
 
 class Clip(Struct, frozen=True):
-    data: bytes                          # the encoded clip bytes a worker decodes/demuxes
-    key: ContentKey                      # the parent artifact key the clip producer minted; Timeline.parents projects it
+    data: bytes  # the encoded clip bytes a worker decodes/demuxes
+    key: ContentKey  # the parent artifact key the clip producer minted; Timeline.parents projects it
 
 
 @tagged_union(frozen=True)
 class TimelineOp:
     tag: TimelineOpTag = tag()
-    trim: tuple[Clip, float, float] = case()                 # (clip, in_point, out_point)
-    concat: tuple[Clip, ...] = case()                        # ordered clips joined lossless-or-reencoded by param match
-    segment: tuple[Clip, tuple[float, ...]] = case()         # (clip, cut boundaries)
-    xfade: tuple[Clip, Clip, float, float, str] = case()     # (under, over, offset, duration, transition)
+    trim: tuple[Clip, float, float] = case()  # (clip, in_point, out_point)
+    concat: tuple[Clip, ...] = case()  # ordered clips joined lossless-or-reencoded by param match
+    segment: tuple[Clip, tuple[float, ...]] = case()  # (clip, cut boundaries)
+    xfade: tuple[Clip, Clip, float, float, str] = case()  # (under, over, offset, duration, transition)
 
     @staticmethod
     def Trim(clip: Clip, in_point: float, out_point: float, /) -> "TimelineOp":
@@ -101,7 +106,16 @@ class Timeline(Struct, frozen=True):
     def _keyed(self, produced: tuple[bytes, MediaEvidence], /) -> tuple[ContentKey, ArtifactReceipt]:
         blob, evidence = produced
         key = ContentIdentity.of(evidence.container.value, blob)
-        return key, ArtifactReceipt.Media(key, evidence.container.value, evidence.codec, evidence.duration, evidence.byte_count, evidence.frame_count, evidence.bit_rate, evidence.facts)
+        return key, ArtifactReceipt.Media(
+            key,
+            evidence.container.value,
+            evidence.codec,
+            evidence.duration,
+            evidence.byte_count,
+            evidence.frame_count,
+            evidence.bit_rate,
+            evidence.facts,
+        )
 
     async def _mux(self) -> Result[tuple[bytes, MediaEvidence], MediaFault]:
         profile = self.profile
@@ -114,7 +128,9 @@ class Timeline(Struct, frozen=True):
                 case TimelineOp(tag="segment", segment=(clip, cuts)):
                     return await _WORKER_RETRY(to_process.run_sync, _segment, clip.data, cuts, profile, limiter=WORKER_BAND)
                 case TimelineOp(tag="xfade", xfade=(under, over, offset, duration, transition)):
-                    return await _WORKER_RETRY(to_process.run_sync, _xfade, under.data, over.data, offset, duration, transition, profile, limiter=WORKER_BAND)
+                    return await _WORKER_RETRY(
+                        to_process.run_sync, _xfade, under.data, over.data, offset, duration, transition, profile, limiter=WORKER_BAND
+                    )
                 case _:
                     assert_never(self.op)
         except BrokenWorkerProcess as broken:
@@ -138,8 +154,16 @@ from expression import Error, Ok, Result
 lazy import av
 lazy import av.error
 lazy from artifacts.media.container import (
-    ContainerFormat, MediaEvidence, MediaFault, MediaProfile, SegmentSpec,
-    _decode_video, _decode_window, _deployment, _encode_video, _media_fault,
+    ContainerFormat,
+    MediaEvidence,
+    MediaFault,
+    MediaProfile,
+    SegmentSpec,
+    _decode_video,
+    _decode_window,
+    _deployment,
+    _encode_video,
+    _media_fault,
 )
 lazy from artifacts.media.filtergraph import cross_dissolve
 
@@ -166,7 +190,9 @@ def _params(clip: bytes, /) -> tuple[str, int, int, str, str]:
 def _trim(clip: bytes, in_point: float, out_point: float, profile: MediaProfile) -> Result[tuple[bytes, MediaEvidence], MediaFault]:
     frames, _rate = _decode_window(clip, in_point, out_point)  # container: _seek + flush + keep [in, out) — the frame-accurate window
     facts = frozendict({"clips": 1.0, "trimmed_seconds": out_point - in_point})
-    return _encode_video(frames, profile).map(lambda produced: (produced[0], _augment(produced[1], facts)))  # 0-based _drive pts = setpts=PTS-STARTPTS
+    return _encode_video(frames, profile).map(
+        lambda produced: (produced[0], _augment(produced[1], facts))
+    )  # 0-based _drive pts = setpts=PTS-STARTPTS
 
 
 @beartype
@@ -192,7 +218,18 @@ def _packet_concat(clips: tuple[bytes, ...], profile: MediaProfile) -> Result[tu
                         out.mux_one(packet)
                     offset = last
         blob = sink.getvalue()
-        return Ok((blob, MediaEvidence.measure(profile.container, profile.codec, float(offset), len(clips), int(profile.bit_rate or 0), blob, _deployment(profile) | {"clips": float(len(clips)), "strategy": "packet"})))
+        return Ok((
+            blob,
+            MediaEvidence.measure(
+                profile.container,
+                profile.codec,
+                float(offset),
+                len(clips),
+                int(profile.bit_rate or 0),
+                blob,
+                _deployment(profile) | {"clips": float(len(clips)), "strategy": "packet"},
+            ),
+        ))
     except ImportError as exc:
         return Error(MediaFault(provision=str(exc)))
     except av.error.FFmpegError as exc:
@@ -225,7 +262,8 @@ def _segment(clip: bytes, cuts: tuple[float, ...], profile: MediaProfile) -> Res
     frames, _rate = _decode_video(clip)
     seg = profile.segment
     segment_profile = msgspec.structs.replace(
-        profile, container=ContainerFormat.SEGMENT,
+        profile,
+        container=ContainerFormat.SEGMENT,
         segment=msgspec.structs.replace(seg, options=seg.options | {"segment_times": ",".join(f"{c:.3f}" for c in cuts)}),
     )
     facts = frozendict({"clips": 1.0, "segments": float(len(cuts) + 1)})
@@ -233,7 +271,9 @@ def _segment(clip: bytes, cuts: tuple[float, ...], profile: MediaProfile) -> Res
 
 
 @beartype
-def _xfade(under: bytes, over: bytes, offset: float, duration: float, transition: str, profile: MediaProfile) -> Result[tuple[bytes, MediaEvidence], MediaFault]:
+def _xfade(
+    under: bytes, over: bytes, offset: float, duration: float, transition: str, profile: MediaProfile
+) -> Result[tuple[bytes, MediaEvidence], MediaFault]:
     # the transition: decode both clips, cross-dissolve the overlapping window through the filtergraph numpy substitute
     # (native xfade refuses in-process configure on av 17.1.0), re-encode the joined stream; the audio acrossfade leg grows here.
     under_frames, rate = _decode_video(under)

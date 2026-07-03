@@ -204,9 +204,7 @@ class SymbolSpec(Struct, frozen=True):
         # Each free variable carries its own declared assumption as a `Symbol` kwarg, so
         # `Refine`/`solveset` reason under the same context rather than a post-hoc filter.
         return tuple(
-            self.assume.try_find(name)
-            .map(lambda p: sym.Symbol(name, **{p.value: True}))
-            .default_with(lambda: sym.Symbol(name))
+            self.assume.try_find(name).map(lambda p: sym.Symbol(name, **{p.value: True})).default_with(lambda: sym.Symbol(name))
             for name in self.names
         )
 
@@ -346,7 +344,9 @@ class SymbolicOp:
         return SymbolicOp(refine=predicate)
 
     @staticmethod
-    def Solve(route: SolveRoute = SolveRoute.SOLVE, domain: SolveDomain = SolveDomain.COMPLEXES, ground: GroundDomain = GroundDomain.SYMPY) -> "SymbolicOp":
+    def Solve(
+        route: SolveRoute = SolveRoute.SOLVE, domain: SolveDomain = SolveDomain.COMPLEXES, ground: GroundDomain = GroundDomain.SYMPY
+    ) -> "SymbolicOp":
         return SymbolicOp(solve=(route, domain, ground))
 
     @staticmethod
@@ -380,20 +380,13 @@ class SymbolicOp:
                 return f"{mode.value}/{sorted(mapping.items())}"
             case SymbolicOp(tag="solve", solve=(route, domain, ground)):
                 return f"{route.value}/{domain.value}/{ground.value}"
-            case (
-                SymbolicOp(tag="linalg", linalg=(route, ground))
-                | SymbolicOp(tag="number", number=(route, ground))
-            ):
+            case SymbolicOp(tag="linalg", linalg=(route, ground)) | SymbolicOp(tag="number", number=(route, ground)):
                 return f"{route.value}/{ground.value}"
             case SymbolicOp(tag="evaluate", evaluate=(digits, precision)):
                 return f"{digits}/{precision.value}"
             case SymbolicOp(tag="codegen", codegen=(target, name)):
                 return f"{target.value}/{name}"
-            case (
-                SymbolicOp(tag="rewrite", rewrite=value)
-                | SymbolicOp(tag="refine", refine=value)
-                | SymbolicOp(tag="lower", lower=value)
-            ):
+            case SymbolicOp(tag="rewrite", rewrite=value) | SymbolicOp(tag="refine", refine=value) | SymbolicOp(tag="lower", lower=value):
                 # the single-field staging/terminal cases each carry one `StrEnum`; an or-pattern
                 # binds the lone payload so the canonical spelling reads its `.value` rather than a
                 # `str(getattr(self, self.tag))` reflection that escapes the exhaustive match.
@@ -458,9 +451,15 @@ _CALCULUS: Final[Map[CalculusKind, Callable[[object, "Expr", "Expr", int], "Expr
 # The `MatrixRoute` subset `fmpq_mat` owns an exact-over-ℚ kernel for; the eigen/singular/QR/
 # cholesky/diagonalize/jordan/pinv/LU routes have no exact rational analogue and stay on the
 # symbolic kernel, so a `GroundDomain.FLINT` request outside this set never calls a phantom method.
-_FLINT_MATRIX_ROUTES: Final[frozenset[MatrixRoute]] = frozenset(
-    {MatrixRoute.DETERMINANT, MatrixRoute.RANK, MatrixRoute.CHARPOLY, MatrixRoute.MINPOLY, MatrixRoute.INVERSE, MatrixRoute.RREF, MatrixRoute.NULLSPACE}
-)
+_FLINT_MATRIX_ROUTES: Final[frozenset[MatrixRoute]] = frozenset({
+    MatrixRoute.DETERMINANT,
+    MatrixRoute.RANK,
+    MatrixRoute.CHARPOLY,
+    MatrixRoute.MINPOLY,
+    MatrixRoute.INVERSE,
+    MatrixRoute.RREF,
+    MatrixRoute.NULLSPACE,
+})
 
 # Source-printer dispatch keyed by target: one polymorphic codegen surface selecting the
 # per-language printer, never a parallel emitter per language.

@@ -66,8 +66,7 @@ type Segment = tuple[Point, Point]
 type Box = tuple[float, float, float, float]
 type Override = dict[str, object]
 type DimTag = Literal[
-    "linear", "aligned", "angular2l", "angular3p", "angularcra", "radius",
-    "diameter", "ordinate", "arc3p", "arccra", "chain", "baseline",
+    "linear", "aligned", "angular2l", "angular3p", "angularcra", "radius", "diameter", "ordinate", "arc3p", "arccra", "chain", "baseline"
 ]
 type TolTag = Literal["auto", "custom", "symmetric", "deviation", "limits", "basic"]
 type DimArm = Callable[["Dimension"], tuple[tuple[Layer, ...], ArtifactReceipt]]  # the target-keyed lowering arm
@@ -78,15 +77,15 @@ _LANES: CapacityLimiter = CapacityLimiter(os.process_cpu_count() or 4)
 # composition/sheet#SHEET `_FAULTS` pattern); the runtime `async_boundary` classifies each into `BoundaryFault`,
 # the closed fault vocabulary this seam, never a parallel `DimFault` Literal the boundary never reads.
 _FAULTS: tuple[type[Exception], ...] = (ValueError, KeyError, TypeError, OSError)
-_PRECISION: int = 3    # ziafont/ziamath emitted-d-float places — the content-key determinism lever set once per offloaded LAYERED arm
+_PRECISION: int = 3  # ziafont/ziamath emitted-d-float places — the content-key determinism lever set once per offloaded LAYERED arm
 _SAGITTA: float = 0.05  # LAYERED arc/circle flattening tolerance (mm) — ezdxf.math adaptive `.flattening` chord height
 _ARC_SPAN: float = 30.0  # reference-arc half-span (deg) a radial dimension draws around its leader angle
 
 
 class DimTarget(StrEnum):  # the dual-lowering egress — a new target is one `_ENGINES` row, never a subtype
-    DXF = "dxf"        # ezdxf Drawing.write CAD blob
-    SVG = "svg"        # SVGBackend.get_string native render
-    PDF = "pdf"        # PyMuPdfBackend.get_pdf_bytes native render
+    DXF = "dxf"  # ezdxf Drawing.write CAD blob
+    SVG = "svg"  # SVGBackend.get_string native render
+    PDF = "pdf"  # PyMuPdfBackend.get_pdf_bytes native render
     LAYERED = "layered"  # ezdxf.math + vector + ziafont + ziamath named export/layered Layer rows
 
 
@@ -101,12 +100,12 @@ class DimTol:
     # the ISO 129-1 tolerance/annotation family every DimOp facet carries; lowered by mode to the
     # native dimtol/dimlim/MTextEditor mechanisms, never a hand-formatted `± value` string.
     tag: TolTag = tag()
-    auto: None = case()               # the raw `<>` measurement
-    custom: str = case()              # an explicit override string
-    symmetric: float = case()         # a ± symmetric band -> dimtol
+    auto: None = case()  # the raw `<>` measurement
+    custom: str = case()  # an explicit override string
+    symmetric: float = case()  # a ± symmetric band -> dimtol
     deviation: tuple[float, float] = case()  # upper/lower -> MTextEditor.stack
-    limits: tuple[float, float] = case()     # stacked max/min -> dimlim
-    basic: float = case()             # a boxed theoretically-exact value -> negative dimgap
+    limits: tuple[float, float] = case()  # stacked max/min -> dimlim
+    basic: float = case()  # a boxed theoretically-exact value -> negative dimgap
 
 
 class DimBackend(Struct, frozen=True):
@@ -149,7 +148,9 @@ class DimOp:
         return DimOp(angular3p=(base, center, p1, p2, family, tol))
 
     @staticmethod
-    def AngularCRA(center: Point, radius: float, start: float, end: float, distance: float, family: DimStyleFamily, *, tol: DimTol = DimTol(auto=None)) -> "DimOp":
+    def AngularCRA(
+        center: Point, radius: float, start: float, end: float, distance: float, family: DimStyleFamily, *, tol: DimTol = DimTol(auto=None)
+    ) -> "DimOp":
         return DimOp(angularcra=(center, radius, start, end, distance, family, tol))
 
     @staticmethod
@@ -161,7 +162,15 @@ class DimOp:
         return DimOp(diameter=(center, radius, angle, family, tol))
 
     @staticmethod
-    def Ordinate(feature: Point, offset: Point, family: DimStyleFamily, *, axis: OrdinateAxis = OrdinateAxis.X, origin: Point = (0.0, 0.0), tol: DimTol = DimTol(auto=None)) -> "DimOp":
+    def Ordinate(
+        feature: Point,
+        offset: Point,
+        family: DimStyleFamily,
+        *,
+        axis: OrdinateAxis = OrdinateAxis.X,
+        origin: Point = (0.0, 0.0),
+        tol: DimTol = DimTol(auto=None),
+    ) -> "DimOp":
         return DimOp(ordinate=(feature, offset, axis, origin, family, tol))
 
     @staticmethod
@@ -169,7 +178,9 @@ class DimOp:
         return DimOp(arc3p=(base, center, p1, p2, family, tol))
 
     @staticmethod
-    def ArcCRA(center: Point, radius: float, start: float, end: float, distance: float, family: DimStyleFamily, *, tol: DimTol = DimTol(auto=None)) -> "DimOp":
+    def ArcCRA(
+        center: Point, radius: float, start: float, end: float, distance: float, family: DimStyleFamily, *, tol: DimTol = DimTol(auto=None)
+    ) -> "DimOp":
         return DimOp(arccra=(center, radius, start, end, distance, family, tol))
 
     @staticmethod
@@ -177,7 +188,9 @@ class DimOp:
         return DimOp(chain=(base, points, angle, family, tol))
 
     @staticmethod
-    def Baseline(base: Point, datum: Point, points: tuple[Point, ...], family: DimStyleFamily, *, angle: float = 0.0, tol: DimTol = DimTol(auto=None)) -> "DimOp":
+    def Baseline(
+        base: Point, datum: Point, points: tuple[Point, ...], family: DimStyleFamily, *, angle: float = 0.0, tol: DimTol = DimTol(auto=None)
+    ) -> "DimOp":
         return DimOp(baseline=(base, datum, points, angle, family, tol))
 
 
@@ -210,12 +223,18 @@ class Dimension(Struct, frozen=True):
 def _facets(op: DimOp, /) -> tuple[DimStyleFamily, DimTol]:
     match op:  # every case's (family, tol) is its last two payload slots; one total projection
         case (
-            DimOp(tag="linear", linear=(*_, family, tol)) | DimOp(tag="aligned", aligned=(*_, family, tol))
-            | DimOp(tag="angular2l", angular2l=(*_, family, tol)) | DimOp(tag="angular3p", angular3p=(*_, family, tol))
-            | DimOp(tag="angularcra", angularcra=(*_, family, tol)) | DimOp(tag="radius", radius=(*_, family, tol))
-            | DimOp(tag="diameter", diameter=(*_, family, tol)) | DimOp(tag="ordinate", ordinate=(*_, family, tol))
-            | DimOp(tag="arc3p", arc3p=(*_, family, tol)) | DimOp(tag="arccra", arccra=(*_, family, tol))
-            | DimOp(tag="chain", chain=(*_, family, tol)) | DimOp(tag="baseline", baseline=(*_, family, tol))
+            DimOp(tag="linear", linear=(*_, family, tol))
+            | DimOp(tag="aligned", aligned=(*_, family, tol))
+            | DimOp(tag="angular2l", angular2l=(*_, family, tol))
+            | DimOp(tag="angular3p", angular3p=(*_, family, tol))
+            | DimOp(tag="angularcra", angularcra=(*_, family, tol))
+            | DimOp(tag="radius", radius=(*_, family, tol))
+            | DimOp(tag="diameter", diameter=(*_, family, tol))
+            | DimOp(tag="ordinate", ordinate=(*_, family, tol))
+            | DimOp(tag="arc3p", arc3p=(*_, family, tol))
+            | DimOp(tag="arccra", arccra=(*_, family, tol))
+            | DimOp(tag="chain", chain=(*_, family, tol))
+            | DimOp(tag="baseline", baseline=(*_, family, tol))
         ):
             return family, tol
         case _ as unreachable:
@@ -275,7 +294,9 @@ def _stack(dim: Dimension, /) -> Map[int, float]:
     gap = kiwisolver.strength.create(0.0, 1.0, 0.0, 4.0)
     even = tuple((offsets[upper] - offsets[lower] == step) | gap for lower, upper in pairwise(lanes))
     solver.addConstraint(offsets[lanes[0]] == step)
-    for (lower, upper), soft in zip(pairwise(lanes), even, strict=True):  # Exemption: kiwisolver.Solver is the stateful native sink; constraints add in place
+    for (lower, upper), soft in zip(
+        pairwise(lanes), even, strict=True
+    ):  # Exemption: kiwisolver.Solver is the stateful native sink; constraints add in place
         solver.addConstraint(offsets[upper] - offsets[lower] >= step)
         solver.addConstraint(soft)
     solver.updateVariables()
@@ -300,23 +321,37 @@ def _lower(msp: "Modelspace", op: DimOp, standard: Standard, offset: float | Non
         case DimOp(tag="angular3p", angular3p=(base, center, p1, p2, _family, _tol)):
             msp.add_angular_dim_3p(base=base, center=center, p1=p1, p2=p2, text=text, dimstyle=style, override=over).render()
         case DimOp(tag="angularcra", angularcra=(center, radius, start, end, distance, _family, _tol)):
-            msp.add_angular_dim_cra(center=center, radius=radius, start_angle=start, end_angle=end, distance=distance, text=text, dimstyle=style, override=over).render()
+            msp.add_angular_dim_cra(
+                center=center, radius=radius, start_angle=start, end_angle=end, distance=distance, text=text, dimstyle=style, override=over
+            ).render()
         case DimOp(tag="radius", radius=(center, radius, angle, _family, _tol)):
             msp.add_radius_dim(center=center, radius=radius, angle=angle, text=text, dimstyle=style, override=over).render()
         case DimOp(tag="diameter", diameter=(center, radius, angle, _family, _tol)):
             msp.add_diameter_dim(center=center, radius=radius, angle=angle, text=text, dimstyle=style, override=over).render()
         case DimOp(tag="ordinate", ordinate=(feature, feat_offset, axis, origin, _family, _tol)):
-            (msp.add_ordinate_x_dim if axis is OrdinateAxis.X else msp.add_ordinate_y_dim)(feature_location=feature, offset=feat_offset, origin=origin, text=text, dimstyle=style, override=over).render()
+            (msp.add_ordinate_x_dim if axis is OrdinateAxis.X else msp.add_ordinate_y_dim)(
+                feature_location=feature, offset=feat_offset, origin=origin, text=text, dimstyle=style, override=over
+            ).render()
         case DimOp(tag="arc3p", arc3p=(base, center, p1, p2, _family, _tol)):
             msp.add_arc_dim_3p(base=base, center=center, p1=p1, p2=p2, text=text, dimstyle=style, override=over).render()
         case DimOp(tag="arccra", arccra=(center, radius, start, end, distance, _family, _tol)):
-            msp.add_arc_dim_cra(center=center, radius=radius, start_angle=start, end_angle=end, distance=distance, text=text, dimstyle=style, override=over).render()
+            msp.add_arc_dim_cra(
+                center=center, radius=radius, start_angle=start, end_angle=end, distance=distance, text=text, dimstyle=style, override=over
+            ).render()
         case DimOp(tag="chain", chain=(base, points, angle, _family, _tol)):
             msp.add_multi_point_linear_dim(base=base, points=list(points), angle=angle, dimstyle=style, override=over)
         case DimOp(tag="baseline", baseline=(base, datum, points, angle, _family, _tol)):
             step = float(over.get("dimdli", 8.0))
             for index, point in enumerate(points):  # Exemption: baseline has no single ezdxf builder; each line steps by DIMDLI from one datum
-                msp.add_linear_dim(base=_shifted(base, datum, point, (offset or step) + index * step), p1=datum, p2=point, angle=angle, text=text, dimstyle=style, override=over).render()
+                msp.add_linear_dim(
+                    base=_shifted(base, datum, point, (offset or step) + index * step),
+                    p1=datum,
+                    p2=point,
+                    angle=angle,
+                    text=text,
+                    dimstyle=style,
+                    override=over,
+                ).render()
         case _ as unreachable:
             assert_never(unreachable)
 
@@ -406,10 +441,7 @@ def _offset(point: Point, normal: Point, distance: float, /) -> Point:
 
 def _bounds(points: Iterable[Point], /) -> Box:
     pts = tuple(points)
-    return (
-        (min(p[0] for p in pts), min(p[1] for p in pts), max(p[0] for p in pts), max(p[1] for p in pts))
-        if pts else (0.0, 0.0, 0.0, 0.0)
-    )
+    return (min(p[0] for p in pts), min(p[1] for p in pts), max(p[0] for p in pts), max(p[1] for p in pts)) if pts else (0.0, 0.0, 0.0, 0.0)
 
 
 def _union(left: Box, right: Box, /) -> Box:
@@ -557,7 +589,8 @@ def _native(dim: Dimension, /) -> tuple[tuple[Layer, ...], ArtifactReceipt]:
     data = backend.egress(doc, msp, width, height)
     key = ContentIdentity.of(f"drawing-dimension-{dim.target}", data)
     receipt: ArtifactReceipt = (
-        ArtifactReceipt.Pdf(key, len(data), 1) if backend.kind == "pdf"
+        ArtifactReceipt.Pdf(key, len(data), 1)
+        if backend.kind == "pdf"
         else ArtifactReceipt.Drawing(key, "drawing-dimension", count, dimstyle, round(width), round(height), len(data))
     )
     return (Layer(name=f"dimension.{dim.target.value}", source=data, bbox=(0.0, 0.0, width, height)),), receipt
@@ -575,28 +608,33 @@ def _construction(op: DimOp, over: Override, /) -> tuple[Block[bytes], Box]:
             return Block.of_seq((_polyline(verts), _polyline((far, edge)))), _bounds((*verts, edge, far))
         case DimOp(tag="radius", radius=(center, radius, angle, *_)):
             edge = _polar(center, radius, angle)
-            verts = _arc_verts(ezmath.ConstructionArc(center, radius, angle - _ARC_SPAN, angle + _ARC_SPAN))  # the R leader + the reference arc it measures
+            verts = _arc_verts(
+                ezmath.ConstructionArc(center, radius, angle - _ARC_SPAN, angle + _ARC_SPAN)
+            )  # the R leader + the reference arc it measures
             return Block.of_seq((_polyline(verts), _polyline((center, edge)))), _bounds((*verts, center, edge))
-        case (
-            DimOp(tag="angular3p", angular3p=(_base, center, p1, p2, *_))
-            | DimOp(tag="arc3p", arc3p=(_base, center, p1, p2, *_))
-        ):
+        case DimOp(tag="angular3p", angular3p=(_base, center, p1, p2, *_)) | DimOp(tag="arc3p", arc3p=(_base, center, p1, p2, *_)):
             radius = float(np.hypot(p1[0] - center[0], p1[1] - center[1]))
-            verts = _arc_verts(ezmath.ConstructionArc(center, radius, _angle_of(center, p1), _angle_of(center, p2)))  # the two legs + the measured arc
+            verts = _arc_verts(
+                ezmath.ConstructionArc(center, radius, _angle_of(center, p1), _angle_of(center, p2))
+            )  # the two legs + the measured arc
             return Block.of_seq((_polyline(verts), _polyline((center, p1)), _polyline((center, p2)))), _bounds((*verts, center, p1, p2))
-        case (
-            DimOp(tag="angularcra", angularcra=(center, radius, start, end, *_))
-            | DimOp(tag="arccra", arccra=(center, radius, start, end, *_))
-        ):
+        case DimOp(tag="angularcra", angularcra=(center, radius, start, end, *_)) | DimOp(tag="arccra", arccra=(center, radius, start, end, *_)):
             lo_pt, hi_pt = _polar(center, radius, start), _polar(center, radius, end)
             verts = _arc_verts(ezmath.ConstructionArc(center, radius, start, end))
             return Block.of_seq((_polyline(verts), _polyline((center, lo_pt)), _polyline((center, hi_pt)))), _bounds((*verts, center, lo_pt, hi_pt))
         case DimOp(tag="angular2l", angular2l=(_base, line1, line2, *_)):
             vertex = ezmath.ConstructionLine(line1[0], line1[1]).intersect(ezmath.ConstructionLine(line2[0], line2[1]))
-            apex = (float(vertex.x), float(vertex.y)) if vertex is not None else ((line1[1][0] + line2[1][0]) / 2.0, (line1[1][1] + line2[1][1]) / 2.0)
+            apex = (
+                (float(vertex.x), float(vertex.y)) if vertex is not None else ((line1[1][0] + line2[1][0]) / 2.0, (line1[1][1] + line2[1][1]) / 2.0)
+            )
             radius = float(np.hypot(line1[1][0] - apex[0], line1[1][1] - apex[1]))
             verts = _arc_verts(ezmath.ConstructionArc(apex, radius, _angle_of(apex, line1[1]), _angle_of(apex, line2[1])))
-            return Block.of_seq((_polyline(verts), _polyline((apex, line1[1])), _polyline((apex, line2[1])))), _bounds((*verts, apex, line1[1], line2[1]))
+            return Block.of_seq((_polyline(verts), _polyline((apex, line1[1])), _polyline((apex, line2[1])))), _bounds((
+                *verts,
+                apex,
+                line1[1],
+                line2[1],
+            ))
         case _:
             ext = float(over.get("dimexe", 1.25))
             (start, finish), normal = _measured(op)
@@ -658,7 +696,9 @@ def _tolerance_layer(dim: Dimension, pen: str, /) -> Layer:
 def _layered(dim: Dimension, /) -> tuple[tuple[Layer, ...], ArtifactReceipt]:
     # decompose each dimension into named editable layers over the component authors; the geometry layer
     # buckets every op's construction lines, and the terminator/text/tolerance layers ride their own owners.
-    ziafont.config.precision = ziamath.config.precision = _PRECISION  # set once inside the serialized offload lane — deterministic d-floats -> stable content key
+    ziafont.config.precision = ziamath.config.precision = (
+        _PRECISION  # set once inside the serialized offload lane — deterministic d-floats -> stable content key
+    )
     geometry, pen = Block.empty(), _pen(dim.standard)
     envelope = _scene_box(dim)
     for op in dim.ops:
@@ -667,10 +707,20 @@ def _layered(dim: Dimension, /) -> tuple[tuple[Layer, ...], ArtifactReceipt]:
         envelope = _union(envelope, box)
     layers = (
         Layer(name="dimension-line", source=_svg(tuple(geometry), envelope, pen), bbox=envelope, group="dimension"),
-        _terminator_layer(dim, pen), _annotation_layer(dim, pen), _tolerance_layer(dim, pen),
+        _terminator_layer(dim, pen),
+        _annotation_layer(dim, pen),
+        _tolerance_layer(dim, pen),
     )
     key = ContentIdentity.of("drawing-dimension-layered", b"".join(layer.source for layer in layers))
-    facts = ArtifactReceipt.Drawing(key, "drawing-dimension", len(dim.ops), "ISO-129", round(envelope[2] - envelope[0]), round(envelope[3] - envelope[1]), sum(len(layer.source) for layer in layers))
+    facts = ArtifactReceipt.Drawing(
+        key,
+        "drawing-dimension",
+        len(dim.ops),
+        "ISO-129",
+        round(envelope[2] - envelope[0]),
+        round(envelope[3] - envelope[1]),
+        sum(len(layer.source) for layer in layers),
+    )
     return layers, facts
 
 

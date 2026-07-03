@@ -1,0 +1,11 @@
+{
+    "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+    "name": "wire",
+    "projectType": "library",
+    "sourceRoot": "libs/typescript/wire/src",
+    "tags": [
+        "scope:wire",
+        "runtime:neutral",
+        "plane:runtime"
+    ]
+}

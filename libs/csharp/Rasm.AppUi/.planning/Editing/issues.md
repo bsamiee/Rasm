@@ -13,11 +13,11 @@ The coordination rail is the openBIM issue board: `Issue` composes one AppUi `Vi
 
 - Owner: `IssueStatus` `[SmartEnum<string>]` the coordination lifecycle; `Issue` the board issue record; `IssueBinding` the topic-to-viewpoint binding; `IssueFault` the fault family in the 5000 band.
 - Cases: `IssueStatus` = open, in-progress, resolved, closed, reopened; `IssueFault` = Text | TopicMalformed | ViewpointUnbound | CommentConflict in the 5000 code band.
-- Entry: `public static Fin<Issue> FromTopic(BcfTopic topic, ClockPolicy clocks)` — projects a `Rasm.Bim` BCF topic consumed at the boundary into a board issue binding its viewpoints onto the AppUi `Viewpoint` receipt; `public BcfTopic ToTopic()` — projects the board issue back onto the BCF topic for the round-trip, never a second BCF schema.
-- Auto: each issue carries the BCF topic identity (the GUID, title, status, type, priority, author, and creation instant) plus its bound `Viewpoint` set and its comment thread so a coordination issue is one unit the board renders; the topic status maps onto the `IssueStatus` lifecycle so a board status and a BCF status are one vocabulary; each BCF viewpoint binds onto the AppUi `Viewpoint` through `ViewpointCodec.FromBcf` so the issue's saved view rides the one portable view-state receipt the viewport, the markup, and the reality-capture overlay share — the issue mints no second camera-snapshot shape; the snapshot tile is the viewpoint's rendered thumbnail through the visuals capture lane so the board shows the issue's view at a glance.
+- Entry: `public static Fin<Issue> FromTopic(BcfTopic topic, ClockPolicy clocks)` — projects a `Rasm.Bim` BCF topic consumed at the boundary into a board issue binding its viewpoints onto the AppUi `Viewpoint` receipt; `public BcfTopic ToTopic()` — `with`-updates the carried source row (board-edited columns only) or mints a core-column topic for a board-authored issue, never a second BCF schema.
+- Auto: each issue carries the BCF topic identity (the GUID, title, status, type, priority, author, and creation instant) plus its bound `Viewpoint` set, its comment thread, and the consumed source row so the widened `BcfTopic` columns the board never edits (description, assignment, stage, due date, labels, provenance, references, snippet, files, status label) survive the round-trip untouched and a coordination issue is one unit the board renders; the topic status maps onto the `IssueStatus` lifecycle so a board status and a BCF status are one vocabulary; each BCF viewpoint binds onto the AppUi `Viewpoint` through `ViewpointCodec.FromBcf` so the issue's saved view rides the one portable view-state receipt the viewport, the markup, and the reality-capture overlay share — the issue mints no second camera-snapshot shape; the snapshot tile is the viewpoint's rendered thumbnail through the visuals capture lane so the board shows the issue's view at a glance.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.Bim (project)
 - Growth: a new issue field is one `Issue` member; a new lifecycle state is one `IssueStatus` row; a new fault is one `IssueFault` case; zero new surface.
-- Boundary: the issue composes the `Rasm.Bim/Review/issues#BCF_ARCHIVE` `BcfTopic`/`BcfComment`/`BcfViewpoint` contract consumed at the package edge — AppUi owns the `Viewpoint` receipt and the board projection while `Rasm.Bim` owns the openBIM topic/component/comment exchange semantics, the two meeting only at the topic contract, so a second BCF model or a direct `.bcfzip`/BCF-XML writer inside `coordination/` is the rejected form; the BCF viewpoint binds onto the AppUi `Viewpoint` through `ViewpointCodec.FromBcf` so the issue's view-state is the one portable receipt and a parallel issue-camera shape is the deleted form; the topic status rides the `IssueStatus` smart enum so the board lifecycle and the BCF status are one vocabulary; the issue round-trips back to a `BcfTopic` through `ToTopic` so a CDE or external BCF viewer reads the board's issues and the round-trip is lossless through the `Rasm.Bim` archive codec, never an AppUi-local BCF writer.
+- Boundary: the issue composes the `Rasm.Bim/Review/issues#BCF_ARCHIVE` `BcfTopic`/`BcfComment`/`BcfViewpoint` contract consumed at the package edge — AppUi owns the `Viewpoint` receipt and the board projection while `Rasm.Bim` owns the openBIM topic/component/comment exchange semantics, the two meeting only at the topic contract, so a second BCF model or a direct `.bcfzip`/BCF-XML writer inside `coordination/` is the rejected form; the BCF viewpoint binds onto the AppUi `Viewpoint` through `ViewpointCodec.FromBcf` so the issue's view-state is the one portable receipt and a parallel issue-camera shape is the deleted form; the topic status rides the `IssueStatus` smart enum so the board lifecycle and the BCF status are one vocabulary; the issue round-trips back to a `BcfTopic` through `ToTopic` — a `with`-update over the carried source row touching only the board-edited columns (title, status, type, priority, comments, viewpoints), each viewpoint re-encoded over its guid-matched source row and `StatusLabel` cleared only on a board status change — so a CDE or external BCF viewer reads the board's issues and the round-trip is lossless through the `Rasm.Bim` archive codec, never an AppUi-local BCF writer.
 
 ```csharp signature
 [Union]
@@ -51,6 +51,9 @@ public sealed partial class IssueStatus {
 
 public sealed record IssueBinding(string ViewpointGuid, Viewpoint View);
 
+// Source is the consumed contract row kept once at the boundary: the widened BcfTopic columns the
+// board never edits (description, assignment, stage, due date, labels, provenance, references,
+// snippet, files, status label) ride it through ToTopic untouched, so the round-trip stays lossless.
 public sealed record Issue(
     string Guid,
     string Title,
@@ -61,19 +64,35 @@ public sealed record Issue(
     Instant CreatedAt,
     Seq<IssueBinding> Bindings,
     CommentThread Thread,
-    Option<string> SnapshotKey) {
+    Option<string> SnapshotKey,
+    Option<Rasm.Bim.Coordination.BcfTopic> Source = default) {
     public static Fin<Issue> FromTopic(Rasm.Bim.Coordination.BcfTopic topic, ClockPolicy clocks) =>
         topic.Viewpoints.Map(vp => new IssueBinding(vp.Guid, ViewpointCodec.FromBcf(vp.Guid, vp, clocks))) switch {
             var bindings => Fin.Succ(new Issue(
                 topic.Guid, topic.Title, IssueStatus.FromBcf(topic.Status), topic.TopicType, topic.Priority,
                 topic.Author, topic.CreationDate, bindings,
                 CommentThread.FromComments(topic.Guid, topic.Comments),
-                topic.Viewpoints.HeadOrNone().Bind(static vp => vp.Snapshot.IsSome ? Some(vp.Guid) : None))),
+                topic.Viewpoints.HeadOrNone().Bind(static vp => vp.Snapshot.IsSome ? Some(vp.Guid) : None),
+                Some(topic))),
         };
 
+    // Board-edited columns land as a with-update on the carried source row; each viewpoint re-encodes
+    // over its guid-matched source row so the widened viewpoint columns survive; StatusLabel clears
+    // only on a board status change, so the project-vocabulary verbatim token survives an untouched pass.
     public Rasm.Bim.Coordination.BcfTopic ToTopic() =>
-        new(Guid, Title, ToBcfStatus(Status), TopicType, Priority, Author, CreatedAt,
-            Thread.Materialize(), Bindings.Map(static binding => ViewpointCodec.ToBcf(binding.ViewpointGuid, binding.View)));
+        (ToBcfStatus(Status), Bindings.Map(binding => ViewpointCodec.ToBcf(
+            binding.ViewpointGuid, binding.View,
+            Source.Bind(topic => topic.Viewpoints.Find(vp => vp.Guid == binding.ViewpointGuid))))) switch {
+            var (status, viewpoints) => Source.Match(
+                Some: topic => topic with {
+                    Title = Title, Status = status, TopicType = TopicType, Priority = Priority,
+                    Comments = Thread.Materialize(), Viewpoints = viewpoints,
+                    StatusLabel = status == topic.Status ? topic.StatusLabel : "",
+                },
+                None: () => new Rasm.Bim.Coordination.BcfTopic(
+                    Guid, Title, status, TopicType, Priority, Author, CreatedAt,
+                    Thread.Materialize(), viewpoints)),
+        };
 
     private static Rasm.Bim.Coordination.BcfStatus ToBcfStatus(IssueStatus status) => status.Switch(
         open: static _ => Rasm.Bim.Coordination.BcfStatus.Open,
@@ -210,4 +229,4 @@ public sealed record IssueBoard(string Key, Seq<Issue> Issues) {
 
 ## [06]-[RESEARCH]
 
-- [BCF_TOPIC_SEAM]: the `Rasm.Bim/Review/issues#BCF_ARCHIVE` `BcfTopic`/`BcfComment`/`BcfViewpoint` record member set the board consumes at the boundary — the topic GUID/title/status/type/priority/author/creation-instant columns, the comment GUID/author/text/viewpoint-guid/date columns, and the viewpoint `CameraPosition`/`CameraDirection`/`CameraUpVector`/`FieldOfView`/`SelectedGlobalIds`/`VisibleGlobalIds`/`Snapshot` columns anchored on IFC GlobalIds — resolves at implementation against the finalized `Rasm.Bim` issue-exchange surface, including the `Rasm.Bim.Coordination` namespace, the host-free `System.Numerics.Vector3` camera triplet, and the `BcfStatus` enum spelling; the `BcfViewpoint`-to-AppUi-`Viewpoint` projection (the `System.Numerics.Vector3` camera-position-and-direction-to-`ViewCamera` eye-target-up correspondence and the `SelectedGlobalIds`/`VisibleGlobalIds` set) is the one `Render/pipeline.md#VIEWPOINT_CODEC` `ViewpointCodec.FromBcf`/`ToBcf` over the consumed contract — the board folds each topic through that single codec and re-mints no second viewpoint mapping, the board issue model, the comment-thread CRDT, the dashboard tile projection, and the issue-to-viewpoint binding are settled, and the exact `Rasm.Bim` BCF record column spellings and namespace are the package-edge surface composed through the codec, never re-minted.
+- [BCF_TOPIC_SEAM]: the `Rasm.Bim/Review/issues#BCF_ARCHIVE` `BcfTopic`/`BcfComment`/`BcfViewpoint` record member set the board consumes at the boundary is the finalized `Rasm.Bim.Coordination` surface — the topic core columns (GUID/title/status/type/priority/author/creation-instant) plus the trailing-defaulted widened columns (description, assignment, stage, due date, labels, index, provenance, server id, reference links, related topics, document references, snippet, header files, `StatusLabel`) the carried source row preserves, the comment GUID/author/text/viewpoint-guid/date columns, and the viewpoint `BcfCamera` `Perspective`/`Orthogonal` union, `SelectedGlobalIds`, `VisibilityExceptions`/`DefaultVisibility` pair, `Snapshot`, `Coloring`, and `ClippingPlanes` columns anchored on IFC GlobalIds, with the closed five-state `BcfStatus` enum riding the `IssueStatus` map; the `BcfViewpoint`-to-AppUi-`Viewpoint` projection (the `BcfCamera` position-direction-up-to-`ViewCamera` eye-target-up correspondence with per-arm `FieldOfViewDeg`/`ViewToWorldScale` scalars, and the `SelectedGlobalIds`/`VisibilityExceptions` sets under the `DefaultVisibility` convention) is the one `Render/pipeline.md#VIEWPOINT_CODEC` `ViewpointCodec.FromBcf`/`ToBcf` over the consumed contract — the board folds each topic through that single codec and re-mints no second viewpoint mapping, the board issue model, the comment-thread CRDT, the dashboard tile projection, and the issue-to-viewpoint binding are settled, and the exact `Rasm.Bim` BCF record column spellings and namespace are the package-edge surface composed through the codec, never re-minted.

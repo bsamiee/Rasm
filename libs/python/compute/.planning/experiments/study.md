@@ -76,9 +76,9 @@ def _timed[T](thunk: Callable[[], T]) -> tuple[T, float]:
 
 
 class MeasurementMode(StrEnum):
-    RESULT = "result"        # evaluate the design but suppress the wallclock; report zero elapsed
+    RESULT = "result"  # evaluate the design but suppress the wallclock; report zero elapsed
     WALLCLOCK = "wallclock"  # time the whole design evaluation as one batch
-    SPEEDUP = "speedup"      # fold the vectorized batch wallclock against the per-row serial baseline
+    SPEEDUP = "speedup"  # fold the vectorized batch wallclock against the per-row serial baseline
 
     def evaluate(self, objective: Objective, design: np.ndarray) -> "Measured":
         # `fast` is the batch lane when present, the per-row stack otherwise; both are thunks so `_timed`
@@ -101,9 +101,9 @@ class MeasurementMode(StrEnum):
 
 class SurrogateKind(StrEnum):
     GRADIENT_BOOST = "gradient_boost"  # ensemble.GradientBoostingRegressor
-    RANDOM_FOREST = "random_forest"    # ensemble.RandomForestRegressor
-    SVR = "svr"                        # svm.SVR
-    RIDGE = "ridge"                    # linear_model.Ridge
+    RANDOM_FOREST = "random_forest"  # ensemble.RandomForestRegressor
+    SVR = "svr"  # svm.SVR
+    RIDGE = "ridge"  # linear_model.Ridge
 
     def estimator(self) -> "BaseEstimator":
         module, name = SURROGATE_CLASS[self]
@@ -115,16 +115,16 @@ class SurrogateKind(StrEnum):
 # marginal both the qmc-path `rescale` ppf and the SALib `dists` channel read identically — never a 2-tuple
 # overload that silently truncates the 3-param `triang` or 4-param `truncnorm` vector into a divergent marginal.
 class AxisDist(StrEnum):
-    UNIF = "unif"            # params (low, high) bounds
-    NORM = "norm"            # params (mean, std)
-    LOGNORM = "lognorm"      # params (ln_mean, ln_std) of the underlying normal
-    TRIANG = "triang"        # params (start, end, peak_fraction in [0, 1])
+    UNIF = "unif"  # params (low, high) bounds
+    NORM = "norm"  # params (mean, std)
+    LOGNORM = "lognorm"  # params (ln_mean, ln_std) of the underlying normal
+    TRIANG = "triang"  # params (start, end, peak_fraction in [0, 1])
     TRUNCNORM = "truncnorm"  # params (lower, upper, mean, std)
 
 
 class ParamAxis(Struct, frozen=True):
     name: str
-    params: tuple[float, ...]      # SALib `dists` parameter vector; per-dist arity raises on the `rescale`/`bounds` unpack inside the fence
+    params: tuple[float, ...]  # SALib `dists` parameter vector; per-dist arity raises on the `rescale`/`bounds` unpack inside the fence
     dist: AxisDist = AxisDist.UNIF
     # No `gc=False`: `params` is a `tuple` container field, so the leaf-only opt-out the `SalibRoute`/
     # `Measured` rows take does not apply, exactly as `experiments/inference.md#BAYESIAN` keeps its
@@ -200,7 +200,20 @@ class Measured(Struct, frozen=True, gc=False):
 @tagged_union(frozen=True)
 class StudyMethod:
     tag: Literal[
-        "lhs", "factorial", "sobol", "halton", "morris_screen", "sobol_indices", "fast", "rbd_fast", "delta", "pawn", "dgsm", "hdmr", "polynomial", "surrogate"
+        "lhs",
+        "factorial",
+        "sobol",
+        "halton",
+        "morris_screen",
+        "sobol_indices",
+        "fast",
+        "rbd_fast",
+        "delta",
+        "pawn",
+        "dgsm",
+        "hdmr",
+        "polynomial",
+        "surrogate",
     ] = tag()
     lhs: int = case()
     factorial: tuple[int, ...] = case()
@@ -244,9 +257,7 @@ class StudyMethod:
     # shapes the design out of the uniform box and the score is `Nothing` rather than a misread.
     def discrepancy(self, axes: tuple[ParamAxis, ...], design: np.ndarray) -> Option[float]:
         match self:
-            case StudyMethod(tag="lhs" | "sobol" | "halton" | "polynomial" | "surrogate") if all(
-                ax.dist is AxisDist.UNIF for ax in axes
-            ):
+            case StudyMethod(tag="lhs" | "sobol" | "halton" | "polynomial" | "surrogate") if all(ax.dist is AxisDist.UNIF for ax in axes):
                 from scipy.stats import qmc
 
                 lo = np.asarray([ax.bounds[0] for ax in axes], dtype=float)
@@ -315,17 +326,15 @@ class StudyMethod:
         # only when an axis is non-`unif` (an absent key reads as all-uniform). SALib reads each `bounds`
         # row as the dist's full parameter vector when `dists[i]` is set (`truncnorm` -> `[lower, upper,
         # mean, std]`, `triang` -> `[start, end, peak]`), so the row is `ax.params` itself, not `(low, high)`.
-        problem: dict[str, object] = {
-            "num_vars": len(axes),
-            "names": [ax.name for ax in axes],
-            "bounds": [list(ax.params) for ax in axes],
-        }
+        problem: dict[str, object] = {"num_vars": len(axes), "names": [ax.name for ax in axes], "bounds": [list(ax.params) for ax in axes]}
         if any(ax.dist is not AxisDist.UNIF for ax in axes):
             problem["dists"] = [ax.dist.value for ax in axes]
         return ProblemSpec(problem)
 
     @staticmethod
-    def _salib(axes: tuple[ParamAxis, ...], route: SalibRoute, design: np.ndarray, responses: np.ndarray, names: list[str], analyze_kwargs: dict[str, object]) -> dict[str, float]:
+    def _salib(
+        axes: tuple[ParamAxis, ...], route: SalibRoute, design: np.ndarray, responses: np.ndarray, names: list[str], analyze_kwargs: dict[str, object]
+    ) -> dict[str, float]:
         spec = StudyMethod._spec(axes).set_results(responses)
         feed = spec.set_samples(design) if route.needs_design else spec
         analysis = feed.analyze(route.analyzer(), **analyze_kwargs).analysis
@@ -370,7 +379,10 @@ SALIB_ROUTES: Final[Map[SalibTag, SalibRoute]] = Map.of_seq([
     ("delta", SalibRoute("latin", "delta", "delta", True)),
     ("pawn", SalibRoute("sobol", "pawn", "median", True)),
     ("dgsm", SalibRoute("finite_diff", "dgsm", "dgsm", True)),
-    ("hdmr", SalibRoute("latin", "hdmr", "S", True)),  # per-input sensitivity (`S=Sa+Sb`, length num_vars); `ST` is the per-component-term total, longer than num_vars
+    (
+        "hdmr",
+        SalibRoute("latin", "hdmr", "S", True),
+    ),  # per-input sensitivity (`S=Sa+Sb`, length num_vars); `ST` is the per-component-term total, longer than num_vars
 ])
 
 SURROGATE_CLASS: Final[Map[SurrogateKind, tuple[str, str]]] = Map.of_seq([
@@ -386,21 +398,29 @@ SURROGATE_CLASS: Final[Map[SurrogateKind, tuple[str, str]]] = Map.of_seq([
 class StudyReceipt(Struct, frozen=True):
     method: str
     mode: MeasurementMode
-    design_cells: int           # evaluated design rows; the run is total (every row evaluates or rails)
-    response_width: int         # per-cell output arity, so a multi-output objective is a parameterized fact, not a cells_completed > cells_total contradiction
+    design_cells: int  # evaluated design rows; the run is total (every row evaluates or rails)
+    response_width: (
+        int  # per-cell output arity, so a multi-output objective is a parameterized fact, not a cells_completed > cells_total contradiction
+    )
     indices: dict[str, float]
     discrepancy: Option[float]  # qmc uniformity score for an all-unif qmc design, Nothing for SALib/factorial/non-unif
     elapsed: float
-    speedup: Option[float]      # batch-versus-serial ratio under MeasurementMode.SPEEDUP, Nothing otherwise
+    speedup: Option[float]  # batch-versus-serial ratio under MeasurementMode.SPEEDUP, Nothing otherwise
     content_key: ContentKey
 
     @staticmethod
     def graded(study: "Study", design: np.ndarray, measured: Measured, key: ContentKey) -> "StudyReceipt":
         rows = int(design.shape[0])
         return StudyReceipt(
-            study.method.tag, study.mode, rows, int(measured.responses.size // rows) if rows else 0,
+            study.method.tag,
+            study.mode,
+            rows,
+            int(measured.responses.size // rows) if rows else 0,
             study.method.indices(study.axes, design, measured.responses),
-            study.method.discrepancy(study.axes, design), measured.elapsed, measured.speedup, key,
+            study.method.discrepancy(study.axes, design),
+            measured.elapsed,
+            measured.speedup,
+            key,
         )
 
     @property

@@ -70,8 +70,12 @@ class Stage(Struct, frozen=True):
 
     # --- mastering (loudness / dynamics) ---
     @staticmethod
-    def loudnorm(integrated: float = -16.0, true_peak: float = -1.5, loudness_range: float = 11.0, linear: bool = True, dual_mono: bool = False) -> "Stage":
-        return Stage("loudnorm", f"I={integrated}:TP={true_peak}:LRA={loudness_range}:linear={str(linear).lower()}:dual_mono={str(dual_mono).lower()}")
+    def loudnorm(
+        integrated: float = -16.0, true_peak: float = -1.5, loudness_range: float = 11.0, linear: bool = True, dual_mono: bool = False
+    ) -> "Stage":
+        return Stage(
+            "loudnorm", f"I={integrated}:TP={true_peak}:LRA={loudness_range}:linear={str(linear).lower()}:dual_mono={str(dual_mono).lower()}"
+        )
 
     @staticmethod
     def highpass(frequency: float = 20.0) -> "Stage":
@@ -103,11 +107,15 @@ class Stage(Struct, frozen=True):
         return Stage("aecho", f"{in_gain}:{out_gain}:{delays}:{decays}")
 
     @staticmethod
-    def aphaser(in_gain: float = 0.4, out_gain: float = 0.74, delay: float = 3.0, decay: float = 0.4, speed: float = 0.5, kind: str = "triangular") -> "Stage":
+    def aphaser(
+        in_gain: float = 0.4, out_gain: float = 0.74, delay: float = 3.0, decay: float = 0.4, speed: float = 0.5, kind: str = "triangular"
+    ) -> "Stage":
         return Stage("aphaser", f"in_gain={in_gain}:out_gain={out_gain}:delay={delay}:decay={decay}:speed={speed}:type={kind}")
 
     @staticmethod
-    def asubboost(dry: float = 0.7, wet: float = 0.7, decay: float = 0.7, feedback: float = 0.5, cutoff: float = 100.0, slope: float = 0.5, delay: float = 20.0) -> "Stage":
+    def asubboost(
+        dry: float = 0.7, wet: float = 0.7, decay: float = 0.7, feedback: float = 0.5, cutoff: float = 100.0, slope: float = 0.5, delay: float = 20.0
+    ) -> "Stage":
         return Stage("asubboost", f"dry={dry}:wet={wet}:decay={decay}:feedback={feedback}:cutoff={cutoff}:slope={slope}:delay={delay}")
 
     # --- timeline ---
@@ -141,6 +149,7 @@ class Master(Struct, frozen=True):
     # chain composes more ordered `Stage`s (highpass -> acompressor -> alimiter -> loudnorm is the standard broadcast master).
     stages: tuple[Stage, ...] = (Stage.loudnorm(),)
 
+
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
@@ -168,7 +177,11 @@ def _voiced(container: object, stream: object, blocks: tuple[Pcm, ...], profile:
     # per-block lift, the filtergraph-master compose, the resample, and the encode-mux loop.
     ctx = stream.codec_context
     ingest = _INGEST[blocks[0].dtype]
-    chain = AudioGraph.master(profile.rate, ingest, profile.layout, tuple((s.name, s.args) for s in profile.master.stages)) if profile.master is not None else None
+    chain = (
+        AudioGraph.master(profile.rate, ingest, profile.layout, tuple((s.name, s.args) for s in profile.master.stages))
+        if profile.master is not None
+        else None
+    )
     # frame_size folds the AudioFifo rebuffer into the resampler: one owner converts format/rate/layout and emits ctx.frame_size-sample frames
     resampler = av.AudioResampler(format=ctx.format.name, layout=profile.layout, rate=ctx.rate, frame_size=ctx.frame_size or None)
     frames = samples = 0
@@ -194,7 +207,12 @@ def _encode_audio(blocks: tuple[Pcm, ...], profile: MediaProfile) -> Result[tupl
             rate = stream.codec_context.rate
             _flush(container, stream)
         blob = sink.getvalue()
-        return Ok((blob, MediaEvidence.measure(profile.container, profile.codec, samples / rate if rate else 0.0, frames, int(profile.bit_rate or 0), blob, _deployment(profile))))
+        return Ok((
+            blob,
+            MediaEvidence.measure(
+                profile.container, profile.codec, samples / rate if rate else 0.0, frames, int(profile.bit_rate or 0), blob, _deployment(profile)
+            ),
+        ))
     except ImportError as exc:
         return Error(MediaFault(provision=str(exc)))
     except av.error.FFmpegError as exc:

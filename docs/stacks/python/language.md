@@ -272,20 +272,20 @@ from importlib.util import find_spec
 
 from builtins import frozendict
 
-lazy import driver                               # CASE A: heavy native dep, proxy reified on first use
-lazy from worker import Backend                  # CASE A: cold peer, deferral breaks the import cycle
+lazy import driver  # CASE A: heavy native dep, proxy reified on first use
+lazy from worker import Backend  # CASE A: cold peer, deferral breaks the import cycle
 
-lazy from package import codec, store            # CASE B: mandatory submodule re-exports, lexically static-visible
-lazy from package.core import Shape, TABLE       # CASE B: mandatory owner symbols, in-__init__ deferral breaks the self-cycle
+lazy from package import codec, store  # CASE B: mandatory submodule re-exports, lexically static-visible
+lazy from package.core import Shape, TABLE  # CASE B: mandatory owner symbols, in-__init__ deferral breaks the self-cycle
 lazy from package.render import render
 
 
-type Extra = tuple[str, str | None, str]         # (module, attribute|None, install-extra); a None attribute publishes the module
+type Extra = tuple[str, str | None, str]  # (module, attribute|None, install-extra); a None attribute publishes the module
 DISTRIBUTION = "package"
 
 EXTRAS: frozendict[str, Extra] = frozendict({
-    "accelerated": ("accel", None, "accel"),     # CASE B: optional backend gated by an install extra
-    "Probe": ("plugins", "Probe", "plugins"),    # the next optional surface lands as one row
+    "accelerated": ("accel", None, "accel"),  # CASE B: optional backend gated by an install extra
+    "Probe": ("plugins", "Probe", "plugins"),  # the next optional surface lands as one row
 })
 _LOCK = threading.Lock()
 _VERSION: str | None = None
@@ -294,21 +294,21 @@ _VERSION: str | None = None
 def __getattr__(name: str, /) -> object:
     global _VERSION
     if name == "__version__":
-        if _VERSION is None:                     # double-checked compute cache; never a bare globals()[name] = ... race
+        if _VERSION is None:  # double-checked compute cache; never a bare globals()[name] = ... race
             with _LOCK:
                 if _VERSION is None:
                     _VERSION = version(DISTRIBUTION)
         return _VERSION
     if (entry := EXTRAS.get(name)) is None:
-        raise AttributeError(name)               # CASE B: unknown name, attribute-protocol miss
+        raise AttributeError(name)  # CASE B: unknown name, attribute-protocol miss
     module, attribute, extra = entry
-    if find_spec(module) is None:                # non-importing presence probe; hasattr would raise, find_spec stays silent
+    if find_spec(module) is None:  # non-importing presence probe; hasattr would raise, find_spec stays silent
         raise ImportError(f"{name!r} needs the {extra!r} extra: pip install {DISTRIBUTION}[{extra}]")
-    resolved = import_module(module)             # import idempotency memoizes; the resolver stays pure
+    resolved = import_module(module)  # import idempotency memoizes; the resolver stays pure
     return resolved if attribute is None else getattr(resolved, attribute)
 
 
-def __dir__() -> list[str]:                       # dir() never reifies (special-cased in __dir__), so the union is free
+def __dir__() -> list[str]:  # dir() never reifies (special-cased in __dir__), so the union is free
     return sorted({*__all__, "__version__", *EXTRAS})
 
 
@@ -433,9 +433,7 @@ type Row = frozendict[Field, str]
 
 WEIGHT: frozendict[Tier, int] = frozendict({Tier.PRIMARY: 1, Tier.SECONDARY: 2, Tier.TERTIARY: 4})
 RANK: frozendict[int, Tier] = frozendict({weight: tier for tier, weight in WEIGHT.items()})
-POLICY: frozendict[Row, int] = frozendict({
-    frozendict({Field.TIER: tier, Field.ZONE: "<zone-a>"}): weight for tier, weight in WEIGHT.items()
-})
+POLICY: frozendict[Row, int] = frozendict({frozendict({Field.TIER: tier, Field.ZONE: "<zone-a>"}): weight for tier, weight in WEIGHT.items()})
 
 SELECTED: int = POLICY[frozendict({Field.ZONE: "<zone-a>", Field.TIER: Tier.SECONDARY})]
 HEAVIEST: Tier = RANK[max(RANK)]

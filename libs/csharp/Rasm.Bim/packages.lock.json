@@ -41,6 +41,12 @@
           "Newtonsoft.Json": "13.0.3"
         }
       },
+      "CommunityToolkit.HighPerformance": {
+        "type": "Direct",
+        "requested": "[8.4.2, )",
+        "resolved": "8.4.2",
+        "contentHash": "2hmtrrU18x6NL3mbuAqwy0KpnoEEJOuK6sH5RKQfD/jHijn2pqvqBUC7WGy9dgNBL9BDA7eOC0kirsNPMp2f4Q=="
+      },
       "dotbim": {
         "type": "Direct",
         "requested": "[1.2.0, )",
@@ -542,6 +548,14 @@
           "Microsoft.Bcl.HashCode": "6.0.0"
         }
       },
+      "Google.Api.CommonProtos": {
+        "type": "Transitive",
+        "resolved": "2.1.0",
+        "contentHash": "CEwg4cp80bf7q9vrvDwbwIJ3SG/p/K38dK3ZRG3r4zeFDNMF1Zt2y+iPdUJjtsNxDVQHv06nKViS7dgFT8E6zw==",
+        "dependencies": {
+          "Google.Protobuf": "[3.11.4, 4.0.0)"
+        }
+      },
       "GraphQL.Client": {
         "type": "Transitive",
         "resolved": "6.1.0",
@@ -914,9 +928,11 @@
         "dependencies": {
           "Csp.Contracts": "[1.0.0, )",
           "Generator.Equals": "[4.0.0, )",
+          "Google.Protobuf": "[3.35.1, )",
           "JetBrains.Annotations": "[2026.2.0, )",
           "LanguageExt.Core": "[5.0.0-beta-77, )",
           "NodaTime": "[3.3.2, )",
+          "NodaTime.Serialization.Protobuf": "[2.0.2, )",
           "QuikGraph": "[2.5.0, )",
           "Rasm": "[1.0.0, )",
           "Riok.Mapperly": "[4.3.1, )",
@@ -993,6 +1009,12 @@
         "requested": "[12.1.1, )",
         "resolved": "12.1.1",
         "contentHash": "EPpkIe1yh1a0OXyC100oOA8WMbZvqUu5plwhvYcb7oSELfyUZzfxV48BLhvs3kKo4NwG7MGLNgy1RJiYtT8Dpw=="
+      },
+      "Google.Protobuf": {
+        "type": "CentralTransitive",
+        "requested": "[3.35.1, )",
+        "resolved": "3.35.1",
+        "contentHash": "pxtkuXhR8svkvDTQrYew9GZQt6eWhblz/V/WKUFrQgkHYlQPsumJTeF6ppHRJpe6j9ffukkd5lQULiiKaek4xA=="
       },
       "GShark": {
         "type": "CentralTransitive",
@@ -1176,6 +1198,16 @@
           "Nito.AsyncEx.Oop": "5.1.2",
           "Nito.AsyncEx.Tasks": "5.1.2",
           "Nito.Cancellation": "1.1.2"
+        }
+      },
+      "NodaTime.Serialization.Protobuf": {
+        "type": "CentralTransitive",
+        "requested": "[2.0.2, )",
+        "resolved": "2.0.2",
+        "contentHash": "yjwzq6ueTY0xy7IGzuMIrfNky0fGx96EdOEFEV4WaY/IkhMto4MxZWiUdPJnCQFzR/iSDhQE0rrlVKlRyEV5Sw==",
+        "dependencies": {
+          "Google.Api.CommonProtos": "[2.1.0, 3.0.0)",
+          "NodaTime": "[3.0.0, 4.0.0)"
         }
       },
       "OneOf": {

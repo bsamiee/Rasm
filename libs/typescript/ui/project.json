@@ -1,0 +1,11 @@
+{
+    "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+    "name": "ui",
+    "projectType": "library",
+    "sourceRoot": "libs/typescript/ui/src",
+    "tags": [
+        "scope:ui",
+        "runtime:browser",
+        "plane:runtime"
+    ]
+}

@@ -138,19 +138,14 @@ class Record:
 @effect.result[Record, TextFault]()
 def recorded(line: str, render: Template, *, refine: str | None = None):
     pattern = yield from (
-        Ok(STAMPED)
-        if refine is None
-        else catch(exception=re.PatternError)(re.compile)(refine, STAMPED.flags).map_error(lambda _bad: "<bad-grammar>")
+        Ok(STAMPED) if refine is None else catch(exception=re.PatternError)(re.compile)(refine, STAMPED.flags).map_error(lambda _bad: "<bad-grammar>")
     )
     found = yield from (Ok(matched) if (matched := pattern.match(line)) is not None else Error("<no-match>"))
     day = yield from catch(exception=ValueError)(datetime.date.strptime)(found["at"], "%Y-%m-%d").map_error(lambda _bad: "<bad-stamp>")
     return Record(
         at=datetime.datetime.combine(day, datetime.time.min, datetime.UTC),
         body=found["body"],
-        rendered="".join(
-            part if isinstance(part, str) else format(CONVERT[part.conversion](part.value), part.format_spec)
-            for part in render
-        ),
+        rendered="".join(part if isinstance(part, str) else format(CONVERT[part.conversion](part.value), part.format_spec) for part in render),
     )
 ```
 
@@ -276,7 +271,9 @@ class Carrier:
 
 
 @beartype
-def framed(fd: int, span: int, key: bytes, *, shared: zstd.ZstdDict | None = None, tuning: frozendict[zstd.CompressionParameter, int] = _TUNING) -> Result[Frame, FrameFault]:
+def framed(
+    fd: int, span: int, key: bytes, *, shared: zstd.ZstdDict | None = None, tuning: frozendict[zstd.CompressionParameter, int] = _TUNING
+) -> Result[Frame, FrameFault]:
     if span == 0:
         return Error("<empty-span>")
     sink = bytearray(span)
@@ -286,7 +283,9 @@ def framed(fd: int, span: int, key: bytes, *, shared: zstd.ZstdDict | None = Non
     stream = pickle.dumps(Carrier(sink.take_bytes()), protocol=5, buffer_callback=blocks.append)
     body = zstd.compress(stream, options=dict(tuning), zstd_dict=shared)
     nonce = secrets.token_bytes(16)
-    return Ok(Frame(body=body, blocks=tuple(blocks), digest=hashlib.sha256(stream).hexdigest(), nonce=nonce, mac=hmac.digest(key, nonce + body, "sha256")))
+    return Ok(
+        Frame(body=body, blocks=tuple(blocks), digest=hashlib.sha256(stream).hexdigest(), nonce=nonce, mac=hmac.digest(key, nonce + body, "sha256"))
+    )
 
 
 @beartype
@@ -331,7 +330,9 @@ def _floored(scored: int, /) -> int:
 
 
 @beartype
-def tallied[T](stream: Iterable[T], width: int, weigh: Callable[[tuple[T, ...], int], int], scale: int, floor: int, /) -> Result[tuple[frozendict[int, int], int], WindowFault]:
+def tallied[T](
+    stream: Iterable[T], width: int, weigh: Callable[[tuple[T, ...], int], int], scale: int, floor: int, /
+) -> Result[tuple[frozendict[int, int], int], WindowFault]:
     with _FLOOR.set(floor):
         score = partial(weigh, Placeholder, scale)
         return (

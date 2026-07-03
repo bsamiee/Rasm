@@ -35,18 +35,18 @@ from msgspec import Struct
 
 class NumberMode(StrEnum):
     ALPHANUMERIC = "alphanumeric"  # CSI PageFormat: `1.01` -> `A.` -> `1.` -> `a.` -> `1)` -> `a)` -> `(1)` -> `(a)`
-    DECIMAL = "decimal"            # UFGS/SpecsIntact: cumulative `1.1.1.1.1` (five subpart levels)
+    DECIMAL = "decimal"  # UFGS/SpecsIntact: cumulative `1.1.1.1.1` (five subpart levels)
 
 
-class NumberLevel(IntEnum):        # the CSI PageFormat subordination levels; `ARTICLE` is the part-prefixed head
-    ARTICLE = 0                    # `1.01` — part digit + `article_pad`-wide ordinal, UPPERCASE title
-    PARAGRAPH = 1                  # `A.`
-    SUBPARAGRAPH = 2               # `1.`
-    CLAUSE = 3                     # `a.`
-    SUBCLAUSE = 4                  # `1)`
-    ITEM = 5                       # `a)`
-    SUBITEM = 6                    # `(1)`
-    DETAIL = 7                     # `(a)` — the deepest CSI PageFormat level
+class NumberLevel(IntEnum):  # the CSI PageFormat subordination levels; `ARTICLE` is the part-prefixed head
+    ARTICLE = 0  # `1.01` — part digit + `article_pad`-wide ordinal, UPPERCASE title
+    PARAGRAPH = 1  # `A.`
+    SUBPARAGRAPH = 2  # `1.`
+    CLAUSE = 3  # `a.`
+    SUBCLAUSE = 4  # `1)`
+    ITEM = 5  # `a)`
+    SUBITEM = 6  # `(1)`
+    DETAIL = 7  # `(a)` — the deepest CSI PageFormat level
 
 
 class Alphabet(StrEnum):
@@ -56,14 +56,15 @@ class Alphabet(StrEnum):
 
 
 class Decoration(StrEnum):
-    DOT = "dot"                    # `A.`
-    CLOSE_PAREN = "close_paren"    # `1)`
-    BOTH_PARENS = "both_parens"    # `(a)`
+    DOT = "dot"  # `A.`
+    CLOSE_PAREN = "close_paren"  # `1)`
+    BOTH_PARENS = "both_parens"  # `(a)`
 
 
 class PageSize(StrEnum):
-    LETTER = "letter"              # 8.5x11 in — US project manuals
-    A4 = "a4"                      # 210x297 mm — ISO project manuals
+    LETTER = "letter"  # 8.5x11 in — US project manuals
+    A4 = "a4"  # 210x297 mm — ISO project manuals
+
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
@@ -116,6 +117,7 @@ def _wrap(decoration: Decoration, glyph: str, /) -> str:
         case _ as unreachable:
             assert_never(unreachable)
 
+
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
@@ -146,7 +148,7 @@ class NumberScheme(Struct, frozen=True):
 
 class PageFormat(Struct, frozen=True):
     numbering: NumberScheme = NumberScheme()
-    size: float = 10.0            # ISO 3098 / CSI body-text height in points the emitted section sets
+    size: float = 10.0  # ISO 3098 / CSI body-text height in points the emitted section sets
     font: str = "body"
     page_size: PageSize = PageSize.LETTER
 
@@ -157,10 +159,11 @@ class PageFormat(Struct, frozen=True):
         return f"{section} - {page}"  # the CSI PageFormat section-number-page footer
 
     def end_of_section(self) -> str:
-        return "END OF SECTION"       # CSI PageFormat places this AFTER (never before) the `SCHEDULES` article
+        return "END OF SECTION"  # CSI PageFormat places this AFTER (never before) the `SCHEDULES` article
 
     def uppercase(self, level: NumberLevel, /) -> bool:
         return level is NumberLevel.ARTICLE  # CSI: PART + article titles UPPERCASE, subordinate titles Title Case
+
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -212,27 +215,28 @@ if TYPE_CHECKING:
 
 
 class SectionPart(StrEnum):
-    GENERAL = "general"      # PART 1 — administrative/procedural requirements unique to the section
-    PRODUCTS = "products"    # PART 2 — materials/products/equipment/fabrication/finishes at the required quality
+    GENERAL = "general"  # PART 1 — administrative/procedural requirements unique to the section
+    PRODUCTS = "products"  # PART 2 — materials/products/equipment/fabrication/finishes at the required quality
     EXECUTION = "execution"  # PART 3 — installation/application + preparatory, quality-control, and post-install work
 
 
-class SpecMethod(StrEnum):   # the four CSI methods of specifying a product/paragraph
-    DESCRIPTIVE = "descriptive"          # exact properties and workmanship, no product name
-    PERFORMANCE = "performance"          # required results + criteria/verification, means left open
-    REFERENCE_STANDARD = "reference"     # compliance by published ASTM/ANSI/UL standard
-    PROPRIETARY = "proprietary"          # named product/manufacturer (open or closed)
+class SpecMethod(StrEnum):  # the four CSI methods of specifying a product/paragraph
+    DESCRIPTIVE = "descriptive"  # exact properties and workmanship, no product name
+    PERFORMANCE = "performance"  # required results + criteria/verification, means left open
+    REFERENCE_STANDARD = "reference"  # compliance by published ASTM/ANSI/UL standard
+    PROPRIETARY = "proprietary"  # named product/manufacturer (open or closed)
 
 
 class SubmittalClass(StrEnum):  # the CSI SubmittalFormat regimes
-    ACTION = "action"               # requires A/E review + approval before proceeding (shop drawings, product data, samples)
+    ACTION = "action"  # requires A/E review + approval before proceeding (shop drawings, product data, samples)
     INFORMATIONAL = "informational"  # for record, no approval (certificates, test reports, qualification statements)
-    CLOSEOUT = "closeout"           # project record documents, O&M data, and warranties at completion
+    CLOSEOUT = "closeout"  # project record documents, O&M data, and warranties at completion
 
 
-class ParagraphRole(StrEnum):   # the editorial disposition every master-spec paragraph carries at edit time
-    CONTENT = "content"             # specification text, retained in the issued manual
-    NOTE = "note"                   # specifier note / editing guidance (`SPEC NOTE:`), stripped at issue -> `BlockKind.ARTIFACT`
+class ParagraphRole(StrEnum):  # the editorial disposition every master-spec paragraph carries at edit time
+    CONTENT = "content"  # specification text, retained in the issued manual
+    NOTE = "note"  # specifier note / editing guidance (`SPEC NOTE:`), stripped at issue -> `BlockKind.ARTIFACT`
+
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -249,18 +253,51 @@ _PART_NUMBER: Final[frozendict[SectionPart, int]] = frozendict({SectionPart.GENE
 # owned closed vocabulary a heading validates against rather than a stringly `.startswith` probe.
 _ARTICLES: Final[frozendict[SectionPart, tuple[str, ...]]] = frozendict({
     SectionPart.GENERAL: (
-        "SUMMARY", "REFERENCES", "DEFINITIONS", "SYSTEM DESCRIPTION", "SUBMITTALS", "QUALITY ASSURANCE",
-        "DELIVERY, STORAGE, AND HANDLING", "PROJECT/SITE CONDITIONS", "SEQUENCING", "SCHEDULING", "WARRANTY",
-        "SYSTEM STARTUP", "OWNER'S INSTRUCTIONS", "COMMISSIONING", "MAINTENANCE",
+        "SUMMARY",
+        "REFERENCES",
+        "DEFINITIONS",
+        "SYSTEM DESCRIPTION",
+        "SUBMITTALS",
+        "QUALITY ASSURANCE",
+        "DELIVERY, STORAGE, AND HANDLING",
+        "PROJECT/SITE CONDITIONS",
+        "SEQUENCING",
+        "SCHEDULING",
+        "WARRANTY",
+        "SYSTEM STARTUP",
+        "OWNER'S INSTRUCTIONS",
+        "COMMISSIONING",
+        "MAINTENANCE",
     ),
     SectionPart.PRODUCTS: (
-        "MANUFACTURERS", "EXISTING PRODUCTS", "MATERIALS", "MANUFACTURED UNITS", "EQUIPMENT", "COMPONENTS",
-        "ACCESSORIES", "MIXES", "FABRICATION", "FINISHES", "SOURCE QUALITY CONTROL",
+        "MANUFACTURERS",
+        "EXISTING PRODUCTS",
+        "MATERIALS",
+        "MANUFACTURED UNITS",
+        "EQUIPMENT",
+        "COMPONENTS",
+        "ACCESSORIES",
+        "MIXES",
+        "FABRICATION",
+        "FINISHES",
+        "SOURCE QUALITY CONTROL",
     ),
     SectionPart.EXECUTION: (
-        "INSTALLERS", "EXAMINATION", "PREPARATION", "ERECTION", "INSTALLATION", "APPLICATION", "CONSTRUCTION",
-        "REPAIR/RESTORATION", "RE-INSTALLATION", "FIELD QUALITY CONTROL", "ADJUSTING", "CLEANING",
-        "DEMONSTRATION", "PROTECTION", "SCHEDULES",
+        "INSTALLERS",
+        "EXAMINATION",
+        "PREPARATION",
+        "ERECTION",
+        "INSTALLATION",
+        "APPLICATION",
+        "CONSTRUCTION",
+        "REPAIR/RESTORATION",
+        "RE-INSTALLATION",
+        "FIELD QUALITY CONTROL",
+        "ADJUSTING",
+        "CLEANING",
+        "DEMONSTRATION",
+        "PROTECTION",
+        "SCHEDULES",
     ),
 })
 # the alternative main-work titles an EXECUTION part selects EXACTLY ONE of (you ERECT steel, INSTALL equipment,
@@ -269,12 +306,25 @@ _MAIN_WORK: Final[frozenset[str]] = frozenset({"ERECTION", "INSTALLATION", "APPL
 # the checklist of subordinate paragraph titles each primary article offers (Figure SF-1) — the vocabulary a
 # specification author selects paragraph headings from; carried as data, keyed by the primary article title.
 _SUBORDINATE: Final[frozendict[str, tuple[str, ...]]] = frozendict({
-    "SUMMARY": ("Section Includes", "Products Supplied But Not Installed Under This Section",
-                "Products Installed But Not Supplied Under This Section", "Related Sections",
-                "Allowances", "Unit Prices", "Measurement Procedures", "Payment Procedures", "Alternates"),
+    "SUMMARY": (
+        "Section Includes",
+        "Products Supplied But Not Installed Under This Section",
+        "Products Installed But Not Supplied Under This Section",
+        "Related Sections",
+        "Allowances",
+        "Unit Prices",
+        "Measurement Procedures",
+        "Payment Procedures",
+        "Alternates",
+    ),
     "SUBMITTALS": ("Product Data", "Shop Drawings", "Samples", "Quality Assurance/Control Submittals", "Closeout Submittals"),
     "QUALITY ASSURANCE": ("Qualifications", "Regulatory Requirements", "Certifications", "Field Samples", "Mock-ups", "Pre-installation Meetings"),
-    "DELIVERY, STORAGE, AND HANDLING": ("Packing, Shipping, Handling, and Unloading", "Acceptance at Site", "Storage and Protection", "Waste Management and Disposal"),
+    "DELIVERY, STORAGE, AND HANDLING": (
+        "Packing, Shipping, Handling, and Unloading",
+        "Acceptance at Site",
+        "Storage and Protection",
+        "Waste Management and Disposal",
+    ),
     "PROJECT/SITE CONDITIONS": ("Project/Site Environmental Requirements", "Existing Conditions"),
     "WARRANTY": ("Special Warranty",),
     "MAINTENANCE": ("Extra Materials", "Maintenance Service"),
@@ -299,14 +349,16 @@ _REFERENCES: Final[str] = _ARTICLES[SectionPart.GENERAL][1]  # the `REFERENCES` 
 class SpecFault:
     # the closed admission-fault vocabulary carrying its offending token; the accumulating disposition folds
     # every casualty through `combined` so a whole section reports each bad article rather than aborting first.
-    tag: Literal["bad_section", "unknown_article", "bad_method", "bad_submittal", "bad_role", "depth_overflow", "invalid_payload", "aggregate"] = tag()
-    bad_section: str = case()        # the MasterFormat number failed `ClassCode.parse`
-    unknown_article: str = case()    # an article title or part outside the SectionFormat roster
-    bad_method: str = case()         # a paragraph method outside the four SpecMethod cases
-    bad_submittal: str = case()      # a submittal class outside the three SubmittalClass cases
-    bad_role: str = case()           # a paragraph role outside the two ParagraphRole cases
-    depth_overflow: int = case()     # a paragraph nested past the deepest CSI PageFormat level
-    invalid_payload: str = case()    # the payload failed the TypeAdapter shape gate
+    tag: Literal["bad_section", "unknown_article", "bad_method", "bad_submittal", "bad_role", "depth_overflow", "invalid_payload", "aggregate"] = (
+        tag()
+    )
+    bad_section: str = case()  # the MasterFormat number failed `ClassCode.parse`
+    unknown_article: str = case()  # an article title or part outside the SectionFormat roster
+    bad_method: str = case()  # a paragraph method outside the four SpecMethod cases
+    bad_submittal: str = case()  # a submittal class outside the three SubmittalClass cases
+    bad_role: str = case()  # a paragraph role outside the two ParagraphRole cases
+    depth_overflow: int = case()  # a paragraph nested past the deepest CSI PageFormat level
+    invalid_payload: str = case()  # the payload failed the TypeAdapter shape gate
     aggregate: tuple["SpecFault", ...] = case()
 
     @staticmethod
@@ -317,6 +369,7 @@ class SpecFault:
     def combined(left: "SpecFault", right: "SpecFault", /) -> "SpecFault":
         return SpecFault(aggregate=(*SpecFault._members(left), *SpecFault._members(right)))
 
+
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
@@ -325,17 +378,17 @@ class Paragraph(Struct, frozen=True):
     # lowers to a decorative `BlockKind.ARTIFACT`), its optional method of specifying and submittal class, its
     # reference-standard citations, and its sub-paragraph children; numbered by depth in `to_document`.
     text: str
-    title: str = ""                       # the CSI SF-1 subordinate paragraph heading; `_audited` reconciles a first-level title against `_SUBORDINATE[article.title]`
+    title: str = ""  # the CSI SF-1 subordinate paragraph heading; `_audited` reconciles a first-level title against `_SUBORDINATE[article.title]`
     role: ParagraphRole = ParagraphRole.CONTENT
     method: SpecMethod | None = None
     submittal: SubmittalClass | None = None
-    references: tuple[str, ...] = ()      # cited published standards, e.g. `ASTM C150`
+    references: tuple[str, ...] = ()  # cited published standards, e.g. `ASTM C150`
     children: tuple["Paragraph", ...] = ()
 
 
 class Article(Struct, frozen=True):
     part: SectionPart
-    title: str                            # one primary title from `_ARTICLES[part]`
+    title: str  # one primary title from `_ARTICLES[part]`
     paragraphs: tuple[Paragraph, ...] = ()
 
 
@@ -343,22 +396,33 @@ class SpecVerdict(Struct, frozen=True, gc=False):
     parts_present: int
     articles: int
     paragraphs: int
-    notes: int                            # specifier-note paragraphs the issue projection strips
-    fill_ins: int                         # unresolved `[____]`/`<Insert>` blanks over the CONTENT paragraphs
-    off_checklist: int                    # first-level CONTENT paragraph headings off the article's `_SUBORDINATE` checklist
+    notes: int  # specifier-note paragraphs the issue projection strips
+    fill_ins: int  # unresolved `[____]`/`<Insert>` blanks over the CONTENT paragraphs
+    off_checklist: int  # first-level CONTENT paragraph headings off the article's `_SUBORDINATE` checklist
     max_depth: int
-    references: int                       # total reference-standard citation occurrences over the paragraph walk
-    standards: int                        # distinct reference-standard designations the section invokes
+    references: int  # total reference-standard citation occurrences over the paragraph walk
+    standards: int  # distinct reference-standard designations the section invokes
     methods: frozendict[SpecMethod, int]
     submittals: frozendict[SubmittalClass, int]
-    ordered: bool                         # every part's articles appear in canonical `_ARTICLES` order
-    coverage: tuple[str, ...]             # accumulated coverage-fault tags (`empty_section`/`out_of_order`/`missing_main_work`/`unresolved_fill_ins`/`unlisted_references`/`off_checklist_titles`)
+    ordered: bool  # every part's articles appear in canonical `_ARTICLES` order
+    coverage: tuple[
+        str, ...
+    ]  # accumulated coverage-fault tags (`empty_section`/`out_of_order`/`missing_main_work`/`unresolved_fill_ins`/`unlisted_references`/`off_checklist_titles`)
 
     def facts(self) -> dict[str, object]:
-        return {"parts": self.parts_present, "articles": self.articles, "paragraphs": self.paragraphs,
-                "notes": self.notes, "fill_ins": self.fill_ins, "off_checklist": self.off_checklist, "max_depth": self.max_depth,
-                "references": self.references, "standards": self.standards, "ordered": self.ordered,
-                "coverage": ",".join(self.coverage)}
+        return {
+            "parts": self.parts_present,
+            "articles": self.articles,
+            "paragraphs": self.paragraphs,
+            "notes": self.notes,
+            "fill_ins": self.fill_ins,
+            "off_checklist": self.off_checklist,
+            "max_depth": self.max_depth,
+            "references": self.references,
+            "standards": self.standards,
+            "ordered": self.ordered,
+            "coverage": ",".join(self.coverage),
+        }
 
 
 class ParagraphPayload(TypedDict, closed=True):  # the raw content node ingress — codes as strings, admitted once
@@ -378,9 +442,10 @@ class ArticlePayload(TypedDict, closed=True):
 
 
 class SpecPayload(TypedDict, closed=True):
-    section: Required[ReadOnly[str]]      # the MasterFormat number, parsed through `ClassCode`
+    section: Required[ReadOnly[str]]  # the MasterFormat number, parsed through `ClassCode`
     title: Required[ReadOnly[str]]
     articles: Required[ReadOnly[tuple[ArticlePayload, ...]]]
+
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -444,10 +509,17 @@ def _admit_paragraph(payload: ParagraphPayload, depth: int, /) -> Result[Paragra
     if submittal and submittal not in _SUBMITTAL_VALUES:
         return Error(SpecFault(bad_submittal=submittal))
     children = _accumulated(Block.of_seq(_admit_paragraph(child, depth + 1) for child in payload.get("children", ())))
-    return children.map(lambda kids: Paragraph(
-        text=payload["text"], title=payload.get("title", ""), role=ParagraphRole(role), method=SpecMethod(method) if method else None,
-        submittal=SubmittalClass(submittal) if submittal else None, references=payload.get("references", ()), children=kids,
-    ))
+    return children.map(
+        lambda kids: Paragraph(
+            text=payload["text"],
+            title=payload.get("title", ""),
+            role=ParagraphRole(role),
+            method=SpecMethod(method) if method else None,
+            submittal=SubmittalClass(submittal) if submittal else None,
+            references=payload.get("references", ()),
+            children=kids,
+        )
+    )
 
 
 def _admit_article(payload: ArticlePayload, /) -> Result[Article, SpecFault]:
@@ -485,20 +557,34 @@ def _audited(spec: "Spec", /) -> SpecVerdict:
     ordered = all(_ordered(part, tuple(article.title for article in articles if article.part is part)) for part in present)
     execution = frozenset(article.title for article in articles if article.part is SectionPart.EXECUTION)
     has_main = SectionPart.EXECUTION not in present or bool(execution & _MAIN_WORK)
-    coverage = tuple(tag for present_fault, tag in (
-        (not articles, "empty_section"), (not ordered, "out_of_order"), (not has_main, "missing_main_work"),
-        (bool(fill_ins), "unresolved_fill_ins"), (bool(cited - listed), "unlisted_references"),
-        (bool(off_checklist), "off_checklist_titles"),
-    ) if present_fault)
+    coverage = tuple(
+        tag
+        for present_fault, tag in (
+            (not articles, "empty_section"),
+            (not ordered, "out_of_order"),
+            (not has_main, "missing_main_work"),
+            (bool(fill_ins), "unresolved_fill_ins"),
+            (bool(cited - listed), "unlisted_references"),
+            (bool(off_checklist), "off_checklist_titles"),
+        )
+        if present_fault
+    )
     return SpecVerdict(
-        parts_present=len(present), articles=len(articles), paragraphs=len(walked), notes=notes, fill_ins=fill_ins,
+        parts_present=len(present),
+        articles=len(articles),
+        paragraphs=len(walked),
+        notes=notes,
+        fill_ins=fill_ins,
         off_checklist=off_checklist,
         max_depth=max((_max_depth(article.paragraphs, 1) for article in articles), default=0),
-        references=sum(len(paragraph.references) for paragraph in walked), standards=len(listed | cited),
+        references=sum(len(paragraph.references) for paragraph in walked),
+        standards=len(listed | cited),
         methods=frozendict({method: methods.get(method, 0) for method in SpecMethod}),
         submittals=frozendict({kind: submittals.get(kind, 0) for kind in SubmittalClass}),
-        ordered=ordered, coverage=coverage,
+        ordered=ordered,
+        coverage=coverage,
     )
+
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
@@ -530,7 +616,9 @@ class Spec(Struct, frozen=True):
         # `BlockNode` recursing its sub-tree — the ordinal PATH the numbering, `document/emit#DOCUMENT` folds FROM.
         parts = tuple(self._part_node(part) for part in SectionPart if any(article.part is part for article in self.articles))
         heading = (self._run(f"{self.section.render()}  {self.title.upper()}", weight=700),)
-        return SectionNode(meta=self._meta("Sect", self.section.render(), classification=self.section.render()), level=1, heading=heading, children=parts)
+        return SectionNode(
+            meta=self._meta("Sect", self.section.render(), classification=self.section.render()), level=1, heading=heading, children=parts
+        )
 
     def audit(self) -> SpecVerdict:
         return _audited(self)
@@ -556,7 +644,9 @@ class Spec(Struct, frozen=True):
 
     def _part_node(self, part: SectionPart, /) -> DocumentNode:
         number = _PART_NUMBER[part]
-        articles = tuple(self._article_node(article, number, ordinal) for ordinal, article in enumerate((a for a in self.articles if a.part is part), start=1))
+        articles = tuple(
+            self._article_node(article, number, ordinal) for ordinal, article in enumerate((a for a in self.articles if a.part is part), start=1)
+        )
         heading = (self._run(self.page.label(number, ()) + f" {part.value.upper()}", weight=700),)
         return SectionNode(meta=self._meta("Sect", part.value), level=2, heading=heading, children=articles)
 
@@ -566,19 +656,26 @@ class Spec(Struct, frozen=True):
         label = self.page.label(part, (ordinal,))
         numbers = tuple(accumulate(int(paragraph.role is ParagraphRole.CONTENT) for paragraph in article.paragraphs))
         paragraphs = tuple(
-            self._paragraph_node(paragraph, part, (ordinal, number))
-            for paragraph, number in zip(article.paragraphs, numbers, strict=True)
+            self._paragraph_node(paragraph, part, (ordinal, number)) for paragraph, number in zip(article.paragraphs, numbers, strict=True)
         )
         heading = (self._run(f"{label}  {article.title}", weight=700),)
         return SectionNode(meta=self._meta("H2", label), level=3, heading=heading, children=paragraphs)
 
     def _paragraph_node(self, paragraph: Paragraph, part: int, path: tuple[int, ...], /) -> DocumentNode:
         children = tuple(self._paragraph_node(child, part, (*path, number)) for number, child in enumerate(paragraph.children, start=1))
-        if paragraph.role is ParagraphRole.NOTE:  # decorative editing guidance — unnumbered, `BlockKind.ARTIFACT` excludes it from the PDF/UA tag tree
-            return BlockNode(meta=self._meta("Note", paragraph.text[:32]), block=BlockKind.ARTIFACT, runs=(self._run(paragraph.text),), children=children)
+        if (
+            paragraph.role is ParagraphRole.NOTE
+        ):  # decorative editing guidance — unnumbered, `BlockKind.ARTIFACT` excludes it from the PDF/UA tag tree
+            return BlockNode(
+                meta=self._meta("Note", paragraph.text[:32]), block=BlockKind.ARTIFACT, runs=(self._run(paragraph.text),), children=children
+            )
         label = self.page.label(part, path)
         # a subordinate heading rides its own bold lead run before the body run; a bare paragraph is one run.
-        runs = (self._run(f"{label}  {paragraph.title}", weight=700), self._run(paragraph.text)) if paragraph.title else (self._run(f"{label}  {paragraph.text}"),)
+        runs = (
+            (self._run(f"{label}  {paragraph.title}", weight=700), self._run(paragraph.text))
+            if paragraph.title
+            else (self._run(f"{label}  {paragraph.text}"),)
+        )
         return BlockNode(meta=self._meta("P", label), block=BlockKind.PARAGRAPH, runs=runs, children=children)
 
     def _run(self, text: str, /, *, weight: int = 400) -> RunNode:
@@ -587,7 +684,12 @@ class Spec(Struct, frozen=True):
     def _meta(self, role: str, token: str, /, *, classification: str = "") -> NodeMeta:
         # the section's CSI ClassCode rides the root SectionNode's NodeMeta.classification so the one lowered
         # model tree carries the code the classify#CLASSIFY ReferenceIndex keys the drawing<->spec cross-ref on.
-        return NodeMeta(key=ContentIdentity.of(f"spec-{role}", f"{self.section.render()}:{token}".encode()), role=role, page=0, classification=classification or UNSET)
+        return NodeMeta(
+            key=ContentIdentity.of(f"spec-{role}", f"{self.section.render()}:{token}".encode()),
+            role=role,
+            page=0,
+            classification=classification or UNSET,
+        )
 ```
 
 ## [04]-[RESEARCH]

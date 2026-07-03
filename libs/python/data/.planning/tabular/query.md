@@ -125,6 +125,7 @@ class LakehouseFormat(StrEnum):
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
+
 class PlanWire(StrEnum):
     SQL = "sql"
     SUBSTRAIT = "substrait"
@@ -140,7 +141,9 @@ class SqlGate(Struct, frozen=True):
 
     def _qualified(self, text: str, dialect: Dialects) -> exp.Expression:
         tree = sqlglot.parse_one(text, dialect=sqlglot.Dialect.get_or_raise(dialect), error_level=self.errors)
-        return sqlglot_qualify(tree, schema=self.schema, dialect=dialect, infer_schema=self.schema is None, validate_qualify_columns=self.schema is not None)
+        return sqlglot_qualify(
+            tree, schema=self.schema, dialect=dialect, infer_schema=self.schema is None, validate_qualify_columns=self.schema is not None
+        )
 
     def transpile(self, text: str) -> str:
         qualified = self._qualified(text, self.read)
@@ -270,8 +273,7 @@ class QuerySpec:
 
     @staticmethod
     def Agnostic(
-        select: tuple[str, ...] = (), predicates: tuple[Predicate, ...] = (),
-        group_by: tuple[str, ...] = (), aggs: tuple[AggExpr, ...] = (),
+        select: tuple[str, ...] = (), predicates: tuple[Predicate, ...] = (), group_by: tuple[str, ...] = (), aggs: tuple[AggExpr, ...] = ()
     ) -> "QuerySpec":
         return QuerySpec(agnostic=(select, predicates, group_by, aggs))
 
@@ -281,8 +283,7 @@ class QuerySpec:
 
     @staticmethod
     def Remote(
-        sql: str, dsn: str, driver: RemoteDriver = RemoteDriver.ADBC,
-        op: RemoteOp = RemoteOp.READ, transport: Transport = Transport(),
+        sql: str, dsn: str, driver: RemoteDriver = RemoteDriver.ADBC, op: RemoteOp = RemoteOp.READ, transport: Transport = Transport()
     ) -> "QuerySpec":
         return QuerySpec(remote=(sql, dsn, driver, op, transport))
 
@@ -292,6 +293,7 @@ class QuerySpec:
 
 
 # --- [SERVICES] -------------------------------------------------------------------------
+
 
 class QueryEngine(Struct, frozen=True):
     inputs: Frames
@@ -315,9 +317,13 @@ class QueryEngine(Struct, frozen=True):
             case QuerySpec(tag="remote", remote=(sql, dsn, driver, op, transport)):
                 divert = transport.partition_on is not None and driver is RemoteDriver.ADBC and op in _CX_OPS
                 selected = RemoteDriver.CONNECTORX if divert else driver
-                return await guarded(RetryClass.REMOTE_DB, anyio.to_thread.run_sync, _REMOTE[selected], sql, dsn, op, transport, self.inputs, subject="query.remote")
+                return await guarded(
+                    RetryClass.REMOTE_DB, anyio.to_thread.run_sync, _REMOTE[selected], sql, dsn, op, transport, self.inputs, subject="query.remote"
+                )
             case QuerySpec(tag="streaming", streaming=(plan, runner, cluster)):
-                return await guarded(RetryClass.STREAMING, anyio.to_thread.run_sync, _stream, plan, runner, cluster, self.inputs, subject="query.streaming")
+                return await guarded(
+                    RetryClass.STREAMING, anyio.to_thread.run_sync, _stream, plan, runner, cluster, self.inputs, subject="query.streaming"
+                )
             case unreachable:
                 assert_never(unreachable)
 
@@ -332,15 +338,14 @@ class QueryEngine(Struct, frozen=True):
                 con.register(name, frame)
             return build(con).to_arrow_table()
 
-    def _relation(self, con: duckdb.DuckDBPyConnection, flt: str | None, project: tuple[str, ...], group_by: tuple[str, ...]) -> duckdb.DuckDBPyRelation:
+    def _relation(
+        self, con: duckdb.DuckDBPyConnection, flt: str | None, project: tuple[str, ...], group_by: tuple[str, ...]
+    ) -> duckdb.DuckDBPyRelation:
         rel = con.from_arrow(next(iter(self.inputs.values())))
         rel = rel.filter(flt) if flt else rel
         return rel.aggregate(", ".join(project), ", ".join(group_by)) if group_by else rel.project(", ".join(project))
 
-    def _agnostic(
-        self, select: tuple[str, ...], predicates: tuple[Predicate, ...],
-        group_by: tuple[str, ...], aggs: tuple[AggExpr, ...],
-    ) -> pa.Table:
+    def _agnostic(self, select: tuple[str, ...], predicates: tuple[Predicate, ...], group_by: tuple[str, ...], aggs: tuple[AggExpr, ...]) -> pa.Table:
         lf = nw.from_native(next(iter(self.inputs.values()))).lazy()
         lf = lf.filter(*(_predicate(p) for p in predicates)) if predicates else lf
         shaped = lf.group_by(*group_by).agg(*(_aggregation(a) for a in aggs)) if group_by else lf.select(*select)
@@ -353,8 +358,10 @@ class QueryEngine(Struct, frozen=True):
         backend = ibis.connect(emit.backend_uri) if emit.backend_uri else ibis.duckdb.connect()
         try:
             bound = emit.bound(expr)
-            return _ir_plan(backend, bound, emit) if emit.wire is not PlanWire.SQL else (
-                backend.to_pyarrow_batches(bound).read_all() if emit.streaming else backend.to_pyarrow(bound)
+            return (
+                _ir_plan(backend, bound, emit)
+                if emit.wire is not PlanWire.SQL
+                else (backend.to_pyarrow_batches(bound).read_all() if emit.streaming else backend.to_pyarrow(bound))
             )
         finally:
             backend.disconnect()
@@ -442,9 +449,14 @@ def _connectorx(sql: str, dsn: str, op: RemoteOp, transport: Transport, frames: 
 
     if op is RemoteOp.PROBE:
         return pa.Table.from_pandas(cx.get_meta(dsn, sql, protocol=transport.protocol))
-    queries = cx.partition_sql(dsn, sql, transport.partition_on, transport.partition_num) if op is RemoteOp.PARTITION and transport.partition_on else sql
+    queries = (
+        cx.partition_sql(dsn, sql, transport.partition_on, transport.partition_num) if op is RemoteOp.PARTITION and transport.partition_on else sql
+    )
     result = cx.read_sql(
-        dsn, queries, return_type="arrow_stream" if op is RemoteOp.STREAM else "arrow", protocol=transport.protocol,
+        dsn,
+        queries,
+        return_type="arrow_stream" if op is RemoteOp.STREAM else "arrow",
+        protocol=transport.protocol,
         partition_on=transport.partition_on if isinstance(queries, str) else None,
         partition_num=transport.partition_num if isinstance(queries, str) and transport.partition_on else None,
     )
@@ -456,8 +468,7 @@ def _flightsql(sql: str, dsn: str, op: RemoteOp, transport: Transport, frames: F
     from adbc_driver_flightsql import dbapi as flight  # noqa: PLC0415
 
     with flight.connect(
-        dsn, db_kwargs=transport.db_kwargs(DatabaseOptions) or None,
-        conn_kwargs=transport.conn_kwargs(StatementOptions, ConnectionOptions) or None,
+        dsn, db_kwargs=transport.db_kwargs(DatabaseOptions) or None, conn_kwargs=transport.conn_kwargs(StatementOptions, ConnectionOptions) or None
     ) as conn:
         return _adbc_dispatch(conn, sql, op, transport, frames)
 
@@ -489,8 +500,12 @@ def _daft_scan(daft: Any, plan: StreamingPlan) -> Any:
     reader = getattr(daft, name)
     if plan.fmt is LakehouseFormat.SQL:
         return reader(
-            plan.sql, plan.conn, partition_col=plan.partition_col, num_partitions=plan.num_partitions,
-            partition_bound_strategy=plan.partition_strategy, disable_pushdowns_to_sql=plan.disable_pushdowns,
+            plan.sql,
+            plan.conn,
+            partition_col=plan.partition_col,
+            num_partitions=plan.num_partitions,
+            partition_bound_strategy=plan.partition_strategy,
+            disable_pushdowns_to_sql=plan.disable_pushdowns,
         )
     travel = {version_key: plan.version} if version_key and plan.version is not None else {}
     travel |= {"asof": plan.asof} if plan.fmt is LakehouseFormat.LANCE and plan.asof else {}
@@ -544,7 +559,11 @@ def _provenance(spec: QuerySpec) -> Provenance:
         case QuerySpec(tag="remote", remote=(sql, dsn, _, _, _)):
             return dsn, predicate_count(sql), SqlGate().edges(sql)
         case QuerySpec(tag="streaming", streaming=(plan, _, _)):
-            return plan.source, predicate_count(plan.sql) if plan.sql else int(plan.predicate is not None), SqlGate().edges(plan.sql) if plan.sql else ()
+            return (
+                plan.source,
+                predicate_count(plan.sql) if plan.sql else int(plan.predicate is not None),
+                SqlGate().edges(plan.sql) if plan.sql else (),
+            )
         case unreachable:
             assert_never(unreachable)
 

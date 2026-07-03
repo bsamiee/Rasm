@@ -1,0 +1,1 @@
+# [PROOF_PURITY] — edge-ledger import / subpath-purity / bundle-law / sub-folder crypto-admission gauge — the checks the exports map cannot express; asserts zero @effect/sql/Migrator | @effect/sql-pg/PgMigrator imports branch-wide

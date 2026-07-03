@@ -137,9 +137,17 @@ type Filter = Literal["transpose", "scale_offset", "delta", "fixed_scale_offset"
 
 _FILTER: "Final[frozendict[Filter, tuple[Callable[..., ArrayArrayCodec], str, tuple[str, ...]]]]" = frozendict({
     "transpose": (lambda order: zc.TransposeCodec(order=order), "transpose", ("order",)),
-    "scale_offset": (lambda scale, offset, dtype: zc.ScaleOffset(scale=scale, offset=offset, dtype=dtype), "scaleoffset", ("scale", "offset", "dtype")),
+    "scale_offset": (
+        lambda scale, offset, dtype: zc.ScaleOffset(scale=scale, offset=offset, dtype=dtype),
+        "scaleoffset",
+        ("scale", "offset", "dtype"),
+    ),
     "delta": (lambda dtype: nc.Delta(dtype=dtype), "numcodecs.delta", ("dtype",)),
-    "fixed_scale_offset": (lambda scale, offset, dtype: nc.FixedScaleOffset(scale=scale, offset=offset, dtype=dtype), "numcodecs.fixedscaleoffset", ("scale", "offset", "dtype")),
+    "fixed_scale_offset": (
+        lambda scale, offset, dtype: nc.FixedScaleOffset(scale=scale, offset=offset, dtype=dtype),
+        "numcodecs.fixedscaleoffset",
+        ("scale", "offset", "dtype"),
+    ),
     "quantize": (lambda digits, dtype: nc.Quantize(digits=digits, dtype=dtype), "numcodecs.quantize", ("digits", "dtype")),
     "bitround": (lambda keepbits: nc.BitRound(keepbits=keepbits), "numcodecs.bitround", ("keepbits",)),
     "packbits": (lambda: nc.PackBits(), "numcodecs.packbits", ()),
@@ -298,9 +306,7 @@ class TensorStore(Struct, frozen=True):
         # plural snapshot keys distinctly rather than collapsing onto the last block alone; the
         # singular/plural atomic-vs-sequential disposition is the normalized count, never a flag.
         return anyio.run(async_boundary, "tensor.write_region", _write).bind(
-            lambda stored: ContentIdentity.of("tensor", tuple(block.tobytes() for _, block in staged)).map(
-                lambda key: _receipt(self, stored, key)
-            )
+            lambda stored: ContentIdentity.of("tensor", tuple(block.tobytes() for _, block in staged)).map(lambda key: _receipt(self, stored, key))
         )
 
     def read_region(self, region: TensorRegion) -> "RuntimeRail[np.ndarray]":
@@ -357,15 +363,21 @@ def _ts_kvstore(ref: ResourceRef) -> JsonSpec:
     )
 
 
-def _ts_spec(ref: ResourceRef, *, codec: TensorCodec | None = None, shape: Shape = (), chunking: TensorChunking | None = None, dtype: DType = "") -> JsonSpec:
+def _ts_spec(
+    ref: ResourceRef, *, codec: TensorCodec | None = None, shape: Shape = (), chunking: TensorChunking | None = None, dtype: DType = ""
+) -> JsonSpec:
     # the array-level `chunk_grid` reads `chunking.grid` (the outer `shards` when sharding, else
     # `chunks`); `codec.metadata(chunking)` wraps the inner pipeline in `sharding_indexed` to match.
-    metadata: JsonSpec = {} if codec is None or chunking is None else {
-        "shape": list(shape),
-        "data_type": dtype,
-        "chunk_grid": {"name": "regular", "configuration": {"chunk_shape": list(chunking.grid)}},
-        "codecs": codec.metadata(chunking),
-    }
+    metadata: JsonSpec = (
+        {}
+        if codec is None or chunking is None
+        else {
+            "shape": list(shape),
+            "data_type": dtype,
+            "chunk_grid": {"name": "regular", "configuration": {"chunk_shape": list(chunking.grid)}},
+            "codecs": codec.metadata(chunking),
+        }
+    )
     return {"driver": "zarr3", "kvstore": _ts_kvstore(ref), **({"metadata": metadata} if metadata else {})}
 
 
@@ -547,9 +559,7 @@ class PlanOp:
                 return cubed.map_blocks(func, plan, dtype=dtype, drop_axis=drop_axis, new_axis=new_axis)
             case PlanOp(tag="gufunc"):
                 func, signature, output_dtypes, vectorize, allow_rechunk = self.gufunc
-                return cubed.apply_gufunc(
-                    func, signature, plan, output_dtypes=output_dtypes, vectorize=vectorize, allow_rechunk=allow_rechunk
-                )
+                return cubed.apply_gufunc(func, signature, plan, output_dtypes=output_dtypes, vectorize=vectorize, allow_rechunk=allow_rechunk)
             case PlanOp(tag="rechunk"):
                 chunks, min_mem = self.rechunk
                 return cubed.rechunk(plan, chunks, min_mem=min_mem)

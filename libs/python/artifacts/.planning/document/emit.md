@@ -102,7 +102,19 @@ lazy from reportlab.lib.units import mm
 lazy from reportlab.pdfbase import pdfmetrics
 lazy from reportlab.pdfbase.ttfonts import TTFont
 lazy from reportlab.pdfgen.canvas import Canvas
-lazy from reportlab.platypus import BaseDocTemplate, Frame, Image, ListFlowable, ListItem, PageBreak, PageTemplate, Paragraph, Spacer, Table, TableStyle
+lazy from reportlab.platypus import (
+    BaseDocTemplate,
+    Frame,
+    Image,
+    ListFlowable,
+    ListItem,
+    PageBreak,
+    PageTemplate,
+    Paragraph,
+    Spacer,
+    Table,
+    TableStyle,
+)
 lazy from reportlab.platypus.tableofcontents import TableOfContents
 lazy from ruamel.yaml import YAML
 lazy from typst import Compiler
@@ -117,8 +129,8 @@ if TYPE_CHECKING:
 class DocumentMode(StrEnum):
     PDF_AUTHOR = "pdf-author"
     PDF_HTML = "pdf-html"
-    PDF_OXIDE = "pdf-oxide"       # commercial-safe (MIT/Apache) HTML->PDF create — pdf_oxide `Pdf.from_html`
-    PDF_UA = "pdf-ua"             # native tagged PDF/UA-1 fluent author — pdf_oxide `DocumentBuilder`
+    PDF_OXIDE = "pdf-oxide"  # commercial-safe (MIT/Apache) HTML->PDF create — pdf_oxide `Pdf.from_html`
+    PDF_UA = "pdf-ua"  # native tagged PDF/UA-1 fluent author — pdf_oxide `DocumentBuilder`
     PDF_TYPST = "pdf-typst"
     TYPST_QUERY = "typst-query"
     TYPST_EVAL = "typst-eval"
@@ -140,8 +152,8 @@ class DocumentMode(StrEnum):
     XML_QUERY = "xml-query"
     YAML = "yaml"
     TOML = "toml"
-    MARKDOWN = "markdown"         # CommonMark/GFM plain-text manuscript — `document/model#NODE` `to_markdown` node lowering
-    LATEX = "latex"               # journal-submission LaTeX manuscript — `document/model#NODE` `to_latex` node lowering
+    MARKDOWN = "markdown"  # CommonMark/GFM plain-text manuscript — `document/model#NODE` `to_markdown` node lowering
+    LATEX = "latex"  # journal-submission LaTeX manuscript — `document/model#NODE` `to_latex` node lowering
 
 
 class Band(StrEnum):
@@ -171,9 +183,9 @@ class PdfVariant(StrEnum):
     A_1B = "a-1b"
     A_2B = "a-2b"
     A_3B = "a-3b"
-    A_2A = "a-2a"    # PDF/A-2 accessible: archival AND tagged — the both-telos preservation+accessibility union
-    A_3A = "a-3a"    # PDF/A-3 accessible: archival + tagged + embedded source files (the AEC deliverable seal)
-    A_4 = "a-4"      # PDF/A-4 (PDF 2.0 archival)
+    A_2A = "a-2a"  # PDF/A-2 accessible: archival AND tagged — the both-telos preservation+accessibility union
+    A_3A = "a-3a"  # PDF/A-3 accessible: archival + tagged + embedded source files (the AEC deliverable seal)
+    A_4 = "a-4"  # PDF/A-4 (PDF 2.0 archival)
     UA_1 = "ua-1"
 
     @property
@@ -218,14 +230,24 @@ _MARKUP_ESCAPE: Final = str.maketrans({"&": "&amp;", "<": "&lt;", ">": "&gt;", '
 # the typst `PDFStandard` token tuple per variant — the archival token alone for `-b`/`a-4`, the archival
 # token PLUS `ua-1` for the accessible `-a` and `ua-1` rows so one render is conformant AND screen-readable.
 _PDF_STANDARD: Final[frozendict[PdfVariant, tuple[str, ...]]] = frozendict({
-    PdfVariant.A_1B: ("a-1b",), PdfVariant.A_2B: ("a-2b",), PdfVariant.A_3B: ("a-3b",), PdfVariant.A_4: ("a-4",),
-    PdfVariant.A_2A: ("a-2a", "ua-1"), PdfVariant.A_3A: ("a-3a", "ua-1"), PdfVariant.UA_1: ("a-3b", "ua-1"),
+    PdfVariant.A_1B: ("a-1b",),
+    PdfVariant.A_2B: ("a-2b",),
+    PdfVariant.A_3B: ("a-3b",),
+    PdfVariant.A_4: ("a-4",),
+    PdfVariant.A_2A: ("a-2a", "ua-1"),
+    PdfVariant.A_3A: ("a-3a", "ua-1"),
+    PdfVariant.UA_1: ("a-3b", "ua-1"),
 })
 # the weasyprint `pdf_variant` profile per variant — only `-b`/`a-4`/`ua-1` ship, so the accessible `-a`
 # rows project to their `-b` profile and ride `pdf_tags=True` (the `tagged` flag) for the structure tree.
 _PDF_PROFILE: Final[frozendict[PdfVariant, str]] = frozendict({
-    PdfVariant.A_1B: "pdf/a-1b", PdfVariant.A_2B: "pdf/a-2b", PdfVariant.A_3B: "pdf/a-3b", PdfVariant.A_4: "pdf/a-4",
-    PdfVariant.A_2A: "pdf/a-2b", PdfVariant.A_3A: "pdf/a-3b", PdfVariant.UA_1: "pdf/ua-1",
+    PdfVariant.A_1B: "pdf/a-1b",
+    PdfVariant.A_2B: "pdf/a-2b",
+    PdfVariant.A_3B: "pdf/a-3b",
+    PdfVariant.A_4: "pdf/a-4",
+    PdfVariant.A_2A: "pdf/a-2b",
+    PdfVariant.A_3A: "pdf/a-3b",
+    PdfVariant.UA_1: "pdf/ua-1",
 })
 # the tagged (structure-tree-bearing) variants: the `-a` accessible levels and `ua-1` set `pdf_tags=True`.
 _ACCESSIBLE: Final[frozenset[PdfVariant]] = frozenset({PdfVariant.A_2A, PdfVariant.A_3A, PdfVariant.UA_1})
@@ -245,8 +267,8 @@ class EmitFault:
     # (`TypstError`/`PdfiumError`/`XMLSyntaxError`/`XlsxWriterException`) converts to the runtime
     # `BoundaryFault` at the `async_boundary` capsule, never into this interior vocabulary.
     tag: Literal["payload", "unsatisfied"] = tag()
-    payload: tuple[str, ...] = case()             # the rejected EmitPayload key paths
-    unsatisfied: tuple[DocumentMode, str] = case() # a mode whose `_REQUIRED` input field is empty
+    payload: tuple[str, ...] = case()  # the rejected EmitPayload key paths
+    unsatisfied: tuple[DocumentMode, str] = case()  # a mode whose `_REQUIRED` input field is empty
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -309,7 +331,7 @@ class EmitFact(Struct, frozen=True):
     data: bytes
     pages: int = 0
     scale: float = 0.0
-    outline_count: int = 0                    # reportlab `addOutlineEntry`/TOC entries or the pypdfium2 bookmark count
+    outline_count: int = 0  # reportlab `addOutlineEntry`/TOC entries or the pypdfium2 bookmark count
     faces: tuple[str, ...] = ()
     undeclared: tuple[str, ...] = ()
     template_path: str = ""
@@ -318,10 +340,10 @@ class EmitFact(Struct, frozen=True):
     warnings: int = 0
     errors: int = 0
     outline: tuple[OutlineRow, ...] = ()
-    tagged: bool = False                      # PDF/UA structure tree emitted (pdf_oxide `tagged_pdf_ua1`, weasyprint `pdf_tags`)
-    structure: int = 0                        # tagged structure elements or `role_map` foreign->standard rows
-    merges: int = 0                           # merged/spanned office cells folded from `TableNode.spans`
-    footnotes: int = 0                        # authored `text:note` footnotes / docx comments
+    tagged: bool = False  # PDF/UA structure tree emitted (pdf_oxide `tagged_pdf_ua1`, weasyprint `pdf_tags`)
+    structure: int = 0  # tagged structure elements or `role_map` foreign->standard rows
+    merges: int = 0  # merged/spanned office cells folded from `TableNode.spans`
+    footnotes: int = 0  # authored `text:note` footnotes / docx comments
 
 
 class EmitSpec(Struct, frozen=True, omit_defaults=True):
@@ -330,26 +352,28 @@ class EmitSpec(Struct, frozen=True, omit_defaults=True):
     title: str = ""
     author: str = ""
     subject: str = ""
-    toc: bool = False                                          # reportlab multiBuild table-of-contents + PDF outline from heading flowables
-    header_text: str = ""                                      # title-block running header (reportlab onPage sheet furniture, docx/odf section header)
-    footer_text: str = ""                                      # title-block running footer; the page-number field renders per page
-    landscape: bool = False                                    # page orientation for the reportlab/docx/xlsx print layout
+    toc: bool = False  # reportlab multiBuild table-of-contents + PDF outline from heading flowables
+    header_text: str = ""  # title-block running header (reportlab onPage sheet furniture, docx/odf section header)
+    footer_text: str = ""  # title-block running footer; the page-number field renders per page
+    landscape: bool = False  # page orientation for the reportlab/docx/xlsx print layout
     variant: PdfVariant = PdfVariant.NONE
     forms: bool = False
-    output_intent: str = ""                                    # weasyprint PDF/A ICC output-intent profile path
-    base_url: str = ""                                         # weasyprint relative-resource resolution root
-    stylesheets: tuple[str, ...] = ()                          # weasyprint supplemental CSS paths
-    attachments: frozendict[str, str] = field(default_factory=frozendict)  # PDF/A-3 embedded source files: display-name -> file path, the `/Source`-relationship AEC deliverable seal the A_3A variant requires
-    full_fonts: bool = False                                   # weasyprint embed complete fonts (archival fidelity) instead of subsetting
-    optimize_images: bool = False                              # weasyprint recompress embedded raster images
-    presentational_hints: bool = False                         # weasyprint honor legacy HTML presentational attributes
+    output_intent: str = ""  # weasyprint PDF/A ICC output-intent profile path
+    base_url: str = ""  # weasyprint relative-resource resolution root
+    stylesheets: tuple[str, ...] = ()  # weasyprint supplemental CSS paths
+    attachments: frozendict[str, str] = field(
+        default_factory=frozendict
+    )  # PDF/A-3 embedded source files: display-name -> file path, the `/Source`-relationship AEC deliverable seal the A_3A variant requires
+    full_fonts: bool = False  # weasyprint embed complete fonts (archival fidelity) instead of subsetting
+    optimize_images: bool = False  # weasyprint recompress embedded raster images
+    presentational_hints: bool = False  # weasyprint honor legacy HTML presentational attributes
     selector: str = ""
     field_name: str = ""
     one: bool = False
-    expression: str = ""                                       # typst `eval` source expression evaluated against the document
+    expression: str = ""  # typst `eval` source expression evaluated against the document
     sys_inputs: frozendict[str, str] = field(default_factory=frozendict)
-    timestamp: int = 0                                         # typst reproducible-byte creation pin (epoch); 0 = unpinned
-    image_format: str = "png"                                 # pymupdf native `Pixmap.tobytes` codec
+    timestamp: int = 0  # typst reproducible-byte creation pin (epoch); 0 = unpinned
+    image_format: str = "png"  # pymupdf native `Pixmap.tobytes` codec
     pages: tuple[int, ...] = ()
     scale: float = _RASTER_SCALE
     rotation: int = 0
@@ -470,7 +494,9 @@ class DocumentPlan(Struct, frozen=True):
         # overrides `input=` per compile, so the cached fonts serve every batched render.
         return Compiler(to_typst_source(self.node).encode(), font_paths=[], sys_inputs=dict(self.spec.sys_inputs))
 
-    @receipted(OPEN)  # emit facts carry no classified field, so the runtime keep-all `OPEN` rides directly — never a re-minted per-file `Redaction` the observability owner forbids, exactly as `document/egress#FINISH` rides `OPEN`
+    @receipted(
+        OPEN
+    )  # emit facts carry no classified field, so the runtime keep-all `OPEN` rides directly — never a re-minted per-file `Redaction` the observability owner forbids, exactly as `document/egress#FINISH` rides `OPEN`
     async def _emit(self, world: "Compiler | None", /) -> Self:
         # returns the stepped owner (a `ReceiptContributor`) the harvest weave drains; the content key
         # is minted by `_emitted` off `self.fact.data`, never inside the pure core.
@@ -517,11 +543,7 @@ async def produced(plans: "DocumentPlan | Iterable[DocumentPlan]", /) -> Runtime
 async def _emitted(block: "Block[DocumentPlan]", /) -> Block[ContentKey]:
     # the held Typst world is built off the loop (a `Compiler` font-discovery scan is blocking native) under the shared
     # limiter, INSIDE the capsule so the construction never stalls the scheduler yet a build raise still converts to `BoundaryFault`
-    held = (
-        await to_thread.run_sync(block.head().world, limiter=_OFFLOAD)
-        if not block.is_empty() and block.head().mode in _HELD_WORLD
-        else None
-    )
+    held = await to_thread.run_sync(block.head().world, limiter=_OFFLOAD) if not block.is_empty() and block.head().mode in _HELD_WORLD else None
     stepped = [await plan._emit(held if plan.mode in _HELD_WORLD else None) for plan in block]
     return Block.of_seq([ContentIdentity.of(plan.mode.value, plan.fact.data) for plan in stepped])
 
@@ -582,7 +604,9 @@ def _flowables(node: DocumentNode, styles: object, spec: EmitSpec, /) -> Iterato
                 yield from _flowables(kid, styles, spec)
         case ListNode(list_kind=kind, items=items):
             entries = [ListItem(Paragraph(_node_markup(item), styles["Normal"])) for item in items]
-            yield ListFlowable(entries, bulletType="1" if kind is ListKind.ORDERED else "bullet", start=node.start if kind is ListKind.ORDERED else None)
+            yield ListFlowable(
+                entries, bulletType="1" if kind is ListKind.ORDERED else "bullet", start=node.start if kind is ListKind.ORDERED else None
+            )
         case TableNode() as table:
             yield _table_flowable(table, styles)
         case FigureNode(asset_key=asset_key, intrinsic=intrinsic, caption=caption) if asset_key.hex in spec.assets:
@@ -605,7 +629,9 @@ def _flowables(node: DocumentNode, styles: object, spec: EmitSpec, /) -> Iterato
 
 
 def _text(node: DocumentNode) -> str:
-    return "".join(run.text for run in walk(node) if isinstance(run, RunNode))  # plain text for docx/xlsx/UA-linearize; the reportlab arm uses the markup form below
+    return "".join(
+        run.text for run in walk(node) if isinstance(run, RunNode)
+    )  # plain text for docx/xlsx/UA-linearize; the reportlab arm uses the markup form below
 
 
 def _run_markup(run: RunNode, /) -> str:
@@ -649,9 +675,15 @@ def _table_flowable(node: TableNode, styles: object, /) -> Table:
     commands: list[tuple[object, ...]] = [
         ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("LEFTPADDING", (0, 0), (-1, -1), 4), ("RIGHTPADDING", (0, 0), (-1, -1), 4),
-        ("TOPPADDING", (0, 0), (-1, -1), 2), ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
-        *([("BACKGROUND", (0, 0), (-1, head - 1), colors.HexColor("#E8E8E8")), ("FONTNAME", (0, 0), (-1, head - 1), "Helvetica-Bold")] if head else ()),
+        ("LEFTPADDING", (0, 0), (-1, -1), 4),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+        ("TOPPADDING", (0, 0), (-1, -1), 2),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+        *(
+            [("BACKGROUND", (0, 0), (-1, head - 1), colors.HexColor("#E8E8E8")), ("FONTNAME", (0, 0), (-1, head - 1), "Helvetica-Bold")]
+            if head
+            else ()
+        ),
         *([("BACKGROUND", (0, last - foot + 1), (-1, -1), colors.HexColor("#F4F4F4"))] if foot else ()),
         *_span_commands(node.spans),
     ]
@@ -696,9 +728,7 @@ def _title_block(spec: EmitSpec, node_key: str, /) -> Callable[[object, object],
 def _reportlab_author(plan: DocumentPlan, _world: "Compiler | None", /) -> EmitFact:
     sink, size = io.BytesIO(), (A4[1], A4[0]) if plan.spec.landscape else A4
     styles = getSampleStyleSheet()
-    doc = _SheetDocTemplate(
-        sink, pagesize=size, title=plan.spec.title or plan.node.meta.key.hex, author=plan.spec.author, subject=plan.spec.subject,
-    )
+    doc = _SheetDocTemplate(sink, pagesize=size, title=plan.spec.title or plan.node.meta.key.hex, author=plan.spec.author, subject=plan.spec.subject)
     frame = Frame(20 * mm, 18 * mm, size[0] - 40 * mm, size[1] - 34 * mm, id="body")
     doc.addPageTemplates([PageTemplate(id="sheet", frames=[frame], onPage=_title_block(plan.spec, plan.node.meta.key.hex))])
     toc = TableOfContents(levelStyles=[ParagraphStyle(name=f"TOC{n}", fontSize=11 - n, leftIndent=12 * n) for n in range(3)])
@@ -814,8 +844,11 @@ def _typst_compile(plan: DocumentPlan, world: "Compiler | None", /) -> EmitFact:
     title = (plan.spec.title or plan.node.meta.key.hex) if plan.spec.variant.tagged else None
     source = to_typst_source(plan.node, title=title)
     data, warnings = compiler.compile_with_warnings(
-        input=source.encode(), output=None, sys_inputs=dict(plan.spec.sys_inputs),
-        pdf_standards=plan.spec.variant.typst, timestamp=plan.spec.timestamp or None,
+        input=source.encode(),
+        output=None,
+        sys_inputs=dict(plan.spec.sys_inputs),
+        pdf_standards=plan.spec.variant.typst,
+        timestamp=plan.spec.timestamp or None,
     )
     return EmitFact(data=data, warnings=len(warnings))
 
@@ -824,8 +857,7 @@ def _typst_query(plan: DocumentPlan, _world: "Compiler | None", /) -> EmitFact:
     # the free function compiles a single-shot world over THIS plan's own document — never the held
     # head world, which would query the wrong document in a batch.
     result = typst.query(
-        input=to_typst_source(plan.node).encode(), selector=plan.spec.selector,
-        field=plan.spec.field_name or None, one=plan.spec.one,
+        input=to_typst_source(plan.node).encode(), selector=plan.spec.selector, field=plan.spec.field_name or None, one=plan.spec.one
     ).encode()
     return EmitFact(data=result, queried=len(result))
 
@@ -839,7 +871,9 @@ def _typst_eval(plan: DocumentPlan, _world: "Compiler | None", /) -> EmitFact:
 def _pymupdf_render(plan: DocumentPlan, _world: "Compiler | None", /) -> EmitFact:
     doc = pymupdf.open(stream=plan.spec.source, filetype="pdf")
     try:
-        pixmaps = [doc[index].get_pixmap(matrix=pymupdf.Matrix(plan.spec.scale, plan.spec.scale)) for index in plan.spec.pages or range(doc.page_count)]
+        pixmaps = [
+            doc[index].get_pixmap(matrix=pymupdf.Matrix(plan.spec.scale, plan.spec.scale)) for index in plan.spec.pages or range(doc.page_count)
+        ]
         if len(pixmaps) == 1:
             data = pixmaps[0].tobytes(output=plan.spec.image_format)  # native MuPDF encode, no Pillow
         else:
@@ -1016,7 +1050,11 @@ def _docxtpl_emit(plan: DocumentPlan, _world: "Compiler | None", /) -> EmitFact:
             case FigureNode(asset_key=asset_key, meta=meta):
                 bounds = meta.bounds or (0.0, 0.0, 0.0, 0.0)
                 context[role] = InlineImage(
-                    template, plan.spec.assets[asset_key.hex], width=Pt(bounds[2]) if bounds[2] else None, height=Pt(bounds[3]) if bounds[3] else None, anchor=plan.spec.anchors.get(role)
+                    template,
+                    plan.spec.assets[asset_key.hex],
+                    width=Pt(bounds[2]) if bounds[2] else None,
+                    height=Pt(bounds[3]) if bounds[3] else None,
+                    anchor=plan.spec.anchors.get(role),
                 )
             case SectionNode():
                 context[role] = template.new_subdoc()
@@ -1035,7 +1073,9 @@ def _pptx_emit(plan: DocumentPlan, _world: "Compiler | None", /) -> EmitFact:
     blank = presentation.slide_layouts[6]
     for page in [n for n in walk(plan.node) if isinstance(n, PageNode)] or [plan.node]:
         slide = presentation.slides.add_slide(blank)
-        frame = slide.shapes.add_textbox(Inches(0.5), Inches(0.5), presentation.slide_width - Inches(1), presentation.slide_height - Inches(1)).text_frame
+        frame = slide.shapes.add_textbox(
+            Inches(0.5), Inches(0.5), presentation.slide_width - Inches(1), presentation.slide_height - Inches(1)
+        ).text_frame
         frame.word_wrap = True
         for block in (n for n in walk(page) if isinstance(n, BlockNode)):
             paragraph = frame.add_paragraph()
@@ -1230,7 +1270,9 @@ def _xlsx_merge(node: DocumentNode, sheet: object, header_fmt: object, /) -> int
         for row, col, col_span, row_span in table.spans:
             if col_span > 1 or row_span > 1:
                 top = table.rows[row][col] if row < len(table.rows) and col < len(table.rows[row]) else None
-                sheet.merge_range(offset + row, col, offset + row + row_span - 1, col + col_span - 1, _text(top) if top is not None else "", header_fmt)
+                sheet.merge_range(
+                    offset + row, col, offset + row + row_span - 1, col + col_span - 1, _text(top) if top is not None else "", header_fmt
+                )
                 count += 1
         offset += len(table.rows)
     return count
@@ -1244,10 +1286,16 @@ def _xlsx_write(plan: DocumentPlan, grid: list[tuple[CellValue, ...]], regime: X
     # `conditional_format`. Page-setup (`set_landscape`/`set_header`/`set_footer`) serves the print-layout plane.
     streamed = regime is XlsxRegime.STREAMED
     sink = io.BytesIO()
-    book = xlsxwriter.Workbook(sink, {
-        "constant_memory": streamed, "in_memory": plan.spec.in_memory, "use_zip64": len(grid) >= _ZIP64_ROW_THRESHOLD,
-        "remove_timezone": True, "nan_inf_to_errors": True,  # `_coerce_cell` admits tz-aware datetimes and `float('inf')`
-    })
+    book = xlsxwriter.Workbook(
+        sink,
+        {
+            "constant_memory": streamed,
+            "in_memory": plan.spec.in_memory,
+            "use_zip64": len(grid) >= _ZIP64_ROW_THRESHOLD,
+            "remove_timezone": True,
+            "nan_inf_to_errors": True,  # `_coerce_cell` admits tz-aware datetimes and `float('inf')`
+        },
+    )
     book.set_properties({"title": plan.spec.title or plan.node.meta.key.hex, "author": plan.spec.author})
     sheet = book.add_worksheet(plan.spec.sheet or None)
     header_fmt, headed = book.add_format(dict(_FORMATS["header"])), plan.spec.header
@@ -1267,7 +1315,9 @@ def _xlsx_write(plan: DocumentPlan, grid: list[tuple[CellValue, ...]], regime: X
     merges = 0
     if not streamed and grid and width:
         merges = _xlsx_merge(plan.node, sheet, header_fmt)
-        sheet.autofilter(0, 0, last, width - 1) if merges else sheet.add_table(0, 0, last, width - 1, {"header_row": headed, "autofilter": True, "banded_rows": True})
+        sheet.autofilter(0, 0, last, width - 1) if merges else sheet.add_table(
+            0, 0, last, width - 1, {"header_row": headed, "autofilter": True, "banded_rows": True}
+        )
         sheet.conditional_format(1, 0, last, width - 1, {"type": "data_bar"})
     elif headed and grid and width:
         sheet.freeze_panes(1, 0)
@@ -1352,8 +1402,12 @@ BACKENDS: Final[frozendict[DocumentMode, Backend]] = frozendict({
     DocumentMode.TYPST_QUERY: Backend(Band.CORE, _typst_query, ReceiptKind.OFFICE),
     DocumentMode.TYPST_EVAL: Backend(Band.CORE, _typst_eval, ReceiptKind.OFFICE),
     DocumentMode.TYPST_DATA: Backend(Band.CORE, _typst_compile, ReceiptKind.PDF),
-    DocumentMode.PDF_RENDER: Backend(Band.CORE, _pymupdf_render, ReceiptKind.PDF),  # AGPL: native-codec encoded raster; superseded on the commercial-safe path by pdf_oxide `render_page` (roster-flagged for final reconciliation)
-    DocumentMode.PDF_RASTER: Backend(Band.CORE, _pypdfium2_raster, ReceiptKind.PDF),  # Apache/BSD: the commercial-safe Pillow-free numpy-frame-stack raster axis
+    DocumentMode.PDF_RENDER: Backend(
+        Band.CORE, _pymupdf_render, ReceiptKind.PDF
+    ),  # AGPL: native-codec encoded raster; superseded on the commercial-safe path by pdf_oxide `render_page` (roster-flagged for final reconciliation)
+    DocumentMode.PDF_RASTER: Backend(
+        Band.CORE, _pypdfium2_raster, ReceiptKind.PDF
+    ),  # Apache/BSD: the commercial-safe Pillow-free numpy-frame-stack raster axis
     DocumentMode.PDF_ASSEMBLE: Backend(Band.CORE, _pypdf_assemble, ReceiptKind.PDF),
     DocumentMode.PDF_REPAIR: Backend(Band.WORKER, _pikepdf_repair, ReceiptKind.PDF),
     DocumentMode.FONT_EMBED: Backend(Band.CORE, _font_embed, ReceiptKind.PDF),
@@ -1369,8 +1423,12 @@ BACKENDS: Final[frozendict[DocumentMode, Backend]] = frozendict({
     DocumentMode.XML_QUERY: Backend(Band.WORKER, _lxml_query, ReceiptKind.OFFICE),
     DocumentMode.YAML: Backend(Band.CORE, _ruamel_emit, ReceiptKind.OFFICE),
     DocumentMode.TOML: Backend(Band.CORE, _tomlkit_emit, ReceiptKind.OFFICE),
-    DocumentMode.MARKDOWN: Backend(Band.CORE, _markdown_emit, ReceiptKind.OFFICE),  # pure-Python `to_markdown` node fold — no external input, so no `_REQUIRED` row
-    DocumentMode.LATEX: Backend(Band.CORE, _latex_emit, ReceiptKind.OFFICE),        # pure-Python `to_latex` node fold — no external input, so no `_REQUIRED` row
+    DocumentMode.MARKDOWN: Backend(
+        Band.CORE, _markdown_emit, ReceiptKind.OFFICE
+    ),  # pure-Python `to_markdown` node fold — no external input, so no `_REQUIRED` row
+    DocumentMode.LATEX: Backend(
+        Band.CORE, _latex_emit, ReceiptKind.OFFICE
+    ),  # pure-Python `to_latex` node fold — no external input, so no `_REQUIRED` row
 })
 ```
 

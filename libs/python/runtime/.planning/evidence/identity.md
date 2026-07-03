@@ -162,18 +162,24 @@ class ContentIdentity:
 
     @overload
     @classmethod
-    def of(cls, fmt: str, source: Source, policy: IdentityPolicy = ..., *, view: Literal["value"] = ..., seed: Option[U64] = ...) -> RuntimeRail[ContentKey]: ...
+    def of(
+        cls, fmt: str, source: Source, policy: IdentityPolicy = ..., *, view: Literal["value"] = ..., seed: Option[U64] = ...
+    ) -> RuntimeRail[ContentKey]: ...
     @overload
     @classmethod
     def of(cls, fmt: str, source: Source, policy: IdentityPolicy = ..., *, view: Literal["hex"], seed: Option[U64] = ...) -> RuntimeRail[str]: ...
     @overload
     @classmethod
-    def of(cls, fmt: str, source: Source, policy: IdentityPolicy = ..., *, view: Literal["memory"], seed: Option[U64] = ...) -> RuntimeRail[bytes]: ...
+    def of(
+        cls, fmt: str, source: Source, policy: IdentityPolicy = ..., *, view: Literal["memory"], seed: Option[U64] = ...
+    ) -> RuntimeRail[bytes]: ...
     @overload
     @classmethod
     def of(cls, fmt: str, source: Source, policy: IdentityPolicy = ..., *, view: Literal["digest"], seed: Option[U64] = ...) -> RuntimeRail[int]: ...
     @classmethod
-    def of(cls, fmt: str, source: Source, policy: IdentityPolicy = CANONICAL_POLICY, *, view: KeyView = "value", seed: Option[U64] = Nothing) -> RuntimeRail[KeyRender]:
+    def of(
+        cls, fmt: str, source: Source, policy: IdentityPolicy = CANONICAL_POLICY, *, view: KeyView = "value", seed: Option[U64] = Nothing
+    ) -> RuntimeRail[KeyRender]:
         lifted = IdentitySource.lift(source)
 
         def render(span: Span) -> KeyRender:
@@ -187,7 +193,14 @@ class ContentIdentity:
         return derived(fmt, lifted, render)
 
     @classmethod
-    def key(cls, fmt: str, source: Buffer | Iterable[bytes] | tuple[ContentKey, ...], policy: IdentityPolicy = CANONICAL_POLICY, *, seed: Option[U64] = Nothing) -> ContentKey:
+    def key(
+        cls,
+        fmt: str,
+        source: Buffer | Iterable[bytes] | tuple[ContentKey, ...],
+        policy: IdentityPolicy = CANONICAL_POLICY,
+        *,
+        seed: Option[U64] = Nothing,
+    ) -> ContentKey:
         # the synchronous BARE-key accessor every LEAF producer keys a byte/stream/merkle artifact by — every
         # artifacts/data/geometry `_emit` that mints `ArtifactReceipt.<Case>(key, ...)` or `SolverReceipt(key, ...)`
         # off a rendered `bytes`. The `whole`/`stream`/`merkle` modalities carry NO fallible canonical encode, so
@@ -286,6 +299,7 @@ class CorpusFixture(Struct, frozen=True):
     stream: Option[bytes]
     rows: Block[ParityRow]
 
+
 # --- [TABLES] ---------------------------------------------------------------------------
 
 _CORPUS: Final[Block[CorpusFixture]] = Block.of_seq((
@@ -311,11 +325,7 @@ _CORPUS: Final[Block[CorpusFixture]] = Block.of_seq((
     # binding carries NO fabricated bytes and grades the moment the producer pins them through the SAME
     # `whole`/seed-zero path row [1] uses — decode the producer reference, never re-mint a golden byte set.
     CorpusFixture(
-        name=GOLDEN_FMT,
-        state="design_pin",
-        producer="csharp:Rasm.Element/Projection/address#CONTENT_ADDRESS",
-        stream=Nothing,
-        rows=Block.empty(),
+        name=GOLDEN_FMT, state="design_pin", producer="csharp:Rasm.Element/Projection/address#CONTENT_ADDRESS", stream=Nothing, rows=Block.empty()
     ),
 ))
 
@@ -330,11 +340,13 @@ class SeedReproduction:
         # rail through `Result.bind`; a DESIGN-PIN fixture (`Nothing` stream) is skipped here and rides the
         # `planned`-phase obligation `contribute` emits, never a graded pass against a fabricated byte set.
         def step(acc: RuntimeRail[Block[ParityReceipt]], fixture: CorpusFixture) -> RuntimeRail[Block[ParityReceipt]]:
-            return acc.bind(lambda graded: fixture.stream.map(
-                lambda stream: ContentIdentity.of(fixture.name, stream, view="value", seed=Some(0)).map(
-                    lambda key: graded.append(fixture.rows.map(lambda row: row.grade(fixture.name, key)))
-                )
-            ).default_value(Ok(graded)))
+            return acc.bind(
+                lambda graded: fixture.stream.map(
+                    lambda stream: ContentIdentity.of(fixture.name, stream, view="value", seed=Some(0)).map(
+                        lambda key: graded.append(fixture.rows.map(lambda row: row.grade(fixture.name, key)))
+                    )
+                ).default_value(Ok(graded))
+            )
 
         return _CORPUS.fold(step, Ok(Block.empty()))
 
@@ -344,15 +356,16 @@ class SeedReproduction:
         # VISIBLE pending parity obligation on the one receipt stream the metrics/lanes fold reads, never a
         # silent gap and never a graded pass against fabricated bytes.
         graded = (
-            self.grade()
+            self
+            .grade()
             .map(lambda rows: Receipt.of(IDENTITY_FMT, ("emitted", IDENTITY_FMT, dict(rows.map(lambda receipt: receipt.fact)))))
             .map_error(lambda fault: Receipt.of(IDENTITY_FMT, fault))
             .merge()
         )
         pending = _CORPUS.choose(
-            lambda fixture: Some(Receipt.of(fixture.name, ("planned", fixture.name, {"design_pin": fixture.producer})))
-            if fixture.stream.is_none()
-            else Nothing
+            lambda fixture: (
+                Some(Receipt.of(fixture.name, ("planned", fixture.name, {"design_pin": fixture.producer}))) if fixture.stream.is_none() else Nothing
+            )
         )
         return (graded, *pending)
 ```

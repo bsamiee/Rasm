@@ -110,9 +110,18 @@ class FreezePolicy(Struct, frozen=True, kw_only=True):
 
     def namespace(self, inpath: str, outpath: str) -> object:
         return SimpleNamespace(
-            inpath=inpath, outpath=outpath, features=self.features, script=self.script, lang=self.lang,
-            suffix=self.suffix, usesuffix=self.usesuffix, replacenames=self.replacenames, zapnames=self.zapnames,
-            info=self.info, report=False, names=False,
+            inpath=inpath,
+            outpath=outpath,
+            features=self.features,
+            script=self.script,
+            lang=self.lang,
+            suffix=self.suffix,
+            usesuffix=self.usesuffix,
+            replacenames=self.replacenames,
+            zapnames=self.zapnames,
+            info=self.info,
+            report=False,
+            names=False,
         )
 
 
@@ -130,15 +139,15 @@ class NamedInstance(Struct, frozen=True):
 
 
 class StatAxis(Struct, frozen=True):
-    tag: str        # STAT AxisTag
-    name_id: int    # AxisNameID
-    ordering: int   # AxisOrdering
+    tag: str  # STAT AxisTag
+    name_id: int  # AxisNameID
+    ordering: int  # AxisOrdering
 
 
 class AxisCatalog(Struct, frozen=True):
-    axes: tuple[AxisRecord, ...]                 # fvar variation axes
-    named_instances: tuple[NamedInstance, ...]   # fvar named instances
-    design_axes: tuple[StatAxis, ...] = ()       # STAT style-attribute axes supplementing fvar
+    axes: tuple[AxisRecord, ...]  # fvar variation axes
+    named_instances: tuple[NamedInstance, ...]  # fvar named instances
+    design_axes: tuple[StatAxis, ...] = ()  # STAT style-attribute axes supplementing fvar
 
     @property
     def axis_count(self) -> int:
@@ -147,10 +156,10 @@ class AxisCatalog(Struct, frozen=True):
 
 class GlyphOutline(Struct, frozen=True):
     name: str
-    path: str                                    # SVG d-path
-    area: float                                  # AreaPen signed contour area
-    bounds: tuple[float, float, float, float]    # BoundsPen exact bbox
-    slant: float                                 # StatisticsPen slant (outline-quality metric)
+    path: str  # SVG d-path
+    area: float  # AreaPen signed contour area
+    bounds: tuple[float, float, float, float]  # BoundsPen exact bbox
+    slant: float  # StatisticsPen slant (outline-quality metric)
 
 
 class OutlineCatalog(Struct, frozen=True):
@@ -172,9 +181,9 @@ _REPORT_DECODER: Final = msgspec.msgpack.Decoder(EmbedReport)  # reads the cover
 
 
 class ScriptTags(Struct, frozen=True):
-    script: str                # ISO 15924 code, e.g. "Latn"
-    ot_tags: tuple[str, ...]    # OpenType script tags — multiple for Indic v1/v2 (e.g. "dev2"/"deva")
-    direction: str             # "LTR" / "RTL"
+    script: str  # ISO 15924 code, e.g. "Latn"
+    ot_tags: tuple[str, ...]  # OpenType script tags — multiple for Indic v1/v2 (e.g. "dev2"/"deva")
+    direction: str  # "LTR" / "RTL"
 
     @staticmethod
     def of(script: str) -> "ScriptTags":
@@ -191,9 +200,9 @@ class MasterSource(Struct, frozen=True):
 
 
 class DesignSpace(Struct, frozen=True, kw_only=True):
-    axes: tuple[AxisRecord, ...]              # tag/min/default/max per variation axis
-    default_location: Mapping[str, float]     # the location of the anchor `font`
-    sources: tuple[MasterSource, ...]         # the additional masters
+    axes: tuple[AxisRecord, ...]  # tag/min/default/max per variation axis
+    default_location: Mapping[str, float]  # the location of the anchor `font`
+    sources: tuple[MasterSource, ...]  # the additional masters
 
 
 @tagged_union(frozen=True)
@@ -203,10 +212,10 @@ class FontJob:
     instance: tuple[Mapping[str, AxisPin], InstancePolicy] = case()
     axis_catalog: None = case()
     outline: tuple[tuple[str, ...], Mapping[str, float]] = case()  # glyph names, variation location
-    embed_audit: tuple[int, ...] = case()                          # requested unicodes
-    merge: tuple[bytes, ...] = case()                              # additional font binaries
+    embed_audit: tuple[int, ...] = case()  # requested unicodes
+    merge: tuple[bytes, ...] = case()  # additional font binaries
     freeze: FreezePolicy = case()
-    feature: str = case()                                          # .fea source
+    feature: str = case()  # .fea source
     compile: DesignSpace = case()
 
     def apply(self, font: bytes) -> bytes:
@@ -265,6 +274,7 @@ class FontEngineering(Struct, frozen=True):
         key = ContentIdentity.of(f"font-{self.job.tag}", payload)
         return key, self.job.receipt(key, payload)
 
+
 # --- [OPERATIONS] ----------------------------------------------------------------------
 
 
@@ -275,7 +285,9 @@ def _spill(data: bytes, suffix: str, /) -> Path:
 
 
 def _glyph_count(font: bytes, /) -> int:
-    return len(TTFont(io.BytesIO(font), lazy=True).getGlyphOrder())  # output roster length for the `Pdf` receipt page slot — a lazy header read, not a re-cut
+    return len(
+        TTFont(io.BytesIO(font), lazy=True).getGlyphOrder()
+    )  # output roster length for the `Pdf` receipt page slot — a lazy header read, not a re-cut
 
 
 def _subset(font: bytes, unicodes: tuple[int, ...], options: Mapping[str, object]) -> bytes:
@@ -325,7 +337,9 @@ def _outline(font: bytes, glyph_names: tuple[str, ...], location: Mapping[str, f
         glyph_set[name].draw(record)  # traverse the outline ONCE, replay into every pen
         for pen in (svg, area, bounds, stats):
             record.replay(pen)
-        glyphs.append(GlyphOutline(name=name, path=svg.getCommands(), area=area.value, bounds=bounds.bounds or (0.0, 0.0, 0.0, 0.0), slant=stats.slant))
+        glyphs.append(
+            GlyphOutline(name=name, path=svg.getCommands(), area=area.value, bounds=bounds.bounds or (0.0, 0.0, 0.0, 0.0), slant=stats.slant)
+        )
     return _ENCODER.encode(OutlineCatalog(glyphs=tuple(glyphs)))
 
 

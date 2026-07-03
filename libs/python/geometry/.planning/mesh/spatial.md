@@ -35,12 +35,16 @@ if TYPE_CHECKING:
 type QueryKind = Literal["proximity", "ray", "contains", "bounds", "clearance", "sample"]
 
 
-class SpatialBackend(StrEnum):  # the resolved exact-clearance KERNEL; vertex-KNN acceleration (open3d/small_gicp) belongs to the scan/deviation+registration consumers
-    CORE = "core"              # the conservative python-fcl CollisionManager separation (worker native, no package)
+class SpatialBackend(
+    StrEnum
+):  # the resolved exact-clearance KERNEL; vertex-KNN acceleration (open3d/small_gicp) belongs to the scan/deviation+registration consumers
+    CORE = "core"  # the conservative python-fcl CollisionManager separation (worker native, no package)
     MANIFOLD3D = "manifold3d"  # the exact Manifold.min_gap superseding the FCL separation when the richer package resolves
 
     @staticmethod
-    def resolve() -> "SpatialBackend":  # the exact gap supersedes FCL only where the manifold3d package loads (companion); CORE folds the conservative FCL separation otherwise
+    def resolve() -> (
+        "SpatialBackend"
+    ):  # the exact gap supersedes FCL only where the manifold3d package loads (companion); CORE folds the conservative FCL separation otherwise
         return SpatialBackend.MANIFOLD3D if find_spec("manifold3d") is not None else SpatialBackend.CORE
 
 
@@ -59,7 +63,9 @@ class SpatialQuery:
         return SpatialQuery(proximity=(points, signed))
 
     @staticmethod
-    def Ray(origins: np.ndarray, directions: np.ndarray, max_distance: float = float("inf")) -> "SpatialQuery":  # intersects_location casts infinite rays; a finite max_distance clamps the first hit to a miss past the range
+    def Ray(
+        origins: np.ndarray, directions: np.ndarray, max_distance: float = float("inf")
+    ) -> "SpatialQuery":  # intersects_location casts infinite rays; a finite max_distance clamps the first hit to a miss past the range
         return SpatialQuery(ray=(origins, directions, max_distance))
 
     @staticmethod
@@ -127,7 +133,9 @@ _NATIVE: Final[Map[QueryKind, str]] = Map.of_seq((("bounds", "rtree"), ("clearan
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class Outcome(Struct, frozen=True):  # one arm's payload plus the receipt facts the `_fold` cross-cut folds; GC-tracked since `result` nests the SpatialResult union and its numpy arrays, never a per-arm receipt build
+class Outcome(
+    Struct, frozen=True
+):  # one arm's payload plus the receipt facts the `_fold` cross-cut folds; GC-tracked since `result` nests the SpatialResult union and its numpy arrays, never a per-arm receipt build
     result: SpatialResult
     query_count: int
     hit_count: int
@@ -156,7 +164,9 @@ def _unit(d: np.ndarray) -> np.ndarray:  # zero-direction rows degrade to a zero
     return np.divide(d, norm, out=np.zeros_like(d), where=norm > 0)
 
 
-def _nearest_hits(n: int, locations: np.ndarray, ray_idx: np.ndarray, tri_idx: np.ndarray, origins: np.ndarray, max_distance: float) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+def _nearest_hits(
+    n: int, locations: np.ndarray, ray_idx: np.ndarray, tri_idx: np.ndarray, origins: np.ndarray, max_distance: float
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     # intersects_location returns ALL hits per ray keyed by ray_idx; reduce to the nearest-per-ray first hit by one
     # lexsort on (ray_idx, dist) and the first-of-group mask, scatter into the dense Nx ray order (a missed ray keeps
     # tri==-1/NaN), and clamp a hit past max_distance back to a miss so a finite range bounds the infinite cast.
@@ -173,11 +183,15 @@ def _nearest_hits(n: int, locations: np.ndarray, ray_idx: np.ndarray, tri_idx: n
     return face, pos, dist
 
 
-def _to_manifold(mesh: trimesh.Trimesh) -> "manifold3d.Manifold":  # Mesh64 past the uint32 ceiling so a large surface keeps 64-bit positions and triangle indices
+def _to_manifold(
+    mesh: trimesh.Trimesh,
+) -> "manifold3d.Manifold":  # Mesh64 past the uint32 ceiling so a large surface keeps 64-bit positions and triangle indices
     import manifold3d  # noqa: PLC0415
 
     verts, faces = np.asarray(mesh.vertices), np.asarray(mesh.faces)
-    if len(verts) > np.iinfo(np.uint32).max:  # 32-bit Mesh overflows past ~4.29B verts; Mesh64 is the f64 carrier (.api type row [04]), so its positions are f64 too
+    if (
+        len(verts) > np.iinfo(np.uint32).max
+    ):  # 32-bit Mesh overflows past ~4.29B verts; Mesh64 is the f64 carrier (.api type row [04]), so its positions are f64 too
         return manifold3d.Manifold(manifold3d.Mesh64(vert_properties=verts.astype(np.float64), tri_verts=faces.astype(np.uint64)))
     return manifold3d.Manifold(manifold3d.Mesh(vert_properties=verts.astype(np.float32), tri_verts=faces.astype(np.uint32)))
 
@@ -196,7 +210,9 @@ def _dispatch(mesh: trimesh.Trimesh, q: SpatialQuery, backend: SpatialBackend) -
             near, distance, triangle_ids = trimesh.proximity.closest_point(mesh, pts)
             signed_field = trimesh.proximity.signed_distance(mesh, pts) if signed else np.empty(0)
             return Outcome(SpatialResult.Proximity(near, _f64(distance), np.asarray(triangle_ids), _f64(signed_field)), len(pts), len(pts), True)
-        case SpatialQuery(tag="ray", ray=(origins, directions, max_distance)):  # pure-Python RayMeshIntersector batch, Embree only an in-process accel; core-resident, no offload
+        case SpatialQuery(
+            tag="ray", ray=(origins, directions, max_distance)
+        ):  # pure-Python RayMeshIntersector batch, Embree only an in-process accel; core-resident, no offload
             o = _f64(origins)
             locations, ray_idx, tri_idx = mesh.ray.intersects_location(o, _unit(_f64(directions)))  # ALL hits per ray, keyed by ray_idx
             face, pos, dist = _nearest_hits(len(o), _f64(locations), np.asarray(ray_idx), np.asarray(tri_idx), o, max_distance)
@@ -206,7 +222,9 @@ def _dispatch(mesh: trimesh.Trimesh, q: SpatialQuery, backend: SpatialBackend) -
                 return Outcome(SpatialResult.Contains(np.zeros(len(points), dtype=bool)), len(points), 0, False)
             mask = np.asarray(mesh.contains(_f64(points)), dtype=bool)
             return Outcome(SpatialResult.Contains(mask), len(mask), int(mask.sum()), True)
-        case SpatialQuery(tag="bounds", bounds=boxes):  # the rtree-backed triangles_tree (native libspatialindex); offloaded when rtree is absent in-process
+        case SpatialQuery(
+            tag="bounds", bounds=boxes
+        ):  # the rtree-backed triangles_tree (native libspatialindex); offloaded when rtree is absent in-process
             tree, rows = mesh.triangles_tree, _f64(boxes)
             candidates = tuple(np.fromiter(tree.intersection(tuple(row)), dtype=np.int64) for row in rows)
             return Outcome(SpatialResult.Bounds(candidates), len(rows), sum(c.size for c in candidates), True)
@@ -215,16 +233,24 @@ def _dispatch(mesh: trimesh.Trimesh, q: SpatialQuery, backend: SpatialBackend) -
             points, triangle_ids = sampler(mesh, count)
             signed = trimesh.proximity.signed_distance(mesh, points) if attribute else np.empty(0)
             return Outcome(SpatialResult.Sample(np.asarray(points), np.asarray(triangle_ids), _f64(signed)), len(points), len(points), True)
-        case SpatialQuery(tag="clearance", clearance=(other, search_length)):  # both backends native worker; exact manifold3d gap supersedes the conservative fcl separation
+        case SpatialQuery(
+            tag="clearance", clearance=(other, search_length)
+        ):  # both backends native worker; exact manifold3d gap supersedes the conservative fcl separation
             if not (mesh.is_watertight and other.is_watertight):  # a solid-to-solid gap demands both surfaces close on either backend
                 return Outcome(SpatialResult.Clearance(float("nan")), 1, 0, False)
-            gap = float(_to_manifold(mesh).min_gap(_to_manifold(other), search_length)) if backend is SpatialBackend.MANIFOLD3D else _fcl_gap(mesh, other)
+            gap = (
+                float(_to_manifold(mesh).min_gap(_to_manifold(other), search_length))
+                if backend is SpatialBackend.MANIFOLD3D
+                else _fcl_gap(mesh, other)
+            )
             return Outcome(SpatialResult.Clearance(gap), 1, int(gap <= search_length), True)
         case _ as unreachable:
             assert_never(unreachable)
 
 
-def _fcl_gap(mesh: trimesh.Trimesh, other: trimesh.Trimesh) -> float:  # the CORE clearance: conservative python-fcl minimum separation, exact min_gap superseding it under MANIFOLD3D
+def _fcl_gap(
+    mesh: trimesh.Trimesh, other: trimesh.Trimesh
+) -> float:  # the CORE clearance: conservative python-fcl minimum separation, exact min_gap superseding it under MANIFOLD3D
     manager = trimesh.collision.CollisionManager()
     manager.add_object("surface", mesh)
     return float(manager.min_distance_single(other))
@@ -236,7 +262,9 @@ def _fcl_gap(mesh: trimesh.Trimesh, other: trimesh.Trimesh) -> float:  # the COR
 class MeshSpatial(ReceiptContributor):
     def __init__(self, mesh: trimesh.Trimesh, lane: LanePolicy, backend: SpatialBackend | None = None) -> None:
         self._mesh = mesh
-        self._lane = lane  # the per-subinterpreter offload seam a native-backend arm rides when its package is absent; the lane never imports the kernel
+        self._lane = (
+            lane  # the per-subinterpreter offload seam a native-backend arm rides when its package is absent; the lane never imports the kernel
+        )
         self._backend = backend or SpatialBackend.resolve()
         # a kind offloads iff its native backend module is missing IN-PROCESS: `bounds` probes `rtree`, `clearance`
         # probes the module its resolved kernel needs (`manifold3d` under MANIFOLD3D, else the `fcl` separation). The
@@ -259,7 +287,9 @@ class MeshSpatial(ReceiptContributor):
                 return await self._route(one)
             case batch:
                 rails = Block.of_seq([await self._route(one) for one in batch])
-                return traversed(rails, by=Disposition.ACCUMULATE)  # one faulted query stays addressable; the runtime owns the strategy row, never a boolean accumulate flag
+                return traversed(
+                    rails, by=Disposition.ACCUMULATE
+                )  # one faulted query stays addressable; the runtime owns the strategy row, never a boolean accumulate flag
 
     async def _route(self, q: SpatialQuery) -> "RuntimeRail[SpatialResult]":
         # the one capability-aware fence over the single `_dispatch` body: a kind whose backend is resident runs
@@ -273,16 +303,28 @@ class MeshSpatial(ReceiptContributor):
             return (await self._lane.offload(_dispatch, self._mesh, q, self._backend)).map(lambda out: self._fold(q, out, offloaded))
         return boundary(f"mesh.spatial.{q.tag}", lambda: self._fold(q, _dispatch(self._mesh, q, self._backend), offloaded))
 
-    def _fold(self, q: SpatialQuery, out: Outcome, offloaded: bool) -> SpatialResult:  # the cross-cutting receipt aspect: one uniform SpatialReceipt off each Outcome, geometry-only `_dispatch` body elsewhere
+    def _fold(
+        self, q: SpatialQuery, out: Outcome, offloaded: bool
+    ) -> SpatialResult:  # the cross-cutting receipt aspect: one uniform SpatialReceipt off each Outcome, geometry-only `_dispatch` body elsewhere
         self._last = SpatialReceipt(q.tag, self._backend, offloaded, out.query_count, out.hit_count, out.valid, indexed=not offloaded)
         return out.result
 
-    def contribute(self) -> Iterable[Receipt]:  # the ReceiptContributor port YIELDS the stream the @receipted aspect's _stream normalizes; never a bare Receipt return
+    def contribute(
+        self,
+    ) -> Iterable[Receipt]:  # the ReceiptContributor port YIELDS the stream the @receipted aspect's _stream normalizes; never a bare Receipt return
         r = self._last or SpatialReceipt("proximity", self._backend, False, 0, 0, True, False)
         phase: Phase = "emitted" if r.valid else "admitted"
         # native int/bool/str ride the EventDict dict[str, object]; the receipts Encoder(enc_hook=repr) serializes them without a str() coerce
-        facts: dict[str, object] = {"backend": r.backend.value, "offloaded": r.offloaded, "queries": r.query_count, "hits": r.hit_count, "indexed": r.indexed}
-        yield Receipt.of("mesh.spatial", (phase, r.kind, facts))  # the owner's shape-polymorphic (Phase, subject, facts) factory; subject is the query kind
+        facts: dict[str, object] = {
+            "backend": r.backend.value,
+            "offloaded": r.offloaded,
+            "queries": r.query_count,
+            "hits": r.hit_count,
+            "indexed": r.indexed,
+        }
+        yield Receipt.of(
+            "mesh.spatial", (phase, r.kind, facts)
+        )  # the owner's shape-polymorphic (Phase, subject, facts) factory; subject is the query kind
 ```
 
 ## [03]-[RESEARCH]

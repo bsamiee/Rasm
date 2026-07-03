@@ -51,6 +51,7 @@ public sealed class PackageAdmissionLaws {
             "Qdrant.Client",
             "ScyllaDBCSharpDriver",
             "SQLitePCLRaw.bundle_e_sqlite3",
+            "System.Numerics.Tensors",
             "Thinktecture.Runtime.Extensions.EntityFrameworkCore10",
             "LightningDB",
             "rocksdb",

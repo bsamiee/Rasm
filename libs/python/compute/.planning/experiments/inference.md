@@ -54,9 +54,7 @@ type NutsOptions = tuple[tuple[str, NutsOption], ...]  # immutable sorted `(key,
 
 @tagged_union(frozen=True)
 class Distribution:
-    tag: Literal[
-        "normal", "half_normal", "beta", "gamma", "student_t", "uniform", "bernoulli", "poisson", "binomial"
-    ] = tag()
+    tag: Literal["normal", "half_normal", "beta", "gamma", "student_t", "uniform", "bernoulli", "poisson", "binomial"] = tag()
     normal: tuple[float, float] = case()
     half_normal: float = case()
     beta: tuple[float, float] = case()
@@ -104,7 +102,13 @@ class Distribution:
         # parameters flattened to one float tuple, so a `Distribution` keys through the no-`enc_hook`
         # `_ENCODER` as native data rather than the raw `@tagged_union` the encoder rejects.
         match self:
-            case Distribution(tag="normal", normal=p) | Distribution(tag="beta", beta=p) | Distribution(tag="gamma", gamma=p) | Distribution(tag="uniform", uniform=p) | Distribution(tag="student_t", student_t=p):
+            case (
+                Distribution(tag="normal", normal=p)
+                | Distribution(tag="beta", beta=p)
+                | Distribution(tag="gamma", gamma=p)
+                | Distribution(tag="uniform", uniform=p)
+                | Distribution(tag="student_t", student_t=p)
+            ):
                 return self.tag, p
             case Distribution(tag="binomial", binomial=(n, p)):
                 return self.tag, (float(n), p)
@@ -149,14 +153,15 @@ class SamplerBackend:
         match self:
             case SamplerBackend(tag="pymc_native", pymc_native=kind):
                 step = pymc.NUTS() if kind == "nuts" else pymc.Metropolis()
-                return pymc.sample(
-                    draws=draws, tune=tune, chains=chains,
-                    random_seed=seed, step=step, return_inferencedata=True,
-                )
+                return pymc.sample(draws=draws, tune=tune, chains=chains, random_seed=seed, step=step, return_inferencedata=True)
             case SamplerBackend(tag="external_nuts", external_nuts=(sampler, options)):
                 return pymc.sample(
-                    draws=draws, tune=tune, chains=chains,
-                    random_seed=seed, nuts_sampler=sampler, nuts_sampler_kwargs=dict(options) or None,
+                    draws=draws,
+                    tune=tune,
+                    chains=chains,
+                    random_seed=seed,
+                    nuts_sampler=sampler,
+                    nuts_sampler_kwargs=dict(options) or None,
                     return_inferencedata=True,
                 )
             case _ as unreachable:
@@ -298,9 +303,7 @@ class InferenceReceipt(Struct, frozen=True):
         return (Receipt.of("compute.inference", ("emitted", self.subject(), facts)),)
 
     def graduates(self) -> RuntimeRail[GraduationReceipt]:
-        return GraduationReceipt.graduates(
-            "compute", HandoffAxis(uncertainty_law=self.subject()), self.model_key, self.measured, self.ceiling
-        )
+        return GraduationReceipt.graduates("compute", HandoffAxis(uncertainty_law=self.subject()), self.model_key, self.measured, self.ceiling)
 
 
 # --- [SERVICES] -------------------------------------------------------------------------
@@ -362,9 +365,7 @@ class Inference:
             spec.likelihood.declare("observation", mu=nodes[spec.mean_latent], observed=spec.observed)
             trace = plan.backend.draw(draws=plan.draws, tune=plan.tune, chains=plan.chains, seed=plan.seed)
             pymc.compute_log_likelihood(trace, model=model)  # populate the group `arviz.loo`/`psense_summary` read
-            ppc = pymc.sample_posterior_predictive(
-                trace, model=model, var_names=["observation"], random_seed=plan.seed, return_inferencedata=True
-            )
+            ppc = pymc.sample_posterior_predictive(trace, model=model, var_names=["observation"], random_seed=plan.seed, return_inferencedata=True)
         summary = arviz.summary(trace, var_names=names, kind="all")
         hdi = arviz.hdi(trace, var_names=names, prob=plan.hdi_prob)
         loo = arviz.loo(trace, var_name="observation", pointwise=True)

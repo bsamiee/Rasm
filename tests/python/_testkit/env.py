@@ -11,6 +11,8 @@ import uuid
 
 import anyio
 import msgspec
+import pytest
+import sniffio
 
 
 if TYPE_CHECKING:
@@ -101,6 +103,9 @@ def provision(  # one dispatch surface owns both provision arms; splitting fragm
                 )
 
             async def _connect() -> asyncssh.SSHClientConnection:
+                # asyncssh binds the asyncio loop; under the trio anyio backend the double cannot exist.
+                if sniffio.current_async_library() != "asyncio":
+                    pytest.skip("asyncssh double requires the asyncio backend")
                 server_sock, client_sock = socket.socketpair()
                 # Both handshake halves block on auth, so the awaiting loop must drive them concurrently.
                 async with anyio.create_task_group() as tg:

@@ -1,4 +1,16 @@
 <Project>
+    <!-- Yak properties derive from the project-body YakPackageSlug; props-time evaluation sees an empty slug, so the block lives here. -->
+    <PropertyGroup Label="Plugin And Yak Packaging">
+        <YakPath Condition="'$(YakPath)' == '' and '$(RHINO_YAK_PATH)' != ''">$(RHINO_YAK_PATH)</YakPath>
+        <YakPath Condition="'$(YakPath)' == ''">$(RhinoWipAppPath)/Contents/Resources/bin/yak</YakPath>
+        <YakPlatform Condition="'$(YakPlatform)' == ''">mac</YakPlatform>
+        <YakPushSource Condition="'$(YakPushSource)' == '' and '$(YAK_SOURCE)' != ''">$(YAK_SOURCE)</YakPushSource>
+        <YakManifestDirectory Condition="'$(YakManifestDirectory)' == '' and '$(YakPackageSlug)' != ''">$([MSBuild]::NormalizePath('$(YakPackagesRoot)', '$(YakPackageSlug)'))</YakManifestDirectory>
+        <IsYakPackageProject Condition="'$(IsYakPackageProject)' == '' and '$(YakPackageSlug)' != '' and ('$(IsRhinoPluginProject)' == 'true' or '$(IsGrasshopperPluginProject)' == 'true')">true</IsYakPackageProject>
+        <YakPackageDirectory Condition="'$(YakPackageDirectory)' == '' and '$(YakPackageSlug)' != ''">$([MSBuild]::NormalizePath('$(YakStageRoot)', '$(YakPackageSlug)', 'package'))</YakPackageDirectory>
+        <YakPackagePattern Condition="'$(YakPackagePattern)' == '' and '$(YakPackageSlug)' != ''">*-$(Version)-rh9_*-$(YakPlatform).yak</YakPackagePattern>
+    </PropertyGroup>
+
     <!-- Create the SARIF parent before Roslyn writes ErrorLog. -->
     <Target Name="EnsureCspSarifDir" BeforeTargets="CoreCompile" Condition="'$(CspSarifDir)' != ''">
         <MakeDir Directories="$(CspSarifDir)" />

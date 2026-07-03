@@ -24,8 +24,9 @@ Rasm.Fabrication/
 │   ├── Kinematics.cs   # Robots-cell serial-chain solver (FK/IK, reach/limit/singularity validation, cell-dialect post)
 │   ├── Guard.cs        # Swept tool-plus-holder collision/gouge guard and collision-aware lift retract
 │   └── Probing.cs      # QUEUED (IDEAS): touch-probe cycle vocabulary, work-offset/tool-length metrology, measured-feature receipt — anchors live in Faults/Magazine/Posting
-├── Nesting/            # 2D true-shape nesting plus multi-setup workholding keep-out
+├── Nesting/            # 2D true-shape nesting, the rectangular cutting-stock yield engine, plus multi-setup workholding keep-out
 │   ├── Nfp.cs          # NFP-feasibility true-shape nesting over a Seq<Stock> inventory with bottom-left/genetic placement
+│   ├── Stock.cs        # One StockNest.Pack cutting-stock fold over the NestStrategy [Union] collapsing the five RectangleBinPack packers into the NestPlan/NestYield sheet-yield engine
 │   └── WorkHolding.cs  # Workholder keep-out family plus multi-fixture-setup scheduler conditioning toolpath and cut sequence
 └── Posting/            # Host-neutral downstream emission: cut-program and hidden-line projection
     ├── Program.cs      # Dialect-neutral G-code AST and PostDialect cut-conditioning family
@@ -45,7 +46,8 @@ Posting/projection  ←  csharp:Rasm/Geometry/Spatial              # [SHAPE]: Sp
 Posting/projection  →  csharp:Rasm.AppUi/Render                  # [RECEIPT]: HiddenLineResult Viewport2D edge sets, the BSP visibility solver superseding the AppUi painter sort
 Toolpath/slicing    →  csharp:Rasm/Geometry/Meshing              # [WIRE]: forward consume — Section re-routes to a kernel mesh-section primitive if one lands; today the planar section is the in-folder author-kernel
 Process/physics     ←  csharp:Rasm.Materials/Properties          # [WIRE]: Thermal Conductivity / SpecificHeat / Density scalars admitted as raw doubles at the AEC-peer boundary (NOT a reference — the acyclic strata forbids the peer crossing)
-Nesting/nfp         ←  csharp:Rasm.Materials/Construction        # [WIRE]: StockNest.Pack NestPlan admitted on FabricationInput.Plan as portable scalar CuttingPlan the Nest.Honor fold consumes rather than re-packing — Materials owns rectangular cutting-stock yield, Fabrication owns true-shape irregular nesting, neither duplicates the other (NOT a reference — the acyclic strata forbids the AEC peer crossing)
+Nesting/stock       →  Nesting/nfp                               # [PLAN]: the resolved StockNest.Pack NestPlan rides FabricationInput.Plan and the Nest.Honor fold maps each NestPlacement straight to a PartTransform rather than re-packing — stock owns the rectangular cutting-stock YIELD, nfp the true-shape irregular NEST, the deleted CuttingPlan/PlannedPlacement wire mirror superseded by the in-package seam
+Nesting/stock       →  csharp:Rasm.Compute                       # [PROJECTION]: NestYield.WasteAreaMm2 feeds the AggregateEnvironmental/AggregateCost rollup through the seam Material node's Environmental/Cost cases — the recorded next-campaign Compute counterpart
 Polygon/import      ←  csharp:Rasm.Bim/Exchange                  # [SHAPE]: ACadSharp managed DWG/DXF DxfDocument/CadDocument read codec — Bim is the AEC-DOMAIN host-neutral CAD-interchange owner of the read surface; Fabrication consumes the read seam for 2D profile ingress over the same central ACadSharp pin (netDxf in AppUi owns the distinct WRITE leg). Mirrors the Bim-side Exchange/format ⇄ Rasm.Fabrication row (NOT a reference — the acyclic strata forbids the AEC peer crossing)
 Posting/program     →  csharp:Rasm.Persistence/Schema            # [WIRE]: CutProgram AST content-addressed durable-row projection
 Nesting/nfp         →  csharp:Rasm.Persistence/Schema            # [WIRE]: Placement / Remnant XxHash128 content-keyed durable row

@@ -27,15 +27,7 @@ from typing import TYPE_CHECKING, Final, Literal, assert_never
 import lance
 import pyarrow as pa
 from beartype import beartype
-from deltalake import (
-    BloomFilterProperties,
-    ColumnProperties,
-    CommitProperties,
-    DeltaTable,
-    QueryBuilder,
-    WriterProperties,
-    write_deltalake,
-)
+from deltalake import BloomFilterProperties, ColumnProperties, CommitProperties, DeltaTable, QueryBuilder, WriterProperties, write_deltalake
 from deltalake.schema import Field
 from expression import Error, Ok, case, tag, tagged_union
 from msgspec import Struct
@@ -116,10 +108,7 @@ class LakeOp:
 
     @staticmethod
     def Write(
-        mode: WriteMode = "error",
-        partition_by: tuple[str, ...] = (),
-        evolve_schema: bool = False,
-        tuning: WriteTuning = WriteTuning(),
+        mode: WriteMode = "error", partition_by: tuple[str, ...] = (), evolve_schema: bool = False, tuning: WriteTuning = WriteTuning()
     ) -> "LakeOp":
         return LakeOp(write=(mode, partition_by, evolve_schema, tuning))
 
@@ -140,11 +129,7 @@ class LakeOp:
         return LakeOp(merge=(predicate, updates, delete_unmatched))
 
     @staticmethod
-    def Evolve(
-        adds: tuple[tuple[str, str], ...] = (),
-        drops: tuple[str, ...] = (),
-        renames: tuple[tuple[str, str], ...] = (),
-    ) -> "LakeOp":
+    def Evolve(adds: tuple[tuple[str, str], ...] = (), drops: tuple[str, ...] = (), renames: tuple[tuple[str, str], ...] = ()) -> "LakeOp":
         return LakeOp(evolve=(adds, drops, renames))
 
     @staticmethod
@@ -258,7 +243,12 @@ class Lakehouse(Struct, frozen=True):
                 return self._receipt("update", snapshot=_delta_metric(metrics, "num_updated_rows"))
             case TableFormat.DELTA, LakeOp(tag="merge", merge=(predicate, updates, delete_unmatched)):
                 clauses = dict(updates)
-                merger = DeltaTable(self.table_uri).merge(data, predicate=predicate).when_matched_update(updates=clauses).when_not_matched_insert(updates=clauses)
+                merger = (
+                    DeltaTable(self.table_uri)
+                    .merge(data, predicate=predicate)
+                    .when_matched_update(updates=clauses)
+                    .when_not_matched_insert(updates=clauses)
+                )
                 (merger.when_not_matched_by_source_delete() if delete_unmatched else merger).execute()
                 return self._receipt("merge")
             case TableFormat.DELTA, LakeOp(tag="evolve", evolve=(_adds, drops, renames)) if drops or renames:
@@ -278,7 +268,9 @@ class Lakehouse(Struct, frozen=True):
                 return self._receipt("changefeed", snapshot=rows)
             case TableFormat.DELTA, LakeOp(tag="restore", restore=(target,)):
                 metrics = DeltaTable(self.table_uri).restore(target)
-                return self._receipt("restore", removed=_delta_metric(metrics, "num_removed_file"), snapshot=_delta_metric(metrics, "num_restored_file"))
+                return self._receipt(
+                    "restore", removed=_delta_metric(metrics, "num_removed_file"), snapshot=_delta_metric(metrics, "num_restored_file")
+                )
             case TableFormat.ICEBERG, LakeOp(tag="write", write=(mode, _partition_by, _evolve, _tuning)):
                 txn = self._iceberg().transaction()
                 txn.overwrite(data) if mode == "overwrite" else txn.append(data)
@@ -393,9 +385,12 @@ _READ_ONLY: Final[frozenset[str]] = frozenset({"read", "changefeed"})
 # the Delta WriteMode vocabulary projected onto the Lance create|overwrite|append band — the
 # create-intent modes (`error`/`ignore`) land on Lance `create` (fail-if-exists), preserving the
 # fail-on-existing contract a flat `"append" if mode=="append" else "overwrite"` collapse erased.
-_LANCE_MODE: Final[frozendict[WriteMode, LanceMode]] = frozendict(
-    {"error": "create", "ignore": "create", "overwrite": "overwrite", "append": "append"}
-)
+_LANCE_MODE: Final[frozendict[WriteMode, LanceMode]] = frozendict({
+    "error": "create",
+    "ignore": "create",
+    "overwrite": "overwrite",
+    "append": "append",
+})
 
 _PORTABLE: Final[frozendict[TableFormat, frozenset[str]]] = frozendict({
     TableFormat.DELTA: frozenset({"write", "read", "delete", "update", "merge", "evolve", "optimize", "vacuum", "changefeed", "restore"}),

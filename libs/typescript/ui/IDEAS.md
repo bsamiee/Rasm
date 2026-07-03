@@ -1,6 +1,6 @@
 # [UI_IDEAS]
 
-The forward concept pool for the host-free browser UI library. Open ideas are higher-order folder concepts grounded in the browser-platform purpose and the current effect-atom, React concurrent-features, WebGPU, and design-system capability surfaces; each drives one or more task cards in `TASKLOG.md`. A finished or dropped idea moves to closed with a one-line disposition so it is never re-litigated.
+The forward pool of higher-order concepts for component capability, each grounded in the folder's domain and current platform capability — some deepen a thin owner into a fuller axis, others bind a concrete technique to a settled abstract surface. Open ideas drive the tasks in `TASKLOG.md`; a finished or dropped idea moves to `[2]-[CLOSED]` with a one-line disposition so it is never re-litigated.
 
 OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOCKED` keeps open but non-actionable work; `CLOSED` separates finished `COMPLETE` items from unimplemented `DROPPED` items. `Ripple` names the origin or counterpart card a cross-folder entry pairs with.
 

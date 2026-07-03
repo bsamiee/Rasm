@@ -84,17 +84,12 @@ def _keyed(shape: "Shape", /) -> Result["Shape", CaptureFault]:
 
 
 _refined: Callable[[Result["Shape", CaptureFault]], Result["Shape", CaptureFault]] = compose(
-    result.bind(_keyed),
-    result.map_error(lambda fault: "<malformed>" if fault == "<empty-key>" else fault),
+    result.bind(_keyed), result.map_error(lambda fault: "<malformed>" if fault == "<empty-key>" else fault)
 )
 
 
 def admitted(parse: Callable[[bytes], "Shape"], raw: bytes, cached: Option["Shape"], /) -> Result["Shape", CaptureFault]:
-    return pipe(
-        cached.to_result_with(lambda: "<missing>"),
-        result.or_else_with(lambda _gap: captured(parse, raw)),
-        _refined,
-    )
+    return pipe(cached.to_result_with(lambda: "<missing>"), result.or_else_with(lambda _gap: captured(parse, raw)), _refined)
 
 
 def _logged(fault: CaptureFault, /) -> str:
@@ -156,9 +151,7 @@ def piped(ceiling: int, raw: str, /) -> Result[int, TraverseFault]:
 
 
 def stitched(raws: Block[str], budget: int, /) -> Result[Block[int], TraverseFault]:
-    def threaded(
-        acc: Result[tuple[int, Block[int]], TraverseFault], raw: str, /
-    ) -> Result[tuple[int, Block[int]], TraverseFault]:
+    def threaded(acc: Result[tuple[int, Block[int]], TraverseFault], raw: str, /) -> Result[tuple[int, Block[int]], TraverseFault]:
         return acc.bind(lambda state: gauged(state[0], raw).map(lambda n: (state[0] - n, state[1].cons(n))))
 
     return raws.fold(threaded, Ok((budget, Block.empty()))).map(lambda state: state[1])

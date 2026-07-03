@@ -258,9 +258,7 @@ class StubCodegen:
         with _TRACER.start_as_current_span("codegen.emit") as span:
             if span.is_recording():
                 span.set_attributes({"wire": wire, "target": target})  # the format/target dims both arms need, behind the no-op gate
-            rail: RuntimeRail[GeneratedModule] = boundary(
-                "codegen.stub", lambda: StubCodegen._emit(StubCodegen._decode(raw, wire, target))
-            )
+            rail: RuntimeRail[GeneratedModule] = boundary("codegen.stub", lambda: StubCodegen._emit(StubCodegen._decode(raw, wire, target)))
             match rail:
                 case Ok(module):
                     if span.is_recording():

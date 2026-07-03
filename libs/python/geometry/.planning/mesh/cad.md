@@ -117,9 +117,7 @@ class CadReceipt(Struct, frozen=True, gc=False):
     # The facts carry native scalars (`StrEnum`/`int`/`float`) the receipts owner's
     # `Encoder(enc_hook=repr, order="deterministic")` renders without a `str()`/`f"{...:.6g}"` coerce.
     def contribute(self) -> Iterable[Receipt]:
-        return (
-            Receipt.of("mesh.cad", ("emitted", self.fmt.subject, {"format": self.fmt, "shapes": self.shape_count, "mass": self.mass})),
-        )
+        return (Receipt.of("mesh.cad", ("emitted", self.fmt.subject, {"format": self.fmt, "shapes": self.shape_count, "mass": self.mass})),)
 
 
 class CadTessellation(Struct, frozen=True, gc=False):
@@ -132,6 +130,7 @@ class CadTessellation(Struct, frozen=True, gc=False):
 class ReaderRow(Struct, frozen=True, gc=False):
     reader: Callable[[], CafReader]
     modes: Block[MetadataMode]
+
 
 # --- [ERRORS] ---------------------------------------------------------------------------
 
@@ -149,12 +148,18 @@ class BridgeFault(Exception):
         suffix = f" ({status})" if status is not None else ""
         return BridgeFault(f"{fmt.subject}: {stage}{suffix}")
 
+
 # --- [TABLES] ---------------------------------------------------------------------------
 
 # one behavior row per format: the kernel resolves the reader and its metadata channels once through
 # `READERS[fmt]` rather than an inline `match`/`assert_never` reader construction per leg.
 READERS: Final[Map[BridgeFormat, ReaderRow]] = Map.of_seq([
-    (BridgeFormat.STEP, ReaderRow(STEPCAFControl_Reader, Block.of_seq([MetadataMode.COLOR, MetadataMode.NAME, MetadataMode.LAYER, MetadataMode.GDT, MetadataMode.MAT]))),
+    (
+        BridgeFormat.STEP,
+        ReaderRow(
+            STEPCAFControl_Reader, Block.of_seq([MetadataMode.COLOR, MetadataMode.NAME, MetadataMode.LAYER, MetadataMode.GDT, MetadataMode.MAT])
+        ),
+    ),
     (BridgeFormat.IGES, ReaderRow(IGESCAFControl_Reader, Block.of_seq([MetadataMode.COLOR, MetadataMode.NAME, MetadataMode.LAYER]))),
 ])
 
@@ -217,7 +222,9 @@ def _emit(session: XcafSession, glb_path: str, fmt: BridgeFormat, policy: Identi
     BRepMesh_IncrementalMesh(session.root, policy.deflection, False, policy.angle_tolerance, True)
     props = GProp_GProps()
     BRepGProp.VolumeProperties_s(session.root, props)
-    RWGltf_CafWriter(TCollection_AsciiString(glb_path), True).Perform(session.document, TColStd_IndexedDataMapOfStringString(), Message_ProgressRange())
+    RWGltf_CafWriter(TCollection_AsciiString(glb_path), True).Perform(
+        session.document, TColStd_IndexedDataMapOfStringString(), Message_ProgressRange()
+    )
     return CadTessellation(Path(glb_path).read_bytes(), CadReceipt(fmt, session.shape_count, props.Mass()))
 
 
@@ -229,6 +236,7 @@ def _run(source_bytes: bytes, fmt: BridgeFormat, policy: IdentityPolicy) -> CadT
         src_path.write_bytes(source_bytes)
         return _emit(_read(str(src_path), fmt), str(Path(work, "out.glb")), fmt, policy)
 
+
 # --- [SERVICES] -------------------------------------------------------------------------
 
 
@@ -238,7 +246,9 @@ class StepBridge:
     def tessellate(source_bytes: bytes, fmt: BridgeFormat, policy: IdentityPolicy = ..., *, view: Literal["glb"] = ...) -> "RuntimeRail[bytes]": ...
     @overload
     @staticmethod
-    def tessellate(source_bytes: bytes, fmt: BridgeFormat, policy: IdentityPolicy = ..., *, view: Literal["full"]) -> "RuntimeRail[CadTessellation]": ...
+    def tessellate(
+        source_bytes: bytes, fmt: BridgeFormat, policy: IdentityPolicy = ..., *, view: Literal["full"]
+    ) -> "RuntimeRail[CadTessellation]": ...
     @staticmethod
     def tessellate(
         source_bytes: bytes, fmt: BridgeFormat, policy: IdentityPolicy = CANONICAL_POLICY, *, view: BridgeView = "glb"

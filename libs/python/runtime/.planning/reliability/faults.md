@@ -109,7 +109,13 @@ class BoundaryFault:
                 return {"tag": "deadline", "subject": subject, "budget": budget}
             case BoundaryFault(tag="wire", wire=(subject, code)):
                 return {"tag": "wire", "subject": subject, "code": code}
-            case BoundaryFault(tag=tag, config=(subject, detail)) | BoundaryFault(tag=tag, resource=(subject, detail)) | BoundaryFault(tag=tag, api=(subject, detail)) | BoundaryFault(tag=tag, import_=(subject, detail)) | BoundaryFault(tag=tag, boundary=(subject, detail)):
+            case (
+                BoundaryFault(tag=tag, config=(subject, detail))
+                | BoundaryFault(tag=tag, resource=(subject, detail))
+                | BoundaryFault(tag=tag, api=(subject, detail))
+                | BoundaryFault(tag=tag, import_=(subject, detail))
+                | BoundaryFault(tag=tag, boundary=(subject, detail))
+            ):
                 return {"tag": tag, "subject": subject, "detail": detail}
             case _ as unreachable:
                 assert_never(unreachable)
@@ -125,7 +131,17 @@ CLASSIFY: Final[Block[ClassifyRow]] = Block.of_seq([
     ((msgspec.ValidationError, msgspec.DecodeError), lambda subject, cause: BoundaryFault(boundary=(subject, type(cause).__name__))),
     (BeartypeCallHintViolation, lambda subject, cause: BoundaryFault(api=(subject, type(cause).__name__))),
     (ImportError, lambda subject, cause: BoundaryFault(import_=(subject, type(cause).__name__))),
-    ((anyio.BrokenWorkerProcess, anyio.BrokenWorkerInterpreter, anyio.BrokenResourceError, anyio.ClosedResourceError, anyio.ConnectionFailed, OSError), lambda subject, cause: BoundaryFault(resource=(subject, type(cause).__name__))),
+    (
+        (
+            anyio.BrokenWorkerProcess,
+            anyio.BrokenWorkerInterpreter,
+            anyio.BrokenResourceError,
+            anyio.ClosedResourceError,
+            anyio.ConnectionFailed,
+            OSError,
+        ),
+        lambda subject, cause: BoundaryFault(resource=(subject, type(cause).__name__)),
+    ),
 ])
 
 # the one shared domain BeartypeConf: a @beartype-guarded domain function binds it so a
@@ -161,24 +177,31 @@ def boundary[T](subject: str, thunk: Callable[[], T], *, catch: type[BaseExcepti
     return _guard(subject, thunk, catch)
 
 
-async def async_boundary[T](subject: str, thunk: Callable[[], Awaitable[T]], *, catch: type[BaseException] | tuple[type[BaseException], ...] = Exception) -> RuntimeRail[T]:
+async def async_boundary[T](
+    subject: str, thunk: Callable[[], Awaitable[T]], *, catch: type[BaseException] | tuple[type[BaseException], ...] = Exception
+) -> RuntimeRail[T]:
     try:
         return Ok(await thunk())
     except catch as cause:
         return Error(_convert(subject, cause))
 
 
-def trapped[**P, T](subject: str, *, catch: type[BaseException] | tuple[type[BaseException], ...] = Exception) -> Callable[[Callable[P, T]], Callable[P, RuntimeRail[T]]]:
+def trapped[**P, T](
+    subject: str, *, catch: type[BaseException] | tuple[type[BaseException], ...] = Exception
+) -> Callable[[Callable[P, T]], Callable[P, RuntimeRail[T]]]:
     def decorate(fn: Callable[P, T]) -> Callable[P, RuntimeRail[T]]:
         if inspect.iscoroutinefunction(fn):
+
             @wraps(fn)
             async def awaited(*args: P.args, **kwargs: P.kwargs) -> RuntimeRail[T]:
                 return await async_boundary(subject, lambda: fn(*args, **kwargs), catch=catch)
+
             return awaited
 
         @wraps(fn)
         def called(*args: P.args, **kwargs: P.kwargs) -> RuntimeRail[T]:
             return _guard(subject, lambda: fn(*args, **kwargs), catch)
+
         return called
 
     return decorate
@@ -188,7 +211,9 @@ def trapped[**P, T](subject: str, *, catch: type[BaseException] | tuple[type[Bas
 def traversed[T](rails: Block[RuntimeRail[T]], *, by: Literal[Disposition.ABORT, Disposition.ACCUMULATE] = ...) -> RuntimeRail[Block[T]]: ...
 @overload
 def traversed[T](rails: Block[RuntimeRail[T]], *, by: Literal[Disposition.PARTITION]) -> RuntimeRail[tuple[Block[T], Block[BoundaryFault]]]: ...
-def traversed[T](rails: Block[RuntimeRail[T]], *, by: Disposition = Disposition.ABORT) -> RuntimeRail[Block[T]] | RuntimeRail[tuple[Block[T], Block[BoundaryFault]]]:
+def traversed[T](
+    rails: Block[RuntimeRail[T]], *, by: Disposition = Disposition.ABORT
+) -> RuntimeRail[Block[T]] | RuntimeRail[tuple[Block[T], Block[BoundaryFault]]]:
     # `ABORT`/`ACCUMULATE` collapse to `RuntimeRail[Block[T]]`; only `PARTITION` widens the Ok
     # arm to the `(values, faults)` tuple — the overloads carry the output shape so a caller
     # narrows on the `Disposition` literal it passes, never on the runtime union.

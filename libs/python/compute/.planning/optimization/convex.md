@@ -59,22 +59,21 @@ class Sense(StrEnum):
 _TOL = 1e-8
 _NO_BIND: ParamBind = (FrozenDict({}),)
 
-_CONVEX_STATUS: FrozenDict[str, SolveStatus] = FrozenDict(
-    {
-        "optimal": SolveStatus.SUCCESS,
-        "optimal_inaccurate": SolveStatus.STAGNATION,
-        "infeasible": SolveStatus.INFEASIBLE,
-        "infeasible_inaccurate": SolveStatus.INFEASIBLE,
-        "unbounded": SolveStatus.UNBOUNDED,
-        "unbounded_inaccurate": SolveStatus.UNBOUNDED,
-        "infeasible_or_unbounded": SolveStatus.INFEASIBLE,
-        "solver_error": SolveStatus.BREAKDOWN,
-        "user_limit": SolveStatus.MAX_STEPS,
-    }
-)
+_CONVEX_STATUS: FrozenDict[str, SolveStatus] = FrozenDict({
+    "optimal": SolveStatus.SUCCESS,
+    "optimal_inaccurate": SolveStatus.STAGNATION,
+    "infeasible": SolveStatus.INFEASIBLE,
+    "infeasible_inaccurate": SolveStatus.INFEASIBLE,
+    "unbounded": SolveStatus.UNBOUNDED,
+    "unbounded_inaccurate": SolveStatus.UNBOUNDED,
+    "infeasible_or_unbounded": SolveStatus.INFEASIBLE,
+    "solver_error": SolveStatus.BREAKDOWN,
+    "user_limit": SolveStatus.MAX_STEPS,
+})
 
 
 # --- [MODELS] ------------------------------------------------------------------------------
+
 
 class Policy(Struct, frozen=True):  # GC-tracked: `binds` is a container (tuple of FrozenDict of ndarray)
     # the objective sign and the warm-re-solve sweep on one uniform value object, so a new
@@ -150,15 +149,33 @@ class ConvexProgram:
         return cls(linear=(c, a_ub, b_ub, Policy(sense, params)))
 
     @classmethod
-    def Quadratic(cls, p: np.ndarray, q: np.ndarray, a_ub: np.ndarray, b_ub: np.ndarray, sense: Sense = Sense.MIN, params: ParamBind = _NO_BIND) -> Self:
+    def Quadratic(
+        cls, p: np.ndarray, q: np.ndarray, a_ub: np.ndarray, b_ub: np.ndarray, sense: Sense = Sense.MIN, params: ParamBind = _NO_BIND
+    ) -> Self:
         return cls(quadratic=(p, q, a_ub, b_ub, Policy(sense, params)))
 
     @classmethod
-    def SecondOrder(cls, c: np.ndarray, soc_terms: tuple[tuple[np.ndarray, float], ...], a_ub: np.ndarray, b_ub: np.ndarray, sense: Sense = Sense.MIN, params: ParamBind = _NO_BIND) -> Self:
+    def SecondOrder(
+        cls,
+        c: np.ndarray,
+        soc_terms: tuple[tuple[np.ndarray, float], ...],
+        a_ub: np.ndarray,
+        b_ub: np.ndarray,
+        sense: Sense = Sense.MIN,
+        params: ParamBind = _NO_BIND,
+    ) -> Self:
         return cls(second_order=(c, soc_terms, a_ub, b_ub, Policy(sense, params)))
 
     @classmethod
-    def Exponential(cls, c: np.ndarray, exp_terms: tuple[tuple[np.ndarray, float], ...], a_ub: np.ndarray, b_ub: np.ndarray, sense: Sense = Sense.MIN, params: ParamBind = _NO_BIND) -> Self:
+    def Exponential(
+        cls,
+        c: np.ndarray,
+        exp_terms: tuple[tuple[np.ndarray, float], ...],
+        a_ub: np.ndarray,
+        b_ub: np.ndarray,
+        sense: Sense = Sense.MIN,
+        params: ParamBind = _NO_BIND,
+    ) -> Self:
         return cls(exponential=(c, exp_terms, a_ub, b_ub, Policy(sense, params)))
 
     @classmethod
@@ -186,6 +203,7 @@ class ConvexProgram:
 
 # --- [OPERATIONS] --------------------------------------------------------------------------
 
+
 def solve(program: ConvexProgram) -> "RuntimeRail[tuple[ConvexReceipt, ...]]":
     # `.bind`-flatten joins the Clarabel solve fence and the railed `ContentIdentity.of` digest
     # onto one rail so a content-key fault propagates beside a solve fault, never double-wrapped.
@@ -196,6 +214,7 @@ The cone-row table is the dispatch surface: each `ConeRow` carries the objective
 
 ```python signature
 # --- [COMPOSITION] -------------------------------------------------------------------------
+
 
 class ConeRow(Struct, frozen=True):  # GC-tracked: carries the two cone closures
     objective: ConeObjective
@@ -227,15 +246,13 @@ def _exp_rows(x: object, fields: "Fields", cp: object) -> tuple[object, ...]:
     return tuple(cp.log_sum_exp(_as_mat(a) @ x) <= bound for a, bound in fields.terms)
 
 
-_CONE_ROWS: FrozenDict[str, ConeRow] = FrozenDict(
-    {
-        "linear": ConeRow(_affine_cost, _no_rows),
-        "quadratic": ConeRow(_quadratic_cost, _no_rows),
-        "second_order": ConeRow(_affine_cost, _soc_rows),
-        "exponential": ConeRow(_affine_cost, _exp_rows),
-        "semidefinite": ConeRow(_trace_cost, _no_rows, psd=True),
-    }
-)
+_CONE_ROWS: FrozenDict[str, ConeRow] = FrozenDict({
+    "linear": ConeRow(_affine_cost, _no_rows),
+    "quadratic": ConeRow(_quadratic_cost, _no_rows),
+    "second_order": ConeRow(_affine_cost, _soc_rows),
+    "exponential": ConeRow(_affine_cost, _exp_rows),
+    "semidefinite": ConeRow(_trace_cost, _no_rows, psd=True),
+})
 
 
 class Fields(Struct, frozen=True):  # GC-tracked: `terms` is a container (tuple of (ndarray, float) pairs)
@@ -343,12 +360,7 @@ The certificate fold reads the KKT gap and the dual-feasibility residual from th
 ```python signature
 # --- [COMPOSITION] -------------------------------------------------------------------------
 
-_SENSE: FrozenDict[Sense, Callable[[object], object]] = FrozenDict(
-    {
-        Sense.MIN: attrgetter("Minimize"),
-        Sense.MAX: attrgetter("Maximize"),
-    }
-)
+_SENSE: FrozenDict[Sense, Callable[[object], object]] = FrozenDict({Sense.MIN: attrgetter("Minimize"), Sense.MAX: attrgetter("Maximize")})
 
 
 def _certificate(program: ConvexProgram, problem: object, constraints: list[object], key: ContentKey, cp: object) -> ConvexReceipt:
@@ -455,19 +467,17 @@ def _expr_psd(constraint: object) -> np.ndarray | None:
 
 
 class ConeKKT(Struct, frozen=True):  # GC-tracked: carries the four cone-membership closures
-    expr: ConeExpr          # `(Constraint) -> stacked primal value` off `args`, since SOC/PSD carry no `.expr`
-    slack: ConeSlack        # `(dual, expr) -> |⟨λ, g⟩|` complementary-slackness contribution
+    expr: ConeExpr  # `(Constraint) -> stacked primal value` off `args`, since SOC/PSD carry no `.expr`
+    slack: ConeSlack  # `(dual, expr) -> |⟨λ, g⟩|` complementary-slackness contribution
     residual: ConeResidual  # `(dual) -> dist(λ, K*)` dual-cone-membership violation
-    primal: ConePrimal      # `(expr) -> dist(g, K)` primal-cone-membership violation
+    primal: ConePrimal  # `(expr) -> dist(g, K)` primal-cone-membership violation
 
 
-_CONE_KKT: FrozenDict[str, ConeKKT] = FrozenDict(
-    {
-        "nonneg": ConeKKT(_expr_nonneg, _slack_separable, _residual_nonneg, _primal_nonneg),
-        "soc": ConeKKT(_expr_soc, _slack_inner, _residual_soc, _primal_soc),
-        "psd": ConeKKT(_expr_psd, _slack_inner, _residual_psd, _primal_psd),
-    }
-)
+_CONE_KKT: FrozenDict[str, ConeKKT] = FrozenDict({
+    "nonneg": ConeKKT(_expr_nonneg, _slack_separable, _residual_nonneg, _primal_nonneg),
+    "soc": ConeKKT(_expr_soc, _slack_inner, _residual_soc, _primal_soc),
+    "psd": ConeKKT(_expr_psd, _slack_inner, _residual_psd, _primal_psd),
+})
 
 
 def _seed_arrays(fields: "Fields | None") -> tuple[np.ndarray, ...]:

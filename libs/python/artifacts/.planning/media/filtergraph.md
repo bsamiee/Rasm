@@ -31,43 +31,55 @@ from numpy.typing import NDArray
 lazy import av
 lazy import av.error
 lazy import av.filter
-lazy from PIL import Image, ImageDraw, ImageFont, features   # the drawtext substitute; module-scope (a lazy stmt inside a function is a SyntaxError)
+lazy from PIL import Image, ImageDraw, ImageFont, features  # the drawtext substitute; module-scope (a lazy stmt inside a function is a SyntaxError)
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type FilterNodeTag = Literal[
-    "scale", "crop", "fps", "format", "color_grade", "denoise",
-    "text_burn", "subtitle_burn", "xfade", "concat", "amix",
-]
+type FilterNodeTag = Literal["scale", "crop", "fps", "format", "color_grade", "denoise", "text_burn", "subtitle_burn", "xfade", "concat", "amix"]
 type Rgba = NDArray[np.uint8]  # (H, W, 4) rendered text/subtitle plane
 type SubtitleEvent = tuple[float, float, str]  # (start, end, text) — media/subtitle#SUBTITLE owns the pysubs2 parse
 
 
 class SubstituteKind(StrEnum):
-    NATIVE_LINEAR = "native_linear"        # single-input native filter into the link_nodes chain
+    NATIVE_LINEAR = "native_linear"  # single-input native filter into the link_nodes chain
     SUBSTITUTE_LINEAR = "substitute_linear"  # native absent -> other single-input native filters (eq -> curves+hue)
-    NATIVE_MULTI = "native_multi"          # multi-input native filter via link_to (concat/amix)
-    COMPOSITE = "composite"                # native absent -> numpy alpha-composite (drawtext/subtitles burn-in)
-    DISSOLVE = "dissolve"                  # native xfade refuses in-process configure -> numpy cross-dissolve
+    NATIVE_MULTI = "native_multi"  # multi-input native filter via link_to (concat/amix)
+    COMPOSITE = "composite"  # native absent -> numpy alpha-composite (drawtext/subtitles burn-in)
+    DISSOLVE = "dissolve"  # native xfade refuses in-process configure -> numpy cross-dissolve
+
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 # each logical op -> its FFmpeg filter name (the `media_filters` probe key) and its routing kind. One primary
 # correspondence; `_wire`/`link_clips`/`cross_dissolve` read the row rather than an if-ladder over filter names.
 _NATIVE: frozendict[FilterNodeTag, str] = frozendict({
-    "scale": "scale", "crop": "crop", "fps": "fps", "format": "format",
-    "color_grade": "eq", "denoise": "hqdn3d", "text_burn": "drawtext", "subtitle_burn": "subtitles",
-    "xfade": "xfade", "concat": "concat", "amix": "amix",
+    "scale": "scale",
+    "crop": "crop",
+    "fps": "fps",
+    "format": "format",
+    "color_grade": "eq",
+    "denoise": "hqdn3d",
+    "text_burn": "drawtext",
+    "subtitle_burn": "subtitles",
+    "xfade": "xfade",
+    "concat": "concat",
+    "amix": "amix",
 })
 _ROUTE: frozendict[FilterNodeTag, SubstituteKind] = frozendict({
-    "scale": SubstituteKind.NATIVE_LINEAR, "crop": SubstituteKind.NATIVE_LINEAR,
-    "fps": SubstituteKind.NATIVE_LINEAR, "format": SubstituteKind.NATIVE_LINEAR,
-    "color_grade": SubstituteKind.SUBSTITUTE_LINEAR, "denoise": SubstituteKind.SUBSTITUTE_LINEAR,
-    "text_burn": SubstituteKind.COMPOSITE, "subtitle_burn": SubstituteKind.COMPOSITE,
-    "xfade": SubstituteKind.DISSOLVE, "concat": SubstituteKind.NATIVE_MULTI, "amix": SubstituteKind.NATIVE_MULTI,
+    "scale": SubstituteKind.NATIVE_LINEAR,
+    "crop": SubstituteKind.NATIVE_LINEAR,
+    "fps": SubstituteKind.NATIVE_LINEAR,
+    "format": SubstituteKind.NATIVE_LINEAR,
+    "color_grade": SubstituteKind.SUBSTITUTE_LINEAR,
+    "denoise": SubstituteKind.SUBSTITUTE_LINEAR,
+    "text_burn": SubstituteKind.COMPOSITE,
+    "subtitle_burn": SubstituteKind.COMPOSITE,
+    "xfade": SubstituteKind.DISSOLVE,
+    "concat": SubstituteKind.NATIVE_MULTI,
+    "amix": SubstituteKind.NATIVE_MULTI,
 })
 _CURVE_X: tuple[float, ...] = (0.0, 0.25, 0.5, 0.75, 1.0)  # eq-substitute luma-transfer sample points -> curves control string
 
@@ -76,7 +88,7 @@ _CURVE_X: tuple[float, ...] = (0.0, 0.25, 0.5, 0.75, 1.0)  # eq-substitute luma-
 
 class TextSpec(Struct, frozen=True):
     text: str
-    font: str                                         # a font path the RAQM/BASIC layout loads
+    font: str  # a font path the RAQM/BASIC layout loads
     size: int = 48
     x: int = 24
     y: int = 24
@@ -84,25 +96,25 @@ class TextSpec(Struct, frozen=True):
     anchor: str = "la"
     stroke: int = 0
     stroke_fill: tuple[int, int, int, int] = (0, 0, 0, 255)
-    features: tuple[str, ...] = ()                     # OpenType features for the complex-script run
+    features: tuple[str, ...] = ()  # OpenType features for the complex-script run
     language: str | None = None
-    direction: str | None = None                      # "rtl"/"ltr"/"ttb" for bidi/vertical
+    direction: str | None = None  # "rtl"/"ltr"/"ttb" for bidi/vertical
 
 
 @tagged_union(frozen=True)
 class FilterNode:
     tag: FilterNodeTag = tag()
     scale: tuple[int, int] = case()
-    crop: tuple[int, int, int, int] = case()          # (w, h, x, y)
+    crop: tuple[int, int, int, int] = case()  # (w, h, x, y)
     fps: int = case()
-    format: str = case()                              # pix_fmt
+    format: str = case()  # pix_fmt
     color_grade: tuple[float, float, float, float] = case()  # (brightness, contrast, saturation, gamma)
-    denoise: float = case()                           # strength
+    denoise: float = case()  # strength
     text_burn: "TextSpec" = case()
     subtitle_burn: tuple[tuple[SubtitleEvent, ...], str] = case()  # (events, style)
-    xfade: tuple[float, float, str] = case()          # (offset, duration, transition)
-    concat: int = case()                              # input count
-    amix: tuple[int, tuple[float, ...]] = case()      # (count, weights)
+    xfade: tuple[float, float, str] = case()  # (offset, duration, transition)
+    concat: int = case()  # input count
+    amix: tuple[int, tuple[float, ...]] = case()  # (count, weights)
 
     @staticmethod
     def Scale(width: int, height: int, /) -> "FilterNode":
@@ -129,9 +141,9 @@ class FilterNode:
 class WiredGraph:
     # a frozen dataclass, NOT a msgspec.Struct: it carries a live av.filter.Graph handle and closure passes (never
     # serialized), and deferred annotations keep the TYPE_CHECKING-only `Callable` from a class-creation NameError.
-    graph: object                                     # the configured av.filter.Graph (opaque to the composing producer)
+    graph: object  # the configured av.filter.Graph (opaque to the composing producer)
     composites: tuple["Callable[[object], object]", ...] = ()  # numpy passes the driver applies after the graph pull
-    node_count: int = 0                               # the filter-node fact the producer folds onto ArtifactReceipt.Media
+    node_count: int = 0  # the filter-node fact the producer folds onto ArtifactReceipt.Media
 
     def composited(self, frame: object, /) -> object:
         # the driver applies the text/subtitle numpy substitutes after the native graph pull; a graph-only chain
@@ -139,6 +151,7 @@ class WiredGraph:
         for pass_ in self.composites:
             frame = pass_(frame)
         return frame
+
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -162,9 +175,16 @@ def _render_text(spec: TextSpec, width: int, height: int, /) -> Rgba:
     font = ImageFont.truetype(spec.font, spec.size, layout_engine=layout)
     canvas = Image.new("RGBA", (width, height), (0, 0, 0, 0))
     ImageDraw.Draw(canvas).text(
-        (spec.x, spec.y), spec.text, font=font, fill=spec.color, anchor=spec.anchor,
-        stroke_width=spec.stroke, stroke_fill=spec.stroke_fill,
-        features=list(spec.features) or None, language=spec.language, direction=spec.direction,
+        (spec.x, spec.y),
+        spec.text,
+        font=font,
+        fill=spec.color,
+        anchor=spec.anchor,
+        stroke_width=spec.stroke,
+        stroke_fill=spec.stroke_fill,
+        features=list(spec.features) or None,
+        language=spec.language,
+        direction=spec.direction,
     )
     return np.asarray(canvas)
 
@@ -241,12 +261,20 @@ def _wire(node: FilterNode, native: bool, /) -> tuple[tuple[str, str], ...]:
         case FilterNode(tag="format", format=pix_fmt):
             return (("format", f"pix_fmts={pix_fmt}"),)
         case FilterNode(tag="color_grade", color_grade=(brightness, contrast, saturation, gamma)):
-            return (("eq", f"brightness={brightness}:contrast={contrast}:saturation={saturation}:gamma={gamma}"),) if native else (
-                ("curves", _grade_args(brightness, contrast, gamma)), ("hue", f"s={saturation}"))
+            return (
+                (("eq", f"brightness={brightness}:contrast={contrast}:saturation={saturation}:gamma={gamma}"),)
+                if native
+                else (("curves", _grade_args(brightness, contrast, gamma)), ("hue", f"s={saturation}"))
+            )
         case FilterNode(tag="denoise", denoise=strength):
             return (("hqdn3d", f"{strength}"),) if native else (("nlmeans", f"s={strength}"),)
-        case (FilterNode(tag="text_burn") | FilterNode(tag="subtitle_burn") | FilterNode(tag="xfade")
-              | FilterNode(tag="concat") | FilterNode(tag="amix")):
+        case (
+            FilterNode(tag="text_burn")
+            | FilterNode(tag="subtitle_burn")
+            | FilterNode(tag="xfade")
+            | FilterNode(tag="concat")
+            | FilterNode(tag="amix")
+        ):
             return ()
         case _ as unreachable:
             assert_never(unreachable)

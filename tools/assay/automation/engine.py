@@ -8,7 +8,6 @@ from collections.abc import Callable, Coroutine
 from contextvars import ContextVar
 from datetime import datetime, UTC
 import hashlib
-from itertools import count
 from operator import itemgetter
 import re
 import sys
@@ -33,7 +32,6 @@ from tools.assay.core.status import join, RailStatus
 
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator
     from typing import Protocol
 
     from anyio.abc import TaskGroup  # annotation-only; anyio.abc is not exposed from the root anyio import
@@ -203,25 +201,17 @@ async def _emit_leaf(leaf: Action, settings: AssaySettings, limiter: anyio.Capac
                     return await _emit_leaf(inner, settings, limiter, cpu_threshold)
 
 
-async def _forever() -> AsyncIterator[int]:  # noqa: RUF029  # async iterator keeps sequence and debounce loops cooperative
-    for i in count():
-        yield i
-
-
 async def _sequence(leaves: tuple[Action, ...], settings: AssaySettings, limiter: anyio.CapacityLimiter, cpu_threshold: float | None) -> RailStatus:
+    # Short-circuit fold: the first terminal status stops the leaf walk.
     folded = RailStatus.EMPTY
-    async for i in _forever():
-        match i < len(leaves):
-            case False:
+    for leaf in leaves:
+        folded = join(folded, await _emit_leaf(leaf, settings, limiter, cpu_threshold))
+        match folded:
+            case RailStatus.FAILED | RailStatus.BUSY | RailStatus.TIMEOUT | RailStatus.FAULTED:
                 return folded
-            case True:
-                folded = join(folded, await _emit_leaf(leaves[i], settings, limiter, cpu_threshold))
-                match folded:
-                    case RailStatus.FAILED | RailStatus.BUSY | RailStatus.TIMEOUT | RailStatus.FAULTED:
-                        return folded
-                    case _:
-                        pass
-    return folded  # pragma: no cover  # _forever never terminates; the in-loop returns are the only exits
+            case _:
+                pass
+    return folded
 
 
 def _fire(action: Action, settings: AssaySettings, *, limiter: anyio.CapacityLimiter, cpu_threshold: float | None) -> Fire:
@@ -233,16 +223,13 @@ def _fire(action: Action, settings: AssaySettings, *, limiter: anyio.CapacityLim
 
 
 async def _quiesce(recv: MemoryObjectReceiveStream[ChangeBatch], window_ms: float) -> ChangeBatch:
+    # Boundary kernel: drain until one quiet window elapses; the timeout scope is the sole exit.
     latest: ChangeBatch = _NO_CHANGES
-    async for _pass in _forever():
+    while True:
         with anyio.move_on_after(window_ms / 1000.0) as scope:
             latest = await recv.receive()
-        match scope.cancelled_caught:
-            case True:
-                return latest
-            case False:
-                pass
-    return latest  # pragma: no cover  # _forever returns only through quiet-window cancellation
+        if scope.cancelled_caught:
+            return latest
 
 
 def _debounce(inner: Fire, window_ms: int, *, edge: Edge) -> tuple[Fire, Worker]:

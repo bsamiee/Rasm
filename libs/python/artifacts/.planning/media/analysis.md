@@ -43,9 +43,9 @@ from artifacts.media.audio import Pcm, _decode_audio
 lazy import av
 lazy import av.error
 lazy import av.filter
-lazy import av.filter.loudnorm                    # loudnorm.stats(args, stream) -> JSON bytes (the two-pass R128 measurement)
-lazy from artifacts.media.filtergraph import media_filters         # av.filter.filters_available canonicalized as the capability probe
-lazy from artifacts.graphic.raster.io import render_png, montage   # rgba -> PNG bytes / frame strip -> contact-sheet rgba
+lazy import av.filter.loudnorm  # loudnorm.stats(args, stream) -> JSON bytes (the two-pass R128 measurement)
+lazy from artifacts.media.filtergraph import media_filters  # av.filter.filters_available canonicalized as the capability probe
+lazy from artifacts.graphic.raster.io import render_png, montage  # rgba -> PNG bytes / frame strip -> contact-sheet rgba
 lazy from artifacts.graphic.raster.measure import frame_similarity  # structural_similarity(prev, cur) -> float, the scene substitute
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -73,9 +73,9 @@ _STFT_HOP: int = 256
 
 
 class LoudnessTarget(Struct, frozen=True):
-    i: float = -24.0                              # integrated-LUFS target the two-pass measurement gates against
-    tp: float = -2.0                              # true-peak dBTP ceiling
-    lra: float = 7.0                              # loudness range
+    i: float = -24.0  # integrated-LUFS target the two-pass measurement gates against
+    tp: float = -2.0  # true-peak dBTP ceiling
+    lra: float = 7.0  # loudness range
 
 
 @tagged_union(frozen=True)
@@ -92,12 +92,12 @@ class AnalysisArm:
 @tagged_union(frozen=True)
 class AnalysisOp:
     tag: AnalysisTag = tag()
-    waveform: tuple[bytes, tuple[int, int]] = case()          # (container bytes, (width, height))
+    waveform: tuple[bytes, tuple[int, int]] = case()  # (container bytes, (width, height))
     spectrogram: tuple[bytes, tuple[int, int]] = case()
     loudness: tuple[bytes, LoudnessTarget] = case()
-    silence: tuple[bytes, float, float] = case()              # (bytes, threshold_db, min_seconds)
-    scene_detect: tuple[bytes, float] = case()                # (bytes, scene threshold 0..1)
-    thumbnail: tuple[bytes, int] = case()                     # (bytes, thumbnail count)
+    silence: tuple[bytes, float, float] = case()  # (bytes, threshold_db, min_seconds)
+    scene_detect: tuple[bytes, float] = case()  # (bytes, scene threshold 0..1)
+    thumbnail: tuple[bytes, int] = case()  # (bytes, thumbnail count)
 
     @staticmethod
     def Waveform(blob: bytes, size: tuple[int, int] = (960, 240), /) -> "AnalysisOp":
@@ -125,15 +125,17 @@ class AnalysisOp:
 
 
 class AnalysisEvidence(Struct, frozen=True):
-    container: str                               # "png" (image) or "json" (measurement)
-    codec: str                                   # "analysis-native" | "analysis-substitute"
+    container: str  # "png" (image) or "json" (measurement)
+    codec: str  # "analysis-native" | "analysis-substitute"
     duration: float
     byte_count: int
     count: int
     facts: frozendict[str, float | str] = frozendict()
 
     @staticmethod
-    def measure(container: str, arm: AnalysisArm, duration: float, blob: bytes, count: int, facts: frozendict[str, float | str], /) -> "AnalysisEvidence":
+    def measure(
+        container: str, arm: AnalysisArm, duration: float, blob: bytes, count: int, facts: frozendict[str, float | str], /
+    ) -> "AnalysisEvidence":
         return AnalysisEvidence(container, f"analysis-{arm.tag}", duration, len(blob), count, facts)
 
 
@@ -168,6 +170,7 @@ class Analysis(Struct, frozen=True):
             return Error(MediaFault(worker=str(broken)))
         except BeartypeCallHintViolation as violation:
             return Error(MediaFault(contract=type(violation).__name__))
+
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -230,7 +233,7 @@ def _pull_frames(graph: object, /) -> Iterator[object]:
     while True:  # each emitted frame is one graph output; the sink drains until EAGAIN/EOF
         try:
             yield graph.pull()
-        except (BlockingIOError, EOFError):
+        except BlockingIOError, EOFError:
             return
 
 
@@ -338,7 +341,9 @@ def _loudness(blob: bytes, target: LoudnessTarget, arm: AnalysisArm, /) -> Resul
                 raw = av.filter.loudnorm.stats(f"i={target.i}:tp={target.tp}:lra={target.lra}", reader.streams.audio[0])
                 stats = msgspec.json.decode(raw, type=dict[str, str])
                 band: frozendict[str, float | str] = frozendict({
-                    "integrated_lufs": float(stats["input_i"]), "true_peak": float(stats["input_tp"]), "lra": float(stats["input_lra"]),
+                    "integrated_lufs": float(stats["input_i"]),
+                    "true_peak": float(stats["input_tp"]),
+                    "lra": float(stats["input_lra"]),
                 })
             case AnalysisArm(tag="substitute"):
                 blocks, _rate = _decode_audio(blob)
@@ -391,7 +396,11 @@ def _thumbnail(blob: bytes, count: int, arm: AnalysisArm, /) -> Result[AnalysisP
                 assert_never(unreachable)
         chosen = tuple(picked[:count])
         sheet = render_png(montage(chosen))
-        return Ok(AnalysisProduct(sheet, AnalysisEvidence.measure("png", arm, _source_seconds(reader), sheet, len(chosen), frozendict({"thumbnails": len(chosen)}))))
+        return Ok(
+            AnalysisProduct(
+                sheet, AnalysisEvidence.measure("png", arm, _source_seconds(reader), sheet, len(chosen), frozendict({"thumbnails": len(chosen)}))
+            )
+        )
 ```
 
 ## [03]-[RESEARCH]

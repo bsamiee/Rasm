@@ -154,7 +154,7 @@
 
 [STACK]:
 - units seam: the quantity family wraps `UnitsNet` `IQuantity` (`api-unitsnet.md`) on the SAME `5.75.0` floor the section-property (`api-vividorange-sections-sectionproperties.md`) and material-grade (`api-vividorange-materials.md`) rows use — so a computed `AreaMomentOfInertia`, a measured `Pressure`, and its `±` band are one quantity type; `pressure.WithRelativeUncertainty(0.05)` yields an `UncertaintyQuantity<Pressure>` whose bounds are `Pressure`.
-- properties seam: a `MaterialProperty` (mechanical/thermal/acoustic/fire/carbon/cost) carries its measurement band as an `UncertaintyQuantity<T>` instead of a bare scalar + separate tolerance; the `AssemblyProperty` rule-of-mixtures / series-resistance / layered-STC folds propagate the band through `UncertaintyQuantityOperators.Add`/`Multiply`, so a composite assembly's aggregated property reports its propagated uncertainty, not a discarded one.
+- properties seam: the Materials `Properties/` shared `Published<T>` ingress carrier wraps `IUncertainty<T>` (a `UnitsNet` quantity through `.Quantities.Utility.WithRelativeUncertainty`, a raw scalar through the double `.Utility`) and lowers the provider model to the neutral seam `MeasureBand` at the ONE mint — a property crosses as value+band together, never a bare scalar + separate tolerance; the multi-ply rule-of-mixtures / series-resistance / layered-STC folds live in `Rasm.Compute` and propagate bands through `UncertaintyQuantityOperators.Add`/`Multiply`, so an aggregated assembly property reports its propagated uncertainty, not a discarded one.
 - model-axis seam: the four MODELS (absolute/relative/interval/normal) × four CARRIERS (`double`/`INumber<T>`/`decimal`/`IQuantity`) collapse to ONE `IUncertainty<T>` propagation contract — a Materials property owner discriminates on the `UncertaintyModel` axis (or the carrier `T`), never a per-property uncertainty type; `decimal` carries cost rows, `IQuantity` the physical properties, `INumber<T>` the dimensionless ratios.
 
 [RAIL_LAW]:
@@ -166,6 +166,6 @@
 ## [05]-[CATALOGUE_LAW]
 
 [PACKAGE_SCOPE]:
-- This page carries `VividOrange.Uncertainties[.Quantities]` + `VividOrange.IUncertainties` API facts only; the `MaterialProperty`/`AssemblyProperty` rows, the model-axis discriminant, and the snapshot codec binding are owned at the Materials `Properties/` design pages.
+- This page carries `VividOrange.Uncertainties[.Quantities]` + `VividOrange.IUncertainties` API facts only; the shared `Published<T>` ingress carrier, the catalogue rows, the model-axis discriminant, and the snapshot codec binding are owned at the Materials `Properties/` design pages.
 - Units lane: the quantity carrier composes the in-folder `UnitsNet` `5.75.0` owner (`api-unitsnet.md`); this page never re-documents the `UnitsNet` quantity surface.
 - Serialization lane: the `0.2.0` `VividOrange.Taxonomy.Serialization.ITaxonomySerializable` floor is DISTINCT from the `0.1.0` `VividOrange.Serialization` floor the Sections/Materials/Profiles use; the two are not interchangeable, and the Materials owner serializes uncertainty values through the canonical Rasm codec ([04]-[SERIALIZATION_BOUNDARY]).

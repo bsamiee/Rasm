@@ -62,41 +62,35 @@ class SolveStatus(StrEnum):
 _CONVERGENT: frozenset[SolveStatus] = frozenset({SolveStatus.SUCCESS, SolveStatus.EVENT})
 
 # The `iterative` row is the floor when a caller passes no `tol`; a live tolerance overrides it.
-_TOL: FrozenDict[SolveMethod, float] = FrozenDict(
-    {"direct": 1e-6, "iterative": 1e-6, "least_squares": 1e-6, "eigen": 1e-8}
-)
+_TOL: FrozenDict[SolveMethod, float] = FrozenDict({"direct": 1e-6, "iterative": 1e-6, "least_squares": 1e-6, "eigen": 1e-8})
 
 # The `.facts` zip reads these rows against each case payload under `strict=True`, so a row/tuple
 # length drift raises rather than silently truncating; `status` is the trailing slot of every row.
-_SLOTS: FrozenDict[SolveMethod, tuple[str, ...]] = FrozenDict(
-    {
-        "direct": ("residual", "condition", "status"),
-        "iterative": ("residual", "iterations", "tol", "status"),
-        "least_squares": ("residual", "rank", "iterations", "tol", "status"),
-        "eigen": ("spectral_residual", "k", "condition", "status"),
-    }
-)
+_SLOTS: FrozenDict[SolveMethod, tuple[str, ...]] = FrozenDict({
+    "direct": ("residual", "condition", "status"),
+    "iterative": ("residual", "iterations", "tol", "status"),
+    "least_squares": ("residual", "rank", "iterations", "tol", "status"),
+    "eigen": ("spectral_residual", "k", "condition", "status"),
+})
 
 # Keys are the documented `lineax`/`optimistix`/`diffrax` `RESULTS` member-name strings the gated
 # routes pass; an unmapped member degrades to `OTHER` at the fold, never a crash on a future member.
-_STATUS: FrozenDict[str, SolveStatus] = FrozenDict(
-    {
-        "successful": SolveStatus.SUCCESS,
-        "event_occurred": SolveStatus.EVENT,
-        "max_steps_reached": SolveStatus.MAX_STEPS,
-        "nonlinear_max_steps_reached": SolveStatus.MAX_STEPS,
-        "max_steps_rejected": SolveStatus.MAX_STEPS,
-        "dt_min_reached": SolveStatus.MAX_STEPS,
-        "singular": SolveStatus.SINGULAR,
-        "breakdown": SolveStatus.BREAKDOWN,
-        "internal_error": SolveStatus.BREAKDOWN,
-        "stagnation": SolveStatus.STAGNATION,
-        "nonlinear_divergence": SolveStatus.DIVERGENCE,
-        "nonfinite": SolveStatus.NONFINITE,
-        "nonfinite_input": SolveStatus.NONFINITE,
-        "conlim": SolveStatus.ILL_CONDITIONED,
-    }
-)
+_STATUS: FrozenDict[str, SolveStatus] = FrozenDict({
+    "successful": SolveStatus.SUCCESS,
+    "event_occurred": SolveStatus.EVENT,
+    "max_steps_reached": SolveStatus.MAX_STEPS,
+    "nonlinear_max_steps_reached": SolveStatus.MAX_STEPS,
+    "max_steps_rejected": SolveStatus.MAX_STEPS,
+    "dt_min_reached": SolveStatus.MAX_STEPS,
+    "singular": SolveStatus.SINGULAR,
+    "breakdown": SolveStatus.BREAKDOWN,
+    "internal_error": SolveStatus.BREAKDOWN,
+    "stagnation": SolveStatus.STAGNATION,
+    "nonlinear_divergence": SolveStatus.DIVERGENCE,
+    "nonfinite": SolveStatus.NONFINITE,
+    "nonfinite_input": SolveStatus.NONFINITE,
+    "conlim": SolveStatus.ILL_CONDITIONED,
+})
 
 
 # `case None` is the no-adjudicator floor; the trailing arm makes `assert_never` a typed totality
@@ -115,6 +109,7 @@ def _status(adjudicated: str | None, residual: float, tol: float) -> SolveStatus
 
 # --- [MODELS] ------------------------------------------------------------------------------
 
+
 @tagged_union(frozen=True)
 class SolverReceipt:
     tag: SolveMethod = tag()
@@ -132,9 +127,7 @@ class SolverReceipt:
         return cls(iterative=(residual, iterations, tol, _status(result, residual, tol)))
 
     @classmethod
-    def LeastSquares(
-        cls, residual: float, rank: int, iterations: int, tol: float = _TOL["least_squares"], result: str | None = None
-    ) -> Self:
+    def LeastSquares(cls, residual: float, rank: int, iterations: int, tol: float = _TOL["least_squares"], result: str | None = None) -> Self:
         return cls(least_squares=(residual, rank, iterations, tol, _status(result, residual, tol)))
 
     @classmethod

@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Description>Host-neutral AEC-domain materials: the polymorphic Profile owner over the masonry/CMU/steel/timber/glazing family axis, the measured appearance engine (node graph, closed BSDF lobe family, material library, procedural texture/photometric admission), and the host-neutral element-assembly-layout construction data model.</Description>
+        <Description>Host-neutral AEC-domain materials: the polymorphic Component owner over the ten-family ComponentFamily axis (one SectionSolver over the closed SectionProfile algebra, the ComputedSection receipt), the measured appearance engine (node graph, closed BSDF lobe family, material library, procedural texture/photometric admission), the typed engineering-property and sustainability catalogues, the cutting-stock nesting owner, and the ComponentProjector onto the Rasm.Element seam.</Description>
         <CspScope>Domain</CspScope>
     </PropertyGroup>
 
@@ -38,17 +38,27 @@
         <PackageReference Include="VividOrange.Uncertainties.Quantities" />
     </ItemGroup>
 
-    <ItemGroup Label="Layout Packing">
-        <PackageReference Include="RectangleBinPack.CSharp" />
-    </ItemGroup>
-
     <ItemGroup Label="Numerics">
         <PackageReference Include="MathNet.Numerics" />
     </ItemGroup>
 
+    <ItemGroup Label="Memory Planes">
+        <PackageReference Include="CommunityToolkit.HighPerformance" />
+    </ItemGroup>
+
+    <ItemGroup Label="Graph Algorithms">
+        <PackageReference Include="QuikGraph" />
+    </ItemGroup>
+
     <ItemGroup Label="Wire Serializers">
+        <PackageReference Include="MessagePack" />
+        <PackageReference Include="MessagePackAnalyzer" PrivateAssets="all" />
         <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
         <PackageReference Include="Thinktecture.Runtime.Extensions.MessagePack" />
+    </ItemGroup>
+
+    <ItemGroup Label="Wire Mapping">
+        <PackageReference Include="Riok.Mapperly" PrivateAssets="all" />
     </ItemGroup>
 
     <ItemGroup Label="System Usings">

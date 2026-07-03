@@ -124,8 +124,11 @@ class IngestReceipt(Struct, frozen=True, gc=False):
         # without a `",".join(...)`/`str()` pre-coerce — the joined-string facts map is the
         # deleted form, parity with `RegistrationResult.facts`/`ReconReceipt.facts`.
         return {
-            "source": self.source, "stages": tuple(s.value for s in self.stages),
-            "input_points": self.input_points, "output_points": self.output_points, "decimation": self.decimation,
+            "source": self.source,
+            "stages": tuple(s.value for s in self.stages),
+            "input_points": self.input_points,
+            "output_points": self.output_points,
+            "decimation": self.decimation,
         }
 
     def contribute(self) -> tuple[Receipt, ...]:

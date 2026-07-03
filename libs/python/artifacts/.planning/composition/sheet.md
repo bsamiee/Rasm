@@ -115,21 +115,23 @@ class Artifact(StrEnum):  # the Composed receipt-shape discriminant — vector P
 
 
 class Membership(StrEnum):  # the ISO 32000 OCMD visibility policy — the member value IS the pymupdf `set_ocmd(policy=)` token
-    ANY_ON = "AnyOn"    # visible when ANY member OCG is on (default nested-layer union)
-    ALL_ON = "AllOn"    # visible only when EVERY member OCG is on (discipline AND detail)
+    ANY_ON = "AnyOn"  # visible when ANY member OCG is on (default nested-layer union)
+    ALL_ON = "AllOn"  # visible only when EVERY member OCG is on (discipline AND detail)
     ANY_OFF = "AnyOff"
     ALL_OFF = "AllOff"
 
 
-class Iso7200Field(StrEnum):  # ISO 7200:2004 MANDATORY title-block data fields (Table 1 + §5.3); revision index (§5.1.4) is OPTIONAL and absent by design
-    LEGAL_OWNER = "legal_owner"                      # §5.1.2 M
+class Iso7200Field(
+    StrEnum
+):  # ISO 7200:2004 MANDATORY title-block data fields (Table 1 + §5.3); revision index (§5.1.4) is OPTIONAL and absent by design
+    LEGAL_OWNER = "legal_owner"  # §5.1.2 M
     IDENTIFICATION_NUMBER = "identification_number"  # §5.1.3 M
-    DATE_OF_ISSUE = "date_of_issue"                  # §5.1.5 M
-    SHEET_NUMBER = "sheet_number"                    # §5.1.6 M
-    TITLE = "title"                                  # §5.2 M
-    APPROVAL_PERSON = "approval_person"              # §5.3 M
-    CREATOR = "creator"                              # §5.3.5 M
-    DOCUMENT_TYPE = "document_type"                  # §5.3.6 M
+    DATE_OF_ISSUE = "date_of_issue"  # §5.1.5 M
+    SHEET_NUMBER = "sheet_number"  # §5.1.6 M
+    TITLE = "title"  # §5.2 M
+    APPROVAL_PERSON = "approval_person"  # §5.3 M
+    CREATOR = "creator"  # §5.3.5 M
+    DOCUMENT_TYPE = "document_type"  # §5.3.6 M
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -149,13 +151,25 @@ _FAULTS: tuple[type[BaseException], ...] = (RuntimeError, ValueError, KeyError, 
 _GATE: CapacityLimiter = CapacityLimiter(4)
 
 _SIZES: frozendict[SheetSize, Dimensions] = frozendict({
-    SheetSize.A0: (2383.94, 3370.39), SheetSize.A1: (1683.78, 2383.94), SheetSize.A2: (1190.55, 1683.78),
-    SheetSize.A3: (841.89, 1190.55), SheetSize.A4: (595.28, 841.89), SheetSize.A5: (419.53, 595.28),
-    SheetSize.ANSI_A: (612.0, 792.0), SheetSize.ANSI_B: (792.0, 1224.0), SheetSize.ANSI_C: (1224.0, 1584.0),
-    SheetSize.ANSI_D: (1584.0, 2448.0), SheetSize.ANSI_E: (2448.0, 3168.0),
-    SheetSize.ARCH_A: (648.0, 864.0), SheetSize.ARCH_B: (864.0, 1296.0), SheetSize.ARCH_C: (1296.0, 1728.0),
-    SheetSize.ARCH_D: (1728.0, 2592.0), SheetSize.ARCH_E: (2592.0, 3456.0), SheetSize.ARCH_E1: (2160.0, 3024.0),
-    SheetSize.JIS_B0: (2919.69, 4127.24), SheetSize.JIS_B1: (2063.62, 2919.69),
+    SheetSize.A0: (2383.94, 3370.39),
+    SheetSize.A1: (1683.78, 2383.94),
+    SheetSize.A2: (1190.55, 1683.78),
+    SheetSize.A3: (841.89, 1190.55),
+    SheetSize.A4: (595.28, 841.89),
+    SheetSize.A5: (419.53, 595.28),
+    SheetSize.ANSI_A: (612.0, 792.0),
+    SheetSize.ANSI_B: (792.0, 1224.0),
+    SheetSize.ANSI_C: (1224.0, 1584.0),
+    SheetSize.ANSI_D: (1584.0, 2448.0),
+    SheetSize.ANSI_E: (2448.0, 3168.0),
+    SheetSize.ARCH_A: (648.0, 864.0),
+    SheetSize.ARCH_B: (864.0, 1296.0),
+    SheetSize.ARCH_C: (1296.0, 1728.0),
+    SheetSize.ARCH_D: (1728.0, 2592.0),
+    SheetSize.ARCH_E: (2592.0, 3456.0),
+    SheetSize.ARCH_E1: (2160.0, 3024.0),
+    SheetSize.JIS_B0: (2919.69, 4127.24),
+    SheetSize.JIS_B1: (2063.62, 2919.69),
 })
 
 _BLOCK_W, _BLOCK_H, _MARGIN, _ROW_H = 510.0, 196.0, 28.35, 14.0  # title-block extent + margin + row pitch, points (top-left origin)
@@ -182,7 +196,7 @@ class StandardRow(Struct, frozen=True):
 
 
 class ZoneSpec(Struct, frozen=True):  # ISO 5457 Table 2 field counts — numerals along the long edge, letters along the short edge
-    long_side: int   # "Long side" numeral fields (ISO 5457 Table 2)
+    long_side: int  # "Long side" numeral fields (ISO 5457 Table 2)
     short_side: int  # "Short side" letter fields
 
     @staticmethod
@@ -191,8 +205,7 @@ class ZoneSpec(Struct, frozen=True):  # ISO 5457 Table 2 field counts — numera
         # exact Table 2 (A5, ANSI, ARCH, JIS-B) divides each physical edge by 50 mm, matching Table 2's own basis.
         long_pt, short_pt = max(dims), min(dims)
         return ZoneSpec(
-            long_side=max(round(long_pt / _PT_PER_MM / _ZONE_FIELD_MM), 1),
-            short_side=max(round(short_pt / _PT_PER_MM / _ZONE_FIELD_MM), 1),
+            long_side=max(round(long_pt / _PT_PER_MM / _ZONE_FIELD_MM), 1), short_side=max(round(short_pt / _PT_PER_MM / _ZONE_FIELD_MM), 1)
         )
 
 
@@ -297,12 +310,18 @@ class TitleBlock(Struct, frozen=True):
         sheet = f"{self.sheet_number} of {self.sheet_total}" if self.sheet_total else self.sheet_number
         latest = self.revisions[-1].mark if self.revisions else ""
         head = (
-            FieldRow("Project", self.project, group="identity"), FieldRow("Owner", self.legal_owner, group="identity"),
-            FieldRow("Sheet", sheet, group="identity"), FieldRow("Title", self.sheet_title, span=2, group="identity"),
-            FieldRow("Discipline", self.discipline, group="identity"), FieldRow("Type", self.document_type, group="identity"),
-            FieldRow("Status", self.status, span=2, group="identity"), FieldRow("Scale", self.scale.printed, group="identity"),
-            FieldRow("Date", self.date, group="identity"), FieldRow("Drawn", self.drawn_by, group="approval"),
-            FieldRow("Checked", self.checked_by, group="approval"), FieldRow("Approved", self.approved_by, group="approval"),
+            FieldRow("Project", self.project, group="identity"),
+            FieldRow("Owner", self.legal_owner, group="identity"),
+            FieldRow("Sheet", sheet, group="identity"),
+            FieldRow("Title", self.sheet_title, span=2, group="identity"),
+            FieldRow("Discipline", self.discipline, group="identity"),
+            FieldRow("Type", self.document_type, group="identity"),
+            FieldRow("Status", self.status, span=2, group="identity"),
+            FieldRow("Scale", self.scale.printed, group="identity"),
+            FieldRow("Date", self.date, group="identity"),
+            FieldRow("Drawn", self.drawn_by, group="approval"),
+            FieldRow("Checked", self.checked_by, group="approval"),
+            FieldRow("Approved", self.approved_by, group="approval"),
             FieldRow("Rev", latest, group="approval"),
         )
         return Block.of_seq(head).append(Block.of_seq(self.fields))
@@ -331,17 +350,19 @@ class TitleBlock(Struct, frozen=True):
         return [[1, title, 1], *revs] if title else revs
 
     def metadata(self) -> dict[str, str]:
-        return {"title": self.sheet_title or self.sheet_number, "subject": f"{self.discipline} {self.sheet_number}".strip(),
-                "author": self.drawn_by, "keywords": self.project, "creator": "rasm.artifacts.sheet"}
+        return {
+            "title": self.sheet_title or self.sheet_number,
+            "subject": f"{self.discipline} {self.sheet_number}".strip(),
+            "author": self.drawn_by,
+            "keywords": self.project,
+            "creator": "rasm.artifacts.sheet",
+        }
 
     def audit(self) -> "TitleBlockAudit":
         # the ISO 7200 mandatory-field conformance fold over the `_ISO7200` predicate table, mirroring
         # document/tagged#StructureAudit: present vs missing over the exact mandatory set (revision excluded).
         audited = tuple((field, probe(self)) for field, probe in _ISO7200.items())
-        return TitleBlockAudit(
-            present=tuple(field for field, ok in audited if ok),
-            missing=tuple(field for field, ok in audited if not ok),
-        )
+        return TitleBlockAudit(present=tuple(field for field, ok in audited if ok), missing=tuple(field for field, ok in audited if not ok))
 
     def revised(self, fmt: TableFormat = TableFormat.HTML, theme: Theme = Theme()) -> TablePlan:
         # the revision history as a visualization/table#TABLE publication table (great-tables) rather than the
@@ -435,7 +456,15 @@ class SheetOp:  # the closed request vocabulary lowered once into Composed
     preview: tuple[bytes, float] = case()
 
     @staticmethod
-    def Frame(size: SheetSize, engine: Engine = Engine.REPORTLAB, title: TitleBlock = TitleBlock(), *, standard: Standard = Standard.DRAFT, output_intent: OutputIntent = None, landscape: bool = False) -> "SheetOp":
+    def Frame(
+        size: SheetSize,
+        engine: Engine = Engine.REPORTLAB,
+        title: TitleBlock = TitleBlock(),
+        *,
+        standard: Standard = Standard.DRAFT,
+        output_intent: OutputIntent = None,
+        landscape: bool = False,
+    ) -> "SheetOp":
         return SheetOp(frame=(size, engine, title, standard, output_intent, landscape))
 
     @staticmethod
@@ -447,7 +476,14 @@ class SheetOp:  # the closed request vocabulary lowered once into Composed
         return SheetOp(fill=(sheet, title))
 
     @staticmethod
-    def Stamp(sheet: bytes, title: TitleBlock = TitleBlock(), *, standard: Standard = Standard.DRAFT, output_intent: OutputIntent = None, attachments: Iterable[tuple[str, bytes]] = ()) -> "SheetOp":
+    def Stamp(
+        sheet: bytes,
+        title: TitleBlock = TitleBlock(),
+        *,
+        standard: Standard = Standard.DRAFT,
+        output_intent: OutputIntent = None,
+        attachments: Iterable[tuple[str, bytes]] = (),
+    ) -> "SheetOp":
         return SheetOp(stamp=(sheet, title, standard, output_intent, tuple(attachments)))
 
     @staticmethod
@@ -536,8 +572,7 @@ class SheetSet(Struct, frozen=True):
         # sheet_number and the set count into sheet_total, so a sheet knows its number AND its set position.
         total = str(self.total)
         return tuple(
-            (entry.sheet_id, structs.replace(entry.title, sheet_number=entry.sheet_id.compose(), sheet_total=total))
-            for entry in self.entries
+            (entry.sheet_id, structs.replace(entry.title, sheet_number=entry.sheet_id.compose(), sheet_total=total)) for entry in self.entries
         )
 
     def audited(self) -> SheetSetAudit:
@@ -558,8 +593,14 @@ class SheetSet(Struct, frozen=True):
         # the one polars drawing-list frame the `scheduled` TablePlan renders and a register/transmittal reads;
         # an empty set yields the typed empty frame so a downstream consumer never hits a schema-less DataFrame.
         rows = [
-            {"sheet": sheet_id.compose(), "title": title.sheet_title or title.sheet_number, "discipline": title.discipline,
-             "revision": entry.revision, "suitability": entry.suitability, "date": title.date}
+            {
+                "sheet": sheet_id.compose(),
+                "title": title.sheet_title or title.sheet_number,
+                "discipline": title.discipline,
+                "revision": entry.revision,
+                "suitability": entry.suitability,
+                "date": title.date,
+            }
             for entry, (sheet_id, title) in zip(self.entries, self.numbered(), strict=True)
         ]
         return polars.from_dicts(rows) if rows else polars.DataFrame(schema={column: polars.String for column in _INDEX_COLS})
@@ -623,7 +664,9 @@ def _zones(size: SheetSize, dims: Dimensions, /) -> tuple[tuple[float, float, st
     num_edges = (height - strip - 3.0,) if size is SheetSize.A4 else (strip - 3.0, height - strip - 3.0)
     let_edges = (width - strip,) if size is SheetSize.A4 else (strip, width - strip)
     numerals = tuple((_MARGIN + (col + 0.5) * step_x, edge, str(col + 1)) for col in range(columns) for edge in num_edges)
-    letters = tuple((edge, height - _MARGIN - (row + 0.5) * step_y - 3.0, _GRID_LETTERS[row % len(_GRID_LETTERS)]) for row in range(rows) for edge in let_edges)
+    letters = tuple(
+        (edge, height - _MARGIN - (row + 0.5) * step_y - 3.0, _GRID_LETTERS[row % len(_GRID_LETTERS)]) for row in range(rows) for edge in let_edges
+    )
     return (*numerals, *letters)
 
 
@@ -639,7 +682,9 @@ def _composed(op: SheetOp) -> Composed:  # the one pure render fold both `of` an
                 groups = _mint_groups(document, placements)  # one shared OCG per unique membership group name
                 minted = Block.of_seq(_draw_one(document, placement, groups) for placement in placements).choose(_oc_state)
                 _configure_layers(document, minted, groups)  # one ui-config write over the minted leaves + shared groups
-                return Composed(document.tobytes(garbage=3, deflate=True, no_new_id=True), pages=document.page_count, layers=len(minted) + len(groups))
+                return Composed(
+                    document.tobytes(garbage=3, deflate=True, no_new_id=True), pages=document.page_count, layers=len(minted) + len(groups)
+                )
         case SheetOp(tag="fill", fill=(sheet, title)):
             with pymupdf.open(stream=sheet, filetype="pdf") as document:  # the live native handle closes once the filled bytes are serialized
                 page = document[0]  # its real `rect` is the authoritative sheet geometry, oriented as drawn
@@ -648,14 +693,34 @@ def _composed(op: SheetOp) -> Composed:  # the one pure render fold both `of` an
                 return Composed(document.tobytes(garbage=3, deflate=True, no_new_id=True), pages=document.page_count)
         case SheetOp(tag="stamp", stamp=(sheet, title, standard, intent, attachments)):
             with pymupdf.open(stream=sheet, filetype="pdf") as document:  # the live native handle closes once the stamped bytes are serialized
-                if standard is not Standard.DRAFT:  # archival hygiene BEFORE the metadata write, mirroring the sibling imposition Marks.finished: subset embedded fonts + strip hidden/dead content, with the metadata/xml/attachment flags OFF so the pass never nukes the info-dict/XMP/associated-files this arm then authors
+                if (
+                    standard is not Standard.DRAFT
+                ):  # archival hygiene BEFORE the metadata write, mirroring the sibling imposition Marks.finished: subset embedded fonts + strip hidden/dead content, with the metadata/xml/attachment flags OFF so the pass never nukes the info-dict/XMP/associated-files this arm then authors
                     document.subset_fonts(fallback=True)
-                    document.scrub(hidden_text=True, javascript=True, clean_pages=True, thumbnails=True, metadata=False, xml_metadata=False, embedded_files=False, attached_files=False, redactions=False, reset_fields=False, reset_responses=False, remove_links=False)
+                    document.scrub(
+                        hidden_text=True,
+                        javascript=True,
+                        clean_pages=True,
+                        thumbnails=True,
+                        metadata=False,
+                        xml_metadata=False,
+                        embedded_files=False,
+                        attached_files=False,
+                        redactions=False,
+                        reset_fields=False,
+                        reset_responses=False,
+                        remove_links=False,
+                    )
                 document.set_metadata(title.metadata())
                 document.set_toc(title.outline())
-                for name, payload in (*attachments, *(((f"{intent[0]}.icc", intent[1]),) if intent is not None else ())):  # source files + the PDF/A ICC ride as associated files; the ternary is parenthesized so `*` unpacks its result
+                for name, payload in (
+                    *attachments,
+                    *(((f"{intent[0]}.icc", intent[1]),) if intent is not None else ()),
+                ):  # source files + the PDF/A ICC ride as associated files; the ternary is parenthesized so `*` unpacks its result
                     document.embfile_add(name, payload, filename=name, desc=f"{title.discipline} source".strip())
-                if standard is not Standard.DRAFT:  # the archival/accessible XMP packet is gated on the preservation intent, not a per-engine variant column
+                if (
+                    standard is not Standard.DRAFT
+                ):  # the archival/accessible XMP packet is gated on the preservation intent, not a per-engine variant column
                     document.set_xml_metadata(_xmp(title, standard))
                 return Composed(document.tobytes(garbage=3, deflate=True, no_new_id=True), pages=document.page_count)
         case SheetOp(tag="preview", preview=(sheet, dpi)):
@@ -674,15 +739,32 @@ def _mint_groups(document: "Document", placements: tuple[FigurePlacement, ...], 
     return frozendict({name: document.add_ocg(name, on=True, intent="View", usage="Artwork") for name in names})
 
 
-def _draw_one(document: "Document", placement: FigurePlacement, groups: "frozendict[str, int]", /) -> tuple[int, bool, bool]:  # (xref, visible, locked); xref 0 if unlayered
+def _draw_one(
+    document: "Document", placement: FigurePlacement, groups: "frozendict[str, int]", /
+) -> tuple[int, bool, bool]:  # (xref, visible, locked); xref 0 if unlayered
     page = document[0]
     leaf = document.add_ocg(placement.name, on=placement.visible, intent="View", usage="Artwork") if placement.layered else 0
     # a `membership`-bearing layered placement gates through an OCMD over its parent groups (a nested/radio
     # layer hierarchy the flat add_ocg cannot express); the leaf still rides the layer config, the OCMD the draw.
-    oc = document.set_ocmd(ocgs=[leaf, *(groups[name] for name in placement.membership)], policy=placement.policy.value) if leaf and placement.membership else leaf
+    oc = (
+        document.set_ocmd(ocgs=[leaf, *(groups[name] for name in placement.membership)], policy=placement.policy.value)
+        if leaf and placement.membership
+        else leaf
+    )
     window, clip = placement.target()
-    with pymupdf.open(stream=placement.figure, filetype="pdf") as docsrc:  # `show_pdf_page` copies the source page at call time, so the figure handle closes immediately after the draw
-        page.show_pdf_page(pymupdf.Rect(*window), docsrc, pno=placement.page, keep_proportion=placement.keep_proportion, overlay=placement.overlay, rotate=placement.rotate, clip=pymupdf.Rect(*clip) if clip is not None else None, oc=oc)
+    with pymupdf.open(
+        stream=placement.figure, filetype="pdf"
+    ) as docsrc:  # `show_pdf_page` copies the source page at call time, so the figure handle closes immediately after the draw
+        page.show_pdf_page(
+            pymupdf.Rect(*window),
+            docsrc,
+            pno=placement.page,
+            keep_proportion=placement.keep_proportion,
+            overlay=placement.overlay,
+            rotate=placement.rotate,
+            clip=pymupdf.Rect(*clip) if clip is not None else None,
+            oc=oc,
+        )
     return leaf, placement.visible, placement.locked
 
 
@@ -723,7 +805,9 @@ def _frame_reportlab(dims: Dimensions, size: SheetSize, title: TitleBlock, stand
     canvas.setSubject(meta["subject"])
     canvas.setKeywords(meta["keywords"])
     canvas.setCreator(meta["creator"])
-    ink = CMYKColor(0.0, 0.0, 0.0, 1.0)  # the process-black discipline ink (CMYK K=1) — press-faithful separations, never the sRGB/DeviceGray default a drawing sheet must not ship
+    ink = CMYKColor(
+        0.0, 0.0, 0.0, 1.0
+    )  # the process-black discipline ink (CMYK K=1) — press-faithful separations, never the sRGB/DeviceGray default a drawing sheet must not ship
     canvas.setStrokeColor(ink)
     canvas.setFillColor(ink)
     border = canvas.beginPath()
@@ -732,7 +816,9 @@ def _frame_reportlab(dims: Dimensions, size: SheetSize, title: TitleBlock, stand
     canvas.drawPath(border, stroke=1, fill=0)
     canvas.rect(width - _MARGIN - _BLOCK_W, _MARGIN, _BLOCK_W, _BLOCK_H)
     canvas.setFont("Helvetica", 7)
-    for zx, zy, mark in _zones(size, dims):  # the exact ISO 5457 Table 2 reference grid (I/O excluded), derived beside the title cells and the scale bar
+    for zx, zy, mark in _zones(
+        size, dims
+    ):  # the exact ISO 5457 Table 2 reference grid (I/O excluded), derived beside the title cells and the scale bar
         canvas.drawCentredString(zx, zy, mark)
     for row, (rx, top, _x1, _y1) in title.cells(dims):  # reportlab is bottom-up; flip the top-left cell rect into the page frame
         text = canvas.beginText(rx, height - top - _ROW_H + 3.0)
@@ -743,11 +829,15 @@ def _frame_reportlab(dims: Dimensions, size: SheetSize, title: TitleBlock, stand
         canvas.saveState()
         canvas.translate(width - _MARGIN - _BLOCK_W + _MARGIN, _MARGIN + _MARGIN)
         canvas.rotate(-title.north.bearing)
-        canvas.drawImage(ImageReader(BytesIO(title.north.glyph)), -_MARGIN, -_MARGIN, width=_MARGIN * 2, height=_MARGIN * 2, preserveAspectRatio=True, mask="auto")
+        canvas.drawImage(
+            ImageReader(BytesIO(title.north.glyph)), -_MARGIN, -_MARGIN, width=_MARGIN * 2, height=_MARGIN * 2, preserveAspectRatio=True, mask="auto"
+        )
         canvas.restoreState()
     if title.key_plan.figure:
         kx, ky = width - _MARGIN - _BLOCK_W, _MARGIN + _BLOCK_H + _MARGIN
-        canvas.drawImage(ImageReader(BytesIO(title.key_plan.figure)), kx, ky, width=_MARGIN * 2, height=_MARGIN * 2, preserveAspectRatio=True, mask="auto")
+        canvas.drawImage(
+            ImageReader(BytesIO(title.key_plan.figure)), kx, ky, width=_MARGIN * 2, height=_MARGIN * 2, preserveAspectRatio=True, mask="auto"
+        )
         if title.key_plan.highlight:  # the covered-region label annotating the key plan
             canvas.drawString(kx, ky - _ROW_H + 3.0, title.key_plan.highlight)
     for shape, mark in title.scale.bar(width - _MARGIN - _BLOCK_W, _MARGIN + _BLOCK_H + _ROW_H):  # the divided graphic scale bar above the block
@@ -756,7 +846,9 @@ def _frame_reportlab(dims: Dimensions, size: SheetSize, title: TitleBlock, stand
                 canvas.rect(shape[0], shape[1], shape[2] - shape[0], shape[3] - shape[1], stroke=1, fill=int(mark))
             case str():  # the real-distance caption text
                 canvas.drawString(shape[0], shape[1], mark)
-    outline_key = title.sheet_number or "sheet"  # one navigable outline entry so the framed sheet has a reader bookmark, exactly as document/emit's PDF_AUTHOR afterFlowable mints bookmarkPage+addOutlineEntry
+    outline_key = (
+        title.sheet_number or "sheet"
+    )  # one navigable outline entry so the framed sheet has a reader bookmark, exactly as document/emit's PDF_AUTHOR afterFlowable mints bookmarkPage+addOutlineEntry
     canvas.bookmarkPage(outline_key)
     canvas.addOutlineEntry(meta["title"], outline_key, level=0)
     canvas.showPage()
@@ -777,7 +869,9 @@ def _frame_typst(dims: Dimensions, _size: SheetSize, title: TitleBlock, standard
         "#place(bottom + right, dx: -4pt, dy: -4pt, rect(stroke: 1pt, inset: 6pt, "
         f"grid(columns: 2, gutter: 4pt, {grid})))\n"
     )
-    return typst.compile(source.encode(), output=None, format="pdf", pdf_standards=_STANDARD[standard].standards, ignore_system_fonts=True, timestamp=0)
+    return typst.compile(
+        source.encode(), output=None, format="pdf", pdf_standards=_STANDARD[standard].standards, ignore_system_fonts=True, timestamp=0
+    )
 
 
 def _frame_weasyprint(dims: Dimensions, _size: SheetSize, title: TitleBlock, standard: Standard, intent: OutputIntent) -> bytes:
@@ -789,11 +883,16 @@ def _frame_weasyprint(dims: Dimensions, _size: SheetSize, title: TitleBlock, sta
     # the XMP (its `pdf_variant` machinery writes the conformant pdfaid packet) rather than a hand-built
     # ElementTree override that could drop the archival XMP fields the variant requires — the hand-built
     # `_xmp` stays only for the pymupdf-based reportlab/typst Stamp arms that have no engine XMP generator.
-    metas = "".join(f'<meta name="{name}" content="{escape(value)}">' for name, value in
-                    (("author", title.drawn_by), ("description", title.project), ("keywords", title.discipline)) if value)
-    head = (f"<title>{escape(title.sheet_title or title.sheet_number)}</title>{metas}"
-            f"<style>@page{{size:{width}pt {height}pt;margin:{_MARGIN}pt}}body{{border:1pt solid}}"
-            f"table{{position:fixed;bottom:4pt;right:4pt;border:1pt solid}}</style>")
+    metas = "".join(
+        f'<meta name="{name}" content="{escape(value)}">'
+        for name, value in (("author", title.drawn_by), ("description", title.project), ("keywords", title.discipline))
+        if value
+    )
+    head = (
+        f"<title>{escape(title.sheet_title or title.sheet_number)}</title>{metas}"
+        f"<style>@page{{size:{width}pt {height}pt;margin:{_MARGIN}pt}}body{{border:1pt solid}}"
+        f"table{{position:fixed;bottom:4pt;right:4pt;border:1pt solid}}</style>"
+    )
     html = f"<head>{head}</head><body><table>{cells}</table></body>"
     # weasyprint owns the FULL archival close end to end: `pdf_variant` selects the PDF/A-PDF/UA profile,
     # `pdf_tags` writes the structure tree, `output_intent` embeds the ICC the variant requires, `attachments`
@@ -802,10 +901,16 @@ def _frame_weasyprint(dims: Dimensions, _size: SheetSize, title: TitleBlock, sta
     # analogue of the pymupdf `no_new_id` and the typst `timestamp=0` the sibling arms pin, never a random
     # per-run identifier that defeats the content-addressed cache.
     return HTML(string=html, base_url=".").write_pdf(
-        target=None, font_config=FontConfiguration(), pdf_variant=variant, pdf_tags=tags,
+        target=None,
+        font_config=FontConfiguration(),
+        pdf_variant=variant,
+        pdf_tags=tags,
         output_intent=BytesIO(intent[1]) if intent is not None else None,
-        attachments=[Attachment(file_obj=BytesIO(intent[1]), name=f"{intent[0]}.icc", description="output-intent ICC", relationship="Data")] if intent is not None else None,
-        custom_metadata=True, pdf_identifier=_pdf_id(title, standard),
+        attachments=[Attachment(file_obj=BytesIO(intent[1]), name=f"{intent[0]}.icc", description="output-intent ICC", relationship="Data")]
+        if intent is not None
+        else None,
+        custom_metadata=True,
+        pdf_identifier=_pdf_id(title, standard),
     )
 
 
@@ -831,7 +936,9 @@ def _placed_layers(op: SheetOp, names: tuple[str, ...]) -> tuple[Layer, ...]:
             return (Layer(_name(names, 0, "frame"), _composed(op).data, (0.0, 0.0, w, h)),)
         case SheetOp(tag="place", place=(_sheet, placements)):
             return tuple(
-                Layer(_name(names, index, placement.name), placement.figure, placement.target()[0], visible=placement.visible, locked=placement.locked)
+                Layer(
+                    _name(names, index, placement.name), placement.figure, placement.target()[0], visible=placement.visible, locked=placement.locked
+                )
                 for index, placement in enumerate(placements)
             )
         case _:
@@ -846,11 +953,18 @@ def _escape(value: str) -> str:  # typst markup escaping has no stdlib owner; HT
     return value.replace("\\", "\\\\").replace('"', '\\"')
 
 
-_NS = frozendict({"x": "adobe:ns:meta/", "rdf": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
-                  "dc": "http://purl.org/dc/elements/1.1/", "pdfaid": "http://www.aiim.org/pdfa/ns/id/"})
+_NS = frozendict({
+    "x": "adobe:ns:meta/",
+    "rdf": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
+    "dc": "http://purl.org/dc/elements/1.1/",
+    "pdfaid": "http://www.aiim.org/pdfa/ns/id/",
+})
 # the `Standard` -> PDF/A (part, conformance) the `pdfaid` XMP packet declares; `None` for a profile carrying no PDF/A part.
 _PDFAID: frozendict[Standard, tuple[str, str] | None] = frozendict({
-    Standard.DRAFT: None, Standard.ARCHIVAL: ("3", "B"), Standard.ACCESSIBLE: None, Standard.PRESERVED: ("3", "B"),
+    Standard.DRAFT: None,
+    Standard.ARCHIVAL: ("3", "B"),
+    Standard.ACCESSIBLE: None,
+    Standard.PRESERVED: ("3", "B"),
 })
 
 
@@ -863,9 +977,12 @@ def _xmp(title: TitleBlock, standard: Standard) -> str:
         register_namespace(prefix, uri)
     rdf = Element(QName(_NS["rdf"], "RDF"))
     description = SubElement(rdf, QName(_NS["rdf"], "Description"), {QName(_NS["rdf"], "about"): ""})
-    for ns, key, value in (("dc", "title", title.sheet_title), ("dc", "creator", title.drawn_by),
-                           ("dc", "description", title.project), *(("pdfaid", slot, member) for slot, member in
-                           zip(("part", "conformance"), _PDFAID[standard] or (), strict=False))):
+    for ns, key, value in (
+        ("dc", "title", title.sheet_title),
+        ("dc", "creator", title.drawn_by),
+        ("dc", "description", title.project),
+        *(("pdfaid", slot, member) for slot, member in zip(("part", "conformance"), _PDFAID[standard] or (), strict=False)),
+    ):
         if value:
             SubElement(description, QName(_NS[ns], key)).text = value
     meta = Element(QName(_NS["x"], "xmpmeta"))

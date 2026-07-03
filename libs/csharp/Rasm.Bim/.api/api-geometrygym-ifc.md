@@ -129,7 +129,7 @@ for the Compute geometry interchange rail.
 |  [16]   | `IfcExtendedProperties`      | geometry | extended-property base; `Name`/`Description` plus `Properties` `Dictionary<string, IfcProperty>` and a `this[name]` indexer |
 |  [17]   | `IfcProperty`                | geometry | abstract property root (`IfcPropertySingleValue` etc.); the `Properties`-dict element type |
 |  [18]   | `IfcMaterialProfile`         | geometry | one profile-material row in an `IfcMaterialProfileSet.MaterialProfiles` (`LIST<IfcMaterialProfile>`); `Material` (`IfcMaterial`), `Profile` (`IfcProfileDef`, the subtype-discriminated section), `Name`/`Description`/`Category` (`string`), `Priority` (`int`) |
-|  [19]   | `IfcMaterialLayer`           | geometry | one layer in `IfcMaterialLayerSet.MaterialLayers` (`: IfcMaterialDefinition`); `Material` (`IfcMaterial`), `LayerThickness` (`double`), `Category` (`string`), `IsVentilated` (`IfcLogicalEnum`); ctor `(IfcMaterial, double thickness, string name)` |
+|  [19]   | `IfcMaterialLayer`           | geometry | one layer in `IfcMaterialLayerSet.MaterialLayers` (`: IfcMaterialDefinition`); `Material` (`IfcMaterial`), `LayerThickness` (`double`), `Priority` (`int`), `Category` (`string`), `IsVentilated` (`IfcLogicalEnum`); ctor `(IfcMaterial, double thickness, string name)` — the `Priority`/`Category`/`IsVentilated` columns are decompile-verified PUBLIC and await the seam `MaterialWire` column widening (frozen this campaign) |
 |  [20]   | `IfcMaterialConstituent`     | geometry | one constituent in `IfcMaterialConstituentSet.MaterialConstituents` (`: IfcMaterialDefinition`); `Material` (`IfcMaterial`), `Name` (`string`), `Fraction` (`double`); ctor `(string name, IfcMaterial)` |
 
 [PUBLIC_TYPE_SCOPE]: relationship families
@@ -215,7 +215,8 @@ for the Compute geometry interchange rail.
 |  [10]   | `IfcStructuralLoadGroup`           | geometry | grouped structural loads; `PredefinedType`, `ActionType`, `ActionSource`, `SourceOfResultGroup`         |
 |  [11]   | `IfcStructuralLoadCase`            | geometry | load case under `IfcStructuralLoadGroup`; `SelfWeightCoefficients`                                      |
 |  [12]   | `IfcStructuralResultGroup`         | geometry | grouped analysis results                                                                                |
-|  [13]   | `IfcBoundaryCondition`             | geometry | boundary-condition base (`IfcBoundaryNodeCondition`/`IfcBoundaryEdgeCondition`)                         |
+|  [13]   | `IfcBoundaryCondition`             | geometry | boundary-condition base (`IfcBoundaryNodeCondition`/`IfcBoundaryEdgeCondition`); `IfcBoundaryNodeCondition` public ctors `(db)`, `(db, name, 6x bool restraints)`, `(db, name, 3x IfcTranslationalStiffnessSelect + 3x IfcRotationalStiffnessSelect)` — the egress re-stamp surface |
+|  [13a]  | `IfcStructuralLoadConfiguration`   | geometry | the IFC varying line action (`: IfcStructuralLoad`): public `Values` (`LIST<IfcStructuralLoadOrResult>`), `Locations` (`List<List<double>>`), ctors `(val, length)` / `(vals, locations)` / `(val1, loc1, val2, loc2)` — the trapezoid lowering source `Model/structural#STRUCTURAL_PROJECTION` `Vectors` reads |
 |  [14]   | `IfcRelConnectsStructuralMember`   | geometry | connects an idealized member to a connection; `RelatingStructuralMember`, `RelatedStructuralConnection` |
 |  [15]   | `IfcRelConnectsStructuralActivity` | geometry | binds a load/result activity to a structural item                                                       |
 |  [16]   | `IfcRelAssignsToGroup`             | geometry | assigns objects to an `IfcGroup`/`IfcSystem`/`IfcStructuralLoadGroup`; `RelatedObjects` (`SET<IfcObjectDefinition>`, the assigned members reached via `IfcGroup.IsGroupedBy`) |
@@ -229,7 +230,7 @@ for the Compute geometry interchange rail.
 | :-----: | :----------------------------------- | :------- | :------------------------------------------------------------------------------------------ |
 |  [01]   | `IfcGroup`                           | geometry | non-spatial logical grouping base; `IsGroupedBy` (`IfcRelAssignsToGroup`)                   |
 |  [02]   | `IfcSystem`                          | geometry | functional system grouping under `IfcGroup`; `ServicesBuildings`                            |
-|  [03]   | `IfcBuildingSystem`                  | geometry | building-system grouping; `PredefinedType` (`IfcBuildingSystemTypeEnum`)                    |
+|  [03]   | `IfcBuiltSystem`                     | geometry | built-system grouping (`: IfcSystem`); `PredefinedType` (`IfcBuiltSystemTypeEnum`) — the IFC4.3 form GG 25.7.30 SHIPS; `IfcBuildingSystem` is ABSENT from the assembly (decompile-verified), so a catalog or roster row naming it is a phantom |
 |  [04]   | `IfcDistributionSystem`              | geometry | MEP distribution system; `PredefinedType` (`IfcDistributionSystemEnum`), member element set |
 |  [05]   | `IfcZone`                            | geometry | functional zone aggregating spaces across storeys; `LongName` + ctor `(IfcSpatialElement, string, List<IfcSpace>)` — carries NO `PredefinedType` in 25.7.30 (see enum row `IfcZone`) |
 |  [06]   | `IfcSpatialZone`                     | geometry | fire/thermal/construction/occupancy zone; `PredefinedType` (`IfcSpatialZoneTypeEnum`)       |
@@ -339,7 +340,7 @@ for the Compute geometry interchange rail.
 - package: `GeometryGymIFC_Core`
 - namespace: `GeometryGym.Ifc`
 - rail: geometry
-- note: the `IfcMaterialProfile.Profile` cross-section subtype axis the `Semantics/composition#MATERIAL_COMPOSITION` `ProfileDefKind`/`DimsOf` reciprocal discriminates against the `Rasm.Materials/Profiles/steel#STEEL_FAMILY` `SteelClass.IfcSubtype` egress; hollow subtypes derive from their solid bases (discriminate the wall section first)
+- note: the `IfcMaterialProfile.Profile` cross-section subtype axis lowers through the `Semantics/composition#MATERIAL_COMPOSITION` seam `ProfileRef`/`IIfcProfileStore` preservation (the retired `ProfileDefKind`/`DimsOf` reciprocal is the deleted form); hollow subtypes derive from their solid bases (discriminate the wall section first)
 
 | [INDEX] | [SYMBOL]                       | [RAIL]   | [CAPABILITY]                                                                                                                                                                  |
 | :-----: | :----------------------------- | :------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

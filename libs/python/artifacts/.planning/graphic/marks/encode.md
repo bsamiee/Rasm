@@ -57,7 +57,9 @@ lazy from artifacts.graphic.marks.decode import DecodeSource, MarkDecodeError, _
 if TYPE_CHECKING:
     from segno import QRCode, QRCodeSequence
 
-    from artifacts.graphic.marks.decode import DecodeScope  # DecodeSource rides the runtime `lazy from` above (used in the `_one` match); annotation-only DecodeScope stays type-checking-only
+    from artifacts.graphic.marks.decode import (
+        DecodeScope,
+    )  # DecodeSource rides the runtime `lazy from` above (used in the `_one` match); annotation-only DecodeScope stays type-checking-only
 
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -257,13 +259,17 @@ class RasterFact(Struct, frozen=True):
     data: bytes
     width: int = 0
     height: int = 0
-    score: frozendict[str, float | str] = frozendict()  # the value band matches the declaring graphic/raster/io#RASTER owner so a sibling decode COUNT/VALID/BUILD fact rides as a native float beside the encode str facts
+    score: frozendict[str, float | str] = (
+        frozendict()
+    )  # the value band matches the declaring graphic/raster/io#RASTER owner so a sibling decode COUNT/VALID/BUILD fact rides as a native float beside the encode str facts
 
 
 # --- [ERRORS] ---------------------------------------------------------------------------
 @tagged_union(frozen=True)
 class MarkFault:
-    tag: Literal["overflow", "parameter", "unknown", "illegal", "arity", "ec_level", "content", "render", "options", "geometry", "worker", "decode", "contract"] = tag()
+    tag: Literal[
+        "overflow", "parameter", "unknown", "illegal", "arity", "ec_level", "content", "render", "options", "geometry", "worker", "decode", "contract"
+    ] = tag()
     overflow: Symbology = case()
     parameter: str = case()
     unknown: str = case()
@@ -350,7 +356,9 @@ SHARED_FACTORY_KEYS: tuple[str, ...] = ("error", "version", "mode", "mask", "enc
 ZXING_CREATE_KEYS: tuple[str, ...] = ("ec_level", "width", "height", "margin")
 
 
-def _segno(factory: SegnoFactory, accepts: tuple[SegnoKey, ...], content: str, symbology: Symbology, opts: frozendict[str, object], /) -> Result[RasterFact, MarkFault]:
+def _segno(
+    factory: SegnoFactory, accepts: tuple[SegnoKey, ...], content: str, symbology: Symbology, opts: frozendict[str, object], /
+) -> Result[RasterFact, MarkFault]:
     keys = (*SHARED_FACTORY_KEYS, *accepts)
     try:
         symbol = getattr(segno, factory)(content, **{key: opts[key] for key in keys if key in opts})
@@ -360,7 +368,15 @@ def _segno(factory: SegnoFactory, accepts: tuple[SegnoKey, ...], content: str, s
         return Error(MarkFault(parameter=str(fault)))
     sink = BytesIO()
     try:
-        symbol.save(sink, kind="svg", scale=opts.get("scale", 1), border=opts.get("border"), dark=opts.get("dark", "#000"), light=opts.get("light"), **opts.get("svg", frozendict()))
+        symbol.save(
+            sink,
+            kind="svg",
+            scale=opts.get("scale", 1),
+            border=opts.get("border"),
+            dark=opts.get("dark", "#000"),
+            light=opts.get("light"),
+            **opts.get("svg", frozendict()),
+        )
     except ValueError as fault:
         return Error(MarkFault(render=str(fault)))
     return Ok(RasterFact(sink.getvalue(), score=_segno_score(factory, symbol, opts)))
@@ -400,18 +416,27 @@ def _zxing(member: str, content: str, opts: frozendict[str, object], /) -> Resul
         symbol = zxingcpp.create_barcode(content, fmt, **{key: opts[key] for key in ZXING_CREATE_KEYS if key in opts})
     except ValueError as fault:
         return Error(MarkFault(ec_level=str(fault)))
-    svg = symbol.to_svg(scale=int(opts.get("scale", 1)), add_hrt=bool(opts.get("add_hrt", False)), add_quiet_zones=bool(opts.get("add_quiet_zones", True)))
-    return Ok(RasterFact(svg.encode(), score=frozendict({
-        MarkFact.FORMAT: str(symbol.format),        # the precise 3.0 display name ('Data Matrix'/'PDF417'/'Aztec')
-        MarkFact.FAMILY: str(symbol.symbology),     # the rolled-up BarcodeFormat.symbology family (MicroPDF417 -> PDF417) distinct from .format
-        MarkFact.EC_LEVEL: str(opts.get("ec_level", "")),
-    })))
+    svg = symbol.to_svg(
+        scale=int(opts.get("scale", 1)), add_hrt=bool(opts.get("add_hrt", False)), add_quiet_zones=bool(opts.get("add_quiet_zones", True))
+    )
+    return Ok(
+        RasterFact(
+            svg.encode(),
+            score=frozendict({
+                MarkFact.FORMAT: str(symbol.format),  # the precise 3.0 display name ('Data Matrix'/'PDF417'/'Aztec')
+                MarkFact.FAMILY: str(symbol.symbology),  # the rolled-up BarcodeFormat.symbology family (MicroPDF417 -> PDF417) distinct from .format
+                MarkFact.EC_LEVEL: str(opts.get("ec_level", "")),
+            }),
+        )
+    )
 
 
 _CONTRACT = BeartypeConf(is_pep484_tower=True)
 
 
-def _contracted(operation: Callable[[str, Symbology, frozendict[str, object]], Result[RasterFact, MarkFault]], /) -> Callable[[str, Symbology, frozendict[str, object]], Result[RasterFact, MarkFault]]:
+def _contracted(
+    operation: Callable[[str, Symbology, frozendict[str, object]], Result[RasterFact, MarkFault]], /
+) -> Callable[[str, Symbology, frozendict[str, object]], Result[RasterFact, MarkFault]]:
     guarded = beartype(conf=_CONTRACT)(operation)
 
     @wraps(operation)
@@ -512,14 +537,20 @@ class Mark(Struct, frozen=True):
     async def _one(self, op: MarkOp, /) -> Result[ArtifactReceipt, MarkFault]:
         match op:
             case MarkOp(tag="encode", encode=(content, symbology, opts)):
-                fact = await to_thread.run_sync(_encode, content, symbology, opts, limiter=_MARK_LANE)  # native render off the loop; lru_cache stays in-process
+                fact = await to_thread.run_sync(
+                    _encode, content, symbology, opts, limiter=_MARK_LANE
+                )  # native render off the loop; lru_cache stays in-process
             case MarkOp(tag="decode", decode=(source, scope)):
                 try:
                     match source:
                         case DecodeSource(tag="raster"):
-                            fact = Ok(await _WORKER_RETRY(to_process.run_sync, _zxing_decode, source, scope, limiter=WORKER_BAND))  # untrusted bytes crash-isolated on the shared native worker band, transient death retried
+                            fact = Ok(
+                                await _WORKER_RETRY(to_process.run_sync, _zxing_decode, source, scope, limiter=WORKER_BAND)
+                            )  # untrusted bytes crash-isolated on the shared native worker band, transient death retried
                         case DecodeSource(tag="pixels"):
-                            fact = Ok(await to_thread.run_sync(_zxing_decode, source, scope, limiter=_MARK_LANE))  # trusted numpy frame shares the address space, no pickle — private in-process lane
+                            fact = Ok(
+                                await to_thread.run_sync(_zxing_decode, source, scope, limiter=_MARK_LANE)
+                            )  # trusted numpy frame shares the address space, no pickle — private in-process lane
                         case _ as unreachable:
                             assert_never(unreachable)
                 except MarkDecodeError as unreadable:  # the decode source-open UNREADABLE/MALFORMED fault, railed per-op onto this slot (never the outer boundary), pickled back intact across the to_process seam

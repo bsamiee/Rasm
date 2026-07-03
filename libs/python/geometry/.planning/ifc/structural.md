@@ -145,11 +145,7 @@ class Enrichment:
             case Enrichment(tag="entity", entity=members):
                 return {"members": len(members)}
             case Enrichment(tag="warping", warping=fe):
-                return {
-                    "mesh_elements": fe.mesh_elements,
-                    "fe_torsion_constant": fe.fe_torsion_constant,
-                    "fe_area": fe.fe_area,
-                }
+                return {"mesh_elements": fe.mesh_elements, "fe_torsion_constant": fe.fe_torsion_constant, "fe_area": fe.fe_area}
             case _ as unreachable:
                 assert_never(unreachable)
 
@@ -209,11 +205,7 @@ class SectionReceipt(Struct, frozen=True, gc=False):
 
     def graduates(self, evidence_key: ContentKey, ceiling: dict[str, float]) -> "RuntimeRail[GraduationReceipt]":
         return GraduationReceipt.graduates(
-            "rasm.geometry.ifc.structural",
-            HandoffAxis(geometry=STRUCTURAL_SUBJECT),
-            evidence_key,
-            self.measured,
-            ceiling,
+            "rasm.geometry.ifc.structural", HandoffAxis(geometry=STRUCTURAL_SUBJECT), evidence_key, self.measured, ceiling
         )
 
 
@@ -238,18 +230,16 @@ def _circle(radius: float) -> Ring:
 def _box_rings(xdim: float, ydim: float, wall: float | None) -> RingTuple:
     # IfcRectangleHollowProfileDef.WallThickness is an optional schema attribute: an absent wall
     # is a solid rectangle, never a stringly getattr default; the Option fold owns the absence.
-    return Option.of_optional(wall).map(lambda w: (_rect(xdim, ydim), (_rect(xdim - 2.0 * w, ydim - 2.0 * w),))).default_value((_rect(xdim, ydim), ()))
+    return (
+        Option.of_optional(wall).map(lambda w: (_rect(xdim, ydim), (_rect(xdim - 2.0 * w, ydim - 2.0 * w),))).default_value((_rect(xdim, ydim), ()))
+    )
 
 
 def _i_section(width: float, depth: float, web: float, flange: float) -> Ring:
     hw, hd, hwe = width / 2.0, depth / 2.0, web / 2.0
     yf = hd - flange
     return np.array(
-        [
-            (-hw, -hd), (hw, -hd), (hw, -yf), (hwe, -yf), (hwe, yf),
-            (hw, yf), (hw, hd), (-hw, hd), (-hw, yf), (-hwe, yf),
-            (-hwe, -yf), (-hw, -yf),
-        ],
+        [(-hw, -hd), (hw, -hd), (hw, -yf), (hwe, -yf), (hwe, yf), (hw, yf), (hw, hd), (-hw, hd), (-hw, yf), (-hwe, yf), (-hwe, -yf), (-hw, -yf)],
         dtype=np.float64,
     )
 
@@ -315,9 +305,7 @@ class IfcStructural:
                 assert_never(unreachable)
 
     @staticmethod
-    def _first_profile(
-        subject: str, elements: tuple["ifcopenshell.entity_instance", ...]
-    ) -> "RuntimeRail[ifcopenshell.entity_instance]":
+    def _first_profile(subject: str, elements: tuple["ifcopenshell.entity_instance", ...]) -> "RuntimeRail[ifcopenshell.entity_instance]":
         # the empty match is a typed BoundaryFault on the rail, never a silent elements[0] index
         # fault: Block.try_head reads the first selected element as an Option lowered to the rail.
         return Block.of_seq(elements).try_head().to_result(BoundaryFault(boundary=(subject, "no-profile-element")))
@@ -381,7 +369,8 @@ class IfcStructural:
         # ring tuple feeds the shape-agnostic contour integral either way. Block.choose returns the
         # first matching sampler's rings as an Option; the fall-through is the default_with thunk.
         return (
-            Block.of_seq(PROFILE_SAMPLERS)
+            Block
+            .of_seq(PROFILE_SAMPLERS)
             .choose(lambda row: Some(row[1](profile)) if profile.is_a(row[0]) else Nothing)
             .try_head()
             .default_with(lambda: IfcStructural._arbitrary(profile))
@@ -400,7 +389,8 @@ class IfcStructural:
         if element.is_a("IfcProfileDef"):
             return element
         return (
-            Block.of_seq(element.HasAssociations or ())
+            Block
+            .of_seq(element.HasAssociations or ())
             .choose(lambda d: Some(d.RelatingMaterial) if d.is_a("IfcRelAssociatesMaterial") else Nothing)
             .choose(IfcStructural._profile_of_material)
             .try_head()
@@ -443,9 +433,7 @@ class IfcStructural:
         principal, vectors = np.linalg.eigh(np.array([[ixx_c, -ixy_c], [-ixy_c, iyy_c]], dtype=np.float64))
         major = int(np.argmax(principal))
         phi = float(np.arctan2(vectors[1, major], vectors[0, major]))
-        perimeter = sum(
-            float(np.sum(np.linalg.norm(np.diff(np.vstack([r, r[:1]]), axis=0), axis=1))) for r, _ in rings.signed
-        )
+        perimeter = sum(float(np.sum(np.linalg.norm(np.diff(np.vstack([r, r[:1]]), axis=0), axis=1))) for r, _ in rings.signed)
         cx_fibre, cy_fibre = IfcStructural._extreme_fibers(rings, (cx, cy))
         return Ok(
             SectionReceipt(
@@ -472,10 +460,7 @@ class IfcStructural:
         # two centroid-relative reaches per axis so an asymmetric section is exact.
         cx, cy = centroid
         lo, hi = rings.outer.min(axis=0), rings.outer.max(axis=0)
-        return (
-            max(abs(float(hi[0]) - cx), abs(cx - float(lo[0]))),
-            max(abs(float(hi[1]) - cy), abs(cy - float(lo[1]))),
-        )
+        return (max(abs(float(hi[0]) - cx), abs(cx - float(lo[0]))), max(abs(float(hi[1]) - cy), abs(cy - float(lo[1]))))
 
     @staticmethod
     def _interior_point(ring: Ring) -> tuple[float, float]:

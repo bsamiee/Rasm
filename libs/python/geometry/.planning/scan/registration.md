@@ -104,14 +104,20 @@ class RegistrationResult(Struct, frozen=True, gc=False):
 
     @staticmethod
     def of(
-        mode: RegistrationMode, transform: np.ndarray, fitness: float, inlier_rmse: float, inliers: int,
-        *, engine: BootstrapEngine | None = None, poses: tuple[tuple[float, ...], ...] = (),
-        rotation_inliers: int = 0, timings: dict[str, float] | None = None,
+        mode: RegistrationMode,
+        transform: np.ndarray,
+        fitness: float,
+        inlier_rmse: float,
+        inliers: int,
+        *,
+        engine: BootstrapEngine | None = None,
+        poses: tuple[tuple[float, ...], ...] = (),
+        rotation_inliers: int = 0,
+        timings: dict[str, float] | None = None,
     ) -> RegistrationResult:
         flat = tuple(np.ravel(np.asarray(transform)))  # the catalogued shape op owns the row-major flatten
         return RegistrationResult(
-            mode, engine, flat, poses or (flat,), float(fitness), float(inlier_rmse),
-            int(inliers), int(rotation_inliers), timings or {},
+            mode, engine, flat, poses or (flat,), float(fitness), float(inlier_rmse), int(inliers), int(rotation_inliers), timings or {}
         )
 
     @staticmethod
@@ -121,8 +127,7 @@ class RegistrationResult(Struct, frozen=True, gc=False):
         # one fold for every tensor-backend arm (MULTISCALE/COLORED_ICP): the open3d `.fitness` is the
         # matched-source fraction, so `fitness * |source|` is the inlier estimate rather than zeroing it.
         return RegistrationResult.of(
-            mode, reg.transformation.numpy(), reg.fitness, reg.inlier_rmse,
-            int(reg.fitness * len(source.point.positions.numpy())),
+            mode, reg.transformation.numpy(), reg.fitness, reg.inlier_rmse, int(reg.fitness * len(source.point.positions.numpy()))
         )
 
     @staticmethod
@@ -138,10 +143,9 @@ class RegistrationResult(Struct, frozen=True, gc=False):
         # native float/int slots: the `observability/receipts#RECEIPT` `EventDict` is `dict[str, object]`
         # and its `Encoder(enc_hook=repr, order="deterministic")` renderer serializes them without a
         # `str()`/`repr()` coerce — pre-formatting here is the deleted form the receipts owner rejects.
-        return {
-            **self.span_facts, "fitness": self.fitness, "inlier_rmse": self.inlier_rmse,
-            "rotation_inliers": self.rotation_inliers,
-        } | {f"t.{stage}": seconds for stage, seconds in self.timings.items()}
+        return {**self.span_facts, "fitness": self.fitness, "inlier_rmse": self.inlier_rmse, "rotation_inliers": self.rotation_inliers} | {
+            f"t.{stage}": seconds for stage, seconds in self.timings.items()
+        }
 
     def contribute(self) -> tuple[Receipt, ...]:
         # the runtime `Receipt.of(owner, evidence)` two-argument contract: the `(Phase, subject, facts)`
@@ -150,7 +154,9 @@ class RegistrationResult(Struct, frozen=True, gc=False):
 
     def graduates(self, evidence_key: ContentKey) -> RuntimeRail[GraduationReceipt]:
         return GraduationReceipt.graduates(
-            "geometry.scan.registration", HandoffAxis(geometry=_SUBJECT), evidence_key,
+            "geometry.scan.registration",
+            HandoffAxis(geometry=_SUBJECT),
+            evidence_key,
             {"inlier_rmse": self.inlier_rmse, "misfit": 1.0 - self.fitness},
             {"inlier_rmse": _RMSE_CEILING, "misfit": _MISFIT_CEILING},
         )
@@ -192,19 +198,29 @@ class ScanRegistration(Struct, frozen=True):
 
                 src = source.point.positions.numpy()
                 result = small_gicp.align(
-                    target.point.positions.numpy(), src, registration_type="VGICP",
-                    downsampling_resolution=self.policy.voxel, num_threads=self.policy.num_threads,
+                    target.point.positions.numpy(),
+                    src,
+                    registration_type="VGICP",
+                    downsampling_resolution=self.policy.voxel,
+                    num_threads=self.policy.num_threads,
                 )
                 return RegistrationResult.of(
-                    mode, result.T_target_source, result.num_inliers / max(len(src), 1), result.error, result.num_inliers,
+                    mode,
+                    result.T_target_source,
+                    result.num_inliers / max(len(src), 1),
+                    result.error,
+                    result.num_inliers,
                     timings={"iterations": float(result.iterations)},
                 )
             case RegistrationMode.MULTISCALE:
                 voxels, corrs = zip(*self.policy.voxel_schedule)
                 reg = reg_t.multi_scale_icp(
-                    source, target, o3d.utility.DoubleVector(voxels),
+                    source,
+                    target,
+                    o3d.utility.DoubleVector(voxels),
                     [reg_t.ICPConvergenceCriteria(max_iteration=it) for it in self.policy.multiscale_iterations],
-                    o3d.utility.DoubleVector(corrs), estimation_method=reg_t.TransformationEstimationPointToPlane(self._tukey()),
+                    o3d.utility.DoubleVector(corrs),
+                    estimation_method=reg_t.TransformationEstimationPointToPlane(self._tukey()),
                 )
                 return RegistrationResult._from_tensor(mode, reg, source)
             case RegistrationMode.COLORED_ICP:
@@ -233,8 +249,11 @@ class ScanRegistration(Struct, frozen=True):
                 import kiss_matcher  # noqa: PLC0415
 
                 config = kiss_matcher.KISSMatcherConfig(
-                    voxel_size=self.policy.voxel, use_quatro=self.policy.use_quatro, thr_linearity=self.policy.thr_linearity,
-                    num_max_corr=self.policy.num_max_corr, robin_noise_bound_gain=self.policy.robin_noise_bound_gain,
+                    voxel_size=self.policy.voxel,
+                    use_quatro=self.policy.use_quatro,
+                    thr_linearity=self.policy.thr_linearity,
+                    num_max_corr=self.policy.num_max_corr,
+                    robin_noise_bound_gain=self.policy.robin_noise_bound_gain,
                     solver_noise_bound_gain=self.policy.solver_noise_bound_gain,
                 )
                 matcher = kiss_matcher.KISSMatcher(config)
@@ -245,12 +264,18 @@ class ScanRegistration(Struct, frozen=True):
                 solution = matcher.prune_and_solve(src_matched, tgt_matched)
                 inliers = matcher.get_num_final_inliers() if solution.valid else 0
                 return RegistrationResult.of(
-                    RegistrationMode.GLOBAL, self._homogeneous(np.asarray(solution.rotation), np.asarray(solution.translation)),
-                    float(inliers) / max(src.shape[1], 1), 0.0, inliers,
-                    engine=BootstrapEngine.KISS_MATCHER, rotation_inliers=matcher.get_num_rotation_inliers() if solution.valid else 0,
+                    RegistrationMode.GLOBAL,
+                    self._homogeneous(np.asarray(solution.rotation), np.asarray(solution.translation)),
+                    float(inliers) / max(src.shape[1], 1),
+                    0.0,
+                    inliers,
+                    engine=BootstrapEngine.KISS_MATCHER,
+                    rotation_inliers=matcher.get_num_rotation_inliers() if solution.valid else 0,
                     timings={
-                        "extraction": matcher.get_extraction_time(), "matching": matcher.get_matching_time(),
-                        "rejection": matcher.get_rejection_time(), "solver": matcher.get_solver_time(),
+                        "extraction": matcher.get_extraction_time(),
+                        "matching": matcher.get_matching_time(),
+                        "rejection": matcher.get_rejection_time(),
+                        "solver": matcher.get_solver_time(),
                         "processing": matcher.get_processing_time(),
                     },
                 )
@@ -270,8 +295,12 @@ class ScanRegistration(Struct, frozen=True):
                 features = tuple(reg.compute_fpfh_feature(cloud, search) for cloud in down)
                 result = reg.registration_fgr_based_on_feature_matching(down[0], down[1], features[0], features[1])
                 return RegistrationResult.of(
-                    RegistrationMode.GLOBAL, np.asarray(result.transformation), result.fitness, result.inlier_rmse,
-                    len(result.correspondence_set), engine=BootstrapEngine.OPEN3D_FGR,
+                    RegistrationMode.GLOBAL,
+                    np.asarray(result.transformation),
+                    result.fitness,
+                    result.inlier_rmse,
+                    len(result.correspondence_set),
+                    engine=BootstrapEngine.OPEN3D_FGR,
                 )
             case unreachable:
                 assert_never(unreachable)
@@ -293,20 +322,28 @@ class ScanRegistration(Struct, frozen=True):
             graph.nodes.append(node)
             graph.edges.append(edge)
         reg.global_optimization(
-            graph, reg.GlobalOptimizationLevenbergMarquardt(), reg.GlobalOptimizationConvergenceCriteria(),
+            graph,
+            reg.GlobalOptimizationLevenbergMarquardt(),
+            reg.GlobalOptimizationConvergenceCriteria(),
             # keyword-bound: the positional order is `(max_correspondence_distance, edge_prune_threshold,
             # preference_loop_closure, reference_node)`, so the policy loop-closure gain MUST name its slot or
             # it lands in `edge_prune_threshold` and disables loop closure; node 0 (identity root) is fixed.
             reg.GlobalOptimizationOption(
                 max_correspondence_distance=self.policy.max_correspondence,
-                preference_loop_closure=self.policy.preference_loop_closure, reference_node=0,
+                preference_loop_closure=self.policy.preference_loop_closure,
+                reference_node=0,
             ),
         )
         poses = tuple(np.asarray(node.pose) for node in graph.nodes)
         final = reg.evaluate_registration(legacy[-1], legacy[0], self.policy.max_correspondence, poses[-1])
         return RegistrationResult.of(
-            RegistrationMode.MULTIWAY, poses[-1], final.fitness, final.inlier_rmse, len(final.correspondence_set),
-            engine=engine, poses=tuple(tuple(np.ravel(pose)) for pose in poses),
+            RegistrationMode.MULTIWAY,
+            poses[-1],
+            final.fitness,
+            final.inlier_rmse,
+            len(final.correspondence_set),
+            engine=engine,
+            poses=tuple(tuple(np.ravel(pose)) for pose in poses),
         )
 
     def _edge(

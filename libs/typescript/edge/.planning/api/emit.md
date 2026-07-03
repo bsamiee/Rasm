@@ -1,0 +1,1 @@
+# [EDGE_EMIT] — OpenApi document emission + HttpApiScalar reference + HttpApiClient typed-SDK derivation from the app-assembled HttpApi value — spec, docs, and client never drift from the served contract

@@ -28,59 +28,75 @@ lazy import vegafusion.utils
 type Spec = dict[str, object]
 type WarningKind = Literal["RowLimitExceeded", "BrokenInteractivity", "Unsupported"]
 type TransformFault = Literal["<malformed-spec>"]
-type KeepVar = str | tuple[str, tuple[int, ...]]     # a variable `name`, or `(name, scope)` retained client-side
+type KeepVar = str | tuple[str, tuple[int, ...]]  # a variable `name`, or `(name, scope)` retained client-side
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
 class Retention(Struct, frozen=True):
-    preserve_interactivity: bool = False              # Inline default: maximal static reduction; True keeps client-side selections
+    preserve_interactivity: bool = False  # Inline default: maximal static reduction; True keeps client-side selections
     keep_signals: tuple[KeepVar, ...] = ()
     keep_datasets: tuple[KeepVar, ...] = ()
 
 
 class TransformPolicy(Struct, frozen=True):
-    row_limit: int | None = None                      # cap the inlined rows so a large server aggregation cannot bloat the self-contained spec
-    local_tz: str | None = None                       # default runtime.get_local_tz(); pin to the vl-convert render tz so time transforms match
+    row_limit: int | None = None  # cap the inlined rows so a large server aggregation cannot bloat the self-contained spec
+    local_tz: str | None = None  # default runtime.get_local_tz(); pin to the vl-convert render tz so time transforms match
     default_input_tz: str | None = None
-    inline_datasets: frozendict[str, object] = frozendict()  # named data/tabular frames the spec references by url, server-reduced (INPUT, not the no-external-OUTPUT constraint)
-    worker_threads: int | None = None                 # singleton runtime caps; the property setter resets the pool only on a changed value
+    inline_datasets: frozendict[str, object] = (
+        frozendict()
+    )  # named data/tabular frames the spec references by url, server-reduced (INPUT, not the no-external-OUTPUT constraint)
+    worker_threads: int | None = None  # singleton runtime caps; the property setter resets the pool only on a changed value
     cache_capacity: int | None = None
     memory_limit: int | None = None
-    reclaim_cache: bool = False                       # runtime.clear_cache() reclaim BEFORE the pre-pass — free stale entries WITHOUT the pool-reset the memory_limit setter forces
+    reclaim_cache: bool = (
+        False  # runtime.clear_cache() reclaim BEFORE the pre-pass — free stale entries WITHOUT the pool-reset the memory_limit setter forces
+    )
 
 
 class PrePassEvidence(Struct, frozen=True):
     mode: Literal["passthrough", "inline", "state"]
     row_limit: int | None
     local_tz: str
-    transformed_datasets: int                         # count of server-reduced inlined datasets in the returned spec
-    client_vars: int                                  # State: variables the comm plan pushes server->client (retained interactivity)
-    server_vars: int                                  # State: variables the comm plan pushes client->server
-    cache_entries: int                                # runtime.size — worker-pool cache occupancy AFTER the pre-pass (0 before the pool inits); observability evidence
-    resident_bytes: int                               # runtime.total_memory — resident cache bytes AFTER the pre-pass (0 before init)
-    warnings: tuple[tuple[WarningKind, str], ...]     # the collected PreTransformWarning list — NEVER discarded
-    row_limit_exceeded: bool                          # derived: a truncated aggregation is a silent data-loss signal made explicit
-    interactivity_broken: bool                        # derived: a lost client-side selection
-    unsupported: bool                                 # derived: a transform the engine could not evaluate (silently dropped) — the third data-loss signal made explicit
+    transformed_datasets: int  # count of server-reduced inlined datasets in the returned spec
+    client_vars: int  # State: variables the comm plan pushes server->client (retained interactivity)
+    server_vars: int  # State: variables the comm plan pushes client->server
+    cache_entries: int  # runtime.size — worker-pool cache occupancy AFTER the pre-pass (0 before the pool inits); observability evidence
+    resident_bytes: int  # runtime.total_memory — resident cache bytes AFTER the pre-pass (0 before init)
+    warnings: tuple[tuple[WarningKind, str], ...]  # the collected PreTransformWarning list — NEVER discarded
+    row_limit_exceeded: bool  # derived: a truncated aggregation is a silent data-loss signal made explicit
+    interactivity_broken: bool  # derived: a lost client-side selection
+    unsupported: bool  # derived: a transform the engine could not evaluate (silently dropped) — the third data-loss signal made explicit
 
 
 class PrePass(Struct, frozen=True):
-    spec: Spec                                         # the self-contained spec the _vl_render arm renders directly
+    spec: Spec  # the self-contained spec the _vl_render arm renders directly
     evidence: PrePassEvidence
 
 
 class PrePassPlan(Struct, frozen=True):
-    server_datasets: int                              # 0 => the pre-pass has no server work; the caller skips the round-trip
+    server_datasets: int  # 0 => the pre-pass has no server work; the caller skips the round-trip
     client_datasets: int
-    client_vars: int                                  # comm_plan server_to_client Variable cardinality — interactivity retained client-side, PREDICTED pre-execution (the executed State arm's PrePassEvidence.client_vars, read off the plan without paying for the run)
-    server_vars: int                                  # comm_plan client_to_server Variable cardinality — signals the client pushes back to the server
-    column_usage: frozendict[str, tuple[str, ...]]    # get_column_usage(spec): referenced columns per root dataset (() => not statically determinable) — the INPUT-prune fact a caller trims a wide inline_datasets frame by BEFORE it crosses the seam
+    client_vars: int  # comm_plan server_to_client Variable cardinality — interactivity retained client-side, PREDICTED pre-execution (the executed State arm's PrePassEvidence.client_vars, read off the plan without paying for the run)
+    server_vars: int  # comm_plan client_to_server Variable cardinality — signals the client pushes back to the server
+    column_usage: frozendict[
+        str, tuple[str, ...]
+    ]  # get_column_usage(spec): referenced columns per root dataset (() => not statically determinable) — the INPUT-prune fact a caller trims a wide inline_datasets frame by BEFORE it crosses the seam
     warnings: tuple[tuple[WarningKind, str], ...]
 
 
 _PASSTHROUGH = PrePassEvidence(
-    mode="passthrough", row_limit=None, local_tz="", transformed_datasets=0, client_vars=0, server_vars=0,
-    cache_entries=0, resident_bytes=0, warnings=(), row_limit_exceeded=False, interactivity_broken=False, unsupported=False,
+    mode="passthrough",
+    row_limit=None,
+    local_tz="",
+    transformed_datasets=0,
+    client_vars=0,
+    server_vars=0,
+    cache_entries=0,
+    resident_bytes=0,
+    warnings=(),
+    row_limit_exceeded=False,
+    interactivity_broken=False,
+    unsupported=False,
 )
 
 
@@ -129,8 +145,10 @@ class VegaTransform:
                 return PrePassPlan(0, 0, 0, 0, frozendict(), ())
             case VegaTransform(tag="inline", inline=(_policy, retention)):
                 plan = vegafusion.utils.build_pre_transform_spec_plan(
-                    spec, preserve_interactivity=retention.preserve_interactivity,
-                    keep_signals=list(retention.keep_signals) or None, keep_datasets=list(retention.keep_datasets) or None,
+                    spec,
+                    preserve_interactivity=retention.preserve_interactivity,
+                    keep_signals=list(retention.keep_signals) or None,
+                    keep_datasets=list(retention.keep_datasets) or None,
                 )
                 return _plan(plan, vegafusion.get_column_usage(spec))
             case VegaTransform(tag="state"):
@@ -157,7 +175,9 @@ def _has_transform(node: Spec) -> bool:
     )
 
 
-def _tuned(policy: TransformPolicy) -> None:  # Exemption: the vegafusion runtime singleton exposes its caps as properties whose setter resets the pool only on a changed value — an idempotent per-worker tune, never a fresh runtime per transform
+def _tuned(
+    policy: TransformPolicy,
+) -> None:  # Exemption: the vegafusion runtime singleton exposes its caps as properties whose setter resets the pool only on a changed value — an idempotent per-worker tune, never a fresh runtime per transform
     if policy.worker_threads is not None:
         vegafusion.runtime.worker_threads = policy.worker_threads
     if policy.cache_capacity is not None:
@@ -181,11 +201,28 @@ def _dataset_count(spec: Spec) -> int:
     return len(datasets) if isinstance(datasets := spec.get("datasets"), dict) else 0
 
 
-def _evidence(mode: Literal["inline", "state"], tz: str, policy: TransformPolicy, spec: Spec, warnings: tuple[tuple[WarningKind, str], ...], /, *, client: int = 0, server: int = 0) -> PrePassEvidence:
+def _evidence(
+    mode: Literal["inline", "state"],
+    tz: str,
+    policy: TransformPolicy,
+    spec: Spec,
+    warnings: tuple[tuple[WarningKind, str], ...],
+    /,
+    *,
+    client: int = 0,
+    server: int = 0,
+) -> PrePassEvidence:
     entries, resident = _occupancy()  # worker-pool occupancy captured at evidence-mint time, inside the offloaded kernel where the singleton is live
     return PrePassEvidence(
-        mode=mode, row_limit=policy.row_limit, local_tz=tz, transformed_datasets=_dataset_count(spec),
-        client_vars=client, server_vars=server, cache_entries=entries, resident_bytes=resident, warnings=warnings,
+        mode=mode,
+        row_limit=policy.row_limit,
+        local_tz=tz,
+        transformed_datasets=_dataset_count(spec),
+        client_vars=client,
+        server_vars=server,
+        cache_entries=entries,
+        resident_bytes=resident,
+        warnings=warnings,
         row_limit_exceeded=any(kind == "RowLimitExceeded" for kind, _ in warnings),
         interactivity_broken=any(kind == "BrokenInteractivity" for kind, _ in warnings),
         unsupported=any(kind == "Unsupported" for kind, _ in warnings),
@@ -199,9 +236,14 @@ def _run_inline(spec: Spec, policy: TransformPolicy, retention: Retention) -> Re
     tz = policy.local_tz or vegafusion.get_local_tz() or "UTC"
     return (
         catch(exception=ValueError)(vegafusion.runtime.pre_transform_spec)(
-            spec, row_limit=policy.row_limit, local_tz=tz, default_input_tz=policy.default_input_tz,
-            preserve_interactivity=retention.preserve_interactivity, inline_datasets=dict(policy.inline_datasets) or None,
-            keep_signals=list(retention.keep_signals) or None, keep_datasets=list(retention.keep_datasets) or None,
+            spec,
+            row_limit=policy.row_limit,
+            local_tz=tz,
+            default_input_tz=policy.default_input_tz,
+            preserve_interactivity=retention.preserve_interactivity,
+            inline_datasets=dict(policy.inline_datasets) or None,
+            keep_signals=list(retention.keep_signals) or None,
+            keep_datasets=list(retention.keep_datasets) or None,
         )
         .map_error(lambda _raised: "<malformed-spec>")
         .map(lambda pair: PrePass(pair[0], _evidence("inline", tz, policy, pair[0], _warnings(pair[1]))))
@@ -212,16 +254,27 @@ def _run_state(spec: Spec, policy: TransformPolicy) -> Result[PrePass, Transform
     tz = policy.local_tz or vegafusion.get_local_tz() or "UTC"
 
     def _read(chart_state: object) -> PrePass:
-        transformed = chart_state.get_transformed_spec()          # the ONE computed fact — spec AND evidence read off it once, never re-derived
-        comm = chart_state.get_comm_plan()                        # {client_to_server, server_to_client: list[Variable]}
-        return PrePass(transformed, _evidence(
-            "state", tz, policy, transformed, _warnings(chart_state.get_warnings()),
-            client=len(comm.get("server_to_client", ())), server=len(comm.get("client_to_server", ())),
-        ))
+        transformed = chart_state.get_transformed_spec()  # the ONE computed fact — spec AND evidence read off it once, never re-derived
+        comm = chart_state.get_comm_plan()  # {client_to_server, server_to_client: list[Variable]}
+        return PrePass(
+            transformed,
+            _evidence(
+                "state",
+                tz,
+                policy,
+                transformed,
+                _warnings(chart_state.get_warnings()),
+                client=len(comm.get("server_to_client", ())),
+                server=len(comm.get("client_to_server", ())),
+            ),
+        )
 
     return (
         catch(exception=ValueError)(vegafusion.runtime.new_chart_state)(
-            spec, local_tz=tz, default_input_tz=policy.default_input_tz, row_limit=policy.row_limit,
+            spec,
+            local_tz=tz,
+            default_input_tz=policy.default_input_tz,
+            row_limit=policy.row_limit,
             inline_datasets=dict(policy.inline_datasets) or None,
         )
         .map_error(lambda _raised: "<malformed-spec>")
@@ -242,7 +295,9 @@ def _plan(plan: object, usage: object) -> PrePassPlan:
     return PrePassPlan(
         server_datasets=len(data) if isinstance(data := server.get("data"), list) else 0,
         client_datasets=len(cdata) if isinstance(cdata := client.get("data"), list) else 0,
-        client_vars=len(s2c) if isinstance(s2c := comm.get("server_to_client"), list) else 0,  # predicted retained-interactivity cardinality, read off the plan without executing
+        client_vars=len(s2c)
+        if isinstance(s2c := comm.get("server_to_client"), list)
+        else 0,  # predicted retained-interactivity cardinality, read off the plan without executing
         server_vars=len(c2s) if isinstance(c2s := comm.get("client_to_server"), list) else 0,
         column_usage=_columns(usage),
         warnings=_warnings(warns),

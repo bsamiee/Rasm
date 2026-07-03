@@ -109,9 +109,7 @@ class Signing(Struct, frozen=True):
         return Signing(headers=headers, timeout=timeout)
 
     @staticmethod
-    def planetary_computer(
-        subscription_key: str | None = None, headers: Headers | None = None, timeout: float | None = None
-    ) -> "Signing":
+    def planetary_computer(subscription_key: str | None = None, headers: Headers | None = None, timeout: float | None = None) -> "Signing":
         if subscription_key is not None:
             _pc().set_subscription_key(subscription_key)
         return Signing(headers=headers or {}, timeout=timeout, scheme=SignScheme.PLANETARY_COMPUTER)
@@ -168,17 +166,9 @@ _SHARED: Final[frozenset[str]] = frozenset({"bbox", "datetime", "query", "filter
 
 _SURFACE: Final[frozendict[Surface, SurfaceRow]] = frozendict({
     Surface.ITEM: SurfaceRow(
-        method="search",
-        cap="max_items",
-        accepts=_SHARED | {"ids", "collections", "intersects"},
-        materialize=_materialize_items,
+        method="search", cap="max_items", accepts=_SHARED | {"ids", "collections", "intersects"}, materialize=_materialize_items
     ),
-    Surface.COLLECTION: SurfaceRow(
-        method="collection_search",
-        cap="max_collections",
-        accepts=_SHARED | {"q"},
-        materialize=_materialize_collections,
-    ),
+    Surface.COLLECTION: SurfaceRow(method="collection_search", cap="max_collections", accepts=_SHARED | {"q"}, materialize=_materialize_collections),
 })
 
 
@@ -267,14 +257,21 @@ class StacDiscovery(Struct, frozen=True):
     content_key: ContentKey
 
     def contribute(self) -> "Iterable[Receipt]":
-        yield Receipt.of("catalog", ("emitted", self.endpoint, {
-            "surface": self.surface.value,
-            "items": len(self.item_ids),
-            "matched": self.matched,
-            "hrefs": self.href_count,
-            "expiry": self.expiry or "none",
-            "url": self.url or self.endpoint,
-        }))
+        yield Receipt.of(
+            "catalog",
+            (
+                "emitted",
+                self.endpoint,
+                {
+                    "surface": self.surface.value,
+                    "items": len(self.item_ids),
+                    "matched": self.matched,
+                    "hrefs": self.href_count,
+                    "expiry": self.expiry or "none",
+                    "url": self.url or self.endpoint,
+                },
+            ),
+        )
 
 
 class StacCatalog(Struct, frozen=True):
@@ -289,7 +286,9 @@ class StacCatalog(Struct, frozen=True):
         params = reduce(lambda acc, q: acc | q.params(), queries, {})
         surface = Surface.of_queries(queries)
         row = surface.row
-        return (await guarded(RetryClass.HTTP, anyio.to_thread.run_sync, lambda: self._discover(row, params, max_items, limit), subject="stac.discover")).bind(self._shape(surface))
+        return (
+            await guarded(RetryClass.HTTP, anyio.to_thread.run_sync, lambda: self._discover(row, params, max_items, limit), subject="stac.discover")
+        ).bind(self._shape(surface))
 
     def _discover(self, row: SurfaceRow, params: SearchParams, max_items: int | None, limit: int | None) -> Materialized:
         from pystac_client import Client  # noqa: PLC0415
@@ -302,8 +301,15 @@ class StacCatalog(Struct, frozen=True):
             collection, item_ids, matched, href_count, expiry, url = materialized
             return ContentIdentity.of("stac.discover", "\n".join(item_ids).encode()).map(
                 lambda key: StacDiscovery(
-                    endpoint=self.endpoint, surface=surface, collection=collection, item_ids=item_ids,
-                    matched=matched, href_count=href_count, expiry=expiry, url=url, content_key=key,
+                    endpoint=self.endpoint,
+                    surface=surface,
+                    collection=collection,
+                    item_ids=item_ids,
+                    matched=matched,
+                    href_count=href_count,
+                    expiry=expiry,
+                    url=url,
+                    content_key=key,
                 )
             )
 
@@ -429,16 +435,35 @@ def stac_table_direct(source: TableSource, sink: TableSink, *, schema: SchemaInf
 
         match source, sink:
             case TableSource(tag="items", items=items), TableSink(tag="parquet", parquet=(output_path, schema_version)):
-                parse_stac_items_to_parquet(items, chunk_size=DEFAULT_JSON_CHUNK_SIZE, schema=schema, output_path=output_path, schema_version=schema_version or DEFAULT_PARQUET_SCHEMA_VERSION)
+                parse_stac_items_to_parquet(
+                    items,
+                    chunk_size=DEFAULT_JSON_CHUNK_SIZE,
+                    schema=schema,
+                    output_path=output_path,
+                    schema_version=schema_version or DEFAULT_PARQUET_SCHEMA_VERSION,
+                )
                 return ContentIdentity.of("stac.geoparquet", Path(output_path).read_bytes())
             case TableSource(tag="ndjson", ndjson=(path, limit)), TableSink(tag="parquet", parquet=(output_path, schema_version)):
-                parse_stac_ndjson_to_parquet(path, output_path, chunk_size=DEFAULT_JSON_CHUNK_SIZE, limit=limit, schema_version=schema_version or DEFAULT_PARQUET_SCHEMA_VERSION)
+                parse_stac_ndjson_to_parquet(
+                    path,
+                    output_path,
+                    chunk_size=DEFAULT_JSON_CHUNK_SIZE,
+                    limit=limit,
+                    schema_version=schema_version or DEFAULT_PARQUET_SCHEMA_VERSION,
+                )
                 return ContentIdentity.of("stac.geoparquet", Path(output_path).read_bytes())
             case TableSource(tag="ndjson", ndjson=(path, _)), TableSink(tag="delta_lake", delta_lake=table_or_uri):
                 parse_stac_ndjson_to_delta_lake(path, table_or_uri)
                 return ContentIdentity.of("stac.delta", f"{path}->{table_or_uri}".encode())
             case _, _:
-                return Error(BoundaryFault(boundary=("stac.table.direct", f"no one-call path for ({source.tag}, {sink.tag}), route through stac_table then stac_table_egress")))
+                return Error(
+                    BoundaryFault(
+                        boundary=(
+                            "stac.table.direct",
+                            f"no one-call path for ({source.tag}, {sink.tag}), route through stac_table then stac_table_egress",
+                        )
+                    )
+                )
 
     return boundary("stac.table.direct", _fuse).bind(lambda rail: rail)
 
@@ -493,12 +518,7 @@ def _raster_hrefs(collection: object) -> "Iterator[tuple[object, str]]":
     from pystac import MediaType  # noqa: PLC0415
 
     raster = {MediaType.COG, MediaType.GEOTIFF}
-    return (
-        (asset, asset.href)
-        for item in collection
-        for asset in item.assets.values()
-        if asset.media_type in raster
-    )
+    return ((asset, asset.href) for item in collection for asset in item.assets.values() if asset.media_type in raster)
 
 
 class ClaimBundle(Struct, frozen=True):
@@ -538,21 +558,29 @@ class AssetFold(Struct, frozen=True):
         match target:
             case FoldTarget(tag="egress", egress=(egress, windows)):
                 windowed = tuple((href, w) for href in sources if (w := windows.get(href)) is not None)
-                rails = Block.of_seq(
-                    egress.run(StoreOp.GetRange(href, start, end), path=href) for href, (start, end) in windowed
-                )
+                rails = Block.of_seq(egress.run(StoreOp.GetRange(href, start, end), path=href) for href, (start, end) in windowed)
                 return traversed(rails, by=Disposition.ABORT).bind(
                     lambda receipts: self._rekey("egress", "\n".join(href for href, _ in windowed).encode(), sum(r.byte_length for r in receipts))
                 )
             case FoldTarget(tag="cube", cube=(ref, concat_dim)):
                 manifest = ManifestWrite.accessor(FieldVirtual(sources=sources, target=ref, concat_dim=concat_dim))
-                return VirtualReference(sources=sources, ref=ref).apply(VersionOp.aggregate((manifest, {}, None))).bind(
-                    lambda outcome: self._rekey("cube", f"{concat_dim}|{'|'.join(sources)}".encode(), outcome.chunk_refs)
-                    if isinstance(outcome, VirtualReceipt)
-                    else Error(BoundaryFault(boundary=("stac.assets.cube", "VersionOp.aggregate yielded no VirtualReceipt")))
+                return (
+                    VirtualReference(sources=sources, ref=ref)
+                    .apply(VersionOp.aggregate((manifest, {}, None)))
+                    .bind(
+                        lambda outcome: (
+                            self._rekey("cube", f"{concat_dim}|{'|'.join(sources)}".encode(), outcome.chunk_refs)
+                            if isinstance(outcome, VirtualReceipt)
+                            else Error(BoundaryFault(boundary=("stac.assets.cube", "VersionOp.aggregate yielded no VirtualReceipt")))
+                        )
+                    )
                 )
             case FoldTarget(tag="coverage", coverage=(groupby, resampling, chunks)):
-                return (await guarded(RetryClass.HTTP, anyio.to_thread.run_sync, lambda: self._coverage(groupby, resampling, chunks), subject="stac.assets.coverage")).bind(lambda rail: rail)
+                return (
+                    await guarded(
+                        RetryClass.HTTP, anyio.to_thread.run_sync, lambda: self._coverage(groupby, resampling, chunks), subject="stac.assets.coverage"
+                    )
+                ).bind(lambda rail: rail)
             case unreachable:
                 assert_never(unreachable)
 
@@ -574,9 +602,15 @@ class AssetFold(Struct, frozen=True):
     def _rekey(self, tag: str, payload: bytes, folded: int) -> "RuntimeRail[StacDiscovery]":
         return ContentIdentity.of(f"stac.assets.{tag}", payload).map(
             lambda key: StacDiscovery(
-                endpoint=self.discovery.endpoint, surface=self.discovery.surface, collection=self.discovery.collection,
-                item_ids=self.discovery.item_ids, matched=self.discovery.matched, href_count=folded,
-                expiry=self.discovery.expiry, url=self.discovery.url, content_key=key,
+                endpoint=self.discovery.endpoint,
+                surface=self.discovery.surface,
+                collection=self.discovery.collection,
+                item_ids=self.discovery.item_ids,
+                matched=self.discovery.matched,
+                href_count=folded,
+                expiry=self.discovery.expiry,
+                url=self.discovery.url,
+                content_key=key,
             )
         )
 

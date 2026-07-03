@@ -86,7 +86,7 @@ const rebuildPrompt = (files) => [
     'claim} object; everything within these catalogs you fix yourself).',
 ].join('\n')
 const processBatch = async (w, tag) => {
-  const r = await agent(rebuildPrompt(w.files), { label: 'api:' + w.files[0].split('/.api/')[0].split('/').pop() + '+' + (w.files.length - 1), phase: tag, schema: FIXLOG_SCHEMA, effort: 'max', stallMs: 300000 })
+  const r = await agent(rebuildPrompt(w.files), { label: 'api:' + w.files[0].split('/.api/')[0].split('/').pop() + '+' + (w.files.length - 1), phase: tag, schema: FIXLOG_SCHEMA, model: 'opus', effort: 'max', stallMs: 300000 })
   return r ? { files: w.files, log: r } : null
 }
 
@@ -128,7 +128,7 @@ if (clusters.length) {
     (cl) => agent([LAW, '', 'TASK: RECONCILE these cross-CATALOG residuals the per-batch pass deferred. There is NO severity — address EVERY ' +
       'residual. Read EVERY listed .api catalog IN FULL, make the cross-catalog fix in place at its ROOT — the objectively-best form of the same ' +
       'catalogs, never a token alignment (add the depended-on member/signature, align the stacking note across catalogs), verify members via ' +
-      '`uv run --frozen python -m tools.assay api resolve`, never shrink real content. Residuals:\n' + JSON.stringify(cl, null, 1)].join('\n'), { label: 'reconcile-fix', phase: 'Reconcile', schema: RESIDUAL_FIX_SCHEMA, effort: 'max', stallMs: 300000 }),
+      '`uv run --frozen python -m tools.assay api resolve`, never shrink real content. Residuals:\n' + JSON.stringify(cl, null, 1)].join('\n'), { label: 'reconcile-fix', phase: 'Reconcile', schema: RESIDUAL_FIX_SCHEMA, model: 'opus', effort: 'max', stallMs: 300000 }),
     (fix, cl, i) => fix ? agent([LAW, '', 'TASK: ADVERSARIAL WRITING VERIFY — never a friendly confirmation, never read-only. A reconcile agent ' +
       'claims to have fixed the cross-catalog residuals below. Per claim: (a) re-derive from the catalogs whether the claimed fix was necessary ' +
       'at all; (b) read every named catalog from disk and PROVE the fix landed properly, re-verifying every cited member via `uv run --frozen ' +
@@ -137,7 +137,7 @@ if (clusters.length) {
       'repair; (d) only then classify: status "fixed" (real defect, resolved on disk — your own repair counts), "invalid" (the claim is ' +
       'factually wrong — cite why, only when provably wrong), or "open" (RESERVED for claims genuinely unreachable from the catalogs at hand — ' +
       'never a punt on a strengthenable fix you could make yourself). Prove against disk, never trust the fixer summary. One verdict per claim ' +
-      'plus overall; list every catalog you edited in repaired_files. Claims:\n' + JSON.stringify(cl, null, 1) + '\nCatalogs touched by the fixer: ' + JSON.stringify(fix.files)].join('\n'), { label: 'reconcile-verify:' + i, phase: 'Reconcile', schema: RECONCILE_VERIFY_SCHEMA, effort: 'xhigh', stallMs: 300000 }).then((v) => ({ cluster: cl, fix, verify: v })) : null,
+      'plus overall; list every catalog you edited in repaired_files. Claims:\n' + JSON.stringify(cl, null, 1) + '\nCatalogs touched by the fixer: ' + JSON.stringify(fix.files)].join('\n'), { label: 'reconcile-verify:' + i, phase: 'Reconcile', schema: RECONCILE_VERIFY_SCHEMA, model: 'opus', effort: 'xhigh', stallMs: 300000 }).then((v) => ({ cluster: cl, fix, verify: v })) : null,
   )).filter(Boolean)
 }
 const claimsAll = reconciled.flatMap((r) => (r.verify && r.verify.claims) || [])

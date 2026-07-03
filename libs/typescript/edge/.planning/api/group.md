@@ -1,0 +1,1 @@
+# [EDGE_GROUP] — HttpApiGroup contribution law — the app owns the assembled HttpApi value; RpcGroup/RpcServer rows (http | websocket | worker) are the second contribution family; versioning/pagination convention rows

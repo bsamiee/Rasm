@@ -60,11 +60,7 @@ class FieldEncoding(Struct, frozen=True):
     fill_value: float | None = None
 
     def for_vars(self, names: "tuple[str, ...]", *, quantize: bool = True) -> dict[str, dict[str, object]]:
-        row = {
-            key: value
-            for key, value in asdict(self).items()
-            if value is not None and (quantize or key not in _QUANTIZE_KEYS)
-        }
+        row = {key: value for key, value in asdict(self).items() if value is not None and (quantize or key not in _QUANTIZE_KEYS)}
         return {name: row for name in names}
 
 
@@ -122,9 +118,7 @@ class FieldDataset(Struct, frozen=True):
     def read(self) -> "RuntimeRail[xr.Dataset]":
         return boundary("field.read", self.engine.open(str(self.ref.path)))
 
-    def write(
-        self, dataset: "xr.Dataset", target: ResourceRef, encoding: FieldEncoding = FieldEncoding()
-    ) -> "RuntimeRail[FieldReceipt]":
+    def write(self, dataset: "xr.Dataset", target: ResourceRef, encoding: FieldEncoding = FieldEncoding()) -> "RuntimeRail[FieldReceipt]":
         return boundary("field.write", lambda: _write(self, dataset, target, encoding)).bind(lambda railed: railed)
 
 
@@ -164,9 +158,37 @@ if TYPE_CHECKING:
 # the full registered flox.aggregations func superset: std/var/prod (and nan forms) ARE
 # first-class flox aggregations, so there is one Reduction set, never a bare-vs-flox split.
 type Reduction = Literal[
-    "all", "any", "count", "sum", "nansum", "prod", "nanprod", "mean", "nanmean", "std", "nanstd",
-    "var", "nanvar", "max", "nanmax", "min", "nanmin", "argmax", "nanargmax", "argmin", "nanargmin",
-    "quantile", "nanquantile", "median", "nanmedian", "mode", "nanmode", "first", "nanfirst", "last", "nanlast",
+    "all",
+    "any",
+    "count",
+    "sum",
+    "nansum",
+    "prod",
+    "nanprod",
+    "mean",
+    "nanmean",
+    "std",
+    "nanstd",
+    "var",
+    "nanvar",
+    "max",
+    "nanmax",
+    "min",
+    "nanmin",
+    "argmax",
+    "nanargmax",
+    "argmin",
+    "nanargmin",
+    "quantile",
+    "nanquantile",
+    "median",
+    "nanmedian",
+    "mode",
+    "nanmode",
+    "first",
+    "nanfirst",
+    "last",
+    "nanlast",
 ]
 type ScanFunc = Literal["cumsum", "nancumsum", "ffill", "bfill"]
 type ReductionMethod = Literal["map-reduce", "blockwise", "cohorts"]
@@ -210,9 +232,17 @@ class ReductionPolicy(Struct, frozen=True):
 
     def kwargs(self) -> dict[str, object]:
         row = {
-            "func": self.func, "expected_groups": self.expected_groups, "isbin": self.isbin, "skipna": self.skipna,
-            "method": self.method, "engine": self.engine, "min_count": self.min_count, "fill_value": self.fill_value,
-            "sort": self.sort, "reindex": self.reindex, "keep_attrs": self.keep_attrs,
+            "func": self.func,
+            "expected_groups": self.expected_groups,
+            "isbin": self.isbin,
+            "skipna": self.skipna,
+            "method": self.method,
+            "engine": self.engine,
+            "min_count": self.min_count,
+            "fill_value": self.fill_value,
+            "sort": self.sort,
+            "reindex": self.reindex,
+            "keep_attrs": self.keep_attrs,
         }
         return {key: value for key, value in row.items() if value is not None}
 
@@ -318,9 +348,7 @@ def _reduce(
     return getattr(grouped, policy.base)(**policy.fallback_kwargs())
 
 
-def _scan(
-    dataset: "xr.Dataset", by: tuple[str, ...], policy: ReductionPolicy, fallback: "tuple[GrouperKind, tuple[object, ...]]"
-) -> "xr.Dataset":
+def _scan(dataset: "xr.Dataset", by: tuple[str, ...], policy: ReductionPolicy, fallback: "tuple[GrouperKind, tuple[object, ...]]") -> "xr.Dataset":
     if policy.vectorizable:
         import xarray as xr  # noqa: PLC0415
         from flox import groupby_scan  # noqa: PLC0415
@@ -482,13 +510,9 @@ class VirtualParser:
             case VirtualParser(tag="kerchunk_json", kerchunk_json=(group, fs_root, skip)):
                 return KerchunkJSONParser(group=group, fs_root=fs_root, skip_variables=list(skip))
             case VirtualParser(tag="kerchunk_parquet", kerchunk_parquet=(group, fs_root, skip, reader_options)):
-                return KerchunkParquetParser(
-                    group=group, fs_root=fs_root, skip_variables=list(skip), reader_options=reader_options
-                )
+                return KerchunkParquetParser(group=group, fs_root=fs_root, skip_variables=list(skip), reader_options=reader_options)
             case VirtualParser(tag="icechunk", icechunk=(branch, tag_, snapshot, group, skip, batch)):
-                return IcechunkParser(
-                    branch=branch, tag=tag_, snapshot_id=snapshot, group=group, skip_variables=list(skip), batch_size=batch
-                )
+                return IcechunkParser(branch=branch, tag=tag_, snapshot_id=snapshot, group=group, skip_variables=list(skip), batch_size=batch)
             case unreachable:
                 assert_never(unreachable)
 
@@ -510,17 +534,12 @@ class ManifestExport:
             # the dataset accessor's `append_dim`/`region`.
             case ManifestExport(tag="kerchunk", kerchunk=(fmt, record_size, threshold)):
                 flat = cube.to_dataset() if is_tree else cube
-                flat.virtualize.to_kerchunk(
-                    str(target.path), format=fmt, record_size=record_size, categorical_threshold=threshold
-                )
+                flat.virtualize.to_kerchunk(str(target.path), format=fmt, record_size=record_size, categorical_threshold=threshold)
             case ManifestExport(tag="icechunk", icechunk=(store, _, _, _, validate, updated_at, inherited)) if is_tree:
-                cube.virtualize.to_icechunk(
-                    store, write_inherited_coords=inherited, validate_containers=validate, last_updated_at=updated_at
-                )
+                cube.virtualize.to_icechunk(store, write_inherited_coords=inherited, validate_containers=validate, last_updated_at=updated_at)
             case ManifestExport(tag="icechunk", icechunk=(store, group, append_dim, region, validate, updated_at, _)):
                 cube.virtualize.to_icechunk(
-                    store, group=group, append_dim=append_dim, region=region,
-                    validate_containers=validate, last_updated_at=updated_at,
+                    store, group=group, append_dim=append_dim, region=region, validate_containers=validate, last_updated_at=updated_at
                 )
             case unreachable:
                 assert_never(unreachable)
@@ -561,13 +580,7 @@ class FieldVirtual(Struct, frozen=True):
     ) -> "RuntimeRail[FieldReceipt]":
         return boundary(
             "field.virtual.native",
-            lambda: _aggregate(
-                FieldVirtual(
-                    sources=(_native_file(slabs, shape, dtype, target, maxshape, fillvalue),),
-                    target=target,
-                    export=export,
-                )
-            ),
+            lambda: _aggregate(FieldVirtual(sources=(_native_file(slabs, shape, dtype, target, maxshape, fillvalue),), target=target, export=export)),
         ).bind(lambda railed: railed)
 
 
@@ -582,30 +595,17 @@ def _open_virtual(spec: FieldVirtual) -> "xr.Dataset":
     registry, parser = _registry(spec.sources, spec.store_config), VirtualParser.for_source(spec.sources[0]).build()
     if len(spec.sources) > 1:
         return vz.open_virtual_mfdataset(
-            list(spec.sources),
-            registry=registry,
-            parser=parser,
-            concat_dim=spec.concat_dim,
-            combine=spec.combine,
-            parallel=spec.parallel,
+            list(spec.sources), registry=registry, parser=parser, concat_dim=spec.concat_dim, combine=spec.combine, parallel=spec.parallel
         )
     return vz.open_virtual_dataset(spec.sources[0], registry=registry, parser=parser)
 
 
-def _receipt(
-    sink: "xr.Dataset | xr.DataTree", stats: "xr.Dataset", export: ManifestExport, target: ResourceRef
-) -> "RuntimeRail[FieldReceipt]":
+def _receipt(sink: "xr.Dataset | xr.DataTree", stats: "xr.Dataset", export: ManifestExport, target: ResourceRef) -> "RuntimeRail[FieldReceipt]":
     export.write(sink, target)
-    manifests = [
-        repr(var.data.manifest.dict()).encode() for var in stats.data_vars.values() if hasattr(var.data, "manifest")
-    ]
+    manifests = [repr(var.data.manifest.dict()).encode() for var in stats.data_vars.values() if hasattr(var.data, "manifest")]
     return ContentIdentity.of("field.virtual", manifests).map(
         lambda key: FieldReceipt(
-            engine="virtual",
-            dims=tuple(stats.sizes),
-            variables=len(stats.data_vars),
-            bytes_stored=ManifestExport.nbytes(stats),
-            content_key=key,
+            engine="virtual", dims=tuple(stats.sizes), variables=len(stats.data_vars), bytes_stored=ManifestExport.nbytes(stats), content_key=key
         )
     )
 
@@ -625,19 +625,15 @@ def _tree(spec: FieldVirtual, group: str | None) -> "RuntimeRail[FieldReceipt]":
 
 
 def _native_file(
-    slabs: "Sequence[Slab]",
-    shape: tuple[int, ...],
-    dtype: CFDtype,
-    target: ResourceRef,
-    maxshape: MaxShape | None,
-    fillvalue: object | None,
+    slabs: "Sequence[Slab]", shape: tuple[int, ...], dtype: CFDtype, target: ResourceRef, maxshape: MaxShape | None, fillvalue: object | None
 ) -> str:
     import h5py  # noqa: PLC0415
 
     resolved = dtype.resolve()
-    with h5py.File(str(target.path), "w") as sink, sink.build_virtual_dataset(
-        name="data", shape=shape, dtype=resolved, maxshape=maxshape, fillvalue=fillvalue
-    ) as layout:
+    with (
+        h5py.File(str(target.path), "w") as sink,
+        sink.build_virtual_dataset(name="data", shape=shape, dtype=resolved, maxshape=maxshape, fillvalue=fillvalue) as layout,
+    ):
         for path, name, source_shape, region in slabs:
             layout[region] = h5py.VirtualSource(path, name=name, shape=source_shape, dtype=resolved)
     return str(target.path)
@@ -725,14 +721,9 @@ def _to_arrow(dataset: "xr.Dataset") -> "tuple[pa.Table, tuple[str, ...], int, b
     return table, tuple(dataset.sizes), len(dataset.data_vars), payload
 
 
-def _arrow_receipt(
-    table: "pa.Table", dims: tuple[str, ...], variables: int, payload: bytes
-) -> "RuntimeRail[tuple[pa.Table, FieldReceipt]]":
+def _arrow_receipt(table: "pa.Table", dims: tuple[str, ...], variables: int, payload: bytes) -> "RuntimeRail[tuple[pa.Table, FieldReceipt]]":
     return ContentIdentity.of("field.arrow", payload).map(
-        lambda key: (
-            table,
-            FieldReceipt(engine="arrow", dims=dims, variables=variables, bytes_stored=len(payload), content_key=key),
-        )
+        lambda key: (table, FieldReceipt(engine="arrow", dims=dims, variables=variables, bytes_stored=len(payload), content_key=key))
     )
 ```
 

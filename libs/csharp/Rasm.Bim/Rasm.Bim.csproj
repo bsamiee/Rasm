@@ -93,6 +93,7 @@
     </ItemGroup>
 
     <ItemGroup Label="Domain Foundation">
+        <PackageReference Include="CommunityToolkit.HighPerformance" />
         <PackageReference Include="NodaMoney" />
         <PackageReference Include="NodaTime" />
         <PackageReference Include="ProjNET" />

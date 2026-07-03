@@ -6,7 +6,7 @@
 
 [PACKAGE_SURFACE]: `icechunk`
 - package: `icechunk`
-- version: `2.0.6`
+- version: `2.1.0`
 - license: Apache-2.0
 - module: `icechunk`
 - owner: `data`
@@ -34,7 +34,7 @@
 |  [01]   | `SnapshotInfo`                                           | history record  | `id`, `parent_id`, `message`, `written_at`, `metadata`          |
 |  [02]   | `Diff`                                                   | changeset       | new/deleted/updated arrays, groups, chunks, moved_nodes         |
 |  [03]   | `Conflict`                                               | conflict record | `conflict_type`, `path`, `conflicted_chunks`                    |
-|  [04]   | `GCSummary`                                              | GC result       | chunks/manifests/snapshots/transaction_logs/bytes deleted       |
+|  [04]   | `GCSummary`                                              | GC result       | chunks/manifests/snapshots/attributes/transaction_logs/bytes deleted |
 |  [05]   | `Update` / `UpdateType`                                  | ops-log entry   | `kind`, `updated_at`, `backup_path`; `UpdateType` enum of kinds |
 |  [06]   | `AncestryGraph`                                          | history graph   | DAG of `SnapshotInfo` from `Repository.ancestry_graph`          |
 |  [07]   | `ConflictSolver`                                         | solver base     | abstract solver passed as `rebase_with`                         |
@@ -94,12 +94,13 @@
 |  [03]   | `s3_storage(*, bucket, prefix, region, endpoint_url, allow_http, access_key_id, secret_access_key, anonymous, from_env, ...)`   | storage        | S3 backend                       |
 |  [04]   | `gcs_storage(*, bucket, prefix, service_account_file, bearer_token, anonymous, from_env, ...)`                                  | storage        | GCS backend                      |
 |  [05]   | `azure_storage(*, account, container, prefix, access_key, sas_token, bearer_token, from_env, anonymous, ...)`                   | storage        | Azure Blob backend               |
-|  [06]   | `http_storage(base_url, opts)` / `redirect_storage(base_url)`                                                                   | storage        | HTTP and redirect backends       |
+|  [06]   | `http_storage(base_url, opts, headers)` / `redirect_storage(base_url)`                                                          | storage        | HTTP and redirect backends       |
 |  [07]   | `r2_storage(*, bucket, prefix, account_id, endpoint_url, ...)` / `tigris_storage(*, bucket, prefix, use_weak_consistency, ...)` | storage        | R2 and Tigris backends           |
 |  [08]   | `s3_credentials(*, access_key_id, secret_access_key, session_token, anonymous, from_env, get_credentials, ...)`                 | credential     | S3 credential variants           |
 |  [09]   | `s3_static_credentials` / `s3_from_env_credentials` / `s3_anonymous_credentials` / `s3_refreshable_credentials`                 | credential     | explicit S3 credential kinds     |
 |  [10]   | `gcs_credentials(...)` / `azure_credentials(...)` and their `_static`/`_from_env`/`_refreshable`/`_anonymous` variants          | credential     | GCS and Azure credential kinds   |
 |  [11]   | `containers_credentials(m)`                                                                                                     | credential     | virtual-container credential map |
+|  [12]   | `s3_store(region, endpoint_url, allow_http, anonymous, s3_compatible, force_path_style, ..., checksum_algorithm)` / `gcs_store(opts)` / `http_store(opts, headers)` / `local_filesystem_store(path)` | virtual store | `ObjectStoreConfig` factories feeding `VirtualChunkContainer(url_prefix, store, name)` |
 
 [ENTRYPOINT_SCOPE]: repository lifecycle, branches, and sessions (`Repository`)
 - rail: versioned-store
@@ -127,6 +128,7 @@
 |  [19]   | `Repository.garbage_collect(delete_object_older_than, *, dry_run=False, max_snapshots_in_memory=50, ...) -> GCSummary`                    | maintenance    | reclaim unreferenced objects      |
 |  [20]   | `Repository.rewrite_manifests(message, *, branch, metadata=None, commit_method='new_commit') -> str`                                      | maintenance    | rewrite manifest files            |
 |  [21]   | `Repository.chunk_storage_stats()` / `list_manifest_files()`                                                                              | introspection  | storage stats and manifest list   |
+|  [22]   | `supported_spec_versions() -> list[SpecVersion]` / `upgrade_icechunk_repository(repo, *, dry_run, delete_unused_v1_files=True, prefetch_concurrency)` | maintenance | spec-version roster and isolated in-place repository upgrade |
 
 [ENTRYPOINT_SCOPE]: session and store operations (`Session`, `IcechunkStore`)
 - rail: versioned-store
@@ -139,7 +141,7 @@
 |  [04]   | `Session.fork() -> ForkSession` / `Session.merge(*others)`                                                                         | branch         | fork and merge divergent writes   |
 |  [05]   | `Session.status() -> Diff`                                                                                                         | query          | uncommitted changeset             |
 |  [06]   | `Session.store` / `Session.snapshot_id` / `Session.branch` / `Session.mode` / `Session.has_uncommitted_changes`                    | query          | session state accessors           |
-|  [07]   | `Session.move_node(from_path, to_path)` / `reindex_array(array_path, forward, backward=None)` / `shift_array(array_path, chunk_offset)` / `get_node_id(path)` | rearrange      | rearrange-session node operations |
+|  [07]   | `Session.move(from_path, to_path)` / `reindex_array(array_path, forward, backward=None)` / `shift_array(array_path, chunk_offset)` / `get_node_id(path)` | rearrange      | rearrange-session node operations |
 |  [08]   | `IcechunkStore.get(key, prototype, byte_range=None)` / `set(key, value)` / `delete(key)`                                           | store          | Zarr buffer read/write/delete     |
 |  [09]   | `IcechunkStore.list()` / `list_prefix(prefix)` / `list_dir(prefix)` / `exists(key)` / `is_empty(prefix)`                           | store          | listing and existence queries     |
 |  [10]   | `IcechunkStore.set_virtual_ref(key, location, *, offset, length, checksum=None, validate_container=True)`                          | virtual        | register one external chunk ref   |
@@ -152,10 +154,10 @@
 - namespace: `icechunk` (single module); storage and credential factories are module-level functions, `Storage.new_*` class methods exist but are not canonical
 - every writable operation flows through a `Session` from `Repository.writable_session(branch)`; the `IcechunkStore` handle is reached via `session.store` and handed to Zarr
 - `Repository.transaction(branch, *, message, ...)` is the context-manager shorthand wrapping `writable_session` plus `commit`, yielding an `IcechunkStore`, not a separate code path
-- both sync and async variants exist for every `Repository` and `Session` method; async variants carry the `_async` suffix and return coroutines, except the iterator pair `ancestry`/`ops_log` whose async forms are the prefix-named `async_ancestry`/`async_ops_log` (returning `AsyncIterator`)
+- both sync and async variants exist for every `Repository` and `Session` method; async variants carry the `_async` suffix and return coroutines (`ops_log_async` returns an async iterator); the one prefix-named exception is `ancestry`, whose async form is `async_ancestry`
 - conflict resolution is passed at commit time as `rebase_with=BasicConflictSolver(...)` or `rebase_with=ConflictDetector()`; `VersionSelection` (`Fail`/`UseOurs`/`UseTheirs`) drives the solver per `ConflictType`. A bare `commit` on a moved branch tip raises `ConflictError`; an unresolved auto-rebase raises `RebaseFailedError` carrying the `Conflict` list — both map to the data tier's typed error, never swallowed
 - `rewrite_manifests(..., commit_method=...)` uses the `CommitMethod` literal `"new_commit"` or `"amend"`; `CompressionAlgorithm` exposes `Zstd` and `ChecksumAlgorithm` covers Crc32/Crc32c/Crc64Nvme/Sha1/Sha256
-- virtual chunk references point to external object-store locations; `set_virtual_ref(key, location, *, offset, length, checksum=None, validate_container=True)` registers one chunk under its fully-qualified Zarr-v3 key (`<array>/c/<coord>/<coord>/...`) and `set_virtual_refs(array_path, chunks: list[VirtualChunkSpec], *, validate_containers=True) -> list[tuple[int, ...]] | None` registers a batch (returning failed-chunk indices or `None`), both without copying data and both gated by `authorize_virtual_chunk_access` credentials. `VirtualChunkSpec(index: list[int], location: str, offset: int, length: int, etag_checksum=None, last_updated_at_checksum=None)` is the batch chunk descriptor (the index is `index=` in chunk-coordinate space, with optional e-tag/last-updated integrity slots); `containers_credentials(m: Mapping[str, AnyS3Credential | AnyGcsCredential | AnyAzureCredential | None]) -> dict[str, AnyCredential | None]` lowers a per-container-prefix credential-factory map (each value an `s3_credentials`/`gcs_credentials`/`azure_credentials` return, never a raw token tuple) into the `authorize_virtual_chunk_access` keyword
+- virtual chunk references point to external object-store locations; `set_virtual_ref(key, location, *, offset, length, checksum=None, validate_container=True)` registers one chunk under its fully-qualified Zarr-v3 key (`<array>/c/<coord>/<coord>/...`) and `set_virtual_refs(array_path, chunks: list[VirtualChunkSpec], *, validate_containers=True) -> list[tuple[int, ...]] | None` registers a batch (returning failed-chunk indices or `None`), both without copying data and both gated by `authorize_virtual_chunk_access` credentials. `VirtualChunkSpec(index: list[int], location: str, offset: int, length: int, etag_checksum=None, last_updated_at_checksum=None)` is the batch chunk descriptor (the index is `index=` in chunk-coordinate space, with optional e-tag/last-updated integrity slots); `containers_credentials(m: Mapping[str, AnyS3Credential | AnyGcsCredential | AnyAzureCredential | Credentials.LocalFileSystemAccess | Credentials.HttpAccess | None]) -> dict[str, AnyCredential | None]` lowers a per-container-prefix credential-factory map (each value an `s3_credentials`/`gcs_credentials`/`azure_credentials` return or a local-filesystem/HTTP access marker, never a raw token tuple) into the `authorize_virtual_chunk_access` keyword
 
 [STACK]:
 - `session.store` is the `zarr.abc.store.Store` handle: `zarr.open_group(store=session.store, ...)` / `xarray.open_zarr(session.store)` read/write the versioned store with no separate code path. icechunk owns version control; `zarr`/`xarray` (`.api/zarr.md`, `.api/xarray.md`) own array/dataset semantics over the same handle.

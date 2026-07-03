@@ -45,7 +45,9 @@ _TRACER: Final = trace.get_tracer("rasm.data.spatial.geospatial")
 
 type SetOp = Literal["intersection", "union", "difference", "symmetric_difference", "identity"]
 type JoinHow = Literal["inner", "left", "right"]
-type Resampling = Literal["nearest", "bilinear", "cubic", "cubic_spline", "lanczos", "average", "mode", "gauss", "max", "min", "med", "q1", "q3", "sum", "rms"]
+type Resampling = Literal[
+    "nearest", "bilinear", "cubic", "cubic_spline", "lanczos", "average", "mode", "gauss", "max", "min", "med", "q1", "q3", "sum", "rms"
+]
 type OverviewResampling = Literal["nearest", "bilinear", "cubic", "cubic_spline", "lanczos", "average", "mode", "gauss", "rms"]
 type MergeMethod = Literal["first", "last", "min", "max", "sum", "count"]
 type Compression = Literal["deflate", "zstd", "lzw", "webp", "lerc", "lerc_deflate", "lerc_zstd", "jpeg", "none"]
@@ -169,8 +171,20 @@ class VectorOp:
 @tagged_union(frozen=True)
 class RasterOp:
     tag: Literal[
-        "window", "stream", "sample", "mosaic", "mask", "geometry_mask", "sieve",
-        "vectorize", "rasterize", "reproject", "vrt", "remote_read", "memory_source", "write_cog",
+        "window",
+        "stream",
+        "sample",
+        "mosaic",
+        "mask",
+        "geometry_mask",
+        "sieve",
+        "vectorize",
+        "rasterize",
+        "reproject",
+        "vrt",
+        "remote_read",
+        "memory_source",
+        "write_cog",
     ] = tag()
     window: tuple[Bounds, bool] = case()
     stream: tuple[int, TileShape, Resampling | None] = case()
@@ -214,9 +228,7 @@ class RasterOp:
         return RasterOp(mask=(shapes, crop, all_touched, invert))
 
     @staticmethod
-    def GeometryMask(
-        shapes: tuple[object, ...], out_shape: tuple[int, int], all_touched: bool = False, invert: bool = False
-    ) -> "RasterOp":
+    def GeometryMask(shapes: tuple[object, ...], out_shape: tuple[int, int], all_touched: bool = False, invert: bool = False) -> "RasterOp":
         return RasterOp(geometry_mask=(shapes, out_shape, all_touched, invert))
 
     @staticmethod
@@ -228,7 +240,9 @@ class RasterOp:
         return RasterOp(vectorize=(connectivity, band))
 
     @staticmethod
-    def Rasterize(shapes: tuple[object, ...], out_shape: tuple[int, int], merge_alg: Literal["replace", "add"] = "replace", all_touched: bool = False) -> "RasterOp":
+    def Rasterize(
+        shapes: tuple[object, ...], out_shape: tuple[int, int], merge_alg: Literal["replace", "add"] = "replace", all_touched: bool = False
+    ) -> "RasterOp":
         return RasterOp(rasterize=(shapes, out_shape, merge_alg, all_touched))
 
     @staticmethod
@@ -248,9 +262,7 @@ class RasterOp:
         return RasterOp(memory_source=(payload, op))
 
     @staticmethod
-    def WriteCog(
-        path: str, array: "np.ndarray", transform: tuple[float, ...], crs: str, profile: CogProfile = CogProfile()
-    ) -> "RasterOp":
+    def WriteCog(path: str, array: "np.ndarray", transform: tuple[float, ...], crs: str, profile: CogProfile = CogProfile()) -> "RasterOp":
         return RasterOp(write_cog=(path, array, transform, crs, profile))
 
 
@@ -277,10 +289,19 @@ class CogProfile(Struct, frozen=True):
 
     def creation(self, array: "np.ndarray", crs: str, nodata: float) -> dict[str, object]:
         return {
-            "driver": "COG", "dtype": str(array.dtype), "crs": crs, "nodata": nodata,
-            "count": int(array.shape[0]), "height": int(array.shape[-2]), "width": int(array.shape[-1]),
-            "compress": self.compress, "blocksize": self.blocksize, "overviews": self.overviews,
-            "overview_resampling": self.overview_resampling, "num_threads": self.num_threads, "predictor": self.predictor,
+            "driver": "COG",
+            "dtype": str(array.dtype),
+            "crs": crs,
+            "nodata": nodata,
+            "count": int(array.shape[0]),
+            "height": int(array.shape[-2]),
+            "width": int(array.shape[-1]),
+            "compress": self.compress,
+            "blocksize": self.blocksize,
+            "overviews": self.overviews,
+            "overview_resampling": self.overview_resampling,
+            "num_threads": self.num_threads,
+            "predictor": self.predictor,
         }
 
 
@@ -311,7 +332,7 @@ class VectorGeoClaim(Struct, frozen=True):
         import geopandas as gpd  # noqa: PLC0415
         import shapely  # noqa: PLC0415
 
-        grid = 10.0 ** -self.precision * (_DEGREE_GRID if self.units == "degree" else 1.0)
+        grid = 10.0**-self.precision * (_DEGREE_GRID if self.units == "degree" else 1.0)
         keep_family = self.family in {GeometryFamily.POLYGON, GeometryFamily.MULTIPOLYGON}
         snapped = self.reproject(frame).assign(geometry=lambda f: shapely.set_precision(f.geometry.to_numpy(), grid))
         match op:
@@ -367,9 +388,7 @@ class RasterGeoClaim(Struct, frozen=True):
         import anyio  # noqa: PLC0415
 
         with _TRACER.start_as_current_span(f"geo.raster.{op.tag}", attributes={"rasm.geo.remote": True, "rasm.geo.op": op.tag}):
-            acquired = await guarded(
-                RetryClass.HTTP, anyio.to_thread.run_sync, lambda: self._remote_read(op, source), subject=f"geo.raster.{op.tag}"
-            )
+            acquired = await guarded(RetryClass.HTTP, anyio.to_thread.run_sync, lambda: self._remote_read(op, source), subject=f"geo.raster.{op.tag}")
             return acquired.bind(self._result)
 
     def _remote_read(self, op: RasterOp, source: "DatasetReader | None") -> "_Coverage":
@@ -401,9 +420,7 @@ class RasterGeoClaim(Struct, frozen=True):
                 return self._cover(np.asarray(array), source.window_transform(window), op.tag, source)
             case RasterOp(tag="stream", stream=(bidx, tile_shape, resampling)):
                 row_factor, col_factor = (source.height // tile_shape[0], source.width // tile_shape[1]) if tile_shape else (1, 1)
-                destination = np.full(
-                    (source.height // row_factor, source.width // col_factor), self.nodata, dtype=source.dtypes[bidx - 1]
-                )
+                destination = np.full((source.height // row_factor, source.width // col_factor), self.nodata, dtype=source.dtypes[bidx - 1])
                 for _, block in source.block_windows(bidx):
                     row0, col0 = block.row_off // row_factor, block.col_off // col_factor
                     rows, cols = block.height // row_factor, block.width // col_factor
@@ -430,10 +447,14 @@ class RasterGeoClaim(Struct, frozen=True):
                     remote = stack.enter_context(rasterio.open(vsi_scheme.path(href)))
                     window = windows.from_bounds(*bounds, transform=remote.transform) if bounds is not None else None
                     out_shape = (
-                        (remote.count, int(window.height) // overview, int(window.width) // overview)
-                        if window is not None
-                        else (remote.count, remote.height // overview, remote.width // overview)
-                    ) if overview > 1 else None
+                        (
+                            (remote.count, int(window.height) // overview, int(window.width) // overview)
+                            if window is not None
+                            else (remote.count, remote.height // overview, remote.width // overview)
+                        )
+                        if overview > 1
+                        else None
+                    )
                     array = remote.read(window=window, out_shape=out_shape, boundless=window is not None, fill_value=self.nodata)
                     base = remote.window_transform(window) if window is not None else remote.transform
                     transform = tuple(base * rasterio.Affine.scale(overview, overview))[:6] if overview > 1 else tuple(base)[:6]
@@ -473,9 +494,7 @@ class RasterGeoClaim(Struct, frozen=True):
             case RasterOp(tag="vectorize", vectorize=(connectivity, band)):
                 values = source.read(band)
                 valid = source.read_masks(band)
-                shapes = np.asarray(
-                    list(features.shapes(values, mask=valid, connectivity=connectivity, transform=source.transform)), dtype=object
-                )
+                shapes = np.asarray(list(features.shapes(values, mask=valid, connectivity=connectivity, transform=source.transform)), dtype=object)
                 return self._cover(shapes, tuple(source.transform)[:6], op.tag, source)
             case RasterOp(tag="rasterize", rasterize=(shapes, out_shape, merge_alg, all_touched)):
                 array = features.rasterize(
@@ -510,11 +529,7 @@ class RasterGeoClaim(Struct, frozen=True):
         # the content key hashes the REAL coverage bytes — the C-contiguous pixel buffer, or the
         # per-feature repr for the object `Vectorize` array — never a shape-shaped null placeholder.
         array = cover.array
-        payload = (
-            "\x1f".join(repr(item) for item in array.reshape(-1)).encode()
-            if array.dtype == object
-            else np.ascontiguousarray(array).tobytes()
-        )
+        payload = "\x1f".join(repr(item) for item in array.reshape(-1)).encode() if array.dtype == object else np.ascontiguousarray(array).tobytes()
         table = pa.table({"coverage": pa.array([payload], type=pa.binary()), "shape": pa.array([list(array.shape)])})
         return QueryReceipt.railed("rasterio", f"{cover.source}:{cover.op_tag}", table).map(
             lambda receipt: CoverageResult(array=array, transform=cover.transform, receipt=receipt)
@@ -563,9 +578,7 @@ class StacGeoClaim(Struct, frozen=True):
         import anyio  # noqa: PLC0415
 
         with _TRACER.start_as_current_span(f"geo.stac.{op.tag}", attributes={"rasm.geo.remote": True, "rasm.geo.op": op.tag}):
-            acquired = await guarded(
-                RetryClass.HTTP, anyio.to_thread.run_sync, lambda: self._stac(op), subject=f"geo.stac.{op.tag}"
-            )
+            acquired = await guarded(RetryClass.HTTP, anyio.to_thread.run_sync, lambda: self._stac(op), subject=f"geo.stac.{op.tag}")
             # `_stac` is itself railed, so `guarded` over it yields `RuntimeRail[RuntimeRail[...]]`; the
             # identity `bind` is the monadic join that flattens the doubled rail before projection.
             return acquired.bind(lambda inner: inner).bind(lambda payload: self._result(payload, op.tag))
@@ -579,9 +592,7 @@ class StacGeoClaim(Struct, frozen=True):
 
         match op:
             case StacIngest(tag="to_arrow", to_arrow=(path, schema, limit)):
-                return stac_table(TableSource.Ndjson(path, limit), schema=schema).map(
-                    lambda reader: StacPayload(arrow=reader.read_all())
-                )
+                return stac_table(TableSource.Ndjson(path, limit), schema=schema).map(lambda reader: StacPayload(arrow=reader.read_all()))
             case StacIngest(tag="to_delta", to_delta=(input_path, table_uri)):
                 return stac_table_direct(TableSource.Ndjson(input_path), TableSink.DeltaLake(table_uri)).map(
                     lambda _key: StacPayload(delta=table_uri)
@@ -605,9 +616,7 @@ class StacGeoClaim(Struct, frozen=True):
                 table = pa.Table.from_pylist([item.to_dict() for item in items])
             case unreachable:
                 assert_never(unreachable)
-        return QueryReceipt.railed("stac_geoparquet", op_tag, table).map(
-            lambda receipt: StacResult(payload=payload, receipt=receipt)
-        )
+        return QueryReceipt.railed("stac_geoparquet", op_tag, table).map(lambda receipt: StacResult(payload=payload, receipt=receipt))
 ```
 
 ## [03]-[SPATIAL]
@@ -727,13 +736,12 @@ class SpatialEngine(Struct, frozen=True):
     def run(self, query: SpatialQuery) -> "RuntimeRail[SpatialResult]":
         plan = query.plan()
         with _TRACER.start_as_current_span(
-            f"geo.spatial.{query.tag}",
-            attributes={"rasm.geo.op": query.tag, "rasm.geo.predicates": plan.predicate_count},
+            f"geo.spatial.{query.tag}", attributes={"rasm.geo.op": query.tag, "rasm.geo.predicates": plan.predicate_count}
         ):
             return boundary(f"geo.spatial.{query.tag}", lambda: self._dispatch(plan), catch=duckdb.Error).bind(
-                lambda table: QueryReceipt.railed(
-                    "duckdb_spatial", query.tag, table, predicate_count=plan.predicate_count
-                ).map(lambda receipt: SpatialResult(table=table, receipt=receipt))
+                lambda table: QueryReceipt.railed("duckdb_spatial", query.tag, table, predicate_count=plan.predicate_count).map(
+                    lambda receipt: SpatialResult(table=table, receipt=receipt)
+                )
             )
 
     def _dispatch(self, plan: QueryPlan) -> pa.Table:
@@ -853,10 +861,9 @@ class CellSource:
 
 @tagged_union(frozen=True)
 class GridOp:
-    tag: Literal[
-        "index", "resolution", "disk", "ring", "measure", "bounds", "compact",
-        "boundary", "local_ij", "validate", "raster", "hierarchy",
-    ] = tag()
+    tag: Literal["index", "resolution", "disk", "ring", "measure", "bounds", "compact", "boundary", "local_ij", "validate", "raster", "hierarchy"] = (
+        tag()
+    )
     index: tuple[int, CellSource] = case()
     resolution: tuple[int, ResolutionShape] = case()
     disk: tuple[int, DiskMode, Aggregation] = case()
@@ -943,8 +950,7 @@ class GridSystem(Struct, frozen=True):
 
     def apply(self, op: GridOp, frame: "pl.DataFrame") -> "RuntimeRail[GridResult]":
         with _TRACER.start_as_current_span(
-            f"geo.grid.{self.scheme.value}.{op.tag}",
-            attributes={"rasm.geo.scheme": self.scheme.value, "rasm.geo.op": op.tag},
+            f"geo.grid.{self.scheme.value}.{op.tag}", attributes={"rasm.geo.scheme": self.scheme.value, "rasm.geo.op": op.tag}
         ):
             return boundary(
                 f"geo.grid.{self.scheme.value}.{op.tag}",

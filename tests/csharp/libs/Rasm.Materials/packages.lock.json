@@ -94,6 +94,14 @@
           "Microsoft.Bcl.HashCode": "6.0.0"
         }
       },
+      "Google.Api.CommonProtos": {
+        "type": "Transitive",
+        "resolved": "2.1.0",
+        "contentHash": "CEwg4cp80bf7q9vrvDwbwIJ3SG/p/K38dK3ZRG3r4zeFDNMF1Zt2y+iPdUJjtsNxDVQHv06nKViS7dgFT8E6zw==",
+        "dependencies": {
+          "Google.Protobuf": "[3.11.4, 4.0.0)"
+        }
+      },
       "MessagePack.Annotations": {
         "type": "Transitive",
         "resolved": "3.1.7",
@@ -320,9 +328,11 @@
         "dependencies": {
           "Csp.Contracts": "[1.0.0, )",
           "Generator.Equals": "[4.0.0, )",
+          "Google.Protobuf": "[3.35.1, )",
           "JetBrains.Annotations": "[2026.2.0, )",
           "LanguageExt.Core": "[5.0.0-beta-77, )",
           "NodaTime": "[3.3.2, )",
+          "NodaTime.Serialization.Protobuf": "[2.0.2, )",
           "QuikGraph": "[2.5.0, )",
           "Rasm": "[1.0.0, )",
           "Riok.Mapperly": "[4.3.1, )",
@@ -335,10 +345,13 @@
       "rasm.materials": {
         "type": "Project",
         "dependencies": {
+          "CommunityToolkit.HighPerformance": "[8.4.2, )",
           "Csp.Contracts": "[1.0.0, )",
           "JetBrains.Annotations": "[2026.2.0, )",
           "LanguageExt.Core": "[5.0.0-beta-77, )",
           "MathNet.Numerics": "[6.0.0-beta2, )",
+          "MessagePack": "[3.1.7, )",
+          "QuikGraph": "[2.5.0, )",
           "Rasm": "[1.0.0, )",
           "Rasm.Element": "[1.0.0, )",
           "RectangleBinPack.CSharp": "[1.0.4, )",
@@ -382,6 +395,12 @@
         "resolved": "2.0.0",
         "contentHash": "2X23RZxJrjRjOSZc20aqXY9jpmHLekDRy4PIMfrsi2LPNzxFYlnuqzX/nLdk77fbURHUeX+gMhUn2a1z9/wMTQ=="
       },
+      "CommunityToolkit.HighPerformance": {
+        "type": "CentralTransitive",
+        "requested": "[8.4.2, )",
+        "resolved": "8.4.2",
+        "contentHash": "2hmtrrU18x6NL3mbuAqwy0KpnoEEJOuK6sH5RKQfD/jHijn2pqvqBUC7WGy9dgNBL9BDA7eOC0kirsNPMp2f4Q=="
+      },
       "CSparse": {
         "type": "CentralTransitive",
         "requested": "[4.4.0, )",
@@ -408,6 +427,12 @@
         "requested": "[1.0.324, )",
         "resolved": "1.0.324",
         "contentHash": "vdEC1zaX6lV8LI9BvqizplraEJ6zFE98rMM+hDZqVPXMtwDIIY/RpTQQtxe043E9gsSdx0Xyz1TbSqIYQnBPaw=="
+      },
+      "Google.Protobuf": {
+        "type": "CentralTransitive",
+        "requested": "[3.35.1, )",
+        "resolved": "3.35.1",
+        "contentHash": "pxtkuXhR8svkvDTQrYew9GZQt6eWhblz/V/WKUFrQgkHYlQPsumJTeF6ppHRJpe6j9ffukkd5lQULiiKaek4xA=="
       },
       "GShark": {
         "type": "CentralTransitive",
@@ -616,6 +641,16 @@
         "resolved": "3.3.2",
         "contentHash": "8hI5b1ENTKQCaPyU6YHpYiMwj5aJKZ4Mnv0bLbhk65Dd44gQsXenUohMzyiIphANa8LdW6vcOvpY/l1urvx4dw=="
       },
+      "NodaTime.Serialization.Protobuf": {
+        "type": "CentralTransitive",
+        "requested": "[2.0.2, )",
+        "resolved": "2.0.2",
+        "contentHash": "yjwzq6ueTY0xy7IGzuMIrfNky0fGx96EdOEFEV4WaY/IkhMto4MxZWiUdPJnCQFzR/iSDhQE0rrlVKlRyEV5Sw==",
+        "dependencies": {
+          "Google.Api.CommonProtos": "[2.1.0, 3.0.0)",
+          "NodaTime": "[3.0.0, 4.0.0)"
+        }
+      },
       "PeterO.Numbers": {
         "type": "CentralTransitive",
         "requested": "[1.8.2, )",
@@ -639,12 +674,6 @@
         "requested": "[1.0.4, )",
         "resolved": "1.0.4",
         "contentHash": "CVbSOftkn5PCbQbx9JOYNFta6c0OzlTjeZF2lfEdo4r1G2RgZz3FSRLLOUBisfucnfkdEsaxJq12svPKmtVvxA=="
-      },
-      "Riok.Mapperly": {
-        "type": "CentralTransitive",
-        "requested": "[4.3.1, )",
-        "resolved": "4.3.1",
-        "contentHash": "oSE+OVLHyiojrws0QVbQaAT2YKsYbyHqJXPdV7EhGseR/dYgeWS2x1T5qY5I4E+RJkJqMSG+FyZOq4SljWgJWQ=="
       },
       "SharpVoronoiLib": {
         "type": "CentralTransitive",

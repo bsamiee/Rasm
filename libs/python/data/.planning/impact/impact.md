@@ -91,6 +91,7 @@ class Indicator(StrEnum):  # EN 15804 impact + primary-energy + resource + waste
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
+
 class ImpactCell(Struct, frozen=True, gc=False):
     indicator: Indicator
     stage: Stage
@@ -103,9 +104,9 @@ class ImpactSource:
     tag: Literal["openepd", "ilcd_epd", "brightway", "openlca", "premise_background"] = tag()
     openepd: "Epd | IndustryEpd | GenericEstimate" = case()
     ilcd_epd: "IlcdEpd" = case()
-    brightway: Score = case()                       # a bw2calc LCA/MultiLCA score keyed by characterization method
+    brightway: Score = case()  # a bw2calc LCA/MultiLCA score keyed by characterization method
     openlca: "tuple[ImpactValue, ...]" = case()
-    premise_background: Score = case()              # a premise-shifted background scored through the brightway leg
+    premise_background: Score = case()  # a premise-shifted background scored through the brightway leg
 
 
 class ImpactReceipt(Struct, frozen=True, gc=False):
@@ -119,8 +120,8 @@ class ImpactReceipt(Struct, frozen=True, gc=False):
 
 
 class MaterialImpact(Struct, frozen=True, gc=False):
-    source: str               # the recovered ImpactSource tag
-    method: str               # the LciaMethod — the openepd LCIAMethod value vocabulary (EN_15804/TRACI/EF/...)
+    source: str  # the recovered ImpactSource tag
+    method: str  # the LciaMethod — the openepd LCIAMethod value vocabulary (EN_15804/TRACI/EF/...)
     declared_unit: str
     cells: tuple[ImpactCell, ...]
     content_key: ContentKey
@@ -153,6 +154,7 @@ class MaterialImpact(Struct, frozen=True, gc=False):
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
+
 def _normalize(src: "ImpactSource") -> "RuntimeRail[MaterialImpact]":
     # ONE fold: each provider's native impact shape maps onto the (indicator, stage) cell stream; the
     # per-provider extraction is owned by the cited catalogs, so each arm is one thin adapter, not a
@@ -182,9 +184,7 @@ def _from_epdx(epd: "IlcdEpd") -> "RuntimeRail[MaterialImpact]":
         if (val := getattr(category, stg.value, None)) is not None
     )
     return ContentIdentity.of("impact", f"{epd.id}:{epd.published_date}:{epd.version}".encode()).map(
-        lambda key: MaterialImpact(
-            source="ilcd_epd", method=str(epd.standard), declared_unit=str(epd.declared_unit), cells=cells, content_key=key
-        )
+        lambda key: MaterialImpact(source="ilcd_epd", method=str(epd.standard), declared_unit=str(epd.declared_unit), cells=cells, content_key=key)
     )
 
 

@@ -173,7 +173,10 @@ _CENSUS: Final[tuple[TopAbs_ShapeEnum, TopAbs_ShapeEnum, TopAbs_ShapeEnum, TopAb
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
-class BrepReceipt(Struct, frozen=True, gc=False):  # leaf-scalar evidence; owns its (Phase, subject, facts) projection, the BrepResult carrier is the ReceiptContributor
+
+class BrepReceipt(
+    Struct, frozen=True, gc=False
+):  # leaf-scalar evidence; owns its (Phase, subject, facts) projection, the BrepResult carrier is the ReceiptContributor
     kind: str
     valid: bool
     volume: float
@@ -247,6 +250,7 @@ class BrepOp:
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
+
 async def apply(op: BrepOp, lane: LanePolicy) -> "RuntimeRail[BrepResult]":
     # the kernel offloads onto the lane PEP-734 hop (the lane stitches the active OTel context and folds a
     # worker raise through its own `async_boundary`), then the `Ok` `BrepResult` threads through the
@@ -312,16 +316,7 @@ def _evidence(kind: str, shape: TopoDS_Shape, mesh: trimesh.Trimesh | None) -> B
     return BrepResult(
         shape,
         mesh,
-        BrepReceipt(
-            kind,
-            not shape.IsNull(),
-            mass,
-            float(area.Mass()),
-            (com.X(), com.Y(), com.Z()),
-            _census(shape),
-            watertight,
-            closure_gap,
-        ),
+        BrepReceipt(kind, not shape.IsNull(), mass, float(area.Mass()), (com.X(), com.Y(), com.Z()), _census(shape), watertight, closure_gap),
     )
 
 

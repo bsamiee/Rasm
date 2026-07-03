@@ -44,6 +44,7 @@ from artifacts.core.receipt import ArtifactReceipt
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
+
 # the producer-side admission selector, one case per `Admit` arm; `retried` carries its MANDATORY
 # `RetryClass` so a transient node states its class or is not retried — no `Option[RetryClass]`-beside-tag.
 @tagged_union(frozen=True)
@@ -69,6 +70,7 @@ class PlanFault:
     cyclic: frozenset[ContentKey] = case()
     collided: frozenset[ContentKey] = case()
     untargeted: frozenset[ContentKey] = case()
+
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -282,13 +284,25 @@ class PipelinePlan(Struct, frozen=True):
         # unstringified, with the full `dangling`/`cyclic`/`collided`/`untargeted` coverage set reported
         # beside `severed`'s gating-cause tag (or `"ok"`) so the line names WHICH failure AND its magnitude.
         return {
-            "cardinality": self.cardinality, "live": self.live, "depth": self.depth, "width": self.width,
-            "contention": self.contention, "critical_path": self.critical_path, "makespan": self.makespan,
-            "span": self.span, "critical": len(self.schedule.critical), "elided": len(self.elided),
-            "dangling": len(self.dangling), "cyclic": len(self.cyclic), "collided": len(self.collided),
-            "untargeted": len(self.untargeted), "roots": len(self.roots), "leaves": len(self.leaves),
+            "cardinality": self.cardinality,
+            "live": self.live,
+            "depth": self.depth,
+            "width": self.width,
+            "contention": self.contention,
+            "critical_path": self.critical_path,
+            "makespan": self.makespan,
+            "span": self.span,
+            "critical": len(self.schedule.critical),
+            "elided": len(self.elided),
+            "dangling": len(self.dangling),
+            "cyclic": len(self.cyclic),
+            "collided": len(self.collided),
+            "untargeted": len(self.untargeted),
+            "roots": len(self.roots),
+            "leaves": len(self.leaves),
             "severed": self.severed.map(lambda fault: fault.tag).default_value("ok"),
         }
+
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -383,7 +397,18 @@ class ArtifactPipeline(Struct, frozen=True):
             # `graphlib.CycleError` node chain; its endpoints fold into `cyclic` evidence and `Schedule.of`
             # never runs on an un-orderable graph, so the rail carries a structured plan `severed` refuses.
             cyclic = frozenset(graph.get_node_data(idx) for edge in cycle for idx in edge)
-            return PipelinePlan(fronts=(), requires=requires, lane=self.lane, cache_seed=self.cache_seed, keys=keys, dangling=dangling, elided=elided, cyclic=cyclic, collided=collided, untargeted=untargeted)
+            return PipelinePlan(
+                fronts=(),
+                requires=requires,
+                lane=self.lane,
+                cache_seed=self.cache_seed,
+                keys=keys,
+                dangling=dangling,
+                elided=elided,
+                cyclic=cyclic,
+                collided=collided,
+                untargeted=untargeted,
+            )
         schedule = Schedule.of(graph, weights, elided)
         # the min-slack priority read ONCE before the front comprehension (the property rebuilds the map per
         # access): each `topological_generations` front sorts ascending by slack so the lane admits the
@@ -394,15 +419,33 @@ class ArtifactPipeline(Struct, frozen=True):
         # indices lower through `get_node_data -> by_key -> lowered`, a `dangling` index dropping through
         # `try_find`. The plan ORDERS the fronts, the runtime lane DRIVES them.
         fronts = tuple(
-            Block.of_seq(front)
+            Block
+            .of_seq(front)
             .sort_with(lambda idx: (priorities.try_find(graph.get_node_data(idx)).default_value(0.0), graph.get_node_data(idx).hex))
             .choose(lambda idx: by_key.try_find(graph.get_node_data(idx)).map(lambda node: node.lowered()))
             for front in rx.topological_generations(graph)
         )
-        return PipelinePlan(fronts=fronts, requires=requires, schedule=schedule, lane=self.lane, cache_seed=self.cache_seed, keys=keys, dangling=dangling, elided=elided, collided=collided, untargeted=untargeted)
+        return PipelinePlan(
+            fronts=fronts,
+            requires=requires,
+            schedule=schedule,
+            lane=self.lane,
+            cache_seed=self.cache_seed,
+            keys=keys,
+            dangling=dangling,
+            elided=elided,
+            collided=collided,
+            untargeted=untargeted,
+        )
 
     @staticmethod
-    def of(works: ArtifactWork | Iterable[ArtifactWork], *, lane: LanePolicy = _DEFAULT_LANE, warm: Map[ContentKey, ArtifactReceipt] = Map.empty(), targets: frozenset[ContentKey] = frozenset()) -> "ArtifactPipeline":
+    def of(
+        works: ArtifactWork | Iterable[ArtifactWork],
+        *,
+        lane: LanePolicy = _DEFAULT_LANE,
+        warm: Map[ContentKey, ArtifactReceipt] = Map.empty(),
+        targets: frozenset[ContentKey] = frozenset(),
+    ) -> "ArtifactPipeline":
         nodes = Block.singleton(works) if isinstance(works, ArtifactWork) else Block.of_seq(works)
         return ArtifactPipeline(nodes=nodes, lane=lane, cache_seed=warm, targets=targets)
 ```

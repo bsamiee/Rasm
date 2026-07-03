@@ -36,7 +36,11 @@ from rasm.runtime.faults import RuntimeRail, async_boundary
 from rasm.runtime.lanes import WORKER_BAND
 
 from artifacts.core.receipt import ArtifactReceipt
-from artifacts.media.audio import Master, Pcm, _encode_audio   # the shared audio encode owner; float32 blocks admit through _INGEST["flt"] (av deferred inside the audio module)
+from artifacts.media.audio import (
+    Master,
+    Pcm,
+    _encode_audio,
+)  # the shared audio encode owner; float32 blocks admit through _INGEST["flt"] (av deferred inside the audio module)
 from artifacts.media.container import ContainerFormat, MediaEvidence, MediaFault, MediaProfile, _WORKER_RETRY
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -45,7 +49,7 @@ type Partials = tuple[tuple[float, float], ...]  # (hz, amplitude) partial set f
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_BLOCK: int = 4096                                # per-frame sample chunk so a long synthesis streams block-by-block
+_BLOCK: int = 4096  # per-frame sample chunk so a long synthesis streams block-by-block
 
 
 class Waveform(StrEnum):
@@ -65,9 +69,9 @@ class NoiseColor(StrEnum):
 # row is the single fundamental, the others sum partials up to the Nyquist-safe count so no harmonic aliases.
 type Harmonic = tuple[int, Literal["inverse", "inverse_square"], bool]
 _HARMONICS: frozendict[Waveform, Harmonic] = frozendict({
-    Waveform.SINE: (1, "inverse", False),        # fundamental only (max_harmonic pinned to 1 in `_oscillator`)
-    Waveform.SAW: (1, "inverse", False),         # every harmonic, 1/k
-    Waveform.SQUARE: (2, "inverse", False),      # odd harmonics, 1/k
+    Waveform.SINE: (1, "inverse", False),  # fundamental only (max_harmonic pinned to 1 in `_oscillator`)
+    Waveform.SAW: (1, "inverse", False),  # every harmonic, 1/k
+    Waveform.SQUARE: (2, "inverse", False),  # odd harmonics, 1/k
     Waveform.TRIANGLE: (2, "inverse_square", True),  # odd harmonics, (-1)^m/k^2
 })
 
@@ -77,7 +81,7 @@ _HARMONICS: frozendict[Waveform, Harmonic] = frozendict({
 class Adsr(Struct, frozen=True):
     attack: float = 0.01
     decay: float = 0.1
-    sustain: float = 0.7                          # sustain level 0..1
+    sustain: float = 0.7  # sustain level 0..1
     release: float = 0.2
 
     def gain(self, samples: int, rate: int, /) -> NDArray[np.float64]:
@@ -97,13 +101,13 @@ class SynthProfile(Struct, frozen=True):
 @tagged_union(frozen=True)
 class SynthOp:
     tag: Literal["oscillator", "noise", "additive", "fm", "am", "sweep", "impulse"] = tag()
-    oscillator: tuple[Waveform, float, float, float] = case()      # (waveform, hz, seconds, amplitude)
-    noise: tuple[NoiseColor, float, float] = case()               # (color, seconds, amplitude)
-    additive: tuple[Partials, float] = case()                     # (partials, seconds)
-    fm: tuple[float, float, float, float] = case()               # (carrier_hz, ratio, index, seconds)
-    am: tuple[float, float, float, float] = case()               # (carrier_hz, rate_hz, depth, seconds)
-    sweep: tuple[float, float, float, bool] = case()             # (low_hz, high_hz, seconds, logarithmic)
-    impulse: float = case()                                       # seconds
+    oscillator: tuple[Waveform, float, float, float] = case()  # (waveform, hz, seconds, amplitude)
+    noise: tuple[NoiseColor, float, float] = case()  # (color, seconds, amplitude)
+    additive: tuple[Partials, float] = case()  # (partials, seconds)
+    fm: tuple[float, float, float, float] = case()  # (carrier_hz, ratio, index, seconds)
+    am: tuple[float, float, float, float] = case()  # (carrier_hz, rate_hz, depth, seconds)
+    sweep: tuple[float, float, float, bool] = case()  # (low_hz, high_hz, seconds, logarithmic)
+    impulse: float = case()  # seconds
 
     @staticmethod
     def Oscillator(waveform: Waveform, hz: float, seconds: float, amplitude: float = 0.8, /) -> "SynthOp":
@@ -169,6 +173,7 @@ class Synthesis(Struct, frozen=True):
             return Error(MediaFault(worker=str(broken)))
         except BeartypeCallHintViolation as violation:
             return Error(MediaFault(contract=type(violation).__name__))
+
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -261,7 +266,9 @@ def _keyed(pair: tuple[bytes, MediaEvidence], band: frozendict[str, float | str]
     blob, evidence = pair
     merged = msgspec.structs.replace(evidence, facts=evidence.facts | band)
     key = ContentIdentity.of(evidence.container.value, blob)
-    return key, ArtifactReceipt.Media(key, merged.container.value, merged.codec, merged.duration, merged.byte_count, merged.frame_count, merged.bit_rate, merged.facts)
+    return key, ArtifactReceipt.Media(
+        key, merged.container.value, merged.codec, merged.duration, merged.byte_count, merged.frame_count, merged.bit_rate, merged.facts
+    )
 ```
 
 ## [03]-[RESEARCH]

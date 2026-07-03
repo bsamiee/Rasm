@@ -16,13 +16,6 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Ripple: <origin/counterpart card this entry pairs with across folders, as `pkg` `[SLUG]`; present only on a cross-folder ripple counterpart card>.
 -->
 
-[WIRE_CODEC]-[QUEUED]: the seam emits a content-keyed wire the Python and TypeScript peers decode without re-minting.
-- Capability: a `Mapperly`-generated `ElementGraph`↔proto/DTO codec lowering the `Node`/`Relationship` `[Union]` families through `[MapDerivedType]` onto a `oneof`-backed wire, the `NodeId`/`ContentAddress` content keys and the typed `Material`/`Property`/`Assessment`/`Classification` vocabulary crossing as the canonical wire shape.
-- Shape: a `Graph/wire.md` owner — the source-generated mapper, the golden-byte parity corpus (a float-bearing `IfcMaterialLayer`-shaped node), and the `ContentAddress` round-trip the three runtimes agree on.
-- Unlocks: a host-neutral element exchange the companion runtimes decode by content key, never re-deriving the graph.
-- Anchors: `Riok.Mapperly` `[MapDerivedType]`, the `Projection/address#CONTENT_ADDRESS` one canonical codec, the kernel `XxHash128` seed-zero rail.
-- Ripple: `python:geometry/ifc` `[SEAM_WIRE_DECODE]`, `typescript:interchange` `[SEAM_WIRE_DECODE]`.
-
 [DELTA_CRDT]-[QUEUED]: the `GraphDelta` becomes the convergence substrate for offline multi-writer and IFC 3-way merge.
 - Capability: a commutative/idempotent `GraphDelta` algebra (an HLC-stamped op-log over the `Graph/delta#GRAPH_DELTA` cases) the Persistence Sync owner replays for offline convergence, the `Generator.Equals` `Inequalities` diff feeding the 3-way `StructuralMerge`.
 - Shape: a delta-ordering policy (last-writer-wins per node field, set-union per edge) the Persistence `Version` engine projects from the Marten event stream.
@@ -44,4 +37,5 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 [ID]-[COMPLETE|DROPPED]: <one-line disposition>; keep closed tasks collapsed unless a second retained fact changes future routing.
 -->
 
+[WIRE_CODEC]-[COMPLETE]: `Graph/wire.md` authored — the `rasm.element.v1` `oneof` proto contract (`ElementGraphWire`/`GraphDeltaWire`/`NodeWire`/`RelationshipWire`/recursive `PropertyValueWire`), the `WireCodec` Mapperly per-case transcription family with verbatim key codecs, and the `ElementWire` `Fin`-railed `Encode`/`Decode` boundary under the `CodedInputStream.CreateWithLimits` depth gate; Ripple pointers `python:geometry/ifc` `[SEAM_WIRE_DECODE]` / `typescript:wire` `[SEAM_WIRE_DECODE]` retained for the peer card pools.
 [SEAM_DECOMPOSITION]-[COMPLETE]: the property-graph collapse of the two parallel unaligned element owners (`Rasm.Bim` `BimElement`/`BimModel` and `Rasm.Materials` `Element`/`MaterialAssignment`) into the one `ElementGraph` whose consumer-facing `Element` is the `Bake` derived fold — the canonical `Node` `[Union]`, the neutral `Relationship` edge algebra, the typed `PropertyValue`/`MeasureValue` value vocabulary, the generic `Classification`/`Discipline` axes, the `Material` composition + property family with the relocated acoustic folds, the generic `Assessment` receipt, the geospatial `Coverage`/`GeoReference`, the one canonical content codec, and the `IElementProjection`/`IGraphConstraint` contracts — authored as the `Rasm.Element` design corpus; the AEC peers now project onto this graph rather than owning parallel element records.

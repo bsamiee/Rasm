@@ -68,9 +68,9 @@ class ZstdKnobs(Struct, frozen=True, gc=False):
     dict_data: bytes | None = None
     dict_mode: ZstdDictMode = "auto"
     strategy: ZstdStrategy = "auto"  # the DEFLATE matcher axis; "auto" lets from_level derive it (STRATEGY_* has no zero member), a token overrides
-    hash_log: int = 0                # 0 is the from_level auto-sentinel: unset -> level-derived, a value overrides the match-hash-table log
-    chain_log: int = 0               # 0 auto-sentinel: the match-chain log for the btlazy2/btopt/btultra strategies
-    target_length: int = 0           # 0 auto-sentinel: the minimum match length the btopt/btultra strategies emit
+    hash_log: int = 0  # 0 is the from_level auto-sentinel: unset -> level-derived, a value overrides the match-hash-table log
+    chain_log: int = 0  # 0 auto-sentinel: the match-chain log for the btlazy2/btopt/btultra strategies
+    target_length: int = 0  # 0 auto-sentinel: the minimum match length the btopt/btultra strategies emit
 
 
 class Lz4Knobs(Struct, frozen=True, gc=False):
@@ -89,7 +89,7 @@ class BrotliKnobs(Struct, frozen=True, gc=False):
 class GzipKnobs(Struct, frozen=True, gc=False):
     level: int = 9
     mtime: float = 0.0
-    threads: int = -1      # the gzip_ng_threaded block-fan worker count for the large-payload lane; -1 = all logical cores
+    threads: int = -1  # the gzip_ng_threaded block-fan worker count for the large-payload lane; -1 = all logical cores
     block_size: int = 1 << 20  # per-block queue size the threaded writer fans across workers (only the >= _GZIP_PARALLEL_THRESHOLD lane)
 
 
@@ -133,8 +133,7 @@ class BundleManifest(Struct, frozen=True):
     @staticmethod
     def of(algo: CompressionAlgo, recovered: tuple[tuple[str, int, bytes], ...]) -> "BundleManifest":
         return BundleManifest(
-            algo,
-            tuple(ManifestRow(name, ContentIdentity.of(f"member-{algo}", digest), algo, size) for name, size, digest in recovered),
+            algo, tuple(ManifestRow(name, ContentIdentity.of(f"member-{algo}", digest), algo, size) for name, size, digest in recovered)
         )
 
 
@@ -153,7 +152,9 @@ class BundleEvidence(Struct, frozen=True, gc=False):
         return self.out_bytes / self.in_bytes if self.in_bytes else 1.0
 
     @staticmethod
-    def measure(algo: CompressionAlgo, level: int, dict_id: int, frame_size: int, verified: int, payloads: tuple[bytes, ...], blobs: tuple[bytes, ...]) -> "BundleEvidence":
+    def measure(
+        algo: CompressionAlgo, level: int, dict_id: int, frame_size: int, verified: int, payloads: tuple[bytes, ...], blobs: tuple[bytes, ...]
+    ) -> "BundleEvidence":
         # entries is the member count (payload arity), never the joined-blob count;
         # the archive arms reuse this fold so their container `entries` is also the member count.
         return BundleEvidence(algo, level, dict_id, frame_size, len(payloads), verified, sum(map(len, payloads)), sum(map(len, blobs)))
@@ -170,12 +171,30 @@ class Bundle(Struct, frozen=True):
 
     @staticmethod
     def trained(corpus: tuple[bytes, ...], *payloads: bytes, level: int = 19, dict_size: int = 112_640) -> "Bundle":
-        dict_data = zstandard.train_dictionary(dict_size, list(corpus))  # COVER-trains a fulldict; `dict_type` is a ZstdCompressionDict ctor axis, not a train_dictionary kwarg
-        return Bundle.of(CompressionAlgo.ZSTD, *payloads, profile=CodecProfile(zstd=ZstdKnobs(level=level, dict_data=dict_data.as_bytes(), dict_mode="fulldict")))
+        dict_data = zstandard.train_dictionary(
+            dict_size, list(corpus)
+        )  # COVER-trains a fulldict; `dict_type` is a ZstdCompressionDict ctor axis, not a train_dictionary kwarg
+        return Bundle.of(
+            CompressionAlgo.ZSTD, *payloads, profile=CodecProfile(zstd=ZstdKnobs(level=level, dict_data=dict_data.as_bytes(), dict_mode="fulldict"))
+        )
 
     @staticmethod
-    def delta(from_image: bytes, parent_key: ContentKey, payload: bytes, *, patch_type: DeltaPatchType = "sequential", algorithm: DeltaAlgorithm = "bsdiff", compression: DeltaCompression = "zstd") -> "Bundle":
-        return Bundle.of(CompressionAlgo.DELTA, payload, profile=CodecProfile(delta=DeltaKnobs(from_image=from_image, parent_key=parent_key, patch_type=patch_type, algorithm=algorithm, compression=compression)))
+    def delta(
+        from_image: bytes,
+        parent_key: ContentKey,
+        payload: bytes,
+        *,
+        patch_type: DeltaPatchType = "sequential",
+        algorithm: DeltaAlgorithm = "bsdiff",
+        compression: DeltaCompression = "zstd",
+    ) -> "Bundle":
+        return Bundle.of(
+            CompressionAlgo.DELTA,
+            payload,
+            profile=CodecProfile(
+                delta=DeltaKnobs(from_image=from_image, parent_key=parent_key, patch_type=patch_type, algorithm=algorithm, compression=compression)
+            ),
+        )
 
     async def pack(self) -> RuntimeRail[tuple[ContentKey, ArtifactReceipt]]:
         return await async_boundary(f"bundle.{self.algo}", self._emit)
@@ -185,12 +204,16 @@ class Bundle(Struct, frozen=True):
 
     async def _emit(self) -> tuple[ContentKey, ArtifactReceipt]:
         key, evidence = await self._compress()
-        return key, ArtifactReceipt.Bundle(key, evidence.algo.value, evidence.level, evidence.dict_id, evidence.frame_size, evidence.entries, evidence.verified, evidence.ratio)
+        return key, ArtifactReceipt.Bundle(
+            key, evidence.algo.value, evidence.level, evidence.dict_id, evidence.frame_size, evidence.entries, evidence.verified, evidence.ratio
+        )
 
     async def _compress(self) -> tuple[ContentKey, BundleEvidence]:
         match self.profile:
             case CodecProfile(tag="lz4", lz4=knobs) | CodecProfile(tag="brotli", brotli=knobs):
-                blob, evidence_blob = await to_process.run_sync(_worker_codec, self.algo.value, msgpack.encode(knobs), self.payloads, limiter=_CODEC_LIMITER)
+                blob, evidence_blob = await to_process.run_sync(
+                    _worker_codec, self.algo.value, msgpack.encode(knobs), self.payloads, limiter=_CODEC_LIMITER
+                )
                 evidence = msgpack.decode(evidence_blob, type=BundleEvidence)
             case _:  # zstd/gzip native + py7zr/stream-zip/detools all release the GIL: offload the synchronous body off the event loop onto a bounded thread, never inline
                 blob, evidence = await to_thread.run_sync(_in_process, self.payloads, self.algo, self.profile, limiter=_CODEC_LIMITER)
@@ -222,8 +245,12 @@ lazy import lz4.frame
 lazy from zlib_ng import gzip_ng, gzip_ng_threaded, zlib_ng
 
 _DECOMPRESS_CEILING: Final[int] = 1 << 31  # per-frame decompressed-output bomb ceiling; a declared or actual size above it is refused
-_DECOMPRESS_WINDOW: Final[int] = 1 << 27   # zstd decompressor window bound: an adversarial small-declared/huge-window-log frame never forces an oversized window allocation BEFORE the size guard fires
-_GZIP_PARALLEL_THRESHOLD: Final[int] = 1 << 20  # payloads at/above this route to the GIL-escaping gzip_ng_threaded block-fan; below it the single-shot gzip_ng.compress — a disposition on the value's size, never a mode flag
+_DECOMPRESS_WINDOW: Final[int] = (
+    1 << 27
+)  # zstd decompressor window bound: an adversarial small-declared/huge-window-log frame never forces an oversized window allocation BEFORE the size guard fires
+_GZIP_PARALLEL_THRESHOLD: Final[int] = (
+    1 << 20
+)  # payloads at/above this route to the GIL-escaping gzip_ng_threaded block-fan; below it the single-shot gzip_ng.compress — a disposition on the value's size, never a mode flag
 
 
 def _declared(frame: bytes, /) -> int:
@@ -256,10 +283,23 @@ def _in_process(payloads: tuple[bytes, ...], algo: CompressionAlgo, profile: Cod
             # 0 as the from_level auto-sentinel (unset -> level-derived), while strategy skips the override entirely on
             # "auto" because STRATEGY_* carries no zero member — ONE derived ZstdCompressionParameters, never a raw-int spread.
             strategy = {"strategy": _ZSTD_STRATEGY[k.strategy]} if k.strategy != "auto" else {}
-            params = zstandard.ZstdCompressionParameters.from_level(level, window_log=k.window_log, hash_log=k.hash_log, chain_log=k.chain_log, target_length=k.target_length, threads=k.threads, enable_ldm=k.enable_ldm, write_checksum=k.write_checksum, write_content_size=True, **strategy)
+            params = zstandard.ZstdCompressionParameters.from_level(
+                level,
+                window_log=k.window_log,
+                hash_log=k.hash_log,
+                chain_log=k.chain_log,
+                target_length=k.target_length,
+                threads=k.threads,
+                enable_ldm=k.enable_ldm,
+                write_checksum=k.write_checksum,
+                write_content_size=True,
+                **strategy,
+            )
             trained = zstandard.ZstdCompressionDict(k.dict_data, dict_type=_ZSTD_DICT[k.dict_mode]) if k.dict_data is not None else None
             if trained is not None:
-                trained.precompute_compress(compression_params=params)  # cache the compression-side dict state worker-side for the repeated-compress corpus pass
+                trained.precompute_compress(
+                    compression_params=params
+                )  # cache the compression-side dict state worker-side for the repeated-compress corpus pass
             compressor = zstandard.ZstdCompressor(dict_data=trained, compression_params=params)
             # the batch carriers exist only under the cext backend: guard `multi_compress_to_buffer` on `backend_features`
             # (the cffi fallback omits it), falling to a per-payload `compress` loop that also serves the singular arm.
@@ -349,12 +389,25 @@ def _worker_codec(algo: str, knob_blob: bytes, payloads: tuple[bytes, ...]) -> t
     match algo:
         case "lz4":
             k = msgspec.msgpack.decode(knob_blob, type=Lz4Knobs)
-            block_size = {"default": lz4.frame.BLOCKSIZE_DEFAULT, "max64kb": lz4.frame.BLOCKSIZE_MAX64KB, "max256kb": lz4.frame.BLOCKSIZE_MAX256KB, "max1mb": lz4.frame.BLOCKSIZE_MAX1MB, "max4mb": lz4.frame.BLOCKSIZE_MAX4MB}[k.block_size]
-            frames = tuple(lz4.frame.compress(payload, compression_level=k.compression_level, block_size=block_size, content_checksum=k.content_checksum, store_size=True) for payload in payloads)
+            block_size = {
+                "default": lz4.frame.BLOCKSIZE_DEFAULT,
+                "max64kb": lz4.frame.BLOCKSIZE_MAX64KB,
+                "max256kb": lz4.frame.BLOCKSIZE_MAX256KB,
+                "max1mb": lz4.frame.BLOCKSIZE_MAX1MB,
+                "max4mb": lz4.frame.BLOCKSIZE_MAX4MB,
+            }[k.block_size]
+            frames = tuple(
+                lz4.frame.compress(
+                    payload, compression_level=k.compression_level, block_size=block_size, content_checksum=k.content_checksum, store_size=True
+                )
+                for payload in payloads
+            )
             blob = b"".join(frames)
             verified = sum(lz4.frame.get_frame_info(frame)["content_checksum"] for frame in frames)
             frame_size = sum(lz4.frame.get_frame_info(frame)["content_size"] for frame in frames)
-            return blob, msgspec.msgpack.encode(BundleEvidence.measure(CompressionAlgo.LZ4, k.compression_level, 0, frame_size, verified, payloads, (blob,)))
+            return blob, msgspec.msgpack.encode(
+                BundleEvidence.measure(CompressionAlgo.LZ4, k.compression_level, 0, frame_size, verified, payloads, (blob,))
+            )
         case "brotli":
             k = msgspec.msgpack.decode(knob_blob, type=BrotliKnobs)
             mode = {"generic": brotli.MODE_GENERIC, "text": brotli.MODE_TEXT, "font": brotli.MODE_FONT}[k.mode]
@@ -363,7 +416,9 @@ def _worker_codec(algo: str, knob_blob: bytes, payloads: tuple[bytes, ...]) -> t
             # walk slices back — the whole `*payloads` spread folds into one multi-member blob, never silently keeping payloads[0].
             frames = tuple(brotli.compress(payload, mode=mode, quality=k.quality, lgwin=k.lgwin, lgblock=k.lgblock) for payload in payloads)
             blob = b"".join(len(frame).to_bytes(8, "big") + frame for frame in frames)
-            return blob, msgspec.msgpack.encode(BundleEvidence.measure(CompressionAlgo.BROTLI, k.quality, 0, sum(map(len, payloads)), 0, payloads, (blob,)))
+            return blob, msgspec.msgpack.encode(
+                BundleEvidence.measure(CompressionAlgo.BROTLI, k.quality, 0, sum(map(len, payloads)), 0, payloads, (blob,))
+            )
         case _:
             raise ValueError(f"<not-worker:{algo}>")
 
@@ -396,9 +451,23 @@ def _brotli_frame(frame: bytes, /) -> tuple[bytes, bytes]:
     return payload, tail
 
 
-_ZSTD_DICT: Final[frozendict[ZstdDictMode, int]] = frozendict({"auto": zstandard.DICT_TYPE_AUTO, "fulldict": zstandard.DICT_TYPE_FULLDICT, "rawcontent": zstandard.DICT_TYPE_RAWCONTENT})
+_ZSTD_DICT: Final[frozendict[ZstdDictMode, int]] = frozendict({
+    "auto": zstandard.DICT_TYPE_AUTO,
+    "fulldict": zstandard.DICT_TYPE_FULLDICT,
+    "rawcontent": zstandard.DICT_TYPE_RAWCONTENT,
+})
 # the nine named DEFLATE-matcher strategies fast-to-densest; "auto" is absent by design (it skips the from_level override, since STRATEGY_* has no zero member)
-_ZSTD_STRATEGY: Final[frozendict[ZstdStrategy, int]] = frozendict({"fast": zstandard.STRATEGY_FAST, "dfast": zstandard.STRATEGY_DFAST, "greedy": zstandard.STRATEGY_GREEDY, "lazy": zstandard.STRATEGY_LAZY, "lazy2": zstandard.STRATEGY_LAZY2, "btlazy2": zstandard.STRATEGY_BTLAZY2, "btopt": zstandard.STRATEGY_BTOPT, "btultra": zstandard.STRATEGY_BTULTRA, "btultra2": zstandard.STRATEGY_BTULTRA2})
+_ZSTD_STRATEGY: Final[frozendict[ZstdStrategy, int]] = frozendict({
+    "fast": zstandard.STRATEGY_FAST,
+    "dfast": zstandard.STRATEGY_DFAST,
+    "greedy": zstandard.STRATEGY_GREEDY,
+    "lazy": zstandard.STRATEGY_LAZY,
+    "lazy2": zstandard.STRATEGY_LAZY2,
+    "btlazy2": zstandard.STRATEGY_BTLAZY2,
+    "btopt": zstandard.STRATEGY_BTOPT,
+    "btultra": zstandard.STRATEGY_BTULTRA,
+    "btultra2": zstandard.STRATEGY_BTULTRA2,
+})
 ```
 
 ## [03]-[RESEARCH]

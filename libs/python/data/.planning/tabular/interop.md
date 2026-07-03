@@ -68,8 +68,9 @@ class InteropReceipt(Struct, frozen=True):
         return cls(source=source, target=target, rows=frame.shape[0], columns=len(frame.columns), content_key=key)
 
     def contribute(self) -> Iterable[Receipt]:
-        yield Receipt.of("frame-interop", ("emitted", f"{self.source}->{self.target}",
-            {"rows": self.rows, "columns": self.columns, "key": self.content_key.hex}))
+        yield Receipt.of(
+            "frame-interop", ("emitted", f"{self.source}->{self.target}", {"rows": self.rows, "columns": self.columns, "key": self.content_key.hex})
+        )
 
 
 # `frame` is the backend-native object — `polars.DataFrame`/`pandas.DataFrame`/`pyarrow.Table`/

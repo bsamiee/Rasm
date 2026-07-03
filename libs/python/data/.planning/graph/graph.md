@@ -70,6 +70,7 @@ class LayoutKind(StrEnum):
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
+
 class GraphKind(Struct, frozen=True, gc=False):
     directed: bool
     multigraph: bool
@@ -78,15 +79,46 @@ class GraphKind(Struct, frozen=True, gc=False):
 @tagged_union(frozen=True)
 class GraphAlgorithm:
     tag: Literal[
-        "bfs", "dfs", "topo_sort", "ancestors", "descendants",
-        "shortest_path", "bellman_ford", "astar", "k_shortest", "all_simple_paths",
-        "all_pairs_distance", "floyd_warshall",
-        "longest_path", "transitive_reduction", "dominators",
-        "connected", "strongly_connected", "articulation", "bridges", "cycle_basis", "condensation", "core_number",
+        "bfs",
+        "dfs",
+        "topo_sort",
+        "ancestors",
+        "descendants",
+        "shortest_path",
+        "bellman_ford",
+        "astar",
+        "k_shortest",
+        "all_simple_paths",
+        "all_pairs_distance",
+        "floyd_warshall",
+        "longest_path",
+        "transitive_reduction",
+        "dominators",
+        "connected",
+        "strongly_connected",
+        "articulation",
+        "bridges",
+        "cycle_basis",
+        "condensation",
+        "core_number",
         "min_cut",
-        "betweenness", "closeness", "eigenvector", "katz", "pagerank", "hits", "degree",
-        "greedy_color", "max_weight_matching", "spanning_tree", "steiner_tree", "transitivity", "is_planar",
-        "layout", "leiden", "louvain", "infomap",
+        "betweenness",
+        "closeness",
+        "eigenvector",
+        "katz",
+        "pagerank",
+        "hits",
+        "degree",
+        "greedy_color",
+        "max_weight_matching",
+        "spanning_tree",
+        "steiner_tree",
+        "transitivity",
+        "is_planar",
+        "layout",
+        "leiden",
+        "louvain",
+        "infomap",
     ] = tag()
     bfs: NodeId = case()
     dfs: NodeId | None = case()
@@ -163,11 +195,17 @@ class GraphReceipt(Struct, frozen=True, gc=False):
     def contribute(self) -> Iterable[Receipt]:
         yield Receipt.of(
             "graph",
-            ("emitted", self.backend, {
-                "kind": f"directed={self.kind.directed},multi={self.kind.multigraph}",
-                "nodes": self.node_count, "edges": self.edge_count,
-                "algorithm": self.algorithm, "result": self.result,
-            }),
+            (
+                "emitted",
+                self.backend,
+                {
+                    "kind": f"directed={self.kind.directed},multi={self.kind.multigraph}",
+                    "nodes": self.node_count,
+                    "edges": self.edge_count,
+                    "algorithm": self.algorithm,
+                    "result": self.result,
+                },
+            ),
         )
 
 
@@ -189,10 +227,16 @@ class GraphPayload(Struct, frozen=True, gc=False):
     @overload
     def analyze(self, algo: "GraphAlgorithm", *, by: Disposition = ...) -> "RuntimeRail[GraphResult]": ...
     @overload
-    def analyze(self, algo: "Block[GraphAlgorithm]", *, by: Literal[Disposition.ABORT, Disposition.ACCUMULATE] = ...) -> "RuntimeRail[Block[GraphResult]]": ...
+    def analyze(
+        self, algo: "Block[GraphAlgorithm]", *, by: Literal[Disposition.ABORT, Disposition.ACCUMULATE] = ...
+    ) -> "RuntimeRail[Block[GraphResult]]": ...
     @overload
-    def analyze(self, algo: "Block[GraphAlgorithm]", *, by: Literal[Disposition.PARTITION]) -> "RuntimeRail[tuple[Block[GraphResult], Block[BoundaryFault]]]": ...
-    def analyze(self, algo: "GraphAlgorithm | Block[GraphAlgorithm]", *, by: Disposition = Disposition.ABORT) -> "RuntimeRail[GraphResult] | RuntimeRail[Block[GraphResult]] | RuntimeRail[tuple[Block[GraphResult], Block[BoundaryFault]]]":
+    def analyze(
+        self, algo: "Block[GraphAlgorithm]", *, by: Literal[Disposition.PARTITION]
+    ) -> "RuntimeRail[tuple[Block[GraphResult], Block[BoundaryFault]]]": ...
+    def analyze(
+        self, algo: "GraphAlgorithm | Block[GraphAlgorithm]", *, by: Disposition = Disposition.ABORT
+    ) -> "RuntimeRail[GraphResult] | RuntimeRail[Block[GraphResult]] | RuntimeRail[tuple[Block[GraphResult], Block[BoundaryFault]]]":
         # arity recovers from the algorithm value's shape, never a `_many` sibling or flag; `by` is
         # inert for a lone algorithm. The graph is `self.graph`, so the recovered `backend`/`kind`
         # can never decouple from the analyzed graph — a re-passed handle is the deleted form.
@@ -219,12 +263,18 @@ class GraphPayload(Struct, frozen=True, gc=False):
 
     def receipt(self, algo: "GraphAlgorithm", result: GraphResult) -> GraphReceipt:
         return GraphReceipt(
-            backend=self.backend, kind=self.kind, node_count=self.node_count,
-            edge_count=self.edge_count, algorithm=algo.tag, result=result.tag, content_key=self.content_key,
+            backend=self.backend,
+            kind=self.kind,
+            node_count=self.node_count,
+            edge_count=self.edge_count,
+            algorithm=algo.tag,
+            result=result.tag,
+            content_key=self.content_key,
         )
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+
 
 def _node_link(g: NxGraph) -> bytes:
     # `node_link_data` is the canonical persisted graph document; the dict encodes through the
@@ -273,9 +323,7 @@ def _frame(result: GraphResult) -> "pa.Table":  # noqa: PLR0911
         case GraphResult(tag="order", order=nodes):
             return pa.Table.from_pydict({"node": list(nodes), "rank": list(range(len(nodes)))})
         case GraphResult(tag="layout", layout=rows):
-            return pa.Table.from_pydict({
-                "node": [n for n, _ in rows], "x": [xy[0] for _, xy in rows], "y": [xy[1] for _, xy in rows],
-            })
+            return pa.Table.from_pydict({"node": [n for n, _ in rows], "x": [xy[0] for _, xy in rows], "y": [xy[1] for _, xy in rows]})
         case _:
             raise ValueError(f"{result.tag} carries no per-node index row; only scores/coloring/partition/order/layout key the node table")
 
@@ -291,7 +339,9 @@ RX_CENTRALITY: "Final[Map[str, Callable[[RxGraph, GraphAlgorithm], dict[NodeId, 
     ("degree", lambda g, _: rx.degree_centrality(g)),
 ])
 RX_LAYOUT: "Final[Map[LayoutKind, Callable[[RxGraph], rx.Pos2DMapping]]]" = Map.of_seq([
-    (LayoutKind.SPRING, rx.spring_layout), (LayoutKind.CIRCULAR, rx.circular_layout), (LayoutKind.KAMADA_KAWAI, rx.kamada_kawai_layout),
+    (LayoutKind.SPRING, rx.spring_layout),
+    (LayoutKind.CIRCULAR, rx.circular_layout),
+    (LayoutKind.KAMADA_KAWAI, rx.kamada_kawai_layout),
 ])
 
 
@@ -446,21 +496,30 @@ def _graphml(write: "Callable[[str], object]") -> bytes:
 
 
 _EGRESS: "Final[Map[GraphBackend, Map[GraphFormat, Callable[[AnyGraph], bytes]]]]" = Map.of_seq([
-    ("rustworkx", Map.of_seq([
-        (GraphFormat.NODE_LINK, lambda g: rx.node_link_json(g).encode()),
-        (GraphFormat.GRAPHML, lambda g: _graphml(lambda path: rx.write_graphml(g, path))),
-        (GraphFormat.EDGE_LIST, lambda g: "\n".join(f"{u} {v}" for u, v in g.edge_list()).encode()),
-    ])),
-    ("networkx", Map.of_seq([
-        (GraphFormat.NODE_LINK, _node_link),
-        (GraphFormat.GRAPHML, lambda g: _graphml(lambda path: nx.write_graphml(g, path))),
-        (GraphFormat.EDGE_LIST, lambda g: nx.to_pandas_edgelist(g).to_csv(index=False).encode()),
-    ])),
-    ("igraph", Map.of_seq([
-        (GraphFormat.NODE_LINK, lambda g: _node_link(g.to_networkx())),
-        (GraphFormat.GRAPHML, lambda g: _graphml(lambda path: g.write_graphml(path))),
-        (GraphFormat.EDGE_LIST, lambda g: g.get_edge_dataframe().to_csv(index=False).encode()),
-    ])),
+    (
+        "rustworkx",
+        Map.of_seq([
+            (GraphFormat.NODE_LINK, lambda g: rx.node_link_json(g).encode()),
+            (GraphFormat.GRAPHML, lambda g: _graphml(lambda path: rx.write_graphml(g, path))),
+            (GraphFormat.EDGE_LIST, lambda g: "\n".join(f"{u} {v}" for u, v in g.edge_list()).encode()),
+        ]),
+    ),
+    (
+        "networkx",
+        Map.of_seq([
+            (GraphFormat.NODE_LINK, _node_link),
+            (GraphFormat.GRAPHML, lambda g: _graphml(lambda path: nx.write_graphml(g, path))),
+            (GraphFormat.EDGE_LIST, lambda g: nx.to_pandas_edgelist(g).to_csv(index=False).encode()),
+        ]),
+    ),
+    (
+        "igraph",
+        Map.of_seq([
+            (GraphFormat.NODE_LINK, lambda g: _node_link(g.to_networkx())),
+            (GraphFormat.GRAPHML, lambda g: _graphml(lambda path: g.write_graphml(path))),
+            (GraphFormat.EDGE_LIST, lambda g: g.get_edge_dataframe().to_csv(index=False).encode()),
+        ]),
+    ),
 ])
 ```
 

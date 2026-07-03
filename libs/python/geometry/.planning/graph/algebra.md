@@ -172,8 +172,7 @@ class AlgebraResult(Struct, ReceiptContributor, frozen=True):
         # through the one compute residual-over-ceiling admission; never a re-measured value or a second gate.
         spec = CASE[self.kind]
         return GraduationReceipt.graduates(
-            "geometry.graph.algebra", HandoffAxis(geometry=self.graduation_subject), evidence_key,
-            spec.ledger(self.census), spec.ceiling,
+            "geometry.graph.algebra", HandoffAxis(geometry=self.graduation_subject), evidence_key, spec.ledger(self.census), spec.ceiling
         )
 
 
@@ -218,7 +217,12 @@ def _dispatch(algebra: ComputationalGeometry, *, proxy: Proxy | None = None) -> 
             return _result("numerical", (json_dumps(value),), Census(kind="numerical", handles=1, inputs=len(points), op=op))
         case ComputationalGeometry(tag="form_finding", form_finding=(mesh, anchors, engine, params)):
             form = _FORM[engine](Mesh.from_json(mesh), list(anchors), params, proxy)
-            return _result("form_finding", form.handles, Census(kind="form_finding", handles=len(form.handles), inputs=len(anchors), op=engine, residual=form.residual), converged=form.residual <= params.tol)
+            return _result(
+                "form_finding",
+                form.handles,
+                Census(kind="form_finding", handles=len(form.handles), inputs=len(anchors), op=engine, residual=form.residual),
+                converged=form.residual <= params.tol,
+            )
         case ComputationalGeometry(tag="datastructure", datastructure=(payload, op)):
             return _result("datastructure", (json_dumps(DATASTRUCTURE[op](payload)),), Census(kind="datastructure", handles=1, op=op))
         case _ as unreachable:
@@ -237,10 +241,18 @@ def _dr(mesh: Mesh, anchors: list[int], params: FormParams, proxy: Proxy | None)
     loads = (weight * (0.0, 0.0, -1.0)).tolist()
     indata = InputData.from_mesh(mesh, fixed=anchors, loads=loads, qpre=[1.0] * mesh.number_of_edges())
     constraints = tuple(Constraint(json_loads(c.geometry)) for c in params.constraints)
-    solve = proxy.function("compas_dr.solvers.dr_constrained_numpy" if constraints else "compas_dr.solvers.dr_numpy") if proxy else (dr_constrained_numpy if constraints else dr_numpy)
+    solve = (
+        proxy.function("compas_dr.solvers.dr_constrained_numpy" if constraints else "compas_dr.solvers.dr_numpy")
+        if proxy
+        else (dr_constrained_numpy if constraints else dr_numpy)
+    )
     # `tol1=params.tol` threads the convergence bar into the solver so the residual gate AND the `converged`
     # verdict read one value; a default-`tol1` solve under a tighter `params.tol` verdict spuriously admits.
-    result: ResultData = solve(indata=indata, constraints=list(constraints), kmax=params.kmax, tol1=params.tol, rk_steps=params.rk_steps) if constraints else solve(indata, kmax=params.kmax, tol1=params.tol, rk_steps=params.rk_steps)
+    result: ResultData = (
+        solve(indata=indata, constraints=list(constraints), kmax=params.kmax, tol1=params.tol, rk_steps=params.rk_steps)
+        if constraints
+        else solve(indata, kmax=params.kmax, tol1=params.tol, rk_steps=params.rk_steps)
+    )
     result.update_mesh(mesh)
     return FormResult((json_dumps(mesh), json_dumps(result)), float(np.abs(np.asarray(result.residuals, dtype=float)).max(initial=0.0)))
 
@@ -320,8 +332,12 @@ _FORM: Final[Mapping[FormEngine, Callable[[Mesh, list[int], FormParams, Proxy | 
 CASE: Final[Mapping[AlgebraKind, CaseSpec]] = MappingProxyType({
     "network": CaseSpec("network-graph", lambda c: {"empty_handle_fraction": 0.0 if c.handles else 1.0}, {"empty_handle_fraction": _HANDLE_CEILING}),
     "form_finding": CaseSpec("form-finding", lambda c: {"residual": c.residual}, {"residual": _RESIDUAL_CEILING}),
-    "numerical": CaseSpec("numerical-primitive", lambda c: {"empty_handle_fraction": 0.0 if c.handles else 1.0}, {"empty_handle_fraction": _HANDLE_CEILING}),
-    "datastructure": CaseSpec("mesh-algebra", lambda c: {"empty_handle_fraction": 0.0 if c.handles else 1.0}, {"empty_handle_fraction": _HANDLE_CEILING}),
+    "numerical": CaseSpec(
+        "numerical-primitive", lambda c: {"empty_handle_fraction": 0.0 if c.handles else 1.0}, {"empty_handle_fraction": _HANDLE_CEILING}
+    ),
+    "datastructure": CaseSpec(
+        "mesh-algebra", lambda c: {"empty_handle_fraction": 0.0 if c.handles else 1.0}, {"empty_handle_fraction": _HANDLE_CEILING}
+    ),
 })
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
@@ -351,7 +367,9 @@ async def solver_proxy() -> AsyncIterator[Proxy]:
     # stack.enter_async_context(solver_proxy())` so a fan of heavy solves shares ONE reconnected worker
     # under ONE limiter; a bring-up that exhausts `RetryClass.RPC` surfaces the rail `Error` raised here
     # and converts once in the enclosing `bridged` `async_boundary` (the `CLASSIFY` `boundary` catch-all).
-    proxy = (await guarded(RetryClass.RPC, anyio.to_thread.run_sync, _open_proxy, subject="algebra.proxy.open", limiter=_SOLVER_LIMITER)).default_value(None)
+    proxy = (
+        await guarded(RetryClass.RPC, anyio.to_thread.run_sync, _open_proxy, subject="algebra.proxy.open", limiter=_SOLVER_LIMITER)
+    ).default_value(None)
     if proxy is None:
         msg = "compas.rpc.Proxy bring-up exhausted RetryClass.RPC"
         raise RuntimeError(msg)
@@ -400,10 +418,7 @@ async def bridged(op: ComputationalGeometry, proxy: Proxy) -> RuntimeRail[Algebr
     # becoming the awaitable thunk `async_boundary` requires while the worker pool stays bounded and
     # shares the one fault rail — a bring-up that exhausted `RetryClass.RPC` already surfaced as the
     # `solver_proxy` scope-entry rail `Error`, not a `bridged` concern.
-    return await async_boundary(
-        f"algebra.{op.tag}.rpc",
-        lambda: anyio.to_thread.run_sync(lambda: _extract(op, proxy=proxy), limiter=_SOLVER_LIMITER),
-    )
+    return await async_boundary(f"algebra.{op.tag}.rpc", lambda: anyio.to_thread.run_sync(lambda: _extract(op, proxy=proxy), limiter=_SOLVER_LIMITER))
 ```
 
 ## [03]-[RESEARCH]

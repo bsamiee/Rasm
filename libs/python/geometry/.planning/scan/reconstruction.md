@@ -103,11 +103,11 @@ class ReconPolicy(Struct, frozen=True):
 class MeshQuality(Struct, frozen=True, gc=False):
     vertex_count: int
     triangle_count: int
-    body_count: int          # connected components; >1 is a fragmented (over-segmented) reconstruction
+    body_count: int  # connected components; >1 is a fragmented (over-segmented) reconstruction
     watertight: bool
     winding_consistent: bool
-    is_volume: bool          # closed AND consistently wound: a usable signed-distance solid
-    euler_number: int        # V - E + F manifold characteristic
+    is_volume: bool  # closed AND consistently wound: a usable signed-distance solid
+    euler_number: int  # V - E + F manifold characteristic
     volume: float
     area: float
 
@@ -117,9 +117,15 @@ class MeshQuality(Struct, frozen=True, gc=False):
         # are valid only on a closed mesh, so the open surface reports 0.0 volume off the same fold.
         watertight = bool(body.is_watertight)
         return MeshQuality(
-            vertex_count=len(body.vertices), triangle_count=len(body.faces), body_count=int(body.body_count),
-            watertight=watertight, winding_consistent=bool(body.is_winding_consistent), is_volume=bool(body.is_volume),
-            euler_number=int(body.euler_number), volume=float(body.volume) if watertight else 0.0, area=float(body.area),
+            vertex_count=len(body.vertices),
+            triangle_count=len(body.faces),
+            body_count=int(body.body_count),
+            watertight=watertight,
+            winding_consistent=bool(body.is_winding_consistent),
+            is_volume=bool(body.is_volume),
+            euler_number=int(body.euler_number),
+            volume=float(body.volume) if watertight else 0.0,
+            area=float(body.area),
         )
 
     @property
@@ -138,9 +144,15 @@ class MeshQuality(Struct, frozen=True, gc=False):
 
     def facts(self) -> dict[str, object]:
         return {
-            "vertex_count": self.vertex_count, "triangle_count": self.triangle_count, "body_count": self.body_count,
-            "watertight": self.watertight, "winding_consistent": self.winding_consistent, "is_volume": self.is_volume,
-            "euler_number": self.euler_number, "volume": self.volume, "area": self.area,
+            "vertex_count": self.vertex_count,
+            "triangle_count": self.triangle_count,
+            "body_count": self.body_count,
+            "watertight": self.watertight,
+            "winding_consistent": self.winding_consistent,
+            "is_volume": self.is_volume,
+            "euler_number": self.euler_number,
+            "volume": self.volume,
+            "area": self.area,
         }
 
 
@@ -169,12 +181,12 @@ class ReconReceipt(Struct, frozen=True, gc=False):
         # the quality fold projects BOTH residual keys; a non-watertight or multi-shell surface fails the
         # gate and graduates only after the mesh/repair.md#MESH weld, never on the vacuous reconstruction.
         return GraduationReceipt.graduates(
-            "geometry.scan.reconstruction", HandoffAxis(geometry=_SUBJECT), evidence_key,
-            self.quality.residuals, self.quality.ceiling,
+            "geometry.scan.reconstruction", HandoffAxis(geometry=_SUBJECT), evidence_key, self.quality.residuals, self.quality.ceiling
         )
 
 
 # --- [TABLES] ---------------------------------------------------------------------------
+
 
 # one row per method binding its STATIC open3d constructor; a new algorithm is one row, not a new
 # dispatch arm. The Poisson row owns the density-trim because its constructor returns the density array.
@@ -187,7 +199,7 @@ def _trim_poisson(mesh: "o3d.geometry.TriangleMesh", density: DensityField, quan
     # the `DensityField` `Is[isfinite]` refinement fires before the order statistic, so a non-finite
     # solver density rails through the faults `CLASSIFY` `api` row rather than corrupting the cutoff.
     if density.size == 0:  # a degenerate solve emits an empty mesh; the order-statistic index would `IndexError`
-        return mesh        # (vacuously finite under the fence) — the `DeviationBand.fold` `size == 0` parity
+        return mesh  # (vacuously finite under the fence) — the `DeviationBand.fold` `size == 0` parity
     samples = np.sort(density)  # the catalogued sort owns the quantile; `numpy.quantile` is uncatalogued
     cutoff = samples[int(quantile * (samples.size - 1))]
     mesh.remove_vertices_by_mask(density < cutoff)  # drop the low-density balloon artifacts past the sample support

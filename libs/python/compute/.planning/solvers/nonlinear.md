@@ -154,29 +154,28 @@ class NonlinearIntent:
 
     @staticmethod
     def RootFind(
-        residual_fn: ResidualFn, x0: Pytree,
-        solver: NonlinearSolver = NonlinearSolver.NEWTON, policy: NonlinearPolicy = NonlinearPolicy(),
+        residual_fn: ResidualFn, x0: Pytree, solver: NonlinearSolver = NonlinearSolver.NEWTON, policy: NonlinearPolicy = NonlinearPolicy()
     ) -> "NonlinearIntent":
         return NonlinearIntent(root_find=(residual_fn, x0, solver, policy))
 
     @staticmethod
     def Minimise(
-        objective: ObjectiveFn, x0: Pytree,
-        solver: NonlinearSolver = NonlinearSolver.LBFGS, policy: NonlinearPolicy = NonlinearPolicy(),
+        objective: ObjectiveFn, x0: Pytree, solver: NonlinearSolver = NonlinearSolver.LBFGS, policy: NonlinearPolicy = NonlinearPolicy()
     ) -> "NonlinearIntent":
         return NonlinearIntent(minimise=(objective, x0, solver, policy))
 
     @staticmethod
     def FixedPoint(
-        step_fn: ResidualFn, x0: Pytree,
-        solver: NonlinearSolver = NonlinearSolver.FIXED_POINT_ITERATION, policy: NonlinearPolicy = NonlinearPolicy(),
+        step_fn: ResidualFn, x0: Pytree, solver: NonlinearSolver = NonlinearSolver.FIXED_POINT_ITERATION, policy: NonlinearPolicy = NonlinearPolicy()
     ) -> "NonlinearIntent":
         return NonlinearIntent(fixed_point=(step_fn, x0, solver, policy))
 
     @staticmethod
     def NonlinearLeastSquares(
-        residual_fn: ResidualFn, x0: Pytree,
-        solver: NonlinearSolver = NonlinearSolver.LEVENBERG_MARQUARDT, policy: NonlinearPolicy = NonlinearPolicy(),
+        residual_fn: ResidualFn,
+        x0: Pytree,
+        solver: NonlinearSolver = NonlinearSolver.LEVENBERG_MARQUARDT,
+        policy: NonlinearPolicy = NonlinearPolicy(),
     ) -> "NonlinearIntent":
         return NonlinearIntent(least_squares=(residual_fn, x0, solver, policy))
 
@@ -251,7 +250,9 @@ class NonlinearEngine:
             case SolverProfile.LINEAR:
                 instance = getattr(self.optx, spec.attr)(**base, norm=norm, linear_solver=_INNER[policy.inner](policy, self.lx))
             case SolverProfile.LEARNING_RATE:
-                instance = getattr(self.optx, spec.attr)(learning_rate=policy.learning_rate if policy.learning_rate is not None else _LR, **base, norm=norm)
+                instance = getattr(self.optx, spec.attr)(
+                    learning_rate=policy.learning_rate if policy.learning_rate is not None else _LR, **base, norm=norm
+                )
             case SolverProfile.TOL_ONLY:
                 instance = getattr(self.optx, spec.attr)(**base)
             case SolverProfile.OPTAX:
@@ -275,56 +276,50 @@ class _SolverSpec(Struct, frozen=True):
     profile: SolverProfile
 
 
-_SOLVER: FrozenDict[NonlinearSolver, _SolverSpec] = FrozenDict(
-    {
-        NonlinearSolver.NEWTON: _SolverSpec("Newton", SolverProfile.LINEAR),
-        NonlinearSolver.CHORD: _SolverSpec("Chord", SolverProfile.LINEAR),
-        NonlinearSolver.BISECTION: _SolverSpec("Bisection", SolverProfile.TOL_ONLY),
-        NonlinearSolver.GOLDEN_SEARCH: _SolverSpec("GoldenSearch", SolverProfile.TOL_ONLY),
-        NonlinearSolver.LBFGS: _SolverSpec("LBFGS", SolverProfile.TOLERANCE),
-        NonlinearSolver.BFGS: _SolverSpec("BFGS", SolverProfile.TOLERANCE),
-        NonlinearSolver.DFP: _SolverSpec("DFP", SolverProfile.TOLERANCE),
-        NonlinearSolver.NONLINEAR_CG: _SolverSpec("NonlinearCG", SolverProfile.TOLERANCE),
-        NonlinearSolver.NELDER_MEAD: _SolverSpec("NelderMead", SolverProfile.TOLERANCE),
-        NonlinearSolver.GRADIENT_DESCENT: _SolverSpec("GradientDescent", SolverProfile.LEARNING_RATE),
-        NonlinearSolver.OPTAX_LBFGS: _SolverSpec("lbfgs", SolverProfile.OPTAX),
-        NonlinearSolver.OPTAX_ADAM: _SolverSpec("adam", SolverProfile.OPTAX),
-        NonlinearSolver.OPTAX_SGD: _SolverSpec("sgd", SolverProfile.OPTAX),
-        NonlinearSolver.FIXED_POINT_ITERATION: _SolverSpec("FixedPointIteration", SolverProfile.TOLERANCE),
-        NonlinearSolver.GAUSS_NEWTON: _SolverSpec("GaussNewton", SolverProfile.LINEAR),
-        NonlinearSolver.LEVENBERG_MARQUARDT: _SolverSpec("LevenbergMarquardt", SolverProfile.LINEAR),
-        NonlinearSolver.INDIRECT_LEVENBERG_MARQUARDT: _SolverSpec("IndirectLevenbergMarquardt", SolverProfile.LINEAR),
-        NonlinearSolver.DOGLEG: _SolverSpec("Dogleg", SolverProfile.LINEAR),
-    }
-)
+_SOLVER: FrozenDict[NonlinearSolver, _SolverSpec] = FrozenDict({
+    NonlinearSolver.NEWTON: _SolverSpec("Newton", SolverProfile.LINEAR),
+    NonlinearSolver.CHORD: _SolverSpec("Chord", SolverProfile.LINEAR),
+    NonlinearSolver.BISECTION: _SolverSpec("Bisection", SolverProfile.TOL_ONLY),
+    NonlinearSolver.GOLDEN_SEARCH: _SolverSpec("GoldenSearch", SolverProfile.TOL_ONLY),
+    NonlinearSolver.LBFGS: _SolverSpec("LBFGS", SolverProfile.TOLERANCE),
+    NonlinearSolver.BFGS: _SolverSpec("BFGS", SolverProfile.TOLERANCE),
+    NonlinearSolver.DFP: _SolverSpec("DFP", SolverProfile.TOLERANCE),
+    NonlinearSolver.NONLINEAR_CG: _SolverSpec("NonlinearCG", SolverProfile.TOLERANCE),
+    NonlinearSolver.NELDER_MEAD: _SolverSpec("NelderMead", SolverProfile.TOLERANCE),
+    NonlinearSolver.GRADIENT_DESCENT: _SolverSpec("GradientDescent", SolverProfile.LEARNING_RATE),
+    NonlinearSolver.OPTAX_LBFGS: _SolverSpec("lbfgs", SolverProfile.OPTAX),
+    NonlinearSolver.OPTAX_ADAM: _SolverSpec("adam", SolverProfile.OPTAX),
+    NonlinearSolver.OPTAX_SGD: _SolverSpec("sgd", SolverProfile.OPTAX),
+    NonlinearSolver.FIXED_POINT_ITERATION: _SolverSpec("FixedPointIteration", SolverProfile.TOLERANCE),
+    NonlinearSolver.GAUSS_NEWTON: _SolverSpec("GaussNewton", SolverProfile.LINEAR),
+    NonlinearSolver.LEVENBERG_MARQUARDT: _SolverSpec("LevenbergMarquardt", SolverProfile.LINEAR),
+    NonlinearSolver.INDIRECT_LEVENBERG_MARQUARDT: _SolverSpec("IndirectLevenbergMarquardt", SolverProfile.LINEAR),
+    NonlinearSolver.DOGLEG: _SolverSpec("Dogleg", SolverProfile.LINEAR),
+})
 
 
 # InnerSolver -> the lineax linear_solver= the LINEAR-profile Newton/GN/LM family threads; one row
 # per member reading the policy tolerance and the gated `lx` module, so a new inner solver is one row
 # and the iterative CG/GMRES/BiCGStab cells carry the convergence tolerance the Krylov loop reads.
-_INNER: FrozenDict[InnerSolver, InnerPick] = FrozenDict(
-    {
-        InnerSolver.AUTO: lambda p, lx: lx.AutoLinearSolver(well_posed=None),
-        InnerSolver.LU: lambda p, lx: lx.LU(),
-        InnerSolver.QR: lambda p, lx: lx.QR(),
-        InnerSolver.SVD: lambda p, lx: lx.SVD(),
-        InnerSolver.GMRES: lambda p, lx: lx.GMRES(rtol=p.rtol, atol=p.atol),
-        InnerSolver.BICGSTAB: lambda p, lx: lx.BiCGStab(rtol=p.rtol, atol=p.atol),
-        InnerSolver.NORMAL_CG: lambda p, lx: lx.Normal(lx.CG(rtol=p.rtol, atol=p.atol)),
-    }
-)
+_INNER: FrozenDict[InnerSolver, InnerPick] = FrozenDict({
+    InnerSolver.AUTO: lambda p, lx: lx.AutoLinearSolver(well_posed=None),
+    InnerSolver.LU: lambda p, lx: lx.LU(),
+    InnerSolver.QR: lambda p, lx: lx.QR(),
+    InnerSolver.SVD: lambda p, lx: lx.SVD(),
+    InnerSolver.GMRES: lambda p, lx: lx.GMRES(rtol=p.rtol, atol=p.atol),
+    InnerSolver.BICGSTAB: lambda p, lx: lx.BiCGStab(rtol=p.rtol, atol=p.atol),
+    InnerSolver.NORMAL_CG: lambda p, lx: lx.Normal(lx.CG(rtol=p.rtol, atol=p.atol)),
+})
 
 
 # Route -> the route-matched BestSoFar* monotone-iterate guard wrapping a converged solver when
 # SolverPolicy.best_so_far is set; one aspect over any solver, keyed by tag.
-_BEST: FrozenDict[Route, str] = FrozenDict(
-    {
-        "root_find": "BestSoFarRootFinder",
-        "minimise": "BestSoFarMinimiser",
-        "fixed_point": "BestSoFarFixedPoint",
-        "least_squares": "BestSoFarLeastSquares",
-    }
-)
+_BEST: FrozenDict[Route, str] = FrozenDict({
+    "root_find": "BestSoFarRootFinder",
+    "minimise": "BestSoFarMinimiser",
+    "fixed_point": "BestSoFarFixedPoint",
+    "least_squares": "BestSoFarLeastSquares",
+})
 
 
 # Route -> (optimistix entry, residual contraction). The optimistix norm is pytree-total over Array
@@ -334,18 +329,18 @@ _BEST: FrozenDict[Route, str] = FrozenDict(
 # ...) mirrors the shape returning (grad, aux), so the minimise stationarity lift unwraps identically.
 # The fixed-point residual is the per-leaf fn(v) - v over the pytree, since `-` on two pytrees is
 # undefined — jax.tree_util.tree_map subtracts leaf-wise before the norm contracts the difference.
-def _route_cells(e: "NonlinearEngine", fn: Callable[..., object], policy: NonlinearPolicy) -> FrozenDict[Route, tuple[Callable[..., object], Callable[[object], object]]]:
+def _route_cells(
+    e: "NonlinearEngine", fn: Callable[..., object], policy: NonlinearPolicy
+) -> FrozenDict[Route, tuple[Callable[..., object], Callable[[object], object]]]:
     norm, out = e.norm(policy.solver.norm), (lambda v: fn(v)[0]) if policy.has_aux else fn
     grad_fn = e.jax.grad(fn, has_aux=policy.has_aux)
     minim = (lambda v: grad_fn(v)[0]) if policy.has_aux else grad_fn
-    return FrozenDict(
-        {
-            "root_find": (e.optx.root_find, lambda v: norm(out(v))),
-            "minimise": (e.optx.minimise, lambda v: norm(minim(v))),
-            "fixed_point": (e.optx.fixed_point, lambda v: norm(e.jtu.tree_map(lambda a, b: e.jnp.asarray(a) - e.jnp.asarray(b), out(v), v))),
-            "least_squares": (e.optx.least_squares, lambda v: norm(out(v))),
-        }
-    )
+    return FrozenDict({
+        "root_find": (e.optx.root_find, lambda v: norm(out(v))),
+        "minimise": (e.optx.minimise, lambda v: norm(minim(v))),
+        "fixed_point": (e.optx.fixed_point, lambda v: norm(e.jtu.tree_map(lambda a, b: e.jnp.asarray(a) - e.jnp.asarray(b), out(v), v))),
+        "least_squares": (e.optx.least_squares, lambda v: norm(out(v))),
+    })
 
 
 # --- [OPERATIONS] --------------------------------------------------------------------------
@@ -374,9 +369,7 @@ def _dispatch(intent: NonlinearIntent) -> SolverReceipt:
             assert_never(unreachable)
 
 
-def _optimistix_receipt(
-    tag: Route, fn: Callable[..., object], x0: Pytree, solver: NonlinearSolver, policy: NonlinearPolicy
-) -> SolverReceipt:
+def _optimistix_receipt(tag: Route, fn: Callable[..., object], x0: Pytree, solver: NonlinearSolver, policy: NonlinearPolicy) -> SolverReceipt:
     engine = NonlinearEngine.gated()  # imports the gated modules once and floats the rail to float64
     jtu = engine.jtu
     op, lift = engine.route(tag, fn, policy)
@@ -435,7 +428,10 @@ def _floor_receipt(tag: Route, fn: Callable[..., object], x0: np.ndarray, solver
     rtol, out = policy.solver.rtol, (lambda v: fn(v)[0]) if policy.has_aux else fn
     bracketed = _SOLVER[solver].profile is SolverProfile.TOL_ONLY and policy.bracket is not None
     probe_at = np.asarray((policy.bracket[0] + policy.bracket[1]) / 2) if bracketed else x0  # TOL_ONLY: region centre, x0 carries no meaning
-    basis = np.eye(probe_at.size).reshape((probe_at.size, *probe_at.shape))  # per-component unit steps reshaped to the single dense leaf the floor narrows to
+    basis = np.eye(probe_at.size).reshape((
+        probe_at.size,
+        *probe_at.shape,
+    ))  # per-component unit steps reshaped to the single dense leaf the floor narrows to
     probe = (
         np.linalg.norm([float(out(probe_at + _FD * e)) - float(out(probe_at - _FD * e)) for e in basis], np.inf) / (2 * _FD)
         if tag == "minimise"

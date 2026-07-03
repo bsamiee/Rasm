@@ -148,7 +148,9 @@ A layer is constructed, then placed at root (`LayeredFile.add_layer`) or inside 
 def _psd(export: LayeredExport) -> LayerFact:
     width, height = (int(extent) for extent in _viewport(export.layers))
     document = psapi.LayeredFile_8bit(psapi.enum.ColorMode.rgb, width, height)  # 8-bit RGB document
-    folders: dict[str, psapi.GroupLayer_8bit] = {}  # one native group per distinct `group` label — the PSD counterpart to the SVG `<g>` / OCG `/Order` / ORA `<stack>` folder
+    folders: dict[
+        str, psapi.GroupLayer_8bit
+    ] = {}  # one native group per distinct `group` label — the PSD counterpart to the SVG `<g>` / OCG `/Order` / ORA `<stack>` folder
     for layer in export.layers:
         rgba = _rgba_array(pyvips.Image.new_from_buffer(layer.source, ""))  # the shared decode the ORA/TIFF arms use
         channels = {  # the ChannelID-keyed dict is the preferred construction form (logical indices are the lossy fallback)
@@ -158,15 +160,23 @@ def _psd(export: LayeredExport) -> LayerFact:
             psapi.enum.ChannelID.alpha: rgba[:, :, 3],
         }
         node = psapi.ImageLayer_8bit(
-            channels, layer_name=layer.name, width=width, height=height,
-            blend_mode=_PSD_BLEND[layer.blend],          # the page's BlendMode -> psapi.enum.BlendMode derivation table
-            opacity=layer.opacity, is_visible=layer.visible, is_locked=layer.locked,
+            channels,
+            layer_name=layer.name,
+            width=width,
+            height=height,
+            blend_mode=_PSD_BLEND[layer.blend],  # the page's BlendMode -> psapi.enum.BlendMode derivation table
+            opacity=layer.opacity,
+            is_visible=layer.visible,
+            is_locked=layer.locked,
             compression=psapi.enum.Compression.zipprediction,  # best ratio; the page's LayerPolicy carries the knob
             color_mode=psapi.enum.ColorMode.rgb,
         )
         node.clipping_mask = layer.clip  # native clipping-mask toggle (the layered-TIFF arm cannot express it)
-        (folders.setdefault(layer.group, _group(document, folders, layer.group)).add_layer(document, node)
-         if layer.group else document.add_layer(node))
+        (
+            folders.setdefault(layer.group, _group(document, folders, layer.group)).add_layer(document, node)
+            if layer.group
+            else document.add_layer(node)
+        )
     sink = Path(_scratch(export)) / f"{export.target}.{export.target.value}"  # psapi writes to a path, not a buffer
     document.write(sink, force_overwrite=True)  # consumes the document; reuse is undefined behavior
     return LayerFact(sink.read_bytes(), width=width, height=height, layers=len(export.layers))

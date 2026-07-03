@@ -1,0 +1,11 @@
+{
+    "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+    "name": "host",
+    "projectType": "library",
+    "sourceRoot": "libs/typescript/host/src",
+    "tags": [
+        "scope:host",
+        "runtime:neutral",
+        "plane:runtime"
+    ]
+}

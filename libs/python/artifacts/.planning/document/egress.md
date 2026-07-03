@@ -72,7 +72,7 @@ class EgressStep(StrEnum):
     FORMS = "forms"
     REWRITE = "rewrite"
     REDACT = "redact"
-    STRIP = "strip"          # repeat-detection running-content removal (pdf_oxide, MIT/Apache — already permissive)
+    STRIP = "strip"  # repeat-detection running-content removal (pdf_oxide, MIT/Apache — already permissive)
     SANITIZE = "sanitize"
     OPTIMIZE = "optimize"
     PROTECT = "protect"
@@ -161,9 +161,9 @@ class EgressFault:
     # (`pikepdf.PdfError`, `pymupdf.FileDataError`, `msoffcrypto.DecryptionError`) convert to the
     # runtime `BoundaryFault` at the `async_boundary` capsule, never into this interior vocabulary.
     tag: Literal["payload", "empty", "incomplete"] = tag()
-    payload: tuple[str, ...] = case()        # the rejected payload key paths
-    empty: None = case()                     # an empty finishing chain
-    incomplete: EgressStep = case()          # a step admitted without its required material/policy
+    payload: tuple[str, ...] = case()  # the rejected payload key paths
+    empty: None = case()  # an empty finishing chain
+    incomplete: EgressStep = case()  # a step admitted without its required material/policy
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -235,7 +235,13 @@ class Bookmark(Struct, frozen=True):
     fallback: tuple[tuple[str, int], ...] = ()  # flat `(title, page)` outline lowered when no `DocumentNode` tree is supplied
 
     def style(self, level: int, /) -> dict[str, object]:
-        return {"bold": level == 1 and self.bold_top, "italic": self.italic, "color": self.color, "fit": getattr(Fit, _FITS[self.fit])(), "is_open": level < self.open_depth}
+        return {
+            "bold": level == 1 and self.bold_top,
+            "italic": self.italic,
+            "color": self.color,
+            "fit": getattr(Fit, _FITS[self.fit])(),
+            "is_open": level < self.open_depth,
+        }
 
 
 class Watermark(Struct, frozen=True):
@@ -312,17 +318,25 @@ class Label(Struct, frozen=True):
     fontname: str = "helv"
     fontsize: float = 11.0
     align: int = 0
-    fill: tuple[float, float, float] = (0.0, 0.0, 0.0)        # the burned-region fill colour
+    fill: tuple[float, float, float] = (0.0, 0.0, 0.0)  # the burned-region fill colour
     text_color: tuple[float, float, float] = (1.0, 1.0, 1.0)  # the overlay-text colour
-    cross_out: bool = True                                    # struck-through default when no overlay text rides the rect
-    overlay_text: str = ""                                   # the label burned into every redacted region
-    flatten_widgets: bool = True                             # bake form widgets during the redaction `bake`
-    needles: tuple[str, ...] = ()                            # content-search terms resolved to rects through `Page.search_for`
+    cross_out: bool = True  # struck-through default when no overlay text rides the rect
+    overlay_text: str = ""  # the label burned into every redacted region
+    flatten_widgets: bool = True  # bake form widgets during the redaction `bake`
+    needles: tuple[str, ...] = ()  # content-search terms resolved to rects through `Page.search_for`
 
     def annot(self) -> dict[str, object]:
         # the full `add_redact_annot` typography axis; a non-empty `overlay_text` suppresses the strike-out
         overlay = self.overlay_text or None
-        return {"fontname": self.fontname, "fontsize": self.fontsize, "align": self.align, "fill": self.fill, "text_color": self.text_color, "cross_out": self.cross_out and overlay is None, "text": overlay}
+        return {
+            "fontname": self.fontname,
+            "fontsize": self.fontsize,
+            "align": self.align,
+            "fill": self.fill,
+            "text_color": self.text_color,
+            "cross_out": self.cross_out and overlay is None,
+            "text": overlay,
+        }
 
 
 class Sanitize(Struct, frozen=True):
@@ -357,10 +371,10 @@ class Optimize(Struct, frozen=True):
     object_streams: bool = True
     compress_streams: bool = True
     stream_decode: StreamDecode = StreamDecode.GENERALIZED
-    flate_level: int = -1               # pikepdf `settings.set_flate_compression_level`; -1 keeps the zlib default, 0..9 tunes the recompress strength
-    verify_syntax: bool = False         # capture qpdf `Pdf.check_pdf_syntax` warnings onto `FinishFact.syntax_warnings`
-    dedup_objects: bool = False         # gated pypdf `compress_identical_objects` object-table dedup/GC pass beside the pikepdf sweep
-    incremental: bool = False           # pypdf `PdfWriter(fileobj, incremental=True)` append-only signature-preserving write (the egress->exchange/conformance /Sig seam), mutually exclusive with the pikepdf recompress rewrite
+    flate_level: int = -1  # pikepdf `settings.set_flate_compression_level`; -1 keeps the zlib default, 0..9 tunes the recompress strength
+    verify_syntax: bool = False  # capture qpdf `Pdf.check_pdf_syntax` warnings onto `FinishFact.syntax_warnings`
+    dedup_objects: bool = False  # gated pypdf `compress_identical_objects` object-table dedup/GC pass beside the pikepdf sweep
+    incremental: bool = False  # pypdf `PdfWriter(fileobj, incremental=True)` append-only signature-preserving write (the egress->exchange/conformance /Sig seam), mutually exclusive with the pikepdf recompress rewrite
 
 
 class ContentEdit(Struct, frozen=True):
@@ -383,8 +397,8 @@ class Confidentiality:
     # credential axis, or `reseal` a plaintext OOXML payload under a fresh agile container; only
     # the OOXML object carries `encrypt`, so a 97-container re-seal is unrepresentable by case.
     tag: Literal["unlock", "reseal"] = tag()
-    unlock: bool = case()        # `verify` — fold the HMAC/password verification into load+decrypt
-    reseal: str = case()         # the re-seal password
+    unlock: bool = case()  # `verify` — fold the HMAC/password verification into load+decrypt
+    reseal: str = case()  # the re-seal password
 
 
 class FinishFact(Struct, frozen=True):
@@ -392,11 +406,11 @@ class FinishFact(Struct, frozen=True):
     pages: int = 0
     encryption_r: int = 0
     outline_depth: int = 0
-    overlays: int = 0          # content-composition op count: overlay placements, OCG strips, baked form fills, stripped running content
+    overlays: int = 0  # content-composition op count: overlay placements, OCG strips, baked form fills, stripped running content
     layers_removed: int = 0
     fields_filled: int = 0
     content_stripped: int = 0  # STRIP running-header/footer/artifact blocks pdf_oxide repeat-detection removed
-    syntax_warnings: int = 0   # OPTIMIZE qpdf `check_pdf_syntax` warning count — carrier-only evidence, not a receipt slot
+    syntax_warnings: int = 0  # OPTIMIZE qpdf `check_pdf_syntax` warning count — carrier-only evidence, not a receipt slot
 
 
 class Finishing(Struct, frozen=True):
@@ -422,8 +436,8 @@ class Finishing(Struct, frozen=True):
 
 
 class Extras(Struct, frozen=True, omit_defaults=True):
-    stamp: bytes = b""                                            # the WATERMARK stamp PDF bytes
-    attachment_data: bytes = b""                                 # the ATTACH embedded-file payload
+    stamp: bytes = b""  # the WATERMARK stamp PDF bytes
+    attachment_data: bytes = b""  # the ATTACH embedded-file payload
     credentials: frozendict[str, str] = field(default_factory=frozendict)  # the PROTECT `keyTypes` credential axis
 
 
@@ -439,9 +453,11 @@ _DECLARED: Final[frozenset[str]] = EgressPayload.__optional_keys__ | EgressPaylo
 
 # --- [SERVICES] -------------------------------------------------------------------------
 class Finisher(Struct, frozen=True):
-    arm: Callable[["DocumentEgress"], FinishFact]         # the default (richest) arm, run under `AGPL_MAX`
+    arm: Callable[["DocumentEgress"], FinishFact]  # the default (richest) arm, run under `AGPL_MAX`
     office: bool = False
-    permissive: Callable[["DocumentEgress"], FinishFact] | None = None  # the MIT/Apache/BSD arm `PERMISSIVE` selects; `None` = the one arm is already permissive
+    permissive: Callable[["DocumentEgress"], FinishFact] | None = (
+        None  # the MIT/Apache/BSD arm `PERMISSIVE` selects; `None` = the one arm is already permissive
+    )
 
 
 class DocumentEgress(Struct, frozen=True):
@@ -471,7 +487,9 @@ class DocumentEgress(Struct, frozen=True):
         # owner carries the final `FinishFact`, so the frozen owner is never mutated in place.
         return reduce(lambda live, step: live._stepped(step), self.steps, self)
 
-    @receipted(OPEN)  # the harvest weave drains `contribute` off the returned stepped owner and emits via `Signals.emit_async`; egress facts carry no classified field, so the keep-all `OPEN` policy the runtime owns rides directly, never a re-minted per-file `Redaction`
+    @receipted(
+        OPEN
+    )  # the harvest weave drains `contribute` off the returned stepped owner and emits via `Signals.emit_async`; egress facts carry no classified field, so the keep-all `OPEN` policy the runtime owns rides directly, never a re-minted per-file `Redaction`
     async def _emit(self) -> Self:
         # the finishing fold is heavy GIL-releasing native work, so it crosses the thread seam under the
         # shared limiter rather than stalling the loop; the finished owner is the `ReceiptContributor` the weave drains.
@@ -492,7 +510,14 @@ class DocumentEgress(Struct, frozen=True):
         case = (
             ArtifactReceipt.Office(key, len(fact.data))
             if FINISHERS[self.steps[-1]].office
-            else ArtifactReceipt.Egress(key, len(fact.data), fact.pages, fact.encryption_r, fact.outline_depth, fact.overlays + fact.layers_removed + fact.fields_filled + fact.content_stripped)
+            else ArtifactReceipt.Egress(
+                key,
+                len(fact.data),
+                fact.pages,
+                fact.encryption_r,
+                fact.outline_depth,
+                fact.overlays + fact.layers_removed + fact.fields_filled + fact.content_stripped,
+            )
         )
         yield from case.contribute()
 
@@ -527,15 +552,19 @@ def _sections(node: DocumentNode | None, /) -> Iterator[SectionNode]:
 
 def _redaction_rects(node: DocumentNode | None, /) -> Map[int, tuple[tuple[float, float, float, float], ...]]:
     annots = (n for n in (walk(node) if node is not None else ()) if isinstance(n, AnnotationNode) and n.annot is AnnotKind.REDACTION)
-    return Block.of_seq(annots).fold(
-        lambda acc, a: acc.change(a.meta.page, lambda cur: Some((*cur.default_value(()), a.target))), Map.empty()
-    )
+    return Block.of_seq(annots).fold(lambda acc, a: acc.change(a.meta.page, lambda cur: Some((*cur.default_value(()), a.target))), Map.empty())
 
 
 def _encrypt(egress: DocumentEgress) -> FinishFact:
     enc, sink = egress.finishing.encryption, BytesIO()
     with pikepdf.open(BytesIO(egress.source)) as pdf:  # deterministic close, never GC-reaped
-        pdf.save(sink, linearize=True, encryption=pikepdf.Encryption(owner=enc.owner, user=enc.user, R=enc.r, aes=enc.aes, metadata=enc.metadata, allow=egress.finishing.permissions.to_pikepdf()))
+        pdf.save(
+            sink,
+            linearize=True,
+            encryption=pikepdf.Encryption(
+                owner=enc.owner, user=enc.user, R=enc.r, aes=enc.aes, metadata=enc.metadata, allow=egress.finishing.permissions.to_pikepdf()
+            ),
+        )
         return FinishFact(sink.getvalue(), pages=len(pdf.pages), encryption_r=enc.r)
 
 
@@ -548,8 +577,11 @@ def _outline(egress: DocumentEgress) -> FinishFact:
 
     def author(state: _Outline, section: SectionNode, /) -> _Outline:  # the boundary `add_outline_item` is the seam; the parent/depth thread is pure
         parents, depth = state
-        node = writer.add_outline_item("".join(run.text for run in section.heading), section.meta.page, parent=parents.get(section.level - 1), **bookmark.style(section.level))
+        node = writer.add_outline_item(
+            "".join(run.text for run in section.heading), section.meta.page, parent=parents.get(section.level - 1), **bookmark.style(section.level)
+        )
         return parents | {section.level: node}, max(depth, section.level)
+
     _parents, depth = Block.of_seq(_sections(egress.node)).fold(author, (frozendict(), 0))
     if egress.node is None:
         for title, page in bookmark.fallback:
@@ -576,7 +608,12 @@ def _attach(egress: DocumentEgress) -> FinishFact:
     att = egress.finishing.attachment
     with pikepdf.open(BytesIO(egress.source)) as pdf:  # deterministic close, never GC-reaped
         pdf.attachments[att.name] = pikepdf.AttachedFileSpec(
-            pdf, egress.extras.attachment_data, filename=att.name, description=att.description, mime_type=att.mime, relationship=pikepdf.Name(att.relationship.value)
+            pdf,
+            egress.extras.attachment_data,
+            filename=att.name,
+            description=att.description,
+            mime_type=att.mime,
+            relationship=pikepdf.Name(att.relationship.value),
         )
         sink = BytesIO()
         pdf.save(sink, linearize=True)
@@ -590,18 +627,25 @@ def _impose(egress: DocumentEgress) -> FinishFact:
     cell_w, cell_h = width / imp.across, height / imp.down
     writer = PdfWriter()
 
-    def placed(sheet: "PageObject", indexed: tuple[int, int], /) -> "PageObject":  # `add_transformation`/`merge_page` mutate in place at the pypdf seam
+    def placed(
+        sheet: "PageObject", indexed: tuple[int, int], /
+    ) -> "PageObject":  # `add_transformation`/`merge_page` mutate in place at the pypdf seam
         offset, index = indexed
         if index < 0:  # a booklet pad slot keeps the cell blank
             return sheet
         row, col = divmod(offset, imp.across)
         source = reader.pages[index]
-        source.add_transformation(Transformation().scale(cell_w / source.mediabox.width, cell_h / source.mediabox.height).translate(col * cell_w, (imp.down - 1 - row) * cell_h))
+        source.add_transformation(
+            Transformation()
+            .scale(cell_w / source.mediabox.width, cell_h / source.mediabox.height)
+            .translate(col * cell_w, (imp.down - 1 - row) * cell_h)
+        )
         sheet.merge_page(source)
         return sheet
 
     def imposed(window: tuple[int, ...], /) -> object:
         return Block.of_seq(enumerate(window)).fold(placed, writer.add_blank_page(width=width, height=height))
+
     for window in batched(imp.order(len(reader.pages)), imp.slots):
         imposed(window)
     sink = BytesIO()
@@ -615,7 +659,12 @@ def _navigate(egress: DocumentEgress) -> FinishFact:
     writer.page_layout = view.page_layout.value
     writer.page_mode = view.page_mode.value
     prefs = writer.create_viewer_preferences()  # binds a `/ViewerPreferences` dict to the catalog; attribute sets persist
-    prefs.hide_toolbar, prefs.fit_window, prefs.center_window, prefs.display_doctitle = view.hide_toolbar, view.fit_window, view.center_window, view.display_doctitle
+    prefs.hide_toolbar, prefs.fit_window, prefs.center_window, prefs.display_doctitle = (
+        view.hide_toolbar,
+        view.fit_window,
+        view.center_window,
+        view.display_doctitle,
+    )
     sink = BytesIO()
     writer.write(sink)
     return FinishFact(sink.getvalue(), pages=len(writer.pages))
@@ -711,11 +760,18 @@ def _redact(egress: DocumentEgress) -> FinishFact:
         marks, tree_rects = label.annot(), _redaction_rects(egress.node)
         for index in range(doc.page_count):
             page = doc[index]
-            hits = [*(pymupdf.Rect(rect) for rect in tree_rects.try_find(index).default_value(())), *(rect for needle in label.needles for rect in page.search_for(needle))]
+            hits = [
+                *(pymupdf.Rect(rect) for rect in tree_rects.try_find(index).default_value(())),
+                *(rect for needle in label.needles for rect in page.search_for(needle)),
+            ]
             for rect in hits:
                 page.add_redact_annot(rect, **marks)
             if hits:
-                page.apply_redactions(images=pymupdf.PDF_REDACT_IMAGE_REMOVE, graphics=pymupdf.PDF_REDACT_LINE_ART_REMOVE_IF_TOUCHED, text=pymupdf.PDF_REDACT_TEXT_REMOVE)
+                page.apply_redactions(
+                    images=pymupdf.PDF_REDACT_IMAGE_REMOVE,
+                    graphics=pymupdf.PDF_REDACT_LINE_ART_REMOVE_IF_TOUCHED,
+                    text=pymupdf.PDF_REDACT_TEXT_REMOVE,
+                )
         doc.bake(annots=True, widgets=label.flatten_widgets)
         doc.scrub(**scrub.kwargs())
         doc.subset_fonts(fallback=False)
@@ -735,7 +791,9 @@ def _redact_oxide(egress: DocumentEgress) -> FinishFact:
         for index in range(doc.page_count):
             for rect in tree_rects.try_find(index).default_value(()):
                 doc.add_redaction(index, rect, fill=label.fill)
-        doc.apply_redactions_destructive(scrub_metadata=scrub.metadata, remove_javascript=scrub.javascript, remove_embedded_files=scrub.embedded_files)
+        doc.apply_redactions_destructive(
+            scrub_metadata=scrub.metadata, remove_javascript=scrub.javascript, remove_embedded_files=scrub.embedded_files
+        )
         return FinishFact(doc.to_bytes(), pages=doc.page_count)
 
 
@@ -812,9 +870,13 @@ def _optimize(egress: DocumentEgress) -> FinishFact:
         writer.write(sink)
         return FinishFact(sink.getvalue(), pages=len(writer.pages))
     if pol.flate_level >= 0:
-        pikepdf.settings.set_flate_compression_level(pol.flate_level)  # the global zlib level driving the recompress strength below, off the fixed flag alone
+        pikepdf.settings.set_flate_compression_level(
+            pol.flate_level
+        )  # the global zlib level driving the recompress strength below, off the fixed flag alone
     with pikepdf.open(BytesIO(egress.source)) as pdf:  # deterministic close, never GC-reaped
-        warnings = len(pdf.check_pdf_syntax()) if pol.verify_syntax else 0  # qpdf syntax warnings captured as evidence, never a raise into domain flow
+        warnings = (
+            len(pdf.check_pdf_syntax()) if pol.verify_syntax else 0
+        )  # qpdf syntax warnings captured as evidence, never a raise into domain flow
         if pol.sweep_unreferenced:
             pdf.remove_unreferenced_resources()
         sink = BytesIO()
@@ -872,7 +934,9 @@ FINISHERS: Final[frozendict[EgressStep, Finisher]] = frozendict({
     EgressStep.REWRITE: Finisher(_rewrite),
     EgressStep.REDACT: Finisher(_redact, permissive=_redact_oxide),  # AGPL pymupdf default, MIT/Apache pdf_oxide under `PERMISSIVE`
     EgressStep.STRIP: Finisher(_strip),  # pdf_oxide (MIT/Apache) — the single arm is already permissive
-    EgressStep.SANITIZE: Finisher(_sanitize, permissive=_sanitize_oxide),  # pikepdf (MPL, file-scoped) default, self-contained pdf_oxide under `PERMISSIVE`
+    EgressStep.SANITIZE: Finisher(
+        _sanitize, permissive=_sanitize_oxide
+    ),  # pikepdf (MPL, file-scoped) default, self-contained pdf_oxide under `PERMISSIVE`
     EgressStep.OPTIMIZE: Finisher(_optimize),
     EgressStep.PROTECT: Finisher(_protect, office=True),
 })

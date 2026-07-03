@@ -50,21 +50,22 @@ class PdfCrop(StrEnum):
     # token `import_pdf(crop=)` writes verbatim. `PDF` is the canonical `CROP_PDF` token `PDFCrop` (the
     # initialism breaks the `Crop` prefix), not the rarer `CropPDF` spelling; `CONTENT` is the base
     # `CropContent` member (the dominant real-spread token) beside its layer-scoped variants.
-    CONTENT = "CropContent"                       # CROP_CONTENT — the content bounding box, layer-visibility-agnostic
+    CONTENT = "CropContent"  # CROP_CONTENT — the content bounding box, layer-visibility-agnostic
     CONTENT_VISIBLE = "CropContentVisibleLayers"  # CROP_CONTENT_VISIBLE_LAYERS — the `import_pdf` default
-    CONTENT_ALL = "CropContentAllLayers"          # CROP_CONTENT_ALL_LAYERS
-    ART = "CropArt"                               # CROP_ART — the author-defined placeable artwork box
-    PDF = "PDFCrop"                               # CROP_PDF — the Acrobat-displayed crop box
-    TRIM = "CropTrim"                             # CROP_TRIM
-    BLEED = "CropBleed"                           # CROP_BLEED
-    MEDIA = "CropMedia"                           # CROP_MEDIA — the original physical paper size
+    CONTENT_ALL = "CropContentAllLayers"  # CROP_CONTENT_ALL_LAYERS
+    ART = "CropArt"  # CROP_ART — the author-defined placeable artwork box
+    PDF = "PDFCrop"  # CROP_PDF — the Acrobat-displayed crop box
+    TRIM = "CropTrim"  # CROP_TRIM
+    BLEED = "CropBleed"  # CROP_BLEED
+    MEDIA = "CropMedia"  # CROP_MEDIA — the original physical paper size
+
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_KIND: Final = "idml"                       # the `ContentIdentity.of` kind tag minted off the mutated-package bytes
-_ROOT: Final = "/Root"                      # the IDML tag-tree root, the default destination/source anchor
-_BASE_PREFIX: Final = "Base"                # the default base namespace prefix when the payload omits one
-_PREFIX: Final = re.compile(r"\A\w+\Z")     # the alphanumeric word-char constraint `IDMLPackage.prefix` enforces (its `re.match(r"^\w+$")`)
+_KIND: Final = "idml"  # the `ContentIdentity.of` kind tag minted off the mutated-package bytes
+_ROOT: Final = "/Root"  # the IDML tag-tree root, the default destination/source anchor
+_BASE_PREFIX: Final = "Base"  # the default base namespace prefix when the payload omits one
+_PREFIX: Final = re.compile(r"\A\w+\Z")  # the alphanumeric word-char constraint `IDMLPackage.prefix` enforces (its `re.match(r"^\w+$")`)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -72,8 +73,8 @@ _PREFIX: Final = re.compile(r"\A\w+\Z")     # the alphanumeric word-char constra
 class IdmlSource(Struct, frozen=True):
     data: bytes
     prefix: str
-    at: str = _ROOT      # destination XPath anchor (where this source's content lands in the running package)
-    only: str = _ROOT    # source sub-tree selector; NEVER None — `insert_idml`/`add_pages_from_idml` require a resolvable xpath
+    at: str = _ROOT  # destination XPath anchor (where this source's content lands in the running package)
+    only: str = _ROOT  # source sub-tree selector; NEVER None — `insert_idml`/`add_pages_from_idml` require a resolvable xpath
 
 
 class StepFacts(Struct, frozen=True):
@@ -89,8 +90,20 @@ class StepFacts(Struct, frozen=True):
 @tagged_union(frozen=True)
 class IdmlStep:
     tag: Literal[
-        "insert", "add_pages", "import_xml", "place_pdf", "set_attributes", "add_note", "merge_layers",
-        "remove_content", "suffix_layers", "remove_layer", "remove_orphan_layers", "remove_guides", "add_story", "leaf_to_node",
+        "insert",
+        "add_pages",
+        "import_xml",
+        "place_pdf",
+        "set_attributes",
+        "add_note",
+        "merge_layers",
+        "remove_content",
+        "suffix_layers",
+        "remove_layer",
+        "remove_orphan_layers",
+        "remove_guides",
+        "add_story",
+        "leaf_to_node",
     ] = tag()
     insert: IdmlSource = case()
     add_pages: tuple[tuple[IdmlSource, int], ...] = case()
@@ -100,12 +113,12 @@ class IdmlStep:
     add_note: tuple[str, str, str] = case()
     merge_layers: str = case()
     remove_content: str = case()
-    suffix_layers: str = case()               # designmap layer-id namespace suffix, the layer-level analogue of the base `prefix`
-    remove_layer: str = case()                # designmap layer `Self` id; drops the layer and its guides
-    remove_orphan_layers: None = case()       # niladic — strips every layer no spread references
-    remove_guides: str = case()               # layer id whose guides clear while the layer itself stays
+    suffix_layers: str = case()  # designmap layer-id namespace suffix, the layer-level analogue of the base `prefix`
+    remove_layer: str = case()  # designmap layer `Self` id; drops the layer and its guides
+    remove_orphan_layers: None = case()  # niladic — strips every layer no spread references
+    remove_guides: str = case()  # layer id whose guides clear while the layer itself stays
     add_story: tuple[str, str, str] = case()  # (story_id, xml_element_id, xml_element_tag) — a new story bound to an XML element
-    leaf_to_node: tuple[str, str] = case()    # (destination xpath anchor, xml content ref) — Rectangle leaf promoted to a TextFrame node
+    leaf_to_node: tuple[str, str] = case()  # (destination xpath anchor, xml content ref) — Rectangle leaf promoted to a TextFrame node
 
     @classmethod
     @beartype(conf=FAULT_CONF)
@@ -191,8 +204,10 @@ class IdmlStep:
             case IdmlStep(tag="add_pages", add_pages=pages):
                 return StepFacts(sources=tuple(src for src, _ in pages), anchors=tuple(a for src, _ in pages for a in (src.at, src.only)))
             case (
-                IdmlStep(tag="import_xml", import_xml=(_, at)) | IdmlStep(tag="place_pdf", place_pdf=(_, at, _, _))
-                | IdmlStep(tag="set_attributes", set_attributes=(at, _)) | IdmlStep(tag="add_note", add_note=(at, _, _))
+                IdmlStep(tag="import_xml", import_xml=(_, at))
+                | IdmlStep(tag="place_pdf", place_pdf=(_, at, _, _))
+                | IdmlStep(tag="set_attributes", set_attributes=(at, _))
+                | IdmlStep(tag="add_note", add_note=(at, _, _))
                 | IdmlStep(tag="remove_content", remove_content=at)
             ):
                 return StepFacts(anchors=(at,))
@@ -213,12 +228,13 @@ class IdmlFact(Struct, frozen=True):
     spreads: int = 0
     stories: int = 0
     pages: int = 0
-    fonts: int = 0      # len(package.font_families)
-    styles: int = 0     # len(package.style_groups)
-    layers: int = 0     # len(package.referenced_layers)
-    tags: int = 0       # len(package.tags)
-    nodes: int = 0      # xml_structure.iter() node count
+    fonts: int = 0  # len(package.font_families)
+    styles: int = 0  # len(package.style_groups)
+    layers: int = 0  # len(package.referenced_layers)
+    tags: int = 0  # len(package.tags)
+    nodes: int = 0  # xml_structure.iter() node count
     steps: int = 0
+
 
 # --- [ERRORS] ---------------------------------------------------------------------------
 
@@ -230,10 +246,11 @@ class IdmlFault:
     # `BaseException`) converts to the runtime `BoundaryFault` at the `async_boundary`, never this vocabulary.
     tag: Literal["payload", "empty_data", "bad_prefix", "empty_anchor", "empty_ref"] = tag()
     payload: tuple[str, ...] = case()  # the rejected `IndesignPayload` key paths from the `TypeAdapter` miss
-    empty_data: int = case()           # source-row index carrying empty `.idml` payload bytes
-    bad_prefix: int = case()           # source-row index whose prefix is empty or fails `\A\w+\Z`
-    empty_anchor: int = case()         # step-anchor index carrying an empty `at` destination or `only` source xpath
-    empty_ref: int = case()            # step-identifier index carrying an empty layer/story/content id
+    empty_data: int = case()  # source-row index carrying empty `.idml` payload bytes
+    bad_prefix: int = case()  # source-row index whose prefix is empty or fails `\A\w+\Z`
+    empty_anchor: int = case()  # step-anchor index carrying an empty `at` destination or `only` source xpath
+    empty_ref: int = case()  # step-identifier index carrying an empty layer/story/content id
+
 
 # --- [BOUNDARIES] -----------------------------------------------------------------------
 
@@ -271,10 +288,14 @@ class Idml(Struct, frozen=True):
         bad_anchor = next((i for i, anchor in enumerate(anchors) if not anchor), None)
         bad_ref = next((i for i, ref in enumerate(identifiers) if not ref), None)
         return (
-            Error(IdmlFault(empty_data=bad_data)) if bad_data is not None
-            else Error(IdmlFault(bad_prefix=bad_prefix)) if bad_prefix is not None
-            else Error(IdmlFault(empty_anchor=bad_anchor)) if bad_anchor is not None
-            else Error(IdmlFault(empty_ref=bad_ref)) if bad_ref is not None
+            Error(IdmlFault(empty_data=bad_data))
+            if bad_data is not None
+            else Error(IdmlFault(bad_prefix=bad_prefix))
+            if bad_prefix is not None
+            else Error(IdmlFault(empty_anchor=bad_anchor))
+            if bad_anchor is not None
+            else Error(IdmlFault(empty_ref=bad_ref))
+            if bad_ref is not None
             else Ok(cls(base=base, steps=steps))
         )
 
@@ -290,6 +311,7 @@ class Idml(Struct, frozen=True):
         fact = await to_process.run_sync(_mutate, self, limiter=_GATE)
         key = ContentIdentity.of(_KIND, fact.data)
         return ArtifactReceipt.Office(key, len(fact.data))
+
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -308,12 +330,17 @@ def _mutate(plan: Idml) -> IdmlFact:  # [RESEARCH]: simple_idml -> lxml runs beh
                     package = stack.enter_context(package.insert_idml(part, at=_resolved(package, module.at), only=_resolved(part, module.only)))
                 case IdmlStep(tag="add_pages", add_pages=pages):
                     parts = [stack.enter_context(idml.IDMLPackage(str(_spill(stack, src.data, ".idml"))).prefix(src.prefix)) for src, _ in pages]
-                    specs = [(part, number, _resolved(package, src.at), _resolved(part, src.only)) for part, (src, number) in zip(parts, pages, strict=True)]
+                    specs = [
+                        (part, number, _resolved(package, src.at), _resolved(part, src.only))
+                        for part, (src, number) in zip(parts, pages, strict=True)
+                    ]
                     package = stack.enter_context(package.add_pages_from_idml(specs))
                 case IdmlStep(tag="import_xml", import_xml=(xml, at)):
                     package = stack.enter_context(package.import_xml(xml, at=_resolved(package, at)))
                 case IdmlStep(tag="place_pdf", place_pdf=(pdf, at, crop, page)):
-                    package = stack.enter_context(package.import_pdf(_spill(stack, pdf, ".pdf").as_uri(), at=_resolved(package, at), crop=crop.value, page_number=page))
+                    package = stack.enter_context(
+                        package.import_pdf(_spill(stack, pdf, ".pdf").as_uri(), at=_resolved(package, at), crop=crop.value, page_number=page)
+                    )
                 case IdmlStep(tag="set_attributes", set_attributes=(at, attrs)):
                     package = stack.enter_context(package.set_attributes(_resolved(package, at), dict(attrs)))
                 case IdmlStep(tag="add_note", add_note=(at, note, author)):

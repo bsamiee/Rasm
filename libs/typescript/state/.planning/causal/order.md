@@ -1,0 +1,1 @@
+# [STATE_ORDER] — happened-before folds + honest-uncertainty windows (kernel/clock); causal delivery buffer; stability frontier (GLB meet), causal finalize, retention-frontier handoff to store/journal/retain

@@ -3,10 +3,11 @@
 `StructuralAnalysisFormat` is the SAF (Structural Analysis Format) SDK — the open buildingSMART/
 IDEA StatiCa XLSX schema (`saf.guide`) for round-tripping a structural-analysis model between
 authoring tools (SCIA Engineer, IDEA StatiCa, Dlubal RFEM, Autodesk Robot, …). In Rasm.Bim it is
-the XLSX EXCHANGE WIRE for the `Model/structural#ANALYSIS_MODEL` graph, never the canonical model:
-the in-memory authority is the GeometryGym `IfcStructuralAnalysisModel` semantic graph
-(`.api/api-geometrygym-ifc`) and the host-neutral `AnalysisModel` is its view, while SAF imports/
-exports that view as a spreadsheet. The codec is two service interfaces — `IExcelImportService.Import(Stream)`
+the XLSX EXCHANGE WIRE over the seam structural payloads `Model/structural#STRUCTURAL_PROJECTION`
+defines, never the canonical model: the in-memory authority is the seam `ElementGraph` (the GeometryGym
+`IfcStructuralAnalysisModel` graph lowered onto neutral `Generic` edge/bag attrs — the retired
+host-neutral `AnalysisModel` store is the deleted form), while SAF imports/exports those payloads
+as a spreadsheet through the pending Exchange-lane lowering onto `ExcelModel`. The codec is two service interfaces — `IExcelImportService.Import(Stream)`
 → `ExcelModel` and `IExcelExportService.Export(Stream, ExcelModel)` → `ExcelExportResult` — over a
 FLAT model: `ExcelModel.Objects` is one `IReadOnlyList<IExcelModuleObject>` bag discriminated by
 concrete SAF type (`is ExcelStructuralCurveMember`), not a per-element typed collection, so the
@@ -168,8 +169,8 @@ on the consumed contract surface).
 - open enums: `ExcelFlexibleEnum<T> where T : struct, Enum` wraps a known enum value OR an arbitrary `string` (`IsOther`), so a non-standard member type or action type round-trips without data loss
 
 [LOCAL_ADMISSION]:
-- SAF is the XLSX EXCHANGE wire for `Model/structural#ANALYSIS_MODEL`, never the canonical model — the GeometryGym `IfcStructuralAnalysisModel` graph is the in-memory authority and `AnalysisModel` is the host-neutral view; `ExcelModel` round-trips that view to/from `.xlsx`
-- the Bim projection folds `ExcelModel.Objects` by concrete type exactly as `AnalysisProjection.Project` folds the IFC `IfcStructuralItem` set: `ExcelStructuralCurveMember`→`AnalysisMember.Curve`, `ExcelStructuralSurfaceMember`→`Surface` (its `ExcelMemberThickness`→`Surface.Thickness`), `ExcelStructuralPointConnection`→`PointConnection`, `ExcelStructuralPointSupport`→`Support`/`SupportRestraint` (the `ExcelConstraintType` DOF rows ‖ the IFC `IsFixed` six-DOF predicate), `ExcelStructuralLoadCase`/`LoadCombination`/`LoadGroup`→`LoadGroup` + `StructuralLoadKind`, the `ExcelRelConnects*`→`MemberConnection` edges
+- SAF is the XLSX EXCHANGE wire over the `Model/structural#STRUCTURAL_PROJECTION` seam payloads, never the canonical model — the seam `ElementGraph` is the in-memory authority (the retired `AnalysisModel` view is the deleted form); `ExcelModel` round-trips those payloads to/from `.xlsx` through the pending Exchange-lane arms (the `Exchange/format#FORMAT_AXIS` `Saf` candidate row promotes when they land)
+- the pending Bim lowering folds `ExcelModel.Objects` by concrete type onto the SAME neutral payloads the IFC ingest lands: `ExcelStructuralCurveMember`/`ExcelStructuralSurfaceMember`→ member `Object` nodes + `StructuralDefinitionSet` bags, `ExcelStructuralPointConnection`/`ExcelStructuralPointSupport`→ connection nodes + the `TranslationX..RotationKz` restraint edge attrs (the `ExcelConstraintType` DOF rows ‖ the six-DOF `Fixity`/`Spring` pairs), `ExcelStructuralLoadCase`/`LoadCombination`/`LoadGroup`→ the `LoadGroupType`/`ActionType`/`Case` bag rows, the `ExcelRelConnects*`→ the `IfcRelKind.ConnectsStructMember`/`ConnectsStructActivity` `Generic` edges
 - a SAF read/write fault, an unmapped object type, or a validation `Error` lowers onto `Model/faults#FAULT_BAND` `BimFault.CodecReject`/`ModelRejected` via `.ToError()`, reading `ExcelValidationResult.Severity`; never an exception across the fold
 - the `ExcelModel.SystemOfUnits` (`Metric`/`Imperial`) and `OriginalVersion` are decode context — coerce every SAF quantity to SI-base on ingest (the `.api/api-unitsnet` `ToUnit(UnitSystem.SI)` path) so the Bim graph is unit-normalized regardless of the SAF workbook regime
 
@@ -185,5 +186,5 @@ on the consumed contract surface).
 [RAIL_LAW]:
 - Package: `StructuralAnalysisFormat`
 - Owns: the SAF XLSX structural-analysis exchange codec and the SAF object model (`netstandard2.0`, Apache-2.0)
-- Accept: SAF as the exchange wire for `Model/structural` `AnalysisModel`; the flat `ExcelModel.Objects` bag folded by concrete type; quantities normalized to SI-base on ingest; export outcomes read off `ExcelExportResult`
-- Reject: SAF as the canonical structural model (the authority is the IFC graph + `AnalysisModel`), a per-element-type SAF collection mirror, a quantity round-trip that reinterprets a scalar instead of mapping the `UnitsNet` unit, exception-driven codec control flow, and an unverified UnitsNet 4↔5 binding assumption on the SAF quantity surface
+- Accept: SAF as the exchange wire over the `Model/structural` seam payloads; the flat `ExcelModel.Objects` bag folded by concrete type; quantities normalized to SI-base on ingest; export outcomes read off `ExcelExportResult`
+- Reject: SAF as a canonical structural model (the authority is the seam `ElementGraph`; the retired `AnalysisModel` store is the deleted form), a per-element-type SAF collection mirror, a quantity round-trip that reinterprets a scalar instead of mapping the `UnitsNet` unit, exception-driven codec control flow, and an unverified UnitsNet 4↔5 binding assumption on the SAF quantity surface

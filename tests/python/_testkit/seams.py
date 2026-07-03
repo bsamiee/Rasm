@@ -22,6 +22,8 @@ if TYPE_CHECKING:
 
 # Member names are diagnostic only; dispatch keys on the Shape variant.
 type SeamRecord = tuple[str, tuple[object, ...], dict[str, object]]
+type Recorder = Callable[[tuple[object, ...], dict[str, object]], None]
+type SeamLog = Callable[[str, tuple[object, ...], dict[str, object]], None]
 type Variant = bytes | object
 
 
@@ -53,11 +55,39 @@ class Sync[R](msgspec.Struct, frozen=True, gc=False):
 
     value: R
 
+    def bind(self, record: Recorder, log: SeamLog) -> Callable[..., object]:
+        """Build the recording runner this seam installs; each variant owns its own call shape.
+
+        Returns:
+            The monkeypatch-ready callable for this seam.
+        """
+        _ = log
+
+        def run_sync(*args: object, **kwargs: object) -> R:
+            record(args, kwargs)
+            return self.value
+
+        return run_sync
+
 
 class Async[R](msgspec.Struct, frozen=True, gc=False):
     """Awaited seam: ``async (*args, **kwargs) -> value`` for a coroutine the SUT ``await``s."""
 
     value: R
+
+    def bind(self, record: Recorder, log: SeamLog) -> Callable[..., object]:
+        """Build the recording runner this seam installs; each variant owns its own call shape.
+
+        Returns:
+            The monkeypatch-ready callable for this seam.
+        """
+        _ = log
+
+        async def run_async(*args: object, **kwargs: object) -> R:  # noqa: RUF029  # async required: production callsite awaits this seam
+            record(args, kwargs)
+            return self.value
+
+        return run_async
 
 
 class FanOut[R](msgspec.Struct, frozen=True, gc=False):
@@ -65,12 +95,44 @@ class FanOut[R](msgspec.Struct, frozen=True, gc=False):
 
     values: tuple[R, ...]
 
+    def bind(self, record: Recorder, log: SeamLog) -> Callable[..., object]:
+        """Build the recording runner this seam installs; each variant owns its own call shape.
+
+        Returns:
+            The monkeypatch-ready callable for this seam.
+        """
+        _ = log
+
+        def run_fan(items: object, **kwargs: object) -> tuple[R, ...]:
+            record((items,), kwargs)
+            return self.values
+
+        return run_fan
+
 
 class Factory[R](msgspec.Struct, frozen=True, gc=False):
     """Curried seam: ``(bind...) -> (call...) -> value`` recording bind-layer then ``inner_label`` call-layer."""
 
     value: R
     inner_label: str = "<factory>.run"
+
+    def bind(self, record: Recorder, log: SeamLog) -> Callable[..., object]:
+        """Build the recording runner this seam installs; each variant owns its own call shape.
+
+        Returns:
+            The monkeypatch-ready callable for this seam.
+        """
+
+        def run_factory(*bind_args: object, **bind_kwargs: object) -> Callable[..., R]:
+            record(bind_args, bind_kwargs)
+
+            def run_call(*call: object, **call_kwargs: object) -> R:
+                log(self.inner_label, call, call_kwargs)
+                return self.value
+
+            return run_call
+
+        return run_factory
 
 
 type Shape[R] = Sync[R] | Async[R] | FanOut[R] | Factory[R]
@@ -90,40 +152,10 @@ class SeamProbe[A](msgspec.Struct, frozen=True, gc=False):
             self.calls.append((member, args, kwargs))
             self.captured.extend(self.project(args))
 
-        match shape:
-            case Async(value=value):
+        def log(label: str, args: tuple[object, ...], kwargs: dict[str, object]) -> None:
+            self.calls.append((label, args, kwargs))
 
-                async def run_async(*args: object, **kwargs: object) -> R:  # noqa: RUF029  # async required: production callsite awaits this seam
-                    record(args, kwargs)
-                    return value
-
-                mp.setattr(owner, member, run_async)
-            case FanOut(values=values):
-
-                def run_fan(items: object, **kwargs: object) -> tuple[R, ...]:
-                    record((items,), kwargs)
-                    return values
-
-                mp.setattr(owner, member, run_fan)
-            case Factory(value=value, inner_label=inner_label):
-
-                def run_factory(*bind: object, **bind_kwargs: object) -> Callable[..., R]:
-                    record(bind, bind_kwargs)
-
-                    def run_call(*call: object, **call_kwargs: object) -> R:
-                        self.calls.append((inner_label, call, call_kwargs))
-                        return value
-
-                    return run_call
-
-                mp.setattr(owner, member, run_factory)
-            case Sync(value=value):
-
-                def run_sync(*args: object, **kwargs: object) -> R:
-                    record(args, kwargs)
-                    return value
-
-                mp.setattr(owner, member, run_sync)
+        mp.setattr(owner, member, shape.bind(record, log))
 
     def projected[K](self, pick: Callable[[SeamRecord], Iterable[K]]) -> list[K]:
         return [item for call in self.calls for item in pick(call)]

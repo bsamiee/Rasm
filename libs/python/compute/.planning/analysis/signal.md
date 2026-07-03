@@ -66,8 +66,8 @@ class FilterKind(StrEnum):
 
 
 class DecompMode(StrEnum):
-    DECIMATED = "decimated"      # pywt.wavedec / waverec, level cap pywt.dwt_max_level
-    STATIONARY = "stationary"    # pywt.swt / iswt (shift-invariant, undecimated), cap swt_max_level
+    DECIMATED = "decimated"  # pywt.wavedec / waverec, level cap pywt.dwt_max_level
+    STATIONARY = "stationary"  # pywt.swt / iswt (shift-invariant, undecimated), cap swt_max_level
 
 
 class ThresholdMode(StrEnum):
@@ -92,6 +92,7 @@ class ThresholdMode(StrEnum):
                 return lambda c: pywt.threshold_firm(c, value, 2.0 * value)
             case _:
                 return lambda c: pywt.threshold(c, value, mode=self.value)
+
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -137,11 +138,7 @@ class SignalEvidence:
             case SignalEvidence(tag="peaks", peaks=(count, prominence)):
                 return {"peaks": count, "mean_prominence": f"{prominence:.3e}"}
             case SignalEvidence(tag="multiresolution", multiresolution=(energy, residual, shrink)):
-                return {
-                    "level_energy": ",".join(f"{e:.3e}" for e in energy),
-                    "reconstruction_residual": f"{residual:.3e}",
-                    "shrink": shrink.value,
-                }
+                return {"level_energy": ",".join(f"{e:.3e}" for e in energy), "reconstruction_residual": f"{residual:.3e}", "shrink": shrink.value}
             case SignalEvidence(tag="scale", scale=(scale, hz)):
                 return {"dominant_scale": f"{scale:.3f}", "dominant_hz": f"{hz:.3f}"}
             case SignalEvidence(tag="packet", packet=(energy, hz)):
@@ -213,7 +210,9 @@ class SignalOp:
     def Packet(wavelet: str = "db4", maxlevel: int = 3, readout: SpectralReadout = SpectralReadout.PEAK) -> "SignalOp":
         return SignalOp(packet=(wavelet, maxlevel, readout))
 
+
 # --- [TABLES] ---------------------------------------------------------------------------
+
 
 # one row per DecompMode carrying the (forward, inverse, max-level) triple over the decimated
 # and undecimated DWT families, the same callable-table collapse `analysis/transform.md#TRANSFORM`
@@ -230,16 +229,14 @@ def _wavelet_routes() -> "Map[DecompMode, WaveletRoute]":
     # because `wavedec`/`swt` take `mode` at the third positional slot; both inverse rows share
     # the (coeffs, wavelet) contract so `waverec`/`iswt` pass through bare.
     return Map.of_seq([
-        (DecompMode.DECIMATED, (
-            lambda x, wavelet, level: pywt.wavedec(x, wavelet, level=level),
-            pywt.waverec,
-            lambda n, w: pywt.dwt_max_level(n, w.dec_len),
-        )),
-        (DecompMode.STATIONARY, (
-            lambda x, wavelet, level: pywt.swt(x, wavelet, level=level, trim_approx=True),
-            pywt.iswt,
-            lambda n, _w: pywt.swt_max_level(n),
-        )),
+        (
+            DecompMode.DECIMATED,
+            (lambda x, wavelet, level: pywt.wavedec(x, wavelet, level=level), pywt.waverec, lambda n, w: pywt.dwt_max_level(n, w.dec_len)),
+        ),
+        (
+            DecompMode.STATIONARY,
+            (lambda x, wavelet, level: pywt.swt(x, wavelet, level=level, trim_approx=True), pywt.iswt, lambda n, _w: pywt.swt_max_level(n)),
+        ),
     ])
 
 
@@ -323,7 +320,9 @@ def _apply(samples: object, fs: float, op: SignalOp, key: ContentKey) -> SignalR
         case SignalOp(tag="multiresolution", multiresolution=(wavelet, level)):
             bands = pywt.mra(xn, wavelet, level=level or None, transform="swt")
             residual = float(np.linalg.norm(np.einsum("bi->i", np.asarray(bands)) - xn) / (np.linalg.norm(xn) + 1e-30))
-            return SignalReceipt.of("multiresolution", xn.size, key, SignalEvidence.Multiresolution(_coeff_energy(bands), residual, ThresholdMode.NONE))
+            return SignalReceipt.of(
+                "multiresolution", xn.size, key, SignalEvidence.Multiresolution(_coeff_energy(bands), residual, ThresholdMode.NONE)
+            )
         case SignalOp(tag="scalogram", scalogram=(wavelet, scales, resolution)):
             grid = np.asarray(scales) if scales else np.logspace(0.0, np.log(0.5 * xn.size), resolution, base=np.e)
             # the FFT-domain CWT, not the direct convolution: the geometric grid is the many-scales

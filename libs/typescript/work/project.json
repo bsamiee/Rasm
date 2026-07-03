@@ -1,0 +1,11 @@
+{
+    "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+    "name": "work",
+    "projectType": "library",
+    "sourceRoot": "libs/typescript/work/src",
+    "tags": [
+        "scope:work",
+        "runtime:node",
+        "plane:runtime"
+    ]
+}

@@ -1,0 +1,1 @@
+# [STORE_HYBRID] — hybrid RRF over the FTS | trigram | phonetic | fuzzy | semantic lane roster; embedding-fingerprint keys per vector row; rerank row; facet/snippet/keyset-cursor families; Embedder port satisfied by ai/embed

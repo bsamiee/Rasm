@@ -50,7 +50,9 @@ lazy from uniseg.graphemecluster import grapheme_cluster_boundaries  # UAX#29 ex
 lazy from icu import Bidi, Normalizer2, Script  # gated PyICU upgrade behind the BidiEngine/SegmentEngine.ICU rows; absent -> the default arms run
 lazy from vharfbuzz import Vharfbuzz
 
-lazy from artifacts.typography.font import ScriptTags  # the face-selection seam: script -> (OT tags, direction), composed at ITEMIZE, never a re-derived script->tag map
+lazy from artifacts.typography.font import (
+    ScriptTags,
+)  # the face-selection seam: script -> (OT tags, direction), composed at ITEMIZE, never a re-derived script->tag map
 
 # --- [TYPES] ----------------------------------------------------------------------------
 type FeatureSpec = Mapping[str, int | bool | Sequence[tuple[int, int, int | bool]]]
@@ -69,7 +71,7 @@ class ShapeOp(StrEnum):
 
 
 class Lane(StrEnum):
-    THREAD = "thread"    # GIL-releasing native (shape/raster/QA); the worker shares the font bytes zero-copy
+    THREAD = "thread"  # GIL-releasing native (shape/raster/QA); the worker shares the font bytes zero-copy
     PROCESS = "process"  # gated PyO3/native-C++ workers (python-bidi/PyICU/uniseg) with no in-process gated package
 
 
@@ -82,17 +84,17 @@ class WritingDirection(StrEnum):
 
 class BidiEngine(StrEnum):
     PYTHON_BIDI = "python-bidi"  # the locale-free UAX#9 default (cp315-active)
-    ICU = "icu"                  # the locale/explicit-level PyICU upgrade (gated absent today)
+    ICU = "icu"  # the locale/explicit-level PyICU upgrade (gated absent today)
 
 
 class SegmentEngine(StrEnum):
     DEFAULT = "default"  # locale-free default: fontTools.unicodedata.script itemize + stdlib NFC (the itemize owner is fontTools, NOT uniseg — no naming drift)
-    ICU = "icu"          # the CLDR-tailored PyICU upgrade (gated absent today)
+    ICU = "icu"  # the CLDR-tailored PyICU upgrade (gated absent today)
 
 
 class ClusterLevel(StrEnum):
     # hb.BufferClusterLevel member names, resolved at the seam via `getattr(hb.BufferClusterLevel, level.name)`; drives caret placement, mark attachment, and grapheme-aware selection
-    MONOTONE_GRAPHEMES = "MONOTONE_GRAPHEMES"    # the HarfBuzz default
+    MONOTONE_GRAPHEMES = "MONOTONE_GRAPHEMES"  # the HarfBuzz default
     MONOTONE_CHARACTERS = "MONOTONE_CHARACTERS"
     GRAPHEMES = "GRAPHEMES"
     CHARACTERS = "CHARACTERS"
@@ -106,16 +108,16 @@ class RasterBackend(StrEnum):
 
 
 class ColorFormat(StrEnum):
-    PAINT = "paint"    # COLRv1 paint graph via blackrenderer
-    PNG = "png"        # CBDT/sbix bitmap via Font.get_glyph_color_png
-    SVG = "svg"        # OT-SVG table via Face.get_glyph_color_svg
+    PAINT = "paint"  # COLRv1 paint graph via blackrenderer
+    PNG = "png"  # CBDT/sbix bitmap via Font.get_glyph_color_png
+    SVG = "svg"  # OT-SVG table via Face.get_glyph_color_svg
     RASTER = "raster"  # zero-native-dep uharfbuzz RasterPaint BGRA32 CPU fallback
 
 
 class PaletteUsage(StrEnum):
-    ANY = "any"      # the explicit `palette_index`
+    ANY = "any"  # the explicit `palette_index`
     LIGHT = "light"  # first CPAL palette flagged OTColorPaletteFlags.USABLE_WITH_LIGHT_BACKGROUND
-    DARK = "dark"    # first CPAL palette flagged OTColorPaletteFlags.USABLE_WITH_DARK_BACKGROUND
+    DARK = "dark"  # first CPAL palette flagged OTColorPaletteFlags.USABLE_WITH_DARK_BACKGROUND
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -124,22 +126,41 @@ _DEFAULT_MARGIN: Final = 20
 _SHAPE_SLOTS: Final[int] = os.process_cpu_count() or 4
 _SHAPE_LIMITER: Final = CapacityLimiter(_SHAPE_SLOTS)
 _RUN_ENCODER: Final = msgspec.msgpack.Encoder()
-_UNSAFE_TO_BREAK: Final = 0x0001        # mirrors hb.GlyphFlags.UNSAFE_TO_BREAK — the layout owner refuses a line break inside the cluster
-_UNSAFE_TO_CONCAT: Final = 0x0002       # mirrors hb.GlyphFlags.UNSAFE_TO_CONCAT — the run-cache owner refuses a shaped-run splice
+_UNSAFE_TO_BREAK: Final = 0x0001  # mirrors hb.GlyphFlags.UNSAFE_TO_BREAK — the layout owner refuses a line break inside the cluster
+_UNSAFE_TO_CONCAT: Final = 0x0002  # mirrors hb.GlyphFlags.UNSAFE_TO_CONCAT — the run-cache owner refuses a shaped-run splice
 _SAFE_TO_INSERT_TATWEEL: Final = 0x0004  # mirrors hb.GlyphFlags.SAFE_TO_INSERT_TATWEEL — the kashida justifier's tatweel-insertion points
-_VARIATION_SELECTORS: Final[frozenset[int]] = frozenset(range(0xFE00, 0xFE10)) | frozenset(range(0xE0100, 0xE01F0))  # VS1-16 + VS17-256 selecting a UVS glyph variant
-_IDEOGRAPHIC_SCRIPTS: Final[frozenset[str]] = frozenset({"hani", "hang", "hira", "kana", "bopo", "yiii", "hant", "hans"})  # the `ideo` OT baseline tag; every other script reads `romn`
+_VARIATION_SELECTORS: Final[frozenset[int]] = frozenset(range(0xFE00, 0xFE10)) | frozenset(
+    range(0xE0100, 0xE01F0)
+)  # VS1-16 + VS17-256 selecting a UVS glyph variant
+_IDEOGRAPHIC_SCRIPTS: Final[frozenset[str]] = frozenset({
+    "hani",
+    "hang",
+    "hira",
+    "kana",
+    "bopo",
+    "yiii",
+    "hant",
+    "hans",
+})  # the `ideo` OT baseline tag; every other script reads `romn`
 _LOG: Final = structlog.get_logger()
 _TRACER: Final = trace.get_tracer(__name__)
 _TRANSIENT: Final = AsyncRetryingCaller(attempts=3, timeout=30.0).on((BrokenWorkerProcess, BrokenWorkerInterpreter))
-_HB_DIRECTION: Final[frozendict[WritingDirection, str | None]] = frozendict(
-    {WritingDirection.AUTO: None, WritingDirection.LTR: "ltr", WritingDirection.RTL: "rtl", WritingDirection.TTB: "ttb"}
-)
-_BIDI_BASE: Final[frozendict[WritingDirection, str | None]] = frozendict(
-    {WritingDirection.AUTO: None, WritingDirection.LTR: "L", WritingDirection.RTL: "R", WritingDirection.TTB: None}
-)
-_ICU_LEVEL: Final[frozendict[WritingDirection, int]] = frozendict(  # 0 = LTR base level, 1 = RTL (UAX#9); AUTO falls to the LTR base absent the ICU DEFAULT_LTR constant
-    {WritingDirection.AUTO: 0, WritingDirection.LTR: 0, WritingDirection.RTL: 1, WritingDirection.TTB: 0}
+_HB_DIRECTION: Final[frozendict[WritingDirection, str | None]] = frozendict({
+    WritingDirection.AUTO: None,
+    WritingDirection.LTR: "ltr",
+    WritingDirection.RTL: "rtl",
+    WritingDirection.TTB: "ttb",
+})
+_BIDI_BASE: Final[frozendict[WritingDirection, str | None]] = frozendict({
+    WritingDirection.AUTO: None,
+    WritingDirection.LTR: "L",
+    WritingDirection.RTL: "R",
+    WritingDirection.TTB: None,
+})
+_ICU_LEVEL: Final[frozendict[WritingDirection, int]] = (
+    frozendict(  # 0 = LTR base level, 1 = RTL (UAX#9); AUTO falls to the LTR base absent the ICU DEFAULT_LTR constant
+        {WritingDirection.AUTO: 0, WritingDirection.LTR: 0, WritingDirection.RTL: 1, WritingDirection.TTB: 0}
+    )
 )
 
 
@@ -157,10 +178,10 @@ class ItemizedRun(Struct, frozen=True):
     # one single-direction/single-script span the ITEMIZE arm emits, carrying the typography/font#FONT ScriptTags resolution FONT selects a face per and SHAPE shapes per
     start: int
     stop: int
-    script: str                # ISO 15924 / ICU short script code
-    ot_tags: tuple[str, ...]   # OpenType script tags (multi for Indic v1/v2, e.g. "dev2"/"deva") resolved via ScriptTags.of, never a re-derived map
-    direction: str             # "LTR" / "RTL" from ScriptTags.direction
-    level: int                 # bidi embedding level (0 = LTR base)
+    script: str  # ISO 15924 / ICU short script code
+    ot_tags: tuple[str, ...]  # OpenType script tags (multi for Indic v1/v2, e.g. "dev2"/"deva") resolved via ScriptTags.of, never a re-derived map
+    direction: str  # "LTR" / "RTL" from ScriptTags.direction
+    level: int  # bidi embedding level (0 = LTR base)
 
 
 class PositionedGlyphRun(Struct, frozen=True):
@@ -169,12 +190,18 @@ class PositionedGlyphRun(Struct, frozen=True):
     outline: str = ""
     direction: str = "ltr"
     script: str = ""
-    glyph_outlines: tuple[str, ...] = ()  # per-glyph origin-drawn SVG d-strings the `graphic/vector#VECTOR` `text_path` curved-baseline seam threads along an arc-length `Path`; empty for a straight-baseline consumer that reads `outline`
-    extents: tuple[tuple[int, int, int, int], ...] = ()  # per-glyph (x_bearing, y_bearing, width, height) from Font.get_glyph_extents — the ink bbox `typography/layout#LAYOUT` reads
-    ascender: int = 0     # Font.get_font_extents(direction).ascender
-    descender: int = 0    # .descender (negative below the baseline)
-    line_gap: int = 0     # .line_gap — the run's vertical leading `typography/layout#LAYOUT` reads for line-height
-    baseline: int = 0     # Font.get_layout_baseline(ideo|romn, direction, script) — the per-run OT baseline a mixed Latin+CJK union aligns on (0 = no BASE table)
+    glyph_outlines: tuple[
+        str, ...
+    ] = ()  # per-glyph origin-drawn SVG d-strings the `graphic/vector#VECTOR` `text_path` curved-baseline seam threads along an arc-length `Path`; empty for a straight-baseline consumer that reads `outline`
+    extents: tuple[
+        tuple[int, int, int, int], ...
+    ] = ()  # per-glyph (x_bearing, y_bearing, width, height) from Font.get_glyph_extents — the ink bbox `typography/layout#LAYOUT` reads
+    ascender: int = 0  # Font.get_font_extents(direction).ascender
+    descender: int = 0  # .descender (negative below the baseline)
+    line_gap: int = 0  # .line_gap — the run's vertical leading `typography/layout#LAYOUT` reads for line-height
+    baseline: int = (
+        0  # Font.get_layout_baseline(ideo|romn, direction, script) — the per-run OT baseline a mixed Latin+CJK union aligns on (0 = no BASE table)
+    )
     style: StyleValues = StyleValues()  # the resolved WEIGHT/WIDTH/OPTICAL_SIZE/ITALIC/SLANT_ANGLE evidence
 
     @property
@@ -213,14 +240,16 @@ class ShapeParams(Struct, frozen=True, kw_only=True):
     variations: Mapping[str, float] = {}
     features: FeatureSpec | None = None
     direction: WritingDirection = WritingDirection.AUTO
-    script: str | None = None    # explicit OT script tag pinned through set_script_from_ot_tag; None guesses
+    script: str | None = None  # explicit OT script tag pinned through set_script_from_ot_tag; None guesses
     language: str | None = None  # explicit OT language tag pinned through set_language_from_ot_tag; None guesses
     fallback_faces: tuple[bytes, ...] = ()
     bidi_engine: BidiEngine = BidiEngine.PYTHON_BIDI
     segment_engine: SegmentEngine = SegmentEngine.DEFAULT
-    cluster_level: ClusterLevel = ClusterLevel.MONOTONE_GRAPHEMES  # caret/mark-attachment/grapheme-selection granularity threaded into Buffer.cluster_level
+    cluster_level: ClusterLevel = (
+        ClusterLevel.MONOTONE_GRAPHEMES
+    )  # caret/mark-attachment/grapheme-selection granularity threaded into Buffer.cluster_level
     raster_backend: RasterBackend = RasterBackend.SVG
-    synthetic_bold: float = 0.0   # faux-bold embolden ratio when the face lacks a real bold instance (Font.synthetic_bold)
+    synthetic_bold: float = 0.0  # faux-bold embolden ratio when the face lacks a real bold instance (Font.synthetic_bold)
     synthetic_slant: float = 0.0  # faux-italic slant when the face lacks a real italic (Font.synthetic_slant)
     font_size: float = _DEFAULT_FONT_SIZE
     margin: int = _DEFAULT_MARGIN
@@ -335,8 +364,7 @@ def _fallback_coverage(shaping: "Shaping") -> bytes:
         for data, index in ((shaping.font, params.face_index), *((face, 0) for face in params.fallback_faces))
     )
     assignment = tuple(
-        (start, next((rank for rank, font in enumerate(fonts) if _covers(font, base, vs)), -1))
-        for start, base, vs in _cluster_probes(params.text)
+        (start, next((rank for rank, font in enumerate(fonts) if _covers(font, base, vs)), -1)) for start, base, vs in _cluster_probes(params.text)
     )
     return _RUN_ENCODER.encode(assignment)
 
@@ -355,8 +383,11 @@ def _run_baseline(font: object, script: str, direction: str, /) -> int:
 def _style_values(font: object, /) -> StyleValues:
     read = font.get_style_value  # searches the resolved variation location first, then STAT/OS2 — the opsz-aware evidence
     return StyleValues(
-        weight=read(hb.StyleTag.WEIGHT), width=read(hb.StyleTag.WIDTH), optical_size=read(hb.StyleTag.OPTICAL_SIZE),
-        italic=read(hb.StyleTag.ITALIC), slant_angle=read(hb.StyleTag.SLANT_ANGLE),
+        weight=read(hb.StyleTag.WEIGHT),
+        width=read(hb.StyleTag.WIDTH),
+        optical_size=read(hb.StyleTag.OPTICAL_SIZE),
+        italic=read(hb.StyleTag.ITALIC),
+        slant_angle=read(hb.StyleTag.SLANT_ANGLE),
     )
 
 
@@ -380,7 +411,15 @@ def _shape_text(shaping: "Shaping") -> bytes:
     glyph_set = TTFont(io.BytesIO(shaping.font)).getGlyphSet()
     pen, outlines = SVGPathPen(glyph_set), []
     cursor_x = cursor_y = 0
-    for gid, _cluster, x_advance, y_advance, x_offset, y_offset, _flags in glyphs:  # the combined pen threads the straight baseline (a bare origin draw stacks every glyph at (0, 0)); each per-glyph pen draws at ORIGIN so `graphic/vector#VECTOR` `text_path` places it along a curved baseline
+    for (
+        gid,
+        _cluster,
+        x_advance,
+        y_advance,
+        x_offset,
+        y_offset,
+        _flags,
+    ) in glyphs:  # the combined pen threads the straight baseline (a bare origin draw stacks every glyph at (0, 0)); each per-glyph pen draws at ORIGIN so `graphic/vector#VECTOR` `text_path` places it along a curved baseline
         font.draw_glyph_with_pen(gid, TransformPen(pen, (1.0, 0.0, 0.0, 1.0, cursor_x + x_offset, cursor_y + y_offset)))
         glyph_pen = SVGPathPen(glyph_set)
         font.draw_glyph_with_pen(gid, glyph_pen)
@@ -388,12 +427,21 @@ def _shape_text(shaping: "Shaping") -> bytes:
         cursor_x += x_advance
         cursor_y += y_advance
     metrics = font.get_font_extents(buffer.direction)  # FontExtents: ascender/descender/line_gap for the run's line-height
-    return _RUN_ENCODER.encode(PositionedGlyphRun(
-        glyphs=glyphs, outline=pen.getCommands(), glyph_outlines=tuple(outlines), direction=buffer.direction, script=buffer.script,
-        extents=tuple(_glyph_bbox(font, glyph[0]) for glyph in glyphs),
-        ascender=metrics.ascender, descender=metrics.descender, line_gap=metrics.line_gap,
-        baseline=_run_baseline(font, buffer.script, buffer.direction), style=_style_values(font),
-    ))
+    return _RUN_ENCODER.encode(
+        PositionedGlyphRun(
+            glyphs=glyphs,
+            outline=pen.getCommands(),
+            glyph_outlines=tuple(outlines),
+            direction=buffer.direction,
+            script=buffer.script,
+            extents=tuple(_glyph_bbox(font, glyph[0]) for glyph in glyphs),
+            ascender=metrics.ascender,
+            descender=metrics.descender,
+            line_gap=metrics.line_gap,
+            baseline=_run_baseline(font, buffer.script, buffer.direction),
+            style=_style_values(font),
+        )
+    )
 
 
 _COLOR_PROBE: Final[tuple[tuple[Callable[[object, RasterBackend], bool], ColorFormat], ...]] = (

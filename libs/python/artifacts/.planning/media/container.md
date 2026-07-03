@@ -41,7 +41,7 @@ if TYPE_CHECKING:
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type Frames = tuple[NDArray[np.uint8], ...]      # host rgb24 rasters, or DLPack-exposing device tensors _lift discriminates
+type Frames = tuple[NDArray[np.uint8], ...]  # host rgb24 rasters, or DLPack-exposing device tensors _lift discriminates
 type Samples = tuple["Pcm", ...]
 type MediaOpTag = Literal["encode_video", "encode_audio", "mux", "transcode", "remux"]
 type MediaFaultTag = Literal["unregistered", "invalid", "codec", "provision", "worker", "contract"]
@@ -53,11 +53,11 @@ _FRAME_FORMAT = "rgb24"
 # ColorProfile -> the (color_primaries, color_trc, colorspace, color_range) INTEGER AVCOL quad each frame attribute
 # requires; `frame.color_primaries = 9` is the verified settable path, `= "bt2020"` raises `an integer is required`.
 _COLOR_CODES: frozendict[str, tuple[int, int, int, int]] = frozendict({
-    "srgb": (1, 13, 1, 2),          # bt709 primaries, IEC61966-2-1 sRGB trc, bt709 matrix, full range
-    "bt709": (1, 1, 1, 1),          # HD SDR: bt709 primaries/trc/matrix, tv range
-    "bt601": (6, 6, 6, 1),          # SD SDR: smpte170m
-    "bt2020_pq": (9, 16, 9, 1),     # HDR10: bt2020 primaries, SMPTE2084 PQ trc, bt2020-ncl matrix
-    "bt2020_hlg": (9, 18, 9, 1),    # HLG: bt2020 primaries, ARIB-STD-B67 HLG trc, bt2020-ncl matrix
+    "srgb": (1, 13, 1, 2),  # bt709 primaries, IEC61966-2-1 sRGB trc, bt709 matrix, full range
+    "bt709": (1, 1, 1, 1),  # HD SDR: bt709 primaries/trc/matrix, tv range
+    "bt601": (6, 6, 6, 1),  # SD SDR: smpte170m
+    "bt2020_pq": (9, 16, 9, 1),  # HDR10: bt2020 primaries, SMPTE2084 PQ trc, bt2020-ncl matrix
+    "bt2020_hlg": (9, 18, 9, 1),  # HLG: bt2020 primaries, ARIB-STD-B67 HLG trc, bt2020-ncl matrix
 })
 
 # retry the transient subprocess-death seam only, mirroring graphic/raster/io#IO: a BrokenWorkerProcess OOM/signal
@@ -70,7 +70,7 @@ class ContainerFormat(StrEnum):
     WEBM = "webm"
     MKV = "matroska"
     GIF = "gif"
-    HLS = "hls"                      # segmented: io_open sinks the .m3u8 manifest + fMP4/TS segments to the UPath root
+    HLS = "hls"  # segmented: io_open sinks the .m3u8 manifest + fMP4/TS segments to the UPath root
     DASH = "dash"
     SEGMENT = "segment"
     MPEGTS = "mpegts"
@@ -84,8 +84,9 @@ class ColorProfile(StrEnum):
     SRGB = "srgb"
     BT709 = "bt709"
     BT601 = "bt601"
-    BT2020_PQ = "bt2020_pq"         # HDR10
+    BT2020_PQ = "bt2020_pq"  # HDR10
     BT2020_HLG = "bt2020_hlg"
+
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -97,32 +98,32 @@ class MediaFault:
     # `match` routes a registration miss apart from a malformed stream apart from a worker death apart from a contract miss.
     tag: MediaFaultTag = tag()
     unregistered: tuple[str, str] = case()  # a probed codec/muxer/filter/bsf absent from the build — (registry, name)
-    invalid: str = case()                   # av InvalidDataError — malformed frame/stream data
-    codec: tuple[str, str] = case()         # any other av FFmpegError during encode/mux/transcode/remux — (op, strerror)
-    provision: str = case()                 # the bundled FFmpeg build is absent (av ImportError at the worker seam)
-    worker: str = case()                    # an exhausted BrokenWorkerProcess subprocess death past `_WORKER_RETRY`
-    contract: str = case()                  # a BeartypeCallHintViolation lifted at the worker seam
+    invalid: str = case()  # av InvalidDataError — malformed frame/stream data
+    codec: tuple[str, str] = case()  # any other av FFmpegError during encode/mux/transcode/remux — (op, strerror)
+    provision: str = case()  # the bundled FFmpeg build is absent (av ImportError at the worker seam)
+    worker: str = case()  # an exhausted BrokenWorkerProcess subprocess death past `_WORKER_RETRY`
+    contract: str = case()  # a BeartypeCallHintViolation lifted at the worker seam
 
 
 class HwAccel(Struct, frozen=True):
     # read-side hardware-decode spec `_hwaccel` probes against `av.codec.hwaccel.hwdevices_available` before minting
     # `HWAccel(device_type=, allow_software_fallback=)` for `av.open(mode="r", hwaccel=)`; a missing device degrades
     # to software decode when `allow_software_fallback`, never a hard crash on a build without the GPU backend.
-    device_type: str = "videotoolbox"       # HWDeviceType name (videotoolbox/cuda/vaapi/qsv/d3d11va)
+    device_type: str = "videotoolbox"  # HWDeviceType name (videotoolbox/cuda/vaapi/qsv/d3d11va)
     allow_software_fallback: bool = True
 
 
 class Attachment(Struct, frozen=True):
     name: str
     mimetype: str
-    data: bytes                             # a font for a later subtitle burn, a cover image — `add_attachment` embed
+    data: bytes  # a font for a later subtitle burn, a cover image — `add_attachment` embed
 
 
 class SegmentSpec(Struct, frozen=True):
     # the segmented-sink policy: `_segment_sink` builds the `io_open(url, flags)` callback opening `UPath(root)/url`
     # so HLS/DASH/fMP4 segments land locally or on s3://,gs:// through the admitted fsspec backends; `manifest` is the
     # top-level playlist name av.open writes, `options` the muxer knobs (hls_time/hls_segment_type/seg_duration).
-    root: str                               # a UPath url — file:///…, s3://bucket/prefix, gs://…
+    root: str  # a UPath url — file:///…, s3://bucket/prefix, gs://…
     manifest: str = "index.m3u8"
     options: frozendict[str, str] = frozendict()
     storage_options: frozendict[str, str] = frozendict()
@@ -130,20 +131,20 @@ class SegmentSpec(Struct, frozen=True):
 
 class MediaProfile(Struct, frozen=True):
     container: ContainerFormat = ContainerFormat.MP4
-    codec: str = "libx264"                  # the encoder name; a hardware encoder (h264_videotoolbox/hevc_videotoolbox) is a codec row
+    codec: str = "libx264"  # the encoder name; a hardware encoder (h264_videotoolbox/hevc_videotoolbox) is a codec row
     rate: int = 24
     bit_rate: int | None = None
     gop_size: int | None = None
-    pix_fmt: str = "yuv420p"                # the encoder pixel format the frame reformats to (yuv420p10le for a 10-bit HDR grade)
-    frame_format: str = _FRAME_FORMAT       # the producer ndarray pixel format `from_ndarray` ingests; reformat bridges it to `pix_fmt`
+    pix_fmt: str = "yuv420p"  # the encoder pixel format the frame reformats to (yuv420p10le for a 10-bit HDR grade)
+    frame_format: str = _FRAME_FORMAT  # the producer ndarray pixel format `from_ndarray` ingests; reformat bridges it to `pix_fmt`
     layout: str = "stereo"
     thread_count: int = 0
-    color: ColorProfile = ColorProfile.SRGB              # the HDR/color band; BT2020_PQ over yuv420p10le is a real HDR10 grade
-    options: frozendict[str, str] = frozendict()         # codec-private knobs (crf/preset/tune) -> add_stream(options=)
+    color: ColorProfile = ColorProfile.SRGB  # the HDR/color band; BT2020_PQ over yuv420p10le is a real HDR10 grade
+    options: frozendict[str, str] = frozendict()  # codec-private knobs (crf/preset/tune) -> add_stream(options=)
     container_options: frozendict[str, str] = frozendict()  # muxer-private knobs (movflags=frag_keyframe+empty_moov for fMP4)
-    hwaccel: "HwAccel | None" = None                     # read-side hardware decode (Transcode/random-access); None = software
-    segment: "SegmentSpec | None" = None                 # segmented io_open sink; None = one BytesIO blob
-    attachments: tuple[Attachment, ...] = ()             # add_attachment embeds (fonts/covers)
+    hwaccel: "HwAccel | None" = None  # read-side hardware decode (Transcode/random-access); None = software
+    segment: "SegmentSpec | None" = None  # segmented io_open sink; None = one BytesIO blob
+    attachments: tuple[Attachment, ...] = ()  # add_attachment embeds (fonts/covers)
     master: "Master | None" = None
 
     def streamed(self, container: object, width: int, height: int) -> object:
@@ -182,7 +183,15 @@ class MediaEvidence(Struct, frozen=True):
     facts: frozendict[str, float | str] = frozendict()  # libav majors + ffmpeg build + color tag + segment count -> ArtifactReceipt.Media band
 
     @staticmethod
-    def measure(container: ContainerFormat, codec: str, duration: float, frames: int, bit_rate: int, blob: bytes, facts: frozendict[str, float | str] = frozendict()) -> "MediaEvidence":
+    def measure(
+        container: ContainerFormat,
+        codec: str,
+        duration: float,
+        frames: int,
+        bit_rate: int,
+        blob: bytes,
+        facts: frozendict[str, float | str] = frozendict(),
+    ) -> "MediaEvidence":
         return MediaEvidence(container, codec, duration, len(blob), frames, bit_rate, facts)
 
 
@@ -193,7 +202,7 @@ class MediaOp:
     encode_audio: tuple[Samples, MediaProfile] = case()
     mux: tuple[Frames, Samples, MediaProfile, MediaProfile] = case()
     transcode: tuple[bytes, MediaProfile, "tuple[FilterNode, ...]"] = case()  # source bytes -> decode -> filtergraph Graph -> encode -> mux
-    remux: tuple[bytes, MediaProfile, str] = case()                           # source bytes -> demux -> BSF -> mux copy, no re-decode
+    remux: tuple[bytes, MediaProfile, str] = case()  # source bytes -> demux -> BSF -> mux copy, no re-decode
 
     @staticmethod
     def EncodeVideo(frames: Frames, profile: MediaProfile) -> "MediaOp":
@@ -235,7 +244,16 @@ class Media(Struct, frozen=True):
     def _keyed(self, produced: tuple[bytes, MediaEvidence], /) -> tuple[ContentKey, ArtifactReceipt]:
         blob, evidence = produced
         key = ContentIdentity.of(evidence.container.value, blob)
-        return key, ArtifactReceipt.Media(key, evidence.container.value, evidence.codec, evidence.duration, evidence.byte_count, evidence.frame_count, evidence.bit_rate, evidence.facts)
+        return key, ArtifactReceipt.Media(
+            key,
+            evidence.container.value,
+            evidence.codec,
+            evidence.duration,
+            evidence.byte_count,
+            evidence.frame_count,
+            evidence.bit_rate,
+            evidence.facts,
+        )
 
     async def _mux(self) -> Result[tuple[bytes, MediaEvidence], MediaFault]:
         try:
@@ -276,7 +294,7 @@ from expression import Error, Ok, Result
 lazy import av
 lazy import av.error
 lazy import av.codec.hwaccel
-lazy from upath import UPath                                  # the segmented-sink egress root; module-scope (a lazy stmt inside a function is a SyntaxError)
+lazy from upath import UPath  # the segmented-sink egress root; module-scope (a lazy stmt inside a function is a SyntaxError)
 lazy from artifacts.media.audio import _encode_audio, _voiced
 lazy from artifacts.media.filtergraph import build_graph
 
@@ -291,8 +309,14 @@ def _media_fault(op: str, exc: "av.error.FFmpegError", /) -> MediaFault:
     match exc:
         case av.error.InvalidDataError():
             return MediaFault(invalid=str(exc))
-        case (av.error.EncoderNotFoundError() | av.error.DecoderNotFoundError() | av.error.MuxerNotFoundError()
-              | av.error.DemuxerNotFoundError() | av.error.FilterNotFoundError() | av.error.BSFNotFoundError()):
+        case (
+            av.error.EncoderNotFoundError()
+            | av.error.DecoderNotFoundError()
+            | av.error.MuxerNotFoundError()
+            | av.error.DemuxerNotFoundError()
+            | av.error.FilterNotFoundError()
+            | av.error.BSFNotFoundError()
+        ):
             return MediaFault(unregistered=(type(exc).__name__, str(exc)))
         case _:
             return MediaFault(codec=(op, str(exc)))
@@ -319,7 +343,11 @@ def _lift(profile: MediaProfile, array: object) -> object:
     # torch/cupy CUDA producer, no host round-trip) through `from_dlpack`. The discriminant is `isinstance(np.ndarray)`,
     # NOT `hasattr("__dlpack__")` — numpy arrays expose `__dlpack__` too, so the hasattr probe would mis-route the host
     # path. Then reformat to the encoder `pix_fmt` and stamp the INTEGER AVCOL color quad (the bitstream-VUI setattr).
-    frame = av.VideoFrame.from_ndarray(array, format=profile.frame_format) if isinstance(array, np.ndarray) else av.VideoFrame.from_dlpack(array, format=profile.frame_format)
+    frame = (
+        av.VideoFrame.from_ndarray(array, format=profile.frame_format)
+        if isinstance(array, np.ndarray)
+        else av.VideoFrame.from_dlpack(array, format=profile.frame_format)
+    )
     converted = frame.reformat(format=profile.pix_fmt) if profile.pix_fmt != profile.frame_format else frame
     for attr, code in profile.colored().items():
         setattr(converted, attr, code)
@@ -386,7 +414,7 @@ def _filtered(graph: "av.filter.Graph | None", frame: object, /) -> Iterator[obj
     while True:  # libavfilter pull protocol: drain until EAGAIN (needs input) or EOF (flushed)
         try:
             yield graph.pull()
-        except (BlockingIOError, EOFError):
+        except BlockingIOError, EOFError:
             return
 
 
@@ -425,9 +453,7 @@ def _decode_window(blob: bytes, in_point: float, out_point: float) -> tuple[Fram
         stream = reader.streams.best("video")
         _seek(reader, stream, in_point)
         kept = tuple(
-            frame.to_ndarray(format="rgb24")
-            for frame in reader.decode(stream)
-            if frame.time is not None and in_point <= frame.time < out_point
+            frame.to_ndarray(format="rgb24") for frame in reader.decode(stream) if frame.time is not None and in_point <= frame.time < out_point
         )
         return kept, round(float(stream.average_rate or 24))
 
@@ -447,7 +473,9 @@ def _encode_video(frames: Frames, profile: MediaProfile) -> Result[tuple[bytes, 
         blob, segments = finalize()
         # segmented output's blob IS the manifest (no single-blob video stream to re-probe), so evidence reads the source
         # frame count and the exact temporal extent (frames / rate); a single-blob encode re-opens the muxed bytes.
-        duration, count, bit_rate = (len(frames) / profile.rate, len(frames), int(profile.bit_rate or 0)) if profile.container.segmented else _probe(blob)
+        duration, count, bit_rate = (
+            (len(frames) / profile.rate, len(frames), int(profile.bit_rate or 0)) if profile.container.segmented else _probe(blob)
+        )
         facts = _deployment(profile) | {"segments": float(segments)} if profile.container.segmented else _deployment(profile)
         return Ok((blob, MediaEvidence.measure(profile.container, profile.codec, duration, count, bit_rate, blob, facts)))
     except ImportError as exc:
@@ -492,7 +520,10 @@ def _transcode(source: bytes, profile: MediaProfile, nodes: "tuple[FilterNode, .
         if not _codec_ok(profile.codec):
             return Error(MediaFault(unregistered=("codecs_available", profile.codec)))
         sink = io.BytesIO()
-        with av.open(io.BytesIO(source), mode="r", hwaccel=_hwaccel(profile)) as reader, av.open(sink, mode="w", format=profile.container.value, container_options=dict(profile.container_options)) as container:
+        with (
+            av.open(io.BytesIO(source), mode="r", hwaccel=_hwaccel(profile)) as reader,
+            av.open(sink, mode="w", format=profile.container.value, container_options=dict(profile.container_options)) as container,
+        ):
             src = reader.streams.best("video")
             wired = build_graph(nodes, src) if nodes else None  # media/filtergraph#FILTER: native/substitute-routed graph + numpy composites
             graph = wired.graph if wired is not None else None
@@ -500,7 +531,9 @@ def _transcode(source: bytes, profile: MediaProfile, nodes: "tuple[FilterNode, .
             index = 0
             for frame in chain(reader.decode(src), (None,) if graph is not None else ()):  # None flush drains a buffering filter's tail
                 for pulled in _filtered(graph, frame):
-                    shaped = wired.composited(pulled) if wired is not None else pulled  # apply the text/subtitle numpy substitutes after the graph pull
+                    shaped = (
+                        wired.composited(pulled) if wired is not None else pulled
+                    )  # apply the text/subtitle numpy substitutes after the graph pull
                     if stream is None:
                         stream = profile.streamed(container, shaped.width, shaped.height)
                     _drive(container, stream, shaped.reformat(format=profile.pix_fmt), index, profile.rate)
@@ -526,17 +559,20 @@ def _remux(source: bytes, profile: MediaProfile, bsf: str) -> Result[tuple[bytes
         if bsf and bsf not in av.bitstream_filters_available:
             return Error(MediaFault(unregistered=("bitstream_filters_available", bsf)))
         sink = io.BytesIO()
-        with av.open(io.BytesIO(source), mode="r") as reader, av.open(sink, mode="w", format=profile.container.value, container_options=dict(profile.container_options)) as container:
+        with (
+            av.open(io.BytesIO(source), mode="r") as reader,
+            av.open(sink, mode="w", format=profile.container.value, container_options=dict(profile.container_options)) as container,
+        ):
             src = reader.streams.best("video")
             out = container.add_stream_from_template(src)
             bitstream = av.BitStreamFilterContext(bsf, src, out) if bsf else None
             for packet in reader.demux(src):
                 if packet.dts is None:  # the demuxer's terminal flush packet carries no timestamp
                     continue
-                for shaped in (bitstream.filter(packet) if bitstream is not None else (packet,)):
+                for shaped in bitstream.filter(packet) if bitstream is not None else (packet,):
                     shaped.stream = out
                     container.mux_one(shaped)
-            for shaped in (bitstream.filter(None) if bitstream is not None else ()):  # filter(None) drains the buffered packets
+            for shaped in bitstream.filter(None) if bitstream is not None else ():  # filter(None) drains the buffered packets
                 shaped.stream = out
                 container.mux_one(shaped)
         blob = sink.getvalue()

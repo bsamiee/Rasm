@@ -8,7 +8,7 @@ export const meta = {
     { title: 'Implement', detail: '1 agent per 2 pages, kind-aware: ground-up author / hostile rebuild / cold improve, absorb-then-delete, write-fully; plus one brief-deletion executor when the brief drops pages outright' },
     { title: 'Critique', detail: '1 agent per 3 pages: mechanical line-by-line checklists (COLLAPSE_SCAN / OWNER_CHOOSER / KNOB_TEST / ASPECTS / RAILS / language-modernity / CAPABILITY-COMPLETENESS + ILLUSION), fix in place' },
     { title: 'Redteam', detail: '1 agent per 3 pages, paired after its critique batch: six adversarial lenses + a full cold re-review, fix in place' },
-    { title: 'Reconcile', detail: 'union-find residual clusters -> at most 6 buckets -> parallel opus fixers -> ONE terminal verify agent (guarded: skipped when no fixer changed a file); open claims return as hard_residual, no re-entry loop', model: 'opus' },
+    { title: 'Reconcile', detail: 'union-find residual clusters -> at most 6 buckets -> parallel fable fixers -> ONE terminal verify agent (guarded: skipped when no fixer changed a file); open claims return as hard_residual, no re-entry loop', model: 'fable' },
   ],
 }
 
@@ -25,12 +25,14 @@ const RECON_CAP = 6 // reconcile is ONE encompassing pass: residuals pack into <
 // --- [INPUTS] ----------------------------------------------------------------------------
 
 const normTarget = (t) => String(t).trim().replace(/\/+$/, '').replace(/^\/+/, '')
-const rawTargets = Array.isArray(args) ? args
-  : (args && typeof args === 'object' && Array.isArray(args.targets)) ? args.targets
-  : (args && typeof args === 'object' && typeof args.targets === 'string') ? [args.targets]
-  : (typeof args === 'string' && args.trim()) ? [args]
+// Hosts may deliver object args JSON-encoded; decode before shape dispatch.
+const argsIn = (typeof args === 'string' && /^\s*[\[{]/.test(args)) ? JSON.parse(args) : args
+const rawTargets = Array.isArray(argsIn) ? argsIn
+  : (argsIn && typeof argsIn === 'object' && Array.isArray(argsIn.targets)) ? argsIn.targets
+  : (argsIn && typeof argsIn === 'object' && typeof argsIn.targets === 'string') ? [argsIn.targets]
+  : (typeof argsIn === 'string' && argsIn.trim()) ? [argsIn]
   : []
-const BRIEF = (args && typeof args === 'object' && !Array.isArray(args) && typeof args.brief === 'string' && args.brief.trim()) ? args.brief.trim() : ''
+const BRIEF = (argsIn && typeof argsIn === 'object' && !Array.isArray(argsIn) && typeof argsIn.brief === 'string' && argsIn.brief.trim()) ? argsIn.brief.trim() : ''
 const TARGETS = [...new Set(rawTargets.filter(Boolean).map(normTarget))]
 const langOf = (t) => t.indexOf('libs/csharp') === 0 ? 'cs' : t.indexOf('libs/python') === 0 ? 'py' : t.indexOf('libs/typescript') === 0 ? 'ts' : null
 const LANG_KEYS = [...new Set(TARGETS.map(langOf))]
@@ -521,13 +523,16 @@ const pool = async (items, cap, worker) => {
 }
 const chunk = (arr, n) => { const o = []; for (let i = 0; i < arr.length; i += n) o.push(arr.slice(i, i + n)); return o }
 const dedup = (rs) => [...new Map(rs.map((r) => [r.files.slice().sort().join(',') + '|' + r.claim, r])).values()]
-// packClusters — consolidate the union-find clusters into AT MOST n buckets (greedy smallest-bucket) so reconcile stays one bounded pass.
+// packClusters — consolidate the union-find clusters into AT MOST n buckets. Balance by WORK, never residual count:
+// a fixer's load is dominated by the distinct files it reads + reconciles, and count-greedy systematically hands
+// bucket 0 the largest connected component then tops it to count parity — the measured 2x long pole.
+const clusterWork = (c) => { const files = new Set(); for (const r of c) for (const f of r.files || []) files.add(f); return files.size * 2 + c.length }
 const packClusters = (clusters, n) => {
   if (clusters.length <= n) return clusters
-  const buckets = Array.from({ length: n }, () => [])
-  const sorted = clusters.slice().sort((a, b) => b.length - a.length || ((a[0] && a[0].claim) || '').localeCompare((b[0] && b[0].claim) || ''))
-  for (const c of sorted) { let mi = 0; for (let i = 1; i < n; i++) if (buckets[i].length < buckets[mi].length) mi = i; buckets[mi].push(...c) }
-  return buckets.filter((b) => b.length)
+  const buckets = Array.from({ length: n }, () => ({ work: 0, rows: [] }))
+  const sorted = clusters.slice().sort((a, b) => clusterWork(b) - clusterWork(a) || ((a[0] && a[0].claim) || '').localeCompare((b[0] && b[0].claim) || ''))
+  for (const c of sorted) { let mi = 0; for (let i = 1; i < n; i++) if (buckets[i].work < buckets[mi].work) mi = i; buckets[mi].rows.push(...c); buckets[mi].work += clusterWork(c) }
+  return buckets.filter((b) => b.rows.length).map((b) => b.rows)
 }
 const unionFind = (uniq) => {
   const parent = new Map(); const find = (f) => { let p = f; while (parent.get(p) !== p) p = parent.get(p); return p }; const add = (f) => { if (!parent.has(f)) parent.set(f, f) }
@@ -720,7 +725,7 @@ phase('Implement')
 const implWork = chunk(PAGES, IMPL_BATCH).map((batch) => ({ kind: 'impl', batch }))
 if (deletePages.length) implWork.push({ kind: 'delete', batch: deletePages })
 const builtRaw = await pool(implWork, CAP, (w, i) => w.kind === 'delete'
-  ? agent(deletePrompt(w.batch), { label: 'delete:brief', phase: 'Implement', model: 'opus', effort: 'high', schema: DELETE_SCHEMA, stallMs: STALL })
+  ? agent(deletePrompt(w.batch), { label: 'delete:brief', phase: 'Implement', model: 'fable', effort: 'high', schema: DELETE_SCHEMA, stallMs: STALL })
   : agent(implementPrompt(w.batch), { label: 'impl:b' + i + ':' + folderOf(w.batch[0].page), phase: 'Implement', model: 'fable', effort: 'max', schema: FIXLOG_SCHEMA, stallMs: STALL }))
 const deleteLog = deletePages.length ? builtRaw[implWork.length - 1] : null // pool preserves item order; the delete executor is the last work item
 const builtAll = builtRaw.filter(Boolean)
@@ -748,7 +753,8 @@ const uniq = dedup(allRes.filter((r) => r && r.claim))
 const clusters = unionFind(uniq)
 const buckets = packClusters(clusters, RECON_CAP)
 log('Build: ' + built.length + ' implement batch(es), ' + reviewed.length + ' review pair(s), ' + deleted.length + ' page(s) deleted; ' +
-  'reconcile ' + uniq.length + ' residuals -> ' + clusters.length + ' clusters -> ' + buckets.length + ' bucket(s) (cap ' + RECON_CAP + ', ONE pass, no re-entry)')
+  'reconcile ' + uniq.length + ' residuals -> ' + clusters.length + ' clusters -> ' + buckets.length + ' bucket(s) (cap ' + RECON_CAP + ', ONE pass, no re-entry)' +
+  (buckets.length ? '; bucket work [' + buckets.map((b) => clusterWork(b)).join(', ') + '] (2*files+claims — the long pole is visible, never silent)' : ''))
 let hard_residual = []
 let dropped = []
 let repaired = []
@@ -756,7 +762,7 @@ if (buckets.length) {
   phase('Reconcile')
   const pkgs = packages.map((p) => p.planning || p.root).join(', ')
   const fixes = await pool(buckets, RECON_CAP, (bucket, i) =>
-    agent(reconcilePrompt(bucket, pkgs), { label: 'reconcile-fix:' + i, phase: 'Reconcile', model: 'opus', effort: 'max', schema: RESIDUAL_FIX_SCHEMA, stallMs: STALL }))
+    agent(reconcilePrompt(bucket, pkgs), { label: 'reconcile-fix:' + i, phase: 'Reconcile', model: 'fable', effort: 'max', schema: RESIDUAL_FIX_SCHEMA, stallMs: STALL }))
   const work = buckets.map((bucket, i) => ({ bucket, fix: fixes[i] }))
   for (const w of work) {
     if (!w.fix) { hard_residual.push(...w.bucket) } // fixer skipped/died — its residuals stay live

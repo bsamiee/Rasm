@@ -191,7 +191,8 @@ class Theme(Struct, frozen=True):
         outlined = fonted.opt_table_outline(style=self.outline[0], width=self.outline[1], color=self.outline[2]) if self.outline else fonted
         cssed = outlined.opt_css(css=self.css) if self.css else outlined
         return (
-            cssed.opt_row_striping(row_striping=self.striping)
+            cssed
+            .opt_row_striping(row_striping=self.striping)
             .opt_align_table_header(align=self.header_align)
             .opt_all_caps(all_caps=self.all_caps)
             .opt_vertical_padding(scale=self.vertical_scale)
@@ -213,9 +214,16 @@ class NanoSpec(Struct, frozen=True):
 
     def fold(self, gt: GT, columns: Cols, rows: Rows) -> GT:
         return gt.fmt_nanoplot(
-            columns=columns, rows=rows, plot_type=self.plot_type, plot_height=self.plot_height,
-            missing_vals=self.missing_vals, autoscale=self.autoscale, reference_line=self.reference_line,
-            reference_area=self.reference_area, expand_x=self.expand_x, expand_y=self.expand_y,
+            columns=columns,
+            rows=rows,
+            plot_type=self.plot_type,
+            plot_height=self.plot_height,
+            missing_vals=self.missing_vals,
+            autoscale=self.autoscale,
+            reference_line=self.reference_line,
+            reference_area=self.reference_area,
+            expand_x=self.expand_x,
+            expand_y=self.expand_y,
             options=nanoplot_options(**self.options) if self.options else None,
         )
 
@@ -226,8 +234,7 @@ class NanoSpec(Struct, frozen=True):
 @tagged_union(frozen=True)
 class Reshape:
     tag: Literal[
-        "select", "filter", "sort", "rename", "cast", "head", "slice",
-        "with_columns", "derive", "group_agg", "pivot", "unpivot", "top_k",
+        "select", "filter", "sort", "rename", "cast", "head", "slice", "with_columns", "derive", "group_agg", "pivot", "unpivot", "top_k"
     ] = tag()
     select: tuple[pl.Expr | str, ...] = case()
     filter: tuple[pl.Expr, ...] = case()
@@ -299,16 +306,45 @@ class Reshape:
 @tagged_union(frozen=True)
 class TableOp:
     tag: Literal[
-        "header", "stub", "stubhead", "source_note", "footnote",
-        "label", "label_with", "label_rotate", "align", "width",
-        "hide", "unhide", "reorder", "move", "move_ends",
-        "spanner", "spanner_delim",
-        "fmt", "nanoplot",
-        "merge_range", "merge_uncert", "merge_n_pct", "merge",
-        "sub_missing", "sub_zero", "sub_small", "sub_large", "sub_values",
-        "text_transform", "text_case_when", "text_case_match", "text_replace",
-        "summary", "grand_summary", "row_group_order",
-        "style", "color", "css", "pipe",
+        "header",
+        "stub",
+        "stubhead",
+        "source_note",
+        "footnote",
+        "label",
+        "label_with",
+        "label_rotate",
+        "align",
+        "width",
+        "hide",
+        "unhide",
+        "reorder",
+        "move",
+        "move_ends",
+        "spanner",
+        "spanner_delim",
+        "fmt",
+        "nanoplot",
+        "merge_range",
+        "merge_uncert",
+        "merge_n_pct",
+        "merge",
+        "sub_missing",
+        "sub_zero",
+        "sub_small",
+        "sub_large",
+        "sub_values",
+        "text_transform",
+        "text_case_when",
+        "text_case_match",
+        "text_replace",
+        "summary",
+        "grand_summary",
+        "row_group_order",
+        "style",
+        "color",
+        "css",
+        "pipe",
     ] = tag()
     header: tuple[str, str | None, list[str] | None] = case()
     stub: tuple[str | None, str | None] = case()
@@ -367,7 +403,15 @@ class TableOp:
         return TableOp(source_note=note)
 
     @staticmethod
-    def Footnote(text: str, at: StubLoc = StubLoc.BODY, columns: Cols = None, rows: Rows = None, mask: Mask = None, groups: Groups = None, placement: Literal["auto", "left", "right"] = "auto") -> "TableOp":
+    def Footnote(
+        text: str,
+        at: StubLoc = StubLoc.BODY,
+        columns: Cols = None,
+        rows: Rows = None,
+        mask: Mask = None,
+        groups: Groups = None,
+        placement: Literal["auto", "left", "right"] = "auto",
+    ) -> "TableOp":
         return TableOp(footnote=(text, (at, columns, rows, mask, groups), placement))
 
     @staticmethod
@@ -411,11 +455,21 @@ class TableOp:
         return TableOp(move_ends=(columns, end))
 
     @staticmethod
-    def Spanner(label: str, columns: Cols = None, nest: str | list[str] | None = None, level: int | None = None, spanner_id: str | None = None, gather: bool = True, replace: bool = False) -> "TableOp":
+    def Spanner(
+        label: str,
+        columns: Cols = None,
+        nest: str | list[str] | None = None,
+        level: int | None = None,
+        spanner_id: str | None = None,
+        gather: bool = True,
+        replace: bool = False,
+    ) -> "TableOp":
         return TableOp(spanner=(label, columns, nest, level, spanner_id, gather, replace))
 
     @staticmethod
-    def SpannerDelim(delim: str = ".", columns: Cols = None, split: Literal["first", "last"] = "last", limit: int = -1, reverse: bool = False) -> "TableOp":
+    def SpannerDelim(
+        delim: str = ".", columns: Cols = None, split: Literal["first", "last"] = "last", limit: int = -1, reverse: bool = False
+    ) -> "TableOp":
         return TableOp(spanner_delim=(delim, columns, split, limit, reverse))
 
     @staticmethod
@@ -467,27 +521,56 @@ class TableOp:
         return TableOp(sub_values=(columns, fn, replacement))
 
     @staticmethod
-    def TextTransform(fn: Callable[[str], str], at: StubLoc = StubLoc.BODY, columns: Cols = None, rows: Rows = None, mask: Mask = None, groups: Groups = None) -> "TableOp":
+    def TextTransform(
+        fn: Callable[[str], str], at: StubLoc = StubLoc.BODY, columns: Cols = None, rows: Rows = None, mask: Mask = None, groups: Groups = None
+    ) -> "TableOp":
         return TableOp(text_transform=((at, columns, rows, mask, groups), fn))
 
     @staticmethod
-    def TextCaseWhen(cases: tuple[tuple[Predicate, str], ...], default: str | None = None, at: StubLoc = StubLoc.BODY, columns: Cols = None, rows: Rows = None, mask: Mask = None, groups: Groups = None) -> "TableOp":
+    def TextCaseWhen(
+        cases: tuple[tuple[Predicate, str], ...],
+        default: str | None = None,
+        at: StubLoc = StubLoc.BODY,
+        columns: Cols = None,
+        rows: Rows = None,
+        mask: Mask = None,
+        groups: Groups = None,
+    ) -> "TableOp":
         return TableOp(text_case_when=((at, columns, rows, mask, groups), cases, default))
 
     @staticmethod
-    def TextCaseMatch(cases: tuple[tuple[str | list[str], str], ...], default: str | None = None, replace: Literal["all", "partial"] = "all", at: StubLoc = StubLoc.BODY, columns: Cols = None, rows: Rows = None, mask: Mask = None, groups: Groups = None) -> "TableOp":
+    def TextCaseMatch(
+        cases: tuple[tuple[str | list[str], str], ...],
+        default: str | None = None,
+        replace: Literal["all", "partial"] = "all",
+        at: StubLoc = StubLoc.BODY,
+        columns: Cols = None,
+        rows: Rows = None,
+        mask: Mask = None,
+        groups: Groups = None,
+    ) -> "TableOp":
         return TableOp(text_case_match=((at, columns, rows, mask, groups), cases, default, replace))
 
     @staticmethod
-    def TextReplace(pattern: str, replacement: str, at: StubLoc = StubLoc.BODY, columns: Cols = None, rows: Rows = None, mask: Mask = None, groups: Groups = None) -> "TableOp":
+    def TextReplace(
+        pattern: str, replacement: str, at: StubLoc = StubLoc.BODY, columns: Cols = None, rows: Rows = None, mask: Mask = None, groups: Groups = None
+    ) -> "TableOp":
         return TableOp(text_replace=((at, columns, rows, mask, groups), pattern, replacement))
 
     @staticmethod
-    def Summary(fns: dict[str, pl.Expr], fmt: FmtFn | None = None, groups: list[str] | None = None, side: Literal["bottom", "top"] = "bottom", missing_text: str = "---") -> "TableOp":
+    def Summary(
+        fns: dict[str, pl.Expr],
+        fmt: FmtFn | None = None,
+        groups: list[str] | None = None,
+        side: Literal["bottom", "top"] = "bottom",
+        missing_text: str = "---",
+    ) -> "TableOp":
         return TableOp(summary=(fns, fmt, groups, side, missing_text))
 
     @staticmethod
-    def GrandSummary(fns: dict[str, pl.Expr], fmt: FmtFn | None = None, side: Literal["bottom", "top"] = "bottom", missing_text: str = "---") -> "TableOp":
+    def GrandSummary(
+        fns: dict[str, pl.Expr], fmt: FmtFn | None = None, side: Literal["bottom", "top"] = "bottom", missing_text: str = "---"
+    ) -> "TableOp":
         return TableOp(grand_summary=(fns, fmt, side, missing_text))
 
     @staticmethod
@@ -495,11 +578,22 @@ class TableOp:
         return TableOp(row_group_order=groups)
 
     @staticmethod
-    def Style(specs: tuple[StyleSpec, ...], at: StubLoc = StubLoc.BODY, columns: Cols = None, rows: Rows = None, mask: Mask = None, groups: Groups = None) -> "TableOp":
+    def Style(
+        specs: tuple[StyleSpec, ...], at: StubLoc = StubLoc.BODY, columns: Cols = None, rows: Rows = None, mask: Mask = None, groups: Groups = None
+    ) -> "TableOp":
         return TableOp(style=((at, columns, rows, mask, groups), specs))
 
     @staticmethod
-    def Color(columns: Cols = None, palette: str | list[str] = "viridis", domain: list[float] | list[str] | None = None, rows: Rows = None, na_color: str | None = None, alpha: float = 1.0, reverse: bool = False, truncate: bool = True) -> "TableOp":
+    def Color(
+        columns: Cols = None,
+        palette: str | list[str] = "viridis",
+        domain: list[float] | list[str] | None = None,
+        rows: Rows = None,
+        na_color: str | None = None,
+        alpha: float = 1.0,
+        reverse: bool = False,
+        truncate: bool = True,
+    ) -> "TableOp":
         return TableOp(color=(columns, rows, palette, domain, na_color, alpha, reverse, truncate))
 
     @staticmethod
@@ -531,11 +625,33 @@ class TablePlan(Struct, frozen=True):
     pdf_scale: float = 2.0
 
     @classmethod
-    def of(cls, source: FrameSource, ops: Iterable[TableOp], fmt: TableFormat, *, shape: Iterable[Reshape] = (), theme: Theme = Theme(), rowname_col: str | None = None, groupname_col: str | None = None, locale: str | None = None, config: frozendict[str, object] = frozendict()) -> Self:
+    def of(
+        cls,
+        source: FrameSource,
+        ops: Iterable[TableOp],
+        fmt: TableFormat,
+        *,
+        shape: Iterable[Reshape] = (),
+        theme: Theme = Theme(),
+        rowname_col: str | None = None,
+        groupname_col: str | None = None,
+        locale: str | None = None,
+        config: frozendict[str, object] = frozendict(),
+    ) -> Self:
         # admit raw material ONCE: a settled frame passes through, an Arrow-C-stream interchange capsule
         # (the C# `Rasm.Bim` QTO/schedule wire) normalizes into the canonical frame (zero-copy where the layout permits).
         frame = source if isinstance(source, pl.DataFrame) else pl.from_dataframe(source)
-        return cls(frame=frame, ops=tuple(ops), fmt=fmt, shape=tuple(shape), theme=theme, rowname_col=rowname_col, groupname_col=groupname_col, locale=locale, config=config)
+        return cls(
+            frame=frame,
+            ops=tuple(ops),
+            fmt=fmt,
+            shape=tuple(shape),
+            theme=theme,
+            rowname_col=rowname_col,
+            groupname_col=groupname_col,
+            locale=locale,
+            config=config,
+        )
 
     @staticmethod
     def Series(values: pl.Series, kind: FmtKind = FmtKind.NUMBER, **opts: Any) -> list[str]:
@@ -553,7 +669,9 @@ class TablePlan(Struct, frozen=True):
 
     def _emit(self) -> ArtifactReceipt:
         data = self.build()
-        return ArtifactReceipt.Table(ContentIdentity.key(f"table-{self.fmt}", data), self.fmt.value, len(data))  # `key` is the synchronous bare accessor: the rendered bytes are an infallible whole-byte source, so `_emit` mints the receipt off a bare `ContentKey`, never the railed `of`
+        return ArtifactReceipt.Table(
+            ContentIdentity.key(f"table-{self.fmt}", data), self.fmt.value, len(data)
+        )  # `key` is the synchronous bare accessor: the rendered bytes are an infallible whole-byte source, so `_emit` mints the receipt off a bare `ContentKey`, never the railed `of`
 
     @property
     def _seam(self) -> bool:
@@ -565,7 +683,13 @@ class TablePlan(Struct, frozen=True):
         with pl.Config(**self.config):
             shaped = reduce(_shape, self.shape, self.frame)
             ident = self.table_id if self.table_id is not None else _stable_id(shaped, self.fmt, self.ops)
-            base = shaped.style.with_id(ident) if self._seam else GT(shaped, rowname_col=self.rowname_col, groupname_col=self.groupname_col, auto_align=self.auto_align, id=ident, locale=self.locale)
+            base = (
+                shaped.style.with_id(ident)
+                if self._seam
+                else GT(
+                    shaped, rowname_col=self.rowname_col, groupname_col=self.groupname_col, auto_align=self.auto_align, id=ident, locale=self.locale
+                )
+            )
             built = reduce(_fold, self.ops, self.theme.apply(base))
             match self.fmt:
                 case TableFormat.HTML:
@@ -809,7 +933,17 @@ def _fold(gt: GT, op: TableOp) -> GT:
         case TableOp(tag="style", style=((at, columns, rows, mask, groups), specs)):
             return gt.tab_style(style=[_cell(spec) for spec in specs], locations=_place(at, columns, rows, mask, groups))
         case TableOp(tag="color", color=(columns, rows, palette, domain, na_color, alpha, reverse, truncate)):
-            return gt.data_color(columns=columns, rows=rows, palette=palette, domain=domain, na_color=na_color, alpha=alpha, reverse=reverse, autocolor_text=True, truncate=truncate)
+            return gt.data_color(
+                columns=columns,
+                rows=rows,
+                palette=palette,
+                domain=domain,
+                na_color=na_color,
+                alpha=alpha,
+                reverse=reverse,
+                autocolor_text=True,
+                truncate=truncate,
+            )
         case TableOp(tag="css", css=rule):
             return gt.opt_css(css=rule)
         case TableOp(tag="pipe", pipe=fn):
@@ -819,9 +953,7 @@ def _fold(gt: GT, op: TableOp) -> GT:
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
-__all__ = [
-    "FmtKind", "FootnoteMarks", "NanoSpec", "Reshape", "StubLoc", "TableFormat", "TableOp", "TablePlan", "Theme",
-]
+__all__ = ["FmtKind", "FootnoteMarks", "NanoSpec", "Reshape", "StubLoc", "TableFormat", "TableOp", "TablePlan", "Theme"]
 ```
 
 ## [03]-[RESEARCH]

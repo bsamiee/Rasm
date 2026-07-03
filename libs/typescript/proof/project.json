@@ -1,0 +1,11 @@
+{
+    "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+    "name": "proof",
+    "projectType": "library",
+    "sourceRoot": "libs/typescript/proof/src",
+    "tags": [
+        "scope:proof",
+        "runtime:neutral",
+        "plane:dev"
+    ]
+}

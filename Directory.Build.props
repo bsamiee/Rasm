@@ -145,7 +145,7 @@
     </PropertyGroup>
 
     <PropertyGroup Label="Restore And Audit">
-        <RestorePackagesPath>$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)', '.cache', 'nuget', 'packages'))</RestorePackagesPath>
+        <!-- Packages restore to the machine-global folder: one cross-repo copy, lockfile contentHash pins determinism. -->
         <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
         <RestoreLockedMode Condition="'$(CI)' == 'true'">true</RestoreLockedMode>
         <!-- NU1903/NU1904 escalate to restore errors under TreatWarningsAsErrors. -->
@@ -183,17 +183,6 @@
         <_RhinoRequiredHostFile Include="$(RhinoRuntimeCodeReferencePath)" Condition="'$(IsRhinoBridgeProject)' == 'true' and '$(IsRhinoPluginProject)' == 'true'" />
         <_RhinoRequiredHostFile Include="$(RhinoCodePlatformReferencePath)" Condition="'$(IsRhinoBridgeProject)' == 'true' and '$(IsRhinoPluginProject)' == 'true'" />
     </ItemGroup>
-
-    <PropertyGroup Label="Plugin And Yak Packaging">
-        <YakPath Condition="'$(YakPath)' == '' and '$(RHINO_YAK_PATH)' != ''">$(RHINO_YAK_PATH)</YakPath>
-        <YakPath Condition="'$(YakPath)' == ''">$(RhinoWipAppPath)/Contents/Resources/bin/yak</YakPath>
-        <YakPlatform Condition="'$(YakPlatform)' == ''">mac</YakPlatform>
-        <YakPushSource Condition="'$(YakPushSource)' == '' and '$(YAK_SOURCE)' != ''">$(YAK_SOURCE)</YakPushSource>
-        <YakManifestDirectory Condition="'$(YakManifestDirectory)' == '' and '$(YakPackageSlug)' != ''">$([MSBuild]::NormalizePath('$(YakPackagesRoot)', '$(YakPackageSlug)'))</YakManifestDirectory>
-        <IsYakPackageProject Condition="'$(IsYakPackageProject)' == '' and '$(YakPackageSlug)' != '' and ('$(IsRhinoPluginProject)' == 'true' or '$(IsGrasshopperPluginProject)' == 'true')">true</IsYakPackageProject>
-        <YakPackageDirectory Condition="'$(YakPackageDirectory)' == '' and '$(YakPackageSlug)' != ''">$([MSBuild]::NormalizePath('$(YakStageRoot)', '$(YakPackageSlug)', 'package'))</YakPackageDirectory>
-        <YakPackagePattern Condition="'$(YakPackagePattern)' == '' and '$(YakPackageSlug)' != ''">*-$(Version)-rh9_*-$(YakPlatform).yak</YakPackagePattern>
-    </PropertyGroup>
 
     <PropertyGroup Label="Host And Bridge Versioning" Condition="'$(IsRhinoPluginProject)' == 'true' or '$(IsGrasshopperPluginProject)' == 'true' or '$(IsRhinoBridgeProject)' == 'true'">
         <EnableDynamicLoading Condition="'$(IsRhinoPluginProject)' == 'true' or '$(IsGrasshopperPluginProject)' == 'true'">true</EnableDynamicLoading>

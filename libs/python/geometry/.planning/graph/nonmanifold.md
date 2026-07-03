@@ -360,8 +360,7 @@ def _census(op: OpTag, topo: Handle, *, handles: int) -> TopologyCensus:
     if topo is None:
         return TopologyCensus(op=op, handles=handles)
     return TopologyCensus(
-        op=op, handles=handles,
-        cells=len(Topology.Cells(topo)), faces=len(Topology.Faces(topo)), vertices=len(Topology.Vertices(topo)),
+        op=op, handles=handles, cells=len(Topology.Cells(topo)), faces=len(Topology.Faces(topo)), vertices=len(Topology.Vertices(topo))
     )
 
 
@@ -390,7 +389,9 @@ def _graph_census(graph: Handle, analytics: Map[GraphAnalytic, AnalyticValue]) -
         return analytics.try_find(a).map(lambda v: v.peak()).default_value(0.0)
 
     return TopologyCensus(
-        op="dual_graph", handles=1, nodes=len(Topology.Vertices(graph)),
+        op="dual_graph",
+        handles=1,
+        nodes=len(Topology.Vertices(graph)),
         components=int(peak(GraphAnalytic.CONNECTIVITY)),
         betweenness_max=peak(GraphAnalytic.BETWEENNESS),
         path_length=int(peak(GraphAnalytic.SHORTEST_PATH)),
@@ -412,7 +413,9 @@ def run(op: TopologyOp | Sequence[TopologyOp]) -> RuntimeRail[TopologyResult] | 
     # loop variable per closure so the comprehension does not capture the last `item` by reference.
     match op:
         case Sequence() as batch:
-            return traversed(Block.of_seq([boundary(f"topology.{item.tag}", lambda i=item: _extract(i)) for item in batch]), by=Disposition.ACCUMULATE)
+            return traversed(
+                Block.of_seq([boundary(f"topology.{item.tag}", lambda i=item: _extract(i)) for item in batch]), by=Disposition.ACCUMULATE
+            )
         case TopologyOp() as single:
             return boundary(f"topology.{single.tag}", lambda: _extract(single))
         case _ as unreachable:

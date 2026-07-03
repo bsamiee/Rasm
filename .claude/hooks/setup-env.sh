@@ -40,7 +40,7 @@ _emit_extra_env_keys() {
     [[ -n "${EXTRA_ENV_KEYS}" ]] || return 0
     local -a keys=()
     local key
-    read -ra keys <<< "${EXTRA_ENV_KEYS//,/ }"
+    read -ra keys <<<"${EXTRA_ENV_KEYS//,/ }"
     for key in "${keys[@]}"; do
         _emit_env_key "${key}"
     done
@@ -50,14 +50,14 @@ _emit_tool_paths() {
     [[ -n "${TOOL_PATHS}" ]] || return 0
     local -a paths=() selected=()
     local path path_value
-    IFS=: read -ra paths <<< "${TOOL_PATHS}"
+    IFS=: read -ra paths <<<"${TOOL_PATHS}"
     for path in "${paths[@]}"; do
         [[ -n "${path}" ]] || continue
         if [[ -d "${path}" || "${ALLOW_MISSING_TOOL_PATHS}" == "1" ]]; then
             selected+=("${path}")
         fi
     done
-    (( ${#selected[@]} > 0 )) || return 0
+    ((${#selected[@]} > 0)) || return 0
     printf -v path_value '%s:' "${selected[@]}"
     # shellcheck disable=SC2016  # Single quotes intentional -- expand when Claude sources the env file.
     printf 'export PATH="%s:${PATH}"\n' "${path_value%:}"

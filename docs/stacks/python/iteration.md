@@ -68,11 +68,7 @@ SEED = Moments(count=0, total=0.0, total_sq=0.0, low=float("inf"), high=float("-
 
 def stepped(acc: Moments, value: float, /) -> Moments:
     return Moments(
-        count=acc.count + 1,
-        total=acc.total + value,
-        total_sq=acc.total_sq + value * value,
-        low=min(acc.low, value),
-        high=max(acc.high, value),
+        count=acc.count + 1, total=acc.total + value, total_sq=acc.total_sq + value * value, low=min(acc.low, value), high=max(acc.high, value)
     )
 
 

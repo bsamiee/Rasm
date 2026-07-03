@@ -1629,15 +1629,16 @@ def apply_row_status(tool: Tool, done: Completed) -> Completed:
 
     An ``empty-on-exit1`` row whose returncode-1 stdout decodes as the no-match document maps to ``EMPTY``
     (the tool signals "no match" through exit 1); non-document stdout on exit 1 stays a tool fault (FAILED).
+    A row carrying an ``empty_signature`` maps its (returncode, marker) nothing-to-do receipt to ``EMPTY`` —
+    a runner with no eligible work (pytest exit 5, vitest "No test files found") is an empty scope, never a defect.
 
     Returns:
-        The receipt with the group-driven status applied, or unchanged when no policy matches.
+        The receipt with the row-driven status applied, or unchanged when no policy matches.
     """
-    return (
-        msgspec.structs.replace(done, status=RailStatus.EMPTY)
-        if ToolGroup.EMPTY_ON_EXIT1 in tool.groups and done.returncode == 1 and _is_match_document(done.stdout)
-        else done
+    empty = (ToolGroup.EMPTY_ON_EXIT1 in tool.groups and done.returncode == 1 and _is_match_document(done.stdout)) or (
+        tool.empty_signature is not None and done.returncode == tool.empty_signature[0] and tool.empty_signature[1] in done.stdout + done.stderr
     )
+    return msgspec.structs.replace(done, status=RailStatus.EMPTY) if empty else done
 
 
 def _is_match_document(raw: bytes) -> bool:

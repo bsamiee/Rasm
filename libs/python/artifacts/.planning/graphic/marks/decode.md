@@ -183,44 +183,80 @@ class MarkDecodeError(Exception):
 # --- [TABLES] ---------------------------------------------------------------------------
 # Total over the closed Symbology family: every member maps so a scoped decode never KeyErrors _reader_args; the python-barcode EAN/ISBN aliases fold onto their EAN13 carrier, the matrix rows onto their zxing readables.
 _FORMAT: frozendict[Symbology, str] = frozendict({
-    Symbology.QR: "QRCode", Symbology.MICRO_QR: "MicroQRCode", Symbology.QR_SEQUENCE: "QRCode",
-    Symbology.CODE128: "Code128", Symbology.GS1_128: "Code128", Symbology.CODE39: "Code39", Symbology.PZN: "Code39",
-    Symbology.EAN13: "EAN13", Symbology.ISBN13: "EAN13", Symbology.ISBN10: "EAN13", Symbology.ISSN: "EAN13", Symbology.EAN14: "EAN13", Symbology.EAN8: "EAN8",
-    Symbology.UPCA: "UPCA", Symbology.ITF: "ITF", Symbology.CODABAR: "Codabar",
-    Symbology.DATA_MATRIX: "DataMatrix", Symbology.PDF417: "PDF417", Symbology.COMPACT_PDF417: "CompactPDF417", Symbology.AZTEC: "Aztec", Symbology.MAXICODE: "MaxiCode", Symbology.RMQR: "RMQRCode",
+    Symbology.QR: "QRCode",
+    Symbology.MICRO_QR: "MicroQRCode",
+    Symbology.QR_SEQUENCE: "QRCode",
+    Symbology.CODE128: "Code128",
+    Symbology.GS1_128: "Code128",
+    Symbology.CODE39: "Code39",
+    Symbology.PZN: "Code39",
+    Symbology.EAN13: "EAN13",
+    Symbology.ISBN13: "EAN13",
+    Symbology.ISBN10: "EAN13",
+    Symbology.ISSN: "EAN13",
+    Symbology.EAN14: "EAN13",
+    Symbology.EAN8: "EAN8",
+    Symbology.UPCA: "UPCA",
+    Symbology.ITF: "ITF",
+    Symbology.CODABAR: "Codabar",
+    Symbology.DATA_MATRIX: "DataMatrix",
+    Symbology.PDF417: "PDF417",
+    Symbology.COMPACT_PDF417: "CompactPDF417",
+    Symbology.AZTEC: "Aztec",
+    Symbology.MAXICODE: "MaxiCode",
+    Symbology.RMQR: "RMQRCode",
 })
 _FAMILY: frozendict[FormatFamily, zxingcpp.BarcodeFormat] = frozendict({
-    FormatFamily.READABLE: zxingcpp.BarcodeFormat.AllReadable, FormatFamily.MATRIX: zxingcpp.BarcodeFormat.AllMatrix,
-    FormatFamily.LINEAR: zxingcpp.BarcodeFormat.AllLinear, FormatFamily.RETAIL: zxingcpp.BarcodeFormat.AllRetail,
-    FormatFamily.GS1: zxingcpp.BarcodeFormat.AllGS1, FormatFamily.INDUSTRIAL: zxingcpp.BarcodeFormat.AllIndustrial,
-    FormatFamily.CREATABLE: zxingcpp.BarcodeFormat.AllCreatable, FormatFamily.ALL: zxingcpp.BarcodeFormat.All,
+    FormatFamily.READABLE: zxingcpp.BarcodeFormat.AllReadable,
+    FormatFamily.MATRIX: zxingcpp.BarcodeFormat.AllMatrix,
+    FormatFamily.LINEAR: zxingcpp.BarcodeFormat.AllLinear,
+    FormatFamily.RETAIL: zxingcpp.BarcodeFormat.AllRetail,
+    FormatFamily.GS1: zxingcpp.BarcodeFormat.AllGS1,
+    FormatFamily.INDUSTRIAL: zxingcpp.BarcodeFormat.AllIndustrial,
+    FormatFamily.CREATABLE: zxingcpp.BarcodeFormat.AllCreatable,
+    FormatFamily.ALL: zxingcpp.BarcodeFormat.All,
 })
 _CONTENT: frozendict[zxingcpp.ContentType, ContentKind] = frozendict({
-    zxingcpp.ContentType.Text: ContentKind.TEXT, zxingcpp.ContentType.Binary: ContentKind.BINARY,
-    zxingcpp.ContentType.Mixed: ContentKind.MIXED, zxingcpp.ContentType.GS1: ContentKind.GS1,
-    zxingcpp.ContentType.ISO15434: ContentKind.ISO15434, zxingcpp.ContentType.UnknownECI: ContentKind.UNKNOWN_ECI,
+    zxingcpp.ContentType.Text: ContentKind.TEXT,
+    zxingcpp.ContentType.Binary: ContentKind.BINARY,
+    zxingcpp.ContentType.Mixed: ContentKind.MIXED,
+    zxingcpp.ContentType.GS1: ContentKind.GS1,
+    zxingcpp.ContentType.ISO15434: ContentKind.ISO15434,
+    zxingcpp.ContentType.UnknownECI: ContentKind.UNKNOWN_ECI,
 })
 _ERROR: frozendict[zxingcpp.ErrorType, DecodeFault] = frozendict({
-    zxingcpp.ErrorType.Checksum: DecodeFault.CHECKSUM, zxingcpp.ErrorType.Format: DecodeFault.FORMAT,
+    zxingcpp.ErrorType.Checksum: DecodeFault.CHECKSUM,
+    zxingcpp.ErrorType.Format: DecodeFault.FORMAT,
     zxingcpp.ErrorType.Unsupported: DecodeFault.UNSUPPORTED,
 })
 _BINARIZE: frozendict[Binarize, zxingcpp.Binarizer] = frozendict({
-    Binarize.LOCAL: zxingcpp.Binarizer.LocalAverage, Binarize.GLOBAL: zxingcpp.Binarizer.GlobalHistogram,
-    Binarize.FIXED: zxingcpp.Binarizer.FixedThreshold, Binarize.BOOL: zxingcpp.Binarizer.BoolCast,
+    Binarize.LOCAL: zxingcpp.Binarizer.LocalAverage,
+    Binarize.GLOBAL: zxingcpp.Binarizer.GlobalHistogram,
+    Binarize.FIXED: zxingcpp.Binarizer.FixedThreshold,
+    Binarize.BOOL: zxingcpp.Binarizer.BoolCast,
 })
 _TEXT_MODE: frozendict[TextRead, zxingcpp.TextMode] = frozendict({
-    TextRead.HRI: zxingcpp.TextMode.HRI, TextRead.PLAIN: zxingcpp.TextMode.Plain, TextRead.ECI: zxingcpp.TextMode.ECI,
-    TextRead.ESCAPED: zxingcpp.TextMode.Escaped, TextRead.HEX: zxingcpp.TextMode.Hex, TextRead.HEX_ECI: zxingcpp.TextMode.HexECI,
+    TextRead.HRI: zxingcpp.TextMode.HRI,
+    TextRead.PLAIN: zxingcpp.TextMode.Plain,
+    TextRead.ECI: zxingcpp.TextMode.ECI,
+    TextRead.ESCAPED: zxingcpp.TextMode.Escaped,
+    TextRead.HEX: zxingcpp.TextMode.Hex,
+    TextRead.HEX_ECI: zxingcpp.TextMode.HexECI,
 })
 _EAN: frozendict[EanAddOn, zxingcpp.EanAddOnSymbol] = frozendict({
-    EanAddOn.IGNORE: zxingcpp.EanAddOnSymbol.Ignore, EanAddOn.READ: zxingcpp.EanAddOnSymbol.Read,
+    EanAddOn.IGNORE: zxingcpp.EanAddOnSymbol.Ignore,
+    EanAddOn.READ: zxingcpp.EanAddOnSymbol.Read,
     EanAddOn.REQUIRE: zxingcpp.EanAddOnSymbol.Require,
 })
 _PIXEL: frozendict[PixelFormat, zxingcpp.ImageFormat] = frozendict({
-    PixelFormat.RGB: zxingcpp.ImageFormat.RGB, PixelFormat.BGR: zxingcpp.ImageFormat.BGR,
-    PixelFormat.RGBA: zxingcpp.ImageFormat.RGBA, PixelFormat.BGRA: zxingcpp.ImageFormat.BGRA,
-    PixelFormat.ABGR: zxingcpp.ImageFormat.ABGR, PixelFormat.ARGB: zxingcpp.ImageFormat.ARGB,
-    PixelFormat.LUM: zxingcpp.ImageFormat.Lum, PixelFormat.LUMA: zxingcpp.ImageFormat.LumA,
+    PixelFormat.RGB: zxingcpp.ImageFormat.RGB,
+    PixelFormat.BGR: zxingcpp.ImageFormat.BGR,
+    PixelFormat.RGBA: zxingcpp.ImageFormat.RGBA,
+    PixelFormat.BGRA: zxingcpp.ImageFormat.BGRA,
+    PixelFormat.ABGR: zxingcpp.ImageFormat.ABGR,
+    PixelFormat.ARGB: zxingcpp.ImageFormat.ARGB,
+    PixelFormat.LUM: zxingcpp.ImageFormat.Lum,
+    PixelFormat.LUMA: zxingcpp.ImageFormat.LumA,
 })
 _SCOPES: frozendict[ScopeKind, DecodeScope] = frozendict({
     ScopeKind.FAST: DecodeScope(try_rotate=False, try_invert=False, try_downscale=False),
@@ -243,7 +279,9 @@ from typing import assert_never
 
 from beartype import BeartypeConf, beartype
 
-_CONTRACT = BeartypeConf(is_pep484_tower=True)  # sibling parity with the encode _contracted weave: the pep484 numeric tower admits an int where a float hint stands at the foreign-pybind seam
+_CONTRACT = BeartypeConf(
+    is_pep484_tower=True
+)  # sibling parity with the encode _contracted weave: the pep484 numeric tower admits an int where a float hint stands at the foreign-pybind seam
 
 
 @beartype(conf=_CONTRACT)

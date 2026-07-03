@@ -81,9 +81,11 @@ class Saturation(msgspec.Struct, frozen=True, gc=False):
     waiting: int
 
 
-ARM: frozendict[Lane, Offload[object]] = frozendict(
-    {Lane.THREAD: anyio.to_thread.run_sync, Lane.INTERP: anyio.to_interpreter.run_sync, Lane.PROCESS: anyio.to_process.run_sync}
-)
+ARM: frozendict[Lane, Offload[object]] = frozendict({
+    Lane.THREAD: anyio.to_thread.run_sync,
+    Lane.INTERP: anyio.to_interpreter.run_sync,
+    Lane.PROCESS: anyio.to_process.run_sync,
+})
 BROKEN: frozendict[type[Exception], RunFault] = frozendict({BrokenWorkerProcess: "<broken-process>", BrokenWorkerInterpreter: "<broken-interpreter>"})
 
 
@@ -152,12 +154,7 @@ async def bounded_step[T](
 
 
 async def staged[T](
-    steps: Block[Callable[[], Awaitable[T]]],
-    release: Callable[[], Awaitable[None]],
-    /,
-    *,
-    whole_seconds: float,
-    step_seconds: float,
+    steps: Block[Callable[[], Awaitable[T]]], release: Callable[[], Awaitable[None]], /, *, whole_seconds: float, step_seconds: float
 ) -> Result[Block[T], DeadlineFault]:
     async def threaded(acc: Result[Block[T], DeadlineFault], step: Callable[[], Awaitable[T]], /) -> Result[Block[T], DeadlineFault]:
         if acc.is_error():
@@ -208,7 +205,13 @@ async def leased(name: str, acquire: Callable[[str], "Lease"], release: Callable
 
 
 async def bracketed[T, E](
-    names: Block[str], body: Callable[[Block["Lease"]], Result[T, E]], acquire: Callable[[str], "Lease"], release: Callable[["Lease"], None], /, *, seconds: float
+    names: Block[str],
+    body: Callable[[Block["Lease"]], Result[T, E]],
+    acquire: Callable[[str], "Lease"],
+    release: Callable[["Lease"], None],
+    /,
+    *,
+    seconds: float,
 ) -> Result[T, E | BracketFault]:
     async with AsyncExitStack() as stack:
         held: Block["Lease"] = Block.empty()

@@ -28,8 +28,14 @@ public sealed class PackageAdmissionLaws {
             "VividOrange.Uncertainties.Quantities",
             "RectangleBinPack.CSharp",
             "MathNet.Numerics",
+            "CommunityToolkit.HighPerformance",
+            "QuikGraph",
+            "MessagePack",
+            "MessagePackAnalyzer",
             "Thinktecture.Runtime.Extensions.Json",
-            "Thinktecture.Runtime.Extensions.MessagePack");
+            "Thinktecture.Runtime.Extensions.MessagePack",
+            "Riok.Mapperly");
+        app.PackageReferenceHasAttribute(packageName: "MessagePackAnalyzer", attributeName: "PrivateAssets", expectedValue: "all");
         app.ExcludesProjects("../Rasm.Compute/Rasm.Compute.csproj", "../Rasm.Persistence/Rasm.Persistence.csproj");
     }
 }

@@ -27,7 +27,11 @@ from msgspec import Struct
 
 from rasm.runtime.content_identity import ContentKey
 
-lazy from artifacts.package.codec import BundleEvidence, CodecProfile, CompressionAlgo  # cyclic owner: codec eager-imports these workers for DEFAULT_PROFILE, so this back-edge defers (used only in the worker bodies) to break the import cycle
+lazy from artifacts.package.codec import (
+    BundleEvidence,
+    CodecProfile,
+    CompressionAlgo,
+)  # cyclic owner: codec eager-imports these workers for DEFAULT_PROFILE, so this back-edge defers (used only in the worker bodies) to break the import cycle
 
 lazy import detools
 
@@ -57,7 +61,17 @@ class FirmwareLayout(Struct, frozen=True):
     to_code: tuple[int, int] = (0, 0)
 
     @classmethod
-    def of_elf(cls, data_format: DataFormat, from_elf: str, from_bin: str, to_elf: str, to_bin: str, *, from_offset: int | None = None, to_offset: int | None = None) -> "FirmwareLayout":
+    def of_elf(
+        cls,
+        data_format: DataFormat,
+        from_elf: str,
+        from_bin: str,
+        to_elf: str,
+        to_bin: str,
+        *,
+        from_offset: int | None = None,
+        to_offset: int | None = None,
+    ) -> "FirmwareLayout":
         # the tool-resolved firmware layout the raw ctor above cannot state by hand: `detools.data_format_from_files`
         # opens each ELF through the bundled `pyelftools` reader (`detools.data_format.elf.from_file`) and returns the
         # code/data ranges as the 6-tuple `(data_offset_begin, data_offset_end, code_begin, code_end, data_begin, data_end)`
@@ -68,19 +82,29 @@ class FirmwareLayout(Struct, frozen=True):
         tdo_begin, tdo_end, tc_begin, tc_end, td_begin, td_end = detools.data_format_from_files(data_format, to_elf, to_bin, to_offset)
         return cls(
             data_format=data_format,
-            from_data_offset=(fdo_begin, fdo_end), from_code=(fc_begin, fc_end), from_data=(fd_begin, fd_end),
-            to_data_offset=(tdo_begin, tdo_end), to_code=(tc_begin, tc_end), to_data=(td_begin, td_end),
+            from_data_offset=(fdo_begin, fdo_end),
+            from_code=(fc_begin, fc_end),
+            from_data=(fd_begin, fd_end),
+            to_data_offset=(tdo_begin, tdo_end),
+            to_code=(tc_begin, tc_end),
+            to_data=(td_begin, td_end),
         )
 
     def kwargs(self) -> dict[str, object]:  # dense range pairs project to the flat detools offset kwargs at the edge
         return {
             "data_format": self.data_format,
-            "from_data_offset_begin": self.from_data_offset[0], "from_data_offset_end": self.from_data_offset[1],
-            "from_data_begin": self.from_data[0], "from_data_end": self.from_data[1],
-            "from_code_begin": self.from_code[0], "from_code_end": self.from_code[1],
-            "to_data_offset_begin": self.to_data_offset[0], "to_data_offset_end": self.to_data_offset[1],
-            "to_data_begin": self.to_data[0], "to_data_end": self.to_data[1],
-            "to_code_begin": self.to_code[0], "to_code_end": self.to_code[1],
+            "from_data_offset_begin": self.from_data_offset[0],
+            "from_data_offset_end": self.from_data_offset[1],
+            "from_data_begin": self.from_data[0],
+            "from_data_end": self.from_data[1],
+            "from_code_begin": self.from_code[0],
+            "from_code_end": self.from_code[1],
+            "to_data_offset_begin": self.to_data_offset[0],
+            "to_data_offset_end": self.to_data_offset[1],
+            "to_data_begin": self.to_data[0],
+            "to_data_end": self.to_data[1],
+            "to_code_begin": self.to_code[0],
+            "to_code_end": self.to_code[1],
         }
 
 
@@ -104,7 +128,9 @@ def _delta_apply(k: DeltaKnobs, patch: bytes) -> bytes:
         case "in-place":
             memory = k.in_place.memory_size if k.in_place is not None else len(k.from_image)
             mem = BytesIO(k.from_image.ljust(memory, b"\x00"))
-            to_size = detools.apply_patch_in_place(mem, BytesIO(patch))  # bind to_size BEFORE getvalue(): the call mutates mem in place, so getvalue() must read the POST-patch buffer, never the pre-patch snapshot a subscript-order eval would capture
+            to_size = detools.apply_patch_in_place(
+                mem, BytesIO(patch)
+            )  # bind to_size BEFORE getvalue(): the call mutates mem in place, so getvalue() must read the POST-patch buffer, never the pre-patch snapshot a subscript-order eval would capture
             return mem.getvalue()[:to_size]
         case "bsdiff":
             sink = BytesIO()
@@ -139,30 +165,50 @@ def _header(k: DeltaKnobs, blob: bytes) -> tuple[int, bool] | None:
 def _delta_in_process(payloads: tuple[bytes, ...], algo: CompressionAlgo, profile: CodecProfile) -> tuple[tuple[bytes, ...], BundleEvidence]:
     match profile:
         case CodecProfile(tag="delta", delta=DeltaKnobs() as k):
-            patch, bands = BytesIO(), {**(k.in_place.kwargs() if k.in_place is not None else {}), **(k.firmware.kwargs() if k.firmware is not None else {})}
+            patch, bands = (
+                BytesIO(),
+                {**(k.in_place.kwargs() if k.in_place is not None else {}), **(k.firmware.kwargs() if k.firmware is not None else {})},
+            )
             detools.create_patch(  # use_mmap=False: the BytesIO ingress has no fileno(), and the hdiffpatch/match-blocks create kernels mmap the input with no heap fallback
-                BytesIO(k.from_image), BytesIO(payloads[0]), patch, use_mmap=False,
-                compression=k.compression, patch_type=k.patch_type, algorithm=k.algorithm, suffix_array_algorithm=k.suffix_array,
-                match_score=k.match_score, match_block_size=k.match_block_size,
-                heatshrink_window_sz2=k.heatshrink_window, heatshrink_lookahead_sz2=k.heatshrink_lookahead, **bands,
+                BytesIO(k.from_image),
+                BytesIO(payloads[0]),
+                patch,
+                use_mmap=False,
+                compression=k.compression,
+                patch_type=k.patch_type,
+                algorithm=k.algorithm,
+                suffix_array_algorithm=k.suffix_array,
+                match_score=k.match_score,
+                match_block_size=k.match_block_size,
+                heatshrink_window_sz2=k.heatshrink_window,
+                heatshrink_lookahead_sz2=k.heatshrink_lookahead,
+                **bands,
             )
             blob = patch.getvalue()
             recovered = _delta_apply(k, blob)  # the round-trip proves the patch reconstructs the to-image byte-identically
             header = _header(k, blob)  # header-read to_size + codec/firmware agreement, never an inferred input length
             frame_size = header[0] if header is not None else len(recovered)  # the reconstructed to-image size the patch header declares
-            verified = int(recovered == payloads[0] and frame_size == len(recovered) and (header[1] if header is not None else True))  # round-trip AND self-describing-header agreement
+            verified = int(
+                recovered == payloads[0] and frame_size == len(recovered) and (header[1] if header is not None else True)
+            )  # round-trip AND self-describing-header agreement
             return (blob,), BundleEvidence.measure(algo, 0, 0, frame_size, verified, payloads, (blob,))
         case _:
-            raise ValueError(f"<non-delta-profile:{profile.tag}>")  # the codec dispatch routes only the delta tag here; assert_never is invalid on the non-exhausted CodecProfile family
+            raise ValueError(
+                f"<non-delta-profile:{profile.tag}>"
+            )  # the codec dispatch routes only the delta tag here; assert_never is invalid on the non-exhausted CodecProfile family
 
 
 def _delta_unpack(blob: bytes, algo: CompressionAlgo, profile: CodecProfile) -> tuple[tuple[str, int, bytes], ...]:
     match profile:
         case CodecProfile(tag="delta", delta=DeltaKnobs() as k):
             payload = _delta_apply(k, blob)
-            return ((f"from-{k.parent_key.hex}", len(payload), xxhash.xxh3_128_digest(payload)),)  # the uniform 16-byte xxh3_128 content digest the codec `BundleManifest.of` member-key fold consumes — the runtime XXH3_128 identity family, aligned with `_walked` and both `package/archive` arms
+            return (
+                (f"from-{k.parent_key.hex}", len(payload), xxhash.xxh3_128_digest(payload)),
+            )  # the uniform 16-byte xxh3_128 content digest the codec `BundleManifest.of` member-key fold consumes — the runtime XXH3_128 identity family, aligned with `_walked` and both `package/archive` arms
         case _:
-            raise ValueError(f"<non-delta-profile:{profile.tag}>")  # the codec dispatch routes only the delta tag here; assert_never is invalid on the non-exhausted CodecProfile family
+            raise ValueError(
+                f"<non-delta-profile:{profile.tag}>"
+            )  # the codec dispatch routes only the delta tag here; assert_never is invalid on the non-exhausted CodecProfile family
 ```
 
 ## [03]-[RESEARCH]

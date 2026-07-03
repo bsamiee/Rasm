@@ -1,0 +1,1 @@
+# [STORE_RETAIN] — retention policy rows + crypto-shredding via the security/sign Shredder; per-subject erasure = key destruction, the log never rewritten; the per-subject DSAR export fold (portability read over journal + object rows) rides beside erasure

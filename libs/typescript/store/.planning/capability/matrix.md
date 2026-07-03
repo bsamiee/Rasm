@@ -1,0 +1,1 @@
+# [STORE_MATRIX] — the PG 18.4 extension matrix rows (pgvector/VectorChord, pg_search, timescaledb, pg_partman, pgmq, pg_cron, pg_ivm, pg_duckdb, pg_graphql, pg_jsonschema, pgaudit, postgis, pg_uuidv7, h3; in-core trgm + LISTEN/NOTIFY channelization + advisory-lock claims + COPY bulk lanes)

@@ -41,7 +41,13 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from rasm.runtime.faults import FAULT_CONF, BoundaryFault, Disposition, RuntimeRail, async_boundary, traversed
 from rasm.runtime.lanes import WORKER_BAND
 
-lazy from puremagic import PureError, PureMagicWithConfidence, ext_from_filename, from_extension, magic_file  # pure-Python default, on the loader path
+lazy from puremagic import (
+    PureError,
+    PureMagicWithConfidence,
+    ext_from_filename,
+    from_extension,
+    magic_file,
+)  # pure-Python default, on the loader path
 lazy from puremagic.main import PureValueError, file_details, identify_all, string_details
 lazy from puremagic.scanners import text_scanner  # in-process charset facet (decode_any), symmetric with the libmagic mime_encoding cook
 lazy import magic  # libmagic native dep, off the runtime loader path; reified in the to_process worker
@@ -50,8 +56,8 @@ lazy import magic  # libmagic native dep, off the runtime loader path; reified i
 # --- [TYPES] ----------------------------------------------------------------------------
 class DetectEngine(StrEnum):
     PUREMAGIC = "puremagic"  # pure-Python default, in-process to_thread, confidence roster + deep-scan exact subtypes
-    LIBMAGIC = "libmagic"    # native libmagic worker-band fallback, broad leaf-signature database, to_process
-    LAYERED = "layered"      # puremagic default → libmagic escalation on a MediaClass.UNKNOWN miss
+    LIBMAGIC = "libmagic"  # native libmagic worker-band fallback, broad leaf-signature database, to_process
+    LAYERED = "layered"  # puremagic default → libmagic escalation on a MediaClass.UNKNOWN miss
 
 
 class MagicFacet(StrEnum):
@@ -123,9 +129,9 @@ class MediaClass(StrEnum):
 
 
 class Container(StrEnum):  # the structural container/compression kind orthogonal to MediaClass — which unpacker a second-pass peek routes to
-    NONE = "none"          # a leaf format with no wrapping structure
-    ZIP = "zip"            # the OOXML/ODF/EPUB/USDZ/CBZ + bare-zip family a docx/xlsx/epub sits inside
-    OLE = "ole"            # the CFB/CDFV2 compound the legacy Office + MSI family sits inside
+    NONE = "none"  # a leaf format with no wrapping structure
+    ZIP = "zip"  # the OOXML/ODF/EPUB/USDZ/CBZ + bare-zip family a docx/xlsx/epub sits inside
+    OLE = "ole"  # the CFB/CDFV2 compound the legacy Office + MSI family sits inside
     TAR = "tar"
     SEVENZIP = "sevenzip"
     GZIP = "gzip"
@@ -141,16 +147,16 @@ class Container(StrEnum):  # the structural container/compression kind orthogona
 
 class Trust(StrEnum):  # the declared-vs-sniffed ingest verdict the gate folds over its own evidence
     IDENTIFIED = "identified"  # one confident content match, agreeing with the claim or unclaimed
-    AMBIGUOUS = "ambiguous"    # two distinct strong matches — a polyglot (the puremagic confidence tail)
-    MISMATCH = "mismatch"      # the sniffed class disagrees with the declared content-type — spoofing
-    UNKNOWN = "unknown"        # the octet-stream floor, an UNKNOWN class, or a sub-floor confidence
+    AMBIGUOUS = "ambiguous"  # two distinct strong matches — a polyglot (the puremagic confidence tail)
+    MISMATCH = "mismatch"  # the sniffed class disagrees with the declared content-type — spoofing
+    UNKNOWN = "unknown"  # the octet-stream floor, an UNKNOWN class, or a sub-floor confidence
 
 
 @tagged_union(frozen=True)
 class Source:
     tag: Literal["buffer", "file"] = tag()
     buffer: tuple[bytes, str] = case()  # (payload, declared content-type — "" when the ingress claims none)
-    file: tuple[Path, str] = case()     # (path, declared content-type — "" falls back to the extension MIME)
+    file: tuple[Path, str] = case()  # (path, declared content-type — "" falls back to the extension MIME)
 
     @staticmethod
     @beartype(conf=FAULT_CONF)
@@ -184,10 +190,12 @@ class Source:
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
-_EXTENSION_MIN: int = 524      # libmagic floor for MAGIC_EXTENSION
-_CONTINUE_SEP: str = "\n- "    # libmagic MAGIC_CONTINUE multi-match separator
+_EXTENSION_MIN: int = 524  # libmagic floor for MAGIC_EXTENSION
+_CONTINUE_SEP: str = "\n- "  # libmagic MAGIC_CONTINUE multi-match separator
 _CONFIDENCE_FLOOR: float = 0.3  # puremagic strong-signature-match floor: header/footer/deep-scan matches clear it, extension-only guesses fall below
-_CHARSET_HEAD: int = 4096       # bounded leading-byte budget for the in-process charset sniff (text_scanner.decode_any), matching the libmagic mime_encoding read
+_CHARSET_HEAD: int = (
+    4096  # bounded leading-byte budget for the in-process charset sniff (text_scanner.decode_any), matching the libmagic mime_encoding read
+)
 
 # the transient `to_process` worker death recovered before the boundary rails it; the MagicParam
 # recursion/ELF caps stay the magic-bomb defense, so retry recovers an OOM/signal death, never a deterministic crash
@@ -326,8 +334,12 @@ class Detect:
     @overload
     async def of(self, source: Source, /) -> RuntimeRail[DetectIdentity]: ...
     @overload
-    async def of(self, source: Iterable[Source], /) -> RuntimeRail[Block[DetectIdentity]] | RuntimeRail[tuple[Block[DetectIdentity], Block[BoundaryFault]]]: ...
-    async def of(self, source: Source | Iterable[Source], /) -> RuntimeRail[DetectIdentity] | RuntimeRail[Block[DetectIdentity]] | RuntimeRail[tuple[Block[DetectIdentity], Block[BoundaryFault]]]:
+    async def of(
+        self, source: Iterable[Source], /
+    ) -> RuntimeRail[Block[DetectIdentity]] | RuntimeRail[tuple[Block[DetectIdentity], Block[BoundaryFault]]]: ...
+    async def of(
+        self, source: Source | Iterable[Source], /
+    ) -> RuntimeRail[DetectIdentity] | RuntimeRail[Block[DetectIdentity]] | RuntimeRail[tuple[Block[DetectIdentity], Block[BoundaryFault]]]:
         match source:
             case Source() as one:
                 return await self._railed(one)
@@ -347,8 +359,7 @@ class Detect:
 
     async def _pure(self, source: Source, /) -> RuntimeRail[DetectIdentity]:
         return await async_boundary(
-            f"detect.pure.{self.profile}",
-            lambda: to_thread.run_sync(_pure_detect, source, self.deepscan, limiter=_SNIFF_GATE),
+            f"detect.pure.{self.profile}", lambda: to_thread.run_sync(_pure_detect, source, self.deepscan, limiter=_SNIFF_GATE)
         )
 
     async def _libmagic(self, source: Source, /) -> RuntimeRail[DetectIdentity]:
@@ -366,7 +377,9 @@ class Detect:
             return primary
         return (await self._libmagic(source)).or_else_with(lambda _fault: primary)
 
-    async def _many(self, sources: Block[Source], /) -> RuntimeRail[Block[DetectIdentity]] | RuntimeRail[tuple[Block[DetectIdentity], Block[BoundaryFault]]]:
+    async def _many(
+        self, sources: Block[Source], /
+    ) -> RuntimeRail[Block[DetectIdentity]] | RuntimeRail[tuple[Block[DetectIdentity], Block[BoundaryFault]]]:
         async with anyio.create_task_group() as group:
             handles: Block[TaskHandle[RuntimeRail[DetectIdentity]]] = sources.map(lambda one: group.start_soon(self._railed, one))
         return traversed(handles.map(lambda handle: handle.return_value), by=self.disposition)
@@ -384,16 +397,35 @@ def _classified[E](mime: str, table: frozendict[str, E], default: E, /) -> E:
     return table[prefix] if prefix else default
 
 
-def _trust(mime: str, media_class: MediaClass, container: Container, extensions: tuple[str, ...], matches: tuple[str, ...], claimed: str, confidence: float, /) -> Trust:
+def _trust(
+    mime: str,
+    media_class: MediaClass,
+    container: Container,
+    extensions: tuple[str, ...],
+    matches: tuple[str, ...],
+    claimed: str,
+    confidence: float,
+    /,
+) -> Trust:
     declared = MediaClass.of(claimed) if claimed else MediaClass.UNKNOWN
     claimed_container = Container.of(claimed) if claimed else Container.NONE
-    claimed_exts = frozenset(suffix.lstrip(".") for suffix in mimetypes.guess_all_extensions(claimed))  # the claim's valid extensions, dot-stripped to the sniffed form
+    claimed_exts = frozenset(
+        suffix.lstrip(".") for suffix in mimetypes.guess_all_extensions(claimed)
+    )  # the claim's valid extensions, dot-stripped to the sniffed form
     return (
-        Trust.UNKNOWN if media_class is MediaClass.UNKNOWN or mime in ("", "application/octet-stream") or confidence < _CONFIDENCE_FLOOR
-        else Trust.AMBIGUOUS if len(matches) > 1  # two distinct strong matches — a polyglot
-        else Trust.IDENTIFIED if declared is MediaClass.ARCHIVE and claimed_container is container is not Container.NONE  # a generic-container claim naming the sniffed container is a generalization, not a spoof
-        else Trust.MISMATCH if declared is not MediaClass.UNKNOWN and declared is not media_class  # cross-class spoof
-        else Trust.MISMATCH if declared is media_class and extensions and claimed_exts and claimed_exts.isdisjoint(extensions)  # same-class extension/label spoof
+        Trust.UNKNOWN
+        if media_class is MediaClass.UNKNOWN or mime in ("", "application/octet-stream") or confidence < _CONFIDENCE_FLOOR
+        else Trust.AMBIGUOUS
+        if len(matches) > 1  # two distinct strong matches — a polyglot
+        else Trust.IDENTIFIED
+        if declared is MediaClass.ARCHIVE
+        and claimed_container
+        is container
+        is not Container.NONE  # a generic-container claim naming the sniffed container is a generalization, not a spoof
+        else Trust.MISMATCH
+        if declared is not MediaClass.UNKNOWN and declared is not media_class  # cross-class spoof
+        else Trust.MISMATCH
+        if declared is media_class and extensions and claimed_exts and claimed_exts.isdisjoint(extensions)  # same-class extension/label spoof
         else Trust.IDENTIFIED
     )
 
@@ -436,7 +468,9 @@ def _pure_roster(source: Source, deepscan: bool, /) -> Block[PureMagicWithConfid
     try:
         match source:
             case Source(tag="buffer", buffer=(payload, _)) if deepscan:
-                with NamedTemporaryFile(delete_on_close=False) as spill:  # Exemption: puremagic deep-scan reads a real path for the ZIP/CFBF central directory
+                with NamedTemporaryFile(
+                    delete_on_close=False
+                ) as spill:  # Exemption: puremagic deep-scan reads a real path for the ZIP/CFBF central directory
                     spill.write(payload)
                     spill.flush()
                     return Block.of_seq(magic_file(spill.name))
@@ -450,7 +484,7 @@ def _pure_roster(source: Source, deepscan: bool, /) -> Block[PureMagicWithConfid
                 return Block.of_seq(identify_all(head, foot))
             case _ as unreachable:
                 assert_never(unreachable)
-    except (PureError, PureValueError):
+    except PureError, PureValueError:
         return Block.empty()
 
 
@@ -481,10 +515,19 @@ def _pure_detect(source: Source, deepscan: bool, /) -> DetectIdentity:
 
 
 @cache
-def _cookie(magic_db: Path | None, facet_flag: str | None, flagged: frozendict[str, bool], params: frozendict[MagicParam, int], no_check: frozenset[CheckClass], /) -> "magic.Magic":
+def _cookie(
+    magic_db: Path | None,
+    facet_flag: str | None,
+    flagged: frozendict[str, bool],
+    params: frozendict[MagicParam, int],
+    no_check: frozenset[CheckClass],
+    /,
+) -> "magic.Magic":
     cookie = magic.Magic(magic_file=str(magic_db) if magic_db is not None else None, **({facet_flag: True} if facet_flag else {}), **flagged)
     for param, value in params.items():
-        cookie.setparam(getattr(magic, param.value), value)  # tuned once per cooked config; the cookie (and its loaded database) is cached across detections in the worker
+        cookie.setparam(
+            getattr(magic, param.value), value
+        )  # tuned once per cooked config; the cookie (and its loaded database) is cached across detections in the worker
     if no_check:  # the MAGIC_NO_CHECK_* test-class narrowing is raw-bit-only, so the disabled classes OR into the applied flags through the C `magic_setflags` binding
         magic.magic_setflags(cookie.cookie, cookie.flags | reduce(or_, (getattr(magic, klass.value) for klass in no_check), 0))
     return cookie
@@ -525,7 +568,9 @@ def _gated_detect(source: Source, profile: DetectProfile, policy: DetectPolicy, 
         container=container,
         matches=matches,
         claimed=claimed,
-        trust=_trust(mime, media_class, container, extensions, matches, claimed, 1.0),  # libmagic carries no confidence; it clears the floor and trusts its single match
+        trust=_trust(
+            mime, media_class, container, extensions, matches, claimed, 1.0
+        ),  # libmagic carries no confidence; it clears the floor and trusts its single match
         confidence=1.0,
         engine=DetectEngine.LIBMAGIC,
         byte_length=source.length,

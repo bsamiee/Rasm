@@ -64,18 +64,16 @@ type MeshOp = Literal["assembled", "read", "written"]
 # round-trip all resolve through — collapsing the prior parallel _ELEMENT_CTOR/_MESH_CTOR/_CELL_TYPE
 # maps. The Mesh*/Element* names resolve through getattr(skfem, ...) behind the worker import; the
 # affine Mesh*1 geometry and the cell-type string with their P1 sibling, varying only the Element*.
-_CTOR: FrozenDict[ElementKind, tuple[str, str, str]] = FrozenDict(
-    {
-        ElementKind.P1: ("MeshLine1", "ElementLineP1", "line"),
-        ElementKind.P2: ("MeshLine1", "ElementLineP2", "line"),
-        ElementKind.TRI_P1: ("MeshTri1", "ElementTriP1", "triangle"),
-        ElementKind.TRI_P2: ("MeshTri1", "ElementTriP2", "triangle"),
-        ElementKind.TET_P1: ("MeshTet1", "ElementTetP1", "tetra"),
-        ElementKind.TET_P2: ("MeshTet1", "ElementTetP2", "tetra"),
-        ElementKind.QUAD_P1: ("MeshQuad1", "ElementQuad1", "quad"),
-        ElementKind.HEX_P1: ("MeshHex1", "ElementHex1", "hexahedron"),
-    }
-)
+_CTOR: FrozenDict[ElementKind, tuple[str, str, str]] = FrozenDict({
+    ElementKind.P1: ("MeshLine1", "ElementLineP1", "line"),
+    ElementKind.P2: ("MeshLine1", "ElementLineP2", "line"),
+    ElementKind.TRI_P1: ("MeshTri1", "ElementTriP1", "triangle"),
+    ElementKind.TRI_P2: ("MeshTri1", "ElementTriP2", "triangle"),
+    ElementKind.TET_P1: ("MeshTet1", "ElementTetP1", "tetra"),
+    ElementKind.TET_P2: ("MeshTet1", "ElementTetP2", "tetra"),
+    ElementKind.QUAD_P1: ("MeshQuad1", "ElementQuad1", "quad"),
+    ElementKind.HEX_P1: ("MeshHex1", "ElementHex1", "hexahedron"),
+})
 
 # Per-operation residual-floor tolerance, one row per MeshOp. None of the three operations carries a
 # solve, so every row floors a well-formedness verdict (`0.0` finite, `inf` degenerate) rather than a
@@ -86,13 +84,11 @@ _TOL: FrozenDict[MeshOp, float] = FrozenDict({"assembled": 1e-6, "read": 1e-6, "
 # the common trailing slot. The single owner over the case shapes: the factory packs by it, the
 # accessors read fixed slots off it, `.status` reads the last slot, and `.facts` projects each named
 # slot — mirroring solvers/receipt.md#RECEIPT `_SLOTS`, so an operation's evidence is one row.
-_SLOTS: FrozenDict[MeshOp, tuple[str, ...]] = FrozenDict(
-    {
-        "assembled": ("key", "element", "dof_count", "dirichlet_count", "load_norm", "status"),
-        "read": ("key", "element", "point_count", "cell_count", "status"),
-        "written": ("key", "fmt", "byte_count", "status"),
-    }
-)
+_SLOTS: FrozenDict[MeshOp, tuple[str, ...]] = FrozenDict({
+    "assembled": ("key", "element", "dof_count", "dirichlet_count", "load_norm", "status"),
+    "read": ("key", "element", "point_count", "cell_count", "status"),
+    "written": ("key", "fmt", "byte_count", "status"),
+})
 
 # Field-redaction policy the @receipted aspect binds; the mesh facts carry no secret, so the
 # classification Map is empty and every fact reaches the line natively — the one policy object
@@ -101,6 +97,7 @@ _REDACTION: Redaction = Redaction(classified=Map.empty())
 
 
 # --- [MODELS] ------------------------------------------------------------------------------
+
 
 # content_key is a stored field, not a property, because ContentIdentity.of runs the fallible
 # canonical-derive seam: the key folds once at the `_field` mint inside the `_dispatch` boundary and
@@ -161,9 +158,7 @@ class MeshReceipt:
     def facts(self) -> dict[str, object]:
         match self:
             case (
-                MeshReceipt(tag="assembled", assembled=payload)
-                | MeshReceipt(tag="read", read=payload)
-                | MeshReceipt(tag="written", written=payload)
+                MeshReceipt(tag="assembled", assembled=payload) | MeshReceipt(tag="read", read=payload) | MeshReceipt(tag="written", written=payload)
             ):
                 return dict(zip(_SLOTS[self.tag], payload, strict=True))
             case _ as unreachable:
@@ -223,6 +218,7 @@ class MeshExchange:
 
 
 # --- [OPERATIONS] --------------------------------------------------------------------------
+
 
 # `_dispatch` is the one `railed` `effect.result` chain `run` joins through `bind`: the read arm
 # `yield from`-binds `_read`'s `RuntimeRail[MeshField]` so a meshio parse or canonical-encode fault
@@ -284,8 +280,15 @@ def _field(
     )
     key: ContentKey = yield from ContentIdentity.of("mesh-field", buffers, IdentityPolicy())
     return MeshField(
-        element=element, points=points, cells=cells, node_fields=node_fields, cell_fields=cell_fields,
-        node_sets=node_sets, cell_sets=cell_sets, field_data=field_data, content_key=key,
+        element=element,
+        points=points,
+        cells=cells,
+        node_fields=node_fields,
+        cell_fields=cell_fields,
+        node_sets=node_sets,
+        cell_sets=cell_sets,
+        field_data=field_data,
+        content_key=key,
     )
 
 

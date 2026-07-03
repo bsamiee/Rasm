@@ -29,6 +29,7 @@
             "!!**/coverage",
             "!!**/dist",
             "!!**/build",
+            "!!**/_tmp",
             "!!**/packages.lock.json",
             "!!**/test-results",
             "!!**/pnpm-lock.yaml",

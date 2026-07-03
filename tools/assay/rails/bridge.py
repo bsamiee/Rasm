@@ -375,10 +375,11 @@ _EVIDENCE_COUNT_ROWS: Final[tuple[_CountRow[_EvidenceCounts], ...]] = (
     ("scratchManifests", lambda counts: counts.scratch_manifests),
 )
 
+_SUPERVISOR_BINARY: Final[str] = "Rasm.Bridge.Supervisor"
 _SUPERVISOR_TOOL: Final[Tool] = Tool(
     name="rasm-bridge",
-    runner=Runner.DOTNET,
-    command=("run", "--no-build", "--project"),
+    runner=Runner.DIRECT,
+    command=(),
     input=Input.NONE,
     language=Language.CSHARP,
     claim=Claim.BRIDGE,
@@ -403,10 +404,34 @@ def _routed() -> Routed:
     return Routed(language=Language.CSHARP, scope=Scope.CHANGED)
 
 
-def _client_check(settings: AssaySettings, *args: str) -> Check:
+def _pivot_output(scope_path: object, project: str, configuration: str) -> Path | None:
+    # dotnet artifacts pivots are `<config>` or `<config>_<rid>`; the newest matching pivot is the bound output.
+    root = Path(str(scope_path)) / "bin" / project
+    return next(iter(sorted(root.glob(f"{configuration.lower()}*"), key=lambda p: p.stat().st_mtime, reverse=True)), None)
+
+
+def _supervisor_binary(settings: AssaySettings) -> Path | None:
+    # dotnet run recomposes artifacts-path output locations by SDK heuristics that drift per release;
+    # the built apphost under the stable bridge scope is the one spawn target that cannot drift.
+    pivot = _pivot_output(ArtifactScope.build(settings, "bridge").path, "Supervisor", settings.configuration.value)
+    binary = pivot / _SUPERVISOR_BINARY if pivot is not None else None
+    return binary if binary is not None and binary.is_file() else None
+
+
+def _client_check(settings: AssaySettings, *args: str) -> Result[Check, Fault]:
     verb = args[0] if args else "status"
-    tail = (str(settings.root / _SUPERVISOR_PROJECT), "--configuration", settings.configuration.value, "--", verb, *args[1:])
-    return Check(tool=msgspec.structs.replace(_SUPERVISOR_TOOL, command=(*_SUPERVISOR_TOOL.command, *tail)), cwd=Path(str(settings.root)))
+    match _supervisor_binary(settings):
+        case None:
+            return Error(
+                Fault(
+                    ("bridge", "supervisor"),
+                    status=RailStatus.FAULTED,
+                    message="supervisor binary absent under the bridge build scope; run `uv run python -m tools.assay bridge build` first",
+                )
+            )
+        case binary:
+            tool = msgspec.structs.replace(_SUPERVISOR_TOOL, command=(str(binary), verb, *args[1:]))
+            return Ok(Check(tool=tool, cwd=Path(str(settings.root))))
 
 
 def client_run(settings: AssaySettings, *args: str, timeout: float | None = None) -> Result[Completed, Fault]:
@@ -415,10 +440,13 @@ def client_run(settings: AssaySettings, *args: str, timeout: float | None = None
     Returns:
         Supervisor completion or operational fault.
     """
-    check = _client_check(settings, *args)
     deadline = time.monotonic() + timeout if timeout is not None else None
     scope = ArtifactScope.build(settings, "bridge")
-    return run_check(check, settings=settings, scope=scope, routed=_routed(), deadline=deadline).map(_completed_from_stdout)
+    return (
+        _client_check(settings, *args)
+        .bind(lambda check: run_check(check, settings=settings, scope=scope, routed=_routed(), deadline=deadline))
+        .map(_completed_from_stdout)
+    )
 
 
 def first_fault(envelope: _SessionEnvelope) -> tuple[str, str]:
@@ -570,7 +598,8 @@ def _aggregate_closure(
         return Error(Fault(("bridge", "closure-index"), RailStatus.FAULTED, f"missing bridge closure(s): {', '.join(missing)}"))
     target = Path(scope.ensure()) / _AGGREGATE_CLOSURE_FILE
     selected = tuple(index[corpus.assembly] for corpus in plan.corpora)
-    cargo_root = Path(scope.path) / "bin" / "Cargo" / settings.configuration.value.lower()
+    cargo_fallback = Path(scope.path) / "bin" / "Cargo" / settings.configuration.value.lower()
+    cargo_root = _pivot_output(scope.path, "Cargo", settings.configuration.value) or cargo_fallback
     cargo_assemblies = tuple(sorted(cargo_root.glob("*.dll")))
     if not cargo_assemblies:
         return Error(Fault(("bridge", "closure-aggregate"), RailStatus.FAULTED, f"missing cargo output assemblies under {cargo_root}"))

@@ -85,15 +85,16 @@ producer here. `AnalysisMaterialFactory.CreateLinearElastic` itself throws `Argu
 
 [PUBLIC_TYPE_SCOPE]: grade->property FACTORIES (the EN-tabulated `grade -> material` dispatchers)
 - rail: profiles / connection
-- These hold the EN data tables (private `Dictionary<Enum, …>` keyed by grade × `EnSteelSpecification`) and the
-  derivation formulae (e.g. EC2 secant modulus, the EN 1992 parabola-rectangle strain limits). They are `static`
+- These hold the EN data tables (the steel `Dictionary<Enum, Table3_1Properties>` set keyed by grade, the table selected
+  by `EnSteelSpecification`) and the token-parse derivation formulae (`EnConcreteFactory`/`EnRebarFactory` parse the grade
+  token — `Cxx`/`Cxx_yy` split, the rebar digit run — never a table). They are `static`
   factories — the entrypoint a design page calls to turn a grade into a constitutive material.
 
 | [INDEX] | [SYMBOL]                  | [PACKAGE_ROLE]   | [CAPABILITY]                                                                                  |
 | :-----: | :------------------------ | :--------------- | :-------------------------------------------------------------------------------------------- |
 |  [01]   | `AnalysisMaterialFactory` | dispatcher       | `CreateLinearElastic(IStandardMaterial)` — routes on `Standard.Body == EN` + the concrete material interface to the right `En*Factory`; throws `ArgumentException` for a non-EN body or an unimplemented EN material type |
 |  [02]   | `EnConcreteFactory`       | concrete factory | `CreateLinearElastic<T>(T grade) where T : Enum` (parses `Cxx/xx` -> `fck`, derives the EC2 secant `Ecm`) and `CreateParabolaRectangleAnalysisMaterial(EnConcreteGrade) -> IParabolaRectangleMaterial` (the EC2 ε_c2/ε_cu2 + exponent strain-limit law) |
-|  [03]   | `EnSteelFactory`          | steel factory    | `CreateLinearElastic(IEnSteelMaterial[, Length elementThickness])` / `CreateBiLinear(IEnSteelMaterial[, Length elementThickness])` — reads the EN 1993-1-1 Table 3.1 `f_y`/`f_u` by grade × `EnSteelSpecification` (AR/N/M/W tables) with the ≤40 mm vs 40–80 mm thickness split |
+|  [03]   | `EnSteelFactory`          | steel factory    | `CreateLinearElastic(IEnSteelMaterial[, Length elementThickness])` / `CreateBiLinear(IEnSteelMaterial[, Length elementThickness])` — reads the EN 1993-1-1 Table 3.1 `f_y`/`f_u` from the `GetTable3_1Properties(IEnSteelSpecification)`-selected table (delivery condition `AR`/`N`/`M`/`Q` × solid-or-hollow) by grade, band-split ≤40 mm vs 40–80 mm (`E` fixed `210 GPa`) |
 |  [04]   | `EnRebarFactory`          | rebar factory    | `CreateLinearElastic<T>(T grade) where T : Enum` (parses the digits -> `f_yk`, fixed `Es = 200 GPa`) and `CreateBiLinear(EnRebarGrade) -> IBiLinearMaterial` (the ductility-class A/B/C k-factor + ε_uk hardening law) |
 
 ## [03]-[ENTRYPOINTS]
@@ -154,10 +155,19 @@ producer here. `AnalysisMaterialFactory.CreateLinearElastic` itself throws `Argu
   applies to every read.
 
 [EN_TABLE_CONTRACT]:
-- `EnSteelFactory` holds the EN 1993-1-1 Table 3.1 `f_y`/`f_u` as four private `Dictionary<Enum, …>` tables keyed by
-  `EnSteelGrade`, one per `EnSteelSpecification` rolling family — AR (as-rolled), N (normalized), M (thermomechanical),
-  W (weathering) — each row a (`f_y`, `f_u`) pair for the ≤40 mm and 40–80 mm thickness bands; `CreateLinearElastic`/
-  `CreateBiLinear` select the row by the material's grade × `Specification` and the band by `elementThickness`.
+- `EnSteelFactory` holds the EN 1993-1-1 Table 3.1 `f_y`/`f_u` as EIGHT private `Dictionary<Enum, Table3_1Properties>`
+  tables keyed by `EnSteelGrade` — five solid (`…_AR`/`…_N`/`…_M`/`…_W`/`…_Q`) and three hollow (`…_ARH`/`…_NH`/`…_MH`);
+  each `Table3_1Properties` value carries four `Pressure` bands (`F_y`/`F_u` at ≤40 mm and at 40–80 mm), with `E` fixed at
+  `210 GPa`. `GetTable3_1Properties(IEnSteelSpecification)` selects the table by switching on `EnSteelDeliveryCondition`
+  `{AR, N, M, Q}` (EN 10025-2/-3/-4/-6) × `HollowSection` (solid -> base table, hollow -> the `*H` table); it throws
+  `ArgumentException` for `ColdFormed` forming temperature, an unset `HollowSection`, and a `Q` + hollow combination (no
+  `QH` table exists). `CreateLinearElastic`/`CreateBiLinear` then key the grade row inside the selected table and pick the
+  band by `elementThickness` (≤40 mm vs 40–80 mm; `> 80 mm` throws; a missing grade key or a `0`-valued 40–80 mm entry throws).
+- The `…_W` (weathering) table is UNROUTED DEAD DATA: weathering is the `EnSteelCorrosionResistance` axis (`None`/`W`/`WP`),
+  NOT an `EnSteelDeliveryCondition`, and `GetTable3_1Properties` switches only on delivery condition × hollow — no
+  specification ever reaches `…_W`. A `"S355W"` designation parses to `CorrosionResistance = W` but lowers through its
+  delivery condition (`AR`/`N`/`M`), never the `W` table. The `…_Q` table holds only `S460` (`460`/`570` at ≤40 mm,
+  `440`/`550` at 40–80 mm); `EnSteelGrade` tops out at `S460`, so EN 10025-6 `S690` has no producer in this assembly.
 - `EnConcreteFactory.CreateLinearElastic` parses the `Cxx`/`Cxx_yy` grade token to `fck` and derives the EC2 secant
   modulus `Ecm = fck / ε` with `ε = 1.75 + 0.55·((fck−50)/40)` ‰ above C50; `CreateParabolaRectangleAnalysisMaterial`
   derives the EC2 ε_c2 / ε_cu2 strain limits + the `n` exponent (the high-strength branches above C50).

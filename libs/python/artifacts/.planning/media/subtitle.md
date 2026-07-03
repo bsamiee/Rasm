@@ -45,14 +45,17 @@ lazy import av.error
 lazy import av.filter
 lazy import pysubs2
 lazy import pysubs2.exceptions
-lazy import pysubs2.formats.substation          # parse_tags lives at formats.substation, NOT the phantom top-level pysubs2.substation
-lazy from artifacts.typography.shape import shaped_rgba       # styled-fragment -> RGBA raster (uharfbuzz + python-bidi; the owned RTL/bidi engine, not un-bundled Pillow RAQM)
+lazy import pysubs2.formats.substation  # parse_tags lives at formats.substation, NOT the phantom top-level pysubs2.substation
+lazy from artifacts.typography.shape import (
+    shaped_rgba,
+)  # styled-fragment -> RGBA raster (uharfbuzz + python-bidi; the owned RTL/bidi engine, not un-bundled Pillow RAQM)
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type Styled = tuple[str, object]                 # (fragment text, pysubs2 SSAStyle) from parse_tags; the render input per run
+type Styled = tuple[str, object]  # (fragment text, pysubs2 SSAStyle) from parse_tags; the render input per run
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
+
 
 # the eleven writable dialects pysubs2.formats.FORMAT_IDENTIFIERS publishes, folded to one closed vocabulary;
 # each member's `.value` is the exact `format_` string `SSAFile.to_string`/`from_string` consume.
@@ -81,25 +84,25 @@ class RetimeShift:
     # per-mode payload: the constant-shift arm carries ONLY a ms delta, the framerate-rescale arm ONLY the two
     # framerates — the permissive `(shift_ms, in_fps, out_fps)` bag whose fields are dead per mode is rejected.
     tag: Literal["constant", "rescale"] = tag()
-    constant: int = case()                       # `SSAFile.shift(ms=...)` millisecond delta
-    rescale: tuple[float, float] = case()        # `SSAFile.transform_framerate(in_fps, out_fps)`
+    constant: int = case()  # `SSAFile.shift(ms=...)` millisecond delta
+    rescale: tuple[float, float] = case()  # `SSAFile.transform_framerate(in_fps, out_fps)`
 
 
 @tagged_union(frozen=True)
 class RestyleStep:
     tag: Literal["rename", "import_", "clean"] = tag()
-    rename: tuple[str, str] = case()             # `SSAFile.rename_style(old, new)`
+    rename: tuple[str, str] = case()  # `SSAFile.rename_style(old, new)`
     import_: tuple[str, SubtitleDialect, bool] = case()  # (source text, source dialect, overwrite) -> import_styles
-    clean: None = case()                         # `SSAFile.remove_miscellaneous_events()` (the CLI --clean)
+    clean: None = case()  # `SSAFile.remove_miscellaneous_events()` (the CLI --clean)
 
 
 @tagged_union(frozen=True)
 class SubtitleOp:
     tag: Literal["convert", "retime", "restyle", "mux", "burn_in"] = tag()
-    convert: tuple[str, SubtitleDialect, SubtitleDialect] = case()         # (text, src, dst)
+    convert: tuple[str, SubtitleDialect, SubtitleDialect] = case()  # (text, src, dst)
     retime: tuple[str, SubtitleDialect, RetimeShift] = case()
     restyle: tuple[str, SubtitleDialect, tuple[RestyleStep, ...]] = case()
-    mux: tuple[str, bytes, SubtitleDialect] = case()                       # (subtitle text, container bytes, dialect)
+    mux: tuple[str, bytes, SubtitleDialect] = case()  # (subtitle text, container bytes, dialect)
     burn_in: tuple[str, SubtitleDialect, Frames, MediaProfile] = case()
 
     @staticmethod
@@ -126,11 +129,11 @@ class SubtitleOp:
 class SubtitleEvidence(Struct, frozen=True):
     # the text-track receipt carrier this page owns, projecting onto the shared ArtifactReceipt.Media case; a
     # Mux/BurnIn product composes media/container#CONTAINER MediaEvidence instead and merges the band onto it.
-    container: str                               # dialect id (text arms) or muxer name (container arms)
-    codec: str                                   # "text" for a serialized track, the video codec for a burned one
+    container: str  # dialect id (text arms) or muxer name (container arms)
+    codec: str  # "text" for a serialized track, the video codec for a burned one
     duration: float
     byte_count: int
-    count: int                                   # event count (text) or frame count (burned)
+    count: int  # event count (text) or frame count (burned)
     facts: frozendict[str, float | str] = frozendict()  # {"events": n, "styles": m} -> ArtifactReceipt.Media facts band
 
     @staticmethod
@@ -188,6 +191,7 @@ class Subtitle(Struct, frozen=True):
         except BeartypeCallHintViolation as violation:
             return Error(MediaFault(contract=type(violation).__name__))
 
+
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
@@ -195,7 +199,12 @@ def _subtitle_fault(op: str, exc: "pysubs2.exceptions.Pysubs2Error | ValueError 
     # the pysubs2 raises fold onto the SAME six MediaFault cases media/container#CONTAINER owns: an ambiguous or
     # unknown dialect is an unregistered-format miss, a malformed source or bad framerate is invalid data.
     match exc:
-        case pysubs2.exceptions.FormatAutodetectionError() | pysubs2.exceptions.UnknownFormatIdentifierError() | pysubs2.exceptions.UnknownFileExtensionError() | pysubs2.exceptions.UnknownFPSError():
+        case (
+            pysubs2.exceptions.FormatAutodetectionError()
+            | pysubs2.exceptions.UnknownFormatIdentifierError()
+            | pysubs2.exceptions.UnknownFileExtensionError()
+            | pysubs2.exceptions.UnknownFPSError()
+        ):
             return MediaFault(unregistered=(type(exc).__name__, str(exc)))
         case _:
             return MediaFault(invalid=f"{op}:{exc}")
@@ -244,7 +253,7 @@ def _retime(text: str, dialect: SubtitleDialect, shift: RetimeShift, /) -> Resul
 def _restyle(text: str, dialect: SubtitleDialect, ops: tuple[RestyleStep, ...], /) -> Result[SubtitleProduct, MediaFault]:
     try:
         subs = pysubs2.SSAFile.from_string(text, format_=dialect.value)
-        for step in ops:                         # ordered fold over one parsed track; each step mutates in place
+        for step in ops:  # ordered fold over one parsed track; each step mutates in place
             match step:
                 case RestyleStep(tag="rename", rename=(old, new)):
                     subs.rename_style(old, new)
@@ -309,7 +318,9 @@ def _burn_in(text: str, dialect: SubtitleDialect, frames: Frames, profile: Media
 def _from_container(pair: tuple[bytes, MediaEvidence], subs: "pysubs2.SSAFile", /) -> SubtitleProduct:
     blob, evidence = pair
     merged = msgspec.structs.replace(evidence, facts=evidence.facts | _band(subs))
-    return SubtitleProduct(blob, SubtitleEvidence.measure(evidence.container.value, evidence.codec, evidence.duration, blob, evidence.frame_count, merged.facts))
+    return SubtitleProduct(
+        blob, SubtitleEvidence.measure(evidence.container.value, evidence.codec, evidence.duration, blob, evidence.frame_count, merged.facts)
+    )
 
 
 @beartype

@@ -276,11 +276,11 @@ public abstract partial record SimVisual {
 
 - Owner: `Viewpoint` the portable view-state receipt; `SectionBox` the clip volume; `VisibilityOverride` the per-element visibility-and-color row; `ViewpointCodec` the projection binding the receipt to the `cs:Rasm.Bim/Review/issues#BCF_ARCHIVE` `BcfViewpoint` exchange contract, never an AppUi-local BCF viewpoint schema.
 - Entry: `public string Encode(JsonSerializerOptions wire)` — serializes the camera, section box, visibility set, color overrides, and selection into one portable JSON receipt; `public static Fin<Viewpoint> Decode(string blob, JsonSerializerOptions wire)` — round-trips a stored or shared viewpoint.
-- Auto: a viewpoint captures the full reproducible view state in one receipt — the perspective-or-orthographic camera with its field-of-view, the active section-box clip planes, the per-element visibility and color-override set keyed by element guid, and the current selection — so a saved view, a shared markup, and a coordination issue carry the same portable shape; the BCF projection maps the camera onto the BCF `PerspectiveCamera`/`OrthogonalCamera` fields and the visibility set onto the BCF `Components` visibility and coloring so a viewpoint exports to and imports from an open BCF topic without a second view model.
+- Auto: a viewpoint captures the full reproducible view state in one receipt — the perspective-or-orthographic camera with its field-of-view, the active section-box clip planes, the per-element visibility and color-override set keyed by element guid, and the current selection — so a saved view, a shared markup, and a coordination issue carry the same portable shape; the BCF projection maps the camera onto the `BcfCamera` `Perspective`/`Orthogonal` union, the visibility set onto the `VisibilityExceptions`/`DefaultVisibility` pair, the colour overrides onto ARGB-hex `BcfColoring` rows, and the enabled section box onto six outward axis-aligned `BcfClippingPlane` rows so a viewpoint exports to and imports from an open BCF topic without a second view model.
 - Receipt: `Viewpoint` serializes through the package wire context as a versioned portable receipt the dashboard, the markup, and the cross-process coordination consume.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.Bim (project), BCL inbox
 - Growth: a new view-state field is one `Viewpoint` member; a new override channel is one `VisibilityOverride` column; zero new surface.
-- Boundary: the viewpoint is the one portable view-state owner — a per-feature camera-snapshot shape is the deleted form, and the section box, visibility, override, and selection all ride this one receipt so a coordination markup and a saved camera share it; `ViewpointCodec` projects the receipt onto the one `cs:Rasm.Bim/Review/issues#BCF_ARCHIVE` `BcfViewpoint` exchange contract (the host-free `System.Numerics.Vector3` camera triplet, the `SelectedGlobalIds`/`VisibleGlobalIds` GlobalId sets) so a viewpoint round-trips an external BCF tool through the Bim-owned record and an AppUi-local BCF viewpoint schema is the deleted form — the colour override is a render-only channel the receipt owns and the cross-tool viewpoint deliberately does not carry; the viewpoint binds onto the render-graph camera and section pass at apply time and the GPU clip is the render-graph consequence under VIEWPORT_GPU; the viewpoint receipt is host-local — its camera and section apply onto the 2D-fallback projection and onto the GPU clip when the viewport context lands; the `Editing/issues` board and the `Editing/tour` saved-viewpoints consume this one receipt so a coordination viewpoint mints no second camera-snapshot shape.
+- Boundary: the viewpoint is the one portable view-state owner — a per-feature camera-snapshot shape is the deleted form, and the section box, visibility, override, and selection all ride this one receipt so a coordination markup and a saved camera share it; `ViewpointCodec` projects the receipt onto the one `cs:Rasm.Bim/Review/issues#BCF_ARCHIVE` `BcfViewpoint` exchange contract (the `BcfCamera` `Perspective`/`Orthogonal` union over host-free `System.Numerics.Vector3` triplets, the `SelectedGlobalIds` selection, the `VisibilityExceptions`/`DefaultVisibility` visibility pair, the ARGB-hex `BcfColoring` colour rows, the `BcfClippingPlane` section rows) so a viewpoint round-trips an external BCF tool through the Bim-owned record and an AppUi-local BCF viewpoint schema is the deleted form — the transparency channel stays render-only, a `source`-carried re-encode `with`-preserves the `Snapshot`/`Lines`/`Bitmaps`/`Index`/`ViewSetupHints` columns and the source visibility convention the board round-trip consumes, and inbound arbitrary clipping planes exceed the axis-box receipt so decode leaves the section disabled while the source-carried re-encode keeps the original planes; the viewpoint binds onto the render-graph camera and section pass at apply time and the GPU clip is the render-graph consequence under VIEWPORT_GPU; the viewpoint receipt is host-local — its camera and section apply onto the 2D-fallback projection and onto the GPU clip when the viewport context lands; the `Editing/issues` board and the `Editing/tour` saved-viewpoints consume this one receipt so a coordination viewpoint mints no second camera-snapshot shape.
 
 ```csharp signature
 public readonly record struct ViewCamera(
@@ -323,32 +323,79 @@ public sealed record Viewpoint(
 
 // The viewpoint <-> BCF projection binds the portable `Viewpoint` receipt to the one
 // `Rasm.Bim.Coordination.BcfViewpoint` exchange contract the Bim owner mints — AppUi re-mints no
-// BCF viewpoint schema, the camera triplet is the host-free `System.Numerics.Vector3` the Bim record
-// carries (position = eye, direction = target - eye, up), and the selection/visibility ride the
-// `SelectedGlobalIds`/`VisibleGlobalIds` GlobalId sets. The per-element colour override is a render-only
-// channel the `Viewpoint` receipt owns and the cross-tool BCF viewpoint deliberately does not carry.
+// BCF viewpoint schema: the camera crosses as the `BcfCamera` union (direction = target - eye),
+// visibility rows where `Visible != DefaultVisibility` cross as `VisibilityExceptions`, colour as
+// ARGB-hex `BcfColoring` rows, the enabled section box as its six outward axis planes; a `source`-
+// carried re-encode `with`-preserves `Snapshot`/`Lines`/`Bitmaps`/`Index`/`ViewSetupHints` and the
+// source visibility convention. Transparency stays render-only; inbound arbitrary clipping planes
+// exceed the axis-box receipt, so decode disables the section and the re-encode keeps the planes.
 public static class ViewpointCodec {
-    public static Rasm.Bim.Coordination.BcfViewpoint ToBcf(string guid, Viewpoint view) =>
-        new(
-            guid,
-            new System.Numerics.Vector3((float)view.Camera.EyeX, (float)view.Camera.EyeY, (float)view.Camera.EyeZ),
-            new System.Numerics.Vector3((float)(view.Camera.TargetX - view.Camera.EyeX), (float)(view.Camera.TargetY - view.Camera.EyeY), (float)(view.Camera.TargetZ - view.Camera.EyeZ)),
-            new System.Numerics.Vector3((float)view.Camera.UpX, (float)view.Camera.UpY, (float)view.Camera.UpZ),
-            view.Camera.Perspective ? view.Camera.FieldOfView : view.Camera.OrthoScale,
-            view.Selection,
-            view.Overrides.Filter(static o => o.Visible).Map(static o => o.ElementId),
-            Option<ReadOnlyMemory<byte>>.None);
+    public static Rasm.Bim.Coordination.BcfViewpoint ToBcf(string guid, Viewpoint view, Option<Rasm.Bim.Coordination.BcfViewpoint> source = default) =>
+        (Position: new System.Numerics.Vector3((float)view.Camera.EyeX, (float)view.Camera.EyeY, (float)view.Camera.EyeZ),
+         Direction: new System.Numerics.Vector3((float)(view.Camera.TargetX - view.Camera.EyeX), (float)(view.Camera.TargetY - view.Camera.EyeY), (float)(view.Camera.TargetZ - view.Camera.EyeZ)),
+         Up: new System.Numerics.Vector3((float)view.Camera.UpX, (float)view.Camera.UpY, (float)view.Camera.UpZ),
+         Default: source.Match(Some: static row => row.DefaultVisibility, None: static () => false),
+         Aspect: source.Match(Some: static row => row.Camera.Switch(perspective: static p => p.AspectRatio, orthogonal: static o => o.AspectRatio), None: static () => 0d)) switch {
+            var b => (view.Camera.Perspective
+                ? (Rasm.Bim.Coordination.BcfCamera)new Rasm.Bim.Coordination.BcfCamera.Perspective(b.Position, b.Direction, b.Up, view.Camera.FieldOfView, b.Aspect)
+                : new Rasm.Bim.Coordination.BcfCamera.Orthogonal(b.Position, b.Direction, b.Up, view.Camera.OrthoScale, b.Aspect)) switch {
+                var camera => source.Match(
+                    Some: row => row with {
+                        Camera = camera,
+                        SelectedGlobalIds = view.Selection,
+                        VisibilityExceptions = view.Overrides.Filter(o => o.Visible != b.Default).Map(static o => o.ElementId),
+                        Coloring = ColoringOf(view.Overrides),
+                        ClippingPlanes = view.Section.Enabled ? PlanesOf(view.Section) : row.ClippingPlanes,
+                    },
+                    None: () => new Rasm.Bim.Coordination.BcfViewpoint(
+                        guid, camera, view.Selection,
+                        view.Overrides.Filter(o => o.Visible != b.Default).Map(static o => o.ElementId),
+                        Option<ReadOnlyMemory<byte>>.None,
+                        Coloring: ColoringOf(view.Overrides),
+                        ClippingPlanes: view.Section.Enabled ? PlanesOf(view.Section) : default)),
+            },
+        };
 
     public static Viewpoint FromBcf(string key, Rasm.Bim.Coordination.BcfViewpoint bcf, ClockPolicy clocks) =>
         new(
             key, Viewpoint.Schema,
-            new ViewCamera(bcf.CameraDirection.LengthSquared() > 0f,
-                bcf.CameraPosition.X, bcf.CameraPosition.Y, bcf.CameraPosition.Z,
-                bcf.CameraPosition.X + bcf.CameraDirection.X, bcf.CameraPosition.Y + bcf.CameraDirection.Y, bcf.CameraPosition.Z + bcf.CameraDirection.Z,
-                bcf.CameraUpVector.X, bcf.CameraUpVector.Y, bcf.CameraUpVector.Z, bcf.FieldOfView, bcf.FieldOfView),
+            bcf.Camera.Switch(
+                perspective: static p => new ViewCamera(true,
+                    p.Position.X, p.Position.Y, p.Position.Z,
+                    p.Position.X + p.Direction.X, p.Position.Y + p.Direction.Y, p.Position.Z + p.Direction.Z,
+                    p.Up.X, p.Up.Y, p.Up.Z, p.FieldOfViewDeg, 0d),
+                orthogonal: static o => new ViewCamera(false,
+                    o.Position.X, o.Position.Y, o.Position.Z,
+                    o.Position.X + o.Direction.X, o.Position.Y + o.Direction.Y, o.Position.Z + o.Direction.Z,
+                    o.Up.X, o.Up.Y, o.Up.Z, 0d, o.ViewToWorldScale)),
             new SectionBox(0d, 0d, 0d, 0d, 0d, 0d, false),
-            bcf.VisibleGlobalIds.Map(static id => new VisibilityOverride(id, true, None, 0d)),
+            toSeq(bcf.Coloring.Fold(
+                bcf.VisibilityExceptions.Fold(
+                    HashMap<string, VisibilityOverride>(),
+                    (acc, id) => acc.AddOrUpdate(id, new VisibilityOverride(id, !bcf.DefaultVisibility, None, 0d))),
+                (acc, coloring) => uint.TryParse(coloring.Color.TrimStart('#'), System.Globalization.NumberStyles.HexNumber, System.Globalization.CultureInfo.InvariantCulture, out var argb)
+                    ? coloring.GlobalIds.Fold(acc, (rows, id) => rows.AddOrUpdate(id, rows.Find(id).Match(
+                        Some: row => row with { ColorArgb = Some(argb) },
+                        None: () => new VisibilityOverride(id, bcf.DefaultVisibility, Some(argb), 0d))))
+                    : acc))
+                .Map(static entry => entry.Value),
             bcf.SelectedGlobalIds, clocks.Now);
+
+    static Seq<Rasm.Bim.Coordination.BcfColoring> ColoringOf(Seq<VisibilityOverride> overrides) =>
+        toSeq(overrides.Fold(
+            HashMap<uint, Seq<string>>(),
+            static (acc, o) => o.ColorArgb.Match(
+                Some: argb => acc.AddOrUpdate(argb, acc.Find(argb).Match(Some: ids => ids.Add(o.ElementId), None: () => Seq(o.ElementId))),
+                None: () => acc)))
+            .Map(static row => new Rasm.Bim.Coordination.BcfColoring($"{row.Key:X8}", row.Value));
+
+    static Seq<Rasm.Bim.Coordination.BcfClippingPlane> PlanesOf(SectionBox s) => Seq(
+        new Rasm.Bim.Coordination.BcfClippingPlane(new System.Numerics.Vector3((float)s.MinX, 0f, 0f), new System.Numerics.Vector3(-1f, 0f, 0f)),
+        new Rasm.Bim.Coordination.BcfClippingPlane(new System.Numerics.Vector3((float)s.MaxX, 0f, 0f), new System.Numerics.Vector3(1f, 0f, 0f)),
+        new Rasm.Bim.Coordination.BcfClippingPlane(new System.Numerics.Vector3(0f, (float)s.MinY, 0f), new System.Numerics.Vector3(0f, -1f, 0f)),
+        new Rasm.Bim.Coordination.BcfClippingPlane(new System.Numerics.Vector3(0f, (float)s.MaxY, 0f), new System.Numerics.Vector3(0f, 1f, 0f)),
+        new Rasm.Bim.Coordination.BcfClippingPlane(new System.Numerics.Vector3(0f, 0f, (float)s.MinZ), new System.Numerics.Vector3(0f, 0f, -1f)),
+        new Rasm.Bim.Coordination.BcfClippingPlane(new System.Numerics.Vector3(0f, 0f, (float)s.MaxZ), new System.Numerics.Vector3(0f, 0f, 1f)));
 }
 ```
 
@@ -545,4 +592,4 @@ public partial class ResidencyWireContext : JsonSerializerContext;
 
 - [VIEWPORT_GPU]: the host-shared `GRContext` acquisition through `ISkiaSharpApiLease.TryLeasePlatformGraphicsApi` against the Rhino-owned Metal pipeline, the `GRMtlBackendContext`/`GRVkBackendContext` backend-context construction, the `SKSurface.Create(GRRecordingContext, GRBackendRenderTarget, ...)` GPU-target spelling the `Metal`/`Vulkan`/`OpenGl` `RenderTargetFactory` rows fold, the `SKRuntimeEffect` compute-and-mesh-shader emit path for the meshlet draw and the path-trace ray-generation, the per-backend bindless descriptor-table and acceleration-structure spellings (Metal argument buffers and ray-tracing, Vulkan descriptor indexing and ray-query), the `ResolvePass` live dispatch (the `Taa` motion-vector-reprojection compute pass and history-clamp, the `Fsr` sub-resolution spatial-upscale `Silk.NET.WebGPU` `ComputePassEncoder`/`SKRuntimeEffect` pass, the `Smaa` morphological edge pass) below the `Composite` `RenderTargetFactory`, and the WebGPU backend reach for the designed-only web viewport — the render-graph pass algebra, the `GpuBackend` `RenderTargetFactory` column, the `ResolvePass` ladder and the `ResolvePolicy` tier table and the `ResolveState` jitter-and-history Fold, the simulation render passes, and the viewpoint codec are settled as the CPU/2D-Skia fallback (the `Msaa`/`Smaa`/single-sample resolve runs on the CPU raster); the GPU dispatch, the shared-context lease, the live `Taa`/`Fsr` compute resolve, and the backend acceleration structures are the unverified surface gated on the live host-owned GPU context, de-risked standalone against a windowed `GRContext` and confirmed in-host against the embedded panel.
 - [WGPU_BACKEND]: the `Wgpu` `RenderTargetFactory` row binding the `Silk.NET.WebGPU` wgpu/Dawn surface — `WebGPU.GetApi()`, `CreateInstance`, `InstanceRequestAdapter` on the compositor adapter (LUID/UUID matched through `ICompositionGpuInterop.DeviceLuid`/`DeviceUuid`), `AdapterRequestDevice`+`DeviceGetQueue`, `SurfaceConfigure`/`SurfaceGetCurrentTexture` for the swapchain, the `CommandEncoder`/`RenderPassEncoder`/`ComputePassEncoder` recording, `QueueSubmit`, and the `CompositionDrawingSurface.UpdateWithExternalImageAsync` import of the rendered shared texture — resolve against the admitted `Silk.NET.WebGPU` 2.23 surface (`.api/api-silk-webgpu.md`) and the Avalonia 12 compositor interop (`.api/api-avalonia-gpu-interop.md`); the backend rows, the `RenderTargetFactory` column shape, and the factory-bound pass algebra are settled, the wgpu device acquisition, the shared-texture export-and-import handshake (D3D11 keyed-mutex / Vulkan external-memory / Metal `IOSurface`), and the wgpu-versus-Skia present-path divergence below the factory are the unverified surface gated on the live GPU device, with `Silk.NET.WebGPU` a stable pinnable .NET Foundation identity and the `Software` Skia Ganesh raster row the shippable floor. Skia Graphite is not yet shipped; no `SkiaGraphite` row is admitted until SkiaSharp exposes the Recorder/Context surface, at which point the row re-admits with no other change.
-- [WEB_RESIDENCY]: the `ResidencyManifest` is the single C# mint of the `WEB_GEOMETRY_RESIDENCY_WIRE` and the TypeScript `libs/typescript/ui` worker is its sole consumer — the manifest, the `ResidencyMarshal` projection algebra, the `BlobKeyOf` blob-lane addressing, and the `StreamWire`/`MeshletWireOf`/`TileOf` projection off each Compute `csharp:Rasm.Compute/Runtime/payload#RESIDENCY` `ResidencyPayload` (its EXT_meshopt_compression `StreamSpan` bufferViews, `ResidencyMeshlet` clusters, bounds, and `ContentKey`) are built and settled now, so the worker decodes the meshopt-compressed blob and drives a WebGPU viewport off the content-keyed tiles against the same Compute `Runtime/codecs#CONTENT_ADDRESSING` keying the desktop and Persistence read; the single-mint invariant (one producer, no TS-side re-mint) is graded at the cross-libs master against the `typescript:ui/render/glb#GLB_VIEWPORT` consume-only manifest row, and the `:x32` content-key spelling is the shared wire form. The gaussian-splat tile manifest arm projects a present Compute gaussian-splat `ResidencyPayload` now; only the upstream Compute splat-payload decode that feeds it (the `Runtime/payload#RESIDENCY` `SplatScan` admission at the `Runtime/channels` `GaussianSplatScan` wire) stays `[UPSTREAM-BLOCKED]` on the Python SOG/PLY/LAZ scan-decode two-hop, and the Python content-key reproduction of the `:x32` form stays `[UPSTREAM-BLOCKED]` on the `xxhash` cp315/abi3 wheel the companion lacks below 3.15. The WebGPU cluster-LOD upload on the browser device is the remaining `[HOST-PROBE-DEFERRED]` surface gated on the live WebGPU device — depends on the `WebGpu` `GpuBackend` row and the Compute `csharp:Rasm.Compute/Runtime/payload#RESIDENCY` residency keying.
+- [WEB_RESIDENCY]: the `ResidencyManifest` is the single C# mint of the `WEB_GEOMETRY_RESIDENCY_WIRE` and the TypeScript `libs/typescript/browser` worker (`browser/transport/pool.md`) is its sole consumer — the manifest, the `ResidencyMarshal` projection algebra, the `BlobKeyOf` blob-lane addressing, and the `StreamWire`/`MeshletWireOf`/`TileOf` projection off each Compute `csharp:Rasm.Compute/Runtime/payload#RESIDENCY` `ResidencyPayload` (its EXT_meshopt_compression `StreamSpan` bufferViews, `ResidencyMeshlet` clusters, bounds, and `ContentKey`) are built and settled now, so the worker decodes the meshopt-compressed blob and drives a WebGPU viewport off the content-keyed tiles against the same Compute `Runtime/codecs#CONTENT_ADDRESSING` keying the desktop and Persistence read; the single-mint invariant (one producer, no TS-side re-mint) is graded at the cross-libs master against the `typescript:ui/viewer/scene/glb#GLB_VIEWPORT` consume-only manifest row, and the `:x32` content-key spelling is the shared wire form. The gaussian-splat tile manifest arm projects a present Compute gaussian-splat `ResidencyPayload` now; only the upstream Compute splat-payload decode that feeds it (the `Runtime/payload#RESIDENCY` `SplatScan` admission at the `Runtime/channels` `GaussianSplatScan` wire) stays `[UPSTREAM-BLOCKED]` on the Python SOG/PLY/LAZ scan-decode two-hop, and the Python content-key reproduction of the `:x32` form stays `[UPSTREAM-BLOCKED]` on the `xxhash` cp315/abi3 wheel the companion lacks below 3.15. The WebGPU cluster-LOD upload on the browser device is the remaining `[HOST-PROBE-DEFERRED]` surface gated on the live WebGPU device — depends on the `WebGpu` `GpuBackend` row and the Compute `csharp:Rasm.Compute/Runtime/payload#RESIDENCY` residency keying.

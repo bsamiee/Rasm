@@ -473,6 +473,38 @@ validate. Distinct from #2 (synthesize into one report) and #8 (skeptic vote on 
 claim): this is cluster-by-shared-resource, then fix-and-verify each cluster. The
 full worked file is `assets/examples/rebuild-and-reconcile.js`.
 
+**Bounded buckets — balance by WORK, never count.** When clusters must consolidate
+into at most N agents (a reconcile cap), a count-balanced packer systematically
+overloads bucket 0: descending count-sort drops the largest connected component into
+the first empty bucket, then count-parity tops that bucket up while it already holds
+the largest distinct-file union and the tightest coupled reasoning — the bucket-0
+agent runs ~2x its siblings' tokens and wall-clock. An agent's load is the files it
+must read and reconcile, never how many claims it carries. Pack by work weight, keep
+clusters ATOMIC (splitting a same-file cluster across agents creates edit
+collisions), and log per-bucket weights so the long pole is visible, never silent:
+
+```js
+const clusterWork = (c) => { const files = new Set(); for (const r of c) for (const f of r.files ?? []) files.add(f); return files.size * 2 + c.length }
+const packClusters = (clusters, n) => {
+  if (clusters.length <= n) return clusters                       // one agent per cluster — balanced by construction
+  const buckets = Array.from({ length: n }, () => ({ work: 0, rows: [] }))
+  for (const c of clusters.slice().sort((a, b) => clusterWork(b) - clusterWork(a))) {
+    let mi = 0; for (let i = 1; i < n; i++) if (buckets[i].work < buckets[mi].work) mi = i
+    buckets[mi].rows.push(...c); buckets[mi].work += clusterWork(c)
+  }
+  return buckets.filter((b) => b.rows.length).map((b) => b.rows)
+}
+const buckets = packClusters(clusters, RECON_CAP)
+log('bucket work [' + buckets.map(clusterWork).join(', ') + ']')  // no silent long pole
+```
+
+The heaviest atomic cluster still bounds the wall-clock — that is irreducible — but
+weight-greedy stops topping it up, pushing every small cluster to the other buckets.
+The same law orders an UNPACKED pool: heterogeneous clusters under a cap smaller
+than the cluster count launch heaviest-first, so the long pole starts in the first
+wave instead of extending the tail. Fixed-size `chunk(pages, N)` batches of
+homogeneous items need none of this — uniform items balance by construction.
+
 **Iterating to drive-to-zero — the progress gate.** The shape above fixes each cluster
 ONCE. When the reconcile instead ITERATES — re-queue the residuals a verify left `open`,
 re-cluster, fix again, round after round until none remain — every round MUST gate on

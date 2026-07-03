@@ -100,8 +100,8 @@ class LensOp(StrEnum):
     TABLE = "table"
     WORDS = "words"
     REGION = "region"
-    STORY = "story"                # per-page tree recovery: the recover-TO inverse of `document/report#REPORT REFLOW`
-    PATHS = "paths"                # recovered vector geometry (fills/strokes/curves) for the AEC drawing plane
+    STORY = "story"  # per-page tree recovery: the recover-TO inverse of `document/report#REPORT REFLOW`
+    PATHS = "paths"  # recovered vector geometry (fills/strokes/curves) for the AEC drawing plane
     OUTLINE = "outline"
     STRUCTURE = "structure"
     LINK = "link"
@@ -126,10 +126,10 @@ class LensBand(StrEnum):
 
 
 class LensProvider(StrEnum):
-    PDFOXIDE = "pdf-oxide"                          # MIT/Apache Rust core, abi3->3.15, ungated CORE — the commercial-safe layout-aware default
+    PDFOXIDE = "pdf-oxide"  # MIT/Apache Rust core, abi3->3.15, ungated CORE — the commercial-safe layout-aware default
     PYPDF = "pypdf"
     PLUMBER = "pdfplumber"
-    MUPDF = "pymupdf"                               # AGPL-3.0 — reserved for permissive/internal lanes; PDFOXIDE supersedes it on the closed/distributed path
+    MUPDF = "pymupdf"  # AGPL-3.0 — reserved for permissive/internal lanes; PDFOXIDE supersedes it on the closed/distributed path
     PIKEPDF = "pikepdf"
     ODFPY = "odfpy"
     DOCX = "python-docx"
@@ -151,15 +151,18 @@ _RECOVERED_FONT: Final[str] = "recovered"
 _VECTOR_MEDIA: Final[str] = "image/svg+xml"  # recovered vector-path FigureNode media type (the PATHS drawing-geometry marker)
 _HEADING_FLOOR: Final[int] = 1
 _HEADING_CEIL: Final[int] = 6
-_BOLD_FLAG: Final[int] = 16   # pymupdf span flag bit 4 — bold
+_BOLD_FLAG: Final[int] = 16  # pymupdf span flag bit 4 — bold
 _ITALIC_FLAG: Final[int] = 2  # pymupdf span flag bit 1 — italic
-_SUPER_FLAG: Final[int] = 1   # pymupdf span flag bit 0 — superscript
-_GATED_PROVIDERS: Final[frozenset[LensProvider]] = frozenset(
-    {LensProvider.OCRMYPDF, LensProvider.CALAMINE, LensProvider.LXML}
-)
+_SUPER_FLAG: Final[int] = 1  # pymupdf span flag bit 0 — superscript
+_GATED_PROVIDERS: Final[frozenset[LensProvider]] = frozenset({LensProvider.OCRMYPDF, LensProvider.CALAMINE, LensProvider.LXML})
 _OFFLOAD: Final = CapacityLimiter(8)  # bounds the native-extraction thread/process fan-out so no arm runs inline on the loop
 _HEADING: Final[tuple[StructEltKind, ...]] = (
-    StructEltKind.H1, StructEltKind.H2, StructEltKind.H3, StructEltKind.H4, StructEltKind.H5, StructEltKind.H6,
+    StructEltKind.H1,
+    StructEltKind.H2,
+    StructEltKind.H3,
+    StructEltKind.H4,
+    StructEltKind.H5,
+    StructEltKind.H6,
 )
 
 # --- [ERRORS] ---------------------------------------------------------------------------
@@ -172,25 +175,25 @@ class LensFault:
     # `ocrmypdf.ExitCodeException`/`lxml.etree.XMLSyntaxError`) converts to the runtime `BoundaryFault`
     # at the `async_boundary` capsule, never into this interior vocabulary.
     tag: Literal["payload", "unsatisfied"] = tag()
-    payload: tuple[str, ...] = case()              # the rejected LensPayload key paths
-    unsatisfied: tuple[LensOp, str] = case()       # an op whose `_REQUIRED` input field is empty
+    payload: tuple[str, ...] = case()  # the rejected LensPayload key paths
+    unsatisfied: tuple[LensOp, str] = case()  # an op whose `_REQUIRED` input field is empty
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
 class LensSpec(Struct, frozen=True, omit_defaults=True):
-    mode: str = "plain"                            # pypdf `extract_text(extraction_mode=)`
-    reading_order: str = "column_aware"            # pdf_oxide `extract_spans(reading_order=)` XY-cut column detection ("top_to_bottom" | "column_aware")
-    include_artifacts: bool = False                # pdf_oxide `extract_words(include_artifacts=)`; False drops running header/footer/watermark spans
-    profile: str = ""                              # pdf_oxide `extract_words(profile=)` layout-tuning profile — an `ExtractionProfile.available()` name (academic/form/government/scanned_ocr/…); "" keeps the adaptive default heuristics
-    flags: int = 0                                 # pymupdf `get_text("dict", flags=)`; 0 -> TEXTFLAGS_DICT
+    mode: str = "plain"  # pypdf `extract_text(extraction_mode=)`
+    reading_order: str = "column_aware"  # pdf_oxide `extract_spans(reading_order=)` XY-cut column detection ("top_to_bottom" | "column_aware")
+    include_artifacts: bool = False  # pdf_oxide `extract_words(include_artifacts=)`; False drops running header/footer/watermark spans
+    profile: str = ""  # pdf_oxide `extract_words(profile=)` layout-tuning profile — an `ExtractionProfile.available()` name (academic/form/government/scanned_ocr/…); "" keeps the adaptive default heuristics
+    flags: int = 0  # pymupdf `get_text("dict", flags=)`; 0 -> TEXTFLAGS_DICT
     x_tolerance: float = 3.0
     y_tolerance: float = 3.0
     use_text_flow: bool = False
     split_at_punctuation: bool = False
     extra_attrs: tuple[str, ...] = ("fontname", "size")
-    vertical: str = "lines"                        # pdfplumber/pymupdf `vertical_strategy`
+    vertical: str = "lines"  # pdfplumber/pymupdf `vertical_strategy`
     horizontal: str = "lines"
     snap_tolerance: float = 3.0
     join_tolerance: float = 3.0
@@ -199,26 +202,26 @@ class LensSpec(Struct, frozen=True, omit_defaults=True):
     text_tolerance: float = 3.0
     explicit_vertical: tuple[float, ...] = ()
     explicit_horizontal: tuple[float, ...] = ()
-    bbox: Bounds | None = None                     # REGION crop window
-    repair: bool = False                           # pdfplumber Ghostscript pre-repair
-    needle: str = ""                               # SEARCH pattern
+    bbox: Bounds | None = None  # REGION crop window
+    repair: bool = False  # pdfplumber Ghostscript pre-repair
+    needle: str = ""  # SEARCH pattern
     regex: bool = True
     case_sensitive: bool = True
-    language: tuple[str, ...] = ("eng",)           # OCR Tesseract language packs
+    language: tuple[str, ...] = ("eng",)  # OCR Tesseract language packs
     dpi: int = 72
     full: bool = False
     filetype: str = "pdf"
-    output_type: str = "pdfa"                      # ocrmypdf PDF/A target
-    ocr_mode: str = "force"                        # ocrmypdf processing mode
+    output_type: str = "pdfa"  # ocrmypdf PDF/A target
+    ocr_mode: str = "force"  # ocrmypdf processing mode
     deskew: bool = False
     clean: bool = False
     rotate_pages: bool = False
     optimize: int = 1
-    load_tables: bool = False                      # python-calamine Excel-table parse
+    load_tables: bool = False  # python-calamine Excel-table parse
     sheets: tuple[str, ...] = ()
     skip_empty_area: bool = True
-    typ: str = "rt"                                # ruamel-yaml round-trip loader
-    recover: bool = True                           # lxml recovering parser
+    typ: str = "rt"  # ruamel-yaml round-trip loader
+    recover: bool = True  # lxml recovering parser
 
 
 class DocumentLens(Struct, frozen=True):
@@ -228,7 +231,9 @@ class DocumentLens(Struct, frozen=True):
     provider: LensProvider | None = None
     recovered: tuple[DocumentNode, ...] = ()
 
-    @receipted(OPEN)  # the runtime keep-all redaction the receipts owner exports (lens facts carry no classified field), never a re-minted per-file `Redaction`; drains `contribute` off the stepped owner via `Signals.emit_async`
+    @receipted(
+        OPEN
+    )  # the runtime keep-all redaction the receipts owner exports (lens facts carry no classified field), never a re-minted per-file `Redaction`; drains `contribute` off the stepped owner via `Signals.emit_async`
     async def _emit(self) -> Self:
         # the synchronous native extraction NEVER runs inline on the loop: a GATED arm crosses the process seam,
         # a CORE arm the GIL-releasing thread seam, each bounded by the shared `_OFFLOAD` limiter.
@@ -318,10 +323,7 @@ class LensPayload(TypedDict, closed=True):
 
 _PAYLOAD: Final = TypeAdapter(LensPayload)
 # the per-op precondition: a row's named `LensSpec` fields must be non-empty so the interior is total.
-_REQUIRED: Final[frozendict[LensOp, tuple[str, ...]]] = frozendict({
-    LensOp.REGION: ("bbox",),
-    LensOp.SEARCH: ("needle",),
-})
+_REQUIRED: Final[frozendict[LensOp, tuple[str, ...]]] = frozendict({LensOp.REGION: ("bbox",), LensOp.SEARCH: ("needle",)})
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -373,21 +375,60 @@ def _node(kind: NodeKind, role: str, page: int, payload: bytes, *, bounds: Bound
     meta = NodeMeta(key=ContentIdentity.of(f"node-{role}-{page}", seed + payload), role=role, page=page, bounds=bounds)
     match kind:
         case NodeKind.RUN:
-            return RunNode(meta=meta, text=slot.get("text", ""), font_key=slot.get("font_key", _RECOVERED_FONT), size=slot.get("size", 0.0), weight=slot.get("weight", 400), italic=slot.get("italic", False), direction=slot.get("direction", TextDirection.AUTO), script=slot.get("script", RunScript.NORMAL), decorations=slot.get("decorations", ()), color=slot.get("color", (0, 0, 0)))
+            return RunNode(
+                meta=meta,
+                text=slot.get("text", ""),
+                font_key=slot.get("font_key", _RECOVERED_FONT),
+                size=slot.get("size", 0.0),
+                weight=slot.get("weight", 400),
+                italic=slot.get("italic", False),
+                direction=slot.get("direction", TextDirection.AUTO),
+                script=slot.get("script", RunScript.NORMAL),
+                decorations=slot.get("decorations", ()),
+                color=slot.get("color", (0, 0, 0)),
+            )
         case NodeKind.FIGURE:
-            return FigureNode(meta=meta, asset_key=ContentIdentity.of(f"asset-{slot['name']}", payload), alt=slot.get("alt", ""), media_type=slot.get("media_type", "image/png"), intrinsic=slot.get("intrinsic"), caption=slot.get("caption", ()))
+            return FigureNode(
+                meta=meta,
+                asset_key=ContentIdentity.of(f"asset-{slot['name']}", payload),
+                alt=slot.get("alt", ""),
+                media_type=slot.get("media_type", "image/png"),
+                intrinsic=slot.get("intrinsic"),
+                caption=slot.get("caption", ()),
+            )
         case NodeKind.TABLE:
             return TableNode(meta=meta, rows=slot.get("rows", ()), spans=slot.get("spans", ()), header_rows=slot.get("header_rows", 0))
         case NodeKind.FIELD:
-            return FieldNode(meta=meta, name=slot["name"], field=slot.get("field", FieldKind.TEXT), value=slot.get("value"), flags=slot.get("flags", ()), options=slot.get("options", ()))
+            return FieldNode(
+                meta=meta,
+                name=slot["name"],
+                field=slot.get("field", FieldKind.TEXT),
+                value=slot.get("value"),
+                flags=slot.get("flags", ()),
+                options=slot.get("options", ()),
+            )
         case NodeKind.ANNOTATION:
-            return AnnotationNode(meta=meta, annot=slot.get("annot", AnnotKind.NOTE), target=bounds or _ORIGIN, contents=slot.get("contents", ""), link=slot.get("link", NoTarget()))
+            return AnnotationNode(
+                meta=meta,
+                annot=slot.get("annot", AnnotKind.NOTE),
+                target=bounds or _ORIGIN,
+                contents=slot.get("contents", ""),
+                link=slot.get("link", NoTarget()),
+            )
         case NodeKind.STRUCTURE:
-            return StructureNode(meta=meta, role=slot.get("struct_role") or StandardRole(elt=slot.get("elt", StructEltKind.SECT)), children=slot.get("children", ()))
+            return StructureNode(
+                meta=meta, role=slot.get("struct_role") or StandardRole(elt=slot.get("elt", StructEltKind.SECT)), children=slot.get("children", ())
+            )
         case NodeKind.SECTION:
             return SectionNode(meta=meta, level=slot.get("level", 1), heading=slot.get("heading", ()), children=slot.get("children", ()))
         case NodeKind.BLOCK:
-            return BlockNode(meta=meta, block=slot.get("block", BlockKind.PARAGRAPH), level=slot.get("level", 1), runs=slot.get("runs", ()), children=slot.get("children", ()))
+            return BlockNode(
+                meta=meta,
+                block=slot.get("block", BlockKind.PARAGRAPH),
+                level=slot.get("level", 1),
+                runs=slot.get("runs", ()),
+                children=slot.get("children", ()),
+            )
         case NodeKind.LIST:
             return ListNode(meta=meta, list_kind=slot.get("list_kind", ListKind.UNORDERED), items=slot.get("items", ()))
         case NodeKind.PAGE:
@@ -438,12 +479,25 @@ def _text_arm(payload: bytes, provider: LensProvider, spec: LensSpec) -> tuple[D
         with pdf_oxide.PdfDocument.from_bytes(payload) as document:
             return tuple(
                 _node(
-                    NodeKind.BLOCK, "block", page.index, page.text.encode(), bounds=page.bbox, block=BlockKind.PARAGRAPH,
+                    NodeKind.BLOCK,
+                    "block",
+                    page.index,
+                    page.text.encode(),
+                    bounds=page.bbox,
+                    block=BlockKind.PARAGRAPH,
                     runs=tuple(
                         _node(
-                            NodeKind.RUN, "span", page.index, span.text.encode(), bounds=span.bbox, text=span.text,
-                            font_key=span.font_name or _RECOVERED_FONT, size=span.font_size,
-                            weight=700 if span.is_bold else 400, italic=span.is_italic, color=_scale8(span.color),
+                            NodeKind.RUN,
+                            "span",
+                            page.index,
+                            span.text.encode(),
+                            bounds=span.bbox,
+                            text=span.text,
+                            font_key=span.font_name or _RECOVERED_FONT,
+                            size=span.font_size,
+                            weight=700 if span.is_bold else 400,
+                            italic=span.is_italic,
+                            color=_scale8(span.color),
                         )
                         for span in document.extract_spans(page.index, reading_order=spec.reading_order)
                     ),
@@ -454,20 +508,30 @@ def _text_arm(payload: bytes, provider: LensProvider, spec: LensSpec) -> tuple[D
         with pymupdf.open(stream=payload, filetype="pdf") as document:
             return tuple(
                 _node(
-                    NodeKind.BLOCK, "block", index,
+                    NodeKind.BLOCK,
+                    "block",
+                    index,
                     (block["lines"][0]["spans"][0]["text"].encode() if block.get("lines") and block["lines"][0].get("spans") else b""),
-                    bounds=tuple(block["bbox"]), block=BlockKind.PARAGRAPH,
+                    bounds=tuple(block["bbox"]),
+                    block=BlockKind.PARAGRAPH,
                     runs=tuple(
                         _node(
-                            NodeKind.RUN, "span", index, span["text"].encode(), bounds=tuple(span["bbox"]),
-                            text=span["text"], font_key=span.get("font", _RECOVERED_FONT), size=float(span.get("size", 0.0)),
+                            NodeKind.RUN,
+                            "span",
+                            index,
+                            span["text"].encode(),
+                            bounds=tuple(span["bbox"]),
+                            text=span["text"],
+                            font_key=span.get("font", _RECOVERED_FONT),
+                            size=float(span.get("size", 0.0)),
                             weight=700 if int(span.get("flags", 0)) & _BOLD_FLAG else 400,
                             italic=bool(int(span.get("flags", 0)) & _ITALIC_FLAG),
                             direction=TextDirection.RTL if line.get("dir", (1.0, 0.0))[0] < 0 else TextDirection.LTR,
                             script=RunScript.SUPER if int(span.get("flags", 0)) & _SUPER_FLAG else RunScript.NORMAL,
                             color=_rgb(int(span.get("color", 0))),
                         )
-                        for line in block.get("lines", ()) for span in line.get("spans", ())
+                        for line in block.get("lines", ())
+                        for span in line.get("spans", ())
                     ),
                 )
                 for index, page in enumerate(document)
@@ -486,9 +550,7 @@ def _text_arm(payload: bytes, provider: LensProvider, spec: LensSpec) -> tuple[D
 def _images_arm(payload: bytes, _provider: LensProvider, _spec: LensSpec) -> tuple[DocumentNode, ...]:
     reader = pypdf.PdfReader(BytesIO(payload))
     return tuple(
-        _node(NodeKind.FIGURE, "figure", index, image.data, name=image.name)
-        for index, page in enumerate(reader.pages)
-        for image in page.images
+        _node(NodeKind.FIGURE, "figure", index, image.data, name=image.name) for index, page in enumerate(reader.pages) for image in page.images
     )
 
 
@@ -502,9 +564,16 @@ def _words_arm(payload: bytes, provider: LensProvider, spec: LensSpec) -> tuple[
         with pdf_oxide.PdfDocument.from_bytes(payload) as document:
             return tuple(
                 _node(
-                    NodeKind.RUN, "word", page.index, word.text.encode(), bounds=word.bbox, text=word.text,
-                    font_key=word.font_name or _RECOVERED_FONT, size=word.font_size,
-                    weight=700 if word.is_bold else 400, italic=word.is_italic,
+                    NodeKind.RUN,
+                    "word",
+                    page.index,
+                    word.text.encode(),
+                    bounds=word.bbox,
+                    text=word.text,
+                    font_key=word.font_name or _RECOVERED_FONT,
+                    size=word.font_size,
+                    weight=700 if word.is_bold else 400,
+                    italic=word.is_italic,
                 )
                 for page in document.pages
                 for word in document.extract_words(page.index, include_artifacts=spec.include_artifacts, profile=profile)
@@ -512,14 +581,22 @@ def _words_arm(payload: bytes, provider: LensProvider, spec: LensSpec) -> tuple[
     with pdfplumber.open(BytesIO(payload), repair=spec.repair) as document:
         return tuple(
             _node(
-                NodeKind.RUN, "word", index, word["text"].encode(),
+                NodeKind.RUN,
+                "word",
+                index,
+                word["text"].encode(),
                 bounds=(word["x0"], word["top"], word["x1"], word["bottom"]),
-                text=word["text"], font_key=word.get("fontname", _RECOVERED_FONT), size=float(word.get("size", 0.0)),
+                text=word["text"],
+                font_key=word.get("fontname", _RECOVERED_FONT),
+                size=float(word.get("size", 0.0)),
             )
             for index, page in enumerate(document.pages)
             for word in page.extract_words(
-                x_tolerance=spec.x_tolerance, y_tolerance=spec.y_tolerance, use_text_flow=spec.use_text_flow,
-                split_at_punctuation=spec.split_at_punctuation, extra_attrs=list(spec.extra_attrs),
+                x_tolerance=spec.x_tolerance,
+                y_tolerance=spec.y_tolerance,
+                use_text_flow=spec.use_text_flow,
+                split_at_punctuation=spec.split_at_punctuation,
+                extra_attrs=list(spec.extra_attrs),
             )
         )
 
@@ -537,7 +614,9 @@ def _region_arm(payload: bytes, provider: LensProvider, spec: LensSpec) -> tuple
             )
     with pdfplumber.open(BytesIO(payload), repair=spec.repair) as document:
         return tuple(
-            _node(NodeKind.RUN, "region", index, line["text"].encode(), bounds=(line["x0"], line["top"], line["x1"], line["bottom"]), text=line["text"])
+            _node(
+                NodeKind.RUN, "region", index, line["text"].encode(), bounds=(line["x0"], line["top"], line["x1"], line["bottom"]), text=line["text"]
+            )
             for index, page in enumerate(document.pages)
             for line in page.within_bbox(bbox).extract_text_lines(strip=True, return_chars=False)
         )
@@ -551,17 +630,34 @@ def _story_arm(payload: bytes, provider: LensProvider, spec: LensSpec) -> tuple[
         with pymupdf.open(stream=payload, filetype="pdf") as document:
             return tuple(
                 _node(
-                    NodeKind.PAGE, "page", index, repr(tuple(page.rect)).encode(), bounds=tuple(page.rect),
+                    NodeKind.PAGE,
+                    "page",
+                    index,
+                    repr(tuple(page.rect)).encode(),
+                    bounds=tuple(page.rect),
                     children=tuple(
                         _node(
-                            NodeKind.BLOCK, "block", index, repr(block["bbox"]).encode(), bounds=tuple(block["bbox"]), block=BlockKind.PARAGRAPH,
+                            NodeKind.BLOCK,
+                            "block",
+                            index,
+                            repr(block["bbox"]).encode(),
+                            bounds=tuple(block["bbox"]),
+                            block=BlockKind.PARAGRAPH,
                             runs=tuple(
                                 _node(
-                                    NodeKind.RUN, "span", index, span["text"].encode(), bounds=tuple(span["bbox"]), text=span["text"],
-                                    font_key=span.get("font", _RECOVERED_FONT), size=float(span.get("size", 0.0)),
-                                    weight=700 if int(span.get("flags", 0)) & _BOLD_FLAG else 400, color=_rgb(int(span.get("color", 0))),
+                                    NodeKind.RUN,
+                                    "span",
+                                    index,
+                                    span["text"].encode(),
+                                    bounds=tuple(span["bbox"]),
+                                    text=span["text"],
+                                    font_key=span.get("font", _RECOVERED_FONT),
+                                    size=float(span.get("size", 0.0)),
+                                    weight=700 if int(span.get("flags", 0)) & _BOLD_FLAG else 400,
+                                    color=_rgb(int(span.get("color", 0))),
                                 )
-                                for line in block.get("lines", ()) for span in line.get("spans", ())
+                                for line in block.get("lines", ())
+                                for span in line.get("spans", ())
                             ),
                         )
                         for block in page.get_text("dict", flags=spec.flags or pymupdf.TEXTFLAGS_DICT)["blocks"]
@@ -573,12 +669,24 @@ def _story_arm(payload: bytes, provider: LensProvider, spec: LensSpec) -> tuple[
     with pdf_oxide.PdfDocument.from_bytes(payload) as document:  # commercial-safe default: media box + column-order spans per page
         return tuple(
             _node(
-                NodeKind.PAGE, "page", page.index, repr(page.bbox).encode(), bounds=page.bbox,
+                NodeKind.PAGE,
+                "page",
+                page.index,
+                repr(page.bbox).encode(),
+                bounds=page.bbox,
                 children=tuple(
                     _node(
-                        NodeKind.RUN, "span", page.index, span.text.encode(), bounds=span.bbox, text=span.text,
-                        font_key=span.font_name or _RECOVERED_FONT, size=span.font_size,
-                        weight=700 if span.is_bold else 400, italic=span.is_italic, color=_scale8(span.color),
+                        NodeKind.RUN,
+                        "span",
+                        page.index,
+                        span.text.encode(),
+                        bounds=span.bbox,
+                        text=span.text,
+                        font_key=span.font_name or _RECOVERED_FONT,
+                        size=span.font_size,
+                        weight=700 if span.is_bold else 400,
+                        italic=span.is_italic,
+                        color=_scale8(span.color),
                     )
                     for span in document.extract_spans(page.index, reading_order=spec.reading_order)
                 ),
@@ -595,8 +703,14 @@ def _paths_arm(payload: bytes, provider: LensProvider, spec: LensSpec) -> tuple[
         with pymupdf.open(stream=payload, filetype="pdf") as document:
             return tuple(
                 _node(
-                    NodeKind.FIGURE, str(path.get("type", "f")), index, repr(rect).encode(), bounds=(rect.x0, rect.y0, rect.x1, rect.y1),
-                    name=f"draw-{index}-{ordinal}", media_type=_VECTOR_MEDIA, intrinsic=(rect.width, rect.height),
+                    NodeKind.FIGURE,
+                    str(path.get("type", "f")),
+                    index,
+                    repr(rect).encode(),
+                    bounds=(rect.x0, rect.y0, rect.x1, rect.y1),
+                    name=f"draw-{index}-{ordinal}",
+                    media_type=_VECTOR_MEDIA,
+                    intrinsic=(rect.width, rect.height),
                 )
                 for index, page in enumerate(document)
                 for ordinal, path in enumerate(page.get_drawings())
@@ -605,8 +719,14 @@ def _paths_arm(payload: bytes, provider: LensProvider, spec: LensSpec) -> tuple[
     with pdfplumber.open(BytesIO(payload), repair=spec.repair) as document:  # curves + rects + lines vector-object dicts (MIT-licensed default)
         return tuple(
             _node(
-                NodeKind.FIGURE, kind, index, repr(obj).encode(), bounds=(obj["x0"], obj["top"], obj["x1"], obj["bottom"]),
-                name=f"{kind}-{index}-{ordinal}", media_type=_VECTOR_MEDIA, intrinsic=(obj["x1"] - obj["x0"], obj["bottom"] - obj["top"]),
+                NodeKind.FIGURE,
+                kind,
+                index,
+                repr(obj).encode(),
+                bounds=(obj["x0"], obj["top"], obj["x1"], obj["bottom"]),
+                name=f"{kind}-{index}-{ordinal}",
+                media_type=_VECTOR_MEDIA,
+                intrinsic=(obj["x1"] - obj["x0"], obj["bottom"] - obj["top"]),
             )
             for index, page in enumerate(document.pages)
             for kind, objects in (("curve", page.curves), ("rect", page.rects), ("line", page.lines))
@@ -617,16 +737,22 @@ def _paths_arm(payload: bytes, provider: LensProvider, spec: LensSpec) -> tuple[
 @beartype
 def _table_arm(payload: bytes, provider: LensProvider, spec: LensSpec) -> tuple[DocumentNode, ...]:
     settings: dict[str, object] = {
-        "vertical_strategy": spec.vertical, "horizontal_strategy": spec.horizontal,
-        "snap_tolerance": spec.snap_tolerance, "join_tolerance": spec.join_tolerance,
-        "edge_min_length": spec.edge_min_length, "intersection_tolerance": spec.intersection_tolerance, "text_tolerance": spec.text_tolerance,
+        "vertical_strategy": spec.vertical,
+        "horizontal_strategy": spec.horizontal,
+        "snap_tolerance": spec.snap_tolerance,
+        "join_tolerance": spec.join_tolerance,
+        "edge_min_length": spec.edge_min_length,
+        "intersection_tolerance": spec.intersection_tolerance,
+        "text_tolerance": spec.text_tolerance,
     }
     if provider is LensProvider.MUPDF:
         with pymupdf.open(stream=payload, filetype="pdf") as document:
             return tuple(
                 _table_node(table.extract(), tuple(table.bbox), index, header_rows=0 if table.header.external else 1)
                 for index, page in enumerate(document)
-                for table in page.find_tables(**settings).tables  # `Table.header` is always a truthy `TableHeader`; `.external` is the real discriminant — an above-body synthesized header is NOT in `extract()` rows (0), an in-grid header row is (1)
+                for table in page.find_tables(
+                    **settings
+                ).tables  # `Table.header` is always a truthy `TableHeader`; `.external` is the real discriminant — an above-body synthesized header is NOT in `extract()` rows (0), an in-grid header row is (1)
             )
     plumber = settings | {
         key: list(value)
@@ -646,7 +772,12 @@ def _plumber_spans(table: object) -> Spans:
     columns = tuple(sorted({round(cell[0]) for cell in cells} | {round(cell[2]) for cell in cells}))
     rows = tuple(sorted({round(cell[1]) for cell in cells} | {round(cell[3]) for cell in cells}))
     return tuple(
-        (rows.index(round(y0)), columns.index(round(x0)), columns.index(round(x1)) - columns.index(round(x0)), rows.index(round(y1)) - rows.index(round(y0)))
+        (
+            rows.index(round(y0)),
+            columns.index(round(x0)),
+            columns.index(round(x1)) - columns.index(round(x0)),
+            rows.index(round(y1)) - rows.index(round(y0)),
+        )
         for x0, y0, x1, y1 in cells
         if columns.index(round(x1)) - columns.index(round(x0)) > 1 or rows.index(round(y1)) - rows.index(round(y0)) > 1
     )
@@ -698,13 +829,31 @@ def _link_arm(payload: bytes, provider: LensProvider, spec: LensSpec) -> tuple[D
     if provider is LensProvider.MUPDF:
         with pymupdf.open(stream=payload, filetype="pdf") as document:
             return tuple(
-                _node(NodeKind.ANNOTATION, "link", index, str(link.get("uri", link.get("page", ""))).encode(), bounds=tuple(link["from"]), annot=AnnotKind.LINK, contents=str(link.get("uri", "")), link=_link_target(link))
+                _node(
+                    NodeKind.ANNOTATION,
+                    "link",
+                    index,
+                    str(link.get("uri", link.get("page", ""))).encode(),
+                    bounds=tuple(link["from"]),
+                    annot=AnnotKind.LINK,
+                    contents=str(link.get("uri", "")),
+                    link=_link_target(link),
+                )
                 for index, page in enumerate(document)
                 for link in page.get_links()
             )
     with pdfplumber.open(BytesIO(payload), repair=spec.repair) as document:
         return tuple(
-            _node(NodeKind.ANNOTATION, "link", index, str(hit.get("uri", "")).encode(), bounds=(hit["x0"], hit["top"], hit["x1"], hit["bottom"]), annot=AnnotKind.LINK, contents=str(hit.get("uri", "")), link=Uri(href=str(hit["uri"])))
+            _node(
+                NodeKind.ANNOTATION,
+                "link",
+                index,
+                str(hit.get("uri", "")).encode(),
+                bounds=(hit["x0"], hit["top"], hit["x1"], hit["bottom"]),
+                annot=AnnotKind.LINK,
+                contents=str(hit.get("uri", "")),
+                link=Uri(href=str(hit["uri"])),
+            )
             for index, page in enumerate(document.pages)
             for hit in page.hyperlinks
         )
@@ -715,11 +864,15 @@ def _metadata_arm(payload: bytes, _provider: LensProvider, _spec: LensSpec) -> t
     reader = pypdf.PdfReader(BytesIO(payload))
     info = reader.metadata or {}
     fields = tuple(
-        _node(NodeKind.FIELD, _META_KEY.get(slot, slot), 0, str(value).encode(), field=FieldKind.TEXT, name=_META_KEY.get(slot, slot), value=str(value))
+        _node(
+            NodeKind.FIELD, _META_KEY.get(slot, slot), 0, str(value).encode(), field=FieldKind.TEXT, name=_META_KEY.get(slot, slot), value=str(value)
+        )
         for slot, value in info.items()
         if value
     )
-    root = _node(NodeKind.STRUCTURE, str(info.get("/Title", "document")), 0, str(info.get("/Author", "")).encode(), elt=StructEltKind.DOCUMENT, children=fields)
+    root = _node(
+        NodeKind.STRUCTURE, str(info.get("/Title", "document")), 0, str(info.get("/Author", "")).encode(), elt=StructEltKind.DOCUMENT, children=fields
+    )
     return (root,)
 
 
@@ -735,7 +888,15 @@ def _search_arm(payload: bytes, provider: LensProvider, spec: LensSpec) -> tuple
             )
     with pdfplumber.open(BytesIO(payload), repair=spec.repair) as document:
         return tuple(
-            _node(NodeKind.ANNOTATION, "hit", index, needle.encode(), bounds=(hit["x0"], hit["top"], hit["x1"], hit["bottom"]), annot=AnnotKind.HIGHLIGHT, contents=needle)
+            _node(
+                NodeKind.ANNOTATION,
+                "hit",
+                index,
+                needle.encode(),
+                bounds=(hit["x0"], hit["top"], hit["x1"], hit["bottom"]),
+                annot=AnnotKind.HIGHLIGHT,
+                contents=needle,
+            )
             for index, page in enumerate(document.pages)
             for hit in page.search(needle, regex=spec.regex, case=spec.case_sensitive)
         )
@@ -769,8 +930,17 @@ def _ocr_arm(payload: bytes, provider: LensProvider, spec: LensSpec) -> tuple[Do
         source.write(payload)
         source.flush()
         code = ocrmypdf.ocr(
-            source.name, target.name, sidecar=sidecar.name, language=spec.language, output_type=spec.output_type,
-            mode=spec.ocr_mode, deskew=spec.deskew, clean=spec.clean, rotate_pages=spec.rotate_pages, optimize=spec.optimize, progress_bar=False,
+            source.name,
+            target.name,
+            sidecar=sidecar.name,
+            language=spec.language,
+            output_type=spec.output_type,
+            mode=spec.ocr_mode,
+            deskew=spec.deskew,
+            clean=spec.clean,
+            rotate_pages=spec.rotate_pages,
+            optimize=spec.optimize,
+            progress_bar=False,
         )
         text = sidecar.read().decode() if code is ocrmypdf.ExitCode.ok else ""
     return (
@@ -783,11 +953,27 @@ def _ocr_arm(payload: bytes, provider: LensProvider, spec: LensSpec) -> tuple[Do
 def _embedded_arm(payload: bytes, _provider: LensProvider, _spec: LensSpec) -> tuple[DocumentNode, ...]:
     with pymupdf.open(stream=payload, filetype="pdf") as document:
         fields = tuple(
-            _node(NodeKind.FIELD, "embedded", 0, document.embfile_get(name), field=FieldKind.TEXT, name=name, value=document.embfile_info(name)["filename"])
+            _node(
+                NodeKind.FIELD,
+                "embedded",
+                0,
+                document.embfile_get(name),
+                field=FieldKind.TEXT,
+                name=name,
+                value=document.embfile_info(name)["filename"],
+            )
             for name in document.embfile_names()
         )
         figures = tuple(
-            _node(NodeKind.FIGURE, "placed", index, pix.tobytes("png"), name=f"img-{xref}", intrinsic=(float(pix.width), float(pix.height)), media_type="image/png")
+            _node(
+                NodeKind.FIGURE,
+                "placed",
+                index,
+                pix.tobytes("png"),
+                name=f"img-{xref}",
+                intrinsic=(float(pix.width), float(pix.height)),
+                media_type="image/png",
+            )
             for index, page in enumerate(document)
             for xref, *_ in page.get_images(full=True)
             if (pix := pymupdf.Pixmap(document, xref))
@@ -801,14 +987,28 @@ def _widget_arm(payload: bytes, provider: LensProvider, _spec: LensSpec) -> tupl
         with pdf_oxide.PdfDocument.from_bytes(payload) as document:
             return tuple(
                 _node(
-                    NodeKind.FIELD, form.name, 0, str(form.value).encode(), field=_OXIDE_FIELD.get(form.field_type, FieldKind.TEXT),
-                    name=form.name, value=form.value, flags=_oxide_flags(form),
+                    NodeKind.FIELD,
+                    form.name,
+                    0,
+                    str(form.value).encode(),
+                    field=_OXIDE_FIELD.get(form.field_type, FieldKind.TEXT),
+                    name=form.name,
+                    value=form.value,
+                    flags=_oxide_flags(form),
                 )
                 for form in document.get_form_fields()
             )
     with pymupdf.open(stream=payload, filetype="pdf") as document:
         return tuple(
-            _node(NodeKind.FIELD, widget.field_name, index, str(widget.field_value).encode(), field=_widget_field(pymupdf, widget.field_type), name=widget.field_name, value=widget.field_value)
+            _node(
+                NodeKind.FIELD,
+                widget.field_name,
+                index,
+                str(widget.field_value).encode(),
+                field=_widget_field(pymupdf, widget.field_type),
+                name=widget.field_name,
+                value=widget.field_value,
+            )
             for index, page in enumerate(document)
             for widget in page.widgets()
         )
@@ -818,7 +1018,15 @@ def _widget_arm(payload: bytes, provider: LensProvider, _spec: LensSpec) -> tupl
 def _annotate_arm(payload: bytes, _provider: LensProvider, _spec: LensSpec) -> tuple[DocumentNode, ...]:
     with pymupdf.open(stream=payload, filetype="pdf") as document:
         return tuple(
-            _node(NodeKind.ANNOTATION, "annotation", index, annot.info["content"].encode(), bounds=tuple(annot.rect), annot=_annot_kind(annot.type[1]), contents=annot.info["content"])
+            _node(
+                NodeKind.ANNOTATION,
+                "annotation",
+                index,
+                annot.info["content"].encode(),
+                bounds=tuple(annot.rect),
+                annot=_annot_kind(annot.type[1]),
+                contents=annot.info["content"],
+            )
             for index, page in enumerate(document)
             for annot in page.annots()
         )
@@ -851,7 +1059,9 @@ def _ods_arm(payload: bytes, _provider: LensProvider, _spec: LensSpec) -> tuple[
                 ]
                 for row in sheet.getElementsByType(TableRow)
             ],
-            _ORIGIN, index, role=sheet.getAttribute("name") or f"sheet-{index}",
+            _ORIGIN,
+            index,
+            role=sheet.getAttribute("name") or f"sheet-{index}",
         )
         for index, sheet in enumerate(document.getElementsByType(Table))
     )
@@ -871,10 +1081,24 @@ def _odt_blocks(nodes: Iterable[object]) -> Iterator[DocumentNode]:
             continue
         if probe(H):
             text = extractText(node)
-            yield _node(NodeKind.SECTION, text or "section", index, text.encode(), level=int(node.getAttribute("outlinelevel") or 1), heading=(_node(NodeKind.RUN, "heading", index, text.encode(), text=text),))
+            yield _node(
+                NodeKind.SECTION,
+                text or "section",
+                index,
+                text.encode(),
+                level=int(node.getAttribute("outlinelevel") or 1),
+                heading=(_node(NodeKind.RUN, "heading", index, text.encode(), text=text),),
+            )
         elif probe(P):
             text = extractText(node)
-            yield _node(NodeKind.BLOCK, "paragraph", index, text.encode(), block=BlockKind.PARAGRAPH, runs=(_node(NodeKind.RUN, "run", index, text.encode(), text=text),))
+            yield _node(
+                NodeKind.BLOCK,
+                "paragraph",
+                index,
+                text.encode(),
+                block=BlockKind.PARAGRAPH,
+                runs=(_node(NodeKind.RUN, "run", index, text.encode(), text=text),),
+            )
         else:
             yield from _odt_blocks(node.childNodes)
 
@@ -886,7 +1110,10 @@ def _xlsx_arm(payload: bytes, _provider: LensProvider, spec: LensSpec) -> tuple[
     return tuple(
         _table_node(
             [[None if value is None else str(value) for value in row] for row in sheet.to_python(skip_empty_area=spec.skip_empty_area)],
-            _ORIGIN, index, role=name, spans=_calamine_spans(sheet.merged_cell_ranges),
+            _ORIGIN,
+            index,
+            role=name,
+            spans=_calamine_spans(sheet.merged_cell_ranges),
         )
         for index, name in enumerate(sheets)
         if (sheet := workbook.get_sheet_by_name(name))
@@ -894,11 +1121,7 @@ def _xlsx_arm(payload: bytes, _provider: LensProvider, spec: LensSpec) -> tuple[
 
 
 def _calamine_spans(ranges: object) -> Spans:
-    return tuple(
-        (r0, c0, c1 - c0 + 1, r1 - r0 + 1)
-        for (r0, c0), (r1, c1) in (ranges or ())
-        if c1 > c0 or r1 > r0
-    )
+    return tuple((r0, c0, c1 - c0 + 1, r1 - r0 + 1) for (r0, c0), (r1, c1) in (ranges or ()) if c1 > c0 or r1 > r0)
 
 
 @beartype
@@ -915,7 +1138,10 @@ def _docx_blocks(indexed: Iterable[tuple[int, object]]) -> Iterator[DocumentNode
             yield from (_docx_block(block, index) for index, block in group)
         else:
             rows = tuple(group)
-            members = tuple(_node(NodeKind.BLOCK, "item", index, block.text.encode(), block=BlockKind.PARAGRAPH, runs=_docx_runs(block, index)) for index, block in rows)
+            members = tuple(
+                _node(NodeKind.BLOCK, "item", index, block.text.encode(), block=BlockKind.PARAGRAPH, runs=_docx_runs(block, index))
+                for index, block in rows
+            )
             yield _node(NodeKind.LIST, list_kind.value, rows[0][0], list_kind.value.encode(), list_kind=list_kind, items=members)
 
 
@@ -937,9 +1163,15 @@ def _docx_block(block: object, index: int) -> DocumentNode:
 def _docx_runs(block: object, index: int) -> tuple[DocumentNode, ...]:
     return tuple(
         _node(
-            NodeKind.RUN, "run", index, run.text.encode(), text=run.text,
+            NodeKind.RUN,
+            "run",
+            index,
+            run.text.encode(),
+            text=run.text,
             font_key=run.font.name or (run.style.name if run.style else _RECOVERED_FONT),  # emit writes `font.name`; read its inverse
-            size=run.font.size.pt if run.font.size else 0.0, weight=700 if run.bold else 400, italic=bool(run.italic),
+            size=run.font.size.pt if run.font.size else 0.0,
+            weight=700 if run.bold else 400,
+            italic=bool(run.italic),
             decorations=(TextDecoration.UNDERLINE,) if run.font.underline else (),
             color=tuple(rgb) if (rgb := run.font.color.rgb) else (0, 0, 0),
         )
@@ -961,9 +1193,23 @@ def _toml_arm(payload: bytes, _provider: LensProvider, _spec: LensSpec) -> tuple
 def _value_node(value: object, role: str, page: int, *, key: str = "") -> DocumentNode:
     match value:
         case Mapping():
-            return _node(NodeKind.BLOCK, key or role, page, repr(value).encode(), block=BlockKind.PARAGRAPH, children=tuple(_value_node(child, role, page, key=str(name)) for name, child in value.items()))
+            return _node(
+                NodeKind.BLOCK,
+                key or role,
+                page,
+                repr(value).encode(),
+                block=BlockKind.PARAGRAPH,
+                children=tuple(_value_node(child, role, page, key=str(name)) for name, child in value.items()),
+            )
         case list() | tuple():
-            return _node(NodeKind.LIST, key or role, page, repr(value).encode(), list_kind=ListKind.ORDERED, items=tuple(_value_node(child, role, page, key=str(ordinal)) for ordinal, child in enumerate(value)))
+            return _node(
+                NodeKind.LIST,
+                key or role,
+                page,
+                repr(value).encode(),
+                list_kind=ListKind.ORDERED,
+                items=tuple(_value_node(child, role, page, key=str(ordinal)) for ordinal, child in enumerate(value)),
+            )
         case _:
             text = "" if value is None else str(value)
             return _node(NodeKind.RUN, key or role, page, text.encode(), text=text)
@@ -990,12 +1236,30 @@ def _gated_recover(lens: "DocumentLens") -> tuple[DocumentNode, ...]:
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-_DOCX_HEADING: Final[frozendict[str, int]] = frozendict({"Title": 1, "Heading 1": 1, "Heading 2": 2, "Heading 3": 3, "Heading 4": 4, "Heading 5": 5, "Heading 6": 6})
+_DOCX_HEADING: Final[frozendict[str, int]] = frozendict({
+    "Title": 1,
+    "Heading 1": 1,
+    "Heading 2": 2,
+    "Heading 3": 3,
+    "Heading 4": 4,
+    "Heading 5": 5,
+    "Heading 6": 6,
+})
 _DOCX_LIST: Final[frozendict[str, ListKind]] = frozendict({"List Bullet": ListKind.UNORDERED, "List Number": ListKind.ORDERED})
-_DOCX_BLOCK: Final[frozendict[str, BlockKind]] = frozendict({"Quote": BlockKind.QUOTE, "Intense Quote": BlockKind.QUOTE, "Caption": BlockKind.CAPTION})
+_DOCX_BLOCK: Final[frozendict[str, BlockKind]] = frozendict({
+    "Quote": BlockKind.QUOTE,
+    "Intense Quote": BlockKind.QUOTE,
+    "Caption": BlockKind.CAPTION,
+})
 _META_KEY: Final[frozendict[str, str]] = frozendict({
-    "/Title": "title", "/Author": "author", "/Subject": "subject", "/Keywords": "keywords",
-    "/Creator": "creator", "/Producer": "producer", "/CreationDate": "created", "/ModDate": "modified",
+    "/Title": "title",
+    "/Author": "author",
+    "/Subject": "subject",
+    "/Keywords": "keywords",
+    "/Creator": "creator",
+    "/Producer": "producer",
+    "/CreationDate": "created",
+    "/ModDate": "modified",
 })
 _WIDGET_SYMBOL: Final[frozendict[str, FieldKind]] = frozendict({
     "PDF_WIDGET_TYPE_TEXT": FieldKind.TEXT,
@@ -1019,25 +1283,32 @@ _OXIDE_FIELD: Final[frozendict[str, FieldKind]] = frozendict({
     "signature": FieldKind.SIGNATURE,
 })
 _ANNOT_NAME: Final[frozendict[str, AnnotKind]] = frozendict({
-    "Highlight": AnnotKind.HIGHLIGHT, "Squiggly": AnnotKind.HIGHLIGHT, "Underline": AnnotKind.HIGHLIGHT, "StrikeOut": AnnotKind.HIGHLIGHT,
-    "Redact": AnnotKind.REDACTION, "Link": AnnotKind.LINK, "Text": AnnotKind.NOTE, "FreeText": AnnotKind.NOTE, "Stamp": AnnotKind.STAMP,
+    "Highlight": AnnotKind.HIGHLIGHT,
+    "Squiggly": AnnotKind.HIGHLIGHT,
+    "Underline": AnnotKind.HIGHLIGHT,
+    "StrikeOut": AnnotKind.HIGHLIGHT,
+    "Redact": AnnotKind.REDACTION,
+    "Link": AnnotKind.LINK,
+    "Text": AnnotKind.NOTE,
+    "FreeText": AnnotKind.NOTE,
+    "Stamp": AnnotKind.STAMP,
 })
 _ROUTES: Final[frozendict[LensOp, tuple[RecoverArm, LensProvider]]] = frozendict({
-    LensOp.EXTRACT_TEXT: (_text_arm, LensProvider.PDFOXIDE),   # layout-aware column-order default supersedes the pypdf running-text arm
+    LensOp.EXTRACT_TEXT: (_text_arm, LensProvider.PDFOXIDE),  # layout-aware column-order default supersedes the pypdf running-text arm
     LensOp.EXTRACT_IMAGES: (_images_arm, LensProvider.PYPDF),
     LensOp.TABLE: (_table_arm, LensProvider.PLUMBER),
-    LensOp.WORDS: (_words_arm, LensProvider.PDFOXIDE),         # TextWord geometry default; pdfplumber the alternate word arm
-    LensOp.REGION: (_region_arm, LensProvider.PDFOXIDE),       # PdfPageRegion line default; pdfplumber the alternate crop arm
+    LensOp.WORDS: (_words_arm, LensProvider.PDFOXIDE),  # TextWord geometry default; pdfplumber the alternate word arm
+    LensOp.REGION: (_region_arm, LensProvider.PDFOXIDE),  # PdfPageRegion line default; pdfplumber the alternate crop arm
     LensOp.STORY: (_story_arm, LensProvider.PDFOXIDE),
-    LensOp.PATHS: (_paths_arm, LensProvider.PLUMBER),          # MIT curves+rects+lines default; pymupdf get_drawings the alternate
+    LensOp.PATHS: (_paths_arm, LensProvider.PLUMBER),  # MIT curves+rects+lines default; pymupdf get_drawings the alternate
     LensOp.OUTLINE: (_outline_arm, LensProvider.MUPDF),
     LensOp.STRUCTURE: (_structure_arm, LensProvider.PLUMBER),
     LensOp.LINK: (_link_arm, LensProvider.MUPDF),
     LensOp.METADATA: (_metadata_arm, LensProvider.PYPDF),
     LensOp.SEARCH: (_search_arm, LensProvider.PLUMBER),
-    LensOp.OCR: (_ocr_arm, LensProvider.PDFOXIDE),             # in-process CORE OCR default; ocrmypdf reserved for the PDF/A output path
+    LensOp.OCR: (_ocr_arm, LensProvider.PDFOXIDE),  # in-process CORE OCR default; ocrmypdf reserved for the PDF/A output path
     LensOp.EMBEDDED: (_embedded_arm, LensProvider.MUPDF),
-    LensOp.WIDGET: (_widget_arm, LensProvider.PDFOXIDE),       # FieldFlag-carrying AcroForm default; pymupdf the alternate widget arm
+    LensOp.WIDGET: (_widget_arm, LensProvider.PDFOXIDE),  # FieldFlag-carrying AcroForm default; pymupdf the alternate widget arm
     LensOp.ANNOTATE: (_annotate_arm, LensProvider.MUPDF),
     LensOp.XLSX_READ: (_xlsx_arm, LensProvider.CALAMINE),
     LensOp.ODS_READ: (_ods_arm, LensProvider.ODFPY),

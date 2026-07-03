@@ -41,15 +41,7 @@ from expression.extra.result import catch
 from msgspec import Struct, structs
 from pyhanko.pdf_utils.incremental_writer import IncrementalPdfFileWriter
 from pyhanko.pdf_utils.reader import PdfFileReader
-from pyhanko.sign import (
-    ExternalSigner,
-    PdfSignatureMetadata,
-    PdfSigner,
-    PdfTimeStamper,
-    Signer,
-    SimpleSigner,
-    load_certs_from_pemder,
-)
+from pyhanko.sign import ExternalSigner, PdfSignatureMetadata, PdfSigner, PdfTimeStamper, Signer, SimpleSigner, load_certs_from_pemder
 from pyhanko.sign.ades.api import CAdESSignedAttrSpec, GenericCommitment
 from pyhanko.sign.diff_analysis import DEFAULT_DIFF_POLICY, NO_CHANGES_DIFF_POLICY, DiffPolicy, ModificationLevel
 from pyhanko.sign.fields import (
@@ -110,12 +102,7 @@ class PadesLevel(StrEnum):
 
     @staticmethod
     def classify(ltv: bool, archival_valid: bool, timestamp_valid: bool, /) -> "PadesLevel":
-        return (
-            PadesLevel.B_LTA if ltv and archival_valid
-            else PadesLevel.B_LT if ltv
-            else PadesLevel.B_T if timestamp_valid
-            else PadesLevel.B_B
-        )
+        return PadesLevel.B_LTA if ltv and archival_valid else PadesLevel.B_LT if ltv else PadesLevel.B_T if timestamp_valid else PadesLevel.B_B
 
 
 class Digest(StrEnum):
@@ -239,7 +226,9 @@ class SignerSource:
                 return SimpleSigner.load_pkcs12(bundle.pfx_file, ca_chain_files=list(bundle.ca_chain) or None, passphrase=bundle.passphrase)
             case SignerSource(tag="external", external=ext):
                 chain = load_certs_from_pemder([ext.cert_file, *ext.ca_chain])
-                return ExternalSigner(signing_cert=chain[0], cert_registry=SimpleCertificateStore.from_certs(chain), signature_value=ext.signature_value)
+                return ExternalSigner(
+                    signing_cert=chain[0], cert_registry=SimpleCertificateStore.from_certs(chain), signature_value=ext.signature_value
+                )
             case _ as unreachable:
                 assert_never(unreachable)
 
@@ -289,13 +278,17 @@ class VisibleSeal(Struct, frozen=True):
 
     def style(self) -> BaseStampStyle:
         return (
-            QRStampStyle(stamp_text=self.stamp_text, border_width=self.border_width, background_opacity=self.background_opacity, qr_position=self.qr_position)
+            QRStampStyle(
+                stamp_text=self.stamp_text, border_width=self.border_width, background_opacity=self.background_opacity, qr_position=self.qr_position
+            )
             if self.qr_position is not None
             else TextStampStyle(stamp_text=self.stamp_text, border_width=self.border_width, background_opacity=self.background_opacity)
         )
 
     def settings(self) -> VisibleSigSettings:
-        return VisibleSigSettings(rotate_with_page=self.rotate_with_page, scale_with_page_zoom=self.scale_with_page_zoom, print_signature=self.print_signature)
+        return VisibleSigSettings(
+            rotate_with_page=self.rotate_with_page, scale_with_page_zoom=self.scale_with_page_zoom, print_signature=self.print_signature
+        )
 
 
 class _SealPlan(Struct, frozen=True, gc=False):
@@ -315,7 +308,9 @@ class Appearance:
             case Appearance(tag="invisible", invisible=settings):
                 return _SealPlan(stamp=None, field_settings=frozendict({"invis_sig_settings": settings}), text_params=frozendict())
             case Appearance(tag="visible", visible=seal):
-                return _SealPlan(stamp=seal.style(), field_settings=frozendict({"visible_sig_settings": seal.settings()}), text_params=seal.text_params)
+                return _SealPlan(
+                    stamp=seal.style(), field_settings=frozendict({"visible_sig_settings": seal.settings()}), text_params=seal.text_params
+                )
             case _ as unreachable:
                 assert_never(unreachable)
 
@@ -380,7 +375,12 @@ class SignSpec(Struct, frozen=True):
     archival_conformant: bool = False
 
     def audit(self) -> AuditSpec:
-        return AuditSpec(signer_context=self.validation_context, ts_context=self.validation_context, structural_conformant=self.structural_conformant, archival_conformant=self.archival_conformant)
+        return AuditSpec(
+            signer_context=self.validation_context,
+            ts_context=self.validation_context,
+            structural_conformant=self.structural_conformant,
+            archival_conformant=self.archival_conformant,
+        )
 
 
 class StampSpec(Struct, frozen=True):
@@ -391,7 +391,9 @@ class StampSpec(Struct, frozen=True):
     archival_conformant: bool = False
 
     def audit(self) -> AuditSpec:
-        return AuditSpec(ts_context=self.validation_context, structural_conformant=self.structural_conformant, archival_conformant=self.archival_conformant)
+        return AuditSpec(
+            ts_context=self.validation_context, structural_conformant=self.structural_conformant, archival_conformant=self.archival_conformant
+        )
 
 
 class AugmentSpec(Struct, frozen=True):
@@ -401,7 +403,12 @@ class AugmentSpec(Struct, frozen=True):
     archival_conformant: bool = False
 
     def audit(self) -> AuditSpec:
-        return AuditSpec(signer_context=self.validation_context, ts_context=self.validation_context, structural_conformant=self.structural_conformant, archival_conformant=self.archival_conformant)
+        return AuditSpec(
+            signer_context=self.validation_context,
+            ts_context=self.validation_context,
+            structural_conformant=self.structural_conformant,
+            archival_conformant=self.archival_conformant,
+        )
 
 
 # the future-signer identity constraint the `reserve` arm binds into the empty field's seed-value `/Cert`
@@ -661,10 +668,21 @@ class Conformance:
             case _ as unreachable:
                 assert_never(unreachable)
         engine = PdfSigner(meta, spec.signer.cms(), timestamper=timestamper, stamp_style=plan.stamp, new_field_spec=new_field)
-        return self._sink(lambda sink: engine.sign_pdf(IncrementalPdfFileWriter(BytesIO(pdf)), existing_fields_only=existing_only, appearance_text_params=dict(plan.text_params) or None, output=sink))
+        return self._sink(
+            lambda sink: engine.sign_pdf(
+                IncrementalPdfFileWriter(BytesIO(pdf)),
+                existing_fields_only=existing_only,
+                appearance_text_params=dict(plan.text_params) or None,
+                output=sink,
+            )
+        )
 
     def _timestamped(self, pdf: bytes, spec: StampSpec, /) -> bytes:
-        return self._sink(lambda sink: PdfTimeStamper(HTTPTimeStamper(spec.tsa_url)).timestamp_pdf(IncrementalPdfFileWriter(BytesIO(pdf)), spec.md_algorithm, spec.validation_context, output=sink))
+        return self._sink(
+            lambda sink: PdfTimeStamper(HTTPTimeStamper(spec.tsa_url)).timestamp_pdf(
+                IncrementalPdfFileWriter(BytesIO(pdf)), spec.md_algorithm, spec.validation_context, output=sink
+            )
+        )
 
     def _augmented(self, pdf: bytes, spec: AugmentSpec, /) -> bytes:
         indices = Block.of_seq(
@@ -672,13 +690,21 @@ class Conformance:
         )
 
         def embedded(current: bytes, index: int, /) -> bytes:
-            return self._sink(lambda sink: add_validation_info(PdfFileReader(BytesIO(current)).embedded_signatures[index], spec.validation_context, in_place=False, output=sink))
+            return self._sink(
+                lambda sink: add_validation_info(
+                    PdfFileReader(BytesIO(current)).embedded_signatures[index], spec.validation_context, in_place=False, output=sink
+                )
+            )
 
         enriched = indices.fold(embedded, pdf)
         return self._refreshed(enriched, spec.tsa_url, spec.validation_context) if spec.tsa_url else enriched
 
     def _refreshed(self, pdf: bytes, tsa_url: str, context: ValidationContext, /) -> bytes:
-        return self._sink(lambda sink: PdfTimeStamper(HTTPTimeStamper(tsa_url)).update_archival_timestamp_chain(PdfFileReader(BytesIO(pdf)), context, in_place=False, output=sink))
+        return self._sink(
+            lambda sink: PdfTimeStamper(HTTPTimeStamper(tsa_url)).update_archival_timestamp_chain(
+                PdfFileReader(BytesIO(pdf)), context, in_place=False, output=sink
+            )
+        )
 
     def _reserved(self, pdf: bytes, spec: ReserveSpec, /) -> bytes:
         seed = SigSeedValueSpec(
@@ -701,7 +727,15 @@ class Conformance:
         return catch(exception=SignatureValidationError)(validate)().to_option()
 
     def _validated(self, sig: EmbeddedPdfSignature, spec: AuditSpec, /) -> Option[PdfSignatureStatus]:
-        return self._resilient(lambda: validate_pdf_signature(sig, signer_validation_context=spec.signer_context, ts_validation_context=spec.ts_context, diff_policy=_DIFF[spec.diff_mode], key_usage_settings=spec.usage()))
+        return self._resilient(
+            lambda: validate_pdf_signature(
+                sig,
+                signer_validation_context=spec.signer_context,
+                ts_validation_context=spec.ts_context,
+                diff_policy=_DIFF[spec.diff_mode],
+                key_usage_settings=spec.usage(),
+            )
+        )
 
     def _stamped(self, ts: EmbeddedPdfSignature, spec: AuditSpec, /) -> Option[DocumentTimestampStatus]:
         return self._resilient(lambda: validate_pdf_timestamp(ts, validation_context=spec.ts_context, diff_policy=_DIFF[spec.diff_mode]))

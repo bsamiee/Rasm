@@ -37,8 +37,8 @@ lazy from vtkmodules.vtkIOUSD import vtkUSDExporter  # source-build-gated: the o
 # --- [TYPES] ---------------------------------------------------------------------------
 
 type Vec3 = tuple[float, float, float]
-type Quat = tuple[float, float, float, float]      # (real, i, j, k) -> Gf.Quatf for AddOrientOp / PointInstancer orientations
-type Matrix4 = tuple[float, ...]                    # 16 row-major cells -> Gf.Matrix4d for AddTransformOp
+type Quat = tuple[float, float, float, float]  # (real, i, j, k) -> Gf.Quatf for AddOrientOp / PointInstancer orientations
+type Matrix4 = tuple[float, ...]  # 16 row-major cells -> Gf.Matrix4d for AddTransformOp
 type PrimKindTag = Literal["mesh", "points", "curves", "xform", "instancer", "camera"]
 type StageOpTag = Literal["render_export", "mesh_author"]
 type XformOpTag = Literal["translate", "rotate", "scale", "orient", "transform"]
@@ -75,7 +75,7 @@ class SubdivScheme(StrEnum):
 
 
 class UsdzProfile(StrEnum):
-    STANDARD = "CreateNewUsdzPackage"    # general USDZ
+    STANDARD = "CreateNewUsdzPackage"  # general USDZ
     ARKIT = "CreateNewARKitUsdzPackage"  # Apple QuickLook-constrained; the StrEnum value IS the UsdUtils packager name
 
 
@@ -99,10 +99,10 @@ class XformOp:
     # the placement op stack every UsdGeom.Xformable (an Xform group OR a leaf geometry OR a Camera) carries, ordered and composed left-to-right at author
     tag: XformOpTag = tag()
     translate: Vec3 = case()
-    rotate: Vec3 = case()          # XYZ Euler degrees
+    rotate: Vec3 = case()  # XYZ Euler degrees
     scale: Vec3 = case()
-    orient: Quat = case()          # (real, i, j, k)
-    transform: Matrix4 = case()    # 16 row-major cells
+    orient: Quat = case()  # (real, i, j, k)
+    transform: Matrix4 = case()  # 16 row-major cells
 
     @staticmethod
     def Translate(offset: Vec3) -> "XformOp":
@@ -151,8 +151,10 @@ class Material(Struct, frozen=True, kw_only=True):
     metallic: float = 0.0
     roughness: float = 0.5
     opacity: float = 1.0
-    texture: Texture | None = None          # when set, diffuseColor drives from a UsdUVTexture(st) node graph
-    diffuse_primvar: str | None = None      # when set (e.g. "displayColor"), diffuseColor reads the per-vertex primvar so scalar colour survives under PBR rather than a flat Color3f overriding it
+    texture: Texture | None = None  # when set, diffuseColor drives from a UsdUVTexture(st) node graph
+    diffuse_primvar: str | None = (
+        None  # when set (e.g. "displayColor"), diffuseColor reads the per-vertex primvar so scalar colour survives under PBR rather than a flat Color3f overriding it
+    )
 
     def bind(self, stage: object, prim: object, path: object) -> None:
         material = UsdShade.Material.Define(stage, path)
@@ -224,7 +226,9 @@ class PrimKind:
     camera: Lens = case()
 
     @staticmethod
-    def Mesh(points: NDArray[np.float32], faces: NDArray[np.int32], normals: NDArray[np.float32] | None = None, subsets: tuple[FaceSubset, ...] = ()) -> "PrimKind":
+    def Mesh(
+        points: NDArray[np.float32], faces: NDArray[np.int32], normals: NDArray[np.float32] | None = None, subsets: tuple[FaceSubset, ...] = ()
+    ) -> "PrimKind":
         return PrimKind(mesh=(points, faces, normals, subsets))
 
     @staticmethod
@@ -319,12 +323,12 @@ class MeshScene(Struct, frozen=True, kw_only=True):
     up_axis: UpAxis = UpAxis.Z
     meters_per_unit: float = 1.0
     subdiv: SubdivScheme = SubdivScheme.NONE
-    transform: tuple[XformOp, ...] = ()               # root placement op stack
+    transform: tuple[XformOp, ...] = ()  # root placement op stack
     display_color: NDArray[np.float32] | None = None
     material: Material | None = None
-    labels: Mapping[str, tuple[str, ...]] = {}        # taxonomy -> semantic labels; the AEC discipline/classification plane
-    model_kind: ModelKind | None = None               # Usd.ModelAPI scene-as-asset marking (component/assembly) for BIM/USD interop
-    references: tuple[str, ...] = ()                   # Sdf.Reference composition arcs -> a shared component/detail library
+    labels: Mapping[str, tuple[str, ...]] = {}  # taxonomy -> semantic labels; the AEC discipline/classification plane
+    model_kind: ModelKind | None = None  # Usd.ModelAPI scene-as-asset marking (component/assembly) for BIM/USD interop
+    references: tuple[str, ...] = ()  # Sdf.Reference composition arcs -> a shared component/detail library
 
     def author(self, stage: object) -> object:
         UsdGeom.SetStageUpAxis(stage, self.up_axis.token)
@@ -364,7 +368,9 @@ class StageOp:
                 exporter.SetRenderWindow(render_window)
                 exporter.SetFileName(path)
                 exporter.Write()
-                return Path(path).read_bytes(), frozendict()  # the VTK layer carries no in-process stage handle; the render-window path leaves the receipt band empty
+                return Path(
+                    path
+                ).read_bytes(), frozendict()  # the VTK layer carries no in-process stage handle; the render-window path leaves the receipt band empty
             case StageOp(tag="mesh_author", mesh_author=scene):
                 stage = Usd.Stage.CreateInMemory(path)
                 prim = scene.author(stage)
@@ -373,13 +379,16 @@ class StageOp:
                     raise ValueError("empty stage: zero prims authored")
                 stage.Export(path)
                 facts: frozendict[str, float | str] = frozendict({
-                    "prims": int(stats["totalPrimCount"]), "layers": int(stats["usedLayerCount"]),
-                    "up_axis": scene.up_axis.value, "meters_per_unit": scene.meters_per_unit,
+                    "prims": int(stats["totalPrimCount"]),
+                    "layers": int(stats["usedLayerCount"]),
+                    "up_axis": scene.up_axis.value,
+                    "meters_per_unit": scene.meters_per_unit,
                     "extent_diag": _diagonal(stage, prim),  # the BBoxCache aggregate-bound diagonal a single-prim numpy extreme cannot span
                 })  # the authored-prim evidence the `core/receipt#RECEIPT` `ArtifactReceipt.Scene` band carries, threaded back through the export worker
                 return Path(path).read_bytes(), facts
             case _:
                 assert_never(self)
+
 
 # --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -388,7 +397,15 @@ def _extent(points: NDArray[np.float32]) -> object:
     return Vt.Vec3fArray.FromNumpy(np.stack([points.min(axis=0), points.max(axis=0)]))  # the per-prim [min, max] AR-framing box
 
 
-def _dress(stage: object, prim: object, path: object, display_color: NDArray[np.float32] | None, material: Material | None, labels: Mapping[str, tuple[str, ...]], /) -> None:
+def _dress(
+    stage: object,
+    prim: object,
+    path: object,
+    display_color: NDArray[np.float32] | None,
+    material: Material | None,
+    labels: Mapping[str, tuple[str, ...]],
+    /,
+) -> None:
     # displayColor primvar + whole-prim material bind + AEC semantic labels; shared by MeshScene.author and each PrimNode.define so appearance is authored one way
     if display_color is not None:
         colors = np.atleast_2d(display_color)
@@ -452,7 +469,9 @@ def author_mesh(scene: MeshScene, path: str) -> tuple[bytes, frozendict[str, flo
 
 
 def package_usdz(source: str, sink: str, profile: UsdzProfile = UsdzProfile.STANDARD) -> bool:
-    return getattr(UsdUtils, profile.value)(Sdf.AssetPath(source), sink)  # profile.value IS the UsdUtils packager name; gathers + embeds the full dependency-asset closure itself
+    return getattr(UsdUtils, profile.value)(
+        Sdf.AssetPath(source), sink
+    )  # profile.value IS the UsdUtils packager name; gathers + embeds the full dependency-asset closure itself
 
 
 def extract_usdz(package: str, into: str) -> bool:
@@ -463,7 +482,9 @@ def relocate_assets(layer_path: str, rewrite: Callable[[str], str]) -> tuple[int
     layer = Sdf.Layer.FindOrOpen(layer_path)
     UsdUtils.ModifyAssetPaths(layer, rewrite)  # rewrite every asset path (relocation before packaging)
     _layers, references, assets = UsdUtils.ComputeAllDependencies(Sdf.AssetPath(layer_path))
-    return len(references), len(assets)  # the relocated-edge counts; CreateNewUsdzPackage embeds the closure, so this is the audit/relocation path only
+    return len(references), len(
+        assets
+    )  # the relocated-edge counts; CreateNewUsdzPackage embeds the closure, so this is the audit/relocation path only
 ```
 
 The `StageOp.apply` arms, the recursive `PrimKind.define`/`PrimNode.define`, and the `export_usd`/`author_mesh`/`package_usdz`/`extract_usdz`/`relocate_assets` module-level functions run INSIDE the `scene/render#SCENE` `to_process.run_sync` worker (the `scene/export#EXPORT` `render_export` calls them synchronously, itself offloaded once by the `scene/render#SCENE` `_emit` `Export` arm) — the `lazy from pxr`/`lazy from vtkmodules.vtkIOUSD` bindings reify only there, so the `pxr` Boost.Python extension never loads on the 3.15 runtime nor at module scope, and stage.md mints no worker seam of its own. `Vt.Vec3fArray.FromNumpy(points)`/`Vt.IntArray.FromNumpy(faces.reshape(-1))`/`Vt.FloatArray.FromNumpy(widths)`/`Vt.QuathArray.FromNumpy(orientations)` fold the numpy buffers zero-copy into the typed USD arrays (`Vt.TokenArray(list(labels))` for the label tokens, which have no `FromNumpy`); the `package_usdz` close hands the `.usdc` to the packager the `UsdzProfile` policy value names (`ARKIT` selecting `CreateNewARKitUsdzPackage`, `STANDARD` the general `CreateNewUsdzPackage`). The `pxr` `Tf.ErrorException` (missing asset, malformed layer, write failure), the `Boost.Python.ArgumentError` (a wrong-typed argument, the `Sdf.AssetPath`-vs-`str` mismatch), and the empty-stage `ValueError` guard all map at the `scene/render#SCENE` `async_boundary` worker edge into the `runtime` `RuntimeRail` fault, never surfaced bare across the interpreter seam, and a `bool False` return from `CreateNewUsdzPackage`/`ExtractUsdzPackage` is a packaging-failure rail the `bool` return carries.

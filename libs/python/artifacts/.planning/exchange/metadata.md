@@ -41,12 +41,12 @@ from rasm.runtime.content_identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import FAULT_CONF, RuntimeRail, async_boundary
 from rasm.runtime.lanes import WORKER_BAND
 
-lazy from exiftool import ExifToolHelper                                          # exiftool -stay_open cross-format driver, to_process worker band
-lazy from exiftool.exceptions import ExifToolVersionError                          # typed spawn/version fault the retry weave re-execs on
-lazy import pyexiv2                                                                # OPTIONAL in-process Exiv2 unified arm; cp315-absent -> the exiftool arm stands
-lazy from PIL import ImageCms                                                      # pillow ICC-header reader over the pyexiv2 read_icc() bytes
-lazy import pikepdf                                                                # qpdf PDF metadata, to_thread in-process arm
-lazy import av                                                                     # FFmpeg container read/remux, to_thread in-process arm
+lazy from exiftool import ExifToolHelper  # exiftool -stay_open cross-format driver, to_process worker band
+lazy from exiftool.exceptions import ExifToolVersionError  # typed spawn/version fault the retry weave re-execs on
+lazy import pyexiv2  # OPTIONAL in-process Exiv2 unified arm; cp315-absent -> the exiftool arm stands
+lazy from PIL import ImageCms  # pillow ICC-header reader over the pyexiv2 read_icc() bytes
+lazy import pikepdf  # qpdf PDF metadata, to_thread in-process arm
+lazy import av  # FFmpeg container read/remux, to_thread in-process arm
 
 # --- [TYPES] ----------------------------------------------------------------------------
 type MetaReader = Callable[[bytes], "MetaFacts"]
@@ -61,9 +61,9 @@ class MetaCarrier(StrEnum):
 
 
 class MetaBind(StrEnum):
-    MERGE = "merge"      # set provided fields, keep the rest
+    MERGE = "merge"  # set provided fields, keep the rest
     REPLACE = "replace"  # clear the descriptive namespace (preserving the ICC profile), then set provided
-    STRIP = "strip"      # clear the descriptive namespace AND the ICC profile, set nothing
+    STRIP = "strip"  # clear the descriptive namespace AND the ICC profile, set nothing
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -79,10 +79,10 @@ _AV_TIME_BASE: Final[int] = 1_000_000  # `Container.duration` is AV_TIME_BASE mi
 
 # --- [MODELS] ---------------------------------------------------------------------------
 class FieldKeys(Struct, frozen=True, gc=False):  # the per-logical provider correspondence row
-    xmp: str = ""       # XMP qname for the pikepdf PDF carrier (`dc:title`, `xmpMM:DocumentID`, `pdf:Producer`)
+    xmp: str = ""  # XMP qname for the pikepdf PDF carrier (`dc:title`, `xmpMM:DocumentID`, `pdf:Producer`)
     exiftool: str = ""  # exiftool `-G` grouped tag for the RASTER pyexiftool arm (`EXIF:Make`, `IPTC:Keywords`, `ICC_Profile:ProfileDescription`)
-    exiv2: str = ""     # Exiv2 family key for the RASTER pyexiv2 arm (`Exif.Image.Make`, `Iptc.Application2.Byline`, `Xmp.dc.creator`)
-    media: str = ""     # FFmpeg container tag for the av MEDIA carrier
+    exiv2: str = ""  # Exiv2 family key for the RASTER pyexiv2 arm (`Exif.Image.Make`, `Iptc.Application2.Byline`, `Xmp.dc.creator`)
+    media: str = ""  # FFmpeg container tag for the av MEDIA carrier
 
 
 class Descriptive(Struct, frozen=True):  # editorial: dc:* / xmp:* / photoshop:* / Iptc4xmpCore:* + FFmpeg container tags
@@ -97,10 +97,10 @@ class Descriptive(Struct, frozen=True):  # editorial: dc:* / xmp:* / photoshop:*
     language: str = ""
     instructions: str = ""
     description_writer: str = ""
-    comment: str = ""       # JPEG COM segment — pyexiv2 `read_comment`/`modify_comment`, exiftool `File:Comment`; raster-only (no XMP/media twin)
-    album: str = ""         # FFmpeg `album` container tag — the descriptive collection an audio/video asset belongs to
+    comment: str = ""  # JPEG COM segment — pyexiv2 `read_comment`/`modify_comment`, exiftool `File:Comment`; raster-only (no XMP/media twin)
+    album: str = ""  # FFmpeg `album` container tag — the descriptive collection an audio/video asset belongs to
     album_artist: str = ""  # FFmpeg `album_artist` container tag
-    composer: str = ""      # FFmpeg `composer` container tag
+    composer: str = ""  # FFmpeg `composer` container tag
 
 
 class Rights(Struct, frozen=True):  # creator + rights: IPTC by-line/credit / xmpRights / dc:rights+publisher
@@ -119,8 +119,8 @@ class Capture(Struct, frozen=True):  # camera/exposure: EXIF IFD0/Photo + xmp:Cr
     model: str = ""
     lens: str = ""
     lens_make: str = ""
-    software: str = ""      # xmp:CreatorTool — the application that authored the content
-    producer: str = ""      # pdf:Producer — the application that converted/emitted the PDF (distinct from CreatorTool)
+    software: str = ""  # xmp:CreatorTool — the application that authored the content
+    producer: str = ""  # pdf:Producer — the application that converted/emitted the PDF (distinct from CreatorTool)
     digital_source_type: str = ""  # Iptc4xmpExt:DigitalSourceType — the IPTC content-origin IRI (digitalCapture/algorithmicMedia/trainedAlgorithmicMedia/composite); the plain-XMP AI-provenance label, distinct from the signed exchange/credential C2PA assertion
     orientation: int = 0
     exposure_time: str = ""
@@ -139,7 +139,9 @@ class Capture(Struct, frozen=True):  # camera/exposure: EXIF IFD0/Photo + xmp:Cr
 
 
 class Place(Struct, frozen=True):  # location: EXIF GPS + photoshop/Iptc4xmpCore
-    gps: tuple[float, float] | None = None  # signed decimal degrees — pyexiftool reads `Composite:GPS*` directly, pyexiv2 folds the DMS array via `_dms`
+    gps: tuple[float, float] | None = (
+        None  # signed decimal degrees — pyexiftool reads `Composite:GPS*` directly, pyexiv2 folds the DMS array via `_dms`
+    )
     altitude: float | None = None
     gps_direction: float | None = None
     gps_timestamp: str = ""
@@ -152,25 +154,27 @@ class Place(Struct, frozen=True):  # location: EXIF GPS + photoshop/Iptc4xmpCore
 
 
 class History(Struct, frozen=True):  # XMP Media Management (xmpMM) asset identity + lineage — the provenance co-identity the credential rail reads
-    document_id: str = ""    # xmpMM:DocumentID — the stable cross-rendition asset id
-    instance_id: str = ""    # xmpMM:InstanceID — this specific rendition's id
-    original_id: str = ""    # xmpMM:OriginalDocumentID — the ancestor this asset derives from
+    document_id: str = ""  # xmpMM:DocumentID — the stable cross-rendition asset id
+    instance_id: str = ""  # xmpMM:InstanceID — this specific rendition's id
+    original_id: str = ""  # xmpMM:OriginalDocumentID — the ancestor this asset derives from
 
 
 class Color(Struct, frozen=True):  # colour evidence: colour space + the ICC profile header (read-only)
     space: str = ""
     icc_name: str = ""
     icc_present: bool = False
-    render_intent: str = ""   # ICC default rendering intent (perceptual/relative/saturation/absolute)
-    icc_maker: str = ""       # ICC profile manufacturer tag
-    icc_model: str = ""       # ICC profile model tag (distinct from camera `Capture.model`)
-    icc_copyright: str = ""   # ICC profile copyright tag (distinct from asset `Rights.copyright`)
+    render_intent: str = ""  # ICC default rendering intent (perceptual/relative/saturation/absolute)
+    icc_maker: str = ""  # ICC profile manufacturer tag
+    icc_model: str = ""  # ICC profile model tag (distinct from camera `Capture.model`)
+    icc_copyright: str = ""  # ICC profile copyright tag (distinct from asset `Rights.copyright`)
 
 
-class RasterInfo(Struct, frozen=True):  # raster container structure read-only (pyexiv2 `get_pixel_*`/`get_mime_type`/`read_thumbnail`) — the raster-carrier sibling of `Color`/`MediaInfo`
-    width: int = 0          # pyexiv2 `get_pixel_width()` / exiftool `File:ImageWidth`
-    height: int = 0         # pyexiv2 `get_pixel_height()` / exiftool `File:ImageHeight`
-    mime: str = ""          # pyexiv2 `get_mime_type()` / exiftool `File:MIMEType` — the container's sniffed MIME
+class RasterInfo(
+    Struct, frozen=True
+):  # raster container structure read-only (pyexiv2 `get_pixel_*`/`get_mime_type`/`read_thumbnail`) — the raster-carrier sibling of `Color`/`MediaInfo`
+    width: int = 0  # pyexiv2 `get_pixel_width()` / exiftool `File:ImageWidth`
+    height: int = 0  # pyexiv2 `get_pixel_height()` / exiftool `File:ImageHeight`
+    mime: str = ""  # pyexiv2 `get_mime_type()` / exiftool `File:MIMEType` — the container's sniffed MIME
     thumbnail: bytes = b""  # pyexiv2 `read_thumbnail()` / exiftool `-b -ThumbnailImage` — the embedded EXIF preview, a DAM/forensic band mirroring credential's `resources`
 
 
@@ -179,15 +183,19 @@ class Chapter(Struct, frozen=True, gc=False):  # one media navigation chapter �
     title: str = ""
 
 
-class Track(Struct, frozen=True, gc=False):  # one container stream's descriptive labelling (NOT its codec/encode params — those are media/container's)
-    kind: str = ""      # `Stream.type` — video/audio/subtitle/data/attachment
+class Track(
+    Struct, frozen=True, gc=False
+):  # one container stream's descriptive labelling (NOT its codec/encode params — those are media/container's)
+    kind: str = ""  # `Stream.type` — video/audio/subtitle/data/attachment
     language: str = ""  # `Stream.language`
-    title: str = ""     # `Stream.metadata["title"]`
+    title: str = ""  # `Stream.metadata["title"]`
 
 
-class MediaInfo(Struct, frozen=True):  # media container structure read-only (av `streams`/`chapters()`/`duration`/`bit_rate`) — the media-carrier sibling of `Color`/`conformance`
+class MediaInfo(
+    Struct, frozen=True
+):  # media container structure read-only (av `streams`/`chapters()`/`duration`/`bit_rate`) — the media-carrier sibling of `Color`/`conformance`
     duration: float = 0.0
-    bit_rate: int = 0       # `InputContainer.bit_rate` — overall container bit rate (bits/sec), a descriptive container-structure fact folded while the container is open
+    bit_rate: int = 0  # `InputContainer.bit_rate` — overall container bit rate (bits/sec), a descriptive container-structure fact folded while the container is open
     chapters: tuple[Chapter, ...] = ()
     tracks: tuple[Track, ...] = ()
 
@@ -197,11 +205,11 @@ class MetaFacts(Struct, frozen=True):
     rights: Rights = Rights()
     capture: Capture = Capture()
     place: Place = Place()
-    history: History = History()       # xmpMM identity/lineage — a writable XMP facet, folded by `_flat`
-    color: Color = Color()             # ICC header evidence — read-only, excluded from `_flat`
+    history: History = History()  # xmpMM identity/lineage — a writable XMP facet, folded by `_flat`
+    color: Color = Color()  # ICC header evidence — read-only, excluded from `_flat`
     raster: RasterInfo = RasterInfo()  # raster container structure — read-only, populated only by the RASTER readers
-    media: MediaInfo = MediaInfo()     # media container structure — read-only, populated only by `_read_media`
-    conformance: str = ""              # pikepdf pdfa_status / pdfx_status
+    media: MediaInfo = MediaInfo()  # media container structure — read-only, populated only by `_read_media`
+    conformance: str = ""  # pikepdf pdfa_status / pdfx_status
 
     @classmethod
     def from_logical(cls, flat: Mapping[str, object], /, *, media: MediaInfo = MediaInfo(), raster: RasterInfo = RasterInfo()) -> Self:
@@ -229,7 +237,18 @@ class MetaFacts(Struct, frozen=True):
         # flat scalar tally + the non-scalar/read-only evidence each facet carries off the `_flat` path
         color = sum(1 for value in structs.asdict(self.color).values() if value)
         raster = bool(self.raster.width) + bool(self.raster.mime) + bool(self.raster.thumbnail)
-        return len(_flat(self)) + bool(self.conformance) + bool(self.descriptive.keywords) + bool(self.place.gps) + color + raster + len(self.media.chapters) + len(self.media.tracks) + bool(self.media.duration) + bool(self.media.bit_rate)
+        return (
+            len(_flat(self))
+            + bool(self.conformance)
+            + bool(self.descriptive.keywords)
+            + bool(self.place.gps)
+            + color
+            + raster
+            + len(self.media.chapters)
+            + len(self.media.tracks)
+            + bool(self.media.duration)
+            + bool(self.media.bit_rate)
+        )
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -412,8 +431,10 @@ def _exiftool_read(payload: bytes) -> MetaFacts:
     flat["gps"] = (float(lat), float(lon)) if lat is not None and lon is not None else None
     flat["icc_present"] = any(key.startswith("ICC_Profile:") for key in grouped)  # the header fields ride `_FIELD_KEYS` off the same JSON
     raster = RasterInfo(
-        width=int(grouped.get("File:ImageWidth") or 0), height=int(grouped.get("File:ImageHeight") or 0),
-        mime=str(grouped.get("File:MIMEType", "")), thumbnail=thumb if isinstance(thumb, bytes) else b"",
+        width=int(grouped.get("File:ImageWidth") or 0),
+        height=int(grouped.get("File:ImageHeight") or 0),
+        mime=str(grouped.get("File:MIMEType", "")),
+        thumbnail=thumb if isinstance(thumb, bytes) else b"",
     )
     return MetaFacts.from_logical(flat, raster=raster)
 
@@ -427,7 +448,9 @@ def _exiftool_write(payload: bytes, facts: MetaFacts, bind: MetaBind) -> bytes:
             if bind in (MetaBind.REPLACE, MetaBind.STRIP):
                 et.execute("-all=", "-overwrite_original", tmp.name)  # group-wildcard scrub; `set_tags` rejects an empty dict
             if bind is not MetaBind.STRIP:
-                tags: dict[str, str | list[str]] = {keys.exiftool: value for logical, value in _flat(facts).items() if (keys := _FIELD_KEYS.get(logical)) and keys.exiftool}
+                tags: dict[str, str | list[str]] = {
+                    keys.exiftool: value for logical, value in _flat(facts).items() if (keys := _FIELD_KEYS.get(logical)) and keys.exiftool
+                }
                 if facts.descriptive.keywords:  # a `list` value emits the repeated `-IPTC:Keywords=`/`-XMP-dc:Subject=` directives
                     tags["IPTC:Keywords"] = tags["XMP-dc:Subject"] = list(facts.descriptive.keywords)
                 if tags:
@@ -440,10 +463,14 @@ def _exiv2_read(payload: bytes) -> MetaFacts:
         merged: dict[str, object] = {**img.read_exif(), **img.read_iptc(), **img.read_xmp()}
         icc = img.read_icc()
         raster = RasterInfo(  # container facts + embedded preview read while the native handle is open
-            width=img.get_pixel_width(), height=img.get_pixel_height(), mime=img.get_mime_type(),
+            width=img.get_pixel_width(),
+            height=img.get_pixel_height(),
+            mime=img.get_mime_type(),
             thumbnail=catch(exception=Exception)(img.read_thumbnail)().default_value(b""),  # absent/odd-format thumbnail skips by omission
         )
-        comment = catch(exception=Exception)(img.read_comment)().default_value("")  # JPEG COM segment — a separate Exiv2 method, not a family dict tag
+        comment = catch(exception=Exception)(img.read_comment)().default_value(
+            ""
+        )  # JPEG COM segment — a separate Exiv2 method, not a family dict tag
     flat: dict[str, object] = {logical: _scalar(merged[keys.exiv2]) for logical, keys in _FIELD_KEYS.items() if keys.exiv2 and keys.exiv2 in merged}
     flat.update({logical: _num(str(flat[logical])) for logical in _RATIONAL if logical in flat})
     flat["keywords"] = _as_tuple(merged.get("Iptc.Application2.Keywords") or merged.get("Xmp.dc.subject"))
@@ -466,7 +493,9 @@ def _exiv2_write(payload: bytes, facts: MetaFacts, bind: MetaBind) -> bytes:
             if bind is MetaBind.STRIP:  # REPLACE preserves the ICC profile (`Color` is read-only evidence); only STRIP scrubs it
                 img.clear_icc()
         if bind is not MetaBind.STRIP:
-            keyed: dict[str, str | list[str]] = {keys.exiv2: value for logical, value in _flat(facts).items() if (keys := _FIELD_KEYS.get(logical)) and keys.exiv2}
+            keyed: dict[str, str | list[str]] = {
+                keys.exiv2: value for logical, value in _flat(facts).items() if (keys := _FIELD_KEYS.get(logical)) and keys.exiv2
+            }
             if facts.descriptive.keywords:
                 keyed["Iptc.Application2.Keywords"] = keyed["Xmp.dc.subject"] = list(facts.descriptive.keywords)
             img.modify_exif({key: value for key, value in keyed.items() if key.startswith("Exif.")})
@@ -515,10 +544,7 @@ def _media_info(container: "av.container.InputContainer") -> MediaInfo:
         Chapter(start=float(ch["start"] * ch["time_base"]) if ch["time_base"] else float(ch["start"]), title=ch["metadata"].get("title", ""))
         for ch in container.chapters()
     )
-    tracks = tuple(
-        Track(kind=stream.type, language=stream.language or "", title=stream.metadata.get("title", ""))
-        for stream in container.streams
-    )
+    tracks = tuple(Track(kind=stream.type, language=stream.language or "", title=stream.metadata.get("title", "")) for stream in container.streams)
     return MediaInfo(duration=duration, bit_rate=container.bit_rate or 0, chapters=chapters, tracks=tracks)
 
 
@@ -563,11 +589,15 @@ _FIELD_KEYS: Final[frozendict[str, FieldKeys]] = frozendict({
     "rating": FieldKeys(xmp="xmp:Rating", exiftool="XMP-xmp:Rating", exiv2="Xmp.xmp.Rating"),
     "label": FieldKeys(xmp="xmp:Label", exiftool="XMP-xmp:Label", exiv2="Xmp.xmp.Label"),
     "category": FieldKeys(xmp="photoshop:Category", exiftool="XMP-photoshop:Category", exiv2="Xmp.photoshop.Category"),
-    "genre": FieldKeys(xmp="Iptc4xmpCore:IntellectualGenre", exiftool="XMP-iptcCore:IntellectualGenre", exiv2="Xmp.iptc.IntellectualGenre", media="genre"),
+    "genre": FieldKeys(
+        xmp="Iptc4xmpCore:IntellectualGenre", exiftool="XMP-iptcCore:IntellectualGenre", exiv2="Xmp.iptc.IntellectualGenre", media="genre"
+    ),
     "language": FieldKeys(xmp="dc:language", exiftool="XMP-dc:Language", exiv2="Xmp.dc.language", media="language"),
     "instructions": FieldKeys(xmp="photoshop:Instructions", exiftool="XMP-photoshop:Instructions", exiv2="Xmp.photoshop.Instructions"),
     "description_writer": FieldKeys(xmp="photoshop:CaptionWriter", exiftool="XMP-photoshop:CaptionWriter", exiv2="Xmp.photoshop.CaptionWriter"),
-    "comment": FieldKeys(exiftool="File:Comment"),  # JPEG COM — exiftool rows it; the pyexiv2 arm reads/writes it via `read_comment`/`modify_comment` (no dict column)
+    "comment": FieldKeys(
+        exiftool="File:Comment"
+    ),  # JPEG COM — exiftool rows it; the pyexiv2 arm reads/writes it via `read_comment`/`modify_comment` (no dict column)
     "album": FieldKeys(media="album"),
     "album_artist": FieldKeys(media="album_artist"),
     "composer": FieldKeys(media="composer"),
@@ -585,7 +615,9 @@ _FIELD_KEYS: Final[frozendict[str, FieldKeys]] = frozendict({
     "lens_make": FieldKeys(exiftool="EXIF:LensMake", exiv2="Exif.Photo.LensMake"),
     "software": FieldKeys(xmp="xmp:CreatorTool", exiftool="EXIF:Software", exiv2="Exif.Image.Software", media="encoder"),
     "producer": FieldKeys(xmp="pdf:Producer", exiftool="XMP-pdf:Producer", exiv2="Xmp.pdf.Producer"),
-    "digital_source_type": FieldKeys(xmp="Iptc4xmpExt:DigitalSourceType", exiftool="XMP-iptcExt:DigitalSourceType", exiv2="Xmp.iptcExt.DigitalSourceType"),
+    "digital_source_type": FieldKeys(
+        xmp="Iptc4xmpExt:DigitalSourceType", exiftool="XMP-iptcExt:DigitalSourceType", exiv2="Xmp.iptcExt.DigitalSourceType"
+    ),
     "orientation": FieldKeys(exiftool="EXIF:Orientation", exiv2="Exif.Image.Orientation"),
     "exposure_time": FieldKeys(exiftool="EXIF:ExposureTime", exiv2="Exif.Photo.ExposureTime"),
     "f_number": FieldKeys(exiftool="EXIF:FNumber", exiv2="Exif.Photo.FNumber"),
@@ -630,8 +662,11 @@ _SETTINGS: Final[MetaSettings] = MetaSettings()
 _EXIFTOOL: Final[str] = _SETTINGS.exiftool or shutil.which("exiftool") or "exiftool"
 _EXIFTOOL_TAGS: Final[tuple[str, ...]] = (
     *(keys.exiftool for keys in _FIELD_KEYS.values() if keys.exiftool),
-    "Composite:GPSLatitude", "Composite:GPSLongitude",       # signed decimal GPS pair (`-n`)
-    "File:ImageWidth", "File:ImageHeight", "File:MIMEType",  # `RasterInfo` container facts (no `_FIELD_KEYS` row — the facet materializes separately)
+    "Composite:GPSLatitude",
+    "Composite:GPSLongitude",  # signed decimal GPS pair (`-n`)
+    "File:ImageWidth",
+    "File:ImageHeight",
+    "File:MIMEType",  # `RasterInfo` container facts (no `_FIELD_KEYS` row — the facet materializes separately)
 )
 
 # the in-process thread bound for the GIL-releasing pikepdf/av arms — explicit, never the per-loop

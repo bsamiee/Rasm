@@ -289,6 +289,10 @@ Rules that bite:
   follows the blocks it joins. An input derived through a helper co-locates that helper in `[INPUTS]`.
 - Banned drift labels: `[HARNESS]` `[SCHEMAS]` `[LAW]` `[CONFIG]` `[PROMPTS]` `[HELPERS]`
   `[FOLDER]` `[SCOPE]` and singular `[INPUT]`. Use the canonical label.
+- A packer that consolidates heterogeneous clusters into a bounded agent count balances
+  by WORK WEIGHT (distinct files dominate an agent's load), never item count, keeps
+  clusters atomic, and logs per-bucket weights — the full law is patterns.md §13
+  "Bounded buckets". Uniform `chunk(pages, N)` batches are exempt.
 
 ## Step 5 — Validate and dry-run before running
 

@@ -106,7 +106,9 @@ _FAULT_STATUS: Final[Map[FaultTag, grpc.StatusCode]] = Map.of_seq([
 
 
 class ServerHost:
-    def __init__(self, bind: str, credential: Credential | None = None, grace: float = 5.0, compression: grpc.Compression = grpc.Compression.Gzip) -> None:
+    def __init__(
+        self, bind: str, credential: Credential | None = None, grace: float = 5.0, compression: grpc.Compression = grpc.Compression.Gzip
+    ) -> None:
         self._bind, self._credential, self._grace = bind, credential or Credential.loopback(), grace
         interceptor = aio_server_interceptor(filter_=filters.negate(filters.health_check()))
         self._server: grpc.aio.Server = grpc.aio.server(interceptors=[interceptor], compression=compression)
@@ -140,7 +142,8 @@ class ServerHost:
     @staticmethod
     async def _invoke[S: Struct, M: Message, R: Struct, N: Message](
         codec: tuple[WireProtoCodec[S, M], WireProtoCodec[R, N]],
-        request: bytes, context: RuntimeContext,
+        request: bytes,
+        context: RuntimeContext,
         handler: Callable[[S, RuntimeContext], Awaitable[RuntimeRail[R]]],
     ) -> RuntimeRail[bytes]:
         decode, encode = codec
@@ -257,6 +260,7 @@ class CommandReceipt(Struct, frozen=True, rename="camel"):
     elapsed: str
     correlation: str
 
+
 # --- [SERVICES] -------------------------------------------------------------------------
 
 
@@ -264,16 +268,20 @@ class CapabilityInvoke[S: Struct, M: Message, R: Struct, N: Message]:
     # distinctly named so the instance-level lookup `Map` `run` reads never shadows the class decoder.
     _DISCOVERY: msgspec.json.Decoder[list[DiscoveryResult]] = msgspec.json.Decoder(list[DiscoveryResult])
 
-    def __init__(self, catalog: Map[str, DiscoveryResult], codec: tuple[WireProtoCodec[S, M], WireProtoCodec[R, N]], dispatch: WireDispatch, channel: grpc.aio.Channel | None = None) -> None:
+    def __init__(
+        self,
+        catalog: Map[str, DiscoveryResult],
+        codec: tuple[WireProtoCodec[S, M], WireProtoCodec[R, N]],
+        dispatch: WireDispatch,
+        channel: grpc.aio.Channel | None = None,
+    ) -> None:
         self._catalog, self._encode, self._decode, self._dispatch, self._channel = catalog, codec[0], codec[1], dispatch, channel
 
     @classmethod
     def discover(cls, payload: bytes) -> RuntimeRail[Map[str, DiscoveryResult]]:
         # the keyed catalog `connect`/`__init__` consume directly; the descriptor-keyed fold lives
         # at the one decode site, never a `list`-to-`Map` re-key the composition root hand-spells.
-        return boundary("wire", lambda: cls._DISCOVERY.decode(payload)).map(
-            lambda rows: Map.of_seq((row.descriptor, row) for row in rows)
-        )
+        return boundary("wire", lambda: cls._DISCOVERY.decode(payload)).map(lambda rows: Map.of_seq((row.descriptor, row) for row in rows))
 
     @staticmethod
     def interceptors(tenant: Tenant) -> list[grpc.aio.ClientInterceptor]:
@@ -286,7 +294,9 @@ class CapabilityInvoke[S: Struct, M: Message, R: Struct, N: Message]:
         return aio_client_interceptors(filter_=filters.negate(filters.health_check()), request_hook=request_hook, response_hook=response_hook)
 
     @classmethod
-    def connect(cls, target: str, catalog: Map[str, DiscoveryResult], codec: tuple[WireProtoCodec[S, M], WireProtoCodec[R, N]], tenant: Tenant) -> Self:
+    def connect(
+        cls, target: str, catalog: Map[str, DiscoveryResult], codec: tuple[WireProtoCodec[S, M], WireProtoCodec[R, N]], tenant: Tenant
+    ) -> Self:
         channel = grpc.aio.insecure_channel(target, interceptors=cls.interceptors(tenant))
 
         async def dispatch(descriptor_id: str, request: bytes) -> RuntimeRail[bytes]:

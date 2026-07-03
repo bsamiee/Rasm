@@ -1,0 +1,1 @@
+# [EDGE_ADMIT] — replay protection + quota admission (types against work fenced-quota rows via port); admitted hooks enqueue through a declared ingress port Tag (work queue or store journal satisfies)

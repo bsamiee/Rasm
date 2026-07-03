@@ -94,6 +94,7 @@ _YAK_SLUG_PROP: Final[str] = "YakPackageSlug"
 _META_PROPS: Final[tuple[str, ...]] = (
     "AssemblyName",
     "MSBuildProjectDirectory",
+    "RuntimeIdentifier",
     "TargetDir",
     "TargetExt",
     "TargetFramework",
@@ -105,6 +106,8 @@ _META_PROPS: Final[tuple[str, ...]] = (
     "YakPlatform",
     "YakPushSource",
 )
+# Legitimately-empty evaluations: no push source means install-only, no RID means a portable output path.
+_OPTIONAL_META_PROPS: Final[frozenset[str]] = frozenset({"RuntimeIdentifier", "YakPushSource"})
 _MANIFEST_FILES: Final[tuple[str, ...]] = ("icon.png", "manifest.yml")
 _ARTIFACT_SUFFIXES: Final[frozenset[str]] = frozenset({".dll", ".json", _RHP})
 _HOST_EXCLUDES: Final[tuple[str, ...]] = (
@@ -188,6 +191,7 @@ class YakMeta(Base, frozen=True, gc=False):
     package_pattern: str
     target_framework: str = ""
     project_dir: Path = Path()
+    runtime_identifier: str = ""
 
     @classmethod
     def from_props(cls, project: str, props: dict[str, str], settings: AssaySettings, slug: str) -> Result[YakMeta, Fault]:
@@ -196,7 +200,7 @@ class YakMeta(Base, frozen=True, gc=False):
         Returns:
             Validated yak metadata, or a metadata/precondition fault.
         """
-        missing = tuple(name for name in _META_PROPS if name != "YakPushSource" and not props.get(name))
+        missing = tuple(name for name in _META_PROPS if name not in _OPTIONAL_META_PROPS and not props.get(name))
         match missing:
             case ():
                 return cls(
@@ -212,6 +216,7 @@ class YakMeta(Base, frozen=True, gc=False):
                     package_pattern=props["YakPackagePattern"],
                     target_framework=props["TargetFramework"],
                     project_dir=Path(props["MSBuildProjectDirectory"]),
+                    runtime_identifier=props.get("RuntimeIdentifier", ""),
                 ).validate(settings, slug, props["YakPackageSlug"])
             case names:
                 return Error(Fault(("dotnet", "msbuild", project), message=f"missing MSBuild properties: {', '.join(names)}"))
@@ -227,7 +232,9 @@ class YakMeta(Base, frozen=True, gc=False):
         project_dir = _absolute(root, self.project_dir)
         manifest_dir = _absolute(root, self.manifest_dir)
         package_dir = _absolute(root, self.package_dir)
-        expected = (project_dir / "bin" / settings.configuration.value / self.target_framework).resolve()
+        # A RID-pinned project appends the runtime identifier to its output path; the guard tracks both shapes.
+        framework_dir = project_dir / "bin" / settings.configuration.value / self.target_framework
+        expected = (framework_dir / self.runtime_identifier).resolve() if self.runtime_identifier else framework_dir.resolve()
         resolved = _absolute(root, self.target_dir)
         checks: tuple[tuple[bool, str], ...] = (
             (project.is_file() and project.is_relative_to(root), f"package project escaped workspace: {self.project}"),
@@ -542,12 +549,10 @@ def _copy_after_build(
             rmtree(staged, ignore_errors=True)
             return Ok(fold(Claim.PACKAGE, "stage", (built,)))
         case _:
-            target_dir = Path(scope.path) / "bin" / Path(meta.project).stem / settings.configuration.value.lower()
-            extra_dirs = (
-                (Path(scope.path) / "bin" / Path(_RASM_BRIDGE_SHELL_PROJECT).stem / settings.configuration.value.lower(),)
-                if slug == _RASM_BRIDGE_SLUG
-                else ()
-            )
+            # dotnet artifacts-path pivots are `<config>` or `<config>_<rid>` when a RuntimeIdentifier is pinned.
+            pivot = settings.configuration.value.lower() + (f"_{meta.runtime_identifier}" if meta.runtime_identifier else "")
+            target_dir = Path(scope.path) / "bin" / Path(meta.project).stem / pivot
+            extra_dirs = (Path(scope.path) / "bin" / Path(_RASM_BRIDGE_SHELL_PROJECT).stem / pivot,) if slug == _RASM_BRIDGE_SLUG else ()
             return (
                 _stage_artifacts(meta, staged, target_dir, extra_dirs)
                 .bind(lambda _: _run_yak(meta, _yak_build_tail(meta, version), Mode.STAGE, cwd=staged, settings=settings, scope=scope))
@@ -644,9 +649,13 @@ def _merge_stage(staged: Report, steps: Report) -> Report:
 
 def _lifecycle(settings: AssaySettings, scope: ArtifactScope, params: PackageParams, verb: str) -> Result[Report, Fault]:
     def staged_then_finish(meta: YakMeta) -> Result[Report, Fault]:
-        return _stage_meta(settings, scope, meta, params.slug, params.version).bind(
+        outcome = _stage_meta(settings, scope, meta, params.slug, params.version).bind(
             lambda staged: _finish(settings, scope, meta, params.slug, verb, staged)
         )
+        # The staged build tree served its commit; a full bin/obj pair per publish run must not ride scope retention.
+        for leaf in ("bin", "obj"):
+            rmtree(str(Path(str(scope.path)) / leaf), ignore_errors=True)
+        return outcome
 
     def locked(_held: object) -> Result[Report, Fault]:
         return (

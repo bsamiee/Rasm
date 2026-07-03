@@ -83,6 +83,7 @@ _TINY: Final[float] = float(np.finfo(np.float64).tiny)  # the absolute outward f
 
 # --- [MODELS] ------------------------------------------------------------------------------
 
+
 class Interval(Struct, frozen=True, gc=False):
     # the inclusion-monotone value object owning the relational algebra `flint.arb`/`mpmath.iv`
     # expose, so containment/hull/bisect are methods rather than re-derived per call site.
@@ -207,6 +208,7 @@ class IntervalReceipt(Struct, frozen=True):
 
 # --- [OPERATIONS] --------------------------------------------------------------------------
 
+
 @tagged_union(frozen=True)
 class IntervalOp:
     # the certified-operation request; the tag selects the op and the case payload parameterizes the
@@ -252,6 +254,7 @@ class IntervalOp:
 
 
 # --- [TABLES] ------------------------------------------------------------------------------
+
 
 # the ladder is data, not control flow: each row binds a `Floor` to its evaluator built behind the
 # floor's gated import, and `_resolve_floor` keeps the tightest row whose import resolves through one
@@ -318,12 +321,11 @@ def _importable(floor: Floor) -> bool:
 
 def _resolve_floor() -> FloorRow:
     rows = Block.of_seq(_FLOOR_LADDER.values())
-    return rows.choose(lambda row: Some(row) if _importable(row.floor) else Nothing).try_head().default_value(
-        _FLOOR_LADDER[Floor.NUMPY]
-    )
+    return rows.choose(lambda row: Some(row) if _importable(row.floor) else Nothing).try_head().default_value(_FLOOR_LADDER[Floor.NUMPY])
 
 
 # --- [ENCLOSURE_FOLD] ----------------------------------------------------------------------
+
 
 @tailrec
 def _bisect(enclosure: Enclosure, expr: Expr, target: Target, target_width: Width, budget: int, floor: FloorRow, precision: int) -> Enclosure:
@@ -350,10 +352,7 @@ def _roots(poly: Poly, box: Interval, precision: int) -> tuple[Enclosure, ...]:
     # `flint.good`-driven), restored on exit so no session `ctx.prec` mutation leaks across evaluators.
     with flint.ctx.workprec(precision):
         isolated = flint.arb_poly([flint.arb(c) for c in poly.coeffs()]).real_roots()
-    enclosures = (
-        Enclosure(Interval.around(float(r.mid()), float(r.rad())), Certificate(Floor.ARB, int(r.rel_accuracy_bits())))
-        for r in isolated
-    )
+    enclosures = (Enclosure(Interval.around(float(r.mid()), float(r.rad())), Certificate(Floor.ARB, int(r.rel_accuracy_bits()))) for r in isolated)
     return tuple(enc for enc in enclosures if box.overlaps(enc.interval))
 
 

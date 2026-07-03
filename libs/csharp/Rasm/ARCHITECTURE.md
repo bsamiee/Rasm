@@ -44,7 +44,7 @@ The mature siblings carry realized capability in their own source and `Vectors/_
 Domain/ContentHash               →  csharp:Rasm.Element/Projection/address       # [CONTENT_KEY]: the kernel seed-zero XxHash128 ContentHash.Of entry the Rasm.Element seam composes for every NodeId/ContentAddress — ONE hasher, no second hasher (no domain change; the kernel NAMES the already-present capability)
 Geometry/Spatial/reconciliation  →  csharp:Rasm.Persistence/Query                # [CONTENT_KEY]: CanonicalTopology→GeometryHash canonical-byte content-identity hashed through the kernel Domain/ContentHash seed-zero entry; geometry crosses the seam by content-hash ONLY (no host geometry below)
 Geometry/Spatial/reconciliation  ⇄  python:runtime/evidence                     # [CONTENT_KEY]: canonical-byte content-identity reproducing the one Domain/ContentHash seed (XxHash128 seed-zero)
-Geometry/Spatial/reconciliation  ⇄  typescript:interchange/codec                # [CONTENT_KEY]: content-hashing wasm reproducing the one Domain/ContentHash seed (XxHash128 seed-zero)
+Geometry/Spatial/reconciliation  ⇄  typescript:kernel                # [CONTENT_KEY]: content-hashing wasm reproducing the one Domain/ContentHash seed (XxHash128 seed-zero)
 Geometry/Drawing/pack            →  csharp:Rasm.AppHost/Runtime                 # [WIRE]: EncodedGeometry / PackOp.Apply channel discriminant
 Geometry/Meshing/intersection    →  csharp:Rasm.Fabrication/Posting             # [WIRE]: IntersectResult / PlaneMesh section curve
 Geometry/Numerics/predicates     ←  csharp:Rasm.Fabrication/Posting             # [WIRE]: Predicate.Orient2D/Orient3D exact verdict

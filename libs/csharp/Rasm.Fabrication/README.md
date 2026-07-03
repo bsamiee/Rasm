@@ -17,9 +17,10 @@
 - [11]-[PROGRAM](.planning/Posting/program.md): host-neutral cut-program emission — dialect-neutral G-code AST plus the `Process/family` `PostDialect` family with the independent dialect-override seam, kerf-comp, lead-in/out, pierce, micro-tab, `geometry3Sharp` `g3.BiArcFit2` biarc arc-fit, jerk-limited look-ahead feedrate, cut-sequencing.
 - [12]-[WORKHOLDING](.planning/Nesting/workholding.md): `Workholder` keep-out family (clamp/vise/chuck/vacuum-table/magnet/sacrificial-bed) conditioning the toolpath and cut sequence against fixture geometry.
 - [13]-[PHYSICS](.planning/Process/physics.md): removal-physics table projecting `process × material × tool × operation` to the modality-discriminated `RemovalBudget` (subtractive/thermal/abrasive/additive) the toolpath generators read.
-- [14]-[FAULTS](.planning/Process/faults.md): band-2500 `FabricationFault` cases composing the kernel band-2400 `GeometryFault`.
+- [14]-[FAULTS](.planning/Process/faults.md): `FabricationFault` cases on the registry band `FaultBand.Fabrication` (2700, offset-derived codes) composing the kernel band-2400 `GeometryFault`.
 - [15]-[GUARD](.planning/Toolpath/guard.md): swept tool-plus-holder collision/gouge guard — `SweptVolume` over the `Geometry2D` Minkowski substrate, the `Verdict` union (clear/gouge/collision/clearance), and the collision-aware safe-Z lift `Cam.Solve` consults per feed move.
 - [16]-[MAGAZINE](.planning/Process/magazine.md): tool-magazine — `Magazine` carousel/turret/manual slot map, per-slot `ToolAssembly` holder geometry, and the minimal-swap tool-change `Schedule` the posting `G43`/`M6` emits.
+- [17]-[STOCK](.planning/Nesting/stock.md): rectangular cutting-stock yield engine — one `StockNest.Pack` fold over the `NestStrategy` `[Union]` collapsing the five `RectangleBinPack.CSharp` packers (max-rects/skyline/guillotine/shelf/mass-cut plus the heuristic sweep) into the `NestPlan`/`NestYield` per-sheet sheet-yield receipt the `Nest.Honor` fold consumes on `FabricationInput.Plan`.
 
 ## [02]-[DOMAIN_PACKAGES]
 
@@ -36,6 +37,7 @@ Domain libraries owned outside the C# substrate registry. Versions are centraliz
 
 [RECT_PACKING]:
 - `RectpackSharp`
+- `RectangleBinPack.CSharp` — the academic axis-aligned cutting-stock suite (`MaxRectsBinPack`/`SkylineBinPack`/`GuillotineBinPack`/`ShelfBinPack`/`SingleBinPack`, each over its own heuristic enum) the `Nesting/stock` `StockNest.Pack` yield engine drives — the material-planning YIELD concern (minimum sheets, per-sheet offcuts, waste evidence), DISJOINT from `RectpackSharp` (the one-shot `FindBest` fast-path arm of the true-shape CAM nest); neither re-packs the other. Pure-managed AnyCPU single-TFM netstandard2.0, MIT, zero dependencies; assembly id `RectangleBinPacking`.
 
 [ARC_FIT]:
 - `geometry3Sharp` — the SOLE biarc/curve-fit owner, the SAME gradientspace package the `Rasm.Bim` mesh-text importer already admits centrally; this folder reuses it scoped to the `g3.BiArcFit2`/`Arc2d`/`Segment2d`/`Vector2d` curve surface, the `DMesh3`/mesh-boolean half firewalled. No second `geometry4Sharp` fork is admitted beside it.

@@ -163,16 +163,23 @@ class AuthorReceipt(Struct, frozen=True):
     def contribute(self) -> "Iterable[Receipt]":
         # Native scalars ride the runtime `EventDict` (`dict[str, object]`) whose `enc_hook=repr`
         # renderer serializes them without a `str()` coerce; only the `verbs`/`guids` joins are strings.
-        yield Receipt.of("rasm.geometry.ifc.authoring", ("emitted", "mutation", {
-            "schema": self.schema,
-            "verbs": ",".join(f.verb for f in self.facts),
-            "guids": ",".join(self.guids),
-            "psets": sum(f.psets for f in self.facts),
-            "subtree": sum(f.subtree for f in self.facts),
-            "edited": self.edited,
-            "depth": self.depth,
-            "stamped": self.stamped,
-        }))
+        yield Receipt.of(
+            "rasm.geometry.ifc.authoring",
+            (
+                "emitted",
+                "mutation",
+                {
+                    "schema": self.schema,
+                    "verbs": ",".join(f.verb for f in self.facts),
+                    "guids": ",".join(self.guids),
+                    "psets": sum(f.psets for f in self.facts),
+                    "subtree": sum(f.subtree for f in self.facts),
+                    "edited": self.edited,
+                    "depth": self.depth,
+                    "stamped": self.stamped,
+                },
+            ),
+        )
 
 
 # --- [TABLES] --------------------------------------------------------------------------
@@ -271,14 +278,9 @@ class IfcAuthor:
     @_transactional
     def _run(self, model: "ifcopenshell.file", script: tuple[AuthorOp, ...]) -> "RuntimeRail[AuthorReceipt]":
         folded: RuntimeRail[AuthorCarry] = functools.reduce(
-            lambda acc, op: acc.bind(lambda carry: self._step(model, carry, op)), script, Ok(AuthorCarry()),
+            lambda acc, op: acc.bind(lambda carry: self._step(model, carry, op)), script, Ok(AuthorCarry())
         )
-        return folded.map(lambda carry: AuthorReceipt(
-            model.schema,
-            carry.facts,
-            tuple(f.guid for f in carry.facts if f.guid),
-            carry.edited,
-        ))
+        return folded.map(lambda carry: AuthorReceipt(model.schema, carry.facts, tuple(f.guid for f in carry.facts if f.guid), carry.edited))
 
     def _step(self, model: "ifcopenshell.file", carry: AuthorCarry, op: AuthorOp) -> "RuntimeRail[AuthorCarry]":
         row = IFC_API_VERBS[op.verb]

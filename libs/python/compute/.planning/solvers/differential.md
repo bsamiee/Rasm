@@ -122,19 +122,17 @@ type LevyLevel = Literal["space_time", "space_time_time"]
 # demand SpaceTimeLevyArea and SlowRK SpaceTimeTimeLevyArea, the order-1 family carrying no row and
 # keeping the BrownianIncrement default. Membership doubles as the SDE adaptivity witness, so a
 # mis-paired path is unrepresentable and an order-1 solver floors to ConstantStepSize.
-_LEVY: FrozenDict[SdeSolver, LevyLevel] = FrozenDict(
-    {
-        SdeSolver.SRA1: "space_time",
-        SdeSolver.SHARK: "space_time",
-        SdeSolver.GENERAL_SHARK: "space_time",
-        SdeSolver.SEA: "space_time",
-        SdeSolver.SPARK: "space_time",
-        SdeSolver.ALIGN: "space_time",
-        SdeSolver.SHOULD: "space_time",
-        SdeSolver.QUICSORT: "space_time",
-        SdeSolver.SLOW_RK: "space_time_time",
-    }
-)
+_LEVY: FrozenDict[SdeSolver, LevyLevel] = FrozenDict({
+    SdeSolver.SRA1: "space_time",
+    SdeSolver.SHARK: "space_time",
+    SdeSolver.GENERAL_SHARK: "space_time",
+    SdeSolver.SEA: "space_time",
+    SdeSolver.SPARK: "space_time",
+    SdeSolver.ALIGN: "space_time",
+    SdeSolver.SHOULD: "space_time",
+    SdeSolver.QUICSORT: "space_time",
+    SdeSolver.SLOW_RK: "space_time_time",
+})
 
 # The term-shape axis: membership selects the MultiTerm(UnderdampedLangevinDriftTerm,
 # UnderdampedLangevinDiffusionTerm) pair keyed by gamma/u over a (x, v) state where the plain SDE
@@ -150,6 +148,7 @@ _REDACTION: Redaction = Redaction(classified=Map.empty())
 
 
 # --- [MODELS] ------------------------------------------------------------------------------
+
 
 class IntegratePolicy(Struct, frozen=True):
     step: StepKind = StepKind.PID
@@ -181,11 +180,7 @@ class DifferentialIntent:
 
     @staticmethod
     def Ode(
-        vector_field: FieldFn,
-        y0: Pytree,
-        span: Span,
-        solver: OdeSolver = OdeSolver.TSIT5,
-        policy: IntegratePolicy = IntegratePolicy(),
+        vector_field: FieldFn, y0: Pytree, span: Span, solver: OdeSolver = OdeSolver.TSIT5, policy: IntegratePolicy = IntegratePolicy()
     ) -> "DifferentialIntent":
         return DifferentialIntent(ode=(vector_field, y0, span, solver, policy))
 
@@ -317,38 +312,37 @@ class SolveEngine:
 
 # --- [TABLES] ------------------------------------------------------------------------------
 
+
 # diffrax resolves only on the worker lane, so these tables are built from the carrier's `dfx` at solve
 # time rather than at module import. Each is total over its vocabulary with no NotImplemented arm: a new
 # solver is one _SOLVER row, a new adjoint mode one _ADJOINT row, a new event kind one _EVENT row.
 def _SOLVER(dfx: object) -> FrozenDict[OdeSolver | SdeSolver, Callable[[], object]]:
-    return FrozenDict(
-        {
-            OdeSolver.TSIT5: dfx.Tsit5,
-            OdeSolver.DOPRI5: dfx.Dopri5,
-            OdeSolver.DOPRI8: dfx.Dopri8,
-            OdeSolver.KENCARP3: dfx.KenCarp3,
-            OdeSolver.KENCARP4: dfx.KenCarp4,
-            OdeSolver.KENCARP5: dfx.KenCarp5,
-            OdeSolver.KVAERNO3: dfx.Kvaerno3,
-            OdeSolver.KVAERNO4: dfx.Kvaerno4,
-            OdeSolver.KVAERNO5: dfx.Kvaerno5,
-            SdeSolver.EULER_HEUN: dfx.EulerHeun,
-            SdeSolver.ITO_MILSTEIN: dfx.ItoMilstein,
-            SdeSolver.STRATONOVICH_MILSTEIN: dfx.StratonovichMilstein,
-            SdeSolver.REVERSIBLE_HEUN: dfx.ReversibleHeun,
-            SdeSolver.LEAPFROG_MIDPOINT: dfx.LeapfrogMidpoint,
-            SdeSolver.SEMI_IMPLICIT_EULER: dfx.SemiImplicitEuler,
-            SdeSolver.SRA1: dfx.SRA1,
-            SdeSolver.SHARK: dfx.ShARK,
-            SdeSolver.GENERAL_SHARK: dfx.GeneralShARK,
-            SdeSolver.SLOW_RK: dfx.SlowRK,
-            SdeSolver.SEA: dfx.SEA,
-            SdeSolver.SPARK: dfx.SPaRK,
-            SdeSolver.ALIGN: dfx.ALIGN,
-            SdeSolver.SHOULD: dfx.ShOULD,
-            SdeSolver.QUICSORT: dfx.QUICSORT,
-        }
-    )
+    return FrozenDict({
+        OdeSolver.TSIT5: dfx.Tsit5,
+        OdeSolver.DOPRI5: dfx.Dopri5,
+        OdeSolver.DOPRI8: dfx.Dopri8,
+        OdeSolver.KENCARP3: dfx.KenCarp3,
+        OdeSolver.KENCARP4: dfx.KenCarp4,
+        OdeSolver.KENCARP5: dfx.KenCarp5,
+        OdeSolver.KVAERNO3: dfx.Kvaerno3,
+        OdeSolver.KVAERNO4: dfx.Kvaerno4,
+        OdeSolver.KVAERNO5: dfx.Kvaerno5,
+        SdeSolver.EULER_HEUN: dfx.EulerHeun,
+        SdeSolver.ITO_MILSTEIN: dfx.ItoMilstein,
+        SdeSolver.STRATONOVICH_MILSTEIN: dfx.StratonovichMilstein,
+        SdeSolver.REVERSIBLE_HEUN: dfx.ReversibleHeun,
+        SdeSolver.LEAPFROG_MIDPOINT: dfx.LeapfrogMidpoint,
+        SdeSolver.SEMI_IMPLICIT_EULER: dfx.SemiImplicitEuler,
+        SdeSolver.SRA1: dfx.SRA1,
+        SdeSolver.SHARK: dfx.ShARK,
+        SdeSolver.GENERAL_SHARK: dfx.GeneralShARK,
+        SdeSolver.SLOW_RK: dfx.SlowRK,
+        SdeSolver.SEA: dfx.SEA,
+        SdeSolver.SPARK: dfx.SPaRK,
+        SdeSolver.ALIGN: dfx.ALIGN,
+        SdeSolver.SHOULD: dfx.ShOULD,
+        SdeSolver.QUICSORT: dfx.QUICSORT,
+    })
 
 
 def _LEVY_CLASS(dfx: object) -> FrozenDict[LevyLevel, object]:
@@ -356,28 +350,25 @@ def _LEVY_CLASS(dfx: object) -> FrozenDict[LevyLevel, object]:
 
 
 def _ADJOINT(dfx: object) -> FrozenDict[AdjointMode, Callable[[], object]]:
-    return FrozenDict(
-        {
-            AdjointMode.RECURSIVE_CHECKPOINT: dfx.RecursiveCheckpointAdjoint,
-            AdjointMode.BACKSOLVE: dfx.BacksolveAdjoint,
-            AdjointMode.IMPLICIT: dfx.ImplicitAdjoint,
-            AdjointMode.DIRECT: dfx.DirectAdjoint,
-            AdjointMode.FORWARD: dfx.ForwardMode,
-        }
-    )
+    return FrozenDict({
+        AdjointMode.RECURSIVE_CHECKPOINT: dfx.RecursiveCheckpointAdjoint,
+        AdjointMode.BACKSOLVE: dfx.BacksolveAdjoint,
+        AdjointMode.IMPLICIT: dfx.ImplicitAdjoint,
+        AdjointMode.DIRECT: dfx.DirectAdjoint,
+        AdjointMode.FORWARD: dfx.ForwardMode,
+    })
 
 
 def _EVENT(dfx: object, policy: IntegratePolicy) -> FrozenDict[EventKind, Callable[[], object | None]]:
-    return FrozenDict(
-        {
-            EventKind.NONE: lambda: None,
-            EventKind.STEADY_STATE: lambda: dfx.Event(dfx.steady_state_event()),
-            EventKind.ROOT_FIND: lambda: dfx.Event(policy.condition, policy.root_finder),
-        }
-    )
+    return FrozenDict({
+        EventKind.NONE: lambda: None,
+        EventKind.STEADY_STATE: lambda: dfx.Event(dfx.steady_state_event()),
+        EventKind.ROOT_FIND: lambda: dfx.Event(policy.condition, policy.root_finder),
+    })
 
 
 # --- [OPERATIONS] --------------------------------------------------------------------------
+
 
 # `@receipted(_REDACTION)` wraps the measured dispatch and emits its `SolverReceipt.contribute` stream
 # on exit, so receipt egress is the decorator rail every sibling solver route wears rather than an
@@ -400,12 +391,7 @@ def _dispatch(intent: DifferentialIntent) -> SolverReceipt:
 
 
 def _diffrax_receipt(
-    intent: DifferentialIntent,
-    solver: OdeSolver | SdeSolver,
-    y0: Pytree,
-    t0: float,
-    t1: float,
-    policy: IntegratePolicy,
+    intent: DifferentialIntent, solver: OdeSolver | SdeSolver, y0: Pytree, t0: float, t1: float, policy: IntegratePolicy
 ) -> SolverReceipt:
     engine = SolveEngine.gated()  # imports the gated modules once and floats the rail to float64
     terms, residual = _terms(engine, intent, solver, y0, t0, t1, policy)
@@ -431,11 +417,17 @@ def _diffrax_receipt(
     if policy.batched:  # leading axis of y0 is an initial-state sweep; one compiled filter_vmap solve, never a Python loop
         solutions = engine.eqx.filter_vmap(engine.eqx.filter_jit(run), in_axes=0)(engine.lift(y0))
         per_row = engine.eqx.filter_vmap(lambda s: residual(engine.terminal(s)), in_axes=0)(solutions)
-        worst = float(engine.jnp.max(engine.jnp.asarray(per_row)))  # worst per-row residual; each is itself a tree_norm over that row's terminal pytree
+        worst = float(
+            engine.jnp.max(engine.jnp.asarray(per_row))
+        )  # worst per-row residual; each is itself a tree_norm over that row's terminal pytree
         steps = int(engine.jnp.max(engine.jnp.asarray(solutions.stats["num_steps"])))
         return SolverReceipt.Iterative(worst, steps, policy.rtol, engine.verdict(solutions.result, batched=True))
-    solution = run(engine.lift(y0))  # per-leaf lift, total over a structured (x, v) Langevin / multi-leaf y0; a bare jnp.asarray(y0) flattens the pytree
-    return SolverReceipt.Iterative(float(residual(engine.terminal(solution))), int(solution.stats["num_steps"]), policy.rtol, engine.verdict(solution.result, batched=False))
+    solution = run(
+        engine.lift(y0)
+    )  # per-leaf lift, total over a structured (x, v) Langevin / multi-leaf y0; a bare jnp.asarray(y0) flattens the pytree
+    return SolverReceipt.Iterative(
+        float(residual(engine.terminal(solution))), int(solution.stats["num_steps"]), policy.rtol, engine.verdict(solution.result, batched=False)
+    )
 
 
 # The three equation cases vary only in the (terms, residual) pair; the SDE arm folds the BrownianPath

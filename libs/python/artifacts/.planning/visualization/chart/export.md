@@ -43,8 +43,21 @@ lazy from matplotlib import colormaps, colors
 # --- [TYPES] ----------------------------------------------------------------------------
 # closed render domains as policy, never free strings: the 14 bundled themes (`.api/vl-convert-python.md` type [02]) + `default`, and the HTML renderer (type [03]).
 type VegaTheme = Literal[
-    "default", "carbong10", "carbong100", "carbong90", "carbonwhite", "dark", "excel", "fivethirtyeight",
-    "ggplot2", "googlecharts", "latimes", "powerbi", "quartz", "urbaninstitute", "vox",
+    "default",
+    "carbong10",
+    "carbong100",
+    "carbong90",
+    "carbonwhite",
+    "dark",
+    "excel",
+    "fivethirtyeight",
+    "ggplot2",
+    "googlecharts",
+    "latimes",
+    "powerbi",
+    "quartz",
+    "urbaninstitute",
+    "vox",
 ]
 type Renderer = Literal["svg", "canvas", "hybrid"]
 
@@ -80,11 +93,13 @@ class RenderPolicy(Struct, frozen=True):
     theme: VegaTheme = "default"
     vl_version: str | None = None
     fonts: tuple[str, ...] = ()
-    format_locale: str | None = None       # d3-format named locale (`.api/vl-convert-python.md` type [04]); localized number formatting for journal + ISO 129 annotation
+    format_locale: str | None = (
+        None  # d3-format named locale (`.api/vl-convert-python.md` type [04]); localized number formatting for journal + ISO 129 annotation
+    )
     time_format_locale: str | None = None  # d3-time-format named locale (type [05]); localized date/time axis formatting
     allowed_base_urls: tuple[str, ...] | None = None  # external-data SSRF fence; None allows any
-    renderer: Renderer | None = None       # HTML-row renderer (svg/canvas/hybrid); None uses the converter default
-    bundle: bool | None = None             # HTML-row: True inlines every dep, None uses the CDN default
+    renderer: Renderer | None = None  # HTML-row renderer (svg/canvas/hybrid); None uses the converter default
+    bundle: bool | None = None  # HTML-row: True inlines every dep, None uses the CDN default
 
     def projected(self, keys: tuple[str, ...]) -> dict[str, object]:
         # the tuple-valued `allowed_base_urls` coerces to the converter's `list[str]`; a `None` knob is dropped so the row spreads only what its converter admits
@@ -147,10 +162,15 @@ def _evidence_attrs(evidence: PrePassEvidence) -> dict[str, object]:
     # the pre-pass evidence folded onto the export span + structlog event: the three data-loss flags made explicit,
     # the pinned tz, the server-reduced dataset count, and the `State` comm-plan client/server cardinality.
     return {
-        "prepass.mode": evidence.mode, "prepass.local_tz": evidence.local_tz,
-        "prepass.transformed_datasets": evidence.transformed_datasets, "prepass.warnings": len(evidence.warnings),
-        "prepass.row_limit_exceeded": evidence.row_limit_exceeded, "prepass.interactivity_broken": evidence.interactivity_broken,
-        "prepass.unsupported": evidence.unsupported, "prepass.client_vars": evidence.client_vars, "prepass.server_vars": evidence.server_vars,
+        "prepass.mode": evidence.mode,
+        "prepass.local_tz": evidence.local_tz,
+        "prepass.transformed_datasets": evidence.transformed_datasets,
+        "prepass.warnings": len(evidence.warnings),
+        "prepass.row_limit_exceeded": evidence.row_limit_exceeded,
+        "prepass.interactivity_broken": evidence.interactivity_broken,
+        "prepass.unsupported": evidence.unsupported,
+        "prepass.client_vars": evidence.client_vars,
+        "prepass.server_vars": evidence.server_vars,
     }
 
 
@@ -162,16 +182,22 @@ def _matplotlib_savefig(figure: object, palette: Palette, fmt: str, ppi: float) 
     figure.set_layout_engine("constrained")  # auto-fit spacing as a figure policy, never a per-call tight_layout
     sink = BytesIO()
     # matplotlib's Agg writer covers png/pdf/svg/jpeg but NOT html, so the static figure serves the HTML slot as prolog-stripped inline SVG in a standalone shell (trusted-bytes assembly, never an f-string markup splice) — keeping the arm total over ExportFormat
-    figure.savefig(sink, format="svg" if fmt == "html" else fmt, dpi=ppi, bbox_inches="tight", pad_inches=0.02, metadata={"Creator": "rasm.artifacts"})
+    figure.savefig(
+        sink, format="svg" if fmt == "html" else fmt, dpi=ppi, bbox_inches="tight", pad_inches=0.02, metadata={"Creator": "rasm.artifacts"}
+    )
     payload = sink.getvalue()
-    return b'<!doctype html><meta charset="utf-8"><figure>' + payload[payload.index(b"<svg"):] + b"</figure>" if fmt == "html" else payload
+    return b'<!doctype html><meta charset="utf-8"><figure>' + payload[payload.index(b"<svg") :] + b"</figure>" if fmt == "html" else payload
 
 
-async def _export_host_free(chart: ChartSpec, fmt: ExportFormat, policy: RenderPolicy, transform: TransformPolicy, retention: Retention) -> tuple[bytes, PrePassEvidence | None]:
+async def _export_host_free(
+    chart: ChartSpec, fmt: ExportFormat, policy: RenderPolicy, transform: TransformPolicy, retention: Retention
+) -> tuple[bytes, PrePassEvidence | None]:
     match chart:
         case ChartSpec(tag="vega", vega=spec):
             outcome = await _TRANSIENT(to_process.run_sync, _pre_transform, spec, fmt.interactive, transform, retention, limiter=_RENDER_LIMITER)
-            prepass = outcome.default_with(_raise_transform)  # Ok -> the self-contained spec + evidence; Error("<malformed-spec>") -> the boundary raise
+            prepass = outcome.default_with(
+                _raise_transform
+            )  # Ok -> the self-contained spec + evidence; Error("<malformed-spec>") -> the boundary raise
             data = await _TRANSIENT(to_thread.run_sync, _vl_render, prepass.spec, fmt, policy, limiter=_RENDER_LIMITER)
             return data, prepass.evidence
         case ChartSpec(tag="lets_plot", lets_plot=(plot, palette)):
@@ -186,10 +212,14 @@ async def _export_host_free(chart: ChartSpec, fmt: ExportFormat, policy: RenderP
 # each `keys` names ONLY the converter's real parameters: `pdf`/`svg`/`html` drop `ppi`, only `jpeg` carries `quality`, HTML alone carries `renderer`/`bundle` and drops `allowed_base_urls`, the locale pair rides every row (`.api/vl-convert-python.md` rows [01]-[05]).
 VL_RENDER: Final[frozendict[ExportFormat, VlRow]] = frozendict({
     ExportFormat.SVG: VlRow(vlc.vegalite_to_svg, True, ("theme", "vl_version", "allowed_base_urls", "format_locale", "time_format_locale")),
-    ExportFormat.PNG: VlRow(vlc.vegalite_to_png, False, ("scale", "ppi", "theme", "vl_version", "allowed_base_urls", "format_locale", "time_format_locale")),
+    ExportFormat.PNG: VlRow(
+        vlc.vegalite_to_png, False, ("scale", "ppi", "theme", "vl_version", "allowed_base_urls", "format_locale", "time_format_locale")
+    ),
     ExportFormat.PDF: VlRow(vlc.vegalite_to_pdf, False, ("scale", "theme", "vl_version", "allowed_base_urls", "format_locale", "time_format_locale")),
     ExportFormat.HTML: VlRow(vlc.vegalite_to_html, True, ("theme", "vl_version", "bundle", "renderer", "format_locale", "time_format_locale")),
-    ExportFormat.JPEG: VlRow(vlc.vegalite_to_jpeg, False, ("scale", "quality", "theme", "vl_version", "allowed_base_urls", "format_locale", "time_format_locale")),
+    ExportFormat.JPEG: VlRow(
+        vlc.vegalite_to_jpeg, False, ("scale", "quality", "theme", "vl_version", "allowed_base_urls", "format_locale", "time_format_locale")
+    ),
 })
 
 
@@ -209,8 +239,10 @@ class ChartExport(Struct, frozen=True):
     chart: ChartSpec
     fmt: ExportFormat
     policy: RenderPolicy = RenderPolicy()
-    transform: TransformPolicy = TransformPolicy()  # the vegafusion pre-pass policy threaded into the subprocess kernel (row_limit/local_tz/inline_datasets/caps)
-    retention: Retention = Retention()              # the Inline interactivity-retention policy (preserve_interactivity/keep_signals/keep_datasets)
+    transform: TransformPolicy = (
+        TransformPolicy()
+    )  # the vegafusion pre-pass policy threaded into the subprocess kernel (row_limit/local_tz/inline_datasets/caps)
+    retention: Retention = Retention()  # the Inline interactivity-retention policy (preserve_interactivity/keep_signals/keep_datasets)
 
     async def render(self) -> RuntimeRail[ArtifactReceipt]:
         return await async_boundary(f"chart.export.{self.fmt}", self._compute)
@@ -220,13 +252,27 @@ class ChartExport(Struct, frozen=True):
             # vl-convert exposes NO `local_tz=` render override, so a time-axis chart content-keys per host UNLESS the
             # vegafusion pre-pass evaluates its time transforms under a PINNED tz: default the pre-pass `local_tz` to the
             # render host's `vlc.get_local_tz()` when the caller left it unset, so the reduced spec is host-tz-stable.
-            transform = self.transform if self.transform.local_tz is not None else structs.replace(self.transform, local_tz=vlc.get_local_tz() or "UTC")
-            span.set_attributes({"engine": self.chart.tag, "dialect": self.fmt.value, "theme": self.policy.theme, "vega": vlc.get_vega_version(), "tz": transform.local_tz or "unknown"})
+            transform = (
+                self.transform if self.transform.local_tz is not None else structs.replace(self.transform, local_tz=vlc.get_local_tz() or "UTC")
+            )
+            span.set_attributes({
+                "engine": self.chart.tag,
+                "dialect": self.fmt.value,
+                "theme": self.policy.theme,
+                "vega": vlc.get_vega_version(),
+                "tz": transform.local_tz or "unknown",
+            })
             data, evidence = await _export_host_free(self.chart, self.fmt, self.policy, transform, self.retention)
             if evidence is not None:  # the vega arm's pre-pass evidence: data-loss flags + tz + dataset/comm-plan cardinality onto the span
                 span.set_attributes(_evidence_attrs(evidence))
         key = ContentIdentity.of(f"chart-{self.fmt}", data)
-        _LOG.info("chart.export", engine=self.chart.tag, dialect=self.fmt.value, bytes=len(data), **(_evidence_attrs(evidence) if evidence is not None else {}))
+        _LOG.info(
+            "chart.export",
+            engine=self.chart.tag,
+            dialect=self.fmt.value,
+            bytes=len(data),
+            **(_evidence_attrs(evidence) if evidence is not None else {}),
+        )
         return ArtifactReceipt.Chart(key, self.chart.tag, self.fmt.value, self.policy.scale, self.policy.theme, len(data))
 ```
 

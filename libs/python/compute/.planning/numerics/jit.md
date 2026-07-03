@@ -37,6 +37,7 @@ if TYPE_CHECKING:
     # sibling `numerics/statistics.md#STATISTICS` typed-result-`Protocol` discipline over `scipy.stats`.
     class Dispatcher(Protocol):  # the numba `CPUDispatcher` a decorated kernel becomes
         signatures: list[object]
+
         def __call__(self, *args: object) -> object: ...
         def inspect_llvm(self) -> dict[object, str]: ...
         def parallel_diagnostics(self, signature: object = ..., level: int = ...) -> None: ...
@@ -59,6 +60,7 @@ type Capture = Callable[[Kernel, "Specimen", "JitBackend"], tuple[Kernel, "JitEv
 
 
 # --- [MODELS] ------------------------------------------------------------------------------
+
 
 class Specimen(Struct, frozen=True):
     # GC-tracked: `args` is a `tuple` container field, so the leaf-only `gc=False` opt-out the sibling
@@ -86,9 +88,9 @@ class JitEvidence:
     # receipt spreads, so each case names only its own native-scalar slots. `Xla` is its own case
     # rather than an `Llvm(..., out_shape=(), jaxpr_lines=0)` overload smuggling jax fields onto numba.
     tag: Literal["llvm", "ufunc", "xla", "host"] = tag()
-    llvm: tuple[str, bool, bool, bool, int, int] = case()                # signature, parallel, fastmath, cached, ir_lines, diagnostics_lines
-    ufunc: tuple[str, str, str] = case()                                 # signature, layout, target
-    xla: tuple[tuple[int, ...], tuple[int, ...], str, int] = case()      # static_argnums, out_shape, out_dtype, jaxpr_lines
+    llvm: tuple[str, bool, bool, bool, int, int] = case()  # signature, parallel, fastmath, cached, ir_lines, diagnostics_lines
+    ufunc: tuple[str, str, str] = case()  # signature, layout, target
+    xla: tuple[tuple[int, ...], tuple[int, ...], str, int] = case()  # static_argnums, out_shape, out_dtype, jaxpr_lines
     host: tuple[()] = case()
 
     @staticmethod
@@ -110,7 +112,15 @@ class JitEvidence:
     def facts(self) -> dict[str, object]:
         match self:
             case JitEvidence(tag="llvm", llvm=(signature, parallel, fastmath, cached, ir_lines, diagnostics_lines)):
-                return {"mode": "llvm", "signature": signature, "parallel": parallel, "fastmath": fastmath, "cached": cached, "ir_lines": ir_lines, "diagnostics_lines": diagnostics_lines}
+                return {
+                    "mode": "llvm",
+                    "signature": signature,
+                    "parallel": parallel,
+                    "fastmath": fastmath,
+                    "cached": cached,
+                    "ir_lines": ir_lines,
+                    "diagnostics_lines": diagnostics_lines,
+                }
             case JitEvidence(tag="ufunc", ufunc=(signature, layout, target)):
                 return {"mode": "gufunc" if layout else "ufunc", "signature": signature, "layout": layout or "<elementwise>", "target": target}
             case JitEvidence(tag="xla", xla=(static_argnums, out_shape, out_dtype, jaxpr_lines)):
@@ -145,9 +155,9 @@ class JitBackend:
     # through the `_JIT_ROUTES` table rather than a `match` arm. `tag` is the route key the entry
     # indexes and the `boundary`/receipt subject names.
     tag: Tag = tag()
-    njit: tuple[bool, bool, bool, bool, bool] = case()              # parallel, fastmath, cache, boundscheck, nogil
+    njit: tuple[bool, bool, bool, bool, bool] = case()  # parallel, fastmath, cache, boundscheck, nogil
     vectorize: tuple[tuple[str, ...], Literal["cpu", "parallel"], str] = case()  # signatures, target, layout
-    jax_jit: tuple[tuple[int, ...], tuple[int, ...]] = case()       # static_argnums, donate_argnums
+    jax_jit: tuple[tuple[int, ...], tuple[int, ...]] = case()  # static_argnums, donate_argnums
     none: tuple[()] = case()
 
     @staticmethod
@@ -193,6 +203,7 @@ class JitBackend:
 
 # --- [OPERATIONS] --------------------------------------------------------------------------
 
+
 def _identity_buffer(kernel: Kernel, specimen: "Specimen") -> bytes:
     # the canonical content-identity buffer the `whole` modality keys (named `buffer`, not `seed`, to
     # stay distinct from the `ContentIdentity.of` `seed: Option[U64]` override): the kernel's qualified
@@ -213,18 +224,16 @@ def _capture_njit(kernel: Kernel, specimen: "Specimen", backend: "JitBackend") -
     signature = ", ".join(str(s) for s in fn.signatures) or "<unspecialized>"
     llvm = next(iter(fn.inspect_llvm().values()), "") if fn.signatures else ""
     diagnostics = _diagnostics_lines(fn) if parallel and fn.signatures else 0
-    return fn, JitEvidence.Llvm(signature, parallel=parallel, fastmath=fastmath, cached=cache, ir_lines=llvm.count("\n"), diagnostics_lines=diagnostics)
+    return fn, JitEvidence.Llvm(
+        signature, parallel=parallel, fastmath=fastmath, cached=cache, ir_lines=llvm.count("\n"), diagnostics_lines=diagnostics
+    )
 
 
 def _capture_vectorize(kernel: Kernel, _specimen: "Specimen", backend: "JitBackend") -> tuple[Kernel, JitEvidence]:
     import numba
 
     signatures, target, layout = backend.vectorize
-    fn = (
-        numba.guvectorize(list(signatures), layout, target=target)(kernel)
-        if layout
-        else numba.vectorize(list(signatures), target=target)(kernel)
-    )
+    fn = numba.guvectorize(list(signatures), layout, target=target)(kernel) if layout else numba.vectorize(list(signatures), target=target)(kernel)
     return fn, JitEvidence.Ufunc(" | ".join(signatures), layout, target)
 
 

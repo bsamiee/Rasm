@@ -18,6 +18,8 @@ Nine planning-scoped package roots in strata order; each root `README.md` carrie
 
 The HOST-BOUNDARY packages `Rasm.Rhino` and `Rasm.Grasshopper` are out-of-scope-durable source with no `.planning/`.
 
+Branch-level pages beside this router: [component-system.md](component-system.md) — the Element/Materials/Bim triad: the thing model, the projection seams, and the extension recipes for adding a family, a section shape, an IFC category, or a property without a second paradigm.
+
 ## [02]-[SUBSTRATE_PACKAGES]
 
 The cross-domain C# foundation every package builds on: rails, time/identity, the array substrate, the wire-codegen toolchain, and the test stack. Folder `README.md`s list their own domain additions under their own `## [3]-[SUBSTRATE_PACKAGES]`.
@@ -30,22 +32,22 @@ The cross-domain C# foundation every package builds on: rails, time/identity, th
 - `JetBrains.Annotations` — every C# folder.
 
 [TIME_IDENTITY]:
-- `NodaTime` — Bim, AppHost, Compute, Persistence, AppUi.
+- `NodaTime` — Element, Bim, AppHost, Compute, Persistence, AppUi.
 - `NodaTime.Serialization.SystemTextJson` — AppHost, Persistence.
-- `NodaTime.Serialization.Protobuf` — AppHost, Compute.
-- `System.IO.Hashing` — Rasm, Bim, AppHost, Compute, Persistence, AppUi.
+- `NodaTime.Serialization.Protobuf` — Element, Compute.
+- `System.IO.Hashing` — Rasm, Element, Bim, Fabrication, AppHost, Compute, Persistence, AppUi.
 
 [NUMERIC_SUBSTRATE]:
 - `CommunityToolkit.HighPerformance` — Compute, Persistence.
 - `System.Numerics.Tensors` — Rasm, AppHost, Compute.
-- `UnitsNet` — Bim, Compute, Fabrication, Materials, AppUi.
+- `UnitsNet` — Element, Bim, Compute, Fabrication, Materials, AppUi.
 
 [GRAPH_ALGORITHM]:
 - `QuikGraph` — Element, Bim, Persistence (the pure-managed graph containers + `AlgorithmExtensions` facade; the seam `ElementGraph` topology view, the Persistence synchronous `Query/topology` lane, the Bim CPM/`SystemTrace`/version-DAG walks).
 
 [WIRE_CODEGEN]:
 - `Generator.Equals` — Element, Bim, Persistence (source-generated structural equality + member-level diff; runtime `Generator.Equals.Runtime`).
-- `Google.Protobuf`
+- `Google.Protobuf` — Element (the `rasm.element.v1` graph wire messages), Compute.
 - `Grpc.AspNetCore`
 - `Grpc.AspNetCore.HealthChecks`
 - `Grpc.AspNetCore.Web`
@@ -53,7 +55,7 @@ The cross-domain C# foundation every package builds on: rails, time/identity, th
 - `Grpc.Net.Client`
 - `Grpc.Net.Client.Web`
 - `Grpc.Net.Common`
-- `Grpc.Tools`
+- `Grpc.Tools` — Element (`GrpcServices=None` message codegen), Compute.
 - `Riok.Mapperly` — Element, Bim, Persistence (compile-time graph↔DTO/proto mapping; runtime `Riok.Mapperly.Abstractions`).
 
 [TEST_SUBSTRATE]:

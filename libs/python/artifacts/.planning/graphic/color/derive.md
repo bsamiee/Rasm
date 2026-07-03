@@ -34,7 +34,10 @@ from numpy.typing import NDArray
 
 from rasm.runtime.faults import RuntimeRail, async_boundary
 
-lazy from colour_cxf import cxf3, read_cxf  # CxF3 spot-library intake (cold): the proxy reifies on first Spot-arm use, decoding a print partner's .cxf into the palette source
+lazy from colour_cxf import (
+    cxf3,
+    read_cxf,
+)  # CxF3 spot-library intake (cold): the proxy reifies on first Spot-arm use, decoding a print partner's .cxf into the palette source
 
 type Tristimulus = NDArray[np.float64]
 type Wavelength = Annotated[float, Is[lambda nm: 360.0 <= nm <= 830.0]]
@@ -268,7 +271,11 @@ _CXF_ILLUMINANT: frozendict[str, Illuminant] = frozendict({illum.value: illum fo
 
 # Color.steps/discrete take a progress= easing callable; _EASING resolves the Easing vocabulary to the package's own curves.
 _EASING: frozendict[Easing, Callable[[float], float]] = frozendict({
-    Easing.LINEAR: linear, Easing.EASE: ease, Easing.EASE_IN: ease_in, Easing.EASE_OUT: ease_out, Easing.EASE_IN_OUT: ease_in_out,
+    Easing.LINEAR: linear,
+    Easing.EASE: ease,
+    Easing.EASE_IN: ease_in,
+    Easing.EASE_OUT: ease_out,
+    Easing.EASE_IN_OUT: ease_in_out,
 })
 
 # Each row binds the metric to the input ColorModel its engine demands — colour delta_E/whiteness Lab/XYZ, dominant/complementary xy, CRI/CFI a SpectralDistribution, the ColorAide rows sRGB — so Measure resolves sample+reference into that space before applying fn.
@@ -290,9 +297,13 @@ _METRIC: frozendict[Metric, MetricSpec] = frozendict({
     Metric.DISTANCE: MetricSpec(ColorModel.SRGB, lambda a, b: Color("srgb", list(a)).distance(Color("srgb", list(b)), space="lab")),
     Metric.CONTRAST: MetricSpec(ColorModel.SRGB, lambda a, b: Color("srgb", list(a)).contrast(Color("srgb", list(b)))),
     Metric.LUMINANCE: MetricSpec(ColorModel.SRGB, lambda a, _b: Color("srgb", list(a)).luminance()),
-    Metric.WHITENESS: MetricSpec(ColorModel.XYZ, lambda a, b: float(np.ravel(colour.whiteness(a, b))[0])),  # CIE 2004 returns [W, T]; the whiteness index is the head
+    Metric.WHITENESS: MetricSpec(
+        ColorModel.XYZ, lambda a, b: float(np.ravel(colour.whiteness(a, b))[0])
+    ),  # CIE 2004 returns [W, T]; the whiteness index is the head
     Metric.YELLOWNESS: MetricSpec(ColorModel.XYZ, lambda a, _b: float(colour.yellowness(a))),
-    Metric.DOMINANT_WAVELENGTH: MetricSpec(ColorModel.XYY, lambda a, b: float(np.ravel(colour.dominant_wavelength(a[:2], b[:2])[0])[0])),  # returns (wl, xy_wl, xy_cwl); the wl head is the measure
+    Metric.DOMINANT_WAVELENGTH: MetricSpec(
+        ColorModel.XYY, lambda a, b: float(np.ravel(colour.dominant_wavelength(a[:2], b[:2])[0])[0])
+    ),  # returns (wl, xy_wl, xy_cwl); the wl head is the measure
     Metric.COMPLEMENTARY_WAVELENGTH: MetricSpec(ColorModel.XYY, lambda a, b: float(np.ravel(colour.complementary_wavelength(a[:2], b[:2])[0])[0])),
     Metric.CRI: MetricSpec(ColorModel.SPECTRAL, lambda a, _b: float(colour.colour_rendering_index(a))),
     Metric.CFI: MetricSpec(ColorModel.SPECTRAL, lambda a, _b: float(colour.colour_fidelity_index(a))),
@@ -344,11 +355,19 @@ class ColorOp:
 
     @staticmethod
     @beartype
-    def Convert(value: ColorSource, source: ColorModel, target: ColorModel, adapt: AdaptMethod = AdaptMethod.BRADFORD, observer: Observer = Observer.CIE_1931_2) -> "ColorOp":
+    def Convert(
+        value: ColorSource,
+        source: ColorModel,
+        target: ColorModel,
+        adapt: AdaptMethod = AdaptMethod.BRADFORD,
+        observer: Observer = Observer.CIE_1931_2,
+    ) -> "ColorOp":
         return ColorOp(convert=(value, source, target, adapt, observer))
 
     @staticmethod
-    def Adapt(value: Tristimulus, source: Illuminant, target: Illuminant, method: CamMethod = CamMethod.VON_KRIES, observer: Observer = Observer.CIE_1931_2) -> "ColorOp":
+    def Adapt(
+        value: Tristimulus, source: Illuminant, target: Illuminant, method: CamMethod = CamMethod.VON_KRIES, observer: Observer = Observer.CIE_1931_2
+    ) -> "ColorOp":
         return ColorOp(adapt=(value, source, target, method, observer))
 
     @staticmethod
@@ -362,20 +381,42 @@ class ColorOp:
 
     @staticmethod
     @beartype
-    def Palette(seed: tuple[str, ...], stop: str, count: PaletteCount, spacing: Spacing = 0.0, space: ColorModel = ColorModel.OKLCH, ramp: Ramp = Ramp.Smooth(), anchors: tuple[str, ...] = ()) -> "ColorOp":
+    def Palette(
+        seed: tuple[str, ...],
+        stop: str,
+        count: PaletteCount,
+        spacing: Spacing = 0.0,
+        space: ColorModel = ColorModel.OKLCH,
+        ramp: Ramp = Ramp.Smooth(),
+        anchors: tuple[str, ...] = (),
+    ) -> "ColorOp":
         return ColorOp(palette=(seed, stop, count, spacing, space, ramp, anchors))
 
     @staticmethod
-    def Compose(colors: tuple[str, ...], space: ColorModel = ColorModel.OKLCH, blend: BlendMode = BlendMode.NORMAL, operator: PorterDuff = PorterDuff.SOURCE_OVER, weights: tuple[float, ...] = ()) -> "ColorOp":
+    def Compose(
+        colors: tuple[str, ...],
+        space: ColorModel = ColorModel.OKLCH,
+        blend: BlendMode = BlendMode.NORMAL,
+        operator: PorterDuff = PorterDuff.SOURCE_OVER,
+        weights: tuple[float, ...] = (),
+    ) -> "ColorOp":
         return ColorOp(compose=(colors, space, blend, operator, weights))
 
     @staticmethod
     @beartype
-    def Temperature(value: CctSource, method: CctMethod = CctMethod.DAYLIGHT, planck: Blackbody = Blackbody.OHNO_2013, space: ColorModel = ColorModel.SRGB) -> "ColorOp":
+    def Temperature(
+        value: CctSource, method: CctMethod = CctMethod.DAYLIGHT, planck: Blackbody = Blackbody.OHNO_2013, space: ColorModel = ColorModel.SRGB
+    ) -> "ColorOp":
         return ColorOp(temperature=(value, method, planck, space))
 
     @staticmethod
-    def Measure(sample: ColorSource, metric: Metric, source: ColorModel = ColorModel.SRGB, reference: Tristimulus | None = None, observer: Observer = Observer.CIE_1931_2) -> "ColorOp":
+    def Measure(
+        sample: ColorSource,
+        metric: Metric,
+        source: ColorModel = ColorModel.SRGB,
+        reference: Tristimulus | None = None,
+        observer: Observer = Observer.CIE_1931_2,
+    ) -> "ColorOp":
         return ColorOp(measure=(sample, source, Option.of_optional(reference), metric, observer))
 
     @staticmethod
@@ -396,7 +437,9 @@ class ColorReceipt:
     path: tuple[str, ...] = ()
     measures: frozendict[Metric, float] = frozendict()
     in_gamut: bool = True
-    pointer_gamut: bool = True  # Pointer's-gamut (real-surface printable) membership — the print-plane printability predicate beside the space-gamut in_gamut
+    pointer_gamut: bool = (
+        True  # Pointer's-gamut (real-surface printable) membership — the print-plane printability predicate beside the space-gamut in_gamut
+    )
 
     def wired(self) -> "ColorReceiptWire":
         return ColorReceiptWire(
@@ -442,29 +485,79 @@ class Colorimetry(Struct, frozen=True):
             case ColorOp(tag="convert", convert=(value, source, target, adapt, observer)):
                 with colour.domain_range_scale("reference"):
                     coords = np.asarray(self._resolve(value, source, target, observer, adapt), dtype=np.float64)
-                return ColorReceipt(tag="convert", coords=coords, notation=self._notate(target.aide, coords), space=target.science or target.aide or "", path=self._path(source, target))
+                return ColorReceipt(
+                    tag="convert",
+                    coords=coords,
+                    notation=self._notate(target.aide, coords),
+                    space=target.science or target.aide or "",
+                    path=self._path(source, target),
+                )
             case ColorOp(tag="adapt", adapt=(value, source, target, method, observer)):
                 with colour.domain_range_scale("reference"):
-                    adapted = np.asarray(colour.chromatic_adaptation(np.asarray(value, dtype=np.float64), _WHITEPOINT[observer][source], _WHITEPOINT[observer][target], method=method.value), dtype=np.float64)
-                return ColorReceipt(tag="adapt", coords=adapted, notation=self._notate(ColorModel.XYZ.aide, adapted), space="CIE XYZ", path=(observer.value, source.value, target.value, method.value))
+                    adapted = np.asarray(
+                        colour.chromatic_adaptation(
+                            np.asarray(value, dtype=np.float64), _WHITEPOINT[observer][source], _WHITEPOINT[observer][target], method=method.value
+                        ),
+                        dtype=np.float64,
+                    )
+                return ColorReceipt(
+                    tag="adapt",
+                    coords=adapted,
+                    notation=self._notate(ColorModel.XYZ.aide, adapted),
+                    space="CIE XYZ",
+                    path=(observer.value, source.value, target.value, method.value),
+                )
             case ColorOp(tag="gamut", gamut=(value, source, target, method)):
                 seeded = Color(source.aide, list(value)).convert(target.aide)
                 fitted = seeded.clone().fit_pointer_gamut() if method is FitMethod.POINTER else seeded.clone().fit(method=method.value)
                 coords = np.asarray(fitted.coords(), dtype=np.float64)
-                return ColorReceipt(tag="gamut", coords=coords, notation=(fitted.to_string(),), space=target.aide or "", path=self._path(source, target), in_gamut=seeded.in_gamut(target.aide), pointer_gamut=seeded.in_pointer_gamut())
+                return ColorReceipt(
+                    tag="gamut",
+                    coords=coords,
+                    notation=(fitted.to_string(),),
+                    space=target.aide or "",
+                    path=self._path(source, target),
+                    in_gamut=seeded.in_gamut(target.aide),
+                    pointer_gamut=seeded.in_pointer_gamut(),
+                )
             case ColorOp(tag="filter", filter=(value, name, amount)):
                 origin = Color("srgb", list(value))
                 filtered = origin.clone().filter(name.value, amount=amount)
                 coords = np.asarray(filtered.coords(), dtype=np.float64)
-                return ColorReceipt(tag="filter", coords=coords, notation=(filtered.to_string(),), space="srgb", measures=frozendict({Metric.SEVERITY: origin.delta_e(filtered, method="2000")}))
+                return ColorReceipt(
+                    tag="filter",
+                    coords=coords,
+                    notation=(filtered.to_string(),),
+                    space="srgb",
+                    measures=frozendict({Metric.SEVERITY: origin.delta_e(filtered, method="2000")}),
+                )
             case ColorOp(tag="palette", palette=(seed, stop, count, spacing, space, ramp, anchors)):
                 base = Color.average(list(seed), space=space.aide, out_space="srgb")
                 match ramp:
                     case Ramp(tag="smooth", smooth=(interp, hue, easing)):
-                        ramped = Color.steps([base, stop], steps=count, max_steps=count, max_delta_e=spacing, delta_e="2000", method=interp.value, hue=hue.value, progress=_EASING[easing], space=space.aide, out_space="srgb")
+                        ramped = Color.steps(
+                            [base, stop],
+                            steps=count,
+                            max_steps=count,
+                            max_delta_e=spacing,
+                            delta_e="2000",
+                            method=interp.value,
+                            hue=hue.value,
+                            progress=_EASING[easing],
+                            space=space.aide,
+                            out_space="srgb",
+                        )
                         trail = (ramp.tag, interp.value, hue.value, easing.value)
                     case Ramp(tag="discrete", discrete=(interp, hue, easing)):
-                        curve = Color.discrete([base, stop], steps=count, method=interp.value, hue=hue.value, progress=_EASING[easing], space=space.aide, out_space="srgb")
+                        curve = Color.discrete(
+                            [base, stop],
+                            steps=count,
+                            method=interp.value,
+                            hue=hue.value,
+                            progress=_EASING[easing],
+                            space=space.aide,
+                            out_space="srgb",
+                        )
                         ramped = [curve(i / (count - 1)) if count > 1 else curve(0.0) for i in range(count)]
                         trail = (ramp.tag, interp.value, hue.value, easing.value)
                     case Ramp(tag="harmony", harmony=name):
@@ -475,7 +568,14 @@ class Colorimetry(Struct, frozen=True):
                 snapped = [step.closest(list(anchors), method="2000") for step in ramped] if anchors else ramped
                 coords = np.array([step.coords() for step in snapped], dtype=np.float64)
                 contrast = float(Color("srgb", list(coords[0])).contrast(Color("srgb", list(coords[-1]))))
-                return ColorReceipt(tag="palette", coords=coords, notation=tuple(step.to_string() for step in snapped), space="srgb", path=(space.aide or "", *trail), measures=frozendict({Metric.CONTRAST: contrast}))
+                return ColorReceipt(
+                    tag="palette",
+                    coords=coords,
+                    notation=tuple(step.to_string() for step in snapped),
+                    space="srgb",
+                    path=(space.aide or "", *trail),
+                    measures=frozendict({Metric.CONTRAST: contrast}),
+                )
             case ColorOp(tag="compose", compose=(colors, space, blend, operator, weights)):
                 blended = (
                     Color.weighted_mix(list(colors), weights=list(weights), space=space.aide, out_space="srgb")
@@ -490,10 +590,27 @@ class Colorimetry(Struct, frozen=True):
                         swatch = Color.blackbody(space.aide, kelvin, method=planck.value).convert("srgb")
                         chroma = np.asarray(colour.temperature.CCT_to_xy(kelvin, method=method.value), dtype=np.float64)
                         coords = np.asarray(swatch.coords(), dtype=np.float64)
-                        return ColorReceipt(tag="temperature", coords=coords, notation=(swatch.to_string(),), space="srgb", path=(method.value, planck.value), measures=frozendict({Metric.CCT: kelvin, Metric.CHROMATICITY_X: float(chroma[0]), Metric.CHROMATICITY_Y: float(chroma[1])}))
+                        return ColorReceipt(
+                            tag="temperature",
+                            coords=coords,
+                            notation=(swatch.to_string(),),
+                            space="srgb",
+                            path=(method.value, planck.value),
+                            measures=frozendict({
+                                Metric.CCT: kelvin,
+                                Metric.CHROMATICITY_X: float(chroma[0]),
+                                Metric.CHROMATICITY_Y: float(chroma[1]),
+                            }),
+                        )
                     case (x, y):
                         kelvin = float(np.ravel(colour.temperature.xy_to_CCT(np.asarray((x, y), dtype=np.float64), method=method.value))[0])
-                        return ColorReceipt(tag="temperature", coords=np.asarray((x, y), dtype=np.float64), space="CIE xyY", path=(method.value,), measures=frozendict({Metric.CCT: kelvin, Metric.CHROMATICITY_X: x, Metric.CHROMATICITY_Y: y}))
+                        return ColorReceipt(
+                            tag="temperature",
+                            coords=np.asarray((x, y), dtype=np.float64),
+                            space="CIE xyY",
+                            path=(method.value,),
+                            measures=frozendict({Metric.CCT: kelvin, Metric.CHROMATICITY_X: x, Metric.CHROMATICITY_Y: y}),
+                        )
                     case _ as unreachable:
                         assert_never(unreachable)
             case ColorOp(tag="measure", measure=(sample, source, reference, metric, observer)):
@@ -506,17 +623,27 @@ class Colorimetry(Struct, frozen=True):
                 return ColorReceipt(tag="measure", coords=coords, space=space.science or space.aide or "", measures=frozendict({metric: value}))
             case ColorOp(tag="correct", correct=(measured, reference, method)):
                 corrected = np.asarray(colour.colour_correction(measured, measured, reference, method=method.value), dtype=np.float64)
-                return ColorReceipt(tag="correct", coords=corrected, notation=self._notate(ColorModel.SRGB.aide, corrected), space="sRGB", path=(method.value,))
+                return ColorReceipt(
+                    tag="correct", coords=corrected, notation=self._notate(ColorModel.SRGB.aide, corrected), space="sRGB", path=(method.value,)
+                )
             case ColorOp(tag="spot", spot=(document, target)):
                 with colour.domain_range_scale("reference"):
                     swatches = self._swatches(read_cxf(document), target)
                 coords = np.array([row[0] for row in swatches], dtype=np.float64) if swatches else np.empty((0, 3), dtype=np.float64)
-                return ColorReceipt(tag="spot", coords=coords, notation=tuple(row[1] for row in swatches), space=target.science or target.aide or "", path=("cxf", *(row[2] for row in swatches)))
+                return ColorReceipt(
+                    tag="spot",
+                    coords=coords,
+                    notation=tuple(row[1] for row in swatches),
+                    space=target.science or target.aide or "",
+                    path=("cxf", *(row[2] for row in swatches)),
+                )
             case _:
                 assert_never(self.op)
 
     @staticmethod
-    def _resolve(value: ColorSource, source: ColorModel, target: ColorModel, observer: Observer, adapt: AdaptMethod = AdaptMethod.BRADFORD) -> MetricInput:
+    def _resolve(
+        value: ColorSource, source: ColorModel, target: ColorModel, observer: Observer, adapt: AdaptMethod = AdaptMethod.BRADFORD
+    ) -> MetricInput:
         if target.spectral:
             return value  # CRI/CFI read the SpectralDistribution directly; no coordinate form exists to resolve into
         cmfs = colour.MSDS_CMFS[observer.value]
@@ -524,12 +651,17 @@ class Colorimetry(Struct, frozen=True):
             case float() as nm:
                 return np.asarray(colour.convert(colour.wavelength_to_XYZ(nm, cmfs), "CIE XYZ", target.science), dtype=np.float64)
             case MultiSpectralDistributions():
-                return np.asarray(colour.convert(colour.msds_to_XYZ(value, cmfs, colour.SDS_ILLUMINANTS[Illuminant.D65.value]), "CIE XYZ", target.science), dtype=np.float64)
+                return np.asarray(
+                    colour.convert(colour.msds_to_XYZ(value, cmfs, colour.SDS_ILLUMINANTS[Illuminant.D65.value]), "CIE XYZ", target.science),
+                    dtype=np.float64,
+                )
             case _ if source.aide is not None and target.aide is not None and (source.science is None or target.science is None):
                 # a wide-gamut/HSL/HWB endpoint (`science is None`) colour-science has no convert node for rides the
                 # ColorAide `Color.convert` gateway so `Convert` is total over every ColorModel pair rather than
                 # handing `None` to `colour.convert`; the coords enter in `source.aide` and leave in `target.aide`.
-                return np.asarray(Color(source.aide, list(np.ravel(np.asarray(value, dtype=np.float64)))).convert(target.aide).coords(), dtype=np.float64)
+                return np.asarray(
+                    Color(source.aide, list(np.ravel(np.asarray(value, dtype=np.float64)))).convert(target.aide).coords(), dtype=np.float64
+                )
             case _:
                 return np.asarray(colour.convert(value, source.science, target.science, chromatic_adaptation_transform=adapt.value), dtype=np.float64)
 
@@ -557,7 +689,12 @@ class Colorimetry(Struct, frozen=True):
     @staticmethod
     def _swatches(cxf: "cxf3.CxF", target: ColorModel) -> list[tuple[Tristimulus, str, str]]:
         resources = cxf.resources
-        specs = frozendict({row.id: row for row in (resources.color_specification_collection.color_specification if resources and resources.color_specification_collection else ())})
+        specs = frozendict({
+            row.id: row
+            for row in (
+                resources.color_specification_collection.color_specification if resources and resources.color_specification_collection else ()
+            )
+        })
         collection = resources.object_collection if resources else None
         rows: list[tuple[Tristimulus, str, str]] = []
         for obj in collection.object_value if collection else ():
@@ -571,14 +708,21 @@ class Colorimetry(Struct, frozen=True):
     def _resolve_spot(obj: "cxf3.Object", specs: "frozendict[str, cxf3.ColorSpecification]", target: ColorModel) -> Tristimulus | None:
         values = list(obj.color_values.choice) if obj.color_values else []
         spectrum = next((member for member in values if isinstance(member, cxf3.ReflectanceSpectrum)), None)
-        if spectrum is not None and (resolved := Colorimetry._spectrum_xyz(spectrum, specs.get(spectrum.color_specification or ""), target)) is not None:
+        if (
+            spectrum is not None
+            and (resolved := Colorimetry._spectrum_xyz(spectrum, specs.get(spectrum.color_specification or ""), target)) is not None
+        ):
             return resolved  # the CxF measurement context (illuminant/observer/grid) resolves the primary spectral spot payload through sd_to_XYZ
         lab = next((member for member in values if isinstance(member, cxf3.ColorCielab)), None)
         if lab is not None:
-            return np.asarray(colour.convert(np.asarray((lab.l or 0.0, lab.a or 0.0, lab.b or 0.0), dtype=np.float64), "CIE Lab", target.science), dtype=np.float64)
+            return np.asarray(
+                colour.convert(np.asarray((lab.l or 0.0, lab.a or 0.0, lab.b or 0.0), dtype=np.float64), "CIE Lab", target.science), dtype=np.float64
+            )
         xyz = next((member for member in values if isinstance(member, cxf3.ColorCiexyz)), None)
         if xyz is not None:
-            return np.asarray(colour.convert(np.asarray((xyz.x or 0.0, xyz.y or 0.0, xyz.z or 0.0), dtype=np.float64), "CIE XYZ", target.science), dtype=np.float64)
+            return np.asarray(
+                colour.convert(np.asarray((xyz.x or 0.0, xyz.y or 0.0, xyz.z or 0.0), dtype=np.float64), "CIE XYZ", target.science), dtype=np.float64
+            )
         return None
 
     @staticmethod
@@ -589,7 +733,12 @@ class Colorimetry(Struct, frozen=True):
         observer, illuminant, interval = Colorimetry._cxf_context(spec)
         start = int(spectrum.start_wl or 380)
         sd = colour.SpectralDistribution(dict(zip((start + index * interval for index in range(len(samples))), samples, strict=True)))
-        xyz = np.asarray(colour.sd_to_XYZ(sd, cmfs=colour.MSDS_CMFS[observer.value], illuminant=colour.SDS_ILLUMINANTS[illuminant.value]), dtype=np.float64) / 100.0
+        xyz = (
+            np.asarray(
+                colour.sd_to_XYZ(sd, cmfs=colour.MSDS_CMFS[observer.value], illuminant=colour.SDS_ILLUMINANTS[illuminant.value]), dtype=np.float64
+            )
+            / 100.0
+        )
         return np.asarray(colour.convert(xyz, "CIE XYZ", target.science), dtype=np.float64)
 
     @staticmethod

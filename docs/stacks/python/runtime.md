@@ -223,11 +223,11 @@ class Witness(msgspec.Struct, frozen=True, kw_only=True):
     at: Location | None
 
 
-SCOPE: frozendict[Probe, tuple[int, int]] = frozendict(
-    {Probe.FAULT: (sys.monitoring.PROFILER_ID, _EVENT.RAISE),
-     Probe.RETURN: (sys.monitoring.PROFILER_ID, _EVENT.PY_RETURN),
-     Probe.STEP: (sys.monitoring.DEBUGGER_ID, _EVENT.INSTRUCTION)}
-)
+SCOPE: frozendict[Probe, tuple[int, int]] = frozendict({
+    Probe.FAULT: (sys.monitoring.PROFILER_ID, _EVENT.RAISE),
+    Probe.RETURN: (sys.monitoring.PROFILER_ID, _EVENT.PY_RETURN),
+    Probe.STEP: (sys.monitoring.DEBUGGER_ID, _EVENT.INSTRUCTION),
+})
 _WATCHED: frozenset[str] = frozenset(Audited)
 
 
@@ -254,18 +254,20 @@ def measured[**P, T](sink: Sink, /) -> Callable[[Callable[P, T]], Callable[P, T]
                     memory = _SELF.memory_full_info()
                     switches = _SELF.num_ctx_switches().involuntary
                     descriptors = _SELF.num_fds()
-                sink(Witness(
-                    qualname=operation.__qualname__,
-                    grew=sum(stat.size_diff for stat in tracemalloc.take_snapshot().compare_to(before, "lineno")),
-                    peak=peak,
-                    rss=memory.rss,
-                    uss=memory.uss,
-                    switches=switches,
-                    descriptors=descriptors,
-                    generations=msgspec.convert(gc.get_stats(), tuple[Generation, ...]),
-                    raised=type(active).__name__ if active else None,
-                    at=_at(active) if active else None,
-                ))
+                sink(
+                    Witness(
+                        qualname=operation.__qualname__,
+                        grew=sum(stat.size_diff for stat in tracemalloc.take_snapshot().compare_to(before, "lineno")),
+                        peak=peak,
+                        rss=memory.rss,
+                        uss=memory.uss,
+                        switches=switches,
+                        descriptors=descriptors,
+                        generations=msgspec.convert(gc.get_stats(), tuple[Generation, ...]),
+                        raised=type(active).__name__ if active else None,
+                        at=_at(active) if active else None,
+                    )
+                )
                 tracemalloc.stop()
 
         return call

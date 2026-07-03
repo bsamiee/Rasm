@@ -80,7 +80,7 @@ class LayoutOp(StrEnum):
 
 class SegmentEngine(StrEnum):
     UNISEG = "uniseg"  # locale-free UAX#14 default table (pure, inline)
-    ICU = "icu"        # CLDR-tailored dictionary-backed (native ICU4C, gated to_process)
+    ICU = "icu"  # CLDR-tailored dictionary-backed (native ICU4C, gated to_process)
 
 
 class BreakClass(StrEnum):
@@ -137,7 +137,7 @@ class LayoutParams(Struct, frozen=True, kw_only=True):
     hyphen_penalty: float = 50.0
     hyphen_advance: float = 6.0
     ideograph_penalty: float = 25.0  # a CJK-ideograph break weighted vs a Latin-space break
-    kashida_stretch: float = 12.0    # the elastic elongation a `SAFE_TO_INSERT_TATWEEL` cluster admits for Arabic kashida justification
+    kashida_stretch: float = 12.0  # the elastic elongation a `SAFE_TO_INSERT_TATWEEL` cluster admits for Arabic kashida justification
     flagged_demerit: float = 100.0
     fitness_demerit: float = 100.0
     line_penalty: float = 10.0
@@ -165,9 +165,7 @@ class LineLayout(Struct, frozen=True):
     @property
     def _native(self) -> bool:
         # the CLDR/dictionary ICU4C arms cross the gated cp-worker seam; the pure uniseg/pyphen/DP arms run inline
-        return self.step is LayoutOp.COLLATE or (
-            self.step in (LayoutOp.BREAK, LayoutOp.PARAGRAPH) and self.params.engine is SegmentEngine.ICU
-        )
+        return self.step is LayoutOp.COLLATE or (self.step in (LayoutOp.BREAK, LayoutOp.PARAGRAPH) and self.params.engine is SegmentEngine.ICU)
 
     def broken(self) -> LineBrokenRun:
         # the public Knuth-Plass projection beside `lay()`: `drawing/annotate#ANNOTATE` `TextNote.Prose`,
@@ -179,16 +177,17 @@ class LineLayout(Struct, frozen=True):
 
 
 class _Node(Struct, frozen=True):
-    position: int   # breakpoint item index; -1 marks the paragraph start
+    position: int  # breakpoint item index; -1 marks the paragraph start
     line: int
     fitness: int
-    width: float    # cumulative box/glue extent at this node's line-start
+    width: float  # cumulative box/glue extent at this node's line-start
     stretch: float
     shrink: float
     demerits: float
-    flagged: bool   # this break landed on a flagged (hyphen) penalty
+    flagged: bool  # this break landed on a flagged (hyphen) penalty
     ratio: float
     previous: "_Node | None"
+
 
 # --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -236,9 +235,9 @@ def _hyphenate(layout: "LineLayout") -> bytes:
     for word in words(layout.params.text):  # uniseg word tokens, never text.split()
         if positions := dictionary.positions(word):
             result[word] = (
-                tuple(int(offset) for offset in positions),                 # the Knuth-Plass Penalty positions
-                tuple(offset.data for offset in positions),                 # the DataInt (change, index, cut) orthographic channel
-                tuple(dictionary.iterate(word)),                            # the (head, tail) split the hyphen advance measures
+                tuple(int(offset) for offset in positions),  # the Knuth-Plass Penalty positions
+                tuple(offset.data for offset in positions),  # the DataInt (change, index, cut) orthographic channel
+                tuple(dictionary.iterate(word)),  # the (head, tail) split the hyphen advance measures
             )
     return _RUN_ENCODER.encode(result)
 
@@ -279,7 +278,9 @@ def _stream(layout: "LineLayout", opportunities: Mapping[int, BreakClass], soft:
                 yield Item.of_penalty(params.ideograph_penalty, 0.0, False), index
             case BreakClass.OPPORTUNITY:  # the inter-word glue IS the breakable opportunity
                 yield Item.of_glue(advance, params.space_stretch, params.space_shrink), index
-            case BreakClass.PROHIBITED if cluster in tatweel:  # kashida: an inf-penalty forbids a break so the trailing glue stretches without opening a line
+            case BreakClass.PROHIBITED if (
+                cluster in tatweel
+            ):  # kashida: an inf-penalty forbids a break so the trailing glue stretches without opening a line
                 yield Item.of_box(advance), index
                 yield Item.of_penalty(inf, 0.0, False), index
                 yield Item.of_glue(0.0, params.kashida_stretch, 0.0), index
@@ -287,7 +288,7 @@ def _stream(layout: "LineLayout", opportunities: Mapping[int, BreakClass], soft:
                 yield Item.of_box(advance), index
             case _ as unreachable:
                 assert_never(unreachable)
-    yield Item.of_glue(0.0, inf, 0.0), len(run)        # finishing glue absorbs the last line's slack
+    yield Item.of_glue(0.0, inf, 0.0), len(run)  # finishing glue absorbs the last line's slack
     yield Item.of_penalty(-inf, 0.0, False), len(run)  # forced terminal break
 
 
@@ -336,8 +337,10 @@ def _demerits(ratio: float, item: Item, node: _Node, params: "LayoutParams") -> 
     cost = item.penalty[0] if item.tag == "penalty" else 0.0
     flagged = item.tag == "penalty" and item.penalty[2]
     base = (
-        (params.line_penalty + badness + cost) ** 2 if cost >= 0.0
-        else (params.line_penalty + badness) ** 2 - cost * cost if cost > -inf
+        (params.line_penalty + badness + cost) ** 2
+        if cost >= 0.0
+        else (params.line_penalty + badness) ** 2 - cost * cost
+        if cost > -inf
         else (params.line_penalty + badness) ** 2
     )
     paired = params.flagged_demerit if flagged and node.flagged else 0.0
@@ -356,7 +359,9 @@ def _trace(chosen: _Node, items: tuple[Item, ...], origins: tuple[int, ...], wid
     opener = -1
     for broken in chain:  # Exemption: predecessor-chain walk over the immutable node links the DP threaded
         start = _line_start(items, opener)
-        lines.append(LayoutLine(start=origins[start], stop=origins[broken.position], ratio=broken.ratio, advance=width[broken.position] - width[start]))
+        lines.append(
+            LayoutLine(start=origins[start], stop=origins[broken.position], ratio=broken.ratio, advance=width[broken.position] - width[start])
+        )
         opener = broken.position
     return tuple(lines)
 
@@ -371,7 +376,20 @@ def _broken(layout: "LineLayout") -> LineBrokenRun:
         natural, flex, squeeze = item.glue if item.tag == "glue" else (item.box, 0.0, 0.0) if item.tag == "box" else (0.0, 0.0, 0.0)
         width[i + 1], stretch[i + 1], shrink[i + 1] = width[i] + natural, stretch[i] + flex, shrink[i] + squeeze
     opened = _line_start(items, -1)
-    active: list[_Node] = [_Node(position=-1, line=0, fitness=1, width=width[opened], stretch=stretch[opened], shrink=shrink[opened], demerits=0.0, flagged=False, ratio=0.0, previous=None)]
+    active: list[_Node] = [
+        _Node(
+            position=-1,
+            line=0,
+            fitness=1,
+            width=width[opened],
+            stretch=stretch[opened],
+            shrink=shrink[opened],
+            demerits=0.0,
+            flagged=False,
+            ratio=0.0,
+            previous=None,
+        )
+    ]
     for index, item in enumerate(items):  # Exemption: Knuth-Plass total-fit frontier mutates the active list in place
         if not _legal(items, index):
             continue
@@ -387,7 +405,18 @@ def _broken(layout: "LineLayout") -> LineBrokenRun:
             if forced or -1.0 <= ratio <= params.tolerance:  # a forced break ends its line at any badness; an optional break only within tolerance
                 fit, total = _fitness(ratio), node.demerits + _demerits(ratio, item, node, params)
                 if fit not in best or total < best[fit].demerits:
-                    best[fit] = _Node(position=index, line=node.line + 1, fitness=fit, width=width[opened], stretch=stretch[opened], shrink=shrink[opened], demerits=total, flagged=item.tag == "penalty" and item.penalty[2], ratio=ratio, previous=node)
+                    best[fit] = _Node(
+                        position=index,
+                        line=node.line + 1,
+                        fitness=fit,
+                        width=width[opened],
+                        stretch=stretch[opened],
+                        shrink=shrink[opened],
+                        demerits=total,
+                        flagged=item.tag == "penalty" and item.penalty[2],
+                        ratio=ratio,
+                        previous=node,
+                    )
         active = [*survivors, *best.values()] or active
     chosen = min(active, key=lambda node: node.demerits)
     return LineBrokenRun(lines=_trace(chosen, items, origins, width), total_demerits=chosen.demerits)

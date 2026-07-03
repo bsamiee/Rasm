@@ -182,9 +182,7 @@ PHASE_DELIMITER: Map[LifecyclePhase, str] = Map.of_seq([
 # The full ifcdiff RELATIONSHIP_TYPE axis the lifecycle audit scopes over, not the ctor's
 # `["geometry"]` default; the `"geometry"` leg drives the costly ifcopenshell.geom tessellation,
 # the rest fold attribute/type/property/container/aggregate/classification markers off the model.
-DIFF_AXIS: tuple[str, ...] = (
-    "geometry", "attributes", "type", "property", "container", "aggregate", "classification"
-)
+DIFF_AXIS: tuple[str, ...] = ("geometry", "attributes", "type", "property", "container", "aggregate", "classification")
 
 # --- [MODELS] --------------------------------------------------------------------------
 
@@ -217,11 +215,7 @@ class LifecycleReceipt(Struct, frozen=True, gc=False):
 
     def graduates(self, evidence_key: ContentKey, ceiling: dict[str, float]) -> "RuntimeRail[GraduationReceipt]":
         return GraduationReceipt.graduates(
-            "rasm.geometry.ifc.costing",
-            HandoffAxis(geometry=LIFECYCLE_SUBJECT),
-            evidence_key,
-            self.evidence(),
-            ceiling,
+            "rasm.geometry.ifc.costing", HandoffAxis(geometry=LIFECYCLE_SUBJECT), evidence_key, self.evidence(), ceiling
         )
 
     def contribute(self) -> "Iterable[Receipt]":
@@ -230,10 +224,7 @@ class LifecycleReceipt(Struct, frozen=True, gc=False):
         # contract discriminates the `(phase, subject, facts)` triple, never a four-positional call,
         # and the `dict[str, object]` EventDict carries the float measures and residuals natively.
         facts = {f"{self.phase}.{i}.{k}": v for i, row in enumerate(self.rows) for k, v in row.facts.items()}
-        yield Receipt.of(
-            "rasm.geometry.ifc.costing",
-            ("emitted", self.phase.value, facts | {"subjects": len(self.subjects)} | self.evidence()),
-        )
+        yield Receipt.of("rasm.geometry.ifc.costing", ("emitted", self.phase.value, facts | {"subjects": len(self.subjects)} | self.evidence()))
 
 
 # --- [OPERATIONS] ----------------------------------------------------------------------
@@ -245,9 +236,7 @@ def _token[E: StrEnum](vocabulary: type[E], raw: str) -> "RuntimeRail[E]":
     # boundary fence: an unknown token is a typed `wire` fault carrying the offending value, the same
     # shape a malformed selector arrives as. The `raw in vocabulary` value-membership test is the
     # public 3.12+ EnumType contract, no private map.
-    return Ok(vocabulary(raw)) if raw in vocabulary else Error(
-        BoundaryFault(wire=(f"lifecycle.{vocabulary.__name__}.{raw}", 0))
-    )
+    return Ok(vocabulary(raw)) if raw in vocabulary else Error(BoundaryFault(wire=(f"lifecycle.{vocabulary.__name__}.{raw}", 0)))
 
 
 class IfcLifecycle:
@@ -296,9 +285,7 @@ class IfcLifecycle:
                 # is the same typed `wire` fault COST/SCHEDULE tokens get — never a raw `rules[str]`
                 # `KeyError` degraded to a bare `boundary` fault that hides the offending rule-set name.
                 return _token(RuleSet, tail or RuleSet.IFC4.value).bind(
-                    lambda rule_set: IfcSelector.filter(model, head).map(
-                        lambda elements: IfcLifecycle._takeoff(model, elements, rule_set)
-                    )
+                    lambda rule_set: IfcSelector.filter(model, head).map(lambda elements: IfcLifecycle._takeoff(model, elements, rule_set))
                 )
             case LifecyclePhase.COST:
                 return _token(CostReport, tail or "csv").map(lambda report: IfcLifecycle._cost(model, head, report))
@@ -312,9 +299,7 @@ class IfcLifecycle:
                 assert_never(unreachable)
 
     @staticmethod
-    def _takeoff(
-        model: "ifcopenshell.file", elements: tuple["ifcopenshell.entity_instance", ...], rule_set: RuleSet
-    ) -> LifecycleReceipt:
+    def _takeoff(model: "ifcopenshell.file", elements: tuple["ifcopenshell.entity_instance", ...], rule_set: RuleSet) -> LifecycleReceipt:
         import ifc5d.qto  # noqa: PLC0415
 
         results = ifc5d.qto.quantify(model, set(elements), ifc5d.qto.rules[rule_set.value])
@@ -347,9 +332,7 @@ class IfcLifecycle:
             for item in items
             for value in (item.CostValues or ())
         )
-        return LifecycleReceipt(
-            LifecyclePhase.COST, (schedule.GlobalId, report.value), rows
-        )
+        return LifecycleReceipt(LifecyclePhase.COST, (schedule.GlobalId, report.value), rows)
 
     @staticmethod
     def _schedule(model: "ifcopenshell.file", fmt: ScheduleFormat, source: str) -> LifecycleReceipt:

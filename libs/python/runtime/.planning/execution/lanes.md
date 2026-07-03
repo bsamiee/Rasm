@@ -74,6 +74,7 @@ class LaneSource[T]:
     scheduled: tuple[Trigger, Callable[[JobExecutionEvent], Block[Admit[T]]]] = case()
     watched: tuple[tuple[str | PathLike[str], ...], BaseFilter | None, Callable[[set[tuple[Change, str]]], Block[Admit[T]]]] = case()
 
+
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 DRAIN_COLUMNS: Final[tuple[DrainOutcome, ...]] = get_args(DrainOutcome.__value__)
@@ -102,17 +103,35 @@ class DrainReceipt[T](Struct, frozen=True):
     hit: int = 0
 
     @staticmethod
-    def of[U](accepted: int, hit: int, resolved: Block[tuple[Option[ContentKey], RuntimeRail[U]]], replayed: Block[tuple[ContentKey, U]], cache: Map[ContentKey, U]) -> "DrainReceipt[U]":
+    def of[U](
+        accepted: int,
+        hit: int,
+        resolved: Block[tuple[Option[ContentKey], RuntimeRail[U]]],
+        replayed: Block[tuple[ContentKey, U]],
+        cache: Map[ContentKey, U],
+    ) -> "DrainReceipt[U]":
         merged = resolved.append(replayed.map(lambda pair: (Some(pair[0]), Ok(pair[1]))))
         completed = resolved.choose(lambda pair: pair[1].to_option())
         faults = resolved.choose(lambda pair: pair[1].swap().to_option())
-        threaded = merged.fold(lambda acc, pair: pair[0].bind(lambda key: pair[1].to_option().map(lambda v: acc.add(key, v))).default_value(acc), cache)
-        return DrainReceipt(accepted=accepted, completed=len(completed), cancelled=accepted - hit - len(resolved), rejected=len(faults), values=merged.choose(lambda pair: pair[1].to_option()), cache=threaded, faults=faults, hit=hit)
+        threaded = merged.fold(
+            lambda acc, pair: pair[0].bind(lambda key: pair[1].to_option().map(lambda v: acc.add(key, v))).default_value(acc), cache
+        )
+        return DrainReceipt(
+            accepted=accepted,
+            completed=len(completed),
+            cancelled=accepted - hit - len(resolved),
+            rejected=len(faults),
+            values=merged.choose(lambda pair: pair[1].to_option()),
+            cache=threaded,
+            faults=faults,
+            hit=hit,
+        )
 
 
 class AdmitRow[T](Struct, frozen=True):
     key: Callable[[Admit[T]], Option[ContentKey]]
     make: Callable[[Admit[T]], Work[T]]
+
 
 # --- [SERVICES] -------------------------------------------------------------------------
 
@@ -200,6 +219,7 @@ class StagePlan(Struct, frozen=True):
             carried, collected = receipt.cache, collected.append(Block.singleton(receipt))
         return tuple(collected)
 
+
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
@@ -232,7 +252,9 @@ def drained[**P, T](owner: str, redaction: Redaction) -> Callable[[Callable[P, A
             Metrics.observe(receipt, in_flight=receipt.cancelled)
             Signals.emit(Receipt.of(owner, receipt), redaction)
             return receipt
+
         return observed
+
     return aspect
 
 
@@ -259,6 +281,7 @@ async def feed[T](policy: LanePolicy, source: LaneSource[T], owner: str, redacti
     observed = drained(owner, redaction)(policy.drain)
     async for batch in _events(source):
         yield await observed(batch)
+
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 

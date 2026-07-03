@@ -430,8 +430,11 @@ const clusters = (() => {
   for (const r of uniq) { const root = r.files.length ? find(r.files[0]) : '__none__'; (by.get(root) || by.set(root, []).get(root)).push(r) }
   return [...by.values()]
 })()
+// Heaviest cluster first: a fixer's load is dominated by distinct files read + reconciled; under CAP the long pole must never launch last.
+const clusterWork = (c) => { const files = new Set(); for (const r of c) for (const f of r.files) files.add(f); return files.size * 2 + c.length }
+clusters.sort((a, b) => clusterWork(b) - clusterWork(a) || (a[0].claim || '').localeCompare(b[0].claim || ''))
 log('Realize: ' + realized.filter((r) => !r.failed).length + '/' + withCards.length + ' folders; reconcile ' + uniq.length + ' residuals -> ' + clusters.length + ' ' +
-  'clusters' + (failedFolders.size ? '; ' + failedFolders.size + ' folder(s) failed' : ''))
+  'clusters; work [' + clusters.map(clusterWork).join(', ') + '] (2*files+claims)' + (failedFolders.size ? '; ' + failedFolders.size + ' folder(s) failed' : ''))
 let reconciled = []
 if (clusters.length) {
   phase('Reconcile')

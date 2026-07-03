@@ -67,9 +67,7 @@ type LevelBinding = tuple[LevelSelector, LevelSelector]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-PHASE_LEVEL: Final[Map[Phase, LogLevel]] = Map.of_seq(
-    [("admitted", "debug"), ("planned", "debug"), ("emitted", "info")]
-)
+PHASE_LEVEL: Final[Map[Phase, LogLevel]] = Map.of_seq([("admitted", "debug"), ("planned", "debug"), ("emitted", "info")])
 
 REDACTED: Final[str] = "***"
 
@@ -130,12 +128,7 @@ class Receipt:
             case Receipt(tag="rejected", rejected=(owner, fault)):
                 return "warning", {"event": "rejected", "owner": owner, **fault.facts()}
             case Receipt(tag="drained", drained=(owner, drain)):
-                return "info", {
-                    "event": "drained",
-                    "owner": owner,
-                    **_rss(),
-                    **{column: getattr(drain, column) for column in DRAIN_COLUMNS},
-                }
+                return "info", {"event": "drained", "owner": owner, **_rss(), **{column: getattr(drain, column) for column in DRAIN_COLUMNS}}
             case _ as unreachable:
                 assert_never(unreachable)
 
@@ -150,12 +143,7 @@ class Redaction(Struct, frozen=True):
     salt: bytes = b"rasm"
 
     def apply(self, facts: EventDict) -> EventDict:
-        return {
-            key: redacted
-            for key, value in facts.items()
-            if key != _REDACTION
-            for redacted in self._classify(key, value)
-        }
+        return {key: redacted for key, value in facts.items() if key != _REDACTION for redacted in self._classify(key, value)}
 
     def _classify(self, key: str, value: object) -> tuple[object, ...]:
         return self.classified.try_find(key).map(lambda cls: self._reduce(cls, value)).default_value((value,))
@@ -228,12 +216,9 @@ def redact(_: object, __: str, event: EventDict) -> EventDict:
 def trace_context(_: object, __: str, event: EventDict) -> EventDict:
     ctx = trace.get_current_span().get_span_context()
     if ctx.is_valid:
-        event.update(
-            trace_id=trace.format_trace_id(ctx.trace_id),
-            span_id=trace.format_span_id(ctx.span_id),
-            trace_flags=int(ctx.trace_flags),
-        )
+        event.update(trace_id=trace.format_trace_id(ctx.trace_id), span_id=trace.format_span_id(ctx.span_id), trace_flags=int(ctx.trace_flags))
     return event
+
 
 # --- [SERVICES] -------------------------------------------------------------------------
 
@@ -286,6 +271,7 @@ class Signals:
 def receipted[**P, R: ReceiptContributor](redaction: Redaction) -> Callable[[Contributing[P, R]], Contributing[P, R]]:
     def wrap(operation: Contributing[P, R]) -> Contributing[P, R]:
         if iscoroutinefunction(operation):
+
             @wraps(operation)
             async def harvested_async(*args: P.args, **kwargs: P.kwargs) -> R:
                 contributor = await operation(*args, **kwargs)

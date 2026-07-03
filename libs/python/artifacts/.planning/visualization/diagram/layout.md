@@ -58,27 +58,27 @@ type RuleStrength = Literal["weak", "medium", "strong", "required"]
 
 
 class HierarchyEngine(StrEnum):
-    RUSTWORKX = "rustworkx"          # deterministic topological_generations fallback
-    GRANDALF = "grandalf"            # parity oracle + spline routes, superseded-pending-removal
+    RUSTWORKX = "rustworkx"  # deterministic topological_generations fallback
+    GRANDALF = "grandalf"  # parity oracle + spline routes, superseded-pending-removal
     FAST_SUGIYAMA = "fast-sugiyama"  # native-Rust Sugiyama placement, supersedes grandalf placement
-    ELK = "elk"                      # ports/nesting/orthogonal, native bendPoints
+    ELK = "elk"  # ports/nesting/orthogonal, native bendPoints
 
 
 class EdgeRoute(StrEnum):
     LINES = "lines"
     SPLINES = "splines"
-    ORTHOGONAL = "orthogonal"        # owned by the ELK engine's native section geometry
+    ORTHOGONAL = "orthogonal"  # owned by the ELK engine's native section geometry
 
 
 class RingMode(StrEnum):
-    CIRCULAR = "circular"            # one ring, circular_layout
-    SHELL = "shell"                  # concentric rings, shell_layout over the ring-attribute partition
+    CIRCULAR = "circular"  # one ring, circular_layout
+    SHELL = "shell"  # concentric rings, shell_layout over the ring-attribute partition
 
 
 class ProjectionKind(StrEnum):
-    SOLAR_ARC = "solar_arc"          # azimuth/altitude -> stereographic sun-path point
-    FLOOR_BAND = "floor_band"        # level -> stacking band y
-    PARCEL_GRID = "parcel_grid"      # east/north -> site cartesian cell
+    SOLAR_ARC = "solar_arc"  # azimuth/altitude -> stereographic sun-path point
+    FLOOR_BAND = "floor_band"  # level -> stacking band y
+    PARCEL_GRID = "parcel_grid"  # east/north -> site cartesian cell
 
 
 class LayeredPolicy(Struct, frozen=True):
@@ -138,9 +138,7 @@ class LayoutPolicy:
 
     @staticmethod
     def Layered(
-        direction: LayerDirection = "TB",
-        engine: HierarchyEngine = HierarchyEngine.FAST_SUGIYAMA,
-        route: EdgeRoute = EdgeRoute.LINES,
+        direction: LayerDirection = "TB", engine: HierarchyEngine = HierarchyEngine.FAST_SUGIYAMA, route: EdgeRoute = EdgeRoute.LINES
     ) -> "LayoutPolicy":
         # orthogonal routing is ELK's native capability; force the engine so ORTHOGONAL never
         # degrades to a straight-line alias on a Sugiyama engine that cannot route around boxes.
@@ -169,7 +167,10 @@ _ELK_OPTIONS: frozendict[str, str] = frozendict({
     "elk.layered.layering.strategy": "LONGEST_PATH",
 })
 _RANKING: frozendict[LayerDirection, tuple[str, bool]] = frozendict({
-    "TB": ("down", False), "BT": ("up", False), "LR": ("down", True), "RL": ("up", True),  # (ranking_type, swap_xy)
+    "TB": ("down", False),
+    "BT": ("up", False),
+    "LR": ("down", True),
+    "RL": ("up", True),  # (ranking_type, swap_xy)
 })
 _AXIS: frozendict[RuleAxis, int] = frozendict({"x": 0, "y": 1})
 _NODE_SHAPES: frozendict[str, NodeShape] = frozendict({shape.value: shape for shape in NodeShape})
@@ -213,8 +214,7 @@ class DiagramLayout(Struct, frozen=True):
         algorithm = _algorithm(policy)
         wire = rx.node_link_json(graph, node_attrs=_wire_attrs, edge_attrs=_wire_attrs).encode()
         key = ContentIdentity.of(
-            f"diagram-{self.kind}-{algorithm}",
-            wire + repr(sorted(coords.items())).encode() + repr(sorted(routes.items())).encode(),
+            f"diagram-{self.kind}-{algorithm}", wire + repr(sorted(coords.items())).encode() + repr(sorted(routes.items())).encode()
         )
         receipt = ArtifactReceipt.Diagram(key, self.kind.value, graph.num_nodes(), graph.num_edges(), algorithm)
         return glyphs, receipt
@@ -248,43 +248,130 @@ class DiagramLayout(Struct, frozen=True):
     def _emit(self, graph: rx.PyDiGraph, coords: LayoutMap, routes: RouteMap) -> tuple[DiagramGlyph, ...]:
         match self.kind:
             case DiagramKind.SUN_PATH:
-                ticks = tuple(DiagramGlyph.Marker(*coords[i], MarkerKind.TICK, _attr(graph.get_node_data(i), "azimuth"), GlyphStyle("sun")) for i in graph.node_indices())
-                arcs = tuple(DiagramGlyph.Edge(s, t, _edge_points(routes, coords, s, t), None, GlyphStyle("path", stroke=1)) for s, t in graph.edge_list())
+                ticks = tuple(
+                    DiagramGlyph.Marker(*coords[i], MarkerKind.TICK, _attr(graph.get_node_data(i), "azimuth"), GlyphStyle("sun"))
+                    for i in graph.node_indices()
+                )
+                arcs = tuple(
+                    DiagramGlyph.Edge(s, t, _edge_points(routes, coords, s, t), None, GlyphStyle("path", stroke=1)) for s, t in graph.edge_list()
+                )
                 return (*arcs, *ticks, DiagramGlyph.Marker(0.0, 0.0, MarkerKind.NORTH, 0.0, GlyphStyle("compass")))
             case DiagramKind.CIRCULATION:
-                boxes = tuple(DiagramGlyph.Node(i, *coords[i], 40.0, 24.0, _label(graph.get_node_data(i), "label"), GlyphStyle("spaces")) for i in graph.node_indices())
-                flows = tuple(DiagramGlyph.Edge(s, t, _edge_points(routes, coords, s, t), None, GlyphStyle("circulation", stroke=2)) for s, t in graph.edge_list())
+                boxes = tuple(
+                    DiagramGlyph.Node(i, *coords[i], 40.0, 24.0, _label(graph.get_node_data(i), "label"), GlyphStyle("spaces"))
+                    for i in graph.node_indices()
+                )
+                flows = tuple(
+                    DiagramGlyph.Edge(s, t, _edge_points(routes, coords, s, t), None, GlyphStyle("circulation", stroke=2))
+                    for s, t in graph.edge_list()
+                )
                 return (*boxes, *flows)
             case DiagramKind.STACKING:
-                return tuple(DiagramGlyph.Swimlane(i, 0.0, coords[i][1], 200.0, 30.0, _label(graph.get_node_data(i), "floor"), GlyphStyle("floors", fill=i)) for i in graph.node_indices())
+                return tuple(
+                    DiagramGlyph.Swimlane(i, 0.0, coords[i][1], 200.0, 30.0, _label(graph.get_node_data(i), "floor"), GlyphStyle("floors", fill=i))
+                    for i in graph.node_indices()
+                )
             case DiagramKind.PROGRAM:
-                boxes = tuple(DiagramGlyph.Node(i, *coords[i], 48.0, 32.0, _label(graph.get_node_data(i), "program"), GlyphStyle("program", fill=i)) for i in graph.node_indices())
-                adj = tuple(DiagramGlyph.Edge(s, t, _edge_points(routes, coords, s, t), None, GlyphStyle("adjacency", stroke=3)) for s, t in graph.edge_list())
+                boxes = tuple(
+                    DiagramGlyph.Node(i, *coords[i], 48.0, 32.0, _label(graph.get_node_data(i), "program"), GlyphStyle("program", fill=i))
+                    for i in graph.node_indices()
+                )
+                adj = tuple(
+                    DiagramGlyph.Edge(s, t, _edge_points(routes, coords, s, t), None, GlyphStyle("adjacency", stroke=3)) for s, t in graph.edge_list()
+                )
                 return (*boxes, *adj)
             case DiagramKind.SITE:
                 parcels = tuple(DiagramGlyph.Swimlane(i, *coords[i], 80.0, 80.0, None, GlyphStyle("parcels", fill=i)) for i in graph.node_indices())
                 footprints = tuple(DiagramGlyph.Node(i, *coords[i], 24.0, 24.0, None, GlyphStyle("buildings")) for i in graph.node_indices())
-                callouts = tuple(DiagramGlyph.Annotation(*coords[i], text, TextAnchor.MIDDLE, GlyphStyle("callouts")) for i in graph.node_indices() if (text := _label(graph.get_node_data(i), "label")) is not None)
+                callouts = tuple(
+                    DiagramGlyph.Annotation(*coords[i], text, TextAnchor.MIDDLE, GlyphStyle("callouts"))
+                    for i in graph.node_indices()
+                    if (text := _label(graph.get_node_data(i), "label")) is not None
+                )
                 return (*parcels, *footprints, *callouts)
             case DiagramKind.NODE_LINK:
-                nodes = tuple(DiagramGlyph.Node(i, *coords[i], _NODE_W, _NODE_H, _label((d := graph.get_node_data(i)), "label"), GlyphStyle("nodes", fill=i), _shape_of(d), _ports_of(d)) for i in graph.node_indices())
-                links = tuple(DiagramGlyph.Edge(s, t, _edge_points(routes, coords, s, t), _label(graph.get_edge_data(s, t), "label"), GlyphStyle("links", stroke=1)) for s, t in graph.edge_list())
+                nodes = tuple(
+                    DiagramGlyph.Node(
+                        i,
+                        *coords[i],
+                        _NODE_W,
+                        _NODE_H,
+                        _label((d := graph.get_node_data(i)), "label"),
+                        GlyphStyle("nodes", fill=i),
+                        _shape_of(d),
+                        _ports_of(d),
+                    )
+                    for i in graph.node_indices()
+                )
+                links = tuple(
+                    DiagramGlyph.Edge(
+                        s, t, _edge_points(routes, coords, s, t), _label(graph.get_edge_data(s, t), "label"), GlyphStyle("links", stroke=1)
+                    )
+                    for s, t in graph.edge_list()
+                )
                 return (*nodes, *links)
             case DiagramKind.FLOWCHART:
-                steps = tuple(DiagramGlyph.Node(i, *coords[i], _NODE_W, _NODE_H, _label((d := graph.get_node_data(i)), "label"), GlyphStyle("nodes", fill=i), _shape_of(d), _ports_of(d)) for i in graph.node_indices())
-                flow = tuple(DiagramGlyph.Edge(s, t, _edge_points(routes, coords, s, t), _label(graph.get_edge_data(s, t), "label"), GlyphStyle("flow", stroke=2)) for s, t in graph.edge_list())
+                steps = tuple(
+                    DiagramGlyph.Node(
+                        i,
+                        *coords[i],
+                        _NODE_W,
+                        _NODE_H,
+                        _label((d := graph.get_node_data(i)), "label"),
+                        GlyphStyle("nodes", fill=i),
+                        _shape_of(d),
+                        _ports_of(d),
+                    )
+                    for i in graph.node_indices()
+                )
+                flow = tuple(
+                    DiagramGlyph.Edge(
+                        s, t, _edge_points(routes, coords, s, t), _label(graph.get_edge_data(s, t), "label"), GlyphStyle("flow", stroke=2)
+                    )
+                    for s, t in graph.edge_list()
+                )
                 return (*steps, *flow)
             case DiagramKind.ENTITY_RELATION:
-                entities = tuple(DiagramGlyph.Node(i, *coords[i], _NODE_W * 1.6, _NODE_H * 2.0, _label((d := graph.get_node_data(i)), "entity"), GlyphStyle("entities", fill=i), NodeShape.ENTITY, _ports_of(d)) for i in graph.node_indices())
-                relations = tuple(DiagramGlyph.Edge(s, t, _edge_points(routes, coords, s, t), _label(graph.get_edge_data(s, t), "cardinality"), GlyphStyle("relations", stroke=3)) for s, t in graph.edge_list())
+                entities = tuple(
+                    DiagramGlyph.Node(
+                        i,
+                        *coords[i],
+                        _NODE_W * 1.6,
+                        _NODE_H * 2.0,
+                        _label((d := graph.get_node_data(i)), "entity"),
+                        GlyphStyle("entities", fill=i),
+                        NodeShape.ENTITY,
+                        _ports_of(d),
+                    )
+                    for i in graph.node_indices()
+                )
+                relations = tuple(
+                    DiagramGlyph.Edge(
+                        s, t, _edge_points(routes, coords, s, t), _label(graph.get_edge_data(s, t), "cardinality"), GlyphStyle("relations", stroke=3)
+                    )
+                    for s, t in graph.edge_list()
+                )
                 return (*entities, *relations)
             case DiagramKind.SANKEY:
-                stages = tuple(DiagramGlyph.Node(i, *coords[i], _NODE_W, _NODE_H, _label(graph.get_node_data(i), "stage"), GlyphStyle("stages", fill=i)) for i in graph.node_indices())
-                ribbons = tuple(DiagramGlyph.Edge(s, t, _edge_points(routes, coords, s, t), None, GlyphStyle("ribbons", stroke=s), _weight(graph, s, t)) for s, t in graph.edge_list())
+                stages = tuple(
+                    DiagramGlyph.Node(i, *coords[i], _NODE_W, _NODE_H, _label(graph.get_node_data(i), "stage"), GlyphStyle("stages", fill=i))
+                    for i in graph.node_indices()
+                )
+                ribbons = tuple(
+                    DiagramGlyph.Edge(s, t, _edge_points(routes, coords, s, t), None, GlyphStyle("ribbons", stroke=s), _weight(graph, s, t))
+                    for s, t in graph.edge_list()
+                )
                 return (*stages, *ribbons)
             case DiagramKind.SECTION_CALLOUT:
-                frames = tuple(DiagramGlyph.Swimlane(i, *coords[i], 160.0, 120.0, _label(graph.get_node_data(i), "detail"), GlyphStyle("frame", fill=i)) for i in graph.node_indices())
-                refs = tuple(DiagramGlyph.Annotation(*coords[i], text, TextAnchor.MIDDLE, GlyphStyle("callouts")) for i in graph.node_indices() if (text := _label(graph.get_node_data(i), "reference")) is not None)
+                frames = tuple(
+                    DiagramGlyph.Swimlane(i, *coords[i], 160.0, 120.0, _label(graph.get_node_data(i), "detail"), GlyphStyle("frame", fill=i))
+                    for i in graph.node_indices()
+                )
+                refs = tuple(
+                    DiagramGlyph.Annotation(*coords[i], text, TextAnchor.MIDDLE, GlyphStyle("callouts"))
+                    for i in graph.node_indices()
+                    if (text := _label(graph.get_node_data(i), "reference")) is not None
+                )
                 return (*frames, *refs)
             case _ as unreachable:
                 assert_never(unreachable)
@@ -363,12 +450,12 @@ def _algorithm(policy: LayoutPolicy, /) -> str:
 # --- [PROJECTIONS] ----------------------------------------------------------------------
 def _solar_arc(data: dict[str, object], scale: float, /) -> Point:
     azimuth, altitude = radians(_attr(data, "azimuth")), radians(_attr(data, "altitude"))
-    radius = scale * (1.0 - altitude / (pi / 2.0))          # zenith at the center, horizon at the rim
+    radius = scale * (1.0 - altitude / (pi / 2.0))  # zenith at the center, horizon at the rim
     return (radius * sin(azimuth), -radius * cos(azimuth))  # compass north up the y-axis
 
 
 def _floor_band(data: dict[str, object], scale: float, /) -> Point:
-    return (0.0, _attr(data, "level") * scale)              # model-space stacking band; the sheet viewport flips vertical
+    return (0.0, _attr(data, "level") * scale)  # model-space stacking band; the sheet viewport flips vertical
 
 
 def _parcel_grid(data: dict[str, object], scale: float, /) -> Point:
@@ -454,7 +541,7 @@ def _edge_route(edge: GrandalfEdge, /) -> tuple[Point, ...]:
 def _sugiyama_layout(graph: rx.PyDiGraph, policy: LayeredPolicy, /) -> LayoutResult:
     ranking, swap = _RANKING[policy.direction]
     arranged = from_edges(
-        list(graph.edge_list()), dummy_vertices=True, ranking_type=ranking, crossing_minimization="median", vertex_spacing=_LAYER_GAP,
+        list(graph.edge_list()), dummy_vertices=True, ranking_type=ranking, crossing_minimization="median", vertex_spacing=_LAYER_GAP
     ).dot_layout()
     placed: LayoutMap = {int(node): _oriented(point, swap) for component in arranged for node, point in component[0]}
     real = frozenset(graph.node_indices())
@@ -507,7 +594,9 @@ def _elk_document(graph: rx.PyDiGraph, policy: LayeredPolicy, /) -> dict:
         "id": "root",
         "layoutOptions": options,
         "children": [_elk_node(index, graph, kids) for index in roots],
-        "edges": [{"id": f"e{ordinal}", "sources": [str(source)], "targets": [str(target)]} for ordinal, (source, target) in enumerate(graph.edge_list())],
+        "edges": [
+            {"id": f"e{ordinal}", "sources": [str(source)], "targets": [str(target)]} for ordinal, (source, target) in enumerate(graph.edge_list())
+        ],
     }
 
 

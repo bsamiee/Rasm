@@ -66,15 +66,12 @@ class MeterOutcome(StrEnum):
     INSTALLED = "installed"
     REENTRANT = "reentrant"
 
+
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 METER_NAME: Final = "rasm.runtime"
 
-PROCESS_FAULTS: Final[tuple[type[psutil.Error], ...]] = (
-    psutil.NoSuchProcess,
-    psutil.ZombieProcess,
-    psutil.AccessDenied,
-)
+PROCESS_FAULTS: Final[tuple[type[psutil.Error], ...]] = (psutil.NoSuchProcess, psutil.ZombieProcess, psutil.AccessDenied)
 
 # request-duration bucket advisory (ms); the SDK View honors it, View ownership stays telemetry.
 DURATION_BUCKETS_MS: Final[tuple[float, ...]] = (1.0, 5.0, 10.0, 25.0, 50.0, 100.0, 250.0, 500.0, 1000.0, 5000.0)
@@ -134,8 +131,8 @@ class InstrumentSpec(Struct, frozen=True):
 class SyncInstruments(Struct, frozen=True):
     duration: Histogram
     retries: Counter
-    artifact_bytes: Histogram     # per-artifact byte-volume distribution keyed by the `artifact` kind
-    artifact_ratio: Histogram     # per-artifact compression-ratio distribution keyed by the `artifact` kind
+    artifact_bytes: Histogram  # per-artifact byte-volume distribution keyed by the `artifact` kind
+    artifact_ratio: Histogram  # per-artifact compression-ratio distribution keyed by the `artifact` kind
 
 
 # the histogram-name -> `SyncInstruments` field the install fold slots each created recorder into, so a
@@ -151,6 +148,7 @@ class MeterReceipt(Struct, frozen=True):
     outcome: MeterOutcome
     instruments: tuple[str, ...]
     outcomes: tuple[DrainOutcome, ...]
+
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -170,9 +168,7 @@ def _gauge(field: ProbeField) -> Project:
 # both synchronous recorders mint off one `get_meter` resolution into the swapped carrier.
 def _seed_sync(meter: Meter) -> SyncInstruments:
     return SyncInstruments(
-        meter.create_histogram(
-            "companion.request.duration", unit="ms", explicit_bucket_boundaries_advisory=DURATION_BUCKETS_MS
-        ),
+        meter.create_histogram("companion.request.duration", unit="ms", explicit_bucket_boundaries_advisory=DURATION_BUCKETS_MS),
         meter.create_counter("retry.attempts", unit="1"),
         meter.create_histogram("artifact.byte_volume", unit="By"),
         meter.create_histogram("artifact.compression_ratio", unit="1"),
@@ -184,7 +180,9 @@ def _seed_sync(meter: Meter) -> SyncInstruments:
 INSTRUMENTS: Final[Block[InstrumentSpec]] = Block.of_seq([
     InstrumentSpec("companion.request.duration", InstrumentKind.HISTOGRAM, "ms", advisory=DURATION_BUCKETS_MS),
     InstrumentSpec("retry.attempts", InstrumentKind.COUNTER, "1"),
-    InstrumentSpec("artifact.byte_volume", InstrumentKind.HISTOGRAM, "By"),       # per-artifact size distribution the artifacts receipt-harvest path records off `ArtifactReceipt._facts`, keyed by the `artifact` kind
+    InstrumentSpec(
+        "artifact.byte_volume", InstrumentKind.HISTOGRAM, "By"
+    ),  # per-artifact size distribution the artifacts receipt-harvest path records off `ArtifactReceipt._facts`, keyed by the `artifact` kind
     InstrumentSpec("artifact.compression_ratio", InstrumentKind.HISTOGRAM, "1"),  # per-artifact compression-ratio distribution, same harvest seam
     InstrumentSpec("lane.drained", InstrumentKind.OBSERVABLE, "1", _drain_fold),
     InstrumentSpec("lane.in_flight", InstrumentKind.UP_DOWN, "1", _inflight),
@@ -204,11 +202,7 @@ class Metrics:
     _receipt: ClassVar[MeterReceipt | None] = None
 
     @classmethod
-    @latched(
-        lambda: Metrics._receipt,
-        lambda r: setattr(Metrics, "_receipt", r),
-        lambda prior: replace(prior, outcome=MeterOutcome.REENTRANT),
-    )
+    @latched(lambda: Metrics._receipt, lambda r: setattr(Metrics, "_receipt", r), lambda prior: replace(prior, outcome=MeterOutcome.REENTRANT))
     def install(cls) -> MeterReceipt:
         meter = metrics.get_meter(METER_NAME)
         process = psutil.Process()
@@ -221,9 +215,14 @@ class Metrics:
         def mint(sync: SyncInstruments, spec: InstrumentSpec) -> SyncInstruments:
             match spec.kind:
                 case InstrumentKind.HISTOGRAM:
-                    return replace(sync, **{_HIST_SLOT[spec.name]: meter.create_histogram(
-                        spec.name, unit=spec.unit, explicit_bucket_boundaries_advisory=spec.advisory
-                    )})
+                    return replace(
+                        sync,
+                        **{
+                            _HIST_SLOT[spec.name]: meter.create_histogram(
+                                spec.name, unit=spec.unit, explicit_bucket_boundaries_advisory=spec.advisory
+                            )
+                        },
+                    )
                 case InstrumentKind.COUNTER:
                     return replace(sync, retries=meter.create_counter(spec.name, unit=spec.unit))
                 case kind:
@@ -232,9 +231,7 @@ class Metrics:
 
         cls._state = MetricState(ZERO_DRAIN, process, ProcessReading.sample(process))
         cls._sync = INSTRUMENTS.fold(mint, cls._sync)
-        return MeterReceipt(
-            MeterOutcome.INSTALLED, tuple(spec.name for spec in INSTRUMENTS), DRAIN_COLUMNS
-        )
+        return MeterReceipt(MeterOutcome.INSTALLED, tuple(spec.name for spec in INSTRUMENTS), DRAIN_COLUMNS)
 
     @classmethod
     def observe(cls, drain: DrainReceipt[object], in_flight: int = 0) -> None:
@@ -243,9 +240,7 @@ class Metrics:
 
     @classmethod
     def record(cls, duration_ms: float, method: str, outcome: DrainOutcome) -> None:
-        cls._sync.duration.record(
-            duration_ms, {"rpc.method": method, "outcome": outcome}, context=otel_context.get_current()
-        )
+        cls._sync.duration.record(duration_ms, {"rpc.method": method, "outcome": outcome}, context=otel_context.get_current())
 
     @classmethod
     def record_artifact(cls, kind: str, byte_volume: int, ratio: float) -> None:
@@ -260,18 +255,12 @@ class Metrics:
     @classmethod
     def retry_hook(cls) -> RetryHook:
         def hook(details: RetryDetails) -> None:
-            cls._sync.retries.add(
-                1,
-                {"target": details.name, "cause": type(details.caused_by).__qualname__},
-                context=otel_context.get_current(),
-            )
+            cls._sync.retries.add(1, {"target": details.name, "cause": type(details.caused_by).__qualname__}, context=otel_context.get_current())
 
         return hook
 
     @classmethod
-    def measured[**P, T](
-        cls, method: str
-    ) -> Callable[[Callable[P, Awaitable[RuntimeRail[T]]]], Callable[P, Awaitable[RuntimeRail[T]]]]:
+    def measured[**P, T](cls, method: str) -> Callable[[Callable[P, Awaitable[RuntimeRail[T]]]], Callable[P, Awaitable[RuntimeRail[T]]]]:
         def aspect(serve: Callable[P, Awaitable[RuntimeRail[T]]]) -> Callable[P, Awaitable[RuntimeRail[T]]]:
             @wraps(serve)
             async def measured_serve(*args: P.args, **kwargs: P.kwargs) -> RuntimeRail[T]:

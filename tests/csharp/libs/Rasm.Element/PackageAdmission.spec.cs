@@ -19,7 +19,18 @@ public sealed class PackageAdmissionLaws {
 
         ProjectAdmission app = PackageAdmission.Project(relativePath: "libs/csharp/Rasm.Element/Rasm.Element.csproj");
         app.IncludesOnlyProjects("../Rasm/Rasm.csproj");
-        app.IncludesOnlyPackages("UnitsNet", "NodaTime", "QuikGraph", "System.IO.Hashing", "Generator.Equals", "Riok.Mapperly", "Thinktecture.Runtime.Extensions.Json");
+        app.IncludesOnlyPackages(
+            "UnitsNet",
+            "NodaTime",
+            "NodaTime.Serialization.Protobuf",
+            "QuikGraph",
+            "System.IO.Hashing",
+            "Generator.Equals",
+            "Google.Protobuf",
+            "Riok.Mapperly",
+            "Thinktecture.Runtime.Extensions.Json",
+            "Grpc.Tools");
+        app.PackageReferenceHasAttribute(packageName: "Grpc.Tools", attributeName: "PrivateAssets", expectedValue: "all");
         app.ExcludesProjects(
             "../Rasm.Materials/Rasm.Materials.csproj",
             "../Rasm.Bim/Rasm.Bim.csproj",

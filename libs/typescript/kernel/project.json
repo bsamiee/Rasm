@@ -1,0 +1,11 @@
+{
+    "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+    "name": "kernel",
+    "projectType": "library",
+    "sourceRoot": "libs/typescript/kernel/src",
+    "tags": [
+        "scope:kernel",
+        "runtime:neutral",
+        "plane:runtime"
+    ]
+}

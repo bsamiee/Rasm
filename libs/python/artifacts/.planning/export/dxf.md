@@ -263,7 +263,9 @@ _UNITS: frozendict[DxfUnits, str] = frozendict({unit: unit.name.lower() for unit
 _DIM: frozendict[DimKind, Builder] = frozendict({
     DimKind.LINEAR: lambda msp, pts, ds, at: msp.add_linear_dim(base=pts[0], p1=pts[1], p2=pts[2], dimstyle=ds, dxfattribs=at),
     DimKind.ALIGNED: lambda msp, pts, ds, at: msp.add_aligned_dim(p1=pts[0], p2=pts[1], distance=pts[2][0], dimstyle=ds, dxfattribs=at),
-    DimKind.ANGULAR: lambda msp, pts, ds, at: msp.add_angular_dim_2l(base=pts[0], line1=(pts[1], pts[2]), line2=(pts[3], pts[4]), dimstyle=ds, dxfattribs=at),
+    DimKind.ANGULAR: lambda msp, pts, ds, at: msp.add_angular_dim_2l(
+        base=pts[0], line1=(pts[1], pts[2]), line2=(pts[3], pts[4]), dimstyle=ds, dxfattribs=at
+    ),
     DimKind.RADIUS: lambda msp, pts, ds, at: msp.add_radius_dim(center=pts[0], mpoint=pts[1], dimstyle=ds, dxfattribs=at),
     DimKind.DIAMETER: lambda msp, pts, ds, at: msp.add_diameter_dim(center=pts[0], mpoint=pts[1], dimstyle=ds, dxfattribs=at),
     DimKind.ORDINATE: lambda msp, pts, ds, at: msp.add_ordinate_x_dim(feature_location=pts[0], offset=pts[1], dimstyle=ds, dxfattribs=at),
@@ -293,8 +295,13 @@ class DxfAttribs(Struct, frozen=True):
 
     def gfx(self) -> Attribs:
         return GfxAttribs(
-            layer=self.layer, color=self.color, rgb=colors.RGB(*self.rgb) if self.rgb is not None else None,
-            linetype=self.linetype, lineweight=self.lineweight, transparency=self.transparency, ltscale=self.ltscale,
+            layer=self.layer,
+            color=self.color,
+            rgb=colors.RGB(*self.rgb) if self.rgb is not None else None,
+            linetype=self.linetype,
+            lineweight=self.lineweight,
+            transparency=self.transparency,
+            ltscale=self.ltscale,
         ).asdict()
 
 
@@ -314,7 +321,7 @@ class RenderPolicy(Struct, frozen=True):  # the ezdxf render-policy bundle as PO
     color: ColorPolicy = ColorPolicy.COLOR
     proxy: ProxyPolicy = ProxyPolicy.SHOW
     line: LinePolicy = LinePolicy.ACCURATE
-    ctb: str = ""              # `RenderContext(ctb=)` — the CTB/STB plot-style table path (pen/lineweight/color mapping)
+    ctb: str = ""  # `RenderContext(ctb=)` — the CTB/STB plot-style table path (pen/lineweight/color mapping)
     export_mode: bool = False  # `RenderContext(export_mode=)` — paperspace export vs on-screen display resolution
 
 
@@ -370,7 +377,9 @@ class TableEntry:  # the symbol-table row family the `drawing/standard` ISO voca
 class HatchFill:  # the hatch fill sub-axis — solid color, ISO 128-50 pattern, or two-color gradient; drawing/standard lowers `tools.pattern.ISO_PATTERN` defs onto Pattern
     tag: Literal["solid", "pattern", "gradient"] = tag()
     solid: int = case()  # ACI fill color -> set_solid_fill
-    pattern: tuple[str, tuple[PatternLine, ...], int, float, float] = case()  # (name, definition, color, scale, angle); () definition = ezdxf built-in name
+    pattern: tuple[str, tuple[PatternLine, ...], int, float, float] = (
+        case()
+    )  # (name, definition, color, scale, angle); () definition = ezdxf built-in name
     gradient: tuple[tuple[int, int, int], tuple[int, int, int], float] = case()  # (rgb1, rgb2, rotation) -> set_gradient
 
     @staticmethod
@@ -389,8 +398,21 @@ class HatchFill:  # the hatch fill sub-axis — solid color, ISO 128-50 pattern,
 @tagged_union(frozen=True)
 class DxfEntity:  # the closed drawable vocabulary; each case bundles the shared `DxfAttribs` uniform axis
     tag: Literal[
-        "line", "arc", "circle", "ellipse", "spline", "lwpolyline", "hatch",
-        "text", "mtext", "leader", "multileader", "dimension", "blockref", "point", "mesh",
+        "line",
+        "arc",
+        "circle",
+        "ellipse",
+        "spline",
+        "lwpolyline",
+        "hatch",
+        "text",
+        "mtext",
+        "leader",
+        "multileader",
+        "dimension",
+        "blockref",
+        "point",
+        "mesh",
     ] = tag()
     line: tuple[Point3, Point3, DxfAttribs] = case()  # (start, end, attribs)
     arc: tuple[Point3, float, float, float, DxfAttribs] = case()  # (center, radius, start_angle, end_angle, attribs)
@@ -402,7 +424,9 @@ class DxfEntity:  # the closed drawable vocabulary; each case bundles the shared
     text: tuple[str, Point3, float, DxfAttribs] = case()  # (text, insert, height, attribs)
     mtext: tuple[str, Point3, float, DxfAttribs] = case()  # (text, insert, char_height, attribs)
     leader: tuple[tuple[Point3, ...], DxfAttribs] = case()  # (vertices, attribs) — the legacy single-line leader
-    multileader: tuple[MLeaderKind, str, str, tuple[LeaderLine, ...], Point3, DxfAttribs] = case()  # (kind, content, style, leader lines, insert, attribs) — modern leader-with-content
+    multileader: tuple[MLeaderKind, str, str, tuple[LeaderLine, ...], Point3, DxfAttribs] = (
+        case()
+    )  # (kind, content, style, leader lines, insert, attribs) — modern leader-with-content
     dimension: tuple[DimKind, tuple[Point3, ...], str, DxfAttribs] = case()  # (kind, defpoints, dimstyle, attribs)
     blockref: tuple[str, Point3, float, float, DxfAttribs] = case()  # (block name, insert, scale, rotation, attribs)
     point: tuple[Point3, DxfAttribs] = case()  # (location, attribs)
@@ -421,7 +445,9 @@ class DxfEntity:  # the closed drawable vocabulary; each case bundles the shared
         return DxfEntity(circle=(center, radius, attribs))
 
     @staticmethod
-    def Ellipse(center: Point3, major_axis: Point3, ratio: float, start: float = 0.0, end: float = tau, attribs: DxfAttribs = DxfAttribs()) -> "DxfEntity":
+    def Ellipse(
+        center: Point3, major_axis: Point3, ratio: float, start: float = 0.0, end: float = tau, attribs: DxfAttribs = DxfAttribs()
+    ) -> "DxfEntity":
         return DxfEntity(ellipse=(center, major_axis, ratio, start, end, attribs))
 
     @staticmethod
@@ -449,7 +475,14 @@ class DxfEntity:  # the closed drawable vocabulary; each case bundles the shared
         return DxfEntity(leader=(vertices, attribs))
 
     @staticmethod
-    def MultiLeader(content: str, lines: tuple[LeaderLine, ...], kind: MLeaderKind = MLeaderKind.MTEXT, style: str = "Standard", insert: Point3 = (0.0, 0.0, 0.0), attribs: DxfAttribs = DxfAttribs()) -> "DxfEntity":
+    def MultiLeader(
+        content: str,
+        lines: tuple[LeaderLine, ...],
+        kind: MLeaderKind = MLeaderKind.MTEXT,
+        style: str = "Standard",
+        insert: Point3 = (0.0, 0.0, 0.0),
+        attribs: DxfAttribs = DxfAttribs(),
+    ) -> "DxfEntity":
         return DxfEntity(multileader=(kind, content, style, lines, insert, attribs))
 
     @staticmethod
@@ -549,7 +582,7 @@ class TransformSpec(Struct, frozen=True):  # an affine (translate∘scale∘z-ro
     translate: Point3 = (0.0, 0.0, 0.0)
     scale: Point3 = (1.0, 1.0, 1.0)
     rotate: float = 0.0  # z-axis rotation (radians)
-    eql: str = "*"       # the `doc.query` selection the affine applies to (`*` = whole modelspace)
+    eql: str = "*"  # the `doc.query` selection the affine applies to (`*` = whole modelspace)
     mode: TransformMode = TransformMode.INPLACE
 
 
@@ -579,7 +612,14 @@ class BridgeSpec:  # the DXF<->SVG<->GeoJSON<->glyph geometry wire at the `graph
         return BridgeSpec(from_geojson=(mapping, version, attribs))
 
     @staticmethod
-    def TextPaths(text: str, font: str = "sans-serif", size: float = 10.0, insert: Point3 = (0.0, 0.0, 0.0), version: DxfVersion = DxfVersion.R2018, attribs: DxfAttribs = DxfAttribs()) -> "BridgeSpec":
+    def TextPaths(
+        text: str,
+        font: str = "sans-serif",
+        size: float = 10.0,
+        insert: Point3 = (0.0, 0.0, 0.0),
+        version: DxfVersion = DxfVersion.R2018,
+        attribs: DxfAttribs = DxfAttribs(),
+    ) -> "BridgeSpec":
         return BridgeSpec(text_paths=(text, font, size, insert, version, attribs))
 
 
@@ -696,7 +736,9 @@ def _build_entity(layout: "Modelspace | BlockLayout", entity: DxfEntity, /) -> N
                 case HatchFill(tag="solid", solid=color):
                     hatched.set_solid_fill(color=color)
                 case HatchFill(tag="pattern", pattern=(name, definition, color, scale, angle)):
-                    hatched.set_pattern_fill(name, color=color, scale=scale, angle=angle, definition=list(definition) or None)  # ISO 128-50 pattern; () def = built-in
+                    hatched.set_pattern_fill(
+                        name, color=color, scale=scale, angle=angle, definition=list(definition) or None
+                    )  # ISO 128-50 pattern; () def = built-in
                 case HatchFill(tag="gradient", gradient=(rgb1, rgb2, rotation)):
                     hatched.set_gradient(color1=colors.RGB(*rgb1), color2=colors.RGB(*rgb2), rotation=rotation)
                 case _ as unreachable:
@@ -708,11 +750,16 @@ def _build_entity(layout: "Modelspace | BlockLayout", entity: DxfEntity, /) -> N
         case DxfEntity(tag="leader", leader=(vertices, at)):
             layout.add_leader(vertices, dxfattribs=at.gfx())
         case DxfEntity(tag="multileader", multileader=(kind, content, style, lines, insert, at)):
-            builder = (layout.add_multileader_block(style, dxfattribs=at.gfx()) if kind is MLeaderKind.BLOCK
-                       else layout.add_multileader_mtext(style, dxfattribs=at.gfx()))
+            builder = (
+                layout.add_multileader_block(style, dxfattribs=at.gfx())
+                if kind is MLeaderKind.BLOCK
+                else layout.add_multileader_mtext(style, dxfattribs=at.gfx())
+            )
             builder.set_content(content)  # mtext string or block name; `MLeaderKind` selects the builder
             for side, vertices in lines:
-                builder.add_leader_line(getattr(mleader.ConnectionSide, side.value), list(vertices))  # derive ConnectionSide by lowercase member value
+                builder.add_leader_line(
+                    getattr(mleader.ConnectionSide, side.value), list(vertices)
+                )  # derive ConnectionSide by lowercase member value
             builder.build(insert=insert)
         case DxfEntity(tag="dimension", dimension=(kind, defpoints, dimstyle, at)):
             _DIM[kind](layout, defpoints, dimstyle, at.gfx()).render()
@@ -791,9 +838,16 @@ def _serialize(doc: "Drawing", fmt: DxfFormat, /) -> bytes:
 def _dxf_composed(doc: "Drawing", auditor: object, fmt: DxfFormat, /) -> DxfComposed:
     data = _serialize(doc, fmt)
     return DxfComposed(
-        data=data, kind=DxfArtifact.DXF, dxfversion=doc.dxfversion, units=_UNITS[DxfUnits(doc.units)],
-        counts=_counts(doc), layers=len(doc.layers), blocks=len(doc.blocks),
-        errors=len(getattr(auditor, "errors", ())), fixes=len(getattr(auditor, "fixes", ())), extent=_extent(doc),
+        data=data,
+        kind=DxfArtifact.DXF,
+        dxfversion=doc.dxfversion,
+        units=_UNITS[DxfUnits(doc.units)],
+        counts=_counts(doc),
+        layers=len(doc.layers),
+        blocks=len(doc.blocks),
+        errors=len(getattr(auditor, "errors", ())),
+        fixes=len(getattr(auditor, "fixes", ())),
+        extent=_extent(doc),
     )
 
 
@@ -851,8 +905,14 @@ def _rendered(source: DxfSource, backend: DxfBackend, page: PageSpec, /) -> DxfC
     )
     layout = dwglayout.Page(page.width, page.height, dwglayout.Units.mm, dwglayout.Margins.all(page.margin))
     settings = dwglayout.Settings(fit_page=page.fit_page, scale=page.scale)
-    shared = {"dxfversion": doc.dxfversion, "units": _UNITS[DxfUnits(doc.units)],
-              "counts": _counts(doc), "layers": len(doc.layers), "blocks": len(doc.blocks), "extent": _extent(doc)}
+    shared = {
+        "dxfversion": doc.dxfversion,
+        "units": _UNITS[DxfUnits(doc.units)],
+        "counts": _counts(doc),
+        "layers": len(doc.layers),
+        "blocks": len(doc.blocks),
+        "extent": _extent(doc),
+    }
     match backend:
         case DxfBackend.SVG:
             sink = SVGBackend()
@@ -890,9 +950,13 @@ def _queried(source: DxfSource, selection: Selection, /) -> DxfComposed:
     importer.finalize()
     box = bbox.extents(entities)
     return DxfComposed(
-        data=_serialize(extract, DxfFormat.ASC), kind=DxfArtifact.DXF, dxfversion=doc.dxfversion,
-        units=_UNITS[DxfUnits(doc.units)], counts=frozendict(Counter(entity.dxftype() for entity in entities)),
-        layers=len(extract.layers), blocks=len(extract.blocks),
+        data=_serialize(extract, DxfFormat.ASC),
+        kind=DxfArtifact.DXF,
+        dxfversion=doc.dxfversion,
+        units=_UNITS[DxfUnits(doc.units)],
+        counts=frozendict(Counter(entity.dxftype() for entity in entities)),
+        layers=len(extract.layers),
+        blocks=len(extract.blocks),
         extent=(*box.extmin.xyz, *box.extmax.xyz) if box.has_data else _ZERO_EXTENT,
     )
 
@@ -923,8 +987,15 @@ def _bridged(spec: BridgeSpec, /) -> DxfComposed:
             extent = _extent(doc)
             fragments = tuple(_polyline(verts) for verts in _flattened(doc, distance, sample))
             data = svg_frame(fragments, (extent[0], extent[1], extent[3], extent[4]))
-            return DxfComposed(data=data, kind=DxfArtifact.SVG, dxfversion=doc.dxfversion,
-                               units=_UNITS[DxfUnits(doc.units)], counts=_counts(doc), layers=len(doc.layers), extent=extent)
+            return DxfComposed(
+                data=data,
+                kind=DxfArtifact.SVG,
+                dxfversion=doc.dxfversion,
+                units=_UNITS[DxfUnits(doc.units)],
+                counts=_counts(doc),
+                layers=len(doc.layers),
+                extent=extent,
+            )
         case BridgeSpec(tag="from_svg", from_svg=(rings, version, attribs)):
             doc = ezdxf.new(version.value, setup=True)
             paths = [dxfpath.from_vertices(ring, close=False) for ring in rings if ring]
@@ -933,8 +1004,15 @@ def _bridged(spec: BridgeSpec, /) -> DxfComposed:
         case BridgeSpec(tag="to_geojson", to_geojson=source):
             doc = _ingest(source)
             proxy = dxfgeo.proxy(entity for entity in doc.modelspace() if entity.dxftype() in _GEO_TYPES)
-            return DxfComposed(data=msgspec.json.encode(proxy.__geo_interface__), kind=DxfArtifact.GEOJSON,
-                               dxfversion=doc.dxfversion, units=_UNITS[DxfUnits(doc.units)], counts=_counts(doc), layers=len(doc.layers), extent=_extent(doc))
+            return DxfComposed(
+                data=msgspec.json.encode(proxy.__geo_interface__),
+                kind=DxfArtifact.GEOJSON,
+                dxfversion=doc.dxfversion,
+                units=_UNITS[DxfUnits(doc.units)],
+                counts=_counts(doc),
+                layers=len(doc.layers),
+                extent=_extent(doc),
+            )
         case BridgeSpec(tag="from_geojson", from_geojson=(mapping, version, attribs)):
             # Exemption: the `Drawing` mutable builder — the GeoProxy entity fold is ezdxf's construction seam.
             doc = ezdxf.new(version.value, setup=True)
@@ -1000,19 +1078,56 @@ class Dxf(Struct, frozen=True):
         composed = _composed(self.op)
         key = ContentIdentity.of(f"dxf-{self.op.tag}", composed.data)
         receipt = ArtifactReceipt.Cad(
-            key, composed.dxfversion, composed.units, composed.kind.value, len(composed.data),
-            composed.layers, composed.blocks, composed.errors, composed.fixes, composed.counts,
+            key,
+            composed.dxfversion,
+            composed.units,
+            composed.kind.value,
+            len(composed.data),
+            composed.layers,
+            composed.blocks,
+            composed.errors,
+            composed.fixes,
+            composed.counts,
         )
         yield from receipt.contribute()
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 __all__ = [
-    "BackgroundPolicy", "BlockDef", "BridgeSample", "BridgeSpec", "ColorPolicy", "DimKind", "Dxf", "DxfArtifact",
-    "DxfAttribs", "DxfBackend", "DxfDocument", "DxfEntity", "DxfFormat", "DxfOp", "DxfSource", "DxfUnits",
-    "DxfVersion", "HatchFill", "HatchPolicy", "LeaderSide", "LinePolicy", "LineweightPolicy", "MLeaderKind",
-    "PageSpec", "ProxyPolicy", "RenderPolicy", "Selection", "Spatial", "SpatialTest", "TableEntry", "TextPolicy",
-    "TransformMode", "TransformSpec", "Xref",
+    "BackgroundPolicy",
+    "BlockDef",
+    "BridgeSample",
+    "BridgeSpec",
+    "ColorPolicy",
+    "DimKind",
+    "Dxf",
+    "DxfArtifact",
+    "DxfAttribs",
+    "DxfBackend",
+    "DxfDocument",
+    "DxfEntity",
+    "DxfFormat",
+    "DxfOp",
+    "DxfSource",
+    "DxfUnits",
+    "DxfVersion",
+    "HatchFill",
+    "HatchPolicy",
+    "LeaderSide",
+    "LinePolicy",
+    "LineweightPolicy",
+    "MLeaderKind",
+    "PageSpec",
+    "ProxyPolicy",
+    "RenderPolicy",
+    "Selection",
+    "Spatial",
+    "SpatialTest",
+    "TableEntry",
+    "TextPolicy",
+    "TransformMode",
+    "TransformSpec",
+    "Xref",
 ]
 ```
 

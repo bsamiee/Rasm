@@ -60,8 +60,17 @@ lazy import jupytext
 lazy import nbconvert
 lazy import pymupdf
 lazy from jinja2 import (
-    BaseLoader, ChoiceLoader, DictLoader, Environment, FileSystemBytecodeCache, FileSystemLoader,
-    ModuleLoader, PackageLoader, PrefixLoader, StrictUndefined, select_autoescape,
+    BaseLoader,
+    ChoiceLoader,
+    DictLoader,
+    Environment,
+    FileSystemBytecodeCache,
+    FileSystemLoader,
+    ModuleLoader,
+    PackageLoader,
+    PrefixLoader,
+    StrictUndefined,
+    select_autoescape,
 )
 lazy from jinja2.nativetypes import NativeEnvironment
 lazy from jinja2.sandbox import ImmutableSandboxedEnvironment
@@ -77,13 +86,13 @@ class ReportKind(StrEnum):
     COMPOSE = "compose"
     TEMPLATE = "template"
     NOTEBOOK = "notebook"
-    REFLOW = "reflow"      # AGPL pymupdf.Story HTML-into-PDF authoring
-    AUTHOR = "author"      # MIT/Apache pdf_oxide markdown/HTML/office authoring — the commercial-safe REFLOW peer
+    REFLOW = "reflow"  # AGPL pymupdf.Story HTML-into-PDF authoring
+    AUTHOR = "author"  # MIT/Apache pdf_oxide markdown/HTML/office authoring — the commercial-safe REFLOW peer
 
 
 class TemplateRender(StrEnum):
-    STRING = "string"      # jinja `Environment` -> HTML `BlockKind.CODE` leaf
-    NATIVE = "native"      # jinja `NativeEnvironment` -> a computed Python value -> deterministic structured-data leaf
+    STRING = "string"  # jinja `Environment` -> HTML `BlockKind.CODE` leaf
+    NATIVE = "native"  # jinja `NativeEnvironment` -> a computed Python value -> deterministic structured-data leaf
 
 
 class AuthorSource(StrEnum):
@@ -91,14 +100,14 @@ class AuthorSource(StrEnum):
     # entry in `_AUTHOR_BUILD`, so a new source is one member plus one row, never an `if source == ...` ladder.
     MARKDOWN = "markdown"
     HTML = "html"
-    SHEET = "sheet"        # markdown + a running-header/footer `PageTemplate` — the AEC titled-sheet report
-    DOCX = "docx"          # `OfficeConverter.from_docx(path)` office-source report
+    SHEET = "sheet"  # markdown + a running-header/footer `PageTemplate` — the AEC titled-sheet report
+    DOCX = "docx"  # `OfficeConverter.from_docx(path)` office-source report
     PPTX = "pptx"
     XLSX = "xlsx"
 
 
 class ReflowLayout(StrEnum):
-    DIRECT = "direct"          # `Story.write` one-shot page sweep
+    DIRECT = "direct"  # `Story.write` one-shot page sweep
     STABILIZED = "stabilized"  # `Story.write_stabilized` re-lays regenerated HTML until stable, its `add_header_ids=True` default injecting navigable header anchors — the TOC/cross-reference-convergence layout
 
 
@@ -156,8 +165,13 @@ _NATIVE: Final[Encoder] = Encoder(enc_hook=str)
 _EXCLUDE_TRAITS: Final[tuple[str, ...]] = ("exclude_input", "exclude_output", "exclude_input_prompt", "exclude_output_prompt")
 # the display-output MIME map the notebook-figure splice keys each extracted `resources['outputs']` filename by suffix.
 _FIGURE_MEDIA: Final[frozendict[str, str]] = frozendict({
-    "png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg",
-    "svg": "image/svg+xml", "gif": "image/gif", "webp": "image/webp", "pdf": "application/pdf",
+    "png": "image/png",
+    "jpg": "image/jpeg",
+    "jpeg": "image/jpeg",
+    "svg": "image/svg+xml",
+    "gif": "image/gif",
+    "webp": "image/webp",
+    "pdf": "application/pdf",
 })
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -209,11 +223,11 @@ class ExportPolicy(Struct, frozen=True):
     remove_cell_tags: tuple[str, ...] = ()
     remove_input_tags: tuple[str, ...] = ()
     remove_all_outputs_tags: tuple[str, ...] = ()
-    extract_outputs: bool = False       # enable `ExtractOutputPreprocessor` -> display figures land in `resources['outputs']`, spliced as `FigureNode`s the prior arm discarded
-    exclude_input: bool = False         # drop every code-cell input from the render (`TemplateExporter.exclude_input` top-level trait)
-    exclude_output: bool = False        # drop every cell output from the render
+    extract_outputs: bool = False  # enable `ExtractOutputPreprocessor` -> display figures land in `resources['outputs']`, spliced as `FigureNode`s the prior arm discarded
+    exclude_input: bool = False  # drop every code-cell input from the render (`TemplateExporter.exclude_input` top-level trait)
+    exclude_output: bool = False  # drop every cell output from the render
     exclude_input_prompt: bool = False  # drop the `In[ ]:` prompt gutters
-    exclude_output_prompt: bool = False # drop the `Out[ ]:` prompt gutters
+    exclude_output_prompt: bool = False  # drop the `Out[ ]:` prompt gutters
 
     def exporter_kwargs(self) -> dict[str, object]:
         # the nbconvert exporter boundary view: the preprocessor stages ride the one `traitlets.config.Config` the
@@ -252,10 +266,12 @@ class TableData(Struct, frozen=True):
     # flow with REAL cell text lowering to the `TableNode` the emit/tagged path renders and the audit's `THead`/`TR`
     # nesting check reads — never a `FigureRef` pre-render that flattens the schedule's cells to an opaque image.
     rows: tuple[tuple[str, ...], ...] = ()
-    header_rows: int = 0                                   # leading `THead` rows -> `TableNode.header_rows`
-    footer_rows: int = 0                                   # trailing `TFoot` rows -> `TableNode.footer_rows`
-    spans: tuple[tuple[int, int, int, int], ...] = ()      # (row, present-cell index, col_span, row_span) merged-cell quads a schedule's grouped header needs
-    caption: str = ""                                      # the "Table N: …"/"DOOR SCHEDULE" title -> the `#figure(kind: table)`/`<caption>` the `TableNode` lowers
+    header_rows: int = 0  # leading `THead` rows -> `TableNode.header_rows`
+    footer_rows: int = 0  # trailing `TFoot` rows -> `TableNode.footer_rows`
+    spans: tuple[
+        tuple[int, int, int, int], ...
+    ] = ()  # (row, present-cell index, col_span, row_span) merged-cell quads a schedule's grouped header needs
+    caption: str = ""  # the "Table N: …"/"DOOR SCHEDULE" title -> the `#figure(kind: table)`/`<caption>` the `TableNode` lowers
 
 
 @tagged_union(frozen=True)
@@ -265,10 +281,10 @@ class SectionBlock:
     # paragraphs with a figure trail forced after every block; `_block_node` folds each case onto the
     # `document/model#NODE` owner it names, and a new body concern is one case, never a parallel field beside `blocks`.
     tag: Literal["prose", "listing", "figure", "table"] = tag()
-    prose: tuple[BlockKind, tuple[str, ...]] = case()      # (PARAGRAPH/HEADING/QUOTE/CODE/CAPTION, body lines)
-    listing: tuple[ListKind, tuple[str, ...]] = case()     # (ORDERED/UNORDERED/DESCRIPTION, item texts)
-    figure: FigureRef = case()                             # an inline figure placed IN flow -> a `FigureNode` between its sibling blocks
-    table: TableData = case()                              # an inline data table/schedule -> a `TableNode` in flow between its sibling blocks
+    prose: tuple[BlockKind, tuple[str, ...]] = case()  # (PARAGRAPH/HEADING/QUOTE/CODE/CAPTION, body lines)
+    listing: tuple[ListKind, tuple[str, ...]] = case()  # (ORDERED/UNORDERED/DESCRIPTION, item texts)
+    figure: FigureRef = case()  # an inline figure placed IN flow -> a `FigureNode` between its sibling blocks
+    table: TableData = case()  # an inline data table/schedule -> a `TableNode` in flow between its sibling blocks
 
 
 class Section(Struct, frozen=True):
@@ -280,7 +296,7 @@ class Section(Struct, frozen=True):
     level: int
     heading: str
     blocks: tuple[SectionBlock, ...] = ()
-    classification: str = ""                               # CSI/OmniClass code -> `NodeMeta.classification`, the specification/section#SECTION consumer
+    classification: str = ""  # CSI/OmniClass code -> `NodeMeta.classification`, the specification/section#SECTION consumer
     children: tuple["Section", ...] = ()
 
 
@@ -293,7 +309,7 @@ class ReportFact(Struct, frozen=True):
     body: bytes
     archive: bytes = b""
     pages: int = 0
-    figures: int = 0             # NOTEBOOK: the count of `ExtractOutputPreprocessor` display figures spliced as `FigureNode`s
+    figures: int = 0  # NOTEBOOK: the count of `ExtractOutputPreprocessor` display figures spliced as `FigureNode`s
     export: ReportExport = ReportExport.HTML
     loader: ReportLoader = ReportLoader.DICT
     report_source: ReportSource = ReportSource.IPYNB
@@ -316,25 +332,29 @@ class ReportSpec(Struct, frozen=True, omit_defaults=True):
     module_path: str = ""
     loader: ReportLoader = ReportLoader.DICT
     trusted: bool = True
-    render: TemplateRender = TemplateRender.STRING             # TEMPLATE: `Environment` HTML string vs `NativeEnvironment` computed value
-    context: frozendict[str, object] = field(default_factory=frozendict)  # TEMPLATE: the jinja render-context data band spread through `render_async(**context)`
-    template_globals: frozendict[str, ParamScalar] = field(default_factory=frozendict)  # TEMPLATE: report-scoped jinja `Environment.globals` injections
-    bytecode_cache: str = ""                                   # TEMPLATE: `FileSystemBytecodeCache` directory for repeated reproducible renders
-    extensions: tuple[str, ...] = ()                            # jinja2 `Environment(extensions=)` dotted-path rows (`jinja2.ext.do`/`loopcontrols`/`i18n`)
+    render: TemplateRender = TemplateRender.STRING  # TEMPLATE: `Environment` HTML string vs `NativeEnvironment` computed value
+    context: frozendict[str, object] = field(
+        default_factory=frozendict
+    )  # TEMPLATE: the jinja render-context data band spread through `render_async(**context)`
+    template_globals: frozendict[str, ParamScalar] = field(
+        default_factory=frozendict
+    )  # TEMPLATE: report-scoped jinja `Environment.globals` injections
+    bytecode_cache: str = ""  # TEMPLATE: `FileSystemBytecodeCache` directory for repeated reproducible renders
+    extensions: tuple[str, ...] = ()  # jinja2 `Environment(extensions=)` dotted-path rows (`jinja2.ext.do`/`loopcontrols`/`i18n`)
     report_source: ReportSource = ReportSource.IPYNB
-    resource_path: str = ""                                    # NOTEBOOK: cwd seeded into `NotebookClient(resources=)` so a relative-asset notebook resolves
+    resource_path: str = ""  # NOTEBOOK: cwd seeded into `NotebookClient(resources=)` so a relative-asset notebook resolves
     engine: NotebookEngine = field(default_factory=NotebookEngine)
     export: ReportExport = ReportExport.HTML
     export_policy: ExportPolicy = field(default_factory=ExportPolicy)
     paper: ReflowPaper = ReflowPaper.A4
     user_css: str = ""
     em: float = 12.0
-    layout: ReflowLayout = ReflowLayout.DIRECT                 # REFLOW: `Story.write` one-shot vs `Story.write_stabilized` convergence
-    author_source: AuthorSource = AuthorSource.MARKDOWN        # AUTHOR: the commercial-safe pdf_oxide source kind
-    title: str = ""                                            # AUTHOR: pdf_oxide document title metadata
-    author: str = ""                                           # AUTHOR: pdf_oxide document author metadata
-    header: str = ""                                           # AUTHOR SHEET: running-header center text for the titled sheet
-    footer: str = ""                                           # AUTHOR SHEET: running-footer center text
+    layout: ReflowLayout = ReflowLayout.DIRECT  # REFLOW: `Story.write` one-shot vs `Story.write_stabilized` convergence
+    author_source: AuthorSource = AuthorSource.MARKDOWN  # AUTHOR: the commercial-safe pdf_oxide source kind
+    title: str = ""  # AUTHOR: pdf_oxide document title metadata
+    author: str = ""  # AUTHOR: pdf_oxide document author metadata
+    header: str = ""  # AUTHOR SHEET: running-header center text for the titled sheet
+    footer: str = ""  # AUTHOR SHEET: running-footer center text
     toc: bool = True
     toc_title: str = "Contents"
 
@@ -348,8 +368,8 @@ class ReportFault:
     # (`UndefinedError`/`SecurityError`/`ValidationError`/`PapermillExecutionError`/`CellExecutionError`/
     # `ExporterNameError`) converts to the runtime `BoundaryFault` at the `async_boundary` capsule.
     tag: Literal["payload", "unsatisfied"] = tag()
-    payload: tuple[str, ...] = case()              # the rejected ReportPayload key paths
-    unsatisfied: tuple[ReportKind, str] = case()   # a kind whose `_REQUIRED` input field is empty
+    payload: tuple[str, ...] = case()  # the rejected ReportPayload key paths
+    unsatisfied: tuple[ReportKind, str] = case()  # a kind whose `_REQUIRED` input field is empty
 
 
 # --- [BOUNDARIES] -----------------------------------------------------------------------
@@ -398,7 +418,7 @@ _REQUIRED: Final[frozendict[ReportKind, tuple[str, ...]]] = frozendict({
     ReportKind.TEMPLATE: ("source",),
     ReportKind.NOTEBOOK: ("source",),
     ReportKind.REFLOW: ("source",),
-    ReportKind.AUTHOR: ("source",),   # markdown/HTML text or an office file path
+    ReportKind.AUTHOR: ("source",),  # markdown/HTML text or an office file path
 })
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -416,7 +436,9 @@ def _meta(role: str, label: str, path: tuple[int, ...], classification: str = ""
     trail = "-".join(map(str, path)) or "root"
     return NodeMeta(
         key=ContentIdentity.of(f"report-{role}-{trail}", label.encode()),
-        role=role, page=path[0] if path else 0, classification=classification or UNSET,
+        role=role,
+        page=path[0] if path else 0,
+        classification=classification or UNSET,
     )
 
 
@@ -442,20 +464,32 @@ def _block_node(path: tuple[int, ...], block: SectionBlock, /) -> DocumentNode:
             )
         case SectionBlock(tag="figure", figure=ref):  # an inline figure lands as a `FigureNode` at its own path slot, in flow between its siblings
             return FigureNode(
-                meta=_meta("figure", ref.alt, path), asset_key=ref.asset_key, alt=ref.alt,
-                media_type=ref.media_type, intrinsic=ref.intrinsic, caption=_runs("caption", path, ref.caption),
+                meta=_meta("figure", ref.alt, path),
+                asset_key=ref.asset_key,
+                alt=ref.alt,
+                media_type=ref.media_type,
+                intrinsic=ref.intrinsic,
+                caption=_runs("caption", path, ref.caption),
             )
-        case SectionBlock(tag="table", table=data):  # an inline data table/schedule -> a `TableNode` in flow; each cell one `TD`-role paragraph `BlockNode`
+        case SectionBlock(
+            tag="table", table=data
+        ):  # an inline data table/schedule -> a `TableNode` in flow; each cell one `TD`-role paragraph `BlockNode`
             return TableNode(
                 meta=_meta("table", data.caption or "table", path),
                 rows=tuple(
                     tuple(
-                        BlockNode(meta=_meta("cell", cell, (*path, row_index, col_index)), block=BlockKind.PARAGRAPH, runs=_runs("cell", (*path, row_index, col_index), cell))
+                        BlockNode(
+                            meta=_meta("cell", cell, (*path, row_index, col_index)),
+                            block=BlockKind.PARAGRAPH,
+                            runs=_runs("cell", (*path, row_index, col_index), cell),
+                        )
                         for col_index, cell in enumerate(row)
                     )
                     for row_index, row in enumerate(data.rows)
                 ),
-                spans=data.spans, header_rows=data.header_rows, footer_rows=data.footer_rows,
+                spans=data.spans,
+                header_rows=data.header_rows,
+                footer_rows=data.footer_rows,
                 caption=_runs("caption", path, data.caption),
             )
         case _ as unreachable:
@@ -486,7 +520,11 @@ def _toc(title: str, sections: tuple[Section, ...], /) -> SectionNode:
                 meta=_meta("toc-list", title, (0,)),
                 list_kind=ListKind.ORDERED,
                 items=tuple(
-                    BlockNode(meta=_meta("toc-entry", section.heading, (index,)), block=BlockKind.PARAGRAPH, runs=_runs("toc-item", (index,), section.heading))
+                    BlockNode(
+                        meta=_meta("toc-entry", section.heading, (index,)),
+                        block=BlockKind.PARAGRAPH,
+                        runs=_runs("toc-item", (index,), section.heading),
+                    )
                     for index, section in enumerate(sections)
                 ),
             ),
@@ -515,7 +553,8 @@ def _notebook_figures(resources: object, /) -> tuple[FigureNode, ...]:
         FigureNode(
             meta=_meta("nb-figure", name, (0, ordinal)),
             asset_key=ContentIdentity.of(f"report-notebook-figure-{name}", data),
-            alt=name, media_type=_FIGURE_MEDIA.get(name.rpartition(".")[2].lower(), "image/png"),
+            alt=name,
+            media_type=_FIGURE_MEDIA.get(name.rpartition(".")[2].lower(), "image/png"),
         )
         for ordinal, (name, data) in enumerate(outputs.items())
     )
@@ -561,12 +600,15 @@ def _environment(spec: ReportSpec, /) -> Environment:
         loader=ChoiceLoader([_loader(spec), DictLoader({})]),
         extensions=list(spec.extensions),
         autoescape=select_autoescape(enabled_extensions=("html", "xml")),
-        undefined=StrictUndefined, enable_async=True, trim_blocks=True, lstrip_blocks=True,
+        undefined=StrictUndefined,
+        enable_async=True,
+        trim_blocks=True,
+        lstrip_blocks=True,
         bytecode_cache=FileSystemBytecodeCache(spec.bytecode_cache) if spec.bytecode_cache else None,
     )
     env.filters.update(_REPORT_FILTERS)
     env.globals.update(dict(spec.template_globals))
-    env.policies["json.dumps_kwargs"] = {"sort_keys": True}   # deterministic in-template JSON for a reproducible render
+    env.policies["json.dumps_kwargs"] = {"sort_keys": True}  # deterministic in-template JSON for a reproducible render
     return env
 
 
@@ -577,9 +619,9 @@ async def _template_arm(plan: "ReportPlan") -> "ReportFact":
     output = await _environment(spec).from_string(spec.source).render_async(sections=spec.sections, figures=spec.figures, **dict(spec.context))
     match spec.render:
         case TemplateRender.STRING:
-            page = _output_page(spec, "template", output)                              # the rendered HTML string -> `CODE` leaf
+            page = _output_page(spec, "template", output)  # the rendered HTML string -> `CODE` leaf
         case TemplateRender.NATIVE:
-            page = _output_page(spec, "template", _NATIVE.encode(output).decode())     # the computed Python value -> deterministic JSON leaf
+            page = _output_page(spec, "template", _NATIVE.encode(output).decode())  # the computed Python value -> deterministic JSON leaf
         case _ as unreachable:
             assert_never(unreachable)
     return ReportFact(node=page, body=encode(page), loader=spec.loader)
@@ -602,7 +644,7 @@ async def _notebook_arm(plan: "ReportPlan") -> "ReportFact":
     fmt = None if spec.report_source is ReportSource.AUTO else spec.report_source.value
     node = jupytext.reads(spec.source, fmt=fmt)
     parameterized = parameterize_notebook(
-        node, add_builtin_parameters(dict(spec.notebook_parameters)), report_mode=False, kernel_name=spec.engine.kernel_name,
+        node, add_builtin_parameters(dict(spec.notebook_parameters)), report_mode=False, kernel_name=spec.engine.kernel_name
     )
     executed = await NotebookClient(parameterized, resources=_resources(spec), **spec.engine.client_kwargs()).async_execute()
     archive = jupytext.writes(executed, fmt="ipynb").encode()
@@ -610,8 +652,14 @@ async def _notebook_arm(plan: "ReportPlan") -> "ReportFact":
     figures = _notebook_figures(resources)  # the `ExtractOutputPreprocessor` display figures, spliced rather than discarded
     page = _output_page(spec, "notebook", output, figures)
     return ReportFact(
-        node=page, body=encode(page), archive=archive, export=spec.export, figures=len(figures),
-        report_source=spec.report_source, timed=spec.engine.record_timing, widgets=spec.engine.store_widget_state,
+        node=page,
+        body=encode(page),
+        archive=archive,
+        export=spec.export,
+        figures=len(figures),
+        report_source=spec.report_source,
+        timed=spec.engine.record_timing,
+        widgets=spec.engine.store_widget_state,
     )
 
 
@@ -650,7 +698,9 @@ def _reflow(html: str, user_css: str, em: float, paper: str, layout: ReflowLayou
         case ReflowLayout.STABILIZED:
             # the static entry builds its own Story and re-lays the regenerated HTML until the layout is stable;
             # `add_header_ids=True` (the parameter default, pinned explicit) injects the navigable header anchors the AEC TOC/cross-reference convergence needs.
-            pymupdf.Story.write_stabilized(writer, lambda _prev: html, rectfn, user_css=user_css or None, em=em, positionfn=positionfn, pagefn=pagefn, add_header_ids=True)
+            pymupdf.Story.write_stabilized(
+                writer, lambda _prev: html, rectfn, user_css=user_css or None, em=em, positionfn=positionfn, pagefn=pagefn, add_header_ids=True
+            )
         case ReflowLayout.DIRECT:
             pymupdf.Story(html=html, user_css=user_css or None, em=em).write(writer, rectfn, positionfn=positionfn, pagefn=pagefn)
         case _ as unreachable:
@@ -695,8 +745,10 @@ _AUTHOR_BUILD: Final[frozendict[AuthorSource, Callable[[ReportSpec], Pdf]]] = fr
     AuthorSource.MARKDOWN: lambda spec: Pdf.from_markdown(spec.source, title=spec.title or None, author=spec.author or None),
     AuthorSource.HTML: lambda spec: Pdf.from_html(spec.source, title=spec.title or None, author=spec.author or None),
     AuthorSource.SHEET: lambda spec: Pdf.from_markdown_with_template(
-        spec.source, PageTemplate().header(Header.center(spec.header)).footer(Footer.center(spec.footer)),
-        title=spec.title or None, author=spec.author or None,
+        spec.source,
+        PageTemplate().header(Header.center(spec.header)).footer(Footer.center(spec.footer)),
+        title=spec.title or None,
+        author=spec.author or None,
     ),
     AuthorSource.DOCX: lambda spec: OfficeConverter.from_docx(spec.source),
     AuthorSource.PPTX: lambda spec: OfficeConverter.from_pptx(spec.source),
@@ -719,7 +771,9 @@ class ReportPlan(Struct, frozen=True):
     spec: ReportSpec = field(default_factory=ReportSpec)
     fact: ReportFact | None = None
 
-    @receipted(OPEN)  # the runtime keep-all redaction the receipts owner exports (report facts carry no classified field), never a re-minted per-file `Redaction`, exactly as `document/emit#DOCUMENT`/`document/egress#FINISH` ride `OPEN`
+    @receipted(
+        OPEN
+    )  # the runtime keep-all redaction the receipts owner exports (report facts carry no classified field), never a re-minted per-file `Redaction`, exactly as `document/emit#DOCUMENT`/`document/egress#FINISH` ride `OPEN`
     async def _emit(self) -> Self:
         # the thin pure core: thread the arm's `ReportFact` onto the frozen owner and return the
         # stepped `Self` the harvest weave drains; the content key is minted by `_composed` off

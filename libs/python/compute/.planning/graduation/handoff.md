@@ -59,8 +59,14 @@ from rasm.runtime.receipts import Receipt, Redaction, receipted
 
 
 type GeometrySubject = Literal[
-    "registration-transform", "reconstructed-mesh", "topology-graph", "network-graph",
-    "form-finding", "numerical-primitive", "mesh-algebra", "scan-deviation",
+    "registration-transform",
+    "reconstructed-mesh",
+    "topology-graph",
+    "network-graph",
+    "form-finding",
+    "numerical-primitive",
+    "mesh-algebra",
+    "scan-deviation",
 ]
 # finiteness-only input refinement the `@beartype(conf=FAULT_CONF)` fence on `_admit` checks; sign
 # is unconstrained so a negated-floor deficit (`neg_min_ess_bulk = -min(ess)`) admits.
@@ -70,9 +76,7 @@ type Ceiling = Annotated[dict[str, float], Is[lambda m: all(isfinite(v) for v in
 
 @tagged_union(frozen=True)
 class HandoffAxis:
-    tag: Literal[
-        "solver", "symbolic", "model_asset", "array_layout", "unit_law", "uncertainty_law", "geometry", "convex_program"
-    ] = tag()
+    tag: Literal["solver", "symbolic", "model_asset", "array_layout", "unit_law", "uncertainty_law", "geometry", "convex_program"] = tag()
     solver: str = case()
     symbolic: str = case()
     model_asset: str = case()
@@ -99,11 +103,7 @@ class GraduationReceipt(Struct, frozen=True):
 
     @staticmethod
     def graduates(
-        source_package: str,
-        axis: HandoffAxis,
-        evidence_key: ContentKey,
-        measured: dict[str, float],
-        ceiling: dict[str, float],
+        source_package: str, axis: HandoffAxis, evidence_key: ContentKey, measured: dict[str, float], ceiling: dict[str, float]
     ) -> RuntimeRail[GraduationReceipt]:
         # one fenced rail: `boundary(_admit)` mints exactly one `RuntimeRail` over the refinement check,
         # `.bind(_clear)` threads the pure ceiling fold, and `.bind(boundary(_emit))` runs the `@receipted`
@@ -140,12 +140,7 @@ class GraduationReceipt(Struct, frozen=True):
     def span_facts(self) -> dict[str, str | int]:
         # the four bounded `str | int` scalars `Span.set_attributes` admits; the full `residuals`
         # ledger (a `dict[str, float]`) is not an attribute value and rides the receipt facts only.
-        return {
-            "axis": self.axis.tag,
-            "subject": self.subject,
-            "evidence_key": self.evidence_key.hex,
-            "residual_count": len(self.residuals),
-        }
+        return {"axis": self.axis.tag, "subject": self.subject, "evidence_key": self.evidence_key.hex, "residual_count": len(self.residuals)}
 
     def contribute(self) -> Iterable[Receipt]:
         # the runtime `Receipt.of(owner, evidence)` two-argument contract: the `(Phase, subject, facts)`
@@ -162,9 +157,7 @@ class GraduationReceipt(Struct, frozen=True):
         return (measured, ceiling)
 
     @staticmethod
-    def _clear(
-        source_package: str, axis: HandoffAxis, evidence_key: ContentKey, validated: tuple[Ledger, Ceiling]
-    ) -> RuntimeRail[GraduationReceipt]:
+    def _clear(source_package: str, axis: HandoffAxis, evidence_key: ContentKey, validated: tuple[Ledger, Ceiling]) -> RuntimeRail[GraduationReceipt]:
         measured, ceiling = validated
         cleared = measured.keys() >= ceiling.keys() and all(measured[k] <= cap for k, cap in ceiling.items())
         return (

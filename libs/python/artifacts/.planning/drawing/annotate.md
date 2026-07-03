@@ -67,23 +67,23 @@ type Box = tuple[float, float, float, float]
 type AnnotateTag = Literal["leader", "textnote", "revcloud"]
 
 _LANES: CapacityLimiter = CapacityLimiter(os.process_cpu_count() or 4)
-_SHOULDER: float = 2.0            # landing-shoulder length, in text-height multiples (ISO 128-2 leader landing)
-_BUBBLE: float = 1.4             # keynote/flag bubble radius, in text-height multiples
-_MIN_SEP: float = 8.0            # keynote/flag-column minimum vertical separation (drawing units)
+_SHOULDER: float = 2.0  # landing-shoulder length, in text-height multiples (ISO 128-2 leader landing)
+_BUBBLE: float = 1.4  # keynote/flag bubble radius, in text-height multiples
+_MIN_SEP: float = 8.0  # keynote/flag-column minimum vertical separation (drawing units)
 _LEADER_STYLE: str = "ISO-128-2"  # the annotation convention the `ArtifactReceipt.Drawing` style slot carries
-_PRECISION: int = 3              # ziafont/ziamath emitted-d-float places — the content-key determinism lever set once per offloaded arm
+_PRECISION: int = 3  # ziafont/ziamath emitted-d-float places — the content-key determinism lever set once per offloaded arm
 
 
 class LeaderPath(StrEnum):  # ISO 128-2 leader reference-line geometry (ezdxf `render.mleader.LeaderType` twin)
-    STRAIGHT = "straight"    # straight polyline — the drawing-office default
-    SPLINE = "spline"        # smoothed spline leader through the elbow
+    STRAIGHT = "straight"  # straight polyline — the drawing-office default
+    SPLINE = "spline"  # smoothed spline leader through the elbow
 
 
 class BubbleShape(StrEnum):  # the keynote/flag landing-mark outline
-    CIRCLE = "circle"        # keynote circle bubble (the `drawing/symbol#SYMBOL` Detail twin)
-    HEXAGON = "hexagon"      # keynote hexagon
-    TRIANGLE = "triangle"    # flag-note delta
-    DIAMOND = "diamond"      # flag-note diamond
+    CIRCLE = "circle"  # keynote circle bubble (the `drawing/symbol#SYMBOL` Detail twin)
+    HEXAGON = "hexagon"  # keynote hexagon
+    TRIANGLE = "triangle"  # flag-note delta
+    DIAMOND = "diamond"  # flag-note diamond
     RECTANGLE = "rectangle"  # boxed keynote
 
 
@@ -93,9 +93,9 @@ class LeaderContent:
     # the closed leader-landing content sub-family — the `ezdxf` mtext-versus-block multileader split as data:
     # `note` -> `add_multileader_mtext`, `keynote`/`flag` -> `add_multileader_block` with an `add_attdef` label.
     tag: Literal["note", "keynote", "flag"] = tag()
-    note: str = case()                                     # MTextEditor-formatted mtext content
-    keynote: tuple[str, BubbleShape, str, bool] = case()   # (code, bubble, sheet_ref, mask)
-    flag: tuple[str, BubbleShape, bool] = case()           # (number, shape, mask)
+    note: str = case()  # MTextEditor-formatted mtext content
+    keynote: tuple[str, BubbleShape, str, bool] = case()  # (code, bubble, sheet_ref, mask)
+    flag: tuple[str, BubbleShape, bool] = case()  # (number, shape, mask)
 
     @staticmethod
     def Note(text: str) -> "LeaderContent":
@@ -116,7 +116,7 @@ class NoteBody:
     # `prose` the Knuth-Plass total-fit note (source + shaped run + line break), `math` the ziamath source.
     tag: Literal["prose", "math"] = tag()
     prose: tuple[str, bytes, LineBrokenRun] = case()  # (source, PositionedGlyphRun bytes, Knuth-Plass break)
-    math: str = case()                                # mixed text + $math$ ziamath source
+    math: str = case()  # mixed text + $math$ ziamath source
 
     @staticmethod
     def Prose(source: str, run: bytes, broken: LineBrokenRun) -> "NoteBody":
@@ -135,7 +135,9 @@ class AnnotateOp:
     revcloud: tuple[tuple[Point, ...], float, str, SymbolStyle] = case()
 
     @staticmethod
-    def Leader(targets: tuple[Point, ...], landing: Point, content: LeaderContent, style: SymbolStyle, *, path: LeaderPath = LeaderPath.STRAIGHT) -> "AnnotateOp":
+    def Leader(
+        targets: tuple[Point, ...], landing: Point, content: LeaderContent, style: SymbolStyle, *, path: LeaderPath = LeaderPath.STRAIGHT
+    ) -> "AnnotateOp":
         return AnnotateOp(leader=(targets, landing, path, content, style))
 
     @staticmethod
@@ -189,7 +191,8 @@ def _lw(weight: LineWeight, /) -> int:
 def _style(mark: AnnotateOp, /) -> SymbolStyle:
     match mark:  # every case's style is its last payload slot; one total projection, never a per-tag getattr
         case (
-            AnnotateOp(tag="leader", leader=(*_, style)) | AnnotateOp(tag="textnote", textnote=(*_, style))
+            AnnotateOp(tag="leader", leader=(*_, style))
+            | AnnotateOp(tag="textnote", textnote=(*_, style))
             | AnnotateOp(tag="revcloud", revcloud=(*_, style))
         ):
             return style
@@ -248,11 +251,7 @@ def _route(marks: Block[AnnotateOp], /) -> frozendict[int, Point]:
     # hard no-overlap the finalized `drawing/dimension#DIMENSION` `_stack` takes, never a soft band an overlap
     # survives — and a `weak` equal-gap distributes the remainder; `updateVariables()` writes each solved
     # `value()` into the routed landing override the engines pass.
-    column = tuple(
-        (index, mark.leader[1])
-        for index, mark in enumerate(marks)
-        if mark.tag == "leader" and mark.leader[3].tag in ("keynote", "flag")
-    )
+    column = tuple((index, mark.leader[1]) for index, mark in enumerate(marks) if mark.tag == "leader" and mark.leader[3].tag in ("keynote", "flag"))
     if len(column) < 2:
         return frozendict()
     solver = kiwisolver.Solver()
@@ -342,7 +341,9 @@ def _content_group(content: LeaderContent, at: Point, style: SymbolStyle, ramp: 
             assert_never(unreachable)
 
 
-def _leader_group(targets: tuple[Point, ...], landing: Point, path: LeaderPath, content: LeaderContent, style: SymbolStyle, ramp: list[str]) -> "drawsvg.Group":
+def _leader_group(
+    targets: tuple[Point, ...], landing: Point, path: LeaderPath, content: LeaderContent, style: SymbolStyle, ramp: list[str]
+) -> "drawsvg.Group":
     stroke = ramp[style.stroke % len(ramp)]
     home = (landing[0] + _SHOULDER * style.text_height.mm, landing[1])
     group = drawsvg.Group()
@@ -443,7 +444,9 @@ def _layer_svg(name: str, groups: tuple["drawsvg.Group", ...], box: Box) -> byte
     return canvas.as_svg().encode()
 
 
-def _dxf_leader(doc: "ezdxf.document.Drawing", msp: object, targets: tuple[Point, ...], landing: Point, content: LeaderContent, style: SymbolStyle) -> None:
+def _dxf_leader(
+    doc: "ezdxf.document.Drawing", msp: object, targets: tuple[Point, ...], landing: Point, content: LeaderContent, style: SymbolStyle
+) -> None:
     match content:
         case LeaderContent(tag="note", note=text):
             builder = msp.add_multileader_mtext("Standard")  # Exemption: the mleader builder is the stateful sink; leader lines add in place
@@ -461,7 +464,17 @@ def _dxf_leader(doc: "ezdxf.document.Drawing", msp: object, targets: tuple[Point
             assert_never(unreachable)
 
 
-def _dxf_bubble_leader(doc: "ezdxf.document.Drawing", msp: object, targets: tuple[Point, ...], landing: Point, label: str, shape: BubbleShape, style: SymbolStyle, *, mask: bool) -> None:
+def _dxf_bubble_leader(
+    doc: "ezdxf.document.Drawing",
+    msp: object,
+    targets: tuple[Point, ...],
+    landing: Point,
+    label: str,
+    shape: BubbleShape,
+    style: SymbolStyle,
+    *,
+    mask: bool,
+) -> None:
     block = _bubble_block(doc, shape, style)
     builder = msp.add_multileader_block("Standard")  # Exemption: the block mleader builder is the stateful sink; leader lines add in place
     builder.set_content(block, scale=style.text_height.mm)
@@ -530,7 +543,12 @@ def _polygon_at(shape: BubbleShape, at: Point, radius: float, /) -> tuple[tuple[
         case BubbleShape.CIRCLE:
             return tuple((at[0] + radius * math.cos(math.tau * i / 16), at[1] + radius * math.sin(math.tau * i / 16)) for i in range(16))
         case BubbleShape.RECTANGLE:
-            return ((at[0] - radius, at[1] - radius), (at[0] + radius, at[1] - radius), (at[0] + radius, at[1] + radius), (at[0] - radius, at[1] + radius))
+            return (
+                (at[0] - radius, at[1] - radius),
+                (at[0] + radius, at[1] - radius),
+                (at[0] + radius, at[1] + radius),
+                (at[0] - radius, at[1] + radius),
+            )
         case BubbleShape.HEXAGON | BubbleShape.TRIANGLE | BubbleShape.DIAMOND:
             flat = _polygon(_SIDES[shape], radius)
             return tuple((at[0] + flat[2 * i], at[1] + flat[2 * i + 1]) for i in range(_SIDES[shape]))
@@ -543,16 +561,28 @@ _SIDES: frozendict[BubbleShape, int] = frozendict({BubbleShape.TRIANGLE: 3, Bubb
 
 
 def _svg_engine(annotate: Annotate) -> tuple[tuple[Layer, ...], ArtifactReceipt]:
-    ziafont.config.precision = ziamath.config.precision = _PRECISION  # set once inside the serialized offload lane — same d-float bytes -> same content key
+    ziafont.config.precision = ziamath.config.precision = (
+        _PRECISION  # set once inside the serialized offload lane — same d-float bytes -> same content key
+    )
     ramp = hex_ramp(annotate.palette)
     routed = _route(Block.of_seq(annotate.marks))
     box = _bbox(annotate.marks)
     groups: dict[str, list["drawsvg.Group"]] = {}
-    for index, mark in enumerate(annotate.marks):  # Exemption: the drawsvg named-layer tree buckets marks by `SymbolStyle.layer` through a mutable dict of group lists
+    for index, mark in enumerate(
+        annotate.marks
+    ):  # Exemption: the drawsvg named-layer tree buckets marks by `SymbolStyle.layer` through a mutable dict of group lists
         groups.setdefault(_style(mark).layer.compose(), []).append(_svg_mark(mark, ramp, routed.get(index)))
     layers = tuple(Layer(name=name, source=_layer_svg(name, tuple(items), box), bbox=box) for name, items in sorted(groups.items()))
     key = ContentIdentity.of("drawing-annotate-svg", b"".join(layer.source for layer in layers))
-    return layers, ArtifactReceipt.Drawing(key, "drawing-annotate", len(annotate.marks), _LEADER_STYLE, int(box[2] - box[0]), int(box[3] - box[1]), sum(len(layer.source) for layer in layers))
+    return layers, ArtifactReceipt.Drawing(
+        key,
+        "drawing-annotate",
+        len(annotate.marks),
+        _LEADER_STYLE,
+        int(box[2] - box[0]),
+        int(box[3] - box[1]),
+        sum(len(layer.source) for layer in layers),
+    )
 
 
 def _dxf_extent(msp: object, fallback: Box, /) -> tuple[int, int]:
@@ -574,7 +604,9 @@ def _dxf_engine(annotate: Annotate) -> tuple[tuple[Layer, ...], ArtifactReceipt]
     doc.write(stream)
     data = stream.getvalue().encode()
     key = ContentIdentity.of("drawing-annotate-dxf", data)
-    return (Layer(name="dxf", source=data, bbox=box),), ArtifactReceipt.Drawing(key, "drawing-annotate", len(annotate.marks), _LEADER_STYLE, width, height, len(data))
+    return (Layer(name="dxf", source=data, bbox=box),), ArtifactReceipt.Drawing(
+        key, "drawing-annotate", len(annotate.marks), _LEADER_STYLE, width, height, len(data)
+    )
 
 
 _ENGINES: frozendict[SymbolTarget, AnnotateEngine] = frozendict({

@@ -121,12 +121,15 @@ class ContainerPayload(TypedDict, closed=True):
     asset_key: NotRequired[ReadOnly[str]]
     issued: NotRequired[ReadOnly[str]]
 
+
 # --- [CONSTANTS] ------------------------------------------------------------------------
 _FIELD_SEP: Final[str] = "-"  # the BS 1192 container-reference field separator (Project-Originator-...-Number)
 _NS_19650: Final[str] = "https://rasm.dev/schema/iso19650/register"
-_NSMAP: Final[frozendict[str | None, str]] = frozendict(
-    {None: _NS_19650, "cobie": "https://docs.buildingsmart.org/cobie", "bs1192": "https://rasm.dev/schema/bs1192"}
-)
+_NSMAP: Final[frozendict[str | None, str]] = frozendict({
+    None: _NS_19650,
+    "cobie": "https://docs.buildingsmart.org/cobie",
+    "bs1192": "https://rasm.dev/schema/bs1192",
+})
 _SCHEMATRON_NS: Final[str] = "http://purl.oclc.org/dsdl/schematron"
 # the ISO 19650-2 §5.1.7 mandated per-container metadata localnames — the ONE required-field row the owned
 # Schematron derives one non-empty `sch:assert` per, so a serialized Container dropping or blanking a mandated
@@ -134,8 +137,20 @@ _SCHEMATRON_NS: Final[str] = "http://purl.oclc.org/dsdl/schematron"
 # newly-mandated field is one row here, never a hand-authored grammar. VALUE coherence stays `audited`'s.
 _REQUIRED_META: Final[tuple[str, ...]] = ("suitability", "state", "revision")
 _COLUMNS: Final[tuple[str, ...]] = (
-    "Reference", "Title", "Form", "Number", "Discipline", "Suitability", "State",
-    "Revision", "Classification", "Purpose", "Issued", "Author", "Checker", "Approver",
+    "Reference",
+    "Title",
+    "Form",
+    "Number",
+    "Discipline",
+    "Suitability",
+    "State",
+    "Revision",
+    "Classification",
+    "Purpose",
+    "Issued",
+    "Author",
+    "Checker",
+    "Approver",
 )
 _SUITABILITY_COL: Final[int] = _COLUMNS.index("Suitability")
 _STATE_COL: Final[int] = _COLUMNS.index("State")
@@ -190,8 +205,10 @@ _S_VALUES: Final[frozenset[str]] = frozenset(c.value for c in SuitabilityCode)
 _CLASS_VALUES: Final[frozenset[str]] = frozenset(s.value for s in ClassificationSystem)
 # the xlsxwriter/great-tables state-band fill keyed on the CDE state (WIP amber, shared blue, published green, archive grey).
 _STATE_HEX: Final[frozendict[ContainerState, str]] = frozendict({
-    ContainerState.WIP: "#FEF3C7", ContainerState.SHARED: "#DBEAFE",
-    ContainerState.PUBLISHED: "#DCFCE7", ContainerState.ARCHIVE: "#E5E7EB",
+    ContainerState.WIP: "#FEF3C7",
+    ContainerState.SHARED: "#DBEAFE",
+    ContainerState.PUBLISHED: "#DCFCE7",
+    ContainerState.ARCHIVE: "#E5E7EB",
 })
 
 # --- [ERRORS] ---------------------------------------------------------------------------
@@ -219,6 +236,7 @@ class RegisterFault:
     @staticmethod
     def combined(left: "RegisterFault", right: "RegisterFault", /) -> "RegisterFault":
         return RegisterFault(aggregate=(*RegisterFault._members(left), *RegisterFault._members(right)))
+
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -357,14 +375,27 @@ class InformationContainer(Struct, frozen=True):
             payload = _PAYLOAD.validate_python(raw)
         except ValidationError:
             return Error(RegisterFault(malformed=frozenset({raw.get("number", "?")})))
-        system = ClassificationSystem(raw_sys) if (raw_sys := payload.get("classification_system", "")) in _CLASS_VALUES else ClassificationSystem.UNICLASS_2015
+        system = (
+            ClassificationSystem(raw_sys)
+            if (raw_sys := payload.get("classification_system", "")) in _CLASS_VALUES
+            else ClassificationSystem.UNICLASS_2015
+        )
         return Suitability.parse(payload["suitability"], documented=documented).map2(
             RevisionCode.parse(payload["revision"]),
             lambda suit, rev: cls(
-                project=payload["project"], originator=payload["originator"], functional=payload["functional"],
-                spatial=payload["spatial"], form=payload["form"], discipline=payload["discipline"], number=payload["number"],
-                suitability=suit, revision=rev, title=payload.get("title", ""), purpose=payload.get("purpose", ""),
-                asset_key=payload.get("asset_key", ""), issued=payload.get("issued", ""),
+                project=payload["project"],
+                originator=payload["originator"],
+                functional=payload["functional"],
+                spatial=payload["spatial"],
+                form=payload["form"],
+                discipline=payload["discipline"],
+                number=payload["number"],
+                suitability=suit,
+                revision=rev,
+                title=payload.get("title", ""),
+                purpose=payload.get("purpose", ""),
+                asset_key=payload.get("asset_key", ""),
+                issued=payload.get("issued", ""),
                 classification=Classification(system=system, code=payload.get("classification", "")),
             ),
         )
@@ -375,39 +406,88 @@ class InformationContainer(Struct, frozen=True):
         # RevisionCode (falling to P01 when the mark is a bare status), the sheet-set count and approvals carried.
         block = entry.block
         latest = block.revisions[-1].mark if block.revisions else "P01"
-        return RevisionCode.parse(latest).or_else_with(lambda _: RevisionCode.parse("P01")).map(
-            lambda rev: cls(
-                project=block.project, originator=entry.originator, functional=entry.functional, spatial=entry.spatial,
-                form=entry.form, discipline=block.discipline, number=block.sheet_number, suitability=entry.suitability,
-                revision=rev, classification=entry.classification, title=block.sheet_title, purpose=block.status,
-                asset_key=entry.asset_key, sheet_total=block.sheet_total, issued=block.date,
-                author=block.drawn_by, checker=block.checked_by, approver=block.approved_by,
+        return (
+            RevisionCode
+            .parse(latest)
+            .or_else_with(lambda _: RevisionCode.parse("P01"))
+            .map(
+                lambda rev: cls(
+                    project=block.project,
+                    originator=entry.originator,
+                    functional=entry.functional,
+                    spatial=entry.spatial,
+                    form=entry.form,
+                    discipline=block.discipline,
+                    number=block.sheet_number,
+                    suitability=entry.suitability,
+                    revision=rev,
+                    classification=entry.classification,
+                    title=block.sheet_title,
+                    purpose=block.status,
+                    asset_key=entry.asset_key,
+                    sheet_total=block.sheet_total,
+                    issued=block.date,
+                    author=block.drawn_by,
+                    checker=block.checked_by,
+                    approver=block.approved_by,
+                )
             )
         )
 
     def row(self) -> dict[str, object]:  # the register-frame row the polars DataFrame and the document TableNode read
         return {
-            "reference": self.reference, "title": self.title, "form": self.form, "number": self.number,
-            "discipline": self.discipline, "suitability": self.suitability.code, "state": self.suitability.state.value,
-            "revision": self.revision.render(), "classification": self.classification.code, "purpose": self.purpose,
-            "issued": self.issued, "author": self.author, "checker": self.checker, "approver": self.approver,
+            "reference": self.reference,
+            "title": self.title,
+            "form": self.form,
+            "number": self.number,
+            "discipline": self.discipline,
+            "suitability": self.suitability.code,
+            "state": self.suitability.state.value,
+            "revision": self.revision.render(),
+            "classification": self.classification.code,
+            "purpose": self.purpose,
+            "issued": self.issued,
+            "author": self.author,
+            "checker": self.checker,
+            "approver": self.approver,
         }
 
     def spreadsheet_row(self) -> tuple[object, ...]:  # the xlsxwriter row, ordered by _COLUMNS
         return (
-            self.reference, self.title, self.form, self.number, self.discipline, self.suitability.code,
-            self.suitability.state.value, self.revision.render(), self.classification.code, self.purpose,
-            self.issued, self.author, self.checker, self.approver,
+            self.reference,
+            self.title,
+            self.form,
+            self.number,
+            self.discipline,
+            self.suitability.code,
+            self.suitability.state.value,
+            self.revision.render(),
+            self.classification.code,
+            self.purpose,
+            self.issued,
+            self.author,
+            self.checker,
+            self.approver,
         )
 
     def metadata_rows(self) -> tuple[tuple[str, str], ...]:  # the ISO 19650 container-metadata (localname, value) pairs the lxml build reads
         return (
-            ("project", self.project), ("originator", self.originator), ("functionalBreakdown", self.functional),
-            ("spatialBreakdown", self.spatial), ("form", self.form), ("discipline", self.discipline),
-            ("number", self.number), ("title", self.title), ("suitability", self.suitability.code),
-            ("state", self.suitability.state.value), ("revision", self.revision.render()),
-            ("classificationSystem", self.classification.system.value), ("classificationCode", self.classification.code),
-            ("purpose", self.purpose), ("assetKey", self.asset_key), ("issued", self.issued),
+            ("project", self.project),
+            ("originator", self.originator),
+            ("functionalBreakdown", self.functional),
+            ("spatialBreakdown", self.spatial),
+            ("form", self.form),
+            ("discipline", self.discipline),
+            ("number", self.number),
+            ("title", self.title),
+            ("suitability", self.suitability.code),
+            ("state", self.suitability.state.value),
+            ("revision", self.revision.render()),
+            ("classificationSystem", self.classification.system.value),
+            ("classificationCode", self.classification.code),
+            ("purpose", self.purpose),
+            ("assetKey", self.asset_key),
+            ("issued", self.issued),
         )
 
 
@@ -430,7 +510,7 @@ class ContainerMeta(Struct, frozen=True):  # the project-level ISO 19650 header 
     project_id: str = ""
     appointing_party: str = ""
     lead_party: str = ""
-    stage: str = ""      # the RIBA / ISO 19650 delivery stage
+    stage: str = ""  # the RIBA / ISO 19650 delivery stage
     milestone: str = ""  # the information-delivery milestone the issue satisfies
 
 
@@ -484,10 +564,18 @@ class RegisterEvidence(Struct, frozen=True, gc=False):
     @property
     def facts(self) -> dict[str, object]:  # native scalars the json.Encoder serializes unstringified, plus the gating cause
         return {
-            "containers": self.containers, "wip": self.wip, "shared": self.shared, "published": self.published,
-            "archive": self.archive, "contractual": self.contractual, "withdrawn": self.withdrawn,
-            "duplicates": self.duplicates, "complete": self.complete, "dominant_suitability": self.dominant_suitability,
-            "latest_revision": self.latest_revision, "classification": self.classification,
+            "containers": self.containers,
+            "wip": self.wip,
+            "shared": self.shared,
+            "published": self.published,
+            "archive": self.archive,
+            "contractual": self.contractual,
+            "withdrawn": self.withdrawn,
+            "duplicates": self.duplicates,
+            "complete": self.complete,
+            "dominant_suitability": self.dominant_suitability,
+            "latest_revision": self.latest_revision,
+            "classification": self.classification,
             "severed": self.severed.map(lambda fault: fault.tag).default_value("ok"),
         }
 
@@ -526,6 +614,7 @@ class RegisterOp:  # the closed delivery vocabulary lowered once into Composed
     def Render(merge: Option[bytes] = Nothing) -> "RegisterOp":
         return RegisterOp(render=merge)
 
+
 # --- [SERVICES] -------------------------------------------------------------------------
 
 
@@ -545,7 +634,13 @@ class Register(Struct, frozen=True):
     documented: frozendict[str, ContainerState] = frozendict()
 
     @classmethod
-    def admit(cls, *payloads: ContainerPayload, op: RegisterOp = RegisterOp.Index(), meta: ContainerMeta = ContainerMeta(), documented: frozendict[str, ContainerState] = frozendict()) -> Result["Register", RegisterFault]:
+    def admit(
+        cls,
+        *payloads: ContainerPayload,
+        op: RegisterOp = RegisterOp.Index(),
+        meta: ContainerMeta = ContainerMeta(),
+        documented: frozendict[str, ContainerState] = frozendict(),
+    ) -> Result["Register", RegisterFault]:
         # the raw client-row ingress: each payload admitted through the InformationContainer gate under the
         # project's `documented` extension band, every casualty of the whole batch accumulated through the
         # monoid rather than aborting on the first; the band is retained so the round-trip reads it back.
@@ -553,7 +648,15 @@ class Register(Struct, frozen=True):
         return _accumulated(admitted).map(lambda containers: cls(op=op, containers=containers, meta=meta, documented=documented))
 
     @classmethod
-    def of_sheets(cls, entries: Iterable[SheetEntry], /, *, op: RegisterOp = RegisterOp.Index(), meta: ContainerMeta = ContainerMeta(), documented: frozendict[str, ContainerState] = frozendict()) -> Result["Register", RegisterFault]:
+    def of_sheets(
+        cls,
+        entries: Iterable[SheetEntry],
+        /,
+        *,
+        op: RegisterOp = RegisterOp.Index(),
+        meta: ContainerMeta = ContainerMeta(),
+        documented: frozendict[str, ContainerState] = frozendict(),
+    ) -> Result["Register", RegisterFault]:
         # `from_title_block` reads `entry.suitability` (a pre-built `Suitability`, project codes included), so
         # it needs no `documented` at admission; the band is still retained so a later `Render` round-trip
         # admits documented codes from the merged client register.
@@ -569,8 +672,14 @@ class Register(Struct, frozen=True):
         composed = await to_thread.run_sync(_composed, self, limiter=_GATE)
         key = ContentIdentity.of(f"register-{self.op.tag}", composed.data)
         return ArtifactReceipt.Register(
-            key, composed.kind, composed.sheets, composed.suitability, composed.revision,
-            composed.classification, composed.validation, len(composed.data),
+            key,
+            composed.kind,
+            composed.sheets,
+            composed.suitability,
+            composed.revision,
+            composed.classification,
+            composed.validation,
+            len(composed.data),
         )
 
     @property
@@ -594,6 +703,7 @@ class Register(Struct, frozen=True):
     def evidence(self) -> RegisterEvidence:  # the default-policy coverage verdict delivery/transmittal composes as the issued manifest
         return self.audited()
 
+
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
@@ -612,9 +722,13 @@ def _composed(register: Register) -> Composed:  # the one pure render fold both 
             data = TablePlan(frame=register.frame, ops=_index_ops(register), fmt=fmt, theme=theme).build()
         case RegisterOp(tag="container", container=dialect):
             tree = _container_document(register, dialect)
-            schema = isoschematron.Schematron(etree.fromstring(_container_schema()), store_report=True)  # per-call: not re-entrant across the bounded _GATE threads
+            schema = isoschematron.Schematron(
+                etree.fromstring(_container_schema()), store_report=True
+            )  # per-call: not re-entrant across the bounded _GATE threads
             validation = "valid" if schema.validate(tree) else f"invalid:{len(schema.error_log)}"
-            data = etree.tostring(tree, method="c14n2")  # C14N canonical bytes: the ISO 19650 container content-addresses byte-reproducibly run-to-run
+            data = etree.tostring(
+                tree, method="c14n2"
+            )  # C14N canonical bytes: the ISO 19650 container content-addresses byte-reproducibly run-to-run
         case RegisterOp(tag="audit", audit=policy):
             data = _ENCODER.encode(register.audited(policy).facts)
         case RegisterOp(tag="render", render=merge):
@@ -622,8 +736,13 @@ def _composed(register: Register) -> Composed:  # the one pure render fold both 
         case _ as unreachable:
             assert_never(unreachable)
     return Composed(
-        data=data, kind=register.op.tag, sheets=len(register.containers), suitability=register.suitability.code,
-        revision=register.revision.render(), classification=register.classification.system.value, validation=validation,
+        data=data,
+        kind=register.op.tag,
+        sheets=len(register.containers),
+        suitability=register.suitability.code,
+        revision=register.revision.render(),
+        classification=register.classification.system.value,
+        validation=validation,
     )
 
 
@@ -681,9 +800,16 @@ def _container_document(register: Register, dialect: ContainerDialect, /) -> "et
     root = etree.Element(qname("informationContainerSet"), nsmap=dict(_NSMAP))
     root.set("dialect", dialect.value)
     header = etree.SubElement(root, qname("project"))
-    for local, value in (("name", register.meta.project), ("reference", register.meta.project_id), ("appointingParty", register.meta.appointing_party),
-                         ("leadAppointedParty", register.meta.lead_party), ("stage", register.meta.stage), ("milestone", register.meta.milestone),
-                         ("revision", register.revision.render()), ("issued", register.issued)):
+    for local, value in (
+        ("name", register.meta.project),
+        ("reference", register.meta.project_id),
+        ("appointingParty", register.meta.appointing_party),
+        ("leadAppointedParty", register.meta.lead_party),
+        ("stage", register.meta.stage),
+        ("milestone", register.meta.milestone),
+        ("revision", register.revision.render()),
+        ("issued", register.issued),
+    ):
         etree.SubElement(header, qname(local)).text = value
     containers = etree.SubElement(root, qname("containers"))
     for container in register.containers:
@@ -702,7 +828,9 @@ def _workbook(register: Register, merge: Option[bytes], /) -> bytes:
     containers = _merged(register, merge)
     header, footer = _running_header(register)
     sink = BytesIO()
-    with xlsxwriter.Workbook(sink, {"constant_memory": True, "in_memory": True}) as book:  # the with-exit close packages the zip into sink, deterministic on every exit
+    with xlsxwriter.Workbook(
+        sink, {"constant_memory": True, "in_memory": True}
+    ) as book:  # the with-exit close packages the zip into sink, deterministic on every exit
         sheet = book.add_worksheet("Register")
         head = book.add_format({"bold": True, "bg_color": "#1F2937", "font_color": "#FFFFFF", "border": 1})
         link = book.get_default_url_format()  # the shared hyperlink style, never a per-cell mint
@@ -719,13 +847,51 @@ def _workbook(register: Register, merge: Option[bytes], /) -> bytes:
             else:
                 sheet.write_row(index, 0, row)
         last = max(len(containers), 1)
-        sheet.conditional_format(1, _SUITABILITY_COL, last, _SUITABILITY_COL, {"type": "text", "criteria": "begins with", "value": PublishedPrefix.AUTHORIZED.value, "format": published})
-        sheet.conditional_format(1, _STATE_COL, last, _STATE_COL, {"type": "text", "criteria": "containing", "value": ContainerState.ARCHIVE.value, "format": archived})
+        sheet.conditional_format(
+            1,
+            _SUITABILITY_COL,
+            last,
+            _SUITABILITY_COL,
+            {"type": "text", "criteria": "begins with", "value": PublishedPrefix.AUTHORIZED.value, "format": published},
+        )
+        sheet.conditional_format(
+            1, _STATE_COL, last, _STATE_COL, {"type": "text", "criteria": "containing", "value": ContainerState.ARCHIVE.value, "format": archived}
+        )
         # the owned vocabularies as Excel validation: State the closed CDE list (hard-stop), Suitability the S-band
         # (soft — published A/B and documented project codes extend it), Revision the P/C grammar as input guidance.
-        sheet.data_validation(1, _STATE_COL, last, _STATE_COL, {"validate": "list", "source": [s.value for s in ContainerState], "error_type": "stop", "input_title": "CDE state", "input_message": "One of the four ISO 19650 container states."})
-        sheet.data_validation(1, _SUITABILITY_COL, last, _SUITABILITY_COL, {"validate": "list", "source": [c.value for c in SuitabilityCode], "error_type": "information", "input_title": "Suitability", "input_message": "Standard S-band; published A/B and documented project codes extend it."})
-        sheet.data_validation(1, _REVISION_COL, last, _REVISION_COL, {"validate": "any", "input_title": "Revision", "input_message": "Preliminary P{NN}[.{NN}] or contractual C{NN}."})
+        sheet.data_validation(
+            1,
+            _STATE_COL,
+            last,
+            _STATE_COL,
+            {
+                "validate": "list",
+                "source": [s.value for s in ContainerState],
+                "error_type": "stop",
+                "input_title": "CDE state",
+                "input_message": "One of the four ISO 19650 container states.",
+            },
+        )
+        sheet.data_validation(
+            1,
+            _SUITABILITY_COL,
+            last,
+            _SUITABILITY_COL,
+            {
+                "validate": "list",
+                "source": [c.value for c in SuitabilityCode],
+                "error_type": "information",
+                "input_title": "Suitability",
+                "input_message": "Standard S-band; published A/B and documented project codes extend it.",
+            },
+        )
+        sheet.data_validation(
+            1,
+            _REVISION_COL,
+            last,
+            _REVISION_COL,
+            {"validate": "any", "input_title": "Revision", "input_message": "Preliminary P{NN}[.{NN}] or contractual C{NN}."},
+        )
         sheet.autofilter(0, 0, last, len(_COLUMNS) - 1)
         sheet.freeze_panes(1, 0)
         sheet.set_landscape()
@@ -734,7 +900,11 @@ def _workbook(register: Register, merge: Option[bytes], /) -> bytes:
         sheet.repeat_rows(0, 0)
         sheet.set_header(header)
         sheet.set_footer(footer)
-        book.set_properties({"title": f"Drawing Register — {register.meta.project}", "subject": register.revision.render(), "author": register.meta.lead_party})
+        book.set_properties({
+            "title": f"Drawing Register — {register.meta.project}",
+            "subject": register.revision.render(),
+            "author": register.meta.lead_party,
+        })
         if register.issued:  # an issued register is read-only; a draft stays editable under the validation dropdowns
             sheet.protect(options={"autofilter": True, "sort": True, "select_locked_cells": True})
     return sink.getvalue()
@@ -747,7 +917,9 @@ def _merged(register: Register, merge: Option[bytes], /) -> tuple[InformationCon
         return register.containers
     seed: Map[str, InformationContainer] = Map.of_seq((c.reference, c) for c in _ingest(merge.value, register.documented))
     latest = Block.of_seq(register.containers).fold(
-        lambda acc, c: acc.change(c.reference, lambda held, incoming=c: Some(incoming if held.is_none() or incoming.revision.succeeds(held.value.revision) else held.value)),
+        lambda acc, c: acc.change(
+            c.reference, lambda held, incoming=c: Some(incoming if held.is_none() or incoming.revision.succeeds(held.value.revision) else held.value)
+        ),
         seed,
     )
     return tuple(latest.values())
@@ -769,9 +941,18 @@ def _row_payload(row: tuple[object, ...], /) -> ContainerPayload:
     parts = padded[0].split(_FIELD_SEP)
     fields = (*parts, *("" for _ in range(7 - len(parts))))
     return ContainerPayload(
-        project=fields[0], originator=fields[1], functional=fields[2], spatial=fields[3], form=fields[4],
-        discipline=fields[5], number=fields[6], suitability=padded[_SUITABILITY_COL], revision=padded[_COLUMNS.index("Revision")],
-        title=padded[1], purpose=padded[_COLUMNS.index("Purpose")], classification=padded[_COLUMNS.index("Classification")],
+        project=fields[0],
+        originator=fields[1],
+        functional=fields[2],
+        spatial=fields[3],
+        form=fields[4],
+        discipline=fields[5],
+        number=fields[6],
+        suitability=padded[_SUITABILITY_COL],
+        revision=padded[_COLUMNS.index("Revision")],
+        title=padded[1],
+        purpose=padded[_COLUMNS.index("Purpose")],
+        classification=padded[_COLUMNS.index("Classification")],
     )
 
 

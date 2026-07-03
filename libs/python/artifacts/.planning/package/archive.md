@@ -31,8 +31,7 @@ from msgspec import Struct
 type ZipMethod = Literal["auto", "zip64", "zip32", "store32", "store64"]
 type ZipMechanism = Literal["none", "zipcrypto", "ae1", "ae2", "aes128", "aes192", "aes256"]
 type SevenZFilter = Literal[
-    "lzma", "lzma2", "bzip2", "ppmd", "zstd", "brotli", "deflate", "copy",
-    "delta", "x86", "arm", "armthumb", "powerpc", "sparc", "ia64",
+    "lzma", "lzma2", "bzip2", "ppmd", "zstd", "brotli", "deflate", "copy", "delta", "x86", "arm", "armthumb", "powerpc", "sparc", "ia64"
 ]
 type SevenZPreset = Literal["default", "extreme"]
 
@@ -72,12 +71,33 @@ from typing import Final, assert_never
 
 import xxhash
 from builtins import frozendict
-from stream_unzip import AE_1, AE_2, AES_128, AES_192, AES_256, NO_ENCRYPTION, ZIP_CRYPTO, DataError, InvalidOperationError, MissingPasswordError, PasswordError, UncompressError, UnsupportedFeatureError, stream_unzip
+from stream_unzip import (
+    AE_1,
+    AE_2,
+    AES_128,
+    AES_192,
+    AES_256,
+    NO_ENCRYPTION,
+    ZIP_CRYPTO,
+    DataError,
+    InvalidOperationError,
+    MissingPasswordError,
+    PasswordError,
+    UncompressError,
+    UnsupportedFeatureError,
+    stream_unzip,
+)
 from stream_zip import Method, NO_COMPRESSION_32, NO_COMPRESSION_64, ZIP_32, ZIP_64, ZIP_AUTO, stream_zip
 
-lazy from artifacts.package.codec import BundleEvidence, CodecProfile, CompressionAlgo  # cyclic owner: codec eager-imports these workers for DEFAULT_PROFILE, so this back-edge defers (used only in the worker bodies) to break the import cycle
+lazy from artifacts.package.codec import (
+    BundleEvidence,
+    CodecProfile,
+    CompressionAlgo,
+)  # cyclic owner: codec eager-imports these workers for DEFAULT_PROFILE, so this back-edge defers (used only in the worker bodies) to break the import cycle
 
-lazy from zlib_ng import zlib_ng  # the shared `data:compression` SIMD substrate composed on the ZIP_STREAM arm: raw-DEFLATE (`compressobj`/`MAX_WBITS`) + stored-member `crc32`, one codec on both the deflate and integrity legs — never re-admitted
+lazy from zlib_ng import (
+    zlib_ng,
+)  # the shared `data:compression` SIMD substrate composed on the ZIP_STREAM arm: raw-DEFLATE (`compressobj`/`MAX_WBITS`) + stored-member `crc32`, one codec on both the deflate and integrity legs — never re-admitted
 lazy import py7zr
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -94,8 +114,13 @@ _PRESETABLE: frozenset[SevenZFilter] = frozenset({"lzma", "lzma2"})
 
 # the decrypt allow-list correspondence: each `ZipMechanism` token -> its opaque stream_unzip sentinel.
 _ZIP_MECHANISM: frozendict[ZipMechanism, object] = frozendict({
-    "none": NO_ENCRYPTION, "zipcrypto": ZIP_CRYPTO, "ae1": AE_1, "ae2": AE_2,
-    "aes128": AES_128, "aes192": AES_192, "aes256": AES_256,
+    "none": NO_ENCRYPTION,
+    "zipcrypto": ZIP_CRYPTO,
+    "ae1": AE_1,
+    "ae2": AE_2,
+    "aes128": AES_128,
+    "aes192": AES_192,
+    "aes256": AES_256,
 })
 
 # --- [BOUNDARIES] -----------------------------------------------------------------------
@@ -144,6 +169,7 @@ class _Xxh3Factory:
 
     def get(self, filename: str) -> _Xxh3Sink:
         return self._sinks[filename]
+
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -208,7 +234,23 @@ def _zip_drain(blob: bytes, password: bytes | None, mechanisms: frozenset[object
 def _archive_in_process(payloads: tuple[bytes, ...], algo: CompressionAlgo, profile: CodecProfile) -> tuple[tuple[bytes, ...], BundleEvidence]:
     match profile:
         case CodecProfile(tag="seven_z", seven_z=SevenZKnobs() as k):
-            ident = {"lzma": py7zr.FILTER_LZMA, "lzma2": py7zr.FILTER_LZMA2, "bzip2": py7zr.FILTER_BZIP2, "ppmd": py7zr.FILTER_PPMD, "zstd": py7zr.FILTER_ZSTD, "brotli": py7zr.FILTER_BROTLI, "deflate": py7zr.FILTER_DEFLATE, "copy": py7zr.FILTER_COPY, "delta": py7zr.FILTER_DELTA, "x86": py7zr.FILTER_X86, "arm": py7zr.FILTER_ARM, "armthumb": py7zr.FILTER_ARMTHUMB, "powerpc": py7zr.FILTER_POWERPC, "sparc": py7zr.FILTER_SPARC, "ia64": py7zr.FILTER_IA64}
+            ident = {
+                "lzma": py7zr.FILTER_LZMA,
+                "lzma2": py7zr.FILTER_LZMA2,
+                "bzip2": py7zr.FILTER_BZIP2,
+                "ppmd": py7zr.FILTER_PPMD,
+                "zstd": py7zr.FILTER_ZSTD,
+                "brotli": py7zr.FILTER_BROTLI,
+                "deflate": py7zr.FILTER_DEFLATE,
+                "copy": py7zr.FILTER_COPY,
+                "delta": py7zr.FILTER_DELTA,
+                "x86": py7zr.FILTER_X86,
+                "arm": py7zr.FILTER_ARM,
+                "armthumb": py7zr.FILTER_ARMTHUMB,
+                "powerpc": py7zr.FILTER_POWERPC,
+                "sparc": py7zr.FILTER_SPARC,
+                "ia64": py7zr.FILTER_IA64,
+            }
             preset = {"default": py7zr.PRESET_DEFAULT, "extreme": py7zr.PRESET_EXTREME}[k.preset]
             codecs = [{"id": ident[f], "preset": preset} if f in _PRESETABLE else {"id": ident[f]} for f in k.filters]
             crypto = [{"id": py7zr.FILTER_CRYPTO_AES256_SHA256}] if k.password is not None else []
@@ -223,7 +265,14 @@ def _archive_in_process(payloads: tuple[bytes, ...], algo: CompressionAlgo, prof
                 uncompressed = reader.archiveinfo().uncompressed  # the container's declared uncompressed total — the true reconstructed size for `frame_size`, not the redundant compressed `len(blob)` that already rides `out_bytes`; the same `ArchiveInfo` also carries `method_names`/`solid`/`blocks`, structural facts the flat 8-scalar Bundle case the brief locks cannot hold
             return (blob,), BundleEvidence.measure(algo, 0, 0, uncompressed, verified, payloads, (blob,))
         case CodecProfile(tag="zip_stream", zip_stream=ZipStreamKnobs() as k):
-            blob = b"".join(stream_zip(_zip_members(payloads, k), password=k.password, extended_timestamps=False, get_compressobj=lambda: zlib_ng.compressobj(wbits=-zlib_ng.MAX_WBITS, level=k.level)))
+            blob = b"".join(
+                stream_zip(
+                    _zip_members(payloads, k),
+                    password=k.password,
+                    extended_timestamps=False,
+                    get_compressobj=lambda: zlib_ng.compressobj(wbits=-zlib_ng.MAX_WBITS, level=k.level),
+                )
+            )
             # verified is a GENUINE per-member integrity count, not the illusory `len(payloads)`: stream_zip only CRC-verifies
             # streamed NO_COMPRESSION_* (stored) members inline, so a deflate ZIP_AUTO member carries no pack-side proof —
             # round-trip the packed blob through `stream_unzip` (the delta-arm round-trip pattern), draining each member so
@@ -232,21 +281,29 @@ def _archive_in_process(payloads: tuple[bytes, ...], algo: CompressionAlgo, prof
             verified = sum(1 for _ in _zip_drain(blob, *_zip_trust(k)))
             return (blob,), BundleEvidence.measure(algo, k.level, 0, sum(map(len, payloads)), verified, payloads, (blob,))
         case _:
-            raise ValueError(f"<non-archive-profile:{profile.tag}>")  # the codec dispatch routes only seven_z/zip_stream here; assert_never is invalid on the non-exhausted CodecProfile family
+            raise ValueError(
+                f"<non-archive-profile:{profile.tag}>"
+            )  # the codec dispatch routes only seven_z/zip_stream here; assert_never is invalid on the non-exhausted CodecProfile family
 
 
 def _archive_unpack(blob: bytes, algo: CompressionAlgo, profile: CodecProfile) -> tuple[tuple[str, int, bytes], ...]:
     match profile:
         case CodecProfile(tag="seven_z", seven_z=SevenZKnobs() as k):
-            sinks = _Xxh3Factory()  # streamed xxh3_128 sink: each entry decodes into one digest, never buffered whole; `max_extract_size` bombs-bounds the decode
+            sinks = (
+                _Xxh3Factory()
+            )  # streamed xxh3_128 sink: each entry decodes into one digest, never buffered whole; `max_extract_size` bombs-bounds the decode
             with py7zr.SevenZipFile(BytesIO(blob), mode="r", password=k.password, max_extract_size=_ARCHIVE_CEILING) as reader:
                 infos = [info for info in reader.list() if not info.is_directory]
                 reader.extractall(factory=sinks)
             return tuple((info.filename, info.uncompressed, sinks.get(info.filename).read()) for info in infos)
         case CodecProfile(tag="zip_stream", zip_stream=ZipStreamKnobs() as k):
-            return tuple(_zip_drain(blob, *_zip_trust(k)))  # the classified streamed drain — trust vs corruption vs unsupported vs ordering railed at the seam — replacing the side-effecting `reduce` lambda fold with the shared `(name, size, xxh3_128)` generator
+            return tuple(
+                _zip_drain(blob, *_zip_trust(k))
+            )  # the classified streamed drain — trust vs corruption vs unsupported vs ordering railed at the seam — replacing the side-effecting `reduce` lambda fold with the shared `(name, size, xxh3_128)` generator
         case _:
-            raise ValueError(f"<non-archive-profile:{profile.tag}>")  # the codec dispatch routes only seven_z/zip_stream here; assert_never is invalid on the non-exhausted CodecProfile family
+            raise ValueError(
+                f"<non-archive-profile:{profile.tag}>"
+            )  # the codec dispatch routes only seven_z/zip_stream here; assert_never is invalid on the non-exhausted CodecProfile family
 ```
 
 ## [03]-[RESEARCH]

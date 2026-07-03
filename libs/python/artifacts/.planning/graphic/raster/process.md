@@ -35,21 +35,21 @@ lazy from skimage import color, exposure, feature, filters, graph, io as skio, m
 
 
 class FilterChannel(StrEnum):
-    GRAY = "gray"            # luminance operand, no channel axis (gradient + ridge + canny + gabor + DoG on gray)
+    GRAY = "gray"  # luminance operand, no channel axis (gradient + ridge + canny + gabor + DoG on gray)
     CHANNELED = "channeled"  # raw operand with channel_axis injected (unsharp / gaussian / butterworth / difference-of-gaussians)
-    PLAIN = "plain"          # raw operand, no channel axis (median)
-    RANK = "rank"            # footprint-local rank filter on a uint8 operand (filters.rank.mean/median/maximum/entropy/autolevel/gradient)
+    PLAIN = "plain"  # raw operand, no channel axis (median)
+    RANK = "rank"  # footprint-local rank filter on a uint8 operand (filters.rank.mean/median/maximum/entropy/autolevel/gradient)
 
 
 class MorphKind(StrEnum):
     BINARY_FOOTPRINT = "binary-footprint"  # binary op over a disk footprint: opening / closing / erosion / dilation
-    BINARY_PLAIN = "binary-plain"          # binary op, no footprint: skeletonize / medial_axis / thin / convex_hull_image
-    GRAY_FOOTPRINT = "gray-footprint"      # grayscale op over a disk footprint: white_tophat / black_tophat
-    RECONSTRUCT = "reconstruct"            # seed(eroded gray)-under-mask(gray) reconstruction by dilation
-    PRUNE = "prune"                        # component removal by a size/area floor: remove_small_objects / remove_small_holes (kwargs on the row)
-    ATTRIBUTE = "attribute"                # max-tree attribute filter on gray: area_opening / diameter_opening
-    ISOTROPIC = "isotropic"                # distance-transform radius morphology, no footprint: isotropic_erosion / isotropic_dilation
-    FLOOD = "flood"                        # seeded flood fill from an opts seed point: flood_fill
+    BINARY_PLAIN = "binary-plain"  # binary op, no footprint: skeletonize / medial_axis / thin / convex_hull_image
+    GRAY_FOOTPRINT = "gray-footprint"  # grayscale op over a disk footprint: white_tophat / black_tophat
+    RECONSTRUCT = "reconstruct"  # seed(eroded gray)-under-mask(gray) reconstruction by dilation
+    PRUNE = "prune"  # component removal by a size/area floor: remove_small_objects / remove_small_holes (kwargs on the row)
+    ATTRIBUTE = "attribute"  # max-tree attribute filter on gray: area_opening / diameter_opening
+    ISOTROPIC = "isotropic"  # distance-transform radius morphology, no footprint: isotropic_erosion / isotropic_dilation
+    FLOOD = "flood"  # seeded flood fill from an opts seed point: flood_fill
 
 
 @dataclass(frozen=True, slots=True, eq=False)
@@ -81,7 +81,8 @@ def _luminance(frame: Frame, /) -> NDArray[np.floating]:
 def _save_array(array: NDArray[np.floating | np.integer | np.bool_], score: frozendict[str, float | str], /) -> RasterFact:
     framed = (
         array
-        if array.dtype in (np.uint8, np.bool_) or (np.issubdtype(array.dtype, np.floating) and 0.0 <= float(array.min()) and float(array.max()) <= 1.0)
+        if array.dtype in (np.uint8, np.bool_)
+        or (np.issubdtype(array.dtype, np.floating) and 0.0 <= float(array.min()) and float(array.max()) <= 1.0)
         else exposure.rescale_intensity(array.astype(np.float64), out_range=(0.0, 1.0))
     )
     image = Image.fromarray(util.img_as_ubyte(framed))
@@ -175,7 +176,9 @@ def _segment(tx: TransformInput) -> RasterFact:
         case Transform.MORPHOLOGICAL_CHAN_VESE:
             labels = segmentation.morphological_chan_vese(_luminance(tx.image), int(opts["num_iter"])).astype(int)
         case Transform.MORPHOLOGICAL_GEODESIC:  # geodesic active-contour level-set over the inverse-gaussian-gradient edge-stopping map
-            labels = segmentation.morphological_geodesic_active_contour(segmentation.inverse_gaussian_gradient(_luminance(tx.image)), int(opts["num_iter"])).astype(int)
+            labels = segmentation.morphological_geodesic_active_contour(
+                segmentation.inverse_gaussian_gradient(_luminance(tx.image)), int(opts["num_iter"])
+            ).astype(int)
         case Transform.CLEAR_BORDER:  # drop the Otsu-labelled components touching the frame edge
             gray = _luminance(tx.image)
             labels = segmentation.clear_border(measure.label(gray > filters.threshold_otsu(gray)))
@@ -186,11 +189,17 @@ def _segment(tx: TransformInput) -> RasterFact:
     return _save_array(overlay, frozendict({"regions": regions}))
 
 
-def _weight_mean_color(rag: object, src: int, dst: int, neighbor: int, /) -> dict[str, float]:  # skimage RAG merge idiom: edge weight is the mean-color L2 distance (the networkx edge-data dict the merge_hierarchical callback contract requires)
+def _weight_mean_color(
+    rag: object, src: int, dst: int, neighbor: int, /
+) -> dict[
+    str, float
+]:  # skimage RAG merge idiom: edge weight is the mean-color L2 distance (the networkx edge-data dict the merge_hierarchical callback contract requires)
     return {"weight": float(np.linalg.norm(rag.nodes[dst]["mean color"] - rag.nodes[neighbor]["mean color"]))}
 
 
-def _merge_mean_color(rag: object, src: int, dst: int, /) -> None:  # skimage RAG merge idiom: fold src's color mass into dst before the edge is dropped (the callback mutates the provider RAG in place)
+def _merge_mean_color(
+    rag: object, src: int, dst: int, /
+) -> None:  # skimage RAG merge idiom: fold src's color mass into dst before the edge is dropped (the callback mutates the provider RAG in place)
     rag.nodes[dst]["total color"] += rag.nodes[src]["total color"]
     rag.nodes[dst]["pixel count"] += rag.nodes[src]["pixel count"]
     rag.nodes[dst]["mean color"] = rag.nodes[dst]["total color"] / rag.nodes[dst]["pixel count"]
@@ -198,7 +207,9 @@ def _merge_mean_color(rag: object, src: int, dst: int, /) -> None:  # skimage RA
 
 def _graph(tx: TransformInput) -> RasterFact:
     row, opts = TRANSFORMS[tx.kind], TRANSFORMS[tx.kind].kwargs | tx.opts
-    if tx.kind is Transform.MIN_COST_PATH:  # least-cost path through the luminance-as-cost surface (route_through_array over the MCP_Geometric finder)
+    if (
+        tx.kind is Transform.MIN_COST_PATH
+    ):  # least-cost path through the luminance-as-cost surface (route_through_array over the MCP_Geometric finder)
         cost = _luminance(tx.image)
         indices, weight = graph.route_through_array(cost, (int(opts["src_row"]), int(opts["src_col"])), (int(opts["dst_row"]), int(opts["dst_col"])))
         trace = np.zeros(cost.shape, dtype=bool)
@@ -207,9 +218,19 @@ def _graph(tx: TransformInput) -> RasterFact:
     labels = segmentation.slic(tx.image, n_segments=int(opts["n_segments"]), channel_axis=_channels(tx.image))
     rag = graph.rag_mean_color(tx.image, labels)  # region-adjacency graph weighted by superpixel mean-color difference
     merged = (
-        graph.merge_hierarchical(labels, rag, thresh=float(opts["thresh"]), rag_copy=False, in_place_merge=True, merge_func=_merge_mean_color, weight_func=_weight_mean_color)
+        graph.merge_hierarchical(
+            labels,
+            rag,
+            thresh=float(opts["thresh"]),
+            rag_copy=False,
+            in_place_merge=True,
+            merge_func=_merge_mean_color,
+            weight_func=_weight_mean_color,
+        )
         if tx.kind is Transform.RAG_MERGE
-        else getattr(graph, row.member)(labels, rag, float(opts["thresh"]))  # RAG_CUT_THRESHOLD / RAG_CUT_NORMALIZED — member-derived (labels, rag, thresh)
+        else getattr(graph, row.member)(
+            labels, rag, float(opts["thresh"])
+        )  # RAG_CUT_THRESHOLD / RAG_CUT_NORMALIZED — member-derived (labels, rag, thresh)
     )
     overlay = segmentation.mark_boundaries(tx.image, merged)
     regions = int(measure.regionprops_table(merged, properties=("label",))["label"].size)
@@ -247,7 +268,9 @@ def _threshold(tx: TransformInput) -> RasterFact:
     row = TRANSFORMS[tx.kind]
     gray = _luminance(tx.image)
     opts = row.kwargs | tx.opts
-    if tx.kind is Transform.HYSTERESIS:  # two-level binarize: apply_hysteresis_threshold returns the low/high mask directly, not a scalar cut the gray is compared against
+    if (
+        tx.kind is Transform.HYSTERESIS
+    ):  # two-level binarize: apply_hysteresis_threshold returns the low/high mask directly, not a scalar cut the gray is compared against
         mask = filters.apply_hysteresis_threshold(gray, float(opts["low"]), float(opts["high"]))
         return _save_array(mask, frozendict({"foreground": float(mask.mean())}))
     cut = getattr(filters, row.member)(gray, **opts)
@@ -273,10 +296,15 @@ def _geometric(tx: TransformInput) -> RasterFact:
             warped = member(_luminance(tx.image), strength=float(opts["strength"]), radius=float(opts["radius"]))
         case Transform.WARP_POLAR:  # log-/linear-polar unwrap; channel_axis keeps the color operand
             warped = member(tx.image, channel_axis=_channels(tx.image), **opts)
-        case Transform.WARP:  # projective/keystone dewarp: fit a homography from the 4 image corners to 4 opts-displaced corners, warp through its inverse map
+        case (
+            Transform.WARP
+        ):  # projective/keystone dewarp: fit a homography from the 4 image corners to 4 opts-displaced corners, warp through its inverse map
             rows, cols = tx.image.shape[:2]
             src = np.array([[0.0, 0.0], [cols, 0.0], [cols, rows], [0.0, rows]], dtype=float)
-            dst = src + np.array([[opts["tl_dx"], opts["tl_dy"]], [opts["tr_dx"], opts["tr_dy"]], [opts["br_dx"], opts["br_dy"]], [opts["bl_dx"], opts["bl_dy"]]], dtype=float)
+            dst = src + np.array(
+                [[opts["tl_dx"], opts["tl_dy"]], [opts["tr_dx"], opts["tr_dy"]], [opts["br_dx"], opts["br_dy"]], [opts["bl_dx"], opts["bl_dy"]]],
+                dtype=float,
+            )
             warped = member(tx.image, transform.estimate_transform("projective", src, dst).inverse, output_shape=(rows, cols))
         case _:  # RADON sinogram / IRADON filtered back-projection reconstruction over the luminance operand
             warped = member(_luminance(tx.image))
@@ -293,7 +321,11 @@ def _filter(tx: TransformInput) -> RasterFact:
         case FilterChannel.PLAIN:
             member, source, extra = getattr(filters, row.member), tx.image, opts
         case FilterChannel.RANK:  # footprint-local rank filter on a uint8 operand: filters.rank.<member>(uint8, footprint=disk(radius)); radius rides the row into the footprint, never re-passed as a filter kwarg
-            member, source, extra = getattr(filters.rank, row.member), util.img_as_ubyte(_luminance(tx.image)), frozendict({"footprint": morphology.disk(int(opts.get("radius", 3)))})
+            member, source, extra = (
+                getattr(filters.rank, row.member),
+                util.img_as_ubyte(_luminance(tx.image)),
+                frozendict({"footprint": morphology.disk(int(opts.get("radius", 3)))}),
+            )
         case _ as unreachable:
             assert_never(unreachable)
     raw = member(source, **extra)
@@ -335,7 +367,9 @@ TRANSFORMS: frozendict[Transform, TransformArm] = frozendict({
     Transform.FRANGI: TransformArm("frangi", _filter),
     Transform.BUTTERWORTH: TransformArm("butterworth", _filter, channel=FilterChannel.CHANNELED),
     Transform.GABOR: TransformArm("gabor", _filter, frozendict({"frequency": 0.6})),
-    Transform.DIFFERENCE_OF_GAUSSIANS: TransformArm("difference_of_gaussians", _filter, frozendict({"low_sigma": 1.0}), channel=FilterChannel.CHANNELED),
+    Transform.DIFFERENCE_OF_GAUSSIANS: TransformArm(
+        "difference_of_gaussians", _filter, frozendict({"low_sigma": 1.0}), channel=FilterChannel.CHANNELED
+    ),
     Transform.CANNY: TransformArm("canny", _filter),
     Transform.SCHARR: TransformArm("scharr", _filter),
     Transform.PREWITT: TransformArm("prewitt", _filter),
@@ -371,13 +405,19 @@ TRANSFORMS: frozendict[Transform, TransformArm] = frozendict({
     Transform.ROTATE: TransformArm("rotate", _geometric, frozendict({"angle": 90.0})),
     Transform.SWIRL: TransformArm("swirl", _geometric, frozendict({"strength": 1.0, "radius": 100.0})),
     Transform.WARP_POLAR: TransformArm("warp_polar", _geometric),
-    Transform.WARP: TransformArm("warp", _geometric, frozendict({"tl_dx": 0.0, "tl_dy": 0.0, "tr_dx": 0.0, "tr_dy": 0.0, "br_dx": 0.0, "br_dy": 0.0, "bl_dx": 0.0, "bl_dy": 0.0})),
+    Transform.WARP: TransformArm(
+        "warp",
+        _geometric,
+        frozendict({"tl_dx": 0.0, "tl_dy": 0.0, "tr_dx": 0.0, "tr_dy": 0.0, "br_dx": 0.0, "br_dy": 0.0, "bl_dx": 0.0, "bl_dy": 0.0}),
+    ),
     Transform.RADON: TransformArm("radon", _geometric),
     Transform.IRADON: TransformArm("iradon", _geometric),
     Transform.RAG_CUT_THRESHOLD: TransformArm("cut_threshold", _graph, frozendict({"n_segments": 400, "thresh": 0.08})),
     Transform.RAG_CUT_NORMALIZED: TransformArm("cut_normalized", _graph, frozendict({"n_segments": 400, "thresh": 0.001})),
     Transform.RAG_MERGE: TransformArm("merge_hierarchical", _graph, frozendict({"n_segments": 400, "thresh": 0.08})),
-    Transform.MIN_COST_PATH: TransformArm("route_through_array", _graph, frozendict({"src_row": 0.0, "src_col": 0.0, "dst_row": 100.0, "dst_col": 100.0})),
+    Transform.MIN_COST_PATH: TransformArm(
+        "route_through_array", _graph, frozendict({"src_row": 0.0, "src_col": 0.0, "dst_row": 100.0, "dst_col": 100.0})
+    ),
     Transform.COMBINE_STAINS: TransformArm("combine_stains", _color),
     Transform.RGB2HSV: TransformArm("rgb2hsv", _color),
     Transform.RGB2LAB: TransformArm("rgb2lab", _color),

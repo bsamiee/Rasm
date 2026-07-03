@@ -39,18 +39,18 @@ from msgspec import Struct, structs
 
 
 class ClassSystem(StrEnum):
-    MASTERFORMAT = "masterformat"   # CSI/CSC work-results — the specification-section number
-    UNIFORMAT = "uniformat"         # ASTM E1557 / CSI elemental — the building-element classification
-    OMNICLASS = "omniclass"         # OCCS faceted — the 15-table ISO 12006-2 aligned classification
+    MASTERFORMAT = "masterformat"  # CSI/CSC work-results — the specification-section number
+    UNIFORMAT = "uniformat"  # ASTM E1557 / CSI elemental — the building-element classification
+    OMNICLASS = "omniclass"  # OCCS faceted — the 15-table ISO 12006-2 aligned classification
 
 
-class Subgroup(StrEnum):            # the MasterFormat 2020 subgroup a division belongs to
-    PROCUREMENT = "procurement"        # Division 00
-    GENERAL = "general"                # Division 01
-    CONSTRUCTION = "construction"      # Divisions 02-19 (Facility Construction)
-    SERVICES = "services"              # Divisions 20-29 (Facility Services)
+class Subgroup(StrEnum):  # the MasterFormat 2020 subgroup a division belongs to
+    PROCUREMENT = "procurement"  # Division 00
+    GENERAL = "general"  # Division 01
+    CONSTRUCTION = "construction"  # Divisions 02-19 (Facility Construction)
+    SERVICES = "services"  # Divisions 20-29 (Facility Services)
     INFRASTRUCTURE = "infrastructure"  # Divisions 30-39 (Site and Infrastructure)
-    PROCESS = "process"                # Divisions 40-49 (Process Equipment)
+    PROCESS = "process"  # Divisions 40-49 (Process Equipment)
 
 
 type ClassFault = Literal["<malformed-code>", "<unknown-division>", "<reserved-division>", "<unknown-element>", "<unknown-table>"]
@@ -58,13 +58,13 @@ type ClassFault = Literal["<malformed-code>", "<unknown-division>", "<reserved-d
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class Division(Struct, frozen=True):        # one MasterFormat division row — number, title, subgroup
+class Division(Struct, frozen=True):  # one MasterFormat division row — number, title, subgroup
     number: int
     title: str
     subgroup: Subgroup
 
 
-class Element(Struct, frozen=True):         # one UniFormat elemental row — code, title, Level-1 group
+class Element(Struct, frozen=True):  # one UniFormat elemental row — code, title, Level-1 group
     code: str
     title: str
     group: str
@@ -131,8 +131,7 @@ class ClassCode(Struct, frozen=True, order=True):
                 # the deepest known anchor: the Level-2 element title (`B1010` -> "Superstructure"), falling
                 # to the Level-1 group title when only the group is known.
                 return (
-                    Some(found.title) if (found := _ELEMENTS.get(self._uf_anchor)) is not None
-                    else Option.of_optional(_GROUP_TITLES.get(self.group))
+                    Some(found.title) if (found := _ELEMENTS.get(self._uf_anchor)) is not None else Option.of_optional(_GROUP_TITLES.get(self.group))
                 )
             case ClassSystem.OMNICLASS:
                 return Option.of_optional(_OMNI_TABLES.get(self.segments[0])) if self.segments else Nothing
@@ -212,16 +211,22 @@ class ClassCode(Struct, frozen=True, order=True):
             case ClassSystem.MASTERFORMAT:
                 group = _CROSSWALK.get(self.division(), "")
                 elements = Block.of_seq(_ELEMENTS.values()).filter(lambda element: element.group == group)
-                return CrossReference(self, frozendict({
-                    ClassSystem.UNIFORMAT: tuple(ClassCode(ClassSystem.UNIFORMAT, _pairs(element.code[1:]), group) for element in elements),
-                    ClassSystem.OMNICLASS: (ClassCode(ClassSystem.OMNICLASS, (_OMNI_WORK_RESULTS, *self.segments)),),
-                }))
+                return CrossReference(
+                    self,
+                    frozendict({
+                        ClassSystem.UNIFORMAT: tuple(ClassCode(ClassSystem.UNIFORMAT, _pairs(element.code[1:]), group) for element in elements),
+                        ClassSystem.OMNICLASS: (ClassCode(ClassSystem.OMNICLASS, (_OMNI_WORK_RESULTS, *self.segments)),),
+                    }),
+                )
             case ClassSystem.UNIFORMAT:
                 divisions = _GROUP_DIVISIONS.get(self.group, ())
-                return CrossReference(self, frozendict({
-                    ClassSystem.MASTERFORMAT: tuple(ClassCode(ClassSystem.MASTERFORMAT, (division, 0, 0)) for division in divisions),
-                    ClassSystem.OMNICLASS: (ClassCode(ClassSystem.OMNICLASS, (_OMNI_ELEMENTS,)),),
-                }))
+                return CrossReference(
+                    self,
+                    frozendict({
+                        ClassSystem.MASTERFORMAT: tuple(ClassCode(ClassSystem.MASTERFORMAT, (division, 0, 0)) for division in divisions),
+                        ClassSystem.OMNICLASS: (ClassCode(ClassSystem.OMNICLASS, (_OMNI_ELEMENTS,)),),
+                    }),
+                )
             case ClassSystem.OMNICLASS:
                 table, *tail = self.segments or (0,)
                 mirror = (ClassCode(ClassSystem.MASTERFORMAT, tuple(tail)),) if table == _OMNI_WORK_RESULTS and len(tail) >= 3 else ()
@@ -238,6 +243,7 @@ class CrossReference(Struct, frozen=True):
 
     def peer(self, system: ClassSystem, /) -> tuple[ClassCode, ...]:
         return self.peers.get(system, ())
+
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -292,31 +298,61 @@ _RESERVED: Final[frozenset[int]] = frozenset(range(50)) - frozenset(_DIVISIONS)
 
 # the UniFormat Level-1 group titles and their canonical Level-2 elements (ASTM E1557 + CSI Z General).
 _GROUP_TITLES: Final[frozendict[str, str]] = frozendict({
-    "A": "Substructure", "B": "Shell", "C": "Interiors", "D": "Services",
-    "E": "Equipment and Furnishings", "F": "Special Construction and Demolition",
-    "G": "Building Sitework", "Z": "General",
+    "A": "Substructure",
+    "B": "Shell",
+    "C": "Interiors",
+    "D": "Services",
+    "E": "Equipment and Furnishings",
+    "F": "Special Construction and Demolition",
+    "G": "Building Sitework",
+    "Z": "General",
 })
 _ELEMENTS: Final[frozendict[str, Element]] = frozendict({
-    element.code: element for element in (
-        Element("A10", "Foundations", "A"), Element("A20", "Basement Construction", "A"),
-        Element("B10", "Superstructure", "B"), Element("B20", "Exterior Enclosure", "B"), Element("B30", "Roofing", "B"),
-        Element("C10", "Interior Construction", "C"), Element("C20", "Stairs", "C"), Element("C30", "Interior Finishes", "C"),
-        Element("D10", "Conveying", "D"), Element("D20", "Plumbing", "D"), Element("D30", "HVAC", "D"),
-        Element("D40", "Fire Protection", "D"), Element("D50", "Electrical", "D"),
-        Element("E10", "Equipment", "E"), Element("E20", "Furnishings", "E"),
-        Element("F10", "Special Construction", "F"), Element("F20", "Selective Building Demolition", "F"),
-        Element("G10", "Site Preparation", "G"), Element("G20", "Site Improvements", "G"),
-        Element("G30", "Site Mechanical Utilities", "G"), Element("G40", "Site Electrical Utilities", "G"),
-        Element("G90", "Other Site Construction", "G"), Element("Z10", "General", "Z"),
+    element.code: element
+    for element in (
+        Element("A10", "Foundations", "A"),
+        Element("A20", "Basement Construction", "A"),
+        Element("B10", "Superstructure", "B"),
+        Element("B20", "Exterior Enclosure", "B"),
+        Element("B30", "Roofing", "B"),
+        Element("C10", "Interior Construction", "C"),
+        Element("C20", "Stairs", "C"),
+        Element("C30", "Interior Finishes", "C"),
+        Element("D10", "Conveying", "D"),
+        Element("D20", "Plumbing", "D"),
+        Element("D30", "HVAC", "D"),
+        Element("D40", "Fire Protection", "D"),
+        Element("D50", "Electrical", "D"),
+        Element("E10", "Equipment", "E"),
+        Element("E20", "Furnishings", "E"),
+        Element("F10", "Special Construction", "F"),
+        Element("F20", "Selective Building Demolition", "F"),
+        Element("G10", "Site Preparation", "G"),
+        Element("G20", "Site Improvements", "G"),
+        Element("G30", "Site Mechanical Utilities", "G"),
+        Element("G40", "Site Electrical Utilities", "G"),
+        Element("G90", "Other Site Construction", "G"),
+        Element("Z10", "General", "Z"),
     )
 })
 
 # the OmniClass 15 tables (OCCS / ISO 12006-2) — the faceted classification vocabulary keyed by table number.
 _OMNI_TABLES: Final[frozendict[int, str]] = frozendict({
-    11: "Construction Entities by Function", 12: "Construction Entities by Form",
-    13: "Spaces by Function", 14: "Spaces by Form", 21: "Elements", 22: "Work Results",
-    23: "Products", 31: "Phases", 32: "Services", 33: "Disciplines", 34: "Organizational Roles",
-    35: "Tools", 36: "Information", 41: "Materials", 49: "Properties",
+    11: "Construction Entities by Function",
+    12: "Construction Entities by Form",
+    13: "Spaces by Function",
+    14: "Spaces by Form",
+    21: "Elements",
+    22: "Work Results",
+    23: "Products",
+    31: "Phases",
+    32: "Services",
+    33: "Disciplines",
+    34: "Organizational Roles",
+    35: "Tools",
+    36: "Information",
+    41: "Materials",
+    49: "Properties",
 })
 
 # the ONE primary crosswalk correspondence: MasterFormat division -> UniFormat Level-1 group. `_GROUP_DIVISIONS`
@@ -325,16 +361,37 @@ _OMNI_TABLES: Final[frozendict[int, str]] = frozendict({
 # Table 21 Elements IS UniFormat (elemental alignment, notation-distinct), so they derive from the alignment
 # invariant in `crosswalk`, never a hand-kept third map.
 _CROSSWALK: Final[frozendict[int, str]] = frozendict({
-    2: "G", 3: "B", 4: "B", 5: "B", 6: "B", 7: "B", 8: "B", 9: "C", 10: "C", 11: "E", 12: "E",
-    13: "F", 14: "D", 21: "D", 22: "D", 23: "D", 25: "D", 26: "D", 27: "D", 28: "D",
-    31: "G", 32: "G", 33: "G", 34: "G", 35: "G",
+    2: "G",
+    3: "B",
+    4: "B",
+    5: "B",
+    6: "B",
+    7: "B",
+    8: "B",
+    9: "C",
+    10: "C",
+    11: "E",
+    12: "E",
+    13: "F",
+    14: "D",
+    21: "D",
+    22: "D",
+    23: "D",
+    25: "D",
+    26: "D",
+    27: "D",
+    28: "D",
+    31: "G",
+    32: "G",
+    33: "G",
+    34: "G",
+    35: "G",
 })
 _GROUP_DIVISIONS: Final[frozendict[str, tuple[int, ...]]] = frozendict({
-    group: tuple(division for division, mapped in _CROSSWALK.items() if mapped == group)
-    for group in frozenset(_CROSSWALK.values())
+    group: tuple(division for division, mapped in _CROSSWALK.items() if mapped == group) for group in frozenset(_CROSSWALK.values())
 })
-_OMNI_WORK_RESULTS: Final[int] = 22   # OmniClass Table 22 == MasterFormat (exact digit copy)
-_OMNI_ELEMENTS: Final[int] = 21       # OmniClass Table 21 == UniFormat (elemental alignment, notation-distinct)
+_OMNI_WORK_RESULTS: Final[int] = 22  # OmniClass Table 22 == MasterFormat (exact digit copy)
+_OMNI_ELEMENTS: Final[int] = 21  # OmniClass Table 21 == UniFormat (elemental alignment, notation-distinct)
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -380,7 +437,7 @@ class SheetRef(Struct, frozen=True):
     discipline: Discipline = Discipline.ARCHITECTURAL
 
 
-class Reference(Struct, frozen=True):       # one keynote link: this section is detailed on this sheet
+class Reference(Struct, frozen=True):  # one keynote link: this section is detailed on this sheet
     section: ClassCode
     sheet: SheetRef
 
@@ -401,7 +458,13 @@ class Coordination(Struct, frozen=True):
         # the flat tabular egress a `visualization/table#TABLE` / `specification/section#SECTION` `TableNode`
         # renders — one row per matched link, one flagged row per orphan section, one per orphan detail.
         linked = tuple(
-            frozendict({"section": ref.section.render(), "sheet": ref.sheet.sheet, "detail": ref.sheet.detail, "discipline": ref.sheet.discipline.value, "status": "matched"})
+            frozendict({
+                "section": ref.section.render(),
+                "sheet": ref.sheet.sheet,
+                "detail": ref.sheet.detail,
+                "discipline": ref.sheet.discipline.value,
+                "status": "matched",
+            })
             for ref in self.matched
         )
         gaps_spec = tuple(
@@ -442,9 +505,7 @@ class ReferenceIndex(Struct, frozen=True):
         # sheet number.
         match query:
             case ClassCode() as section:
-                return Block.of_seq(
-                    sheet for keyed, sheets in self.forward.items() if keyed.descends_from(section) for sheet in sheets
-                )
+                return Block.of_seq(sheet for keyed, sheets in self.forward.items() if keyed.descends_from(section) for sheet in sheets)
             case SheetRef() as sheet:
                 return Block.of_seq(self.inverse.try_find(sheet.sheet).default_value(()))
             case _ as unreachable:
@@ -467,6 +528,7 @@ class ReferenceIndex(Struct, frozen=True):
         matched, orphan_refs = refs.partition(lambda ref: specifies(ref.section))
         orphan_sections = frozenset(wanted.filter(lambda code: not referenced(code)))
         return Coordination(matched=tuple(matched), orphan_sections=orphan_sections, orphan_details=tuple(orphan_refs.map(lambda ref: ref.sheet)))
+
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 

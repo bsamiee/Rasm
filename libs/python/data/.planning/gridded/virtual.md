@@ -71,8 +71,7 @@ class VirtualChunkSlab(Struct, frozen=True):
         from icechunk import VirtualChunkSpec  # noqa: PLC0415
 
         return VirtualChunkSpec(
-            index=list(self.coordinates), location=self.location, offset=self.offset,
-            length=self.length, etag_checksum=self.checksum,
+            index=list(self.coordinates), location=self.location, offset=self.offset, length=self.length, etag_checksum=self.checksum
         )
 
     def key(self) -> str:
@@ -135,14 +134,11 @@ class ManifestWrite:
         match self:
             case ManifestWrite(tag="accessor", accessor=spec):
                 fields = {key: value for key, value in asdict(spec).items() if key != "export"}
-                lowered = FieldVirtual(
-                    **fields, export=ManifestExport(icechunk=(session.store, None, None, None, True, None))
-                ).aggregate()
+                lowered = FieldVirtual(**fields, export=ManifestExport(icechunk=(session.store, None, None, None, True, None))).aggregate()
                 return lowered.map(lambda r: (tuple(r.dims), "virtual", r.bytes_stored))
             case ManifestWrite(tag="native", native=(array_path, (slab,))):
                 session.store.set_virtual_ref(
-                    slab.key(), slab.location, offset=slab.offset, length=slab.length,
-                    checksum=slab.checksum, validate_container=True,
+                    slab.key(), slab.location, offset=slab.offset, length=slab.length, checksum=slab.checksum, validate_container=True
                 )
                 return Ok(((array_path,), "native", slab.length))
             case ManifestWrite(tag="native", native=(array_path, slabs)):
@@ -210,8 +206,13 @@ class VersionOp:
                     refs_key = yield from ContentIdentity.of("virtual.refs", "\n".join(refs).encode())
                     content_key = yield from ContentIdentity.of("virtual", (snapshot_key, refs_key))
                     return VirtualReceipt(
-                        sources=len(spec.sources), dims=dims, engine=engine, chunk_refs=len(refs),
-                        bytes_referenced=referenced, snapshot_id=snapshot, branch=spec.branch,
+                        sources=len(spec.sources),
+                        dims=dims,
+                        engine=engine,
+                        chunk_refs=len(refs),
+                        bytes_referenced=referenced,
+                        snapshot_id=snapshot,
+                        branch=spec.branch,
                         head=repo.lookup_branch(spec.branch),
                         ancestry_depth=sum(1 for _ in repo.ancestry(branch=spec.branch)),
                         content_key=content_key,
@@ -270,10 +271,7 @@ class VirtualReference(Struct, frozen=True):
     containers: ContainerAuth = ()
 
     def apply(self, op: VersionOp) -> "RuntimeRail[VirtualOutcome]":
-        return boundary(
-            f"virtual.{op.tag}",
-            lambda: op.run(IceStorage.for_ref(self.ref).repository(self.containers), self),
-        ).bind(lambda rail: rail)
+        return boundary(f"virtual.{op.tag}", lambda: op.run(IceStorage.for_ref(self.ref).repository(self.containers), self)).bind(lambda rail: rail)
 ```
 
 ```mermaid

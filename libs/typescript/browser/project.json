@@ -1,0 +1,11 @@
+{
+    "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+    "name": "browser",
+    "projectType": "library",
+    "sourceRoot": "libs/typescript/browser/src",
+    "tags": [
+        "scope:browser",
+        "runtime:browser",
+        "plane:runtime"
+    ]
+}

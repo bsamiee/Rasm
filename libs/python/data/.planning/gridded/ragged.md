@@ -39,10 +39,7 @@ if TYPE_CHECKING:
 
 type Backend = Literal["cpu", "cuda", "jax"]
 type AxisOp = Literal["flatten", "num", "firsts", "local_index", "singletons", "drop", "is_none"]
-type Reduction = Literal[
-    "sum", "mean", "count", "prod", "min", "max",
-    "any", "all", "count_nonzero", "std", "var", "ptp",
-]
+type Reduction = Literal["sum", "mean", "count", "prod", "min", "max", "any", "all", "count_nonzero", "std", "var", "ptp"]
 type Paired = Literal["corr", "linear_fit", "moment"]
 type Order = Literal["sort", "argsort"]
 type Fold = Reduction | Paired | Order
@@ -53,8 +50,13 @@ type Buffers = tuple[ak.forms.Form, int, dict[str, bytes]]
 # tag binding its `ak` member, dispatched by one `_apply` arm reading `_AXIS_OP[op.tag]`
 # rather than seven near-identical switch arms differing only by the member name.
 _AXIS_OP: "Final[frozendict[AxisOp, Callable[..., ak.Array]]]" = frozendict({
-    "flatten": ak.flatten, "num": ak.num, "firsts": ak.firsts, "local_index": ak.local_index,
-    "singletons": ak.singletons, "drop": ak.drop_none, "is_none": ak.is_none,
+    "flatten": ak.flatten,
+    "num": ak.num,
+    "firsts": ak.firsts,
+    "local_index": ak.local_index,
+    "singletons": ak.singletons,
+    "drop": ak.drop_none,
+    "is_none": ak.is_none,
 })
 
 _WEIGHTED: frozenset[Fold] = frozenset({"mean", "std", "var"})
@@ -69,6 +71,7 @@ def _reduce(key: Reduction, member: "Callable[..., ak.Array]") -> FoldArm:
         if key in _SAMPLE:
             knobs["ddof"] = policy.ddof
         return member(array, **knobs)
+
     return arm
 
 
@@ -76,6 +79,7 @@ def _paired(key: Paired, member: "Callable[..., ak.Array]") -> FoldArm:
     def arm(policy: "FoldPolicy", array: ak.Array) -> ak.Array:
         knobs: dict[str, object] = {"weight": policy.weight, "axis": policy.axis, "keepdims": policy.keepdims, "mask_identity": policy.mask_identity}
         return member(array, policy.n if key == "moment" else policy.operand, **knobs)
+
     return arm
 
 
@@ -84,13 +88,26 @@ def _ordered(member: "Callable[..., ak.Array]") -> FoldArm:
 
 
 _REDUCE: "Final[frozendict[Reduction, Callable[..., ak.Array]]]" = frozendict({
-    "sum": ak.sum, "mean": ak.mean, "count": ak.count, "prod": ak.prod, "min": ak.min, "max": ak.max,
-    "any": ak.any, "all": ak.all, "count_nonzero": ak.count_nonzero, "std": ak.std, "var": ak.var, "ptp": ak.ptp,
+    "sum": ak.sum,
+    "mean": ak.mean,
+    "count": ak.count,
+    "prod": ak.prod,
+    "min": ak.min,
+    "max": ak.max,
+    "any": ak.any,
+    "all": ak.all,
+    "count_nonzero": ak.count_nonzero,
+    "std": ak.std,
+    "var": ak.var,
+    "ptp": ak.ptp,
 })
 _FOLD: "Final[frozendict[Fold, FoldArm]]" = frozendict({
     **{key: _reduce(key, member) for key, member in _REDUCE.items()},
-    "corr": _paired("corr", ak.corr), "linear_fit": _paired("linear_fit", ak.linear_fit), "moment": _paired("moment", ak.moment),
-    "sort": _ordered(ak.sort), "argsort": _ordered(ak.argsort),
+    "corr": _paired("corr", ak.corr),
+    "linear_fit": _paired("linear_fit", ak.linear_fit),
+    "moment": _paired("moment", ak.moment),
+    "sort": _ordered(ak.sort),
+    "argsort": _ordered(ak.argsort),
 })
 
 
@@ -125,10 +142,33 @@ class RaggedSource:
 @tagged_union(frozen=True)
 class RaggedOp:
     tag: Literal[
-        "flatten", "unflatten", "ravel", "num", "firsts", "local_index", "run_lengths", "singletons",
-        "zip", "cartesian", "combinations", "concat", "where", "fold", "fill", "drop", "pad",
-        "is_none", "masked", "cast", "enforce", "packed", "project",
-        "with_field", "without_field", "with_name", "with_parameter",
+        "flatten",
+        "unflatten",
+        "ravel",
+        "num",
+        "firsts",
+        "local_index",
+        "run_lengths",
+        "singletons",
+        "zip",
+        "cartesian",
+        "combinations",
+        "concat",
+        "where",
+        "fold",
+        "fill",
+        "drop",
+        "pad",
+        "is_none",
+        "masked",
+        "cast",
+        "enforce",
+        "packed",
+        "project",
+        "with_field",
+        "without_field",
+        "with_name",
+        "with_parameter",
     ] = tag()
     flatten: int = case()
     unflatten: tuple["ak.Array", int] = case()

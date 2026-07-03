@@ -35,8 +35,14 @@ from rasm.runtime.faults import RuntimeRail, async_boundary
 from artifacts.core.receipt import ArtifactReceipt
 
 lazy import pyvips  # native libvips worker gate: the proxy reifies on first `_icc_apply` use in the to_process worker, keeping libvips off the parent loader path
-lazy from PIL import Image as PilImage, ImageCms  # lcms2 soft-proof/gamut-warning only (the pillow role pyvips has no member for); reifies inside the to_process worker beside pyvips, never the device-egress engine
-lazy from colour_cxf import cxf3, read_cxf  # CxF3 device-half decode for the ColorCmykplusN N-channel separations declaration; reifies in the parent when separations() is first called
+lazy from PIL import (
+    Image as PilImage,
+    ImageCms,
+)  # lcms2 soft-proof/gamut-warning only (the pillow role pyvips has no member for); reifies inside the to_process worker beside pyvips, never the device-egress engine
+lazy from colour_cxf import (
+    cxf3,
+    read_cxf,
+)  # CxF3 device-half decode for the ColorCmykplusN N-channel separations declaration; reifies in the parent when separations() is first called
 
 type Tristimulus = NDArray[np.float64]
 type ManagedRaster = NDArray[np.uint8] | NDArray[np.uint16]
@@ -130,7 +136,7 @@ class ManagedFact(StrEnum):
     SPACE = "space"  # the egress libvips Interpretation (srgb/cmyk/...) — the separations-relevant output colourspace
     GAMUT = "gamut"  # the soft-proof out-of-press-gamut pixel count (0 when no proof profile is set)
     SPOTS = "spots"  # the CxF ColorCmykplusN N-channel spot-separation count the egress declares
-    INK = "ink"      # the peak Total Area Coverage % over the converted CMYK field — the ISO 12647 / PDF-X-4 ink-limit preflight (0.0 for a non-cmyk egress)
+    INK = "ink"  # the peak Total Area Coverage % over the converted CMYK field — the ISO 12647 / PDF-X-4 ink-limit preflight (0.0 for a non-cmyk egress)
 
 
 type ProfileRef = bytes | BuiltinProfile
@@ -188,7 +194,9 @@ class GradeStep:
         return GradeStep(colourspace=(source, target, adapt))
 
     @staticmethod
-    def Correction(ccm: NDArray[np.float64], /) -> "GradeStep":  # the device-calibration CCM is fitted upstream at derive#DERIVE; this step only applies it
+    def Correction(
+        ccm: NDArray[np.float64], /
+    ) -> "GradeStep":  # the device-calibration CCM is fitted upstream at derive#DERIVE; this step only applies it
         return GradeStep(correction=ccm)
 
     @staticmethod
@@ -208,8 +216,12 @@ class IccTransform:
     bpc: bool = True
     pcs: ConnectionSpace = ConnectionSpace.LAB
     depth: BitDepth = BitDepth.UINT8
-    proof: bytes | None = None  # a press/proof ICC profile; when set the to_process worker soft-proofs it (buildProofTransform + Flags.SOFTPROOFING|GAMUTCHECK) and counts out-of-gamut pixels — the pillow lcms2 role pyvips has no member for, a DISTINCT control from the deleted device-egress buildTransform
-    separations: tuple[SpotChannel, ...] = ()  # the CxF ColorCmykplusN N-channel spot declaration separations() decodes; its count crosses to the worker and rides ManagedFact.SPOTS as separations-preflight evidence (pyvips icc_transform converts to the CMYK profile but authors no named DeviceN channel)
+    proof: bytes | None = (
+        None  # a press/proof ICC profile; when set the to_process worker soft-proofs it (buildProofTransform + Flags.SOFTPROOFING|GAMUTCHECK) and counts out-of-gamut pixels — the pillow lcms2 role pyvips has no member for, a DISTINCT control from the deleted device-egress buildTransform
+    )
+    separations: tuple[
+        SpotChannel, ...
+    ] = ()  # the CxF ColorCmykplusN N-channel spot declaration separations() decodes; its count crosses to the worker and rides ManagedFact.SPOTS as separations-preflight evidence (pyvips icc_transform converts to the CMYK profile but authors no named DeviceN channel)
 
 
 _ICC_DEFAULT: IccTransform = IccTransform()
@@ -222,7 +234,14 @@ class ManageOp:
     export: tuple[NDArray[np.float64], str, BitDepth, tuple[GradeStep, ...]] = case()
 
     @staticmethod
-    def Managed(raster: ManagedRaster, src_profile: ProfileRef, dst_profile: ProfileRef, transform: IccTransform = _ICC_DEFAULT, codec: ManagedCodec = ManagedCodec.PNG, grade: tuple[GradeStep, ...] = ()) -> "ManageOp":
+    def Managed(
+        raster: ManagedRaster,
+        src_profile: ProfileRef,
+        dst_profile: ProfileRef,
+        transform: IccTransform = _ICC_DEFAULT,
+        codec: ManagedCodec = ManagedCodec.PNG,
+        grade: tuple[GradeStep, ...] = (),
+    ) -> "ManageOp":
         return ManageOp(managed=(raster, src_profile, dst_profile, transform, codec, grade))
 
     @staticmethod
@@ -242,7 +261,19 @@ class ColorManaged(Struct, frozen=True):
                 # the whole normalize+grade+ICC pass AND the optional lcms2 soft-proof ride the to_process worker — the full-image
                 # grade never runs on the loop nor as a `toned` arg evaluated before the offload; the raster + grade chain cross the seam.
                 blob, width, height, bands, embedded, space, gamut, spots, ink = await to_process.run_sync(
-                    _icc_apply, raster, src_profile, dst_profile, transform.intent.value, transform.bpc, transform.pcs.value, _DEPTH_BITS[transform.depth], codec, grade, transform.proof, len(transform.separations), limiter=_ICC_LANE
+                    _icc_apply,
+                    raster,
+                    src_profile,
+                    dst_profile,
+                    transform.intent.value,
+                    transform.bpc,
+                    transform.pcs.value,
+                    _DEPTH_BITS[transform.depth],
+                    codec,
+                    grade,
+                    transform.proof,
+                    len(transform.separations),
+                    limiter=_ICC_LANE,
                 )
                 scores: frozendict[str, float | str] = frozendict({
                     ManagedFact.INTENT.value: transform.intent.value,
@@ -285,7 +316,9 @@ def _grade(field: Tristimulus, steps: tuple[GradeStep, ...]) -> Tristimulus:
             case GradeStep(tag="broadcast", broadcast=(kind, curve)):
                 return _BROADCAST[kind](acc, function=curve.value)
             case GradeStep(tag="colourspace", colourspace=(source, target, adapt)):
-                return colour.RGB_to_RGB(acc, colour.RGB_COLOURSPACES[source.value], colour.RGB_COLOURSPACES[target.value], chromatic_adaptation_transform=adapt.value)
+                return colour.RGB_to_RGB(
+                    acc, colour.RGB_COLOURSPACES[source.value], colour.RGB_COLOURSPACES[target.value], chromatic_adaptation_transform=adapt.value
+                )
             case GradeStep(tag="correction", correction=ccm):
                 return colour.apply_matrix_colour_correction(acc, ccm)
             case GradeStep(tag="lut", lut=paths):
@@ -310,12 +343,44 @@ def _softproof(rgb8: NDArray[np.uint8], reference: str | ImageCms.ImageCmsProfil
     origin = PilImage.fromarray(rgb8, "RGB")
     intent_member = getattr(ImageCms.Intent, _PROOF_INTENT_NAME[intent])
     proof_intent = ImageCms.Intent.ABSOLUTE_COLORIMETRIC  # paper-white-simulating proof intent, the soft-proof standard
-    plain = ImageCms.buildProofTransform(reference, reference, proof_path, "RGB", "RGB", renderingIntent=intent_member, proofRenderingIntent=proof_intent, flags=ImageCms.Flags.SOFTPROOFING)
-    warned = ImageCms.buildProofTransform(reference, reference, proof_path, "RGB", "RGB", renderingIntent=intent_member, proofRenderingIntent=proof_intent, flags=ImageCms.Flags.SOFTPROOFING | ImageCms.Flags.GAMUTCHECK)
-    return int(np.count_nonzero(np.any(np.asarray(ImageCms.applyTransform(origin, plain)) != np.asarray(ImageCms.applyTransform(origin, warned)), axis=-1)))
+    plain = ImageCms.buildProofTransform(
+        reference,
+        reference,
+        proof_path,
+        "RGB",
+        "RGB",
+        renderingIntent=intent_member,
+        proofRenderingIntent=proof_intent,
+        flags=ImageCms.Flags.SOFTPROOFING,
+    )
+    warned = ImageCms.buildProofTransform(
+        reference,
+        reference,
+        proof_path,
+        "RGB",
+        "RGB",
+        renderingIntent=intent_member,
+        proofRenderingIntent=proof_intent,
+        flags=ImageCms.Flags.SOFTPROOFING | ImageCms.Flags.GAMUTCHECK,
+    )
+    return int(
+        np.count_nonzero(np.any(np.asarray(ImageCms.applyTransform(origin, plain)) != np.asarray(ImageCms.applyTransform(origin, warned)), axis=-1))
+    )
 
 
-def _icc_apply(raster: ManagedRaster, src: ProfileRef, dst: ProfileRef, intent: str, bpc: bool, pcs: str, depth: int, codec: ManagedCodec, grade: tuple[GradeStep, ...], proof: bytes | None, spots: int) -> tuple[bytes, int, int, int, bool, str, int, int, float]:
+def _icc_apply(
+    raster: ManagedRaster,
+    src: ProfileRef,
+    dst: ProfileRef,
+    intent: str,
+    bpc: bool,
+    pcs: str,
+    depth: int,
+    codec: ManagedCodec,
+    grade: tuple[GradeStep, ...],
+    proof: bytes | None,
+    spots: int,
+) -> tuple[bytes, int, int, int, bool, str, int, int, float]:
     toned = _grade(raster / np.float64(np.iinfo(raster.dtype).max), grade)  # normalize-to-unit then grade, inside the worker
 
     def named(stack: ExitStack, profile: ProfileRef, /) -> str:
@@ -332,7 +397,11 @@ def _icc_apply(raster: ManagedRaster, src: ProfileRef, dst: ProfileRef, intent: 
         managed = image.icc_transform(named(stack, dst), input_profile=src_path, intent=intent, black_point_compensation=bpc, pcs=pcs, depth=depth)
         # a bytes src carries a real ICC path lcms2 opens; a BuiltinProfile device name has no lcms2 built-in beyond sRGB, so the soft-proof references the sRGB display.
         reference = src_path if isinstance(src, bytes) else ImageCms.createProfile("sRGB")
-        gamut = _softproof(np.clip(np.asarray(toned)[..., :3] * 255.0, 0.0, 255.0).astype(np.uint8), reference, named(stack, proof), intent) if proof is not None else 0
+        gamut = (
+            _softproof(np.clip(np.asarray(toned)[..., :3] * 255.0, 0.0, 255.0).astype(np.uint8), reference, named(stack, proof), intent)
+            if proof is not None
+            else 0
+        )
         space = str(managed.interpretation)  # the egress libvips Interpretation (cmyk for a CMYK/separations target, srgb otherwise)
         # Total Area Coverage — the peak (C+M+Y+K) ink sum over the converted CMYK field, the ISO 12647 / PDF-X-4
         # ink-limit preflight paired with the soft-proof `gamut` count. The `cmyk` egress guarantees 4 bands, so the
@@ -340,7 +409,9 @@ def _icc_apply(raster: ManagedRaster, src: ProfileRef, dst: ProfileRef, intent: 
         # ceiling as a percentage; 0.0 for a non-separations (non-cmyk) egress that lays down no press ink.
         ink = float((managed[0] + managed[1] + managed[2] + managed[3]).maxpos()[0]) / float((1 << depth) - 1) * 100.0 if space == "cmyk" else 0.0
         return (
-            managed.write_to_buffer(codec.value, keep=pyvips.ForeignKeep.ICC, **_CODEC_OPTS[codec]),  # explicit ICC retention on egress, never default-metadata-retention alone
+            managed.write_to_buffer(
+                codec.value, keep=pyvips.ForeignKeep.ICC, **_CODEC_OPTS[codec]
+            ),  # explicit ICC retention on egress, never default-metadata-retention alone
             managed.width,
             managed.height,
             managed.bands,

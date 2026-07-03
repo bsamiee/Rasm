@@ -114,9 +114,22 @@ from msgspec import Struct
 from rasm.runtime._pb2 import channels_pb2
 from rasm.runtime.faults import BoundaryFault, RuntimeRail
 from rasm.runtime.shapes import (
-    ArtifactFrame, FaultDetail, GenerateRequest, GraphChunk, GraphDiffRequest, GraphDiffResponse,
-    InferRequest, InferResponse, QueryRequest, QueryResponse, SolveRequest, SolveResponse,
-    SubtreeFetchRequest, TokenChunk, TransactionReceipt, TransactionRequest,
+    ArtifactFrame,
+    FaultDetail,
+    GenerateRequest,
+    GraphChunk,
+    GraphDiffRequest,
+    GraphDiffResponse,
+    InferRequest,
+    InferResponse,
+    QueryRequest,
+    QueryResponse,
+    SolveRequest,
+    SolveResponse,
+    SubtreeFetchRequest,
+    TokenChunk,
+    TransactionReceipt,
+    TransactionRequest,
 )
 
 # --- [MODELS] ---------------------------------------------------------------------------

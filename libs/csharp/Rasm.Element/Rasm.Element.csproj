@@ -14,6 +14,7 @@
 
     <ItemGroup Label="Time Identity">
         <PackageReference Include="NodaTime" />
+        <PackageReference Include="NodaTime.Serialization.Protobuf" />
     </ItemGroup>
 
     <ItemGroup Label="Graph Algorithm">
@@ -26,8 +27,13 @@
 
     <ItemGroup Label="Boundary Transcription">
         <PackageReference Include="Generator.Equals" />
+        <PackageReference Include="Google.Protobuf" />
         <PackageReference Include="Riok.Mapperly" />
         <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
+    </ItemGroup>
+
+    <ItemGroup Label="Wire Codegen">
+        <PackageReference Include="Grpc.Tools" PrivateAssets="all" />
     </ItemGroup>
 
     <ItemGroup Label="System Usings">

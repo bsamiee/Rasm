@@ -471,11 +471,13 @@ class Shape:
             case {"key": ""}:
                 return Error(ReplaceFault(empty_key=None))
             case _:
-                return Ok(replace(
-                    self,
-                    key=patch.get("key", self.key),
-                    version=self.version + 1,
-                    labels=self.labels | patch.get("labels", frozendict()),
-                    cursor=self.cursor.rewound(self.version + 1),
-                ))
+                return Ok(
+                    replace(
+                        self,
+                        key=patch.get("key", self.key),
+                        version=self.version + 1,
+                        labels=self.labels | patch.get("labels", frozendict()),
+                        cursor=self.cursor.rewound(self.version + 1),
+                    )
+                )
 ```

@@ -82,12 +82,10 @@ _MAX_STEPS: int = 256
 # `program` verdict in slot 2. The ONE owner over the case shapes the sibling `SolverReceipt._SLOTS`
 # establishes: the `.facts` total `match`-zip packs each case's destructured payload by its row under
 # `strict=True`, so a case's evidence is one row, never a per-case hand-spelled fact dict.
-_OUTCOME_SLOTS: FrozenDict[str, tuple[str, ...]] = FrozenDict(
-    {
-        "design": ("problem", "objective", "residual", "iterations", "status", "key"),
-        "program": ("program", "objective", "status", "violation", "key"),
-    }
-)
+_OUTCOME_SLOTS: FrozenDict[str, tuple[str, ...]] = FrozenDict({
+    "design": ("problem", "objective", "residual", "iterations", "status", "key"),
+    "program": ("program", "objective", "status", "violation", "key"),
+})
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -142,9 +140,7 @@ class OutcomeReceipt:
     program: tuple[str, float, SolveStatus, float, ContentKey] = case()
 
     @classmethod
-    def Design(
-        cls, problem: str, objective: float, residual: float, iterations: int, status: SolveStatus, content_key: ContentKey
-    ) -> Self:
+    def Design(cls, problem: str, objective: float, residual: float, iterations: int, status: SolveStatus, content_key: ContentKey) -> Self:
         return cls(design=(problem, objective, residual, iterations, status, content_key))
 
     @classmethod
@@ -255,13 +251,11 @@ class Descent:
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-_DEFAULT_DESCENT: FrozenDict[str, Descent] = FrozenDict(
-    {
-        "field": Descent.QuasiNewton(),
-        "mesh": Descent.Levenberg(),
-        "density": Descent.FirstOrder(feasible=Feasible.BOX),
-    }
-)
+_DEFAULT_DESCENT: FrozenDict[str, Descent] = FrozenDict({
+    "field": Descent.QuasiNewton(),
+    "mesh": Descent.Levenberg(),
+    "density": Descent.FirstOrder(feasible=Feasible.BOX),
+})
 
 
 def _projected(projection: "Callable[[PyTree], PyTree]") -> "optax.GradientTransformationExtraArgs":
@@ -293,14 +287,12 @@ def _feasible() -> "FrozenDict[Feasible, tuple[optax.GradientTransformation, ...
     # in-chain box feasibility, `FREE` is the empty tuple.
     import optax
 
-    return FrozenDict(
-        {
-            Feasible.FREE: (),
-            Feasible.BOX: (_projected(functools.partial(optax.projections.projection_box, lower=0.0, upper=1.0)),),
-            Feasible.SIMPLEX: (_projected(optax.projections.projection_simplex),),
-            Feasible.NONNEGATIVE: (optax.keep_params_nonnegative(),),
-        }
-    )
+    return FrozenDict({
+        Feasible.FREE: (),
+        Feasible.BOX: (_projected(functools.partial(optax.projections.projection_box, lower=0.0, upper=1.0)),),
+        Feasible.SIMPLEX: (_projected(optax.projections.projection_simplex),),
+        Feasible.NONNEGATIVE: (optax.keep_params_nonnegative(),),
+    })
 
 
 @functools.cache
@@ -348,18 +340,14 @@ def _backend(problem: "DesignProblem", descent: "Descent", restarts: int, seed: 
     return _design_key(problem.tag, objective.params, descent, restarts, seed).map(railed)
 
 
-def _backend_outcome(
-    tag: str, objective: "Objective", descent: "Descent", restarts: int, seed: int
-) -> "Callable[[ContentKey], OutcomeReceipt]":
+def _backend_outcome(tag: str, objective: "Objective", descent: "Descent", restarts: int, seed: int) -> "Callable[[ContentKey], OutcomeReceipt]":
     try:
         return _optimistix(tag, objective, descent, restarts, seed)
     except ImportError:
         return _floor(tag, objective)
 
 
-def _optimistix(
-    tag: str, objective: "Objective", descent: "Descent", restarts: int, seed: int
-) -> "Callable[[ContentKey], OutcomeReceipt]":
+def _optimistix(tag: str, objective: "Objective", descent: "Descent", restarts: int, seed: int) -> "Callable[[ContentKey], OutcomeReceipt]":
     import equinox as eqx
     import jax
     import jax.numpy as jnp
@@ -381,9 +369,7 @@ def _optimistix(
 
     if restarts > 1:
         keys = jax.random.split(jax.random.key(seed), restarts)
-        starts = eqx.filter_vmap(
-            lambda k: jax.tree_util.tree_map(lambda leaf: leaf + _JITTER * jax.random.normal(k, leaf.shape), design)
-        )(keys)
+        starts = eqx.filter_vmap(lambda k: jax.tree_util.tree_map(lambda leaf: leaf + _JITTER * jax.random.normal(k, leaf.shape), design))(keys)
         solution = eqx.filter_vmap(run)(starts)
         scored = eqx.filter_vmap(lambda v: objective.cost(eqx.combine(v, static))[0])(solution.value)
         best = int(jnp.argmin(scored))
@@ -455,6 +441,7 @@ def _floor_cost(
         case Shape.RESIDUAL:
             return lambda flat: 0.5 * float((raw(flat) ** 2).sum()), lambda flat: float(np.linalg.norm(raw(flat)))
         case Shape.SCALAR:
+
             def scalar(flat: np.ndarray) -> float:
                 return float(raw(flat).reshape(()).item())
 

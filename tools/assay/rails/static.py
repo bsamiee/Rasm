@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from hashlib import sha256
 from pathlib import PurePosixPath
+from shutil import rmtree
 from typing import Annotated, Self, TYPE_CHECKING
 
 from cyclopts import Parameter
@@ -15,7 +16,11 @@ import msgspec
 import structlog
 
 from tools.assay.composition.catalog import select
-from tools.assay.composition.settings import ArtifactScope, AssaySettings  # noqa: TC001  # runtime: public rail signatures are inspected
+from tools.assay.composition.settings import (  # noqa: TC001  # runtime: public rail signatures are inspected
+    ArtifactScope,
+    AssaySettings,
+    DOTNET_BUILD_CLOSURE,
+)
 from tools.assay.core.engine import argv_for, fan_out, leased, resource_projection, run_check
 from tools.assay.core.model import (
     # _sarif_status is a model-owned reader the rail forwards; private cross-module reach is intentional.
@@ -123,10 +128,6 @@ class StaticParams:
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _closure_sha(routed: Routed) -> str:
-    return sha256("\n".join(routed.projects).encode()).hexdigest()[:16]
-
-
 def _route_sha(routed: Routed) -> str:
     seed = "\n".join((*routed.projects, *routed.files, *routed.full_triggers)) or routed.language.name
     return sha256(seed.encode()).hexdigest()[:16]
@@ -134,10 +135,6 @@ def _route_sha(routed: Routed) -> str:
 
 def _builds_closure(routed: Routed) -> bool:
     return bool(routed.projects) or _workspace_route(routed)
-
-
-def _build_sha(routed: Routed) -> str:
-    return _closure_sha(routed) if routed.projects else _route_sha(routed)
 
 
 def _scoped_settings(settings: AssaySettings) -> AssaySettings:
@@ -226,7 +223,7 @@ def _argv(check: Check, routed: Routed, settings: AssaySettings, scope: Artifact
 
 
 def _planned(routed: Routed, phases: PhaseChecks, settings: AssaySettings, scope: ArtifactScope) -> tuple[tuple[str, str, str], ...]:
-    active_scope = ArtifactScope.build(settings, _build_sha(routed)) if _uses_build_scope(routed, phases) else scope
+    active_scope = ArtifactScope.build(settings, DOTNET_BUILD_CLOSURE) if _uses_build_scope(routed, phases) else scope
     return tuple((phase, check.tool.name, _argv(check, routed, settings, active_scope)) for phase, checks in phases for check in checks)
 
 
@@ -235,12 +232,9 @@ def _uses_build_scope(routed: Routed, phases: PhaseChecks) -> bool:
 
 
 def _artifacts(settings: AssaySettings, routed: tuple[Routed, ...]) -> tuple[Artifact, ...]:
-    return tuple(
-        Artifact(id=f"build-{sha}", kind=ArtifactKind.SCOPE, path=ArtifactScope.build(settings, sha).path)
-        for route_row in routed
-        for sha in (_build_sha(route_row),)
-        if _builds_closure(route_row)
-    )
+    builds = any(_builds_closure(route_row) for route_row in routed)
+    scope_path = ArtifactScope.build(settings, DOTNET_BUILD_CLOSURE).path if builds else ""
+    return (Artifact(id=f"build-{DOTNET_BUILD_CLOSURE}", kind=ArtifactKind.SCOPE, path=scope_path),) if builds else ()
 
 
 def _route_rows(routed: tuple[Routed, ...]) -> tuple[tuple[str, ...], ...]:
@@ -439,9 +433,8 @@ def _skipped(checks: tuple[Check, ...], routed: Routed, settings: AssaySettings,
 
 
 def _build_fan(phases: PhaseChecks, routed: Routed, settings: AssaySettings) -> tuple[Result[Completed, Fault], ...]:
-    closure = _build_sha(routed)
-    active_scope = ArtifactScope.build(settings, closure)
-    resource = f"build-{closure}-{settings.configuration.value}"
+    active_scope = ArtifactScope.build(settings, DOTNET_BUILD_CLOSURE)
+    resource = f"build-{DOTNET_BUILD_CLOSURE}-{settings.configuration.value}"
     project = f"{settings.configuration.value}:{','.join(routed.projects or routed.files)}"
 
     def run() -> tuple[Result[Completed, Fault], ...]:
@@ -491,10 +484,16 @@ def _probe_compiles(closure_phases: PhaseChecks, routed: Routed, settings: Assay
     builds = tuple(_probe_check(check) for phase, checks in closure_phases if phase is Phase.BUILD for check in checks)
     if not builds:
         return True
-    throwaway = ArtifactScope.build(settings, f"probe-{_build_sha(routed)}")
+    throwaway = ArtifactScope.build(settings, "probe")
     _LOG.info("phase.start", phase="probe", checks=len(builds), run_id=settings.run_id, route=routed.language.value)
-    outcomes = tuple(run_check(check, settings=settings, scope=throwaway, routed=routed) for check in builds)
-    compiles = all(outcome.map(lambda done: done.status in _COMPILES).default_value(False) for outcome in outcomes)  # noqa: FBT003  # expression sentinel default: an Error/ambiguous probe collapses to the safe no-compile path, not a behavior flag
+    try:
+        outcomes = tuple(run_check(check, settings=settings, scope=throwaway, routed=routed) for check in builds)
+        compiles = all(outcome.map(lambda done: done.status in _COMPILES).default_value(False) for outcome in outcomes)  # noqa: FBT003  # expression sentinel default: an Error/ambiguous probe collapses to the safe no-compile path, not a behavior flag
+    finally:
+        # Throwaway means thrown away: an analyzer-free probe tree is a full solution build that must never accumulate.
+        # The scope's dotnet-cli home survives as a live cache so a probe never re-pays the NuGet first-run cost.
+        for leaf in ("bin", "obj"):
+            rmtree(f"{throwaway.path}/{leaf}", ignore_errors=True)
     _LOG.info("phase.end", phase="probe", checks=len(builds), compiles=compiles, run_id=settings.run_id, route=routed.language.value)
     return compiles
 

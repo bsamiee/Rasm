@@ -50,7 +50,23 @@ lazy from artifacts.exchange.detect import Detect, DetectEngine, DetectIdentity,
 lazy from artifacts.graphic.raster.measure import MEASURE_TRANSFORMS
 lazy from artifacts.graphic.raster.process import TRANSFORMS, TransformInput
 
-type RasterOpTag = Literal["thumbnail", "convert", "crop", "probe", "montage", "composite", "transform", "detect", "smartcrop", "pyramid", "geometry", "deframe", "sequence", "quantize", "children"]
+type RasterOpTag = Literal[
+    "thumbnail",
+    "convert",
+    "crop",
+    "probe",
+    "montage",
+    "composite",
+    "transform",
+    "detect",
+    "smartcrop",
+    "pyramid",
+    "geometry",
+    "deframe",
+    "sequence",
+    "quantize",
+    "children",
+]
 type Pixels = tuple[int, int]
 type Box = tuple[int, int, int, int]
 type Frame = NDArray[np.uint8]
@@ -66,42 +82,46 @@ class RasterEngine(StrEnum):
 
 class FitMode(StrEnum):
     CONTAIN = "contain"  # fit inside the box, preserve aspect, no crop (pillow ImageOps.contain / libvips crop=NONE)
-    COVER = "cover"      # fill the box, crop the overflow (pillow ImageOps.fit / libvips crop=ATTENTION)
+    COVER = "cover"  # fill the box, crop the overflow (pillow ImageOps.fit / libvips crop=ATTENTION)
     STRETCH = "stretch"  # force the exact box, ignore aspect (pillow resize / libvips size=FORCE)
-    PAD = "pad"          # fit inside, then letterbox to the exact box with background (pillow ImageOps.pad / libvips embed+Extend)
+    PAD = "pad"  # fit inside, then letterbox to the exact box with background (pillow ImageOps.pad / libvips embed+Extend)
 
 
 class CropFocus(StrEnum):  # the libvips Interesting salient-region model the content-aware SmartCrop resolves by .value nickname
     ATTENTION = "attention"  # saliency-map peak (the default auto-focus)
-    ENTROPY = "entropy"      # maximum-entropy window
+    ENTROPY = "entropy"  # maximum-entropy window
     CENTRE = "centre"
-    LOW = "low"              # lowest-column/row edge
+    LOW = "low"  # lowest-column/row edge
     HIGH = "high"
 
 
 class PyramidLayout(StrEnum):  # the libvips ForeignDzLayout deep-zoom pyramid form dzsave_buffer emits by .value nickname
-    DZ = "dz"                # DeepZoom
+    DZ = "dz"  # DeepZoom
     ZOOMIFY = "zoomify"
     GOOGLE = "google"
     IIIF = "iiif"
     IIIF3 = "iiif3"
 
 
-class GeometryOp(StrEnum):  # the pillow geometric working-surface family: Transpose members + arbitrary rotate + affine/perspective transform + integer reduce
-    FLIP_H = "flip-h"            # Transpose.FLIP_LEFT_RIGHT
-    FLIP_V = "flip-v"            # Transpose.FLIP_TOP_BOTTOM
-    ROTATE_90 = "rotate-90"      # Transpose.ROTATE_90 (lossless quarter-turn)
-    ROTATE_180 = "rotate-180"    # Transpose.ROTATE_180
-    ROTATE_270 = "rotate-270"    # Transpose.ROTATE_270
-    TRANSPOSE = "transpose"      # Transpose.TRANSPOSE (main-diagonal)
-    TRANSVERSE = "transverse"    # Transpose.TRANSVERSE (anti-diagonal)
-    ROTATE = "rotate"            # Image.rotate(angle, expand=True) — arbitrary-angle, params=(angle,)
-    AFFINE = "affine"            # Image.transform(size, AFFINE, coeffs) — params the 6 affine coefficients
+class GeometryOp(
+    StrEnum
+):  # the pillow geometric working-surface family: Transpose members + arbitrary rotate + affine/perspective transform + integer reduce
+    FLIP_H = "flip-h"  # Transpose.FLIP_LEFT_RIGHT
+    FLIP_V = "flip-v"  # Transpose.FLIP_TOP_BOTTOM
+    ROTATE_90 = "rotate-90"  # Transpose.ROTATE_90 (lossless quarter-turn)
+    ROTATE_180 = "rotate-180"  # Transpose.ROTATE_180
+    ROTATE_270 = "rotate-270"  # Transpose.ROTATE_270
+    TRANSPOSE = "transpose"  # Transpose.TRANSPOSE (main-diagonal)
+    TRANSVERSE = "transverse"  # Transpose.TRANSVERSE (anti-diagonal)
+    ROTATE = "rotate"  # Image.rotate(angle, expand=True) — arbitrary-angle, params=(angle,)
+    AFFINE = "affine"  # Image.transform(size, AFFINE, coeffs) — params the 6 affine coefficients
     PERSPECTIVE = "perspective"  # Image.transform(size, PERSPECTIVE, coeffs) — params the 8 perspective coefficients
-    REDUCE = "reduce"            # Image.reduce(factor) — integer-factor box downscale, params=(factor,)
+    REDUCE = "reduce"  # Image.reduce(factor) — integer-factor box downscale, params=(factor,)
 
 
-class BlendMode(StrEnum):  # the full 25-case libvips composite2 nickname vocabulary passed by .value (VipsBlendMode order); OVER is the source-over watermark/stamp default
+class BlendMode(
+    StrEnum
+):  # the full 25-case libvips composite2 nickname vocabulary passed by .value (VipsBlendMode order); OVER is the source-over watermark/stamp default
     CLEAR = "clear"
     SOURCE = "source"
     OVER = "over"
@@ -138,11 +158,11 @@ class Transform(StrEnum):  # the 139-member sub-axis vocabulary; rows + acceptor
     INPAINT = "inpaint"
     ROLLING_BALL = "rolling-ball"
     DECONVOLVE = "deconvolve"
-    WIENER = "wiener"                           # restoration.wiener supervised deconvolution
-    UNSUPERVISED_WIENER = "unsupervised-wiener" # restoration.unsupervised_wiener self-tuned Wiener-Hunt
-    UNWRAP_PHASE = "unwrap-phase"               # restoration.unwrap_phase 2D phase-unwrap
-    SEPARATE_STAINS = "separate-stains"         # color.separate_stains H&E/HDX stain unmixing (_color acceptor)
-    YCBCR = "ycbcr"                             # color.rgb2ycbcr broadcast colorspace (_color acceptor)
+    WIENER = "wiener"  # restoration.wiener supervised deconvolution
+    UNSUPERVISED_WIENER = "unsupervised-wiener"  # restoration.unsupervised_wiener self-tuned Wiener-Hunt
+    UNWRAP_PHASE = "unwrap-phase"  # restoration.unwrap_phase 2D phase-unwrap
+    SEPARATE_STAINS = "separate-stains"  # color.separate_stains H&E/HDX stain unmixing (_color acceptor)
+    YCBCR = "ycbcr"  # color.rgb2ycbcr broadcast colorspace (_color acceptor)
     CLAHE = "clahe"
     EQUALIZE = "equalize"
     RESCALE_INTENSITY = "rescale-intensity"
@@ -152,7 +172,7 @@ class Transform(StrEnum):  # the 139-member sub-axis vocabulary; rows + acceptor
     SIGMOID = "sigmoid"
     SLIC = "slic"
     FELZENSZWALB = "felzenszwalb"
-    QUICKSHIFT = "quickshift"                   # segmentation.quickshift mode-seeking superpixel
+    QUICKSHIFT = "quickshift"  # segmentation.quickshift mode-seeking superpixel
     WATERSHED = "watershed"
     CHAN_VESE = "chan-vese"
     MORPHOLOGICAL_CHAN_VESE = "morphological-chan-vese"  # segmentation.morphological_chan_vese level-set
@@ -185,49 +205,49 @@ class Transform(StrEnum):  # the 139-member sub-axis vocabulary; rows + acceptor
     THRESHOLD_NIBLACK = "threshold-niblack"
     THRESHOLD_SAUVOLA = "threshold-sauvola"
     SKELETONIZE = "skeletonize"
-    MEDIAL_AXIS = "medial-axis"                 # morphology.medial_axis (BINARY_PLAIN)
-    THIN = "thin"                               # morphology.thin iterative thinning (BINARY_PLAIN)
+    MEDIAL_AXIS = "medial-axis"  # morphology.medial_axis (BINARY_PLAIN)
+    THIN = "thin"  # morphology.thin iterative thinning (BINARY_PLAIN)
     OPENING = "opening"
     CLOSING = "closing"
     EROSION = "erosion"
     DILATION = "dilation"
-    WHITE_TOPHAT = "white-tophat"               # morphology.white_tophat bright-feature (GRAY_FOOTPRINT)
-    BLACK_TOPHAT = "black-tophat"               # morphology.black_tophat dark-feature (GRAY_FOOTPRINT)
-    RECONSTRUCTION = "reconstruction"           # morphology.reconstruction opening-by-reconstruction (RECONSTRUCT)
+    WHITE_TOPHAT = "white-tophat"  # morphology.white_tophat bright-feature (GRAY_FOOTPRINT)
+    BLACK_TOPHAT = "black-tophat"  # morphology.black_tophat dark-feature (GRAY_FOOTPRINT)
+    RECONSTRUCTION = "reconstruction"  # morphology.reconstruction opening-by-reconstruction (RECONSTRUCT)
     REMOVE_SMALL_OBJECTS = "remove-small-objects"  # morphology.remove_small_objects (PRUNE)
     RESIZE = "resize"
     RESCALE = "rescale"
     ROTATE = "rotate"
-    SWIRL = "swirl"                             # transform.swirl free-form warp
-    WARP_POLAR = "warp-polar"                   # transform.warp_polar log-/linear-polar unwrap
+    SWIRL = "swirl"  # transform.swirl free-form warp
+    WARP_POLAR = "warp-polar"  # transform.warp_polar log-/linear-polar unwrap
     RADON = "radon"
-    IRADON = "iradon"                           # transform.iradon filtered back-projection reconstruction
-    WARP = "warp"                               # transform.warp over estimate_transform("projective") — keystone/perspective dewarp (_geometric)
-    RAG_CUT_THRESHOLD = "rag-cut-threshold"     # graph.cut_threshold over the mean-color RAG (_graph)
-    RAG_CUT_NORMALIZED = "rag-cut-normalized"   # graph.cut_normalized recursive partition (_graph)
-    RAG_MERGE = "rag-merge"                     # graph.merge_hierarchical agglomerative merge (_graph)
-    MIN_COST_PATH = "min-cost-path"             # graph.route_through_array least-cost path over the luminance cost (_graph)
-    COMBINE_STAINS = "combine-stains"           # color.combine_stains inverse remix (_color)
-    RGB2HSV = "rgb2hsv"                         # color.rgb2hsv (_color)
-    RGB2LAB = "rgb2lab"                         # color.rgb2lab (_color)
-    LAB2RGB = "lab2rgb"                         # color.lab2rgb (_color)
+    IRADON = "iradon"  # transform.iradon filtered back-projection reconstruction
+    WARP = "warp"  # transform.warp over estimate_transform("projective") — keystone/perspective dewarp (_geometric)
+    RAG_CUT_THRESHOLD = "rag-cut-threshold"  # graph.cut_threshold over the mean-color RAG (_graph)
+    RAG_CUT_NORMALIZED = "rag-cut-normalized"  # graph.cut_normalized recursive partition (_graph)
+    RAG_MERGE = "rag-merge"  # graph.merge_hierarchical agglomerative merge (_graph)
+    MIN_COST_PATH = "min-cost-path"  # graph.route_through_array least-cost path over the luminance cost (_graph)
+    COMBINE_STAINS = "combine-stains"  # color.combine_stains inverse remix (_color)
+    RGB2HSV = "rgb2hsv"  # color.rgb2hsv (_color)
+    RGB2LAB = "rgb2lab"  # color.rgb2lab (_color)
+    LAB2RGB = "lab2rgb"  # color.lab2rgb (_color)
     MORPHOLOGICAL_GEODESIC = "morphological-geodesic"  # segmentation.morphological_geodesic_active_contour level-set (_segment)
-    FIND_BOUNDARIES = "find-boundaries"         # segmentation.find_boundaries boolean boundary map (_segment)
-    CLEAR_BORDER = "clear-border"               # segmentation.clear_border drop edge-touching labels (_segment)
-    AREA_OPENING = "area-opening"               # morphology.area_opening max-tree attribute filter (_morphology ATTRIBUTE)
-    DIAMETER_OPENING = "diameter-opening"       # morphology.diameter_opening max-tree attribute filter (_morphology ATTRIBUTE)
-    REMOVE_SMALL_HOLES = "remove-small-holes"   # morphology.remove_small_holes (_morphology PRUNE)
-    CONVEX_HULL = "convex-hull"                 # morphology.convex_hull_image (_morphology BINARY_PLAIN)
-    ISOTROPIC_EROSION = "isotropic-erosion"     # morphology.isotropic_erosion distance-transform radius (_morphology ISOTROPIC)
-    ISOTROPIC_DILATION = "isotropic-dilation"   # morphology.isotropic_dilation distance-transform radius (_morphology ISOTROPIC)
-    FLOOD_FILL = "flood-fill"                   # morphology.flood_fill seeded fill (_morphology FLOOD)
-    HYSTERESIS = "hysteresis"                   # filters.apply_hysteresis_threshold two-level binarize (_threshold)
-    RANK_MEAN = "rank-mean"                     # filters.rank.mean footprint-local (_filter RANK)
-    RANK_MEDIAN = "rank-median"                 # filters.rank.median footprint-local (_filter RANK)
-    RANK_MAXIMUM = "rank-maximum"               # filters.rank.maximum footprint-local (_filter RANK)
-    RANK_ENTROPY = "rank-entropy"               # filters.rank.entropy footprint-local (_filter RANK)
-    RANK_AUTOLEVEL = "rank-autolevel"           # filters.rank.autolevel footprint-local (_filter RANK)
-    RANK_GRADIENT = "rank-gradient"             # filters.rank.gradient footprint-local (_filter RANK)
+    FIND_BOUNDARIES = "find-boundaries"  # segmentation.find_boundaries boolean boundary map (_segment)
+    CLEAR_BORDER = "clear-border"  # segmentation.clear_border drop edge-touching labels (_segment)
+    AREA_OPENING = "area-opening"  # morphology.area_opening max-tree attribute filter (_morphology ATTRIBUTE)
+    DIAMETER_OPENING = "diameter-opening"  # morphology.diameter_opening max-tree attribute filter (_morphology ATTRIBUTE)
+    REMOVE_SMALL_HOLES = "remove-small-holes"  # morphology.remove_small_holes (_morphology PRUNE)
+    CONVEX_HULL = "convex-hull"  # morphology.convex_hull_image (_morphology BINARY_PLAIN)
+    ISOTROPIC_EROSION = "isotropic-erosion"  # morphology.isotropic_erosion distance-transform radius (_morphology ISOTROPIC)
+    ISOTROPIC_DILATION = "isotropic-dilation"  # morphology.isotropic_dilation distance-transform radius (_morphology ISOTROPIC)
+    FLOOD_FILL = "flood-fill"  # morphology.flood_fill seeded fill (_morphology FLOOD)
+    HYSTERESIS = "hysteresis"  # filters.apply_hysteresis_threshold two-level binarize (_threshold)
+    RANK_MEAN = "rank-mean"  # filters.rank.mean footprint-local (_filter RANK)
+    RANK_MEDIAN = "rank-median"  # filters.rank.median footprint-local (_filter RANK)
+    RANK_MAXIMUM = "rank-maximum"  # filters.rank.maximum footprint-local (_filter RANK)
+    RANK_ENTROPY = "rank-entropy"  # filters.rank.entropy footprint-local (_filter RANK)
+    RANK_AUTOLEVEL = "rank-autolevel"  # filters.rank.autolevel footprint-local (_filter RANK)
+    RANK_GRADIENT = "rank-gradient"  # filters.rank.gradient footprint-local (_filter RANK)
     # --- measured-score families (rows + acceptor bodies on graphic/raster/measure)
     CONTOURS = "contours"
     ENTROPY = "entropy"
@@ -257,20 +277,20 @@ class Transform(StrEnum):  # the 139-member sub-axis vocabulary; rows + acceptor
     HAUSDORFF = "hausdorff"
     RAND_ERROR = "rand-error"
     INFO_VARIATION = "info-variation"
-    HOUGH_LINE = "hough-line"                   # transform.hough_line + hough_line_peaks — the DETECTION family distinct from the RANSAC geometric FIT
-    HOUGH_CIRCLE = "hough-circle"               # transform.hough_circle + hough_circle_peaks
-    HOUGH_LINE_PROB = "hough-line-prob"         # transform.probabilistic_hough_line segment count
-    STRUCTURE_TENSOR = "structure-tensor"       # feature.structure_tensor coherence render
-    SHAPE_INDEX = "shape-index"                 # feature.shape_index (hessian-eigenvalue) render
-    DAISY = "daisy"                             # feature.daisy dense-descriptor visualization render
-    BASIC_FEATURES = "basic-features"           # feature.multiscale_basic_features stack channel count
-    CORNERS_FAST = "corners-fast"               # feature.corner_fast response (member-derived corner branch)
-    CORNERS_MORAVEC = "corners-moravec"         # feature.corner_moravec response
-    CORNERS_KR = "corners-kitchen-rosenfeld"    # feature.corner_kitchen_rosenfeld response
-    BLUR_EFFECT = "blur-effect"                 # measure.blur_effect — the first NO-reference sharpness scalar
-    CONTINGENCY = "contingency"                 # metrics.contingency_table label-overlap (reference-consuming)
-    PROFILE_LINE = "profile-line"               # measure.profile_line scan-line intensity profile (_measure)
-    CENSURE_KEYPOINTS = "censure-keypoints"     # CENSURE detect + BRIEF describe registration (reference-consuming, _register)
+    HOUGH_LINE = "hough-line"  # transform.hough_line + hough_line_peaks — the DETECTION family distinct from the RANSAC geometric FIT
+    HOUGH_CIRCLE = "hough-circle"  # transform.hough_circle + hough_circle_peaks
+    HOUGH_LINE_PROB = "hough-line-prob"  # transform.probabilistic_hough_line segment count
+    STRUCTURE_TENSOR = "structure-tensor"  # feature.structure_tensor coherence render
+    SHAPE_INDEX = "shape-index"  # feature.shape_index (hessian-eigenvalue) render
+    DAISY = "daisy"  # feature.daisy dense-descriptor visualization render
+    BASIC_FEATURES = "basic-features"  # feature.multiscale_basic_features stack channel count
+    CORNERS_FAST = "corners-fast"  # feature.corner_fast response (member-derived corner branch)
+    CORNERS_MORAVEC = "corners-moravec"  # feature.corner_moravec response
+    CORNERS_KR = "corners-kitchen-rosenfeld"  # feature.corner_kitchen_rosenfeld response
+    BLUR_EFFECT = "blur-effect"  # measure.blur_effect — the first NO-reference sharpness scalar
+    CONTINGENCY = "contingency"  # metrics.contingency_table label-overlap (reference-consuming)
+    PROFILE_LINE = "profile-line"  # measure.profile_line scan-line intensity profile (_measure)
+    CENSURE_KEYPOINTS = "censure-keypoints"  # CENSURE detect + BRIEF describe registration (reference-consuming, _register)
 
 
 class ConvertFormat(StrEnum):
@@ -282,11 +302,13 @@ class ConvertFormat(StrEnum):
     BMP = "BMP"
 
 
-class QuantizeMethod(StrEnum):  # member NAMES congruent with Image.Quantize so Image.Quantize[method.name] resolves the provider enum at the pillow arm — canonical StrEnum crosses the seam, the PIL enum stays at the edge
+class QuantizeMethod(
+    StrEnum
+):  # member NAMES congruent with Image.Quantize so Image.Quantize[method.name] resolves the provider enum at the pillow arm — canonical StrEnum crosses the seam, the PIL enum stays at the edge
     MEDIANCUT = "median-cut"
     MAXCOVERAGE = "max-coverage"
-    FASTOCTREE = "fast-octree"        # the only method admitting an RGBA source without a flatten
-    LIBIMAGEQUANT = "libimagequant"   # build-dependent (the libimagequant feature); the highest-quality quantizer
+    FASTOCTREE = "fast-octree"  # the only method admitting an RGBA source without a flatten
+    LIBIMAGEQUANT = "libimagequant"  # build-dependent (the libimagequant feature); the highest-quality quantizer
 
 
 class DitherMode(StrEnum):  # member NAMES congruent with Image.Dither so Image.Dither[dither.name] resolves the provider enum
@@ -315,7 +337,9 @@ class RasterFault:
     detect: str = case()
     codec: ConvertFormat = case()  # a build-dependent encoder (AVIF/HEIF/WebP) the linked pillow/libvips build does not expose — the capability-detection gate, distinct from a content encode fault
     reference: Transform = case()
-    bounds: str = case()  # a frame/page/child index past the available count (seek/get_child_images) — the range fault distinct from a decode or encode content fault
+    bounds: str = (
+        case()
+    )  # a frame/page/child index past the available count (seek/get_child_images) — the range fault distinct from a decode or encode content fault
     contract: str = case()
 
 
@@ -339,7 +363,13 @@ class RasterOp:
     children: tuple[bytes, int, ConvertFormat] = case()
 
     @staticmethod
-    def Thumbnail(payload: bytes, size: Pixels, fmt: ConvertFormat = ConvertFormat.PNG, engine: RasterEngine = RasterEngine.PILLOW, fit: FitMode = FitMode.CONTAIN) -> "RasterOp":
+    def Thumbnail(
+        payload: bytes,
+        size: Pixels,
+        fmt: ConvertFormat = ConvertFormat.PNG,
+        engine: RasterEngine = RasterEngine.PILLOW,
+        fit: FitMode = FitMode.CONTAIN,
+    ) -> "RasterOp":
         return RasterOp(thumbnail=(payload, size, fmt, engine, fit))
 
     @staticmethod
@@ -355,15 +385,21 @@ class RasterOp:
         return RasterOp(probe=(payload, engine))
 
     @staticmethod
-    def Montage(tiles: tuple[bytes, ...], columns: int, cell: Pixels, fmt: ConvertFormat = ConvertFormat.PNG, engine: RasterEngine = RasterEngine.PILLOW) -> "RasterOp":
+    def Montage(
+        tiles: tuple[bytes, ...], columns: int, cell: Pixels, fmt: ConvertFormat = ConvertFormat.PNG, engine: RasterEngine = RasterEngine.PILLOW
+    ) -> "RasterOp":
         return RasterOp(montage=(tiles, columns, cell, fmt, engine))
 
     @staticmethod
-    def Composite(base: bytes, overlay: bytes, position: Pixels = (0, 0), mode: BlendMode = BlendMode.OVER, fmt: ConvertFormat = ConvertFormat.PNG) -> "RasterOp":
+    def Composite(
+        base: bytes, overlay: bytes, position: Pixels = (0, 0), mode: BlendMode = BlendMode.OVER, fmt: ConvertFormat = ConvertFormat.PNG
+    ) -> "RasterOp":
         return RasterOp(composite=(base, overlay, position, mode, fmt))
 
     @staticmethod
-    def Transform(payload: bytes, kind: Transform, reference: bytes = b"", mask: bytes = b"", opts: frozendict[str, float] = frozendict()) -> "RasterOp":
+    def Transform(
+        payload: bytes, kind: Transform, reference: bytes = b"", mask: bytes = b"", opts: frozendict[str, float] = frozendict()
+    ) -> "RasterOp":
         return RasterOp(transform=(payload, kind, reference, mask, opts))
 
     @staticmethod
@@ -391,7 +427,13 @@ class RasterOp:
         return RasterOp(sequence=(frames, delays, loop, fmt))
 
     @staticmethod
-    def Quantize(payload: bytes, colors: int = 256, method: QuantizeMethod = QuantizeMethod.MEDIANCUT, dither: DitherMode = DitherMode.FLOYDSTEINBERG, fmt: ConvertFormat = ConvertFormat.PNG) -> "RasterOp":
+    def Quantize(
+        payload: bytes,
+        colors: int = 256,
+        method: QuantizeMethod = QuantizeMethod.MEDIANCUT,
+        dither: DitherMode = DitherMode.FLOYDSTEINBERG,
+        fmt: ConvertFormat = ConvertFormat.PNG,
+    ) -> "RasterOp":
         return RasterOp(quantize=(payload, colors, method, dither, fmt))
 
     @staticmethod
@@ -408,7 +450,9 @@ class Raster(Struct, frozen=True):
     async def _compute(self) -> Block[Result[ArtifactReceipt, RasterFault]]:
         async def crossed(op: RasterOp, /) -> Result[ArtifactReceipt, RasterFault]:
             match op:
-                case RasterOp(tag="detect", detect=(payload,)):  # DELEGATE the sniff to exchange/detect#DETECT (PUREMAGIC -> in-process to_thread, NO to_process worker crossing); the puremagic fold is authored ONCE there
+                case RasterOp(
+                    tag="detect", detect=(payload,)
+                ):  # DELEGATE the sniff to exchange/detect#DETECT (PUREMAGIC -> in-process to_thread, NO to_process worker crossing); the puremagic fold is authored ONCE there
                     identity = await Detect(engine=DetectEngine.PUREMAGIC).of(Source.Buffer(payload))
                     return identity.map(lambda di: _detected(op, payload, di)).map_error(lambda fault: RasterFault(detect=str(fault)))
                 case _:
@@ -445,7 +489,9 @@ def _worker_raster(op: RasterOp) -> Result[RasterFact, RasterFault]:
     try:
         match op:
             case RasterOp(tag="detect", detect=(_payload,)):
-                return Error(RasterFault(detect="<detect-routed-in-process>"))  # totality witness only; `_compute` delegates detect to exchange/detect#DETECT in-process, so this arm is never reached
+                return Error(
+                    RasterFault(detect="<detect-routed-in-process>")
+                )  # totality witness only; `_compute` delegates detect to exchange/detect#DETECT in-process, so this arm is never reached
             case RasterOp(tag="probe", probe=(payload, engine)):
                 return _ENGINE[engine].probe(payload)
             case RasterOp(tag="thumbnail", thumbnail=(payload, size, fmt, engine, fit)):
@@ -489,14 +535,19 @@ def _pillow_guarded(work: Callable[[], RasterFact], /) -> Result[RasterFact, Ras
         return Error(RasterFault(decode="<pillow-unidentified>"))
     except Image.DecompressionBombError:
         return Error(RasterFault(bomb=(0, int(Image.MAX_IMAGE_PIXELS or 0))))
-    except (EOFError, IndexError) as fault:  # a seek/get_child_images index past the available frame/child count — IndexError is a LookupError sibling of KeyError, so this arm never shadows the encode arm's KeyError
+    except (
+        EOFError,
+        IndexError,
+    ) as fault:  # a seek/get_child_images index past the available frame/child count — IndexError is a LookupError sibling of KeyError, so this arm never shadows the encode arm's KeyError
         return Error(RasterFault(bounds=str(fault)))
     except (OSError, ValueError, KeyError) as fault:
         return Error(RasterFault(encode=type(fault).__name__))
 
 
 def _vips_guarded(work: Callable[[], RasterFact], /) -> Result[RasterFact, RasterFault]:
-    pyvips.concurrency_set(1)  # two-pool guard: bound libvips's OWN internal intra-op thread pool DOWN so the inner pool never oversubscribes the host against the outer WORKER_BAND to_process fan (idempotent boundary-init)
+    pyvips.concurrency_set(
+        1
+    )  # two-pool guard: bound libvips's OWN internal intra-op thread pool DOWN so the inner pool never oversubscribes the host against the outer WORKER_BAND to_process fan (idempotent boundary-init)
     try:
         return Ok(work())
     except pyvips.Error as fault:
@@ -506,15 +557,20 @@ def _vips_guarded(work: Callable[[], RasterFact], /) -> Result[RasterFact, Raste
 def _detected(op: RasterOp, payload: bytes, identity: "DetectIdentity", /) -> ArtifactReceipt:
     # project the delegated exchange/detect#DETECT DetectIdentity onto the shared Preview score band — the routing
     # discriminant + native confidence the raster gate surfaces, the puremagic sniff fold owned once upstream.
-    return ArtifactReceipt.Preview(ContentIdentity.of(f"raster-{op.tag}", payload), 0, 0, frozendict({
-        "mime": identity.mime,
-        "media_class": identity.media_class.value,
-        "container": identity.container.value,
-        "extension": identity.extensions[0] if identity.extensions else "",
-        "confidence": identity.confidence,  # the page-native float ambiguity signal libmagic's single unranked string cannot supply — the exchange/detect Trust gate input
-        "candidates": float(len(identity.matches)),
-        "trust": identity.trust.value,
-    }))
+    return ArtifactReceipt.Preview(
+        ContentIdentity.of(f"raster-{op.tag}", payload),
+        0,
+        0,
+        frozendict({
+            "mime": identity.mime,
+            "media_class": identity.media_class.value,
+            "container": identity.container.value,
+            "extension": identity.extensions[0] if identity.extensions else "",
+            "confidence": identity.confidence,  # the page-native float ambiguity signal libmagic's single unranked string cannot supply — the exchange/detect Trust gate input
+            "candidates": float(len(identity.matches)),
+            "trust": identity.trust.value,
+        }),
+    )
 
 
 def _transformed(payload: bytes, kind: Transform, reference: bytes, mask: bytes, opts: frozendict[str, float], /) -> Result[RasterFact, RasterFault]:
@@ -554,15 +610,23 @@ def _thumbnail_libvips(payload: bytes, size: Pixels, fmt: ConvertFormat, fit: Fi
     def work() -> RasterFact:
         crop = pyvips.Interesting.ATTENTION if fit is FitMode.COVER else pyvips.Interesting.NONE
         sizing = pyvips.Size.FORCE if fit is FitMode.STRETCH else pyvips.Size.DOWN
-        shrunk = pyvips.Image.new_from_buffer(payload, "", access=pyvips.Access.SEQUENTIAL).thumbnail_image(size[0], height=size[1], size=sizing, crop=crop)
-        image = shrunk.embed((size[0] - shrunk.width) // 2, (size[1] - shrunk.height) // 2, size[0], size[1], extend=pyvips.Extend.BACKGROUND) if fit is FitMode.PAD else shrunk
+        shrunk = pyvips.Image.new_from_buffer(payload, "", access=pyvips.Access.SEQUENTIAL).thumbnail_image(
+            size[0], height=size[1], size=sizing, crop=crop
+        )
+        image = (
+            shrunk.embed((size[0] - shrunk.width) // 2, (size[1] - shrunk.height) // 2, size[0], size[1], extend=pyvips.Extend.BACKGROUND)
+            if fit is FitMode.PAD
+            else shrunk
+        )
         return RasterFact(image.write_to_buffer(_VIPS_SUFFIX[fmt]), image.width, image.height)
 
     return _vips_guarded(work)
 
 
 def _convert_pillow(payload: bytes, codec: ConvertFormat, quality: int, effort: int) -> Result[RasterFact, RasterFault]:
-    if codec in _CODEC_FEATURE and not features.check(_CODEC_FEATURE[codec]):  # capability-detection gate: a build-dependent AVIF/WebP encoder the linked pillow build never compiled faults `codec`, distinct from an encode fault, before the save raises an opaque KeyError
+    if (
+        codec in _CODEC_FEATURE and not features.check(_CODEC_FEATURE[codec])
+    ):  # capability-detection gate: a build-dependent AVIF/WebP encoder the linked pillow build never compiled faults `codec`, distinct from an encode fault, before the save raises an opaque KeyError
         return Error(RasterFault(codec=codec))
 
     def work() -> RasterFact:
@@ -576,14 +640,18 @@ def _convert_pillow(payload: bytes, codec: ConvertFormat, quality: int, effort: 
 
 
 def _convert_libvips(payload: bytes, codec: ConvertFormat, quality: int, effort: int) -> Result[RasterFact, RasterFault]:
-    if _VIPS_SUFFIX[codec] not in pyvips.base.get_suffixes():  # the libvips-side capability probe: an unbuilt saver suffix faults `codec` before write_to_buffer raises an opaque pyvips.Error
+    if (
+        _VIPS_SUFFIX[codec] not in pyvips.base.get_suffixes()
+    ):  # the libvips-side capability probe: an unbuilt saver suffix faults `codec` before write_to_buffer raises an opaque pyvips.Error
         return Error(RasterFault(codec=codec))
 
     def work() -> RasterFact:
         source = pyvips.Image.new_from_buffer(payload, "", access=pyvips.Access.SEQUENTIAL).autorot()
         managed = source.icc_transform("srgb", intent=pyvips.Intent.RELATIVE) if source.get_typeof("icc-profile-data") != 0 else source
         flat = managed.flatten() if codec in _NO_ALPHA and managed.hasalpha() else managed
-        keep = pyvips.ForeignKeep.ICC | pyvips.ForeignKeep.EXIF | pyvips.ForeignKeep.XMP  # write_to_buffer STRIPS metadata by default, so the icc_transform-managed sRGB profile is LOST on re-encode without ForeignKeep — retain ICC/EXIF/XMP so the managed profile survives egress
+        keep = (
+            pyvips.ForeignKeep.ICC | pyvips.ForeignKeep.EXIF | pyvips.ForeignKeep.XMP
+        )  # write_to_buffer STRIPS metadata by default, so the icc_transform-managed sRGB profile is LOST on re-encode without ForeignKeep — retain ICC/EXIF/XMP so the managed profile survives egress
         return RasterFact(flat.write_to_buffer(_VIPS_SUFFIX[codec], keep=keep, **_VIPS_KWARGS[codec](quality, effort)), flat.width, flat.height)
 
     return _vips_guarded(work)
@@ -640,6 +708,7 @@ def _probe_libvips(payload: bytes) -> Result[RasterFact, RasterFault]:
 def _montage(tiles: tuple[bytes, ...], columns: int, cell: Pixels, fmt: ConvertFormat, engine: RasterEngine) -> Result[RasterFact, RasterFault]:
     match engine:
         case RasterEngine.PILLOW:
+
             def work() -> RasterFact:
                 cell_w, cell_h = cell
                 rows = -(-len(tiles) // columns)
@@ -655,8 +724,16 @@ def _montage(tiles: tuple[bytes, ...], columns: int, cell: Pixels, fmt: ConvertF
 
             return _pillow_guarded(work)
         case RasterEngine.LIBVIPS:
-            def work() -> RasterFact:  # the fused libvips arrayjoin grid — each cell shrinks-on-load and the grid computes in one streamed pass, engine parity for large-tile sheets pillow's per-tile paste loop cannot match
-                cells = [pyvips.Image.new_from_buffer(blob, "", access=pyvips.Access.SEQUENTIAL).thumbnail_image(cell[0], height=cell[1], size=pyvips.Size.DOWN) for blob in tiles]
+
+            def work() -> (
+                RasterFact
+            ):  # the fused libvips arrayjoin grid — each cell shrinks-on-load and the grid computes in one streamed pass, engine parity for large-tile sheets pillow's per-tile paste loop cannot match
+                cells = [
+                    pyvips.Image.new_from_buffer(blob, "", access=pyvips.Access.SEQUENTIAL).thumbnail_image(
+                        cell[0], height=cell[1], size=pyvips.Size.DOWN
+                    )
+                    for blob in tiles
+                ]
                 grid = pyvips.Image.arrayjoin(cells, across=columns)
                 return RasterFact(grid.write_to_buffer(_VIPS_SUFFIX[fmt]), grid.width, grid.height)
 
@@ -676,15 +753,21 @@ def _composite(base: bytes, overlay: bytes, position: Pixels, mode: BlendMode, f
 
 
 def _smartcrop(payload: bytes, size: Pixels, focus: CropFocus, fmt: ConvertFormat) -> Result[RasterFact, RasterFault]:
-    def work() -> RasterFact:  # content-aware auto-focus crop: the libvips saliency/entropy model extracts the interesting size[0]xsize[1] window, the salient-crop decision a fixed-box Crop cannot make
-        image = pyvips.Image.new_from_buffer(payload, "", access=pyvips.Access.SEQUENTIAL).autorot().smartcrop(size[0], size[1], interesting=focus.value)
+    def work() -> (
+        RasterFact
+    ):  # content-aware auto-focus crop: the libvips saliency/entropy model extracts the interesting size[0]xsize[1] window, the salient-crop decision a fixed-box Crop cannot make
+        image = (
+            pyvips.Image.new_from_buffer(payload, "", access=pyvips.Access.SEQUENTIAL).autorot().smartcrop(size[0], size[1], interesting=focus.value)
+        )
         return RasterFact(image.write_to_buffer(_VIPS_SUFFIX[fmt]), image.width, image.height)
 
     return _vips_guarded(work)
 
 
 def _pyramid(payload: bytes, layout: PyramidLayout, tile: int, fmt: ConvertFormat) -> Result[RasterFact, RasterFault]:
-    def work() -> RasterFact:  # DeepZoom/Zoomify/IIIF pyramid tiling to ONE zip blob — the large-drawing/large-scan tiled-viewer export both the publication and AEC-doc planes need
+    def work() -> (
+        RasterFact
+    ):  # DeepZoom/Zoomify/IIIF pyramid tiling to ONE zip blob — the large-drawing/large-scan tiled-viewer export both the publication and AEC-doc planes need
         image = pyvips.Image.new_from_buffer(payload, "", access=pyvips.Access.SEQUENTIAL).autorot()
         blob = image.dzsave_buffer(layout=layout.value, tile_size=tile, suffix=f".{fmt.value.lower()}", container="zip")
         return RasterFact(blob, image.width, image.height)
@@ -693,7 +776,9 @@ def _pyramid(payload: bytes, layout: PyramidLayout, tile: int, fmt: ConvertForma
 
 
 def _geometry(payload: bytes, op: GeometryOp, params: tuple[float, ...], fmt: ConvertFormat) -> Result[RasterFact, RasterFault]:
-    def work() -> RasterFact:  # pillow-only working-surface geometry (single-engine like Composite/Detect); libvips lacks the diagonal transpose + affine/perspective transform cleanly, so no engine-divergence FitMode deletes
+    def work() -> (
+        RasterFact
+    ):  # pillow-only working-surface geometry (single-engine like Composite/Detect); libvips lacks the diagonal transpose + affine/perspective transform cleanly, so no engine-divergence FitMode deletes
         image = ImageOps.exif_transpose(Image.open(BytesIO(payload)))
         match op:
             case GeometryOp.ROTATE:
@@ -730,7 +815,10 @@ def _geometry(payload: bytes, op: GeometryOp, params: tuple[float, ...], fmt: Co
 def _deframe(payload: bytes, index: int, fmt: ConvertFormat, engine: RasterEngine) -> Result[RasterFact, RasterFault]:
     match engine:
         case RasterEngine.PILLOW:
-            def work() -> RasterFact:  # multi-frame page/frame extract: seek to the display-index frame and re-encode it single-frame; an index past n_frames raises IndexError -> RasterFault.bounds
+
+            def work() -> (
+                RasterFact
+            ):  # multi-frame page/frame extract: seek to the display-index frame and re-encode it single-frame; an index past n_frames raises IndexError -> RasterFault.bounds
                 image = Image.open(BytesIO(payload))
                 frames = int(getattr(image, "n_frames", 1))
                 if not 0 <= index < frames:
@@ -742,7 +830,10 @@ def _deframe(payload: bytes, index: int, fmt: ConvertFormat, engine: RasterEngin
 
             return _pillow_guarded(work)
         case RasterEngine.LIBVIPS:
-            def work() -> RasterFact:  # the libvips page= load streams ONE page of a huge multi-page TIFF/PDF scan off disk without materializing the whole document (the AEC scanned-drawing-set path)
+
+            def work() -> (
+                RasterFact
+            ):  # the libvips page= load streams ONE page of a huge multi-page TIFF/PDF scan off disk without materializing the whole document (the AEC scanned-drawing-set path)
                 image = pyvips.Image.new_from_buffer(payload, "", page=index, access=pyvips.Access.SEQUENTIAL)
                 return RasterFact(image.write_to_buffer(_VIPS_SUFFIX[fmt]), image.width, image.height, frozendict({"frame": float(index)}))
 
@@ -752,10 +843,14 @@ def _deframe(payload: bytes, index: int, fmt: ConvertFormat, engine: RasterEngin
 
 
 def _sequence(frames: tuple[bytes, ...], delays: tuple[int, ...], loop: int, fmt: ConvertFormat) -> Result[RasterFact, RasterFault]:
-    if fmt in _CODEC_FEATURE and not features.check(_CODEC_FEATURE[fmt]):  # animated WebP/AVIF gate: an unbuilt encoder faults `codec` before save_all raises, reusing the Convert-arm gate
+    if fmt in _CODEC_FEATURE and not features.check(
+        _CODEC_FEATURE[fmt]
+    ):  # animated WebP/AVIF gate: an unbuilt encoder faults `codec` before save_all raises, reusing the Convert-arm gate
         return Error(RasterFault(codec=fmt))
 
-    def work() -> RasterFact:  # multi-frame COMPOSE — save_all/append_images assembles the frame tuple into ONE multi-page TIFF (AEC drawing set) or animated APNG/WebP/AVIF (publication preview); delays/loop ride only the animated formats, TIFF pages carry no timing
+    def work() -> (
+        RasterFact
+    ):  # multi-frame COMPOSE — save_all/append_images assembles the frame tuple into ONE multi-page TIFF (AEC drawing set) or animated APNG/WebP/AVIF (publication preview); delays/loop ride only the animated formats, TIFF pages carry no timing
         images = [Image.open(BytesIO(blob)) for blob in frames]
         timing = {"duration": list(delays), "loop": loop} if fmt in _ANIMATED and delays else {"loop": loop} if fmt in _ANIMATED else {}
         sink = BytesIO()
@@ -766,9 +861,13 @@ def _sequence(frames: tuple[bytes, ...], delays: tuple[int, ...], loop: int, fmt
 
 
 def _quantized(payload: bytes, colors: int, method: QuantizeMethod, dither: DitherMode, fmt: ConvertFormat) -> Result[RasterFact, RasterFault]:
-    def work() -> RasterFact:  # indexed-color small-file export for line drawings/logos — Image.quantize (median-cut/max-coverage/octree/libimagequant) over the canonical QuantizeMethod/DitherMode vocab resolved to the PIL enum by name congruence; subsumes convert(palette=ADAPTIVE)
+    def work() -> (
+        RasterFact
+    ):  # indexed-color small-file export for line drawings/logos — Image.quantize (median-cut/max-coverage/octree/libimagequant) over the canonical QuantizeMethod/DitherMode vocab resolved to the PIL enum by name congruence; subsumes convert(palette=ADAPTIVE)
         source = ImageOps.exif_transpose(Image.open(BytesIO(payload)))
-        rgb = source if source.mode in {"RGB", "RGBA", "L"} else source.convert("RGB")  # quantize admits only RGB/RGBA/L; a P/CMYK/I;16 source flattens to RGB first
+        rgb = (
+            source if source.mode in {"RGB", "RGBA", "L"} else source.convert("RGB")
+        )  # quantize admits only RGB/RGBA/L; a P/CMYK/I;16 source flattens to RGB first
         indexed = rgb.quantize(colors=colors, method=Image.Quantize[method.name], dither=Image.Dither[dither.name])
         sink = BytesIO()
         indexed.save(sink, format=fmt.value)
@@ -778,7 +877,9 @@ def _quantized(payload: bytes, colors: int, method: QuantizeMethod, dither: Dith
 
 
 def _children(payload: bytes, index: int, fmt: ConvertFormat) -> Result[RasterFact, RasterFault]:
-    def work() -> RasterFact:  # embedded-thumbnail / multi-resolution sub-image extract (JPEG/HEIF/TIFF) via get_child_images — the preview a fresh full decode would miss; an index past the child count raises IndexError -> RasterFault.bounds
+    def work() -> (
+        RasterFact
+    ):  # embedded-thumbnail / multi-resolution sub-image extract (JPEG/HEIF/TIFF) via get_child_images — the preview a fresh full decode would miss; an index past the child count raises IndexError -> RasterFault.bounds
         with Image.open(BytesIO(payload)) as image:
             children = image.get_child_images()
             if not 0 <= index < len(children):
@@ -804,20 +905,42 @@ _ENGINE: frozendict[RasterEngine, EngineOps] = frozendict({
     RasterEngine.LIBVIPS: EngineOps(thumbnail=_thumbnail_libvips, convert=_convert_libvips, crop=_crop_libvips, probe=_probe_libvips),
 })
 _NO_ALPHA: frozenset[ConvertFormat] = frozenset({ConvertFormat.JPEG, ConvertFormat.BMP})
-_ANIMATED: frozenset[ConvertFormat] = frozenset({ConvertFormat.PNG, ConvertFormat.WEBP, ConvertFormat.AVIF})  # the save_all containers that honor per-frame duration + loop (APNG/WebP/AVIF); TIFF composes multi-page without timing
-_CODEC_FEATURE: frozendict[ConvertFormat, str] = frozendict({  # the build-dependent pillow feature name the capability gate probes; PNG/JPEG/TIFF/BMP are always compiled, so only the optional AVIF/WebP encoders gate
-    ConvertFormat.AVIF: "avif",
-    ConvertFormat.WEBP: "webp",
-})
+_ANIMATED: frozenset[ConvertFormat] = frozenset({
+    ConvertFormat.PNG,
+    ConvertFormat.WEBP,
+    ConvertFormat.AVIF,
+})  # the save_all containers that honor per-frame duration + loop (APNG/WebP/AVIF); TIFF composes multi-page without timing
+_CODEC_FEATURE: frozendict[ConvertFormat, str] = (
+    frozendict({  # the build-dependent pillow feature name the capability gate probes; PNG/JPEG/TIFF/BMP are always compiled, so only the optional AVIF/WebP encoders gate
+        ConvertFormat.AVIF: "avif",
+        ConvertFormat.WEBP: "webp",
+    })
+)
 _REFERENCE_REQUIRED: frozenset[Transform] = frozenset({
-    Transform.MATCH_HISTOGRAMS, Transform.OPTICAL_FLOW, Transform.OPTICAL_FLOW_ILK, Transform.PHASE_CORRELATION,
-    Transform.KEYPOINTS, Transform.SIFT_KEYPOINTS, Transform.CENSURE_KEYPOINTS,
-    Transform.SSIM, Transform.PSNR, Transform.MSE, Transform.NRMSE, Transform.NMI, Transform.HAUSDORFF,
-    Transform.RAND_ERROR, Transform.INFO_VARIATION, Transform.CONTINGENCY,
+    Transform.MATCH_HISTOGRAMS,
+    Transform.OPTICAL_FLOW,
+    Transform.OPTICAL_FLOW_ILK,
+    Transform.PHASE_CORRELATION,
+    Transform.KEYPOINTS,
+    Transform.SIFT_KEYPOINTS,
+    Transform.CENSURE_KEYPOINTS,
+    Transform.SSIM,
+    Transform.PSNR,
+    Transform.MSE,
+    Transform.NRMSE,
+    Transform.NMI,
+    Transform.HAUSDORFF,
+    Transform.RAND_ERROR,
+    Transform.INFO_VARIATION,
+    Transform.CONTINGENCY,
 })
 _VIPS_SUFFIX: frozendict[ConvertFormat, str] = frozendict({
-    ConvertFormat.PNG: ".png", ConvertFormat.JPEG: ".jpg", ConvertFormat.WEBP: ".webp",
-    ConvertFormat.AVIF: ".avif", ConvertFormat.TIFF: ".tif", ConvertFormat.BMP: ".bmp",
+    ConvertFormat.PNG: ".png",
+    ConvertFormat.JPEG: ".jpg",
+    ConvertFormat.WEBP: ".webp",
+    ConvertFormat.AVIF: ".avif",
+    ConvertFormat.TIFF: ".tif",
+    ConvertFormat.BMP: ".bmp",
 })
 _CODEC_KWARGS: frozendict[ConvertFormat, Callable[[int, int], frozendict[str, object]]] = frozendict({
     ConvertFormat.AVIF: lambda quality, effort: frozendict({"quality": quality, "speed": effort}),

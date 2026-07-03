@@ -82,7 +82,7 @@ class Alternative(StrEnum):
 
 class Decision(StrEnum):
     SIGNIFICANCE = "significance"  # reject H0 when the criterion (a p-value) falls below alpha
-    CRITICAL = "critical"          # reject H0 when the statistic exceeds the selected critical value
+    CRITICAL = "critical"  # reject H0 when the statistic exceeds the selected critical value
 
     def reject(self, statistic: float, criterion: float, alpha: float) -> bool:
         # total over the closed regime so a new `Decision` row is a compile-surfaced `reject` arm rather
@@ -103,6 +103,7 @@ class Verdict(StrEnum):
 
 # --- [MODELS] ------------------------------------------------------------------------------
 
+
 class Reading(Struct, frozen=True):  # GC-tracked: carries the `parameters` tuple and the `Option` moments container
     # the per-route projection off the `scipy.stats` result the unified fold consumes: the scalar
     # statistic, the route's reject yardstick, the fitted MLE parameters (empty for a pure hypothesis
@@ -119,18 +120,16 @@ class StatReport(Struct, frozen=True):
     test: Tag
     decision: Decision
     statistic: float
-    criterion: float                       # the route's reject yardstick: a p-value (SIGNIFICANCE) or a critical level (CRITICAL)
+    criterion: float  # the route's reject yardstick: a p-value (SIGNIFICANCE) or a critical level (CRITICAL)
     verdict: Verdict
     parameters: tuple[float, ...]
-    moments: Option[tuple[float, float]]   # fitted (mean, variance) for the MLE fit, Nothing for a pure hypothesis test
+    moments: Option[tuple[float, float]]  # fitted (mean, variance) for the MLE fit, Nothing for a pure hypothesis test
     content_key: ContentKey
 
     @staticmethod
     def graded(test: Tag, decision: Decision, reading: Reading, alpha: float, key: ContentKey) -> "StatReport":
         verdict = Verdict.REJECT if decision.reject(reading.statistic, reading.criterion, alpha) else Verdict.RETAIN
-        return StatReport(
-            test, decision, reading.statistic, reading.criterion, verdict, reading.parameters, reading.moments, key
-        )
+        return StatReport(test, decision, reading.statistic, reading.criterion, verdict, reading.parameters, reading.moments, key)
 
     def contribute(self) -> Iterable[Receipt]:
         # the runtime two-argument `Receipt.of(owner, evidence)` contract: the `(Phase, subject, facts)`
@@ -206,7 +205,7 @@ class TestIntent:
 
 class StatRoute(Struct, frozen=True):
     run: Callable[[TestIntent, float, int], Reading]  # binds the route's `scipy.stats` entrypoint and projects the typed `Reading`
-    decision: Decision                                 # the reject-regime the row grades under
+    decision: Decision  # the reject-regime the row grades under
 
 
 # --- [OPERATIONS] --------------------------------------------------------------------------
@@ -324,13 +323,11 @@ def _run_fit(intent: TestIntent, _alpha: float, fit_sample: int) -> Reading:
 # threads the `Alternative.value` rank-test side. The Anderson-Darling and Fit routes read divergent
 # result shapes (`critical_values`/`significance_level`, MLE parameters/moments) so they keep dedicated
 # `_run_anderson`/`_run_fit` readers — only the truly-identical bodies collapse to the table.
-_SIGNIFICANCE_CALLS: FrozenDict[Tag, Callable[[TestIntent], tuple[str, dict[str, object]]]] = FrozenDict(
-    {
-        "two_sample_ks": lambda _: ("ks_2samp", {}),
-        "shapiro": lambda _: ("shapiro", {}),
-        "mannwhitneyu": lambda i: ("mannwhitneyu", {"alternative": i.mannwhitneyu[2].value}),
-    }
-)
+_SIGNIFICANCE_CALLS: FrozenDict[Tag, Callable[[TestIntent], tuple[str, dict[str, object]]]] = FrozenDict({
+    "two_sample_ks": lambda _: ("ks_2samp", {}),
+    "shapiro": lambda _: ("shapiro", {}),
+    "mannwhitneyu": lambda i: ("mannwhitneyu", {"alternative": i.mannwhitneyu[2].value}),
+})
 
 
 # the five tests collapse to one route row per tag driving one `_stat_report` fold: `run` binds the
@@ -338,15 +335,13 @@ _SIGNIFICANCE_CALLS: FrozenDict[Tag, Callable[[TestIntent], tuple[str, dict[str,
 # regime the row grades under — the three `(statistic, pvalue)` tests share the one table-driven
 # `_significance` body and grade SIGNIFICANCE against the p-value, the Anderson-Darling route grades
 # CRITICAL against the selected critical level, and the Fit route grades its re-scored GOF p-value.
-_STAT_ROUTES: FrozenDict[Tag, StatRoute] = FrozenDict(
-    {
-        "two_sample_ks": StatRoute(_significance, Decision.SIGNIFICANCE),
-        "anderson": StatRoute(_run_anderson, Decision.CRITICAL),
-        "shapiro": StatRoute(_significance, Decision.SIGNIFICANCE),
-        "mannwhitneyu": StatRoute(_significance, Decision.SIGNIFICANCE),
-        "fit": StatRoute(_run_fit, Decision.SIGNIFICANCE),
-    }
-)
+_STAT_ROUTES: FrozenDict[Tag, StatRoute] = FrozenDict({
+    "two_sample_ks": StatRoute(_significance, Decision.SIGNIFICANCE),
+    "anderson": StatRoute(_run_anderson, Decision.CRITICAL),
+    "shapiro": StatRoute(_significance, Decision.SIGNIFICANCE),
+    "mannwhitneyu": StatRoute(_significance, Decision.SIGNIFICANCE),
+    "fit": StatRoute(_run_fit, Decision.SIGNIFICANCE),
+})
 ```
 
 ## [03]-[RESEARCH]

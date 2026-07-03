@@ -63,7 +63,14 @@ public static partial class StructuralAnalysis {
 // One support at a member END (AtStart selects the start vs end joint the Bim projector stamped from the connection
 // geometry) — the FE assembler resolves the joint by the chosen endpoint coordinate, never by comparing the connection
 // NodeId to the member's own id. At is the connection node the restraint sits on (carried for traceability).
-public readonly record struct MemberSupport(NodeId At, bool AtStart, bool Dx, bool Dy, bool Dz, bool Rx, bool Ry, bool Rz) {
+// TranslationK/RotationK carry the [H2] SI spring stiffnesses and Frame the RestraintAxis*/RestraintRef* skewed-support
+// axes the Bim edge emits: the verified BFE Node.Constraints surface is BOOLEAN 6-DOF (no public nodal-spring member),
+// so the solve lowers a finite-spring DOF CONSERVATIVELY RIGID (the projector's fixity already reads rigid||spring>0)
+// and a skewed frame to the global axes — both NAMED lowerings; an elastic/inclined support arm is verification-gated
+// on a BFE/FEALiTE elastic-support member and consumes these columns with zero wire edits when it lands.
+public readonly record struct MemberSupport(
+    NodeId At, bool AtStart, bool Dx, bool Dy, bool Dz, bool Rx, bool Ry, bool Rz,
+    Vector3 TranslationK = default, Vector3 RotationK = default, (Vector3 Axis, Vector3 Ref)? Frame = null) {
     public bool RotationallyFixed => Rx && Ry && Rz;
 }
 
@@ -146,13 +153,17 @@ public static class StructuralReads {
         graph.Find<Node.Object>(member).Bind(o => geometry.Axis(o.Representations))
             .ToFin(new ComputeFault.AssessmentInputMissing($"<member-axis-absent:{member.Value}>"));
 
-    // One MemberSupport per structural-connection edge the member relates — the fixity booleans and the start/end
-    // discriminant read off the neutral Generic edge payload the projector baked from IfcBoundaryNodeCondition.
+    // One MemberSupport per structural-connection edge the member relates — the fixity booleans, the [H2] spring
+    // stiffnesses, the skewed-support frame, and the start/end discriminant read off the neutral Generic edge
+    // payload the projector baked from IfcBoundaryNodeCondition (+ its ConditionCoordinateSystem).
     public static Seq<MemberSupport> SupportsOf(this ElementGraph graph, NodeId member) =>
         graph.EdgesAt(member).Choose(e => e is Relationship.Generic g && g.WireName == ConnectsMember && g.Relating == member
             ? Some(new MemberSupport(g.Related, Flag(g, StructuralAnalysis.WireAtStart),
                 Fix(g, "TranslationX"), Fix(g, "TranslationY"), Fix(g, "TranslationZ"),
-                Fix(g, "RotationX"), Fix(g, "RotationY"), Fix(g, "RotationZ")))
+                Fix(g, "RotationX"), Fix(g, "RotationY"), Fix(g, "RotationZ"),
+                new Vector3((float)Si(g, "TranslationKx"), (float)Si(g, "TranslationKy"), (float)Si(g, "TranslationKz")),
+                new Vector3((float)Si(g, "RotationKx"), (float)Si(g, "RotationKy"), (float)Si(g, "RotationKz")),
+                Opt(g, "RestraintAxisX").Map(_ => (Vec(g, "RestraintAxis"), Vec(g, "RestraintRef"))).ToNullable()))
             : None).ToSeq();
 
     // One MemberLoad per structural-activity edge the member relates — the kind (point/uniform/trapezoid), the load
@@ -166,7 +177,9 @@ public static class StructuralReads {
     static MemberLoad ToLoad(Relationship.Generic g) => Kind(g) switch {
         "uniform"   => new MemberLoad.Uniform(CaseOf(g), Vec(g, "Force")),
         "trapezoid" => new MemberLoad.Trapezoid(CaseOf(g), Vec(g, "Start"), Vec(g, "End")),
-        _           => new MemberLoad.Point(CaseOf(g), Vec(g, "Force"), Vec(g, "Moment"), Si(g, "Station") is var s && s > 0.0 ? s : 0.5),
+        // Presence-based station: a TRUE start-joint action (0.0) is a real position — only an ABSENT attr
+        // defaults midspan (the projector's honest None), never a truthiness collapse of 0.0.
+        _           => new MemberLoad.Point(CaseOf(g), Vec(g, "Force"), Vec(g, "Moment"), Opt(g, "Station").IfNone(0.5)),
     };
 
     static string Kind(Relationship.Generic g) =>
@@ -188,6 +201,10 @@ public static class StructuralReads {
 
     static double Si(Relationship.Generic g, string key) =>
         g.Attributes.Find(PropertyName.Create(key)).Map(static v => v is PropertyValue.Measure m ? m.Value.Si : 0.0).IfNone(0.0);
+
+    // The presence-preserving read: None when the attr is absent, Some(si) when present — 0.0 stays a real value.
+    static Option<double> Opt(Relationship.Generic g, string key) =>
+        g.Attributes.Find(PropertyName.Create(key)).Bind(static v => v is PropertyValue.Measure m ? Some(m.Value.Si) : None);
 }
 ```
 

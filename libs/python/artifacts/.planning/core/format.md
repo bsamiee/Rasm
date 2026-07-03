@@ -55,14 +55,16 @@ class TemplateTarget(StrEnum):
     XML = "xml"
     YAML = "yaml"
     TOML = "toml"
-    MARKDOWN = "markdown"        # plain-text diffable manuscript — the emit `DocumentMode.MARKDOWN` `to_markdown` node lowering
-    LATEX = "latex"              # journal-submission typeset manuscript — the emit `DocumentMode.LATEX` `to_latex` node lowering
+    MARKDOWN = "markdown"  # plain-text diffable manuscript — the emit `DocumentMode.MARKDOWN` `to_markdown` node lowering
+    LATEX = "latex"  # journal-submission typeset manuscript — the emit `DocumentMode.LATEX` `to_latex` node lowering
     TYPST_QUERY = "typst-query"  # introspection sidecar: query the lowered typst document by `<label>` selector -> JSON/YAML schedule extract
-    TYPST_EVAL = "typst-eval"    # introspection sidecar: evaluate a typst source expression against the lowered document
+    TYPST_EVAL = "typst-eval"  # introspection sidecar: evaluate a typst source expression against the lowered document
 
 
 type Bind = Callable[["TemplatePipeline", TemplateTarget], Awaitable[RuntimeRail[ContentKey]]]
-type DocumentRoute = tuple[DocumentMode, Callable[["TemplatePipeline"], EmitSpec]]  # the fused emit row: a target's mode AND its spec builder, never two parallel target-keyed maps
+type DocumentRoute = tuple[
+    DocumentMode, Callable[["TemplatePipeline"], EmitSpec]
+]  # the fused emit row: a target's mode AND its spec builder, never two parallel target-keyed maps
 type TemplateFault = Literal["<invalid-payload>"]
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -85,10 +87,10 @@ class QueryProfile(Struct, frozen=True):
     # document by `<label>` selector to JSON/YAML) or a computed evaluation, rather than four flat pipeline
     # fields; `_query_spec` projects it onto `EmitSpec.selector`/`field_name`/`one`/`expression` for both
     # introspection targets, the bound `node` being the queried document exactly as the PDF arm lowers it.
-    selector: str = ""       # TYPST_QUERY: the `<label>`/element selector matched against the lowered document
-    field: str = ""          # TYPST_QUERY: the element field projected (empty = whole matched element)
-    one: bool = False        # TYPST_QUERY: single-match value vs a match sequence
-    expression: str = ""     # TYPST_EVAL: the typst source expression evaluated against the lowered document
+    selector: str = ""  # TYPST_QUERY: the `<label>`/element selector matched against the lowered document
+    field: str = ""  # TYPST_QUERY: the element field projected (empty = whole matched element)
+    one: bool = False  # TYPST_QUERY: single-match value vs a match sequence
+    expression: str = ""  # TYPST_EVAL: the typst source expression evaluated against the lowered document
 
 
 class TemplatePayload(TypedDict, extra_items=object):
@@ -100,6 +102,7 @@ class TemplatePayload(TypedDict, extra_items=object):
     query: NotRequired[ReadOnly[QueryProfile]]
     loader: NotRequired[ReadOnly[ReportLoader]]
     trusted: NotRequired[ReadOnly[bool]]
+
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -164,10 +167,13 @@ async def _html(pipeline: "TemplatePipeline", _target: TemplateTarget, /) -> Run
     # data-injection the typst PDF and spreadsheet arms carry reaches the jinja HTML context ([03]-[HTML_CONTEXT]).
     plan = ReportPlan(
         kind=ReportKind.TEMPLATE,
-        spec=ReportSpec(source=pipeline.template, figures=pipeline.figures, context=pipeline.bindings, loader=pipeline.loader, trusted=pipeline.trusted),
+        spec=ReportSpec(
+            source=pipeline.template, figures=pipeline.figures, context=pipeline.bindings, loader=pipeline.loader, trusted=pipeline.trusted
+        ),
     )
     rail = await rendered(plan)
     return rail.map(lambda keys: keys.head())
+
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
@@ -184,8 +190,11 @@ DELEGATES: Final[frozendict[TemplateTarget, DocumentRoute]] = frozendict({
     TemplateTarget.XML: (DocumentMode.XML, _bare_spec),
     TemplateTarget.YAML: (DocumentMode.YAML, _bare_spec),
     TemplateTarget.TOML: (DocumentMode.TOML, _bare_spec),
-    TemplateTarget.MARKDOWN: (DocumentMode.MARKDOWN, _bare_spec),  # the node-lowered CommonMark/GFM manuscript reuses `_bare_spec` — no template/sheet/query knob
-    TemplateTarget.LATEX: (DocumentMode.LATEX, _bare_spec),        # the node-lowered LaTeX manuscript reuses `_bare_spec`
+    TemplateTarget.MARKDOWN: (
+        DocumentMode.MARKDOWN,
+        _bare_spec,
+    ),  # the node-lowered CommonMark/GFM manuscript reuses `_bare_spec` — no template/sheet/query knob
+    TemplateTarget.LATEX: (DocumentMode.LATEX, _bare_spec),  # the node-lowered LaTeX manuscript reuses `_bare_spec`
     TemplateTarget.TYPST_QUERY: (DocumentMode.TYPST_QUERY, _query_spec),
     TemplateTarget.TYPST_EVAL: (DocumentMode.TYPST_EVAL, _query_spec),
 })
@@ -226,18 +235,20 @@ class TemplatePipeline(Struct, frozen=True):
             fault.add_note(f"<template.payload:{[error['loc'] for error in fault.errors()]}>")
             return Error("<invalid-payload>")
         bindings = frozendict({name: value for name, value in payload.items() if name not in _DECLARED})
-        return Ok(cls(
-            template=payload["template"],
-            node=node,
-            bindings=bindings,
-            figures=payload.get("figures", ()),
-            assets=payload.get("assets", frozendict()),
-            variant=payload.get("variant", PdfVariant.NONE),
-            sheet=payload.get("sheet", SheetProfile()),
-            query=payload.get("query", QueryProfile()),
-            loader=payload.get("loader", ReportLoader.DICT),
-            trusted=payload.get("trusted", True),
-        ))
+        return Ok(
+            cls(
+                template=payload["template"],
+                node=node,
+                bindings=bindings,
+                figures=payload.get("figures", ()),
+                assets=payload.get("assets", frozendict()),
+                variant=payload.get("variant", PdfVariant.NONE),
+                sheet=payload.get("sheet", SheetProfile()),
+                query=payload.get("query", QueryProfile()),
+                loader=payload.get("loader", ReportLoader.DICT),
+                trusted=payload.get("trusted", True),
+            )
+        )
 
     @overload
     async def bound(self, target: TemplateTarget, /) -> RuntimeRail[ContentKey]: ...

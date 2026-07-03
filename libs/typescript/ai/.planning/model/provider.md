@@ -1,0 +1,1 @@
+# [AI_PROVIDER] — LanguageModel provider rows (anthropic/openai/google/bedrock/openrouter) + the capability-asymmetry table + cost/latency tier-routing policy rows + the ONE guardrail gate (input/output moderation folds, Schema-refusal admission) over every provider row

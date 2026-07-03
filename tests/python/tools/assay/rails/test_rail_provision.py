@@ -351,6 +351,42 @@ def test_provision_extensions_projects_catalog_rows(assay_root: AssayHarness, mo
 register_law(provision_rail.extensions, "projects_catalog_rows")
 
 
+def test_provision_extensions_admits_runtime_probed_null_fields(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Runtime-probed catalog rows carry null availability/admission/loadName/probeFunction/imageTag; the decode admits them as empty wire cells."""
+    payload = _json(
+        "extensions",
+        extensions=[
+            {
+                "service": "*",
+                "extension": "hll",
+                "category": "analytics",
+                "kind": "extension",
+                "sourceRoute": "postgresql-contrib-or-image-probed",
+                "sourceKind": "runtime-probed",
+                "nixStatus": "runtime-probed",
+                "probeKind": "create-extension",
+                "capabilityRank": "optional",
+                "createPolicy": "probe-only",
+                "loadPolicy": "probe-only",
+                "imageTag": None,
+                "availability": None,
+                "admission": None,
+                "loadName": None,
+                "probeFunction": None,
+            }
+        ],
+    )
+    monkeypatch.setattr(provision_rail, "fan_out", _fan_payload(("forge-provision", "--json", "extensions"), payload))
+    report = assert_ok(provision_rail.extensions(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams()))
+    assert isinstance(report.detail, ProvisionRun)
+    probed_row = ("*", "hll", "postgresql-contrib-or-image-probed", "runtime-probed", "runtime-probed", "create-extension", "optional")
+    assert report.detail.extension_metadata == ((*probed_row, "", "", "", "", "probe-only"),)
+    assert report.detail.tool_surface_extensions == ()
+
+
+register_law(provision_rail.extensions, "admits_runtime_probed_null_fields")
+
+
 def test_provision_extensions_preserves_tool_surface_rows(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
     """DuckDB and SQLite catalog metadata survives projection into ProvisionRun."""
     payload = _json(

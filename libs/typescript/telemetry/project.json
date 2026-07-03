@@ -1,0 +1,11 @@
+{
+    "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+    "name": "telemetry",
+    "projectType": "library",
+    "sourceRoot": "libs/typescript/telemetry/src",
+    "tags": [
+        "scope:telemetry",
+        "runtime:neutral",
+        "plane:runtime"
+    ]
+}

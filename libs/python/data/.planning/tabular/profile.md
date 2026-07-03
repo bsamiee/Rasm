@@ -51,7 +51,10 @@ type ReportKind = Literal["tabular", "step", "json", "dataframe", "sundered", "p
 type Inclusive = Literal["both", "neither", "left", "right"]
 
 _INCLUSIVE: Final[Map[Inclusive, tuple[bool, bool]]] = Map.of_seq([
-    ("both", (True, True)), ("neither", (False, False)), ("left", (True, False)), ("right", (False, True)),
+    ("both", (True, True)),
+    ("neither", (False, False)),
+    ("left", (True, False)),
+    ("right", (False, True)),
 ])
 
 
@@ -82,8 +85,23 @@ Grade.LEVELS = (Grade.WARNING, Grade.ERROR, Grade.CRITICAL)
 @tagged_union(frozen=True)
 class StepKind:
     tag: Literal[
-        "compare", "span", "member", "nullity", "pattern", "spec", "ordered", "aggregate",
-        "shape", "nullfrac", "distinct", "present", "schema", "expr", "joint", "twin", "bespoke",
+        "compare",
+        "span",
+        "member",
+        "nullity",
+        "pattern",
+        "spec",
+        "ordered",
+        "aggregate",
+        "shape",
+        "nullfrac",
+        "distinct",
+        "present",
+        "schema",
+        "expr",
+        "joint",
+        "twin",
+        "bespoke",
     ] = tag()
     compare: tuple[Columns, Operator, Comparand, bool] = case()
     span: tuple[Columns, Comparand, Comparand, Inclusive, bool, bool] = case()
@@ -115,7 +133,9 @@ class ProbeStep(Struct, frozen=True):
             case StepKind(tag="compare", compare=(columns, op, value, na_pass)):
                 return tables.compare[op](plan, tables.cols(columns), value=value, na_pass=na_pass, thresholds=t, actions=a)
             case StepKind(tag="span", span=(columns, left, right, inclusive, outside, na_pass)):
-                return tables.span[outside](plan, tables.cols(columns), left=left, right=right, inclusive=_INCLUSIVE[inclusive], na_pass=na_pass, thresholds=t, actions=a)
+                return tables.span[outside](
+                    plan, tables.cols(columns), left=left, right=right, inclusive=_INCLUSIVE[inclusive], na_pass=na_pass, thresholds=t, actions=a
+                )
             case StepKind(tag="member", member=(columns, present, values)):
                 return tables.member[present](plan, tables.cols(columns), set=list(values), thresholds=t, actions=a)
             case StepKind(tag="nullity", nullity=(columns, present)):
@@ -125,9 +145,13 @@ class ProbeStep(Struct, frozen=True):
             case StepKind(tag="spec", spec=(columns, named, na_pass)):
                 return plan.col_vals_within_spec(tables.cols(columns), spec=named, na_pass=na_pass, thresholds=t, actions=a)
             case StepKind(tag="ordered", ordered=(columns, True, allow_stationary, tol, na_pass)):
-                return plan.col_vals_increasing(tables.cols(columns), allow_stationary=allow_stationary, decreasing_tol=tol, na_pass=na_pass, thresholds=t, actions=a)
+                return plan.col_vals_increasing(
+                    tables.cols(columns), allow_stationary=allow_stationary, decreasing_tol=tol, na_pass=na_pass, thresholds=t, actions=a
+                )
             case StepKind(tag="ordered", ordered=(columns, False, allow_stationary, tol, na_pass)):
-                return plan.col_vals_decreasing(tables.cols(columns), allow_stationary=allow_stationary, increasing_tol=tol, na_pass=na_pass, thresholds=t, actions=a)
+                return plan.col_vals_decreasing(
+                    tables.cols(columns), allow_stationary=allow_stationary, increasing_tol=tol, na_pass=na_pass, thresholds=t, actions=a
+                )
             case StepKind(tag="aggregate", aggregate=(columns, stat, op, value, tol)):
                 return tables.aggregate[(stat, op)](plan, tables.cols(columns), value=value, tol=tol, thresholds=t, actions=a)
             case StepKind(tag="shape", shape=("row", count, tol, inverse)):
@@ -207,7 +231,11 @@ class ProfileReceipt(Struct, frozen=True):
         rows, cols = self.shape
         yield Receipt.of(
             "quality-profile",
-            ("emitted", self.label, {"grade": self.grade.name, "rows": rows, "columns": cols, "steps": self.steps, "breached": "|".join(self.breached)}),
+            (
+                "emitted",
+                self.label,
+                {"grade": self.grade.name, "rows": rows, "columns": cols, "steps": self.steps, "breached": "|".join(self.breached)},
+            ),
         )
 
 
@@ -222,11 +250,22 @@ class QualityProfile(Struct, frozen=True):
 
     @classmethod
     @beartype(conf=FAULT_CONF)
-    def of(cls, *steps: ProbeStep, thresholds: "pb.Thresholds | None" = None, actions: "pb.Actions | None" = None, final_actions: "pb.FinalActions | None" = None, label: str = "profile", tbl_name: str | None = None, brief: bool | str = False) -> "QualityProfile":
+    def of(
+        cls,
+        *steps: ProbeStep,
+        thresholds: "pb.Thresholds | None" = None,
+        actions: "pb.Actions | None" = None,
+        final_actions: "pb.FinalActions | None" = None,
+        label: str = "profile",
+        tbl_name: str | None = None,
+        brief: bool | str = False,
+    ) -> "QualityProfile":
         return cls(steps=steps, thresholds=thresholds, actions=actions, final_actions=final_actions, label=label, tbl_name=tbl_name, brief=brief)
 
     @beartype(conf=FAULT_CONF)
-    def interrogate(self, data: Any, *, sample_n: int | None = None, sample_frac: float | None = None, get_first_n: int | None = None, extract_limit: int = 500) -> "RuntimeRail[ProfileReceipt]":
+    def interrogate(
+        self, data: Any, *, sample_n: int | None = None, sample_frac: float | None = None, get_first_n: int | None = None, extract_limit: int = 500
+    ) -> "RuntimeRail[ProfileReceipt]":
         # the plan build+interrogate fences once, then `.bind`s the railed content-key derivation
         # and `.map`s the resolved `ContentKey` into the receipt — never collapsing the railed
         # `ContentIdentity.of` into a field, exactly as the sibling `columnar`/`interop` receipts.
@@ -259,7 +298,9 @@ class QualityProfile(Struct, frozen=True):
             case ProfileReport(tag="sundered", sundered=side):
                 return ProfileFrame(report.tag, Grade.of(graded()), graded().get_sundered_data(type=side))
             case ProfileReport(tag="probe", probe=show_sample):
-                return ProfileFrame(report.tag, Grade.PASSED, pb.DataScan(data, tbl_name=self.tbl_name).get_tabular_report(show_sample_data=show_sample))
+                return ProfileFrame(
+                    report.tag, Grade.PASSED, pb.DataScan(data, tbl_name=self.tbl_name).get_tabular_report(show_sample_data=show_sample)
+                )
             case ProfileReport(tag="summary"):
                 return ProfileFrame(report.tag, Grade.PASSED, pb.col_summary_tbl(data, tbl_name=self.tbl_name))
             case ProfileReport(tag="missing"):
@@ -273,7 +314,15 @@ class QualityProfile(Struct, frozen=True):
         import pointblank as pb  # noqa: PLC0415
 
         tables = ProbeTables.bind(pb)
-        root = pb.Validate(data, thresholds=self.thresholds, actions=self.actions, final_actions=self.final_actions, label=self.label, tbl_name=self.tbl_name, brief=self.brief)
+        root = pb.Validate(
+            data,
+            thresholds=self.thresholds,
+            actions=self.actions,
+            final_actions=self.final_actions,
+            label=self.label,
+            tbl_name=self.tbl_name,
+            brief=self.brief,
+        )
         return reduce(lambda plan, step: step.append(plan, tables), self.steps, root)
 ```
 

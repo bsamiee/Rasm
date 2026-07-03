@@ -28,16 +28,16 @@ declare -Ar TOOLS=(
     [hyperfine]='hyperfine:binstall' [gping]='gping:binstall'
     [trip]='trippy:binstall'
     [doggo]='mr-karan/doggo:github-go'
-    [trash-put]='trash-cli:pipx'
+    [trash - put]='trash-cli:pipx'
     [uv]='uv:pipx'
     [gws]='googleworkspace/cli:v0.22.5:github-release-sha'
     [agy]='google-antigravity/official-installer:latest:antigravity-installer'
 )
 declare -Ar STRATEGY_DISPATCH=(
-    [antigravity-installer]=_install_antigravity_installer
+    [antigravity - installer]=_install_antigravity_installer
     [binstall]=_install_binstall
-    [github-go]=_install_github_go
-    [github-release-sha]=_install_github_release_sha
+    [github - go]=_install_github_go
+    [github - release - sha]=_install_github_release_sha
     [pipx]=_install_pipx
 )
 declare -Ar COMMAND_DISPATCH=(
@@ -231,11 +231,11 @@ _install_github_release_sha() {
     raw_os="$(uname -s)"
     raw_arch="$(uname -m)"
     case "${raw_os}:${raw_arch}" in
-        Linux:x86_64) target="x86_64-unknown-linux-gnu" ;;
-        Linux:aarch64 | Linux:arm64) target="aarch64-unknown-linux-gnu" ;;
-        Darwin:arm64 | Darwin:aarch64) target="aarch64-apple-darwin" ;;
-        Darwin:x86_64) target="x86_64-apple-darwin" ;;
-        *) _die "Unsupported platform for ${binary}: ${raw_os}/${raw_arch}" ;;
+    Linux:x86_64) target="x86_64-unknown-linux-gnu" ;;
+    Linux:aarch64 | Linux:arm64) target="aarch64-unknown-linux-gnu" ;;
+    Darwin:arm64 | Darwin:aarch64) target="aarch64-apple-darwin" ;;
+    Darwin:x86_64) target="x86_64-apple-darwin" ;;
+    *) _die "Unsupported platform for ${binary}: ${raw_os}/${raw_arch}" ;;
     esac
     asset="google-workspace-cli-${target}.tar.gz"
     base_url="https://github.com/${repo}/releases/download/${tag}"

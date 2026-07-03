@@ -1,97 +1,109 @@
 # [UI]
 
-`ui` is the host-free browser UI/UX/components library of the TypeScript branch — the AppUi-analog, the lower browser-stratum library beneath the `platform` AppHost-analog. It owns the single sanctioned `AtomBinding` reactive-binding spine, the headless interaction-role component vocabulary, and the leaf render-surfaces over the decoded C# wire. The library holds no domain state and authors no decode: every domain read flows through a `projection` store and the one `AtomBinding`, every geometry read through the `interchange` `GeometryRail`, and every mutation leaves only through the `interchange` `CommandGateway`. This is a pure browser DOM/WebGL/WebGPU library, distinct in kind from the C# Avalonia AppUi, which is a desktop host-bound surface. `ui/**` never imports `platform/**`. The `.planning/` design pages are routed below; every external package the folder draws on is registered under `## [2]-[DOMAIN_PACKAGES]` and `## [3]-[SUBSTRATE_PACKAGES]`. The domain folder-map lives in `ARCHITECTURE.md`, the forward concept pool in `IDEAS.md`, and open work in `TASKLOG.md`.
+`ui` is the W4 component-capability folder of the TypeScript branch — two Nx projects in one folder: the `ui` core shipping atoms, tokens, interaction, localization, and headless views as capability rows on the React 19 spine (react-compiler enabled, memoization compiled, never hand-written), and `ui/viewer`, the second Nx project (`scope:viewer`) carrying the spatial/GLB/geo/BCF tier so heavy render deps are compile-time excluded from the non-spatial majority. `@effect-atom` is the one state binding (`ONE_FOLD_ONE_BINDING`); react-aria is the headless primitive spine every view row composes; `intl` owns the localization plane as Schema-typed message-catalog rows with plural/select folds over native `Intl` — zero i18n package, catalogs are app data keyed by the kernel `Locale` brand. Components are capability, boot is runtime: `ui` never imports `browser`; where a component needs a runtime capability, `ui` declares a port record (`GlbViewport` decode-worker residency) and `browser` provides the Layer at app composition. `ui` types decoded wire values through the `wire` `#vocab` subpath only. The folder map and seam record live in `ARCHITECTURE.md`, the forward concept pool in `IDEAS.md`, and the work log in `TASKLOG.md`.
 
-## [01]-[ROUTER]
+## [1]-[ROUTER]
 
-- [01]-[ATOM](.planning/binding/atom.md): the `AtomBinding` spine over `Atom.searchParam`/`kvs`/`family`/`pull`, the `UndoStack` fold, and the `Result.builder` render chain.
-- [02]-[ROLE](.planning/interaction/role.md): the behavior-bearing `_Roles`/`InteractionRole` vocabulary owner-block and the `RoleBehavior` contract.
-- [03]-[ANNOUNCE](.planning/interaction/announce.md): the live-region announce path over the role `politeness` column and the `ToastQueue` external-store queue.
-- [04]-[FORM](.planning/interaction/form.md): the headless `FormBinding` folding `Schema.decodeUnknownEither` validation into the `Form` `validationBehavior: "aria"` error map.
-- [05]-[PICKER](.planning/interaction/picker.md): the headless `PickerBehavior` family realizing the `pickers` role's color/date/file behaviors over react-stately color state and react-aria-components calendar/date/file widgets, with color channels projected through the OKLCH token space.
-- [06]-[COMMAND](.planning/interaction/command.md): the `CommandAction` AEC action-lexicon vocabulary rendered through the `cmdk` palette and the `vaul` drawer, the `lucide-react` icon vocabulary keyed by action, the one `cva`+`twMerge` variant-recipe owner, and the `useFilter`/`UNSTABLE_useFilteredListState` filtering surface, dialing only through the `interchange` `CommandGateway`.
-- [07]-[GESTURE](.planning/interaction/gesture.md): the shared `CameraGesture`/`GestureFold` pointer-gesture algebra.
-- [08]-[TRANSITION](.planning/interaction/transition.md): the `SurfaceTransition` union over `<ViewTransition>` swap and `<Activity>` preserve.
-- [09]-[TOKENS](.planning/theming/tokens.md): the `ThemeTokens` OKLCH scale, the `CssVarSync` Tailwind CSS-variable sync, and the `tw-animate-css` enter/exit utility layer.
-- [10]-[FLOATING](.planning/overlay/floating.md): `useFloatingAnchor` placement over `useFloating`/`useInteractions`, the CSS Anchor bridge, and the dismiss law.
-- [11]-[PRESENCE](.planning/overlay/presence.md): the `PresenceOverlay` collaborator-cursor cohort over the `projection` convergence changefeed, with the `[BEAT_PAYLOAD]` residual on the producer `Awareness` beat byte-encoding pin.
-- [12]-[BCF](.planning/overlay/bcf.md): the BCF viewpoint/issue-anchored observation overlay decoding the `BcfTopicWire`/`BcfViewpointWire` rows, the `BcfStatusKey` vocabulary, and the `anchorViewpoint` camera-and-GlobalId projection.
-- [13]-[GLB](.planning/render/glb.md): `GlbViewport`, `RendererBackend`, `ViewportResource`, and the camera row.
-- [14]-[GEO](.planning/render/geo.md): the `GeoSeriesLayer` `$match` over the maplibre base substrate and the deck.gl overlay set, where the `tile` arm streams `TileLayer`/`MVTLayer` and the `geoarrow` arm renders the `@geoarrow/deck.gl-geoarrow` `RecordBatch` layers out of core.
-- [15]-[DASHBOARD](.planning/render/dashboard.md): the live-wire binding-studio cockpit over the decoded `BindingStatusWire`/`WriteReceiptWire`/`CoercedValueWire` rows, the `@tanstack/react-table`+`react-virtual` health table, and the `WriteBackWire` `kind`-discriminated disposition.
-- [16]-[ROUTES](.planning/render/routes.md): `EvidenceTimelineRoute`, `BenchmarkRoute`, and `CollectorPanel`.
+[CORE]:
+- [01]-[BINDING](.planning/atom/binding.md): the `@effect-atom` one-binding law (`ONE_FOLD_ONE_BINDING`) — the one state binding, with `AtomHttpApi`/`AtomRpc` direct-binding rows.
+- [02]-[DERIVE](.planning/atom/derive.md): derived atoms/selectors over `state` folds plus undo/redo stack folds.
+- [03]-[THEME](.planning/token/theme.md): design tokens and theming rows.
+- [04]-[SCALE](.planning/token/scale.md): spacing/typography scale vocabulary and motion token rows (tw-animate).
+- [05]-[TRANSITION](.planning/act/transition.md): the native View Transitions API owner; `<ViewTransition>`/`<Activity>` stay gated as the upgrade row, `act` degrading to the native API.
+- [06]-[GESTURE](.planning/act/gesture.md): interaction/gesture rows (react-aria).
+- [07]-[PRIMITIVE](.planning/view/primitive.md): the react-aria headless component spine plus live-region announce/toast rows.
+- [08]-[COMPOSE](.planning/view/compose.md): composition/slot patterns, Schema→aria `FormBinding`/picker rows, command-palette (cmdk), table/virtual collection, floating-anchor/sheet, and presence-cursor cohort rows.
+- [09]-[MESSAGE](.planning/intl/message.md): Schema-typed message-catalog rows keyed by the kernel `Locale` brand, plural/select folds over native `Intl` — catalogs are app data, zero i18n package.
+- [10]-[FORMAT](.planning/intl/format.md): number/date/list/relative-time format rows composing react-aria `I18nProvider`/`useLocale` over native `Intl`.
 
-## [02]-[DOMAIN_PACKAGES]
+[VIEWER] — the second Nx project, `scope:viewer`:
+- [11]-[GLB](.planning/viewer/scene/glb.md): `GLB_VIEWPORT` scene residency and three rows; consumes the `browser` decode-worker port; meshopt decode gated.
+- [12]-[APPEARANCE](.planning/viewer/scene/appearance.md): OpenPBR appearance binding over `wire#vocab` appearance.
+- [13]-[LAYERS](.planning/viewer/geo/layers.md): maplibre/deck.gl geo layers and turf planar ops (WKB decode stays in `wire`).
+- [14]-[PROJECT](.planning/viewer/geo/project.md): projection/camera sync rows.
+- [15]-[BCF](.planning/viewer/mark/bcf.md): BCF topic/viewpoint anchors (`GlobalId`).
+- [16]-[SELECTION](.planning/viewer/mark/selection.md): `GlobalId` selection sets.
+- [17]-[RECEIPT](.planning/viewer/probe/receipt.md): `RenderReceipt` frame-hash probes.
+- [18]-[BENCHMARK](.planning/viewer/probe/benchmark.md): `BenchmarkClaim`/`HostFingerprint` probes.
+- [19]-[PANEL_BINDING](.planning/viewer/panel/binding.md): livewire binding panels.
+- [20]-[CONTROL](.planning/viewer/panel/control.md): `ControlIntent` panels.
+- [21]-[LAYOUT](.planning/viewer/panel/layout.md): `@lume/kiwi` Cassowary layout re-solve to identical positions.
 
-Domain packages owned by this folder; versions are in the workspace catalog (`pnpm-workspace.yaml` `catalog:`) and corroborated by `libs/typescript/ui/.api/`.
+## [2]-[DOMAIN_PACKAGES]
 
-[REACT]:
+Every UI-domain library the folder uses, planned or implemented. Versions are centralized in the one `pnpm-workspace.yaml` catalog and never pinned here; API evidence lives in the adjacent `.api/` folder. The `[VIEWER_*]` groups are `scope:viewer` project-local — admitted only by the `ui/viewer` Nx project and compile-time excluded from the core.
+
+[REACT_SPINE]:
+- `react`
+- `react-dom`
 - `@types/react`
 - `@types/react-dom`
+- `react-error-boundary`
+
+[COMPILER]:
 - `babel-plugin-react-compiler`
 - `react-compiler-runtime`
 
-[HEADLESS_A11Y]:
+[STATE_BINDING]:
+- `@effect-atom/atom`
+- `@effect-atom/atom-react`
+
+[HEADLESS_ARIA]:
 - `react-aria`
 - `react-aria-components`
 - `react-stately`
 - `@react-aria/live-announcer`
-- `tailwindcss-react-aria-components`
-- `@radix-ui/react-slot`
-- `@radix-ui/react-label`
-- `@radix-ui/react-separator`
-- `@radix-ui/react-visually-hidden`
 
-[POSITIONING_GESTURE]:
+[COMPOSITION]:
 - `@floating-ui/react`
 - `@floating-ui/react-dom`
-- `@use-gesture/react`
-
-[THEMING]:
-- `colorjs.io`
-- `tailwindcss`
-- `tailwind-merge`
-- `class-variance-authority`
-- `tw-animate-css`
-
-[CONTENT]:
-- `lucide-react`
+- `@radix-ui/react-label`
+- `@radix-ui/react-separator`
+- `@radix-ui/react-slot`
+- `@radix-ui/react-visually-hidden`
+- `@tanstack/react-table`
+- `@tanstack/react-virtual`
 - `cmdk`
 - `vaul`
 
-[DATA_SURFACES]:
-- `@tanstack/react-virtual`
-- `@tanstack/react-table`
+[INTERACTION]:
+- `@use-gesture/react`
+
+[TOKENS]:
+- `tailwindcss`
+- `tailwindcss-react-aria-components`
+- `tailwind-merge`
+- `tw-animate-css`
+- `class-variance-authority`
+- `clsx`
+- `colorjs.io`
+- `lucide-react`
+
+[SANITIZE]:
+- `isomorphic-dompurify`
+
+[VIEWER_SCENE] — `scope:viewer`:
+- `three`
+- `@google/model-viewer`
+- `@webgpu/types`
+
+[VIEWER_GEO] — `scope:viewer`:
 - `maplibre-gl`
 - `@deck.gl/core`
 - `@deck.gl/layers`
 - `@deck.gl/geo-layers`
 - `@deck.gl/mapbox`
 - `@geoarrow/deck.gl-geoarrow`
+- `apache-arrow`
+- `@turf/turf`
 
-[VIEWPORT]:
-- `three`
-- `@google/model-viewer`
-- `@webgpu/types`
+[VIEWER_LAYOUT] — `scope:viewer`:
+- `@lume/kiwi`
 
-## [03]-[SUBSTRATE_PACKAGES]
+## [3]-[SUBSTRATE_PACKAGES]
 
-Branch-level substrate packages this folder consumes. Substrate policy and full registry live in `libs/typescript/.planning/README.md`; decompile evidence lives in `libs/typescript/.api/`.
+The branch substrate this folder consumes; the registry lives in `libs/typescript/.planning/README.md` and the catalogues at `libs/typescript/.api/`.
 
-[RUNTIME_CORE]:
-- `effect` — `Effect.Service` and `Schema` substrate underlying the `AtomBinding` spine and result carriers
-- `@effect/platform` — `KeyValueStore` contract the `AtomBinding` `Atom.kvs` offline cell binds at the runtime seam
-
-[REACTIVE_BRIDGE]:
-- `@effect-atom/atom` — reactive-store primitives (`Atom.subscriptionRef`, `Atom.subscribable`, `Atom.kvs`, `Atom.family`)
-- `@effect-atom/atom-react` — React binding layer (`useAtom`, `useAtomValue`) over the atom store
-
-[OBSERVABILITY]:
-- `@effect/opentelemetry` — OTel trace/span integration at the observation boundary
-
-[VIEW_CORE]:
-- `react` — React 19 core render substrate (`ReactNode`, hooks, context, suspense) for every component owner on the stack
-- `react-dom` — browser DOM portals and form-status hooks (`createPortal`, `useFormStatus`) the component surfaces consume
-
-[SECURITY_SUBSTRATE]:
-- `isomorphic-dompurify` — DOM-bound text sanitization for content render surfaces
+- `effect` — rails, `Schema` (message catalogs, `FormBinding`), `Layer`, `Match` across every row.
+- `@effect/platform` — the HttpApi/Rpc client contracts the `AtomHttpApi`/`AtomRpc` direct-binding rows compose.
+- `@effect/vitest` — the dev-plane spec runner binding `proof` law combinators to the folder specs.

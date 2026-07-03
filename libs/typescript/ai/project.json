@@ -1,0 +1,11 @@
+{
+    "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+    "name": "ai",
+    "projectType": "library",
+    "sourceRoot": "libs/typescript/ai/src",
+    "tags": [
+        "scope:ai",
+        "runtime:node",
+        "plane:runtime"
+    ]
+}

@@ -42,7 +42,7 @@ class ChartTheme(Struct, frozen=True):
     # visualization/chart/export). A palette-only caller constructs `ChartTheme(palette=coords)` and the sibling
     # blocks stay `None`, so the color-only path is byte-identical to the prior palette-only form.
     palette: Palette
-    axis: "alt.theme.AxisConfigKwds | None" = None    # ISO 3098 lettering / journal tick+label+title+grid axis styling — the typed sibling block the prior _themed left as an untyped preserved dict
+    axis: "alt.theme.AxisConfigKwds | None" = None  # ISO 3098 lettering / journal tick+label+title+grid axis styling — the typed sibling block the prior _themed left as an untyped preserved dict
     legend: "alt.theme.LegendConfigKwds | None" = None
     view: "alt.theme.ViewConfigKwds | None" = None
     title: "alt.theme.TitleConfigKwds | None" = None
@@ -73,14 +73,14 @@ class ChartSpec:
         match engine:
             case alt.Chart() | alt.LayerChart() | alt.HConcatChart() | alt.VConcatChart() | alt.ConcatChart() | alt.FacetChart() | alt.RepeatChart():
                 return _theme_vega(engine, theme).map(ChartSpec.Vega)
-            case dict() as raw:                                     # a consumer-materialized Vega-Lite dict — theme-thread it directly, no `to_dict`
+            case dict() as raw:  # a consumer-materialized Vega-Lite dict — theme-thread it directly, no `to_dict`
                 return Ok(ChartSpec.Vega(_themed(raw, theme)))
             case _ if type(engine).__module__.startswith("lets_plot"):
                 return Ok(ChartSpec.LetsPlot(engine, theme.palette))  # lets-plot themes its own annotation styling; only the color source crosses
             case _ if type(engine).__module__.startswith("matplotlib"):
                 return Ok(ChartSpec.Matplotlib(engine, theme.palette))
             case _:
-                return Error("<unknown-engine>")                   # reject a non-chart object at admission rather than misroute it to the matplotlib arm
+                return Error("<unknown-engine>")  # reject a non-chart object at admission rather than misroute it to the matplotlib arm
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -108,8 +108,10 @@ def _themed(spec: dict[str, object], theme: ChartTheme) -> dict[str, object]:
     range_block: alt.theme.RangeConfigKwds = {**prior_range, "category": ramp, "ordinal": ramp, "ramp": ramp, "heatmap": ramp, "diverging": ramp}
     typed: alt.theme.ConfigKwds = {
         "range": range_block,
-        **_merged(prior_config, "axis", theme.axis), **_merged(prior_config, "legend", theme.legend),
-        **_merged(prior_config, "view", theme.view), **_merged(prior_config, "title", theme.title),
+        **_merged(prior_config, "axis", theme.axis),
+        **_merged(prior_config, "legend", theme.legend),
+        **_merged(prior_config, "view", theme.view),
+        **_merged(prior_config, "title", theme.title),
         **_merged(prior_config, "mark", theme.mark),
     }
     return {**spec, "config": {**prior_config, **typed}}
