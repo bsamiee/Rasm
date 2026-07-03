@@ -73,5 +73,5 @@
 Cross-reference [density-axes.md `[4]`](density-axes.md) for the pattern catalog. Oracle-side rules that govern polymorphic specs:
 
 - A polymorphic spec's oracle table is itself a contract — when a new SmartEnum/Union case is added, the oracle table must be extended in the same change. The architecture test (`Items.Count == OracleTable.Count`) catches drift.
-- Per-case oracles in a `Spec.Cases(items, key, law)` body must each be independent of production — a case-specific closed form, a smaller model, or a metamorphic relation. If three of N cases share an oracle and the other N-3 are mirrors, the polymorphic structure hides Grade F coverage; split into two laws.
+- Per-case oracles in a `Spec.Catalog(items, expectedKeys, key, law)` body must each be independent of production — a case-specific closed form, a smaller model, or a metamorphic relation. If three of N cases share an oracle and the other N-3 are mirrors, the polymorphic structure hides Grade F coverage; split into two laws.
 - When using `Theory + InlineData`, each row is a separately-tracked test ID and Stryker mutation target. Prefer Theory over PBT for SmartEnum case sweeps when the oracle differs per row.

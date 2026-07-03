@@ -6,7 +6,7 @@
 
 [PACKAGE_SURFACE]: `effect`
 - package: `effect` (3.21.4, MIT, © Effectful Technologies)
-- module format: ESM, `sideEffects: false`; per-module deep-import subpaths (`effect/Effect`, `effect/Schema`, …) plus the flat `effect` barrel — the module boundary graph imports the barrel, deep-imports only where tree-shaking a single module matters
+- module format: ESM + CJS dual (`dist/esm` + `dist/cjs`, types `dist/dts`), `sideEffects: []`; per-module deep-import subpaths (`effect/Effect`, `effect/Schema`, …) plus the flat `effect` barrel — the module boundary graph imports the barrel, deep-imports only where tree-shaking a single module matters
 - runtime target: isomorphic (node, bun, browser, worker); zero runtime dependencies; no native addon
 - asset: pure-TypeScript runtime library shipping `.js` + `.d.ts`; the type-level surface (`typeof schema.Type`, `keyof typeof`, branded refinements) is load-bearing, so `tsc`/`tsgo` are the real gate
 - rail: substrate (every folder types against it; catalogued once at the branch tier)
@@ -38,14 +38,14 @@
 |  [04]   | `Schema.PropertySignature` / `Schema.optionalWith`        | field modality     | `kernel/schema` optional-to-`Option` decode, constructor defaults, key renaming at the seam |
 |  [05]   | `ParseResult.ParseError` / `ParseResult.ParseIssue`       | decode fault       | every ingress — lifts into the `Effect` error channel; `ArrayFormatter` renders issue trees |
 |  [06]   | `SchemaAST.AST` + annotation IDs                          | reflection node    | `proof/law` arbitrary derivation, `edge/api` OpenAPI emission read the annotated AST |
-|  [07]   | `FastCheck.Arbitrary<A>` (`effect/FastCheck`)             | generator          | `proof/law/arbitrary.ts` — Schema-derived property generators, no hand-rolled fixtures |
+|  [07]   | `FastCheck.Arbitrary<A>` (`effect/FastCheck`) / `Arbitrary.LazyArbitrary<A>` | generator | `proof/law/arbitrary.ts` — Schema-derived property generators, no hand-rolled fixtures; `LazyArbitrary<A>` = `(fc: typeof FastCheck) => FastCheck.Arbitrary<A>`, the deferred/recursive-schema form |
 
 [PUBLIC_TYPE_SCOPE]: services, layers, and dispatch surfaces
 - rail: surfaces-and-dispatch
 
 | [INDEX] | [SYMBOL]                                        | [TYPE_FAMILY]     | [CONSUMER]                                                          |
 | :-----: | :---------------------------------------------- | :---------------- | :----------------------------------------------------------------- |
-|  [01]   | `Context.Tag<Id, Service>` / `Context.Reference`| service key        | every port (`SqlClient`, `Embedder`, `SessionStore`) — `Reference` carries a default |
+|  [01]   | `Context.Tag<Id, Service>` / `Context.TagClass` / `Context.Reference`| service key        | every port (`SqlClient`, `Embedder`, `SessionStore`); `class X extends Context.Tag("id")<X, S>()` mints a `TagClass` — the form `ai`/`store` service Tags carry; `Reference` carries a default |
 |  [02]   | `Layer<ROut, E, RIn>`                           | wiring             | app composition roots — folders ship `Layer` families the thin `main.ts` selects |
 |  [03]   | `LayerMap.Service` / `LayerMap`                 | keyed layer cache | `store/scope` per-tenant `StoreHandle` Layers keyed `(appKey, tenancy)` — isolation as a scope value |
 |  [04]   | `ManagedRuntime<R, E>`                          | runtime root      | `browser/boot`, `host/exec` — a built runtime the imperative host edge calls into |
@@ -77,7 +77,7 @@
 
 | [INDEX] | [SURFACE]                                                                                        | [ENTRY_FAMILY]  | [CONSUMER]                                                     |
 | :-----: | :----------------------------------------------------------------------------------------------- | :-------------- | :------------------------------------------------------------ |
-|  [01]   | `Schema.decodeUnknown(schema)` / `Schema.decodeUnknownEither` / `Schema.encode`                  | decode / encode | every ingress decodes once; `encode` at explicit egress; `ParseError` lifts to the error channel |
+|  [01]   | `Schema.decode(schema)` / `Schema.decodeUnknown(schema)` / `Schema.decodeUnknownEither` / `Schema.encode` | decode / encode | `decodeUnknown` decodes an `unknown` ingress once; `decode` takes an already-`Encoded` typed input `I` — a post-codec value (the `hash-wasm` hex `string` → `ContentKey` mint); `encode` at explicit egress; `ParseError` lifts to the error channel |
 |  [02]   | `Schema.Struct({...})` / `Schema.TaggedStruct(tag, {...})` / `Schema.Class<Self>(id)({...})`     | declare shape   | `SHAPE_BUDGET` — one runtime authority per concept; `Class` adds an opaque constructor + prototype |
 |  [03]   | `Schema.Union` / `Schema.Literal` / `Schema.Enums` / `Schema.TemplateLiteralParser`              | closed union    | `state`/`wire` tagged families; `TemplateLiteralParser` decodes structured string keys |
 |  [04]   | `Schema.pick` / `Schema.omit` / `Schema.partial` / `Schema.extend` / `Schema.pluck`              | project         | `DERIVED_TYPES` — every projection derives from the one owner, never a parallel schema |
@@ -85,7 +85,7 @@
 |  [06]   | `Schema.brand("K")` / `Schema.filter` / `Schema.optionalWith(s, { as: "Option", default })`     | refine          | `kernel/schema` brand floor; `optionalWith` decodes absence to `Option` with a constructor default |
 |  [07]   | `Schema.Option` / `Schema.Either` / `Schema.Chunk` / `Schema.HashMap` / `Schema.Redacted`        | effect-data     | schemas whose decoded value is an Effect data structure, not a plain object |
 |  [08]   | `Schema.Uint8ArrayFromBase64` / `Schema.StringFromHex` / `Schema.parseJson(inner)`               | wire codec      | `wire` byte↔value crossings; `parseJson` composes an inner schema over a JSON string field |
-|  [09]   | `Arbitrary.make(schema)` / `JSONSchema.make(schema)` / `Pretty.make(schema)` / `Schema.equivalence(schema)` | derive   | one Schema yields the generator (`proof`), the OpenAPI node (`edge`), the printer, and structural equality |
+|  [09]   | `Arbitrary.make(schema)` / `Arbitrary.makeLazy(schema)` / `JSONSchema.make(schema)` / `Pretty.make(schema)` / `Schema.equivalence(schema)` | derive | one Schema yields the generator (`proof`), the OpenAPI node (`edge`), the printer, and structural equality; `makeLazy` returns the deferred `LazyArbitrary<A>` for recursive/suspended schemas |
 |  [10]   | `Schema.standardSchemaV1(schema)`                                                                | interop         | `ui` form libraries and any Standard-Schema consumer bind the decoder without an adapter |
 
 [ENTRYPOINT_SCOPE]: `Context` / `Layer` / `Runtime` — services and composition roots
@@ -118,7 +118,7 @@
 
 | [INDEX] | [SURFACE]                                                                                          | [ENTRY_FAMILY] | [CONSUMER]                                                    |
 | :-----: | :------------------------------------------------------------------------------------------------- | :------------- | :----------------------------------------------------------- |
-|  [01]   | `Stream.fromQueue` / `Stream.fromPubSub` / `Stream.async` / `Stream.fromReadableStream`            | source         | `edge/live` SSE/WS feeds, `wire/frame` reassembly, `browser/transport` fetch streams |
+|  [01]   | `Stream.fromQueue` / `Stream.fromPubSub` / `Stream.async` / `Stream.asyncScoped` / `Stream.asyncPush` / `Stream.fromReadableStream` | source         | `edge/live` SSE/WS feeds, `wire/frame` reassembly, `browser/transport` fetch streams; `asyncScoped` bridges a scoped `addEventListener`, `asyncPush` a backpressured push source |
 |  [02]   | `Stream.mapEffect(f, { concurrency })` / `Stream.grouped` / `Stream.groupedWithin` / `Stream.throttle` | transform   | bounded-concurrency per-element effects, batch windows, rate shaping on one carrier |
 |  [03]   | `Stream.broadcast` / `Stream.partition` / `Stream.merge` / `Stream.zipLatest`                      | fan            | multi-consumer fan-out, keyed split, latest-value join for live dashboards |
 |  [04]   | `Stream.run(sink)` / `Stream.runForEach` / `Stream.runFold` / `Stream.toReadableStream`            | drain          | terminal consumption; `Sink.foldWeighted`/`Sink.collectAllN` are the reusable fold sinks |
@@ -129,7 +129,7 @@
 
 | [INDEX] | [SURFACE]                                                                                    | [ENTRY_FAMILY]  | [CONSUMER]                                                    |
 | :-----: | :------------------------------------------------------------------------------------------- | :-------------- | :----------------------------------------------------------- |
-|  [01]   | `Ref.make` / `SubscriptionRef.make` / `SynchronizedRef` (`.modify`, `.updateSomeAndGet`)     | shared cell     | `SubscriptionRef` is a `Ref` + `Stream.changes` — `ui/atom` and `state/query/live` observe mutations |
+|  [01]   | `Ref.make` / `SubscriptionRef.make` / `Subscribable` / `SynchronizedRef` (`.modify`, `.updateSomeAndGet`)     | shared cell     | `SubscriptionRef` is a `Ref` + `Stream.changes`; `Subscribable` is its read-only `{ get, changes }` projection — `ui/atom`, `nuqs`, and `state/query/live` observe through it |
 |  [02]   | `Deferred.make` / `Deferred.await` / `Deferred.succeed`                                       | one-shot        | fiber handoff, `haltWhen` signals, promise-once coordination |
 |  [03]   | `Queue.bounded` / `Queue.sliding` / `PubSub.bounded` / `Mailbox.make`                         | channel         | `work/queue` job intake, `edge/live` fan-out, `wire/quarantine` poison buffer with backpressure |
 |  [04]   | `FiberRef.make` / `FiberRef.locallyScoped` / built-in `FiberRef.currentLogAnnotations`        | fiber-local     | `edge/middleware` request/tenant/locale context, propagated across `fork` without threading |

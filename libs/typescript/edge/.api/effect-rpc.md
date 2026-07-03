@@ -52,7 +52,7 @@
 |  [03]   | `RpcSchema.Stream<A, E>`              | schema         | streaming response schema (`Stream<A, E>`)                  |
 |  [04]   | `RpcMiddleware.TagClass<Self, Name, Options>` | Context.Tag | schema-typed middleware definition (`failure`/`provides`)   |
 |  [05]   | `RpcSerialization.Parser` / `RpcSerialization` | service   | wire-codec parser contract / the serialization Tag          |
-|  [06]   | `RpcClientError` / `RpcMessage.FromClient`/`FromServer` | union | client transport error / the wire protocol messages   |
+|  [06]   | `RpcClientError` / `RpcMessage.FromClient`/`FromServer` | error class + union | client transport `TaggedError` / the wire protocol message unions |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -89,7 +89,7 @@
 |  [02]   | `RpcServer.layerProtocolHttp({ path, … })` / `layerProtocolHttpRouter` | protocol | HTTP transport over `HttpRouter`                          |
 |  [03]   | `RpcServer.layerProtocolWebsocket({ path, … })` / `layerProtocolWebsocketRouter` | protocol | WebSocket transport (the `live` socket row)      |
 |  [04]   | `RpcServer.layerProtocolWorkerRunner`                             | protocol       | `WorkerRunner` transport (the `worker` row)                 |
-|  [05]   | `RpcServer.layerProtocolStdio({ inputStream, outputStream, … })` | protocol       | stdio transport (MCP/child-process/CLI rows)                |
+|  [05]   | `RpcServer.layerProtocolStdio({ stdin, stdout })`               | protocol       | stdio transport (`stdin` Stream / `stdout` Sink; MCP/child-process/CLI rows) |
 |  [06]   | `RpcServer.layerHttpRouter({ group, path, protocol? })`          | serve+mount    | fused handler+protocol mount on an `HttpRouter` path        |
 |  [07]   | `RpcServer.toHttpApp(group, options?)` / `RpcServer.toWebHandler(group, { middleware?, memoMap? })` | serve | `HttpApp` value / `fetch` `{ handler, dispose }`  |
 
@@ -114,7 +114,7 @@
 |  [02]   | `RpcSerialization.makeMsgPack(msgpackrOptions?)` / `json`/`ndjson`/`msgPack` | codec | tuned msgpack layer / the bare codec values             |
 |  [03]   | `RpcMiddleware.Tag<Self>()(id, { failure?, provides?, wrap?, requiredForClient? })` | middleware | define a schema-typed middleware `TagClass`  |
 |  [04]   | `RpcMiddleware.layerClient(tag, service)`                         | middleware     | provide the client-side arm of a middleware                 |
-|  [05]   | `RpcSchema.Stream(fields)` / `RpcSchema.isStreamSchema(u)`        | streaming      | streaming-response schema constructor / guard               |
+|  [05]   | `RpcSchema.Stream({ success, failure })` / `RpcSchema.isStreamSchema(u)` | streaming | streaming-response schema constructor / guard            |
 |  [06]   | `RpcWorker.layerInitialMessage(schema, build)` / `RpcWorker.initialMessage(schema)` | worker | send / receive the typed worker handshake          |
 |  [07]   | `RpcTest.makeClient(group, { flatten? })`                        | test           | in-memory client calling handlers with no transport         |
 

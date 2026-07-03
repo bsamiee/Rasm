@@ -26,6 +26,7 @@ from tests.python.tools.assay.kit import (
     install_cpu_double,
     RailProbe,
     read_one_envelope_from_bytes,
+    SeamExecutor,  # noqa: TC001  # fixture-signature annotation evaluated by pytest at runtime
     YakShape,
 )
 
@@ -137,24 +138,32 @@ def mem_store(assay_root: AssayHarness) -> Generator[ArtifactStore]:
 
 
 @pytest.fixture
-def cli(assay_root: AssayHarness, capsysbinary: pytest.CaptureFixture[bytes], monkeypatch: pytest.MonkeyPatch) -> VerbRunner:
+def cli(
+    assay_root: AssayHarness, capsysbinary: pytest.CaptureFixture[bytes], monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest
+) -> VerbRunner:
     """Run the CLI in-process by default, with subprocess isolation for argv and fd laws.
 
     In-process calls patch ``ASSAY_ROOT`` and return the decoded stdout Envelope plus raw channels. The
     subprocess arm uses the real module entrypoint when interpreter startup, fd separation, or env propagation
-    is the law under test.
+    is the law under test; coverage credit flows through ``[tool.coverage.run] patch = ["subprocess"]``.
 
     Returns:
-        Synchronous ``run(*argv, isolate=False, extra_env=None)`` fixture callable.
+        Synchronous ``run(*argv, isolate=False, extra_env=None, executor=None)`` fixture callable; a canned
+        executor rebuilds the dispatch app around the injected port (in-process arm only).
     """
     monkeypatch.setenv("ASSAY_ROOT", str(assay_root.root))
 
-    def run(*argv: str, isolate: bool = False, extra_env: dict[str, str] | None = None) -> CliResult:
+    def run(*argv: str, isolate: bool = False, extra_env: dict[str, str] | None = None, executor: SeamExecutor | None = None) -> CliResult:
         list(starmap(monkeypatch.setenv, (extra_env or {}).items()))
         match isolate:
             case False:
                 from tools.assay import __main__ as main_mod  # noqa: PLC0415  # in-proc import keeps the subprocess path import-clean
 
+                if executor is not None:
+                    # The public injection channel: rebuild the app with the canned port; main() dispatches through the module global.
+                    from tools.assay.composition.registry import build_app, REGISTRY  # noqa: PLC0415
+
+                    monkeypatch.setattr(main_mod, "app", build_app(REGISTRY, executor=executor))
                 # Keep the session tracer provider alive while exercising main's drain path.
                 neutralized = SimpleNamespace(force_flush=lambda *_a, **_k: True, shutdown=lambda: None)
                 monkeypatch.setattr(main_mod, "get_tracer_provider", lambda: neutralized)
@@ -162,15 +171,12 @@ def cli(assay_root: AssayHarness, capsysbinary: pytest.CaptureFixture[bytes], mo
                 cap = capsysbinary.readouterr()
                 return CliResult(envelope=read_one_envelope_from_bytes(cap.out), exit_code=code, stdout=cap.out, stderr=cap.err)
             case True:
+                assert executor is None, "cli(isolate=True) spawns the real interpreter; a canned executor cannot cross the process boundary"
                 if _UV is None:
                     pytest.skip("uv not on PATH")
-                # Coverage subprocess credit is opt-in through the parent's COVERAGE_RUN sentinel.
-                cov_env = (
-                    {"COVERAGE_PROCESS_START": str(REPO_ROOT / ".config" / "coverage-subprocess.ini")}
-                    if "COVERAGE_RUN" in os.environ  # noqa: TID251
-                    else {}
-                )
-                spawn_env = {**os.environ, "ASSAY_ROOT": str(assay_root.root), **cov_env, **(extra_env or {})}  # noqa: TID251  # subprocess env clone
+                if request.node.get_closest_marker("subprocess") is None:
+                    pytest.fail("cli(isolate=True) requires @pytest.mark.subprocess; mutation lanes deselect via -m 'not subprocess'")
+                spawn_env = {**os.environ, "ASSAY_ROOT": str(assay_root.root), **(extra_env or {})}  # noqa: TID251  # subprocess env clone
                 spawn = functools.partial(anyio.run_process, env=spawn_env, cwd=str(REPO_ROOT), check=False)
                 result = anyio.run(spawn, ["uv", "run", "python", "-m", "tools.assay", *argv])
                 return CliResult(

@@ -440,9 +440,11 @@ public sealed partial class SemanticProjector(DatabaseIfc db, IIfcTypeReconciler
     // The predefined token is a strongly-typed per-class enum member (IfcWall.PredefinedType is IfcWallTypeEnum, etc.),
     // so a live occurrence carries it on a reflected PredefinedType property, NOT on the class-name split — the seam owns
     // the PredefinedType value-object and admits the token bare (validity is the Emit egress gate [C6]), an empty/NOTDEFINED
-    // token folding to the IFC default. NAMED bounded drop: a USERDEFINED occurrence's ObjectType label has no seam
-    // Node.Object slot, so it does not round-trip — the egress re-derives the label from the node Name; the carrier is
-    // seam-owned Rasm.Element work (types preserve theirs through the signature bag).
+    // token folding to the IFC default. NAMED bounded drop with the carrier DECIDED: a USERDEFINED occurrence's
+    // ObjectType label has no seam Node.Object slot yet, so the egress re-derives it from the node Name; the seam
+    // Graph/element Growth pins Option<string> ObjectType beside ExternalId as the next-campaign column (NodeWire
+    // frozen this window) — on landing, ObjectNode stamps it here and StampPredefined reads it at egress (types
+    // already preserve theirs through the signature bag).
     static PredefinedType Predefined(IfcObjectDefinition definition) {
         string token = definition.GetType().GetProperty(nameof(IfcWall.PredefinedType))?.GetValue(definition)?.ToString() ?? "";
         return string.IsNullOrWhiteSpace(token) || string.Equals(token, "NOTDEFINED", StringComparison.OrdinalIgnoreCase)

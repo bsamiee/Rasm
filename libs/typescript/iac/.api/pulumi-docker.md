@@ -1,6 +1,6 @@
 # [TS_IAC_API_PULUMI_DOCKER]
 
-`@pulumi/docker` is the Docker-Engine provider backing the `selfhosted-docker` dispatch arm and the branch's image builds. It is a bridged provider: 13 resource classes share ONE Pulumi resource ABI (`new X(name, XArgs, opts?)` + `static get`/`isInstance` + `XArgs`/`XState`), so the catalog documents the ABI as the mechanism and seeds it with the families the deploy plane composes — `Image` (classic buildx build-and-push over a `DockerBuild`/`Registry` spec → an immutable `repoDigest`), the `Container`/`Network`/`Volume` runtime trio, the `Service`/`ServiceConfig`/`Secret` swarm trio, and the `RegistryImage`/`RemoteImage`/`Tag`/`Plugin`/`BuildxBuilder` registry set. Six `getX`/`getXOutput` `Promise`/`Output` mirror pairs read existing daemon state. The `Provider` carries the daemon connection — a local socket OR an `ssh://` host (`sshOpts`) with `registryAuth`, so one selfhosted-docker arm targets an owned VPS daemon that `@pulumi/command` bootstrapped.
+`@pulumi/docker` is the Docker-Engine provider backing the `selfhosted-docker` dispatch arm's RUNTIME resources. It is a bridged provider: 13 resource classes share ONE Pulumi resource ABI (`new X(name, XArgs, opts?)` + `static get`/`isInstance` + `XArgs`/`XState`), so the catalog documents the ABI as the mechanism and seeds it with the families the deploy plane composes — the `Container`/`Network`/`Volume` runtime trio, the `Service`/`ServiceConfig`/`Secret` swarm trio, and the `RegistryImage`/`RemoteImage`/`Tag`/`Plugin`/`BuildxBuilder` registry set. Its `Image` (classic build-and-push over a `DockerBuild`/`Registry` spec → an immutable `repoDigest`) is the LEGACY build path, SUPERSEDED by the admitted buildx-native `@pulumi/docker-build.Image` (`.api/pulumi-docker-build.md`) — `@pulumi/docker` stays the runtime/swarm/registry owner, but a new image build is authored on `docker-build`. Six `getX`/`getXOutput` `Promise`/`Output` mirror pairs read existing daemon state. The `Provider` carries the daemon connection — a local socket OR an `ssh://` host (`sshOpts`) with `registryAuth`, so one selfhosted-docker arm targets an owned VPS daemon that `@pulumi/command` bootstrapped.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -13,9 +13,9 @@
 - rail: fabric / selfhosted-docker
 - runtime: a reachable Docker Engine (local socket, TCP+TLS, or `ssh://`); build resources also need a local Docker/buildx CLI on the deploy host
 - build-floor: `@pulumi/pulumi` `^3.142.0` (catalog pins `3.250.0`)
-- depends-on: `@pulumi/pulumi` (`CustomResource`/`Input`/`Output`); the modern buildx-native build path is the SEPARATE sibling `@pulumi/docker-build` — `@pulumi/docker.Image` is the classic build-and-push
+- depends-on: `@pulumi/pulumi` (`CustomResource`/`Input`/`Output`); the modern buildx-native build owner is the admitted sibling `@pulumi/docker-build` (`.api/pulumi-docker-build.md`) — `@pulumi/docker.Image` is the LEGACY build-and-push it supersedes
 - namespaces: root barrel (all resources + `getX`/`getXOutput`), `docker.config` (ambient provider vars), `docker.types.input`/`docker.types.output` (`DockerBuild`/`Registry`/`CacheFrom`/`ContainerPort`/`ContainerMount`/`ServiceTaskSpec`/…)
-- capability: image build-and-push, container/network/volume runtime, swarm service/config/secret, registry pull/push/tag, plugin + buildx-builder management, daemon-state data sources, `ssh://`-remote daemon targeting
+- capability: container/network/volume runtime, swarm service/config/secret, registry pull/push/tag, plugin + buildx-builder management, daemon-state data sources, `ssh://`-remote daemon targeting, legacy image build-and-push (superseded by `@pulumi/docker-build`)
 - abi-note: every resource output prop mirrors its `Args` field resolved through `Output<T>`; `XState` (the `.get` shape) mirrors `XArgs` with all-optional Output fields
 
 ## [02]-[RESOURCE_ABI]
@@ -35,7 +35,7 @@
 
 [BUILD_SCOPE]: image build-and-push
 - rail: selfhosted-docker
-- `Image` runs a build then pushes to `registry`, emitting an immutable `repoDigest` — the value downstream resources pin, never a mutable tag. `RegistryImage`/`RemoteImage` are the push-metadata / pull complements; `Tag`/`BuildxBuilder` manage tagging and the buildx builder instance.
+- `Image` (LEGACY — prefer `@pulumi/docker-build.Image`, `.api/pulumi-docker-build.md`) runs a build then pushes to `registry`, emitting an immutable `repoDigest` — the value downstream resources pin, never a mutable tag. `RegistryImage`/`RemoteImage` are the push-metadata / pull complements; `Tag`/`BuildxBuilder` manage tagging and the buildx builder instance — these registry/tag resources stay `@pulumi/docker`-owned, only the `Image` BUILD role moves to `docker-build`.
 
 | [INDEX] | [SYMBOL] | [KEY ARGS / OUTPUTS] |
 | :-----: | :------- | :------------------- |
@@ -99,18 +99,18 @@
 [DOCKER_TOPOLOGY]:
 - arm law: the `selfhosted-docker` `Match.exhaustive` arm (`provider/dispatch`, `libs/typescript/.api/effect.md`) constructs one `docker.Provider` from a `Schema`-decoded `StackSpec` (daemon host, registry ref) and threads it as `opts.provider` to every resource; a per-resource provider is rejected.
 - digest law: a workload pins `Container.image`/a downstream image ref to `Image.repoDigest` (immutable), never to a mutable tag; the build → run edge is `dependsOn`-implicit through the Output reference.
-- build-owner law: `@pulumi/docker.Image` owns the classic build-and-push here; the modern buildx-native build is the sibling `@pulumi/docker-build` — pick one owner per image, never hand-roll a `command`-shelled `docker build`.
+- build-owner law: `@pulumi/docker-build.Image` (`.api/pulumi-docker-build.md`) is the CANONICAL modern buildx-native build owner; `@pulumi/docker.Image` is the LEGACY build-and-push it supersedes — author `docker-build.Image` for a new image, reach for the classic `docker.Image` only to adopt an existing legacy resource, and never hand-roll a `command`-shelled `docker build`.
 - runtime law: the service-equivalence rows are `Container` + `Network` + `Volume`; ports/mounts/networks are typed args, not an authored compose file (the folder authors zero YAML).
 - read law: existing daemon state is a `getXOutput` when it feeds an `Input`, `getX` for an eager `async` read; never a `local.Command` shell probe.
 
 [LOCAL_ADMISSION]:
 - `Provider.host: "ssh://user@vps"` targets the daemon on the metal that `@pulumi/command` (`.api/pulumi-command.md`) bootstrapped; `registryAuth`/`Registry.password` bind `@pulumiverse/doppler` secret Outputs (`.api/pulumiverse-doppler.md`), never literals.
-- `Image.repoDigest` crosses arms: the same built digest feeds a `@pulumi/kubernetes` workload image ref (`.api/pulumi-kubernetes.md`) when a stack mixes selfhosted-docker builds with a k8s runtime; `awsx.ecr.Image` (`.api/pulumi-awsx.md`) is the ECR-targeted build counterpart on the `aws` arm.
+- a built image digest crosses arms: the `docker-build.Image` `ref`/`digest` (`.api/pulumi-docker-build.md`; or the legacy `docker.Image.repoDigest`) feeds a `@pulumi/kubernetes` workload image ref (`.api/pulumi-kubernetes.md`) when a stack mixes selfhosted-docker builds with a k8s runtime; `awsx.ecr.Image` (`.api/pulumi-awsx.md`, itself bundling `docker-build`) is the ECR-targeted build counterpart on the `aws` arm.
 - the arm folds build/run failures into the `program/automation` typed run receipt (`@pulumi/pulumi` `automation.UpResult`, `.api/pulumi-pulumi.md`); `effect` owns the arm dispatch and the StackSpec/StackOutputs `Schema`.
 - canonical-spelling law: `getXOutput` for graph-threaded reads; `Image.repoDigest` (immutable) over a tag; one shared `Provider` per arm.
 
 [RAIL_LAW]:
 - Package: `@pulumi/docker`
-- Owns: image build-and-push, container/network/volume runtime, swarm service/config/secret, registry pull/push/tag, plugin + buildx management, daemon-state data sources, `ssh://`-remote daemon targeting
-- Accept: one arm-scoped `Provider` (local/`tcp`/`ssh`), `Image` → `repoDigest`-pinned `Container`, typed `Network`/`Volume` wiring, `getXOutput` reads, Doppler-bound registry auth
-- Reject: mutable-tag image refs, a `command`-shelled `docker build`/`docker run`, per-resource providers, authored compose YAML, literal registry credentials
+- Owns: container/network/volume runtime, swarm service/config/secret, registry pull/push/tag, plugin + buildx management, daemon-state data sources, `ssh://`-remote daemon targeting; legacy image build-and-push (superseded by `@pulumi/docker-build`)
+- Accept: one arm-scoped `Provider` (local/`tcp`/`ssh`), a `docker-build.Image` digest / `ref`-pinned `Container`, typed `Network`/`Volume` wiring, `getXOutput` reads, Doppler-bound registry auth
+- Reject: mutable-tag image refs, the classic `docker.Image` build path where `docker-build.Image` is available, a `command`-shelled `docker build`/`docker run`, per-resource providers, authored compose YAML, literal registry credentials

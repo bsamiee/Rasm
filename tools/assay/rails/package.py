@@ -27,7 +27,7 @@ from tools.assay.composition.settings import (  # noqa: TC001  # beartype resolv
     ArtifactScope,
     AssaySettings,
 )
-from tools.assay.core.engine import leased, proc_dead, run_check
+from tools.assay.core.engine import Executor, leased, proc_dead  # noqa: TC001  # beartype resolves the executor-port annotation at runtime
 from tools.assay.core.model import (
     ArtifactKind,
     Base,
@@ -37,18 +37,19 @@ from tools.assay.core.model import (
     Completed,
     Counts,
     Fault,
-    fold,
     Input,
     Language,
     Match,
     Mode,
     PackageRun,
+    RailStatus,
     Report,  # noqa: TC001  # unconditional: beartype @checked resolves the -> Result[Report, Fault] forward-ref under PEP 649
     Runner,
+    Step,
     Tool,
 )
 from tools.assay.core.routing import parse_csproj, Routed, Scope
-from tools.assay.core.status import join, RailStatus, Step
+from tools.assay.diagnostics import fold
 from tools.assay.rails.bridge import bridge_lease, client_run
 
 
@@ -303,14 +304,18 @@ def _yak_push_tail(meta: YakMeta, package_file: Path) -> _Step:
     return ("push", *source, str(package_file))
 
 
-def _run_yak(meta: YakMeta, command: _Step, mode: Mode, *, cwd: Path, settings: AssaySettings, scope: ArtifactScope) -> Result[Completed, Fault]:
+def _run_yak(
+    meta: YakMeta, command: _Step, mode: Mode, *, cwd: Path, settings: AssaySettings, scope: ArtifactScope, executor: Executor
+) -> Result[Completed, Fault]:
     # Non-zero yak exits stay on Completed, not Fault.
     return _yak_tool(meta, command, mode).bind(
-        lambda tool: run_check(Check(tool=tool, cwd=cwd), settings=settings, scope=scope, routed=Routed(language=tool.language, scope=Scope.CHANGED))
+        lambda tool: executor.run(
+            Check(tool=tool, cwd=cwd), settings=settings, scope=scope, routed=Routed(language=tool.language, scope=Scope.CHANGED)
+        )
     )
 
 
-def evaluate_meta(settings: AssaySettings, scope: ArtifactScope, project: str, slug: str, version: str) -> Result[YakMeta, Fault]:
+def evaluate_meta(settings: AssaySettings, scope: ArtifactScope, project: str, slug: str, version: str, executor: Executor) -> Result[YakMeta, Fault]:
     """Evaluate and validate yak metadata for one project.
 
     Returns:
@@ -328,7 +333,7 @@ def evaluate_meta(settings: AssaySettings, scope: ArtifactScope, project: str, s
     tool = Tool("dotnet-msbuild", Runner.DOTNET, query, Input.NONE, Language.CSHARP, Claim.PACKAGE, mode=Mode.QUERY)
     check = Check(tool=tool, cwd=Path(str(settings.root)))
     routed = Routed(language=tool.language, scope=Scope.CHANGED)
-    return run_check(check, settings=settings, scope=scope, routed=routed).bind(
+    return executor.run(check, settings=settings, scope=scope, routed=routed).bind(
         lambda done: _decode_props(project, done).bind(lambda props: YakMeta.from_props(project, props, settings, slug))
     )
 
@@ -483,14 +488,14 @@ def _commit(meta: YakMeta, staged: Path, slug: str) -> Result[Report, Fault]:
     )
 
 
-def _stage_meta(settings: AssaySettings, scope: ArtifactScope, meta: YakMeta, slug: str, version: str) -> Result[Report, Fault]:
+def _stage_meta(settings: AssaySettings, scope: ArtifactScope, meta: YakMeta, slug: str, version: str, executor: Executor) -> Result[Report, Fault]:
     # Temp dir is under package_dir's parent to keep the final rename on the same filesystem.
     resource = f"{_PACKAGE_STAGE}-{meta.package_dir.name}"
 
     def staged_build() -> Result[Report, Fault]:
         staged = Path(mkdtemp(prefix=f"{meta.package_dir.name}.", dir=meta.package_dir.parent))
-        outcome = _build_outputs(meta, settings, scope, slug, version).bind(
-            lambda built: _copy_after_build(meta, staged, slug, version, built, settings, scope)
+        outcome = _build_outputs(meta, settings, scope, slug, version, executor).bind(
+            lambda built: _copy_after_build(meta, staged, slug, version, built, settings, scope, executor)
         )
         match outcome:
             case Result(tag="error"):
@@ -506,7 +511,9 @@ def _stage_meta(settings: AssaySettings, scope: ArtifactScope, meta: YakMeta, sl
     return leased(resource, locked, settings=settings, run_id=settings.run_id, project=slug, mode="exclusive")
 
 
-def _build_outputs(meta: YakMeta, settings: AssaySettings, scope: ArtifactScope, slug: str, version: str) -> Result[Completed, Fault]:
+def _build_outputs(  # structural staging slots; the executor rides last
+    meta: YakMeta, settings: AssaySettings, scope: ArtifactScope, slug: str, version: str, executor: Executor
+) -> Result[Completed, Fault]:
     projects = (_RASM_BRIDGE_SHELL_PROJECT, meta.project) if slug == _RASM_BRIDGE_SLUG else (meta.project,)
 
     def run_project(project: str) -> Result[Completed, Fault]:
@@ -519,7 +526,7 @@ def _build_outputs(meta: YakMeta, settings: AssaySettings, scope: ArtifactScope,
             Claim.PACKAGE,
             mode=Mode.BUILD,
         )
-        return run_check(
+        return executor.run(
             Check(tool=tool, cwd=Path(str(settings.root))),
             settings=settings,
             scope=scope,
@@ -530,7 +537,7 @@ def _build_outputs(meta: YakMeta, settings: AssaySettings, scope: ArtifactScope,
         terminal = next((row for row in done if row.status in {RailStatus.FAILED, RailStatus.FAULTED, RailStatus.TIMEOUT}), done[-1])
         return msgspec.structs.replace(
             terminal,
-            status=reduce(lambda status, row: join(status, row.status), done, RailStatus.OK),
+            status=reduce(lambda status, row: RailStatus.dominant(status, row.status), done, RailStatus.OK),
             notes=tuple(chain.from_iterable(row.notes for row in done)),
             artifacts=tuple(chain.from_iterable(row.artifacts for row in done)),
         )
@@ -541,8 +548,8 @@ def _build_outputs(meta: YakMeta, settings: AssaySettings, scope: ArtifactScope,
     return rows.map(combined)
 
 
-def _copy_after_build(
-    meta: YakMeta, staged: Path, slug: str, version: str, built: Completed, settings: AssaySettings, scope: ArtifactScope
+def _copy_after_build(  # structural staging pipeline slots; the executor rides last
+    meta: YakMeta, staged: Path, slug: str, version: str, built: Completed, settings: AssaySettings, scope: ArtifactScope, executor: Executor
 ) -> Result[Report, Fault]:
     match built.status:
         case RailStatus.FAILED | RailStatus.FAULTED | RailStatus.TIMEOUT:
@@ -555,7 +562,11 @@ def _copy_after_build(
             extra_dirs = (Path(scope.path) / "bin" / Path(_RASM_BRIDGE_SHELL_PROJECT).stem / pivot,) if slug == _RASM_BRIDGE_SLUG else ()
             return (
                 _stage_artifacts(meta, staged, target_dir, extra_dirs)
-                .bind(lambda _: _run_yak(meta, _yak_build_tail(meta, version), Mode.STAGE, cwd=staged, settings=settings, scope=scope))
+                .bind(
+                    lambda _: _run_yak(
+                        meta, _yak_build_tail(meta, version), Mode.STAGE, cwd=staged, settings=settings, scope=scope, executor=executor
+                    )
+                )
                 .bind(lambda done: _commit_or_fail(meta, staged, slug, version, done))
             )
 
@@ -577,15 +588,19 @@ def _stamp_version(detail: object, version: str) -> PackageRun:
             return PackageRun(version=version)
 
 
-def _run_step(settings: AssaySettings, scope: ArtifactScope, meta: YakMeta, package_file: Path, step: _LifecycleStep) -> Result[Completed, Fault]:
+def _run_step(  # structural lifecycle slots; the executor rides last
+    settings: AssaySettings, scope: ArtifactScope, meta: YakMeta, package_file: Path, step: _LifecycleStep, executor: Executor
+) -> Result[Completed, Fault]:
     # Refresh failure after install is recoverable via bridge relaunch; bridge steps fold into Completed, not Fault.
     match step:
         case _LifecycleStep.INSTALL:
-            return _run_yak(meta, _yak_install_tail(package_file), step.mode, cwd=meta.package_dir, settings=settings, scope=scope)
+            return _run_yak(meta, _yak_install_tail(package_file), step.mode, cwd=meta.package_dir, settings=settings, scope=scope, executor=executor)
         case _LifecycleStep.PUSH:
-            return _run_yak(meta, _yak_push_tail(meta, package_file), step.mode, cwd=meta.package_dir, settings=settings, scope=scope)
+            return _run_yak(
+                meta, _yak_push_tail(meta, package_file), step.mode, cwd=meta.package_dir, settings=settings, scope=scope, executor=executor
+            )
         case _:
-            return client_run(settings, step.wire)
+            return client_run(settings, step.wire, executor=executor)
 
 
 def _resolve_package_file(meta: YakMeta) -> Result[Path, Fault]:
@@ -598,7 +613,9 @@ def _resolve_package_file(meta: YakMeta) -> Result[Path, Fault]:
             return Error(Fault(("yak", "install"), message=f"expected one package for pattern {meta.package_pattern}, found {len(matches)}"))
 
 
-def _finish(settings: AssaySettings, scope: ArtifactScope, meta: YakMeta, slug: str, verb: str, staged: Report) -> Result[Report, Fault]:
+def _finish(  # structural lifecycle slots; the executor rides last
+    settings: AssaySettings, scope: ArtifactScope, meta: YakMeta, slug: str, verb: str, staged: Report, executor: Executor
+) -> Result[Report, Fault]:
     # A non-OK stage commit short-circuits before any post-stage step; an empty policy yields the staged report verbatim.
     match staged.status:
         case RailStatus.FAILED | RailStatus.FAULTED | RailStatus.TIMEOUT | RailStatus.BUSY:
@@ -606,14 +623,23 @@ def _finish(settings: AssaySettings, scope: ArtifactScope, meta: YakMeta, slug: 
         case _ if not (steps := _STEP_POLICY.get((verb, slug == _RASM_BRIDGE_SLUG), ())):
             return Ok(staged)
         case _:
-            return _resolve_package_file(meta).bind(lambda package_file: _drive_steps(settings, scope, meta, verb, staged, package_file, steps))
+            return _resolve_package_file(meta).bind(
+                lambda package_file: _drive_steps(settings, scope, meta, verb, staged, package_file, steps, executor)
+            )
 
 
-def _drive_steps(
-    settings: AssaySettings, scope: ArtifactScope, meta: YakMeta, verb: str, staged: Report, package_file: Path, steps: tuple[_LifecycleStep, ...]
+def _drive_steps(  # structural lifecycle slots; the executor rides last
+    settings: AssaySettings,
+    scope: ArtifactScope,
+    meta: YakMeta,
+    verb: str,
+    staged: Report,
+    package_file: Path,
+    steps: tuple[_LifecycleStep, ...],
+    executor: Executor,
 ) -> Result[Report, Fault]:
     def run_steps() -> Result[Report, Fault]:
-        return _fold_steps(settings, scope, meta, verb, staged, package_file, steps)
+        return _fold_steps(settings, scope, meta, verb, staged, package_file, steps, executor)
 
     match any(step.needs_bridge for step in steps):
         case True:
@@ -622,13 +648,20 @@ def _drive_steps(
             return run_steps()
 
 
-def _fold_steps(
-    settings: AssaySettings, scope: ArtifactScope, meta: YakMeta, verb: str, staged: Report, package_file: Path, steps: tuple[_LifecycleStep, ...]
+def _fold_steps(  # structural lifecycle slots; the executor rides last
+    settings: AssaySettings,
+    scope: ArtifactScope,
+    meta: YakMeta,
+    verb: str,
+    staged: Report,
+    package_file: Path,
+    steps: tuple[_LifecycleStep, ...],
+    executor: Executor,
 ) -> Result[Report, Fault]:
     # Stage evidence stays in the accumulator; only spawn or lease Faults short-circuit.
     seed: Result[tuple[Completed, ...], Fault] = Ok(())
     folded = reduce(
-        lambda acc, step: acc.bind(lambda done: _run_step(settings, scope, meta, package_file, step).map(lambda c: (*done, c))), steps, seed
+        lambda acc, step: acc.bind(lambda done: _run_step(settings, scope, meta, package_file, step, executor).map(lambda c: (*done, c))), steps, seed
     )
     return folded.map(lambda outcomes: _merge_stage(staged, fold(Claim.PACKAGE, verb, outcomes, detail=staged.detail, promote_empty=True)))
 
@@ -637,7 +670,7 @@ def _merge_stage(staged: Report, steps: Report) -> Report:
     # Stage rows lead so build evidence and post-stage outcomes survive in one report.
     return msgspec.structs.replace(
         steps,
-        status=join(staged.status, steps.status),
+        status=RailStatus.dominant(staged.status, steps.status),
         counts=Counts(
             ok=staged.counts.ok + steps.counts.ok, failed=staged.counts.failed + steps.counts.failed, total=staged.counts.total + steps.counts.total
         ),
@@ -647,10 +680,10 @@ def _merge_stage(staged: Report, steps: Report) -> Report:
     )
 
 
-def _lifecycle(settings: AssaySettings, scope: ArtifactScope, params: PackageParams, verb: str) -> Result[Report, Fault]:
+def _lifecycle(settings: AssaySettings, scope: ArtifactScope, params: PackageParams, verb: str, executor: Executor) -> Result[Report, Fault]:
     def staged_then_finish(meta: YakMeta) -> Result[Report, Fault]:
-        outcome = _stage_meta(settings, scope, meta, params.slug, params.version).bind(
-            lambda staged: _finish(settings, scope, meta, params.slug, verb, staged)
+        outcome = _stage_meta(settings, scope, meta, params.slug, params.version, executor).bind(
+            lambda staged: _finish(settings, scope, meta, params.slug, verb, staged, executor)
         )
         # The staged build tree served its commit; a full bin/obj pair per publish run must not ride scope retention.
         for leaf in ("bin", "obj"):
@@ -660,7 +693,7 @@ def _lifecycle(settings: AssaySettings, scope: ArtifactScope, params: PackagePar
     def locked(_held: object) -> Result[Report, Fault]:
         return (
             _resolve_project(settings, params.slug)
-            .bind(lambda project: evaluate_meta(settings, scope, project, params.slug, params.version))
+            .bind(lambda project: evaluate_meta(settings, scope, project, params.slug, params.version, executor))
             .bind(staged_then_finish)
         )
 
@@ -689,24 +722,24 @@ def _plan_report(meta: YakMeta, version: str) -> Report:
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
-def publish(settings: AssaySettings, scope: ArtifactScope, params: PackageParams) -> Result[Report, Fault]:
+def publish(settings: AssaySettings, scope: ArtifactScope, params: PackageParams, executor: Executor) -> Result[Report, Fault]:
     """Run the full yak pipeline: stage commit, then install, push, and bridge refresh under lease.
 
     Returns:
         Package lifecycle report, or a stage/install/push fault.
     """
-    return _lifecycle(settings, scope, params, "publish")
+    return _lifecycle(settings, scope, params, "publish", executor)
 
 
 def list(  # noqa: A001
-    settings: AssaySettings, scope: ArtifactScope, params: PackageParams
+    settings: AssaySettings, scope: ArtifactScope, params: PackageParams, executor: Executor
 ) -> Result[Report, Fault]:
     """List package projects and slugs.
 
     Returns:
         Package roster report, or a project-discovery fault.
     """
-    _ = (scope, params)
+    _ = (scope, params, executor)
     return (
         _package_projects(settings)
         .bind(lambda projects: _slugged(settings, projects))
@@ -720,7 +753,7 @@ def list(  # noqa: A001
     )
 
 
-def plan(settings: AssaySettings, scope: ArtifactScope, params: PackageParams) -> Result[Report, Fault]:
+def plan(settings: AssaySettings, scope: ArtifactScope, params: PackageParams, executor: Executor) -> Result[Report, Fault]:
     """Evaluate package metadata without staging.
 
     Returns:
@@ -728,7 +761,7 @@ def plan(settings: AssaySettings, scope: ArtifactScope, params: PackageParams) -
     """
     return (
         _resolve_project(settings, params.slug)
-        .bind(lambda project: evaluate_meta(settings, scope, project, params.slug, params.version))
+        .bind(lambda project: evaluate_meta(settings, scope, project, params.slug, params.version, executor))
         .map(lambda meta: _plan_report(meta, params.version))
     )
 

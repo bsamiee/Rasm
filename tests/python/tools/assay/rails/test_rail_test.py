@@ -16,6 +16,7 @@ import pytest
 
 from tests.python._testkit.laws import register_law
 from tests.python._testkit.spec import assert_error_status, assert_ok, refutes, support_matrix, validity_matrix, ValidityCase
+from tests.python.tools.assay.kit import SeamExecutor
 from tools.assay.composition.catalog import TOOLS
 from tools.assay.composition.settings import ArtifactScope
 from tools.assay.core.engine import apply_row_status, exclusive_lease
@@ -24,11 +25,11 @@ from tools.assay.core.model import (
     Check,
     Claim,
     Fault,
-    fold,
     Input,
     Language,
     Mode,
     MutationLane,
+    RailStatus,
     receipt,
     Runner,
     Stage,
@@ -37,13 +38,12 @@ from tools.assay.core.model import (
     ToolGroup,
 )
 from tools.assay.core.routing import Routed, Scope
-from tools.assay.core.status import RailStatus
+from tools.assay.diagnostics import fold
 from tools.assay.rails import test as test_rail
 from tools.assay.rails.mutation_gate import _tally, gate
 from tools.assay.rails.test import (
     _adopt_coverage,
     _checks,
-    _classified_projects,
     _detail,
     _dispatch,
     _dispatch_all,
@@ -51,6 +51,7 @@ from tools.assay.rails.test import (
     _filter,
     _gate,
     _GATE_TOOL,
+    _project_lane,
     _roster_matches,
     _routed,
     _scoped_mutation,
@@ -76,6 +77,14 @@ if TYPE_CHECKING:
 
 _PY = Language.PYTHON
 _PY_ROUTED = Routed(language=_PY, scope=Scope.CHANGED)
+_SHELL_CSPROJ = "<Project><PropertyGroup><AssayTestShell>true</AssayTestShell></PropertyGroup></Project>"
+_HOST_CSPROJ = "<Project><PropertyGroup><AssayHostBound>true</AssayHostBound></PropertyGroup></Project>"
+_NON_TEST_CSPROJ = "<Project><PropertyGroup><IsTestProject>false</IsTestProject></PropertyGroup></Project>"
+# A shell csproj that still looks like a full test project: the marker must win over its content.
+_SHELL_WITH_CONTENT_CSPROJ = (
+    "<Project><PropertyGroup><AssayTestShell>true</AssayTestShell></PropertyGroup>"
+    '<ItemGroup><ProjectReference Include="../../../../libs/csharp/Rasm/Rasm.csproj" /></ItemGroup></Project>'
+)
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -104,7 +113,10 @@ def _wire(monkeypatch: pytest.MonkeyPatch, *outcomes: Completed, routed: Routed 
 def _capture_rail(monkeypatch: pytest.MonkeyPatch) -> list[tuple[TestParams, object, object]]:
     seen: list[tuple[TestParams, object, object]] = []
 
-    def _fake(settings: object, scope: object, params: TestParams, *, claim: object, verb: object, mode: object) -> Result[object, object]:
+    def _fake(
+        _settings: object, _scope: object, params: TestParams, _executor: object, *, claim: object, verb: object, mode: object
+    ) -> Result[object, object]:
+        del mode
         seen.append((params, claim, verb))
         return Ok(object())
 
@@ -144,18 +156,24 @@ def _stryker_tool() -> Tool:
 
 
 def _seed_solution(assay_root: AssayHarness) -> tuple[str, ...]:
+    """Seed Workspace.slnx plus the marker-bearing csproj roster; the Ghost project stays unwritten on purpose.
+
+    Returns:
+        Every project path admitted to the seeded solution.
+    """
     projects = (
         "libs/csharp/Rasm/Rasm.csproj",
         "tests/csharp/_architecture/Rasm.Architecture.Tests.csproj",
         "tests/csharp/_benchmarks/Rasm.Benchmarks.csproj",
+        "tests/csharp/_scenariokit/Rasm.ScenarioKit.csproj",
         "tests/csharp/_testkit/Rasm.TestKit.csproj",
         "tests/csharp/libs/Rasm/Rasm.Tests.csproj",
         "tests/csharp/libs/Rasm.Empty/Rasm.Empty.Tests.csproj",
-        "tests/csharp/libs/Rasm.Grasshopper/Rasm.Grasshopper.Tests.csproj",
-        "tests/csharp/libs/Rasm.Rhino/Rasm.Rhino.Tests.csproj",
+        "tests/csharp/libs/Rasm.Ghost/Rasm.Ghost.Tests.csproj",
+        "tests/csharp/libs/Rasm.Host/Rasm.Host.Tests.csproj",
+        "tests/csharp/scenarios/Rasm.Scenarios.csproj",
         "tests/csharp/tools/cs-analyzer/Csp.Analyzer.Tests.csproj",
         "tests/csharp/tools/rhino-bridge/Contract/Contract.csproj",
-        "tests/csharp/tools/rhino-bridge/Scenarios/Scenarios.csproj",
         "tests/csharp/tools/rhino-bridge/Supervisor/Supervisor.csproj",
     )
     assay_root.write(
@@ -164,16 +182,14 @@ def _seed_solution(assay_root: AssayHarness) -> tuple[str, ...]:
         + "".join(f'<Folder Name="/{Path(project).parent.as_posix()}/"><Project Path="{project}" /></Folder>' for project in projects)
         + "</Solution>",
     )
-    assay_root.write(
-        "tests/csharp/libs/Rasm/Rasm.Tests.csproj", "<Project><PropertyGroup><AssayHostBound>true</AssayHostBound></PropertyGroup></Project>"
-    )
-    assay_root.write(
-        "tests/csharp/libs/Rasm.Empty/Rasm.Empty.Tests.csproj",
-        "<Project><PropertyGroup><IsTestProject>false</IsTestProject></PropertyGroup></Project>",
-    )
+    assay_root.write("tests/csharp/libs/Rasm/Rasm.Tests.csproj", _SHELL_WITH_CONTENT_CSPROJ)
+    assay_root.write("tests/csharp/scenarios/Rasm.Scenarios.csproj", _SHELL_CSPROJ)
+    assay_root.write("tests/csharp/libs/Rasm.Host/Rasm.Host.Tests.csproj", _HOST_CSPROJ)
+    assay_root.write("tests/csharp/libs/Rasm.Empty/Rasm.Empty.Tests.csproj", _NON_TEST_CSPROJ)
+    assay_root.write("tests/csharp/_scenariokit/Rasm.ScenarioKit.csproj", _NON_TEST_CSPROJ)
     for project in projects:
         path = assay_root.root / project
-        if not path.exists():
+        if "Ghost" not in project and not path.exists():
             assay_root.write(project, "<Project />")
     return projects
 
@@ -196,8 +212,11 @@ register_law(TestParams, "scoped_mutation_governor_caps_max_children")
 register_law(TestParams, "scoped_mutation_mutmut_changed_lane_globs")
 register_law(TestParams, "checks_splice_arms")
 register_law(TestParams, "unsupported_scope_arms")
+register_law(TestParams, "unsupported_scope_shell_target_receipt")
+register_law(TestParams, "project_lane_marker_matrix")
 register_law(TestParams, "select_solution_admission_arms")
-register_law(TestParams, "select_default_arm_routed_closure_untouched")
+register_law(TestParams, "select_changed_arm_classifies_marker_lanes")
+register_law(TestParams, "select_all_faults_on_corrupt_or_missing_solution")
 register_law(TestParams, "select_classifies_solution_project_lanes")
 register_law(TestParams, "dispatch_empty_checks_returns_unsupported_only")
 register_law(TestParams, "dispatch_non_empty_checks_calls_fan_out")
@@ -217,14 +236,18 @@ register_law(test_rail.run, "run_envelope_names_host_routed_projects")
 
 
 def test_run_envelope_names_host_routed(monkeypatch: pytest.MonkeyPatch, assay_root: AssayHarness) -> None:
-    """Run notes name host-routed projects excluded from TEST dispatch."""
-    routed = Routed(
-        language=Language.CSHARP, scope=Scope.CHANGED, projects=("src/App/App.csproj", "src/Lib/Lib.csproj"), host_bound=("src/App/App.csproj",)
-    )
+    """Run notes name marker-classified host projects; routed.host_bound is rebuilt, never trusted."""
+    managed = "tests/csharp/libs/A/A.Tests.csproj"
+    host = "tests/csharp/libs/B/B.Tests.csproj"
+    assay_root.write(managed, "<Project />")
+    assay_root.write(host, _HOST_CSPROJ)
+    routed = Routed(language=Language.CSHARP, scope=Scope.CHANGED, projects=(managed, host))
     _wire(monkeypatch, _ok(("dotnet", "test")), routed=routed, seam="_dispatch_all")
-    report = assert_ok(test_rail.run(assay_root.settings, assay_root.scope(Claim.TEST), TestParams(language=Language.CSHARP)))
+    report = assert_ok(test_rail.run(assay_root.settings, assay_root.scope(Claim.TEST), TestParams(language=Language.CSHARP), SeamExecutor()))
     assert "closure[csharp]: included=1 excluded=0 cached=0 host-routed=1" in report.notes
-    assert "host-routed[csharp]: src/App/App.csproj" in report.notes
+    assert f"host-routed[csharp]: {host}" in report.notes
+    assert isinstance(report.detail, TestRun)
+    assert {("managed", 1), ("host_bound", 1)} <= set(report.detail.project_counts)
 
 
 register_law(test_rail.run, "run_ok_report_from_dispatch")
@@ -554,6 +577,7 @@ def test_unsupported_scope_arms(monkeypatch: pytest.MonkeyPatch, assay_root: Ass
     assert len(results) == 1
     completed = assert_ok(results[0])
     assert completed.status is RailStatus.UNSUPPORTED
+    assert completed.returncode == RailStatus.UNSUPPORTED.exit_code
     assert any("vitest-mut" in n for n in completed.notes)
 
     monkeypatch.setattr(test_rail, "_rows", lambda *_a, **_k: (_mutation_tool(),))
@@ -573,59 +597,118 @@ def test_unsupported_scope_arms(monkeypatch: pytest.MonkeyPatch, assay_root: Ass
     assert host_receipt.status is RailStatus.UNSUPPORTED
 
 
+def test_unsupported_scope_shell_target_receipt(assay_root: AssayHarness) -> None:
+    """--target on a SHELL project yields a typed unsupported-target receipt with the UNSUPPORTED exit code."""
+    target = "tests/csharp/scenarios/Rasm.Scenarios.csproj"
+    assay_root.write(target, _SHELL_CSPROJ)
+    routed = Routed(language=Language.CSHARP, scope=Scope.CHANGED)
+    (row,) = _unsupported_scope(routed, TestParams(target=Path(target)), assay_root.settings, Mode.RUN)
+    completed = assert_ok(row)
+    assert completed.status is RailStatus.UNSUPPORTED
+    assert completed.returncode == RailStatus.UNSUPPORTED.exit_code
+    assert any("test-target[shell]" in n for n in completed.notes)
+
+
 # --- [LAWS_SELECT]
 
 
 def test_select_solution_admission_arms(assay_root: AssayHarness) -> None:
-    """_select handles passthrough, target narrowing, and solution-backed all-selection."""
+    """_select handles glob passthrough, target narrowing, and solution-backed all-selection."""
     settings = assay_root.settings
     _seed_solution(assay_root)
-    rasm = "tests/csharp/libs/Rasm/Rasm.Tests.csproj"
-    py_routed = Routed(language=_PY, scope=Scope.CHANGED, projects=(rasm,))
-    cs_routed = Routed(language=Language.CSHARP, scope=Scope.CHANGED, projects=(rasm,))
+    host = "tests/csharp/libs/Rasm.Host/Rasm.Host.Tests.csproj"
+    py_routed = Routed(language=_PY, scope=Scope.CHANGED, projects=(host,))
+    cs_routed = Routed(language=Language.CSHARP, scope=Scope.CHANGED, projects=(host,))
     target = Path("tests/csharp/libs/Other/Other.Tests.csproj")
     assay_root.write(target, "<Project />")
 
-    assert _select(py_routed, TestParams(), settings) is py_routed
-    assert _select(cs_routed, TestParams(), settings) is cs_routed
-    assert _select(cs_routed, TestParams(target=target), settings).projects == (str(target),)
-    selected = _select(cs_routed, TestParams(all=True), settings)
+    assert assert_ok(_select(py_routed, TestParams(), settings)).routed is py_routed
+    assert assert_ok(_select(cs_routed, TestParams(target=target), settings)).routed.projects == (str(target),)
+    selected = assert_ok(_select(cs_routed, TestParams(all=True), settings)).routed
     assert selected.scope is Scope.FULL
-    assert rasm in selected.host_bound
-    assert {
+    assert selected.host_bound == (host,)
+    assert set(selected.projects) == {
         "tests/csharp/_architecture/Rasm.Architecture.Tests.csproj",
-        "tests/csharp/libs/Rasm.Grasshopper/Rasm.Grasshopper.Tests.csproj",
-        "tests/csharp/libs/Rasm.Rhino/Rasm.Rhino.Tests.csproj",
         "tests/csharp/tools/cs-analyzer/Csp.Analyzer.Tests.csproj",
         "tests/csharp/tools/rhino-bridge/Contract/Contract.csproj",
-        "tests/csharp/tools/rhino-bridge/Scenarios/Scenarios.csproj",
         "tests/csharp/tools/rhino-bridge/Supervisor/Supervisor.csproj",
-    } <= set(selected.projects)
-    assert "tests/csharp/_testkit/Rasm.TestKit.csproj" not in selected.projects
-    assert "tests/csharp/_benchmarks/Rasm.Benchmarks.csproj" not in selected.projects
-    assert "tests/csharp/libs/Rasm.Empty/Rasm.Empty.Tests.csproj" not in selected.projects
-    assert "libs/csharp/Rasm/Rasm.csproj" not in selected.projects
+        host,
+    }
+    # Shell projects never reach dispatch even when they carry real content — the marker wins.
+    assert "tests/csharp/libs/Rasm/Rasm.Tests.csproj" not in selected.projects
+    assert "tests/csharp/scenarios/Rasm.Scenarios.csproj" not in selected.projects
+    # Unreadable roster entry is fault-shaped NON_TEST, never silently MANAGED.
+    assert "tests/csharp/libs/Rasm.Ghost/Rasm.Ghost.Tests.csproj" not in selected.projects
 
 
-def test_select_default_arm_routed_closure_untouched(assay_root: AssayHarness) -> None:
-    """_select default arm preserves the routed C# closure identity."""
-    settings = assay_root.settings
-    new_owner = "tests/csharp/apps/Future/Future.Tests.csproj"
-    routed = Routed(language=Language.CSHARP, scope=Scope.CHANGED, projects=(new_owner,))
+def test_select_changed_arm_classifies_marker_lanes(assay_root: AssayHarness) -> None:
+    """The changed-scope arm classifies the routed closure itself; a stale routed.host_bound never survives."""
+    _seed_solution(assay_root)
+    shell = "tests/csharp/libs/Rasm/Rasm.Tests.csproj"
+    host = "tests/csharp/libs/Rasm.Host/Rasm.Host.Tests.csproj"
+    managed = "tests/csharp/_architecture/Rasm.Architecture.Tests.csproj"
+    lib = "libs/csharp/Rasm/Rasm.csproj"
+    routed = Routed(language=Language.CSHARP, scope=Scope.CHANGED, projects=(lib, shell, host, managed), host_bound=(managed,))
+    selected = assert_ok(_select(routed, TestParams(), assay_root.settings))
+    assert set(selected.routed.projects) == {host, managed}
+    assert selected.routed.host_bound == (host,), "host_bound is rebuilt from the marker table, not trusted from routing"
+    assert dict(selected.lanes) == {
+        lib: _TestProjectLane.NON_TEST,
+        shell: _TestProjectLane.SHELL,
+        host: _TestProjectLane.HOST_BOUND,
+        managed: _TestProjectLane.MANAGED,
+    }
 
-    selected = _select(routed, TestParams(), settings)
 
-    assert selected is routed, "default arm must pass the routed closure through identically"
-    assert selected.projects == (new_owner,)
+@pytest.mark.parametrize("content", [pytest.param("<Solution", id="corrupt-xml"), pytest.param(None, id="missing-file")])
+def test_select_all_faults_on_corrupt_or_missing_solution(assay_root: AssayHarness, content: str | None) -> None:
+    """--all over a corrupt or missing Workspace.slnx is a loud FAULTED result, never a green zero-check run."""
+    match content:
+        case None:
+            (assay_root.root / "Workspace.slnx").unlink()
+        case _:
+            assay_root.write("Workspace.slnx", content)
+    routed = Routed(language=Language.CSHARP, scope=Scope.CHANGED)
+    fault = assert_error_status(_select(routed, TestParams(all=True), assay_root.settings), RailStatus.FAULTED)
+    assert "Workspace.slnx" in " ".join(fault.argv)
 
 
 def test_select_classifies_solution_project_lanes(assay_root: AssayHarness) -> None:
-    """The solution roster classifies managed, host, support, benchmark, and non-test lanes."""
+    """The solution roster classifies managed, host, shell, support, benchmark, and non-test lanes."""
     _seed_solution(assay_root)
     routed = Routed(language=Language.CSHARP, scope=Scope.CHANGED)
-    rows = _classified_projects(TestParams(all=True), routed, assay_root.settings)
-    counts = {lane.value: total for lane in _TestProjectLane if (total := sum(1 for _, actual in rows if actual is lane))}
-    assert counts == {"managed": 7, "host_bound": 1, "support": 1, "benchmark": 1, "non_test": 2}
+    selected = assert_ok(_select(routed, TestParams(all=True), assay_root.settings))
+    counts = {lane.value: total for lane in _TestProjectLane if (total := sum(1 for _, actual in selected.lanes if actual is lane))}
+    assert counts == {"managed": 4, "host_bound": 1, "shell": 2, "support": 1, "benchmark": 1, "non_test": 4}
+
+
+# --- [LAWS_PROJECT_LANE]
+
+
+@pytest.mark.parametrize(
+    "rel,content,expected",
+    [
+        pytest.param("tests/csharp/libs/A/A.Tests.csproj", "<Project />", _TestProjectLane.MANAGED, id="no-marker→managed"),
+        pytest.param("tests/csharp/libs/A/A.Tests.csproj", _SHELL_WITH_CONTENT_CSPROJ, _TestProjectLane.SHELL, id="shell-marker-wins-over-content"),
+        pytest.param(
+            "tests/csharp/libs/A/A.Tests.csproj",
+            "<Project><PropertyGroup><AssayTestShell>true</AssayTestShell><AssayHostBound>true</AssayHostBound></PropertyGroup></Project>",
+            _TestProjectLane.SHELL,
+            id="shell-outranks-host-bound",
+        ),
+        pytest.param("tests/csharp/libs/A/A.Tests.csproj", _HOST_CSPROJ, _TestProjectLane.HOST_BOUND, id="host-bound-marker"),
+        pytest.param("tests/csharp/libs/A/A.Tests.csproj", _NON_TEST_CSPROJ, _TestProjectLane.NON_TEST, id="istestproject-false"),
+        pytest.param("tests/csharp/libs/A/A.Tests.csproj", None, _TestProjectLane.NON_TEST, id="unreadable→fault-shaped-non-test"),
+        pytest.param("tests/csharp/_testkit/Kit.csproj", _SHELL_CSPROJ, _TestProjectLane.SUPPORT, id="testkit-path-outranks-markers"),
+        pytest.param("tests/csharp/_benchmarks/Bench.csproj", "<Project />", _TestProjectLane.BENCHMARK, id="benchmarks-path"),
+        pytest.param("libs/csharp/Rasm/Rasm.csproj", "<Project />", _TestProjectLane.NON_TEST, id="outside-tests-csharp"),
+    ],
+)
+def test_project_lane_marker_matrix(assay_root: AssayHarness, rel: str, content: str | None, expected: _TestProjectLane) -> None:
+    """_project_lane routes path arms then the one-read marker table; an unreadable csproj is never silently MANAGED."""
+    if content is not None:
+        assay_root.write(rel, content)
+    assert _project_lane(rel, assay_root.settings) is expected
 
 
 # --- [LAWS_DISPATCH]
@@ -637,19 +720,19 @@ def test_dispatch_empty_checks_returns_unsupported_only(assay_root: AssayHarness
     scope = ArtifactScope.open(assay_root.settings, Claim.TEST)
     monkeypatch.setattr(test_rail, "_checks", lambda *_a, **_k: ())
     monkeypatch.setattr(test_rail, "_unsupported_scope", lambda *_a, **_k: (Ok(object()),))
-    results = _dispatch(routed, TestParams(), settings=assay_root.settings, scope=scope, mode=Mode.MUTATION)
+    results = _dispatch(routed, TestParams(), settings=assay_root.settings, scope=scope, mode=Mode.MUTATION, executor=SeamExecutor())
     assert len(results) == 1
 
 
 def test_dispatch_non_empty_checks_calls_fan_out(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
-    """_dispatch forwards non-empty checks to fan_out and concatenates the unsupported tail."""
+    """_dispatch forwards non-empty checks to the executor fan lane and concatenates the unsupported tail."""
     ok = _ok(("pytest",))
     routed = Routed(language=_PY, scope=Scope.CHANGED, files=())
     scope = ArtifactScope.open(assay_root.settings, Claim.TEST)
     monkeypatch.setattr(test_rail, "_checks", lambda *_a, **_k: (Check(tool=_tool("pytest", Mode.RUN), paths=()),))
     monkeypatch.setattr(test_rail, "_unsupported_scope", lambda *_a, **_k: ())
-    monkeypatch.setattr(test_rail, "fan_out", lambda *_a, **_k: (Ok(ok),))
-    results = _dispatch(routed, TestParams(), settings=assay_root.settings, scope=scope, mode=Mode.RUN)
+    executor = SeamExecutor(fan_fn=lambda *_a, **_k: (Ok(ok),))
+    results = _dispatch(routed, TestParams(), settings=assay_root.settings, scope=scope, mode=Mode.RUN, executor=executor)
     assert results == (Ok(ok),)
 
 
@@ -709,7 +792,7 @@ def test_coverage_forces_coverage_flag(assay_root: AssayHarness, monkeypatch: py
     """Coverage verb forces coverage=True and benchmark=False even when TestParams disagrees."""
     seen = _capture_rail(monkeypatch)
     scope = ArtifactScope.open(assay_root.settings, Claim.TEST)
-    test_rail.coverage(assay_root.settings, scope, TestParams(coverage=False, benchmark=True))
+    test_rail.coverage(assay_root.settings, scope, TestParams(coverage=False, benchmark=True), SeamExecutor())
     assert len(seen) == 1
     params, _, _ = seen[0]
     assert (params.coverage, params.benchmark) == (True, False)
@@ -719,7 +802,7 @@ def test_coverage_verb_claim_is_test(assay_root: AssayHarness, monkeypatch: pyte
     """Coverage verb passes Claim.TEST and verb='coverage' through to _thin_rail."""
     seen = _capture_rail(monkeypatch)
     scope = ArtifactScope.open(assay_root.settings, Claim.TEST)
-    test_rail.coverage(assay_root.settings, scope, TestParams())
+    test_rail.coverage(assay_root.settings, scope, TestParams(), SeamExecutor())
     assert [(claim, verb) for _, claim, verb in seen] == [(Claim.TEST, "coverage")]
 
 
@@ -754,7 +837,7 @@ def test_list_report_projection_arms(
 ) -> None:
     """List projects roster artifacts, grep filtering, and limit notes."""
     _wire(monkeypatch, _ok(("pytest", "--collect-only"), stdout))
-    report = assert_ok(test_rail.list(assay_root.settings, ArtifactScope.open(assay_root.settings, Claim.TEST), params))
+    report = assert_ok(test_rail.list(assay_root.settings, ArtifactScope.open(assay_root.settings, Claim.TEST), params, SeamExecutor()))
     assert assertion(report)
 
 
@@ -762,7 +845,7 @@ def test_list_discovery_failure_changes_status(assay_root: AssayHarness, monkeyp
     """List discovery failures affect status and results instead of hiding in notes."""
     failed = receipt(("dotnet", "test", "--list-tests"), 1, stderr=b"no project")
     _wire(monkeypatch, failed)
-    report = assert_ok(test_rail.list(assay_root.settings, ArtifactScope.open(assay_root.settings, Claim.TEST), TestParams()))
+    report = assert_ok(test_rail.list(assay_root.settings, ArtifactScope.open(assay_root.settings, Claim.TEST), TestParams(), SeamExecutor()))
     assert report.status is RailStatus.FAILED
     assert any(row.severity == "failed" for row in report.results)
     assert any("discovery" in n and "dotnet test" in n for n in report.notes)
@@ -771,7 +854,7 @@ def test_list_discovery_failure_changes_status(assay_root: AssayHarness, monkeyp
 def test_list_empty_discovery_counts_as_unresolved(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
     """List with empty discovery stays explicit in TestRun discovery counts."""
     _wire(monkeypatch, _ok(("pytest", "--collect-only")))
-    report = assert_ok(test_rail.list(assay_root.settings, ArtifactScope.open(assay_root.settings, Claim.TEST), TestParams()))
+    report = assert_ok(test_rail.list(assay_root.settings, ArtifactScope.open(assay_root.settings, Claim.TEST), TestParams(), SeamExecutor()))
     assert isinstance(report.detail, TestRun)
     assert ("empty_or_failed_discovery", 1) in report.detail.discovery_counts
 
@@ -779,14 +862,14 @@ def test_list_empty_discovery_counts_as_unresolved(assay_root: AssayHarness, mon
 def test_list_roster_artifact_written_to_scope(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
     """List writes the roster artifact into the scope store and surfaces it in report.artifacts."""
     _wire(monkeypatch, _ok(("pytest", "--collect-only"), b"tests/a.py::test_one\n"))
-    report = assert_ok(test_rail.list(assay_root.settings, ArtifactScope.open(assay_root.settings, Claim.TEST), TestParams()))
+    report = assert_ok(test_rail.list(assay_root.settings, ArtifactScope.open(assay_root.settings, Claim.TEST), TestParams(), SeamExecutor()))
     assert "test-roster" in {a.id for a in report.artifacts}
 
 
 def test_list_detail_selected_is_pre_limit_discovered_total(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
     """List detail.selected keeps the pre-limit discovered total."""
     _wire(monkeypatch, _ok(("pytest", "--collect-only"), b"tests/a.py::test_one\ntests/a.py::test_two\ntests/a.py::test_three\n"))
-    report = assert_ok(test_rail.list(assay_root.settings, ArtifactScope.open(assay_root.settings, Claim.TEST), TestParams(limit=1)))
+    report = assert_ok(test_rail.list(assay_root.settings, ArtifactScope.open(assay_root.settings, Claim.TEST), TestParams(limit=1), SeamExecutor()))
     assert isinstance(report.detail, TestRun)
     assert report.detail.selected == 3, "detail.selected is the pre-limit discovered total, not the post-limit roster of 1"
     assert report.counts.total == 1, "the wire roster is trimmed to --limit while detail.selected keeps the full discovered count"
@@ -798,7 +881,7 @@ def test_list_detail_selected_is_pre_limit_discovered_total(assay_root: AssayHar
 def test_run_ok_report_from_dispatch(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
     """Run produces an Ok report when dispatch completes without fault."""
     _wire(monkeypatch, _ok(("pytest",)), seam="_dispatch_all")
-    report = assert_ok(test_rail.run(assay_root.settings, ArtifactScope.open(assay_root.settings, Claim.TEST), TestParams()))
+    report = assert_ok(test_rail.run(assay_root.settings, ArtifactScope.open(assay_root.settings, Claim.TEST), TestParams(), SeamExecutor()))
     assert report.status in {RailStatus.OK, RailStatus.EMPTY}
 
 
@@ -807,7 +890,7 @@ def test_run_mutation_gap_note_emitted(assay_root: AssayHarness, monkeypatch: py
     routed = Routed(language=Language.TYPESCRIPT, scope=Scope.CHANGED)
     _wire(monkeypatch, _ok(("pytest",)), routed=routed, seam="_dispatch_all")
     params = TestParams(mutation=MutationLane.FULL, language=Language.TYPESCRIPT)
-    report = assert_ok(test_rail.run(assay_root.settings, ArtifactScope.open(assay_root.settings, Claim.TEST), params))
+    report = assert_ok(test_rail.run(assay_root.settings, ArtifactScope.open(assay_root.settings, Claim.TEST), params, SeamExecutor()))
     assert any("mutation" in n for n in report.notes)
 
 
@@ -815,7 +898,9 @@ def test_run_coverage_percent_populates_detail(assay_root: AssayHarness, monkeyp
     """Run with coverage=True decodes coverage.json under settings.root into the TestRun detail."""
     _seed_coverage_json(assay_root.root, b'{"totals": {"percent_covered": 82.5}}')
     _wire(monkeypatch, _ok(("uv", "run", "pytest")), seam="_dispatch_all")
-    report = assert_ok(test_rail.run(assay_root.settings, ArtifactScope.open(assay_root.settings, Claim.TEST), TestParams(coverage=True)))
+    report = assert_ok(
+        test_rail.run(assay_root.settings, ArtifactScope.open(assay_root.settings, Claim.TEST), TestParams(coverage=True), SeamExecutor())
+    )
     assert isinstance(report.detail, TestRun)
     assert report.detail.coverage == pytest.approx(82.5)
 
@@ -823,7 +908,7 @@ def test_run_coverage_percent_populates_detail(assay_root: AssayHarness, monkeyp
 def test_run_claim_is_test(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
     """Run passes Claim.TEST through _thin_rail so the envelope claim is correct."""
     seen = _capture_rail(monkeypatch)
-    test_rail.run(assay_root.settings, ArtifactScope.open(assay_root.settings, Claim.TEST), TestParams())
+    test_rail.run(assay_root.settings, ArtifactScope.open(assay_root.settings, Claim.TEST), TestParams(), SeamExecutor())
     assert [claim for _, claim, _ in seen] == [Claim.TEST]
 
 
@@ -833,13 +918,13 @@ def test_run_claim_is_test(assay_root: AssayHarness, monkeypatch: pytest.MonkeyP
 @pytest.mark.parametrize(
     "params,expected_modes",
     [
-        pytest.param(TestParams(mutation=MutationLane.FULL), {Mode.RUN, Mode.MUTATION}, id="mutation→adds-MUTATION"),
-        pytest.param(TestParams(coverage=True), {Mode.RUN, Mode.CLIENT}, id="coverage→adds-CLIENT"),
-        pytest.param(TestParams(), {Mode.RUN}, id="plain→RUN-only"),
+        pytest.param(TestParams(mutation=MutationLane.FULL), [Mode.RUN, Mode.MUTATION], id="mutation→adds-MUTATION"),
+        pytest.param(TestParams(coverage=True), [Mode.RUN, Mode.STAGE, Mode.CLIENT], id="coverage→adds-STAGE-then-CLIENT"),
+        pytest.param(TestParams(), [Mode.RUN], id="plain→RUN-only"),
     ],
 )
-def test_dispatch_all_mode_arms(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch, params: TestParams, expected_modes: set[Mode]) -> None:
-    """_dispatch_all adds mutation and coverage sub-dispatches from params."""
+def test_dispatch_all_mode_arms(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch, params: TestParams, expected_modes: list[Mode]) -> None:
+    """_dispatch_all adds mutation, coverage-combine, and coverage-report sub-dispatches in order; combine precedes every report row."""
     call_modes: list[Mode] = []
 
     def _record(*_a: object, mode: Mode, **_k: object) -> tuple[Result[Completed, object], ...]:
@@ -849,8 +934,8 @@ def test_dispatch_all_mode_arms(assay_root: AssayHarness, monkeypatch: pytest.Mo
     monkeypatch.setattr(test_rail, "_dispatch", _record)
     routed = Routed(language=_PY, scope=Scope.CHANGED, files=())
     scope = ArtifactScope.open(assay_root.settings, Claim.TEST)
-    _dispatch_all(routed, params, settings=assay_root.settings, scope=scope, mode=Mode.RUN)
-    assert set(call_modes) == expected_modes
+    _dispatch_all(routed, params, settings=assay_root.settings, scope=scope, mode=Mode.RUN, executor=SeamExecutor())
+    assert call_modes == expected_modes
 
 
 # --- [LAWS_ROUTED]
@@ -880,7 +965,7 @@ def test_thin_rail_gap_note_emitted_in_report_notes(assay_root: AssayHarness, mo
     _wire(monkeypatch, _ok(("pytest",)), routed=routed, seam="_dispatch_all")
     scope = ArtifactScope.open(assay_root.settings, Claim.TEST)
     params = TestParams(mutation=MutationLane.FULL, language=Language.TYPESCRIPT)
-    report = assert_ok(_thin_rail(assay_root.settings, scope, params, claim=Claim.TEST, verb="run", mode=Mode.RUN))
+    report = assert_ok(_thin_rail(assay_root.settings, scope, params, SeamExecutor(), claim=Claim.TEST, verb="run", mode=Mode.RUN))
     assert any("mutation" in n for n in report.notes)
 
 
@@ -900,7 +985,7 @@ def test_thin_rail_mutation_eligible_calls_leased(assay_root: AssayHarness, monk
     monkeypatch.setattr(test_rail, "leased", _record_lease)
 
     params = TestParams(mutation=MutationLane.FULL, language=Language.PYTHON)
-    assert_ok(_thin_rail(assay_root.settings, scope, params, claim=Claim.TEST, verb="run", mode=Mode.RUN))
+    assert_ok(_thin_rail(assay_root.settings, scope, params, SeamExecutor(), claim=Claim.TEST, verb="run", mode=Mode.RUN))
     assert leased_calls == ["mutation-python"]
 
 
@@ -920,7 +1005,7 @@ def test_thin_rail_multi_language_mutation_nests_sorted_leases(assay_root: Assay
     monkeypatch.setattr(test_rail, "leased", _descend)
 
     params = TestParams(mutation=MutationLane.FULL)
-    assert_ok(_thin_rail(assay_root.settings, scope, params, claim=Claim.TEST, verb="run", mode=Mode.RUN))
+    assert_ok(_thin_rail(assay_root.settings, scope, params, SeamExecutor(), claim=Claim.TEST, verb="run", mode=Mode.RUN))
     assert leased_calls == ["mutation-csharp", "mutation-python"]
 
 
@@ -933,10 +1018,12 @@ def test_thin_rail_per_language_mutation_leases_do_not_contend(assay_root: Assay
     params = TestParams(mutation=MutationLane.FULL, language=Language.PYTHON)
     with exclusive_lease("mutation-csharp", "holder", settings=assay_root.settings) as held:
         assert_ok(held)
-        assert_ok(_thin_rail(assay_root.settings, scope, params, claim=Claim.TEST, verb="run", mode=Mode.RUN))
+        assert_ok(_thin_rail(assay_root.settings, scope, params, SeamExecutor(), claim=Claim.TEST, verb="run", mode=Mode.RUN))
     with exclusive_lease("mutation-python", "holder", settings=assay_root.settings) as held:
         assert_ok(held)
-        assert_error_status(_thin_rail(assay_root.settings, scope, params, claim=Claim.TEST, verb="run", mode=Mode.RUN), RailStatus.BUSY)
+        assert_error_status(
+            _thin_rail(assay_root.settings, scope, params, SeamExecutor(), claim=Claim.TEST, verb="run", mode=Mode.RUN), RailStatus.BUSY
+        )
 
 
 def test_thin_rail_no_mutation_calls_work_directly(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -945,7 +1032,7 @@ def test_thin_rail_no_mutation_calls_work_directly(assay_root: AssayHarness, mon
     _wire(monkeypatch, _ok(("pytest",)), routed=routed, seam="_dispatch_all")
     scope = ArtifactScope.open(assay_root.settings, Claim.TEST)
     params = TestParams(mutation=MutationLane.OFF, language=Language.PYTHON)
-    report = assert_ok(_thin_rail(assay_root.settings, scope, params, claim=Claim.TEST, verb="run", mode=Mode.RUN))
+    report = assert_ok(_thin_rail(assay_root.settings, scope, params, SeamExecutor(), claim=Claim.TEST, verb="run", mode=Mode.RUN))
     assert report.status in {RailStatus.OK, RailStatus.EMPTY}
 
 
@@ -1028,13 +1115,19 @@ def test_gate_check_rides_staged_mutmut_success(assay_root: AssayHarness, monkey
     monkeypatch.setattr(test_rail, "_rows", lambda *_a, **_k: (staged,))
     seen: list[Check] = []
 
-    def _fake_fan_out(checks: tuple[Check, ...], **_k: object) -> tuple[Result[Completed, object], ...]:
+    def _fake_fan(checks: tuple[Check, ...], **_k: object) -> tuple[Result[Completed, object], ...]:
         seen.extend(checks)
         return (Ok(_ok(("uv", "run", "python", "-m", "tools.assay.rails.mutation_gate"))),)
 
-    monkeypatch.setattr(test_rail, "fan_out", _fake_fan_out)
     done = (Ok(_ok(("uv", "run", "--group", "mutation", "mutmut", "run"))),)
-    out = _gate(done, _PY_ROUTED, TestParams(mutation=MutationLane.FULL), settings=assay_root.settings, scope=assay_root.scope(Claim.TEST))
+    out = _gate(
+        done,
+        _PY_ROUTED,
+        TestParams(mutation=MutationLane.FULL),
+        settings=assay_root.settings,
+        scope=assay_root.scope(Claim.TEST),
+        executor=SeamExecutor(fan_fn=_fake_fan),
+    )
     assert len(out) == 1
     assert [c.tool for c in seen] == [_GATE_TOOL]
     assert seen[0].cwd == Path(str(assay_root.settings.root)) / staged.stage.root
@@ -1058,13 +1151,16 @@ def test_gate_skips_without_success_or_stage(
     """_gate stays empty without mutmut success and a staged row."""
 
     def _forbidden(*_a: object, **_k: object) -> tuple[Result[Completed, object], ...]:
-        raise AssertionError("fan_out must not run")
+        raise AssertionError("executor.fan must not run")
 
     rows = (_staged_mutmut(),) if staged else (_mutation_tool(),)
     monkeypatch.setattr(test_rail, "_rows", lambda *_a, **_k: rows)
-    monkeypatch.setattr(test_rail, "fan_out", _forbidden)
+    executor = SeamExecutor(fan_fn=_forbidden)
     done = (Ok(receipt(argv, code)),)
-    assert _gate(done, _PY_ROUTED, TestParams(mutation=MutationLane.FULL), settings=assay_root.settings, scope=assay_root.scope(Claim.TEST)) == ()
+    gated = _gate(
+        done, _PY_ROUTED, TestParams(mutation=MutationLane.FULL), settings=assay_root.settings, scope=assay_root.scope(Claim.TEST), executor=executor
+    )
+    assert gated == ()
 
 
 def test_dispatch_all_gate_rides_mutation_results(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -1083,8 +1179,10 @@ def test_dispatch_all_gate_rides_mutation_results(assay_root: AssayHarness, monk
     monkeypatch.setattr(test_rail, "_dispatch", _dispatch_stub)
     monkeypatch.setattr(test_rail, "_gate", _gate_stub)
     scope = assay_root.scope(Claim.TEST)
-    out = _dispatch_all(_PY_ROUTED, TestParams(mutation=MutationLane.FULL), settings=assay_root.settings, scope=scope, mode=Mode.RUN)
+    out = _dispatch_all(
+        _PY_ROUTED, TestParams(mutation=MutationLane.FULL), settings=assay_root.settings, scope=scope, mode=Mode.RUN, executor=SeamExecutor()
+    )
     assert handed == [(mut_ok,)]
     assert out == (mut_ok, gate_ok)
-    assert _dispatch_all(_PY_ROUTED, TestParams(), settings=assay_root.settings, scope=scope, mode=Mode.RUN) == ()
+    assert _dispatch_all(_PY_ROUTED, TestParams(), settings=assay_root.settings, scope=scope, mode=Mode.RUN, executor=SeamExecutor()) == ()
     assert handed == [(mut_ok,)]

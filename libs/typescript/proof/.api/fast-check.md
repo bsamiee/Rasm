@@ -28,7 +28,7 @@
 |  [10]   | `RunDetails<Ts>`                | discriminated union | run outcome: `RunDetailsSuccess` \| three failure variants           |
 |  [11]   | `PreconditionFailure`           | class (Error)       | thrown by `pre(false)` when the skip budget is exhausted            |
 |  [12]   | `ExecutionStatus` / `ExecutionTree<Ts>` / `VerbosityLevel` | enum + interface | per-run replay tree feeding verbose reporters          |
-|  [13]   | `Size` / `SizeForArbitrary` / `RelativeSize` / `DepthSize` | union aliases | collection/string/recursion size policy               |
+|  [13]   | `Size` / `SizeForArbitrary` / `DepthSize` | union aliases | collection/string/recursion size policy (`Size` = `"xsmall".."xlarge"`) |
 |  [14]   | `WithCloneMethod` / `WithToStringMethod` / `cloneMethod` | branded shape | stateful-value cloning + custom counterexample rendering |
 
 ```ts contract
@@ -141,7 +141,7 @@ import * as Arbitrary from "effect/Arbitrary"
 import type * as FastCheck from "effect/FastCheck"       // re-export of this package — one engine, no version skew
 import type { Schema } from "effect/Schema"
 declare const make: <A, I, R>(schema: Schema.Schema<A, I, R>) => FastCheck.Arbitrary<A>
-declare const makeLazy: <A, I, R>(schema: Schema.Schema<A, I, R>) => (fc: typeof FastCheck) => FastCheck.Arbitrary<A>
+declare const makeLazy: <A, I, R>(schema: Schema.Schema<A, I, R>) => LazyArbitrary<A>   // LazyArbitrary<A> = (fc: typeof FastCheck) => FastCheck.Arbitrary<A>
 ```
 
 [STACK: `fast-check` + `@effect/vitest`] — `property.ts` closes each law with `assert`, but specs bind arbitraries through `@effect/vitest` `it.prop(name, arbitraries, self)` (array OR record of arbitraries) and effect-returning predicates through `it.effect` / `it.scoped`; `layer(SharedLayer)(…)` shares one acquired Layer across a property block so the harness resources (see `electric-sql-pglite.md`) build once. `it.flakyTest` wraps a known-nondeterministic effect.
@@ -153,4 +153,4 @@ declare const makeLazy: <A, I, R>(schema: Schema.Schema<A, I, R>) => (fc: typeof
 - Owns: typed generator construction, property assertion, deterministic replay (`{ seed, path }`), and automatic shrinking to a minimal counterexample.
 - Accept: `Arbitrary<T>` composed via `map`/`filter`/`chain`; `Schema`-derived arbitraries via `Arbitrary.make`; `Parameters` for seed/run-count/timeout; `examples` for a seeded regression corpus.
 - Reject: hand-rolled `Math.random()` inside a predicate (use `gen()` / `Random`); manual shrink loops; re-deriving a brand arbitrary by hand where a `Schema` exists; importing the barrel from any `plane:runtime` folder — dev subpath only.
-- Boundary: async predicates require `asyncProperty` + `await assert(...)`; a sync `property` given an async predicate silently passes. Match `RunDetailsFailure*` variants and `MigrationError`-style reasons on the tag, never on message text.
+- Boundary: async predicates require `asyncProperty` + `await assert(...)`; a sync `property` given an async predicate silently passes (the returned Promise is truthy). Discriminate `RunDetails` on its `failed` / `interrupted` flags, never on message text; replay a failure from `{ seed, counterexamplePath }`, not by re-running unseeded.

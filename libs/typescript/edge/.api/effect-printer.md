@@ -124,8 +124,8 @@
 - Bind or retarget the phantom `A`. `annotate` attaches an annotation; `reAnnotate` maps `A => B` uniformly; `alterAnnotations` maps one annotation to zero-or-many (remove/replace/split); `unAnnotate` erases to `Doc<never>`. This is the seam where a concrete renderer resolves `A`.
 
 | [INDEX] | [SURFACE]                                | [ENTRY_FAMILY] | [RAIL]                                                       |
-| :--------: | :------------------------------------- | :------------- | :---------------------------------------------------------- |
-|  [01]   | `Doc.annotate(self, annotation)`          | annotation     | attach an `A` annotation to a subtree                       |
+| :-----: | :--------------------------------------- | :------------- | :---------------------------------------------------------- |
+|  [01]   | `Doc.annotate(self, annotation)`         | annotation     | attach an `A` annotation to a subtree                       |
 |  [02]   | `Doc.reAnnotate(self, f)`                 | annotation     | map every annotation `A => B` (`Doc<A> => Doc<B>`)          |
 |  [03]   | `Doc.alterAnnotations(self, f)`           | annotation     | `A => Iterable<B>` remove/replace/multiply annotations      |
 |  [04]   | `Doc.unAnnotate(self)`                     | annotation     | strip all annotations to `Doc<never>`                       |

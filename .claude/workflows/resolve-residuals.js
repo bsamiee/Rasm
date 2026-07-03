@@ -1,28 +1,36 @@
 export const meta = {
   name: 'resolve-residuals',
   whenToUse: 'Resolve cross-file hard residuals a rebuild run could not close, with research and adversarial verification.',
-  description: 'Manual cross-file HARD-RESIDUAL resolver, language-agnostic: investigate/research each open reconcile residual a rebuild-* run could not close (read every spanned page + the right .api tier + assay api for member claims + domain research), decide the canonical resolution, implement the design-doc changes across ALL spanned pages at the owning language bar (cs/py/ts), then adversarially verify-and-repair. Hostile stance: assume the residual is real and the prior code naive/illusory; resolve deferred decisions with research rather than punting; realization-gate items are signature-locked in the owning design page (never realized as source). args = the hard residuals to resolve — an array, or {residuals:[...]}, or a rebuild-* run\'s {hard_residual:[...]} return; each item a {files,claim} object, a {id,claim,hint} object, or a bare claim string. Empty = no-op.',
+  description: 'Cross-file HARD-RESIDUAL resolver, language-agnostic, two write stages: cluster residuals by spanned files (union-find, atomic; path-less claims form one atomic cluster; oversized components sub-shard by lead file; LPT work-balanced packing into bounded buckets) -> RESOLVE per bucket (research + decide + edit in one pass: full-read spanned pages, enumerate both .api tiers, assay-verify members, make the strongest principled choice and implement it across every spanned page; one re-attempt for a dead bucket) -> VERIFY per bucket, pipelined with no barrier (adversarially re-derive each claim, prove on disk, repair weak fixes in place, one verdict per claim). args = an array, {residuals:[...]}, or a rebuild-* run\'s {hard_residual:[...]}; items are {files,claim}, {id,claim,hint}, or bare claim strings. Empty = no-op.',
   phases: [
-    { title: 'Investigate', detail: 'per residual: full-read spanned pages + folder, enumerate both .api tiers from disk, assay/domain research -> a per-file resolution MAP (read-only)' },
-    { title: 'Implement', detail: 'per file-cluster: apply every resolution across the spanned design pages, fix-in-place at the owning language bar' },
-    { title: 'Verify', detail: 'per residual: adversarially re-derive + prove on disk, repair weak/token fixes in place to root form, then classify resolved/open' },
+    { title: 'Resolve', detail: 'per work-balanced bucket: research + decide + implement across all spanned pages in one write pass; dead buckets get one re-attempt' },
+    { title: 'Verify', detail: 'per bucket the moment its resolve lands: adversarially re-derive, prove on disk, repair in place, one verdict per claim' },
   ],
 }
 
 // --- [CONSTANTS] -------------------------------------------------------------------------
 const CAP = 10
-const STAGGER_MS = 1500
+const TARGET_WORK = 10
 
 // --- [INPUTS] ----------------------------------------------------------------------------
 const input = typeof args === 'string' ? (() => { try { return JSON.parse(args) } catch { return args } })() : args
 const RAW = Array.isArray(input) ? input : (input && Array.isArray(input.residuals)) ? input.residuals : (input && Array.isArray(input.hard_residual)) ? input.hard_residual : []
-const toResidual = (x, i) => typeof x === 'string' ? { id: 'R' + (i + 1), claim: x, files: [], hint: '' } : { id: x.id || ('R' + (i + 1)), claim: x.claim || '', files: Array.isArray(x.files) ? x.files : [], hint: x.hint || '' }
+const rel = (f) => { const i = String(f).indexOf('libs/'); return i > 0 ? String(f).slice(i) : String(f) }
+const toResidual = (x, i) => typeof x === 'string' ? { id: 'R' + (i + 1), claim: x, files: [], hint: '' } : { id: x.id || ('R' + (i + 1)), claim: x.claim || '', files: Array.isArray(x.files) ? x.files.filter(Boolean).map(rel) : [], hint: x.hint || '' }
 const RESIDUALS = RAW.map(toResidual).filter((r) => r.claim)
 
 // --- [MODELS] ----------------------------------------------------------------------------
-const PLAN_SCHEMA = { type: 'object', additionalProperties: false, required: ['id', 'decision', 'files'], properties: { id: { type: 'string' }, claim: { type: 'string' }, decision: { type: 'string' }, files: { type: 'array', items: { type: 'string' } }, api_members: { type: 'array', items: { type: 'string' } }, edits: { type: 'array', items: { type: 'string' } }, open_question: { type: 'string' } } }
-const FIXLOG_SCHEMA = { type: 'object', additionalProperties: false, required: ['files', 'verdict', 'summary'], properties: { files: { type: 'array', items: { type: 'string' } }, verdict: { type: 'string', enum: ['resolved', 'partial', 'clean'] }, applied: { type: 'array', items: { type: 'string' } }, residual: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['files', 'claim'], properties: { files: { type: 'array', items: { type: 'string' } }, claim: { type: 'string' } } } }, summary: { type: 'string' } } }
-const VERIFY_SCHEMA = { type: 'object', additionalProperties: false, required: ['id', 'status', 'summary'], properties: { id: { type: 'string' }, status: { type: 'string', enum: ['resolved', 'open'] }, evidence: { type: 'string' }, repaired_files: { type: 'array', items: { type: 'string' } }, summary: { type: 'string' } } }
+const RESOLVE_SCHEMA = { type: 'object', additionalProperties: false, required: ['files', 'verdict', 'items'], properties: {
+  files: { type: 'array', items: { type: 'string' } },
+  verdict: { type: 'string', enum: ['resolved', 'partial'] },
+  items: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['id', 'decision'], properties: {
+    id: { type: 'string' }, decision: { type: 'string' }, files: { type: 'array', items: { type: 'string' } },
+    open_question: { type: 'string' } } } },
+  summary: { type: 'string' } } }
+const VERIFY_SCHEMA = { type: 'object', additionalProperties: false, required: ['claims'], properties: {
+  claims: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['id', 'status'], properties: {
+    id: { type: 'string' }, status: { type: 'string', enum: ['resolved', 'open'] }, evidence: { type: 'string' } } } },
+  repaired_files: { type: 'array', items: { type: 'string' } } } }
 
 // --- [DOCTRINE] --------------------------------------------------------------------------
 const DESIGN_BAR = [
@@ -31,14 +39,14 @@ const DESIGN_BAR = [
     'the relevant domain/ shard ([Union]/[SmartEnum<TKey>]/[ValueObject<T>]/[ComplexValueObject] ADT collapse, LanguageExt ' +
     '`Fin`/`Validation`/`Option`/`Eff` rails, two-weave AOP, total generated `Switch`, the `tools/cs-analyzer` doctrine gate); `libs/python/**` -> ' +
     'docs/stacks/python/ (py3.15 PEP 585/604/695, `frozendict` builtin, `TypedDict`/Pydantic payloads, expression `Result`/`Option`, `anyio`, ' +
-    '`stamina`, closed-fault `@tagged_union`); `libs/typescript/**` -> docs/stacks/typescript/ + coding-ts (Effect-TS rails, `Schema`-first ' +
+    '`stamina`, closed-fault `@tagged_union`); `libs/typescript/**` -> docs/stacks/typescript/ (Effect-TS rails, `Schema`-first ' +
     'boundaries, branded/nominal types, exhaustive discriminated unions, zero `any`/`throw`/`enum`). Read the operative pages for the file ' +
     'language before editing; every fence holds that bar as fact.',
   'ULTRA-STACK .api CAPABILITY by the file language — enumerate BOTH tiers IN FULL with a real `ls`/`fd` listing from disk (never memory) and ' +
     'mine them to operator depth: C# uses the per-package `<pkg>/.api/*.md` catalogs + the universal Thinktecture/LanguageExt rails (no central ' +
     'tier; Geometry catalogs live at `libs/csharp/Rasm/.api/`); Python mines the shared `libs/python/.api/*.md` AND the folder ' +
-    '`libs/python/<folder>/.api/*.md`; TypeScript mines the shared `libs/typescript/.api/*.md` Effect/Schema/React tier AND the area ' +
-    '`libs/typescript/<area>/.api/*.md`. An admitted capability the resolution admits but no owner exploits is a defect to close; a cited member ' +
+    '`libs/python/<folder>/.api/*.md`; TypeScript mines the shared `libs/typescript/.api/*.md` tier AND the folder ' +
+    '`libs/typescript/<folder>/.api/*.md`. An admitted capability the resolution admits but no owner exploits is a defect to close; a cited member ' +
     'no catalog or `assay api` confirms is a phantom to DELETE, never to assert. Maximize the shared/universal rails, never only the folder set.',
   'PROSE + COMMENTS: high-signal design-spec prose per docs/standards/style-guide.md — lead with the controlling contract, one idea per paragraph, ' +
     'no hedges/provenance/process narration; BACKTICK every symbol/type/member/path. Keep canonical `# --- [LABEL]` section dividers; comment only ' +
@@ -74,97 +82,106 @@ const RESIDUAL_LAW = [
     'into the owning `.api/*.md` catalog — resolutions MAY edit `.api` catalog files as well as design pages. Where a claim hinges on a ' +
     'domain/math contract, research the real convention before deciding.',
   'WRITE-FULLY: every edit you identify you MUST make NOW via Edit/Write; the fix-log REPORTS edits already made. Leave behind only a genuine ' +
-    'still-cross-file item (residual) or a true operator decision (open_question).',
+    'still-cross-file item or a true operator decision (open_question).',
 ].join('\n')
 
 // --- [OPERATIONS] ------------------------------------------------------------------------
-const sleep = (ms) => new Promise((res) => setTimeout(res, ms))
-const pool = async (items, cap, worker) => {
-  const out = new Array(items.length)
-  let next = 0
-  let gate = Promise.resolve()
-  const launch = () => { gate = gate.then(() => sleep(STAGGER_MS)); return gate }
-  const run = async () => { while (next < items.length) { const i = next++; await launch(); out[i] = await worker(items[i], i) } }
-  await Promise.all(Array.from({ length: Math.min(cap, items.length) }, () => run()))
-  return out
-}
-const clusterByFiles = (plans) => {
-  const parent = new Map(); const find = (f) => { let p = f; while (parent.get(p) !== p) p = parent.get(p); return p }; const add = (f) => { if (!parent.has(f)) parent.set(f, f) }
-  for (const p of plans) { (p.files || []).forEach(add); for (let i = 1; i < (p.files || []).length; i++) parent.set(find(p.files[i]), find(p.files[0])) }
+const clusterResiduals = (rows) => {
+  const parent = new Map()
+  const find = (k) => { while (parent.get(k) !== k) { parent.set(k, parent.get(parent.get(k))); k = parent.get(k) } return k }
+  const add = (k) => { if (!parent.has(k)) parent.set(k, k) }
+  const anchored = rows.filter((r) => r.files.length)
+  for (const r of anchored) { r.files.forEach(add); for (let i = 1; i < r.files.length; i++) parent.set(find(r.files[i]), find(r.files[0])) }
   const by = new Map()
-  for (const p of plans) { const root = (p.files && p.files.length) ? find(p.files[0]) : p.id; (by.get(root) || by.set(root, []).get(root)).push(p) }
-  return [...by.values()]
+  for (const r of anchored) { const root = find(r.files[0]); if (!by.has(root)) by.set(root, []); by.get(root).push(r) }
+  const clusters = [...by.values()]
+  // Path-less resolvers locate targets by search and could collide anywhere — ONE atomic cluster owns them all.
+  const loose = rows.filter((r) => !r.files.length)
+  if (loose.length) clusters.push(loose)
+  return clusters
 }
-const filesLine = (r) => (r.files && r.files.length) ? '\nSPANNED FILES (read every one): ' + JSON.stringify(r.files) : ''
-const investigatePrompt = (r) => [DESIGN_BAR, '', ADVERSARIAL, '', RESIDUAL_LAW, '', 'TASK (INVESTIGATE — the discovery stage: read-only is its ' +
-  'ONLY concession, edit NOTHING; depth concedes nothing): residual `' + r.id + '`.\nCLAIM: ' + r.claim + filesLine(r) +
-  (r.hint ? '\nWHERE TO LOOK: ' + r.hint : '') + '\nFULL-read EVERY design page the claim spans AND the owning folder at large (siblings, the ' +
-  'folder ARCHITECTURE seams); resolve the true spanned-file set against real disk state, never against the claim text alone. Enumerate BOTH ' +
-  '`.api` tiers for the file language with a real `ls`/`fd` listing from disk — never from memory — and read every catalog the residual touches. ' +
-  'Verify every member claim and domain/math contract per the RESEARCH MANDATE. Then DECIDE the canonical resolution (the strongest principled ' +
-  'design the owning language bar admits). Return the PLAN as a MAP, never a bare verdict: `id`; `decision` = what ' +
-  'the canonical resolution IS plus a hostile weak/strong call on the spanned code as it stands; `files` = the exact repo-relative pages to edit, ' +
-  'confirmed on disk; `edits` = per file the precise edit, the underutilized `.api` capability it exploits (concrete verified members), and the ' +
-  'cross-page seam it reconciles; `api_members` = verified members ONLY — a member you cannot verify is a phantom that never appears; ' +
-  '`open_question` ONLY for a true operator product decision. Downstream stages treat your plan as an initial pointer, never a ceiling.'].join('\n')
-const implementPrompt = (cluster) => {
-  const files = [...new Set(cluster.flatMap((p) => p.files || []))]
-  return [DESIGN_BAR, '', ADVERSARIAL, '', RESIDUAL_LAW, '', 'TASK (IMPLEMENT — fix-in-place across these design pages at the owning language ' +
-    'bar): apply EVERY resolution plan below to the spanned pages, preserving all capability and regressing no page. The plans are initial ' +
-    'pointers, never ceilings: re-read every spanned page IN FULL from disk before editing, and exceed a plan wherever the root-level form ' +
-    'demands more than it mapped — a plan never licenses a skim. Unify each cross-file contract/seam CONSISTENTLY across all pages it touches; ' +
-    'cite only verified `.api` members; signature-lock (never create source). Files in this cluster: ' + JSON.stringify(files) + '\nPLANS:\n' +
-    JSON.stringify(cluster, null, 1) + '\nReturn the fix-log (files edited + verdict + applied) — a log of edits already MADE, never a to-do — ' +
-    'with `residual` only for a genuine still-cross-file item you could not close from these files.'].join('\n')
+const clusterWork = (cl) => 2 * new Set(cl.flatMap((r) => r.files)).size + cl.length
+// Atomicity is BUDGETED at the fair share: an over-budget component sub-shards by lead file (same-lead-file rows never
+// split — the edit-collision floor); Verify owns the deliberate cross-shard seams.
+const shardOversized = (cs) => {
+  const cap = Math.max(TARGET_WORK, Math.ceil(cs.reduce((w, c) => w + clusterWork(c), 0) / CAP))
+  return cs.flatMap((c) => {
+    if (clusterWork(c) <= cap) return [c]
+    const byFile = new Map()
+    for (const r of c) { const k = r.files[0] || '~'; if (!byFile.has(k)) byFile.set(k, []); byFile.get(k).push(r) }
+    const shards = []
+    for (const g of [...byFile.values()].sort((a, b) => clusterWork(b) - clusterWork(a))) {
+      const t = shards.find((s) => clusterWork(s.concat(g)) <= cap)
+      if (t) t.push(...g); else shards.push([...g])
+    }
+    return shards
+  })
 }
-const verifyPrompt = (p) => [DESIGN_BAR, '', ADVERSARIAL, '', RESIDUAL_LAW, '', 'TASK (WRITING VERIFY — adversarial, never a friendly ' +
-  'confirmation; you EDIT): residual `' + p.id + '`. First RE-DERIVE from the claim and the pages whether the claimed work was necessary at all. ' +
-  'Then read every spanned page from disk and PROVE the resolution is ACTUALLY done: implemented (not hedged or merely described), correct ' +
-  '(math/domain/`.api`-grounded — re-check every cited member against the catalog/`assay api`; a cited member that fails verification is a ' +
-  'phantom you DELETE from the page NOW), and CONSISTENT across every page it spans. Where the landed fix is loose, weak, token, or naive on ' +
-  'either axis, REPAIR it in place NOW via Edit/Write to the objectively-best root-level form of the same files — a single-point patch left ' +
-  'standing where a root-level dense reconstruction is available is a defect you fix, never a note; never punt a strengthenable fix to `open`. ' +
-  'Only after repairing classify: `resolved` ONLY if the resolution is genuinely complete, correct, and consistent ON DISK after your edits — ' +
-  'cite the on-disk proof in `evidence` and list every file you edited in `repaired_files`; else `open` with exactly what remains and why it is ' +
-  'genuinely unreachable from these files. Default to `open` on doubt.\nCLAIM: ' + (p.claim || '') + '\nINTENDED RESOLUTION: ' + (p.decision || '') +
-  '\nFILES: ' + JSON.stringify(p.files || [])].join('\n')
+const packClusters = (clusters) => {
+  const sorted = clusters.slice().sort((a, b) => clusterWork(b) - clusterWork(a))
+  const total = sorted.reduce((s, c) => s + clusterWork(c), 0)
+  const n = Math.max(1, Math.min(CAP, sorted.length, Math.ceil(total / TARGET_WORK)))
+  const buckets = Array.from({ length: n }, () => ({ w: 0, rows: [] }))
+  for (const cl of sorted) { const b = buckets.reduce((m, x) => (x.w < m.w ? x : m)); b.w += clusterWork(cl); b.rows.push(...cl) }
+  return buckets.filter((b) => b.rows.length).map((b) => b.rows)
+}
+const resolvePrompt = (rows) => [DESIGN_BAR, '', ADVERSARIAL, '', RESIDUAL_LAW, '', 'TASK (RESOLVE — research + decide + implement in ONE write ' +
+  'pass): close every residual below. Per residual: FULL-read every page the claim spans AND the owning folder at large (siblings, the folder ' +
+  'ARCHITECTURE seams) — resolve the true spanned-file set against real disk state, never against the claim text alone; enumerate BOTH `.api` ' +
+  'tiers for the file language from disk and read every catalog the residual touches; verify every member claim and domain/math contract per ' +
+  'the RESEARCH MANDATE; then DECIDE the canonical resolution (the strongest principled design the owning language bar admits) and IMPLEMENT it ' +
+  'NOW via Edit/Write across every spanned page, unifying each cross-file contract/seam consistently. A concurrent sibling bucket may share a ' +
+  'page with yours only through a deliberate cross-shard seam: edit any potentially shared page with surgical anchored Edits only — re-read and ' +
+  're-apply on an edit conflict, never a whole-file rewrite. RESIDUALS:\n' + JSON.stringify(rows.map((r) => ({ id: r.id, claim: r.claim,
+  files: r.files, hint: r.hint || undefined })), null, 1) + '\nReturn files (every page edited), verdict (resolved = every residual closed; ' +
+  'partial otherwise), items (one per residual: id, decision = the canonical resolution implemented + a hostile weak/strong call on the code as ' +
+  'it stood, files = the pages that residual touched, open_question ONLY for a true operator product decision), summary.'].join('\n')
+const verifyPrompt = (rows, fix) => [DESIGN_BAR, '', ADVERSARIAL, '', RESIDUAL_LAW, '', 'TASK (WRITING VERIFY — adversarial, never a friendly ' +
+  'confirmation; you EDIT): a resolver claims to have closed the residuals below. Per residual: (a) RE-DERIVE from the claim and the pages ' +
+  'whether the claimed work was necessary at all; (b) read every spanned page from disk and PROVE the resolution is ACTUALLY done — ' +
+  'implemented (not hedged or merely described), correct (math/domain/`.api`-grounded; re-check every cited member against the catalog/`assay ' +
+  'api`; a cited member that fails verification is a phantom you DELETE from the page NOW), and CONSISTENT across every page it spans; (c) ' +
+  'where the landed fix is loose, weak, token, or naive on either axis, REPAIR it in place NOW via Edit/Write to the objectively-best ' +
+  'root-level form of the same files — never punt a strengthenable fix to `open`; (d) only then classify: `resolved` ONLY if genuinely ' +
+  'complete, correct, and consistent ON DISK after your edits (cite the on-disk proof in evidence), else `open` with exactly what remains and ' +
+  'why it is genuinely unreachable from these files. Default to `open` on doubt. One verdict per residual — a dropped id cannot validate. ' +
+  'Prove against disk, never trust the resolver summary.\nRESIDUALS:\n' + JSON.stringify(rows.map((r) => ({ id: r.id, claim: r.claim,
+  files: r.files })), null, 1) + '\nRESOLVER LOG:\n' + JSON.stringify({ files: fix.files, verdict: fix.verdict, items: fix.items,
+  summary: fix.summary || '' }, null, 1) + '\nList every file you edited in repaired_files.'].join('\n')
 
 // --- [COMPOSITION] -----------------------------------------------------------------------
 
-if (!RESIDUALS.length) { log('resolve-residuals: no residuals passed (args = array / {residuals:[...]} / a rebuild {hard_residual:[...]}). No-op.'); return { residuals: 0, resolved: [], open: [], failed_investigate: [], open_questions: [] } }
+if (!RESIDUALS.length) { log('resolve-residuals: no residuals passed (args = array / {residuals:[...]} / a rebuild {hard_residual:[...]}). No-op.'); return { residuals: 0, resolved: [], open: [], failed: [], open_questions: [] } }
 
-phase('Investigate')
-log('Investigating ' + RESIDUALS.length + ' hard residuals')
-const investigateOne = (r) => agent(investigatePrompt(r), { label: 'investigate:' + r.id, phase: 'Investigate', schema: PLAN_SCHEMA, effort: 'max', stallMs: 300000 }).then((p) => p ? { ...p, id: p.id || r.id, claim: p.claim || r.claim, files: (p.files && p.files.length) ? p.files : r.files } : null)
-const firstPass = await pool(RESIDUALS, CAP, investigateOne)
-// ONE bounded re-attempt for any residual whose investigate returned no plan: a transient agent death must never silently lose a residual.
-const deadIdx = firstPass.map((p, i) => (p ? -1 : i)).filter((i) => i >= 0)
-if (deadIdx.length) { log('Investigate produced no plan for ' + deadIdx.length + ' residual(s) — one re-attempt: ' + deadIdx.map((i) => RESIDUALS[i].id).join(',')); const re = await pool(deadIdx.map((i) => RESIDUALS[i]), CAP, investigateOne); deadIdx.forEach((i, k) => { firstPass[i] = re[k] }) }
-const plans = firstPass.filter(Boolean)
-const failed_investigate = RESIDUALS.filter((_, i) => !firstPass[i]).map((r) => r.id)
-const clusters = clusterByFiles(plans)
-// Heaviest cluster first: an implementer's load is dominated by distinct spanned files + plans; under CAP the long pole must never launch last.
-const clusterWork = (cl) => { const files = new Set(); for (const p of cl) for (const f of (p.files || [])) files.add(f); return files.size * 2 + cl.length }
-clusters.sort((a, b) => clusterWork(b) - clusterWork(a) || (a[0].id || '').localeCompare(b[0].id || ''))
-log('Investigate: ' + plans.length + '/' + RESIDUALS.length + ' plans' + (failed_investigate.length ? ' — STILL FAILED after re-attempt (surfaced, ' +
-  'not lost): ' + failed_investigate.join(',') : '') + ' -> ' + clusters.length + ' file-clusters; work [' + clusters.map(clusterWork).join(', ') + '] (2*files+plans)')
+const buckets = packClusters(shardOversized(clusterResiduals(RESIDUALS)))
+log(RESIDUALS.length + ' residual(s) -> ' + buckets.length + ' balanced bucket(s): [' + buckets.map((b) => b.length).join(', ') + '] claims, work [' +
+  buckets.map(clusterWork).join(', ') + ']')
 
-// --- [IMPLEMENT]
-phase('Implement')
-const impl = (await pool(clusters, CAP, (cl) => agent(implementPrompt(cl), { label: 'implement:' + cl.map((p) => p.id).join('+').slice(0, 40), phase: 'Implement', schema: FIXLOG_SCHEMA, effort: 'max', stallMs: 300000 }).then((r) => r ? { cluster: cl, log: r } : null))).filter(Boolean)
-log('Implement: ' + impl.length + '/' + clusters.length + ' clusters applied')
-
-// --- [VERIFY]
-phase('Verify')
-const verify = (await pool(plans, CAP, (p) => agent(verifyPrompt(p), { label: 'verify:' + p.id, phase: 'Verify', schema: VERIFY_SCHEMA, effort: 'xhigh', stallMs: 300000 }))).filter(Boolean)
-const open = verify.filter((v) => v.status === 'open')
-log('Verify: ' + (verify.length - open.length) + '/' + verify.length + ' resolved; ' + open.length + ' still open')
+phase('Resolve')
+const results = await pipeline(
+  buckets,
+  async (rows, _, i) => {
+    // One bounded re-attempt: a transient agent death must never silently lose a bucket.
+    const opts = { label: 'resolve:' + (i + 1) + ' (' + rows.length + ' claims)', phase: 'Resolve', schema: RESOLVE_SCHEMA, effort: 'max', stallMs: 300000 }
+    const fix = (await agent(resolvePrompt(rows), opts)) || (await agent(resolvePrompt(rows), { ...opts, label: opts.label + ':retry' }))
+    return fix ? { rows, fix } : null
+  },
+  (r, rows, i) => r ? agent(verifyPrompt(r.rows, r.fix), { label: 'verify:' + (i + 1), phase: 'Verify', schema: VERIFY_SCHEMA, effort: 'xhigh', stallMs: 300000 })
+    .then((v) => ({ rows: r.rows, fix: r.fix, verify: v })) : null,
+)
+const done = results.filter(Boolean)
+const claims = done.flatMap((r) => (r.verify && r.verify.claims) || [])
+const byId = new Map(claims.map((c) => [c.id, c]))
+const failed = RESIDUALS.filter((r) => !byId.has(r.id)).map((r) => r.id)
+const open = claims.filter((c) => c.status === 'open')
+log('Verify: ' + (claims.length - open.length) + '/' + claims.length + ' resolved; ' + open.length + ' open' +
+  (failed.length ? '; ' + failed.length + ' UNVERIFIED (bucket died — surfaced, not lost): ' + failed.join(',') : ''))
 
 return {
   residuals: RESIDUALS.length,
-  clusters: clusters.length,
-  resolved: verify.filter((v) => v.status === 'resolved').map((v) => v.id),
-  open: open.map((v) => ({ id: v.id, remains: v.summary })),
-  failed_investigate,
-  open_questions: plans.filter((p) => p.open_question).map((p) => ({ id: p.id, q: p.open_question })),
+  buckets: buckets.length,
+  resolved: claims.filter((c) => c.status === 'resolved').map((c) => c.id),
+  open: open.map((c) => ({ id: c.id, remains: c.evidence || '' })),
+  failed,
+  open_questions: done.flatMap((r) => (r.fix.items || []).filter((p) => p.open_question).map((p) => ({ id: p.id, q: p.open_question }))),
 }

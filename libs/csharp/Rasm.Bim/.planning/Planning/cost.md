@@ -51,6 +51,11 @@ public sealed partial class CostScheduleKind {
     public static readonly CostScheduleKind UserDefined              = new("USERDEFINED");
     public static readonly CostScheduleKind NotDefined               = new("NOTDEFINED");
 
+    // The ONE Option-lift over the generated bool TryGet(string?, out T?) — the settled corpus idiom
+    // (elements/spatial/zones pattern); the Option-returning form is NOT a generated member.
+    public static Option<CostScheduleKind> TryGet(string key) =>
+        TryGet(key, out CostScheduleKind? row) && row is { } hit ? Some(hit) : None;
+
     public static CostScheduleKind Of(IfcCostScheduleTypeEnum kind) =>
         TryGet(kind.ToString()).IfNone(NotDefined);
 }
@@ -74,6 +79,9 @@ public sealed partial class ResourceKind {
 
     public IfcDomain Domain { get; }
 
+    public static Option<ResourceKind> TryGet(string key) =>
+        TryGet(key, out ResourceKind? row) && row is { } hit ? Some(hit) : None;
+
     public static ResourceKind Of(string entityType) =>
         TryGet(entityType).IfNone(NotDefined);
 }
@@ -89,6 +97,9 @@ public sealed partial class CostCategory {
     public static readonly CostCategory Preliminaries = new("Preliminaries");
     public static readonly CostCategory Contingency   = new("Contingency");
     public static readonly CostCategory NotDefined    = new("NotDefined");
+
+    public static Option<CostCategory> TryGet(string key) =>
+        TryGet(key, out CostCategory? row) && row is { } hit ? Some(hit) : None;
 
     public static CostCategory Of(string category) =>
         TryGet(category.Trim()).IfNone(NotDefined);
@@ -503,6 +514,9 @@ public sealed partial class ChangeOrderStatus {
     public static readonly ChangeOrderStatus Approved  = new("APPROVED");
     public static readonly ChangeOrderStatus Rejected  = new("REJECTED");
     public static readonly ChangeOrderStatus Void      = new("VOID");
+
+    public static Option<ChangeOrderStatus> TryGet(string key) =>
+        TryGet(key, out ChangeOrderStatus? row) && row is { } hit ? Some(hit) : None;
 
     public static ChangeOrderStatus Of(string status) => TryGet(status.Trim().ToUpperInvariant()).IfNone(Proposed);
 }

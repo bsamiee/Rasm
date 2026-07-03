@@ -6,7 +6,7 @@
 
 [PACKAGE_SURFACE]: `@pulumi/pulumi`
 - package: `@pulumi/pulumi`
-- module: `@pulumi/pulumi` (core), `@pulumi/pulumi/automation` (programmatic lifecycle), `@pulumi/pulumi/{asset,log,dynamic,provider,runtime,iterable}` (submodules)
+- module: `@pulumi/pulumi` (core — including the `InvokeOptions`/`InvokeOutputOptions` data-source-invoke seam), `@pulumi/pulumi/automation` (programmatic lifecycle), `@pulumi/pulumi/{asset,log,dynamic,provider,runtime,iterable,queryable}` (submodules — `queryable.ResolvedResource<T>` backs `@pulumi/policy` stack narrowing)
 - installed: `3.250.0`
 - license: `Apache-2.0`
 - asset: output algebra, resource model, config, stack references, error rails, Automation API, engine-event stream
@@ -71,6 +71,9 @@ The class hierarchy the `stack` ComponentResource tiers extend and the `kube`/`s
 |  [10]   | `CustomTimeouts` / `Alias`            | interface      | per-op timeout strings / rename descriptor       |
 |  [11]   | `mergeOptions(a, b)`                  | fold           | overload trio; merge base opts into overrides    |
 |  [12]   | `createUrn` / `resourceType` / `resourceName` | utility | compute URN / read type / read name              |
+|  [13]   | `InvokeOptions` / `InvokeOutputOptions` | interface    | data-source invoke opts (`parent`/`provider`/`version`/`pluginDownloadURL`/`async`); `InvokeOutputOptions extends InvokeOptions` adds graph `dependsOn` — the `getX(args, InvokeOptions?): Promise<…>` / `getXOutput(args, InvokeOutputOptions?): Output<…>` seam every provider data-source pair takes |
+|  [14]   | `URN` / `ID`                          | string brand   | `URN = string` / `ID = string`; the `urn`/`id` identity a `static get(name, id: Input<ID>, …)` adopts |
+|  [15]   | `queryable.ResolvedResource<T>`       | utility (submodule) | `@pulumi/pulumi/queryable`; `Omit<Resolved<T>, "urn"\|"getProvider">` — the fully-resolved resource view `@pulumi/policy`'s `q.ResolvedResource<T>` stack narrowing consumes (`.api/pulumi-policy.md`) |
 
 [PUBLIC_TYPE_SCOPE]: config, assets, errors, log
 - rail: deployment
@@ -149,8 +152,9 @@ The native drift + progress pipeline the receipt ledger folds. Every lifecycle `
 |  [07]   | `OpMap`                                    | mapped type   | `{ [op in OpType]?: number }` per-op count   |
 |  [08]   | `DiffKind` / `PropertyDiff`                | enum + iface  | 6-kind property diff; `inputDiff` flag       |
 |  [09]   | `SummaryEvent`                             | interface     | `resourceChanges: OpMap`; end-of-update      |
-|  [10]   | `DiagnosticEvent` / `PolicyEvent`          | interface     | provider diagnostic / CrossGuard violation   |
-|  [11]   | `CommandError`                             | error base    | `ConcurrentUpdateError`/`StackNotFoundError`/`StackAlreadyExistsError` |
+|  [10]   | `DiagnosticEvent` / `PolicyEvent`          | interface     | provider diagnostic (`severity: "info"\|"info#err"\|"warning"\|"error"` — the bridged-provider error match key) / CrossGuard violation |
+|  [11]   | `StdoutEngineEvent` / `PreludeEvent` / `CancelEvent` / `StartDebuggingEvent` | interface + type | stdout line / op-start config prelude / cancellation (`{}`) / DAP-attach — the non-resource `EngineEvent` arms |
+|  [12]   | `CommandError`                             | error base    | `ConcurrentUpdateError`/`StackNotFoundError`/`StackAlreadyExistsError` |
 
 ```ts contract
 // @pulumi/pulumi/automation — the ledger + drift surface iac folds
@@ -164,13 +168,17 @@ export declare type OpMap = { [key in OpType]?: number }
 export interface StepEventMetadata {
   op: OpType; urn: string; type: string; provider: string
   old?: StepEventStateMetadata; new?: StepEventStateMetadata
-  keys?: string[]; diffs?: string[]; detailedDiff?: Record<string, PropertyDiff>
+  keys?: string[]; diffs?: string[]; detailedDiff?: Record<string, PropertyDiff>; logical?: boolean
 }
-export interface EngineEvent {
+export interface DiagnosticEvent {                              // grafana matches bridged-provider errors on severity
+  urn?: string; prefix?: string; message: string; color: string
+  severity: "info" | "info#err" | "warning" | "error"; streamID?: number; ephemeral?: boolean
+}
+export interface EngineEvent {                                  // exactly one event arm non-nil
   sequence: number; timestamp: number
-  resourcePreEvent?: ResourcePreEvent; resOutputsEvent?: ResOutputsEvent
-  resOpFailedEvent?: ResOpFailedEvent; summaryEvent?: SummaryEvent
-  diagnosticEvent?: DiagnosticEvent; policyEvent?: PolicyEvent
+  resourcePreEvent?: ResourcePreEvent; resOutputsEvent?: ResOutputsEvent; resOpFailedEvent?: ResOpFailedEvent
+  summaryEvent?: SummaryEvent; diagnosticEvent?: DiagnosticEvent; policyEvent?: PolicyEvent
+  stdoutEvent?: StdoutEngineEvent; preludeEvent?: PreludeEvent; cancelEvent?: CancelEvent; startDebuggingEvent?: StartDebuggingEvent
 }
 export interface PreviewResult { stdout: string; stderr: string; changeSummary: OpMap }
 
@@ -192,7 +200,7 @@ interface UpOptions extends GlobalOpts {
 
 The receipt-ledger rail — how `@pulumi/pulumi` stacks onto the `effect` substrate into ONE typed program. The Automation API is Promise-shaped and callback-driven; the rail wraps it once so every downstream row composes typed Effects, never raw promises.
 
-[RAIL]: `automation → effect` — the four stacking seams (all `effect` members verified real)
+[RAIL]: `automation → effect` — the stacking seams (all `effect` members verified real)
 
 | [INDEX] | [PULUMI SEAM]                          | [EFFECT MEMBER]                    | [COMPOSED RAIL]                                                   |
 | :-----: | :------------------------------------- | :-------------------------------- | :--------------------------------------------------------------- |

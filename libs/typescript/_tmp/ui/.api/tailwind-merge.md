@@ -1,92 +1,108 @@
 # [API_CATALOGUE] tailwind-merge
 
-`tailwind-merge` resolves Tailwind CSS class-name conflicts at runtime by tracking class group membership and removing earlier classes when a later class in the same group is present. `twMerge` is the zero-config entry point; `extendTailwindMerge` and `createTailwindMerge` enable configuration extension or full replacement. `twJoin` is a class-joining primitive with no conflict resolution, equivalent to a lean `clsx`. Validator functions and `fromTheme` support custom `classGroups` definitions.
+`tailwind-merge` resolves Tailwind CSS class conflicts at runtime by parsing each class into `{ modifiers, baseClassName, maybePostfixModifier }`, mapping the base to a class-group ID, and dropping earlier classes when a later class occupies the same group. `twMerge` is the zero-config entry; `twJoin` is a lean falsy-safe `clsx` with no conflict resolution; `extendTailwindMerge`/`createTailwindMerge` build configured or fully-replaced mergers; `fromTheme` + the `validators` predicate namespace author custom `classGroups`. The default config carries the full Tailwind v4 group/theme table (`DefaultClassGroupIds`, `DefaultThemeGroupIds`), so a merger must be configured to match a non-default `prefix` or a custom `@theme`.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `tailwind-merge`
 - package: `tailwind-merge`
-- namespace: `tailwind-merge`
-- asset: runtime library
+- version: `3.6.0`
+- license: `MIT`
+- module: dual ESM (`dist/bundle-mjs.mjs`) / CJS; types `dist/types.d.ts`; `./es5` subpath for legacy targets; `sideEffects: false`
+- runtime: framework-agnostic (no peer); the default config tracks Tailwind CSS v4 group IDs — a custom `prefix`/`@theme` needs a matching `extendTailwindMerge`
 - rail: styling
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: class-name value types
+[PUBLIC_TYPE_SCOPE]: exported types (the importable surface)
 - rail: styling
 
-| [INDEX] | [SYMBOL]         | [TYPE_FAMILY] | [RAIL]                                                              |
-| :-----: | :--------------- | :------------ | :------------------------------------------------------------------ |
-|  [01]   | `ClassNameValue` | type alias    | `ClassNameArray \| string \| null \| undefined \| 0 \| 0n \| false` |
-|  [02]   | `ClassNameArray` | type alias    | `readonly ClassNameValue[]`                                         |
-|  [03]   | `ClassValidator` | type alias    | `(classPart: string) => boolean`                                    |
-|  [04]   | `TailwindMerge`  | type alias    | `(...classLists: ClassNameValue[]) => string`                       |
+Only these names are exported; `ParsedClassName` is exported under the alias `ExperimentalParsedClassName`.
 
-[PUBLIC_TYPE_SCOPE]: configuration types
+| [INDEX] | [SYMBOL]                        | [TYPE_FAMILY] | [SHAPE]                                                                                         |
+| :-----: | :------------------------------ | :------------ | :---------------------------------------------------------------------------------------------- |
+|  [01]   | `ClassNameValue`                | type alias    | `ClassNameArray \| string \| null \| undefined \| 0 \| 0n \| false` (accepts nested arrays + falsy) |
+|  [02]   | `ClassValidator`                | type alias    | `(classPart: string) => boolean` — the `validators` predicate shape                            |
+|  [03]   | `Config<C, T>`                  | interface     | full config `= ConfigStaticPart & ConfigGroupsPart<C, T>` (see [CONFIG_MODEL])                 |
+|  [04]   | `ConfigExtension<C, T>`         | interface     | `Partial<ConfigStaticPart> & { override?, extend? }` passed to `extendTailwindMerge`           |
+|  [05]   | `DefaultClassGroupIds`          | union         | every built-in class-group ID (`'p' \| 'm' \| 'bg-color' \| 'font-size' \| …` — v4 group table) |
+|  [06]   | `DefaultThemeGroupIds`          | union         | built-in theme scales `'color' \| 'spacing' \| 'radius' \| 'shadow' \| 'font' \| …`            |
+|  [07]   | `ExperimentalParseClassNameParam` | interface   | `{ className: string; parseClassName(className): ExperimentalParsedClassName }`                 |
+|  [08]   | `ExperimentalParsedClassName`   | interface     | `{ modifiers, hasImportantModifier, baseClassName, maybePostfixModifierPosition, isExternal? }` (exported alias of `ParsedClassName`) |
+
+## [03]-[CONFIG_MODEL]
+
+[CONFIG_MODEL_SCOPE]: structural config shapes (part of `Config`, not separately importable)
 - rail: styling
 
-| [INDEX] | [SYMBOL]                | [TYPE_FAMILY] | [RAIL]                                                                                          |
-| :-----: | :---------------------- | :------------ | :---------------------------------------------------------------------------------------------- |
-|  [01]   | `Config<C, T>`          | interface     | full config: `ConfigStaticPart & ConfigGroupsPart<C,T>`                                         |
-|  [02]   | `ConfigStaticPart`      | interface     | `{ cacheSize, prefix?, experimentalParseClassName? }`                                           |
-|  [03]   | `ConfigExtension<C, T>` | interface     | `{ override?, extend? }` passed to `extendTailwindMerge`                                        |
-|  [04]   | `DefaultClassGroupIds`  | type alias    | union of all built-in class group ID strings                                                    |
-|  [05]   | `DefaultThemeGroupIds`  | type alias    | union of all built-in theme group ID strings                                                    |
-|  [06]   | `ThemeGetter`           | interface     | `(theme) => ClassGroup & { isThemeGetter: true }`                                               |
-|  [07]   | `ParsedClassName`       | interface     | `{ modifiers, hasImportantModifier, baseClassName, maybePostfixModifierPosition, isExternal? }` |
+`Config` is `ConfigStaticPart & ConfigGroupsPart`; the sub-shapes below are structural — a merger reads them but a consumer never imports the names, so extension goes through `ConfigExtension`.
 
-## [03]-[ENTRYPOINTS]
+| [INDEX] | [FIELD / SHAPE]                     | [OWNER]           | [ROLE]                                                                    |
+| :-----: | :---------------------------------- | :---------------- | :------------------------------------------------------------------------ |
+|  [01]   | `cacheSize: number`                 | `ConfigStaticPart` | LRU memo size (default `500`; `<= 0` disables — SSR high-variety escape) |
+|  [02]   | `prefix?: string`                   | `ConfigStaticPart` | mirrors the Tailwind `--prefix`; must equal the framework config          |
+|  [03]   | `experimentalParseClassName?(param)` | `ConfigStaticPart` | override class parsing; `param.parseClassName` re-enters the default parser |
+|  [04]   | `theme`                             | `ConfigGroupsPart` | `Record<ThemeGroupId, ClassGroup>` — scales referenced via `fromTheme`     |
+|  [05]   | `classGroups`                       | `ConfigGroupsPart` | `Record<ClassGroupId, ClassGroup>`; a `ClassGroup` is `(string \| ClassValidator \| ThemeGetter \| ClassObject)[]` |
+|  [06]   | `conflictingClassGroups`            | `ConfigGroupsPart` | `{ [id]: id[] }` — when the key group is present, listed groups are removed (e.g. `{ gap: ['gap-x','gap-y'] }`) |
+|  [07]   | `conflictingClassGroupModifiers`    | `ConfigGroupsPart` | postfix-modifier conflicts (e.g. `{ 'font-size': ['leading'] }`)         |
+|  [08]   | `orderSensitiveModifiers: string[]` | `ConfigGroupsPart` | modifiers whose relative order changes the target and must be preserved   |
+|  [09]   | `postfixLookupClassGroups?`         | `ConfigGroupsPart` | groups re-resolved with their `/postfix` attached                        |
+|  [10]   | `ThemeGetter`                       | callable          | `(theme) => ClassGroup & { isThemeGetter: true }` — produced by `fromTheme`, never imported by name |
 
-[ENTRYPOINT_SCOPE]: merge and join functions
+## [04]-[ENTRYPOINTS]
+
+[ENTRYPOINT_SCOPE]: merge and join
 - rail: styling
 
-| [INDEX] | [SURFACE]                                  | [ENTRY_FAMILY] | [RAIL]                                            |
-| :-----: | :----------------------------------------- | :------------- | :------------------------------------------------ |
-|  [01]   | `twMerge(...classLists: ClassNameValue[])` | primary merge  | conflict-resolving class join with default config |
-|  [02]   | `twJoin(...classLists: ClassNameValue[])`  | join only      | class join with no conflict resolution            |
+| [INDEX] | [SURFACE]                                  | [ENTRY_FAMILY] | [SIGNATURE / BEHAVIOR]                                                     |
+| :-----: | :----------------------------------------- | :------------- | :------------------------------------------------------------------------- |
+|  [01]   | `twMerge(...classLists)`                    | primary merge  | `(...classLists: ClassNameValue[]) => string` — default-config conflict resolution |
+|  [02]   | `twJoin(...classLists)`                     | join only      | `(...classLists: ClassNameValue[]) => string` — join, no conflict resolution (lean `clsx`) |
 
 [ENTRYPOINT_SCOPE]: configuration factories
 - rail: styling
 
-| [INDEX] | [SURFACE]                                         | [ENTRY_FAMILY]  | [RAIL]                                              |
-| :-----: | :------------------------------------------------ | :-------------- | :-------------------------------------------------- |
-|  [01]   | `createTailwindMerge(createConfigFirst, ...rest)` | factory         | builds a `TailwindMerge` fn from a config creator   |
-|  [02]   | `extendTailwindMerge(configExtension, ...rest)`   | factory         | extends the default config; returns `TailwindMerge` |
-|  [03]   | `getDefaultConfig()`                              | config reader   | returns the full default configuration object       |
-|  [04]   | `mergeConfigs(baseConfig, configExtension)`       | config composer | merges two configs into one `AnyConfig`             |
-|  [05]   | `fromTheme<T>(key)`                               | theme ref       | creates a `ThemeGetter` for a given theme scale key |
+| [INDEX] | [SURFACE]                                         | [ENTRY_FAMILY]  | [SIGNATURE / BEHAVIOR]                                                                |
+| :-----: | :------------------------------------------------ | :-------------- | :------------------------------------------------------------------------------------ |
+|  [01]   | `extendTailwindMerge<AddCG, AddTG>(ext, ...rest)` | factory         | `ext: ConfigExtension \| CreateConfigSubsequent`, rest `CreateConfigSubsequent[]` → merger; extends the default config |
+|  [02]   | `createTailwindMerge(createFirst, ...rest)`       | factory         | `(createFirst: () => AnyConfig, ...rest: ((c) => AnyConfig)[]) => merger` — builds from scratch, no default |
+|  [03]   | `mergeConfigs(baseConfig, configExtension)`       | config composer | `(base: AnyConfig, ext: ConfigExtension) => AnyConfig` — **mutates `base`** and returns it |
+|  [04]   | `getDefaultConfig()`                              | config reader   | returns the full frozen default `Config` (v4 group/theme table)                      |
+|  [05]   | `fromTheme<AddTG>(key)`                            | theme ref       | `(key: DefaultThemeGroupIds \| AddTG) => ThemeGetter` — binds a group to a theme scale |
 
-[ENTRYPOINT_SCOPE]: class-part validators (for custom classGroups)
+[ENTRYPOINT_SCOPE]: `validators` — the `ClassValidator` predicate namespace
 - rail: styling
 
-| [INDEX] | [SURFACE]                      | [ENTRY_FAMILY] | [RAIL]                                     |
-| :-----: | :----------------------------- | :------------- | :----------------------------------------- |
-|  [01]   | `validators.isNumber`          | predicate      | matches numeric class-part values          |
-|  [02]   | `validators.isInteger`         | predicate      | matches integer class-part values          |
-|  [03]   | `validators.isFraction`        | predicate      | matches fraction values like `1/2`         |
-|  [04]   | `validators.isPercent`         | predicate      | matches percentage values                  |
-|  [05]   | `validators.isTshirtSize`      | predicate      | matches `sm`, `md`, `lg`, `xl`, `2xl` etc. |
-|  [06]   | `validators.isArbitraryValue`  | predicate      | matches `[...]` arbitrary value syntax     |
-|  [07]   | `validators.isArbitraryLength` | predicate      | matches `[length:...]` arbitrary lengths   |
-|  [08]   | `validators.isAny`             | predicate      | always returns `true`; open group          |
+One namespace of `ClassValidator` predicates used as `classGroups` `ClassDefinition` entries; the full roster (25) partitions into three families — never a hand-picked subset.
 
-## [04]-[IMPLEMENTATION_LAW]
+| [INDEX] | [FAMILY]                    | [PREDICATES]                                                                                                    |
+| :-----: | :-------------------------- | :-------------------------------------------------------------------------------------------------------------- |
+|  [01]   | primitive / open scale      | `isNumber`, `isInteger`, `isFraction`, `isPercent`, `isTshirtSize`, `isNamedContainerQuery`, `isAny`, `isAnyNonArbitrary` |
+|  [02]   | arbitrary `[...]`           | `isArbitraryValue`, `isArbitraryLength`, `isArbitrarySize`, `isArbitraryPosition`, `isArbitraryImage`, `isArbitraryNumber`, `isArbitraryShadow`, `isArbitraryWeight`, `isArbitraryFamilyName` |
+|  [03]   | arbitrary variable `(...)`  | `isArbitraryVariable`, `isArbitraryVariableLength`, `isArbitraryVariableFamilyName`, `isArbitraryVariableImage`, `isArbitraryVariablePosition`, `isArbitraryVariableShadow`, `isArbitraryVariableSize`, `isArbitraryVariableWeight` |
+
+## [05]-[IMPLEMENTATION_LAW]
 
 [MERGE_TOPOLOGY]:
-- conflict resolution is based on class group IDs from `getDefaultConfig().classGroups`; last class in a group wins
-- `cacheSize` defaults to `500`; set to `0` to disable memoization in SSR contexts with high class variety
-- `prefix` mirrors the Tailwind CSS `--prefix` setting; must match the framework configuration
-- `extendTailwindMerge({ extend: { classGroups: { ... } } })` adds groups; `override` replaces groups entirely
-- `ConfigExtension.override` keys replace the built-in definition; `extend` keys merge into it
-- `fromTheme(key)` binds a class group entry to a theme scale, enabling dynamic value matching via `ThemeGetter`
+- resolution keys on class-group IDs from `getDefaultConfig().classGroups`; the last class in a group wins, and `conflictingClassGroups` removes cross-group predecessors.
+- `cacheSize` defaults to `500` (LRU, up to ~2× in size); set `0` to disable in SSR contexts with high class variety.
+- `prefix` must mirror the framework `--prefix`; a mismatched merger fails to recognise prefixed classes and stops resolving conflicts.
+- `extend` merges into a built-in group; `override` replaces it; both ride `ConfigExtension`; `mergeConfigs` mutates its base, so clone before reuse.
+- `experimentalParseClassName` and `orderSensitiveModifiers` are the advanced hooks for non-standard modifier grammars; `postfixLookupClassGroups` disambiguates `base/postfix` slashes.
+
+[STACKING]:
+- `interaction/command.md`: the ONE `cn = (...a: CxOptions) => twMerge(cx(...a))` recipe owner folds `class-variance-authority` `cx` (the `clsx` re-export producing a `ClassNameValue` string) through `twMerge` — `cva` variant rows resolve conflict-safe under one composition root, never a per-`.tsx` className soup and never a bare `clsx`.
+- `theming/tokens.md`: the folder's Tailwind v4 `@theme` OKLCH tokens + custom `prefix` require a memoized `extendTailwindMerge({ prefix, extend: { theme, classGroups } })` instance so the merger recognises the token-backed scales — bind `fromTheme('color')`/`fromTheme('spacing')` for the perceptual scales and admit the `tw-animate-css` `animate-*` utilities as an `animate` group so enter/exit classes merge cleanly.
+- `tailwindcss-react-aria-components`: the RAC `data-*` variant prefixes (`open:`, `selection-single:`) are ordinary modifiers on a class — `twMerge` resolves the base class inside those variants; keep those variant names out of `orderSensitiveModifiers` unless a specificity conflict demands it.
 
 [LOCAL_ADMISSION]:
-- `twMerge` is the default consumer entry point; assign to a project-local `cn` alias by composing with `cva` or `clsx`.
-- Create one `extendTailwindMerge` instance per config variant and memoize at module load time; never re-create per render.
-- When authoring custom class groups, prefer `validators.isArbitraryValue` for open-ended scales and `isTshirtSize` for named size steps.
+- `twMerge` is the default consumer entry; the project-local `cn` alias composes it with `cva`'s `cx` at the one composition root, never per component.
+- build one `extendTailwindMerge` instance per config variant and memoize at module load — never re-create per render.
+- author custom groups with `validators` predicates (`isArbitraryValue` for open scales, `isTshirtSize` for named steps) and `fromTheme` for theme-backed scales.
 
 [RAIL_LAW]:
 - package: `tailwind-merge`
-- owns: runtime Tailwind class conflict resolution and class joining
-- accept: any `ClassNameValue` including arrays, falsy values, and `0n`
-- reject: hand-rolling class-conflict deduplication logic against this package's resolved group table
+- owns: runtime Tailwind class-conflict resolution, class joining, and the configured/custom merger factories
+- accept: any `ClassNameValue` (nested arrays, falsy, `0n`); a `ConfigExtension` or a config-creator function
+- reject: hand-rolled class-conflict dedupe against the resolved group table; a merger left on the default config when the framework uses a custom `prefix`/`@theme`; naming `ClassNameArray`/`TailwindMerge`/`ConfigStaticPart`/`ThemeGetter` as importable types (none are exported)

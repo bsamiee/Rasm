@@ -8,19 +8,18 @@ from pathlib import Path
 from typing import Protocol, TYPE_CHECKING
 from unittest.mock import MagicMock
 
-from expression import Ok, Result
+from expression import Error, Ok, Result
 import msgspec
 import pytest
 
 from tests.python._testkit.laws import register_law, register_laws
 from tests.python._testkit.spec import assert_error_status, assert_ok
+from tests.python.tools.assay.kit import SeamExecutor
 from tools.assay.composition.settings import ArtifactScope, AssaySettings
-from tools.assay.core.model import Artifact, ArtifactKind, BridgeLifecycle, Claim, Fault, receipt, Report, validate_detail, VerifySummary
-from tools.assay.core.status import RailStatus
+from tools.assay.core.model import Artifact, ArtifactKind, BridgeLifecycle, Claim, Fault, RailStatus, receipt, Report, validate_detail, VerifySummary
 from tools.assay.rails import bridge as _bridge_mod
 from tools.assay.rails.bridge import (
     _aggregate_closure,
-    _closure_index,
     _ClosureManifest,
     _completed_from_stdout,
     _decode_envelope,
@@ -30,8 +29,9 @@ from tools.assay.rails.bridge import (
     _freshness_note,
     _FRESHNESS_STALE,
     _HostFingerprint,
-    _plan,
     _scenario_artifacts,
+    _scenario_closure,
+    _selection,
     bridge_lease,
     BridgeParams,
     build,
@@ -44,7 +44,9 @@ from tools.assay.rails.bridge import (
 
 
 if TYPE_CHECKING:
-    from tests.python.tools.assay.kit import AssayHarness, RailProbe
+    from tests.python.tools.assay.kit import AssayHarness
+    from tools.assay.core.engine import Executor
+    from tools.assay.core.model import Check, Completed
 
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -54,7 +56,7 @@ class _LeaseAction(Protocol):
     def __call__(self, held: object) -> object: ...
 
 
-type _BridgeVerb = Callable[[AssaySettings, ArtifactScope, BridgeParams], Result[Report, Fault]]
+type _BridgeVerb = Callable[[AssaySettings, ArtifactScope, BridgeParams, Executor], Result[Report, Fault]]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -141,44 +143,33 @@ def test_freshness_reports_bounded_state(assay_root: AssayHarness) -> None:
     assert _freshness(assay_root.settings) in {"fresh", "stale", "absent", "unknown"}
 
 
-# --- [SELECTION_PLAN]
+# --- [SELECTION]
 
-register_law(_plan, "empty_pattern_selects_all")
-register_law(_plan, "theme_pattern_selects_theme_case")
-register_law(_plan, "bare_names_project_to_qualified_names")
-register_law(_plan, "project_path_selects_corpus_not_literal_name")
-register_law(_plan, "unknown_pattern_is_unsupported")
-
-
-def test_plan_empty_pattern_selects_all() -> None:
-    plan = assert_ok(_plan(""))
-    assert msgspec.json.decode(plan.selection_json.encode()) == {"$type": "all"}
-    assert {corpus.assembly for corpus in plan.corpora} == {"Rasm.Tests.dll", "Rasm.Rhino.Tests.dll", "Rasm.Grasshopper.Tests.dll"}
+register_law(_selection, "empty_pattern_selects_all")
+register_law(_selection, "bare_tokens_pass_through_as_themes")
+register_law(_selection, "dotted_tokens_pass_through_as_names")
+register_law(_selection, "unknown_tokens_pass_through_unvalidated")
 
 
-def test_plan_theme_pattern_selects_theme_case() -> None:
-    plan = assert_ok(_plan("blocks"))
-    assert msgspec.json.decode(plan.selection_json.encode()) == {"$type": "themes", "themes": ["blocks"]}
-    assert tuple(corpus.assembly for corpus in plan.corpora) == ("Rasm.Rhino.Tests.dll",)
+@pytest.mark.parametrize("pattern", ["", "all", "*", "  all  ", "all,*"])
+def test_selection_empty_pattern_selects_all(pattern: str) -> None:
+    assert msgspec.json.decode(_selection(pattern).encode()) == {"$type": "all"}
 
 
-def test_plan_bare_names_project_to_qualified_names() -> None:
-    plan = assert_ok(_plan("CoreRail,NativeRail"))
-    payload = msgspec.json.decode(plan.selection_json.encode())
-    assert payload == {"$type": "names", "names": ["blocks.CoreRail", "analysis.NativeRail"]}
-    assert {corpus.assembly for corpus in plan.corpora} == {"Rasm.Rhino.Tests.dll", "Rasm.Tests.dll"}
+def test_selection_bare_tokens_pass_through_as_themes() -> None:
+    """Bare comma tokens become a deduplicated, order-preserving themes payload."""
+    assert msgspec.json.decode(_selection("blocks, blocks ,camera").encode()) == {"$type": "themes", "themes": ["blocks", "camera"]}
 
 
-def test_plan_project_path_selects_corpus_not_literal_name() -> None:
-    plan = assert_ok(_plan("tests/csharp/libs/Rasm.Rhino/Blocks/Scenarios"))
-    payload = msgspec.json.decode(plan.selection_json.encode())
-    assert payload["$type"] == "themes"
-    assert "tests/csharp/libs/Rasm.Rhino/Blocks/Scenarios" not in payload.get("names", ())
-    assert tuple(corpus.assembly for corpus in plan.corpora) == ("Rasm.Rhino.Tests.dll",)
+def test_selection_dotted_tokens_pass_through_as_names() -> None:
+    """Any dotted token promotes the whole selection to names; the shell's typed zero-match fault owns stray tokens."""
+    assert msgspec.json.decode(_selection("blocks.CoreRail, ui.Paint").encode()) == {"$type": "names", "names": ["blocks.CoreRail", "ui.Paint"]}
+    assert msgspec.json.decode(_selection("blocks,ui.Paint").encode()) == {"$type": "names", "names": ["blocks", "ui.Paint"]}
 
 
-def test_plan_unknown_pattern_is_unsupported() -> None:
-    assert_error_status(_plan("not-a-scenario"), RailStatus.UNSUPPORTED)
+def test_selection_unknown_tokens_pass_through_unvalidated() -> None:
+    """No local roster: an unknown token reaches the host as-is instead of raising a local unsupported fault."""
+    assert msgspec.json.decode(_selection("not-a-scenario").encode()) == {"$type": "themes", "themes": ["not-a-scenario"]}
 
 
 # --- [SESSION_ENVELOPE]
@@ -264,34 +255,39 @@ def test_faulted_maps_failed_completion_to_fault() -> None:
 
 # --- [CLOSURE_AGGREGATION]
 
-register_law(_closure_index, "indexes_typed_scenario_closures")
-register_law(_aggregate_closure, "aggregates_selected_closures")
-register_law(_aggregate_closure, "missing_selected_closure_faults")
+register_law(_scenario_closure, "finds_single_scenario_closure")
+register_law(_scenario_closure, "missing_scenario_closure_faults")
+register_law(_aggregate_closure, "aggregates_scenario_closure_with_cargo")
 
 
-def test_closure_index_and_aggregate_selected_corpus(assay_root: AssayHarness) -> None:
+def test_scenario_closure_and_aggregate(assay_root: AssayHarness) -> None:
     scope = assay_root.scope(Claim.BRIDGE)
     root = Path(scope.ensure())
-    _closure(root / "rasm" / "bridge-closure.json", "Rasm.Tests.dll", "Core.dll")
-    _closure(root / "rhino" / "bridge-closure.json", "Rasm.Rhino.Tests.dll", "Rhino.dll")
+    _closure(root / "scenarios" / "bridge-closure.json", "Rasm.Scenarios.dll", "Core.dll")
     cargo = root / "bin" / "Cargo" / assay_root.settings.configuration.value.lower()
     cargo.mkdir(parents=True)
     (cargo / "Cargo.dll").write_bytes(b"")
 
-    index = assert_ok(_closure_index(scope))
-    assert set(index) == {"Rasm.Tests.dll", "Rasm.Rhino.Tests.dll"}
+    closure = assert_ok(_scenario_closure(scope))
+    assert closure[0].name == "bridge-closure.json"
+    assert "Rasm.Scenarios.dll" in {Path(assembly).name for assembly in closure[1].assemblies}
 
-    target = assert_ok(_aggregate_closure(assay_root.settings, scope, assert_ok(_plan("blocks")), index))
+    target = assert_ok(_aggregate_closure(assay_root.settings, scope, closure))
     payload = msgspec.json.decode(target.read_bytes())
-    assert {Path(row).name for row in payload["assemblies"]} == {"Rasm.Rhino.Tests.dll", "Rhino.dll", "Cargo.dll"}
+    assert {Path(row).name for row in payload["assemblies"]} == {"Rasm.Scenarios.dll", "Core.dll", "Cargo.dll"}
+    assert payload["scenarioAssemblies"] == ["Rasm.Scenarios.dll"]
     assert payload["hostPlugins"] == ["b45a29b1-4343-4035-989e-044e8580d9cf"]
+    (reference_root,) = payload["referenceRoots"]
+    assert reference_root["assembly"] == "Rasm.Scenarios.dll"
+    assert reference_root["path"].endswith("tests/csharp/scenarios/_references")
 
 
-def test_aggregate_missing_selected_closure_faults(assay_root: AssayHarness) -> None:
-    fault = assert_error_status(
-        _aggregate_closure(assay_root.settings, assay_root.scope(Claim.BRIDGE), assert_ok(_plan("analysis")), {}), RailStatus.FAULTED
-    )
-    assert "Rasm.Tests.dll" in fault.message
+def test_missing_scenario_closure_faults(assay_root: AssayHarness) -> None:
+    """A manifest naming only foreign assemblies never satisfies the scenario closure lookup."""
+    scope = assay_root.scope(Claim.BRIDGE)
+    _closure(Path(scope.ensure()) / "other" / "bridge-closure.json", "Rasm.Other.dll")
+    fault = assert_error_status(_scenario_closure(scope), RailStatus.FAULTED)
+    assert "Rasm.Scenarios.dll" in fault.message
 
 
 def test_read_closure_fallback_shape_is_empty() -> None:
@@ -307,14 +303,19 @@ register_law(client_run, "faults_without_built_supervisor")
 register_law(bridge_lease, "serializes_bridge_resource")
 
 
-def test_client_run_spawns_built_supervisor_binary(assay_root: AssayHarness, rail_probe: RailProbe, monkeypatch: pytest.MonkeyPatch) -> None:
-    rail_probe.install(monkeypatch, _bridge_mod, "run_check", Ok(receipt(("supervisor",), 0, stdout=_envelope())))
+def test_client_run_spawns_built_supervisor_binary(assay_root: AssayHarness) -> None:
+    checks: list[Check] = []
+
+    def _spawn(check: Check, **_kw: object) -> Result[Completed, Fault]:
+        checks.append(check)
+        return Ok(receipt(("supervisor",), 0, stdout=_envelope()))
+
     pivot = f"{assay_root.settings.configuration.value.lower()}_test-rid"
     binary = Path(str(ArtifactScope.build(assay_root.settings, "bridge").path)) / "bin" / "Supervisor" / pivot / "Rasm.Bridge.Supervisor"
     binary.parent.mkdir(parents=True, exist_ok=True)
     binary.write_bytes(b"")
-    done = assert_ok(client_run(assay_root.settings, "status"))
-    check = rail_probe.checks[0]
+    done = assert_ok(client_run(assay_root.settings, "status", executor=SeamExecutor(run_fn=_spawn)))
+    check = checks[0]
     assert done.status is RailStatus.OK
     assert check.tool.command[0] == str(binary)
     assert check.tool.command[-1] == "status"
@@ -322,7 +323,8 @@ def test_client_run_spawns_built_supervisor_binary(assay_root: AssayHarness, rai
 
 
 def test_client_run_faults_without_built_supervisor(assay_root: AssayHarness) -> None:
-    fault = assert_error_status(client_run(assay_root.settings, "status"), RailStatus.FAULTED)
+    # Lane-less executor: the absent-binary fault must land before any spawn.
+    fault = assert_error_status(client_run(assay_root.settings, "status", executor=SeamExecutor()), RailStatus.FAULTED)
     assert "bridge build" in fault.message
 
 
@@ -345,7 +347,7 @@ def test_lifecycle_verbs_fold_supervisor_completion(
 ) -> None:
     monkeypatch.setattr(_bridge_mod, "leased", _leased_bypass)
     monkeypatch.setattr(_bridge_mod, "client_run", lambda _settings, *args, **_kw: Ok(receipt(("rasm-bridge", *args), 0, status=RailStatus.OK)))
-    report = assert_ok(verb_fn(assay_root.settings, assay_root.scope(Claim.BRIDGE), BridgeParams()))
+    report = assert_ok(verb_fn(assay_root.settings, assay_root.scope(Claim.BRIDGE), BridgeParams(), SeamExecutor()))
     assert report.claim is Claim.BRIDGE
     assert report.verb == verb_name
     assert report.status is RailStatus.OK
@@ -365,7 +367,7 @@ def test_lifecycle_detail_projects_host_and_capabilities(assay_root: AssayHarnes
     monkeypatch.setattr(
         _bridge_mod, "client_run", lambda _settings, *args, **_kw: Ok(receipt(("rasm-bridge", *args), 0, stdout=envelope, status=RailStatus.OK))
     )
-    report = assert_ok(status(assay_root.settings, assay_root.scope(Claim.BRIDGE), BridgeParams()))
+    report = assert_ok(status(assay_root.settings, assay_root.scope(Claim.BRIDGE), BridgeParams(), SeamExecutor()))
     detail = report.detail
     assert isinstance(detail, BridgeLifecycle)
     assert (detail.verb, detail.report_dir) == ("status", "report/status")
@@ -380,8 +382,8 @@ register_law(build, "folds_bridge_build_receipt")
 
 
 def test_build_folds_bridge_build_receipt(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(_bridge_mod, "_build_closure", lambda _settings: Ok(receipt(("rasm-bridge-build",), 0, status=RailStatus.OK)))
-    report = assert_ok(build(assay_root.settings, assay_root.scope(Claim.BRIDGE), BridgeParams()))
+    monkeypatch.setattr(_bridge_mod, "_build_closure", lambda _settings, _executor: Ok(receipt(("rasm-bridge-build",), 0, status=RailStatus.OK)))
+    report = assert_ok(build(assay_root.settings, assay_root.scope(Claim.BRIDGE), BridgeParams(), SeamExecutor()))
     assert report.claim is Claim.BRIDGE
     assert report.verb == "build"
     assert report.status is RailStatus.OK
@@ -391,15 +393,18 @@ def test_build_folds_bridge_build_receipt(assay_root: AssayHarness, monkeypatch:
 # --- [VERIFY]
 
 register_law(verify, "folds_session_summary")
+register_law(verify, "empty_corpus_short_circuits_unsupported")
+register_law(verify, "non_empty_corpus_proceeds_past_guard")
 
 
 def test_verify_folds_session_summary(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    assay_root.write("tests/csharp/scenarios/Blocks/CoreRail.cs", "// scenario source")
     closure = tmp_path / "bridge-closure.assay.json"
     closure.write_text("{}", encoding="utf-8")
     monkeypatch.setattr(_bridge_mod, "leased", _leased_bypass)
-    monkeypatch.setattr(_bridge_mod, "_build_closure", lambda _settings: Ok(receipt(("rasm-bridge-build",), 0, status=RailStatus.OK)))
-    monkeypatch.setattr(_bridge_mod, "_closure_index", lambda _scope: Ok({"Rasm.Rhino.Tests.dll": (closure, _ClosureManifest())}))
-    monkeypatch.setattr(_bridge_mod, "_aggregate_closure", lambda _settings, _scope, _plan, _index, **_kw: Ok(closure))
+    monkeypatch.setattr(_bridge_mod, "_build_closure", lambda _settings, _executor: Ok(receipt(("rasm-bridge-build",), 0, status=RailStatus.OK)))
+    monkeypatch.setattr(_bridge_mod, "_scenario_closure", lambda _scope: Ok((closure, _ClosureManifest())))
+    monkeypatch.setattr(_bridge_mod, "_aggregate_closure", lambda _settings, _scope, _closure, **_kw: Ok(closure))
     monkeypatch.setattr(
         _bridge_mod,
         "client_run",
@@ -416,12 +421,43 @@ def test_verify_folds_session_summary(assay_root: AssayHarness, monkeypatch: pyt
         ),
     )
 
-    report = assert_ok(verify(assay_root.settings, assay_root.scope(Claim.BRIDGE), BridgeParams(paths=("blocks",))))
+    report = assert_ok(verify(assay_root.settings, assay_root.scope(Claim.BRIDGE), BridgeParams(paths=("blocks",)), SeamExecutor()))
     assert report.claim is Claim.BRIDGE
     assert report.verb == "verify"
     assert isinstance(report.detail, VerifySummary)
     assert report.detail.facts
     assert report.detail.facts[0][0] == "blocks.CoreRail"
+
+
+def test_verify_empty_corpus_short_circuits_unsupported(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+    """With zero scenario sources, verify neither builds nor launches Rhino and reports typed UNSUPPORTED."""
+
+    def _forbidden(*_a: object, **_k: object) -> object:
+        raise AssertionError("empty corpus must not build or launch Rhino")
+
+    monkeypatch.setattr(_bridge_mod, "_build_closure", _forbidden)
+    monkeypatch.setattr(_bridge_mod, "client_run", _forbidden)
+    for params in (BridgeParams(), BridgeParams(evidence="author")):
+        report = assert_ok(verify(assay_root.settings, assay_root.scope(Claim.BRIDGE), params, SeamExecutor()))
+        assert report.status is RailStatus.UNSUPPORTED
+        assert any("scenario corpus empty" in note for note in report.notes)
+        wire = assay_root.envelope_of(report, claim=Claim.BRIDGE, verb="verify")
+        assert wire.exit_code == RailStatus.UNSUPPORTED.exit_code
+
+
+def test_verify_non_empty_corpus_proceeds_past_guard(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+    """One scenario source defeats the guard: verify reaches the build stage."""
+    assay_root.write("tests/csharp/scenarios/Blocks/CoreRail.cs", "// scenario source")
+    monkeypatch.setattr(_bridge_mod, "leased", _leased_bypass)
+    reached: list[str] = []
+
+    def _probe(_settings: AssaySettings, _executor: object) -> Result[object, Fault]:
+        reached.append("build")
+        return Error(Fault(("rasm-bridge-build",), RailStatus.FAULTED, "stop after the guard"))
+
+    monkeypatch.setattr(_bridge_mod, "_build_closure", _probe)
+    assert verify(assay_root.settings, assay_root.scope(Claim.BRIDGE), BridgeParams(), SeamExecutor()).is_error()
+    assert reached == ["build"]
 
 
 def test_scenario_artifacts_tolerates_missing_report_dir(tmp_path: Path) -> None:

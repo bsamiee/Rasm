@@ -263,7 +263,9 @@ dependencies = [
 dev = [
     "coverage",
     "dirty-equals",
+    "grimp",
     "hypothesis",
+    "import-linter",
     "inline-snapshot",
     "moto[server]",
     "mypy",
@@ -272,6 +274,7 @@ dev = [
     "pytest-cov",
     "pytest-deadfixtures",
     "pytest-randomly",
+    "pytest-rerunfailures",
     "pytest-socket",
     "pytest-timeout",
     "pytest-xdist",
@@ -296,6 +299,10 @@ config-settings-package = {
     python-flint = { setup-args = "-Dflint_version_check=false" },
     scipy =        { setup-args = "-Duse-pythran=false" },
 }
+# grimp's pyo3 pin caps at 3.14 (no cp315 wheel): skip the version check and restore the macOS extension link mode the skip drops.
+extra-build-variables = {
+    grimp = { UNSAFE_PYO3_SKIP_VERSION_CHECK = "1", RUSTFLAGS = "-C link-arg=-undefined -C link-arg=dynamic_lookup" },
+}
 
 # --- [TY] ------------------------------------------------------------------
 
@@ -308,15 +315,15 @@ respect-type-ignore-comments = false
 
 [tool.ty.src]
 exclude = [
-    ".approval_tests_temp",
     ".artifacts",
     ".cache",
     ".claude/skills/**/.cache",
     ".claude/worktrees",
+    ".history",
     ".nx",
     ".venv",
     "coverage",
-    "mutants",
+    "dist",
     "node_modules",
     "test-results",
     "tests/ast-grep/fail/**",
@@ -356,18 +363,17 @@ enable_error_code = [
     "unused-awaitable",
 ]
 exclude = [
-    "^\\.approval_tests_temp/",
     "^\\.artifacts/",
     "^\\.cache/",
     "^\\.claude/skills/.*/\\.cache/",
     "^\\.claude/worktrees/",
     "^\\.git/",
+    "^\\.history/",
     "^\\.nx/",
     "^\\.venv/",
     "^build/",
     "^dist/",
     "^coverage/",
-    "^mutants/",
     "^test-results/",
     "^node_modules/",
     "^tests/ast-grep/fail/",
@@ -438,6 +444,7 @@ markers = [
     "mutation: mutation-testing acceptance and survivor-triage tests",
     "network: tests that need real INET sockets lifted (loopback servers or egress); excluded from mutation lanes",
     "property: property-based tests",
+    "subprocess: tests that spawn the real CLI in a child interpreter; excluded from mutation lanes (children run the unmutated tree)",
 ]
 
 [tool.anyio]
@@ -453,10 +460,11 @@ storage-dir =   ".cache/inline-snapshot"
 
 [tool.coverage.run]
 branch =          true
-relative_files =  true      # subprocess coverage combines through relative repo paths
+relative_files =  true            # subprocess coverage combines through relative repo paths
 source =          ["tools/assay"]
 data_file =       ".cache/coverage/.coverage"
-core =            "sysmon"  # CPython 3.15 beta lacks coverage's compiled C tracer
+core =            "sysmon"        # CPython 3.15 beta lacks coverage's compiled C tracer
+patch =           ["subprocess"]  # children auto-measure via COVERAGE_PROCESS_CONFIG + shipped pth; forces parallel data files, so reporting requires a combine step
 
 [tool.coverage.report]
 fail_under =    90  # sysmon captures fewer arcs than the unavailable C core; 90 keeps the floor real instead of binding on precision-0 rounding
@@ -494,20 +502,62 @@ pytest_add_cli_args = [
     "-o",
     "required_plugins=",                                          # mutmut disables pytest-randomly, so this invocation waives the required-plugins guard
     "-m",
-    "not benchmark and not network",
-    # Subprocess tests execute the unmutated CLI outside mutmut's copied tree; deselect them for mutation.
-    "--deselect",
-    "tests/python/tools/assay/test_main.py::test_main_subprocess_exit_code",
-    "--deselect",
-    "tests/python/tools/assay/test_main.py::test_main_subprocess_bootstrap_error_config_fault",
-    "--deselect",
-    "tests/python/tools/assay/test_main.py::test_main_subprocess_failing_rail_channel_separation",
-    "--deselect",
-    "tests/python/tools/assay/test_main.py::test_main_subprocess_human_renderer_console_stderr",
+    "not benchmark and not network and not subprocess",           # subprocess tests execute the unmutated CLI outside mutmut's copied tree
 ]
 do_not_mutate = ["tools/assay/__init__.py", "tools/assay/rails/mutation_gate.py"]
 mutate_only_covered_lines = true  # mutation run supplies absolute-keyed coverage data for mutmut's covered-line map
 max_stack_depth = -1              # disables mutmut's strict stack walk over importlib pseudo-filenames
+
+# --- [IMPORT_LINTER] -------------------------------------------------------
+
+# Canonical invocation: `lint-imports --cache-dir .cache/grimp` — import-linter has no config-file cache option, and the default litters the repo root.
+[tool.importlinter]
+root_packages = ["tools.assay", "tools.py_analyzer"]
+
+[[tool.importlinter.contracts]]
+name = "assay strata: model -> diagnostics -> settings/aspect -> catalog -> routing -> engine -> rails -> registry -> automation"
+type = "layers"
+containers = ["tools.assay"]
+layers = [
+    "__main__",
+    "automation",
+    "composition.registry",
+    "rails",
+    "core.engine",
+    "core.routing",
+    "composition.catalog",
+    "_logging",
+    "composition.settings | core.aspect",
+    "diagnostics",
+    "core.model",
+]
+ignore_imports = ["tools.assay.core.routing -> tools.assay.core.engine"]  # deferred in-function import; the cycle dies at the assay rebuild's exec split
+
+[[tool.importlinter.contracts]]
+name = "rails are peer-independent"
+type = "independence"
+modules = [
+    "tools.assay.rails.api",
+    "tools.assay.rails.bridge",
+    "tools.assay.rails.code",
+    "tools.assay.rails.docs",
+    "tools.assay.rails.mutation_gate",
+    "tools.assay.rails.package",
+    "tools.assay.rails.provision",
+    "tools.assay.rails.static",
+    "tools.assay.rails.test",
+]
+# Both edges are standing debt the assay rebuild retires by moving shared rail primitives to neutral owners.
+ignore_imports = [
+    "tools.assay.rails.api -> tools.assay.rails.code",
+    "tools.assay.rails.package -> tools.assay.rails.bridge",
+]
+
+[[tool.importlinter.contracts]]
+name = "py_analyzer and assay meet at the process boundary, never by import"
+type = "independence"
+modules = ["tools.assay", "tools.py_analyzer"]
+ignore_imports = ["tools.py_analyzer.analyzer -> tools.assay.rails.code"]  # ts_language inversion; debt for the assay rebuild's neutral grammar owner
 
 # --- [RUFF] ----------------------------------------------------------------
 
@@ -518,14 +568,12 @@ line-length =      150
 required-version = ">=0.15.20,<0.16"
 target-version =   "py315"
 extend-exclude = [
-    "**/.approval_tests_temp/**",
     "**/.artifacts/**",
     "**/.cache/**",
     "**/.claude/skills/**/.cache/**",
     "**/.claude/worktrees/**",
     "**/test-results/**",
     "**/coverage/**",
-    "**/mutants/**",
     "**/.history/**",
     "**/tests/ast-grep/**",
 ]

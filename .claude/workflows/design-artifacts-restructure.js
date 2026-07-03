@@ -58,7 +58,7 @@ const INTEGRATE_SCHEMA = { type: 'object', additionalProperties: false, required
 const PRE = 'Rasm monorepo. THE BRIEF ' + BRIEF + ' (repo root) is binding law for every judgment you make — read it COMPLETELY before anything ' +
   'else: [00]-[SHARED_LAW] (verdict, telos incl. the art-directed generation bar, structural authority, foundations-first + topological-partition ' +
   'law, generator law, owner-boundaries tier law, seam-and-entry law incl. the ArtifactWork contract, pyproject reconciliation), [01] the workflow ' +
-  'contract you are executing, every numbered verdict V1..Vn at its live count (the track review may have extended it) with ruled defaults, ' +\n  '[02] the full evidence register E1..En, [03] capability ' +
+  'contract you are executing, every numbered verdict V1..Vn at its live count (the track review may have extended it) with ruled defaults, ' + '[02] the full evidence register E1..En, [03] capability ' +
   'escalation targets, [04] package pressure incl. the shared-tier law, [05] build legs + the 1a/1b blast-radius and flagship-acceptance rulings, ' +
   '[06] out-of-scope. Target corpus: ' + ROOT + '/.planning/ (markdown design pages; code fences are the product). docs/stacks/python/ governs ' +
   'every fence shape you propose. Your stance is HOSTILE: the corpus is naive with illusory depth until disk proves otherwise, and NAIVETY is a ' +

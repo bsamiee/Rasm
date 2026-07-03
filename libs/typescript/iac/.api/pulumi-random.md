@@ -74,15 +74,14 @@ Generated material is a sensitive `Output` that stacks into the secret + workloa
 
 ```ts contract
 // iac/secret — generate → mark secret → store canonically, one policy shape
-const material = (policy: PasswordPolicy, epoch: string) =>
-  new random.RandomPassword("db-password", {
-    length: policy.length, special: policy.special,
-    minSpecial: policy.minSpecial, overrideSpecial: policy.overrideSpecial,
-    keepers: { epoch },                                   // bump epoch to rotate
-  }, { parent })
-const stored = new doppler.Secret("db-password", {
+const dbPassword = new random.RandomPassword("db-password", {
+  length: policy.length, special: policy.special,
+  minSpecial: policy.minSpecial, overrideSpecial: policy.overrideSpecial,
+  keepers: { epoch },                                    // bump epoch to rotate
+}, { parent })
+new doppler.Secret("db-password", {
   project, config, name: "DB_PASSWORD",
-  value: pulumi.secret(material.result),                 // sensitive Output → canonical store
+  value: pulumi.secret(dbPassword.result),               // sensitive Output → canonical store
 }, { parent })
 ```
 

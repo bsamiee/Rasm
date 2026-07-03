@@ -44,11 +44,17 @@
   <Folder Name="/tests/csharp/_testkit/">
     <Project Path="tests/csharp/_testkit/Rasm.TestKit.csproj" />
   </Folder>
+  <Folder Name="/tests/csharp/_scenariokit/">
+    <Project Path="tests/csharp/_scenariokit/Rasm.ScenarioKit.csproj" />
+  </Folder>
   <Folder Name="/tests/csharp/_architecture/">
     <Project Path="tests/csharp/_architecture/Rasm.Architecture.Tests.csproj" />
   </Folder>
   <Folder Name="/tests/csharp/_benchmarks/">
     <Project Path="tests/csharp/_benchmarks/Rasm.Benchmarks.csproj" />
+  </Folder>
+  <Folder Name="/tests/csharp/scenarios/">
+    <Project Path="tests/csharp/scenarios/Rasm.Scenarios.csproj" />
   </Folder>
   <Folder Name="/tests/csharp/libs/" />
   <Folder Name="/tests/csharp/libs/Rasm.AppHost/">
@@ -89,7 +95,6 @@
   </Folder>
   <Folder Name="/tests/csharp/tools/rhino-bridge/">
     <Project Path="tests/csharp/tools/rhino-bridge/Contract/Contract.csproj" />
-    <Project Path="tests/csharp/tools/rhino-bridge/Scenarios/Scenarios.csproj" />
     <Project Path="tests/csharp/tools/rhino-bridge/Supervisor/Supervisor.csproj" />
   </Folder>
   <Folder Name="/tools/" />

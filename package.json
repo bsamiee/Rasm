@@ -3,10 +3,6 @@
     "version": "0.5.0",
     "private": true,
     "type": "module",
-    "workspaces": [
-        "libs/typescript/*",
-        "libs/typescript/ui/viewer"
-    ],
     "devDependencies": {
         "@ast-grep/cli": "catalog:",
         "@aws-sdk/client-s3": "catalog:",
@@ -77,7 +73,6 @@
         "@nx/react": "catalog:",
         "@nx/vite": "catalog:",
         "@nx/vitest": "catalog:",
-        "@nxlv/python": "catalog:",
         "@octokit/rest": "catalog:",
         "@opentelemetry/core": "catalog:",
         "@opentelemetry/exporter-metrics-otlp-http": "catalog:",

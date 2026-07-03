@@ -355,18 +355,16 @@ const LANG = {
     key: 'ts', name: 'TypeScript', root: 'libs/typescript', stack: 'docs/stacks/typescript', casing: 'camelCase',
     corpus: 'libs/typescript planning corpus (markdown specs of intended TypeScript module designs)',
     strata: 'CLAUDE.md manifest law governs.',
-    stackLaw: 'DENSITY BAR + STANDARD: docs/stacks/typescript/ (README, language, shapes, surfaces-and-dispatch, rails-and-effects, ' +
-      'boundaries, system-apis) and the coding-ts standard. The historical TS corpus quality is POOR; treat this as a TRUE modernization to ' +
-      'ultra-advanced TS, discarding naive idioms wholesale. Cite only real members of admitted packages, cross-checked against the published ' +
-      'types in node_modules.',
+    stackLaw: 'DENSITY BAR + STANDARD: docs/stacks/typescript/ (the README atlas + every concept page it routes). ' +
+      'Author ultra-advanced TS only, discarding naive idioms wholesale. Cite only real members of admitted packages, cross-checked against ' +
+      'the published types in node_modules.',
     homing: '',
-    apiTiers: 'MINE BOTH catalog tiers: the SHARED/universal `libs/typescript/.api/*.md` (effect, effect-platform, effect-opentelemetry, ' +
-      'effect-atom, react, react-dom, clsx) AND the area-specific `<area>/.api/*.md`, cross-checked against the published types in ' +
-      'node_modules; maximize the shared/universal Effect/Schema/React rails wherever relevant, never only the area set.',
-    readLaw: 'docs/stacks/typescript/ in FULL (README, language, shapes, surfaces-and-dispatch, rails-and-effects, boundaries, system-apis) ' +
-      'plus the coding-ts standard',
+    apiTiers: 'MINE BOTH catalog tiers: the SHARED/universal `libs/typescript/.api/*.md` (the Effect substrate rails, enumerated from disk, ' +
+      'never from memory) AND the folder-specific `<folder>/.api/*.md`, cross-checked against the published types in ' +
+      'node_modules; maximize the shared/universal Effect rails wherever relevant, never only the folder set.',
+    readLaw: 'docs/stacks/typescript/ in FULL (the README atlas + every concept page it routes)',
     verify: 'the published types in node_modules (`uv run python -m tools.assay api` over node_modules declarations where a member is novel)',
-    vocab: '(tagged unions, `Schema`, `Effect`/`Layer`, branded types)',
+    vocab: '(tagged unions, `Schema` owners, `Effect`/`Layer`, value-derived vocabulary tables)',
     slur: 'naive JavaScript-in-TypeScript dressed in the right vocabulary',
     illusion: '`any`/unsafe `as`/non-null `!` smuggled under a confident surface; a member cited but unverifiable against node_modules (a phantom)',
     ultra: [
@@ -384,9 +382,18 @@ const LANG = {
     mechanics: '',
     patlaw: [
       'TS PATTERN LAW (ultra-advanced ONLY; do not preserve the naive idioms of the existing code): ZERO `any`, zero implicit `any`, zero ' +
-        'unsafe `as`, zero non-null `!`; model with branded/nominal types, exact discriminated unions with EXHAUSTIVE handling (`assertNever` ' +
-        'on the default), `readonly`/`as const`, template-literal types, conditional/mapped types, and the `satisfies` operator. NO runtime ' +
+        'unsafe `as`, zero non-null `!`; model with exact discriminated unions under EXHAUSTIVE handling (`Match.exhaustive` or a checked ' +
+        '`never` sink), `readonly`/`as const`, template-literal types, conditional/mapped types, and the `satisfies` operator. NO runtime ' +
         '`enum` — use `const` unions or `Schema`/Effect.',
+      'COLLAPSE MANDATES: one `as const satisfies <Contract>` table is the single source of truth for a vocabulary — `typeof`/`keyof typeof`/' +
+        'indexed-access derive the types FROM the value; a hand-written union a value table could derive is a defect. A concept exports ONE ' +
+        'name serving value and type (declaration merging, `Schema.Class` owners, const+type pairing) — a consumer forced to alias, ' +
+        're-instantiate, or `typeof` at the call site is a defect; const type parameters, `NoInfer`, and instantiation expressions pre-solve ' +
+        'inference at the owner. Wrapping/injection/decoration attach INLINE at the owner declaration, never as loose intermediate consts. One ' +
+        'entrypoint owns every call modality via overload signatures or a discriminated input union; `Function.dual` gives pipe + direct call ' +
+        'in one function. SCHEMA AUTHORITY: static types derive (`Schema.Schema.Type`/`Schema.Schema.Encoded`, `X.Type`), wire twins derive ' +
+        'through `Schema.transform` — a hand-declared parallel interface/DTO beside a Schema owner is a defect. SHAPE BUDGET: one deep nested ' +
+        'owner replaces 5+ loose interfaces/aliases/DTOs/brands; brands live INSIDE rich owners as Schema refinements, never free-floating.',
       'Domain logic runs on typed-error rails — `Effect`/`Either`/`Option`, NEVER `throw` in domain code; boundaries validate through `Schema` ' +
         '(parse, never trust input). `import type`/`export type` are explicit; side-effect/value imports preserve runtime order. Per the ' +
         'docs/stacks/typescript file-organization overlay: `Effect.Service` owners are SERVICES, `Layer`/runtime wiring is COMPOSITION, ' +
@@ -400,29 +407,31 @@ const LANG = {
       'edit the counterpart language from this run.',
     docBloat: 'TSDoc',
     collapseInto: 'ONE tagged discriminated union + exhaustive match (with `Schema`/branded owners) IN THE SAME FILE',
-    gapPkg: 'BOTH tiers: the shared `libs/typescript/.api/` Effect/Schema/React rails AND the area domain packages, cross-checked against the ' +
+    gapPkg: 'BOTH tiers: the shared `libs/typescript/.api/` Effect substrate rails AND the folder domain packages, cross-checked against the ' +
       'published node_modules types; stacking that full surface IS new functionality woven into the owner, not naive Promise/try-catch glue',
     gapDomain: 'a chart owns scale/axis/series/interaction/annotation families and zoom/brush/tooltip/legend operations, not two naive ' +
       'renders; a service owns retry/telemetry/validation/cache layers, not a bare fetch; a projection owns the full transform/diff/patch ' +
       'family the domain needs',
     ownerGrammar: 'a CASE in the existing tagged discriminated union, a FIELD on the existing `Schema`/`Struct`/branded record, a member on ' +
       'the existing `Effect.Service`, a ROW in the existing const-union/table, or a POLICY value on the existing vocabulary',
-    ownerChooser: '(2) OWNER_CHOOSER — branded/nominal types where primitives are overloaded; exact discriminated unions for closed ' +
-      'alternatives; `Schema`/`Struct` for validated boundary shapes; `Effect.Service` for capability owners; `as const` union tables for ' +
-      'vocabularies; kill every parallel interface/type, one-field wrapper, field-rename shape, and thrown-error control flow.',
+    ownerChooser: '(2) OWNER_CHOOSER — Schema-refined brands INSIDE rich owners where primitives are overloaded; exact discriminated unions ' +
+      'for closed alternatives; `Schema.Class`/`Schema` owners for validated boundary shapes (types derived, never parallel-declared); ' +
+      '`Effect.Service` for capability owners; `as const satisfies` tables for ' +
+      'vocabularies; kill every parallel interface/type, one-field wrapper, field-rename shape, hand-declared wire twin, and thrown-error control flow.',
     knob: '(3) KNOB_TEST — delete each parameter the value already encodes; a `bool`/`mode`/`batch` flag selecting bodies collapses into a ' +
       'policy value or input-shape discriminant; every timeout/retry/deadline moves off the signature into Effect combinators/layers.',
     aspects: '(4) ASPECTS — cross-cutting concerns (retry, telemetry, validation, caching, receipts, fault rails) are Effect ' +
       'combinators/layers/decorators stacked over a thin pure core, never repeated inline; co-occurring wrappers collapse into one combinator.',
     rails: '(5) RAILS — domain logic on typed-error rails (`Effect`/`Either`/`Option`), NEVER `throw` in domain code; boundaries parse through ' +
-      '`Schema` (never trust input); exhaustive union handling with `assertNever`; accumulate-vs-abort correct at the boundary; no naive ' +
+      '`Schema` (never trust input); exhaustive union handling via `Match.exhaustive` or a checked `never` sink; accumulate-vs-abort correct ' +
+      'at the boundary; no naive ' +
       '`Promise`/`async` glue where `Effect`/`Layer` belongs.',
     modernity: '(6) TS-MODERNITY — ZERO `any`/implicit-`any`/unsafe `as`/non-null `!`; no runtime `enum` (const unions or `Schema`); ' +
       '`readonly`/`as const`; template-literal/conditional/mapped types + `satisfies` where they tighten; `import type`/`export type` explicit; ' +
       'the docs/stacks/typescript file-organization overlay respected (`Effect.Service` owners are SERVICES, `Layer` wiring is COMPOSITION, ' +
       'runtime schemas are MODELS, registry rows after their owners).',
     deepPkgs: 'the Effect ecosystem (`Effect`/`Layer`/`Context`/`Schema`/`Stream`) + the area packages',
-    exhaust: 'exhaustive match + `assertNever`',
+    exhaust: 'exhaustive `Match.exhaustive` dispatch (or a checked `never` sink)',
     modern: 'ultra-advanced modern TS only',
   },
 }
@@ -523,14 +532,29 @@ const pool = async (items, cap, worker) => {
 }
 const chunk = (arr, n) => { const o = []; for (let i = 0; i < arr.length; i += n) o.push(arr.slice(i, i + n)); return o }
 const dedup = (rs) => [...new Map(rs.map((r) => [r.files.slice().sort().join(',') + '|' + r.claim, r])).values()]
-// packClusters — consolidate the union-find clusters into AT MOST n buckets. Balance by WORK, never residual count:
-// a fixer's load is dominated by the distinct files it reads + reconciles, and count-greedy systematically hands
-// bucket 0 the largest connected component then tops it to count parity — the measured 2x long pole.
+// packClusters — consolidate the union-find clusters into AT MOST n buckets. Balance by WORK, never residual count
+// (count-greedy hands bucket 0 the largest component then tops it to parity — the measured 2x long pole), and CAP
+// atomicity at the fair share: an interlinked corpus fuses most residuals into ONE connected component (a measured
+// 125-of-134), so an over-budget cluster sub-shards by lead file — same-lead-file rows never split (the edit-collision
+// floor); the terminal verify owns the deliberate cross-shard seams.
 const clusterWork = (c) => { const files = new Set(); for (const r of c) for (const f of r.files || []) files.add(f); return files.size * 2 + c.length }
+const shardOversized = (clusters, cap) => clusters.flatMap((c) => {
+  if (clusterWork(c) <= cap) return [c]
+  const byFile = new Map()
+  for (const r of c) { const k = (r.files || [])[0] || '~'; if (!byFile.has(k)) byFile.set(k, []); byFile.get(k).push(r) }
+  const shards = []
+  for (const g of [...byFile.values()].sort((a, b) => clusterWork(b) - clusterWork(a))) {
+    const t = shards.find((s) => clusterWork(s.concat(g)) <= cap)
+    if (t) t.push(...g); else shards.push([...g])
+  }
+  return shards
+})
 const packClusters = (clusters, n) => {
-  if (clusters.length <= n) return clusters
+  const cap = Math.max(1, Math.ceil(clusters.reduce((w, c) => w + clusterWork(c), 0) / n))
+  const shards = shardOversized(clusters, cap)
+  if (shards.length <= n) return shards
   const buckets = Array.from({ length: n }, () => ({ work: 0, rows: [] }))
-  const sorted = clusters.slice().sort((a, b) => clusterWork(b) - clusterWork(a) || ((a[0] && a[0].claim) || '').localeCompare((b[0] && b[0].claim) || ''))
+  const sorted = shards.slice().sort((a, b) => clusterWork(b) - clusterWork(a) || ((a[0] && a[0].claim) || '').localeCompare((b[0] && b[0].claim) || ''))
   for (const c of sorted) { let mi = 0; for (let i = 1; i < n; i++) if (buckets[i].work < buckets[mi].work) mi = i; buckets[mi].rows.push(...c); buckets[mi].work += clusterWork(c) }
   return buckets.filter((b) => b.rows.length).map((b) => b.rows)
 }
@@ -678,7 +702,10 @@ const reconcilePrompt = (bucket, pkgs) => [PRE, 'TASK: RECONCILE these cross-FIL
   (BRIEF ? 'The brief (' + BRIEF + ') consumer-ripple rules govern every seam-name decision and every counterpart edit. ' : '') + 'Read ' +
   'EVERY listed file. For each residual: if it is a real cross-file defect, FIX it in place (unify the shared type/seam/rail, add the ' +
   'depended-on case/field, repair the strata/boundary issue, update the index-doc maps); if it is FACTUALLY INCORRECT, leave it and say why ' +
-  'in the summary — never silently skip a real one to avoid work. Preserve all capability, regress nothing. Residuals:\n' +
+  'in the summary — never silently skip a real one to avoid work. Preserve all capability, regress nothing. ' +
+  'A concurrent sibling may share a page with your cluster (oversized components shard file-atomically): edit any potentially shared page with ' +
+  'surgical anchored Edits only — re-read and re-apply on an edit conflict, never a whole-file rewrite. ' +
+  'Residuals:\n' +
   JSON.stringify(bucket, null, 1)].join('\n')
 const verifyPrompt = (work) => [PRE, 'TASK: TERMINAL RECONCILE VERIFY — ADVERSARIAL, CRITIQUE-GRADE, WRITING (never a friendly ' +
   'confirmation) + FIX IN PLACE, the LAST pass (no further spawning, no new rounds). Fix agents claim to have resolved the residual buckets ' +

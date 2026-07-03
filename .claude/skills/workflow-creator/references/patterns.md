@@ -473,22 +473,47 @@ validate. Distinct from #2 (synthesize into one report) and #8 (skeptic vote on 
 claim): this is cluster-by-shared-resource, then fix-and-verify each cluster. The
 full worked file is `assets/examples/rebuild-and-reconcile.js`.
 
-**Bounded buckets — balance by WORK, never count.** When clusters must consolidate
-into at most N agents (a reconcile cap), a count-balanced packer systematically
-overloads bucket 0: descending count-sort drops the largest connected component into
-the first empty bucket, then count-parity tops that bucket up while it already holds
-the largest distinct-file union and the tightest coupled reasoning — the bucket-0
-agent runs ~2x its siblings' tokens and wall-clock. An agent's load is the files it
-must read and reconcile, never how many claims it carries. Pack by work weight, keep
-clusters ATOMIC (splitting a same-file cluster across agents creates edit
-collisions), and log per-bucket weights so the long pole is visible, never silent:
+**Bounded buckets — balance by WORK, never count, and CAP atomicity at the fair
+share.** When clusters must consolidate into at most N agents (a reconcile cap), two
+packer defects each recreate the same 2x-plus long pole. First, a count-balanced
+packer overloads bucket 0: descending count-sort drops the largest connected
+component into the first empty bucket, then count-parity tops that bucket up while
+it already holds the largest distinct-file union — an agent's load is the files it
+must read and reconcile, never how many claims it carries. Second — worse and easier
+to miss — UNBOUNDED cluster atomicity: on an interlinked corpus, union-find by
+shared file fuses most claims into ONE connected component (a measured 125-of-134),
+and a clusters-never-split packer hands one agent ~everything while its siblings
+finish in minutes. Atomicity is a BUDGET, not an absolute: component-atomic while a
+cluster fits the fair share (`totalWork / n`); above that, sub-shard the component
+FILE-atomically — rows sharing a lead file never split (the hard edit-collision
+floor) — and accept the cross-shard seams deliberately, because the verify/terminal
+stage owns them. Two concurrent shards of one component may share a secondary page,
+so the shard-carrying prompts must add: edit pages a sibling may share with surgical
+anchored Edits only, re-reading and re-applying on an edit conflict — never a
+whole-file rewrite. Log per-bucket weights so the long pole is visible, never silent:
 
 ```js
 const clusterWork = (c) => { const files = new Set(); for (const r of c) for (const f of r.files ?? []) files.add(f); return files.size * 2 + c.length }
+// The atomicity budget: a component over the fair share sub-shards by lead file — same-lead-file
+// rows stay together; heaviest groups first-fit into shards under the cap; an oversized
+// same-file group stands alone (the floor).
+const shardOversized = (clusters, cap) => clusters.flatMap((c) => {
+  if (clusterWork(c) <= cap) return [c]
+  const byFile = new Map()
+  for (const r of c) { const k = (r.files ?? [])[0] ?? '~'; if (!byFile.has(k)) byFile.set(k, []); byFile.get(k).push(r) }
+  const shards = []
+  for (const g of [...byFile.values()].sort((a, b) => clusterWork(b) - clusterWork(a))) {
+    const t = shards.find((s) => clusterWork(s.concat(g)) <= cap)
+    if (t) t.push(...g); else shards.push([...g])
+  }
+  return shards
+})
 const packClusters = (clusters, n) => {
-  if (clusters.length <= n) return clusters                       // one agent per cluster — balanced by construction
+  const cap = Math.max(1, Math.ceil(clusters.reduce((w, c) => w + clusterWork(c), 0) / n))
+  const shards = shardOversized(clusters, cap)
+  if (shards.length <= n) return shards                           // one agent per shard — balanced by construction
   const buckets = Array.from({ length: n }, () => ({ work: 0, rows: [] }))
-  for (const c of clusters.slice().sort((a, b) => clusterWork(b) - clusterWork(a))) {
+  for (const c of shards.slice().sort((a, b) => clusterWork(b) - clusterWork(a))) {
     let mi = 0; for (let i = 1; i < n; i++) if (buckets[i].work < buckets[mi].work) mi = i
     buckets[mi].rows.push(...c); buckets[mi].work += clusterWork(c)
   }
@@ -497,6 +522,10 @@ const packClusters = (clusters, n) => {
 const buckets = packClusters(clusters, RECON_CAP)
 log('bucket work [' + buckets.map(clusterWork).join(', ') + ']')  // no silent long pole
 ```
+
+The same budget applies to POOL-per-cluster shapes (one agent per atomic cluster
+under a concurrency cap): shard with `cap = ceil(totalWork / POOL_CAP)` before the
+pool, or the giant component still lands on one agent.
 
 The heaviest atomic cluster still bounds the wall-clock — that is irreducible — but
 weight-greedy stops topping it up, pushing every small cluster to the other buckets.

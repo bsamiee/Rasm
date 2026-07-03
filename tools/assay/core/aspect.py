@@ -22,8 +22,7 @@ from opentelemetry.trace import Status, StatusCode
 import structlog
 from structlog.contextvars import bound_contextvars, get_contextvars
 
-from tools.assay.core.model import Fault
-from tools.assay.core.status import RailStatus
+from tools.assay.core.model import Fault, RailStatus
 
 
 if TYPE_CHECKING:
@@ -64,7 +63,7 @@ type Layer[**P, T: HasStatus] = tuple[Slot, Callable[[Hom[P, T]], Hom[P, T]]]
 
 _ATTR_CAP = 256
 _CONF = BeartypeConf(is_pep484_tower=True, strategy=BeartypeStrategy.O1, violation_verbosity=BeartypeViolationVerbosity.MAXIMAL)
-_RING: ContextVar[deque[str] | None] = ContextVar("assay_ring", default=None)
+RING: ContextVar[deque[str] | None] = ContextVar("assay_ring", default=None)
 
 # --- [ERRORS] ---------------------------------------------------------------------------
 
@@ -92,7 +91,7 @@ def ring_processor(logger: object, method_name: str, event_dict: EventDict) -> E
     Returns:
         The processor event dict; mutated only when a valid span is active.
     """
-    match _RING.get():
+    match RING.get():
         case deque() as ring:
             ring.append(f"{event_dict.get('level', method_name)}:{event_dict.get('event', '')}")
         case None:
@@ -114,7 +113,7 @@ def ring_recent() -> tuple[str, ...]:
     Returns:
         Ordered event summaries, or ``()`` when no ring is active.
     """
-    match _RING.get():
+    match RING.get():
         case deque() as ring:
             return tuple(ring)
         case None:
@@ -188,7 +187,7 @@ def checked[**P, T: HasStatus](*, conf: BeartypeConf = _CONF) -> Layer[P, T]:
     return (Slot.checked, lambda fn: checked_call(fn, conf=conf))
 
 
-_CHECKED_LAYER = checked()  # type: ignore[var-annotated]  # Layer[**P, T] PEP 696 vars cannot be inferred at module-level singleton instantiation
+CHECKED_LAYER = checked()  # type: ignore[var-annotated]  # Layer[**P, T] PEP 696 vars cannot be inferred at module-level singleton instantiation
 
 
 def logged[**P, T: HasStatus](*, event: str, keys: Bind[P]) -> Layer[P, T]:
@@ -294,8 +293,8 @@ __all__ = [
     "Inversion",
     "Layer",
     "Slot",
-    "_CHECKED_LAYER",
-    "_RING",
+    "CHECKED_LAYER",
+    "RING",
     "assemble",
     "checked",
     "checked_call",

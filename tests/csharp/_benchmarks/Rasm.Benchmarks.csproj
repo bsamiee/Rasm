@@ -9,9 +9,6 @@
         <PackageReference Include="BenchmarkDotNet" PrivateAssets="all" />
     </ItemGroup>
 
-    <ItemGroup Label="Project References">
-        <ProjectReference Include="../../../libs/csharp/Rasm/Rasm.csproj" />
-    </ItemGroup>
     <ItemGroup Label="Assembly Metadata">
         <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
             <_Parameter1>RasmWorkspaceRoot</_Parameter1>

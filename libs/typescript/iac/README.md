@@ -41,7 +41,8 @@ The `# iac` owner group in the `pnpm-workspace.yaml` catalog, folder-local and c
 
 [FABRIC]:
 - `@pulumi/command` — the cluster-bootstrap row over owned metal/VPS.
-- `@pulumi/docker` — the `selfhosted-docker` arm and image builds.
+- `@pulumi/docker` — the `selfhosted-docker` arm runtime (container/network/volume + swarm) and registry/tag/data-source resources.
+- `@pulumi/docker-build` — the canonical buildx-native image build owner (multi-platform, pluggable cache/export, by-value secrets); supersedes the legacy `@pulumi/docker.Image` and is the builder `awsx.ecr.Image` bundles on the `aws` arm.
 - `@pulumi/random` — provider-tracked random suffix/password material.
 - `@pulumi/tls` — certificate/key material for the `kube/traffic` rows.
 

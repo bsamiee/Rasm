@@ -1,7 +1,7 @@
 /// <reference types="vite/client" />
 /**
- * Root Vite configuration: imports factory and executes for workspace root.
- * Apps/packages import from vite.factory.ts to avoid triggering this execution.
+ * Root Vite anchor: executes the factory for dev/typecheck parity, then drops the build block —
+ * the root emits NO artifact. Apps/packages import vite.factory.ts and own their build outputs.
  */
 
 import { Effect } from 'effect';
@@ -10,29 +10,13 @@ import { createConfig } from './vite.factory.ts';
 
 // --- [EXPORTS] ---------------------------------------------------------------
 
-const config: UserConfig = defineConfig(
-    Effect.runSync(
-        createConfig({
-            entry: './vite.factory.ts',
-            external: [
-                '@rolldown/plugin-babel',
-                '@tailwindcss/vite',
-                '@vitejs/plugin-react',
-                'effect',
-                'rollup-plugin-visualizer',
-                'vite',
-                'vite-plugin-compression',
-                'vite-plugin-csp',
-                'vite-plugin-image-optimizer',
-                'vite-plugin-inspect',
-                'vite-plugin-pwa',
-                'vite-plugin-svgr',
-                'vite-plugin-webfont-dl',
-            ],
-            mode: 'library',
-            name: 'WorkspaceFoundation',
-        }),
-    ),
+const { build: _build, ...anchor } = Effect.runSync(
+    createConfig({
+        entry: './vite.factory.ts',
+        mode: 'library',
+        name: 'WorkspaceFoundation',
+    }),
 );
+const config: UserConfig = defineConfig(anchor);
 
 export default config;

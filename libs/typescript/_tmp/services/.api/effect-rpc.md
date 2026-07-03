@@ -1,15 +1,21 @@
 # [API_CATALOGUE] @effect/rpc
 
-`@effect/rpc` is the schema-driven, transport-agnostic RPC surface for Effect. The package re-exports twelve modules as namespaces through `index.d.ts`: procedure definition (`Rpc`), group aggregate (`RpcGroup`), typed client (`RpcClient`), server runner (`RpcServer`), wire-message algebra (`RpcMessage`), middleware (`RpcMiddleware`), stream schema (`RpcSchema`), serialization layers (`RpcSerialization`), client error (`RpcClientError`), test client (`RpcTest`), and worker bootstrap (`RpcWorker`).
+`@effect/rpc` is the schema-driven, transport-agnostic RPC surface for Effect. `index.d.ts` re-exports eleven modules as namespaces: procedure definition (`Rpc`), group aggregate (`RpcGroup`), typed client (`RpcClient`), server runner (`RpcServer`), wire-message algebra (`RpcMessage`), middleware (`RpcMiddleware`), stream schema (`RpcSchema`), serialization layers (`RpcSerialization`), client error (`RpcClientError`), test client (`RpcTest`), and worker bootstrap (`RpcWorker`). A procedure carries `Schema` payload/success/error/defect schemas and a middleware set; the wire is chosen by a `RpcSerialization` layer and a `Protocol` transport, so one `RpcGroup` serves an HTTP route, a socket, a worker, a stdio pipe, a `@effect/cluster` entity, and an in-memory test with zero handler change.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@effect/rpc`
 - package: `@effect/rpc`
+- version: `0.75.1`
+- license: `MIT`
+- effect-peer: `effect ^3.21.x`, `@effect/platform ^0.96.x` (`HttpClient`/`HttpRouter`/`HttpApp`/`Socket`/`Worker` for the transports; `.api/effect.md`, `.api/effect-platform.md`)
+- dep: `msgpackr ^1.11.x` (behind `RpcSerialization.msgPack`/`makeMsgPack`) — bundled, not peer
+- runtime: isomorphic core — the procedure/group/client/server algebra is host-neutral; a `Protocol` transport binds the runtime (node transports via `@effect/platform-node`, `.api/effect-platform-node.md`)
 - entry: `@effect/rpc` (namespace barrel) plus per-module deep paths `@effect/rpc/Rpc`, `@effect/rpc/RpcGroup`, `@effect/rpc/RpcClient`, `@effect/rpc/RpcClientError`, `@effect/rpc/RpcMessage`, `@effect/rpc/RpcMiddleware`, `@effect/rpc/RpcSchema`, `@effect/rpc/RpcSerialization`, `@effect/rpc/RpcServer`, `@effect/rpc/RpcTest`, `@effect/rpc/RpcWorker`
+- modules: `Rpc`, `RpcGroup`, `RpcClient`, `RpcServer`, `RpcMessage`, `RpcMiddleware`, `RpcSchema`, `RpcSerialization`, `RpcClientError`, `RpcTest`, `RpcWorker`
 - asset: procedure atom (`Rpc`), procedure aggregate (`RpcGroup`), typed client (`RpcClient`), server runner (`RpcServer`), wire-message algebra (`RpcMessage`), middleware tag family (`RpcMiddleware`), stream schema (`RpcSchema`), serialization layers (`RpcSerialization`), client error (`RpcClientError`), test client (`RpcTest`), worker bootstrap (`RpcWorker`)
 - rail: internal-rpc
-- peer: `effect`, `@effect/platform`, `msgpackr`
+- owner consumers: `InternalRpc` (`messaging/rpc#INTERNAL_RPC` — the `RpcGroup`/`RpcSerialization`/`RpcClient`/`RpcServer` node-internal RPC seam); `SessionEntity`/`AgentSessionActor` (`messaging/entity#ENTITY`, `agent/session#SESSION_ACTORS` — an `RpcGroup` IS the `@effect/cluster` `Entity.fromRpcGroup` protocol); `SagaWorkflow` (`execution/saga#SAGA` — `@effect/workflow` `WorkflowProxy.toRpcGroup` projects a workflow set to an `RpcGroup`); `McpTransport` (`agent/mcp#MCP_TRANSPORT` — `RpcServer` over a stdio/socket `Protocol`)
 
 The `index.d.ts` barrel is the namespace-aggregating entry:
 
@@ -829,4 +835,54 @@ const layerInitialMessage: <A, I, R, R2>(
 const initialMessage: <A, I, R>(
   schema: Schema.Schema<A, I, R>
 ) => Effect.Effect<A, NoSuchElementException | ParseError, Protocol | R>
+```
+
+## [13]-[INTEGRATION_LAW]
+
+[WIRE_ASSEMBLY]:
+- Group, serialization, and transport are three orthogonal choices over ONE `RpcGroup`: the group is the
+  typed protocol, a `RpcSerialization` layer (`layerJson`/`layerNdjson`/`layerJsonRpc`/`layerNdJsonRpc`/
+  `layerMsgPack`) picks the codec, and a `Protocol` layer picks the transport. Never fork a handler per wire —
+  swap the two layers. `msgPack`/`makeMsgPack` bind the bundled `msgpackr` (`Msgpackr.Options` pass-through);
+  framed vs newline-delimited is `includesFraming` on the `Parser`.
+- Client `Protocol` factories (`RpcClient.layerProtocolHttp`/`layerProtocolSocket`/`layerProtocolWorker`) and
+  server `Protocol` factories (`RpcServer.layerProtocolHttpRouter`/`layerProtocolSocketServer`/
+  `layerProtocolWebsocketRouter`/`layerProtocolWorkerRunner`/`layerProtocolStdio`) are DISTINCT `TagClass`
+  ids — a process wiring both holds two `Protocol` tags. `RpcServer.toHttpApp`/`toHttpAppWebsocket`/
+  `toWebHandler` skip the tag and yield a `@effect/platform` `HttpApp`/web handler directly.
+
+[TRANSPORT_STACKING]:
+- The transports resolve their requirement channel against `@effect/platform-node` (`.api/effect-platform-node.md`):
+  `layerProtocolHttp` needs `HttpClient.HttpClient` ← `NodeHttpClient.layer`; `layerProtocolHttpRouter`/
+  `layerProtocolWebsocketRouter` need `HttpLayerRouter.HttpRouter` served by `NodeHttpServer.layer`;
+  `layerProtocolSocketServer` needs `SocketServer.SocketServer` ← `NodeSocketServer.layer`;
+  `layerProtocolSocket` needs `Socket.Socket` ← `NodeSocket.layerNet`/`layerWebSocket`; `layerProtocolWorker`/
+  `layerProtocolWorkerRunner` need `Worker.PlatformWorker`/`WorkerRunner.PlatformRunner` ←
+  `NodeWorker.layer`/`NodeWorkerRunner.layer`.
+- `makeProtocolStdio` takes an `effect/Stream<Uint8Array>` + `Sink` pair — `NodeStream.stdin` + `NodeSink.stdout`
+  are the `McpTransport` (`agent/mcp#MCP_TRANSPORT`) stdio pipe. `RpcWorker.InitialMessage` carries the worker
+  handshake payload the pool sends once at spawn, decoded against the server `Protocol` by `initialMessage`.
+
+[CLUSTER_AND_WORKFLOW]:
+- An `RpcGroup` IS the `@effect/cluster` addressable-actor protocol (`.api/effect-cluster.md`,
+  `messaging/entity#ENTITY`, `agent/session#SESSION_ACTORS`): `Entity.fromRpcGroup(name, group)` binds one
+  actor type, `group.toLayer(handlers)` supplies its behavior, `EntityProxy.toRpcGroup(entity)` projects the
+  entity back to a callable `RpcGroup`, and `RpcClient.RpcClient.From<RpcGroup.Rpcs<typeof group>, E>` is the
+  per-entity client shape. A new actor message is one `Rpc.make` row on the existing group.
+- `@effect/workflow` `WorkflowProxy.toRpcGroup` projects a workflow set to an `RpcGroup` and
+  `WorkflowProxyServer.layerRpcHandlers` supplies the handlers (`.api/effect-workflow.md`, `execution/saga#SAGA`),
+  so a durable saga is invokable as a typed RPC with no bespoke dispatcher.
+
+[SCHEMA_AND_CROSS_CUTTING]:
+- Payload/success/error/defect are `effect/Schema` (`.api/effect.md`); `Rpc.make({ stream: true })` wraps the
+  success as `RpcSchema.Stream<A, E>`, yielding an `effect/Stream` result (or a `Mailbox.ReadonlyMailbox` via
+  the client's `asMailbox` option). `Rpc.fork`/`uninterruptible` wrap a handler response for concurrency and
+  interruption control independent of the server `concurrency` setting.
+- Server-side middleware is a `RpcMiddleware.Tag<Self>()` `TagClass` applied via `RpcGroup.middleware`/
+  `Rpc.middleware` (auth, tenancy, quota — `security/auth`, `messaging/quota`); `wrap`/`provides`/`failure`/
+  `optional`/`requiredForClient` flags shape it, `layerClient` installs client-side header injection.
+  `currentHeaders`/`withHeaders`/`withHeadersEffect` thread request headers fiber-locally; span propagation
+  (`spanPrefix`/`spanAttributes`/`traceId`) feeds the OTLP trace tree (`.api/effect-opentelemetry.md`).
+- `RpcTest.makeClient` dispatches through the handler layer with no protocol/serialization — the in-memory
+  spec client (`.api/effect-vitest.md`), failing in nothing, requiring only `Rpc.ToHandler`/`Middleware`.
 ```

@@ -2,8 +2,13 @@
     <ItemGroup Label="Architecture Rule Tooling">
         <PackageReference Include="TngTech.ArchUnitNET.xUnitV3" PrivateAssets="all" />
     </ItemGroup>
-
+    <!-- The scenario SDK's law suite lives here; internals (FactKey, Hook, FactCount) arrive via InternalsVisibleTo. -->
     <ItemGroup Label="Project References">
-        <ProjectReference Include="../../../libs/csharp/Rasm/Rasm.csproj" />
+        <ProjectReference Include="../_scenariokit/Rasm.ScenarioKit.csproj" />
+    </ItemGroup>
+    <!-- Host-free: the retired-kernel namespaces the Grasshopper-aware classification injects are dropped; rules load only host-free assemblies. -->
+    <ItemGroup Label="Kernel-Free Usings">
+        <Using Remove="Rasm.Analysis" />
+        <Using Remove="Rasm.Domain" />
     </ItemGroup>
 </Project>

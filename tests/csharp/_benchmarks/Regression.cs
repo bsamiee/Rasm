@@ -18,23 +18,33 @@ public sealed partial class GateStat {
     public partial double NanosecondsOf(BdnStatistics stats);
 }
 
+// The per-case verdict is a closed three-way receipt: a case that cannot be gated — absent
+// benchmark, missing statistics, dispersion over ceiling — is a visible outcome, never a silent
+// pass, and only an in-budget, in-dispersion case reads Pass.
+[Union]
+public abstract partial record GateVerdict {
+    public sealed record Pass(string Label, double ObservedMs, double BudgetMs) : GateVerdict;
+    public sealed record TooNoisy(string Label, double RelIqr, double MaxRelIqr) : GateVerdict;
+    public sealed record Breach(string Label, string Detail) : GateVerdict;
+}
+
 // --- [CONSTANTS] ---------------------------------------------------------------------------
 internal static class RegressionPolicy {
-    // Breakpoints require scale-free BIC gain beyond an ASV-style per-step penalty; the tolerance is
-    // the fractional final-segment level jump above which a sustained regression fails the session.
+    // Breakpoints require scale-free BIC gain beyond a per-step penalty; the tolerance is the
+    // fractional final-segment level jump above which a sustained regression fails the session.
     internal const double PottsBeta = 4.0;
     internal const double RegressionTolerance = 0.70;
     internal const double NanosecondsPerMillisecond = 1_000_000.0;
 }
 
 // --- [MODELS] ------------------------------------------------------------------------------
-// One registry row: the absolute budget over the gated statistic plus the dispersion ceiling above
-// which a sample is too noisy to gate, mirroring bench.py's BenchCase gate fields.
-public sealed record BenchCase(string Label, double BudgetMs, GateStat GateStat, double MaxRelIqr = 0.25);
+// One registry row: the exact benchmark FullName, the absolute budget over the gated statistic,
+// and the dispersion ceiling above which the sample is too noisy to gate.
+public sealed record BenchCase(string FullName, double BudgetMs, GateStat GateStat, double MaxRelIqr = 0.25);
 
 // --- [BDN_REPORT]
-// Source-generated projection over BenchmarkDotNet's `*-report-full.json`; only the median-series and
-// gate inputs are decoded, and BDN emits nanosecond PascalCase statistics through JsonExporter.Full.
+// Source-generated projection over BenchmarkDotNet's `*-report-full.json`; only the median-series
+// and gate inputs are decoded, and BDN emits nanosecond PascalCase statistics through JsonExporter.Full.
 public sealed record BdnStatistics {
     [JsonPropertyName("Min")] public double Min { get; init; }
     [JsonPropertyName("Mean")] public double Mean { get; init; }
@@ -59,22 +69,16 @@ internal sealed partial class BdnContext : JsonSerializerContext;
 
 // --- [OPERATIONS] --------------------------------------------------------------------------
 public static class Regression {
-    // Gate enforces both the dispersion ceiling and the absolute budget per case, partitioning each
-    // benchmark into pass, too-noisy-to-gate, or budget-breach, and folding breaches into one
-    // ManyErrors body so every failing case is reported in one verdict.
-    public static Fin<Unit> Gate(BdnReport report, Seq<BenchCase> cases) {
+    // Gate resolves every registered case to one typed verdict row. Matching is exact FullName —
+    // a substring match would let one benchmark satisfy several cases, or the wrong one.
+    public static Seq<GateVerdict> Gate(BdnReport report, Seq<BenchCase> cases) {
         ArgumentNullException.ThrowIfNull(argument: report);
-        Seq<BdnBenchmark> benchmarks = toSeq(report.Benchmarks);
-        Seq<Error> breaches = cases.Bind(row =>
-            benchmarks.Filter(benchmark => benchmark.FullName.Contains(value: row.Label, comparisonType: StringComparison.Ordinal))
-                .Map(benchmark => benchmark.Statistics)
-                .Filter(static statistics => statistics is not null)
-                .Bind(statistics => Verdict(row: row, statistics: statistics!).Match(
-                    Some: static error => Seq(error),
-                    None: static () => Seq<Error>())));
-        return breaches.IsEmpty
-            ? Fin.Succ(value: unit)
-            : Fin.Fail<Unit>(error: Error.Many(errors: breaches));
+        return cases.Map(row =>
+            report.Benchmarks.FirstOrDefault(benchmark => string.Equals(a: benchmark.FullName, b: row.FullName, comparisonType: StringComparison.Ordinal)) switch {
+                null => new GateVerdict.Breach(Label: row.FullName, Detail: "no benchmark with this exact FullName in the report"),
+                { Statistics: null } => new GateVerdict.Breach(Label: row.FullName, Detail: "benchmark carries no statistics"),
+                { Statistics: { } statistics } => Verdict(row: row, statistics: statistics),
+            });
     }
 
     // Sustained segments each per-key median series with the greedy Potts/BIC step criterion and
@@ -105,25 +109,25 @@ public static class Regression {
         return Try.lift(() => JsonSerializer.Deserialize(json: File.ReadAllText(path: path), jsonTypeInfo: BdnContext.Default.BdnReport)
                 ?? throw new JsonException($"empty BDN report: {path}"))
             .Run()
-            .MapFail(static error => Error.New($"BDN report read failed: {error.Message}"));
+            .MapFail(error => Error.New($"BDN report read failed ({path}): {error.Message}"));
     }
 
     // --- [GATE_VERDICT]
-    private static Option<Error> Verdict(BenchCase row, BdnStatistics statistics) {
+    private static GateVerdict Verdict(BenchCase row, BdnStatistics statistics) {
         double relIqr = statistics.Median > 0.0 ? statistics.InterquartileRange / statistics.Median : double.PositiveInfinity;
         double observedMs = row.GateStat.NanosecondsOf(stats: statistics) / RegressionPolicy.NanosecondsPerMillisecond;
         return (relIqr > row.MaxRelIqr, observedMs > row.BudgetMs) switch {
-            (true, _) => None,
-            (_, true) => Some(Error.New(string.Create(provider: CultureInfo.InvariantCulture,
-                $"{row.Label}: {observedMs:F4}ms exceeds budget {row.BudgetMs:F4}ms (relIqr={relIqr:F3})"))),
-            _ => None,
+            (true, _) => new GateVerdict.TooNoisy(Label: row.FullName, RelIqr: relIqr, MaxRelIqr: row.MaxRelIqr),
+            (_, true) => new GateVerdict.Breach(Label: row.FullName, Detail: string.Create(provider: CultureInfo.InvariantCulture,
+                $"{observedMs:F4}ms exceeds budget {row.BudgetMs:F4}ms (relIqr={relIqr:F3})")),
+            _ => new GateVerdict.Pass(Label: row.FullName, ObservedMs: observedMs, BudgetMs: row.BudgetMs),
         };
     }
 
     // --- [POTTS_SEGMENTATION]
-    // Greedy Potts/BIC partition: the best within-segment split is taken only when its scale-free BIC
-    // gain clears the per-step penalty, recursing into each side; below two points the series is one
-    // segment, matching bench.py's _potts_segments.
+    // Greedy Potts/BIC partition: the best within-segment split is taken only when its scale-free
+    // BIC gain clears the per-step penalty, recursing into each side; below two points the series
+    // is one segment.
     private static Seq<Seq<double>> Segments(Seq<double> series) =>
         series.Count >= 2 ? Split(series, RegressionPolicy.PottsBeta * Math.Log(d: Math.Max(val1: series.Count, val2: 2))) : (series.IsEmpty ? Seq<Seq<double>>() : Seq(series));
 

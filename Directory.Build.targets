@@ -35,8 +35,8 @@
     </Target>
 
     <Target Name="ValidateCentralTestProjectAdmission" BeforeTargets="PrepareForBuild"
-            Condition="$([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsRoot)')) and '$(IsTestKitProject)' != 'true' and '$(IsBenchmarkProject)' != 'true' and '$(IsTestProject)' == 'false'">
-        <Error Text="tests/csharp projects cannot set IsTestProject=false; use IsTestKitProject, IsBenchmarkProject, or AssayHostBound for routing." />
+            Condition="$([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsRoot)')) and '$(IsTestKitProject)' != 'true' and '$(IsScenarioKitProject)' != 'true' and '$(IsBenchmarkProject)' != 'true' and '$(IsTestProject)' == 'false'">
+        <Error Text="tests/csharp projects cannot set IsTestProject=false; use IsTestKitProject, IsScenarioKitProject, IsBenchmarkProject, AssayHostBound, or AssayTestShell for routing." />
     </Target>
 
     <Target Name="GenerateXunitRunnerJson" BeforeTargets="AssignTargetPaths" Condition="'$(IsTestProject)' == 'true'">

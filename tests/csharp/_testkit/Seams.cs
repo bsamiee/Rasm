@@ -7,9 +7,8 @@ using Xunit.Sdk;
 namespace Rasm.TestKit;
 
 // --- [TYPES] --------------------------------------------------------------------------------
-// One call-shape family collapses Python's four msgspec.Struct seam siblings (Sync/Async/FanOut/
-// Factory) into a closed Union: the case is the substitution behavior, the generated Switch is the
-// sole dispatch, and the value rides each case rather than a parallel mode flag.
+// One call-shape family: the case is the substitution behavior, the generated Switch is the sole
+// dispatch, and the canned value rides each case rather than a parallel mode flag.
 [Union]
 public abstract partial record Shape<TValue> {
     private Shape() { }
@@ -29,13 +28,27 @@ public abstract partial record VariantPayload {
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------
-// SeamRecord is one captured invocation: the resolution-site member, its positional arguments, and
-// the named arguments, identical to Python's diagnostic (member, args, kwargs) tuple.
-public readonly record struct SeamRecord(string Member, Seq<object?> Args, FrozenDictionary<string, object?> Kwargs);
+// One typed captured invocation: the resolution-site member and the caller-typed payload; a
+// Factory substitution records its inner label with no payload, so absence is `None`, never null.
+// Equality is reflection-free by design: LanguageExt trait resolution enumerates referenced
+// assemblies, which faults in host-aware test processes whose RhinoCommon closure is unstaged.
+public readonly record struct SeamCall<TArgs>(string Member, Option<TArgs> Payload) {
+    public bool Equals(SeamCall<TArgs> other) =>
+        string.Equals(a: Member, b: other.Member, comparisonType: StringComparison.Ordinal)
+        && (Payload.Case, other.Payload.Case) switch {
+            (null, null) => true,
+            (TArgs left, TArgs right) => EqualityComparer<TArgs>.Default.Equals(x: left, y: right),
+            _ => false,
+        };
 
-// A delegate-substitution restore scope: the same `Capture.Hook` rebind pattern Scope.cs uses, made
-// reusable as a value whose Dispose reinstates the prior delegate exactly once. NSubstitute is the
-// rejected form — it renames the package surface without owning the restore lifetime.
+    public override int GetHashCode() =>
+        HashCode.Combine(
+            value1: StringComparer.Ordinal.GetHashCode(obj: Member),
+            value2: Payload.Case is TArgs value ? EqualityComparer<TArgs>.Default.GetHashCode(obj: value) : 0);
+}
+
+// A delegate-substitution restore scope: Dispose reinstates the prior delegate exactly once, so a
+// stack of installs unwinds last-in-first-out.
 public readonly record struct SeamRestore(Action Restore) : IDisposable {
     public void Dispose() => Restore();
 }
@@ -43,37 +56,32 @@ public readonly record struct SeamRestore(Action Restore) : IDisposable {
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 // SeamProbe is the recording substitution host: an Atom call log threads every invocation, and
 // Install hands back a LIFO restore so nested seam swaps unwind in reverse bind order.
-public sealed class SeamProbe {
-    private readonly Atom<Seq<SeamRecord>> calls = Atom(Seq<SeamRecord>());
+public sealed class SeamProbe<TArgs> {
+    private readonly Atom<Seq<SeamCall<TArgs>>> calls = Atom(Seq<SeamCall<TArgs>>());
 
-    public Seq<SeamRecord> Calls => calls.Value;
+    public Seq<SeamCall<TArgs>> Calls => calls.Value;
 
-    public Seq<object?> Projected(Func<SeamRecord, IEnumerable<object?>> pick) {
-        ArgumentNullException.ThrowIfNull(argument: pick);
-        return calls.Value.Bind(record => toSeq(pick(record)));
-    }
+    public Seq<TArgs> Payloads => calls.Value.Bind(static call => call.Payload.ToSeq());
 
     // Install binds `member` to the canned shape at the production resolution site through `bind`,
     // recording each call before yielding the case payload; the returned scope restores the prior
     // delegate, so a stack of installs unwinds last-in-first-out on disposal.
-    public SeamRestore Install<TResult>(string member, Shape<TResult> shape, Func<Func<Seq<object?>, FrozenDictionary<string, object?>, TResult>, Action> bind) {
+    public SeamRestore Install<TResult>(string member, Shape<TResult> shape, Func<Func<TArgs, TResult>, Action> bind) {
         ArgumentException.ThrowIfNullOrWhiteSpace(argument: member);
         ArgumentNullException.ThrowIfNull(argument: shape);
         ArgumentNullException.ThrowIfNull(argument: bind);
-        TResult Record(Seq<object?> args, FrozenDictionary<string, object?> kwargs, string label, TResult value) {
-            _ = calls.Swap(log => log.Add(new SeamRecord(Member: label, Args: args, Kwargs: kwargs)));
+        TResult Record(string label, Option<TArgs> payload, TResult value) {
+            _ = calls.Swap(log => log.Add(new SeamCall<TArgs>(Member: label, Payload: payload)));
             return value;
         }
-        TResult Canned(Seq<object?> args, FrozenDictionary<string, object?> kwargs) => shape.Switch(
-            state: (args, kwargs, member, Record: (Func<Seq<object?>, FrozenDictionary<string, object?>, string, TResult, TResult>)Record),
-            sync: static (st, s) => st.Record(st.args, st.kwargs, st.member, s.Value),
-            async: static (st, s) => st.Record(st.args, st.kwargs, st.member, s.Value),
-            fanOut: static (st, s) => st.Record(st.args.Add(s.Values), st.kwargs, st.member, s.Values is [var head, ..] ? head : throw new XunitException($"FanOut seam '{st.member}' has no values")),
-            factory: static (st, s) => st.Record(Seq<object?>(), Empty, s.InnerLabel, s.Value));
+        TResult Canned(TArgs args) => shape.Switch(
+            state: (args, member, Record: (Func<string, Option<TArgs>, TResult, TResult>)Record),
+            sync: static (st, s) => st.Record(st.member, Some(value: st.args), s.Value),
+            async: static (st, s) => st.Record(st.member, Some(value: st.args), s.Value),
+            fanOut: static (st, s) => s.Values is [var head, ..] ? st.Record(st.member, Some(value: st.args), head) : throw new XunitException($"FanOut seam '{st.member}' has no values"),
+            factory: static (st, s) => st.Record(s.InnerLabel, Option<TArgs>.None, s.Value));
         return new SeamRestore(Restore: bind(Canned));
     }
-
-    private static readonly FrozenDictionary<string, object?> Empty = FrozenDictionary<string, object?>.Empty;
 }
 
 // --- [FIXTURE_WRITERS]
@@ -120,13 +128,15 @@ public sealed record TmpRoot<TSettings>(DirectoryInfo Root, TSettings Settings) 
         FileInfo file = new(Path.Combine(path1: Root.FullName, path2: relative));
         file.Directory?.Create();
         File.WriteAllText(path: file.FullName, contents: text);
-        _ = mode.Map(value => { File.SetUnixFileMode(path: file.FullName, mode: value); return unit; });
+        if (!OperatingSystem.IsWindows() && mode.Case is UnixFileMode unix) {
+            File.SetUnixFileMode(path: file.FullName, mode: unix);
+        }
         return file;
     }
 }
 
-// TmpRoot.Of is the settings-deriving admission factory, kept off the generic owner so the static
-// projection seam mirrors the parity reference's free constructor rather than a generic-type static.
+// TmpRoot.Of is the settings-deriving admission factory, kept off the generic owner so settings
+// derivation infers from the root without spelling the settings type twice.
 public static class TmpRoot {
     public static TmpRoot<TSettings> Of<TSettings>(DirectoryInfo root, Func<DirectoryInfo, TSettings> makeSettings) {
         ArgumentNullException.ThrowIfNull(argument: root);
@@ -137,7 +147,7 @@ public static class TmpRoot {
 
 // --- [DECODE_ORACLES]
 // NdjsonOracle gates the line count before decoding the first row through the contract's
-// JsonTypeInfo<T>, matching Python's NDJSON oracle that asserts shape before content.
+// JsonTypeInfo<T>: shape is asserted before content.
 public sealed record NdjsonOracle<T>(JsonTypeInfo<T> Decoder, int ExpectLines = 1) {
     public T One(ReadOnlySpan<byte> raw) {
         int lines = CountLines(raw);

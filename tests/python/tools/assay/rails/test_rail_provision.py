@@ -10,8 +10,8 @@ import pytest
 
 from tests.python._testkit.laws import register_law
 from tests.python._testkit.spec import assert_error_status, assert_ok
-from tools.assay.core.model import Claim, Fault, ProvisionRun, receipt
-from tools.assay.core.status import RailStatus
+from tests.python.tools.assay.kit import SeamExecutor
+from tools.assay.core.model import Claim, Fault, ProvisionRun, RailStatus, receipt
 from tools.assay.rails import provision as provision_rail
 from tools.assay.rails.provision import ProvisionParams
 
@@ -111,7 +111,7 @@ def _stdout(command: tuple[str, ...]) -> bytes:
             return b""
 
 
-def _recording_fan(calls: list[tuple[tuple[str, ...], ...]]) -> object:
+def _recording_fan(calls: list[tuple[tuple[str, ...], ...]]) -> Callable[..., tuple[Result[Completed, Fault], ...]]:
     def fan(checks: tuple[Check, ...], **_kw: object) -> tuple[Result[Completed, Fault], ...]:
         commands = tuple(check.tool.command for check in checks)
         calls.append(commands)
@@ -120,7 +120,7 @@ def _recording_fan(calls: list[tuple[tuple[str, ...], ...]]) -> object:
     return fan
 
 
-def _fan_payload(command: tuple[str, ...], stdout: bytes, *, rc: int = 0) -> object:
+def _fan_payload(command: tuple[str, ...], stdout: bytes, *, rc: int = 0) -> Callable[..., tuple[Result[Completed, Fault], ...]]:
     def fan(checks: tuple[Check, ...], **_kw: object) -> tuple[Result[Completed, Fault], ...]:
         assert tuple(check.tool.command for check in checks) == (command,)
         return (Ok(receipt(command, rc, stdout=stdout)),)
@@ -129,9 +129,11 @@ def _fan_payload(command: tuple[str, ...], stdout: bytes, *, rc: int = 0) -> obj
 
 
 def _call(
-    handler: Callable[[AssaySettings, ArtifactScope, ProvisionParams], Result[Report, Fault]], assay_root: AssayHarness
+    handler: Callable[[AssaySettings, ArtifactScope, ProvisionParams, SeamExecutor], Result[Report, Fault]],
+    assay_root: AssayHarness,
+    executor: SeamExecutor,
 ) -> Result[Report, Fault]:
-    return handler(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams())
+    return handler(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams(), executor)
 
 
 # --- [PROVISION_PARAMS]
@@ -165,15 +167,13 @@ _STACK_VERBS = (
 @pytest.mark.parametrize("verb, handler, expected", _STACK_VERBS, ids=[row[0] for row in _STACK_VERBS])
 def test_provision_stack_verb_delegates(
     assay_root: AssayHarness,
-    monkeypatch: pytest.MonkeyPatch,
     verb: str,
-    handler: Callable[[AssaySettings, ArtifactScope, ProvisionParams], Result[Report, Fault]],
+    handler: Callable[[AssaySettings, ArtifactScope, ProvisionParams, SeamExecutor], Result[Report, Fault]],
     expected: tuple[tuple[str, ...], ...],
 ) -> None:
     """Stack verbs delegate to the Forge-owned provisioning command."""
     calls: list[tuple[tuple[str, ...], ...]] = []
-    monkeypatch.setattr(provision_rail, "fan_out", _recording_fan(calls))
-    report = assert_ok(_call(handler, assay_root))
+    report = assert_ok(_call(handler, assay_root, SeamExecutor(fan_fn=_recording_fan(calls))))
     assert (report.claim, report.verb) == (Claim.PROVISION, verb)
     assert calls == [expected]
 
@@ -182,7 +182,7 @@ for _verb, _handler, _expected in _STACK_VERBS:
     register_law(_handler, f"delegates_to_stack_{_verb}")
 
 
-def test_provision_status_projects_json_detail(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_provision_status_projects_json_detail(assay_root: AssayHarness) -> None:
     """Status JSON is admitted into structured provisioning evidence."""
     payload = _json(
         "status",
@@ -231,8 +231,8 @@ def test_provision_status_projects_json_detail(assay_root: AssayHarness, monkeyp
             },
         ],
     )
-    monkeypatch.setattr(provision_rail, "fan_out", _fan_payload(("forge-provision", "--json", "status"), payload))
-    report = assert_ok(provision_rail.status(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams()))
+    executor = SeamExecutor(fan_fn=_fan_payload(("forge-provision", "--json", "status"), payload))
+    report = assert_ok(provision_rail.status(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams(), executor))
     assert isinstance(report.detail, ProvisionRun)
     assert report.detail.facts == (("schemaVersion", "3"), ("ok", "true"), ("state", "present"))
     assert report.detail.schema_version == 3
@@ -277,11 +277,11 @@ def test_provision_status_projects_json_detail(assay_root: AssayHarness, monkeyp
 register_law(provision_rail.status, "projects_json_detail")
 
 
-def test_provision_port_policy_allows_null_seed_fingerprint(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_provision_port_policy_allows_null_seed_fingerprint(assay_root: AssayHarness) -> None:
     """Lifecycle payloads may omit auto-allocation seed evidence."""
     payload = _json("down", portPolicy={"mode": "auto", "source": "current-manifest", "range": "15364-15554", "seedFingerprint": None})
-    monkeypatch.setattr(provision_rail, "fan_out", _fan_payload(("forge-provision", "--json", "down"), payload))
-    report = assert_ok(provision_rail.down(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams()))
+    executor = SeamExecutor(fan_fn=_fan_payload(("forge-provision", "--json", "down"), payload))
+    report = assert_ok(provision_rail.down(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams(), executor))
     assert isinstance(report.detail, ProvisionRun)
     assert report.detail.port_policy == (("mode", "auto"), ("source", "current-manifest"), ("range", "15364-15554"))
 
@@ -289,7 +289,7 @@ def test_provision_port_policy_allows_null_seed_fingerprint(assay_root: AssayHar
 register_law(provision_rail.down, "allows_null_port_seed_fingerprint")
 
 
-def test_provision_extensions_projects_catalog_rows(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_provision_extensions_projects_catalog_rows(assay_root: AssayHarness) -> None:
     """Extension catalog rows stay separate from verification state rows."""
     payload = _json(
         "extensions",
@@ -322,8 +322,8 @@ def test_provision_extensions_projects_catalog_rows(assay_root: AssayHarness, mo
             }
         ],
     )
-    monkeypatch.setattr(provision_rail, "fan_out", _fan_payload(("forge-provision", "--json", "extensions"), payload))
-    report = assert_ok(provision_rail.extensions(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams()))
+    executor = SeamExecutor(fan_fn=_fan_payload(("forge-provision", "--json", "extensions"), payload))
+    report = assert_ok(provision_rail.extensions(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams(), executor))
     assert isinstance(report.detail, ProvisionRun)
     assert report.detail.extensions == ()
     assert report.detail.extension_catalog == (
@@ -351,7 +351,7 @@ def test_provision_extensions_projects_catalog_rows(assay_root: AssayHarness, mo
 register_law(provision_rail.extensions, "projects_catalog_rows")
 
 
-def test_provision_extensions_admits_runtime_probed_null_fields(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_provision_extensions_admits_runtime_probed_null_fields(assay_root: AssayHarness) -> None:
     """Runtime-probed catalog rows carry null availability/admission/loadName/probeFunction/imageTag; the decode admits them as empty wire cells."""
     payload = _json(
         "extensions",
@@ -376,8 +376,8 @@ def test_provision_extensions_admits_runtime_probed_null_fields(assay_root: Assa
             }
         ],
     )
-    monkeypatch.setattr(provision_rail, "fan_out", _fan_payload(("forge-provision", "--json", "extensions"), payload))
-    report = assert_ok(provision_rail.extensions(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams()))
+    executor = SeamExecutor(fan_fn=_fan_payload(("forge-provision", "--json", "extensions"), payload))
+    report = assert_ok(provision_rail.extensions(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams(), executor))
     assert isinstance(report.detail, ProvisionRun)
     probed_row = ("*", "hll", "postgresql-contrib-or-image-probed", "runtime-probed", "runtime-probed", "create-extension", "optional")
     assert report.detail.extension_metadata == ((*probed_row, "", "", "", "", "probe-only"),)
@@ -387,7 +387,7 @@ def test_provision_extensions_admits_runtime_probed_null_fields(assay_root: Assa
 register_law(provision_rail.extensions, "admits_runtime_probed_null_fields")
 
 
-def test_provision_extensions_preserves_tool_surface_rows(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_provision_extensions_preserves_tool_surface_rows(assay_root: AssayHarness) -> None:
     """DuckDB and SQLite catalog metadata survives projection into ProvisionRun."""
     payload = _json(
         "extensions",
@@ -424,8 +424,8 @@ def test_provision_extensions_preserves_tool_surface_rows(assay_root: AssayHarne
             },
         ],
     )
-    monkeypatch.setattr(provision_rail, "fan_out", _fan_payload(("forge-provision", "--json", "extensions"), payload))
-    report = assert_ok(provision_rail.extensions(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams()))
+    executor = SeamExecutor(fan_fn=_fan_payload(("forge-provision", "--json", "extensions"), payload))
+    report = assert_ok(provision_rail.extensions(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams(), executor))
     assert isinstance(report.detail, ProvisionRun)
     assert report.detail.tool_surface_extensions == (
         (
@@ -464,7 +464,7 @@ def test_provision_extensions_preserves_tool_surface_rows(assay_root: AssayHarne
 register_law(provision_rail.extensions, "preserves_tool_surface_rows")
 
 
-def test_provision_doctor_projects_sanitized_runtime(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_provision_doctor_projects_sanitized_runtime(assay_root: AssayHarness) -> None:
     """Doctor JSON projects runtime facts without paths, sockets, or helper names."""
     payload = _json(
         "doctor",
@@ -490,8 +490,8 @@ def test_provision_doctor_projects_sanitized_runtime(assay_root: AssayHarness, m
         lock={"present": True, "active": False, "state": "ownerless", "pidAlive": False, "heartbeatStale": False},
         colima={"available": True, "status": {"running": True, "runtime": "docker", "arch": "aarch64"}},
     )
-    monkeypatch.setattr(provision_rail, "fan_out", _fan_payload(("forge-provision", "--json", "doctor"), payload))
-    report = assert_ok(provision_rail.doctor(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams()))
+    executor = SeamExecutor(fan_fn=_fan_payload(("forge-provision", "--json", "doctor"), payload))
+    report = assert_ok(provision_rail.doctor(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams(), executor))
     assert isinstance(report.detail, ProvisionRun)
     assert dict(report.detail.doctor) == {
         "dockerPolicyStatus": "ok",
@@ -526,54 +526,64 @@ def test_provision_doctor_projects_sanitized_runtime(assay_root: AssayHarness, m
 register_law(provision_rail.doctor, "projects_sanitized_runtime")
 
 
-def test_provision_json_verbs_fault_on_malformed_success_json(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_provision_json_verbs_fault_on_malformed_success_json(assay_root: AssayHarness) -> None:
     """Successful JSON-backed commands must emit valid Forge JSON."""
-    monkeypatch.setattr(provision_rail, "fan_out", _fan_payload(("forge-provision", "--json", "status"), b"{not-json"))
-    fault = assert_error_status(provision_rail.status(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams()), RailStatus.FAULTED)
+    executor = SeamExecutor(fan_fn=_fan_payload(("forge-provision", "--json", "status"), b"{not-json"))
+    fault = assert_error_status(
+        provision_rail.status(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams(), executor), RailStatus.FAULTED
+    )
     assert "invalid forge-provision JSON" in fault.message
 
 
 register_law(provision_rail.status, "faults_on_malformed_success_json")
 
 
-def test_provision_json_verbs_fault_on_log_framed_stdout(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_provision_json_verbs_fault_on_log_framed_stdout(assay_root: AssayHarness) -> None:
     """Forge JSON mode is one stdout object, not log lines plus a final object."""
     payload = b"log line\n" + _json("status")
-    monkeypatch.setattr(provision_rail, "fan_out", _fan_payload(("forge-provision", "--json", "status"), payload))
-    fault = assert_error_status(provision_rail.status(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams()), RailStatus.FAULTED)
+    executor = SeamExecutor(fan_fn=_fan_payload(("forge-provision", "--json", "status"), payload))
+    fault = assert_error_status(
+        provision_rail.status(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams(), executor), RailStatus.FAULTED
+    )
     assert "expected exactly one forge-provision JSON object" in fault.message
 
 
 register_law(provision_rail.status, "faults_on_log_framed_stdout")
 
 
-def test_provision_rejects_schema_v1_payload(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_provision_rejects_schema_v1_payload(assay_root: AssayHarness) -> None:
     """Schema v1 Forge payloads are outside the schema-v3 contract."""
     payload = msgspec.json.encode({"schemaVersion": 1, "command": "status", "ok": True})
-    monkeypatch.setattr(provision_rail, "fan_out", _fan_payload(("forge-provision", "--json", "status"), payload))
-    fault = assert_error_status(provision_rail.status(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams()), RailStatus.FAULTED)
+    executor = SeamExecutor(fan_fn=_fan_payload(("forge-provision", "--json", "status"), payload))
+    fault = assert_error_status(
+        provision_rail.status(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams(), executor), RailStatus.FAULTED
+    )
     assert "unsupported forge-provision schema" in fault.message
 
 
 register_law(provision_rail.status, "rejects_schema_v1_payload")
 
 
-def test_provision_rejects_schema_v2_payload(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_provision_rejects_schema_v2_payload(assay_root: AssayHarness) -> None:
     """Schema v2 Forge payloads are intentionally retired."""
     payload = msgspec.json.encode({"schemaVersion": 2, "command": "status", "ok": True})
-    monkeypatch.setattr(provision_rail, "fan_out", _fan_payload(("forge-provision", "--json", "status"), payload))
-    fault = assert_error_status(provision_rail.status(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams()), RailStatus.FAULTED)
+    executor = SeamExecutor(fan_fn=_fan_payload(("forge-provision", "--json", "status"), payload))
+    fault = assert_error_status(
+        provision_rail.status(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams(), executor), RailStatus.FAULTED
+    )
     assert "unsupported forge-provision schema" in fault.message
 
 
 register_law(provision_rail.status, "rejects_schema_v2_payload")
 
 
-def test_provision_rejects_stale_schema_v3_package_shape(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_provision_rejects_stale_schema_v3_package_shape(assay_root: AssayHarness) -> None:
     """Older schema-v3 Forge payloads get a redeploy-focused adapter fault."""
     payload = msgspec.json.encode({"schemaVersion": 3, "command": "status", "ok": True, "warnings": []})
-    monkeypatch.setattr(provision_rail, "fan_out", _fan_payload(("forge-provision", "--json", "status"), payload))
-    fault = assert_error_status(provision_rail.status(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams()), RailStatus.FAULTED)
+    executor = SeamExecutor(fan_fn=_fan_payload(("forge-provision", "--json", "status"), payload))
+    fault = assert_error_status(
+        provision_rail.status(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams(), executor), RailStatus.FAULTED
+    )
     assert "installed forge-provision is older than the Rasm provision adapter" in fault.message
     assert "uv run python -m tools.assay provision status" in fault.message
 
@@ -581,35 +591,39 @@ def test_provision_rejects_stale_schema_v3_package_shape(assay_root: AssayHarnes
 register_law(provision_rail.status, "rejects_stale_schema_v3_package_shape")
 
 
-def test_provision_rejects_ok_false_without_structured_error(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_provision_rejects_ok_false_without_structured_error(assay_root: AssayHarness) -> None:
     """Schema v3 ok:false payloads must carry structured error data."""
     payload = msgspec.json.encode({"schemaVersion": 3, "command": "status", "ok": False})
-    monkeypatch.setattr(provision_rail, "fan_out", _fan_payload(("forge-provision", "--json", "status"), payload, rc=1))
-    fault = assert_error_status(provision_rail.status(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams()), RailStatus.FAULTED)
+    executor = SeamExecutor(fan_fn=_fan_payload(("forge-provision", "--json", "status"), payload, rc=1))
+    fault = assert_error_status(
+        provision_rail.status(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams(), executor), RailStatus.FAULTED
+    )
     assert "ok:false requires error.code" in fault.message
 
 
 register_law(provision_rail.status, "rejects_ok_false_without_structured_error")
 
 
-def test_provision_rejects_schema_v3_payload_without_project(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_provision_rejects_schema_v3_payload_without_project(assay_root: AssayHarness) -> None:
     """Forge schema-v3 payloads must preserve project identity at the Assay boundary."""
     payload = msgspec.json.decode(_json("status"))
     assert isinstance(payload, dict)
     payload.pop("project")
-    monkeypatch.setattr(provision_rail, "fan_out", _fan_payload(("forge-provision", "--json", "status"), msgspec.json.encode(payload)))
-    fault = assert_error_status(provision_rail.status(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams()), RailStatus.FAULTED)
+    executor = SeamExecutor(fan_fn=_fan_payload(("forge-provision", "--json", "status"), msgspec.json.encode(payload)))
+    fault = assert_error_status(
+        provision_rail.status(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams(), executor), RailStatus.FAULTED
+    )
     assert "missing project object" in fault.message
 
 
 register_law(provision_rail.status, "rejects_schema_v3_payload_without_project")
 
 
-def test_provision_ok_false_projects_project_identity(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_provision_ok_false_projects_project_identity(assay_root: AssayHarness) -> None:
     """Structured Forge failures still project the owning root/project/instance tuple."""
     payload = _json("status", ok=False, error={"code": "port-conflict", "message": "fixed port is busy", "exitCode": 1})
-    monkeypatch.setattr(provision_rail, "fan_out", _fan_payload(("forge-provision", "--json", "status"), payload, rc=1))
-    report = assert_ok(provision_rail.status(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams()))
+    executor = SeamExecutor(fan_fn=_fan_payload(("forge-provision", "--json", "status"), payload, rc=1))
+    report = assert_ok(provision_rail.status(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams(), executor))
     assert isinstance(report.detail, ProvisionRun)
     assert report.detail.provision_scope[:4] == (
         ("rootKey", "abc123"),
@@ -622,23 +636,27 @@ def test_provision_ok_false_projects_project_identity(assay_root: AssayHarness, 
 register_law(provision_rail.status, "ok_false_projects_project_identity")
 
 
-def test_provision_rejects_sensitive_payload_keys(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_provision_rejects_sensitive_payload_keys(assay_root: AssayHarness) -> None:
     """Assay refuses Forge JSON that contains secret-shaped keys even when the command otherwise succeeds."""
     sensitive = {"token": "redacted"}
     payload = _json("status", services={"timescale": {"enabled": True}}, **sensitive)
-    monkeypatch.setattr(provision_rail, "fan_out", _fan_payload(("forge-provision", "--json", "status"), payload))
-    fault = assert_error_status(provision_rail.status(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams()), RailStatus.FAULTED)
+    executor = SeamExecutor(fan_fn=_fan_payload(("forge-provision", "--json", "status"), payload))
+    fault = assert_error_status(
+        provision_rail.status(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams(), executor), RailStatus.FAULTED
+    )
     assert "sensitive key" in fault.message
 
 
 register_law(provision_rail.status, "rejects_sensitive_payload_keys")
 
 
-def test_provision_rejects_sensitive_payload_values(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_provision_rejects_sensitive_payload_values(assay_root: AssayHarness) -> None:
     """Assay refuses Forge JSON that contains credential-shaped values under otherwise-safe keys."""
     payload = _json("status", error={"code": "x", "message": "postgres://postgres:pw@127.0.0.1/forge", "exitCode": 1}, ok=False)
-    monkeypatch.setattr(provision_rail, "fan_out", _fan_payload(("forge-provision", "--json", "status"), payload))
-    fault = assert_error_status(provision_rail.status(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams()), RailStatus.FAULTED)
+    executor = SeamExecutor(fan_fn=_fan_payload(("forge-provision", "--json", "status"), payload))
+    fault = assert_error_status(
+        provision_rail.status(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams(), executor), RailStatus.FAULTED
+    )
     assert "sensitive value" in fault.message
 
 
@@ -657,18 +675,20 @@ register_law(provision_rail.status, "rejects_sensitive_payload_values")
     ],
     ids=("users", "tmp", "run-secrets", "etc", "var-run", "unix"),
 )
-def test_provision_rejects_local_path_payload_values(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch, value: str) -> None:
+def test_provision_rejects_local_path_payload_values(assay_root: AssayHarness, value: str) -> None:
     """Assay refuses safe-key Forge values that carry absolute local paths."""
     payload = _json("doctor", docker={"executableKind": value})
-    monkeypatch.setattr(provision_rail, "fan_out", _fan_payload(("forge-provision", "--json", "doctor"), payload))
-    fault = assert_error_status(provision_rail.doctor(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams()), RailStatus.FAULTED)
+    executor = SeamExecutor(fan_fn=_fan_payload(("forge-provision", "--json", "doctor"), payload))
+    fault = assert_error_status(
+        provision_rail.doctor(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams(), executor), RailStatus.FAULTED
+    )
     assert "sensitive value" in fault.message
 
 
 register_law(provision_rail.doctor, "rejects_local_path_payload_values")
 
 
-def test_provision_allows_redacted_dsn_values(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_provision_allows_redacted_dsn_values(assay_root: AssayHarness) -> None:
     """Redacted local DSNs remain safe connection evidence."""
     payload = _json(
         "env",
@@ -686,8 +706,8 @@ def test_provision_allows_redacted_dsn_values(assay_root: AssayHarness, monkeypa
             }
         },
     )
-    monkeypatch.setattr(provision_rail, "fan_out", _fan_payload(("forge-provision", "--json", "env"), payload))
-    report = assert_ok(provision_rail.env(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams()))
+    executor = SeamExecutor(fan_fn=_fan_payload(("forge-provision", "--json", "env"), payload))
+    report = assert_ok(provision_rail.env(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams(), executor))
     assert isinstance(report.detail, ProvisionRun)
     assert report.detail.service_connections[0][6] == "postgres://postgres:***@127.0.0.1:15432/forge"
 
@@ -704,23 +724,23 @@ register_law(provision_rail.env, "allows_redacted_dsn_values")
     ],
     ids=("missing", "empty", "wrong"),
 )
-def test_provision_rejects_command_mismatch(
-    assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch, payload: dict[str, object], message: str
-) -> None:
+def test_provision_rejects_command_mismatch(assay_root: AssayHarness, payload: dict[str, object], message: str) -> None:
     """JSON-backed provision verbs require the Forge command field to match the requested verb."""
-    monkeypatch.setattr(provision_rail, "fan_out", _fan_payload(("forge-provision", "--json", "status"), msgspec.json.encode(payload)))
-    fault = assert_error_status(provision_rail.status(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams()), RailStatus.FAULTED)
+    executor = SeamExecutor(fan_fn=_fan_payload(("forge-provision", "--json", "status"), msgspec.json.encode(payload)))
+    fault = assert_error_status(
+        provision_rail.status(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams(), executor), RailStatus.FAULTED
+    )
     assert message in fault.message
 
 
 register_law(provision_rail.status, "rejects_command_mismatch")
 
 
-def test_provision_ok_false_projects_failed_run(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_provision_ok_false_projects_failed_run(assay_root: AssayHarness) -> None:
     """Forge ok:false JSON is a completed provisioning result, not an adapter parse fault."""
     payload = _json("status", ok=False, error={"code": "port-conflict", "message": "fixed port is busy", "exitCode": 1})
-    monkeypatch.setattr(provision_rail, "fan_out", _fan_payload(("forge-provision", "--json", "status"), payload, rc=1))
-    report = assert_ok(provision_rail.status(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams()))
+    executor = SeamExecutor(fan_fn=_fan_payload(("forge-provision", "--json", "status"), payload, rc=1))
+    report = assert_ok(provision_rail.status(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams(), executor))
     assert report.status is RailStatus.FAILED
     assert isinstance(report.detail, ProvisionRun)
     assert report.detail.ok is False
@@ -731,11 +751,11 @@ def test_provision_ok_false_projects_failed_run(assay_root: AssayHarness, monkey
 register_law(provision_rail.status, "ok_false_projects_failed_run")
 
 
-def test_provision_ok_false_exit_zero_projects_failed_run(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_provision_ok_false_exit_zero_projects_failed_run(assay_root: AssayHarness) -> None:
     """Forge ok:false controls report failure even when the process exits zero."""
     payload = _json("status", ok=False, error={"code": "port-conflict", "message": "fixed port is busy", "exitCode": 0})
-    monkeypatch.setattr(provision_rail, "fan_out", _fan_payload(("forge-provision", "--json", "status"), payload, rc=0))
-    report = assert_ok(provision_rail.status(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams()))
+    executor = SeamExecutor(fan_fn=_fan_payload(("forge-provision", "--json", "status"), payload, rc=0))
+    report = assert_ok(provision_rail.status(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams(), executor))
     assert report.status is RailStatus.FAILED
     assert report.counts.failed == 1
     assert isinstance(report.detail, ProvisionRun)
@@ -745,11 +765,11 @@ def test_provision_ok_false_exit_zero_projects_failed_run(assay_root: AssayHarne
 register_law(provision_rail.status, "ok_false_exit_zero_projects_failed_run")
 
 
-def test_provision_plan_projects_safe_plan_summary(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_provision_plan_projects_safe_plan_summary(assay_root: AssayHarness) -> None:
     """Plan keeps bounded scalar metadata and never projects raw Compose YAML."""
     payload = _json("plan", artifacts={"generated": (), "plan": {"composeYaml": "redacted", "authMode": "auto-root", "serviceCount": 2}})
-    monkeypatch.setattr(provision_rail, "fan_out", _fan_payload(("forge-provision", "--json", "plan"), payload))
-    report = assert_ok(provision_rail.plan(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams()))
+    executor = SeamExecutor(fan_fn=_fan_payload(("forge-provision", "--json", "plan"), payload))
+    report = assert_ok(provision_rail.plan(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams(), executor))
     assert isinstance(report.detail, ProvisionRun)
     assert report.detail.plan_summary == (("authMode", "auto-root"), ("serviceCount", "2"))
     assert "composeYaml" not in dict(report.detail.plan_summary)
@@ -758,11 +778,11 @@ def test_provision_plan_projects_safe_plan_summary(assay_root: AssayHarness, mon
 register_law(provision_rail.plan, "projects_safe_plan_summary")
 
 
-def test_provision_check_folds_stack_and_local_probes(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_provision_check_folds_stack_and_local_probes(assay_root: AssayHarness) -> None:
     """The check verb runs stack evidence plus local runtime probes."""
     calls: list[tuple[tuple[str, ...], ...]] = []
-    monkeypatch.setattr(provision_rail, "fan_out", _recording_fan(calls))
-    report = assert_ok(provision_rail.check(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams()))
+    executor = SeamExecutor(fan_fn=_recording_fan(calls))
+    report = assert_ok(provision_rail.check(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams(), executor))
     commands = calls[0]
     assert report.claim is Claim.PROVISION
     assert report.verb == "check"
@@ -780,7 +800,7 @@ def test_provision_check_folds_stack_and_local_probes(assay_root: AssayHarness, 
 register_law(provision_rail.check, "folds_stack_and_local_probes")
 
 
-def test_provision_check_keeps_tools_success_when_stack_check_fails(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_provision_check_keeps_tools_success_when_stack_check_fails(assay_root: AssayHarness) -> None:
     """The merged check detail may fail while the independent tools subprocess remains successful."""
 
     def fan(checks: tuple[Check, ...], **_kw: object) -> tuple[Result[Completed, Fault], ...]:
@@ -819,8 +839,8 @@ def test_provision_check_keeps_tools_success_when_stack_check_fails(assay_root: 
                 outcomes.append(Ok(receipt(command, 0, status=RailStatus.OK, stdout=_stdout(command))))
         return tuple(outcomes)
 
-    monkeypatch.setattr(provision_rail, "fan_out", fan)
-    report = assert_ok(provision_rail.check(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams()))
+    executor = SeamExecutor(fan_fn=fan)
+    report = assert_ok(provision_rail.check(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams(), executor))
     assert report.status is RailStatus.FAILED
     assert isinstance(report.detail, ProvisionRun)
     assert report.detail.ok is False
@@ -834,7 +854,7 @@ def test_provision_check_keeps_tools_success_when_stack_check_fails(assay_root: 
 register_law(provision_rail.check, "keeps_tools_success_when_stack_check_fails")
 
 
-def test_provision_check_scrubs_failed_local_probe_streams(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_provision_check_scrubs_failed_local_probe_streams(assay_root: AssayHarness) -> None:
     """Failed local probes keep a bounded failure row without durable raw stdout/stderr."""
 
     def fan(checks: tuple[Check, ...], **_kw: object) -> tuple[Result[Completed, Fault], ...]:
@@ -851,8 +871,8 @@ def test_provision_check_scrubs_failed_local_probe_streams(assay_root: AssayHarn
                 outcomes.append(Ok(receipt(command, 0, status=RailStatus.OK, stdout=_stdout(command))))
         return tuple(outcomes)
 
-    monkeypatch.setattr(provision_rail, "fan_out", fan)
-    report = assert_ok(provision_rail.check(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams()))
+    executor = SeamExecutor(fan_fn=fan)
+    report = assert_ok(provision_rail.check(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams(), executor))
     encoded = msgspec.json.encode(report)
     assert report.status is RailStatus.FAILED
     assert b"POSTGRES_PASSWORD" not in encoded
@@ -863,7 +883,7 @@ def test_provision_check_scrubs_failed_local_probe_streams(assay_root: AssayHarn
 register_law(provision_rail.check, "scrubs_failed_local_probe_streams")
 
 
-def test_provision_check_rejects_sensitive_success_local_probe_values(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_provision_check_rejects_sensitive_success_local_probe_values(assay_root: AssayHarness) -> None:
     """Successful local probe output must not bypass Forge payload sanitizers."""
 
     def fan(checks: tuple[Check, ...], **_kw: object) -> tuple[Result[Completed, Fault], ...]:
@@ -878,19 +898,23 @@ def test_provision_check_rejects_sensitive_success_local_probe_values(assay_root
                 outcomes.append(Ok(receipt(command, 0, status=RailStatus.OK, stdout=_stdout(command))))
         return tuple(outcomes)
 
-    monkeypatch.setattr(provision_rail, "fan_out", fan)
-    fault = assert_error_status(provision_rail.check(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams()), RailStatus.FAULTED)
+    executor = SeamExecutor(fan_fn=fan)
+    fault = assert_error_status(
+        provision_rail.check(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams(), executor), RailStatus.FAULTED
+    )
     assert "sensitive local probe value" in fault.message
 
 
 register_law(provision_rail.check, "rejects_sensitive_success_local_probe_values")
 
 
-def test_provision_doctor_rejects_diagnostic_json_paths(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_provision_doctor_rejects_diagnostic_json_paths(assay_root: AssayHarness) -> None:
     """Forge diagnostic JSON is not admitted into the Assay-safe provision channel."""
     payload = _json("doctor", diagnostic={"resolvedEndpoint": "unix:///Users/example/.colima/default/docker.sock"})
-    monkeypatch.setattr(provision_rail, "fan_out", _fan_payload(("forge-provision", "--json", "doctor"), payload, rc=0))
-    fault = assert_error_status(provision_rail.doctor(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams()), RailStatus.FAULTED)
+    executor = SeamExecutor(fan_fn=_fan_payload(("forge-provision", "--json", "doctor"), payload, rc=0))
+    fault = assert_error_status(
+        provision_rail.doctor(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams(), executor), RailStatus.FAULTED
+    )
     assert "sensitive value" in fault.message
 
 

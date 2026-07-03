@@ -1,1 +1,68 @@
 # [@deck.gl/mapbox] — maplibre interleave binding for deck.gl layers; scope:viewer project-local
+
+`@deck.gl/mapbox` binds a `@deck.gl/core` `Deck` to a maplibre-gl (or mapbox-gl) `Map` as a single `MapboxOverlay` implementing the map's `IControl` interface: `map.addControl(new MapboxOverlay({interleaved, layers}))` mounts deck's layers over the basemap and synchronizes deck's `viewState` from the map's `Camera` on every `move` — the `ui/viewer/geo/project` camera-sync seam collapsed into the map's own control lifecycle. `interleaved: true` shares the map's WebGL2 context and depth buffer, inserting deck layers into the maplibre layer stack (slottable by `beforeId`, so 3D deck geometry sorts against basemap fills and labels); `interleaved: false` (default, overlaid) draws deck in its own canvas above the map. Critically, `MapboxOverlayProps` re-uses `DeckProps` minus the camera-owning props — the map, not `Deck`, owns `viewState`/`controller`/`width`/`height`/`canvas`/`gl` — so the atom state fold feeds `layers`/`effects` while the map owns pan/zoom/pitch. The package ships its own minimal `Map`/`IControl`/`CustomLayerInterface` types so it never hard-depends on maplibre-gl's typings, meeting the `maplibre-gl` sibling at a structural contract. This is the whole package: one class, one props type. `scope:viewer` project-local.
+
+## [01]-[PACKAGE_SURFACE]
+
+[PACKAGE_SURFACE]: `@deck.gl/mapbox`
+- package: `@deck.gl/mapbox`
+- version: `9.3.5`
+- license: `MIT`
+- abi: browser WebGL2; `interleaved:true` requires the map's `Map#getCanvas` context to be WebGL2 and shares it with the `Deck`
+- peer (`~9.3.0`): `@deck.gl/core` (`Deck`, `DeckProps`, picking), `@luma.gl/core` (shared WebGL2 `Device` under `interleaved`), `@math.gl/web-mercator` (dep; camera-state → deck `viewState` conversion); `maplibre-gl ^5.x` is NOT a dep or peer — the `Map` is structural (deck ships its own `Map`/`IControl` types), passed in by the app; see `.api/maplibre-gl.md`
+- catalog-verdict: KEEP — the sole deck↔maplibre binding; the alternative (manual `WebMercatorViewport` sync of a free `Deck`) is only for map-less surfaces
+- runtime: `scope:viewer` project-local; the overlay is a map `IControl`, bracketed by `addControl`/`removeControl`
+- modules: `MapboxOverlay`, `MapboxOverlayProps`
+
+## [02]-[OVERLAY_BINDING]
+
+[TYPE_SCOPE]: `MapboxOverlay` — the one `IControl` that owns a `Deck`; the map drives the camera, the overlay forwards props and picking.
+- `MapboxOverlay` is constructed with `MapboxOverlayProps` and added to the map as a control; `onAdd` acquires (over-lays a canvas, or in interleaved mode registers a `CustomLayerInterface` per layer), the map's `move` events sync deck's camera, and `onRemove`/`finalize` releases. `setProps` patches the underlying `Deck` (partial, diffed). Picking is forwarded to `Deck`.
+
+| [INDEX] | [SYMBOL] | [SIGNATURE] | [CONSUMER / BOUNDARY] |
+| :-----: | :------- | :---------- | :-------------------- |
+| [01] | `MapboxOverlay` | `new MapboxOverlay(props: MapboxOverlayProps)` implements `IControl` | the deck↔maplibre control; `map.addControl(overlay)` mounts it |
+| [02] | `MapboxOverlay.setProps` | `(props: MapboxOverlayProps) => void` | the imperative sink; atom-derived `layers`/`effects` land here |
+| [03] | `MapboxOverlay.onAdd` / `onRemove` | `(map) => HTMLDivElement` / `() => void` | `IControl` lifecycle; acquire/release the `Deck` + canvas |
+| [04] | `MapboxOverlay.finalize` | `() => void` | full release (removes from map, frees GPU) — the `Scope` release |
+| [05] | `MapboxOverlay.getCanvas` | `() => HTMLCanvasElement \| null` | interleaved → map canvas; overlaid → deck canvas |
+| [06] | `MapboxOverlay.pickObject` / `pickMultipleObjects` / `pickObjects` | forwarded `Deck` picking, same signatures | pick over the composed scene → `mark/selection` `GlobalId` |
+| [07] | `MapboxOverlay.getDefaultPosition` | `() => ControlPosition` | control placement (`'top-left'`…) for overlaid mode |
+| [08] | `MapboxOverlayProps` | `Omit<DeckProps, 'viewState'\|'initialViewState'\|'controller'\|'width'\|'height'\|'canvas'\|'gl'\|'parent'\|'_customRender'> & {interleaved?: boolean}` | the map owns the camera; deck owns `layers`/`effects`/callbacks |
+
+[TYPE_SCOPE]: the shipped structural map contract — deck's own minimal maplibre/mapbox-compatible types, so no hard typings dependency.
+- these are internal-facing types (not re-exported from the index) that define the structural `Map` the overlay drives; they document the members the `maplibre-gl` `Map` must satisfy and the interleaved custom-layer contract.
+
+| [INDEX] | [SYMBOL] | [SHAPE] | [ROLE] |
+| :-----: | :------- | :------ | :----- |
+| [01] | `IControl` | `{onAdd(map):HTMLElement, onRemove(map), getDefaultPosition?}` | the control interface `MapboxOverlay` satisfies; maplibre `addControl` accepts it |
+| [02] | `Map` (structural) | `addControl`/`removeControl`/`hasControl`, required camera getters `getCenter`/`getZoom`/`getBearing`/`getPitch`/`getPadding`, optional `getProjection?`/`getTerrain?`/`getFreeCameraOptions?` (`getFreeCameraOptions` mapbox-only), `addLayer`/`removeLayer`/`moveLayer`, `getCanvas`/`getContainer`, `triggerRepaint`, `on`/`off`/`once` | the camera-source the overlay reads each `move` to sync deck `viewState`; the maplibre `Map` (`.api/maplibre-gl.md`) satisfies it structurally — the mapbox-only optional is absent, so deck falls back to `transform.elevation` for altitude |
+| [03] | `CustomLayerInterface` | `{id, type:'custom', renderingMode?, render(gl,matrix), onAdd?, onRemove?, prerender?}` | the interleaved contract — one per deck layer inserted into the map stack |
+| [04] | `LayerOverlayProps` | `{slot?: 'bottom'\|'middle'\|'top', beforeId?: string}` | interleaved z-slotting of a deck layer against basemap layers |
+| [05] | `ControlPosition` | `'top-left'\|'top-right'\|'bottom-left'\|'bottom-right'` | overlaid control corner |
+
+## [03]-[IMPLEMENTATION_LAW]
+
+[BINDING_TOPOLOGY]:
+- one overlay, one deck, one map: `MapboxOverlay` owns exactly one `Deck`; it is added to exactly one `Map` via `addControl`. A second overlay on the same map, or a free `Deck` beside an overlay on one canvas, is the named defect.
+- the map owns the camera: `MapboxOverlayProps` structurally forbids `viewState`/`initialViewState`/`controller`/`width`/`height`/`canvas`/`gl` — the map's pan/zoom/pitch is the single camera authority, mirrored into deck automatically on each `move`. Never sync the camera by hand under `MapboxOverlay`; that is the free-`Deck` path only.
+- interleave is a mode, not a fork: `interleaved:true` shares the map's WebGL2 context + depth buffer and registers a `CustomLayerInterface` per deck layer (z-sorted with `beforeId`/`slot` per `LayerOverlayProps`, so 3D deck geometry occludes correctly against basemap layers); `interleaved:false` overlays a separate canvas. One class, one `interleaved` boolean — not two overlay types.
+- props diff through `setProps`: like `Deck`, the overlay is patched, never rebuilt; `setProps({layers})` is the sink for the atom-derived layer tree.
+
+[INTEGRATION_LAW]:
+- Stack with `maplibre-gl` (`.api/maplibre-gl.md`): the maplibre `Map` satisfies the structural `Map`/`IControl` contract, so `map.addControl(new MapboxOverlay({interleaved:true, layers}))` is the mount; deck reads the required getters `getCenter`/`getZoom`/`getBearing`/`getPitch`/`getPadding` (+ `getProjection?` for globe) each `move` to sync `viewState`. `getFreeCameraOptions?` is mapbox-only and guarded — maplibre lacks it, so deck derives camera altitude from the map's internal `transform.elevation`. Screen↔lngLat for overlay marks uses the maplibre `Map.project`/`unproject` (or deck's `WebMercatorViewport`) — the `viewer/geo/project` seam is mostly satisfied here.
+- Stack with `@deck.gl/core` as a `Scope` resource: the `viewer` acquires the overlay in an Effect `acquireRelease` — `onAdd` (via `addControl`) acquires, `finalize` (or `removeControl`) releases — and holds it in a React 19 ref; an atom-derived `layers`/`effects` fold calls `setProps` on change. The map instance itself is a sibling ref the overlay is added to.
+- Stack with `@deck.gl/layers` + `@deck.gl/geo-layers`: the `layers` prop is any deck layer; a `TileLayer`/`MVTLayer` basemap-overlay or a `GeoJsonLayer`/cell-family thematic layer composes over the maplibre basemap with automatic camera sync. Interleaved mode is required when deck 3D geometry must occlude/sort against basemap 3D (buildings, terrain).
+- Stack with picking→selection: `MapboxOverlay.pickObjects` (marquee) / a deck-layer `onClick`→`PickingInfo.object` is the boundary where a feature over the composed map becomes a `mark/selection` `GlobalId`; the overlay forwards to the underlying `Deck` unchanged.
+
+[LOCAL_ADMISSION]:
+- imported only inside `ui/viewer` (`scope:viewer`); the overlay is a map control, acquired/released with the map.
+- use `MapboxOverlay` for every map-backed surface; reach for a free-standing `Deck` + manual `WebMercatorViewport` camera sync only when there is no basemap (pure-deck orthographic/first-person scenes).
+- do not import maplibre-gl's TypeScript types to type the overlay — deck's structural `Map`/`IControl` is the contract; the maplibre `Map` satisfies it by shape.
+- `MapboxOverlayProps` deliberately omits camera props; passing `viewState`/`controller` is a type error, not a runtime override — the map owns them.
+
+[RAIL_LAW]:
+- Package: `@deck.gl/mapbox`
+- Owns: the single `MapboxOverlay` `IControl` binding a `Deck` to a maplibre/mapbox `Map`, with automatic camera sync, `interleaved` context-sharing + z-slotting, forwarded picking, and the shipped structural `Map`/`IControl`/`CustomLayerInterface`/`LayerOverlayProps` contract
+- Accept: one overlay per map added via `addControl`, the map as the sole camera authority, `interleaved` as a boolean mode, `setProps` as the atom-derived `layers` sink, forwarded `pickObjects`→`GlobalId`, the structural map contract in place of maplibre typings
+- Reject: manual camera sync under the overlay, passing camera props in `MapboxOverlayProps`, a second overlay or free `Deck` on one map canvas, two overlay classes where one `interleaved` flag suffices, importing maplibre-gl types to satisfy the overlay's `Map` parameter, rebuilding the overlay instead of `setProps`

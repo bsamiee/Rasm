@@ -38,8 +38,8 @@ from tools.assay.core.aspect import (
     Slot,
     traced,
 )
-from tools.assay.core.model import Claim, Fault, fold, Report  # noqa: TC001  # Hom rail annotation
-from tools.assay.core.status import RailStatus
+from tools.assay.core.model import Claim, Fault, RailStatus, Report  # noqa: TC001  # Hom rail annotation
+from tools.assay.diagnostics import fold
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------

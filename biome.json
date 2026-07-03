@@ -1,5 +1,5 @@
 {
-    "$schema": "https://biomejs.dev/schemas/2.5.0/schema.json",
+    "$schema": "https://biomejs.dev/schemas/2.5.2/schema.json",
     "vcs": {
         "enabled": true,
         "clientKind": "git",
@@ -24,14 +24,13 @@
             "!!**/.ruff_cache",
             "!!**/.swc",
             "!!**/.venv",
+            "!!**/.history",
             "!!**/bin",
             "!!**/obj",
-            "!!**/coverage",
             "!!**/dist",
             "!!**/build",
             "!!**/_tmp",
             "!!**/packages.lock.json",
-            "!!**/test-results",
             "!!**/pnpm-lock.yaml",
             "!!**/uv.lock"
         ]

@@ -10,6 +10,11 @@
     </PropertyGroup>
     <ItemGroup Label="Project References">
         <ProjectReference Include="../Contract/Contract.csproj" />
-        <ProjectReference Include="../../../tests/csharp/_testkit/Rasm.TestKit.csproj" />
+        <ProjectReference Include="../../../tests/csharp/_scenariokit/Rasm.ScenarioKit.csproj" />
+    </ItemGroup>
+    <!-- Cargo carries no kernel closure: the Grasshopper-aware classification injects retired-kernel namespaces Cargo never uses, and the ScenarioKit supplies none transitively. -->
+    <ItemGroup Label="Kernel-Free Usings">
+        <Using Remove="Rasm.Analysis" />
+        <Using Remove="Rasm.Domain" />
     </ItemGroup>
 </Project>

@@ -1,9 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <!-- Spec-free shell during the planning phase; assay routes SHELL-lane projects out of test runs. -->
+        <AssayTestShell>true</AssayTestShell>
+    </PropertyGroup>
     <ItemGroup Label="Project References">
         <ProjectReference Include="../../../../libs/csharp/Rasm.Compute/Rasm.Compute.csproj" />
-    </ItemGroup>
-
-    <ItemGroup Label="InProcess Transport Proof">
-        <PackageReference Include="Microsoft.AspNetCore.TestHost" PrivateAssets="all" />
     </ItemGroup>
 </Project>

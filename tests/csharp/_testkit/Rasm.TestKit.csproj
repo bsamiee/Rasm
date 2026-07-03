@@ -1,11 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
-    <ItemGroup Label="Project References">
-        <ProjectReference Include="../../../libs/csharp/Rasm/Rasm.csproj" />
-        <ProjectReference Include="../../../tools/rhino-bridge/Contract/Contract.csproj" />
-    </ItemGroup>
-    <ItemGroup Label="Assembly Visibility">
-        <!-- Internal access is limited to bridge cargo wiring and SDK law specs for FactCount and Hook semantics. -->
-        <InternalsVisibleTo Include="Rasm.Bridge.Cargo" />
-        <InternalsVisibleTo Include="Rasm.Bridge.Scenarios.Tests" />
-    </ItemGroup>
+    <PropertyGroup>
+        <!-- CA1724: the LanguageExt.Async namespace collides with the Shape<T>.Async seam case. -->
+        <NoWarn>$(NoWarn);CA1724</NoWarn>
+    </PropertyGroup>
 </Project>

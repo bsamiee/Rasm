@@ -19,7 +19,7 @@ from tests.python._testkit.spec import assert_error_status, assert_ok, support_m
 from tests.python.tools.assay.kit import (
     AssayHarness,  # noqa: TC001  # runtime: hypothesis resolves @given fixture signatures via inspect.signature(eval_str=True)
 )
-from tools.assay.core.model import Check, Claim, Fault, Input, Language, Mode, Runner, Tool
+from tools.assay.core.model import Check, Claim, Fault, Input, Language, Mode, RailStatus, Runner, Tool
 from tools.assay.core.routing import (  # private probes for read/parse degradation arms
     _LocalSource,
     _owner,
@@ -35,7 +35,6 @@ from tools.assay.core.routing import (  # private probes for read/parse degradat
     target_files,
     TargetFiles,
 )
-from tools.assay.core.status import RailStatus
 
 
 if TYPE_CHECKING:

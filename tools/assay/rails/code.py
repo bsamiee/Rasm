@@ -17,9 +17,9 @@ from tree_sitter import Language as TSLanguage, Parser as TSParser, Query as TSQ
 import tree_sitter_python
 import tree_sitter_typescript
 
-from tools.assay.composition.catalog import AST_MATCHES, Capture, CAPTURE_ENCODER, CAPTURES, RG_EVENT, select
+from tools.assay.composition.catalog import select
 from tools.assay.composition.settings import ArtifactScope, AssaySettings  # noqa: TC001  # unconditional: @checked beartype forward-ref (PEP 649)
-from tools.assay.core.engine import fan_out, run_check
+from tools.assay.core.engine import Executor  # noqa: TC001  # beartype resolves the executor-port annotation at runtime
 from tools.assay.core.model import (
     _RESULT_CAP,  # noqa: PLC2701  # shared saturation site for in-process tree-sitter match limiting
     Artifact,
@@ -30,16 +30,17 @@ from tools.assay.core.model import (
     Completed,
     Counts,
     Fault,  # unconditional: @checked resolves the `-> Result[Report, Fault]` forward-ref under PEP 649
-    fold,
     Language,
     language_choice,
     Match,
     Mode,
+    RailStatus,
     receipt,
     Report,
+    Step,
 )
 from tools.assay.core.routing import resolve_languages, route, Routed, Scope
-from tools.assay.core.status import RailStatus, Step
+from tools.assay.diagnostics import AST_MATCHES, Capture, CAPTURE_ENCODER, CAPTURES, fold, RG_EVENT
 
 
 if TYPE_CHECKING:
@@ -48,8 +49,8 @@ if TYPE_CHECKING:
     from expression.collections import Block
     from tree_sitter import Node
 
-    from tools.assay.composition.catalog import AstMatch, RgEvent
     from tools.assay.core.model import InprocThunk, Tool
+    from tools.assay.diagnostics import AstMatch, RgEvent
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -139,24 +140,24 @@ def _checks(routed: Routed, mode: Mode, splice: Callable[[Tool, Routed], Tool]) 
 
 
 def _dispatch(
-    routed: Routed, *, settings: AssaySettings, scope: ArtifactScope, mode: Mode, splice: Callable[[Tool, Routed], Tool]
+    routed: Routed, *, settings: AssaySettings, scope: ArtifactScope, mode: Mode, splice: Callable[[Tool, Routed], Tool], executor: Executor
 ) -> tuple[Result[Completed, Fault], ...]:
     checks = _checks(routed, mode, splice)
     match checks:
         case ():
             return ()
         case _:
-            return fan_out(checks, settings=settings, scope=scope, routed=routed)
+            return executor.fan(checks, settings=settings, scope=scope, routed=routed)
 
 
 def _fan(
-    settings: AssaySettings, scope: ArtifactScope, params: CodeParams, *, mode: Mode, splice: Callable[[Tool, Routed], Tool]
+    settings: AssaySettings, scope: ArtifactScope, params: CodeParams, *, mode: Mode, splice: Callable[[Tool, Routed], Tool], executor: Executor
 ) -> Result[tuple[Completed, ...], Fault]:
     # Routing, spawn, and timeout Faults short-circuit; non-zero tool exits stay on Completed.
     return resolve_languages(params.language, params.paths, claim=Claim.CODE).bind(
         lambda languages: _routed(languages, params.paths, settings).bind(
             lambda routed: sequence(
-                routed.collect(lambda r: block.of_seq(_dispatch(r, settings=settings, scope=scope, mode=mode, splice=splice)))
+                routed.collect(lambda r: block.of_seq(_dispatch(r, settings=settings, scope=scope, mode=mode, splice=splice, executor=executor)))
             ).map(tuple)
         )
     )
@@ -462,7 +463,7 @@ def _rg_status(returncode: int, stderr: str, *, has_rows: bool) -> tuple[RailSta
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
-def search(settings: AssaySettings, scope: ArtifactScope, params: CodeParams) -> Result[Report, Fault]:
+def search(settings: AssaySettings, scope: ArtifactScope, params: CodeParams, executor: Executor) -> Result[Report, Fault]:
     """Dispatch structural or content search over language-routed files.
 
     Patterns containing a metavariable (``$NAME`` form) route to ast-grep structural
@@ -473,24 +474,24 @@ def search(settings: AssaySettings, scope: ArtifactScope, params: CodeParams) ->
     """
     match bool(_METAVAR.search(params.pattern)):
         case True:
-            return _fan(settings, scope, params, mode=Mode.CHECK, splice=_search_splice(params, Path(str(settings.root)))).map(
+            return _fan(settings, scope, params, mode=Mode.CHECK, splice=_search_splice(params, Path(str(settings.root))), executor=executor).map(
                 lambda done: _report(
                     settings, scope, "search", params.pattern, done, *_project_rows(done, params.max_results, params.pattern, spec=_AG_SPEC)
                 )
             )
         case False:  # pragma: no cover — exhaustive match(bool); sysmon arc to implicit exit unreachable
-            return _content_search(settings, scope, params)
+            return _content_search(settings, scope, params, executor)
 
 
-def _content_search(settings: AssaySettings, scope: ArtifactScope, params: CodeParams) -> Result[Report, Fault]:
-    # Synthetic routing satisfies run_check; ripgrep remains grammar-blind until glob splicing.
+def _content_search(settings: AssaySettings, scope: ArtifactScope, params: CodeParams, executor: Executor) -> Result[Report, Fault]:
+    # Synthetic routing satisfies the executor port; ripgrep remains grammar-blind until glob splicing.
     match next((t for t in select(Claim.CODE) if t.mode is Mode.CONTENT), None):
         case None:
             return Error(Fault(("code", "search"), status=RailStatus.FAULTED, message="no ripgrep content catalog row"))
         case tool:
             check = Check(tool=_content_splice(tool, params, Path(str(settings.root))), paths=tuple(params.paths or _DEFAULT_TARGET))
             routed = Routed(language=tool.language, scope=Scope.CHANGED)
-            return run_check(check, settings=settings, scope=scope, routed=routed).map(lambda done: _content_report(settings, scope, params, done))
+            return executor.run(check, settings=settings, scope=scope, routed=routed).map(lambda done: _content_report(settings, scope, params, done))
 
 
 def _content_report(settings: AssaySettings, scope: ArtifactScope, params: CodeParams, done: Completed) -> Report:
@@ -509,7 +510,7 @@ def _content_report(settings: AssaySettings, scope: ArtifactScope, params: CodeP
     )
 
 
-def query(settings: AssaySettings, scope: ArtifactScope, params: CodeParams) -> Result[Report, Fault]:
+def query(settings: AssaySettings, scope: ArtifactScope, params: CodeParams, executor: Executor) -> Result[Report, Fault]:
     """Run an in-process tree-sitter query over grammar-backed language files.
 
     Queries execute via INPROC thunks; capture results are encoded into
@@ -519,7 +520,7 @@ def query(settings: AssaySettings, scope: ArtifactScope, params: CodeParams) -> 
     Returns:
         Folded report with capture rows and listing artifact, or a routing/spawn fault.
     """
-    return _fan(settings, scope, params, mode=Mode.QUERY, splice=_query_splice(params, Path(str(settings.root)))).map(
+    return _fan(settings, scope, params, mode=Mode.QUERY, splice=_query_splice(params, Path(str(settings.root))), executor=executor).map(
         lambda done: _report(settings, scope, "query", params.pattern, done, *_project_rows(done, params.max_results, params.pattern, spec=_TS_SPEC))
     )
 

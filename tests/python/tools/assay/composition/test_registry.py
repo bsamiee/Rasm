@@ -23,6 +23,7 @@ from tests.python.tools.assay.kit import (  # noqa: TC001  # fixture annotation 
     AssayHarness,
     make_history_envelope,
     pipe_history,
+    SeamExecutor,
 )
 from tools.assay.composition import registry as registry_mod
 from tools.assay.composition.catalog import TOOLS
@@ -40,16 +41,17 @@ from tools.assay.core.model import (
     Envelope,
     envelope,
     Fault,
-    fold,
     Match,
+    RailStatus,
     receipt,
     Report,
     RunDelta,
     StaticRun,
+    Step,
     TestRun,
     wire_encode,
 )
-from tools.assay.core.status import RailStatus, Step
+from tools.assay.diagnostics import fold
 from tools.assay.rails.bridge import BridgeParams
 from tools.assay.rails.docs import FaultedPromotion
 from tools.assay.rails.static import StaticParams
@@ -523,10 +525,10 @@ def test_correlate_maps_run_id_and_strict(assay_root: AssayHarness) -> None:
     Mutants caught: missing strict, wrong run_id, and getattr default drift in log correlation.
     """
     scope = ArtifactScope.open(assay_root.settings, Claim.STATIC)
-    ctx = registry_mod._correlate(assay_root.settings, scope, _strict_params(strict=True))
+    ctx = registry_mod._correlate(assay_root.settings, scope, _strict_params(strict=True), SeamExecutor())
     assert ctx["run_id"] == assay_root.settings.run_id
     assert ctx["strict"] is True
-    assert registry_mod._correlate(assay_root.settings, scope, object())["strict"] is False
+    assert registry_mod._correlate(assay_root.settings, scope, object(), SeamExecutor())["strict"] is False
 
 
 def test_bound_passthrough_and_surplus_fault() -> None:
@@ -684,7 +686,7 @@ def test_rail_surplus_dispatch_fault_and_scope_identity(assay_root: AssayHarness
     assert assay_root.settings.store().load_history(assay_root.settings.run_id) is None
 
     seen: list[object] = []
-    ok_bind = msgspec.structs.replace(_STATIC_BIND, handler=lambda _s, scope, _p: (seen.append(scope), Ok(fold(Claim.STATIC, "static", ())))[1])
+    ok_bind = msgspec.structs.replace(_STATIC_BIND, handler=lambda _s, scope, _p, _x: (seen.append(scope), Ok(fold(Claim.STATIC, "static", ())))[1])
     rail(ok_bind, settings=assay_root.settings)(StaticParams())
     assert isinstance(seen[0], ArtifactScope)
 
@@ -990,8 +992,7 @@ def test_self_test_unhealthy_when_composition_breaks(probe: str, assay_root: Ass
     """
     monkeypatch.setenv("ASSAY_ROOT", str(assay_root.root))
     monkeypatch.setattr(registry_mod, probe, lambda: False)
-    monkeypatch.setattr(registry_mod, "fan_out", lambda checks, **_k: tuple(Ok(_completed(c)) for c in checks))
-    env = self_test()
+    env = self_test(executor=SeamExecutor(fan_fn=lambda checks, **_k: tuple(Ok(_completed(c)) for c in checks)))
     assert env.status is RailStatus.FAILED
     assert env.exit_code == RailStatus.FAILED.exit_code
     assert "healthy=False" in env.notes[0]
@@ -1005,9 +1006,8 @@ def test_self_test_unhealthy_when_claim_loses_its_last_row(assay_root: AssayHarn
     The roster derives from Claim, not REGISTRY, so dropping every row for one claim remains refutable.
     """
     monkeypatch.setenv("ASSAY_ROOT", str(assay_root.root))
-    monkeypatch.setattr(registry_mod, "fan_out", lambda checks, **_k: tuple(Ok(_completed(c)) for c in checks))
     monkeypatch.setattr(registry_mod, "REGISTRY", tuple(b for b in REGISTRY if b.claim is not Claim.DOCS))
-    env = self_test()
+    env = self_test(executor=SeamExecutor(fan_fn=lambda checks, **_k: tuple(Ok(_completed(c)) for c in checks)))
     assert env.status is RailStatus.FAILED
     assert "healthy=False" in env.notes[0]
 
@@ -1036,9 +1036,8 @@ def test_health_probe_cache_warm_path(assay_root: AssayHarness, monkeypatch: pyt
         calls.append((checks, kwargs["routed"]))
         return tuple(Ok(_completed(c)) for c in checks)
 
-    monkeypatch.setattr(registry_mod, "fan_out", spy)
-    registry_mod._health(assay_root.settings)
-    registry_mod._health(assay_root.settings)
+    registry_mod._health(assay_root.settings, SeamExecutor(fan_fn=spy))
+    registry_mod._health(assay_root.settings, SeamExecutor(fan_fn=spy))
     (cold, cold_routed), (warm, warm_routed) = calls
     assert cold_routed is registry_mod._PROBE_ROUTED
     assert warm_routed is registry_mod._PROBE_ROUTED
@@ -1371,7 +1370,7 @@ def test_leaf_command_closure_and_invocation(assay_root: AssayHarness, monkeypat
 
     monkeypatch.setenv("ASSAY_ROOT", str(assay_root.root))
     bind = _STATIC_BIND
-    leaf = _leaf(bind)
+    leaf = _leaf(bind, SeamExecutor())
     assert isinstance(leaf, FunctionType)
     fn: FunctionType = leaf
     assert fn.__name__ == bind.verb
@@ -1382,9 +1381,9 @@ def test_leaf_command_closure_and_invocation(assay_root: AssayHarness, monkeypat
 
     expected_report = fold(Claim.STATIC, bind.verb, (receipt(("dotnet",), 0, status=RailStatus.OK),))
     received: list[object] = []
-    fake_bind = msgspec.structs.replace(bind, handler=lambda _s, _scope, params: (received.append(params), Ok(expected_report))[1])
+    fake_bind = msgspec.structs.replace(bind, handler=lambda _s, _scope, params, _x: (received.append(params), Ok(expected_report))[1])
     given = fake_bind.params()
-    env = _leaf(fake_bind)(given)
+    env = _leaf(fake_bind, SeamExecutor())(given)
     assert env.claim is Claim.STATIC
     assert env.status is RailStatus.OK
     assert received[0] is given  # runner(None) mutants drop the bound params on the floor

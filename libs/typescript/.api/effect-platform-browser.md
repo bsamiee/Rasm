@@ -13,6 +13,10 @@
 - runtime: `runtime:browser` — edge-ledger banned inside `runtime:node`; bans `@effect/platform-node`/`@effect/platform-bun`/`node:*` inside its own scope
 - modules: `BrowserRuntime`, `BrowserKeyValueStore`, `BrowserWorker`, `BrowserWorkerRunner`, `BrowserHttpClient`, `BrowserSocket`, `BrowserStream`, `Clipboard`, `Geolocation`, `Permissions`
 
+[TIER_SPLIT]: this branch-tier catalog vs the platform-folder overlay
+- This branch-tier catalog owns the branch-level stacking map: the `browser/boot/*` seam names, the `runtime:browser` purity ledger, and the EventLog / OpenTelemetry composition (`@effect/experimental`, `@effect/opentelemetry`).
+- The platform-folder overlay (`_tmp/platform/.api/effect-platform-browser.md`) owns the full per-member signatures the folder owners bind against AND the native-DOM ingress this package does NOT wrap — `navigator.storage` `StorageManager` (`persist`/`persisted`/`estimate`), `Notification.requestPermission`, and the `PermissionStatus.change` `EventTarget` bridge over `scopedEventStream` — that `Shell/capability` composes alongside it. The two are complementary lenses on one package, not a near-duplicate.
+
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: runtime + platform-service bindings

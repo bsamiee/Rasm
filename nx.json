@@ -7,20 +7,14 @@
     },
     "namedInputs": {
         "default": ["{projectRoot}/**/*", "sharedGlobals"],
-        "production": [
-            "default",
-            "!{projectRoot}/**/*.spec.{ts,tsx,mts,cts}",
-            "!{projectRoot}/**/*.test.{ts,tsx,mts,cts}",
-            "!{projectRoot}/coverage",
-            "!{projectRoot}/dist",
-            "!{projectRoot}/test-results"
-        ],
+        "production": ["default", "!{projectRoot}/**/*.spec.{ts,tsx,mts,cts}", "!{projectRoot}/**/*.test.{ts,tsx,mts,cts}", "!{projectRoot}/dist"],
         "sharedGlobals": [
             "{workspaceRoot}/biome.json",
             "{workspaceRoot}/package.json",
             "{workspaceRoot}/pnpm-lock.yaml",
             "{workspaceRoot}/pnpm-workspace.yaml",
             "{workspaceRoot}/tsconfig.base.json",
+            "{workspaceRoot}/vite.config.ts",
             "{workspaceRoot}/vite.factory.ts",
             "{workspaceRoot}/vitest.config.ts"
         ]
@@ -38,7 +32,7 @@
         "test": {
             "cache": true,
             "inputs": ["default", "^production"],
-            "outputs": ["{workspaceRoot}/coverage", "{workspaceRoot}/test-results"]
+            "outputs": ["{workspaceRoot}/.artifacts/typescript/coverage", "{workspaceRoot}/.artifacts/typescript/test-results"]
         },
         "lint": {
             "cache": true,
@@ -47,7 +41,7 @@
         "e2e": {
             "cache": true,
             "inputs": ["default", "^production"],
-            "outputs": ["{workspaceRoot}/test-results"]
+            "outputs": ["{workspaceRoot}/.artifacts/typescript/test-results"]
         }
     },
     "plugins": [

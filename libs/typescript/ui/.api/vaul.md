@@ -1,1 +1,68 @@
-# [vaul] — drawer/sheet composition row
+# [vaul] — the drag-dismissable drawer/sheet host in the `view/compose` plane; a Radix Dialog with snap-point physics
+
+`vaul` is the drawer/bottom-sheet composition the `view/compose` plane mounts: one compound `Drawer` namespace (`Drawer.Root`/`.Trigger`/`.Portal`/`.Overlay`/`.Content`/`.Handle`/`.Title`/`.Description`/`.Close`/`.NestedRoot`) that IS a `@radix-ui/react-dialog` under the hood — Radix owns the accessible modal semantics (role, `aria-modal`, focus trap, escape/outside-press dismiss, portal), and vaul layers the drag physics on top: pointer-drag translation, snap-point resolution, velocity-based dismiss past `closeThreshold`, four-way `direction`, and optional background scale. The rich `DialogProps` control surface carries `snapPoints`/`activeSnapPoint`/`setActiveSnapPoint`/`fadeFromIndex` (multi-detent sheets), `open`/`onOpenChange`/`dismissible` (controlled visibility), `handleOnly`/`closeThreshold`/`scrollLockTimeout` (drag tuning), and `repositionInputs`/`disablePreventScroll` (mobile-keyboard behavior). `Drawer.Title` + `Drawer.Description` are Radix's labelling contract — required for the accessibility tree, visually hidden with `@radix-ui/react-visually-hidden` when the sheet has no visible heading. Open state and active snap point bind to `@effect-atom`; `cva`/`cn` + `tw-animate-css` style the panel through the folder's data-attribute + CSS-var seam; a command palette in a sheet is a bare `cmdk` `Command` inside `Drawer.Content`, never `CommandDialog`. `@floating-ui/react` owns the anchored overlays vaul does not — vaul is the drag-dismissable sheet, floating-ui the positioned popover.
+
+## [01]-[PACKAGE_SURFACE]
+
+[PACKAGE_SURFACE]: `vaul`
+- package: `vaul` (1.1.2, MIT, © Emil Kowalski)
+- module format: ESM + CJS (`dist/index.mjs` / `.js`, types `dist/index.d.mts` / `.d.ts`), single `.` entry
+- runtime target: React DOM (browser) client component — pointer-drag translation + the DOM focus/scroll model; not universal
+- peer: `react` / `react-dom` (`^16.8 || ^17 || ^18 || ^19`); dep `@radix-ui/react-dialog@^1.1.1` — vaul IS a Radix Dialog, so the accessible modal semantics, portal, and the `Trigger`/`Close`/`Title`/`Description` primitives come from Radix, drag physics from vaul
+- asset: the drag-dismissable drawer/sheet — bottom-sheet, side-drawer, and multi-detent snap-point sheet with velocity dismiss and background scale
+- rail: overlay (`view/compose` — the sheet host, distinct from the `@floating-ui/react` anchored-overlay row and the `cmdk` `CommandDialog` palette host)
+
+## [02]-[PUBLIC_TYPES]
+
+[PUBLIC_TYPE_SCOPE]: the drawer control surface — one prop object owns every sheet modality
+- rail: overlay
+- `DialogProps` is the full `Drawer.Root` surface; `snapPoints` toggles the `WithFadeFromProps`/`WithoutFadeFromProps` discriminant (only a snap-point sheet takes `fadeFromIndex`). `ContentProps`/`HandleProps` forward the underlying DOM element props.
+
+| [INDEX] | [SYMBOL]                                                                                          | [TYPE_FAMILY]  | [CONSUMER / BOUNDARY]                                              |
+| :-----: | :----------------------------------------------------------------------------------------------- | :------------- | :---------------------------------------------------------------- |
+|  [01]   | `DialogProps` — open (`open`, `defaultOpen`, `onOpenChange`, `onClose`, `onAnimationEnd`), drag (`closeThreshold` 0.25, `scrollLockTimeout` 500, `dismissible` true, `handleOnly` false, `onDrag(e, pct)`, `onRelease(e, open)`), layout (`direction` 'bottom', `modal` true, `nested`, `container`, `autoFocus`), background (`shouldScaleBackground`, `setBackgroundColorOnScale` true, `noBodyStyles`), scroll (`disablePreventScroll` false, `repositionInputs`, `preventScrollRestoration`, `fixed`) | root control | `view/compose` — the single sheet control object; `direction` picks bottom-sheet vs side-drawer, `dismissible: false` + controlled `open` for a programmatic drawer |
+|  [02]   | `WithFadeFromProps` (`snapPoints`, `fadeFromIndex` required) / `WithoutFadeFromProps` (`snapPoints?`, `fadeFromIndex?: never`) | snap discriminant | the snap-point union — a multi-detent sheet passes `snapPoints` (fractions `0..1` or px strings) + `fadeFromIndex` (where the overlay fade begins) |
+|  [03]   | `ContentProps` (= `ComponentPropsWithoutRef<Dialog.Content>`) / `HandleProps` (`+ preventCycle?`)  | element props   | `Drawer.Content` forwards Radix Content props; `Drawer.Handle` adds `preventCycle` (skip the snap-cycle tap behavior) |
+
+## [03]-[ENTRYPOINTS]
+
+[ENTRYPOINT_SCOPE]: the compound drawer — one root owns the machine, children are the parts
+- rail: overlay
+- the idiomatic import is `import { Drawer } from 'vaul'`; the `Drawer` namespace carries every part. `Root`/`NestedRoot`/`Content`/`Overlay`/`Handle`/`Portal` are also top-level named exports; `Trigger`/`Close`/`Title`/`Description` live on the `Drawer` namespace only (re-exported from Radix Dialog).
+
+| [INDEX] | [SURFACE]                                                                                       | [ENTRY_FAMILY] | [CONSUMER / BOUNDARY]                                        |
+| :-----: | :---------------------------------------------------------------------------------------------- | :------------- | :---------------------------------------------------------- |
+|  [01]   | `Drawer.Root(props: DialogProps)` (top-level `Root`) / `Drawer.NestedRoot` (`NestedRoot`)        | root           | the sheet state machine — open-state, snap-point, drag; `NestedRoot` stacks a drawer inside a drawer with cumulative scale |
+|  [02]   | `Drawer.Trigger` / `Drawer.Close`                                                                | trigger/close  | Radix Dialog trigger + close buttons (namespace-only); open/close the sheet without controlling `open` |
+|  [03]   | `Drawer.Portal(props)` (`Portal`) / `Drawer.Overlay` (`Overlay`)                                 | portal/scrim   | render into `container`; the scrim fades from `fadeFromIndex` and dims per drag progress |
+|  [04]   | `Drawer.Content` (`Content`) / `Drawer.Handle(props: HandleProps)` (`Handle`)                    | panel/affordance | the draggable panel (a `ForwardRefExoticComponent`); `Handle` the grab affordance — `handleOnly` restricts drag to it |
+|  [05]   | `Drawer.Title` / `Drawer.Description`                                                            | a11y labelling | Radix Dialog `aria-labelledby`/`aria-describedby` (namespace-only) — REQUIRED for the accessibility tree; visually hide with `@radix-ui/react-visually-hidden` |
+
+## [04]-[IMPLEMENTATION_LAW]
+
+[VAUL_TOPOLOGY]:
+- vaul is a Radix Dialog with drag physics: `Drawer.Root` wraps Radix `Dialog.Root` and adds pointer-drag translation, snap-point resolution, and velocity-based dismiss. Radix owns everything accessible — `role="dialog"`, `aria-modal`, the focus trap, escape/outside-press dismiss, and the portal — while vaul owns the pointer math (`onDrag` reports `percentageDragged`, release past `closeThreshold` OR a high release velocity dismisses). `Drawer.Content` is the draggable panel; `Drawer.Handle` a drag affordance that `handleOnly` makes the sole drag origin; `Drawer.Overlay` the scrim.
+- Snap points are detents: `snapPoints` (fractions `0..1` of screen, or px strings) with `activeSnapPoint`/`setActiveSnapPoint` controlling the current detent, `fadeFromIndex` the point where the overlay begins fading, and `snapToSequentialPoint` disabling velocity-skip so no detent is jumped. On release the sheet settles at the nearest snap by position and velocity.
+- Controlled visibility: `open`/`onOpenChange` bind the sheet to external state; `dismissible={false}` + controlled `open` makes a drawer only a programmatic action closes (pair them — `dismissible: false` without a controlled `open` traps the sheet open). `direction` is four-way: `'bottom'` (default sheet), `'top'`, `'left'`/`'right'` (side drawer). `shouldScaleBackground` scales the `[vaul-drawer-wrapper]` root behind the sheet; `repositionInputs` lifts focused inputs above the mobile keyboard instead of scrolling.
+- `Drawer.Title` + `Drawer.Description` satisfy Radix's labelling contract — omit them and Radix warns and the sheet is unlabeled for screen readers; when the sheet has no visible heading, wrap the title in `@radix-ui/react-visually-hidden` rather than dropping it.
+
+[STACKS_WITH]:
+- `@radix-ui/react-dialog` (bundled dep, not separately cataloged): vaul IS this Dialog — Radix owns the accessible modal semantics, the portal, and the `Trigger`/`Close`/`Title`/`Description` parts the `Drawer` namespace re-exports; vaul adds drag + snap + scale. Reach for the Radix parts through `Drawer.*`, never import `@radix-ui/react-dialog` alongside vaul for the same sheet (two Dialog roots = double focus trap).
+- `@radix-ui/react-visually-hidden` (sibling, `libs/typescript/ui/.api/radix-ui-react-visually-hidden.md`): wrap a required `Drawer.Title` when the sheet has no visible heading — keeps the label in the accessibility tree without rendering it.
+- `cmdk` (sibling, `libs/typescript/ui/.api/cmdk.md`): the seam — a command palette in a sheet mounts a BARE `Command` inside `Drawer.Content`, never `cmdk`'s `CommandDialog` (which brings its own portal + focus trap = double). vaul hosts the sheet, cmdk owns the list/filter/keyboard.
+- `@floating-ui/react` (sibling, `libs/typescript/ui/.api/floating-ui-react.md`): the overlay-class division — two SEPARATE overlay stacks, never composed. floating-ui owns ANCHORED overlays (popover/tooltip/menu positioned to a trigger) through its OWN `useFloating` + `FloatingPortal` + `FloatingFocusManager` + `FloatingOverlay` (`lockScroll`) portal/focus/scroll stack; vaul owns the DRAG-DISMISSABLE SHEET (bottom-sheet/side-drawer) and takes its portal, focus-trap, and scroll-lock (`scrollLockTimeout`) from the bundled Radix Dialog, never from floating-ui. A `view/compose` row picks the class by interaction; a sheet is never a floating anchor, and vaul never imports floating-ui's overlay primitives (a second focus/portal stack over one surface is the conflict).
+- `@effect-atom/atom-react` (sibling, `libs/typescript/ui/.api/effect-atom-atom-react.md`): `open`/`onOpenChange` and `activeSnapPoint`/`setActiveSnapPoint` bind to atoms — sheet visibility and detent are store state, undoable/URL-syncable, not local `useState`.
+- `class-variance-authority` / `tailwind-merge` / `tw-animate-css` (token rows, `libs/typescript/ui/.api/class-variance-authority.md`): style `Drawer.Content`/`Overlay`/`Handle` via `cva` selectors through the one `cn` rail; vaul sets `[vaul-drawer]` data attributes and drag-transform CSS vars, and `tw-animate-css` keys the enter/exit off `direction`.
+- `react` (spine, `libs/typescript/ui/.api/react.md`): the vaul parts are `ForwardRefExoticComponent`s rendering real DOM (no `asChild` slot) — pass a ref to `Drawer.Content` directly.
+
+[LOCAL_ADMISSION]:
+- vaul is the drag-dismissable sheet/drawer host — bottom-sheet, side-drawer, multi-detent snap sheet; a new sheet is a `Drawer.Root` with `direction`/`snapPoints`, never a hand-rolled drag or a raw Radix Dialog with custom pointer handlers.
+- Always render `Drawer.Title` (+ `Drawer.Description` where content warrants); visually hide the title with `@radix-ui/react-visually-hidden` when there is no visible heading.
+- Bind controlled `open`/`activeSnapPoint` to atoms; use `dismissible={false}` only with a controlled `open`.
+- A palette in a sheet is a bare `Command` inside `Drawer.Content`, never `CommandDialog`; anchored overlays are `@floating-ui/react`, not vaul.
+
+[RAIL_LAW]:
+- Package: `vaul`
+- Owns: the drag-dismissable drawer/sheet host — the `Drawer` compound over Radix Dialog, snap-point physics (`snapPoints`/`activeSnapPoint`/`fadeFromIndex`), four-way `direction`, velocity dismiss (`closeThreshold`), background scale, `handleOnly` drag, nested drawers, and the mobile-keyboard `repositionInputs` behavior
+- Accept: the `Drawer.*` compound with Radix labelling (`Title`/`Description`), controlled `open`/`activeSnapPoint` from atoms, `@radix-ui/react-visually-hidden` for headless titles, a bare `cmdk` `Command` as sheet content, `cva`/`cn`/`tw-animate` styling through the data-attribute + CSS-var seam
+- Reject: a hand-rolled drag or a second Radix `Dialog.Root` for the same sheet, a missing `Drawer.Title` (unlabeled a11y), `dismissible={false}` without a controlled `open`, `CommandDialog` inside `Drawer.Content` (double portal/focus-trap), and vaul used for an anchored popover (that is `@floating-ui/react`)

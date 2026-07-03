@@ -59,7 +59,9 @@ from tools.assay.core.engine import (
     decode_lease_owner,
     discover,
     drain_stream,
+    EngineExecutor,
     exclusive_lease,
+    Executor,
     fan_out,
     governed_concurrency,
     is_lease_stale,
@@ -74,9 +76,8 @@ from tools.assay.core.engine import (
     ssh_outcome,
     WriteSink,
 )
-from tools.assay.core.model import ArtifactKind, Check, Claim, Fault, Input, Language, Mode, receipt, Runner, Stage, Tool, ToolGroup
+from tools.assay.core.model import ArtifactKind, Check, Claim, Fault, Input, Language, Mode, RailStatus, receipt, Runner, Stage, Tool, ToolGroup
 from tools.assay.core.routing import Routed, Scope
-from tools.assay.core.status import RailStatus
 
 
 if TYPE_CHECKING:
@@ -164,6 +165,8 @@ _LAWS: tuple[tuple[object, str], ...] = (
     (run_check_async, "run_check_async_is_the_event_loop_boundary"),
     (fan_out, "fan_out_contains_escaped_check_fault"),
     (fan_out, "fan_out_preserves_order_and_backfills_timeout"),
+    (Executor, "engine_executor_satisfies_the_port"),
+    (EngineExecutor, "engine_executor_delegates_run_and_fan"),
     (exclusive_lease, "exclusive_lease_is_busy_under_a_live_holder"),
     (leased, "leased_runs_action_only_when_held"),
     (engine_mod._claim, "claim_contention_busy_vs_steal_decision"),
@@ -723,6 +726,25 @@ def test_apphost_strips_unresolvable_root_for_tool_run(monkeypatch: pytest.Monke
 
 
 # --- [RUN_CHECK_FAN_OUT]
+
+
+def test_engine_executor_satisfies_the_port(assay_root: AssayHarness) -> None:
+    """``EngineExecutor`` structurally satisfies the ``Executor`` protocol and drives a real DIRECT check end to end."""
+    port = EngineExecutor()
+    assert isinstance(port, Executor)
+    done = assert_ok(port.run(Check(tool=_ECHO_TOOL), settings=assay_root.settings, scope=None, routed=_ROUTED_CHANGED))
+    assert b"hello" in done.stdout
+
+
+def test_engine_executor_delegates_run_and_fan(assay_root: AssayHarness) -> None:
+    """``EngineExecutor.fan`` preserves slot order over the same spawn rail its ``run`` lane uses, one result per check."""
+    port = EngineExecutor()
+    first = msgspec.structs.replace(_ECHO_TOOL, name="first", command=("echo", "one"))
+    second = msgspec.structs.replace(_ECHO_TOOL, name="second", command=("echo", "two"))
+    rows = port.fan((Check(tool=first), Check(tool=second)), settings=assay_root.settings, scope=None, routed=_ROUTED_CHANGED)
+    assert len(rows) == 2
+    assert b"one" in assert_ok(rows[0]).stdout
+    assert b"two" in assert_ok(rows[1]).stdout
 
 
 def test_run_check_executes_direct_tool(assay_root: AssayHarness) -> None:

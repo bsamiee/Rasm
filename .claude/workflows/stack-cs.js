@@ -421,7 +421,23 @@ const clusterOf = (rs) => {
 }
 const dedupRes = (rs) => [...new Map(rs.map((r) => [r.files.slice().sort().join(',') + '|' + r.claim, r])).values()]
 // clusterWork — a fixer's load is dominated by distinct files read + reconciled; heaviest cluster launches first so the long pole never starts last under CAP.
+// Atomicity is BUDGETED at the fair share (totalWork/CAP): an interlinked corpus fuses most residuals into ONE component, so an over-budget cluster
+// sub-shards by lead file (same-lead-file rows never split — the edit-collision floor); verify owns the deliberate cross-shard seams.
 const clusterWork = (c) => { const files = new Set(); for (const r of c) for (const f of r.files) files.add(f); return files.size * 2 + c.length }
+const shardOversized = (clusters) => {
+  const cap = Math.max(1, Math.ceil(clusters.reduce((w, c) => w + clusterWork(c), 0) / CAP))
+  return clusters.flatMap((c) => {
+    if (clusterWork(c) <= cap) return [c]
+    const byFile = new Map()
+    for (const r of c) { const k = r.files[0] || '~'; if (!byFile.has(k)) byFile.set(k, []); byFile.get(k).push(r) }
+    const shards = []
+    for (const g of [...byFile.values()].sort((a, b) => clusterWork(b) - clusterWork(a))) {
+      const t = shards.find((s) => clusterWork(s.concat(g)) <= cap)
+      if (t) t.push(...g); else shards.push([...g])
+    }
+    return shards
+  })
+}
 log('Harden+Sweep done; TERMINAL reconcile ' + uniq.length + ' residual(s) (no-defer, adversarial verify, loop until dry)')
 const MAX_ROUNDS = 6
 let pending = uniq
@@ -431,7 +447,7 @@ if (pending.length) {
   phase('Reconcile')
   while (pending.length && round < MAX_ROUNDS) {
     round++
-    const clusters = clusterOf(pending).sort((a, b) => clusterWork(b) - clusterWork(a) || (a[0].claim || '').localeCompare(b[0].claim || ''))
+    const clusters = shardOversized(clusterOf(pending)).sort((a, b) => clusterWork(b) - clusterWork(a) || (a[0].claim || '').localeCompare(b[0].claim || ''))
     log('Reconcile round ' + round + ': ' + pending.length + ' residual(s) -> ' + clusters.length + ' cluster(s); work [' + clusters.map(clusterWork).join(', ') + '] (2*files+claims)')
     const resolved = (await pool(clusters, CAP, async (cl, i) => {
       const fix = await agent([DOCTRINE, '', 'TASK: TERMINAL RECONCILE — fix EVERY one of these cross-FILE residuals the harden + sweep passes ' +
@@ -439,7 +455,9 @@ if (pending.length) {
         'place to the STRONGEST doctrine form (unify the shared generated owner/rail/region, repair the altitude/duplication/strata issue, GROW the ' +
         'shared owner to close a gap that spans files), preserving all capability — a token patch that leaves the defect is NOT a fix; if a residual ' +
         'is FACTUALLY INCORRECT, leave it and say why (verify will mark it invalid). If your fix SURFACES a new cross-file need, report it in ' +
-        'residual_high {files,claim} so the next round resolves it. Edit ONLY under ' + ROOT + '/. Residuals:\n' + JSON.stringify(cl, null, 1)].join('\n'),
+        'residual_high {files,claim} so the next round resolves it. A concurrent sibling may share a page with your cluster (oversized components ' +
+        'shard file-atomically): edit any potentially shared page with surgical anchored Edits only — re-read and re-apply on an edit conflict, ' +
+        'never a whole-file rewrite. Edit ONLY under ' + ROOT + '/. Residuals:\n' + JSON.stringify(cl, null, 1)].join('\n'),
         { label: 'reconcile-fix:r' + round, phase: 'Reconcile', schema: RECONCILE_FIX_SCHEMA, effort: 'max', stallMs: STALL })
       if (!fix) return { open: cl, invalid: [], surfaced: [] }
       const verify = await agent([DOCTRINE, '', 'TASK: ADVERSARIAL WRITING VERIFY — never a friendly confirmation; you REPAIR before you classify, ' +

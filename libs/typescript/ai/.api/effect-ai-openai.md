@@ -94,7 +94,7 @@ The module `declare module`-augments `@effect/ai/Prompt` and `@effect/ai/Respons
 | `Prompt`          | `ReasoningPartOptions`                                              | `itemId?`, `encryptedContent?`                       |
 | `Prompt`          | `TextPartOptions`, `ToolCallPartOptions`                            | `itemId?`                                            |
 | `Response`        | `TextPartMetadata`                                                  | `itemId?`, `refusal?`                                |
-| `Response`        | `Text/Reasoning{Start,Delta,End}PartMetadata`, `ToolCallPartMetadata` | `itemId?`, `encryptedContent?` (reasoning start/end) |
+| `Response`        | `TextStartPartMetadata`, `Reasoning{,Start,Delta,End}PartMetadata`, `ToolCallPartMetadata` | `itemId?` (+ `encryptedContent?` on reasoning part/start/end) |
 | `Response`        | `DocumentSourcePartMetadata`                                        | `{ type:"file_citation"; index }`                    |
 | `Response`        | `UrlSourcePartMetadata`                                             | `{ type:"url_citation"; startIndex; endIndex }`      |
 | `Response`        | `FinishPartMetadata`                                                | `serviceTier?: "default"\|"auto"\|"flex"\|"scale"\|"priority"` |
@@ -181,7 +181,7 @@ export interface Client {
   // 219 endpoint methods keyed by OpenAPI operationId, each returning
   //   Effect.Effect<typeof <Response>.Type, HttpClientError.HttpClientError | ParseError>
   readonly listAssistants: (options?: typeof ListAssistantsParams.Encoded) => Effect.Effect<typeof ListAssistantsResponse.Type, HttpClientError.HttpClientError | ParseError>
-  // …createSpeech, createTranscription, createTranslation, createResponse, createEmbedding, and 214 further
+  // …createSpeech, createTranscription, createTranslation, createResponse, createEmbedding, and 213 further
 }
 declare const make: (httpClient: HttpClient.HttpClient, options?: { transformClient?: (c: HttpClient.HttpClient) => Effect.Effect<HttpClient.HttpClient> }) => Client
 interface ClientError<Tag extends string, E> { readonly _tag: Tag; readonly request: HttpClientRequest; readonly response: HttpClientResponse; readonly cause: E }

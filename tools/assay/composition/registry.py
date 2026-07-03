@@ -16,7 +16,7 @@ import sys
 import time
 import tomllib
 from types import FunctionType
-from typing import Final, TYPE_CHECKING
+from typing import Annotated, Final, TYPE_CHECKING
 
 from beartype.roar import BeartypeCallHintViolation
 from cyclopts import App, Parameter
@@ -30,7 +30,7 @@ import structlog
 from tools.assay.composition.catalog import select, TOOLS
 from tools.assay.composition.settings import ArtifactScope, AssaySettings, prune_python_artifacts
 from tools.assay.core.aspect import _CHECKED_LAYER, _RING, compose, Layer, logged, traced  # noqa: PLC2701
-from tools.assay.core.engine import _measure, _RESOURCE, fan_out  # noqa: PLC2701
+from tools.assay.core.engine import _measure, _RESOURCE, EngineExecutor, Executor  # noqa: PLC2701  # co-owned resource-snapshot seam
 from tools.assay.core.model import (
     _HINT_CAP,  # noqa: PLC2701  # private symbol; canonical hint-cap clip site
     _RESULT_CAP,  # noqa: PLC2701  # private symbol; canonical result-cap saturation site
@@ -48,16 +48,17 @@ from tools.assay.core.model import (
     envelope,
     Fault,
     field_cap,
-    fold,
     Input,
     Language,
     Match,
+    RailStatus,
     receipt,
     Report,
     RunDelta,
     Runner,
     RunSnapshot,
     StaticRun,
+    Step,
     Tool,
     validate_detail,
     VerifySummary,
@@ -65,7 +66,7 @@ from tools.assay.core.model import (
     wire_safe,
 )
 from tools.assay.core.routing import Routed, Scope
-from tools.assay.core.status import RailStatus, Step
+from tools.assay.diagnostics import fold
 from tools.assay.rails import (
     api as api_rail,
     bridge as bridge_rail,
@@ -93,8 +94,8 @@ if TYPE_CHECKING:
 # --- [TYPES] -----------------------------------------------------------------------------
 
 # `P` is a verb-params type, not a ParamSpec.
-type Handler[P] = Callable[[AssaySettings, ArtifactScope, P], Result[Report, Fault]]
-type ReportLayer = Layer[[AssaySettings, ArtifactScope, object], Report]
+type Handler[P] = Callable[[AssaySettings, ArtifactScope, P, Executor], Result[Report, Fault]]
+type ReportLayer = Layer[[AssaySettings, ArtifactScope, object, Executor], Report]
 
 # --- [CONSTANTS] -------------------------------------------------------------------------
 
@@ -176,6 +177,8 @@ _PROBE_DECODER: Final[msgspec.json.Decoder[dict[str, _ProbeRow]]] = msgspec.json
 # --- [SERVICES] -------------------------------------------------------------------------
 
 _LOG: Final = structlog.get_logger("assay.registry")
+# The one production wiring site: rails receive this bound port unless a caller injects its own through rail()/build_app().
+_EXECUTOR: Final[Executor] = EngineExecutor()
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -184,7 +187,7 @@ def _identity_hom(*_a: object, **_k: object) -> Result[Report, Fault]:
     return Ok(fold(Claim.STATIC, "self-test", ()))
 
 
-def _correlate(settings: AssaySettings, _scope: ArtifactScope, params: object) -> Mapping[str, object]:
+def _correlate(settings: AssaySettings, _scope: ArtifactScope, params: object, _executor: Executor) -> Mapping[str, object]:
     return {"run_id": settings.run_id, "strict": getattr(params, "strict", False), **settings.agent_context}
 
 
@@ -246,7 +249,7 @@ def _distill(
     hint = f"{step}: {budgeted} after {duration_ms:.1f}ms"
     truncated = len(reason) > len(budgeted) or len(fault.message) >= _MESSAGE_CAP or fault.message.endswith("…")
     # One-hop into private engine._measure is intentional: engine owns the Measurements/to_resources shape — a co-owned
-    # seam beside the _RESOURCE/fan_out reach. The fallback carries proc.children/proc.children_rss_bytes for the streaming receipt keys.
+    # seam beside the _RESOURCE reach. The fallback carries proc.children/proc.children_rss_bytes for the streaming receipt keys.
     snap = resource or _RESOURCE.get() or _measure().to_resources()
     ctx = trace.get_current_span().get_span_context()
     ids = (f"{ctx.trace_id:032x}", f"{ctx.span_id:016x}") if ctx.is_valid else ("", "")
@@ -403,7 +406,7 @@ def _emit(bind: Bind, settings: AssaySettings, started: float, outcome: Result[R
             return doubled
 
 
-def rail(bind: Bind, settings: AssaySettings | None = None) -> Callable[[object], Envelope]:
+def rail(bind: Bind, settings: AssaySettings | None = None, executor: Executor | None = None) -> Callable[[object], Envelope]:
     """Build the registry runner for one bound verb.
 
     Each invocation emits exactly one Envelope. Parse failures skip history persistence;
@@ -413,11 +416,13 @@ def rail(bind: Bind, settings: AssaySettings | None = None) -> Callable[[object]
     Args:
         bind: Registry row carrying the claim, verb, handler, and params type.
         settings: Resolved settings; constructed from the environment when absent.
+        executor: Execution port threaded into the handler; the engine-bound port when absent.
 
     Returns:
         Runner that accepts a params object and returns the emitted Envelope.
     """
     handler: Handler[object] = compose(*_RAIL_LAYERS)(_narrow(bind.handler))
+    port = executor if executor is not None else _EXECUTOR
 
     def run(params: object) -> Envelope:
         active = settings or AssaySettings()
@@ -426,7 +431,7 @@ def rail(bind: Bind, settings: AssaySettings | None = None) -> Callable[[object]
         try:
             # ArtifactScope.open raises OSError when the .artifacts root is unwritable; fold it here outside _guard.
             scope = ArtifactScope.open(active, bind.claim)
-            outcome = _guard(lambda: _bound(params, bind.claim, bind.verb).bind(lambda p: _validated(_strict(handler(active, scope, p), p))))
+            outcome = _guard(lambda: _bound(params, bind.claim, bind.verb).bind(lambda p: _validated(_strict(handler(active, scope, p, port), p))))
             return _emit(bind, active, started, outcome)
         except OSError as exc:
             return _emit(bind, active, started, Error(Fault((), RailStatus.FAULTED, f"scope: {exc}")))
@@ -779,14 +784,14 @@ def _yak_ready() -> bool:
     )
 
 
-def _health(settings: AssaySettings) -> tuple[tuple[Match, ...], tuple[str, ...]]:
+def _health(settings: AssaySettings, executor: Executor) -> tuple[tuple[Match, ...], tuple[str, ...]]:
     # Missing tools report as notes; tokenized tool probes cache, while git probes stay live.
     probes = (*_tool_probes(), _GIT_HEAD, _GIT_DIRTY)
     volatile = frozenset(c.tool.command for c in (_GIT_HEAD, _GIT_DIRTY))
     cache = _probe_cache_load(settings)
     hits = {c.tool.command: hit for c in probes if c.tool.command not in volatile for hit in (_cache_hit(cache, c.tool.command),) if hit is not None}
     misses = tuple(c for c in probes if hits.get(c.tool.command) is None)
-    results = fan_out(misses, settings=settings, scope=None, routed=_PROBE_ROUTED)
+    results = executor.fan(misses, settings=settings, scope=None, routed=_PROBE_ROUTED)
     fresh = dict(zip((c.tool.command for c in misses), map(_probe_note, misses, results, strict=True), strict=True))
     current = frozenset(c.tool.command for c in probes if c.tool.command not in volatile)
     _probe_cache_store(settings, cache, fresh, current)
@@ -804,7 +809,7 @@ def _health(settings: AssaySettings) -> tuple[tuple[Match, ...], tuple[str, ...]
     )
 
 
-def self_test(*, rhino: bool = False) -> Envelope:
+def self_test(*, rhino: bool = False, executor: Annotated[Executor | None, Parameter(parse=False)] = None) -> Envelope:
     """Run the Assay composition preflight and emit a health Envelope.
 
     Verifies registry callability, claim coverage, rail-layer composition, catalog
@@ -812,13 +817,14 @@ def self_test(*, rhino: bool = False) -> Envelope:
 
     Args:
         rhino: When True, fail if the Rhino packaging tool (yak) is not on PATH.
+        executor: Execution port for the health-probe fan; the engine-bound port when absent.
 
     Returns:
         Emitted preflight Envelope with OK or FAILED status and health-probe notes.
     """
     settings = AssaySettings()
     bound_claims = frozenset(b.claim for b in REGISTRY)
-    health_probes, health_notes = _health(settings)
+    health_probes, health_notes = _health(settings, executor if executor is not None else _EXECUTOR)
     yak = _yak_ready()
     # Claim enum coverage makes the check fail when a declared claim loses its last verb.
     healthy = all(callable(b.handler) for b in REGISTRY) and all(c in bound_claims for c in Claim) and _composes() and _census()
@@ -903,9 +909,9 @@ def _read_version() -> str:
 _VERSION: Final[str] = _read_version()
 
 
-def _leaf(bind: Bind) -> Callable[[object], Envelope]:
+def _leaf(bind: Bind, executor: Executor) -> Callable[[object], Envelope]:
     # The params default must stay visible to Cyclopts; __wrapped__ would expose the defaultless runner.
-    runner = rail(bind)
+    runner = rail(bind, executor=executor)
 
     def command(params: object = bind.params()) -> Envelope:
         return runner(params)
@@ -942,7 +948,7 @@ def _register[**P](
     return app
 
 
-def build_app(registry: tuple[Bind, ...]) -> App:
+def build_app(registry: tuple[Bind, ...], *, executor: Executor | None = None) -> App:
     """Build the Cyclopts command tree from registry rows.
 
     Multi-verb claims become sub-apps; single-verb claims register as root leaves.
@@ -950,11 +956,13 @@ def build_app(registry: tuple[Bind, ...]) -> App:
 
     Args:
         registry: Ordered Bind tuple; typically the module-level REGISTRY constant.
+        executor: Execution port threaded into every leaf runner; the engine-bound port when absent.
 
     Returns:
         Configured Cyclopts App with claim sub-apps, verb leaves, self-test, and
         delta registered.
     """
+    port = executor if executor is not None else _EXECUTOR
     root = App(
         name="assay",
         help="Rasm polyglot quality operator. Global: --exec <local|ssh://[user@]host[:port]> offloads execution (default local).",
@@ -970,21 +978,21 @@ def build_app(registry: tuple[Bind, ...]) -> App:
     )
     keyed = sorted(registry, key=lambda b: b.claim.value)
     groups = tuple((claim, tuple(rows)) for claim, rows in groupby(keyed, key=attrgetter("claim")))
-    app = reduce(_register_claim, groups, root)
+    app = reduce(lambda acc, group: _register_claim(acc, group, port), groups, root)
     _register(app, self_test, name="self-test")
     _register(app, delta, name="delta")
     return app
 
 
-def _register_claim(app: App, group: tuple[Claim, tuple[Bind, ...]]) -> App:
+def _register_claim(app: App, group: tuple[Claim, tuple[Bind, ...]], executor: Executor) -> App:
     # Single-verb claims are root leaves; multi-verb claims are sub-apps.
     claim, rows = group
     match rows:
         case (single,):
-            return _register(app, _leaf(single), name=claim.value, help=single.help, usage=_usage(single, root_leaf=True))
+            return _register(app, _leaf(single, executor), name=claim.value, help=single.help, usage=_usage(single, root_leaf=True))
         case _:
             sub = reduce(
-                lambda sub_app, row: _register(sub_app, _leaf(row), name=row.verb, help=row.help, usage=_usage(row)),
+                lambda sub_app, row: _register(sub_app, _leaf(row, executor), name=row.verb, help=row.help, usage=_usage(row)),
                 rows,
                 App(name=claim.value, version_flags=(), usage=f"Usage: assay {claim.value} COMMAND"),
             )

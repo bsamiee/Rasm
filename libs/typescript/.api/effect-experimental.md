@@ -120,7 +120,7 @@
 |  [05]   | `Reactivity.mutation` / `query` / `stream` / `invalidate(keys)` / `layer`                      | reactive       | `store/project` read-your-writes invalidation            |
 |  [06]   | `Sse.makeChannel({ bufferSize? })` / `makeParser(onParse)` / `encoder`                         | SSE codec      | `host/net/channel`, `edge/live`, `host/flag` SSE         |
 |  [07]   | `RateLimiter.make` / `layer` / `makeSleep` / `layerStoreMemory`; `makeSleep({ algorithm?, window, limit, key })` | rate limit | `edge/api/middleware` distributed limiter            |
-|  [08]   | `RequestResolver.dataLoader(resolver, opts)` / `persisted({ resolver, store })`               | batching       | batched/persisted request resolution                     |
+|  [08]   | `RequestResolver.dataLoader({ window, maxBatchSize? })(resolver)` / `persisted({ storeId, … })(resolver)` | batching | batched/persisted request resolution (curried combinators) |
 |  [09]   | `DevTools.layer(url?)` / `layerWebSocket(url?)`                                                | dev            | `telemetry ./dev` fenced DevTools export                 |
 
 ## [04]-[IMPLEMENTATION_LAW]

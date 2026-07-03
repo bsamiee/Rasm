@@ -14,7 +14,7 @@ from tools.assay.composition.settings import (  # noqa: TC001  # beartype resolv
     ArtifactScope,
     AssaySettings,
 )
-from tools.assay.core.engine import fan_out
+from tools.assay.core.engine import Executor  # noqa: TC001  # beartype resolves the executor-port annotation at runtime
 from tools.assay.core.model import (
     Artifact,
     ArtifactKind,
@@ -23,14 +23,14 @@ from tools.assay.core.model import (
     Claim,
     Completed,  # noqa: TC001  # _rows annotates the ordered fan-out outcomes
     Fault,  # noqa: TC001  # beartype resolves Result[Report, Fault] under PEP 649 at import time
-    fold,
     Language,
     Match,
     Mode,
+    RailStatus,
     Report,  # noqa: TC001  # beartype resolves Report in return annotations at import time
 )
 from tools.assay.core.routing import route
-from tools.assay.core.status import RailStatus
+from tools.assay.diagnostics import fold
 
 
 if TYPE_CHECKING:
@@ -94,7 +94,9 @@ def _rows(
     return results, artifacts
 
 
-def _outcomes(routed: Routed, *, settings: AssaySettings, scope: ArtifactScope, claim: Claim, verb: str, mode: Mode) -> Result[Report, Fault]:
+def _outcomes(
+    routed: Routed, *, settings: AssaySettings, scope: ArtifactScope, claim: Claim, verb: str, mode: Mode, executor: Executor
+) -> Result[Report, Fault]:
     # mmdc requires per-file -i/-a/-o placement; scope materialization stays at the ArtifactScope boundary.
     scope_dir = scope.ensure()
     pairs = tuple((t, f, _sink_stem(f)) for t in select(claim, routed.language) if t.mode is mode for f in routed.files)
@@ -103,7 +105,7 @@ def _outcomes(routed: Routed, *, settings: AssaySettings, scope: ArtifactScope, 
     checks = tuple(
         Check(tool=msgspec.structs.replace(t, command=(*t.command, "-i", f, "-a", scope_dir, "-o", f"{scope_dir}/{stem}.md"))) for t, f, stem in pairs
     )
-    slots = fan_out(checks, settings=settings, scope=scope, routed=routed)
+    slots = executor.fan(checks, settings=settings, scope=scope, routed=routed)
 
     def _promote(done: tuple[Completed, ...]) -> Report:
         base = fold(claim, verb, done)
@@ -126,14 +128,14 @@ def _strict(report: Report, *, strict: bool) -> Report:
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
-def check(settings: AssaySettings, scope: ArtifactScope, params: DocsParams) -> Result[Report, Fault]:
+def check(settings: AssaySettings, scope: ArtifactScope, params: DocsParams, executor: Executor) -> Result[Report, Fault]:
     """Validate Mermaid diagrams across routed Markdown files, with optional strict EMPTY/SKIP promotion.
 
     Returns:
         Folded report, or a routing/spawn/strict-promotion fault.
     """
     return route(Language.DOCS, params.paths, settings=settings).bind(
-        lambda routed: _outcomes(routed, settings=settings, scope=scope, claim=Claim.DOCS, verb="check", mode=Mode.CHECK).map(
+        lambda routed: _outcomes(routed, settings=settings, scope=scope, claim=Claim.DOCS, verb="check", mode=Mode.CHECK, executor=executor).map(
             lambda report: _strict(report, strict=params.strict)
         )
     )

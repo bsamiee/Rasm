@@ -21,28 +21,32 @@ from tools.assay.composition.settings import (  # noqa: TC001  # runtime: public
     AssaySettings,
     DOTNET_BUILD_CLOSURE,
 )
-from tools.assay.core.engine import argv_for, fan_out, leased, resource_projection, run_check
+from tools.assay.core.engine import (  # noqa: TC001  # beartype resolves the executor-port annotation at runtime
+    argv_for,
+    Executor,
+    leased,
+    resource_projection,
+)
 from tools.assay.core.model import (
-    # _sarif_status is a model-owned reader the rail forwards; private cross-module reach is intentional.
-    _sarif_status,  # noqa: PLC2701
     Artifact,
     ArtifactKind,
     Check,
     Claim,
     Fault,
-    fold,
     Input,
     Language,
     Match,
     Mode,
+    RailStatus,
     receipt,
     Report,  # noqa: TC001 - beartype resolves runtime annotations
     Runner,
     StaticRun,
+    Step,
     Tool,  # noqa: TC001 - runtime: Tool participates in public check expansion annotations
 )
 from tools.assay.core.routing import expand, infer_languages, place, route, Routed, Scope, target_files, TargetFiles
-from tools.assay.core.status import RailStatus, Step
+from tools.assay.diagnostics import fold, sarif_status
 
 
 if TYPE_CHECKING:
@@ -432,7 +436,7 @@ def _skipped(checks: tuple[Check, ...], routed: Routed, settings: AssaySettings,
     )
 
 
-def _build_fan(phases: PhaseChecks, routed: Routed, settings: AssaySettings) -> tuple[Result[Completed, Fault], ...]:
+def _build_fan(phases: PhaseChecks, routed: Routed, settings: AssaySettings, executor: Executor) -> tuple[Result[Completed, Fault], ...]:
     active_scope = ArtifactScope.build(settings, DOTNET_BUILD_CLOSURE)
     resource = f"build-{DOTNET_BUILD_CLOSURE}-{settings.configuration.value}"
     project = f"{settings.configuration.value}:{','.join(routed.projects or routed.files)}"
@@ -445,7 +449,7 @@ def _build_fan(phases: PhaseChecks, routed: Routed, settings: AssaySettings) -> 
             phase_rows = (
                 _skipped(checks, routed, settings, active_scope)
                 if phase is Phase.BUILD and blocked
-                else fan_out(checks, settings=settings, scope=active_scope, routed=routed)
+                else executor.fan(checks, settings=settings, scope=active_scope, routed=routed)
             )
             rows = (*rows, *phase_rows)
             failed = _phase_failed(phase_rows)
@@ -456,13 +460,15 @@ def _build_fan(phases: PhaseChecks, routed: Routed, settings: AssaySettings) -> 
     return _leased_run(resource, project, run, settings)
 
 
-def _write_fan(checks: tuple[Check, ...], routed: Routed, settings: AssaySettings, scope: ArtifactScope) -> tuple[Result[Completed, Fault], ...]:
+def _write_fan(
+    checks: tuple[Check, ...], routed: Routed, settings: AssaySettings, scope: ArtifactScope, executor: Executor
+) -> tuple[Result[Completed, Fault], ...]:
     resource = f"write-{routed.language.value}-{_route_sha(routed)}"
     project = ",".join((*routed.projects, *routed.files))
 
     def run() -> tuple[Result[Completed, Fault], ...]:
         _LOG.info("phase.start", phase="fix", checks=len(checks), run_id=settings.run_id, route=routed.language.value)
-        rows = fan_out(checks, settings=settings, scope=scope, routed=routed)
+        rows = executor.fan(checks, settings=settings, scope=scope, routed=routed)
         _LOG.info("phase.end", phase="fix", checks=len(checks), failed=_phase_failed(rows), run_id=settings.run_id, route=routed.language.value)
         return rows
 
@@ -477,7 +483,7 @@ def _probe_check(build_check: Check) -> Check:
     return msgspec.structs.replace(build_check, tool=probe)
 
 
-def _probe_compiles(closure_phases: PhaseChecks, routed: Routed, settings: AssaySettings) -> bool:
+def _probe_compiles(closure_phases: PhaseChecks, routed: Routed, settings: AssaySettings, executor: Executor) -> bool:
     # A throwaway per-closure scope isolates the probe's --artifacts-path from the real build scope; its receipt never
     # reaches report.results. compiles is True only when every build target probes OK/EMPTY; a FAILED probe means
     # "does not compile" and an Error/ambiguous probe takes the same safe no-mutation path.
@@ -487,7 +493,7 @@ def _probe_compiles(closure_phases: PhaseChecks, routed: Routed, settings: Assay
     throwaway = ArtifactScope.build(settings, "probe")
     _LOG.info("phase.start", phase="probe", checks=len(builds), run_id=settings.run_id, route=routed.language.value)
     try:
-        outcomes = tuple(run_check(check, settings=settings, scope=throwaway, routed=routed) for check in builds)
+        outcomes = tuple(executor.run(check, settings=settings, scope=throwaway, routed=routed) for check in builds)
         compiles = all(outcome.map(lambda done: done.status in _COMPILES).default_value(False) for outcome in outcomes)  # noqa: FBT003  # expression sentinel default: an Error/ambiguous probe collapses to the safe no-compile path, not a behavior flag
     finally:
         # Throwaway means thrown away: an analyzer-free probe tree is a full solution build that must never accumulate.
@@ -506,7 +512,9 @@ def _format_gated(checks: tuple[Check, ...], phases: PhaseChecks) -> tuple[Check
     return tuple(check for check in checks if check.tool.name not in writable)
 
 
-def _dispatch(routed: Routed, *, phases: PhaseChecks, settings: AssaySettings, scope: ArtifactScope) -> tuple[Result[Completed, Fault], ...]:
+def _dispatch(
+    routed: Routed, *, phases: PhaseChecks, settings: AssaySettings, scope: ArtifactScope, executor: Executor
+) -> tuple[Result[Completed, Fault], ...]:
     if _empty_route(routed):
         return ()
     # Writes run under the mutating lease; C# restore/build runs under the closure lease.
@@ -515,7 +523,7 @@ def _dispatch(routed: Routed, *, phases: PhaseChecks, settings: AssaySettings, s
     closure_phases = tuple((phase, checks) for phase, checks in phases if phase in {Phase.RESTORE, Phase.BUILD})
     uses_closure = _uses_build_scope(routed, closure_phases)
     # The probe gates the format phase before the write lease; it is orthogonal to _build_fan's RESTORE->BUILD block gate.
-    compiles = not (uses_closure and write) or _probe_compiles(closure_phases, routed, settings)
+    compiles = not (uses_closure and write) or _probe_compiles(closure_phases, routed, settings, executor)
     gated_write = write if compiles else _format_gated(write, phases)
     plain = tuple(
         check
@@ -524,9 +532,9 @@ def _dispatch(routed: Routed, *, phases: PhaseChecks, settings: AssaySettings, s
         for check in (checks if compiles else _format_gated(checks, phases))
     )
     return (
-        *(_write_fan(gated_write, routed, settings, scope) if gated_write else ()),
-        *(fan_out(plain, settings=settings, scope=scope, routed=routed) if plain else ()),
-        *(_build_fan(closure_phases, routed, settings) if uses_closure else ()),
+        *(_write_fan(gated_write, routed, settings, scope, executor) if gated_write else ()),
+        *(executor.fan(plain, settings=settings, scope=scope, routed=routed) if plain else ()),
+        *(_build_fan(closure_phases, routed, settings, executor) if uses_closure else ()),
     )
 
 
@@ -550,7 +558,7 @@ def _closure_notes(report: Report, routed: tuple[Routed, ...]) -> Report:
 
 
 def _fold(
-    settings: AssaySettings, scope: ArtifactScope, targets: TargetFiles, routed: tuple[Routed, ...], *, plan: bool = False
+    settings: AssaySettings, scope: ArtifactScope, targets: TargetFiles, routed: tuple[Routed, ...], executor: Executor, *, plan: bool = False
 ) -> Result[Report, Fault]:
     routed = tuple(_build_route(route_row) for route_row in routed)
     phase_sets = tuple((route_row, *_phase_checks(route_row, settings, scope)) for route_row in routed)
@@ -561,7 +569,7 @@ def _fold(
     matches = _matches(targets, routed, skipped)
 
     def executed(done: tuple[Completed, ...]) -> Report:
-        detail = _detail(targets, routed, planned, skipped, artifacts, settings, checks, sarif_status=_sarif_status(done, scope.sarif_dir), done=done)
+        detail = _detail(targets, routed, planned, skipped, artifacts, settings, checks, sarif_status=sarif_status(done, scope.sarif_dir), done=done)
         report = fold(Claim.STATIC, "static", done, detail=detail, sarif_dir=scope.sarif_dir, promote_empty=True)
         return _closure_notes(
             msgspec.structs.replace(
@@ -576,14 +584,16 @@ def _fold(
     if plan:
         # Dry-run: the populated `planned` argv rides the detail; no tool spawns and no file mutates.
         return Ok(executed(()))
-    rows = (row for route_row, phases, _ in phase_sets for row in _dispatch(route_row, phases=phases, settings=settings, scope=scope))
+    rows = (
+        row for route_row, phases, _ in phase_sets for row in _dispatch(route_row, phases=phases, settings=settings, scope=scope, executor=executor)
+    )
     return sequence(block.of_seq(rows)).map(lambda done: executed(tuple(done)))
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
-def run(settings: AssaySettings, scope: ArtifactScope, params: StaticParams) -> Result[Report, Fault]:
+def run(settings: AssaySettings, scope: ArtifactScope, params: StaticParams, executor: Executor) -> Result[Report, Fault]:
     """Run the static quality lane for the selected target scope.
 
     The target value alone selects whole-workspace, project, folder/file, or changed-default routing. Every
@@ -593,7 +603,7 @@ def run(settings: AssaySettings, scope: ArtifactScope, params: StaticParams) -> 
         Folded static report, or a routing/restore/strict-promotion fault.
     """
     return _target_result(settings, params).bind(
-        lambda targets: _routed(targets, settings).bind(lambda routed: _fold(settings, scope, targets, routed, plan=params.plan))
+        lambda targets: _routed(targets, settings).bind(lambda routed: _fold(settings, scope, targets, routed, executor, plan=params.plan))
     )
 
 

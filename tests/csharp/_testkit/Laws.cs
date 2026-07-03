@@ -1,6 +1,7 @@
 using System.Collections.Frozen;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using Rasm.Csp;
 
 namespace Rasm.TestKit;
 
@@ -29,12 +30,6 @@ public readonly record struct SutTarget(Assembly Assembly, FrozenSet<string> Exe
 
 // --- [SERVICES] -----------------------------------------------------------------------------
 public static class Laws {
-    // Production-site exemption vocabulary lives in Csp.Contracts; reflection matches it by name so
-    // the gate stays decoupled from a hard type reference at the foreign-vocabulary boundary.
-    private const string ExemptAttribute = "Rasm.Csp.CspExemptAttribute";
-    private const string ScopeAttribute = "Rasm.Csp.CspScopeAttribute";
-    private const int ToolingScope = 6;
-
     // Record-synthesized and compiler-emitted members carry no law obligation; their simple names
     // and prefixes are stable across the generators that emit them.
     private static readonly FrozenSet<string> SynthesizedNames =
@@ -106,7 +101,7 @@ public static class Laws {
 
     // A type carrying any `[Union]`/`[SmartEnum]` Thinktecture marker owns a closed family; its
     // generated cases and dispatch members are derivation, not authored surface, so coverage credits
-    // the family type alone and skips the generated members.
+    // the family type alone. Name-prefix matching stays: the marker set is generic-arity-open.
     private static bool IsClosedFamily(Type type) =>
         type.GetCustomAttributes(inherit: false).Any(static attribute =>
             attribute.GetType().FullName is string name
@@ -132,12 +127,12 @@ public static class Laws {
     private static bool IsMemberExempt(MemberInfo member) =>
         member.GetCustomAttributes(inherit: false).Any(IsExemptAttribute);
 
-    // A `[CspExempt]` of any axis, or a `[CspScope(Tooling)]`, removes the symbol from the coverage
-    // obligation; the scope ordinal mirrors the production `CspScope.Tooling` member.
+    // Typed Csp.Contracts matching: one shared contract identity is injected into every project,
+    // so exemption vocabulary dispatches on the real attribute types, never FullName strings.
     private static bool IsExemptAttribute(object attribute) =>
-        attribute.GetType().FullName switch {
-            ExemptAttribute => true,
-            ScopeAttribute => attribute.GetType().GetProperty("Scope")?.GetValue(attribute) is int scope && scope == ToolingScope,
+        attribute switch {
+            CspExemptAttribute => true,
+            CspScopeAttribute scoped => scoped.Scope == CspScope.Tooling,
             _ => false,
         };
 }

@@ -1,17 +1,19 @@
 """Route changed or explicit paths into language-specific tool inputs.
 
-Closure languages walk project graphs; glob languages filter by suffix and stay changed-scope.
+Closure languages walk project graphs; glob languages filter by suffix and stay changed-scope. The read-only
+subprocess discovery kernel lives here: routing's git/fd source and the engine's toolchain probes share it.
 """
 
 from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
 from functools import reduce
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 from posixpath import normpath
 from typing import assert_never, Protocol, runtime_checkable
 import xml.etree.ElementTree as ET  # noqa: S405  # trusted local .csproj XML from source.read, never network-sourced
 
+import anyio
 from expression import Error, Ok, Result  # noqa: TC002  # beartype resolves routing Result annotations at runtime (PEP 649)
 import msgspec
 import structlog
@@ -27,10 +29,9 @@ from tools.assay.core.model import (  # noqa: TC001  # msgspec needs Language/To
     Input,
     Language,
     Mode,
-    Runner,
+    RailStatus,
     Tool,
 )
-from tools.assay.core.status import RailStatus
 
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -171,9 +172,41 @@ def _expand(target: str, *, root: UPath) -> Result[tuple[str, ...], Fault]:
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _git(argv: tuple[str, ...], *, root: UPath) -> Result[tuple[str, ...], Fault]:
-    from tools.assay.core.engine import discover  # noqa: PLC0415  # deferred: engine imports routing; cycle broken here
+async def discover_async(argv: tuple[str, ...], *, root: UPath | Path | str, limit_s: float) -> Result[bytes, Fault]:
+    """Run a read-only discovery command inside an existing event loop.
 
+    Returns:
+        Captured stdout, or a typed discovery fault.
+    """
+    try:
+        with anyio.fail_after(limit_s):
+            done = await anyio.run_process(list(argv), cwd=str(root), check=False, start_new_session=True)
+    except TimeoutError:
+        return Error(Fault(argv, RailStatus.TIMEOUT, f"timeout after {limit_s:g}s"))
+    except OSError as exc:
+        return Error(Fault(argv, RailStatus.FAULTED, str(exc)[:1024]))
+    match done.returncode:
+        case 0:
+            return Ok(done.stdout)
+        case _:
+            tail = (done.stderr or done.stdout or b"").decode(errors="replace").strip()[:1024]
+            return Error(Fault(argv, RailStatus.FAULTED, tail))
+
+
+def discover(argv: tuple[str, ...], *, root: UPath | Path | str, timeout: float) -> Result[bytes, Fault]:
+    """Run a read-only discovery command from synchronous callers.
+
+    Returns:
+        Captured stdout, or a typed discovery fault.
+    """
+
+    async def _run() -> Result[bytes, Fault]:
+        return await discover_async(argv, root=root, limit_s=timeout)
+
+    return anyio.run(_run)
+
+
+def _git(argv: tuple[str, ...], *, root: UPath) -> Result[tuple[str, ...], Fault]:
     return discover(argv, root=root, timeout=_TIMEOUT).map(lambda raw: tuple(line for line in raw.decode(errors="replace").splitlines() if line))
 
 
@@ -397,14 +430,12 @@ def place(routed: Routed, tool: Tool, *, settings: AssaySettings) -> tuple[tuple
         case Input.INCLUDE:
             return tuple((project, *Input.INCLUDE.flag, *files) for project, files in routed.groups)
         case Input.PROJECT:
-            # Host-bound projects compile managed-safe but cannot execute outside the host runtime.
+            # Host-bound projects compile managed-safe but cannot execute outside the host runtime. The placement
+            # flag is row data (Tool.input_flag); a staged row anchors the project absolutely because its cwd is the
+            # copy-staged work root, not the repo tree.
             kept = routed.projects if tool.mode in {Mode.RESTORE, Mode.BUILD} else tuple(p for p in routed.projects if p not in routed.host_bound)
             return tuple(
-                ("--project", project)
-                if tool.runner is Runner.DOTNET and tool.command[:1] == ("test",)
-                else ("--test-project", str(settings.root / project))
-                if tool.runner is Runner.DOTNET and tool.stage.root
-                else (project,)
+                (*tool.input_flag, str(settings.root / project) if tool.input_flag and tool.stage.root else project) if tool.input_flag else (project,)
                 for project in kept
             )
         case Input.SOLUTION:
@@ -454,6 +485,8 @@ __all__ = [
     "Scope",
     "Source",
     "TargetFiles",
+    "discover",
+    "discover_async",
     "expand",
     "infer_languages",
     "parse_csproj",

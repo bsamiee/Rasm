@@ -26,13 +26,13 @@ import msgspec
 from tree_sitter import Parser as TSParser, QueryCursor
 import tree_sitter_typescript
 
-from tools.assay.composition.catalog import Capture, CAPTURE_ENCODER, CAPTURES, select
+from tools.assay.composition.catalog import select
 from tools.assay.composition.settings import (  # noqa: TC001  # beartype resolves these types at runtime in @checked signatures
     ArtifactScope,
     ArtifactStore,
     AssaySettings,
 )
-from tools.assay.core.engine import run_check
+from tools.assay.core.engine import Executor  # noqa: TC001  # beartype resolves the executor-port annotation at runtime
 from tools.assay.core.model import (
     _RESULT_CAP,  # noqa: PLC2701  # shared saturation site
     ApiResolution,
@@ -45,10 +45,10 @@ from tools.assay.core.model import (
     Claim,
     Completed,
     Fault,
-    fold,
     Language,
     Match,
     Mode,
+    RailStatus,
     receipt,
     Report,  # noqa: TC001  # unconditional: beartype @checked resolves the -> Result[Report, Fault] forward-ref under PEP 649
     SourceKind,
@@ -56,7 +56,7 @@ from tools.assay.core.model import (
     Tool,
 )
 from tools.assay.core.routing import parse_csproj, Routed, Scope
-from tools.assay.core.status import RailStatus
+from tools.assay.diagnostics import Capture, CAPTURE_ENCODER, CAPTURES, fold
 from tools.assay.rails.code import _cap_note, _node_text, ts_language, ts_query  # noqa: PLC2701  # shared rail primitives owned by code.py
 
 
@@ -876,19 +876,19 @@ def _walk_decls(node: Node) -> tuple[Node, ...]:
     return (*own, *(d for child in node.children for d in _walk_decls(child)))
 
 
-def _invoke(settings: AssaySettings, scope: ArtifactScope, tool: Tool, *args: str) -> Completed:
+def _invoke(settings: AssaySettings, scope: ArtifactScope, executor: Executor, tool: Tool, *args: str) -> Completed:
     # scope=None preserves the real dotnet-tools.json CLI home for `dotnet tool run ilspycmd`.
     _ = scope
     routed = Routed(language=Language.CSHARP, scope=Scope.CHANGED)
     check = Check(tool=msgspec.structs.replace(tool, command=(*tool.command, *args)))
-    match run_check(check, settings=settings, scope=None, routed=routed):
+    match executor.run(check, settings=settings, scope=None, routed=routed):
         case Result(tag="ok", ok=done):
             return done
         case Result(error=fault):
             return Completed((*tool.runner.prefix, *tool.command, *args), 1, stderr=fault.message.encode())
 
 
-def _surface(settings: AssaySettings, scope: ArtifactScope, source: _Source) -> Result[_Surface, Fault]:  # noqa: PLR0912  # one arm per SourceKind; the axis is closed
+def _surface(settings: AssaySettings, scope: ArtifactScope, source: _Source, executor: Executor) -> Result[_Surface, Fault]:  # noqa: PLR0912  # one arm per SourceKind; the axis is closed
     # Content-fingerprint cache avoids repeat listings; the strategy splits on source.kind (ilspycmd subprocess vs INPROC thunk).
     store = settings.store()
     match source.kind:
@@ -907,7 +907,7 @@ def _surface(settings: AssaySettings, scope: ArtifactScope, source: _Source) -> 
                         if not assemblies
                         else Ok(_parse_surface(source, cache, cached))
                         if _cache_valid(cached)
-                        else _run_surface(settings, scope, source, tool, assemblies, cache)
+                        else _run_surface(settings, scope, source, tool, assemblies, cache, executor)
                     )
         case SourceKind.PYDIST | SourceKind.TSDECL:
             # No asset_paths → EMPTY, not FAULTED.
@@ -919,15 +919,15 @@ def _surface(settings: AssaySettings, scope: ArtifactScope, source: _Source) -> 
                 store.write_text_path(done.stdout.decode(errors="replace"), cache)
                 return _parse_inproc(source, cache, done.stdout)
 
-            return _inproc_check(settings, source, Mode.QUERY, _inproc_thunk(source, "")).map(_persist)
+            return _inproc_check(settings, source, Mode.QUERY, _inproc_thunk(source, ""), executor).map(_persist)
         case SourceKind.TOOL:  # pragma: no cover  # TOOL never resolves through _resolve_source
             return Ok(_Surface(source, (), (), {}, _cache_path(settings, source, ""), ""))
         case never:  # pragma: no cover
             assert_never(never)
 
 
-def _inproc_check(settings: AssaySettings, source: _Source, mode: Mode, thunk: InprocThunk) -> Result[Completed, Fault]:
-    # Thunks run through run_check to share the deadline, rate limiter, and trace span with subprocess rails.
+def _inproc_check(settings: AssaySettings, source: _Source, mode: Mode, thunk: InprocThunk, executor: Executor) -> Result[Completed, Fault]:
+    # Thunks run through the executor port to share the deadline, rate limiter, and trace span with subprocess rails.
     language = Language.PYTHON if source.kind is SourceKind.PYDIST else Language.TYPESCRIPT
     match next((t for t in select(Claim.API, language) if t.mode is mode), None):
         case None:
@@ -935,7 +935,7 @@ def _inproc_check(settings: AssaySettings, source: _Source, mode: Mode, thunk: I
         case Tool() as tool:
             check = Check(tool=msgspec.structs.replace(tool, thunk=thunk))
             routed = Routed(language=language, scope=Scope.CHANGED)
-            return run_check(check, settings=settings, scope=None, routed=routed)
+            return executor.run(check, settings=settings, scope=None, routed=routed)
 
 
 def _parse_inproc(source: _Source, cache: str, stdout: bytes) -> _Surface:
@@ -948,10 +948,10 @@ def _cache_path(settings: AssaySettings, source: _Source, fingerprint: str) -> s
     return settings.store().path(ArtifactKind.SCOPE.value, "api", _safe(source.key), f"{fingerprint or 'unresolved'}.txt")
 
 
-def _run_surface(
-    settings: AssaySettings, scope: ArtifactScope, source: _Source, tool: Tool, assemblies: tuple[Path, ...], cache: str
+def _run_surface(  # structural surface-cache slots; the executor rides last
+    settings: AssaySettings, scope: ArtifactScope, source: _Source, tool: Tool, assemblies: tuple[Path, ...], cache: str, executor: Executor
 ) -> Result[_Surface, Fault]:
-    attempts = tuple((asm, _invoke(settings, scope, tool, str(asm))) for asm in assemblies)
+    attempts = tuple((asm, _invoke(settings, scope, executor, tool, str(asm))) for asm in assemblies)
     match any(done.returncode == 0 for _, done in attempts):
         case False:
             detail = "\n".join(d.stderr.decode(errors="replace") for _, d in attempts if d.stderr) or "ilspycmd type listing failed"
@@ -1034,22 +1034,22 @@ def _xml_members(path: Path) -> tuple[ET.Element[str], ...]:
     return tuple(root.iterfind(".//member"))
 
 
-def _decompile(
-    settings: AssaySettings, scope: ArtifactScope, surface: _Surface, symbol: str, shape: SymbolShape, p: ApiParams
+def _decompile(  # structural decompile slots; the executor rides last
+    settings: AssaySettings, scope: ArtifactScope, surface: _Surface, symbol: str, shape: SymbolShape, p: ApiParams, executor: Executor
 ) -> Result[Report, Fault]:
     match surface.source.kind:
         case SourceKind.ASSEMBLY | SourceKind.NUGET:
-            return _cs_decompile(settings, scope, surface, symbol, shape, p)
+            return _cs_decompile(settings, scope, surface, symbol, shape, p, executor)
         case SourceKind.PYDIST | SourceKind.TSDECL:
-            return _inproc_decompile(settings, scope, surface, symbol, shape, p)
+            return _inproc_decompile(settings, scope, surface, symbol, shape, p, executor)
         case SourceKind.TOOL:  # pragma: no cover  # TOOL never resolves through _resolve_source
-            return Ok(_search_report(settings, scope, surface, p))
+            return Ok(_search_report(settings, scope, surface, p, executor))
         case never:  # pragma: no cover
             assert_never(never)
 
 
 def _cs_decompile(  # noqa: PLR0914  # decompile pipeline uses all 14 locals as independent pipeline stages
-    settings: AssaySettings, scope: ArtifactScope, surface: _Surface, symbol: str, shape: SymbolShape, p: ApiParams
+    settings: AssaySettings, scope: ArtifactScope, surface: _Surface, symbol: str, shape: SymbolShape, p: ApiParams, executor: Executor
 ) -> Result[Report, Fault]:
     head, _, tail = symbol.rpartition(".")
     fqn = _rank_type(surface.types, symbol) or _rank_type(surface.types, head)
@@ -1057,9 +1057,9 @@ def _cs_decompile(  # noqa: PLR0914  # decompile pipeline uses all 14 locals as 
         case None:
             return Error(Fault(("api", "decompile", symbol), status=RailStatus.FAULTED, message="no ilspycmd catalog row"))
         case Tool() if not fqn:
-            return Ok(_decompile_report(settings, scope, surface, shape, "", "", "", "", 0, truncated=False, p=p))
+            return Ok(_decompile_report(settings, scope, surface, shape, "", "", "", "", 0, truncated=False, p=p, executor=executor))
         case Tool() as tool:
-            done = _run_decompile(settings, scope, tool, fqn, surface.source.assemblies)
+            done = _run_decompile(settings, scope, tool, fqn, surface.source.assemblies, executor)
             text = done.stdout.decode(errors="replace")
             lines = tuple(line for line in text.splitlines() if not p.grep or p.grep.casefold() in line.casefold())
             boundary = re.compile(rf"\b{re.escape(tail or symbol.rsplit('.', 1)[-1])}\b", re.IGNORECASE)
@@ -1083,12 +1083,13 @@ def _cs_decompile(  # noqa: PLR0914  # decompile pipeline uses all 14 locals as 
                     selected,
                     truncated=truncated,
                     p=p,
+                    executor=executor,
                 )
             )
 
 
-def _inproc_decompile(
-    settings: AssaySettings, scope: ArtifactScope, surface: _Surface, symbol: str, shape: SymbolShape, p: ApiParams
+def _inproc_decompile(  # structural decompile slots; the executor rides last
+    settings: AssaySettings, scope: ArtifactScope, surface: _Surface, symbol: str, shape: SymbolShape, p: ApiParams, executor: Executor
 ) -> Result[Report, Fault]:
     # Docs come from thunk captures (inspect.getdoc / TSDoc comment), not XMLDoc sidecar lookup.
     source = surface.source
@@ -1111,16 +1112,19 @@ def _inproc_decompile(
             len(lines),
             truncated=not p.full and len(lines) > len(window),
             p=p,
+            executor=executor,
         )
 
-    return _inproc_check(settings, source, Mode.LIST, _inproc_thunk(source, symbol)).map(_build)
+    return _inproc_check(settings, source, Mode.LIST, _inproc_thunk(source, symbol), executor).map(_build)
 
 
-def _run_decompile(settings: AssaySettings, scope: ArtifactScope, tool: Tool, fqn: str, assemblies: tuple[Path, ...]) -> Completed:
+def _run_decompile(  # structural decompile slots; the executor rides last
+    settings: AssaySettings, scope: ArtifactScope, tool: Tool, fqn: str, assemblies: tuple[Path, ...], executor: Executor
+) -> Completed:
     # Ref assemblies precede lib assemblies; first non-empty successful decompile wins.
     ordered = sorted(assemblies, key=lambda a: ("/ref/" not in a.as_posix(), a.as_posix().casefold()))
     decompile_tool = msgspec.structs.replace(tool, command=(*(c for c in tool.command if c not in {"-l", "cisde"}), "-t", fqn, *_DECOMPILE_FLAGS))
-    attempts = tuple(_invoke(settings, scope, decompile_tool, str(asm)) for asm in ordered)
+    attempts = tuple(_invoke(settings, scope, executor, decompile_tool, str(asm)) for asm in ordered)
     return next((d for d in attempts if d.returncode == 0 and d.stdout), attempts[0] if attempts else Completed(("ilspycmd",), 1))
 
 
@@ -1175,14 +1179,14 @@ def _matches(rows: tuple[str, ...], kind: ArtifactKind, pattern: str) -> tuple[t
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
-def status(settings: AssaySettings, scope: ArtifactScope, p: ApiParams) -> Result[Report, Fault]:
+def status(settings: AssaySettings, scope: ArtifactScope, p: ApiParams, executor: Executor) -> Result[Report, Fault]:
     """Inventory API source health.
 
     Returns:
         Inventory report, or a strict-mode fault when required sources are incomplete.
     """
     surface_tool = next((t for t in select(Claim.API, Language.CSHARP)), None)
-    version = _invoke(settings, scope, surface_tool, "--version") if surface_tool is not None else Completed(("ilspycmd",), 1)
+    version = _invoke(settings, scope, executor, surface_tool, "--version") if surface_tool is not None else Completed(("ilspycmd",), 1)
     ilspy_ver = (version.stdout.decode(errors="replace").splitlines()[0].strip() if version.stdout else "") or "unavailable"
     sources = _filtered_sources(_inventory_sources(settings, _rhino_app(settings), ilspy_ver, version.returncode), p.sources)
     healthy = tuple(s for s in sources if s.status is RailStatus.OK)
@@ -1311,13 +1315,13 @@ def _strict(report: Report, p: ApiParams, core_absent: tuple[ApiSource, ...] = (
             return Ok(report)
 
 
-def resolve(settings: AssaySettings, scope: ArtifactScope, p: ApiParams) -> Result[Report, Fault]:
+def resolve(settings: AssaySettings, scope: ArtifactScope, p: ApiParams, executor: Executor) -> Result[Report, Fault]:
     """Resolve a source key to asset paths.
 
     Returns:
         Asset path report, or unsupported-source candidate evidence.
     """
-    _ = scope
+    _ = (scope, executor)
     match _resolve_source(settings, p.key):
         case Result(tag="ok", ok=source):
             return _strict(_resolve_report(settings, source, p), p)
@@ -1363,7 +1367,7 @@ def _resolve_targets(source: _Source, kind: _PathKind) -> tuple[Path, ...]:
     return tuple(dict.fromkeys(catalog[kind]))
 
 
-def query(settings: AssaySettings, scope: ArtifactScope, p: ApiParams) -> Result[Report, Fault]:
+def query(settings: AssaySettings, scope: ArtifactScope, p: ApiParams, executor: Executor) -> Result[Report, Fault]:
     """Query a source for namespaces, types, members, or search hits.
 
     Returns:
@@ -1372,39 +1376,39 @@ def query(settings: AssaySettings, scope: ArtifactScope, p: ApiParams) -> Result
     match _resolve_source(settings, p.key):
         case Result(tag="ok", ok=source):
             return (
-                _surface(settings, scope, source)
-                .bind(lambda surface: _query_shape(settings, scope, surface, p))
+                _surface(settings, scope, source, executor)
+                .bind(lambda surface: _query_shape(settings, scope, surface, p, executor))
                 .bind(lambda report: _strict(report, p))
             )
         case Result(error=resolution):
             return _strict(_miss_report("query", p.key, resolution), p)
 
 
-def _resolve_namespace(settings: AssaySettings, scope: ArtifactScope, surface: _Surface, p: ApiParams) -> Result[Report, Fault]:
+def _resolve_namespace(settings: AssaySettings, scope: ArtifactScope, surface: _Surface, p: ApiParams, executor: Executor) -> Result[Report, Fault]:
     # Type-suffix match wins over exact namespace roster; no match falls through to search.
     type_fqn = _rank_type(surface.types, p.symbol)
     owned = surface.by_namespace.get(_rank_namespace(surface, p.symbol), ()) if not type_fqn else ()
     return (
-        _decompile(settings, scope, surface, type_fqn, SymbolShape.TYPE, p)
+        _decompile(settings, scope, surface, type_fqn, SymbolShape.TYPE, p, executor)
         if type_fqn
         else Ok(_roster_report(settings, surface, SymbolShape.NAMESPACE, owned, p))
         if owned
-        else Ok(_search_report(settings, scope, surface, p))
+        else Ok(_search_report(settings, scope, surface, p, executor))
     )
 
 
-def _query_shape(settings: AssaySettings, scope: ArtifactScope, surface: _Surface, p: ApiParams) -> Result[Report, Fault]:
+def _query_shape(settings: AssaySettings, scope: ArtifactScope, surface: _Surface, p: ApiParams, executor: Executor) -> Result[Report, Fault]:
     # Namespace-shaped symbols still decompile when they also match a type suffix.
     match shape_of(p.symbol):
         case SymbolShape.INDEX:
             rows = surface.namespaces or surface.types
             return Ok(_roster_report(settings, surface, SymbolShape.INDEX, rows, p))
         case SymbolShape.NAMESPACE:
-            return _resolve_namespace(settings, scope, surface, p)
+            return _resolve_namespace(settings, scope, surface, p, executor)
         case SymbolShape.TYPE | SymbolShape.MEMBER as shape:
-            return _decompile(settings, scope, surface, p.symbol, shape, p)
+            return _decompile(settings, scope, surface, p.symbol, shape, p, executor)
         case SymbolShape.SEARCH:  # pragma: no cover  # shape_of never emits SEARCH; the decompile-miss path routes through _decompile_report
-            return Ok(_search_report(settings, scope, surface, p))
+            return Ok(_search_report(settings, scope, surface, p, executor))
         case never:  # pragma: no cover
             assert_never(never)
 
@@ -1441,7 +1445,7 @@ def _roster_report(settings: AssaySettings, surface: _Surface, shape: SymbolShap
     return msgspec.structs.replace(fold(Claim.API, "query", (done,), detail=detail), artifacts=artifacts, results=results)
 
 
-def _search_report(settings: AssaySettings, scope: ArtifactScope, surface: _Surface, p: ApiParams) -> Report:
+def _search_report(settings: AssaySettings, scope: ArtifactScope, surface: _Surface, p: ApiParams, executor: Executor) -> Report:
     # Misses carry nearest candidates so callers can route to suggestions.
     source = surface.source
     needle = p.symbol.casefold()
@@ -1449,7 +1453,7 @@ def _search_report(settings: AssaySettings, scope: ArtifactScope, surface: _Surf
     match hits:
         case () if p.grep and source.kind in {SourceKind.ASSEMBLY, SourceKind.NUGET}:
             # No type hit but a --grep member needle: fan out ilspycmd -t over the cap-bounded, relevance-ranked candidate types.
-            return _grep_member_report(settings, scope, surface, p)
+            return _grep_member_report(settings, scope, surface, p, executor)
         case ():
             done = Completed(("api", "query", source.key), 0, status=RailStatus.UNSUPPORTED, notes=(f"no match for '{p.symbol}'",))
             return fold(Claim.API, "query", (done,), detail=ApiResolution(candidates=_rank_candidates(surface.types, p.symbol), reason="partial"))
@@ -1478,7 +1482,9 @@ def _grep_miss(surface: _Surface, p: ApiParams, note: str) -> Report:
     return fold(Claim.API, "query", (done,), detail=ApiResolution(candidates=_rank_candidates(surface.types, p.grep), reason="partial"))
 
 
-def _grep_hits(settings: AssaySettings, scope: ArtifactScope, surface: _Surface, tool: Tool, p: ApiParams) -> tuple[str, ...]:
+def _grep_hits(  # structural grep slots; the executor rides last
+    settings: AssaySettings, scope: ArtifactScope, surface: _Surface, tool: Tool, p: ApiParams, executor: Executor
+) -> tuple[str, ...]:
     # _CANDIDATE_CAP is the explosion guard: name-relevance ranks first; a pure member needle resembling no type name
     # falls back to the first cap roster types, so a broad needle decompiles at most _CANDIDATE_CAP candidates, one assembly each.
     needle = p.grep.casefold()
@@ -1486,17 +1492,17 @@ def _grep_hits(settings: AssaySettings, scope: ArtifactScope, surface: _Surface,
     return tuple(
         f"{fqn} :: {line.strip()}"
         for fqn in candidates
-        for done in (_run_decompile(settings, scope, tool, fqn, surface.source.assemblies),)
+        for done in (_run_decompile(settings, scope, tool, fqn, surface.source.assemblies, executor),)
         if done.returncode == 0
         for line in done.stdout.decode(errors="replace").splitlines()
         if needle in line.casefold() and not line.lstrip().startswith("///")
     )
 
 
-def _grep_member_report(settings: AssaySettings, scope: ArtifactScope, surface: _Surface, p: ApiParams) -> Report:
+def _grep_member_report(settings: AssaySettings, scope: ArtifactScope, surface: _Surface, p: ApiParams, executor: Executor) -> Report:
     source = surface.source
     tool = next((t for t in select(Claim.API, Language.CSHARP)), None)
-    hits = _grep_hits(settings, scope, surface, tool, p) if tool is not None else ()
+    hits = _grep_hits(settings, scope, surface, tool, p, executor) if tool is not None else ()
     match (tool, hits):
         case (None, _):
             return _grep_miss(surface, p, "no ilspycmd catalog row")
@@ -1534,13 +1540,16 @@ def _decompile_report(  # noqa: PLR0913,PLR0914,PLR0917  # all slots are structu
     *,
     truncated: bool,
     p: ApiParams,
+    executor: Executor,
 ) -> Report:
     # Empty signatures try namespace roster before falling to fuzzy search.
     match signature:
         case "":
             ns_key = _rank_namespace(surface, p.symbol)
             owned = surface.by_namespace.get(ns_key, ()) if ns_key != p.symbol or ns_key in surface.by_namespace else ()
-            return _roster_report(settings, surface, SymbolShape.NAMESPACE, owned, p) if owned else _search_report(settings, scope, surface, p)
+            return (
+                _roster_report(settings, surface, SymbolShape.NAMESPACE, owned, p) if owned else _search_report(settings, scope, surface, p, executor)
+            )
         case _:
             direct_fqn = _rank_type(surface.types, p.symbol)
             head = p.symbol.rpartition(".")[0]
@@ -1616,13 +1625,13 @@ def _miss_report(verb: str, key: str, resolution: ApiResolution) -> Report:
     return fold(Claim.API, verb, (done,), detail=resolution)
 
 
-def show(settings: AssaySettings, scope: ArtifactScope, p: ApiParams) -> Result[Report, Fault]:
+def show(settings: AssaySettings, scope: ArtifactScope, p: ApiParams, executor: Executor) -> Result[Report, Fault]:
     """Preview a previously written API artifact.
 
     Returns:
         Artifact preview report, or an empty report when the artifact is absent.
     """
-    _ = scope
+    _ = (scope, executor)
     store = settings.store()
     match _show_targets(store, p):
         case (path, *rest):

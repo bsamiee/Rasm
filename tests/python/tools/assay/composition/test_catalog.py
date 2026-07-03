@@ -7,8 +7,9 @@ import pytest
 from tests.python._testkit.laws import register_law, spec
 from tests.python._testkit.spec import assert_roundtrip, idempotent
 from tests.python._testkit.strategies import resolve as _resolve  # noqa: F401  # registers the Tool Hypothesis strategy on import; no call site
-from tools.assay.composition.catalog import AST_MATCHES, Capture, CAPTURE_ENCODER, CAPTURES, RG_EVENT, select, TOOLS
-from tools.assay.core.model import Claim, Input, Language, Mode, Tool
+from tools.assay.composition.catalog import select, TOOLS
+from tools.assay.core.model import Claim, Input, Language, Mode, Parser, Tool
+from tools.assay.diagnostics import AST_MATCHES, Capture, CAPTURE_ENCODER, CAPTURES, RG_EVENT
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -33,8 +34,8 @@ def test_capture_roundtrip(capture: Capture) -> None:
     assert decoded == (capture,), f"roundtrip broken: {capture!r} -> {decoded!r}"
 
 
-register_law("tools.assay.composition.catalog.CAPTURES", "capture_codec_roundtrip", module=__name__)
-register_law("tools.assay.composition.catalog.CAPTURE_ENCODER", "capture_codec_roundtrip", module=__name__)
+register_law("tools.assay.diagnostics.CAPTURES", "capture_codec_roundtrip", module=__name__)
+register_law("tools.assay.diagnostics.CAPTURE_ENCODER", "capture_codec_roundtrip", module=__name__)
 
 # --- [CAPTURES_STRUCTURAL]
 
@@ -45,7 +46,7 @@ def test_captures_empty_array_decodes_to_empty_tuple() -> None:
     assert result == (), f"expected empty tuple, got {result!r}"
 
 
-register_law("tools.assay.composition.catalog.CAPTURES", "captures_empty_array", module=__name__)
+register_law("tools.assay.diagnostics.CAPTURES", "captures_empty_array", module=__name__)
 
 # --- [CAPTURE_ASSERT_ROUNDTRIP]
 
@@ -63,7 +64,7 @@ def test_ast_matches_empty_array() -> None:
     assert result == (), f"expected empty tuple, got {result!r}"
 
 
-register_law("tools.assay.composition.catalog.AST_MATCHES", "ast_matches_empty_array", module=__name__)
+register_law("tools.assay.diagnostics.AST_MATCHES", "ast_matches_empty_array", module=__name__)
 
 
 def test_ast_matches_field_identity() -> None:
@@ -76,7 +77,7 @@ def test_ast_matches_field_identity() -> None:
     assert m.lines == "1-3"
 
 
-register_law("tools.assay.composition.catalog.AST_MATCHES", "ast_matches_field_identity", module=__name__)
+register_law("tools.assay.diagnostics.AST_MATCHES", "ast_matches_field_identity", module=__name__)
 
 # --- [RG_EVENT_ALIAS]
 
@@ -89,7 +90,7 @@ def test_rg_event_type_to_kind_alias() -> None:
     assert ev.data.line_number == 7
 
 
-register_law("tools.assay.composition.catalog.RG_EVENT", "rg_event_type_alias", module=__name__)
+register_law("tools.assay.diagnostics.RG_EVENT", "rg_event_type_alias", module=__name__)
 
 
 def test_rg_event_default_fields() -> None:
@@ -99,7 +100,7 @@ def test_rg_event_default_fields() -> None:
     assert ev.data.line_number == 0
 
 
-register_law("tools.assay.composition.catalog.RG_EVENT", "rg_event_defaults", module=__name__)
+register_law("tools.assay.diagnostics.RG_EVENT", "rg_event_defaults", module=__name__)
 
 # --- [TOOLS_CENSUS]
 
@@ -160,6 +161,35 @@ def test_tool_generated_instance_selects_back(tool: Tool) -> None:
         "select returned a row whose claim/language mismatches the query axes"
     )
 
+
+# --- [PARSER_CENSUS]
+
+
+def test_parser_families_all_declared() -> None:
+    """Every diagnostics family is declared by at least one catalog row, and no row invents a family."""
+    declared = {t.parser for t in TOOLS}
+    assert declared == frozenset(Parser), f"parser families drifted: declared={sorted(declared)}"
+
+
+register_law("tools.assay.core.model.Parser", "parser_families_all_declared", module=__name__)
+
+
+def test_parser_rows_key_static_diagnostic_tools() -> None:
+    """The argv-sniffing replacement: the exact static rows whose output the fold parses carry their family key."""
+    by_name = {(t.name, t.language): t.parser for t in select(Claim.STATIC)}
+    assert by_name["ruff", Language.PYTHON] is Parser.RUFF
+    assert by_name["ruff-format", Language.PYTHON] is Parser.RUFF_FORMAT
+    assert by_name["ty", Language.PYTHON] is Parser.TY
+    assert by_name["mypy", Language.PYTHON] is Parser.MYPY
+    assert by_name["py-analyzer", Language.PYTHON] is Parser.PY_ANALYZER
+    assert by_name["biome", Language.TYPESCRIPT] is Parser.BIOME
+    assert by_name["tsc", Language.TYPESCRIPT] is Parser.TSC
+    assert by_name["dotnet-build", Language.CSHARP] is Parser.CS_CONSOLE
+    assert by_name["dotnet-format", Language.CSHARP] is Parser.CS_CONSOLE
+    assert by_name["lint-imports", Language.PYTHON] is Parser.NONE
+
+
+register_law("tools.assay.core.model.Parser", "parser_rows_key_static_diagnostic_tools", module=__name__)
 
 # --- [MUTATION_INPUT_OWNERSHIP]
 

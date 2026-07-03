@@ -4,7 +4,22 @@
 
 ---
 
-## [01]-[INDEX_BARREL]
+## [01]-[PACKAGE_SURFACE]
+
+[PACKAGE_SURFACE]: `@effect/platform-node`
+- package: `@effect/platform-node`
+- version: `0.107.0`
+- license: `MIT`
+- effect-peer: `effect ^3.21.x`, `@effect/platform ^0.96.x` (the abstract Tags every `Node*.layer` satisfies), `@effect/cluster ^0.59.x`, `@effect/rpc ^0.75.x`, `@effect/sql ^0.51.x` (the node bindings `NodeClusterSocket`/`NodeClusterHttp` provision) — `.api/effect-platform.md`, `.api/effect-cluster.md`, `.api/effect-rpc.md`, `.api/effect-sql.md`, `.api/effect.md`
+- dep: `undici ^7.10.x` (the undici HTTP-client backend + the `Undici` barrel), `ws ^8.18.x` (WebSocket socket client/server), `mime ^3.x` (content-type resolution), `@effect/platform-node-shared ^0.60.x` (the bulk surface six namespaces re-export) — bundled, not peer
+- runtime: node only — `worker_threads`/`child_process`/`node:http`/`node:net`/`node:tls`/`node:stream`; the bun tier is `@effect/platform-bun`, the browser tier `@effect/platform-browser`
+- entry: `@effect/platform-node` (namespace barrel); each name is a module namespace object, no flat export
+- modules: `NodeContext`, `NodeRuntime`, `NodeFileSystem`, `NodePath`, `NodeCommandExecutor`, `NodeTerminal`, `NodeKeyValueStore`, `NodeHttpClient`, `NodeHttpServer`, `NodeHttpPlatform`, `NodeHttpServerRequest`, `NodeSocket`, `NodeSocketServer`, `NodeStream`, `NodeSink`, `NodeMultipart`, `NodeWorker`, `NodeWorkerRunner`, `NodeClusterHttp`, `NodeClusterSocket`, `Undici`
+- asset: per-runtime `Layer`/constructor bindings for the abstract `@effect/platform` Tags plus the node cluster transport layers
+- rail: host / runtime boundary
+- owner consumers: composition roots boot through `NodeRuntime.runMain` + `NodeContext.layer`; `RunnerBackplane` (`execution/backplane#RUNNER_AND_SCHEDULING` — the cluster rides `NodeClusterSocket.layer`/`NodeClusterHttp.layer`); `InternalRpc` (`messaging/rpc#INTERNAL_RPC` — the RPC server hosts on `NodeHttpServer`/`NodeSocketServer`); `McpTransport` (`agent/mcp#MCP_TRANSPORT` — `NodeStream.stdin`/`NodeSink.stdout` stdio pipe)
+
+## [02]-[INDEX_BARREL]
 
 ```ts
 // @effect/platform-node
@@ -35,7 +50,7 @@ Consumption is always namespaced: `import { NodeRuntime, NodeContext } from "@ef
 
 ---
 
-## [02]-[NODE_CONTEXT]
+## [03]-[NODE_CONTEXT]
 
 ```ts
 // @effect/platform-node/NodeContext
@@ -60,7 +75,7 @@ The all-in-one Node platform layer: one `Layer.provide(NodeContext.layer)` satis
 
 ---
 
-## [03]-[NODE_RUNTIME]
+## [04]-[NODE_RUNTIME]
 
 ```ts
 // @effect/platform-node/NodeRuntime
@@ -73,7 +88,7 @@ export declare const runMain: RunMain
 
 ---
 
-## [04]-[OS_SERVICE_LAYERS]
+## [05]-[OS_SERVICE_LAYERS]
 
 ```ts
 // @effect/platform-node/NodeFileSystem
@@ -117,7 +132,7 @@ export declare const layer: Layer<Terminal>
 
 ---
 
-## [05]-[NODE_KEY_VALUE_STORE]
+## [06]-[NODE_KEY_VALUE_STORE]
 
 ```ts
 // @effect/platform-node/NodeKeyValueStore
@@ -133,7 +148,7 @@ The only constructor: a directory-rooted `KeyValueStore` whose layer can fail wi
 
 ---
 
-## [06]-[NODE_HTTP_CLIENT]
+## [07]-[NODE_HTTP_CLIENT]
 
 ```ts
 // @effect/platform-node/NodeHttpClient
@@ -187,7 +202,7 @@ Two client backends. The `node:http`/`node:https` agent backend: `layer` is self
 
 ---
 
-## [07]-[NODE_HTTP_SERVER]
+## [08]-[NODE_HTTP_SERVER]
 
 ```ts
 // @effect/platform-node/NodeHttpServer
@@ -281,7 +296,7 @@ export declare const toServerResponse: (self: ServerRequest.HttpServerRequest) =
 
 ---
 
-## [08]-[NODE_SOCKET]
+## [09]-[NODE_SOCKET]
 
 ```ts
 // @effect/platform-node/NodeSocket
@@ -383,7 +398,7 @@ export declare const layerWebSocket: (
 
 ---
 
-## [09]-[NODE_STREAM_AND_SINK]
+## [10]-[NODE_STREAM_AND_SINK]
 
 ```ts
 // @effect/platform-node/NodeStream  (pure re-export from @effect/platform-node-shared/NodeStream)
@@ -502,7 +517,7 @@ Pure shared re-export barrels. `NodeStream` bridges Node `Readable`/`Duplex` int
 
 ---
 
-## [10]-[NODE_MULTIPART]
+## [11]-[NODE_MULTIPART]
 
 ```ts
 // @effect/platform-node/NodeMultipart  (pure re-export from @effect/platform-node-shared/NodeMultipart)
@@ -532,7 +547,7 @@ Pure shared re-export barrel. `stream` parses a Node `Readable` + `IncomingHttpH
 
 ---
 
-## [11]-[NODE_WORKER]
+## [12]-[NODE_WORKER]
 
 ```ts
 // @effect/platform-node/NodeWorker
@@ -565,7 +580,7 @@ Host (main-thread) side: `NodeWorker.layer(spawn)` provides `WorkerManager + Spa
 
 ---
 
-## [12]-[NODE_CLUSTER]
+## [13]-[NODE_CLUSTER]
 
 ```ts
 // @effect/platform-node/NodeClusterSocket
@@ -667,7 +682,7 @@ Both `layer` functions are conditional-typed over three const type parameters: `
 
 ---
 
-## [13]-[UNDICI]
+## [14]-[UNDICI]
 
 ```ts
 // @effect/platform-node/Undici
@@ -676,5 +691,65 @@ export * from "undici"
 ```
 
 Full pass-through of the `undici` package surface (`fetch`, `Dispatcher`, `Agent`, `Pool`, `Client`, `request`, `RequestOptions`, etc.). Consumed by `NodeHttpClient` for the undici backend; `Undici.Dispatcher` and `Undici.Dispatcher.RequestOptions<null>` are the types threaded into `NodeHttpClient.Dispatcher`/`UndiciRequestOptions`. Exact undici signatures are owned by the `undici` catalogue, not this page.
+
+---
+
+## [15]-[INTEGRATION_LAW]
+
+[NODE_TOPOLOGY]:
+- Binding, not contract: every export is a `Layer` (or a factory returning one) that satisfies an
+  abstract `@effect/platform` `Context.Tag` on Node (`.api/effect-platform.md`). Domain code composes the
+  abstract Tag; the composition root provides the `Node*` Layer. There is no node-specific domain API —
+  swapping `@effect/platform-bun` (`.api/effect-platform-bun.md`: `BunContext`/`BunHttpServer`/`BunRuntime`)
+  or `@effect/platform-browser` behind identical Tags touches only the root row.
+- Boot pair: `NodeRuntime.runMain(effect, { disableErrorReporting?, disablePrettyLogger?, teardown? })` is
+  the sole legal process edge — it forks the root fiber (`.api/effect.md` `Effect.runFork`), installs
+  SIGINT/SIGTERM interruption so `acquireRelease`/`Layer.scoped` finalizers drain, and sets the exit code
+  from the `Cause`. Never `Effect.runPromise` at the top of a long-lived service. `NodeContext.layer` is
+  the aggregate binding (`FileSystem`+`Path`+`CommandExecutor`+`Terminal`+`WorkerManager`) provided once
+  beneath every node service; single-contract folders take a targeted `Node*.layer` instead of the aggregate.
+- Stream-boundary law: `NodeStream.fromReadable`/`NodeSink.fromWritable`/`NodeMultipart.stream` are the
+  ONLY admitted raw-`node:stream` crossings — downstream stays on the Effect `Stream`/`Channel` rail with
+  backpressure and the typed error channel; `NodeHttpServerRequest.toIncomingMessage`/`toServerResponse`
+  are the raw-object escape hatches (protocol upgrade, manual streaming) at the boundary only.
+
+[STACKING]:
+- RPC transports resolve their requirement channel against these node bindings (`.api/effect-rpc.md`):
+  client `RpcClient.layerProtocolHttp` needs `HttpClient.HttpClient` ← `NodeHttpClient.layerUndici`;
+  `layerProtocolSocket` needs `Socket.Socket` ← `NodeSocket.layerNet`/`layerWebSocket`;
+  `layerProtocolWorker` needs `Worker.PlatformWorker`+`Worker.Spawner` ← `NodeWorker.layerPlatform(spawn)`.
+  Server `RpcServer.layerProtocolHttpRouter` needs `HttpLayerRouter.HttpRouter` served by
+  `NodeHttpServer.layer`; `layerProtocolSocketServer` needs `SocketServer.SocketServer` ←
+  `NodeSocketServer.layer`; `layerProtocolWorkerRunner` needs `WorkerRunner.PlatformRunner` ←
+  `NodeWorkerRunner.layer`. `InternalRpc` (`messaging/rpc#INTERNAL_RPC`) wires one client+server pair.
+- Stdio pipe: `NodeStream.stdin` (`Stream<Uint8Array>`) + `NodeSink.stdout` (`Sink`) feed
+  `RpcServer.makeProtocolStdio({ stdin, stdout })` — the `McpTransport` (`agent/mcp#MCP_TRANSPORT`) node
+  stdio transport, and `RpcWorker.InitialMessage` is the handshake the worker pool sends once at spawn.
+- Cluster ⇄ SQL: `NodeClusterSocket.layer({ storage: "sql" })` / `NodeClusterHttp.layer({ transport,
+  storage: "sql" })` provision `Sharding`+`Runners`+`MessageStorage` (`.api/effect-cluster.md`) whose
+  `SqlClient` requirement (the `"sql"` storage arm; `"local"` needs nothing, `"byo"` needs
+  `MessageStorage`+`RunnerStorage`) is discharged by the one `PgClient` Layer (`.api/effect-sql-pg.md`,
+  `.api/effect-sql.md`). `RunnerBackplane` (`execution/backplane#RUNNER_AND_SCHEDULING`) rides these two
+  layers; `layerDispatcherK8s`/`layerK8sHttpClient` are pod-DISCOVERY only — cluster provisioning is `iac`,
+  never a runtime import.
+- Telemetry: the `@effect/opentelemetry` `NodeSdk` Layer (`.api/effect-opentelemetry.md`) is provided beside
+  `NodeContext.layer` to bind `Tracer`/`MetricRegistry`; `spanAttributes` threaded through the
+  `NodeHttpClient`/`NodeHttpServer` bindings and the rpc/sql layers feed the same OTLP trace tree.
+- HTTP one-client-both-concerns: `NodeHttpClient.layerUndici` binds `HttpClient.HttpClient` to a tuned
+  undici `Dispatcher` (pooling, keep-alive, HTTP/2 via `dispatcherLayer`/`makeDispatcher`/
+  `UndiciRequestOptions`); branch retry/timeout/proxy policy composes ON TOP as `HttpClient` transformers
+  (`.api/effect-platform.md` `retryTransient`/`mapRequest`) — the pool is `Dispatcher` config, the policy
+  is composed transformers, one client.
+
+[RAIL_LAW]:
+- Rail: host / runtime boundary; node-only tier (`worker_threads`/`child_process`/`node:http`/`node:net`/
+  `node:tls`/`node:stream`). The bun tier is `@effect/platform-bun`, the browser tier `@effect/platform-browser`.
+- Owns: the Node binding for every `@effect/platform` Tag plus `NodeRuntime.runMain`, the `NodeCluster*`
+  transports, and the raw `Undici` re-export. Authors no contract of its own — the runtime half of the
+  platform tier, swappable behind identical Tags. `@effect/cluster`/`@effect/rpc`/`@effect/sql` are hard
+  peers (not optional) that back only the `NodeCluster*` bindings.
+- Reject: `Node*` Layers in domain modules; `Effect.runPromise` as a long-lived process edge; direct
+  `undici`/`ws`/`node:stream` consumption outside the `Undici` re-export and the `NodeStream`/`NodeSink`
+  bridges; cluster provisioning through a runtime import.
 
 

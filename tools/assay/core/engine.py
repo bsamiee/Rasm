@@ -29,7 +29,6 @@ import stamina
 import structlog
 from upath import UPath
 
-from tools.assay.composition.catalog import AST_MATCHES
 from tools.assay.composition.settings import (  # unconditional: beartype resolves forward refs at import time
     ArtifactScope,
     AssaySettings,
@@ -56,13 +55,14 @@ from tools.assay.core.model import (  # noqa: TC001  # beartype resolves the Too
     ExecReceipt,
     Fault,
     Mode,
+    RailStatus,
     receipt,
     Runner,
     Tool,
     ToolGroup,
 )
 from tools.assay.core.routing import parse_csproj, place, Routed
-from tools.assay.core.status import RailStatus
+from tools.assay.diagnostics import AST_MATCHES
 
 
 if TYPE_CHECKING:
@@ -92,6 +92,23 @@ class WriteSink(Protocol):
 
     def write(self, payload: bytes) -> object:
         """Receive one raw byte chunk; return value is ignored by the drain pump."""
+        ...
+
+
+@runtime_checkable
+class Executor(Protocol):
+    """Execution port rails spawn checks through; the registry weave threads the bound instance into every handler."""
+
+    def run(
+        self, check: Check, *, settings: AssaySettings, scope: ArtifactScope | None, routed: Routed, deadline: float | None = None
+    ) -> Result[Completed, Fault]:
+        """Run one check to a completed receipt or an operational fault."""
+        ...
+
+    def fan(
+        self, checks: tuple[Check, ...], *, settings: AssaySettings, scope: ArtifactScope | None, routed: Routed, deadline: float | None = None
+    ) -> tuple[Result[Completed, Fault], ...]:
+        """Run checks concurrently, preserving input order, one result slot per check."""
         ...
 
 
@@ -1663,8 +1680,11 @@ async def _guarded(
         match await _prepare_exec(check, settings, scope, routed, deadline):
             case Result(tag="ok", ok=prepared):
                 argv = prepared.argv
+                # The parser stamp carries the tool row's diagnostics family onto the receipt for the report fold.
                 return (await _run_prepared(prepared, settings, scope, attempts)).map(
-                    lambda done: apply_row_status(check.tool, msgspec.structs.replace(done, duration_ms=(time.monotonic() - t0) * 1000.0))
+                    lambda done: apply_row_status(
+                        check.tool, msgspec.structs.replace(done, duration_ms=(time.monotonic() - t0) * 1000.0, parser=check.tool.parser)
+                    )
                 )
             case Result(error=fault):
                 return Error(fault)
@@ -1896,6 +1916,31 @@ async def run_check_async(
         Completed receipt, or a fault when spawn, lease, or timeout handling fails.
     """
     return await _spawn(check, settings)(check, settings, scope, routed, deadline)
+
+
+@dataclass(frozen=True, slots=True)
+class EngineExecutor:
+    """Production Executor over the engine spawn rails; the registry weave constructs the one bound instance."""
+
+    def run(  # noqa: PLR6301  # port method: the instance IS the capability rails receive
+        self, check: Check, *, settings: AssaySettings, scope: ArtifactScope | None, routed: Routed, deadline: float | None = None
+    ) -> Result[Completed, Fault]:
+        """Run one check under a single event loop.
+
+        Returns:
+            Completed receipt, or a fault when spawn, lease, or timeout handling fails.
+        """
+        return run_check(check, settings=settings, scope=scope, routed=routed, deadline=deadline)
+
+    def fan(  # noqa: PLR6301  # port method: the instance IS the capability rails receive
+        self, checks: tuple[Check, ...], *, settings: AssaySettings, scope: ArtifactScope | None, routed: Routed, deadline: float | None = None
+    ) -> tuple[Result[Completed, Fault], ...]:
+        """Run checks concurrently and preserve input order.
+
+        Returns:
+            One completed-or-fault result per input check.
+        """
+        return fan_out(checks, settings=settings, scope=scope, routed=routed, deadline=deadline)
 
 
 def fan_out(
@@ -2424,6 +2469,8 @@ __all__ = [
     "_RESOURCE",
     "ByteRecv",
     "Captured",
+    "EngineExecutor",
+    "Executor",
     "Measurements",
     "StalledProcess",
     "WriteSink",

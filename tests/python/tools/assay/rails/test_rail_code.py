@@ -20,12 +20,12 @@ from upath import UPath
 from tests.python._testkit.laws import register_law
 from tests.python._testkit.spec import assert_error, assert_ok, validity_matrix, ValidityCase
 from tests.python._testkit.strategies import resolve
-from tools.assay.composition.catalog import AstMatch, Capture, CAPTURE_ENCODER, CAPTURES
+from tests.python.tools.assay.kit import SeamExecutor
 from tools.assay.composition.settings import ArtifactScope, AssaySettings
-from tools.assay.core.engine import apply_row_status
-from tools.assay.core.model import ArtifactKind, Check, Claim, Fault, Input, Language, Mode, receipt, Runner, Tool, ToolGroup
+from tools.assay.core.engine import apply_row_status, EngineExecutor
+from tools.assay.core.model import ArtifactKind, Check, Claim, Fault, Input, Language, Mode, RailStatus, receipt, Runner, Tool, ToolGroup
 from tools.assay.core.routing import resolve_languages, Routed, Scope
-from tools.assay.core.status import RailStatus
+from tools.assay.diagnostics import AstMatch, Capture, CAPTURE_ENCODER, CAPTURES
 import tools.assay.rails.code as code_rail
 from tools.assay.rails.code import (
     _AG_SPEC,
@@ -301,7 +301,10 @@ def test_checks_and_dispatch_empty_routed(assay_root: AssayHarness) -> None:
     """_checks() and _dispatch() on Routed with no files return empty tuples without spawning."""
     routed = Routed(language=Language.PYTHON, scope=Scope.CHANGED, files=())
     assert _checks(routed, Mode.CHECK, lambda t, _r: t) == ()
-    assert _dispatch(routed, settings=assay_root.settings, scope=assay_root.scope(Claim.CODE), mode=Mode.CHECK, splice=lambda t, _r: t) == ()
+    empty = _dispatch(
+        routed, settings=assay_root.settings, scope=assay_root.scope(Claim.CODE), mode=Mode.CHECK, splice=lambda t, _r: t, executor=SeamExecutor()
+    )
+    assert empty == ()
 
 
 @pytest.mark.parametrize(
@@ -481,24 +484,24 @@ def test_project_rows_shape_parity() -> None:
     assert (rg[0][0].id, rg[0][0].text, rg[1], rg[2]) == ("ripgrep:src/a.py:3", "alpha = 1", "src/a.py:3: alpha = 1", ())
 
 
-def test_content_search_forced_cap_emits_results_note(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_content_search_forced_cap_emits_results_note(assay_root: AssayHarness) -> None:
     """Content search overflow emits the capped-results artifact note."""
     two = (
         b'{"type":"match","data":{"path":{"text":"a.py"},"lines":{"text":"alpha 1"},"line_number":1}}\n'
         b'{"type":"match","data":{"path":{"text":"a.py"},"lines":{"text":"alpha 2"},"line_number":2}}\n'
     )
-    monkeypatch.setattr(code_rail, "run_check", lambda *_a, **_kw: Ok(receipt(("rg",), 0, stdout=two, status=RailStatus.OK)))
-    report = assert_ok(search(assay_root.settings, assay_root.scope(Claim.CODE), CodeParams(pattern="alpha", paths=(), max_results=1)))
+    executor = SeamExecutor(run_fn=lambda *_a, **_kw: Ok(receipt(("rg",), 0, stdout=two, status=RailStatus.OK)))
+    report = assert_ok(search(assay_root.settings, assay_root.scope(Claim.CODE), CodeParams(pattern="alpha", paths=(), max_results=1), executor))
     assert "results: 1 of 2 (cap=1); full listing in artifact" in report.notes
 
 
-def test_structural_search_forced_cap_emits_results_note(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_structural_search_forced_cap_emits_results_note(assay_root: AssayHarness) -> None:
     """Structural (ast-grep) search with max_results=1 over 2 matches emits the exact N-of-M cap note."""
     assay_root.write("pkg/mod.py", "alpha = 1\nbeta = 2\n")
     two = msgspec.json.encode((_AG_MATCH, AstMatch(text="beta = 2", file="pkg/mod.py", lines="beta = 2\n")))
-    monkeypatch.setattr(code_rail, "fan_out", lambda *_a, **_kw: (Ok(receipt(("ast-grep",), 0, stdout=two, status=RailStatus.OK)),))
+    executor = SeamExecutor(fan_fn=lambda *_a, **_kw: (Ok(receipt(("ast-grep",), 0, stdout=two, status=RailStatus.OK)),))
     params = CodeParams(pattern="$NAME = $VAL", language=Language.PYTHON, paths=(), max_results=1)
-    report = assert_ok(search(assay_root.settings, assay_root.scope(Claim.CODE), params))
+    report = assert_ok(search(assay_root.settings, assay_root.scope(Claim.CODE), params, executor))
     assert "results: 1 of 2 (cap=1); full listing in artifact" in report.notes
 
 
@@ -506,7 +509,7 @@ def test_query_forced_cap_emits_saturation_note(assay_root: AssayHarness) -> Non
     """query() overflow surfaces the match-limit-saturated cap note."""
     assay_root.write("pkg/mod.py", "def a():\n    pass\n\ndef b():\n    pass\n")
     params = CodeParams(pattern=_PY_FUNC_QUERY, language=Language.PYTHON, paths=("pkg/mod.py",), max_results=1)
-    report = assert_ok(query(assay_root.settings, assay_root.scope(Claim.CODE), params))
+    report = assert_ok(query(assay_root.settings, assay_root.scope(Claim.CODE), params, EngineExecutor()))
     assert any("(cap=1, match-limit saturated); full listing in artifact" in n for n in report.notes), report.notes
 
 
@@ -525,7 +528,7 @@ def test_query_public(assay_root: AssayHarness, content: str, pattern: str, chec
     """query() returns Ok Report matching expected status and count predicate."""
     assay_root.write("pkg/mod.py", content)
     params = CodeParams(pattern=pattern, language=Language.PYTHON, paths=("pkg/mod.py",))
-    report = assert_ok(query(assay_root.settings, assay_root.scope(Claim.CODE), params))
+    report = assert_ok(query(assay_root.settings, assay_root.scope(Claim.CODE), params, EngineExecutor()))
     check_fn(report)
 
 
@@ -537,7 +540,8 @@ def test_query_public(assay_root: AssayHarness, content: str, pattern: str, chec
 def test_search_public(assay_root: AssayHarness, content: str, pattern: str, binary: str) -> None:
     """search() routes structural patterns to ast-grep and literal patterns to ripgrep."""
     assay_root.write("pkg/mod.py", content)
-    result = search(assay_root.settings, assay_root.scope(Claim.CODE), CodeParams(pattern=pattern, language=Language.PYTHON, paths=("pkg/mod.py",)))
+    params = CodeParams(pattern=pattern, language=Language.PYTHON, paths=("pkg/mod.py",))
+    result = search(assay_root.settings, assay_root.scope(Claim.CODE), params, EngineExecutor())
     match (shutil.which(binary), result.is_ok()):
         case (str(), _):
             assert result.is_ok(), f"resolvable {binary!r} must reach the Ok rail, not Error: {result!r}"
@@ -548,7 +552,7 @@ def test_search_public(assay_root: AssayHarness, content: str, pattern: str, bin
             assert assert_error(result).status in {RailStatus.FAULTED, RailStatus.FAILED}
 
 
-# --- [MONKEYPATCHED_INTEGRATION_LAWS]
+# --- [CANNED_EXECUTOR_INTEGRATION_LAWS]
 
 
 @pytest.mark.parametrize(
@@ -562,11 +566,11 @@ def test_search_public(assay_root: AssayHarness, content: str, pattern: str, bin
     ids=["hit_ok", "no_match_empty", "failure_exit_failed", "rg_warning_note"],
 )
 def test_content_search_monkeypatched(
-    assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch, stdout: bytes, rc: int, status_in: RailStatus, expected_report_status: RailStatus
+    assay_root: AssayHarness, stdout: bytes, rc: int, status_in: RailStatus, expected_report_status: RailStatus
 ) -> None:
-    """search() literal: canned run_check outcomes drive report status across rc x rows matrix."""
-    monkeypatch.setattr(code_rail, "run_check", lambda *_a, **_kw: Ok(receipt(("rg",), rc, stdout=stdout, status=status_in)))
-    report = assert_ok(search(assay_root.settings, assay_root.scope(Claim.CODE), CodeParams(pattern="alpha", paths=())))
+    """search() literal: canned executor.run outcomes drive report status across rc x rows matrix."""
+    executor = SeamExecutor(run_fn=lambda *_a, **_kw: Ok(receipt(("rg",), rc, stdout=stdout, status=status_in)))
+    report = assert_ok(search(assay_root.settings, assay_root.scope(Claim.CODE), CodeParams(pattern="alpha", paths=()), executor))
     assert report.status is expected_report_status
     if expected_report_status is RailStatus.OK and rc == 0:
         assert report.counts.total >= 1
@@ -575,7 +579,7 @@ def test_content_search_monkeypatched(
 def test_content_search_no_catalog_row_returns_fault(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
     """_content_search faults with FAULTED when no CONTENT-mode tool exists in the catalog."""
     monkeypatch.setattr(code_rail, "select", lambda *_a, **_kw: ())
-    fault = assert_error(search(assay_root.settings, assay_root.scope(Claim.CODE), CodeParams(pattern="anything", paths=())))
+    fault = assert_error(search(assay_root.settings, assay_root.scope(Claim.CODE), CodeParams(pattern="anything", paths=()), SeamExecutor()))
     assert fault.status is RailStatus.FAULTED
     assert "no ripgrep" in fault.message
 
@@ -689,15 +693,15 @@ def test_rg_status_exact_note_bytes(
     assert _rg_status(returncode, stderr, has_rows=has_rows) == expected
 
 
-def test_content_report_byte_shape(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_content_report_byte_shape(assay_root: AssayHarness) -> None:
     """Content reports preserve stderr decoding, row scores, and artifact identity."""
     two = (
         b'{"type":"match","data":{"path":{"text":"a.py"},"lines":{"text":"alpha 1"},"line_number":1}}\n'
         b'{"type":"match","data":{"path":{"text":"a.py"},"lines":{"text":"alpha 2"},"line_number":2}}\n'
     )
     canned = receipt(("rg",), 2, stdout=two, stderr=b"warn \xff tail", status=RailStatus.FAILED)
-    monkeypatch.setattr(code_rail, "run_check", lambda *_a, **_kw: Ok(canned))
-    report = assert_ok(search(assay_root.settings, assay_root.scope(Claim.CODE), CodeParams(pattern="alpha", paths=())))
+    executor = SeamExecutor(run_fn=lambda *_a, **_kw: Ok(canned))
+    report = assert_ok(search(assay_root.settings, assay_root.scope(Claim.CODE), CodeParams(pattern="alpha", paths=()), executor))
     assert (report.verb, report.status) == ("search", RailStatus.OK)
     assert "content match; ripgrep warning: warn � tail" in report.notes
     assert tuple((r.id, r.score) for r in report.results) == (("ripgrep:a.py:1", 71), ("ripgrep:a.py:2", 71))
@@ -708,19 +712,19 @@ def test_content_report_byte_shape(assay_root: AssayHarness, monkeypatch: pytest
     assert artifact.path.endswith(f"code/search/{assay_root.settings.run_id}/matches.txt")
 
 
-def test_structural_report_promotion_and_defect_rows(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_structural_report_promotion_and_defect_rows(assay_root: AssayHarness) -> None:
     """Structural reports promote row-bearing EMPTY and preserve defect rows."""
     assay_root.write("pkg/mod.py", "alpha = 1\n")
     params = CodeParams(pattern="$NAME = $VAL", language=Language.PYTHON, paths=())
     hit = msgspec.json.encode((_AG_MATCH,))
-    monkeypatch.setattr(code_rail, "fan_out", lambda *_a, **_kw: (Ok(receipt(("ast-grep", "run"), 0, stdout=hit, status=RailStatus.EMPTY)),))
-    promoted = assert_ok(search(assay_root.settings, assay_root.scope(Claim.CODE), params))
+    hit_executor = SeamExecutor(fan_fn=lambda *_a, **_kw: (Ok(receipt(("ast-grep", "run"), 0, stdout=hit, status=RailStatus.EMPTY)),))
+    promoted = assert_ok(search(assay_root.settings, assay_root.scope(Claim.CODE), params, hit_executor))
     assert (promoted.verb, promoted.status) == ("search", RailStatus.OK)
     assert tuple((r.id, r.score) for r in promoted.results) == (("ast-grep:pkg/mod.py:1", 100),)
     assert promoted.artifacts[0].id == sha256(b"pkg/mod.py:1: alpha = 1 => let alpha = 1").hexdigest()[:12]
     panic = receipt(("ast-grep", "run"), 2, stdout=b"ast-grep panicked", status=RailStatus.FAILED)
-    monkeypatch.setattr(code_rail, "fan_out", lambda *_a, **_kw: (Ok(panic),))
-    failed = assert_ok(search(assay_root.settings, assay_root.scope(Claim.CODE), params))
+    panic_executor = SeamExecutor(fan_fn=lambda *_a, **_kw: (Ok(panic),))
+    failed = assert_ok(search(assay_root.settings, assay_root.scope(Claim.CODE), params, panic_executor))
     assert (failed.verb, failed.status, failed.artifacts) == ("search", RailStatus.FAILED, ())
     assert [(r.id, "panicked" in r.text) for r in failed.results] == [("ast-grep run", True)]
 

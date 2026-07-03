@@ -117,11 +117,13 @@ public sealed record GeoArrowBuffer(
 // and parses the IDS spec and Compute orchestrates the companion invocation identically to the tessellation
 // TWO_HOP pattern, passing the IDS-XML payload plus the IFC content to the Python ifc-companion ifctester
 // (the IfcOpenShell `ids` oracle) and relaying the per-specification verdict wire back as the BIM-OWNED
-// Review/validation#IDS_FACETS IdsVerdict(GlobalId, Specification, Facet, Passed, Reason) row — declared in
-// Bim (the IDS authority; the strata forbid an AEC-DOMAIN owner referencing APP-PLATFORM Compute) and composed
-// THERE by IdsAudit.Reconcile from the relayed wire, NEVER re-declared as a Compute type — Compute references no
-// Bim type, the two meeting at the companion-rpc wire exactly as the tessellation GLB does. The Facet column is
-// the Bim IdsFacet.FacetKey join
+// Review/validation#IDS_FACETS IdsVerdict(GlobalId, Specification, Spec, Requirement, Facet, Passed, Reason) row —
+// declared in Bim (the IDS authority; the strata forbid an AEC-DOMAIN owner referencing APP-PLATFORM Compute) and
+// composed THERE by IdsAudit.Reconcile from the relayed wire, NEVER re-declared as a Compute type — Compute
+// references no Bim type, the two meeting at the companion-rpc wire exactly as the tessellation GLB does. Spec is
+// the specification's ZERO-BASED document ordinal and Requirement the facet's ordinal within its spec — BOTH derived
+// from the one document order the two tools share (never the spec NAME, which IDS v1.0 does not require unique).
+// The Facet column is the Bim IdsFacet.FacetKey join
 // token VERBATIM — the INJECTIVE derivation Review/validation#IDS_FACETS owns and this projection mirrors:
 //   entity:{Simplify(classes) '|'-joined}:{predefined tokens '|'-joined} | attribute:{KeyOf(name)}:{KeyOf(values) ','-joined}
 //   | property:{KeyOf(set)}:{KeyOf(name)}:{KeyOf(values) ','-joined} | classification:{head system}:{codes '|'-joined}
@@ -130,8 +132,9 @@ public sealed record GeoArrowBuffer(
 // bounds, and "*" the match-any — so patterned names, folded classification codes, and the RECURSED partOf container
 // (Aggregated/Nested/Voided now emitted where they previously dropped) join byte-identically and two same-kind
 // requirements never collapse. Bim's IdsAudit.Reconcile joins the self-audit against the oracle on the
-// (GlobalId, FacetKey) axis — the IDS projection Bim-owned, never a Compute-side IdsAudit re-projection, and the
-// python ifc-companion ids-oracle projection derives the SAME token when that leg lands.
+// ORDINAL-QUALIFIED (GlobalId, Requirement, FacetKey) axis, oracle rows filtered by the Spec ordinal — the IDS
+// projection Bim-owned, never a Compute-side IdsAudit re-projection, and the python ifc-companion ids-oracle
+// projection derives the SAME tokens and ordinals when that leg lands.
 public sealed record IdsAuditRequest(
     UInt128 IfcContentKey,
     ReadOnlyMemory<byte> IfcBytes,

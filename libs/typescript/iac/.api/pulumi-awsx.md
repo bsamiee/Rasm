@@ -13,7 +13,7 @@
 - rail: cloud-row / aws (ComponentResource tier)
 - runtime: the `aws.Provider` credential context; `ecr.Image` build also needs a local Docker/buildx CLI on the deploy host
 - build-floor: `@pulumi/pulumi` `^3.142.0` (catalog pins `3.250.0`)
-- depends-on: `@pulumi/pulumi` (`ComponentResource`/`Output`), `@pulumi/aws ^7.32.0` (every arg/output is a raw `aws` type — awsx composes it, `.api/pulumi-aws.md`), `@pulumi/docker-build` (the `ecr.Image` buildx path)
+- depends-on: `@pulumi/pulumi` (`ComponentResource`/`Output`), `@pulumi/aws ^7.32.0` (every arg/output is a raw `aws` type — awsx composes it, `.api/pulumi-aws.md`), `@pulumi/docker-build` (the `ecr.Image` buildx path — the same admitted builder the selfhosted arm uses directly, `.api/pulumi-docker-build.md`)
 - namespaces: `awsx.ec2` (Vpc/DefaultVpc), `awsx.ecs` (Fargate/EC2 Service+TaskDefinition), `awsx.ecr` (Repository/Image/RegistryImage), `awsx.lb` (Application/Network LB + TargetGroupAttachment), `awsx.cloudtrail` (Trail), `awsx.classic` (legacy pre-schema components — superseded), `awsx.types`
 - capability: opinionated multi-resource compositions (VPC topology, ECS services, ECR build+push, load balancers, CloudTrail) that expand an intent spec into the raw `aws` resource graph
 - abi-note: outputs are raw `pulumiAws.*` resources (`vpc.subnets: aws.ec2.Subnet[]`, `alb.loadBalancer: aws.lb.LoadBalancer`), NOT scalars — the composition exposes its sub-resources for further wiring
@@ -52,7 +52,7 @@
 
 [IMAGE_SCOPE]: `awsx.ecr` — repository + build-and-push
 - rail: aws
-- `Repository` composes an ECR repo + lifecycle policy; `Image` builds a Dockerfile (via bundled `@pulumi/docker-build`) and pushes to that repo, emitting the pushed image ref for a task definition.
+- `Repository` composes an ECR repo + lifecycle policy; `Image` builds a Dockerfile (via bundled `@pulumi/docker-build`, `.api/pulumi-docker-build.md`) and pushes to that repo, emitting the pushed image ref for a task definition.
 
 | [INDEX] | [SYMBOL] | [INTENT ARGS → OUTPUTS] |
 | :-----: | :------- | :---------------------- |
@@ -78,13 +78,13 @@
 [AWSX_TOPOLOGY]:
 - tier law: awsx is the `stack/component` ComponentResource tier of the `aws` arm — the `aws` `Match.exhaustive` arm (`provider/dispatch`, `libs/typescript/.api/effect.md`) constructs the raw `aws.Provider` from a `Schema`-decoded `StackSpec` and passes it to every awsx composition via `opts.provider`; the empty awsx `ProviderArgs` is never populated.
 - compose law: awsx expands INTENT (AZ count, NAT strategy, subnet spec) into the raw `aws` graph, then the arm wires the exposed raw sub-resources further — `vpc.privateSubnetIds` → `FargateService.networkConfiguration`, `alb.defaultTargetGroup` → `FargateService.loadBalancers`; awsx composes `@pulumi/aws`, never replaces it.
-- image law: `ecr.Repository.url` + `ecr.Image` (build+push via bundled `@pulumi/docker-build`) is the aws-arm build counterpart to `@pulumi/docker.Image` on the selfhosted arm (`.api/pulumi-docker.md`); the pushed ref pins a TaskDefinition container image.
+- image law: `ecr.Repository.url` + `ecr.Image` (build+push via bundled `@pulumi/docker-build`) is the aws-arm build counterpart to the canonical `@pulumi/docker-build.Image` used directly on the selfhosted arm (`.api/pulumi-docker-build.md`) — the SAME buildx-native builder, ECR-wrapped; the pushed ref pins a TaskDefinition container image, and the legacy `@pulumi/docker.Image` (`.api/pulumi-docker.md`) is superseded on both arms.
 - output law: the composition's raw sub-resources (`vpcId`, subnet ids, `loadBalancer.dnsName`) project into typed StackOutputs (`stack/output`) that feed the service-equivalence map; a scalar is never re-derived by re-reading aws.
 - legacy law: `awsx.classic` is the pre-schema component set — superseded by the top-level `ec2`/`ecs`/`ecr`/`lb` modules; author the modern module, never `classic`.
 
 [LOCAL_ADMISSION]:
 - awsx components share the `aws` arm's single `aws.Provider` (creds from `StackSpec`/`@pulumiverse/doppler`, `.api/pulumiverse-doppler.md`); raw `@pulumi/aws` resources (`.api/pulumi-aws.md`) are the wiring currency between compositions and the return type of every output.
-- `ecr.Image` shares the buildx path with `@pulumi/docker-build`; the pushed image digest and `@pulumi/docker.Image.repoDigest` are the two arm-specific build outputs a mixed stack selects between by dispatch arm.
+- `ecr.Image` bundles `@pulumi/docker-build` (`.api/pulumi-docker-build.md`); the ECR-pushed image digest and the selfhosted arm's direct `docker-build.Image` `ref`/`digest` are the two arm-specific build outputs a mixed stack selects between by dispatch arm — one buildx-native builder, two egress registries.
 - the arm folds composition failures into the `program/automation` typed run receipt (`@pulumi/pulumi` `automation.UpResult`, `.api/pulumi-pulumi.md`); `effect` owns arm dispatch and the StackSpec/StackOutputs `Schema`; `opts.parent` threads the ComponentResource hierarchy of `stack/component`.
 - canonical law: the modern `ec2`/`ecs`/`ecr`/`lb` modules over `classic`; raw-resource outputs wired via `Input`, never re-read.
 

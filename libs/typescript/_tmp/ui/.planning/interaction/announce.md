@@ -40,4 +40,4 @@ const makeToastBroadcast = <A>(queue: ToastQueue<A>): ToastBroadcast<A> => ({
 });
 ```
 
-The `react-stately` `ToastQueue<A>` constructor (`{ maxVisibleToasts?, hasExitAnimation? }`), the `add(content, options?) => key` queue-key return, and the `close(key)` dismissal are catalogued rows the `makeToastBroadcast` fence binds directly. The `ToastQueue`/`useToastQueue`/`UNSTABLE_ToastRegion`/`UNSTABLE_Toast` symbols and the `@react-aria/live-announcer` `announce(message, assertiveness?, timeout?)` are verified.
+The `react-stately` `ToastQueue<A>` constructor (`{ maxVisibleToasts?, wrapUpdate? }`, where `wrapUpdate(fn, action)` wraps a visible-toasts update in `document.startViewTransition` for the exit transition), the `add(content, options?) => key` queue-key return, and the `close(key)` dismissal are catalogued rows the `makeToastBroadcast` fence binds directly. The `ToastQueue`/`useToastQueue`/`UNSTABLE_ToastRegion`/`UNSTABLE_Toast` symbols and the `@react-aria/live-announcer` `announce(message, assertiveness?, timeout?)` are verified.

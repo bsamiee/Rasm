@@ -14,8 +14,11 @@ prompt/response/tool data model; all success/failure flows through the `AiError`
 
 [PACKAGE_SURFACE]: `@effect/ai`
 - package: `@effect/ai`
-- entry: `@effect/ai` (re-exports modules `AiError`, `Chat`, `EmbeddingModel`, `IdGenerator`, `LanguageModel`, `McpSchema`, `McpServer`, `Model`, `Prompt`, `Response`, `Telemetry`, `Tokenizer`, `Tool`, `Toolkit`)
-- asset: provider-agnostic LLM service tags, prompt/response/tool data algebra, stateful chat, embeddings, tokenizer, GenAI OpenTelemetry conventions, MCP server
+- version: `0.36.0` (MIT; grounded from installed `node_modules/@effect/ai/dist/dts/*.d.ts`)
+- entry: `@effect/ai` (re-exports exactly 14 modules `AiError`, `Chat`, `EmbeddingModel`, `IdGenerator`, `LanguageModel`, `McpSchema`, `McpServer`, `Model`, `Prompt`, `Response`, `Telemetry`, `Tokenizer`, `Tool`, `Toolkit` — no top-level values beyond the namespace barrels)
+- asset: provider-agnostic LLM service tags, prompt/response/tool data algebra, stateful chat, embeddings, tokenizer, GenAI OpenTelemetry conventions, the MCP server + protocol schema
+- floor: ESM, `sideEffects: false`, per-module deep-import subpaths (`@effect/ai/LanguageModel`, …) + the flat barrel; peers `effect` `3.21.4`, `@effect/platform`, `@effect/rpc`, `@effect/experimental`; node `>=24`
+- tier: substrate — platform-neutral (depends only on `effect`, `@effect/platform`, `@effect/rpc`, `@effect/experimental`); carries no transport or credential surface, so an `HttpClient.HttpClient` and the provider `Client` layer are supplied beneath a resolved `Model` at the composition root
 - rail: ai-core
 
 ## [02]-[PUBLIC_TYPES]
@@ -184,8 +187,8 @@ declare const makeDataLoader: (options: {
 |  [06]   | `Chat.fromJson`          | constructor         | rehydrate from JSON string                                                           |
 |  [07]   | `Chat.Persistence`       | `Context.Tag` class | tag `"@effect/ai/Chat/Persisted"` → `Persistence.Service`                            |
 |  [08]   | `Chat.Persisted`         | interface           | extends `Service` + `id`, `save`                                                     |
-|  [09]   | `Chat.makePersisted`     | constructor         | persisted chat by `storeId`                                                          |
-|  [10]   | `Chat.layerPersisted`    | layer               | persistence backplane layer by `storeId`                                             |
+|  [09]   | `Chat.makePersisted`     | constructor         | yields the `Persistence.Service` backplane by `storeId` (requires `Scope` + `BackingPersistence`), not a chat directly |
+|  [10]   | `Chat.layerPersisted`    | layer               | provides `Chat.Persistence` by `storeId` (requires `BackingPersistence`)             |
 |  [11]   | `Chat.ChatNotFoundError` | tagged error        | persistence lookup miss                                                              |
 
 ```ts contract
@@ -193,14 +196,26 @@ interface Service {
   readonly history: Ref.Ref<Prompt.Prompt>
   readonly export: Effect.Effect<unknown, AiError.AiError>
   readonly exportJson: Effect.Effect<string, AiError.MalformedOutput>
-  readonly generateText: Service["generateText"] // same signature shape as LanguageModel.Service.generateText, R adds LanguageModel.LanguageModel
-  readonly streamText: Service["streamText"]
-  readonly generateObject: Service["generateObject"]
+  // same option shapes as LanguageModel.Service, but the R channel ADDS LanguageModel.LanguageModel (the bare LanguageModel.Service methods do not) — Chat threads the model requirement so the persisted history binds a live model at the call site
+  readonly generateText: <Options, Tools extends Record<string, Tool.Any> = {}>(options: Options & LanguageModel.GenerateTextOptions<Tools>) => Effect.Effect<LanguageModel.GenerateTextResponse<Tools>, LanguageModel.ExtractError<Options>, LanguageModel.LanguageModel | LanguageModel.ExtractContext<Options>>
+  readonly streamText: <Options, Tools extends Record<string, Tool.Any> = {}>(options: Options & LanguageModel.GenerateTextOptions<Tools>) => Stream.Stream<Response.StreamPart<Tools>, LanguageModel.ExtractError<Options>, LanguageModel.LanguageModel | LanguageModel.ExtractContext<Options>>
+  readonly generateObject: <A, I, R, Options, Tools extends Record<string, Tool.Any> = {}>(options: Options & LanguageModel.GenerateObjectOptions<Tools, A, I, R>) => Effect.Effect<LanguageModel.GenerateObjectResponse<Tools, A>, LanguageModel.ExtractError<Options>, LanguageModel.LanguageModel | R | LanguageModel.ExtractContext<Options>>
 }
 declare const empty: Effect.Effect<Service>
 declare const fromPrompt: (prompt: Prompt.RawInput) => Effect.Effect<Service>
 declare const fromExport: (data: unknown) => Effect.Effect<Service, ParseError, LanguageModel.LanguageModel>
 declare const fromJson: (data: string) => Effect.Effect<Service, ParseError, LanguageModel.LanguageModel>
+
+// persistence backplane — requires @effect/experimental BackingPersistence (see effect-experimental.md)
+namespace Persistence {
+  interface Service {
+    readonly get: (chatId: string, options?: { readonly timeToLive?: Duration.DurationInput }) => Effect.Effect<Persisted, ChatNotFoundError | PersistenceBackingError>
+    readonly getOrCreate: (chatId: string, options?: { readonly timeToLive?: Duration.DurationInput }) => Effect.Effect<Persisted, AiError.MalformedOutput | PersistenceBackingError>
+  }
+}
+interface Persisted extends Service { readonly id: string; readonly save: Effect.Effect<void, AiError.MalformedOutput | PersistenceBackingError> }
+declare const makePersisted: (options: { readonly storeId: string }) => Effect.Effect<Persistence.Service, never, Scope.Scope | BackingPersistence>
+declare const layerPersisted: (options: { readonly storeId: string }) => Layer.Layer<Persistence, never, BackingPersistence>
 ```
 
 [PUBLIC_TYPE_SCOPE]: tokenizer
@@ -231,10 +246,12 @@ declare const fromJson: (data: string) => Effect.Effect<Service, ParseError, Lan
 |  [01]   | `Telemetry.addGenAIAnnotations`            | function            | GenAI span annotation      |
 |  [02]   | `Telemetry.addSpanAttributes`              | function            | prefixed span attributes   |
 |  [03]   | `Telemetry.GenAITelemetryAttributeOptions` | options             | GenAI attribute payload    |
-|  [04]   | `Telemetry.SpanTransformer`                | interface           | span mutation callback     |
-|  [05]   | `Telemetry.CurrentSpanTransformer`         | `Context.Tag` class | span transformer tag       |
-|  [06]   | `Telemetry.WellKnownSystem`                | union               | provider system vocabulary |
-|  [07]   | `Telemetry.WellKnownOperationName`         | union               | operation vocabulary       |
+|  [04]   | `Telemetry.GenAITelemetryAttributes` / `AllAttributes` / `AttributesWithPrefix<A,Prefix>` | mapped type | the provider `*Telemetry` extension seam — a provider adds namespaced rows via `GenAITelemetryAttributes & AttributesWithPrefix<Req, "gen_ai.<provider>.request">` |
+|  [05]   | `Telemetry.BaseAttributes` / `Operation` / `Token` / `Usage` / `Request` / `ResponseAttributes` | interface | the per-namespace attribute groups `GenAITelemetryAttributeOptions` composes |
+|  [06]   | `Telemetry.SpanTransformer`                | interface           | span mutation callback     |
+|  [07]   | `Telemetry.CurrentSpanTransformer`         | `Context.Tag` class | span transformer tag       |
+|  [08]   | `Telemetry.WellKnownSystem`                | union               | provider system vocabulary |
+|  [09]   | `Telemetry.WellKnownOperationName`         | union               | operation vocabulary       |
 
 ```ts contract
 // Tokenizer.Service
@@ -242,6 +259,8 @@ interface Service {
   readonly tokenize: (input: Prompt.RawInput) => Effect.Effect<Array<number>, AiError.AiError>
   readonly truncate: (input: Prompt.RawInput, tokens: number) => Effect.Effect<Prompt.Prompt, AiError.AiError>
 }
+// make derives truncate from a single tokenize function (pure — no Effect wrapper)
+declare const make: (options: { readonly tokenize: (content: Prompt.Prompt) => Effect.Effect<Array<number>, AiError.AiError> }) => Service
 // IdGenerator
 interface MakeOptions {
   readonly alphabet: string
@@ -347,20 +366,25 @@ declare const makePart: <const Type extends AnyPart["type"]>(type: Type, params:
 |  [06]   | `Tool.fromTaggedRequest`                                       | constructor       | tagged-request lift    |
 |  [07]   | `Tool.FailureMode`                                             | union             | failure routing policy |
 |  [08]   | `Tool.Handler` / `HandlerResult` / `HandlerError`              | interface/type    | handler contract       |
-|  [09]   | `Tool.getJsonSchema` / `getDescription`                        | function          | schema and description |
-|  [10]   | `Tool.isUserDefined` / `isProviderDefined`                     | guard             | tool discrimination    |
-|  [11]   | `Tool.Title`/`Readonly`/`Destructive`/`Idempotent`/`OpenWorld` | annotation refs   | MCP-style annotations  |
+|  [09]   | `Tool.HandlersFor` / `Requirements` / `Parameters` / `Success` / `Failure` / `Result` / `Name` / `RequiresHandler` | mapped/conditional type | toolkit handler + R/E/A inference over a tool set |
+|  [10]   | `tool.addDependency` / `setParameters` / `setSuccess` / `setFailure` / `annotate` / `annotateContext` | instance builder | request-level DI (`addDependency` threads a `Context.Tag` into the tool's `Requirements`) + schema/annotation refinement, each returning a new `Tool` |
+|  [11]   | `Tool.getJsonSchema` / `getDescription` / `fromTaggedRequest` / `unsafeSecureJsonParse` | function | schema, description, tagged-request lift, secure decode |
+|  [12]   | `Tool.isUserDefined` / `isProviderDefined`                     | guard             | tool discrimination    |
+|  [13]   | `Tool.Title`/`Readonly`/`Destructive`/`Idempotent`/`OpenWorld` | annotation refs   | MCP-style annotations attached via `.annotate(Tool.Title, …)` → map to `McpSchema.ToolAnnotations` |
+|  [14]   | `Tool.EmptyParams` / `Tool.TypeId` / `Tool.ProviderDefinedTypeId` | schema + type id | zero-parameter marker; `"~@effect/ai/Tool"` / `"~@effect/ai/Tool/ProviderDefined"` brands |
 
 [PUBLIC_TYPE_SCOPE]: toolkit model
 - rail: ai-core
 
 | [INDEX] | [SYMBOL]                     | [TYPE_FAMILY]     | [CAPABILITY]          |
 | :-----: | :--------------------------- | :---------------- | :-------------------- |
-|  [01]   | `Toolkit.Toolkit<Tools>`     | branded interface | tool collection       |
-|  [02]   | `Toolkit.make`               | constructor       | toolkit construction  |
+|  [01]   | `Toolkit.Toolkit<Tools>`     | branded interface | tool collection; is itself an `Effect` yielding its `WithHandler` |
+|  [02]   | `Toolkit.make`               | constructor       | toolkit construction (`ToolsByName` keying)  |
 |  [03]   | `Toolkit.merge`              | combinator        | toolkit composition   |
-|  [04]   | `Toolkit.WithHandler<Tools>` | interface         | handler-bound toolkit |
-|  [05]   | `Toolkit.empty`              | value             | empty toolkit         |
+|  [04]   | `toolkit.toLayer` / `toContext` / `of` | instance method | bind handlers → `Layer` / `Context` (the handler-wiring surface); `of` is the identity helper for authoring the handler record with full inference |
+|  [05]   | `Toolkit.WithHandler<Tools>` | interface         | handler-bound toolkit (`.handle(name, params)`) |
+|  [06]   | `Toolkit.Any` / `HandlersFrom<Tools>` / `ToolsByName<Tools>` / `Tools<T>` / `WithHandlerTools<T>` / `MergedTools<Toolkits>` | erased bound + mapped type | erased toolkit bound (`merge`/`McpServer` accept it) + handler-record/name-keyed/merge inference |
+|  [07]   | `Toolkit.empty` / `Toolkit.TypeId` | value + type id | empty toolkit; `"~@effect/ai/Toolkit"` brand |
 
 ```ts contract
 declare const make: <const Name extends string, Parameters, Success, Failure, Mode extends FailureMode | undefined = undefined, Dependencies extends Array<Context.Tag<any, any>> = []>(
@@ -385,18 +409,26 @@ declare const providerDefined: <const Name extends string, Args, Parameters, Suc
   readonly failure?: Failure | undefined
 }) => (...) => ProviderDefined<Name, ...>
 type FailureMode = "error" | "return"
-// Toolkit
+// Toolkit — is itself an Effect<WithHandler, never, HandlersFor<Tools>>; handlers are provided to satisfy that R
 interface Toolkit<in out Tools extends Record<string, Tool.Any>>
   extends Effect.Effect<WithHandler<Tools>, never, Tool.HandlersFor<Tools>>, Inspectable, Pipeable {
   readonly tools: Tools
+  of<Handlers extends HandlersFrom<Tools>>(handlers: Handlers): Handlers   // identity helper for type-safe handler-record authoring
+  toLayer<Handlers extends HandlersFrom<Tools>, EX = never, RX = never>(build: Handlers | Effect.Effect<Handlers, EX, RX>): Layer.Layer<Tool.HandlersFor<Tools>, EX, Exclude<RX, Scope.Scope>>
+  toContext<Handlers extends HandlersFrom<Tools>, EX = never, RX = never>(build: Handlers | Effect.Effect<Handlers, EX, RX>): Effect.Effect<Context.Context<Tool.HandlersFor<Tools>>, EX, RX>
+}
+// HandlersFrom keys ONLY the tools whose RequiresHandler is true (provider-defined tools may self-execute); handler returns the tool SUCCESS value, not the wrapped HandlerResult (that is WithHandler.handle's return)
+type HandlersFrom<Tools extends Record<string, Tool.Any>> = {
+  readonly [Name in keyof Tools as Tool.RequiresHandler<Tools[Name]> extends true ? Name : never]:
+    (params: Tool.Parameters<Tools[Name]>) => Effect.Effect<Tool.Success<Tools[Name]>, Tool.Failure<Tools[Name]>, Tool.Requirements<Tools[Name]>>
 }
 declare const make: <Tools extends ReadonlyArray<Tool.Any>>(...tools: Tools) => Toolkit<ToolsByName<Tools>>
 declare const merge: <const Toolkits extends ReadonlyArray<Any>>(...toolkits: Toolkits) => Toolkit<MergedTools<Toolkits>>
 interface WithHandler<in out Tools extends Record<string, Tool.Any>> {
   readonly tools: Tools
-  readonly handle: <Name extends keyof Tools>(name: Name, params: any) => Effect.Effect<...>
+  readonly handle: <Name extends keyof Tools>(name: Name, params: Tool.Parameters<Tools[Name]>) => Effect.Effect<Tool.HandlerResult<Tools[Name]>, Tool.Failure<Tools[Name]>, Tool.Requirements<Tools[Name]>>
 }
-// MyToolkit.toLayer({ ToolName: (params) => Effect... }) wires handlers into a Layer
+// bind: Toolkit.make(...tools).toLayer({ ToolName: (params) => Effect... }) → Layer satisfying HandlersFor; pass the yielded WithHandler to GenerateTextOptions.toolkit
 ```
 
 [PUBLIC_TYPE_SCOPE]: error rail
@@ -420,6 +452,88 @@ type AiError = HttpRequestError | HttpResponseError | MalformedInput | Malformed
 declare const isAiError: (u: unknown) => u is AiError
 ```
 
+### @effect/ai — MCP server and protocol schema
+
+[PUBLIC_TYPE_SCOPE]: MCP server (`McpServer`) — expose an `@effect/ai` `Toolkit`, resources, and prompts as a Model Context Protocol server
+- rail: ai-core
+
+The inverse of the `agent/mcp.md` client seam: `McpServer` publishes a toolkit + resources + prompts over the MCP wire. It layers on `@effect/rpc` `RpcServer.Protocol` (see `effect-rpc.md`) and binds transport through `@effect/platform-node` (`NodeStream.stdin`/`NodeSink.stdout` for stdio; `NodeHttpServer` for HTTP — see `effect-platform-node.md`). Resource/prompt registration is dual: an `Effect` form (`register*`, mutates a running server) and a `Layer` form (`resource`/`prompt`, composed with `Layer.mergeAll`).
+
+| [INDEX] | [SYMBOL]                          | [TYPE_FAMILY]       | [CAPABILITY]                                              |
+| :-----: | :-------------------------------- | :------------------ | :-------------------------------------------------------- |
+|  [01]   | `McpServer.McpServer`             | `Context.Tag` class | tag `"@effect/ai/McpServer"` → running-server service     |
+|  [02]   | `McpServer.run` / `.layer`        | effect / layer      | `run` yields `Effect<never,…>` (block on the server); `layer` provides `McpServer + McpServerClient` (there is NO `make` export) |
+|  [03]   | `McpServer.run`                   | constructor         | `({name,version}) => Effect<never,never, McpServer \| RpcServer.Protocol>` |
+|  [04]   | `McpServer.layer`                 | layer               | `({name,version}) => Layer<…, never, RpcServer.Protocol>` |
+|  [05]   | `McpServer.layerStdio`            | layer               | stdio transport (`stdin: Stream`, `stdout: Sink`)          |
+|  [06]   | `McpServer.layerHttp` / `layerHttpRouter` | layer       | HTTP transport (`path`; `layerHttpRouter` requires `HttpLayerRouter`) |
+|  [07]   | `McpServer.registerToolkit` / `toolkit` | effect / layer | publish an `@effect/ai` `Toolkit` as MCP tools            |
+|  [08]   | `McpServer.registerResource` / `resource` | effect / layer | static-uri or template-literal (`` `file://x/${idParam}` ``) resource with typed params + completions |
+|  [09]   | `McpServer.registerPrompt` / `prompt` | effect / layer  | parameterized prompt with per-param completion            |
+|  [10]   | `McpServer.elicit`                | function            | server-initiated client elicitation → `Effect<A, ElicitationDeclined, McpServerClient \| R>` |
+|  [11]   | `McpServer.ResourceCompletions` / `ValidateCompletions` | type | completion-record inference over template params        |
+
+```ts contract
+// tag service exposes the live tool/resource/prompt registries + call/find/completion dispatch
+declare const layerStdio: <EIn, RIn, EOut, ROut>(options: {
+  readonly name: string; readonly version: string
+  readonly stdin: Stream.Stream<Uint8Array, EIn, RIn>
+  readonly stdout: Sink.Sink<unknown, Uint8Array | string, unknown, EOut, ROut>
+}) => Layer.Layer<McpServer | McpServerClient, never, RIn | ROut>
+declare const layerHttp: <I = HttpRouter.Default>(options: {
+  readonly name: string; readonly version: string; readonly path: HttpRouter.PathInput
+  readonly routerTag?: HttpRouter.HttpRouter.TagClass<I, string, any, any>
+}) => Layer.Layer<McpServer | McpServerClient>
+// publish a toolkit — HandlersFor/Requirements thread through, McpServerClient is excluded (server supplies it)
+declare const registerToolkit: <Tools extends Record<string, Tool.Any>>(toolkit: Toolkit.Toolkit<Tools>)
+  => Effect.Effect<void, never, McpServer | Tool.HandlersFor<Tools> | Exclude<Tool.Requirements<Tools>, McpServerClient>>
+declare const toolkit: <Tools extends Record<string, Tool.Any>>(toolkit: Toolkit.Toolkit<Tools>)
+  => Layer.Layer<never, never, Tool.HandlersFor<Tools> | Exclude<Tool.Requirements<Tools>, McpServerClient>>
+// template-literal resource: schemas fill the URI params, `completion` autocompletes each, `content` yields text/bytes/ReadResourceResult
+declare const resource: {
+  <E, R>(options: { readonly uri: string; readonly name: string; readonly mimeType?: string
+    readonly content: Effect.Effect<typeof ReadResourceResult.Type | string | Uint8Array, E, R> }) => Layer.Layer<never, never, Exclude<R, McpServerClient>>
+  <const Schemas extends ReadonlyArray<Schema.Schema.Any>>(segments: TemplateStringsArray, ...schemas: Schemas)
+    => <E, R, Completions>(options: { readonly name: string; readonly completion?: Completions
+      readonly content: (uri: string, ...params: { readonly [K in keyof Schemas]: Schemas[K]["Type"] }) => Effect.Effect<..., E, R> }) => Layer.Layer<never, never, Exclude<R | ..., McpServerClient>>
+}
+declare const prompt: <E, R, Params, ParamsI extends Record<string, string>, ParamsR, Completions>(options: {
+  readonly name: string; readonly description?: string
+  readonly parameters?: Schema.Schema<Params, ParamsI, ParamsR>
+  readonly completion?: ValidateCompletions<Completions, Extract<keyof Params, string>>
+  readonly content: (params: Params) => Effect.Effect<Array<typeof McpSchema.PromptMessage.Type> | string, E, R>
+}) => Layer.Layer<never, never, Exclude<ParamsR | R, McpServerClient>>
+declare const elicit: <A, I extends Record<string, any>, R>(options: {
+  readonly message: string; readonly schema: Schema.Schema<A, I, R>
+}) => Effect.Effect<A, McpSchema.ElicitationDeclined, McpServerClient | R>
+```
+
+[PUBLIC_TYPE_SCOPE]: MCP protocol schema (`McpSchema`) — the wire codec corpus
+- rail: ai-core
+
+`McpSchema` is the machine-generated MCP JSON-RPC protocol corpus (the MCP analogue of a provider `Generated` module): every request/result/notification is a `Schema.Class`, grouped into `RpcGroup` families. It is not enumerated exhaustively; `McpServer` and the `agent/mcp.md` transport reference it through the named anchors below. The `param(id, schema)` constructor and `McpServerClient` tag are the two load-bearing owners planning code touches directly.
+
+```ts contract
+// the one constructor the McpServer template-resource API consumes; McpServerClient is the ambient client tag
+declare const param: <const Id extends string, S extends Schema.Schema.Any>(id: Id, schema: S) => Param<Id, S>
+declare class McpServerClient           // Context.TagClass — ambient per-connection client capabilities (sampling, roots, elicit)
+declare class McpServerClientMiddleware  // RpcMiddleware wrapping client access
+// RPC group owners (each an @effect/rpc RpcGroup of MCP methods):
+//   ClientRequestRpcs, ClientNotificationRpcs, ClientRpcs, ServerRequestRpcs, ServerNotificationRpcs
+//   + encoded projections: RequestEncoded/NotificationEncoded/SuccessEncoded/FailureEncoded<Group>, FromClientEncoded, FromServerEncoded
+```
+
+`McpSchema` load-bearing anchor families (exact names, grouped by protocol axis):
+- Envelope + pagination: `RequestId`, `ProgressToken`, `Cursor`, `RequestMeta`, `ResultMeta`, `NotificationMeta`, `PaginatedRequestMeta`, `PaginatedResultMeta`.
+- Capabilities + lifecycle: `Implementation`, `ClientCapabilities`, `ServerCapabilities`, `Initialize`, `InitializeResult`, `InitializedNotification`, `Ping`, `CancelledNotification`, `ProgressNotification`.
+- Error rail: `McpError` + the `_ERROR_CODE` constants (`INVALID_REQUEST_ERROR_CODE` −32600, `METHOD_NOT_FOUND_ERROR_CODE` −32601, `INVALID_PARAMS_ERROR_CODE` −32602, `INTERNAL_ERROR_CODE` −32603, `PARSE_ERROR_CODE` −32700) + the classes `ParseError`, `InvalidRequest`, `MethodNotFound`, `InvalidParams`, `InternalError`.
+- Tools: `Tool`, `ToolAnnotations`, `ListTools`, `ListToolsResult`, `CallTool`, `CallToolResult`, `ToolListChangedNotification`.
+- Resources: `Resource`, `ResourceTemplate`, `ResourceContents`, `TextResourceContents`, `BlobResourceContents`, `ListResources`, `ReadResource`, `ReadResourceResult`, `Subscribe`, `Unsubscribe`, `ResourceUpdatedNotification`, `ResourceListChangedNotification`.
+- Prompts: `Prompt`, `PromptArgument`, `PromptMessage`, `GetPrompt`, `GetPromptResult`, `ListPrompts`, `PromptListChangedNotification`.
+- Content blocks: `TextContent`, `ImageContent`, `AudioContent`, `EmbeddedResource`, `ResourceLink`, `ContentBlock` (the union).
+- Completion + sampling + roots: `Complete`, `CompleteResult`, `ResourceReference`, `PromptReference`; `SamplingMessage`, `ModelHint`, `ModelPreferences`, `CreateMessage`, `CreateMessageResult`; `Root`, `ListRoots`, `RootsListChangedNotification`.
+- Elicitation + logging: `Elicit`, `ElicitResult` (`ElicitAcceptResult | ElicitDeclineResult`), `ElicitationDeclined`; `LoggingLevel`, `SetLevel`, `LoggingMessageNotification`.
+
 ### [PROVIDER_RESOLUTION] — cross-reference to adapter pages
 
 The concrete provider adapters are catalogued on their own pages and are not duplicated here. Every
@@ -437,8 +551,8 @@ single composition-root layer swap.
 |  [01]   | OpenAI          | `effect-ai-openai.md`    | `OpenAiLanguageModel.model` / `.modelWithTokenizer`; `OpenAiEmbeddingModel.model` |
 |  [02]   | Anthropic       | `effect-ai-anthropic.md` | `AnthropicLanguageModel.model` / `.modelWithTokenizer`                            |
 |  [03]   | Google (Gemini) | `effect-ai-google.md`    | `GoogleLanguageModel.model`                                                       |
-|  [04]   | OpenRouter      | (adapter page)           | `OpenRouterLanguageModel.model`                                                   |
-|  [05]   | Amazon Bedrock  | (adapter page)           | `AmazonBedrockLanguageModel.model`                                                |
+|  [04]   | OpenRouter      | `effect-ai-openrouter.md` | `OpenRouterLanguageModel.model`                                                  |
+|  [05]   | Amazon Bedrock  | `effect-ai-amazon-bedrock.md` | `AmazonBedrockLanguageModel.model`                                           |
 
 ## [03]-[IMPLEMENTATION_LAW]
 
@@ -472,3 +586,14 @@ single composition-root layer swap.
 [RAIL_LAW]:
 - `@effect/ai` core: provider-agnostic; imported by any tier; carries no transport or credential surface itself.
 - Provider packages (`@effect/ai-openai`, `-anthropic`, `-google`, `-openrouter`, `-amazon-bedrock`): each is an additive composition-root row supplying one `Client` layer + one or more `Model` constructors; they depend on `@effect/platform` `HttpClient` and never appear in domain code beyond the root wiring.
+
+[MCP_LAW]:
+- `McpServer` is the outbound MCP surface — it publishes an `@effect/ai` `Toolkit` (`registerToolkit`/`toolkit`), resources, and prompts over `@effect/rpc` `RpcServer.Protocol` (`effect-rpc.md`), transported by `layerStdio` (`@effect/platform-node` `NodeStream.stdin`/`NodeSink.stdout`) or `layerHttp`/`layerHttpRouter` (`NodeHttpServer`/`HttpLayerRouter`, `effect-platform-node.md`). Do not re-implement the JSON-RPC envelope; compose `McpSchema` anchors and register through the dual effect/layer API.
+- The `agent/mcp.md` transport is the INBOUND mirror: it decodes a host tool-catalog into a `Toolkit` for the language model to call. Both directions share the `Tool`/`Toolkit`/`McpSchema` algebra; the annotation refs (`Tool.Title`/`Readonly`/`Destructive`/`Idempotent`/`OpenWorld`) map to `McpSchema.ToolAnnotations`.
+
+[STACKING_LAW]:
+- One parameterized composition root owns provider choice: a provider-literal axis (`ai.md` `AiProvider = Schema.Literal("anthropic","openai","google","amazon-bedrock","openrouter")`) dispatches to a provider `model(id)`/`layer({model})` arm, each resolving the SAME core `LanguageModel.LanguageModel` tag — never parallel per-provider call sites. The stack per arm: `HttpClient.HttpClient` (`FetchHttpClient.layer` browser / `NodeHttpClient.layer` node, per the folder's node tier) → provider `Client.layer({apiKey: Redacted})` or `layerConfig({apiKey: Config.redacted(...)})` reading `ConfigProvider`/`SecretStore` (`security/secret.md`) → provider `Model` layer → domain code calls free `LanguageModel.generateText`/`streamText`/`generateObject`.
+- Streaming folds `Response.StreamPart` under `Stream.runForEach` (`effect.md`); `generateObject` threads the `effect/Schema` decode `R` into the requirement channel, so schema dependencies join the model layer at the root.
+- `Chat.layerPersisted({storeId})` requires `@effect/experimental` `BackingPersistence` (`effect-experimental.md`); it is the durable-conversation backplane `agent/runtime.md` composes with `Activity` on `ClusterEngine` (`effect-cluster.md`), journaling to `AgentJournal`.
+- `EmbeddingModel.makeDataLoader({embedMany, window})` (scoped) is the batch-embed rail `search/embedding.md` feeds into the fused-rank vector arm; `EmbeddingModel.make({embedMany, maxBatchSize, cache})` is the per-call-batched form.
+- `Telemetry.addGenAIAnnotations` writes GenAI-convention attributes onto the ambient `effect/Tracer` `Span` opened by `Effect.withSpan` (`effect.md`) and exported through `@effect/opentelemetry` `NodeSdk.layer` + the `Tracer` bridge (`effect-opentelemetry.md`), aggregated by `execution/slo.md`; the provider `*Telemetry` modules extend `Telemetry.GenAITelemetryAttributes` with `AttributesWithPrefix<…, "gen_ai.<provider>.request">` rows and pre-bind `system`. All failures collapse to the `AiError` union (`Match.tag`/`Effect.catchTag` on the `_tag`), retried under the folder `Resilience` `Schedule` before surfacing.

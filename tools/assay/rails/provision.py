@@ -11,24 +11,25 @@ from expression.extra.result import sequence
 import msgspec
 
 from tools.assay.composition.settings import ArtifactScope, AssaySettings  # noqa: TC001  # registry runtime resolves handler annotations
-from tools.assay.core.engine import fan_out
+from tools.assay.core.engine import Executor  # noqa: TC001  # beartype resolves the executor-port annotation at runtime
 from tools.assay.core.model import (  # noqa: TC001
     BaseParams,
     Check,
     Claim,
     Completed,
     Fault,
-    fold,
     Input,
     Language,
     Mode,
     ProvisionRun,
+    RailStatus,
     Report,
     Runner,
+    Step,
     Tool,
 )
 from tools.assay.core.routing import Routed, Scope
-from tools.assay.core.status import RailStatus, Step
+from tools.assay.diagnostics import fold
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -900,8 +901,8 @@ def _detail(verb: str, done: tuple[Completed, ...]) -> Result[ProvisionRun, Faul
     return _validate_local_probe_values(done).bind(lambda _: _decode_check_detail(done, stack, tools_outcome))
 
 
-def _run(settings: AssaySettings, scope: ArtifactScope, verb: str, tools: tuple[Tool, ...]) -> Result[Report, Fault]:
-    outcomes = sequence(block.of_seq(fan_out(tuple(Check(tool=tool) for tool in tools), settings=settings, scope=scope, routed=_ROUTED)))
+def _run(settings: AssaySettings, scope: ArtifactScope, verb: str, tools: tuple[Tool, ...], executor: Executor) -> Result[Report, Fault]:
+    outcomes = sequence(block.of_seq(executor.fan(tuple(Check(tool=tool) for tool in tools), settings=settings, scope=scope, routed=_ROUTED)))
     return outcomes.bind(
         lambda done: _detail(verb, tuple(done)).map(
             lambda detail: fold(
@@ -911,107 +912,107 @@ def _run(settings: AssaySettings, scope: ArtifactScope, verb: str, tools: tuple[
     )
 
 
-def _invoke(settings: AssaySettings, scope: ArtifactScope, verb: str) -> Result[Report, Fault]:
-    return _run(settings, scope, verb, (_stack(verb),))
+def _invoke(settings: AssaySettings, scope: ArtifactScope, verb: str, executor: Executor) -> Result[Report, Fault]:
+    return _run(settings, scope, verb, (_stack(verb),), executor)
 
 
-def up(settings: AssaySettings, scope: ArtifactScope, _params: ProvisionParams) -> Result[Report, Fault]:
+def up(settings: AssaySettings, scope: ArtifactScope, _params: ProvisionParams, executor: Executor) -> Result[Report, Fault]:
     """Start Forge-owned provisioning services.
 
     Returns:
         Provision report, or provisioning fault.
     """
-    return _invoke(settings, scope, "up")
+    return _invoke(settings, scope, "up", executor)
 
 
-def down(settings: AssaySettings, scope: ArtifactScope, _params: ProvisionParams) -> Result[Report, Fault]:
+def down(settings: AssaySettings, scope: ArtifactScope, _params: ProvisionParams, executor: Executor) -> Result[Report, Fault]:
     """Stop Forge-owned provisioning services.
 
     Returns:
         Provision report, or provisioning fault.
     """
-    return _invoke(settings, scope, "down")
+    return _invoke(settings, scope, "down", executor)
 
 
-def status(settings: AssaySettings, scope: ArtifactScope, _params: ProvisionParams) -> Result[Report, Fault]:
+def status(settings: AssaySettings, scope: ArtifactScope, _params: ProvisionParams, executor: Executor) -> Result[Report, Fault]:
     """Report provisioning status.
 
     Returns:
         Provision report, or provisioning fault.
     """
-    return _invoke(settings, scope, "status")
+    return _invoke(settings, scope, "status", executor)
 
 
-def doctor(settings: AssaySettings, scope: ArtifactScope, _params: ProvisionParams) -> Result[Report, Fault]:
+def doctor(settings: AssaySettings, scope: ArtifactScope, _params: ProvisionParams, executor: Executor) -> Result[Report, Fault]:
     """Diagnose provisioning runtime readiness.
 
     Returns:
         Provision report, or provisioning fault.
     """
-    return _invoke(settings, scope, "doctor")
+    return _invoke(settings, scope, "doctor", executor)
 
 
-def ports(settings: AssaySettings, scope: ArtifactScope, _params: ProvisionParams) -> Result[Report, Fault]:
+def ports(settings: AssaySettings, scope: ArtifactScope, _params: ProvisionParams, executor: Executor) -> Result[Report, Fault]:
     """Report configured provisioning ports.
 
     Returns:
         Provision report, or provisioning fault.
     """
-    return _invoke(settings, scope, "ports")
+    return _invoke(settings, scope, "ports", executor)
 
 
-def inventory(settings: AssaySettings, scope: ArtifactScope, _params: ProvisionParams) -> Result[Report, Fault]:
+def inventory(settings: AssaySettings, scope: ArtifactScope, _params: ProvisionParams, executor: Executor) -> Result[Report, Fault]:
     """Report owned provisioning resources.
 
     Returns:
         Provision report, or provisioning fault.
     """
-    return _invoke(settings, scope, "inventory")
+    return _invoke(settings, scope, "inventory", executor)
 
 
-def extensions(settings: AssaySettings, scope: ArtifactScope, _params: ProvisionParams) -> Result[Report, Fault]:
+def extensions(settings: AssaySettings, scope: ArtifactScope, _params: ProvisionParams, executor: Executor) -> Result[Report, Fault]:
     """Report provisioning extension targets.
 
     Returns:
         Provision report, or provisioning fault.
     """
-    return _invoke(settings, scope, "extensions")
+    return _invoke(settings, scope, "extensions", executor)
 
 
-def plan(settings: AssaySettings, scope: ArtifactScope, _params: ProvisionParams) -> Result[Report, Fault]:
+def plan(settings: AssaySettings, scope: ArtifactScope, _params: ProvisionParams, executor: Executor) -> Result[Report, Fault]:
     """Render the provisioning compose plan.
 
     Returns:
         Provision report, or provisioning fault.
     """
-    return _invoke(settings, scope, "plan")
+    return _invoke(settings, scope, "plan", executor)
 
 
-def env(settings: AssaySettings, scope: ArtifactScope, _params: ProvisionParams) -> Result[Report, Fault]:
+def env(settings: AssaySettings, scope: ArtifactScope, _params: ProvisionParams, executor: Executor) -> Result[Report, Fault]:
     """Report redacted provisioning environment evidence.
 
     Returns:
         Provision report, or provisioning fault.
     """
-    return _invoke(settings, scope, "env")
+    return _invoke(settings, scope, "env", executor)
 
 
-def check(settings: AssaySettings, scope: ArtifactScope, _params: ProvisionParams) -> Result[Report, Fault]:
+def check(settings: AssaySettings, scope: ArtifactScope, _params: ProvisionParams, executor: Executor) -> Result[Report, Fault]:
     """Check provisioning extensions and local runtime probes.
 
     Returns:
         Provision report, or provisioning fault.
     """
-    return _run(settings, scope, "check", (_stack("check"), _stack("tools"), *tuple(starmap(_tool, _CHECK_PROBES))))
+    return _run(settings, scope, "check", (_stack("check"), _stack("tools"), *tuple(starmap(_tool, _CHECK_PROBES))), executor)
 
 
-def apply(settings: AssaySettings, scope: ArtifactScope, _params: ProvisionParams) -> Result[Report, Fault]:
+def apply(settings: AssaySettings, scope: ArtifactScope, _params: ProvisionParams, executor: Executor) -> Result[Report, Fault]:
     """Apply Forge-owned provisioning extension changes.
 
     Returns:
         Provision report, or provisioning fault.
     """
-    return _invoke(settings, scope, "apply")
+    return _invoke(settings, scope, "apply", executor)
 
 
 __all__ = ["ProvisionParams", "apply", "check", "doctor", "down", "env", "extensions", "inventory", "plan", "ports", "status", "up"]

@@ -3,12 +3,14 @@
 `@pulumi/gcp` is the Terraform-bridged Pulumi provider SDK for Google Cloud: 138 service namespaces (`container`, `sql`, `storage`, `dns`, `compute`, `cloudrunv2`, `secretmanager`, `serviceaccount`, `projects`, `certificatemanager`, `artifactregistry`, …), each carrying the same generated resource quadruple (`class X extends pulumi.CustomResource` + `XArgs` + `XState` + `X.get`/`X.isInstance`) plus `get*`/`get*Output` data sources, under one `Provider` that binds project/region/zone/credentials. The package is ONE codegen pattern (identical to `@pulumi/postgresql`) applied across a service axis — never a bespoke API per resource. In `iac` this is a PREPARED cloud row, not a first-class arm: it is instantiated only when an app supplies a `gcp` `StackSpec` VALUE, and the value that makes it worth carrying is the SERVICE-EQUIVALENCE MAP — each `selfhosted-k8s` capability has a named managed-GCP counterpart (GKE↔workloads, Cloud SQL↔CNPG, GCS↔object-store, Cloud DNS↔traffic, Secret Manager↔Doppler), so finalizing the `gcp` target is app data, and adding it was one `provider/dispatch` arm + one `provider/surface` column.
 
 ```ts
-// @pulumi/gcp — Provider + 138 service namespaces + config/types
-export { Provider }                                                    // pulumi.ProviderResource (project/region/zone/credentials)
-export * as container, sql, storage, dns, compute, cloudrunv2, cloudrun, // the equivalence-map service namespaces
-         secretmanager, serviceaccount, projects, organizations,
-         certificatemanager, artifactregistry, redis, pubsub, kms, iam, monitoring, logging /* …+118 more */
-export { config, types }                                               // package-wide config reads + input/output shape namespaces
+// @pulumi/gcp — Provider + 138 service namespaces (each: resources · get* data sources) + config/types
+export { Provider }                        // pulumi.ProviderResource (project/region/zone/credentials)
+export {                                   // service namespaces (equivalence-map subset shown; 138 total)
+  container, sql, storage, dns, compute, cloudrunv2, cloudrun, secretmanager,
+  serviceaccount, projects, organizations, certificatemanager, artifactregistry,
+  redis, pubsub, kms, iam, monitoring, logging, /* …+118 more */
+}
+export { config, types }                   // package-wide config reads + input/output shape namespaces
 ```
 
 ## [01]-[PACKAGE_SURFACE]

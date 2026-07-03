@@ -66,7 +66,10 @@ const CENSUS_LANES = [
 ]
 const fixPrompt = (cluster) => [LAW, '', 'TASK: FIX this disjoint residual cluster IN PLACE - read every listed file in full first, then ' +
   'repair at the ROOT: reconstruct the touched clusters densely rather than point-patching; seams land on both endpoints with mirrored ' +
-  'glyphs; vocabulary unifies to the canonical owner; capability is conserved. THE CLUSTER:\n' + JSON.stringify(cluster, null, 1) +
+  'glyphs; vocabulary unifies to the canonical owner; capability is conserved. ' +
+  'A concurrent sibling may share a page with your cluster (oversized components shard file-atomically): edit any potentially shared page with ' +
+  'surgical anchored Edits only — re-read and re-apply on an edit conflict, never a whole-file rewrite. ' +
+  'THE CLUSTER:\n' + JSON.stringify(cluster, null, 1) +
   '\nReturn files (every file you actually changed) + a one-line summary.'].join('\n')
 const verifyPrompt = (rows, touched) => [LAW, '', 'TASK: TERMINAL ADVERSARIAL VERIFY - you WRITE. For EVERY claim below: re-derive whether ' +
   'the fix was necessary, prove ON DISK it was done properly at both endpoints, and IMPROVE the solution to the root where a stronger ' +
@@ -93,11 +96,30 @@ const union = (a, b) => { const ra = find(a), rb = find(b); if (ra !== rb) paren
 uniq.forEach((r, i) => { const key = 'r' + i; parent[key] = key; r.files.forEach((f) => { if (parent[f] === undefined) parent[f] = f; union(key, f) }) })
 const groups = {}
 uniq.forEach((r, i) => { const root = find('r' + i); (groups[root] = groups[root] || []).push(r) })
-const clusters = Object.values(groups).sort((a, b) => b.length - a.length)
-const buckets = Array.from({ length: Math.min(MAX_BUCKETS, clusters.length) }, () => [])
-clusters.forEach((c) => { buckets.sort((a, b) => a.flat().length - b.flat().length)[0].push(...c) })
-const packed = buckets.filter((b) => b.length)
-log('Clustered: ' + clusters.length + ' cluster(s) packed into ' + packed.length + ' bucket(s)')
+// Balance by WORK (distinct files dominate a fixer's load), never count, and CAP atomicity at the fair share: an over-budget
+// connected component sub-shards by lead file (same-lead-file rows never split — the edit-collision floor); the terminal
+// verifier owns the deliberate cross-shard seams.
+const clusterWork = (c) => { const files = new Set(); for (const r of c) for (const f of r.files) files.add(f); return files.size * 2 + c.length }
+const clusters = Object.values(groups)
+const cap = Math.max(1, Math.ceil(clusters.reduce((w, c) => w + clusterWork(c), 0) / MAX_BUCKETS))
+const shards = clusters.flatMap((c) => {
+  if (clusterWork(c) <= cap) return [c]
+  const byFile = new Map()
+  for (const r of c) { const k = r.files[0] || '~'; if (!byFile.has(k)) byFile.set(k, []); byFile.get(k).push(r) }
+  const out = []
+  for (const g of [...byFile.values()].sort((a, b) => clusterWork(b) - clusterWork(a))) {
+    const t = out.find((s) => clusterWork(s.concat(g)) <= cap)
+    if (t) t.push(...g); else out.push([...g])
+  }
+  return out
+})
+const buckets = Array.from({ length: Math.min(MAX_BUCKETS, shards.length) }, () => ({ work: 0, rows: [] }))
+for (const c of shards.slice().sort((a, b) => clusterWork(b) - clusterWork(a))) {
+  let mi = 0; for (let i = 1; i < buckets.length; i++) if (buckets[i].work < buckets[mi].work) mi = i
+  buckets[mi].rows.push(...c); buckets[mi].work += clusterWork(c)
+}
+const packed = buckets.filter((b) => b.rows.length).map((b) => b.rows)
+log('Clustered: ' + clusters.length + ' cluster(s) -> ' + shards.length + ' shard(s) into ' + packed.length + ' bucket(s); work [' + packed.map(clusterWork).join(', ') + ']')
 
 phase('Fix')
 const fixed = (await parallel(packed.map((bucket, i) => () =>

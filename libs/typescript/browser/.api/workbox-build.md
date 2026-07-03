@@ -24,7 +24,7 @@ declare function injectManifest(config: InjectManifestOptions): Promise<BuildRes
 declare function generateSW(config: GenerateSWOptions): Promise<BuildResult>            // write a full ready-to-use SW from config to swDest
 declare function getManifest(config: GetManifestOptions): Promise<GetManifestResult>   // return the precache manifest list only, no SW written
 declare function copyWorkboxLibraries(destDirectory: string): Promise<string>          // stage runtime libs when not inlined
-declare function getModuleURL(moduleName: string, buildType?: BuildType): string       // CDN/local module URL resolution
+declare function getModuleURL(moduleName: string, buildType: BuildType): string        // BuildType = "dev" | "prod"; CDN/local module URL resolution
 ```
 
 Consumer note: `injectManifest` is the entry the build script calls — the authored SW carries the strategy rows and the `NavigationRoute` offline shell, `workbox-build` injects the precache manifest. `getManifest` alone feeds the build-time per-route prerendered HTML into the precache (the SEO surface). Reserve `generateSW` for a fully-generated SW; it is the non-goal when the worker is authored.

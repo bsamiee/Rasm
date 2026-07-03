@@ -4,14 +4,16 @@
 
 ```ts
 // @pulumi/kubernetes — Provider + API-group namespaces + component wrappers
-export { Provider }                                                    // pulumi.ProviderResource (kubeconfig binding)
-export * as core, apps, batch, networking, rbac, storage, policy,      // typed resource groups (each with v1/v2/… sub-namespaces)
-         admissionregistration, apiregistration, autoscaling, certificates,
-         coordination, discovery, events, flowcontrol, node, scheduling, settings, meta
-export * as apiextensions                                              // CustomResource, CustomResourcePatch, v1.CustomResourceDefinition
-export * as helm                                                       // helm.v4.Chart, helm.v3.{Chart,Release}
-export * as kustomize, yaml                                            // kustomize.Directory, yaml.{ConfigFile,ConfigGroup}
-export * as types                                                      // types.input / types.output nested shape namespaces
+export { Provider }                        // pulumi.ProviderResource (kubeconfig binding)
+export {                                    // typed resource groups (each with v1/v2/… sub-namespaces)
+  core, apps, batch, networking, rbac, storage, policy, admissionregistration,
+  apiregistration, autoscaling, certificates, coordination, discovery, events,
+  flowcontrol, node, scheduling, settings, meta,
+  apiextensions,                            // CustomResource, CustomResourcePatch, v1.CustomResourceDefinition
+  helm,                                     // helm.v4.Chart, helm.v3.Release
+  kustomize, yaml,                          // kustomize.Directory, yaml.{ConfigFile,ConfigGroup}
+  types,                                    // types.input / types.output nested shape namespaces
+}
 ```
 
 ## [01]-[PACKAGE_SURFACE]
@@ -23,7 +25,7 @@ export * as types                                                      // types.
 - build-floor: peer `@pulumi/pulumi ^3.142.0`; bundles `glob`, `shell-quote` (chart/kustomize shell-out); the `pulumi-resource-kubernetes` plugin needs `helm` + `kubectl` reachable for chart render and SSA
 - target: `node` (Automation-API program process; the plugin shells `helm template` and talks to the API server)
 - entry: `@pulumi/kubernetes` plus the group sub-paths (`@pulumi/kubernetes/apps/v1`, `/helm/v4`, `/apiextensions`, …)
-- asset: the typed resource classes for all API groups, `helm.v4.Chart` / `helm.v3.{Chart,Release}`, `apiextensions.CustomResource`/`CustomResourcePatch`/`v1.CustomResourceDefinition`, `kustomize.Directory`, `yaml.{ConfigFile,ConfigGroup}`, the `Provider`, and the `types.input`/`types.output` shape namespaces
+- asset: the typed resource classes for all API groups, `helm.v4.Chart` / `helm.v3.Release`, `apiextensions.CustomResource`/`CustomResourcePatch`/`v1.CustomResourceDefinition`, `kustomize.Directory`, `yaml.{ConfigFile,ConfigGroup}`, the `Provider`, and the `types.input`/`types.output` shape namespaces
 - rail: iac / kubernetes
 
 ## [02]-[PUBLIC_TYPES]
@@ -151,7 +153,7 @@ interface RepositoryOpts {
 interface PostRenderer { readonly command: pulumi.Input<string>; readonly args?: pulumi.Input<pulumi.Input<string>[] | undefined> }
 ```
 
-`helm.v3` retains `Chart` (same template-render semantics) and adds `Release` — the stateful `helm install`/`Tiller`-less release with `atomic`/`wait`/`timeout`/`recreatePods` lifecycle knobs. Prefer `helm.v4.Chart` for Pulumi-managed resources (policy/transform visibility); reach `helm.v3.Release` only when a chart requires true release lifecycle (hooks, rollback).
+`helm.v3` exposes `Release` only (no `v3.Chart` in this release line) — the stateful `helm install` release where Pulumi drives the Helm SDK directly, with `atomic` / `skipAwait` / `waitForJobs` / `timeout` / `recreatePods` / `skipCrds` lifecycle knobs. Prefer `helm.v4.Chart` for Pulumi-managed resources (policy/transform visibility over every rendered object); reach `helm.v3.Release` only when a chart requires true release lifecycle (hooks, rollback, atomic install).
 
 ### `apiextensions.CustomResource` — the operator-CRD carrier
 
@@ -245,7 +247,7 @@ interface ProviderArgs {
 - `apiextensions.CustomResource` is the CNPG `Cluster` owner: `apiVersion: "postgresql.cnpg.io/v1"`, `kind: "Cluster"`, with `spec.instances`/`spec.imageName` (the PG18.4-extension image)/`spec.storage`/`spec.backup` (scheduled-backup + PITR to the object-store row) in the `[field]` catch-all. Install the operator itself via a `helm.v4.Chart`; declare cluster instances via `CustomResource`. The `-rw` Service that the CNPG operator creates is the host handed to `@pulumi/postgresql`.
 
 [STACK_LAW]:
-- SELFHOSTED-K8S ARM: the `provider/dispatch` `Match.exhaustive` `selfhosted-k8s` arm is a `Layer`-composed program — (1) `@pulumi/command` `remote.Command` bootstraps the cluster and emits the kubeconfig; (2) `new kubernetes.Provider({ kubeconfig, enableServerSideApply: true })`; (3) `helm.v4.Chart` installs CNPG operator + LGTM + OTel collector with typed `values`; (4) `apiextensions.CustomResource` declares the CNPG `Cluster`; (5) its host `Output` feeds `@pulumi/postgresql.Provider` (`kube/data` seam); (6) `@pulumi/tls` cert material + `networking.v1.Ingress` realize `kube/traffic`; (7) `@pulumiverse/grafana` applies `telemetry/board` dashboards onto the rendered Grafana.
+- SELFHOSTED-K8S ARM: the `provider/dispatch` `Match.exhaustive` `selfhosted-k8s` arm is a `Layer`-composed program — (1) `@pulumi/command` `remote.Command` bootstraps the cluster and emits the kubeconfig; (2) `new kubernetes.Provider({ kubeconfig, enableServerSideApply: true })`; (3) `helm.v4.Chart` installs CNPG operator + LGTM + OTel collector with typed `values`; (4) `apiextensions.CustomResource` declares the CNPG `Cluster`; (5) its host `Output` feeds `@pulumi/postgresql.Provider` (`kube/data` seam); (6) `@pulumi/tls`/`@pulumi/random` cert+key material lands in a `core.v1.Secret` (`type: "kubernetes.io/tls"`, `stringData: { "tls.crt", "tls.key" }` — the TLS-secret sink) that `networking.v1.Ingress.spec.tls[].secretName` references to realize `kube/traffic`; (7) `@pulumiverse/grafana` applies `telemetry/board` dashboards onto the rendered Grafana.
 - SUBSTRATE WEAVE: authored inside the arm the `dispatch` selects; run by `program/automation` `LocalWorkspace.createOrSelectStack`. Realized workload `Output`s (service host/port, ingress hostname) project through a `Schema`-decoded `StackOutputs` record — the sole `iac`→`work` value crossing (`ShardingConfig`). `@pulumi/policy` `validateResourceOfType(kubernetes.apps.v1.Deployment, …)` narrows against the very classes exported here.
 
 [RAIL_LAW]:

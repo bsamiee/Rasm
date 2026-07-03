@@ -13,7 +13,7 @@ import pytest
 from tests.python._testkit.laws import register_laws, spec
 from tests.python._testkit.spec import absorbing, associative, commutative, identity_element, monotone, validity_matrix, ValidityCase
 from tests.python.tools.assay.kit import rail_status_st
-from tools.assay.core.status import fold, join, RailStatus
+from tools.assay.core.model import RailStatus
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -36,7 +36,7 @@ _FROM_RC: tuple[tuple[int, RailStatus], ...] = (
 
 register_laws(
     (
-        join,
+        RailStatus.dominant,
         (
             "join_associative_full",
             "join_commutative_pairs",
@@ -55,7 +55,10 @@ register_laws(
             "alias_skipped_resolves_to_skip",
         ),
     ),
-    (fold, ("fold_max_severity_oracle", "fold_associativity_split", "fold_empty_seed", "fold_permutation_invariant", "fold_faulted_dominates")),
+    (
+        RailStatus.fold,
+        ("fold_max_severity_oracle", "fold_associativity_split", "fold_empty_seed", "fold_permutation_invariant", "fold_faulted_dominates"),
+    ),
 )
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -67,7 +70,7 @@ def _sev_eq(a: RailStatus, b: RailStatus) -> bool:
 
 
 def _join_left_severity(s: RailStatus) -> int:
-    return join(s, _SEED).severity
+    return RailStatus.dominant(s, _SEED).severity
 
 
 # --- [JOIN_ALGEBRA]
@@ -77,20 +80,20 @@ def _join_left_severity(s: RailStatus) -> int:
 @given(rail_status_st, rail_status_st, rail_status_st)
 def test_join_associative_full(a: RailStatus, b: RailStatus, c: RailStatus) -> None:
     """Join three arbitrary statuses is associative on severity — the full product subsumes the self-triple."""
-    associative(a, b, c, join, eq=_sev_eq)
+    associative(a, b, c, RailStatus.dominant, eq=_sev_eq)
 
 
 @pytest.mark.mutation
 @given(rail_status_st, rail_status_st)
 def test_join_commutative_pairs(a: RailStatus, b: RailStatus) -> None:
-    """join(a, b) and join(b, a) agree on severity — the full pair product subsumes the self-pair."""
-    commutative(a, b, join, eq=_sev_eq)
+    """RailStatus.dominant(a, b) and RailStatus.dominant(b, a) agree on severity — the full pair product subsumes the self-pair."""
+    commutative(a, b, RailStatus.dominant, eq=_sev_eq)
 
 
 @spec(RailStatus, mutation=True, law="join_faulted_absorbing")
 def test_join_faulted_absorbing(s: RailStatus) -> None:
-    """FAULTED is the absorbing element: join(s, FAULTED) = join(FAULTED, s) = FAULTED."""
-    absorbing(s, join, _ABSORBING)
+    """FAULTED is the absorbing element: RailStatus.dominant(s, FAULTED) = RailStatus.dominant(FAULTED, s) = FAULTED."""
+    absorbing(s, RailStatus.dominant, _ABSORBING)
 
 
 @spec(RailStatus, law="join_empty_identity_element")
@@ -100,7 +103,7 @@ def test_join_empty_identity_element(s: RailStatus) -> None:
     SKIP is the sole member below EMPTY and is covered by the sweep law.
     """
     if s.severity >= _SEED.severity:
-        identity_element(s, join, _SEED, eq=_sev_eq)
+        identity_element(s, RailStatus.dominant, _SEED, eq=_sev_eq)
 
 
 @pytest.mark.parametrize("member", _ALL, ids=[m.name for m in _ALL])
@@ -108,11 +111,11 @@ def test_join_empty_identity_sweep(member: RailStatus) -> None:
     """Sweep every member: identity_element holds when severity >= SEED; SKIP is dominated."""
     match member.severity >= _SEED.severity:
         case True:
-            identity_element(member, join, _SEED, eq=_sev_eq)
+            identity_element(member, RailStatus.dominant, _SEED, eq=_sev_eq)
         case _:
             # SKIP (severity 0) is below the seed: join with EMPTY returns EMPTY, not SKIP.
-            assert join(_SEED, member) is _SEED
-            assert join(member, _SEED) is _SEED
+            assert RailStatus.dominant(_SEED, member) is _SEED
+            assert RailStatus.dominant(member, _SEED) is _SEED
 
 
 # --- [SEVERITY_MONOTONICITY]
@@ -124,7 +127,7 @@ def test_join_empty_identity_sweep(member: RailStatus) -> None:
     ids=[f"{lo.name}<={hi.name}" for lo in _ALL for hi in _ALL if lo.severity <= hi.severity],
 )
 def test_join_monotone_left(lo: RailStatus, hi: RailStatus) -> None:
-    """Join is monotone in its left argument: join(lo, x).severity <= join(hi, x).severity when lo <= hi."""
+    """Join is monotone in its left argument: RailStatus.dominant(lo, x).severity <= RailStatus.dominant(hi, x).severity when lo <= hi."""
     monotone(lo, hi, _join_left_severity)
 
 
@@ -134,8 +137,8 @@ def test_join_monotone_left(lo: RailStatus, hi: RailStatus) -> None:
 @spec(RailStatus, law="join_exit_code_non_negative")
 def test_join_exit_code_non_negative(s: RailStatus) -> None:
     """Join result always carries a non-negative exit_code regardless of operand."""
-    assert join(s, _SEED).exit_code >= 0
-    assert join(_SEED, s).exit_code >= 0
+    assert RailStatus.dominant(s, _SEED).exit_code >= 0
+    assert RailStatus.dominant(_SEED, s).exit_code >= 0
 
 
 # --- [FOLD_ALGEBRA]
@@ -143,11 +146,11 @@ def test_join_exit_code_non_negative(s: RailStatus) -> None:
 
 @given(st.lists(rail_status_st, min_size=1, max_size=8))
 def test_fold_max_severity_oracle(members: list[RailStatus]) -> None:
-    """fold(*members) returns the max-by-severity element, floored at EMPTY.
+    """RailStatus.fold(*members) returns the max-by-severity element, floored at EMPTY.
 
     Lists containing only SKIP still yield the EMPTY seed.
     """
-    result = fold(*members)
+    result = RailStatus.fold(*members)
     expected_sev = max(*(m.severity for m in members), _SEED.severity)
     assert result.severity == expected_sev
 
@@ -156,33 +159,33 @@ def test_fold_max_severity_oracle(members: list[RailStatus]) -> None:
 def test_fold_associativity_split(members: list[RailStatus]) -> None:
     """Splitting fold at any midpoint yields the same result — fold is associative over join."""
     mid = len(members) // 2
-    left_half = fold(*members[:mid]) if members[:mid] else _SEED
-    right_half = fold(*members[mid:]) if members[mid:] else _SEED
-    assert fold(*members).severity == join(left_half, right_half).severity
+    left_half = RailStatus.fold(*members[:mid]) if members[:mid] else _SEED
+    right_half = RailStatus.fold(*members[mid:]) if members[mid:] else _SEED
+    assert RailStatus.fold(*members).severity == RailStatus.dominant(left_half, right_half).severity
 
 
 def test_fold_empty_seed() -> None:
-    """fold() with no members returns EMPTY — the monoid seed, not SKIP."""
-    assert fold() is _SEED
+    """RailStatus.fold() with no members returns EMPTY — the monoid seed, not SKIP."""
+    assert RailStatus.fold() is _SEED
 
 
 @spec(RailStatus, law="fold_singleton_join_agreement")
 def test_fold_singleton_join_agreement(s: RailStatus) -> None:
-    """fold(s) agrees with join(EMPTY, s) on severity — fold and join share the same seed."""
-    assert fold(s).severity == join(_SEED, s).severity
+    """RailStatus.fold(s) agrees with RailStatus.dominant(EMPTY, s) on severity — fold and join share the same seed."""
+    assert RailStatus.fold(s).severity == RailStatus.dominant(_SEED, s).severity
 
 
 @given(st.lists(rail_status_st, min_size=1, max_size=8))
 def test_fold_permutation_invariant(members: list[RailStatus]) -> None:
     """Fold is permutation-invariant on severity: reordering members does not change the result."""
-    assert fold(*members).severity == fold(*reversed(members)).severity
+    assert RailStatus.fold(*members).severity == RailStatus.fold(*reversed(members)).severity
 
 
 @given(rail_status_st)
 def test_fold_faulted_dominates(s: RailStatus) -> None:
     """Fold with FAULTED always returns FAULTED — absorbing propagates through fold."""
-    assert fold(s, _ABSORBING) is _ABSORBING
-    assert fold(_ABSORBING, s) is _ABSORBING
+    assert RailStatus.fold(s, _ABSORBING) is _ABSORBING
+    assert RailStatus.fold(_ABSORBING, s) is _ABSORBING
 
 
 # --- [FOLD_DOMAIN_CLOSURE]
@@ -190,8 +193,8 @@ def test_fold_faulted_dominates(s: RailStatus) -> None:
 
 @spec(RailStatus, law="fold_result_is_enum_member")
 def test_fold_result_is_enum_member(s: RailStatus) -> None:
-    """fold(s) is always a genuine RailStatus member — no synthetic value escapes the domain."""
-    result = fold(s)
+    """RailStatus.fold(s) is always a genuine RailStatus member — no synthetic value escapes the domain."""
+    result = RailStatus.fold(s)
     assert isinstance(result, RailStatus)
     assert result in _ALL
 

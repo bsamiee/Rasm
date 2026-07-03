@@ -75,7 +75,7 @@ declare const layer: (o: { readonly model: string; readonly config?: Omit<Config
 
 declare class Config extends Context.Tag("@effect/ai-openrouter/OpenRouterLanguageModel/Config")<Config, Config.Service> {}
 // Config.Service = Partial<Generated.ChatGenerationParams.Encoded minus messages|response_format|tools|tool_choice|stream>
-//   => temperature, top_p, top_k, provider (ProviderPreferences), reasoning (effort), route, models[], transforms, …
+//   => temperature, top_p, provider (ProviderPreferences), reasoning (effort), route, models[], seed, stop, max_tokens, frequency_penalty, …
 declare const withConfigOverride: {
   (config: Config.Service): <A, E, R>(self: Effect.Effect<A, E, R>) => Effect.Effect<A, E, R>
   <A, E, R>(self: Effect.Effect<A, E, R>, config: Config.Service): Effect.Effect<A, E, R>

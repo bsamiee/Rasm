@@ -36,7 +36,7 @@
 Domain packages this folder uses, planned or implemented; versions are centralized in the one language workspace catalog and never pinned here. API evidence lives in the folder `.api/`. The no-admission entries record native-API concerns so a future reach for the named package is the rejected reflex rather than an open gap.
 
 [PLATFORM_BINDINGS]:
-- `@effect/platform-browser` — `FetchHttpClient`, `BrowserKeyValueStore`, `BrowserWorker`, `BrowserStream`, `BrowserHttpClient`, the Permissions/Clipboard/Geolocation capability capsules, and the `BrowserSocket` duplex socket driver
+- `@effect/platform-browser` — `BrowserKeyValueStore`, `BrowserWorker`, `BrowserStream`, `BrowserHttpClient` (the XHR client: progress + arraybuffer), the Permissions/Clipboard/Geolocation capability capsules, and the `BrowserSocket` duplex socket driver
 
 [OTEL_SDK]:
 - `@opentelemetry/core` — `W3CTraceContextPropagator`/`W3CBaggagePropagator` composite registered via `WebTracerProvider.register({propagator})` alongside the WebSdk layer as the extract-and-continue propagator for cross-runtime trace continuation
@@ -88,7 +88,7 @@ Branch-level substrate packages this folder consumes; charters and API evidence 
 
 [RUNTIME_CORE]:
 - `effect` — `Layer`, `ManagedRuntime`, `Config`/`ConfigProvider`, `Schema`, `Schema.TaggedRequest`, `Match`, `SubscriptionRef`, `Schedule`, `Stream`, `Metric`, `Worker.makePoolSerialized`, `Data.TaggedEnum`
-- `@effect/platform` — the HTTP/`KeyValueStore`/`WorkerManager` service tags and the worker primitives
+- `@effect/platform` — the HTTP/`KeyValueStore`/`WorkerManager` service tags, the `FetchHttpClient.layer` fetch client the `BrowserPlatform` binds, and the worker primitives
 
 [OBSERVABILITY]:
 - `@effect/opentelemetry` — the WebSdk trace/metric exporter edge

@@ -91,7 +91,9 @@ Every UI-domain library the folder uses, planned or implemented. Versions are ce
 - `maplibre-gl`
 - `@deck.gl/core`
 - `@deck.gl/layers`
+- `@deck.gl/mesh-layers`
 - `@deck.gl/geo-layers`
+- `@deck.gl/extensions`
 - `@deck.gl/mapbox`
 - `@geoarrow/deck.gl-geoarrow`
 - `apache-arrow`

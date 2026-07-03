@@ -1,6 +1,8 @@
 # [API_CATALOGUE] @effect/experimental
 
-`@effect/experimental` re-exports each module under its own namespace; the barrel covers durable-substrate persistence (`Persistence`, `PersistedCache`, `PersistedQueue`), rate-limiting, key-scoped reactivity, request-batching, event journal/log/sync, actor state machines, and SSE encoding.
+`@effect/experimental` (0.60.0, MIT; effect-peers `effect ^3.21.x`, `@effect/platform ^0.96.x`) re-exports each module under its own namespace; the barrel covers durable-substrate persistence (`Persistence`, `PersistedCache`, `PersistedQueue`), a store-backed `RateLimiter`, key-scoped `Reactivity`, request-batching, event journal/log/sync, serializable actor state machines, and an `Sse` codec. Members grounded from installed `node_modules` `dist/dts` (`assay api resolve @effect/experimental` → TSDECL 0.60.0, restored).
+
+The full-branch surface — with browser-tier framing (`EventJournal.layerIndexedDb`, `EventLogRemote.layerWebSocketBrowser`, `EventLogEncryption.layerSubtle` over Web Crypto) and the `[R19]` EventLog-overlay system-of-record law — is owned once at the universal tier, `libs/typescript/.api/effect-experimental.md`. This services-tier catalog carries the transcription-complete node-lane signatures and stacks them onto the three surfaces the host-free `services` folder actually composes: `Reactivity` (`persistence/reactive#REACTIVE` — `ReactiveQuery` over `SqlClient.reactive`), the store-backed `RateLimiter` (`messaging/quota#QUOTA` — the per-tenant `QuotaGovernor` `Entity`), and the `Sse` codec (`agent/mcp#MCP` — the MCP progress fold). The remaining lanes (`Persistence`/`PersistedCache`/`PersistedQueue` durable memoization/queue, `Machine` durable actors, `EventLog` family, `RequestResolver` batching, `VariantSchema`) are node-durable primitives documented at full depth as design pressure for the folder's durable-execution growth, never browser-offline surfaces.
 
 ---
 
@@ -125,7 +127,7 @@ export const layerResultKeyValueStore: Layer.Layer<ResultPersistence, never, Key
 export const unsafeTtlToExpires: (clock: Clock.Clock, ttl: Option.Option<Duration.Duration>) => number | null
 ```
 
-- `layerKeyValueStore` / `layerResultKeyValueStore` are the seam to `@effect/platform/KeyValueStore`; the browser `host` snapshot store composes these over a `KeyValueStore` binding rather than reading `localStorage` directly.
+- `layerKeyValueStore` / `layerResultKeyValueStore` are the seam to `@effect/platform/KeyValueStore`; a node-durable memoization store composes these over a `KeyValueStore` binding (`layerMemory` for specs), never a hand-rolled key-value cache.
 - `Persistable` requires a request schema that is both `Schema.WithResult` and `PrimaryKey.PrimaryKey`; the primary key is the persistence key.
 
 ---
@@ -196,7 +198,7 @@ export declare class PersistedQueueStore extends Context.TagClass<
 export const layerStoreMemory: Layer.Layer<PersistedQueueStore>
 ```
 
-- The `host` offline command queue composes `layer` over a `PersistedQueueStore`; ordered drain on redial uses the FIFO `take` retry loop with capped `maxAttempts`.
+- A node durable work queue composes `layer` over a `PersistedQueueStore` (`layerStoreMemory` for specs); FIFO `take` with capped `maxAttempts` retry replaces a bespoke queue table, sitting under the `execution/engine` durable altitude — distinct from the SQL-backed `execution/outbox` `FOR UPDATE SKIP LOCKED` relay.
 
 ---
 
@@ -755,15 +757,22 @@ export const Overrideable: <From, IFrom, RFrom, To, ITo, R>(from: Schema.Schema<
 - The backing layer choice is the only swap point: `layerMemory` (test), `layerKeyValueStore` (KVS-backed), with `layerResultMemory` / `layerResultKeyValueStore` as the pre-composed result-store variants. A hand-rolled key-value cache outside `BackingPersistenceStore` is the deleted form.
 - `PersistedQueue` (`layer` over `PersistedQueueStore`, `layerStoreMemory` for tests) is the durable work queue; ordered FIFO `take` with `maxAttempts` retry replaces any bespoke queue table.
 
-[OFFLINE_HOST]:
-- The browser `host` snapshot store composes `Persistence.layerKeyValueStore` over `@effect/platform-browser`'s `KeyValueStore` binding so a snapshot persists as a Schema-encoded value; the offline command queue drains via `PersistedQueue`. A direct `localStorage` read or a JSON blob outside the encoded store is the deleted form.
-- The local event log uses `EventJournal.layerIndexedDb` + `EventLog.layer(schema)` + `Identity` (`layerIdentityKvs` to persist the signing key in KVS); remote sync attaches via `EventLogRemote.layerWebSocketBrowser` which folds the browser socket and subtle-crypto so only `EventLog` remains as a requirement.
+[SERVICES_STACKING]: the three surfaces the folder actually composes — each stacks the experimental lane onto a sibling admitted lib into one dense rail, never used single-feature.
+- `Reactivity` under `@effect/sql` (`persistence/reactive#REACTIVE`): `ReactiveQuery` (`Effect.Service`) is `SqlClient.reactive([keys], query)` / `sql.reactiveMailbox(keyOf(entity, scope), query)` — the `Reactivity` layer is the invalidation backplane the reactive `SqlClient` methods draw from, and a write is wrapped `Reactivity.mutation(write, keysFor(entity, scopes))` to publish on the same `InvalidationKey` channel. The read is one `effect/Stream`; a poll loop or a second `Reactivity` instance beside the `SqlClient` one is the deleted form. Provide `Reactivity.layer` once beside the `PgClient` (`Layer<ReactiveQuery, never, SqlClient | PgClient>`).
+- store-backed `RateLimiter` under `@effect/cluster` + `@effect/workflow` (`messaging/quota#QUOTA`): `QuotaGovernor` yields `RateLimiter.RateLimiter` and calls `limiter.consume({ algorithm, window, limit, key })` (the `fixed-window`/`token-bucket` algorithm is a policy value on the `TenantQuota` row, never a parallel limiter), maps `Effect.catchTag("RateLimiterError", …)` to `QuotaRejected`, and `regulate`s a `Stream` via `Stream.mapEffect`. The governor is a `@effect/cluster` `Entity` placed per tenant (`getShardGroup`) sharing the SAME `RateLimiterStore` the cluster backplane layers, and sits ABOVE the per-key `@effect/workflow` `DurableRateLimiter` — aggregate tenant cap over per-key durable cap, one composition.
+- `Sse` codec under `@effect/ai` (`agent/mcp#MCP`): `McpTransport.progress(token): Stream<ProgressNotificationWire, McpTransportFault>` folds the host MCP progress event stream through `Sse.makeParser`/`makeChannel` into the decoded `ProgressNotificationWire`, beside the `@effect/ai` `Toolkit` the same transport decodes the host `tools/list` catalog into. The one `Sse` codec owns every SSE seam; a hand-rolled event-stream parser is the deleted form.
 
-[RATE_AND_REACTIVITY]:
-- `RateLimiter.layer` over `RateLimiterStore` (`layerStoreMemory` for single-node) gates outbound calls; `makeWithRateLimiter` wraps an effect, `makeSleep` only delays. Both errors carry `_tag: "RateLimiterError"` discriminated by `reason`.
-- `Reactivity.layer` backs key-scoped cache invalidation; `query` returns a `Mailbox.ReadonlyMailbox` that re-emits on overlapping-key `mutation`/`invalidate`, and `EventLog.groupReactivity` wires journal writes into the same key space.
+[RATE_AND_REACTIVITY_MECHANISM]:
+- `RateLimiter.layer` over `RateLimiterStore` (`layerStoreMemory` for single-node, the cluster-shared store for distributed) gates by key; `makeWithRateLimiter` wraps an effect, `makeSleep` only delays. Both errors carry `_tag: "RateLimiterError"` discriminated by `reason` (`"Exceeded"` carries `retryAfter`, `"StoreError"` carries `cause`).
+- `Reactivity.layer` backs key-scoped invalidation; `query` returns a `Mailbox.ReadonlyMailbox` that re-emits on overlapping-key `mutation`/`invalidate`, `stream` is the same as an `effect/Stream`; keys are an arbitrary-token array or a `ReadonlyRecord<string, token[]>`.
+
+[NODE_DURABLE_FUTURE]: documented at full depth as design pressure, not current consumers.
+- `Persistence.ResultPersistence` (`layerResult` over a `BackingPersistence`) + `PersistedCache.make` / `RequestResolver.persisted` are the memoization rails, both keyed by a `Persistable`/`PersistedRequest` (`Schema.WithResult` + `PrimaryKey`); the backing swap (`layerMemory` | `layerKeyValueStore`) is the only variation, and a hand-rolled key-value cache outside `BackingPersistenceStore` is the deleted form.
+- `Machine` serializable durable actors (`boot` → `snapshot`/`restore`) and `PersistedQueue` durable work queues are the in-process durable-execution altitude under `execution/engine`; the `EventLog` family (`EventJournal`/`EventLog`/`EventLogServer`/`EventLogRemote`/`EventLogEncryption`) is the browser-tier local-first surface owned by the universal tier and the ui/platform folder — the node-services tier touches it only via a SQL-backed `EventLogServer.Storage` if it grows a sync endpoint, subordinate to the `store/journal` `[R19]` system-of-record law.
 
 [RAIL_LAW]:
-- `Persistence`, `PersistedCache`, `PersistedQueue`, `RequestResolver`, `RateLimiter`, `Machine`, `EventLogServer` are node-tier or shared; `EventJournal.layerIndexedDb`, `EventLogRemote.layerWebSocketBrowser`, `EventLogEncryption.layerSubtle` are browser-tier offline surfaces.
-- `DevTools` layers are dev-only tracing clients; not composed in production runtime.
+- Package: `@effect/experimental` (services-tier overlay; full-branch framing at `libs/typescript/.api/effect-experimental.md`)
+- Owns (for services): `Reactivity` invalidation, store-backed `RateLimiter`, the `Sse` codec; node-durable `Persistence`/`PersistedCache`/`PersistedQueue`/`Machine`/`RequestResolver` as growth substrate
+- Accept: `Reactivity` as the `SqlClient.reactive` backplane, `RateLimiter.consume` algorithm as a policy value under a cluster `Entity`, `Sse` as the one SSE codec, swappable backing Layers per lane
+- Reject: a poll/timer re-query instead of `Reactivity` push, a parallel limiter or a re-implemented `DurableRateLimiter`, a hand-rolled SSE parser, storage hardcoded inside a lane, or the EventLog journal as a system of record (`store/journal` owns truth `[R19]`)
 - Every error rail is a `Schema.TaggedError`/`TaggedClass` (`PersistenceError`, `PersistedQueueError`, `EventJournalError`, `RateLimiterError`, `MachineDefect`) — domain code matches on `_tag`/`reason`, never on string inspection.

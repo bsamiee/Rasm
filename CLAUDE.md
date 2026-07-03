@@ -15,7 +15,7 @@ Read: `README.md` + `tools/assay/README.md`
 ## [01]-[WORKSPACE_LAW]
 
 [WORKFLOW_ENGINE]:
-- The `.claude/workflows/` durables are the standing improvement engine, re-run iteratively across sessions until cold passes find nothing: `rebuild` (target + brief parameterized, any language) is the bread-and-butter build pass; `stack-cs`/`stack-py`/`stack-ts`, `implement-cs`/`implement-py`/`implement-ts`, `resolve-residuals`, `align-cards`, `hygiene-sweep`, `ideate`, `rebuild-api`, `survey-gaps`, `survey-packages`, and `tidy-planning-docs` are the supporting rails.
+- The `.claude/workflows/` durables are the standing improvement engine, re-run iteratively across sessions until cold passes find nothing: `rebuild` (target + brief parameterized, any language) is the bread-and-butter build pass; `brief` (targets + upstream parameterized, any language or mix — one brief or a dependency-ordered waterfall with surgical upstream ripples, `RASM-<PY|CS|TS>-<NAME>-BRIEF.md` outputs, the 3-pass cross-corpus review built into the tail) authors the campaign briefs those passes run against; `stack-cs`/`stack-py`/`stack-ts`, `implement-cs`/`implement-py`/`implement-ts`, `resolve-residuals`, `align-cards`, `hygiene-sweep`, `ideate`, `rebuild-api`, `survey-gaps`, `survey-packages`, and `tidy-planning-docs` are the supporting rails.
 - A major session opens with a disposable design workflow (survey -> draft -> judge -> decide) emitting a root DECISION brief; build legs then run the durables against that brief. Ephemeral workflow variants are authored per campaign via `.claude/skills/workflow-creator` and deleted after landing.
 - Every workflow agent WRITES and is ultra-adversarial; the discovery/critique/red-team/verify role law, the two naivety axes, and the collapse-floor freedom are sealed in `libs/.planning/campaign-method.md`.
 - Workflow runs resume only in the launching session: capture a run ledger (run ID, scriptPath, args, resume command) at every launch; never edit a launched script while its run is resumable; a campaign brief travels as a PATH, so editing the brief means a fresh run, never a resume.
@@ -40,18 +40,19 @@ Read: `README.md` + `tools/assay/README.md`
 
 Use the route-owned standard for the file being edited:
 
-| [INDEX] | [FILE_TYPE]                          | [ROUTE]              |
-| :-----: | ------------------------------------ | -------------------- |
-|  [01]   | TypeScript (`.ts`, `.tsx`)           | `coding-ts`          |
-|  [02]   | C# production (`.cs`)                | `docs/stacks/csharp` |
-|  [03]   | C# tests (`.spec.cs`)                | `testing-cs`         |
-|  [04]   | Runtime scenarios (`Scenarios/*.cs`) | `testing-cs`         |
-|  [05]   | Python (`.py`)                       | `docs/stacks/python` |
-|  [06]   | Bash/sh (`.sh`, `.bash`)             | `coding-bash`        |
-|  [07]   | SQL (`.sql`)                         | `coding-pg`          |
+| [INDEX] | [FILE_TYPE]                          | [ROUTE]                  |
+| :-----: | ------------------------------------ | ------------------------ |
+|  [01]   | TypeScript (`.ts`, `.tsx`)           | `docs/stacks/typescript` |
+|  [02]   | C# production (`.cs`)                | `docs/stacks/csharp`     |
+|  [03]   | C# tests (`.spec.cs`)                | `testing-cs`             |
+|  [04]   | Runtime scenarios (`Scenarios/*.cs`) | `testing-cs`             |
+|  [05]   | Python (`.py`)                       | `docs/stacks/python`     |
+|  [06]   | Bash/sh (`.sh`, `.bash`)             | `coding-bash`            |
+|  [07]   | SQL (`.sql`)                         | `coding-pg`              |
 
 - `docs/stacks/csharp` is the route-owned C# production standard. C# source composes `docs/stacks/csharp/README.md`, `language.md`, `shapes.md`, `surfaces-and-dispatch.md`, `rails-and-effects.md`, `boundaries.md`, `algorithms.md`, and `system-apis.md`. Specialized C# domains route through `docs/stacks/csharp/domain/README.md`.
 - `docs/stacks/python` is the route-owned Python production standard. Python source composes `docs/stacks/python/README.md`, `language.md`, `shapes.md`, `surfaces-and-dispatch.md`, `rails-and-effects.md`, `concurrency.md`, `boundaries.md`, `algorithms.md`, `system-apis.md`, and `runtime.md`. Numerical and scientific computing routes through `docs/stacks/python/algorithms.md` plus the root Python doctrine index.
+- `docs/stacks/typescript` is the route-owned TypeScript production standard. TypeScript source composes `docs/stacks/typescript/README.md` and every concept page its atlas routes.
 
 ## [03]-[NAMING_SCHEMA]
 

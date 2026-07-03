@@ -480,6 +480,10 @@ public static class WireChannels {
 // gRPC call edge reads, the camelCase JSON contract pinned on a single static JsonSerializerOptions rather than
 // re-derived per call; a Compute-minted bSDD response record, a Compute-side local fallback, and a per-call
 // JsonSerializerOptions are the rejected forms.
+// The BCF-API REST lane rides the SAME split one seam further: the transport issues the Bim-owned
+// Review/issues#BCF_API BcfApiRequest verbatim (verb + resource + body bytes) and returns the raw response
+// bytes, and the READ decode is Bim's BcfApi.Admit over its one snake_case register — Compute decodes no BCF
+// body and a transport-side dialect adapter is the rejected second seam.
 public sealed class BsddTransport(HttpClient client, Duration deadline) {
     public static readonly Uri BsddBase = new("https://api.bsdd.buildingsmart.org/api/Class/v1");
 

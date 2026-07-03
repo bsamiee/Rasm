@@ -12,7 +12,7 @@ The Anthropic binding onto `@effect/ai`: it resolves the provider-agnostic `Lang
 | language model        | `AnthropicLanguageModel` (Messages beta)  | Responses    | generateContent | Converse       |
 | embedding model       | —                                         | batched+DL   | raw client    | —                |
 | tokenizer             | `AnthropicTokenizer.make` (bare value)    | `make({model})` | —          | —                |
-| provider-defined tools | 5 families / 13 date-suffixed ctors       | 4            | 4             | 8 (via this pkg) |
+| provider-defined tools | 5 families / 11 date-suffixed ctors       | 4            | 4             | 8 (via this pkg) |
 | telemetry module      | —                                         | `OpenAiTelemetry` | —        | —                |
 | model-id kind         | `Generated.Model.Encoded` (21 claude ids) | enum         | free `string` | 91-id enum      |
 | auth                  | `Redacted` apiKey + version + org/project | apiKey + org/project | apiKey | SigV4 keys      |

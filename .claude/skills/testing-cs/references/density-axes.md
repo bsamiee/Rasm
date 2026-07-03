@@ -35,14 +35,14 @@ Every owning spec should explicitly consider these axes:
 ## [03]-[LOC_TACTICS]
 
 - Collapse repeated `Fact`s into one generated law when they share setup.
-- Use local arrays for case tables; use `Spec.SmartEnumKeysUnique` for distinctness.
+- Use local arrays for case tables; use `Spec.Catalog` for key uniqueness plus exact expected membership.
 - Prefer `Spec.SuccValue` once per fixture object, then generated assertions over that object.
 - Keep one-off expected values inline only when they are true mathematical constants.
 - Promote only reusable generators and independent oracles to `_testkit`.
 - Prefer product generators that vary mode, payload, output kind, and invalid edge together; this catches branch swaps with fewer lines than one fact per mode.
 - Use local fixture geometry only when it is the independent model: asymmetric tetrahedra, a unit segment, one triangle, one square, diagonal matrices, and one-point probability plans often expose more bugs than large random fixtures.
-- Raise the 175 LOC target only after collapsing repeated setup into arrays, `Spec.Cases`, `Spec.SmartEnumKeysUnique`, `Numeric`, or a two-consumer testkit primitive.
-- Keep bridge classification concise in static specs; executable native success belongs in `*.verify.csx`, not in long static workarounds.
+- Raise the 175 LOC target only after collapsing repeated setup into arrays, `Spec.Catalog`, `Spec.Matrix`, `Numeric`, or a two-consumer testkit primitive.
+- Keep bridge classification concise in static specs; executable native success belongs in the scenario rail under `tests/csharp/scenarios`, not in long static workarounds.
 - Batch independent invariants (catalog multiplicities, fault category + type-pair) under `Assert.Multiple(() => …, …)` so every delta reports at once instead of stopping at the first failure. Use only for INDEPENDENT checks — never when one lambda's `Assert.IsType` result feeds the next.
 
 ---
@@ -55,7 +55,7 @@ Ten base patterns that convert O(N) per-case Facts into O(1) generated laws:
 
 | [INDEX] | [PATTERN]                                        | [WHEN]                                       | [TEMPLATE]                                                                                                       |
 | :-----: | ------------------------------------------------ | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-|  [01]   | SmartEnum case sweep via `T.Items`               | Closed catalog with per-case invariant       | `Spec.Cases(T.Items, key: m => m.Key, law: m => /* per-case oracle */)`                                          |
+|  [01]   | SmartEnum case sweep via `T.Items`               | Closed catalog with per-case invariant       | `Spec.Catalog(T.Items, expectedKeys, key: m => m.Key, law: m => /* per-case oracle */)`                          |
 |  [02]   | Union case sweep via factory generator           | `[Union]` cases each with their own factory  | `Gen.OneOf(/* per-case factories */)` + single `Spec.ForAll` body with pattern match                             |
 |  [03]   | State-threaded Switch as oracle table            | Production uses `[Union].Switch(state, ...)` | `Seq<(Case, ExpectedFn)>` walked once; spec body never calls `Switch`                                            |
 |  [04]   | Product generator over (algo × input × output)   | Output type axis matters                     | `Gen.OneOfConst([..Items]).Select(InputGen, Gen.OneOfConst(OutputFamily), ...)`                                  |
@@ -79,8 +79,8 @@ Nine torture-pattern extensions:
 |  [17]   | Conditioning-aware tolerance         | Floating-point algorithms                                                                        | Tolerance = `κ(A) × base` where conditioning comes from the input generator, not a constant                                                                                   |
 |  [18]   | Composite MR chain                   | Multi-step pipeline                                                                              | `f(g(h(x))) ≡ permuted_chain(x)` over generated `(x, perm)`                                                                                                                   |
 |  [19]   | Pre/post triple for stateful APIs    | `Atom` / `Validation` / `Fin` chains                                                             | Generated `(precondition, action, postcondition)` triples                                                                                                                     |
-|  [20]   | `Spec.SmartEnumOutputCatalog`        | SmartEnum catalog whose per-case declared `Output` type is the invariant                         | Folds dense-key + uniqueness + per-case Output vs an independent `expectedOutput` table in one law (wraps `SmartEnumCatalogMatches`).                                         |
-|  [21]   | `Spec.SupportMatrix`                 | Walls of `Assert.True/False(...IsSupported)` or capability probes (`AcceptsTarget`/`CanProject`) | Labeled `(Label, () => probe, Expected)` rows; thunks keep `<TGeom,TOut>` generics at the call site and each row names its own failure instead of an anonymous `Assert.True`. |
+|  [20]   | `Spec.Catalog` output table          | SmartEnum catalog whose per-case declared `Output` type is the invariant                         | One `Spec.Catalog` law folds key uniqueness + exact membership + a per-case law checking `Output` against an independent `expectedOutput` table.                              |
+|  [21]   | `Spec.Matrix`                        | Walls of `Assert.True/False(...IsSupported)` or capability probes (`AcceptsTarget`/`CanProject`) | Labeled `(Label, () => probe, Expected)` rows; thunks keep `<TGeom,TOut>` generics at the call site and each row names its own failure instead of an anonymous `Assert.True`. |
 
 Worked example — composite MR chain:
 
@@ -95,9 +95,10 @@ public void TransposeScalePermuteChainOrderInvariant() =>
         var Mt = M.Transpose();
         var Mts = Mt.Multiply(k);
         var Mtsp = Mts.PermuteCols(perm);
-        Numeric.Entrywise(M.Rows.Value, M.Cols.Value,
-            (i, j) => Mpst.At(i, j), (i, j) => Mtsp.At(i, j),
-            tolerance: 1e-7, "composite MR chain");
+        Spec.Holds(
+            Numeric.EntrywiseResidual(rows: M.Rows.Value, cols: M.Cols.Value,
+                expected: (i, j) => Mpst.At(i, j), actual: (i, j) => Mtsp.At(i, j)) <= 1e-7,
+            "composite MR chain");
     });
 ```
 

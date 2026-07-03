@@ -11,7 +11,7 @@ The foreign-bytes ingest rail: one `BimIo` import fold over the `format#FORMAT_A
 ## [02]-[IMPORT_RAIL]
 
 - Owner: `BimIo` — the import fold over `InterchangeFormat`, dispatching the managed glTF/GLB mesh-and-scene decode through SharpGLTF, the OBJ/STL/OFF mesh-text arm through the `geometry3Sharp` `StandardMeshReader`, the dedicated PLY decode through the `Ply.Net` `PlyParser` (the `ply-net` codec retiring the BCL `PlyReader`), the FBX/Collada/3MF scene decode through the `AssimpNetter` `AssimpContext` (the `scene-exchange` codec retiring the BCL `ThreeMfReader`), the OpenUSD scene decode through the `UniversalSceneDescription` `UsdStage` (the `usd-stage` codec), the in-process IFC/IFC5 decode through GeometryGym to the live `DatabaseIfc`, the managed BCL-only `StepReader` ISO 10303-21 Part-21 entity-instance-graph semantic ingest over the `StepIso10303` codec, the managed `.bim` decode through `dotbim` over the `DotBim` codec (the geometry pool arm plus the `DotbimProjector : IElementProjection` Info-bag seam arm), and the AP242/native-companion two-hop geometry route; `ImportedGeometry` the decoded mesh-POOL carrier (`Vertices`/`Normals`/`Indices` hold each source mesh once as a `MeshBlock` range, `MeshInstance` rows place blocks by rigid transform, `Bake()` flattens on demand), the live `DatabaseIfc` the IFC graph the `Projection/semantic#SEMANTIC_PROJECTOR` `SemanticProjector` captures and lowers to a seam `GraphDelta`, `StepSemanticModel` the ISO 10303 product-structure projection.
-- Entry: `BimIo.ImportGeometry(InterchangeFormat format, ReadOnlyMemory<byte> bytes, ClockPolicy clocks, Op key)` for the managed mesh-and-scene path (dispatching by `InterchangeCodec` to SharpGLTF, the `geometry3Sharp` mesh-text arm, `Ply.Net`, `AssimpNetter`, `UsdStage`, ACadSharp, or `dotbim`); `BimIo.ImportIfc(InterchangeFormat format, ReadOnlyMemory<byte> bytes, Op key)` for the in-process IFC/IFC5 decode to the live `DatabaseIfc` the seam `SemanticProjector` captures; `BimIo.ImportStep(InterchangeFormat format, ReadOnlyMemory<byte> bytes, ClockPolicy clocks, Op key)` for the in-process ISO 10303-21 Part-21 product-structure semantic graph — `Fin<T>` aborts on a codec reject (`Model/faults#FAULT_BAND` `BimFault.CodecReject`) or a companion-required geometry request (`BimFault.CapabilityMiss`), each `Op`-keyed case lifting BARE onto the `Fin<T>` rail (band 2600 IS the `Expected` `Code` — no `.ToError()` hop), the foreign decode arity discriminating on the row's `InterchangeCodec` so a path lands one decode without a call-site type branch, projecting the package or parse exception onto `BimFault.ModelRejected(key, error.Message)` at the boundary so domain code never sees the SharpGLTF `ModelException`, the GeometryGym parse fault, or a malformed-Part-21 `InvalidDataException`.
+- Entry: `BimIo.ImportGeometry(InterchangeFormat format, ReadOnlyMemory<byte> bytes, IClock clock, Op key)` for the managed mesh-and-scene path (dispatching by `InterchangeCodec` to SharpGLTF, the `geometry3Sharp` mesh-text arm, `Ply.Net`, `AssimpNetter`, `UsdStage`, ACadSharp, or `dotbim`); `BimIo.ImportIfc(InterchangeFormat format, ReadOnlyMemory<byte> bytes, Op key)` for the in-process IFC/IFC5 decode to the live `DatabaseIfc` the seam `SemanticProjector` captures; `BimIo.ImportStep(InterchangeFormat format, ReadOnlyMemory<byte> bytes, IClock clock, Op key)` for the in-process ISO 10303-21 Part-21 product-structure semantic graph — `Fin<T>` aborts on a codec reject (`Model/faults#FAULT_BAND` `BimFault.CodecReject`) or a companion-required geometry request (`BimFault.CapabilityMiss`), each `Op`-keyed case lifting BARE onto the `Fin<T>` rail (band 2600 IS the `Expected` `Code` — no `.ToError()` hop), the foreign decode arity discriminating on the row's `InterchangeCodec` so a path lands one decode without a call-site type branch, projecting the package or parse exception onto `BimFault.ModelRejected(key, error.Message)` at the boundary so domain code never sees the SharpGLTF `ModelException`, the GeometryGym parse fault, or a malformed-Part-21 `InvalidDataException`.
 - Auto: binary GLB decode lands through `ModelRoot.ParseGLB(ArraySegment<byte>)` and text `.gltf` decode through `ReadContext.ReadTextSchema2(Stream)` then a `Decompress` pre-decode branch reading the parsed model's `KHR_draco_mesh_compression` primitive extension and `EXT_meshopt_compression` bufferView extension and routing the compressed payload through the package-owned `Draco.Decode(byte[])` and `Meshopt.DecodeVertexBuffer`/`DecodeIndexBuffer`/`DecodeFilterOct`/`DecodeFilterQuat`/`DecodeFilterExp`/`DecodeFilterColor` decoders before `model.LogicalMeshes.Decode()` projects each logical mesh to ONE `MeshBlock` and the `Node.Flatten(model.DefaultScene)` walk places it per mesh-bearing node — the node `WorldMatrix`, fanned per `EXT_mesh_gpu_instancing` row through `GetGpuInstancing().GetWorldMatrix(i)` — with zero intermediate file; the IFC semantic path constructs the live `DatabaseIfc` over the bytes through `DatabaseIfc.ParseString`/`ReadXMLDoc`/`ReadJSON` by the row's format — the ifcJSON/ifcXML construction reading its `ReleaseVersion` from `SemanticProjector.Sniff(bytes, format)` BEFORE construction [H8] rather than a hardcoded `IFC4X3_ADD2`, the in-process IFC graph the `Projection/semantic#SEMANTIC_PROJECTOR` `SemanticProjector` captures internally and lowers to a seam `GraphDelta`; the entity walk (`db.Project.Extract<T>()` over the spatial hierarchy, products with the `ParserIfc.IdentifyIfcClass` predefined split, property/quantity sets, materials, classifications, type objects with the `IfcTypeProduct.RepresentationMaps` instanced-geometry content key, the grouping/zone overlays, the `IfcMapConversion`/`IfcProjectedCRS` georeference, and the FULL `IfcRel*` relationship roster including the eight families the retired flat rows stranded), the per-bag `InheritanceMode` stamp, the `OwnerHistory`, and the `StepHeader` are the projector's — read off this live graph, never a lossy `IfcSemanticModel` flat-row re-projection here and never tessellated BRep.
 - Receipt: the `ModelLoad` receipt case carries the format key, codec key, source byte count, and elapsed for a managed mesh import — an instanced source additionally reads the carrier's `Blocks.Count`/`Instances.Count` sharing evidence; an IFC decode stamps the schema version (`db.Release`) and the model-view (`db.ModelView`) read off the live `DatabaseIfc` (the entity-count receipt rides the `SemanticProjector`'s delta, not the import rail); a STEP semantic ingest stamps the `StepProtocol`, the `FILE_SCHEMA` schema name, and the product/definition/assembly/geometry-ref counts; emission rides the sink port at the composition edge.
 - Packages: SharpGLTF.Core, SharpGLTF.Toolkit, SharpGLTF.Runtime, GeometryGymIFC_Core, Openize.Drako, Alimer.Bindings.MeshOptimizer, CommunityToolkit.HighPerformance, geometry3Sharp, Ply.Net, AssimpNetter, UniversalSceneDescription, ACadSharp, dotbim, NodaTime, LanguageExt.Core, Rasm
@@ -131,17 +131,17 @@ public static partial class BimIo {
     // The Switch has NO silent fallthrough, so a new InterchangeCodec row breaks this call site at compile time — a new
     // managed-mesh import lands as one arm and a non-mesh codec is forced to declare its route, never misrouting to a
     // stale "needs-companion" fault the prior == ladder produced for GeometryGym/StepIso10303/geospatial.
-    public static Fin<ImportedGeometry> ImportGeometry(InterchangeFormat format, ReadOnlyMemory<byte> bytes, ClockPolicy clocks, Op key) =>
+    public static Fin<ImportedGeometry> ImportGeometry(InterchangeFormat format, ReadOnlyMemory<byte> bytes, IClock clock, Op key) =>
         format.CataloguePending ? Fin.Fail<ImportedGeometry>(new BimFault.CodecReject(key, $"import-catalogue-pending:{format.Key}:{format.Codec.CataloguePackage.IfNone("unknown")}"))
         : !format.CanImport ? Fin.Fail<ImportedGeometry>(new BimFault.CodecReject(key, $"import-unsupported:{format.Key}"))
         : format.Codec.Switch(
-            sharpGltf:        () => Boundary(key, () => Framed(format, Gltf(format, bytes, clocks.Now))),
-            meshText:         () => MeshTextGeometry(format, bytes, clocks.Now, key),
-            ply:              () => Boundary(key, () => Framed(format, Ply(format, bytes, clocks.Now))),
-            sceneExchange:    () => Boundary(key, () => Framed(format, Scene(format, bytes, clocks.Now))),
-            usdStage:         () => Boundary(key, () => Framed(format, Usd(format, bytes, clocks.Now))),
-            acadSharp:        () => Boundary(key, () => Framed(format, AcadReader.Read(format, bytes, clocks.Now))),
-            dotBim:           () => Boundary(key, () => Framed(format, DotBim(format, bytes, clocks.Now))),
+            sharpGltf:        () => Boundary(key, () => Framed(format, Gltf(format, bytes, clock.GetCurrentInstant()))),
+            meshText:         () => MeshTextGeometry(format, bytes, clock.GetCurrentInstant(), key),
+            ply:              () => Boundary(key, () => Framed(format, Ply(format, bytes, clock.GetCurrentInstant()))),
+            sceneExchange:    () => Boundary(key, () => Framed(format, Scene(format, bytes, clock.GetCurrentInstant()))),
+            usdStage:         () => Boundary(key, () => Usd(format, bytes, clock.GetCurrentInstant())),   // the arm owns frame selection — upAxis is PER-STAGE metadata
+            acadSharp:        () => Boundary(key, () => Framed(format, AcadReader.Read(format, bytes, clock.GetCurrentInstant()))),
+            dotBim:           () => Boundary(key, () => Framed(format, DotBim(format, bytes, clock.GetCurrentInstant()))),
             geometryGym:      () => Fin.Fail<ImportedGeometry>(new BimFault.CodecReject(key, $"import-ifc-route:use-ImportIfc:{format.Key}")),
             stepIso10303:     () => Fin.Fail<ImportedGeometry>(new BimFault.CodecReject(key, $"import-step-route:use-ImportStep:{format.Key}")),
             geospatialVector: () => Fin.Fail<ImportedGeometry>(new BimFault.CodecReject(key, $"import-geospatial-route:{format.Key}")),
@@ -150,6 +150,7 @@ public static partial class BimIo {
             nativeCompanion:  () => Fin.Fail<ImportedGeometry>(new BimFault.CapabilityMiss(key, $"import-needs-companion:{format.Key}")),
             igesAnsi:         () => Fin.Fail<ImportedGeometry>(new BimFault.CapabilityMiss(key, $"import-needs-companion:{format.Key}")),
             saf:              () => Fin.Fail<ImportedGeometry>(new BimFault.CodecReject(key, $"import-saf-semantic-route:{format.Key}")),
+            cobieXlsx:        () => Fin.Fail<ImportedGeometry>(new BimFault.CodecReject(key, $"import-unsupported:{format.Key}")),
             ifc5Pending:      () => Fin.Fail<ImportedGeometry>(new BimFault.CodecReject(key, $"import-catalogue-pending:{format.Key}")));
 
     // OBJ/STL/OFF only — PLY now routes to the dedicated `ply-net` codec (the `Ply` arm) and 3MF/FBX/Collada
@@ -203,9 +204,9 @@ public static partial class BimIo {
             ? SemanticProjector.Sniff(bytes, format, key).Bind(schema => Boundary(key, () => Database(format, bytes, schema)))
             : Fin.Fail<DatabaseIfc>(new BimFault.CodecReject(key, $"ifc-codec-miss:{format.Key}"));
 
-    public static Fin<StepSemanticModel> ImportStep(InterchangeFormat format, ReadOnlyMemory<byte> bytes, ClockPolicy clocks, Op key) =>
+    public static Fin<StepSemanticModel> ImportStep(InterchangeFormat format, ReadOnlyMemory<byte> bytes, IClock clock, Op key) =>
         format.Codec == InterchangeCodec.StepIso10303
-            ? Boundary(key, () => StepReader.Read(format, bytes.Span, clocks.Now))
+            ? Boundary(key, () => StepReader.Read(format, bytes.Span, clock.GetCurrentInstant()))
             : Fin.Fail<StepSemanticModel>(new BimFault.CodecReject(key, $"step-codec-miss:{format.Key}"));
 
     // The captured-fault funnel: Try.lift runs the foreign decode, and MapFail closes over the Op key to lift the
@@ -320,8 +321,9 @@ public static partial class BimIo {
 
         // SharpGLTF.Core drops unrecognized extension JSON (Draco/meshopt have no in-box JsonSerializable
         // extension class), so the extension parameters are read from the raw glTF/GLB JSON tree the parse
-        // discards — not from a typed ExtraProperties accessor — and the decode writes back through the
-        // public Accessor arrays (Draco) and the view's own Content region (meshopt).
+        // discards — not from a typed ExtraProperties accessor — and the decode writes back by RE-POINTING the
+        // Draco accessors at materialized views (UseBufferView + SetData — a KHR_draco accessor has no bufferView
+        // for a typed-array Fill to back) and decoding meshopt INTO the view's own Content region.
         public static ModelRoot Decompress(ModelRoot model, ReadOnlyMemory<byte> bytes) {
             var root = JsonNode.Parse(JsonChunk(bytes))!.AsObject();
             var meshes = root["meshes"]?.AsArray() ?? new JsonArray();
@@ -340,14 +342,29 @@ public static partial class BimIo {
             return model;
         }
 
+        // A KHR_draco accessor carries NO bufferView (spec) — the typed-array Fill would read a backing region
+        // that does not exist — so the write-back MATERIALIZES each decoded stream into a fresh model view and
+        // re-points the accessor through the decompile-verified SetData (never a Fill over AsVector3Array there).
         static void DracoPrimitive(MeshPrimitive primitive, JsonObject extension) {
             int bufferView = (int)extension["bufferView"]!;
-            var decoded = (DracoMesh)Draco.Decode(primitive.LogicalParent.LogicalParent.LogicalBufferViews[bufferView].Content.ToArray());
-            ((Vector3Array)primitive.GetVertexAccessor("POSITION").AsVector3Array()).Fill(Vectors(decoded, AttributeType.Position));
+            ModelRoot model = primitive.LogicalParent.LogicalParent;
+            var decoded = (DracoMesh)Draco.Decode(model.LogicalBufferViews[bufferView].Content.ToArray());
+            Repoint(model, primitive.GetVertexAccessor("POSITION"), Vectors(decoded, AttributeType.Position));
             Optional(primitive.GetVertexAccessor("NORMAL"))
                 .Filter(_ => decoded.GetNamedAttributeId(AttributeType.Normal) >= 0)
-                .Iter(accessor => ((Vector3Array)accessor.AsVector3Array()).Fill(Vectors(decoded, AttributeType.Normal)));
-            ((IntegerArray)primitive.GetIndexAccessor().AsIndicesArray()).Fill(Corners(decoded));
+                .Iter(accessor => Repoint(model, accessor, Vectors(decoded, AttributeType.Normal)));
+            Accessor indices = primitive.GetIndexAccessor();
+            uint[] corners = Corners(decoded).ToArray();
+            indices.SetData(
+                model.UseBufferView(MemoryMarshal.AsBytes(corners.AsSpan()).ToArray()),
+                0, corners.Length, DimensionType.SCALAR, EncodingType.UINT, normalized: false);
+        }
+
+        static void Repoint(ModelRoot model, Accessor accessor, IEnumerable<Vector3> values) {
+            float[] data = values.SelectMany(static v => new[] { v.X, v.Y, v.Z }).ToArray();
+            accessor.SetData(
+                model.UseBufferView(MemoryMarshal.AsBytes(data.AsSpan()).ToArray()),
+                0, data.Length / 3, DimensionType.VEC3, EncodingType.FLOAT, normalized: false);
         }
 
         static IEnumerable<Vector3> Vectors(DracoPointCloud cloud, AttributeType type) =>
@@ -553,11 +570,15 @@ public static partial class BimIo {
     // local-to-world transform off ONE UsdGeomXformCache — the identity-placed decode that baked every prim
     // and erased USD's native instancing/placement is the deleted form. USD is a scene-graph peer — the BIM
     // semantics stay the GeometryGym IFC graph's, never re-derived from USD prim type names.
+    // The frame is PER-STAGE: upAxis is stage metadata (UsdGeomGetStageUpAxis, decompile-verified — TfToken
+    // "Y" the USD default, "Z" the common CAD/BIM export), so a Z-up stage is ALREADY canonical and skips the
+    // row's Y-up Frame; the format row keeps the static Y-up default every metadata-less stage falls to.
     static ImportedGeometry Usd(InterchangeFormat format, ReadOnlyMemory<byte> bytes, Instant at) {
         string path = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}{format.Extensions.Head.IfNone(".usd")}");
         File.WriteAllBytes(path, bytes.ToArray());
         try {
             using var stage = UsdStage.Open(path, UsdStage.InitialLoadSet.LoadAll);
+            bool zUp = UsdGeom.UsdGeomGetStageUpAxis(stage).ToString() == "Z";
             var soup = new MeshSoup();
             var xform = new UsdGeomXformCache();
             stage.Traverse().AsIterable()
@@ -566,7 +587,8 @@ public static partial class BimIo {
                     int block = soup.Append(UsdMesh(new UsdGeomMesh(prim)));
                     soup.Place(block, Numeric(xform.GetLocalToWorldTransform(prim)));
                 });
-            return soup.ToGeometry(format, at);
+            var geometry = soup.ToGeometry(format, at);
+            return zUp ? geometry : Framed(format, geometry);
         } finally { File.Delete(path); }
     }
 
@@ -1071,7 +1093,7 @@ public sealed class DotbimProjector(dotbim.File file) : IElementProjection {
 ## [03]-[SPECKLE_SEAM]
 
 - Owner: `BimIo.ImportSpeckle` the Speckle display-mesh arm of the import fold (a deserialized `Speckle.Sdk.Models.Base` tree → `ImportedGeometry`), and `SpeckleProjector : IElementProjection` the Speckle host-object arm of the SEAM (the same `Base` tree → a seam `GraphDelta`, the peer of the IFC `Projection/semantic#SEMANTIC_PROJECTOR` `SemanticProjector`); there is no `SpeckleImporter`/`SpeckleConverter` type and no parallel decode family — the geometry arm is a third entrypoint on the existing `BimIo` capsule symmetric to `ImportGeometry`/`ImportIfc`, the projector an `IElementProjection` the app registers in its `Seq<IElementProjection>`, both consuming the receive-side `Base` the Persistence `csharp:Persistence/Version/ledger#SYNC_TRANSPORTS` `IOperations.Receive` returns.
-- Entry: `BimIo.ImportSpeckle(Base root, ClockPolicy clocks, Op key)` projecting the display-mesh geometry to `ImportedGeometry`, and `new SpeckleProjector(root).Project(ProjectionContext ctx)` lowering the host-object graph to a seam `GraphDelta` — the geometry `Fin<T>` aborts on a graph with no displayable geometry or a malformed display mesh, projecting the Speckle exception onto `BimFault.ModelRejected(key, error.Message)` BARE at the boundary (band 2600 IS the `Expected` `Code` — no `.ToError()` hop) so domain code never sees a `Speckle.Sdk.SpeckleException`, while the projector's foreign fault funnels to `ElementFault.ProjectionFailed` at the caller's capture boundary — the `ProjectionAssembly.Assemble` `Try.lift` funnel (the seam idiom; a kernel `Op.Catch` would erase the typed arm into `Fault.InvalidResult`) or the Bim-internal `BimIo.Reimport` `key.Catch`; the `Base` arrives already deserialized, so the seam mints no transport, no `IOperations` reference, and no second graph walk beyond the package-owned traversal.
+- Entry: `BimIo.ImportSpeckle(Base root, IClock clock, Op key)` projecting the display-mesh geometry to `ImportedGeometry`, and `new SpeckleProjector(root).Project(ProjectionContext ctx)` lowering the host-object graph to a seam `GraphDelta` — the geometry `Fin<T>` aborts on a graph with no displayable geometry or a malformed display mesh, projecting the Speckle exception onto `BimFault.ModelRejected(key, error.Message)` BARE at the boundary (band 2600 IS the `Expected` `Code` — no `.ToError()` hop) so domain code never sees a `Speckle.Sdk.SpeckleException`, while the projector's foreign fault funnels to `ElementFault.ProjectionFailed` at the caller's capture boundary — the `ProjectionAssembly.Assemble` `Try.lift` funnel (the seam idiom; a kernel `Op.Catch` would erase the typed arm into `Fault.InvalidResult`) or the Bim-internal `BimIo.Reimport` `key.Catch`; the `Base` arrives already deserialized, so the seam mints no transport, no `IOperations` reference, and no second graph walk beyond the package-owned traversal.
 - Auto: the geometry fold runs the package-owned `BaseExtensions.Flatten(Base, BaseExtensions.BaseRecursionBreaker?)` deduplicating graph walk, projects each node's `BaseExtensions.TryGetDisplayValue(Base)` display list to its `Mesh` members, and decodes each `Mesh` — the flat `vertices`/`vertexNormals` (`List<double>`, flat `x,y,z`) and length-prefixed `faces` (`List<int>`, each face `[n, i0, … i(n-1)]`) triangulate through a fan over the n-gon, scaled onto the canonical metre frame by `Units.GetConversionFactor(mesh.units, Units.Meters)` so a millimetre or foot Speckle model lands in kernel units; a node that `IsDisplayableObject` is false yet carries non-mesh geometry (`Brep`/`Surface`/`Curve` with no `displayValue`) routes its content to `tessellation#TESSELLATION_BRIDGE` over the GLB rail rather than evaluating a BRep in-process; the `SpeckleProjector` fold lowers every `DataObject` (and its `RhinoObject`/`RevitObject`/`ArchicadObject`/`TeklaObject`/`Civil3dObject`/`AutocadObject` host-object subtypes) onto a rooted seam `Node.Object` carrying the generic `Classification("speckle", speckle_type)` and the host `applicationId` as the 1:1 `ExternalId`, its `DataObject.properties` (`Dictionary<string, object?>`) into one content-keyed `PropertySet` bag node attached by an `Assign.PropertyDefinition` edge, and the `BaseExtensions.TraverseWithPath` path prefixes reconstructing the namespace containment as `Compose.Contain` edges — the containment the retired flat-row projection claimed in prose but produced empty.
 - Receipt: the `ModelLoad` receipt case carries the format key `InterchangeFormat.Glb.Key` proxy for the decoded scene, the codec key `speckle-base`, the `Base.GetTotalChildrenCount()` source object count, and elapsed; the `SpeckleProjector` contributes the host-object `GraphDelta` (its `NodeCount`/`EdgeCount` the change magnitude, the distinct `speckle_type` discriminants the seam `Classification` codes); emission rides the sink port at the composition edge.
 - Packages: Speckle.Sdk, Speckle.Objects, SharpGLTF.Core, Rasm.Element, Thinktecture.Runtime.Extensions, NodaTime, LanguageExt.Core, Rasm
@@ -1080,8 +1102,8 @@ public sealed class DotbimProjector(dotbim.File file) : IElementProjection {
 
 ```csharp signature
 public static partial class BimIo {
-    public static Fin<ImportedGeometry> ImportSpeckle(Base root, ClockPolicy clocks, Op key) =>
-        Boundary(key, () => DisplayScene(root, clocks.Now))
+    public static Fin<ImportedGeometry> ImportSpeckle(Base root, IClock clock, Op key) =>
+        Boundary(key, () => DisplayScene(root, clock.GetCurrentInstant()))
             .Bind(scene => scene.TriangleCount > 0
                 ? Fin.Succ(scene)
                 : Fin.Fail<ImportedGeometry>(new BimFault.ModelRejected(key, $"speckle-no-display:{root.speckle_type}")));

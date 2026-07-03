@@ -21,8 +21,8 @@ from tests.python._testkit.laws import register_law
 from tools.assay.automation import engine as _eng
 from tools.assay.automation.engine import is_governed
 from tools.assay.automation.model import Debounce, Edge, Manual, Program, Rail, Schedule, Sequence, Watch, WatchFilter
-from tools.assay.core.model import Claim, Counts, envelope, fold, receipt
-from tools.assay.core.status import RailStatus
+from tools.assay.core.model import Claim, Counts, envelope, RailStatus, receipt
+from tools.assay.diagnostics import fold
 
 
 if TYPE_CHECKING:

@@ -1,188 +1,185 @@
 # [API_CATALOGUE] react-aria
 
-`react-aria` supplies headless ARIA-compliant interaction hooks that produce `buttonProps`, `pressProps`, `hoverProps`, `focusProps`, and DOM attribute bags for every standard widget family. Consuming owners spread the returned props onto their own markup, keeping styling and accessibility behaviour fully decoupled. The package also re-exports `FocusScope`, `FocusRing`, collection primitives, overlay position utilities, i18n helpers, and DnD coordination hooks for the AppUi interaction spine.
+`react-aria` is the headless ARIA behavior layer: one uniform hook contract — `use<Widget>(props, state?, ...refs) => { <slot>Props, ...interactionState }` — produces DOM attribute bags a consumer spreads onto its own markup, keeping styling fully decoupled from accessibility. Every stateful widget hook consumes the matching `react-stately` `use<Widget>State` object as its `state` argument, so behavior and state are two halves of one seam. Beyond the widget roster it owns the cross-cutting rails the whole interaction spine reuses: normalized pointer/keyboard interactions, focus containment and rings, `Intl`-backed i18n, overlay positioning, drag-and-drop coordination, landmark F6 navigation, collection building, and prop-merge utilities. `react-aria-components` is these hooks pre-composed; the `interaction/role.md` `RoleBehavior` discards per-component `.tsx` and keeps the headless hook behavior directly.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `react-aria`
 - package: `react-aria`
-- module: `react-aria` (main); `react-aria/i18n`, `react-aria/private/live-announcer/LiveAnnouncer` (sub-paths)
-- namespace: `react-aria`
-- asset: runtime hook library
+- version: `3.50.0`
+- license: `Apache-2.0`
+- module: `react-aria` (barrel); `react-aria/i18n` (locale sub-path); `react-aria/private/live-announcer/LiveAnnouncer` (the `@react-aria/live-announcer` source)
+- namespace: ~120 hook/component/util value exports + ~200 `Aria*`/`*Aria`/`*Props` type exports
+- asset: dual CJS/ESM (`dist/exports/index.cjs` / `.js`), `sideEffects: false`, fully tree-shakeable per-hook
+- runtime: client React (peer `react ^19`, `react-dom ^19`); SSR-safe via `SSRProvider`/`useIsSSR`
+- contract: `use<Widget>(props, state?, ...refs)` returns a `{ <slot>Props }` prop bag plus interaction flags; hooks are stateless — `react-stately` owns state, refs come from the consumer
 - rail: interaction / accessibility
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: interaction result types
+[TYPE_NAMING_LAW]: the per-widget type family follows one uniform triple, so a widget name derives its types
 - rail: interaction
 
-| [INDEX] | [SYMBOL]        | [TYPE_FAMILY]    | [RAIL]                         |
-| :-----: | :-------------- | :--------------- | :----------------------------- |
-|  [01]   | `ButtonAria<T>` | result interface | `buttonProps: T`, `isPressed`  |
-|  [02]   | `PressResult`   | result interface | `pressProps`, `isPressed`      |
-|  [03]   | `HoverResult`   | result interface | `hoverProps`, `isHovered`      |
-|  [04]   | `FocusRingAria` | result interface | `focusProps`, focus visibility |
+| [INDEX] | [PATTERN]            | [ROLE]                                                    | [EXAMPLE]                                            |
+| :-----: | :------------------- | :------------------------------------------------------- | :-------------------------------------------------- |
+|  [01]   | `Aria<Widget>Props`  | full input props (ARIA + behavior + `children`)          | `AriaButtonProps<E>`, `AriaListBoxProps<T>`         |
+|  [02]   | `Aria<Widget>Options`| input props minus `children`, element-typed for the hook | `AriaButtonOptions<E>`, `AriaColorAreaOptions`      |
+|  [03]   | `<Widget>Aria`       | result bag of DOM prop objects + interaction flags        | `ButtonAria<T>`, `ListBoxAria`, `DateFieldAria`     |
 
-[PUBLIC_TYPE_SCOPE]: interaction input props
+[PUBLIC_TYPE_SCOPE]: interaction event + result types (shared across every widget, from `@react-types/shared`)
 - rail: interaction
 
-| [INDEX] | [SYMBOL]               | [TYPE_FAMILY]     | [RAIL]                             |
-| :-----: | :--------------------- | :---------------- | :--------------------------------- |
-|  [01]   | `ButtonProps`          | props interface   | press, disabled, children          |
-|  [02]   | `AriaButtonProps<T>`   | props interface   | element-typed overload             |
-|  [03]   | `AriaButtonOptions<E>` | options interface | omits children, element type       |
-|  [04]   | `AriaBaseButtonProps`  | props interface   | aria-* attributes + form attrs     |
-|  [05]   | `PressProps`           | props interface   | `PressEvents`, cancel-on-exit      |
-|  [06]   | `PressHookProps`       | props interface   | `PressProps` + `ref`               |
-|  [07]   | `HoverProps`           | props interface   | `HoverEvents`, `isDisabled`        |
-|  [08]   | `AriaFocusRingProps`   | props interface   | `within`, `isTextInput`, autoFocus |
+| [INDEX] | [SYMBOL]                                                                              | [TYPE_FAMILY]     | [RAIL]                                            |
+| :-----: | :------------------------------------------------------------------------------------ | :---------------- | :------------------------------------------------ |
+|  [01]   | `PressEvent`, `PressEvents`, `PressResult`, `PressProps`, `PressHookProps`             | press family      | normalized pointer/key/touch press               |
+|  [02]   | `HoverEvent`, `HoverEvents`, `HoverResult`, `HoverProps`                               | hover family      | hover sans touch emulation                        |
+|  [03]   | `MoveStartEvent`, `MoveMoveEvent`, `MoveEndEvent`, `MoveEvent`, `MoveEvents`, `MoveResult` | move family    | pointer/keyboard drag deltas (sliders, color)     |
+|  [04]   | `LongPressEvent`, `LongPressProps`, `LongPressResult`                                  | long-press family | held-press detection                             |
+|  [05]   | `KeyboardEvents`, `KeyboardProps`, `KeyboardResult`, `ScrollWheelProps`                | keyboard family   | key/wheel event delegation                        |
+|  [06]   | `FocusEvents`, `FocusProps`, `FocusResult`, `FocusWithinProps`, `FocusWithinResult`, `FocusVisibleProps`, `FocusVisibleResult` | focus family | focus normalization + within/visible splits |
+|  [07]   | `ButtonAria<T>`, `AriaButtonProps<E>`, `AriaButtonOptions<E>`, `AriaBaseButtonProps`, `LinkButtonProps` | button family | element-typed button props (`button`/`a`/`div`/`input`/`span`) |
 
-[PUBLIC_TYPE_SCOPE]: focus management types
-- rail: focus
+[PUBLIC_TYPE_SCOPE]: focus management + overlay positioning types
+- rail: focus / overlay
 
-| [INDEX] | [SYMBOL]              | [TYPE_FAMILY]     | [RAIL]                                 |
-| :-----: | :-------------------- | :---------------- | :------------------------------------- |
-|  [01]   | `FocusScopeProps`     | props interface   | `contain`, `restoreFocus`, `autoFocus` |
-|  [02]   | `FocusManager`        | interface         | `focusNext/Previous/First/Last`        |
-|  [03]   | `FocusManagerOptions` | options interface | `from`, `tabbable`, `wrap`, `accept`   |
+| [INDEX] | [SYMBOL]                                                             | [TYPE_FAMILY]     | [RAIL]                                            |
+| :-----: | :------------------------------------------------------------------- | :---------------- | :------------------------------------------------ |
+|  [01]   | `FocusScopeProps`                                                    | props interface   | `contain`, `restoreFocus`, `autoFocus`            |
+|  [02]   | `FocusManager`, `FocusManagerOptions`                               | interface         | `focusNext/Previous/First/Last`; `from/tabbable/wrap/accept` |
+|  [03]   | `AriaFocusRingProps`, `FocusRingAria`, `FocusRingProps`             | focus-ring family | `within`, `isTextInput`, keyboard-visible ring    |
+|  [04]   | `FocusableOptions`, `FocusableAria`, `FocusableProps`               | focusable family  | imperative `.focus()` wrapper props               |
+|  [05]   | `AriaPositionProps`, `PositionProps`, `PositionAria`, `Placement`, `PlacementAxis`, `Axis`, `SizeAxis` | overlay position | `overlayProps`, `arrowProps`, resolved placement  |
 
-[PUBLIC_TYPE_SCOPE]: i18n types
-- rail: i18n
+[PUBLIC_TYPE_SCOPE]: drag-and-drop + landmark + i18n types
+- rail: dnd / landmark / i18n
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY]    | [RAIL]                               |
-| :-----: | :------- | :--------------- | :----------------------------------- |
-|  [01]   | `Filter` | result interface | `startsWith`, `endsWith`, `contains` |
+| [INDEX] | [SYMBOL]                                                                                 | [TYPE_FAMILY]     | [RAIL]                                            |
+| :-----: | :--------------------------------------------------------------------------------------- | :---------------- | :------------------------------------------------ |
+|  [01]   | `DragItem`, `DropItem`, `TextDropItem`, `FileDropItem`, `DirectoryDropItem`, `DragTypes` | drop-item family  | typed clipboard/drag payloads                     |
+|  [02]   | `DropOperation`, `DropPosition`, `DropTarget`, `ItemDropTarget`, `RootDropTarget`, `DropTargetDelegate` | drop-target family | drop geometry + operation kind                |
+|  [03]   | `DragStartEvent`, `DragMoveEvent`, `DragEndEvent`, `DropEvent`, `DropEnterEvent`, `DropExitEvent`, `DropMoveEvent`, `DroppableCollection*Event` | dnd event family | drag/drop lifecycle events                 |
+|  [04]   | `AriaLandmarkRole`, `AriaLandmarkProps`, `LandmarkAria`, `LandmarkController`, `LandmarkControllerOptions` | landmark family | F6 region navigation (`navigate('forward'\|'backward')`) |
+|  [05]   | `Filter`, `Locale`, `I18nProviderProps`, `DateFormatterOptions`                          | i18n family       | `startsWith`/`endsWith`/`contains`; `{locale, direction}` |
+|  [06]   | `Key`, `Orientation`, `RangeValue<T>`, `DateValue`, `TimeValue`, `DateRange`             | shared primitives | collection keys, axes, ranged values              |
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: button and toggle hooks
+[ENTRYPOINT_SCOPE]: widget hook roster — one contract, one row per family; `state` is the matching `react-stately` object
+- rail: per-widget
+
+| [INDEX] | [WIDGET_FAMILY]      | [HOOKS]                                                                                                       | [STATE_ARG (react-stately)]              |
+| :-----: | :------------------- | :----------------------------------------------------------------------------------------------------------- | :--------------------------------------- |
+|  [01]   | button / toggle      | `useButton`, `useToggleButton`, `useToggleButtonGroup`, `useToggleButtonGroupItem`                            | `ToggleState` / `ToggleGroupState`       |
+|  [02]   | listbox              | `useListBox`, `useOption`, `useListBoxSection`                                                                | `ListState<T>`                           |
+|  [03]   | gridlist             | `useGridList`, `useGridListItem`, `useGridListSection`, `useGridListSelectionCheckbox`                        | `ListState<T>`                           |
+|  [04]   | menu                 | `useMenu`, `useMenuItem`, `useMenuSection`, `useMenuTrigger`, `useSubmenuTrigger`                             | `TreeState<T>` / `MenuTriggerState`      |
+|  [05]   | select / combobox    | `useSelect`, `useHiddenSelect`, `HiddenSelect`, `useComboBox`, `useAutocomplete`                              | `SelectState<T,M>` / `ComboBoxState<T>`  |
+|  [06]   | text / number / search | `useTextField`, `useNumberField`, `useSearchField`, `useField`, `useLabel`                                  | `NumberFieldState` / `SearchFieldState`  |
+|  [07]   | checkbox / radio / switch | `useCheckbox`, `useCheckboxGroup`, `useCheckboxGroupItem`, `useRadio`, `useRadioGroup`, `useSwitch`      | `CheckboxGroupState` / `RadioGroupState` / `ToggleState` |
+|  [08]   | slider               | `useSlider`, `useSliderThumb`                                                                                 | `SliderState`                            |
+|  [09]   | calendar / date / time | `useCalendar`, `useRangeCalendar`, `useCalendarGrid`, `useCalendarCell`, `useCalendarHeading`, `useCalendarMonthPicker`, `useCalendarYearPicker`, `useDateField`, `useTimeField`, `useDatePicker`, `useDateRangePicker`, `useDateSegment` | `CalendarState` / `DateFieldState` / `DatePickerState` |
+|  [10]   | color                | `useColorArea`, `useColorField`, `useColorChannelField`, `useColorSlider`, `useColorSwatch`, `useColorWheel` | `ColorAreaState` / `ColorFieldState` / `ColorWheelState` |
+|  [11]   | table                | `useTable`, `useTableRow`, `useTableCell`, `useTableColumnHeader`, `useTableColumnResize`, `useTableHeaderRow`, `useTableRowGroup`, `useTableSelectAllCheckbox`, `useTableSelectionCheckbox` | `TableState<T>` |
+|  [12]   | tree                 | `useTree`, `useTreeItem`                                                                                      | `TreeState<T>`                           |
+|  [13]   | tabs                 | `useTabList`, `useTab`, `useTabPanel`                                                                         | `TabListState<T>`                        |
+|  [14]   | tag group            | `useTagGroup`, `useTag`                                                                                       | `ListState<T>`                           |
+|  [15]   | disclosure           | `useDisclosure`                                                                                              | `DisclosureState`                        |
+|  [16]   | breadcrumbs / link   | `useBreadcrumbs`, `useBreadcrumbItem`, `useLink`                                                              | —                                        |
+|  [17]   | progress / meter     | `useProgressBar`, `useMeter`                                                                                  | —                                        |
+|  [18]   | separator / toolbar  | `useSeparator`, `useToolbar`                                                                                  | —                                        |
+|  [19]   | dialog / tooltip     | `useDialog`, `useTooltip`, `useTooltipTrigger`                                                                | `TooltipTriggerState`                    |
+|  [20]   | toast                | `useToast`, `useToastRegion`                                                                                  | `ToastState<T>`                          |
+
+[ENTRYPOINT_SCOPE]: interaction hooks — cross-cutting, not per-widget; return an event-normalized prop bag
 - rail: interaction
 
-| [INDEX] | [SURFACE]                                     | [ENTRY_FAMILY] | [RAIL]                     |
-| :-----: | :-------------------------------------------- | :------------- | :------------------------- |
-|  [01]   | `useButton(props, ref)`                       | ARIA hook      | element-typed button props |
-|  [02]   | `useToggleButton(props, state, ref)`          | ARIA hook      | aria-pressed toggle props  |
-|  [03]   | `useToggleButtonGroup(props, ref)`            | ARIA hook      | group ARIA props           |
-|  [04]   | `useToggleButtonGroupItem(props, state, ref)` | ARIA hook      | item within toggle group   |
+| [INDEX] | [SURFACE]                        | [RETURNS]                          | [RAIL]                                    |
+| :-----: | :------------------------------- | :--------------------------------- | :---------------------------------------- |
+|  [01]   | `usePress(props)`                | `{ pressProps, isPressed }`        | normalized pointer/key/touch press        |
+|  [02]   | `useHover(props)`                | `{ hoverProps, isHovered }`        | hover sans touch emulation                |
+|  [03]   | `useMove(props)`                 | `{ moveProps }`                    | pointer/keyboard move deltas              |
+|  [04]   | `useKeyboard(props)`             | `{ keyboardProps }`                | key event delegation                      |
+|  [05]   | `useLongPress(props)`            | `{ longPressProps }`               | held-press detection                      |
+|  [06]   | `useFocus(props)`                | `{ focusProps }`                   | focus/blur normalization                  |
+|  [07]   | `useFocusVisible(props?)`        | `{ isFocusVisible }`               | keyboard-only focus visibility            |
+|  [08]   | `useFocusWithin(props)`          | `{ focusWithinProps }`             | focus-within containment                  |
+|  [09]   | `useInteractOutside(props, ref)` | —                                  | outside pointer detection                 |
+|  [10]   | `Pressable`                      | component                          | press-behavior wrapper for a single child |
 
-[ENTRYPOINT_SCOPE]: press, hover, keyboard, move interaction hooks
-- rail: interaction
+[ENTRYPOINT_SCOPE]: focus management + collection building
+- rail: focus / collection
 
-| [INDEX] | [SURFACE]                        | [ENTRY_FAMILY]   | [RAIL]                       |
-| :-----: | :------------------------------- | :--------------- | :--------------------------- |
-|  [01]   | `usePress(props)`                | interaction hook | normalised pointer/key press |
-|  [02]   | `useHover(props)`                | interaction hook | hover sans touch emulation   |
-|  [03]   | `useKeyboard(props)`             | interaction hook | keyboard event delegation    |
-|  [04]   | `useLongPress(props)`            | interaction hook | long-press detection         |
-|  [05]   | `useMove(props)`                 | interaction hook | pointer/keyboard move events |
-|  [06]   | `useFocus(props)`                | interaction hook | focus event normalisation    |
-|  [07]   | `useFocusVisible(props?)`        | interaction hook | keyboard-focus visibility    |
-|  [08]   | `useFocusWithin(props)`          | interaction hook | focus within containment     |
-|  [09]   | `useInteractOutside(props, ref)` | interaction hook | outside-click detection      |
+| [INDEX] | [SURFACE]                                                             | [ENTRY_FAMILY] | [RAIL]                                     |
+| :-----: | :------------------------------------------------------------------- | :------------- | :----------------------------------------- |
+|  [01]   | `FocusScope(props)`                                                  | component      | `contain` / `restoreFocus` / `autoFocus`   |
+|  [02]   | `useFocusManager()`                                                  | hook           | `FocusManager` from nearest scope          |
+|  [03]   | `FocusRing(props)`, `useFocusRing(props?)`                          | component/hook | `{ isFocused, isFocusVisible, focusProps }`|
+|  [04]   | `useFocusable(props, ref)`, `Focusable`                             | hook/component | spread focusable props / imperative focus  |
+|  [05]   | `Collection`, `CollectionBuilder`, `createLeafComponent`, `createBranchComponent` | builders | declarative collection tree construction |
+|  [06]   | `ListKeyboardDelegate`                                              | class          | arrow-key navigation delegate              |
 
-[ENTRYPOINT_SCOPE]: focus management hooks and components
-- rail: focus
-
-| [INDEX] | [SURFACE]                  | [ENTRY_FAMILY] | [RAIL]                            |
-| :-----: | :------------------------- | :------------- | :-------------------------------- |
-|  [01]   | `FocusScope(props)`        | component      | contain / restore focus scope     |
-|  [02]   | `useFocusManager()`        | hook           | returns `FocusManager` from scope |
-|  [03]   | `FocusRing(props)`         | component      | visible focus ring wrapper        |
-|  [04]   | `useFocusRing(props?)`     | hook           | `isFocused`, `isFocusVisible`     |
-|  [05]   | `useFocusable(props, ref)` | hook           | spread focusable props            |
-|  [06]   | `Focusable`                | component      | imperative `.focus()` wrapper     |
-
-[ENTRYPOINT_SCOPE]: listbox, gridlist, menu hooks
-- rail: collection
-
-| [INDEX] | [SURFACE]                              | [ENTRY_FAMILY] | [RAIL]                     |
-| :-----: | :------------------------------------- | :------------- | :------------------------- |
-|  [01]   | `useListBox(props, state, ref)`        | ARIA hook      | listbox ARIA attrs         |
-|  [02]   | `useOption(props, state, ref)`         | ARIA hook      | option ARIA attrs          |
-|  [03]   | `useListBoxSection(props)`             | ARIA hook      | section ARIA attrs         |
-|  [04]   | `useGridList(props, state, ref)`       | ARIA hook      | gridlist ARIA attrs        |
-|  [05]   | `useGridListItem(props, state, ref)`   | ARIA hook      | row/item ARIA attrs        |
-|  [06]   | `useMenu(props, state, ref)`           | ARIA hook      | menu ARIA attrs            |
-|  [07]   | `useMenuItem(props, state, ref)`       | ARIA hook      | menuitem ARIA attrs        |
-|  [08]   | `useMenuTrigger(props, state, ref)`    | ARIA hook      | trigger ARIA attrs         |
-|  [09]   | `useSubmenuTrigger(props, state, ref)` | ARIA hook      | submenu trigger ARIA attrs |
-
-[ENTRYPOINT_SCOPE]: select, combobox, text field hooks
-- rail: form
-
-| [INDEX] | [SURFACE]                                                                | [ENTRY_FAMILY] | [RAIL]                         |
-| :-----: | :----------------------------------------------------------------------- | :------------- | :----------------------------- |
-|  [01]   | `useSelect(props, state, ref)`                                           | ARIA hook      | select ARIA attrs              |
-|  [02]   | `useComboBox(props, state, inputRef, buttonRef, listBoxRef, popoverRef)` | ARIA hook      | combobox ARIA attrs            |
-|  [03]   | `useTextField(props, ref)`                                               | ARIA hook      | input / textarea ARIA attrs    |
-|  [04]   | `useSearchField(props, state, ref)`                                      | ARIA hook      | search field ARIA attrs        |
-|  [05]   | `useNumberField(props, state, ref)`                                      | ARIA hook      | number field ARIA attrs        |
-|  [06]   | `useField(props)`                                                        | ARIA hook      | label + description ARIA attrs |
-|  [07]   | `useLabel(props, ref?)`                                                  | ARIA hook      | label element ARIA attrs       |
-
-[ENTRYPOINT_SCOPE]: overlay and dialog hooks
-- rail: overlay
-
-| [INDEX] | [SURFACE]                              | [ENTRY_FAMILY] | [RAIL]                                    |
-| :-----: | :------------------------------------- | :------------- | :---------------------------------------- |
-|  [01]   | `useOverlay(props, ref)`               | ARIA hook      | overlay ARIA attrs                        |
-|  [02]   | `useOverlayTrigger(type, state, ref?)` | ARIA hook      | trigger button ARIA attrs                 |
-|  [03]   | `useOverlayPosition(props)`            | position hook  | `overlayProps`, `arrowProps`, `placement` |
-|  [04]   | `useModalOverlay(props, state, ref)`   | ARIA hook      | modal overlay ARIA attrs                  |
-|  [05]   | `usePopover(props, state, ref)`        | ARIA hook      | popover ARIA attrs                        |
-|  [06]   | `useDialog(props, ref)`                | ARIA hook      | dialog ARIA attrs                         |
-|  [07]   | `usePreventScroll(options?)`           | utility hook   | body scroll lock                          |
-|  [08]   | `DismissButton`                        | component      | screen-reader dismiss target              |
-|  [09]   | `Overlay`                              | component      | portal host wrapper                       |
-
-[ENTRYPOINT_SCOPE]: i18n hooks
+[ENTRYPOINT_SCOPE]: i18n hooks (main barrel + the `react-aria/i18n` sub-path)
 - rail: i18n
 
-| [INDEX] | [SURFACE]                                            | [ENTRY_FAMILY] | [RAIL]                         |
-| :-----: | :--------------------------------------------------- | :------------- | :----------------------------- |
-|  [01]   | `useLocale()`                                        | hook           | `{ locale, direction }`        |
-|  [02]   | `useFilter(options?)`                                | hook           | `Filter` string search         |
-|  [03]   | `useCollator(options?)`                              | hook           | `Intl.Collator` instance       |
-|  [04]   | `useDateFormatter(options?)`                         | hook           | `Intl.DateTimeFormat` instance |
-|  [05]   | `useNumberFormatter(options?)`                       | hook           | `Intl.NumberFormat` instance   |
-|  [06]   | `useListFormatter(options?)`                         | hook           | `Intl.ListFormat` instance     |
-|  [07]   | `useLocalizedStringFormatter(strings, packageName?)` | hook           | localised string map           |
-|  [08]   | `I18nProvider`                                       | component      | locale context provider        |
-|  [09]   | `isRTL(locale)`                                      | utility        | boolean RTL test               |
+| [INDEX] | [SURFACE]                                            | [RETURNS]                          | [RAIL]                            |
+| :-----: | :--------------------------------------------------- | :--------------------------------- | :-------------------------------- |
+|  [01]   | `useLocale()`                                        | `Locale` `{ locale, direction }`   | nearest provider locale           |
+|  [02]   | `useFilter(options?: Intl.CollatorOptions)`          | `Filter` `{ startsWith, endsWith, contains }` | locale-aware substring search |
+|  [03]   | `useCollator(options?)`                              | `Intl.Collator`                    | locale comparison                 |
+|  [04]   | `useDateFormatter(options?)`                         | `DateFormatter`                    | `Intl.DateTimeFormat` wrapper     |
+|  [05]   | `useNumberFormatter(options?)`, `useListFormatter(options?)` | `Intl.NumberFormat` / `Intl.ListFormat` | number / list formatting    |
+|  [06]   | `useLocalizedStringFormatter(strings, packageName?)`, `useLocalizedStringDictionary(strings, packageName?)` | localized-string surface | translated string maps    |
+|  [07]   | `I18nProvider`, `isRTL(locale)`                     | component / boolean                | locale context, RTL test          |
 
-[ENTRYPOINT_SCOPE]: utility exports
-- rail: interaction
+[ENTRYPOINT_SCOPE]: overlays, landmark, drag-and-drop
+- rail: overlay / landmark / dnd
 
-| [INDEX] | [SURFACE]                    | [ENTRY_FAMILY] | [RAIL]                           |
-| :-----: | :--------------------------- | :------------- | :------------------------------- |
-|  [01]   | `mergeProps(...args)`        | utility        | prop merge with chained handlers |
-|  [02]   | `mergeRefs(...refs)`         | utility        | ref merge                        |
-|  [03]   | `useId(defaultId?)`          | utility        | stable cross-component ID        |
-|  [04]   | `useObjectRef(forwardedRef)` | utility        | `RefObject` from `ForwardedRef`  |
-|  [05]   | `VisuallyHidden`             | component      | invisible-but-accessible wrapper |
-|  [06]   | `useVisuallyHidden(props?)`  | hook           | visually-hidden CSS props        |
-|  [07]   | `RouterProvider`             | component      | link-navigation context          |
-|  [08]   | `SSRProvider`                | component      | SSR ID stability provider        |
-|  [09]   | `useIsSSR()`                 | hook           | boolean SSR detection            |
+| [INDEX] | [SURFACE]                                                                                              | [ENTRY_FAMILY] | [RAIL]                                          |
+| :-----: | :---------------------------------------------------------------------------------------------------- | :------------- | :---------------------------------------------- |
+|  [01]   | `useOverlay`, `useOverlayTrigger`, `useOverlayPosition`, `useModalOverlay`, `usePopover`, `usePreventScroll` | overlay hooks | ARIA overlay attrs + `{ overlayProps, arrowProps, placement }` |
+|  [02]   | `Overlay`, `DismissButton`, `ModalProvider`, `OverlayProvider`, `OverlayContainer`, `useModal`, `useModalProvider` | overlay components | portal host, SR dismiss target, modal context |
+|  [03]   | `UNSAFE_PortalProvider`, `useUNSAFE_PortalContext`                                                     | portal escape  | custom portal container                         |
+|  [04]   | `useLandmark(props, ref)`                                                                              | landmark hook  | F6 region nav; `LandmarkController.navigate('forward'\|'backward')` |
+|  [05]   | `useDrag`, `useDrop`, `useDraggableCollection`, `useDroppableCollection`, `useDraggableItem`, `useDroppableItem`, `useDropIndicator`, `useClipboard` | dnd hooks | drag/drop/clipboard coordination |
+|  [06]   | `DragPreview`, `ListDropTargetDelegate`, `DIRECTORY_DRAG_TYPE`, `isDirectoryDropItem`, `isFileDropItem`, `isTextDropItem` | dnd helpers | preview render, drop delegate, drop-item type guards |
+
+[ENTRYPOINT_SCOPE]: SSR + prop-merge utilities
+- rail: utility
+
+| [INDEX] | [SURFACE]                    | [ENTRY_FAMILY] | [RAIL]                                          |
+| :-----: | :--------------------------- | :------------- | :---------------------------------------------- |
+|  [01]   | `mergeProps(...args)`        | utility        | chains handlers, combines classNames, dedupes ids, merges refs |
+|  [02]   | `chain(...fns)`              | utility        | composes multiple event handlers into one       |
+|  [03]   | `mergeRefs(...refs)`         | utility        | merges multiple refs                            |
+|  [04]   | `useId(defaultId?)`, `useObjectRef(forwardedRef)` | utility hooks | stable id, `RefObject` from `ForwardedRef` |
+|  [05]   | `VisuallyHidden`, `useVisuallyHidden(props?)` | component/hook | SR-only wrapper; `isFocusable` reveals on focus (skip links) |
+|  [06]   | `RouterProvider`, `SSRProvider`, `useIsSSR()` | providers/hook | client router context, SSR id stability, SSR detection |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [HOOK_TOPOLOGY]:
-- every hook returns a props bag (e.g. `buttonProps`, `pressProps`) to spread onto DOM elements
-- hooks are stateless — they require state from `react-stately` hooks passed as `state` arguments
-- `useButton` is overloaded on `elementType`: `'button'`, `'a'`, `'div'`, `'input'`, `'span'`, or `ElementType`
-- `FocusScope` is a React component that wraps its `children` and optionally contains / restores focus
-- `useFocusManager()` resolves the nearest parent `FocusScope` context
+- every widget hook returns a bag of DOM prop objects (`buttonProps`, `listBoxProps`, `optionProps`) plus interaction flags; the consumer spreads each bag onto the matching element and reads the flags for styling
+- stateful widget hooks are pure functions of `(props, state, ref)` — they hold no state; the `state` argument is the `react-stately` `use<Widget>State` object, so a widget is exactly one behavior hook plus one state hook
+- `useButton` is overloaded on `elementType` (`'button' | 'a' | 'div' | 'input' | 'span' | ElementType`) so a non-`button` element still receives correct role/keyboard/press semantics
+- interaction hooks (`usePress`/`useHover`/`useMove`/`useKeyboard`/`useLongPress`/`useFocus*`) are the atoms every widget hook composes internally and a consumer composes for a bespoke role; they normalize pointer, touch, and keyboard into one event shape
+- `FocusScope` contains/restores focus for its subtree; `useFocusManager()` resolves the nearest scope; `useFocusRing` distinguishes keyboard focus from pointer focus for the visible ring
+- `useLandmark` registers a landmark region and wires F6 cross-region navigation through `LandmarkController.navigate`
 
 [LOCAL_ADMISSION]:
-- import from `react-aria` barrel or per-capability sub-path (e.g. `react-aria/i18n`)
-- `I18nProvider` wraps the application root; `useLocale()` reads the nearest provider locale
-- `useFilter` produces locale-aware `startsWith` / `endsWith` / `contains` predicates
-- `mergeProps` chains event handlers rather than overwriting; use it at every composition boundary
-- `UNSAFE_PortalProvider` / `useUNSAFE_PortalContext` provide a custom portal container
+- import from the `react-aria` barrel or the `react-aria/i18n` sub-path; the private `react-aria/private/live-announcer/LiveAnnouncer` path is the `@react-aria/live-announcer` source
+- `mergeProps` chains handlers rather than overwriting — use it at every composition boundary where a role behavior, an interaction hook, and consumer props meet; `chain` is the lower-level handler-only compose
+- `I18nProvider` wraps the app root; `useLocale`/`useFilter` read it; `useFilter` produces locale-aware predicates with `Intl.CollatorOptions` sensitivity
+- `UNSAFE_PortalProvider`/`useUNSAFE_PortalContext` override the portal container only where a custom stacking context demands it
+
+[STACKING]:
+- universal tier `effect`: the `interaction/command.md#COMMAND_SURFACE` `useCommandFilter` lifts `useFilter({ sensitivity: "base" }).contains` into the one scoring primitive that drives BOTH the `cmdk` `filter` prop and the `react-stately` `UNSTABLE_useFilteredListState` view, so the palette and every collection score identically; the sync hook bags need no effect wrapping, while the imperative `announce` seam is folded into `Effect.sync` under a `Match` at `announce.md`
+- sibling `react-stately`: the load-bearing pairing — every stateful widget hook takes a `use<Widget>State` object as `state`; `mergeProps` chains the `role.md` `RoleBehavior` props onto the widget bag; `useToast`/`useToastRegion` consume `ToastState<T>`/the `ToastQueue`
+- sibling `react-aria-components`: RAC is these hooks pre-composed with render-prop styling; consume raw `react-aria` only for a headless surface RAC does not cover — the `role.md` pattern that owns the behavior and leaves the markup to the consumer
+- sibling `@react-aria/live-announcer`: `useToastRegion`/`useLandmark` build managed, widget-owned `aria-live`/landmark regions with F6 navigation; the standalone `announce` (re-exported here at the private path) is the region-less imperative broadcast
+- sibling `@radix-ui/react-visually-hidden`: `react-aria`'s `VisuallyHidden`/`useVisuallyHidden` adds `isFocusable` for skip-link reveal; the Radix primitive is the `asChild`-mergeable render primitive; `picker.md` composes `useColorArea`/`useColorWheel` state through `react-stately` color into the OKLCH token space
 
 [RAIL_LAW]:
 - package: `react-aria`
-- owns: DOM attribute generation, normalised interaction events, ARIA attribute application, focus management
-- accept: state from `react-stately` hooks, refs from the consuming component
-- reject: hand-rolling ARIA attributes, browser-specific pointer normalisation, focus trapping outside `FocusScope`
+- owns: DOM attribute generation, normalized interaction events, ARIA application, focus containment, overlay positioning, dnd coordination, landmark navigation, i18n formatting, prop merge
+- accept: state from `react-stately` hooks, refs from the consuming component, an `Intl.CollatorOptions`/locale for i18n, a `FocusScope` boundary for focus
+- reject: hand-rolling ARIA attributes, re-implementing pointer/touch normalization, focus trapping outside `FocusScope`, a bespoke substring predicate beside `useFilter`, duplicating `react-stately` state inside a hook call

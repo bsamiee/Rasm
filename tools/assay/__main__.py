@@ -22,8 +22,7 @@ from tools.assay import (
 )
 from tools.assay.composition.registry import build_app, parse_fault, REGISTRY
 from tools.assay.composition.settings import AssaySettings
-from tools.assay.core.model import wire_safe
-from tools.assay.core.status import Step
+from tools.assay.core.model import Step, wire_safe
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------

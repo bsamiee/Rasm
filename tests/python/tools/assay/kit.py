@@ -45,10 +45,10 @@ from tools.assay.core.model import (
     envelope as wrap_envelope,
     ExecReceipt,
     Fault,
-    fold,
     Match,
     PackageRun,
     ProvisionRun,
+    RailStatus,
     receipt,
     Report,
     RunDelta,
@@ -59,7 +59,7 @@ from tools.assay.core.model import (
     Tool,
     VerifySummary,
 )
-from tools.assay.core.status import RailStatus
+from tools.assay.diagnostics import fold
 from tools.assay.rails import package as package_rail
 
 
@@ -79,7 +79,9 @@ if TYPE_CHECKING:
 class VerbRunner(Protocol):
     """Synchronous CLI fixture that returns decoded wire output plus raw channels."""
 
-    def __call__(self, *argv: str, isolate: bool = False, extra_env: dict[str, str] | None = None) -> CliResult: ...
+    def __call__(
+        self, *argv: str, isolate: bool = False, extra_env: dict[str, str] | None = None, executor: SeamExecutor | None = None
+    ) -> CliResult: ...
 
 
 class CpuSampler(Protocol):
@@ -253,6 +255,35 @@ class RailProbe(SeamProbe[Check], frozen=True, gc=False):
     @staticmethod
     def error(argv: tuple[str, ...], message: str, *, status: RailStatus = RailStatus.FAULTED) -> Result[Completed, Fault]:
         return Error(Fault(argv, status, message))
+
+
+class SeamExecutor(msgspec.Struct, frozen=True, gc=False):
+    """Canned Executor port for rail laws: forwards each call verbatim to the lifted lane callable.
+
+    A lane left ``None`` fails loudly when the rail reaches it, so a law canning only ``fan`` proves the rail
+    never spawned a single check (and vice versa).
+    """
+
+    run_fn: Callable[..., object] | None = None
+    fan_fn: Callable[..., object] | None = None
+
+    def run(self, *args: object, **kwargs: object) -> Result[Completed, Fault]:
+        """Play the canned single-check lane with the rail's exact call shape.
+
+        Returns:
+            The canned run outcome for this call.
+        """
+        assert self.run_fn is not None, "rail reached executor.run but this SeamExecutor cans no run lane"
+        return self.run_fn(*args, **kwargs)  # type: ignore[return-value]  # ty: ignore[invalid-return-type]  # canned lane owns the Result shape
+
+    def fan(self, *args: object, **kwargs: object) -> tuple[Result[Completed, Fault], ...]:
+        """Play the canned batch lane with the rail's exact call shape.
+
+        Returns:
+            The canned per-check outcome slots for this call.
+        """
+        assert self.fan_fn is not None, "rail reached executor.fan but this SeamExecutor cans no fan lane"
+        return self.fan_fn(*args, **kwargs)  # type: ignore[return-value]  # ty: ignore[invalid-return-type]  # canned lane owns the Result shape
 
 
 class BridgeResult(msgspec.Struct, frozen=True, gc=False):

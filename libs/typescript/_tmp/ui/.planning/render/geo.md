@@ -8,7 +8,7 @@ The 2D geospatial surface — one `GeoSeriesLayer` closed `Data.TaggedEnum` fami
 
 ## [02]-[GEO_SERIES_LAYER]
 
-- Owner: `GeoSeriesLayer`, the single closed `Data.TaggedEnum` family over the maplibre base substrate and the deck.gl overlay layer set; the surface owns the renderer and never a second decode. The four prior loose aliases (`MapSubstrate`, `OverlayMode`, `GeometryFeatureKind`, `GeoSeriesComposition`) are folded into the one tagged family. The family is interior composition state holding no decode authority — `styleSpec`/`viewState` are the maplibre `StyleSpecification`/`ViewState` interior types, never a re-decoded wire shape.
+- Owner: `GeoSeriesLayer`, the single closed `Data.TaggedEnum` family over the maplibre base substrate and the deck.gl overlay layer set; the surface owns the renderer and never a second decode. The four prior loose aliases (`MapSubstrate`, `OverlayMode`, `GeometryFeatureKind`, `GeoSeriesComposition`) are folded into the one tagged family. The family is interior composition state holding no decode authority — `styleSpec`/`viewState` are the maplibre `StyleSpecification`/`CameraOptions` interior types, never a re-decoded wire shape.
 - Cases: the renderer dispatches total over the `GeoSeriesLayer` family under one `$match` — the `base` case draws pan-zoom-style-spec cartography over the maplibre `Map` substrate; the `overlay` case draws the geometry family keyed by `featureKind` as the deck.gl layer set composited by the `overlayMode` discriminant, where `interleaved` mounts the `@deck.gl/mapbox` `MapboxOverlay` `IControl` into the maplibre WebGL2 stack with automatic camera sync and `overlaid` renders deck.gl on its own canvas layered over the map. The `source` discriminant routes the draw: `geojson` draws the bounded in-memory `GeoJsonLayer`, `tile` streams the `@deck.gl/geo-layers` `TileLayer`/`MVTLayer` viewport-driven tiles, `geoarrow` binds the `@geoarrow/deck.gl-geoarrow` `RecordBatch` layers (`GeoArrowScatterplotLayer`/`GeoArrowPathLayer`/`GeoArrowPolygonLayer`) directly to the `interchange` Arrow projection with no per-feature JavaScript iteration, and `cell-index` aggregates the spatial-bin family keyed by the aggregation `featureKind` — `h3`/`s2`/`geohash`/`a5` draw the `@geoarrow/deck.gl-geoarrow` Arrow-native `GeoArrowH3HexagonLayer`/`GeoArrowS2Layer`/`GeoArrowGeohashLayer`/`GeoArrowA5Layer` reading the identical `RecordBatch` index column the `geoarrow` arm projects, `trips` draws `GeoArrowTripsLayer` over that same batch, `h3-cluster`/`quadkey` draw the `@deck.gl/geo-layers` `H3ClusterLayer`/`QuadkeyLayer` (extending `_GeoCellLayer`) over the bounded JS cell-id projection because no Arrow-native variant exists for the set-merge and quadkey families, and `tile-3d` streams `Tile3DLayer` (OGC-3D-Tiles/`i3s` over the `Tileset2D` indexing model) under the existing `MapboxOverlay` interleave for city-scale context. Out-of-core data (millions of features) rides the `tile`/`geoarrow`/`cell-index` arms rather than a single in-memory `GeoJsonLayer`, keyed by the same `featureKind` discriminant; the Arrow-native `cell-index` families read the identical Arrow `RecordBatch` the `geoarrow` arm projects, never a second decode, and the two JS-cell families bind their native cell-id data prop rather than re-materializing the batch.
 - Entry: the surface sources its geometry only through the `interchange` `GeometryRail` decoded to the GeoJSON projection (the `geojson`/`tile` arms) or the GeoArrow Arrow `RecordBatch` projection (the `geoarrow` arm) on `interchange` `decode-rail#TS_PROJECTION`; the maplibre `Map` instance is held as an `Effect.acquireRelease` resource bound under the `platform` `BrowserPlatform`, never a free React ref; the `geoarrow` `GeoArrowSolidPolygonLayer`/`GeoArrowPolygonLayer` triangulation rides one shared earcut `Pool` built once at the surface boundary through `initEarcutPool` and passed into every polygon-layer instance; the view state reads and writes through the `binding/atom.md` `AtomBinding`.
 - Packages: `maplibre-gl`, `@deck.gl/core`, `@deck.gl/layers`, `@deck.gl/geo-layers`, `@deck.gl/mapbox`, `@geoarrow/deck.gl-geoarrow`, `effect`.
@@ -17,7 +17,7 @@ The 2D geospatial surface — one `GeoSeriesLayer` closed `Data.TaggedEnum` fami
 
 ```ts contract
 import type { LayersList } from "@deck.gl/core";
-import type { StyleSpecification, ViewState } from "maplibre-gl";
+import type { CameraOptions, StyleSpecification } from "maplibre-gl";
 import type { RecordBatch } from "@rasm/ts/interchange";
 import { GeoJsonLayer } from "@deck.gl/layers";
 import { H3ClusterLayer, MVTLayer, QuadkeyLayer, Tile3DLayer } from "@deck.gl/geo-layers";
@@ -52,7 +52,7 @@ type FeatureKind =
   | "trips";
 
 type GeoSeriesLayer = Data.TaggedEnum<{
-  readonly base: { readonly substrate: "maplibre-base"; readonly styleSpec: StyleSpecification; readonly viewState: ViewState };
+  readonly base: { readonly substrate: "maplibre-base"; readonly styleSpec: StyleSpecification; readonly viewState: CameraOptions };
   readonly overlay: {
     readonly substrate: "deckgl-overlay";
     readonly featureKind: FeatureKind;

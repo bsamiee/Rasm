@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <!-- Assay non-test marker: the kit ships SDK surface, never runnable tests; IsScenarioKitProject owns MSBuild routing. -->
+        <IsTestProject>false</IsTestProject>
+    </PropertyGroup>
+    <ItemGroup Label="Project References">
+        <ProjectReference Include="../../../tools/rhino-bridge/Contract/Contract.csproj" />
+    </ItemGroup>
+    <ItemGroup Label="Assembly Visibility">
+        <!-- Internal access is limited to bridge cargo wiring and SDK law specs for FactCount and Hook semantics. -->
+        <InternalsVisibleTo Include="Rasm.Bridge.Cargo" />
+        <InternalsVisibleTo Include="Rasm.Architecture.Tests" />
+    </ItemGroup>
+</Project>

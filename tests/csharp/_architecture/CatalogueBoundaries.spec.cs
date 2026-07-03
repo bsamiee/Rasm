@@ -8,12 +8,12 @@ public sealed class CatalogueBoundaryLaws {
     [Fact]
     public void CsharpApiCataloguesDoNotCarryReadmePages() =>
         Assert.All(
-            collection: PackageAdmission.Files(relativeRoot: "libs/csharp", pattern: "README.md"),
+            collection: Manifests.Files(relativeRoot: "libs/csharp", pattern: "README.md"),
             action: static path => Assert.DoesNotContain(expectedSubstring: "/.api/", actualString: path, comparisonType: StringComparison.Ordinal));
 
     [Fact]
     public void CentralCsharpApiCataloguesAreFlatApiCards() {
-        FrozenSet<string> cards = PackageAdmission.Files(relativeRoot: "libs/csharp/.api", pattern: "*.md");
+        FrozenSet<string> cards = Manifests.Files(relativeRoot: "libs/csharp/.api", pattern: "*.md");
 
         Assert.NotEmpty(collection: cards);
         Assert.All(collection: cards, action: static path =>
@@ -22,7 +22,7 @@ public sealed class CatalogueBoundaryLaws {
 
     [Fact]
     public void PackageLocalApiCataloguesStayPackageLocalCards() {
-        string[] cards = [.. PackageAdmission.Files(relativeRoot: "libs/csharp", pattern: "*.md")
+        string[] cards = [.. Manifests.Files(relativeRoot: "libs/csharp", pattern: "*.md")
             .Where(static path =>
                 path.Contains(value: "/.api/", comparisonType: StringComparison.Ordinal)
                 && !path.StartsWith(value: "libs/csharp/.api/", comparisonType: StringComparison.Ordinal))];

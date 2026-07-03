@@ -25,7 +25,7 @@ from tools.assay.composition.settings import (  # noqa: TC001  # beartype resolv
     PY_ARTIFACT_ROOTS,
     PY_COVERAGE_FILES,
 )
-from tools.assay.core.engine import fan_out, leased
+from tools.assay.core.engine import Executor, leased  # noqa: TC001  # beartype resolves the executor-port annotation at runtime
 from tools.assay.core.model import (
     Artifact,
     ArtifactKind,
@@ -35,13 +35,13 @@ from tools.assay.core.model import (
     Completed,  # noqa: TC001  # _roster_matches uses Completed as a runtime type in the tuple annotation
     Counts,
     Fault,  # beartype @checked resolves the rail's forward-ref (PEP 649)
-    fold,
     Input,
     Language,
     language_choice,
     Match,
     Mode,
     MutationLane,
+    RailStatus,
     receipt,
     Report,  # noqa: TC001  # beartype @checked resolves the rail's forward-ref (PEP 649)
     Runner,
@@ -51,7 +51,7 @@ from tools.assay.core.model import (
     ToolGroup,
 )
 from tools.assay.core.routing import expand, parse_csproj, resolve_languages, route, Scope
-from tools.assay.core.status import RailStatus
+from tools.assay.diagnostics import fold
 
 
 if TYPE_CHECKING:
@@ -67,6 +67,7 @@ if TYPE_CHECKING:
 class _TestProjectLane(StrEnum):
     MANAGED = "managed"
     HOST_BOUND = "host_bound"
+    SHELL = "shell"
     SUPPORT = "support"
     BENCHMARK = "benchmark"
     NON_TEST = "non_test"
@@ -80,6 +81,8 @@ class _DiscoveryLane(StrEnum):
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _GAP_NOTE: str = "mutation requested but no eligible lane (typescript has no mutation runner)"
+# Only these lanes reach dotnet dispatch; SHELL/SUPPORT/BENCHMARK/NON_TEST rows are report evidence, never test targets.
+_RUNNABLE_LANES: frozenset[_TestProjectLane] = frozenset((_TestProjectLane.MANAGED, _TestProjectLane.HOST_BOUND))
 _COVERAGE_JSON: str = PY_COVERAGE_FILES["json"]
 _COVERAGE_OUTPUTS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("coverage.json", ("uv", "run", "coverage", "json", "-o", PY_COVERAGE_FILES["json"])),
@@ -91,6 +94,12 @@ _COVERAGE_OUTPUTS: tuple[tuple[str, tuple[str, ...]], ...] = (
 
 _TESTS = msgspec.json.Decoder(TestRun)
 _ROSTER_ENCODER = msgspec.json.Encoder(order="deterministic")
+# csproj marker -> lane rows in dispatch priority: the shell marker wins because shell content ships via the bridge closure.
+_MARKER_LANES: tuple[tuple[str, str, _TestProjectLane], ...] = (
+    ("AssayTestShell", "true", _TestProjectLane.SHELL),
+    ("IsTestProject", "false", _TestProjectLane.NON_TEST),
+    ("AssayHostBound", "true", _TestProjectLane.HOST_BOUND),
+)
 # Runner-specific CHANGED mutation scopes: Stryker accepts file globs; mutmut requires module-dotted mutant names.
 # Runners absent here surface UNSUPPORTED on the CHANGED lane.
 _MUTATION_SCOPE: dict[str, Callable[[tuple[str, ...]], tuple[str, ...]]] = {
@@ -153,6 +162,14 @@ class TestParams(BaseParams):
                         return replace(bound, language=language)
 
 
+@dataclass(frozen=True, slots=True)
+class _Selected:
+    """One language's dispatch-admitted routing plus its full marker-lane classification."""
+
+    routed: Routed
+    lanes: tuple[tuple[str, _TestProjectLane], ...] = ()
+
+
 class _CoverageTotals(msgspec.Struct, frozen=True, gc=False):
     percent_covered: float
 
@@ -189,7 +206,7 @@ def _eligible(tool: Tool, params: TestParams) -> bool:
 
 
 def _rows(language: Language, params: TestParams, mode: Mode) -> tuple[Tool, ...]:
-    modes = {Mode.MUTATION: frozenset((Mode.MUTATION,)), Mode.CLIENT: frozenset((Mode.CLIENT,))}.get(
+    modes = {Mode.MUTATION: frozenset((Mode.MUTATION,)), Mode.CLIENT: frozenset((Mode.CLIENT,)), Mode.STAGE: frozenset((Mode.STAGE,))}.get(
         mode, frozenset((mode, Mode.RESTORE, Mode.BUILD))
     )
     return tuple(t for t in select(Claim.TEST, language) if t.mode in modes and _eligible(t, params))
@@ -234,35 +251,30 @@ def _scoped_mutation(tool: Tool, params: TestParams, settings: AssaySettings, fi
 
 
 def _relative_project(project: str | Path, settings: AssaySettings) -> str:
-    raw = PurePosixPath(str(project).replace("\\", "/")).as_posix()
-    root = PurePosixPath(str(settings.root).replace("\\", "/")).as_posix().rstrip("/")
-    return raw.removeprefix(f"{root}/") if root and raw.startswith(f"{root}/") else raw
+    raw = PurePosixPath(str(project).replace("\\", "/"))
+    root = PurePosixPath(str(settings.root).replace("\\", "/"))
+    return raw.relative_to(root).as_posix() if raw.is_relative_to(root) else raw.as_posix()
 
 
-def _solution_projects(settings: AssaySettings) -> tuple[str, ...]:
+def _solution_projects(settings: AssaySettings) -> Result[tuple[str, ...], Fault]:
+    # A corrupt or missing Workspace.slnx must fault loudly: folding to () would green-exit --all with zero checks.
     try:
         tree = ET.fromstring(settings.solution.read_bytes() or b"<Solution/>")  # noqa: S314  # trusted local solution XML
-    except OSError, ET.ParseError:
-        return ()
-    return tuple(
-        PurePosixPath(path.replace("\\", "/")).as_posix() for node in tree.iter() for path in (node.get("Path") or "",) if path.endswith(".csproj")
+    except (OSError, ET.ParseError) as exc:
+        return Error(Fault(("test", "solution", str(settings.solution)), RailStatus.FAULTED, str(exc)[:1024]))
+    rows = (path for node in tree.iter() for path in (node.get("Path") or "",) if path.endswith(".csproj"))
+    return Ok(tuple(PurePosixPath(path.replace("\\", "/")).as_posix() for path in rows))
+
+
+def _marker_lane(project: str, settings: AssaySettings) -> _TestProjectLane:
+    # One csproj read owns marker classification; an unreadable project is fault-shaped NON_TEST, never silently MANAGED.
+    try:
+        raw = (settings.root / project).read_bytes()
+    except OSError:
+        return _TestProjectLane.NON_TEST
+    return next(
+        (lane for tag, token, lane in _MARKER_LANES if any(value.casefold() == token for value in parse_csproj(raw, tag))), _TestProjectLane.MANAGED
     )
-
-
-def _host_bound(project: str, settings: AssaySettings) -> bool:
-    try:
-        raw = (settings.root / project).read_bytes()
-    except OSError:
-        return False
-    return any(value.casefold() == "true" for value in parse_csproj(raw, "AssayHostBound"))
-
-
-def _test_project(project: str, settings: AssaySettings) -> bool:
-    try:
-        raw = (settings.root / project).read_bytes()
-    except OSError:
-        return True
-    return not any(value.casefold() == "false" for value in parse_csproj(raw, "IsTestProject"))
 
 
 def _project_lane(project: str | Path, settings: AssaySettings) -> _TestProjectLane:
@@ -272,26 +284,10 @@ def _project_lane(project: str | Path, settings: AssaySettings) -> _TestProjectL
             return _TestProjectLane.SUPPORT
         case ("tests", "csharp", "_benchmarks", *_):
             return _TestProjectLane.BENCHMARK
-        case ("tests", "csharp", *_) if not _test_project(rel, settings):
-            return _TestProjectLane.NON_TEST
         case ("tests", "csharp", *_):
-            return _TestProjectLane.HOST_BOUND if _host_bound(rel, settings) else _TestProjectLane.MANAGED
+            return _marker_lane(rel, settings)
         case _:
             return _TestProjectLane.NON_TEST
-
-
-def _classified_projects(params: TestParams, routed: Routed, settings: AssaySettings) -> tuple[tuple[str, _TestProjectLane], ...]:
-    match (routed.language, params.target, params.all):
-        case (Language.CSHARP, Path() as target, _):
-            project = _relative_project(target, settings)
-            return ((project, _project_lane(project, settings)),)
-        case (Language.CSHARP, None, True):
-            return tuple((project, _project_lane(project, settings)) for project in _solution_projects(settings))
-        case (Language.CSHARP, None, False):
-            host = frozenset(routed.host_bound)
-            return tuple((project, _TestProjectLane.HOST_BOUND if project in host else _TestProjectLane.MANAGED) for project in routed.projects)
-        case _:
-            return ()
 
 
 def _lane_counts(rows: Iterable[tuple[str, StrEnum]]) -> tuple[tuple[str, int], ...]:
@@ -331,10 +327,7 @@ def _unsupported_scope(routed: Routed, params: TestParams, settings: AssaySettin
 
     def _target_status() -> tuple[Result[Completed, Fault], ...]:
         match (routed.language, params.target):
-            case (Language.CSHARP, Path() as target) if (lane := _project_lane(target, settings)) not in {
-                _TestProjectLane.MANAGED,
-                _TestProjectLane.HOST_BOUND,
-            }:
+            case (Language.CSHARP, Path() as target) if (lane := _project_lane(target, settings)) not in _RUNNABLE_LANES:
                 project = _relative_project(target, settings)
                 return (
                     Ok(
@@ -362,7 +355,14 @@ def _unsupported_scope(routed: Routed, params: TestParams, settings: AssaySettin
     match (mode, params.mutation):
         case (Mode.MUTATION, MutationLane.CHANGED):
             return tuple(
-                Ok(receipt(t.command, 3, status=RailStatus.UNSUPPORTED, notes=(f"{t.name}: no changed-file mutation scope",)))
+                Ok(
+                    receipt(
+                        t.command,
+                        RailStatus.UNSUPPORTED.exit_code,
+                        status=RailStatus.UNSUPPORTED,
+                        notes=(f"{t.name}: no changed-file mutation scope",),
+                    )
+                )
                 for t in _rows(routed.language, params, mode)
                 if t.name not in _MUTATION_SCOPE
             )
@@ -374,30 +374,43 @@ def _routed(languages: tuple[Language, ...], paths: tuple[str, ...], settings: A
     return sequence(block.of_seq(route(language, paths, settings=settings) for language in languages))
 
 
-def _select(routed: Routed, params: TestParams, settings: AssaySettings) -> Routed:
-    # C# dotnet rows consume projects; --target pins one project, --all pins the solution-admitted managed/host lanes.
+def _select(routed: Routed, params: TestParams, settings: AssaySettings) -> Result[_Selected, Fault]:
+    """Classify C# projects through the marker-lane table once; only MANAGED/HOST_BOUND rows reach dotnet dispatch.
+
+    Every scoping arm (--target, --all, changed closure) classifies and filters, so the marker table is the single
+    authority over dispatch admission and host_bound is rebuilt from it rather than trusted from routing.
+
+    Returns:
+        Lane-filtered selection carrying the full classification, or the solution-roster fault under ``--all``.
+    """
+
+    def classify(projects: Iterable[str]) -> tuple[tuple[str, _TestProjectLane], ...]:
+        return tuple((project, _project_lane(project, settings)) for project in projects)
+
+    def admit(lanes: tuple[tuple[str, _TestProjectLane], ...], scope: Scope = routed.scope) -> _Selected:
+        return _Selected(
+            routed=msgspec.structs.replace(
+                routed,
+                scope=scope,
+                projects=tuple(project for project, lane in lanes if lane in _RUNNABLE_LANES),
+                host_bound=tuple(project for project, lane in lanes if lane is _TestProjectLane.HOST_BOUND),
+            ),
+            lanes=lanes,
+        )
+
     match (routed.language.strategy, params.target, params.all):
         case ("glob", _, _):
-            return routed
+            return Ok(_Selected(routed=routed))
         case (_, Path() as target, _):
-            project = _relative_project(target, settings)
-            lane = _project_lane(project, settings)
-            pinned_projects = (project,) if lane in {_TestProjectLane.MANAGED, _TestProjectLane.HOST_BOUND} else ()
-            pinned_host = (project,) if lane is _TestProjectLane.HOST_BOUND else ()
-            return msgspec.structs.replace(routed, projects=pinned_projects, host_bound=pinned_host)
+            return Ok(admit(classify((_relative_project(target, settings),))))
         case (_, None, True):
-            classified = _classified_projects(params, routed, settings)
-            admitted_projects: tuple[str, ...] = tuple(
-                project for project, lane in classified if lane in {_TestProjectLane.MANAGED, _TestProjectLane.HOST_BOUND}
-            )
-            admitted_host: tuple[str, ...] = tuple(project for project, lane in classified if lane is _TestProjectLane.HOST_BOUND)
-            return msgspec.structs.replace(routed, scope=Scope.FULL, projects=admitted_projects, host_bound=admitted_host)
+            return _solution_projects(settings).map(lambda projects: admit(classify(projects), Scope.FULL))
         case _:
-            return routed
+            return Ok(admit(classify(routed.projects)))
 
 
 def _dispatch(
-    routed: Routed, params: TestParams, *, settings: AssaySettings, scope: ArtifactScope, mode: Mode
+    routed: Routed, params: TestParams, *, settings: AssaySettings, scope: ArtifactScope, mode: Mode, executor: Executor
 ) -> tuple[Result[Completed, Fault], ...]:
     checks = _checks(routed, params, settings, mode)
     unsupported = _unsupported_scope(routed, params, settings, mode)
@@ -412,7 +425,7 @@ def _dispatch(
             project = ",".join(routed.projects or (routed.language.value,))
             outcome = leased(
                 resource,
-                lambda _held: Ok(fan_out(checks, settings=settings, scope=build_scope, routed=routed)),
+                lambda _held: Ok(executor.fan(checks, settings=settings, scope=build_scope, routed=routed)),
                 settings=settings,
                 run_id=settings.run_id,
                 project=project,
@@ -424,7 +437,7 @@ def _dispatch(
                 case Result(error=fault):
                     return (Error(fault), *unsupported)
         case _:
-            return (*fan_out(checks, settings=settings, scope=scope, routed=routed), *unsupported)
+            return (*executor.fan(checks, settings=settings, scope=scope, routed=routed), *unsupported)
 
 
 def _roster_matches(outcomes: tuple[Completed, ...]) -> tuple[Match, ...]:
@@ -546,7 +559,13 @@ def _roster_artifacts(settings: AssaySettings, scope: ArtifactScope, discovered:
 
 
 def _gate(
-    done: tuple[Result[Completed, Fault], ...], routed: Routed, params: TestParams, *, settings: AssaySettings, scope: ArtifactScope
+    done: tuple[Result[Completed, Fault], ...],
+    routed: Routed,
+    params: TestParams,
+    *,
+    settings: AssaySettings,
+    scope: ArtifactScope,
+    executor: Executor,
 ) -> tuple[Result[Completed, Fault], ...]:
     # Kill-rate gate rides the held mutation lease: one sequential check against the staged mutmut cache.
     staged = next((t for t in _rows(routed.language, params, Mode.MUTATION) if t.stage.root), None)
@@ -554,26 +573,31 @@ def _gate(
     match (staged, succeeded):
         case (Tool() as row, True):
             work = Path(str(settings.root)) / row.stage.root
-            return fan_out((Check(tool=_GATE_TOOL, cwd=work),), settings=settings, scope=scope, routed=routed)
+            return executor.fan((Check(tool=_GATE_TOOL, cwd=work),), settings=settings, scope=scope, routed=routed)
         case _:
             return ()
 
 
 def _dispatch_all(
-    routed: Routed, params: TestParams, *, settings: AssaySettings, scope: ArtifactScope, mode: Mode
+    routed: Routed, params: TestParams, *, settings: AssaySettings, scope: ArtifactScope, mode: Mode, executor: Executor
 ) -> tuple[Result[Completed, Fault], ...]:
-    run = _dispatch(routed, params, settings=settings, scope=scope, mode=mode)
+    run = _dispatch(routed, params, settings=settings, scope=scope, mode=mode, executor=executor)
     mutation = (
-        _dispatch(routed, params, settings=settings, scope=scope, mode=Mode.MUTATION)
+        _dispatch(routed, params, settings=settings, scope=scope, mode=Mode.MUTATION, executor=executor)
         if params.mutation is not MutationLane.OFF and mode is Mode.RUN
         else ()
     )
-    gate = _gate(mutation, routed, params, settings=settings, scope=scope) if mutation else ()
-    coverage = _dispatch(routed, params, settings=settings, scope=scope, mode=Mode.CLIENT) if params.coverage and mode is Mode.RUN else ()
-    return (*run, *mutation, *gate, *coverage)
+    gate = _gate(mutation, routed, params, settings=settings, scope=scope, executor=executor) if mutation else ()
+    # The STAGE combine fan completes before the CLIENT report fan starts, so every report row reads combined data.
+    reporting = params.coverage and mode is Mode.RUN
+    combine = _dispatch(routed, params, settings=settings, scope=scope, mode=Mode.STAGE, executor=executor) if reporting else ()
+    coverage = _dispatch(routed, params, settings=settings, scope=scope, mode=Mode.CLIENT, executor=executor) if reporting else ()
+    return (*run, *mutation, *gate, *combine, *coverage)
 
 
-def _thin_rail(settings: AssaySettings, scope: ArtifactScope, params: TestParams, *, claim: Claim, verb: str, mode: Mode) -> Result[Report, Fault]:
+def _thin_rail(
+    settings: AssaySettings, scope: ArtifactScope, params: TestParams, executor: Executor, *, claim: Claim, verb: str, mode: Mode
+) -> Result[Report, Fault]:
     """Run routed test eligibility, fan-out, mutation gating, and folding.
 
     Returns:
@@ -585,32 +609,33 @@ def _thin_rail(settings: AssaySettings, scope: ArtifactScope, params: TestParams
             t for language in languages for t in _rows(language, params, Mode.MUTATION if params.mutation is not MutationLane.OFF else mode)
         )
         gap = _mutation_gap(params, eligible)
-        match gap:
-            case True:
-                _LOG.warning(_GAP_NOTE, claim=claim.value, verb=verb, language=params.language.value if params.language is not None else "")
-            case False:
-                pass
+        if gap:
+            _LOG.warning(_GAP_NOTE, claim=claim.value, verb=verb, language=params.language.value if params.language is not None else "")
 
         def _work(_held: object = None) -> Result[Report, Fault]:
-            def _settle(done: Block[Completed], selected: tuple[Routed, ...]) -> Report:
+            def _settle(done: Block[Completed], selected: tuple[_Selected, ...]) -> Report:
                 outcomes = tuple(done)
-                project_counts = _lane_counts(row for r in selected for row in _classified_projects(params, r, settings))
+                project_counts = _lane_counts(row for s in selected for row in s.lanes)
                 detail = _run_detail(_detail(outcomes, params, Path(str(settings.root))), project_counts=project_counts)
                 base = fold(claim, verb, outcomes, detail=detail, promote_empty=True)
                 return msgspec.structs.replace(
                     base,
                     results=(*base.results, *_status_matches(outcomes)),
                     artifacts=(*base.artifacts, _results_artifact(scope), *_coverage_artifacts(settings, scope, outcomes)),
-                    notes=(*base.notes, *(note for r in selected for note in r.closure_note()), *((_GAP_NOTE,) if gap else ())),
+                    notes=(*base.notes, *(note for s in selected for note in s.routed.closure_note()), *((_GAP_NOTE,) if gap else ())),
                 )
 
             return (
                 _routed(languages, params.paths, settings)
-                .map(lambda routed: tuple(_select(r, params, settings) for r in routed))
+                .bind(lambda routed: sequence(block.of_seq(_select(r, params, settings) for r in routed)))
                 .bind(
                     lambda selected: sequence(
-                        block.of_seq(row for r in selected for row in _dispatch_all(r, params, settings=settings, scope=scope, mode=mode))
-                    ).map(lambda done: _settle(done, selected))
+                        block.of_seq(
+                            row
+                            for s in selected
+                            for row in _dispatch_all(s.routed, params, settings=settings, scope=scope, mode=mode, executor=executor)
+                        )
+                    ).map(lambda done: _settle(done, tuple(selected)))
                 )
             )
 
@@ -637,16 +662,16 @@ def _thin_rail(settings: AssaySettings, scope: ArtifactScope, params: TestParams
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
-def run(settings: AssaySettings, scope: ArtifactScope, params: TestParams) -> Result[Report, Fault]:
+def run(settings: AssaySettings, scope: ArtifactScope, params: TestParams, executor: Executor) -> Result[Report, Fault]:
     """Run eligible test suites.
 
     Returns:
         Test run report, or routing/spawn fault.
     """
-    return _thin_rail(settings, scope, params, claim=Claim.TEST, verb="run", mode=Mode.RUN)
+    return _thin_rail(settings, scope, params, executor, claim=Claim.TEST, verb="run", mode=Mode.RUN)
 
 
-def list(settings: AssaySettings, scope: ArtifactScope, params: TestParams) -> Result[Report, Fault]:  # noqa: A001
+def list(settings: AssaySettings, scope: ArtifactScope, params: TestParams, executor: Executor) -> Result[Report, Fault]:  # noqa: A001
     """List discovered tests.
 
     The name must match the registry-bound Handler name for verb dispatch.
@@ -656,12 +681,12 @@ def list(settings: AssaySettings, scope: ArtifactScope, params: TestParams) -> R
     """
     needle = params.grep.strip().lower()
 
-    def _settle(done: block.Block[Completed], selected: tuple[Routed, ...]) -> Report:
+    def _settle(done: block.Block[Completed], selected: tuple[_Selected, ...]) -> Report:
         outcomes = tuple(done)
         base = fold(Claim.TEST, "list", outcomes, promote_empty=True)
         discovered = tuple(m for m in _roster_matches(outcomes) if not needle or needle in m.text.lower())
         roster = discovered[: params.limit] if params.limit > 0 else discovered
-        project_counts = _lane_counts(row for r in selected for row in _classified_projects(params, r, settings))
+        project_counts = _lane_counts(row for s in selected for row in s.lanes)
         discovery_counts = _discovery_counts(outcomes, discovered)
         return msgspec.structs.replace(
             base,
@@ -671,7 +696,7 @@ def list(settings: AssaySettings, scope: ArtifactScope, params: TestParams) -> R
             artifacts=(*base.artifacts, _results_artifact(scope), *_roster_artifacts(settings, scope, discovered)),
             notes=(
                 *base.notes,
-                *(n for r in selected for n in r.closure_note()),
+                *(n for s in selected for n in s.routed.closure_note()),
                 *((f"discovery: total={len(discovered)} returned={len(roster)}",) if discovered else ()),
                 *(
                     f"discovery {c.status.value}: {' '.join(c.argv)[:120]}{f': {tail}' if tail else ''}"
@@ -686,23 +711,27 @@ def list(settings: AssaySettings, scope: ArtifactScope, params: TestParams) -> R
     return resolve_languages(params.language, params.paths, claim=Claim.TEST).bind(
         lambda languages: (
             _routed(languages, params.paths, settings)
-            .map(lambda routed: tuple(_select(r, params, settings) for r in routed))
+            .bind(lambda routed: sequence(block.of_seq(_select(r, params, settings) for r in routed)))
             .bind(
                 lambda selected: sequence(
-                    block.of_seq(row for r in selected for row in _dispatch(r, params, settings=settings, scope=scope, mode=Mode.LIST))
-                ).map(lambda done: _settle(done, selected))
+                    block.of_seq(
+                        row
+                        for s in selected
+                        for row in _dispatch(s.routed, params, settings=settings, scope=scope, mode=Mode.LIST, executor=executor)
+                    )
+                ).map(lambda done: _settle(done, tuple(selected)))
             )
         )
     )
 
 
-def coverage(settings: AssaySettings, scope: ArtifactScope, params: TestParams) -> Result[Report, Fault]:
+def coverage(settings: AssaySettings, scope: ArtifactScope, params: TestParams, executor: Executor) -> Result[Report, Fault]:
     """Run eligible suites under coverage.
 
     Returns:
         Coverage test report, or routing/spawn fault.
     """
-    return _thin_rail(settings, scope, replace(params, coverage=True, benchmark=False), claim=Claim.TEST, verb="coverage", mode=Mode.RUN)
+    return _thin_rail(settings, scope, replace(params, coverage=True, benchmark=False), executor, claim=Claim.TEST, verb="coverage", mode=Mode.RUN)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

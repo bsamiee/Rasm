@@ -30,8 +30,9 @@ public sealed class <Concept>Laws {
     // Pattern [4]/[10]: SmartEnum case sweep with per-case-self-consistency oracle.
     [Fact]
     public void CasesOwnKeysAndPerCaseInvariant() =>
-        Spec.Cases(
+        Spec.Catalog(
             items: <CaseType>.Items,
+            expectedKeys: ["<key-a>", "<key-b>"],
             key: static item => item.Key,
             law: item => {
                 Spec.Holds(condition: /* per-case invariant */, label: $"{item.Key}");
@@ -109,7 +110,7 @@ public sealed class <Concept>SpdMatrixInvariants {
     public void OneSpdMatrixSatisfiesFiveInvariants() =>
         Spec.ForAll(<SpdGen>, m => {
             // Invariant 1: symmetric
-            Numeric.Symmetric(dim: m.Dimension.Value, at: m.At, tolerance: 1e-12, "symmetric");
+            Spec.Holds(Numeric.SymmetryResidual(dimension: m.Dimension.Value, at: m.At) <= 1e-12, "symmetric");
             // Invariant 2: positive trace
             Spec.Holds(m.Trace() > 0.0, "positive trace");
             // Invariant 3: positive determinant
@@ -157,7 +158,6 @@ public sealed class <Receipt>IsValidLaws {
 
 ## [FAILURE_RAIL_PATTERNS]
 
-- `Spec.FailCategory<T>(result, "Input")` for category-stable diagnostics.
-- `Spec.FailCode<T>(result, Fault.UnsupportedCode)` for stable error code rails.
-- `Spec.FailMany<T>(result, expectedCount, "substring1", "substring2")` for accumulated Validation rails.
+- `Spec.FailCategory<T>(result, "Input")` for category-stable diagnostics; the failure's closed-family case name is the contract, never message prose.
+- `Spec.FailMany<T>(result, expectedCount, "substring1", "substring2")` for accumulated `Fin` error rails.
 - `Spec.AllErrors(validation, "Input", "Tolerance")` for order-independent Validation Apply.

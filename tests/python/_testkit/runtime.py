@@ -168,9 +168,10 @@ hyp_settings.register_profile(
 )
 # Redirect Hypothesis observations to repo artifacts without replacing its built-in callback.
 if os.environ.get("TESTS_OBSERVABILITY"):  # noqa: TID251
-    _OBS_DIR = REPO_ROOT / ".artifacts" / "python" / "observed"
+    _OBS_DIR = REPO_ROOT / ".artifacts" / "python" / "hypothesis"
 
-    def _deliver_to_artifacts(observation: object) -> None:
+    def _deliver_to_artifacts(observation: object, _thread_id: int) -> None:
+        # all_threads=True callbacks receive (observation, thread_id).
         kind = "testcases" if getattr(observation, "type", None) == "test_case" else "info"
         _OBS_DIR.mkdir(parents=True, exist_ok=True)
         artifact = _OBS_DIR / f"{datetime.now(tz=UTC).date().isoformat()}_{kind}.jsonl"

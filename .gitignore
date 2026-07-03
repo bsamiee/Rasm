@@ -53,22 +53,12 @@ env/
 
 # --- [TEST_COVERAGE] ----------------------------------------------------------
 
-coverage/
-.nyc_output/
 .coverage
 coverage.xml
 htmlcov/
-test-results/
 .approval_tests_temp/
-.vitest-reports/
-lost-pixel/
-playwright-report/
-playwright/.cache/
-mutants/
 .hypothesis/
 .benchmarks/
-**/__screenshots__/
-.vitest-attachments
 
 # --- [CACHES] -----------------------------------------------------------------
 
@@ -80,8 +70,6 @@ mutants/
 .parcel-cache/
 .pulumi/
 .swc/
-.stryker-tmp/
-test-results/mutation/stryker-incremental.json
 .vite/
 .scannerwork/
 
@@ -124,6 +112,7 @@ lerna-debug.log*
 
 .vscode/
 .idea/
+.history/
 *.swp
 *.swo
 *.tmp

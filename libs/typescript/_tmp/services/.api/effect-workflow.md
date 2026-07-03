@@ -5,12 +5,14 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@effect/workflow`
-- package: `@effect/workflow`
-- import: `@effect/workflow`
+- package: `@effect/workflow` (0.18.2, MIT, © Effectful Technologies)
+- import: `@effect/workflow` (namespace barrel) plus per-module deep paths `@effect/workflow/Workflow`, `/Activity`, `/WorkflowEngine`, `/DurableClock`, `/DurableDeferred`, `/DurableQueue`, `/DurableRateLimiter`, `/WorkflowProxy`, `/WorkflowProxyServer`
 - rail: durable-work
+- tier: `node` (`scope:node`; the durable engine is `ClusterWorkflowEngine` over `@effect/cluster` sharding + `@effect/sql` message storage)
 - peer: `effect` `^3.21.2`, `@effect/experimental` `^0.60.0`, `@effect/platform` `^0.96.1`, `@effect/rpc` `^0.75.1`
 - modules: `Workflow`, `Activity`, `WorkflowEngine`, `DurableClock`, `DurableDeferred`, `DurableQueue`, `DurableRateLimiter`, `WorkflowProxy`, `WorkflowProxyServer`
-- capability: durable workflow definition/execution/poll/interrupt/resume, run-once activities with retry and compensation, durable clocks/deferreds/queues/rate-limiters, RPC/HTTP proxy derivation over a workflow set, in-memory engine layer
+- capability: durable workflow definition/execution/poll/interrupt/resume, run-once activities with retry and compensation, durable clocks/deferreds/queues/rate-limiters, RPC/HTTP proxy derivation over a workflow set
+- engine backend: the package ships only `WorkflowEngine.layerMemory` (in-memory, testing); the production `WorkflowEngine` is `@effect/cluster`'s `ClusterWorkflowEngine.layer` (`Layer<WorkflowEngine, never, Sharding | MessageStorage>`), so a durable workflow requires the cluster + SQL-storage substrate, never a bare in-memory layer in production
 
 The package root re-exports every module under its namespace:
 
@@ -563,3 +565,33 @@ export type RpcHandlers<Workflows extends Workflow.Any, Prefix extends string> =
   ? Rpc.Handler<`${Prefix}${_Name}`> | Rpc.Handler<`${Prefix}${_Name}Discard`> | Rpc.Handler<`${Prefix}${_Name}Resume`>
   : never
 ```
+
+## [08]-[IMPLEMENTATION_LAW]
+
+[WORKFLOW_TOPOLOGY]:
+- a `Workflow` is four schema axes (`Name`/`Payload`/`Success`/`Error`) plus one durable `execute` body; the body is deterministic and replay-safe — every non-deterministic or side-effecting step is an `Activity` (run-once, memoized by `executionId` + activity name), so a replay after a crash re-derives pure control flow and reads completed activity results from storage rather than re-running them.
+- `Workflow.make({ idempotencyKey })` makes an execution idempotent on the derived id: two `execute` calls with the same key join one execution. `execute({ discard: true })` is fire-and-forget (returns the `executionId` string); `poll`/`interrupt`/`resume` address a running execution by id.
+- the result algebra is `Result = Complete<A,E> | Suspended`: `Suspended` is a first-class outcome (awaiting a `DurableDeferred`, a `DurableClock`, or `SuspendOnFailure`), resumed later by `Workflow.resume(executionId)` or a deferred completion token — never a blocked fiber holding a process.
+- `withCompensation` registers a per-activity undo `(value, cause) => Effect<void>` run on downstream failure; `CaptureDefects` (default true) folds defects into the result; `SuspendOnFailure` suspends on any error for operator-driven resume.
+
+[STACKS_WITH]:
+- `@effect/cluster` `ClusterWorkflowEngine` (`effect-cluster.md`, `execution/engine#ENGINE`): the production `WorkflowEngine` is `ClusterWorkflowEngine.layer : Layer<WorkflowEngine, never, Sharding.Sharding | MessageStorage>`. A workflow becomes durable only when this layer is provided over the cluster substrate — `Sharding` places each execution on a single runner (single-writer replay), `MessageStorage` (SQL-backed via `execution/backplane`) persists the activity journal and deferred state. `WorkflowEngine.layerMemory` is the `@effect/vitest` test double, never the deployed engine.
+- `@effect/sql` (`effect-sql.md`, `persistence/store#STORE`): the durable substrate is one `SqlClient` — the cluster `MessageStorage`/`RunnerStorage` layers ride the same `PgClient` the whole node tier shares, so workflow durability, entity mailboxes, and the outbox are one transactional store, not three.
+- `@effect/experimental` `PersistedQueue` + `RateLimiter` (`effect-experimental.md`): `DurableQueue.process`/`worker` require `PersistedQueue.PersistedQueueFactory` — the durable, retrying work-queue substrate under a workflow's fan-out; `DurableRateLimiter.rateLimit` yields an `Activity` requiring `RateLimiter.RateLimiter`, so a per-key durable rate limit is one activity in the workflow body, composed above the per-tenant `messaging/quota#QUOTA` governor.
+- `@effect/rpc` `RpcGroup` + `@effect/platform` `HttpApiGroup` (`effect-rpc.md`, `messaging/rpc#RPC`): `WorkflowProxy.toRpcGroup(workflows)` derives an `RpcGroup` (three procedures per workflow — `{Name}`/`{Name}Discard`/`{Name}Resume`) and `toHttpApiGroup` an `HttpApiGroup`; `WorkflowProxyServer.layerRpcHandlers`/`layerHttpApi` provide the matching handler layers requiring only `WorkflowEngine | Workflow.Requirements<Workflows>`. Exposing a workflow set is a projection, never a hand-written controller.
+- `effect` `Schema`/`Schedule`/`Cause` (`../../.api/effect.md`): the four axes are `Schema.Schema`s (payload/success/error decoded at the durable boundary); `Activity.make({ interruptRetryPolicy })` and `Activity.retry({ ...Effect.Retry.Options })` take `effect/Schedule` policies; `withCompensation` folds over `Cause.Cause<Error>`. `Activity.CurrentAttempt` (a `Context.Reference`) reads the retry attempt inside the body.
+- `DurableDeferred` + `DurableClock` as signal/timer rails: external completion (human approval, webhook, `DurableQueue` reply) awaits a `DurableDeferred` addressed by `token`/`tokenFromExecutionId`/`tokenFromPayload` and completed out-of-band via `done`/`succeed`/`fail`; a durable delay is `DurableClock.sleep` (`inMemoryThreshold` 60s — shorter sleeps run in-memory, longer schedule a durable wake), so a month-long "wait for X" survives every restart.
+- `execution/saga#SAGA` + `agent/runtime#RUNTIME`: the saga is a `SagaStep` chain over `Activity` + `withCompensation` (engine-driven rollback on `StepOutcome` failure); the `DurableAgent` is `Activity` (each tool call) + `@effect/ai` composed on `ClusterWorkflowEngine`, journaling `AgentJournal` — both are workflow bodies, not bespoke state machines.
+
+[LOCAL_ADMISSION]:
+- Provide `ClusterWorkflowEngine.layer` (not `layerMemory`) in every non-test composition root; a `layerMemory` engine in production loses durability silently on restart.
+- Model every non-deterministic step (clock read, random, network, DB write) as an `Activity` so replay is deterministic; a bare `Effect` in the workflow body re-runs on every replay and breaks exactly-once.
+- Address long waits with `DurableDeferred`/`DurableClock`, never `Effect.sleep`/an in-memory `Deferred` — those do not survive a restart and pin a fiber.
+- Derive the RPC/HTTP surface with `WorkflowProxy`; never hand-write an execute/resume controller per workflow.
+- Register undo logic with `withCompensation` at the activity that needs rollback; never a manual try/compensate branch in the body.
+
+[RAIL_LAW]:
+- Package: `@effect/workflow`
+- Owns: the durable-execution concern — workflow definition/execution/poll/interrupt/resume, run-once activities with retry + compensation, durable clocks/deferreds/queues/rate-limiters, and the RPC/HTTP proxy derivation — as the single durable-work owner over the `ClusterWorkflowEngine` substrate
+- Accept: `Schema`-typed payload/success/error axes, `idempotencyKey` for execution identity, `Activity` for every side effect, `effect/Schedule` retry policies, `WorkflowProxy` for the wire surface, `DurableDeferred`/`DurableClock` for signals/timers
+- Reject: a hand-rolled saga/state-machine/retry loop, `layerMemory` in production, a side effect run directly in the workflow body, `Effect.sleep`/in-memory `Deferred` for durable waits, and a bespoke per-workflow controller where `WorkflowProxy` projects the group

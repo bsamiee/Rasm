@@ -4,6 +4,14 @@ Dependency catalogue for `@effect/cluster` (v0.59.0), the node-tier distributed 
 
 Every namespace is a barrel re-export from `index.d.ts` (`export * as <Namespace> from "./<Module>.js"`); a symbol is reached as `Cluster.<Namespace>.<symbol>` or via deep import `@effect/cluster/<Module>`. Signatures are transcription-complete.
 
+[PACKAGE_SURFACE]: `@effect/cluster`
+- package: `@effect/cluster` (0.59.0, MIT); ESM barrel re-exports (all 39 modules)
+- effect-peer: `effect ^3.21.2` (resolved 3.21.4; universal-tier substrate `.api/effect.md`)
+- sibling-peers (services-tier `.api/`): `@effect/rpc ^0.75.1` (`.api/effect-rpc.md` — the `RpcGroup` an `Entity` protocol IS and the `RpcClient.From` an entity `client` returns), `@effect/sql ^0.51.1` (`.api/effect-sql.md` — the one `SqlClient` `SqlMessageStorage`/`SqlRunnerStorage`/`SingleRunner` ride), `@effect/workflow ^0.18.2` (`.api/effect-workflow.md` — the `WorkflowEngine`/`Activity`/`DurableDeferred`/`DurableClock` algebra `ClusterWorkflowEngine` backs)
+- platform-peer: `@effect/platform ^0.96.1` (universal-tier `.api/effect-platform.md`; node binding sibling `.api/effect-platform-node.md`) — the `HttpClient`/`Socket`/`HttpServer`/`SocketServer`/`HttpRouter` the `HttpRunner`/`SocketRunner` transports ride
+- dep: `kubernetes-types ^1.30.0` — the `K8sHttpClient` `v1.Pod`/`PodStatus` schemas backing `RunnerHealth.layerK8s` + `EntityResource.makeK8sPod`
+- runtime target: node/bun only — advisory-lock runner storage and runner sockets are host-bound; never enters a browser bundle
+
 ---
 
 ## [Entity]
@@ -1208,3 +1216,30 @@ export declare const runners: Metric.Metric.Gauge<bigint>;
 export declare const runnersHealthy: Metric.Metric.Gauge<bigint>;
 export declare const shards: Metric.Metric.Gauge<bigint>;
 ```
+
+---
+
+## [IMPLEMENTATION_LAW]
+
+Every consumer stacks the cluster surface onto a sibling admitted lib into one composition; the four owner-symbols in the header are the internalization points, never bare-`Sharding` domain code.
+
+[DURABLE_ENGINE_STACKING]:
+- `ClusterEngine` (`execution/engine#ENGINE`) is `ClusterWorkflowEngine.layer` — `Layer<WorkflowEngine, never, Sharding | MessageStorage>` — layering the `@effect/workflow` `WorkflowEngine` over `Sharding` + `MessageStorage`; `durableKernel(unit) => ClusterEngine.engine` resolves the whole durable kernel, and `execute`/`poll`/`interrupt`/`resume`/`activityExecute` fold the `@effect/workflow` `Workflow`/`Activity`/`DurableDeferred`/`DurableClock` algebra. A merged predecessor cluster-workflow package is the deleted form.
+- `SingleRunner.layer({ runnerStorage })` is the canonical single-node durable-cluster entry — one call composes `Sharding` + `Runners` + `MessageStorage` over one `@effect/sql` `SqlClient`, so the backplane is never composed by hand for the single-node case.
+
+[SQL_BOUNDARY_STACKING]:
+- `SqlBoundary` (`persistence/store#STORE_BOUNDARY`) is the ONE `@effect/sql-pg` `PgClient` the cluster storage rides: `SqlMessageStorage.layer` (`Layer<MessageStorage, never, SqlClient | ShardingConfig>`) and `SqlRunnerStorage.layer` (`Layer<RunnerStorage, SqlError, SqlClient | ShardingConfig>`) are the `backplane#RUNNER_AND_SCHEDULING` `messageStore`/`runnerStore` rows over that same client — the advisory-lock shard acquisition and the mailbox journal share the one Postgres surface, never a second Redis/SQL hand-wave.
+- `RunnerBackplane` composes `Sharding.layer` from its five requirements: the `SqlMessageStorage`/`SqlRunnerStorage` pair, `RunnerHealth` (`layerPing`/`layerK8s`/`layerNoop` by kind), `Runners.layerRpc` over the `HttpRunner`/`SocketRunner` transport, and `Snowflake.layerGenerator`. `snowflake` is `Sharding.getSnowflake` (the `int64AsType:'bigint'` wire width), `singleton(name, run)` is `Singleton.make`, and the shard-pinned cron is `ClusterCron.make` — `ScheduledWork` is exactly that durable-cron layer.
+
+[ENTITY_STACKING]:
+- `Entity` (`messaging/entity#ENTITY`, `quota#QUOTA`, `agent/session#SESSION`) is `Entity.make(type, rpcs)` / `fromRpcGroup(type, RpcGroup)` over an `@effect/rpc` `RpcGroup`; `toLayer(handlers)` is the production registration requiring `Sharding`, and `client` builds the entity-keyed `RpcClient` factory. `annotateRpcs(ClusterSchema.Persisted, true)` is the durable-entity flag routing messages through `MessageStorage` for exactly-once replay; `ClusterSchema.ShardGroup`/`Uninterruptible` tune placement and interruptibility.
+- `EntityProxy.toRpcGroup`/`toHttpApiGroup` derive the client/HTTP surface (tag-prefixed, per-rpc `<Tag>Discard` variant), and `EntityProxyServer.layerRpcHandlers`/`layerHttpApi` implement them; `EntityResource.make`/`makeK8sPod` (over `K8sHttpClient`) own per-key scoped resources surviving restart to idle-ttl; `DeliverAt` on a payload schedules delayed delivery. The client-facing error rail on any entity `RpcClient.From` is exactly `MailboxFull | AlreadyProcessingMessage | PersistenceError` — discriminate by `_tag`, never string-inspect.
+
+[SATURATION_STACKING]:
+- `ClusterMetrics` (`execution/slo#SLO`) exposes the five runtime gauges (`entities`/`singletons`/`runners`/`runnersHealthy`/`shards`) as the `saturation` signal `SloBudget` reads and feeds the `@opentelemetry/sdk-metrics` reader; the burn evaluation itself is a `ScheduledWork.cron` shard-pinned `Singleton` so exactly one runner records each tick.
+
+[RAIL_LAW]:
+- Package: `@effect/cluster` (0.59.0) — node-tagged satellite, never in the browser bundle
+- Owns: distributed sharding + placement, addressable `Entity` actors, the `ClusterWorkflowEngine` durable backend, the runner backplane (protocol/message-storage/runner-storage/health), `Snowflake` id minting, cluster singletons, and the shard-pinned durable cron
+- Accept: `Entity`/`EntityProxy` behind the folder owner-symbols, `SingleRunner.layer` / `RunnerBackplane` for cluster assembly, `SqlMessageStorage`/`SqlRunnerStorage` over the one `SqlBoundary` `PgClient`, `ClusterWorkflowEngine.layer` as the `@effect/workflow` backend, `ClusterMetrics` gauges as the saturation source
+- Reject: raw `Sharding` calls in domain code, a second message/runner store beside the one SQL boundary, a hand-composed backplane for the single-node case (`SingleRunner.layer` owns it), and per-entity error string-inspection instead of `_tag` discrimination

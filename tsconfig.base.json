@@ -34,21 +34,20 @@
         "noEmit": true,
         "types": ["node", "vite/client", "vitest"]
     },
-    "exclude": ["**/node_modules", "**/dist", "**/build", "**/coverage", "**/.stryker-tmp", "**/.cache", "tests/ast-grep/**"],
+    "exclude": ["**/node_modules", "**/dist", "**/build", "**/.cache", "**/.artifacts", "**/.history", "tests/ast-grep/**"],
     "watchOptions": {
         "excludeDirectories": [
             "**/node_modules",
             "**/.git",
             "**/.nx",
             "**/.pnpm-store",
-            "**/.stryker-tmp",
             "**/dist",
             "**/build",
-            "**/coverage",
-            "**/test-results",
             "**/.next",
             "**/.vite",
             "**/.cache",
+            "**/.artifacts",
+            "**/.history",
             "**/.venv",
             "**/.vscode",
             "**/.idea"

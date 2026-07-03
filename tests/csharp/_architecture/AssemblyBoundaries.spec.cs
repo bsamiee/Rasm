@@ -1,150 +1,103 @@
 using System.Collections.Frozen;
-using System.Reflection;
+using ArchUnitNET.Fluent.Slices;
 using ArchUnitNET.Loader;
+using Rasm.Csp;
 using Rasm.TestKit;
 using static ArchUnitNET.Fluent.ArchRuleDefinition;
-using TypesShouldConjunction = ArchUnitNET.Fluent.Syntax.Elements.Types.TypesShouldConjunction;
 
 namespace Rasm.Architecture.Tests;
 
 // --- [MODELS] --------------------------------------------------------------------------
-internal static class ArchitectureModel {
-    public static readonly Assembly Core = typeof(Op).Assembly;
-    public static readonly ArchUnitNET.Domain.Architecture Kernel = new ArchLoader().LoadAssemblies(Core).Build();
+// The host-free closure: every Rasm assembly loadable without a Rhino installation. Rules run
+// over this architecture only; host-closed assemblies are manifest facts, never loaded types.
+internal static class HostFreeModel {
+    public static readonly System.Reflection.Assembly TestKit = typeof(Spec).Assembly;
+    public static readonly System.Reflection.Assembly Contract = typeof(Bridge.Contract.Handshake).Assembly;
+    public static readonly System.Reflection.Assembly CspContracts = typeof(CspScope).Assembly;
+    public static readonly ArchUnitNET.Domain.Architecture Architecture =
+        new ArchLoader().LoadAssemblies(TestKit, Contract, CspContracts).Build();
+
+    // Every ArchUnitNET rule is vacuously true over an empty type set; rules call this gate first.
+    public static void NonVacuous(params System.Reflection.Assembly[] assemblies) =>
+        Spec.Matrix(rows: [.. assemblies.Select(assembly => (
+            Label: $"types loaded for {assembly.GetName().Name}",
+            Probe: (Func<bool>)(() => Architecture.Types.Any(type => string.Equals(a: type.Assembly.Name, b: assembly.GetName().Name, comparisonType: StringComparison.Ordinal))),
+            Expected: true))]);
 }
 
 // --- [OPERATIONS] --------------------------------------------------------------------------
 public sealed class AssemblyBoundaryLaws {
     private static readonly string[] ProjectRoots = ["apps", "libs", "tests", "tools"];
 
-    private static readonly FrozenDictionary<string, FrozenSet<string>> ExpectedProjectReferences = new Dictionary<string, string[]>(StringComparer.Ordinal) {
-        ["libs/csharp/Rasm/Rasm.csproj"] = [],
-        ["libs/csharp/Rasm.Element/Rasm.Element.csproj"] = ["../Rasm/Rasm.csproj"],
-        ["libs/csharp/Rasm.Materials/Rasm.Materials.csproj"] = ["../Rasm/Rasm.csproj", "../Rasm.Element/Rasm.Element.csproj"],
-        ["libs/csharp/Rasm.Bim/Rasm.Bim.csproj"] = ["../Rasm/Rasm.csproj", "../Rasm.Element/Rasm.Element.csproj"],
-        ["libs/csharp/Rasm.Fabrication/Rasm.Fabrication.csproj"] = ["../Rasm/Rasm.csproj", "../Rasm.Element/Rasm.Element.csproj"],
-        ["libs/csharp/Rasm.AppHost/Rasm.AppHost.csproj"] = [],
-        ["libs/csharp/Rasm.Persistence/Rasm.Persistence.csproj"] = ["../Rasm/Rasm.csproj", "../Rasm.Element/Rasm.Element.csproj", "../Rasm.AppHost/Rasm.AppHost.csproj"],
-        ["libs/csharp/Rasm.Compute/Rasm.Compute.csproj"] = ["../Rasm/Rasm.csproj", "../Rasm.Element/Rasm.Element.csproj", "../Rasm.AppHost/Rasm.AppHost.csproj", "../Rasm.Persistence/Rasm.Persistence.csproj"],
-        ["libs/csharp/Rasm.AppUi/Rasm.AppUi.csproj"] = ["../Rasm/Rasm.csproj", "../Rasm.AppHost/Rasm.AppHost.csproj", "../Rasm.Compute/Rasm.Compute.csproj", "../Rasm.Persistence/Rasm.Persistence.csproj"],
-        ["libs/csharp/Rasm.Rhino/Rasm.Rhino.csproj"] = ["../Rasm/Rasm.csproj"],
-        ["libs/csharp/Rasm.Grasshopper/Rasm.Grasshopper.csproj"] = ["../Rasm/Rasm.csproj"],
-    }.ToFrozenDictionary(
-        keySelector: static row => row.Key,
-        elementSelector: static row => row.Value.ToFrozenSet(StringComparer.Ordinal),
-        comparer: StringComparer.Ordinal);
+    // Exact reference topology per project — "only" is implied by exactness, so per-project
+    // sibling facts collapse into this one folded table.
+    private static readonly (string Project, string[] References)[] Strata = [
+        ("libs/csharp/Rasm/Rasm.csproj", []),
+        ("libs/csharp/Rasm.Element/Rasm.Element.csproj", ["../Rasm/Rasm.csproj"]),
+        ("libs/csharp/Rasm.Materials/Rasm.Materials.csproj", ["../Rasm/Rasm.csproj", "../Rasm.Element/Rasm.Element.csproj"]),
+        ("libs/csharp/Rasm.Bim/Rasm.Bim.csproj", ["../Rasm/Rasm.csproj", "../Rasm.Element/Rasm.Element.csproj"]),
+        ("libs/csharp/Rasm.Fabrication/Rasm.Fabrication.csproj", ["../Rasm/Rasm.csproj", "../Rasm.Element/Rasm.Element.csproj"]),
+        ("libs/csharp/Rasm.AppHost/Rasm.AppHost.csproj", []),
+        ("libs/csharp/Rasm.Persistence/Rasm.Persistence.csproj", ["../Rasm/Rasm.csproj", "../Rasm.Element/Rasm.Element.csproj", "../Rasm.AppHost/Rasm.AppHost.csproj"]),
+        ("libs/csharp/Rasm.Compute/Rasm.Compute.csproj", ["../Rasm/Rasm.csproj", "../Rasm.Element/Rasm.Element.csproj", "../Rasm.AppHost/Rasm.AppHost.csproj", "../Rasm.Persistence/Rasm.Persistence.csproj"]),
+        ("libs/csharp/Rasm.AppUi/Rasm.AppUi.csproj", ["../Rasm/Rasm.csproj", "../Rasm.AppHost/Rasm.AppHost.csproj", "../Rasm.Compute/Rasm.Compute.csproj", "../Rasm.Persistence/Rasm.Persistence.csproj"]),
+        ("libs/csharp/Rasm.Rhino/Rasm.Rhino.csproj", ["../Rasm/Rasm.csproj"]),
+        ("libs/csharp/Rasm.Grasshopper/Rasm.Grasshopper.csproj", ["../Rasm/Rasm.csproj"]),
+    ];
 
     [Fact]
-    public void WorkspaceSolutionContainsEveryCsharpProject() {
-        FrozenSet<string> solution = PackageAdmission.SolutionProjects();
-        FrozenSet<string> disk = PackageAdmission.DiskProjects(roots: ProjectRoots);
-        Assert.Equal(expected: Sorted(disk), actual: Sorted(solution));
+    public void CsharpProjectGraphMatchesTheStrataTable() =>
+        Manifests.ProjectGraph(rows: Strata);
+
+    [Fact]
+    public void WorkspaceSolutionMatchesDiskAndCarriesTheScenarioHome() {
+        FrozenSet<string> solution = Manifests.SolutionProjects();
+        FrozenSet<string> disk = Manifests.DiskProjects(roots: ProjectRoots);
+        Assert.Equal(expected: Sorted(rows: disk), actual: Sorted(rows: solution));
+        Assert.Contains(expected: "tests/csharp/scenarios/Rasm.Scenarios.csproj", collection: solution);
     }
 
     [Fact]
-    public void CsharpPackageGraphFollowsPlanningStrata() {
-        string plan = PackageAdmission.ReadText(relativePath: "libs/csharp/.planning/ARCHITECTURE.md");
-        foreach ((string project, FrozenSet<string> expected) in ExpectedProjectReferences) {
-            Assert.Contains(expectedSubstring: Path.GetFileNameWithoutExtension(path: project), actualString: plan, comparisonType: StringComparison.Ordinal);
-            Assert.Equal(expected: Sorted(expected), actual: Sorted(PackageAdmission.Project(relativePath: project).ProjectReferences));
-        }
+    public void CentralVersioningHasNoProjectLocalDrift() {
+        Spec.Holds(condition: Manifests.CentralOverridesDisabled(), label: "Directory.Packages.props must pin CentralPackageVersionOverrideEnabled to false");
+        Seq<(string Project, string Package)> rows = Manifests.VersionedPackageRows(roots: ProjectRoots);
+        Spec.Holds(condition: rows.IsEmpty, label: $"Version-attributed PackageReference rows breach CPM: {string.Join(separator: "; ", values: rows.Map(static row => $"{row.Project}:{row.Package}"))}");
     }
 
     [Fact]
-    public void KernelProjectHasNoProjectReferences() =>
-        PackageAdmission.Project(relativePath: "libs/csharp/Rasm/Rasm.csproj").IncludesNoProjects();
-
-    [Fact]
-    public void ElementReferencesOnlyKernel() =>
-        PackageAdmission.Project(relativePath: "libs/csharp/Rasm.Element/Rasm.Element.csproj").IncludesOnlyProjects("../Rasm/Rasm.csproj");
-
-    [Fact]
-    public void BimReferencesOnlyKernelAndElement() =>
-        PackageAdmission.Project(relativePath: "libs/csharp/Rasm.Bim/Rasm.Bim.csproj").IncludesOnlyProjects("../Rasm/Rasm.csproj", "../Rasm.Element/Rasm.Element.csproj");
-
-    [Fact]
-    public void FabricationReferencesOnlyKernelAndElement() =>
-        PackageAdmission.Project(relativePath: "libs/csharp/Rasm.Fabrication/Rasm.Fabrication.csproj").IncludesOnlyProjects("../Rasm/Rasm.csproj", "../Rasm.Element/Rasm.Element.csproj");
-
-    [Fact]
-    public void RhinoBoundaryReferencesOnlyKernel() =>
-        PackageAdmission.Project(relativePath: "libs/csharp/Rasm.Rhino/Rasm.Rhino.csproj").IncludesOnlyProjects("../Rasm/Rasm.csproj");
-
-    [Fact]
-    public void GrasshopperBoundaryReferencesOnlyKernel() =>
-        PackageAdmission.Project(relativePath: "libs/csharp/Rasm.Grasshopper/Rasm.Grasshopper.csproj").IncludesOnlyProjects("../Rasm/Rasm.csproj");
-
-    [Fact]
-    public void AppUiReferencesOnlyApplicationRuntimeOwners() =>
-        PackageAdmission.Project(relativePath: "libs/csharp/Rasm.AppUi/Rasm.AppUi.csproj").IncludesOnlyProjects(
-            "../Rasm/Rasm.csproj",
-            "../Rasm.AppHost/Rasm.AppHost.csproj",
-            "../Rasm.Compute/Rasm.Compute.csproj",
-            "../Rasm.Persistence/Rasm.Persistence.csproj");
-
-    [Fact]
-    public void ComputeReferencesOnlyKernelElementAppHostAndPersistence() =>
-        PackageAdmission.Project(relativePath: "libs/csharp/Rasm.Compute/Rasm.Compute.csproj").IncludesOnlyProjects(
-            "../Rasm/Rasm.csproj",
-            "../Rasm.Element/Rasm.Element.csproj",
-            "../Rasm.AppHost/Rasm.AppHost.csproj",
-            "../Rasm.Persistence/Rasm.Persistence.csproj");
-
-    [Fact]
-    public void MaterialsReferencesOnlyKernelAndElement() =>
-        PackageAdmission.Project(relativePath: "libs/csharp/Rasm.Materials/Rasm.Materials.csproj").IncludesOnlyProjects("../Rasm/Rasm.csproj", "../Rasm.Element/Rasm.Element.csproj");
-
-    [Fact]
-    public void PersistenceReferencesOnlyKernelElementAndAppHost() =>
-        PackageAdmission.Project(relativePath: "libs/csharp/Rasm.Persistence/Rasm.Persistence.csproj").IncludesOnlyProjects(
-            "../Rasm/Rasm.csproj",
-            "../Rasm.Element/Rasm.Element.csproj",
-            "../Rasm.AppHost/Rasm.AppHost.csproj");
-
-    [Fact]
-    public void CoreDoesNotDependOnBoundaryLibraries() {
-        FrozenSet<string> references = AssemblyReferences(assembly: ArchitectureModel.Core);
-        Assert.DoesNotContain(expected: "Rasm.Grasshopper", collection: references);
-        Assert.DoesNotContain(expected: "Rasm.Rhino", collection: references);
+    public void ContractNeverDependsOnTheTestKit() {
+        HostFreeModel.NonVacuous(HostFreeModel.Contract, HostFreeModel.TestKit);
+        Assert.True(condition: Types().That().ResideInAssembly(HostFreeModel.Contract)
+            .Should().NotDependOnAny(Types().That().ResideInAssembly(HostFreeModel.TestKit))
+            .HasNoViolations(architecture: HostFreeModel.Architecture));
     }
 
     [Fact]
-    public void BoundaryAssembliesDoNotReferenceEachOtherUpstream() {
-        PackageAdmission.Project(relativePath: "libs/csharp/Rasm.Rhino/Rasm.Rhino.csproj").ExcludesProjects("../Rasm.Grasshopper/Rasm.Grasshopper.csproj");
-        PackageAdmission.Project(relativePath: "libs/csharp/Rasm.Grasshopper/Rasm.Grasshopper.csproj").ExcludesProjects("../Rasm.Rhino/Rasm.Rhino.csproj");
+    public void CspContractsDependOnNoRasmAssembly() {
+        HostFreeModel.NonVacuous(HostFreeModel.CspContracts);
+        Assert.True(condition: Types().That().ResideInAssembly(HostFreeModel.CspContracts)
+            .Should().NotDependOnAny(Types().That().ResideInAssembly(HostFreeModel.TestKit, HostFreeModel.Contract))
+            .HasNoViolations(architecture: HostFreeModel.Architecture));
+    }
+
+    // The TestKit is host-free and wire-blind end to end; the ScenarioKit assembly owns the bridge
+    // wire seam, so the whole TestKit assembly carries the wire-blind obligation.
+    [Fact]
+    public void TestKitStaysWireBlind() {
+        HostFreeModel.NonVacuous(HostFreeModel.TestKit);
+        Assert.True(condition: Types().That().ResideInAssembly(HostFreeModel.TestKit)
+            .Should().NotDependOnAny(Types().That().ResideInAssembly(HostFreeModel.Contract))
+            .HasNoViolations(architecture: HostFreeModel.Architecture));
     }
 
     [Fact]
-    public void HostBoundaryProjectsDoNotDeclarePackageReferences() {
-        PackageAdmission.Project(relativePath: "libs/csharp/Rasm.Rhino/Rasm.Rhino.csproj").IncludesNoPackages();
-        PackageAdmission.Project(relativePath: "libs/csharp/Rasm.Grasshopper/Rasm.Grasshopper.csproj").IncludesNoPackages();
-    }
-
-    [Fact]
-    public void KernelDomainTypesDoNotDependOnVectorOrAnalysisNamespaces() {
-        TypesShouldConjunction domainTypesDoNotDependOnVectors =
-            Types().That().ResideInNamespace("Rasm.Domain").Should().NotDependOnAny(Types().That().ResideInNamespace("Rasm.Vectors"));
-        TypesShouldConjunction domainTypesDoNotDependOnAnalysis =
-            Types().That().ResideInNamespace("Rasm.Domain").Should().NotDependOnAny(Types().That().ResideInNamespace("Rasm.Analysis"));
-
-        Assert.True(condition: domainTypesDoNotDependOnVectors.HasNoViolations(ArchitectureModel.Kernel));
-        Assert.True(condition: domainTypesDoNotDependOnAnalysis.HasNoViolations(ArchitectureModel.Kernel));
-    }
-
-    [Fact]
-    public void KernelVectorTypesDoNotDependOnAnalysisNamespaces() {
-        TypesShouldConjunction vectorTypesDoNotDependOnAnalysis =
-            Types().That().ResideInNamespace("Rasm.Vectors").Should().NotDependOnAny(Types().That().ResideInNamespace("Rasm.Analysis"));
-
-        Assert.True(condition: vectorTypesDoNotDependOnAnalysis.HasNoViolations(ArchitectureModel.Kernel));
+    public void HostFreeRasmSlicesAreFreeOfCycles() {
+        HostFreeModel.NonVacuous(HostFreeModel.TestKit, HostFreeModel.Contract, HostFreeModel.CspContracts);
+        Assert.True(condition: SliceRuleDefinition.Slices().Matching(pattern: "Rasm.(*)")
+            .Should().BeFreeOfCycles()
+            .HasNoViolations(architecture: HostFreeModel.Architecture));
     }
 
     private static string[] Sorted(IEnumerable<string> rows) =>
         [.. rows.Order(comparer: StringComparer.Ordinal)];
-
-    private static FrozenSet<string> AssemblyReferences(Assembly assembly) =>
-        assembly.GetReferencedAssemblies()
-            .Select(static name => name.Name)
-            .OfType<string>()
-            .ToFrozenSet(StringComparer.Ordinal);
 }

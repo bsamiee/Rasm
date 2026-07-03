@@ -67,12 +67,12 @@ for game-engine integration (`SharpGLTF.Runtime`) across three coordinated packa
 | [INDEX] | [SYMBOL]           | [RAIL]   | [CAPABILITY]                                                                                                           |
 | :-----: | :----------------- | :------- | :--------------------------------------------------------------------------------------------------------------------- |
 |  [01]   | `Scene`            | geometry | root nodes of a scene                                                                                                  |
-|  [02]   | `Node`             | geometry | scene-graph node; carries mesh, skin, TRS, children                                                                    |
+|  [02]   | `Node`             | geometry | scene-graph node; carries mesh, skin, TRS, children; `WorldMatrix` (`Matrix4x4`, composed local-to-world), `GetGpuInstancing()`/`UseGpuInstancing()` -> `MeshGpuInstancing`, static `Flatten(IVisualNodeContainer)` -> `IEnumerable<Node>` depth-first scene walk |
 |  [03]   | `Mesh`             | geometry | set of `MeshPrimitive` objects for rendering; `Primitives` (`IReadOnlyList<MeshPrimitive>`), `LogicalParent` (owning `ModelRoot`)                  |
 |  [04]   | `MeshPrimitive`    | geometry | geometry + material; carries attribute accessors; `LogicalParent` (owning `Mesh`, so `prim.LogicalParent.LogicalParent` reaches the `ModelRoot`); `GetVertexAccessor(string)`/`GetIndexAccessor()` -> `Accessor` |
-|  [05]   | `Accessor`         | geometry | typed view into a buffer view; scalar/vec/matrix; `AsScalarArray()`/`AsVector2Array()`/`AsVector3Array()`/`AsIndicesArray()` -> `IAccessorArray<T>` typed element views |
+|  [05]   | `Accessor`         | geometry | typed view into a buffer view; scalar/vec/matrix; `AsScalarArray()`/`AsVector2Array()`/`AsVector3Array()`/`AsIndicesArray()` -> `IAccessorArray<T>` typed element views reading `SourceBufferView.Content` (a bufferView-LESS accessor — the KHR_draco spec shape — backs no region, so a typed-view `Fill` is no write-back there); `SetData(BufferView, int byteOffset, int count, AttributeFormat)`/`SetDataFrom(Accessor)` re-point the accessor — the Draco write-back lane is `ModelRoot.UseBufferView` + `SetData` |
 |  [06]   | `BufferView`       | geometry | contiguous subset of a `Buffer`; `Content` (`ArraySegment<byte>`) — the raw view bytes a compressed-buffer-view decode reads; `IsIndexBuffer`/`IsVertexBuffer` (`bool`, the `BufferMode` target discriminant) |
-|  [07]   | `Buffer`           | geometry | raw binary blob; internal or external URI                                                                              |
+|  [07]   | `Buffer`           | geometry | raw binary blob; internal or external URI; `Content` (`byte[]`, the whole model-backed buffer) — the EXT_meshopt_compression compressed slice reads `LogicalBuffers[i].Content` at the extension's buffer/byteOffset/byteLength, never the fallback view's own region |
 |  [08]   | `Material`         | geometry | material appearance; PBR metallic-roughness and channel parameters reached through `FindChannel`                       |
 |  [09]   | `MaterialChannel`  | geometry | `readonly struct` channel projection; carries texture or parameter values                                              |
 |  [10]   | `Texture`          | geometry | texture + sampler binding                                                                                              |
@@ -89,7 +89,7 @@ for game-engine integration (`SharpGLTF.Runtime`) across three coordinated packa
 
 | [INDEX] | [SYMBOL]            | [RAIL]   | [CAPABILITY]                                      |
 | :-----: | :------------------ | :------- | :------------------------------------------------ |
-|  [01]   | `MeshGpuInstancing` | geometry | KHR_mesh_gpu_instancing extension; instance attrs |
+|  [01]   | `MeshGpuInstancing` | geometry | KHR_mesh_gpu_instancing extension; instance attrs; `Count` (`int`), `GetLocalMatrix(int)`/`GetWorldMatrix(int)` (`Matrix4x4`, per-instance TRS composed with the owner `Node.WorldMatrix`) |
 |  [02]   | `PunctualLight`     | geometry | KHR_lights_punctual: directional, point, spot     |
 
 [PUBLIC_TYPE_SCOPE]: Schema2 — encoding enums and accessor descriptors
@@ -242,9 +242,9 @@ for game-engine integration (`SharpGLTF.Runtime`) across three coordinated packa
 | [INDEX] | [SYMBOL]          | [RAIL]   | [CAPABILITY]                             |
 | :-----: | :---------------- | :------- | :--------------------------------------- |
 |  [01]   | `IVertexGeometry` | geometry | interface for geometry fragments         |
-|  [02]   | `IVertexMaterial` | geometry | interface for material fragments         |
+|  [02]   | `IVertexMaterial` | geometry | interface for material fragments — `MaxColors`/`MaxTextCoords`, `GetColor(int)`/`GetTexCoord(int)`, `SetColor`/`SetTexCoord` |
 |  [03]   | `IVertexSkinning` | geometry | interface for skinning fragments         |
-|  [04]   | `IVertexCustom`   | geometry | interface for custom attribute fragments |
+|  [04]   | `IVertexCustom`   | geometry | interface for custom attribute fragments (`: IVertexMaterial, IVertexReflection`) — `CustomAttributes` (`IEnumerable<string>`), `TryGetCustomAttribute(string, out object)`, `SetCustomAttribute(string, object)`; a `_FEATURE_ID_n` custom-attribute vertex fragment implements this pair and the `VertexBuilder<TvG,TvM,TvS>` `(in TvG, in TvM)` ctor overload assembles it |
 
 [PUBLIC_TYPE_SCOPE]: Toolkit — material and morph builders
 - package: `SharpGLTF.Toolkit`
@@ -312,6 +312,8 @@ The template types (`ArmatureTemplate`, `NodeTemplate`, `DrawableTemplate` and i
 |  [07]   | `ReadContext.IdentifyBinaryContainer` | `(Stream)`                            | returns whether stream is glTF or GLB        |
 |  [08]   | `ModelRoot.GetSatellitePaths`         | `(string)`                            | returns satellite file paths for a glTF path |
 |  [09]   | `ReadContext.ReadJson` / `ReadJsonBytes` | `(Stream)` → `string` / `ReadOnlyMemory<byte>` | extracts the JSON chunk from a GLB container — the raw-DOM read for an extension SharpGLTF drops (Draco/meshopt) |
+|  [10]   | `ReadContext.CreateFromDictionary`    | `(IReadOnlyDictionary<string, ArraySegment<byte>>, bool checkExtensions = true)` | static factory over an in-memory satellite map — the file-system-free multi-part `.gltf` decode |
+|  [11]   | `ReadContext.Validation`              | `ValidationMode` (get/set)            | per-context validation posture — `Skip` admits a fallback-less compressed view the decode then probes loud |
 
 [ENTRYPOINT_SCOPE]: ModelRoot — write
 - package: `SharpGLTF.Core`

@@ -22,9 +22,16 @@ export * as Statement from "@effect/sql/Statement"
 
 [PACKAGE_SURFACE]: `@effect/sql`
 - package: `@effect/sql`
+- version: `0.51.1`
+- license: `MIT`
+- effect-peer: `effect ^3.21.x`, `@effect/platform ^0.96.x` (`FileSystem`/`Path` for filesystem migration loaders), `@effect/experimental ^0.60.x` (`Reactivity`, `VariantSchema`, and the `EventJournal`/`EventLog`/`PersistedQueue` overlays the durable subsystems back) — `.api/effect.md`, `.api/effect-platform.md`, `.api/effect-experimental.md`
+- dep: `uuid ^11.0.x` (behind `Model.UuidV4Insert`/`UuidV4WithGenerate`) — bundled, not peer
+- runtime: dialect-agnostic + tier-agnostic at the type level; every concrete `SqlClient` provider (`@effect/sql-pg`, …) is node/bun with a host driver, so a browser bundle never imports a dialect package
 - entry: `@effect/sql` (namespace re-export) plus the twelve sub-paths `@effect/sql/SqlClient`, `@effect/sql/Statement`, `@effect/sql/SqlConnection`, `@effect/sql/SqlError`, `@effect/sql/SqlSchema`, `@effect/sql/SqlResolver`, `@effect/sql/Model`, `@effect/sql/Migrator`, `@effect/sql/SqlStream`, `@effect/sql/SqlEventJournal`, `@effect/sql/SqlEventLogServer`, `@effect/sql/SqlPersistedQueue`
+- modules: `SqlClient`, `Statement`, `SqlConnection`, `SqlError`, `SqlSchema`, `SqlResolver`, `Model`, `Migrator`, `SqlStream`, `SqlEventJournal`, `SqlEventLogServer`, `SqlPersistedQueue`
 - asset: `SqlClient` service + tag + `make`, the `Statement` template DSL / `Fragment` algebra / dialect `Compiler`, `Connection`/`Acquirer` driver contract, `SqlError`/`ResultLengthMismatch` rail, `SqlSchema` and `SqlResolver` schema-bridged query layers, the `Model` schema-class family with `makeRepository`/`makeDataLoaders`, the generic `Migrator` runner + loaders, the pause/resume stream adapter, and the durable journal/queue/event-log subsystems
 - rail: persistence / sql-core
+- owner consumers: `SqlBoundary` (`persistence/store#STORE_BOUNDARY` — `Model.Class` registry + `Migrator` over the one client); `ReactiveQuery` (`persistence/reactive#REACTIVE_QUERY` — `SqlClient.reactive`/`reactiveMailbox`); `WorkStore` (`persistence/work#WORK_AND_SIGNALS` — `SqlPersistedQueue`); `Outbox` (`execution/outbox#TRANSACTIONAL_OUTBOX` — same-txn `Model.Class` + `withTransaction`); `IdempotencyLedger` (`persistence/idempotency#IDEMPOTENCY_LEDGER` — keyed `Model.Class`); `SqlMessageStorage`/`SqlRunnerStorage` (`execution/backplane#RUNNER_AND_SCHEDULING` — the cluster's durable stores on this one `SqlClient`)
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -337,11 +344,13 @@ const setTransformer: (f: Statement.Transformer) => Layer.Layer<never, never, ne
 | [INDEX] | [SYMBOL]              | [TYPE_FAMILY] | [RAIL]                                                                                                    |
 | :-----: | :-------------------- | :------------ | :-------------------------------------------------------------------------------------------------------- |
 |  [01]   | `Connection`          | interface     | the low-level execute/stream/values driver seam                                                           |
-|  [02]   | `Connection.Acquirer` | type alias    | `Effect<Connection, SqlError, Scope>` — scoped connection get (namespace member, not a standalone export) |
-|  [03]   | `Row`                 | type alias    | `Record<string, unknown>` — the default decoded-row shape                                                 |
+|  [02]   | `Connection` (tag)    | `Context.Tag` | `Context.Tag<Connection, Connection>` — ambient active-connection accessor (interface+value merge)        |
+|  [03]   | `Connection.Acquirer` | type alias    | `Effect<Connection, SqlError, Scope>` — scoped connection get (namespace member, not a standalone export) |
+|  [04]   | `Row`                 | type alias    | `Record<string, unknown>` — the default decoded-row shape                                                 |
 
 ```ts contract
 import { SqlError } from "@effect/sql/SqlError"
+import type * as Context from "effect/Context"
 import type { Effect } from "effect/Effect"
 import type { Scope } from "effect/Scope"
 import type { Stream } from "effect/Stream"
@@ -367,6 +376,9 @@ interface Connection {
 declare namespace Connection {
   type Acquirer = Effect<Connection, SqlError, Scope>
 }
+// Interface + value merge: the same name is the driver seam type AND the service tag exposing the
+// active connection. `SqlClient.reserve` yields the Connection value; transaction internals read the tag.
+const Connection: Context.Tag<Connection, Connection>
 type Row = { readonly [column: string]: unknown }
 ```
 
@@ -641,9 +653,11 @@ const makeDataLoaders: <S extends AnyNoContext, Id extends (keyof S["Type"]) & (
 |  [07]   | `fromGlob`           | loader        | `Record<string, () => Promise<any>>` → `Loader`               |
 |  [08]   | `fromBabelGlob`      | loader        | `Record<string, any>` → `Loader`                              |
 |  [09]   | `fromRecord`         | loader        | `Record<string, Effect<void, unknown, SqlClient>>` → `Loader` |
+|  [10]   | `fromFileSystem`     | loader        | `(dir) => Loader<FileSystem>` — the `@effect/sql/Migrator/FileSystem` sub-path (needs `@effect/platform` `FileSystem`) |
 
 ```ts contract
 import type * as Effect from "effect/Effect"
+import type { FileSystem } from "@effect/platform/FileSystem"
 import type { SqlClient } from "@effect/sql/SqlClient"
 import type { SqlError } from "@effect/sql/SqlError"
 import type { YieldableError } from "effect/Cause"
@@ -672,6 +686,7 @@ const make: <RD = never>(opts: {
 const fromGlob: (migrations: Record<string, () => Promise<any>>) => Loader
 const fromBabelGlob: (migrations: Record<string, any>) => Loader
 const fromRecord: (migrations: Record<string, Effect.Effect<void, unknown, SqlClient>>) => Loader
+const fromFileSystem: (directory: string) => Loader<FileSystem>  // @effect/sql/Migrator/FileSystem sub-path
 ```
 
 ### @effect/sql/SqlStream — pause/resume stream adapter
@@ -748,15 +763,17 @@ const layerStorageSubtle: (options?: { readonly entryTablePrefix?: string; reado
   => Layer.Layer<EventLogServer.Storage, SqlError, SqlClient>
 
 // SqlPersistedQueue  (tableName / pollInterval / lockRefreshInterval / lockExpiration)
-const makeQueue: (options?: { readonly tableName?: string; readonly pollInterval?: Duration.DurationInput; readonly lockRefreshInterval?: Duration.DurationInput; readonly lockExpiration?: Duration.DurationInput })
+// Exported as `make` — reach it fully-qualified (SqlPersistedQueue.make) to disambiguate from SqlEventJournal.make.
+const make: (options?: { readonly tableName?: string; readonly pollInterval?: Duration.DurationInput; readonly lockRefreshInterval?: Duration.DurationInput; readonly lockExpiration?: Duration.DurationInput })
   => Effect.Effect<PersistedQueue.PersistedQueueStore["Type"], SqlError, SqlClient | Scope>
 const layerStore: (options?: { readonly tableName?: string; readonly pollInterval?: Duration.DurationInput; readonly lockRefreshInterval?: Duration.DurationInput; readonly lockExpiration?: Duration.DurationInput })
   => Layer.Layer<PersistedQueue.PersistedQueueStore, SqlError, SqlClient>
 ```
 
 `layerStorageSubtle` drops the `EventLogEncryption` requirement (SubtleCrypto-free variant);
-`layerStorage` requires it. `SqlPersistedQueue` exports its constructor as `make` (aliased `makeQueue`
-above to avoid colliding with the `SqlEventJournal.make` row).
+`layerStorage` requires it. `SqlEventJournal.make` and `SqlPersistedQueue.make` are distinct
+same-named constructors — reach each namespaced (`SqlPersistedQueue.make` yields the
+`PersistedQueue.PersistedQueueStore` service value, `SqlEventJournal.make` the `EventJournal` service).
 
 ## [03]-[IMPLEMENTATION_LAW]
 
@@ -818,7 +835,8 @@ above to avoid colliding with the `SqlEventJournal.make` row).
 - `Migrator.make({ dumpSchema? })` is the dialect-parameterized runner factory; dialect packages
   (e.g. `@effect/sql-pg/PgMigrator`) wrap it into `run`/`layer`. Pick a loader by migration source:
   `fromGlob` (bundler lazy-import map), `fromBabelGlob` (eager import map), `fromRecord` (inline
-  programmatic effects); dialect/platform packages add filesystem loaders.
+  programmatic effects), and `fromFileSystem(dir)` from the `@effect/sql/Migrator/FileSystem` sub-path
+  (on-disk `.sql`/`.ts` files, adding `@effect/platform` `FileSystem` to the loader requirement).
 - `MigrationError.reason` is a closed five-member enum (`"bad-state" | "import-error" | "failed" |
   "duplicates" | "locked"`) — match on `reason`, never on `message` text. `MigratorOptions.table`
   names the bookkeeping table; `schemaDirectory` targets the `dumpSchema` hook.
@@ -830,3 +848,28 @@ above to avoid colliding with the `SqlEventJournal.make` row).
   the wire/transport tier as decoded domain values, not `SqlClient`/`Statement` handles.
 - The `SqlError` rail is the single failure channel for all execution; `ParseError` rides alongside
   it on the `SqlSchema`/`SqlResolver`/`Model` layers; `MigrationError` is the migration-only rail.
+
+[STACKING]:
+- `@effect/sql` is the abstract SQL owner; a dialect package (`@effect/sql-pg` — `.api/effect-sql-pg.md`)
+  provisions the `SqlClient` tag. Every folder codes against the `SqlClient` tag from THIS page and lets
+  the app root pick the dialect `layer`; only `listen`/`notify`/`json`/`config` demand the concrete
+  `PgClient` tag. `make` is the dialect-authoring seam, never an application entry.
+- The durable subsystems are the SQL system-of-record UNDER the `@effect/experimental` overlays
+  (`.api/effect-experimental.md`): `SqlEventJournal.layer` backs `EventJournal`, `SqlEventLogServer.layerStorage`
+  backs the `EventLogServer` sync store, `SqlPersistedQueue.layerStore` backs `PersistedQueue`. Experimental's
+  `[R19]` law names this the record of truth — the overlays never become a second authority. `WorkStore`
+  (`persistence/work#WORK_AND_SIGNALS`) is the queue store; the cluster's `SqlMessageStorage`/`SqlRunnerStorage`
+  (`execution/backplane#RUNNER_AND_SCHEDULING`) ride the same `SqlClient`.
+- `Model.Class` variant schemas fold over `@effect/experimental` `VariantSchema` (the `select`/`insert`/
+  `update`/`json`/`jsonCreate`/`jsonUpdate` axis); field values are `effect/Schema` schemas, so one
+  `Model.Class` is simultaneously the DB row codec, the CRUD repository shape (`makeRepository`), the wire
+  payload (`.json`), and — via `Entity.fromRpcGroup` payloads (`.api/effect-rpc.md`, `messaging/entity#ENTITY`)
+  — the actor-message schema. `makeRepository`/`makeDataLoaders` are the only insert/update/find owners.
+- `SqlSchema`/`SqlResolver` are the decode + batch owners onto `effect/Schema` and `effect/Request`/
+  `RequestResolver`: `SqlSchema.findAll`/`findOne`/`single`/`void` decode raw rows against a `Result` schema
+  (adding `ParseError`), and `SqlResolver.ordered`/`grouped`/`findById` build batched `RequestResolver`s the
+  Effect request machinery dedups — never hand-map a row or hand-batch a query.
+- `SqlClient.reactive`/`reactiveMailbox` ride `@effect/experimental` `Reactivity`; `withTransaction` gives
+  nested-savepoint transactions; `spanAttributes` threads into the OTLP span tree
+  (`.api/effect-opentelemetry.md`). A `Statement<A>` IS an `Effect<ReadonlyArray<A>, SqlError>` — yield it to
+  run, or take `.stream`/`.values`/`.raw`/`.compile()` for the streaming/positional/native/dry-run projections.

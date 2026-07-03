@@ -70,10 +70,10 @@
 | [INDEX] | [SYMBOL]                                  | [TYPE_FAMILY]      | [RAIL]                                                  |
 | :-----: | :---------------------------------------- | :----------------- | :----------------------------------------------------- |
 |  [01]   | `VtValue`                                 | type-erased value  | the value box every `UsdAttribute.Get`/`Set` exchanges |
-|  [02]   | `VtVec3fArray` / `VtVec3dArray` / `VtIntArray` / `VtFloatArray` / `VtTokenArray` | typed array | the point/index/scalar/token attribute arrays |
+|  [02]   | `VtVec3fArray` / `VtVec3dArray` / `VtIntArray` / `VtFloatArray` / `VtTokenArray` | typed array | the point/index/scalar/token attribute arrays; each declares the explicit conversion FROM `VtValue` (`(VtVec3fArray)value` / `(VtIntArray)value`) — the typed unbox the mesh-bridge reads after `UsdAttribute.Get(VtValue, …)` |
 |  [03]   | `Vt_ArrayBase`                            | array base         | the base every `Vt*Array` derives (`size`/`resize`/indexer) |
 |  [04]   | `GfVec3f` / `GfVec3d` / `GfVec2f`         | vector value       | the point/normal/uv component value types              |
-|  [05]   | `GfMatrix4d` / `GfMatrix3d`               | matrix value       | the transform value types (`UsdGeomXformCache` output) |
+|  [05]   | `GfMatrix4d` / `GfMatrix3d`               | matrix value       | the transform value types (`UsdGeomXformCache` output); `GfMatrix4d.GetRow(int)` → `GfVec4d` (indexer-addressable `this[int]` components) — the row-major double read the numerics narrow folds |
 |  [06]   | `GfQuatf` / `GfRotation` / `GfBBox3d` / `GfRange3d` | math value | quaternion, rotation, bound, and range value types |
 |  [07]   | `TfToken` / `TfTokenVector`               | interned token     | the name/key type for prim names, attribute names, schema ids |
 |  [08]   | `SdfValueTypeName` / `SdfValueTypeNames`  | value-type name    | the attribute type-name (`Point3fArray`/`Normal3fArray`/`TexCoord2fArray`/`Token`/…) `CreateAttribute` takes |
@@ -95,6 +95,8 @@
 |  [05]   | `UsdStage.Export(string filename, bool addSourceFileComment, StdStringMap args)` / `ExportToString(out string)` | export | writes the composed stage to a file/string |
 |  [06]   | `UsdStage.Flatten(bool addSourceFileComment)` → `SdfLayerHandle`                 | flatten        | composes the layer stack into one flat layer      |
 |  [07]   | `UsdStage.GetRootLayer()` / `GetSessionLayer()` / `GetEditTarget()` / `SetEditTarget(UsdEditTarget)` | layer access | the root/session layers and the active edit target |
+|  [08]   | `UsdGeom.UsdGeomGetStageUpAxis(UsdStage)` → `TfToken` / `UsdGeomSetStageUpAxis(UsdStage, TfToken)` → `bool` | stage metadata | the PER-STAGE `upAxis` metadatum (`"Y"` the USD default, `"Z"` the CAD/BIM export posture) — the import basis selects per stage off this token, the `format` row's Y-up `Frame` staying the default |
+|  [09]   | `UsdGeom.UsdGeomGetStageMetersPerUnit(UsdStage)` → `double`                      | stage metadata | the per-stage linear-unit scale (`metersPerUnit`, default 0.01) beside the up-axis read |
 |  [08]   | `UsdStage.MuteLayer(string)` / `SetStartTimeCode(double)` / `SetEndTimeCode(double)` / `SetTimeCodesPerSecond(double)` | stage meta | layer muting and the animation time range |
 |  [09]   | `UsdStage.IsSupportedFile(string filePath)`                                      | probe          | format admissibility before open                  |
 

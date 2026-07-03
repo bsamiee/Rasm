@@ -10,15 +10,17 @@ import msgspec
 
 from tests.python._testkit.laws import register_law
 from tests.python._testkit.spec import assert_error_status, assert_ok, support_matrix
+from tests.python.tools.assay.kit import SeamExecutor
 from tools.assay.composition.registry import REGISTRY
-from tools.assay.core.model import _sarif_status, Check, Claim, Fault, Input, Language, Mode, receipt, Runner, StaticRun, Tool
+from tools.assay.core.model import Check, Claim, Fault, Input, Language, Mode, RailStatus, receipt, Runner, StaticRun, Tool
 from tools.assay.core.routing import Routed, Scope, TargetFiles
-from tools.assay.core.status import RailStatus
+from tools.assay.diagnostics import sarif_status
 import tools.assay.rails.static as static_rail
 from tools.assay.rails.static import run, StaticParams
 
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from pathlib import Path
 
     from expression import Result
@@ -39,7 +41,7 @@ def _compiling_probe(check: Check, **_kw: object) -> Result[Completed, Fault]:
     return Ok(receipt((check.tool.name,), 0, status=RailStatus.OK))
 
 
-def _recording_fan(calls: list[tuple[Mode, ...]]) -> object:
+def _recording_fan(calls: list[tuple[Mode, ...]]) -> Callable[..., tuple[Result[Completed, Fault], ...]]:
     def fan(checks: tuple[Check, ...], **_kw: object) -> tuple[Result[Completed, Fault], ...]:
         calls.append(tuple(check.tool.mode for check in checks))
         return _ok_static_fan(checks)
@@ -72,13 +74,12 @@ def test_registry_exposes_one_polymorphic_static_verb() -> None:
 register_law(REGISTRY, "static_collapses_to_one_verb")
 
 
-def test_cli_consumes_grouped_folder_and_file_targets(cli: VerbRunner, assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_cli_consumes_grouped_folder_and_file_targets(cli: VerbRunner, assay_root: AssayHarness) -> None:
     """Grouped --folder and --file flags consume multiple targets."""
     assay_root.write("src/a.py", "")
     assay_root.write("pkg/b.py", "")
     assay_root.write("single/c.py", "")
-    monkeypatch.setattr(static_rail, "fan_out", _ok_static_fan)
-    result = cli("static", "--folder", "src", "pkg", "--file", "single/c.py")
+    result = cli("static", "--folder", "src", "pkg", "--file", "single/c.py", executor=SeamExecutor(fan_fn=_ok_static_fan))
     report = result.envelope.report
     assert report is not None
     assert isinstance(report.detail, StaticRun)
@@ -116,8 +117,8 @@ def test_python_lane_runs_fix_before_diagnostics(monkeypatch: pytest.MonkeyPatch
     assay_root.write("tools/assay/probe.py", "")
     calls: list[tuple[Mode, ...]] = []
     monkeypatch.setattr(static_rail, "leased", lambda _resource, run, **_kw: run(object()))
-    monkeypatch.setattr(static_rail, "fan_out", _recording_fan(calls))
-    report = assert_ok(run(assay_root.settings, assay_root.scope(Claim.STATIC), StaticParams(folders=("tools/assay",))))
+    executor = SeamExecutor(fan_fn=_recording_fan(calls))
+    report = assert_ok(run(assay_root.settings, assay_root.scope(Claim.STATIC), StaticParams(folders=("tools/assay",)), executor))
     assert isinstance(report.detail, StaticRun)
     assert report.detail.phases == ("fix", "diagnostic")
     write_index = next(i for i, modes in enumerate(calls) if Mode.WRITE in modes)
@@ -133,9 +134,8 @@ def test_csharp_project_lane_runs_full_ordered_lane(monkeypatch: pytest.MonkeyPa
     """A C# project target runs the full ordered lane: fix, diagnostics, restore, then build."""
     assay_root.write("src/App/App.csproj", "<Project />")
     monkeypatch.setattr(static_rail, "leased", lambda _resource, run, **_kw: run(object()))
-    monkeypatch.setattr(static_rail, "fan_out", _ok_static_fan)
-    monkeypatch.setattr(static_rail, "run_check", _compiling_probe)
-    report = assert_ok(run(assay_root.settings, assay_root.scope(Claim.STATIC), StaticParams(project="src/App/App.csproj")))
+    executor = SeamExecutor(run_fn=_compiling_probe, fan_fn=_ok_static_fan)
+    report = assert_ok(run(assay_root.settings, assay_root.scope(Claim.STATIC), StaticParams(project="src/App/App.csproj"), executor))
     assert isinstance(report.detail, StaticRun)
     assert report.detail.phases == ("fix", "diagnostic", "restore", "build")
     assert any(row[0] == "csharp" and row[3] == "1" for row in report.detail.routes)
@@ -152,12 +152,11 @@ def test_folder_lane_spans_python_typescript_and_csharp(monkeypatch: pytest.Monk
     assay_root.write("src/pkg/a.py", "")
     assay_root.write("src/web/a.ts", "")
     monkeypatch.setattr(static_rail, "leased", lambda _resource, run, **_kw: run(object()))
-    monkeypatch.setattr(static_rail, "fan_out", _ok_static_fan)
-    monkeypatch.setattr(static_rail, "run_check", _compiling_probe)
-    report = assert_ok(run(assay_root.settings, assay_root.scope(Claim.STATIC), StaticParams(folders=("src",))))
+    executor = SeamExecutor(run_fn=_compiling_probe, fan_fn=_ok_static_fan)
+    report = assert_ok(run(assay_root.settings, assay_root.scope(Claim.STATIC), StaticParams(folders=("src",)), executor))
     assert isinstance(report.detail, StaticRun)
     planned_names = {name for _, name, _ in report.detail.planned}
-    assert {"ruff", "ruff-format", "ty", "mypy", "ast-grep-py", "py-analyzer"} <= planned_names
+    assert {"ruff", "ruff-format", "ty", "mypy", "lint-imports", "ast-grep-py", "py-analyzer"} <= planned_names
     assert {"biome", "ast-grep-ts"} <= planned_names
     assert {"dotnet-format", "dotnet-restore", "dotnet-build"} <= planned_names
     assert report.counts.total == len(report.detail.planned)
@@ -169,18 +168,17 @@ register_law(run, "folder_lane_spans_all_languages")
 def test_empty_target_is_changed_default_not_a_fault(monkeypatch: pytest.MonkeyPatch, assay_root: AssayHarness) -> None:
     """Empty target input routes through the changed-default lane."""
     monkeypatch.setattr(static_rail, "target_files", lambda *_a, **_k: Ok(TargetFiles()))
-    monkeypatch.setattr(static_rail, "fan_out", _ok_static_fan)
-    report = assert_ok(run(assay_root.settings, assay_root.scope(Claim.STATIC), StaticParams()))
+    report = assert_ok(run(assay_root.settings, assay_root.scope(Claim.STATIC), StaticParams(), SeamExecutor(fan_fn=_ok_static_fan)))
     assert isinstance(report.detail, StaticRun)
 
 
 register_law(run, "empty_target_routes_changed_default")
 
 
-def test_unsupported_file_target_is_skipped_not_faulted(monkeypatch: pytest.MonkeyPatch, assay_root: AssayHarness) -> None:
+def test_unsupported_file_target_is_skipped_not_faulted(assay_root: AssayHarness) -> None:
     """An unsupported --file surfaces as a skipped target row, not the removed hard execution fault."""
-    monkeypatch.setattr(static_rail, "fan_out", _ok_static_fan)
-    report = assert_ok(run(assay_root.settings, assay_root.scope(Claim.STATIC), StaticParams(files=("Workspace.slnx",))))
+    executor = SeamExecutor(fan_fn=_ok_static_fan)
+    report = assert_ok(run(assay_root.settings, assay_root.scope(Claim.STATIC), StaticParams(files=("Workspace.slnx",)), executor))
     assert isinstance(report.detail, StaticRun)
     assert any(kind == "file" and "Workspace.slnx" in path for kind, path, _ in report.detail.skipped)
 
@@ -191,7 +189,8 @@ register_law(run, "unsupported_file_is_skipped_not_faulted")
 def test_only_one_target_axis_admitted(assay_root: AssayHarness) -> None:
     """The value-driven parse rejects combining --all with --project or folder/file targets."""
     fault = assert_error_status(
-        run(assay_root.settings, assay_root.scope(Claim.STATIC), StaticParams(all=True, project="src/App/App.csproj")), RailStatus.UNSUPPORTED
+        run(assay_root.settings, assay_root.scope(Claim.STATIC), StaticParams(all=True, project="src/App/App.csproj"), SeamExecutor()),
+        RailStatus.UNSUPPORTED,
     )
     assert "choose only one" in fault.message
 
@@ -317,9 +316,11 @@ def test_build_fan_restores_before_build_and_skips_after_restore_failure(monkeyp
         return (Error(Fault(("restore",), RailStatus.FAILED, "restore failed")),)
 
     monkeypatch.setattr(static_rail, "leased", lambda _resource, run, **_kw: run(object()))
-    monkeypatch.setattr(static_rail, "fan_out", fake_fan)
     result = static_rail._build_fan(
-        ((static_rail.Phase.RESTORE, (restore,)), (static_rail.Phase.BUILD, (compile_check,))), routed, assay_root.settings
+        ((static_rail.Phase.RESTORE, (restore,)), (static_rail.Phase.BUILD, (compile_check,))),
+        routed,
+        assay_root.settings,
+        SeamExecutor(fan_fn=fake_fan),
     )
     assert calls == [(Mode.RESTORE,)]
     skipped = assert_ok(result[1])
@@ -367,9 +368,10 @@ def test_format_gate_drops_write_and_check_format_rows_when_target_does_not_comp
         return _ok_static_fan(checks)
 
     monkeypatch.setattr(static_rail, "leased", lambda _resource, run, **_kw: run(object()))
-    monkeypatch.setattr(static_rail, "fan_out", recording_fan)
-    monkeypatch.setattr(static_rail, "run_check", lambda check, **_kw: Ok(receipt((check.tool.name,), 1, status=RailStatus.FAILED)))
-    rows = static_rail._dispatch(routed, phases=_csharp_closure_phases(), settings=assay_root.settings, scope=assay_root.scope(Claim.STATIC))
+    executor = SeamExecutor(run_fn=lambda check, **_kw: Ok(receipt((check.tool.name,), 1, status=RailStatus.FAILED)), fan_fn=recording_fan)
+    rows = static_rail._dispatch(
+        routed, phases=_csharp_closure_phases(), settings=assay_root.settings, scope=assay_root.scope(Claim.STATIC), executor=executor
+    )
     names_run = tuple(name for batch in ran for name in batch)
     assert "dotnet-format" not in names_run, "the format phase is skipped entirely on a non-compiling target"
     assert {"dotnet-restore", "dotnet-build"} <= set(names_run), "restore and build still run despite the gated format phase"
@@ -389,9 +391,10 @@ def test_format_gate_runs_format_when_target_compiles(monkeypatch: pytest.Monkey
         return _ok_static_fan(checks)
 
     monkeypatch.setattr(static_rail, "leased", lambda _resource, run, **_kw: run(object()))
-    monkeypatch.setattr(static_rail, "fan_out", recording_fan)
-    monkeypatch.setattr(static_rail, "run_check", _compiling_probe)
-    static_rail._dispatch(routed, phases=_csharp_closure_phases(), settings=assay_root.settings, scope=assay_root.scope(Claim.STATIC))
+    executor = SeamExecutor(run_fn=_compiling_probe, fan_fn=recording_fan)
+    static_rail._dispatch(
+        routed, phases=_csharp_closure_phases(), settings=assay_root.settings, scope=assay_root.scope(Claim.STATIC), executor=executor
+    )
     assert ran.count("dotnet-format") == 2, "both the write fix and the read-only format check run when the target compiles"
     assert {"dotnet-restore", "dotnet-build"} <= set(ran)
 
@@ -433,18 +436,18 @@ def test_sarif_status_distinguishes_incremental_from_clean(tmp_path: Path) -> No
         _build_receipt("src/Skip/Skip.csproj", RailStatus.SKIP),
         _build_receipt("src/Bad/Bad.csproj", RailStatus.FAILED),
     )
-    assert _sarif_status(outcomes, str(sarif_dir)) == (
+    assert sarif_status(outcomes, str(sarif_dir)) == (
         ("App", "produced:2"),
         ("Lib", "absent:incremental"),
         ("Skip", "absent:no-build"),
         ("Bad", "absent:build-failed"),
     )
     # A non-build receipt contributes no row; a .slnx workspace build keys against the whole directory.
-    assert _sarif_status((receipt(("ruff", "check"), 0, status=RailStatus.OK),), str(sarif_dir)) == ()
-    assert _sarif_status((_build_receipt("Workspace.slnx", RailStatus.OK),), str(sarif_dir)) == (("Workspace", "produced:2"),)
+    assert sarif_status((receipt(("ruff", "check"), 0, status=RailStatus.OK),), str(sarif_dir)) == ()
+    assert sarif_status((_build_receipt("Workspace.slnx", RailStatus.OK),), str(sarif_dir)) == (("Workspace", "produced:2"),)
 
 
-register_law(_sarif_status, "distinguishes_incremental_from_clean")
+register_law(sarif_status, "distinguishes_incremental_from_clean")
 
 
 # --- [BACKPRESSURE_LAWS]

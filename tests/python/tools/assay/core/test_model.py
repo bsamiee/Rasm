@@ -65,7 +65,6 @@ from tools.assay.core.model import (
     ExecReceipt,
     Fault,
     field_cap,
-    fold,
     Input,
     Language,
     language_choice,
@@ -73,7 +72,9 @@ from tools.assay.core.model import (
     Mode,
     MutationLane,
     PackageRun,
+    Parser,
     ProvisionRun,
+    RailStatus,
     receipt,
     Report,
     RunDelta,
@@ -92,7 +93,7 @@ from tools.assay.core.model import (
     wire_encode,
     wire_safe,
 )
-from tools.assay.core.status import RailStatus
+from tools.assay.diagnostics import fold
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -249,6 +250,18 @@ def test_fold_failed_result_identifies_full_argv_and_long_tail() -> None:
     assert report.results[0].text == payload[-4096:].decode()
 
 
+def _stamped(done: Completed, parser: Parser) -> Completed:
+    # Mirrors the engine's receipt-time stamp; receipt() itself never keys a diagnostics family.
+    return msgspec.structs.replace(done, parser=parser)
+
+
+def test_fold_ignores_argv_text_without_parser_stamp() -> None:
+    """An unstamped receipt contributes no parsed diagnostic rows even when argv names a known tool — argv sniffing is dead."""
+    payload = b"pkg/a.py:3:5: error: Incompatible types in assignment [assignment]\n"
+    report = fold(Claim.STATIC, "check", (receipt(("uv", "run", "mypy"), 1, stdout=payload),))
+    assert [m.severity for m in report.results] == ["failed"], "unstamped output must fold to the defect tail only"
+
+
 # --- [SARIF_FOLD]
 
 
@@ -377,7 +390,7 @@ def test_fold_promote_empty_is_opt_in_per_claim() -> None:
 def test_fold_csharp_process_output_parses_and_dedupes_source_diagnostics() -> None:
     """Dotnet format/build output becomes source Match rows before fallback tails, with exact duplicates collapsed."""
     line = b"src/App/HostControl.cs(148,71): error VSTHRD002: Synchronously waiting on tasks may deadlock [src/App/App.csproj]"
-    report = fold(Claim.STATIC, "build", (receipt(("dotnet", "build"), 1, stdout=line + b"\n" + line),))
+    report = fold(Claim.STATIC, "build", (_stamped(receipt(("dotnet", "build"), 1, stdout=line + b"\n" + line), Parser.CS_CONSOLE),))
     assert [(m.id, m.kind, m.severity, m.path, m.line, m.column, m.score, m.project) for m in report.results[:2]] == [
         ("vsthrd002", ArtifactKind.CODE, "error", "src/App/HostControl.cs", 148, 71, 71, "src/App/App.csproj"),
         ("dotnet build", ArtifactKind.PROCESS, "failed", "", 0, 0, 0, ""),
@@ -387,41 +400,31 @@ def test_fold_csharp_process_output_parses_and_dedupes_source_diagnostics() -> N
 
 
 @pytest.mark.parametrize(
-    "argv, payload, expected",
+    "parser, payload, expected",
     [
+        (Parser.RUFF, b"error[F401]: unused import\n --> pkg/a.py:1:1\n", ("ruff:f401", "error", "pkg/a.py", 1, 1, "unused import")),
         (
-            ("uv", "run", "ruff", "check"),
-            b"error[F401]: unused import\n --> pkg/a.py:1:1\n",
-            ("ruff:f401", "error", "pkg/a.py", 1, 1, "unused import"),
-        ),
-        (
-            ("uv", "run", "ty", "check"),
+            Parser.TY,
             b"error[unresolved-attribute]: object has no member\n --> pkg/a.py:2:9\n",
             ("ty:unresolved-attribute", "error", "pkg/a.py", 2, 9, "object has no member"),
         ),
         (
-            ("uv", "run", "mypy"),
+            Parser.MYPY,
             b"pkg/a.py:3:5: error: Incompatible types in assignment [assignment]\n",
             ("mypy:assignment", "error", "pkg/a.py", 3, 5, "Incompatible types in assignment"),
         ),
         (
-            ("pnpm", "exec", "tsc"),
+            Parser.TSC,
             b"src/a.ts(4,7): error TS2322: Type 'number' is not assignable to type 'string'.\n",
             ("tsc:ts2322", "error", "src/a.ts", 4, 7, "Type 'number' is not assignable to type 'string'."),
         ),
-        (
-            ("uv", "run", "ruff", "format", "--check"),
-            b"Would reformat: pkg/a.py\n",
-            ("ruff-format:format", "error", "pkg/a.py", 0, 0, "file would be reformatted"),
-        ),
+        (Parser.RUFF_FORMAT, b"Would reformat: pkg/a.py\n", ("ruff-format:format", "error", "pkg/a.py", 0, 0, "file would be reformatted")),
     ],
     ids=["ruff", "ty", "mypy", "tsc", "ruff-format"],
 )
-def test_fold_static_text_tools_emit_structured_diagnostics(
-    argv: tuple[str, ...], payload: bytes, expected: tuple[str, str, str, int, int, str]
-) -> None:
-    """Text diagnostics from Python and TypeScript tools become first-class source Match rows."""
-    report = fold(Claim.STATIC, "check", (receipt(argv, 1, stdout=payload),))
+def test_fold_static_text_tools_emit_structured_diagnostics(parser: Parser, payload: bytes, expected: tuple[str, str, str, int, int, str]) -> None:
+    """Text diagnostics from Python and TypeScript tools become first-class source Match rows, keyed by the parser stamp."""
+    report = fold(Claim.STATIC, "check", (_stamped(receipt(("tool",), 1, stdout=payload), parser),))
     row = report.results[0]
     assert (row.id, row.severity, row.path, row.line, row.column, row.message) == expected
 
@@ -445,8 +448,8 @@ def test_fold_static_json_tools_emit_structured_diagnostics() -> None:
         Claim.STATIC,
         "check",
         (
-            receipt(("uv", "run", "-m", "tools.py_analyzer"), 1, stdout=py_payload),
-            receipt(("pnpm", "exec", "biome"), 1, stdout=b"Checked 1 file\n" + biome_payload + b"\nFound 1 error.\n"),
+            _stamped(receipt(("uv", "run", "-m", "tools.py_analyzer"), 1, stdout=py_payload), Parser.PY_ANALYZER),
+            _stamped(receipt(("pnpm", "exec", "biome"), 1, stdout=b"Checked 1 file\n" + biome_payload + b"\nFound 1 error.\n"), Parser.BIOME),
         ),
     )
     assert [(row.id, row.severity, row.path, row.line, row.column, row.message) for row in report.results[:2]] == [
@@ -459,7 +462,7 @@ def test_fold_csharp_same_location_distinct_messages_are_distinct() -> None:
     """Same-location compiler rows with different messages remain separate structured diagnostics."""
     first = b"src/App/Probe.cs(30,35): error CS0736: ShellStub.PingAsync cannot implement static member"
     second = b"src/App/Probe.cs(30,35): error CS0736: ShellStub.PrepareQuitAsync cannot implement static member"
-    report = fold(Claim.STATIC, "build", (receipt(("dotnet", "build"), 1, stdout=b"\n".join((first, second))),))
+    report = fold(Claim.STATIC, "build", (_stamped(receipt(("dotnet", "build"), 1, stdout=b"\n".join((first, second))), Parser.CS_CONSOLE),))
     assert [row.message for row in report.results[:2]] == [
         "ShellStub.PingAsync cannot implement static member",
         "ShellStub.PrepareQuitAsync cannot implement static member",
@@ -496,7 +499,7 @@ def test_fold_static_dedupes_process_and_sarif_source_diagnostics(tmp_path: Path
             ],
         }),
     )
-    report = fold(Claim.STATIC, "build", (receipt(("dotnet", "build"), 1, stdout=line),), sarif_dir=sarif_dir)
+    report = fold(Claim.STATIC, "build", (_stamped(receipt(("dotnet", "build"), 1, stdout=line), Parser.CS_CONSOLE),), sarif_dir=sarif_dir)
     assert [(m.id, m.path, m.line, m.column) for m in report.results[:2]] == [("vsthrd002", source, 148, 71), ("dotnet build", "", 0, 0)]
     assert "diagnostics: total=1 source=1 generated=0 error=1 warning=0 info=0" in report.notes
     assert "diagnostics.rules: vsthrd002=1" in report.notes
@@ -536,7 +539,7 @@ def test_fold_static_dedupes_relative_console_against_absolute_sarif(tmp_path: P
             ],
         }),
     )
-    report = fold(Claim.STATIC, "build", (receipt(("dotnet", "build"), 1, stdout=line),), sarif_dir=sarif_dir)
+    report = fold(Claim.STATIC, "build", (_stamped(receipt(("dotnet", "build"), 1, stdout=line), Parser.CS_CONSOLE),), sarif_dir=sarif_dir)
     source_rows = tuple(m for m in report.results if m.id == "vsthrd002")
     assert len(source_rows) == 1
     assert "diagnostics: total=1 source=1 generated=0 error=1 warning=0 info=0" in report.notes
@@ -549,7 +552,8 @@ def test_fold_static_groups_generated_diagnostics_after_source_rows() -> None:
         b".artifacts/assay/build/abc/Release/obj/Debug/net10.0/Scenarios.GlobalUsings.g.cs(18,25): "
         b"warning CS0436: The type conflicts with imported type [tools/rhino-bridge/Scenarios.csproj]"
     )
-    report = fold(Claim.STATIC, "build", (receipt(("dotnet", "build"), 1, stdout=b"\n".join((generated, source, generated))),))
+    stamped = _stamped(receipt(("dotnet", "build"), 1, stdout=b"\n".join((generated, source, generated))), Parser.CS_CONSOLE)
+    report = fold(Claim.STATIC, "build", (stamped,))
     assert [(m.id, m.kind, m.severity, m.count) for m in report.results[:3]] == [
         ("ma0006", ArtifactKind.CODE, "error", 0),
         ("cs0436", ArtifactKind.PROCESS, "warning", 2),
@@ -566,7 +570,8 @@ def test_fold_static_generated_errors_are_evidence_not_failure() -> None:
         b".artifacts/assay/build/abc/Release/obj/Debug/net10.0/Scenarios.GlobalUsings.g.cs(18,25): "
         b"error CS0436: The type conflicts with imported type [tools/rhino-bridge/Scenarios.csproj]"
     )
-    report = fold(Claim.STATIC, "build", (receipt(("dotnet", "build"), 0, status=RailStatus.EMPTY, stdout=generated),), promote_empty=True)
+    stamped = _stamped(receipt(("dotnet", "build"), 0, status=RailStatus.EMPTY, stdout=generated), Parser.CS_CONSOLE)
+    report = fold(Claim.STATIC, "build", (stamped,), promote_empty=True)
     assert [(m.id, m.kind, m.severity, m.count) for m in report.results] == [("cs0436", ArtifactKind.PROCESS, "error", 1)]
     assert report.status is RailStatus.OK
     assert "diagnostics: total=1 source=0 generated=1 error=1 warning=0 info=0" in report.notes
@@ -853,6 +858,7 @@ register_laws(
             "defect_row_per_failed",
             "empty_report",
             "failed_stderr_in_text",
+            "ignores_argv_text_without_parser_stamp",
             "static_source_diagnostics_precede_defect_rows",
             "csharp_process_output_parses_and_dedupes_source_diagnostics",
             "static_dedupes_relative_console_against_absolute_sarif",

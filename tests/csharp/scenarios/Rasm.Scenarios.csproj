@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <!-- Single scenario home: [RhinoScenario] content ships to the live host via the bridge closure; assay routes SHELL-lane projects out of unit-test runs. -->
+        <AssayTestShell>true</AssayTestShell>
+    </PropertyGroup>
+    <!-- Kernel-free: scenario authoring composes the ScenarioKit SDK, never retired-kernel namespaces the Grasshopper-aware classification injects. -->
+    <ItemGroup Label="Kernel-Free Usings">
+        <Using Remove="Rasm.Analysis" />
+        <Using Remove="Rasm.Domain" />
+    </ItemGroup>
+</Project>

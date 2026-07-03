@@ -6,7 +6,7 @@
 
 [PACKAGE_SURFACE]: `@effect/platform`
 - package: `@effect/platform` (0.96.2, MIT, © Effectful Technologies)
-- module format: ESM, `sideEffects: false`; per-module deep-import subpaths (`@effect/platform/HttpApi`, `@effect/platform/FileSystem`, …)
+- module format: ESM + CJS dual (`dist/esm` + `dist/cjs`, types `dist/dts`), `sideEffects: []`; per-module deep-import subpaths (`@effect/platform/HttpApi`, `@effect/platform/FileSystem`, …)
 - runtime target: platform-neutral abstract contracts — no runtime binding; a `platform-node`/`-bun`/`-browser` `Layer` satisfies each Tag. `find-my-way-ts` (router match), `msgpackr` (`MsgPack`), and `multipasta` (`Multipart`) are the only bundled runtime deps
 - peer: `effect@^3.21.4`
 - asset: pure-TypeScript runtime library (`.js` + `.d.ts`); Tag contracts + `Schema`-typed endpoint declarations
@@ -50,8 +50,8 @@
 |  [03]   | `KeyValueStore.KeyValueStore` / `SchemaStore`    | kv Tag         | `store/lane`, `browser/persist` — `layerMemory`/`layerFileSystem`/`layerSchema`, `prefix` scope |
 |  [04]   | `Command.Command` / `CommandExecutor.Process`    | subprocess     | `host/exec/process.ts` — declarative command with `pipeTo`, stream stdout, typed exit code |
 |  [05]   | `Terminal.Terminal`                              | tty Tag        | `edge/cli` — line/key input + display for interactive verbs |
-|  [06]   | `Socket.Socket` / `SocketServer`                 | socket         | `host/net/channel.ts`, `wire/transport` — framed duplex over TCP/WebSocket as an Effect `Channel` |
-|  [07]   | `Worker.WorkerPool` / `WorkerRunner`             | worker         | `host/exec`, `browser/transport/pool.ts` — `Schema`-serialized off-thread request/response pools |
+|  [06]   | `Socket.Socket` / `SocketServer` / `Socket.WebSocketConstructor` | socket         | `host/net/channel.ts`, `wire/transport` — framed duplex over TCP/WebSocket as an Effect `Channel`; `WebSocketConstructor` is the injectable Tag a runtime binding (`-node`/`-bun`/`-browser`) satisfies |
+|  [07]   | `Worker.WorkerPool` / `Worker.WorkerManager` / `Worker.Spawner` / `WorkerRunner.PlatformRunner` | worker         | `host/exec`, `browser/transport/pool.ts` — `Schema`-serialized off-thread pools; `WorkerManager`/`Spawner`/`PlatformRunner` are the runtime-provided Tags the `Node*`/`Browser*` bindings satisfy |
 |  [08]   | `PlatformError` (`BadArgument` / `SystemError`)  | system fault   | the one error rail every system-API contract fails into; `wire/fault` classifies it |
 
 ## [03]-[ENTRYPOINTS]
@@ -61,7 +61,7 @@
 
 | [INDEX] | [SURFACE]                                                                                       | [ENTRY_FAMILY] | [CONSUMER]                                                    |
 | :-----: | :---------------------------------------------------------------------------------------------- | :------------- | :----------------------------------------------------------- |
-|  [01]   | `HttpApiEndpoint.get(name)(path)` / `.post` / `.del` … `.setPayload(schema)` / `.addSuccess` / `.addError` | declare endpoint | `edge` — one endpoint carries its request, success, and error `Schema`s |
+|  [01]   | `HttpApiEndpoint.get(name)` / `.post` / `.del` … `.setPath` / `.setPayload(schema)` / `.addSuccess` / `.addError` | declare endpoint | `edge` — one endpoint carries its path, request, success, and error `Schema`s |
 |  [02]   | `HttpApiGroup.make(name).add(endpoint)` / `.addError` / `.prefix` / `.middleware(tag)`          | declare group  | domain folders build a group value; group-wide errors and middleware ride the declaration |
 |  [03]   | `HttpApi.make(id).add(group)` / `.addError` / `.annotate` / `.middleware`                       | assemble api   | `edge/api` — the app assembles one `HttpApi` from selected groups |
 |  [04]   | `HttpApiBuilder.group(api, name, (h) => h.handle(endpointName, handler))`                       | implement      | `edge` — bind each declared endpoint to an `Effect` handler; missing handler is a compile error |
@@ -79,7 +79,7 @@
 |  [02]   | `HttpClient.execute(request)` / `HttpClient.get(url, options)`                                  | dispatch       | returns `Effect<HttpClientResponse, HttpClientError, Scope>` |
 |  [03]   | `HttpClient.retryTransient({ schedule })` / `.filterStatusOk` / `.followRedirects` / `.mapRequest` | policy       | `host/net` default-policy rows — retry idempotent requests, reject non-2xx, add auth headers |
 |  [04]   | `HttpClient.withTracerPropagation` / `.withTracerDisabledWhen` / `.tapRequest`                  | observability  | `telemetry` — W3C trace propagation on egress, span control per request predicate |
-|  [05]   | `HttpClientResponse.schemaBodyJson(schema)` / `.matchStatus({...})` / `.stream`                 | decode         | `wire`/`ai` — decode the body through one `Schema`; `matchStatus` dispatches on status class |
+|  [05]   | `HttpClientResponse.schemaJson(schema)` / `.matchStatus({...})` / `.stream`                     | decode         | `wire`/`ai` — decode the body through one `Schema`; `matchStatus` dispatches on status class |
 |  [06]   | `FetchHttpClient.layer` / `HttpClient.layerMergedContext`                                       | provide        | the default `fetch`-backed client `Layer`; `platform-node` swaps in the undici client |
 
 [ENTRYPOINT_SCOPE]: server, router, and middleware
@@ -101,7 +101,7 @@
 | :-----: | :---------------------------------------------------------------------------------------------- | :------------- | :----------------------------------------------------------- |
 |  [01]   | `Command.make(cmd, ...args)` / `.pipeTo(next)` / `.stream` / `.string` / `.exitCode` / `.env`   | subprocess     | `host/exec/process.ts` — declarative command pipelines, streamed output, typed exit |
 |  [02]   | `KeyValueStore.layerFileSystem(dir)` / `.layerMemory` / `.layerSchema(schema)` / `.prefix(k)`   | kv store       | `store/lane`, `browser/persist` — schema-typed KV over fs/memory, prefix-scoped |
-|  [03]   | `Worker.makePoolSerialized({ size })` / `WorkerRunner.layerSerialized(handlers)`                | worker pool    | `host/exec`, `browser/transport/pool.ts` — `Schema`-serialized request/response off-thread |
+|  [03]   | `Worker.makePool` / `Worker.makePoolLayer` / `Worker.makePoolSerialized({ size })` / `WorkerRunner.layerSerialized(handlers)` | worker pool    | `host/exec`, `browser/transport/pool.ts` — `Schema`-serialized request/response off-thread; `makePoolLayer` is the `Layer` form over a `Spawner` |
 |  [04]   | `Socket.toChannel(socket)` / `Socket.makeWebSocket(url)` / `Socket.layerWebSocket`              | socket channel | `host/net/channel.ts`, `wire/transport` — duplex bytes as an Effect `Channel` with backpressure |
 |  [05]   | `MsgPack.duplexSchema({ inputSchema, outputSchema })` / `Ndjson.duplexSchema` / `MsgPack.pack`  | frame codec    | `wire/codec` — `Schema`-typed MessagePack/NDJSON framing over a byte `Channel` |
 |  [06]   | `Multipart.toPersisted(parts)` / `Multipart.schemaPersisted(schema)` / `.withLimits(opts)`      | upload         | `edge` — decode multipart form uploads to persisted files under size limits |
@@ -114,9 +114,9 @@
 | :-----: | :---------------------------------------------------------------------------------------------- | :------------- | :----------------------------------------------------------- |
 |  [01]   | `PlatformConfigProvider.fromDotEnv(path)` / `.layerDotEnv` / `.fromFileTree` / `.layerFileTree` | config source  | `host/config/provider.ts` — dotenv and file-tree (K8s secret mount) config providers |
 |  [02]   | `PlatformLogger.toFile(path, { batchWindow })`                                                  | log sink       | `telemetry` — durable batched file logging behind the `Logger` service |
-|  [03]   | `Runtime.makeRunMain(f)` / `Runtime.defaultTeardown`                                            | run-main       | the per-runtime `runMain` factory `platform-node`/`-bun` specialize for signal-draining exit |
+|  [03]   | `Runtime.makeRunMain(f)` / `Runtime.RunMain` / `Runtime.defaultTeardown`                        | run-main       | `Runtime.RunMain` is the type each runtime's `runMain` inhabits — `platform-node`/`-bun`/`-browser` specialize the factory for signal-draining exit |
 |  [04]   | `Headers.redact(headers, keys)` / `Cookies.toCookieHeader` / `UrlParams.schemaStruct(schema)`   | web value      | `security` header redaction, `edge` cookie serialization, typed query-param decode |
-|  [05]   | `Etag.layer` / `Etag.layerWeak` / `HttpServerResponse.setBody(HttpBody.fileWeb(file))`          | caching        | `edge/serve` static-asset ETag generation and immutable-asset responses |
+|  [05]   | `Etag.Generator` / `Etag.layer` / `Etag.layerWeak` / `HttpServerResponse.setBody(HttpBody.fileWeb(file))` | caching        | `edge/serve` static-asset ETag generation and immutable-asset responses; `Etag.Generator` is the Tag `Etag.layer` provides |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

@@ -11,8 +11,7 @@ import pytest
 from tests.python._testkit.laws import register_laws
 from tests.python.tools.assay.kit import read_one_envelope_from_bytes
 from tools.assay import __main__ as _main_mod, bootstrap_error, install_tracing
-from tools.assay.core.model import Claim
-from tools.assay.core.status import RailStatus
+from tools.assay.core.model import Claim, RailStatus
 
 
 if TYPE_CHECKING:
@@ -131,6 +130,7 @@ def test_main_surrogate_argv_does_not_crash(cli: VerbRunner) -> None:
 # --- [MAIN_SUBPROCESS_EXIT_CODE]
 
 
+@pytest.mark.subprocess
 def test_main_subprocess_exit_code(cli: VerbRunner) -> None:
     """Invalid argv in a real subprocess returns the FAULTED exit code."""
     res = cli(isolate=True)
@@ -220,6 +220,7 @@ def test_main_install_tracing_swallows_settings_validation(monkeypatch: pytest.M
 # --- [MAIN_SUBPROCESS_BOOTSTRAP_ERROR]
 
 
+@pytest.mark.subprocess
 def test_main_subprocess_bootstrap_error_config_fault(cli: VerbRunner) -> None:
     """Malformed ASSAY_* at interpreter startup folds to one config-fault Envelope."""
     res = cli("static", isolate=True, extra_env={"ASSAY_MAX_CHECKS": "999"})
@@ -232,6 +233,7 @@ def test_main_subprocess_bootstrap_error_config_fault(cli: VerbRunner) -> None:
 # --- [MAIN_SUBPROCESS_FAILING_RAIL_CHANNEL_SEPARATION]
 
 
+@pytest.mark.subprocess
 def test_main_subprocess_failing_rail_channel_separation(cli: VerbRunner) -> None:
     """A FAULTED subprocess rail keeps wire output on stdout and diagnostics on stderr."""
     res = cli("api", "resolve", "totally-bogus-key-xyz", "--strict", isolate=True)
@@ -246,6 +248,7 @@ def test_main_subprocess_failing_rail_channel_separation(cli: VerbRunner) -> Non
 # --- [MAIN_SUBPROCESS_HUMAN_RENDERER]
 
 
+@pytest.mark.subprocess
 def test_main_subprocess_human_renderer_console_stderr(cli: VerbRunner) -> None:
     """Human log format in a subprocess keeps console diagnostics on stderr.
 

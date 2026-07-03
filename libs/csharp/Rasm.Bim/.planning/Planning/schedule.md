@@ -45,6 +45,11 @@ public sealed partial class TaskStatus {
 
     // IfcTask.Status is a free IfcLabel string, so the resolver trims/normalizes and lands an unrostered status on
     // NotDefined rather than aborting — the closed vocabulary widens by one row, never a parallel status record.
+    // The ONE Option-lift over the generated bool TryGet(string?, out T?) — the settled corpus idiom
+    // (elements/spatial/zones pattern); the Option-returning form is NOT a generated member.
+    public static Option<TaskStatus> TryGet(string key) =>
+        TryGet(key, out TaskStatus? row) && row is { } hit ? Some(hit) : None;
+
     public static TaskStatus Of(string? status) =>
         TryGet((status ?? "").Trim().ToUpperInvariant()).IfNone(NotDefined);
 }
@@ -57,6 +62,9 @@ public sealed partial class WorkScheduleKind {
     public static readonly WorkScheduleKind Planned     = new("PLANNED");
     public static readonly WorkScheduleKind UserDefined = new("USERDEFINED");
     public static readonly WorkScheduleKind NotDefined  = new("NOTDEFINED");
+
+    public static Option<WorkScheduleKind> TryGet(string key) =>
+        TryGet(key, out WorkScheduleKind? row) && row is { } hit ? Some(hit) : None;
 
     public static WorkScheduleKind Of(IfcWorkScheduleTypeEnum kind) =>
         TryGet(kind.ToString()).IfNone(NotDefined);
@@ -83,6 +91,9 @@ public sealed partial class TaskKind {
     public static readonly TaskKind Renovation   = new("RENOVATION");
     public static readonly TaskKind UserDefined  = new("USERDEFINED");
     public static readonly TaskKind NotDefined   = new("NOTDEFINED");
+
+    public static Option<TaskKind> TryGet(string key) =>
+        TryGet(key, out TaskKind? row) && row is { } hit ? Some(hit) : None;
 
     public static TaskKind Of(IfcTaskTypeEnum kind) =>
         TryGet(kind.ToString()).IfNone(NotDefined);

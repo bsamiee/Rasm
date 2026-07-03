@@ -26,7 +26,8 @@ export {
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@effect/vitest`
-- package: `@effect/vitest`
+- package: `@effect/vitest` (0.29.0, MIT, © Effectful Technologies)
+- module format: ESM + CJS dual (`dist/esm`/`dist/cjs`, types `dist/dts`), `sideEffects: []`; peer `vitest@^3.2.0` + `effect@^3.21.0`, no runtime deps of its own
 - entry: `@effect/vitest` (root: `vitest` re-export + Effect runner/method surface), `@effect/vitest/utils` (Effect-aware assertions)
 - asset: Effect test runner family (`it`/`effect`/`scoped`/`live`/`scopedLive`), `Layer`-sharing harness (`layer`/`describeWrapped`/`makeMethods`), fast-check property runner (`prop`/`Tester.prop`/`Tester.each`), `Equal`-trait Vitest equality tester (`addEqualityTesters`), flaky-retry combinator (`flakyTest`), closed assertion family over `Equal`/`Option`/`Either`/`Exit`/`Cause`
 - rail: testing / effect-vitest
@@ -351,7 +352,9 @@ are load-bearing for callers:
   raw `FC.Arbitrary<T>` or a `Schema.Schema` (decoded to its `Type` via `Schema.Schema.Type`).
 - The standalone `prop` (`Vitest.Methods["prop"]`) takes a synchronous `self` (`(properties, ctx) =>
   void`); the `Tester.prop` form takes an Effect-returning `TestFunction` and runs under the tester's
-  requirement `R`. Use `it.effect.prop`-style access (tester `prop`) for property tests over Effects.
+  requirement `R`. Use `it.effect.prop` for a property whose body is an `Effect` under `TestServices`;
+  use `it.scoped.prop` when each generated case acquires a `Scope`-bound resource (the scoped fold
+  owner under test) — `convergence/law` binds the permutation spine to the scoped store through it.
 - fast-check run parameters (runs, seed, etc.) ride the trailing options object as
   `{ fastCheck?: FC.Parameters<...> }` keyed to the decoded arbitrary value type.
 
@@ -368,6 +371,25 @@ are load-bearing for callers:
 - The trailing `..._: Array<never>` parameter rejects extra positional arguments at compile time;
   do not pass beyond the documented arity.
 
+[STACKS_WITH]:
+- `effect` (`libs/typescript/.api/effect.md`): the test body is an `Effect`; `it.effect`/`it.scoped`
+  install `TestServices` (`TestClock` virtual time, `TestRandom` seeded randomness) from
+  `effect/TestServices`; `it.prop` arbitraries derive from `Schema` via `Arbitrary.make`; `it.layer`
+  shares an `effect` `Layer`; `addEqualityTesters` registers `Equal.equals`. Every projection fold
+  under proof is an `Effect`/`SubscriptionRef`, so the runner is `effect` projected into the worker.
+- `fast-check` (`.api/fast-check.md`): `it.prop`/`it.scoped.prop` accept raw `FC.Arbitrary`s beside
+  `Schema`s; `convergence/law` composes `fast-check` `property`/`shuffledSubarray` permutation
+  arbitraries into the delivery-order-independence law, and `{ fastCheck: FC.Parameters }` forwards
+  run count and seed for deterministic replay of a counterexample.
+- `@electric-sql/d2ts` + `@electric-sql/d2mini` (`.api/electric-sql-d2ts.md`, `.api/electric-sql-d2mini.md`):
+  the fold owners under proof. `it.scoped` builds the D2 graph as a scoped resource, drives `sendData`
+  under `TestClock`, and asserts the maintained `SubscriptionRef` view with the `./utils`
+  `deepStrictEqual` `Equal`-trait comparator (structural over the Effect `HashMap` read model) — the
+  windowed `d2ts` IVM and the versionless `d2mini` reactive fold prove the same way.
+- `@stryker-mutator/core` (`.api/stryker-mutator-core.md`): the mutation kill-ratio gate runs these
+  specs under Stryker; an `it.prop` law with an explicit `{ fastCheck: { seed } }` is the
+  mutation-killable evidence the `convergence`/`query/window` thresholds read.
+
 [RAIL_LAW]:
 - `@effect/vitest`: testing rail; `neutral` tier. It is a dev/test-time dependency only — never
   imported by shipped library or app source. The `effect` and `vitest` peers are its sole runtime
@@ -375,3 +397,8 @@ are load-bearing for callers:
   environment, governed by the Vitest project config, not by this package.
 - `expect`/`describe` and the Effect runner must come from the same `@effect/vitest` import so the
   trait-equality tester and the runner share one module instance.
+- The base package surface is also carried at the universal tier (`libs/typescript/.api/effect-vitest.md`);
+  this projection catalog is the folder-scoped proof-rail view emphasizing the `projection` stacking —
+  the `it.scoped` D2-fold proof over `d2ts`/`d2mini`, the `it.prop` permutation laws driving `fast-check`,
+  and the `@stryker-mutator/core` kill-ratio gate. Compose against the universal catalog for the base runner
+  surface and this one for the projection proof integration.

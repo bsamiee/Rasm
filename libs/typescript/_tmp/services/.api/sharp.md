@@ -1,145 +1,152 @@
 # [API_CATALOGUE] sharp
 
-`sharp` supplies high-performance Node.js image processing via libvips: the `sharp()` constructor returns a `Sharp` instance (a `Duplex` stream) that chains resize, crop, rotate, flip, color conversion, compositing, filter, and format-encode operations before writing to file, buffer, or stream. Static utilities (`cache`, `concurrency`, `counters`, `simd`, `block`, `unblock`) control the libvips runtime.
+`sharp` is the libvips-backed image pipeline that rides the `persistence/object#OBJECT_STORE` upload path as the in-pipeline image-transform codec (not a fifth `AssetCodec` export literal): the default export is one callable/constructable `SharpConstructor` returning a `Sharp` — a `node:stream.Duplex` that lazily chains resize/rotate/extract/composite/colour/filter/morphology operations and terminates in exactly one output call (`toFile`/`toBuffer`/`toUint8Array`/pipe). Operations are order-semantic and deferred until a terminal, so the whole recipe is a pure description a boundary lifts once. In `services` it is never called bare: the `persistence/object#OBJECT_STORE` `transformImage` seam composes `sharp(input).resize(width).toFormat(format).toBuffer()` inside one `Effect.tryPromise` (rejection → `ObjectFault { reason: "encode_failed" }` — the transform's own rail, distinct from the four export codecs' `AssetTransferFault`), the resulting `Uint8Array` streams straight into `ObjectStore.put` under the `XxHash128` content-address, and `toUint8Array()`/`toBuffer({ resolveWithObject: true })` surfaces the `OutputInfo` receipt (`format`/`size`/`width`/`height`/`channels`) for the stored object's metadata — no disk round-trip. `format` is discriminated by `keyof FormatEnum`, so one `toFormat` entry owns every encoder, never a per-format branch. For a large source the `Sharp` `Duplex` bridges Effect `Stream` through `@effect/platform-node` `NodeStream.pipeThroughDuplex` rather than buffering, matching the store's size-branched `put`. The static libvips controls (`cache`/`concurrency`/`simd`/`block`/`unblock`) are process-global startup config a `Layer` sets once. Hand-rolled pixel loops or a spawned ImageMagick/`gm` shell is the named defect.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `sharp`
-- package: `sharp`
-- module: `sharp`
-- asset: `sharp` constructor function, `Sharp` interface, option/metadata interfaces, libvips runtime controls
-- rail: image-processing
+- package: `sharp` (0.35.3, Apache-2.0; bundled `.d.mts` MIT — DefinitelyTyped lineage; © François Nguyen and others)
+- module format: ESM types `dist/index.d.mts` (`types`), `default` export `sharp: SharpConstructor` (call `sharp(input, opts)` or `new sharp(...)`) plus named type/enum exports; self-typed, no `@types/sharp`
+- reflected: TSDECL — `node_modules/sharp/dist/index.d.mts`
+- runtime target: `node` (`engines.node >=20.9.0`); native — prebuilt libvips ships in per-platform optional deps (`@img/sharp-<platform>`, `@img/sharp-libvips-*`); `ColorLike` from `@img/colour`
+- ABI: `cache`/`concurrency`/`counters`/`simd`/`block`/`unblock`/`versions` are process-global libvips runtime state, not per-instance; `UV_THREADPOOL_SIZE` (set pre-boot) caps parallel pipelines; `block`/`VIPS_BLOCK_UNTRUSTED` gate untrusted decoders; JXL/HEIC/GIF-magick need a custom-compiled libvips absent from prebuilt binaries
+- consumer: `persistence/object#OBJECT_STORE` — the in-pipeline image-transform codec on the upload path (not a fifth `AssetCodec` export literal): `sharp(input).resize().toFormat(keyof FormatEnum).toBuffer()` → `ObjectStore.put` under `XxHash128`, plus the `NodeStream.pipeThroughDuplex` streaming branch for oversized sources
+- rail: image-transform / image-processing
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: instance and config family
-- rail: image-processing
+[PUBLIC_TYPE_SCOPE]: pipeline, input, and output carriers
+The `Sharp` `Duplex` is the one chainable owner; `SharpConstructor` is the callable default export, `SharpInput`/`SharpOptions` the ingress vocabulary, and `OutputInfo`/`Metadata`/`Stats` the terminal and probe receipts.
 
-| [INDEX] | [SYMBOL]         | [TYPE_FAMILY] | [RAIL]                                        |
-| :-----: | :--------------- | :------------ | :-------------------------------------------- |
-|  [01]   | `Sharp`          | interface     | extends `Duplex`; all image ops chain on this |
-|  [02]   | `SharpOptions`   | interface     | constructor input options                     |
-|  [03]   | `ResizeOptions`  | interface     | resize width/height/fit/position/background   |
-|  [04]   | `OverlayOptions` | interface     | composite overlay parameters                  |
-|  [05]   | `Metadata`       | interface     | image metadata (format, width, height, space) |
-|  [06]   | `OutputInfo`     | interface     | write result (format, size, width, height)    |
-|  [07]   | `Stats`          | interface     | per-channel pixel statistics                  |
+| [INDEX] | [SYMBOL]         | [TYPE_FAMILY]        | [CAPABILITY]                                                                                    |
+| :-----: | :--------------- | :------------------- | :---------------------------------------------------------------------------------------------- |
+|  [01]   | `Sharp`          | interface (`Duplex`) | the chainable pipeline; every op returns `Sharp`; terminates in one output call                 |
+|  [02]   | `SharpConstructor` | callable interface | the default export — `(input?, opts?) => Sharp` + `new`, carrying the static-control namespace   |
+|  [03]   | `SharpInput`     | union                | `Buffer \| ArrayBuffer \| typed-array \| string`; array form = multi-frame join                 |
+|  [04]   | `SharpOptions`   | interface            | constructor options: `failOn`/`limitInputPixels`/`density`/`pages`/`animated` + `raw`/`create`/`text`/`join` input modes + per-format input opts |
+|  [05]   | `OverlayOptions` | interface            | `extends SharpOptions` — one `composite` layer: `input`/`blend: Blend`/`gravity`/`top`/`left`/`tile` |
+|  [06]   | `Metadata`       | interface            | pre-decode probe — `format`/`width`/`height`/`space`/`channels`/`depth`/`hasAlpha`/`orientation`/`exif`/`icc`/`xmp`/`pages`/`autoOrient` |
+|  [07]   | `Stats`          | interface            | per-channel `ChannelStats[]` + `entropy`/`sharpness`/`dominant`/`isOpaque`                       |
+|  [08]   | `OutputInfo`     | interface            | terminal receipt — `format`/`size`/`width`/`height`/`channels`/`hasAlpha` + crop/trim/attention offsets |
+|  [09]   | `Region` / `ExtendOptions` / `TrimOptions` | interface | `extract`/`extend`/`trim` geometry inputs                                              |
+|  [10]   | `Create` / `CreateText` / `CreateRaw` / `Join` / `Noise` | interface | generative + raw input descriptors under `SharpOptions.{create,text,raw,join}`         |
+|  [11]   | `Exif` / `ExifDir` / `WriteableMetadata` | interface | IFD-keyed EXIF map and the `withMetadata` writeable-channel record                             |
+|  [12]   | `Matrix2x2` / `Matrix3x3` / `Matrix4x4` / `Kernel` | type/interface | `affine`/`recomb`/`convolve` operator matrices                                         |
 
-[PUBLIC_TYPE_SCOPE]: format option family
-- rail: image-processing
+[PUBLIC_TYPE_SCOPE]: format-encoder option family (keyed by `FormatEnum`)
+Every encoder-option interface extends `OutputOptions`; `FormatEnum`/`AvailableFormatInfo` is the token vocabulary `toFormat` discriminates over, so one entry owns every encoder.
 
-| [INDEX] | [SYMBOL]      | [TYPE_FAMILY] | [RAIL]                         |
-| :-----: | :------------ | :------------ | :----------------------------- |
-|  [01]   | `JpegOptions` | interface     | JPEG output options            |
-|  [02]   | `PngOptions`  | interface     | PNG output options             |
-|  [03]   | `WebpOptions` | interface     | WebP output options            |
-|  [04]   | `AvifOptions` | interface     | AVIF output options            |
-|  [05]   | `GifOptions`  | interface     | GIF output options             |
-|  [06]   | `TiffOptions` | interface     | TIFF output options            |
-|  [07]   | `FormatEnum`  | object type   | available format tokens        |
-|  [08]   | `FitEnum`     | object type   | resize fit strategy tokens     |
-|  [09]   | `KernelEnum`  | object type   | interpolation kernel tokens    |
-|  [10]   | `GravityEnum` | object type   | gravity/anchor position tokens |
+| [INDEX] | [SYMBOL]                                | [TYPE_FAMILY] | [CAPABILITY]                                                                        |
+| :-----: | :-------------------------------------- | :------------ | :---------------------------------------------------------------------------------- |
+|  [01]   | `OutputOptions`                         | interface     | shared base — `force` (all encoder options extend this)                             |
+|  [02]   | `JpegOptions` / `Jp2Options` / `JxlOptions` | interface | quality/progressive/lossless/mozjpeg (JPEG); distance/effort (JXL); tile (JP2)      |
+|  [03]   | `PngOptions` / `WebpOptions` / `GifOptions` | interface | palette/effort/dither (PNG/GIF); lossless/nearLossless/smartSubsample/`PresetEnum` (WebP) |
+|  [04]   | `AvifOptions` / `HeifOptions`           | interface     | quality/effort/bitdepth/`HeifCompression`(`av1`\|`hevc`)/`HeifTune`                 |
+|  [05]   | `TiffOptions` / `RawOptions`            | interface     | compression/predictor/pyramid/bitdepth (TIFF); `DepthEnum` (raw)                    |
+|  [06]   | `AnimationOptions`                      | interface     | `loop`/`delay` mixed into WebP/GIF encoders for multi-frame output                  |
+|  [07]   | `TileOptions`                           | interface     | deep-zoom pyramid — `size`/`overlap`/`layout: TileLayout`/`container: TileContainer` |
+|  [08]   | `AvailableFormatInfo` / `FormatEnum`    | interface     | the format-token vocabulary; `toFormat`'s discriminant and `format` static's shape  |
 
-[PUBLIC_TYPE_SCOPE]: operation option family
-- rail: image-processing
+[PUBLIC_TYPE_SCOPE]: operation-option and enum vocabulary
+The resize/filter/morphology operations read these option interfaces and `*Enum` token maps; `Blend` is the 28-mode composite axis and `CacheOptions`/`SharpCounters` the libvips runtime-control payloads.
 
-| [INDEX] | [SYMBOL]           | [TYPE_FAMILY] | [RAIL]                                   |
-| :-----: | :----------------- | :------------ | :--------------------------------------- |
-|  [01]   | `SharpenOptions`   | interface     | sigma and flat/jagged levels             |
-|  [02]   | `BlurOptions`      | interface     | Gaussian blur options                    |
-|  [03]   | `NormaliseOptions` | interface     | histogram-based normalise lower/upper    |
-|  [04]   | `ClaheOptions`     | interface     | CLAHE width/height/maxSlope              |
-|  [05]   | `FlattenOptions`   | interface     | flatten background colour                |
-|  [06]   | `NegateOptions`    | interface     | negate alpha flag                        |
-|  [07]   | `ThresholdOptions` | interface     | greyscale threshold flag                 |
-|  [08]   | `RotateOptions`    | interface     | rotation background colour               |
-|  [09]   | `AffineOptions`    | interface     | affine transform background/interpolator |
-|  [10]   | `Kernel`           | interface     | convolution kernel matrix                |
+| [INDEX] | [SYMBOL]                                                | [TYPE_FAMILY] | [CAPABILITY]                                                          |
+| :-----: | :------------------------------------------------------ | :------------ | :------------------------------------------------------------------- |
+|  [01]   | `ResizeOptions`                                         | interface     | `width`/`height`/`fit: FitEnum`/`position`/`kernel: KernelEnum`/`background`/`withoutEnlargement` |
+|  [02]   | `SharpenOptions` / `BlurOptions` / `NormaliseOptions` / `ClaheOptions` | interface | filter sigmas, flat/jagged levels, percentile range, CLAHE window     |
+|  [03]   | `FlattenOptions` / `NegateOptions` / `ThresholdOptions` / `RotateOptions` / `AffineOptions` | interface | background/alpha/greyscale/interpolator operation knobs |
+|  [04]   | `FitEnum` / `KernelEnum` / `PresetEnum` / `BoolEnum`    | object type   | resize-fit, interpolation-kernel, WebP-preset, bitwise-op token maps  |
+|  [05]   | `GravityEnum` / `StrategyEnum` / `Interpolators`        | object type   | anchor positions, entropy/attention crop, affine interpolators        |
+|  [06]   | `ColourspaceEnum` / `DepthEnum`                         | object type   | pipeline/output colour-space and pixel-depth token maps               |
+|  [07]   | `Blend`                                                 | union         | 28 Porter-Duff/PDF composite modes for `OverlayOptions.blend`         |
+|  [08]   | `Channels` / `FailOnOptions` / `Precision` / `ExtendWith` / `MediaType` | union | 1-4 band count, decode-abort level, blur precision, extend strategy, MIME |
+|  [09]   | `CacheOptions` / `CacheResult` / `SharpCounters` / `TimeoutOptions` | interface | libvips runtime-control payloads/receipts                        |
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: construction and static controls
-- rail: image-processing
+[ENTRYPOINT_SCOPE]: construction and libvips runtime controls (static namespace on the default export)
+`sharp(input)` constructs the pipeline; the static namespace on the default export carries the process-global libvips controls a composition-root `Layer` sets once, never per request.
 
-| [INDEX] | [SURFACE]                         | [ENTRY_FAMILY] | [RAIL]                                       |
-| :-----: | :-------------------------------- | :------------- | :------------------------------------------- |
-|  [01]   | `sharp(options?)`                 | constructor    | creates pipeline from scratch / stream input |
-|  [02]   | `sharp(input?, options?)`         | constructor    | creates pipeline from file path or Buffer    |
-|  [03]   | `sharp.cache(options?)`           | static control | gets/sets libvips op cache limits            |
-|  [04]   | `sharp.concurrency(concurrency?)` | static control | gets/sets libvips thread count               |
-|  [05]   | `sharp.counters()`                | static query   | internal task counter object                 |
-|  [06]   | `sharp.simd(enable?)`             | static control | enables/disables SIMD via highway            |
-|  [07]   | `sharp.block({ operation })`      | static control | blocks libvips operations by name            |
-|  [08]   | `sharp.unblock({ operation })`    | static control | unblocks libvips operations by name          |
+| [INDEX] | [SURFACE]                                           | [ENTRY_FAMILY]  | [CAPABILITY]                                                        |
+| :-----: | :-------------------------------------------------- | :-------------- | :----------------------------------------------------------------- |
+|  [01]   | `sharp(input?, options?)` / `new sharp(...)`        | constructor     | pipeline from path/`Buffer`/typed-array/stream/`SharpInput[]`; bare `sharp(options?)` for piped input |
+|  [02]   | `sharp.cache(options?)`                             | runtime control | get/set libvips op-cache limits → `CacheResult`                    |
+|  [03]   | `sharp.concurrency(n?)` / `sharp.simd(enable?)`     | runtime control | thread count; SIMD (highway) toggle for resize/blur/sharpen        |
+|  [04]   | `sharp.block({operation})` / `sharp.unblock({operation})` | runtime control | allow/deny libvips low-level ops (untrusted-input hardening)  |
+|  [05]   | `sharp.counters()`                                  | runtime query   | `SharpCounters` queue/process task counts                          |
+|  [06]   | `sharp.format` / `versions` / `interpolators` / `queue` | static field | format capability map; libvips dep versions; interpolator map; `EventEmitter` |
+|  [07]   | `sharp.gravity` / `strategy` / `kernel` / `fit` / `bool` | static field | the anchor/crop/kernel/fit/bitwise token objects for option values |
 
-[ENTRYPOINT_SCOPE]: resize, transform, and crop
-- rail: image-processing
+[ENTRYPOINT_SCOPE]: geometry — resize, rotate, extract, composite
+Order-semantic geometry ops; each returns `Sharp` for chaining before the single terminal fires the deferred recipe.
 
-| [INDEX] | [SURFACE]                                    | [ENTRY_FAMILY] | [RAIL]                                 |
-| :-----: | :------------------------------------------- | :------------- | :------------------------------------- |
-|  [01]   | `resize(widthOrOptions?, height?, options?)` | resize         | scale with fit, kernel, and background |
-|  [02]   | `rotate(angle?, options?)`                   | transform      | explicit or EXIF-driven rotation       |
-|  [03]   | `autoOrient()`                               | transform      | alias for EXIF-based `rotate()`        |
-|  [04]   | `flip(flip?)`                                | transform      | vertical flip about Y axis             |
-|  [05]   | `flop(flop?)`                                | transform      | horizontal flip about X axis           |
-|  [06]   | `affine(matrix, options?)`                   | transform      | 2×2 affine matrix transform            |
-|  [07]   | `composite(images)`                          | composite      | overlay images with blend modes        |
-|  [08]   | `extract(region)`                            | crop           | extract rectangular region             |
+| [INDEX] | [SURFACE]                                    | [ENTRY_FAMILY] | [CAPABILITY]                                                       |
+| :-----: | :------------------------------------------- | :------------- | :---------------------------------------------------------------- |
+|  [01]   | `resize(widthOrOptions?, height?, options?)` | resize         | scale under `fit`/`kernel`/`position`/`background`; `resize(ResizeOptions)` shorthand |
+|  [02]   | `extend(number \| ExtendOptions)` / `extract(Region)` / `trim(options?)` | geometry | pad/extrude edges; crop rectangle; auto-trim to background bbox   |
+|  [03]   | `rotate(angle?, options?)` / `autoOrient()`  | transform      | explicit or EXIF-driven rotation; `autoOrient` is the EXIF-only alias |
+|  [04]   | `flip(flip?)` / `flop(flop?)` / `affine(matrix, options?)` | transform | Y/X mirror; 2×2 affine under a chosen interpolator                 |
+|  [05]   | `composite(OverlayOptions[])`                | composite      | overlay layers with per-layer `Blend`/`gravity`/`top`/`left`/`tile` |
 
-[ENTRYPOINT_SCOPE]: color, channel, and filter
-- rail: image-processing
+[ENTRYPOINT_SCOPE]: colour, channels, filters, morphology
+Colour-space, channel, filter, and morphology ops — all lazy, chainable, and interchangeable in position before the terminal.
 
-| [INDEX] | [SURFACE]                               | [ENTRY_FAMILY] | [RAIL]                                  |
-| :-----: | :-------------------------------------- | :------------- | :-------------------------------------- |
-|  [01]   | `greyscale(greyscale?)` / `grayscale()` | color          | converts to 8-bit greyscale             |
-|  [02]   | `tint(tint)`                            | color          | tints using a `ColorLike` value         |
-|  [03]   | `toColourspace(colourspace?)`           | color          | converts output color space             |
-|  [04]   | `ensureAlpha(alpha?)`                   | channel        | adds alpha channel if absent            |
-|  [05]   | `removeAlpha()`                         | channel        | removes alpha channel                   |
-|  [06]   | `extractChannel(channel)`               | channel        | extracts one channel as greyscale       |
-|  [07]   | `joinChannel(images, options?)`         | channel        | merges additional channels              |
-|  [08]   | `sharpen(options?)`                     | filter         | fast mild or sigma-based sharpen        |
-|  [09]   | `blur(sigma?)`                          | filter         | fast mild or Gaussian blur              |
-|  [10]   | `median(size?)`                         | filter         | median filter; default 3×3              |
-|  [11]   | `normalise(options?)` / `normalize()`   | filter         | histogram-based contrast normalise      |
-|  [12]   | `clahe(options)`                        | filter         | contrast-limited adaptive histogram eq. |
-|  [13]   | `threshold(threshold?, options?)`       | filter         | binary threshold                        |
-|  [14]   | `gamma(gamma?, gammaOut?)`              | filter         | gamma encode/decode correction          |
-|  [15]   | `negate(negate?)`                       | filter         | image negative                          |
+| [INDEX] | [SURFACE]                                                     | [ENTRY_FAMILY] | [CAPABILITY]                                                    |
+| :-----: | :------------------------------------------------------------ | :------------- | :------------------------------------------------------------- |
+|  [01]   | `greyscale(b?)`/`grayscale(b?)` / `tint(ColorLike)` / `negate(b\|NegateOptions?)` | colour | monochrome, tint, invert                              |
+|  [02]   | `toColourspace(cs?)` / `pipelineColourspace(cs?)` (+`Color`-spelling aliases) | colour | output and pipeline `ColourspaceEnum` selection        |
+|  [03]   | `removeAlpha()` / `ensureAlpha(alpha?)` / `extractChannel(0\|1\|2\|3\|'red'..)` / `joinChannel(images, opts?)` / `bandbool(op)` | channel | alpha add/drop, band split/merge, bitwise band fold |
+|  [04]   | `sharpen(SharpenOptions?)` / `blur(sigma?\|BlurOptions)` / `median(size?)` / `clahe(ClaheOptions)` | filter | edge sharpen, gaussian blur, median denoise, adaptive-histogram |
+|  [05]   | `normalise(opts?)`/`normalize(opts?)` / `gamma(g?, gOut?)` / `threshold(t?, opts?)` / `modulate({brightness,saturation,hue,lightness})` | filter | contrast/tone/binarise/HSL modulation |
+|  [06]   | `linear(a?, b?)` / `recomb(Matrix3x3\|Matrix4x4)` / `convolve(Kernel)` / `boolean(operand, op, {raw})` | filter | levels, colour recombination, custom convolution, pixelwise boolean |
+|  [07]   | `dilate(width?)` / `erode(width?)` / `flatten(b\|FlattenOptions?)` / `unflatten()` | morphology | grow/shrink foreground; flatten alpha to background; white→transparent |
 
-[ENTRYPOINT_SCOPE]: metadata and output
-- rail: image-processing
+[ENTRYPOINT_SCOPE]: metadata channel — keep-from-input / set-on-output
+The `keep*`/`with*` family is opt-in metadata retention and authorship; default output strips every channel to sRGB.
 
-| [INDEX] | [SURFACE]                                                                  | [ENTRY_FAMILY] | [RAIL]                                        |
-| :-----: | :------------------------------------------------------------------------- | :------------- | :-------------------------------------------- |
-|  [01]   | `metadata()`                                                               | query          | `Promise<Metadata>`                           |
-|  [02]   | `stats()`                                                                  | query          | `Promise<Stats>`                              |
-|  [03]   | `toFile(fileOut)`                                                          | output         | `Promise<OutputInfo>` — writes to file        |
-|  [04]   | `toBuffer(options?)`                                                       | output         | `Promise<Buffer>` or `{ data, info }`         |
-|  [05]   | `toUint8Array()`                                                           | output         | `Promise<{ data: Uint8Array, info }>`         |
-|  [06]   | `jpeg(options?)` / `png(…)` / `webp(…)` / `avif(…)` / `gif(…)` / `tiff(…)` | format         | sets output format and options                |
-|  [07]   | `toFormat(format, options?)`                                               | format         | sets output format by string or format object |
-|  [08]   | `clone()`                                                                  | pipeline       | copies pipeline for multi-output branching    |
+| [INDEX] | [SURFACE]                                                         | [ENTRY_FAMILY] | [CAPABILITY]                                                    |
+| :-----: | :--------------------------------------------------------------- | :------------- | :------------------------------------------------------------- |
+|  [01]   | `keepMetadata()` / `keepExif()` / `keepIccProfile()` / `keepXmp()` | metadata     | preserve input EXIF/ICC/XMP/IPTC (default strips all → sRGB)   |
+|  [02]   | `withMetadata(WriteableMetadata?)` / `withDensity(dpi)`          | metadata       | write density/orientation + bulk EXIF/ICC/XMP                  |
+|  [03]   | `withExif(Exif)` / `withExifMerge(Exif)` / `withIccProfile(icc, opts?)` / `withXmp(xmp)` | metadata | set/merge EXIF, attach ICC (`srgb`/`p3`/`cmyk` or path), embed XMP |
+
+[ENTRYPOINT_SCOPE]: metadata query and terminal output
+`metadata`/`stats` probe pre-decode; `toFormat` encodes; `toBuffer`/`toUint8Array`/`toFile` are the single terminals that fire the lazy chain and yield the `OutputInfo` receipt.
+
+| [INDEX] | [SURFACE]                                                                  | [ENTRY_FAMILY] | [CAPABILITY]                                                    |
+| :-----: | :------------------------------------------------------------------------- | :------------- | :------------------------------------------------------------- |
+|  [01]   | `metadata()` / `metadata(cb)`                                              | query          | `Promise<Metadata>` (or callback) — pre-decode probe          |
+|  [02]   | `stats()` / `stats(cb)`                                                    | query          | `Promise<Stats>` per-channel statistics                       |
+|  [03]   | `clone()`                                                                  | pipeline       | branch a shared input into independent downstream pipelines    |
+|  [04]   | `toFormat(keyof FormatEnum \| AvailableFormatInfo, options?)`             | encode         | the one polymorphic encoder entry; option type resolves by format |
+|  [05]   | `jpeg`/`jp2`/`jxl`/`png`/`webp`/`gif`/`avif`/`heif`/`tiff`/`raw`(options?) | encode         | per-format sugar over `toFormat`, each taking its `*Options`   |
+|  [06]   | `tile(TileOptions?)` / `timeout({seconds})`                               | encode         | deep-zoom pyramid output; per-image processing deadline        |
+|  [07]   | `toFile(path)` / `toFile(path, cb)`                                        | output         | `Promise<OutputInfo>` — format inferred from extension         |
+|  [08]   | `toBuffer(options?)` / `toBuffer(cb)`                                      | output         | `Promise<Buffer>`; `{resolveWithObject:true}` → `{data, info}` |
+|  [09]   | `toUint8Array()`                                                           | output         | `Promise<{data: Uint8Array, info: OutputInfo}>` — transferable buffer |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [SHARP_TOPOLOGY]:
-- `sharp()` returns a `Sharp` which extends `Duplex`; it accepts piped readable streams or explicit `input` (path, Buffer, or Array of inputs for multi-frame).
-- Operations are lazy; processing does not begin until an output method (`toFile`, `toBuffer`, `toUint8Array`, pipe) is called.
-- Method order is semantic: `rotate` then `extract` differs from `extract` then `rotate`.
-- `resize` default fit is `"cover"`; available fit values are `"cover"`, `"contain"`, `"fill"`, `"inside"`, `"outside"`.
-- `clone()` inherits the parent input; all downstream operations on the clone are independent.
-- `sharp.queue` is a `NodeJS.EventEmitter` emitting `"change"` events when task queue state changes.
+- `sharp()` returns a `Sharp extends Duplex`; operations are lazy and never execute until a terminal (`toFile`/`toBuffer`/`toUint8Array`/pipe) fires — the chain is a pure description, so one `Effect.tryPromise` lifts the whole recipe at its single terminal.
+- Method order is semantic: `rotate().extract()` ≠ `extract().rotate()`; `resize` default `fit` is `"cover"`; only one rotation applies per pipeline (later `rotate` calls are ignored aside from an initial arg-less EXIF orient).
+- `clone()` shares one input stream across independent downstream pipelines — the branch primitive for multi-derivative fan-out (e.g. thumbnail + full-size from one decode).
+- Default output strips all metadata and converts to sRGB; the `keep*`/`with*` family is opt-in metadata retention/authorship on the metadata channel {EXIF, ICC, XMP, IPTC, density}.
 
 [LOCAL_ADMISSION]:
-- `SharpOptions.raw` supplies format metadata for raw pixel input: `{ width, height, channels }`.
-- `OverlayOptions` extends `SharpOptions`; `top`/`left` override `gravity` when both are set.
-- `sharp.versions` exposes `sharp` and `vips` version strings plus optional libvips dependency versions.
-- UV_THREADPOOL_SIZE limits the maximum parallel image pipelines; set before process start.
+- The libvips runtime controls (`concurrency`/`cache`/`simd`/`block`/`unblock`) are process-global and idempotent — set them once in a composition-root `Layer` (`Layer.effect` running `Effect.sync`), never per request.
+- Harden untrusted-upload decoding with `sharp.block([...])`/`VIPS_BLOCK_UNTRUSTED` alongside `SharpOptions.failOn`/`limitInputPixels` before the first terminal.
+- Method order is semantic (`rotate().extract()` ≠ `extract().rotate()`), one rotation applies per pipeline, and `resize` default `fit` is `"cover"`; `clone()` before a terminal fans one decode into independent derivatives.
+- At the single terminal prefer `toUint8Array()` (transferable `{ data, info }`) or `toBuffer({ resolveWithObject: true })` for the `Uint8Array` + `OutputInfo` pair the store's metadata reads; never read the `Duplex` output without a terminal.
+
+[STACKING]:
+- The `persistence/object#OBJECT_STORE` `transformImage` seam is canonical: `Effect.tryPromise({ try: () => sharp(input).resize(width).toFormat(format).toBuffer().then((b) => new Uint8Array(b)), catch: (cause) => new ObjectFault({ reason: "encode_failed", key: "", cause }) })` where `format: keyof FormatEnum` — one `toFormat` entry owns every encoder, so a new output format is a token, never a code branch, and the transform fails onto `ObjectFault`, not the export codecs' `AssetTransferFault`.
+- The `Uint8Array` (or `{ data, info }` when `resolveWithObject`) feeds `ObjectStore.put`; `OutputInfo.{format,size,width,height,channels}` becomes the object's stored metadata, and `hash-wasm` `XxHash128` (`createXXHash128(0, 0)`, the `interchange#CONTENT_KEY_PARITY` seed regime) over the bytes yields the content-addressed `ObjectKey` — the derivative is idempotent by content, so re-encoding the same source is a cache hit.
+- For a body over the streaming threshold, the source `Stream` pipes through the `Sharp` `Duplex` via `@effect/platform-node` `NodeStream.pipeThroughDuplex` (`.api/effect-platform-node.md`; Sharp is both writable sink and readable source) instead of `toBuffer`, matching the store's size-branched `put` (small → buffer, large → `Stream`).
+- Sibling `AssetCodec` export codecs — `papaparse` (`csv`, `.api/papaparse.md` `unparse`), `exceljs` (`xlsx`, `.api/exceljs.md` `xlsx.writeBuffer()`), `jspdf` (`pdf`, `.api/jspdf.md` `output("arraybuffer")`), `jszip` (`archive`, `.api/jszip.md` `generateAsync`/`generateNodeStream`) — fold onto the one `Schema.Literal("csv","xlsx","pdf","archive")` axis dispatched by `Match.exhaustive` and fail onto `AssetTransferFault { stage: "encode" }`, while `sharp` is the upstream image transform on that same `put` failing onto its own `ObjectFault { reason: "encode_failed" }`; a `sharp` derivative buffer entering `jszip.file(path, bytes)` bundles image + tabular + document outputs into one streamed archive under one content-addressed `ObjectStore.put`.
 
 [RAIL_LAW]:
 - Package: `sharp`
-- Owns: image decode, transform pipeline, format encode, libvips runtime control
-- Accept: one `Sharp` pipeline per input; chain operations before a single terminal output call
-- Reject: reading `Sharp` stream output without calling a terminal output method; mutating `sharp.versions` or `sharp.queue` directly
+- Owns: image decode, the lazy transform/composite/filter/morphology pipeline, format encode keyed by `FormatEnum`, and libvips runtime control
+- Accept: one `Sharp` per input; chain operations before a single terminal; `Effect.tryPromise` at the terminal; `keyof FormatEnum` as the encoder discriminant; `clone()` to fan out derivatives; process-global controls set once in a `Layer`
+- Reject: treating `sharp` as a fifth `AssetCodec` export literal instead of the in-pipeline image transform; reading `Sharp` stream output without a terminal call; per-format encoder branches where `toFormat` discriminates; hand-rolled pixel loops or a spawned ImageMagick/`gm` shell; mutating `sharp.versions`/`sharp.queue`; per-request `concurrency`/`cache` mutation

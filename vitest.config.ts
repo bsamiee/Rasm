@@ -1,12 +1,11 @@
 /// <reference types="vitest/config" />
 /**
- * Root Vitest: unified config with explicit inline projects for workspace.
- * Child packages do NOT need vitest.config.ts when using inline projects pattern.
+ * Root Vitest skeleton. The TS test estate is currently EMPTY: every former inline project matched
+ * zero files and was deleted; per-package projects return with the TS buildout. Artifacts route to .artifacts/typescript.
  */
 
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { playwright } from '@vitest/browser-playwright';
 import { defineConfig, type ViteUserConfig } from 'vitest/config';
 
 // --- [TYPES] -----------------------------------------------------------------
@@ -19,39 +18,11 @@ type RuntimeEnv = NodeJS.ProcessEnv & {
 
 const Dirname = path.dirname(fileURLToPath(import.meta.url));
 const _ENV: RuntimeEnv = process.env;
+const _ARTIFACTS = {
+    coverage: path.resolve(Dirname, '.artifacts/typescript/coverage'),
+    results: path.resolve(Dirname, '.artifacts/typescript/test-results'),
+} as const;
 const _CONFIG = {
-    browser: {
-        expect: {
-            toMatchScreenshot: {
-                comparatorName: 'pixelmatch' as const,
-                comparatorOptions: {
-                    allowedMismatchedPixelRatio: 0.01,
-                    threshold: 0.2,
-                },
-            },
-        },
-        headless: true,
-        provider: playwright({
-            actionTimeout: 5_000,
-            contextOptions: {
-                colorScheme: 'light',
-                locale: 'en-US',
-                permissions: ['clipboard-read', 'clipboard-write'],
-                timezoneId: 'UTC',
-            },
-            launchOptions: {
-                args: ['--disable-gpu', '--no-sandbox', '--disable-dev-shm-usage'],
-            },
-        }),
-        screenshotDirectory: path.resolve(Dirname, 'test-results/screenshots'),
-        trace: {
-            mode: 'retain-on-failure' as const,
-            screenshots: true,
-            snapshots: true,
-            tracesDir: path.resolve(Dirname, 'test-results/traces'),
-        },
-        viewport: { height: 720, width: 1280 },
-    },
     cacheDir: '.cache/vitest',
     deps: { interopDefault: true },
     fakeTimers: {
@@ -64,9 +35,9 @@ const _CONFIG = {
         chaiConfig: { includeStack: true, showDiff: true, truncateThreshold: 0 },
         diff: { expand: true, truncateThreshold: 0 },
         outputFile: {
-            blob: path.resolve(Dirname, 'test-results/.vitest-reports'),
-            json: path.resolve(Dirname, 'test-results/results.json'),
-            junit: path.resolve(Dirname, 'test-results/junit.xml'),
+            blob: path.resolve(_ARTIFACTS.results, '.vitest-reports'),
+            json: path.resolve(_ARTIFACTS.results, 'results.json'),
+            junit: path.resolve(_ARTIFACTS.results, 'junit.xml'),
         },
     },
     patterns: {
@@ -76,22 +47,14 @@ const _CONFIG = {
             '**/*.d.ts',
             '**/__mocks__/**',
             '**/__tests__/**',
-            '**/.stryker-tmp/**',
             '**/dist/**',
             '**/node_modules/**',
             '**/test/**',
             '**/tests/**',
         ],
-        coverageInclude: ['apps/**/src/**/*.{ts,tsx,mts,cts}'],
-        testExclude: [
-            '**/*.e2e.{test,spec}.{ts,tsx}',
-            '**/node_modules/**',
-            '**/dist/**',
-            '**/.stryker-tmp/**',
-            'tests/.stryker-tmp/**',
-            'tests/e2e/**',
-        ],
-        testInclude: ['tests/**/*.{test,spec}.{ts,tsx,mts,cts}', 'apps/**/*.{test,spec}.{ts,tsx,mts,cts}'],
+        coverageInclude: ['libs/typescript/**/src/**/*.{ts,tsx,mts,cts}'],
+        testExclude: ['**/node_modules/**', '**/dist/**', '**/.cache/**'],
+        testInclude: ['tests/typescript/**/*.{test,spec}.{ts,tsx,mts,cts}', 'libs/typescript/**/*.{test,spec}.{ts,tsx,mts,cts}'],
     },
     reporters: {
         coverage: ['text', 'json', 'json-summary', 'html', 'lcov'] as const,
@@ -109,7 +72,7 @@ const config: ViteUserConfig = defineConfig({
     optimizeDeps: { include: [..._CONFIG.optimizeDeps] },
     test: {
         allowOnly: _ENV.CI !== 'true',
-        benchmark: { exclude: ['**/node_modules/**', '**/dist/**'], include: [..._CONFIG.patterns.benchInclude] },
+        benchmark: { exclude: [..._CONFIG.patterns.testExclude], include: [..._CONFIG.patterns.benchInclude] },
         chaiConfig: { ..._CONFIG.output.chaiConfig },
         coverage: {
             clean: true,
@@ -120,7 +83,7 @@ const config: ViteUserConfig = defineConfig({
             provider: 'v8',
             reporter: [..._CONFIG.reporters.coverage],
             reportOnFailure: true,
-            reportsDirectory: path.resolve(Dirname, 'coverage'),
+            reportsDirectory: _ARTIFACTS.coverage,
             skipFull: true,
             thresholds: {
                 branches: 95,
@@ -146,53 +109,11 @@ const config: ViteUserConfig = defineConfig({
         passWithNoTests: false,
         pool: 'threads',
         printConsoleTrace: false,
-        projects: [
-            {
-                extends: true,
-                test: {
-                    environment: 'node',
-                    exclude: ['tests/.stryker-tmp/**', 'tests/e2e/**'],
-                    include: ['tests/**/*.{test,spec}.{ts,tsx,mts,cts}'],
-                    name: 'root-tests',
-                    root: Dirname,
-                    setupFiles: [..._CONFIG.setupFiles],
-                },
-            },
-            {
-                test: {
-                    browser: {
-                        enabled: true,
-                        expect: _CONFIG.browser.expect,
-                        headless: _CONFIG.browser.headless,
-                        instances: [{ browser: 'chromium' }],
-                        provider: _CONFIG.browser.provider,
-                        screenshotDirectory: _CONFIG.browser.screenshotDirectory,
-                        screenshotFailures: true,
-                        trace: _CONFIG.browser.trace,
-                        viewport: _CONFIG.browser.viewport,
-                    },
-                    include: ['tests/**/*.{browser.test,browser.spec}.{ts,tsx,mts,cts}'],
-                    name: 'browser-tests',
-                    root: Dirname,
-                    setupFiles: [..._CONFIG.setupFiles],
-                },
-            },
-            {
-                extends: true,
-                test: {
-                    environment: 'jsdom',
-                    include: ['apps/**/*.{test,spec}.{ts,tsx,mts,cts}'],
-                    name: 'apps',
-                    root: Dirname,
-                    setupFiles: [..._CONFIG.setupFiles],
-                },
-            },
-        ],
         reporters: [..._CONFIG.reporters.test],
         restoreMocks: true,
         retry: _ENV.CI ? 2 : 0,
         sequence: { concurrent: false, hooks: 'stack', shuffle: _ENV.CI === 'true' },
-        setupFiles: [],
+        setupFiles: [..._CONFIG.setupFiles],
         silent: 'passed-only',
         slowTestThreshold: _CONFIG.timeouts.slow,
         snapshotFormat: { ..._CONFIG.snapshot.format },

@@ -1,64 +1,86 @@
-using System.Globalization;
-using System.Numerics;
-using Rhino;
-using Rhino.Geometry;
+using Complex = System.Numerics.Complex;
 
 namespace Rasm.TestKit;
 
+// --- [TYPES] --------------------------------------------------------------------------------
+// The matrix-norm vocabulary: each row carries its own projector; call sites never re-dispatch
+// on a string kind, and a new norm is one row beside these.
+[SmartEnum]
+public sealed partial class Norm {
+    public static readonly Norm MaxAbs = new(static (rows, cols, at) =>
+        Numeric.Cells(rows: rows, cols: cols).Max(rc => Math.Abs(value: at(rc.Row, rc.Col))));
+    public static readonly Norm L1 = new(static (rows, cols, at) =>
+        Enumerable.Range(start: 0, count: cols).Max((int c) => Enumerable.Range(start: 0, count: rows).Sum((int r) => Math.Abs(value: at(r, c)))));
+    public static readonly Norm LInf = new(static (rows, cols, at) =>
+        Enumerable.Range(start: 0, count: rows).Max((int r) => Enumerable.Range(start: 0, count: cols).Sum((int c) => Math.Abs(value: at(r, c)))));
+    public static readonly Norm Frobenius = new(static (rows, cols, at) =>
+        Math.Sqrt(d: Numeric.Cells(rows: rows, cols: cols).Sum(rc => at(rc.Row, rc.Col) * at(rc.Row, rc.Col))));
+
+    [UseDelegateFromConstructor]
+    public partial double Of(int rows, int cols, Func<int, int, double> at);
+}
+
 // --- [SERVICES] -----------------------------------------------------------------------------
+// Independent double/array oracles: every member RETURNS a value — a residual, a moment, a
+// closed form — and the caller's Spec gate decides pass or fail. No oracle asserts mid-flight.
 public static class Numeric {
+    // --- [SCALAR_FOLDS]
     public static double Sum(Seq<double> values) =>
         values.Fold(initialState: 0.0, f: static (sum, value) => sum + value);
-    public static bool IsTiny(Vector3d value, double tolerance = RhinoMath.ZeroTolerance) =>
-        (value.X * value.X) + (value.Y * value.Y) + (value.Z * value.Z) <= tolerance * tolerance;
-    public static Point3d Centroid(Seq<Point3d> points) =>
-        WeightedCentroid(points: points, weights: toSeq(Enumerable.Repeat(element: 1.0 / points.Count, count: points.Count)));
-    private static Point3d WeightedCentroid(Seq<Point3d> points, Seq<double> weights) {
-        Assert.Equal(expected: points.Count, actual: weights.Count);
-        (double x, double y, double z, double w) = toSeq(Enumerable.Range(start: 0, count: Math.Min(val1: points.Count, val2: weights.Count)))
-            .Fold(initialState: (X: 0.0, Y: 0.0, Z: 0.0, W: 0.0), f: (state, i) => (
-                X: state.X + (points[index: i].X * weights[index: i]),
-                Y: state.Y + (points[index: i].Y * weights[index: i]),
-                Z: state.Z + (points[index: i].Z * weights[index: i]),
-                W: state.W + weights[index: i]));
-        return w > RhinoMath.ZeroTolerance
-            ? new Point3d(x: x / w, y: y / w, z: z / w)
-            : Point3d.Unset;
-    }
-    public static Arr<double> CovarianceUpper(Seq<Point3d> points, Option<Seq<double>> weights = default) {
-        Seq<double> mass = weights.IfNone(toSeq(Enumerable.Repeat(element: 1.0 / points.Count, count: points.Count)));
-        Assert.Equal(expected: points.Count, actual: mass.Count);
-        Point3d mean = WeightedCentroid(points: points, weights: mass);
-        return new Arr<double>([
-            WeightedMoment(points: points, weights: mass, mean: mean, left: static p => p.X, right: static p => p.X),
-            WeightedMoment(points: points, weights: mass, mean: mean, left: static p => p.X, right: static p => p.Y),
-            WeightedMoment(points: points, weights: mass, mean: mean, left: static p => p.X, right: static p => p.Z),
-            WeightedMoment(points: points, weights: mass, mean: mean, left: static p => p.Y, right: static p => p.Y),
-            WeightedMoment(points: points, weights: mass, mean: mean, left: static p => p.Y, right: static p => p.Z),
-            WeightedMoment(points: points, weights: mass, mean: mean, left: static p => p.Z, right: static p => p.Z),
-        ]);
-    }
-    public static double ArcLength(Seq<Point3d> points) =>
-        toSeq(Enumerable.Range(start: 1, count: Math.Max(val1: 0, val2: points.Count - 1)))
-            .Fold(initialState: 0.0, f: (sum, i) => sum + points[index: i - 1].DistanceTo(other: points[index: i]));
-    // Row-major cell order is shared by matrix oracle labels and projections.
-    private static IEnumerable<(int Row, int Col)> Cells(int rows, int cols) =>
-        Enumerable.Range(start: 0, count: rows * cols).Select(idx => (Row: idx / cols, Col: idx % cols));
-    public static void Entrywise(int rows, int cols, Func<int, int, double> expected, Func<int, int, double> actual, double tolerance, string label) =>
-        _ = toSeq(Cells(rows: rows, cols: cols)).Iter(rc =>
-            Spec.Equal(left: actual(rc.Row, rc.Col), right: expected(rc.Row, rc.Col), tolerance: tolerance, what: string.Create(provider: CultureInfo.InvariantCulture, $"{label}[{rc.Row},{rc.Col}]")));
-    public static void Symmetric(int dimension, Func<int, int, double> at, double tolerance, string label) =>
-        Entrywise(rows: dimension, cols: dimension, expected: (row, col) => at(col, row), actual: at, tolerance: tolerance, label: label);
     public static double Dot(int count, Func<int, double> left, Func<int, double> right) =>
         Enumerable.Range(start: 0, count: count).Sum(i => left(i) * right(i));
     public static Complex DotComplex(int count, Func<int, Complex> left, Func<int, Complex> right) =>
-        Enumerable.Range(start: 0, count: count).Aggregate(Complex.Zero, (sum, i) => sum + (Complex.Conjugate(left(i)) * right(i)));
+        Enumerable.Range(start: 0, count: count).Aggregate(Complex.Zero, (sum, i) => sum + (Complex.Conjugate(value: left(i)) * right(i)));
+    public static double ConvergenceOrder(double coarseError, double fineError, double stepRatio = 2.0) =>
+        coarseError <= 0.0 || fineError <= 0.0 ? double.NaN : Math.Log(d: coarseError / fineError) / Math.Log(d: stepRatio);
+
+    // --- [POINT_MOMENTS]
+    // Points are d-dimensional rows; mismatched weights or a vanishing mass return NaN vectors so
+    // the calling gate fails loudly instead of the oracle asserting.
+    public static double[] Centroid(double[][] points, double[]? weights = null) {
+        ArgumentNullException.ThrowIfNull(argument: points);
+        ArgumentOutOfRangeException.ThrowIfZero(value: points.Length, paramName: nameof(points));
+        int dim = points[0].Length;
+        double[] mass = weights ?? [.. Enumerable.Repeat(element: 1.0 / points.Length, count: points.Length)];
+        double total = mass.Sum();
+        return mass.Length != points.Length || Math.Abs(value: total) <= double.Epsilon
+            ? [.. Enumerable.Repeat(element: double.NaN, count: dim)]
+            : [.. Enumerable.Range(start: 0, count: dim).Select(axis =>
+                Enumerable.Range(start: 0, count: points.Length).Sum(i => points[i][axis] * mass[i]) / total)];
+    }
+    // Packed upper triangle, row-major: length d(d+1)/2 over the weighted central second moments.
+    public static double[] CovarianceUpper(double[][] points, double[]? weights = null) {
+        ArgumentNullException.ThrowIfNull(argument: points);
+        double[] mean = Centroid(points: points, weights: weights);
+        double[] mass = weights ?? [.. Enumerable.Repeat(element: 1.0 / points.Length, count: points.Length)];
+        int dim = mean.Length;
+        return [.. Enumerable.Range(start: 0, count: dim).SelectMany(row => Enumerable.Range(start: row, count: dim - row).Select(col =>
+            Enumerable.Range(start: 0, count: points.Length).Sum(i => mass[i] * (points[i][row] - mean[row]) * (points[i][col] - mean[col]))))];
+    }
+    public static double ArcLength(double[][] points) {
+        ArgumentNullException.ThrowIfNull(argument: points);
+        return Enumerable.Range(start: 1, count: Math.Max(val1: 0, val2: points.Length - 1)).Sum(i => Distance(left: points[i - 1], right: points[i]));
+    }
+    public static (double Min, double Mean, double Max) PairwiseDistances(double[][] points) {
+        ArgumentNullException.ThrowIfNull(argument: points);
+        double[] distances = [.. Enumerable.Range(start: 0, count: points.Length).SelectMany(i =>
+            Enumerable.Range(start: i + 1, count: points.Length - i - 1).Select(j => Distance(left: points[i], right: points[j])))];
+        return distances.Length == 0 ? (Min: 0.0, Mean: 0.0, Max: 0.0) : (Min: distances.Min(), Mean: distances.Average(), Max: distances.Max());
+    }
+    public static double Distance(double[] left, double[] right) {
+        ArgumentNullException.ThrowIfNull(argument: left);
+        ArgumentNullException.ThrowIfNull(argument: right);
+        return Math.Sqrt(d: Enumerable.Range(start: 0, count: Math.Min(val1: left.Length, val2: right.Length)).Sum(i => (left[i] - right[i]) * (left[i] - right[i])));
+    }
+
+    // --- [MATRIX_ORACLES]
+    // Row-major cell order is shared by every entrywise residual and projection.
+    public static IEnumerable<(int Row, int Col)> Cells(int rows, int cols) =>
+        Enumerable.Range(start: 0, count: rows * cols).Select(idx => (Row: idx / cols, Col: idx % cols));
     public static double ProductAt(int width, Func<int, int, double> left, Func<int, int, double> right, int row, int col) =>
         Dot(count: width, left: k => left(row, k), right: k => right(k, col));
-    public static void Product(int rows, int width, int cols, Func<int, int, double> left, Func<int, int, double> right, Func<int, int, double> actual, double tolerance, string label) =>
-        Entrywise(rows: rows, cols: cols, expected: (row, col) => ProductAt(width: width, left: left, right: right, row: row, col: col), actual: actual, tolerance: tolerance, label: label);
     public static double Determinant(int n, Func<int, int, double> at) {
-        ArgumentNullException.ThrowIfNull(at);
+        ArgumentNullException.ThrowIfNull(argument: at);
         return n switch {
             0 => 1.0,
             1 => at(0, 0),
@@ -67,125 +89,55 @@ public static class Numeric {
                 ((col & 1) == 0 ? 1.0 : -1.0) * at(0, col) * Determinant(n: n - 1, at: (int row, int minorCol) => at(row + 1, minorCol < col ? minorCol : minorCol + 1))),
         };
     }
-    public static void ColumnGramIdentity(VectorMatrix matrix, Arr<double>? sigma, double tolerance, string label) =>
-        Entrywise(rows: matrix.Cols.Value, cols: matrix.Cols.Value,
-            expected: (row, col) => row == col && (sigma is null || row >= sigma.Value.Count || sigma.Value[row] > RhinoMath.ZeroTolerance) ? 1.0 : 0.0,
-            actual: ColumnGram(matrix: matrix), tolerance: tolerance, label: label);
-    public static double Norm2(Arr<double> vector) =>
-        Math.Sqrt(d: vector.AsIterable().Sum(static value => value * value));
-    public static void Residual(VectorMatrix matrix, Arr<double> x, Arr<double> b, double tolerance, string label) =>
-        _ = x.Count == matrix.Cols.Value && b.Count == matrix.Rows.Value
-            ? toSeq(Enumerable.Range(start: 0, count: matrix.Rows.Value)).Iter(row =>
-                Spec.Equal(
-                    left: Dot(count: matrix.Cols.Value, left: col => matrix.At(i: row, j: col), right: col => x[index: col]),
-                    right: b[index: row],
-                    tolerance: tolerance,
-                    what: string.Create(provider: CultureInfo.InvariantCulture, $"{label}[{row}]")))
-            : throw new Xunit.Sdk.XunitException(string.Create(provider: CultureInfo.InvariantCulture, $"{label}: residual shape mismatch A={matrix.Rows.Value}x{matrix.Cols.Value}, x={x.Count}, b={b.Count}"));
-    public static void Eigenpair(VectorMatrix matrix, double eigenvalue, Arr<double> eigenvector, Func<double, double, bool> eq, string label) {
-        Assert.Equal(expected: matrix.Cols.Value, actual: eigenvector.Count);
-        _ = toSeq(Enumerable.Range(start: 0, count: matrix.Rows.Value)).Iter(row => {
-            double left = Dot(count: matrix.Cols.Value, left: col => matrix.At(i: row, j: col), right: col => eigenvector[index: col]);
-            double right = eigenvalue * eigenvector[index: row];
-            Spec.Holds(condition: (eq ?? throw new ArgumentNullException(nameof(eq)))(left, right), label: string.Create(provider: CultureInfo.InvariantCulture, $"{label}[{row}]: {left:R} != {right:R}"));
-        });
+    public static double EntrywiseResidual(int rows, int cols, Func<int, int, double> expected, Func<int, int, double> actual) =>
+        Cells(rows: rows, cols: cols).Max(rc => Math.Abs(value: actual(rc.Row, rc.Col) - expected(rc.Row, rc.Col)));
+    public static double SymmetryResidual(int dimension, Func<int, int, double> at) =>
+        EntrywiseResidual(rows: dimension, cols: dimension, expected: (row, col) => at(col, row), actual: at);
+    public static double ProductResidual(int rows, int width, int cols, Func<int, int, double> left, Func<int, int, double> right, Func<int, int, double> actual) =>
+        EntrywiseResidual(rows: rows, cols: cols, expected: (row, col) => ProductAt(width: width, left: left, right: right, row: row, col: col), actual: actual);
+    // max_i |(A x - b)_i|; a shape mismatch is NaN so the calling gate fails loudly.
+    public static double SolveResidual(int rows, int cols, Func<int, int, double> at, double[] x, double[] b) {
+        ArgumentNullException.ThrowIfNull(argument: x);
+        ArgumentNullException.ThrowIfNull(argument: b);
+        return x.Length != cols || b.Length != rows
+            ? double.NaN
+            : Enumerable.Range(start: 0, count: rows).Max(row => Math.Abs(value: Dot(count: cols, left: col => at(row, col), right: col => x[col]) - b[row]));
     }
-    private static double WeightedMoment(Seq<Point3d> points, Seq<double> weights, Point3d mean, Func<Point3d, double> left, Func<Point3d, double> right) =>
-        toSeq(Enumerable.Range(start: 0, count: Math.Min(val1: points.Count, val2: weights.Count)))
-            .Fold(initialState: 0.0, f: (sum, i) => {
-                Point3d point = points[index: i];
-                return sum + (weights[index: i] * (left(point) - left(mean)) * (right(point) - right(mean)));
-            });
-
-    // --- [GEOMETRY_ORACLES]
-    public static (double Min, double Mean, double Max) PairwiseDistances(Seq<Point3d> points) {
-        double[] distances = [.. Enumerable.Range(start: 0, count: points.Count).SelectMany(i =>
-            Enumerable.Range(start: i + 1, count: points.Count - i - 1).Select(j => points[index: i].DistanceTo(other: points[index: j])))];
-        return distances.Length == 0 ? (Min: 0.0, Mean: 0.0, Max: 0.0)
-            : (Min: distances.Min(), Mean: distances.Average(), Max: distances.Max());
-    }
-    // V - E + F; full Euler is 2 - 2g - b - h.
-    public static int EulerCharacteristic(int vertices, int edges, int faces) => vertices - edges + faces;
-    public static double TriangleArea(Point3d a, Point3d b, Point3d c) =>
-        0.5 * Vector3d.CrossProduct(a: b - a, b: c - a).Length;
-    // Rodrigues axis-angle rotation matrix.
-    public static double[][] RotationMatrix(Vector3d axis, double angle) {
-        Vector3d k = IsTiny(value: axis) ? Vector3d.ZAxis : axis / axis.Length;
-        double c = Math.Cos(d: angle), s = Math.Sin(a: angle), t = 1.0 - c;
-        return [
-            [c + (t * k.X * k.X),       (t * k.X * k.Y) - (s * k.Z), (t * k.X * k.Z) + (s * k.Y)],
-            [(t * k.X * k.Y) + (s * k.Z), c + (t * k.Y * k.Y),       (t * k.Y * k.Z) - (s * k.X)],
-            [(t * k.X * k.Z) - (s * k.Y), (t * k.Y * k.Z) + (s * k.X), c + (t * k.Z * k.Z)]];
-    }
-    public static double AngularDistance(Vector3d a, Vector3d b) =>
-        Math.Acos(d: Math.Clamp(value: IsTiny(value: a) || IsTiny(value: b) ? 1.0 : a * b / (a.Length * b.Length), min: -1.0, max: 1.0));
-
-    // --- [MATRIX_ORACLES]
-    private static Func<int, int, double> ColumnGram(VectorMatrix matrix) =>
-        (row, col) => Dot(count: matrix.Rows.Value, left: k => matrix.At(i: k, j: row), right: k => matrix.At(i: k, j: col));
-    // Independent O(n^3) oracle; do not reuse production multiply.
-    public static double[][] Multiply(VectorMatrix left, VectorMatrix right) =>
-        [.. Enumerable.Range(start: 0, count: left.Rows.Value).Select(r =>
-            Enumerable.Range(start: 0, count: right.Cols.Value).Select(c =>
-                ProductAt(width: left.Cols.Value, left: left.At, right: right.At, row: r, col: c)).ToArray())];
-    public static double Norm(VectorMatrix matrix, string kind) {
-        IEnumerable<int> rows = Enumerable.Range(start: 0, count: matrix.Rows.Value);
-        IEnumerable<int> cols = Enumerable.Range(start: 0, count: matrix.Cols.Value);
-        return kind switch {
-            "MaxAbs" => matrix.Entries.AsIterable().Max(static x => Math.Abs(value: x)),
-            "L1" => cols.Max((int c) => rows.Sum((int r) => Math.Abs(value: matrix.At(i: r, j: c)))),
-            "LInf" => rows.Max((int r) => cols.Sum((int c) => Math.Abs(value: matrix.At(i: r, j: c)))),
-            _ => throw new ArgumentException(message: $"Norm: unknown kind '{kind}'", paramName: nameof(kind)),
-        };
+    public static double EigenpairResidual(int n, Func<int, int, double> at, double eigenvalue, double[] eigenvector) {
+        ArgumentNullException.ThrowIfNull(argument: eigenvector);
+        return eigenvector.Length != n
+            ? double.NaN
+            : Enumerable.Range(start: 0, count: n).Max(row =>
+                Math.Abs(value: Dot(count: n, left: col => at(row, col), right: col => eigenvector[col]) - (eigenvalue * eigenvector[row])));
     }
     public static double FrobeniusDistance(Func<int, int, double> left, Func<int, int, double> right, int rows, int cols) =>
         Math.Sqrt(d: Cells(rows: rows, cols: cols).Sum(rc => { double d = left(rc.Row, rc.Col) - right(rc.Row, rc.Col); return d * d; }));
-    public static double OrthogonalityResidual(VectorMatrix matrix) {
-        int n = matrix.Cols.Value;
-        return FrobeniusDistance(left: ColumnGram(matrix: matrix), right: (r, c) => r == c ? 1.0 : 0.0, rows: n, cols: n);
-    }
+    public static double OrthogonalityResidual(int rows, int cols, Func<int, int, double> at) =>
+        FrobeniusDistance(
+            left: (row, col) => Dot(count: rows, left: k => at(k, row), right: k => at(k, col)),
+            right: static (row, col) => row == col ? 1.0 : 0.0,
+            rows: cols, cols: cols);
 
     // --- [SPECTRAL_ORACLES]
-    // Path-graph Laplacian; eigenvalue closed form λ_k = 2 - 2cos(kπ/N).
-    public static VectorMatrix PathGraphLaplacian(int n) =>
-        VectorMatrix.Of(
-            rows: Dim.TryCreate(value: n, obj: out Dim r) ? r : throw new InvalidOperationException(message: "PathGraphLaplacian dim"),
-            cols: Dim.TryCreate(value: n, obj: out Dim c) ? c : throw new InvalidOperationException(message: "PathGraphLaplacian dim"),
-            entries: new Arr<double>([.. Cells(rows: n, cols: n).Select(rc => (rc.Row, rc.Col) switch {
-                var (i, j) when i == j && (i == 0 || i == n - 1) => 1.0,
-                var (i, j) when i == j => 2.0,
-                var (i, j) when Math.Abs(value: i - j) == 1 => -1.0,
-                _ => 0.0,
-            })])).Match(Succ: static m => m, Fail: static _ => throw new InvalidOperationException("PathGraphLaplacian invariant"));
-    public static double LaplacianRowSum(VectorMatrix L, int row) =>
-        Enumerable.Range(start: 0, count: L.Cols.Value).Sum(c => L.At(i: row, j: c));
-    // Heat-kernel closed form k(x,y,t) = Σ exp(-λ_i t) φ_i(x) φ_i(y).
-    public static double HeatKernel(Arr<double> eigenvalues, Func<int, int, double> eigenvectors, double t, int x, int y) =>
-        Enumerable.Range(start: 0, count: eigenvalues.Count).Sum(i => Math.Exp(d: -eigenvalues[index: i] * t) * eigenvectors(i, x) * eigenvectors(i, y));
-    public static bool OrthonormalBasisCheck(Vector3d a, Vector3d b, Vector3d c, double tolerance = 1e-9) =>
-        Math.Abs(value: a.Length - 1.0) <= tolerance && Math.Abs(value: b.Length - 1.0) <= tolerance && Math.Abs(value: c.Length - 1.0) <= tolerance
-        && Math.Abs(value: a * b) <= tolerance && Math.Abs(value: b * c) <= tolerance && Math.Abs(value: a * c) <= tolerance;
-
-    // --- [FIELD_ORACLES]
-    public static double SignedDistanceSphere(Point3d p, Point3d center, double radius) =>
-        p.DistanceTo(other: center) - radius;
-    // Box SDF parameters are half-extents.
-    public static double SignedDistanceBox(Point3d p, Point3d center, double halfX, double halfY, double halfZ) {
-        Vector3d q = new(x: Math.Abs(p.X - center.X) - halfX, y: Math.Abs(p.Y - center.Y) - halfY, z: Math.Abs(p.Z - center.Z) - halfZ);
-        Vector3d clamped = new(x: Math.Max(val1: q.X, val2: 0.0), y: Math.Max(val1: q.Y, val2: 0.0), z: Math.Max(val1: q.Z, val2: 0.0));
-        return clamped.Length + Math.Min(val1: Math.Max(val1: q.X, val2: Math.Max(val1: q.Y, val2: q.Z)), val2: 0.0);
+    // Path-graph Laplacian; eigenvalue closed form lambda_k = 2 - 2cos(k*pi/n).
+    public static double[][] PathGraphLaplacian(int n) =>
+        [.. Enumerable.Range(start: 0, count: n).Select(row => (double[])[.. Enumerable.Range(start: 0, count: n).Select(col => (row, col) switch {
+            var (i, j) when i == j && (i == 0 || i == n - 1) => 1.0,
+            var (i, j) when i == j => 2.0,
+            var (i, j) when Math.Abs(value: i - j) == 1 => -1.0,
+            _ => 0.0,
+        })])];
+    public static double LaplacianRowSum(double[][] laplacian, int row) {
+        ArgumentNullException.ThrowIfNull(argument: laplacian);
+        return laplacian[row].Sum();
     }
-    public static Vector3d GradientCentralDifference(Func<Point3d, double> f, Point3d p, double eps) {
-        ArgumentNullException.ThrowIfNull(argument: f);
-        return new Vector3d(
-            x: (f(new Point3d(x: p.X + eps, y: p.Y, z: p.Z)) - f(new Point3d(x: p.X - eps, y: p.Y, z: p.Z))) / (2.0 * eps),
-            y: (f(new Point3d(x: p.X, y: p.Y + eps, z: p.Z)) - f(new Point3d(x: p.X, y: p.Y - eps, z: p.Z))) / (2.0 * eps),
-            z: (f(new Point3d(x: p.X, y: p.Y, z: p.Z + eps)) - f(new Point3d(x: p.X, y: p.Y, z: p.Z - eps))) / (2.0 * eps));
+    // Heat-kernel closed form k(x,y,t) = sum_i exp(-lambda_i t) phi_i(x) phi_i(y).
+    public static double HeatKernel(double[] eigenvalues, Func<int, int, double> eigenvectors, double t, int x, int y) {
+        ArgumentNullException.ThrowIfNull(argument: eigenvalues);
+        return Enumerable.Range(start: 0, count: eigenvalues.Length).Sum(i => Math.Exp(d: -eigenvalues[i] * t) * eigenvectors(i, x) * eigenvectors(i, y));
     }
 
-    // --- [FLOW_ORACLES]
-    public static Vector3d AnalyticLinearField(Vector3d a, Vector3d b, Point3d p) =>
-        a + new Vector3d(x: b.X * p.X, y: b.Y * p.Y, z: b.Z * p.Z);
-    public static double ConvergenceOrder(double coarseError, double fineError, double stepRatio = 2.0) =>
-        coarseError <= 0.0 || fineError <= 0.0 ? double.NaN : Math.Log(d: coarseError / fineError) / Math.Log(d: stepRatio);
+    // --- [TOPOLOGY_ORACLES]
+    // V - E + F; full Euler is 2 - 2g - b - h.
+    public static int EulerCharacteristic(int vertices, int edges, int faces) => vertices - edges + faces;
 }

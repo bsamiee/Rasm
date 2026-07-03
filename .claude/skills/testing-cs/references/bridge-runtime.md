@@ -58,15 +58,15 @@ Do NOT group when:
 - The fixture setup for one scenario is incompatible with another (different document units, conflicting active views).
 - The grouped file would exceed 200 LOC — split into thematic subgroups.
 
-Evidence channel: grouped assertions populate a shared fact bag through the repo scenario harness. When a grouped scenario fails, the runtime evidence JSON shows the predicate that threw plus the full fact dictionary collected before the throw.
+Evidence channel: grouped assertions populate the `ScenarioContext` fact stream; wrap each sub-concern in `ctx.Case(name, ...)` so its start/status facts survive independently. When a grouped scenario fails, the runtime evidence JSON shows the failing case plus every fact collected before the failure.
 
 ---
 ## [05]-[SCENARIO_LOC_GUIDANCE]
 
 | [TYPE]                  | [TARGET_LOC] | [NOTES]                                                                |
 | ----------------------- | ------------ | ---------------------------------------------------------------------- |
-| Single-concern scenario | 30-80        | Fixture setup + 1-2 assertions + `facts.Add` lines.                    |
-| Thematic group          | 80-200       | 4-8 assertions over shared fixture, all wrapped in one `Scenario.Run`. |
+| Single-concern scenario | 30-80        | Fixture setup + 1-2 assertions + `ctx.Note`/`ctx.Fact` evidence lines.        |
+| Thematic group          | 80-200       | 4-8 assertions over shared fixture, each named through `ctx.Case(name, ...)`. |
 | Hard cap per file       | 250          | Above 250, split into thematic subgroups.                              |
 
 Use the repo scenario helpers to keep boilerplate compact. Adding scenario helpers is permitted when the helper has 2+ scenario consumers across different specs.

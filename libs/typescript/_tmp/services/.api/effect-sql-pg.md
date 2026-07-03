@@ -12,9 +12,16 @@ export * as PgMigrator from "@effect/sql-pg/PgMigrator"
 
 [PACKAGE_SURFACE]: `@effect/sql-pg`
 - package: `@effect/sql-pg`
+- version: `0.52.1`
+- license: `MIT`
+- effect-peer: `effect ^3.21.x`, `@effect/platform ^0.96.x`, `@effect/sql ^0.51.x`, `@effect/experimental ^0.60.x` — the dialect specializes the abstract `SqlClient` and discharges `Reactivity` (`.api/effect-sql.md`, `.api/effect-experimental.md`, `.api/effect-platform.md`, `.api/effect.md`)
+- driver-dep: `pg ^8.16.x` (node client + pool), `pg-cursor ^2.15.x` (server-side cursor behind `Statement.stream`), `pg-types ^4.1.x` (the `PgClientConfig.types` decode-override registry), `pg-connection-string`, `pg-pool` — bundled deps, not peers
+- runtime: node/bun only — hard `pg` + `node:stream`/`node:tls` imports; never a browser bundle
 - entry: `@effect/sql-pg` (namespace re-export), `@effect/sql-pg/PgClient`, `@effect/sql-pg/PgMigrator`
+- modules: `PgClient`, `PgMigrator`
 - asset: `PgClient` service + tag, config/pool constructors, layer constructors, Postgres statement compiler, `PgJson` custom fragment, migrator runner/layer over `@effect/sql/Migrator`
 - rail: persistence / sql-postgres
+- owner consumers: `SqlBoundary` (`persistence/store#STORE_BOUNDARY` — the one `PgClient` Layer + `Migrator` + `Model.Class` registry); `OutboxRelay` (`execution/outbox#TRANSACTIONAL_OUTBOX` — `listen`/`notify` wake gating a `FOR UPDATE SKIP LOCKED` claim loop); `ReactiveQuery` (`persistence/reactive#REACTIVE_QUERY` — `SqlClient.reactive` methods on this one client); `IdempotencyLedger` (`persistence/idempotency#IDEMPOTENCY_LEDGER` — atomic `ON CONFLICT DO UPDATE … RETURNING (xmax = …)`)
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -313,3 +320,24 @@ const fromFileSystem: (directory: string) => Loader<FileSystem>  // from @effect
 - `@effect/sql-pg`: persistence rail; node/bun tier only (hard dependency on the `pg` driver and
   `node:stream`/`node:tls`). Never imported in a browser bundle. The wire/transport tiers carry
   query results as decoded domain values, not `PgClient` handles.
+
+[STACKING]:
+- One `PgClient` layer is the single Postgres seam every persistence surface folds onto — the abstract
+  query/`Statement`/`Model`/`Migrator`/`SqlSchema`/`SqlResolver` capability is owned by `@effect/sql`
+  (`.api/effect-sql.md`); this page adds only `config`/`json`/`listen`/`notify`. `layer(config)` provisions
+  `PgClient | Client.SqlClient` in one shot, so `@effect/cluster`'s `SqlMessageStorage`/`SqlRunnerStorage`
+  (`execution/backplane#RUNNER_AND_SCHEDULING`), every `Model.makeRepository`, and the `Migrator` all ride
+  the one client — no second SQL surface.
+- `listen`/`notify` is the durable-wake rail, never the delivery rail: `OutboxRelay`
+  (`execution/outbox#TRANSACTIONAL_OUTBOX`) writes the outbox row same-txn via `SqlClient.withTransaction`,
+  `notify(channel, id)` wakes the relay, and `listen(channel): Stream<string, SqlError>` (a long-lived
+  `pg` LISTEN subscription) gates a `FOR UPDATE SKIP LOCKED` claim loop — the payload is a wake token,
+  the durable claim is the source of truth.
+- `reactive`/`reactiveMailbox` are `SqlClient` methods backed by `@effect/experimental` `Reactivity`
+  (`.api/effect-experimental.md`): `ReactiveQuery` (`persistence/reactive#REACTIVE_QUERY`) pairs a
+  `sql.reactive([keys], query)` read with a `Reactivity.mutation([keys], …)` write on the same client, so
+  invalidation is in-process key-matching, not a `pg` change-feed. `layer`/`layerConfig`/`layerFromPool`
+  discharge the bundled `Reactivity` default; bare `make`/`fromPool` require it in the requirement channel.
+- `spanAttributes` threads into the OTLP span tree telemetry exports (`.api/effect-opentelemetry.md`);
+  `url`/`password` are `Redacted.Redacted` (`effect/Redacted`) so DSN secrets never enter a span or log —
+  build them with `Redacted.make` or read them redacted from `layerConfig`'s `Config` provider.

@@ -290,9 +290,13 @@ Rules that bite:
 - Banned drift labels: `[HARNESS]` `[SCHEMAS]` `[LAW]` `[CONFIG]` `[PROMPTS]` `[HELPERS]`
   `[FOLDER]` `[SCOPE]` and singular `[INPUT]`. Use the canonical label.
 - A packer that consolidates heterogeneous clusters into a bounded agent count balances
-  by WORK WEIGHT (distinct files dominate an agent's load), never item count, keeps
-  clusters atomic, and logs per-bucket weights — the full law is patterns.md §13
-  "Bounded buckets". Uniform `chunk(pages, N)` batches are exempt.
+  by WORK WEIGHT (distinct files dominate an agent's load), never item count, and caps
+  cluster atomicity at the FAIR SHARE (`totalWork / n`): an over-budget connected
+  component sub-shards file-atomically (same-lead-file rows never split; the verify
+  stage owns the deliberate cross-shard seams; shard prompts carry the anchored-Edit
+  collision discipline), and per-bucket weights are logged — the full law is
+  patterns.md §13 "Bounded buckets". Applies equally to pool-per-cluster shapes
+  (`cap = totalWork / POOL_CAP`). Uniform `chunk(pages, N)` batches are exempt.
 
 ## Step 5 — Validate and dry-run before running
 

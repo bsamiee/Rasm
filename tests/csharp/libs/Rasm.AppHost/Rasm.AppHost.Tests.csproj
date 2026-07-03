@@ -1,10 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <!-- Spec-free shell during the planning phase; assay routes SHELL-lane projects out of test runs. -->
+        <AssayTestShell>true</AssayTestShell>
+    </PropertyGroup>
     <ItemGroup Label="Project References">
         <ProjectReference Include="../../../../libs/csharp/Rasm.AppHost/Rasm.AppHost.csproj" />
-    </ItemGroup>
-    <ItemGroup Label="Deterministic Time And Telemetry">
-        <PackageReference Include="Microsoft.Extensions.Diagnostics.Testing" PrivateAssets="all" />
-        <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" PrivateAssets="all" />
-        <PackageReference Include="NodaTime.Testing" PrivateAssets="all" />
     </ItemGroup>
 </Project>

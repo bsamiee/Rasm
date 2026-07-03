@@ -14,11 +14,12 @@ import pytest
 
 from tests.python._testkit.laws import register_law, spec
 from tests.python._testkit.spec import assert_error, assert_error_status, assert_ok
+from tests.python.tools.assay.kit import SeamExecutor
 from tools.assay.composition.settings import ArtifactScope, AssaySettings
-from tools.assay.core.engine import exclusive_lease
-from tools.assay.core.model import ArtifactKind, Claim, Fault, fold, Mode, PackageRun, receipt, Report
+from tools.assay.core.engine import EngineExecutor, exclusive_lease
+from tools.assay.core.model import ArtifactKind, Claim, Fault, Mode, PackageRun, RailStatus, receipt, Report
 from tools.assay.core.routing import parse_csproj
-from tools.assay.core.status import RailStatus
+from tools.assay.diagnostics import fold
 from tools.assay.rails import package as _pkg_mod
 from tools.assay.rails.package import (
     _commit_or_fail,
@@ -43,12 +44,13 @@ if TYPE_CHECKING:
     import builtins
 
     from tests.python.tools.assay.kit import AssayHarness, YakShape
+    from tools.assay.core.engine import Executor
     from tools.assay.core.model import Check, Completed
 
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type _VerbFn = Callable[[AssaySettings, ArtifactScope, PackageParams], Result[Report, Fault]]
+type _VerbFn = Callable[[AssaySettings, ArtifactScope, PackageParams, Executor], Result[Report, Fault]]
 type _MetaMutator = Callable[[YakMeta], YakMeta]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -238,7 +240,7 @@ register_law(evaluate_meta, "malformed_msbuild_output_faults")
 def test_evaluate_meta_propagates_run_check_fault(assay_root: AssayHarness, yak_shape: YakShape) -> None:
     """evaluate_meta propagates a Fault when dotnet MSBuild exits with bad output."""
     meta = yak_shape.materialize(assay_root)
-    result = evaluate_meta(assay_root.settings, assay_root.scope(Claim.PACKAGE), meta.project, yak_shape.slug, "1.0.0")
+    result = evaluate_meta(assay_root.settings, assay_root.scope(Claim.PACKAGE), meta.project, yak_shape.slug, "1.0.0", EngineExecutor())
     match result:
         case _ if result.is_ok():
             assert result.ok.assembly_name, "evaluate_meta must not yield empty assembly_name"
@@ -246,25 +248,23 @@ def test_evaluate_meta_propagates_run_check_fault(assay_root: AssayHarness, yak_
             assert result.error.status in {RailStatus.FAULTED, RailStatus.FAILED}
 
 
-def test_evaluate_meta_decodes_canned_msbuild_props(assay_root: AssayHarness, yak_shape: YakShape, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_evaluate_meta_decodes_canned_msbuild_props(assay_root: AssayHarness, yak_shape: YakShape) -> None:
     """evaluate_meta decodes canned MSBuild -getProperty JSON into validated YakMeta."""
     meta = yak_shape.materialize(assay_root)
-    monkeypatch.setattr(_pkg_mod, "run_check", _flow_run_check(yak_shape, meta))
-    decoded = assert_ok(evaluate_meta(assay_root.settings, assay_root.scope(Claim.PACKAGE), meta.project, yak_shape.slug, "3.1.4"))
+    executor = SeamExecutor(run_fn=_flow_run_check(yak_shape, meta))
+    decoded = assert_ok(evaluate_meta(assay_root.settings, assay_root.scope(Claim.PACKAGE), meta.project, yak_shape.slug, "3.1.4", executor))
     assert decoded.assembly_name == yak_shape.assembly_name
     assert decoded.package_pattern == yak_shape.package_pattern
     assert decoded.target_ext == ".rhp"
 
 
-def test_evaluate_meta_malformed_output_faults(assay_root: AssayHarness, yak_shape: YakShape, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_evaluate_meta_malformed_output_faults(assay_root: AssayHarness, yak_shape: YakShape) -> None:
     """evaluate_meta turns non-JSON MSBuild output into a bounded metadata Fault."""
     meta = yak_shape.materialize(assay_root)
-    monkeypatch.setattr(
-        _pkg_mod,
-        "run_check",
-        lambda _c, **_kw: Ok(receipt(("dotnet", "msbuild"), 1, stdout=b"MSB1009: project file does not exist", status=RailStatus.FAILED)),
+    executor = SeamExecutor(
+        run_fn=lambda _c, **_kw: Ok(receipt(("dotnet", "msbuild"), 1, stdout=b"MSB1009: project file does not exist", status=RailStatus.FAILED))
     )
-    result = evaluate_meta(assay_root.settings, assay_root.scope(Claim.PACKAGE), meta.project, yak_shape.slug, "1.0.0")
+    result = evaluate_meta(assay_root.settings, assay_root.scope(Claim.PACKAGE), meta.project, yak_shape.slug, "1.0.0", executor)
     e = assert_error_status(result, RailStatus.FAULTED)
     assert "msbuild metadata evaluation failed" in e.message
     assert "MSB1009" in e.message
@@ -281,8 +281,9 @@ def test_plan_produces_package_run_detail(assay_root: AssayHarness, yak_shape: Y
     """Plan Ok-path: detail is PackageRun carrying project/pattern/version/platform fields."""
     meta = yak_shape.materialize(assay_root)
     version = "2.3.4"
+    params = PackageParams(slug=yak_shape.slug, version=version)
     with patch.object(_pkg_mod, "_resolve_project", return_value=Ok(meta.project)), patch.object(_pkg_mod, "evaluate_meta", return_value=Ok(meta)):
-        report = assert_ok(plan(assay_root.settings, assay_root.scope(Claim.PACKAGE), PackageParams(slug=yak_shape.slug, version=version)))
+        report = assert_ok(plan(assay_root.settings, assay_root.scope(Claim.PACKAGE), params, SeamExecutor()))
     assert isinstance(report.detail, PackageRun)
     assert report.detail.project == meta.project
     assert report.detail.version == version
@@ -294,7 +295,7 @@ def test_plan_propagates_resolve_fault(assay_root: AssayHarness) -> None:
     """Plan propagates the Fault when slug resolution fails."""
     slug_fault = Fault(("package", "missing"), message="expected one package project for missing, found 0")
     with patch.object(_pkg_mod, "_resolve_project", return_value=Error(slug_fault)):
-        e = assert_error(plan(assay_root.settings, assay_root.scope(Claim.PACKAGE), PackageParams(slug="missing", version="1.0.0")))
+        e = assert_error(plan(assay_root.settings, assay_root.scope(Claim.PACKAGE), PackageParams(slug="missing", version="1.0.0"), SeamExecutor()))
     assert "missing" in e.message
 
 
@@ -302,11 +303,12 @@ def test_plan_propagates_meta_fault(assay_root: AssayHarness, yak_shape: YakShap
     """Plan propagates evaluate_meta Fault without wrapping."""
     meta = yak_shape.materialize(assay_root)
     meta_fault = Fault(("yak", yak_shape.slug), message="msbuild metadata evaluation failed (exit 1): error text")
+    params = PackageParams(slug=yak_shape.slug, version="1.0.0")
     with (
         patch.object(_pkg_mod, "_resolve_project", return_value=Ok(meta.project)),
         patch.object(_pkg_mod, "evaluate_meta", return_value=Error(meta_fault)),
     ):
-        e = assert_error(plan(assay_root.settings, assay_root.scope(Claim.PACKAGE), PackageParams(slug=yak_shape.slug, version="1.0.0")))
+        e = assert_error(plan(assay_root.settings, assay_root.scope(Claim.PACKAGE), params, SeamExecutor()))
     assert "msbuild" in e.message
 
 
@@ -319,7 +321,7 @@ register_law(list, "ignores_non_yak_csproj")
 
 def test_list_empty_workspace(assay_root: AssayHarness) -> None:
     """List Ok with empty results when no yak projects exist in the workspace."""
-    report = assert_ok(list(assay_root.settings, assay_root.scope(Claim.PACKAGE), PackageParams()))
+    report = assert_ok(list(assay_root.settings, assay_root.scope(Claim.PACKAGE), PackageParams(), SeamExecutor()))
     assert report.results == ()
     assert report.status is RailStatus.OK
 
@@ -327,7 +329,7 @@ def test_list_empty_workspace(assay_root: AssayHarness) -> None:
 def test_list_discovers_yak_projects(assay_root: AssayHarness, yak_shape: YakShape) -> None:
     """List returns one Match per yak project with slug=id and project path=text, kind=SCOPE."""
     yak_shape.materialize(assay_root)
-    report = assert_ok(list(assay_root.settings, assay_root.scope(Claim.PACKAGE), PackageParams()))
+    report = assert_ok(list(assay_root.settings, assay_root.scope(Claim.PACKAGE), PackageParams(), SeamExecutor()))
     assert len(report.results) == 1
     match_row = report.results[0]
     assert match_row.id == yak_shape.slug
@@ -338,7 +340,7 @@ def test_list_discovers_yak_projects(assay_root: AssayHarness, yak_shape: YakSha
 def test_list_ignores_non_yak_csproj(assay_root: AssayHarness) -> None:
     """List omits .csproj files that carry no YakPackageSlug property."""
     non_yak = assay_root.write("apps/core/core.csproj", "<Project><PropertyGroup/></Project>")
-    report = assert_ok(list(assay_root.settings, assay_root.scope(Claim.PACKAGE), PackageParams()))
+    report = assert_ok(list(assay_root.settings, assay_root.scope(Claim.PACKAGE), PackageParams(), SeamExecutor()))
     assert all(m.id for m in report.results)
     assert not any(non_yak.stem in (m.text or "") for m in report.results)
 
@@ -368,7 +370,7 @@ def test_verbs_acquire_slug_lease(
     monkeypatch.setattr(_pkg_mod, "_stage_meta", lambda *_a, **_kw: Ok(staged_report))
     monkeypatch.setattr(_pkg_mod, "_finish", lambda *_a, **_kw: Ok(staged_report))
 
-    assert_ok(verb_fn(assay_root.settings, assay_root.scope(Claim.PACKAGE), PackageParams(slug=yak_shape.slug, version="1.0.0")))
+    assert_ok(verb_fn(assay_root.settings, assay_root.scope(Claim.PACKAGE), PackageParams(slug=yak_shape.slug, version="1.0.0"), SeamExecutor()))
     assert f"package-{yak_shape.slug}" in leased_resources, f"[{verb_name}] expected slug lease in {leased_resources}"
 
 
@@ -378,7 +380,8 @@ def test_verbs_propagate_slug_resolution_fault(verb_fn: _VerbFn, verb_name: str,
     slug_fault = Fault(("package", "missing"), message="expected one package project for missing, found 0")
     monkeypatch.setattr(_pkg_mod, "_resolve_project", lambda *_a, **_kw: Error(slug_fault))
     assert_error_status(
-        verb_fn(assay_root.settings, assay_root.scope(Claim.PACKAGE), PackageParams(slug="missing", version="1.0.0")), RailStatus.FAULTED
+        verb_fn(assay_root.settings, assay_root.scope(Claim.PACKAGE), PackageParams(slug="missing", version="1.0.0"), SeamExecutor()),
+        RailStatus.FAULTED,
     )
 
 
@@ -397,10 +400,10 @@ def _flow_run_check(
     stage_status: RailStatus = RailStatus.OK,
     build_fault: Fault | None = None,
 ) -> Callable[..., Result[Completed, Fault]]:
-    """Build a fake run_check that materializes the stage pipeline artifacts.
+    """Build a canned executor run lane that materializes the stage pipeline artifacts.
 
     Returns:
-        Fake ``run_check`` driving the build/stage pipeline doubles.
+        Run-lane callable for ``SeamExecutor(run_fn=...)`` driving the build/stage pipeline doubles.
     """
 
     def fake(check: Check, **kwargs: object) -> Result[Completed, Fault]:
@@ -438,13 +441,13 @@ register_law(publish, "yak_stage_failure_short_circuits_before_commit")
 def _install_flow(
     verb_fn: _VerbFn, assay_root: AssayHarness, yak_shape: YakShape, monkeypatch: pytest.MonkeyPatch
 ) -> tuple[Result[Report, Fault], builtins.list[str]]:
-    """Run a package verb with a fake pipeline and captured bridge args.
+    """Run a package verb with a canned executor pipeline and captured bridge args.
 
     Returns:
         Verb result paired with the captured bridge argument strings.
     """
     meta = yak_shape.materialize(assay_root)
-    monkeypatch.setattr(_pkg_mod, "run_check", _flow_run_check(yak_shape, meta))
+    executor = SeamExecutor(run_fn=_flow_run_check(yak_shape, meta))
     calls: builtins.list[str] = []
 
     def fake_bridge(_settings: object, *args: str, **_kw: object) -> Result[Completed, Fault]:
@@ -452,7 +455,7 @@ def _install_flow(
         return Ok(receipt(("rasm-bridge", *args), 0, status=RailStatus.OK))
 
     monkeypatch.setattr(_pkg_mod, "client_run", fake_bridge)
-    return verb_fn(assay_root.settings, assay_root.scope(Claim.PACKAGE), PackageParams(slug=yak_shape.slug, version="9.9.9")), calls
+    return verb_fn(assay_root.settings, assay_root.scope(Claim.PACKAGE), PackageParams(slug=yak_shape.slug, version="9.9.9"), executor), calls
 
 
 def test_publish_non_bridge_slug_runs_install_and_push(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -488,12 +491,12 @@ def test_publish_bridge_slug_cycles_host_with_install_and_push(
 
 @pytest.mark.parametrize("build_status, stage_status", [(RailStatus.FAILED, RailStatus.OK), (RailStatus.OK, RailStatus.FAILED)])
 def test_publish_stage_step_failure_short_circuits(
-    build_status: RailStatus, stage_status: RailStatus, assay_root: AssayHarness, yak_shape: YakShape, monkeypatch: pytest.MonkeyPatch
+    build_status: RailStatus, stage_status: RailStatus, assay_root: AssayHarness, yak_shape: YakShape
 ) -> None:
     """Failed build or yak build folds into the report without committing or running post-stage steps."""
     meta = yak_shape.materialize(assay_root)
-    monkeypatch.setattr(_pkg_mod, "run_check", _flow_run_check(yak_shape, meta, build_status=build_status, stage_status=stage_status))
-    report = assert_ok(publish(assay_root.settings, assay_root.scope(Claim.PACKAGE), PackageParams(slug=yak_shape.slug, version="1.0.0")))
+    executor = SeamExecutor(run_fn=_flow_run_check(yak_shape, meta, build_status=build_status, stage_status=stage_status))
+    report = assert_ok(publish(assay_root.settings, assay_root.scope(Claim.PACKAGE), PackageParams(slug=yak_shape.slug, version="1.0.0"), executor))
     assert report.status is RailStatus.FAILED
     assert not (assay_root.root / yak_shape.project.parent / "yak").exists()
 
@@ -514,7 +517,7 @@ def test_finish_empty_policy_returns_staged_unchanged(assay_root: AssayHarness, 
     """_finish with a verb carrying no policy row returns the staged report verbatim, never resolving a package file."""
     meta = yak_shape.materialize(assay_root)
     staged = fold(Claim.PACKAGE, "plan", (receipt(("yak", "build"), 0, status=RailStatus.OK),))
-    assert assert_ok(_finish(assay_root.settings, assay_root.scope(Claim.PACKAGE), meta, yak_shape.slug, "plan", staged)) is staged
+    assert assert_ok(_finish(assay_root.settings, assay_root.scope(Claim.PACKAGE), meta, yak_shape.slug, "plan", staged, SeamExecutor())) is staged
 
 
 @pytest.mark.parametrize("bad_status", _NON_OK_STATUSES)
@@ -525,13 +528,14 @@ def test_finish_non_ok_stage_skips_post_steps(
     meta = yak_shape.materialize(assay_root)
     staged = msgspec.structs.replace(fold(Claim.PACKAGE, "publish", ()), status=bad_status)
     monkeypatch.setattr(_pkg_mod, "_resolve_package_file", lambda *_a, **_kw: (_ for _ in ()).throw(AssertionError("must not run")))
-    assert assert_ok(_finish(assay_root.settings, assay_root.scope(Claim.PACKAGE), meta, yak_shape.slug, "publish", staged)).status is bad_status
+    outcome = _finish(assay_root.settings, assay_root.scope(Claim.PACKAGE), meta, yak_shape.slug, "publish", staged, SeamExecutor())
+    assert assert_ok(outcome).status is bad_status
 
 
 def test_drive_steps_bridge_policy_acquires_bridge_lock(assay_root: AssayHarness, yak_shape: YakShape, monkeypatch: pytest.MonkeyPatch) -> None:
     """Bridge publish steps serialize on the shared bridge lease."""
     meta = yak_shape.materialize(assay_root)
-    monkeypatch.setattr(_pkg_mod, "run_check", _flow_run_check(yak_shape, meta))
+    executor = SeamExecutor(run_fn=_flow_run_check(yak_shape, meta))
     monkeypatch.setattr(_pkg_mod, "client_run", lambda *_a, **_kw: Ok(receipt(("rasm-bridge",), 0, status=RailStatus.OK)))
     staged = fold(Claim.PACKAGE, "publish", (receipt(("yak", "build"), 0, status=RailStatus.OK),))
     steps = _pkg_mod._STEP_POLICY["publish", True]
@@ -539,8 +543,8 @@ def test_drive_steps_bridge_policy_acquires_bridge_lock(assay_root: AssayHarness
     scope = assay_root.scope(Claim.PACKAGE)
     with exclusive_lease("bridge", "holder", settings=assay_root.settings) as held:
         assert_ok(held)
-        assert_error_status(_drive_steps(assay_root.settings, scope, meta, "publish", staged, package_file, steps), RailStatus.BUSY)
-    assert_ok(_drive_steps(assay_root.settings, scope, meta, "publish", staged, package_file, steps))
+        assert_error_status(_drive_steps(assay_root.settings, scope, meta, "publish", staged, package_file, steps, executor), RailStatus.BUSY)
+    assert_ok(_drive_steps(assay_root.settings, scope, meta, "publish", staged, package_file, steps, executor))
 
 
 def test_resolve_package_file_ambiguous_glob_faults(assay_root: AssayHarness, yak_shape: YakShape) -> None:
@@ -643,13 +647,13 @@ def test_commit_swap_oserror_rolls_back(assay_root: AssayHarness, yak_shape: Yak
     assert "cross-device link" in e.message
 
 
-def test_stage_build_outputs_fault_cleans_staged_tree(assay_root: AssayHarness, yak_shape: YakShape, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_stage_build_outputs_fault_cleans_staged_tree(assay_root: AssayHarness, yak_shape: YakShape) -> None:
     """_build_outputs Fault propagation removes the staged temp tree."""
     meta = yak_shape.materialize(assay_root)
     parents_before = {p.name for p in (assay_root.root / yak_shape.project.parent).iterdir()}
     spawn_fault = Fault(("dotnet", "build"), message="spawn failed: ENOENT")
-    monkeypatch.setattr(_pkg_mod, "run_check", _flow_run_check(yak_shape, meta, build_fault=spawn_fault))
-    e = assert_error(publish(assay_root.settings, assay_root.scope(Claim.PACKAGE), PackageParams(slug=yak_shape.slug, version="1.0.0")))
+    executor = SeamExecutor(run_fn=_flow_run_check(yak_shape, meta, build_fault=spawn_fault))
+    e = assert_error(publish(assay_root.settings, assay_root.scope(Claim.PACKAGE), PackageParams(slug=yak_shape.slug, version="1.0.0"), executor))
     assert "spawn failed" in e.message
     parents_after = {p.name for p in (assay_root.root / yak_shape.project.parent).iterdir()}
     assert parents_after == parents_before, f"leaked staged tree: {parents_after - parents_before}"
@@ -764,9 +768,9 @@ def test_stage_heals_dead_pid_marker_under_lease(assay_root: AssayHarness, yak_s
     meta = yak_shape.materialize(assay_root)
     previous = _seed_previous(meta)
     marker = _seed_marker(meta, _DEAD_PID, previous)
-    monkeypatch.setattr(_pkg_mod, "run_check", _flow_run_check(yak_shape, meta))
+    executor = SeamExecutor(run_fn=_flow_run_check(yak_shape, meta))
     monkeypatch.setattr(_pkg_mod, "client_run", lambda *_a, **_kw: Ok(receipt(("rasm-bridge",), 0, status=RailStatus.OK)))
-    report = assert_ok(publish(assay_root.settings, assay_root.scope(Claim.PACKAGE), PackageParams(slug=yak_shape.slug, version="1.0.0")))
+    report = assert_ok(publish(assay_root.settings, assay_root.scope(Claim.PACKAGE), PackageParams(slug=yak_shape.slug, version="1.0.0"), executor))
     assert report.status is RailStatus.OK
     assert not marker.exists()
     assert not previous.exists()

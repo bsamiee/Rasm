@@ -10,9 +10,9 @@ import pytest
 from tests.python._testkit.bench import BenchCase, run_registry
 from tests.python._testkit.strategies import resolve
 from tests.python.tools.assay.kit import WIRE_ENCODER
-from tools.assay.core.model import Claim, Completed, Envelope, envelope, fold, Input, Language, Mode, receipt, Runner, Tool
+from tools.assay.core.model import Claim, Completed, Envelope, envelope, Input, Language, Mode, RailStatus, receipt, Runner, Tool
 from tools.assay.core.routing import place, Routed, Scope
-from tools.assay.core.status import RailStatus
+from tools.assay.diagnostics import fold
 
 
 if TYPE_CHECKING:

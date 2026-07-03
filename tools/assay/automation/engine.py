@@ -26,9 +26,9 @@ from tools.assay.automation.model import Debounce, describe, Edge, Manual, Progr
 from tools.assay.composition.registry import rail, REGISTRY
 from tools.assay.composition.settings import ArtifactScope
 from tools.assay.core.engine import run_check_async
-from tools.assay.core.model import Check, Claim, Counts, Envelope, envelope, Fault, fold, Input, Language, Mode, Report, Runner, Tool
+from tools.assay.core.model import Check, Claim, Counts, Envelope, envelope, Fault, Input, Language, Mode, RailStatus, Report, Runner, Tool
 from tools.assay.core.routing import Routed, Scope
-from tools.assay.core.status import join, RailStatus
+from tools.assay.diagnostics import fold
 
 
 if TYPE_CHECKING:
@@ -205,7 +205,7 @@ async def _sequence(leaves: tuple[Action, ...], settings: AssaySettings, limiter
     # Short-circuit fold: the first terminal status stops the leaf walk.
     folded = RailStatus.EMPTY
     for leaf in leaves:
-        folded = join(folded, await _emit_leaf(leaf, settings, limiter, cpu_threshold))
+        folded = RailStatus.dominant(folded, await _emit_leaf(leaf, settings, limiter, cpu_threshold))
         match folded:
             case RailStatus.FAILED | RailStatus.BUSY | RailStatus.TIMEOUT | RailStatus.FAULTED:
                 return folded

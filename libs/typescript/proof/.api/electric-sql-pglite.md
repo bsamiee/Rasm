@@ -4,7 +4,7 @@
 - package: `@electric-sql/pglite` · version `0.5.3` · license `Apache-2.0`
 - module: ESM (`type: module`) with a CJS mirror (`.cjs` + `.d.cts` under every export); subpath map is real — `.`, `./live`, `./worker`, `./template`, and `./contrib/*` per-extension entries.
 - asset: `dist/index.d.ts` (barrel over the hashed type bundle `dist/pglite-*.d.ts`); WASM binary + fs bundle ship inside the package (`fsBundle` / `pgliteWasmModule` overridable).
-- runtime: WebAssembly PGlite (a single Postgres 17 build compiled to WASM) — single-connection, in-process, no socket, no Docker; runs identically in node, bun, browser, and worker.
+- runtime: WebAssembly PGlite (a single Postgres build compiled to WASM) — single-connection, in-process, no socket, no Docker; runs identically in node, bun, browser, and worker.
 - plane: `plane:dev` — the `proof/harness/unit` fast lane; the container lane's counterpart is `testcontainers.md` (real pg-18.4-with-server-extensions).
 - rail: persistence-verification / in-process-sql.
 
@@ -101,7 +101,7 @@ Barrel also exports `parse` (wire parser) and `formatQuery`, and `protocol` (the
 
 ## [03]-[EXTENSIONS_AND_LANES]
 
-The extension mechanism is ONE parameterized shape, not a fixed roster: an `Extension` is `{ name, setup }` keyed into `PGliteOptions.extensions` by namespace, and `PGlite.create` types the resulting namespace onto the handle (`PGliteInterfaceExtensions`). The `./contrib/*` roster (`amcheck`, `auto_explain`, `bloom`, `btree_gin`, `btree_gist`, `citext`, `cube`, `fuzzystrmatch`, `hstore`, `isn`, `lo`, `ltree`, `pg_trgm`, `seg`, `tablefunc`, `tcn`, `tsm_system_rows`, `uuid_ossp`, `vector`, …) and the first-party `live` extension are SEED ROWS on that shape. This is the CLIENT-side wasm extension surface — orthogonal to the SERVER extensions (`postgis`, the CNPG image) that force the `testcontainers` lane; "no server extensions" names that boundary, not a ban on `live`.
+The extension mechanism is ONE parameterized shape, not a fixed roster: an `Extension` is `{ name, setup }` keyed into `PGliteOptions.extensions` by namespace, and `PGlite.create` types the resulting namespace onto the handle (`PGliteInterfaceExtensions`). The `./contrib/*` roster (`amcheck`, `auto_explain`, `bloom`, `btree_gin`, `btree_gist`, `citext`, `cube`, `earthdistance`, `fuzzystrmatch`, `hstore`, `intarray`, `isn`, `lo`, `ltree`, `pg_trgm`, `pgcrypto`, `seg`, `tablefunc`, `tsm_system_rows`, `unaccent`, `uuid_ossp`, … — 33 bundled) and the first-party `live` extension are SEED ROWS on that shape. This is the CLIENT-side wasm-contrib surface — orthogonal to the SERVER extensions (`pgvector`, `postgis`, the CNPG image rows) that force the `testcontainers` lane; "no server extensions" names that boundary, not a ban on `live` or the bundled contribs.
 
 ```ts contract
 interface Extension<TNamespace = any> { name: string; setup: ExtensionSetup<TNamespace> }
@@ -122,9 +122,9 @@ Each returns `{ initialResults, unsubscribe, refresh }` and accepts an options o
 
 ## [04]-[INTEGRATION]
 
-[STACK: `PGlite` + `effect/Layer` + `@effect/vitest`] — the unit lane is a shared Layer, not a per-spec construct. `Layer.scoped(Tag, Effect.acquireRelease(Effect.promise(() => PGlite.create({ relaxedDurability: true })), db => Effect.promise(() => db.close())))` builds the handle once; `it.layer(PgLiteTest)(…)` (from `@effect/vitest`, see `fast-check.md` [05]) shares it across the block, and `Effect.tryPromise` wraps each `db.query`/`db.exec` into the folder's typed error rail. Seed DDL runs once in the Layer's acquire via `db.exec(schemaSql)`.
+[STACK: `PGlite` + `effect/Layer` + `@effect/vitest`] — the unit lane is a shared Layer, not a per-spec construct. `Layer.scoped(Tag, Effect.acquireRelease(Effect.promise(() => PGlite.create({ relaxedDurability: true })), db => Effect.promise(() => db.close())))` builds the handle once; the standalone `layer(PgLiteTest)("suite", (it) => …)` combinator (from `@effect/vitest`, see `fast-check.md` [05]) shares it across the block, and `Effect.tryPromise` wraps each `db.query`/`db.exec` into the folder's typed error rail. Seed DDL runs once in the Layer's acquire via `db.exec(schemaSql)`.
 
-[STACK CONSTRAINT: no migrator] — `@effect/sql` (0.51) is admitted substrate, but `proof/gauge/purity` asserts ZERO `@effect/sql/Migrator` / `@effect/sql-pg/PgMigrator` imports branch-wide. There is no `@effect/sql-pglite` dialect; the unit lane does NOT bridge PGlite through `@effect/sql-pg` (that binds the real `pg` driver / the container lane). Schema for a PGlite spec is raw `exec(ddl)` or a `dumpDataDir` fixture reload via `loadDataDir` — the migrator path is the container/real-pg lane only.
+[STACK CONSTRAINT: no migrator] — `@effect/sql` (0.51) is admitted substrate, but `proof/gauge/purity` asserts ZERO `@effect/sql/Migrator` / `@effect/sql-pg/PgMigrator` imports branch-wide. There is no `@effect/sql-pglite` dialect; the unit lane does NOT bridge PGlite through `@effect/sql-pg` (that binds the real `pg` driver / the container lane). Schema for a PGlite spec is raw `exec(ddl)` or a `dumpDataDir` fixture reload via `loadDataDir`; the container/real-pg lane (`testcontainers.md`) is migrator-free too, seeding server-extension DDL via raw `@effect/sql-pg` `sql` execute — the ban is branch-wide, so no lane runs a migrator, and the container lane owns real-pg, not a migration path.
 
 [STACK: frozen-fixture reload] — a spec that must assert against a known database state reloads a `dumpDataDir` tarball through `PGliteOptions.loadDataDir`, aligning with `proof/corpus` byte-frozen fixtures: the tarball is the frozen bytes, PGlite the reproducer.
 
@@ -132,5 +132,5 @@ Each returns `{ initialResults, unsubscribe, refresh }` and accepts an options o
 
 - Owns: an in-process, single-connection Postgres for the fast verification lane; raw SQL execution, transactions with auto-rollback, tagged-template parametrization, reactive `live` queries, and `dumpDataDir`/`loadDataDir` snapshots.
 - Accept: `PGlite.create` with `relaxedDurability: true` and an in-memory `dataDir` for unit specs; raw `exec` DDL seeding; the `live` extension for convergence specs; the `./contrib/*` client extensions a query under test needs.
-- Reject: `@effect/sql-pg` / `PgMigrator` bridging (container lane owns real-pg + migrations); server-extension-dependent assertions (route to `testcontainers`); concurrent access without `runExclusive` (single connection); importing from any `plane:runtime` folder — dev lane only.
-- Boundary: PGlite is one Postgres 17 WASM connection — no parallel sessions, no `pg_stat` cross-connection visibility, no server extensions; when a spec needs any of those, it is a container-lane spec by definition.
+- Reject: `@effect/sql-pg` / `PgMigrator` bridging (the container lane owns the real-pg `@effect/sql-pg` `PgClient` seam; migrations exist in NO lane — `PgMigrator` is `proof/gauge/purity`-banned branch-wide, both lanes seed via raw DDL); server-extension-dependent assertions (route to `testcontainers`); concurrent access without `runExclusive` (single connection); importing from any `plane:runtime` folder — dev lane only.
+- Boundary: PGlite is one Postgres WASM connection — no parallel sessions, no `pg_stat` cross-connection visibility, no server extensions; when a spec needs any of those, it is a container-lane spec by definition.

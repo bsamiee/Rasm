@@ -386,7 +386,24 @@ const clusters = (() => {
   return [...by.values()]
 })()
 // Heaviest cluster first: a fixer's load is dominated by distinct files read + reconciled; under CAP the long pole must never launch last.
+// Atomicity is BUDGETED at the fair share (totalWork/CAP): an over-budget component sub-shards by lead file (same-lead-file rows never split —
+// the edit-collision floor); verify owns the deliberate cross-shard seams.
 const clusterWork = (c) => { const files = new Set(); for (const r of c) for (const f of r.files) files.add(f); return files.size * 2 + c.length }
+const shardOversized = (cs) => {
+  const cap = Math.max(1, Math.ceil(cs.reduce((w, c) => w + clusterWork(c), 0) / CAP))
+  return cs.flatMap((c) => {
+    if (clusterWork(c) <= cap) return [c]
+    const byFile = new Map()
+    for (const r of c) { const k = r.files[0] || '~'; if (!byFile.has(k)) byFile.set(k, []); byFile.get(k).push(r) }
+    const shards = []
+    for (const g of [...byFile.values()].sort((a, b) => clusterWork(b) - clusterWork(a))) {
+      const t = shards.find((s) => clusterWork(s.concat(g)) <= cap)
+      if (t) t.push(...g); else shards.push([...g])
+    }
+    return shards
+  })
+}
+const sharded = shardOversized(clusters); clusters.length = 0; clusters.push(...sharded)
 clusters.sort((a, b) => clusterWork(b) - clusterWork(a) || (a[0].claim || '').localeCompare(b[0].claim || ''))
 log('Harden+Sweep done; reconcile ' + uniq.length + ' residuals -> ' + clusters.length + ' clusters; work [' + clusters.map(clusterWork).join(', ') + '] (2*files+claims)')
 let reconciled = []
@@ -396,7 +413,10 @@ if (clusters.length) {
     const fix = await agent([DOCTRINE, '', 'TASK: RECONCILE these cross-FILE residuals the per-page + sweep passes deferred. There is NO severity ' +
       '— treat EVERY residual as must-address. Read EVERY listed file. For each: if it is a real cross-file defect, FIX it in place (unify the ' +
       'shared owner/rail/region, repair the altitude/duplication issue, or extend the shared owner to close a gap that spans files), preserving ' +
-      'all capability and regressing no file; if a residual is FACTUALLY INCORRECT, leave it and say why. Edit ONLY under ' + ROOT + '/. Residuals:\n' + JSON.stringify(cl, null, 1)].join('\n'), { label: 'reconcile-fix', phase: 'Reconcile', schema: RECONCILE_FIX_SCHEMA, effort: 'max', stallMs: STALL })
+      'all capability and regressing no file; if a residual is FACTUALLY INCORRECT, leave it and say why. ' +
+  'A concurrent sibling may share a page with your cluster (oversized components shard file-atomically): edit any potentially shared page with ' +
+  'surgical anchored Edits only — re-read and re-apply on an edit conflict, never a whole-file rewrite. ' +
+  'Edit ONLY under ' + ROOT + '/. Residuals:\n' + JSON.stringify(cl, null, 1)].join('\n'), { label: 'reconcile-fix', phase: 'Reconcile', schema: RECONCILE_FIX_SCHEMA, effort: 'max', stallMs: STALL })
     if (!fix) return null
     const verify = await agent([LAW, '', ADVERSARIAL, '', 'TASK: ADVERSARIAL WRITING VERIFY of the reconcile fixes — never a friendly ' +
       'confirmation, never read-only. For EVERY claim: (a) RE-DERIVE necessity — decide from the files themselves whether the claimed defect was ' +

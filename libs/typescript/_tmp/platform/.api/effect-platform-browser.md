@@ -2,6 +2,21 @@
 
 `@effect/platform-browser` supplies the browser-tier platform bindings for the Effect ecosystem: the runtime entrypoint (`runMain`), `HttpClient`/`Socket`/`Worker`/`KeyValueStore` layer drivers that satisfy platform-neutral service tags inside the browser bundle, DOM event-stream constructors, and three browser-API service capsules (`Clipboard`, `Geolocation`, `Permissions`). The package root re-exports ten namespace modules — `BrowserHttpClient`, `BrowserKeyValueStore`, `BrowserRuntime`, `BrowserSocket`, `BrowserStream`, `BrowserWorker`, `BrowserWorkerRunner`, `Clipboard`, `Geolocation`, `Permissions` — all symbols are accessed namespace-qualified (e.g. `BrowserRuntime.runMain`, `BrowserSocket.layerWebSocket`).
 
+## [01]-[PACKAGE_SURFACE]
+
+[PACKAGE_SURFACE]: `@effect/platform-browser`
+- package: `@effect/platform-browser`
+- version: `0.76.0`
+- license: `MIT`
+- effect-peer: `effect ^3.21.x`, `@effect/platform ^0.96.x` — the abstract service Tags this package's `layer*` values satisfy (`.api/effect.md`, branch-tier `libs/typescript/.api/effect-platform.md`)
+- catalog-verdict: KEEP
+- runtime: `runtime:browser` — the edge ledger bans `@effect/platform-node`/`@effect/platform-bun`/`node:*` inside this scope and bans this package inside `runtime:node`; `proof/gauge` audits subpath purity
+- modules: `BrowserRuntime`, `BrowserHttpClient`, `BrowserSocket`, `BrowserStream`, `BrowserKeyValueStore`, `BrowserWorker`, `BrowserWorkerRunner`, `Clipboard`, `Geolocation`, `Permissions` (10, namespace re-exported from `index.d.ts`)
+
+[TIER_SPLIT]: this folder overlay vs the branch-tier catalog
+- The branch-tier `libs/typescript/.api/effect-platform-browser.md` owns the branch-level stacking map: the `browser/boot/*` seam names, the `runtime:browser` purity ledger, and the EventLog / OpenTelemetry composition (`@effect/experimental`, `@effect/opentelemetry`).
+- This `platform`-folder overlay carries the full per-member signatures the folder owners bind against AND the native-DOM ingresses this package does NOT wrap (`navigator.storage`, `Notification.requestPermission`, the `PermissionStatus.change` EventTarget) that `Shell/capability` composes alongside it. The two are complementary lenses on one package, not a copy.
+
 ---
 
 ## [BrowserRuntime]
@@ -494,7 +509,7 @@ target. The `state` field re-read after each `change` is the live grant value th
 
 ---
 
-## [03]-[STORAGE_MANAGER] (native)
+## [02]-[NATIVE_DOM_INGRESS]
 
 `navigator.storage` (the `StorageManager`) has no `@effect/platform-browser` surface — the two
 calls below are confined to the `Shell/capability` owner.
@@ -527,15 +542,21 @@ kind, equally confined to that owner.
 
 ---
 
-## [04]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
-[RAIL_LAW]:
-- Package: `@effect/platform-browser`
-- Owns: browser-tier layer implementations for platform-neutral `@effect/platform` service tags; browser-only capability services (`Clipboard`, `Geolocation`, `Permissions`)
-- Accept: browser-DOM APIs (`XMLHttpRequest`, `WebSocket`, `localStorage`, `navigator.*`, Web Worker globals)
-- Reject: node bundle inclusion — `browser`/`neutral`-tagged; node tier uses `@effect/platform-node`
+[INTEGRATION_LAW]:
+- Tag-satisfaction, not reimplementation: folder code types against `@effect/platform`'s abstract `KeyValueStore`/`Worker`/`HttpClient`/`Socket` Tags; this package's `layer*` values satisfy them with browser-DOM drivers, so the same folder code runs on node/bun when the app root selects that binding instead. `BrowserRuntime.runMain` is the single browser boot (`Runtime/composition.md`), shared in shape with `Node`/`Bun` `runMain`.
+- XHR vs fetch: `BrowserHttpClient.layerXMLHttpRequest` is the transport when upload/download progress or an `arraybuffer` response is required (the binary-frame leg, forced via `withXHRArrayBuffer`); otherwise `@effect/platform`'s `FetchHttpClient.layer` is the default `HttpClient`. Both satisfy the same `HttpClient.HttpClient` Tag — the choice is a Layer selection, and the XHR client is also the transport the browser OTLP export rides.
+- Stack with `@effect/experimental` EventLog (branch-tier catalog): `BrowserKeyValueStore.layerLocalStorage` satisfies the `KeyValueStore` the EventLog identity store requires, and `BrowserSocket.layerWebSocketConstructor` satisfies the `Socket.WebSocketConstructor` the EventLog remote WS sync requires — the browser EventLog client is those Layers merged.
+- Stack with `interchange/codec` (`transport/socket` seam): the `BrowserSocket` duplex `Socket` inbound read side folds through `Schema.decodeUnknown` exactly as the SSE/wire ingress does; the `BrowserWorker.layer(spawn)` decode pool serializes its `TaggedRequest` protocol through the same codec. Never a second ad-hoc `globalThis.WebSocket`/`Worker` outside the owner.
 
 [LOCAL_ADMISSION]:
 - `@effect/platform-browser` satisfies `HttpClient`, `Socket`, `Socket.WebSocketConstructor`, `Worker.WorkerManager`, `PlatformWorker`, `Spawner`, `WorkerRunner.PlatformRunner`, and `KeyValueStore` with browser-DOM drivers, and adds three browser-only tags: `Clipboard`, `Geolocation`, `Permissions`.
-- Layers are consumed at `CompositionRoot`; no local wrapper re-exports these — planning owners reference namespace-qualified symbols directly.
+- Layers are consumed at `Runtime/composition` `CompositionRoot`; no local wrapper re-exports these — planning owners reference namespace-qualified symbols directly, imported only inside `runtime:browser` subpaths.
 - The `Clipboard`/`Geolocation`/`Permissions` capsules and the native `navigator.storage.persist`/`estimate`/`Notification.requestPermission` grant ceremonies compose only inside `Shell/capability` behind the one `CapabilityKind` axis; a native `navigator.notification`/`navigator.clipboard`/`navigator.storage`/`navigator.permissions` call at any other owner is the named ungated-native-call defect.
+
+[RAIL_LAW]:
+- Package: `@effect/platform-browser`
+- Owns: browser-tier layer implementations for platform-neutral `@effect/platform` service tags; the `BrowserRuntime.runMain` boot; browser-only capability services (`Clipboard`, `Geolocation`, `Permissions`)
+- Accept: `layer*` values satisfying abstract `@effect/platform` Tags at `CompositionRoot`; `BrowserSocket`/`BrowserKeyValueStore` as EventLog-client backings; the XHR client for OTLP/binary transport; browser-DOM APIs (`XMLHttpRequest`, `WebSocket`, `localStorage`, `navigator.*`, Web Worker globals)
+- Reject: a second `runMain`; node-bundle inclusion (`browser`/`neutral`-tagged; node tier uses `@effect/platform-node`); this package inside `runtime:node`; `ui` importing it directly instead of through a declared port; hand-rolled Web-Storage/WebSocket/Worker wrappers

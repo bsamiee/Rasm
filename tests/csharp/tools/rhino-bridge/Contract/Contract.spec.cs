@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Nerdbank.Streams;
+using Rasm.TestKit;
 using StreamJsonRpc;
 using StreamJsonRpc.Protocol;
 using StreamJsonRpc.Reflection;
@@ -235,7 +236,7 @@ public sealed class ConverterCompositionLaws {
     [Fact]
     public void EndpointAdmissionTakesPipePrefixOrEmptyPoison() {
         Assert.Equal(expected: "rbx-", actual: EndpointRecord.PipePrefix);
-        Spec.ForAll(gen: WireGens.PipeSuffix, law: static suffix =>
+        Spec.ForAll(gen: WireGens.PipeSuffix, property: static suffix =>
             Assert.Null(@object: EndpointRecord.Validate(pipeName: $"rbx-{suffix}", rhinoPid: 1, rhinoStartedAtUnixMs: 1L, contractVersion: 1, shellVersion: "s", rhinoVersion: "r", fault: "", obj: out _)));
         // Empty pipe is the poison-record shape admitted for typed startup-failure evidence.
         Assert.Null(@object: EndpointRecord.Validate(pipeName: "", rhinoPid: 1, rhinoStartedAtUnixMs: 1L, contractVersion: 1, shellVersion: "s", rhinoVersion: "r", fault: "shell load failed", obj: out _));
@@ -245,7 +246,7 @@ public sealed class ConverterCompositionLaws {
 
     [Fact]
     public void LivenessWindowIsOneSecondOfStartSkew() =>
-        Spec.ForAll(gen: WireGens.ClockSkew, law: static skew =>
+        Spec.ForAll(gen: WireGens.ClockSkew, property: static skew =>
             Assert.Equal(
                 expected: Math.Abs(value: skew) <= 1_000L,
                 actual: WireGens.Endpoint.IsLiveFor(pid: WireGens.Endpoint.RhinoPid, startedAtUnixMs: WireGens.Endpoint.RhinoStartedAtUnixMs + skew)));
@@ -311,8 +312,3 @@ public sealed class PhaseStatusAlgebraLaws {
             actual: PhaseStatus.Items.Select(selector: static status => status.IsDecisive));
 }
 
-// --- [COMPOSITION] -----------------------------------------------------------------------
-
-internal static class Spec {
-    public static void ForAll<T>(Gen<T> gen, Action<T> law) => gen.Sample(assert: law);
-}

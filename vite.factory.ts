@@ -319,31 +319,21 @@ const config: {
             strictPort: false,
             watch: {
                 ignored: [
-                    // Dependencies and version control
                     '**/node_modules/**',
                     '**/.git/**',
                     '**/.pnpm-store/**',
-                    // Build outputs
                     '**/dist/**',
                     '**/build/**',
                     '**/out/**',
-                    // Caches
                     '**/.nx/**',
                     '**/.vite/**',
                     '**/.cache/**',
-                    '**/.turbo/**',
-                    '**/coverage/**',
-                    // Test artifacts
-                    '**/test-results/**',
-                    '**/playwright-report/**',
-                    '**/playwright/.cache/**',
-                    '**/reports/**',
-                    // Python artifacts
+                    '**/.artifacts/**',
+                    '**/.history/**',
                     '**/__pycache__/**',
                     '**/.venv/**',
                     '**/venv/**',
                     '**/*.pyc',
-                    // Logs and misc
                     '**/*.log',
                     '**/.DS_Store',
                 ],

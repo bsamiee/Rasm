@@ -1,7 +1,7 @@
 export const meta = {
   name: 'implement-ts',
   whenToUse: 'Realize open cards into design-page code fences across the TypeScript target folders.',
-  description: 'Realize every open IDEAS/TASKLOG card across the TypeScript target set (libs/typescript/interchange, platform, projection, services, ui) into deep design-page code FENCES at the docs/stacks/typescript + coding-ts bar (Effect-TS rails, Schema-first boundaries, branded types, exhaustive discriminated unions, zero any/throw/enum), resolve all ripples, and truthfully close the cards. Per FOLDER, not per page: one discovery agent maps cards + ripple classes + blockers; each target folder is realized as ONE implement -> critique -> redteam cycle (all WRITE, both reviews adversarial, fix-in-place; BLOCKED probe + folder-local package admission inline, no prep phase); a bounded reconcile aligns in-scope seams, realizes 1-hop same-language counterparts, and applies the single central package.json pin serially; a final per-folder closeout verify-remediate-and-closes complete cards. Card-driven (it implements ideas/tasks), NOT the in-isolation api-stacking of rebuild-typescript. TS is the weakest lib: discard naive idioms wholesale. Disposable, TypeScript-only. args = a target path string, an array of paths, or empty for the five defaults. The language-wide libs/typescript/.planning is out of scope.',
+  description: 'Realize every open IDEAS/TASKLOG card across the libs/typescript platform folders (kernel, proof, state, host, security, telemetry, wire, work, store, ai, edge, browser, ui, iac) into deep design-page code FENCES at the docs/stacks/typescript bar (Effect-TS rails, Schema-first boundaries, one canonical owner per concept, exhaustive discriminated unions, zero any/throw/enum), resolve all ripples, and truthfully close the cards. Per FOLDER, not per page: one discovery agent maps cards + ripple classes + blockers; each target folder is realized as ONE implement -> critique -> redteam cycle (all WRITE, both reviews adversarial, fix-in-place; BLOCKED probe + folder-local package admission inline, no prep phase); a bounded reconcile aligns in-scope seams, realizes 1-hop same-language counterparts, and applies the single central package.json pin serially; a final per-folder closeout verify-remediate-and-closes complete cards. Card-driven (it implements ideas/tasks), NOT the in-isolation api-stacking of rebuild-api. Disposable, TypeScript-only. args = a target path string, an array of paths, or empty for all platform folders. The language-wide libs/typescript/.planning is out of scope.',
   phases: [
     { title: 'Discover', detail: 'one agent: resolve scope against a real disk listing, full-read each target IDEAS/TASKLOG (cards only; design pages are downstream scope); extract open cards (all tasks incl atomic + 1-3 ideas), sequence each folder, classify every ripple (in_scope / oos_samelang / cross_lang) with every counterpart confirmed on disk, record in-scope gates and malformed ripples' },
     { title: 'Realize', detail: 'per target folder, pooled at CAP: implement(max) -> critique(max, adversarial + charter-completeness) -> redteam(max, adversarial + staleness lens); all WRITE, fix-in-place, own-pages-only, cross-folder seams logged as residuals' },
@@ -16,7 +16,7 @@ const STAGGER_MS = 1500
 const ROOT = 'libs/typescript'
 const SHARED_API = 'libs/typescript/.api'
 const CENTRAL = 'package.json'
-const DEFAULT_TARGETS = ['libs/typescript/interchange', 'libs/typescript/platform', 'libs/typescript/projection', 'libs/typescript/services', 'libs/typescript/ui']
+const DEFAULT_TARGETS = ['libs/typescript/kernel', 'libs/typescript/proof', 'libs/typescript/state', 'libs/typescript/host', 'libs/typescript/security', 'libs/typescript/telemetry', 'libs/typescript/wire', 'libs/typescript/work', 'libs/typescript/store', 'libs/typescript/ai', 'libs/typescript/edge', 'libs/typescript/browser', 'libs/typescript/ui', 'libs/typescript/iac']
 
 // --- [INPUTS] ----------------------------------------------------------------------------
 const norm = (t) => { const s = String(t).trim(); return s.indexOf('libs/') === 0 ? s : ROOT + '/' + s }
@@ -69,16 +69,17 @@ const CLOSEOUT_SCHEMA = { type: 'object', additionalProperties: false, required:
 
 // --- [DOCTRINE] --------------------------------------------------------------------------
 const LAW = [
-  'Rasm monorepo, libs/typescript planning corpus (markdown specs of intended TypeScript module designs). The current TypeScript code quality is ' +
-    'POOR; this is a TRUE modernization to ultra-advanced TS, not a polish pass — discard naive idioms wholesale. CLAUDE.md manifest + ' +
-    'WORKSPACE_LAW strata govern. The session targets are the libs/typescript area folders `interchange`, `platform`, `projection`, `services`, ' +
-    '`ui`. Each holds `IDEAS.md` + `TASKLOG.md` + `ARCHITECTURE.md` + `README.md` at its area ROOT, design pages at ' +
+  'Rasm monorepo, libs/typescript planning corpus (markdown specs of intended TypeScript module designs). This is ultra-advanced TS realization, ' +
+    'never a polish pass — discard naive idioms wholesale. CLAUDE.md manifest + ' +
+    'WORKSPACE_LAW strata govern. The session targets are libs/typescript platform folders (the 14-folder roster: kernel, proof, state, host, ' +
+    'security, telemetry, wire, work, store, ai, edge, browser, ui, iac). Each holds `IDEAS.md` + `TASKLOG.md` + `ARCHITECTURE.md` + ' +
+    '`README.md` at its area ROOT, design pages at ' +
     '`<area>/.planning/<subdomain>/*.md`, and an area-specific `.api/*.md` catalog. The language-wide `libs/typescript/.planning` is OUT of scope ' +
     'this run. Read the area-root `ARCHITECTURE.md` (sub-domain map + `[02]-[SEAMS]`) and `README.md` (admitted-package roster) as governing ' +
     'context; never trample a sibling area owner.',
   'STANDARD: docs/stacks/typescript/ is the route-owned law (README, language, shapes, surfaces-and-dispatch, rails-and-effects, boundaries, ' +
-    'system-apis) plus the coding-ts standard — author TypeScript as dense, type-safe, and rich as that bar admits; docs/stacks/csharp/ is the ' +
-    'density/ambition FLOOR. READ the operative docs/stacks/typescript pages + coding-ts and conform exactly. Cite ONLY real members of admitted ' +
+    'system-apis) — author TypeScript as dense, type-safe, and rich as that bar admits; docs/stacks/csharp/ is the ' +
+    'density/ambition FLOOR. READ the operative docs/stacks/typescript pages and conform exactly. Cite ONLY real members of admitted ' +
     'packages, cross-checked against the published types in node_modules; verify a member via `uv run python -m tools.assay api` over the ' +
     'node_modules declarations.',
   'This is IMPLEMENT, not the in-isolation api-stacking rebuild: realize the area SPECIFIC open IDEAS/TASKLOG cards into deep design-page FENCES. ' +
@@ -86,9 +87,9 @@ const LAW = [
     'per target: realize ALL open tasks (including `Atomic`-flagged minor tasks), then the 1-3 chosen open ideas, tasks first. Realize tied to the ' +
     'card charter (Capability/Shape/Unlocks/Anchors), composing the right admitted capability and crushing surface sprawl into fewer richer owners ' +
     'with zero functionality loss.',
-  'TWO-TIER .api: every fence draws on BOTH the shared/universal catalogs at `libs/typescript/.api/*.md` (effect, effect-platform, ' +
-    'effect-opentelemetry, effect-atom, react, react-dom, clsx, isomorphic-dompurify, otplib) AND the area-specific catalogs at ' +
-    '`<area>/.api/*.md`. The shared Effect/Schema/React tier is SHARED capability you MUST consider and compose to realize the card properly — ' +
+  'TWO-TIER .api: every fence draws on BOTH the shared/universal catalogs at `libs/typescript/.api/*.md` (enumerated from disk, never from ' +
+    'memory) AND the area-specific catalogs at ' +
+    '`<area>/.api/*.md`. The shared Effect substrate tier is SHARED capability you MUST consider and compose to realize the card properly — ' +
     'never hand-roll `Promise`/`try`-`catch` glue or settle for a thin area-only subset; layer the shared Effect ecosystem ' +
     '(`Effect`/`Layer`/`Context`/`Schema`/`Stream`) end-to-end ON TOP OF the area-specific packages. This is implement (use the capability the ' +
     'card needs), not rebuild (max-stack every catalog for its own sake).',
@@ -129,7 +130,7 @@ const BARHUNT = [
     'each in place.',
   'HUNT (at implement, critique, and red-team alike): UNDER-CAPTURED CAPABILITY — an admitted package whose `.api`/types expose capability the ' +
     'CARD needs but no owner exploits is a gap, closed by deepening a fence. SURFACE SPRAWL — parallel interfaces/types/classes modelling one ' +
-    'concept collapse into ONE polymorphic surface (tagged discriminated union + exhaustive `match`/`assertNever`) with no functionality removed. ' +
+    'concept collapse into ONE polymorphic surface (tagged discriminated union + exhaustive `Match.exhaustive` dispatch) with no functionality removed. ' +
     'RAIL UNIFICATION — one entrypoint family per rail, one typed-error channel per domain (`Effect`/`Either`), total exhaustive handling. ' +
     'OPTIMIZATION — correctness first, then type-precision (branded/nominal, template-literal, conditional/mapped types) and runtime shape, not ' +
     'only line-count. NEW WORK SURFACED — api gaps and tasks the implementation exposes are realized or recorded the same turn.',
@@ -141,7 +142,7 @@ const BARHUNT = [
     'enumerable family an algebra, table, fold, or generator can own is a collapse target you find beyond the list.',
 ].join('\n')
 const ULTRA = [
-  'OPERATIVE DOCTRINE: docs/stacks/typescript/ + coding-ts is the route-owned law — hold every fence to it as fact; docs/stacks/csharp/ is the ' +
+  'OPERATIVE DOCTRINE: docs/stacks/typescript/ is the route-owned law — hold every fence to it as fact; docs/stacks/csharp/ is the ' +
     'density/ambition FLOOR. COLLAPSE >=3 parallel interfaces/types/classes modelling one concept into ONE polymorphic surface (tagged ' +
     'discriminated union + exhaustive match), never parallel names. AOP: cross-cutting concerns (retry, telemetry, validation, caching, receipts, ' +
     'fault rails) as Effect combinators/layers/decorators, not repeated inline. UNIFIED rails + UNIFIED pipelines + feature-arms-as-cases (never ' +
@@ -162,9 +163,18 @@ const ULTRA = [
 ].join('\n')
 const PATLAW = [
   'TS PATTERN LAW (ultra-advanced ONLY; do not preserve the naive idioms of the existing code): ZERO `any`, zero implicit `any`, zero unsafe `as`, ' +
-    'zero non-null `!`; model with branded/nominal types, exact discriminated unions with EXHAUSTIVE handling (`assertNever` on the default), ' +
+    'zero non-null `!`; model with exact discriminated unions under EXHAUSTIVE handling (`Match.exhaustive` or a checked `never` sink), ' +
     '`readonly`/`as const`, template-literal types, conditional/mapped types, and the `satisfies` operator. NO runtime `enum` — use `const` unions ' +
     'or `Schema`/Effect.',
+  'COLLAPSE MANDATES: one `as const satisfies <Contract>` table is the single source of truth for a vocabulary — `typeof`/`keyof typeof`/' +
+    'indexed-access derive the types FROM the value; a hand-written union a value table could derive is a defect. A concept exports ONE name ' +
+    'serving value and type (declaration merging, `Schema.Class` owners, const+type pairing) — a consumer forced to alias, re-instantiate, or ' +
+    '`typeof` at the call site is a defect; const type parameters, `NoInfer`, and instantiation expressions pre-solve inference at the owner. ' +
+    'Wrapping/injection/decoration attach INLINE at the owner declaration, never as loose intermediate consts. One entrypoint owns every call ' +
+    'modality via overload signatures or a discriminated input union; `Function.dual` gives pipe + direct call in one function. SCHEMA ' +
+    'AUTHORITY: static types derive (`Schema.Schema.Type`/`Schema.Schema.Encoded`, `X.Type`), wire twins derive through `Schema.transform` — a ' +
+    'hand-declared parallel interface/DTO beside a Schema owner is a defect. SHAPE BUDGET: one deep nested owner replaces 5+ loose ' +
+    'interfaces/aliases/DTOs/brands; brands live INSIDE rich owners as Schema refinements, never free-floating.',
   'Domain logic runs on typed-error rails — `Effect`/`Either`/`Option`, NEVER `throw` in domain code; boundaries validate through `Schema` (parse, ' +
     'never trust input). `import type`/`export type` are explicit; side-effect/value imports preserve runtime order. Per the ' +
     'docs/stacks/typescript file-organization overlay: `Effect.Service` owners are SERVICES, `Layer`/runtime wiring is COMPOSITION, runtime ' +
@@ -217,14 +227,14 @@ const implementPrompt = (folder, seq) => [DOCTRINE, '',
   'TASK: IMPLEMENT — realize the open cards of `' + folder + '` into deep design-page FENCES at the ULTRA-ADVANCED bar. The sequenced worklist ' +
     '(slugs + ripple map; read each FULL card body from `' + folder + '/IDEAS.md` + `' + folder + '/TASKLOG.md`, never the thesis alone):\n' + seq + '\nREAD: ' +
     'each card full body; every design page the card names under `' + folder + '/.planning/**`; the sibling pages it seams to; the area-root ' +
-    '`ARCHITECTURE.md` + `README.md`; the operative docs/stacks/typescript/ pages + coding-ts (docs/stacks/csharp/ as the ambition floor); BOTH ' +
+    '`ARCHITECTURE.md` + `README.md`; the operative docs/stacks/typescript/ pages (docs/stacks/csharp/ as the ambition floor); BOTH ' +
     '.api tiers — the shared `' + SHARED_API + '/*.md` AND the area `' + folder + '/.api/*.md` (stack them, the shared Effect/Schema rails layered ' +
     'onto the area packages) — cross-checked against the published types in node_modules; verify a member via `uv run python -m tools.assay api`. ' +
     'Realize EVERY card in `order` (all tasks incl. Atomic, then the ideas) into deep fences IN `' + folder + '` PAGES ONLY, in LIFECYCLE order ' +
     '(admit raw ONCE through a `Schema` parse at the boundary -> canonical owner -> weave every cross-cutting concern as an Effect ' +
     'combinator/layer/decorator over a thin pure core -> compose through ONE unified `Effect`/`Either`/`Option` rail -> project + egress, BOTH ' +
     'ingress and egress parameterized with generics at depth). Collapse parallel interfaces/types/classes into ONE tagged discriminated union with ' +
-    'EXHAUSTIVE `match`/`assertNever`; brand/nominal types where primitives are overloaded. ZERO `any`/implicit-any/unsafe `as`/non-null `!`, NO ' +
+    'EXHAUSTIVE `Match.exhaustive` dispatch; Schema-refined brands where primitives are overloaded. ZERO `any`/implicit-any/unsafe `as`/non-null `!`, NO ' +
     'runtime `enum`, NO `throw` in domain logic, `import type` explicit. Resolve any [BLOCKED] card inline (read published types in node_modules / ' +
     '`assay api`). PACKAGE ADMISSION (only if a card needs a not-yet-admitted package): do the FOLDER-LOCAL parts NOW — add the package to the ' +
     'correct group in `' + folder + '/README.md` and author `' + folder + '/.api/<pkg>.md` from the published types via `assay api` — and LOG the ' +
@@ -239,7 +249,7 @@ const critiquePrompt = (folder, seq) => [DOCTRINE, '',
   'TASK: DOCTRINAL-CONFORMANCE AUDIT + CHARTER-COMPLETENESS + FIX IN PLACE across `' + folder + '`. You are an ULTRA-HARSH, UNAGREEABLE auditor: ' +
     'is this TRULY ultra-advanced TS, or naive code in disguise? Assume a violation exists in every fence until you prove otherwise; "good enough" ' +
     'is rejected. The cards realized this turn (read each FULL body from `' + folder + '/IDEAS.md` + `' + folder + '/TASKLOG.md`):\n' + seq + '\nREAD ' +
-    'the realized pages under `' + folder + '/.planning/**`, the sibling pages, docs/stacks/typescript/ + coding-ts, and BOTH .api tiers (shared `' + SHARED_API + '` ' +
+    'the realized pages under `' + folder + '/.planning/**`, the sibling pages, docs/stacks/typescript/, and BOTH .api tiers (shared `' + SHARED_API + '` ' +
     '+ area `' + folder + '/.api`). Run these MECHANICAL checklists line-by-line as a FLOOR you hunt PAST, and REPAIR every hit in place (a fix, ' +
     'never a ledger note):',
   '(1) COLLAPSE_SCAN — sibling prefix/suffix names -> one input-shape-discriminating entrypoint; >=3 parallel interfaces/types/classes for one ' +
@@ -261,7 +271,8 @@ const critiquePrompt = (folder, seq) => [DOCTRINE, '',
     'input); the error channel is a typed union, not `unknown`/`Error`; accumulate-vs-abort disposition correct; `Layer`/`Context` for dependency ' +
     'wiring, `Stream` for streaming — no naive `Promise`/`async` glue where Effect belongs.',
   '(6) TYPING/MODERN — ZERO `any`/implicit-any/unsafe `as`/non-null `!`; NO runtime `enum` (use `const` unions or `Schema`); EXHAUSTIVE union ' +
-    'handling with `assertNever`; `import type`/`export type` explicit; the file-organization overlay honored (`Effect.Service` -> SERVICES, ' +
+    'handling via `Match.exhaustive`/checked `never` sink; `import type`/`export type` explicit; the file-organization overlay honored ' +
+    '(`Effect.Service` -> SERVICES, ' +
     '`Layer` -> COMPOSITION, schemas/classes -> MODELS, catalogs after their owners); members cross-checked against the published node_modules types.',
   '(7) CHARTER-COMPLETENESS — for EVERY card in the worklist, verify the realized fences GENUINELY fulfill its `Capability`/`Shape`/`Unlocks` ' +
     '(read the full card from disk): a missing modality, an unrealized `Shape` clause, a stubbed/placeholder fence, or a capability the card ' +
@@ -271,20 +282,20 @@ const critiquePrompt = (folder, seq) => [DOCTRINE, '',
     'should own the space) is rebuilt as seed data feeding one generator.',
   'Also enforce the ultra-stacking law (both `.api` tiers enumerated in full; a thin area-only subset ignoring the shared Effect/Schema rails ' +
     'the card needs is a defect; a cited member you cannot verify against the published types is a phantom — delete it), cross-area convention ' +
-    'consistency per coding-ts, and prose + comment hygiene. EDIT the `' + folder + '` pages to fix every hit; realize ONLY `' + folder + '` ' +
+    'consistency per the doctrine, and prose + comment hygiene. EDIT the `' + folder + '` pages to fix every hit; realize ONLY `' + folder + '` ' +
     'pages and OVERRIDE any earlier residual you can now resolve; log any genuine cross-FOLDER item as a residual_ripple {files, pkg, slug, ' +
     'mirror_slug, claim}. Return verdict + realized + deferred + collapsed + residual_ripples + summary.'].join('\n')
 const redteamPrompt = (folder, seq) => [DOCTRINE, '',
   'TASK: ADVERSARIAL RED-TEAM + FIX IN PLACE across `' + folder + '`. You are a HOSTILE principal reviewer whose explicit goal is to REJECT this ' +
     'design as naive TypeScript: assume it is junior, under-typed, or wrong until the fences prove otherwise; the burden of proof is ON THE ' +
-    'DESIGN. The cards realized this turn (read each FULL body):\n' + seq + '\nRead docs/stacks/typescript/ + coding-ts, the published library ' +
+    'DESIGN. The cards realized this turn (read each FULL body):\n' + seq + '\nRead docs/stacks/typescript/, the published library ' +
     'types, BOTH .api tiers (shared `' + SHARED_API + '` + area `' + folder + '/.api`), and the sibling pages. Attack relentlessly and REPAIR ' +
     'every defect in place — no soft-pedalling, no could/should, a fix never a ledger.',
   'PRIMARY LENS — fundamental design, multi-faceted: (A) COUNTERFACTUAL on the core choice — is the owner, the union algebra, and the dispatch ' +
     'form categorically the strongest the doctrine admits, or does a denser tagged-union owner, a branded type, or a DEEPER Effect/Schema ' +
     'primitive collapse the whole fence? If a fundamentally stronger design exists, rebuild to it — never defend the incumbent. (B) ' +
     'ANTICIPATORY_COLLAPSE — compute the DIFF OF THE NEXT FEATURE: when the next case/dimension/modality/provider arrives, does it land as ONE ' +
-    'union case with every consumer broken loudly at type-check (exhaustive `assertNever`)? If it would touch multiple sites, reshape so the ' +
+    'union case with every consumer broken loudly at type-check (exhaustive dispatch)? If it would touch multiple sites, reshape so the ' +
     'growth axis is a case, row, policy value, or layer swap. (C) LONG-TAIL + MULTI-DIMENSIONAL — attack every input/output/edge/failure mode ' +
     '(empty, singular, plural, stream, malformed, concurrent, cancelled, partial-failure, version-skew); is the boundary `Schema`-parsed; are BOTH ' +
     'ingress AND egress parameterized so this owner sources and sinks across consumers without interior edits? (D) BOUNDARY-INTEGRITY — a concern ' +
@@ -315,7 +326,10 @@ const reconcileFixPrompt = (cl) => [LAW, '', CARD, '', BARHUNT, '', ULTRA, '', P
     'serially, keeping the existing group/order) and list them in `admitted`; (d) CROSS-LANGUAGE / LIB-WIDE LEG — record it in `deferred_legs` and ' +
     'do NOT realize it (its counterpart is the other-language workflow concern). Preserve all capability, regress no file, never trample a sibling ' +
     'owner interior. For every ripple counterpart you touch, emit a `pairs` row {pkg, slug, mirror_slug, seam_landed}. If a residual is FACTUALLY ' +
-    'INCORRECT or not a real defect, leave it and say why in the summary — never silently skip a real one. Residuals:\n' + JSON.stringify(cl, null, 1)].join('\n')
+    'INCORRECT or not a real defect, leave it and say why in the summary — never silently skip a real one. ' +
+  'A concurrent sibling may share a page with your cluster (oversized components shard file-atomically): edit any potentially shared page with ' +
+  'surgical anchored Edits only — re-read and re-apply on an edit conflict, never a whole-file rewrite. ' +
+  'Residuals:\n' + JSON.stringify(cl, null, 1)].join('\n')
 const reconcileVerifyPrompt = (cl, fix) => [LAW, '', CARD, '', BARHUNT, '', ULTRA, '', PATLAW, '', BOUNDARIES, '',
   'TASK: ADVERSARIAL WRITING VERIFY of the reconcile fixes — never a friendly confirmation; the fixer\'s claims are illusory until proven on ' +
     'disk, and a verdict issued without a disk proof is itself a defect. For EACH residual: (1) RE-DERIVE necessity — read every named file ' +
@@ -395,7 +409,24 @@ const clusters = (() => {
   return [...by.values()]
 })()
 // Heaviest cluster first: a fixer's load is dominated by distinct files read + reconciled; under CAP the long pole must never launch last.
+// Atomicity is BUDGETED at the fair share (totalWork/CAP): an over-budget component sub-shards by lead file (same-lead-file rows never split —
+// the edit-collision floor); verify owns the deliberate cross-shard seams.
 const clusterWork = (c) => { const files = new Set(); for (const r of c) for (const f of r.files) files.add(f); return files.size * 2 + c.length }
+const shardOversized = (cs) => {
+  const cap = Math.max(1, Math.ceil(cs.reduce((w, c) => w + clusterWork(c), 0) / CAP))
+  return cs.flatMap((c) => {
+    if (clusterWork(c) <= cap) return [c]
+    const byFile = new Map()
+    for (const r of c) { const k = r.files[0] || '~'; if (!byFile.has(k)) byFile.set(k, []); byFile.get(k).push(r) }
+    const shards = []
+    for (const g of [...byFile.values()].sort((a, b) => clusterWork(b) - clusterWork(a))) {
+      const t = shards.find((s) => clusterWork(s.concat(g)) <= cap)
+      if (t) t.push(...g); else shards.push([...g])
+    }
+    return shards
+  })
+}
+const sharded = shardOversized(clusters); clusters.length = 0; clusters.push(...sharded)
 clusters.sort((a, b) => clusterWork(b) - clusterWork(a) || (a[0].claim || '').localeCompare(b[0].claim || ''))
 log('Realize: ' + realized.filter((r) => !r.failed).length + '/' + withCards.length + ' folders; reconcile ' + uniq.length + ' residuals -> ' + clusters.length + ' ' +
   'clusters; work [' + clusters.map(clusterWork).join(', ') + '] (2*files+claims)' + (failedFolders.size ? '; ' + failedFolders.size + ' folder(s) failed' : ''))

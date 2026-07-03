@@ -1,6 +1,6 @@
 # [API_CATALOGUE] effect-cli
 
-Grounded from installed `node_modules` type declarations (`@effect/cli` 0.75.2; peers `@effect/platform` 0.96.1, `effect` 3.21.3, `@effect/printer-ansi` 0.49.0). Covers the typed-command binding surface the TS planning pages consume — `AutomationDriver` (the `provisioning/contract#PROVISIONING` cluster) is the owner-symbol that internalizes this package: a `Command` tree whose handlers are `Effect`, executed via `Command.run` / `CliApp.run` under a host `Environment` (`FileSystem | Path | Terminal`). Module set re-exported from the package index: `Args`, `AutoCorrect`, `BuiltInOptions`, `CliApp`, `CliConfig`, `Command`, `CommandDescriptor`, `CommandDirective`, `ConfigFile`, `HelpDoc`, `Options`, `Primitive`, `Prompt`, `Usage`, `ValidationError`, `Span`.
+`@effect/cli` (0.75.2, MIT) is the typed-command binding surface: a `Command` is itself an `Effect` yielding its parsed config, its handler the effectful action, executed via `Command.run` / `CliApp.run` under a host `Environment` (`FileSystem | Path | Terminal`) — node/bun only, never a browser bundle. Members grounded from installed `node_modules` `dist/dts` (`assay api resolve @effect/cli` → TSDECL, restored; effect-peers `@effect/platform` 0.96.2, `effect` 3.21.4, `@effect/printer-ansi`/`@effect/printer` 0.49.0 from `.api/effect.md` / `.api/effect-platform.md`). `AutomationDriver` (`provisioning/contract#PROVISIONING`) is the owner-symbol that internalizes this package — the four Pulumi lifecycle verbs are one `Command.make("deploy", …)` tree; `provisioning/drift#DRIFT` grows a `drift` verb on the SAME tree via `Command.withSubcommands`, injects the resolved Pulumi `Stack`/`AutomationDriver` service through `Command.provide` / `provideEffect`, and satisfies `Environment` with `@effect/platform-node` `NodeContext.layer` at the runtime root. Module set re-exported from the package index (16): `Args`, `AutoCorrect`, `BuiltInOptions`, `CliApp`, `CliConfig`, `Command`, `CommandDescriptor`, `CommandDirective`, `ConfigFile`, `HelpDoc`, `Options`, `Primitive`, `Prompt`, `Usage`, `ValidationError`, `Span` (`export * as Span from "./HelpDoc/Span.js"`).
 
 ---
 
@@ -271,7 +271,7 @@ export declare const float: (config?: Args.BaseArgsConfig) => Args<number>
 export declare const date: (config?: Args.BaseArgsConfig) => Args<globalThis.Date>
 export declare const choice: <A>(choices: ReadonlyArray<[string, A]>, config?: Args.BaseArgsConfig) => Args<A>
 export declare const redacted: (config?: Args.BaseArgsConfig) => Args<Redacted>
-export declare const secret: (config?: Args.BaseArgsConfig) => Args<Secret>
+export declare const secret: (config?: Args.BaseArgsConfig) => Args<Secret>   // @deprecated — use redacted
 export declare const none: Args<void>
 // path / file family
 export declare const path: (config?: Args.PathArgsConfig) => Args<string>

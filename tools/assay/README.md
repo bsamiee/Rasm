@@ -124,7 +124,7 @@ Run nested commands as `uv run python -m tools.assay <claim> <verb> ...`; bare `
 - Output: `TestRun` detail; `Match` roster rows for `list`.
 - `run` runs eligible suites (`Mode.RUN`) and folds a `TestRun`. `coverage` re-runs under coverage (forces `coverage=True, benchmark=False`), decodes `totals.percent_covered` from `.artifacts/python/coverage/coverage.json`, and adopts the coverage json/xml/lcov artifacts. `list` discovers tests (`Mode.LIST`) via dotnet list-test and pytest collect, emits `roster.txt`/`roster.json`, and honors `--grep`/`--limit`.
 - A runner with no eligible work reports `empty`, never `failed`: each runner row carries its nothing-to-do `empty_signature` — pytest exit 5, vitest exit 1 with `No test files found` — so an unflagged polyglot `run`/`coverage` stays green while a language branch holds zero tests. `dotnet test` keeps `--minimum-expected-tests 1`: a managed test project discovering zero tests is a defect, not an empty scope.
-- C# `--all` selects every solution-admitted managed test project. Host-bound C# projects surface as typed unsupported/degraded test evidence; live Rhino/GH2 proof belongs to `bridge verify`.
+- C# `--all` selects every solution-admitted managed test project. Host-bound C# projects surface as typed unsupported/degraded test evidence; live Rhino/GH2 proof belongs to `bridge verify`. `<AssayTestShell>` projects classify into the SHELL lane and are excluded from every test scoping arm (`--all`, `--target`, changed closure); their scenario content ships through the bridge closure.
 - `--mutation changed` scopes via Stryker `--mutate <glob>` and mutmut module-dotted names; runners with no changed-file scope surface `unsupported`, and `--mutation` with no eligible lane notes the gap. mutmut gets a lease-riding `mutmut-gate` kill-rate floor. Per-language mutation runs hold sorted exclusive `mutation-<lang>` leases.
 - `--filter` is the MTP discriminant for dotnet RUN/LIST: leading `/` = query, `k=v` = trait, `Tests`/`Laws`/`Spec` suffix or `+` = class, else method. `--limit` caps roster rows; `--grep` substring-filters the discovered roster.
 - Example: `uv run python -m tools.assay test run --csharp tests/csharp`
@@ -134,9 +134,9 @@ Run nested commands as `uv run python -m tools.assay <claim> <verb> ...`; bare `
 - Inputs: `verify [pattern]` (positional, arity 1).
 - Output: `VerifySummary` for `verify`; `BridgeLifecycle` for `status`/`quit`; a build report for `build`.
 - `build` compiles supervisor, shell, stub, cargo, contract, and typed scenario closures sequentially (RESTORE/build gated, first-error short-circuit) and folds `bridge.firstDiagnostic` plus SARIF artifacts. `verify` builds the closures, aggregates `bridge-closure.assay.json`, then runs typed scenarios under the live host lease; it first expires report dirs older than 300s (`_VERIFY_TTL_S`). `status` probes bridge host health; `quit` terminates the host under the lease.
-- `verify` pattern selection: empty / `all` / `*` = every corpus; comma-separated theme tokens; scenario names; or glob/path tokens against the scenario corpora. No match = `unsupported` fault. Scenario timeout is 600s.
+- `verify` pattern selection is pass-through: empty / `all` / `*` = every scenario; comma-separated bare tokens select themes; dotted tokens select scenario names; the in-host shell owns name/glob resolution and its typed zero-match fault. An empty scenario corpus (no `*.cs` under `tests/csharp/scenarios/`) short-circuits to a typed `unsupported` receipt without building or launching Rhino. Scenario timeout is 600s.
 - `verify` and `status` carry `detail.freshness` (`fresh` / `stale` / `absent` / `unknown`): the installed Yak plugin against the shell source. It is decoupled data, never a rail fault — a stale install still passes (the supervisor tolerates it and scenarios load fresh cargo), so a gated pipeline reads `detail.freshness` to decide escalation. A non-`fresh` state also rides a remediation note.
-- Example: `uv run python -m tools.assay bridge verify tests/csharp/libs/Rasm.Rhino`
+- Example: `uv run python -m tools.assay bridge verify blocks`
 
 [PACKAGE_COMMANDS]:
 - Verbs: `publish`, `plan`, `list`
@@ -179,7 +179,7 @@ Parse stdout for results, read stderr for diagnosis, and treat the process exit 
 - Normal invocation: exactly one JSON `Envelope` line on stdout, newline-framed and flushed; a second emit on one invocation is suppressed to stderr as a FAULTED invariant-violation envelope.
 - Automation exception: NDJSON, one `Envelope` per fire or sequence leaf.
 - Failure split: `Completed(FAILED)` means a tool ran and found defects; non-zero tool exits stay on `Completed`. A `Fault` means routing, spawn, lease, timeout, or a precondition failed.
-- Schema route: the field-by-field `Envelope` schema lives in `core/model.py`; the status algebra lives in `core/status.py`.
+- Schema route: the field-by-field `Envelope` schema and the status algebra live in `core/model.py`.
 
 [STDOUT]:
 - Carries one JSON `Envelope` per normal CLI invocation.
@@ -196,7 +196,7 @@ Parse stdout for results, read stderr for diagnosis, and treat the process exit 
 - Carries `Envelope.exit_code` through the Cyclopts return-code hook; treat it as a projection of `RailStatus`.
 
 [STATUS_MODEL]:
-- Tokens and exit codes (`core/status.py`): `skip`/`empty`/`ok` -> 0, `failed` -> 1, `faulted` -> 2, `unsupported` -> 3, `busy`/`timeout` -> 5. Severity-ranked fold via `join`/`fold`.
+- Tokens and exit codes (`core/model.py`): `skip`/`empty`/`ok` -> 0, `failed` -> 1, `faulted` -> 2, `unsupported` -> 3, `busy`/`timeout` -> 5. Severity-ranked fold via `RailStatus.dominant`/`RailStatus.fold`.
 - Completed channel: process success, skip, empty, unsupported, or tool-found defects.
 - Fault channel: operational failure under `Envelope.error` with `Envelope.error_context` diagnostic.
 - `--strict` promotes otherwise non-error states into a fault for that invocation.

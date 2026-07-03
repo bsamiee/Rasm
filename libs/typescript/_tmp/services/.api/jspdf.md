@@ -1,158 +1,150 @@
 # [API_CATALOGUE] jspdf
 
-`jspdf` supplies client-side PDF document generation: the `jsPDF` class owns the document lifecycle (`addPage`, `deletePage`, `save`, `output`), drawing primitives (`rect`, `circle`, `ellipse`, `line`, `text`), image embedding (`addImage`, `addSvgAsImage`), font management (`addFont`, `setFont`, `setFontSize`), and plugin-extended capabilities including AcroForm fields, HTML-to-PDF rendering, table layout, and Context2D canvas API.
+`jspdf` is the programmatic PDF codec the `persistence/object#OBJECT_STORE` `AssetCodec` `pdf` arm rides: one `jsPDF` instance owns the document (`addPage`/`setPage`/`output`/`save`), the vector primitives (`rect`/`circle`/`line`/`triangle`/`path`/`lines` + the `moveTo`/`lineTo`/`curveTo` cursor), text and font control, `addImage` raster embedding, and a plugin surface reaching AcroForm interactive fields, the full Context2D canvas API, document outlines, annotations, graphics-state stacks, tiling/shading patterns, form XObjects, and a virtual font filesystem. `output(type)` is one polymorphic entry whose return type is discriminated by the type literal (string / `ArrayBuffer` / `Blob` / `URL` / `Window` / boolean), and every draw primitive carries one `style` discriminant (`"S"|"F"|"DF"|"FD"|null`) selecting stroke/fill/both. In the `services` node tier only the programmatic path is live: `new jsPDF()` → draw/`table` → `output("arraybuffer")` → `Uint8Array` → streamed `ObjectStore.put`; the `html()`/`addSvgAsImage`/`loadFile`/DOM-image paths need a browser DOM and are structurally dead here.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `jspdf`
-- package: `jspdf`
-- module: `jspdf`
-- asset: `jsPDF` class, AcroForm classes, pattern/gradient types, option interfaces
-- rail: document-generation
+- package: `jspdf` (target 4.2.1, MIT, © James Hall / yWorks GmbH)
+- module format: ESM + UMD dist; self-typed at `types/index.d.ts` (`declare module "jspdf"`, default + named `jsPDF` export) — no `@types/jspdf`; pure-JS, zero native ABI
+- runtime target: browser-first, node-capable — the programmatic build (`new jsPDF`, draw, `output`, `addImage(Uint8Array)`) runs in node; DOM-bound paths (`html`, `addSvgAsImage`, `loadFile`, `addImage(HTMLImageElement|HTMLCanvasElement)`) require a browser
+- excluded peers: the `html()` plugin needs `html2canvas` + a DOM and `addSvgAsImage` needs `canvg` — neither is admitted in the workspace catalog, so both are inert in `services`
+- asset: the `jsPDF` class, the `AcroForm*`/`Context2d`/`ShadingPattern`/`TilingPattern`/`GState`/`Matrix`/`Outline` families, the option/descriptor interfaces, the static `jsPDF.API` plugin registry
+- consumer: `persistence/object#OBJECT_STORE` — the `AssetCodec` `pdf` literal (`doc.table(...)` + `output("arraybuffer")` → `ObjectStore.put`)
+- rail: asset-codec / document-generation
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: document and config family
-- rail: document-generation
+[PUBLIC_TYPE_SCOPE]: document, config, and page family
+`jsPDF` is the single document owner; every operation returns `jsPDF` for chaining. `jsPDFOptions` carries construction (unit/format/compression/precision/encryption); `PageInfo`/`Font`/`DocumentProperties` are introspection shapes.
 
-| [INDEX] | [SYMBOL]             | [TYPE_FAMILY] | [RAIL]                                   |
-| :-----: | :------------------- | :------------ | :--------------------------------------- |
-|  [01]   | `jsPDF`              | class         | PDF document owner; all operations chain |
-|  [02]   | `jsPDFOptions`       | interface     | constructor options                      |
-|  [03]   | `PageInfo`           | interface     | current page metadata                    |
-|  [04]   | `Font`               | interface     | font descriptor                          |
-|  [05]   | `DocumentProperties` | interface     | PDF metadata fields                      |
-|  [06]   | `EncryptionOptions`  | interface     | 128-bit RC4 or AES encryption config     |
-|  [07]   | `Point`              | interface     | `{ x, y }` coordinate                    |
-|  [08]   | `Rectangle`          | interface     | `Point` extended with `w`, `h`           |
+| [INDEX] | [SYMBOL]             | [TYPE_FAMILY] | [CAPABILITY]                                                                 |
+| :-----: | :------------------- | :------------ | :-------------------------------------------------------------------------- |
+|  [01]   | `jsPDF`              | class         | the document; all draw/page/output operations chain on the instance         |
+|  [02]   | `jsPDFOptions`       | interface     | `orientation`/`unit`/`format`/`compress`/`precision`/`filters`/`encryption`/`putOnlyUsedFonts`/`floatPrecision`/`hotfixes` |
+|  [03]   | `EncryptionOptions`  | interface     | `{ userPassword?, ownerPassword?, userPermissions?: ("print"\|"modify"\|"copy"\|"annot-forms")[] }` — a constructor option, not a `setEncryption` call |
+|  [04]   | `DocumentProperties` | interface     | `title`/`subject`/`author`/`keywords`/`creator` metadata                     |
+|  [05]   | `PageInfo`           | interface     | `{ objId, pageNumber, pageContext }` current-page metadata                    |
+|  [06]   | `Font`               | interface     | resolved font descriptor (`id`/`fontName`/`fontStyle`/`postScriptName`/…)     |
+|  [07]   | `Point` / `Rectangle` | interface    | `{ x, y }` / `{ x, y, w, h }` geometry                                        |
 
-[PUBLIC_TYPE_SCOPE]: image and text family
-- rail: document-generation
+[PUBLIC_TYPE_SCOPE]: image, text, and table family
+`ImageFormat`/`ImageCompression`/`ColorSpace` are the closed raster vocabularies; `TextOptionsLight` (align/baseline/`renderingMode`/`maxWidth`/`charSpace`) is the text-render axis; `TableConfig`/`CellConfig` drive the cell plugin the `pdf` codec calls.
 
-| [INDEX] | [SYMBOL]           | [TYPE_FAMILY] | [RAIL]                                   |
-| :-----: | :----------------- | :------------ | :--------------------------------------- |
-|  [01]   | `ImageOptions`     | interface     | `addImage` options-form input            |
-|  [02]   | `ImageProperties`  | interface     | introspected image metadata              |
-|  [03]   | `ImageCompression` | string union  | `"NONE" \| "FAST" \| "MEDIUM" \| "SLOW"` |
-|  [04]   | `ImageFormat`      | string union  | supported image format tokens            |
-|  [05]   | `ColorSpace`       | string union  | color space tokens                       |
-|  [06]   | `TextOptions`      | interface     | text alignment, baseline, render options |
-|  [07]   | `TextOptionsLight` | interface     | lighter text option subset               |
+| [INDEX] | [SYMBOL]                              | [TYPE_FAMILY] | [CAPABILITY]                                                        |
+| :-----: | :------------------------------------ | :------------ | :----------------------------------------------------------------- |
+|  [01]   | `ImageOptions` / `ImageProperties`    | interface     | options-form `addImage` input / introspected image metadata        |
+|  [02]   | `ImageFormat`                         | string union  | `"PNG"\|"JPEG"\|"JPG"\|"WEBP"\|"GIF89a"\|"BMP"\|"TIFF"\|"RGBA"\|…`  |
+|  [03]   | `ImageCompression`                    | string union  | `"NONE"\|"FAST"\|"MEDIUM"\|"SLOW"`                                  |
+|  [04]   | `ColorSpace`                          | string union  | `"DeviceRGB"\|"DeviceGray"\|"DeviceCMYK"\|"Indexed"\|"Pattern"\|…`  |
+|  [05]   | `RGBAData`                            | interface     | `{ data: Uint8ClampedArray, width, height }` raw pixel buffer       |
+|  [06]   | `TextOptions` / `TextOptionsLight`    | interface     | text placement + `align`/`baseline`/`renderingMode`/`maxWidth`/`angle`/`charSpace` |
+|  [07]   | `TableConfig` / `CellConfig` / `TableRowData` / `TableCellData` | interface | cell-plugin layout, header, and per-row/cell hooks |
 
-[PUBLIC_TYPE_SCOPE]: AcroForm field family
-- rail: document-generation
+[PUBLIC_TYPE_SCOPE]: AcroForm interactive-field family
+The `AcroForm*` hierarchy is a genuine inheritance chain, but construction goes through the one `jsPDF.AcroForm` factory (`doc.AcroForm.TextField()`), not per-class `new`. Field kind is a factory row, then `addField` attaches it.
 
-| [INDEX] | [SYMBOL]                | [TYPE_FAMILY]  | [RAIL]               |
-| :-----: | :---------------------- | :------------- | :------------------- |
-|  [01]   | `AcroFormField`         | abstract class | base form field      |
-|  [02]   | `AcroFormChoiceField`   | class          | choice field base    |
-|  [03]   | `AcroFormListBox`       | class          | list box field       |
-|  [04]   | `AcroFormComboBox`      | class          | combo box field      |
-|  [05]   | `AcroFormEditBox`       | class          | editable combo box   |
-|  [06]   | `AcroFormButton`        | class          | button field base    |
-|  [07]   | `AcroFormPushButton`    | class          | push button          |
-|  [08]   | `AcroFormRadioButton`   | class          | radio button         |
-|  [09]   | `AcroFormCheckBox`      | class          | check box            |
-|  [10]   | `AcroFormTextField`     | class          | text input field     |
-|  [11]   | `AcroFormPasswordField` | class          | password input field |
+| [INDEX] | [SYMBOL]                                                        | [TYPE_FAMILY]  | [CAPABILITY]                                        |
+| :-----: | :------------------------------------------------------------- | :------------- | :------------------------------------------------- |
+|  [01]   | `AcroFormField`                                                | abstract class | base field — position, `fieldName`, font, `readOnly`/`required` |
+|  [02]   | `AcroFormChoiceField` → `AcroFormListBox` / `AcroFormComboBox` / `AcroFormEditBox` | class chain | option-list fields (`getOptions`/`addOption`/`combo`/`edit`) |
+|  [03]   | `AcroFormButton` → `AcroFormPushButton` / `AcroFormRadioButton` / `AcroFormCheckBox` | class chain | button fields; `AcroFormRadioButton.createOption` → `AcroFormChildClass` |
+|  [04]   | `AcroFormTextField` / `AcroFormPasswordField`                  | class          | text input (`multiline`/`maxLength`/`comb`/`password`) |
+|  [05]   | `AcroFormChildClass`                                           | class          | a radio member (`optionName`/`appearanceState: "On"\|"Off"`) |
 
-[PUBLIC_TYPE_SCOPE]: graphics and pattern family
-- rail: document-generation
+[PUBLIC_TYPE_SCOPE]: graphics-state, pattern, and canvas family
+`GState` (opacity), `Matrix` (affine transform with `multiply`/`inversed`/`decompose`), and the `ShadingPattern`/`TilingPattern` fill objects compose the advanced-API drawing model; `Context2d` is the full canvas-2D surface `doc.context2d`/`doc.canvas.getContext()` exposes.
 
-| [INDEX] | [SYMBOL]             | [TYPE_FAMILY] | [RAIL]                        |
-| :-----: | :------------------- | :------------ | :---------------------------- |
-|  [01]   | `GState`             | class         | graphics state object         |
-|  [02]   | `Matrix`             | interface     | transformation matrix         |
-|  [03]   | `Pattern`            | interface     | fill pattern base             |
-|  [04]   | `ShadingPattern`     | class         | axial or radial gradient fill |
-|  [05]   | `ShadingPatternType` | string union  | `"axial" \| "radial"`         |
-|  [06]   | `TilingPattern`      | class         | tiling fill pattern           |
-|  [07]   | `Gradient`           | interface     | gradient descriptor           |
-|  [08]   | `PatternData`        | interface     | fill pattern data shape       |
-|  [09]   | `RGBAData`           | interface     | raw RGBA pixel buffer         |
+| [INDEX] | [SYMBOL]                                          | [TYPE_FAMILY] | [CAPABILITY]                                                     |
+| :-----: | :------------------------------------------------ | :------------ | :-------------------------------------------------------------- |
+|  [01]   | `GState`                                          | class+iface   | `{ opacity?, "stroke-opacity"? }` graphics state                |
+|  [02]   | `Matrix`                                          | interface     | affine matrix — `multiply`/`inversed`/`decompose`/`applyToPoint` |
+|  [03]   | `Pattern` / `PatternData`                         | interface     | fill-pattern base / `fill(pattern)` data shape                  |
+|  [04]   | `ShadingPattern` / `ShadingPatternType` / `ShadingPatterStop` | class+union | axial/radial gradient fill (`"axial"\|"radial"`, stops)     |
+|  [05]   | `TilingPattern`                                   | class         | repeating tiling fill (boundingBox/xStep/yStep)                 |
+|  [06]   | `Context2d` / `Gradient`                          | interface     | canvas-2D API (`arc`/`bezierCurveTo`/`fillText`/`drawImage`/`createLinearGradient`/…) |
+|  [07]   | `Outline` / `OutlineItem` / `Annotation` / `TextWithLinkOptions` | interface | document bookmarks and link/annotation descriptors        |
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: document lifecycle
-- rail: document-generation
+[ENTRYPOINT_SCOPE]: document lifecycle and output — `output(type)` is the one polymorphic egress
+`output` overloads on the type literal to return the right shape; `arraybuffer` is the node-tier serialization, `blob`/`bloburi`/`*newwindow` are browser sinks, bare `save` is a browser download (or a `Promise` with `returnPromise`).
 
-| [INDEX] | [SURFACE]                                            | [ENTRY_FAMILY] | [RAIL]                            |
-| :-----: | :--------------------------------------------------- | :------------- | :-------------------------------- |
-|  [01]   | `new jsPDF(options?: jsPDFOptions)`                  | constructor    | options-form construction         |
-|  [02]   | `new jsPDF(orientation?, unit?, format?, compress?)` | constructor    | positional construction           |
-|  [03]   | `addPage(format?, orientation?)`                     | page control   | appends a new page                |
-|  [04]   | `deletePage(targetPage)`                             | page control   | removes a page by 1-based index   |
-|  [05]   | `insertPage(beforePage)`                             | page control   | inserts page before given index   |
-|  [06]   | `movePage(targetPage, beforePage)`                   | page control   | reorders a page                   |
-|  [07]   | `setPage(pageNumber)`                                | page control   | sets current active page          |
-|  [08]   | `getNumberOfPages()`                                 | page query     | total page count                  |
-|  [09]   | `getCurrentPageInfo()`                               | page query     | active page metadata              |
-|  [10]   | `save(filename?, options?)`                          | output         | browser download or promise       |
-|  [11]   | `output(type?, options?)`                            | output         | buffer, blob, data URI, or string |
-|  [12]   | `setDocumentProperties(properties)`                  | metadata       | title, author, subject, etc.      |
+| [INDEX] | [SURFACE]                                                            | [ENTRY_FAMILY] | [CAPABILITY]                                          |
+| :-----: | :------------------------------------------------------------------ | :------------- | :--------------------------------------------------- |
+|  [01]   | `new jsPDF(options?)` / `new jsPDF(orientation?, unit?, format?, compress?)` | constructor | options-form or positional construction              |
+|  [02]   | `addPage(format?, orientation?)` / `insertPage(before)` / `deletePage(n)` / `movePage(target, before)` / `setPage(n)` | page control | 1-based page tree mutation and active-page select |
+|  [03]   | `getNumberOfPages()` / `getCurrentPageInfo()` / `getPageInfo(n)`     | page query     | page count and per-page metadata                     |
+|  [04]   | `output(): string`                                                  | output         | raw PDF string                                       |
+|  [05]   | `output("arraybuffer"): ArrayBuffer` / `output("blob"): Blob`       | output         | binary bytes — `arraybuffer` is the node serialization |
+|  [06]   | `output("datauristring"\|"dataurlstring", { filename? }): string` / `output("bloburi"\|"bloburl"): URL` | output | data-URI / blob-URL forms |
+|  [07]   | `output("dataurlnewwindow"\|"pdfobjectnewwindow"\|"pdfjsnewwindow", { filename? }): Window` | output | browser viewer sinks |
+|  [08]   | `save(filename, { returnPromise: true }): Promise<void>` / `save(filename?): jsPDF` | output | browser download; promise arity for await |
+|  [09]   | `setDocumentProperties(props)` / `setDisplayMode(zoom, layout?, pmode?)` / `viewerPreferences(opts)` / `addMetadata(xml, ns?)` | metadata | doc info, initial view, viewer prefs, XMP |
 
-[ENTRYPOINT_SCOPE]: drawing primitives
-- rail: document-generation
+[ENTRYPOINT_SCOPE]: vector primitives and path — the `style` discriminant owns stroke/fill
+Every primitive takes an optional `style` (`"S"` stroke, `"F"` fill, `"DF"`/`"FD"` both, `null` no-op); the path builder pairs `moveTo`/`lineTo`/`curveTo` with `stroke`/`fill`/`clip` terminators.
 
-| [INDEX] | [SURFACE]                                         | [ENTRY_FAMILY] | [RAIL]               |
-| :-----: | :------------------------------------------------ | :------------- | :------------------- |
-|  [01]   | `text(text, x, y, options?, transform?)`          | draw           | text at position     |
-|  [02]   | `rect(x, y, w, h, style?)`                        | draw           | rectangle            |
-|  [03]   | `circle(x, y, r, style?)`                         | draw           | circle               |
-|  [04]   | `ellipse(x, y, rx, ry, style?)`                   | draw           | ellipse              |
-|  [05]   | `line(x1, y1, x2, y2, style?)`                    | draw           | straight line        |
-|  [06]   | `triangle(x1,y1,x2,y2,x3,y3, style?)`             | draw           | triangle             |
-|  [07]   | `roundedRect(x, y, w, h, rx, ry, style?)`         | draw           | rounded rectangle    |
-|  [08]   | `path(lines?, style?)`                            | draw           | arbitrary path       |
-|  [09]   | `lines(lines, x, y, scale?, style?, closed?)`     | draw           | polyline or polygon  |
-|  [10]   | `moveTo(x, y)` / `lineTo(x, y)`                   | path           | path cursor movement |
-|  [11]   | `curveTo(x1,y1,x2,y2,x3,y3)`                      | path           | cubic Bezier segment |
-|  [12]   | `clip(rule?)` / `close()` / `stroke()` / `fill()` | path           | path finalization    |
+| [INDEX] | [SURFACE]                                                            | [ENTRY_FAMILY] | [CAPABILITY]                                          |
+| :-----: | :------------------------------------------------------------------ | :------------- | :--------------------------------------------------- |
+|  [01]   | `rect` / `roundedRect` / `circle` / `ellipse` / `line` / `triangle` (…, `style?`) | draw | closed/open primitives with the `style` discriminant |
+|  [02]   | `path(lines?, style?)` / `lines(lines, x, y, scale?, style?, closed?)` | draw         | arbitrary path / polyline-polygon                    |
+|  [03]   | `moveTo` / `lineTo` / `curveTo(x1..x3,y3)`                           | path           | cursor movement and cubic Bézier segments            |
+|  [04]   | `stroke` / `fill(pattern?)` / `fillStroke` / `fillEvenOdd` / `clip("evenodd"?)` / `clipEvenOdd` / `close` / `discardPath` | path | fill-rule-aware path finalization |
+|  [05]   | `saveGraphicsState()` / `restoreGraphicsState()` / `addGState(key, GState)` / `setGState(g)` | gstate | push/pop the opacity+transform state |
+|  [06]   | `setCurrentTransformationMatrix(m)` / `Matrix(a..f)` / `matrixMult(m1, m2)` | transform | CTM and affine matrix construction               |
+|  [07]   | `addShadingPattern(key, p)` / `beginTilingPattern(p)` / `endTilingPattern(key, p)` / `beginFormObject`/`endFormObject`/`doFormObject` | pattern/xobject | gradient/tiling fills and reusable form XObjects |
 
-[ENTRYPOINT_SCOPE]: font and color
-- rail: document-generation
+[ENTRYPOINT_SCOPE]: text, font, and color
+Fonts register through `addFont` (built-in Helvetica/Courier/Times need none); `setDrawColor`/`setFillColor`/`setTextColor` overload on string vs numeric channels; the split/measure helpers own word-wrap and metrics.
 
-| [INDEX] | [SURFACE]                                                      | [ENTRY_FAMILY] | [RAIL]                           |
-| :-----: | :------------------------------------------------------------- | :------------- | :------------------------------- |
-|  [01]   | `addFont(postScriptName, id, fontStyle, fontWeight?, …)`       | font           | registers a font by name/URL     |
-|  [02]   | `setFont(fontName, fontStyle?, fontWeight?)`                   | font           | sets active font                 |
-|  [03]   | `setFontSize(size)`                                            | font           | sets point size                  |
-|  [04]   | `getFontList()`                                                | font           | all registered fonts             |
-|  [05]   | `getTextDimensions(text, options?)`                            | font           | `{ w, h }` measurement           |
-|  [06]   | `splitTextToSize(text, maxlen, options?)`                      | font           | word-wrapped line array          |
-|  [07]   | `setDrawColor(ch1, …)` / `setFillColor(…)` / `setTextColor(…)` | color          | sets active draw/fill/text color |
-|  [08]   | `setLineWidth(width)`                                          | color          | sets stroke width                |
+| [INDEX] | [SURFACE]                                                            | [ENTRY_FAMILY] | [CAPABILITY]                                          |
+| :-----: | :------------------------------------------------------------------ | :------------- | :--------------------------------------------------- |
+|  [01]   | `text(text, x, y, options?: TextOptionsLight, transform?)`          | draw           | placed text with align/baseline/`renderingMode`/`maxWidth` |
+|  [02]   | `addFont(postScriptName\|URL, id, fontStyle, fontWeight?, encoding?)` / `setFont(name, style?, weight?)` / `setFontSize(pt)` | font | register / select font; `getFont`/`getFontList`/`getFontSize` |
+|  [03]   | `getTextDimensions(text, opts?)` / `getTextWidth(text)` / `splitTextToSize(text, maxlen, opts?)` | font | measure and word-wrap                             |
+|  [04]   | `setDrawColor` / `setFillColor` / `setTextColor` (`ch1: string` \| `ch1..ch4: number`) | color | active draw/fill/text color; `getDrawColor`/`getFillColor`/`getTextColor` |
+|  [05]   | `setLineWidth` / `setLineCap` / `setLineJoin` / `setLineDashPattern` / `setLineMiterLimit` / `setLineHeightFactor` | color | stroke geometry |
+|  [06]   | `setLanguage(langCode)` / `setR2L(bool)` / `setCharSpace(n)`         | text           | script/direction/spacing controls                   |
 
-[ENTRYPOINT_SCOPE]: image and plugin surface
-- rail: document-generation
+[ENTRYPOINT_SCOPE]: plugin surface — image, table, form, annotation, outline, vfs
+`table` is the cell-plugin the `pdf` codec calls; `addImage` overloads on explicit-vs-inferred format vs options-form; `addFileToVFS` is the node-safe font-load seam (no `loadFile` XHR).
 
-| [INDEX] | [SURFACE]                                    | [ENTRY_FAMILY] | [RAIL]                               |
-| :-----: | :------------------------------------------- | :------------- | :----------------------------------- |
-|  [01]   | `addImage(imageData, format, x, y, w, h, …)` | image          | embeds raster image by format string |
-|  [02]   | `addImage(imageData, x, y, w, h, …)`         | image          | embeds raster image, format inferred |
-|  [03]   | `addImage(options: ImageOptions)`            | image          | options-form image embed             |
-|  [04]   | `addSvgAsImage(svg, x, y, w, h, alias?, …)`  | image          | renders SVG string as image          |
-|  [05]   | `html(src, options?)`                        | html plugin    | renders HTML to PDF via html2canvas  |
-|  [06]   | `table(x, y, data, headers, config)`         | cell plugin    | tabular layout                       |
-|  [07]   | `addField(field: AcroFormField)`             | acroform       | adds interactive form field          |
+| [INDEX] | [SURFACE]                                                            | [ENTRY_FAMILY] | [CAPABILITY]                                          |
+| :-----: | :------------------------------------------------------------------ | :------------- | :--------------------------------------------------- |
+|  [01]   | `addImage(imageData, format, x, y, w, h, alias?, compression?, rotation?)` | image    | explicit-format raster embed (node: `string`/`Uint8Array`/`RGBAData`) |
+|  [02]   | `addImage(imageData, x, y, w, h, …)` / `addImage(options: ImageOptions)` | image      | format-inferred / options-form embed; `getImageProperties(data)` |
+|  [03]   | `table(x, y, data, headers: string[] \| CellConfig[], config: TableConfig)` | cell plugin | tabular layout — the `pdf` `AssetCodec` entry |
+|  [04]   | `cell(...)` / `cellAddPage()` / `setTableHeaderRow(cfg)` / `setHeaderFunction(fn)` | cell plugin | low-level cell flow                            |
+|  [05]   | `addField(field: AcroFormField)` + `AcroForm.{TextField,CheckBox,ComboBox,RadioButton,PushButton,ListBox,…}()` | acroform | interactive form-field factory + attach |
+|  [06]   | `createAnnotation(a: Annotation)` / `link(x, y, w, h, opts)` / `textWithLink(text, x, y, opts)` | annotation | link/annotation regions |
+|  [07]   | `outline.add(parent, title, { pageNumber })`                        | outline        | PDF bookmark tree                                    |
+|  [08]   | `addFileToVFS(name, content)` / `getFileFromVFS(name)` / `existsFileInVFS(name)` | vfs        | virtual filesystem for embedded fonts (node-safe)   |
+|  [09]   | `context2d` / `canvas.getContext(): Context2d`                      | canvas         | full canvas-2D drawing API                           |
+|  [10]   | `addJS(js)` / `autoPrint(opts?)` / `putTotalPages(expr)`            | plugin         | embedded JS, auto-print, `{total_pages}` substitution |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [JSPDF_TOPOLOGY]:
-- One `jsPDF` instance owns one document; call `addPage` to extend and `setPage` to switch the active drawing target.
-- All drawing operations affect the current active page; page numbering is 1-based throughout.
-- `output("blob")` returns a `Blob`; `output("arraybuffer")` returns an `ArrayBuffer`; `save(filename, { returnPromise: true })` returns `Promise<void>`.
-- `addImage` accepts `string` (data URI or file path in Node), `HTMLImageElement`, `HTMLCanvasElement`, `Uint8Array`, or `RGBAData`; compression defaults to `"SLOW"`.
-- Fonts must be registered with `addFont` before use; the built-in core fonts (`"Helvetica"`, `"Courier"`, `"Times"`) need no registration.
-- `html(src, options)` returns `HTMLWorker extends Promise<any>`; it depends on `html2canvas` being available in the bundle.
+- One `jsPDF` instance is one document; `addPage` extends, `setPage` retargets, numbering is 1-based. Every draw/config method returns the instance for chaining, so a document is one fluent expression terminated by `output`/`save`.
+- `output` is a single overloaded surface: the return type follows the type literal — `"arraybuffer"` → `ArrayBuffer`, `"blob"` → `Blob`, `"bloburi"` → `URL`, `"datauristring"` → `string`, `"*newwindow"` → `Window`, bare → `string`. Never an `outputBuffer`/`outputBlob` family.
+- Fonts: the three cores (`Helvetica`/`Courier`/`Times`) need no registration; a custom font is `addFileToVFS(name, base64Ttf)` then `addFont(name, id, style)` — the VFS path is the node-safe mechanism (`loadFile` is browser XHR). Advanced drawing (`ShadingPattern`, form XObjects, CTM) requires `advancedAPI(body)` mode.
+- `internal` (`events` PubSub, `scaleFactor`, `pageSize`, `getEncryptor`) is the private plugin substrate — read for plugin authoring only, never mutated from domain code.
 
 [LOCAL_ADMISSION]:
-- `jsPDFOptions.unit` defaults to `"mm"`; supported values are `"pt"`, `"px"`, `"in"`, `"mm"`, `"cm"`, `"ex"`, `"em"`, `"pc"`.
-- `jsPDFOptions.format` accepts named page sizes (e.g. `"a4"`) or `[width, height]` arrays in the chosen unit.
-- AcroForm fields are created via the factory methods on `jsPDF.AcroForm` and added with `addField`.
+- `jsPDFOptions.unit` defaults to `"mm"` over `"pt"|"px"|"in"|"cm"|"ex"|"em"|"pc"`; `format` is a named size (`"a4"`) or a `[w, h]` array in the chosen unit; `compress`/`precision`/`floatPrecision` tune output size.
+- In node, `addImage` accepts `string` (data URI) / `Uint8Array` / `RGBAData` only — `HTMLImageElement`/`HTMLCanvasElement` inputs and `addSvgAsImage` require a DOM; raster upstream through `sharp` to `Uint8Array` instead.
+- Encryption is the `jsPDFOptions.encryption` construction option (`userPassword`/`ownerPassword`/`userPermissions`), applied at document creation, not a post-hoc call.
+
+[STACKING]:
+- Effect boundary: the programmatic build is synchronous, folded at `Effect.try` (not `tryPromise`) into the `persistence/object#OBJECT_STORE` `AssetTransferFault` rail (`format: "pdf", stage: "encode"`); `output("arraybuffer")` → `new Uint8Array(buf)` → `Stream.make` → `ObjectStore.put`. The `save(...)` browser-download surface is never reached server-side.
+- sharp raster: `sharp(input).toFormat("png").toBuffer()` (`.api/sharp.md`) → `Uint8Array` → `addImage(bytes, "PNG", x, y, w, h)` composites a processed image into the PDF without a DOM `HTMLImageElement`.
+- jszip bundling: multiple `output("arraybuffer")` documents become `file(path, bytes)` entries in a `jszip` archive (`.api/jszip.md`) for a multi-document export streamed as one `ObjectStore.put`.
+- nodemailer attachment: `output("arraybuffer")` bytes ride a `nodemailer` `Mail.Options.attachments` entry (`{ filename, content: Buffer }`, `.api/nodemailer.md`) so a notification carries the generated report; content-address and OTLP-progress stacking mirror the other codecs.
+- The `html()` / `addSvgAsImage` plugins stay unwired: `html2canvas`/`canvg` are absent from the workspace catalog and both need a DOM, so HTML-to-PDF is a browser-only capability documented for completeness, not a `services` rail.
 
 [RAIL_LAW]:
-- Package: `jspdf`
-- Owns: PDF document construction, drawing, images, fonts, form fields, HTML rendering
-- Accept: one `jsPDF` instance per document; chain all operations before calling `save` or `output`
-- Reject: hand-rolled PDF byte construction; direct manipulation of `jsPDF.internal` in domain code
+- package: `jspdf`
+- owns: programmatic PDF document construction, vector/text/image drawing, AcroForm/Context2D/outline/annotation plugins, and the type-discriminated `output` egress
+- accept: one `jsPDF` per document chained to a single `output("arraybuffer")`; the `style` discriminant for every primitive; `addFileToVFS`+`addFont` for custom fonts; `sharp`-produced `Uint8Array` for `addImage`
+- reject: hand-rolled PDF byte assembly; direct `jsPDF.internal` mutation in domain code; the `html()`/`addSvgAsImage`/`loadFile` DOM paths in the node tier; an `outputBuffer`/`outputBlob` method family where `output(type)` discriminates

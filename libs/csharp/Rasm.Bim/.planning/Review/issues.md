@@ -490,10 +490,12 @@ public sealed record BcfTopicWire(
     string StatusLabel);
 
 // --- [BODIES]
-// The BCF-API 3.0 WRITE-BODY register — the spec's snake_case resource bodies (topic_POST/comment_POST/
-// viewpoint_POST/related_topic_PUT/document_reference_POST/file_PUT): server-assigned provenance
-// (creation/modification author+date, server_assigned_id) and sub-resource collections never ride a write
-// body, the camera is orthogonal_camera XOR perspective_camera, and the snapshot rides inline
+// The BCF-API 3.0 resource-body register — ONE snake_case dialect serving BOTH directions: the WRITE bodies
+// (topic_POST/comment_POST/viewpoint_POST/related_topic_PUT/document_reference_POST/file_PUT) and the GET READ
+// shapes, which per spec are the SAME resources plus the server-assigned provenance columns (creation/modification
+// author+date, server_assigned_id, the comment's topic/reply joins) — carried NULLABLE below so the write
+// serializer's WhenWritingNull omission keeps every POST/PUT body spec-conformant while a GET response decodes
+// whole. The camera is orthogonal_camera XOR perspective_camera and the snapshot rides inline
 // {snapshot_type, snapshot_data} base64. A body is the SECOND dialect of the one topic family — spec field
 // spellings at the foreign seam per SEMANTIC_NAMING, never a second issue vocabulary.
 public sealed record BcfApiPointBody(double X, double Y, double Z);
@@ -516,8 +518,15 @@ public sealed record BcfApiSnippetBody(string SnippetType, bool IsExternal, stri
 public sealed record BcfApiTopicBody(
     string Guid, string TopicType, string TopicStatus, ImmutableArray<string> ReferenceLinks,
     string Title, string Priority, int? Index, ImmutableArray<string> Labels,
-    string AssignedTo, string Stage, string Description, BcfApiSnippetBody? BimSnippet, Instant? DueDate);
-public sealed record BcfApiCommentBody(string Guid, string Comment, string? ViewpointGuid);
+    string AssignedTo, string Stage, string Description, BcfApiSnippetBody? BimSnippet, Instant? DueDate,
+    // Server-assigned READ columns — null on every write (omitted by WhenWritingNull), filled by a GET response.
+    string? ServerAssignedId = null, string? CreationAuthor = null, Instant? CreationDate = null,
+    string? ModifiedAuthor = null, Instant? ModifiedDate = null);
+public sealed record BcfApiCommentBody(
+    string Guid, string Comment, string? ViewpointGuid,
+    // Server-assigned READ columns — the comment's provenance plus its topic/reply joins.
+    string? TopicGuid = null, string? ReplyToCommentGuid = null, string? Author = null, Instant? Date = null,
+    string? ModifiedAuthor = null, Instant? ModifiedDate = null);
 public sealed record BcfApiRelatedTopicBody(string RelatedTopicGuid);
 public sealed record BcfApiDocumentReferenceBody(string Guid, string? DocumentGuid, string? Url, string Description);
 public sealed record BcfApiFileBody(string IfcProject, string IfcSpatialStructureElement, string Filename, Instant? Date, string Reference);
@@ -561,6 +570,36 @@ public static partial class BcfWireMapper {
     [MapperRequiredMapping(RequiredMappingStrategy.Target)]
     [MapProperty(nameof(BcfComment.Text), nameof(BcfApiCommentBody.Comment))]
     public static partial BcfApiCommentBody ToBody(BcfComment comment);
+
+    // The READ-lane wire-to-domain inverse over the SAME register — BcfApi.Admit's admitted body lands the typed
+    // domain record here. The comment map GENERATES (its columns are 1:1 through the nullable carriers; the
+    // topic/reply joins are collection-navigation facts the caller resolves, ignored loudly); the topic fold is
+    // HAND-COMPOSED on the ToBody(BcfViewpoint) precedent because a GET topic carries no sub-resource collections
+    // (Comments/Viewpoints land from their OWN reads) and its status re-elects the archive's space/hyphen-stripped
+    // five-state normalization with the verbatim token preserved on StatusLabel.
+    public static BcfTopic ToDomain(BcfApiTopicBody body) => new(
+        body.Guid, body.Title, Election(body.TopicStatus), body.TopicType, body.Priority,
+        body.CreationAuthor ?? "", body.CreationDate ?? Instant.MinValue,
+        Seq<BcfComment>(), Seq<BcfViewpoint>(),
+        body.Description, body.AssignedTo, body.Stage, OptionMoment(body.DueDate),
+        toSeq(body.Labels), OptionOrdinal(body.Index), OptionMoment(body.ModifiedDate), body.ModifiedAuthor ?? "",
+        body.ServerAssignedId ?? "", toSeq(body.ReferenceLinks),
+        BimSnippet: Optional(body.BimSnippet).Map(static s => new BcfBimSnippet(s.SnippetType, s.Reference, s.ReferenceSchema, s.IsExternal)),
+        StatusLabel: body.TopicStatus);
+
+    [MapperIgnoreSource(nameof(BcfApiCommentBody.TopicGuid))]
+    [MapperIgnoreSource(nameof(BcfApiCommentBody.ReplyToCommentGuid))]
+    [MapProperty(nameof(BcfApiCommentBody.Comment), nameof(BcfComment.Text))]
+    public static partial BcfComment ToDomain(BcfApiCommentBody body);
+
+    static BcfStatus Election(string status) =>
+        Enum.TryParse(status.Replace(" ", "", StringComparison.Ordinal).Replace("-", "", StringComparison.Ordinal), ignoreCase: true, out BcfStatus parsed) && Enum.IsDefined(parsed) ? parsed : BcfStatus.Open;
+
+    [UserMapping] static string Required(string? value) => value ?? "";
+    [UserMapping] static Instant Stamped(Instant? value) => value ?? Instant.MinValue;
+    [UserMapping] static Option<string> OptionText(string? value) => Optional(value).Filter(static v => v.Length > 0);
+    [UserMapping] static Option<Instant> OptionMoment(Instant? value) => Optional(value);
+    [UserMapping] static Option<int> OptionOrdinal(int? value) => Optional(value);
 
     public static partial BcfApiSnippetBody ToBody(BcfBimSnippet snippet);
 
@@ -703,6 +742,16 @@ public static class BcfApi {
 
     static Fin<BcfApiRequest> Write<T>(BcfApiVerb verb, string resource, T body, Op key) =>
         BcfWire.Json(body, resource, key).Map(bytes => new BcfApiRequest(verb, resource, bytes));
+
+    // The READ half of the lane — the response-admission seam DECIDED Bim-side: a GET response decodes through
+    // the SAME snake_case BcfApiContext register the write bodies ride (the read shape IS the resource body plus
+    // its nullable server-assigned columns), ONE polymorphic Admit landing both GET arities (T the single body or
+    // its collection wrapper) on the Fin rail; the Compute channels#TRANSPORT_AXIS owner hands raw bytes and
+    // decodes NOTHING — a transport-side dialect adapter is the rejected second seam. The domain lift is the
+    // BcfWireMapper ToDomain inverse over the admitted body, never a hand transcription beside it.
+    public static Fin<T> Admit<T>(ReadOnlyMemory<byte> body, string resource, Op key) =>
+        Try.lift(() => JsonSerializer.Deserialize<T>(body.Span, BcfApiContext.Json) ?? throw new InvalidDataException("null-payload")).Run()
+            .MapFail(error => new BimFault.ModelRejected(key, $"bcf-api-read:{resource}:{error.Message}"));
 }
 
 // --- [COMPOSITION] ------------------------------------------------------------------------

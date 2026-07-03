@@ -7,7 +7,7 @@ import re
 from typing import override, TYPE_CHECKING, TypeAliasType
 
 from dirty_equals import IsInt, IsList, IsStr
-from expression import Error, Ok, Result  # runtime: canned run_check replacements return Result instances
+from expression import Error, Ok, Result  # runtime: canned executor lanes return Result instances
 from hypothesis import given as hyp_given, settings as hyp_settings, strategies as st
 from inline_snapshot import external, outsource  # external-file goldens for the large rendered C# decompile surface
 import pytest
@@ -15,8 +15,9 @@ import pytest
 from tests.python._testkit.laws import register_law, spec
 from tests.python._testkit.spec import assert_error, assert_ok, assert_roundtrip, refutes, support_matrix, validity_matrix, ValidityCase
 from tests.python._testkit.strategies import resolve as st_resolve  # aliased to avoid collision with tools.assay.rails.api.resolve verb
-from tests.python.tools.assay.kit import RailProbe
-from tools.assay.composition.catalog import CAPTURES, select
+from tests.python.tools.assay.kit import RailProbe, SeamExecutor
+from tools.assay.composition.catalog import select
+from tools.assay.core.engine import EngineExecutor
 from tools.assay.core.model import (
     ApiResolution,
     ApiSource,
@@ -28,12 +29,13 @@ from tools.assay.core.model import (
     Input,
     Language,
     Mode,
+    RailStatus,
     Runner,
     SourceKind,
     SymbolShape,
     Tool,
 )
-from tools.assay.core.status import RailStatus
+from tools.assay.diagnostics import CAPTURES
 from tools.assay.rails import api as api_rail
 from tools.assay.rails.api import ApiParams, query, resolve, shape_of, show, status
 from tools.assay.rails.code import ts_language  # shared tree-sitter primitive owned by code.py, re-bound in api.py
@@ -45,9 +47,10 @@ if TYPE_CHECKING:
 
     from tests.python.tools.assay.kit import AssayHarness
     from tools.assay.composition.settings import ArtifactScope, AssaySettings
+    from tools.assay.core.engine import Executor
     from tools.assay.core.model import Report
 
-    type Verb = Callable[[AssaySettings, ArtifactScope, ApiParams], Result[Report, Fault]]  # query/resolve/show/status share this shape
+    type Verb = Callable[[AssaySettings, ArtifactScope, ApiParams, Executor], Result[Report, Fault]]  # query/resolve/show/status share this shape
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -108,8 +111,8 @@ class _DistDouble:
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _run(verb: Verb, assay_root: AssayHarness, **params: object) -> Result[Report, Fault]:
-    """Run an API verb in a fresh Claim.API scope.
+def _run(verb: Verb, assay_root: AssayHarness, executor: Executor | None = None, /, **params: object) -> Result[Report, Fault]:
+    """Run an API verb in a fresh Claim.API scope, defaulting to the production executor.
 
     Returns:
         Verb result over a fresh API scope rooted at the harness.
@@ -118,6 +121,7 @@ def _run(verb: Verb, assay_root: AssayHarness, **params: object) -> Result[Repor
         assay_root.settings,
         assay_root.scope(Claim.API),
         ApiParams(**params),  # ty: ignore[invalid-argument-type]  # **params is the open keyword set forwarded into the typed ApiParams ctor
+        executor if executor is not None else EngineExecutor(),
     )
 
 
@@ -129,8 +133,12 @@ def _install_ilspy(
     decompile: bytes = _ILSPY_DECOMPILE,
     returncode: int = 0,
     xmls: bool = False,
-) -> None:
-    """Pin ilspy source resolution to canned list/decompile receipts."""
+) -> SeamExecutor:
+    """Pin ilspy source resolution and return a canned executor replaying list/decompile receipts.
+
+    Returns:
+        Canned executor whose run lane discriminates list vs decompile on the ``-t`` flag.
+    """
     asm = assay_root.write("RhinoCommon.dll", "MZ")
     xml_paths = (assay_root.write("RhinoCommon.xml", _ILSPY_XML),) if xmls else ()
     source = api_rail._Source(key="rhino-common", kind=SourceKind.ASSEMBLY, assemblies=(asm,), xmls=xml_paths)
@@ -142,18 +150,16 @@ def _install_ilspy(
             ("ilspycmd",), returncode, status=status, stdout=payload if returncode == 0 else b"", stderr=b"" if returncode == 0 else b"ilspy boom"
         )
 
-    monkeypatch.setattr(api_rail, "run_check", _canned)
     monkeypatch.setattr(api_rail, "_resolve_source", lambda _settings, _key: Ok(source))
+    return SeamExecutor(run_fn=_canned)
 
 
-def _cs_surface(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch, symbol: str, *, install: bool = True, **kw: object) -> ApiSurface:
+def _cs_surface(
+    assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch, symbol: str, *, executor: SeamExecutor | None = None, **kw: object
+) -> ApiSurface:
     """Return the C# ApiSurface detail over the canned ilspy source."""
-    match install:
-        case True:
-            _install_ilspy(assay_root, monkeypatch)
-        case False:
-            pass
-    detail = assert_ok(_run(query, assay_root, key="rhino-common", symbol=symbol, **kw)).detail
+    canned = executor if executor is not None else _install_ilspy(assay_root, monkeypatch)
+    detail = assert_ok(_run(query, assay_root, canned, key="rhino-common", symbol=symbol, **kw)).detail
     assert isinstance(detail, ApiSurface)
     return detail
 
@@ -355,22 +361,22 @@ def test_status_strict_ignores_absent_non_core_source(assay_root: AssayHarness, 
     """Strict status faults only on an absent core bundle, never an absent transitive package (System.IO.Pipelines)."""
     core_ok = tuple(ApiSource(source_kind=SourceKind.ASSEMBLY, source_id=sid, status=RailStatus.OK) for sid in api_rail._REQUIRED_SOURCE_IDS)
     transitive_absent = ApiSource(source_kind=SourceKind.NUGET, source_id="System.IO.Pipelines", status=RailStatus.EMPTY)
-    monkeypatch.setattr(api_rail, "run_check", lambda *_a, **_k: RailProbe.receipt(("ilspycmd",), 0, stdout=b"ilspycmd: 9.1.0.7988\n"))
+    executor = SeamExecutor(run_fn=lambda *_a, **_k: RailProbe.receipt(("ilspycmd",), 0, stdout=b"ilspycmd: 9.1.0.7988\n"))
     monkeypatch.setattr(api_rail, "_inventory_sources", lambda *_a, **_k: (*core_ok, transitive_absent))
-    assert assert_ok(_run(status, assay_root, strict=True)).status is RailStatus.OK
+    assert assert_ok(_run(status, assay_root, executor, strict=True)).status is RailStatus.OK
 
 
 register_law(status, "status_strict_promotes_fault")
 register_law(status, "status_strict_ignores_non_core")
 
 
-def test_status_inventory_includes_nuget_and_polyglot_rows(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_status_inventory_includes_nuget_and_polyglot_rows(assay_root: AssayHarness) -> None:
     """Status folds NuGet and polyglot rows into one inventory report."""
     _nuget_fixture(assay_root)
     # Pin the version probe so the ilspycmd row reports a concrete version instead of 'unavailable'.
-    monkeypatch.setattr(api_rail, "run_check", lambda *_a, **_kw: RailProbe.receipt(("ilspycmd",), 0, stdout=b"ilspycmd: 9.1.0.7988\n"))
+    executor = SeamExecutor(run_fn=lambda *_a, **_kw: RailProbe.receipt(("ilspycmd",), 0, stdout=b"ilspycmd: 9.1.0.7988\n"))
 
-    r = assert_ok(_run(status, assay_root))
+    r = assert_ok(_run(status, assay_root, executor))
     detail = r.detail
     assert isinstance(detail, ApiSurface)
     assert "ilspycmd" in detail.preview  # canned version row surfaced
@@ -692,8 +698,8 @@ def test_cs_query_dispatches_every_shape(
     """C# query dispatches every canned ilspy shape and search fallback."""
     # Two same-prefix types make the substring-search arm non-vacuous.
     types = {"wid": b"Class Acme.Widget\nClass Acme.WidgetFactory\nStruct Acme.Point\n"}.get(symbol, _ILSPY_TYPES)
-    _install_ilspy(assay_root, monkeypatch, types=types, decompile=decompile)
-    detail = _cs_surface(assay_root, monkeypatch, symbol, install=False)
+    executor = _install_ilspy(assay_root, monkeypatch, types=types, decompile=decompile)
+    detail = _cs_surface(assay_root, monkeypatch, symbol, executor=executor)
     assert detail.shape is shape, f"symbol {symbol!r}: shape {detail.shape} != {shape}"
     assert anchor in f"{detail.preview}\n{detail.signature}" or anchor in detail.preview.splitlines(), f"symbol {symbol!r}: {anchor!r} missing"
 
@@ -727,14 +733,14 @@ def test_cs_query_index_count_survives_capture_spill_truncation(assay_root: Assa
     """
     payload, expected = _large_cisde_listing(40_000)
     assert len(payload) > assay_root.settings.capture_spill_bytes  # the listing genuinely crosses the 1 MB spill ceiling
-    _install_ilspy(assay_root, monkeypatch, types=payload)
+    executor = _install_ilspy(assay_root, monkeypatch, types=payload)
 
-    first = assert_ok(_run(query, assay_root, key="rhino-common", symbol=""))
+    first = assert_ok(_run(query, assay_root, executor, key="rhino-common", symbol=""))
     assert any(note == f"{expected} types across 1 namespaces" for note in first.notes)
 
-    # A hard fault after the first call proves the second count is cache-backed, not a re-listing.
-    monkeypatch.setattr(api_rail, "run_check", lambda *_a, **_kw: RailProbe.error(("api",), "must-not-relist"))
-    second = assert_ok(_run(query, assay_root, key="rhino-common", symbol=""))
+    # A hard-faulting executor on the second call proves the second count is cache-backed, not a re-listing.
+    relist_guard = SeamExecutor(run_fn=lambda *_a, **_kw: RailProbe.error(("api",), "must-not-relist"))
+    second = assert_ok(_run(query, assay_root, relist_guard, key="rhino-common", symbol=""))
     assert second.notes == first.notes  # the full type count round-trips through the persisted cache, never truncated
 
 
@@ -752,8 +758,8 @@ def test_cs_query_roster_filters_synthetics_keeps_generics(assay_root: AssayHarn
         b"Class Acme.AgnosticDictionary\n"  # cisde renders an open generic by bare name, no angle bracket
         b"Struct Acme.Point\n"
     )
-    _install_ilspy(assay_root, monkeypatch, types=listing)
-    detail = _cs_surface(assay_root, monkeypatch, "Acme", install=False)  # namespace roster surfaces the owned types directly
+    executor = _install_ilspy(assay_root, monkeypatch, types=listing)
+    detail = _cs_surface(assay_root, monkeypatch, "Acme", executor=executor)  # namespace roster surfaces the owned types directly
     rostered = set(detail.preview.splitlines())
     assert {"Acme.Mesh", "Acme.AgnosticDictionary", "Acme.Point"} <= rostered  # real types and the generic survive
     assert not any("<" in row for row in rostered)  # every angle-bracket synthetic is filtered
@@ -764,8 +770,8 @@ register_law(query, "cs_query_roster_filters_synthetics_keeps_generics")
 
 def test_cs_query_emits_decompiled_fidelity_note(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
     """A C# surface report carries the SourceKind-derived fidelity note (decompiled)."""
-    _install_ilspy(assay_root, monkeypatch)
-    r = assert_ok(_run(query, assay_root, key="rhino-common", symbol=""))
+    executor = _install_ilspy(assay_root, monkeypatch)
+    r = assert_ok(_run(query, assay_root, executor, key="rhino-common", symbol=""))
     assert "fidelity: decompiled" in r.notes
 
 
@@ -774,8 +780,8 @@ register_law(query, "cs_query_fidelity_note")
 
 def test_cs_query_grep_member_fans_out_to_decompile(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
     """A --grep member needle with no type hit fans out ilspycmd -t over candidate types and finds the member."""
-    _install_ilspy(assay_root, monkeypatch)  # decompile receipt declares Widget.Spin(int turns)
-    r = assert_ok(_run(query, assay_root, key="rhino-common", symbol="zzz-no-such-type", grep="Spin"))
+    executor = _install_ilspy(assay_root, monkeypatch)  # decompile receipt declares Widget.Spin(int turns)
+    r = assert_ok(_run(query, assay_root, executor, key="rhino-common", symbol="zzz-no-such-type", grep="Spin"))
     assert r.status is RailStatus.OK
     detail = r.detail
     assert isinstance(detail, ApiSurface)
@@ -800,10 +806,9 @@ def test_cs_query_grep_member_caps_candidate_fanout(assay_root: AssayHarness, mo
             return RailProbe.receipt(("ilspycmd",), 0, stdout=b"// no Spin here\n")
         return RailProbe.receipt(("ilspycmd",), 0, stdout=listing)
 
-    monkeypatch.setattr(api_rail, "run_check", _canned)
     monkeypatch.setattr(api_rail, "_resolve_source", lambda _settings, _key: Ok(source))
 
-    assert_ok(_run(query, assay_root, key="rhino-common", symbol="nomatch", grep="Type"))
+    assert_ok(_run(query, assay_root, SeamExecutor(run_fn=_canned), key="rhino-common", symbol="nomatch", grep="Type"))
     assert decompiled["count"] <= api_rail._CANDIDATE_CAP  # the cap is the explosion guard
 
 
@@ -812,8 +817,8 @@ register_law(query, "cs_query_grep_member_cap")
 
 def test_cs_query_member_carries_xml_doc(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
     """C# member decompile pulls the sidecar XMLDoc summary into the ApiSurface.doc field."""
-    _install_ilspy(assay_root, monkeypatch, xmls=True)
-    detail = _cs_surface(assay_root, monkeypatch, "Acme.Widget.Spin", install=False)
+    executor = _install_ilspy(assay_root, monkeypatch, xmls=True)
+    detail = _cs_surface(assay_root, monkeypatch, "Acme.Widget.Spin", executor=executor)
     assert detail.doc == "Spins the widget."
     assert detail.member == "Spin"
 
@@ -853,8 +858,8 @@ register_law(query, "cs_query_truncation_matrix")
 
 def test_cs_decompile_window_note_surfaces_truncation(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
     """Capped decompile reports the selected-vs-total window note."""
-    _install_ilspy(assay_root, monkeypatch)
-    r = assert_ok(_run(query, assay_root, key="rhino-common", symbol="Widget", max_lines=2))
+    executor = _install_ilspy(assay_root, monkeypatch)
+    r = assert_ok(_run(query, assay_root, executor, key="rhino-common", symbol="Widget", max_lines=2))
     assert f"window: 2 of {_ILSPY_DECOMPILE_LINES} lines (--full or --max-lines to widen)" in r.notes
 
 
@@ -863,9 +868,9 @@ register_law(query, "cs_decompile_window_note")
 
 def test_roster_forced_cap_emits_results_note(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
     """Roster overflow emits the capped-results artifact note."""
-    _install_ilspy(assay_root, monkeypatch)
+    executor = _install_ilspy(assay_root, monkeypatch)
     monkeypatch.setattr(api_rail, "_RESULT_CAP", 1)
-    r = assert_ok(_run(query, assay_root, key="rhino-common", symbol="Acme"))  # namespace roster of 4 owned types
+    r = assert_ok(_run(query, assay_root, executor, key="rhino-common", symbol="Acme"))  # namespace roster of 4 owned types
     assert len(r.results) == 1
     assert "results: 1 of 4 (cap=1); full listing in artifact" in r.notes
 
@@ -875,9 +880,9 @@ register_law(query, "roster_forced_cap_results_note")
 
 def test_api_result_ids_are_identity_shaped(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
     """Roster and decompile results carry identity ids (kind:identity), not run-ordinal ids."""
-    _install_ilspy(assay_root, monkeypatch)
-    decompiled = assert_ok(_run(query, assay_root, key="rhino-common", symbol="Widget"))
-    roster = assert_ok(_run(query, assay_root, key="rhino-common", symbol="Acme"))
+    executor = _install_ilspy(assay_root, monkeypatch)
+    decompiled = assert_ok(_run(query, assay_root, executor, key="rhino-common", symbol="Widget"))
+    roster = assert_ok(_run(query, assay_root, executor, key="rhino-common", symbol="Acme"))
     assert decompiled.results[0].id == "type:Acme.Widget"
     assert roster.results
     assert all(m.id == f"scope:{m.text}" for m in roster.results)
@@ -889,8 +894,8 @@ register_law(query, "api_result_ids_identity_shaped")
 @pytest.mark.parametrize("symbol", ["Nonexistent", "Other.Missing"], ids=["search-miss", "unranked-fqn-miss"])
 def test_cs_query_resolution_miss(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch, symbol: str) -> None:
     """C# search and unranked-type misses fold to partial ApiResolution."""
-    _install_ilspy(assay_root, monkeypatch)
-    r = assert_ok(_run(query, assay_root, key="rhino-common", symbol=symbol))
+    executor = _install_ilspy(assay_root, monkeypatch)
+    r = assert_ok(_run(query, assay_root, executor, key="rhino-common", symbol=symbol))
     detail = r.detail
     assert isinstance(detail, ApiResolution)
     assert detail.reason == "partial"
@@ -903,8 +908,8 @@ register_law(query, "cs_query_unranked_fqn_miss")
 
 def test_cs_surface_all_attempts_fail_faults_rail(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
     """C# surface with every ilspycmd attempt non-zero promotes the rail to a FAULTED error."""
-    _install_ilspy(assay_root, monkeypatch, returncode=1)
-    e = assert_error(_run(query, assay_root, key="rhino-common", symbol=""))
+    executor = _install_ilspy(assay_root, monkeypatch, returncode=1)
+    e = assert_error(_run(query, assay_root, executor, key="rhino-common", symbol=""))
     assert e.status is RailStatus.FAULTED
     assert "ilspy" in e.message.casefold()
 
@@ -915,9 +920,9 @@ register_law(query, "cs_surface_all_fail_faults")
 def test_cs_surface_cache_hit_skips_reinvocation(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
     """A second C# surface query reads the fingerprint cache."""
     first = _cs_surface(assay_root, monkeypatch, "")
-    # A hard fault after the first call proves the second result is cache-backed.
-    monkeypatch.setattr(api_rail, "run_check", lambda *_a, **_kw: RailProbe.error(("api",), "must-not-run"))
-    second = _cs_surface(assay_root, monkeypatch, "", install=False)
+    # A hard-faulting executor on the second call proves the second result is cache-backed.
+    rerun_guard = SeamExecutor(run_fn=lambda *_a, **_kw: RailProbe.error(("api",), "must-not-run"))
+    second = _cs_surface(assay_root, monkeypatch, "", executor=rerun_guard)
     assert second.preview == first.preview
 
 
@@ -1303,11 +1308,11 @@ register_law(resolve, "resolve_nuget_ambiguous")
 # --- [ENGINE_BOUNDARY]
 
 
-def test_invoke_error_rail_yields_nonzero_completed(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
-    """_invoke maps run_check Error to non-zero Completed stderr."""
-    monkeypatch.setattr(api_rail, "run_check", lambda *_a, **_kw: RailProbe.error(("api",), "spawn boom"))
+def test_invoke_error_rail_yields_nonzero_completed(assay_root: AssayHarness) -> None:
+    """_invoke maps an executor Error to non-zero Completed stderr."""
+    executor = SeamExecutor(run_fn=lambda *_a, **_kw: RailProbe.error(("api",), "spawn boom"))
     surface_tool = next(t for t in select(Claim.API, Language.CSHARP))
-    done = api_rail._invoke(assay_root.settings, assay_root.scope(Claim.API), surface_tool, "--version")
+    done = api_rail._invoke(assay_root.settings, assay_root.scope(Claim.API), executor, surface_tool, "--version")
     assert done.returncode == 1
     assert b"spawn boom" in done.stderr
 
@@ -1331,7 +1336,7 @@ def test_surface_faults_when_catalog_row_missing(
     monkeypatch.setattr(api_rail, "_resolve_source", lambda _settings, _key: Ok(source))
     monkeypatch.setattr(api_rail, "select", lambda _claim, _lang: iter(()))
 
-    e = assert_error(_run(query, assay_root, key=key, symbol=symbol))
+    e = assert_error(_run(query, assay_root, SeamExecutor(), key=key, symbol=symbol))  # lane-less: the fault lands before any spawn
     assert e.status is RailStatus.FAULTED
     assert message in e.message
 
@@ -1351,10 +1356,10 @@ def test_cs_decompile_faults_when_catalog_row_missing(assay_root: AssayHarness, 
         return iter(select(Claim.API, Language.CSHARP)) if calls["n"] == 1 else iter(())
 
     monkeypatch.setattr(api_rail, "_resolve_source", lambda _settings, _key: Ok(source))
-    monkeypatch.setattr(api_rail, "run_check", lambda *_a, **_kw: RailProbe.receipt(("ilspycmd",), 0, stdout=_ILSPY_TYPES))
     monkeypatch.setattr(api_rail, "select", _staged)
+    executor = SeamExecutor(run_fn=lambda *_a, **_kw: RailProbe.receipt(("ilspycmd",), 0, stdout=_ILSPY_TYPES))
 
-    e = assert_error(_run(query, assay_root, key="rhino-common", symbol="Acme.Widget"))
+    e = assert_error(_run(query, assay_root, executor, key="rhino-common", symbol="Acme.Widget"))
     assert e.status is RailStatus.FAULTED
     assert "no ilspycmd catalog row" in e.message
 

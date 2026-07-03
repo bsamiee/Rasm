@@ -88,7 +88,7 @@ const LAW = [
     'file, no manifest pin, and no code reference; an added package is present in all of those plus a new .api catalog authored to house format.',
   'HOUSE .api FORMAT: header (package / version / license / build-floor or target / marker), then member sections grouped by concern with ' +
     'backticked symbols + signatures + a consumer/boundary note. NO provenance, NO process narration, NO freshness tails. Cite REAL members only, ' +
-    'consumer-TFM-correct. Code obeys the route-owned standard for the file (docs/stacks/csharp for .cs, coding-python for .py, coding-ts for .ts).',
+    'consumer-TFM-correct. Code obeys the route-owned standard for the file (docs/stacks/csharp for .cs, docs/stacks/python for .py, docs/stacks/typescript for .ts).',
   'ADVERSARIAL REVIEW LAW: every map, proposal, and applied change is naive, shallow, or illusory until it survives an aggressive attack; dense ' +
     'confident-looking work is the prime suspect, and a clean verdict is EARNED by an attack that finds nothing, never conceded on first read. ' +
     'NAIVETY is a defect on two orthogonal axes: COVERAGE — the work models a thin slice of its concern (the obvious three call sites where the ' +

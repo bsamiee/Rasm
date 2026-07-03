@@ -211,14 +211,15 @@ interface PolicyResource {
 | :-----: | :--------------------- | :------------ | :-------------------------------------------------------------------------- |
 |  [01]   | `ReportViolation`      | callback      | `(message: string, urn?: string) => void` — call N times for N violations   |
 |  [02]   | `Secret`               | class         | `new Secret(value)` — mark a remediated value for engine encryption          |
-|  [03]   | `unknownCheckingProxy` | function      | wraps `props` so reads of preview-unknown values throw `UnknownValueError`   |
-|  [04]   | `UnknownValueError`    | class         | thrown when a policy reads a value not yet known during `preview`            |
+|  [03]   | `unknownCheckingProxy` | re-export     | named by `index.d.ts` from `./proxy` (the preview-unknown props guard) — the shipped `proxy.d.ts` is an empty declaration module, so it carries NO typed signature; runtime-only |
+|  [04]   | `UnknownValueError`    | re-export     | paired guard export; same empty-`.d.ts` caveat — no declared shape          |
 
 ```ts contract
 type ReportViolation = (message: string, urn?: string) => void
 declare class Secret { value: any; constructor(value: any) }
-declare function unknownCheckingProxy<T>(toProxy: T): T
-declare class UnknownValueError extends Error {}
+// unknownCheckingProxy / UnknownValueError: re-exported by index.d.ts from "./proxy",
+// but proxy.d.ts ships as `export {}` — no typed declaration. Runtime-only; do not
+// compose against a typed signature. Reach for them only in raw preview-unknown guarding.
 ```
 
 ## [03]-[IMPLEMENTATION_LAW]

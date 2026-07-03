@@ -1,13 +1,15 @@
 # [API_CATALOGUE] cmdk
 
-`cmdk` supplies the `Command` compound component and its subcomponents for building accessible command menus and keyboard-navigable palettes. The package exports both namespace-qualified names (`Command.List`, `Command.Item`, …) via the default `Command` export and flat named exports (`CommandList`, `CommandItem`, …) for direct import. `Command.Dialog` embeds the menu inside a Radix UI `Dialog`. `useCommandState` reads internal filtered state from a hook.
+`cmdk` supplies the `Command` compound component and its subcomponents for accessible, keyboard-navigable command palettes. It exports both namespace-qualified names (`Command.List`, `Command.Item`, …) via the `Command` compound and flat aliases (`CommandList`, `CommandItem`, …) for direct import — same components under two spellings. `Command.Dialog` embeds the menu in a Radix `Dialog` (merging its full `DialogProps`), `defaultFilter` is the built-in scorer, and `useCommandState` reads the internal filtered store through a selector. Filtering is INJECTABLE: the `filter` prop replaces the built-in scorer, which is how `ui` binds one shared `react-aria` `useFilter` algebra across the palette and every collection (`interaction/command.md#COMMAND_SURFACE`).
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `cmdk`
-- package: `cmdk`
-- namespace: `cmdk`
-- asset: runtime component library
+- package / version: `cmdk` @ `1.1.1`
+- license: `MIT`
+- module: dual ESM `dist/index.mjs` + CJS `dist/index.js`; single `.` export
+- peer: `react` `^18 || ^19`, `react-dom` `^18 || ^19` — React `ForwardRefExoticComponent` primitives
+- dependencies: `@radix-ui/react-dialog` (the `Command.Dialog` shell), `@radix-ui/react-primitive` (the `asChild`/`Slot` seam), `@radix-ui/react-id`, `@radix-ui/react-compose-refs`
 - rail: ui-components
 
 ## [02]-[PUBLIC_TYPES]
@@ -15,63 +17,63 @@
 [PUBLIC_TYPE_SCOPE]: command menu types
 - rail: ui-components
 
-| [INDEX] | [SYMBOL]        | [TYPE_FAMILY] | [RAIL]                                                                   |
-| :-----: | :-------------- | :------------ | :----------------------------------------------------------------------- |
-|  [01]   | `CommandFilter` | type alias    | `(value, search, keywords?) => number` — 0 = hidden, 1 = best match      |
-|  [02]   | `State`         | type alias    | `{ search, value, selectedItemId?, filtered: { count, items, groups } }` |
+| [INDEX] | [SYMBOL]        | [TYPE_FAMILY] | [NOTE]                                                                                          |
+| :-----: | :-------------- | :------------ | :--------------------------------------------------------------------------------------------- |
+|  [01]   | `CommandFilter` | fn type       | `(value: string, search: string, keywords?: string[]) => number` — `0` hides, `1` is a perfect match, intermediate values sort |
+|  [02]   | `State`         | store shape   | `{ search, value, selectedItemId?, filtered: { count: number; items: Map<string, number>; groups: Set<string> } }` — the `useCommandState` selector input |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: compound component (namespace exports)
 - rail: ui-components
 
-| [INDEX] | [SURFACE]           | [ENTRY_FAMILY] | [RAIL]                                                                                                    |
-| :-----: | :------------------ | :------------- | :-------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Command`           | root component | menu container; `label?`, `shouldFilter?`, `filter?`, `value?`, `onValueChange?`, `loop?`, `vimBindings?` |
-|  [02]   | `Command.List`      | subcomponent   | scrollable results container; `label?`                                                                    |
-|  [03]   | `Command.Item`      | subcomponent   | selectable item; `value?`, `keywords?`, `disabled?`, `onSelect?`, `forceMount?`                           |
-|  [04]   | `Command.Input`     | subcomponent   | search input; `value?`, `onValueChange?`                                                                  |
-|  [05]   | `Command.Group`     | subcomponent   | item group with optional `heading?`; `value?`, `forceMount?`                                              |
-|  [06]   | `Command.Separator` | subcomponent   | visual separator; `alwaysRender?`                                                                         |
-|  [07]   | `Command.Dialog`    | subcomponent   | `Command` + Radix Dialog; `overlayClassName?`, `contentClassName?`, `container?`                          |
-|  [08]   | `Command.Empty`     | subcomponent   | renders when `filtered.count === 0`                                                                       |
-|  [09]   | `Command.Loading`   | subcomponent   | async loading indicator; `progress?`, `label?`                                                            |
+| [INDEX] | [SURFACE]           | [ENTRY_FAMILY] | [PROPS]                                                                                                                             |
+| :-----: | :------------------ | :------------- | :--------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `Command`           | root           | `label?`, `shouldFilter?`, `filter?: CommandFilter`, `defaultValue?`, `value?`, `onValueChange?(value)`, `loop?`, `disablePointerSelection?`, `vimBindings?`, `asChild?` + `HTMLDivElement` attrs |
+|  [02]   | `Command.List`      | subcomponent   | `label?`, `asChild?`; sets the `--cmdk-list-height` CSS var for height animation                                                    |
+|  [03]   | `Command.Item`      | subcomponent   | `value?`, `keywords?: string[]`, `disabled?`, `onSelect?(value)`, `forceMount?`, `asChild?`; emits `data-selected`/`data-disabled`  |
+|  [04]   | `Command.Input`     | subcomponent   | `value?`, `onValueChange?(search)`, `asChild?` + `HTMLInputElement` attrs (`onChange`/`value`/`type` are owned)                     |
+|  [05]   | `Command.Group`     | subcomponent   | `heading?: React.ReactNode`, `value?` (required when no `heading`), `forceMount?`, `asChild?`                                        |
+|  [06]   | `Command.Separator` | subcomponent   | `alwaysRender?`, `asChild?`; hidden while a search query is active unless `alwaysRender`                                             |
+|  [07]   | `Command.Dialog`    | subcomponent   | all `Command` root props + `RadixDialog.DialogProps` (`open?`, `defaultOpen?`, `onOpenChange?`, `modal?`) + `overlayClassName?`, `contentClassName?`, `container?: HTMLElement` |
+|  [08]   | `Command.Empty`     | subcomponent   | `asChild?`; renders only when `filtered.count === 0`                                                                                |
+|  [09]   | `Command.Loading`   | subcomponent   | `progress?: number`, `label?`, `asChild?`; conditionally render while loading async items                                            |
 
-[ENTRYPOINT_SCOPE]: flat named exports
+[ENTRYPOINT_SCOPE]: flat named exports + filter/hook
 - rail: ui-components
 
-| [INDEX] | [SURFACE]          | [ENTRY_FAMILY] | [RAIL]                                         |
-| :-----: | :----------------- | :------------- | :--------------------------------------------- |
-|  [01]   | `CommandRoot`      | alias          | same as `Command` root                         |
-|  [02]   | `CommandList`      | alias          | same as `Command.List`                         |
-|  [03]   | `CommandItem`      | alias          | same as `Command.Item`                         |
-|  [04]   | `CommandInput`     | alias          | same as `Command.Input`                        |
-|  [05]   | `CommandGroup`     | alias          | same as `Command.Group`                        |
-|  [06]   | `CommandSeparator` | alias          | same as `Command.Separator`                    |
-|  [07]   | `CommandDialog`    | alias          | same as `Command.Dialog`                       |
-|  [08]   | `CommandEmpty`     | alias          | same as `Command.Empty`                        |
-|  [09]   | `CommandLoading`   | alias          | same as `Command.Loading`                      |
-|  [10]   | `defaultFilter`    | filter fn      | built-in `CommandFilter` using `command-score` |
-|  [11]   | `useCommandState`  | hook           | `<T>(selector: (state: State) => T) => T`      |
+| [INDEX] | [SURFACE]                              | [ENTRY_FAMILY] | [NOTE]                                                                                     |
+| :-----: | :------------------------------------- | :------------- | :---------------------------------------------------------------------------------------- |
+|  [01]   | `CommandRoot`                          | alias          | the RAW root (`Command` without the compound namespace); `Command` (compound) carries the `.List`/`.Item`/… members |
+|  [02]   | `CommandList` … `CommandLoading`       | aliases        | flat spellings of `Command.List`/`Item`/`Input`/`Group`/`Separator`/`Dialog`/`Empty`/`Loading` |
+|  [03]   | `defaultFilter`                        | `CommandFilter`| the built-in scorer (wraps the internal `command-score` algorithm); the default when no `filter` prop is passed |
+|  [04]   | `useCommandState<T>(selector)`         | hook           | `(selector: (state: State) => T) => T` — subscribes to the internal store, re-renders only when the selected slice changes |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [COMMAND_TOPOLOGY]:
-- all subcomponents render `div` elements by default; `asChild` prop delegates to a custom element via Radix Slot
-- filtering is automatic when `shouldFilter` is unset or `true`; each `Item.value` is scored against `Input.value` using `command-score`
-- `keywords` on `Item` adds additional tokens to match against without appearing in the rendered text
-- `CommandFilter` returns a number 0–1; `0` hides the item, `1` is perfect match; intermediate values sort results
-- `Command.Dialog` wraps the root in `@radix-ui/react-dialog`; all `Command` props plus `overlayClassName`, `contentClassName`, and `container` are forwarded
-- `useCommandState` reads the selector result from the internal store; re-renders only when the selected slice changes
-- `--cmdk-list-height` CSS custom property is set on `Command.List` and reflects the current scrollable height for animation
+- every subcomponent renders a `div` (`Input` an `input`) by default; `asChild` delegates rendering to a caller-supplied element via the Radix `Slot` primitive on ALL subcomponents
+- filtering is automatic when `shouldFilter` is unset/`true`: each `Item.value` (plus its `keywords`) is scored against `Input.value` by the active `CommandFilter`; `shouldFilter={false}` hands filtering to the caller
+- the `filter` prop is the sanctioned injection seam — supply a `CommandFilter` to replace `defaultFilter` wholesale; this is the one place an external scoring algebra takes over
+- `keywords` add match tokens that never render as text; `forceMount` keeps an `Item`/`Group` mounted regardless of the filter result
+- `Command.Dialog` merges the full Radix `DialogProps`: drive it controlled with `open`/`onOpenChange`, and it emits the `data-state="open|closed"` attribute overlay animations key off
+- `useCommandState` reads a selector slice of `State` (search text, active `value`, `filtered.count`/`items`/`groups`) from the internal store without prop-drilling
+- styling seam: `--cmdk-list-height` on `Command.List` reflects the live results height for animation; `data-selected`/`data-disabled` on `Command.Item` are the variant hooks a `cva` recipe reads
+
+[STACKING]:
+- shared filter algebra: bind `filter={score}` where `score` is derived from `react-aria` `useFilter().contains` so the palette scores IDENTICALLY to the `react-stately` `UNSTABLE_useFilteredListState` collection view — `defaultFilter`/`command-score` is deliberately displaced so no surface hand-rolls a divergent `contains`/`startsWith` (`interaction/command.md#COMMAND_SURFACE`)
+- controlled dialog under the effect rail: mount `Command.Dialog` with `open` bound to the `binding/atom.md#ATOM_BINDING` cell; on `Command.Item` `onSelect`, resolve the row's `intentKey` through the `interchange` `IntentRegistry` and dial `CommandGateway.invoke` inside an `Effect`, pre-gated by the `projection` `AvailabilityStore.isEnabled(intentKey)` so a disabled item never fires
+- motion seam: the `data-state` the Dialog emits rides the `theming/tokens.md#THEME_TOKENS` `tw-animate-css` `data-[state=open]:animate-in` / `data-[state=closed]:animate-out` layer — enter/exit is declarative CSS resolving against live OKLCH tokens, never a JS controller
+- variant recipe: style `Command.Item`/`List` through the one `cn = twMerge(cx(...))` recipe (`class-variance-authority` + `tailwind-merge`), keying `cva` rows off `data-selected`/`data-disabled`; compose an `asChild` item with `@radix-ui/react-slot` `Slot`/`Slottable`
+- vocabulary source: render `Command.Item` rows from a closed `Schema.Literal`/`as const satisfies Record<…>` action vocabulary, keying each row's icon off `lucide-react` — never a re-minted command enum beside the gateway registry
 
 [LOCAL_ADMISSION]:
-- Mount `Command` with a controlled `value`/`onValueChange` pair for programmatic item selection.
-- Use `Command.Dialog` for modal palette UX; use bare `Command` inside a `Popover` or custom overlay for inline palettes.
-- Provide stable, unique `value` on every `Command.Item` when `textContent` can change between renders.
+- mount `Command` with a controlled `value`/`onValueChange` pair for programmatic selection; give every `Command.Item` a stable, unique `value` when its `textContent` can change between renders
+- use `Command.Dialog` (controlled `open`) for modal palette UX; a bare `Command` inside a `Popover`/custom overlay for an inline palette
+- inject `filter` with the shared `useFilter`-derived scorer; do not accept `defaultFilter` where another surface already owns the scoring algebra
 
 [RAIL_LAW]:
 - package: `cmdk`
-- owns: keyboard-navigable command palette with automatic filtering, grouping, and Radix Dialog integration
-- accept: custom `filter` function, `keywords` on items, controlled `value`/`onValueChange`
-- reject: re-implementing command-score filtering or keyboard navigation against this package's item set
+- owns: keyboard-navigable command palette with automatic scoring, grouping, loading/empty states, and a Radix-Dialog shell
+- accept: a custom `filter` (the injection seam), `keywords` on items, controlled `value`/`onValueChange`, controlled `Dialog` `open`/`onOpenChange`, `asChild` element delegation
+- reject: a per-surface hand-rolled `contains`/`startsWith` predicate diverging from the shared `useFilter` algebra; a re-implemented keyboard-navigation loop; a second command/intent enum beside the gateway `IntentRegistry`

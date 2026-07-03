@@ -1,10 +1,10 @@
 # [idb-keyval] — the `persist/kv` typed KV lane over IndexedDB
 
-Thirteen promise-returning free functions over one IndexedDB object store, plus the `UseStore`
-transaction-runner closure that parameterizes every one of them. There is no class and no singleton
-handle: `createStore(dbName, storeName)` mints a `UseStore` closure once, and every operation takes an
-optional `customStore` — omitting it targets a lazily-created default `keyval-store`/`keyval` store, so
-the store roster is a value, never a parallel function family. `setMany`, `delMany`, and `update` run
+Eleven promise-returning KV ops over one IndexedDB object store, each closing over an optional `UseStore`
+transaction-runner, plus the synchronous `createStore(dbName, storeName)` factory that mints one and the
+`promisifyRequest` raw-request bridge beneath them — thirteen free functions, no class and no singleton
+handle. Omitting `customStore` targets a lazily-created default `keyval-store`/`keyval` store, so the
+store roster is a value, never a parallel function family. `setMany`, `delMany`, and `update` run
 inside a single IndexedDB transaction and are atomic (an `update` is a read-modify-write in one tx that
 survives concurrent writers). Values must be structured-cloneable — the `persist/kv.ts` Layer encodes
 domain values through `Schema` to a cloneable shape at the boundary and decodes on read. This is the
@@ -97,3 +97,7 @@ declare function promisifyRequest<T = undefined>(request: IDBRequest<T> | IDBTra
   the overlay cache it rebuilds from — treat divergence as cache-invalidate, never as data loss.
 - `boot/connect.ts` reads/writes connectivity + last-sync markers here so a cold boot restores session state
   before the network settles; `promisifyRequest` backs any cursor scan the OPFS lane needs over a shared store.
+- `route/navigate.ts` (the `nuqs` `persist/kv` consumer) persists the last-good serialized query string per
+  route key: `set(routeKey, serialized)` on each `createSerializer` write, `get(routeKey)` on cold boot so
+  `nuqs`'s `createLoader` re-decodes typed query-state before the Navigation API resolves the entry. The value
+  is already a cloneable `string`, so this lane's `V` is `Schema.String` (identity encode), never a payload.

@@ -1,248 +1,279 @@
 # [API_CATALOGUE] @webgpu/types
 
-`@webgpu/types` supplies ambient TypeScript declarations for the WebGPU API — `GPU`, `GPUAdapter`, `GPUDevice`, `GPUBuffer`, `GPUTexture`, `GPUSampler`, `GPUCommandEncoder`, `GPURenderPassEncoder`, `GPUComputePassEncoder`, `GPUQueue`, `GPUCanvasContext`, and the full descriptor/enum vocabulary — consumed by the `ui` stack when authoring WebGPU shaders, pipelines, and GPU compute workloads.
+`@webgpu/types` supplies the ambient TypeScript declarations for the W3C WebGPU API — `GPU`, `GPUAdapter`, `GPUDevice`, the resource objects (`GPUBuffer`/`GPUTexture`/`GPUSampler`/`GPUBindGroup`), the pipeline/shader objects, the command encoders, `GPUQueue`, `GPUCanvasContext`, and the full descriptor/enum/flag vocabulary. It has no runtime: it merges global `GPU*` declarations onto `navigator.gpu`, `Navigator`/`WorkerNavigator`, and `HTMLCanvasElement`/`OffscreenCanvas.getContext('webgpu')`, admitted through the `tsconfig` `types` array. Its command surface is mixin-composed — `GPUObjectBase.label` plus the `GPURenderCommandsMixin`/`GPUBindingCommandsMixin`/`GPUDebugCommandsMixin` vocabularies shared across the render pass and render-bundle encoders — one command algebra, not per-encoder duplication. In the ui stack these types type the `three/webgpu` `WebGPURenderer`/`WebGPUBackend` device (the sanctioned owner, `three.md`), deck.gl's `@luma.gl` device, and any `navigator.gpu` feature probe; the `render/glb.md#GLB_VIEWPORT` leaf never hand-authors a `GPUDevice` path.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@webgpu/types`
-- package: `@webgpu/types`
-- module: `@webgpu/types` (ambient `.d.ts` — no runtime; types: `dist/index.d.ts`)
-- asset: global ambient declarations merged into `navigator.gpu`, `GPU`, all `GPU*` interfaces, descriptor types, enum string unions
+- package / version: `@webgpu/types` @ `0.1.71`
+- license: `BSD-3-Clause`
+- module: ambient `.d.ts` only (`dist/index.d.ts`) — NO runtime, NO value exports; global `GPU*` interfaces + ambient flag-constant `declare var`s
+- admission: `tsconfig.json` `"types": ["@webgpu/types"]` or `/// <reference types="@webgpu/types" />`; a `devDependency`, never a value import
 - rail: type
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: adapter and device acquisition
+[PUBLIC_TYPE_SCOPE]: adapter + device acquisition
 - rail: type
 
-| [INDEX] | [SYMBOL]               | [TYPE_FAMILY]    | [RAIL]                                                                 |
-| :-----: | :--------------------- | :--------------- | :--------------------------------------------------------------------- |
-|  [01]   | `GPU`                  | entry point      | `requestAdapter()`, `getPreferredCanvasFormat()`                       |
-|  [02]   | `GPUAdapter`           | adapter handle   | `requestDevice()`, `features`, `limits`, `info`                        |
-|  [03]   | `GPUAdapterInfo`       | adapter metadata | `vendor`, `architecture`, `device`, `description`, `isFallbackAdapter` |
-|  [04]   | `GPUDevice`            | device handle    | resource creation, `queue`, `destroy()`                                |
-|  [05]   | `NavigatorGPU`         | navigator mixin  | `readonly gpu: GPU` on `navigator`                                     |
-|  [06]   | `GPUSupportedFeatures` | feature set      | `Set<GPUFeatureName>` capabilities                                     |
-|  [07]   | `GPUSupportedLimits`   | limits object    | `maxBindGroups`, `maxTextureDimension2D`, etc.                         |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [NOTE] |
+| :-----: | :------- | :------------ | :----- |
+|  [01]   | `GPU`                  | entry point | `requestAdapter(options?)`, `getPreferredCanvasFormat()`, `wgslLanguageFeatures` |
+|  [02]   | `GPUAdapter`           | adapter handle | `requestDevice()`, `features`, `limits`, `info` |
+|  [03]   | `GPUAdapterInfo`       | adapter metadata | `vendor`, `architecture`, `device`, `description`, `subgroupMinSize`, `subgroupMaxSize`, `isFallbackAdapter` |
+|  [04]   | `GPUDevice`            | device handle | resource creation, `queue`, `features`, `limits`, `adapterInfo`, `lost: Promise<GPUDeviceLostInfo>`, `onuncapturederror`, `pushErrorScope`/`popErrorScope`, `destroy()` |
+|  [05]   | `GPUDeviceLostInfo`    | device-loss detail | `reason: GPUDeviceLostReason` (`'unknown'` \| `'destroyed'`), `message` |
+|  [06]   | `NavigatorGPU`         | navigator mixin | `readonly gpu: GPU` on `Navigator` / `WorkerNavigator` |
+|  [07]   | `GPUSupportedFeatures` | feature set | `ReadonlySet<GPUFeatureName>` — the adapter/device capability gate |
+|  [08]   | `GPUSupportedLimits`   | limits object | `maxBindGroups`, `maxTextureDimension2D`, `maxComputeWorkgroupSizeX`, … |
+|  [09]   | `WGSLLanguageFeatures` | WGSL feature set | `ReadonlySet<string>` behind `gpu.wgslLanguageFeatures` |
 
-[PUBLIC_TYPE_SCOPE]: resource objects
+[PUBLIC_TYPE_SCOPE]: resource objects (every object extends `GPUObjectBase` → carries a writable `label`)
 - rail: type
 
-| [INDEX] | [SYMBOL]             | [TYPE_FAMILY]     | [RAIL]                                           |
-| :-----: | :------------------- | :---------------- | :----------------------------------------------- |
-|  [01]   | `GPUBuffer`          | buffer object     | `mapAsync`, `getMappedRange`, `unmap`, `destroy` |
-|  [02]   | `GPUTexture`         | texture object    | `createView`, `destroy`                          |
-|  [03]   | `GPUTextureView`     | texture view      | aspect-scoped view into a `GPUTexture`           |
-|  [04]   | `GPUSampler`         | sampler object    | filter mode, address mode, LOD clamp             |
-|  [05]   | `GPUExternalTexture` | external texture  | wraps `HTMLVideoElement` / `VideoFrame`          |
-|  [06]   | `GPUBindGroup`       | bind group        | resource binding set for a pipeline              |
-|  [07]   | `GPUBindGroupLayout` | bind group layout | binding slot declarations                        |
-|  [08]   | `GPUPipelineLayout`  | pipeline layout   | ordered `GPUBindGroupLayout` list                |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [NOTE] |
+| :-----: | :------- | :------------ | :----- |
+|  [01]   | `GPUBuffer`          | buffer object | `mapAsync`, `getMappedRange`, `unmap`, `destroy`; readonly `size`, `usage`, `mapState: GPUBufferMapState` |
+|  [02]   | `GPUTexture`         | texture object | `createView`, `destroy`; readonly `width`/`height`/`depthOrArrayLayers`/`mipLevelCount`/`sampleCount`/`dimension`/`format`/`usage` |
+|  [03]   | `GPUTextureView`     | texture view | aspect/mip/layer-scoped view into a `GPUTexture` |
+|  [04]   | `GPUSampler`         | sampler object | filter mode, address mode, LOD clamp, compare |
+|  [05]   | `GPUExternalTexture` | external texture | wraps `HTMLVideoElement` / `VideoFrame` |
+|  [06]   | `GPUBindGroup`       | bind group | resource binding set for a pipeline |
+|  [07]   | `GPUBindGroupLayout` | bind group layout | binding slot declarations |
+|  [08]   | `GPUPipelineLayout`  | pipeline layout | ordered `GPUBindGroupLayout` list |
 
-[PUBLIC_TYPE_SCOPE]: pipeline and shader objects
+[PUBLIC_TYPE_SCOPE]: pipeline + shader objects
 - rail: type
 
-| [INDEX] | [SYMBOL]             | [TYPE_FAMILY]    | [RAIL]                                 |
-| :-----: | :------------------- | :--------------- | :------------------------------------- |
-|  [01]   | `GPUShaderModule`    | compiled WGSL    | `getCompilationInfo()` for diagnostics |
-|  [02]   | `GPURenderPipeline`  | render pipeline  | vertex + fragment stages               |
-|  [03]   | `GPUComputePipeline` | compute pipeline | compute stage                          |
-|  [04]   | `GPURenderBundle`    | recorded bundle  | pre-recorded render commands           |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [NOTE] |
+| :-----: | :------- | :------------ | :----- |
+|  [01]   | `GPUShaderModule`    | compiled WGSL | `getCompilationInfo(): Promise<GPUCompilationInfo>` for diagnostics |
+|  [02]   | `GPURenderPipeline`  | render pipeline | vertex + fragment stages; `getBindGroupLayout(index)` |
+|  [03]   | `GPUComputePipeline` | compute pipeline | compute stage; `getBindGroupLayout(index)` |
+|  [04]   | `GPURenderBundle`    | recorded bundle | pre-recorded render commands, replayed via `pass.executeBundles` |
 
-[PUBLIC_TYPE_SCOPE]: command encoding objects
+[PUBLIC_TYPE_SCOPE]: command encoding objects (composed from the command mixins below)
 - rail: type
 
-| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY]     | [RAIL]                                                         |
-| :-----: | :----------------------- | :---------------- | :------------------------------------------------------------- |
-|  [01]   | `GPUCommandEncoder`      | command encoder   | `beginRenderPass`, `beginComputePass`, copy ops                |
-|  [02]   | `GPUCommandBuffer`       | recorded commands | submitted to `GPUQueue.submit()`                               |
-|  [03]   | `GPURenderPassEncoder`   | render pass       | draw, viewport, scissor, blend, bundle exec                    |
-|  [04]   | `GPUComputePassEncoder`  | compute pass      | `dispatchWorkgroups`, pipeline bind, end                       |
-|  [05]   | `GPURenderBundleEncoder` | bundle encoder    | pre-record reusable render commands                            |
-|  [06]   | `GPUQueue`               | work queue        | `submit`, `writeBuffer`, `writeTexture`, `onSubmittedWorkDone` |
-|  [07]   | `GPUQuerySet`            | query set         | occlusion / timestamp queries                                  |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [NOTE] |
+| :-----: | :------- | :------------ | :----- |
+|  [01]   | `GPUCommandEncoder`      | command encoder | `beginRenderPass`, `beginComputePass`, buffer/texture copies, `clearBuffer`, `resolveQuerySet`, `finish` + debug mixin |
+|  [02]   | `GPUCommandBuffer`       | recorded commands | submitted to `GPUQueue.submit()` |
+|  [03]   | `GPURenderPassEncoder`   | render pass | raster state + `GPURenderCommandsMixin` + `GPUBindingCommandsMixin` + `GPUDebugCommandsMixin` |
+|  [04]   | `GPUComputePassEncoder`  | compute pass | `setPipeline`, `dispatchWorkgroups`, `dispatchWorkgroupsIndirect`, `end` + binding + debug mixins |
+|  [05]   | `GPURenderBundleEncoder` | bundle encoder | `finish(): GPURenderBundle` + the same render/binding/debug mixins as the render pass |
+|  [06]   | `GPUQueue`               | work queue | `submit`, `writeBuffer`, `writeTexture`, `copyExternalImageToTexture`, `onSubmittedWorkDone` |
+|  [07]   | `GPUQuerySet`            | query set | occlusion / timestamp queries; readonly `type`, `count` |
+
+[PUBLIC_TYPE_SCOPE]: command mixins (the shared command vocabulary encoders compose)
+- rail: type
+
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [NOTE] |
+| :-----: | :------- | :------------ | :----- |
+|  [01]   | `GPUObjectBase`           | base mixin | writable `label: string` on every GPU object — the debug-name seam |
+|  [02]   | `GPURenderCommandsMixin`  | draw commands | `setPipeline`, `setIndexBuffer`, `setVertexBuffer`, `draw`, `drawIndexed`, `drawIndirect`, `drawIndexedIndirect` — shared by render pass + bundle encoder |
+|  [03]   | `GPUBindingCommandsMixin` | binding commands | `setBindGroup` (dynamic offsets), `setImmediates` — shared by render pass, compute pass, bundle encoder |
+|  [04]   | `GPUDebugCommandsMixin`   | debug markers | `pushDebugGroup`, `popDebugGroup`, `insertDebugMarker` — on all encoders/passes |
+|  [05]   | `GPUCommandsMixin`        | marker | the empty base every encoder shares |
 
 [PUBLIC_TYPE_SCOPE]: canvas context
 - rail: type
 
-| [INDEX] | [SYMBOL]                    | [TYPE_FAMILY]       | [RAIL]                                                 |
-| :-----: | :-------------------------- | :------------------ | :----------------------------------------------------- |
-|  [01]   | `GPUCanvasContext`          | canvas context      | `configure`, `getCurrentTexture`, `unconfigure`        |
-|  [02]   | `GPUCanvasConfiguration`    | canvas config desc  | `device`, `format`, `usage`, `colorSpace`, `alphaMode` |
-|  [03]   | `GPUCanvasConfigurationOut` | config readback     | result of `getConfiguration()`                         |
-|  [04]   | `GPUCanvasToneMapping`      | tone mapping config | `mode: GPUCanvasToneMappingMode`                       |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [NOTE] |
+| :-----: | :------- | :------------ | :----- |
+|  [01]   | `GPUCanvasContext`          | canvas context | `configure`, `getCurrentTexture`, `unconfigure`, `getConfiguration` |
+|  [02]   | `GPUCanvasConfiguration`    | canvas config | `device`, `format`, `usage`, `viewFormats`, `colorSpace: PredefinedColorSpace`, `toneMapping: GPUCanvasToneMapping`, `alphaMode: GPUCanvasAlphaMode` |
+|  [03]   | `GPUCanvasConfigurationOut`  | config readback | result of `getConfiguration()` |
+|  [04]   | `GPUCanvasToneMapping`      | tone mapping | `{ mode: GPUCanvasToneMappingMode }` (`'standard'` \| `'extended'`) |
 
 [PUBLIC_TYPE_SCOPE]: descriptor interfaces
 - rail: type
 
-| [INDEX] | [SYMBOL]                       | [TYPE_FAMILY]         | [RAIL]                                                      |
-| :-----: | :----------------------------- | :-------------------- | :---------------------------------------------------------- |
-|  [01]   | `GPUBufferDescriptor`          | buffer desc           | `size`, `usage`, `mappedAtCreation`                         |
-|  [02]   | `GPUTextureDescriptor`         | texture desc          | `size`, `format`, `usage`, `dimension`, `mipLevelCount`     |
-|  [03]   | `GPUSamplerDescriptor`         | sampler desc          | `addressMode*`, `magFilter`, `minFilter`, `mipmapFilter`    |
-|  [04]   | `GPURenderPipelineDescriptor`  | render pipeline desc  | `layout`, `vertex`, `fragment`, `primitive`, `depthStencil` |
-|  [05]   | `GPUComputePipelineDescriptor` | compute pipeline desc | `layout`, `compute`                                         |
-|  [06]   | `GPUShaderModuleDescriptor`    | shader module desc    | `code` (WGSL source), `hints`, `sourceMap`                  |
-|  [07]   | `GPURenderPassDescriptor`      | render pass desc      | `colorAttachments`, `depthStencilAttachment`                |
-|  [08]   | `GPUComputePassDescriptor`     | compute pass desc     | `timestampWrites?`                                          |
-|  [09]   | `GPUBindGroupDescriptor`       | bind group desc       | `layout`, `entries`                                         |
-|  [10]   | `GPUBindGroupLayoutDescriptor` | layout desc           | `entries: Iterable<GPUBindGroupLayoutEntry>`                |
-|  [11]   | `GPUDeviceDescriptor`          | device desc           | `requiredFeatures`, `requiredLimits`                        |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [NOTE] |
+| :-----: | :------- | :------------ | :----- |
+|  [01]   | `GPURequestAdapterOptions`     | adapter opts | `powerPreference: GPUPowerPreference`, `forceFallbackAdapter`, `featureLevel` |
+|  [02]   | `GPUDeviceDescriptor`          | device desc | `requiredFeatures: Iterable<GPUFeatureName>`, `requiredLimits`, `defaultQueue` |
+|  [03]   | `GPUBufferDescriptor`          | buffer desc | `size`, `usage`, `mappedAtCreation` |
+|  [04]   | `GPUTextureDescriptor`         | texture desc | `size`, `format`, `usage`, `dimension`, `mipLevelCount`, `sampleCount`, `viewFormats` |
+|  [05]   | `GPUSamplerDescriptor`         | sampler desc | `addressMode{U,V,W}`, `magFilter`, `minFilter`, `mipmapFilter`, `lodMinClamp`/`lodMaxClamp`, `compare` |
+|  [06]   | `GPURenderPipelineDescriptor`  | render pipeline desc | `layout: GPUPipelineLayout \| GPUAutoLayoutMode`, `vertex`, `fragment`, `primitive`, `depthStencil`, `multisample` |
+|  [07]   | `GPUVertexState` / `GPUFragmentState` / `GPUPrimitiveState` / `GPUDepthStencilState` / `GPUMultisampleState` | pipeline stage descs | the render-pipeline stage/state fields; `GPUFragmentState.targets: GPUColorTargetState[]` |
+|  [08]   | `GPUColorTargetState` / `GPUBlendState` / `GPUBlendComponent` | color target | `format`, `blend: { color, alpha }`, `writeMask: GPUColorWriteFlags` |
+|  [09]   | `GPUVertexBufferLayout` / `GPUVertexAttribute` | vertex layout | `arrayStride`, `stepMode`, `attributes: { format, offset, shaderLocation }` |
+|  [10]   | `GPUComputePipelineDescriptor` / `GPUProgrammableStage` | compute pipeline desc | `layout`, `compute: { module, entryPoint?, constants? }` |
+|  [11]   | `GPUShaderModuleDescriptor`    | shader module desc | `code` (WGSL source), `compilationHints`, `sourceMap` |
+|  [12]   | `GPURenderPassDescriptor`      | render pass desc | `colorAttachments: GPURenderPassColorAttachment[]`, `depthStencilAttachment`, `occlusionQuerySet`, `timestampWrites` |
+|  [13]   | `GPURenderPassColorAttachment` / `GPURenderPassDepthStencilAttachment` | pass attachments | `view`, `loadOp`, `storeOp`, `clearValue: GPUColor`, `resolveTarget` |
+|  [14]   | `GPUComputePassDescriptor`     | compute pass desc | `timestampWrites` |
+|  [15]   | `GPUBindGroupDescriptor` / `GPUBindGroupEntry` | bind group desc | `layout`, `entries: { binding, resource }` |
+|  [16]   | `GPUBindGroupLayoutDescriptor` / `GPUBindGroupLayoutEntry` | layout desc | `entries` each with `binding`, `visibility: GPUShaderStageFlags`, and ONE of the binding-layout family below |
+|  [17]   | `GPUBufferBindingLayout` / `GPUSamplerBindingLayout` / `GPUTextureBindingLayout` / `GPUStorageTextureBindingLayout` / `GPUExternalTextureBindingLayout` | binding layouts | the five binding-slot kinds a `GPUBindGroupLayoutEntry` selects among |
 
-[PUBLIC_TYPE_SCOPE]: primitive type aliases and enums
+[PUBLIC_TYPE_SCOPE]: flag-constant namespaces (ambient `declare var` — bitmask holders; the `*Flags` aliases are `number`)
 - rail: type
 
-| [INDEX] | [SYMBOL]               | [TYPE_FAMILY]      | [RAIL]                                           |
-| :-----: | :--------------------- | :----------------- | :----------------------------------------------- |
-|  [01]   | `GPUTextureFormat`     | format union       | full BCn / ETC2 / ASTC / depth / color formats   |
-|  [02]   | `GPUVertexFormat`      | vertex format      | `'float32x3'`, `'uint16x4'`, etc.                |
-|  [03]   | `GPUAddressMode`       | address mode       | `'clamp-to-edge' \| 'repeat' \| 'mirror-repeat'` |
-|  [04]   | `GPUFilterMode`        | filter mode        | `'nearest' \| 'linear'`                          |
-|  [05]   | `GPUBlendFactor`       | blend factor       | src, dst, constant, saturated variants           |
-|  [06]   | `GPUBlendOperation`    | blend op           | `'add' \| 'subtract' \| 'min' \| 'max'`          |
-|  [07]   | `GPUPrimitiveTopology` | draw topology      | point-list, line-strip, triangle-list, etc.      |
-|  [08]   | `GPUCullMode`          | culling            | `'none' \| 'front' \| 'back'`                    |
-|  [09]   | `GPUIndexFormat`       | index format       | `'uint16' \| 'uint32'`                           |
-|  [10]   | `GPULoadOp`            | load operation     | `'load' \| 'clear'`                              |
-|  [11]   | `GPUStoreOp`           | store operation    | `'store' \| 'discard'`                           |
-|  [12]   | `GPUFeatureName`       | feature names      | `'depth-clip-control'`, `'shader-f16'`, etc.     |
-|  [13]   | `GPUBufferMapState`    | map state          | `'unmapped' \| 'pending' \| 'mapped'`            |
-|  [14]   | `GPUErrorFilter`       | error scope filter | `'validation' \| 'out-of-memory' \| 'internal'`  |
-|  [15]   | `GPUCompareFunction`   | depth/stencil cmp  | `'never'`, `'less'`, `'equal'`, etc.             |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [NOTE] |
+| :-----: | :------- | :------------ | :----- |
+|  [01]   | `GPUBufferUsage`   | buffer usage flags | `MAP_READ`/`MAP_WRITE`/`COPY_SRC`/`COPY_DST`/`INDEX`/`VERTEX`/`UNIFORM`/`STORAGE`/`INDIRECT`/`QUERY_RESOLVE` → `GPUBufferUsageFlags` |
+|  [02]   | `GPUTextureUsage`  | texture usage flags | `COPY_SRC`/`COPY_DST`/`TEXTURE_BINDING`/`STORAGE_BINDING`/`RENDER_ATTACHMENT` → `GPUTextureUsageFlags` |
+|  [03]   | `GPUShaderStage`   | shader stage flags | `VERTEX`/`FRAGMENT`/`COMPUTE` → `GPUShaderStageFlags` (bind-group `visibility`) |
+|  [04]   | `GPUColorWrite`    | color write mask | `RED`/`GREEN`/`BLUE`/`ALPHA`/`ALL` → `GPUColorWriteFlags` (`GPUColorTargetState.writeMask`) |
+|  [05]   | `GPUMapMode`       | buffer map mode | `READ`/`WRITE` → `GPUMapModeFlags` (`GPUBuffer.mapAsync`) |
 
-[PUBLIC_TYPE_SCOPE]: numeric type aliases
+[PUBLIC_TYPE_SCOPE]: enum string unions
 - rail: type
 
-| [INDEX] | [SYMBOL]               | [TYPE_FAMILY] | [RAIL]                                           |
-| :-----: | :--------------------- | :------------ | :----------------------------------------------- |
-|  [01]   | `GPUSize64`            | `number`      | byte sizes and offsets                           |
-|  [02]   | `GPUSize32`            | `number`      | 32-bit count values                              |
-|  [03]   | `GPUIndex32`           | `number`      | bind group slot indices                          |
-|  [04]   | `GPUBufferUsageFlags`  | `number`      | `GPUBufferUsage.*` bitmask                       |
-|  [05]   | `GPUTextureUsageFlags` | `number`      | `GPUTextureUsage.*` bitmask                      |
-|  [06]   | `GPUShaderStageFlags`  | `number`      | `GPUShaderStage.*` bitmask                       |
-|  [07]   | `GPUBindingResource`   | union         | sampler \| texture \| view \| buffer \| external |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [NOTE] |
+| :-----: | :------- | :------------ | :----- |
+|  [01]   | `GPUTextureFormat`     | format union | full BCn / ETC2 / ASTC / depth / color format set |
+|  [02]   | `GPUVertexFormat`      | vertex format | `'float32x3'`, `'uint16x4'`, `'unorm8x4'`, … |
+|  [03]   | `GPUAddressMode` / `GPUFilterMode` / `GPUMipmapFilterMode` | sampler enums | `'clamp-to-edge'\|'repeat'\|'mirror-repeat'`; `'nearest'\|'linear'` |
+|  [04]   | `GPUBlendFactor` / `GPUBlendOperation` | blend enums | src/dst/constant/saturated factors; `'add'\|'subtract'\|'reverse-subtract'\|'min'\|'max'` |
+|  [05]   | `GPUPrimitiveTopology` / `GPUCullMode` / `GPUFrontFace` / `GPUIndexFormat` | raster enums | point/line/triangle topologies; `'none'\|'front'\|'back'`; `'ccw'\|'cw'`; `'uint16'\|'uint32'` |
+|  [06]   | `GPULoadOp` / `GPUStoreOp` | attachment ops | `'load'\|'clear'`; `'store'\|'discard'` |
+|  [07]   | `GPUCompareFunction` / `GPUStencilOperation` | depth/stencil enums | `'never'`/`'less'`/`'equal'`/… ; `'keep'`/`'replace'`/`'increment-clamp'`/… |
+|  [08]   | `GPUFeatureName`       | feature names | incl. `'core-features-and-limits'`, `'depth-clip-control'`, `'timestamp-query'`, `'shader-f16'`, `'subgroups'`, `'dual-source-blending'`, `'clip-distances'`, `'texture-component-swizzle'`, `'float32-blendable'`, the `texture-compression-*` set |
+|  [09]   | `GPUBufferMapState` / `GPUErrorFilter` / `GPUPipelineErrorReason` | state/error enums | `'unmapped'\|'pending'\|'mapped'`; `'validation'\|'out-of-memory'\|'internal'`; `'validation'\|'internal'` |
+|  [10]   | `GPUCanvasAlphaMode` / `GPUCanvasToneMappingMode` / `GPUDeviceLostReason` / `GPUAutoLayoutMode` / `GPUPowerPreference` | context/device enums | `'opaque'\|'premultiplied'`; `'standard'\|'extended'`; `'unknown'\|'destroyed'`; `'auto'`; `'low-power'\|'high-performance'` |
+|  [11]   | `GPUCompilationMessageType` | shader message | `'error'\|'warning'\|'info'` |
 
-[PUBLIC_TYPE_SCOPE]: error and event types
+[PUBLIC_TYPE_SCOPE]: numeric aliases, dimension types, deprecated aliases
 - rail: type
 
-| [INDEX] | [SYMBOL]                  | [TYPE_FAMILY]    | [RAIL]                                 |
-| :-----: | :------------------------ | :--------------- | :------------------------------------- |
-|  [01]   | `GPUUncapturedErrorEvent` | error event      | `.error: GPUError`                     |
-|  [02]   | `GPUValidationError`      | validation error | device validation failure              |
-|  [03]   | `GPUOutOfMemoryError`     | OOM error        | GPU allocation failure                 |
-|  [04]   | `GPUInternalError`        | internal error   | driver-level failure                   |
-|  [05]   | `GPUPipelineError`        | pipeline error   | `reason: GPUPipelineErrorReason`       |
-|  [06]   | `GPUCompilationMessage`   | shader message   | `type`, `message`, `lineNum`, `offset` |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [NOTE] |
+| :-----: | :------- | :------------ | :----- |
+|  [01]   | `GPUSize64` / `GPUSize32` / `GPUIndex32` / `GPUFlagsConstant` | numeric aliases | byte sizes/offsets; 32-bit counts; slot indices; the flag-constant type |
+|  [02]   | `GPUBufferUsageFlags` / `GPUTextureUsageFlags` / `GPUShaderStageFlags` / `GPUColorWriteFlags` / `GPUMapModeFlags` | flag aliases | `number` bitmasks from the flag namespaces above |
+|  [03]   | `GPUBindingResource` | union | sampler \| texture view \| buffer binding \| external texture |
+|  [04]   | `GPUExtent3DStrict` / `GPUOrigin2DStrict` / `GPUOrigin3D` / `GPUExtent3D` | dimension descs | the `Strict` forms catch `depth` vs `depthOrArrayLayers` misuse at the type level |
+|  [05]   | `GPUTexelCopyBufferLayout` / `GPUTexelCopyBufferInfo` / `GPUTexelCopyTextureInfo` / `GPUCopyExternalImageDestInfo` / `GPUCopyExternalImageSourceInfo` / `GPUCopyExternalImageSource` | canonical copy types | the current names for `writeTexture`/`copyExternalImageToTexture` operands |
+|  [06]   | `GPUImageDataLayout` → `GPUTexelCopyBufferLayout`; `GPUImageCopyBuffer` → `GPUTexelCopyBufferInfo`; `GPUImageCopyTexture` → `GPUTexelCopyTextureInfo`; `GPUImageCopyTextureTagged` → `GPUCopyExternalImageDestInfo`; `GPUImageCopyExternalImage` → `GPUCopyExternalImageSourceInfo`; `GPUImageCopyExternalImageSource` → `GPUCopyExternalImageSource` | deprecated aliases | `@deprecated` — use the right-hand canonical name |
+
+[PUBLIC_TYPE_SCOPE]: error + event types
+- rail: type
+
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [NOTE] |
+| :-----: | :------- | :------------ | :----- |
+|  [01]   | `GPUError`                | error base | `readonly message` — base of the error hierarchy |
+|  [02]   | `GPUValidationError` / `GPUOutOfMemoryError` / `GPUInternalError` | error scopes | the three `pushErrorScope`/`popErrorScope` filter outcomes |
+|  [03]   | `GPUUncapturedErrorEvent` | error event | `.error: GPUError` on `device.onuncapturederror` |
+|  [04]   | `GPUPipelineError`        | pipeline error | `reason: GPUPipelineErrorReason` from async pipeline creation |
+|  [05]   | `GPUCompilationInfo` / `GPUCompilationMessage` | shader diagnostics | `messages[]` with `type`, `message`, `lineNum`, `linePos`, `offset`, `length` |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: GPU — adapter acquisition
 - rail: type
 
-| [INDEX] | [SURFACE]                                  | [ENTRY_FAMILY]  | [RAIL]                              |
-| :-----: | :----------------------------------------- | :-------------- | :---------------------------------- |
-|  [01]   | `navigator.gpu.requestAdapter(options?)`   | adapter request | `Promise<GPUAdapter \| null>`       |
-|  [02]   | `navigator.gpu.getPreferredCanvasFormat()` | format query    | optimal `GPUTextureFormat` for swap |
-|  [03]   | `navigator.gpu.wgslLanguageFeatures`       | feature set     | supported WGSL extensions           |
+| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [NOTE] |
+| :-----: | :-------- | :------------- | :----- |
+|  [01]   | `navigator.gpu.requestAdapter(options?: GPURequestAdapterOptions)` | adapter request | `Promise<GPUAdapter \| null>`; `powerPreference`/`forceFallbackAdapter` |
+|  [02]   | `navigator.gpu.getPreferredCanvasFormat()` | format query | optimal `GPUTextureFormat` for the swap chain |
+|  [03]   | `navigator.gpu.wgslLanguageFeatures` | feature set | supported WGSL extensions (`WGSLLanguageFeatures`) |
 
-[ENTRYPOINT_SCOPE]: GPUAdapter — device request
+[ENTRYPOINT_SCOPE]: GPUAdapter — device request + capability
 - rail: type
 
-| [INDEX] | [SURFACE]                            | [ENTRY_FAMILY] | [RAIL]                       |
-| :-----: | :----------------------------------- | :------------- | :--------------------------- |
-|  [01]   | `adapter.requestDevice(descriptor?)` | device request | `Promise<GPUDevice>`         |
-|  [02]   | `adapter.features`                   | capability     | `GPUSupportedFeatures` set   |
-|  [03]   | `adapter.limits`                     | capability     | `GPUSupportedLimits` values  |
-|  [04]   | `adapter.info`                       | metadata       | vendor, architecture, device |
+| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [NOTE] |
+| :-----: | :-------- | :------------- | :----- |
+|  [01]   | `adapter.requestDevice(descriptor?: GPUDeviceDescriptor)` | device request | `Promise<GPUDevice>`; opt features via `requiredFeatures`/`requiredLimits` |
+|  [02]   | `adapter.features` / `adapter.limits` / `adapter.info` | capability | `GPUSupportedFeatures` / `GPUSupportedLimits` / `GPUAdapterInfo` |
 
-[ENTRYPOINT_SCOPE]: GPUDevice — resource creation
+[ENTRYPOINT_SCOPE]: GPUDevice — resource creation + lifecycle rails
 - rail: type
 
-| [INDEX] | [SURFACE]                                           | [ENTRY_FAMILY]   | [RAIL]                           |
-| :-----: | :-------------------------------------------------- | :--------------- | :------------------------------- |
-|  [01]   | `device.createBuffer(descriptor)`                   | buffer factory   | `GPUBuffer`                      |
-|  [02]   | `device.createTexture(descriptor)`                  | texture factory  | `GPUTexture`                     |
-|  [03]   | `device.createSampler(descriptor?)`                 | sampler factory  | `GPUSampler`                     |
-|  [04]   | `device.createShaderModule(descriptor)`             | shader compile   | `GPUShaderModule`                |
-|  [05]   | `device.createRenderPipeline(descriptor)`           | pipeline factory | `GPURenderPipeline` (sync)       |
-|  [06]   | `device.createComputePipeline(descriptor)`          | pipeline factory | `GPUComputePipeline` (sync)      |
-|  [07]   | `device.createRenderPipelineAsync(desc)`            | async pipeline   | `Promise<GPURenderPipeline>`     |
-|  [08]   | `device.createBindGroupLayout(descriptor)`          | layout factory   | `GPUBindGroupLayout`             |
-|  [09]   | `device.createPipelineLayout(descriptor)`           | layout factory   | `GPUPipelineLayout`              |
-|  [10]   | `device.createBindGroup(descriptor)`                | bind group       | `GPUBindGroup`                   |
-|  [11]   | `device.createCommandEncoder(descriptor?)`          | encoder factory  | `GPUCommandEncoder`              |
-|  [12]   | `device.createRenderBundleEncoder(desc)`            | bundle encoder   | `GPURenderBundleEncoder`         |
-|  [13]   | `device.createQuerySet(descriptor)`                 | query set        | `GPUQuerySet` (occlusion/ts)     |
-|  [14]   | `device.importExternalTexture(descriptor)`          | texture import   | `GPUExternalTexture`             |
-|  [15]   | `device.pushErrorScope(filter)` / `popErrorScope()` | error scope      | structured GPU error capture     |
-|  [16]   | `device.destroy()`                                  | cleanup          | release device + outstanding ops |
+| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [NOTE] |
+| :-----: | :-------- | :------------- | :----- |
+|  [01]   | `device.createBuffer` / `createTexture` / `createSampler` | resource factory | `GPUBuffer` / `GPUTexture` / `GPUSampler` |
+|  [02]   | `device.createShaderModule` | shader compile | `GPUShaderModule` (`getCompilationInfo()` for diagnostics) |
+|  [03]   | `device.createRenderPipeline` / `createComputePipeline` | pipeline factory | sync `GPURenderPipeline` / `GPUComputePipeline` |
+|  [04]   | `device.createRenderPipelineAsync` / `createComputePipelineAsync` | async pipeline | `Promise<…>`; rejects with `GPUPipelineError` |
+|  [05]   | `device.createBindGroupLayout` / `createPipelineLayout` / `createBindGroup` | layout/binding | `GPUBindGroupLayout` / `GPUPipelineLayout` / `GPUBindGroup` |
+|  [06]   | `device.createCommandEncoder` / `createRenderBundleEncoder` | encoder factory | `GPUCommandEncoder` / `GPURenderBundleEncoder` |
+|  [07]   | `device.createQuerySet` / `importExternalTexture` | query/import | `GPUQuerySet` (occlusion/timestamp) / `GPUExternalTexture` |
+|  [08]   | `device.queue` / `device.features` / `device.limits` / `device.adapterInfo` | handles | the default `GPUQueue`; the granted feature/limit/adapter facts |
+|  [09]   | `device.lost` / `device.onuncapturederror` | loss/error rails | `Promise<GPUDeviceLostInfo>`; the `GPUUncapturedErrorEvent` handler |
+|  [10]   | `device.pushErrorScope(filter)` / `popErrorScope()` | error scope | `Promise<GPUError \| null>` — structured GPU error capture |
+|  [11]   | `device.destroy()` | cleanup | release device + outstanding ops |
 
-[ENTRYPOINT_SCOPE]: GPUCommandEncoder — encoding
+[ENTRYPOINT_SCOPE]: GPUCommandEncoder — encoding + copies + debug
 - rail: type
 
-| [INDEX] | [SURFACE]                                     | [ENTRY_FAMILY] | [RAIL]                        |
-| :-----: | :-------------------------------------------- | :------------- | :---------------------------- |
-|  [01]   | `encoder.beginRenderPass(descriptor)`         | pass factory   | `GPURenderPassEncoder`        |
-|  [02]   | `encoder.beginComputePass(descriptor?)`       | pass factory   | `GPUComputePassEncoder`       |
-|  [03]   | `encoder.copyBufferToBuffer(src, dst, size?)` | copy           | buffer → buffer copy          |
-|  [04]   | `encoder.finish()`                            | finalize       | `GPUCommandBuffer` for submit |
+| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [NOTE] |
+| :-----: | :-------- | :------------- | :----- |
+|  [01]   | `encoder.beginRenderPass(descriptor)` / `beginComputePass(descriptor?)` | pass factory | `GPURenderPassEncoder` / `GPUComputePassEncoder` |
+|  [02]   | `encoder.copyBufferToBuffer` / `copyBufferToTexture` / `copyTextureToBuffer` / `copyTextureToTexture` | copies | buffer/texture resource copies |
+|  [03]   | `encoder.clearBuffer(buffer, offset?, size?)` / `resolveQuerySet(set, first, count, dst, offset)` | clear/resolve | zero a buffer range; resolve query results into a buffer |
+|  [04]   | `encoder.pushDebugGroup` / `popDebugGroup` / `insertDebugMarker` | debug | `GPUDebugCommandsMixin` markers |
+|  [05]   | `encoder.finish(descriptor?)` | finalize | `GPUCommandBuffer` for submit |
 
-[ENTRYPOINT_SCOPE]: GPURenderPassEncoder — draw commands
+[ENTRYPOINT_SCOPE]: GPURenderPassEncoder — raster + draw (draw/bind/debug from the shared mixins)
 - rail: type
 
-| [INDEX] | [SURFACE]                                      | [ENTRY_FAMILY] | [RAIL]                        |
-| :-----: | :--------------------------------------------- | :------------- | :---------------------------- |
-|  [01]   | `pass.setPipeline(pipeline)`                   | state set      | bind render pipeline          |
-|  [02]   | `pass.setBindGroup(index, bindGroup)`          | state set      | bind resource group at slot   |
-|  [03]   | `pass.setVertexBuffer(slot, buffer, offset?)`  | state set      | bind vertex attribute buffer  |
-|  [04]   | `pass.setIndexBuffer(buffer, format, offset?)` | state set      | bind index buffer             |
-|  [05]   | `pass.draw(vertexCount, instanceCount?)`       | draw call      | non-indexed draw              |
-|  [06]   | `pass.drawIndexed(indexCount, instanceCount?)` | draw call      | indexed draw                  |
-|  [07]   | `pass.setViewport(x, y, w, h, minD, maxD)`     | raster state   | NDC → viewport mapping        |
-|  [08]   | `pass.setScissorRect(x, y, w, h)`              | raster state   | scissor rectangle             |
-|  [09]   | `pass.executeBundles(bundles)`                 | bundle exec    | replay `GPURenderBundle` list |
-|  [10]   | `pass.end()`                                   | finalize       | close render pass             |
+| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [NOTE] |
+| :-----: | :-------- | :------------- | :----- |
+|  [01]   | `pass.setPipeline` / `setBindGroup` / `setVertexBuffer` / `setIndexBuffer` | state set | `GPURenderCommandsMixin` + `GPUBindingCommandsMixin` |
+|  [02]   | `pass.draw` / `drawIndexed` / `drawIndirect` / `drawIndexedIndirect` | draw call | direct + GPU-driven indirect draws |
+|  [03]   | `pass.setViewport` / `setScissorRect` / `setBlendConstant` / `setStencilReference` | raster state | viewport, scissor, blend constant, stencil ref |
+|  [04]   | `pass.beginOcclusionQuery(index)` / `endOcclusionQuery()` | occlusion query | occlusion visibility counts into the pass `occlusionQuerySet` |
+|  [05]   | `pass.executeBundles(bundles)` / `pass.end()` | bundle/finalize | replay a `GPURenderBundle[]`; close the pass |
 
-[ENTRYPOINT_SCOPE]: GPUQueue — work submission
+[ENTRYPOINT_SCOPE]: GPUComputePassEncoder / GPURenderBundleEncoder
 - rail: type
 
-| [INDEX] | [SURFACE]                                               | [ENTRY_FAMILY] | [RAIL]                             |
-| :-----: | :------------------------------------------------------ | :------------- | :--------------------------------- |
-|  [01]   | `queue.submit(commandBuffers)`                          | submit         | schedule `GPUCommandBuffer` array  |
-|  [02]   | `queue.writeBuffer(buffer, offset, data, doff?, size?)` | data upload    | CPU → GPU buffer write             |
-|  [03]   | `queue.writeTexture(dst, data, layout, size)`           | data upload    | CPU → GPU texture write            |
-|  [04]   | `queue.onSubmittedWorkDone()`                           | sync fence     | `Promise<undefined>` on completion |
+| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [NOTE] |
+| :-----: | :-------- | :------------- | :----- |
+|  [01]   | `computePass.setPipeline` / `setBindGroup` | state set | pipeline + binding mixin |
+|  [02]   | `computePass.dispatchWorkgroups(x, y?, z?)` / `dispatchWorkgroupsIndirect(buffer, offset)` | dispatch | direct + GPU-driven indirect compute |
+|  [03]   | `computePass.end()` | finalize | close the compute pass |
+|  [04]   | `bundleEncoder.finish(descriptor?)` | finalize | `GPURenderBundle`; the encoder shares the render/binding/debug mixins for pre-recording |
+
+[ENTRYPOINT_SCOPE]: GPUQueue — work submission + uploads
+- rail: type
+
+| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [NOTE] |
+| :-----: | :-------- | :------------- | :----- |
+|  [01]   | `queue.submit(commandBuffers)` | submit | schedule a `GPUCommandBuffer[]` |
+|  [02]   | `queue.writeBuffer(buffer, offset, data, dataOffset?, size?)` | data upload | CPU → GPU buffer write |
+|  [03]   | `queue.writeTexture(destination, data, dataLayout, size)` | data upload | CPU → GPU texture write |
+|  [04]   | `queue.copyExternalImageToTexture(source, destination, copySize)` | image upload | `ImageBitmap`/`HTMLCanvasElement`/`VideoFrame` → texture |
+|  [05]   | `queue.onSubmittedWorkDone()` | sync fence | `Promise<undefined>` on completion |
 
 [ENTRYPOINT_SCOPE]: GPUCanvasContext — swap chain
 - rail: type
 
-| [INDEX] | [SURFACE]                      | [ENTRY_FAMILY] | [RAIL]                              |
-| :-----: | :----------------------------- | :------------- | :---------------------------------- |
-|  [01]   | `ctx.configure(configuration)` | setup          | attach device and format to canvas  |
-|  [02]   | `ctx.getCurrentTexture()`      | frame acquire  | next presentable `GPUTexture`       |
-|  [03]   | `ctx.unconfigure()`            | teardown       | remove config, destroy textures     |
-|  [04]   | `ctx.getConfiguration()`       | config query   | `GPUCanvasConfigurationOut \| null` |
+| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [NOTE] |
+| :-----: | :-------- | :------------- | :----- |
+|  [01]   | `ctx.configure(configuration)` | setup | attach device/format/tone-mapping/alpha-mode to the canvas |
+|  [02]   | `ctx.getCurrentTexture()` | frame acquire | next presentable `GPUTexture` |
+|  [03]   | `ctx.unconfigure()` / `ctx.getConfiguration()` | teardown/query | remove config; read back `GPUCanvasConfigurationOut \| null` |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TYPE_TOPOLOGY]:
-- `@webgpu/types` is ambient-only: no runtime exports; install as a `devDependency` and reference via `tsconfig.json` `types` array or `/// <reference types="@webgpu/types" />` directive
-- All `GPU*` interfaces are global declarations; no import is needed at use sites once the types are included
-- `GPUExtent3DStrict` and `GPUOrigin2DStrict` are stricter alternatives to `GPUExtent3D` / `GPUOrigin2D` that catch the common `depth` vs `depthOrArrayLayers` mistake at the type level
-- Deprecated aliases: `GPUImageDataLayout` → `GPUTexelCopyBufferLayout`; `GPUImageCopyBuffer` → `GPUTexelCopyBufferInfo`; `GPUImageCopyTexture` → `GPUTexelCopyTextureInfo`; `GPUImageCopyTextureTagged` → `GPUCopyExternalImageDestInfo`
-- `GPUFeatureName` includes `'core-features-and-limits'`, `'shader-f16'`, `'dual-source-blending'`, `'subgroups'`, and `'texture-component-swizzle'`
-- `navigator.gpu` is exposed via `NavigatorGPU` mixin on `Navigator` and `WorkerNavigator`
-- `HTMLCanvasElement.getContext('webgpu')` and `OffscreenCanvas.getContext('webgpu')` return `GPUCanvasContext | null`
+- ambient-only, no runtime: include via the `tsconfig` `types` array or a `/// <reference types="@webgpu/types" />` directive; all `GPU*` interfaces are global, so no import is needed at use sites, and `HTMLCanvasElement.getContext('webgpu')` / `OffscreenCanvas.getContext('webgpu')` return `GPUCanvasContext | null` once included.
+- the command surface is mixin-composed: `GPUObjectBase` (writable `label`) + `GPUCommandsMixin` + `GPUDebugCommandsMixin` + `GPURenderCommandsMixin` + `GPUBindingCommandsMixin`. `GPURenderPassEncoder` AND `GPURenderBundleEncoder` share the render/binding/debug vocabulary; `GPUComputePassEncoder` shares binding/debug — one draw/bind/debug algebra, never a per-encoder re-declaration.
+- flag constants are ambient `declare var` namespaces (`GPUBufferUsage.MAP_READ`, `GPUTextureUsage.RENDER_ATTACHMENT`, `GPUShaderStage.FRAGMENT`, `GPUColorWrite.ALL`, `GPUMapMode.READ`) of type `GPUFlagsConstant`; the `*Flags` aliases are `number` bitmasks.
+- `GPUExtent3DStrict`/`GPUOrigin2DStrict` catch `depth` vs `depthOrArrayLayers` at the type level; the six `GPUImageCopy*`/`GPUImageDataLayout` aliases are `@deprecated` → the `GPUTexelCopy*`/`GPUCopyExternalImage*` canonical names.
+- device-loss + error rails: `device.lost` (`Promise<GPUDeviceLostInfo>` with `reason`/`message`), `device.onuncapturederror` (`GPUUncapturedErrorEvent`), and `pushErrorScope(filter)`/`popErrorScope()` (`Promise<GPUError | null>`) surround async GPU work; the scoped errors are `GPUValidationError`/`GPUOutOfMemoryError`/`GPUInternalError`, async pipeline creation rejects with `GPUPipelineError`.
+- capability gating: read `adapter.features`/`device.features` (`GPUSupportedFeatures`, a `ReadonlySet<GPUFeatureName>`) and `.limits` before enabling a path; request them in `GPUDeviceDescriptor.requiredFeatures`/`requiredLimits` — an unrequested feature makes the dependent operation fail validation. `layout: 'auto'` (`GPUAutoLayoutMode`) skips an explicit pipeline layout.
+
+[STACKING]:
+- sanctioned device owner: `three/webgpu` `WebGPURenderer`/`WebGPUBackend` (`three.md`) owns the `GPUDevice`; `@webgpu/types` provides the ambient `GPU*` globals that type that path and its `renderer.init()` auto-detect / `WebGLBackend` fallback — the `render/glb.md#GLB_VIEWPORT` leaf composes it, never a hand-authored `GPUDevice` or `navigator.gpu` degrade branch.
+- deck.gl device substrate: `@luma.gl/*` (deck.gl's WebGL2/WebGPU device — `deck.gl-core.md`) is typed by these ambient globals, so the geo overlay stack reads the same `GPUDevice`/`GPUCanvasContext` surface.
+- capability probe (NOT backend selection): a direct `navigator.gpu.requestAdapter()` → `adapter.features` (`GPUSupportedFeatures`) read gates OPTIONAL feature arms — admit a `shader-f16`/`timestamp-query`/`subgroups` compute path (the `render/glb.md` cluster-LOD TSL ambition) only when the set carries it, and pass the granted names into `GPUDeviceDescriptor.requiredFeatures`. The `three/webgpu`-vs-WebGL decision is NOT this probe's job — that is `WebGPURenderer.init()`'s own auto-detect read back through `.backend.isWebGLBackend` (`three.md`), never a hand-rolled `navigator.gpu` degrade branch.
+- Effect resource lifecycle: wrap the device/pipeline/context in `Effect.acquireRelease` (as `render/glb.md` wraps the renderer + `renderer.dispose()`); fold `device.lost` (a `Promise`) into an `Effect` fiber for device-loss recovery, `createRenderPipelineAsync`/`queue.onSubmittedWorkDone()` into `Effect.promise`, and map `pushErrorScope`/`popErrorScope` verdicts onto the `interchange` `FaultDetail` typed rail.
+- ambient admission: add `"@webgpu/types"` to the branch `tsconfig` `types` once; every viewport/compute owner reads the globals with no import.
 
 [LOCAL_ADMISSION]:
-- Add `"@webgpu/types"` to `tsconfig.json` `"types"` array; do not import individual GPU symbols.
-- Use `GPUExtent3DStrict` and `GPUOrigin2DStrict` instead of the bare union types to catch `depth` field misuse at compile time.
-- Request device features explicitly in `GPUDeviceDescriptor.requiredFeatures`; unfeatureed `GPUDevice` instances reject operations that depend on missing features with validation errors.
-- Error scopes (`pushErrorScope` / `popErrorScope`) wrap async GPU work to capture `GPUValidationError`, `GPUOutOfMemoryError`, and `GPUInternalError` without unhandled promise rejections.
+- Add `"@webgpu/types"` to `tsconfig.json` `"types"`; never import GPU symbols at runtime.
+- Use `GPUExtent3DStrict`/`GPUOrigin2DStrict` over the bare unions, and the `GPUTexelCopy*`/`GPUCopyExternalImage*` names over the deprecated `GPUImageCopy*`/`GPUImageDataLayout` aliases.
+- Request device features explicitly in `GPUDeviceDescriptor.requiredFeatures`; wrap async GPU work in error scopes to capture validation/OOM/internal errors without unhandled rejections.
+- Read the shared mixin command vocabulary (`setBindGroup`/`draw`/`pushDebugGroup`) rather than treating each encoder's commands as distinct; set an object `label` for debuggable resources.
+- Let `three/webgpu` own the device; use these types to gate/probe/type, not to hand-roll a renderer.
 
 [RAIL_LAW]:
-- Package: `@webgpu/types`
-- Owns: ambient TypeScript declarations for the W3C WebGPU API
-- Accept: global `GPU*` type usage without import, `GPUExtent3DStrict` for dimension descriptors, `GPUTexelCopy*` names over deprecated `GPUImageCopy*` aliases
-- Reject: runtime import of `@webgpu/types`, use of deprecated `GPUImageCopy*` and `GPUImageDataLayout` type aliases
+- package: `@webgpu/types`
+- owns: the ambient TypeScript declarations for the W3C WebGPU API — device/queue/encoder/pass/pipeline/resource/canvas objects, the mixin command vocabulary, the flag-constant namespaces, the strict dimension types, and the descriptor/enum vocabulary
+- accept: global `GPU*` usage without import, `GPUExtent3DStrict` dimension descriptors, the `GPUTexelCopy*`/`GPUCopyExternalImage*` names, explicit `requiredFeatures`/`requiredLimits` gating, error-scope + `device.lost` rails
+- reject: a runtime import of `@webgpu/types`; the deprecated `GPUImageCopy*`/`GPUImageDataLayout` aliases; a hand-authored `GPUDevice`/`navigator.gpu` renderer path beside the `three/webgpu` owner

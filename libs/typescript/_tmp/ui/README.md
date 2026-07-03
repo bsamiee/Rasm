@@ -71,6 +71,7 @@ Domain packages owned by this folder; versions are in the workspace catalog (`pn
 
 [VIEWPORT]:
 - `three`
+- `@types/three`
 - `@google/model-viewer`
 - `@webgpu/types`
 

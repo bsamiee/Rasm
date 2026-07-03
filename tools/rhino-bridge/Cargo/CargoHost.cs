@@ -4,7 +4,7 @@ using System.Reflection;
 using System.Runtime.Loader;
 using System.Text.Json;
 using Rasm.Bridge.Contract;
-using Rasm.TestKit.Scenarios;
+using Rasm.ScenarioKit;
 using Rhino;
 using Rhino.Display;
 using Rhino.Runtime;
@@ -95,7 +95,7 @@ internal readonly record struct ScratchRedirect(string Root, bool Redirected, st
 public sealed class CargoHost : IBridgeCargo {
     private const string ProbeSlot = "probe";
     private const int CommandEvidenceTail = 4096;
-    private const string ScenarioAttributeType = "Rasm.TestKit.Scenarios.RhinoScenarioAttribute";
+    private const string ScenarioAttributeType = "Rasm.ScenarioKit.RhinoScenarioAttribute";
 
     private readonly Lock sync = new();
     private readonly CargoManifest manifest;

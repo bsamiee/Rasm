@@ -2,7 +2,6 @@
 
 from collections.abc import Callable  # beartype resolves the public bridge_lease signature at runtime under PEP 649
 from dataclasses import dataclass
-from fnmatch import fnmatchcase
 import hashlib
 from pathlib import Path, PurePosixPath
 import time
@@ -12,7 +11,7 @@ from expression import Error, Ok, Result
 import msgspec
 
 from tools.assay.composition.settings import ArtifactScope, AssaySettings  # noqa: TC001  # beartype resolves public rail annotations at runtime
-from tools.assay.core.engine import leased, run_check
+from tools.assay.core.engine import Executor, leased  # noqa: TC001  # beartype resolves the executor-port annotation at runtime
 from tools.assay.core.model import (
     Artifact,
     ArtifactKind,
@@ -23,11 +22,11 @@ from tools.assay.core.model import (
     Completed,  # noqa: TC001  # beartype resolves Result[Completed, Fault] forward-ref at runtime under PEP 649
     Diagnostic,
     Fault,
-    fold,
     Input,
     Language,
     Match,
     Mode,
+    RailStatus,
     receipt,
     Report,  # noqa: TC001  # beartype resolves Result[Report, Fault] forward-ref at runtime under PEP 649
     Runner,
@@ -35,7 +34,7 @@ from tools.assay.core.model import (
     VerifySummary,
 )
 from tools.assay.core.routing import Routed, Scope
-from tools.assay.core.status import fold as status_fold, RailStatus
+from tools.assay.diagnostics import fold
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -45,18 +44,17 @@ _STUB_PROJECT: Final[str] = "tools/rhino-bridge/Stub/Stub.csproj"
 _SHELL_PROJECT: Final[str] = "tools/rhino-bridge/Shell/Shell.csproj"
 _CARGO_PROJECT: Final[str] = "tools/rhino-bridge/Cargo/Cargo.csproj"
 _CONTRACT_PROJECT: Final[str] = "tools/rhino-bridge/Contract/Contract.csproj"
-_SCENARIO_PROJECTS: Final[tuple[str, ...]] = (
-    "tests/csharp/libs/Rasm/Rasm.Tests.csproj",
-    "tests/csharp/libs/Rasm.Rhino/Rasm.Rhino.Tests.csproj",
-    "tests/csharp/libs/Rasm.Grasshopper/Rasm.Grasshopper.Tests.csproj",
-)
-_BUILD_PROJECTS: Final[tuple[str, ...]] = (_CONTRACT_PROJECT, _CARGO_PROJECT, _SHELL_PROJECT, _STUB_PROJECT, _SUPERVISOR_PROJECT, *_SCENARIO_PROJECTS)
+# Single scenario home: one project, one assembly, one reference root; the in-host shell owns per-scenario resolution.
+_SCENARIO_PROJECT: Final[str] = "tests/csharp/scenarios/Rasm.Scenarios.csproj"
+_SCENARIO_ASSEMBLY: Final[str] = "Rasm.Scenarios.dll"
+_REFERENCE_ROOT: Final[str] = "tests/csharp/scenarios/_references"
+_BUILD_PROJECTS: Final[tuple[str, ...]] = (_CONTRACT_PROJECT, _CARGO_PROJECT, _SHELL_PROJECT, _STUB_PROJECT, _SUPERVISOR_PROJECT, _SCENARIO_PROJECT)
 _CLOSURE_FILE: Final[str] = "bridge-closure.json"
 _AGGREGATE_CLOSURE_FILE: Final[str] = "bridge-closure.assay.json"
 _CERTIFICATE_FILE: Final[str] = "bridge-certificate.json"
 _SCENARIO_TIMEOUT_S: Final[float] = 600.0
-_PATH_GLYPHS: Final[str] = "/*?["
 _ALL_TOKENS: Final[frozenset[str]] = frozenset(("", "all", "*"))
+_EMPTY_CORPUS_NOTE: Final[str] = f"bridge.corpus=empty: scenario corpus empty under {Path(_SCENARIO_PROJECT).parent.as_posix()}; nothing to verify"
 _TEXT_ARTIFACT_SUFFIXES: Final[frozenset[str]] = frozenset((".json", ".jsonl", ".log", ".txt"))
 _SHELL_SOURCE_DIRS: Final[tuple[str, ...]] = ("Shell", "Contract", "Cargo")
 _INSTALLED_PLUGIN_GLOB: Final[str] = "Library/Application Support/McNeel/Rhinoceros/packages/9.0/rasm-bridge/*/Rasm.Bridge.Shell.dll"
@@ -86,28 +84,6 @@ class BridgeParams(BaseParams):
     def pattern(self) -> str:
         """Scenario selection token; empty selects every typed scenario corpus."""
         return self.paths[0] if self.paths else ""
-
-
-@dataclass(frozen=True, slots=True)
-class _ScenarioCorpus:
-    theme_names: tuple[tuple[str, str], ...]
-    project: str
-    assembly: str
-    paths: tuple[str, ...] = ()
-
-    @property
-    def themes(self) -> frozenset[str]:
-        return frozenset(theme for theme, _ in self.theme_names)
-
-    @property
-    def names(self) -> frozenset[str]:
-        return frozenset(f"{theme}.{name}" for theme, name in self.theme_names)
-
-
-@dataclass(frozen=True, slots=True)
-class _SelectionPlan:
-    corpora: tuple[_ScenarioCorpus, ...]
-    selection_json: str
 
 
 class _ReferenceRoot(msgspec.Struct, frozen=True, gc=False, omit_defaults=True, rename="camel"):
@@ -287,68 +263,6 @@ class _SessionEnvelope(msgspec.Struct, frozen=True, gc=False, omit_defaults=True
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-_SCENARIO_CORPORA: Final[tuple[_ScenarioCorpus, ...]] = (
-    _ScenarioCorpus(
-        project="tests/csharp/libs/Rasm/Rasm.Tests.csproj",
-        assembly="Rasm.Tests.dll",
-        paths=(
-            "tests/csharp/libs/Rasm/Analysis",
-            "tests/csharp/libs/Rasm/Analysis/Scenarios",
-            "tests/csharp/libs/Rasm/Vectors",
-            "tests/csharp/libs/Rasm/Vectors/Scenarios",
-        ),
-        theme_names=(
-            ("analysis", "NativeRail"),
-            ("vectors", "CloudShapes"),
-            ("vectors", "CloudNeighborhood"),
-            ("vectors", "CloudHull"),
-            ("vectors", "AtomsFrame"),
-            ("vectors", "SpaceProjection"),
-            ("vectors", "SampleDworkContinuous"),
-            ("vectors", "SpectralDec"),
-            ("vectors", "SpectralDescriptor"),
-            ("vectors", "SpectralEdgeConnection"),
-        ),
-    ),
-    _ScenarioCorpus(
-        project="tests/csharp/libs/Rasm.Rhino/Rasm.Rhino.Tests.csproj",
-        assembly="Rasm.Rhino.Tests.dll",
-        paths=(
-            "tests/csharp/libs/Rasm.Rhino/Blocks",
-            "tests/csharp/libs/Rasm.Rhino/Blocks/Scenarios",
-            "tests/csharp/libs/Rasm.Rhino/Camera",
-            "tests/csharp/libs/Rasm.Rhino/Camera/Scenarios",
-            "tests/csharp/libs/Rasm.Rhino/Exchange",
-            "tests/csharp/libs/Rasm.Rhino/Exchange/Scenarios",
-            "tests/csharp/libs/Rasm.Rhino/UI",
-            "tests/csharp/libs/Rasm.Rhino/UI/Scenarios",
-        ),
-        theme_names=(
-            ("blocks", "CoreRail"),
-            ("blocks", "CommandHistoryRail"),
-            ("blocks", "Stats"),
-            ("blocks", "GraphPlan"),
-            ("blocks", "Author"),
-            ("blocks", "Bounds"),
-            ("blocks", "WriteAttributes"),
-            ("blocks", "ArchiveClosure"),
-            ("blocks", "ArchiveValidateBroken"),
-            ("blocks", "NativeAdd"),
-            ("blocks", "PlacementReference"),
-            ("camera", "NamedViewRail"),
-            ("exchange", "Exchange"),
-            ("ui", "MotionOverlay"),
-            ("ui", "Paint"),
-            ("ui", "ProjectionHud"),
-        ),
-    ),
-    _ScenarioCorpus(
-        project="tests/csharp/libs/Rasm.Grasshopper/Rasm.Grasshopper.Tests.csproj",
-        assembly="Rasm.Grasshopper.Tests.dll",
-        paths=("tests/csharp/libs/Rasm.Grasshopper/UI", "tests/csharp/libs/Rasm.Grasshopper/UI/Scenarios"),
-        theme_names=(("gh-ui", "MotionLayout"),),
-    ),
-)
 _ENVELOPE_DECODER: Final[msgspec.json.Decoder[_SessionEnvelope]] = msgspec.json.Decoder(_SessionEnvelope, strict=False)
 _CLOSURE_DECODER: Final[msgspec.json.Decoder[_ClosureManifest]] = msgspec.json.Decoder(_ClosureManifest, strict=False)
 _CERTIFICATE_DECODER: Final[msgspec.json.Decoder[_EvidenceCertificate]] = msgspec.json.Decoder(_EvidenceCertificate, strict=False)
@@ -434,7 +348,7 @@ def _client_check(settings: AssaySettings, *args: str) -> Result[Check, Fault]:
             return Ok(Check(tool=tool, cwd=Path(str(settings.root))))
 
 
-def client_run(settings: AssaySettings, *args: str, timeout: float | None = None) -> Result[Completed, Fault]:
+def client_run(settings: AssaySettings, *args: str, executor: Executor, timeout: float | None = None) -> Result[Completed, Fault]:
     """Run the bridge supervisor with verb arguments and an optional wall-clock deadline.
 
     Returns:
@@ -444,7 +358,7 @@ def client_run(settings: AssaySettings, *args: str, timeout: float | None = None
     scope = ArtifactScope.build(settings, "bridge")
     return (
         _client_check(settings, *args)
-        .bind(lambda check: run_check(check, settings=settings, scope=scope, routed=_routed(), deadline=deadline))
+        .bind(lambda check: executor.run(check, settings=settings, scope=scope, routed=_routed(), deadline=deadline))
         .map(_completed_from_stdout)
     )
 
@@ -506,76 +420,47 @@ def _faulted(outcome: Result[Completed, Fault]) -> Result[Completed, Fault]:
             return Error(fault)
 
 
-def _theme_tokens(pattern: str) -> tuple[str, ...]:
-    return tuple(part.strip() for part in pattern.split(",") if part.strip())
+def _selection(pattern: str) -> str:
+    """Project the verify pattern into the in-host selection payload.
+
+    Pass-through by design: dotted tokens select scenario names, bare tokens select themes, and the in-host shell
+    owns name/glob resolution with its own typed zero-match fault — no local roster validation.
+
+    Returns:
+        Selection JSON: ``all`` for empty/``all``/``*`` tokens, else a ``names`` or ``themes`` payload.
+    """
+    tokens = tuple(dict.fromkeys(part.strip() for part in pattern.split(",") if part.strip()))
+    if frozenset(tokens) <= _ALL_TOKENS:
+        return '{"$type":"all"}'
+    kind = "names" if any("." in token for token in tokens) else "themes"
+    return msgspec.json.encode({"$type": kind, kind: list(tokens)}).decode()
 
 
-def _plan(pattern: str) -> Result[_SelectionPlan, Fault]:
-    tokens = _theme_tokens(pattern)
-    if pattern.strip() in _ALL_TOKENS or not tokens:
-        return Ok(_SelectionPlan(corpora=_SCENARIO_CORPORA, selection_json='{"$type":"all"}'))
-    all_themes = frozenset(theme for corpus in _SCENARIO_CORPORA for theme in corpus.themes)
-    token_set = frozenset(tokens)
-    if token_set <= all_themes:
-        return Ok(
-            _SelectionPlan(
-                corpora=tuple(corpus for corpus in _SCENARIO_CORPORA if corpus.themes & token_set),
-                selection_json=_selection("themes", "themes", tokens),
-            )
-        )
-    path_corpora = tuple(corpus for corpus in _SCENARIO_CORPORA if any(_matches_corpus(token, corpus) for token in tokens))
-    resolved = tuple(
-        name for token in tokens if (name := _scenario_name(token)) in frozenset(name for corpus in _SCENARIO_CORPORA for name in corpus.names)
-    )
-    matches = tuple(name for corpus in _SCENARIO_CORPORA for name in corpus.names if any(_matches(token, name) for token in tokens))
-    selected = tuple(
-        dict.fromkeys((
-            *resolved,
-            *matches,
-            *((f"{theme}.{name}" for corpus in path_corpora for theme, name in corpus.theme_names) if resolved or matches else ()),
-        ))
-    )
-    corpora = tuple(corpus for corpus in _SCENARIO_CORPORA if corpus.names & frozenset(selected) or corpus in path_corpora)
-    if selected and corpora:
-        return Ok(_SelectionPlan(corpora=corpora, selection_json=_selection("names", "names", selected)))
-    if corpora:
-        selected_themes = tuple(theme for corpus in corpora for theme, _ in corpus.theme_names)
-        return Ok(_SelectionPlan(corpora=corpora, selection_json=_selection("themes", "themes", selected_themes)))
-    return Error(Fault(("bridge", "verify", pattern), RailStatus.UNSUPPORTED, f"no typed bridge scenario matched pattern: {pattern!r}"))
+def _corpus_sources(settings: AssaySettings) -> tuple[Path, ...]:
+    """Roster the scenario sources under the single scenario home.
+
+    Returns:
+        Every non-generated ``*.cs`` under the scenarios project directory; empty means nothing to verify.
+    """
+    root = settings.root / PurePosixPath(_SCENARIO_PROJECT).parent.as_posix()
+    try:
+        return tuple(sorted(Path(str(path)) for path in root.rglob("*.cs") if not {"bin", "obj"} & set(Path(str(path)).parts)))
+    except OSError:
+        return ()
 
 
-def _matches(token: str, value: str) -> bool:
-    bare = value.rsplit(".", 1)[-1]
-    return token in {value, bare} or (any(glyph in token for glyph in _PATH_GLYPHS) and fnmatchcase(value, token))
-
-
-def _matches_corpus(token: str, corpus: _ScenarioCorpus) -> bool:
-    parent = Path(corpus.project).parent.as_posix()
-    paths = (corpus.project, parent, *corpus.paths)
-    return token in paths or (any(glyph in token for glyph in _PATH_GLYPHS) and any(fnmatchcase(path, token) for path in paths))
-
-
-def _scenario_name(token: str) -> str:
-    return token if "." in token else next((name for corpus in _SCENARIO_CORPORA for name in corpus.names if name.endswith("." + token)), token)
-
-
-def _selection(kind: str, field: str, values: tuple[str, ...]) -> str:
-    return msgspec.json.encode({"$type": kind, field: list(dict.fromkeys(values))}).decode()
-
-
-def _closure_index(scope: ArtifactScope) -> Result[dict[str, tuple[Path, _ClosureManifest]], Fault]:
+def _scenario_closure(scope: ArtifactScope) -> Result[tuple[Path, _ClosureManifest], Fault]:
+    # One scenario assembly, one manifest: the first closure naming Rasm.Scenarios.dll is the bound manifest.
     root = Path(scope.path)
     try:
         manifests = tuple(sorted(root.rglob(_CLOSURE_FILE)))
     except OSError as exc:
         return Error(Fault(("bridge", "closure-index"), RailStatus.FAULTED, str(exc)[:1024]))
-    rows: dict[str, tuple[Path, _ClosureManifest]] = {}
     for path in manifests:
         decoded = _read_closure(path)
-        for corpus in _SCENARIO_CORPORA:
-            if corpus.assembly in {Path(assembly).name for assembly in decoded.assemblies}:
-                rows[corpus.assembly] = (path, decoded)
-    return Ok(rows)
+        if _SCENARIO_ASSEMBLY in {Path(assembly).name for assembly in decoded.assemblies}:
+            return Ok((path, decoded))
+    return Error(Fault(("bridge", "closure-index"), RailStatus.FAULTED, f"missing bridge closure: {_SCENARIO_ASSEMBLY}"))
 
 
 def _read_closure(path: Path) -> _ClosureManifest:
@@ -586,18 +471,10 @@ def _read_closure(path: Path) -> _ClosureManifest:
 
 
 def _aggregate_closure(
-    settings: AssaySettings,
-    scope: ArtifactScope,
-    plan: _SelectionPlan,
-    index: dict[str, tuple[Path, _ClosureManifest]],
-    *,
-    evidence: Literal["verify", "author"] = "verify",
+    settings: AssaySettings, scope: ArtifactScope, closure: tuple[Path, _ClosureManifest], *, evidence: Literal["verify", "author"] = "verify"
 ) -> Result[Path, Fault]:
-    missing = tuple(corpus.assembly for corpus in plan.corpora if corpus.assembly not in index)
-    if missing:
-        return Error(Fault(("bridge", "closure-index"), RailStatus.FAULTED, f"missing bridge closure(s): {', '.join(missing)}"))
+    path, manifest = closure
     target = Path(scope.ensure()) / _AGGREGATE_CLOSURE_FILE
-    selected = tuple(index[corpus.assembly] for corpus in plan.corpora)
     cargo_fallback = Path(scope.path) / "bin" / "Cargo" / settings.configuration.value.lower()
     cargo_root = _pivot_output(scope.path, "Cargo", settings.configuration.value) or cargo_fallback
     cargo_assemblies = tuple(sorted(cargo_root.glob("*.dll")))
@@ -608,39 +485,22 @@ def _aggregate_closure(
             sorted(
                 {
                     str((path.parent / assembly).resolve()) if not Path(assembly).is_absolute() else str(Path(assembly).resolve())
-                    for path, closure in selected
-                    for assembly in closure.assemblies
+                    for assembly in manifest.assemblies
                 }
-                | {str(path.resolve()) for path in cargo_assemblies}
+                | {str(dll.resolve()) for dll in cargo_assemblies}
             )
         ),
-        scenario_assemblies=tuple(sorted({corpus.assembly for corpus in plan.corpora})),
-        host_plugins=tuple(sorted({plugin for _, closure in selected for plugin in closure.host_plugins})),
-        built_against=next((closure.built_against for _, closure in selected if closure.built_against != _HostFingerprint()), _HostFingerprint()),
+        scenario_assemblies=(_SCENARIO_ASSEMBLY,),
+        host_plugins=tuple(sorted(manifest.host_plugins)),
+        built_against=manifest.built_against,
         evidence_mode=evidence,
-        reference_roots=_reference_roots(settings, plan),
+        reference_roots=(_ReferenceRoot(assembly=_SCENARIO_ASSEMBLY, path=str((settings.root / _REFERENCE_ROOT).resolve())),),
     )
     try:
         target.write_bytes(msgspec.json.encode(payload))
         return Ok(target)
     except OSError as exc:
         return Error(Fault(("bridge", "closure-aggregate"), RailStatus.FAULTED, str(exc)[:1024]))
-
-
-def _reference_roots(settings: AssaySettings, plan: _SelectionPlan) -> tuple[_ReferenceRoot, ...]:
-    return tuple(
-        _ReferenceRoot(assembly=corpus.assembly, theme=theme, path=_reference_root_path(settings, corpus, theme))
-        for corpus in plan.corpora
-        for theme in sorted(corpus.themes)
-    )
-
-
-def _reference_root_path(settings: AssaySettings, corpus: _ScenarioCorpus, theme: str) -> str:
-    segment = {"gh-ui": "UI", "ui": "UI"}.get(theme, theme.title().replace("-", ""))
-    match = next((path for path in corpus.paths if path.endswith(f"/{segment}/Scenarios")), "")
-    if not match:
-        match = next((path for path in corpus.paths if path.endswith("/Scenarios")), str(Path(corpus.project).parent / "Scenarios"))
-    return str((settings.root / match / "_references").resolve())
 
 
 def _scenario_artifacts(report_dir: Path) -> tuple[Artifact, ...]:
@@ -767,11 +627,11 @@ def _sarif_artifacts(scope: ArtifactScope) -> tuple[Artifact, ...]:
     return tuple(Artifact(id=path.stem, kind=ArtifactKind.PROCESS, path=str(path), bytes=_size(path), lines=_lines(path)) for path in paths)
 
 
-def _build_project(settings: AssaySettings, scope: ArtifactScope, project: str) -> Result[Completed, Fault]:
+def _build_project(settings: AssaySettings, scope: ArtifactScope, project: str, executor: Executor) -> Result[Completed, Fault]:
     tool = msgspec.structs.replace(
         _BUILD_TOOL, command=(*_BUILD_TOOL.command, "--configuration", settings.configuration.value, str(settings.root / project))
     )
-    return run_check(Check(tool=tool, cwd=Path(str(settings.root))), settings=settings, scope=scope, routed=_routed(), deadline=None)
+    return executor.run(Check(tool=tool, cwd=Path(str(settings.root))), settings=settings, scope=scope, routed=_routed(), deadline=None)
 
 
 def _first_diagnostic(rows: tuple[Completed, ...]) -> str:
@@ -795,12 +655,12 @@ def _build_ready(done: Completed) -> bool:
     return done.status.severity <= RailStatus.OK.severity
 
 
-def _build_closure(settings: AssaySettings) -> Result[Completed, Fault]:
+def _build_closure(settings: AssaySettings, executor: Executor) -> Result[Completed, Fault]:
     def locked(_held: object) -> Result[Completed, Fault]:
         scope = ArtifactScope.build(settings, "bridge")
         rows: list[Completed] = []
         for project in _BUILD_PROJECTS:
-            match _build_project(settings, scope, project):
+            match _build_project(settings, scope, project, executor):
                 case Result(tag="ok", ok=done):
                     row = msgspec.structs.replace(done, status=RailStatus.OK) if done.status is RailStatus.EMPTY and done.returncode == 0 else done
                     rows.append(row)
@@ -808,7 +668,7 @@ def _build_closure(settings: AssaySettings) -> Result[Completed, Fault]:
                         break
                 case Result(error=fault):
                     return Error(fault)
-        status = status_fold(*(row.status for row in rows))
+        status = RailStatus.fold(*(row.status for row in rows))
         return Ok(
             receipt(
                 ("rasm-bridge-build",),
@@ -841,45 +701,48 @@ def bridge_lease[T](settings: AssaySettings, action: Callable[[], Result[T, Faul
     return leased("bridge", lambda _held: action(), settings=settings, run_id=settings.run_id, project="bridge")
 
 
-def verify(settings: AssaySettings, scope: ArtifactScope, params: BridgeParams) -> Result[Report, Fault]:
+def verify(settings: AssaySettings, scope: ArtifactScope, params: BridgeParams, executor: Executor) -> Result[Report, Fault]:
     """Verify typed bridge scenarios under the live host lease.
+
+    An empty scenario corpus short-circuits to a typed UNSUPPORTED receipt before any build or host launch.
 
     Returns:
         Verification report or setup/session fault.
     """
     argv = ("bridge", "verify", params.pattern, f"--evidence={params.evidence}")
-    return bridge_lease(settings, lambda: _verify_locked(settings, scope, params, argv))
+    if not _corpus_sources(settings):
+        empty = receipt(argv, RailStatus.UNSUPPORTED.exit_code, status=RailStatus.UNSUPPORTED, notes=(_EMPTY_CORPUS_NOTE,))
+        return Ok(fold(Claim.BRIDGE, "verify", (empty,), promote_empty=True))
+    return bridge_lease(settings, lambda: _verify_locked(settings, scope, params, argv, executor))
 
 
-def _verify_locked(settings: AssaySettings, scope: ArtifactScope, params: BridgeParams, argv: tuple[str, ...]) -> Result[Report, Fault]:
+def _verify_locked(
+    settings: AssaySettings, scope: ArtifactScope, params: BridgeParams, argv: tuple[str, ...], executor: Executor
+) -> Result[Report, Fault]:
     _ = scope
     build_scope = ArtifactScope.build(settings, "bridge")
     prelude = (
-        _build_closure(settings)
+        _build_closure(settings, executor)
         .bind(
             lambda built: (
-                _plan(params.pattern)
+                _scenario_closure(build_scope)
                 if _build_ready(built)
                 else Error(Fault(built.argv, built.status, _first_diagnostic((built,)) or "bridge build failed"))
             )
         )
-        .bind(
-            lambda plan: _closure_index(build_scope).bind(
-                lambda index: _aggregate_closure(settings, build_scope, plan, index, evidence=params.evidence).map(lambda closure: (plan, closure))
-            )
-        )
+        .bind(lambda closure: _aggregate_closure(settings, build_scope, closure, evidence=params.evidence))
     )
     match prelude:
-        case Result(tag="ok", ok=(plan, closure)):
-            return _fold_session(settings, plan, closure, argv, evidence=params.evidence)
+        case Result(tag="ok", ok=closure):
+            return _fold_session(settings, _selection(params.pattern), closure, argv, evidence=params.evidence, executor=executor)
         case Result(error=fault):
             return Error(fault)
 
 
 def _fold_session(
-    settings: AssaySettings, plan: _SelectionPlan, closure: Path, argv: tuple[str, ...], *, evidence: Literal["verify", "author"]
+    settings: AssaySettings, selection: str, closure: Path, argv: tuple[str, ...], *, evidence: Literal["verify", "author"], executor: Executor
 ) -> Result[Report, Fault]:
-    outcome = client_run(settings, "verify", plan.selection_json, str(closure), evidence, timeout=_SCENARIO_TIMEOUT_S)
+    outcome = client_run(settings, "verify", selection, str(closure), evidence, executor=executor, timeout=_SCENARIO_TIMEOUT_S)
     match outcome:
         case Result(tag="ok", ok=done):
             envelope = _decode_envelope(done)
@@ -1042,7 +905,7 @@ def _host_rows(host: _HostFingerprint) -> tuple[tuple[str, str], ...]:
     )
 
 
-def _lifecycle(settings: AssaySettings, verb: str, *args: str) -> Result[Report, Fault]:
+def _lifecycle(settings: AssaySettings, verb: str, *args: str, executor: Executor) -> Result[Report, Fault]:
     def _fold_lifecycle(done: Completed) -> Report:
         envelope = _decode_envelope(done)
         phase, output = first_fault(envelope)
@@ -1063,37 +926,37 @@ def _lifecycle(settings: AssaySettings, verb: str, *args: str) -> Result[Report,
             ),
         )
 
-    return bridge_lease(settings, lambda: client_run(settings, verb, *args).map(_fold_lifecycle))
+    return bridge_lease(settings, lambda: client_run(settings, verb, *args, executor=executor).map(_fold_lifecycle))
 
 
-def status(settings: AssaySettings, scope: ArtifactScope, params: BridgeParams) -> Result[Report, Fault]:
+def status(settings: AssaySettings, scope: ArtifactScope, params: BridgeParams, executor: Executor) -> Result[Report, Fault]:
     """Run the bridge host health probe.
 
     Returns:
         Lifecycle report or operational fault.
     """
     _ = (scope, params)
-    return _lifecycle(settings, "status")
+    return _lifecycle(settings, "status", executor=executor)
 
 
-def quit(settings: AssaySettings, scope: ArtifactScope, params: BridgeParams) -> Result[Report, Fault]:  # noqa: A001
+def quit(settings: AssaySettings, scope: ArtifactScope, params: BridgeParams, executor: Executor) -> Result[Report, Fault]:  # noqa: A001
     """Terminate the bridge host under the live host lease.
 
     Returns:
         Lifecycle report or operational fault.
     """
     _ = (scope, params)
-    return _lifecycle(settings, "quit")
+    return _lifecycle(settings, "quit", executor=executor)
 
 
-def build(settings: AssaySettings, scope: ArtifactScope, params: BridgeParams) -> Result[Report, Fault]:
+def build(settings: AssaySettings, scope: ArtifactScope, params: BridgeParams, executor: Executor) -> Result[Report, Fault]:
     """Build the bridge supervisor, shell, stub, cargo, and typed scenario closures.
 
     Returns:
         Build report or build fault.
     """
     _ = (scope, params)
-    return _build_closure(settings).map(
+    return _build_closure(settings, executor).map(
         lambda done: fold(
             Claim.BRIDGE,
             "build",

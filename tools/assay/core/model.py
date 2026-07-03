@@ -1,24 +1,19 @@
-"""Assay wire model, routing axes, evidence details, and report folds.
+"""Assay wire model: status algebra, routing axes, evidence details, and envelope projections.
 
 All JSON emission routes through the module encoder so envelope order, tagged-detail validation, and exit-code projection stay one contract.
+Foreign tool-output parsing lives in ``tools.assay.diagnostics``, keyed by the ``Parser`` vocabulary declared here.
 """
 
-from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum
-from functools import cache
+from functools import reduce
 from pathlib import Path
 import re
-import shlex
-from typing import Annotated, Final, Literal, Self
-from urllib.parse import unquote, urlparse
+from typing import Annotated, ClassVar, Literal, Self
 
 from cyclopts import Parameter
 import msgspec
-import structlog
-
-from tools.assay.core.status import fold as rail_fold, RailStatus, Step
 
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -123,6 +118,79 @@ class MutationLane(StrEnum):
     FULL = "full"
 
 
+class Parser(StrEnum):
+    """Diagnostics family a catalog row declares for its parseable output; NONE rows contribute defect evidence only."""
+
+    NONE = "none"
+    BIOME = "biome"
+    CS_CONSOLE = "cs-console"
+    MYPY = "mypy"
+    PY_ANALYZER = "py-analyzer"
+    RUFF = "ruff"
+    RUFF_FORMAT = "ruff-format"
+    TSC = "tsc"
+    TY = "ty"
+
+
+class RailStatus(StrEnum):
+    """Rail status with its wire token, exit code, severity rank, and the dominant/fold severity algebra."""
+
+    exit_code: int  # bound by __new__; not a real descriptor
+    severity: int
+
+    SKIP = "skip", 0, 0, "skipped"
+    EMPTY = "empty", 0, 1
+    OK = "ok", 0, 2
+    DEGRADED = "degraded", 2, 3
+    CANDIDATE = "candidate", 2, 4
+    UNSUPPORTED = "unsupported", 3, 5
+    BUSY = "busy", 5, 6
+    TIMEOUT = "timeout", 5, 7
+    FAILED = "failed", 1, 8
+    FAULTED = "faulted", 2, 9
+
+    def __new__(cls, value: str, exit_code: int, severity: int, *aliases: str) -> Self:
+        """Bind the wire token, exit code, severity, and string aliases."""
+        member = str.__new__(cls, value)
+        member._value_ = value
+        member.exit_code = exit_code
+        member.severity = severity
+        for alias in aliases:
+            member._add_value_alias_(alias)  # Python 3.13+ raises on cross-member alias collisions
+        return member
+
+    @classmethod
+    def from_returncode(cls, rc: int) -> RailStatus:
+        """Project a process return code onto the nearest rail status.
+
+        Returns:
+            EMPTY for 0, BUSY for 5, TIMEOUT for 124, FAILED for everything else.
+        """
+        match rc:
+            case 0:
+                return cls.EMPTY
+            case 5:
+                return cls.BUSY
+            case 124:
+                return cls.TIMEOUT
+            case _:
+                return cls.FAILED
+
+    @classmethod
+    def dominant(cls, left: RailStatus, right: RailStatus) -> RailStatus:
+        """Return the higher-severity status, keeping the left status on ties."""
+        return left if left.severity >= right.severity else right
+
+    @classmethod
+    def fold(cls, *members: RailStatus) -> RailStatus:
+        """Reduce statuses under ``dominant``, seeded at ``EMPTY``.
+
+        Returns:
+            The highest-severity status among the supplied members.
+        """
+        return reduce(cls.dominant, members, cls.EMPTY)
+
+
 class Runner(StrEnum):
     """Launch axis for a tool."""
 
@@ -139,44 +207,6 @@ class Runner(StrEnum):
         m = str.__new__(cls, value)
         m._value_, m.prefix = value, prefix
         return m
-
-
-class ToolGroup(StrEnum):
-    """Tool policy group: uv dependency groups inject ``uv run --group``; assay tags drive status/eligibility."""
-
-    uv: bool  # genuine uv dependency group when True, assay policy tag when False
-
-    MUTATION = "mutation", True
-    RUN_DEFAULT = "run-default", False
-    REQUIRES_COVERAGE = "requires-coverage", False
-    REQUIRES_BENCHMARK = "requires-benchmark", False
-    EMPTY_ON_EXIT1 = "empty-on-exit1", False
-
-    def __new__(cls, value: str, uv: bool) -> Self:  # noqa: FBT001  # enum payload binder mirrors enum field order
-        """Attach the uv-dependency-group flag not represented by the StrEnum value."""
-        m = str.__new__(cls, value)
-        m._value_, m.uv = value, uv
-        return m
-
-
-class SourceKind(StrEnum):
-    """Source provenance for API evidence."""
-
-    ASSEMBLY = "assembly"
-    NUGET = "nuget"
-    TOOL = "tool"
-    PYDIST = "pydist"
-    TSDECL = "tsdecl"
-
-
-class SymbolShape(StrEnum):
-    """API symbol resolution shape."""
-
-    INDEX = "index"
-    NAMESPACE = "namespace"
-    TYPE = "type"
-    MEMBER = "member"
-    SEARCH = "search"
 
 
 class SarifStatus(StrEnum):
@@ -200,43 +230,80 @@ class SarifStatus(StrEnum):
         return f"{self.value}:{results}" if self is SarifStatus.PRODUCED else self.value
 
 
+class SourceKind(StrEnum):
+    """Source provenance for API evidence."""
+
+    ASSEMBLY = "assembly"
+    NUGET = "nuget"
+    TOOL = "tool"
+    PYDIST = "pydist"
+    TSDECL = "tsdecl"
+
+
+class Step(StrEnum):
+    """Fault-step taxonomy whose declaration order drives prefix classification.
+
+    ``scan=True`` members may appear as ``{step}:`` message prefixes; status-derived members stay classification-only.
+    """
+
+    scan: bool  # bound by __new__; True for the prefix-scan roster, False for status-derived classifications
+
+    STRICT = "strict", True
+    VALIDATION = "validation", True
+    CONFIG = "config", True
+    DISPATCH = "dispatch", True
+    PARSE = "parse", True
+    SPAWN = "spawn", True
+    TIMEOUT = "timeout", False
+    LEASE_BUSY = "lease_busy", False
+    DEFECTS = "defects", False
+
+    def __new__(cls, value: str, scan: bool) -> Self:  # noqa: FBT001  # positional enum-member payload, not a boolean knob
+        """Bind the wire token and the prefix-scan roster flag."""
+        member = str.__new__(cls, value)
+        member._value_ = value
+        member.scan = scan
+        return member
+
+
+class SymbolShape(StrEnum):
+    """API symbol resolution shape."""
+
+    INDEX = "index"
+    NAMESPACE = "namespace"
+    TYPE = "type"
+    MEMBER = "member"
+    SEARCH = "search"
+
+
+class ToolGroup(StrEnum):
+    """Tool policy group: uv dependency groups inject ``uv run --group``; assay tags drive status/eligibility."""
+
+    uv: bool  # genuine uv dependency group when True, assay policy tag when False
+
+    MUTATION = "mutation", True
+    RUN_DEFAULT = "run-default", False
+    REQUIRES_COVERAGE = "requires-coverage", False
+    REQUIRES_BENCHMARK = "requires-benchmark", False
+    EMPTY_ON_EXIT1 = "empty-on-exit1", False
+
+    def __new__(cls, value: str, uv: bool) -> Self:  # noqa: FBT001  # enum payload binder mirrors enum field order
+        """Attach the uv-dependency-group flag not represented by the StrEnum value."""
+        m = str.__new__(cls, value)
+        m._value_, m.uv = value, uv
+        return m
+
+
 type InprocThunk = Callable[[Check], Completed]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_RESULT_CAP: int = 1000
-_DEFECT_TAIL: int = 4096
-# SARIF 2.1 result levels -> assay severities; analyzer notes (e.g. CSP0903) surface as info-grade evidence.
-_SARIF_SEVERITY: dict[str, str] = {"error": "error", "warning": "warning", "note": "info", "none": "info"}
-_DIAGNOSTIC_SEVERITY_RANK: dict[str, int] = {"error": 0, "warning": 1, "info": 2, "failed": 3}
-_PROCESS_BACKED_OK_CLAIMS: tuple[Claim, ...] = (Claim.STATIC, Claim.TEST, Claim.PACKAGE, Claim.BRIDGE, Claim.PROVISION)
+RESULT_CAP: int = 1000
 # host-bound claims cannot run off-host; remote execution rejects them before argv composition.
-_HOST_BOUND_CLAIMS: frozenset[Claim] = frozenset((Claim.BRIDGE, Claim.PACKAGE, Claim.PROVISION))
-_ANSI_ESCAPE = re.compile(r"\x1b\[[0-9;]*m")
-_HEADER_DIAGNOSTIC = re.compile(r"^(?P<severity>error|warning|warn|info|note)(?:\[(?P<rule>[^\]]+)])?:\s*(?P<message>.+)$", re.IGNORECASE)
-_ARROW_LOCATION = re.compile(r"^\s*-->\s*(?P<path>.+?):(?P<line>\d+):(?P<column>\d+)$")
-_MYPY_DIAGNOSTIC = re.compile(
-    r"^(?P<path>.+?):(?P<line>\d+)(?::(?P<column>\d+))?:\s*(?P<severity>error|warning|note):\s*"
-    r"(?P<message>.*?)(?:\s+\[(?P<rule>[a-z0-9_.-]+)])?$",
-    re.IGNORECASE,
-)
-_TSC_DIAGNOSTIC = re.compile(
-    r"^(?P<path>.+?)(?:\((?P<line1>\d+),(?P<column1>\d+)\):?|:(?P<line2>\d+):(?P<column2>\d+)\s+-)\s*"
-    r"(?P<severity>error|warning)\s+(?P<rule>TS\d+):\s*(?P<message>.+)$",
-    re.IGNORECASE,
-)
-_BIOME_TEXT_DIAGNOSTIC = re.compile(
-    r"^(?P<path>.+?):(?P<line>\d+):(?P<column>\d+)\s+(?P<rule>(?:lint|assist|parse|format)[/\w.-]*)\s*(?P<message>.*)$", re.IGNORECASE
-)
-_FORMAT_DIAGNOSTIC = re.compile(r"^(?:Would reformat:\s*(?P<path>.+)|(?P<path2>.+?)\s+would be reformatted)$", re.IGNORECASE)
-_CS_DIAGNOSTIC = re.compile(
-    r"^(?P<path>.*?\.(?:cs|csproj|props|targets|slnx))\((?P<line>\d+),(?P<column>\d+)\):\s*"
-    r"(?P<severity>error|warning|info)\s+(?P<rule>[A-Z][A-Z0-9]*\d+):\s*(?P<message>.*?)(?:\s+\[(?P<project>[^\]]+)\])?$",
-    re.IGNORECASE,
-)
-# Forward-slash-normalized, lowercased path fragments and suffix that mark generated/build-output rows as evidence-only.
-_GENERATED_MARKERS: Final[tuple[str, ...]] = ("/obj/", "/.artifacts/assay/")
-_GENERATED_SUFFIX: Final[str] = ".g.cs"
+HOST_BOUND_CLAIMS: frozenset[Claim] = frozenset((Claim.BRIDGE, Claim.PACKAGE, Claim.PROVISION))
+# Catalog command holes: `{name}` substitutes a ToolArgs string field inside a token; `{name*}` is a whole-token
+# tuple splice. A token whose referenced string value is empty drops whole, so optional flags vanish cleanly.
+_HOLE: re.Pattern[str] = re.compile(r"\{([a-z_]+)(\*)?\}")
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -257,6 +324,69 @@ class Stage(Base, frozen=True, cache_hash=True):
     project: bool = False
 
 
+class ToolArgs(Base, frozen=True, cache_hash=True):
+    """Typed splice values filling the catalog command holes for one check.
+
+    Each field names one hole; string fields substitute inside tokens (``{fqn}``), tuple fields splice whole
+    tokens (``{targets*}``). Rails never edit ``Tool.command`` — they declare values here and ``fill`` weaves them.
+    """
+
+    argv: tuple[str, ...] = ()
+    assembly: str = ""
+    binary: str = ""
+    configuration: str = ""
+    filter: tuple[str, ...] = ()
+    flags: tuple[str, ...] = ()
+    fqn: str = ""
+    globs: tuple[str, ...] = ()
+    input: str = ""
+    language: str = ""
+    max_children: str = ""
+    max_cpu: str = ""
+    output: str = ""
+    pattern: str = ""
+    platform: str = ""
+    project: str = ""
+    props: tuple[str, ...] = ()
+    sarif_dir: str = ""
+    scope: tuple[str, ...] = ()
+    sink: str = ""
+    sink_dir: str = ""
+    solution: str = ""
+    target: str = ""
+    targets: tuple[str, ...] = ()
+    verb: str = ""
+    version: str = ""
+
+    def fill(self, command: tuple[str, ...]) -> tuple[str, ...]:
+        """Weave typed values into a command template.
+
+        Returns:
+            The command with every hole resolved; empty-valued string holes drop their whole token.
+
+        Raises:
+            ValueError: When a hole names a field of the wrong kind (tuple embedded, or string under ``*``).
+        """
+        return tuple(part for token in command for part in self._tokens(token))
+
+    def _tokens(self, token: str) -> tuple[str, ...]:
+        splat = _HOLE.fullmatch(token)
+        if splat is not None and splat.group(2) == "*":
+            value = getattr(self, splat.group(1))
+            if not isinstance(value, tuple):
+                raise ValueError(f"splice hole {token!r} requires a tuple field")
+            return value
+        holes = tuple(_HOLE.finditer(token))
+        if not holes:
+            return (token,)
+        values = {found.group(1): getattr(self, found.group(1)) for found in holes}
+        if any(not isinstance(value, str) for value in values.values()):
+            raise ValueError(f"embedded hole in {token!r} requires string fields")
+        if any(not value for value in values.values()):
+            return ()
+        return (_HOLE.sub(lambda found: str(values[found.group(1)]), token),)
+
+
 class Tool(Base, frozen=True, cache_hash=True):
     """Catalog row describing one executable or in-process program."""
 
@@ -269,11 +399,14 @@ class Tool(Base, frozen=True, cache_hash=True):
     mode: Mode = Mode.CHECK
     groups: tuple[ToolGroup, ...] = ()
     timeout: Annotated[float, msgspec.Meta(gt=0)] | None = None
-    thunk: InprocThunk | None = None
     stage: Stage = Stage()
     env: tuple[tuple[str, str], ...] = ()
     # (returncode, output marker) the tool emits for "nothing to do"; a b"" marker keys on the returncode alone.
     empty_signature: tuple[int, bytes] | None = None
+    # Diagnostics family for the row's parseable output; the engine stamps it onto each receipt for the report fold.
+    parser: Parser = Parser.NONE
+    # Row-owned PROJECT placement flag (e.g. ("--project",)); empty means the bare project token.
+    input_flag: tuple[str, ...] = ()
 
     def uv_groups(self) -> tuple[ToolGroup, ...]:
         """Return the groups that name genuine uv dependency groups for ``uv run --group`` injection.
@@ -288,12 +421,17 @@ class Check(Base, frozen=True, cache_hash=True):
     """Tool bound to a concrete input scope.
 
     ``tail=None`` defers placement until argv composition and requires the route to resolve to at most one tail.
+    ``args`` carries the typed splice values for the row's command holes; ``thunk`` carries the per-invocation
+    INPROC callable; ``timeout`` overrides the row timeout without minting a sibling row.
     """
 
     tool: Tool
     paths: tuple[str, ...] = ()
     cwd: Path | None = None
     tail: tuple[str, ...] | None = None
+    args: ToolArgs = ToolArgs()
+    thunk: InprocThunk | None = None
+    timeout: Annotated[float, msgspec.Meta(gt=0)] | None = None
 
 
 class Artifact(Base, frozen=True):
@@ -362,6 +500,10 @@ class Completed(Base, frozen=True):
     artifacts: tuple[Artifact, ...] = ()
     resources: tuple[tuple[str, float], ...] = ()
     exec: ExecReceipt | None = None
+    # Stamped from the tool row by the engine at receipt time; keys the diagnostics fold without argv sniffing.
+    parser: Parser = Parser.NONE
+    # Stamped from Check.args at receipt time; the SARIF fold reads this typed field, never re-parses argv.
+    sarif_dir: str = ""
 
 
 class Counts(Base, frozen=True):
@@ -397,127 +539,6 @@ class Match(Base, frozen=True):
     message: Annotated[str, msgspec.Meta(max_length=4096)] = ""
 
 
-# --- [SARIF] ----------------------------------------------------------------------------
-# SARIF carries tool/schema fields outside the assay wire contract; unknown fields must pass.
-# Eight structs model distinct SARIF 2.1 schema levels (log -> run -> result -> location -> region); they are not parallel
-# shapes for one concept, so they stay separate owners under one navigation label.
-
-
-class _SarifMessage(msgspec.Struct, frozen=True, gc=False):
-    text: str = ""
-
-
-class _SarifRegion(msgspec.Struct, frozen=True, gc=False, rename="camel"):
-    start_line: int = 0
-    start_column: int = 0
-
-
-class _SarifArtifactLocation(msgspec.Struct, frozen=True, gc=False):
-    uri: str = ""
-
-
-class _SarifPhysicalLocation(msgspec.Struct, frozen=True, gc=False, rename="camel"):
-    artifact_location: _SarifArtifactLocation = msgspec.field(default_factory=_SarifArtifactLocation)
-    region: _SarifRegion = msgspec.field(default_factory=_SarifRegion)
-
-
-class _SarifLocation(msgspec.Struct, frozen=True, gc=False, rename="camel"):
-    physical_location: _SarifPhysicalLocation = msgspec.field(default_factory=_SarifPhysicalLocation)
-
-
-class _SarifSuppression(msgspec.Struct, frozen=True, gc=False):
-    kind: str = ""
-
-
-class _SarifResult(msgspec.Struct, frozen=True, gc=False, rename="camel"):
-    rule_id: str = ""
-    level: str = ""
-    message: _SarifMessage = msgspec.field(default_factory=_SarifMessage)
-    locations: tuple[_SarifLocation, ...] = ()
-    suppressions: tuple[_SarifSuppression, ...] = ()  # non-empty => suppressed in-source; the build honors it, so the rail must too
-
-
-class _SarifRun(msgspec.Struct, frozen=True, gc=False):
-    results: tuple[_SarifResult, ...] = ()
-
-
-class _SarifLog(msgspec.Struct, frozen=True, gc=False):
-    """Roslyn-shaped SARIF 2.1 subset: runs[].results[] with ruleId/level/message/locations."""
-
-    runs: tuple[_SarifRun, ...] = ()
-
-
-class _PyAnalyzerDiagnostic(msgspec.Struct, frozen=True, gc=False):
-    rule_id: str = ""
-    severity: str = ""
-    path: str = ""
-    line: int = 0
-    column: int = 0
-    title: str = ""
-    message: str = ""
-
-
-class _BiomePoint(msgspec.Struct, frozen=True, gc=False):
-    line: int = 0
-    column: int = 0
-
-
-class _BiomeLocation(msgspec.Struct, frozen=True, gc=False):
-    path: str = ""
-    start: _BiomePoint = msgspec.field(default_factory=_BiomePoint)
-
-
-class _BiomeDiagnostic(msgspec.Struct, frozen=True, gc=False):
-    severity: str = ""
-    message: str = ""
-    category: str = ""
-    location: _BiomeLocation = msgspec.field(default_factory=_BiomeLocation)
-
-
-class _BiomeReport(msgspec.Struct, frozen=True, gc=False):
-    diagnostics: tuple[_BiomeDiagnostic, ...] = ()
-
-
-@dataclass(frozen=True, slots=True)
-class _TextPolicy:
-    pattern: re.Pattern[str]
-    tools: frozenset[str]
-    rule: str = ""
-    severity: str = ""
-    message: str = ""
-    rule_groups: tuple[str, ...] = ("rule",)
-    severity_groups: tuple[str, ...] = ("severity",)
-    path_groups: tuple[str, ...] = ("path",)
-    line_groups: tuple[str, ...] = ("line",)
-    column_groups: tuple[str, ...] = ("column",)
-    message_groups: tuple[str, ...] = ("message",)
-
-    def match(self, tool: str, line: str) -> Match | None:
-        return (
-            _diagnostic_match(
-                tool,
-                self.value(found, self.rule, self.rule_groups, tool),
-                self.value(found, self.severity, self.severity_groups, "error"),
-                self.value(found, "", self.path_groups, ""),
-                self.value(found, "", self.line_groups, "0"),
-                self.value(found, "", self.column_groups, "0"),
-                self.value(found, self.message, self.message_groups, ""),
-            )
-            if (not self.tools or tool in self.tools) and (found := self.pattern.match(line)) is not None
-            else None
-        )
-
-    @staticmethod
-    def value(found: re.Match[str], literal: str, groups: tuple[str, ...], fallback: str) -> str:
-        return literal or next((value for group in groups if (value := found.groupdict().get(group))), fallback)
-
-
-@dataclass(frozen=True, slots=True)
-class _PayloadPolicy:
-    accepts: Callable[[tuple[str, ...]], bool]
-    parse: Callable[[str], tuple[Match, ...]]
-
-
 class ApiResolution(Detail, frozen=True, tag="resolution"):
     """API resolution miss detail."""
 
@@ -546,6 +567,8 @@ class ApiSource(Detail, frozen=True, tag="api-source"):
     selected: tuple[str, ...] = ()
     candidates: tuple[tuple[str, int], ...] = ()
     reason: str = ""
+    # Consumer-bound target framework chosen by the oracle's TFM policy; empty for non-NuGet sources.
+    tfm: str = ""
 
 
 class ApiSurface(Detail, frozen=True, tag="api"):
@@ -789,15 +812,20 @@ def field_cap(struct: type[msgspec.Struct], field: str, *, default: int) -> int:
 
 
 # Reserve headroom within the hint cap so surplus-token text does not sever the diagnostic suffix framing.
-_HINT_CAP: int = field_cap(Diagnostic, "hint", default=1 << 62)
-_MATCH_TEXT_CAP: int = field_cap(Match, "text", default=400)
-_SURPLUS_TOKEN_CAP: int = _HINT_CAP - 76
+HINT_CAP: int = field_cap(Diagnostic, "hint", default=1 << 62)
+_SURPLUS_TOKEN_CAP: int = HINT_CAP - 76
 
 
 @Parameter(name="*")
 @dataclass(frozen=True, slots=True)
 class BaseParams:
-    """Shared CLI params base."""
+    """Shared CLI params base.
+
+    ``SLOTS`` maps verb names to positional-slot usage text; the ``""`` key is the claim default the registry
+    renders when a verb declares no override. Each params dataclass owns its verbs' slot grammar.
+    """
+
+    SLOTS: ClassVar[dict[str, str]] = {"": "[PATHS]..."}
 
     paths: Annotated[
         tuple[str, ...],
@@ -829,7 +857,7 @@ class BaseParams:
             case ((_, *_), int()):
                 use = f"; {verb} accepts at most {arity} positional(s) — use flags: {' '.join(flags)}"
                 body = f"{Step.PARSE}: {verb}: unexpected positional(s): {joined}{use}"
-                return Fault((), RailStatus.FAULTED, body[:_HINT_CAP] + ("…" if len(body) > _HINT_CAP else ""))
+                return Fault((), RailStatus.FAULTED, body[:HINT_CAP] + ("…" if len(body) > HINT_CAP else ""))
             case _:
                 clipped = joined[:_SURPLUS_TOKEN_CAP] + ("…" if len(joined) > _SURPLUS_TOKEN_CAP else "")
                 return Fault((), RailStatus.FAULTED, f"{Step.PARSE}: {verb}: unexpected positional(s): {clipped}")
@@ -888,436 +916,6 @@ def validate_detail(detail: AnyDetail | None) -> AnyDetail | None:
     return value
 
 
-def _count(done: Completed) -> tuple[int, int]:
-    match done.status:
-        case RailStatus.OK | RailStatus.EMPTY | RailStatus.SKIP:
-            return 1, 0
-        case RailStatus.FAILED:
-            return 0, 1
-        case _:
-            return 0, 0
-
-
-@cache
-def _sarif_decode(path: Path, stat_key: tuple[int, int]) -> _SarifLog:
-    # SARIF rows are evidence only: unreadable or malformed documents fold to the empty log, never a fault.
-    _ = stat_key  # content fingerprint participates in the cache key, not the read
-    try:
-        return _SARIF_LOG.decode(path.read_bytes())
-    except OSError, msgspec.MsgspecError:
-        return _SarifLog()
-
-
-def _sarif_log(path: Path) -> _SarifLog:
-    # Decode once per (path, mtime, size): rows/status/results read the same build-written document inside one fold, so
-    # the fingerprint collapses those redundant decodes; a rebuild that rewrites the document in a long-lived process
-    # (the automation daemon re-fires one stable build closure) shifts the fingerprint, so the stale log never sticks.
-    try:
-        info = path.stat()
-    except OSError:
-        return _SarifLog()
-    return _sarif_decode(path, (info.st_mtime_ns, info.st_size))
-
-
-def _code_match(rule_id: str, severity: str, path: str, line: int, column: int, message: str, *, text: str, project: str = "") -> Match:
-    # One source-diagnostic projection: SARIF, C# console, and text/JSON tool rows differ only in id/text/severity/project
-    # derivation; the Match skeleton (CODE kind, score=column, capped text) is one owner.
-    return Match(
-        id=rule_id,
-        kind=ArtifactKind.CODE,
-        text=text[:_MATCH_TEXT_CAP],
-        line=line,
-        column=column,
-        score=column,
-        severity=severity,
-        path=path,
-        project=project,
-        message=message,
-    )
-
-
-def _sarif_match(result: _SarifResult) -> Match:
-    uri = next((loc.physical_location.artifact_location.uri for loc in result.locations), "")
-    line = next((loc.physical_location.region.start_line for loc in result.locations), 0)
-    column = next((loc.physical_location.region.start_column for loc in result.locations), 0)
-    parsed = urlparse(uri)
-    path = unquote(parsed.path if parsed.scheme == "file" else uri)
-    message = result.message.text.strip()
-    return _code_match(
-        result.rule_id.lower(), _SARIF_SEVERITY.get(result.level, "warning"), path, line, column, message, text=f"{path}({line},{column}): {message}"
-    )
-
-
-def _argv_sarif_dir(argv: tuple[str, ...], fallback: Path) -> Path:
-    return next((Path(token.split("=", 1)[1]) for token in argv if token.startswith("-p:CspSarifDir=")), fallback)
-
-
-def _sarif_files(base: Path, argv: tuple[str, ...], stem: str, *, slnx: bool) -> tuple[Path, ...]:
-    active = _argv_sarif_dir(argv, base)
-    match (slnx, bool(stem)):
-        case (True, _):
-            return tuple(sorted(active.glob("*.sarif")))
-        case (False, True):
-            return (active / f"{stem}.sarif",)
-        case _:
-            return tuple(sorted(active.glob("*.sarif")))
-
-
-def _sarif_rows(sarif_dir: str | None, outcomes: tuple[Completed, ...]) -> tuple[Match, ...]:
-    if not sarif_dir:
-        return ()
-    base = Path(sarif_dir)
-    builds = tuple(done for done in outcomes if "dotnet" in done.argv and "build" in done.argv)
-    files = (
-        tuple(
-            path
-            for done in builds
-            for stem, slnx in (_build_targets(done.argv) or (("", True),))
-            for path in _sarif_files(base, done.argv, stem, slnx=slnx)
-        )
-        if builds
-        else tuple(sorted(base.glob("*.sarif")))
-    )
-    return tuple(
-        _sarif_match(result) for path in files if path.is_file() for run in _sarif_log(path).runs for result in run.results if not result.suppressions
-    )
-
-
-def _build_targets(argv: tuple[str, ...]) -> tuple[tuple[str, bool], ...]:
-    # The analyzer drops one ``$(MSBuildProjectName).sarif`` per built project; a .csproj argv names one stem keyed to
-    # its own file, a .slnx argv names the whole solution and keys against every SARIF the directory holds.
-    return tuple((Path(token).stem, token.endswith(".slnx")) for token in argv if token.endswith((".csproj", ".slnx")))
-
-
-def _sarif_status(outcomes: tuple[Completed, ...], sarif_dir: str | None) -> tuple[tuple[str, str], ...]:
-    base = Path(sarif_dir) if sarif_dir else None
-    return tuple(
-        (stem, _classify_sarif(done.status, base, done.argv, stem, slnx=slnx).token(_sarif_results(base, done.argv, stem, slnx=slnx)))
-        for done in outcomes
-        if "dotnet" in done.argv and "build" in done.argv
-        for stem, slnx in (_build_targets(done.argv) or (("", False),))
-    )
-
-
-def _classify_sarif(status: RailStatus, base: Path | None, argv: tuple[str, ...], stem: str, *, slnx: bool) -> SarifStatus:
-    produced = base is not None and any(path.is_file() for path in _sarif_files(base, argv, stem, slnx=slnx))
-    match (produced, status):
-        case (True, _):
-            return SarifStatus.PRODUCED
-        case (False, RailStatus.SKIP):
-            return SarifStatus.NO_BUILD
-        case (False, RailStatus.OK | RailStatus.EMPTY):
-            return SarifStatus.INCREMENTAL
-        case _:
-            return SarifStatus.BUILD_FAILED
-
-
-def _sarif_results(base: Path | None, argv: tuple[str, ...], stem: str, *, slnx: bool) -> int:
-    if base is None:
-        return 0
-    files = _sarif_files(base, argv, stem, slnx=slnx)
-    return sum(1 for path in files if path.is_file() for run in _sarif_log(path).runs for result in run.results if not result.suppressions)
-
-
-def _csharp_rows(outcomes: tuple[Completed, ...]) -> tuple[Match, ...]:
-    rows = tuple(
-        _code_match(
-            found.group("rule").lower(),
-            found.group("severity").lower(),
-            found.group("path"),
-            int(found.group("line")),
-            int(found.group("column")),
-            message := found.group("message").strip(),
-            text=f"{found.group('path')}({found.group('line')},{found.group('column')}): {message}"
-            + (f" [project={project}]" if (project := (found.group("project") or "").strip()) else ""),
-            project=project,
-        )
-        for done in outcomes
-        for line in (done.stdout + b"\n" + done.stderr).decode(errors="replace").splitlines()
-        for found in (_CS_DIAGNOSTIC.search(line.strip()),)
-        if found is not None
-    )
-    if rows:
-        _LOG.info(
-            "diagnostic.discovered",
-            count=len(rows),
-            source=sum(1 for row in rows if not _generated(row)),
-            generated=sum(1 for row in rows if _generated(row)),
-        )
-    return rows
-
-
-def _rows_of(done: Completed) -> tuple[Match, ...]:
-    payload = (done.stdout + b"\n" + done.stderr).decode(errors="replace")
-    return next((policy.parse(payload) for policy in _PAYLOAD_POLICIES if policy.accepts(done.argv)), ())
-
-
-def _text_rows(tool: str, payload: str) -> tuple[Match, ...]:
-    rows: list[Match] = []
-    pending: tuple[str, str, str] | None = None
-    for raw in payload.splitlines():
-        line = _ANSI_ESCAPE.sub("", raw).strip()
-        if not line:
-            continue
-        row = next((match for policy in _TEXT_POLICIES if (match := policy.match(tool, line)) is not None), None)
-        if row is not None:
-            rows.append(row)
-            continue
-        if (found := _HEADER_DIAGNOSTIC.match(line)) is not None:
-            pending = (_severity(found.group("severity")), found.group("rule") or tool, found.group("message").strip())
-            continue
-        if pending is not None and (found := _ARROW_LOCATION.match(line)) is not None:
-            severity, rule, message = pending
-            rows.append(_diagnostic_match(tool, rule, severity, found.group("path"), found.group("line"), found.group("column"), message))
-            pending = None
-    return tuple(rows)
-
-
-def _json_object[T](payload: str, decoder: msgspec.json.Decoder[T]) -> str:
-    start = payload.find("{")
-    end = payload.rfind("}") + 1
-    if start < 0 or end <= start:
-        return ""
-    try:
-        candidate = payload[start:end]
-        _ = decoder.decode(candidate.encode())
-    except msgspec.MsgspecError:
-        return ""
-    return candidate
-
-
-def _json_rows[T](
-    payload: str, *, decoder: msgspec.json.Decoder[T], project: str, rows: Callable[[T], tuple[Match, ...]], embedded: bool = False
-) -> tuple[Match, ...]:
-    # One JSON-diagnostic projection: a tool whose stdout is a bare diagnostic document decodes the whole payload; a tool
-    # that frames its JSON inside log chatter (``embedded``) carves the object span first, then folds to text rows when the
-    # decode yields nothing. The decoder, project label, and per-schema row map are the only axes that vary.
-    span = _json_object(payload, decoder) if embedded else payload
-    if not span:
-        return _text_rows(tool=project, payload=payload)
-    try:
-        decoded = decoder.decode(span.encode())
-    except msgspec.MsgspecError:
-        return _text_rows(tool=project, payload=payload) if embedded else ()
-    projected = rows(decoded)
-    return projected if projected or not embedded else _text_rows(tool=project, payload=payload)
-
-
-def _severity(raw: str) -> str:
-    return {"warn": "warning", "warning": "warning", "note": "info", "info": "info", "error": "error"}.get(raw.lower(), "error")
-
-
-def _diagnostic_match(tool: str, rule: str, severity: str, path: str, line: str, column: str, message: str) -> Match:
-    line_number, column_number, rule_id = int(line), int(column), rule.lower()
-    return _code_match(
-        f"{tool}:{rule_id}",
-        _severity(severity),
-        path,
-        line_number,
-        column_number,
-        message,
-        text=f"{tool}: {path}:{line_number}:{column_number}: {rule_id}: {message}",
-        project=tool,
-    )
-
-
-_TEXT_POLICIES: tuple[_TextPolicy, ...] = (
-    _TextPolicy(_MYPY_DIAGNOSTIC, frozenset(("mypy",))),
-    _TextPolicy(_TSC_DIAGNOSTIC, frozenset(("tsc",)), line_groups=("line1", "line2"), column_groups=("column1", "column2")),
-    _TextPolicy(_BIOME_TEXT_DIAGNOSTIC, frozenset(("biome",)), severity="error"),
-    _TextPolicy(
-        _FORMAT_DIAGNOSTIC,
-        frozenset(("ruff-format",)),
-        rule="format",
-        severity="error",
-        message="file would be reformatted",
-        path_groups=("path", "path2"),
-    ),
-)
-
-_PAYLOAD_POLICIES: tuple[_PayloadPolicy, ...] = (
-    _PayloadPolicy(
-        lambda argv: any(arg == "ruff" and index + 1 < len(argv) and argv[index + 1] == "format" for index, arg in enumerate(argv)),
-        lambda payload: _text_rows("ruff-format", payload),
-    ),
-    _PayloadPolicy(lambda argv: "ruff" in argv, lambda payload: _text_rows("ruff", payload)),
-    _PayloadPolicy(lambda argv: "ty" in argv, lambda payload: _text_rows("ty", payload)),
-    _PayloadPolicy(lambda argv: "mypy" in argv, lambda payload: _text_rows("mypy", payload)),
-    _PayloadPolicy(
-        lambda argv: "tools.py_analyzer" in argv,
-        lambda payload: _json_rows(
-            payload,
-            decoder=_PY_ANALYZER_LOG,
-            project="py-analyzer",
-            rows=lambda diagnostics: tuple(
-                _diagnostic_match("py-analyzer", row.rule_id, row.severity, row.path, str(row.line), str(row.column), row.message or row.title)
-                for row in diagnostics
-            ),
-        ),
-    ),
-    _PayloadPolicy(
-        lambda argv: "biome" in argv,
-        lambda payload: _json_rows(
-            payload,
-            decoder=_BIOME_LOG,
-            project="biome",
-            embedded=True,
-            rows=lambda report: tuple(
-                _diagnostic_match(
-                    "biome",
-                    row.category or "biome",
-                    row.severity,
-                    row.location.path,
-                    str(row.location.start.line),
-                    str(row.location.start.column),
-                    row.message,
-                )
-                for row in report.diagnostics
-            ),
-        ),
-    ),
-    _PayloadPolicy(lambda argv: "tsc" in argv, lambda payload: _text_rows("tsc", payload)),
-)
-
-
-def _generated(row: Match) -> bool:
-    path = (row.path or row.text.split(": ", 1)[0]).replace("\\", "/").lower()
-    return any(marker in path for marker in _GENERATED_MARKERS) or path.endswith(_GENERATED_SUFFIX)
-
-
-def _norm_path(path: str) -> str:
-    # Cross-channel dedup canonical form: the console emits a cwd-relative path while the SARIF uri is absolute, so the
-    # same diagnostic keys differently unless both anchor on the assay cwd (the repo root every dotnet build runs from).
-    return Path(path.replace("\\", "/")).absolute().as_posix().lower() if path else ""
-
-
-def _dedupe(rows: tuple[Match, ...]) -> tuple[Match, ...]:
-    seen: set[tuple[str, str | None, str, int, int, str]] = set()
-    out: list[Match] = []
-    for row in rows:
-        key = (row.id, row.severity, _norm_path(row.path), row.line, row.column, row.message or row.text)
-        if key not in seen:
-            seen.add(key)
-            out.append(row)
-    return tuple(out)
-
-
-def _group_generated(rows: tuple[Match, ...]) -> tuple[Match, ...]:
-    grouped: dict[tuple[str, str | None, str, str], int] = {}
-    for row in rows:
-        body = row.message or (row.text.split(": ", 1)[1] if ": " in row.text else row.text)
-        key = (row.id, row.severity, row.project.replace("\\", "/").lower(), body)
-        grouped[key] = grouped.get(key, 0) + 1
-    return tuple(
-        Match(
-            id=rule,
-            kind=ArtifactKind.PROCESS,
-            text=f"generated diagnostics grouped count={count}: {body}"[:_MATCH_TEXT_CAP],
-            severity=severity,
-            project=project,
-            message=body,
-            count=count,
-        )
-        for (rule, severity, project, body), count in sorted(
-            grouped.items(), key=lambda item: (_DIAGNOSTIC_SEVERITY_RANK.get(item[0][1] or "", 9), item[0])
-        )
-    )
-
-
-def _rank(rows: tuple[Match, ...]) -> tuple[Match, ...]:
-    return tuple(
-        sorted(rows, key=lambda row: (_DIAGNOSTIC_SEVERITY_RANK.get(row.severity or "", 9), row.id, row.path, row.line, row.column, row.text))
-    )
-
-
-def _result_rows(claim: Claim, outcomes: tuple[Completed, ...], defects: tuple[Match, ...], sarif_dir: str | None) -> tuple[Match, ...]:
-    sarif = _sarif_rows(sarif_dir, outcomes)
-    diagnostics = (*tuple(row for done in outcomes for row in _rows_of(done)), *_csharp_rows(outcomes), *sarif)
-    if claim is not Claim.STATIC:
-        return (*defects, *sarif)
-    source = _rank(_dedupe(tuple(row for row in diagnostics if not _generated(row))))
-    generated = _group_generated(tuple(row for row in diagnostics if _generated(row)))
-    return (*source, *generated, *defects)
-
-
-def _diagnostic_notes(rows: tuple[Match, ...]) -> tuple[str, ...]:
-    weights = tuple((m, m.count or 1) for m in rows)
-    rule_counts: Counter[str] = Counter()
-    for row, count in weights:
-        rule_counts[row.id] += count
-    summary = (
-        f"diagnostics: total={sum(count for _, count in weights)} "
-        f"source={sum(count for row, count in weights if row.kind is ArtifactKind.CODE)} "
-        f"generated={sum(count for row, count in weights if row.kind is ArtifactKind.PROCESS and row.count)} "
-        f"error={sum(count for row, count in weights if row.severity == 'error')} "
-        f"warning={sum(count for row, count in weights if row.severity == 'warning')} "
-        f"info={sum(count for row, count in weights if row.severity == 'info')}"
-    )
-    return (
-        summary,
-        "diagnostics.rules: " + " ".join(f"{rule}={count}" for rule, count in sorted(rule_counts.items(), key=lambda item: (-item[1], item[0]))[:16]),
-    )
-
-
-def fold(
-    claim: Claim,
-    verb: str,
-    outcomes: tuple[Completed, ...],
-    *,
-    detail: AnyDetail | None = None,
-    sarif_dir: str | None = None,
-    promote_empty: bool = False,
-) -> Report:
-    """Fold process outcomes and evidence into a rail report.
-
-    Static source error rows fail the report; generated diagnostics remain evidence-only, and absent SARIF folds to no rows.
-    ``promote_empty`` lets a process-backed rail (eligible claim, ran cleanly, no defects) report OK for a folded-empty
-    run; without it a clean no-op stays EMPTY so non-rail folds reusing the claim keep their natural absence.
-
-    Returns:
-        Report carrying status, counts, artifacts, evidence rows, notes, and optional detail.
-    """
-    pairs = tuple(map(_count, outcomes))
-    ok_n = sum(ok for ok, _ in pairs)
-    fail_n = sum(failed for _, failed in pairs)
-    defects = tuple(
-        Match(
-            id=shlex.join(o.argv) if o.argv else claim.value,
-            kind=ArtifactKind.PROCESS,
-            text=(o.stderr or o.stdout)[-_DEFECT_TAIL:].decode(errors="replace").strip(),
-            severity="failed",
-        )
-        for o, p in zip(outcomes, pairs, strict=True)
-        if p == (0, 1)
-    )
-    results = _result_rows(claim, outcomes, defects, sarif_dir)
-    diagnostic_rows = tuple(m for m in results if m.severity in _SARIF_SEVERITY.values() and m.id)
-    source_error = any(row.kind is ArtifactKind.CODE and row.severity == "error" for row in diagnostic_rows)
-    folded_status = rail_fold(*(o.status for o in outcomes))
-    status = (
-        RailStatus.FAILED
-        if claim is Claim.STATIC and source_error
-        else RailStatus.OK
-        if promote_empty and claim in _PROCESS_BACKED_OK_CLAIMS and folded_status is RailStatus.EMPTY and bool(outcomes) and not defects
-        else folded_status
-    )
-    return Report(
-        claim,
-        verb,
-        status,
-        Counts(ok_n, fail_n, ok_n + fail_n),
-        results=results,
-        artifacts=tuple(artifact for o in outcomes for artifact in o.artifacts),
-        notes=(
-            *tuple(n for o in outcomes for n in o.notes),
-            *((_diagnostic_notes(diagnostic_rows)) if claim is Claim.STATIC and diagnostic_rows else ()),
-        ),
-        detail=detail,
-        # Remote-execution facts ride the dedicated carrier: a multi-check fan-out over one host folds every leg's transfer counts.
-        exec=ExecReceipt.merge(tuple(o.exec for o in outcomes if o.exec is not None)),
-    )
-
-
 def envelope(payload: Report | Fault, *, claim: Claim, verb: str, run_id: str = "", error_context: Diagnostic | None = None) -> Envelope:
     """Return an envelope with exit code derived from report or fault status."""
     match payload:
@@ -1353,10 +951,6 @@ def wire_safe(text: str) -> str:
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 _ENCODER = msgspec.json.Encoder(order="deterministic")
-_SARIF_LOG: msgspec.json.Decoder[_SarifLog] = msgspec.json.Decoder(_SarifLog)
-_PY_ANALYZER_LOG: msgspec.json.Decoder[tuple[_PyAnalyzerDiagnostic, ...]] = msgspec.json.Decoder(tuple[_PyAnalyzerDiagnostic, ...])
-_BIOME_LOG: msgspec.json.Decoder[_BiomeReport] = msgspec.json.Decoder(_BiomeReport)
-_LOG = structlog.get_logger("assay.model")
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
@@ -1387,7 +981,9 @@ __all__ = [
     "Mode",
     "MutationLane",
     "PackageRun",
+    "Parser",
     "ProvisionRun",
+    "RailStatus",
     "Report",
     "RunDelta",
     "RunSnapshot",
@@ -1396,17 +992,18 @@ __all__ = [
     "SourceKind",
     "Stage",
     "StaticRun",
+    "Step",
     "SymbolShape",
-    "_sarif_status",
     "TestRun",
     "Tool",
+    "ToolArgs",
     "ToolGroup",
     "VerifySummary",
-    "_HINT_CAP",
-    "_RESULT_CAP",
+    "HINT_CAP",
+    "HOST_BOUND_CLAIMS",
+    "RESULT_CAP",
     "envelope",
     "field_cap",
-    "fold",
     "language_choice",
     "receipt",
     "validate_detail",
