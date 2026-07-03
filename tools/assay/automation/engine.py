@@ -1,12 +1,14 @@
 """Drive automation triggers through rail, program, sequence, and debounce actions.
 
 Each fire emits newline-delimited Envelope JSON to stdout while telemetry remains on stderr.
-The capacity limiter keeps one leaf action active per driver.
+The capacity limiter keeps one leaf action active per driver; every spawn rides the Executor port.
 """
 
 from collections.abc import Callable, Coroutine
 from contextvars import ContextVar
+from dataclasses import dataclass, replace
 from datetime import datetime, UTC
+from functools import partial
 import hashlib
 from operator import itemgetter
 import re
@@ -26,7 +28,7 @@ from tools.assay.automation.model import Debounce, describe, Edge, Manual, Progr
 from tools.assay.composition.catalog import select
 from tools.assay.composition.registry import rail, REGISTRY
 from tools.assay.composition.store import ArtifactScope
-from tools.assay.core.exec import run_check_async
+from tools.assay.core.exec import EngineExecutor
 from tools.assay.core.model import Check, Claim, Counts, Envelope, envelope, Fault, Language, RailStatus, Report, ToolArgs
 from tools.assay.core.routing import Routed, Scope
 from tools.assay.diagnostics import fold
@@ -41,6 +43,7 @@ if TYPE_CHECKING:
 
     from tools.assay.automation.model import Action, Trigger
     from tools.assay.composition.settings import AssaySettings
+    from tools.assay.core.exec import Executor
     from tools.assay.core.model import Bind, Tool
 
     class _CronTrigger(Protocol):
@@ -61,6 +64,17 @@ type ChangeBatch = tuple[tuple[str, str], ...]
 type Fire = Callable[[ChangeBatch], Coroutine[None, None, None]]
 type Worker = Callable[[], Coroutine[None, None, None]]
 type RailOutcome = tuple[Envelope, bool]
+
+
+@dataclass(frozen=True, slots=True)
+class _Drive:
+    """Per-run drive context: settings, the shared one-leaf limiter, the execution port, and the CPU ceiling."""
+
+    settings: AssaySettings
+    limiter: anyio.CapacityLimiter
+    executor: Executor
+    ceiling: float | None = None
+
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -129,13 +143,14 @@ def _program_check(argv: tuple[str, ...]) -> Check:
     return Check(tool=_PROGRAM_TOOL, args=ToolArgs(argv=argv))
 
 
-async def _program_outcome(action: Program, settings: AssaySettings) -> Result[Report, Fault]:
+async def _program_outcome(action: Program, ctx: _Drive) -> Result[Report, Fault]:
     # Program deadlines stay with the invoked tool; this boundary converts spawn/process failures to Faults.
     if not action.argv:
         return Error(Fault(("program",), RailStatus.FAULTED, "program argv must be non-empty"))
     check = _program_check(action.argv)
-    scope = ArtifactScope.open(settings, Claim.STATIC)
-    outcome = await run_check_async(check, settings=settings, scope=scope, routed=_PROGRAM_ROUTED)
+    scope = ArtifactScope.open(ctx.settings, Claim.STATIC)
+    # The port is synchronous (it owns its own loop), so the spawn hops to a thread like the Rail lane.
+    outcome = await to_thread.run_sync(partial(ctx.executor.run, check, settings=ctx.settings, scope=scope, routed=_PROGRAM_ROUTED))
     match outcome:
         case Result(tag="ok", ok=done):
             return Ok(fold(Claim.STATIC, "program", (done,)))
@@ -148,7 +163,7 @@ def _emitted(line: Envelope) -> Envelope:
     return line
 
 
-def _rail_outcome(action: Rail, settings: AssaySettings) -> RailOutcome:
+def _rail_outcome(action: Rail, ctx: _Drive) -> RailOutcome:
     # Decode failures fold to FAULTED Envelope rows instead of escaping the automation task.
     bind = _resolve(action)
     match bind:
@@ -160,11 +175,11 @@ def _rail_outcome(action: Rail, settings: AssaySettings) -> RailOutcome:
                 params = msgspec.json.decode(bytes(action.params), type=bind.params) if action.params else bind.params()
             except msgspec.DecodeError as exc:
                 return envelope(Fault((), RailStatus.FAULTED, str(exc)[:1024]), claim=action.claim, verb=action.verb), False
-            return rail(bind, settings)(params), True
+            return rail(bind, ctx.settings, ctx.executor)(params), True
 
 
-async def _program_envelope(action: Program, settings: AssaySettings) -> Envelope:
-    match await _program_outcome(action, settings):
+async def _program_envelope(action: Program, ctx: _Drive) -> Envelope:
+    match await _program_outcome(action, ctx):
         case Result(tag="ok", ok=report):
             payload: Report | Fault = report
         case Result(error=fault):
@@ -172,34 +187,34 @@ async def _program_envelope(action: Program, settings: AssaySettings) -> Envelop
     return _emitted(envelope(payload, claim=Claim.STATIC, verb="program"))
 
 
-async def _emit_leaf(leaf: Action, settings: AssaySettings, limiter: anyio.CapacityLimiter, cpu_threshold: float | None) -> RailStatus:
-    match is_governed(cpu_threshold):
+async def _emit_leaf(leaf: Action, ctx: _Drive) -> RailStatus:
+    match is_governed(ctx.ceiling):
         case True:
             claim, verb = _label(leaf)
             # Counts(1, 0, 1) preserves one governed leaf even though SKIP bypasses the rail fold; describe owns the label string.
-            skip = Report(claim, verb, RailStatus.SKIP, Counts(1, 0, 1), notes=(f"governed: {describe(leaf)} cpu>={cpu_threshold or 0.0:.0%}",))
+            skip = Report(claim, verb, RailStatus.SKIP, Counts(1, 0, 1), notes=(f"governed: {describe(leaf)} cpu>={ctx.ceiling or 0.0:.0%}",))
             return _emitted(envelope(skip, claim=claim, verb=verb)).status
         # Recursive Sequence/Debounce leaves reuse the held limiter token; re-acquire raises in anyio.
         case False:
             match leaf:
                 case Rail() as r:
-                    async with limiter:
-                        env, emitted = await to_thread.run_sync(_rail_outcome, r, settings)
+                    async with ctx.limiter:
+                        env, emitted = await to_thread.run_sync(_rail_outcome, r, ctx)
                         return (env if emitted else _emitted(env)).status
                 case Program() as p:
-                    async with limiter:
-                        return (await _program_envelope(p, settings)).status
+                    async with ctx.limiter:
+                        return (await _program_envelope(p, ctx)).status
                 case Sequence() as s:
-                    return await _sequence(s.actions, settings, limiter, cpu_threshold)
+                    return await _sequence(s.actions, ctx)
                 case Debounce(action=inner):
-                    return await _emit_leaf(inner, settings, limiter, cpu_threshold)
+                    return await _emit_leaf(inner, ctx)
 
 
-async def _sequence(leaves: tuple[Action, ...], settings: AssaySettings, limiter: anyio.CapacityLimiter, cpu_threshold: float | None) -> RailStatus:
+async def _sequence(leaves: tuple[Action, ...], ctx: _Drive) -> RailStatus:
     # Short-circuit fold: the first terminal status stops the leaf walk.
     folded = RailStatus.EMPTY
     for leaf in leaves:
-        folded = RailStatus.dominant(folded, await _emit_leaf(leaf, settings, limiter, cpu_threshold))
+        folded = RailStatus.dominant(folded, await _emit_leaf(leaf, ctx))
         match folded:
             case RailStatus.FAILED | RailStatus.BUSY | RailStatus.TIMEOUT | RailStatus.FAULTED:
                 return folded
@@ -208,10 +223,10 @@ async def _sequence(leaves: tuple[Action, ...], settings: AssaySettings, limiter
     return folded
 
 
-def _fire(action: Action, settings: AssaySettings, *, limiter: anyio.CapacityLimiter, cpu_threshold: float | None) -> Fire:
+def _fire(action: Action, ctx: _Drive) -> Fire:
     # _emit_leaf is total over Action (Rail/Program/Sequence/Debounce), so the fire closure dispatches there once.
     async def fire(_changes: ChangeBatch) -> None:
-        _ = await _emit_leaf(action, settings, limiter, cpu_threshold)
+        _ = await _emit_leaf(action, ctx)
 
     return fire
 
@@ -359,12 +374,12 @@ async def _schedule(spec: Schedule, fire: Fire, stop: anyio.Event) -> None:
             await fire(_NO_CHANGES)
 
 
-def _armed(action: Action, settings: AssaySettings, *, limiter: anyio.CapacityLimiter, ceiling: float | None) -> tuple[Fire, Worker | None]:
+def _armed(action: Action, ctx: _Drive) -> tuple[Fire, Worker | None]:
     match action:
         case Debounce(action=inner, window_ms=window, edge=edge):
-            return _debounce(_fire(inner, settings, limiter=limiter, cpu_threshold=ceiling), window, edge=edge)
+            return _debounce(_fire(inner, ctx), window, edge=edge)
         case Rail() | Program() | Sequence():
-            return _fire(action, settings, limiter=limiter, cpu_threshold=ceiling), None
+            return _fire(action, ctx), None
 
 
 async def _co_resident(tg: TaskGroup, resident: Worker | None, stop: anyio.Event) -> None:
@@ -377,13 +392,11 @@ async def _co_resident(tg: TaskGroup, resident: Worker | None, stop: anyio.Event
             tg.cancel_scope.cancel()
 
 
-async def _drive(
-    spec: Watch | Schedule, action: Action, settings: AssaySettings, *, limiter: anyio.CapacityLimiter, stop: anyio.Event, harden: bool
-) -> None:
+async def _drive(spec: Watch | Schedule, action: Action, ctx: _Drive, *, stop: anyio.Event, harden: bool) -> None:
     # One driver for watch and schedule: spec selects the wakeup source; harden coalesces missed schedule ticks while
     # watch relies on watchfiles' own debounce, and a debounce worker (worker is not None) already owns its catch-up.
-    fire, worker = _armed(action, settings, limiter=limiter, ceiling=spec.cpu_threshold)
-    driven = _hardened_fire(fire, settings, action) if harden and worker is None else fire
+    fire, worker = _armed(action, replace(ctx, ceiling=spec.cpu_threshold))
+    driven = _hardened_fire(fire, ctx.settings, action) if harden and worker is None else fire
     async with anyio.create_task_group() as tg:
         match spec:
             case Watch():
@@ -393,28 +406,28 @@ async def _drive(
         await _co_resident(tg, worker, stop)
 
 
-async def _run_trigger(trigger: Trigger, action: Action, settings: AssaySettings, *, limiter: anyio.CapacityLimiter, stop: anyio.Event) -> None:
+async def _run_trigger(trigger: Trigger, action: Action, ctx: _Drive, *, stop: anyio.Event) -> None:
     match trigger:
         case Manual():
-            await _fire(action, settings, limiter=limiter, cpu_threshold=None)(_NO_CHANGES)
+            await _fire(action, ctx)(_NO_CHANGES)
         case Watch() as spec:
-            await _drive(spec, action, settings, limiter=limiter, stop=stop, harden=False)
+            await _drive(spec, action, ctx, stop=stop, harden=False)
         case Schedule() as spec:
-            await _drive(spec, action, settings, limiter=limiter, stop=stop, harden=True)
+            await _drive(spec, action, ctx, stop=stop, harden=True)
 
 
-async def drive(trigger: Trigger, action: Action, settings: AssaySettings) -> None:
+async def drive(trigger: Trigger, action: Action, settings: AssaySettings, *, executor: Executor | None = None) -> None:
     """Run an action for each trigger fire and emit Envelope JSON to stdout.
 
     Manual triggers fire once. Watch and schedule triggers loop until their stop event
     fires. Setup failures are collapsed from the anyio ExceptionGroup into one FAULTED
-    Envelope row.
+    Envelope row. Every spawn rides ``executor``; the engine-bound port when absent.
     """
-    limiter = anyio.CapacityLimiter(1)
+    ctx = _Drive(settings=settings, limiter=anyio.CapacityLimiter(1), executor=executor if executor is not None else EngineExecutor())
     stop = anyio.Event()
 
     try:
-        await _run_trigger(trigger, action, settings, limiter=limiter, stop=stop)
+        await _run_trigger(trigger, action, ctx, stop=stop)
     except* (OSError, ValueError, ZoneInfoNotFoundError, re.error) as errors:
         claim, verb = _label(action)
         message = "; ".join(str(exc) for exc in errors.exceptions)

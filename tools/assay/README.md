@@ -4,7 +4,7 @@
 
 ## [01]-[SCOPE]
 
-Normal CLI invocations emit one JSON `Envelope` on stdout; diagnostics ride stderr. The programmatic arm is `automation.engine.drive(trigger, action, settings)`, which hosts `Watch`/`Schedule`/`Manual` fires under one AnyIO loop and writes NDJSON output.
+Normal CLI invocations emit one JSON `Envelope` on stdout; diagnostics ride stderr. The programmatic arm is `automation.engine.drive(trigger, action, settings, executor=...)`, which hosts `Watch`/`Schedule`/`Manual` fires under one AnyIO loop, writes NDJSON output, and spawns every check through the `Executor` port (the engine-bound port when absent).
 
 - Invoke as `uv run python -m tools.assay <claim> [verb] ...`; bare `assay ...` is valid only when `command -v assay` proves a local wrapper exists. The language axis is the mutually-exclusive `--csharp`/`--python`/`--typescript` flags; an unset selection routes every eligible language.
 - `static` never rewrites a C# target that does not compile, and its reported diagnostics match `dotnet build`.

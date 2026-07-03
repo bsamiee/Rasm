@@ -472,16 +472,16 @@ def _project_references(path: Path) -> tuple[str, ...]:
     return tuple(ref.casefold() for ref in parse_csproj(raw, "PackageReference", "Include", "Update"))
 
 
+def _csproj_paths(root: Path) -> tuple[Path, ...]:
+    # The one owner-index discovery: generated trees never own packages.
+    return tuple(sorted(p for p in root.rglob("*.csproj") if not any(part in {".artifacts", ".cache", "bin", "obj"} for part in p.parts)))
+
+
 @lru_cache(maxsize=8)
 def _package_owner_index_at(root_str: str, index_fingerprint: str) -> dict[str, tuple[str, ...]]:
     _ = index_fingerprint  # lru_cache key slot; encodes sorted csproj mtime_ns so re-computation triggers on project graph changes
     root = Path(root_str)
-    rows = sorted(
-        (package, path.relative_to(root).as_posix())
-        for path in root.rglob("*.csproj")
-        if not any(part in {".artifacts", ".cache", "bin", "obj"} for part in path.parts)
-        for package in _project_references(path)
-    )
+    rows = sorted((package, path.relative_to(root).as_posix()) for path in _csproj_paths(root) for package in _project_references(path))
     return {package: tuple(sorted(owner for _, owner in group)) for package, group in itertools.groupby(rows, key=operator.itemgetter(0))}
 
 
@@ -492,8 +492,7 @@ def package_owner_index(settings: AssaySettings) -> dict[str, tuple[str, ...]]:
         Casefolded package name to sorted owning ``.csproj`` relative paths.
     """
     root = Path(str(settings.root))
-    csproj_paths = sorted(p for p in root.rglob("*.csproj") if not any(part in {".artifacts", ".cache", "bin", "obj"} for part in p.parts))
-    index_fingerprint = hashlib.sha256("|".join(f"{p}:{p.stat().st_mtime_ns}" for p in csproj_paths).encode()).hexdigest()[:16]
+    index_fingerprint = hashlib.sha256("|".join(f"{p}:{p.stat().st_mtime_ns}" for p in _csproj_paths(root)).encode()).hexdigest()[:16]
     return _package_owner_index_at(str(root), index_fingerprint)
 
 

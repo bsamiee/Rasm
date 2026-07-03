@@ -246,6 +246,20 @@ class RailProbe(SeamProbe[Check], frozen=True, gc=False):
         # The filled command is the spawned argv body; holeless rows fill to identity.
         return [tuple(c.args.fill(c.tool.command)) for c in self.captured]
 
+    def port(self, payload: Result[Completed, Fault]) -> SeamExecutor:
+        """Executor-port double: records every spawned ``Check`` on this probe and plays the canned outcome.
+
+        Returns:
+            A ``SeamExecutor`` whose run lane records into ``captured``/``calls`` for command assertions.
+        """
+
+        def _run(check: Check, **_kw: object) -> Result[Completed, Fault]:
+            self.calls.append(("executor.run", (check,), {}))
+            self.captured.append(check)
+            return payload
+
+        return SeamExecutor(run_fn=_run)
+
     @staticmethod
     def ok(argv: tuple[str, ...] = ("rasm-bridge", "check"), status: RailStatus = RailStatus.OK) -> Result[Completed, Fault]:
         return Ok(receipt(argv, 0, status=status))

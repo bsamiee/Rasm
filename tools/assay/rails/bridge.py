@@ -418,11 +418,12 @@ def _faulted(outcome: Result[Completed, Fault]) -> Result[Completed, Fault]:
 def _selection(pattern: str) -> str:
     """Project the verify pattern into the in-host selection payload.
 
-    Pass-through by design: dotted tokens select scenario names, bare tokens select themes, and the in-host shell
-    owns name/glob resolution with its own typed zero-match fault — no local roster validation.
+    Pass-through by design: the token set routes whole — any dotted token (a full scenario name or dotted
+    glob) selects the ``names`` arm for every token, otherwise all tokens are themes — and the in-host
+    shell owns name/glob resolution with its own typed zero-match fault; no local roster validation.
 
     Returns:
-        Selection JSON: ``all`` for empty/``all``/``*`` tokens, else a ``names`` or ``themes`` payload.
+        Selection JSON: ``all`` for empty/``all``/``*`` token sets, else one ``names`` or ``themes`` payload.
     """
     tokens = tuple(dict.fromkeys(part.strip() for part in pattern.split(",") if part.strip()))
     if frozenset(tokens) <= _ALL_TOKENS:

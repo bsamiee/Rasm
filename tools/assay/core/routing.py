@@ -144,10 +144,15 @@ class _LocalSource:
     root: UPath
 
     def changed(self) -> Result[tuple[str, ...], Fault]:
+        # Deleted paths ride the git census but carry nothing to check; only on-disk survivors route to tools.
         seed: Result[tuple[str, ...], Fault] = Ok(())
-        return reduce(
-            lambda acc, argv: acc.bind(lambda seen: _git(argv, root=self.root).map(lambda rows: seen + rows)), (_DIFF, _CACHED, _UNTRACKED), seed
-        ).map(_norm)
+        return (
+            reduce(
+                lambda acc, argv: acc.bind(lambda seen: _git(argv, root=self.root).map(lambda rows: seen + rows)), (_DIFF, _CACHED, _UNTRACKED), seed
+            )
+            .map(_norm)
+            .map(lambda rows: tuple(r for r in rows if (self.root / r).is_file()))
+        )
 
     def enumerate(self, paths: RoutePaths) -> Result[tuple[str, ...], Fault]:
         seed: Result[tuple[str, ...], Fault] = Ok(())

@@ -4,6 +4,7 @@
 
 from typing import ClassVar, override, TYPE_CHECKING
 
+import anyio
 from expression import Error, Ok
 from hypothesis import given, HealthCheck, settings as h_settings, strategies as st, target
 import msgspec.structs
@@ -349,6 +350,34 @@ def test_local_source_read_and_refs_degrade_isolated(tmp_path: Path) -> None:
     assert _refs("missing.csproj", src) == frozenset()
     (tmp_path / "bad.csproj").write_bytes(b"<not-xml")
     assert _refs("bad.csproj", src) == frozenset()
+
+
+@pytest.mark.subprocess
+def test_local_source_changed_drops_deleted_paths(tmp_path: Path) -> None:
+    """``changed()`` routes only on-disk survivors: a working-tree deletion contributes zero rows.
+
+    Falsified by: passing git's deletion rows through — every downstream tool (mmdc, ruff) then faults
+    on a missing input the deletion never needed checked.
+    """
+
+    async def _seed() -> None:
+        async def git(*args: str) -> None:
+            _ = await anyio.run_process(["git", "-c", "user.email=t@t", "-c", "user.name=t", *args], cwd=str(tmp_path))
+
+        await git("init", "-q")
+        await git("add", "kept.md", "gone.md")
+        await git("commit", "-qm", "seed")
+
+    (tmp_path / "kept.md").write_text("kept")
+    (tmp_path / "gone.md").write_text("gone")
+    anyio.run(_seed)
+    (tmp_path / "gone.md").unlink()
+    (tmp_path / "kept.md").write_text("edited")
+    (tmp_path / "fresh.md").write_text("fresh")
+
+    rows = assert_ok(_LocalSource(root=UPath(tmp_path)).changed())
+
+    assert rows == ("fresh.md", "kept.md"), f"deleted paths must not route to tools; got {rows}"
 
 
 @pytest.mark.parametrize(

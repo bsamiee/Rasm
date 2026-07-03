@@ -1,14 +1,15 @@
 """Laws for ``tools.assay.automation.engine``.
 
-Covers ContextVar CPU governance and trigger/action projection through canned process, rail, psutil,
-watchfiles, and emit boundaries. The ``run_check_async`` probe is the module-bound spawn seam:
-``drive()`` exposes no executor parameter, so the probe replaces the process boundary itself.
+Covers ContextVar CPU governance and trigger/action projection through canned executor-port, rail,
+psutil, watchfiles, and emit boundaries. ``drive(..., executor=probe.port(...))`` is the public spawn
+seam; only the registry ``rail`` resolution law still pins the module-bound symbol.
 """
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
 import contextvars
 from datetime import datetime, UTC
+from functools import partial
 from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
@@ -221,17 +222,13 @@ def test_is_governed_latch_context_isolated(cpu_double: CpuDoubleInstaller) -> N
 
 
 @pytest.mark.parametrize("row", _PROGRAM_CASES, ids=[c.label for c in _PROGRAM_CASES])
-def test_drive_program_outcome_matrix(
-    row: _ProgramCase, assay_root: AssayHarness, captured_emits: list[Envelope], rail_probe: RailProbe, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_drive_program_outcome_matrix(row: _ProgramCase, assay_root: AssayHarness, captured_emits: list[Envelope], rail_probe: RailProbe) -> None:
     """Program leaves project outcomes through ``fold``: rc rides the Completed channel, spawn/timeout Faults ride the error arm.
 
     Falsified by: ``_program_outcome`` promoting a nonzero exit to Fault, swallowing a Fault into an OK
     Report, mis-routing the argv, or ``fold`` miscounting a receipt status.
     """
-    rail_probe.install(monkeypatch, _eng, "run_check_async", row.canned)
-
-    anyio.run(drive, Manual(), Program(argv=row.argv), assay_root.settings)
+    anyio.run(partial(drive, Manual(), Program(argv=row.argv), assay_root.settings, executor=rail_probe.port(row.canned)))
 
     assert rail_probe.commands == [row.argv], f"engine must route the program argv verbatim; got {rail_probe.commands}"
     env = _one(captured_emits)
@@ -278,11 +275,10 @@ def test_drive_governed_skip_emits_one_skip_envelope(
     """
     _eng._CPU_PRIMED.set(True)
     cpu_double(lambda *_a, **_k: 100.0)
-    rail_probe.install(monkeypatch, _eng, "run_check_async", rail_probe.ok(("tool",)))
     monkeypatch.setattr(_eng, "awatch", _fake_awatch((_FIRST,)))
 
     spec = Watch(paths=(str(assay_root.root),), cpu_threshold=0.5)
-    anyio.run(drive, spec, Program(argv=("tool",)), assay_root.settings)
+    anyio.run(partial(drive, spec, Program(argv=("tool",)), assay_root.settings, executor=rail_probe.port(rail_probe.ok(("tool",)))))
 
     assert rail_probe.commands == [], "the governor must skip the fire before the leaf runs"
     env = _one(captured_emits)
@@ -296,17 +292,13 @@ def test_drive_governed_skip_emits_one_skip_envelope(
 
 
 @pytest.mark.parametrize("row", _LEAF_CASES, ids=[c.label for c in _LEAF_CASES])
-def test_drive_leaf_matrix(
-    row: _LeafCase, assay_root: AssayHarness, captured_emits: list[Envelope], rail_probe: RailProbe, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_drive_leaf_matrix(row: _LeafCase, assay_root: AssayHarness, captured_emits: list[Envelope], rail_probe: RailProbe) -> None:
     """Sequence/Debounce trees recurse through ``_emit_leaf`` exactly once per leaf and halt on the first terminal status.
 
     Falsified by: ``_sequence`` continuing past FAULTED, ``_emit_leaf`` skipping a nested Sequence or
     Debounce unwrap, or a leaf firing twice.
     """
-    rail_probe.install(monkeypatch, _eng, "run_check_async", rail_probe.ok(("p",)))
-
-    anyio.run(drive, Manual(), row.action, assay_root.settings)
+    anyio.run(partial(drive, Manual(), row.action, assay_root.settings, executor=rail_probe.port(rail_probe.ok(("p",)))))
 
     assert len(captured_emits) == row.emits, f"expected {row.emits} emits, got {len(captured_emits)}"
     assert all(env.status is row.status for env in captured_emits), f"statuses {[e.status for e in captured_emits]} != {row.status}"
@@ -470,11 +462,10 @@ def test_drive_watch_batch_matrix(
     debounce worker.
     """
     _ = label
-    rail_probe.install(monkeypatch, _eng, "run_check_async", rail_probe.ok(("tool",)))
     monkeypatch.setattr(_eng, "awatch", _fake_awatch(batches))
 
     spec = Watch(paths=(str(assay_root.root),))
-    anyio.run(drive, spec, Program(argv=("tool",)), assay_root.settings)
+    anyio.run(partial(drive, spec, Program(argv=("tool",)), assay_root.settings, executor=rail_probe.port(rail_probe.ok(("tool",)))))
 
     assert len(captured_emits) == fires, f"expected {fires} fires for {batches!r}; got {len(captured_emits)}"
     assert all(env.status is RailStatus.OK for env in captured_emits)
@@ -516,11 +507,11 @@ def test_drive_watch_debounce_collapses_storm(
     Falsified by: the debounce firing per-batch, or ``_co_resident`` failing to cancel the task group on stop
     (the run hangs past the timeout). The release delay exceeds the debounce window so the collapsed storm fires before stop.
     """
-    rail_probe.install(monkeypatch, _eng, "run_check_async", rail_probe.ok(("tool",)))
     monkeypatch.setattr(_eng, "awatch", _fake_awatch((_FIRST, _SECOND)))
 
     spec = Watch(paths=(str(assay_root.root),))
     action = Debounce(action=Program(argv=("tool",)), window_ms=30, edge=Edge.TRAILING)
+    ctx = _eng._Drive(assay_root.settings, anyio.CapacityLimiter(1), rail_probe.port(rail_probe.ok(("tool",))))
 
     async def _run() -> None:
         stop = anyio.Event()
@@ -531,7 +522,7 @@ def test_drive_watch_debounce_collapses_storm(
 
         async with anyio.create_task_group() as tg:
             _ = tg.start_soon(_release)
-            await _eng._drive(spec, action, assay_root.settings, limiter=anyio.CapacityLimiter(1), stop=stop, harden=False)
+            await _eng._drive(spec, action, ctx, stop=stop, harden=False)
 
     anyio.run(_run)
 
@@ -549,7 +540,7 @@ def test_drive_schedule_fires_then_stops(
     Falsified by: the stop event not breaking the cron loop (run hangs past the timeout).
     """
     monkeypatch.setattr(_eng, "_JITTER_MS", 1)
-    rail_probe.install(monkeypatch, _eng, "run_check_async", rail_probe.ok(("tool",)))
+    ctx = _eng._Drive(assay_root.settings, anyio.CapacityLimiter(1), rail_probe.port(rail_probe.ok(("tool",))))
 
     async def _drive() -> None:
         spec = Schedule(cron="* * * * *")
@@ -557,7 +548,7 @@ def test_drive_schedule_fires_then_stops(
 
         monkeypatch.setattr(_eng, "_cron_trigger", lambda _spec: _cron_tick(stop))
         with anyio.move_on_after(5.0) as scope:
-            await _eng._drive(spec, Program(argv=("tool",)), assay_root.settings, limiter=anyio.CapacityLimiter(1), stop=stop, harden=True)
+            await _eng._drive(spec, Program(argv=("tool",)), ctx, stop=stop, harden=True)
         assert not scope.cancelled_caught, "schedule drive must stop, not hang"
 
     anyio.run(_drive)
@@ -573,7 +564,7 @@ def test_drive_schedule_debounce_co_resides_worker(
     Falsified by: failing to cancel on stop or wrapping worker fire in a second single-flight cell.
     The release delay covers the burst plus quiet window so the worker can emit before cancellation.
     """
-    rail_probe.install(monkeypatch, _eng, "run_check_async", rail_probe.ok(("tool",)))
+    ctx = _eng._Drive(assay_root.settings, anyio.CapacityLimiter(1), rail_probe.port(rail_probe.ok(("tool",))))
     wakeups = 0
 
     def _next(_previous_fire_time: datetime | None, _now: datetime) -> datetime:
@@ -601,7 +592,7 @@ def test_drive_schedule_debounce_co_resides_worker(
         monkeypatch.setattr(_eng, "_next_cron_delay", _delay)
         async with anyio.create_task_group() as tg:
             _ = tg.start_soon(_release)
-            await _eng._drive(spec, action, assay_root.settings, limiter=anyio.CapacityLimiter(1), stop=stop, harden=True)
+            await _eng._drive(spec, action, ctx, stop=stop, harden=True)
 
     anyio.run(_run)
 
