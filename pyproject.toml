@@ -607,6 +607,7 @@ ignore = [
     "SIM108",  # match/case owns dispatch, not ternaries
     "SIM114",  # match/case owns dispatch, not merged if arms
     # --- [DENSITY]
+    "PLR0912", # one dispatch surface owns every branch; a branch cap pressures arm extraction
     "PLR0914", # dense dispatch surfaces own their locals; a variable cap pressures fragmentation
     "PLR0915", # one surface owns every arm; a statement cap never justifies splitting a closed union
     # --- [ERROR_RAILS]
@@ -645,7 +646,6 @@ ignore = [
     "PLC2701",
     "PLC3002",
     "PLR0911",
-    "PLR0912",
     "PLR6201",
     "PLW1510",
     "PTH109",
@@ -657,7 +657,7 @@ ignore = [
     "TID251",
     "TRY300",
 ]
-"tools/py_analyzer/**" = ["PLR0912", "TC003"]
+"tools/py_analyzer/**" = ["TC003"]
 "tests/**"         = ["S101", "PLR2004", "PLR0913", "ARG001", "ARG002", "ANN201", "ANN401", "D101", "D102", "D103", "SLF001", "PLC2701"]  # PLC2701: specs import the private-by-design _testkit package
 "**/adapters/**"   = ["ANN401"]
 "**/conftest.py"   = ["E402", "F401", "ARG001"]

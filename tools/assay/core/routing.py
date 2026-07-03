@@ -421,7 +421,7 @@ def routable_files(files: RoutePaths, settings: AssaySettings) -> RoutePaths:
     return tuple(path for path in files if not any(path.startswith(prefix) for prefix in settings.probe_fixture_prefixes))
 
 
-def place(routed: Routed, tool: Tool, *, settings: AssaySettings) -> tuple[tuple[str, ...], ...]:  # noqa: PLR0912  # one arm per Input member; the axis is closed
+def place(routed: Routed, tool: Tool, *, settings: AssaySettings) -> tuple[tuple[str, ...], ...]:  # one arm per Input member; the axis is closed
     """Project routed inputs into command argument tail groups for one tool.
 
     Args:
