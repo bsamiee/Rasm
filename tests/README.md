@@ -24,8 +24,8 @@ tests/
 │   └── tools/         # assay + py_analyzer suites
 └── typescript/
     ├── .api/          # dev-tool API catalogs the kit and suites compose
-    ├── _architecture/ # branch-boundary gauge suites; home now, suites at TS buildout
-    ├── _testkit/      # @rasm/ts-testkit workspace package; kit body at TS buildout
+    ├── _architecture/ # branch-boundary gauge suites; manifest gauges live, source gauges self-activate
+    ├── _testkit/      # @rasm/ts-testkit: corpus readers, laws, arbitraries, harness, bench, gauges
     └── e2e/           # playwright home, stood up at TS buildout
 ```
 
@@ -83,7 +83,7 @@ Every tool writes reports under `.artifacts/` and temp/work state under `.cache/
 |  [07]   | pytest-benchmark  | Python benchmark storage         | `pyproject.toml` addopts                                         |
 |  [08]   | mutmut            | Python mutation                  | `pyproject.toml` `[tool.mutmut]` + `.config/coverage-mutmut.ini` |
 |  [09]   | inline-snapshot   | snapshot storage                 | `pyproject.toml` `[tool.inline-snapshot]`                        |
-|  [10]   | Vitest            | TS coverage + results            | root `vitest.config.ts`                                          |
+|  [10]   | Vitest            | TS coverage + results + bench ledger | root `vitest.config.ts`                                      |
 |  [11]   | StrykerJS         | TS mutation                      | `stryker.config.json`                                    |
 |  [12]   | Playwright        | e2e traces + results             | playwright config, landing with the TS buildout                  |
 |  [13]   | Nx                | target outputs + cache           | `nx.json` targetDefaults                                         |

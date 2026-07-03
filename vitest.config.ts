@@ -19,6 +19,7 @@ type RuntimeEnv = NodeJS.ProcessEnv & {
 const Dirname = path.dirname(fileURLToPath(import.meta.url));
 const _ENV: RuntimeEnv = process.env;
 const _ARTIFACTS = {
+    bench: path.resolve(Dirname, '.artifacts/typescript/bench'),
     coverage: path.resolve(Dirname, '.artifacts/typescript/coverage'),
     results: path.resolve(Dirname, '.artifacts/typescript/test-results'),
 } as const;
@@ -60,7 +61,7 @@ const _CONFIG = {
         coverage: ['text', 'json', 'json-summary', 'html', 'lcov'] as const,
         test: (_ENV.CI ? ['dot', 'json', 'junit', 'github-actions', 'blob'] : ['tree']) as readonly string[],
     },
-    setupFiles: [],
+    setupFiles: ['tests/typescript/_testkit/src/setup.ts'],
     snapshot: { format: { printBasicPrototype: false } },
     timeouts: { hook: 10_000, slow: 5_000, test: 10_000 },
     workers: { max: '50%' },
@@ -73,7 +74,11 @@ const config: ViteUserConfig = defineConfig({
     optimizeDeps: { include: [..._CONFIG.optimizeDeps] },
     test: {
         allowOnly: _ENV.CI !== 'true',
-        benchmark: { exclude: [..._CONFIG.patterns.testExclude], include: [..._CONFIG.patterns.benchInclude] },
+        benchmark: {
+            exclude: [..._CONFIG.patterns.testExclude],
+            include: [..._CONFIG.patterns.benchInclude],
+            outputJson: path.resolve(_ARTIFACTS.bench, 'latest.json'), // autosave: every bench run feeds the sustained-regression ledger
+        },
         chaiConfig: { ..._CONFIG.output.chaiConfig },
         coverage: {
             clean: true,

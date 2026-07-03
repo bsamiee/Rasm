@@ -61,7 +61,7 @@ type MutantStatus = "Killed" | "Survived" | "NoCoverage" | "CompileError" | "Run
 
 ## [03]-[CONFIG_AS_DATA]
 
-The plugin has NO imperative surface — it is four `stryker.config` rows plus one nested option bag. `checkers` activates it; the rest are the compile context. `.config/stryker.config.json` carries these as data on the one `PartialStrykerOptions` object, never as code. `tsconfigFile`, `checkerNodeArgs`, and `disableTypeChecks` are CORE `StrykerOptions` fields the checker reads; `typescriptChecker` is the plugin-owned bag validated by `strykerValidationSchema`.
+The plugin has NO imperative surface — it is four `stryker.config` rows plus one nested option bag. `checkers` activates it; the rest are the compile context. `stryker.config.json` carries these as data on the one `PartialStrykerOptions` object, never as code. `tsconfigFile`, `checkerNodeArgs`, and `disableTypeChecks` are CORE `StrykerOptions` fields the checker reads; `typescriptChecker` is the plugin-owned bag validated by `strykerValidationSchema`.
 
 | [INDEX] | [CONFIG_ROW]                                    | [OWNER]              | [CAPABILITY]                                                           |
 | :-----: | :---------------------------------------------- | :------------------- | :--------------------------------------------------------------------- |
@@ -76,7 +76,7 @@ The plugin has NO imperative surface — it is four `stryker.config` rows plus o
 interface TypescriptCheckerPluginOptions {
   typescriptChecker: { prioritizePerformanceOverAccuracy: boolean }
 }
-// .config/stryker.config.json carries the checker rows on the ONE PartialStrykerOptions (core [02]; merged example: stryker-mutator-vitest-runner.md [03]):
+// stryker.config.json carries the checker rows on the ONE PartialStrykerOptions (core [02]; merged example: stryker-mutator-vitest-runner.md [03]):
 const checkerRows = {
   checkers: ["typescript"],
   tsconfigFile: "tsconfig.json",
@@ -90,7 +90,7 @@ const checkerRows = {
 
 [STACK: `typescript-checker` + `vitest-runner` = the checker→runner pipeline] — the two admitted Stryker plugins are one pipeline, not two features. Stryker runs `check()` first: `CheckStatus.Passed` mutants advance to `vitest-runner` `mutantRun`; `CheckStatus.CompileError` mutants short-circuit to `MutantStatus.CompileError` and never reach the runner. The checker's `tsconfigFile` MUST point at the SAME `tsconfig` the folder's `@effect/vitest` specs compile under, so a mutant that type-checks here is exactly a mutant the runner can execute. See `stryker-mutator-vitest-runner.md` [02] for the kill-execution half.
 
-[STACK: config-as-data in `.config/stryker.config.json`] — the checker contributes rows to the one declarative config object `.config/stryker.config.json` owns; the `MutationScoreThresholds` (`{ high, low, break }`) and `mutate` glob live beside them (documented in `stryker-mutator-vitest-runner.md` [03]). This mirrors the branch's config-as-data doctrine: a new checker context is a data row on the shared options object, never a new mechanism — the same shape `@types/k6` uses for load thresholds (`types-k6.md` [03]).
+[STACK: config-as-data in `stryker.config.json`] — the checker contributes rows to the one declarative config object `stryker.config.json` owns; the `MutationScoreThresholds` (`{ high, low, break }`) and `mutate` glob live beside them (documented in `stryker-mutator-vitest-runner.md` [03]). This mirrors the branch's config-as-data doctrine: a new checker context is a data row on the shared options object, never a new mechanism — the same shape `@types/k6` uses for load thresholds (`types-k6.md` [03]).
 
 [STACK: assay `test --mutation` rail] — `uv run python -m tools.assay test run --mutation changed|full --typescript` drives `@stryker-mutator/core`, which loads this plugin from `plugins`/`checkers`. `--mutation changed` maps changed `.ts` files to the Stryker `--mutate <glob>`; the checker then compile-filters that scoped mutant set before the runner executes it against an 0.80-class kill floor. The checker keeps that floor honest — compile-error mutants are out of the denominator, so the ratio reflects only test-killable mutants.
 

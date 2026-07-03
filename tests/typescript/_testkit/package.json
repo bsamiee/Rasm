@@ -3,6 +3,28 @@
     "private": true,
     "type": "module",
     "exports": {
-        ".": "./src/index.ts"
+        "./arbitraries": "./src/arbitraries.ts",
+        "./bench": "./src/bench.ts",
+        "./corpus": "./src/corpus.ts",
+        "./gauges": "./src/gauges.ts",
+        "./harness": "./src/harness.ts",
+        "./laws": "./src/laws.ts",
+        "./setup": "./src/setup.ts"
+    },
+    "dependencies": {
+        "@aws-sdk/client-s3": "catalog:",
+        "@aws-sdk/s3-request-presigner": "catalog:",
+        "@effect/platform": "catalog:",
+        "@effect/platform-node": "catalog:",
+        "@effect/sql": "catalog:",
+        "@effect/sql-pg": "catalog:",
+        "@effect/vitest": "catalog:",
+        "@electric-sql/pglite": "catalog:",
+        "effect": "catalog:",
+        "fast-check": "catalog:",
+        "hash-wasm": "catalog:",
+        "testcontainers": "catalog:",
+        "typescript": "catalog:",
+        "vitest": "catalog:"
     }
 }

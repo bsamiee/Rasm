@@ -81,7 +81,7 @@ declare module 'vitest' {
 
 ## [03]-[CONFIG_AS_DATA]
 
-The runner and the whole mutation gauge are ONE declarative options object `.config/stryker.config.json` owns — thresholds AS DATA; the assay mutation rail invokes it with `--configFile .config/stryker.config.json`. `testRunner: "vitest"` activates this plugin; `coverageAnalysis: "perTest"` unlocks the `testFilter` narrowing; `thresholds.break` is the CI kill floor. The `vitest` bag is the only plugin-owned surface — a config file pointer that reuses the folder's existing vitest config, so mutants run under the identical `@effect/vitest` setup the specs already use.
+The runner and the whole mutation gauge are ONE declarative options object `stryker.config.json` owns — thresholds AS DATA; the assay mutation rail invokes it with `--configFile stryker.config.json`. `testRunner: "vitest"` activates this plugin; `coverageAnalysis: "perTest"` unlocks the `testFilter` narrowing; `thresholds.break` is the CI kill floor. The `vitest` bag is the only plugin-owned surface — a config file pointer that reuses the folder's existing vitest config, so mutants run under the identical `@effect/vitest` setup the specs already use.
 
 | [INDEX] | [CONFIG_ROW]                                    | [OWNER]              | [CAPABILITY]                                                           |
 | :-----: | :---------------------------------------------- | :------------------- | :--------------------------------------------------------------------- |
@@ -98,7 +98,7 @@ The runner and the whole mutation gauge are ONE declarative options object `.con
 import type { PartialStrykerOptions } from "@stryker-mutator/api/core"   // the canonical schema — stryker-mutator-core.md [02]
 // StrykerVitestRunnerOptions is the plugin-owned bag; MutationScoreThresholds/CoverageAnalysis are core ([02]).
 interface StrykerVitestRunnerOptions { vitest: { dir?: string; related: boolean; configFile?: string } }
-// .config/stryker.config.json encodes ONE PartialStrykerOptions (core [02]); both plugins' rows merge onto it (checker rows: typescript-checker.md [03]):
+// stryker.config.json encodes ONE PartialStrykerOptions (core [02]); both plugins' rows merge onto it (checker rows: typescript-checker.md [03]):
 const strykerConfig = {
   mutate: ["src/**/*.ts", "!src/**/*.spec.ts"],
   checkers: ["typescript"], testRunner: "vitest",
