@@ -61,6 +61,17 @@
 |  [07]   | `MeshFace`             | blittable struct        | mesh face record; `A`/`B`/`C`/`D` vertex indices, `IsTriangle`/`IsQuad` — the triangle-soup index the predicate-exact narrow-phase reads |
 |  [08]   | `Brep`                 | reference               | boundary geometry; `Faces`/`Edges`, the parametric solid the `Analysis` layer intersects          |
 
+[PUBLIC_TYPE_SCOPE]: mesh restructure and unwrap types (the `Processing/segment` host-restructure seam)
+- rail: host-rhino
+
+| [INDEX] | [SYMBOL]                 | [KIND]              | [CAPABILITY]                                                                                     |
+| :-----: | :----------------------- | :------------------ | :------------------------------------------------------------------------------------------------ |
+|  [01]   | `QuadRemeshParameters`   | parameter class     | quad-remesh policy carrier; `double TargetEdgeLength`, `int TargetQuadCount` (default 2000), `double AdaptiveSize` (native `[0,100]` unit, default 50.0), `bool AdaptiveQuadCount` (default true), `bool DetectHardEdges` (default true), `int GuideCurveInfluence`, `int PreserveMeshArrayEdgesMode`, `QuadRemeshSymmetryAxis SymmetryAxis` — every property get/set, so the receipt recovers the full parameter set |
+|  [02]   | `QuadRemeshSymmetryAxis` | `[Flags]` enum      | `None = 0`, `X = 1`, `Y = 2`, `Z = 4` — combinable symmetry axes                                  |
+|  [03]   | `ReduceMeshParameters`   | parameter class     | decimation policy carrier; `int DesiredPolygonCount`, `bool AllowDistortion`, `int Accuracy`, `bool NormalizeMeshSize`, `int[] FaceTags`, `ComponentIndex[] LockedComponents`, `CancellationToken CancelToken`, `IProgress<double> ProgressReporter`, and the `string Error` (internal set) the host writes on failure |
+|  [04]   | `MeshUnwrapper`          | reference, `IDisposable` | UV-unwrap owner; `MeshUnwrapper(Mesh mesh)` / `MeshUnwrapper(IEnumerable<Mesh> meshes)` constructors, `Plane SymmetryPlane` property, `bool Unwrap(MeshUnwrapMethod method)` writing `Mesh.TextureCoordinates` in place |
+|  [05]   | `MeshUnwrapMethod`       | enum                | `LSCM`, `ABFPP`, `ARAP` — the parameterization algorithm selector; `LSCM` is the `Processing/segment` flatten route |
+
 [PUBLIC_TYPE_SCOPE]: `Rhino.Geometry.Intersect` parametric-intersection surface
 - rail: host-rhino
 
@@ -73,7 +84,7 @@
 |  [05]   | `LineSphereIntersection`   | enum                   | `None`/`Single`/`Multiple` — the `LineSphere` cardinality                                              |
 |  [06]   | `LineCylinderIntersection` | enum                   | `None`/`Single`/`Multiple` — the `LineCylinder` cardinality                                            |
 |  [07]   | `PlaneCircleIntersection`  | enum                   | `None`/`Tangent`/`Secant` — the `PlaneCircle` cardinality (`PlaneSphere`/`SphereSphere` return `Circle` directly via `out`) |
-|  [08]   | `RTree`                    | reference (NOT used)   | host R-tree broad-phase; the kernel authors its OWN SAH-BVH / Morton-octree over a flat `NodeStore`, so `RTree` is the deleted host-acceleration form, documented only as the boundary the kernel does not cross |
+|  [08]   | `RTree` / `RTreeEventArgs` | reference / event args | host R-tree for the POINT-NEIGHBORHOOD tier (`Spatial/neighbors` `NeighborIndex`): `CreateFromPointArray(points)`/`CreatePointCloudTree(cloud)`/`CreateMeshFaceTree(mesh)`/`Insert(box, elementId)` construction; `Search(box\|sphere, callback)` + static `SearchOverlaps(treeA, treeB, tolerance, callback)` callback searches, the callback an `EventHandler<RTreeEventArgs>` reading `Id`/`IdB` and setting `Cancel`; static hay×needles batches `Point3dKNeighbors(hayPoints, needlePts, amount)`/`Point3dClosestPoints(hayPoints, needlePts, limitDistance)`/`PointCloudKNeighbors`/`PointCloudClosestPoints` → `IEnumerable<int[]>` leased `as IDisposable` for the read window. Primitive (triangle/curve/AABB) broad-phase stays the kernel's OWN SAH-BVH / Morton-octree — the two coexist by standing decision, neither re-implements the other |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -137,6 +148,20 @@
 |  [09]   | `CreateFromBox` / `CreateFromSphere` / `CreateFromCone` / `CreateFromClosedPolyline` / `CreateFromTessellation` | `Mesh`         | the primitive-to-mesh factory family the meshing pages seed from                                  |
 |  [10]   | `CreateBooleanUnion` / `CreateBooleanDifference` / `CreateBooleanIntersection` | `Mesh`         | host CSG booleans (return `Mesh[]` with an `out Result`) — the host parametric path the kernel's predicate-exact arrangement does NOT use, documented as the boundary |
 
+[ENTRYPOINT_SCOPE]: mesh restructure operations (the `Processing/segment` `RemeshKind`/flatten host seam)
+- rail: host-rhino
+
+Every remesh/reduce entry is a native long-running call; the instance forms return a NEW `Mesh` (null on failure — the kernel `Fin`-routes the null and disposes the orphan), the `Reduce` forms mutate in place returning success `bool`, and the cooperative overloads thread `IProgress<int>`+`CancellationToken`.
+
+| [INDEX] | [SURFACE]                                          | [SURFACE_ROOT] | [CALL_SHAPE / NOTE]                                                                              |
+| :-----: | :------------------------------------------------- | :------------- | :---------------------------------------------------------------------------------------------- |
+|  [01]   | `QuadRemesh(QuadRemeshParameters parameters)`      | `Mesh`         | `Mesh` quad remesh of the whole mesh; `(parameters, IEnumerable<Curve> guideCurves)` adds guides |
+|  [02]   | `QuadRemesh(IEnumerable<int> faceBlocks, QuadRemeshParameters parameters, IEnumerable<Curve> guideCurves, IProgress<int> progress, CancellationToken cancelToken)` | `Mesh` | face-block-scoped cooperative quad remesh — the `Processing/segment` quad arm's exact overload |
+|  [03]   | `QuadRemeshAsync(parameters, progress, cancelToken)` / `(parameters, guideCurves, progress, cancelToken)` / `(faceBlocks, parameters, guideCurves, progress, cancelToken)` | `Mesh` | `Task<Mesh>` cooperative async triple mirroring the sync family |
+|  [04]   | `Mesh.QuadRemeshBrep(Brep brep, QuadRemeshParameters parameters)` | `Mesh` (static) | quad-mesh a Brep directly; `(…, guideCurves)` and `(…, guideCurves, progress, cancelToken)` widen it; `QuadRemeshBrepAsync` pair mirrors async |
+|  [05]   | `Reduce(ReduceMeshParameters parameters)` / `Reduce(parameters, bool threaded)` | `Mesh`         | in-place decimation under the full policy carrier, success `bool` + `parameters.Error` on failure; the four scalar `Reduce(desiredPolygonCount, allowDistortion, accuracy, normalizeSize[, threaded \| cancelToken, progress])` overloads are the knob form the parameter carrier replaces |
+|  [06]   | `new MeshUnwrapper(mesh)` → `Unwrap(MeshUnwrapMethod.LSCM)` | `MeshUnwrapper` | LSCM/ABFPP/ARAP UV parameterization writing `Mesh.TextureCoordinates`; success `bool`, coordinates checked against `Vertices.Count` — the `Processing/segment` flatten route, disposed under `using` |
+
 [ENTRYPOINT_SCOPE]: `Intersection` parametric-intersection operations (the `Analysis` layer's surface)
 - rail: host-rhino
 
@@ -161,9 +186,9 @@
 
 [PREDICATE_EXACT_BOUNDARY]:
 - Package: `RhinoCommon` (`Rhino.Geometry.Intersect`, `Rhino.Geometry.RTree`)
-- Owns: the host parametric curve/surface/solid intersection (`Intersection.Curve*`/`Brep*`/`Ray*`) and the host R-tree broad-phase — the `Analysis` layer's parametric concern
-- Accept: the `Analysis/Intersect.cs` parametric lattice composing `Intersection.LineLine`/`LinePlane`/`PlanePlane`/`LineCircle`/`LineSphere`/`LineBox`/`CurveLine`/`CurveCurve`/`CurvePlane` and disposing each `CurveIntersections` under a lease; the host owns parametric, the kernel owns discrete
-- Reject: a kernel discrete mesh-mesh / plane-mesh / segment-triangle crossing routed through host `Intersection.MeshMesh*` or a kernel broad-phase routed through `RTree` — the `Meshing/intersect` owner authors the Guigue-Devillers predicate-exact narrow-phase over `Mesh`/`MeshFace`/`Plane`/`Ray3d` and the `Spatial/index` owner authors the SAH-BVH / Morton-octree over a flat `NodeStore`, and a host parametric crossing where the predicate-exact straddle is required is the named non-robustness defect
+- Owns: the host parametric curve/surface/solid intersection (`Intersection.Curve*`/`Brep*`/`Ray*`) — the `Analysis` layer's parametric concern — and the host R-tree POINT-NEIGHBORHOOD tier the `Spatial/neighbors` `NeighborIndex` composes
+- Accept: the `Analysis/Intersect.cs` parametric lattice composing `Intersection.LineLine`/`LinePlane`/`PlanePlane`/`LineCircle`/`LineSphere`/`LineBox`/`CurveLine`/`CurveCurve`/`CurvePlane` and disposing each `CurveIntersections` under a lease; the `Spatial/neighbors` `NeighborIndex` running `RTree` construction, callback searches, and the hay×needles batches inside its callback capsule; the host owns parametric, the kernel owns discrete
+- Reject: a kernel discrete mesh-mesh / plane-mesh / segment-triangle crossing routed through host `Intersection.MeshMesh*` or a kernel PRIMITIVE (triangle/curve/AABB) broad-phase routed through `RTree` — the `Meshing/intersect` owner authors the Guigue-Devillers predicate-exact narrow-phase over `Mesh`/`MeshFace`/`Plane`/`Ray3d` and the `Spatial/index` owner authors the SAH-BVH / Morton-octree over a flat `NodeStore`, and a host parametric crossing where the predicate-exact straddle is required is the named non-robustness defect
 
 [BOUNDARY_LAW]:
 - Package: `RhinoCommon` (`Rhino.Geometry`)

@@ -152,8 +152,10 @@ MathNet sparse imports normalize to CSR via the `Of*` family; the direct sparse 
 |  [03]   | `SparseCompressedRowMatrixStorage<T>.OfCoordinateFormat(...)`       | static factory | COO import to CSR               |
 |  [04]   | `SparseCompressedRowMatrixStorage<T>.OfIndexedEnumerable(...)`      | static factory | indexed enumerable import to CSR|
 |  [05]   | `IIterativeSolver<double>.Solve(matrix, input, result, Iterator, IPreconditioner)` | solver call | iterative solve with stop criteria + preconditioner |
-|  [06]   | `new Iterator<double>(params IIterationStopCriterion<double>[])`    | constructor    | compose residual/iteration/divergence stop criteria |
+|  [06]   | `new Iterator<double>(params IIterationStopCriterion<double>[])`    | constructor    | compose residual/iteration/divergence stop criteria; `Status` reads the terminal `IterationStatus` |
 |  [07]   | `Iterator<double>.DetermineStatus(...)` / `Cancel()` / `Reset()`    | instance       | drive / cancel the iteration; `IterationStatus` |
+|  [08]   | `Matrix<T>.SolveIterative(Vector<T> input, IIterativeSolver<T> solver, Iterator<T> iterator = null, IPreconditioner<T> preconditioner = null)` | matrix call | convenience iterative solve returning `Vector<T>`; the `Matrix<T> input → Matrix<T>` twin and `(input, solver, preconditioner, params IIterationStopCriterion<T>[])` / `(input, solver, params IIterationStopCriterion<T>[])` overloads mirror it — the `Numerics/matrix` BiCgStab route |
+|  [09]   | `Matrix<T>.TrySolveIterative(input, result, solver, iterator = null, preconditioner = null)` | matrix call | no-alloc twin writing into caller-owned `result`, returning `IterationStatus`; `Vector<T>`/`Matrix<T>` right-hand sides + the same `params` stop-criteria overloads |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -178,6 +180,7 @@ MathNet sparse imports normalize to CSR via the `Of*` family; the direct sparse 
 - storage: `SparseCompressedRowMatrixStorage<T>` is the only native MathNet sparse matrix form (CSR); CSC/COO/indexed are ingestion conversions via the `Of*` factories, never separate storage types
 - direct solvers: the direct sparse path is CSparse — `SparseCholesky`/`SparseLU`/`SparseQR` over a CSC `CompressedColumnStorage<double>` with `Refactorize` amortization (`api-csparse`); MathNet owns the iterative path
 - iterative solvers: `BiCgStab`/`GpBiCg`/`TFQMR`/`MlkBiCgStab` over MathNet sparse matrices; the `Solve(matrix, input, result, Iterator, IPreconditioner)` seam composes stop criteria via `IIterationStopCriterion<T>` and an `IPreconditioner<T>` — the iterator carries cancellation and `IterationStatus`
+- convenience entry: `Matrix<T>.SolveIterative(input, solver, iterator = null, preconditioner = null)` allocates and returns the solution (`Vector<T>` or `Matrix<T>` by right-hand side); `TrySolveIterative` writes a caller-owned `result` and returns `IterationStatus` — the kernel reads convergence from `Iterator<T>.Status` plus its own relative-residual check, never from the returned vector alone
 
 [STACK]:
 - The dense solve stacks under a LanguageExt `Fin` rail emitting a typed receipt (`Geometry/Processing/solver`): `Try.lift(() => spd.Cholesky().Solve(rhs)).Run()` maps a singular/indefinite factorization to a typed `GeometryFault.SingularSystem` over `Fin<Vector<double>>`, never a thrown exception — the factorization is the BLAS-class numeric, the `Try.lift`/`Fin` is the rail, the `SolveReceipt` (residual norm, iteration count, terminal damping, `DofAnalysis`) is the typed evidence

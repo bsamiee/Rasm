@@ -6,9 +6,11 @@
 the per-method `Brent`/`Bisection`/`NewtonRaphson`/`RobustNewtonRaphson`/`Secant`/
 `Broyden`/`Cubic` static classes (each with a no-throw `TryFindRoot`), the
 `Interpolate` scheme family (cubic spline + variants, polynomial, Floater-Hormann
-rational, linear/log-linear/step), and a broad `SpecialFunctions` catalog (Gamma/Beta
-families, error function, general-order and modified Bessel) for the numeric lane's
-statistical, analytical, and domain computation paths; the spectral lane rides
+rational, linear/log-linear/step), a broad `SpecialFunctions` catalog (Gamma/Beta
+families, error function, general-order and modified Bessel), and the `Distance` metric
+catalog (L1/L2/L∞/Minkowski over `Vector<T>` and raw arrays; cosine/Canberra/Hamming/
+Jaccard array-only) for the numeric lane's statistical, analytical, and domain
+computation paths; the spectral lane rides
 `IntegralTransforms.Fourier` (in-place complex / split-real / packed-real FFT + inverse,
 multi-dimensional and 2D transforms, and the `FrequencyScale` bin axis) tapered by the
 `Window` factory catalog (19 symmetric / `*Periodic` analysis tapers). Linear algebra, provider
@@ -154,6 +156,22 @@ Every factory returns an `IInterpolation` (`Interpolate(x)`, `Differentiate(x)`,
 |  [10]   | `SpecialFunctions.BesselJ(nu, x)` / `BesselY(nu, x)`           | static `double`| Bessel J_ν / Y_ν (general order)    |
 |  [11]   | `SpecialFunctions.BesselI0(x)` / `BesselI1(x)` / `BesselK0(x)` / `BesselK1(x)` | static `double` | modified Bessel I/K, order 0 and 1 |
 
+[ENTRYPOINT_SCOPE]: distance metrics (`Distance` class, root `MathNet.Numerics`)
+- rail: numeric
+
+Every metric is a static reduce over a vector pair. The core metrics ship three overloads — `Distance.M<T>(Vector<T> a, Vector<T> b) where T : struct, IEquatable<T>, IFormattable` plus raw `(double[], double[]) → double` and `(float[], float[]) → float` — while `Cosine`/`Canberra`/`Hamming`/`Jaccard` are ARRAY-ONLY (no `Vector<T>` overload) and `Pearson` takes `IEnumerable<double>`; a descriptor-ranking lane that must swap metrics under one delegate therefore normalizes on the array forms.
+
+| [INDEX] | [SURFACE]                                                    | [CALL_SHAPE]      | [CAPABILITY]                                              |
+| :-----: | :----------------------------------------------------------- | :---------------- | :--------------------------------------------------------- |
+|  [01]   | `Distance.Euclidean(a, b)`                                   | static `double`/`float` | L2 metric; `Vector<T>` + `double[]` + `float[]` overloads |
+|  [02]   | `Distance.Manhattan(a, b)`                                   | static `double`/`float` | L1 metric; `Vector<T>` + `double[]` + `float[]` overloads |
+|  [03]   | `Distance.Chebyshev(a, b)`                                   | static `double`/`float` | L∞ metric; `Vector<T>` + `double[]` + `float[]` overloads |
+|  [04]   | `Distance.Minkowski(p, a, b)`                                | static `double`/`float` | order-`p` metric; `Vector<T>` + array overloads           |
+|  [05]   | `Distance.Cosine(double[] a, double[] b)` / `(float[] …)`    | static `double`/`float` | cosine distance `1 − cos θ`; ARRAY-ONLY                   |
+|  [06]   | `Distance.Canberra(a, b)` / `Hamming(a, b)` / `Jaccard(a, b)` | static `double`/`float` | weighted-L1 / count-differing / set-overlap; ARRAY-ONLY   |
+|  [07]   | `Distance.SAD(a, b)` / `MAE(a, b)` / `SSD(a, b)` / `MSE(a, b)` | static `double`/`float` | absolute-sum / mean-absolute / squared-sum / mean-squared deviation; `Vector<T>` + array overloads |
+|  [08]   | `Distance.Pearson(IEnumerable<double> a, IEnumerable<double> b)` | static `double` | correlation distance `1 − r`                              |
+
 [ENTRYPOINT_SCOPE]: discrete Fourier transform (`Fourier` class, `MathNet.Numerics.IntegralTransforms`)
 - rail: numeric
 
@@ -235,6 +253,6 @@ Every transform is IN-PLACE over the caller's buffer; the scaling convention is 
 
 [RAIL_LAW]:
 - Package: `MathNet.Numerics` (core assembly, non-provider namespaces)
-- Owns: probability distributions, numerical integration (incl. adaptive Gauss-Kronrod and 2D/3D), root-finding (`Brent`/`Bisection`/`Newton`/`RobustNewton`/`Secant`/`Broyden`/`Cubic`), interpolation (cubic-spline family + polynomial + rational), special functions (Gamma/Beta/erf/Bessel), discrete Fourier transforms (in-place complex / split-real / packed-real / multi-dim + `FrequencyScale`), window tapers (19-factory `Window` catalog)
+- Owns: probability distributions, numerical integration (incl. adaptive Gauss-Kronrod and 2D/3D), root-finding (`Brent`/`Bisection`/`Newton`/`RobustNewton`/`Secant`/`Broyden`/`Cubic`), interpolation (cubic-spline family + polynomial + rational), special functions (Gamma/Beta/erf/Bessel), the `Distance` metric catalog (Euclidean/Manhattan/Chebyshev/Minkowski over `Vector<T>`+arrays; Cosine/Canberra/Hamming/Jaccard array-only; Pearson), discrete Fourier transforms (in-place complex / split-real / packed-real / multi-dim + `FrequencyScale`), window tapers (19-factory `Window` catalog)
 - Accept: `Func<double, double>` integrands and root targets, `IContinuousDistribution`/`IDiscreteDistribution` seams, `IInterpolation` results, the no-throw `TryFindRoot` rail form, in-place `Complex[]`/split `double[]` spectral buffers under a `FourierOptions` scaling, `Window` tapers as `double[]`
-- Reject: hand-rolled distribution PDF/CDF, custom quadrature when `Integrate` covers the interval shape, a phantom `FindRoots` aggregator, local reimplementations of Gamma/Beta/erf/Bessel, a hand-rolled radix-2/Bluestein FFT, a hand-rolled cosine/rectangular taper, `1/N` bin spacing where `Fourier.FrequencyScale` gives the real axis
+- Reject: hand-rolled distribution PDF/CDF, custom quadrature when `Integrate` covers the interval shape, a phantom `FindRoots` aggregator, local reimplementations of Gamma/Beta/erf/Bessel, a hand-rolled pairwise-metric loop beside the `Distance` catalog, a phantom `Distance.Cosine(Vector<T>, Vector<T>)` overload (cosine is array-only), a hand-rolled radix-2/Bluestein FFT, a hand-rolled cosine/rectangular taper, `1/N` bin spacing where `Fourier.FrequencyScale` gives the real axis

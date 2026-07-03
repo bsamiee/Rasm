@@ -238,7 +238,7 @@ internal static partial class OpAcceptance {
 ## [04]-[FACTORY_BRIDGE]
 
 - Owner: the receiver-generic `TryCreateValidated<TVO>` bridge — an `extension<TRaw>(TRaw)` block on `OpAcceptance` — plus `OpExtensions` — `OrDefault` (the optional-key resolver of the `rails.md` threading law) and `AcceptValidated<TVO>` (the key-shaped receiver overloads).
-- Law: ONE bridge body for every numeric value object — the block constraint `TRaw : struct, INumber<TRaw>` with member constraint `TVO : IObjectFactory<TVO, TRaw, ValidationError>` collapses the mature double/int twin bodies into one generic-math entry, and the raw width rides the extension receiver so a call names only the owner (`absolute.TryCreateValidated<AbsoluteTolerance>()`); the generated `Validate` runs under `CultureInfo.InvariantCulture`, and a rejection lands as `Fault.OutOfRange` carrying the owner name, `double.CreateChecked` of the rejected scalar, and the generated requirement text. Bridging through `Create`/`TryCreate` discards the evidence `Validate` carries and is the rejected form.
+- Law: ONE bridge body for every numeric value object — the block constraint `TRaw : struct, INumber<TRaw>` with member constraint `TVO : IObjectFactory<TVO, TRaw, ValidationError>` collapses the mature double/int twin bodies into one generic-math entry. The invocation spelling is fixed by the lowering: an extension-form call supplies the COMBINED type-argument list, receiver parameter first (`absolute.TryCreateValidated<double, AbsoluteTolerance>()`) — C# has no partial type-argument inference, so the member-only spelling `absolute.TryCreateValidated<AbsoluteTolerance>()` does not compile; the width-elided one-type-argument call is exactly what the key-fronted `AcceptValidated<TVO>` receivers exist for. The generated `Validate` runs under `CultureInfo.InvariantCulture`, and a rejection lands as `Fault.OutOfRange` carrying the owner name, `double.CreateChecked` of the rejected scalar, and the generated requirement text. Bridging through `Create`/`TryCreate` discards the evidence `Validate` carries and is the rejected form.
 - Law: `OrDefault` resolves `Op? key = null` to `Op.Of(callerMemberName)` — public polymorphic surfaces stay knob-free while internal kernels demand the key; this is the one spelling of optional-key resolution.
 - Law: `AcceptValidated` re-keys — the raw-width receiver overloads (double, int) forward to the one bridge and stamp the demanding `Op` onto the rejection's `OutOfRange.Key`, so a key-fronted admission failure names its operation like every other key-fronted acceptance member; the keyless bridge form leaves `Key` `None` by design (factory admission has no operation).
 - Boundary: consumers — the `context.md` tolerance triad admits through this bridge; `Numerics/atoms.md` value objects (`Dimension`/`PositiveMagnitude`/`UnitInterval`/`VectorAngle`) admit through `AcceptValidated` (`key.AcceptValidated<VectorAngle>(candidate)` — one type argument, the raw width resolved by overload); the mature `WithPositive`/`WithPositivePair`/`Positive(PositiveMagnitude)`/`Dimension(Dimension)` wrapper quartet is absorbed by this one generic entry.
@@ -271,10 +271,10 @@ public static class OpExtensions {
     extension(Op op) {
         [BoundaryAdapter]
         public Fin<TVO> AcceptValidated<TVO>(double candidate) where TVO : IObjectFactory<TVO, double, ValidationError> =>
-            Rekey(op: op, admitted: candidate.TryCreateValidated<TVO>());
+            Rekey(op: op, admitted: candidate.TryCreateValidated<double, TVO>());
         [BoundaryAdapter]
         public Fin<TVO> AcceptValidated<TVO>(int candidate) where TVO : IObjectFactory<TVO, int, ValidationError> =>
-            Rekey(op: op, admitted: candidate.TryCreateValidated<TVO>());
+            Rekey(op: op, admitted: candidate.TryCreateValidated<int, TVO>());
     }
     private static Fin<TVO> Rekey<TVO>(Op op, Validation<Error, TVO> admitted) =>
         admitted.ToFin().MapFail(error => error is Fault.OutOfRange range ? range with { Key = Some(op) } : error);

@@ -6,9 +6,10 @@
 the per-method `Brent`/`Bisection`/`NewtonRaphson`/`RobustNewtonRaphson`/`Secant`/
 `Broyden`/`Cubic` static classes (each with a no-throw `TryFindRoot`), the
 `Interpolate` scheme family (cubic spline + variants, polynomial, Floater-Hormann
-rational, linear/log-linear/step), and a broad `SpecialFunctions` catalog (Gamma/Beta
-families, error function, general-order and modified Bessel) for the numeric lane's
-statistical, analytical, and domain computation paths. Linear algebra, provider
+rational, linear/log-linear/step), a broad `SpecialFunctions` catalog (Gamma/Beta
+families, error function, general-order and modified Bessel), and the `Distance`
+metric catalog whose array forms back the spectral descriptor ranking for the numeric
+lane's statistical, analytical, and domain computation paths. Linear algebra, provider
 selection, and sparse solve are `api-mathnet-providers` / `api-csparse`. ABI: MathNet
 `lib/net8.0` is the highest TFM in 6.0.0-beta2 — the net10 consumer binds net8.0; MIT.
 
@@ -151,6 +152,17 @@ Every factory returns an `IInterpolation` (`Interpolate(x)`, `Differentiate(x)`,
 |  [10]   | `SpecialFunctions.BesselJ(nu, x)` / `BesselY(nu, x)`           | static `double`| Bessel J_ν / Y_ν (general order)    |
 |  [11]   | `SpecialFunctions.BesselI0(x)` / `BesselI1(x)` / `BesselK0(x)` / `BesselK1(x)` | static `double` | modified Bessel I/K, order 0 and 1 |
 
+[ENTRYPOINT_SCOPE]: distance metrics (`Distance` class, root `MathNet.Numerics`) — the `Numerics/spectral` descriptor-ranking seam
+- rail: numeric
+
+`SpectralDistanceKind` normalizes on the `(double[], double[]) → double` array forms because `Cosine` has NO `Vector<T>` overload — one delegate column `Func<double[], double[], double>` carries all three metrics; the full metric catalog (Chebyshev/Minkowski/Canberra/Hamming/Jaccard/SAD/MAE/SSD/MSE/Pearson + `float[]` twins) is the shared-tier `api-mathnet-numerics`.
+
+| [INDEX] | [SURFACE]                                  | [CALL_SHAPE]    | [CAPABILITY]                                                       |
+| :-----: | :------------------------------------------ | :-------------- | :------------------------------------------------------------------ |
+|  [01]   | `Distance.Euclidean(double[] a, double[] b)` | static `double` | L2 metric; `Euclidean<T>(Vector<T>, Vector<T>)` and `float[]` overloads exist |
+|  [02]   | `Distance.Manhattan(double[] a, double[] b)` | static `double` | L1 metric; `Manhattan<T>(Vector<T>, Vector<T>)` and `float[]` overloads exist |
+|  [03]   | `Distance.Cosine(double[] a, double[] b)`    | static `double` | cosine distance `1 − cos θ`; ARRAY-ONLY — no `Vector<T>` overload  |
+
 ## [04]-[IMPLEMENTATION_LAW]
 
 [DISTRIBUTION_TOPOLOGY]:
@@ -184,6 +196,6 @@ Every factory returns an `IInterpolation` (`Interpolate(x)`, `Differentiate(x)`,
 
 [RAIL_LAW]:
 - Package: `MathNet.Numerics` (core assembly, non-provider namespaces)
-- Owns: probability distributions, numerical integration (incl. adaptive Gauss-Kronrod and 2D/3D), root-finding (`Brent`/`Bisection`/`Newton`/`RobustNewton`/`Secant`/`Broyden`/`Cubic`), interpolation (cubic-spline family + polynomial + rational), special functions (Gamma/Beta/erf/Bessel)
-- Accept: `Func<double, double>` integrands and root targets, `IContinuousDistribution`/`IDiscreteDistribution` seams, `IInterpolation` results, the no-throw `TryFindRoot` rail form
-- Reject: hand-rolled distribution PDF/CDF, custom quadrature when `Integrate` covers the interval shape, a phantom `FindRoots` aggregator, local reimplementations of Gamma/Beta/erf/Bessel
+- Owns: probability distributions, numerical integration (incl. adaptive Gauss-Kronrod and 2D/3D), root-finding (`Brent`/`Bisection`/`Newton`/`RobustNewton`/`Secant`/`Broyden`/`Cubic`), interpolation (cubic-spline family + polynomial + rational), special functions (Gamma/Beta/erf/Bessel), the `Distance` metric catalog (array forms are the spectral ranking seam)
+- Accept: `Func<double, double>` integrands and root targets, `IContinuousDistribution`/`IDiscreteDistribution` seams, `IInterpolation` results, the no-throw `TryFindRoot` rail form, `(double[], double[])` metric pairs through one `Func<double[], double[], double>` delegate column
+- Reject: hand-rolled distribution PDF/CDF, custom quadrature when `Integrate` covers the interval shape, a phantom `FindRoots` aggregator, local reimplementations of Gamma/Beta/erf/Bessel, a hand-rolled pairwise-metric loop beside `Distance`, a phantom `Distance.Cosine(Vector<T>, Vector<T>)` overload

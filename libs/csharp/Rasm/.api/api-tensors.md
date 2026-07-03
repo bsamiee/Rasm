@@ -148,7 +148,7 @@
 
 | [INDEX] | [SURFACE]              | [CALL_SHAPE]    | [CAPABILITY]                 |
 | :-----: | :--------------------- | :-------------- | :--------------------------- |
-|  [01]   | `Norm`                 | reduction call  | computes Euclidean norm      |
+|  [01]   | `Norm`                 | reduction call  | `T Norm<T>(ReadOnlySpan<T> x) where T : IRootFunctions<T>` — Euclidean (L2) norm; the descriptor-magnitude reduce `Numerics/spectral` folds |
 |  [02]   | `MaxMagnitude`         | reduction call  | reduces by absolute extremum |
 |  [03]   | `Average`              | statistics call | computes mean                |
 |  [04]   | `StdDev`               | statistics call | computes standard deviation  |
@@ -197,7 +197,7 @@
 | [INDEX] | [SURFACE]              | [CALL_SHAPE]    | [CAPABILITY]                                                                         |
 | :-----: | :--------------------- | :-------------- | :----------------------------------------------------------------------------------- |
 |  [01]   | `SumOfSquares`         | reduction call  | `T SumOfSquares(x)` reduces the sum of squared elements                              |
-|  [02]   | `SumOfMagnitudes`      | reduction call  | `T SumOfMagnitudes(x)` reduces the sum of absolute values                            |
+|  [02]   | `SumOfMagnitudes`      | reduction call  | `T SumOfMagnitudes<T>(ReadOnlySpan<T> x) where T : INumberBase<T>` — L1 mass reduce; the energy-normalization denominator `Numerics/spectral` reads |
 |  [03]   | `ProductOfSums`        | reduction call  | `T ProductOfSums(x, y)` reduces the product of pairwise sums                         |
 |  [04]   | `ProductOfDifferences` | reduction call  | `T ProductOfDifferences(x, y)` reduces the product of pairwise diffs                 |
 |  [05]   | `IndexOfMaxMagnitude`  | search call     | `int` index of the absolute extremum; `IndexOfMin` / `IndexOfMinMagnitude` mirror it |
@@ -206,6 +206,7 @@
 |  [08]   | `IsNaN` / `IsFinite`   | predicate call  | `(x, Span<bool> dst)` per-element mask; the full family is `IsNaN`/`IsFinite`/`IsInfinity`/`IsNormal`/`IsSubnormal`/`IsZero`/`IsPositive`/`IsNegative`/`IsInteger`/`IsEvenInteger`/`IsOddInteger`/`IsPow2`, each with `*All`/`*Any` aggregate forms |
 |  [09]   | `MinNumber`            | reduction call  | `T MinNumber<T>(ReadOnlySpan<T>) where T : INumber<T>` NaN-skipping minimum          |
 |  [10]   | `MaxNumber`            | reduction call  | `T MaxNumber<T>(ReadOnlySpan<T>) where T : INumber<T>` NaN-skipping maximum          |
+|  [11]   | `IsFiniteAll`          | predicate call  | `bool IsFiniteAll<T>(ReadOnlySpan<T> x) where T : INumberBase<T>` — one-pass whole-span finiteness aggregate, the validity gate `Numerics/matrix`/`Domain/rails` compose instead of a mask + fold; `bool IsFiniteAny<T>(ReadOnlySpan<T> x)` mirrors it |
 
 [ENTRYPOINT_SCOPE]: marshalling operations
 - rail: tensor
